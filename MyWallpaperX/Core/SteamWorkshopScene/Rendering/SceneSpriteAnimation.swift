@@ -5,7 +5,7 @@ import simd
 
 protocol SceneSpriteTexturePlayback: AnyObject {
     func encode(
-        sceneTime: Float,
+        playbackTime: Float,
         commandBuffer: MTLCommandBuffer,
         transaction: SceneSourceUpdateTransaction
     )
@@ -96,12 +96,12 @@ struct SceneSpriteAnimation {
     }
 
     func encode(
-        sceneTime: Float,
+        playbackTime: Float,
         commandBuffer: MTLCommandBuffer,
         transaction: SceneSourceUpdateTransaction
     ) {
         texturePlayback?.encode(
-            sceneTime: sceneTime,
+            playbackTime: playbackTime,
             commandBuffer: commandBuffer,
             transaction: transaction
         )

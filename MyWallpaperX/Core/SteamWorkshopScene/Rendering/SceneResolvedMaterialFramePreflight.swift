@@ -6,6 +6,7 @@ extension SceneMetalRenderer {
     func admitResolvedMaterialFrameTargets(
         imageTextures: SceneBaseImageTextureSnapshot,
         spriteAnimations: [Int: SceneSpriteAnimation],
+        spriteAnimationPlaybackTimes: [Int: Float],
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
         imagePipeline: SceneImageLayerPipeline?,
@@ -61,6 +62,7 @@ extension SceneMetalRenderer {
                 plans: plans,
                 imageTextures: imageTextures,
                 spriteAnimations: spriteAnimations,
+                spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
                 performanceTelemetry: performanceTelemetry,
                 specializedBaseTextureSamplings: specializedBaseTextureSamplings,
                 imagePipeline: imagePipeline,
@@ -434,6 +436,7 @@ extension SceneMetalRenderer {
         plans: [Int: SceneResolvedMaterialFrameTargetPlan],
         imageTextures: SceneBaseImageTextureSnapshot,
         spriteAnimations: [Int: SceneSpriteAnimation],
+        spriteAnimationPlaybackTimes: [Int: Float],
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
         imagePipeline: SceneImageLayerPipeline?,
@@ -661,7 +664,11 @@ extension SceneMetalRenderer {
                 sourceTexture = source.texture
                 sourceCandidate = source.candidate
                 sourceUsesAuthoredLayerColor = source.usesAuthoredLayerColor
-                textureFrame = spriteAnimations[layerID]?.transform(at: time) ?? .identity
+                textureFrame = spriteAnimations[layerID].map {
+                    $0.transform(
+                        at: spriteAnimationPlaybackTimes[layerID] ?? 0
+                    )
+                } ?? .identity
                 capturesMainTarget = false
                 if layer.contentKind == "solid" {
                     // Solid sources are sized by projected coverage in

@@ -16,11 +16,11 @@ typedef struct MWXSceneQuickJSLayerHandle {
     bool persistent;
 } MWXSceneQuickJSLayerHandle;
 
-typedef struct MWXSceneQuickJSVideoHandle {
+typedef struct MWXSceneQuickJSLayerResourceHandle {
     MWXSceneQuickJSDomain *domain;
     uint64_t owner_identity;
     uint32_t layer_index;
-} MWXSceneQuickJSVideoHandle;
+} MWXSceneQuickJSLayerResourceHandle;
 
 typedef struct MWXSceneQuickJSAssetHandle {
     char *path;
@@ -1503,7 +1503,7 @@ static JSValue get_parent(
 }
 
 static MWXSceneQuickJSLayerRecord *video_record_for_handle(
-    MWXSceneQuickJSVideoHandle *handle
+    MWXSceneQuickJSLayerResourceHandle *handle
 ) {
     if (handle == NULL || handle->domain == NULL ||
         handle->domain->active_owner == NULL ||
@@ -1564,7 +1564,7 @@ static JSValue video_set(
     JSValueConst *argv, int magic, void *opaque
 ) {
     (void)this_value;
-    MWXSceneQuickJSVideoHandle *handle = opaque;
+    MWXSceneQuickJSLayerResourceHandle *handle = opaque;
     MWXSceneQuickJSLayerRecord *record = video_record_for_handle(handle);
     if (record == NULL || argc != 1)
         return JS_ThrowTypeError(context, "video handle is stale");
@@ -1608,7 +1608,7 @@ static JSValue video_call(
     JSValueConst *argv, int magic, void *opaque
 ) {
     (void)this_value;
-    MWXSceneQuickJSVideoHandle *handle = opaque;
+    MWXSceneQuickJSLayerResourceHandle *handle = opaque;
     MWXSceneQuickJSLayerRecord *record = video_record_for_handle(handle);
     if (record == NULL) return JS_ThrowTypeError(context, "video handle is stale");
     MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
@@ -1667,12 +1667,12 @@ static JSValue video_call(
     return JS_UNDEFINED;
 }
 
-static void free_video_handle(void *opaque) { free(opaque); }
+static void free_layer_resource_handle(void *opaque) { free(opaque); }
 
-static MWXSceneQuickJSVideoHandle *copy_video_handle(
-    MWXSceneQuickJSVideoHandle identity
+static MWXSceneQuickJSLayerResourceHandle *copy_layer_resource_handle(
+    MWXSceneQuickJSLayerResourceHandle identity
 ) {
-    MWXSceneQuickJSVideoHandle *copy = malloc(sizeof(*copy));
+    MWXSceneQuickJSLayerResourceHandle *copy = malloc(sizeof(*copy));
     if (copy != NULL) *copy = identity;
     return copy;
 }
@@ -1680,7 +1680,7 @@ static MWXSceneQuickJSVideoHandle *copy_video_handle(
 static JSValue make_video_handle(
     JSContext *context, MWXSceneQuickJSOwner *owner, uint32_t layer_index
 ) {
-    MWXSceneQuickJSVideoHandle identity = {
+    MWXSceneQuickJSLayerResourceHandle identity = {
         .domain = owner->domain,
         .owner_identity = owner->identity,
         .layer_index = layer_index,
@@ -1695,20 +1695,20 @@ static JSValue make_video_handle(
         {"loop", VIDEO_LOOP, true},
     };
     for (size_t index = 0; index < sizeof(properties) / sizeof(properties[0]); ++index) {
-        MWXSceneQuickJSVideoHandle *getter_handle = copy_video_handle(identity);
-        MWXSceneQuickJSVideoHandle *setter_handle = properties[index].writable
-            ? copy_video_handle(identity) : NULL;
+        MWXSceneQuickJSLayerResourceHandle *getter_handle = copy_layer_resource_handle(identity);
+        MWXSceneQuickJSLayerResourceHandle *setter_handle = properties[index].writable
+            ? copy_layer_resource_handle(identity) : NULL;
         if (getter_handle == NULL ||
             (properties[index].writable && setter_handle == NULL)) {
             free(getter_handle); free(setter_handle); JS_FreeValue(context, video);
             return JS_EXCEPTION;
         }
         JSValue getter = JS_NewCClosure(
-            context, video_get, properties[index].name, free_video_handle,
+            context, video_get, properties[index].name, free_layer_resource_handle,
             0, properties[index].property, getter_handle
         );
         JSValue setter = properties[index].writable ? JS_NewCClosure(
-            context, video_set, properties[index].name, free_video_handle,
+            context, video_set, properties[index].name, free_layer_resource_handle,
             1, properties[index].property, setter_handle
         ) : JS_UNDEFINED;
         JSAtom atom = JS_NewAtom(context, properties[index].name);
@@ -1726,10 +1726,10 @@ static JSValue make_video_handle(
         {"addEndedCallback", VIDEO_ADD_ENDED_CALLBACK, 1},
     };
     for (size_t index = 0; index < sizeof(functions) / sizeof(functions[0]); ++index) {
-        MWXSceneQuickJSVideoHandle *function_handle = copy_video_handle(identity);
+        MWXSceneQuickJSLayerResourceHandle *function_handle = copy_layer_resource_handle(identity);
         if (function_handle == NULL) { JS_FreeValue(context, video); return JS_EXCEPTION; }
         JSValue function = JS_NewCClosure(
-            context, video_call, functions[index].name, free_video_handle,
+            context, video_call, functions[index].name, free_layer_resource_handle,
             functions[index].argc, functions[index].function, function_handle
         );
         if (JS_IsException(function) || JS_DefinePropertyValueStr(
@@ -1775,6 +1775,334 @@ static bool define_get_video_texture(
     );
     return !JS_IsException(function) && JS_DefinePropertyValueStr(
         context, layer, "getVideoTexture", function, JS_PROP_ENUMERABLE
+    ) >= 0;
+}
+
+static MWXSceneQuickJSLayerRecord *texture_animation_record_for_handle(
+    MWXSceneQuickJSLayerResourceHandle *handle
+) {
+    if (handle == NULL || handle->domain == NULL ||
+        handle->domain->active_owner == NULL ||
+        !callback_owns(handle->domain->active_owner) ||
+        handle->domain->active_owner->identity != handle->owner_identity ||
+        handle->layer_index >= handle->domain->layer_count) return NULL;
+    MWXSceneQuickJSLayerRecord *record =
+        &handle->domain->layers[handle->layer_index];
+    return record->configured && !record->destroyed &&
+        record->texture_animation_available ? record : NULL;
+}
+
+static bool append_texture_animation_command(
+    MWXSceneQuickJSOwner *owner,
+    MWXSceneQuickJSLayerRecord *record,
+    uint32_t kind,
+    double number_value
+) {
+    if (owner->texture_animation_command_count >=
+        MWX_SCENE_QUICKJS_MAX_TEXTURE_ANIMATION_COMMANDS) {
+        owner->texture_animation_command_overflow = true;
+        return false;
+    }
+    owner->texture_animation_commands[
+        owner->texture_animation_command_count++
+    ] = (MWXSceneQuickJSTextureAnimationCommand){
+        .kind = kind,
+        .layer_id = record->layer_id,
+        .number_value = number_value,
+    };
+    return true;
+}
+
+static void texture_animation_staged_state(
+    const MWXSceneQuickJSOwner *owner,
+    const MWXSceneQuickJSLayerRecord *record,
+    double *rate,
+    double *frame,
+    bool *is_playing
+) {
+    *rate = record->texture_animation_rate;
+    *frame = record->texture_animation_current_frame;
+    *is_playing = record->texture_animation_is_playing;
+    for (size_t index = 0;
+         index < owner->texture_animation_command_count; ++index) {
+        const MWXSceneQuickJSTextureAnimationCommand *command =
+            &owner->texture_animation_commands[index];
+        if (command->layer_id != record->layer_id) continue;
+        switch (command->kind) {
+        case MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_PLAY:
+            *is_playing = true;
+            break;
+        case MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_PAUSE:
+            *is_playing = false;
+            break;
+        case MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_STOP:
+            *frame = 0;
+            *is_playing = false;
+            break;
+        case MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_SET_FRAME:
+            *frame = command->number_value;
+            break;
+        case MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_SET_RATE:
+            *rate = command->number_value;
+            break;
+        case MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_JOIN:
+            *rate = record->texture_animation_shared_rate;
+            *frame = record->texture_animation_shared_current_frame;
+            *is_playing = record->texture_animation_shared_is_playing;
+            break;
+        default:
+            break;
+        }
+    }
+}
+
+enum TextureAnimationProperty {
+    TEXTURE_ANIMATION_FRAME_COUNT,
+    TEXTURE_ANIMATION_DURATION,
+    TEXTURE_ANIMATION_RATE,
+};
+
+static JSValue texture_animation_get(
+    JSContext *context, JSValueConst this_value, int argc,
+    JSValueConst *argv, int magic, void *opaque
+) {
+    (void)this_value; (void)argc; (void)argv;
+    MWXSceneQuickJSLayerResourceHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record =
+        texture_animation_record_for_handle(handle);
+    if (record == NULL)
+        return JS_ThrowTypeError(context, "texture animation handle is stale");
+    if ((enum TextureAnimationProperty)magic ==
+        TEXTURE_ANIMATION_FRAME_COUNT)
+        return JS_NewUint32(context, record->texture_animation_frame_count);
+    if ((enum TextureAnimationProperty)magic == TEXTURE_ANIMATION_DURATION)
+        return JS_NewFloat64(context, record->texture_animation_duration);
+    double rate = 0, frame = 0;
+    bool is_playing = false;
+    texture_animation_staged_state(
+        handle->domain->active_owner, record, &rate, &frame, &is_playing
+    );
+    return JS_NewFloat64(context, rate);
+}
+
+static JSValue texture_animation_set(
+    JSContext *context, JSValueConst this_value, int argc,
+    JSValueConst *argv, int magic, void *opaque
+) {
+    (void)this_value;
+    MWXSceneQuickJSLayerResourceHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record =
+        texture_animation_record_for_handle(handle);
+    if (record == NULL || argc != 1)
+        return JS_ThrowTypeError(context, "texture animation handle is stale");
+    if ((enum TextureAnimationProperty)magic != TEXTURE_ANIMATION_RATE)
+        return JS_ThrowTypeError(
+            context, "texture animation property is read-only"
+        );
+    double value = 0;
+    if (JS_ToFloat64(context, &value, argv[0]) < 0 || !isfinite(value) ||
+        fabs(value) > 16)
+        return JS_ThrowRangeError(
+            context, "texture animation rate must be finite in [-16, 16]"
+        );
+    return append_texture_animation_command(
+        handle->domain->active_owner, record,
+        MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_SET_RATE, value
+    ) ? JS_UNDEFINED : JS_ThrowInternalError(
+        context, "texture animation command buffer exceeded"
+    );
+}
+
+enum TextureAnimationFunction {
+    TEXTURE_ANIMATION_PLAY,
+    TEXTURE_ANIMATION_PAUSE,
+    TEXTURE_ANIMATION_STOP,
+    TEXTURE_ANIMATION_IS_PLAYING,
+    TEXTURE_ANIMATION_GET_FRAME,
+    TEXTURE_ANIMATION_SET_FRAME,
+    TEXTURE_ANIMATION_JOIN,
+};
+
+static JSValue texture_animation_call(
+    JSContext *context, JSValueConst this_value, int argc,
+    JSValueConst *argv, int magic, void *opaque
+) {
+    (void)this_value;
+    MWXSceneQuickJSLayerResourceHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record =
+        texture_animation_record_for_handle(handle);
+    if (record == NULL)
+        return JS_ThrowTypeError(context, "texture animation handle is stale");
+    MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
+    double rate = 0, frame = 0;
+    bool is_playing = false;
+    texture_animation_staged_state(
+        owner, record, &rate, &frame, &is_playing
+    );
+    switch ((enum TextureAnimationFunction)magic) {
+    case TEXTURE_ANIMATION_IS_PLAYING:
+        if (argc != 0)
+            return JS_ThrowTypeError(context, "isPlaying expects no arguments");
+        return JS_NewBool(context, is_playing);
+    case TEXTURE_ANIMATION_GET_FRAME:
+        if (argc != 0)
+            return JS_ThrowTypeError(context, "getFrame expects no arguments");
+        return JS_NewFloat64(context, frame);
+    case TEXTURE_ANIMATION_SET_FRAME: {
+        double value = 0;
+        if (argc != 1 || JS_ToFloat64(context, &value, argv[0]) < 0 ||
+            !isfinite(value) || value < 0 ||
+            value >= record->texture_animation_frame_count)
+            return JS_ThrowRangeError(
+                context, "setFrame expects a frame in [0, frameCount)"
+            );
+        if (!append_texture_animation_command(
+                owner, record,
+                MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_SET_FRAME, floor(value)))
+            return JS_ThrowInternalError(
+                context, "texture animation command buffer exceeded"
+            );
+        return JS_UNDEFINED;
+    }
+    case TEXTURE_ANIMATION_PLAY:
+    case TEXTURE_ANIMATION_PAUSE:
+    case TEXTURE_ANIMATION_STOP:
+    case TEXTURE_ANIMATION_JOIN: {
+        if (argc != 0)
+            return JS_ThrowTypeError(
+                context, "texture animation command expects no arguments"
+            );
+        const uint32_t kind =
+            (enum TextureAnimationFunction)magic == TEXTURE_ANIMATION_PLAY
+                ? MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_PLAY
+            : (enum TextureAnimationFunction)magic == TEXTURE_ANIMATION_PAUSE
+                ? MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_PAUSE
+            : (enum TextureAnimationFunction)magic == TEXTURE_ANIMATION_STOP
+                ? MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_STOP
+                : MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_JOIN;
+        if (!append_texture_animation_command(owner, record, kind, 0))
+            return JS_ThrowInternalError(
+                context, "texture animation command buffer exceeded"
+            );
+        return JS_UNDEFINED;
+    }
+    }
+    return JS_UNDEFINED;
+}
+
+static JSValue make_texture_animation_handle(
+    JSContext *context, MWXSceneQuickJSOwner *owner, uint32_t layer_index
+) {
+    MWXSceneQuickJSLayerResourceHandle identity = {
+        .domain = owner->domain,
+        .owner_identity = owner->identity,
+        .layer_index = layer_index,
+    };
+    JSValue animation = JS_NewObject(context);
+    if (JS_IsException(animation)) return animation;
+    const struct {
+        const char *name; enum TextureAnimationProperty property; bool writable;
+    } properties[] = {
+        {"frameCount", TEXTURE_ANIMATION_FRAME_COUNT, false},
+        {"duration", TEXTURE_ANIMATION_DURATION, false},
+        {"rate", TEXTURE_ANIMATION_RATE, true},
+    };
+    for (size_t index = 0;
+         index < sizeof(properties) / sizeof(properties[0]); ++index) {
+        MWXSceneQuickJSLayerResourceHandle *getter = copy_layer_resource_handle(identity);
+        MWXSceneQuickJSLayerResourceHandle *setter = properties[index].writable
+            ? copy_layer_resource_handle(identity) : NULL;
+        if (getter == NULL || (properties[index].writable && setter == NULL)) {
+            free(getter); free(setter); JS_FreeValue(context, animation);
+            return JS_EXCEPTION;
+        }
+        JSValue getter_value = JS_NewCClosure(
+            context, texture_animation_get, properties[index].name,
+            free_layer_resource_handle, 0, properties[index].property, getter
+        );
+        JSValue setter_value = properties[index].writable ? JS_NewCClosure(
+            context, texture_animation_set, properties[index].name,
+            free_layer_resource_handle, 1, properties[index].property, setter
+        ) : JS_UNDEFINED;
+        JSAtom atom = JS_NewAtom(context, properties[index].name);
+        int result = JS_DefinePropertyGetSet(
+            context, animation, atom, getter_value, setter_value,
+            JS_PROP_ENUMERABLE
+        );
+        JS_FreeAtom(context, atom);
+        if (result < 0) {
+            JS_FreeValue(context, animation);
+            return JS_EXCEPTION;
+        }
+    }
+    const struct {
+        const char *name; enum TextureAnimationFunction function; int argc;
+    } functions[] = {
+        {"play", TEXTURE_ANIMATION_PLAY, 0},
+        {"pause", TEXTURE_ANIMATION_PAUSE, 0},
+        {"stop", TEXTURE_ANIMATION_STOP, 0},
+        {"isPlaying", TEXTURE_ANIMATION_IS_PLAYING, 0},
+        {"getFrame", TEXTURE_ANIMATION_GET_FRAME, 0},
+        {"setFrame", TEXTURE_ANIMATION_SET_FRAME, 1},
+        {"join", TEXTURE_ANIMATION_JOIN, 0},
+    };
+    for (size_t index = 0;
+         index < sizeof(functions) / sizeof(functions[0]); ++index) {
+        MWXSceneQuickJSLayerResourceHandle *handle = copy_layer_resource_handle(identity);
+        if (handle == NULL) {
+            JS_FreeValue(context, animation);
+            return JS_EXCEPTION;
+        }
+        JSValue function = JS_NewCClosure(
+            context, texture_animation_call, functions[index].name,
+            free_layer_resource_handle, functions[index].argc,
+            functions[index].function, handle
+        );
+        if (JS_IsException(function) || JS_DefinePropertyValueStr(
+                context, animation, functions[index].name, function,
+                JS_PROP_ENUMERABLE) < 0) {
+            JS_FreeValue(context, animation);
+            return JS_EXCEPTION;
+        }
+    }
+    return animation;
+}
+
+static JSValue get_texture_animation(
+    JSContext *context, JSValueConst this_value, int argc,
+    JSValueConst *argv, int magic, void *opaque
+) {
+    (void)this_value; (void)argv; (void)magic;
+    MWXSceneQuickJSLayerHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
+    if (record == NULL || argc != 0)
+        return JS_ThrowTypeError(context, "getTextureAnimation unavailable");
+    if (!record->texture_animation_available) return JS_UNDEFINED;
+    uint32_t index = handle->owner_target
+        ? handle->domain->active_owner->target_layer_index
+        : handle->layer_index;
+    return make_texture_animation_handle(
+        context, handle->domain->active_owner, index
+    );
+}
+
+static bool define_get_texture_animation(
+    JSContext *context, JSValue layer, MWXSceneQuickJSOwner *owner,
+    uint32_t index, bool owner_target, bool persistent
+) {
+    MWXSceneQuickJSLayerHandle *handle = calloc(1, sizeof(*handle));
+    if (handle == NULL) return false;
+    *handle = (MWXSceneQuickJSLayerHandle){
+        .domain = owner->domain, .owner_identity = owner->identity,
+        .layer_index = index, .callback_epoch = owner->domain->callback_epoch,
+        .owner_target = owner_target, .persistent = persistent,
+    };
+    JSValue function = JS_NewCClosure(
+        context, get_texture_animation, "getTextureAnimation",
+        free_layer_handle, 0, 0, handle
+    );
+    return !JS_IsException(function) && JS_DefinePropertyValueStr(
+        context, layer, "getTextureAnimation", function, JS_PROP_ENUMERABLE
     ) >= 0;
 }
 
@@ -1914,6 +2242,12 @@ static JSValue make_layer_handle(
         return JS_EXCEPTION;
     }
     if (!define_get_video_texture(
+            context, layer, owner, index, owner_target, persistent
+        )) {
+        JS_FreeValue(context, layer);
+        return JS_EXCEPTION;
+    }
+    if (!define_get_texture_animation(
             context, layer, owner, index, owner_target, persistent
         )) {
         JS_FreeValue(context, layer);
@@ -2449,6 +2783,9 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
     if (!define_get_video_texture(
             context, owner->material_function_layer, owner, 0, true, true
         )) return false;
+    if (!define_get_texture_animation(
+            context, owner->material_function_layer, owner, 0, true, true
+        )) return false;
     if (!define_get_parent(
             context, owner->material_function_layer, owner, 0, true, true
         )) return false;
@@ -2515,6 +2852,8 @@ void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner) 
     owner->puppet_bone_transaction_active = true;
     owner->video_command_count = 0;
     owner->video_command_overflow = false;
+    owner->texture_animation_command_count = 0;
+    owner->texture_animation_command_overflow = false;
 }
 
 size_t mwx_scene_quickjs_owner_video_command_count(
@@ -2540,6 +2879,33 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_video_command_at(
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
     *command = owner->video_commands[requested];
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+size_t mwx_scene_quickjs_owner_texture_animation_command_count(
+    const MWXSceneQuickJSOwner *owner
+) {
+    return owner == NULL ? 0 : owner->texture_animation_command_count;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_texture_animation_command_at(
+    const MWXSceneQuickJSOwner *owner,
+    size_t requested,
+    MWXSceneQuickJSTextureAnimationCommand *command,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (owner == NULL || command == NULL ||
+        requested >= owner->texture_animation_command_count ||
+        requested >= MWX_SCENE_QUICKJS_MAX_TEXTURE_ANIMATION_COMMANDS) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "invalid texture animation command index"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    *command = owner->texture_animation_commands[requested];
     return MWX_SCENE_QUICKJS_OK;
 }
 

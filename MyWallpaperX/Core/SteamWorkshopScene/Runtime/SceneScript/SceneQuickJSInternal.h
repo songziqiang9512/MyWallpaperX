@@ -26,6 +26,7 @@
 #define MWX_SCENE_QUICKJS_MAX_OWNER_SOURCE_BYTES (256u * 1024u)
 #define MWX_SCENE_QUICKJS_MAX_SHARED_SNAPSHOT_BYTES (2u * 1024u * 1024u)
 #define MWX_SCENE_QUICKJS_MAX_VIDEO_COMMANDS 64
+#define MWX_SCENE_QUICKJS_MAX_TEXTURE_ANIMATION_COMMANDS 64
 #define MWX_SCENE_QUICKJS_MAX_VIDEO_ENDED_CALLBACKS 16
 #define MWX_SCENE_QUICKJS_MAX_STORAGE_MUTATIONS 64
 #define MWX_SCENE_QUICKJS_MAX_STORAGE_KEY_BYTES 256
@@ -83,6 +84,15 @@ typedef struct MWXSceneQuickJSLayerRecord {
     double video_rate;
     double video_current_time;
     uint64_t video_ended_generation;
+    bool texture_animation_available;
+    bool texture_animation_is_playing;
+    bool texture_animation_shared_is_playing;
+    uint32_t texture_animation_frame_count;
+    double texture_animation_duration;
+    double texture_animation_rate;
+    double texture_animation_current_frame;
+    double texture_animation_shared_rate;
+    double texture_animation_shared_current_frame;
 } MWXSceneQuickJSLayerRecord;
 
 typedef struct MWXSceneQuickJSStagedLayerSnapshot {
@@ -105,6 +115,15 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     double video_rate;
     double video_current_time;
     uint64_t video_ended_generation;
+    bool texture_animation_available;
+    bool texture_animation_is_playing;
+    bool texture_animation_shared_is_playing;
+    uint32_t texture_animation_frame_count;
+    double texture_animation_duration;
+    double texture_animation_rate;
+    double texture_animation_current_frame;
+    double texture_animation_shared_rate;
+    double texture_animation_shared_current_frame;
 } MWXSceneQuickJSStagedLayerSnapshot;
 
 typedef struct MWXSceneQuickJSAuthoredLayerMutationRecord {
@@ -278,6 +297,8 @@ struct MWXSceneQuickJSOwner {
     bool animation_command_overflow;
     size_t video_command_count;
     bool video_command_overflow;
+    size_t texture_animation_command_count;
+    bool texture_animation_command_overflow;
     size_t video_ended_callback_count;
     bool current_animation_available;
     uint32_t target_layer_index;
@@ -344,6 +365,9 @@ struct MWXSceneQuickJSOwner {
     ];
     MWXSceneQuickJSVideoCommand video_commands[
         MWX_SCENE_QUICKJS_MAX_VIDEO_COMMANDS
+    ];
+    MWXSceneQuickJSTextureAnimationCommand texture_animation_commands[
+        MWX_SCENE_QUICKJS_MAX_TEXTURE_ANIMATION_COMMANDS
     ];
     MWXSceneQuickJSVideoEndedCallbackRecord video_ended_callbacks[
         MWX_SCENE_QUICKJS_MAX_VIDEO_ENDED_CALLBACKS

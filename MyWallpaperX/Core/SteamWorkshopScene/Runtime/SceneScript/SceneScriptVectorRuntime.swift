@@ -471,9 +471,10 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             value: publishedValue,
             materialFunctionMutations: mutations.materialFunctions,
             animationMutations: mutations.animations,
-        layerMutations: publishedLayerMutations,
+            layerMutations: publishedLayerMutations,
             puppetBoneMutations: puppetBoneMutations,
-            videoCommands: mutations.videoCommands
+            videoCommands: mutations.videoCommands,
+            textureAnimationCommands: mutations.textureAnimationCommands
         ))
     }
 

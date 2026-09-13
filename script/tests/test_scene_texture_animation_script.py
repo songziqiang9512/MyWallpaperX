@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Texture-animation wrappers stay inert while authored atlases use scene time."""
+"""Shared SceneScript TextureAnimation control over authored TEX playback."""
 
 from __future__ import annotations
 
@@ -22,6 +22,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneMetalPipeline.swift",
     SOURCE_ROOT / "Rendering/SceneSourceUpdateTransaction.swift",
     SOURCE_ROOT / "Rendering/SceneSpriteAnimation.swift",
+    SOURCE_ROOT / "Runtime/SceneTextureAnimationControl.swift",
+    SOURCE_ROOT / "Rendering/SceneTextureAnimationPlaybackRuntime.swift",
 ]
 
 HARNESS = r'''
@@ -113,6 +115,79 @@ enum Harness {
         let atlasOrigins = atlasSceneTimes.map {
             atlasAnimation.transform(at: $0).origin.x
         }
+        let runtime = SceneTextureAnimationPlaybackRuntime()
+        let secondAnimation = SceneSpriteAnimation(frames: atlasFrames)!
+        let conflictingAnimation = SceneSpriteAnimation(
+            frames: [spriteFrame(originX: 0), spriteFrame(originX: 0.25)]
+        )!
+        let firstRegistration = runtime.register(
+            layerID: 10, sourceIdentity: "models/shared.tex",
+            animation: atlasAnimation
+        )
+        let secondRegistration = runtime.register(
+            layerID: 11, sourceIdentity: "models/shared.tex",
+            animation: secondAnimation
+        )
+        let repeatedRegistration = runtime.register(
+            layerID: 10, sourceIdentity: "models/shared.tex",
+            animation: atlasAnimation
+        )
+        let conflict = runtime.register(
+            layerID: 10, sourceIdentity: "models/other.tex",
+            animation: conflictingAnimation
+        )
+        let sharedSourceConflict = runtime.register(
+            layerID: 12, sourceIdentity: "models/shared.tex",
+            animation: conflictingAnimation
+        )
+        let variableAnimation = SceneSpriteAnimation(frames: [
+            spriteFrame(originX: 0, duration: 0.5),
+            spriteFrame(originX: 0.25, duration: 1.5),
+            spriteFrame(originX: 0.5, duration: 2),
+        ])!
+        let variableRegistration = runtime.register(
+            layerID: 13, sourceIdentity: "models/variable.tex",
+            animation: variableAnimation
+        )
+        let variableSetFrame = runtime.apply([
+            .init(layerID: 13, action: .setFrame(1)),
+        ], sceneTime: 0)
+        let variableAtOne = runtime.snapshots(sceneTime: 1)
+        let sharedAtHalf = runtime.snapshots(sceneTime: 0.5)
+        let setFrame = runtime.apply([
+            .init(layerID: 10, action: .setFrame(1)),
+        ], sceneTime: 0.5)
+        let detachedAtOne = runtime.snapshots(sceneTime: 1)
+        let pause = runtime.apply([
+            .init(layerID: 10, action: .pause),
+        ], sceneTime: 1)
+        let pausedAtThree = runtime.snapshots(sceneTime: 3)
+        let reverse = runtime.apply([
+            .init(layerID: 10, action: .setRate(-2)),
+            .init(layerID: 10, action: .play),
+        ], sceneTime: 3)
+        let reversedAtQuarter = runtime.snapshots(sceneTime: 3.25)
+        let beforeAtomicFailure = runtime.snapshots(sceneTime: 3.25)
+        let atomicFailure = runtime.apply([
+            .init(layerID: 10, action: .setFrame(0)),
+            .init(layerID: 999, action: .play),
+        ], sceneTime: 3.25)
+        let fractionalFrame = runtime.apply([
+            .init(layerID: 10, action: .setFrame(0.25)),
+        ], sceneTime: 3.25)
+        let afterAtomicFailure = runtime.snapshots(sceneTime: 3.25)
+        let stop = runtime.apply([
+            .init(layerID: 10, action: .stop),
+        ], sceneTime: 3.25)
+        let stopped = runtime.snapshots(sceneTime: 8)
+        let join = runtime.apply([
+            .init(layerID: 10, action: .join),
+        ], sceneTime: 8)
+        let joined = runtime.snapshots(sceneTime: 8)
+        let playbackTimes = runtime.playbackTimes(
+            layerIDs: [10, 11],
+            sceneTime: 8
+        )
 
         let payload: [String: Any] = [
             "parsedCount": parsed.count,
@@ -136,19 +211,71 @@ enum Harness {
             "sidecarMismatchRejected": mismatchedSidecar == nil,
             "sidecarInvalidDimensionsRejected": invalidDimensionsRejected,
             "sidecarBooleanRejected": booleanRejected,
+            "registrationsAccepted": isSuccess(firstRegistration)
+                && isSuccess(secondRegistration)
+                && isSuccess(repeatedRegistration),
+            "conflictRejected": isFailure(conflict)
+                && isFailure(sharedSourceConflict),
+            "variableAccepted": isSuccess(variableRegistration)
+                && isSuccess(variableSetFrame),
+            "variableAtOne": variableAtOne[13]?.currentFrame ?? -1,
+            "sharedAtHalf": [
+                sharedAtHalf[10]?.currentFrame ?? -1,
+                sharedAtHalf[11]?.currentFrame ?? -1,
+            ],
+            "setFrameAccepted": isSuccess(setFrame),
+            "detachedAtOne": [
+                detachedAtOne[10]?.currentFrame ?? -1,
+                detachedAtOne[11]?.currentFrame ?? -1,
+            ],
+            "pauseAccepted": isSuccess(pause),
+            "pausedAtThree": pausedAtThree[10]?.currentFrame ?? -1,
+            "reverseAccepted": isSuccess(reverse),
+            "reversedAtQuarter": reversedAtQuarter[10]?.currentFrame ?? -1,
+            "atomicFailureRejected": isFailure(atomicFailure)
+                && beforeAtomicFailure == afterAtomicFailure,
+            "fractionalFrameRejected": isFailure(fractionalFrame),
+            "stopAccepted": isSuccess(stop),
+            "stopped": [
+                stopped[10]?.currentFrame ?? -1,
+                stopped[10]?.isPlaying == true ? 1 : 0,
+            ],
+            "joinAccepted": isSuccess(join),
+            "joined": [
+                joined[10]?.currentFrame ?? -1,
+                joined[11]?.currentFrame ?? -1,
+                joined[10]?.isPlaying == true ? 1 : 0,
+            ],
+            "playbackTimes": [
+                playbackTimes[10] ?? -1,
+                playbackTimes[11] ?? -1,
+            ],
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
 
-    static func spriteFrame(originX: Float) -> SceneTexContainer.SpriteFrame {
+    static func spriteFrame(
+        originX: Float,
+        duration: Float = 1
+    ) -> SceneTexContainer.SpriteFrame {
         .init(
             imageIndex: 0,
-            duration: 1,
+            duration: duration,
             origin: SIMD2(originX, 0),
             xAxis: SIMD2(0.25, 0),
             yAxis: SIMD2(0, 1)
         )
+    }
+
+    static func isSuccess<T, E>(_ result: Result<T, E>) -> Bool {
+        if case .success = result { return true }
+        return false
+    }
+
+    static func isFailure<T, E>(_ result: Result<T, E>) -> Bool {
+        if case .failure = result { return true }
+        return false
     }
 }
 '''
@@ -217,6 +344,76 @@ class SceneTextureAnimationScriptTests(unittest.TestCase):
         self.assertTrue(payload["sidecarMismatchRejected"])
         self.assertTrue(payload["sidecarInvalidDimensionsRejected"])
         self.assertTrue(payload["sidecarBooleanRejected"])
+        self.assertTrue(payload["registrationsAccepted"])
+        self.assertTrue(payload["conflictRejected"])
+        self.assertTrue(payload["variableAccepted"])
+        self.assertEqual(payload["variableAtOne"], 1)
+        self.assertEqual(payload["sharedAtHalf"], [0, 0])
+        self.assertTrue(payload["setFrameAccepted"])
+        self.assertEqual(payload["detachedAtOne"], [1, 1])
+        self.assertTrue(payload["pauseAccepted"])
+        self.assertEqual(payload["pausedAtThree"], 1)
+        self.assertTrue(payload["reverseAccepted"])
+        self.assertEqual(payload["reversedAtQuarter"], 1)
+        self.assertTrue(payload["atomicFailureRejected"])
+        self.assertTrue(payload["fractionalFrameRejected"])
+        self.assertTrue(payload["stopAccepted"])
+        self.assertEqual(payload["stopped"], [0, 0])
+        self.assertTrue(payload["joinAccepted"])
+        self.assertEqual(payload["joined"], [2, 2, 1])
+        self.assertEqual(payload["playbackTimes"], [2, 2])
+
+    def test_single_clock_transaction_and_renderer_wiring(self) -> None:
+        runtime = (
+            SOURCE_ROOT
+            / "Rendering/SceneTextureAnimationPlaybackRuntime.swift"
+        ).read_text(encoding="utf-8")
+        host = (
+            SOURCE_ROOT
+            / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+        ).read_text(encoding="utf-8")
+        lifecycle = (
+            SOURCE_ROOT
+            / "Runtime/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+        ).read_text(encoding="utf-8")
+        view = (SOURCE_ROOT / "Rendering/SceneMetalView.swift").read_text(
+            encoding="utf-8"
+        )
+        renderer = (SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift").read_text(
+            encoding="utf-8"
+        )
+        preflight = (
+            SOURCE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+        ).read_text(encoding="utf-8")
+
+        self.assertNotIn("Timer(", runtime)
+        self.assertNotIn("CADisplayLink", runtime)
+        publication = host.index("sceneScriptTextureAnimationSnapshots")
+        script_evaluation = host.index("let coordinatedSceneScript")
+        submission_barrier = host.index("guard allSurfacesSubmitted")
+        commit = host.index("commitSubmittedSceneFrame(", submission_barrier)
+        self.assertLess(publication, script_evaluation)
+        self.assertLess(submission_barrier, commit)
+        self.assertIn("textureAnimationCommands: textureAnimationCommands", host)
+        lifecycle_apply = lifecycle.index(
+            "context.textureAnimationPlaybackRuntime.apply("
+        )
+        lifecycle_commit = lifecycle.index(
+            "commitSceneScriptLayerPlan(", lifecycle_apply
+        )
+        self.assertLess(lifecycle_apply, lifecycle_commit)
+        self.assertIn("spriteAnimationPlaybackTimes", view)
+        self.assertNotIn(
+            "layer.puppetMeshPath == nil, let animation = baseLoad.animation",
+            view,
+        )
+        self.assertIn("if let animation = baseLoad.animation", view)
+        self.assertIn("textureAnimationPlaybackRuntime.playbackTimes(", view)
+        self.assertIn("spriteAnimationPlaybackTimes[layerID] else { continue }", view)
+        self.assertIn("playbackTime: playbackTime", view)
+        self.assertNotIn("Float(frameContext.sceneTime)", view)
+        self.assertIn("spriteAnimationPlaybackTimes[layer.id] ?? 0", renderer)
+        self.assertIn("spriteAnimationPlaybackTimes[layerID] ?? 0", preflight)
 
 
 if __name__ == "__main__":

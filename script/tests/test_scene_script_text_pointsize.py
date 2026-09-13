@@ -26,6 +26,7 @@ SOURCES = [
     SCENE / "Properties/SceneUserPropertyBindings.swift",
     VM / "SceneScriptPropertyInput.swift",
     SCENE / "Runtime/SceneAudioSpectrum.swift",
+    SCENE / "Runtime/SceneTextureAnimationControl.swift",
     VM / "SceneScriptScalarRuntime.swift",
     VM / "SceneScriptLocalStorage.swift",
     VM / "SceneScriptOwnerLifecycleBridge.swift",

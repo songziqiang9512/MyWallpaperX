@@ -429,7 +429,8 @@ enum Harness {
         )[0]
         self.assertIn("case layerSourcePassthrough", outcome)
         self.assertIn(
-            "guard case let .normal(consumedDependency) = self else",
+            "case let .normal(consumedDependency),\n"
+            "                 let .geometryEncoded(consumedDependency):",
             outcome,
         )
         self.assertIn("return false", outcome)
@@ -445,6 +446,8 @@ enum Harness {
 enum SceneFrameTextureIdentity: Equatable {
     case layerSource(Int)
 }
+
+struct SceneGeometryProduct {}
 
 struct SceneTextureCandidate {
     let texture: MTLTexture
@@ -590,7 +593,8 @@ enum Harness {
         self.assertIn("SceneSourceUpdateStateFIFO(", puppet)
         self.assertIn("submissions.update(transaction: transaction)", puppet)
         self.assertIn(
-            "guard signature != submission.frameSignature else { return }",
+            "guard signature != submission.frameSignature\n"
+            "                    || submission.boneRevision != boneRevision else { return }",
             puppet,
         )
         self.assertIn("submission.frameSignature = signature", puppet)

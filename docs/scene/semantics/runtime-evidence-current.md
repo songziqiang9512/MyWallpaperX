@@ -22,6 +22,19 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-13-texture-animation-api"></a>
+### 2026-09-13 SceneScript `ITextureAnimation` 公共 API 闭环
+
+**结论：公开 v2.8 的 `frameCount / duration / rate / play / pause / stop / isPlaying / getFrame / setFrame / join` 已沿现役 QuickJS、typed frame state、Metal encode 和唯一 compositor 主链达到 L3 bounded / S4 two real compositions。** animated TEX 在 launch 只登记 immutable source identity、frame durations 和 end times；唯一 `SceneTextureAnimationPlaybackRuntime` 只保存 layer-local playback anchor，不拥有 texture、provider、timer、clock、resource registry 或 renderer。每帧以同一 SceneClock 批量生成 playback time，并同时供普通 atlas UV、resolved-material preflight、cross-image multi-image upload 与 Puppet base TEX 使用；消费端没有直接回读 `sceneTime` 的第二时钟路径。
+
+**API 与事务合同：**`getFrame()` 返回当前离散显示帧，满足作者对最后一帧的严格比较；JS `setFrame(Number)` 先按公开数值语义取 floor，再在 Swift boundary 要求有限有效整数。`rate` 支持有限的正、零、负速率；`pause/play` 保持/续播本地 anchor，`stop` 回到时间零，`join` 删除本地覆盖并恢复共享 autoplay。callback 内 read-your-writes 由 owner command buffer 重放，下一 callback 的 snapshot 保持 immutable。命令与其他 owner effects 一起受 generation、identity、单 owner/全帧 64 条预算约束，所有 surface submission 成功后才原子应用，下一帧由原有 consumer 读取。没有恢复 B19 fixed source/profile owner，也没有为 Puppet 或 multi-image 建立旁路。
+
+**代码门与产品身份：**`test_scene_texture_animation_script` 和真实 C QuickJS harness `test_scene_script_quickjs` 通过；surface transaction、frame context/routing、dependency visibility、cursor、scalar/String/Vec2/Vec3 与 video lifecycle 的相关 focused 模块通过；修正为当前 GeometryProduct 合同的 `test_scene_source_update_transaction` 12 项通过。规定的签名 Debug build `BUILD SUCCEEDED`。实际 App 为 2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `d5958b821d8d15f710f4dd0e738967471f2a2f09`，executable SHA-256 `09e7f4136f7c0512b180bf9c4270292ae11c8f799e76fc114d371e949ad24039`；deep/strict codesign 有效。
+
+**定向真实运行与可见裁决：**只读真实样本根，矩阵 SHA-256 `7a98db7b1abd862dcfc8eb5508bc91a74151cf9e11a6589a04ebe73e3b45f1f3`，report SHA-256 `914cb096bd085794c4a37bbb51942cd048a98974cd5af12262a09a8bb7a37a1d`；`3299228616 / 3768903841` 为 2/2 `failures=[] / strict PASS`、loaded ratio 1.0。前者 170/169/0 frame submitted/completed/failed，307 次 owner commit 均含 30 条 texture-animation command；后者 260/259/0，初始化 8 条后由 timer 单条推进，共 15 次 commit；两者均无 TextureAnimation API error。app log SHA-256 为 `d604ed2a71e64dd011c18fabdb778fb952e9f34f1b066eb1008281e41f7c0fcf / 7b988e50a7d4efbaf728a763ad44cad665ce12820f85333173785fd8627754f2`，runtime-evidence SHA-256 为 `490404f696bbadd50af7c3bce9fe7c8fe31efed89559208e046ac03e8c627406 / 5bc477f087d1bf84c75de44afd850b5746a3475b2caaf05b76b2926e712ec851`。20 帧 contact review 确认前者猫、水面、时钟和树叶完整持续，后者人物、天空、云层与烟花完整持续且烟花按作者脚本变化/重启；没有黑屏、缺失几何、替代输出或错位。两组 motion `mean_delta / changed_ratio` 分别为 `0.0420983 / 0.65356` 与 `0.191771 / 0.731805`。
+
+**边界与后继首断点：**证据只覆盖当前已准入 single-image atlas 与 axis-aligned/integer/same-extent BC1/2/3 multi-image 形状，不证明 dynamic replacement、rotated/trimmed/fractional/异尺寸 frame、Windows timing/pixel parity 或声明中注释未使用的 `loop`。同一 App 对 `3238423642` 的独立运行首先在 layer `918 / 920` 遇到未实现 `getTransformMatrix()`，使作者共享布局初始化未完成；后续三个 `setFrame` RangeError 和一个共享向量错误属于连锁结果，不能放宽 TextureAnimation 输入。该次 matrix/report/app-log SHA-256 为 `83454e36bca237bfc4be400f95100cc65fc2282607e3f24a88b885cc9c196d8a / c8bb4ba789efecabc2d5c9b1024f2569a7509b93c1da9fe122b665b6a2f22f43 / 6d76d4b752ee1417179e89b2e410bcac8974dc29448b6864902818d3a85523a7`；它建立新的 matrix/transform API 首断点，不降低本条 TextureAnimation 能力结论。未运行 full corpus。
+
 <a id="e-2026-09-13-water-waves-mask-ab"></a>
 ### 2026-09-13 `3787382101` Water Waves 作者 mask 同构 A/B
 

@@ -83,6 +83,8 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
     let videoCommands: [SceneScriptVideoCommand]
+    let textureAnimationCommands:
+        [SceneTextureAnimationCommand]
     let puppetBoneMutations: [SceneScriptPuppetBoneMutation]
 
     init(
@@ -91,6 +93,8 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
         animationMutations: [SceneTimelinePlaybackMutation],
         layerMutations: [SceneScriptLayerMutation],
         videoCommands: [SceneScriptVideoCommand],
+        textureAnimationCommands:
+            [SceneTextureAnimationCommand] = [],
         puppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
     ) {
         self.ownerTarget = ownerTarget
@@ -98,12 +102,14 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
         self.animationMutations = animationMutations
         self.layerMutations = layerMutations
         self.videoCommands = videoCommands
+        self.textureAnimationCommands = textureAnimationCommands
         self.puppetBoneMutations = puppetBoneMutations
     }
 
     var isEmpty: Bool {
         materialFunctionMutations.isEmpty && animationMutations.isEmpty
             && layerMutations.isEmpty && videoCommands.isEmpty
+            && textureAnimationCommands.isEmpty
             && puppetBoneMutations.isEmpty
     }
 }
@@ -149,6 +155,67 @@ nonisolated enum SceneScriptVideoCommandBridge {
                 return .failure(.invalidArgument("unknown video command"))
             }
             output.append(.init(layerID: Int(raw.layer_id), action: action))
+        }
+        return .success(output)
+    }
+}
+
+nonisolated enum SceneScriptTextureAnimationCommandBridge {
+    static func commands(
+        owner: OpaquePointer
+    ) -> Result<
+        [SceneTextureAnimationCommand],
+        SceneScriptScalarRuntimeFailure
+    > {
+        let count = mwx_scene_quickjs_owner_texture_animation_command_count(
+            owner
+        )
+        guard count <= 64 else {
+            return .failure(.mutationOverflow(
+                "texture animation command buffer exceeded"
+            ))
+        }
+        var output: [SceneTextureAnimationCommand] = []
+        output.reserveCapacity(count)
+        for index in 0..<count {
+            var raw = MWXSceneQuickJSTextureAnimationCommand()
+            var diagnostic = [CChar](repeating: 0, count: 512)
+            let result = mwx_scene_quickjs_owner_texture_animation_command_at(
+                owner, index, &raw, &diagnostic, diagnostic.count
+            )
+            guard result == MWX_SCENE_QUICKJS_OK,
+                  raw.layer_id >= Int64(Int.min),
+                  raw.layer_id <= Int64(Int.max),
+                  raw.number_value.isFinite else {
+                return .failure(.invalidArgument(String(cString: diagnostic)))
+            }
+            let action: SceneTextureAnimationCommand.Action
+            switch raw.kind {
+            case UInt32(MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_PLAY.rawValue):
+                action = .play
+            case UInt32(MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_PAUSE.rawValue):
+                action = .pause
+            case UInt32(MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_STOP.rawValue):
+                action = .stop
+            case UInt32(
+                MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_SET_FRAME.rawValue
+            ):
+                action = .setFrame(raw.number_value)
+            case UInt32(
+                MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_SET_RATE.rawValue
+            ):
+                action = .setRate(raw.number_value)
+            case UInt32(MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_JOIN.rawValue):
+                action = .join
+            default:
+                return .failure(.invalidArgument(
+                    "unknown texture animation command"
+                ))
+            }
+            output.append(.init(
+                layerID: Int(raw.layer_id),
+                action: action
+            ))
         }
         return .success(output)
     }
@@ -583,6 +650,9 @@ nonisolated extension SceneScriptQuickJSDomain {
         _ snapshot: SceneDynamicSnapshot,
         descriptor: SceneRenderDescriptor,
         videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:],
+        textureAnimationSnapshots: [
+            Int: SceneTextureAnimationSnapshot
+        ] = [:],
         catalogToken: String? = nil,
         runtimeFieldLayerIDs: Set<Int>? = nil,
         awaitingHostFrameOutcome: Bool = false
@@ -625,6 +695,7 @@ nonisolated extension SceneScriptQuickJSDomain {
             snapshot,
             descriptor: descriptor,
             videoSnapshots: videoSnapshots,
+            textureAnimationSnapshots: textureAnimationSnapshots,
             runtimeFieldLayerIDs: runtimeFieldLayerIDs,
             diagnostic: &diagnostic
         )

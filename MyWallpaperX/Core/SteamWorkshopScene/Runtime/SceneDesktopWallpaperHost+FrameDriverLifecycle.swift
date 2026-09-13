@@ -129,6 +129,8 @@ extension SceneDesktopWallpaperHost {
         pendingSharedLayerAlpha: SceneSharedLayerAlphaRuntime.PendingValues,
         animationMutations: [SceneTimelinePlaybackMutation],
         videoCommands: [SceneScriptVideoCommand],
+        textureAnimationCommands:
+            [SceneTextureAnimationCommand],
         timing: SceneFrameTiming,
         layerPlan: SceneScriptLayerMutationPlan,
         rejectedOwnerTargets: Set<SceneDynamicTarget>
@@ -155,6 +157,20 @@ extension SceneDesktopWallpaperHost {
                 videoCommands.count,
                 timing.frameIndex
             )
+        }
+        if !textureAnimationCommands.isEmpty,
+           case .success = context.textureAnimationPlaybackRuntime.apply(
+               textureAnimationCommands,
+               sceneTime: timing.sceneTime
+           ) {
+#if DEBUG
+            if Self.usesDebugEvidenceWindow {
+                NSLog(
+                    "MWX SceneScript VM: textureAnimationCommands=%d callback=committed nextFrame=true route=generic-only",
+                    textureAnimationCommands.count
+                )
+            }
+#endif
         }
         commitSceneScriptLayerPlan(
             context, plan: layerPlan,

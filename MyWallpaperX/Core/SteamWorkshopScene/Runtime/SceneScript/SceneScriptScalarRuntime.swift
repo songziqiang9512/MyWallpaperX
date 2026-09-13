@@ -160,6 +160,8 @@ nonisolated struct SceneScriptScalarEvaluation: Equatable, Sendable {
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
+    let textureAnimationCommands:
+        [SceneTextureAnimationCommand]
 }
 
 nonisolated struct SceneScriptFrameInput: Equatable, Sendable {
@@ -445,7 +447,9 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             value: .scalar(output),
             materialFunctionMutations: callbackMutations.materialFunctions,
             animationMutations: callbackMutations.animations,
-            layerMutations: callbackMutations.layers
+            layerMutations: callbackMutations.layers,
+            textureAnimationCommands:
+                callbackMutations.textureAnimationCommands
         ))
     }
 
@@ -553,11 +557,20 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(failure)
         }
+        let textureAnimationCommands:
+            [SceneTextureAnimationCommand]
+        switch SceneScriptTextureAnimationCommandBridge.commands(owner: handle) {
+        case let .success(value): textureAnimationCommands = value
+        case let .failure(failure):
+            SceneScriptLayerMutationBridge.discard(owner: handle)
+            return .failure(failure)
+        }
         return .success(.init(
             value: .scalar(output),
             materialFunctionMutations: mutations,
             animationMutations: animationMutations,
-            layerMutations: layerMutations
+            layerMutations: layerMutations,
+            textureAnimationCommands: textureAnimationCommands
         ))
     }
 

@@ -7,6 +7,8 @@ nonisolated struct SceneScriptVectorEvaluation: Equatable, Sendable {
     let layerMutations: [SceneScriptLayerMutation]
     let puppetBoneMutations: [SceneScriptPuppetBoneMutation]
     let videoCommands: [SceneScriptVideoCommand]
+    let textureAnimationCommands:
+        [SceneTextureAnimationCommand]
 
     init(
         value: SceneDynamicValue,
@@ -14,7 +16,9 @@ nonisolated struct SceneScriptVectorEvaluation: Equatable, Sendable {
         animationMutations: [SceneTimelinePlaybackMutation],
         layerMutations: [SceneScriptLayerMutation],
         puppetBoneMutations: [SceneScriptPuppetBoneMutation] = [],
-        videoCommands: [SceneScriptVideoCommand]
+        videoCommands: [SceneScriptVideoCommand],
+        textureAnimationCommands:
+            [SceneTextureAnimationCommand]
     ) {
         self.value = value
         self.materialFunctionMutations = materialFunctionMutations
@@ -22,6 +26,7 @@ nonisolated struct SceneScriptVectorEvaluation: Equatable, Sendable {
         self.layerMutations = layerMutations
         self.puppetBoneMutations = puppetBoneMutations
         self.videoCommands = videoCommands
+        self.textureAnimationCommands = textureAnimationCommands
     }
 }
 

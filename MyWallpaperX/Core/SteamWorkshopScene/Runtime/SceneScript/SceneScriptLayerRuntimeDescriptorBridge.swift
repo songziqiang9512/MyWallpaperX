@@ -12,13 +12,17 @@ nonisolated extension SceneScriptQuickJSDomain {
         _ snapshot: SceneDynamicSnapshot,
         descriptor: SceneRenderDescriptor,
         videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:],
+        textureAnimationSnapshots: [
+            Int: SceneTextureAnimationSnapshot
+        ] = [:],
         runtimeFieldLayerIDs: Set<Int>? = nil,
         diagnostic: inout [CChar]
     ) throws {
         for (index, layer) in descriptor.layers.enumerated() {
             if let runtimeFieldLayerIDs,
                !runtimeFieldLayerIDs.contains(layer.id),
-               videoSnapshots[layer.id] == nil {
+               videoSnapshots[layer.id] == nil,
+               textureAnimationSnapshots[layer.id] == nil {
                 let result = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
                     handle,
                     UInt32(index),
@@ -115,6 +119,30 @@ nonisolated extension SceneScriptQuickJSDomain {
                 guard videoResult == MWX_SCENE_QUICKJS_OK else {
                     throw layerSnapshotFailure(
                         videoResult,
+                        diagnostic: diagnostic
+                    )
+                }
+            }
+            if let animation = textureAnimationSnapshots[layer.id] {
+                let animationResult =
+                    mwx_scene_quickjs_domain_update_layer_texture_animation_fields(
+                        handle,
+                        UInt32(index),
+                        1,
+                        UInt32(animation.frameCount),
+                        animation.duration,
+                        animation.rate,
+                        animation.currentFrame,
+                        animation.isPlaying ? 1 : 0,
+                        animation.sharedRate,
+                        animation.sharedCurrentFrame,
+                        animation.sharedIsPlaying ? 1 : 0,
+                        &diagnostic,
+                        diagnostic.count
+                    )
+                guard animationResult == MWX_SCENE_QUICKJS_OK else {
+                    throw layerSnapshotFailure(
+                        animationResult,
                         diagnostic: diagnostic
                     )
                 }

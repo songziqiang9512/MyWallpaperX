@@ -16,14 +16,17 @@
 - 旧 Q1 的四个 effect-local passthrough 观察断点已关闭。当前签名 App 对 `3323988600 / 3395777145 / 3472940912 / 3754630802` 均为 strict PASS；Pixelate 的 component-wise vector conversion、跨 stage loop guard 符号冲突、Standard Blur 静态 tint 准入和 Fire 标量 LOD data sampling 已分别修正。后继又按作者 media 事件合同关闭 `3395777145` layer 125 的三项 active unsupported：25/25 active effect 均由 Program 执行，playback state 1 正例持续显示封面/文字，无 media 反例按作者 state 0 隐藏；作者脚本没有鼠标点击回调。现役证据见[作者 media 面板闭环](semantics/runtime-evidence-current.md#e-2026-09-13-authored-media-panel)。该结论不证明 macOS live now-playing producer或整样本逐像素 parity。
 - `3754630802` 最后的 Workshop Bokeh Blur 与 Motion Blur active unsupported 已关闭。terminal Program 现在接受精确 `effect.output` 或同 effect 内部 FBO；共享全帧工作对可与独立 authored FBO history 共存，但工作对仍不进入 history closure，并以独立 storage/generation/physical token 审计。fresh 真实运行 31/31 active effect 均由 Program 执行，92/92 frame 完成、0 failed，五个 utility capture 全部成功，完整人物、舞狮、灯笼和动态构图在 ready/after 中持续存在。现役证据见[共享工作对与历史终端闭环](semantics/runtime-evidence-current.md#e-2026-09-13-shared-pair-history-terminal)。该证据不证明独立 Bokeh/Motion Blur ROI、逐像素官方 parity 或性能完成。
 - `3787382101` 的旧 Water Waves “整个人物扭曲”债务已由当前架构下的同构 A/B 关闭。真实样本 fresh 运行 strict PASS；隔离副本只保留人物 layer 28，并以相同 Program/graph/资源分别比较作者 `strength=0.04` 与 `strength=0`。左波、右波、双波及三份零强度对照全部 strict PASS；零强度 ready/after 逐字节相同，作者强度的像素差分别落在两张 `1400×600` R8 作者 mask 选中的左右部件，双波为两者并集。没有新增 Water Waves owner、预算、fallback 或身份分派。现役证据见[Water Waves 作者 mask 同构 A/B](semantics/runtime-evidence-current.md#e-2026-09-13-water-waves-mask-ab)。人工 acceptance verdict 仍须维护者观看完整样本后单独更新。
+- SceneScript `ITextureAnimation` 公共 API 已沿唯一 QuickJS/frame/resource/compositor 主链关闭。`3299228616 / 3768903841` 在当前签名 App 上 2/2 strict PASS，作者 `frameCount/duration/rate/play/pause/stop/isPlaying/getFrame/setFrame/join` 通过同一 SceneClock、owner transaction 和现有 atlas/multi-image provider 消费；两个完整构图持续可见且动画发生变化。没有恢复 fixed profile，也没有新增 provider、clock 或 renderer。现役证据见[TextureAnimation 公共 API 闭环](semantics/runtime-evidence-current.md#e-2026-09-13-texture-animation-api)。
 
 ## 2. 现役执行顺序
 
-### Q1 — SceneScript TextureAnimation 官方 API
+### Q1 — SceneScript `ILayer.getTransformMatrix()` 与作者初始化顺序
 
-**状态：能力缺口，需独立立项。**
+**状态：当前公共首断点。**
 
-普通 TEX autoplay 已是 bounded L3；`thisLayer.getTextureAnimation().setFrame(...)` 以及 frame/rate/play/pause/stop/join 等 SceneScript handle 仍为 L0。现存 corpus 中曾有 20 个相关样本，15 个在旧归档中 strict PASS，剩余失败表现为 typed `TypeError`；这些数量不是当前 HEAD 的完成统计。实现必须先建立公开 API 证据、instance-local identity、时钟/seek 冲突、generation 与 teardown 合同，再接入唯一 timeline/texture provider，不能恢复已退役的 fixed profile owner。现役等级见[SceneScript API 覆盖表](semantics/scenescript-api-coverage.md)。
+当前签名 App 对 `3238423642` 的定向运行首先在作者 layer `918 / 920` 初始化器遇到 `thisLayer.getTransformMatrix()` 的 `TypeError: not a function`。这两个 owner 未能发布共享布局与开关值，随后 layer `944 / 947 / 950` 的 `setFrame` 收到缺失值并按现役有限整数合同拒绝，layer `921` 也因共享向量缺失失败。后续错误是上游初始化失败的结果，不能通过放宽 `setFrame`、填零或按样本注入默认值解决。
+
+实现必须把矩阵作为现有 callback-scoped layer handle 的 immutable typed snapshot，基于已经准备的 authored/parent transform 权威定义 local/world 方向和矩阵布局；同回调 staged transform 的读写关系、parent 链、动态 layer、奇异/非有限矩阵与 retained handle 都要有正反门。矩阵本身不取得 transform owner，不新增坐标系统、第二套 snapshot 或 renderer；作者 mutation 仍在全 surface barrier 后提交，并由下一帧唯一 dynamic snapshot/Metal compositor 消费。现役等级见[SceneScript API 覆盖表](semantics/scenescript-api-coverage.md)。
 
 ### Q2 — authored `nomip` / `halfmip` sampler policy
 
@@ -62,10 +65,10 @@
 | --- | --- | --- |
 | B1 shader backend vector2 | 公共编译首断点已结构闭合 | 新 visual/parameter 缺口进入 Q3 |
 | B2 dependency binding/publication | provider、隐藏 text dependency 与下游消费观察已闭合 | 新 graph first failure 进入路线 P1 |
-| B3 SceneScript event/property | 已登记的 event-only、visibility 与 property color/vector 链已闭合 | 未实现官方 API 进入 Q1/Q3 |
+| B3 SceneScript event/property | 已登记的 event-only、visibility、property color/vector 与 TextureAnimation 链已闭合 | `getTransformMatrix` 初始化依赖进入 Q1；其余 API 进入 Q3 |
 | B4 material envelope | 已登记 shape/format/compose owner 闭合 | 新 effect family 依路线 P1 归类 |
 | B5 graph owner/publication | 2026-09-13 已分离 feedback persistence 与 content semantic；`3749463715` color terminal consumption、`3448845950` typed data publication和`3754630802` shared-pair/history terminal 均闭合 | 新 graph 缺口按路线 P1 归类 |
-| B6 QuickJS typed semantics | 原 angle/Vec3/string/error 子断点闭合 | 新 API 按 Q1/Q3 建合同 |
+| B6 QuickJS typed semantics | 原 angle/Vec3/string/error 与 TextureAnimation 命令事务闭合 | matrix snapshot/transform 语义按 Q1 建合同；其余 API 进入 Q3 |
 | B7 performance | 启动/teardown 与旧 micro-optimization 批次结束；稳定帧工作未完成 | Q4，用当前架构重建 profile |
 | B8 async readiness | 合同闭合，首帧局部失败保持可观察并自然恢复 | §3 观察项 |
 | B9 Puppet interaction/geometry | cursor→bone 与 2026-09-13 世界空间直绘闭合 | Q3 人工验收；高级能力见 §3 |

@@ -35,6 +35,7 @@ SOURCES = [
     SCENE
     / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
     SCENE / "Runtime/SceneAudioSpectrum.swift",
+    SCENE / "Runtime/SceneTextureAnimationControl.swift",
     VM / "SceneScriptScalarRuntime.swift",
     VM / "SceneScriptQuickJSDomain+FrameTransaction.swift",
     VM / "SceneScriptLocalStorage.swift",

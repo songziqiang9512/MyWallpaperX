@@ -405,6 +405,8 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
             var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
             var callbackLayerMutations: [SceneScriptLayerMutation] = []
+            var callbackTextureAnimationCommands:
+                [SceneTextureAnimationCommand] = []
             var playbackMutationCount = 0
             var propertiesLayerMutationCount = 0
             var thumbnailMutationCount = 0
@@ -440,6 +442,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                         callbackLayerMutations.append(
                             contentsOf: initialization.layerMutations
                         )
+                        callbackTextureAnimationCommands.append(
+                            contentsOf: initialization.textureAnimationCommands
+                        )
                     }
                 case let .failure(failure):
                     failures[binding.target] = failure
@@ -464,6 +469,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                    callbackTextureAnimationCommands.append(
+                        contentsOf: eventMutations.textureAnimationCommands
+                    )
                 case let .failure(failure):
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
@@ -515,6 +523,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                    callbackTextureAnimationCommands.append(
+                        contentsOf: eventMutations.textureAnimationCommands
+                    )
                 case let .failure(failure):
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
@@ -538,6 +549,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                    callbackTextureAnimationCommands.append(
+                        contentsOf: eventMutations.textureAnimationCommands
+                    )
                 case let .failure(failure):
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
@@ -562,6 +576,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                    callbackTextureAnimationCommands.append(
+                        contentsOf: eventMutations.textureAnimationCommands
+                    )
                 case let .failure(failure):
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
@@ -584,6 +601,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                    callbackTextureAnimationCommands.append(
+                        contentsOf: eventMutations.textureAnimationCommands
+                    )
                 case let .failure(failure):
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
@@ -607,7 +627,8 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     value: .scalar(evaluationInput),
                     materialFunctionMutations: [],
                     animationMutations: [],
-                    layerMutations: []
+                    layerMutations: [],
+                    textureAnimationCommands: []
                 ))
             switch evaluation {
             case let .success(evaluation):
@@ -646,6 +667,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     contentsOf: evaluation.animationMutations
                 )
                 callbackLayerMutations.append(contentsOf: evaluation.layerMutations)
+                callbackTextureAnimationCommands.append(
+                    contentsOf: evaluation.textureAnimationCommands
+                )
                 let coalescedLayers = SceneScriptLayerMutation.coalescing(
                     callbackLayerMutations
                 )
@@ -654,7 +678,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     materialFunctionMutations: callbackMaterialMutations,
                     animationMutations: callbackAnimationMutations,
                     layerMutations: coalescedLayers,
-                    videoCommands: []
+                    videoCommands: [],
+                    textureAnimationCommands:
+                        callbackTextureAnimationCommands
                 )
                 if !effects.isEmpty { ownerEffects.append(effects) }
                 if valuePublishingTargets.contains(binding.target) {

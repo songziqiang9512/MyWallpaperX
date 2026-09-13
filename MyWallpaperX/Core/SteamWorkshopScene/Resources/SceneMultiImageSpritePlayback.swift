@@ -228,11 +228,11 @@ final class SceneMultiImageSpritePlayback: SceneSpriteTexturePlayback {
     }
 
     func encode(
-        sceneTime: Float,
+        playbackTime: Float,
         commandBuffer: MTLCommandBuffer,
         transaction: SceneSourceUpdateTransaction
     ) {
-        let frameIndex = frameIndex(at: sceneTime)
+        let frameIndex = frameIndex(at: playbackTime)
         guard let submission = submissionTracker.begin(frameIndex: frameIndex) else {
             return
         }

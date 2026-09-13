@@ -42,6 +42,7 @@ struct SceneMetalRenderer {
         ] = [:],
         mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot = .empty,
         spriteAnimations: [Int: SceneSpriteAnimation],
+        spriteAnimationPlaybackTimes: [Int: Float],
         specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
         imagePipeline: SceneImageLayerPipeline?,
         particleBatchesProvider: () -> [SceneParticleDrawBatch],
@@ -178,6 +179,7 @@ struct SceneMetalRenderer {
         let resolvedMaterialFrameAdmission = admitResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
             spriteAnimations: spriteAnimations,
+            spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
             performanceTelemetry: performanceTelemetry,
             specializedBaseTextureSamplings: specializedBaseTextureSamplings,
             imagePipeline: imagePipeline,
@@ -452,7 +454,11 @@ struct SceneMetalRenderer {
                     baseTextureCandidate: baseSource.candidate,
                     baseTextureSampling: specializedBaseTextureSamplings[layer.id],
                     masks: .empty,
-                    textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,
+                    textureFrame: spriteAnimations[layer.id].map {
+                        $0.transform(
+                            at: spriteAnimationPlaybackTimes[layer.id] ?? 0
+                        )
+                    } ?? .identity,
                     mvp: mvp,
                     uniforms: SceneImageLayerUniformValues(
                         time: time,

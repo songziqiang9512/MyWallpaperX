@@ -5,6 +5,8 @@ nonisolated struct SceneScriptStringEvaluation: Equatable, Sendable {
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
+    let textureAnimationCommands:
+        [SceneTextureAnimationCommand]
 }
 
 /// Owns one string-valued property in the shared per-scene QuickJS domain.
@@ -300,11 +302,20 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
             SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(failure)
         }
+        let textureAnimationCommands:
+            [SceneTextureAnimationCommand]
+        switch SceneScriptTextureAnimationCommandBridge.commands(owner: handle) {
+        case let .success(value): textureAnimationCommands = value
+        case let .failure(failure):
+            SceneScriptLayerMutationBridge.discard(owner: handle)
+            return .failure(failure)
+        }
         return .success(.init(
             value: .string(value),
             materialFunctionMutations: materialFunctions,
             animationMutations: animations,
-            layerMutations: layerMutations
+            layerMutations: layerMutations,
+            textureAnimationCommands: textureAnimationCommands
         ))
     }
 

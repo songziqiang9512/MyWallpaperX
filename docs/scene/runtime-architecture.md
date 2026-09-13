@@ -283,6 +283,8 @@ Timeline、user property、SceneScript、pointer、audio、media 和 system stat
 
 producer 的优先级、同帧/下一帧可见性和冲突处理由 frame commit 统一决定；consumer 只读取与自身职责匹配的 channel，不得各自建立状态系统，也不得把 resource generation 或 topology change 伪装成普通 value-only 更新。
 
+TextureAnimation 的脚本控制遵守同一边界：launch preparation 只登记 animated TEX 的 immutable frame/source 定义；每帧在 QuickJS callback 前由唯一 SceneClock 与现有播放控制状态形成 immutable handle snapshot。`rate/play/pause/stop/setFrame/join` 只产生 owner-scoped typed command，全部 surface submission 成功后才提交，并从下一帧同时影响普通 atlas UV、resolved-material preflight 和既有 multi-image upload。播放控制不拥有 texture、provider、timer、clock、resource registry 或 renderer；`join` 只移除 layer-local override。prepared 动画必须由 frame batch 提供 playback time，consumer 不得自行回读 `sceneTime` 形成第二条时钟路径。
+
 ### 5.4 Particle 通路
 
 Particle definition 编译为有序 component ops；system 实例拥有固定步进、spawn/death/event、control point、child 和 renderer 生命周期。未知 optional component 产生诊断并跳过；缺少唯一 renderer 或产生非法数值时停用该 particle system，不终止整个 scene。
@@ -295,8 +297,8 @@ Particle definition 编译为有序 component ops；system 实例拥有固定步
 
 | 变化 | 典型输入 | 允许失效的最小范围 | 默认不做 |
 |---|---|---|---|
-| value-only | time、pointer、audio、alpha、color、transform、effect scalar | 当前 surface 的 immutable value/uniform snapshot | 不重编 shader，不重建 graph |
-| resource-generation | video frame、media artwork、dynamic text、user texture、TextureAnimation | provider publication、受影响 slot binding 与 resource generation | 不改变 material/graph identity，除非尺寸或用途合同真的变化 |
+| value-only | time、pointer、audio、alpha、color、transform、effect scalar、TextureAnimation playback control/time | 当前 surface 的 immutable value/uniform snapshot 或现有播放状态；动画帧变化只更新既有 UV/provider 内容 | 不重编 shader，不重建 graph，不另建时钟 |
+| resource-generation | video frame、media artwork、dynamic text、user texture、multi-image animation 的实际上传内容 | provider publication、受影响 slot binding 与 resource generation | 控制命令本身不升级为资源 generation；不改变 material/graph identity，除非尺寸或用途合同真的变化 |
 | geometry/extent | dynamic text size、mesh/atlas geometry、viewport/target extent | 受影响 geometry buffer、target allocation 与依赖它们的 node；保持无关 Program/provider | 不重建整 Scene，不清空尺寸无关的 cache |
 | program-variant | optional slot presence、combo、material feature、render-state variant | 受影响 Program/pipeline cache entry；必要时重做该 effect admission | 不重建无关 layer 或整 Scene |
 | topology | layer/effect visibility、condition、FBO/target 结构、动态增删对象 | 受影响依赖子图、target reservation 与原子 execution plan | 不清空未受影响的 provider、Program 和 surface state |

@@ -39,6 +39,8 @@ class SceneMetalView: NSView {
     private let metalDevice: MTLDevice
     private let preparedDynamicTextFieldsByLayerID:
         [Int: Set<SceneDynamicTextField>]
+    private let textureAnimationPlaybackRuntime:
+        SceneTextureAnimationPlaybackRuntime
     let renderer: SceneMetalRenderer
     let metalLayer: CAMetalLayer
     private let solidLayerTexture: MTLTexture?
@@ -80,6 +82,8 @@ class SceneMetalView: NSView {
         pipelineRepository: SceneImageEffectPipelineRepository,
         imageLayerPipeline: SceneImageLayerPipeline,
         resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge,
+        textureAnimationPlaybackRuntime:
+            SceneTextureAnimationPlaybackRuntime,
         userPropertyTextureURLs: [String: URL] = [:],
         dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:],
         frame: NSRect
@@ -93,6 +97,7 @@ class SceneMetalView: NSView {
         ) else { return nil }
         metalDevice = renderer.device
         preparedDynamicTextFieldsByLayerID = dynamicTextFieldsByLayerID
+        self.textureAnimationPlaybackRuntime = textureAnimationPlaybackRuntime
         self.renderer = renderer
         mediaThumbnailCoordinator = .init(
             program: baseMaterialProviderBindings, device: renderer.device
@@ -284,8 +289,25 @@ class SceneMetalView: NSView {
                         layerID: layer.id
                     )
                 }
-                if layer.puppetMeshPath == nil, let animation = baseLoad.animation {
-                    loadedSpriteAnimations[layer.id] = animation
+                // Texture animation belongs to the authored base-image
+                // resource, not to the quad geometry.  A Puppet layer still
+                // samples that TEX through its world-space GeometryProduct,
+                // so publish the same prepared definition and playback time
+                // to both geometry kinds.
+                if let animation = baseLoad.animation {
+                    let identity = resourceView.displayPath(for: url)
+                    if case .success = textureAnimationPlaybackRuntime.register(
+                        layerID: layer.id,
+                        sourceIdentity: identity,
+                        animation: animation
+                    ) {
+                        loadedSpriteAnimations[layer.id] = animation
+                    } else {
+                        report.append(
+                            "layer \(layer.id) \"\(name)\":"
+                                + " conflicting texture-animation definition"
+                        )
+                    }
                 }
                 if let sampling = baseLoad.baseTextureSampling {
                     loadedSpecializedBaseTextureSamplings[layer.id] = sampling
@@ -482,6 +504,17 @@ class SceneMetalView: NSView {
             materialFunctionMutations: materialFunctionMutations,
             parallax: parallaxMouseNormalized, audioSpectrum: audioSpectrum
         )
+        let spriteAnimationPlaybackTimes =
+            textureAnimationPlaybackRuntime.playbackTimes(
+                layerIDs: spriteAnimations.keys,
+                sceneTime: timing.sceneTime
+            )
+        assert(
+            spriteAnimations.keys.allSatisfy {
+                spriteAnimationPlaybackTimes[$0] != nil
+            },
+            "prepared texture animation is missing typed playback state"
+        )
         let cameraFrame = renderer.makeCameraFrame(frameContext: frameContext)
         pointerState.previous = pointerState.current
         let dynamicTextSnapshot = dynamicTextTextures?.prepareFrame()
@@ -512,6 +545,7 @@ class SceneMetalView: NSView {
             userPropertyTextureStates: userPropertyTextureLoad.providerStates,
             mediaThumbnail: mediaThumbnail,
             spriteAnimations: spriteAnimations,
+            spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
             specializedBaseTextureSamplings: specializedBaseTextureSamplings,
             imagePipeline: imagePipeline,
             particleBatchesProvider: {
@@ -524,10 +558,12 @@ class SceneMetalView: NSView {
             offscreenTexturePool: offscreenTexturePool,
             frameContext: frameContext,
             cameraFrame: cameraFrame,
-            encodeSourceUpdates: { [puppetPlaybackStates, spriteAnimations] commandBuffer, transaction in
-                for animation in spriteAnimations.values {
+            encodeSourceUpdates: { [puppetPlaybackStates, spriteAnimations, spriteAnimationPlaybackTimes] commandBuffer, transaction in
+                for (layerID, animation) in spriteAnimations {
+                    guard let playbackTime =
+                        spriteAnimationPlaybackTimes[layerID] else { continue }
                     animation.encode(
-                        sceneTime: Float(frameContext.sceneTime),
+                        playbackTime: playbackTime,
                         commandBuffer: commandBuffer, transaction: transaction
                     )
                 }

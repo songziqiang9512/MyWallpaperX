@@ -451,6 +451,8 @@ final class SceneDesktopWallpaperHost {
                 imageLayerPipeline:
                     launchContext.preparedDeviceResources.imageLayerPipeline,
                 resolvedMaterialRuntime: launchContext.makeResolvedMaterialRuntime(),
+                textureAnimationPlaybackRuntime:
+                    launchContext.textureAnimationPlaybackRuntime,
                 userPropertyTextureURLs: launchContext.userPropertyTextureURLs,
                 dynamicTextFieldsByLayerID:
                     launchContext.frameSchema.dynamicTextFieldsByLayerID,

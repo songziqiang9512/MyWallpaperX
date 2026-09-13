@@ -24,6 +24,7 @@ SWIFT_SOURCES = [
     SCENE / "Properties/SceneUserPropertyBindings.swift",
     VM / "SceneScriptPropertyInput.swift",
     SCENE / "Runtime/SceneAudioSpectrum.swift",
+    SCENE / "Runtime/SceneTextureAnimationControl.swift",
     SCENE / "Resources/SceneNamedTextureReference.swift",
     SCENE
     / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",

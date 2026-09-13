@@ -358,6 +358,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             mutation: SceneTimelinePlaybackMutation
         )] = []
         var puppetBones: [(ownerLayerID: Int, mutation: SceneScriptPuppetBoneMutation)] = []
+        var textureAnimations: [(
+            ownerLayerID: Int,
+            command: SceneTextureAnimationCommand
+        )] = []
         var layers: [(
             ownerLayerID: Int,
             mutation: SceneScriptLayerMutation
@@ -370,6 +374,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             animations.removeAll { $0.ownerLayerID == ownerLayerID }
             layers.removeAll { $0.ownerLayerID == ownerLayerID }
             puppetBones.removeAll { $0.ownerLayerID == ownerLayerID }
+            textureAnimations.removeAll { $0.ownerLayerID == ownerLayerID }
             authoredMutationIndices = [:]
             for (index, candidate) in layers.enumerated()
                 where !candidate.mutation.isDynamic
@@ -409,6 +414,11 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             ) {
             case let .success(mutations):
                 puppetBones.append(contentsOf: mutations.puppetBones.map { (binding.layerID, $0) })
+                textureAnimations.append(contentsOf:
+                    mutations.textureAnimationCommands.map {
+                        (binding.layerID, $0)
+                    }
+                )
                 materialFunctions.append(contentsOf: mutations.materialFunctions.map {
                     (binding.layerID, $0)
                 })
@@ -579,6 +589,9 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     $0.ownerLayerID == binding.layerID ? $0.mutation : nil
                 },
                 videoCommands: [],
+                textureAnimationCommands: textureAnimations.compactMap {
+                    $0.ownerLayerID == binding.layerID ? $0.command : nil
+                },
                 puppetBoneMutations: puppetBones.compactMap {
                     $0.ownerLayerID == binding.layerID ? $0.mutation : nil
                 }

@@ -268,6 +268,10 @@ extension SceneDesktopWallpaperHost {
             : nil
         let sceneScriptVideoSnapshots = videoTextureSourceRegistry?
             .sceneScriptSnapshots(sceneTime: timing.sceneTime) ?? [:]
+        let sceneScriptTextureAnimationSnapshots =
+            launchContext.textureAnimationPlaybackRuntime.snapshots(
+                sceneTime: timing.sceneTime
+            )
         let sceneScriptLayerSnapshotFailure: SceneScriptScalarRuntimeFailure?
         do {
             if let sharedFrameTransactionFailure {
@@ -277,6 +281,8 @@ extension SceneDesktopWallpaperHost {
                     preliminaryForSceneScript,
                     descriptor: launchContext.runtimeInput.renderDescriptor,
                     videoSnapshots: sceneScriptVideoSnapshots,
+                    textureAnimationSnapshots:
+                        sceneScriptTextureAnimationSnapshots,
                     catalogToken: launchContext.frameSchema.sceneScriptLayerCatalogToken,
                     runtimeFieldLayerIDs: launchContext.frameSchema.sceneScriptRuntimeFieldLayerIDs,
                     awaitingHostFrameOutcome: true
@@ -468,6 +474,8 @@ extension SceneDesktopWallpaperHost {
                     .failures(
                         for: admitted,
                         timelineRuntime: launchContext.timelinePlaybackRuntime,
+                        textureAnimationRuntime:
+                            launchContext.textureAnimationPlaybackRuntime,
                         videoRegistry: videoTextureSourceRegistry,
                         timing: timing
                     )
@@ -516,6 +524,8 @@ extension SceneDesktopWallpaperHost {
                 subsystem = "animationCommands"
             case .video:
                 subsystem = "videoCommands"
+            case .textureAnimation:
+                subsystem = "textureAnimationCommands"
             case .puppetBone:
                 subsystem = "puppetBoneMutations"
             }
@@ -534,6 +544,9 @@ extension SceneDesktopWallpaperHost {
             \.puppetBoneMutations
         )
         let videoCommands = admittedOwnerEffects.flatMap(\.videoCommands)
+        let textureAnimationCommands = admittedOwnerEffects.flatMap(
+            \.textureAnimationCommands
+        )
         func admittedValues(
             _ values: [SceneDynamicTarget: SceneDynamicValue]
         ) -> [SceneDynamicTarget: SceneDynamicValue] {
@@ -703,6 +716,7 @@ extension SceneDesktopWallpaperHost {
             pendingSharedLayerAlpha: pendingSharedLayerAlpha,
             animationMutations: animationMutations,
             videoCommands: videoCommands,
+            textureAnimationCommands: textureAnimationCommands,
             timing: timing,
             layerPlan: admission.layerPlan,
             rejectedOwnerTargets: rejectedOwnerTargets

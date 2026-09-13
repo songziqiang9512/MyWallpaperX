@@ -66,6 +66,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let preparedFirstSurfaceRuntime: ScenePreparedFirstSurfaceRuntime
     let timelineProgram: SceneTimelineProgram
     let timelinePlaybackRuntime: SceneTimelinePlaybackRuntime
+    let textureAnimationPlaybackRuntime: SceneTextureAnimationPlaybackRuntime
     let textScriptProgram: SceneTextScriptProgram
     let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
     let sceneScriptCursorProgram: SceneScriptCursorProgram
@@ -721,6 +722,8 @@ extension SceneDesktopWallpaperHost {
             timelinePlaybackRuntime: SceneTimelinePlaybackRuntime(
                 program: timelineProgram
             ),
+            textureAnimationPlaybackRuntime:
+                SceneTextureAnimationPlaybackRuntime(),
             textScriptProgram: textScriptProgram,
             sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
             sceneScriptCursorProgram: sceneScriptCursorProgram,

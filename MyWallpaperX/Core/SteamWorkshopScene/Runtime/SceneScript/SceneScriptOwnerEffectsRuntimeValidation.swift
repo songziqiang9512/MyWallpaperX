@@ -4,6 +4,7 @@ nonisolated struct SceneScriptOwnerEffectsRuntimeFailure: Sendable {
     enum Subsystem: Sendable {
         case animation
         case video
+        case textureAnimation
         case puppetBone
     }
 
@@ -20,6 +21,7 @@ nonisolated enum SceneScriptOwnerEffectsRuntimeValidation {
     static func failures(
         for effects: [SceneScriptOwnerEffects],
         timelineRuntime: SceneTimelinePlaybackRuntime,
+        textureAnimationRuntime: SceneTextureAnimationPlaybackRuntime,
         videoRegistry: SceneVideoTextureSourceRegistry?,
         timing: SceneFrameTiming
     ) -> [SceneScriptOwnerEffectsRuntimeFailure] {
@@ -56,6 +58,37 @@ nonisolated enum SceneScriptOwnerEffectsRuntimeValidation {
                     commandCount: owner.animationMutations.count,
                     reason: String(describing: failure)
                 ))
+            }
+        }
+
+        let textureAnimationOwners = effects.filter {
+            !$0.textureAnimationCommands.isEmpty
+        }
+        let textureAnimationCommandCount = textureAnimationOwners.reduce(0) {
+            $0 + $1.textureAnimationCommands.count
+        }
+        if textureAnimationCommandCount > 64 {
+            failures.append(contentsOf: textureAnimationOwners.map { owner in
+                .init(
+                    ownerTarget: owner.ownerTarget,
+                    subsystem: .textureAnimation,
+                    commandCount: owner.textureAnimationCommands.count,
+                    reason: "frame texture animation command budget exceeded"
+                )
+            })
+        } else {
+            for owner in textureAnimationOwners {
+                if case let .failure(failure) = textureAnimationRuntime.validate(
+                    owner.textureAnimationCommands,
+                    sceneTime: timing.sceneTime
+                ) {
+                    failures.append(.init(
+                        ownerTarget: owner.ownerTarget,
+                        subsystem: .textureAnimation,
+                        commandCount: owner.textureAnimationCommands.count,
+                        reason: String(describing: failure)
+                    ))
+                }
             }
         }
 

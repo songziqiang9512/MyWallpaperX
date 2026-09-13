@@ -354,6 +354,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             var callbackLayerMutations: [SceneScriptLayerMutation] = []
             var initializationLayerMutations: [SceneScriptLayerMutation] = []
             var callbackVideoCommands: [SceneScriptVideoCommand] = []
+            var callbackTextureAnimationCommands:
+                [SceneTextureAnimationCommand] = []
             var callbackPuppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
             var playbackMutationCount = 0
             var propertiesLayerMutationCount = 0
@@ -385,6 +387,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         callbackVideoCommands.append(
                             contentsOf: initialization.videoCommands
                         )
+                        callbackTextureAnimationCommands.append(
+                            contentsOf: initialization.textureAnimationCommands
+                        )
                     }
                 case let .failure(failure):
                     failures[target] = failure
@@ -411,6 +416,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
                     callbackVideoCommands.append(
                         contentsOf: eventMutations.videoCommands
+                    )
+                    callbackTextureAnimationCommands.append(
+                        contentsOf: eventMutations.textureAnimationCommands
                     )
                 case let .failure(failure):
                     failures[target] = failure
@@ -477,6 +485,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     callbackVideoCommands.append(
                         contentsOf: eventMutations.videoCommands
                     )
+                    callbackTextureAnimationCommands.append(
+                        contentsOf: eventMutations.textureAnimationCommands
+                    )
                 case let .failure(failure):
                     failures[target] = failure
                     disabledTargets.insert(target)
@@ -502,6 +513,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
                     callbackVideoCommands.append(
                         contentsOf: eventMutations.videoCommands
+                    )
+                    callbackTextureAnimationCommands.append(
+                        contentsOf: eventMutations.textureAnimationCommands
                     )
                 case let .failure(failure):
                     failures[target] = failure
@@ -530,6 +544,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     callbackVideoCommands.append(
                         contentsOf: eventMutations.videoCommands
                     )
+                    callbackTextureAnimationCommands.append(
+                        contentsOf: eventMutations.textureAnimationCommands
+                    )
                 case let .failure(failure):
                     failures[target] = failure
                     disabledTargets.insert(target)
@@ -554,6 +571,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
                     callbackVideoCommands.append(
                         contentsOf: eventMutations.videoCommands
+                    )
+                    callbackTextureAnimationCommands.append(
+                        contentsOf: eventMutations.textureAnimationCommands
                     )
                 case let .failure(failure):
                     failures[target] = failure
@@ -632,12 +652,17 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     callbackLayerMutations
                 )
                 callbackVideoCommands.append(contentsOf: evaluation.videoCommands)
+                callbackTextureAnimationCommands.append(
+                    contentsOf: evaluation.textureAnimationCommands
+                )
                 let effects = SceneScriptOwnerEffects(
                     ownerTarget: target,
                     materialFunctionMutations: callbackMaterialMutations,
                     animationMutations: callbackAnimationMutations,
                     layerMutations: callbackLayerMutations,
                     videoCommands: callbackVideoCommands,
+                    textureAnimationCommands:
+                        callbackTextureAnimationCommands,
                     puppetBoneMutations: callbackPuppetBoneMutations
                 )
                 if !effects.isEmpty { ownerEffects.append(effects) }

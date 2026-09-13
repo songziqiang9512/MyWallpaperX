@@ -453,6 +453,28 @@ static int animation_command(
     );
 }
 
+static int texture_animation_command(
+    MWXSceneQuickJSOwner *owner,
+    size_t index,
+    uint32_t expected_kind,
+    double expected_value,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    MWXSceneQuickJSTextureAnimationCommand command = {0};
+    MWXSceneQuickJSResult result =
+        mwx_scene_quickjs_owner_texture_animation_command_at(
+            owner, index, &command, diagnostic, sizeof(diagnostic)
+        );
+    return check(
+        result == MWX_SCENE_QUICKJS_OK && command.layer_id == 42 &&
+            command.kind == expected_kind &&
+            fabs(command.number_value - expected_value) < 0.000001,
+        label,
+        diagnostic
+    );
+}
+
 static int configure_effects(
     MWXSceneQuickJSOwner *owner,
     uint32_t count,
@@ -578,6 +600,48 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
     return check(result == MWX_SCENE_QUICKJS_OK, "layer catalog", diagnostic);
 }
 
+static int configure_texture_animation(MWXSceneQuickJSDomain *domain) {
+    char diagnostic[512] = {0};
+    mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
+    MWXSceneQuickJSResult result =
+        mwx_scene_quickjs_domain_begin_layer_snapshot(
+            domain, 2, diagnostic, sizeof(diagnostic)
+        );
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
+            domain, 0, diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
+            domain, 1, diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        result =
+            mwx_scene_quickjs_domain_update_layer_texture_animation_fields(
+                domain, 1, 1, 4, 4, 1, 0, 1,
+                1, 1, 1, diagnostic, sizeof(diagnostic)
+            );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        const double current_day[3] = {4, 5, 6};
+        result = mwx_scene_quickjs_domain_set_layer_origin(
+            domain, 1, current_day, diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_commit_layer_snapshot(
+            domain, diagnostic, sizeof(diagnostic)
+        );
+    }
+    return check(
+        result == MWX_SCENE_QUICKJS_OK,
+        "texture animation snapshot",
+        diagnostic
+    );
+}
+
 int main(void) {
     char diagnostic[512] = {0};
     MWXSceneQuickJSDomain *domain = mwx_scene_quickjs_domain_create(
@@ -587,6 +651,142 @@ int main(void) {
 
     int failures = 0;
     failures += configure_layers(domain);
+    failures += configure_texture_animation(domain);
+
+    const char *texture_animation_source =
+        "let animation;let calls=0;"
+        "export function update(value){"
+        "if(!animation)animation=thisLayer.getTextureAnimation();"
+        "if(!animation||animation.frameCount!==4||animation.duration!==4)"
+        "throw new Error('texture metadata');"
+        "if(calls++===0){"
+        "if(animation.rate!==1||!animation.isPlaying()||"
+        "animation.getFrame()!==0)"
+        "throw new Error('texture initial state');"
+        "animation.setFrame(2);animation.rate=-2;animation.pause();"
+        "if(animation.getFrame()!==2||animation.rate!==-2||"
+        "animation.isPlaying())throw new Error('texture staged state');"
+        "animation.join();"
+        "if(animation.getFrame()!==1||animation.rate!==1||"
+        "!animation.isPlaying())throw new Error('texture joined state');"
+        "animation.setFrame(3.75);"
+        "}else{"
+        "if(animation.getFrame()!==0)"
+        "throw new Error('texture snapshot leaked');"
+        "animation.stop();"
+        "if(animation.getFrame()!==0||animation.isPlaying())"
+        "throw new Error('texture stop state');"
+        "animation.play();"
+        "if(!animation.isPlaying())throw new Error('texture play state');"
+        "}return value;}";
+    MWXSceneQuickJSOwner *texture_animation = mwx_scene_quickjs_owner_create(
+        domain, texture_animation_source, strlen(texture_animation_source),
+        63, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        texture_animation != NULL, "texture animation compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        texture_animation, 42, "texture animation owner identity"
+    );
+    failures += update(
+        texture_animation, 63, 7, MWX_SCENE_QUICKJS_OK, 7,
+        "texture animation first callback"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_texture_animation_command_count(
+            texture_animation
+        ) == 5,
+        "texture animation first command count",
+        diagnostic
+    );
+    failures += texture_animation_command(
+        texture_animation, 0,
+        MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_SET_FRAME, 2,
+        "texture animation setFrame command"
+    );
+    failures += texture_animation_command(
+        texture_animation, 1,
+        MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_SET_RATE, -2,
+        "texture animation rate command"
+    );
+    failures += texture_animation_command(
+        texture_animation, 2,
+        MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_PAUSE, 0,
+        "texture animation pause command"
+    );
+    failures += texture_animation_command(
+        texture_animation, 3,
+        MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_JOIN, 0,
+        "texture animation join command"
+    );
+    failures += texture_animation_command(
+        texture_animation, 4,
+        MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_SET_FRAME, 3,
+        "texture animation post-join command"
+    );
+    failures += update(
+        texture_animation, 63, 9, MWX_SCENE_QUICKJS_OK, 9,
+        "texture animation persistent handle callback"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_texture_animation_command_count(
+            texture_animation
+        ) == 2,
+        "texture animation second command count",
+        diagnostic
+    );
+    failures += texture_animation_command(
+        texture_animation, 0,
+        MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_STOP, 0,
+        "texture animation stop command"
+    );
+    failures += texture_animation_command(
+        texture_animation, 1,
+        MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_PLAY, 0,
+        "texture animation play command"
+    );
+    mwx_scene_quickjs_owner_destroy(texture_animation);
+
+    const char *invalid_texture_source =
+        "export function update(value){"
+        "thisLayer.getTextureAnimation().setFrame(4);return value;}";
+    MWXSceneQuickJSOwner *invalid_texture = mwx_scene_quickjs_owner_create(
+        domain, invalid_texture_source, strlen(invalid_texture_source),
+        64, diagnostic, sizeof(diagnostic)
+    );
+    failures += configure_owner_layer(
+        invalid_texture, 42, "invalid texture animation owner identity"
+    );
+    failures += update(
+        invalid_texture, 64, 3, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "texture animation out-of-range frame rejected"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_texture_animation_command_count(
+            invalid_texture
+        ) == 0,
+        "invalid texture animation emits no command",
+        diagnostic
+    );
+    mwx_scene_quickjs_owner_destroy(invalid_texture);
+
+    const char *missing_texture_source =
+        "export function update(value){"
+        "if(thisLayer.getTextureAnimation()!==undefined)"
+        "throw new Error('unexpected texture animation');return value;}";
+    MWXSceneQuickJSOwner *missing_texture = mwx_scene_quickjs_owner_create(
+        domain, missing_texture_source, strlen(missing_texture_source),
+        65, diagnostic, sizeof(diagnostic)
+    );
+    failures += configure_owner_layer(
+        missing_texture, 17, "missing texture animation owner identity"
+    );
+    failures += update(
+        missing_texture, 65, 5, MWX_SCENE_QUICKJS_OK, 5,
+        "non-animated layer exposes no texture animation"
+    );
+    mwx_scene_quickjs_owner_destroy(missing_texture);
     MWXSceneQuickJSDomain *invalid_parent_domain = mwx_scene_quickjs_domain_create(
         2 * 1024 * 1024, 512 * 1024, 100000, diagnostic, sizeof(diagnostic)
     );

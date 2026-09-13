@@ -2,6 +2,14 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
+## 2026-09-13 SceneScript TextureAnimation 公共 API 与后继 matrix 首断点
+
+当前签名 Debug App 为 2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `d5958b821d8d15f710f4dd0e738967471f2a2f09`，executable SHA-256 `09e7f4136f7c0512b180bf9c4270292ae11c8f799e76fc114d371e949ad24039`。`3299228616 / 3768903841` 定向矩阵/report SHA-256 为 `7a98db7b1abd862dcfc8eb5508bc91a74151cf9e11a6589a04ebe73e3b45f1f3 / 914cb096bd085794c4a37bbb51942cd048a98974cd5af12262a09a8bb7a37a1d`；2/2 strict PASS、loaded ratio 1.0，分别为 170/169/0 与 260/259/0 frame submitted/completed/failed。作者 API 不再出现 TypeError；前者每次 owner commit 含 30 条 TextureAnimation command，后者初始化 8 条后按 timer 单条推进。
+
+公共实现只在 launch 登记 animated TEX 定义，并从唯一 SceneClock 批量生成 playback time；layer-local `rate/play/pause/stop/setFrame` anchor 与 `join` 复用同一 QuickJS owner transaction，提交后下一帧同时进入 atlas、resolved-material 和 multi-image consumer。没有 fixed profile、第二 provider/clock/renderer。20 帧可见复核确认猫/水面/时钟/树叶与人物/天空/云层/烟花构图完整持续，烟花按作者控制变化；没有黑屏、几何缺失或替代输出。完整 identity、API 正反门和证据上限见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-texture-animation-api)。
+
+`3238423642` 的独立定向运行仍 strict benchmark PASS，但其首个作者 VM 失败已前移到 layer `918 / 920` 的 `thisLayer.getTransformMatrix()` 未实现；两个初始化 owner 未写入 shared 布局值，layer `944 / 947 / 950` 的无效 `setFrame` 及 layer `921` 的缺失向量随后发生。matrix/report/log SHA-256 为 `83454e36bca237bfc4be400f95100cc65fc2282607e3f24a88b885cc9c196d8a / c8bb4ba789efecabc2d5c9b1024f2569a7509b93c1da9fe122b665b6a2f22f43 / 6d76d4b752ee1417179e89b2e410bcac8974dc29448b6864902818d3a85523a7`。这是新的公共 matrix/parent/transform snapshot 断点；不得用默认 shared 值或放宽 `setFrame` 掩盖。
+
 ## 2026-09-13 `3787382101` Water Waves mask 同构 A/B
 
 作者人物 layer 28 的两个 stock Water Waves 分别绑定 `waterwaves_mask_5eff32e0` 与 `waterwaves_mask_13a26579`。两张包内 TEX 均为 `1400×600` R8；shader 以 slot 1 红通道乘位移强度。旧 2026-09-06 截图曾被裁决为“整个人物扭曲”，但它混合了 Puppet coverage 合成、动画、Opacity、Iris、God Rays、Shake 与 Shimmer，不能区分 Water Waves mask 和旧 Puppet source。
