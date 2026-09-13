@@ -93,6 +93,12 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
 
     let executor: SceneResolvedMaterialGraphExecutor?
     let capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
+    /// M2.3 Patch C：ClaimedExecution 按 token 缓存。catalog init 后零
+    /// mutation、整体替换，token 内嵌 ownerID——缓存随 coordinator 实例
+    /// 生存即正确，无失效需求。独立锁：resolvedClaim 公共路径不在
+    /// coordinator 主锁内。
+    let claimExecutionCacheLock = NSLock()
+    var claimExecutionByToken: [SceneResolvedMaterialExecutionCapabilityCatalog.Token: Bridge.ClaimedExecution] = [:]
     let telemetry: SceneGraphExecutionTelemetry?
     let logSink: LogSink
     let capturesExecutionObservations: Bool

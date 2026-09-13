@@ -524,6 +524,37 @@ final class SceneResolvedMaterialRuntimeBridge {
 }
 
 extension SceneResolvedMaterialSubmissionCoordinator {
+    /// M2.3 Patch C：ClaimedExecution 按 capability token 缓存（独立
+    /// NSLock；catalog 不可变，缓存随实例生存即正确）。消除每 claimed
+    /// 层每帧 2 次（preflight+claim）的 graph 数组 map + 字典重建。
+    private func cachedClaimedExecution(
+        token: SceneResolvedMaterialExecutionCapabilityCatalog.Token,
+        layerID: Int,
+        capability: SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability
+    ) -> Bridge.ClaimedExecution {
+        claimExecutionCacheLock.lock()
+        defer { claimExecutionCacheLock.unlock() }
+        if let cached = claimExecutionByToken[token] {
+            return cached
+        }
+        let execution = Bridge.ClaimedExecution(
+            layerID: layerID,
+            admittedGraphs: capability.admittedProducts.map(\.graph),
+            clearFunctionsByEffect: Dictionary(uniqueKeysWithValues: capability.admittedProducts.compactMap {
+                guard let effect = $0.graph.effects.first?.key else { return nil }
+                return (effect, $0.clearFunctions)
+            }),
+            pairPlan: capability.pairPlan,
+            dependencyOwnership: capability.dependencyOwnership,
+            sourceRoute: capability.sourceRoute,
+            sceneBackgroundRequirement: capability.sceneBackgroundRequirement,
+            frameInputContract: capability.frameInputContract,
+            token: token
+        )
+        claimExecutionByToken[token] = execution
+        return execution
+    }
+
     func claim(layerID: Int) -> Bridge.Claim {
         resolvedClaim(
             layerID: layerID,
@@ -556,19 +587,10 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               capability.effectSubjectsAreConserved else {
             return .rejected(reasonCode: "execution-capability-token-invalid")
         }
-        let execution = Bridge.ClaimedExecution(
+        let execution = cachedClaimedExecution(
+            token: claim.token,
             layerID: layerID,
-            admittedGraphs: capability.admittedProducts.map(\.graph),
-            clearFunctionsByEffect: Dictionary(uniqueKeysWithValues: capability.admittedProducts.compactMap {
-                guard let effect = $0.graph.effects.first?.key else { return nil }
-                return (effect, $0.clearFunctions)
-            }),
-            pairPlan: capability.pairPlan,
-            dependencyOwnership: capability.dependencyOwnership,
-            sourceRoute: capability.sourceRoute,
-            sceneBackgroundRequirement: capability.sceneBackgroundRequirement,
-            frameInputContract: capability.frameInputContract,
-            token: claim.token
+            capability: capability
         )
         guard recordsClaim else { return .claimed(execution) }
 
