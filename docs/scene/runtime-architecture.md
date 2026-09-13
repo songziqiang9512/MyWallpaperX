@@ -271,6 +271,8 @@ effect definition
 
 在同一条普通通路上增加 FBO、copy、swap、compose、clear、condition、named target、history 和 cross-layer dependency。不得另建“高级 effect renderer”。
 
+feedback target 的格式和持久生命周期只说明“像素如何保存到下一次 graph 执行”，不能决定“像素是什么”。preparation 必须根据完整 Program variant envelope 独立解析输出的 `SceneTextureContent`：参与普通颜色插值、混合或滤镜的反馈结果保持 color contract；只有所有可执行 variant 都证明整值状态变换时，RGBA 才能作为 typed data publication。copy/swap 只传播已经解析的内容事实，不得因源/目标同格式把 color 升格为 data。terminal compositor 只消费 color，named provider 只发布与依赖声明一致的 data；内容合同无法证明时拒绝最小 graph/effect，不得在普通帧试错、双执行或按样本回退。
+
 ### 5.3 动态行为通路
 
 Timeline、user property、SceneScript、pointer、audio、media 和 system state 都参加同一个有序 frame commit，但不能压进同一类值容器。commit 明确汇合三条 typed channel：

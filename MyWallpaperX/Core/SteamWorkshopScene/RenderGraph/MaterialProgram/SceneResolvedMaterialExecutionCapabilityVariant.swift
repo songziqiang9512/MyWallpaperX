@@ -178,6 +178,23 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         }
     }
 
+    /// A feedback attachment may use RGBA storage for either authored color
+    /// history or a four-channel data vector. The render-target lifetime does
+    /// not decide that semantic. Only retain the data contract when every
+    /// prepared variant proves the bounded whole-output state transform.
+    var launchEnvelopeProvesPreservedRGBADataOutput: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard cachedOutputStorage == .preservedRGBAUnorm,
+              !cachedLaunchEnvelopeKeys.isEmpty else { return false }
+        return cachedLaunchEnvelopeKeys.allSatisfy { key in
+            guard case let .ready(variant)? = entries[key] else { return false }
+            return variant.routeDecision.profile
+                == SceneGenericShaderCapabilityProfile
+                    .sourceProvenPreservedRGBAStateTransform.rawValue
+        }
+    }
+
     /// A source-less object route is executable only when the authored
     /// variant explicitly selects DIRECTDRAW and the complete launch envelope
     /// proves that no active sampler can consume the graph input.

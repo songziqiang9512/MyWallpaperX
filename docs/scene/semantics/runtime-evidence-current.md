@@ -22,6 +22,21 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-13-feedback-content-contract"></a>
+### 2026-09-13 feedback 生命周期与内容语义分离
+
+**结论：`3749463715` 的 feedback graph、四个 utility capture 和唯一 compositor 达到 S4 bounded visible；`3448845950` 的真实 typed data feedback 保持 S3/S4 有界回归证据。** 旧 graph preparation 仅凭 framebuffer history/copy 拓扑把 RGBA attachment 判为 data。`3749463715` layer 467 的 Motion Blur 实际执行颜色插值，GPU encode 虽成功，最终 `.data` 却不能由 utility compositor 消费，transaction 留在 `predecessor-output-not-consumed`，下游 layer 488 因而成为表面首断点。现役 preparation 把 persistence 与 content 分开：target lifetime 仍决定 feedback 保存，完整 launch Program variant envelope 独立决定 color 或 data；copy-on-write 只传播已解析内容事实。普通帧没有试错、双执行或样本路由。
+
+**代码与正反门：**`SceneResolvedMaterialExecutionCapabilityCatalog` 在 generation preparation 中解析 attachment 与完整 variant envelope；只有所有 ready variant 都命中 `sourceProvenPreservedRGBAStateTransform` 才保留 `.preservedRGBAUnorm` data contract，否则同一 authored Program 按 color boundary 准备，无法成立就拒绝最小 graph。`SceneMaterialCopyHistoryRendering` 同时执行颜色插值 history 与四通道状态 history：前者必须由 terminal compositor 消费为 premultiplied color，后者必须由 named publication 消费为 `.data`。该模块以及 resolved-material runtime bridge、generic shader Program artifact、graph target plan 四个 focused 模块均通过；`git diff --check` 通过。
+
+**实际执行身份：**签名 Debug 2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `546baabb4e050732561a9dc2b53a01e3c1fbeb93`，executable SHA-256 `a01d587e1615020a15a779378e145f9815408a41e9ba8233b79f3cded8ab2f33`。规定的 `xcodebuild -project MyWallpaperX.xcodeproj -scheme MyWallpaperX -configuration Debug -derivedDataPath /private/tmp/mwx-b7-memo-build CODE_SIGNING_ALLOWED=YES build` 为 `BUILD SUCCEEDED`，deep/strict 验签通过；两次 benchmark 的 source/before/after signature verification 均为 true。
+
+**定向真实运行：**只读真实样本根、25 秒 fresh 运行 `3749463715`，输出 `/private/tmp/mwx-q1-374946-feedback-content-20260913`，report SHA-256 `5f59e7b28130242c938c14425711c0f8c163ab22d93c715dd840f0aefa10e2a3`，app log SHA-256 `7712552a80daa296538c4764536b1da14027ab215e9e15610d7efd03fcd06653`。结果 `failures=[] / strict PASS`，37/37 effect admission 为 generic/complete，37 个 effect CPU invocation 全部 encoded-output，298/297/0 frame submitted/completed/failed；utility capture `467 / 488 / 536 / 560` 全部成功。layer 467 Motion Blur 每帧为 `materialNodes=2 / copyNodes=1 / rejectedNodes=0`，history reuse/copy-on-write、GPU completion 与 `compositorConsumed=true` 均成立；日志不再出现 predecessor consumption、snapshot 或 utility-capture failure。ready/after 原分辨率检查确认女性角色、剑、雾、红环和横向动态光效完整，motion `mean_delta=0.0432822644 / changed_ratio=0.8017568549`。
+
+反例只运行 `3448845950`，输出 `/private/tmp/mwx-q1-344884-data-regression-20260913`，report SHA-256 `524fefc292853807cb540893648b150fba5a29ac56c69ffbb3dd18309638a2e3`，app log SHA-256 `2e65c8378b0608a992ccb45640ea226eb169303cdafe205262b5e6507234706c`。结果 `failures=[] / strict PASS`，418/417/0 frame submitted/completed/failed，utility capture `180 / 207 / 322 / 416 / 524` 全部成功。layer 1475 的 1×1 audio accumulation 仍命中 `source-proven-preserved-rgba-state-transform`，以 `.data` named publication 完成而不进入 compositor；蓝色动态卡片/媒体布局正常显示并发生变化。
+
+**边界：**两次 strict PASS 证明本批 feedback content、completion、publication 和终端消费合同，不是逐像素官方 parity，也不直接改写保存的人工 verdict。`3749463715` preview 首帧为黑，不能用 preview similarity 证明视觉一致；其约 14.7 FPS 与约 52 ms CPU 帧时间进入性能队列，未在本批宣称解决。未运行 159 样本 full corpus。
+
 <a id="e-2026-09-13-puppet-world-geometry"></a>
 ### 2026-09-13 Puppet GeometryProduct 世界空间绘制闭环
 

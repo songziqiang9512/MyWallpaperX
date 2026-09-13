@@ -297,7 +297,7 @@
       "path": "docs/scene/scene-open-breakpoint-queue-2026-09-09.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
-      "retirementCondition": "当队列中的公共 P1 断点均已由现役路线、能力台账和运行证据关闭或重新归类，且不再需要该日期化派生执行入口时，删除或转为 historical-evidence。"
+      "retirementCondition": "当队列中的 effect-local observation、Water Waves mask、TextureAnimation API 与 nomip/halfmip 公共缺口均已关闭，后续工作只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该日期化派生执行入口时，删除或转为 historical-evidence。"
     },
     {
       "path": "docs/scene/semantics/official-client-behavior-research-workflow.md",

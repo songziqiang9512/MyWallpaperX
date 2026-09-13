@@ -36,6 +36,11 @@ private let sourcePixels: [UInt8] = [
     25, 100, 150, 200, 1, 0, 1, 1,
 ]
 
+private enum HistoryContentFixture: Equatable {
+    case color
+    case data
+}
+
 private let vertexSource = """
 attribute vec3 a_Position;
 attribute vec2 a_TexCoord;
@@ -47,8 +52,27 @@ void main() {
 }
 """
 
-private func fragmentSource(nodeIndex: Int) -> String {
+private func fragmentSource(
+    nodeIndex: Int,
+    content: HistoryContentFixture
+) -> String {
     if nodeIndex == 0 {
+        if content == .data {
+            return """
+            varying vec2 v_TexCoord;
+            uniform sampler2D g_Texture1;
+            uniform float g_Amount; // {"material":"rate","default":0.8}
+            void main() {
+                vec4 prior = texSample2D(g_Texture1, v_TexCoord);
+                gl_FragColor = vec4(
+                    min(prior.r + g_Amount * 0.01, 1.0),
+                    prior.g * 0.5,
+                    max(prior.b, g_Amount),
+                    prior.r * prior.a
+                );
+            }
+            """
+        }
         return """
         varying vec2 v_TexCoord;
         uniform sampler2D g_Texture0;
@@ -179,7 +203,10 @@ private func graph() -> Graph {
     )
 }
 
-private func shaderContract(for node: Graph.Node) -> SceneShaderContract {
+private func shaderContract(
+    for node: Graph.Node,
+    content: HistoryContentFixture
+) -> SceneShaderContract {
     func stage(
         _ kind: SceneShaderContract.StageKind,
         path: String,
@@ -205,7 +232,10 @@ private func shaderContract(for node: Graph.Node) -> SceneShaderContract {
         stage(
             .fragment,
             path: "\(prefix).frag",
-            source: fragmentSource(nodeIndex: node.nodeIndex)
+            source: fragmentSource(
+                nodeIndex: node.nodeIndex,
+                content: content
+            )
         ),
     ]
     let sourceGraph = SceneShaderSourceGraph(
@@ -247,11 +277,15 @@ private func role(
     }
 }
 
-private func template(for node: Graph.Node, mixWeight: Double) -> Template {
+private func template(
+    for node: Graph.Node,
+    mixWeight: Double,
+    content: HistoryContentFixture
+) -> Template {
     guard let nodeTarget = node.target else {
         fatalError("material target missing")
     }
-    let contract = shaderContract(for: node)
+    let contract = shaderContract(for: node, content: content)
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
     for authored in node.bindings {
         guard let slot = authored.slot else {
@@ -309,7 +343,8 @@ private func template(for node: Graph.Node, mixWeight: Double) -> Template {
 
 private func catalog(
     for graph: Graph,
-    mixWeight: Double
+    mixWeight: Double,
+    content: HistoryContentFixture
 ) -> SceneResolvedMaterialRuntimeCatalog {
     let entries = Dictionary(uniqueKeysWithValues: graph.nodes.compactMap {
         node -> (
@@ -319,7 +354,11 @@ private func catalog(
         guard node.kind == .material else { return nil }
         return (
             .init(effect: node.effect, nodeIndex: node.nodeIndex),
-            .template(template(for: node, mixWeight: mixWeight))
+            .template(template(
+                for: node,
+                mixWeight: mixWeight,
+                content: content
+            ))
         )
     })
     return .init(entries: entries, resourceDemandIssues: [])
@@ -373,7 +412,8 @@ private func admitted(_ graph: Graph) -> AdmittedLayerGraph {
 private func capabilities(
     graph: Graph,
     admitted: AdmittedLayerGraph,
-    mixWeight: Double
+    mixWeight: Double,
+    content: HistoryContentFixture
 ) -> Capabilities {
     let candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
         descriptor: descriptor(for: graph),
@@ -381,7 +421,11 @@ private func capabilities(
     )
     return .init(
         admissionCandidates: candidates,
-        materialCatalog: catalog(for: graph, mixWeight: mixWeight)
+        materialCatalog: catalog(
+            for: graph,
+            mixWeight: mixWeight,
+            content: content
+        )
     )
 }
 
@@ -552,6 +596,7 @@ struct CoordinatorFrameResult {
     let historyPixels: [UInt8]
     let outputPixels: [UInt8]
     let completed: Bool
+    let finalContent: SceneTextureContent
 }
 
 struct CoordinatorSequenceResult {
@@ -564,6 +609,7 @@ private struct PendingCoordinatorFrame {
     let currentReadback: Readback
     let historyReadback: Readback
     let outputReadback: Readback
+    let finalContent: SceneTextureContent
 }
 
 private func claimedExecution(
@@ -611,7 +657,8 @@ private func submitCoordinatorFrame(
     pool: SceneOffscreenTexturePool,
     source: MTLTexture,
     pipeline: SceneImageLayerPipeline,
-    queue: MTLCommandQueue
+    queue: MTLCommandQueue,
+    expectedContent: SceneTextureContent
 ) -> PendingCoordinatorFrame {
     guard let commandBuffer = queue.makeCommandBuffer() else {
         fatalError("coordinator command buffer unavailable")
@@ -659,7 +706,22 @@ private func submitCoordinatorFrame(
     case let .failed(reason):
         fatalError("coordinator execution failed: \(reason)")
     }
-    guard let stage = coordinator.activeByID[ticket.identity]?.prepared.stages.first,
+    let outputConsumed: SceneResolvedMaterialRuntimeBridge.CompositeOutcome
+    if expectedContent == .data {
+        outputConsumed = coordinator.markNamedPublication(
+            ticket,
+            texture: texture,
+            published: true
+        )
+    } else {
+        outputConsumed = coordinator.markComposite(
+            ticket,
+            texture: texture,
+            consumed: true
+        )
+    }
+    guard ticket.finalContent == expectedContent,
+          let stage = coordinator.activeByID[ticket.identity]?.prepared.stages.first,
           let currentTexture = stage.frameResources[current]?.publication.texture,
           let historyTexture = stage.frameResources[history]?.publication.texture,
           currentTexture.width == extent.width,
@@ -668,11 +730,8 @@ private func submitCoordinatorFrame(
           historyTexture.height == extent.height,
           texture.width == extent.width,
           texture.height == extent.height,
-          case .consumed = coordinator.markComposite(
-              ticket,
-              texture: texture,
-              consumed: true
-          ), coordinator.sealFrame(on: commandBuffer),
+          case .consumed = outputConsumed,
+          coordinator.sealFrame(on: commandBuffer),
           let currentReadback = appendReadback(
               currentTexture, commandBuffer: commandBuffer
           ), let historyReadback = appendReadback(
@@ -688,7 +747,8 @@ private func submitCoordinatorFrame(
         commandBuffer: commandBuffer,
         currentReadback: currentReadback,
         historyReadback: historyReadback,
-        outputReadback: outputReadback
+        outputReadback: outputReadback,
+        finalContent: ticket.finalContent
     )
 }
 
@@ -707,7 +767,8 @@ private func completeCoordinatorFrame(
         currentPixels: pending.currentReadback.pixels,
         historyPixels: pending.historyReadback.pixels,
         outputPixels: pending.outputReadback.pixels,
-        completed: completed
+        completed: completed,
+        finalContent: pending.finalContent
     )
 }
 
@@ -724,7 +785,8 @@ func runCoordinatorSequence(
     let catalog = capabilities(
         graph: renderGraph,
         admitted: admittedGraph,
-        mixWeight: mixWeight
+        mixWeight: mixWeight,
+        content: .color
     )
     let executionPlan = admittedGraph.stagePrograms[0].executionPlan
     let pool = SceneOffscreenTexturePool(
@@ -748,7 +810,8 @@ func runCoordinatorSequence(
             pool: pool,
             source: source,
             pipeline: pipeline,
-            queue: queue
+            queue: queue,
+            expectedContent: .color(.resolved(.premultipliedAlpha))
         )
     }
     var results: [CoordinatorFrameResult] = []
@@ -772,6 +835,47 @@ func runCoordinatorSequence(
     )
 }
 
+func dataHistoryPublishesTypedData(
+    device: MTLDevice,
+    queue: MTLCommandQueue,
+    source: MTLTexture,
+    pipeline: SceneImageLayerPipeline
+) -> Bool {
+    let renderGraph = graph()
+    let admittedGraph = admitted(renderGraph)
+    let catalog = capabilities(
+        graph: renderGraph,
+        admitted: admittedGraph,
+        mixWeight: 0.5,
+        content: .data
+    )
+    let pool = SceneOffscreenTexturePool(
+        device: device,
+        maxDimension: 64,
+        residentByteBudget: 1_048_576
+    )
+    let coordinator = SceneResolvedMaterialSubmissionCoordinator(
+        device: device,
+        capabilities: catalog,
+        logSink: { _ in }
+    )
+    let claim = claimedExecution(catalog: catalog, admitted: admittedGraph)
+    let pending = submitCoordinatorFrame(
+        index: 0,
+        coordinator: coordinator,
+        claim: claim,
+        graph: renderGraph,
+        executionPlan: admittedGraph.stagePrograms[0].executionPlan,
+        pool: pool,
+        source: source,
+        pipeline: pipeline,
+        queue: queue,
+        expectedContent: .data
+    )
+    let result = completeCoordinatorFrame(pending, coordinator: coordinator)
+    return result.completed && result.finalContent == .data
+}
+
 func sequenceMatches(
     _ sequence: CoordinatorSequenceResult,
     scales: [Float]
@@ -779,6 +883,8 @@ func sequenceMatches(
     sequence.frames.count == scales.count
         && zip(sequence.frames, scales).allSatisfy { frame, scale in
             frame.completed
+                && frame.finalContent
+                    == .color(.resolved(.premultipliedAlpha))
                 && approximately(frame.currentPixels, expected(scale: scale))
                 && approximately(frame.historyPixels, expected(scale: scale))
                 && approximately(frame.outputPixels, expected(scale: scale))

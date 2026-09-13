@@ -54,6 +54,12 @@ private enum Harness {
         let exactSourceCapture = sourceCaptureIsExact(
             source: source, pipeline: pipeline, queue: queue
         )
+        let typedDataPublication = dataHistoryPublishesTypedData(
+            device: device,
+            queue: queue,
+            source: source,
+            pipeline: pipeline
+        )
         let serialQuarter = runCoordinatorSequence(
             mixWeight: 0.25,
             exercisesInFlightBoundary: false,
@@ -91,6 +97,10 @@ private enum Harness {
         let payload: [String: Any] = [
             "metalAvailable": true,
             "sourceCaptureIsExact": exactSourceCapture,
+            "colorHistoryPublishesColor": serialQuarter.frames.allSatisfy {
+                $0.finalContent == .color(.resolved(.premultipliedAlpha))
+            },
+            "dataHistoryPublishesTypedData": typedDataPublication,
             "quarterFailure": "success",
             "threeQuarterFailure": "success",
             "serialQuarterConverges": sequenceMatches(

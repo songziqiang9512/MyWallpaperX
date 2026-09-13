@@ -335,8 +335,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                    let source = node.commandSource,
                    let target = node.commandTarget,
                    let fact = graphTextureContentFacts[source] {
-                    // A validated same-format copy preserves the raw RGBA
-                    // state contract. Publish only this exact source/target
+                    // A validated same-format copy preserves the resolved
+                    // content contract. Publish only this exact source/target
                     // fact; swaps and unknown commands remain conservative.
                     graphTextureContentFacts[target] = fact
                 } else if node.kind == .copy,
@@ -358,41 +358,32 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     ) else {
                 return .failure(rejection("material-template-unsupported"))
             }
-            guard let attachment = attachment(
+            guard let candidateAttachment = attachment(
                 for: node,
                 in: product.graph,
                 preservedRGBADataTargets: preservedRGBADataTargets,
                 graphTextureContentFacts: graphTextureContentFacts
             ) else { return .failure(rejection("material-target-storage-unproven")) }
+            let resolvedAttachment: (
+                storage: SceneResolvedMaterialAttachmentKind,
+                format: SceneGraphRenderTargetPlan.TextureFormat
+            )
             let variants: SceneResolvedMaterialVariantCache
-            switch SceneResolvedMaterialVariantCache.launchValidated(
+            switch resolveAttachmentAndVariants(
+                node: node,
+                candidateAttachment: candidateAttachment,
                 template: template,
-                maximumVariantCount: maximumVariantsPerMaterial,
-                assetFormatFacts: assetFormatFacts
-            ) {
-            case let .success(value):
-                variants = value
-            case let .failure(failure):
-                let envelope = SceneResolvedMaterialVariantCache
-                    .LaunchEnvelopeFailure.material(failure)
-                SceneResolvedMaterialExecutionCapabilityEnvelopeDiagnostics
-                    .launchEnvelopeFailure(template: template, failure: envelope)
-                return .failure(envelopeRejection(
-                    envelope,
-                    node: node,
-                    template: template
-                ))
-            }
-            if case let .failure(failure) = variants.precompileLaunchEnvelope(
-                implicitFramebufferIdentity: effect.input,
-                outputStorage: outputStorage(for: attachment.storage),
-                outputIsRGBA8Unorm:
-                    attachment.storage == .color
-                        && attachment.format == .rgba8888,
+                effectInput: effect.input,
+                maximumVariantsPerMaterial: maximumVariantsPerMaterial,
+                assetFormatFacts: assetFormatFacts,
                 graphTextureFormatFacts: graphTextureFormatFacts,
                 graphTextureContentFacts: graphTextureContentFacts,
                 assetStates: assetStates
             ) {
+            case let .success(resolution):
+                resolvedAttachment = resolution.attachment
+                variants = resolution.variants
+            case let .failure(failure):
                 SceneResolvedMaterialExecutionCapabilityEnvelopeDiagnostics
                     .launchEnvelopeFailure(template: template, failure: failure)
                 if case let .material(materialFailure) = failure,
@@ -420,6 +411,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     template: template
                 ))
             }
+            let attachment = resolvedAttachment
             guard let activeTextureSlots = variants.launchEnvelopeActiveTextureSlots else {
                 return .failure(rejection("material-variant-envelope-invariant"))
             }
@@ -534,6 +526,86 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         }
         guard issues.allSatisfy({ $0.code == .purposeUnproven }) else { return nil }
         return "material-variant-envelope-texture-purpose"
+    }
+
+    private static func resolveAttachmentAndVariants(
+        node: Graph.Node,
+        candidateAttachment: (
+            storage: SceneResolvedMaterialAttachmentKind,
+            format: SceneGraphRenderTargetPlan.TextureFormat
+        ),
+        template: Template,
+        effectInput: Graph.TextureIdentity,
+        maximumVariantsPerMaterial: Int,
+        assetFormatFacts: [String: Int],
+        graphTextureFormatFacts: [Graph.TextureIdentity: SceneShaderTextureFormat],
+        graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent],
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
+    ) -> Result<(
+        attachment: (
+            storage: SceneResolvedMaterialAttachmentKind,
+            format: SceneGraphRenderTargetPlan.TextureFormat
+        ),
+        variants: SceneResolvedMaterialVariantCache
+    ), SceneResolvedMaterialVariantCache.LaunchEnvelopeFailure> {
+        func precompile(
+            _ attachment: (
+                storage: SceneResolvedMaterialAttachmentKind,
+                format: SceneGraphRenderTargetPlan.TextureFormat
+            )
+        ) -> Result<SceneResolvedMaterialVariantCache,
+                    SceneResolvedMaterialVariantCache.LaunchEnvelopeFailure> {
+            let variants: SceneResolvedMaterialVariantCache
+            switch SceneResolvedMaterialVariantCache.launchValidated(
+                template: template,
+                maximumVariantCount: maximumVariantsPerMaterial,
+                assetFormatFacts: assetFormatFacts
+            ) {
+            case let .success(value): variants = value
+            case let .failure(failure): return .failure(.material(failure))
+            }
+            switch variants.precompileLaunchEnvelope(
+                implicitFramebufferIdentity: effectInput,
+                outputStorage: outputStorage(for: attachment.storage),
+                outputIsRGBA8Unorm:
+                    attachment.storage == .color
+                        && attachment.format == .rgba8888,
+                graphTextureFormatFacts: graphTextureFormatFacts,
+                graphTextureContentFacts: graphTextureContentFacts,
+                assetStates: assetStates
+            ) {
+            case .success: return .success(variants)
+            case let .failure(failure): return .failure(failure)
+            }
+        }
+
+        let candidateVariants: SceneResolvedMaterialVariantCache
+        switch precompile(candidateAttachment) {
+        case let .success(value): candidateVariants = value
+        case let .failure(failure): return .failure(failure)
+        }
+        guard node.target?.kind == .framebuffer,
+              candidateAttachment.storage == .preservedRGBAUnorm,
+              !candidateVariants.launchEnvelopeProvesPreservedRGBADataOutput
+        else {
+            return .success((candidateAttachment, candidateVariants))
+        }
+
+        // Feedback topology owns persistence only. When the shader proves a
+        // color transform (for example Motion Blur's interpolation), compile
+        // the same authored Program against the color boundary and let the
+        // final compositor consume it as color. This is launch-time contract
+        // resolution; no frame-time fallback or sample identity participates.
+        let colorAttachment = (
+            storage: SceneResolvedMaterialAttachmentKind.color,
+            format: candidateAttachment.format
+        )
+        switch precompile(colorAttachment) {
+        case let .success(colorVariants):
+            return .success((colorAttachment, colorVariants))
+        case let .failure(failure):
+            return .failure(failure)
+        }
     }
 
     private static func envelopeRejection(

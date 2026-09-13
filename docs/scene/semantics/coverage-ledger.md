@@ -1,5 +1,11 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-13 feedback persistence/content 分离（S4 bounded visible）
+
+Effect graph 的 framebuffer/history/copy 拓扑现在只拥有 persistence 与 target lifetime，不再直接决定 `SceneTextureContent`。generation preparation 会预编译完整 Program variant envelope：普通颜色采样、插值、混合或滤镜输出解析为 color，只有所有 ready variant 都证明 `sourceProvenPreservedRGBAStateTransform` 时才保留 `.preservedRGBAUnorm` data contract。copy/swap 传播已经解析的内容事实；terminal compositor 只消费 color，named provider 只发布依赖声明允许的 data。无法证明的组合拒绝最小 graph/effect，不在普通帧试错、双执行或按样本切换。
+
+`3749463715` 的 Motion Blur 三节点 feedback 因而以 premultiplied color 完成 history、GPU execution 和唯一 compositor consumption；四个 utility capture 全部恢复，25 秒真实运行 **strict PASS**，画面和动态光效完成 S4 有界可见检查。结构相同但语义不同的 `3448845950` audio state graph 仍被证明为 typed data，并由 named publication 供下游消费，定向真实运行同为 **strict PASS**。`SceneMaterialCopyHistoryRendering` 新增 color/data 正反执行门，连同 resolved-material runtime bridge、generic shader Program artifact、graph target plan focused 模块及签名 build 均通过。身份、report/log hash 和边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-feedback-content-contract)。这不证明逐像素官方 parity、未运行 graph 形状、人工 verdict、性能或全 corpus 完成。
+
 ## 2026-09-13 Puppet GeometryProduct 世界空间绘制（S4 bounded visible）
 
 Puppet 静态 bind pose 与动画 pose 现在共享一个 `SceneGeometryProduct`：mesh vertex 保留 MDL 原始像素位置，UV 保留作者 atlas 坐标；调用方把层级 transform、作者 origin/scale、pivot、parallax 与 camera VP 合成唯一 world MVP。无 effect 时 mesh 直接由唯一 compositor 编码；有 effect 时 GraphExecutor 先在 atlas 自身 mapped extent 内执行普通纹理 graph，graph-final 纹理再由同一原始/变形 mesh 采样并绘入主 target。alpha、tint、UV、作者顺序、generation、GPU completion 与最终 compositor 仍由现役 frame/graph owner 管理。

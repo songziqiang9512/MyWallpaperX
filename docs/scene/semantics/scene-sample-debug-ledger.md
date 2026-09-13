@@ -2,6 +2,16 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
+## 2026-09-13 feedback 内容合同与 `3749463715` utility 输出闭环
+
+当前签名 Debug App（2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `546baabb4e050732561a9dc2b53a01e3c1fbeb93`，executable SHA-256 `a01d587e1615020a15a779378e145f9815408a41e9ba8233b79f3cded8ab2f33`）对只读真实样本 `3749463715` 做 25 秒 fresh 隔离回放。输出 `/private/tmp/mwx-q1-374946-feedback-content-20260913`，report SHA-256 `5f59e7b28130242c938c14425711c0f8c163ab22d93c715dd840f0aefa10e2a3`，app log SHA-256 `7712552a80daa296538c4764536b1da14027ab215e9e15610d7efd03fcd06653`；结果 `failures=[] / strict PASS`，37/37 effect admission 与 execution 完成，298/297/0 frame submitted/completed/failed，utility capture `467 / 488 / 536 / 560` 全部成功。
+
+真实首断点在 layer 467：Motion Blur 的三节点 feedback graph 使用 RGBA history，但其 Program 执行颜色插值；旧 preparation 只凭 target persistence 把结果标成 `.data`，GPU encode 后无法进入 utility compositor，留下 `predecessor-output-not-consumed`，下游 layer 488 才被拒绝。现在 generation preparation 从完整 Program variant envelope 独立解析 color/data；target 只负责持久生命周期，copy 传播已解析事实。layer 467 每帧 `materialNodes=2 / copyNodes=1 / rejectedNodes=0`，history、GPU completion 与 `compositorConsumed=true` 均成立，不再出现 predecessor、snapshot 或 utility-capture failure。ready/after 原分辨率复核确认女性角色、剑、雾、红环和横向动态光效完整，motion `mean_delta=0.0432822644 / changed_ratio=0.8017568549`。
+
+负例 `3448845950` 使用同一签名 App 定向回放，输出 `/private/tmp/mwx-q1-344884-data-regression-20260913`，report SHA-256 `524fefc292853807cb540893648b150fba5a29ac56c69ffbb3dd18309638a2e3`，app log SHA-256 `2e65c8378b0608a992ccb45640ea226eb169303cdafe205262b5e6507234706c`；`failures=[] / strict PASS`，418/417/0 frame submitted/completed/failed，utility capture `180 / 207 / 322 / 416 / 524` 全部成功。layer 1475 的 1×1 audio state graph 仍被 Program 证明为 preserved RGBA data，以 named `.data` publication 供下游消费；蓝色动态卡片/媒体布局显示并变化。这段后继证据取代下方 2026-09-09/10 对两个样本的 graph 当前状态，但不覆盖旧报告的历史事实，也不自动修改人工视觉 verdict、证明逐像素 parity 或解决性能。
+
+完整合同、正反 focused 门和证据边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-feedback-content-contract)。
+
 ## 2026-09-13 Puppet 世界空间直绘最终定向复核
 
 当前工作树的签名 Developer ID Debug App（2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `07a606db3682c87a3bb568244faa6ea4b8759a25`，executable SHA-256 `a28dedc828fef98569dedf5cb07da28771f9815fb34e8f36b446057adb8b958d`）对 `3665307769 / 3780119725 / 3264246690 / 3238423642` 做 15 秒 fresh 隔离回放。输出 `/private/tmp/mwx-puppet-world-final-20260913-v3`，report SHA-256 `88ecaaafe097493a2d2d6d06ee9e870d644e317511df03460b6f5dc4ddf45574`；四个样本均 `failures=[] / strict PASS`，loaded ratio 依次为 `1.000 / 1.000 / 0.941 / 1.000`，required effect admission/execution/graph execution 均通过。
@@ -44,7 +54,7 @@
 | 3509243656 | 开场/模拟画面不正常、坐标文字异常 | 延长播放及 MAIN producer→共享状态→文字 | 未通过 |
 | 3788734811 | 画面上下反转 | 正交画布的perspective image保留Y-down卡片方向；新截图恢复正向，见E-V4-CANVAS-PERSPECTIVE-CARD | 倒置修复，整体视觉等价未验收 |
 | 3238423642 | 人物头部错位 | 2026-09-13 旧重组预算与 atlas fallback 已删除；三个 mesh layer 世界空间直绘，稳定帧确认主角色与红/绿偏移层正确合成 | 本断点通过；整样本未做逐像素 parity |
-| 3448845950 | 无法运行 | PNG被TEX metadata误判为MP4与solid准备尺寸不一致已修复，恢复蓝色卡片/时钟；09-10 已清除四层 B3 attachment，仍见 dependency-stage 与 layer 1475 terminal data/color 合同拒绝，脚本效果及整体布局仍未通过，见E-V4-TEX-MEDIA-IDENTITY | 黑屏解除，结构部分恢复，整体验收未通过 |
+| 3448845950 | 无法运行 | PNG/TEX media identity 与 solid extent 已修；2026-09-13 定向回放为 strict PASS，layer 1475 保持 typed `.data` publication，下游 utility capture 完成，蓝色动态卡片/媒体布局显示并变化，见本页最新 feedback 闭环 | 结构/执行与本断点通过；人工整体验收未更新 |
 | 3477054430 | 画面显示不全 | 当前播放有CPU invocation failure及effect-local passthrough，待精确定位缺失区域 | 已运行，未通过 |
 | 3662790108 | 启动卡在不正确的画面 | 当前复跑 35/35 active effect、81/81 GraphExecutor 严格结构 PASS；8 个 geodraw2_1 仍走 boundedSwift，启动约48.09秒、7.49 FPS，球体/曲率/交互与视觉仍未验收 | 结构通过，视觉/性能未通过 |
 | 3287715210 | 音频条不显示 | 颜色合同中的已验证加法混合与replacement coverage已接通，PCM截图恢复底部变化的音频条，见E-V4-AUDIO-REPLACEMENT-COVERAGE | 有界修复，真实系统音频/整体验收未完成 |

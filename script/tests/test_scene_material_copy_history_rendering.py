@@ -331,6 +331,8 @@ class SceneMaterialCopyHistoryRenderingTests(unittest.TestCase):
             "pendingHistoryDefersNextFrame",
             "authoredWeightsProduceDistinctPixels",
             "sourceCaptureIsExact",
+            "colorHistoryPublishesColor",
+            "dataHistoryPublishesTypedData",
         ):
             self.assertTrue(payload[key], payload)
 
