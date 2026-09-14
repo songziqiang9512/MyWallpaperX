@@ -47,11 +47,12 @@ internal static class Program
 
     // §6 服务循环：有界帧读取 → envelope 解码 → 命令 dispatch 分离。
     // 解析失败/超长帧有界关闭，不锁死；terminal 每 requestId 至多一个。
-    // 异步认证命令（loginPassword/loginQR/restoreSession）的 terminal 由
-    // SteamSession 在认证完成/失败/取消时发送，循环不得预占其 requestId。
-    private static readonly HashSet<string> AsyncAuthCommands = new()
+    // 异步命令（认证 + 查询族）的 terminal 由会话在完成时发送，循环不预占 requestId。
+    private static readonly HashSet<string> AsyncCommands = new()
     {
         "loginPassword", "loginQR", "restoreSession",
+        "queryBrowse", "queryDetails", "queryAuthor",
+        "listSubscriptions", "listFavorites", "querySubscriptionStates",
     };
 
     private static readonly SteamSession steamSession = new(writer, terminals);
@@ -97,7 +98,7 @@ internal static class Program
             if (decode.Type != "request") continue;
 
             var requestId = decode.RequestId!;
-            if (AsyncAuthCommands.Contains(decode.Command!))
+            if (AsyncCommands.Contains(decode.Command!))
             {
                 DispatchAuthCommand(decode, requestId);
                 continue;
@@ -180,6 +181,56 @@ internal static class Program
                     return;
                 }
                 steamSession.BeginRestore(requestId, token, decode.PayloadString("accountName"));
+                return;
+            }
+            case "queryBrowse":
+                steamSession.BeginQueryBrowse(
+                    requestId,
+                    decode.PayloadString("sort") ?? "trend",
+                    decode.PayloadUInt("page") ?? 1,
+                    decode.PayloadStringArray("tags"),
+                    decode.PayloadString("search"));
+                return;
+            case "queryDetails":
+            {
+                var ids = decode.PayloadULongArray("ids");
+                if (ids.Length == 0)
+                {
+                    writer.Send(ProtocolMessages.ResultError(
+                        requestId, "protocolMismatch", "queryDetails requires payload.ids", 1));
+                    return;
+                }
+                steamSession.BeginQueryDetails(requestId, ids);
+                return;
+            }
+            case "queryAuthor":
+            {
+                var creator = decode.PayloadString("creatorSteamId");
+                if (creator == null || !ulong.TryParse(creator, out var creatorId) || creatorId == 0)
+                {
+                    writer.Send(ProtocolMessages.ResultError(
+                        requestId, "protocolMismatch", "queryAuthor requires payload.creatorSteamId", 1));
+                    return;
+                }
+                steamSession.BeginQueryAuthor(requestId, creatorId, decode.PayloadUInt("page") ?? 1);
+                return;
+            }
+            case "listSubscriptions":
+                steamSession.BeginListSubscriptions(requestId, decode.PayloadUInt("page") ?? 1);
+                return;
+            case "listFavorites":
+                steamSession.BeginListFavorites(requestId, decode.PayloadUInt("page") ?? 1);
+                return;
+            case "querySubscriptionStates":
+            {
+                var ids = decode.PayloadULongArray("ids");
+                if (ids.Length == 0)
+                {
+                    writer.Send(ProtocolMessages.ResultError(
+                        requestId, "protocolMismatch", "querySubscriptionStates requires payload.ids", 1));
+                    return;
+                }
+                steamSession.BeginQuerySubscriptionStates(requestId, ids);
                 return;
             }
         }

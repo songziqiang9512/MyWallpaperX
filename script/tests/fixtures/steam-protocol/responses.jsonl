@@ -11,3 +11,4 @@
 {"v":1,"type":"event","event":"authState","requestId":"req-auth-qr","sequence":1,"processEpoch":1,"state":"qrChallenge","authAttemptId":"auth-2","challengeUrl":"https://s.team/q/1/0000000000000000000"}
 {"v":1,"type":"result","requestId":"req-auth-qr","processEpoch":1,"ok":false,"error":{"code":"cancelled","message":"authentication cancelled"}}
 {"v":1,"type":"result","requestId":"req-auth-cancel","processEpoch":1,"ok":true,"data":{"cancelled":true}}
+{"v":1,"type":"result","requestId":"req-query-中文-✅","processEpoch":1,"ok":true,"data":{"page":1,"total":1398179,"hasMore":true,"items":[{"publishedfileid":"3801392201","title":"样例","previewUrl":"https://images.steamusercontent.com/ugc/x/","fileSize":103465793,"timeUpdated":1789353159,"consumerAppid":431960,"fileType":0,"tags":["Scene","Anime"]}],"wrongAppDropped":0,"partial":null}}

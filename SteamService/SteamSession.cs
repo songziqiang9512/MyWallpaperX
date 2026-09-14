@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using SteamKit2;
 using SteamKit2.Authentication;
+using SteamKit2.Internal;
 
 namespace SteamService;
 
@@ -166,7 +167,8 @@ internal sealed class AttemptAuthenticator : IAuthenticator
 // 凭据只经 stdin 帧的 private 包装，不落 argv/env；任何日志先经 ProtocolRedactor。
 // 只由显式 attempt（loginPassword/loginQR）或显式 restoreSession 驱动登录，
 // 不存在任何自动登录路径。异步认证命令的 request terminal 由本类负责发送。
-internal sealed class SteamSession : IAsyncDisposable
+// SK3.1：查询方法在 WorkshopQueries.cs（partial 第二部分）。
+internal sealed partial class SteamSession : IAsyncDisposable
 {
     private readonly ProtocolWriter writer;
     private readonly TerminalTracker terminals;
@@ -176,12 +178,16 @@ internal sealed class SteamSession : IAsyncDisposable
     private SteamClient? client;
     private CallbackManager? callbacks;
     private SteamUser? user;
+    private PublishedFile publishedFiles = null!;
     private CancellationTokenSource? lifetime = new();
+    private readonly SemaphoreSlim connectGate = new(1, 1);
+    private readonly SemaphoreSlim sessionGate = new(1, 1);
     private Task? callbackLoop;
     private TaskCompletionSource<bool>? connectedSource;
     private TaskCompletionSource<SteamUser.LoggedOnCallback>? loggedOnSource;
 
     private bool isLoggedIn;
+    private bool isAnonymous;
     private string steamId = "";
     private string accountName = "";
 
@@ -560,6 +566,7 @@ internal sealed class SteamSession : IAsyncDisposable
         client = new SteamClient(configuration);
         callbacks = new CallbackManager(client);
         user = client.GetHandler<SteamUser>()!;
+        publishedFiles = client.GetHandler<SteamUnifiedMessages>()!.CreateService<PublishedFile>();
         callbacks.Subscribe<SteamClient.ConnectedCallback>(OnConnected);
         callbacks.Subscribe<SteamClient.DisconnectedCallback>(OnDisconnected);
         callbacks.Subscribe<SteamUser.LoggedOnCallback>(OnLoggedOn);
@@ -570,30 +577,40 @@ internal sealed class SteamSession : IAsyncDisposable
     {
         EnsureSession();
         if (client!.IsConnected) return;
-        Exception? lastError = null;
-        for (var attempt = 1; attempt <= 3; attempt++)
+        // 单飞连接：并发查询共享一次连接建立，避免互踩 Disconnect。
+        await connectGate.WaitAsync(ct).ConfigureAwait(false);
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            connectedSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            client.Connect();
-            try
+            if (client.IsConnected) return;
+            Exception? lastError = null;
+            for (var attempt = 1; attempt <= 3; attempt++)
             {
-                await connectedSource.Task
-                    .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.ConnectTimeoutSeconds), ct)
-                    .ConfigureAwait(false);
-                return;
-            }
-            catch (Exception error) when (error is not OperationCanceledException || !ct.IsCancellationRequested)
-            {
-                lastError = error;
-                try { client.Disconnect(); } catch { }
-                if (attempt < 3)
+                ct.ThrowIfCancellationRequested();
+                connectedSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                client.Connect();
+                try
                 {
-                    await Task.Delay(500 * attempt, ct).ConfigureAwait(false);
+                    await connectedSource.Task
+                        .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.ConnectTimeoutSeconds), ct)
+                        .ConfigureAwait(false);
+                    return;
+                }
+                catch (Exception error) when (error is not OperationCanceledException || !ct.IsCancellationRequested)
+                {
+                    lastError = error;
+                    try { client.Disconnect(); } catch { }
+                    if (attempt < 3)
+                    {
+                        await Task.Delay(500 * attempt, ct).ConfigureAwait(false);
+                    }
                 }
             }
+            throw new IOException($"Steam connect failed: {lastError?.Message}");
         }
-        throw new IOException($"Steam connect failed: {lastError?.Message}");
+        finally
+        {
+            connectGate.Release();
+        }
     }
 
     private async Task LogOnWithTokenAsync(string accountNameIn, string token, CancellationToken ct)
@@ -633,8 +650,35 @@ internal sealed class SteamSession : IAsyncDisposable
         }
     }
 
-    private async Task PumpAsync()
+    /// 查询会话保证：已连接 +（未登录时）匿名会话；单飞串行化，幂等。
+    private async Task EnsureQuerySessionAsync(CancellationToken ct)
     {
+        EnsureSession();
+        if (client!.IsConnected && (isLoggedIn || isAnonymous)) return;
+        await sessionGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (client.IsConnected && (isLoggedIn || isAnonymous)) return;
+            await EnsureConnectedAsync(ct).ConfigureAwait(false);
+            if (isLoggedIn || isAnonymous) return;
+            loggedOnSource = new TaskCompletionSource<SteamUser.LoggedOnCallback>(TaskCreationOptions.RunContinuationsAsynchronously);
+            user!.LogOnAnonymous();
+            var result = await loggedOnSource.Task
+                .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.LogOnTimeoutSeconds), ct)
+                .ConfigureAwait(false);
+            if (result.Result != EResult.OK)
+            {
+                throw new IOException($"anonymous logon failed: {result.Result}");
+            }
+            isAnonymous = true;
+        }
+        finally
+        {
+            sessionGate.Release();
+        }
+    }
+
+    private async Task PumpAsync()    {
         try
         {
             while (!lifetime!.IsCancellationRequested)

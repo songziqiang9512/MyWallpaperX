@@ -13,10 +13,14 @@ namespace SteamService;
 internal static class ProtocolLimits
 {
     public const int Version = 1;
+    public const uint AppId = 431960;
     public const int MaxFrameBytes = 1 * 1024 * 1024;
     public const int MaxPendingRequests = 256;
     public const int RequestTimeoutSeconds = 30;
     public const int ConnectTimeoutSeconds = 12;
+    public const int QueryTimeoutSeconds = 15;
+    public const int DetailsTimeoutSeconds = 20;
+    public const int LogOnTimeoutSeconds = 30;
     public const long OverlongDrainCapBytes = 8 * 1024 * 1024;
 }
 
@@ -143,6 +147,29 @@ internal sealed class ProtocolDecode
             && p.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;
+
+    public uint? PayloadUInt(string name) =>
+        Payload is { } p && p.ValueKind == JsonValueKind.Object
+            && p.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number
+            && value.TryGetUInt32(out var number)
+            ? number
+            : null;
+
+    public string[] PayloadStringArray(string name) =>
+        Payload is { } p && p.ValueKind == JsonValueKind.Object
+            && p.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Array
+            ? value.EnumerateArray()
+                .Where(e => e.ValueKind == JsonValueKind.String)
+                .Select(e => e.GetString()!)
+                .Where(s => !string.IsNullOrEmpty(s))
+                .ToArray()
+            : Array.Empty<string>();
+
+    public ulong[] PayloadULongArray(string name) =>
+        PayloadStringArray(name)
+            .Where(s => ulong.TryParse(s, out _))
+            .Select(ulong.Parse)
+            .ToArray();
 
     public static ProtocolDecode Parse(string frame)
     {
