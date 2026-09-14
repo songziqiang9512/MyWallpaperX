@@ -38,9 +38,18 @@ final class SceneResolvedMaterialPassEncoder {
         case failed(PreparationFailure, origin: PipelineOrigin)
     }
 
+    private enum MetalLibraryEntry {
+        case ready(MTLLibrary)
+        case failed(PreparationFailure)
+    }
+
     let device: MTLDevice
     private let samplers: SceneTextureSamplerStateSet
     private let ownerToken = UUID()
+    private let libraryCondition = NSCondition()
+    private var librariesByMetalSource: [String: MetalLibraryEntry] = [:]
+    private var compilingMetalSources = Set<String>()
+    private var libraryCompilationAttempts = 0
     let lock = NSLock()
     var entries: [SceneResolvedMaterialProgram.MetalCompileStateKey: PipelineEntry] = [:]
     var resetGeneration: UInt64 = 0
@@ -59,6 +68,11 @@ final class SceneResolvedMaterialPassEncoder {
     var failedPipelineCount: Int { withLock { failedPipelines } }
     var launchWarmupHitCount: Int { withLock { launchWarmupHits } }
     var launchWarmupFailureHitCount: Int { withLock { launchWarmupFailureHits } }
+    var metalLibraryCompilationAttemptCount: Int {
+        libraryCondition.lock()
+        defer { libraryCondition.unlock() }
+        return libraryCompilationAttempts
+    }
 
     init?(device: MTLDevice) {
         guard let samplers = SceneTextureSamplerStateSet(device: device) else {
@@ -438,17 +452,9 @@ final class SceneResolvedMaterialPassEncoder {
             return .failure(.renderStateRejected)
         }
         let library: MTLLibrary
-        do {
-            library = try device.makeLibrary(
-                source: frontend.metalSource,
-                options: nil
-            )
-        } catch {
-            let failure = PreparationFailure.libraryCompilationRejected(
-                diagnostic: String(describing: error)
-            )
-            NSLog("MWX resolved material Metal library rejection: %@", String(describing: error))
-            return .failure(failure)
+        switch metalLibrary(for: frontend.metalSource) {
+        case let .success(value): library = value
+        case let .failure(failure): return .failure(failure)
         }
         guard let vertex = library.makeFunction(
             name: frontend.vertexFunctionName
@@ -479,6 +485,56 @@ final class SceneResolvedMaterialPassEncoder {
             NSLog("MWX resolved material Metal pipeline rejection: %@", String(describing: error))
             return .failure(failure)
         }
+    }
+
+    /// Different attachment/state variants can share the same authored MSL.
+    /// Concurrent launch warmup callers rendezvous on one source compilation.
+    private func metalLibrary(
+        for metalSource: String
+    ) -> Result<MTLLibrary, PreparationFailure> {
+        libraryCondition.lock()
+        while compilingMetalSources.contains(metalSource) {
+            libraryCondition.wait()
+        }
+        if let cached = librariesByMetalSource[metalSource] {
+            libraryCondition.unlock()
+            switch cached {
+            case let .ready(library): return .success(library)
+            case let .failed(failure): return .failure(failure)
+            }
+        }
+        compilingMetalSources.insert(metalSource)
+        libraryCompilationAttempts += 1
+        libraryCondition.unlock()
+
+        let result: Result<MTLLibrary, PreparationFailure>
+        do {
+            result = .success(try device.makeLibrary(
+                source: metalSource,
+                options: nil
+            ))
+        } catch {
+            let failure = PreparationFailure.libraryCompilationRejected(
+                diagnostic: String(describing: error)
+            )
+            NSLog(
+                "MWX resolved material Metal library rejection: %@",
+                String(describing: error)
+            )
+            result = .failure(failure)
+        }
+
+        libraryCondition.lock()
+        switch result {
+        case let .success(library):
+            librariesByMetalSource[metalSource] = .ready(library)
+        case let .failure(failure):
+            librariesByMetalSource[metalSource] = .failed(failure)
+        }
+        compilingMetalSources.remove(metalSource)
+        libraryCondition.broadcast()
+        libraryCondition.unlock()
+        return result
     }
 
     func cacheFailure(

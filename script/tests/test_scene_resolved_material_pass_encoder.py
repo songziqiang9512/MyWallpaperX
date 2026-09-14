@@ -1097,6 +1097,8 @@ private enum Harness {
         let rgbaTarget = target(device: device)
         let first = encoder.prepare(program: baseline, target: rgbaTarget)
         let attemptsAfterFirst = encoder.pipelineCompilationAttemptCount
+        let libraryAttemptsAfterFirst =
+            encoder.metalLibraryCompilationAttemptCount
         let second = encoder.prepare(program: baseline, target: rgbaTarget)
         let pipelineCacheReused = second != nil
             && encoder.pipelineCompilationAttemptCount == attemptsAfterFirst
@@ -1157,10 +1159,15 @@ private enum Harness {
         )
 
         let attemptsBeforeBGRA = encoder.pipelineCompilationAttemptCount
+        let libraryAttemptsBeforeBGRA =
+            encoder.metalLibraryCompilationAttemptCount
         let bgraTarget = target(device: device, format: .bgra8Unorm)
         let bgraPrepared = encoder.prepare(program: baseline, target: bgraTarget)
         let separateFormatPipeline = bgraPrepared != nil
             && encoder.pipelineCompilationAttemptCount == attemptsBeforeBGRA + 1
+        let libraryReusedAcrossPipelineVariants =
+            encoder.metalLibraryCompilationAttemptCount
+                == libraryAttemptsBeforeBGRA
 
         let straight = program(
             device: device,
@@ -2352,6 +2359,28 @@ private enum Harness {
             && warmupEncoder.pipelineCompilationAttemptCount == attemptsAfterWarmup
             && warmupEncoder.launchWarmupHitCount == 1
 
+        let sharedLibraryWarmupEncoder =
+            SceneResolvedMaterialPassEncoder(device: device)!
+        let sharedLibraryBGRAPlan = SceneResolvedMaterialPassEncoder.WarmupPlan(
+            identity: "fixture:baseline-bgra",
+            preparedKey: baseline.preparedShader.cacheKey,
+            frontend: baseline.frontendProgram,
+            renderState: baseline.renderState,
+            frontendSchemaVersion:
+                baseline.semanticIdentity.shader.frontendSchemaVersion,
+            pixelFormat: .bgra8Unorm,
+            writeMask: .all,
+            device: device
+        )!
+        let sharedLibraryWarmupReport = sharedLibraryWarmupEncoder.warmup([
+            warmupPlan, sharedLibraryBGRAPlan,
+        ])
+        let concurrentWarmupSharesMetalLibrary =
+            sharedLibraryWarmupReport.uniqueKeyCount == 2
+            && sharedLibraryWarmupReport.readyKeyCount == 2
+            && sharedLibraryWarmupReport.compilationAttemptCount == 2
+            && sharedLibraryWarmupEncoder.metalLibraryCompilationAttemptCount == 1
+
         let invalidWarmupEncoder = SceneResolvedMaterialPassEncoder(device: device)!
         let invalidWarmupPlan = SceneResolvedMaterialPassEncoder.WarmupPlan(
             identity: "fixture:invalid",
@@ -2393,6 +2422,7 @@ private enum Harness {
             "metalAvailable": true,
             "prepared": first != nil,
             "pipelineCompiledOnce": attemptsAfterFirst == 1,
+            "metalLibraryCompiledOnce": libraryAttemptsAfterFirst == 1,
             "pipelineCacheReused": pipelineCacheReused,
             "cacheReusedAcrossResources": cacheReusedAcrossResources,
             "authoredSlotsPreserved": first?.bindingSlots == [0, 3],
@@ -2414,6 +2444,8 @@ private enum Harness {
             "directClipNonSquarePixelsMatch": nonSquareResult.pixels
                 == nonSquareColor,
             "rgbaAndBgraSupported": separateFormatPipeline,
+            "metalLibraryReusedAcrossPipelineVariants":
+                libraryReusedAcrossPipelineVariants,
             "straightOutputRejectedBeforeCompile": straightRejected,
             "unresolvedOutputRejectedUpstream": unresolvedRejectedUpstream,
             "inputTargetAliasRejected": aliasRejected,
@@ -2544,6 +2576,8 @@ private enum Harness {
                 && warmupReport.compilationAttemptCount == 1,
             "launchWarmupConsumedWithoutFrameCompile":
                 launchWarmupConsumedWithoutCompile,
+            "concurrentWarmupSharesMetalLibrary":
+                concurrentWarmupSharesMetalLibrary,
             "launchWarmupFailureNegativeCached":
                 invalidWarmupReport.uniqueKeyCount == 1
                 && invalidWarmupReport.readyKeyCount == 0
