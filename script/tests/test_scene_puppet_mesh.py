@@ -30,7 +30,7 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneMdlPuppetMeshReader.swift",
     SCENE_ROOT / "Format/SceneMdlPuppetAttachmentReader.swift",
-    SCENE_ROOT / "Rendering/ScenePuppetAttachmentPoseProjection.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAttachmentPoseProjection.swift",
 ]
 REAL_ATTACHMENT_ASSETS = list(
     sample_cache_root("3769688830").glob(
@@ -374,38 +374,37 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
 class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
     def test_static_and_animated_puppets_share_world_geometry_mapping(self) -> None:
         recomposer = (
-            SCENE_ROOT / "Rendering/ScenePuppetMeshGeometry.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetMeshGeometry.swift"
         ).read_text(encoding="utf-8")
         playback = (
-            SCENE_ROOT / "Rendering/ScenePuppetPlaybackState.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift"
         ).read_text(encoding="utf-8")
-        load = (SCENE_ROOT / "Rendering/ScenePuppetLayerLoad.swift").read_text(
+        load = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift").read_text(
             encoding="utf-8"
         )
-        base = (SCENE_ROOT / "Rendering/SceneBaseImageTextureLoad.swift").read_text(
+        base = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad.swift").read_text(
             encoding="utf-8"
         )
-        view = (SCENE_ROOT / "Rendering/SceneMetalView.swift").read_text(
+        view = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift").read_text(
             encoding="utf-8"
         )
         preflight = (
-            SCENE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
         ).read_text(encoding="utf-8")
         compositor = (
-            SCENE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift"
         ).read_text(encoding="utf-8")
-        renderer = (SCENE_ROOT / "Rendering/SceneMetalRenderer.swift").read_text(
+        renderer = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift").read_text(
             encoding="utf-8"
         )
         blend_pipeline = (
-            SCENE_ROOT / "Rendering/SceneLayerColorBlendPipeline.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLayerColorBlendPipeline.swift"
         ).read_text(encoding="utf-8")
         graph_composition = (
-            SCENE_ROOT / "Rendering/SceneResolvedMaterialGraphComposition.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift"
         ).read_text(encoding="utf-8")
         extent_policy = (
-            SCENE_ROOT
-            / "RenderGraph/GraphTargets/SceneOffscreenResolutionPolicy.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenResolutionPolicy.swift"
         ).read_text(encoding="utf-8")
         self.assertNotIn("contentFit", recomposer)
         self.assertNotIn("ContentFit", recomposer)

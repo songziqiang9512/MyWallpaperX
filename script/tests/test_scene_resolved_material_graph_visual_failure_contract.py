@@ -22,84 +22,48 @@ MAIN_GATE = Path(__file__).with_name(
     "test_scene_resolved_material_graph_executor.py"
 )
 PUBLICATION_FIXTURE = runpy.run_path(str(PUBLICATION_GATE))
-RESOURCE_ENCODER_SOURCE = SCENE_ROOT / (
-    "RenderGraph/EffectExecution/SceneGraphResourcePassEncoder.swift"
-)
-EXECUTOR_SOURCE = SCENE_ROOT / (
-    "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor.swift"
-)
-PROGRAM_FIRST_STAGES_SOURCE = SCENE_ROOT / (
-    "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
-)
-PROGRAM_FIRST_STAGES_INPUT_CONTRACTS_SOURCE = SCENE_ROOT / (
-    "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages+InputContracts.swift"
-)
-PROGRAM_FIRST_STAGES_BACKGROUND_SOURCE = SCENE_ROOT / (
-    "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStagesBackground.swift"
-)
-VISUAL_FAILURE_TOPOLOGY_SOURCE = SCENE_ROOT / (
-    "RenderGraph/EffectExecution/SceneResolvedMaterialVisualFailureTopology.swift"
-)
-VISUAL_FAILURE_PASSTHROUGH_SOURCE = SCENE_ROOT / (
-    "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
-)
+RESOURCE_ENCODER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneGraphResourcePassEncoder.swift"
+EXECUTOR_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift"
+PROGRAM_FIRST_STAGES_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
+PROGRAM_FIRST_STAGES_INPUT_CONTRACTS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages+InputContracts.swift"
+PROGRAM_FIRST_STAGES_BACKGROUND_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStagesBackground.swift"
+VISUAL_FAILURE_TOPOLOGY_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialVisualFailureTopology.swift"
+VISUAL_FAILURE_PASSTHROUGH_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
 SWIFT_SOURCES = [
-    SCENE_ROOT / "Runtime/ScenePerformanceCounterHub.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     *PUBLICATION_FIXTURE["SWIFT_SOURCES"],
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialAttachmentKind.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialAttachmentStorage.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder+Failure.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder+Warmup.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialAttachmentKind.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialAttachmentStorage.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Failure.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift",
     RESOURCE_ENCODER_SOURCE,
-    SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenResolutionPolicy.swift",
-    SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneGraphConditionAdmission.swift",
-    SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneGraphAdmissionCompiler.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityAdmission.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/ScenePreparedDirectDrawOutputGeometry.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialDirectDrawGeometryCompiler.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+DynamicUniformRejection.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Material.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+PipelineWarmup.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+PreservedChannels.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialStageActivation.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenResolutionPolicy.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneGraphConditionAdmission.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneGraphAdmissionCompiler.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePreparedDirectDrawOutputGeometry.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialDirectDrawGeometryCompiler.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+DynamicUniformRejection.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Material.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+PipelineWarmup.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+PreservedChannels.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialStageActivation.swift",
     PROGRAM_FIRST_STAGES_SOURCE,
     PROGRAM_FIRST_STAGES_INPUT_CONTRACTS_SOURCE,
     PROGRAM_FIRST_STAGES_BACKGROUND_SOURCE,
     VISUAL_FAILURE_TOPOLOGY_SOURCE,
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
     EXECUTOR_SOURCE,
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Attachment.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Preparation.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+DynamicUniformDiagnostics.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Attachment.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Preparation.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+DynamicUniformDiagnostics.swift",
     VISUAL_FAILURE_PASSTHROUGH_SOURCE,
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Validation.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Validation.swift",
 ]
 
 

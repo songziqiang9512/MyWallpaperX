@@ -18,7 +18,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneMdlPuppetMeshReader.swift",
     SCENE_ROOT / "Format/SceneMdlPuppetRigReader.swift",
     SCENE_ROOT / "Format/ScenePuppetBoneCatalog.swift",
-    SCENE_ROOT / "Runtime/SceneScript/ScenePuppetBoneTransformBridge.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/ScenePuppetBoneTransformBridge.swift",
 ]
 
 HARNESS = r'''
@@ -192,8 +192,7 @@ class ScenePuppetBoneCatalogTests(unittest.TestCase):
 
     def test_quickjs_layer_host_exposes_typed_puppet_bone_transaction(self):
         host = (
-            REPOSITORY_ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/SceneQuickJSLayerHost.c"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerHost.c"
         ).read_text()
         for method in (
             "getBoneCount", "getBoneIndex", "getBoneTransform",
@@ -205,19 +204,16 @@ class ScenePuppetBoneCatalogTests(unittest.TestCase):
 
     def test_launch_prepares_rig_and_installs_it_into_existing_owners(self):
         layer_load = (
-            SCENE_ROOT / "Rendering/ScenePuppetLayerLoad.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift"
         ).read_text()
         launch = (
-            REPOSITORY_ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
         ).read_text()
         vector = (
-            SCENE_ROOT
-            / "Runtime/SceneScript/SceneScriptVectorProgram+Registrations.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorProgram+Registrations.swift"
         ).read_text()
         cursor = (
-            SCENE_ROOT
-            / "Runtime/SceneScript/SceneScriptCursorProgram+PuppetBones.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram+PuppetBones.swift"
         ).read_text()
         self.assertIn("static func boneConfiguration(", layer_load)
         self.assertIn("SceneMdlPuppetRigReader.read", layer_load)

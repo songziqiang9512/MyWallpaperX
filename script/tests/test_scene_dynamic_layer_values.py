@@ -12,20 +12,20 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-DYNAMIC_SOURCE = SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift"
-LAYER_VALUES_SOURCE = SCENE_ROOT / "Properties/SceneDynamicLayerValues.swift"
-RENDERER_SOURCE = SCENE_ROOT / "Rendering/SceneMetalRenderer.swift"
+DYNAMIC_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift"
+LAYER_VALUES_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicLayerValues.swift"
+RENDERER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
 EFFECT_EXECUTION_SOURCE = (
-    SCENE_ROOT / "Rendering/SceneMetalRenderer+EffectExecution.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+EffectExecution.swift"
 )
 UTILITY_FRAME_RENDERER_SOURCE = (
-    SCENE_ROOT / "Rendering/SceneUtilityPlanFrameRenderer.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityPlanFrameRenderer.swift"
 )
-COMPOSITOR_SOURCE = SCENE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
+COMPOSITOR_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift"
 COMPOSITOR_UNIFORMS_SOURCE = (
-    SCENE_ROOT / "Rendering/SceneImageLayerCompositor+Uniforms.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor+Uniforms.swift"
 )
-UTILITY_SOURCE = SCENE_ROOT / "Rendering/SceneUtilityLayerRenderer.swift"
+UTILITY_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRenderer.swift"
 
 HARNESS = r'''
 import Foundation

@@ -6,9 +6,9 @@
 >
 > 唯一目标：`authored input → prepare once → typed frame commit → GPU execute → unique compositor`，并在稳定帧时间内持续得到正确画面。每个改动必须让验收台账中至少一个样本的首断点消失或视觉裁决前进，或闭合一个被多个样本共享的公共首断点。
 
-路线采用五个有限产品类别：纹理、世界空间几何、模拟状态、异步 provider 和多 pass graph 都进入统一 compositor，不形成平行主链，也不要求一个形式化的公共 wrapper。Puppet 的静态 bind pose 与动画 pose 已进入 `GeometryProduct` 世界空间绘制：原始 atlas 或该 atlas 的 graph-final 纹理由 mesh 采样，原始/变形顶点经唯一 world MVP 直接进入主 target，不再生成 coverage/viewport 几何纹理。受限MDAT attachment已由同一current bone pose逐帧生成Scene frame，child、SceneScript layer/bone snapshot、cursor和最终skinning共用canonical world-frame链。作者 package 确实缺少所引用 mesh 时，允许该局部层以明确原因降级为普通纹理；非法路径及其他 mesh/资源/encode 失败不能发布 atlas。现役命名 provider 只接收完整栅格层源，Puppet 跨层 provider 明确拒绝，不以压平纹理补齐。该切片以定向代表样本做可见验收，仍不代表全部 Puppet/3D/corpus 或官方 parity。任何新增兼容 profile 必须有静态预算、局部失败半径和退役条件，不能按样本或层身份扩展专用路径。
+对象如何加载、进入合成和释放，统一遵守[播放器设计 §8](design/runtime-architecture.md#8-scene-播放生命周期与落代码合同)。本路线不复述已完成的实现过程。
 >
-> 本文只拥有阶段顺序和完成门。能力、owner、route、样本和运行结果分别由[能力台账](semantics/coverage-ledger.md)、专项表、[运行证据索引](semantics/runtime-evidence-current.md)、[样本调试台账](semantics/scene-sample-debug-ledger.md)和[样本验收台账](semantics/scene-sample-acceptance-ledger.md)拥有。日常操作见[开发工作流](development-workflow.md)。
+> 本文只拥有阶段顺序和完成门。能力、owner、route、样本和运行结果分别由[能力台账](semantics/coverage-ledger.md)、专项表、[运行证据索引](semantics/runtime-evidence-current.md)、[样本调试台账](semantics/scene-sample-debug-ledger.md)和[样本验收台账](semantics/scene-sample-acceptance-ledger.md)拥有。日常操作见[开发工作流](development/development-workflow.md)。
 
 ## 1. 不变的目标架构
 
@@ -35,6 +35,8 @@ Swift/AppKit 持有 identity、作者顺序、frame state、资源/target/public
 
 ## 3. 阶段
 
+工程重构与性能消融按[重构执行档案](engine-refactor-program.md)执行。下表 P5 是性能／长稳的最终验收阶段，不是开始测量或优化的前置阶段；P1–P4 的改动同样保留正确性与帧成本约束。
+
 阶段按“共享首断点集群”而不是按能力轨排序。集群定义与逐样本归属只在验收台账维护；每个阶段的完成门都由台账计数直接判定。
 
 | 阶段 | 目标 | 完成门 | 当前状态 |
@@ -42,11 +44,11 @@ Swift/AppKit 持有 identity、作者顺序、frame state、资源/target/public
 | P0 | 验收基线：全部样本有隔离运行归档、首断点集群与人工裁决槽位；tracked matrix 从历史固定成员扩到全 corpus 的 identity-only 门 | 台账无 `not-run`；full matrix tier 覆盖样本根全部成员且不带历史视觉期待 | 台账已覆盖全部样本；matrix 扩容未做 |
 | P1 | 公共首断点清零：按 `effect-chain` → `particle-load` → `texture-load` → `scenescript` 顺序，让每个集群的样本回到 `visual-review` | 各集群样本数为 0；每个修复有公共正例、局部失败反例和 next-frame 证据，不含样本专用分支 | **现在**（`effect-chain` 优先） |
 | P2 | 用户反馈样本逐项闭合：台账中 `fail` 的样本按报告顺序修到 `pass`，只允许公共 owner 修复 | `fail` 为 0 | 与 P1 并行，逐样本推进 |
-| P3 | 作者参数全链路：属性面板 → typed snapshot → consumer → 可见变化；未支持 target 族逐族闭合或显式 unsupported | 所有声明用户参数的样本参数验收通过；[输入覆盖表](semantics/runtime-input-property-coverage.md) 中不再有仅结构级（`L0/L1`）的 authored target 族，除非标为平台策略 | 部分 target 族已有 live consumer；script instance、particle override、bloom、camera family 仍开放 |
+| P3 | 作者参数全链路：属性面板 → typed snapshot → consumer → 可见变化；未支持 target 族逐族闭合或显式 unsupported | 所有声明用户参数的样本参数验收通过；[输入覆盖表](semantics/runtime-input-property-coverage.md) 中不再有仅结构级（`L0/L1`）的 authored target 族，除非标为平台策略 | 部分 target 族已有 live consumer；具体剩余 target 以输入覆盖表为准；当前 Bloom 链与参数验收仍开放 |
 | P4 | 视觉复核收口：把 `unreviewed` 逐个裁决为 `pass`，新发现的首断点回到 P1/P2 | `unreviewed` 为 0；`pass` 等于全部样本减去 `platform-unsupported` | 未开始批量复核 |
 | P5 | 播放稳定性与发布：帧时间基线（首帧、CPU、GPU、next-frame）、长稳（睡眠、显示器变化、切换）、签名发布 | 全部 `pass` 样本在基线机器上稳定播放；发布门通过 | 未开始；性能数字只作为观察记录 |
 
-P1 内 `effect-chain` 的子顺序固定为：先处理 `unified-capability-unavailable` 的 stock effect family（blend、opacity、shake、pulse、blurprecise、bokeh blur、crt scan line、tint、scroll、clipping mask、rounded mask、waterripple、spin、waterflow、waterwaves、xray、blendgradient 等），再处理 `admitted-fallback` 的 effect-local passthrough（color contract、frontend、owner revoked、library compilation），最后处理 `graph-execution-missing`。一个 family 的修复必须以公共 primitive 表达并用未见组合验证，不得按 effect 名称新增专用 owner。
+P1 从[当前断点队列](scene-open-breakpoint-queue-2026-09-09.md)选择可复现的最早公共失败。已完成 family 不再重复排队；一个 family 的修复以公共 primitive 表达，并验证未见组合。
 
 ## 4. 完成与回滚
 
@@ -64,10 +66,10 @@ compile success、recognized/wired、route 数、matrix PASS、非黑像素和�
 
 ## 5. 本轮结构性决策
 
-以下决策服务于“尽快让全部样本正确”，与[兼容运行时架构](runtime-architecture.md)的安全边界一致：
+以下决策服务于“尽快让全部样本正确”，与[兼容运行时架构](design/runtime-architecture.md)的安全边界一致：
 
 1. **effect 准入从逐形状静态证明转向默认合同加视觉验收。** 当前多数 effect 首断点来自 prepared source 的颜色/形状证明不成立，而不是编译或 ABI 失败。路径/range/ABI/target hazard/生命周期失败继续硬拒绝；单纯“颜色合同未证明”的普通 effect 改为按官方 blend/alpha 合同的默认策略执行，并以样本视觉裁决而不是 analyzer 证明作为通过门。每新增一个 source-shape analyzer 前，必须先说明为什么默认合同不能覆盖该 family。
-2. **性能微优化让位于正确性。** 未改变任何样本首断点或视觉裁决的 hot-path 收口（`S2` wiring）不再进入 P1–P4；只有当帧时间已经让动画不可辨认时才作为该样本的首断点处理。系统性性能工作集中在 P5，以基线驱动。
+2. **性能与正确性共同约束。** 工程重构按 E0 建立基线后即可推进，不等待 P5。兼容修复不得以错误缩放或改变作者行为换取帧率；P5 负责统一性能、长稳与发布验收。
 3. **能力轨保留为词汇，不再决定顺序。** V0–V5（ordinary shader/material、graph、VM、particle、typed input/provider、Puppet/3D/lighting/发布）继续作为能力台账、依赖图和技术栈边界使用的轨名；具体能力在 P1–P3 按集群与样本需求被拉入，不再等待某条轨“收口”。V4 仍是横切轨：每个 input family 各自闭合 producer → typed channel → consumer → next-frame/event，不得以另一个 input family 的通过替代 V4 完成。
 4. **Fast Scene Suite 在 P0 内要么批准要么退役。** 仍为 `selection-required` 的成员不再被任何文档当作可运行的低成本门引用。
 5. **同一实验只比较同一输入。** 验收与复现统一使用普通 App 异步启动路径、隔离样本副本与显式 property snapshot；debug probe 只用于定位首断点，不用于裁决。

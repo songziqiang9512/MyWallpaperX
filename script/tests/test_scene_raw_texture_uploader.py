@@ -17,8 +17,8 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",
-    SCENE_ROOT / "Resources/SceneImageTextureUploader.swift",
-    SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureMipUploader.swift",
 ]
 
 HARNESS = r'''

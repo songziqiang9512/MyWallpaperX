@@ -1,68 +1,59 @@
-# Scene 文档入口
+# Scene 引擎：从这里开始
 
-Scene 当前路线是“保留 Swift/Metal 底座，优先执行声明式作者内容，按纵向切片快速得到真实效果”。日常操作只看[开发工作流](development-workflow.md)；本页只做角色导航。
+MyWallpaperX 是原生 macOS 动态壁纸程序：AppKit 管理窗口、壁纸选择和用户意图；Video 使用 AVFoundation，Web 使用 WebKit，Scene 把 Wallpaper Engine 作者数据准备成可执行资源，再通过 Metal 合成为桌面画面。兼容程度按能力与实际运行证据判断，不能由“加载成功”推出。
 
-## 开始工作
+## 引擎如何工作
 
-1. 先看[开发工作流](development-workflow.md)；
-2. 查[能力台账](semantics/coverage-ledger.md)和[运行证据索引](semantics/runtime-evidence-current.md)找首断点；
-3. 用[兼容执行路线](scene-compatibility-roadmap.md)确认当前 V 轨和完成门；
-4. 只有需要理解长期 owner/data flow 或专项语义时，才进入架构和语义手册。
-
-对每个触达范围都要分开写目标合同、当前事实和偏差债务。现有代码与测试只能证明当前实现；它们偏离目标架构时，应在当前纵向 atom 所需范围内主动纠正，而不是新增兼容错误实现的 wrapper、matcher 或专用分支。
-
-当前阶段、顺序和完成门只查[兼容执行路线](scene-compatibility-roadmap.md)；本导航不复制会随批次变化的阶段状态。当前能力宽度和最新证据分别只查能力台账、专项表与运行证据索引。旧 G0–G5 计划、R0–R5 记录和 coverage-first 批次均已退役，只能从[历史索引](../history/README.md)追溯。
-
-## 当前架构与计划
-
-- [Scene 兼容运行时架构](runtime-architecture.md)：官方公开合同、固定客户端静态观察、Mirage clean-room 结构和项目独立方案；规定 identity、失败粒度、compiler/VM/particle/executor 的职责。
-- [Scene 兼容执行路线](scene-compatibility-roadmap.md)：唯一现役计划；以全样本验收台账的人工裁决为完成门，按共享首断点集群排序 P0–P5；V0–V5 只保留为能力轨名称。
-- [Scene 引擎重构工程计划](engine-refactor-program.md)：派生工程队列，只拥有性能、进程隔离（daemon）、控制面统一、性能预算与公共层的阶段与完成门；与兼容路线冲突时兼容语义合同优先。
-- [Scene Runtime 事实架构地图](runtime-as-built-map.md)：代码实际接线的 as-built 参考——加载链、所有权、线程地图、不变量与"改A坏B"雷区表；改 runtime 代码前必读。
-- [Scene 当前断点修复队列](scene-open-breakpoint-queue-2026-09-09.md)：按当前证据维护的短执行入口；分开记录现役首断点、人工裁决债务、观察项与 B1–B9 退役状态，不拥有阶段顺序或完成门。
-- [Scene 开发工作流](development-workflow.md)：首断点、最小正反门、验证梯度和消融准则；不保存批次状态。
-- [Scene Runtime Daemon 契约](scene-runtime-daemon-contract.md)：进程分离（M5）的 IPC/生命周期/崩溃语义设计契约；线程约束审计结论与迁移步骤门。
-- [Scene 启动响应与按需诊断合同](../architecture/scene-launch-responsiveness-contract.md)：详情默认不诊断、异步 preparation、候选首帧提交、回滚、进度和缓存边界；进入时机仍由唯一现役路线决定。
-- [长期技术边界](../architecture/technology-stack-boundaries.md)：Swift/AppKit/Metal、QuickJS-NG、glslang/SPIRV-Cross、跨语言和发布边界。
-
-## 当前事实
-
-- [能力台账](semantics/coverage-ledger.md)：所有系统的当前能力、部分能力、缺失项和待办。
-- [运行证据索引](semantics/runtime-evidence-current.md)：当前构建/运行身份、样本结果和证据限制。
-- [样本验收台账](semantics/scene-sample-acceptance-ledger.md)：真实样本根全部成员的作者参数形状、隔离运行状态、首断点集群与人工视觉裁决；最终验收门的唯一进度事实，由 `script/scene_sample_acceptance_ledger.py` 从裁决覆盖层生成。
-- [样本调试台账](semantics/scene-sample-debug-ledger.md)：逐样本首断点定位与修复批次的运行证据。
-- 版本化证据载荷位于被 Git 忽略的本机缓存，只由[运行证据索引](semantics/runtime-evidence-current.md)保存输入、App、报告、manifest 身份与哈希摘要；现役文档不链接或依赖该本机目录。
-- [Corpus 能力清单](semantics/scene-corpus-capability-inventory.md)：真实 authored occurrence、family、参数和资源影响面；不表示运行支持。
-- [能力依赖图](semantics/capability-dependency-map.md)：公共依赖和不可绕过边界；不是任务队列。
-- [Fast Scene Suite 机器合同](../../script/scene_fast_suite.json)：成员、选择状态和 readiness 的唯一事实入口；任何 `selection-required` 成员都不能执行或计为 Suite PASS。
-
-## 专项合同与覆盖
-
-- [语义手册](semantics/README.md)：全部专项文档导航。
-- [Effect 执行覆盖](semantics/effect-execution-coverage.md)：官方 Effect taxonomy 各类输入的当前执行通路和缺口。
-- [Render Graph / Shader 覆盖](semantics/render-graph-shader-coverage.md)：Program、pass、FBO、command、target 和 shader primitive。
-- [SceneScript API 覆盖](semantics/scenescript-api-coverage.md)：语言、module、host API、handle、event 和 timer。
-- [Particle 组件覆盖](semantics/particle-component-coverage.md)：General、Emitter、Initializer、Operator、Renderer、Child 和 Control Point。
-- [运行输入与属性覆盖](semantics/runtime-input-property-coverage.md)：Timeline、user property、pointer、audio、media 和 provider。
-- [高级对象覆盖](semantics/advanced-object-coverage.md)：Puppet、lighting/HDR、3D、RGB、offline 和性能。
-
-## 资料与参考
-
-- [资料来源索引](semantics/source-index.md)：官方、客户端取证、项目 corpus 和第三方证据边界。
-- [官方客户端行为研究与一致性验证工作流](semantics/official-client-behavior-research-workflow.md)：公开资料不足时的触发条件、AI 研究卡、clean-room 静态边界和官方黑盒结果门。
-- [官方页面映射](semantics/official-page-map.md)：官方 Scene 页面到唯一合同 anchor 的映射。
-- [官方客户端静态取证](semantics/client-runtime-static-forensics.md)：Wallpaper Engine 2.8.42 的版本有界职责和顺序，不是公开跨版本 API。
-- [MirageWallpaper 静态研究](semantics/miragewallpaper-rendering-reference.md)：固定 revision 的 GPL-3.0 第三方结构对照，不是官方或像素真值。
-- [官方公开快照](reference/official/)：版本化 API 声明，只用于 diff/fixture，不进入 App bundle。
-
-官方资料优先。只有公开合同、现有固定客户端证据和当前 corpus 仍不足以解释 producer-to-consumer 链时，才按固定 revision 读取 Mirage；不得把第三方审查变成每个 family 的前置仪式。
-
-## 验证入口
-
-```bash
-python3.12 script/verify_scene_change.py --phase <inner|checkpoint|integration|milestone> --base HEAD --path <owned-path> --run
+```text
+主 App：选择壁纸 / 属性 / 暂停 / 屏幕变化
+    ↓ typed command → SceneDaemonClient
+同一 App 二进制的 --mwx-scene-daemon 进程
+    ↓ Host 加载作者数据，准备 Program / graph / resources
+    ↓ FrameDriver 更新 clock / property / script / simulation / provider
+    ↓ 每个 surface 的 renderer → Metal encode → 唯一 compositor
+    ↓ GPU completion / publication → 后续帧消费；切换时撤销旧 generation
 ```
 
-开发循环先跑最近 inner 门并尽早进入一个真实代表内容；只有 manifest 已批准的成员才能称 Fast Scene Suite，未批准时必须报告 `representative-content`。checkpoint 再加入未见组合；fixed/full、性能、签名和发布属于 milestone。可见声明必须证明实际执行和与声明相称的画面/事件变化，不能用 compiler success、route、matrix 或非黑像素代替。
+静态纹理、字体、shader 和 graph 在加载或明确失效时准备；视频、动态文字、粒子等只更新必要的帧数据。所有对象接入同一资源、帧状态和输出合同。普通帧不重新解析、编译或建图；耗时诊断不参与正常播放。
 
-历史计划、评审、基线和迁移过程统一见[历史文档索引](../history/README.md)。现役文件不得链接历史材料来决定下一任务。
+这是职责概览。逐对象加载时机、合成入口、失败及释放规则见[播放器设计 §8](design/runtime-architecture.md#8-scene-播放生命周期与落代码合同)；实际代码所有权与现有偏差见[代码地图](design/runtime-as-built-map.md)。
+
+## 现在做什么
+
+| 任务 | 只打开这个入口 |
+|---|---|
+| 架构重构、性能、代码与文档消融 | [重构执行计划](engine-refactor-program.md)：E0 基线到 E8 集成，每项含依赖、验收和回退 |
+| 兼容能力、可见正确性与发布完成门 | [兼容路线](scene-compatibility-roadmap.md)：P0–P5 |
+| 处理眼前尚未关闭的播放问题 | [当前断点队列](scene-open-breakpoint-queue-2026-09-09.md)：兼容路线的派生短表 |
+| 开始落代码、选择验证门 | [开发工作流](development/development-workflow.md) |
+
+## 去哪里改代码
+
+Scene 源码在 [Core/SteamWorkshopScene](../../MyWallpaperX/Core/SteamWorkshopScene/)，按执行阶段与能力领域组织：
+
+```text
+Format/        作者文件、格式与解码定义
+Compilation/   Graph、Material、ShaderContract、ShaderFrontend、ShaderPreparation
+Runtime/       IPC、Session、Frame（进程、会话与帧编排）
+Systems/       Properties、Timeline、Script、Particles、Puppet、Text、Media、Input、Animation
+Resources/     Assets、Textures、Providers（共享定位、上传、驻留与发布）
+Rendering/     Frame、Bindings、Graph、Targets、Dependencies、Geometry、Metal、Composition 等
+Diagnostics/   独立的统计、诊断和捕获 owner
+```
+
+Format 表达作者输入；Compilation 生成 prepared 产品；Systems 更新能力状态；Resources 管理共享资源；Rendering 编码并合成唯一输出；Runtime 编排加载、帧与退出。能力不能拥有第二套 clock、registry 或 compositor。类型的扩展跟随主体，Host/Renderer 的能力接入扩展仍由编排对象持有。这些目录仍在同一 App target 中，不构成 Swift 模块依赖隔离；拆 target/package 必须先证明边界和构建收益，不能因目录分开就默认完成架构解耦。
+
+例如：修改骨骼姿态去 `Systems/Puppet`，修改骨骼最终绘制沿 `Rendering/Frame` 到 `Rendering/Geometry`；修改文字排版去 `Systems/Text`，纹理发布查 `Resources/Textures`；修改 shader 编译去 `Compilation`，修改 FBO/history 提交查 `Rendering/Graph` 与 `Rendering/Targets`。
+
+[布局清单](../../script/scene_source_layout.json)登记目录职责与文件归属，[测试源集合](../../script/scene_swift_source_sets.json)登记 standalone 编译输入；移动类型时同步两者、验证选择器及工程桥接路径。QuickJS 第三方源码保留 `Systems/Script/QuickJSNG` 原有内部布局。新增字段、effect、provider 或脚本 API 按播放器设计 §8.4 选择已有职责。
+
+## 目录怎么读、怎么维护
+
+- **本层 `.md`**：本入口与当前路线。计划只留未完成动作、依赖、完成门和退役条件；不追加完成日志。
+- **`design/`**：长期设计、当前代码地图、[进程合同](design/scene-runtime-daemon-contract.md)、[启动合同](design/scene-launch-responsiveness-contract.md)、按需重构审计。已实现功能仍需要设计合同，不能因实现完成而删除合同。
+- **`development/`**：落代码和验证方法。
+- **[semantics/](semantics/README.md)**：按问题查能力、证据与作者语义；不整目录阅读。大型台账只按主题或精确 anchor 查询。
+- **`reference/`**：版本化参考 fixture，不是下一步任务。
+- **[历史库](../history/README.md)**：退役计划与已完成过程；不参与默认阅读。
+
+[Fast Scene Suite 机器合同](../../script/scene_fast_suite.json)是 readiness 的唯一事实入口；`selection-required` 不能执行或算作通过。代码/可复现证据是当前事实，设计是目标，路线决定顺序；本页不复制动态验收计数。第一次进入仓库读完本页，再按任务选择一条路线即可。

@@ -4,15 +4,16 @@
     "historyRoot": "docs/history",
     "additionalPaths": [
       "docs/architecture/appkit-migration.md",
-      "docs/architecture/scene-launch-responsiveness-contract.md",
       "docs/architecture/technology-stack-boundaries.md",
-      "docs/scene/development-workflow.md",
+      "docs/scene/design/refactor-baseline.md",
+      "docs/scene/design/runtime-architecture.md",
+      "docs/scene/design/runtime-as-built-map.md",
+      "docs/scene/design/scene-launch-responsiveness-contract.md",
+      "docs/scene/design/scene-runtime-daemon-contract.md",
+      "docs/scene/development/development-workflow.md",
       "docs/scene/engine-refactor-program.md",
-      "docs/scene/runtime-architecture.md",
-      "docs/scene/runtime-as-built-map.md",
       "docs/scene/scene-compatibility-roadmap.md",
       "docs/scene/scene-open-breakpoint-queue-2026-09-09.md",
-      "docs/scene/scene-runtime-daemon-contract.md",
       "docs/scene/semantics/official-client-behavior-research-workflow.md",
       "docs/scene/semantics/runtime-evidence-current.md",
       "docs/web/wallpaper-engine-web-rules.md",
@@ -48,12 +49,6 @@
       "retirementCondition": "产品目标内的 SwiftUI import、NSHosting 接点和 SwiftUI-to-AppKit bridge 经可复现扫描与构建门证明全部为零，且长期架构合同已接管最终职责后，将本文转为 historical-evidence。"
     },
     {
-      "path": "docs/architecture/scene-launch-responsiveness-contract.md",
-      "role": "stable-contract",
-      "entrypoint": "docs/README.md",
-      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
-    },
-    {
       "path": "docs/architecture/technology-stack-boundaries.md",
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
@@ -80,6 +75,26 @@
         "docs/scene/scene-compatibility-roadmap.md",
         "docs/scene/semantics/coverage-ledger.md",
         "docs/scene/semantics/runtime-evidence-current.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/breakpoint-queue-before-2026-09-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/scene-compatibility-roadmap.md",
+        "docs/scene/scene-open-breakpoint-queue-2026-09-09.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/engine-refactor-program-before-2026-09-15.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/engine-refactor-program.md",
+        "docs/scene/semantics/coverage-ledger.md"
       ]
     },
     {
@@ -279,7 +294,37 @@
       ]
     },
     {
-      "path": "docs/scene/development-workflow.md",
+      "path": "docs/scene/design/refactor-baseline.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/engine-refactor-program.md",
+      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+    },
+    {
+      "path": "docs/scene/design/runtime-architecture.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/README.md",
+      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+    },
+    {
+      "path": "docs/scene/design/runtime-as-built-map.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/README.md",
+      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+    },
+    {
+      "path": "docs/scene/design/scene-launch-responsiveness-contract.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/README.md",
+      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+    },
+    {
+      "path": "docs/scene/design/scene-runtime-daemon-contract.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/README.md",
+      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+    },
+    {
+      "path": "docs/scene/development/development-workflow.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/semantics/runtime-evidence-current.md"
@@ -288,19 +333,7 @@
       "path": "docs/scene/engine-refactor-program.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
-      "retirementCondition": "M0–M6 全部完成、daemon 化与两档性能预算成为产品默认形态、正常帧消费 prepared 表示、控制面统一经命令层，且稳定架构合同（runtime-architecture/technology-stack-boundaries）、能力台账与运行证据接管全部终态描述后，本文转 historical-evidence。本计划是 Scene 专题的派生工程队列，不接管兼容能力段位与样本验收；与 scene-compatibility-roadmap.md 冲突时兼容语义合同优先。"
-    },
-    {
-      "path": "docs/scene/runtime-architecture.md",
-      "role": "stable-contract",
-      "entrypoint": "docs/README.md",
-      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
-    },
-    {
-      "path": "docs/scene/runtime-as-built-map.md",
-      "role": "stable-contract",
-      "entrypoint": "docs/scene/README.md",
-      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+      "retirementCondition": "E0–E8 完成或经证据裁决不适用、旧职责撤权、当前文档收敛、性能与恢复门通过，稳定合同接管终态后转 historical-evidence。本文是项目工程重构入口，不接管兼容能力和样本验收；性能基线不等待兼容路线 P5。"
     },
     {
       "path": "docs/scene/scene-compatibility-roadmap.md",
@@ -315,12 +348,6 @@
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该日期化派生执行入口时，删除或转为 historical-evidence。"
     },
     {
-      "path": "docs/scene/scene-runtime-daemon-contract.md",
-      "role": "stable-contract",
-      "entrypoint": "docs/scene/README.md",
-      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
-    },
-    {
       "path": "docs/scene/semantics/official-client-behavior-research-workflow.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/semantics/README.md",
@@ -329,7 +356,7 @@
     {
       "path": "docs/scene/semantics/runtime-evidence-current.md",
       "role": "stable-contract",
-      "entrypoint": "docs/scene/README.md",
+      "entrypoint": "docs/scene/semantics/README.md",
       "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
     },
     {

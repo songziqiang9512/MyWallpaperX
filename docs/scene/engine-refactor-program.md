@@ -1,182 +1,217 @@
-# Scene 引擎重构工程计划（Engine Refactor Program）
+# MyWallpaperX 重构执行档案
 
 <!-- document-role: active-plan -->
 
-> 状态：现役专项工程计划（Scene 专题的派生工程队列）
+> 状态：现役工程重构计划；已完成调查、生命周期设计及源码／文档职责重排；E0 性能基线和下述运行时成本消融尚未执行。
 >
-> 复核：2026-09-14
+> 基点：2026-09-15，`a7863c3e0bf5c2d7f134c7378aff1d13424a5c10`，调查开始时工作区干净。
 >
-> 职责边界：本计划只拥有**引擎工程架构**——性能、进程隔离、控制面统一、性能预算、公共层拆分——的阶段顺序与完成门。Scene 兼容能力路线、段位顺序与样本验收的唯一现役计划仍是[兼容执行路线](scene-compatibility-roadmap.md)；两者冲突时兼容语义合同优先，本计划服从。目标合同查[运行时架构](runtime-architecture.md)；能力现状查[能力台账](semantics/coverage-ledger.md)；代码实际接线与"改A坏B"雷区查[事实架构地图](runtime-as-built-map.md)。
+> 范围：Scene 从准备、状态更新、合成到播放的执行成本；App/Video/Web/Scene 控制边界；测试与文档消融。沿用已有路径，不新增并行工程计划。
 >
-> 退役条件：M0–M6 全部完成、daemon 化与两档性能预算成为产品默认形态、每帧执行消费 prepared 表示、控制面统一经命令层，且稳定架构合同与能力台账接管全部终态描述后，本计划转 historical-evidence。
+> 权威：本文决定工程批次和退役门；[兼容路线](scene-compatibility-roadmap.md)决定作者能力与样本验收，不要求等 P5 才测性能。两者冲突时保留正确画面和安全边界，调整实现与工作顺序，不冻结旧方案。长期合同变更与 owner 迁移同批落入各自权威文件。
+>
+> 退役：E0–E8 完成或有证据裁决不适用、旧职责撤权、当前文档收敛、性能与恢复门通过后，终态归长期合同，本文转历史。
 
-## 1. 长期目标
+## 1. 执行摘要
 
-一个**清晰、快速、高效、框架结构清楚、兼容性好**的 Scene 后端引擎：
+**保留已经成立的底座；先降低材质 admission 与帧状态构造成本，再按测量结果优化 GPU 和调度。每个替代必须交付一份删除清单。** 不整体换语言、不再做一次 daemon 化、不先搭完整新框架，不以切文件或增加缓存数量作为进展。
 
-- 单一权威主链：`authored data -> prepared Program/graph/resources -> typed frame update -> Metal encode -> 唯一 compositor/output`；
-- 正常帧只消费 prepared 表示与 value 更新，任何解释、验证、哈希、重建只发生在 cold path 与显式失效点；
-- 播放引擎运行在独立 daemon 进程，主程序经粗粒度命令控制（与 video/web daemon 同模式）；
-- 引擎受两档性能预算约束（60/30 FPS 一档一束），设置面用户可见项只有一个；
-- 状态栏、设置面板、播放按钮经统一命令层控制所有壁纸引擎；属性调节热更新不重启；
-- 工程标准：持续消融到最短实际链路；跨模块共享代码整块沉淀公共层；每个抽象有 ≥2 真实消费者；禁止第二套权威、禁止补丁摞补丁。
+启动阅读：本节 → §3 目标设计及其链接的逐对象生命周期合同 → §5 当前执行卡。具体证据只按 §2 的索引查找；文档与测试处置查 §6。不要在每批开工时重读全部资料。
 
-## 2. 硬约束（每批开工前逐条自查）
-
-**架构**
-
-- 不推倒兼容架构；Swift+AppKit 宿主 / Swift+Metal 底座 / authored→IR→Program/Graph→Executor→Compositor / 通用 shader backend / 真 ECMAScript VM（QuickJS-NG）/ particle component interpreter。
-- 唯一 compositor、registry、frame clock、property authority、graph owner；PreparedProduct 五类产品协议不变；禁止第二套任何权威。
-- 永不按 sample/layer/path/hash/screenshot 选择视觉算法。
-- hot path 只允许：clock/SceneScript tick/粒子模拟/动态值/audio/资源 publication/uniform/encode/commit/present。禁止逐帧 JSON、hash、graph rebuild、reflection、pipeline 创建、全 catalog scan、evidence object tree、大规模 String、文件扫描（runtime-architecture §5.5）。
-- 失效域按五类表最小化：value-only / resource-generation / geometry-extent / program-variant / topology。
-- 安全合同保留：路径逃逸、GPU 越界、target hazard、ABI/stale generation、VM 超时、OOM 硬拒绝；视觉失败局部 fail-soft 保 previous-current。诊断是旁路，不是提交/出画面前置。
-
-**工程**
-
-- 每批先证明热点（架构回归纠偏除外）→ 最小范围 → 保语义 → 保测试 → 有 measurement → 重新 profiling。
-- 禁止：无 profiling 全面重写、为性能绕过兼容语义、为抽象新增单一消费者包装。
-- 高频 identity 用整数/struct ID；同一资源/管线不重复创建；draw/encode 热路径禁止首次 `makeLibrary`/`makeRenderPipelineState`/同步 decode/读文件。
-
-**公共层**
-
-- 与其他模块耦合的共享代码**整块拆出**到公共层（半拆留桩视为未完成）。
-- 依赖方向单向：`Shared` ← `Core` ← `Modules` ← `App`；公共层禁止反向依赖任何具体引擎模块。
-- 公共层准入须有 ≥2 个模块的真实消费者。
-- 拆分是搬移+最小改名，不借机重写逻辑。
-
-## 3. 里程碑与工位卡
-
-**交接门（2026-09-14，审计基点 c39d78a7）：提交级审计已闭合，全工程验收尚未通过。** 基线 `ec490e1b` 与 `origin/codex/scene-capability-baseline` 一致，35 个本地提交；当前基点及 15 个历史产品提交均已在隔离 checkout 逐一重跑 checkpoint，全部 BUILD SUCCEEDED；另已补建初始文档提交的产品树；按 App 源码、Xcode 工程及 checkpoint 脚本树校验，35 个提交均覆盖到 16 个实测构建树，构建成功不覆盖语义与运行门。已发现 M0 播放态协议分发、M3.2 同步 launch generation、M5.2 EOF/协议事件的纠偏项，须先逐项修复/验证，再进入 M5.3。历史卡内 ✅ 只表示原批落地声明，不等于本轮审计或完整 DoD 通过。Fast Suite manifest 仍含 `selection-required`；两个代表样本已选 `2938612768`、`1300076567`，用户已确认仅恢复同步 generation 的签名 Debug 构建中，两份样本画面与动画正常；后续控制面及回滚候选亦已重跑：签名 Debug 可执行文件 SHA-256 `b39711d88de66e0ee1478f36a6add48bec746c1325899a7c30d58a5389510c36`，两样本各 20 秒、GPU 失败均为 0，用户再次确认画面与动画正常；graph 严格 matrix 的原有 22 项失败仍在，未代替 Fast Suite。当前候选 checkpoint 与 45 项定向测试通过。 已分别提交同步 generation（`c9130e68`）、命令分发（`b2bd56fe`）、executor memo 撤回（`17ecccce`）及 daemon 原型撤回（`df47b579`）；四个提交各自的隔离 checkpoint 均 BUILD SUCCEEDED。消融：generation/命令修复复用原路径，executor 删除一条 Bool memo 路径，daemon 删除一条未接入 CLI 路径，未新增权威或视觉分发。
-
-**交接纠偏闭合（2026-09-14）：** 上述 M0 分发、M3.2 generation 与 M5.2 生命周期反例均已用独立提交或后续安全批修复；原型撤回后没有直接续写不安全路径。提交级构建审计与三份交接文档核对已完成。M5.4 已用 requestID/recordID 事件投影关闭 M0.5 pending 归属缺口；Fast Suite 尚有四个 `selection-required` 成员、现役树的 code-health 超限等工程余项继续由对应工位卡和 M6 门管理，不能由交接门闭合推导完整工程验收。
-
-交接治理校正：历史 Light Shafts 文件链接改为明确退役标记，两个现役 direct-draw 几何类型补入目录合同及事实地图；semantics coverage / 文档登记 / governance 共 31 项通过，不代表运行验收完成。
-
-
-交接测试纠偏：静态 uniform 缺省/声明冲突在 launch envelope 撤销 owner，executor 测试改验该阶段后继续执行 previous-current、suffix、GPU completion 与像素断言；executor + 独立 finalizer 共 27 项通过。
-
-卡格式：**改哪里 → 怎么做 → 验收门 → 回滚**。状态记录于卡内标题行；执行细节与 file:line 锚点查[事实架构地图](runtime-as-built-map.md)。
-
-### M0 控制面命令化 + 公共层第一批（同进程）
-
-- **M0.1 命令层入公共层** ✅ f33b2386+交接纠偏：`Core/PlaybackControl/` 三件 + Scene 处理端 + video 处理端 + isPlaying 协议要求（交接审计补齐）+ 可执行命令分发测试通过 + 状态栏三键切公共权威。原落地 f33b2386：`Core/PlaybackControl/` 三件（WallpaperEngineCommand / PlaybackEngineControlling / PlaybackCommandMultiplexer，未消费命令显式返回 false）；Scene 处理端接真实入口（loadScene→requestLaunch、pause/resume→setPlaybackPaused、stop→stop()）；video 处理端（pause/resume/stop→WallpaperEngine，setMuted/switchNext→WallpaperManager）。验收：UI 无直触引擎内部 ✅（状态栏已改）；web 处理端待 web 模块需要时补。
-- **M0.2 静音态升公共层** ✅ 4626ed6e+30d545d4：公共静音权威 `PlaybackMuteState` 全链闭环——读取点（状态栏菜单/设置开关/全局热键）、音量滑杆 0 边界同步、daemon 回放（client 读权威重放 setMuted）全部切公共权威；video `previousAudibleVolume` 恢复语义保全（独立审查确认）；死镜像清理。验收：任一引擎激活时菜单/设置静音一致生效 ✅（命令链 daemon smoke + 审查确认）。可选跟进：设置面板对 playbackMuteStateDidChange 的活性回读（重开面板即同步，不阻塞）。
-- **M0.3 设置容器拆公共层 + FPS 档** ✅ cbd96207+2c72b9d9：文件迁移/依赖倒置/FPS 档/audio 双引擎全部落地。`AppKitSettingsView` 1500 行视图 60 处引用切换为 `dependency.settings/actions`；`SettingsWindowController` 构造 `AppSettingsPanelDependency(settings:actions:)` 注入；FPS 30/60 分段 + 命令层下发；静音经 `PlaybackMuteState` 公共权威。
-- **M0.4 状态栏菜单打通** ✅ f33b2386：三键改发命令；播放标题/图标按 video+scene 任一在播判定；注册点=setupStatusBar。Scene 静音消费随 M0.2 补齐。
-- **M0.5 播放按钮交互** ✅ ce13c3c0+M5.4：pending 状态在 SteamWorkshopService 保持单一 recordID；点击立即置位、早退即清。Scene client 只投影 requestID/recordID 匹配的终态，runtime switch 通知携带 recordID，service 只清除匹配记录；跨请求门证明旧 A 终态不能清除仍在收集纹理书签或等待 accepted 的新 B。video/web 保留 1.5s 身份不足兜底；详情、共享卡片与两网格继续投影同一 pending。
-- **M0.6 属性热更新** ✅ 既有 liveState 链+M5.4 pipe：编辑器持久化仍只有 App 的 SteamWorkshopService；typed `SceneUserPropertyValue` 以 revision+recordID 经 daemon 管道送入唯一 Host liveState。daemon 明确回传 `propertyUpdateResult`；接受时同一 surface 下一帧生效，拒绝时 client 将值先合并进 authored intent，再触发完整 `loadScene` 兜底。数值属性样本验证同 daemon 生效并在强杀恢复后保留；无 live consumer 的属性验证拒绝后同进程完整重载。SceneTexture 变更携带安全作用域书签并直接完整重载以刷新资源。
-- **M0.7 性能档两档** ✅ cbd96207：`PlaybackPerformanceProfile`（60/30，UserDefaults）；宿主持有档位，FrameDriver 帧间隔与 busy 重试间隔由档位派生（硬编码 60Hz 常量删除），`.setPerformanceProfile` 热切换下次排帧生效。预算束其余维度（池帽/缓存帽/resident 系数）随 M4.2 接入同枚举。
-- 与 M1 文件不重叠，可并行。
-
-### M1 度量地基
-
-- **M1.1 常开定长 counter** ✅ e04d6a26+300f6a1a+本批：hub 共 21 个定长槽，覆盖帧分类、cpuFrame/renderer/drawableWait、7 个帧内阶段 micros、真实 Metal draw 提交、pipeline state bind、geometry draw 与实际视觉 fallback 分支；launch 五阶段/firstVisibleFrame 保持首次时间戳。资源量由 daemon 1Hz 采样：`gpuAllocatedBytes` 使用 Metal 的进程/device 总分配量，避免把 buffer/PSO 混报为 texture-only memory；`renderTargetPoolBytes` 汇总现有有界 offscreen/named/depth/framebuffer 池的驻留预算值。全部 draw/bind 点进入同一 hub，资源采样不触发 lazy pipeline factory；现有 `SceneFramePerformanceTelemetry` 仍只用于 debug 证据窗口。
-- **M1.2 signpost** ✅ e04d6a26：OSSignposter 薄封装 + launch-state 事件 + firstVisibleFrame 首次记录。帧内阶段 interval 待按需补（counter 已覆盖归因）。
-- **M1.3 Debug HUD** ✅ d427ddaf：`ScenePerformanceHUD`（仅 DEBUG）浮窗 1Hz 差分展示 + 每 5s 结构化 `MWX PERF:` NSLog（累计均值/阶段分解/launch 时间戳），启用门 = evidence window 或 MYWALLPAPERX_SCENE_PERF_HUD=1；不进帧路径，Release 无此类型。
-- 验收：基线**机制**就绪 ✅；**M1 基线数字（2026-09-14，样本 1300076567 隔离副本 /tmp/mwx-baseline，Debug+evidence 窗，20s 稳态，6 layers/1 image/0 effects 简单场景）**：稳态 60fps（rendered 1189/busy 0/dropped 0）；cpu frame 累计均值 3.92ms（renderer 2.77 + drawable 0.28）；阶段均值 world-resolve 0.01 / frame-admission 0.30 / **prepass 2.03（占 cpu 52%，首要观测项）** / layer-loop 0.31 / seal 0.07；draw=1/帧；startupElapsedMS=941.7（含 0.4s 调度延迟；runner 同步 launch 路径不经 publishLaunchState——launch 阶段日志在同步路径缺失，已记 M2 后补）。原始日志 /private/tmp/mwx-baseline/run-before.log（临时区）。该样本无 graph/particle，trace/plan 重验证等风险项在复杂样本上占比更高，Patch A/B 后在同类简单样本上先比绝对值。**方法学警示（2026-09-14）**：全部基线/after 数字采自未签名 Debug 构建 → glslang 路由按许可合同不可用，effect 一律走 bounded frontend 回退（cpu/admission 口径=回退模式）；与生产签名模式的绝对值不可直接互换，模式内 before/after 对比有效。
-
-  **M1.1 收尾实测（2026-09-14，签名 Debug，同一机器、1300076567→2938612768 隔离副本、各批同为 20s）**：before `rendered=521/busy=23/dropped=0/cpuFrameMs=14.027`；after `525/23/0/14.459`，画面截图正常、同一 daemon 完成切换并退出。after 回传 `drawCalls=23022/pipelineStateBinds=23022/geometryDrawCalls=2337/fallbackBranches=0/gpuAllocatedBytes=885653504/renderTargetPoolBytes=88628632`。单次整段 CPU 差值混有 shader 准备与 Debug 逐帧诊断，不能归因给 counter；独立 `-O` hub 微基准把一次 bind+draw+geometry 三槽更新测为 38.83ns，按该次 graph 的 43.85 次命令/帧折算约 1.70µs/帧，低于 M1.3 的 0.1ms 常开预算。该数字只界定 hub 更新成本，不等同生产整帧性能。
-
-  最终产品树的 formal checkpoint 共 65 个模块全部通过，checkpoint 与 Developer ID 签名 Debug 构建均 `BUILD SUCCEEDED`、严格 codesign 有效；code-health 保持交接时的 `181 warnings / 19 errors`，本批触达的 `SceneMetalRenderer.swift` 行数回到 HEAD 的 825，`SceneDependencyFrameRuntime.swift` 为 799，没有新增或放大 hard-limit error。最终签名产物再以隔离副本验证强杀恢复：simple `1300076567` 为 `rendered=3641/busy=0/dropped=0/drawCalls=25472/geometryDrawCalls=21831`，graph `2938612768` 为 `433/23/0/55424/433`，两者 pipeline bind 与 draw 提交数一致、fallback 为 0、daemon 退出后无孤儿；恢复后的 Metal 直出截图分别保持窗边人物与霓虹唱片完整构图。消融：删除 renderer 每层 `.encoded` 的 1 个近似 draw 计数入口，计数改附着到既有 9 个真实 Metal primitive 提交和对应 bind 点；没有新增 render/fallback 选择分支，产品视觉路径净增 0，权威数不变。
-
-### M2 引擎减税
-
-- **M2.1 Patch A** ✅ 63de923f：trace 门控（usesDebugEvidenceWindow，Release 恒 nil）+ GraphComposition subjects 循环守卫（收益主体）+ 7 签名可选化；同批修复 utilityCaptureTelemetry 每帧注册 handler（改首次终态后停止，每层恰一次）。实测（graph 样本 2938612768 隔离副本，正常模式 20s）：after 4 tick 全程干净 exit 0，cpu 34.18±0.1ms 稳定——trace 成本本就 <0.5ms/帧，本批收益为架构合规（Release 零 evidence 对象）+ handler 有界化而非该样本毫秒级增益；旧二进制正常模式出现主线程停滞 11s + exit 133（随旧路径消失，根因未查，记观察项）。admission 25.5ms（cpu 62%）不变——M3/M4 目标。
-- **M2.2 Patch B** 🔶 已实施并回滚（2026-09-14，实测回归）：两版实现（立即渲染版与 deadline 感知版）在 graph 样本 2938612768 正常模式实测均引入 **busy 509-534 次/20s、attempts 翻倍**（Patch A 基线 busy=0、attempts=rendered），fps/CPU 无改善。根因：GPU 完成事件在编码期中途到达（frame N 的 GPU drain 发生于 frame N+1 编码期），事件路径与 cadence Timer 互相激发产生 attempt 放大；'completion 把 host 唤醒即可消除轮询'的前提在该样本不成立（正常模式 busy 本来=0，CPU 串行 34ms 使下次 attempt 时 GPU 已完成；busy 只在 evidence 读取拖慢 GPU 时出现=诊断模式）。保留资产：acceptance 翻转检测的完备性证明（唯一翻转点=completeCommandBuffer）与两版实现 diff（git 历史）。**重启条件**：出现真实 busy>0 的常规工作负载（GPU 时长>cadence 的样本）时，按 deadline 感知版重启并重测。2ms 兜底轮询维持现状（正常模式无实测成本）。帧时钟权威唯一（coordinator=准入权、FrameDriver=节奏权，回调只是边沿通知）。
-- **M2.3 Patch C** ✅ 6aa74ba2：coordinator 持有 `claimExecutionByToken` 缓存 + 独立 NSLock（公共路径在主锁外）；catalog 不可变/token 含 ownerID → 随实例生存即正确、无失效需求；ClaimedExecution 全 let 共享安全。实测 graph 样本无回归（cpu 33.5ms vs 34.2ms、busy=0）。定位：Phase 3 第一小步，单层收益 μs 级、随 graph 层数线性放大。
-- 验收：各批独立提交；M1 before/after；消融确认被门控路径关闭后样本无行为差异。
-
-### M3 消融减法 + hot path cleanup
-
-- **M3.1 Frame storage** ✅ 核心 07b2d871：registry liveSelectionDigest 增量维护已落地——entries 写入点仅 2 处（set(status:)/publish(resource:)）+2 处 removeAll，O(changed) 折叠；snapshot() 零全量 fold；digest 不变量 harness 5 组全过（确定性/可逆/generation 值稳定/相异 fact/entryCount，harness 存 docs/scene/evidence/m31-digest-test/，python 驱动被 Mimosa 钩子误报拦截、可人工运行），graph 样本实测无回归（cpu 34.4-34.7ms 噪声带内、busy=0）。**余项显式 defer 至 M4.3**（2026-09-14 裁决）：beginFrame 无变化帧直通与 overlay CoW 消除——判定信号需逐字段比对 8 类输入（含 publication/generation 生命周期语义），误判=陈旧 registry（as-built map 雷区类缺陷），实测收益 µs 级（无变化帧成本=O(N) 便宜槽位写，非 fold/非 25.5ms 量级）；且 M4.3 frame storage 重设计将整体吸收（overlay CoW 与重发布同属一个存储模型）。
-- **M3.2 启动链去串行** 🔶 交接修复：恢复同步 launch 每次尝试的 SceneScript generation 递增，18 项启动测试通过；签名 Debug build 成功，两份代表样本已获用户画面与动画正常反馈（仅 generation 修复构建）；graph 严格 matrix 仍有 22 项失败，未标记本批完成。原归因补录完成（1a7e4020）：同步 launch 路径接入 M1 hub 阶段记录，graph 样本（85L/44img/62fx）实测 TTFVF 归因：包解析+IR 0.68s → admission+材质资产解码 2.95s → **catalog 尾+caps+QuickJS+FS join+activate 7.88s（主桶）**；firstVisibleFrame 与 launched 同拍；startupElapsedMS=11934.7ms。**关键归因**：材质资产解码→caps→QuickJS 为真数据依赖串行链，原“解码与 QuickJS 重叠”切片前提不成立。**细分实测（d800ce12 锚点，同样本）**：材质资产解码 728ms；capability catalog 构建 6685ms（主桶 85%）；QuickJS 定点编译 266ms；device/FS join 各 0-5ms（后台 worker 并行已吸收——双 join 并行化无收益，裁决不实施）；activate 表面构建 203ms（独立段）。**caps 6.7s 的定性修正（2026-09-14 二次核查）**：caps 内部已是 `concurrentPerform` 并行（Capability.swift:381），且冷/热两次运行等时（7413/7363ms）→ 非冷缓存问题；真因 = 未签名 Debug 构建中 helpers 为 adhoc 签名，`signedByProductTeam` 按许可合同正确拒绝 → 全部 effect 走进程内 bounded frontend 回退分析（CPU 大户）。生产签名构建走 glslang 路由 + 磁盘 artifact 缓存，该成本大部分不存在。**M4.1 据此改聚焦**：caps 启动成本属 dev 环境回退路径（降优先级）；保持主目标 = 帧路径 admission 25.5ms 的 plan 重推导（与签名无关）。**pool plansMemo 已落地**（08c70d53，内容键=capabilityToken+layerID+尺寸+targets，reset 清空，失败不缓存）：生产签名模式消除每帧 N×make；**回退模式不可测**（effect 全拒 → preflight 0 次进入，探针已移除）——sample 采样证实回退模式 adm 26.8ms 分散于逐层降级判定（TextureSlotBinding.valid/entryMix/cursor/publishLayerSnapshot），记 M3.3/M4 后续观察项。**executor validate memo 已撤回（交接纠偏）**：`8b3a8d58` 把 expected-plan 与 stored-plan 的比较结果缓存为 Bool，却没有把 stored plan 纳入键。相同 capability/generation/角色/尺寸/targets 下，更换 stored plan 的命令表仍被接受；先缓存失败又会误拒合法 plan。已恢复每次完整 plan 对比，独立生产 validator 反例通过。pool 内容缓存保留；executor 优化待 prepared plan 身份与容量门重新设计，不再宣称该 memo 等价或完成。原手动 Hashable 绕过随不安全键一起撤回。
-- **M3.3 持续消融**：见 §5，贯穿 M2–M5。
-
-### M4 表示优化
-
-- **M4.1 Phase 3 v2** ✅ 4c15ce95（独立审查通过、无 FAIL）：`makeInputsDigest`（role+extent+targets 异或 fold，`SceneAuthoredEffectInputRole` 补 Hashable）在 pool 推导期计算 → `SceneLayerGraphTargetPlan.Stage` 携带 → allocator `makeMapped` 铸进 `SceneGraphRenderTargetTable.makeInputsDigest`；帧路径 validate 以当帧输入重算摘要 O(1) 比对，命中即接受 stored plan（make 纯函数 + table `let plan` 不可变 ⇒ 摘要命中即等价），未命中回退完整推导+比较（语义逐分支一致）。纹理 `===` 门与 functionTargets 语义门保留；graph 身份经 capability token 绑定链钉死（catalog 不可变）。编译器缺陷：Hashable 合成器对含 Set 成员的 struct 在 app upcoming flags 下错误失败，手动 ==+hash 绕过。默认参数移除（编译器强制摘要传播）+ 无调用者便捷入口删除（消融净路径 -1）。扁平化三条产品路径与 executor memo 重设计（含 stored plan 身份）待后续批次。实测：回退模式 adm 25.2-25.8ms 无变化（该模式下 graph 候选少、make 路径少触发），生产签名模式（graph admitted）为收益路径，待签名运行实测。**稳态 sample 归因（2026-09-15，daemon 模式 graph 样本 2938612768 稳态 6s 采样）**：admission 子树占主线程 78%（2005/2549 samples）；子分解——composition preflight 逐层循环体 ~1322 samples（最大项，分散成本非单一热点）、prepareMaterialPass 416、overlayingGraphResources 136、AllocationCache preflight ~180。pool plansMemo 覆盖的 make 仅占极小部分——admission 真实热点是逐层循环体自身的 Swift Debug -Onone 编译开销，生产 Release -O 构建预计大幅缩减。样本 2938612768 复杂场景稳态 cpu 32.7ms/frame（~30fps 等效）。
-- **M4.2 Phase 4 资源缓存** ✅ 6/7 子项落地（整数 ID defer 有据）：executor reset 热缓存子项已落地——reset 只推进命令世代以拒绝旧 PreparedPass，保留由完整 `MetalCompileStateKey`（shader 语义/render state/attachment/sample/write mask/device）寻址的不可变 PSO 与负缓存；相同内容在 reset 后不再重新 `makeLibrary`/创建 PSO。MTLLibrary 复用子项亦已落地：PassEncoder 按完整 `metalSource` 缓存 library 与编译失败，launch warmup 的不同 PSO 变体并发请求同一源时只允许一个编译者，其余等待并消费同一结果。colorBlend pipeline 启动预热亦已落地：不可变 PSO state 由 launch 级 pipeline repository 单次解析，描述符含非零 layer blend 时在既有设备资源 worker 预热；per-surface framebuffer snapshot 仍由各 compositor 独占。loose PNG/JPEG 与内嵌 TEX ImageIO 解码去重亦已落地：同一 loader 内按完整文件身份复用解码结果，纹理仍按 device/purpose 分开。资源上传 queue 合并亦已落地：一次 launch 为每个 Metal device 懒建并负缓存一个共享 upload command queue，注入全部 launch/deferred/surface 资源消费者；renderer 的 per-surface frame command queue 保持独立。纹理解码缓存字节上限亦已接入同一性能档：daemon Host 持有 launch 级共享预算，standard/efficient 分别为 1GB/512MB，降档从下一次准入起拒绝新增中间解码缓存但不阻断当前上传，也不驱逐既有发布纹理。其余：userPropertyTextures 字符串键→整数 ID **defer（2026-09-15）**：典型场景 0-4 条用户纹理属性，每帧 String 哈希 <10µs（占 32ms 帧的 0.03%），无实测热点证据；8 文件 × daemon IPC 载荷重构风险/收益比不成立，归入 M6 后卫生批次。
-
-  **reset 热缓存实测（2026-09-14）**：Metal harness 在同一 encoder 内先准备 pipeline，再 reset；旧 PreparedPass 因命令世代变化被拒绝，随后相同 Program prepare 成功且 `pipelineCompilationAttemptCount` 不变，正/负编译缓存及累计统计均保留。改动路径选择的 26 个 formal 模块全部通过；checkpoint 与 Developer ID 签名 Debug 构建均 `BUILD SUCCEEDED`，严格 codesign 有效，可执行文件 SHA-256 `413015c2e179bd52d0a8473caa8dd762dcc2d1b67e35af80e6ab69c7a739468c`。现役 code-health 仍被本批外既有 hard-limit 债阻断，触达的 PassEncoder 为 508 行、未产生新 hard error。签名产物用全新隔离副本强杀恢复：simple `1300076567` 两次 first-present，末值 `rendered=1119/busy=0/dropped=0/fallback=0`；graph `2938612768` 两次 first-present，每次 launch warmup 均为 `91 planned/20 unique/20 ready/0 failed/20 attempts`，末值 `135/23/0/0`，两份 Metal 直出截图均保持原构图，退出后无归属进程。daemon 重启会重建 executor，故同 executor reset 的零重编译结论来自上述计数反例，样本只证明当前完整运行链与画面未回退。消融：reset 删除 7 条清缓存/清统计语句，只保留既有命令世代推进；视觉路径净增 0，权威数不变。
-
-  **MTLLibrary 精确源复用实测（2026-09-14）**：Metal harness 以两个不同完整 PSO key（不同 attachment format）并发准备同一 `metalSource`，得到 2 次 PSO 编译尝试但仅 1 次 library 编译；第二个 format 仍取得独立 PSO，证明复用边界没有吞掉 render-state/attachment 语义。该测试与 selector 选中的 26 个 formal 模块全部通过；checkpoint 与 Developer ID 签名 Debug 构建均 `BUILD SUCCEEDED`，严格 codesign 有效，可执行文件 SHA-256 `7bad2bf1c74ebc6ac0560324b821d158b0b14e7f16f0c485c813936f13585b0b`。code-health 仍为本批外继承的 `181 warnings / 19 errors`，触达的 PassEncoder 为 564 行且没有新增 hard-limit error。签名产物用另一组全新隔离副本强杀恢复：simple `1300076567` 两次 first-present，末值 `rendered=1120/busy=0/dropped=0/fallback=0`；graph `2938612768` 两次 first-present，每次 launch warmup 均为 `91 planned/20 unique/20 ready/0 failed/20 attempts`，末值 `136/23/0/0`；四张恢复前后 Metal 直出截图经本批逐张检查，人物场景与霓虹唱片构图完整一致，退出后无归属进程。样本只证明签名完整运行链与画面未回退，library 编译去重结论来自上述精确计数反例。消融：既有唯一 `makeLibrary(source:)` 调用移入同一 PassEncoder owner 的 exact-source cache 和 in-flight 合并门，没有新增视觉/fallback 路由；产品视觉路径净增 0，权威数不变。
-
-  **colorBlend 启动预热实测（2026-09-14）**：repository harness 证明构造 repository 不触发编译、首次解析只构造一个 colorBlend state、同 repository 后续消费者复用同一 identity；launch 接线测试锁定仅在 descriptor 存在非零 layer blend 时于设备资源 worker 解析。selector 选中的 19 个 formal 模块全部通过，最终 checkpoint 与 Developer ID 签名 Debug 构建均 `BUILD SUCCEEDED`，严格 codesign 有效，可执行文件 SHA-256 `13ca293808a9085e3e7de4c3419966aca540d9b50e25e5bd8728be4462dc0155`。code-health 保持本批外继承的 `181 warnings / 19 errors`，本批产品文件均低于 800 行且没有新增 hard-limit error。签名产物以全新隔离副本强杀恢复：simple `1300076567` 为 `rendered=1121/busy=0/dropped=0/fallback=0`，graph `2938612768` 为 `143/22/0/0` 且两次 resolved-material warmup 均为 `20/20 ready`；另加含 4 个 `colorBlendMode=12` 层的定点样本 `3782740481`，两次 actual present 后为 `445/33/0/0`。六张恢复前后 Metal 直出截图经本批逐张检查，窗边人物、霓虹唱片、持乐器人物及其高光/背景叠色均保持完整一致，退出后无归属进程。消融：删除 compositor 内每个 surface 首次命中时各自编译 colorBlend PSO 的路径，改由现有唯一 launch repository 持有 1 个不可变 state；没有新增视觉/fallback 路由，snapshot 仍为 per-surface，产品视觉路径净增 0，权威数不变。
-
-  **loose PNG/JPEG ImageIO 解码去重实测（2026-09-14）**：`SceneTextureLoader` 在既有 owner 内按完整 `SourceKey`（标准化路径、size、mtime、device/inode、ctime）缓存成功 `CGImage` 与失败结果；同一源用于 premultiplied/preserved 两种 purpose 时只执行 1 次 ImageIO decode，但继续生成两个目的语义不同的 Metal texture，文件身份变化仍会失效。直接 harness 与 selector 选中的 10 个 formal 模块全部通过；checkpoint 与 Developer ID 签名 Debug 构建均 `BUILD SUCCEEDED`，严格 codesign 有效，可执行文件 SHA-256 `8a749ca3c23f62c8ae6bbf6d55d7e4d3cf326c0e18527d2ac681477be7632b64`。code-health 保持本批外继承的 `181 warnings / 19 errors`，触达产品文件为 433 行且没有新增 hard-limit error。签名产物以全新隔离副本强杀恢复：simple `1300076567` 两次 first-present，末值 `rendered=1121/busy=0/dropped=0/fallback=0`；graph `2938612768` 两次 first-present，末值 `142/23/0/0`，两次 resolved-material warmup 均为 `91 planned/20 unique/20 ready/0 failed/20 attempts`。四张恢复前后 Metal 直出截图经本批逐张检查，窗边人物与霓虹唱片构图、文字和粒子层完整一致，退出后无归属进程。计数反例证明同 loader、同文件身份的跨 purpose ImageIO decode 从 2 次降为 1 次；两个样本只证明签名完整运行链与画面未回退，不外推 corpus 级性能。消融：删除 loose 图片跨 purpose 重复的 `CGImageSourceCreateImageAtIndex` 路径，复用发生在既有 loader/SourceKey 失效域内；纹理目的语义、视觉/fallback 路由与权威数均不变，产品视觉路径净增 0。
-
-  **内嵌 TEX ImageIO 解码去重实测（2026-09-14）**：format-0 mip 链及 legacy embedded payload 在既有 `SceneTextureLoader` 内按完整 `SourceKey` 缓存成功 `[CGImage]` 与失败结果；mip uploader 新增接收已解码图片的入口，原始 mip 入口仍保留相同行为。定点 harness 将同一单 mip TEX 依次作为 premultiplied 与 preserved-channel 纹理加载，取得两个不同 Metal texture，而 `texEmbeddedImageDecodeAttemptCount` 为 1。selector 选中的 10 个 formal 模块全部通过；checkpoint 与 Developer ID 签名 Debug 构建均 `BUILD SUCCEEDED`，严格 codesign 有效，可执行文件 SHA-256 `2d2d6d90780689c1aa5e33fb52d3c98337c310a5896527ed5150d8c7a63eb599`。code-health 保持本批外继承的 `181 warnings / 19 errors`，触达产品文件分别为 467/399 行且没有新增 hard-limit error。签名产物以全新隔离副本强杀恢复：simple `1300076567` 在 20 秒门内两次 first-present，末值 `rendered=1117/busy=0/dropped=0/fallback=0`；graph `2938612768` 的首次 20 秒冷门因两轮约 7.5 秒资源准备而在第二轮完成前到时，35 秒重试两次 first-present，末值 `268/32/0/0`，两次 warmup 均为 `91 planned/20 unique/20 ready/0 failed/20 attempts`。四张成功门的 Metal 直出截图经本批逐张检查，窗边人物与霓虹唱片构图、文字和粒子层完整一致，退出后无归属进程。计数反例证明跨 purpose 解码去重；运行样本只证明当前签名完整链与画面未回退，不把延长后的门解释为首帧改善。消融：删除同 loader、同文件身份的内嵌 mip/payload 跨 purpose 重复 ImageIO decode；mip 维度校验、purpose 级 raster/texture、视觉/fallback 路由和权威数均不变，产品视觉路径净增 0。
-
-  **资源上传 command queue 合并实测（2026-09-14）**：`SceneTextureUploadCommandQueue` 在既有 launch 资源边界内按 Metal device registryID 懒建一个线程安全 queue，并缓存不可用结果；同一实例注入材质资产、base/deferred/static-model/particle 纹理、user-property 纹理和跨 surface 媒体缩略图，设备或场景整体替换时释放。renderer 的 per-surface frame queue 仍只负责帧 encode/commit。定点 Metal harness 证明同一 loader 的跨 purpose 上传以及两个独立 loader 共享注入 owner 时，queue 创建尝试均为 1。selector 选中的 35 个 formal 模块全部通过；checkpoint 与 Developer ID 签名 Debug 构建均 `BUILD SUCCEEDED`，严格 codesign 有效，主程序 SHA-256 `53ddd84fd80112a1ee235a7dfe47d574d2e2c63934505aba8d8c306c7bb7db62`，helper SHA-256 `6821cc1c215e4b238930e5f3f4f7cd320bf0cc180af429871b9f054af06a7036`。code-health 保持本批外继承的 `181 warnings / 19 errors`；既有超限的 Launch 文件保持 846 行净零增长，其余触达产品文件均低于 800 行，没有新增 hard-limit error。签名产物以全新隔离副本强杀恢复：simple `1300076567` 两次 first-present，末值 `rendered=1121/busy=0/dropped=0/fallback=0`；graph `2938612768` 两次 first-present，末值 `304/27/0/0`，两次 warmup 均为 `91 planned/20 unique/20 ready/0 failed/20 attempts`。四张恢复前后 Metal 直出截图经本批逐张检查，窗边人物与霓虹唱片构图、文字和粒子层完整一致，退出后无归属进程。样本只证明当前签名完整链与画面未回退，不把累计帧数外推为性能改善。消融：两个资源 uploader 的逐上传 `device.makeCommandQueue()` 调用删除，产品资源上传只保留一个 launch 级构造点；未新增视觉/fallback 路由，五类产品协议和权威数不变，产品视觉路径净增 0。
-
-  **纹理解码缓存预算实测（2026-09-14）**：`SceneTextureDecodeCacheBudget` 由 daemon Host 按性能档持有并注入一次 launch 的 material/base/deferred/user-property loader；准入只统计可重建的 TEX 源数据与 ImageIO `CGImage` 字节，loader 释放时归还，已发布 Metal texture 仍由原产品 store 管理。定点反例先准入 PNG，再热降预算至 0；新 loader 两次不同 purpose 的 JPEG 加载均继续完成解码/上传，但不写中间缓存、解码计数为 2、拒绝计数递增，既有 resident 字节保持不变，loader 销毁后归零。selector 选中的 36 个 formal 模块全部通过；checkpoint 与 Developer ID 签名 Debug 构建均 `BUILD SUCCEEDED`，严格 codesign 有效，主程序 SHA-256 `0da97984c20ea08396ce199fd1001cfcc68c8a1f0d55edbd1e6b8c1272251848`，helper SHA-256 `6821cc1c215e4b238930e5f3f4f7cd320bf0cc180af429871b9f054af06a7036`。code-health 保持本批外继承的 `181 warnings / 19 errors`；既有超限 Launch 文件保持 846 行净零增长，本批没有新增 hard-limit error。签名产物以全新隔离副本强杀恢复：simple `1300076567` 两次 first-present，末值 `rendered=1116/busy=0/dropped=0/fallback=0`；graph `2938612768` 两次 first-present，末值 `rendered=266/busy=27/dropped=0/fallback=0`，两次 warmup 均为 `91 planned/20 unique/20 ready/0 failed/20 attempts`，`phase=finished recovered=true presents=2 pids=2`。四张 Metal 直出截图经本批逐张检查，窗边人物与霓虹唱片的构图、文字和粒子层完整一致，退出后无孤儿。复杂样本稳定段 CPU 约 42ms、GPU 约 889MB，继续作为 M4.3/M3.2 优化目标；本批样本只证明完整运行链和画面未回退。消融：把既有无界中间解码缓存写入替换为同 owner 的共享字节准入，超限沿原解码/上传路径继续执行；没有新增视觉/fallback 路由、失效域或权威，产品视觉路径净增 0。
-- **M4.3 Phase 5 frame storage**：帧提交快照最小化（uniform/event/generation table/mutation queue 方向），不复制大对象树。
-
-### M5 进程分离 daemon 化（主线）
-
-- **M5.1 设计门** ✅ 4a835efc：交付 [Scene Runtime Daemon 契约](scene-runtime-daemon-contract.md)（stable-contract 已登记）——IPC v1 冻结、生命周期/崩溃退避语义、线程约束审计结论（runtime 原样搬迁、帧循环留 daemon 主线程、帧线程隔离明确排除）。设计门已过，M5.2 起按步骤实施。
-- **M5.2 最小 daemon（同二进制模式，契约 §2 修订）** ✅ 安全重做：App `@main` 在 `--mwx-scene-daemon` 下只装配 Scene endpoint 与 accessory `NSApplication`，不装配主 UI；IPC v1 将 load/property/profile/mute/pause/resume/shutdown 解码为 typed 命令，坏版本、坏载荷和未支持命令显式报错。launch 事件携带 requestID/recordID；首帧只由同请求 `CAMetalDrawable.addPresentedHandler` 发布，并异步离开 Core Animation 回调以避免与主线程 `nextDrawable` 锁反转。stdout critical 事件串行，1Hz stats 只保留最新待写值；EOF/shutdown 先 `Host.stop()`，再在各既有 surface command queue 提交 barrier 并等待 GPU terminal，最后发送 `exited{code,gpuDrained}`。签名 Debug 候选严格 codesign 通过；自动选择的 31 个聚焦模块全部通过，checkpoint BUILD SUCCEEDED；code-health 仍被现役树既有超限文件阻断，未伪报通过。隔离 `2938612768` 与 `1300076567` 均取得真实 first-present、持续帧统计、`busy=0/dropped=0`、可见画面及 `gpuDrained=true` 退出；graph 还验证未知命令拒绝及 profile/mute/pause/resume 管道消费。M5.2 只提供 daemon endpoint，主 App 尚无孵化/client，普通产品 Scene 路径保持同进程，迁移由 M5.3/M5.4 接管。消融计数：替代并删除历史不安全 prototype 后新增一条安全 endpoint 路径，普通帧视觉路径净增 0；仅首个 drawable 安装一次性 present handler。
-- **M5.3 DaemonKit 公共层第二批** ✅ 双消费者边界闭合：新增无 Scene/Video 业务依赖的 `DaemonNewlineFrameBuffer` 与 `DaemonNewlineJSON`，统一增量分帧和 newline JSON 编码；App 的 video client、既有 WallpaperDaemon tool、Scene endpoint 均为真实消费者，本批新增的双 target membership 只有该文件。协议 payload 仍归各端所有。审计确认 `Process()` 孵化与退避在本步仍只有 video client 一个消费者，未为凑公共层制造 wrapper；两者改在 M5.4 Scene client 接入时再共同抽取。10 个聚焦模块与双架构 WallpaperDaemon target 通过，checkpoint **BUILD SUCCEEDED**；继承的 code-health 超限债务仍单列。签名 Debug App（main executable SHA-256 `4d5f965e206c299fee50b96569d7fe5cf3bfaa1b3e334bb1625ce9316f07f5d3`，CDHash `2f406eb94b9d3dfd0c726b0ec4215853e151d8b6`）实测 video command 拆成两段并夹空帧后仍为 `launched→accepted→ready→stopped`。Scene daemon 隔离 `2938612768` / `1300076567` 分别持续到 244 / 522 rendered、`busy=0/dropped=0`、`gpuDrained=true`；两份窗口截图已人工核对完整构图与可见效果。graph 另跑现役 full-matrix 条目，进程正常、纹理 loaded ratio 1、59/58 submitted/completed、0 failed、ready/after 非黑且 changed ratio 0.739，但因现役期待漂移仍 32 项 NON-PASS，未改期待或冒充能力门通过。消融：删除三处重复分帧/结尾字节拼接实现，视觉路径与权威数净增 0。
-- **M5.4 命令迁移** ✅：普通产品 Scene 改由 `SceneDaemonClient` 接收命令并孵化同二进制 daemon；`DaemonProcessTransport` 与 `DaemonRestartBackoff` 成为 Scene/Video 两个真实消费者的公共层。load/cancel/property/profile/mute/pause/resume/stop 均经 newline JSON，事件按请求身份回传，1Hz stats 保持 latest-only；连续断连按 0/1/2/4…有界重启，仅实际 first-present 清零退避并重放已合并 authored intent。App 仍是属性持久化唯一权威，daemon Host 仍是运行属性、五类 prepared 产品与 Metal 输出唯一权威。正式 selector 的 17 个聚焦模块通过，签名 Debug 与最终 checkpoint 均 BUILD SUCCEEDED；code-health 只剩现役树继承超限项，未伪报全绿。隔离 graph `2938612768` 与 simple `1300076567` 各运行 20 秒并强杀 daemon：均出现新 PID、新 request、恢复 actual present，恢复截图构图正确；graph 最新统计 rendered=212/busy=22/dropped=0，simple=821/0/0（未签名 Debug 短窗，只作功能证据）。属性样本 `3747492842` 在同 PID 从 barcount 58.01 热更到 64，强杀后的新 daemon 首帧仍为 64；无 live consumer 的属性触发同 PID 新 load，证明 async 拒绝兜底。Video helper 拆段命令+空帧继续得到 `launched→accepted→ready→stopped`。消融：删除普通产品的 Host 命令 extension，Scene 视觉路径由 App Host 改为 App client→daemon Host，产品视觉路径净增 0、权威数不变；DEBUG direct runner 仅为证据入口，M5.5/M5.6 继续收口。
-- **M5.5 Host 瘦身** ✅：删除 `SceneDesktopWallpaperHost.shared` 全局入口，产品 Host 改由 `SceneDaemonRuntime` 显式持有唯一实例；AppDelegate/MainWindowCoordinator/MyWallpaperXApplication/WallpaperEngine/Steam 服务等普通主程序调用面均无 Host 类型引用，产品主进程只保留 `SceneDaemonClient` 的状态机、通知投影与可重放 authored intent。由于 Scene 采用同二进制 daemon，渲染源码仍物理存在于 app target；隔离门以进程装配和实例所有权为准，而不是另造重复 target。旧 direct runner 仅在显式 DEBUG 证据参数下持有自己的隔离 Host，退出也经该 owner 停止。262 个受影响直接测试与正式 selector 的 21 个模块全部通过，签名 Debug 与最终 checkpoint 构建均 BUILD SUCCEEDED；code-health 只报现役树继承债务，本批文件无新增 error。graph `2938612768`（35 秒）和 simple `1300076567`（20 秒）隔离副本均在强杀后以新 PID、新 request 恢复 actual present，恢复截图构图完整，分别为 rendered=303/busy=24/dropped=0 与 1119/0/0。消融：删除可被任意进程内调用者取得的产品 Host 全局路径，产品视觉路径净减 1 个潜在旁路，运行权威仍只有 daemon Host；画面算法、prepared 产品、失效域与帧热路未改。
-- **M5.6 收尾** ✅：切壁纸、退出、多屏拓扑与系统暂停/恢复已全链 daemon 化。App 监听屏幕参数并只在拓扑变化时发送 typed `setDisplayConfiguration`；daemon Host 不再监听主进程无效的 runtime-switch/屏幕通知，活动 Space 监听改用正确的 `NSWorkspace` notification center。睡眠、锁屏、全屏暂停与恢复，以及全局热键播放/静音，统一经 multiplexer 到 Scene client；暂停意图在尚无 Scene 或重连窗口也会保留并于 load 后重放。App 退出先停止本地 owner，再等待 daemon GPU-drain 退出；Process 终止投递走主 RunLoop common modes，避免 `terminateLater` 内层事件循环饿死主 GCD 队列，2 秒强退由 transport 后台计时。53 个直接测试与正式 selector 的 19 个聚焦模块通过，签名 Debug 与最终 checkpoint 均 BUILD SUCCEEDED；code-health 的 181 个 warning/19 个 error 全属现役树继承 ratchet 债务，本批文件无新增 hard-limit error。隔离 simple→graph 切换得到两个 record 的 actual present 且 PID 保持 `91071`，退出后无孤儿；simple 强杀恢复由 `91095` 切到 `91097`，恢复 actual present 后两个 PID 均退出。最终统计 graph rendered=675/busy=23/dropped=0，simple rendered=1120/busy=0/dropped=0；两张最终截图已人工核对构图完整。能力语义、五类 prepared 产品、失效域与帧热路未改。消融：删除 Host 两条产品失效的进程内通知入口，以 App→pipe→daemon 的一条 display/control 通道替代屏幕直连旁路；产品视觉路径净减 1，权威数不变。
-- 验收：M6 全套 + Scene 满载时主程序 UI 无掉帧（对比 M1 基线）+ daemon 强杀自动恢复。
-
-### M6 验收
-
-- **M6.0 基线实测（2026-09-15，graph 样本 2938612768 daemon 模式 20s）** ✅：五阶段 launchStateChanged 全链 + firstFramePresented + frameStats 1Hz 流 + gpuDrained 退出，进程 exit 0；稳态 cpu 33.1ms/rendered 285 帧/busy 0/dropped 0/pipelineStateBinds 17280/fallbackBranches 0/gpuAllocatedBytes 886MB/rtPools 88MB；startupElapsedMS 12118ms。事件流存 `/private/tmp/mwx-baseline/daemon-m6-verify.out`。
-- **M6.1 Fast Scene Suite** ⬜：`script/scene_fast_suite.json` manifest 仍含 `selection-required` 成员；两代表样本（2938612768 graph + 1300076567 simple）已人工确认画面正常（用户确认）。
-- **M6.2 全量矩阵** ⬜：严格 graph matrix 现有 22 项失败（M3.2 交接修复后仍存），需逐项归因。
-- **M6.3 长稳** ⬜：两档各 30min+ 连续运行。
-- **M6.4 daemon 崩溃/断连演练** ⬜：kill -9 daemon → 退避重启 → 恢复 actual present。
-- **M6.5 签名公证** ⬜：Developer ID 签名 + notarization；helper 签名校验门应在签名构建中通过（glslang 路由启用、bounded frontend 回退消除）。
-
-Fast Scene Suite → fixed/full matrix → 长稳（两档各跑）→ daemon 崩溃/断连演练 → arm64/x86_64 → 签名公证；能力台账零回退为门。
-
-## 4. 关键设计裁决
-
-### 4.1 两档性能预算
-
-原则：用户只见一个选项（设置"最高 FPS：30/60"，默认 60），内部是一整套预算束；只降频率/字节/容量，不关任何能力；超限走既有 LRU/容量拒绝，不硬中断；档位 = 一条命令热切换。
-
-| 维度 | standard（60） | efficient（30） | 落点 |
+| 顺序 | 批次 | 结果 | 当前状态 |
 |---|---|---|---|
-| 帧节奏 | 60Hz | 30Hz | FrameDriver 帧间隔改可变 |
-| CPU 每帧软预算 | 5ms | 10ms | M1 counter + HUD 超限指示；不硬中断 |
-| offscreen 池上限 | 512MB | 256MB | 纹理池 byteBudget 档位帽 |
-| 纹理解码缓存上限 | 1GB | 512MB | 纹理缓存准入上限（M4.2 落地） |
-| sprite/粒子 resident | 1.0× | 0.5× | 既有预算类系数 |
-| 音频频谱/动态文字 | 30Hz/事件驱动 | 不变 | — |
-| 质量（mip/分辨率/特效） | 全量 | 全量 | — |
+| 先做 | E0 基线与验收修复 | 普通签名播放的成本归因、独立正反门、可比较输入 | 未执行 |
+| 首个代码批次 | E1 admission 与帧存储 | 少构造、少复制、少重推导；一帧共享必要投影 | 待 E0 |
+| 与 E1 分开 | E2 控制与产品依赖 | 唯一切换意图；公共控制层不依赖 Scene 实现；Shared 不调用模块 singleton | 可先做静态边界设计 |
+| E1 后 | E3 GPU 合成与资源 | 减少无必要的 pass、主 target 往返和临时驻留 | 待 GPU 归因 |
+| 条件执行 | E4 调度与多屏提交 | 有背压、不重复尝试、明确不可回滚的 GPU 提交点 | 正常模式有等待证据再启用 |
+| 独立切片 | E5 shader 语义收敛 | 一族结构化语义替代一族源码形状 matcher | 待选择最有价值的一族 |
+| 伴随上述批次 | E6 测试与依赖减重 | 保留行为／安全证据，减少重复编译和内部结构锁定 | 已完成路径与编译源集合维护；编译成本消融未执行 |
+| 现在起持续 | E7 文档减重 | 一个工程入口、短当前表、研究与历史按需读取 | 入口、生命周期合同、源码职责导航与旧计划归档已完成；大型台账逐条消融仍开放 |
+| 最后 | E8 产品验收 | 普通播放、交互、资源、恢复、发布边界可复核 | 待前置闭合 |
 
-生效：cadence 下次排帧生效；池预算下次淘汰生效；缓存上限下次准入生效。30 档靠频率减半降总量，单帧 CPU 或因 simulationFrameTime 变大略升，以 M1 实测为准。
+## 2. 调查基线与证据边界
 
-### 4.2 属性热更新
+详见[重构调查与退役清单](design/refactor-baseline.md)。执行顺序只由本计划 §5 维护。
 
-现状已优先使用进程内 typed 热应用，失败时保留 180ms 去抖重启；命令层 `.setProperty` 尚未消费。目标：调节 → `setProperty(properties, revision)` → liveState 值更新 + revision 递增 → 下一帧既有 value-only 路径消费。失效域分类：数值/颜色/bool/文字 → value-only；纹理 URL 类 → resource-generation（复用 deferred 装载机）；combo/可见性默认/结构类 → program-variant/topology 局部失效；任何一类不重启。应用失败保留重启路径兜底。UI 滑杆 ~150ms 去抖；验收 = ≤1 帧 + 轻量上传内可见、launch 状态不重放。M0 进程内实现，M5 同命令走管道。
+## 3. 目标设计：少数责任清楚的边界
 
-### 4.3 进程分离
+这些是本计划的项目设计选择，不声称复刻 WE 私有内部架构。逻辑模块先在现有目录内收敛；新增 Swift target/package 只在依赖边界稳定且构建测量证明值得时进行。
 
-Scene 使用 `Process()` 孵化自身二进制并传 `--mwx-scene-daemon`；video 保留既有 `Contents/Helpers` 工具。共同传输为 stdin/stdout newline JSON，主程序负责退避重启，daemon 内自建桌面级窗口。新 daemon 内含完整 Scene runtime；进程间只传 coarse 命令与轻量 counter，`MTLTexture` 等进程内对象不跨进程；诊断旁路留 daemon 内。IPC 合同：命令 `loadScene{rootURL,propertyOverrides,profile}` / `setProperty{...}` / `setDisplayConfiguration{screens}` / `setPerformanceProfile{fps}` / `setMuted` / `pause` / `resume` / `shutdown`；事件 `launchStateChanged` / `firstFramePresented` / `frameStats`(1Hz) / `error` / `exited`。隔离目标 = UI 响应、崩溃、堆、VM、编译器故障隔离；不承诺总 CPU/GPU 下降。
+### 3.1 产品控制面与进程
 
-### 4.4 公共层拆分图
+```mermaid
+flowchart TD
+  UI[AppKit UI / Library] --> Control[Core PlaybackControl：意图与控制]
+  Control --> SC[Scene client：请求与恢复]
+  Control --> VC[Video client：每屏会话]
+  Control --> WC[Web adapter：请求与页面生命周期]
+  Control --> Still[系统静态壁纸 apply]
+  SC --> SD[Scene daemon：Host / VM / Metal]
+  VC --> VD[Video helper：AVPlayer / surfaces]
+  WC --> WK[现役 WKWebView 宿主]
+  SC --> Transport[DaemonKit：进程与分帧工具]
+  VC --> Transport
+```
 
-| 批次 | 内容 | 从 | 到 |
-|---|---|---|---|
-| 一（M0） | 设置容器+分区枚举 | Modules/VideoLibrary/UI | Shared/Settings |
-| 一（M0） | 静音公共态、WallpaperEngineCommand+multiplexer | VideoLibrary/Core、新建 | Core/PlaybackControl |
-| 二（M5） | daemon 会话（孵化/退避重启/管道帧协议） | Core/Playback、WallpaperDaemonSources/Support | DaemonKit（Scene 在 app target 内复用；video tool 真实消费部分才挂双 target） |
+- **App** 持久化用户选择与属性，创建一个跨 runtime 的切换 epoch；adapter 保存执行事实，UI 显示投影。Library 保留索引、历史与下载事务，不再决定异步 runtime 完成能否覆盖新选择。
+- **PlaybackControl** 收敛既有切换路径。优先改造已有 owner，不新增与 WallpaperManager／WallpaperEngine 并存的永久协调器。迁移后 multiplexer 只分发；意图权威只有一个。
+- **Scene client** 只持有可重放 authored intent、request/record/revision、显示配置及恢复状态；frame、纹理、VM 和 GPU 不跨 IPC。
+- **Scene daemon** 保持现役同二进制 accessory 模式。拆独立 binary、搬 render thread、Web daemon 化均不是当前必做项。
+- **Video／Web** 保留 AVFoundation 和 WebKit 专属生命周期；“共享控制”不意味着共用 shader graph、帧时钟、媒体 decoder 或窗口实现。
+- **Shared** 只保留可复用视图／值与注入接口；具体库和服务行为在 App composition root 装配。公共状态工具在 Core，不能由 Shared/UI 反向指挥 Modules。
 
-### 4.5 语言选型
+切换事务目标：`request(epoch) → prepare candidate → 可呈现确认 → commit active projection → retire previous`。失败保留旧可见输出是目标；当前跨 runtime 的通知式先停后开不冒充已经满足。迁移在单一切换入口完成，不能为了保留旧画面暗中保留两个 active owner；若受平台限制必须短暂空窗，明确产品策略与验收界限。
 
-默认 **Swift**（AppKit/Metal 集成、产品编排、资源所有权、生命周期、命令编码）。引入 Rust/C/C++ 须同时满足：① Instruments/M1 数据证明的 CPU 热点或全新独立组件；② 算法本质适合 contiguous 低级处理或需要该生态的既有库；③ ABI 边界小而稳定；④ 非每对象/每粒子/每 draw 高频跨语言调用；⑤ 收益显著且可测。现有异构已落在正确位置（QuickJS=C、glslang/spirv-cross=C++ 子进程、shader=MSL）。Rust/C++ 候选域（待 M1 数据裁决）：package/binary 解析、压缩与纹理解码、粒子/物理 kernel、daemon 管道帧协议。渲染主链、UI、控制面不迁移语言；**禁止为语言一致性而迁移，也禁止为语言新鲜感而引入**。防屎山规则优先于一切性能动机：单一权威、双消费者准入、每批消融净路径数不增、改 owner 不包 wrapper。
+### 3.2 Scene 播放器的逐对象设计与写法
 
-## 5. 批次 DoD（每批完成定义）
+永久执行合同只维护在[运行时架构 §8：Scene 播放生命周期与落代码合同](design/runtime-architecture.md#8-scene-播放生命周期与落代码合同)，不在计划中复制第二份。
 
-1. `git status` 划 owned paths；有他人 staged/unstaged 的文件不碰；单职责提交。
-2. **消融记录**：本批触达的效果链，列出禁用/删除的旁路与最短链论证；被删路径的 fixture/golden 转行为合同或删除；新增/删除路径数计入报告（净路径数不得增长，除非是新能力）。
-3. before/after：受影响 M1 指标数字；架构纠偏类附静态违规证据即可。
-4. 能力不回退：Fast Scene Suite 相关成员 + ≥2 代表样本人工播放确认；能力台账触达项同步。
-5. 报告：改了什么/为什么/语义影响/before/after/剩余热点/回滚方式。
-6. 若批次改变了[事实架构地图](runtime-as-built-map.md)中的所有权或不变量，同批更新该地图与本计划卡状态。
+- 六个阶段规定装载、准备、激活、帧更新／资源发布、合成／呈现、退场分别可以做什么。
+- 生命周期矩阵覆盖纹理、mip／sprite、材质、effect、target/history、named provider、文字、视频、图片、粒子、Puppet／3D、utility、相机／灯光、属性／Timeline、脚本、输入／音频／媒体、sound 与诊断：明确何时加载、每帧更新、合成位置与释放。
+- 单帧顺序明确 VM 前后 snapshot、最终 pose、provider readiness、GPU producer→consumer、提交与 actual present；异步文字不能伪报同帧更新。
+- 编码落点表规定新增字段、参数、脚本 API、粒子组件、provider 和坐标行为各应修改谁，以及禁止的旁路。
+- 每批在现有任务描述填“输入→准备→当帧值→consumer→释放＋失效／反例”；不再新建一份设计文档。
+
+E1/E3/E4/E5 必须按该合同交付纵向结果。尚未支持的类型不因表格列出就变成已支持；当前差距由合同 §8.6 和能力台账表述，不能拿目标结构冒充现状。
+
+## 4. 性能与验收设计
+
+### 4.1 E0 的测量协议
+
+沿用现有 benchmark、counter、signpost 和签名流程，不新建常驻 profiling 平台。采集分为两次：普通播放测性能；开启证据窗口验证语义。不同模式数字不混算。
+
+| 组 | 选材／目的 | 不能替代的边界 |
+|---|---|---|
+| 简单基线 | 现有 1300076567 候选；先复核该输入实际链 | 不能证明复杂 graph |
+| 重 graph | 现有 2938612768 候选；记录实际 variant／generic 路由 | 不把旧 fallback 模式与新签名模式比较 |
+| History／多 pass／跨层 | 从 Fast Suite 已批准项和真实形状选；缺项需建立独立 fixture | 未批准不能写 Suite PASS |
+| Script／Puppet／粒子 | 事件、parent、骨骼、模拟的代表内容，各有局部失败反例 | 不用两张静态截图证明持续行为 |
+| 产品切换／多屏 | Video→Scene→Web→静态、快速 A→B→C、无 drawable、断连 | 区分 App、daemon、WebContent 的时间与内存 |
+
+每个 before/after 同机器、OS、屏幕／缩放、分辨率、帧率档、内容 digest、路由、签名和优化级别；冷缓存与热缓存分开。默认至少三次成对运行；稳态观察至少 60 s，启动单独测，噪声大就延长，不用增大样本数掩盖变量失控。
+
+记录 launch 各阶段、actual first-present、CPU update/admission/encode、drawable wait、GPU duration、present 间隔 p50/p95/p99、attempt/rendered/busy/dropped、分配／复制、锁持有、draw/bind/encoder、target/copy 字节、进程与 GPU 高水位。现有 hub 累计均值不能当 p95；1Hz latest-only IPC 不能还原逐帧分布，分位数从诊断采集或短期 Instruments 得到。
+
+采集前校准事件语义：FrameDriver 的 hub `firstVisibleFrame` 在 `.rendered`（提交成功）分支记账，不等于屏幕已经呈现；首帧延迟使用 daemon 的实际 drawable presented 事件。GPU completed、已提交和 actual present 分列，不能互相代替。
+
+性能目标先用 E0 定标：60/30 FPS 对应 16.67/33.33 ms 呈现预算，这是目标而非现有达标事实。每类目标设备冻结绝对预算后再执行；不得要求任意复杂作者内容都无条件达到 60 FPS。
+
+保留优化的门：原错误反例通过、画面／事件容差不退、p95/p99 与内存不出现超出基线噪声的回退、目标成本下降超过测量噪声。若只减少代码且无可辨性能变化，报告“结构消融”；禁止宣称运行加速。两次有区分力实验仍无收益或不改变首断点，停止该方向并更新裁决。
+
+### 4.2 验证入口与边界
+
+在仓库根运行，下列路径是本档案基点已验证存在的入口；后续先复核 help／selection，再执行。路径可以重复传入，不能用一个代表文件隐瞒实际改动面。
+
+```bash
+# 先预览实际选择，不构建、不跑样本。
+python3.12 -B script/verify_scene_change.py --phase inner --base HEAD \
+  --path MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift
+
+# 只运行明确模块；不要叠加 keyword 把范围扩大。
+python3.12 -B script/run_scene_tests.py --scope scene \
+  --module test_scene_dynamic_snapshot --module test_scene_plan_validation_identity
+
+# 纯文档批的结构与链接门。
+python3.12 -B script/run_scene_tests.py --scope scene \
+  --module test_document_role_index --module test_scene_governance_contract \
+  --module test_scene_semantics_coverage
+```
+
+Swift 改动在 checkpoint 使用现有 selector/build；`run_checkpoint_build.sh` 是无签名 Debug 构建门，不证明正式 shader backend 路由。可见／性能结论另绑定签名 staged App 和隔离内容。integration 需向 selector 明确提供 `--app` 可执行文件、`--sample-root` 隔离根、`--sample-id` 和 `--output-dir`。CI 没有私有 corpus，可跑自有 fixture，不声称 runtime PASS。
+
+## 5. 可直接交接的执行卡
+
+每卡完成必须同时给出：移交的 owner、删掉的旧职责、最小正反证据、before/after、剩余限制。成本消融或能力迁移不能只交付目录移动、编译通过或新协议。纯目录维护以文件内容守恒、源集合与工程引用完整作为完成门，不能据此关闭 E0/E1/E3/E4 的性能或行为目标。下面类型族边界用于选路径；实际 owned paths 在每批开工时展开核对，不授权宽泛覆盖。
+
+### E0 — 建立可信基线与最小回归集
+
+- **依赖／入口：**无。先核对普通 Scene client→daemon 路由；按 §4 从 Fast Suite 机器合同中选择已批准成员。`selection-required` 不可执行；没有合适的已批准成员时使用隔离 representative-content 并如实标注，不冒称 Suite PASS，不从全 corpus 扫描开始。
+- **工作：**刷新简单／重 graph 两类正常签名基线，分离 cold launch 和稳态；按需要补 history、跨层、VM／粒子反例。给既有 matrix 失败逐条分类为产品缺陷、期待过时、未支持或环境，不改期待来“全绿”。
+- **交付：**短性能表、构建与输入 identity、首要成本排序、可执行正反 case；数据写入现有证据 owner，本文只更新 E0 状态与链接。
+- **消融：**撤销使用 unsigned/fallback/debug 数字推断普通产品性能的结论；不删除旧失败现场。
+- **门／退出：**至少三次可比较结果；明确 route；counter 均值与分位数分开。若不能定位 CPU/admission/GPU/wait，先补最小观测，不进入全面改写。
+
+### E1 — 压缩 admission 与帧存储（第一优先）
+
+- **依赖／入口：**E0 指向 CPU admission 或分配；F4–F7、FrameDriver、TextureRegistry、GraphExecutor Preparation/Validation、Program finalizer。
+- **E1a：**将 visibility、active closure、mutation grouping 收到同 surface/frame/phase 的已有投影；预检消费投影而不是重新从原始 descriptor 求值。覆盖动态增删层、隐藏 provider、parent／attachment 与 camera 差异。
+- **E1b：**固定 request／command 的静态骨架和整数索引；帧内填参数、资源与 lease。复用有界 scratch 存储，优先消除实测大量复制的字典；coordinator 仍持有唯一提交权。
+- **E1c：**把静态 ABI／graph 证明移到生成边界；live texture、function target、extent、epoch、pin 仍核验。不要跨 commandBuffer 缓存 PreparedGraph／PreparedPass。
+- **消融：**旧重复求值函数／请求构造分支被替代后删除；移除同一字段多份持久状态。单纯新增 cache 而旧构造仍执行不算完成。
+- **门：**`test_scene_dynamic_snapshot`、`test_scene_dynamic_layer_visibility`、`test_scene_layer_world_frame`、`test_scene_plan_validation_identity`、`test_scene_resolved_material_graph_executor`，再由 selector 加相关模块；同输入画面与 next-frame；admission／allocation A/B。
+- **退路：**以这一职责的旧直接路径整体回退；不保留永久布尔开关。generation／wrong texture／history counterexample 失败立即撤回优化。
+
+### E2 — 收敛控制意图与公共依赖
+
+- **依赖／入口：**可独立于 E1，不能混一个提交；Application、PlaybackControl、WallpaperManager application/persistence、WallpaperEngine、SceneDaemonClient、Web launch、Shared Settings／runtime switch。
+- **E2a：**画出唯一 intent epoch 与 requested/prepared/visible/stopped 状态归属；将当前通知式 switch 与旧 autoplay gate 的副作用集中到既有产品选择边界，UI 和库只发命令。
+- **E2b：**公共 pause/resume/mute/profile 与 Scene 专属 load/property 分清。Scene payload 留领域边界；可提升的纯属性值需两个真实消费者并迁移原定义，不能用 Any／JSON 隐去类型约束，也不能新增通用命令平台。
+- **E2c：**补全 Web 命令消费语义与 capability；撤销 video handler 间接重复操控 Web 的路径。systemStill 保持明确 apply owner。
+- **E2d：**Settings 缓存动作与 ImportedVideoAutoplayGate 由 App 装配注入／选择 owner 执行；删 Shared 对 Modules 的直接 singleton 调用。先按动作归责，不机械移动全文件夹。
+- **消融：**重复 active/mute/pending 真值、身份不足的定时清 pending（只有 correlated terminal 接管后）、旧 switch 通知副作用入口。
+- **门：**`test_playback_command_multiplexer`、`test_scene_daemon_client_wiring`、`test_scene_daemon_protocol` 及 selector 的 transport/Web 门；A→B→C 逆序完成、属性拒绝重载、旧进程消息、快速 stop、Video/Web/Scene/静态互切。
+- **退路：**按 runtime adapter 原子撤权回退；不能同时注册新旧消费端。不得以新增 coordinator 但原选择者继续写状态作为交付。
+
+### E3 — 合成 pass 与资源生命周期
+
+- **依赖／入口：**E0 GPU／copy／驻留证据；E1 不必全做完，但避免同时改同一事务。MainPassEncoder、ImageLayerCompositor、GraphTargets／Offscreen pool、Dependency preparation。
+- **工作顺序：**记录 pass 与纹理读写寿命 → 先消除可证明多余的 full-frame copy／capture → 合并合法相邻主 pass → 在现有池内复用不重叠临时 target。每种成本独立实验。
+- **消融：**多余 capture、无消费者 store、重复 target 与已撤权 coverage 路径；不得删除最后呈现所需 store，不盲改 loadAction。
+- **门：**`test_scene_offscreen_texture_pool`、`test_scene_resolved_material_pass_encoder`、`test_scene_resolved_material_graph_executor`、`test_scene_shader_color_contract`；背景读取、透明叠色、copy/swap/history、精确 Puppet extent、预算溢出、mid-pass failure 的组合反例。
+- **退出：**GPU／带宽或驻留下降且 ROI／事件不退；CPU 降了但新增 GPU 往返必须报告。失败回原 graph 排程，不新设 compositor fallback。
+
+### E4 — 条件性调度与多屏事务
+
+- **重启条件：**普通签名播放证实 busy/wait/pacing 占显著成本；只在 evidence readback 下出现 busy 不满足。先读旧 completion 唤醒失败实验，不重复原假设。
+- **E4a：**先将与 drawable 无关的 CPU 准备前移，测试 missing drawable 的未提交回滚；不必立即改变 Timer。
+- **E4b：**如需要重排节奏，设计唯一待调度 token，completion 只释放容量／标记可用，不直接递归 render。deadline 与 completion 合流只触发一次 attempt；暂停／停止撤销 token。
+- **E4c：**先验证 all-surface 屏障部分提交；需要 per-surface 呈现时，再迁移共享 simulation version 与每屏输出版本。主线程迁移需 VM thread-affinity、窗口线程和 completion 锁顺序共同验收。
+- **消融：**有证明后删除轮询或重复唤醒入口；未触发重启条件可裁决“保留当前调度”，不是拖欠一项必须重写的工作。
+- **门：**正常模式 attempts 不放大、history 不读写冲突、某屏缺 drawable 不伪回滚已提交帧、脚本／鼠标事件不重复、暂停／断连／热插拔／GPU failure 后正确恢复。
+- **退路：**同一 scheduler owner 回原策略；不得仅调大 in-flight 上限或删除 busy guard。Apple 的[动态缓冲 ring 原则](https://developer.apple.com/library/archive/documentation/3DDrawing/Conceptual/MTLBestPracticesGuide/TripleBuffering.html)不能替代本项目 history 证明。
+
+### E5 — shader 语义压缩
+
+- **依赖／入口：**从频繁失败／增长最多的一族选，不重写所有 shader。ShaderFrontend、ShaderPreparation、Program finalizer、现役 compiler helper。
+- **工作：**颜色／数据纹理用途、alpha 表示和边界转换在已有 IR／编译流程形成明确事实；等价表达式走同一 lowering。先覆盖一个 bounded family，再扩大。
+- **消融：**被替代的 analyzer／normalizer／generated-source matcher 成族删除；老 tests 中仅检查变量名和源码段的预期改成输入输出语义与拒绝反例。
+- **门：**`test_scene_shader_color_contract`、`test_scene_generic_shader_program_artifact`、`test_scene_resolved_material_program_finalizer`；至少多个等价写法／未见组合，数据纹理不误做颜色转换、slot hole 不丢失、编译失败局部降级；实际 GPU／ROI。
+- **退出：**一族作者语义由更少 primitive 覆盖，旧实现可从产品撤除。新增自研全语言 AST 平台却不能退休旧 matcher 时停止扩张。
+
+### E6 — 测试与构建减重
+
+- **入口：**scene_validation_gates、scene_swift_source_sets、source_layout、tests 下嵌入式 Swift harness、check_code_health、CI。
+- **工作：**按“独立行为／安全反例／装配检查／实现耦合”归类；先测最慢模块编译占比。共享已存在的 source-set 与 fixture support，避免一个 test import 另一个 test 再拼大段 stub 的依赖链。
+- **消融：**只删除证明已由独立行为门替代的重复内部断言／过期 fixture；安全和视觉反例保留。统一 source list 真值后撤销手写镜像；不得把选择器改成漏测来提速。
+- **缓存条件：**若引入 harness 编译缓存，key 必含源码、harness、flags、SDK、编译器、架构和依赖内容；损坏重编，不能复用旧测试二进制冒充当前源码。
+- **结构门：**19 个现有 code-health errors 分派到实际职责批次；只对已删除／迁移旧路径收缩 baseline，不抬高 800 上限。1536 行 Settings 按设置状态与动作消费者归责，先删耦合后拆 UI。
+- **门：**`test_scene_swift_source_sets`、`test_verify_scene_change`、`test_scene_test_runner`、`test_check_code_health`；selected modules 与 old/new fixture 行为覆盖对照；记录冷／热测试时间。
+- **退出：**相同保护面更快、少 stub／少重复编译；行数下降但覆盖丢失不合格。产品 target 拆分后置，不能与大规模 owner 迁移同批。
+
+### E7 — 文档消融
+
+按 §6 精确表执行，先把当前权威变短并修 consumer，再归档或删除。不得增加一个覆盖所有主题的总台账；本计划的证据快照不继续追加运行日志。
+
+完成门：当前入口一跳定位职责，下一任务只在本文或兼容路线各自范围中出现；机器清单仍可生成；旧 anchor 有替代；文档门通过。历史实体删除按 AGENTS.md 列精确清单并确认，不因“已在 Git”就自动清空。
+
+### E8 — 集成与关闭
+
+- 普通 App 请求路径，30/60 档，冷启动／热切换／暂停／恢复、daemon 崩溃／断连、显示器变化、退出 drain；各 runtime 只输出自己的当前请求。
+- 更新 E0 基线并解释所有回退；两档各至少 30 分钟长稳为起点，内存／GPU／事件队列无持续增长。缺多屏设备或官方对照则明确未验收，不能默认通过。
+- full matrix 的旧期待与产品缺陷已区分；不把 non-black／compile success／route count 当视觉验收。Fast Suite 未批准项不冒充通过。
+- 代码 owner／旧路径清零，现役文档接管终态，code-health errors 清零或明确仍阻止工程关闭。签名／公证独立发布门，完成重构不代表发布完成。
+
+## 6. 代码、测试与文档的退役清单
+
+详见[重构调查与退役清单](design/refactor-baseline.md)。执行顺序只由本计划 §5 维护。
+
+## 7. 停止条件、风险与续跑
+
+**必须停下纠偏：**出现第二输出 owner／registry／clock；缓存跳过 live identity；取消后仍发布旧请求；为了指标降分辨率或跳过层；用源码内部字符串断言替代视觉证据；新增通用框架却不能删除旧职责；研究原始表达与当前实现职责重叠。
+
+**不预先承诺的设计：**全引擎 C++／Rust、独立 Scene executable target、Web daemon 化、全部图全局重排、多屏异步呈现、history triple buffering、GPU 粒子、持久化 PSO archive。只有对应测量／语义问题触发才另作有界裁决。
+
+每批续跑只保留一个短记录：`当前卡 → frozen source/owned paths → 已交付行为 → before/after → 旧职责撤销 → 未验证边界 → 下一首断点`。结果归现有证据 owner，本文只更新状态与指针，不恢复 M0–M6 式流水账。
+
+优先完成 E0，然后 E1a；若 E0 证明其他项明显主导，写一条含测量与影响面的裁决即可改变 E1/E3/E4 顺序。安全与唯一 owner 不变，现有方案与本文的工程顺序都不是不能被证据推翻的教条。

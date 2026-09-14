@@ -14,7 +14,7 @@
 
 1. [文档入口](../README.md)定义事实角色和冲突裁决，[`AGENTS.md`](../../AGENTS.md)约束实现、验证、提交和工作区安全；
 2. 本文是技术栈职责、跨语言边界和依赖准入的唯一长期入口；
-3. [Scene 兼容运行时架构](../scene/runtime-architecture.md)规定官方/参考证据如何转化为项目执行结构；
+3. [Scene 兼容运行时架构](../scene/design/runtime-architecture.md)规定官方/参考证据如何转化为项目执行结构；
 4. [Scene 兼容执行路线](../scene/scene-compatibility-roadmap.md)决定当前迁移顺序和停止项；
 5. [Scene 语义手册](../scene/semantics/README.md)和专项覆盖表记录语义合同与当前能力，[能力依赖图](../scene/semantics/capability-dependency-map.md)只记录前置关系；
 6. [运行证据索引](../scene/semantics/runtime-evidence-current.md)决定当前构建、签名和真实运行证据；
@@ -251,4 +251,4 @@ V0 必须先取得真实可见结果；V1–V3 的独立研究和 fixture 可以
 
 只有语言、GPU backend、VM、compiler、service、跨语言/跨进程 owner、生命周期、安全边界或现役架构路线改变时修改本文。单个 capability 完成度、样本数字、一次性能结果和实验日志进入专项覆盖表、运行证据索引或对应批次记录。
 
-修改本文时必须同时检查 `AGENTS.md`、[文档入口](../README.md)、[Scene 专题入口](../scene/README.md)、[兼容运行时架构](../scene/runtime-architecture.md)、[语义手册](../scene/semantics/README.md)和链接门，避免产生第二份技术栈真相。
+修改本文时必须同时检查 `AGENTS.md`、[文档入口](../README.md)、[Scene 专题入口](../scene/README.md)、[兼容运行时架构](../scene/design/runtime-architecture.md)、[语义手册](../scene/semantics/README.md)和链接门，避免产生第二份技术栈真相。

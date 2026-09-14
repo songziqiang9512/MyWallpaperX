@@ -68,7 +68,7 @@ MyWallpaperX 深度利用 macOS 原生能力，围绕**素材管理 → 资源�
 | **系统音频频谱** | 🚧 | 已验证真实音源相关性、Wallpaper Engine 64+64 双声道布局和兼容幅度响应；设备切换、系统静音和睡眠恢复仍待发布验收 |
 | **菜单栏控制** | ✅ | 状态栏入口，GPU 占用实时显示，快速访问播放控制与模块切换 |
 
-> **Scene 壁纸说明**：Scene 采用“安全与状态完整性硬拒绝、单个视觉单元局部降级”的兼容路线。shader、effect、pass、script 或 particle component 失败时优先保住当前输入和无关 layer；资源越权、target hazard、生命周期破坏和无界执行仍必须拒绝。固定或完整样本门通过只证明对应输入和构建未回归，不代表通用格式支持或 Wallpaper Engine 视觉等价。日常开发从 [Scene 开发工作流](docs/scene/development-workflow.md)开始；当前等级与缺口见 [Scene 能力台账](docs/scene/semantics/coverage-ledger.md)，最新构建、样本和签名证据见 [运行证据索引](docs/scene/semantics/runtime-evidence-current.md)。
+> **Scene 壁纸说明**：Scene 采用“安全与状态完整性硬拒绝、单个视觉单元局部降级”的兼容路线。shader、effect、pass、script 或 particle component 失败时优先保住当前输入和无关 layer；资源越权、target hazard、生命周期破坏和无界执行仍必须拒绝。固定或完整样本门通过只证明对应输入和构建未回归，不代表通用格式支持或 Wallpaper Engine 视觉等价。日常开发从 [Scene 开发工作流](docs/scene/development/development-workflow.md)开始；当前等级与缺口见 [Scene 能力台账](docs/scene/semantics/coverage-ledger.md)，最新构建、样本和签名证据见 [运行证据索引](docs/scene/semantics/runtime-evidence-current.md)。
 
 > 文档导航见 [项目文档入口](docs/README.md)；长期技术路线见[技术栈与架构路线边界](docs/architecture/technology-stack-boundaries.md)。所有带日期的 Markdown 均位于统一[历史目录](docs/history/README.md)，只保留对应时点的证据与决策，不参与当前执行顺序。
 

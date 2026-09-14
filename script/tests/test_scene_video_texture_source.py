@@ -12,46 +12,32 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RESOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources"
-STATE_SOURCE = RESOURCE_ROOT / "SceneVideoProviderLifecycleState.swift"
-VIDEO_SOURCE = RESOURCE_ROOT / "SceneVideoTextureSource.swift"
-REGISTRY_SOURCE = RESOURCE_ROOT / "SceneVideoTextureSourceRegistry.swift"
+STATE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoProviderLifecycleState.swift"
+VIDEO_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoTextureSource.swift"
+REGISTRY_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoTextureSourceRegistry.swift"
 HOST_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
 )
 HOST_FRAME_DRIVER_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
-    / "SceneDesktopWallpaperHost+FrameDriver.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
 HOST_SURFACE_TEARDOWN_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
-    / "SceneDesktopWallpaperHost+SurfaceTeardown.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+SurfaceTeardown.swift"
 )
 HOST_FRAME_DRIVER_LIFECYCLE_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
-    / "SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
 )
 OWNER_EFFECTS_VALIDATION_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript"
-    / "SceneScriptOwnerEffectsRuntimeValidation.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptOwnerEffectsRuntimeValidation.swift"
 )
 VECTOR_PROGRAM_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript"
-    / "SceneScriptVectorProgram.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorProgram.swift"
 )
 VIEW_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
 )
 ASSEMBLY_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering"
-    / "SceneFrameLayerTextureAssembly.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneFrameLayerTextureAssembly.swift"
 )
 
 HARNESS = r'''

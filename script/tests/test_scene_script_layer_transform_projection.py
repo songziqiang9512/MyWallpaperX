@@ -14,17 +14,16 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-RUNTIME_MODEL_SOURCE = SCENE / "Runtime/SceneRuntimeModel.swift"
+RUNTIME_MODEL_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift"
 REMOVED_SUPPRESSION_SOURCE = (
     SCENE / "Properties/SceneScriptedLayerTransformProjection.swift"
 )
 SOURCES = [
-    SCENE / "Resources/SceneNamedTextureReference.swift",
-    SCENE
-    / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
-    SCENE / "Properties/SceneScriptDynamicProviderHostContract.swift",
-    SCENE / "Runtime/SceneScript/SceneScriptVectorCandidateCatalog.swift",
-    SCENE / "Runtime/SceneScript/SceneScriptVectorCandidateModels.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorCandidateCatalog.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorCandidateModels.swift",
 ]
 
 HARNESS = r'''

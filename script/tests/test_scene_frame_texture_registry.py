@@ -12,19 +12,19 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-REGISTRY_SOURCE = SOURCE_ROOT / "Resources/SceneFrameTextureRegistry.swift"
-BASE_IMAGE_SOURCE = SOURCE_ROOT / "Rendering/SceneBaseImageTextureLoad.swift"
-FRAME_ASSEMBLY_SOURCE = SOURCE_ROOT / "Rendering/SceneFrameLayerTextureAssembly.swift"
+REGISTRY_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneFrameTextureRegistry.swift"
+BASE_IMAGE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad.swift"
+FRAME_ASSEMBLY_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneFrameLayerTextureAssembly.swift"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
-    SOURCE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
-    SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
-    SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
-    SOURCE_ROOT / "Resources/SceneTextureUVTransform.swift",
-    SOURCE_ROOT / "Resources/SceneTextureCandidate.swift",
-    SOURCE_ROOT / "Resources/SceneTextureSlotBinding.swift",
-    SOURCE_ROOT / "Resources/SceneTextureProviderPublication.swift",
-    SOURCE_ROOT / "Resources/SceneImageTextureUploader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureCandidate.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSlotBinding.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureProviderPublication.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift",
     REGISTRY_SOURCE,
 ]
 

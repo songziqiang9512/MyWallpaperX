@@ -46,19 +46,16 @@ class SceneStandardBlurDedicatedFamilyRetirementTests(unittest.TestCase):
 
     def test_shared_program_executor_and_mask_safety_remain(self) -> None:
         route = (
-            SCENE
-            / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderRouteProfile.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRouteProfile.swift"
         ).read_text(encoding="utf-8")
         executor = (
-            SCENE
-            / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift"
         ).read_text(encoding="utf-8")
         bridge = (
-            SCENE
-            / "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialRuntimeBridge.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift"
         ).read_text(encoding="utf-8")
         masks = (
-            SCENE / "Rendering/SceneImageLayerDrawRequest.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerDrawRequest.swift"
         ).read_text(encoding="utf-8")
 
         self.assertIn("source-proven-previous-blurred-composite", route)

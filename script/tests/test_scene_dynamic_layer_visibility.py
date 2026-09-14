@@ -13,8 +13,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCES = [
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneDynamicSnapshot.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneLayerVisibility.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerVisibility.swift",
 ]
 
 HARNESS = r'''

@@ -18,19 +18,13 @@ BRIDGE_TEST = Path(__file__).with_name(
     "test_scene_resolved_material_runtime_bridge.py"
 )
 COORDINATOR = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/ResolvedMaterialExecution"
-    / "SceneResolvedMaterialSubmissionCoordinator.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift"
 )
 COMPOSITION = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering"
-    / "SceneResolvedMaterialGraphComposition.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift"
 )
 EXECUTOR_VALIDATION = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution"
-    / "SceneResolvedMaterialGraphExecutor+Validation.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Validation.swift"
 )
 
 

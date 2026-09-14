@@ -13,23 +13,23 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-RENDERER = SCENE / "Rendering/SceneMetalRenderer.swift"
-MEDIA_STORE = SCENE / "Resources/SceneMediaThumbnailTextureStore.swift"
+RENDERER = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
+MEDIA_STORE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneMediaThumbnailTextureStore.swift"
 SOURCES = [
-    SCENE / "Runtime/SceneMediaThumbnailInbox.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailInbox.swift",
     SCENE / "Format/SceneJSONValue.swift",
-    SCENE / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
-    SCENE / "Resources/SceneTextureSampling.swift",
-    SCENE / "Resources/SceneTextureUVTransform.swift",
-    SCENE / "Resources/SceneTextureCandidate.swift",
-    SCENE / "Resources/SceneNamedTextureReference.swift",
-    SCENE / "Resources/SceneTextureSlotBinding.swift",
-    SCENE / "Resources/SceneTextureProviderPublication.swift",
-    SCENE / "Resources/SceneFrameTextureRegistry.swift",
-    SCENE / "Rendering/SceneBaseImageTextureCandidateSupport.swift",
-    SCENE / "Rendering/SceneBaseMaterialTextureResolver.swift",
-    SCENE / "Resources/SceneImageTextureUploader.swift",
-    SCENE / "Resources/SceneMediaThumbnailTextureStore.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureCandidate.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSlotBinding.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureProviderPublication.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneFrameTextureRegistry.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureCandidateSupport.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseMaterialTextureResolver.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneMediaThumbnailTextureStore.swift",
 ]
 
 HARNESS = r'''
@@ -1313,7 +1313,7 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
     def test_base_material_route_reports_ready_and_rejected_provider(self) -> None:
         renderer = RENDERER.read_text(encoding="utf-8")
         dependency = (
-            SCENE / "RenderGraph/LayerDependencies/SceneDependencyFrameRuntime.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime.swift"
         ).read_text(encoding="utf-8")
         self.assertIn('operation: "base-material-system-provider"', renderer)
         self.assertIn(
@@ -1342,7 +1342,7 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertLess(dependency_capture, visibility_gate)
 
         preflight = (
-            SCENE / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
         ).read_text(encoding="utf-8")
         begin = preflight.index("beginTextureFrame(")
         target_preflight = preflight.index(

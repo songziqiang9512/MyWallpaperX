@@ -11,8 +11,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 CAPTURE_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneDebugFrameCapture.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneDebugFrameCapture.swift"
 )
 
 HARNESS_SOURCE = r'''

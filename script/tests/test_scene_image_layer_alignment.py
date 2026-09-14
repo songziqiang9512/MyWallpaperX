@@ -13,8 +13,8 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-PIVOT_SOURCE = SCENE_ROOT / "Rendering/SceneImageLayerPivot.swift"
-TRANSFORMS_SOURCE = SCENE_ROOT / "Rendering/SceneMetalRenderer+LayerTransforms.swift"
+PIVOT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneImageLayerPivot.swift"
+TRANSFORMS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+LayerTransforms.swift"
 
 # Two real authored contracts:
 # - 3767460992 layer 1016 is bottomleft, local origin (-64.43445, -87.21118),

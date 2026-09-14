@@ -15,23 +15,22 @@ import unittest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-PROGRAM_SOURCE = SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialProgram.swift"
-TEXTURE_CANDIDATE_SOURCE = SCENE_ROOT / "Resources/SceneTextureCandidate.swift"
+PROGRAM_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram.swift"
+TEXTURE_CANDIDATE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureCandidate.swift"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
-    SCENE_ROOT / "Properties/SceneScriptValueOwnership.swift",
-    SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneShaderMalformedMetadataAdmission.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
-    SCENE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
-    SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
-    SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
-    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialEffectIngress.swift",
-    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialScriptBindingClassifier.swift",
-    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialTemplateCompiler.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptValueOwnership.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderSourceGraph.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneShaderMalformedMetadataAdmission.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialEffectIngress.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialScriptBindingClassifier.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift",
 ]
 
 

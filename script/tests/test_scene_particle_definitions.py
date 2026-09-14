@@ -12,16 +12,16 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
-    SOURCE_ROOT / "Particles/SceneParticleInitializer.swift",
-    SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
-    SOURCE_ROOT / "Particles/SceneParticleRemapValue.swift",
-    SOURCE_ROOT / "Particles/SceneParticleReduceMovement.swift",
-    SOURCE_ROOT / "Particles/SceneParticleCollisionPlane.swift",
-    SOURCE_ROOT / "Particles/SceneParticlePositionAroundControlPoint.swift",
-    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
-    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",
-    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleInitializer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleVortex.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleReduceMovement.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionAroundControlPoint.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
     SOURCE_ROOT / "Format/ScenePkgReader.swift",
 ]
 

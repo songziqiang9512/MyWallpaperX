@@ -48,7 +48,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         self.assertLess(references, frontend)
         frontend_directory = (
             REPOSITORY_ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderFrontend"
+            / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend"
         )
         self.assertEqual(
             {path.resolve() for path in scene_swift_sources(
@@ -73,12 +73,12 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         self.assertEqual(
             resolution[4:],
             (
-                "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneShaderSourceGraphBuilder.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneShaderSourceResolver.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceView.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceIndex.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContractLoader.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneShaderSourceGraphBuilder.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneShaderSourceResolver.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContractLoader.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
             ),
         )
         self.assertEqual(len(planning), 14)
@@ -86,29 +86,29 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             planning,
             (
                 "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneJSONValue.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneEffectDefinition.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredMaterialResolver.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContract.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneShaderSourceGraphBuilder.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneShaderSourceResolver.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceView.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneResourceIndex.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContractLoader.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectDefinition.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneAuthoredMaterialResolver.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderSourceGraph.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneShaderSourceGraphBuilder.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneShaderSourceResolver.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContractLoader.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
             ),
         )
         self.assertEqual(
             set(planning),
             set(resolution)
             | {
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneEffectDefinition.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredMaterialResolver.swift",
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectDefinition.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneAuthoredMaterialResolver.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift",
             },
         )
 
@@ -124,25 +124,25 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             text = (REPOSITORY_ROOT / relative).read_text(encoding="utf-8")
             with self.subTest(source_set="resolution", consumer=relative):
                 self.assertIn("shader_contract_resource_resolution", text)
-                self.assertNotIn("RenderGraph/ShaderContract/SceneShader", text)
+                self.assertNotIn("Compilation/ShaderContract/SceneShader", text)
                 self.assertNotIn("Resources/SceneShaderSource", text)
-                self.assertNotIn("Resources/SceneResourceView.swift", text)
-                self.assertNotIn("Resources/SceneResourceIndex.swift", text)
+                self.assertNotIn("Resources/Assets/SceneResourceView.swift", text)
+                self.assertNotIn("Resources/Assets/SceneResourceIndex.swift", text)
 
         for relative in planning_consumers:
             text = (REPOSITORY_ROOT / relative).read_text(encoding="utf-8")
             with self.subTest(source_set="planning", consumer=relative):
                 self.assertIn("authored_effect_planning_support", text)
-                self.assertNotIn("RenderGraph/ShaderContract/SceneShader", text)
+                self.assertNotIn("Compilation/ShaderContract/SceneShader", text)
                 self.assertNotIn("Resources/SceneShaderSource", text)
-                self.assertNotIn("Resources/SceneResourceView.swift", text)
-                self.assertNotIn("Resources/SceneResourceIndex.swift", text)
-                self.assertNotIn("RenderGraph/SceneEffectDefinition.swift", text)
+                self.assertNotIn("Resources/Assets/SceneResourceView.swift", text)
+                self.assertNotIn("Resources/Assets/SceneResourceIndex.swift", text)
+                self.assertNotIn("Compilation/Material/SceneEffectDefinition.swift", text)
                 self.assertNotIn(
-                    "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
+                    "Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
                     text,
                 )
-                self.assertNotIn("RenderGraph/SceneAuthoredMaterialResolver.swift", text)
+                self.assertNotIn("Compilation/Material/SceneAuthoredMaterialResolver.swift", text)
 
         for relative in (
             "script/scene_material_program_census.py",
@@ -172,7 +172,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         self.assertEqual(len(generic_compiler), 48)
         preparation_directory = (
             REPOSITORY_ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation"
+            / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation"
         )
         self.assertEqual(
             {
@@ -209,51 +209,42 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         self.assertEqual(len(model), 7)
         self.assertEqual(len(uniform), 2)
         self.assertIn(
-            "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
-            "SceneResolvedMaterialUniformProjection.swift",
+            'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift',
             uniform,
         )
         self.assertEqual(len(schema), 6)
         self.assertEqual(len(texture_finalization), 9)
         self.assertEqual(len(variant_preparation), 20)
         self.assertIn(
-            "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
-            "SceneResolvedMaterialProgramFinalizer+CoordinateOwnership.swift",
+            'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer+CoordinateOwnership.swift',
             texture_finalization,
         )
         self.assertIn(
-            "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
-            "SceneResolvedMaterialCompiledVariant.swift",
+            'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialCompiledVariant.swift',
             variant_preparation,
         )
         self.assertIn(
-            "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
-            "SceneResolvedMaterialGenericShaderArtifactCache+ExecutionTelemetry.swift",
+            'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache+ExecutionTelemetry.swift',
             variant_preparation,
         )
         self.assertIn(
-            "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
-            "SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
+            'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderPreparationCoordination.swift',
             variant_preparation,
         )
         self.assertIn(
-            "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
-            "SceneResolvedMaterialGenericShaderRequest.swift",
+            'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift',
             variant_preparation,
         )
         self.assertIn(
-            "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
-            "SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",
+            'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift',
             variant_preparation,
         )
         self.assertIn(
-            "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
-            "SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift",
+            'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift',
             variant_preparation,
         )
         self.assertIn(
-            "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
-            "SceneResolvedMaterialExecutionCapabilityVariant+InputValidation.swift",
+            'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+InputValidation.swift',
             variant_preparation,
         )
         self.assertEqual(
@@ -277,26 +268,13 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         )
         self.assertEqual(len(complete), 47)
 
-        material_program_directory = (
-            REPOSITORY_ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram"
-        )
-        self.assertEqual(
-            {
-                path.resolve()
-                for path in scene_swift_sources("resolved_material_program_all")
-            },
-            {
-                path.resolve()
-                for path in material_program_directory.glob("*.swift")
-            }.union({
-                (
-                    REPOSITORY_ROOT
-                    / "MyWallpaperX/Core/SteamWorkshopScene/Properties/"
-                    "SceneScriptValueOwnership.swift"
-                ).resolve()
-            }),
-        )
+        # The producer set now crosses preparation and live-binding boundaries.
+        # Keep its explicit cardinality/order above and verify those boundaries.
+        self.assertTrue(all("/Compilation/Material/" in path for path in model))
+        self.assertTrue(all("/Rendering/Bindings/" in path for path in uniform))
+        self.assertTrue(all("/Rendering/Bindings/" in path for path in texture_finalization
+                            if Path(path).name.startswith("SceneResolvedMaterialTextureResolver")))
+        self.assertEqual(len(set(complete)), len(complete))
 
     def test_frontend_consumers_use_the_canonical_source_set(self) -> None:
         consumers = [
@@ -314,7 +292,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             with self.subTest(consumer=relative):
                 self.assertIn("scene_swift_source", text)
                 self.assertNotIn(
-                    "RenderGraph/ShaderFrontend/SceneAuthoredShader",
+                    "Compilation/ShaderFrontend/SceneAuthoredShader",
                     text,
                     "frontend implementation paths belong only in the canonical manifest",
                 )
@@ -346,7 +324,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 with self.subTest(source_set=source_set, consumer=relative):
                     self.assertIn(source_set, text)
                     self.assertNotIn(
-                        "RenderGraph/ShaderPreparation/Scene",
+                        "Compilation/ShaderPreparation/Scene",
                         text,
                         "shader preparation implementation paths belong only "
                         "in the canonical manifest",

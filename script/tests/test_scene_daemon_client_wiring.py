@@ -38,12 +38,10 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
 
     def test_daemon_runtime_explicitly_owns_the_only_product_host(self) -> None:
         runtime_path = (
-            ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDaemonRuntime.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonRuntime.swift"
         )
         host_path = (
-            ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
         )
         runtime = runtime_path.read_text(encoding="utf-8")
         host = host_path.read_text(encoding="utf-8")
@@ -74,12 +72,10 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
 
     def test_daemon_resolves_and_host_scopes_external_texture_bookmarks(self) -> None:
         runtime = (
-            ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDaemonRuntime.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonRuntime.swift"
         ).read_text(encoding="utf-8")
         host = (
-            ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("resolvingBookmarkData: bookmarkData", runtime)
         self.assertIn("options: [.withSecurityScope]", runtime)
@@ -100,8 +96,7 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
     def test_display_topology_has_one_app_to_daemon_control_path(self) -> None:
         client = client_source()
         host = (
-            ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("NSApplication.didChangeScreenParametersNotification", client)
         self.assertIn('"cmd": "setDisplayConfiguration"', client)

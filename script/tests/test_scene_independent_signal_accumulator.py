@@ -37,19 +37,18 @@ def unique_sources(*groups: tuple[Path, ...] | list[Path]) -> list[Path]:
 
 PREPROCESSOR_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
-    SCENE_ROOT / "Resources/SceneResourceIndex.swift",
-    SCENE_ROOT / "Resources/SceneResourceView.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
-    SCENE_ROOT / "Resources/SceneTextureSampling.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderSourceGraph.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
     *scene_swift_sources("shader_preprocessing_and_variant_implementation"),
-    SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",
-    SCENE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneShaderSourceResolver.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneShaderSourceGraphBuilder.swift",
 ]
 ANALYZER = (
-    SCENE_ROOT
-    / "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer.swift"
 )
 SWIFT_SOURCES = unique_sources(
     tuple(PREPROCESSOR_SOURCES),

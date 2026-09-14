@@ -22,28 +22,23 @@ from scene_swift_source_sets import scene_swift_sources  # noqa: E402
 
 
 SWIFT_SOURCES = [
-    SCENE_ROOT / "Runtime/ScenePerformanceCounterHub.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     *scene_swift_sources("authored_shader_frontend_core"),
     *scene_swift_sources("shader_variant_environment"),
-    SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
-    SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
-    SCENE_ROOT / "Resources/SceneTextureSampling.swift",
-    SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
-    SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
-    SCENE_ROOT / "Resources/SceneTextureSlotBinding.swift",
-    SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
-    SCENE_ROOT / "Resources/SceneTextureProviderPublication.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureCandidate.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSlotBinding.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureProviderPublication.swift",
     *scene_swift_sources("resolved_material_program_model"),
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialAttachmentKind.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialAttachmentStorage.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder+Failure.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder+Warmup.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialAttachmentKind.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialAttachmentStorage.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Failure.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift",
 ]
 
 

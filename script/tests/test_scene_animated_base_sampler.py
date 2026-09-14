@@ -12,13 +12,13 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-SAMPLING_SOURCE = SCENE_ROOT / "Resources/SceneTextureSampling.swift"
-LOAD_SOURCE = SCENE_ROOT / "Rendering/SceneBaseImageTextureLoad.swift"
-VIEW_SOURCE = SCENE_ROOT / "Rendering/SceneMetalView.swift"
-REQUEST_SOURCE = SCENE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift"
-RENDERER_SOURCE = SCENE_ROOT / "Rendering/SceneMetalRenderer.swift"
+SAMPLING_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift"
+LOAD_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad.swift"
+VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
+REQUEST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerDrawRequest.swift"
+RENDERER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
 PREFLIGHT_SOURCE = (
-    SCENE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
 )
 
 

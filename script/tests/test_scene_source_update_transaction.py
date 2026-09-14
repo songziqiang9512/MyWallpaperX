@@ -11,39 +11,33 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-RENDERER = SCENE / "Rendering/SceneMetalRenderer.swift"
-COMPOSITOR = SCENE / "Rendering/SceneImageLayerCompositor.swift"
-BASE_IMAGE_TEXTURE_LOAD = SCENE / "Rendering/SceneBaseImageTextureLoad.swift"
-TRANSACTION = SCENE / "Rendering/SceneSourceUpdateTransaction.swift"
-EFFECT_EXECUTION = SCENE / "Rendering/SceneMetalRenderer+EffectExecution.swift"
-UTILITY_PLAN = SCENE / "Rendering/SceneUtilityPlanFrameRenderer.swift"
-UTILITY_LAYER = SCENE / "Rendering/SceneUtilityLayerRenderer.swift"
-VIEW = SCENE / "Rendering/SceneMetalView.swift"
-FRAME_DRIVER = SCENE / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
-FRAME_DRIVER_LIFECYCLE = SCENE / (
-    "Runtime/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
-)
-SCALAR_PROGRAM = SCENE / "Runtime/SceneScript/SceneScriptScalarProgram.swift"
-STRING_PROGRAM = SCENE / "Runtime/SceneScript/SceneScriptStringProgram.swift"
-VECTOR_PROGRAM = SCENE / "Runtime/SceneScript/SceneScriptVectorProgram.swift"
-MEDIA_EVENT_BRIDGE = SCENE / (
-    "Runtime/SceneScript/SceneScriptMediaEventBridge.swift"
-)
-TIMER_HOST = SCENE / "Runtime/SceneScript/SceneQuickJSTimerHost.c"
-AUDIO_SPECTRUM = SCENE / "Runtime/SceneAudioSpectrum.swift"
-PUPPET = SCENE / "Rendering/ScenePuppetPlaybackState.swift"
-SPRITE = SCENE / "Resources/SceneMultiImageSpritePlayback.swift"
-PARTICLE_PLAYBACK = SCENE / "Particles/SceneParticlePlaybackState.swift"
-PARTICLE_VIEW = SCENE / "Rendering/SceneMetalView+ParticlePlayback.swift"
-DYNAMIC_TEXT = SCENE / "Text/SceneDynamicTextTextureStore.swift"
-DYNAMIC_IMAGE_PROVIDER = SCENE / "Resources/SceneDynamicImageTextureProvider.swift"
-TEXTURE_REGISTRY = SCENE / "Resources/SceneFrameTextureRegistry.swift"
-TEXTURE_FRAME = SCENE / "Rendering/SceneMetalRenderer+TextureFrame.swift"
-ASSET_CATALOG = SCENE / "Resources/SceneMaterialAssetTextureCatalog.swift"
-RUNTIME_BRIDGE = SCENE / (
-    "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialRuntimeBridge.swift"
-)
-GRAPH_COMPOSITION = SCENE / "Rendering/SceneResolvedMaterialGraphComposition.swift"
+RENDERER = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
+COMPOSITOR = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift"
+BASE_IMAGE_TEXTURE_LOAD = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad.swift"
+TRANSACTION = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneSourceUpdateTransaction.swift"
+EFFECT_EXECUTION = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+EffectExecution.swift"
+UTILITY_PLAN = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityPlanFrameRenderer.swift"
+UTILITY_LAYER = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRenderer.swift"
+VIEW = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
+FRAME_DRIVER = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
+FRAME_DRIVER_LIFECYCLE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+SCALAR_PROGRAM = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram.swift"
+STRING_PROGRAM = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptStringProgram.swift"
+VECTOR_PROGRAM = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorProgram.swift"
+MEDIA_EVENT_BRIDGE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptMediaEventBridge.swift"
+TIMER_HOST = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSTimerHost.c"
+AUDIO_SPECTRUM = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift"
+PUPPET = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift"
+SPRITE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneMultiImageSpritePlayback.swift"
+PARTICLE_PLAYBACK = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePlaybackState.swift"
+PARTICLE_VIEW = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+ParticlePlayback.swift"
+DYNAMIC_TEXT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneDynamicTextTextureStore.swift"
+DYNAMIC_IMAGE_PROVIDER = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneDynamicImageTextureProvider.swift"
+TEXTURE_REGISTRY = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneFrameTextureRegistry.swift"
+TEXTURE_FRAME = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+TextureFrame.swift"
+ASSET_CATALOG = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneMaterialAssetTextureCatalog.swift"
+RUNTIME_BRIDGE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift"
+GRAPH_COMPOSITION = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift"
 
 
 class SceneSourceUpdateTransactionTests(unittest.TestCase):
@@ -72,10 +66,10 @@ class SceneSourceUpdateTransactionTests(unittest.TestCase):
         timer_host = TIMER_HOST.read_text(encoding="utf-8")
         audio_spectrum = AUDIO_SPECTRUM.read_text(encoding="utf-8")
         scalar_runtime = (
-            SCENE / "Runtime/SceneScript/SceneScriptScalarRuntime.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarRuntime.swift"
         ).read_text(encoding="utf-8")
         layer_bridge = (
-            SCENE / "Runtime/SceneScript/SceneScriptLayerHandleBridge.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerHandleBridge.swift"
         ).read_text(encoding="utf-8")
 
         timer_snapshot = driver.index("let sceneScriptProgramTimerFrameState")

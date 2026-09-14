@@ -12,8 +12,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PROGRAM_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneSoundPlaybackProgram.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackProgram.swift"
 )
 
 STUB_SOURCE = r'''

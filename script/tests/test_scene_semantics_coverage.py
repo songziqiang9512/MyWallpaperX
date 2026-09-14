@@ -484,26 +484,22 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         new_contract = json.loads(SCENE_LAYOUT_PATH.read_text(encoding="utf-8"))[
             "render_chain_authority_ratchet"
         ]
-        rename_output = subprocess.run(
-            [
-                "git", "diff", "--name-status", "--find-renames=50%",
-                "HEAD", "--", "MyWallpaperX/Core/SteamWorkshopScene",
-            ],
-            cwd=REPOSITORY_ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout
+        from script.source_relocations import unchanged_source_relocations
         scene_prefix = "MyWallpaperX/Core/SteamWorkshopScene/"
-        renamed_scene_files: dict[str, str] = {}
-        for line in rename_output.splitlines():
-            fields = line.split("\t")
-            if len(fields) == 3 and fields[0].startswith("R"):
-                old_path, new_path = fields[1:]
-                if old_path.startswith(scene_prefix) and new_path.startswith(scene_prefix):
-                    renamed_scene_files[
-                        old_path.removeprefix(scene_prefix)
-                    ] = new_path.removeprefix(scene_prefix)
+        old_paths = {
+            scene_prefix + path
+            for rule in old_contract["rules"]
+            for path in rule["allowed_files"]
+        }
+        moves = unchanged_source_relocations(
+            REPOSITORY_ROOT, "HEAD", old_paths,
+            (path.relative_to(REPOSITORY_ROOT).as_posix()
+             for path in SCENE_SOURCE_ROOT.rglob("*.swift")),
+        )
+        renamed_scene_files = {
+            old.removeprefix(scene_prefix): new.removeprefix(scene_prefix)
+            for old, new in moves.items()
+        }
         old_states = old_contract.get("completion_state")
         if old_states is not None:
             new_states = new_contract["completion_state"]

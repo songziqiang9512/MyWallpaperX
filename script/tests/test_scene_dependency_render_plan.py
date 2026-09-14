@@ -14,45 +14,38 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 ADMISSION_CATALOG_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectAdmissionCatalog.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectAdmissionCatalog.swift"
 )
 DEPENDENCY_RUNTIME_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyFrameRuntime.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime.swift"
 )
 STATIC_MODEL_DEPENDENCY_RUNTIME_SOURCE = DEPENDENCY_RUNTIME_SOURCE.with_name(
     "SceneDependencyFrameRuntime+StaticModel.swift"
 )
-METAL_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift"
+METAL_RENDERER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
 METAL_RENDERER_INITIALIZATION_SOURCE = (
-    SOURCE_ROOT / "Rendering/SceneMetalRenderer+Initialization.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Initialization.swift"
 )
 DEPENDENCY_PROVIDER_SOURCE = (
-    SOURCE_ROOT / "Rendering/SceneMetalRenderer+DependencyProviders.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+DependencyProviders.swift"
 )
 UTILITY_RUNTIME_PLAN_SOURCE = (
-    SOURCE_ROOT / "Rendering/SceneUtilityLayerRuntimePlan.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift"
 )
-LAUNCH_SOURCE = SOURCE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
+LAUNCH_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
 SWIFT_SOURCES = [
     Path(__file__).with_name("fixtures")
     / "SceneDependencyRenderPlanTestSupport.swift",
-    SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
-    SOURCE_ROOT
-    / "RenderGraph/LayerDependencies/SceneImageLayerBlendDependencyContract.swift",
-    SOURCE_ROOT
-    / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
-    SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyGraphAnalysis.swift",
-    SOURCE_ROOT
-    / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+ImageProgramReference.swift",
-    SOURCE_ROOT
-    / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+ForwardPreparation.swift",
-    SOURCE_ROOT
-    / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+StaticModel.swift",
-    SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan.swift",
-    SOURCE_ROOT
-    / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+Aggregate.swift",
-    SOURCE_ROOT
-    / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+BindingCompilation.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneImageLayerBlendDependencyContract.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyGraphAnalysis.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+ImageProgramReference.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+ForwardPreparation.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+StaticModel.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+Aggregate.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+BindingCompilation.swift",
 ]
 
 HARNESS_SOURCE = r'''

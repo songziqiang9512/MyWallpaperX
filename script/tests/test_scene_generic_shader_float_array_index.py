@@ -26,7 +26,7 @@ for _set_name in ("authored_shader_frontend_core", "generic_shader_compiler_prep
         if _source not in SWIFT_SOURCES:
             SWIFT_SOURCES.append(_source)
 SWIFT_SOURCES.append(
-    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderProgramArtifact.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift"
 )
 
 HARNESS = r'''

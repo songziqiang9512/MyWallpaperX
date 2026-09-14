@@ -4,9 +4,9 @@
 
 > 状态：现役稳定合同
 >
-> 当前实现程度、性能数字与运行证据只查[能力台账](../scene/semantics/coverage-ledger.md)和[运行证据索引](../scene/semantics/runtime-evidence-current.md)。
+> 当前实现程度、性能数字与运行证据只查[能力台账](../semantics/coverage-ledger.md)和[运行证据索引](../semantics/runtime-evidence-current.md)。
 >
-> 本文服从[兼容运行时架构](../scene/runtime-architecture.md)并由[兼容执行路线](../scene/scene-compatibility-roadmap.md)决定进入时机；它不是第二份 Scene 现役计划，也不改变 V0-V5 的任务顺序。
+> 本文服从[兼容运行时架构](runtime-architecture.md)并由[兼容执行路线](../scene-compatibility-roadmap.md)决定进入时机；它不是第二份 Scene 现役计划，也不改变 V0-V5 的任务顺序。
 
 ## 1. 目标与边界
 

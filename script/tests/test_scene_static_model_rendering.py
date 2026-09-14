@@ -8,15 +8,15 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-RESOURCES = SCENE_ROOT / "Resources/ScenePreparedStaticModelResources.swift"
-PREPARATION = SCENE_ROOT / "Runtime/ScenePreparedDeviceResources.swift"
-DESCRIPTOR = SCENE_ROOT / "Runtime/SceneRenderDescriptor.swift"
-LAYER = SCENE_ROOT / "Runtime/SceneRenderDescriptor+Layer.swift"
-RENDERER = SCENE_ROOT / "Rendering/SceneMetalRenderer.swift"
-VIEW = SCENE_ROOT / "Rendering/SceneMetalView.swift"
-HOST = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
-TOPOLOGY = SCENE_ROOT / "Runtime/SceneScript/SceneScriptLayerTopologyProjection.swift"
-SOURCE_FACTS = SCENE_ROOT / "Runtime/SceneRuntimeSourceFacts.swift"
+RESOURCES = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift"
+PREPARATION = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift"
+DESCRIPTOR = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift"
+LAYER = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift"
+RENDERER = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
+VIEW = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
+HOST = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
+TOPOLOGY = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerTopologyProjection.swift"
+SOURCE_FACTS = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeSourceFacts.swift"
 MODEL_READER = SCENE_ROOT / "Format/SceneMdlStaticModelReader.swift"
 
 

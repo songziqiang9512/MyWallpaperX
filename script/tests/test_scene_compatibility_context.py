@@ -15,7 +15,7 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 CONTEXT_SOURCE = SCENE_ROOT / "Format/SceneCompatibilityContext.swift"
 PROJECT_SOURCE = SCENE_ROOT / "Format/SceneProject.swift"
 DOCUMENT_SOURCE = SCENE_ROOT / "Format/SceneDocument.swift"
-RUNTIME_MODEL_SOURCE = SCENE_ROOT / "Runtime/SceneRuntimeModel.swift"
+RUNTIME_MODEL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift"
 
 
 HARNESS = r'''

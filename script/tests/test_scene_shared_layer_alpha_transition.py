@@ -15,13 +15,13 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = [
-    SCENE / "Properties/SceneDynamicSnapshot.swift",
-    SCENE / "Properties/SceneUserProperty.swift",
-    SCENE / "Properties/SceneLaunchOriginTransitionCompiler+SyntaxLexer.swift",
-    SCENE / "Properties/SceneSharedLayerAlphaProgram.swift",
-    SCENE / "Properties/SceneSharedLayerAlphaSyntax.swift",
-    SCENE / "Properties/SceneSharedLayerAlphaCompiler.swift",
-    SCENE / "Properties/SceneSharedLayerAlphaRuntime.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneLaunchOriginTransitionCompiler+SyntaxLexer.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneSharedLayerAlphaProgram.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneSharedLayerAlphaSyntax.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneSharedLayerAlphaCompiler.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneSharedLayerAlphaRuntime.swift",
 ]
 
 HARNESS = r'''

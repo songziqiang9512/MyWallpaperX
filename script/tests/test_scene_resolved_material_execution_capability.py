@@ -13,11 +13,10 @@ RENDERING = SCENE / "Rendering"
 class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
     def test_capability_catalog_has_one_program_first_execution_route(self) -> None:
         capability = (
-            EXECUTION / "SceneResolvedMaterialExecutionCapability.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift"
         ).read_text(encoding="utf-8")
         stages = (
-            EXECUTION
-            / "SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
         ).read_text(encoding="utf-8")
 
         self.assertIn("Self.compileProgramFirstStages(", capability)
@@ -38,12 +37,10 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
 
     def test_program_failure_is_bounded_to_safe_previous_current(self) -> None:
         stages = (
-            EXECUTION
-            / "SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
         ).read_text(encoding="utf-8")
         executor = (
-            EXECUTION
-            / "SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
         ).read_text(encoding="utf-8")
 
         failure = stages.index("case let .failure(programFailure):")
@@ -55,7 +52,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
 
     def test_aggregate_catalog_reuse_exports_each_authored_reference_slot(self) -> None:
         source = (
-            EXECUTION / "SceneResolvedMaterialExecutionCapability.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift"
         ).read_text(encoding="utf-8")
         start = source.index(
             "var admittedResolvedMaterialReferences:"
@@ -77,15 +74,13 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
 
     def test_unknown_execution_family_cannot_create_dedicated_owner(self) -> None:
         admission = (
-            SCENE
-            / "RenderGraph/EffectCompilation/SceneEffectStageAdmission.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectStageAdmission.swift"
         ).read_text(encoding="utf-8")
         disposition = (
-            SCENE / "Runtime/SceneEffectRuntimeDispositionCatalog.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectRuntimeDispositionCatalog.swift"
         ).read_text(encoding="utf-8")
         reporting = (
-            SCENE
-            / "RenderGraph/EffectCompilation/SceneEffectAdmissionCatalog+Reporting.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectAdmissionCatalog+Reporting.swift"
         ).read_text(encoding="utf-8")
 
         self.assertNotIn("admissionKind = .admittedDedicated", admission)
@@ -98,35 +93,34 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
 
     def test_uniform_and_geometry_sources_are_prepared_before_frames(self) -> None:
         capability = (
-            EXECUTION / "SceneResolvedMaterialExecutionCapability.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift"
         ).read_text(encoding="utf-8")
         stages = (
-            EXECUTION / "SceneResolvedMaterialExecutionCapability+Stages.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift"
         ).read_text(encoding="utf-8")
         compiled = (
-            MATERIAL / "SceneResolvedMaterialCompiledVariant.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialCompiledVariant.swift"
         ).read_text(encoding="utf-8")
         compilation = (
-            MATERIAL
-            / "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
         ).read_text(encoding="utf-8")
         finalizer = (
-            MATERIAL / "SceneResolvedMaterialProgramFinalizer.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer.swift"
         ).read_text(encoding="utf-8")
         bridge = (
-            RUNTIME / "SceneResolvedMaterialRuntimeBridge.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift"
         ).read_text(encoding="utf-8")
         preflight = (
-            RENDERING / "SceneResolvedMaterialFramePreflight.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
         ).read_text(encoding="utf-8")
         composition = (
-            RENDERING / "SceneResolvedMaterialGraphComposition.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift"
         ).read_text(encoding="utf-8")
         direct_draw = (
-            RENDERING / "SceneDirectDrawLayerRenderer.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDirectDrawLayerRenderer.swift"
         ).read_text(encoding="utf-8")
         geometry_compiler = (
-            EXECUTION / "SceneResolvedMaterialDirectDrawGeometryCompiler.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialDirectDrawGeometryCompiler.swift"
         ).read_text(encoding="utf-8")
 
         self.assertIn("struct FrameInputContract: Equatable", capability)

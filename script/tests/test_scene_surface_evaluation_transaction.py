@@ -13,16 +13,16 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = [
-    SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift",
-    SCENE_ROOT / "Properties/SceneSurfaceEvaluationTransaction.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneSurfaceEvaluationTransaction.swift",
 ]
 HOST_FRAME_DRIVER = (
-    SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
 HOST_FRAME_DRIVER_LIFECYCLE = (
-    SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
 )
-TRANSACTION = SCENE_ROOT / "Properties/SceneSurfaceEvaluationTransaction.swift"
+TRANSACTION = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneSurfaceEvaluationTransaction.swift"
 
 HARNESS = r'''
 import Foundation
@@ -283,7 +283,7 @@ class SceneSurfaceEvaluationTransactionTests(unittest.TestCase):
         )
 
     def test_previous_value_projection_reads_requested_target_identity(self) -> None:
-        source = (SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift").read_text(
+        source = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift").read_text(
             encoding="utf-8"
         )
         self.assertIn("for target in targets", source)

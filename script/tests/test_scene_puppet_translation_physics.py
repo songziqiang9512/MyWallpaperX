@@ -65,7 +65,7 @@ class PuppetTranslationPhysicsTests(unittest.TestCase):
         source = folder / 'main.swift'; source.write_text(HARNESS)
         binary = folder / 'physics'
         subprocess.run(['swiftc', '-parse-as-library', *map(str,SWIFT_SOURCES),
-            str(SCENE_ROOT/'Rendering/ScenePuppetTranslationMotion.swift'),str(source),'-o',str(binary)],
+            str(SCENE_ROOT/'Systems/Puppet/ScenePuppetTranslationMotion.swift'),str(source),'-o',str(binary)],
             check=True, capture_output=True, text=True)
         cls.result = json.loads(subprocess.run([str(binary)], check=True,
             capture_output=True,text=True).stdout)

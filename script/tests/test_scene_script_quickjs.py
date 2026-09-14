@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCENE_SCRIPT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript"
+SCENE_SCRIPT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script"
 QUICKJS = SCENE_SCRIPT / "QuickJSNG"
 
 HARNESS = r'''
@@ -3879,22 +3879,22 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             str(SCENE_SCRIPT),
             "-I",
             str(QUICKJS),
-            str(SCENE_SCRIPT / "SceneQuickJS.c"),
-            str(SCENE_SCRIPT / "SceneQuickJSValueHost.c"),
-            str(SCENE_SCRIPT / "SceneQuickJSModuleHost.c"),
-            str(SCENE_SCRIPT / "SceneQuickJSAnimationHost.c"),
-            str(SCENE_SCRIPT / "SceneQuickJSAudioHost.c"),
-            str(SCENE_SCRIPT / "SceneQuickJSMediaEventHost.c"),
-            str(SCENE_SCRIPT / "SceneQuickJSHandleHost.c"),
-            str(SCENE_SCRIPT / "SceneQuickJSLayerHost.c"),
-            str(SCENE_SCRIPT / "SceneQuickJSLayerSnapshotHost.c"),
-            str(SCENE_SCRIPT / "SceneQuickJSStorageHost.c"),
-            str(SCENE_SCRIPT / "SceneQuickJSJobHost.c"),
-            str(SCENE_SCRIPT / "SceneQuickJSTimerHost.c"),
-            str(QUICKJS / "quickjs.c"),
-            str(QUICKJS / "dtoa.c"),
-            str(QUICKJS / "libregexp.c"),
-            str(QUICKJS / "libunicode.c"),
+            str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.c"),
+            str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSValueHost.c"),
+            str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSModuleHost.c"),
+            str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSAnimationHost.c"),
+            str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSAudioHost.c"),
+            str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSMediaEventHost.c"),
+            str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSHandleHost.c"),
+            str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerHost.c"),
+            str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSnapshotHost.c"),
+            str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSStorageHost.c"),
+            str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSJobHost.c"),
+            str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSTimerHost.c"),
+            str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/quickjs.c"),
+            str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/dtoa.c"),
+            str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/libregexp.c"),
+            str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/libunicode.c"),
             str(harness),
             "-lm",
             "-o",
@@ -3928,28 +3928,22 @@ class SceneScriptQuickJSTest(unittest.TestCase):
 
     def test_host_wiring_preserves_public_frame_order(self) -> None:
         launch = (
-            ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
         ).read_text(encoding="utf-8")
         startup_report = (
-            ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperLaunchContext+StartupReport.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchContext+StartupReport.swift"
         ).read_text(encoding="utf-8")
         frame = (
-            ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
         ).read_text(encoding="utf-8")
         frame += "\n" + (
-            ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+SurfaceTeardown.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+SurfaceTeardown.swift"
         ).read_text(encoding="utf-8")
         model = (
-            ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneRuntimeModel.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift"
         ).read_text(encoding="utf-8")
         cursor = (
-            ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/SceneScriptCursorProgram.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram.swift"
         ).read_text(encoding="utf-8")
         self.assertIn(
             "scalarExcludedTargets: boundedSceneScriptTargets",

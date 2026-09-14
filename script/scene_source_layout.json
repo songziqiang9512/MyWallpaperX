@@ -2,114 +2,88 @@
   "schema_version": 3,
   "source_root": "MyWallpaperX/Core/SteamWorkshopScene",
   "top_level_directories": [
-    "Effects",
+    "Compilation",
+    "Diagnostics",
     "Format",
-    "Particles",
-    "Properties",
-    "RenderGraph",
     "Rendering",
     "Resources",
     "Runtime",
-    "Text"
+    "Systems"
   ],
   "declared_second_level_directories": {
-    "RenderGraph": {
-      "AuthoredGraph": {
+    "Compilation": {
+      "Graph": {
         "file_globs": [
           "SceneAuthoredEffectRenderPlan.swift",
-          "SceneAuthoredEffectRenderPlanner.swift",
           "SceneAuthoredEffectRenderPlanner+Resolution.swift",
+          "SceneAuthoredEffectRenderPlanner.swift",
           "SceneGraphAdmissionCompiler.swift",
           "SceneGraphConditionAdmission.swift",
           "SceneGraphConditionSchemaEvidenceCompiler.swift"
         ],
-        "responsibility": "Authored graph IR, structural planning, and graph/condition admission; excludes execution backends, target lifecycle, dependency scheduling, and GPU encoding."
+        "responsibility": "Graph: Load/generation-time authored compilation and immutable prepared products; no frame submission ownership."
       },
-      "EffectCompilation": {
+      "Material": {
         "file_globs": [
+          "SceneAudioResponseAdmission.swift",
+          "SceneAuthoredMaterialResolver.swift",
+          "SceneAuthoredXRayPlanner+StockIdentity.swift",
+          "SceneBaseMaterialColorModulationCompiler.swift",
+          "SceneBaseMaterialProviderBindingCompiler.swift",
+          "SceneBaseMaterialProviderBindingProgram.swift",
           "SceneEffectAdmissionCatalog+Reporting.swift",
           "SceneEffectAdmissionCatalog+ResolvedMaterial.swift",
           "SceneEffectAdmissionCatalog.swift",
+          "SceneEffectDefinition.swift",
+          "SceneEffectMaskSemantics.swift",
+          "SceneEffectRuntimeDispositionCatalog+Conservation.swift",
+          "SceneEffectRuntimeDispositionCatalog.swift",
+          "SceneEffectStageAdmission.swift",
           "SceneEffectStageAuthoredFallbackOwnerPartition.swift",
-          "SceneEffectStageAdmission.swift"
-        ],
-        "responsibility": "Effect admission, fallback-disposition accounting, and whole-chain catalog/reporting; MaterialProgram production and GraphExecutor own product execution."
-      },
-      "EffectExecution": {
-        "file_globs": [
-          "SceneGraphResourcePassEncoder.swift",
+          "SceneEffectStageRuntimeDisposition.swift",
+          "SceneEffectTextureInput.swift",
+          "SceneMaterialRenderState.swift",
           "ScenePreparedDirectDrawOutputGeometry.swift",
+          "SceneResolvedMaterialAlphaAttenuationEligibility.swift",
+          "SceneResolvedMaterialColorBlendEligibility.swift",
+          "SceneResolvedMaterialCompiledVariant.swift",
           "SceneResolvedMaterialDirectDrawGeometryCompiler.swift",
+          "SceneResolvedMaterialEffectIngress.swift",
           "SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
+          "SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
+          "SceneResolvedMaterialExecutionCapability+DynamicUniformRejection.swift",
           "SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
           "SceneResolvedMaterialExecutionCapability+Material.swift",
           "SceneResolvedMaterialExecutionCapability+PipelineWarmup.swift",
           "SceneResolvedMaterialExecutionCapability+PreservedChannels.swift",
-          "SceneResolvedMaterialExecutionCapability+ProgramFirstStages*.swift",
-          "SceneResolvedMaterialExecutionCapability+DynamicUniformRejection.swift",
+          "SceneResolvedMaterialExecutionCapability+ProgramFirstStages+InputContracts.swift",
+          "SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift",
+          "SceneResolvedMaterialExecutionCapability+ProgramFirstStagesBackground.swift",
           "SceneResolvedMaterialExecutionCapability+Stages.swift",
           "SceneResolvedMaterialExecutionCapability.swift",
           "SceneResolvedMaterialExecutionCapabilityAdmission.swift",
           "SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
-          "SceneResolvedMaterialStageActivation.swift",
-          "SceneResolvedMaterialVisualFailureTopology.swift",
-          "SceneResolvedMaterialGraphExecutor*.swift",
-          "SceneResolvedMaterialAttachment*.swift",
-          "SceneResolvedMaterialPassEncoder*.swift"
-        ],
-        "responsibility": "Shared MaterialProgram and GraphExecutor GPU execution, including ordered stages, attachment storage, pass encoding, and resource commands."
-      },
-      "GraphTargets": {
-        "file_globs": [
-          "SceneGraphCommandRuntime.swift",
-          "SceneGraphExecutionState*.swift",
-          "SceneGraphNodeScheduler.swift",
-          "SceneGraphRenderTarget*.swift",
-          "SceneLayerFullFramePairPlan.swift",
-          "SceneLayerGraphTargetPlan.swift",
-          "SceneOffscreenResolutionPolicy.swift",
-          "SceneOffscreenTexture*.swift",
-          "ScenePersistentGraphTargetAllocator.swift"
-        ],
-        "responsibility": "Authored graph target lifecycle, from logical plans and execution state through allocation, residency, resource commands, and publication."
-      },
-      "LayerDependencies": {
-        "file_globs": [
-          "SceneDependencyCaptureFault.swift",
-          "SceneDependencyFrameRuntime*.swift",
-          "SceneDependencyGraphAnalysis.swift",
-          "SceneNamedTextureDependencyReferenceAnalysis.swift",
-          "SceneImageLayerBlendDependencyContract.swift",
-          "SceneDependencyRenderPlan*.swift",
-          "SceneNamedRenderTargetPool.swift"
-        ],
-        "responsibility": "Inter-layer dependency planning and frame-scoped named-target reservation, publication, and texture pooling; excludes authored-effect FBO/history and compositor behavior."
-      },
-      "MaterialProgram": {
-        "file_globs": [
-          "SceneResolvedMaterialAlphaAttenuationEligibility.swift",
-          "SceneResolvedMaterialColorBlendEligibility.swift",
-          "SceneResolvedMaterialCompiledVariant.swift",
-          "SceneResolvedMaterialPreviousBlurredCompositeEligibility.swift",
-          "SceneResolvedMaterialGenericShaderProgramArtifact.swift",
-          "SceneResolvedMaterialEffectIngress.swift",
-          "SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
-          "SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",
+          "SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+InputValidation.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant.swift",
-          "SceneResolvedMaterialGenericShaderArtifactCache+ExecutionTelemetry.swift",
           "SceneResolvedMaterialGenericShaderArtifactCache+Diagnostics.swift",
+          "SceneResolvedMaterialGenericShaderArtifactCache+ExecutionTelemetry.swift",
           "SceneResolvedMaterialGenericShaderArtifactCache.swift",
-          "SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
           "SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
+          "SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
+          "SceneResolvedMaterialGenericShaderProgramArtifact.swift",
           "SceneResolvedMaterialGenericShaderRequest.swift",
           "SceneResolvedMaterialGenericShaderRouteAuthority.swift",
           "SceneResolvedMaterialGenericShaderRouteProfile.swift",
           "SceneResolvedMaterialHostUniformSchema.swift",
+          "SceneResolvedMaterialPreviousBlurredCompositeEligibility.swift",
+          "SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift",
+          "SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission+DynamicScale.swift",
+          "SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift",
           "SceneResolvedMaterialProgram+ColorDerivation.swift",
           "SceneResolvedMaterialProgram+Derivation.swift",
           "SceneResolvedMaterialProgram.swift",
@@ -118,13 +92,196 @@
           "SceneResolvedMaterialProgramFinalizer.swift",
           "SceneResolvedMaterialProgramIdentity+ExactTexture.swift",
           "SceneResolvedMaterialProgramIdentity.swift",
-          "SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
+          "SceneResolvedMaterialRuntimeCatalog+Report.swift",
+          "SceneResolvedMaterialRuntimeCatalog.swift",
           "SceneResolvedMaterialScriptBindingClassifier.swift",
           "SceneResolvedMaterialShaderSchema+Reachability.swift",
           "SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
           "SceneResolvedMaterialShaderSchema.swift",
-          "SceneResolvedMaterialTextureSlotPurpose.swift",
           "SceneResolvedMaterialTemplateCompiler.swift",
+          "SceneResolvedMaterialTextureSlotPurpose.swift",
+          "SceneResolvedMaterialVisualFailureTopology.swift"
+        ],
+        "responsibility": "Material: Load/generation-time authored compilation and immutable prepared products; no frame submission ownership."
+      },
+      "ShaderContract": {
+        "file_globs": [
+          "SceneShaderContract.swift",
+          "SceneShaderContractLoader+SourceGraph.swift",
+          "SceneShaderContractLoader.swift",
+          "SceneShaderLegacyAnnotationJSON.swift",
+          "SceneShaderSourceGraph.swift"
+        ],
+        "responsibility": "ShaderContract: Load/generation-time authored compilation and immutable prepared products; no frame submission ownership."
+      },
+      "ShaderFrontend": {
+        "file_globs": [
+          "SceneAuthoredShaderAlphaAttenuationAnalyzer.swift",
+          "SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.swift",
+          "SceneAuthoredShaderAssociatedOverBlendAnalyzer+Syntax.swift",
+          "SceneAuthoredShaderAssociatedOverBlendAnalyzer.swift",
+          "SceneAuthoredShaderAuxiliaryRGBMixAnalyzer.swift",
+          "SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer.swift",
+          "SceneAuthoredShaderBoundedLoopAdmission.swift",
+          "SceneAuthoredShaderBuiltInPowBroadcast.swift",
+          "SceneAuthoredShaderBuiltInVectorConversion.swift",
+          "SceneAuthoredShaderColorMixGraphAnalyzer.swift",
+          "SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift",
+          "SceneAuthoredShaderColorTransferAnalyzer.swift",
+          "SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
+          "SceneAuthoredShaderConditionalGeneratedRGBAnalyzer+ExhaustiveFilter.swift",
+          "SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.swift",
+          "SceneAuthoredShaderConditionalOpaqueAlphaWeightedRGBAnalyzer.swift",
+          "SceneAuthoredShaderConditionalStraightUnionAnalyzer+Scalar.swift",
+          "SceneAuthoredShaderConditionalStraightUnionAnalyzer+Syntax.swift",
+          "SceneAuthoredShaderConditionalStraightUnionAnalyzer.swift",
+          "SceneAuthoredShaderConditionalUnderlayRGBAnalyzer.swift",
+          "SceneAuthoredShaderDeadBindingAnalyzer.swift",
+          "SceneAuthoredShaderFragmentOutputAnalyzer.swift",
+          "SceneAuthoredShaderFrontend+DiscreteMask.swift",
+          "SceneAuthoredShaderFrontend.swift",
+          "SceneAuthoredShaderFrontendModel.swift",
+          "SceneAuthoredShaderFunctionSemantics.swift",
+          "SceneAuthoredShaderGeneratedAuxiliaryRGBPreservedAlphaAnalyzer.swift",
+          "SceneAuthoredShaderGeneratedStraightRGBAAnalyzer.swift",
+          "SceneAuthoredShaderGeneratedUnderlayBlendAnalyzer.swift",
+          "SceneAuthoredShaderGlobalReferenceAnalyzer.swift",
+          "SceneAuthoredShaderGraphInputColorBlendAnalyzer.swift",
+          "SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
+          "SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer+Syntax.swift",
+          "SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer.swift",
+          "SceneAuthoredShaderIndependentSignalCarrierAnalyzer.swift",
+          "SceneAuthoredShaderIndependentSignalColorCarrierCompositingAnalyzer.swift",
+          "SceneAuthoredShaderIndependentSignalCompositingAnalyzer.swift",
+          "SceneAuthoredShaderIndependentSignalInlineAccumulatorAnalyzer.swift",
+          "SceneAuthoredShaderIndependentSignalScalarContract.swift",
+          "SceneAuthoredShaderLexer.swift",
+          "SceneAuthoredShaderLoopAnalyzer.swift",
+          "SceneAuthoredShaderMetalEmitter+Translation.swift",
+          "SceneAuthoredShaderMetalEmitter.swift",
+          "SceneAuthoredShaderMetalSource.swift",
+          "SceneAuthoredShaderNeutralTextureResolutionAnalyzer.swift",
+          "SceneAuthoredShaderNeutralTextureTintAnalyzer.swift",
+          "SceneAuthoredShaderNormalizedSampleSumAnalyzer.swift",
+          "SceneAuthoredShaderOpaqueAlphaWeightedLoopAverageAnalyzer.swift",
+          "SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
+          "SceneAuthoredShaderOpaqueLoopSampleAverageAnalyzer.swift",
+          "SceneAuthoredShaderOpaqueStaticSampleAverageAnalyzer.swift",
+          "SceneAuthoredShaderOverlayAlphaBlendAnalyzer.swift",
+          "SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
+          "SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.swift",
+          "SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer.swift",
+          "SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.swift",
+          "SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer.swift",
+          "SceneAuthoredShaderRGBDifferenceEnhancementAnalyzer.swift",
+          "SceneAuthoredShaderRuntimeLoopAdmission.swift",
+          "SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer.swift",
+          "SceneAuthoredShaderSameSlotCarrierBlendAnalyzer.swift",
+          "SceneAuthoredShaderSameSlotChannelReconstructionAnalyzer.swift",
+          "SceneAuthoredShaderSameSlotColorBlendAlphaUnionAnalyzer.swift",
+          "SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer.swift",
+          "SceneAuthoredShaderSameSlotMixAnalyzer.swift",
+          "SceneAuthoredShaderSourceCarriedRGBAAnalyzer+GeneratedCarrierControlFlow.swift",
+          "SceneAuthoredShaderSourceCarriedRGBAAnalyzer+GeneratedCarrierProof.swift",
+          "SceneAuthoredShaderSourceCarriedRGBAAnalyzer+SeparatedOutput.swift",
+          "SceneAuthoredShaderSourceCarriedRGBAAnalyzer.swift",
+          "SceneAuthoredShaderStaticLoopAdmission.swift",
+          "SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
+          "SceneAuthoredShaderStraightColorOverlayAnalyzer.swift",
+          "SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
+          "SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer+Scalar.swift",
+          "SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.swift",
+          "SceneAuthoredShaderStraightWholeColorFilterAnalyzer+Syntax.swift",
+          "SceneAuthoredShaderStraightWholeColorFilterAnalyzer.swift",
+          "SceneAuthoredShaderSyntax.swift",
+          "SceneAuthoredShaderTextureChannelAnalyzer.swift",
+          "SceneAuthoredShaderTextureTransformABI.swift",
+          "SceneAuthoredShaderTypedDataRGBFilterAnalyzer.swift",
+          "SceneAuthoredShaderUniformRGBMixAnalyzer+Scalar.swift",
+          "SceneAuthoredShaderUniformRGBMixAnalyzer.swift",
+          "SceneAuthoredShaderVaryingArrayEmitter.swift",
+          "SceneAuthoredShaderVaryingPrefixLink.swift",
+          "SceneAuthoredShaderVectorConversion.swift",
+          "SceneAuthoredShaderWholeVectorAffineParser.swift"
+        ],
+        "responsibility": "ShaderFrontend: Load/generation-time authored compilation and immutable prepared products; no frame submission ownership."
+      },
+      "ShaderPreparation": {
+        "file_globs": [
+          "SceneAuthoredShaderBackendCanonicalizer.swift",
+          "SceneAuthoredShaderConstantNumericExpression.swift",
+          "SceneAuthoredShaderPreparation+Support.swift",
+          "SceneAuthoredShaderPreparation.swift",
+          "SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer.swift",
+          "SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape.swift",
+          "SceneGenericShaderArtifactBuilder+ColorTransfer.swift",
+          "SceneGenericShaderArtifactBuilder+ColorTransferSpecializedLowering.swift",
+          "SceneGenericShaderArtifactBuilder+StageUniforms.swift",
+          "SceneGenericShaderArtifactBuilder+StraightAlphaPreservingColorTransfer.swift",
+          "SceneGenericShaderArtifactBuilder.swift",
+          "SceneGenericShaderAssociatedOverBlendLowering.swift",
+          "SceneGenericShaderBooleanScalarArithmeticNormalizer.swift",
+          "SceneGenericShaderBoundedLoopWork.swift",
+          "SceneGenericShaderCompiler.swift",
+          "SceneGenericShaderCompilerBundle.swift",
+          "SceneGenericShaderCompilerProcess.swift",
+          "SceneGenericShaderConditionalGeneratedRGBLowering.swift",
+          "SceneGenericShaderDefaultStraightColorBoundaryLowering.swift",
+          "SceneGenericShaderDirectFunctionVectorArgumentNormalizer.swift",
+          "SceneGenericShaderExpectedColorTransfer.swift",
+          "SceneGenericShaderFloatingModuloNormalizer.swift",
+          "SceneGenericShaderGeneratedRGBPreservedAlphaLowering.swift",
+          "SceneGenericShaderGeneratedStraightRGBALowering.swift",
+          "SceneGenericShaderInactiveBuiltinOverloadCanonicalizer.swift",
+          "SceneGenericShaderIndependentSignalCompositingLowering.swift",
+          "SceneGenericShaderIndependentSignalLowering.swift",
+          "SceneGenericShaderLoopGuardLowering.swift",
+          "SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
+          "SceneGenericShaderOpaqueFromStraightColorLowering.swift",
+          "SceneGenericShaderPreviousBlurredCompositeLowering.swift",
+          "SceneGenericShaderRGBA8UNormIndependentSignalArtifactAnalyzer.swift",
+          "SceneGenericShaderRGBBlendScalarAlphaLowering.swift",
+          "SceneGenericShaderSameAlphaReconstructedRGBFilterLowering.swift",
+          "SceneGenericShaderSameSlotCarrierBlendLowering.swift",
+          "SceneGenericShaderSameSlotColorBlendAlphaUnionLowering.swift",
+          "SceneGenericShaderScalarArithmeticNormalizer.swift",
+          "SceneGenericShaderScalarBuiltInLiteralNormalizer.swift",
+          "SceneGenericShaderScalarVectorBroadcastNormalizer.swift",
+          "SceneGenericShaderScalarizedRGBPreservedAlphaLowering.swift",
+          "SceneGenericShaderSingleSampleStraightAlphaPreservingLowering.swift",
+          "SceneGenericShaderSourceNormalizer+Rewrites.swift",
+          "SceneGenericShaderSourceNormalizer.swift",
+          "SceneGenericShaderStageUniformAnalyzer.swift",
+          "SceneGenericShaderStraightAlphaPreservingLowering+Utilities.swift",
+          "SceneGenericShaderStraightAlphaPreservingLowering.swift",
+          "SceneGenericShaderStraightAlphaWholeOutputUnionLowering.swift",
+          "SceneGenericShaderTextureSamplingNormalizer.swift",
+          "SceneGenericShaderTypedDataRGBFilterLowering.swift",
+          "SceneGenericShaderVaryingNormalizer.swift",
+          "SceneShaderDirective.swift",
+          "SceneShaderMacroExpansion.swift",
+          "SceneShaderMalformedMetadataAdmission.swift",
+          "SceneShaderPreprocessor+Directive.swift",
+          "SceneShaderPreprocessor.swift",
+          "SceneShaderVariantEnvironment+HostFacts.swift",
+          "SceneShaderVariantEnvironment+ModuleResolution.swift",
+          "SceneShaderVariantEnvironment.swift",
+          "SceneShaderVariantResolver+DisabledCombo.swift",
+          "SceneShaderVariantResolver+ImplicitDisabledOptionAdmission.swift",
+          "SceneShaderVariantResolver+Schema.swift",
+          "SceneShaderVariantResolver+SchemaSeed.swift",
+          "SceneShaderVariantResolver+TextureFormat.swift",
+          "SceneShaderVariantResolver.swift"
+        ],
+        "responsibility": "ShaderPreparation: Load/generation-time authored compilation and immutable prepared products; no frame submission ownership."
+      }
+    },
+    "Rendering": {
+      "Bindings": {
+        "file_globs": [
+          "SceneAuthoredShaderFrameInputs+FrameContext.swift",
+          "SceneAuthoredShaderFrameInputs.swift",
+          "SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
           "SceneResolvedMaterialTextureResolver+GraphSelection.swift",
           "SceneResolvedMaterialTextureResolver+Launch.swift",
           "SceneResolvedMaterialTextureResolver+LaunchColor.swift",
@@ -134,111 +291,508 @@
           "SceneResolvedMaterialUniformEncoder.swift",
           "SceneResolvedMaterialUniformProjection.swift"
         ],
-        "responsibility": "Complete resolved-material producer lifecycle: ingress and Template compilation, generic compiler artifact validation, schema and variant preparation, Program identity and derivation, texture selection and frame finalization, and uniform encoding; RuntimeCatalog and GPU execution consumers are excluded."
+        "responsibility": "Bindings: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
       },
-      "ShaderContract": {
+      "Composition": {
         "file_globs": [
-          "SceneShaderContract.swift",
-          "SceneShaderLegacyAnnotationJSON.swift",
-          "SceneShaderContractLoader+SourceGraph.swift",
-          "SceneShaderContractLoader.swift",
-          "SceneShaderSourceGraph.swift"
+          "SceneBlendModeShaderSource.swift",
+          "SceneDirectDrawLayerRenderer.swift",
+          "SceneDynamicLayerRenderTopologyCache.swift",
+          "SceneFrameLayerTextureAssembly.swift",
+          "SceneFramebufferSnapshot.swift",
+          "SceneImageLayerCompositor+Uniforms.swift",
+          "SceneImageLayerCompositor.swift",
+          "SceneImageLayerDrawRequest.swift",
+          "SceneImageLayerMainPassRenderer.swift",
+          "SceneLayerColorBlendPipeline.swift",
+          "SceneLayerSourcePassthroughPlan.swift",
+          "SceneMainPassEncoder.swift",
+          "SceneOffscreenEffectRenderer+Capture.swift",
+          "SceneResolvedMaterialGraphComposition.swift",
+          "SceneUtilityLayer.swift",
+          "SceneUtilityLayerRenderer.swift",
+          "SceneUtilityLayerRuntimePlan.swift",
+          "SceneUtilityLayerSourceCoverage.swift",
+          "SceneUtilityLayerSourceRoute.swift",
+          "SceneUtilityPlanFrameRenderer.swift"
         ],
-        "responsibility": "Loss-preserving shader contract and source-graph lifecycle, including schema, stage metadata parsing, immutable source-graph contracts, and root/VFS contract loading and projection; concrete VFS/resource resolution, preparation, frontend compilation, MaterialProgram production, and GPU execution are excluded."
+        "responsibility": "Composition: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
       },
-      "ShaderFrontend": {
+      "Dependencies": {
         "file_globs": [
-          "SceneAuthoredShader*Admission.swift",
-          "SceneAuthoredShader*Analyzer*.swift",
-          "SceneAuthoredShaderBuiltIn*.swift",
-          "SceneAuthoredShader*VectorConversion.swift",
-          "SceneAuthoredShaderFrontend*.swift",
-          "SceneAuthoredShaderFunctionSemantics.swift",
-          "SceneAuthoredShaderIndependentSignalScalarContract.swift",
-          "SceneAuthoredShaderLexer.swift",
-          "SceneAuthoredShader*Link*.swift",
-          "SceneAuthoredShaderMetal*.swift",
-          "SceneAuthoredShaderSyntax.swift",
-          "SceneAuthoredShaderTextureTransformABI.swift",
-          "SceneAuthoredShaderVaryingArrayEmitter.swift",
-          "SceneAuthoredShaderWholeVectorAffineParser.swift"
+          "SceneDependencyCaptureFault.swift",
+          "SceneDependencyFrameRuntime+AggregateValidation.swift",
+          "SceneDependencyFrameRuntime+Geometry.swift",
+          "SceneDependencyFrameRuntime+StaticModel.swift",
+          "SceneDependencyFrameRuntime.swift",
+          "SceneDependencyGraphAnalysis.swift",
+          "SceneDependencyRenderPlan+Aggregate.swift",
+          "SceneDependencyRenderPlan+BindingCompilation.swift",
+          "SceneDependencyRenderPlan+ForwardPreparation.swift",
+          "SceneDependencyRenderPlan+ImageProgramReference.swift",
+          "SceneDependencyRenderPlan+StaticModel.swift",
+          "SceneDependencyRenderPlan.swift",
+          "SceneImageLayerBlendDependencyContract.swift",
+          "SceneNamedRenderTargetPool.swift",
+          "SceneNamedTextureDependencyReferenceAnalysis.swift"
         ],
-        "responsibility": "Bounded authored-shader frontend, including lexing, syntax and loop admission, typed semantic and color analysis, source translation, and Metal emission."
+        "responsibility": "Dependencies: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
       },
-      "ShaderPreparation": {
+      "Frame": {
         "file_globs": [
-          "SceneAuthoredShaderBackendCanonicalizer.swift",
-          "SceneAuthoredShaderConstantNumericExpression.swift",
-          "SceneAuthoredShaderPreparation*.swift",
-          "SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer.swift",
-          "SceneGenericShader*.swift",
-          "SceneShaderDirective.swift",
-          "SceneShaderMacroExpansion.swift",
-          "SceneShaderMalformedMetadataAdmission.swift",
-          "SceneShaderPreprocessor*.swift",
-          "SceneShaderVariantEnvironment*.swift",
-          "SceneShaderVariantResolver*.swift"
+          "SceneMetalRenderer+BaseMaterialColor.swift",
+          "SceneMetalRenderer+Camera.swift",
+          "SceneMetalRenderer+ClearColor.swift",
+          "SceneMetalRenderer+CompositionSourceFallback.swift",
+          "SceneMetalRenderer+DependencyProviders.swift",
+          "SceneMetalRenderer+DependencySourceFallback.swift",
+          "SceneMetalRenderer+Diagnostics.swift",
+          "SceneMetalRenderer+EffectExecution.swift",
+          "SceneMetalRenderer+ExecutionEvidence.swift",
+          "SceneMetalRenderer+FrameOutcome.swift",
+          "SceneMetalRenderer+FrameWorldProjection.swift",
+          "SceneMetalRenderer+Initialization.swift",
+          "SceneMetalRenderer+LayerTransforms.swift",
+          "SceneMetalRenderer+ParticlePointer.swift",
+          "SceneMetalRenderer+Particles.swift",
+          "SceneMetalRenderer+TextureFrame.swift",
+          "SceneMetalRenderer+UtilitySourceCoverage.swift",
+          "SceneMetalRenderer.swift",
+          "SceneMetalRendererDiagnostic.swift",
+          "SceneMetalView+Debug.swift",
+          "SceneMetalView+FrameContext.swift",
+          "SceneMetalView+Geometry.swift",
+          "SceneMetalView+ParticlePlayback.swift",
+          "SceneMetalView+Pointer.swift",
+          "SceneMetalView+PointerEvents.swift",
+          "SceneMetalView+PuppetBones.swift",
+          "SceneMetalView+SceneScriptCursorInteraction.swift",
+          "SceneMetalView.swift",
+          "SceneResolvedMaterialFramePreflight+AggregateReservation.swift",
+          "SceneResolvedMaterialFramePreflight.swift",
+          "SceneSourceUpdateTransaction.swift"
         ],
-        "responsibility": "Bounded authored-shader source preparation, including directive and macro preprocessing, variant environment and resolution, prepared-source production, signed generic compiler helper resolution/process isolation/artifact lowering, and malformed-metadata admission; excludes ShaderContract, ShaderSourceGraph, FrameInputs, ShaderFrontend, ResolvedMaterial Program validation, and GPU execution."
-      }
-    },
-    "Runtime": {
-      "SceneScript": {
-        "file_globs": [
-          "SceneScriptScalarProgram.swift",
-          "SceneScriptScalarProgram+Projection.swift",
-          "SceneScriptScalarDisplayProjection.swift",
-          "SceneScriptScalarRuntime.swift",
-          "SceneScriptBooleanVisibilityValidation.swift",
-          "SceneScriptQuickJSDomain+FrameTransaction.swift",
-          "SceneScriptStringProgram.swift",
-          "SceneScriptStringRuntime.swift",
-          "SceneScriptAnimationHandleBridge.swift",
-          "SceneScriptAudioHost.swift",
-          "SceneScriptCursorProgram.swift",
-          "SceneScriptCursorProgram+PuppetBones.swift",
-          "SceneScriptCursorHitAdmission.swift",
-          "SceneScriptFallbackCatalog.swift",
-          "SceneScriptVectorMediaRouteCandidate.swift",
-          "SceneScriptDynamicImageReferenceAnalysis.swift",
-          "SceneScriptDynamicLayerRuntime.swift",
-          "SceneScriptEffectHandleBridge.swift",
-          "SceneScriptLayerHandleBridge.swift",
-          "SceneScriptLocalStorage.swift",
-          "SceneScriptLayerRuntimeDescriptorBridge.swift",
-          "SceneScriptLayerTopologyModels.swift",
-          "SceneScriptLayerTopologyProjection.swift",
-          "SceneScriptLayerWorldTransformProjection.swift",
-          "SceneScriptLayerWorldTransformPublication.swift",
-          "SceneScriptMediaEventBridge.swift",
-          "SceneScriptMediaFrameCoordinator.swift",
-          "SceneScriptOwnerEffectsRuntimeValidation.swift",
-          "SceneScriptOwnerLifecycleBridge.swift",
-          "SceneScriptParticleProjection.swift",
-          "SceneScriptPropertyInput.swift",
-          "SceneScriptQuickJSProgramCandidate.swift",
-          "SceneScriptVectorCandidateCatalog.swift",
-          "SceneScriptVectorCandidateModels.swift",
-          "SceneScriptVectorOwner+PuppetBones.swift",
-          "SceneScriptVectorProgram.swift",
-          "SceneScriptVectorProgram+Registrations.swift",
-          "SceneScriptVectorProgramModels.swift",
-          "SceneScriptVectorRuntime.swift",
-          "ScenePuppetBoneTransformBridge.swift"
-        ],
-        "responsibility": "SceneScript VM owners, typed scalar/String/Vec and particle target projection plus callback-scoped cursor/media/property events and effect/scene/layer/object-animation bridges; excludes QuickJS core source, remaining host event API breadth, and GPU rendering consumers."
+        "responsibility": "Frame: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
       },
-      "ResolvedMaterialExecution": {
+      "Geometry": {
         "file_globs": [
+          "SceneCaptureGeometry.swift",
+          "SceneDirectDrawOutputGeometry.swift",
+          "SceneGeometryProduct.swift",
+          "SceneImageLayerPivot.swift",
+          "SceneLayerCursorGeometry.swift",
+          "SceneLayerDynamicWorldFrameResolver.swift",
+          "SceneLayerPlacementSummary.swift",
+          "SceneLayerScreenAnchor.swift",
+          "SceneLayerVisibility.swift",
+          "SceneLayerWorldFrameResolver.swift",
+          "SceneMatrix.swift",
+          "SceneTextLayerPivot.swift",
+          "SceneTextureMappedUVScale.swift"
+        ],
+        "responsibility": "Geometry: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
+      },
+      "Graph": {
+        "file_globs": [
+          "SceneGraphResourcePassEncoder.swift",
+          "SceneResolvedMaterialAttachmentKind.swift",
+          "SceneResolvedMaterialAttachmentStorage.swift",
+          "SceneResolvedMaterialGraphExecutor+Attachment.swift",
+          "SceneResolvedMaterialGraphExecutor+DynamicUniformDiagnostics.swift",
+          "SceneResolvedMaterialGraphExecutor+Preparation.swift",
+          "SceneResolvedMaterialGraphExecutor+Validation.swift",
+          "SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift",
+          "SceneResolvedMaterialGraphExecutor.swift",
           "SceneResolvedMaterialGraphObservationBuilder.swift",
+          "SceneResolvedMaterialPassEncoder+Failure.swift",
+          "SceneResolvedMaterialPassEncoder+Warmup.swift",
+          "SceneResolvedMaterialPassEncoder.swift",
           "SceneResolvedMaterialRuntimeBridge.swift",
+          "SceneResolvedMaterialStageActivation.swift",
           "SceneResolvedMaterialSubmissionCoordinator+Completion.swift",
           "SceneResolvedMaterialSubmissionCoordinator+Execution.swift",
           "SceneResolvedMaterialSubmissionCoordinator+FrameCommit.swift",
           "SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift",
           "SceneResolvedMaterialSubmissionCoordinator.swift"
         ],
-        "responsibility": "Surface-scoped resolved-material execution lifecycle, from the runtime facade and atomic frame submission through target commit, ordered encoding, completion, rollback, epoch invalidation, and terminal graph observation; excludes scene-lifetime catalogs, generic graph telemetry, GPU executors, and Rendering consumers."
+        "responsibility": "Graph: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
+      },
+      "Lighting": {
+        "file_globs": [
+          "SceneLightSnapshot.swift",
+          "SceneSpotLightPipeline.swift",
+          "SceneSpotLightPlan.swift",
+          "SceneSpotLightRuntime.swift"
+        ],
+        "responsibility": "Lighting: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
+      },
+      "Metal": {
+        "file_globs": [
+          "SceneImageEffectPipelineRepository.swift",
+          "SceneMetalPipeline.swift",
+          "SceneStaticModelPipeline.swift"
+        ],
+        "responsibility": "Metal: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
+      },
+      "Particles": {
+        "file_globs": [
+          "SceneParticleDepthTargetPool.swift",
+          "SceneParticleMetalInstanceBuffer.swift",
+          "SceneParticleMetalPipeline.swift",
+          "SceneParticlePipelineRenderStateCompiler.swift",
+          "SceneParticleRenderSupport.swift",
+          "SceneParticleSamplerStateSet.swift",
+          "SceneParticleShaderSource.swift"
+        ],
+        "responsibility": "Particles: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
+      },
+      "Targets": {
+        "file_globs": [
+          "SceneGraphCommandRuntime.swift",
+          "SceneGraphExecutionState+Identity.swift",
+          "SceneGraphExecutionState+Validation.swift",
+          "SceneGraphExecutionState.swift",
+          "SceneGraphNodeScheduler.swift",
+          "SceneGraphRenderTargetFormat.swift",
+          "SceneGraphRenderTargetLease+Publication.swift",
+          "SceneGraphRenderTargetLease.swift",
+          "SceneGraphRenderTargetPlan+Clear.swift",
+          "SceneGraphRenderTargetPlan+Extent.swift",
+          "SceneGraphRenderTargetPlan.swift",
+          "SceneGraphRenderTargetTable+Mapped.swift",
+          "SceneGraphRenderTargetTable.swift",
+          "SceneLayerFullFramePairPlan.swift",
+          "SceneLayerGraphTargetPlan.swift",
+          "SceneOffscreenResolutionPolicy.swift",
+          "SceneOffscreenTextureAllocationCache+Batch.swift",
+          "SceneOffscreenTextureAllocationCache+SharedPair.swift",
+          "SceneOffscreenTextureAllocationCache.swift",
+          "SceneOffscreenTextureFramePreflight.swift",
+          "SceneOffscreenTexturePool+PersistentGraphTargets.swift",
+          "SceneOffscreenTexturePool.swift",
+          "SceneOffscreenTextureResidency.swift",
+          "ScenePersistentGraphTargetAllocator.swift"
+        ],
+        "responsibility": "Targets: Prepared-product consumption, live frame binding, GPU encoding and unique output lifecycle."
+      }
+    },
+    "Resources": {
+      "Assets": {
+        "file_globs": [
+          "SceneAssetCatalog.swift",
+          "SceneResourceIndex.swift",
+          "SceneResourceReferenceIndex.swift",
+          "SceneResourceView.swift",
+          "SceneShaderSourceGraphBuilder.swift",
+          "SceneShaderSourceResolver.swift",
+          "SceneStockTextureResolver.swift",
+          "SceneStockTextureSemanticRegistry.swift"
+        ],
+        "responsibility": "Assets: Shared resource identity, resolution, upload, residency and asynchronous publication."
+      },
+      "Providers": {
+        "file_globs": [
+          "SceneDynamicImageTextureProvider.swift",
+          "SceneMediaThumbnailTextureStore.swift",
+          "SceneVideoProviderLifecycleState.swift",
+          "SceneVideoTextureSource.swift",
+          "SceneVideoTextureSourceRegistry.swift"
+        ],
+        "responsibility": "Providers: Shared resource identity, resolution, upload, residency and asynchronous publication."
+      },
+      "Textures": {
+        "file_globs": [
+          "SceneBaseImageTextureCandidateSupport.swift",
+          "SceneBaseImageTextureLoad+Ordinary.swift",
+          "SceneBaseImageTextureLoad.swift",
+          "SceneBaseMaterialTextureResolver.swift",
+          "SceneCompressedTextureUploader.swift",
+          "SceneEffectTextureLoadResult.swift",
+          "SceneFrameTextureRegistry.swift",
+          "SceneImageTextureUploader.swift",
+          "SceneMaterialAssetTextureCatalog.swift",
+          "SceneNamedTextureReference.swift",
+          "ScenePreparedStaticModelResources.swift",
+          "SceneSolidLayerTexture.swift",
+          "SceneTextureCandidate.swift",
+          "SceneTextureLoader+Candidate.swift",
+          "SceneTextureLoader.swift",
+          "SceneTextureMipUploader.swift",
+          "SceneTexturePathResolver.swift",
+          "SceneTextureProviderPublication.swift",
+          "SceneTextureSampling.swift",
+          "SceneTextureSlotBinding.swift",
+          "SceneTextureUVTransform.swift"
+        ],
+        "responsibility": "Textures: Shared resource identity, resolution, upload, residency and asynchronous publication."
+      }
+    },
+    "Runtime": {
+      "Frame": {
+        "file_globs": [
+          "SceneCapabilityProfile.swift",
+          "SceneFrameContext.swift",
+          "SceneFramePresentation.swift",
+          "SceneInitialMediaEffectVisibilityProjection.swift",
+          "SceneRenderDescriptor+AuthoredAssets.swift",
+          "SceneRenderDescriptor+Layer.swift",
+          "SceneRenderDescriptor.swift",
+          "SceneRuntimeInput.swift",
+          "SceneRuntimeModel.swift",
+          "SceneRuntimeSourceFacts.swift",
+          "SceneScreenTopology.swift",
+          "SceneSurfacePointerState.swift"
+        ],
+        "responsibility": "Frame: Scene process/session orchestration and frame handoff; capability algorithms stay with their systems."
+      },
+      "IPC": {
+        "file_globs": [
+          "SceneDaemonClient+DisplayConfiguration.swift",
+          "SceneDaemonClient+Events.swift",
+          "SceneDaemonClient.swift",
+          "SceneDaemonProtocol.swift",
+          "SceneDaemonRuntime.swift"
+        ],
+        "responsibility": "IPC: Scene process/session orchestration and frame handoff; capability algorithms stay with their systems."
+      },
+      "Session": {
+        "file_globs": [
+          "SceneDesktopWallpaperHost+AudioDemand.swift",
+          "SceneDesktopWallpaperHost+DeferredBaseImages.swift",
+          "SceneDesktopWallpaperHost+FrameDriver.swift",
+          "SceneDesktopWallpaperHost+FrameDriverCursor.swift",
+          "SceneDesktopWallpaperHost+FrameDriverLifecycle.swift",
+          "SceneDesktopWallpaperHost+Launch.swift",
+          "SceneDesktopWallpaperHost+LiveConsumers.swift",
+          "SceneDesktopWallpaperHost+PointerEvents.swift",
+          "SceneDesktopWallpaperHost+Shutdown.swift",
+          "SceneDesktopWallpaperHost+SurfaceTeardown.swift",
+          "SceneDesktopWallpaperHost+TextScriptReport.swift",
+          "SceneDesktopWallpaperHost+TimelineReport.swift",
+          "SceneDesktopWallpaperHost+VideoProviders.swift",
+          "SceneDesktopWallpaperHost.swift",
+          "SceneDesktopWallpaperLaunchContext+PuppetBones.swift",
+          "SceneDesktopWallpaperLaunchContext+StartupReport.swift",
+          "SceneDesktopWallpaperLaunchFrameSchema.swift",
+          "ScenePreparedDeviceResources.swift"
+        ],
+        "responsibility": "Session: Scene process/session orchestration and frame handoff; capability algorithms stay with their systems."
+      }
+    },
+    "Systems": {
+      "Animation": {
+        "file_globs": [
+          "SceneMultiImageSpritePlayback.swift",
+          "SceneMultiImageSpriteResidentBudget.swift",
+          "SceneSpriteAnimation.swift",
+          "SceneTextureAnimationControl.swift",
+          "SceneTextureAnimationPlaybackRuntime.swift"
+        ],
+        "responsibility": "Animation: Capability-owned state, evaluation and preparation; uses the existing clock, resource registry and compositor."
+      },
+      "Input": {
+        "file_globs": [
+          "SceneCameraProjection.swift",
+          "SceneCameraShake.swift",
+          "SceneLayerParallax.swift"
+        ],
+        "responsibility": "Input: Capability-owned state, evaluation and preparation; uses the existing clock, resource registry and compositor."
+      },
+      "Media": {
+        "file_globs": [
+          "SceneAudioResponse.swift",
+          "SceneAudioSpectrum.swift",
+          "SceneMediaThumbnailCoordinator.swift",
+          "SceneMediaThumbnailInbox.swift",
+          "SceneSoundPlaybackProgram.swift",
+          "SceneSoundPlaybackRegistry.swift"
+        ],
+        "responsibility": "Media: Capability-owned state, evaluation and preparation; uses the existing clock, resource registry and compositor."
+      },
+      "Particles": {
+        "file_globs": [
+          "SceneParticleAssetGraph.swift",
+          "SceneParticleAudioResponsePlan.swift",
+          "SceneParticleBoids.swift",
+          "SceneParticleBuiltInTextureRegistry.swift",
+          "SceneParticleCameraFrame.swift",
+          "SceneParticleCapVelocity.swift",
+          "SceneParticleChildGraphExpansion.swift",
+          "SceneParticleChildInstanceBuilder.swift",
+          "SceneParticleChildLifecycle.swift",
+          "SceneParticleChildRuntime.swift",
+          "SceneParticleChildRuntimeModels.swift",
+          "SceneParticleChildTemplateSupport.swift",
+          "SceneParticleCollisionPlane.swift",
+          "SceneParticleControlPointForce.swift",
+          "SceneParticleDefinition.swift",
+          "SceneParticleDefinitionParser+InstanceOverride.swift",
+          "SceneParticleDefinitionParser+Operator.swift",
+          "SceneParticleDefinitionParser.swift",
+          "SceneParticleInitializer.swift",
+          "SceneParticleInstanceOverride+Dynamic.swift",
+          "SceneParticleLayerImageEmissionMap.swift",
+          "SceneParticleLayerImageEmitterCompiler.swift",
+          "SceneParticleLayerRuntime.swift",
+          "SceneParticleOscillationCache.swift",
+          "SceneParticlePeriodicEmission.swift",
+          "SceneParticlePlaybackState.swift",
+          "SceneParticlePointerProjection.swift",
+          "SceneParticlePositionAroundControlPoint.swift",
+          "SceneParticleReduceMovement.swift",
+          "SceneParticleRefractionBinding.swift",
+          "SceneParticleRefractionPlan.swift",
+          "SceneParticleRefractionTextureLoader.swift",
+          "SceneParticleRemapValue.swift",
+          "SceneParticleRopePlan.swift",
+          "SceneParticleRopeTrailPlan.swift",
+          "SceneParticleRuntime+Support.swift",
+          "SceneParticleRuntime.swift",
+          "SceneParticleRuntimeModels.swift",
+          "SceneParticleSimulationDiagnostic.swift",
+          "SceneParticleSimulationSupport.swift",
+          "SceneParticleSimulator+AudioResponse.swift",
+          "SceneParticleSimulator+Boids.swift",
+          "SceneParticleSimulator+CapVelocity.swift",
+          "SceneParticleSimulator+CollisionPlane.swift",
+          "SceneParticleSimulator+ControlPointForce.swift",
+          "SceneParticleSimulator+Initializer.swift",
+          "SceneParticleSimulator+InstanceOverride.swift",
+          "SceneParticleSimulator+PositionAroundControlPoint.swift",
+          "SceneParticleSimulator+Random.swift",
+          "SceneParticleSimulator+ReduceMovement.swift",
+          "SceneParticleSimulator+Vortex.swift",
+          "SceneParticleSimulator.swift",
+          "SceneParticleStepSnapshotRecorder.swift",
+          "SceneParticleTextureSource.swift",
+          "SceneParticleTrailRenderPlan.swift",
+          "SceneParticleUnaryOperatorPlans.swift",
+          "SceneParticleVortex.swift",
+          "SceneParticleWorldSpacePlan+Descriptor.swift",
+          "SceneParticleWorldSpacePlan.swift"
+        ],
+        "responsibility": "Particles: Capability-owned state, evaluation and preparation; uses the existing clock, resource registry and compositor."
+      },
+      "Properties": {
+        "file_globs": [
+          "SceneDynamicDefinitionMerger.swift",
+          "SceneDynamicLayerValues.swift",
+          "SceneDynamicSnapshot+Camera.swift",
+          "SceneDynamicSnapshot.swift",
+          "SceneIdentityDisplayScriptProjection.swift",
+          "SceneLaunchOriginTransitionCompiler+SyntaxLexer.swift",
+          "ScenePropertyBindingCompiler+TargetMapping.swift",
+          "ScenePropertyBindingProgram.swift",
+          "ScenePropertyBindingProgramValidator.swift",
+          "ScenePropertyLiveUpdateState.swift",
+          "ScenePuppetAnimationPropertyTarget.swift",
+          "SceneScriptDynamicProviderHostContract.swift",
+          "SceneScriptValueOwnership.swift",
+          "SceneSharedLayerAlphaCompiler.swift",
+          "SceneSharedLayerAlphaProgram.swift",
+          "SceneSharedLayerAlphaRuntime.swift",
+          "SceneSharedLayerAlphaSyntax.swift",
+          "SceneStaticModelMaterialPropertyBindingCompiler.swift",
+          "SceneSurfaceEvaluationTransaction.swift",
+          "SceneUserProperty.swift",
+          "SceneUserPropertyBindings.swift",
+          "SceneUserPropertyDefinitionParser.swift",
+          "SceneUserPropertyResolver.swift",
+          "SceneUserPropertyTextureLoader.swift"
+        ],
+        "responsibility": "Properties: Capability-owned state, evaluation and preparation; uses the existing clock, resource registry and compositor."
+      },
+      "Puppet": {
+        "file_globs": [
+          "ScenePuppetAnimationEvaluator+FrameSampling.swift",
+          "ScenePuppetAnimationEvaluator+Transforms.swift",
+          "ScenePuppetAnimationEvaluator.swift",
+          "ScenePuppetAnimationSelection.swift",
+          "ScenePuppetAttachmentFrameSnapshot.swift",
+          "ScenePuppetAttachmentPoseProjection.swift",
+          "ScenePuppetBoneEvidence.swift",
+          "ScenePuppetLayerLoad.swift",
+          "ScenePuppetMeshGeometry.swift",
+          "ScenePuppetPlaybackState.swift",
+          "ScenePuppetSkinMatrixProjection.swift",
+          "ScenePuppetTranslationMotion.swift"
+        ],
+        "responsibility": "Puppet: Capability-owned state, evaluation and preparation; uses the existing clock, resource registry and compositor."
+      },
+      "Script": {
+        "file_globs": [
+          "ScenePuppetBoneTransformBridge.swift",
+          "SceneScriptAnimationHandleBridge.swift",
+          "SceneScriptAudioHost.swift",
+          "SceneScriptBooleanVisibilityValidation.swift",
+          "SceneScriptCursorHitAdmission.swift",
+          "SceneScriptCursorProgram+PuppetBones.swift",
+          "SceneScriptCursorProgram.swift",
+          "SceneScriptDynamicImageReferenceAnalysis.swift",
+          "SceneScriptDynamicLayerRuntime.swift",
+          "SceneScriptEffectHandleBridge.swift",
+          "SceneScriptFallbackCatalog.swift",
+          "SceneScriptLayerHandleBridge.swift",
+          "SceneScriptLayerRuntimeDescriptorBridge.swift",
+          "SceneScriptLayerTopologyModels.swift",
+          "SceneScriptLayerTopologyProjection.swift",
+          "SceneScriptLayerWorldTransformProjection.swift",
+          "SceneScriptLayerWorldTransformPublication.swift",
+          "SceneScriptLocalStorage.swift",
+          "SceneScriptMediaEventBridge.swift",
+          "SceneScriptMediaFrameCoordinator.swift",
+          "SceneScriptOwnerEffectsRuntimeValidation.swift",
+          "SceneScriptOwnerLifecycleBridge.swift",
+          "SceneScriptParticleProjection.swift",
+          "SceneScriptPropertyInput.swift",
+          "SceneScriptQuickJSDomain+FrameTransaction.swift",
+          "SceneScriptQuickJSProgramCandidate.swift",
+          "SceneScriptScalarDisplayProjection.swift",
+          "SceneScriptScalarProgram+Projection.swift",
+          "SceneScriptScalarProgram.swift",
+          "SceneScriptScalarRuntime.swift",
+          "SceneScriptStringProgram.swift",
+          "SceneScriptStringRuntime.swift",
+          "SceneScriptVectorCandidateCatalog.swift",
+          "SceneScriptVectorCandidateModels.swift",
+          "SceneScriptVectorMediaRouteCandidate.swift",
+          "SceneScriptVectorOwner+PuppetBones.swift",
+          "SceneScriptVectorProgram+Registrations.swift",
+          "SceneScriptVectorProgram.swift",
+          "SceneScriptVectorProgramModels.swift",
+          "SceneScriptVectorRuntime.swift"
+        ],
+        "responsibility": "Script: Capability-owned state, evaluation and preparation; uses the existing clock, resource registry and compositor."
+      },
+      "Text": {
+        "file_globs": [
+          "SceneDynamicTextGenerationState.swift",
+          "SceneDynamicTextTextureStore.swift",
+          "SceneTextDescriptor.swift",
+          "SceneTextFontResolver.swift",
+          "SceneTextGeometry.swift",
+          "SceneTextMediaPropertiesCompiler.swift",
+          "SceneTextRowLimit.swift",
+          "SceneTextScriptCompiler.swift",
+          "SceneTextScriptDefinition.swift",
+          "SceneTextScriptProgram.swift",
+          "SceneTextScriptRuntime.swift",
+          "SceneTextScriptSubsetCompiler.swift",
+          "SceneTextScriptSubsetProgram.swift",
+          "SceneTextScriptSubsetRuntime.swift",
+          "SceneTextTextureLoader.swift"
+        ],
+        "responsibility": "Text: Capability-owned state, evaluation and preparation; uses the existing clock, resource registry and compositor."
+      },
+      "Timeline": {
+        "file_globs": [
+          "SceneTimelineEvaluator.swift",
+          "SceneTimelinePlaybackRuntime.swift",
+          "SceneTimelineRuntime.swift",
+          "SceneTimelineTargetCompiler+Camera.swift",
+          "SceneTimelineTargetCompiler.swift"
+        ],
+        "responsibility": "Timeline: Capability-owned state, evaluation and preparation; uses the existing clock, resource registry and compositor."
       }
     }
   },
@@ -261,7 +815,7 @@
         "baseline_occurrences": 1,
         "completion_target_occurrences": 1,
         "allowed_files": [
-          "Rendering/SceneImageLayerCompositor.swift"
+          "Rendering/Composition/SceneImageLayerCompositor.swift"
         ]
       },
       {
@@ -272,7 +826,7 @@
         "baseline_occurrences": 1,
         "completion_target_occurrences": 1,
         "allowed_files": [
-          "Rendering/SceneResolvedMaterialGraphComposition.swift"
+          "Rendering/Composition/SceneResolvedMaterialGraphComposition.swift"
         ]
       },
       {
@@ -312,9 +866,9 @@
         "pattern": "(?:\\bmainPass|\\bframe\\.mainPass)\\.encoder\\(\\)",
         "baseline_occurrences": 5,
         "allowed_files": [
-          "Rendering/SceneLayerColorBlendPipeline.swift",
-          "Rendering/SceneMetalRenderer+Particles.swift",
-          "Rendering/SceneSpotLightRuntime.swift"
+          "Rendering/Composition/SceneLayerColorBlendPipeline.swift",
+          "Rendering/Frame/SceneMetalRenderer+Particles.swift",
+          "Rendering/Lighting/SceneSpotLightRuntime.swift"
         ]
       },
       {
@@ -334,7 +888,7 @@
         "pattern": "\\\"[0-9a-fA-F]{64}\\\"",
         "baseline_occurrences": 5,
         "allowed_files": [
-          "RenderGraph/SceneAuthoredXRayPlanner+StockIdentity.swift"
+          "Compilation/Material/SceneAuthoredXRayPlanner+StockIdentity.swift"
         ]
       },
       {

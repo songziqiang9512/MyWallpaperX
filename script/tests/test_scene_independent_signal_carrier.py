@@ -38,22 +38,21 @@ def unique_sources(*groups: list[Path] | tuple[Path, ...]) -> list[Path]:
 
 PREPROCESSOR_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
-    SCENE_ROOT / "Resources/SceneResourceIndex.swift",
-    SCENE_ROOT / "Resources/SceneResourceView.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
-    SCENE_ROOT / "Resources/SceneTextureSampling.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderSourceGraph.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
     *scene_swift_sources("shader_preprocessing_and_variant_implementation"),
-    SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",
-    SCENE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneShaderSourceResolver.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneShaderSourceGraphBuilder.swift",
 ]
 SWIFT_SOURCES = unique_sources(
     tuple(PREPROCESSOR_SOURCES),
     scene_swift_sources("authored_shader_frontend_core"),
     (
-        SCENE_ROOT
-        / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
+        REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
     ),
     scene_swift_sources("generic_shader_compiler_preparation_implementation"),
 )

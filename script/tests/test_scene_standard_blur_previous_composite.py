@@ -28,18 +28,14 @@ SWIFT_SOURCES = list(dict.fromkeys([
     *scene_swift_sources("authored_shader_frontend_core"),
     *scene_swift_sources("authored_shader_preparation_implementation"),
     REPOSITORY_ROOT / "script/tests/fixtures/SceneStandardBlurPreviousCompositePurposeSupport.swift",
-    SCENE_ROOT / "Resources/SceneTextureSampling.swift",
-    SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
-    SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
-    SCENE_ROOT
-    / "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema.swift",
-    SCENE_ROOT / "Resources/SceneStockTextureSemanticRegistry.swift",
-    SCENE_ROOT
-    / "RenderGraph/MaterialProgram/SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
-    SCENE_ROOT
-    / "RenderGraph/MaterialProgram/SceneResolvedMaterialPreviousBlurredCompositeEligibility.swift",
-    SCENE_ROOT
-    / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneStockTextureSemanticRegistry.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeEligibility.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
     *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
 ]))
 

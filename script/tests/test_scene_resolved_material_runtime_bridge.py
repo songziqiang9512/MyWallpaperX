@@ -19,69 +19,67 @@ from script.tests.scene_dependency_binding_test_support import (
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 RUNTIME_CATALOG = (
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialRuntimeCatalog.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift"
 )
 RUNTIME_BRIDGE = (
-    SCENE_ROOT
-    / "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialRuntimeBridge.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift"
 )
 ASSET_CATALOG = (
-    SCENE_ROOT / "Resources/SceneMaterialAssetTextureCatalog.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneMaterialAssetTextureCatalog.swift"
 )
-LAUNCH = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
-TEXTURE_FRAME = SCENE_ROOT / "Rendering/SceneMetalRenderer+TextureFrame.swift"
-COMPOSITOR = SCENE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
+LAUNCH = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
+TEXTURE_FRAME = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+TextureFrame.swift"
+COMPOSITOR = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift"
 CAPABILITY_STAGES = (
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift"
 )
 LAYER_SOURCE_PASSTHROUGH_PLAN = (
-    SCENE_ROOT / "Rendering/SceneLayerSourcePassthroughPlan.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLayerSourcePassthroughPlan.swift"
 )
 GRAPH_COMPOSITION = (
-    SCENE_ROOT / "Rendering/SceneResolvedMaterialGraphComposition.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift"
 )
 RENDERER_DIAGNOSTICS = (
-    SCENE_ROOT / "Rendering/SceneMetalRenderer+Diagnostics.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Diagnostics.swift"
 )
 RENDERER_EXECUTION_EVIDENCE = (
-    SCENE_ROOT / "Rendering/SceneMetalRenderer+ExecutionEvidence.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ExecutionEvidence.swift"
 )
 FRAME_PREFLIGHT = (
-    SCENE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
 )
 TARGET_ALLOCATOR = (
-    SCENE_ROOT / "RenderGraph/GraphTargets/ScenePersistentGraphTargetAllocator.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/ScenePersistentGraphTargetAllocator.swift"
 )
 TARGET_CACHE = (
-    SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenTextureAllocationCache.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache.swift"
 )
 TARGET_SHARED_PAIR = (
-    SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenTextureAllocationCache+SharedPair.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache+SharedPair.swift"
 )
 TARGET_BATCH = (
-    SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenTextureAllocationCache+Batch.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache+Batch.swift"
 )
 TARGET_PREFLIGHT = (
-    SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenTexturePool+PersistentGraphTargets.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool+PersistentGraphTargets.swift"
 )
 OFFSCREEN_RESOLUTION_POLICY = (
-    SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenResolutionPolicy.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenResolutionPolicy.swift"
 )
-DRAW_REQUEST = SCENE_ROOT / "Rendering/SceneImageLayerDrawRequest.swift"
+DRAW_REQUEST = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerDrawRequest.swift"
 UTILITY_FRAME_RENDERER = (
-    SCENE_ROOT / "Rendering/SceneUtilityPlanFrameRenderer.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityPlanFrameRenderer.swift"
 )
-METAL_RENDERER = SCENE_ROOT / "Rendering/SceneMetalRenderer.swift"
+METAL_RENDERER = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
 METAL_RENDERER_DEPENDENCY_PROVIDERS = (
-    SCENE_ROOT / "Rendering/SceneMetalRenderer+DependencyProviders.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+DependencyProviders.swift"
 )
 METAL_VIEW_FRAME_CONTEXT = (
-    SCENE_ROOT / "Rendering/SceneMetalView+FrameContext.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+FrameContext.swift"
 )
-METAL_VIEW = SCENE_ROOT / "Rendering/SceneMetalView.swift"
-TEXT_TEXTURE_LOADER = SCENE_ROOT / "Text/SceneTextTextureLoader.swift"
-HOST = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
+METAL_VIEW = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
+TEXT_TEXTURE_LOADER = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextTextureLoader.swift"
+HOST = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
 DEBUG_RUNNER = REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
 DEBUG_SCENE_SWITCH_RUNNER = (
     REPOSITORY_ROOT
@@ -96,36 +94,30 @@ DEBUG_PAUSE_RESUME_RUNNER = (
     / "MyWallpaperX/App/DebugScenePlaybackRunner+PauseResume.swift"
 )
 HOST_FRAME_DRIVER = (
-    SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
 HOST_SURFACE_TEARDOWN = (
-    SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+SurfaceTeardown.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+SurfaceTeardown.swift"
 )
 SUBMISSION_COORDINATOR = (
-    SCENE_ROOT
-    / "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialSubmissionCoordinator.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift"
 )
 SUBMISSION_COMPLETION = (
-    SCENE_ROOT
-    / "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialSubmissionCoordinator+Completion.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Completion.swift"
 )
 SUBMISSION_LIFECYCLE = (
-    SCENE_ROOT
-    / "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift"
 )
 SUBMISSION_FRAME_COMMIT = (
-    SCENE_ROOT
-    / "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialSubmissionCoordinator+FrameCommit.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+FrameCommit.swift"
 )
 SUBMISSION_EXECUTION = (
-    SCENE_ROOT
-    / "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialSubmissionCoordinator+Execution.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Execution.swift"
 )
-GRAPH_OBSERVATION = SCENE_ROOT / "Runtime/SceneGraphExecutionObservation.swift"
-GRAPH_TELEMETRY = SCENE_ROOT / "Runtime/SceneGraphExecutionTelemetry.swift"
+GRAPH_OBSERVATION = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGraphExecutionObservation.swift"
+GRAPH_TELEMETRY = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGraphExecutionTelemetry.swift"
 GRAPH_OBSERVATION_BUILDER = (
-    SCENE_ROOT
-    / "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialGraphObservationBuilder.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphObservationBuilder.swift"
 )
 SUBMISSION_SWIFT_SOURCES = [
     GRAPH_OBSERVATION,
@@ -4476,14 +4468,10 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             "if attachment.storage == .preservedRGBAUnorm {", stages
         )
         preparation = (
-            REPOSITORY_ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/"
-            "SceneResolvedMaterialGraphExecutor+Preparation.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Preparation.swift"
         ).read_text(encoding="utf-8")
         publication = (
-            REPOSITORY_ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/"
-            "SceneGraphRenderTargetLease+Publication.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetLease+Publication.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("let content = storableContent(sourcePublication)", preparation)
         self.assertIn("content: content", preparation)
@@ -4839,7 +4827,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         view = METAL_VIEW.read_text(encoding="utf-8")
         host = HOST.read_text(encoding="utf-8")
         bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
-        renderer = (SCENE_ROOT / "Rendering/SceneMetalRenderer+Diagnostics.swift").read_text(
+        renderer = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Diagnostics.swift").read_text(
             encoding="utf-8"
         )
 
@@ -4959,7 +4947,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("commandBufferIdentities", completion)
 
     def test_production_frame_is_sealed_before_command_buffer_commit(self) -> None:
-        compositor = (SCENE_ROOT / "Rendering/SceneResolvedMaterialGraphComposition.swift").read_text(
+        compositor = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift").read_text(
             encoding="utf-8"
         )
         renderer = METAL_RENDERER.read_text(encoding="utf-8")
@@ -5232,9 +5220,9 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             compilation = subprocess.run(
                 [
                     "xcrun", "--sdk", "macosx", "swiftc",
-                    str(SCENE_ROOT / "Resources/SceneResourceIndex.swift"),
-                    str(SCENE_ROOT / "Resources/SceneResourceView.swift"),
-                    str(SCENE_ROOT / "Resources/SceneTexturePathResolver.swift"),
+                    str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift"),
+                    str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift"),
+                    str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTexturePathResolver.swift"),
                     str(harness), "-module-cache-path", str(root / "module-cache"),
                     "-o", str(binary),
                 ],

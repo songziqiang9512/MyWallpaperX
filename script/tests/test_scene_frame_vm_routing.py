@@ -14,42 +14,42 @@ RUNTIME = SCENE / "Runtime"
 SCRIPT = RUNTIME / "SceneScript"
 RENDERING = SCENE / "Rendering"
 
-HOST_SOURCE = RUNTIME / "SceneDesktopWallpaperHost.swift"
-FRAME_DRIVER_SOURCE = RUNTIME / "SceneDesktopWallpaperHost+FrameDriver.swift"
+HOST_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
+FRAME_DRIVER_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
 FRAME_DRIVER_LIFECYCLE_SOURCE = (
-    RUNTIME / "SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
 )
 SURFACE_TEARDOWN_SOURCE = (
-    RUNTIME / "SceneDesktopWallpaperHost+SurfaceTeardown.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+SurfaceTeardown.swift"
 )
-POINTER_EVENTS_SOURCE = RUNTIME / "SceneDesktopWallpaperHost+PointerEvents.swift"
-VIEW_SOURCE = RENDERING / "SceneMetalView.swift"
-MEDIA_COORDINATOR_SOURCE = RENDERING / "SceneMediaThumbnailCoordinator.swift"
+POINTER_EVENTS_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+PointerEvents.swift"
+VIEW_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
+MEDIA_COORDINATOR_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailCoordinator.swift"
 CURSOR_INTERACTION_SOURCE = (
-    RENDERING / "SceneMetalView+SceneScriptCursorInteraction.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+SceneScriptCursorInteraction.swift"
 )
-SCALAR_RUNTIME_SOURCE = SCRIPT / "SceneScriptScalarRuntime.swift"
-CURSOR_PROGRAM_SOURCE = SCRIPT / "SceneScriptCursorProgram.swift"
-CURSOR_HIT_ADMISSION_SOURCE = SCRIPT / "SceneScriptCursorHitAdmission.swift"
-MEDIA_EVENT_BRIDGE_SOURCE = SCRIPT / "SceneScriptMediaEventBridge.swift"
-MEDIA_FRAME_COORDINATOR_SOURCE = SCRIPT / "SceneScriptMediaFrameCoordinator.swift"
-PROPERTY_INPUT_SOURCE = SCRIPT / "SceneScriptPropertyInput.swift"
+SCALAR_RUNTIME_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarRuntime.swift"
+CURSOR_PROGRAM_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram.swift"
+CURSOR_HIT_ADMISSION_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorHitAdmission.swift"
+MEDIA_EVENT_BRIDGE_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptMediaEventBridge.swift"
+MEDIA_FRAME_COORDINATOR_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptMediaFrameCoordinator.swift"
+PROPERTY_INPUT_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptPropertyInput.swift"
 OWNER_EFFECTS_VALIDATION_SOURCE = (
-    SCRIPT / "SceneScriptOwnerEffectsRuntimeValidation.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptOwnerEffectsRuntimeValidation.swift"
 )
-LAUNCH_SOURCE = RUNTIME / "SceneDesktopWallpaperHost+Launch.swift"
-LAUNCH_SCHEMA_SOURCE = RUNTIME / "SceneDesktopWallpaperLaunchFrameSchema.swift"
+LAUNCH_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
+LAUNCH_SCHEMA_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchFrameSchema.swift"
 STARTUP_REPORT_SOURCE = (
-    RUNTIME / "SceneDesktopWallpaperLaunchContext+StartupReport.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchContext+StartupReport.swift"
 )
-MODEL_SOURCE = RUNTIME / "SceneRuntimeModel.swift"
-CANDIDATE_SOURCE = SCRIPT / "SceneScriptQuickJSProgramCandidate.swift"
-ROUTE_CANDIDATE_SOURCE = SCRIPT / "SceneScriptVectorMediaRouteCandidate.swift"
-FALLBACK_CATALOG_SOURCE = SCRIPT / "SceneScriptFallbackCatalog.swift"
-VECTOR_PROGRAM_SOURCE = SCRIPT / "SceneScriptVectorProgram.swift"
-LAYER_HANDLE_SOURCE = SCRIPT / "SceneScriptLayerHandleBridge.swift"
+MODEL_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift"
+CANDIDATE_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptQuickJSProgramCandidate.swift"
+ROUTE_CANDIDATE_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorMediaRouteCandidate.swift"
+FALLBACK_CATALOG_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptFallbackCatalog.swift"
+VECTOR_PROGRAM_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorProgram.swift"
+LAYER_HANDLE_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerHandleBridge.swift"
 LAYER_RUNTIME_DESCRIPTOR_SOURCE = (
-    SCRIPT / "SceneScriptLayerRuntimeDescriptorBridge.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerRuntimeDescriptorBridge.swift"
 )
 
 
@@ -80,9 +80,9 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("mutating func record(", property_input)
         self.assertIn("let appliedUserProperties: SceneScriptAppliedUserPropertyState", bridge)
         for source_path in (
-            SCRIPT / "SceneScriptVectorProgram.swift",
-            SCRIPT / "SceneScriptScalarProgram.swift",
-            SCRIPT / "SceneScriptStringProgram.swift",
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorProgram.swift",
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram.swift",
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptStringProgram.swift",
         ):
             source = source_path.read_text(encoding="utf-8")
             self.assertIn("appliedUserProperties.changedJSON(", source)
@@ -193,7 +193,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
     def test_layer_snapshot_precedes_every_shared_domain_callback(self) -> None:
         frame = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         frame_driver_cursor = (
-            RUNTIME / "SceneDesktopWallpaperHost+FrameDriverCursor.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverCursor.swift"
         ).read_text(encoding="utf-8")
         lifecycle = FRAME_DRIVER_LIFECYCLE_SOURCE.read_text(encoding="utf-8")
         vector = VECTOR_PROGRAM_SOURCE.read_text(encoding="utf-8")
@@ -326,7 +326,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         # A malformed DTO must remain a local owner failure; callers discard
         # the owner-local C journal before the candidate reaches frame commit.
         scalar = SCALAR_RUNTIME_SOURCE.read_text(encoding="utf-8")
-        string = (SCRIPT / "SceneScriptStringRuntime.swift").read_text(
+        string = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptStringRuntime.swift").read_text(
             encoding="utf-8"
         )
         self.assertIn("SceneScriptLayerMutationBridge.discard(owner: handle)", scalar)
@@ -443,8 +443,8 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
             self.assertEqual(coordinator.count(observed), 2)
         for program in (
             VECTOR_PROGRAM_SOURCE,
-            SCRIPT / "SceneScriptStringProgram.swift",
-            SCRIPT / "SceneScriptScalarProgram.swift",
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptStringProgram.swift",
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram.swift",
         ):
             source = program.read_text(encoding="utf-8")
             self.assertIn(
@@ -458,11 +458,11 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         frame_driver = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         surface_teardown = SURFACE_TEARDOWN_SOURCE.read_text(encoding="utf-8")
         frame_driver_cursor = (
-            RUNTIME / "SceneDesktopWallpaperHost+FrameDriverCursor.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverCursor.swift"
         ).read_text(encoding="utf-8")
         pointer_events = POINTER_EVENTS_SOURCE.read_text(encoding="utf-8")
         pointer_state = (
-            RUNTIME / "SceneSurfacePointerState.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneSurfacePointerState.swift"
         ).read_text(encoding="utf-8")
         interaction = CURSOR_INTERACTION_SOURCE.read_text(encoding="utf-8")
         scalar_runtime = SCALAR_RUNTIME_SOURCE.read_text(encoding="utf-8")

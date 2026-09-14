@@ -14,15 +14,15 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
-    SOURCE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Clear.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Extent.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetFormat.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetTable.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetTable+Mapped.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphCommandRuntime.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphNodeScheduler.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetPlan+Clear.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetPlan+Extent.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetFormat.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetTable.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetTable+Mapped.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphCommandRuntime.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphNodeScheduler.swift",
 ]
 
 
@@ -872,8 +872,7 @@ class SceneGraphRenderTargetTableTests(unittest.TestCase):
     def test_target_table_does_not_encode_initialization_outside_transaction(self) -> None:
         table_source = SWIFT_SOURCES[6].read_text(encoding="utf-8")
         preparation_source = (
-            SOURCE_ROOT
-            / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Preparation.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Preparation.swift"
         ).read_text(encoding="utf-8")
         self.assertNotIn("encodeInitialTargetClear", table_source)
         self.assertNotIn("encodeInitialTargetClear", preparation_source)

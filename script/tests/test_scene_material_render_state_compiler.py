@@ -10,8 +10,7 @@ import unittest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneMaterialRenderState.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState.swift"
 )
 
 HARNESS = r"""

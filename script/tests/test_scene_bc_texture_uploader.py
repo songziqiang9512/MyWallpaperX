@@ -14,23 +14,23 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-HOST_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
-HOST_LAUNCH_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
-METAL_VIEW_SOURCE = SCENE_ROOT / "Rendering/SceneMetalView.swift"
+HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
+HOST_LAUNCH_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
+METAL_VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
 SWIFT_SOURCES = [
-    SCENE_ROOT / "Runtime/ScenePerformanceCounterHub.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
-    SCENE_ROOT / "Resources/SceneImageTextureUploader.swift",
-    SCENE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
-    SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
-    SCENE_ROOT / "Resources/SceneTextureLoader.swift",
-    SCENE_ROOT / "Resources/SceneMultiImageSpriteResidentBudget.swift",
-    SCENE_ROOT / "Resources/SceneMultiImageSpritePlayback.swift",
-    SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
-    SCENE_ROOT / "Rendering/SceneMetalPipeline.swift",
-    SCENE_ROOT / "Rendering/SceneSpriteAnimation.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneCompressedTextureUploader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureMipUploader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneMultiImageSpriteResidentBudget.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneMultiImageSpritePlayback.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneSpriteAnimation.swift",
 ]
 
 HARNESS = r'''

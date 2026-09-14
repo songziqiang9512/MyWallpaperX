@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCENE_SCRIPT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript"
+SCENE_SCRIPT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script"
 QUICKJS = SCENE_SCRIPT / "QuickJSNG"
 
 HARNESS = r'''
@@ -194,22 +194,22 @@ class SceneScriptQuickJSOwnerBudgetTest(unittest.TestCase):
                 str(SCENE_SCRIPT),
                 "-I",
                 str(QUICKJS),
-                str(SCENE_SCRIPT / "SceneQuickJS.c"),
-                str(SCENE_SCRIPT / "SceneQuickJSValueHost.c"),
-                str(SCENE_SCRIPT / "SceneQuickJSModuleHost.c"),
-                str(SCENE_SCRIPT / "SceneQuickJSAnimationHost.c"),
-                str(SCENE_SCRIPT / "SceneQuickJSAudioHost.c"),
-                str(SCENE_SCRIPT / "SceneQuickJSMediaEventHost.c"),
-                str(SCENE_SCRIPT / "SceneQuickJSHandleHost.c"),
-                str(SCENE_SCRIPT / "SceneQuickJSLayerHost.c"),
-                str(SCENE_SCRIPT / "SceneQuickJSLayerSnapshotHost.c"),
-                str(SCENE_SCRIPT / "SceneQuickJSStorageHost.c"),
-                str(SCENE_SCRIPT / "SceneQuickJSJobHost.c"),
-                str(SCENE_SCRIPT / "SceneQuickJSTimerHost.c"),
-                str(QUICKJS / "quickjs.c"),
-                str(QUICKJS / "dtoa.c"),
-                str(QUICKJS / "libregexp.c"),
-                str(QUICKJS / "libunicode.c"),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.c"),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSValueHost.c"),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSModuleHost.c"),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSAnimationHost.c"),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSAudioHost.c"),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSMediaEventHost.c"),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSHandleHost.c"),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerHost.c"),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSnapshotHost.c"),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSStorageHost.c"),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSJobHost.c"),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSTimerHost.c"),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/quickjs.c"),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/dtoa.c"),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/libregexp.c"),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/libunicode.c"),
                 str(harness),
                 "-lm",
                 "-o",

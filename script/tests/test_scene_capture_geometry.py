@@ -13,10 +13,10 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "Rendering/SceneMatrix.swift",
-    SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",
-    SOURCE_ROOT / "Rendering/SceneCaptureGeometry.swift",
-    SOURCE_ROOT / "Rendering/SceneLayerCursorGeometry.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneCaptureGeometry.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerCursorGeometry.swift",
 ]
 
 HARNESS_SOURCE = r'''
@@ -172,7 +172,7 @@ enum Harness {
 class SceneCaptureGeometryTests(unittest.TestCase):
     def test_collapsed_solid_uses_admitted_projected_extent(self) -> None:
         self.assertEqual(self.result["collapsedSolidSize"], [1, 1])
-        source = (SOURCE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift").read_text()
+        source = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift").read_text()
         self.assertIn('if layer.contentKind == "solid"', source)
         self.assertIn("plan.allocation.graphPlan.fullFramePair.descriptor.extent", source)
 

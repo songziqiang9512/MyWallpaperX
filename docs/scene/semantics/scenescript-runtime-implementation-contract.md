@@ -8,7 +8,7 @@
 >
 > 本文回答的是 API 覆盖表回答不了的问题：**声明背后的实际数值行为、宿主与 VM 的桥接协议、以及编辑器声明的 authoring/type surface**。
 >
-> VM 技术选型与准入由[技术栈与架构路线边界](../../architecture/technology-stack-boundaries.md#5-scenescript-路线)和[兼容运行时架构](../runtime-architecture.md)统一约束。MyWallpaperX 的现役目标是 QuickJS-NG per-scene runtime/context + Swift typed host bridge；JavaScriptCore 只保留为历史候选和对照。官方公开合同只确认 SceneScript 基于 ECMAScript 并使用 wallpaper host API，不公开 QuickJS-NG、MyWallpaperX owner/预算策略或内部帧提交协议；下文 V8、record、timer 和 teardown 结论均是 2.8.42 固定客户端静态观察。
+> VM 技术选型与准入由[技术栈与架构路线边界](../../architecture/technology-stack-boundaries.md#5-scenescript-路线)和[兼容运行时架构](../design/runtime-architecture.md)统一约束。MyWallpaperX 的现役目标是 QuickJS-NG per-scene runtime/context + Swift typed host bridge；JavaScriptCore 只保留为历史候选和对照。官方公开合同只确认 SceneScript 基于 ECMAScript 并使用 wallpaper host API，不公开 QuickJS-NG、MyWallpaperX owner/预算策略或内部帧提交协议；下文 V8、record、timer 和 teardown 结论均是 2.8.42 固定客户端静态观察。
 >
 > **文档角色：`official-client-static-observation / research-context-only`。** 本页不是稳定实现合同，不得直接交给 implementation agent，也不授权照译其中的客户端常量、公式、布局、record 或顺序。研究任务只能按[官方客户端行为研究工作流](official-client-behavior-research-workflow.md)把当前有界问题压缩成经审查的中性行为合同；fresh implementation context 只接收该合同、项目自有 fixture 与官方黑盒协议。产品策略、失败边界和验收门只以本文链接的现役合同为准。
 
@@ -329,7 +329,7 @@ Mat3/Mat4 的乘法索引和向量变换直接确认其数组为 column-major �
 - `createModelData` 返回 tokenized handle；`applyData` 与 `replaceData` 共用 native bridge，以 mode 区分，update phase 拒绝 `replaceData`。buffer 增长、非 dynamic 更新、shape/buffer 增删、material/vertex format 改变及 index/layout 不兼容分别 fail closed。仍被 layer 引用的 model-data destroy 请求延迟到引用解除。
 - local storage 的四个操作都拒绝 global evaluation phase。默认 screen，只有字符串精确等于 `global` 才进入 global 域；key 必须是 string，`set(key, undefined)` 转 delete。value 经 VM 序列化并加版本 envelope；get 验证或反序列化失败返回 `undefined`，delete/clear 返回宿主状态。
 
-官方 live traversal 允许 `update` callback 持续创建 owner 并继续延长同一轮，这形成一个可观察的无界工作量风险。项目预算、延后准入和差异标记只见[现役 SceneScript 目标合同](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)与[兼容运行时架构](../runtime-architecture.md)；本静态观察仅提供预算触发和同帧可见性的黑盒对照问题。
+官方 live traversal 允许 `update` callback 持续创建 owner 并继续延长同一轮，这形成一个可观察的无界工作量风险。项目预算、延后准入和差异标记只见[现役 SceneScript 目标合同](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)与[兼容运行时架构](../design/runtime-architecture.md)；本静态观察仅提供预算触发和同帧可见性的黑盒对照问题。
 
 这些结论不闭合 asset canonicalization/precache 时点、负 index VM 行为、model-data 精确引用计数，也不闭合 storage namespace/quota/原子性/跨重启行为。
 
@@ -358,7 +358,7 @@ property return 通过集中式 typed conversion 写回 number、bool、string �
 
 ## 9. 已撤权的 2026-08-15 项目目标草案
 
-本节是旧研究文档中混入的项目目标草案，现已撤销规范权。现役目标只见[SceneScript API 覆盖表 §1.1](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)和[兼容运行时架构](../runtime-architecture.md)；implementation agent 不得从本节取得顺序、常量、默认值或实现授权。本节以下内容统一按“旧草案曾记录的候选设计”理解，仅保留为起草取舍的研究 provenance。
+本节是旧研究文档中混入的项目目标草案，现已撤销规范权。现役目标只见[SceneScript API 覆盖表 §1.1](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)和[兼容运行时架构](../design/runtime-architecture.md)；implementation agent 不得从本节取得顺序、常量、默认值或实现授权。本节以下内容统一按“旧草案曾记录的候选设计”理解，仅保留为起草取舍的研究 provenance。
 
 ### 9.1 Runtime、context 与 owner
 

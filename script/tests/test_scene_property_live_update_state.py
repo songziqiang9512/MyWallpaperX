@@ -13,7 +13,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 TARGET_MAPPING_SOURCE = (
-    SOURCE_ROOT / "Properties/ScenePropertyBindingCompiler+TargetMapping.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift"
 )
 SERVICE_SOURCE = REPOSITORY_ROOT / (
     "MyWallpaperX/Modules/SteamWorkshop/Scene/"
@@ -21,15 +21,15 @@ SERVICE_SOURCE = REPOSITORY_ROOT / (
 )
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
-    SOURCE_ROOT / "Properties/SceneUserProperty.swift",
-    SOURCE_ROOT / "Properties/SceneScriptDynamicProviderHostContract.swift",
-    SOURCE_ROOT / "Properties/SceneUserPropertyBindings.swift",
-    SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
-    SOURCE_ROOT / "Properties/ScenePuppetAnimationPropertyTarget.swift",
-    SOURCE_ROOT / "Properties/ScenePropertyBindingProgram.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyBindings.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgram.swift",
     TARGET_MAPPING_SOURCE,
-    SOURCE_ROOT / "Properties/ScenePropertyBindingProgramValidator.swift",
-    SOURCE_ROOT / "Properties/ScenePropertyLiveUpdateState.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgramValidator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyLiveUpdateState.swift",
 ]
 
 HARNESS = r'''
@@ -786,10 +786,10 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
 
     def test_live_updates_reuse_launch_validation_indexes(self) -> None:
         source = (
-            SOURCE_ROOT / "Properties/ScenePropertyLiveUpdateState.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyLiveUpdateState.swift"
         ).read_text(encoding="utf-8")
         program_source = (
-            SOURCE_ROOT / "Properties/ScenePropertyBindingProgram.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgram.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("private let validation:", source)
         self.assertIn("private let instructionsByPropertyKey:", source)

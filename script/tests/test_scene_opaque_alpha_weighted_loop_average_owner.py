@@ -454,19 +454,13 @@ class SceneOpaqueAlphaWeightedLoopAverageOwnerTests(unittest.TestCase):
 
     def test_typed_opaque_input_contract_reaches_frame_finalization(self) -> None:
         compilation = (
-            REPOSITORY_ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram"
-            / "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
         ).read_text(encoding="utf-8")
         finalizer = (
-            REPOSITORY_ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram"
-            / "SceneResolvedMaterialProgramFinalizer+ColorInputs.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer+ColorInputs.swift"
         ).read_text(encoding="utf-8")
         launch = (
-            REPOSITORY_ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram"
-            / "SceneResolvedMaterialTextureResolver+LaunchColor.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchColor.swift"
         ).read_text(encoding="utf-8")
 
         self.assertIn(

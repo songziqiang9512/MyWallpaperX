@@ -13,16 +13,16 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-IMAGE_LAYER_METAL_SOURCE = SCENE_ROOT / "Rendering/SceneImageLayer.metal"
+IMAGE_LAYER_METAL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal"
 SWIFT_SOURCES = [
-    SCENE_ROOT / "Runtime/ScenePerformanceCounterHub.swift",
-    SCENE_ROOT / "Rendering/SceneTextLayerPivot.swift",
-    SCENE_ROOT / "Rendering/SceneCameraProjection.swift",
-    SCENE_ROOT / "Rendering/SceneMatrix.swift",
-    SCENE_ROOT / "Rendering/SceneMetalPipeline.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneTextLayerPivot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/SceneCameraProjection.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
 ]
-TRANSFORMS_SOURCE = SCENE_ROOT / "Rendering/SceneMetalRenderer+LayerTransforms.swift"
-TEXT_LOADER_SOURCE = SCENE_ROOT / "Text/SceneTextTextureLoader.swift"
+TRANSFORMS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+LayerTransforms.swift"
+TEXT_LOADER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextTextureLoader.swift"
 
 # 判据来自随包 `projects/defaultprojects/dino_run/scene.json`（ortho 343x193）：
 # label_coins  origin 341.42999/185.129  size 780x291  scale 0.057  horizontalalign right

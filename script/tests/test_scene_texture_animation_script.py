@@ -14,17 +14,17 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "Runtime/ScenePerformanceCounterHub.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "Format/SceneTexDataReader.swift",
     SOURCE_ROOT / "Format/SceneTexContainer.swift",
-    SOURCE_ROOT / "Resources/SceneTextureUVTransform.swift",
-    SOURCE_ROOT / "Rendering/SceneMetalPipeline.swift",
-    SOURCE_ROOT / "Rendering/SceneSourceUpdateTransaction.swift",
-    SOURCE_ROOT / "Rendering/SceneSpriteAnimation.swift",
-    SOURCE_ROOT / "Runtime/SceneTextureAnimationControl.swift",
-    SOURCE_ROOT / "Rendering/SceneTextureAnimationPlaybackRuntime.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneSourceUpdateTransaction.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneSpriteAnimation.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneTextureAnimationControl.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneTextureAnimationPlaybackRuntime.swift",
 ]
 
 HARNESS = r'''
@@ -285,8 +285,7 @@ enum Harness {
 class SceneTextureAnimationScriptTests(unittest.TestCase):
     def test_atlas_transform_reuses_prepared_frame_end_times(self) -> None:
         source = (
-            REPOSITORY_ROOT
-            / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneSpriteAnimation.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneSpriteAnimation.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("var upper = frameEndTimes.count", source)
         self.assertIn("if remaining < frameEndTimes[middle]", source)
@@ -366,25 +365,22 @@ class SceneTextureAnimationScriptTests(unittest.TestCase):
 
     def test_single_clock_transaction_and_renderer_wiring(self) -> None:
         runtime = (
-            SOURCE_ROOT
-            / "Rendering/SceneTextureAnimationPlaybackRuntime.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneTextureAnimationPlaybackRuntime.swift"
         ).read_text(encoding="utf-8")
         host = (
-            SOURCE_ROOT
-            / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
         ).read_text(encoding="utf-8")
         lifecycle = (
-            SOURCE_ROOT
-            / "Runtime/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
         ).read_text(encoding="utf-8")
-        view = (SOURCE_ROOT / "Rendering/SceneMetalView.swift").read_text(
+        view = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift").read_text(
             encoding="utf-8"
         )
-        renderer = (SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift").read_text(
+        renderer = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift").read_text(
             encoding="utf-8"
         )
         preflight = (
-            SOURCE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
         ).read_text(encoding="utf-8")
 
         self.assertNotIn("Timer(", runtime)

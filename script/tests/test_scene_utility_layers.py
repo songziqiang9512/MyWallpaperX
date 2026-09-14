@@ -12,58 +12,53 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift"
-RUNTIME_PLAN_SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayerRuntimePlan.swift"
-SOURCE_ROUTE_SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayerSourceRoute.swift"
+SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayer.swift"
+RUNTIME_PLAN_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift"
+SOURCE_ROUTE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceRoute.swift"
 SOURCE_COVERAGE_SOURCE = (
-    SOURCE_ROOT / "Rendering/SceneUtilityLayerSourceCoverage.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceCoverage.swift"
 )
-UTILITY_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayerRenderer.swift"
-METAL_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift"
+UTILITY_RENDERER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRenderer.swift"
+METAL_RENDERER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
 METAL_RENDERER_INITIALIZATION_SOURCE = (
-    SOURCE_ROOT / "Rendering/SceneMetalRenderer+Initialization.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Initialization.swift"
 )
 UTILITY_FRAME_RENDERER_SOURCE = (
-    SOURCE_ROOT / "Rendering/SceneUtilityPlanFrameRenderer.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityPlanFrameRenderer.swift"
 )
 DEPENDENCY_RUNTIME_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyFrameRuntime.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime.swift"
 )
 DEPENDENCY_GEOMETRY_SOURCE = DEPENDENCY_RUNTIME_SOURCE.with_name(
     "SceneDependencyFrameRuntime+Geometry.swift"
 )
 AUTHORED_CATALOG_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectAdmissionCatalog.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectAdmissionCatalog.swift"
 )
-METAL_VIEW_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalView.swift"
+METAL_VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
 IMAGE_COMPOSITOR_SOURCE = (
-    SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift"
 )
 FRAME_PREFLIGHT_SOURCE = (
-    SOURCE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
 )
 SUBMISSION_COORDINATOR_SOURCE = (
-    SOURCE_ROOT
-    / "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialSubmissionCoordinator.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift"
 )
 EFFECT_EXECUTION_SOURCE = (
-    SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectExecution.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+EffectExecution.swift"
 )
 COMPOSITION_SOURCE_FALLBACK = (
-    SOURCE_ROOT / "Rendering/SceneMetalRenderer+CompositionSourceFallback.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+CompositionSourceFallback.swift"
 )
 CAPABILITY_SOURCE = (
-    SOURCE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift"
 )
 CAPABILITY_PROGRAM_FIRST_SOURCE = (
-    SOURCE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
 )
 CAPTURED_MAIN_SOURCE_CONSERVATION = (
-    SOURCE_ROOT
-    / "RenderGraph/MaterialProgram"
-    / "SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift"
 )
 
 HARNESS_SOURCE = r'''
@@ -129,7 +124,7 @@ class SceneUtilityLayerTests(unittest.TestCase):
 
     def test_document_and_descriptor_preserve_generic_dependencies(self) -> None:
         document = (SOURCE_ROOT / "Format/SceneDocument.swift").read_text(encoding="utf-8")
-        descriptor = (SOURCE_ROOT / "Runtime/SceneRenderDescriptor.swift").read_text(encoding="utf-8")
+        descriptor = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift").read_text(encoding="utf-8")
         self.assertIn('SceneObjectDependencies(rawValue: root["dependencies"])', document)
         self.assertIn("dependencyLayerIDs: object.dependencyLayerIDs", descriptor)
         self.assertIn("authoredDependencies: object.authoredDependencies", descriptor)

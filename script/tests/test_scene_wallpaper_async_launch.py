@@ -8,36 +8,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 LAUNCH = (
-    ROOT
-    / "MyWallpaperX"
-    / "Core"
-    / "SteamWorkshopScene"
-    / "Runtime"
-    / "SceneDesktopWallpaperHost+Launch.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
 )
 HOST = (
-    ROOT
-    / "MyWallpaperX"
-    / "Core"
-    / "SteamWorkshopScene"
-    / "Runtime"
-    / "SceneDesktopWallpaperHost.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
 )
 FRAME_DRIVER = (
-    ROOT
-    / "MyWallpaperX"
-    / "Core"
-    / "SteamWorkshopScene"
-    / "Runtime"
-    / "SceneDesktopWallpaperHost+FrameDriver.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
 SURFACE_TEARDOWN = (
-    ROOT
-    / "MyWallpaperX"
-    / "Core"
-    / "SteamWorkshopScene"
-    / "Runtime"
-    / "SceneDesktopWallpaperHost+SurfaceTeardown.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+SurfaceTeardown.swift"
 )
 COORDINATOR = ROOT / "MyWallpaperX" / "App" / "MainWindowCoordinator.swift"
 DEBUG_RUNNER = ROOT / "MyWallpaperX" / "App" / "DebugScenePlaybackRunner.swift"
@@ -50,86 +30,34 @@ INSPECTION = (
     / "SteamWorkshopSceneInspectionController.swift"
 )
 SPOT_LIGHT_RUNTIME = (
-    ROOT
-    / "MyWallpaperX"
-    / "Core"
-    / "SteamWorkshopScene"
-    / "Rendering"
-    / "SceneSpotLightRuntime.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightRuntime.swift"
 )
 PREPARED_DEVICE_RESOURCES = (
-    ROOT
-    / "MyWallpaperX"
-    / "Core"
-    / "SteamWorkshopScene"
-    / "Runtime"
-    / "ScenePreparedDeviceResources.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift"
 )
 METAL_VIEW = (
-    ROOT
-    / "MyWallpaperX"
-    / "Core"
-    / "SteamWorkshopScene"
-    / "Rendering"
-    / "SceneMetalView.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
 )
 METAL_RENDERER = (
-    ROOT
-    / "MyWallpaperX"
-    / "Core"
-    / "SteamWorkshopScene"
-    / "Rendering"
-    / "SceneMetalRenderer.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
 )
 RENDERER_DIAGNOSTICS = (
-    ROOT
-    / "MyWallpaperX"
-    / "Core"
-    / "SteamWorkshopScene"
-    / "Rendering"
-    / "SceneMetalRenderer+Diagnostics.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Diagnostics.swift"
 )
 RENDERER_EXECUTION_EVIDENCE = (
-    ROOT
-    / "MyWallpaperX"
-    / "Core"
-    / "SteamWorkshopScene"
-    / "Rendering"
-    / "SceneMetalRenderer+ExecutionEvidence.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ExecutionEvidence.swift"
 )
 TEXT_LOADER = (
-    ROOT
-    / "MyWallpaperX"
-    / "Core"
-    / "SteamWorkshopScene"
-    / "Text"
-    / "SceneTextTextureLoader.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextTextureLoader.swift"
 )
 DEFERRED_BASE_IMAGES = (
-    ROOT
-    / "MyWallpaperX"
-    / "Core"
-    / "SteamWorkshopScene"
-    / "Runtime"
-    / "SceneDesktopWallpaperHost+DeferredBaseImages.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+DeferredBaseImages.swift"
 )
 SHADER_REACHABILITY = (
-    ROOT
-    / "MyWallpaperX"
-    / "Core"
-    / "SteamWorkshopScene"
-    / "RenderGraph"
-    / "MaterialProgram"
-    / "SceneResolvedMaterialShaderSchema+Reachability.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+Reachability.swift"
 )
 VARIANT_CACHE = (
-    ROOT
-    / "MyWallpaperX"
-    / "Core"
-    / "SteamWorkshopScene"
-    / "RenderGraph"
-    / "MaterialProgram"
-    / "SceneResolvedMaterialExecutionCapabilityVariant.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant.swift"
 )
 def function_body(source: str, signature: str) -> str:
     start = source.index(signature)

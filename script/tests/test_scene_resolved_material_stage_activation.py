@@ -13,17 +13,14 @@ import unittest
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialStageActivation.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialStageActivation.swift",
 ]
 ELIGIBILITY_SOURCE = (
-    SCENE_ROOT
-    / "RenderGraph/MaterialProgram/SceneResolvedMaterialColorBlendEligibility.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialColorBlendEligibility.swift"
 )
 CAPABILITY_SOURCE = (
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift"
 )
 
 HARNESS = r'''

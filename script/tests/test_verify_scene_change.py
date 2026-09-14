@@ -74,7 +74,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
 
     def test_inner_docs_gate_skips_repository_wide_link_walk(self) -> None:
         gates, _ = verify.build_plan(
-            ["docs/scene/development-workflow.md"],
+            ["docs/scene/development/development-workflow.md"],
             arguments(phase="inner"),
             self.registry,
         )
@@ -164,8 +164,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     def test_scene_daemon_change_selects_protocol_and_launch_contracts(self) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/"
-                "SceneDaemonRuntime.swift"
+                'MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonRuntime.swift'
             ],
             arguments(),
             self.registry,
@@ -201,8 +200,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     def test_launch_change_selects_existing_fallback_admission_module(self) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/"
-                "SceneDesktopWallpaperHost+Launch.swift"
+                'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift'
             ],
             arguments(),
             self.registry,
@@ -227,7 +225,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
             with self.subTest(path=path):
                 gates, groups = verify.build_plan(
                     [
-                        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
+                        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/"
                         + path
                     ],
                     arguments(),
@@ -244,8 +242,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     ) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
-                "ShaderContract/SceneShaderContractLoader.swift"
+                'MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContractLoader.swift'
             ],
             arguments(),
             self.registry,
@@ -270,9 +267,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     ) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/"
-                "ResolvedMaterialExecution/"
-                "SceneResolvedMaterialSubmissionCoordinator.swift"
+                'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift'
             ],
             arguments(),
             self.registry,
@@ -293,8 +288,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     def test_graph_target_plan_change_selects_address_mode_contract(self) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/"
-                "SceneGraphRenderTargetPlan.swift"
+                'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetPlan.swift'
             ],
             arguments(),
             self.registry,
@@ -308,8 +302,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     ) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/Rendering/"
-                "SceneImageLayerCompositor.swift"
+                'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift'
             ],
             arguments(),
             self.registry,
@@ -328,8 +321,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     ) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/Rendering/"
-                "SceneLayerSourcePassthroughPlan.swift"
+                'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLayerSourcePassthroughPlan.swift'
             ],
             arguments(),
             self.registry,
@@ -353,8 +345,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     ) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/Properties/"
-                "SceneSharedLayerAlphaRuntime.swift"
+                'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneSharedLayerAlphaRuntime.swift'
             ],
             arguments(),
             self.registry,
@@ -373,7 +364,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     def test_scene_script_change_selects_split_vm_contracts(self) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/"
+                "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/"
                 "SceneQuickJSValueHost.c"
             ],
             arguments(),
@@ -396,7 +387,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     def test_cursor_change_selects_capture_continuity_contract(self) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/"
+                "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/"
                 "SceneScriptCursorProgram.swift"
             ],
             arguments(),
@@ -412,8 +403,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     def test_pointer_producer_change_selects_cursor_transaction_contract(self) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/"
-                "SceneDesktopWallpaperHost+PointerEvents.swift"
+                'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+PointerEvents.swift'
             ],
             arguments(),
             self.registry,
@@ -428,8 +418,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     ) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/Resources/"
-                "SceneAssetCatalog.swift"
+                'MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneAssetCatalog.swift'
             ],
             arguments(),
             self.registry,
@@ -472,8 +461,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     def test_authored_graph_change_selects_ir_admission_and_executor_contracts(self) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
-                "AuthoredGraph/SceneGraphAdmissionCompiler.swift"
+                'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneGraphAdmissionCompiler.swift'
             ],
             arguments(),
             self.registry,
@@ -492,8 +480,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     def test_effect_compilation_change_selects_compile_admission_and_consumers(self) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
-                "EffectCompilation/SceneEffectStageAdmission.swift"
+                'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectStageAdmission.swift'
             ],
             arguments(),
             self.registry,
@@ -516,8 +503,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     def test_layer_dependency_change_selects_planning_pool_and_consumers(self) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
-                "LayerDependencies/SceneDependencyRenderPlan.swift"
+                'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan.swift'
             ],
             arguments(),
             self.registry,
@@ -536,8 +522,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     def test_effect_execution_change_selects_stage_graph_and_encoder_contracts(self) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
-                "EffectExecution/SceneResolvedMaterialGraphExecutor.swift"
+                'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift'
             ],
             arguments(),
             self.registry,
@@ -557,8 +542,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     def test_material_program_change_selects_schema_program_and_executor_contracts(self) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
-                "MaterialProgram/SceneResolvedMaterialProgram.swift"
+                'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram.swift'
             ],
             arguments(),
             self.registry,
@@ -583,8 +567,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
     def test_render_graph_checkpoint_uses_pure_build_and_code_health(self) -> None:
         gates, groups = verify.build_plan(
             [
-                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
-                "SceneGraphExecutionState.swift"
+                "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphExecutionState.swift"
             ],
             arguments(),
             self.registry,
@@ -601,7 +584,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
 
     def test_ci_build_adds_code_health_without_local_wrapper(self) -> None:
         gates, _ = verify.build_plan(
-            ["MyWallpaperX/Core/SteamWorkshopScene/Text/SceneText.swift"],
+            ["MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneText.swift"],
             arguments(ci=True),
             self.registry,
         )
@@ -649,7 +632,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
 
     def test_integration_runs_focused_tests_and_requires_real_sample(self) -> None:
         gates, _ = verify.build_plan(
-            ["MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTexture.swift"],
+            ["MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTexture.swift"],
             arguments(phase="integration"),
             self.registry,
         )
@@ -663,7 +646,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
 
     def test_integration_requires_explicit_frozen_staged_app(self) -> None:
         gates, _ = verify.build_plan(
-            ["MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTexture.swift"],
+            ["MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTexture.swift"],
             arguments(
                 phase="integration",
                 app=None,
@@ -719,7 +702,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
 
     def test_all_scene_product_surfaces_trigger_integration_closure(self) -> None:
         paths = [
-            "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneRuntime.swift",
+            "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntime.swift",
             "MyWallpaperX/App/DebugScenePlaybackRunner+Performance.swift",
             (
                 "MyWallpaperX/Modules/SteamWorkshop/Scene/"
@@ -756,7 +739,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
 
     def test_milestone_runs_complete_scene_regression_suite(self) -> None:
         gates, _ = verify.build_plan(
-            ["MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTexture.swift"],
+            ["MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTexture.swift"],
             arguments(phase="milestone"),
             self.registry,
         )
@@ -779,7 +762,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
 
     def test_milestone_matrix_does_not_inherit_targeted_sample_filter(self) -> None:
         gates, _ = verify.build_plan(
-            ["MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneRuntime.swift"],
+            ["MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntime.swift"],
             arguments(
                 phase="milestone",
                 matrix_tier="fixed",

@@ -13,19 +13,19 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 PLAYBACK_STATE_SOURCE = (
-    SCENE_ROOT / "Rendering/ScenePuppetPlaybackState.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift"
 ).read_text(encoding="utf-8")
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneMdlPuppetMeshReader.swift",
     SCENE_ROOT / "Format/SceneMdlPuppetRigReader.swift",
     SCENE_ROOT / "Format/SceneMdlPuppetAnimation.swift",
     SCENE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
-    SCENE_ROOT / "Rendering/SceneMatrix.swift",
-    SCENE_ROOT / "Rendering/ScenePuppetAnimationSelection.swift",
-    SCENE_ROOT / "Rendering/ScenePuppetSkinMatrixProjection.swift",
-    SCENE_ROOT / "Rendering/ScenePuppetAnimationEvaluator.swift",
-    SCENE_ROOT / "Rendering/ScenePuppetAnimationEvaluator+Transforms.swift",
-    SCENE_ROOT / "Rendering/ScenePuppetAnimationEvaluator+FrameSampling.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationSelection.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetSkinMatrixProjection.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator+Transforms.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator+FrameSampling.swift",
 ]
 
 HARNESS = r'''

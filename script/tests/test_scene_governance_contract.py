@@ -14,8 +14,8 @@ AGENT_RULES = ROOT / "AGENTS.md"
 GITIGNORE = ROOT / ".gitignore"
 DOCS_README = ROOT / "docs/README.md"
 ROADMAP = ROOT / "docs/scene/scene-compatibility-roadmap.md"
-WORKFLOW = ROOT / "docs/scene/development-workflow.md"
-RUNTIME_ARCHITECTURE = ROOT / "docs/scene/runtime-architecture.md"
+WORKFLOW = ROOT / "docs/scene/development/development-workflow.md"
+RUNTIME_ARCHITECTURE = ROOT / "docs/scene/design/runtime-architecture.md"
 SCENE_README = ROOT / "docs/scene/README.md"
 WEB_README = ROOT / "docs/web/README.md"
 SEMANTICS_README = ROOT / "docs/scene/semantics/README.md"
@@ -91,6 +91,15 @@ REQUIRED_METRICS = {
 
 
 class SceneGovernanceContractTests(unittest.TestCase):
+    def test_scene_top_level_contains_only_entrypoint_and_active_plans(self) -> None:
+        index = json.loads((ROOT / "docs/document-role-index.json").read_text())
+        roles = {entry["path"]: entry["role"] for entry in index["documents"]}
+        for path in (ROOT / "docs/scene").glob("*.md"):
+            if path.name == "README.md":
+                continue
+            with self.subTest(path=path.name):
+                self.assertEqual(roles.get(path.relative_to(ROOT).as_posix()), "active-plan")
+
     def setUp(self) -> None:
         self.manifest = json.loads(FAST_SUITE.read_text(encoding="utf-8"))
 

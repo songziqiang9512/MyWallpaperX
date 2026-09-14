@@ -41,11 +41,10 @@ class ScenePulseDedicatedFamilyRetirementTests(unittest.TestCase):
 
     def test_shared_program_and_fail_soft_contract_remain(self) -> None:
         capability = (
-            SCENE
-            / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift"
         ).read_text(encoding="utf-8")
         masks = (
-            SCENE / "Rendering/SceneImageLayerDrawRequest.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerDrawRequest.swift"
         ).read_text(encoding="utf-8")
 
         self.assertIn("$0.variants.hasAudioSpectrumConsumer", capability)

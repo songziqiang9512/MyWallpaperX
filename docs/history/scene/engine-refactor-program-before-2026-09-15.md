@@ -18,7 +18,7 @@
 >
 > 复核：2026-09-14
 >
-> 职责边界：本计划只拥有**引擎工程架构**——性能、进程隔离、控制面统一、性能预算、公共层拆分——的阶段顺序与完成门。Scene 兼容能力路线、段位顺序与样本验收的唯一现役计划仍是[兼容执行路线](../../scene/scene-compatibility-roadmap.md)；两者冲突时兼容语义合同优先，本计划服从。目标合同查[运行时架构](../../scene/runtime-architecture.md)；能力现状查[能力台账](../../scene/semantics/coverage-ledger.md)；代码实际接线与"改A坏B"雷区查[事实架构地图](../../scene/runtime-as-built-map.md)。
+> 职责边界：本计划只拥有**引擎工程架构**——性能、进程隔离、控制面统一、性能预算、公共层拆分——的阶段顺序与完成门。Scene 兼容能力路线、段位顺序与样本验收的唯一现役计划仍是[兼容执行路线](../../scene/scene-compatibility-roadmap.md)；两者冲突时兼容语义合同优先，本计划服从。目标合同查[运行时架构](../../scene/design/runtime-architecture.md)；能力现状查[能力台账](../../scene/semantics/coverage-ledger.md)；代码实际接线与"改A坏B"雷区查[事实架构地图](../../scene/design/runtime-as-built-map.md)。
 >
 > 退役条件：M0–M6 全部完成、daemon 化与两档性能预算成为产品默认形态、每帧执行消费 prepared 表示、控制面统一经命令层，且稳定架构合同与能力台账接管全部终态描述后，本计划转 historical-evidence。
 
@@ -68,7 +68,7 @@
 
 交接测试纠偏：静态 uniform 缺省/声明冲突在 launch envelope 撤销 owner，executor 测试改验该阶段后继续执行 previous-current、suffix、GPU completion 与像素断言；executor + 独立 finalizer 共 27 项通过。
 
-卡格式：**改哪里 → 怎么做 → 验收门 → 回滚**。状态记录于卡内标题行；执行细节与 file:line 锚点查[事实架构地图](../../scene/runtime-as-built-map.md)。
+卡格式：**改哪里 → 怎么做 → 验收门 → 回滚**。状态记录于卡内标题行；执行细节与 file:line 锚点查[事实架构地图](../../scene/design/runtime-as-built-map.md)。
 
 ### M0 控制面命令化 + 公共层第一批（同进程）
 
@@ -127,7 +127,7 @@
 
 ### M5 进程分离 daemon 化（主线）
 
-- **M5.1 设计门** ✅ 4a835efc：交付 [Scene Runtime Daemon 契约](../../scene/scene-runtime-daemon-contract.md)（stable-contract 已登记）——IPC v1 冻结、生命周期/崩溃退避语义、线程约束审计结论（runtime 原样搬迁、帧循环留 daemon 主线程、帧线程隔离明确排除）。设计门已过，M5.2 起按步骤实施。
+- **M5.1 设计门** ✅ 4a835efc：交付 [Scene Runtime Daemon 契约](../../scene/design/scene-runtime-daemon-contract.md)（stable-contract 已登记）——IPC v1 冻结、生命周期/崩溃退避语义、线程约束审计结论（runtime 原样搬迁、帧循环留 daemon 主线程、帧线程隔离明确排除）。设计门已过，M5.2 起按步骤实施。
 - **M5.2 最小 daemon（同二进制模式，契约 §2 修订）** ✅ 安全重做：App `@main` 在 `--mwx-scene-daemon` 下只装配 Scene endpoint 与 accessory `NSApplication`，不装配主 UI；IPC v1 将 load/property/profile/mute/pause/resume/shutdown 解码为 typed 命令，坏版本、坏载荷和未支持命令显式报错。launch 事件携带 requestID/recordID；首帧只由同请求 `CAMetalDrawable.addPresentedHandler` 发布，并异步离开 Core Animation 回调以避免与主线程 `nextDrawable` 锁反转。stdout critical 事件串行，1Hz stats 只保留最新待写值；EOF/shutdown 先 `Host.stop()`，再在各既有 surface command queue 提交 barrier 并等待 GPU terminal，最后发送 `exited{code,gpuDrained}`。签名 Debug 候选严格 codesign 通过；自动选择的 31 个聚焦模块全部通过，checkpoint BUILD SUCCEEDED；code-health 仍被现役树既有超限文件阻断，未伪报通过。隔离 `2938612768` 与 `1300076567` 均取得真实 first-present、持续帧统计、`busy=0/dropped=0`、可见画面及 `gpuDrained=true` 退出；graph 还验证未知命令拒绝及 profile/mute/pause/resume 管道消费。M5.2 只提供 daemon endpoint，主 App 尚无孵化/client，普通产品 Scene 路径保持同进程，迁移由 M5.3/M5.4 接管。消融计数：替代并删除历史不安全 prototype 后新增一条安全 endpoint 路径，普通帧视觉路径净增 0；仅首个 drawable 安装一次性 present handler。
 - **M5.3 DaemonKit 公共层第二批** ✅ 双消费者边界闭合：新增无 Scene/Video 业务依赖的 `DaemonNewlineFrameBuffer` 与 `DaemonNewlineJSON`，统一增量分帧和 newline JSON 编码；App 的 video client、既有 WallpaperDaemon tool、Scene endpoint 均为真实消费者，本批新增的双 target membership 只有该文件。协议 payload 仍归各端所有。审计确认 `Process()` 孵化与退避在本步仍只有 video client 一个消费者，未为凑公共层制造 wrapper；两者改在 M5.4 Scene client 接入时再共同抽取。10 个聚焦模块与双架构 WallpaperDaemon target 通过，checkpoint **BUILD SUCCEEDED**；继承的 code-health 超限债务仍单列。签名 Debug App（main executable SHA-256 `4d5f965e206c299fee50b96569d7fe5cf3bfaa1b3e334bb1625ce9316f07f5d3`，CDHash `2f406eb94b9d3dfd0c726b0ec4215853e151d8b6`）实测 video command 拆成两段并夹空帧后仍为 `launched→accepted→ready→stopped`。Scene daemon 隔离 `2938612768` / `1300076567` 分别持续到 244 / 522 rendered、`busy=0/dropped=0`、`gpuDrained=true`；两份窗口截图已人工核对完整构图与可见效果。graph 另跑现役 full-matrix 条目，进程正常、纹理 loaded ratio 1、59/58 submitted/completed、0 failed、ready/after 非黑且 changed ratio 0.739，但因现役期待漂移仍 32 项 NON-PASS，未改期待或冒充能力门通过。消融：删除三处重复分帧/结尾字节拼接实现，视觉路径与权威数净增 0。
 - **M5.4 命令迁移** ✅：普通产品 Scene 改由 `SceneDaemonClient` 接收命令并孵化同二进制 daemon；`DaemonProcessTransport` 与 `DaemonRestartBackoff` 成为 Scene/Video 两个真实消费者的公共层。load/cancel/property/profile/mute/pause/resume/stop 均经 newline JSON，事件按请求身份回传，1Hz stats 保持 latest-only；连续断连按 0/1/2/4…有界重启，仅实际 first-present 清零退避并重放已合并 authored intent。App 仍是属性持久化唯一权威，daemon Host 仍是运行属性、五类 prepared 产品与 Metal 输出唯一权威。正式 selector 的 17 个聚焦模块通过，签名 Debug 与最终 checkpoint 均 BUILD SUCCEEDED；code-health 只剩现役树继承超限项，未伪报全绿。隔离 graph `2938612768` 与 simple `1300076567` 各运行 20 秒并强杀 daemon：均出现新 PID、新 request、恢复 actual present，恢复截图构图正确；graph 最新统计 rendered=212/busy=22/dropped=0，simple=821/0/0（未签名 Debug 短窗，只作功能证据）。属性样本 `3747492842` 在同 PID 从 barcount 58.01 热更到 64，强杀后的新 daemon 首帧仍为 64；无 live consumer 的属性触发同 PID 新 load，证明 async 拒绝兜底。Video helper 拆段命令+空帧继续得到 `launched→accepted→ready→stopped`。消融：删除普通产品的 Host 命令 extension，Scene 视觉路径由 App Host 改为 App client→daemon Host，产品视觉路径净增 0、权威数不变；DEBUG direct runner 仅为证据入口，M5.5/M5.6 继续收口。
@@ -191,4 +191,4 @@ Scene 使用 `Process()` 孵化自身二进制并传 `--mwx-scene-daemon`；vide
 3. before/after：受影响 M1 指标数字；架构纠偏类附静态违规证据即可。
 4. 能力不回退：Fast Scene Suite 相关成员 + ≥2 代表样本人工播放确认；能力台账触达项同步。
 5. 报告：改了什么/为什么/语义影响/before/after/剩余热点/回滚方式。
-6. 若批次改变了[事实架构地图](../../scene/runtime-as-built-map.md)中的所有权或不变量，同批更新该地图与本计划卡状态。
+6. 若批次改变了[事实架构地图](../../scene/design/runtime-as-built-map.md)中的所有权或不变量，同批更新该地图与本计划卡状态。

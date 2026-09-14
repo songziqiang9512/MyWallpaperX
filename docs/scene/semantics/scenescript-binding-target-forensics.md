@@ -158,7 +158,7 @@
 | 调度 | 未导出 `update` 的实例是否进入每帧队列；`applyUserProperties` 的初次/批次触发次数 |
 | 回退 | 脚本缺失、解析失败或求值异常时，固定客户端的 observable 是否保持 authored value |
 
-本文只确定 target 的**静态形态**，不证明 generic 求值、调度或回退语义。implementation agent 只查[SceneScript API 覆盖表](scenescript-api-coverage.md)的公开 API/项目目标合同和[兼容运行时架构](../runtime-architecture.md)；当前 bounded 执行与证据只查 API 覆盖表和[运行证据索引](./runtime-evidence-current.md)。
+本文只确定 target 的**静态形态**，不证明 generic 求值、调度或回退语义。implementation agent 只查[SceneScript API 覆盖表](scenescript-api-coverage.md)的公开 API/项目目标合同和[兼容运行时架构](../design/runtime-architecture.md)；当前 bounded 执行与证据只查 API 覆盖表和[运行证据索引](./runtime-evidence-current.md)。
 
 ## 9. 关联文档
 

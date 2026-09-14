@@ -13,9 +13,9 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering"
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "SceneMatrix.swift",
-    SOURCE_ROOT / "SceneLayerCursorGeometry.swift",
-    SOURCE_ROOT / "SceneParticlePointerProjection.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerCursorGeometry.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePointerProjection.swift",
 ]
 
 HARNESS_SOURCE = r'''

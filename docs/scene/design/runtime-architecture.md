@@ -4,9 +4,9 @@
 
 > 状态：现役长期架构合同
 >
-> 最近复核：2026-09-14
+> 最近复核：2026-09-15（新增 §8 生命周期与编码合同；未重跑产品）
 >
-> 当前实现程度与缺口只查[能力台账](semantics/coverage-ledger.md)；本文件描述目标处理方式，不把目标冒充现役能力。
+> 当前实现程度与缺口只查[能力台账](../semantics/coverage-ledger.md)；本文件描述目标处理方式，不把目标冒充现役能力。
 
 ## 1. 产品目标
 
@@ -61,7 +61,7 @@ Agent 若准备新增第二套 resource registry、property tree、frame clock�
 
 ## 2. 证据来源及其边界
 
-架构决策必须按[资料来源索引](semantics/source-index.md)的命名来源标注，以下是本文使用它们时的裁决顺序：
+架构决策必须按[资料来源索引](../semantics/source-index.md)的命名来源标注，以下是本文使用它们时的裁决顺序：
 
 1. Wallpaper Engine 官方公开文档定义作者可见合同；
 2. 固定版本、输入、环境、时间和事件下的官方客户端黑盒观察定义对应 bounded profile 实际发生的外部结果，不证明内部算法或其他版本；
@@ -97,9 +97,9 @@ Agent 若准备新增第二套 resource registry、property tree、frame clock�
 - [Shader Syntax Overview](https://docs.wallpaperengine.io/en/scene/shader/syntax.html)
 - [SceneScript Introduction](https://docs.wallpaperengine.io/en/scene/scenescript/introduction.html)
 - [Particle Systems Overview](https://docs.wallpaperengine.io/en/scene/particles/introduction.html)
-- [官方客户端行为研究与一致性验证工作流](semantics/official-client-behavior-research-workflow.md)
-- [官方客户端运行机制静态取证](semantics/client-runtime-static-forensics.md)
-- [MirageWallpaper 固定 revision 静态研究](semantics/miragewallpaper-rendering-reference.md)
+- [官方客户端行为研究与一致性验证工作流](../semantics/official-client-behavior-research-workflow.md)
+- [官方客户端运行机制静态取证](../semantics/client-runtime-static-forensics.md)
+- [MirageWallpaper 固定 revision 静态研究](../semantics/miragewallpaper-rendering-reference.md)
 
 官方公开文档没有公开内部 RenderGraph。2.8.42 固定客户端静态取证只支持 condition、ordinary material、copy、swap、compose、FBO 和 layer-local logical pair 等版本有界结构；它没有闭合通用跨帧 history、device-loss 结果或 MyWallpaperX publication 语义。后三者在官方黑盒结果出现前必须分别标为 unknown 或 `MyWallpaperX-strategy`，不得表述为官方内部处理链。
 
@@ -197,7 +197,7 @@ continue
 
 准备产物按 `PreparedContent -> PreparedLaunchPlan -> PreparedDeviceResources` 分层复用，分别以 content/package generation、属性与 runtime/compiler schema、OS/Metal/compiler/device identity 失效。作者 shader 的持久化缓存只允许保存 accepted Program/Preparation；key 必须覆盖完整 source/source-graph digest、combo、optional provider/readiness、格式与 frontend/compiler schema，value 必须带自身 digest 并在读取后复核 stage、backend、Program identity 和 cache key。拒绝、超时、诊断、损坏或字段失配不得成为可复用成功，统一安全 miss 后在 preparation executor 重建。
 
-`MTLTexture`、`MTLLibrary`、`MTLRenderPipelineState`、surface、publication 和其他进程内对象不能直接跨进程序列化。后续 `PreparedDeviceResources` 若使用 Metal binary archive 或等价设备缓存，必须额外绑定 OS、Metal compiler、device registry/family、attachment format/sample count 和 Program identity；在这些门闭合前，磁盘命中只代表 CPU Program/preparation 可复用，不得声明 device 资源或首帧已经 ready。缓存只能复用已经通过安全校验的不可变产物，不能绕过 path/range/ABI、generation、target/publication 或失败合同。具体状态机、进度、候选首帧和回滚要求见[Scene 启动响应与按需诊断合同](../architecture/scene-launch-responsiveness-contract.md)。
+`MTLTexture`、`MTLLibrary`、`MTLRenderPipelineState`、surface、publication 和其他进程内对象不能直接跨进程序列化。后续 `PreparedDeviceResources` 若使用 Metal binary archive 或等价设备缓存，必须额外绑定 OS、Metal compiler、device registry/family、attachment format/sample count 和 Program identity；在这些门闭合前，磁盘命中只代表 CPU Program/preparation 可复用，不得声明 device 资源或首帧已经 ready。缓存只能复用已经通过安全校验的不可变产物，不能绕过 path/range/ABI、generation、target/publication 或失败合同。具体状态机、进度、候选首帧和回滚要求见[Scene 启动响应与按需诊断合同](scene-launch-responsiveness-contract.md)。
 
 ## 4. 目标执行单元
 
@@ -370,4 +370,128 @@ Puppet、2D lighting/HDR、3D、RGB、offline bake、color/multi-display/device 
 7. 现有 dedicated backend、bounded Swift language frontend 和 fixed script evaluator 已删除，或隔离为不持有产品执行权的测试 oracle；仍承担产品 fallback 的路径属于未完成迁移，必须可观察并登记退役条件；
 8. 当前能力、运行证据和性能/发布边界分别由各自权威文档证明。
 
-具体顺序、当前段位和任务选择只看[Scene 兼容执行路线](scene-compatibility-roadmap.md)。
+兼容顺序与段位查[Scene 兼容执行路线](../scene-compatibility-roadmap.md)，工程迁移与消融查[重构执行档案](../engine-refactor-program.md)。
+
+## 8. Scene 播放生命周期与落代码合同
+
+本节是播放引擎的目标设计与实现约束，不是“当前所有对象都已兼容”的声明。当前能力仍由[能力台账](../semantics/coverage-ledger.md)裁决；具体调用点与差距查[事实地图](runtime-as-built-map.md)，迁移执行查[重构档案](../engine-refactor-program.md)。后续代码必须把新增行为放入下面的阶段与已有 owner；若现状做不到，记录偏差并在对应纵向切片迁移，不在帧函数里临时加第二条路径。
+
+### 8.1 六个阶段：何时可以做什么
+
+| 阶段 | 可以做 | 必须产出／进入条件 | 不可做 |
+|---|---|---|---|
+| 装载 | 规范化资源路径、校验读取权限、解包／解码文档；保留作者 ID、顺序、层级、参数与未知字段 | 当前 request/generation 下的文档和资源索引 | 写作者源文件；以样本身份决定视觉算法；创建可见输出 |
+| 准备 | 解析 shader/material/effect；确定 variant、参数来源、依赖、几何；编译 VM／Program／PSO；解码／上传当前需要的资产 | 不可变执行计划、资源候选、预算与局部失败结果；取消令牌仍有效 | 按每帧重做准备；用 compiler 成功冒充可见；启动不属于候选的长寿命服务 |
+| 激活 | 在合法线程接管准备结果、绑定 VM owner；建立 surface、provider 与控制／输入订阅；继承 pause/mute | 单一活动 runtime 身份与可运行帧状态；候选失败有明确退路 | 旧 completion 改写新 runtime；各 surface 重建相同不可变计划；默认静默双输出 |
+| 帧更新与资源发布 | 快照输入、求动态值、运行回调／模拟、采用已就绪资源、物化 uniform、申请帧租约 | 同一 frame/phase 的值、资源版本、命令参数、局部失败状态 | 同步读盘／解码／编译；在 consumer 中另解释 property 或另造时钟 |
+| 合成与呈现 | 按依赖和作者顺序执行已准备命令、合成、提交、present；completion 终结发布与回收 | 唯一 surface 输出，submitted/completed/presented 明确区分 | 以 CPU restore 撤销已经提交的 GPU 工作；边出错边伪造有效纹理 |
+| 退场 | 撤销命令与事件准入、取消未提交工作、停止 producer、使旧身份失效、drain GPU、释放资源 | 所有 pending 有终态，旧回调不可进入新 owner | 先释放仍被 GPU 引用的纹理／buffer；留下 timer/watcher/audio demand |
+
+后台工作可并行，但依赖与提交顺序不能靠完成时间决定。准备阶段只等待当前可见输出及其依赖闭包所需的结果；未使用的隐藏静态资产可以延迟。隐藏对象若有脚本、音频、粒子 child 或作为被采样 provider，仍可能必须运行，不能仅依据 visibility 省掉。
+
+“加载完成”分开表示：文档已解码、计划已准备、资源就绪、GPU 上传可依赖、已经发布、已被合成消费、已呈现。任一阶段不能冒充后面的阶段。一个 layer 的 optional effect 失败不阻止其他安全内容激活；整个请求非法、没有合法输出 surface 或无法保持安全事务时才拒绝请求。
+
+### 8.2 所有输入／产品的生命周期矩阵
+
+下表穷尽当前设计的产品类别与横切输入。尚未支持的语义在该 owner 内局部拒绝，不能因为列在表中就宣称支持。新增对象必须归入现有类别并填写同样字段；不能新建平行加载／合成体系。
+
+| 对象 | 装载与准备时间／owner | 每帧或事件更新 | 进入合成的位置 | 失效、失败与释放 |
+|---|---|---|---|---|
+| project／scene／package | 请求装载时由 Format／resource view 解码；初始 user overrides 先进入属性解释 | 普通帧不再读 JSON；动态 topology 由受控 mutation 改 | 只生成计划，不直接绘制 | 源／topology 改变重建对应计划；非法路径拒绝，场景退出取消 worker |
+| 静态 PNG/JPEG／TEX／mip | 资源依赖确定后由 texture loader 后台解码；purpose/device 区分上传，保留 TEX 编译 mip 权威 | 无内容变化只复用；绑定仍检查当帧资源身份 | 作为 layer 基底或 material slot；有 effect 先入 graph，无 effect 直接进入既有绘制 primitive | source identity/device/purpose 改变重建；失败只拒绝该资源及真实依赖；GPU terminal 后释放 |
+| 图集／sprite／纹理动画 | 准备 atlas／帧序列、UV 与播放定义；纹理只载所需表示 | 共享 scene time／显式动画控制选 frame、UV 或资源版本 | 与静态采样相同的 Program slot／基底；Puppet atlas 仍只是采样源 | 不重解码、不每帧生成新 atlas；控制变化不 relaunch，来源换代撤旧发布 |
+| 材质／shader／sampler | generation/variant 边界准备 Program、PSO、render state、slot 与 uniform 来源；sampler 由共享语义解析 | 只填 live uniform／资源；sampler 含义不由当帧碰巧存在的纹理猜 | graph material pass 或对象现有 draw primitive | variant/schema/device 失效重编对应项；坏 ABI／range 拒绝最小 unsafe pass |
+| 纯色／无源程序化图像 | 准备颜色／生成 Program 与输出几何；无采样源是显式合同 | 动态颜色／生成参数只填值 | 以 prepared output geometry 直接 draw，或经已声明 graph；不能为凑纹理产品伪造 source | 输出覆盖、extent 与颜色含义固定；生成 pass 失败局部处理，不默认套任意全屏 quad |
+| mask／噪声／深度等数据纹理 | 装载声明用途，准备 slot、采样与通道语义；不能把所有纹理视作颜色 | 只更新合法动态来源／绑定 | material 的数据输入，不自动作为可见 layer；mask 依作者通道解释 | 不自动 premultiply／sRGB 转换；purpose 错误拒绝该输入，缺省只用明确的作者／公共语义 |
+| effect 链 | 准备时按作者次序解析 definition/material/pass，固定激活表达式与 previous/current 转换 | condition／参数动态求值；物化已准备的执行或局部 passthrough | 对源产品执行有序 GraphProduct，输出仍交唯一 compositor | 参数值变不重编；topology/variant 才重建；普通视觉失败保该 effect previous-current |
+| 临时 target／working pair | 准备阶段固定逻辑尺寸公式与读写寿命；帧准入由既有 pool materialize／租赁 | live extent／allocation／generation 校验；重用不重叠寿命的物理资源 | pass 输出／中间采样；不是永久层状态 | same-frame 必需集合原子驻留；未提交可撤租，已提交等 completion；不得 LRU 驱逐仍需资源 |
+| FBO／copy／swap／history | 准备逻辑命令与引用关系；需要时分配持久存储 | 按本帧命令推进 logical pair、内容版本和读取关系 | 明确 producer→consumer 边；跨帧 history 只读已许可版本 | history pin/COW/epoch 由现有提交 owner 管；尺寸改变保留还是清空按已验证合同，不靠缓存猜 |
+| named layer／scene-background | 准备阶段解析被引用对象、variant、所需捕获时点与依赖闭包 | producer 到达约定顺序后发布；consumer 消费同帧合法版本 | 作为明确 typed input；背景是“该点之前已合成内容”，不是任意最终截图 | 缺失／循环／stale 只拒绝受影响依赖；不能拿未完成纹理占位宣称成功 |
+| 静态文字／字体 | 准备字体、排版、logical size 与初始 raster；由 text loader／raster owner 生产纹理 | 无变化不排版、不光栅 | TextureProduct：文字纹理→可选普通 effect graph→文字几何放置→compositor | 内容／字体／布局改触发文字任务；纹理与 logical size 原子发布；失败保 previous-current 或局部无源 |
+| 动态文字／日期／媒体文字 | 准备字段 binding 与初始文本；动态 raster store 持有 generation | 输入变化后异步光栅；帧边界只采用已就绪同 generation 结果，未就绪使用已提交旧内容 | 与静态文字同一链；不在 compositor 调 CoreText／读字体 | 旧 raster 完成不可覆盖新文本；取消／退出撤发布；不承诺异步结果在请求同帧就可见 |
+| Scene 内视频 | 准备资源引用和 provider 描述；激活时由现有 video registry 管理解码器、输出与生命周期 | AVPlayerItemVideoOutput/CVMetalTextureCache 提供新帧；没有新帧按合同复用；控制命令与 frame transaction 关联 | ProviderProduct→带 purpose/contentGeneration 的纹理→普通材质／effect→compositor | seek/loop/source/device 撤旧 epoch；保 CVPixelBuffer/CVMetalTexture 到 GPU 不再使用；不能转交壁纸 Video helper |
+| 用户选择图片／动态图片／媒体缩略图 | 属性／provider owner 校验文件授权、来源和 generation；后台准备对应资源 | frame boundary 采用 ready publication；pending 不伪造 ready | material slot 或 layer 基底，共用 texture registry | 路径变先撤旧访问，更新失败半径明确；准备失败保旧 current 或已声明 fallback |
+| 粒子 | 准备 emitter/initializer/operator/renderer/child/control-point 计划、材质与实例 buffer | 模拟 owner 按共享时钟、固定步进与作者顺序更新；上传当前实例槽位 | SimulationProduct→粒子 geometry/material draw→唯一 compositor；所需 effect 仅沿已支持 graph 合同 | owner budget、随机／child 顺序保持；optional component 局部失败；ring 槽直到 GPU 完成才复用 |
+| Puppet／骨骼／attachment | 准备 mesh/indices/UV、rig/clip/bind pose、attachment-local frame 与精确 atlas extent | 先取得回调可见 pose；脚本提交的 bone mutation 合入最终 pose；skinning 与 child world 使用同一最终版本 | atlas→可选 effect graph→由 mesh 采样 graph-final→world MVP→主 target；不生成 coverage 平铺图 | 只在“作者确实缺 mesh”的已声明合同下可局部降为纹理；其他失败不得冒充；buffer/pose 受 frame 生命周期保护 |
+| 3D model／几何／动画 | importer 准备已支持 mesh、material、顶点／索引与动画合同 | 更新 pose/world、绑定灯光与深度状态；未支持 physics／animation 明确拒绝对应能力 | GeometryProduct，按世界坐标与合法深度／混合写唯一合成目标 | 不把“有 model parser”当完整 3D；geometry provider 跨层传播需携带 placement/generation/completion 合同 |
+| composition／fullscreen／utility | 准备作者子树、输出几何、捕获需求、依赖与触发顺序 | 只执行有效计划与 live transform／visibility | GraphProduct／既有 utility producer 在规定层序产生输入或写主 target；scene postprocess 只在存在已准备命令时执行 | 无支持的 utility 局部降级；不得新增独立 capture/compositor 补路径 |
+| 相机／parallax／灯光／深度 | 准备作者设置、引用与消费者索引；depth target 用现有 pool | 同帧动态相机、parent/world、灯光颜色等求值；按 surface 投影 | 作为 geometry／material 输入；光不是默认全屏纹理；阴影／HDR 等只有已有可执行合同才进 graph | 改值更新参数，改变 target 格式／尺寸才失效资源；未支持 pass 不虚构画面 |
+| user property／Timeline | 装载时形成 typed schema、binding、冲突裁决与 timeline lanes | property revision／scene time 在既定阶段投影；值优先级由目标声明，不靠调用覆盖顺序 | 作为 uniform、transform、visibility、text、media、particle 等 consumer 的值 | value-only 不 relaunch；resource/variant/topology 变化走相应失效域；没有 consumer 就显式不支持 |
+| SceneScript／timer／事件／localStorage | 准备编译／模块链接和 host handles，激活时接管 VM 线程；生命周期回调在合法 owner 与对象可用阶段执行 | 输入 snapshot→依协议顺序回调→typed mutation→局部 owner admission→frame commit；timer/event 恰一次 | 不直接画图；修改现有产品状态、资源请求与命令 | exception/timeout/OOM 按现役最小失败合同；未提交 mutation 可撤，已外发副作用不可假装回滚 |
+| 鼠标／音频频谱／系统媒体 | 有真实消费者时由现有 input/audio/media owner 订阅；准备 typed binding | 帧边界冻结可用输入；屏幕坐标经 canonical camera/world；音频与媒体使用来源时间／generation | 作为 VM、shader、particle、text 等输入；不是第二 clock 或独立 renderer | pause/失焦/设备变化/退场按需求撤订阅；缺输入用已声明默认值，不伪造资源 |
+| sound 层／音量 | 准备 sound binding；激活后现有 sound registry 接管音源，继承 pause/mute | authored 声音命令、属性与共享时钟控制播放 | **不进入视觉 compositor**；与同场景状态事务及生命周期同步的音频输出 | 缺失／不可解码只影响音源；切换／停止撤 observer、音频需求与播放实例 |
+| capture／HUD／诊断 | 仅明确请求时在当前执行链上安装 observer／readback | 消费实际执行结果；详细采集有界 | compositor terminal 的旁路，不能成为普通提交前置 | 结束即撤 observer、释放 readback；诊断耗时不混入普通性能结论 |
+
+### 8.3 一帧的有序工作与可见时间
+
+下面定义逻辑阶段，不要求按表新增类或一一拆函数。并发与缓存只能保留这些 happens-before 关系；现役代码在 preflight 前后存在特殊 provider 时，应固定其 phase，不通过多次重试改变作者含义。
+
+| 次序 | 逻辑阶段 | 对外可见性与写入约束 |
+|---|---|---|
+| 1 | 验证活动 request、暂停／surface 状态与可用提交容量 | 无容量不推进同一批事件；如果已取走输入，必须可恢复；不得 busy retry 重跑副作用 |
+| 2 | 冻结 host time、scene time、property revision、输入／音频／媒体及可用 provider | 一帧一份共享时间；surface 坐标输入单独投影，不能用另一屏的值 |
+| 3 | 求属性／Timeline／状态继承与 VM 前置 snapshot | 形成回调读取值；前帧已提交值与当前 typed producer 按既定优先级合并 |
+| 4 | 执行本帧合法生命周期／timer／input／update 回调并收集 mutation | 各回调排序服从 SceneScript 合同；同回调 local setter 可读 staged local，world getter 不随每次 setter 临时重算 |
+| 5 | admission 后提交为待执行状态，准备最终 pose／world／visibility／相机／灯光 | final pose 驱动 skinning、attachment 和子层；需 VM 前置的 pose 与此结果不能互换；回调后 world 在约定下一 snapshot 可见 |
+| 6 | 物化 provider 采样与模拟结果、确定 live extent、租赁 target、填 Program 参数 | 无变化复用；异步 text/video/resource 只采用已就绪版本。CPU 可先准备，GPU producer 在其 consumer 之前 encode |
+| 7 | 依赖 producer／effect graph／层合成／必要 scene postprocess 按计划编码 | 先完成 producer，后消费同帧输入；背景读取遵守准确的层序；每个 active 输出只消费一次 |
+| 8 | seal、present 注册、commandBuffer submit、host frame commit | 区分成功提交与实际出屏；部分 surface 提交后不能用全局 CPU rollback 声称原子视觉撤回 |
+| 9 | GPU completion、publication terminal、资源租约回收；presented 通知 | 发布与完成沿同一 identity；出屏时间只来自实际 presented；失败只能影响真实依赖与后继 |
+
+同一 commandBuffer 中安全有序的 producer→consumer 不要求 CPU 等 GPU completion；跨 commandBuffer／跨队列必须有明确同步与版本许可。persistent history 不能因为物理纹理还在就视作已发布当前结果。
+
+三个容易写错的例子：
+
+- slider 改 effect 强度：property revision→typed value→本次允许的帧参数→现有 PSO encode；不重新 loadScene／编译 shader。若它实际控制 combo，则必须走 variant 失效，不能冒充 uniform。
+- 脚本改变文字：mutation 进入 text owner→新 generation 后台 raster→后续帧采用纹理与 logical size→现有 effect／compositor。pending 期间旧文本是明确 previous-current，不是“更新已经可见”。
+- 脚本改骨骼并拖动 child：先取得回调 snapshot，再合入 bone mutation，最终 pose 同时驱动 skinning、attachment world 和当前 encode；不允许鼠标、child 和 mesh 各自求一套矩阵。
+
+### 8.4 编码边界与新增能力写法
+
+| 修改内容 | 应落在哪个职责 | 不应落在哪里 |
+|---|---|---|
+| 新格式字段／资源类型 | 解码与准备；保留 authored identity，定义缺省和非法输入 | draw 内读 JSON、按文件名分支 |
+| 新 effect 参数 | Program 的 prepared 参数来源＋既有 typed producer | FramePreflight 中按 effect 名称补参数 |
+| 新 effect 命令／跨层引用 | 现役 graph lowering＋资源读写／publication 合同 | compositor 临时抓图、另一个 target registry |
+| 新文字属性 | text descriptor／binding／raster generation | renderer 每帧生成 NSAttributedString 或纹理 |
+| 新脚本 API | VM typed host bridge＋既有 owner 的 mutation／query | JS 直接持有 Metal、窗口或第二套 layer 状态 |
+| 新粒子组件 | prepared component plan＋现有 simulator／renderer primitive | 样本专用模拟器、每粒子扫描作者文档 |
+| 新相机／parent／attachment 行为 | canonical world／camera resolver | hit test／effect／compositor 各写一套坐标算法 |
+| 新 provider | 既有 registry 下的来源、purpose、ready/generation、取消／完成合同 | 为每个 provider 新增全局 store／clock／自动 fallback 纹理 |
+| 暂停／切换／多屏／恢复 | 产品意图与 runtime 生命周期边界 | UI 改内部 bool、旧 completion 读取 mutable current 后重贴身份 |
+
+跨 producer／consumer 的载荷至少保留本职责需要的字段：source identity、owner generation、frame/publication epoch、purpose／颜色表示、logical 与 physical extent、UV／sampler、ready／completion 许可。geometry 额外携带 mesh、placement/world 与对应版本；simulation 携带实例槽与可复用条件。不要把它们全部塞进全局万能结构，字段归已有具体产品持有。
+
+source sampling、effect logical target 与 world placement 是三个坐标职责。纹理大小不能替代作者 layer size，atlas 不能替代 geometry 覆盖范围；最终 MVP 由 canonical world/camera 链决定，文字、Puppet、鼠标 hit 与 effect projection 消费相同阶段结果。新增效果不得自行翻转 UV、缩小 target 或重解释 alpha 来修某个样本。
+
+在既有 owner 上实现四种操作：准备不可变输入、物化当帧值／资源、编码或消费、提交／丢弃／释放。名称沿现有代码，不要求统一 `PreparedProduct` 协议；只产出一种产品的直接函数就足够。一个新增类必须拥有实际数据或生命周期，纯转发优先函数／注入，不为凑“模块化”制造 wrapper。
+
+每次实现前在批次描述中填这一小表，不另外新建文档：
+
+```text
+作者输入／可见结果：
+对象类别、进入阶段与现有 owner：
+准备产物／当帧值／提交 consumer：
+identity、generation、phase、线程与寿命：
+失效触发／最小失败半径／previous-current：
+替代并删除的旧职责：
+正例／stale、pending、失败与 next-frame 反例：
+```
+
+至少追到“实际 consumer 与释放点”再改代码。只能说明解析成功而说不出何时进入 effect／compositor／audio output，说明能力尚未设计完。不能只加 parser／enum／台账后写为兼容完成。
+
+### 8.5 线程、所有权与释放
+
+线程是 owner 的一部分。当前 daemon 主线程持有帧驱动与已 adopt 的 VM；AppKit surface 在合法主线程；解码、文字、编译与音频各 worker 只交付 immutable result／有界 inbox。迁移线程需完整接管 VM affinity、输入、提交和 teardown，不能只把 draw 包进 global queue。
+
+每个异步任务在创建时捕获 request／generation，提交前校验；completion 不能读取当前请求再给旧结果贴新身份。资源表可传只读引用，buffer 写槽与临时 target 按 frame lease 隔离；跨 surface 共享只限不可变且 device/purpose 一致的资源，mutable target/history 不共享输出权。
+
+停止顺序：撤销新工作准入→取消未提交候选与订阅→使旧 callback 不可发布→停止 VM/provider/sound/模拟→提交队列 drain／等待已提交 GPU terminal→释放被引用资源→关闭最终生命周期。窗口可先隐藏，但不能等同 GPU 已停止；shutdown 的有界等待不属于普通帧热路径。无实际消费者的重建缓存可以释放，仍在使用的 texture／history pin 不能被 LRU 或降预算提前收回。
+
+暂停冻结哪些 scene time／timer／模拟／音频由既有行为合同决定；恢复重新评估系统暂停原因，不无条件 play。停止与暂停不同：停止撤销身份，暂停保留安全可恢复状态。缓存命中不延长已停止 owner 的发布权。
+
+### 8.6 当前差距与迁移入口
+
+上述阶段已有部分实现，但不能据此宣称整体完成。基点源码显示：activation 仍会停止旧 provider 并替换 context 后重建 surfaces；FrameDriver 存在 all-surface 提交与 CPU rollback；frame admission 仍构造多层请求／候选；统一命令还携带 Scene 专属类型；复杂对象和跨产品 publication 有明确未支持项。
+
+因此候选激活不丢旧可见输出、跨屏部分提交、帧存储收敛分别进入重构档案的 E2／E4／E1；shader 语义收敛进入 E5。每次触达先判断是否偏离本节，按最短纵向结果纠正。偏差不能因旧测试通过就永久合法，也不能为了立即符合表格而进行无测量的整引擎重写。

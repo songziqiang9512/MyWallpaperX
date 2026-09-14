@@ -26,7 +26,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Format"
 IR_SOURCE = SOURCE_ROOT / "SceneTimelineAnimation.swift"
-EVALUATOR_SOURCE = SOURCE_ROOT / "SceneTimelineEvaluator.swift"
+EVALUATOR_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineEvaluator.swift"
 
 HARNESS = r'''
 import Foundation

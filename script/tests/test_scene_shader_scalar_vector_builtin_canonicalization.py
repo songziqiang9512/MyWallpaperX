@@ -22,36 +22,21 @@ from scene_swift_source_sets import scene_swift_sources
 
 SWIFT_SOURCES = [
     *scene_swift_sources("authored_shader_frontend_core"),
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneAuthoredShaderConstantNumericExpression.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderBooleanScalarArithmeticNormalizer.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderFloatingModuloNormalizer.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderScalarArithmeticNormalizer.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderScalarBuiltInLiteralNormalizer.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderScalarVectorBroadcastNormalizer.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderInactiveBuiltinOverloadCanonicalizer.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderTextureSamplingNormalizer.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderVaryingNormalizer.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderDirectFunctionVectorArgumentNormalizer.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer+Rewrites.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderConstantNumericExpression.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderBooleanScalarArithmeticNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderFloatingModuloNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderScalarArithmeticNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderScalarBuiltInLiteralNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderScalarVectorBroadcastNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderInactiveBuiltinOverloadCanonicalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderTextureSamplingNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderVaryingNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderDirectFunctionVectorArgumentNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer+Rewrites.swift",
 ]
 GLSLANG = (
     REPOSITORY_ROOT

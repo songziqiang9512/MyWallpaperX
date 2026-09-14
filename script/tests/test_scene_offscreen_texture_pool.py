@@ -14,33 +14,33 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
-    SOURCE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Clear.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Extent.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetFormat.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphExecutionState.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphExecutionState+Validation.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphExecutionState+Identity.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetTable.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetTable+Mapped.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneLayerFullFramePairPlan.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneLayerGraphTargetPlan.swift",
-    SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
-    SOURCE_ROOT / "Resources/SceneTextureUVTransform.swift",
-    SOURCE_ROOT / "Resources/SceneTextureCandidate.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetLease.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetLease+Publication.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenTextureResidency.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenTextureAllocationCache.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenTextureAllocationCache+SharedPair.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenTextureAllocationCache+Batch.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenTextureFramePreflight.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenTexturePool+PersistentGraphTargets.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/ScenePersistentGraphTargetAllocator.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneGraphCommandRuntime.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenResolutionPolicy.swift",
-    SOURCE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenTexturePool.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetPlan+Clear.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetPlan+Extent.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetFormat.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphExecutionState.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphExecutionState+Validation.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphExecutionState+Identity.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetTable.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetTable+Mapped.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneLayerFullFramePairPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneLayerGraphTargetPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureCandidate.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetLease.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetLease+Publication.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureResidency.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache+SharedPair.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache+Batch.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureFramePreflight.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool+PersistentGraphTargets.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/ScenePersistentGraphTargetAllocator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphCommandRuntime.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenResolutionPolicy.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift",
 ]
 
 
@@ -3993,10 +3993,10 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
 
     def test_residency_counters_fail_closed_instead_of_wrapping(self) -> None:
         source = (
-            SOURCE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenTextureAllocationCache.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureAllocationCache.swift"
         ).read_text(encoding="utf-8")
         issuer = (
-            SOURCE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenTexturePool.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift"
         ).read_text(encoding="utf-8")
         self.assertNotIn("&+=", source)
         self.assertIn("addingReportingOverflow(1)", source)

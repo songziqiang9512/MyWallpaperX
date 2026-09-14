@@ -16,6 +16,8 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-09-15 | Scene | 队列整理前记录 | [旧断点队列](scene/breakpoint-queue-before-2026-09-15.md) | 已完成 B1–B9 与维护者观察来源 | [兼容路线](../scene/scene-compatibility-roadmap.md)、[当前队列](../scene/scene-open-breakpoint-queue-2026-09-09.md) |
+| 2026-09-15 | Scene 工程 | 旧计划与实验 | [引擎工程旧计划](scene/engine-refactor-program-before-2026-09-15.md) | 保存 M0–M6 迁移、completion 唤醒回归、验证 memo 撤回及消融证据；不决定后继任务 | [重构执行档案](../scene/engine-refactor-program.md)、[能力台账](../scene/semantics/coverage-ledger.md) |
 | 2026-05-05 | Architecture | architecture snapshot | [框架架构备忘](architecture/framework-architecture-memo.md) | 早期模块接入和目录约定 | [AGENTS](../../AGENTS.md)、[文档入口](../README.md)、[技术栈边界](../architecture/technology-stack-boundaries.md) |
 | 2026-07-19 至 2026-07-25 | Web + Scene | cross-topic review | [Web 与 Scene 状况评估](cross-topic/web-scene-current-state-roadmap-2026-07-19.md) | 当时的跨专题评估和证据来源 | [Web 现役状态](../web/current-state.md)、[Scene 路线](../scene/scene-compatibility-roadmap.md)、[Scene 能力台账](../scene/semantics/coverage-ledger.md)、[运行证据](../scene/semantics/runtime-evidence-current.md) |
 | 2026-07-20 | Web | runtime baseline | [外部代表样本基线](web/WEB_EXTERNAL_SAMPLE_BASELINE_2026-07-20.md) | 5 个外部样本的当时运行证据 | [Web 现役状态](../web/current-state.md) |

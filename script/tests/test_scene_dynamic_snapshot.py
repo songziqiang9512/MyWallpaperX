@@ -13,8 +13,8 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Properties"
 SOURCES = [
-    SOURCE_ROOT / "SceneDynamicSnapshot.swift",
-    SOURCE_ROOT / "SceneDynamicSnapshot+Camera.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot+Camera.swift",
 ]
 
 HARNESS = r'''
@@ -580,7 +580,7 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
         )
 
     def test_prepared_authored_lanes_are_reused_by_frame_resolution(self) -> None:
-        source = (SOURCE_ROOT / "SceneDynamicSnapshot.swift").read_text(
+        source = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift").read_text(
             encoding="utf-8"
         )
         self.assertIn("fileprivate let authoredValueLanes", source)
@@ -592,7 +592,7 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
         self.assertIn("authoredValues: index.authoredValueLanes", source)
 
     def test_valid_resolution_avoids_diagnostic_sort_and_field_collection(self) -> None:
-        source = (SOURCE_ROOT / "SceneDynamicSnapshot.swift").read_text(
+        source = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift").read_text(
             encoding="utf-8"
         )
         self.assertIn("guard diagnostics.count > 1 else { return diagnostics }", source)
@@ -609,7 +609,7 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
 
     def test_prepared_transform_candidates_bound_snapshot_projection(self) -> None:
         self.assertEqual(self.result["dynamicTransformLayerIDs"], [21])
-        source = (SOURCE_ROOT / "SceneDynamicSnapshot.swift").read_text(
+        source = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift").read_text(
             encoding="utf-8"
         )
         self.assertIn("fileprivate let dynamicTransformLayerIDs", source)

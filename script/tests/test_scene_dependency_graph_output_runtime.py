@@ -12,9 +12,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/LayerDependencies"
-    / "SceneDependencyFrameRuntime.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime.swift"
 )
 STATIC_MODEL_RUNTIME_SOURCE = RUNTIME_SOURCE.with_name(
     "SceneDependencyFrameRuntime+StaticModel.swift"

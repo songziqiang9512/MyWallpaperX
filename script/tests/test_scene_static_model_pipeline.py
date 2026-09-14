@@ -12,19 +12,19 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-METAL_SOURCE = SCENE_ROOT / "Rendering/SceneStaticModel.metal"
-PIPELINE_SOURCE = SCENE_ROOT / "Rendering/SceneStaticModelPipeline.swift"
-DYNAMIC_SNAPSHOT_SOURCE = SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift"
+METAL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal"
+PIPELINE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift"
+DYNAMIC_SNAPSHOT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift"
 MODEL_SOURCE = SCENE_ROOT / "Format/SceneMdlStaticModel.swift"
-SAMPLING_SOURCE = SCENE_ROOT / "Resources/SceneTextureSampling.swift"
-UV_TRANSFORM_SOURCE = SCENE_ROOT / "Resources/SceneTextureUVTransform.swift"
-LIGHT_SOURCE = SCENE_ROOT / "Rendering/SceneLightSnapshot.swift"
+SAMPLING_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift"
+UV_TRANSFORM_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift"
+LIGHT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift"
 DIRECTIONAL_LIGHT_SOURCE = (
     SCENE_ROOT / "Format/SceneDirectionalLightDefinition.swift"
 )
 SPOT_LIGHT_SOURCE = SCENE_ROOT / "Format/SceneSpotLightDefinition.swift"
 PERFORMANCE_COUNTER_SOURCE = (
-    SCENE_ROOT / "Runtime/ScenePerformanceCounterHub.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift"
 )
 
 LIGHTING_STUB = r'''

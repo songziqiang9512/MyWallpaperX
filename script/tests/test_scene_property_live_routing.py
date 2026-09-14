@@ -19,23 +19,11 @@ EDITOR_SOURCE = REPOSITORY_ROOT / (
     "MyWallpaperX/Modules/SteamWorkshop/Scene/"
     "SteamWorkshopScenePropertyEditorView.swift"
 )
-LIVE_CONSUMERS_SOURCE = REPOSITORY_ROOT / (
-    "MyWallpaperX/Core/SteamWorkshopScene/Runtime/"
-    "SceneDesktopWallpaperHost+LiveConsumers.swift"
-)
-LAYER_SOURCE = REPOSITORY_ROOT / (
-    "MyWallpaperX/Core/SteamWorkshopScene/Runtime/"
-    "SceneRenderDescriptor+Layer.swift"
-)
-RUNTIME_MODEL_SOURCE = REPOSITORY_ROOT / (
-    "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneRuntimeModel.swift"
-)
-HOST_SOURCE = REPOSITORY_ROOT / (
-    "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift"
-)
-METAL_VIEW_SOURCE = REPOSITORY_ROOT / (
-    "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift"
-)
+LIVE_CONSUMERS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift"
+LAYER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift"
+RUNTIME_MODEL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift"
+HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
+METAL_VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
 
 
 def method_body(source: str, signature: str) -> str:

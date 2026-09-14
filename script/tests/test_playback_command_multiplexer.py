@@ -6,7 +6,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCES = ROOT / 'MyWallpaperX/Core/PlaybackControl'
-PROPERTY = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneUserProperty.swift'
+PROPERTY = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift"
 HARNESS = r'''
 import Foundation
 final class Handler: PlaybackEngineControlling {
@@ -66,7 +66,7 @@ class PlaybackCommandMultiplexerTests(unittest.TestCase):
     def test_product_scene_handler_is_daemon_client(self):
         application = (ROOT / 'MyWallpaperX/App/MyWallpaperXApplication.swift').read_text()
         status_bar = (ROOT / 'MyWallpaperX/App/StatusBarController.swift').read_text()
-        client = (ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDaemonClient.swift').read_text()
+        client = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift").read_text()
         self.assertIn('register(SceneDaemonClient.shared)', application)
         self.assertNotIn('register(SceneDesktopWallpaperHost.shared)', status_bar)
         self.assertIn('final class SceneDaemonClient: PlaybackEngineControlling', client)

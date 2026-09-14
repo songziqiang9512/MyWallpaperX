@@ -100,11 +100,11 @@ TAIL = r'''
 
 class ScenePlanValidationIdentityTests(unittest.TestCase):
     def test_stored_plan_is_checked_even_when_identity_and_extent_match(self):
-        source = (DIRECTORY / 'SceneResolvedMaterialGraphExecutor+Validation.swift').read_text()
+        source = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Validation.swift").read_text()
         begin = source.index('    func validate(')
         body = function_body(source, '    func validate(')
         method = source[begin:source.index('{', begin)] + body
-        executor = (DIRECTORY / 'SceneResolvedMaterialGraphExecutor.swift').read_text()
+        executor = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift").read_text()
         key = ''
         memo = ''
         if 'nonisolated struct PlanValidationMemoKey:' in executor:

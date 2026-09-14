@@ -184,21 +184,21 @@ Image effect 执行包含：
 MyWallpaperX 已经有：
 
 - effect、texture、framebuffer 和 unresolved identity：
-  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift:3-22`
+  - `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift:3-22`
 - render target extent/format/unique/clear/UV/condition：
-  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift:24-46`
+  - `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift:24-46`
 - material/copy/swap node：
-  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift:55-77`
+  - `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift:55-77`
 - blocker 和 fail-closed graph：
-  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift:87-128`
+  - `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift:87-128`
 - author-order planner：
-  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlanner.swift:6-34`
+  - `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlanner.swift:6-34`
 - copy/swap 解析：
-  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlanner.swift:238-285`
+  - `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlanner.swift:238-285`
 - target lifetime、history seed 和 command plan：
-  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift:16-41`
+  - `MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetPlan.swift:16-41`
 - material、instance、user texture、explicit bind 的覆盖链：
-  - `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredMaterialResolver.swift:84-104`
+  - `MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneAuthoredMaterialResolver.swift:84-104`
 
 因此不应重新设计 effect IR。近期缺口是：
 
@@ -277,10 +277,10 @@ MyWallpaperX 已保存：
 
 证据：
 
-- `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContract.swift:3-77`
-- `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContract.swift:79-180`
-- `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContractLoader.swift:29-112`
-- `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContractLoader.swift:204-250`
+- `MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift:3-77`
+- `MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift:79-180`
+- `MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContractLoader.swift:29-112`
+- `MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContractLoader.swift:204-250`
 
 下一步应先建立真实 shader 合同测试：
 
@@ -374,8 +374,8 @@ RePKG 明确承认 V4 的三个参数含义未确认：
 - LZ4 和 mip 解析：
   - `MyWallpaperX/Core/SteamWorkshopScene/Format/SceneTexContainer.swift:284`
 - compressed/raw upload、内嵌 PNG/JPEG 和 MP4：
-  - `MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneCompressedTextureUploader.swift`
-  - `MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTextureLoader.swift:30-130`
+  - `MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneCompressedTextureUploader.swift`
+  - `MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader.swift:30-130`
 
 近期动作应是补 fixture，而不是移植 RePKG：
 

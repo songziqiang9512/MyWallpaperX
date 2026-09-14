@@ -22,15 +22,15 @@ DOCUMENT_SOURCES = [
     SOURCE_ROOT / "Format/SceneObjectDependency.swift",
     SOURCE_ROOT / "Format/SceneDirectionalLightDefinition.swift",
     SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
-    SOURCE_ROOT / "Text/SceneTextScriptDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptDefinition.swift",
     SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
     SOURCE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
     SOURCE_ROOT / "Format/SceneTimelineAnimation.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "Format/SceneScriptSourceEvidence.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
-    SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayer.swift",
 ]
 LAYER_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
@@ -38,9 +38,9 @@ LAYER_SOURCES = [
     SOURCE_ROOT / "Format/SceneDirectionalLightDefinition.swift",
     SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
     SOURCE_ROOT / "Format/SceneObjectDependency.swift",
-    SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
-    SOURCE_ROOT / "Runtime/SceneRenderDescriptor+Layer.swift",
-    SOURCE_ROOT / "Rendering/SceneLayerVisibility.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerVisibility.swift",
 ]
 
 

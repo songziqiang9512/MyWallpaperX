@@ -12,38 +12,38 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "Runtime/ScenePerformanceCounterHub.swift",
-    SOURCE_ROOT / "Resources/SceneTextureSampling.swift",
-    SOURCE_ROOT / "Resources/SceneTextureUVTransform.swift",
-    SOURCE_ROOT / "Resources/SceneTextureCandidate.swift",
-    SOURCE_ROOT / "Rendering/SceneMatrix.swift",
-    SOURCE_ROOT / "Rendering/SceneFramebufferSnapshot.swift",
-    SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
-    SOURCE_ROOT / "Particles/SceneParticleInitializer.swift",
-    SOURCE_ROOT / "Particles/SceneParticleAudioResponsePlan.swift",
-    SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
-    SOURCE_ROOT / "Particles/SceneParticleRemapValue.swift",
-    SOURCE_ROOT / "Particles/SceneParticleReduceMovement.swift",
-    SOURCE_ROOT / "Particles/SceneParticleCollisionPlane.swift",
-    SOURCE_ROOT / "Particles/SceneParticlePositionAroundControlPoint.swift",
-    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
-    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",
-    SOURCE_ROOT / "Particles/SceneParticleRenderSupport.swift",
-    SOURCE_ROOT / "Particles/SceneParticleBoids.swift",
-    SOURCE_ROOT / "Particles/SceneParticleSimulationSupport.swift",
-    SOURCE_ROOT / "Particles/SceneParticleSimulationDiagnostic.swift",
-    SOURCE_ROOT / "Particles/SceneParticleCapVelocity.swift",
-    SOURCE_ROOT / "Particles/SceneParticleControlPointForce.swift",
-    SOURCE_ROOT / "Particles/SceneParticlePeriodicEmission.swift",
-    SOURCE_ROOT / "Particles/SceneParticleStepSnapshotRecorder.swift",
-    SOURCE_ROOT / "Particles/SceneParticleRopeTrailPlan.swift",
-    SOURCE_ROOT / "Particles/SceneParticleMetalInstanceBuffer.swift",
-    SOURCE_ROOT / "Particles/SceneParticleRefractionBinding.swift",
-    SOURCE_ROOT / "Particles/SceneParticleShaderSource.swift",
-    SOURCE_ROOT / "Particles/SceneParticleSamplerStateSet.swift",
-    SOURCE_ROOT / "Particles/SceneParticleMetalPipeline.swift",
-    SOURCE_ROOT / "Particles/SceneParticleDepthTargetPool.swift",
-    SOURCE_ROOT / "Particles/SceneParticleTextureSource.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureCandidate.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneFramebufferSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleInitializer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleAudioResponsePlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleVortex.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleReduceMovement.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionAroundControlPoint.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleRenderSupport.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleBoids.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationSupport.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationDiagnostic.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCapVelocity.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleControlPointForce.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePeriodicEmission.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleStepSnapshotRecorder.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopeTrailPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalInstanceBuffer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRefractionBinding.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleShaderSource.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleSamplerStateSet.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalPipeline.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleDepthTargetPool.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleTextureSource.swift",
 ]
 
 
@@ -2092,16 +2092,16 @@ class SceneParticleRenderingTests(unittest.TestCase):
 
     def test_particle_submission_uses_shared_cancel_and_commit_boundary(self) -> None:
         instance_source = (
-            SOURCE_ROOT / "Particles/SceneParticleMetalInstanceBuffer.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalInstanceBuffer.swift"
         ).read_text(encoding="utf-8")
         pipeline_source = (
-            SOURCE_ROOT / "Particles/SceneParticleMetalPipeline.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalPipeline.swift"
         ).read_text(encoding="utf-8")
         particle_renderer_source = (
-            SOURCE_ROOT / "Rendering/SceneMetalRenderer+Particles.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Particles.swift"
         ).read_text(encoding="utf-8")
         renderer_source = (
-            SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
         ).read_text(encoding="utf-8")
 
         self.assertIn("func cancelUncommittedSubmission(", instance_source)

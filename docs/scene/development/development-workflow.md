@@ -21,6 +21,8 @@ authored data → loss-preserving IR → prepared Program/graph/resources
 
 解析、shader/reflection、ABI/target 检查、graph lowering、pipeline preparation 和静态索引属于 load、generation 或明确 invalidation。普通帧只消费准备结果、更新 typed state、检查必要的 generation/epoch/target/publication/completion 并执行。任何只服务报告、hash、route 统计、census 或未来扩展的机制不能成为播放前置。
 
+新增或修改任何播放能力时，先按[逐对象生命周期与落代码合同](../design/runtime-architecture.md#8-scene-播放生命周期与落代码合同)确定装载、准备、帧更新、合成及释放 owner；只在当前批次说明中填写其输入、consumer、失效与反例，不另建重复设计文档。
+
 ## 模型自主性
 
 模型可以自由重组类型、删除无 owner 的机制、改变验证顺序、选择 fixture 或更换实现方案，只要保持：
@@ -35,6 +37,10 @@ authored data → loss-preserving IR → prepared Program/graph/resources
 
 ## 效率与验证
 
+先确定任务属于工程成本还是作者行为，再进入对应路线；紧急可见回归按最早失败的公共职责处理，不被阶段编号阻塞。涉及两条路线时只选一个主结果、一个 owner 和一组验收，避免重复立项。
+
+日常门使用 `python3.12 -B script/verify_scene_change.py --phase inner --base HEAD --path <owned-path>` 先查看选择，确认范围后加 `--run`；checkpoint 的纯构建入口是 `script/run_checkpoint_build.sh`。`script/build_and_run.sh` 会先停止正在运行的 App，不作为只构建或只读检查入口。纯路径移动仍需构建与源集合验证，但不应借机改播放算法。
+
 正确画面和布局优先于能力数量，首帧和稳定帧时间优先于诊断便利。验证规模服从失败半径：最近的可执行单元 → 定向纵向切片 → 隔离真实内容 → fixed/full、长稳和发布。全量 corpus、完整链接扫描、截图流水、详细 observation、性能诊断和官方对照都属于按风险启用的证据环，不是普通编码前置。
 
 性能结论必须区分首帧、CPU/pre-encode、GPU、提交/完成和 next-frame。消融一次只移除一种常驻成本，用相同输入和环境比较，至少重复三次；只有正确性、失败边界和性能同时没有退化，才保留优化。两次实验没有改变首断点或没有减少工作量，就换共享断点。
@@ -43,9 +49,10 @@ authored data → loss-preserving IR → prepared Program/graph/resources
 
 ## 事实和文档
 
-- 最终怎样：[`runtime-architecture.md`](runtime-architecture.md)；
-- 先做什么：[`scene-compatibility-roadmap.md`](scene-compatibility-roadmap.md)；
-- 现在能什么：[`semantics/coverage-ledger.md`](semantics/coverage-ledger.md)及专项表；
-- 实际发生什么：[`semantics/runtime-evidence-current.md`](semantics/runtime-evidence-current.md)。
+- 最终怎样：[`runtime-architecture.md`](../design/runtime-architecture.md)；
+- 工程成本、架构与减重顺序：[重构计划](../engine-refactor-program.md)；
+- 作者行为、能力与可见验收顺序：[兼容路线](../scene-compatibility-roadmap.md)，具体开放问题只看派生队列；
+- 现在能什么：[`semantics/coverage-ledger.md`](../semantics/coverage-ledger.md)及专项表；
+- 实际发生什么：[`semantics/runtime-evidence-current.md`](../semantics/runtime-evidence-current.md)。
 
-资料的热/冷分层、官方参考与代码的边界、长流水账的读取范围见[`语义手册`](semantics/README.md)。同一事实只保留一个权威解释。历史、研究取证、原始报告和本机缓存按需读取，不进入普通实现上下文。无决定性证据时停止写文档，回到代码和共享运行断点。
+资料的热/冷分层、官方参考与代码的边界、长流水账的读取范围见[`语义手册`](../semantics/README.md)。同一事实只保留一个权威解释。历史、研究取证、原始报告和本机缓存按需读取，不进入普通实现上下文。无决定性证据时停止写文档，回到代码和共享运行断点。

@@ -41,14 +41,10 @@ class AuthoredPresenceComboAdmissionTests(unittest.TestCase):
 
     def test_reachability_requires_authored_presence_combo(self) -> None:
         reachability = (
-            SCENE_ROOT
-            / "RenderGraph/MaterialProgram"
-            / "SceneResolvedMaterialShaderSchema+Reachability.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+Reachability.swift"
         ).read_text(encoding="utf-8")
         launch = (
-            SCENE_ROOT
-            / "RenderGraph/MaterialProgram"
-            / "SceneResolvedMaterialTextureResolver+Launch.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+Launch.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("nonisolated static func readinessComboSlotMask(", reachability)
         self.assertIn("if required & bit == 0, hasOptionalSource { optional |= bit }", reachability)

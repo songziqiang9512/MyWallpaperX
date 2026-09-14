@@ -12,8 +12,8 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = [
-    SCENE / "Properties/SceneLaunchOriginTransitionCompiler+SyntaxLexer.swift",
-    SCENE / "Properties/SceneIdentityDisplayScriptProjection.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneLaunchOriginTransitionCompiler+SyntaxLexer.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneIdentityDisplayScriptProjection.swift",
 ]
 
 HARNESS = r'''

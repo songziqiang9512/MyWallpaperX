@@ -16,8 +16,8 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
 SWIFT_SOURCES = [
-    RUNTIME_ROOT / "SceneGraphExecutionObservation.swift",
-    RUNTIME_ROOT / "SceneGraphExecutionTelemetry.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGraphExecutionObservation.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGraphExecutionTelemetry.swift",
 ]
 
 HARNESS = r'''

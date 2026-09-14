@@ -7,9 +7,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation"
-    / "SceneGenericShaderLoopGuardLowering.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderLoopGuardLowering.swift"
 )
 
 HARNESS = r'''

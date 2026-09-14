@@ -29,13 +29,13 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneDocument+ShaderValue.swift",
     SCENE_ROOT / "Format/SceneDocument+NumericParsing.swift",
     SCENE_ROOT / "Format/SceneProject.swift",
-    SCENE_ROOT / "Properties/SceneUserProperty.swift",
-    SCENE_ROOT / "Properties/SceneUserPropertyDefinitionParser.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift",
     SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneResourceIndex.swift"],
     SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneResourceView.swift"],
-    SCENE_ROOT / "Resources/SceneAssetCatalog.swift",
-    SCENE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
-    SCENE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneAssetCatalog.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
     SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneShaderSourceGraph.swift"],
     SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES[
         "SceneShaderLegacyAnnotationJSON.swift"

@@ -23,20 +23,13 @@ from scene_swift_source_sets import scene_swift_sources  # noqa: E402
 
 SWIFT_SOURCES = [
     *scene_swift_sources("authored_shader_frontend_core"),
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering+Utilities.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderSingleSampleStraightAlphaPreservingLowering.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderScalarizedRGBPreservedAlphaLowering.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaWholeOutputUnionLowering.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape.swift",
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderConditionalGeneratedRGBLowering.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering+Utilities.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSingleSampleStraightAlphaPreservingLowering.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderScalarizedRGBPreservedAlphaLowering.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderStraightAlphaWholeOutputUnionLowering.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderConditionalGeneratedRGBLowering.swift",
 ]
 
 

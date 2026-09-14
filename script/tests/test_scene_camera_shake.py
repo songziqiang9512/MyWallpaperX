@@ -16,7 +16,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 GENERAL_SOURCE = SCENE_ROOT / "Format/SceneDocument+General.swift"
 NUMERIC_SOURCE = SCENE_ROOT / "Format/SceneDocument+NumericParsing.swift"
-SHAKE_SOURCE = SCENE_ROOT / "Rendering/SceneCameraShake.swift"
+SHAKE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/SceneCameraShake.swift"
 
 HARNESS_SOURCE = r'''
 import Foundation
@@ -305,18 +305,18 @@ class SceneCameraShakeTests(unittest.TestCase):
             " roughness=1.0 speed=1.25",
         )
         camera_owner = (
-            SCENE_ROOT / "Rendering/SceneMetalRenderer+Camera.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Camera.swift"
         ).read_text(encoding="utf-8")
-        renderer = (SCENE_ROOT / "Rendering/SceneMetalRenderer.swift").read_text(
+        renderer = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift").read_text(
             encoding="utf-8"
         )
         pointer = (
-            SCENE_ROOT / "Rendering/SceneMetalRenderer+ParticlePointer.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ParticlePointer.swift"
         ).read_text(encoding="utf-8")
-        view = (SCENE_ROOT / "Rendering/SceneMetalView.swift").read_text(
+        view = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift").read_text(
             encoding="utf-8"
         )
-        parallax = (SCENE_ROOT / "Rendering/SceneLayerParallax.swift").read_text(
+        parallax = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/SceneLayerParallax.swift").read_text(
             encoding="utf-8"
         )
         self.assertEqual(camera_owner.count("SceneParticleCameraFrame("), 1)

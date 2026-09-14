@@ -25,45 +25,29 @@ from script.tests.scene_generic_shader_test_support import (
 
 SWIFT_SOURCES = [
     *scene_swift_sources("authored_shader_frontend_core"),
-    MATERIAL_PROGRAM_ROOT
-    / "SceneResolvedMaterialGenericShaderProgramArtifact.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
     *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
-    MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialGenericShaderRouteProfile.swift",
-    MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialGenericShaderRouteAuthority.swift",
-    MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialGenericShaderArtifactCache.swift",
-    MATERIAL_PROGRAM_ROOT
-    / "SceneResolvedMaterialGenericShaderArtifactCache+Diagnostics.swift",
-    MATERIAL_PROGRAM_ROOT
-    / "SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
-    MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialGenericShaderRequest.swift",
-    MATERIAL_PROGRAM_ROOT
-    / "SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRouteProfile.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRouteAuthority.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache+Diagnostics.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
 ]
 
-ROUTE_SOURCE = MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialGenericShaderRouteProfile.swift"
-ROUTE_AUTHORITY_SOURCE = MATERIAL_PROGRAM_ROOT / (
-    "SceneResolvedMaterialGenericShaderRouteAuthority.swift"
-)
-CACHE_SOURCE = MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialGenericShaderArtifactCache.swift"
-VARIANT_SOURCE = MATERIAL_PROGRAM_ROOT / (
-    "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
-)
-FAILURE_SOURCE = MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialProgram.swift"
-STAGES_SOURCE = EFFECT_EXECUTION_ROOT / (
-    "SceneResolvedMaterialExecutionCapability+Stages.swift"
-)
-PROGRAM_FIRST_SOURCE = EFFECT_EXECUTION_ROOT / (
-    "SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
-)
-CAPABILITY_SOURCE = EFFECT_EXECUTION_ROOT / (
-    "SceneResolvedMaterialExecutionCapability.swift"
-)
-OWNER_ADMISSION_SOURCE = SCENE_ROOT / "RenderGraph" / (
-    "SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift"
-)
-LAUNCH_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
-FINALIZER_SOURCE = MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialProgramFinalizer.swift"
-SHADER_SCHEMA_SOURCE = MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialShaderSchema.swift"
+ROUTE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRouteProfile.swift"
+ROUTE_AUTHORITY_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRouteAuthority.swift"
+CACHE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache.swift"
+VARIANT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
+FAILURE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram.swift"
+STAGES_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift"
+PROGRAM_FIRST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
+CAPABILITY_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift"
+OWNER_ADMISSION_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift"
+LAUNCH_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
+FINALIZER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer.swift"
+SHADER_SCHEMA_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift"
 
 
 HARNESS = r'''

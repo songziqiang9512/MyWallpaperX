@@ -13,19 +13,19 @@ from script.tests.test_scene_wallpaper_async_launch import function_body
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-PROTOCOL = SCENE / "Runtime/SceneDaemonProtocol.swift"
-RUNTIME = SCENE / "Runtime/SceneDaemonRuntime.swift"
-PRESENTATION = SCENE / "Runtime/SceneFramePresentation.swift"
-SHUTDOWN = SCENE / "Runtime/SceneDesktopWallpaperHost+Shutdown.swift"
-HOST = SCENE / "Runtime/SceneDesktopWallpaperHost.swift"
-LAUNCH = SCENE / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
-VIEW = SCENE / "Rendering/SceneMetalView.swift"
-RENDERER = SCENE / "Rendering/SceneMetalRenderer.swift"
+PROTOCOL = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol.swift"
+RUNTIME = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonRuntime.swift"
+PRESENTATION = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneFramePresentation.swift"
+SHUTDOWN = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Shutdown.swift"
+HOST = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
+LAUNCH = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
+VIEW = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
+RENDERER = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
 APPLICATION = ROOT / "MyWallpaperX/App/MyWallpaperXApplication.swift"
-PROPERTY = SCENE / "Properties/SceneUserProperty.swift"
+PROPERTY = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift"
 PROFILE = ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"
 COMMAND = ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift"
-SCREEN = SCENE / "Runtime/SceneScreenTopology.swift"
+SCREEN = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneScreenTopology.swift"
 
 
 HARNESS = r'''

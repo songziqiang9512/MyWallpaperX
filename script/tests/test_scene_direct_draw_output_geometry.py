@@ -13,10 +13,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = [
-    SCENE_ROOT / "Rendering/SceneMatrix.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/ScenePreparedDirectDrawOutputGeometry.swift",
-    SCENE_ROOT / "Rendering/SceneDirectDrawOutputGeometry.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePreparedDirectDrawOutputGeometry.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneDirectDrawOutputGeometry.swift",
 ]
 
 

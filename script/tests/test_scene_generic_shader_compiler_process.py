@@ -12,10 +12,7 @@ import unittest
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-PROCESS_SOURCE = REPOSITORY_ROOT / (
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/"
-    "SceneGenericShaderCompilerProcess.swift"
-)
+PROCESS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderCompilerProcess.swift"
 
 HARNESS = r"""
 import Foundation

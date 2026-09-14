@@ -12,7 +12,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-TEXT_TEXTURE_LOADER_SOURCE = SOURCE_ROOT / "Text/SceneTextTextureLoader.swift"
+TEXT_TEXTURE_LOADER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextTextureLoader.swift"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
     SOURCE_ROOT / "Format/SceneDocument.swift",
@@ -29,20 +29,20 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "Format/SceneScriptSourceEvidence.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
-    SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",
-    SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
-    SOURCE_ROOT / "Rendering/SceneLayerVisibility.swift",
-    SOURCE_ROOT / "Runtime/SceneRenderDescriptor.swift",
-    SOURCE_ROOT / "Runtime/SceneRenderDescriptor+Layer.swift",
-    SOURCE_ROOT / "Runtime/SceneRenderDescriptor+AuthoredAssets.swift",
-    SOURCE_ROOT / "Text/SceneTextDescriptor.swift",
-    SOURCE_ROOT / "Text/SceneTextScriptDefinition.swift",
-    SOURCE_ROOT / "Text/SceneTextGeometry.swift",
-    SOURCE_ROOT / "Text/SceneTextFontResolver.swift",
-    SOURCE_ROOT / "Text/SceneTextRowLimit.swift",
-    SOURCE_ROOT / "Text/SceneTextTextureLoader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerVisibility.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+AuthoredAssets.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextDescriptor.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextGeometry.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextFontResolver.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextRowLimit.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextTextureLoader.swift",
 ]
 
 # 全部 fixture 自建：字体只用 macOS 系统别名，内容是 A/B 重复串，没有官方 payload。

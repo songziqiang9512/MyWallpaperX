@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript"
+SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script"
 HARNESS = r'''
 #include "SceneQuickJS.h"
 #include <pthread.h>

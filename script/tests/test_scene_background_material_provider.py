@@ -254,21 +254,19 @@ class SceneBackgroundMaterialProviderTests(unittest.TestCase):
 
     def test_route_is_exact_and_layer_ordered(self) -> None:
         compiler = (
-            SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialTemplateCompiler.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift"
         ).read_text(encoding="utf-8")
         capability = (
-            SCENE_ROOT
-            / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
         ).read_text(encoding="utf-8")
         capability += "\n" + (
-            SCENE_ROOT
-            / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStagesBackground.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStagesBackground.swift"
         ).read_text(encoding="utf-8")
         capability_report = (
-            SCENE_ROOT / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift"
         ).read_text(encoding="utf-8")
         composition = (
-            SCENE_ROOT / "Rendering/SceneResolvedMaterialGraphComposition.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift"
         ).read_text(encoding="utf-8")
         self.assertIn('caseInsensitiveCompare("_rt_FullFrameBuffer")', compiler)
         self.assertIn("sceneBackgroundCandidateIsOrdered", capability)

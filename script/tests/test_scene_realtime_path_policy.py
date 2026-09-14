@@ -15,25 +15,24 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 class SceneRealtimePathPolicyTests(unittest.TestCase):
     def test_static_graph_work_is_reused_for_stable_generations(self) -> None:
         state = (
-            SCENE
-            / "RenderGraph/GraphTargets/SceneGraphExecutionState.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphExecutionState.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("let reusesStaticPlan = !reparsed && !allocationChanged", state)
         self.assertIn("operations = cachedOperations", state)
         self.assertIn("historyClosure = previous.historyClosureIdentities", state)
 
     def test_resolved_material_preflight_reuses_launch_topology(self) -> None:
-        renderer = (SCENE / "Rendering/SceneMetalRenderer.swift").read_text(
+        renderer = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift").read_text(
             encoding="utf-8"
         )
         initialization = (
-            SCENE / "Rendering/SceneMetalRenderer+Initialization.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Initialization.swift"
         ).read_text(encoding="utf-8")
         preflight = (
-            SCENE / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
         ).read_text(encoding="utf-8")
         projection = (
-            SCENE / "Rendering/SceneMetalRenderer+FrameWorldProjection.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+FrameWorldProjection.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("resolvedMaterialPreparationLayerIDs: [Int]?", renderer)
         self.assertIn("resolvedMaterialPreparationLayers:", renderer)
@@ -73,9 +72,7 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
 
     def test_full_graph_observations_are_explicitly_opt_in(self) -> None:
         completion = (
-            SCENE
-            / "Runtime/ResolvedMaterialExecution/"
-            "SceneResolvedMaterialSubmissionCoordinator+Completion.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Completion.swift"
         ).read_text(encoding="utf-8")
         guard = completion.index("guard capturesExecutionObservations else")
         builder = completion.index("SceneResolvedMaterialGraphObservationBuilder.make")
@@ -83,7 +80,7 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
 
     def test_product_launch_only_enables_observations_for_debug_evidence(self) -> None:
         launch = (
-            SCENE / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
         ).read_text(encoding="utf-8")
         self.assertGreaterEqual(
             launch.count(
@@ -94,13 +91,13 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
 
     def test_dynamic_frame_schema_is_prepared_at_launch(self) -> None:
         launch = (
-            SCENE / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
         ).read_text(encoding="utf-8")
         frame_driver = (
-            SCENE / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
         ).read_text(encoding="utf-8")
         frame_schema = (
-            SCENE / "Runtime/SceneDesktopWallpaperLaunchFrameSchema.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchFrameSchema.swift"
         ).read_text(encoding="utf-8")
         self.assertIn(
             "self.launchDefinitions = SceneDynamicDefinitionMerger.merge(",
@@ -137,17 +134,16 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
 
     def test_dynamic_layer_projection_is_revisioned(self) -> None:
         renderer = (
-            SCENE / "Rendering/SceneMetalRenderer.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
         ).read_text(encoding="utf-8")
         projection = (
-            SCENE / "Rendering/SceneMetalRenderer+FrameWorldProjection.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+FrameWorldProjection.swift"
         ).read_text(encoding="utf-8")
         topology = (
-            SCENE
-            / "Runtime/SceneScript/SceneScriptDynamicLayerRuntime.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime.swift"
         ).read_text(encoding="utf-8")
         cache = (
-            SCENE / "Rendering/SceneDynamicLayerRenderTopologyCache.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDynamicLayerRenderTopologyCache.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("let dynamicLayerTopologyCache", renderer)
         self.assertIn("dynamicLayerTopologyCache.resolve(", projection)
@@ -182,14 +178,13 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
 
     def test_system_provider_demand_order_is_prepared(self) -> None:
         bindings = (
-            SCENE / "Runtime/SceneBaseMaterialProviderBindingProgram.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialProviderBindingProgram.swift"
         ).read_text(encoding="utf-8")
         texture_frame = (
-            SCENE / "Rendering/SceneMetalRenderer+TextureFrame.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+TextureFrame.swift"
         ).read_text(encoding="utf-8")
         bridge = (
-            SCENE / "Runtime/ResolvedMaterialExecution/"
-            "SceneResolvedMaterialRuntimeBridge.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("let orderedSystemProviderDemands:", bindings)
         self.assertIn(
@@ -208,10 +203,10 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
 
     def test_scene_script_inputs_use_program_owned_typed_lanes(self) -> None:
         frame_driver = (
-            SCENE / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
         ).read_text(encoding="utf-8")
         snapshot = (
-            SCENE / "Properties/SceneDynamicSnapshot.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift"
         ).read_text(encoding="utf-8")
         self.assertEqual(frame_driver.count(".typedValues("), 3)
         self.assertIn("propertyVectorScriptProgram.inputTargets", frame_driver)
@@ -227,13 +222,13 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
 
     def test_frame_visibility_reuses_prepared_layer_index(self) -> None:
         visibility = (
-            SCENE / "Rendering/SceneLayerVisibility.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerVisibility.swift"
         ).read_text(encoding="utf-8")
         renderer = (
-            SCENE / "Rendering/SceneMetalRenderer.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
         ).read_text(encoding="utf-8")
         preflight = (
-            SCENE / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
         ).read_text(encoding="utf-8")
         self.assertIn(
             "layersByID: [Int: SceneRenderDescriptor.Layer]",
@@ -249,24 +244,16 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
 
     def test_normal_product_frames_skip_execution_diagnostics(self) -> None:
         coordinator = (
-            SCENE
-            / "Runtime/ResolvedMaterialExecution/"
-            "SceneResolvedMaterialSubmissionCoordinator.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift"
         ).read_text(encoding="utf-8")
         lifecycle = (
-            SCENE
-            / "Runtime/ResolvedMaterialExecution/"
-            "SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift"
         ).read_text(encoding="utf-8")
         executor = (
-            SCENE
-            / "RenderGraph/EffectExecution/"
-            "SceneResolvedMaterialGraphExecutor.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift"
         ).read_text(encoding="utf-8")
         preparation = (
-            SCENE
-            / "RenderGraph/EffectExecution/"
-            "SceneResolvedMaterialGraphExecutor+Preparation.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Preparation.swift"
         ).read_text(encoding="utf-8")
         self.assertIn(
             "capturesExecutionDiagnostics: capturesExecutionObservations",
@@ -284,38 +271,36 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
     def test_top_level_contract_forbids_diagnostic_hot_path_work(self) -> None:
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         architecture = (
-            ROOT / "docs/scene/runtime-architecture.md"
+            ROOT / "docs/scene/design/runtime-architecture.md"
         ).read_text(encoding="utf-8")
         self.assertIn("目标主链只有一条", agents)
         self.assertIn("普通帧不得重新解析、编译、建图", agents)
         self.assertIn("任何逐帧 JSON 编码", architecture)
 
     def test_unique_output_owner_has_no_unowned_clear_present_bypass(self) -> None:
-        renderer_files = list((SCENE / "Rendering").glob("SceneMetalRenderer*.swift"))
+        renderer_files = list((SCENE / "Rendering/Frame").glob("SceneMetalRenderer*.swift"))
         source = "\n".join(path.read_text(encoding="utf-8") for path in renderer_files)
         self.assertNotIn("renderClearPass", source)
         self.assertEqual(source.count("commandBuffer.present(drawable)"), 1)
 
     def test_frame_submission_outcome_controls_dynamic_plan_commit(self) -> None:
-        renderer = (SCENE / "Rendering/SceneMetalRenderer.swift").read_text(
+        renderer = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift").read_text(
             encoding="utf-8"
         )
         outcome = (
-            SCENE / "Rendering/SceneMetalRenderer+FrameOutcome.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+FrameOutcome.swift"
         ).read_text(encoding="utf-8")
-        view = (SCENE / "Rendering/SceneMetalView.swift").read_text(
+        view = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift").read_text(
             encoding="utf-8"
         )
         preflight = (
-            SCENE / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
         ).read_text(encoding="utf-8")
         driver = (
-            SCENE
-            / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
         ).read_text(encoding="utf-8")
         lifecycle = (
-            SCENE
-            / "Runtime/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
         ).read_text(encoding="utf-8")
 
         self.assertIn("enum FrameOutcome: Equatable", outcome)
@@ -349,10 +334,10 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertGreater(plan_commit, helper_start)
 
     def test_scene_clear_enabled_controls_only_initial_main_pass_load(self) -> None:
-        renderer = (SCENE / "Rendering/SceneMetalRenderer.swift").read_text(
+        renderer = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift").read_text(
             encoding="utf-8"
         )
-        encoder = (SCENE / "Rendering/SceneMainPassEncoder.swift").read_text(
+        encoder = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift").read_text(
             encoding="utf-8"
         )
         main_pass = renderer.index("let mainPass = SceneMainPassEncoder(")
@@ -368,7 +353,7 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertIn("nextLoadAction = .load", encoder)
 
     def test_runtime_model_has_no_parallel_placeholder_framework(self) -> None:
-        source = (SCENE / "Runtime/SceneRuntimeModel.swift").read_text(
+        source = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift").read_text(
             encoding="utf-8"
         )
         for placeholder in (

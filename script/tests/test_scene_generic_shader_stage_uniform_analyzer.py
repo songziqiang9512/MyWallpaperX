@@ -19,8 +19,7 @@ from scene_swift_source_sets import scene_swift_sources
 
 SWIFT_SOURCES = [
     *scene_swift_sources("authored_shader_frontend_core"),
-    SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderStageUniformAnalyzer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderStageUniformAnalyzer.swift",
 ]
 
 HARNESS = r'''

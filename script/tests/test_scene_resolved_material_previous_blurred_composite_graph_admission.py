@@ -15,20 +15,18 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 GRAPH_ADMISSION_SOURCE = (
-    SCENE_ROOT
-    / "RenderGraph/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift"
 )
 DEDICATED_PLANNER_SOURCE = (
     SCENE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanner.swift"
 )
 OWNER_ADMISSION_SOURCE = (
-    SCENE_ROOT
-    / "RenderGraph/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift"
 )
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
-    SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredMaterialResolver.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneAuthoredMaterialResolver.swift",
     GRAPH_ADMISSION_SOURCE,
 ]
 

@@ -13,22 +13,22 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-IMAGE_LAYER_METAL_SOURCE = SCENE_ROOT / "Rendering/SceneImageLayer.metal"
+IMAGE_LAYER_METAL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal"
 SWIFT_SOURCES = [
-    SCENE_ROOT / "Runtime/ScenePerformanceCounterHub.swift",
-    SCENE_ROOT / "Rendering/SceneLayerScreenAnchor.swift",
-    SCENE_ROOT / "Rendering/SceneTextLayerPivot.swift",
-    SCENE_ROOT / "Rendering/SceneCameraProjection.swift",
-    SCENE_ROOT / "Rendering/SceneMatrix.swift",
-    SCENE_ROOT / "Rendering/SceneMetalPipeline.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerScreenAnchor.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneTextLayerPivot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/SceneCameraProjection.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
 ]
-TRANSFORMS_SOURCE = SCENE_ROOT / "Rendering/SceneMetalRenderer+LayerTransforms.swift"
-RENDERER_SOURCE = SCENE_ROOT / "Rendering/SceneMetalRenderer.swift"
+TRANSFORMS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+LayerTransforms.swift"
+RENDERER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
 EFFECT_EXECUTION_SOURCE = (
-    SCENE_ROOT / "Rendering/SceneMetalRenderer+EffectExecution.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+EffectExecution.swift"
 )
 UTILITY_FRAME_RENDERER_SOURCE = (
-    SCENE_ROOT / "Rendering/SceneUtilityPlanFrameRenderer.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityPlanFrameRenderer.swift"
 )
 
 # 随包 `projects/defaultprojects/dino_run/scene.json`：general.orthogonalprojection

@@ -15,9 +15,7 @@ import unittest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 ENCODER_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution"
-    / "SceneGraphResourcePassEncoder.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneGraphResourcePassEncoder.swift"
 )
 
 

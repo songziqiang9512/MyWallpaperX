@@ -13,11 +13,11 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_SCRIPT = (
     REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript"
+    / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script"
 )
 SOURCES = [
-    SCENE_SCRIPT / "SceneScriptLayerTopologyModels.swift",
-    SCENE_SCRIPT / "SceneScriptDynamicLayerRuntime.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerTopologyModels.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime.swift",
 ]
 
 HARNESS = r'''

@@ -2,11 +2,11 @@
 
 <!-- document-role: stable-contract -->
 
-> 状态：现役设计契约（M5 进程分离的设计门交付物；实施进度查[引擎重构工程计划](engine-refactor-program.md) §3 M5 工位卡）
+> 状态：现役设计契约（M5 进程分离的设计门交付物；实施进度查[引擎重构工程计划](../engine-refactor-program.md) §3 M5 工位卡）
 >
 > 复核：2026-09-14
 >
-> 当前能力权威：[能力台账](semantics/coverage-ledger.md)。
+> 当前能力权威：[能力台账](../semantics/coverage-ledger.md)。
 >
 > 现状权威：`docs/scene/semantics/coverage-ledger.md`。代码实际接线查[事实架构地图](runtime-as-built-map.md)。
 >

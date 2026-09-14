@@ -61,8 +61,16 @@
   "path_groups": [
     {
       "id": "format",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Format/**"],
-      "keywords": ["pkg", "tex", "document", "runtime_input"]
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineEvaluator.swift"
+      ],
+      "keywords": [
+        "pkg",
+        "tex",
+        "document",
+        "runtime_input"
+      ]
     },
     {
       "id": "scene-script-source-evidence",
@@ -84,7 +92,39 @@
     },
     {
       "id": "runtime",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Runtime/**"],
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphObservationBuilder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Completion.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Execution.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+FrameCommit.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioResponse.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailInbox.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialColorModulationCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialProviderBindingCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialProviderBindingProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectRuntimeDispositionCatalog+Conservation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectRuntimeDispositionCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneDiagnostics.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneEffectExecutionFrameTrace.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneEffectExecutionTelemetry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneFramePerformanceTelemetry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCompletionTelemetry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGraphExecutionObservation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGraphExecutionTelemetry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceHUD.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneSignposts.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneTextureAnimationControl.swift"
+      ],
       "modules": [
         "test_scene_runtime_input",
         "test_scene_performance_telemetry"
@@ -93,7 +133,7 @@
     {
       "id": "scene-script-runtime",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/**"
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/**"
       ],
       "modules": [
         "test_scene_cursor_candidate_collision",
@@ -119,8 +159,12 @@
     },
     {
       "id": "scene-plan-validation-identity",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor*.swift"],
-      "modules": ["test_scene_plan_validation_identity"]
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor*.swift"
+      ],
+      "modules": [
+        "test_scene_plan_validation_identity"
+      ]
     },
     {
       "id": "playback-command-control",
@@ -128,7 +172,9 @@
         "MyWallpaperX/Core/PlaybackControl/**",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+PlaybackControl.swift"
       ],
-      "modules": ["test_playback_command_multiplexer"]
+      "modules": [
+        "test_playback_command_multiplexer"
+      ]
     },
     {
       "id": "daemon-line-framing",
@@ -142,14 +188,16 @@
         "WallpaperDaemonSources/Daemon/Support/WallpaperDaemon+Events.swift",
         "script/tests/test_daemon_line_framing.py"
       ],
-      "modules": ["test_daemon_line_framing"]
+      "modules": [
+        "test_daemon_line_framing"
+      ]
     },
     {
       "id": "scene-launch",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/ScenePreparedDeviceResources.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift"
       ],
       "modules": [
         "test_scene_detail_diagnostics_on_demand",
@@ -163,14 +211,14 @@
       "id": "scene-daemon-runtime",
       "patterns": [
         "MyWallpaperX/App/MyWallpaperXApplication.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalRenderer.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDaemon*.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Shutdown.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+SurfaceTeardown.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneFramePresentation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemon*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Shutdown.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+SurfaceTeardown.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneFramePresentation.swift",
         "script/tests/test_scene_daemon_protocol.py"
       ],
       "modules": [
@@ -209,13 +257,13 @@
     {
       "id": "scene-script-cursor",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/SceneScriptCursorProgram.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView+SceneScriptCursorInteraction.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneSurfacePointerState.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView+Pointer.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+PointerEvents.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView+PointerEvents.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+SceneScriptCursorInteraction.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneSurfacePointerState.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+Pointer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+PointerEvents.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+PointerEvents.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
       ],
       "modules": [
         "test_scene_cursor_capture_continuity",
@@ -225,7 +273,15 @@
     },
     {
       "id": "resolved-material-runtime-execution",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Runtime/ResolvedMaterialExecution/**"],
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphObservationBuilder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Completion.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Execution.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+FrameCommit.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift"
+      ],
       "modules": [
         "test_scene_graph_execution_telemetry",
         "test_scene_graph_texture_publication",
@@ -238,8 +294,17 @@
     },
     {
       "id": "properties",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Properties/**"],
-      "keywords": ["property", "dynamic"],
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelinePlaybackRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler+Camera.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler.swift"
+      ],
+      "keywords": [
+        "property",
+        "dynamic"
+      ],
       "modules": [
         "test_scene_shared_layer_alpha_transition",
         "test_scene_property_binding_program",
@@ -251,10 +316,36 @@
     {
       "id": "resources",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Resources/**",
-        "MyWallpaperX/Resources/SceneStockAssets.bundle/**"
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneMultiImageSpritePlayback.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneMultiImageSpriteResidentBudget.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneCompressedTextureUploader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneEffectTextureLoadResult.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneFrameTextureRegistry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneMaterialAssetTextureCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneSolidLayerTexture.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureCandidate.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader+Candidate.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureMipUploader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTexturePathResolver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureProviderPublication.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSlotBinding.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackRegistry.swift",
+        "MyWallpaperX/Resources/SceneStockAssets.bundle/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/**"
       ],
-      "keywords": ["resource", "texture", "video"],
+      "keywords": [
+        "resource",
+        "texture",
+        "video"
+      ],
       "modules": [
         "test_scene_animated_material_asset",
         "test_scene_animated_material_visual_failure",
@@ -269,8 +360,52 @@
     },
     {
       "id": "rendering",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Rendering/**"],
-      "keywords": ["rendering", "framebuffer", "image_layer", "capture"],
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDirectDrawLayerRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDynamicLayerRenderTopologyCache.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneFrameLayerTextureAssembly.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneFramebufferSnapshot.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor+Uniforms.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerDrawRequest.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerMainPassRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLayerColorBlendPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLayerSourcePassthroughPlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceCoverage.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerSourceRoute.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityPlanFrameRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneSpriteAnimation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneTextureAnimationPlaybackRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneDebugFrameCapture.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureCandidateSupport.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad+Ordinary.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseMaterialTextureResolver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePointerProjection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan+Descriptor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailCoordinator.swift"
+      ],
+      "keywords": [
+        "rendering",
+        "framebuffer",
+        "image_layer",
+        "capture"
+      ],
       "modules": [
         "test_scene_background_material_provider",
         "test_scene_dynamic_layer_visibility",
@@ -283,12 +418,12 @@
     {
       "id": "layer-source-passthrough",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneLayerSourcePassthroughPlan.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerCompositor.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerDrawRequest.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalRenderer.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneBaseImageTextureLoad.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneFrameLayerTextureAssembly.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLayerSourcePassthroughPlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerDrawRequest.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneFrameLayerTextureAssembly.swift"
       ],
       "modules": [
         "test_scene_resolved_material_runtime_bridge",
@@ -305,7 +440,98 @@
     },
     {
       "id": "render-graph",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/**"],
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneAudioResponseAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneAuthoredMaterialResolver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneAuthoredXRayPlanner+StockIdentity.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectAdmissionCatalog+Reporting.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectAdmissionCatalog+ResolvedMaterial.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectAdmissionCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectDefinition.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectMaskSemantics.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectStageAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectStageAuthoredFallbackOwnerPartition.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePreparedDirectDrawOutputGeometry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialAlphaAttenuationEligibility.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialColorBlendEligibility.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialCompiledVariant.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialDirectDrawGeometryCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialEffectIngress.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+DynamicUniformRejection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Material.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+PipelineWarmup.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+PreservedChannels.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages+InputContracts.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStagesBackground.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+InputValidation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache+Diagnostics.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache+ExecutionTelemetry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRouteAuthority.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRouteProfile.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialHostUniformSchema.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeEligibility.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission+DynamicScale.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+ColorDerivation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+Derivation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer+ColorInputs.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer+CoordinateOwnership.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramIdentity+ExactTexture.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramIdentity.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog+Report.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialScriptBindingClassifier.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+Reachability.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTextureSlotPurpose.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialVisualFailureTopology.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneGraphResourcePassEncoder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialAttachmentKind.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialAttachmentStorage.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Attachment.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+DynamicUniformDiagnostics.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Preparation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Validation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Failure.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialStageActivation.swift"
+      ],
       "modules": [
         "test_scene_effect_render_graph",
         "test_scene_resolved_material_graph_executor"
@@ -314,13 +540,19 @@
     {
       "id": "realtime-playback-path",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphExecutionState*.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/ResolvedMaterialExecution/**",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/ScenePreparedDeviceResources.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor*.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder*.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphExecutionState*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphObservationBuilder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Completion.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Execution.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+FrameCommit.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder*.swift"
       ],
       "modules": [
         "test_scene_realtime_path_policy"
@@ -329,15 +561,15 @@
     {
       "id": "authored-fallback-owner-revocation",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission+DynamicScale.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialRuntimeCatalog.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Properties/ScenePropertyBindingProgram.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageAuthoredFallbackOwnerPartition.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission+DynamicScale.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectStageAuthoredFallbackOwnerPartition.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift",
         "script/tests/test_scene_generic_shader_incumbent_owner_deferred.py",
         "script/tests/test_scene_property_binding_program.py",
         "script/tests/test_scene_pulse_dedicated_family_retirement.py",
@@ -355,7 +587,9 @@
     },
     {
       "id": "authored-graph",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/**"],
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/**"
+      ],
       "modules": [
         "test_scene_effect_render_graph",
         "test_scene_graph_admission_compiler",
@@ -368,9 +602,9 @@
     {
       "id": "graph-target-address-mode",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Clear.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Extent.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetPlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetPlan+Clear.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetPlan+Extent.swift"
       ],
       "modules": [
         "test_scene_graph_conditional_fbo_command_contract",
@@ -380,9 +614,9 @@
     {
       "id": "graph-execution-state",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphExecutionState.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphExecutionState+Validation.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphExecutionState+Identity.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphExecutionState.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphExecutionState+Validation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphExecutionState+Identity.swift"
       ],
       "modules": [
         "test_scene_graph_execution_state",
@@ -392,7 +626,13 @@
     },
     {
       "id": "effect-compilation",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/**"],
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectAdmissionCatalog+Reporting.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectAdmissionCatalog+ResolvedMaterial.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectAdmissionCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectStageAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectStageAuthoredFallbackOwnerPartition.swift"
+      ],
       "modules": [
         "test_scene_effect_execution_telemetry",
         "test_scene_pulse_dedicated_family_retirement",
@@ -410,7 +650,37 @@
     },
     {
       "id": "effect-execution",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/**"],
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneGraphResourcePassEncoder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialAttachmentKind.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialAttachmentStorage.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Attachment.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+DynamicUniformDiagnostics.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Preparation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Validation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Failure.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialStageActivation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePreparedDirectDrawOutputGeometry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialDirectDrawGeometryCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+DynamicUniformRejection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Material.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+PipelineWarmup.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+PreservedChannels.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages+InputContracts.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+ProgramFirstStagesBackground.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialVisualFailureTopology.swift"
+      ],
       "modules": [
         "test_scene_graph_resource_pass_encoder",
         "test_scene_graph_texture_publication",
@@ -437,7 +707,9 @@
     },
     {
       "id": "layer-dependencies",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/LayerDependencies/**"],
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/**"
+      ],
       "modules": [
         "test_scene_dependency_capture_fault",
         "test_scene_dependency_graph_output_runtime",
@@ -449,7 +721,54 @@
     },
     {
       "id": "material-program",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/**"],
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialAlphaAttenuationEligibility.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialColorBlendEligibility.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialCompiledVariant.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialEffectIngress.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+InputValidation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache+Diagnostics.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache+ExecutionTelemetry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRouteAuthority.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRouteProfile.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialHostUniformSchema.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeEligibility.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+ColorDerivation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+Derivation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer+ColorInputs.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer+CoordinateOwnership.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramIdentity+ExactTexture.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramIdentity.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialScriptBindingClassifier.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+Reachability.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTextureSlotPurpose.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+GraphSelection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchColor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureSelection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift"
+      ],
       "modules": [
         "test_scene_opaque_loop_sample_average_owner",
         "test_scene_opaque_static_sample_average_owner",
@@ -504,7 +823,9 @@
     },
     {
       "id": "shader-contract",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/**"],
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/**"
+      ],
       "modules": [
         "test_scene_asset_catalog_resource_view",
         "test_scene_material_program_census",
@@ -517,7 +838,9 @@
     },
     {
       "id": "shader-preparation",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/**"],
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/**"
+      ],
       "modules": [
         "test_scene_graph_condition_schema_evidence",
         "test_scene_conditional_opaque_alpha_weighted_rgb_owner",
@@ -544,7 +867,7 @@
     {
       "id": "shader-frontend",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderFrontend/**"
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/**"
       ],
       "modules": [
         "test_scene_opaque_loop_sample_average_owner",
@@ -571,22 +894,98 @@
     },
     {
       "id": "effects",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Effects/**"],
-      "keywords": ["effect", "rendering", "planner"]
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectStageRuntimeDisposition.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneBlendModeShaderSource.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPipeline.swift"
+      ],
+      "keywords": [
+        "effect",
+        "rendering",
+        "planner"
+      ]
     },
     {
       "id": "text",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Text/**"],
-      "keywords": ["text"]
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/**"
+      ],
+      "keywords": [
+        "text"
+      ]
     },
     {
       "id": "particles",
-      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Particles/**"],
-      "keywords": ["particle"]
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleAssetGraph.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleAudioResponsePlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleBoids.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleBuiltInTextureRegistry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCameraFrame.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCapVelocity.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildGraphExpansion.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildInstanceBuilder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildLifecycle.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildRuntimeModels.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildTemplateSupport.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleControlPointForce.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinition.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleInitializer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleInstanceOverride+Dynamic.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleLayerImageEmissionMap.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleLayerImageEmitterCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleLayerRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleOscillationCache.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePeriodicEmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePlaybackState.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionAroundControlPoint.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleReduceMovement.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRefractionBinding.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRefractionPlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRefractionTextureLoader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopePlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopeTrailPlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime+Support.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntimeModels.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationDiagnostic.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulationSupport.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+AudioResponse.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Boids.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+CapVelocity.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+CollisionPlane.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+ControlPointForce.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Initializer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+InstanceOverride.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+PositionAroundControlPoint.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Random.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+ReduceMovement.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Vortex.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleStepSnapshotRecorder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleTextureSource.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleTrailRenderPlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleUnaryOperatorPlans.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleVortex.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/**"
+      ],
+      "keywords": [
+        "particle"
+      ]
     },
     {
       "id": "scene-debug-runner",
-      "patterns": ["MyWallpaperX/App/DebugScenePlaybackRunner*.swift"],
+      "patterns": [
+        "MyWallpaperX/App/DebugScenePlaybackRunner*.swift"
+      ],
       "modules": [
         "test_scene_frame_context",
         "test_scene_particle_audio_response",
@@ -614,24 +1013,77 @@
     },
     {
       "id": "scene-playback-input",
-      "patterns": ["MyWallpaperX/Core/Playback/*Scene*"],
-      "modules": ["test_scene_audio_spectrum_input"]
+      "patterns": [
+        "MyWallpaperX/Core/Playback/*Scene*"
+      ],
+      "modules": [
+        "test_scene_audio_spectrum_input"
+      ]
     },
     {
       "id": "shader-source-set-conservation",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/**",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderFrontend/**",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/**",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialAlphaAttenuationEligibility.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialColorBlendEligibility.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialCompiledVariant.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialEffectIngress.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+InputValidation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache+Diagnostics.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache+ExecutionTelemetry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderArtifactCache.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRouteAuthority.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialGenericShaderRouteProfile.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialHostUniformSchema.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeEligibility.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+ColorDerivation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+Derivation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer+ColorInputs.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer+CoordinateOwnership.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramIdentity+ExactTexture.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramIdentity.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialScriptBindingClassifier.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+Reachability.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTextureSlotPurpose.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+GraphSelection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchColor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureResolver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialTextureSelection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift",
         "script/scene_swift_source_sets.json",
         "script/scene_swift_source_sets.py"
       ],
-      "modules": ["test_scene_swift_source_sets"]
+      "modules": [
+        "test_scene_swift_source_sets"
+      ]
     },
     {
       "id": "documentation",
-      "patterns": ["docs/**"],
+      "patterns": [
+        "docs/**"
+      ],
       "modules": [
         "test_document_role_index",
         "test_scene_governance_contract",
@@ -645,12 +1097,15 @@
         "docs/scene/semantics/**",
         "script/scene_source_layout.json",
         "script/scene_swift_source_sets.json",
-        "script/scene_swift_source_sets.py"
+        "script/scene_swift_source_sets.py",
+        "script/source_relocations.py",
+        "script/tests/test_source_relocations.py"
       ],
       "modules": [
         "test_scene_governance_contract",
         "test_scene_semantics_coverage",
-        "test_scene_swift_source_sets"
+        "test_scene_swift_source_sets",
+        "test_source_relocations"
       ]
     },
     {
@@ -691,10 +1146,10 @@
         "script/scene_shader_compiler_*.py",
         "script/tests/scene_generic_shader_provider_test_support.py",
         "script/fixtures/scene_shader_compiler/**",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/SceneGenericShaderCompiler*.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder*.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderCompiler*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder*.swift"
       ],
       "modules": [
         "test_scene_generic_shader_compiler_process",
@@ -708,13 +1163,21 @@
     },
     {
       "id": "shader-census",
-      "patterns": ["script/scene_shader_preparation_census.py"],
-      "modules": ["test_scene_shader_preparation_census"]
+      "patterns": [
+        "script/scene_shader_preparation_census.py"
+      ],
+      "modules": [
+        "test_scene_shader_preparation_census"
+      ]
     },
     {
       "id": "material-census",
-      "patterns": ["script/scene_material_program_census.py"],
-      "modules": ["test_scene_material_program_census"]
+      "patterns": [
+        "script/scene_material_program_census.py"
+      ],
+      "modules": [
+        "test_scene_material_program_census"
+      ]
     },
     {
       "id": "capability-census",
@@ -724,7 +1187,9 @@
         "script/scene_capability_repair_ledger.json",
         "docs/scene/semantics/scene-corpus-capability-inventory.md"
       ],
-      "modules": ["test_scene_capability_census"]
+      "modules": [
+        "test_scene_capability_census"
+      ]
     },
     {
       "id": "sample-acceptance-ledger",
@@ -733,7 +1198,9 @@
         "script/scene_sample_acceptance_verdicts.json",
         "docs/scene/semantics/scene-sample-acceptance-ledger.md"
       ],
-      "modules": ["test_scene_sample_acceptance_ledger"]
+      "modules": [
+        "test_scene_sample_acceptance_ledger"
+      ]
     },
     {
       "id": "validation-governance",

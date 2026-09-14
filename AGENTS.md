@@ -1,6 +1,6 @@
 # MyWallpaperX 开发规则
 
-本文件只保存会改变实现、验证、提交或工作区安全的长期约束。Scene 的日常操作、验证梯度和消融规则统一见 [`docs/scene/development-workflow.md`](docs/scene/development-workflow.md)；当前能力和运行事实不写在这里。
+本文件只保存会改变实现、验证、提交或工作区安全的长期约束。Scene 的日常操作、验证梯度和消融规则统一见 [`docs/scene/development/development-workflow.md`](docs/scene/development/development-workflow.md)；当前能力和运行事实不写在这里。
 
 ## 1. 工作区安全
 
@@ -13,7 +13,7 @@
 
 - 当前事实按以下顺序核对：当前代码和可复现运行证据 → 本文 → 长期架构合同 → 专题当前表/路线 → 历史证据。目标合同按官方作者行为、本文和长期架构裁决；旧代码、测试、目录和历史报告不能把错误现状升级为规范。
 - Scene 资料按 [`source-index.md`](docs/scene/semantics/source-index.md) 的 named source taxonomy 分类，类别清单只由该索引维护；历史摘要、旧计划本身不构成当前事实，也本身不构成上下文污染。
-- Scene 当前入口是：[`docs/README.md`](docs/README.md) → [`docs/scene/development-workflow.md`](docs/scene/development-workflow.md) → [架构](docs/scene/runtime-architecture.md)、[路线](docs/scene/scene-compatibility-roadmap.md)、[能力台账](docs/scene/semantics/coverage-ledger.md)、[运行证据](docs/scene/semantics/runtime-evidence-current.md)。不要从历史计划或截图开始任务。
+- Scene 当前入口是：[`docs/README.md`](docs/README.md) → [Scene 一页说明](docs/scene/README.md)；按任务选择 [`docs/scene/development/development-workflow.md`](docs/scene/development/development-workflow.md) → [架构](docs/scene/design/runtime-architecture.md)、[路线](docs/scene/scene-compatibility-roadmap.md)、[能力台账](docs/scene/semantics/coverage-ledger.md)、[运行证据](docs/scene/semantics/runtime-evidence-current.md)。不要从历史计划或截图开始任务。
 - 目标主链只有一条：`authored data -> prepared Program/graph/resources -> typed frame update -> Metal encode -> unique compositor/output`。不得按 sample/layer/path/hash/screenshot 选择视觉算法，不得新增第二套 property、provider、clock、graph、resource registry 或 compositor。
 - 任何偏差都写清目标合同、当前事实、owner、fallback/route、纠正门和退役条件；触达旧 owner 时优先在当前纵向结果内纠偏，不能为兼容错误实现继续扩张 matcher、wrapper、专用分支或测试预期。
 

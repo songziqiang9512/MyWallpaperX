@@ -19,11 +19,7 @@ CONTRACT_GATE = Path(__file__).with_name(
     "test_scene_resolved_material_graph_visual_failure_contract.py"
 )
 CONTRACT_FIXTURE = runpy.run_path(str(CONTRACT_GATE))
-EFFECT_INGRESS_SOURCE = (
-    Path(__file__).resolve().parents[2]
-    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram"
-    / "SceneResolvedMaterialEffectIngress.swift"
-)
+EFFECT_INGRESS_SOURCE = Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialEffectIngress.swift"
 if EFFECT_INGRESS_SOURCE not in CONTRACT_FIXTURE["SWIFT_SOURCES"]:
     CONTRACT_FIXTURE["SWIFT_SOURCES"].append(EFFECT_INGRESS_SOURCE)
 PUBLICATION_FIXTURE = CONTRACT_FIXTURE["PUBLICATION_FIXTURE"]

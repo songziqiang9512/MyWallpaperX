@@ -81,7 +81,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root <cli
 | `water_waves` | Water Waves | `waterwaves` |
 | `xray` | X-Ray | `xray` |
 
-带行为线索的描述两条：Depth Parallax 的描述以加粗强调 *"requires the parallax option in the editor scene settings to be enabled"*（与 [Scene 工程宪章](../development-workflow.md#主链) 的共享主链边界一致）；effect 选择器把每项归入官方组 `Animate / Blur / Colorize / Distort / Enhance / Interactive`，另有 `My Effects / Presets / Renderables / Utilities / Workshop` 五个非 effect 组。性能警告分两级：`Expensive` / `Very Expensive`。
+带行为线索的描述两条：Depth Parallax 的描述以加粗强调 *"requires the parallax option in the editor scene settings to be enabled"*（与 [Scene 工程宪章](../development/development-workflow.md#主链) 的共享主链边界一致）；effect 选择器把每项归入官方组 `Animate / Blur / Colorize / Distort / Enhance / Interactive`，另有 `My Effects / Presets / Renderables / Utilities / Workshop` 五个非 effect 组。性能警告分两级：`Expensive` / `Very Expensive`。
 
 ## 3. 粒子组件官方名称与定义
 

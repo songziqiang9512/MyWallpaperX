@@ -9,18 +9,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX" / "Core" / "SteamWorkshopScene"
 FRONTEND = (
-    SCENE
-    / "RenderGraph"
-    / "ShaderFrontend"
-    / "SceneAuthoredShaderFrontend.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderFrontend.swift"
 )
 PREPARATION = (
-    SCENE
-    / "RenderGraph"
-    / "ShaderPreparation"
-    / "SceneAuthoredShaderPreparation.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderPreparation.swift"
 )
-ARCHITECTURE = ROOT / "docs" / "scene" / "runtime-architecture.md"
+ARCHITECTURE = ROOT / "docs" / "scene" / "design" / "runtime-architecture.md"
 
 
 def declaration_body(source: str, signature: str) -> str:

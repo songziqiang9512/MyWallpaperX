@@ -26,10 +26,10 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",
-    SCENE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
-    SCENE_ROOT / "Resources/SceneImageTextureUploader.swift",
-    SCENE_ROOT / "Resources/SceneTextureLoader.swift",
-    SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneCompressedTextureUploader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureMipUploader.swift",
 ]
 
 

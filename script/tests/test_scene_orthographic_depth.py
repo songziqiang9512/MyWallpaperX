@@ -53,8 +53,8 @@ class OrthographicDepthTests(unittest.TestCase):
             harness.write_text(HARNESS)
             binary = directory / "test"
             compilation = subprocess.run([
-                "xcrun", "swiftc", str(SOURCE / "SceneMatrix.swift"),
-                str(SOURCE / "SceneCameraProjection.swift"), str(harness),
+                "xcrun", "swiftc", str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift"),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/SceneCameraProjection.swift"), str(harness),
                 "-o", str(binary)
             ], capture_output=True, text=True)
             self.assertEqual(compilation.returncode, 0, compilation.stderr)

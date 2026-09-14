@@ -14,9 +14,9 @@ ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = [
     SCENE_ROOT / "Format/SceneTimelineAnimation.swift",
-    SCENE_ROOT / "Format/SceneTimelineEvaluator.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineEvaluator.swift",
     SCENE_ROOT / "Format/SceneSpotLightDefinition.swift",
-    SCENE_ROOT / "Rendering/SceneSpotLightPlan.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneSpotLightPlan.swift",
 ]
 
 

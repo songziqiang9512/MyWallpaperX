@@ -33,99 +33,99 @@ nonisolated enum SceneDynamicSource: Hashable {
 )
 
 EXTRA_SOURCES = [
-    SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift",
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrameInputs.swift",
+    SCENE_ROOT / "Systems/Properties/SceneDynamicSnapshot.swift",
+    SCENE_ROOT / "Rendering/Bindings/SceneAuthoredShaderFrameInputs.swift",
     SCENE_ROOT
-    / "RenderGraph/MaterialProgram/SceneResolvedMaterialHostUniformSchema.swift",
+    / "Compilation/Material/SceneResolvedMaterialHostUniformSchema.swift",
     SCENE_ROOT
-    / "RenderGraph/MaterialProgram/SceneResolvedMaterialUniformEncoder.swift",
+    / "Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift",
     SCENE_ROOT
-    / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
+    / "Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
+    / "Compilation/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneAuthoredShaderConstantNumericExpression.swift",
+    / "Compilation/ShaderPreparation/SceneAuthoredShaderConstantNumericExpression.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer.swift",
+    / "Compilation/ShaderPreparation/SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderInactiveBuiltinOverloadCanonicalizer.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderInactiveBuiltinOverloadCanonicalizer.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderBooleanScalarArithmeticNormalizer.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderBooleanScalarArithmeticNormalizer.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderFloatingModuloNormalizer.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderFloatingModuloNormalizer.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderScalarArithmeticNormalizer.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderScalarArithmeticNormalizer.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderScalarBuiltInLiteralNormalizer.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderScalarBuiltInLiteralNormalizer.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderScalarVectorBroadcastNormalizer.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderScalarVectorBroadcastNormalizer.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderTextureSamplingNormalizer.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderTextureSamplingNormalizer.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderVaryingNormalizer.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderVaryingNormalizer.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderDirectFunctionVectorArgumentNormalizer.swift",
-    SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderDirectFunctionVectorArgumentNormalizer.swift",
+    SCENE_ROOT / "Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer+Rewrites.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer+Rewrites.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderDefaultStraightColorBoundaryLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderDefaultStraightColorBoundaryLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderLoopGuardLowering.swift",
-    SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderLoopGuardLowering.swift",
+    SCENE_ROOT / "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderExpectedColorTransfer.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderExpectedColorTransfer.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderRGBA8UNormIndependentSignalArtifactAnalyzer.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderRGBA8UNormIndependentSignalArtifactAnalyzer.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+ColorTransfer.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder+ColorTransfer.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+ColorTransferSpecializedLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder+ColorTransferSpecializedLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+StraightAlphaPreservingColorTransfer.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder+StraightAlphaPreservingColorTransfer.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderGeneratedStraightRGBALowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderGeneratedStraightRGBALowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderIndependentSignalLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderIndependentSignalLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderIndependentSignalCompositingLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderIndependentSignalCompositingLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderSameSlotCarrierBlendLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderSameSlotCarrierBlendLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderSameSlotColorBlendAlphaUnionLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderSameSlotColorBlendAlphaUnionLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+StageUniforms.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder+StageUniforms.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering+Utilities.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering+Utilities.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderSingleSampleStraightAlphaPreservingLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderSingleSampleStraightAlphaPreservingLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderScalarizedRGBPreservedAlphaLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderScalarizedRGBPreservedAlphaLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderGeneratedRGBPreservedAlphaLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderGeneratedRGBPreservedAlphaLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderOpaqueFromStraightColorLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderOpaqueFromStraightColorLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaWholeOutputUnionLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderStraightAlphaWholeOutputUnionLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderTypedDataRGBFilterLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderTypedDataRGBFilterLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderRGBBlendScalarAlphaLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderRGBBlendScalarAlphaLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderAssociatedOverBlendLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderAssociatedOverBlendLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderConditionalGeneratedRGBLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderConditionalGeneratedRGBLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderSameAlphaReconstructedRGBFilterLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderSameAlphaReconstructedRGBFilterLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderPreviousBlurredCompositeLowering.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderPreviousBlurredCompositeLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape.swift",
-    SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderBoundedLoopWork.swift",
+    / "Compilation/ShaderPreparation/SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape.swift",
+    SCENE_ROOT / "Compilation/ShaderPreparation/SceneGenericShaderBoundedLoopWork.swift",
 ]
 SWIFT_SOURCES = list(dict.fromkeys([*PASS_ENCODER_SOURCES, *EXTRA_SOURCES]))
 

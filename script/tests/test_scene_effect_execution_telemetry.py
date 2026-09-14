@@ -16,18 +16,14 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
 SWIFT_SOURCES = [
-    RUNTIME_ROOT / "SceneEffectExecutionFrameTrace.swift",
-    RUNTIME_ROOT / "SceneEffectExecutionTelemetry.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneEffectExecutionFrameTrace.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneEffectExecutionTelemetry.swift",
 ]
 GRAPH_COMPOSITION_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/"
-    "SceneResolvedMaterialGraphComposition.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift"
 )
 GRAPH_EXECUTOR_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/"
-    "SceneResolvedMaterialGraphExecutor.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift"
 )
 
 HARNESS = r'''

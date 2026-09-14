@@ -19,15 +19,15 @@ from scene_swift_source_sets import scene_swift_sources  # noqa: E402
 
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
-    SCENE_ROOT / "Resources/SceneResourceIndex.swift",
-    SCENE_ROOT / "Resources/SceneResourceView.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
-    SCENE_ROOT / "Resources/SceneTextureSampling.swift",
+    REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift",
+    REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift",
+    REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderSourceGraph.swift",
+    REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
+    REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift",
+    REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
     *scene_swift_sources("shader_preprocessing_and_variant_implementation"),
-    SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",
-    SCENE_ROOT / "Resources/SceneShaderSourceGraphBuilder.swift",
+    REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneShaderSourceResolver.swift",
+    REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneShaderSourceGraphBuilder.swift",
 ]
 
 HARNESS = r'''

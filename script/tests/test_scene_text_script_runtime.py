@@ -16,17 +16,17 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
-    SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
-    SOURCE_ROOT / "Text/SceneTextScriptDefinition.swift",
-    SOURCE_ROOT / "Text/SceneTextScriptSubsetProgram.swift",
-    SOURCE_ROOT / "Text/SceneTextScriptSubsetCompiler.swift",
-    SOURCE_ROOT / "Text/SceneTextScriptSubsetRuntime.swift",
-    SOURCE_ROOT / "Text/SceneTextMediaPropertiesCompiler.swift",
-    SOURCE_ROOT / "Text/SceneTextScriptProgram.swift",
-    SOURCE_ROOT / "Text/SceneTextScriptCompiler.swift",
-    SOURCE_ROOT / "Text/SceneTextScriptRuntime.swift",
-    SOURCE_ROOT / "Properties/SceneDynamicDefinitionMerger.swift",
-    SOURCE_ROOT / "Rendering/SceneLayerVisibility.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptSubsetProgram.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptSubsetCompiler.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptSubsetRuntime.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextMediaPropertiesCompiler.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptProgram.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptCompiler.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptRuntime.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicDefinitionMerger.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerVisibility.swift",
 ]
 
 HARNESS = r'''
@@ -666,7 +666,7 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
         self.assertEqual(evidence["clearedArtist"], "", evidence)
 
     def test_wall_date_context_is_shared_only_by_date_script_bindings(self) -> None:
-        runtime = (SOURCE_ROOT / "Text/SceneTextScriptRuntime.swift").read_text(
+        runtime = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptRuntime.swift").read_text(
             encoding="utf-8"
         )
         values = runtime.split("static func values(", 1)[1].split(
@@ -685,7 +685,7 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
         self.assertNotIn("wallDateContext", media_subset)
 
         subset_runtime = (
-            SOURCE_ROOT / "Text/SceneTextScriptSubsetRuntime.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptSubsetRuntime.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("nonisolated struct FrameContext: Sendable", subset_runtime)
         self.assertEqual(subset_runtime.count("calendar.dateComponents("), 1)

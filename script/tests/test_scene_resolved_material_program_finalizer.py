@@ -22,8 +22,7 @@ STOCK_MATERIAL_ROOT = (
     / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets/materials"
 )
 VISUAL_PASSTHROUGH_SOURCE = (
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
 )
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
@@ -49,7 +48,7 @@ VARIANT_CACHE_SOURCE = next(
     if source.name == "SceneResolvedMaterialExecutionCapabilityVariant.swift"
 )
 RUNTIME_CATALOG_SOURCE = (
-    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialRuntimeCatalog.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift"
 )
 TEMPLATE_COMPILER_SOURCE = MATERIAL_PROGRAM_SOURCES[
     "SceneResolvedMaterialTemplateCompiler.swift"
@@ -70,28 +69,28 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
-    SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
-    SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
-    SCENE_ROOT / "RenderGraph/SceneMaterialRenderState.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderSourceGraph.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState.swift",
     *scene_swift_sources("authored_shader_frontend_implementation"),
-    SCENE_ROOT / "RenderGraph/SceneAuthoredShaderFrameInputs.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneAuthoredShaderFrameInputs.swift",
     *scene_swift_sources("authored_shader_preparation_implementation"),
     *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
-    SCENE_ROOT / "Resources/SceneImageTextureUploader.swift",
-    SCENE_ROOT / "Resources/SceneCompressedTextureUploader.swift",
-    SCENE_ROOT / "Resources/SceneTextureMipUploader.swift",
-    SCENE_ROOT / "Resources/SceneTextureLoader.swift",
-    SCENE_ROOT / "Resources/SceneTextureSampling.swift",
-    SCENE_ROOT / "Resources/SceneTextureUVTransform.swift",
-    SCENE_ROOT / "Resources/SceneTextureCandidate.swift",
-    SCENE_ROOT / "Resources/SceneStockTextureSemanticRegistry.swift",
-    SCENE_ROOT / "Resources/SceneTextureSlotBinding.swift",
-    SCENE_ROOT / "Resources/SceneTextureProviderPublication.swift",
-    SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
-    SCENE_ROOT / "Resources/SceneFrameTextureRegistry.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneCompressedTextureUploader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureMipUploader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureCandidate.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneStockTextureSemanticRegistry.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSlotBinding.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureProviderPublication.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneFrameTextureRegistry.swift",
     *scene_swift_sources("resolved_material_frame_finalization"),
 ]
 

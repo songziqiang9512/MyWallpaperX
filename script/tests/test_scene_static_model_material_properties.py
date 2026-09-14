@@ -14,15 +14,15 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
-    SCENE_ROOT / "Properties/SceneUserProperty.swift",
-    SCENE_ROOT / "Properties/SceneScriptDynamicProviderHostContract.swift",
-    SCENE_ROOT / "Properties/SceneUserPropertyBindings.swift",
-    SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift",
-    SCENE_ROOT / "Properties/ScenePuppetAnimationPropertyTarget.swift",
-    SCENE_ROOT / "Properties/ScenePropertyBindingProgram.swift",
-    SCENE_ROOT / "Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
-    SCENE_ROOT / "Properties/ScenePropertyBindingProgramValidator.swift",
-    SCENE_ROOT / "Properties/SceneStaticModelMaterialPropertyBindingCompiler.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyBindings.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgram.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgramValidator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneStaticModelMaterialPropertyBindingCompiler.swift",
 ]
 
 STUBS = r'''

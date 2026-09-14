@@ -1,6 +1,6 @@
 # MyWallpaperX 文档入口
 
-这个目录只保留一个当前答案：代码和运行证据决定现在是什么，稳定合同决定最终怎样，现役路线决定先做什么。Scene 日常开发从[开发工作流](scene/development-workflow.md)开始；被替代的计划、评审、迁移记录和基线统一进入[历史文档索引](history/README.md)。
+这个目录只保留一个当前答案：代码和运行证据决定现在是什么，稳定合同决定最终怎样，现役路线决定先做什么。Scene 日常开发从[开发工作流](scene/development/development-workflow.md)开始；架构与消融任务从[重构执行档案](scene/engine-refactor-program.md)定位当前卡；被替代的计划、评审、迁移记录和基线统一进入[历史文档索引](history/README.md)。
 
 ## 事实角色
 
@@ -8,9 +8,10 @@
 |---|---|---|
 | 工作规则 | Agent 如何实现、验证、提交和保护工作区 | [`AGENTS.md`](../AGENTS.md) |
 | 长期技术边界 | 技术栈、语言、进程、依赖和所有权 | [技术栈与架构路线](architecture/technology-stack-boundaries.md) |
-| Scene 目标架构 | 如何把官方/静态/参考证据转成 MyWallpaperX 的兼容运行时 | [Scene 兼容运行时架构](scene/runtime-architecture.md) |
-| Scene 启动响应 | 详情诊断、异步 preparation、候选首帧、回滚和分层缓存合同 | [Scene 启动响应与按需诊断合同](architecture/scene-launch-responsiveness-contract.md) |
-| Scene 日常开发 | 如何选首断点、做纵向切片、消融常驻成本和选择验证门 | [Scene 开发工作流](scene/development-workflow.md) |
+| Scene 目标架构 | 播放器职责、逐对象加载／更新／合成／释放与编码合同 | [Scene 兼容运行时架构](scene/design/runtime-architecture.md) |
+| Scene 启动响应 | 详情诊断、异步 preparation、候选首帧、回滚和分层缓存合同 | [Scene 启动响应与按需诊断合同](scene/design/scene-launch-responsiveness-contract.md) |
+| Scene 日常开发 | 如何选首断点、做纵向切片、消融常驻成本和选择验证门 | [Scene 开发工作流](scene/development/development-workflow.md) |
+| 工程重构 | 播放架构、成本消融、跨引擎控制、测试与文档退役 | [重构执行档案](scene/engine-refactor-program.md) |
 | Scene 现役计划 | 当前段位、剩余顺序、停止项和完成门 | [Scene 兼容执行路线](scene/scene-compatibility-roadmap.md) |
 | Scene 官方结果研究 | 公开资料不足时如何研究固定官方客户端并把结果交给独立实现 | [官方客户端行为研究与一致性验证工作流](scene/semantics/official-client-behavior-research-workflow.md) |
 | Scene 当前能力 | 每项能力现在是已执行、部分、仅结构还是缺失 | [Scene 能力台账](scene/semantics/coverage-ledger.md)及专项表 |
@@ -22,17 +23,7 @@
 
 ## Scene
 
-- [Scene 专题入口](scene/README.md)：当前架构、路线、能力、证据和资料导航。
-- [Scene 开发工作流](scene/development-workflow.md)：日常唯一操作入口，包含决策卡、验证梯度和消融规则。
-- [Scene 兼容运行时架构](scene/runtime-architecture.md)：官方公开合同、2.8.42 客户端静态观察、Mirage clean-room 模式和项目独立方案的边界。
-- [Scene 兼容执行路线](scene/scene-compatibility-roadmap.md)：唯一现役 Scene 执行计划；只在该文件维护当前阶段、阶段顺序、完成门与退役条件，本导航不复制其移动状态。
-- [官方客户端行为研究与一致性验证工作流](scene/semantics/official-client-behavior-research-workflow.md)：有界黑盒/静态研究、独立实现交接和预登记 parity 门。
-- [语义手册](scene/semantics/README.md)：按格式、Graph/Shader、Effect、Particle、SceneScript、输入和高级对象进入专项合同。
-- [能力台账](scene/semantics/coverage-ledger.md)：所有能力的当前状态、明确边界和待办。
-- [运行证据索引](scene/semantics/runtime-evidence-current.md)：已运行的当前证据和失败边界。
-- [样本验收台账](scene/semantics/scene-sample-acceptance-ledger.md)：逐样本人工视觉裁决与首断点集群；全样本验收门的唯一进度事实。
-- [Corpus 能力清单](scene/semantics/scene-corpus-capability-inventory.md)：真实作者输入的影响面；不证明运行支持。
-- [Fast Scene Suite 合同](../script/scene_fast_suite.json)：低成本纵向门的成员与 readiness 机器定义；成员未批准时明确为 `selection-required`，不能把任意样本冒充 suite PASS。
+从 [Scene 一页说明](scene/README.md)开始：先理解进程、准备、逐帧合成与代码职责，再选择重构或兼容路线。长期设计、能力表、研究和历史均按需进入，不把它们当成入仓必读清单。
 
 ## App、Web 与发布
 
@@ -47,7 +38,7 @@
 
 - 现役 plan/contract 通常使用稳定、无日期的路径，并在首部声明 `document-role`；日期写入正文的复核字段。确需保留日期化的现役派生队列时，必须同时在 `document-role-index.json` 的 `additionalPaths` 和文档角色表中显式登记，并写明其派生性质与退役条件。
 - 未被角色索引显式登记的带日期 Markdown 只能位于 `docs/history/`；历史目录中的文件不能取得现役角色。
-- 每个专题只允许一个现役执行计划。现役计划只保留当前阶段、顺序、完成门和退役条件；批次结果、route 数字、样本身份和报告摘要回到各自能力/证据权威。能力表、依赖图、来源索引和历史文档都不能决定下一任务。
+- 每个决策范围只允许一个现役执行计划：工程重构由 E 路线决定，Scene 作者兼容由 P 路线决定；断点队列只是 P 路线的派生短表，不独立规定阶段。现役计划只保留当前阶段、顺序、完成门和退役条件；批次结果、route 数字、样本身份和报告摘要回到各自能力/证据权威。能力表、依赖图、来源索引和历史文档都不能决定下一任务。
 - 导航页只说明文档角色并链接权威入口，不复制当前阶段、完成数量、commit、矩阵数字、报告路径或本机缓存位置；同一当前事实只保留一个权威解释，其他文件放短指针。
 - 当前能力变化更新能力台账/专项表；运行证据变化更新运行证据索引；架构变化更新稳定架构；任务顺序变化只更新现役路线。
 - 新的历史材料统一进入 `docs/history/{architecture,scene,web,cross-topic}`，并登记截止日期、独有价值和当前权威。

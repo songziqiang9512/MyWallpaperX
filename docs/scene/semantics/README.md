@@ -1,6 +1,6 @@
 # Scene 语义手册
 
-本目录按需提供作者语义合同、专项覆盖和研究资料。它不是日常任务队列。日常开发先看[Scene 开发工作流](../development-workflow.md)，当前阶段看[执行路线](../scene-compatibility-roadmap.md)，当前能力和运行事实分别看[能力台账](coverage-ledger.md)与[运行证据索引](runtime-evidence-current.md)。不要把整个语义目录或整份流水账一次性装入上下文。
+本目录按需提供作者语义合同、专项覆盖和研究资料。它不是日常任务队列。日常开发先看[Scene 开发工作流](../development/development-workflow.md)，当前阶段看[执行路线](../scene-compatibility-roadmap.md)，当前能力和运行事实分别看[能力台账](coverage-ledger.md)与[运行证据索引](runtime-evidence-current.md)。不要把整个语义目录或整份流水账一次性装入上下文。
 
 ## 读取分层
 

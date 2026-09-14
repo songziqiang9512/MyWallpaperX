@@ -19,11 +19,9 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-PLAYBACK_SOURCE = SOURCE_ROOT / "Properties/SceneTimelinePlaybackRuntime.swift"
+PLAYBACK_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelinePlaybackRuntime.swift"
 GRAPH_EXECUTOR_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution"
-    / "SceneResolvedMaterialGraphExecutor+DynamicUniformDiagnostics.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+DynamicUniformDiagnostics.swift"
 )
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
@@ -35,37 +33,37 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneObjectDependency.swift",
     SOURCE_ROOT / "Format/SceneDirectionalLightDefinition.swift",
     SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
-    SOURCE_ROOT / "Text/SceneTextScriptDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptDefinition.swift",
     SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
     SOURCE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
     SOURCE_ROOT / "Format/SceneTimelineAnimation.swift",
-    SOURCE_ROOT / "Format/SceneTimelineEvaluator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineEvaluator.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "Format/SceneScriptSourceEvidence.swift",
-    SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
-    SOURCE_ROOT / "Particles/SceneParticleInitializer.swift",
-    SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
-    SOURCE_ROOT / "Particles/SceneParticleRemapValue.swift",
-    SOURCE_ROOT / "Particles/SceneParticleReduceMovement.swift",
-    SOURCE_ROOT / "Particles/SceneParticleCollisionPlane.swift",
-    SOURCE_ROOT / "Particles/SceneParticlePositionAroundControlPoint.swift",
-    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
-    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",
-    SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
-    SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",
-    SOURCE_ROOT / "Runtime/SceneRenderDescriptor.swift",
-    SOURCE_ROOT / "Runtime/SceneRenderDescriptor+Layer.swift",
-    SOURCE_ROOT / "Runtime/SceneRenderDescriptor+AuthoredAssets.swift",
-    SOURCE_ROOT / "Text/SceneTextDescriptor.swift",
-    SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
-    SOURCE_ROOT / "Properties/SceneSurfaceEvaluationTransaction.swift",
-    SOURCE_ROOT / "Properties/SceneTimelineTargetCompiler.swift",
-    SOURCE_ROOT / "Properties/SceneTimelineTargetCompiler+Camera.swift",
-    SOURCE_ROOT / "Properties/SceneTimelineRuntime.swift",
-    SOURCE_ROOT / "Properties/SceneTimelinePlaybackRuntime.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleInitializer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleVortex.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleReduceMovement.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCollisionPlane.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePositionAroundControlPoint.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+AuthoredAssets.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextDescriptor.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneSurfaceEvaluationTransaction.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler+Camera.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineRuntime.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelinePlaybackRuntime.swift",
 ]
 
 

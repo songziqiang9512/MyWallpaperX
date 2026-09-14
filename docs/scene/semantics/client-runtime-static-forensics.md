@@ -42,7 +42,7 @@
 |---|---|
 | MyWallpaperX 当前是否实现、实现到哪一级 | [覆盖台账](coverage-ledger.md) 与对应专项覆盖表 |
 | 当前等级由哪些代码、测试、隔离样本和 GPU 结果支撑 | [运行证据索引](./runtime-evidence-current.md) |
-| implementation agent 可消费的项目合同与失败边界 | [场景格式与 RenderGraph](scene-format-and-render-graph.md)、[SceneScript API 覆盖表的项目目标合同](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)和[兼容运行时架构](../runtime-architecture.md)；本文及 SceneScript 深层静态页只有待独立审查的研究候选 |
+| implementation agent 可消费的项目合同与失败边界 | [场景格式与 RenderGraph](scene-format-and-render-graph.md)、[SceneScript API 覆盖表的项目目标合同](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)和[兼容运行时架构](../design/runtime-architecture.md)；本文及 SceneScript 深层静态页只有待独立审查的研究候选 |
 | 某个结论的输入身份、方法和静态限制 | 本文 §2–§7 |
 
 2026-07-31 审查时曾在这里记录 RenderGraph、SceneScript、Particle、Video/Sound/Media 的项目等级解释；这些状态已经撤权且不再复制。当前实现和缺口只查[覆盖台账](coverage-ledger.md)与对应专项表，当前运行身份只查[运行证据索引](./runtime-evidence-current.md)。
@@ -519,7 +519,7 @@ getter 都禁止 global phase，并读取调用时 host state；`CursorEvent` �
 - cursor event-local/puppet 坐标、候选顺序、边界容差、多按钮与 visible/solid/parent mutation 的同帧冲突；
 - 未在 §6.4–§6.6 闭合的 handle/API 副作用与同帧冲突语义。
 
-官方 live update traversal 允许 callback 不断尾插新 owner 并延长同一轮；这只形成 owner lifecycle、事件队列、typed writeback、timer、预算、exactly-once destroy 与下一帧准入的区分问题。fake VM、通用 VM 选型、有界队列和总预算属于[现役 SceneScript 目标合同](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)与[兼容运行时架构](../runtime-architecture.md)的项目策略；本页不授权其顺序或实现形态。
+官方 live update traversal 允许 callback 不断尾插新 owner 并延长同一轮；这只形成 owner lifecycle、事件队列、typed writeback、timer、预算、exactly-once destroy 与下一帧准入的区分问题。fake VM、通用 VM 选型、有界队列和总预算属于[现役 SceneScript 目标合同](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)与[兼容运行时架构](../design/runtime-architecture.md)的项目策略；本页不授权其顺序或实现形态。
 
 ## 7. 视频、声音、系统媒体与 surface
 

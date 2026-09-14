@@ -12,14 +12,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-SOURCE = SCENE_ROOT / "Runtime/SceneBaseMaterialProviderBindingProgram.swift"
+SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialProviderBindingProgram.swift"
 COMPILER_SOURCE = (
-    SCENE_ROOT / "Runtime/SceneBaseMaterialProviderBindingCompiler.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialProviderBindingCompiler.swift"
 )
 VISIBILITY_SOURCE = (
-    SCENE_ROOT / "Runtime/SceneInitialMediaEffectVisibilityProjection.swift"
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneInitialMediaEffectVisibilityProjection.swift"
 )
-LAUNCH_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
+LAUNCH_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
 
 HARNESS = r'''
 import Foundation

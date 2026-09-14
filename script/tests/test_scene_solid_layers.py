@@ -14,7 +14,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "Runtime/ScenePerformanceCounterHub.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
     SOURCE_ROOT / "Format/SceneDocument.swift",
     SOURCE_ROOT / "Format/SceneDocument+General.swift",
@@ -24,21 +24,21 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneObjectDependency.swift",
     SOURCE_ROOT / "Format/SceneDirectionalLightDefinition.swift",
     SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
-    SOURCE_ROOT / "Text/SceneTextScriptDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptDefinition.swift",
     SOURCE_ROOT / "Format/SceneTimelineAnimation.swift",
     SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
     SOURCE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "Format/SceneScriptSourceEvidence.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
-    SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
-    SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",
-    SOURCE_ROOT / "Runtime/SceneRenderDescriptor.swift",
-    SOURCE_ROOT / "Runtime/SceneRenderDescriptor+Layer.swift",
-    SOURCE_ROOT / "Runtime/SceneRenderDescriptor+AuthoredAssets.swift",
-    SOURCE_ROOT / "Rendering/SceneMetalPipeline.swift",
-    SOURCE_ROOT / "Resources/SceneSolidLayerTexture.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectDefinition.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+AuthoredAssets.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneSolidLayerTexture.swift",
 ]
 
 
@@ -599,13 +599,13 @@ class SceneSolidLayerTests(unittest.TestCase):
         for actual, expected in zip(self.result["uniformTint"], [0.1, 0.2, 0.3, 1]):
             self.assertAlmostEqual(actual, expected, places=6)
 
-        compositor = (SOURCE_ROOT / "Rendering/SceneImageLayerCompositor.swift").read_text(
+        compositor = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift").read_text(
             encoding="utf-8"
         )
         compositor_uniforms = (
-            SOURCE_ROOT / "Rendering/SceneImageLayerCompositor+Uniforms.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor+Uniforms.swift"
         ).read_text(encoding="utf-8")
-        shader = (SOURCE_ROOT / "Rendering/SceneImageLayer.metal").read_text(
+        shader = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal").read_text(
             encoding="utf-8"
         )
         self.assertRegex(
@@ -616,7 +616,7 @@ class SceneSolidLayerTests(unittest.TestCase):
                 r"[\s\S]{0,160}values\.tint"
             ),
         )
-        renderer = (SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift").read_text(
+        renderer = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift").read_text(
             encoding="utf-8"
         )
         self.assertIn("tint: baseSource.usesAuthoredLayerColor", renderer)
@@ -634,7 +634,7 @@ class SceneSolidLayerTests(unittest.TestCase):
         self.assertEqual(self.result["brightnessContentKinds"], ["image", "text"])
 
         compositor_uniforms = (
-            SOURCE_ROOT / "Rendering/SceneImageLayerCompositor+Uniforms.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor+Uniforms.swift"
         ).read_text(encoding="utf-8")
         self.assertRegex(
             compositor_uniforms,
@@ -671,7 +671,7 @@ class SceneSolidLayerTests(unittest.TestCase):
         self.assertEqual(self.result["textureSize"], [1, 1])
         self.assertEqual(self.result["texturePixel"], [255, 255, 255, 255])
 
-        view = (SOURCE_ROOT / "Rendering/SceneMetalView.swift").read_text(encoding="utf-8")
+        view = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift").read_text(encoding="utf-8")
         self.assertRegex(view, r"private let solidLayerTexture\s*:\s*MTLTexture\??")
         self.assertEqual(view.count("SceneSolidLayerTexture.make("), 1)
         self.assertRegex(

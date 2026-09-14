@@ -1,6 +1,6 @@
 # Shader source/prelude 固定客户端与语料研究
 
-> 本文只记录 source/prelude/backend 语义合同与固定客户端观察，不决定现役开发顺序。shader compiler 的语言职责、生产后端与迁移准入由[技术栈与架构路线边界](../../architecture/technology-stack-boundaries.md#6-shader-compiler-路线)与[兼容运行时架构](../runtime-architecture.md#41-作者-shader-的推荐后端)统一决定。
+> 本文只记录 source/prelude/backend 语义合同与固定客户端观察，不决定现役开发顺序。shader compiler 的语言职责、生产后端与迁移准入由[技术栈与架构路线边界](../../architecture/technology-stack-boundaries.md#6-shader-compiler-路线)与[兼容运行时架构](../design/runtime-architecture.md#41-作者-shader-的推荐后端)统一决定。
 >
 > - `official-public-contract`：官方 Shader Syntax/Variables/Headers 页只定义作者可见的 GLSL-like source、自定义 preprocessor、combo、uniform、sampler 和 built-in 表面；它们没有公开内部 translator 或 Metal 后端。
 > - `official-client-static-observation`：本文的 Wallpaper Engine 2.8.42/build `23967692` 快照只观察到随包 source/prelude，以及 normal DirectX material-pass 链的“自定义 preparation → WE HLSL translator → 动态 `D3DCompile`”；不外推到其他版本或 Metal。
@@ -21,7 +21,7 @@
 
 1. 扫描得到 **25 个候选 frontend token**，在 `assets/` source corpus 中被使用但没有找到本地定义。缺席是 A 级事实；由哪个 executable/module 注入是 C 级假设。
 2. `mul`、`saturate`、`frac`、`clip`、`ddx`/`ddy` 等命名明显受 HLSL 影响，但矩阵上传、转置与各目标语言展开仍需独立 fixture 和 Windows golden。
-3. 源码存在 `HLSL`、`GLSL`、`HLSL_SM30`、`PLATFORM_ANDROID` 条件分支；本观察只形成“哪些 authored branches 会改变固定输入结果”的黑盒区分问题。项目 backend identity、normalization 和通用编译链只由[兼容运行时架构](../runtime-architecture.md)规定，本页不授权复制官方分支或 translator 细节，也不能把 `HLSL` 路径等同于 Metal。
+3. 源码存在 `HLSL`、`GLSL`、`HLSL_SM30`、`PLATFORM_ANDROID` 条件分支；本观察只形成“哪些 authored branches 会改变固定输入结果”的黑盒区分问题。项目 backend identity、normalization 和通用编译链只由[兼容运行时架构](../design/runtime-architecture.md)规定，本页不授权复制官方分支或 translator 细节，也不能把 `HLSL` 路径等同于 Metal。
 4. 存在 **13 个纹理格式枚举**，通过 `TEX0FORMAT`/`TEX1FORMAT` 等 combo 注入，直接决定法线解压和通道 swizzle。
 5. 同一安装包内**两个灰度函数使用相反的 R/B 权重**。统一实现会产生偏色。
 
@@ -82,7 +82,7 @@
 | `VERSION` | 版本号 | 3 |
 | `SHADERVERSION` | shader 版本号 | 2 |
 
-源码把 `HLSL` 与 `GLSL` 当作独立条件，并在部分位置使用 `HLSL_SM30` 特化；本地静态文件没有证明所有编译任务中两者必有且仅有一个为真。MSL 变体的 backend identity 与分支准入属于[现役架构策略](../runtime-architecture.md)；本观察仅证明复用 `HLSL` 标志不能被当作 Metal 官方路径证据。
+源码把 `HLSL` 与 `GLSL` 当作独立条件，并在部分位置使用 `HLSL_SM30` 特化；本地静态文件没有证明所有编译任务中两者必有且仅有一个为真。MSL 变体的 backend identity 与分支准入属于[现役架构策略](../design/runtime-architecture.md)；本观察仅证明复用 `HLSL` 标志不能被当作 Metal 官方路径证据。
 
 ### 2.5 不属于 prelude 的符号
 
@@ -392,7 +392,7 @@ shaders/chroma4.frag:2   // [PASS] shadow shadowcaster
 
 ## 9. 已撤权的历史规格映射
 
-旧版本文曾把下表直接写成产品规格与验收门；该规范权现已撤销。表中只保留 source/静态观察与可由独立研究区分的问题，不能直接进入 implementation backlog。项目 frontend/backend、失败边界与验收门只查[兼容运行时架构](../runtime-architecture.md)、[Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md)和[唯一现役路线](../scene-compatibility-roadmap.md)。
+旧版本文曾把下表直接写成产品规格与验收门；该规范权现已撤销。表中只保留 source/静态观察与可由独立研究区分的问题，不能直接进入 implementation backlog。项目 frontend/backend、失败边界与验收门只查[兼容运行时架构](../design/runtime-architecture.md)、[Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md)和[唯一现役路线](../scene-compatibility-roadmap.md)。
 
 | 项 | source/静态候选观察 | 中性行为问题 |
 |---|---|---|

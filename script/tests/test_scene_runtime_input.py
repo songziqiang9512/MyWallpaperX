@@ -23,17 +23,17 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES = scene_swift_sources_by_basename(
     "shader_contract_resource_resolution"
 )
-RUNTIME_INPUT_SOURCE = SCENE_ROOT / "Runtime/SceneRuntimeInput.swift"
-RUNTIME_MODEL_SOURCE = SCENE_ROOT / "Runtime/SceneRuntimeModel.swift"
-DIAGNOSTICS_SOURCE = SCENE_ROOT / "Runtime/SceneDiagnostics.swift"
-HOST_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
-HOST_LAUNCH_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
+RUNTIME_INPUT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeInput.swift"
+RUNTIME_MODEL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift"
+DIAGNOSTICS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneDiagnostics.swift"
+HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
+HOST_LAUNCH_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
 DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
 PLAYBACK_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+ScenePlayback.swift"
 )
-ASSET_CATALOG_SOURCE = SCENE_ROOT / "Resources/SceneAssetCatalog.swift"
+ASSET_CATALOG_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneAssetCatalog.swift"
 SHADER_CONTRACT_SOURCE = SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES[
     "SceneShaderContract.swift"
 ]
@@ -49,14 +49,14 @@ SHADER_CONTRACT_GRAPH_LOADER_SOURCE = (
     ]
 )
 SWIFT_SOURCES = [
-    SCENE_ROOT / "Properties/SceneUserProperty.swift",
-    SCENE_ROOT / "Properties/SceneScriptDynamicProviderHostContract.swift",
-    SCENE_ROOT / "Properties/SceneUserPropertyBindings.swift",
-    SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift",
-    SCENE_ROOT / "Properties/ScenePuppetAnimationPropertyTarget.swift",
-    SCENE_ROOT / "Properties/ScenePropertyBindingProgram.swift",
-    SCENE_ROOT / "Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
-    SCENE_ROOT / "Properties/ScenePropertyBindingProgramValidator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyBindings.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgram.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgramValidator.swift",
     SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneJSONValue.swift"],
     SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES[
         "SceneShaderSourceGraph.swift"

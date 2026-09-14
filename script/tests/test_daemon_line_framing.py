@@ -82,7 +82,7 @@ class DaemonLineFramingTests(unittest.TestCase):
         consumers = [
             ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine.swift",
             ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine+DaemonEvents.swift",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDaemonRuntime.swift",
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemonRuntime.swift",
             ROOT / "WallpaperDaemonSources/Daemon/Support/CommandReader.swift",
             ROOT / "WallpaperDaemonSources/Daemon/Support/WallpaperDaemon+Events.swift",
         ]

@@ -13,13 +13,12 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift",
-    SCENE_ROOT / "Rendering/SceneMatrix.swift",
-    SCENE_ROOT / "Rendering/ScenePuppetAttachmentFrameSnapshot.swift",
-    SCENE_ROOT / "Rendering/SceneLayerWorldFrameResolver.swift",
-    SCENE_ROOT / "Rendering/SceneLayerDynamicWorldFrameResolver.swift",
-    SCENE_ROOT
-    / "Runtime/SceneScript/SceneScriptLayerWorldTransformProjection.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAttachmentFrameSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerWorldFrameResolver.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerWorldTransformProjection.swift",
 ]
 
 HARNESS = r'''
@@ -309,7 +308,7 @@ class SceneLayerWorldFrameTests(unittest.TestCase):
 
     def test_dynamic_world_frame_uses_snapshot_transform_index(self) -> None:
         resolver = (
-            SCENE_ROOT / "Rendering/SceneLayerDynamicWorldFrameResolver.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("snapshot.dynamicTransformLayerIDsForFrame", resolver)
         self.assertIn("guard let layer = byID[layerID]", resolver)

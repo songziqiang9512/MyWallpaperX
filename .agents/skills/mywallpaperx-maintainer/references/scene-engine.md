@@ -22,7 +22,7 @@
 
 | 问题 | 唯一入口 |
 |---|---|
-| 最终执行单元、语言/进程/失败目标 | `docs/scene/runtime-architecture.md` 与长期技术边界 |
+| 最终执行单元、语言/进程/失败目标 | `docs/scene/design/runtime-architecture.md` 与长期技术边界 |
 | 当前优先级、纵向 lane、route 迁移顺序 | `docs/scene/scene-compatibility-roadmap.md` |
 | 当前能力及明确缺口 | `docs/scene/semantics/coverage-ledger.md` 与命中专项表 |
 | 当前构建、GPU/compositor、sample、签名事实 | `docs/scene/semantics/runtime-evidence-current.md` |
@@ -80,7 +80,7 @@ checkpoint 使用新组合或未见 fixture 证明公共 primitive 不依赖 sam
 
 ## Identity、frame channel 与失效域
 
-先读取 `docs/scene/runtime-architecture.md` 当前的作者 identity/order、typed frame channel、frame commit、optional resource 和失效域合同；本 Skill 不复制其枚举。为当前 producer 建立一张工作表：payload contract、source identity/generation、commit phase、consumer、最小 invalidation domain、stale/teardown 反例。
+先读取 `docs/scene/design/runtime-architecture.md` 当前的作者 identity/order、typed frame channel、frame commit、optional resource 和失效域合同；本 Skill 不复制其枚举。为当前 producer 建立一张工作表：payload contract、source identity/generation、commit phase、consumer、最小 invalidation domain、stale/teardown 反例。
 
 沿真实命令链区分 original input、effect previous/current、named/temporary target、history、cross-layer dependency、provider publication 与 terminal compositor output。验证 `copy`、`swap`、`clear`、`compose`、`bind` 和 pass target 按现役合同作为命令保留，不能因降低为无类型 metadata 丢失。
 
@@ -88,7 +88,7 @@ checkpoint 使用新组合或未见 fixture 证明公共 primitive 不依赖 sam
 
 ## 局部失败与事务安全
 
-实现前重读 `AGENTS.md` 和 `docs/scene/runtime-architecture.md` 的当前失败分类与 previous-current 合同；Skill 中的例子不能重定义 hard/soft 边界。为每个 failure 记录：identity、canonical classification、最小不安全或局部单元、previous current、真实依赖子图、是否已 encode/publish，以及 typed diagnostic。
+实现前重读 `AGENTS.md` 和 `docs/scene/design/runtime-architecture.md` 的当前失败分类与 previous-current 合同；Skill 中的例子不能重定义 hard/soft 边界。为每个 failure 记录：identity、canonical classification、最小不安全或局部单元、previous current、真实依赖子图、是否已 encode/publish，以及 typed diagnostic。
 
 eligible local failure 必须证明 previous current 与不受影响 suffix 仍可提交；unsafe failure 必须证明只拒绝当前最小不安全单元。不能从错误发生在 shader、binding、VM 或 provider 这一名称直接推断半径。任何降级都不得伪造 target/history/resource/binding，不能在部分 encode 已提交后假装 CPU rollback，并须保持现役 target reservation、completion、publication、rollback 和 epoch 原子合同。若新路径扩大 crash、整 layer/frame 拒绝或明显视觉回退，先撤回产品 route，保留 fixture/diagnostic，再缩小 atom。
 

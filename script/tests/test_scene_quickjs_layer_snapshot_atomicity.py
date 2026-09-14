@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCENE_SCRIPT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript"
+SCENE_SCRIPT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script"
 QUICKJS = SCENE_SCRIPT / "QuickJSNG"
 
 HARNESS = r'''
@@ -308,7 +308,7 @@ class SceneQuickJSLayerSnapshotAtomicityTest(unittest.TestCase):
                     str(SCENE_SCRIPT),
                     "-I",
                     str(QUICKJS),
-                    str(SCENE_SCRIPT / "SceneQuickJSLayerSnapshotHost.c"),
+                    str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSnapshotHost.c"),
                     str(harness),
                     "-lm",
                     "-o",

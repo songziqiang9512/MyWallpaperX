@@ -23,7 +23,7 @@ import numpy as np
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneBlendModeShaderSource.swift",
 ]
 
 # authored color-blend 的默认值，以及语料里实际出现过的另外两组取值。

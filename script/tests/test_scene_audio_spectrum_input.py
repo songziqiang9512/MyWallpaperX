@@ -11,8 +11,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneAudioSpectrum.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift"
 )
 ANALYZER_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/Playback/SystemAudioSceneSpectrumAnalyzer.swift"
@@ -30,12 +29,10 @@ DEBUG_FIXTURE_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner+AudioSpectrum.swift"
 )
 GRAPH_EXECUTOR_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift"
 )
 GRAPH_PREPARATION_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Preparation.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+Preparation.swift"
 )
 
 HARNESS = r'''

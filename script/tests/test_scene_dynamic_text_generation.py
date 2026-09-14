@@ -11,18 +11,15 @@ from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Text/SceneDynamicTextGenerationState.swift"
+SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneDynamicTextGenerationState.swift"
 STORE_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Text/SceneDynamicTextTextureStore.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneDynamicTextTextureStore.swift"
 )
 DRAW_REQUEST_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerDrawRequest.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerDrawRequest.swift"
 )
 HOST_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
 
 HARNESS = r'''
@@ -210,8 +207,7 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
 
     def test_text_provider_frame_pin_is_cleared_only_at_host_outcome(self) -> None:
         source = STORE_SOURCE.read_text(encoding="utf-8")
-        view = (REPOSITORY_ROOT /
-                "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift")
+        view = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift")
         view_source = view.read_text(encoding="utf-8")
         self.assertIn("let dynamicTextSnapshot = dynamicTextTextures?.prepareFrame()", view_source)
         self.assertIn("dynamicTextTextures?.discardPreparedFrame()", view_source)

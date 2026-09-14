@@ -1779,8 +1779,8 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             subprocess.run(
                 [
                     swiftc,
-                    str(SCRIPT_DIR.parent / "MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneUserProperty.swift"),
-                    str(SCRIPT_DIR.parent / "MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneUserPropertyDefinitionParser.swift"),
+                    str(SCRIPT_DIR.parent / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift"),
+                    str(SCRIPT_DIR.parent / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift"),
                     str(SCRIPT_DIR.parent / "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneCompatibilityContext.swift"),
                     str(SCRIPT_DIR.parent / "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneProject.swift"),
                     str(harness),

@@ -16,21 +16,15 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     Path(__file__).with_name("fixtures")
     / "SceneDependencyRenderPlanTestSupport.swift",
-    SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
-    SCENE_ROOT
-    / "RenderGraph/LayerDependencies/SceneImageLayerBlendDependencyContract.swift",
-    SCENE_ROOT
-    / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
-    SCENE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyGraphAnalysis.swift",
-    SCENE_ROOT
-    / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+ImageProgramReference.swift",
-    SCENE_ROOT
-    / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+StaticModel.swift",
-    SCENE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan.swift",
-    SCENE_ROOT
-    / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+Aggregate.swift",
-    SCENE_ROOT
-    / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+BindingCompilation.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneImageLayerBlendDependencyContract.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyGraphAnalysis.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+ImageProgramReference.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+StaticModel.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+Aggregate.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+BindingCompilation.swift",
 ]
 
 

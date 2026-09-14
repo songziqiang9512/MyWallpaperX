@@ -54,6 +54,6 @@ import Foundation
             result = subprocess.run([str(binary), *fixtures], check=True,
                                     capture_output=True, text=True)
             self.assertEqual(json.loads(result.stdout), expected)
-            registry = (SCENE / "Resources/SceneVideoTextureSourceRegistry.swift").read_text()
+            registry = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoTextureSourceRegistry.swift").read_text()
             self.assertIn("Self.isMP4Payload(payload)", registry)
             self.assertNotIn("container.isVideoMp4 ||", registry)

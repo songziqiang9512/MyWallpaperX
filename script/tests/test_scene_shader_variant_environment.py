@@ -19,10 +19,10 @@ from scene_swift_source_sets import scene_swift_sources  # noqa: E402
 
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
-    SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
-    SCENE_ROOT / "Resources/SceneTextureSampling.swift",
+    REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderSourceGraph.swift",
+    REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
+    REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift",
+    REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
     # Includes the canonical shader_preprocessing_and_variant_implementation
     # family plus the prepared-program cache assembly exercised below.
     *scene_swift_sources("authored_shader_preparation_implementation"),
@@ -1504,7 +1504,7 @@ class SceneShaderVariantEnvironmentTests(unittest.TestCase):
             [],
         )
         runtime_catalog_source = (
-            SCENE_ROOT / "RenderGraph/SceneResolvedMaterialRuntimeCatalog.swift"
+            REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift"
         ).read_text(encoding="utf-8")
         self.assertEqual(runtime_catalog_source.count(target_token), 1)
         owner_source = (

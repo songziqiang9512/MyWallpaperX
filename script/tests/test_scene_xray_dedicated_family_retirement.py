@@ -39,10 +39,10 @@ class SceneXRayDedicatedFamilyRetirementTests(unittest.TestCase):
 
     def test_shared_program_and_provider_contract_remain(self) -> None:
         launch = (
-            SCENE / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
         ).read_text(encoding="utf-8")
         identity = (
-            SCENE / "RenderGraph/SceneAuthoredXRayPlanner+StockIdentity.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneAuthoredXRayPlanner+StockIdentity.swift"
         ).read_text(encoding="utf-8")
 
         self.assertIn("SceneResolvedMaterialExecutionCapabilityAdmission.compile(", launch)
@@ -51,9 +51,9 @@ class SceneXRayDedicatedFamilyRetirementTests(unittest.TestCase):
         self.assertNotIn("func plan(", identity)
 
     def test_user_textures_are_requested_by_typed_material_identity(self) -> None:
-        view = (SCENE / "Rendering/SceneMetalView.swift").read_text(encoding="utf-8")
+        view = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift").read_text(encoding="utf-8")
         loader = (
-            SCENE / "Properties/SceneUserPropertyTextureLoader.swift"
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyTextureLoader.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("resolvedMaterialRuntime.userPropertyDemands", view)
         self.assertNotIn("SceneXRayRuntimePlanner", view)

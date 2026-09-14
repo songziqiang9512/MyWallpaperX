@@ -12,17 +12,17 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-PROGRAM_SOURCE = SOURCE_ROOT / "Properties/ScenePropertyBindingProgram.swift"
+PROGRAM_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgram.swift"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
-    SOURCE_ROOT / "Properties/SceneUserProperty.swift",
-    SOURCE_ROOT / "Properties/SceneScriptDynamicProviderHostContract.swift",
-    SOURCE_ROOT / "Properties/SceneUserPropertyBindings.swift",
-    SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
-    SOURCE_ROOT / "Properties/ScenePuppetAnimationPropertyTarget.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyBindings.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
     PROGRAM_SOURCE,
-    SOURCE_ROOT / "Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
-    SOURCE_ROOT / "Properties/ScenePropertyBindingProgramValidator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingProgramValidator.swift",
 ]
 
 HARNESS = r'''
@@ -1797,8 +1797,7 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
 
     def test_shader_target_mapping_has_no_effect_or_workshop_selector(self) -> None:
         source = (
-            SOURCE_ROOT
-            / "Properties/ScenePropertyBindingCompiler+TargetMapping.swift"
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/ScenePropertyBindingCompiler+TargetMapping.swift"
         ).read_text(encoding="utf-8")
         self.assertNotIn("isSimpleAudioBars", source)
         self.assertNotIn("effects/localcontrast/effect.json", source)
