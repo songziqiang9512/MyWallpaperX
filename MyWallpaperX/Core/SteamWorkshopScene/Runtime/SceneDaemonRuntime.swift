@@ -270,11 +270,10 @@ final class SceneDaemonRuntime {
     }
 
     private static func encode(_ payload: [String: Any]) -> Data? {
-        guard let data = try? JSONSerialization.data(
-            withJSONObject: payload,
+        try? DaemonNewlineJSON.encodeJSONObject(
+            payload,
             options: [.sortedKeys]
-        ) else { return nil }
-        return data + Data([0x0A])
+        )
     }
 
     private static func argumentValue(after flag: String) -> String? {

@@ -131,6 +131,20 @@
       "modules": ["test_playback_command_multiplexer"]
     },
     {
+      "id": "daemon-line-framing",
+      "patterns": [
+        "MyWallpaperX.xcodeproj/project.pbxproj",
+        "MyWallpaperX/App/DebugWebRuntimeSwitchRunner.swift",
+        "MyWallpaperX/Core/DaemonKit/**",
+        "MyWallpaperX/Core/Playback/WallpaperEngine.swift",
+        "MyWallpaperX/Core/Playback/WallpaperEngine+DaemonEvents.swift",
+        "WallpaperDaemonSources/Daemon/Support/CommandReader.swift",
+        "WallpaperDaemonSources/Daemon/Support/WallpaperDaemon+Events.swift",
+        "script/tests/test_daemon_line_framing.py"
+      ],
+      "modules": ["test_daemon_line_framing"]
+    },
+    {
       "id": "scene-launch",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift",

@@ -175,6 +175,16 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("test_scene_daemon_protocol", focused.command)
         self.assertIn("test_scene_wallpaper_async_launch", focused.command)
 
+    def test_daemon_kit_change_selects_shared_line_framing_contract(self) -> None:
+        gates, groups = verify.build_plan(
+            ["MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift"],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("daemon-line-framing", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        self.assertIn("test_daemon_line_framing", focused.command)
+
     def test_launch_change_selects_existing_fallback_admission_module(self) -> None:
         gates, groups = verify.build_plan(
             [

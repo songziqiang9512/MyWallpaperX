@@ -63,6 +63,7 @@
 		98E9D9972F77299E00C96FC7 /* Exceptions for "MyWallpaperX" folder in "MyWallpaperXWallpaperDaemon" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Core/DaemonKit/DaemonNewlineJSON.swift,
 				Core/Playback/DaemonProtocol.swift,
 			);
 			target = A10000412F6B0001005688A8 /* MyWallpaperXWallpaperDaemon */;

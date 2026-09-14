@@ -19,7 +19,7 @@ extension WallpaperDaemon {
         )
 
         do {
-            let data = try JSONEncoder().encode(event) + Data([0x0A])
+            let data = try DaemonNewlineJSON.encode(event)
             FileHandle.standardOutput.write(data)
         } catch {
             daemonLog("failed to emit event \(type): \(error.localizedDescription)")

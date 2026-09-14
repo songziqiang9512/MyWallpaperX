@@ -52,7 +52,7 @@ extension WallpaperEngine {
         guard session.process.isRunning else { return }
 
         do {
-            let data = try JSONEncoder().encode(command) + Data([0x0A])
+            let data = try DaemonNewlineJSON.encode(command)
             try session.inputPipe.fileHandleForWriting.write(contentsOf: data)
         } catch {
         }
@@ -76,15 +76,9 @@ extension WallpaperEngine {
 
     func consumeDaemonEvents(from data: Data, for session: DisplayDaemonSession) {
         guard displaySessions[session.displayID] === session else { return }
-        session.outputBuffer.append(data)
-
-        while let newlineIndex = session.outputBuffer.firstIndex(of: 0x0A) {
-            let line = session.outputBuffer.prefix(upTo: newlineIndex)
-            session.outputBuffer.removeSubrange(...newlineIndex)
-
-            guard !line.isEmpty else { continue }
+        for line in session.outputFrames.append(data) {
             do {
-                let event = try JSONDecoder().decode(DaemonEvent.self, from: Data(line))
+                let event = try JSONDecoder().decode(DaemonEvent.self, from: line)
                 handleDaemonEvent(event, for: session)
             } catch {
             }

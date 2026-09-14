@@ -8,7 +8,7 @@ import Darwin
 import UniformTypeIdentifiers
 
 final class CommandReader {
-    var buffer = Data()
+    var frames = DaemonNewlineFrameBuffer()
     let decoder = JSONDecoder()
     let daemon: WallpaperDaemon
 
@@ -27,19 +27,14 @@ final class CommandReader {
                 return
             }
 
-            self.buffer.append(data)
-            self.consumeBuffer()
+            self.consume(data)
         }
     }
 
-    func consumeBuffer() {
-        while let newlineIndex = buffer.firstIndex(of: 0x0A) {
-            let line = buffer.prefix(upTo: newlineIndex)
-            buffer.removeSubrange(...newlineIndex)
-
-            guard !line.isEmpty else { continue }
+    func consume(_ data: Data) {
+        for line in frames.append(data) {
             do {
-                let command = try decoder.decode(DaemonCommand.self, from: Data(line))
+                let command = try decoder.decode(DaemonCommand.self, from: line)
                 DispatchQueue.main.async {
                     self.daemon.handle(command)
                 }

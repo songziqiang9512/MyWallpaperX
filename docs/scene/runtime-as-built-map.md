@@ -32,7 +32,7 @@
 
 ### 1.2 所有权权威
 
-进程现状（M5.2 安全重做后）：普通产品 Scene 仍在主 App 进程内，由既有 Host 唯一运行；主 App 尚无 Scene client/孵化路径。相同 App 二进制在显式 `--mwx-scene-daemon` 下改为 accessory endpoint，跳过 AppDelegate/MainWindowCoordinator，仍复用同一个 Host、五类 prepared 产品和唯一 compositor。该 endpoint 已闭合 typed IPC v1、请求归属的实际 drawable present、EOF/shutdown teardown 与既有 GPU queue barrier；它不是第二套渲染权威。通用孵化/退避/管道 framing 尚未抽取，M5.3 公共层仍不得反向依赖具体 Scene Host。
+进程现状（M5.3 后）：普通产品 Scene 仍在主 App 进程内，由既有 Host 唯一运行；主 App 尚无 Scene client/孵化路径。相同 App 二进制在显式 `--mwx-scene-daemon` 下改为 accessory endpoint，跳过 AppDelegate/MainWindowCoordinator，仍复用同一个 Host、五类 prepared 产品和唯一 compositor。该 endpoint 已闭合 typed IPC v1、请求归属的实际 drawable present、EOF/shutdown teardown 与既有 GPU queue barrier；它不是第二套渲染权威。`Core/DaemonKit/DaemonNewlineJSON.swift` 现在是 app video client、WallpaperDaemon tool 与 Scene endpoint 共同消费的唯一 newline 分帧/编码原语，且不依赖任何具体 Host 或协议 payload。`Process()` 孵化和退避仍在 video client 内，因为 Scene client 尚未接线；M5.4 形成第二个真实消费者时才迁移，当前没有公共 wrapper 或第二会话权威。
 （同一时刻各只有一个，禁止第二套）
 
 | 权威 | 持有者 | 存活期 | 替换方式 |

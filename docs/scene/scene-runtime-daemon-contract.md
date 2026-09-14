@@ -90,8 +90,8 @@ daemon 化采用"runtime 原样搬迁"策略——**不重写线程模型**，�
 | 步 | 内容 | 验收门 |
 |---|---|---|
 | M5.2 | 同二进制 daemon 模式起桌面窗口 + 命令框架（实际 present 证据独立验证） | 手动：样本文隔离副本出首帧 |
-| M5.3 | DaemonKit 抽取（孵化/退避/帧协议）；Scene 同 app target，video tool 共用部分按需挂双 target | video daemon 行为回归不受影响 |
-| M5.4 | 命令迁移（EngineCommand→管道）+ 事件回传 + 退避重启 | 属性热更新/静音/FPS 档经管道全链可用 |
+| M5.3 | 先抽取已有双消费者的 newline 分帧/编码；Scene 同 app target，本批只新增该真实共用文件的 app + video tool 双 target membership | split/coalesced/空帧门 + video daemon 行为回归 |
+| M5.4 | 接入 Scene client 后再共同抽取孵化/退避；命令迁移（EngineCommand→管道）+ 事件回传 + 退避重启 | 属性热更新/静音/FPS 档经管道全链可用 |
 | M5.5 | Host 瘦身为 client stub | 主程序无 Scene 渲染代码路径（grep 门） |
 | M5.6 | 生命周期收尾 + 旧路径删除（消融） | 切换/退出/多屏/暂停全链 + 能力台账零回退 |
 
@@ -100,6 +100,8 @@ daemon 化采用"runtime 原样搬迁"策略——**不重写线程模型**，�
 ## 7. 风险登记
 
 **M5.2 安全重做记录（2026-09-14）：** 历史 prototype 已撤回后重新实现。当前 endpoint 检查 v1 并将属性保留为 `SceneUserPropertyValue`；load 消费 profile，未知命令和坏载荷发送 error；launch/first-present 都携带请求身份。`firstFramePresented` 只在同请求 drawable 的 Core Animation presented handler 后产生，handler 先异步离开 Core Animation 回调再投递主队列，避免与主线程 `nextDrawable` 锁反转。EOF 与 shutdown 走同一路径：停止 Host，向每个现有 surface 的既有 command queue 提交空 barrier、等待 terminal，再写 `exited{code,gpuDrained}` 并退出。critical 事件串行，1Hz frameStats 只有一个可替换待写槽。签名 Debug 的 graph/simple 隔离样本均实测真实 present、持续渲染和 `gpuDrained=true`；未知命令负例也实测报错。`setDisplayConfiguration` 与主程序 Process/client/退避仍属于 M5.3/M5.4，当前普通 App 播放路径尚未迁移。
+
+**M5.3 双消费者裁决（2026-09-14）：** Video App client、WallpaperDaemon tool 与 Scene endpoint 原先各自拼接 newline 或维护输入 buffer；现统一消费无业务依赖的 `DaemonNewlineFrameBuffer` / `DaemonNewlineJSON`，协议 payload 与事件背压策略仍留在各端。孵化与退避此时只有 video client 一个生产消费者，因此没有提前抽成公共 wrapper；它们随 M5.4 Scene client 首次接线迁移。真实 Video helper 已用拆段命令和空帧回归到 ready/stopped；两个隔离 Scene daemon 均取得实际 present、持续统计和 GPU drain。公共层只运行于 coarse IPC，不进入帧内渲染热路。
 
 
 | 风险 | 缓解 |

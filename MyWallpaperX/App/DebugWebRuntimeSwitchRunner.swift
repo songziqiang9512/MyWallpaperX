@@ -195,7 +195,7 @@ enum DebugWebRuntimeSwitchRunner {
             videoPath: video2URL.path,
             contentKind: "video"
         )
-        guard let data = try? JSONEncoder().encode(event) + Data([0x0A]) else {
+        guard let data = try? DaemonNewlineJSON.encode(event) else {
             logPreconditionFailure("stale-event-encoding-failed")
             return
         }

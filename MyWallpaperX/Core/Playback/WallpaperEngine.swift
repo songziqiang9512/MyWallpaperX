@@ -29,7 +29,7 @@ public final class WallpaperEngine: NSObject {
         let inputPipe: Pipe
         let outputPipe: Pipe
         let errorPipe: Pipe
-        var outputBuffer = Data()
+        var outputFrames = DaemonNewlineFrameBuffer()
         var nextRequestID = 0
         var latestRequestedPlayRequestID: Int?
         var latestAcceptedPlayRequestID: Int?
