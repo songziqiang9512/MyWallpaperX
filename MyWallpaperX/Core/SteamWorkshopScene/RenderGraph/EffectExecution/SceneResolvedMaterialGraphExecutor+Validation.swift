@@ -27,40 +27,14 @@ extension SceneResolvedMaterialGraphExecutor {
             let graph = products[index].graph
             let step = pairPlan.effects[index]
             let lease = leases[index]
-            // M4.1：make 为纯函数——键命中时存储 plan 即为当前输入的
-            // 推导结果，跳过重推导与全结构相等比较。纹理 === 门与
-            // functionTargets 语义门保留在下方守卫中。
-            let memoKey = PlanValidationMemoKey(
-                capabilityIdentity: ObjectIdentifier(capability),
-                leaseGeneration: lease.generation,
-                effect: step.effect,
-                isFirstInput: index == 0,
+            let targetPlanResult = SceneGraphRenderTargetPlan.make(
+                graph: graph,
+                inputRole: index == 0 ? .layerSource : .priorEffectOutput,
                 inputWidth: lease.table.plan.inputExtent.width,
                 inputHeight: lease.table.plan.inputExtent.height,
-                functionTargets: materialFunctionTargetsByEffect[step.effect] ?? []
+                materialFunctionTargets:
+                    materialFunctionTargetsByEffect[step.effect] ?? []
             )
-            let expectedMatchesStoredPlan: Bool
-            if let cached = planValidationMemo[memoKey] {
-                expectedMatchesStoredPlan = cached
-            } else {
-                let targetPlanResult = SceneGraphRenderTargetPlan.make(
-                    graph: graph,
-                    inputRole: index == 0 ? .layerSource : .priorEffectOutput,
-                    inputWidth: lease.table.plan.inputExtent.width,
-                    inputHeight: lease.table.plan.inputExtent.height,
-                    materialFunctionTargets:
-                        materialFunctionTargetsByEffect[step.effect] ?? []
-                )
-                switch targetPlanResult {
-                case let .success(expected):
-                    let matches = expected == lease.table.plan
-                    planValidationMemo[memoKey] = matches
-                    expectedMatchesStoredPlan = matches
-                case .failure:
-                    planValidationMemo[memoKey] = false
-                    expectedMatchesStoredPlan = false
-                }
-            }
             let role: SceneAuthoredEffectInputRole = index == 0
                 ? .layerSource : .priorEffectOutput
             guard graph.effects.count == 1,
@@ -74,7 +48,9 @@ extension SceneResolvedMaterialGraphExecutor {
                   lease.fullFramePair.second == first.fullFramePair.second,
                   lease.table.fullFramePair.first === zero,
                   lease.table.fullFramePair.second === one,
-                  expectedMatchesStoredPlan,
+                  case let .success(expected) = targetPlanResult,
+                  expected.inputRole == role,
+                  expected == lease.table.plan,
                   lease.framebufferAllocation.resources.count
                     == lease.table.plan.logicalTargets.count else { return false }
         }

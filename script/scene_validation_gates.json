@@ -118,6 +118,11 @@
       ]
     },
     {
+      "id": "scene-plan-validation-identity",
+      "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor*.swift"],
+      "modules": ["test_scene_plan_validation_identity"]
+    },
+    {
       "id": "playback-command-control",
       "patterns": [
         "MyWallpaperX/Core/PlaybackControl/**",

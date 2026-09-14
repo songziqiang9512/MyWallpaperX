@@ -5,42 +5,6 @@ import Metal
 /// Prepares one complete R4 layer transaction before appending any Metal
 /// command. The layer full-frame pair is captured once and shared by every
 /// admitted effect; persistent state remains limited to authored FBOs.
-/// M4.1：validate memo 的键。make 为纯函数，键覆盖全部输入。
-nonisolated struct PlanValidationMemoKey: Hashable {
-    let capabilityIdentity: ObjectIdentifier
-    let leaseGeneration: UInt64
-    let effect: SceneAuthoredEffectRenderPlan.EffectKey
-    let isFirstInput: Bool
-    let inputWidth: Int
-    let inputHeight: Int
-    let functionTargets: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>
-
-    static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.capabilityIdentity == rhs.capabilityIdentity
-            && lhs.leaseGeneration == rhs.leaseGeneration
-            && lhs.effect == rhs.effect
-            && lhs.isFirstInput == rhs.isFirstInput
-            && lhs.inputWidth == rhs.inputWidth
-            && lhs.inputHeight == rhs.inputHeight
-            && lhs.functionTargets == rhs.functionTargets
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(capabilityIdentity)
-        hasher.combine(leaseGeneration)
-        hasher.combine(effect)
-        hasher.combine(isFirstInput)
-        hasher.combine(inputWidth)
-        hasher.combine(inputHeight)
-        // 集合 hash 与 Set 语义一致：逐元素异或（顺序无关）。
-        var elementXor = 0
-        for target in functionTargets {
-            elementXor ^= target.hashValue
-        }
-        hasher.combine(elementXor)
-    }
-}
-
 final class SceneResolvedMaterialGraphExecutor {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias State = SceneGraphExecutionState
@@ -167,10 +131,6 @@ final class SceneResolvedMaterialGraphExecutor {
     var effectLocalFallbackCounts: [String: Int] = [:]
     let typedUniformPublicationLock = NSLock()
     var typedUniformPublicationIdentities: Set<String> = []
-    /// M4.1：validate 的 plan 重推导 memo。make 为纯函数，键覆盖全部
-    /// 输入（capability 实例身份 + lease 代际 + effect + 输入角色/尺寸
-    /// + functionTargets 全集）；validate 主线程单线程使用；reset() 清空。
-    var planValidationMemo: [PlanValidationMemoKey: Bool] = [:]
 
     init?(
         device: MTLDevice,
@@ -608,7 +568,6 @@ final class SceneResolvedMaterialGraphExecutor {
         resetGeneration += 1
         materialEncoder.reset()
         resourceEncoder?.reset()
-        planValidationMemo.removeAll(keepingCapacity: true)
         return true
     }
 
