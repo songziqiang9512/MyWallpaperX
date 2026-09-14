@@ -274,6 +274,7 @@ extension SceneDesktopWallpaperHost {
         logURL: URL? = nil,
         recordID: String? = nil
     ) throws -> SceneRuntimeModel {
+        nextSceneScriptGeneration &+= 1
         // M3.2：同步 launch 路径（debug runner）接入 launch 阶段计时，
         // 与异步 requestLaunch 同口径，补齐 TTFVF 归因。
         Self.recordLaunchPhase(.accepted)

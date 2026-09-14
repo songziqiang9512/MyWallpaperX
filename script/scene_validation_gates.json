@@ -128,6 +128,7 @@
         "test_scene_detail_diagnostics_on_demand",
         "test_scene_resolved_material_runtime_bridge",
         "test_scene_runtime_input",
+        "test_scene_sync_launch_generation",
         "test_scene_wallpaper_benchmark"
       ]
     },

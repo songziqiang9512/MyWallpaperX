@@ -114,7 +114,7 @@
 - `6aa74ba2`：coordinator 按不可变 catalog token 缓存 ClaimedExecution，独立锁；不缓存当帧 publication/准入。
 - `08c70d53`：pool 按 capability token/layer/解析后尺寸/materialFunctionTargets 内容缓存 target plans；reset 清空，失败不缓存。键与输入同源性及缓存容量仍需正式反例门。
 - `8b3a8d58`：executor 缓存 plan 相等布尔值，键为 capability 对象身份/lease generation/effect/角色/尺寸/functionTargets；保留纹理身份门。缓存键未直接包括 stored plan，须验证同键不同 lease plan 的拒绝反例，未验证前不能称完整等价。
-- 同步 launch 的 SceneScript generation 递增被 `1a7e4020` 误删；异步 requestLaunch 仍递增，交接门要求恢复同步路径。
+- 同步 launch 与异步 requestLaunch 均在每次准备尝试前递增唯一 `nextSceneScriptGeneration`。`1a7e4020` 误删同步递增已在交接纠偏恢复；可执行入口测试覆盖成功/失败/成功得到 1/2/3，失败尝试不可复用身份。
 - 播放态 conformer 虽有 `isPlaying`，协议缺少该要求，multiplexer 的 existential 读取落到默认 false；必须修复后再迁移 IPC 状态投影。
 
 ## 5. 已做对、明确不动
