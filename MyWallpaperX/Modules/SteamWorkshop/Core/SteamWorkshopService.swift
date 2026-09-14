@@ -111,10 +111,23 @@ final class SteamWorkshopService: ObservableObject {
 
     let communitySession = SteamCommunitySessionController.shared
 
-    /// SK1.2：Steam helper 生命周期客户端。模块统一持有；惰性创建（首次访问才
-    /// 需要），spawn 由首次命令触发，未登录启动不产生进程。不接 playback
-    /// multiplexer，不承担播放控制。
+    /// SK1.2：Steam helper 生命周期客户端。模块统一持有；spawn 由首次登录动作
+    /// 触发（SteamAuthRoute.ensureHelperReady），未登录启动不产生进程。不接
+    /// playback multiplexer，不承担播放控制。
     private(set) var steamServiceClient = SteamServiceClient()
+
+    /// SK2.2：新登录路线（SteamKit）权威。登录面板与工具栏账号状态的数据源。
+    private(set) lazy var steamAuth = SteamAuthRoute(client: steamServiceClient)
+
+    /// SK2.2：唯一登录面板入口。重复调用聚焦同一面板，不产生第二个认证流。
+    func showLoginPanel() {
+        SteamLoginPanelController.shared.show(auth: steamAuth)
+    }
+
+    /// SK2.2：未登录受保护动作的就地提示（§1 规则 3：提示本身不打开登录）。
+    func presentSteamLoginGuidance(context: String) {
+        statusMessage = "需要登录 Steam（\(context)）。请使用工具栏的「登录 Steam」。"
+    }
 
     // MARK: - Download selection state
 

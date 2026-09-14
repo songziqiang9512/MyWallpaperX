@@ -50,6 +50,7 @@ final class SteamCommunitySessionController: NSObject, WKNavigationDelegate, NSW
 
     func ensureAuthenticated() async throws -> Account {
         if let account { return account }
+        // SK2.2 合同（§1 规则 2）：会话探测失败只抛错，绝不自动弹登录窗口。
         let probeURL = SteamWorkshopService.makePersonalWorkshopURL(
             browserContentMode: .video,
             source: .mySubscriptions,
@@ -60,11 +61,7 @@ final class SteamCommunitySessionController: NSObject, WKNavigationDelegate, NSW
             categoryFilter: .all,
             page: 1
         )
-        do {
-            _ = try await loadHTML(from: probeURL, purpose: .page)
-        } catch SessionError.loginRequired {
-            return try await presentLogin()
-        }
+        _ = try await loadHTML(from: probeURL, purpose: .page)
         guard let account else { throw SessionError.loginRequired }
         return account
     }

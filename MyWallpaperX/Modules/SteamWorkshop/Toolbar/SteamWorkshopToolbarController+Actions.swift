@@ -65,57 +65,40 @@ extension SteamWorkshopToolbarController {
 
     @objc func handleAccountMenu() {
         let service = SteamWorkshopService.shared
-        let isAuthenticated = !service.requiresLogin && !service.isAnonymousBrowsing
-
+        let auth = service.steamAuth
         let menu = NSMenu()
         menu.autoenablesItems = false
 
-        if isAuthenticated {
+        // SK2.2：唯一账号入口（§3.1）——未登录只有「登录 Steam」；已登录仅
+        // 账号信息/切换账号/退出登录。没有社区账号独立入口。
+        if auth.isOnline {
+            let statusItem = NSMenuItem(
+                title: "Steam：\(auth.accountName ?? "已登录")",
+                action: nil,
+                keyEquivalent: ""
+            )
+            statusItem.isEnabled = false
+            menu.addItem(statusItem)
+            if let steamId = auth.steamId {
+                let idItem = NSMenuItem(title: "SteamID：\(steamId)", action: nil, keyEquivalent: "")
+                idItem.isEnabled = false
+                menu.addItem(idItem)
+            }
+            menu.addItem(.separator())
             let switchItem = NSMenuItem(title: "切换账号", action: #selector(handlePresentLogin), keyEquivalent: "")
             switchItem.target = self
-            switchItem.isEnabled = !service.isPreparingRuntime && !service.isAuthenticating
             menu.addItem(switchItem)
-
             let logoutItem = NSMenuItem(title: "退出登录", action: #selector(handleLogout), keyEquivalent: "")
             logoutItem.target = self
-            logoutItem.isEnabled = !service.isPreparingRuntime && !service.isAuthenticating
             menu.addItem(logoutItem)
         } else {
             let loginItem = NSMenuItem(title: "登录 Steam", action: #selector(handlePresentLogin), keyEquivalent: "")
             loginItem.target = self
-            loginItem.isEnabled = !service.isPreparingRuntime && !service.isAuthenticating
             menu.addItem(loginItem)
-
-            let anonymousItem = NSMenuItem(title: "匿名浏览", action: #selector(handleBrowseAnonymously), keyEquivalent: "")
-            anonymousItem.target = self
-            anonymousItem.isEnabled = !service.isPreparingRuntime && !service.isAuthenticating
-            menu.addItem(anonymousItem)
-        }
-
-        menu.addItem(.separator())
-        if let communityAccountName = service.communityAccountName {
-            let statusItem = NSMenuItem(title: "Steam 社区：\(communityAccountName)", action: nil, keyEquivalent: "")
-            statusItem.isEnabled = false
-            menu.addItem(statusItem)
-            let switchItem = NSMenuItem(title: "切换 Steam 社区账号", action: #selector(handleSwitchCommunityAccount), keyEquivalent: "")
-            switchItem.target = self
-            menu.addItem(switchItem)
-        } else {
-            let communityItem = NSMenuItem(title: "登录 Steam 社区以查看我的订阅", action: #selector(handlePresentCommunityLogin), keyEquivalent: "")
-            communityItem.target = self
-            menu.addItem(communityItem)
         }
 
         let buttonBounds = accountButton.bounds
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: buttonBounds.height + 4), in: accountButton)
-    }
-
-    @objc func handlePresentCommunityLogin() {
-        SteamWorkshopService.shared.presentCommunityLogin()
-    }
-
-    @objc func handleSwitchCommunityAccount() {
-        SteamWorkshopService.shared.switchCommunityAccount()
     }
 
     @objc func handleFilterMenu() {
@@ -186,14 +169,13 @@ extension SteamWorkshopToolbarController {
     }
 
     @objc func handlePresentLogin() {
-        DispatchQueue.main.async {
-            SteamWorkshopService.shared.presentLoginGate()
-        }
+        // SK2.2：唯一登录入口 = 模块持有的登录面板（二维码/账号密码）。
+        SteamWorkshopService.shared.showLoginPanel()
     }
 
     @objc func handleLogout() {
-        DispatchQueue.main.async {
-            SteamWorkshopService.shared.logout()
+        Task { @MainActor in
+            await SteamWorkshopService.shared.steamAuth.signOut()
         }
     }
 

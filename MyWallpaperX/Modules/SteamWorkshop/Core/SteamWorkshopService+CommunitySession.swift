@@ -6,7 +6,16 @@ extension SteamWorkshopService {
         forceRefresh: Bool,
         navigationVersion: Int
     ) -> Bool {
-        guard source.isPersonal, communityAccountID == nil else { return false }
+        guard source.isPersonal else { return false }
+        // SK2.2 合同（§3.1）：进入个人列表不得自动弹任何登录窗口。
+        // 已有社区 Cookie 会话时沿用既有抓取；否则只给工具栏指引的空态。
+        guard communityAccountID != nil else {
+            browserState = .loaded
+            browserItems = []
+            hasMoreBrowserItems = false
+            statusMessage = "查看「\(source.displayName)」需要登录 Steam。请使用工具栏的「登录 Steam」。"
+            return true
+        }
         browserState = .loading
         browserItems = []
         statusMessage = "正在验证 Steam 社区登录状态…"
@@ -25,8 +34,12 @@ extension SteamWorkshopService {
                 await MainActor.run {
                     guard let self, self.navigationVersion == navigationVersion else { return }
                     self.isRefreshingBrowserFeed = false
-                    self.browserState = .failed(error.localizedDescription)
-                    self.statusMessage = "Steam 社区登录已失效，请重新登录。"
+                    // SK2.2：Cookie 失效不再自动弹网页登录，给工具栏指引空态。
+                    self.communityAccountID = nil
+                    self.browserState = .loaded
+                    self.browserItems = []
+                    self.hasMoreBrowserItems = false
+                    self.statusMessage = "Steam 社区登录已失效。查看「\(source.displayName)」请使用工具栏的「登录 Steam」。"
                 }
             }
         }

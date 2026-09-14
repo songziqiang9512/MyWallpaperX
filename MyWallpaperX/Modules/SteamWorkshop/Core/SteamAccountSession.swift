@@ -133,7 +133,10 @@ final class SteamAccountSession {
         case "online":
             break // online 以 login 调用的 terminal 为准
         case "failed":
-            phase = .failed(code: "authExpired", message: state)
+            phase = .failed(
+                code: "authExpired",
+                message: frame.root["message"]?.stringValue ?? "认证失败"
+            )
         default:
             break
         }

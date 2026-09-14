@@ -131,9 +131,10 @@ extension SteamWorkshopService {
                     }
                     let nsError = error as NSError
                     if nsError.domain == "SteamWorkshop", nsError.code == 11 {
+                        // SK2.2：登录被拒不是任务；清理现场并移除瞬态记录（§9 任务数不增长）。
                         self.cleanupStagedDownload(id: id)
                         self.statusMessage = message
-                        self.upsertTransientRecord(id: id, title: pageTitle ?? "Workshop #\(id)", status: .queued, sizeText: self.downloadStatusSizeText(for: id))
+                        self.removeTransientRecord(id: id)
                         return
                     }
                     self.cleanupStagedDownload(id: id)
@@ -148,37 +149,35 @@ extension SteamWorkshopService {
     }
 
     func ensureAuthenticatedSessionForDownload(_ request: SteamWorkshopPendingDownloadRequest) async throws {
+        // SK2.2 合同（§1 规则 3）：所有未登录/未验证分支一律就地提示，
+        // 不自动弹登录、不置旧登录 sheet、不创建 pending 副作用。
         if authPhase == .awaitingGuardCode {
-            pendingDownloadRequest = request
-            authStatusMessage = "当前正在等待完成 Steam 登录验证。验证通过后会自动继续刚才的下载。"
-            isLoginSheetPresented = true
+            statusMessage = "需要登录 Steam。请使用工具栏的「登录 Steam」。"
             throw NSError(domain: "SteamWorkshop", code: 11, userInfo: [
-                NSLocalizedDescriptionKey: "当前正在等待完成 Steam 登录验证。"
+                NSLocalizedDescriptionKey: "需要登录 Steam。请使用工具栏的「登录 Steam」。"
             ])
         }
 
         if isAuthenticating {
-            pendingDownloadRequest = request
-            authStatusMessage = "正在静默验证当前 Steam 会话。若会话失效，将继续要求登录。"
-            throw CancellationError()
+            statusMessage = "正在验证 Steam 会话，请稍后重试下载。"
+            throw NSError(domain: "SteamWorkshop", code: 11, userInfo: [
+                NSLocalizedDescriptionKey: "正在验证 Steam 会话，请稍后重试下载。"
+            ])
         }
 
         guard hasSavedCredentials else {
-            pendingDownloadRequest = request
-            authStatusMessage = "下载需要登录 Steam。请先完成登录，成功后会自动继续刚才的下载。"
-            presentLoginGateImmediately()
+            presentSteamLoginGuidance(context: "下载")
             throw NSError(domain: "SteamWorkshop", code: 11, userInfo: [
-                NSLocalizedDescriptionKey: "下载需要登录 Steam。"
+                NSLocalizedDescriptionKey: "下载需要登录 Steam。请使用工具栏的「登录 Steam」。"
             ])
         }
 
         if !(await validateSavedAuthenticationSessionIfNeeded()) {
-            pendingDownloadRequest = request
             requiresLogin = false
             isAnonymousBrowsing = false
-            presentLoginGateImmediately()
+            presentSteamLoginGuidance(context: "会话已过期")
             throw NSError(domain: "SteamWorkshop", code: 11, userInfo: [
-                NSLocalizedDescriptionKey: "当前 Steam 登录态需要重新验证。"
+                NSLocalizedDescriptionKey: "当前 Steam 登录态需要重新验证。请使用工具栏的「登录 Steam」。"
             ])
         }
     }
