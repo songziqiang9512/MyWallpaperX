@@ -72,6 +72,8 @@ final class SceneDesktopWallpaperHost {
     var launchCancellation: SceneWallpaperLaunchCancellation?
     var nextLaunchRequestGeneration: UInt64 = 0
     var launchState: SceneWallpaperLaunchState?
+    var firstFramePresentationRegistration:
+        SceneFirstFramePresentationRegistration?
     var nextDeferredPropertyGeneration: UInt64 = 0
     var pendingDeferredLayerVisibilityUpdate:
         PendingDeferredLayerVisibilityUpdate?
@@ -105,7 +107,11 @@ final class SceneDesktopWallpaperHost {
         observers.forEach(NotificationCenter.default.removeObserver)
     }
 
-    func activate(_ context: SceneDesktopWallpaperLaunchContext) throws {
+    func activate(
+        _ context: SceneDesktopWallpaperLaunchContext,
+        firstFramePresentationRegistration:
+            SceneFirstFramePresentationRegistration? = nil
+    ) throws {
         // Preparation has completed and relinquished the shared VM domain.
         // Rebase QuickJS's stack guard before any main-thread provider/VM call.
         context.propertyVectorScriptProgram.domain?.adoptCurrentThread()
@@ -135,6 +141,8 @@ final class SceneDesktopWallpaperHost {
             )
         }
         pendingDeferredLayerVisibilityUpdate = nil
+        self.firstFramePresentationRegistration =
+            firstFramePresentationRegistration
         launchContext = context
         let activateStageStart = CACurrentMediaTime()
 #if DEBUG
@@ -470,6 +478,10 @@ final class SceneDesktopWallpaperHost {
                 userPropertyTextureURLs: launchContext.userPropertyTextureURLs,
                 dynamicTextFieldsByLayerID:
                     launchContext.frameSchema.dynamicTextFieldsByLayerID,
+                firstFramePresentationRegistration: {
+                    [weak firstFramePresentationRegistration] drawable in
+                    firstFramePresentationRegistration?.arm(on: drawable) ?? false
+                },
                 frame: frame
             ) else {
                 continue

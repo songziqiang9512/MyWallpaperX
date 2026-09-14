@@ -880,6 +880,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             return !expected.isEmpty && Set(expected).count == expected.count
         }
     }
+    typealias LayerCapability = ChainCapability
     let capabilitiesByLayerID: [Int: ChainCapability]
     let resolvesClaims: Bool
     init(

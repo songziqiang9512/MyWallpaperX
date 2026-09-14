@@ -16,6 +16,13 @@ enum MyWallpaperXApplication {
     @MainActor
     static func main() {
         let app = NSApplication.shared
+        if SceneDaemonRuntime.isRequested {
+            let runtime = SceneDaemonRuntime()
+            runtime.configure()
+            runtime.loadSceneFromArgumentsIfPresent()
+            app.run()
+            return
+        }
         let delegate = AppDelegate()
         app.delegate = delegate
 #if DEBUG

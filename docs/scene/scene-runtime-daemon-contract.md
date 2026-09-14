@@ -65,7 +65,7 @@
 
 - 进程间**只传** coarse 命令与轻量统计；`MTLTexture`/registry/coordinator/任何进程内对象不跨进程。
 - daemon 内保持唯一权威五件套与失效域合同；诊断旁路（evidence window/HUD）留在 daemon 内。
-- 协议版本：首行 `{"v":1}` 握手；不匹配 → 主程序拒绝启动该 daemon 并报错。
+- 协议版本：首行 `{"v":1,"role":"scene-daemon"}` 握手；不匹配 → 主程序拒绝启动该 daemon 并报错。
 
 ## 4. 生命周期与崩溃语义
 
@@ -99,7 +99,7 @@ daemon 化采用"runtime 原样搬迁"策略——**不重写线程模型**，�
 
 ## 7. 风险登记
 
-**M5.2 原型撤回记录（c39d78a7 审计，目标契约不变）：** 下述实现已在交接中撤回；以下是重做时必须覆盖的反例，不能当成当前产品路径。 同二进制入口和无主 UI 装配已实现；主程序尚未孵化/迁移控制链。`setProperty` 解码为字符串后 handler 返回 false，display 命令未实现，load 的 profile 未消费；命令版本未检查；launch 事件缺 requestID，首帧事件来自提交计数且未按请求重置、缺 uptime，exited 缺 code。stdout 同步写尚无背压丢弃策略；EOF 不调用 Host.stop，固定 0.15s 退出不等于排空 GPU。不得从历史 smoke 的进程 exit 0 推导完整生命周期或真实 present 成立；M5.2 重做通过这些门后才能重新声明最小 daemon 就绪。
+**M5.2 安全重做记录（2026-09-14）：** 历史 prototype 已撤回后重新实现。当前 endpoint 检查 v1 并将属性保留为 `SceneUserPropertyValue`；load 消费 profile，未知命令和坏载荷发送 error；launch/first-present 都携带请求身份。`firstFramePresented` 只在同请求 drawable 的 Core Animation presented handler 后产生，handler 先异步离开 Core Animation 回调再投递主队列，避免与主线程 `nextDrawable` 锁反转。EOF 与 shutdown 走同一路径：停止 Host，向每个现有 surface 的既有 command queue 提交空 barrier、等待 terminal，再写 `exited{code,gpuDrained}` 并退出。critical 事件串行，1Hz frameStats 只有一个可替换待写槽。签名 Debug 的 graph/simple 隔离样本均实测真实 present、持续渲染和 `gpuDrained=true`；未知命令负例也实测报错。`setDisplayConfiguration` 与主程序 Process/client/退避仍属于 M5.3/M5.4，当前普通 App 播放路径尚未迁移。
 
 
 | 风险 | 缓解 |

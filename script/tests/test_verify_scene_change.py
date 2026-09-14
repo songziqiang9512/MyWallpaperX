@@ -161,6 +161,40 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertEqual(gates[-1].gate_id, "unmapped-change")
         self.assertEqual(gates[-1].status, "blocked")
 
+    def test_scene_daemon_change_selects_protocol_and_launch_contracts(self) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/"
+                "SceneDaemonRuntime.swift"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("scene-daemon-runtime", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        self.assertIn("test_scene_daemon_protocol", focused.command)
+        self.assertIn("test_scene_wallpaper_async_launch", focused.command)
+
+    def test_launch_change_selects_existing_fallback_admission_module(self) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/"
+                "SceneDesktopWallpaperHost+Launch.swift"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("authored-fallback-owner-revocation", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        self.assertIn(
+            "test_scene_resolved_material_previous_blurred_composite_graph_admission",
+            focused.command,
+        )
+        self.assertNotIn(
+            "test_scene_resolved_material_unit_previous_blurred_composite_graph_admission",
+            focused.command,
+        )
+
     def test_shader_source_changes_select_source_set_conservation(self) -> None:
         paths = (
             "ShaderFrontend/SceneAuthoredShaderFrontend.swift",

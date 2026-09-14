@@ -32,7 +32,7 @@
 
 ### 1.2 所有权权威
 
-进程现状（交接纠偏后）：Scene 仍在主 App 进程内，由既有 Host 唯一运行。`868bbfe3` 的 `--mwx-scene-daemon` 原型已撤回，尚无 Scene client/孵化路径。同二进制是目标契约，不能描述为已完成状态；重做时 Scene-specific runtime 必须位于 Scene owner，通用 PlaybackControl/DaemonKit 不得反向依赖具体 Host。
+进程现状（M5.2 安全重做后）：普通产品 Scene 仍在主 App 进程内，由既有 Host 唯一运行；主 App 尚无 Scene client/孵化路径。相同 App 二进制在显式 `--mwx-scene-daemon` 下改为 accessory endpoint，跳过 AppDelegate/MainWindowCoordinator，仍复用同一个 Host、五类 prepared 产品和唯一 compositor。该 endpoint 已闭合 typed IPC v1、请求归属的实际 drawable present、EOF/shutdown teardown 与既有 GPU queue barrier；它不是第二套渲染权威。通用孵化/退避/管道 framing 尚未抽取，M5.3 公共层仍不得反向依赖具体 Scene Host。
 （同一时刻各只有一个，禁止第二套）
 
 | 权威 | 持有者 | 存活期 | 替换方式 |

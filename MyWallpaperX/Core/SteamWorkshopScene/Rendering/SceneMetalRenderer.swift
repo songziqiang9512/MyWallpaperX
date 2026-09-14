@@ -55,6 +55,7 @@ struct SceneMetalRenderer {
         ) -> ScenePuppetAttachmentFrameSnapshot)? = nil,
         encodeFrameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
+        onDrawableWillPresent: ((CAMetalDrawable) -> Void)? = nil,
         to drawable: CAMetalDrawable
     ) -> FrameOutcome {
         // Always-on renderer CPU time. Start is unconditional (the existing
@@ -798,6 +799,7 @@ struct SceneMetalRenderer {
             commandBuffer: commandBuffer
         )
 #endif
+        onDrawableWillPresent?(drawable)
         commandBuffer.present(drawable)
         if let effectExecutionTrace {
             effectExecutionTelemetry.observeSharedCommandBuffer(

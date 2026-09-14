@@ -198,8 +198,9 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         self.assertIn("launchPreparationQueue.async", request)
         self.assertIn("Self.prepareLaunch(", request)
         self.assertIn("DispatchQueue.main.async", request)
-        self.assertIn("try self.activate(prepared.context)", request)
-        self.assertLess(request.index("Self.prepareLaunch("), request.index("try self.activate"))
+        self.assertIn("try self.activate(", request)
+        self.assertIn("prepared.context", request)
+        self.assertLess(request.index("Self.prepareLaunch("), request.index("try self.activate("))
 
     def test_newer_request_and_cancel_reject_stale_work(self) -> None:
         request = function_body(self.launch, "func requestLaunch(")
@@ -390,7 +391,7 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
 
     def test_existing_output_is_not_switched_before_preparation_succeeds(self) -> None:
         request = function_body(self.launch, "func requestLaunch(")
-        before_commit = request[: request.index("try self.activate(prepared.context)")]
+        before_commit = request[: request.index("try self.activate(")]
         self.assertNotIn("teardownSurfaces", before_commit)
         self.assertNotIn("stopPlayback", before_commit)
         self.assertNotIn("postWallpaperRuntimeWillSwitch", before_commit)

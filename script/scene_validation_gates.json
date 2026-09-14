@@ -146,6 +146,24 @@
       ]
     },
     {
+      "id": "scene-daemon-runtime",
+      "patterns": [
+        "MyWallpaperX/App/MyWallpaperXApplication.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalRenderer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDaemon*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Shutdown.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+SurfaceTeardown.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneFramePresentation.swift",
+        "script/tests/test_scene_daemon_protocol.py"
+      ],
+      "modules": [
+        "test_scene_daemon_protocol",
+        "test_scene_wallpaper_async_launch"
+      ]
+    },
+    {
       "id": "scene-script-cursor",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/SceneScriptCursorProgram.swift",
@@ -284,7 +302,7 @@
         "script/tests/test_scene_xray_dedicated_family_retirement.py"
       ],
       "modules": [
-        "test_scene_resolved_material_unit_previous_blurred_composite_graph_admission",
+        "test_scene_resolved_material_previous_blurred_composite_graph_admission",
         "test_scene_generic_shader_incumbent_owner_deferred",
         "test_scene_property_binding_program",
         "test_scene_pulse_dedicated_family_retirement",

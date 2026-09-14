@@ -63,6 +63,8 @@ class SceneMetalView: NSView {
         dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>]
     )?
     private var pendingMediaThumbnailInput: SceneMediaThumbnailInbox.Snapshot?
+    private var firstFramePresentationRegistration:
+        ((CAMetalDrawable) -> Bool)?
     private var dynamicImageTextures: SceneDynamicImageTextureProvider?
     private weak var preparedBaseImages: ScenePreparedBaseImageResources?
     private var deferredBaseImageURLs: [Int: URL] = [:]
@@ -87,6 +89,8 @@ class SceneMetalView: NSView {
             SceneTextureAnimationPlaybackRuntime,
         userPropertyTextureURLs: [String: URL] = [:],
         dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:],
+        firstFramePresentationRegistration:
+            ((CAMetalDrawable) -> Bool)? = nil,
         frame: NSRect
     ) {
         guard let renderer = SceneMetalRenderer(
@@ -98,6 +102,8 @@ class SceneMetalView: NSView {
         ) else { return nil }
         metalDevice = renderer.device
         preparedDynamicTextFieldsByLayerID = dynamicTextFieldsByLayerID
+        self.firstFramePresentationRegistration =
+            firstFramePresentationRegistration
         self.textureAnimationPlaybackRuntime = textureAnimationPlaybackRuntime
         self.renderer = renderer
         mediaThumbnailCoordinator = .init(
@@ -554,6 +560,10 @@ class SceneMetalView: NSView {
                 preEncode: ProcessInfo.processInfo.systemUptime - drawableAcquired
             )
         }
+        let onDrawableWillPresent = firstFramePresentationRegistration.map {
+            registration in
+            { drawable in _ = registration(drawable) }
+        }
         let outcome = renderer.renderFrame(
             imageTextures: frameImageTextures,
             layerTopology: layerTopology,
@@ -602,9 +612,11 @@ class SceneMetalView: NSView {
             },
             encodeFrameReadback: frameReadback,
             performanceTelemetry: performanceTelemetry,
+            onDrawableWillPresent: onDrawableWillPresent,
             to: drawable
         )
         if outcome.isSubmitted {
+            firstFramePresentationRegistration = nil
             // Dynamic text is asynchronous; stage its next request for the
             // host's all-surface submission barrier.
             pendingDynamicTextUpdate = (

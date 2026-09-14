@@ -32,17 +32,20 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         preflight = (
             SCENE / "Rendering/SceneResolvedMaterialFramePreflight.swift"
         ).read_text(encoding="utf-8")
+        projection = (
+            SCENE / "Rendering/SceneMetalRenderer+FrameWorldProjection.swift"
+        ).read_text(encoding="utf-8")
         self.assertIn("resolvedMaterialPreparationLayerIDs: [Int]?", renderer)
         self.assertIn("resolvedMaterialPreparationLayers:", renderer)
         self.assertIn(".resolvedMaterialPreparationOrder(", initialization)
         self.assertIn("authoredLayerIDs: renderDescriptor.renderOrderLayerIDs", initialization)
         self.assertIn(
             "if let layerTopology,\n           !layerTopology.dynamicLayers.isEmpty",
-            renderer,
+            projection,
         )
         self.assertIn(
             "layerTopology.renderOrderLayerIDs\n                    != renderDescriptor.renderOrderLayerIDs",
-            renderer,
+            projection,
         )
         self.assertIn(
             "var baseMaterialSelections: [Int: SceneBaseMaterialTextureSelection] = [:]",
@@ -136,6 +139,9 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         renderer = (
             SCENE / "Rendering/SceneMetalRenderer.swift"
         ).read_text(encoding="utf-8")
+        projection = (
+            SCENE / "Rendering/SceneMetalRenderer+FrameWorldProjection.swift"
+        ).read_text(encoding="utf-8")
         topology = (
             SCENE
             / "Runtime/SceneScript/SceneScriptDynamicLayerRuntime.swift"
@@ -144,12 +150,12 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             SCENE / "Rendering/SceneDynamicLayerRenderTopologyCache.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("let dynamicLayerTopologyCache", renderer)
-        self.assertIn("dynamicLayerTopologyCache.resolve(", renderer)
+        self.assertIn("dynamicLayerTopologyCache.resolve(", projection)
         self.assertNotIn(
             "frameDescriptor = renderDescriptor.applying(layerTopology)",
-            renderer,
+            renderer + projection,
         )
-        self.assertIn("let topologyRevision: UInt64", topology)
+        self.assertIn("private(set) var topologyRevision: UInt64", topology)
         self.assertIn("dynamicTopologyChanged", topology)
         self.assertIn("cachedSnapshotTopologyRevision", topology)
         self.assertIn(
@@ -166,12 +172,12 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertIn("let orderedLayers: [SceneRenderDescriptor.Layer]", cache)
         self.assertIn("let orderedLayerPositionsByID: [Int: Int]", cache)
         self.assertIn("orderedLayers[orderedIndex] = layer", cache)
-        self.assertIn("let frameOrderedLayers: [SceneRenderDescriptor.Layer]", renderer)
-        self.assertIn("frameOrderedLayers = projection.orderedLayers", renderer)
-        self.assertIn("frameOrderedLayers = authoredLayers", renderer)
+        self.assertIn("let orderedLayers: [SceneRenderDescriptor.Layer]", projection)
+        self.assertIn("orderedLayers = projection.orderedLayers", projection)
+        self.assertIn("orderedLayers = authoredLayers", projection)
         self.assertNotIn(
             "let orderedLayers = authoredLayerIDs.compactMap",
-            renderer,
+            renderer + projection,
         )
 
     def test_system_provider_demand_order_is_prepared(self) -> None:
@@ -235,8 +241,11 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         )
         self.assertIn("layersByID: frameLayersByID", renderer)
         self.assertIn("layersByID: layersByID", preflight)
-        self.assertIn("frameDynamicLayerIDs = projection.dynamicLayerIDs", renderer)
-        self.assertIn("frameLightLayerIDs = projection.lightLayerIDs", renderer)
+        self.assertIn(
+            "let frameDynamicLayerIDs = frameProjection.dynamicLayerIDs",
+            renderer,
+        )
+        self.assertIn("frameProjection.lightLayerIDs", renderer)
 
     def test_normal_product_frames_skip_execution_diagnostics(self) -> None:
         coordinator = (

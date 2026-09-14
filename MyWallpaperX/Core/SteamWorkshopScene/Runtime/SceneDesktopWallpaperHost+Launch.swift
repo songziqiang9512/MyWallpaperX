@@ -204,7 +204,13 @@ extension SceneDesktopWallpaperHost {
                             phase: .preparingSurfaces,
                             message: "正在准备显示器与 Scene 表面"
                         ))
-                        try self.activate(prepared.context)
+                        try self.activate(
+                            prepared.context,
+                            firstFramePresentationRegistration: .init(
+                                requestID: requestID,
+                                recordID: recordID
+                            )
+                        )
                         self.launchCancellation = nil
                         self.publishLaunchState(.init(
                             requestID: requestID,
