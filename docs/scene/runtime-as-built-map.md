@@ -126,6 +126,9 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 
 - UI pending 已按 recordID 闭合归属：Scene 终态携带 daemon 回传的 recordID，runtime switch 通知也携带活动记录；SteamWorkshopService 只清除匹配记录。旧 A 的终态不会清除仍在收集纹理书签或等待 accepted 的新 B；跨请求时序门覆盖该反例。
 
+
+16. **validate 摘要门（M4.1）**：`SceneGraphRenderTargetTable.makeInputsDigest`（铸造期计算的 make 输入摘要，随 table 不可变）与 executor validate 的当帧输入摘要比对——命中跳过 make 重推导与全结构比较；未命中回退完整推导。纹理 `===` 门与 functionTargets 语义门不进摘要、每帧保留。
+
 ## 5. 已做对、明确不动
 
 唯一权威五件套；offscreen 目标 LRU 池（字节预算+history pin）；粒子实例 ring buffer；视频 CVMetal 零拷贝+三段栅栏；动态文字异步光栅+签名去重；deferred base images；编译子进程三重预算 kill；userPropertiesJSON/topology/compiledOperations 等 revision 缓存族。
