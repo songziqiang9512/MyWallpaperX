@@ -127,6 +127,28 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
 
     /// R4 entry point for one immutable condition-pruned authored graph.
     /// Dedicated backends are not consulted for target or history semantics.
+    /// M4.1：make 输入摘要。铸造期随 table 持久化；validate 以当帧输入
+    /// 重算并 O(1) 比对——命中即证明 stored plan 就是当前输入的 make
+    /// 产物（make 纯函数），跳过重推导与全结构比较。集合项以异或合并
+    /// （顺序无关），进程内稳定。
+    static func makeInputsDigest(
+        inputRole: SceneAuthoredEffectInputRole,
+        inputWidth: Int,
+        inputHeight: Int,
+        materialFunctionTargets: Set<Graph.TextureIdentity>
+    ) -> Int {
+        var hasher = Hasher()
+        hasher.combine(inputRole)
+        hasher.combine(inputWidth)
+        hasher.combine(inputHeight)
+        var elementXor = 0
+        for target in materialFunctionTargets {
+            elementXor ^= target.hashValue
+        }
+        hasher.combine(elementXor)
+        return hasher.finalize()
+    }
+
     static func make(
         graph: Graph,
         inputRole: SceneAuthoredEffectInputRole,

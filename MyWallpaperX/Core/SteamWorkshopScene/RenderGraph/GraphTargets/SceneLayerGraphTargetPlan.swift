@@ -79,6 +79,9 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
         /// Full permutation closure of history-seeded identities through every
         /// authored swap. This must match State.historyClosureIdentities.
         let historyClosureIdentities: Set<Graph.TextureIdentity>
+        /// M4.1：本 stage 的 make 输入摘要（role+extent+targets），铸造期
+        /// 随 table 持久化，供帧路径 validate O(1) 比对跳过重推导。
+        let makeInputsDigest: Int
     }
 
     enum Failure: String, Error {
@@ -124,7 +127,8 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
         plans: [TargetPlan],
         pairPlan: PairPlan,
         byteBudget: Int,
-        pairStorage: FullFramePairStorage = .owned
+        pairStorage: FullFramePairStorage = .owned,
+        makeInputsDigests: [Int]
     ) -> Result<Self, Failure> {
         guard byteBudget >= 0 else { return .failure(.invalidBudget) }
         guard let first = plans.first,
@@ -267,7 +271,9 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
                 plan: plan,
                 pairStep: pairStep,
                 slotByIdentity: mapping,
-                historyClosureIdentities: historyClosure
+                historyClosureIdentities: historyClosure,
+                makeInputsDigest: index < makeInputsDigests.count
+                    ? makeInputsDigests[index] : 0
             ))
             priorOrdinaryFramebufferSlots = framebufferSlots.filter {
                 slots[$0].historyEffect == nil && !slots[$0].isEffectUnique

@@ -260,7 +260,7 @@ nonisolated struct SceneAuthoredEffectRenderPlan: Codable, Equatable {
     }
 }
 
-nonisolated enum SceneAuthoredEffectInputRole: Equatable {
+nonisolated enum SceneAuthoredEffectInputRole: Equatable, Hashable {
     case layerSource
     case priorEffectOutput
 }

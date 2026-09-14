@@ -27,16 +27,39 @@ extension SceneResolvedMaterialGraphExecutor {
             let graph = products[index].graph
             let step = pairPlan.effects[index]
             let lease = leases[index]
-            let targetPlanResult = SceneGraphRenderTargetPlan.make(
-                graph: graph,
-                inputRole: index == 0 ? .layerSource : .priorEffectOutput,
+            let role: SceneAuthoredEffectInputRole = index == 0
+                ? .layerSource : .priorEffectOutput
+            // M4.1：当帧 make 输入摘要 vs 铸造期摘要 O(1) 比对。make 为
+            // 纯函数且 table.plan 随铸造不可变——摘要命中即证明 stored
+            // plan 就是当前输入的推导结果，跳过 make 与全结构比较；
+            // 未命中（functionTargets 变化等）回退完整推导+比较，语义
+            // 与旧路径逐分支一致。纹理 === 门与 functionTargets 门保留。
+            let currentInputsDigest = SceneGraphRenderTargetPlan.makeInputsDigest(
+                inputRole: role,
                 inputWidth: lease.table.plan.inputExtent.width,
                 inputHeight: lease.table.plan.inputExtent.height,
                 materialFunctionTargets:
                     materialFunctionTargetsByEffect[step.effect] ?? []
             )
-            let role: SceneAuthoredEffectInputRole = index == 0
-                ? .layerSource : .priorEffectOutput
+            let expectedMatchesStoredPlan: Bool
+            if lease.table.makeInputsDigest == currentInputsDigest {
+                expectedMatchesStoredPlan = true
+            } else {
+                let targetPlanResult = SceneGraphRenderTargetPlan.make(
+                    graph: graph,
+                    inputRole: index == 0 ? .layerSource : .priorEffectOutput,
+                    inputWidth: lease.table.plan.inputExtent.width,
+                    inputHeight: lease.table.plan.inputExtent.height,
+                    materialFunctionTargets:
+                        materialFunctionTargetsByEffect[step.effect] ?? []
+                )
+                switch targetPlanResult {
+                case let .success(expected):
+                    expectedMatchesStoredPlan = expected == lease.table.plan
+                case .failure:
+                    expectedMatchesStoredPlan = false
+                }
+            }
             guard graph.effects.count == 1,
                   graph.effects.first?.key == step.effect,
                   lease.table.plan.layerID == capability.layerID,
@@ -48,9 +71,7 @@ extension SceneResolvedMaterialGraphExecutor {
                   lease.fullFramePair.second == first.fullFramePair.second,
                   lease.table.fullFramePair.first === zero,
                   lease.table.fullFramePair.second === one,
-                  case let .success(expected) = targetPlanResult,
-                  expected.inputRole == role,
-                  expected == lease.table.plan,
+                  expectedMatchesStoredPlan,
                   lease.framebufferAllocation.resources.count
                     == lease.table.plan.logicalTargets.count else { return false }
         }

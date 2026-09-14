@@ -6,7 +6,8 @@ extension SceneGraphRenderTargetTable {
     static func makeMapped(
         plan: SceneGraphRenderTargetPlan,
         device: MTLDevice,
-        texturesByIdentity: [Graph.TextureIdentity: MTLTexture]
+        texturesByIdentity: [Graph.TextureIdentity: MTLTexture],
+        makeInputsDigest: Int
     ) -> Result<Self, Failure> {
         guard let input = texturesByIdentity[plan.input],
               let output = texturesByIdentity[plan.output] else {
@@ -17,7 +18,8 @@ extension SceneGraphRenderTargetTable {
             device: device,
             texturesByIdentity: texturesByIdentity,
             fullFramePair: .init(first: input, second: output),
-            expectsInputOutputAlias: false
+            expectsInputOutputAlias: false,
+            makeInputsDigest: makeInputsDigest
         )
     }
 
@@ -29,7 +31,8 @@ extension SceneGraphRenderTargetTable {
         device: MTLDevice,
         texturesByIdentity: [Graph.TextureIdentity: MTLTexture],
         fullFramePair: FullFramePair,
-        expectsInputOutputAlias: Bool
+        expectsInputOutputAlias: Bool,
+        makeInputsDigest: Int
     ) -> Result<Self, Failure> {
         guard let specifications = specifications(for: plan),
               specifications.count == texturesByIdentity.count,
@@ -102,7 +105,8 @@ extension SceneGraphRenderTargetTable {
             fullFramePair: fullFramePair,
             inputOutputAliased: expectsInputOutputAlias,
             residentByteCost: totalByteCost,
-            texturesByIdentity: texturesByIdentity
+            texturesByIdentity: texturesByIdentity,
+            makeInputsDigest: makeInputsDigest
         ))
     }
 }

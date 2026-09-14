@@ -254,7 +254,10 @@ extension SceneOffscreenTexturePool {
             return .failure(.unsupportedPixelFormat)
         }
         let prepared: (
-            plans: [SceneGraphRenderTargetPlan], width: Int, height: Int
+            plans: [SceneGraphRenderTargetPlan],
+            makeInputsDigests: [Int],
+            width: Int,
+            height: Int
         )
         switch persistentTargetPlansResult(
             admittedGraphs: admittedGraphs,
@@ -274,7 +277,8 @@ extension SceneOffscreenTexturePool {
                plans: prepared.plans,
                pairPlan: pairPlan,
                byteBudget: residentByteBudget,
-               pairStorage: .shared
+               pairStorage: .shared,
+               makeInputsDigests: prepared.makeInputsDigests
            ) {
             plan = shared
         } else {
@@ -282,7 +286,8 @@ extension SceneOffscreenTexturePool {
                 plans: prepared.plans,
                 pairPlan: pairPlan,
                 byteBudget: residentByteBudget,
-                pairStorage: .owned
+                pairStorage: .owned,
+                makeInputsDigests: prepared.makeInputsDigests
             ) {
             case let .success(owned): plan = owned
             case let .failure(failure): return .failure(.layerTargetPlan(failure))

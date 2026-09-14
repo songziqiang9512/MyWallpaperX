@@ -22,6 +22,9 @@ struct SceneGraphRenderTargetTable {
     }
 
     let plan: SceneGraphRenderTargetPlan
+    /// M4.1：本 table 的 make 输入摘要（铸造期计算）。validate 以当帧
+    /// 输入重算并 O(1) 比对，命中即接受 stored plan、跳过 make 重推导。
+    let makeInputsDigest: Int
     let inputTexture: MTLTexture
     let outputTexture: MTLTexture
     let fullFramePair: FullFramePair
@@ -47,9 +50,11 @@ struct SceneGraphRenderTargetTable {
         fullFramePair: FullFramePair,
         inputOutputAliased: Bool,
         residentByteCost: Int,
-        texturesByIdentity: [Graph.TextureIdentity: MTLTexture]
+        texturesByIdentity: [Graph.TextureIdentity: MTLTexture],
+        makeInputsDigest: Int = 0
     ) {
         self.plan = plan
+        self.makeInputsDigest = makeInputsDigest
         self.inputTexture = inputTexture
         self.outputTexture = outputTexture
         self.fullFramePair = fullFramePair

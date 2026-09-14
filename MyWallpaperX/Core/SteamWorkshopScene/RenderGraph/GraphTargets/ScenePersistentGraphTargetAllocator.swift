@@ -174,7 +174,8 @@ struct ScenePersistentGraphTargetAllocator {
                       texturesByIdentity: mapped,
                       fullFramePair: .init(first: zero, second: one),
                       expectsInputOutputAlias: stage.pairStep.inputMember
-                        == stage.pairStep.outputMember
+                        == stage.pairStep.outputMember,
+                      makeInputsDigest: stage.makeInputsDigest
                   ) else { return nil }
             let lease: SceneGraphRenderTargetLease
             if let sharedPair {
