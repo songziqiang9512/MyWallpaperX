@@ -88,7 +88,7 @@
 
 ### M5 进程分离 daemon 化（主线）
 
-- **M5.1 设计门**：SceneRuntimeService 契约文档（IPC 全集/生命周期/崩溃语义）+ MainActor 与线程约束审计报告。准入门，未过不动进程边界。
+- **M5.1 设计门** ✅ 4a835efc：交付 [Scene Runtime Daemon 契约](scene-runtime-daemon-contract.md)（stable-contract 已登记）——IPC v1 冻结、生命周期/崩溃退避语义、线程约束审计结论（runtime 原样搬迁、帧循环留 daemon 主线程、帧线程隔离明确排除）。设计门已过，M5.2 起按步骤实施。
 - **M5.2 最小 daemon**：新 target `MyWallpaperXSceneDaemon`（tool → Contents/Helpers，仿 WallpaperDaemon 工程结构），起桌面窗口出首帧 + 管道 JSON 命令框架。
 - **M5.3 DaemonKit 公共层第二批**：daemon 孵化/指数退避重启/管道帧协议抽为共享 kit；注意 daemon target 只同步 `WallpaperDaemonSources/`，共享代码需新增挂双 target 的同步组。
 - **M5.4 命令迁移**：WallpaperEngineCommand 逐条改走管道；事件回传（launchState/firstFrame/frameStats 1Hz/error/exited）；断连 = 指数退避重启。注意：IPC `setProperty` 载荷需 SceneUserPropertyValue 的 JSON 编解码（其 Codable 已有，持久化在用）；属性编辑器的类型化直调（service.updateScenePropertyValue）保留在 App 侧，daemon 化后该 service 一并迁入 daemon。
