@@ -15,6 +15,18 @@ enum MyWallpaperXApplication {
 
     @MainActor
     static func main() {
+        // M5.2：daemon 模式（同二进制，契约
+        // docs/scene/scene-runtime-daemon-contract.md §2）——accessory
+        // App、跳过主 UI 装配、stdin 命令循环驱动 Scene 引擎。
+        let runtime = SceneDaemonRuntime()
+        if runtime.isDaemonModeRequested {
+            let app = NSApplication.shared
+            app.setActivationPolicy(.accessory)
+            _ = runtime.configureAndRun()
+            runtime.loadSceneFromArguments()
+            app.run()
+            return
+        }
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
