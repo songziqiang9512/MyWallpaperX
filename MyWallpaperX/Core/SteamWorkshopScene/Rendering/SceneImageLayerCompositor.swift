@@ -45,7 +45,10 @@ struct SceneImageLayerCompositor {
         self.resolvedMaterialRuntime = resolvedMaterialRuntime
         let device = pipelineRepository.device
         colorBlendPipelineSlot = .init {
-            SceneLayerColorBlendPipeline(device: device)
+            guard let state = pipelineRepository.layerColorBlendState() else {
+                return nil
+            }
+            return SceneLayerColorBlendPipeline(device: device, state: state)
         }
     }
 

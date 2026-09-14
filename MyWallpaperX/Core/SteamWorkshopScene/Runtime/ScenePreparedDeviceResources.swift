@@ -468,6 +468,11 @@ final class ScenePreparedDeviceResourcesTask {
                 let pipelineRepository = SceneImageEffectPipelineRepository(
                     device: device
                 )
+                if descriptor.layers.contains(where: {
+                    ($0.colorBlendMode ?? 0) != 0
+                }) {
+                    _ = pipelineRepository.layerColorBlendState()
+                }
                 let spriteTextureLoader = SceneMultiImageSpriteTextureLoader()
                 let baseImages = try ScenePreparedBaseImageResources.prepare(
                     descriptor: descriptor,

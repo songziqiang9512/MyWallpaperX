@@ -1059,6 +1059,13 @@ class SceneFrameContextTests(unittest.TestCase):
             prepared_resources,
         )
         self.assertIn(
+            "descriptor.layers.contains(where:", prepared_resources
+        )
+        self.assertIn(
+            "_ = pipelineRepository.layerColorBlendState()",
+            prepared_resources,
+        )
+        self.assertIn(
             "preparedDeviceResources: preparedDeviceResources", launch
         )
         rebuild = host.split("private func rebuildSurfaces(", maxsplit=1)[1]
@@ -1078,8 +1085,18 @@ class SceneFrameContextTests(unittest.TestCase):
         )
         self.assertNotIn("SceneGaussianBlurPipeline(device:", compositor)
         self.assertNotIn("SceneBloomPipeline(device:", compositor)
+        self.assertIn(
+            "pipelineRepository.layerColorBlendState()", compositor
+        )
+        self.assertIn(
+            "SceneLayerColorBlendPipeline(device: device, state: state)",
+            compositor,
+        )
         self.assertIn("final class ScenePipelineSlot<Value>", repository)
         self.assertIn("case resolved(Value?)", repository)
+        self.assertIn(
+            "ScenePipelineSlot<SceneLayerColorBlendPipelineState>", repository
+        )
 
     def test_host_derives_only_renderer_backed_live_consumers(self) -> None:
         derivation = LIVE_CONSUMERS_SOURCE.read_text(encoding="utf-8")

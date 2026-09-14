@@ -41,15 +41,13 @@ fragment float4 sceneLayerColorBlendFrag(
 }
 """
 
-final class SceneLayerColorBlendPipeline {
-    private let state: MTLRenderPipelineState
-    private let framebufferSnapshot: SceneFramebufferSnapshot
+final class SceneLayerColorBlendPipelineState {
+    let renderPipeline: MTLRenderPipelineState
 
-    var renderTargetResidentByteCost: Int {
-        framebufferSnapshot.residentByteCost
-    }
-
-    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
+    init?(
+        device: MTLDevice,
+        pixelFormat: MTLPixelFormat = .bgra8Unorm
+    ) {
         let options = MTLCompileOptions()
         guard let library = try? device.makeLibrary(
             source: sceneLayerColorBlendShaderSource,
@@ -62,9 +60,37 @@ final class SceneLayerColorBlendPipeline {
         descriptor.vertexFunction = vertex
         descriptor.fragmentFunction = fragment
         descriptor.colorAttachments[0].pixelFormat = pixelFormat
-        guard let state = try? device.makeRenderPipelineState(descriptor: descriptor) else {
+        guard let state = try? device.makeRenderPipelineState(
+            descriptor: descriptor
+        ) else {
             return nil
         }
+        renderPipeline = state
+    }
+}
+
+final class SceneLayerColorBlendPipeline {
+    private let state: SceneLayerColorBlendPipelineState
+    private let framebufferSnapshot: SceneFramebufferSnapshot
+
+    var renderTargetResidentByteCost: Int {
+        framebufferSnapshot.residentByteCost
+    }
+
+    convenience init?(
+        device: MTLDevice,
+        pixelFormat: MTLPixelFormat = .bgra8Unorm
+    ) {
+        guard let state = SceneLayerColorBlendPipelineState(
+            device: device,
+            pixelFormat: pixelFormat
+        ) else {
+            return nil
+        }
+        self.init(device: device, state: state)
+    }
+
+    init(device: MTLDevice, state: SceneLayerColorBlendPipelineState) {
         self.state = state
         self.framebufferSnapshot = SceneFramebufferSnapshot(
             device: device,
@@ -115,7 +141,7 @@ final class SceneLayerColorBlendPipeline {
         var mvpCopy = mvp
         var mode = Int32(blendMode)
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
-        encoder.setRenderPipelineState(state)
+        encoder.setRenderPipelineState(state.renderPipeline)
         encoder.setVertexBytes(
             &mvpCopy,
             length: MemoryLayout<simd_float4x4>.size,

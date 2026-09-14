@@ -48,6 +48,16 @@ final class SceneSpotLightPipeline {
     }
 }
 
+final class SceneLayerColorBlendPipelineState {
+    static let attempts = Counter()
+    let deviceRegistryID: UInt64
+
+    init?(device: MTLDevice) {
+        Self.attempts.increment()
+        deviceRegistryID = device.registryID
+    }
+}
+
 @main
 enum Harness {
     // The dedicated blur/color-key slots were retired with the dedicated
@@ -86,13 +96,20 @@ enum Harness {
         let first = SceneImageEffectPipelineRepository(device: device)
         let second = SceneImageEffectPipelineRepository(device: device)
         let attemptsAfterConstruction = SceneSpotLightPipeline.attempts.read()
+        let colorBlendAttemptsAfterConstruction =
+            SceneLayerColorBlendPipelineState.attempts.read()
 
         let firstValues = concurrentSpotLight(first, count: 128)
         let firstIDs = Set(firstValues.map(ObjectIdentifier.init))
         _ = second.spotLight()
+        let firstColorBlend = first.layerColorBlendState()
+        let firstColorBlendAgain = first.layerColorBlendState()
+        let secondColorBlend = second.layerColorBlendState()
 
         let result: [String: Any] = [
             "attemptsAfterConstruction": attemptsAfterConstruction,
+            "colorBlendAttemptsAfterConstruction":
+                colorBlendAttemptsAfterConstruction,
             "firstSpotLightValueCount": firstValues.count,
             "firstSpotLightIdentityCount": firstIDs.count,
             "spotLightAttemptsAcrossTwoRepositories":
@@ -100,6 +117,13 @@ enum Harness {
             "deviceMatches": firstValues.allSatisfy {
                 $0.deviceRegistryID == device.registryID
             },
+            "firstColorBlendReused": firstColorBlend != nil
+                && firstColorBlendAgain === firstColorBlend,
+            "colorBlendAttemptsAcrossTwoRepositories":
+                SceneLayerColorBlendPipelineState.attempts.read(),
+            "colorBlendDeviceMatches": firstColorBlend?.deviceRegistryID
+                    == device.registryID
+                && secondColorBlend?.deviceRegistryID == device.registryID,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -142,10 +166,14 @@ class ScenePipelineRepositoryTests(unittest.TestCase):
             result = json.loads(completed.stdout)
 
         self.assertEqual(result["attemptsAfterConstruction"], 0)
+        self.assertEqual(result["colorBlendAttemptsAfterConstruction"], 0)
         self.assertEqual(result["firstSpotLightValueCount"], 128)
         self.assertEqual(result["firstSpotLightIdentityCount"], 1)
         self.assertEqual(result["spotLightAttemptsAcrossTwoRepositories"], 2)
         self.assertTrue(result["deviceMatches"])
+        self.assertTrue(result["firstColorBlendReused"])
+        self.assertEqual(result["colorBlendAttemptsAcrossTwoRepositories"], 2)
+        self.assertTrue(result["colorBlendDeviceMatches"])
 
 
 if __name__ == "__main__":

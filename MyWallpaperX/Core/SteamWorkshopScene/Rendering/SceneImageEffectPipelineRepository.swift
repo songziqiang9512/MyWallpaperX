@@ -43,11 +43,20 @@ final class ScenePipelineSlot<Value>: @unchecked Sendable {
 final class SceneImageEffectPipelineRepository {
     let device: MTLDevice
 
+    private let layerColorBlendStateSlot:
+        ScenePipelineSlot<SceneLayerColorBlendPipelineState>
     private let spotLightSlot: ScenePipelineSlot<SceneSpotLightPipeline>
 
     init(device: MTLDevice) {
         self.device = device
+        layerColorBlendStateSlot = .init {
+            SceneLayerColorBlendPipelineState(device: device)
+        }
         spotLightSlot = .init { SceneSpotLightPipeline(device: device) }
+    }
+
+    func layerColorBlendState() -> SceneLayerColorBlendPipelineState? {
+        layerColorBlendStateSlot.resolve()
     }
 
     func spotLight() -> SceneSpotLightPipeline? { spotLightSlot.resolve() }
