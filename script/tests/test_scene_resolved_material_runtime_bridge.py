@@ -5018,9 +5018,11 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             host,
         )
         self.assertIn(
-            "teardownSurfaces(clearContext: true, reason: .sceneSwitch)",
+            "let teardownReason: SceneGraphExecutionResetReason = launchContext == nil",
             host,
         )
+        self.assertIn("? .surfaceStop\n            : .sceneSwitch", host)
+        self.assertIn("teardownReason: teardownReason", host)
         self.assertIn(
             "teardownReason: SceneGraphExecutionResetReason = .surfaceStop",
             host,

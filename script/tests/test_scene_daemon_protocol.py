@@ -25,6 +25,7 @@ APPLICATION = ROOT / "MyWallpaperX/App/MyWallpaperXApplication.swift"
 PROPERTY = SCENE / "Properties/SceneUserProperty.swift"
 PROFILE = ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"
 COMMAND = ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift"
+SCREEN = SCENE / "Runtime/SceneScreenTopology.swift"
 
 
 HARNESS = r'''
@@ -87,6 +88,27 @@ import Foundation
         if case .success(.cancelLaunch(recordID: "fixture")) = decode([
             "v": 1, "cmd": "cancelLaunch", "recordID": "fixture"
         ]) { cancelValid = true } else { cancelValid = false }
+        let displayValid: Bool
+        if case let .success(.setDisplayConfiguration(screens)) = decode([
+            "v": 1, "cmd": "setDisplayConfiguration", "screens": [[
+                "id": 7, "frame": [
+                    "x": -1920, "y": 0, "width": 1920, "height": 1080
+                ], "scale": 2
+            ]]
+        ]) {
+            displayValid = screens == [SceneScreenTopology(
+                displayID: 7,
+                frame: .init(x: -1920, y: 0, width: 1920, height: 1080),
+                backingScaleFactor: 2
+            )]
+        } else { displayValid = false }
+        let duplicateDisplayRejected: Bool
+        if case .failure(.invalidPayload("setDisplayConfiguration")) = decode([
+            "v": 1, "cmd": "setDisplayConfiguration", "screens": [
+                ["id": 7, "frame": ["x": 0, "y": 0, "width": 10, "height": 10], "scale": 1],
+                ["id": 7, "frame": ["x": 10, "y": 0, "width": 10, "height": 10], "scale": 1]
+            ]
+        ]) { duplicateDisplayRejected = true } else { duplicateDisplayRejected = false }
         let badBookmarkRejected: Bool
         if case .failure(.invalidPayload("loadScene")) = decode([
             "v": 1, "cmd": "loadScene", "rootURL": "/private/tmp/scene",
@@ -102,6 +124,8 @@ import Foundation
             "booleanVersionRejected": booleanVersionRejected,
             "numericMuteRejected": numericMuteRejected,
             "cancelValid": cancelValid,
+            "displayValid": displayValid,
+            "duplicateDisplayRejected": duplicateDisplayRejected,
             "badBookmarkRejected": badBookmarkRejected,
         ]
         print(String(data: try JSONEncoder().encode(payload), encoding: .utf8)!)
@@ -120,7 +144,8 @@ class SceneDaemonProtocolTests(unittest.TestCase):
             compiled = subprocess.run(
                 [
                     "xcrun", "swiftc", "-parse-as-library",
-                    str(PROPERTY), str(COMMAND), str(PROFILE), str(PROTOCOL),
+                    str(PROPERTY), str(COMMAND), str(PROFILE), str(SCREEN),
+                    str(PROTOCOL),
                     str(harness),
                     "-o", str(binary),
                 ],
@@ -182,6 +207,8 @@ class SceneDaemonProtocolTests(unittest.TestCase):
         self.assertIn('"event": "propertyUpdateResult"', runtime)
         self.assertIn('"accepted": accepted', runtime)
         self.assertIn("sendLatestStats", runtime)
+        self.assertIn("case let .setDisplayConfiguration(topology)", runtime)
+        self.assertIn("host.applyDisplayConfiguration(topology)", runtime)
 
 
 if __name__ == "__main__":

@@ -10,6 +10,8 @@ import QuartzCore
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  private var statusBarController: StatusBarController?
  private var pendingInitialWindowOpen: DispatchWorkItem?
+ private var didPrepareProductTermination = false
+ private var terminationReplyPending = false
 
  private func normalizedMenuTitle(_ menuItem: NSMenuItem) -> String {
  menuItem.title.replacingOccurrences(of: " ", with: "")
@@ -135,6 +137,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  false
  }
 
+ func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+#if DEBUG
+ if !DebugSceneDaemonClientRunner.isRequested
+     && (DebugScenePlaybackRunner.runsIsolatedSceneSample
+         || DebugWebPlaybackRunner.runsIsolatedWebWorkshopSample) {
+ return .terminateNow
+ }
+#endif
+ guard !terminationReplyPending else { return .terminateLater }
+ terminationReplyPending = true
+ prepareProductTermination()
+ SceneDaemonClient.shared.shutdown {
+ sender.reply(toApplicationShouldTerminate: true)
+ }
+ return .terminateLater
+ }
+
  func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
  // 点击 Dock 图标/重新打开时直接激活主窗口，不重新走启动分支。
  MainWindowCoordinator.activateMainWindow()
@@ -156,12 +175,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  return
  }
 #endif
+ prepareProductTermination()
+ SceneDaemonClient.shared.shutdown()
+ }
+
+ private func prepareProductTermination() {
+ guard !didPrepareProductTermination else { return }
+ didPrepareProductTermination = true
  //终止时先刷盘再清引擎，避免最近使用、当前壁纸和播放状态丢失。
  pendingInitialWindowOpen?.cancel()
  pendingInitialWindowOpen = nil
  statusBarController = nil
  WallpaperManager.shared.flushPersistentState()
- SceneDaemonClient.shared.shutdown()
  WallpaperEngine.shared.cleanup()
  }
 

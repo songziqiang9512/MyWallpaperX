@@ -6,6 +6,18 @@
 import Foundation
 
 extension WallpaperEngine {
+    func applySystemPlaybackPausedState(_ paused: Bool) {
+        if paused {
+            pauseAllPlayers()
+        } else {
+            resumeAllPlayers()
+        }
+        PlaybackCommandMultiplexer.shared.dispatch(
+            paused ? .pause : .resume,
+            to: .scene
+        )
+    }
+
     func setPlaybackPausedState(_ paused: Bool) {
         playbackPaused = paused
         refreshSystemAudioSpectrumCapture()

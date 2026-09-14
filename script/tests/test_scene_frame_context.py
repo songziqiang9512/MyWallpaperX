@@ -1156,24 +1156,17 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("userValues: launchContext.liveState.userValues", render)
         self.assertNotIn("userDynamicValues", host)
 
-    def test_screen_notifications_are_debounced_and_skip_unchanged_topology(self) -> None:
+    def test_daemon_display_commands_are_debounced_and_skip_unchanged_topology(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
-        observer = host.split(
-            "NSApplication.didChangeScreenParametersNotification", maxsplit=1
-        )[1]
-        observer = observer.split(
-            "NSWorkspace.activeSpaceDidChangeNotification", maxsplit=1
-        )[0]
-        self.assertIn("scheduleScreenConfigurationReconciliation()", observer)
         reconciliation = host.split(
-            "private func scheduleScreenConfigurationReconciliation()", maxsplit=1
+            "private func scheduleScreenConfigurationReconciliation(", maxsplit=1
         )[1]
         reconciliation = reconciliation.split(
             "private func reassertSurfaceVisibility()", maxsplit=1
         )[0]
         self.assertIn("screenReconciliationWorkItem?.cancel()", reconciliation)
         self.assertIn("asyncAfter(deadline: .now() + 0.2", reconciliation)
-        self.assertIn("currentTopology != self.screenTopology", reconciliation)
+        self.assertIn("topology != self.screenTopology", reconciliation)
         self.assertIn("self.reassertSurfaceVisibility()", reconciliation)
         self.assertIn("self.rebuildSurfaces()", reconciliation)
 

@@ -51,7 +51,7 @@ final class DaemonProcessTransport: @unchecked Sendable {
             }
         }
         process.terminationHandler = { [weak self] process in
-            DispatchQueue.main.async { [weak self] in
+            RunLoop.main.perform(inModes: [.common]) { [weak self] in
                 self?.onTermination?(process.terminationStatus)
             }
         }
@@ -91,6 +91,15 @@ final class DaemonProcessTransport: @unchecked Sendable {
             process.terminate()
         }
         closeIO()
+    }
+
+    func scheduleForcedTermination(after delay: TimeInterval) {
+        DispatchQueue.global(qos: .utility).asyncAfter(
+            deadline: .now() + delay
+        ) { [weak self] in
+            guard let self, self.process.isRunning else { return }
+            self.terminate()
+        }
     }
 }
 

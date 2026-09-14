@@ -188,10 +188,13 @@
         "MyWallpaperX/App/StatusBarController.swift",
         "MyWallpaperX/Core/Playback/WallpaperEngine+DaemonSessionLifecycle.swift",
         "MyWallpaperX/Core/Playback/WallpaperEngine+PlaybackControl.swift",
+        "MyWallpaperX/Core/Playback/WallpaperEngine+SystemAudioLifecycle.swift",
+        "MyWallpaperX/Core/Playback/WallpaperEngine+SystemState.swift",
         "MyWallpaperX/Core/SteamWorkshopWeb/Engine/WallpaperEngine+WebWallpaper.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/VideoPlaybackCommandHandler.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift",
         "MyWallpaperX/Shared/UI/WallpaperRuntimeSwitch.swift",
         "script/tests/test_daemon_process_transport.py",
         "script/tests/test_scene_daemon_client_wiring.py"

@@ -202,7 +202,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
             PlaybackCommandMultiplexer.shared.isAnyEnginePlaying
             ? .pause : .resume
         PlaybackCommandMultiplexer.shared.dispatch(command)
-        wallpaperManager.isPlaying = WallpaperEngine.shared.isPlaying()
+        wallpaperManager.isPlaying = PlaybackCommandMultiplexer.shared
+            .isAnyEnginePlaying
     }
 
     @objc private func toggleMute() {

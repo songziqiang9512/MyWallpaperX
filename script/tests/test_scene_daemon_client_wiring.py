@@ -11,7 +11,11 @@ def client_source() -> str:
     runtime = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
     return "\n".join(
         (runtime / name).read_text(encoding="utf-8")
-        for name in ["SceneDaemonClient.swift", "SceneDaemonClient+Events.swift"]
+        for name in [
+            "SceneDaemonClient.swift",
+            "SceneDaemonClient+DisplayConfiguration.swift",
+            "SceneDaemonClient+Events.swift",
+        ]
     )
 
 
@@ -92,6 +96,70 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
         self.assertIn("maximumRestartAttempts", client)
         self.assertIn('case "propertyUpdateResult"', client)
         self.assertIn("requestLaunch(request)", client)
+
+    def test_display_topology_has_one_app_to_daemon_control_path(self) -> None:
+        client = client_source()
+        host = (
+            ROOT
+            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("NSApplication.didChangeScreenParametersNotification", client)
+        self.assertIn('"cmd": "setDisplayConfiguration"', client)
+        self.assertIn("sendDisplayConfiguration()", client)
+        self.assertIn("func applyDisplayConfiguration(", host)
+        self.assertNotIn("NSApplication.didChangeScreenParametersNotification", host)
+        self.assertNotIn("wallpaperRuntimeWillSwitch", host)
+        self.assertIn("NSWorkspace.shared.notificationCenter.addObserver", host)
+        self.assertIn("NSWorkspace.shared.notificationCenter.removeObserver", host)
+
+    def test_system_and_hotkey_controls_include_scene_daemon(self) -> None:
+        playback = (
+            ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine+PlaybackControl.swift"
+        ).read_text(encoding="utf-8")
+        system_state = (
+            ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine+SystemState.swift"
+        ).read_text(encoding="utf-8")
+        interruptions = (
+            ROOT
+            / "MyWallpaperX/Core/Playback/WallpaperEngine+SystemAudioLifecycle.swift"
+        ).read_text(encoding="utf-8")
+        hotkeys = (
+            ROOT
+            / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("func applySystemPlaybackPausedState(", playback)
+        self.assertIn("to: .scene", playback)
+        self.assertIn("applySystemPlaybackPausedState(true)", interruptions)
+        self.assertIn("applySystemPlaybackPausedState(true)", system_state)
+        self.assertIn("applySystemPlaybackPausedState(false)", system_state)
+        self.assertIn("PlaybackCommandMultiplexer.shared.dispatch(command)", hotkeys)
+        self.assertIn("dispatch(.setMuted(!isMuted))", hotkeys)
+        self.assertNotIn("WallpaperEngine.shared.togglePlayback()", hotkeys)
+
+    def test_app_quit_waits_for_daemon_shutdown_completion(self) -> None:
+        app_delegate = (
+            ROOT / "MyWallpaperX/App/AppDelegate.swift"
+        ).read_text(encoding="utf-8")
+        client = client_source()
+        self.assertIn("func applicationShouldTerminate(", app_delegate)
+        self.assertIn("if !DebugSceneDaemonClientRunner.isRequested", app_delegate)
+        self.assertIn("return .terminateLater", app_delegate)
+        self.assertIn("SceneDaemonClient.shared.shutdown {", app_delegate)
+        self.assertIn("reply(toApplicationShouldTerminate: true)", app_delegate)
+        self.assertIn("shutdownCompletions", client)
+        self.assertIn("finishShutdownIfPossible()", client)
+        self.assertIn("retiringTransports.isEmpty", client)
+        self.assertIn("RunLoop.main.perform(inModes: [.common])", client)
+
+    def test_debug_switch_runner_exercises_same_daemon_and_app_exit(self) -> None:
+        runner = (
+            ROOT / "MyWallpaperX/App/DebugSceneDaemonClientRunner.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("--mwx-debug-scene-switch-root", runner)
+        self.assertIn('"switchCompletedInSameDaemon": switchCompleted', runner)
+        self.assertIn("uniqueRequests.count >= 2 && uniquePIDs.count == 1", runner)
+        switch_exit = runner.split("if switchRootURL != nil {", 1)[1]
+        self.assertIn("NSApp.terminate(nil)", switch_exit)
 
     def test_pending_clear_requires_matching_record_identity(self) -> None:
         service = (

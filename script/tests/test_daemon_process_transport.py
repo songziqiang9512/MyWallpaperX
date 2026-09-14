@@ -24,13 +24,19 @@ import Foundation
             arguments: []
         )
         var received = Data()
+        var didTerminate = false
         transport.onOutput = { received.append($0) }
+        transport.onTermination = { _ in didTerminate = true }
         try transport.start()
         precondition(transport.send(Data("transport-round-trip\n".utf8)))
         let deadline = Date().addingTimeInterval(3)
         while received.isEmpty && RunLoop.current.run(mode: .default, before: deadline) {}
         precondition(String(data: received, encoding: .utf8) == "transport-round-trip\n")
         transport.terminate()
+        let terminationDeadline = Date().addingTimeInterval(3)
+        while !didTerminate
+            && RunLoop.current.run(mode: .default, before: terminationDeadline) {}
+        precondition(didTerminate)
         print("daemon-process-transport-pass")
     }
 }

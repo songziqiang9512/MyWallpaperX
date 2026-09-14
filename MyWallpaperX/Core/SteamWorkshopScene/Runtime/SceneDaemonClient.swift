@@ -1,3 +1,4 @@
+import AppKit
 import CoreFoundation
 import Darwin
 import Foundation
@@ -60,6 +61,9 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     private var isMuted = PlaybackMuteState.shared.isMuted
     private var isPaused = false
     private var runtimeSwitchObserver: NSObjectProtocol?
+    private var screenParametersObserver: NSObjectProtocol?
+    var shutdownCompletions: [() -> Void] = []
+    var displayConfiguration = SceneScreenTopology.capture()
 
     var isPlaying: Bool {
         activeIntent != nil && transport?.isRunning == true && !isPaused
@@ -77,11 +81,23 @@ final class SceneDaemonClient: PlaybackEngineControlling {
                 self?.stop()
             }
         }
+        screenParametersObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.updateDisplayConfiguration()
+            }
+        }
     }
 
     deinit {
         if let runtimeSwitchObserver {
             NotificationCenter.default.removeObserver(runtimeSwitchObserver)
+        }
+        if let screenParametersObserver {
+            NotificationCenter.default.removeObserver(screenParametersObserver)
         }
     }
 
@@ -124,15 +140,17 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             }
             return activeIntent != nil || pendingIntent != nil
         case .pause:
-            guard activeIntent != nil || pendingIntent != nil else { return false }
+            let hasPlaybackIntent = activeIntent != nil || pendingIntent != nil
+            guard !isPaused else { return hasPlaybackIntent }
             isPaused = true
             if endpointReady { sendSimpleCommand("pause") }
-            return true
+            return hasPlaybackIntent
         case .resume:
-            guard activeIntent != nil || pendingIntent != nil else { return false }
+            let hasPlaybackIntent = activeIntent != nil || pendingIntent != nil
+            guard isPaused else { return hasPlaybackIntent }
             isPaused = false
             if endpointReady { sendSimpleCommand("resume") }
-            return true
+            return hasPlaybackIntent
         case .stop:
             stop()
             return true
@@ -171,8 +189,12 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         return true
     }
 
-    func shutdown() {
+    func shutdown(completion: (() -> Void)? = nil) {
+        if let completion {
+            shutdownCompletions.append(completion)
+        }
         stop()
+        finishShutdownIfPossible()
     }
 
     func stop() {
@@ -204,13 +226,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         } else {
             transport.terminate()
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-            guard let self,
-                  let retiring = self.retiringTransports[generation] else {
-                return
-            }
-            retiring.terminate()
-        }
+        transport.scheduleForcedTermination(after: 2)
     }
 
     func requestLaunch(_ request: ScenePlaybackLoadRequest) {
@@ -316,6 +332,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     func replayPendingIntent() {
         guard let request = pendingIntent else { return }
         pendingRequestID = nil
+        sendDisplayConfiguration()
         var textures: [String: [String: Any]] = [:]
         textures.reserveCapacity(request.userPropertyTextures.count)
         for (key, reference) in request.userPropertyTextures {
@@ -351,7 +368,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         send(["v": SceneDaemonProtocol.version, "cmd": command])
     }
 
-    private func send(_ payload: [String: Any]) {
+    func send(_ payload: [String: Any]) {
         guard let data = try? DaemonNewlineJSON.encodeJSONObject(
             payload,
             options: [.sortedKeys]

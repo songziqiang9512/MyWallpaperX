@@ -140,6 +140,7 @@ extension SceneDaemonClient {
             retiring.closeIO()
         }
         if expectedTerminationGenerations.remove(generation) != nil {
+            finishShutdownIfPossible()
             return
         }
         guard generation == sessionGeneration else { return }
@@ -204,6 +205,16 @@ extension SceneDaemonClient {
             name: .sceneDaemonClientDidFail,
             object: failure
         )
+    }
+
+    func finishShutdownIfPossible() {
+        guard transport == nil, retiringTransports.isEmpty,
+              !shutdownCompletions.isEmpty else { return }
+        let completions = shutdownCompletions
+        shutdownCompletions.removeAll(keepingCapacity: true)
+        RunLoop.main.perform(inModes: [.common]) {
+            completions.forEach { $0() }
+        }
     }
 
     private static func integer(_ raw: Any?) -> Int? {

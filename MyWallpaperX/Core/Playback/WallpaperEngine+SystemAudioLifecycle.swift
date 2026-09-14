@@ -44,7 +44,7 @@ extension WallpaperEngine {
 
     private func beginSystemInterruption(_ interruption: PlaybackSystemInterruption) {
         guard activeSystemInterruptions.insert(interruption).inserted else { return }
-        pauseAllPlayers()
+        applySystemPlaybackPausedState(true)
     }
 
     private func endSystemInterruption(

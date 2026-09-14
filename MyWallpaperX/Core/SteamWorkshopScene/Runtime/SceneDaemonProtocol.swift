@@ -1,4 +1,5 @@
 import CoreFoundation
+import CoreGraphics
 import Foundation
 
 nonisolated enum SceneDaemonCommand: Equatable, Sendable {
@@ -15,6 +16,7 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
         recordID: String
     )
     case cancelLaunch(recordID: String)
+    case setDisplayConfiguration([SceneScreenTopology])
     case setPerformanceProfile(PlaybackPerformanceProfile)
     case setMuted(Bool)
     case pause
@@ -94,6 +96,11 @@ nonisolated enum SceneDaemonProtocol {
                 return .failure(.invalidPayload(action))
             }
             return .success(.cancelLaunch(recordID: recordID))
+        case "setDisplayConfiguration":
+            guard let topology = displayConfiguration(payload["screens"]) else {
+                return .failure(.invalidPayload(action))
+            }
+            return .success(.setDisplayConfiguration(topology))
         case "setPerformanceProfile":
             guard let profile = profile(payload["maxFPS"]) else {
                 return .failure(.invalidPayload(action))
@@ -162,6 +169,37 @@ nonisolated enum SceneDaemonProtocol {
         return PlaybackPerformanceProfile(rawValue: value)
     }
 
+    private static func displayConfiguration(
+        _ raw: Any?
+    ) -> [SceneScreenTopology]? {
+        guard let screens = raw as? [[String: Any]], !screens.isEmpty else {
+            return nil
+        }
+        var displayIDs: Set<CGDirectDisplayID> = []
+        var result: [SceneScreenTopology] = []
+        result.reserveCapacity(screens.count)
+        for screen in screens {
+            guard let rawID = unsignedInteger(screen["id"]),
+                  rawID > 0, rawID <= UInt64(UInt32.max),
+                  let frame = screen["frame"] as? [String: Any],
+                  let x = finiteDouble(frame["x"]),
+                  let y = finiteDouble(frame["y"]),
+                  let width = finiteDouble(frame["width"]), width > 0,
+                  let height = finiteDouble(frame["height"]), height > 0,
+                  let scale = finiteDouble(screen["scale"]), scale > 0 else {
+                return nil
+            }
+            let displayID = CGDirectDisplayID(rawID)
+            guard displayIDs.insert(displayID).inserted else { return nil }
+            result.append(SceneScreenTopology(
+                displayID: displayID,
+                frame: CGRect(x: x, y: y, width: width, height: height),
+                backingScaleFactor: scale
+            ))
+        }
+        return result.sorted { $0.displayID < $1.displayID }
+    }
+
     private static func integer(_ raw: Any?) -> Int? {
         guard let number = raw as? NSNumber,
               CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
@@ -180,5 +218,12 @@ nonisolated enum SceneDaemonProtocol {
         guard let number = raw as? NSNumber,
               CFGetTypeID(number) == CFBooleanGetTypeID() else { return nil }
         return number.boolValue
+    }
+
+    private static func finiteDouble(_ raw: Any?) -> Double? {
+        guard let number = raw as? NSNumber,
+              CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
+        let value = number.doubleValue
+        return value.isFinite ? value : nil
     }
 }

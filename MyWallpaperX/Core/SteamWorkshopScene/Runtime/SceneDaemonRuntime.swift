@@ -160,6 +160,12 @@ final class SceneDaemonRuntime {
             host.cancelPendingLaunch(
                 recordID: recordID
             )
+        case let .setDisplayConfiguration(topology):
+            NSLog(
+                "MWX SCENE DAEMON: phase=display-configuration screens=%d",
+                topology.count
+            )
+            host.applyDisplayConfiguration(topology)
         case let .setPerformanceProfile(profile):
             host.applyPerformanceProfile(profile)
         case let .setMuted(muted):

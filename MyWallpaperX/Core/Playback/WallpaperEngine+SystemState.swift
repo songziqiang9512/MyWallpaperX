@@ -182,9 +182,9 @@ extension WallpaperEngine {
         }
 
         if shouldPause {
-            pauseAllPlayers()
+            applySystemPlaybackPausedState(true)
         } else {
-            resumeAllPlayers()
+            applySystemPlaybackPausedState(false)
         }
 
         updatePerformanceMode()

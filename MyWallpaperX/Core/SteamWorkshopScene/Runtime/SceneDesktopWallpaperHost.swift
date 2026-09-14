@@ -49,7 +49,7 @@ final class SceneDesktopWallpaperHost {
 
     var surfaces: [CGDirectDisplayID: Surface] = [:]
     var launchContext: SceneDesktopWallpaperLaunchContext?
-    private var observers: [NSObjectProtocol] = []
+    private var activeSpaceObserver: NSObjectProtocol?
     var localPointerEventMonitor: Any?
     var globalPointerEventMonitor: Any?
     var frameTimer: Timer?
@@ -105,7 +105,11 @@ final class SceneDesktopWallpaperHost {
 
     deinit {
         removePointerEventMonitors()
-        observers.forEach(NotificationCenter.default.removeObserver)
+        if let activeSpaceObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(
+                activeSpaceObserver
+            )
+        }
     }
 
     func activate(
@@ -353,48 +357,28 @@ final class SceneDesktopWallpaperHost {
 #endif
 
     private func installObservers() {
-        let center = NotificationCenter.default
-        observers = [
-            center.addObserver(
-                forName: .wallpaperRuntimeWillSwitch,
-                object: nil,
-                queue: .main
-            ) { [weak self] notification in
-                self?.handleRuntimeWillSwitch(notification)
-            },
-            center.addObserver(
-                forName: NSApplication.didChangeScreenParametersNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                self?.scheduleScreenConfigurationReconciliation()
-            },
-            center.addObserver(
-                forName: NSWorkspace.activeSpaceDidChangeNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                self?.reassertSurfaceVisibility()
-            }
-        ]
-    }
-
-    private func handleRuntimeWillSwitch(_ notification: Notification) {
-        guard let kindRaw = notification.userInfo?["kind"] as? String,
-              let kind = WallpaperRuntimeKind(rawValue: kindRaw) else {
-            return
+        activeSpaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.reassertSurfaceVisibility()
         }
-        guard kind != .scene else { return }
-        teardownSurfaces(clearContext: true, reason: .sceneSwitch)
     }
 
-    private func scheduleScreenConfigurationReconciliation() {
+    func applyDisplayConfiguration(_ topology: [SceneScreenTopology]) {
+        guard !topology.isEmpty else { return }
+        scheduleScreenConfigurationReconciliation(topology)
+    }
+
+    private func scheduleScreenConfigurationReconciliation(
+        _ topology: [SceneScreenTopology]
+    ) {
         guard launchContext != nil else { return }
         screenReconciliationWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             guard let self, self.launchContext != nil else { return }
-            let currentTopology = SceneScreenTopology.capture()
-            guard currentTopology != self.screenTopology else {
+            guard topology != self.screenTopology else {
                 Self.performanceLogger.debug(
                     "Ignored unchanged Scene screen topology; surfaces=\(self.surfaces.count)"
                 )
@@ -402,7 +386,7 @@ final class SceneDesktopWallpaperHost {
                 return
             }
             Self.performanceLogger.info(
-                "Rebuilding Scene surfaces after screen topology change; old=\(self.screenTopology.count) new=\(currentTopology.count)"
+                "Rebuilding Scene surfaces after screen topology change; old=\(self.screenTopology.count) new=\(topology.count)"
             )
             _ = self.rebuildSurfaces()
         }

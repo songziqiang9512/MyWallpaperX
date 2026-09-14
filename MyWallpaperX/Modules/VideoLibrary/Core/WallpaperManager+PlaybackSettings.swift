@@ -255,10 +255,13 @@ extension WallpaperManager {
         case .next:
             navigateWallpaperManually(.next, userInitiated: true)
         case .playPause:
-            WallpaperEngine.shared.togglePlayback()
-            isPlaying = WallpaperEngine.shared.isPlaying()
+            let command: WallpaperEngineCommand =
+                PlaybackCommandMultiplexer.shared.isAnyEnginePlaying
+                ? .pause : .resume
+            PlaybackCommandMultiplexer.shared.dispatch(command)
+            isPlaying = PlaybackCommandMultiplexer.shared.isAnyEnginePlaying
         case .muteToggle:
-            setMuted(!isMuted)
+            PlaybackCommandMultiplexer.shared.dispatch(.setMuted(!isMuted))
         }
     }
 

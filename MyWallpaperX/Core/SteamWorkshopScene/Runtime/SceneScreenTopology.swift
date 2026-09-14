@@ -1,7 +1,7 @@
 import AppKit
 import CoreGraphics
 
-struct SceneScreenTopology: Equatable {
+nonisolated struct SceneScreenTopology: Equatable, Sendable {
     let displayID: CGDirectDisplayID
     let frame: CGRect
     let backingScaleFactor: CGFloat
