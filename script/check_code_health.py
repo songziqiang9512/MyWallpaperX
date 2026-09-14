@@ -10,6 +10,11 @@ import sys
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+try:
+    from script.source_relocations import unchanged_source_relocations
+except ModuleNotFoundError:
+    from source_relocations import unchanged_source_relocations
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BASELINE_RELATIVE_PATH = Path("script/code_health_baseline.json")
@@ -396,6 +401,14 @@ def main() -> int:
             if notice:
                 emit_notice(notice, arguments.format)
             if previous is not None:
+                relocations = unchanged_source_relocations(
+                    REPO_ROOT, arguments.base_ref, previous["legacyFiles"],
+                    set(baseline["legacyFiles"]) - set(previous["legacyFiles"]),
+                )
+                previous = {**previous, "legacyFiles": {
+                    relocations.get(path, path): allowance
+                    for path, allowance in previous["legacyFiles"].items()
+                }}
                 errors.extend(historical_problems(baseline, previous))
         except ValueError as error:
             errors.append((BASELINE_RELATIVE_PATH.as_posix(), str(error)))
