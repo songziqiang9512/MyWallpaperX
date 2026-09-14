@@ -134,3 +134,6 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 
 - 本图是 as-built 快照：结构/不变量长期有效，file:line 会漂移（每批执行时复核锚点）。
 - 任何批次改变了 §2 的一行或 §3 的一条不变量，必须同批更新本图（与[工程计划](engine-refactor-program.md)工位卡一起），否则地图作废。
+
+
+> M0.2 闭环补记（2026-09-14）：静音权威已闭环——全部 UI/热键/daemon 回放读取 `PlaybackMuteState`；video 派生 `isMuted` 仅存为内部实现；音量滑杆 0 边界经命令同步公共意图（AppKitSettingsView.handleVolumeChange）。热键读取点同样切换（WallpaperManager+PlaybackSettings muteToggle）。
