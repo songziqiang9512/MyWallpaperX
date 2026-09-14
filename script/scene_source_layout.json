@@ -38,6 +38,8 @@
       "EffectExecution": {
         "file_globs": [
           "SceneGraphResourcePassEncoder.swift",
+          "ScenePreparedDirectDrawOutputGeometry.swift",
+          "SceneResolvedMaterialDirectDrawGeometryCompiler.swift",
           "SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
           "SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
           "SceneResolvedMaterialExecutionCapability+Material.swift",

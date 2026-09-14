@@ -60,6 +60,7 @@
 | authored 解码产物（IR/descriptor/资产目录） | launch 队列一次构建 | launchContext | 场景期 | topology（整体替换） |
 | author shader 程序（MSL artifact） | admission 编译（子进程）+ 磁盘/内存 artifact cache | capability catalog（不可变，token 寻址） | catalog 生命周期 | program-variant |
 | PSO/MTLLibrary | PassEncoder entries，key=MetalCompileStateKey（含完整 metalSource）；launch 期 warmup 预编 | pipeline repository | 直到 executor.reset() 清空 | program-variant；reset 后首帧主线程重编译 |
+| source-less direct-draw 放置几何 | SceneResolvedMaterialDirectDrawGeometryCompiler 从不可变 Program 事实编译 | ScenePreparedDirectDrawOutputGeometry（capability 持有） | capability 生命周期 | program-variant；renderer 消费 typed 放置结果，不按 effect 名称选择算法 |
 | 基础纹理 | PreparedBaseImageResources 后台预解码；deferred 按需 worker（per 世代队列） | imageTextures store（per view） | view/场景期，缓存无字节上限 | resource-generation / geometry-extent |
 | 材质资产纹理 | MaterialAssetTextureCatalog launch 内联同步解码 | catalog | 场景期 | resource-generation |
 | 视频帧 | AVPlayer 解码线程 + CVMetalTextureCache 零拷贝 | per-source pending → 三段栅栏 | 帧期 | resource-generation（每帧 generation++） |

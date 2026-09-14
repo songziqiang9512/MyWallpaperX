@@ -49,6 +49,8 @@
 
 **交接门（2026-09-14，审计基点 c39d78a7）：尚未通过。** 基线 `ec490e1b` 与 `origin/codex/scene-capability-baseline` 一致，35 个本地提交；当前基点隔离 checkpoint 构建成功，但不据此追认每个历史提交的构建。已发现 M0 播放态协议分发、M3.2 同步 launch generation、M5.2 EOF/协议事件的纠偏项，须先逐项修复/验证，再进入 M5.3。历史卡内 ✅ 只表示原批落地声明，不等于本轮审计或完整 DoD 通过。Fast Suite manifest 仍含 `selection-required`；两个代表样本已选 `2938612768`、`1300076567`，人工结果待实测确认。
 
+交接治理校正：历史 Light Shafts 文件链接改为明确退役标记，两个现役 direct-draw 几何类型补入目录合同及事实地图；semantics coverage / 文档登记 / governance 共 31 项通过，不代表运行验收完成。
+
 
 卡格式：**改哪里 → 怎么做 → 验收门 → 回滚**。状态记录于卡内标题行；执行细节与 file:line 锚点查[事实架构地图](runtime-as-built-map.md)。
 
