@@ -41,10 +41,17 @@ final class SceneTextureLoader {
         let parseError: String?
     }
 
+    private enum DirectImageResource {
+        case decoded(CGImage)
+        case failed(String)
+    }
+
     private static let directImageExtensions: Set<String> = ["png", "jpg", "jpeg"]
     private static let texExtension = "tex"
     private var textureOutcomes: [TextureKey: SceneTextureLoadOutcome] = [:]
     private var texResources: [SourceKey: TexResource] = [:]
+    private var directImageResources: [SourceKey: DirectImageResource] = [:]
+    private(set) var directImageDecodeAttemptCount = 0
 
     // GPUs cope poorly with extremely large textures (e.g. 8192×6144 RGBA8 =
     // 192 MB), and Apple Silicon's maxTexture2DLimit is 16384 but actual
@@ -95,7 +102,12 @@ final class SceneTextureLoader {
         let ext = url.pathExtension.lowercased()
         let outcome: SceneTextureLoadOutcome
         if Self.directImageExtensions.contains(ext) {
-            outcome = loadDirectImage(url: url, purpose: purpose, device: device)
+            outcome = loadDirectImage(
+                url: url,
+                source: source,
+                purpose: purpose,
+                device: device
+            )
         } else if ext == Self.texExtension {
             outcome = loadWallpaperEngineTex(
                 url: url,
@@ -130,12 +142,31 @@ final class SceneTextureLoader {
 
     private func loadDirectImage(
         url: URL,
+        source: SourceKey,
         purpose: SceneTextureLoadPurpose,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-            return .decodeFailed("CGImageSource failed to decode \(url.lastPathComponent)")
+        let resource: DirectImageResource
+        if let cached = directImageResources[source] {
+            resource = cached
+        } else {
+            directImageDecodeAttemptCount += 1
+            if let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
+               let image = CGImageSourceCreateImageAtIndex(imageSource, 0, nil) {
+                resource = .decoded(image)
+            } else {
+                resource = .failed(
+                    "CGImageSource failed to decode \(url.lastPathComponent)"
+                )
+            }
+            directImageResources[source] = resource
+        }
+        let cgImage: CGImage
+        switch resource {
+        case let .decoded(image):
+            cgImage = image
+        case let .failed(message):
+            return .decodeFailed(message)
         }
         return SceneImageTextureUploader.upload(
             image: cgImage,

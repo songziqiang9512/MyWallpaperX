@@ -243,6 +243,7 @@ enum Harness {
             purpose: .preservedChannels,
             device: device
         )
+        let sharedDecodeAttempts = sharedLoader.directImageDecodeAttemptCount
         let reusedTexture: Bool
         let reusedPreservedTexture: Bool
         let differentPurposeTexture: Bool
@@ -368,6 +369,7 @@ enum Harness {
             "reusedTexture": reusedTexture,
             "reusedPreservedTexture": reusedPreservedTexture,
             "differentPurposeTexture": differentPurposeTexture,
+            "sharedDecodeAttempts": sharedDecodeAttempts,
             "changedFileInvalidatedCache": changedFileInvalidatedCache,
             "premultipliedDataRejected": premultipliedDataRejected,
             "resizedDataRejected": resizedDataRejected,
@@ -793,6 +795,8 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
     def test_loader_reuses_unchanged_textures_but_invalidates_changed_user_files(self) -> None:
         self.assertTrue(self.result["reusedTexture"])
         self.assertTrue(self.result["reusedPreservedTexture"])
+        self.assertTrue(self.result["differentPurposeTexture"])
+        self.assertEqual(self.result["sharedDecodeAttempts"], 1)
         self.assertTrue(self.result["changedFileInvalidatedCache"])
 
     def test_surface_rebuild_reopens_security_scoped_urls(self) -> None:

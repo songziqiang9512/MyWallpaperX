@@ -65,7 +65,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 | layer colorBlend PSO / framebuffer snapshot | descriptor 含非零 layer blend 时在 device-resource worker 预热不可变 PSO state；compositor 首次需要时只组装 state + 本 surface snapshot | launch 级 pipeline repository 持有唯一 PSO state；各 compositor 独占 framebuffer snapshot | PSO 为 launch 生命周期；snapshot 为 surface 生命周期 | PSO 随 device/repository 替换；snapshot 随 surface teardown 或 geometry extent 变化 |
 | source-less direct-draw 放置几何 | SceneResolvedMaterialDirectDrawGeometryCompiler 从不可变 Program 事实编译 | ScenePreparedDirectDrawOutputGeometry（capability 持有） | capability 生命周期 | program-variant；renderer 消费 typed 放置结果，不按 effect 名称选择算法 |
 | uniform 参数来源/静态值 | Program finalizer `prepareUniformBindings` 在 variant 准备时决定；静态声明失败在 launch envelope 拒绝对应 owner | compiled variant 的 preparedUniformBindings | variant 生命周期 | program-variant；帧内只物化 live value/resource 并校验 layout identity |
-| 基础纹理 | PreparedBaseImageResources 后台预解码；deferred 按需 worker（per 世代队列） | imageTextures store（per view） | view/场景期，缓存无字节上限 | resource-generation / geometry-extent |
+| 基础纹理 | PreparedBaseImageResources 后台预解码；deferred 按需 worker（per 世代队列）；loose PNG/JPEG 在每个 SceneTextureLoader 内按完整 SourceKey 复用 ImageIO CGImage 解码，Metal texture 仍按 source/device/purpose 分离 | imageTextures store（per view）+ loader directImageResources | view/场景期，缓存无字节上限 | resource-generation / geometry-extent；loose 文件 size/mtime/device/inode/ctime 任一变化即换 SourceKey |
 | 材质资产纹理 | MaterialAssetTextureCatalog launch 内联同步解码 | catalog | 场景期 | resource-generation |
 | 视频帧 | AVPlayer 解码线程 + CVMetalTextureCache 零拷贝 | per-source pending → 三段栅栏 | 帧期 | resource-generation（每帧 generation++） |
 | 动态文字/媒体缩略图 | 专用异步队列，签名/generation 去重 | pending 状态机 → 三段栅栏 | 帧期 | resource-generation |
