@@ -148,6 +148,43 @@ enum Harness {
             device: device
         )
         let launchUploadQueueAttempts = launchUploadQueue.creationAttemptCount
+        let decodeBudget = SceneTextureDecodeCacheBudget(maximumBytes: 1_024)
+        let admittedDecodeLoader = SceneTextureLoader(
+            decodeCacheBudget: decodeBudget
+        )
+        _ = admittedDecodeLoader.load(from: pngURL, device: device)
+        let admittedDecodeBytes = decodeBudget.residentBytes
+        decodeBudget.updateMaximumBytes(0)
+        let deniedDecodeLoader = SceneTextureLoader(
+            decodeCacheBudget: decodeBudget
+        )
+        let deniedColorOutcome = deniedDecodeLoader.load(
+            from: jpegURL,
+            purpose: .premultipliedColor,
+            device: device
+        )
+        let deniedPreservedOutcome = deniedDecodeLoader.load(
+            from: jpegURL,
+            purpose: .preservedChannels,
+            device: device
+        )
+        guard case .loaded = deniedColorOutcome,
+              case .loaded = deniedPreservedOutcome else {
+            throw HarnessError.textureRead
+        }
+        let deniedDecodeAttempts = deniedDecodeLoader.directImageDecodeAttemptCount
+        let decodeBudgetRejectedAdmissions = decodeBudget.rejectionCount
+        let decodeBudgetBytesAfterDenial = decodeBudget.residentBytes
+        let releasedDecodeBudget = SceneTextureDecodeCacheBudget(maximumBytes: 1_024)
+        var leasedDecodeBytes = 0
+        do {
+            let leasedLoader = SceneTextureLoader(
+                decodeCacheBudget: releasedDecodeBudget
+            )
+            _ = leasedLoader.load(from: pngURL, device: device)
+            leasedDecodeBytes = releasedDecodeBudget.residentBytes
+        }
+        let releasedDecodeBytes = releasedDecodeBudget.residentBytes
         let sharedLoader = SceneTextureLoader()
         let embeddedDataOutcome = SceneTextureMipUploader.uploadEmbeddedDataImages(
             [.init(width: 2, height: 1, data: try Data(contentsOf: pngURL))],
@@ -388,6 +425,12 @@ enum Harness {
             "embeddedTexDifferentPurpose": embeddedTexDifferentPurpose,
             "embeddedTexDecodeAttempts": embeddedTexDecodeAttempts,
             "launchUploadQueueAttempts": launchUploadQueueAttempts,
+            "admittedDecodeBytes": admittedDecodeBytes,
+            "deniedDecodeAttempts": deniedDecodeAttempts,
+            "decodeBudgetRejectedAdmissions": decodeBudgetRejectedAdmissions,
+            "decodeBudgetBytesAfterDenial": decodeBudgetBytesAfterDenial,
+            "leasedDecodeBytes": leasedDecodeBytes,
+            "releasedDecodeBytes": releasedDecodeBytes,
             "reportLines": result.reportLines,
             "retryLoadedKeys": retry.textures.keys.sorted(),
             "retryCandidateKeys": retry.textureCandidates.keys.sorted(),
@@ -876,6 +919,19 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
 
     def test_two_loaders_share_one_injected_upload_command_queue(self) -> None:
         self.assertEqual(self.result["launchUploadQueueAttempts"], 1)
+
+    def test_decode_cache_budget_applies_to_next_admission(self) -> None:
+        self.assertGreater(self.result["admittedDecodeBytes"], 0)
+        self.assertEqual(self.result["deniedDecodeAttempts"], 2)
+        self.assertGreaterEqual(self.result["decodeBudgetRejectedAdmissions"], 2)
+        self.assertEqual(
+            self.result["decodeBudgetBytesAfterDenial"],
+            self.result["admittedDecodeBytes"],
+        )
+
+    def test_decode_cache_budget_releases_with_loader(self) -> None:
+        self.assertGreater(self.result["leasedDecodeBytes"], 0)
+        self.assertEqual(self.result["releasedDecodeBytes"], 0)
 
     def test_surface_rebuild_reopens_security_scoped_urls(self) -> None:
         source = HOST_SOURCE.read_text(encoding="utf-8")

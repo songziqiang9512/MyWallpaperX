@@ -65,7 +65,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 | layer colorBlend PSO / framebuffer snapshot | descriptor 含非零 layer blend 时在 device-resource worker 预热不可变 PSO state；compositor 首次需要时只组装 state + 本 surface snapshot | launch 级 pipeline repository 持有唯一 PSO state；各 compositor 独占 framebuffer snapshot | PSO 为 launch 生命周期；snapshot 为 surface 生命周期 | PSO 随 device/repository 替换；snapshot 随 surface teardown 或 geometry extent 变化 |
 | source-less direct-draw 放置几何 | SceneResolvedMaterialDirectDrawGeometryCompiler 从不可变 Program 事实编译 | ScenePreparedDirectDrawOutputGeometry（capability 持有） | capability 生命周期 | program-variant；renderer 消费 typed 放置结果，不按 effect 名称选择算法 |
 | uniform 参数来源/静态值 | Program finalizer `prepareUniformBindings` 在 variant 准备时决定；静态声明失败在 launch envelope 拒绝对应 owner | compiled variant 的 preparedUniformBindings | variant 生命周期 | program-variant；帧内只物化 live value/resource 并校验 layout identity |
-| 基础纹理 | PreparedBaseImageResources 后台预解码；deferred 按需 worker（per 世代队列）；loose PNG/JPEG 与内嵌 TEX mip/payload 在每个 SceneTextureLoader 内按完整 SourceKey 复用 ImageIO CGImage 解码，Metal texture 仍按 source/device/purpose 分离 | imageTextures store（per view）+ loader directImageResources/texEmbeddedImageResources | view/场景期，缓存无字节上限 | resource-generation / geometry-extent；文件 size/mtime/device/inode/ctime 任一变化即换 SourceKey |
+| 基础纹理 | PreparedBaseImageResources 后台预解码；deferred 按需 worker（per 世代队列）；loose PNG/JPEG 与内嵌 TEX mip/payload 在每个 SceneTextureLoader 内按完整 SourceKey 复用 ImageIO CGImage 解码，Metal texture 仍按 source/device/purpose 分离；daemon Host 按性能档持有共享 `SceneTextureDecodeCacheBudget`（standard 1GB / efficient 512MB），统计 TEX 源数据与解码 CGImage，超限只跳过中间缓存 | imageTextures store（per view）+ loader directImageResources/texEmbeddedImageResources；预算 lease 聚合一次 launch 的 material/base/deferred/user-property loader | view/场景期；loader 释放时归还预算；热降档从下次准入生效，不驱逐既有纹理 | resource-generation / geometry-extent；文件 size/mtime/device/inode/ctime 任一变化即换 SourceKey；profile 只改准入帽，不新增失效域 |
 | 纹理上传 command queue | launch 创建一个 `SceneTextureUploadCommandQueue`，按 device registryID 懒建并负缓存 queue；注入 material/base/deferred/static-model/particle/user-property/media-thumbnail 资源消费者 | launchContext 持有的共享 upload queue；renderer 另有 per-surface frame queue | scene/device 生命周期；跨 surface 共享 | device/scene 整体替换；不参与 value-only/resource-generation 帧失效 |
 | 材质资产纹理 | MaterialAssetTextureCatalog launch 内联同步解码 | catalog | 场景期 | resource-generation |
 | 视频帧 | AVPlayer 解码线程 + CVMetalTextureCache 零拷贝 | per-source pending → 三段栅栏 | 帧期 | resource-generation（每帧 generation++） |
@@ -110,7 +110,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 | 加 invalidation 触发（档位切换/重连/显示变化） | executor.reset() 推进 PreparedPass 命令世代但保留完整内容键 PSO；catalog/device 替换必须重建 executor | 旧命令被误接纳；错误跨 catalog/device 复用；重置后首帧重新编译 |
 | 加 per-frame 遥测/诊断 | 常开层只准定长整数更新（不变量 17）；完整 observation/evidence 仍服从 evidence 门三合一语义（不变量 12）+ sticky 行为 + Release 恒 false | Release 分配/字符串/遍历回归；窗口样式意外变化；统计触发 lazy pipeline 编译 |
 | 新 offscreen target 类型 | allocation cache key + pin 故事 + history-only 降级路径 | 在飞资源被逐出 → GPU target hazard |
-| 静音/预算档/命令层（M0.2/M0.7 已落地） | video previousAudibleVolume 恢复语义 + SceneSoundPlaybackRegistry 静音门 + `PlaybackMuteState`/`PlaybackPerformanceProfile` 权威 + daemon `setMuted`/`setPerformanceProfile` | video 音量恢复错档；Scene 音效/帧率不受控；第二静音权威 |
+| 静音/预算档/命令层（M0.2/M0.7 已落地） | video previousAudibleVolume 恢复语义 + SceneSoundPlaybackRegistry 静音门 + `PlaybackMuteState`/`PlaybackPerformanceProfile` 权威 + daemon `setMuted`/`setPerformanceProfile`；性能档同时更新 cadence 与共享 texture decode 准入帽 | video 音量恢复错档；Scene 音效/帧率/缓存预算不受控；第二静音或预算权威 |
 | 动 puppet atlas/composed | coverage ledger + UV 合同 | puppet 采样错位（近期迁移高发区） |
 | launch 加后台准备 | 世代令牌 + per-generation 队列 | 旧场景任务写进新场景表面 |
 | 退役一条 effect 执行旁路 | route state（observe→prefer→generic-only）+ fixture/golden 转行为合同 | 静默双执行或能力回退 |
@@ -119,6 +119,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 
 - `6aa74ba2`：coordinator 按不可变 catalog token 缓存 ClaimedExecution，独立锁；不缓存当帧 publication/准入。
 - `08c70d53`：pool 按 capability token/layer/解析后尺寸/materialFunctionTargets 内容缓存 target plans；reset 清空，失败不缓存。键与输入同源性及缓存容量仍需正式反例门。
+- M4.2 texture decode cache：一次 daemon Host 持有共享字节预算，loader lease 在其生命周期内累计 TEX 源数据与 decoded CGImage；拒绝缓存准入不能拒绝同次解码/上传，也不能变更 Metal texture/publication owner。profile 热降档只影响后续准入；既有 resident 中间数据随 loader 生命周期释放。
 - executor 的 `8b3a8d58` Bool memo 已撤回：同键不同 stored plan 可绕过命令表校验，失败结果也可污染后续合法 lease。当前恢复 `make + expected == lease.table.plan`；纹理、角色、generation 和 functionTargets 守卫全部保留。后续只能缓存 expected plan 或有完整内容/身份保证的 prepared 表示，不能缓存省略被比较对象身份的 Bool。
 - 同步 launch 与异步 requestLaunch 均在每次准备尝试前递增唯一 `nextSceneScriptGeneration`。`1a7e4020` 误删同步递增已在交接纠偏恢复；可执行入口测试覆盖成功/失败/成功得到 1/2/3，失败尝试不可复用身份。
 - 播放态 `isPlaying` 已补为 `PlaybackEngineControlling` 协议要求，multiplexer 读取具体处理端状态；回归测试覆盖 Scene 在播、广播暂停、video 定向恢复与注销。此前 extension-only 默认 false 的错误分发不得在 IPC client 中复现。Scene `.stop` 始终进入既有 Host.stop()（幂等），包括异步准备中尚无 launchContext 的阶段，避免 pending launch 在停止后继续激活。

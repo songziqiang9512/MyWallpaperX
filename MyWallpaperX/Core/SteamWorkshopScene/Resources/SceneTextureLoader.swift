@@ -18,6 +18,81 @@ enum SceneTextureLoadOutcome {
     case textureAllocationFailed(width: Int, height: Int)
 }
 
+/// Shared admission counter for launch-lifetime decoded texture caches. It
+/// accounts only re-creatable source/decoded bytes; published Metal textures
+/// remain owned by their existing product stores and are never evicted here.
+nonisolated final class SceneTextureDecodeCacheBudget: @unchecked Sendable {
+    private let lock = NSLock()
+    private var limit: Int
+    private var reserved = 0
+    private var rejectedAdmissions = 0
+
+    init(maximumBytes: Int) {
+        limit = max(maximumBytes, 0)
+    }
+
+    var maximumBytes: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return limit
+    }
+
+    var residentBytes: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return reserved
+    }
+
+    var rejectionCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return rejectedAdmissions
+    }
+
+    func updateMaximumBytes(_ maximumBytes: Int) {
+        lock.lock()
+        limit = max(maximumBytes, 0)
+        lock.unlock()
+    }
+
+    fileprivate func reserve(_ byteCount: Int) -> Bool {
+        guard byteCount >= 0 else { return false }
+        lock.lock()
+        defer { lock.unlock() }
+        guard byteCount <= limit - min(reserved, limit) else {
+            rejectedAdmissions += 1
+            return false
+        }
+        reserved += byteCount
+        return true
+    }
+
+    fileprivate func release(_ byteCount: Int) {
+        lock.lock()
+        reserved = max(reserved - max(byteCount, 0), 0)
+        lock.unlock()
+    }
+}
+
+nonisolated private final class SceneTextureDecodeCacheLease {
+    private let budget: SceneTextureDecodeCacheBudget
+    private var reservedBytes = 0
+
+    init(budget: SceneTextureDecodeCacheBudget) {
+        self.budget = budget
+    }
+
+    deinit {
+        budget.release(reservedBytes)
+    }
+
+    func reserve(_ byteCount: Int) -> Bool {
+        guard budget.reserve(byteCount) else { return false }
+        reservedBytes += byteCount
+        return true
+    }
+}
+
 final class SceneTextureLoader {
     struct SourceKey: Hashable {
         let path: String
@@ -58,6 +133,8 @@ final class SceneTextureLoader {
     private var directImageResources: [SourceKey: DirectImageResource] = [:]
     private var texEmbeddedImageResources: [SourceKey: TexEmbeddedImageResource] = [:]
     let uploadCommandQueue: SceneTextureUploadCommandQueue
+    let decodeCacheBudget: SceneTextureDecodeCacheBudget
+    private let decodeCacheLease: SceneTextureDecodeCacheLease
     private(set) var directImageDecodeAttemptCount = 0
     private(set) var texEmbeddedImageDecodeAttemptCount = 0
 
@@ -67,8 +144,17 @@ final class SceneTextureLoader {
     // we always have headroom for several layers worth of textures.
     static let maxTextureDimension = 4096
 
-    init(uploadCommandQueue: SceneTextureUploadCommandQueue = .init()) {
+    init(
+        uploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
+        decodeCacheBudget: SceneTextureDecodeCacheBudget = .init(
+            maximumBytes: 1_024 * 1_024 * 1_024
+        )
+    ) {
         self.uploadCommandQueue = uploadCommandQueue
+        self.decodeCacheBudget = decodeCacheBudget
+        self.decodeCacheLease = SceneTextureDecodeCacheLease(
+            budget: decodeCacheBudget
+        )
     }
 
     func load(from url: URL, device: MTLDevice) -> SceneTextureLoadOutcome {
@@ -171,7 +257,12 @@ final class SceneTextureLoader {
                     "CGImageSource failed to decode \(url.lastPathComponent)"
                 )
             }
-            directImageResources[source] = resource
+            if case let .decoded(image) = resource,
+               decodeCacheLease.reserve(Self.decodedByteCost(image)) {
+                directImageResources[source] = resource
+            } else if case .failed = resource {
+                directImageResources[source] = resource
+            }
         }
         let cgImage: CGImage
         switch resource {
@@ -258,7 +349,9 @@ final class SceneTextureLoader {
                 parseError: error.localizedDescription
             )
         }
-        texResources[source] = resource
+        if decodeCacheLease.reserve(data.count) {
+            texResources[source] = resource
+        }
         return resource
     }
 
@@ -373,8 +466,23 @@ final class SceneTextureLoader {
             texEmbeddedImageResources[source] = .failed
             return nil
         }
-        texEmbeddedImageResources[source] = .decoded(images)
+        let byteCost = images.reduce(into: 0) { total, image in
+            let (next, overflow) = total.addingReportingOverflow(
+                Self.decodedByteCost(image)
+            )
+            total = overflow ? Int.max : next
+        }
+        if decodeCacheLease.reserve(byteCost) {
+            texEmbeddedImageResources[source] = .decoded(images)
+        }
         return images
+    }
+
+    private static func decodedByteCost(_ image: CGImage) -> Int {
+        let (cost, overflow) = image.bytesPerRow.multipliedReportingOverflow(
+            by: image.height
+        )
+        return overflow ? Int.max : cost
     }
 
     // Returns the byte range of the first JPEG or PNG payload inside a .tex

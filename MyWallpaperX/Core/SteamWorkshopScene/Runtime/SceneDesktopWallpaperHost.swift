@@ -76,6 +76,10 @@ final class SceneDesktopWallpaperHost {
     var nextDeferredPropertyGeneration: UInt64 = 0
     var pendingDeferredLayerVisibilityUpdate:
         PendingDeferredLayerVisibilityUpdate?
+    let textureDecodeCacheBudget = SceneTextureDecodeCacheBudget(
+        maximumBytes: PlaybackPerformanceProfile.current
+            .sceneTextureDecodeCacheByteBudget
+    )
 #if DEBUG
     var debugPointerOverride: SceneSurfacePointerState?
     var debugSurfaceReferenceFrames: [CGDirectDisplayID: NSRect] = [:]
@@ -95,6 +99,9 @@ final class SceneDesktopWallpaperHost {
 
     func applyPerformanceProfile(_ profile: PlaybackPerformanceProfile) {
         performanceProfile = profile
+        textureDecodeCacheBudget.updateMaximumBytes(
+            profile.sceneTextureDecodeCacheByteBudget
+        )
     }
 
     /// Refreshes resource gauges from constant-time owner values. This is
@@ -487,6 +494,8 @@ final class SceneDesktopWallpaperHost {
                     launchContext.textureAnimationPlaybackRuntime,
                 textureUploadCommandQueue: launchContext.preparedDeviceResources
                     .baseImages.textureLoader.uploadCommandQueue,
+                textureDecodeCacheBudget: launchContext.preparedDeviceResources
+                    .baseImages.textureLoader.decodeCacheBudget,
                 userPropertyTextureURLs: launchContext.userPropertyTextureURLs,
                 dynamicTextFieldsByLayerID:
                     launchContext.frameSchema.dynamicTextFieldsByLayerID,

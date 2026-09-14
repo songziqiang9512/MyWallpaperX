@@ -115,6 +115,11 @@ import Foundation
             "profile": 60, "propertyOverrides": [:],
             "userPropertyTextures": ["cover": ["path": "/tmp/a", "bookmark": "%%"]]
         ]) { badBookmarkRejected = true } else { badBookmarkRejected = false }
+        let profileBudgetsValid =
+            PlaybackPerformanceProfile.standard.sceneTextureDecodeCacheByteBudget
+                == 1_024 * 1_024 * 1_024
+            && PlaybackPerformanceProfile.efficient.sceneTextureDecodeCacheByteBudget
+                == 512 * 1_024 * 1_024
         let payload = [
             "loadValid": loadValid,
             "propertyValid": propertyValid,
@@ -127,6 +132,7 @@ import Foundation
             "displayValid": displayValid,
             "duplicateDisplayRejected": duplicateDisplayRejected,
             "badBookmarkRejected": badBookmarkRejected,
+            "profileBudgetsValid": profileBudgetsValid,
         ]
         print(String(data: try JSONEncoder().encode(payload), encoding: .utf8)!)
     }
@@ -180,6 +186,13 @@ class SceneDaemonProtocolTests(unittest.TestCase):
         )
         self.assertIn("presentation.requestID == self.currentRequestID", runtime)
         self.assertNotIn("launchPhaseSnapshot()[.firstVisibleFrame]", runtime)
+
+    def test_performance_profile_updates_shared_texture_decode_budget(self) -> None:
+        host = HOST.read_text(encoding="utf-8")
+        method = function_body(host, "func applyPerformanceProfile(")
+        self.assertIn("performanceProfile = profile", method)
+        self.assertIn("textureDecodeCacheBudget.updateMaximumBytes", method)
+        self.assertIn("profile.sceneTextureDecodeCacheByteBudget", method)
 
     def test_shutdown_stops_then_drains_every_existing_surface_queue(self) -> None:
         shutdown = SHUTDOWN.read_text(encoding="utf-8")

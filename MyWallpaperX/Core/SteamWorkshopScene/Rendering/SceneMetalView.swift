@@ -96,6 +96,9 @@ class SceneMetalView: NSView {
         textureAnimationPlaybackRuntime:
             SceneTextureAnimationPlaybackRuntime,
         textureUploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
+        textureDecodeCacheBudget: SceneTextureDecodeCacheBudget = .init(
+            maximumBytes: 1_024 * 1_024 * 1_024
+        ),
         userPropertyTextureURLs: [String: URL] = [:],
         dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:],
         firstFramePresentationRegistration:
@@ -127,6 +130,7 @@ class SceneMetalView: NSView {
                 including: renderDescriptor.texturePropertyKeys
             ).union(baseMaterialProviderBindings.userPropertyDemands),
             textureUploadCommandQueue: textureUploadCommandQueue,
+            textureDecodeCacheBudget: textureDecodeCacheBudget,
             device: renderer.device
         )
         let layer = CAMetalLayer()

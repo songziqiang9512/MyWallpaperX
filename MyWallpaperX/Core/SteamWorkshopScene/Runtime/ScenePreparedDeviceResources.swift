@@ -74,7 +74,8 @@ final class ScenePreparedBaseImageResources {
     ) {
         self.textureLoader = textureLoader
         self.deferredTextureLoader = SceneTextureLoader(
-            uploadCommandQueue: textureLoader.uploadCommandQueue
+            uploadCommandQueue: textureLoader.uploadCommandQueue,
+            decodeCacheBudget: textureLoader.decodeCacheBudget
         )
         self.sceneGeneration = sceneGeneration
         self.device = device
@@ -101,10 +102,14 @@ final class ScenePreparedBaseImageResources {
         dynamicImageModelPaths: Set<String> = [],
         deferredBaseImageLayerIDs: Set<Int> = [],
         uploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
+        decodeCacheBudget: SceneTextureDecodeCacheBudget = .init(
+            maximumBytes: 1_024 * 1_024 * 1_024
+        ),
         cancellationCheck: () throws -> Void
     ) throws -> ScenePreparedBaseImageResources {
         let textureLoader = SceneTextureLoader(
-            uploadCommandQueue: uploadCommandQueue
+            uploadCommandQueue: uploadCommandQueue,
+            decodeCacheBudget: decodeCacheBudget
         )
         let resolver = SceneTexturePathResolver(
             resourceView: resourceView,
@@ -440,6 +445,7 @@ final class ScenePreparedDeviceResourcesTask {
     private let deferredBaseImageLayerIDs: Set<Int>
     private let sceneGeneration: UInt64
     private let textureUploadCommandQueue: SceneTextureUploadCommandQueue
+    private let textureDecodeCacheBudget: SceneTextureDecodeCacheBudget
     private let externalCancellationCheck: () throws -> Void
     private var result: Result<ScenePreparedDeviceResources, Error>?
     private var cancellationRequested = false
@@ -452,6 +458,9 @@ final class ScenePreparedDeviceResourcesTask {
         dynamicImageModelPaths: Set<String> = [],
         deferredBaseImageLayerIDs: Set<Int> = [],
         textureUploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
+        textureDecodeCacheBudget: SceneTextureDecodeCacheBudget = .init(
+            maximumBytes: 1_024 * 1_024 * 1_024
+        ),
         cancellationCheck: @escaping () throws -> Void
     ) {
         self.descriptor = descriptor
@@ -459,6 +468,7 @@ final class ScenePreparedDeviceResourcesTask {
         self.device = device
         self.sceneGeneration = sceneGeneration
         self.textureUploadCommandQueue = textureUploadCommandQueue
+        self.textureDecodeCacheBudget = textureDecodeCacheBudget
         self.dynamicImageModelPaths = dynamicImageModelPaths
         self.deferredBaseImageLayerIDs = deferredBaseImageLayerIDs
         externalCancellationCheck = cancellationCheck
@@ -492,6 +502,7 @@ final class ScenePreparedDeviceResourcesTask {
                     dynamicImageModelPaths: dynamicImageModelPaths,
                     deferredBaseImageLayerIDs: deferredBaseImageLayerIDs,
                     uploadCommandQueue: textureUploadCommandQueue,
+                    decodeCacheBudget: textureDecodeCacheBudget,
                     cancellationCheck: checkCancellation
                 )
                 let staticModels = try ScenePreparedStaticModelResources.prepare(

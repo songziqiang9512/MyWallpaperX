@@ -176,6 +176,7 @@ extension SceneDesktopWallpaperHost {
                     logURL: logURL,
                     recordID: recordID,
                     sceneScriptGeneration: scriptGeneration,
+                    textureDecodeCacheBudget: self.textureDecodeCacheBudget,
                     cancellation: cancellation
                 ) { [weak self] phase, message in
                     DispatchQueue.main.async {
@@ -281,8 +282,7 @@ extension SceneDesktopWallpaperHost {
         recordID: String? = nil
     ) throws -> SceneRuntimeModel {
         nextSceneScriptGeneration &+= 1
-        // M3.2：同步 launch 路径（debug runner）接入 launch 阶段计时，
-        // 与异步 requestLaunch 同口径，补齐 TTFVF 归因。
+        // M3.2：同步 debug launch 与异步路径同口径记录 TTFVF 阶段。
         Self.recordLaunchPhase(.accepted)
         let prepared = try Self.prepareLaunch(
             rootURL: rootURL,
@@ -291,10 +291,9 @@ extension SceneDesktopWallpaperHost {
             logURL: logURL,
             recordID: recordID,
             sceneScriptGeneration: nextSceneScriptGeneration,
+            textureDecodeCacheBudget: textureDecodeCacheBudget,
             cancellation: nil,
-            progress: { phase, _ in
-                SceneDesktopWallpaperHost.recordLaunchPhase(phase)
-            }
+            progress: { phase, _ in SceneDesktopWallpaperHost.recordLaunchPhase(phase) }
         )
         try activate(prepared.context)
         Self.recordLaunchPhase(.launched)
@@ -308,6 +307,7 @@ extension SceneDesktopWallpaperHost {
         logURL: URL?,
         recordID: String?,
         sceneScriptGeneration: UInt64,
+        textureDecodeCacheBudget: SceneTextureDecodeCacheBudget,
         cancellation: SceneWallpaperLaunchCancellation?,
         progress: ((SceneWallpaperLaunchState.Phase, String) -> Void)?
     ) throws -> PreparedLaunch {
@@ -341,6 +341,7 @@ extension SceneDesktopWallpaperHost {
             dynamicImageModelPaths: model.propertyVectorProjection.dynamicImageModelPaths,
             deferredBaseImageLayerIDs: deferredBaseImageLayerIDs,
             textureUploadCommandQueue: textureUploadCommandQueue,
+            textureDecodeCacheBudget: textureDecodeCacheBudget,
             cancellationCheck: { try cancellation?.check() }
         )
         deviceResourcesPreparation.start()
@@ -368,8 +369,7 @@ extension SceneDesktopWallpaperHost {
                 )
             }
         )
-        typealias VisibilityOwner =
-            SceneResolvedMaterialExecutionCapabilityAdmission.DynamicEffectVisibilityOwner
+        typealias VisibilityOwner = SceneResolvedMaterialExecutionCapabilityAdmission.DynamicEffectVisibilityOwner
         // Script/Timeline owners only register candidates; effects keep authored value.
         var frameDrivenEffectVisibilityOwners = Set<VisibilityOwner>()
         let initiallyInactiveMediaOwners =
@@ -497,8 +497,8 @@ extension SceneDesktopWallpaperHost {
                 return layerID
             }
         )
-        let resolvedMaterialVisibleExecutionRootLayerIDs =
-            SceneLayerVisibility.visibleLayerIDs(in: runtimeInput.renderDescriptor)
+        let resolvedMaterialVisibleExecutionRootLayerIDs = SceneLayerVisibility
+            .visibleLayerIDs(in: runtimeInput.renderDescriptor)
                 .union(projectedLayerVisibilityRootLayerIDs)
         let resolvedMaterialAdmissionCandidates =
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
@@ -534,6 +534,7 @@ extension SceneDesktopWallpaperHost {
             resourceView: model.resourceView,
             descriptor: runtimeInput.renderDescriptor,
             textureUploadCommandQueue: textureUploadCommandQueue,
+            textureDecodeCacheBudget: textureDecodeCacheBudget,
             device: device
         )
         NSLog("MWX LAUNCH-STAGE: stage=catalog-decode elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
@@ -697,8 +698,7 @@ extension SceneDesktopWallpaperHost {
                 SceneScriptLayerMutationBridge.layerID(for: $0.target)
             }
         )
-        let baseMaterialProviderBindings =
-            SceneBaseMaterialProviderBindingCompiler.compile(
+        let baseMaterialProviderBindings = SceneBaseMaterialProviderBindingCompiler.compile(
                 descriptor: runtimeInput.renderDescriptor,
                 materialInstancesByLayerID:
                     model.sceneDocument.materialInstancesByLayerID,

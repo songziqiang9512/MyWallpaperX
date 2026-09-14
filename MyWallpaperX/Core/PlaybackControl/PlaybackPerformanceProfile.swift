@@ -21,4 +21,11 @@ enum PlaybackPerformanceProfile: Int, Sendable, CaseIterable {
     }
 
     var maxFPS: Int { rawValue }
+
+    var sceneTextureDecodeCacheByteBudget: Int {
+        switch self {
+        case .standard: 1_024 * 1_024 * 1_024
+        case .efficient: 512 * 1_024 * 1_024
+        }
+    }
 }

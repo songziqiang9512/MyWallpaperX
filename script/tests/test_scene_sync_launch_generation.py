@@ -19,17 +19,20 @@ class SceneSyncLaunchGenerationTests(unittest.TestCase):
 import Foundation
 struct SceneUserPropertyValue {}
 struct SceneRuntimeModel {}
+struct SceneTextureDecodeCacheBudget {}
 enum Phase { case accepted, launched }
 enum Expected: Error { case preparation }
 final class SceneDesktopWallpaperHost {
     var nextSceneScriptGeneration: UInt64 = 0
+    let textureDecodeCacheBudget = SceneTextureDecodeCacheBudget()
     static var observed: [UInt64] = []
     static var failNext = false
     static func recordLaunchPhase(_ phase: Phase) {}
     static func prepareLaunch(rootURL: URL,
         propertyOverrides: [String: SceneUserPropertyValue],
         userPropertyTextureURLs: [String: URL], logURL: URL?, recordID: String?,
-        sceneScriptGeneration: UInt64, cancellation: Int?,
+        sceneScriptGeneration: UInt64,
+        textureDecodeCacheBudget: SceneTextureDecodeCacheBudget, cancellation: Int?,
         progress: (Phase, String) -> Void
     ) throws -> (context: Int, model: SceneRuntimeModel) {
         observed.append(sceneScriptGeneration)
