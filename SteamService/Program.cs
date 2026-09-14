@@ -36,17 +36,30 @@ internal static class Program
         }
         if (args.Length > 0 && args[0] == "selftest")
         {
-            return await ProtocolSelfTest.RunAsync(args.Length > 1 ? args[2..] : []).ConfigureAwait(false);
+            if (args.Length > 1 && args[1] == "auth")
+            {
+                return AuthSelfTest.Run();
+            }
+            return await ProtocolSelfTest.RunAsync(args.Length > 2 ? args[2..] : []).ConfigureAwait(false);
         }
         return await RunServiceAsync().ConfigureAwait(false);
     }
 
     // §6 服务循环：有界帧读取 → envelope 解码 → 命令 dispatch 分离。
     // 解析失败/超长帧有界关闭，不锁死；terminal 每 requestId 至多一个。
+    // 异步认证命令（loginPassword/loginQR/restoreSession）的 terminal 由
+    // SteamSession 在认证完成/失败/取消时发送，循环不得预占其 requestId。
+    private static readonly HashSet<string> AsyncAuthCommands = new()
+    {
+        "loginPassword", "loginQR", "restoreSession",
+    };
+
+    private static readonly SteamSession steamSession = new(writer, terminals);
+
     private static async Task<int> RunServiceAsync()
     {
-        var processEpoch = 1;
-        writer.Send(ProtocolMessages.Ready(processEpoch, ["ping", "shutdown"]));
+        steamSession.ProcessEpoch = 1;
+        writer.Send(ProtocolMessages.Ready(1, ["ping", "shutdown"]));
 
         using var stdin = Console.OpenStandardInput();
         var reader = new FrameReader(stdin);
@@ -68,7 +81,7 @@ internal static class Program
                 if (reader.LastOutcome == FrameReader.ReadOutcome.Overlong)
                 {
                     writer.Send(ProtocolMessages.ResultError(
-                        "", "protocolMismatch", "frame exceeded 1 MiB limit", processEpoch));
+                        "", "protocolMismatch", "frame exceeded 1 MiB limit", 1));
                 }
                 return 0;
             }
@@ -77,13 +90,18 @@ internal static class Program
             if (!decode.Ok)
             {
                 writer.Send(ProtocolMessages.ResultError(
-                    decode.RequestId ?? "", decode.ErrorCode!, ProtocolRedactor.Redact(decode.Error!), processEpoch));
+                    decode.RequestId ?? "", decode.ErrorCode!, ProtocolRedactor.Redact(decode.Error!), 1));
                 // 协议失配后有界关闭：帧边界已不可信。
                 return 1;
             }
             if (decode.Type != "request") continue;
 
             var requestId = decode.RequestId!;
+            if (AsyncAuthCommands.Contains(decode.Command!))
+            {
+                DispatchAuthCommand(decode, requestId);
+                continue;
+            }
             if (!terminals.TryBegin(requestId))
             {
                 writer.SendDiagnostic($"duplicate requestId suppressed: {requestId}");
@@ -93,15 +111,76 @@ internal static class Program
             switch (decode.Command)
             {
                 case "ping":
-                    writer.Send(ProtocolMessages.ResultOk(requestId, new { pong = true }, processEpoch));
+                    writer.Send(ProtocolMessages.ResultOk(requestId, new { pong = true }, 1));
                     break;
                 case "shutdown":
-                    writer.Send(ProtocolMessages.ResultOk(requestId, new { shuttingDown = true }, processEpoch));
+                    writer.Send(ProtocolMessages.ResultOk(requestId, new { shuttingDown = true }, 1));
                     return 0;
+                case "submitChallenge":
+                {
+                    var code = decode.PayloadString("code");
+                    var attemptId = decode.AuthAttemptId;
+                    if (code is { Length: > 0 } && attemptId is { Length: > 0 }
+                        && steamSession.SubmitChallenge(attemptId, code))
+                    {
+                        writer.Send(ProtocolMessages.ResultOk(requestId, new { accepted = true }, 1));
+                    }
+                    else
+                    {
+                        writer.Send(ProtocolMessages.ResultOk(requestId, new { accepted = false }, 1));
+                    }
+                    break;
+                }
+                case "cancelAuthentication":
+                {
+                    var cancelled = steamSession.CancelAuthentication(decode.AuthAttemptId);
+                    writer.Send(ProtocolMessages.ResultOk(requestId, new { cancelled }, 1));
+                    break;
+                }
+                case "logout":
+                    steamSession.Logout(requestId);
+                    break;
                 default:
                     writer.Send(ProtocolMessages.ResultError(
-                        requestId, "protocolMismatch", $"unknown command: {decode.Command}", processEpoch));
+                        requestId, "protocolMismatch", $"unknown command: {decode.Command}", 1));
                     break;
+            }
+        }
+    }
+
+    private static void DispatchAuthCommand(ProtocolDecode decode, string requestId)
+    {
+        switch (decode.Command)
+        {
+            case "loginPassword":
+            {
+                var username = decode.PayloadString("username");
+                var password = decode.PrivateString("password");
+                if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+                {
+                    writer.Send(ProtocolMessages.ResultError(
+                        requestId, "protocolMismatch",
+                        "loginPassword requires payload.username and private.password", 1));
+                    return;
+                }
+                steamSession.BeginLoginPassword(requestId, username, password);
+                return;
+            }
+            case "loginQR":
+                steamSession.BeginLoginQR(requestId);
+                return;
+            case "restoreSession":
+            {
+                var token = decode.PrivateString("refreshToken");
+                if (string.IsNullOrEmpty(token))
+                {
+                    writer.Send(ProtocolMessages.ResultError(
+                        requestId, "protocolMismatch",
+                        "restoreSession requires private.refreshToken", 1));
+                    return;
+                }
+                steamSession.BeginRestore(requestId, token, decode.PayloadString("accountName"));
+                return;
             }
         }
     }

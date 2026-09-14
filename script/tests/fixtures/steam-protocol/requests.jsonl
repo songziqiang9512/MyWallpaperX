@@ -4,3 +4,6 @@
 {"v":1,"type":"request","requestId":"req-dl-1","command":"startDownload","processEpoch":1,"accountEpoch":3,"jobId":"job-1","attempt":1,"payload":{"workshopId":"1300076567"}}
 {"v":1,"type":"request","requestId":"req-dl-2","command":"startDownload","processEpoch":1,"accountEpoch":3,"jobId":"job-2","attempt":1,"payload":{"workshopId":"18446744073709551615"}}
 {"v":1,"type":"request","requestId":"req-query-中文-✅","command":"queryBrowse","processEpoch":1,"accountEpoch":3,"queryGeneration":9,"cursor":"page:1","payload":{"searchText":"中文搜索✅"}}
+{"v":1,"type":"request","requestId":"req-auth-pw","command":"loginPassword","processEpoch":1,"accountEpoch":0,"authAttemptId":"auth-client-1","payload":{"username":"lo***"},"private":{"password":"SENTINEL-PASSWORD"}}
+{"v":1,"type":"request","requestId":"req-auth-cancel","command":"cancelAuthentication","processEpoch":1,"accountEpoch":0,"authAttemptId":"auth-client-1"}
+{"v":1,"type":"request","requestId":"req-auth-restore","command":"restoreSession","processEpoch":1,"accountEpoch":0,"payload":{"accountName":"lo***"},"private":{"refreshToken":"SENTINEL-RESTORE-TOKEN"}}

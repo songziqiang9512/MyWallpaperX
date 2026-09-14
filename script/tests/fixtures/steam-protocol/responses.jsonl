@@ -7,3 +7,7 @@
 {"v":1,"type":"event","event":"downloadProgress","requestId":"req-dl-1","sequence":1,"jobId":"job-1","stage":"chunks","verifiedChunks":1,"totalChunks":4}
 {"v":1,"type":"result","requestId":"req-dl-1","ok":true,"data":{"jobId":"job-1","stagedComplete":true,"verifiedBytes":1646197}}
 {"v":1,"type":"result","requestId":"req-dl-unknown","ok":false,"error":{"code":"accessDenied","message":"not signed in"}}
+{"v":1,"type":"event","event":"authState","requestId":"req-auth-pw","sequence":1,"processEpoch":1,"state":"awaitingEmailCode","authAttemptId":"auth-1","emailDomain":"qq.com"}
+{"v":1,"type":"event","event":"authState","requestId":"req-auth-qr","sequence":1,"processEpoch":1,"state":"qrChallenge","authAttemptId":"auth-2","challengeUrl":"https://s.team/q/1/0000000000000000000"}
+{"v":1,"type":"result","requestId":"req-auth-qr","processEpoch":1,"ok":false,"error":{"code":"cancelled","message":"authentication cancelled"}}
+{"v":1,"type":"result","requestId":"req-auth-cancel","processEpoch":1,"ok":true,"data":{"cancelled":true}}

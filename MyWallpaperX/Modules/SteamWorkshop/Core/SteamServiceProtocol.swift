@@ -56,7 +56,7 @@ enum SteamServiceRequestBuilder {
         ])
     }
 
-    /// 通用请求：payload 的字段名由各命令卡（SK2+）定义，此处只负责 envelope 合同。
+    /// 通用请求：payload 的字段名由各命令卡（SK2+）定义；凭据只放 `private` 包装。
     static func request(
         requestId: String,
         command: String,
@@ -67,7 +67,8 @@ enum SteamServiceRequestBuilder {
         cursor: String? = nil,
         jobId: String? = nil,
         attempt: Int? = nil,
-        payload: SteamServiceJSON? = nil
+        payload: SteamServiceJSON? = nil,
+        private privatePayload: SteamServiceJSON? = nil
     ) -> Data? {
         var fields: [String: SteamServiceJSON] = [
             "v": .int(SteamServiceProtocol.version),
@@ -83,6 +84,7 @@ enum SteamServiceRequestBuilder {
         if let jobId { fields["jobId"] = .string(jobId) }
         if let attempt { fields["attempt"] = .int(attempt) }
         if let payload { fields["payload"] = payload }
+        if let privatePayload { fields["private"] = privatePayload }
         return encode(fields)
     }
 

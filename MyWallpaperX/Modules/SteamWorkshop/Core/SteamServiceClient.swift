@@ -235,6 +235,7 @@ final class SteamServiceClient {
     // MARK: - 请求
 
     /// 发送一条命令并等待其唯一 terminal；每 requestId 至多消费一个回包。
+    /// timeout 为 nil 表示无限等待（认证等长流程），取消走 cancel 路径。
     func request(
         command: String,
         authAttemptId: String? = nil,
@@ -243,7 +244,8 @@ final class SteamServiceClient {
         jobId: String? = nil,
         attempt: Int? = nil,
         payload: SteamServiceJSON? = nil,
-        timeout: TimeInterval = SteamServiceProtocol.requestTimeout
+        private privatePayload: SteamServiceJSON? = nil,
+        timeout: TimeInterval? = SteamServiceProtocol.requestTimeout
     ) async throws -> SteamServiceFrame {
         guard case .ready = state, let transport else {
             throw RequestError.notReady
@@ -260,7 +262,8 @@ final class SteamServiceClient {
             cursor: cursor,
             jobId: jobId,
             attempt: attempt,
-            payload: payload
+            payload: payload,
+            private: privatePayload
         ) else {
             throw RequestError.notReady
         }
@@ -272,6 +275,7 @@ final class SteamServiceClient {
                 generation: sessionGeneration,
                 continuation: continuation
             )
+            guard let timeout else { return }
             let workItem = DispatchWorkItem { [weak self] in
                 MainActor.assumeIsolated {
                     self?.failPending(requestId: requestId, error: .requestTimedOut)

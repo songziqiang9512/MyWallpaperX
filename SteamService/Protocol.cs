@@ -16,6 +16,7 @@ internal static class ProtocolLimits
     public const int MaxFrameBytes = 1 * 1024 * 1024;
     public const int MaxPendingRequests = 256;
     public const int RequestTimeoutSeconds = 30;
+    public const int ConnectTimeoutSeconds = 12;
     public const long OverlongDrainCapBytes = 8 * 1024 * 1024;
 }
 
@@ -119,7 +120,29 @@ internal sealed class ProtocolDecode
     public string? RequestId { get; private init; }
     public string? Command { get; private init; }
     public string? EventName { get; private init; }
+    public string? AuthAttemptId { get; private init; }
     public JsonElement Root { get; private init; }
+
+    public JsonElement? Payload => Root.TryGetProperty("payload", out var payload) ? payload : null;
+
+    public JsonElement? Private => Root.TryGetProperty("private", out var privateEl) ? privateEl : null;
+
+    public string? StringField(string name) =>
+        Root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
+    public string? PayloadString(string name) =>
+        Payload is { } p && p.ValueKind == JsonValueKind.Object
+            && p.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
+    public string? PrivateString(string name) =>
+        Private is { } p && p.ValueKind == JsonValueKind.Object
+            && p.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
 
     public static ProtocolDecode Parse(string frame)
     {
@@ -164,6 +187,10 @@ internal sealed class ProtocolDecode
                     Type = type,
                     RequestId = requestId.GetString(),
                     Command = command.GetString(),
+                    AuthAttemptId = root.TryGetProperty("authAttemptId", out var attemptId)
+                        && attemptId.ValueKind == JsonValueKind.String
+                        ? attemptId.GetString()
+                        : null,
                     Root = root,
                 };
             case "result":

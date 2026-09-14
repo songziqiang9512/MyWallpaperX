@@ -197,7 +197,7 @@ Envelope：`v/type/requestId/processEpoch/accountEpoch`；认证另有 authAttem
 | 01 | SK0.1 | 依赖/平台与能力验证表、独立 fixture | **部分完成**：匿名矩阵 + 密码登录/令牌恢复/订阅收藏/真实下载完整性已实测（[§10.1](#sk01-能力验证-2026-09-15)）；仅剩 QR 扫码确认闭环，并入 SK2.1 认证卡验收 |
 | 02 | SK1.1 | 双端协议与离线协议测试 | **完成**：`SteamService/Protocol.cs`（envelope/有界分帧/terminal 去重/脱敏/解码与 dispatch 分离）+ Swift `SteamServiceProtocol.swift` + 共享 golden（`script/tests/fixtures/steam-protocol/`）。C# selftest 19/19、Swift harness 8/8、Python golden 11/11、活体循环冒烟（重复 requestId 压制、未知命令类型化错误、shutdown 有界关闭）通过 |
 | 03 | SK1.2 | App 能管理当前 helper 生命周期 | **完成**：`SteamServiceClient.swift`（握手 identity=protocol+helperVersion、generation 绑定陈旧回包防线、有界退避重启、超时/取消/EOF typed state、帧缓冲 1MiB 上限、可注入 fake transport；复用 DaemonKit 传输，Swift 侧重复分帧器已撤）。离线矩阵 15/15 + 真实 spawn（Debug dll 与 Release publish apphost）3/3；`script/publish-steam-helper.sh` 确定性发布；`SteamWorkshopService` 统一持有客户端（惰性、不接 multiplexer）。App checkpoint Debug build 通过。apphost 需 `DOTNET_ROOT`（self-contained 属 SK7.2） |
-| 04 | SK2.1 | 同一会话的密码/二维码/Guard 后端 | 待实施 |
+| 04 | SK2.1 | 同一会话的密码/二维码/Guard 后端 | **部分完成（后端已落地）**：`SteamService/SteamSession.cs`——attempt 簿记（单活动/顶替作废/迟到扫码与验证码抑制、令牌仅在 result private 包装出站）、Guard 分型（手机确认/设备码/邮箱码独立事件）、QR 挑战与刷新事件、取消闭环（取消后登录请求必收 cancelled 终态；实测验证）、异步认证命令 terminal 归会话所有。自检 auth 12/12（离线）、协议 19/19、golden 双端测试绿；Swift `SteamAccountSession` 消费点 + harness auth 7/7、生命周期 15/15。**待账号门**：`script/steam-auth-gate.sh` password/qr/wrong-password/restore 四路实测（QR 扫码闭环在此补验，即 SK0.1 遗留项） |
 | 05 | SK2.2 | 工具栏唯一登录入口与面板 | 待实施 |
 | 06 | SK2.3 | Keychain、静默恢复、换号与退出 | 待实施 |
 | 07 | SK3.1 | 统一结构化查询生产者 | 待实施 |
