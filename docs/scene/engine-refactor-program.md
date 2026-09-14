@@ -89,7 +89,7 @@
 ### M5 进程分离 daemon 化（主线）
 
 - **M5.1 设计门** ✅ 4a835efc：交付 [Scene Runtime Daemon 契约](scene-runtime-daemon-contract.md)（stable-contract 已登记）——IPC v1 冻结、生命周期/崩溃退避语义、线程约束审计结论（runtime 原样搬迁、帧循环留 daemon 主线程、帧线程隔离明确排除）。设计门已过，M5.2 起按步骤实施。
-- **M5.2 最小 daemon**：新 target `MyWallpaperXSceneDaemon`（tool → Contents/Helpers，仿 WallpaperDaemon 工程结构），起桌面窗口出首帧 + 管道 JSON 命令框架。
+- **M5.2 最小 daemon（同二进制模式，契约 §2 修订）** ✅ 868bbfe3：`SceneDaemonRuntime`（Core/PlaybackControl，仅 daemon 进程路径）——stdin 逐行命令→WallpaperEngineCommand 解码→Scene 引擎处理端（复用 M0.1 命令层：loadScene/pause/resume/stop/setMuted/setPerformanceProfile）；事件 stdout JSON 流（版本握手/五阶段 launchStateChanged/firstFramePresented 一次/frameStats 1Hz/exited）；stdin EOF=主程序断连→有序退出。`MyWallpaperXApplication` 增 `--mwx-scene-daemon` 分支（accessory App、跳过主 UI 装配），主 UI 路径零改动。验收：graph 样本隔离副本 smoke 实测（18s，stdin 保持打开 + pause 命令注入）——握手→五阶段 launchStateChanged→frameStats 20 条 1Hz→launched→firstFramePresented→EOF 后有序退出（exit 0）；checkpoint 构建 BUILD SUCCEEDED。
 - **M5.3 DaemonKit 公共层第二批**：daemon 孵化/指数退避重启/管道帧协议抽为共享 kit；注意 daemon target 只同步 `WallpaperDaemonSources/`，共享代码需新增挂双 target 的同步组。
 - **M5.4 命令迁移**：WallpaperEngineCommand 逐条改走管道；事件回传（launchState/firstFrame/frameStats 1Hz/error/exited）；断连 = 指数退避重启。注意：IPC `setProperty` 载荷需 SceneUserPropertyValue 的 JSON 编解码（其 Codable 已有，持久化在用）；属性编辑器的类型化直调（service.updateScenePropertyValue）保留在 App 侧，daemon 化后该 service 一并迁入 daemon。
 - **M5.5 Host 瘦身**：主程序 Scene 宿主变 client stub（状态机+通知投影保留，渲染全删）；菜单/设置/热更新无感切换。
