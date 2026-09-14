@@ -155,6 +155,8 @@ Swift 改动在 checkpoint 使用现有 selector/build；`run_checkpoint_build.s
 - **门：**`test_playback_command_multiplexer`、`test_scene_daemon_client_wiring`、`test_scene_daemon_protocol` 及 selector 的 transport/Web 门；A→B→C 逆序完成、属性拒绝重载、旧进程消息、快速 stop、Video/Web/Scene/静态互切。
 - **退路：**按 runtime adapter 原子撤权回退；不能同时注册新旧消费端。不得以新增 coordinator 但原选择者继续写状态作为交付。
 
+Steam 账号、订阅与下载获取的具体迁移由 [Steam 获取专项](scene-steamkit-migration-plan.md)细化 E2/E6/E8：只改变获取服务与 UI 衔接，不将获取命令混入播放 multiplexer，不改变本计划的工程优先级。
+
 ### E3 — 合成 pass 与资源生命周期
 
 - **依赖／入口：**E0 GPU／copy／驻留证据；E1 不必全做完，但避免同时改同一事务。MainPassEncoder、ImageLayerCompositor、GraphTargets／Offscreen pool、Dependency preparation。

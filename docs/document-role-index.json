@@ -14,6 +14,7 @@
       "docs/scene/engine-refactor-program.md",
       "docs/scene/scene-compatibility-roadmap.md",
       "docs/scene/scene-open-breakpoint-queue-2026-09-09.md",
+      "docs/scene/scene-steamkit-migration-plan.md",
       "docs/scene/semantics/official-client-behavior-research-workflow.md",
       "docs/scene/semantics/runtime-evidence-current.md",
       "docs/web/wallpaper-engine-web-rules.md",
@@ -346,6 +347,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该日期化派生执行入口时，删除或转为 historical-evidence。"
+    },
+    {
+      "path": "docs/scene/scene-steamkit-migration-plan.md",
+      "role": "active-plan",
+      "entrypoint": "docs/README.md",
+      "retirementCondition": "作为工程路线 E2/E6/E8 的 Steam 获取专项细化，SK0–SK7 完成、SteamCMD 与自动社区登录/个人 HTML 获取产品路径撤除、主动密码/QR 登录和浏览/订阅/下载/UI/发布门通过，稳定合同与功能证据接管终态后转历史；不决定 Scene 兼容任务顺序。"
     },
     {
       "path": "docs/scene/semantics/official-client-behavior-research-workflow.md",

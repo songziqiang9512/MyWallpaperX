@@ -55,6 +55,7 @@ Scene 的迁移目标已经确定：保留 Swift/Metal 产品底座，把作者�
 | Metal + MSL | GPU 渲染、合成、effect、粒子和经性能证据选择的 compute kernel | 不按样本、路径、hash 或资产名决定产品算法 |
 | C | ECMAScript VM 嵌入 API、稳定跨语言 ABI、opaque handle、buffer 与销毁合同 | 不承载第二套资源/属性/RenderGraph 模型 |
 | C++ | 第三方 shader compiler、IR/reflection 转换及必要的 compiler worker 内部实现 | 不接管 App、窗口、资源生命周期、用户属性或 compositor |
+| C# + .NET（限定迁移目标） | 独立 SteamService 的 Steam 网络认证、结构化浏览/订阅查询、CDN 传输；按 [Steam 获取计划](../scene/scene-steamkit-migration-plan.md) SK0 验证后取得对应执行权 | 不进入播放 multiplexer，不接管 UI、用户意图、库记录、Scene 状态、graph 或 compositor；不得扩成通用后台平台 |
 | JavaScript | Workshop SceneScript 内容及项目自有脚本 fixture | 不作为主 App UI、产品服务或构建系统语言 |
 | Python 3.12 | 测试、fixture、benchmark、矩阵、证据聚合和开发工具 | 不进入 App 帧循环或成为发布产品的 Scene runtime 依赖 |
 | Objective-C / Objective-C++ | Apple 或第三方 API 没有可维护 Swift/C 入口时的薄适配层 | 不作为新模块默认实现语言 |

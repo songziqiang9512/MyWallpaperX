@@ -16,6 +16,7 @@
 | Scene 官方结果研究 | 公开资料不足时如何研究固定官方客户端并把结果交给独立实现 | [官方客户端行为研究与一致性验证工作流](scene/semantics/official-client-behavior-research-workflow.md) |
 | Scene 当前能力 | 每项能力现在是已执行、部分、仅结构还是缺失 | [Scene 能力台账](scene/semantics/coverage-ledger.md)及专项表 |
 | Scene 当前运行证据 | 当前构建、样本、GPU/compositor、失败和未验证边界 | [运行证据索引](scene/semantics/runtime-evidence-current.md) |
+| Steam 获取迁移 | 统一 SteamKit 获取、主动登录、结构化分页、卡片进度、队列与自动入库；E2/E6/E8 的专项细化 | [Steam 获取迁移计划](scene/scene-steamkit-migration-plan.md) |
 | Web 当前状态 | Web 源码所有权、运行事实和缺口 | [Web 现役状态](web/current-state.md) |
 | 历史 | 当时的计划、审计、迁移和基线 | [历史文档索引](history/README.md) |
 
