@@ -1,0 +1,2 @@
+/Users/songziqiang/Documents/Development/MyWallpaperX/MyWallpaperXSteamService/bin/Release/net8.0/osx-arm64/publish/SteamService.pdb
+/Users/songziqiang/Documents/Development/MyWallpaperX/MyWallpaperXSteamService/bin/Release/net8.0/osx-arm64/publish/SteamService

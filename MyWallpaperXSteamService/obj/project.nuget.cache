@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "dgSpecHash": "ha/qiDSiSsQ=",
+  "success": true,
+  "projectFilePath": "/Users/songziqiang/Documents/Development/MyWallpaperX/MyWallpaperXSteamService/SteamService.csproj",
+  "expectedPackageFiles": [
+    "/Users/songziqiang/.nuget/packages/microsoft.net.illink.tasks/8.0.8/microsoft.net.illink.tasks.8.0.8.nupkg.sha512",
+    "/Users/songziqiang/.nuget/packages/protobuf-net/3.2.56/protobuf-net.3.2.56.nupkg.sha512",
+    "/Users/songziqiang/.nuget/packages/protobuf-net.core/3.2.56/protobuf-net.core.3.2.56.nupkg.sha512",
+    "/Users/songziqiang/.nuget/packages/steamkit2/3.4.0/steamkit2.3.4.0.nupkg.sha512",
+    "/Users/songziqiang/.nuget/packages/system.io.hashing/10.0.1/system.io.hashing.10.0.1.nupkg.sha512",
+    "/Users/songziqiang/.nuget/packages/zstdsharp.port/0.8.7/zstdsharp.port.0.8.7.nupkg.sha512",
+    "/Users/songziqiang/.nuget/packages/microsoft.netcore.app.runtime.osx-arm64/8.0.8/microsoft.netcore.app.runtime.osx-arm64.8.0.8.nupkg.sha512",
+    "/Users/songziqiang/.nuget/packages/microsoft.aspnetcore.app.runtime.osx-arm64/8.0.8/microsoft.aspnetcore.app.runtime.osx-arm64.8.0.8.nupkg.sha512"
+  ],
+  "logs": []
+}
