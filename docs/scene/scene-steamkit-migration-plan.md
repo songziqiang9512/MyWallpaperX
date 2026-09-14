@@ -194,7 +194,7 @@ Envelope：`v/type/requestId/processEpoch/accountEpoch`；认证另有 authAttem
 
 | 顺序 | 卡 | 交付物 | 状态 |
 |---|---|---|---|
-| 01 | SK0.1 | 依赖/平台与能力验证表、独立 fixture | **部分完成**：匿名查询/详情矩阵已实测（[§10.1](#sk01-能力验证-2026-09-15)）；账号门（密码/QR/订阅/真实下载）探针就绪待授权账号验证 |
+| 01 | SK0.1 | 依赖/平台与能力验证表、独立 fixture | **部分完成**：匿名矩阵 + 密码登录/令牌恢复/订阅收藏/真实下载完整性已实测（[§10.1](#sk01-能力验证-2026-09-15)）；仅剩 QR 扫码确认闭环，并入 SK2.1 认证卡验收 |
 | 02 | SK1.1 | 双端协议与离线协议测试 | 待实施 |
 | 03 | SK1.2 | App 能管理当前 helper 生命周期 | 待实施 |
 | 04 | SK2.1 | 同一会话的密码/二维码/Guard 后端 | 待实施 |
@@ -425,9 +425,11 @@ Envelope：`v/type/requestId/processEpoch/accountEpoch`；认证另有 authAttem
 | 匿名详情对照 | Web API `ISteamRemoteStorage/GetPublishedFileDetails/v1`（POST） | ✅ | HTTP 200；仅作对照路由，不作主链 |
 | Web API 列表查询 | `ISteamRemoteStorage/QueryFiles` | ❌ | 接口不存在（404）；`IPublishedFileService/QueryFiles` 需 Web API key → **该路由禁用**，公开浏览只走匿名统一消息 |
 | 匿名下载链 | `GetDepotDecryptionKey` | ❌ | AccessDenied：匿名取不到 depot key；**下载必须登录**（且需 WE 所有权），这是 SK0.1 账号门的硬依据 |
-| 密码/QR/token 恢复 | Authentication API + `SteamUser.LogOn` | 待验 | `probe auth-password/auth-qr/restore` 就绪；验收＝密码与 QR 到同一 SteamID、restore 同 SteamID |
-| 订阅/收藏列表 | `CPublishedFile.GetUserFiles(type=mysubscriptions/myfavorites)` + `AreFilesInSubscriptionList` | 待验 | `probe subscriptions` 就绪；需授权测试账号 |
-| 真实下载+完整性 | depot key→`GetManifestRequestCode(public)`→manifest→chunk adler→`project.json` 检查 | 待验 | `probe download <id> <out>` 就绪；需已购 WE 账号；元数据成功不算下载 |
+| 密码+Guard 登录 | Authentication 凭据流 + 邮箱验证码 | 账号已验 ✅ | 测试账号登录到 steamId `765611989968***62`，返回新 GuardData；令牌落隔离 state（0600） |
+| 静默令牌恢复 | 保存 refresh token + `SteamUser.LogOn` | 账号已验 ✅ | `sameSteamId:true`，无 UI 无密码 |
+| 二维码登录 | `BeginAuthSessionViaQRAsync` | **部分** | 挑战生成与 `ChallengeURLChanged` 刷新事件实测出现；**扫码确认闭环未完成**（用户中断），SK2.1 全流程重测 |
+| 订阅/收藏列表 | `GetUserFiles(mysubscriptions/myfavorites)` + `AreFilesInSubscriptionList` | 账号已验 ✅ | 58 订阅 3 页（50+8+0）与 total 精确对上；727 收藏 3 页 150 条；状态核对 50/50 inList |
+| 真实下载+完整性 | depot key→manifest→chunk adler→`project.json` | 账号已验 ✅ | 项目 1300076567：depot 431960，manifest 2218307088438485379，4 chunks，已验证字节 1646197 == manifest 总量，project.json 在，9.7 s；首连延迟约 3 s 记为观测 |
 
 **冻结预算**（`SteamService/Probe/Budgets.cs`，改动需新证据）：query 页大小 30；HTTP 并发共享上限 2；超时 query 15s / details 20s / manifest 30s / chunk 60s / connect 12s / logon 30s；chunk worker 每 job 4；探针输出上限 2 GB / 10 万文件；进度合并 ≤4Hz（SK5 冻结 250 ms）。SDK `net8.0` + `osx-arm64` 单 RID；NuGet lock 双模式（路径+内容哈希）。
 
