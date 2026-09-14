@@ -11,6 +11,7 @@ enum PlaybackEngineKind: String, CaseIterable, Sendable {
 /// 由调用方决定提示或忽略——禁止静默半实现）。
 protocol PlaybackEngineControlling: AnyObject {
     var engineKind: PlaybackEngineKind { get }
+    var isPlaying: Bool { get }
 
     /// 处理一条命令；返回是否被该引擎真实消费。
     @discardableResult

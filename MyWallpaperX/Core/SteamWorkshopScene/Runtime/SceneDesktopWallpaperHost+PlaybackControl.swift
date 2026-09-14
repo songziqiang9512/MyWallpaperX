@@ -27,7 +27,7 @@ extension SceneDesktopWallpaperHost: PlaybackEngineControlling {
             setPlaybackPaused(false)
             return true
         case .stop:
-            guard launchContext != nil else { return false }
+            // A pending launch has no active context yet; stop must still cancel it.
             stop()
             return true
         case let .setMuted(muted):

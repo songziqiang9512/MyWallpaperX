@@ -115,7 +115,7 @@
 - `08c70d53`：pool 按 capability token/layer/解析后尺寸/materialFunctionTargets 内容缓存 target plans；reset 清空，失败不缓存。键与输入同源性及缓存容量仍需正式反例门。
 - `8b3a8d58`：executor 缓存 plan 相等布尔值，键为 capability 对象身份/lease generation/effect/角色/尺寸/functionTargets；保留纹理身份门。缓存键未直接包括 stored plan，须验证同键不同 lease plan 的拒绝反例，未验证前不能称完整等价。
 - 同步 launch 与异步 requestLaunch 均在每次准备尝试前递增唯一 `nextSceneScriptGeneration`。`1a7e4020` 误删同步递增已在交接纠偏恢复；可执行入口测试覆盖成功/失败/成功得到 1/2/3，失败尝试不可复用身份。
-- 播放态 conformer 虽有 `isPlaying`，协议缺少该要求，multiplexer 的 existential 读取落到默认 false；必须修复后再迁移 IPC 状态投影。
+- 播放态 `isPlaying` 已补为 `PlaybackEngineControlling` 协议要求，multiplexer 读取具体处理端状态；回归测试覆盖 Scene 在播、广播暂停、video 定向恢复与注销。此前 extension-only 默认 false 的错误分发不得在 IPC client 中复现。Scene `.stop` 始终进入既有 Host.stop()（幂等），包括异步准备中尚无 launchContext 的阶段，避免 pending launch 在停止后继续激活。
 
 ## 5. 已做对、明确不动
 

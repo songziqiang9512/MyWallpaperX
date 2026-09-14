@@ -118,6 +118,14 @@
       ]
     },
     {
+      "id": "playback-command-control",
+      "patterns": [
+        "MyWallpaperX/Core/PlaybackControl/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+PlaybackControl.swift"
+      ],
+      "modules": ["test_playback_command_multiplexer"]
+    },
+    {
       "id": "scene-launch",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift",
