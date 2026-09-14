@@ -252,14 +252,10 @@ final class SceneResolvedMaterialPassEncoder {
     func reset() {
         lock.lock()
         defer { lock.unlock() }
-        entries.removeAll(keepingCapacity: true)
+        // Prepared commands belong to one reset generation. The immutable
+        // compile-state entries are content/device keyed and remain valid for
+        // this encoder's lifetime, including negative compiler results.
         resetGeneration &+= 1
-        compilationAttempts = 0
-        failedPipelines = 0
-        launchWarmupHits = 0
-        launchWarmupFailureHits = 0
-        consumedLaunchWarmupKeys.removeAll(keepingCapacity: true)
-        consumedLaunchWarmupFailureKeys.removeAll(keepingCapacity: true)
     }
 
     private func validUniforms(_ program: SceneResolvedMaterialProgram) -> Bool {

@@ -2305,10 +2305,14 @@ private enum Harness {
             && encoder.failedPipelineCount == 1
 
         let preparedBeforeReset = second
+        let cachedPipelinesBeforeReset = encoder.cachedPipelineCount
+        let attemptsBeforeReset = encoder.pipelineCompilationAttemptCount
+        let failuresBeforeReset = encoder.failedPipelineCount
         encoder.reset()
-        let resetClearedCache = encoder.cachedPipelineCount == 0
-            && encoder.pipelineCompilationAttemptCount == 0
-            && encoder.failedPipelineCount == 0
+        let resetPreservedHotCache =
+            encoder.cachedPipelineCount == cachedPipelinesBeforeReset
+            && encoder.pipelineCompilationAttemptCount == attemptsBeforeReset
+            && encoder.failedPipelineCount == failuresBeforeReset
         var stalePreparedRejected = false
         if let preparedBeforeReset, let staleCommand = queue.makeCommandBuffer() {
             stalePreparedRejected = !encoder.encode(
@@ -2316,10 +2320,15 @@ private enum Harness {
                 commandBuffer: staleCommand
             )
         }
+        let attemptsBeforePrepareAfterReset =
+            encoder.pipelineCompilationAttemptCount
         let preparedAfterReset = encoder.prepare(
             program: baseline,
             target: rgbaTarget
         )
+        let prepareAfterResetReusesPipeline = preparedAfterReset != nil
+            && encoder.pipelineCompilationAttemptCount
+                == attemptsBeforePrepareAfterReset
 
         let warmupEncoder = SceneResolvedMaterialPassEncoder(device: device)!
         let warmupPlan = SceneResolvedMaterialPassEncoder.WarmupPlan(
@@ -2524,9 +2533,9 @@ private enum Harness {
                     .compileStateKeyRejected,
                     .renderStateRejected,
                 ].allSatisfy { $0.effectLocalPreEncodeReasonCode == nil },
-            "resetClearsCache": resetClearedCache,
+            "resetPreservesHotCache": resetPreservedHotCache,
             "resetInvalidatesPreparedPass": stalePreparedRejected,
-            "prepareAfterReset": preparedAfterReset != nil,
+            "prepareAfterResetReusesPipeline": prepareAfterResetReusesPipeline,
             "launchWarmupDeduplicatesPhysicalKey":
                 warmupReport.plannedPlanCount == 2
                 && warmupReport.uniqueKeyCount == 1

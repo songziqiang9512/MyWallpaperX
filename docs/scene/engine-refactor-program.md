@@ -96,7 +96,9 @@
 ### M4 表示优化
 
 - **M4.1 Phase 3 v2**：graph plan 校验从每帧重推导改为内容 key 缓存（capabilityID+inputRole+inputExtent+functionTargets digest；generation 仅作负守卫——generation-only 键已被证伪：materialFunctionTargets 逐帧可变且 composition 侧 plan 推导先于当帧 generation 铸造）；更优路径在 allocation 铸造点持久化 plan+planSignature，per-frame 校验退化为 O(1) 身份检查 + signature 比较 + functionTargets 集合比较。必须保留纹理身份门（target hazard）与 functionTargets 语义门。扁平化覆盖三条产品路径：GeometryProduct（含依赖）、TextureProduct 稳定回退、普通纹理。
-- **M4.2 Phase 4 资源缓存**：colorBlend pipeline 启动预热、MTLLibrary 按 metalSource 复用（同一 shader 变体不重编译）、executor.reset 保留热缓存或跟进 warmup、纹理 decode 去重、上传私有 queue 合并、纹理缓存字节上限（接预算档）、userPropertyTextures 字符串键→整数 ID。
+- **M4.2 Phase 4 资源缓存** 🔶：executor reset 热缓存子项已落地——reset 只推进命令世代以拒绝旧 PreparedPass，保留由完整 `MetalCompileStateKey`（shader 语义/render state/attachment/sample/write mask/device）寻址的不可变 PSO 与负缓存；相同内容在 reset 后不再重新 `makeLibrary`/创建 PSO。其余：colorBlend pipeline 启动预热、MTLLibrary 按 metalSource 复用（同一 shader 变体不重编译）、纹理 decode 去重、上传私有 queue 合并、纹理缓存字节上限（接预算档）、userPropertyTextures 字符串键→整数 ID。
+
+  **reset 热缓存实测（2026-09-14）**：Metal harness 在同一 encoder 内先准备 pipeline，再 reset；旧 PreparedPass 因命令世代变化被拒绝，随后相同 Program prepare 成功且 `pipelineCompilationAttemptCount` 不变，正/负编译缓存及累计统计均保留。改动路径选择的 26 个 formal 模块全部通过；checkpoint 与 Developer ID 签名 Debug 构建均 `BUILD SUCCEEDED`，严格 codesign 有效，可执行文件 SHA-256 `413015c2e179bd52d0a8473caa8dd762dcc2d1b67e35af80e6ab69c7a739468c`。现役 code-health 仍被本批外既有 hard-limit 债阻断，触达的 PassEncoder 为 508 行、未产生新 hard error。签名产物用全新隔离副本强杀恢复：simple `1300076567` 两次 first-present，末值 `rendered=1119/busy=0/dropped=0/fallback=0`；graph `2938612768` 两次 first-present，每次 launch warmup 均为 `91 planned/20 unique/20 ready/0 failed/20 attempts`，末值 `135/23/0/0`，两份 Metal 直出截图均保持原构图，退出后无归属进程。daemon 重启会重建 executor，故同 executor reset 的零重编译结论来自上述计数反例，样本只证明当前完整运行链与画面未回退。消融：reset 删除 7 条清缓存/清统计语句，只保留既有命令世代推进；视觉路径净增 0，权威数不变。
 - **M4.3 Phase 5 frame storage**：帧提交快照最小化（uniform/event/generation table/mutation queue 方向），不复制大对象树。
 
 ### M5 进程分离 daemon 化（主线）

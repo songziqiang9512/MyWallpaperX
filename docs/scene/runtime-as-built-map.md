@@ -61,7 +61,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 |---|---|---|---|---|
 | authored 解码产物（IR/descriptor/资产目录） | launch 队列一次构建 | launchContext | 场景期 | topology（整体替换） |
 | author shader 程序（MSL artifact） | admission 编译（子进程）+ 磁盘/内存 artifact cache | capability catalog（不可变，token 寻址） | catalog 生命周期 | program-variant |
-| PSO/MTLLibrary | PassEncoder entries，key=MetalCompileStateKey（含完整 metalSource）；launch 期 warmup 预编 | pipeline repository | 直到 executor.reset() 清空 | program-variant；reset 后首帧主线程重编译 |
+| PSO/MTLLibrary | PassEncoder entries，key=MetalCompileStateKey（含完整 metalSource）；launch 期 warmup 预编 | pipeline repository | executor 生命周期；reset 只失效 PreparedPass 命令世代，保留不可变编译产物 | program-variant；catalog/device 整体替换时随 executor 释放 |
 | source-less direct-draw 放置几何 | SceneResolvedMaterialDirectDrawGeometryCompiler 从不可变 Program 事实编译 | ScenePreparedDirectDrawOutputGeometry（capability 持有） | capability 生命周期 | program-variant；renderer 消费 typed 放置结果，不按 effect 名称选择算法 |
 | uniform 参数来源/静态值 | Program finalizer `prepareUniformBindings` 在 variant 准备时决定；静态声明失败在 launch envelope 拒绝对应 owner | compiled variant 的 preparedUniformBindings | variant 生命周期 | program-variant；帧内只物化 live value/resource 并校验 layout identity |
 | 基础纹理 | PreparedBaseImageResources 后台预解码；deferred 按需 worker（per 世代队列） | imageTextures store（per view） | view/场景期，缓存无字节上限 | resource-generation / geometry-extent |
@@ -105,7 +105,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 | 帧循环换线程/进程（M5） | VM adoptCurrentThread rebase + VM 交互状态全迁移 + AppKit 接触点（drawableSize 主线程写/帧读、指针链 NSEvent/window.convertPoint、surfaces 字典主线程独占、8 组 commit 栅栏）+ launch 状态改事件 + 完成回调落点 | 随机崩溃 / timer 双跑 / 状态漂移 |
 | 改属性生效/优先级 | lane 合并顺序 + revision 语义（userPropertiesJSON 缓存键）+ hasSameValuePayload 闸门 | 脚本动画被覆盖；属性改了画面不动 |
 | 改 SceneScript 定时器/帧状态 | 快照/discard 对只在真实帧 dispatch 的约定（不变量 9） | timer 双触发/丢失；deferred 帧后 VM 漂移 |
-| 加 invalidation 触发（档位切换/重连/显示变化） | executor.reset() 清 PSO 缓存 → warmup 跟进；catalog 整体重建 | 重置后首帧主线程秒级卡顿 |
+| 加 invalidation 触发（档位切换/重连/显示变化） | executor.reset() 推进 PreparedPass 命令世代但保留完整内容键 PSO；catalog/device 替换必须重建 executor | 旧命令被误接纳；错误跨 catalog/device 复用；重置后首帧重新编译 |
 | 加 per-frame 遥测/诊断 | 常开层只准定长整数更新（不变量 17）；完整 observation/evidence 仍服从 evidence 门三合一语义（不变量 12）+ sticky 行为 + Release 恒 false | Release 分配/字符串/遍历回归；窗口样式意外变化；统计触发 lazy pipeline 编译 |
 | 新 offscreen target 类型 | allocation cache key + pin 故事 + history-only 降级路径 | 在飞资源被逐出 → GPU target hazard |
 | 静音/预算档/命令层（M0.2/M0.7 已落地） | video previousAudibleVolume 恢复语义 + SceneSoundPlaybackRegistry 静音门 + `PlaybackMuteState`/`PlaybackPerformanceProfile` 权威 + daemon `setMuted`/`setPerformanceProfile` | video 音量恢复错档；Scene 音效/帧率不受控；第二静音权威 |
