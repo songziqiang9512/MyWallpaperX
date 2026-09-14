@@ -18,13 +18,22 @@
 
 ## 2. 进程模型
 
+**实施裁决（2026-09-14，M5.2 动工前复核修订）**：Scene daemon = **同二进制 daemon 模式**——主程序 `Process()` 自孵化自身二进制（`--mwx-scene-daemon` 参数）作为 helper 进程，不建独立 tool target。
+
+**裁决依据**：
+1. 契约原定独立 tool target 依赖同步组（PBXFileSystemSynchronizedRootGroup）共享整引擎源码（Core/SteamWorkshopScene + Properties + Format + QuickJS，数百文件）——同步组的例外机制（membershipExceptions）只支持逐文件附加，整引擎共享 = 数百条例外的维护灾难（video daemon 可行是因其自有源码面小）。
+2. 同二进制消除版本偏差（helper 签名校验、license bundle、artifact 缓存协议随 bundle 自动一致）；无 DaemonKit 同步组需求。
+3. 崩溃隔离目标不变：独立进程，主程序存活并按 §4 退避重启。
+4. XPC 评估后不采用：service target 同样面临整引擎共享问题；粗粒度命令（1Hz 统计+偶发命令）下 pipe+JSON 与 Mach 消息无性能差异；桌面窗口呈现路径以 Process+管道已在 video daemon 生产验证；launchd 托管由主程序自管退避替代。
+
 | 项 | 裁决 |
 |---|---|
-| 新 target | `MyWallpaperXSceneDaemon`（`com.apple.product-type.tool` → `Contents/Helpers`，仿 WallpaperDaemon pbxproj 结构） |
-| 共享代码 | `DaemonKit/` 新同步组挂 app+daemon 双 target：daemon 会话（孵化/退避重启/管道帧协议，抽自 `WallpaperEngine+DaemonSessionLifecycle`） |
-| 传输 | stdin/stdout newline-delimited JSON（与 video daemon 同协议族）；无 XPC |
-| 引擎代码 | Scene runtime **原样搬迁**（渲染/QuickJS/粒子/compositor/frame loop/预算执行）——不重写线程模型：帧循环仍在 daemon 主线程（AppKit 约束原样成立，见 §5） |
-| 状态存储 | 属性覆盖 UserDefaults 沿用主进程侧写入？否——daemon 拥有运行时状态；持久化设置由主程序经命令下发，daemon 无本地持久化（除既有 shader artifact 磁盘缓存，路径不变） |
+| daemon 进程 | 主程序二进制 + `--mwx-scene-daemon`；NSApplication 配置为 accessory（无 Dock 图标、不参与激活）；主 UI 协调器（MainWindowCoordinator）在此模式**不装配** |
+| 孵化 | 主程序 `Process()` 启动自身可执行文件，三根管道；引擎 worker 源码住在 app target（零共享面问题） |
+| 传输 | stdin/stdout newline-delimited JSON；无 XPC |
+| 引擎代码 | Scene runtime **原样运行**（渲染/QuickJS/粒子/compositor/frame loop/预算执行）——不重写线程模型：帧循环仍在 daemon 主线程（AppKit 约束原样成立，见 §5） |
+| 状态存储 | daemon 拥有运行时状态；持久化设置由主程序经命令下发；daemon 无本地持久化（除既有 shader artifact 磁盘缓存，路径不变） |
+| 已知代价（接受） | ① daemon 二进制=完整 app（内存映射共享页，增量小）；② `@main` 分支需守护测试防 UI 初始化渗入 daemon 路径；③ launchd 无托管——退避重启由主程序负责（§4） |
 
 ## 3. IPC 合同（= EngineCommand 的传输化，v1 冻结）
 
