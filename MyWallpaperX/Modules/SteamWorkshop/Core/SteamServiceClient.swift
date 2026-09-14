@@ -96,6 +96,9 @@ final class SteamServiceClient {
     /// 非终态事件（authState/downloadProgress 等）。
     var onEvent: ((SteamServiceFrame) -> Void)?
 
+    /// SK2.3：账号代际。换号/退出递增，随请求出站；旧账号迟到响应据此判废。
+    var accountEpoch = 0
+
     var currentIdentity: HelperIdentity? {
         if case .ready(let identity) = state { return identity }
         return nil
@@ -256,7 +259,7 @@ final class SteamServiceClient {
             requestId: requestId,
             command: command,
             processEpoch: 1,
-            accountEpoch: 0,
+            accountEpoch: accountEpoch,
             authAttemptId: authAttemptId,
             queryGeneration: queryGeneration,
             cursor: cursor,

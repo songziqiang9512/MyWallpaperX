@@ -551,7 +551,7 @@ extension SteamWorkshopService {
         return "未知大小"
     }
 
-    private func removeTransientRecord(id: String) {
+    func removeTransientRecord(id: String) {
         downloads.removeAll { record in
             record.id == id && record.status != .ready
         }

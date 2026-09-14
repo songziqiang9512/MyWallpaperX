@@ -64,6 +64,10 @@ extension SteamWorkshopToolbarController {
             symbolName = "hourglass"
             tint = .secondaryLabelColor
             tooltip = "正在登录 Steam…"
+        case .expired:
+            symbolName = "person.crop.circle.badge.exclamationmark"
+            tint = .systemOrange
+            tooltip = "重新登录"
         case .failed:
             symbolName = "person.crop.circle.badge.exclamationmark"
             tint = .systemOrange

@@ -97,8 +97,11 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     }
 
     @objc private func rememberToggled() {
-        // 记住登录是偏好（非敏感），可存 UserDefaults；token 持久化在 SK2.3。
-        UserDefaults.standard.set(rememberCheck.state == .on, forKey: "SteamWorkshop.steamKitRememberLogin")
+        // 记住登录是偏好（非敏感），可存 UserDefaults；token 持久化在 TokenStore。
+        UserDefaults.standard.set(
+            rememberCheck.state == .on,
+            forKey: SteamWorkshopTokenStore.rememberPreferenceKey
+        )
     }
 
     required init?(coder: NSCoder) { nil }
@@ -204,7 +207,12 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
                 window?.makeFirstResponder(codeField)
             }
         case .online:
-            window?.close()
+            // §3.3：Keychain 保存失败必须可见，不伪报已保存——面板不自动关闭。
+            if auth?.tokenSaveResult == .failed {
+                setStatus("登录成功，但 Keychain 保存失败——本次会话不会被记住，可关闭后重试登录。")
+            } else {
+                window?.close()
+            }
         case .failed(let code, let message):
             setStatus("登录失败（\(code)）：\(message)")
             loginButton.isEnabled = true
@@ -262,11 +270,9 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         loginTask?.cancel()
         loginTask = Task { [weak self] in
             do {
+                // 成功后不在此处关窗：由 apply(.online) 依据 tokenSaveResult 决定
+                // 直接关闭还是提示"Keychain 保存失败"（§3.3 不伪报已保存）。
                 _ = try await auth.loginPassword(username: username, password: password)
-                await MainActor.run {
-                    self?.setStatus("登录成功。")
-                    self?.window?.close()
-                }
             } catch SteamServiceClient.RequestError.helperError(let code, let message) {
                 await MainActor.run {
                     self?.loginButton.isEnabled = true
@@ -289,7 +295,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
 
     private func resetForNewAttempt() {
         setStatus("")
-        rememberCheck.state = UserDefaults.standard.bool(forKey: "SteamWorkshop.steamKitRememberLogin")
+        rememberCheck.state = UserDefaults.standard.bool(forKey: SteamWorkshopTokenStore.rememberPreferenceKey)
             ? .on : .off
     }
 

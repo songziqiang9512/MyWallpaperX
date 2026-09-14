@@ -28,6 +28,15 @@ final class SteamAccountSession {
     var onPhaseChange: ((AuthPhase) -> Void)?
     private(set) var activeAttemptId: String?
 
+    /// 最近一次登录成功返回的会话令牌（仅驻内存；持久化由 SteamAuthRoute/
+    /// TokenStore 决定）。accountName 为真实名（private 包装），供令牌持久化。
+    private(set) var lastSessionTokens: (refreshToken: String, guardData: String?, accountName: String?)?
+
+    /// 登出/换号时清空内存令牌（不留旧账号会话状态）。
+    func clearSessionTokens() {
+        lastSessionTokens = nil
+    }
+
     private let client: SteamServiceClient
 
     init(client: SteamServiceClient) {
@@ -102,6 +111,14 @@ final class SteamAccountSession {
         if let steamId = frame.root["data"]?.objectValue?["steamId"]?.stringValue {
             activeAttemptId = nil
             phase = .online(steamId: steamId, accountName: frame.root["data"]?.objectValue?["accountName"]?.stringValue)
+        }
+        if let privatePayload = frame.root["private"]?.objectValue,
+           let refreshToken = privatePayload["refreshToken"]?.stringValue {
+            lastSessionTokens = (
+                refreshToken: refreshToken,
+                guardData: privatePayload["guardData"]?.stringValue,
+                accountName: privatePayload["accountName"]?.stringValue
+            )
         }
         return frame
     }

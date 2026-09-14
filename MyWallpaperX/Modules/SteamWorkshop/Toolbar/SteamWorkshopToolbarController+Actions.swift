@@ -92,7 +92,11 @@ extension SteamWorkshopToolbarController {
             logoutItem.target = self
             menu.addItem(logoutItem)
         } else {
-            let loginItem = NSMenuItem(title: "登录 Steam", action: #selector(handlePresentLogin), keyEquivalent: "")
+            let loginItem = NSMenuItem(
+                title: auth.expired ? "重新登录" : "登录 Steam",
+                action: #selector(handlePresentLogin),
+                keyEquivalent: ""
+            )
             loginItem.target = self
             menu.addItem(loginItem)
         }
@@ -174,9 +178,7 @@ extension SteamWorkshopToolbarController {
     }
 
     @objc func handleLogout() {
-        Task { @MainActor in
-            await SteamWorkshopService.shared.steamAuth.signOut()
-        }
+        SteamWorkshopService.shared.signOutEverywhere()
     }
 
     @objc func handleRevealDownloads() {

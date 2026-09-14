@@ -119,9 +119,92 @@ final class SteamWorkshopService: ObservableObject {
     /// SK2.2：新登录路线（SteamKit）权威。登录面板与工具栏账号状态的数据源。
     private(set) lazy var steamAuth = SteamAuthRoute(client: steamServiceClient)
 
-    /// SK2.2：唯一登录面板入口。重复调用聚焦同一面板，不产生第二个认证流。
+    /// SK2.3：唯一登录面板入口。重复调用聚焦同一面板，不产生第二个认证流。
     func showLoginPanel() {
         SteamLoginPanelController.shared.show(auth: steamAuth)
+    }
+
+    /// SK2.3：记住登录偏好开启时的启动静默恢复（有界、无 UI、无弹窗）。
+    /// 恢复到不同账号立即登出（不存错账号）；明确拒绝才标过期并删令牌；
+    /// 网络失败保留令牌下次再试。
+    func restoreSavedSteamSessionIfAuthorized() {
+        guard UserDefaults.standard.bool(forKey: SteamWorkshopTokenStore.rememberPreferenceKey),
+              let saved = SteamWorkshopTokenStore.load() else { return }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let steamId = try await self.steamAuth.restore(
+                    refreshToken: saved.refreshToken,
+                    accountName: saved.accountName,
+                    expectedSteamId: saved.steamId
+                )
+                if saved.accountName.isEmpty == false {
+                    self.statusMessage = "已恢复 Steam 登录（\(saved.accountName)）。"
+                }
+                _ = steamId
+            } catch {
+                // 账号不一致与过期都删令牌+标过期，但文案区分（不能匹配
+                // localizedDescription——Swift 枚举错误默认不含关联 message）。
+                var mismatch = false
+                if case let .helperError(_, message) = error as? SteamServiceClient.RequestError,
+                   message.contains("不一致") {
+                    mismatch = true
+                }
+                switch SteamAuthRoute.disposition(for: error) {
+                case .deleteToken:
+                    SteamWorkshopTokenStore.delete()
+                    self.steamAuth.markExpired()
+                    self.statusMessage = mismatch
+                        ? "保存的登录与实际账号不一致，已登出并清除保存信息。请重新登录。"
+                        : "保存的 Steam 登录已过期。请使用工具栏的「登录 Steam」重新登录。"
+                case .keepToken:
+                    self.statusMessage = "已保存的 Steam 登录暂无法恢复（网络原因），保留登录信息，下次启动再试。"
+                }
+            }
+        }
+    }
+
+    /// SK2.3：退出登录 = 新路线登出（epoch 递增+令牌清理）+ 旧路线会话清理。
+    /// 有活动/排队任务时先说明一次；本地文件与当前壁纸不受影响。
+    /// 注意：旧 SteamCMD 密码条目暂不删除——下载仍走旧 route，其退役
+    /// 挂接 SK6 迁移门（§8.1 SK2.3"成功迁移条件下"）。
+    func signOutEverywhere() {
+        let hasActiveDownloads = activeDownloadTask != nil || !queuedDownloadRequests.isEmpty
+        if hasActiveDownloads {
+            let alert = NSAlert()
+            alert.messageText = "退出 Steam 登录？"
+            alert.informativeText = "进行中和排队中的下载任务将被停止；已下载的文件和当前壁纸不受影响。"
+            alert.addButton(withTitle: "退出登录")
+            alert.addButton(withTitle: "取消")
+            if alert.runModal() != .alertFirstButtonReturn { return }
+        }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.steamAuth.signOut()
+            // 旧路线清理（不含旧密码删除，理由见上）。
+            self.cancelActiveLoginSession()
+            self.clearCommunitySession()
+            self.cancelDownloadImmediately(showFeedback: false)
+            self.defaults.removeObject(forKey: Constants.defaultsLastUsername)
+            self.defaults.removeObject(forKey: Constants.defaultsLastAuthenticatedAt)
+            self.pendingDownloadRequest = nil
+            // 排队任务与旧路线内存态一并清空，避免登出后用遗留凭据续跑（§3.3）。
+            for queued in self.queuedDownloadRequests {
+                self.removeTransientRecord(id: queued.id)
+            }
+            self.queuedDownloadRequests.removeAll()
+            self.steamUsername = ""
+            self.steamPassword = ""
+            self.steamGuardCode = ""
+            self.requiresLogin = true
+            self.isAnonymousBrowsing = false
+            self.authPhase = .credentials
+            self.authSessionState = .expired
+            self.lastSuccessfulSessionValidationAt = nil
+            self.isLoginSheetPresented = false
+            self.authError = nil
+            self.statusMessage = "已退出 Steam 登录。"
+        }
     }
 
     /// SK2.2：未登录受保护动作的就地提示（§1 规则 3：提示本身不打开登录）。
@@ -281,6 +364,7 @@ final class SteamWorkshopService: ObservableObject {
             loadAuthenticationState()
             refreshSteamRuntimeStatus()
             loadCachedBrowserItemsIfPossible()
+            restoreSavedSteamSessionIfAuthorized()
         }
         reloadInstalledItems()
         refreshDisplayedDownloads()

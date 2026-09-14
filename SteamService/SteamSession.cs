@@ -256,8 +256,8 @@ internal sealed class SteamSession : IAsyncDisposable
                 }
                 await LogOnWithTokenAsync(pollResult.AccountName, pollResult.RefreshToken, cancellation.Token)
                     .ConfigureAwait(false);
-                FinishSuccess(book, requestId, pollResult.RefreshToken, pollResult.AccessToken,
-                    pollResult.NewGuardData);
+                FinishSuccess(book, requestId, pollResult.AccountName, pollResult.RefreshToken,
+                    pollResult.AccessToken, pollResult.NewGuardData);
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
             {
@@ -300,8 +300,8 @@ internal sealed class SteamSession : IAsyncDisposable
                 }
                 await LogOnWithTokenAsync(pollResult.AccountName, pollResult.RefreshToken, cancellation.Token)
                     .ConfigureAwait(false);
-                FinishSuccess(book, requestId, pollResult.RefreshToken, pollResult.AccessToken,
-                    pollResult.NewGuardData);
+                FinishSuccess(book, requestId, pollResult.AccountName, pollResult.RefreshToken,
+                    pollResult.AccessToken, pollResult.NewGuardData);
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
             {
@@ -326,7 +326,8 @@ internal sealed class SteamSession : IAsyncDisposable
                 await EnsureConnectedAsync(cancellation.Token).ConfigureAwait(false);
                 await LogOnWithTokenAsync(accountNameHint ?? "", restoredToken, cancellation.Token)
                     .ConfigureAwait(false);
-                FinishSuccess(book, requestId, restoredToken, resultAccessToken: null, newGuardData: null);
+                FinishSuccess(book, requestId, accountNameHint ?? "", restoredToken,
+                    resultAccessToken: null, newGuardData: null);
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
             {
@@ -441,13 +442,14 @@ internal sealed class SteamSession : IAsyncDisposable
     }
 
     private void FinishSuccess(
-        AuthAttemptBook.Attempt book, string requestId,
+        AuthAttemptBook.Attempt book, string requestId, string realAccountName,
         string resultRefreshToken, string? resultAccessToken, string? newGuardData)
     {
         if (!attemptBook.TryFinish(book.AttemptId, "online")) return;
         ClearContextIfCurrent(book.AttemptId);
         if (!terminals.TryBegin(requestId)) return;
-        // 令牌只在 result 的 private 包装内出站；App 侧存 Keychain（SK2.3）。
+        // 令牌与真实账号名只在 result 的 private 包装内出站；展示名另行掩码
+        // （持久化需要真实名做 restore 的 Username 提示，掩码名仅供 UI）。
         writer.Send(new
         {
             v = ProtocolLimits.Version,
@@ -466,6 +468,7 @@ internal sealed class SteamSession : IAsyncDisposable
                 refreshToken = resultRefreshToken,
                 accessToken = resultAccessToken,
                 guardData = newGuardData,
+                accountName = realAccountName,
             },
         });
     }
@@ -493,7 +496,7 @@ internal sealed class SteamSession : IAsyncDisposable
         : name.Length <= 2 ? "**"
         : name[..2] + "***";
 
-    // 失败分型粗粒度版：真实失败样本进来后于 SK2.3 细化（密码错/限流/需要验证）。
+    // 失败分型：默认 network（§3.3 网络失败不删令牌）；仅明确拒绝才 authExpired。
     private static string ClassifyAuthError(Exception error)
     {
         var message = error.Message;
@@ -501,8 +504,12 @@ internal sealed class SteamSession : IAsyncDisposable
         {
             return "accessDenied";
         }
-        if (error is IOException) return "network";
-        return "authExpired";
+        // 令牌被服务端明确拒绝（过期/撤销/无效/账号不存在）。
+        if (message.Contains("token logon rejected", StringComparison.OrdinalIgnoreCase))
+        {
+            return "authExpired";
+        }
+        return "network";
     }
 
     private static async Task<AuthPollResult> PollWithGuardRetryAsync(
@@ -608,6 +615,13 @@ internal sealed class SteamSession : IAsyncDisposable
             .ConfigureAwait(false);
         if (result.Result != EResult.OK)
         {
+            // 明确拒绝（过期/撤销/无效/账号不存在）与瞬态失败分开表述：
+            // App 侧只对 rejected 删令牌，瞬态失败保留令牌下次再试（§3.3）。
+            if (result.Result is EResult.InvalidPassword or EResult.Expired or EResult.Revoked
+                or EResult.AccountNotFound or EResult.AccountLoginDeniedThrottle)
+            {
+                throw new IOException($"token logon rejected: {result.Result}");
+            }
             throw new IOException($"token logon failed: {result.Result}");
         }
         accountName = accountNameIn;

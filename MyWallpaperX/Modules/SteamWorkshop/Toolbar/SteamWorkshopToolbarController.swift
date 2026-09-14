@@ -131,6 +131,13 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
             }
             .store(in: &cancellables)
 
+        SteamWorkshopService.shared.steamAuth.$expired
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.configureAuthItems()
+            }
+            .store(in: &cancellables)
+
         SteamWorkshopService.shared.$isPreparingRuntime
         .receive(on: RunLoop.main)
         .sink { [weak self] _ in
