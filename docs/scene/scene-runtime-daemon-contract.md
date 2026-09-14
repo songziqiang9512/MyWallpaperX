@@ -43,8 +43,9 @@
 
 | 命令 | 载荷 | 语义 |
 |---|---|---|
-| `loadScene` | `{rootURL, propertyOverrides, profile}` | newer-wins 世代接受；后台准备；进度经事件回传 |
-| `setProperty` | `{values, revision}` | 属性热更新（value-only/资源/局部失效三分类），不重启 |
+| `loadScene` | `{rootURL, propertyOverrides, userPropertyTextures:{path,bookmark}, profile, recordID}` | newer-wins 世代接受；外部纹理以安全作用域书签跨进程，在 daemon Host 建表面时打开；后台准备；进度经事件回传 |
+| `setProperty` | `{values, revision, recordID}` | 先尝试活动记录的 typed 热更新；daemon 回传接受结果，拒绝时 client 用合并后的 authored intent 走完整 load 兜底 |
+| `cancelLaunch` | `{recordID}` | 只取消匹配记录的在途 launch |
 | `setDisplayConfiguration` | `{screens:[{id, frame, scale}]}` | 多屏拓扑重建 |
 | `setPerformanceProfile` | `{maxFPS}` | 60/30 档热切换（下一次排帧生效） |
 | `setMuted` | `{muted}` | 静音公共态（Scene Sound 层 0 增益） |
@@ -56,10 +57,11 @@
 | 事件 | 载荷 | 时机 |
 |---|---|---|
 | `launchStateChanged` | `{phase, message, requestID, recordID}` | 五阶段状态机（accepted/preparingModel/preparingPrograms/preparingResources/preparingSurfaces/launched/failed/cancelled） |
-| `firstFramePresented` | `{uptimeMs}` | 首帧 present 后 |
+| `firstFramePresented` | `{requestID, recordID, uptimeMs}` | 同请求 drawable 的实际 present 后 |
 | `frameStats` | 轻量 counter 集合 | 1Hz（hub 定长快照；textureMemory/rtMemory 等接入后自动包含） |
+| `propertyUpdateResult` | `{revision, recordID, accepted}` | 热更新尝试完成；client 只消费自己登记的 revision/recordID |
 | `error` | `{code, message, context}` | 引擎内部失败的可上报子集 |
-| `exited` | `{code}` | 进程退出前 |
+| `exited` | `{code, gpuDrained}` | GPU barrier 终结后的进程退出前 |
 
 ### 3.3 硬边界
 
@@ -69,9 +71,9 @@
 
 ## 4. 生命周期与崩溃语义
 
-- **孵化**：主程序 `Process()` 启动自身可执行文件并传 `--mwx-scene-daemon`，三根管道；单实例使用既有 Host 多表面模型，多屏控制与实测门留在 M5.4/M5.6。不得启动不存在的 Scene tool。
-- **崩溃/断连**：主程序侧指数退避重启（复用 video daemon 的 0.5s→…→上限退避），重启后自动 `loadScene` 恢复当前壁纸（rootURL 与属性覆盖由主程序持有）；连续失败超阈值 → 停止重试 + UI 错误态。
-- **有序退出**：`shutdown` → daemon 排空在飞 command buffer → `exited` → 进程退出；超时 3s 强杀。
+- **孵化**：主程序 `SceneDaemonClient` 经公共 `DaemonProcessTransport` 启动自身可执行文件并传 `--mwx-scene-daemon`，三根管道；单实例使用既有 Host 多表面模型。不得启动不存在的 Scene tool。
+- **崩溃/断连**：主程序侧持有公共 `DaemonRestartBackoff`（0s 立即一次，随后 1/2/4/8/16s，单次连续故障最多 6 次；通用上限 30s），重启后自动重放当前 authored intent；只有恢复请求的实际 first-present 才清零退避。连续失败超阈值 → 停止重试 + UI 错误态。
+- **有序退出**：`shutdown` → daemon 排空在飞 command buffer → `exited` → 进程退出；client 超时 2s 强杀。
 - **世代语义**：`loadScene` 世代号新者胜——旧准备的取消/回滚全部在 daemon 内完成，主程序无感知（只看到新 launchState 事件流）。
 
 ## 5. 线程约束审计结论（M5.1 审计；细节查事实架构地图 §1.3/§4）
@@ -91,7 +93,7 @@ daemon 化采用"runtime 原样搬迁"策略——**不重写线程模型**，�
 |---|---|---|
 | M5.2 | 同二进制 daemon 模式起桌面窗口 + 命令框架（实际 present 证据独立验证） | 手动：样本文隔离副本出首帧 |
 | M5.3 | 先抽取已有双消费者的 newline 分帧/编码；Scene 同 app target，本批只新增该真实共用文件的 app + video tool 双 target membership | split/coalesced/空帧门 + video daemon 行为回归 |
-| M5.4 | 接入 Scene client 后再共同抽取孵化/退避；命令迁移（EngineCommand→管道）+ 事件回传 + 退避重启 | 属性热更新/静音/FPS 档经管道全链可用 |
+| M5.4 ✅ | Scene client 接入；孵化/退避抽入 DaemonKit；命令迁移（EngineCommand→管道）+ 请求过滤事件回传 + 退避重启 | 属性热更新/拒绝重载兜底、静音/FPS/暂停、强杀恢复已过隔离实测 |
 | M5.5 | Host 瘦身为 client stub | 主程序无 Scene 渲染代码路径（grep 门） |
 | M5.6 | 生命周期收尾 + 旧路径删除（消融） | 切换/退出/多屏/暂停全链 + 能力台账零回退 |
 
@@ -102,6 +104,8 @@ daemon 化采用"runtime 原样搬迁"策略——**不重写线程模型**，�
 **M5.2 安全重做记录（2026-09-14）：** 历史 prototype 已撤回后重新实现。当前 endpoint 检查 v1 并将属性保留为 `SceneUserPropertyValue`；load 消费 profile，未知命令和坏载荷发送 error；launch/first-present 都携带请求身份。`firstFramePresented` 只在同请求 drawable 的 Core Animation presented handler 后产生，handler 先异步离开 Core Animation 回调再投递主队列，避免与主线程 `nextDrawable` 锁反转。EOF 与 shutdown 走同一路径：停止 Host，向每个现有 surface 的既有 command queue 提交空 barrier、等待 terminal，再写 `exited{code,gpuDrained}` 并退出。critical 事件串行，1Hz frameStats 只有一个可替换待写槽。签名 Debug 的 graph/simple 隔离样本均实测真实 present、持续渲染和 `gpuDrained=true`；未知命令负例也实测报错。`setDisplayConfiguration` 与主程序 Process/client/退避仍属于 M5.3/M5.4，当前普通 App 播放路径尚未迁移。
 
 **M5.3 双消费者裁决（2026-09-14）：** Video App client、WallpaperDaemon tool 与 Scene endpoint 原先各自拼接 newline 或维护输入 buffer；现统一消费无业务依赖的 `DaemonNewlineFrameBuffer` / `DaemonNewlineJSON`，协议 payload 与事件背压策略仍留在各端。孵化与退避此时只有 video client 一个生产消费者，因此没有提前抽成公共 wrapper；它们随 M5.4 Scene client 首次接线迁移。真实 Video helper 已用拆段命令和空帧回归到 ready/stopped；两个隔离 Scene daemon 均取得实际 present、持续统计和 GPU drain。公共层只运行于 coarse IPC，不进入帧内渲染热路。
+
+**M5.4 控制面迁移记录（2026-09-14）：** 普通产品 Scene 已由 App 内 `SceneDaemonClient` 唯一接收 `WallpaperEngineCommand`，再经同二进制 daemon 管道控制既有 Host；App 侧只保留可重放 authored intent、请求身份、属性 revision 和 1Hz 统计。`loadScene` 携带 typed 属性及外部纹理书签，子进程恢复 URL 后仍由唯一 Host 在同步纹理上传范围内开闭安全作用域；`setProperty` 以 revision+recordID 回执，拒绝时用已经合并的 authored intent 全量重载。所有 launch/first-present 事件按 requestID/recordID 投影，旧终态不能清除新 pending。graph/simple 隔离副本都通过首帧、20 秒播放、SIGKILL 后自动重放与恢复 present；数值属性样本验证热更新在同一进程生效并在崩溃后保留，非 live 属性验证拒绝后完整重载。Video daemon 拆段/空帧回归仍通过。该迁移不增加 visual owner；Metal/registry/graph/compositor 全留在 daemon。
 
 
 | 风险 | 缓解 |

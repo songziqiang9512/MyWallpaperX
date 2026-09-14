@@ -25,10 +25,7 @@ public final class WallpaperEngine: NSObject {
     // 一个 display 对应一个 daemon session；后面所有播放、暂停、换壁纸都围绕这个会话表展开。
     final class DisplayDaemonSession {
         let displayID: CGDirectDisplayID
-        let process: Process
-        let inputPipe: Pipe
-        let outputPipe: Pipe
-        let errorPipe: Pipe
+        let transport: DaemonProcessTransport
         var outputFrames = DaemonNewlineFrameBuffer()
         var nextRequestID = 0
         var latestRequestedPlayRequestID: Int?
@@ -39,13 +36,15 @@ public final class WallpaperEngine: NSObject {
         // 退避计数：连续崩溃次数，成功播放后清零。
         var consecutiveCrashCount: Int = 0
 
-        init(displayID: CGDirectDisplayID, process: Process, inputPipe: Pipe, outputPipe: Pipe, errorPipe: Pipe) {
+        init(displayID: CGDirectDisplayID, transport: DaemonProcessTransport) {
             self.displayID = displayID
-            self.process = process
-            self.inputPipe = inputPipe
-            self.outputPipe = outputPipe
-            self.errorPipe = errorPipe
+            self.transport = transport
         }
+
+        var process: Process { transport.process }
+        var inputPipe: Pipe { transport.inputPipe }
+        var outputPipe: Pipe { transport.outputPipe }
+        var errorPipe: Pipe { transport.errorPipe }
     }
 
     // 每个 display 的退避计数独立维护，session 重建时继承，成功后归零。
@@ -291,7 +290,6 @@ public final class WallpaperEngine: NSObject {
         currentWebRequestID = nil
         currentWebLaunchSource = nil
         currentWallpaper = nil
-        SceneDesktopWallpaperHost.shared.setPlaybackPaused(playbackPaused)
     }
 
     public func cleanup() {
@@ -362,10 +360,6 @@ public final class WallpaperEngine: NSObject {
     }
 
     public func isPlaying() -> Bool {
-        let sceneHost = SceneDesktopWallpaperHost.shared
-        if sceneHost.activeRecordID != nil {
-            return !playbackPaused && sceneHost.isPlaybackActive
-        }
         guard !playbackPaused else { return false }
 
         if currentPlaybackContentKind == .web {

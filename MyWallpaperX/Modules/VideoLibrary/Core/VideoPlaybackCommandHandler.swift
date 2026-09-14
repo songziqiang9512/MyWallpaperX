@@ -27,7 +27,8 @@ final class VideoPlaybackCommandHandler: PlaybackEngineControlling {
                 .next, userInitiated: true
             )
             return true
-        case .loadScene, .setProperty, .setPerformanceProfile:
+        case .loadScene, .setProperty, .cancelSceneLaunch,
+             .setPerformanceProfile:
             return false
         }
     }

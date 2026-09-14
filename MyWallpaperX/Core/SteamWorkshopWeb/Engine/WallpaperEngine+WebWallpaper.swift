@@ -16,7 +16,7 @@ extension WallpaperEngine {
         runtimeProfile: WebRuntimeProfile = .standard,
         multiDisplayEnabled: Bool
     ) {
-        postWallpaperRuntimeWillSwitch(to: .web)
+        postWallpaperRuntimeWillSwitch(to: .web, recordID: recordID)
         currentWebPropertiesJSON = propertiesJSON ?? "{}"
         currentWebRecordID = recordID
         launchWebWallpaper(

@@ -53,7 +53,7 @@ private final class SceneDaemonEventWriter: @unchecked Sendable {
 }
 
 /// Scene-specific daemon endpoint. Generic process spawning and retry policy
-/// remain M5.3 work; this type owns only the Scene command/event projection.
+/// live in DaemonKit; this type owns only the Scene command/event projection.
 @MainActor
 final class SceneDaemonRuntime {
     static var isRequested: Bool {
@@ -67,6 +67,7 @@ final class SceneDaemonRuntime {
     private var statsTimer: DispatchSourceTimer?
     private var currentRequestID: UUID?
     private var lastPropertyRevision: UInt64 = 0
+    private var shouldPausePlayback = false
     private var isShuttingDown = false
 
     deinit {
@@ -93,6 +94,7 @@ final class SceneDaemonRuntime {
             rootURL: URL(fileURLWithPath: rootPath, isDirectory: true)
                 .resolvingSymlinksInPath().standardizedFileURL,
             propertyOverrides: [:],
+            userPropertyTextures: [:],
             profile: .current,
             recordID: nil
         ))
@@ -123,45 +125,51 @@ final class SceneDaemonRuntime {
 
     private func handle(_ command: SceneDaemonCommand) {
         switch command {
-        case let .loadScene(rootURL, overrides, profile, recordID):
+        case let .loadScene(
+            rootURL, overrides, textureReferences, profile, recordID
+        ):
             lastPropertyRevision = 0
             SceneDesktopWallpaperHost.shared.applyPerformanceProfile(profile)
             SceneDesktopWallpaperHost.shared.requestLaunch(
                 rootURL: rootURL,
                 propertyOverrides: overrides,
+                userPropertyTextureURLs: Self.resolveTextureURLs(
+                    textureReferences
+                ),
                 recordID: recordID
             ) { _ in }
-        case let .setProperty(values, revision):
-            guard revision > lastPropertyRevision,
-                  SceneDesktopWallpaperHost.shared.applyUserPropertyValues(
+        case let .setProperty(values, revision, recordID):
+            let accepted = revision > lastPropertyRevision
+                && SceneDesktopWallpaperHost.shared.applyUserPropertyValues(
                     values,
                     changedPropertyKeys: Set(values.keys),
-                    recordID: SceneDesktopWallpaperHost.shared.activeRecordID
-                  ) else {
-                emitError(
-                    code: "command-rejected",
-                    message: "setProperty was stale or unavailable"
+                    recordID: recordID
                 )
-                return
+            if accepted {
+                lastPropertyRevision = revision
             }
-            lastPropertyRevision = revision
+            emit([
+                "v": SceneDaemonProtocol.version,
+                "event": "propertyUpdateResult",
+                "revision": revision,
+                "recordID": recordID,
+                "accepted": accepted
+            ])
+        case let .cancelLaunch(recordID):
+            SceneDesktopWallpaperHost.shared.cancelPendingLaunch(
+                recordID: recordID
+            )
         case let .setPerformanceProfile(profile):
             SceneDesktopWallpaperHost.shared.applyPerformanceProfile(profile)
         case let .setMuted(muted):
-            guard SceneDesktopWallpaperHost.shared.handle(.setMuted(muted)) else {
-                emitError(code: "command-rejected", message: "setMuted")
-                return
-            }
+            PlaybackMuteState.shared.setMuted(muted)
+            SceneDesktopWallpaperHost.shared.soundPlaybackRegistry?.setMuted(muted)
         case .pause:
-            guard SceneDesktopWallpaperHost.shared.handle(.pause) else {
-                emitError(code: "command-rejected", message: "pause")
-                return
-            }
+            shouldPausePlayback = true
+            SceneDesktopWallpaperHost.shared.setPlaybackPaused(true)
         case .resume:
-            guard SceneDesktopWallpaperHost.shared.handle(.resume) else {
-                emitError(code: "command-rejected", message: "resume")
-                return
-            }
+            shouldPausePlayback = false
+            SceneDesktopWallpaperHost.shared.setPlaybackPaused(false)
         case .shutdown:
             shutdown(exitCode: 0)
         }
@@ -173,39 +181,67 @@ final class SceneDaemonRuntime {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            guard let self,
-                  let state = notification.object
-                    as? SceneWallpaperLaunchState else { return }
-            if state.phase == .accepted {
-                self.currentRequestID = state.requestID
+            MainActor.assumeIsolated {
+                guard let self,
+                      let state = notification.object
+                        as? SceneWallpaperLaunchState else { return }
+                if state.phase == .accepted {
+                    self.currentRequestID = state.requestID
+                } else if state.phase == .launched, self.shouldPausePlayback {
+                    SceneDesktopWallpaperHost.shared.setPlaybackPaused(true)
+                }
+                self.emit([
+                    "v": SceneDaemonProtocol.version,
+                    "event": "launchStateChanged",
+                    "phase": state.phase.rawValue,
+                    "message": state.message,
+                    "requestID": state.requestID.uuidString,
+                    "recordID": state.recordID ?? NSNull()
+                ])
             }
-            self.emit([
-                "v": SceneDaemonProtocol.version,
-                "event": "launchStateChanged",
-                "phase": state.phase.rawValue,
-                "message": state.message,
-                "requestID": state.requestID.uuidString,
-                "recordID": state.recordID ?? NSNull()
-            ])
         })
         observers.append(NotificationCenter.default.addObserver(
             forName: .sceneWallpaperFirstFrameDidPresent,
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            guard let self,
-                  let presentation = notification.object
-                    as? SceneFramePresentation,
-                  presentation.requestID == self.currentRequestID else { return }
-            self.emit([
-                "v": SceneDaemonProtocol.version,
-                "event": "firstFramePresented",
-                "requestID": presentation.requestID.uuidString,
-                "recordID": presentation.recordID ?? NSNull(),
-                "uptimeMs": Double(presentation.uptimeMicros) / 1_000
-            ])
+            MainActor.assumeIsolated {
+                guard let self,
+                      let presentation = notification.object
+                        as? SceneFramePresentation,
+                      presentation.requestID == self.currentRequestID else { return }
+                self.emit([
+                    "v": SceneDaemonProtocol.version,
+                    "event": "firstFramePresented",
+                    "requestID": presentation.requestID.uuidString,
+                    "recordID": presentation.recordID ?? NSNull(),
+                    "uptimeMs": Double(presentation.uptimeMicros) / 1_000
+                ])
+#if DEBUG
+                self.captureFirstPresentedFrameIfRequested()
+#endif
+            }
         })
     }
+
+#if DEBUG
+    private func captureFirstPresentedFrameIfRequested() {
+        guard let outputPath = Self.argumentValue(
+            after: "--mwx-debug-scene-evidence-dir"
+        ) else { return }
+        let outputDirectory = URL(
+            fileURLWithPath: outputPath,
+            isDirectory: true
+        ).standardizedFileURL
+        guard let windowNumber = SceneDesktopWallpaperHost.shared
+            .debugSnapshot().windowNumbers.first else { return }
+        _ = SceneDesktopWallpaperHost.shared.requestDebugSnapshot(
+            windowNumber: windowNumber,
+            reason: "daemon-\(getpid())-first-present",
+            outputDirectory: outputDirectory
+        )
+    }
+#endif
 
     private func installStatsTimer() {
         let timer = DispatchSource.makeTimerSource(queue: .main)
@@ -274,6 +310,34 @@ final class SceneDaemonRuntime {
             payload,
             options: [.sortedKeys]
         )
+    }
+
+    private static func resolveTextureURLs(
+        _ references: [String: ScenePlaybackTextureReference]
+    ) -> [String: URL] {
+        references.mapValues { reference in
+            guard let bookmarkData = reference.bookmarkData else {
+                return reference.url
+            }
+            var isStale = false
+            if let scopedURL = try? URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [.withSecurityScope],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            ) {
+                return scopedURL.resolvingSymlinksInPath().standardizedFileURL
+            }
+            if let unscopedURL = try? URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            ) {
+                return unscopedURL.resolvingSymlinksInPath().standardizedFileURL
+            }
+            return reference.url
+        }
     }
 
     private static func argumentValue(after flag: String) -> String? {

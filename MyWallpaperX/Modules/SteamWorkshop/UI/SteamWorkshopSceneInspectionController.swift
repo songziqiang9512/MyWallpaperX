@@ -93,7 +93,7 @@ final class SteamWorkshopSceneInspectionController {
         presentedIdentity = identity
         let currentSnapshot = snapshot.flatMap { $0.identity == identity ? $0 : nil }
         let currentDiagnosticsReport = currentSnapshot?.diagnosticsReport
-        let launchState = SceneDesktopWallpaperHost.shared.launchState.flatMap {
+        let launchState = SceneDaemonClient.shared.launchState.flatMap {
             $0.recordID == record.id ? $0 : nil
         }
 
@@ -122,7 +122,10 @@ final class SteamWorkshopSceneInspectionController {
 
         if let launchState, launchState.isInProgress {
             let cancelButton = ActionButton(title: "取消设置") {
-                SceneDesktopWallpaperHost.shared.cancelPendingLaunch(recordID: record.id)
+                PlaybackCommandMultiplexer.shared.dispatch(
+                    .cancelSceneLaunch(recordID: record.id),
+                    to: .scene
+                )
             }
             configureSmallButton(cancelButton)
             header.addArrangedSubview(cancelButton)

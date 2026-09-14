@@ -172,14 +172,22 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         cls.shader_reachability = SHADER_REACHABILITY.read_text(encoding="utf-8")
         cls.variant_cache = VARIANT_CACHE.read_text(encoding="utf-8")
 
-    def test_product_request_uses_background_preparation_entrypoint(self) -> None:
+    def test_product_request_uses_daemon_command_and_switches_on_launch_event(self) -> None:
         observer = function_body(
             self.coordinator,
             "private static func observeSteamWorkshopSceneReadyToRender()",
         )
-        self.assertIn("requestLaunch(", observer)
-        self.assertNotIn(".launch(\n", observer)
-        self.assertLess(observer.index("case .success"), observer.index("postWallpaperRuntimeWillSwitch"))
+        self.assertIn("PlaybackCommandMultiplexer.shared.dispatch(", observer)
+        self.assertIn(".loadScene(.init(", observer)
+        self.assertIn("to: .scene", observer)
+        self.assertNotIn("SceneDesktopWallpaperHost.shared", observer)
+        state_observer = function_body(
+            self.coordinator,
+            "private static func observeSceneWallpaperLaunchState()",
+        )
+        launched = state_observer[state_observer.index("case .launched:") :]
+        self.assertIn("postWallpaperRuntimeWillSwitch", launched)
+        self.assertIn("WallpaperEngine.shared.stopPlayback()", launched)
 
     def test_main_window_projects_central_launch_state(self) -> None:
         configure = function_body(self.coordinator, "static func configure(")
@@ -400,7 +408,8 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         self.assertIn("sceneWallpaperLaunchStateDidChange", self.inspection)
         self.assertIn("launchState.isInProgress", self.inspection)
         self.assertIn("当前壁纸会继续播放", self.inspection)
-        self.assertIn("cancelPendingLaunch(recordID: record.id)", self.inspection)
+        self.assertIn(".cancelSceneLaunch(recordID: record.id)", self.inspection)
+        self.assertIn("to: .scene", self.inspection)
 
     def test_host_stop_cancels_pending_preparation(self) -> None:
         stop = function_body(self.host, "func stop()")

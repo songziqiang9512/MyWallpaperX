@@ -5,10 +5,16 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
     case loadScene(
         rootURL: URL,
         propertyOverrides: [String: SceneUserPropertyValue],
+        userPropertyTextures: [String: ScenePlaybackTextureReference],
         profile: PlaybackPerformanceProfile,
         recordID: String?
     )
-    case setProperty(values: [String: SceneUserPropertyValue], revision: UInt64)
+    case setProperty(
+        values: [String: SceneUserPropertyValue],
+        revision: UInt64,
+        recordID: String
+    )
+    case cancelLaunch(recordID: String)
     case setPerformanceProfile(PlaybackPerformanceProfile)
     case setMuted(Bool)
     case pause
@@ -54,13 +60,17 @@ nonisolated enum SceneDaemonProtocol {
             guard let root = payload["rootURL"] as? String,
                   !root.isEmpty,
                   let profile = profile(payload["profile"] ?? payload["maxFPS"]),
-                  let values = propertyValues(payload["propertyOverrides"]) else {
+                  let values = propertyValues(payload["propertyOverrides"]),
+                  let textures = textureReferences(
+                    payload["userPropertyTextures"]
+                  ) else {
                 return .failure(.invalidPayload(action))
             }
             return .success(.loadScene(
                 rootURL: URL(fileURLWithPath: root, isDirectory: true)
                     .resolvingSymlinksInPath().standardizedFileURL,
                 propertyOverrides: values,
+                userPropertyTextures: textures,
                 profile: profile,
                 recordID: payload["recordID"] as? String
             ))
@@ -68,10 +78,22 @@ nonisolated enum SceneDaemonProtocol {
             guard let values = propertyValues(payload["values"]),
                   !values.isEmpty,
                   let revision = unsignedInteger(payload["revision"]),
-                  revision > 0 else {
+                  revision > 0,
+                  let recordID = payload["recordID"] as? String,
+                  !recordID.isEmpty else {
                 return .failure(.invalidPayload(action))
             }
-            return .success(.setProperty(values: values, revision: revision))
+            return .success(.setProperty(
+                values: values,
+                revision: revision,
+                recordID: recordID
+            ))
+        case "cancelLaunch":
+            guard let recordID = payload["recordID"] as? String,
+                  !recordID.isEmpty else {
+                return .failure(.invalidPayload(action))
+            }
+            return .success(.cancelLaunch(recordID: recordID))
         case "setPerformanceProfile":
             guard let profile = profile(payload["maxFPS"]) else {
                 return .failure(.invalidPayload(action))
@@ -101,6 +123,36 @@ nonisolated enum SceneDaemonProtocol {
                 return nil
             }
             result[key] = parsed
+        }
+        return result
+    }
+
+    private static func textureReferences(
+        _ raw: Any?
+    ) -> [String: ScenePlaybackTextureReference]? {
+        guard raw == nil || raw is [String: Any] else { return nil }
+        let dictionary = raw as? [String: Any] ?? [:]
+        var result: [String: ScenePlaybackTextureReference] = [:]
+        result.reserveCapacity(dictionary.count)
+        for (key, rawReference) in dictionary {
+            guard !key.isEmpty,
+                  let reference = rawReference as? [String: Any],
+                  let path = reference["path"] as? String,
+                  !path.isEmpty else { return nil }
+            let bookmarkData: Data?
+            if let bookmark = reference["bookmark"] as? String {
+                guard let decoded = Data(base64Encoded: bookmark) else {
+                    return nil
+                }
+                bookmarkData = decoded
+            } else {
+                bookmarkData = nil
+            }
+            result[key] = ScenePlaybackTextureReference(
+                url: URL(fileURLWithPath: path)
+                    .resolvingSymlinksInPath().standardizedFileURL,
+                bookmarkData: bookmarkData
+            )
         }
         return result
     }

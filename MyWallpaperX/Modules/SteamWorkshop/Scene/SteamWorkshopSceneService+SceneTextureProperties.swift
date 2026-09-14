@@ -59,9 +59,9 @@ extension SteamWorkshopService {
         return resolvedURL
     }
 
-    func withResolvedSceneTexturePropertyURLs(
+    func withResolvedSceneTexturePropertyReferences(
         for record: SteamWorkshopDownloadRecord,
-        perform: ([String: URL]) -> Void
+        perform: ([String: ScenePlaybackTextureReference]) -> Void
     ) {
         let prefix = SceneTexturePropertyStore.bookmarkPrefix + record.id + "."
         let keys: [String] = defaults.dictionaryRepresentation().keys.compactMap { bookmarkKey in
@@ -70,7 +70,9 @@ extension SteamWorkshopService {
             return propertyKey.isEmpty ? nil : propertyKey
         }
         var openedScopes: [URL] = []
-        let urls = keys.reduce(into: [String: URL]()) { urls, key in
+        let references = keys.reduce(
+            into: [String: ScenePlaybackTextureReference]()
+        ) { references, key in
             let bookmarkKey = sceneTexturePropertyBookmarkKey(forKey: key, record: record)
             guard let url = resolvedSceneTextureBookmarkURL(forBookmarkKey: bookmarkKey) else {
                 return
@@ -82,10 +84,13 @@ extension SteamWorkshopService {
                 defaults.removeObject(forKey: bookmarkKey)
                 return
             }
-            urls[key] = url
+            references[key] = ScenePlaybackTextureReference(
+                url: url,
+                bookmarkData: defaults.data(forKey: bookmarkKey)
+            )
         }
         defer { openedScopes.forEach { $0.stopAccessingSecurityScopedResource() } }
-        perform(urls)
+        perform(references)
     }
 
     @discardableResult

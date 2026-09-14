@@ -3,7 +3,7 @@ import Foundation
 struct SteamWorkshopScenePlaybackRequest {
     let rootURL: URL
     let propertyOverrides: [String: SceneUserPropertyValue]
-    let userPropertyTextureURLs: [String: URL]
+    let userPropertyTextures: [String: ScenePlaybackTextureReference]
     let recordID: String
 }
 
@@ -12,7 +12,7 @@ extension SteamWorkshopService {
         guard record.contentType == .scene else { return }
 
         let propertyOverrides = scenePropertyOverrides(for: record)
-        withResolvedSceneTexturePropertyURLs(for: record) { userPropertyTextureURLs in
+        withResolvedSceneTexturePropertyReferences(for: record) { references in
             NotificationCenter.default.post(
                 name: .steamWorkshopSceneReadyToRender,
                 object: nil,
@@ -20,7 +20,7 @@ extension SteamWorkshopService {
                     "request": SteamWorkshopScenePlaybackRequest(
                         rootURL: record.folderURL,
                         propertyOverrides: propertyOverrides,
-                        userPropertyTextureURLs: userPropertyTextureURLs,
+                        userPropertyTextures: references,
                         recordID: record.id
                     )
                 ]

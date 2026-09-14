@@ -49,13 +49,8 @@ extension WallpaperEngine {
     }
 
     func send(_ command: DaemonCommand, to session: DisplayDaemonSession) {
-        guard session.process.isRunning else { return }
-
-        do {
-            let data = try DaemonNewlineJSON.encode(command)
-            try session.inputPipe.fileHandleForWriting.write(contentsOf: data)
-        } catch {
-        }
+        guard let data = try? DaemonNewlineJSON.encode(command) else { return }
+        session.transport.send(data)
     }
 
     func resizedSpectrumLevels(_ levels: [Float], count: Int) -> [Float] {

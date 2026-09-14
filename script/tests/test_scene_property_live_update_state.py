@@ -902,12 +902,12 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
             service.index("func resetScenePropertyValues(")
         ]
         self.assertIn(
-            "if !SceneDesktopWallpaperHost.shared.applyUserPropertyValue(",
+            "if !PlaybackCommandMultiplexer.shared.dispatch(",
             update,
         )
         self.assertLess(
-            update.index("applyUserPropertyValue("),
-            update.index("scheduleActiveScenePropertyRender"),
+            update.index("PlaybackCommandMultiplexer.shared.dispatch("),
+            update.rindex("scheduleActiveScenePropertyRender"),
         )
 
 

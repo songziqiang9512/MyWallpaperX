@@ -13,7 +13,6 @@ extension WallpaperEngine {
 
     public func pauseAllPlayers() {
         assert(Thread.isMainThread, "pauseAllPlayers must be called on main thread")
-        SceneDesktopWallpaperHost.shared.setPlaybackPaused(true)
         if playbackPaused { return }
 
         if currentPlaybackContentKind == .web {
@@ -49,7 +48,6 @@ extension WallpaperEngine {
 
     public func resumeAllPlayers() {
         assert(Thread.isMainThread, "resumeAllPlayers must be called on main thread")
-        SceneDesktopWallpaperHost.shared.setPlaybackPaused(false)
         if !playbackPaused { return }
 
         if currentPlaybackContentKind == .web {

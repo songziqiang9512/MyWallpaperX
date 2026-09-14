@@ -24,6 +24,7 @@ RENDERER = SCENE / "Rendering/SceneMetalRenderer.swift"
 APPLICATION = ROOT / "MyWallpaperX/App/MyWallpaperXApplication.swift"
 PROPERTY = SCENE / "Properties/SceneUserProperty.swift"
 PROFILE = ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"
+COMMAND = ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift"
 
 
 HARNESS = r'''
@@ -38,22 +39,28 @@ import Foundation
         let load = decode([
             "v": 1, "cmd": "loadScene", "rootURL": "/private/tmp/scene",
             "profile": 30, "recordID": "fixture",
-            "propertyOverrides": ["enabled": true, "rate": 1.5, "label": "ok"]
+            "propertyOverrides": ["enabled": true, "rate": 1.5, "label": "ok"],
+            "userPropertyTextures": [
+                "cover": ["path": "/private/tmp/cover.png", "bookmark": "AQID"]
+            ]
         ])
         let loadValid: Bool
-        if case let .success(.loadScene(root, values, profile, recordID)) = load {
+        if case let .success(.loadScene(root, values, textures, profile, recordID)) = load {
             loadValid = root.path == "/private/tmp/scene"
                 && profile == .efficient && recordID == "fixture"
                 && values["enabled"] == .bool(true)
                 && values["rate"] == .number(1.5)
                 && values["label"] == .string("ok")
+                && textures["cover"]?.url.path == "/private/tmp/cover.png"
+                && textures["cover"]?.bookmarkData == Data([1, 2, 3])
         } else { loadValid = false }
         let propertyValid: Bool
-        if case let .success(.setProperty(values, revision)) = decode([
+        if case let .success(.setProperty(values, revision, recordID)) = decode([
             "v": 1, "cmd": "setProperty", "revision": 7,
-            "values": ["rate": 2.0]
+            "recordID": "fixture", "values": ["rate": 2.0]
         ]) {
-            propertyValid = revision == 7 && values["rate"] == .number(2)
+            propertyValid = revision == 7 && recordID == "fixture"
+                && values["rate"] == .number(2)
         } else { propertyValid = false }
         let versionRejected: Bool
         if case .failure(.unsupportedVersion(2)) = decode(["v": 2, "cmd": "pause"]) {
@@ -66,7 +73,7 @@ import Foundation
         let zeroRevisionRejected: Bool
         if case .failure(.invalidPayload("setProperty")) = decode([
             "v": 1, "cmd": "setProperty", "revision": 0,
-            "values": ["rate": 2]
+            "recordID": "fixture", "values": ["rate": 2]
         ]) { zeroRevisionRejected = true } else { zeroRevisionRejected = false }
         let booleanVersionRejected: Bool
         if case .failure(.malformedEnvelope) = decode(["v": true, "cmd": "pause"]) {
@@ -76,6 +83,16 @@ import Foundation
         if case .failure(.invalidPayload("setMuted")) = decode([
             "v": 1, "cmd": "setMuted", "muted": 1
         ]) { numericMuteRejected = true } else { numericMuteRejected = false }
+        let cancelValid: Bool
+        if case .success(.cancelLaunch(recordID: "fixture")) = decode([
+            "v": 1, "cmd": "cancelLaunch", "recordID": "fixture"
+        ]) { cancelValid = true } else { cancelValid = false }
+        let badBookmarkRejected: Bool
+        if case .failure(.invalidPayload("loadScene")) = decode([
+            "v": 1, "cmd": "loadScene", "rootURL": "/private/tmp/scene",
+            "profile": 60, "propertyOverrides": [:],
+            "userPropertyTextures": ["cover": ["path": "/tmp/a", "bookmark": "%%"]]
+        ]) { badBookmarkRejected = true } else { badBookmarkRejected = false }
         let payload = [
             "loadValid": loadValid,
             "propertyValid": propertyValid,
@@ -84,6 +101,8 @@ import Foundation
             "zeroRevisionRejected": zeroRevisionRejected,
             "booleanVersionRejected": booleanVersionRejected,
             "numericMuteRejected": numericMuteRejected,
+            "cancelValid": cancelValid,
+            "badBookmarkRejected": badBookmarkRejected,
         ]
         print(String(data: try JSONEncoder().encode(payload), encoding: .utf8)!)
     }
@@ -101,7 +120,8 @@ class SceneDaemonProtocolTests(unittest.TestCase):
             compiled = subprocess.run(
                 [
                     "xcrun", "swiftc", "-parse-as-library",
-                    str(PROPERTY), str(PROFILE), str(PROTOCOL), str(harness),
+                    str(PROPERTY), str(COMMAND), str(PROFILE), str(PROTOCOL),
+                    str(harness),
                     "-o", str(binary),
                 ],
                 capture_output=True, text=True, timeout=60,
@@ -149,7 +169,7 @@ class SceneDaemonProtocolTests(unittest.TestCase):
         self.assertIn('"gpuDrained": drained', runtime)
         self.assertIn("writer.sendCritical(data)", runtime)
 
-    def test_daemon_mode_skips_main_ui_and_reports_rejections(self) -> None:
+    def test_daemon_mode_skips_main_ui_and_reports_property_results(self) -> None:
         application = APPLICATION.read_text(encoding="utf-8")
         main = function_body(application, "static func main()")
         branch = main[: main.index("let delegate = AppDelegate()")]
@@ -159,7 +179,8 @@ class SceneDaemonProtocolTests(unittest.TestCase):
         self.assertNotIn("MainWindowCoordinator.configure", branch)
         runtime = RUNTIME.read_text(encoding="utf-8")
         self.assertIn("failure.code", runtime)
-        self.assertIn('code: "command-rejected"', runtime)
+        self.assertIn('"event": "propertyUpdateResult"', runtime)
+        self.assertIn('"accepted": accepted', runtime)
         self.assertIn("sendLatestStats", runtime)
 
 

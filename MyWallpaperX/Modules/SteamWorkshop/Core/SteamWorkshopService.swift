@@ -153,6 +153,7 @@ final class SteamWorkshopService: ObservableObject {
     var webRuntimeModelCache: [String: CachedWebRuntimeModel] = [:]
     var activeWebPropertySecurityScopedURLs: [String: URL] = [:]
     var scenePropertyRenderTask: Task<Void, Never>?
+    var scenePropertyCommandRevision: UInt64 = 0
 
     // MARK: - Runtime tasks and processes
 

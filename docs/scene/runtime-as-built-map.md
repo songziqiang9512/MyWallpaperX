@@ -21,24 +21,25 @@
 ### 1.1 加载链（一次 launch）
 
 ```
-主线程  选壁纸 → 收集属性覆盖（bookmark 同步 IO）→ requestLaunch（世代号++，取消上一代）
-后台    launchPreparationQueue 串行：package 解码（project.json/scene.json JSONSerialization、scene.pkg 解包）
+App 主线程  选壁纸 → 收集属性覆盖与安全作用域书签 → SceneDaemonClient 保存 authored intent → newline JSON 管道
+daemon 主线程  解码 typed loadScene → Host.requestLaunch（世代号++，取消上一代）
+daemon 后台    launchPreparationQueue 串行：package 解码（project.json/scene.json JSONSerialization、scene.pkg 解包）
         → IR/RenderDescriptor/资产目录 → admission/catalog 编译（concurrentPerform）
         → 材质资产纹理内联解码 → 双后台 worker（基础纹理/模型、first-surface runtime）→ NSCondition join
         → QuickJS 全 family 编译 → launchContext 组装
-主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetalView（同步加载用户属性纹理）
+daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetalView（安全作用域内同步加载用户属性纹理）
         → loadImageLayers（缓存 miss 同步 decode/puppet 重组/文字/粒子 init）→ 建窗口 → 立即首帧 → Timer 帧循环
 ```
 
 ### 1.2 所有权权威
 
-进程现状（M5.3 后）：普通产品 Scene 仍在主 App 进程内，由既有 Host 唯一运行；主 App 尚无 Scene client/孵化路径。相同 App 二进制在显式 `--mwx-scene-daemon` 下改为 accessory endpoint，跳过 AppDelegate/MainWindowCoordinator，仍复用同一个 Host、五类 prepared 产品和唯一 compositor。该 endpoint 已闭合 typed IPC v1、请求归属的实际 drawable present、EOF/shutdown teardown 与既有 GPU queue barrier；它不是第二套渲染权威。`Core/DaemonKit/DaemonNewlineJSON.swift` 现在是 app video client、WallpaperDaemon tool 与 Scene endpoint 共同消费的唯一 newline 分帧/编码原语，且不依赖任何具体 Host 或协议 payload。`Process()` 孵化和退避仍在 video client 内，因为 Scene client 尚未接线；M5.4 形成第二个真实消费者时才迁移，当前没有公共 wrapper 或第二会话权威。
+进程现状（M5.4 后）：普通产品 Scene 命令由主 App 的 `SceneDaemonClient` 唯一接收；client 只持有可重放 authored intent、请求/记录身份、属性 revision、控制意图和轻量统计，不持有 Metal/registry/graph/compositor。它经公共 `DaemonProcessTransport` 孵化同一 App 二进制的 `--mwx-scene-daemon` accessory 子进程；子进程跳过 AppDelegate/MainWindowCoordinator，并由既有 Host 唯一运行五类 prepared 产品、frame loop、表面和 compositor。`DaemonNewlineFrameBuffer` / `DaemonNewlineJSON` 统一 Video/Scene 的分帧和编码，`DaemonRestartBackoff` 统一 0/1/2/4…有界退避；业务 payload、会话身份与重放裁决仍留在各 client。Scene launch/first-present 按 requestID/recordID 过滤，属性以 revision+recordID 确认；热更新拒绝时 client 用合并后的 authored intent 触发同一 daemon Host 的完整重载。外部 SceneTexture 只跨管道传路径与书签，daemon 恢复 URL 后由 Host 在表面同步上传范围内开闭安全作用域。DEBUG direct runner 是显式证据入口，不参与普通产品分发。
 （同一时刻各只有一个，禁止第二套）
 
 | 权威 | 持有者 | 存活期 | 替换方式 |
 |---|---|---|---|
 | identity/作者顺序 | launchContext.renderDescriptor + catalog | 单次 launch | 场景切换整体替换 |
-| frame clock/typed channels | sceneClock + FrameDriver 状态机 | App 激活期 | 暂停/恢复 |
+| frame clock/typed channels | daemon Host 的 sceneClock + FrameDriver 状态机 | daemon launch 期 | 暂停/恢复 |
 | property/state | liveState.effectiveValues + revision | launch 期，值变 revision++ | value-only 帧路径消费 |
 | resource/provider registry | SceneFrameTextureRegistry（per surface view） | per view | 每帧 beginFrame 重发布 |
 | graph/target/publication/completion | SceneResolvedMaterialRuntimeBridge（catalog+SubmissionCoordinator，**per surface**） | per surface/场景 | invalidate 整体重置；catalog 不可变、整体替换 |
@@ -48,7 +49,7 @@
 
 | 工作 | 线程 | 备注 |
 |---|---|---|
-| frame tick / QuickJS / 粒子 / Metal encode / commit | **主线程**（Timer on RunLoop.main） | VM 经 adoptCurrentThread 绑定；0 actor / 0 类型级 @MainActor，全靠约定 |
+| frame tick / QuickJS / 粒子 / Metal encode / commit | **daemon 主线程**（Timer on RunLoop.main） | VM 经 adoptCurrentThread 绑定；0 actor / 0 类型级 @MainActor，全靠约定 |
 | GPU 完成终结 | Metal 完成线程 → 唯一每帧 hop：`Task{@MainActor}` 回主线程（SubmissionCoordinator+FrameCommit） | 其余 completion 只做锁内记账 |
 | 启动准备 / deferred 纹理 / 动态文字 / 音频分析 / localStorage | 各自后台串行队列 | 跨线程只经 os_unfair_lock inbox（audio/media） |
 | shader 编译 | 外部子进程（glslang/spirv-cross，超时+字节+内存预算 SIGKILL） | 产物 MSL 字符串；makeLibrary 在 PassEncoder |
@@ -87,7 +88,7 @@
 13. **puppet 双 lane**：`puppetAtlas` 仅 mesh UV 采样、`puppetComposed` 才能作 layer source；geometry 失败回退 TextureProduct 须保持 coverage 合同。
 14. **launch 世代**：newer-wins 世代号 + 取消令牌 + per-generation worker 队列；新后台准备必须持世代令牌，否则旧场景任务污染新场景。
 15. **catalog 不可变、整体替换**：capability catalog 无增量失效；token 含 ownerID 不跨 catalog 碰撞。"改一处能力"= 重建 catalog，不是 patch。
-16. **控制面单一通道**（M0 起）：目标为 UI→引擎只经 `Core/PlaybackControl/` 命令层；当前仅状态栏三键和设置静音/FPS 已迁移，属性/播放入口仍有直调。现有（`WallpaperEngineCommand` + multiplexer，未消费显式 false）；静音意图在 `PlaybackMuteState`，菜单/设置仍读 video 派生态（未完成单一状态闭环）；预算档权威 = Scene 宿主 `performanceProfile`（UI 只写 UserDefaults + 发命令）。新 UI 入口不得直触引擎内部。
+16. **控制面单一通道**（M5.4）：普通产品 UI→Scene 只经 `WallpaperEngineCommand` + multiplexer → `SceneDaemonClient` → newline JSON；client 只投影 requestID/recordID 匹配的 daemon 事件。属性持久化仍只有 App 的 SteamWorkshopService，运行属性仍只有 daemon Host liveState；热更新拒绝由 client 完整重载，不产生第二 property owner。静音意图在 `PlaybackMuteState`，菜单/设置仍读 video 派生态（M0.2 未完成单一状态闭环）；预算档运行权威在 daemon Host。新 UI 入口不得直触 Host。
 
 ## 4. 改A坏B 雷区对照表
 
@@ -117,7 +118,7 @@
 - 同步 launch 与异步 requestLaunch 均在每次准备尝试前递增唯一 `nextSceneScriptGeneration`。`1a7e4020` 误删同步递增已在交接纠偏恢复；可执行入口测试覆盖成功/失败/成功得到 1/2/3，失败尝试不可复用身份。
 - 播放态 `isPlaying` 已补为 `PlaybackEngineControlling` 协议要求，multiplexer 读取具体处理端状态；回归测试覆盖 Scene 在播、广播暂停、video 定向恢复与注销。此前 extension-only 默认 false 的错误分发不得在 IPC client 中复现。Scene `.stop` 始终进入既有 Host.stop()（幂等），包括异步准备中尚无 launchContext 的阶段，避免 pending launch 在停止后继续激活。
 
-- UI pending 仍有归属缺口：SteamWorkshopService 保存 recordID，Scene 终态及 runtime 切换 observer 无条件清除；独立执行实际 observer，旧 A 的 launched 会清除仍解析纹理 URL 的新 B。Host 的 requestGeneration 守卫不能保护尚未送入 Host 的 UI 请求，纠正门须覆盖点击→异步纹理解析→accepted→终态全链。
+- UI pending 已按 recordID 闭合归属：Scene 终态携带 daemon 回传的 recordID，runtime switch 通知也携带活动记录；SteamWorkshopService 只清除匹配记录。旧 A 的终态不会清除仍在收集纹理书签或等待 accepted 的新 B；跨请求时序门覆盖该反例。
 
 ## 5. 已做对、明确不动
 

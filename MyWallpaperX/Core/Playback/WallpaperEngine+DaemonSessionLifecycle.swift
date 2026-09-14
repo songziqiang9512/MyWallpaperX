@@ -19,22 +19,18 @@ extension WallpaperEngine {
             return nil
         }
 
-        let process = Process()
-        process.executableURL = helperURL
-        process.arguments = ["--display-id", String(displayID)]
-
-        let inputPipe = Pipe()
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.standardInput = inputPipe
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
-
-        let session = DisplayDaemonSession(displayID: displayID, process: process, inputPipe: inputPipe, outputPipe: outputPipe, errorPipe: errorPipe)
+        let transport = DaemonProcessTransport(
+            executableURL: helperURL,
+            arguments: ["--display-id", String(displayID)]
+        )
+        let session = DisplayDaemonSession(
+            displayID: displayID,
+            transport: transport
+        )
         attachReaders(for: session)
 
-        process.terminationHandler = { [weak self] _ in
-            DispatchQueue.main.async {
+        transport.onTermination = { [weak self, weak session] _ in
+            guard let session else { return }
                 guard let self else { return }
                 let wasCurrentSession = self.displaySessions[displayID] === session
                 if wasCurrentSession {
@@ -57,9 +53,9 @@ extension WallpaperEngine {
 
                 let crashCount = self.displayCrashCounts[displayID, default: 0]
                 self.displayCrashCounts[displayID] = crashCount + 1
-                let delay: TimeInterval = crashCount == 0
-                    ? 0
-                    : min(pow(2.0, Double(crashCount - 1)), 30.0)
+                let delay = DaemonRestartBackoff.delay(
+                    forConsecutiveFailureCount: crashCount
+                )
 
                 let rebuild = { [weak self] in
                     guard let self,
@@ -88,11 +84,10 @@ extension WallpaperEngine {
                 } else {
                     DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: rebuild)
                 }
-            }
         }
 
         do {
-            try process.run()
+            try transport.start()
             displaySessions[displayID] = session
             return session
         } catch {
@@ -115,36 +110,22 @@ extension WallpaperEngine {
     }
 
     private func attachReaders(for session: DisplayDaemonSession) {
-        session.inputPipe.fileHandleForWriting.readabilityHandler = nil
         let displayID = session.displayID
-        session.outputPipe.fileHandleForReading.readabilityHandler = { [weak self, weak session] handle in
-            let data = handle.availableData
-            guard !data.isEmpty else { return }
-            DispatchQueue.main.async {
-                guard let self,
-                      let session,
-                      self.displaySessions[displayID] === session else { return }
-                self.consumeDaemonEvents(from: data, for: session)
-            }
+        session.transport.onOutput = { [weak self, weak session] data in
+            guard let self,
+                  let session,
+                  self.displaySessions[displayID] === session else { return }
+            self.consumeDaemonEvents(from: data, for: session)
         }
-        session.errorPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            guard !data.isEmpty else { return }
-            guard let text = String(data: data, encoding: .utf8), !text.isEmpty else { return }
+        session.transport.onError = { text in
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { return }
-            DispatchQueue.main.async {
-                print(trimmed)
-            }
+            print(trimmed)
         }
     }
 
     private func cleanupSessionIO(_ session: DisplayDaemonSession) {
-        session.outputPipe.fileHandleForReading.readabilityHandler = nil
-        session.errorPipe.fileHandleForReading.readabilityHandler = nil
-        try? session.inputPipe.fileHandleForWriting.close()
-        try? session.outputPipe.fileHandleForReading.close()
-        try? session.errorPipe.fileHandleForReading.close()
+        session.transport.closeIO()
     }
 
     func terminateSession(for displayID: CGDirectDisplayID) {
@@ -152,9 +133,9 @@ extension WallpaperEngine {
 
         if session.process.isRunning {
             send(DaemonCommand(action: "stop", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: nil, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
-            session.process.terminate()
+            session.transport.terminate()
         }
-        cleanupSessionIO(session)
+        session.transport.closeIO()
     }
 
     func sendPlayCommand(

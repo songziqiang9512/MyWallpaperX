@@ -83,6 +83,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
  func applicationDidFinishLaunching(_ notification: Notification) {
 #if DEBUG
+ if DebugSceneDaemonClientRunner.isRequested {
+ DebugSceneDaemonClientRunner.scheduleIfRequested()
+ return
+ }
  if DebugScenePlaybackRunner.runsIsolatedSceneSample {
  DebugScenePlaybackRunner.scheduleScenePlaybackIfRequested()
  return
@@ -139,6 +143,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
  func applicationWillTerminate(_ notification: Notification) {
 #if DEBUG
+ if DebugSceneDaemonClientRunner.isRequested {
+ SceneDaemonClient.shared.shutdown()
+ return
+ }
  if DebugScenePlaybackRunner.runsIsolatedSceneSample {
  SceneDesktopWallpaperHost.shared.stop()
  return
@@ -153,6 +161,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  pendingInitialWindowOpen = nil
  statusBarController = nil
  WallpaperManager.shared.flushPersistentState()
+ SceneDaemonClient.shared.shutdown()
  WallpaperEngine.shared.cleanup()
  }
 

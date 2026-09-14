@@ -39,10 +39,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private func setupStatusBar() {
         guard !didSetupStatusBar else { return }
         didSetupStatusBar = true
-        // 命令层装配点：状态栏三键经命令层控制所有引擎
-        // （engine-refactor-program.md M0.1/M0.4）。
-        PlaybackCommandMultiplexer.shared.register(VideoPlaybackCommandHandler())
-        PlaybackCommandMultiplexer.shared.register(SceneDesktopWallpaperHost.shared)
         // 状态栏图标只初始化一次，避免重复创建导致菜单 / target 丢失。
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         guard let button = statusItem?.button else { return }

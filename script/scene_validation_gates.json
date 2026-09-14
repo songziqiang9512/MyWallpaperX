@@ -178,6 +178,30 @@
       ]
     },
     {
+      "id": "scene-daemon-control-plane",
+      "patterns": [
+        "MyWallpaperX/App/AppDelegate.swift",
+        "MyWallpaperX/App/DebugSceneDaemonClientRunner.swift",
+        "MyWallpaperX/App/MainWindowCoordinator.swift",
+        "MyWallpaperX/App/StatusBarController.swift",
+        "MyWallpaperX/Core/Playback/WallpaperEngine+DaemonSessionLifecycle.swift",
+        "MyWallpaperX/Core/Playback/WallpaperEngine+PlaybackControl.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Engine/WallpaperEngine+WebWallpaper.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/VideoPlaybackCommandHandler.swift",
+        "MyWallpaperX/Shared/UI/WallpaperRuntimeSwitch.swift",
+        "script/tests/test_daemon_process_transport.py",
+        "script/tests/test_scene_daemon_client_wiring.py"
+      ],
+      "modules": [
+        "test_daemon_process_transport",
+        "test_playback_command_multiplexer",
+        "test_scene_daemon_client_wiring",
+        "test_scene_daemon_protocol"
+      ]
+    },
+    {
       "id": "scene-script-cursor",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/SceneScriptCursorProgram.swift",

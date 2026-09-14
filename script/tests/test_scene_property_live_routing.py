@@ -68,12 +68,14 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         update = method_body(self.service, "func updateScenePropertyValue(")
         save = update.index("saveScenePropertyOverrides")
         notify = update.index("objectWillChange.send()")
-        live = update.index("applyUserPropertyValue(")
-        fallback = update.index("scheduleActiveScenePropertyRender")
+        live = update.index("PlaybackCommandMultiplexer.shared.dispatch(")
+        fallback = update.rindex("scheduleActiveScenePropertyRender")
         self.assertLess(save, notify)
         self.assertLess(notify, live)
         self.assertLess(live, fallback)
-        self.assertIn("if !SceneDesktopWallpaperHost.shared.applyUserPropertyValue(", update)
+        self.assertIn(".setProperty(", update)
+        self.assertIn("revision: scenePropertyCommandRevision", update)
+        self.assertIn("to: .scene", update)
 
     def test_unready_deferred_selection_preserves_previous_current(self) -> None:
         selection = method_body(
@@ -132,16 +134,16 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         schedule = method_body(self.service, "private func scheduleActiveScenePropertyRender(")
         self.assertNotIn("scenePropertyRenderTask?.cancel()", update)
         self.assertLess(
-            schedule.index("guard SceneDesktopWallpaperHost.shared.activeRecordID"),
+            schedule.index("guard SceneDaemonClient.shared.hasIntent"),
             schedule.index("scenePropertyRenderTask?.cancel()"),
         )
         self.assertEqual(
-            schedule.count("SceneDesktopWallpaperHost.shared.activeRecordID == record.id"),
+            schedule.count("SceneDaemonClient.shared.hasIntent(for: record.id)"),
             2,
         )
         self.assertLess(
             schedule.index("Task.sleep"),
-            schedule.rindex("SceneDesktopWallpaperHost.shared.activeRecordID"),
+            schedule.rindex("SceneDaemonClient.shared.hasIntent"),
         )
 
     def test_reset_uses_only_old_override_keys_and_texture_changes_force_rebuild(self) -> None:
@@ -153,10 +155,11 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         )
         self.assertIn("let changedPropertyKeys = Set(overrides.keys)", reset)
         self.assertIn("if !removedTextureBookmarks,", reset)
-        self.assertIn("applyUserPropertyValues(", reset)
-        self.assertIn("changedPropertyKeys: changedPropertyKeys", reset)
+        self.assertIn("let changedDefaults = defaultValues.filter", reset)
+        self.assertIn("changedPropertyKeys.contains($0.key)", reset)
+        self.assertIn(".setProperty(", reset)
         self.assertLess(
-            reset.index("applyUserPropertyValues("),
+            reset.index(".setProperty("),
             reset.index("scheduleActiveScenePropertyRender"),
         )
 

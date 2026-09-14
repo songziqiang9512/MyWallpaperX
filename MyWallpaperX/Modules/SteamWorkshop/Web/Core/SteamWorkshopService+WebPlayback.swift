@@ -97,8 +97,9 @@ extension SteamWorkshopService {
 
     // MARK: - Launch pending（M0.5）
 
-    /// video/web 切换正常由 `.wallpaperRuntimeWillSwitch` 清除 pending；
-    /// 若宿主应用失败没有通知，用一次性兜底避免按钮永久停留在加载态。
+    /// web/scene 用 recordID 归属通知清除 pending；video 没有 Steam
+    /// identity 贯穿导入链，所以保留一次性兜底，且不让无归属旧通知
+    /// 清除更新的点击。
     private func scheduleLaunchPendingFallbackClear(recordID: String) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
             self?.clearLaunchPending(matching: recordID)
@@ -109,20 +110,29 @@ extension SteamWorkshopService {
         NotificationCenter.default.addObserver(
             forName: .sceneWallpaperLaunchStateDidChange, object: nil, queue: .main
         ) { [weak self] notification in
-            guard let self,
-                  let state = notification.object as? SceneWallpaperLaunchState else { return }
-            switch state.phase {
-            case .launched, .failed, .cancelled:
-                self.clearLaunchPending()
-            case .accepted, .preparingModel, .preparingPrograms,
-                 .preparingResources, .preparingSurfaces:
-                break
+            MainActor.assumeIsolated {
+                guard let self,
+                      let state = notification.object
+                        as? SceneWallpaperLaunchState else { return }
+                switch state.phase {
+                case .launched, .failed, .cancelled:
+                    guard let recordID = state.recordID else { return }
+                    self.clearLaunchPending(matching: recordID)
+                case .accepted, .preparingModel, .preparingPrograms,
+                     .preparingResources, .preparingSurfaces:
+                    break
+                }
             }
         }
         NotificationCenter.default.addObserver(
             forName: .wallpaperRuntimeWillSwitch, object: nil, queue: .main
-        ) { [weak self] _ in
-            self?.clearLaunchPending()
+        ) { [weak self] notification in
+            MainActor.assumeIsolated {
+                guard let self,
+                      let recordID = notification.userInfo?["recordID"]
+                        as? String else { return }
+                self.clearLaunchPending(matching: recordID)
+            }
         }
     }
 

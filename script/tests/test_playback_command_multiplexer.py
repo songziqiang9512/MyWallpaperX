@@ -6,6 +6,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCES = ROOT / 'MyWallpaperX/Core/PlaybackControl'
+PROPERTY = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Properties/SceneUserProperty.swift'
 HARNESS = r'''
 import Foundation
 final class Handler: PlaybackEngineControlling {
@@ -36,7 +37,10 @@ final class Handler: PlaybackEngineControlling {
         precondition(mux.isAnyEnginePlaying && !scene.isPlaying)
         mux.unregister(.video)
         precondition(!mux.isAnyEnginePlaying)
-        precondition(!mux.dispatch(.setProperty([:], revision: 1), to: .scene))
+        precondition(!mux.dispatch(
+            .setProperty([:], revision: 1, recordID: "fixture"),
+            to: .scene
+        ))
         print("playback-dispatch-pass")
     }
 }
@@ -51,6 +55,7 @@ class PlaybackCommandMultiplexerTests(unittest.TestCase):
             harness.write_text(HARNESS)
             binary = path / 'harness'
             result = subprocess.run(['xcrun', 'swiftc', '-parse-as-library',
+                str(PROPERTY),
                 *[str(SOURCES / name) for name in ['WallpaperEngineCommand.swift', 'PlaybackEngineControlling.swift', 'PlaybackCommandMultiplexer.swift']],
                 str(harness), '-o', str(binary)], capture_output=True, text=True, timeout=60)
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -58,38 +63,13 @@ class PlaybackCommandMultiplexerTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn('playback-dispatch-pass', result.stdout)
 
-    def test_scene_stop_cancels_preparation_without_an_active_context(self):
-        support = r'''
-import Foundation
-struct SceneUserPropertyValue { static func parse(_ raw: String) -> Self? { Self() } }
-final class SoundRegistry { func setMuted(_ value: Bool) {} }
-final class SceneDesktopWallpaperHost {
-    var launchContext: Int? = nil
-    var pending = true
-    var isPlaybackActive = false
-    var soundPlaybackRegistry: SoundRegistry? = nil
-    func requestLaunch(rootURL: URL, propertyOverrides: [String: SceneUserPropertyValue], recordID: String?, completion: (Int) -> Void) {}
-    func setPlaybackPaused(_ paused: Bool) {}
-    func applyPerformanceProfile(_ profile: PlaybackPerformanceProfile) {}
-    func stop() { pending = false; launchContext = nil }
-}
-@main enum Harness {
-    static func main() {
-        let host = SceneDesktopWallpaperHost()
-        precondition(host.handle(.stop))
-        precondition(!host.pending, "Stop must cancel preparation before activation")
-        precondition(host.handle(.stop), "Stop is idempotent")
-        print("pending-stop-pass")
-    }
-}
-'''
-        with tempfile.TemporaryDirectory(prefix='mwx-playback-pending-stop-') as directory:
-            root = Path(directory); harness = root / 'Harness.swift'; binary = root / 'harness'
-            harness.write_text(support)
-            files = [SOURCES / name for name in ['WallpaperEngineCommand.swift', 'PlaybackEngineControlling.swift', 'PlaybackCommandMultiplexer.swift', 'PlaybackPerformanceProfile.swift']]
-            files.append(ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+PlaybackControl.swift')
-            compiled = subprocess.run(['xcrun','swiftc','-parse-as-library',*[str(p) for p in files],str(harness),'-o',str(binary)],capture_output=True,text=True,timeout=60)
-            self.assertEqual(compiled.returncode,0,compiled.stderr)
-            result = subprocess.run([str(binary)],capture_output=True,text=True,timeout=10)
-            self.assertEqual(result.returncode,0,result.stderr)
-            self.assertIn('pending-stop-pass',result.stdout)
+    def test_product_scene_handler_is_daemon_client(self):
+        application = (ROOT / 'MyWallpaperX/App/MyWallpaperXApplication.swift').read_text()
+        status_bar = (ROOT / 'MyWallpaperX/App/StatusBarController.swift').read_text()
+        client = (ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDaemonClient.swift').read_text()
+        self.assertIn('register(SceneDaemonClient.shared)', application)
+        self.assertNotIn('register(SceneDesktopWallpaperHost.shared)', status_bar)
+        self.assertIn('final class SceneDaemonClient: PlaybackEngineControlling', client)
+        self.assertFalse(
+            (ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+PlaybackControl.swift').exists()
+        )

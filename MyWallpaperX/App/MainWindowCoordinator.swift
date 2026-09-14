@@ -452,39 +452,38 @@ enum MainWindowCoordinator {
         observerTokens.append(observer)
     }
 
-    /// 监听 Steam Scene 请求并创建与 Web/Video 分离的 desktop-level 宿主窗口。
+    /// 监听 Steam Scene 请求并定向交给独立进程控制端。
     private static func observeSteamWorkshopSceneReadyToRender() {
         let observer = NotificationCenter.default.addObserver(
             forName: .steamWorkshopSceneReadyToRender,
             object: nil,
             queue: .main
         ) { notification in
-            guard let request = notification.userInfo?["request"] as? SteamWorkshopScenePlaybackRequest else { return }
-            SceneDesktopWallpaperHost.shared.requestLaunch(
-                rootURL: request.rootURL,
-                propertyOverrides: request.propertyOverrides,
-                userPropertyTextureURLs: request.userPropertyTextureURLs,
-                recordID: request.recordID
-            ) { result in
-                guard case .success = result else {
-                    if case let .failure(error) = result,
-                       !SceneDesktopWallpaperHost.isLaunchCancellation(error) {
-                        SteamWorkshopService.shared.downloadError = error.localizedDescription
-                    }
-                    return
+            MainActor.assumeIsolated {
+                guard let request = notification.userInfo?["request"]
+                        as? SteamWorkshopScenePlaybackRequest else { return }
+                let accepted = PlaybackCommandMultiplexer.shared.dispatch(
+                    .loadScene(.init(
+                        rootURL: request.rootURL,
+                        propertyOverrides: request.propertyOverrides,
+                        userPropertyTextures: request.userPropertyTextures,
+                        recordID: request.recordID
+                    )),
+                    to: .scene
+                )
+                if !accepted {
+                    SteamWorkshopService.shared.downloadError =
+                        "Scene daemon 控制端尚未就绪"
+                    SteamWorkshopService.shared.clearLaunchPending(
+                        matching: request.recordID
+                    )
                 }
-                postWallpaperRuntimeWillSwitch(to: .scene)
-                wallpaperManager.clearCurrentWallpaperReference()
-                wallpaperManager.activeWallpaperRuntime = .scene
-                wallpaperManager.stopAutoSwitchTimer()
-                WallpaperEngine.shared.stopPlayback()
-                wallpaperManager.isPlaying = WallpaperEngine.shared.isPlaying()
             }
         }
         observerTokens.append(observer)
     }
 
-    /// 将 Scene host 的中心启动状态投影到 Steam 模块，详情关闭后仍可观察。
+    /// 将 Scene daemon 的中心启动状态投影到 Steam 模块。
     private static func observeSceneWallpaperLaunchState() {
         let observer = NotificationCenter.default.addObserver(
             forName: .sceneWallpaperLaunchStateDidChange,
@@ -502,6 +501,15 @@ enum MainWindowCoordinator {
                     message = "\(state.message)，当前壁纸会继续播放"
                 case .launched:
                     message = "Scene 表面已启动，正在等待首帧显示"
+                    postWallpaperRuntimeWillSwitch(
+                        to: .scene,
+                        recordID: state.recordID
+                    )
+                    wallpaperManager.clearCurrentWallpaperReference()
+                    wallpaperManager.activeWallpaperRuntime = .scene
+                    wallpaperManager.stopAutoSwitchTimer()
+                    WallpaperEngine.shared.stopPlayback()
+                    wallpaperManager.isPlaying = SceneDaemonClient.shared.isPlaying
                 case .cancelled:
                     message = "已取消 Scene 壁纸准备，当前壁纸保持不变"
                 case .failed:

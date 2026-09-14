@@ -25,6 +25,8 @@ enum MyWallpaperXApplication {
         }
         let delegate = AppDelegate()
         app.delegate = delegate
+        PlaybackCommandMultiplexer.shared.register(VideoPlaybackCommandHandler())
+        PlaybackCommandMultiplexer.shared.register(SceneDaemonClient.shared)
 #if DEBUG
         if !runsIsolatedWebWorkshopSample
             && !DebugScenePlaybackRunner.runsIsolatedSceneSample {

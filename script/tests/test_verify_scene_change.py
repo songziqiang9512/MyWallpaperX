@@ -185,6 +185,19 @@ class SceneValidationSelectionTests(unittest.TestCase):
         focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
         self.assertIn("test_daemon_line_framing", focused.command)
 
+    def test_scene_daemon_client_change_selects_control_plane_contracts(self) -> None:
+        gates, groups = verify.build_plan(
+            ["MyWallpaperX/App/DebugSceneDaemonClientRunner.swift"],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("scene-daemon-control-plane", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        self.assertIn("test_daemon_process_transport", focused.command)
+        self.assertIn("test_playback_command_multiplexer", focused.command)
+        self.assertIn("test_scene_daemon_client_wiring", focused.command)
+        self.assertIn("test_scene_daemon_protocol", focused.command)
+
     def test_launch_change_selects_existing_fallback_admission_module(self) -> None:
         gates, groups = verify.build_plan(
             [
