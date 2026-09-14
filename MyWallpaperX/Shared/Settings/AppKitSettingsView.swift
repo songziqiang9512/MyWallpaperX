@@ -182,7 +182,7 @@ final class AppKitSettingsContainerView: NSView {
         let clampedVolume = Int(max(0, min(100, round(settings.volume))))
         volumeSlider.doubleValue = Double(clampedVolume)
         volumeValueLabel.stringValue = "\(clampedVolume)%"
-        muteSwitch.state = wallpaperManager.isMuted ? .on : .off
+        muteSwitch.state = PlaybackMuteState.shared.isMuted ? .on : .off
 
         let clampedRate = max(0.25, min(2.0, settings.playbackRate))
         playbackRateSwitch.state = settings.playbackRateEnabled ? .on : .off
@@ -1045,6 +1045,12 @@ final class AppKitSettingsContainerView: NSView {
         let clampedVolume = Int(max(0, min(100, round(volumeSlider.doubleValue))))
         volumeValueLabel.stringValue = "\(clampedVolume)%"
         wallpaperManager.updateVolume(Double(clampedVolume))
+        // M0.2 闭环：音量滑杆跨越 0 边界时同步公共静音意图
+        // （0 → 公共静音；>0 且公共静音 → 解除），Scene/Video 双端跟随。
+        PlaybackMuteState.shared.setMuted(clampedVolume == 0)
+        PlaybackCommandMultiplexer.shared.dispatch(
+            .setMuted(clampedVolume == 0)
+        )
     }
 
     @objc private func handleMuteToggle() {

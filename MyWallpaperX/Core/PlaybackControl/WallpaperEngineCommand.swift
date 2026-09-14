@@ -41,8 +41,7 @@ enum WallpaperEngineCommand: Equatable, Sendable {
 
 /// 跨引擎静音意图（M0.2）。这是静音的公共权威：引擎各自决定
 /// 如何实现静音（video=音量归零/恢复；scene=Sound 层 0 增益），
-/// UI 图标与设置面板只读本状态。video 音量滑杆直接归零产生的
-/// 派生静音不经此处，其与命令态的同步属 M0.3 设置打通。
+/// UI 图标、设置面板与音量滑杆 0 边界同步只读本状态/经命令写入。
 final class PlaybackMuteState {
     static let shared = PlaybackMuteState()
 

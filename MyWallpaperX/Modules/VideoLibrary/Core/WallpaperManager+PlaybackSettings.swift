@@ -261,7 +261,10 @@ extension WallpaperManager {
             PlaybackCommandMultiplexer.shared.dispatch(command)
             isPlaying = PlaybackCommandMultiplexer.shared.isAnyEnginePlaying
         case .muteToggle:
-            PlaybackCommandMultiplexer.shared.dispatch(.setMuted(!isMuted))
+            // M0.2：跨引擎决策读公共静音权威，而非 video 派生态。
+            PlaybackCommandMultiplexer.shared.dispatch(
+                .setMuted(!PlaybackMuteState.shared.isMuted)
+            )
         }
     }
 

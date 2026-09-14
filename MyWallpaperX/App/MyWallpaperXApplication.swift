@@ -27,6 +27,10 @@ enum MyWallpaperXApplication {
         app.delegate = delegate
         PlaybackCommandMultiplexer.shared.register(VideoPlaybackCommandHandler())
         PlaybackCommandMultiplexer.shared.register(SceneDaemonClient.shared)
+        // M0.2：公共静音权威启动种子（上次会话音量 ≤0 → 公共意图静音）。
+        if WallpaperManager.shared.isMuted {
+            PlaybackMuteState.shared.setMuted(true)
+        }
 #if DEBUG
         if !runsIsolatedWebWorkshopSample
             && !DebugScenePlaybackRunner.runsIsolatedSceneSample {

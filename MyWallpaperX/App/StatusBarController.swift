@@ -142,8 +142,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         let playbackIcon = anyEnginePlaying ? "pause.circle" : "play.circle"
         menu.addItem(makeItem(title: playbackTitle, systemImageName: playbackIcon, action: #selector(togglePlayback), keyEquivalent: ""))
         
-        let muteTitle = wallpaperManager.isMuted ? "关闭静音" : "开启静音"
-        let muteIcon = wallpaperManager.isMuted ? "volume.2" : "volume.slash"
+        let muteTitle = PlaybackMuteState.shared.isMuted ? "关闭静音" : "开启静音"
+        let muteIcon = PlaybackMuteState.shared.isMuted ? "volume.2" : "volume.slash"
         menu.addItem(makeItem(title: muteTitle, systemImageName: muteIcon, action: #selector(toggleMute), keyEquivalent: ""))
         
         menu.addItem(.separator())
@@ -208,7 +208,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
 
     @objc private func toggleMute() {
         PlaybackCommandMultiplexer.shared.dispatch(
-            .setMuted(!wallpaperManager.isMuted)
+            .setMuted(!PlaybackMuteState.shared.isMuted)
         )
     }
     

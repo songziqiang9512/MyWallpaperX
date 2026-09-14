@@ -63,7 +63,6 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var pendingPropertyRevisions: [UInt64: String] = [:]
     private var lastPropertyRevision: UInt64 = 0
     private var performanceProfile = PlaybackPerformanceProfile.current
-    private var isMuted = PlaybackMuteState.shared.isMuted
     private var isPaused = false
     private var runtimeSwitchObserver: NSObjectProtocol?
     private var screenParametersObserver: NSObjectProtocol?
@@ -134,7 +133,6 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             }
             return activeIntent != nil || pendingIntent != nil
         case let .setMuted(muted):
-            isMuted = muted
             PlaybackMuteState.shared.setMuted(muted)
             if endpointReady {
                 send([
@@ -364,7 +362,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         send([
             "v": SceneDaemonProtocol.version,
             "cmd": "setMuted",
-            "muted": isMuted
+            "muted": PlaybackMuteState.shared.isMuted
         ])
         sendSimpleCommand(isPaused ? "pause" : "resume")
     }
