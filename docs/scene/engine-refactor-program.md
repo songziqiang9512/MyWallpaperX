@@ -125,6 +125,13 @@
 
 ### M6 验收
 
+- **M6.0 基线实测（2026-09-15，graph 样本 2938612768 daemon 模式 20s）** ✅：五阶段 launchStateChanged 全链 + firstFramePresented + frameStats 1Hz 流 + gpuDrained 退出，进程 exit 0；稳态 cpu 33.1ms/rendered 285 帧/busy 0/dropped 0/pipelineStateBinds 17280/fallbackBranches 0/gpuAllocatedBytes 886MB/rtPools 88MB；startupElapsedMS 12118ms。事件流存 `/private/tmp/mwx-baseline/daemon-m6-verify.out`。
+- **M6.1 Fast Scene Suite** ⬜：`script/scene_fast_suite.json` manifest 仍含 `selection-required` 成员；两代表样本（2938612768 graph + 1300076567 simple）已人工确认画面正常（用户确认）。
+- **M6.2 全量矩阵** ⬜：严格 graph matrix 现有 22 项失败（M3.2 交接修复后仍存），需逐项归因。
+- **M6.3 长稳** ⬜：两档各 30min+ 连续运行。
+- **M6.4 daemon 崩溃/断连演练** ⬜：kill -9 daemon → 退避重启 → 恢复 actual present。
+- **M6.5 签名公证** ⬜：Developer ID 签名 + notarization；helper 签名校验门应在签名构建中通过（glslang 路由启用、bounded frontend 回退消除）。
+
 Fast Scene Suite → fixed/full matrix → 长稳（两档各跑）→ daemon 崩溃/断连演练 → arm64/x86_64 → 签名公证；能力台账零回退为门。
 
 ## 4. 关键设计裁决
