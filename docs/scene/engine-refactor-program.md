@@ -52,6 +52,8 @@
 交接治理校正：历史 Light Shafts 文件链接改为明确退役标记，两个现役 direct-draw 几何类型补入目录合同及事实地图；semantics coverage / 文档登记 / governance 共 31 项通过，不代表运行验收完成。
 
 
+交接测试纠偏：静态 uniform 缺省/声明冲突在 launch envelope 撤销 owner，executor 测试改验该阶段后继续执行 previous-current、suffix、GPU completion 与像素断言；executor + 独立 finalizer 共 27 项通过。
+
 卡格式：**改哪里 → 怎么做 → 验收门 → 回滚**。状态记录于卡内标题行；执行细节与 file:line 锚点查[事实架构地图](runtime-as-built-map.md)。
 
 ### M0 控制面命令化 + 公共层第一批（同进程）

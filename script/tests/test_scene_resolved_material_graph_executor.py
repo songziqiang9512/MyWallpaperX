@@ -4676,6 +4676,7 @@ private enum Harness {
             capabilities: Capabilities,
             generation: UInt64,
             reason: String,
+            rejectedAtLaunch: Bool = false,
             textureEntries: [
                 SceneFrameTextureIdentity: SceneFrameTextureLookupStatus
             ] = [:]
@@ -4687,6 +4688,10 @@ private enum Harness {
             failureCode: String
         ) {
             guard let claim, let capability,
+                  !rejectedAtLaunch || (
+                      capability.stages.count == 3
+                          && capability.stages[1].visualFailureReasonCode == reason
+                  ),
                   let leases = makeChainedLeases(
                       capability,
                       device: device,
@@ -4798,12 +4803,16 @@ private enum Harness {
             reason: "dependency-stage-reference-unsupported"
         )
 
+        // Static uniform errors revoke the generic owner during the launch
+        // envelope. Require that early boundary, then execute the same strict
+        // previous-current, suffix, GPU completion and pixel checks below.
         let staticUniformFailure = executeVisualFailurePassthrough(
             claim: staticPixelClaim,
             capability: staticPixelCapability,
             capabilities: staticPixelCapabilities,
             generation: 7,
-            reason: "material-finalizer-static-uniform-binding"
+            reason: "material-generic-owner-revoked",
+            rejectedAtLaunch: true
         )
 
         let samplerSchemaFailure = executeVisualFailurePassthrough(
@@ -4819,14 +4828,16 @@ private enum Harness {
             capability: hostConflictPixelCapability,
             capabilities: hostConflictPixelCapabilities,
             generation: 9,
-            reason: "material-finalizer-host-uniform-declaration-conflict"
+            reason: "material-generic-owner-revoked",
+            rejectedAtLaunch: true
         )
         let declarationConflictFailure = executeVisualFailurePassthrough(
             claim: declarationConflictPixelClaim,
             capability: declarationConflictPixelCapability,
             capabilities: declarationConflictPixelCapabilities,
             generation: 11,
-            reason: "material-finalizer-uniform-declaration-conflict"
+            reason: "material-generic-owner-revoked",
+            rejectedAtLaunch: true
         )
 
         func colorBlendEntries(
