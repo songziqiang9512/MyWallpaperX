@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-    "discovery": {
+  "discovery": {
     "historyRoot": "docs/history",
     "additionalPaths": [
       "docs/architecture/appkit-migration.md",
@@ -17,7 +17,8 @@
       "docs/web/wallpaper-engine-web-rules.md",
       "docs/web/web-project-json-localization.md",
       "docs/web/web-project-json-runtime-model.md",
-      "docs/web/web-wallpaper-benchmark-standard.md"
+      "docs/web/web-wallpaper-benchmark-standard.md",
+      "docs/scene/scene-runtime-daemon-contract.md"
     ]
   },
   "roleDefinitions": {
@@ -348,6 +349,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
       "currentStateAuthority": "docs/web/current-state.md"
+    },
+    {
+      "path": "docs/scene/scene-runtime-daemon-contract.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/README.md",
+      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
     }
   ]
 }
