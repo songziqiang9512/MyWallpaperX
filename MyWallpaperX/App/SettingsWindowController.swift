@@ -61,8 +61,50 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 }
 
 private final class SettingsContentViewController: NSViewController {
+    private lazy var settingsActions: AppSettingsActions = {
+        let manager = WallpaperManager.shared
+        return AppSettingsActions(
+            applyEngineSettings: { manager.applyEngineSettings(reloadWallpaper: $0) },
+            applyPlaybackRateToEngine: { manager.applyPlaybackRateToEngine() },
+            applySystemAudioSpectrumToEngine: { manager.applySystemAudioSpectrumToEngine() },
+            clearAllCaches: { manager.clearAllCaches() },
+            exportPersonalSettings: { try manager.exportPersonalSettings(to: $0) },
+            importPersonalSettings: { try manager.importPersonalSettings(from: $0) },
+            refreshAutoSwitchTimerIfNeeded: { manager.refreshAutoSwitchTimerIfNeeded() },
+            resetToFreshInstallState: { manager.resetToFreshInstallState() },
+            setLoopPlaybackEnabled: { manager.setLoopPlaybackEnabled($0) },
+            setRandomPlaybackEnabled: { manager.setRandomPlaybackEnabled($0) },
+            setSequentialPlaybackEnabled: { manager.setSequentialPlaybackEnabled($0) },
+            setSyncSystemWallpaperEnabled: { manager.setSyncSystemWallpaperEnabled($0) },
+            startAutoSwitchTimer: { manager.startAutoSwitchTimer() },
+            stopAutoSwitchTimer: { manager.stopAutoSwitchTimer() },
+            updateLoginItemStatus: { manager.updateLoginItemStatus() },
+            updateVolume: { manager.updateVolume($0) }
+        )
+    }()
+
     private let settingsView = AppKitSettingsContainerView(
-        wallpaperManager: .shared,
+        dependency: AppSettingsPanelDependency(
+            settings: WallpaperManager.shared.settings,
+            actions: AppSettingsActions(
+                applyEngineSettings: { WallpaperManager.shared.applyEngineSettings(reloadWallpaper: $0) },
+                applyPlaybackRateToEngine: { WallpaperManager.shared.applyPlaybackRateToEngine() },
+                applySystemAudioSpectrumToEngine: { WallpaperManager.shared.applySystemAudioSpectrumToEngine() },
+                clearAllCaches: { WallpaperManager.shared.clearAllCaches() },
+                exportPersonalSettings: { try WallpaperManager.shared.exportPersonalSettings(to: $0) },
+                importPersonalSettings: { try WallpaperManager.shared.importPersonalSettings(from: $0) },
+                refreshAutoSwitchTimerIfNeeded: { WallpaperManager.shared.refreshAutoSwitchTimerIfNeeded() },
+                resetToFreshInstallState: { WallpaperManager.shared.resetToFreshInstallState() },
+                setLoopPlaybackEnabled: { WallpaperManager.shared.setLoopPlaybackEnabled($0) },
+                setRandomPlaybackEnabled: { WallpaperManager.shared.setRandomPlaybackEnabled($0) },
+                setSequentialPlaybackEnabled: { WallpaperManager.shared.setSequentialPlaybackEnabled($0) },
+                setSyncSystemWallpaperEnabled: { WallpaperManager.shared.setSyncSystemWallpaperEnabled($0) },
+                startAutoSwitchTimer: { WallpaperManager.shared.startAutoSwitchTimer() },
+                stopAutoSwitchTimer: { WallpaperManager.shared.stopAutoSwitchTimer() },
+                updateLoginItemStatus: { WallpaperManager.shared.updateLoginItemStatus() },
+                updateVolume: { WallpaperManager.shared.updateVolume($0) }
+            )
+        ),
         visibleSections: Set(AppSettingsSection.allCases),
         topContentInset: 24
     )

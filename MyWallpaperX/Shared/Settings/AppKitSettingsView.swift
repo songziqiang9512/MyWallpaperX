@@ -39,7 +39,7 @@ final class AppKitSettingsContainerView: NSView {
         }
     }
 
-    private let wallpaperManager: WallpaperManager
+    private let dependency: AppSettingsPanelDependency
     private var cancellables = Set<AnyCancellable>()
     private var isUpdatingUI = false
     private var isDocumentFrameUpdateScheduled = false
@@ -127,11 +127,11 @@ final class AppKitSettingsContainerView: NSView {
     private let importProfileButton = NSButton(title: "导入设置", target: nil, action: nil)
 
     init(
-        wallpaperManager: WallpaperManager,
+        dependency: AppSettingsPanelDependency,
         visibleSections: Set<AppSettingsSection>,
         topContentInset: CGFloat
     ) {
-        self.wallpaperManager = wallpaperManager
+        self.dependency = dependency
         self.visibleSections = visibleSections
         self.topContentInset = topContentInset
         super.init(frame: .zero)
@@ -162,7 +162,7 @@ final class AppKitSettingsContainerView: NSView {
         isUpdatingUI = true
         defer { isUpdatingUI = false }
 
-        let settings = wallpaperManager.settings
+        let settings = dependency.settings
 
         loopSwitch.state = settings.loopPlayback ? .on : .off
         randomSwitch.state = settings.randomPlayback ? .on : .off
@@ -766,7 +766,7 @@ final class AppKitSettingsContainerView: NSView {
 
     private func observeManager() {
         // 设置页只订阅 manager 的最终快照，不自己维护派生状态。
-        wallpaperManager.$settings
+        dependency.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.refreshFromState()
@@ -1005,30 +1005,30 @@ final class AppKitSettingsContainerView: NSView {
 
     @objc private func handleLoopToggle() {
         guard !isUpdatingUI else { return }
-        wallpaperManager.setLoopPlaybackEnabled(loopSwitch.state == .on)
+        dependency.actions.setLoopPlaybackEnabled(loopSwitch.state == .on)
     }
 
     @objc private func handleRandomToggle() {
         guard !isUpdatingUI else { return }
-        wallpaperManager.setRandomPlaybackEnabled(randomSwitch.state == .on)
+        dependency.actions.setRandomPlaybackEnabled(randomSwitch.state == .on)
     }
 
     @objc private func handleSequentialToggle() {
         guard !isUpdatingUI else { return }
-        wallpaperManager.setSequentialPlaybackEnabled(sequentialSwitch.state == .on)
+        dependency.actions.setSequentialPlaybackEnabled(sequentialSwitch.state == .on)
     }
 
     @objc private func handleAutoSwitchToggle() {
         guard !isUpdatingUI else { return }
         let enabled = autoSwitchSwitch.state == .on
-        wallpaperManager.settings.autoSwitchEnabled = enabled
+        dependency.settings.autoSwitchEnabled = enabled
         if enabled {
             // 开启：从 0 重建 timer，通知引擎当前视频切换为循环模式（等 timer 到期再切换）。
-            wallpaperManager.startAutoSwitchTimer()
+            dependency.actions.startAutoSwitchTimer()
             WallpaperEngine.shared.setLoopCurrentItem(true)
         } else {
             // 关闭：销毁 timer，通知引擎停止循环当前视频，视频播完后自然切下一张。
-            wallpaperManager.stopAutoSwitchTimer()
+            dependency.actions.stopAutoSwitchTimer()
             WallpaperEngine.shared.setLoopCurrentItem(false)
         }
     }
@@ -1036,15 +1036,15 @@ final class AppKitSettingsContainerView: NSView {
     @objc private func handleTimeUnitChange() {
         guard !isUpdatingUI else { return }
         guard let unit = timeUnitPopup.selectedItem?.representedObject as? TimeUnit else { return }
-        wallpaperManager.settings.timeUnit = unit
-        wallpaperManager.refreshAutoSwitchTimerIfNeeded()
+        dependency.settings.timeUnit = unit
+        dependency.actions.refreshAutoSwitchTimerIfNeeded()
     }
 
     @objc private func handleVolumeChange() {
         guard !isUpdatingUI else { return }
         let clampedVolume = Int(max(0, min(100, round(volumeSlider.doubleValue))))
         volumeValueLabel.stringValue = "\(clampedVolume)%"
-        wallpaperManager.updateVolume(Double(clampedVolume))
+        dependency.actions.updateVolume(Double(clampedVolume))
         // M0.2 闭环：音量滑杆跨越 0 边界时同步公共静音意图
         // （0 → 公共静音；>0 且公共静音 → 解除），Scene/Video 双端跟随。
         PlaybackMuteState.shared.setMuted(clampedVolume == 0)
@@ -1067,84 +1067,84 @@ final class AppKitSettingsContainerView: NSView {
         let snapped = (playbackRateSlider.doubleValue * 20).rounded() / 20
         let clamped = max(0.25, min(2.0, snapped))
         playbackRateValueLabel.stringValue = String(format: "%.2gx", clamped)
-        wallpaperManager.settings.playbackRate = clamped
-        wallpaperManager.applyPlaybackRateToEngine()
+        dependency.settings.playbackRate = clamped
+        dependency.actions.applyPlaybackRateToEngine()
     }
 
     @objc private func handlePlaybackRateSwitchToggle() {
         guard !isUpdatingUI else { return }
         let enabled = playbackRateSwitch.state == .on
-        wallpaperManager.settings.playbackRateEnabled = enabled
+        dependency.settings.playbackRateEnabled = enabled
         playbackRateSlider.isHidden = !enabled
         playbackRateValueLabel.isHidden = !enabled
         // 关闭时把速率重置为正常速度，避免关掉开关后引擎还在以异常速率播放。
         if !enabled {
-            wallpaperManager.settings.playbackRate = 1.0
+            dependency.settings.playbackRate = 1.0
         }
     }
 
     @objc private func handleStartOnBootToggle() {
         guard !isUpdatingUI else { return }
-        wallpaperManager.settings.startOnBoot = (startOnBootSwitch.state == .on)
-        wallpaperManager.updateLoginItemStatus()
+        dependency.settings.startOnBoot = (startOnBootSwitch.state == .on)
+        dependency.actions.updateLoginItemStatus()
     }
 
     @objc private func handleSyncSystemWallpaperToggle() {
         guard !isUpdatingUI else { return }
-        wallpaperManager.setSyncSystemWallpaperEnabled(syncSystemWallpaperSwitch.state == .on)
+        dependency.actions.setSyncSystemWallpaperEnabled(syncSystemWallpaperSwitch.state == .on)
     }
 
     @objc private func handleSystemAudioSpectrumToggle() {
         guard !isUpdatingUI else { return }
-        wallpaperManager.settings.systemAudioSpectrumEnabled = (systemAudioSpectrumSwitch.state == .on)
-        wallpaperManager.applySystemAudioSpectrumToEngine()
+        dependency.settings.systemAudioSpectrumEnabled = (systemAudioSpectrumSwitch.state == .on)
+        dependency.actions.applySystemAudioSpectrumToEngine()
     }
 
     @objc private func handleSystemAudioSpectrumStyleChange() {
         guard !isUpdatingUI else { return }
         guard let style = systemAudioSpectrumStylePopup.selectedItem?.representedObject as? SystemAudioSpectrumStyle else { return }
-        wallpaperManager.settings.systemAudioSpectrumStyle = style
-        wallpaperManager.applySystemAudioSpectrumToEngine()
+        dependency.settings.systemAudioSpectrumStyle = style
+        dependency.actions.applySystemAudioSpectrumToEngine()
     }
 
     @objc private func handleSystemAudioSpectrumSensitivityChange() {
         guard !isUpdatingUI else { return }
         guard let sensitivity = systemAudioSpectrumSensitivityPopup.selectedItem?.representedObject as? SystemAudioSpectrumSensitivity else { return }
-        wallpaperManager.settings.systemAudioSpectrumSensitivity = sensitivity
-        wallpaperManager.applySystemAudioSpectrumToEngine()
+        dependency.settings.systemAudioSpectrumSensitivity = sensitivity
+        dependency.actions.applySystemAudioSpectrumToEngine()
     }
 
     @objc private func handleSystemAudioSpectrumBarCountChange() {
         guard !isUpdatingUI else { return }
         guard let barCount = systemAudioSpectrumBarCountPopup.selectedItem?.representedObject as? Int else { return }
-        wallpaperManager.settings.systemAudioSpectrumBarCount = barCount
-        wallpaperManager.applySystemAudioSpectrumToEngine()
+        dependency.settings.systemAudioSpectrumBarCount = barCount
+        dependency.actions.applySystemAudioSpectrumToEngine()
     }
 
     @objc private func handleSystemAudioSpectrumColorChange() {
         guard !isUpdatingUI else { return }
-        wallpaperManager.settings.systemAudioSpectrumColorHex = hexString(from: systemAudioSpectrumColorWell.color)
-        wallpaperManager.applySystemAudioSpectrumToEngine()
+        dependency.settings.systemAudioSpectrumColorHex = hexString(from: systemAudioSpectrumColorWell.color)
+        dependency.actions.applySystemAudioSpectrumToEngine()
     }
 
     @objc private func handleSystemAudioSpectrumOffsetChange() {
         guard !isUpdatingUI else { return }
-        wallpaperManager.settings.systemAudioSpectrumOffsetX = systemAudioSpectrumOffsetXSlider.doubleValue / 100
-        wallpaperManager.settings.systemAudioSpectrumOffsetY = systemAudioSpectrumOffsetYSlider.doubleValue / 100
+        dependency.settings.systemAudioSpectrumOffsetX = systemAudioSpectrumOffsetXSlider.doubleValue / 100
+        dependency.settings.systemAudioSpectrumOffsetY = systemAudioSpectrumOffsetYSlider.doubleValue / 100
         systemAudioSpectrumOffsetXValueLabel.stringValue = "\(Int(round(systemAudioSpectrumOffsetXSlider.doubleValue)))%"
         systemAudioSpectrumOffsetYValueLabel.stringValue = "\(Int(round(systemAudioSpectrumOffsetYSlider.doubleValue)))%"
-        wallpaperManager.applySystemAudioSpectrumToEngine()
+        dependency.actions.applySystemAudioSpectrumToEngine()
     }
 
     @objc private func handleSystemAudioSpectrumPeakCapsToggle() {
         guard !isUpdatingUI else { return }
-        wallpaperManager.settings.systemAudioSpectrumPeakCapsEnabled = (systemAudioSpectrumPeakCapsSwitch.state == .on)
-        wallpaperManager.applySystemAudioSpectrumToEngine()
+        dependency.settings.systemAudioSpectrumPeakCapsEnabled = (systemAudioSpectrumPeakCapsSwitch.state == .on)
+        dependency.actions.applySystemAudioSpectrumToEngine()
     }
 
     @objc private func handleSystemHotkeysToggle() {
         guard !isUpdatingUI else { return }
-        wallpaperManager.settings.systemHotkeysEnabled = (systemHotkeysSwitch.state == .on)
+        dependency.settings.systemHotkeysEnabled = (systemHotkeysSwitch.state == .on)
     }
 
     private func selectSystemAudioSpectrumStyle(_ style: SystemAudioSpectrumStyle) {
@@ -1215,11 +1215,11 @@ final class AppKitSettingsContainerView: NSView {
 
     @objc private func handlePerformanceToggle() {
         guard !isUpdatingUI else { return }
-        wallpaperManager.settings.pauseWhenOtherAppFocused = (pauseOtherAppFocusedSwitch.state == .on)
-        wallpaperManager.settings.pauseWhenOtherAppFullscreen = (pauseOtherAppFullscreenSwitch.state == .on)
-        wallpaperManager.settings.pauseWhenUnplugged = (pauseWhenUnpluggedSwitch.state == .on)
-        wallpaperManager.settings.pauseWhenIdle = (pauseWhenIdleSwitch.state == .on)
-        wallpaperManager.applyEngineSettings()
+        dependency.settings.pauseWhenOtherAppFocused = (pauseOtherAppFocusedSwitch.state == .on)
+        dependency.settings.pauseWhenOtherAppFullscreen = (pauseOtherAppFullscreenSwitch.state == .on)
+        dependency.settings.pauseWhenUnplugged = (pauseWhenUnpluggedSwitch.state == .on)
+        dependency.settings.pauseWhenIdle = (pauseWhenIdleSwitch.state == .on)
+        dependency.actions.applyEngineSettings(false)
     }
 
     @objc private func handleSceneMaxFPSChange() {
@@ -1237,21 +1237,21 @@ final class AppKitSettingsContainerView: NSView {
     @objc private func handleIdleTimeoutChange() {
         guard !isUpdatingUI else { return }
         guard let value = idleTimeoutPopup.selectedItem?.representedObject as? Int else { return }
-        wallpaperManager.settings.idleTimeoutMinutes = value
-        wallpaperManager.applyEngineSettings()
+        dependency.settings.idleTimeoutMinutes = value
+        dependency.actions.applyEngineSettings(false)
     }
 
     @objc private func handleMultiDisplayToggle() {
         guard !isUpdatingUI else { return }
-        wallpaperManager.settings.multiDisplayEnabled = (multiDisplaySwitch.state == .on)
-        wallpaperManager.applyEngineSettings(reloadWallpaper: true)
+        dependency.settings.multiDisplayEnabled = (multiDisplaySwitch.state == .on)
+        dependency.actions.applyEngineSettings(true)
     }
 
     @objc private func handleFillModeChange(_ sender: NSButton) {
         guard !isUpdatingUI else { return }
         let mode: VideoFillMode = (sender == fillModeFitButton) ? .aspectFit : .aspectFill
         selectFillMode(mode)
-        wallpaperManager.settings.videoFillMode = mode
+        dependency.settings.videoFillMode = mode
         // 填充模式只需通知引擎更新 gravity + 播放动画，不重建播放链路。
         WallpaperEngine.shared.setFillMode(mode.ipcValue)
     }
@@ -1265,7 +1265,7 @@ final class AppKitSettingsContainerView: NSView {
         )
         presentAppAlert(alert, in: hostWindow) { [weak self] response in
             guard let self, response == .alertFirstButtonReturn else { return }
-            self.wallpaperManager.clearAllCaches()
+            self.dependency.actions.clearAllCaches()
             SteamWorkshopService.shared.clearAllCachedState()
             let result = makeAppAlert(
                 title: "缓存已清空",
@@ -1286,7 +1286,7 @@ final class AppKitSettingsContainerView: NSView {
         presentSavePanel(panel) { [weak self] targetURL in
             guard let self, let targetURL else { return }
             do {
-                let summary = try self.wallpaperManager.exportPersonalSettings(to: targetURL)
+                let summary = try self.dependency.actions.exportPersonalSettings(targetURL)
                 let done = makeAppAlert(
                     title: "导出完成",
                     message: "已导出 \(summary.wallpaperCount) 条壁纸配置，\(summary.tagCount) 个标签。"
@@ -1321,7 +1321,7 @@ final class AppKitSettingsContainerView: NSView {
             presentAppAlert(confirm, in: hostWindow) { [weak self] confirmResponse in
                 guard let self, confirmResponse == .alertFirstButtonReturn else { return }
                 do {
-                    let summary = try self.wallpaperManager.importPersonalSettings(from: sourceURL)
+                    let summary = try self.dependency.actions.importPersonalSettings(sourceURL)
                     let done = makeAppAlert(
                         title: "导入完成",
                         message: """
@@ -1405,7 +1405,7 @@ final class AppKitSettingsContainerView: NSView {
         )
         presentAppAlert(alert, in: hostWindow) { [weak self] response in
             guard let self, response == .alertFirstButtonReturn else { return }
-            self.wallpaperManager.resetToFreshInstallState()
+            self.dependency.actions.resetToFreshInstallState()
         }
     }
 
@@ -1413,13 +1413,13 @@ final class AppKitSettingsContainerView: NSView {
         // 快捷键状态源只读写 settings，popup 不直接保存自己的状态。
         switch action {
         case .previous:
-            return wallpaperManager.settings.previousWallpaperHotkey
+            return dependency.settings.previousWallpaperHotkey
         case .next:
-            return wallpaperManager.settings.nextWallpaperHotkey
+            return dependency.settings.nextWallpaperHotkey
         case .playPause:
-            return wallpaperManager.settings.togglePlaybackHotkey
+            return dependency.settings.togglePlaybackHotkey
         case .muteToggle:
-            return wallpaperManager.settings.toggleMuteHotkey
+            return dependency.settings.toggleMuteHotkey
         }
     }
 
@@ -1427,13 +1427,13 @@ final class AppKitSettingsContainerView: NSView {
         // 统一通过 settings 写回，避免每个热键 row 各自维护一份绑定结果。
         switch action {
         case .previous:
-            wallpaperManager.settings.previousWallpaperHotkey = shortcut
+            dependency.settings.previousWallpaperHotkey = shortcut
         case .next:
-            wallpaperManager.settings.nextWallpaperHotkey = shortcut
+            dependency.settings.nextWallpaperHotkey = shortcut
         case .playPause:
-            wallpaperManager.settings.togglePlaybackHotkey = shortcut
+            dependency.settings.togglePlaybackHotkey = shortcut
         case .muteToggle:
-            wallpaperManager.settings.toggleMuteHotkey = shortcut
+            dependency.settings.toggleMuteHotkey = shortcut
         }
     }
 
@@ -1456,7 +1456,7 @@ final class AppKitSettingsContainerView: NSView {
 
     private func refreshHotkeyRows() {
         // 热键行刷新时同时处理启用开关和下拉可用性，保持“一个动作一行”一致。
-        let masterEnabled = wallpaperManager.settings.systemHotkeysEnabled
+        let masterEnabled = dependency.settings.systemHotkeysEnabled
         for action in SystemHotkeyAction.allCases {
             guard let toggle = hotkeyEnableSwitches[action],
                   let popup = hotkeyPopups[action] else {
@@ -1529,8 +1529,8 @@ extension AppKitSettingsContainerView: NSTextFieldDelegate {
         // 间隔输入框只在结束编辑时写回，避免每个按键都触发计时器重建。
         guard !isUpdatingUI else { return }
         guard let textField = notification.object as? NSTextField, textField == intervalField else { return }
-        let parsed = Int(textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)) ?? wallpaperManager.settings.randomInterval
-        wallpaperManager.settings.randomInterval = max(1, parsed)
-        wallpaperManager.refreshAutoSwitchTimerIfNeeded()
+        let parsed = Int(textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)) ?? dependency.settings.randomInterval
+        dependency.settings.randomInterval = max(1, parsed)
+        dependency.actions.refreshAutoSwitchTimerIfNeeded()
     }
 }
