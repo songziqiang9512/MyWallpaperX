@@ -138,6 +138,16 @@ enum Harness {
             embeddedTexDifferentPurpose = false
         }
         let embeddedTexDecodeAttempts = embeddedTexLoader.texEmbeddedImageDecodeAttemptCount
+        let launchUploadQueue = SceneTextureUploadCommandQueue()
+        _ = SceneTextureLoader(uploadCommandQueue: launchUploadQueue).load(
+            from: pngURL,
+            device: device
+        )
+        _ = SceneTextureLoader(uploadCommandQueue: launchUploadQueue).load(
+            from: jpegURL,
+            device: device
+        )
+        let launchUploadQueueAttempts = launchUploadQueue.creationAttemptCount
         let sharedLoader = SceneTextureLoader()
         let embeddedDataOutcome = SceneTextureMipUploader.uploadEmbeddedDataImages(
             [.init(width: 2, height: 1, data: try Data(contentsOf: pngURL))],
@@ -269,6 +279,8 @@ enum Harness {
             device: device
         )
         let sharedDecodeAttempts = sharedLoader.directImageDecodeAttemptCount
+        let sharedUploadQueueAttempts = sharedLoader.uploadCommandQueue
+            .creationAttemptCount
         let reusedTexture: Bool
         let reusedPreservedTexture: Bool
         let differentPurposeTexture: Bool
@@ -375,6 +387,7 @@ enum Harness {
             "embeddedStraightAlbedoPixels": try pixels(embeddedStraightAlbedoOutcome),
             "embeddedTexDifferentPurpose": embeddedTexDifferentPurpose,
             "embeddedTexDecodeAttempts": embeddedTexDecodeAttempts,
+            "launchUploadQueueAttempts": launchUploadQueueAttempts,
             "reportLines": result.reportLines,
             "retryLoadedKeys": retry.textures.keys.sorted(),
             "retryCandidateKeys": retry.textureCandidates.keys.sorted(),
@@ -397,6 +410,7 @@ enum Harness {
             "reusedPreservedTexture": reusedPreservedTexture,
             "differentPurposeTexture": differentPurposeTexture,
             "sharedDecodeAttempts": sharedDecodeAttempts,
+            "sharedUploadQueueAttempts": sharedUploadQueueAttempts,
             "changedFileInvalidatedCache": changedFileInvalidatedCache,
             "premultipliedDataRejected": premultipliedDataRejected,
             "resizedDataRejected": resizedDataRejected,
@@ -853,11 +867,15 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
         self.assertTrue(self.result["reusedPreservedTexture"])
         self.assertTrue(self.result["differentPurposeTexture"])
         self.assertEqual(self.result["sharedDecodeAttempts"], 1)
+        self.assertEqual(self.result["sharedUploadQueueAttempts"], 1)
         self.assertTrue(self.result["changedFileInvalidatedCache"])
 
     def test_loader_reuses_embedded_tex_decode_across_texture_purposes(self) -> None:
         self.assertTrue(self.result["embeddedTexDifferentPurpose"])
         self.assertEqual(self.result["embeddedTexDecodeAttempts"], 1)
+
+    def test_two_loaders_share_one_injected_upload_command_queue(self) -> None:
+        self.assertEqual(self.result["launchUploadQueueAttempts"], 1)
 
     def test_surface_rebuild_reopens_security_scoped_urls(self) -> None:
         source = HOST_SOURCE.read_text(encoding="utf-8")

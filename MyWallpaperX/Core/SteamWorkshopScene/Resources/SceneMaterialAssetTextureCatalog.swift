@@ -152,13 +152,16 @@ final class SceneMaterialAssetTextureCatalog {
         demands: Set<SceneAssetTextureIdentity>,
         resourceView: SceneResourceView,
         descriptor: SceneRenderDescriptor,
+        textureUploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
         device: MTLDevice
     ) {
         let resolver = SceneTexturePathResolver(
             resourceView: resourceView,
             descriptor: descriptor
         )
-        let loader = SceneTextureLoader()
+        let loader = SceneTextureLoader(
+            uploadCommandQueue: textureUploadCommandQueue
+        )
         var loaded: [SceneAssetTextureIdentity: SceneTextureProviderState] = [:]
         var animated: [SceneAssetTextureIdentity: AnimatedDefinition] = [:]
         var launchStates: [

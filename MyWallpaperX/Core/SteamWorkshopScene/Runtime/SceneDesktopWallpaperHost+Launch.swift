@@ -324,11 +324,10 @@ extension SceneDesktopWallpaperHost {
         }
         let runtimeInput = model.runtimeInput
         let authoredRenderDescriptor = model.authoredRenderDescriptor
-        guard let device = MTLCreateSystemDefaultDevice() else {
-            throw SceneDesktopWallpaperHostLaunchError.noSurface
-        }
-        let propertyLayerVisibilityTargets =
-            runtimeInput.propertyBindingProgram.liveLayerVisibilityTargets
+        guard let device = MTLCreateSystemDefaultDevice()
+        else { throw SceneDesktopWallpaperHostLaunchError.noSurface }
+        let textureUploadCommandQueue = SceneTextureUploadCommandQueue()
+        let propertyLayerVisibilityTargets = runtimeInput.propertyBindingProgram.liveLayerVisibilityTargets
         let deferredBaseImageLayerIDs = Self.deferredEffectlessBaseImageLayerIDs(
             in: runtimeInput.renderDescriptor,
             bindingProgram: runtimeInput.propertyBindingProgram,
@@ -339,9 +338,9 @@ extension SceneDesktopWallpaperHost {
             resourceView: model.resourceView,
             device: device,
             sceneGeneration: sceneScriptGeneration,
-            dynamicImageModelPaths:
-                model.propertyVectorProjection.dynamicImageModelPaths,
+            dynamicImageModelPaths: model.propertyVectorProjection.dynamicImageModelPaths,
             deferredBaseImageLayerIDs: deferredBaseImageLayerIDs,
+            textureUploadCommandQueue: textureUploadCommandQueue,
             cancellationCheck: { try cancellation?.check() }
         )
         deviceResourcesPreparation.start()
@@ -534,6 +533,7 @@ extension SceneDesktopWallpaperHost {
             demands: resolvedMaterialCatalog.assetDemands,
             resourceView: model.resourceView,
             descriptor: runtimeInput.renderDescriptor,
+            textureUploadCommandQueue: textureUploadCommandQueue,
             device: device
         )
         NSLog("MWX LAUNCH-STAGE: stage=catalog-decode elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)

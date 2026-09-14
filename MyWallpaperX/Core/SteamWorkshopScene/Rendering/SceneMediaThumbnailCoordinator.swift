@@ -8,10 +8,14 @@ final class SceneMediaThumbnailCoordinator {
 
     init(
         program: SceneBaseMaterialProviderBindingProgram,
+        textureUploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
         device: MTLDevice
     ) {
         self.program = program
-        textureStore = SceneMediaThumbnailTextureStore(device: device)
+        textureStore = SceneMediaThumbnailTextureStore(
+            device: device,
+            textureUploadCommandQueue: textureUploadCommandQueue
+        )
     }
 
     func update(

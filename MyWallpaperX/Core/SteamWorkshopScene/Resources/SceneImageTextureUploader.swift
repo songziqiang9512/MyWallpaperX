@@ -3,6 +3,43 @@ import Foundation
 import ImageIO
 import Metal
 
+/// One device-scoped upload queue shared by launch/resource owners. Metal
+/// command queues are thread-safe; serial command-buffer order remains local
+/// to each synchronous upload while queue construction leaves the hot loop.
+nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
+    private enum State {
+        case ready(MTLCommandQueue)
+        case unavailable
+    }
+
+    private let lock = NSLock()
+    private var states: [UInt64: State] = [:]
+    private var creationAttempts = 0
+
+    var creationAttemptCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return creationAttempts
+    }
+
+    func commandQueue(for device: MTLDevice) -> MTLCommandQueue? {
+        lock.lock()
+        defer { lock.unlock() }
+        if let state = states[device.registryID] {
+            guard case let .ready(queue) = state else { return nil }
+            return queue
+        }
+        creationAttempts += 1
+        guard let queue = device.makeCommandQueue() else {
+            states[device.registryID] = .unavailable
+            return nil
+        }
+        queue.label = "MyWallpaperX Scene Resource Upload"
+        states[device.registryID] = .ready(queue)
+        return queue
+    }
+}
+
 nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
     case premultipliedColor
     case straightAlbedo
@@ -62,6 +99,7 @@ enum SceneImageTextureUploader {
     /// premultiplied texture cannot recover source RGB at zero/fractional alpha.
     static func uploadEncodedPreservedChannels(
         _ encodedSource: Data,
+        uploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
         device: MTLDevice
     ) -> Result<MTLTexture, EncodedPreservedChannelsError> {
         guard !encodedSource.isEmpty else { return .failure(.emptySource) }
@@ -144,6 +182,7 @@ enum SceneImageTextureUploader {
             width: outputWidth,
             height: outputHeight,
             mipmapGeneration: .fullChain,
+            uploadCommandQueue: uploadCommandQueue,
             device: device
         ) else {
             return .failure(.textureAllocationFailed(
@@ -221,6 +260,7 @@ enum SceneImageTextureUploader {
         purpose: SceneTextureLoadPurpose,
         maxDimension: Int,
         mipmapGeneration: MipmapGeneration = .fullChain,
+        uploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
         guard image.width > 0, image.height > 0 else {
@@ -247,6 +287,7 @@ enum SceneImageTextureUploader {
             width: width,
             height: height,
             mipmapGeneration: mipmapGeneration,
+            uploadCommandQueue: uploadCommandQueue,
             device: device
         ) else {
             return .textureAllocationFailed(width: width, height: height)
@@ -269,6 +310,7 @@ enum SceneImageTextureUploader {
         width: Int,
         height: Int,
         mipmapGeneration: MipmapGeneration,
+        uploadCommandQueue: SceneTextureUploadCommandQueue,
         device: MTLDevice
     ) -> MTLTexture? {
         let (pixelCount, pixelCountOverflow) = width.multipliedReportingOverflow(
@@ -308,7 +350,7 @@ enum SceneImageTextureUploader {
         // complete chain for the shared min/mag/mip sampler. A decoded TEX
         // fallback passes `.baseLevelOnly` when the compiled container has one
         // level and must remain one level after bounded normalization.
-        guard let queue = device.makeCommandQueue(),
+        guard let queue = uploadCommandQueue.commandQueue(for: device),
               let commandBuffer = queue.makeCommandBuffer(),
               let encoder = commandBuffer.makeBlitCommandEncoder()
         else {

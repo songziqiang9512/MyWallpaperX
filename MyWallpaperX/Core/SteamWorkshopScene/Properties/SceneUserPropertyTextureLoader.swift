@@ -44,6 +44,7 @@ struct SceneUserPropertyTextureLoader {
     func load(
         urlsByPropertyKey: [String: URL],
         requestedIdentities: Set<SceneUserPropertyTextureIdentity> = [],
+        textureUploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
         device: MTLDevice
     ) -> SceneUserPropertyTextureLoadResult {
         guard !urlsByPropertyKey.isEmpty || !requestedIdentities.isEmpty else {
@@ -54,7 +55,9 @@ struct SceneUserPropertyTextureLoader {
                 reportLines: []
             )
         }
-        let loader = SceneTextureLoader()
+        let loader = SceneTextureLoader(
+            uploadCommandQueue: textureUploadCommandQueue
+        )
         var textures: [String: MTLTexture] = [:]
         var textureCandidates: [String: SceneTextureCandidate] = [:]
         var providerStates: [

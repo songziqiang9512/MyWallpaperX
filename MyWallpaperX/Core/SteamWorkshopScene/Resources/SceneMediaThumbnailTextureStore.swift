@@ -90,6 +90,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
     }
 
     private let device: MTLDevice
+    private let textureUploadCommandQueue: SceneTextureUploadCommandQueue
     private let queue: DispatchQueue
     private let imageDecoder: (Data) -> CGImage?
     private let lock = NSLock()
@@ -109,11 +110,13 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
 
     init(
         device: MTLDevice,
+        textureUploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
         decodingQueue: DispatchQueue? = nil,
         imageDecoder: @escaping (Data) -> CGImage? =
             SceneMediaThumbnailTextureStore.decodeColorImage
     ) {
         self.device = device
+        self.textureUploadCommandQueue = textureUploadCommandQueue
         self.imageDecoder = imageDecoder
         self.queue = decodingQueue ?? DispatchQueue(
             label: "com.mywallpaperx.scene.media-thumbnail",
@@ -345,6 +348,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
            case let .success(texture) =
                SceneImageTextureUploader.uploadEncodedPreservedChannels(
                    encodedSource,
+                   uploadCommandQueue: textureUploadCommandQueue,
                    device: device
                ) {
             preservedTexture = texture
@@ -423,6 +427,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             image: image,
             purpose: .premultipliedColor,
             maxDimension: 256,
+            uploadCommandQueue: textureUploadCommandQueue,
             device: device
         ) else { return nil }
         return texture

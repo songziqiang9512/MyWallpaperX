@@ -57,6 +57,7 @@ final class SceneTextureLoader {
     private var texResources: [SourceKey: TexResource] = [:]
     private var directImageResources: [SourceKey: DirectImageResource] = [:]
     private var texEmbeddedImageResources: [SourceKey: TexEmbeddedImageResource] = [:]
+    let uploadCommandQueue: SceneTextureUploadCommandQueue
     private(set) var directImageDecodeAttemptCount = 0
     private(set) var texEmbeddedImageDecodeAttemptCount = 0
 
@@ -65,6 +66,10 @@ final class SceneTextureLoader {
     // allocation can still fail under memory pressure. Cap source images so
     // we always have headroom for several layers worth of textures.
     static let maxTextureDimension = 4096
+
+    init(uploadCommandQueue: SceneTextureUploadCommandQueue = .init()) {
+        self.uploadCommandQueue = uploadCommandQueue
+    }
 
     func load(from url: URL, device: MTLDevice) -> SceneTextureLoadOutcome {
         load(from: url, purpose: .premultipliedColor, device: device)
@@ -179,6 +184,7 @@ final class SceneTextureLoader {
             image: cgImage,
             purpose: purpose,
             maxDimension: Self.maxTextureDimension,
+            uploadCommandQueue: uploadCommandQueue,
             device: device
         )
     }
@@ -228,6 +234,7 @@ final class SceneTextureLoader {
             image: cgImage,
             purpose: purpose,
             maxDimension: Self.maxTextureDimension,
+            uploadCommandQueue: uploadCommandQueue,
             device: device
         )
     }
@@ -422,6 +429,7 @@ final class SceneTextureLoader {
             purpose: purpose,
             maxDimension: Self.maxTextureDimension,
             mipmapGeneration: mipmapGeneration,
+            uploadCommandQueue: uploadCommandQueue,
             device: device
         )
     }
@@ -436,6 +444,7 @@ final class SceneTextureLoader {
                 container: container,
                 pixelFormat: pixelFormat,
                 purpose: purpose,
+                uploadCommandQueue: uploadCommandQueue,
                 device: device
             )
         }

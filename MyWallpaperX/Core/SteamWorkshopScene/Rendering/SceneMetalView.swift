@@ -95,6 +95,7 @@ class SceneMetalView: NSView {
         resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge,
         textureAnimationPlaybackRuntime:
             SceneTextureAnimationPlaybackRuntime,
+        textureUploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
         userPropertyTextureURLs: [String: URL] = [:],
         dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:],
         firstFramePresentationRegistration:
@@ -115,7 +116,9 @@ class SceneMetalView: NSView {
         self.textureAnimationPlaybackRuntime = textureAnimationPlaybackRuntime
         self.renderer = renderer
         mediaThumbnailCoordinator = .init(
-            program: baseMaterialProviderBindings, device: renderer.device
+            program: baseMaterialProviderBindings,
+            textureUploadCommandQueue: textureUploadCommandQueue,
+            device: renderer.device
         )
         solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
         userPropertyTextureLoad = SceneUserPropertyTextureLoader().load(
@@ -123,6 +126,7 @@ class SceneMetalView: NSView {
             requestedIdentities: resolvedMaterialRuntime.userPropertyDemands(
                 including: renderDescriptor.texturePropertyKeys
             ).union(baseMaterialProviderBindings.userPropertyDemands),
+            textureUploadCommandQueue: textureUploadCommandQueue,
             device: renderer.device
         )
         let layer = CAMetalLayer()

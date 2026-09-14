@@ -15,6 +15,7 @@ struct SceneCompressedTextureUploader {
         container: SceneTexContainer,
         pixelFormat: MTLPixelFormat,
         purpose: SceneTextureLoadPurpose,
+        uploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
         guard let firstMip = container.mips.first else {
@@ -44,6 +45,7 @@ struct SceneCompressedTextureUploader {
                 container: container,
                 mip: firstMip,
                 pixelFormat: pixelFormat,
+                uploadCommandQueue: uploadCommandQueue,
                 device: device
             )
         }
@@ -137,6 +139,7 @@ struct SceneCompressedTextureUploader {
         container: SceneTexContainer,
         mip: SceneTexContainer.Mip,
         pixelFormat: MTLPixelFormat,
+        uploadCommandQueue: SceneTextureUploadCommandQueue,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
         let direct = uploadDirect(
@@ -158,7 +161,7 @@ struct SceneCompressedTextureUploader {
         descriptor.usage = [.shaderRead, .shaderWrite]
         descriptor.storageMode = .private
         guard let destination = device.makeTexture(descriptor: descriptor),
-              let commandQueue = device.makeCommandQueue(),
+              let commandQueue = uploadCommandQueue.commandQueue(for: device),
               let commandBuffer = commandQueue.makeCommandBuffer() else {
             return .textureAllocationFailed(width: region.width, height: region.height)
         }
