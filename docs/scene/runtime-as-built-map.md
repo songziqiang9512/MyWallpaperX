@@ -32,7 +32,7 @@
 
 ### 1.2 所有权权威
 
-进程现状（c39d78a7）：普通启动仍在主 App 内运行 Scene；显式 `--mwx-scene-daemon` 使用同一二进制、accessory App 与同一 Host，在独立进程运行。主程序尚无 Scene client/孵化路径。`SceneDaemonRuntime` 当前放在 `Core/PlaybackControl` 却依赖具体 Scene Host，属于待搬回 Scene owner 的分层债务；不得作为通用 DaemonKit 依赖。
+进程现状（交接纠偏后）：Scene 仍在主 App 进程内，由既有 Host 唯一运行。`868bbfe3` 的 `--mwx-scene-daemon` 原型已撤回，尚无 Scene client/孵化路径。同二进制是目标契约，不能描述为已完成状态；重做时 Scene-specific runtime 必须位于 Scene owner，通用 PlaybackControl/DaemonKit 不得反向依赖具体 Host。
 （同一时刻各只有一个，禁止第二套）
 
 | 权威 | 持有者 | 存活期 | 替换方式 |

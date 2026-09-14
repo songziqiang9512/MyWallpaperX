@@ -99,7 +99,7 @@ daemon 化采用"runtime 原样搬迁"策略——**不重写线程模型**，�
 
 ## 7. 风险登记
 
-**M5.2 与目标的已知差距（c39d78a7 静态审计）：** 同二进制入口和无主 UI 装配已实现；主程序尚未孵化/迁移控制链。`setProperty` 解码为字符串后 handler 返回 false，display 命令未实现，load 的 profile 未消费；命令版本未检查；launch 事件缺 requestID，首帧事件来自提交计数且未按请求重置、缺 uptime，exited 缺 code。stdout 同步写尚无背压丢弃策略；EOF 不调用 Host.stop，固定 0.15s 退出不等于排空 GPU。以上是待修偏差，不能从历史 smoke 的进程 exit 0 推导完整生命周期或真实 present 成立。
+**M5.2 原型撤回记录（c39d78a7 审计，目标契约不变）：** 下述实现已在交接中撤回；以下是重做时必须覆盖的反例，不能当成当前产品路径。 同二进制入口和无主 UI 装配已实现；主程序尚未孵化/迁移控制链。`setProperty` 解码为字符串后 handler 返回 false，display 命令未实现，load 的 profile 未消费；命令版本未检查；launch 事件缺 requestID，首帧事件来自提交计数且未按请求重置、缺 uptime，exited 缺 code。stdout 同步写尚无背压丢弃策略；EOF 不调用 Host.stop，固定 0.15s 退出不等于排空 GPU。不得从历史 smoke 的进程 exit 0 推导完整生命周期或真实 present 成立；M5.2 重做通过这些门后才能重新声明最小 daemon 就绪。
 
 
 | 风险 | 缓解 |
