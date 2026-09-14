@@ -195,7 +195,7 @@ Envelope：`v/type/requestId/processEpoch/accountEpoch`；认证另有 authAttem
 | 顺序 | 卡 | 交付物 | 状态 |
 |---|---|---|---|
 | 01 | SK0.1 | 依赖/平台与能力验证表、独立 fixture | **部分完成**：匿名矩阵 + 密码登录/令牌恢复/订阅收藏/真实下载完整性已实测（[§10.1](#sk01-能力验证-2026-09-15)）；仅剩 QR 扫码确认闭环，并入 SK2.1 认证卡验收 |
-| 02 | SK1.1 | 双端协议与离线协议测试 | 待实施 |
+| 02 | SK1.1 | 双端协议与离线协议测试 | **完成**：`SteamService/Protocol.cs`（envelope/有界分帧/terminal 去重/脱敏/解码与 dispatch 分离）+ Swift `SteamServiceProtocol.swift` + 共享 golden（`script/tests/fixtures/steam-protocol/`）。C# selftest 19/19、Swift harness 8/8、Python golden 11/11、活体循环冒烟（重复 requestId 压制、未知命令类型化错误、shutdown 有界关闭）通过 |
 | 03 | SK1.2 | App 能管理当前 helper 生命周期 | 待实施 |
 | 04 | SK2.1 | 同一会话的密码/二维码/Guard 后端 | 待实施 |
 | 05 | SK2.2 | 工具栏唯一登录入口与面板 | 待实施 |

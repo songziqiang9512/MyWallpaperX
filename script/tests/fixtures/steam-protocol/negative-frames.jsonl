@@ -1,0 +1,6 @@
+{"expect":"protocolMismatch","reason":"unknown version","frame":"{\"v\":2,\"type\":\"request\",\"requestId\":\"r\",\"command\":\"ping\"}"}
+{"expect":"protocolMismatch","reason":"bad json","frame":"{\"v\":1,\"type\":"}
+{"expect":"protocolMismatch","reason":"request without requestId","frame":"{\"v\":1,\"type\":\"request\",\"command\":\"ping\"}"}
+{"expect":"protocolMismatch","reason":"unknown type","frame":"{\"v\":1,\"type\":\"telemetry\"}"}
+{"expect":"protocolMismatch","reason":"request without command","frame":"{\"v\":1,\"type\":\"request\",\"requestId\":\"r\"}"}
+{"expect":"protocolMismatch","reason":"error without code","frame":"{\"v\":1,\"type\":\"result\",\"requestId\":\"r\",\"ok\":false,\"error\":{\"message\":\"x\"}}"}

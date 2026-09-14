@@ -1,0 +1,9 @@
+{"v":1,"type":"ready","protocol":1,"processEpoch":1,"capabilities":["ping","shutdown"]}
+{"v":1,"type":"result","requestId":"req-ping-1","ok":true,"data":{"pong":true}}
+{"v":1,"type":"event","event":"authState","requestId":"req-login-1","sequence":0,"state":"awaitingGuard","authAttemptId":"auth-1"}
+{"v":1,"type":"event","event":"authState","requestId":"req-login-1","sequence":1,"state":"online","authAttemptId":"auth-1"}
+{"v":1,"type":"result","requestId":"req-login-1","ok":true,"data":{"steamId":"765611989968***62","accountName":"lo***"},"private":{"refreshToken":"SENTINEL-REFRESH-TOKEN","guardData":"SENTINEL-GUARD"}}
+{"v":1,"type":"event","event":"downloadProgress","requestId":"req-dl-1","sequence":2,"jobId":"job-1","stage":"chunks","verifiedChunks":2,"totalChunks":4}
+{"v":1,"type":"event","event":"downloadProgress","requestId":"req-dl-1","sequence":1,"jobId":"job-1","stage":"chunks","verifiedChunks":1,"totalChunks":4}
+{"v":1,"type":"result","requestId":"req-dl-1","ok":true,"data":{"jobId":"job-1","stagedComplete":true,"verifiedBytes":1646197}}
+{"v":1,"type":"result","requestId":"req-dl-unknown","ok":false,"error":{"code":"accessDenied","message":"not signed in"}}

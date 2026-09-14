@@ -3,35 +3,29 @@ using System.Text.Json.Serialization;
 
 namespace SteamService;
 
-internal sealed class ServiceCommand
-{
-    [JsonPropertyName("cmd")] public string Command { get; set; } = "";
-    [JsonPropertyName("requestId")] public string? RequestId { get; set; }
-    [JsonPropertyName("username")] public string? Username { get; set; }
-    [JsonPropertyName("password")] public string? Password { get; set; }
-    [JsonPropertyName("guardCode")] public string? GuardCode { get; set; }
-    [JsonPropertyName("refreshToken")] public string? RefreshToken { get; set; }
-    [JsonPropertyName("workshopId")] public ulong? WorkshopId { get; set; }
-    [JsonPropertyName("outputRoot")] public string? OutputRoot { get; set; }
-}
-
 internal sealed class ProtocolWriter
 {
     private readonly object gate = new();
+
     public void Send(object payload)
     {
         var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
         {
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
         lock (gate) { Console.Out.WriteLine(json); Console.Out.Flush(); }
+    }
+
+    public void SendDiagnostic(string text)
+    {
+        Console.Error.WriteLine(ProtocolRedactor.Redact(text));
     }
 }
 
 internal static class Program
 {
     private static readonly ProtocolWriter writer = new();
+    private static readonly TerminalTracker terminals = new();
 
     private static async Task<int> Main(string[] args)
     {
@@ -40,44 +34,73 @@ internal static class Program
         {
             return await Probe.ProbeHost.RunAsync(args[1..]).ConfigureAwait(false);
         }
-        await RunServiceAsync().ConfigureAwait(false);
-        return 0;
+        if (args.Length > 0 && args[0] == "selftest")
+        {
+            return await ProtocolSelfTest.RunAsync(args.Length > 1 ? args[2..] : []).ConfigureAwait(false);
+        }
+        return await RunServiceAsync().ConfigureAwait(false);
     }
 
-    private static async Task RunServiceAsync()
+    // §6 服务循环：有界帧读取 → envelope 解码 → 命令 dispatch 分离。
+    // 解析失败/超长帧有界关闭，不锁死；terminal 每 requestId 至多一个。
+    private static async Task<int> RunServiceAsync()
     {
-        writer.Send(new { v = 1, role = "steam-service", status = "ready" });
+        var processEpoch = 1;
+        writer.Send(ProtocolMessages.Ready(processEpoch, ["ping", "shutdown"]));
 
+        using var stdin = Console.OpenStandardInput();
+        var reader = new FrameReader(stdin);
         while (true)
         {
-            var line = await Console.In.ReadLineAsync().ConfigureAwait(false);
-            if (line == null) break;
-            if (string.IsNullOrWhiteSpace(line)) continue;
-
-            ServiceCommand? cmd;
+            string? frame;
             try
             {
-                cmd = JsonSerializer.Deserialize<ServiceCommand>(line,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                frame = await reader.ReadFrameAsync(CancellationToken.None).ConfigureAwait(false);
             }
-            catch
+            catch (Exception error)
             {
-                writer.Send(new { v = 1, error = "bad-json" });
+                writer.SendDiagnostic($"frame read failed: {error.Message}");
+                return 1;
+            }
+            if (frame == null)
+            {
+                // EOF 或超长帧：有界结束；超长帧向对端回报协议错误。
+                if (reader.LastOutcome == FrameReader.ReadOutcome.Overlong)
+                {
+                    writer.Send(ProtocolMessages.ResultError(
+                        "", "protocolMismatch", "frame exceeded 1 MiB limit", processEpoch));
+                }
+                return 0;
+            }
+
+            var decode = ProtocolDecode.Parse(frame);
+            if (!decode.Ok)
+            {
+                writer.Send(ProtocolMessages.ResultError(
+                    decode.RequestId ?? "", decode.ErrorCode!, ProtocolRedactor.Redact(decode.Error!), processEpoch));
+                // 协议失配后有界关闭：帧边界已不可信。
+                return 1;
+            }
+            if (decode.Type != "request") continue;
+
+            var requestId = decode.RequestId!;
+            if (!terminals.TryBegin(requestId))
+            {
+                writer.SendDiagnostic($"duplicate requestId suppressed: {requestId}");
                 continue;
             }
-            if (cmd == null || string.IsNullOrEmpty(cmd.Command)) continue;
 
-            switch (cmd.Command)
+            switch (decode.Command)
             {
                 case "ping":
-                    writer.Send(new { v = 1, eventType = "pong" });
+                    writer.Send(ProtocolMessages.ResultOk(requestId, new { pong = true }, processEpoch));
                     break;
                 case "shutdown":
-                    writer.Send(new { v = 1, eventType = "exited" });
-                    return;
+                    writer.Send(ProtocolMessages.ResultOk(requestId, new { shuttingDown = true }, processEpoch));
+                    return 0;
                 default:
-                    writer.Send(new { v = 1, eventType = "error",
-                        message = $"unknown command: {cmd.Command}" });
+                    writer.Send(ProtocolMessages.ResultError(
+                        requestId, "protocolMismatch", $"unknown command: {decode.Command}", processEpoch));
                     break;
             }
         }

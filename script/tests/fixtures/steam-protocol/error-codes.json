@@ -1,0 +1,16 @@
+{
+  "codes": [
+    "network",
+    "rateLimited",
+    "authExpired",
+    "invalidChallenge",
+    "accessDenied",
+    "unsupportedQuery",
+    "unsupportedContent",
+    "diskFull",
+    "integrity",
+    "cancelled",
+    "protocolMismatch",
+    "helperUnavailable"
+  ]
+}
