@@ -119,6 +119,11 @@ final class SteamWorkshopService: ObservableObject {
     /// SK2.2：新登录路线（SteamKit）权威。登录面板与工具栏账号状态的数据源。
     private(set) lazy var steamAuth = SteamAuthRoute(client: steamServiceClient)
 
+    /// SK3.2：新浏览 route 的键控取页状态（QueryKey/generation）。
+    private(set) lazy var steamKitBrowseStore = SteamKitBrowseStore(
+        queryClient: SteamWorkshopQueryClient(client: steamServiceClient)
+    )
+
     /// SK2.3：唯一登录面板入口。重复调用聚焦同一面板，不产生第二个认证流。
     func showLoginPanel() {
         SteamLoginPanelController.shared.show(auth: steamAuth)

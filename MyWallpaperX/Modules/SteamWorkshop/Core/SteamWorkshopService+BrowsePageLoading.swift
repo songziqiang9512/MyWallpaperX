@@ -2,6 +2,11 @@ import Foundation
 
 extension SteamWorkshopService {
     func loadMoreBrowserItemsIfNeeded() {
+        // SK3.2：dev 注入的新 route 分页。
+        if shouldUseSteamKitBrowse {
+            loadMoreDiscoveryViaSteamKitIfNeeded()
+            return
+        }
         guard !isLoadingMoreBrowserItems,
               hasMoreBrowserItems,
               browserState == .loaded,

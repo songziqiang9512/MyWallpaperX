@@ -12,6 +12,7 @@ struct SteamWorkshopQueryItem: Equatable {
     let previewUrl: String?
     let fileSize: Int?
     let timeUpdated: Int?
+    let timeCreated: Int?
     let consumerAppId: Int?
     let tags: [String]
 }
@@ -140,6 +141,7 @@ final class SteamWorkshopQueryClient {
                 previewUrl: object["previewUrl"]?.stringValue,
                 fileSize: object["fileSize"]?.intValue,
                 timeUpdated: object["timeUpdated"]?.intValue,
+                timeCreated: object["timeCreated"]?.intValue,
                 consumerAppId: object["consumerAppid"]?.intValue,
                 tags: object["tags"]?.arrayValue?.compactMap(\.stringValue) ?? []
             )

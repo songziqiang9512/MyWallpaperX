@@ -43,6 +43,12 @@ extension SteamWorkshopService {
     }
 
     func fetchBrowserItems(forceRefresh: Bool = false) {
+        // SK3.2：dev 注入的新 route（SteamKit 统一查询）优先；个人/作者来源
+        // 仍走既有 route（SK3.3/SK6.1 接管）。
+        if shouldUseSteamKitBrowse {
+            fetchDiscoveryViaSteamKit(forceRefresh: forceRefresh)
+            return
+        }
         browserFetchTask?.cancel()
         cancelBrowserDetailHydration()
         browserNextPage = 2
