@@ -72,6 +72,12 @@ enum Harness {
         try Data(contentsOf: jpegURL).write(to: jpgURL)
         try Data("not an image".utf8).write(to: invalidURL)
         try Data(contentsOf: pngURL).write(to: unsupportedURL)
+        let embeddedTexURL = directory.appendingPathComponent("embedded.tex")
+        try embeddedImageTex(
+            width: 2,
+            height: 1,
+            payload: try Data(contentsOf: pngURL)
+        ).write(to: embeddedTexURL)
 
         let loader = SceneUserPropertyTextureLoader()
         let absentIdentity = SceneUserPropertyTextureIdentity(
@@ -113,6 +119,25 @@ enum Harness {
             ],
             device: device
         )
+        let embeddedTexLoader = SceneTextureLoader()
+        let embeddedTexColor = embeddedTexLoader.load(
+            from: embeddedTexURL,
+            purpose: .premultipliedColor,
+            device: device
+        )
+        let embeddedTexPreserved = embeddedTexLoader.load(
+            from: embeddedTexURL,
+            purpose: .preservedChannels,
+            device: device
+        )
+        let embeddedTexDifferentPurpose: Bool
+        if case let .loaded(colorTexture) = embeddedTexColor,
+           case let .loaded(preservedTexture) = embeddedTexPreserved {
+            embeddedTexDifferentPurpose = colorTexture !== preservedTexture
+        } else {
+            embeddedTexDifferentPurpose = false
+        }
+        let embeddedTexDecodeAttempts = embeddedTexLoader.texEmbeddedImageDecodeAttemptCount
         let sharedLoader = SceneTextureLoader()
         let embeddedDataOutcome = SceneTextureMipUploader.uploadEmbeddedDataImages(
             [.init(width: 2, height: 1, data: try Data(contentsOf: pngURL))],
@@ -348,6 +373,8 @@ enum Harness {
             "reversedPreservedPixels": try pixels(reversedPreserved),
             "embeddedDataPixels": try pixels(embeddedDataOutcome),
             "embeddedStraightAlbedoPixels": try pixels(embeddedStraightAlbedoOutcome),
+            "embeddedTexDifferentPurpose": embeddedTexDifferentPurpose,
+            "embeddedTexDecodeAttempts": embeddedTexDecodeAttempts,
             "reportLines": result.reportLines,
             "retryLoadedKeys": retry.textures.keys.sorted(),
             "retryCandidateKeys": retry.textureCandidates.keys.sorted(),
@@ -447,6 +474,35 @@ enum Harness {
         }
         CGImageDestinationAddImage(destination, image, nil)
         guard CGImageDestinationFinalize(destination) else { throw HarnessError.imageWrite }
+    }
+
+    private static func embeddedImageTex(
+        width: UInt32,
+        height: UInt32,
+        payload: Data
+    ) -> Data {
+        var data = Data("TEXV0005\0TEXI0001\0".utf8)
+        func append(_ value: UInt32) {
+            var littleEndian = value.littleEndian
+            withUnsafeBytes(of: &littleEndian) { data.append(contentsOf: $0) }
+        }
+        append(0)
+        append(2)
+        append(width)
+        append(height)
+        append(width)
+        append(height)
+        append(0)
+        data.append(Data("TEXB0002\0".utf8))
+        append(1)
+        append(1)
+        append(width)
+        append(height)
+        append(0)
+        append(0)
+        append(UInt32(payload.count))
+        data.append(payload)
+        return data
     }
 
     private static func encodedImage(
@@ -798,6 +854,10 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
         self.assertTrue(self.result["differentPurposeTexture"])
         self.assertEqual(self.result["sharedDecodeAttempts"], 1)
         self.assertTrue(self.result["changedFileInvalidatedCache"])
+
+    def test_loader_reuses_embedded_tex_decode_across_texture_purposes(self) -> None:
+        self.assertTrue(self.result["embeddedTexDifferentPurpose"])
+        self.assertEqual(self.result["embeddedTexDecodeAttempts"], 1)
 
     def test_surface_rebuild_reopens_security_scoped_urls(self) -> None:
         source = HOST_SOURCE.read_text(encoding="utf-8")

@@ -72,15 +72,15 @@ enum SceneTextureMipUploader {
         _ mips: [SceneTexContainer.Mip],
         device: MTLDevice
     ) -> SceneTextureLoadOutcome? {
-        let images = mips.compactMap { mip -> CGImage? in
-            guard isEmbeddedImage(mip.data),
-                  let source = CGImageSourceCreateWithData(mip.data as CFData, nil) else {
-                return nil
-            }
-            return CGImageSourceCreateImageAtIndex(source, 0, nil)
-        }
-        guard images.count == mips.count,
-              let first = images.first,
+        guard let images = decodeEmbeddedImages(mips) else { return nil }
+        return uploadEmbeddedImages(images, device: device)
+    }
+
+    static func uploadEmbeddedImages(
+        _ images: [CGImage],
+        device: MTLDevice
+    ) -> SceneTextureLoadOutcome? {
+        guard let first = images.first,
               (images.count > 1
                 || (first.width <= 4096 && first.height <= 4096)),
               validDimensions(images.map { ($0.width, $0.height) }) else {
@@ -116,17 +116,24 @@ enum SceneTextureMipUploader {
         maximumDimension: Int = 4096,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome? {
+        guard let images = decodeEmbeddedImages(mips) else { return nil }
+        return uploadEmbeddedDataImages(
+            images,
+            purpose: purpose,
+            maximumDimension: maximumDimension,
+            device: device
+        )
+    }
+
+    static func uploadEmbeddedDataImages(
+        _ images: [CGImage],
+        purpose: SceneTextureLoadPurpose,
+        maximumDimension: Int = 4096,
+        device: MTLDevice
+    ) -> SceneTextureLoadOutcome? {
         guard purpose.preservesSourceChannels,
               maximumDimension > 0 else { return nil }
-        let images = mips.compactMap { mip -> CGImage? in
-            guard isEmbeddedImage(mip.data),
-                  let source = CGImageSourceCreateWithData(mip.data as CFData, nil) else {
-                return nil
-            }
-            return CGImageSourceCreateImageAtIndex(source, 0, nil)
-        }
-        guard images.count == mips.count,
-              validDimensions(images.map { ($0.width, $0.height) }) else {
+        guard validDimensions(images.map { ($0.width, $0.height) }) else {
             return nil
         }
         let firstEligibleIndex: Int
@@ -176,6 +183,23 @@ enum SceneTextureMipUploader {
             )
         }
         return .loaded(texture)
+    }
+
+    static func decodeEmbeddedImages(
+        _ mips: [SceneTexContainer.Mip]
+    ) -> [CGImage]? {
+        decodeEmbeddedImages(mips.map(\.data))
+    }
+
+    static func decodeEmbeddedImages(_ payloads: [Data]) -> [CGImage]? {
+        let images = payloads.compactMap { data -> CGImage? in
+            guard isEmbeddedImage(data),
+                  let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+                return nil
+            }
+            return CGImageSourceCreateImageAtIndex(source, 0, nil)
+        }
+        return images.count == payloads.count ? images : nil
     }
 
     static func uploadRaw(

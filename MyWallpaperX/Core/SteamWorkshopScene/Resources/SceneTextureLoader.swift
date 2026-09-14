@@ -46,12 +46,19 @@ final class SceneTextureLoader {
         case failed(String)
     }
 
+    private enum TexEmbeddedImageResource {
+        case decoded([CGImage])
+        case failed
+    }
+
     private static let directImageExtensions: Set<String> = ["png", "jpg", "jpeg"]
     private static let texExtension = "tex"
     private var textureOutcomes: [TextureKey: SceneTextureLoadOutcome] = [:]
     private var texResources: [SourceKey: TexResource] = [:]
     private var directImageResources: [SourceKey: DirectImageResource] = [:]
+    private var texEmbeddedImageResources: [SourceKey: TexEmbeddedImageResource] = [:]
     private(set) var directImageDecodeAttemptCount = 0
+    private(set) var texEmbeddedImageDecodeAttemptCount = 0
 
     // GPUs cope poorly with extremely large textures (e.g. 8192×6144 RGBA8 =
     // 192 MB), and Apple Silicon's maxTexture2DLimit is 16384 but actual
@@ -192,6 +199,7 @@ final class SceneTextureLoader {
             if container.format == 0 {
                 return loadFormatZeroContainer(
                     container,
+                    source: source,
                     purpose: purpose,
                     device: device
                 )
@@ -210,8 +218,10 @@ final class SceneTextureLoader {
             }
             return .decodeFailed("TEX parse failed: \(resource.parseError ?? "unknown error")")
         }
-        guard let source = CGImageSourceCreateWithData(embedded as CFData, nil),
-              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+        guard let cgImage = cachedTexEmbeddedImages(
+            source: source,
+            payloads: [embedded]
+        )?.first else {
             return .decodeFailed("embedded image decode failed")
         }
         return SceneImageTextureUploader.upload(
@@ -270,6 +280,7 @@ final class SceneTextureLoader {
 
     private func loadFormatZeroContainer(
         _ container: SceneTexContainer,
+        source: SourceKey,
         purpose: SceneTextureLoadPurpose,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
@@ -290,15 +301,21 @@ final class SceneTextureLoader {
         }
 
         if Self.isEmbeddedImagePayload(firstMip.data) {
+            guard let images = cachedTexEmbeddedImages(
+                source: source,
+                payloads: container.mips.map(\.data)
+            ) else {
+                return .decodeFailed("compiled TEX embedded mip chain could not be decoded")
+            }
             let uploaded = purpose.preservesSourceChannels
                 ? SceneTextureMipUploader.uploadEmbeddedDataImages(
-                    container.mips,
+                    images,
                     purpose: purpose,
                     maximumDimension: Self.maxTextureDimension,
                     device: device
                 )
                 : SceneTextureMipUploader.uploadEmbeddedImages(
-                    container.mips,
+                    images,
                     device: device
                 )
             if let uploaded {
@@ -334,6 +351,23 @@ final class SceneTextureLoader {
         }
 
         return .decodeFailed("raw ARGB8888 mip data size mismatch: \(firstMip.data.count) != \(expectedRawByteCount)")
+    }
+
+    private func cachedTexEmbeddedImages(
+        source: SourceKey,
+        payloads: [Data]
+    ) -> [CGImage]? {
+        if let cached = texEmbeddedImageResources[source] {
+            guard case let .decoded(images) = cached else { return nil }
+            return images
+        }
+        texEmbeddedImageDecodeAttemptCount += payloads.count
+        guard let images = SceneTextureMipUploader.decodeEmbeddedImages(payloads) else {
+            texEmbeddedImageResources[source] = .failed
+            return nil
+        }
+        texEmbeddedImageResources[source] = .decoded(images)
+        return images
     }
 
     // Returns the byte range of the first JPEG or PNG payload inside a .tex
