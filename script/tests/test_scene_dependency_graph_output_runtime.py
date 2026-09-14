@@ -393,6 +393,7 @@ final class SceneFrameTextureRegistry {
 final class SceneNamedRenderTargetPool {
     static let maximumDimension = 4_096
     private let device: MTLDevice
+    private(set) var residentByteCost = 0
 
     init(device: MTLDevice) {
         self.device = device
@@ -408,6 +409,7 @@ final class SceneNamedRenderTargetPool {
         descriptor.usage = [.shaderRead, .renderTarget]
         let texture = device.makeTexture(descriptor: descriptor)
         texture?.label = "reservation-\(layerID)"
+        residentByteCost = width * height * 4
         return texture
     }
 }

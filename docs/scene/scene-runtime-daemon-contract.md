@@ -58,7 +58,7 @@
 |---|---|---|
 | `launchStateChanged` | `{phase, message, requestID, recordID}` | 五阶段状态机（accepted/preparingModel/preparingPrograms/preparingResources/preparingSurfaces/launched/failed/cancelled） |
 | `firstFramePresented` | `{requestID, recordID, uptimeMs}` | 同请求 drawable 的实际 present 后 |
-| `frameStats` | 轻量 counter 集合 | 1Hz（hub 定长快照；textureMemory/rtMemory 等接入后自动包含） |
+| `frameStats` | `{rendered,busy,dropped,drawCalls,pipelineStateBinds,geometryDrawCalls,fallbackBranches,gpuAllocatedBytes,renderTargetPoolBytes,cpuFrameMs?}` | 1Hz；前七项为 daemon 进程累计 counter，后两项为当前 gauge。`gpuAllocatedBytes` 是 Metal device 的进程总分配量；`renderTargetPoolBytes` 是已跟踪有界 RT 池预算和，不含 drawable |
 | `propertyUpdateResult` | `{revision, recordID, accepted}` | 热更新尝试完成；client 只消费自己登记的 revision/recordID |
 | `error` | `{code, message, context}` | 引擎内部失败的可上报子集 |
 | `exited` | `{code, gpuDrained}` | GPU barrier 终结后的进程退出前 |

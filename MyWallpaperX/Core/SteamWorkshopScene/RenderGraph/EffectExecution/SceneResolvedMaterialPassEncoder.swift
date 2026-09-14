@@ -219,6 +219,7 @@ final class SceneResolvedMaterialPassEncoder {
             return false
         }
         encoder.label = "Scene resolved material pass"
+        ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
         encoder.setRenderPipelineState(pass.pipeline)
         encoder.setCullMode(.none)
         if !pass.uniformBytes.isEmpty {
@@ -243,6 +244,7 @@ final class SceneResolvedMaterialPassEncoder {
             encoder.setFragmentSamplerState(binding.sampler, index: binding.slot)
         }
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
         encoder.endEncoding()
         return true
     }

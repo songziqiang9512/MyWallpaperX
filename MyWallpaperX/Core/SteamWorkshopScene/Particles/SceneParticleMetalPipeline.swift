@@ -26,6 +26,10 @@ struct SceneParticleMetalPipeline {
     private let framebufferSnapshot: SceneFramebufferSnapshot
     private let depthTargetPool = SceneParticleDepthTargetPool()
 
+    var renderTargetResidentByteCost: Int {
+        framebufferSnapshot.residentByteCost + depthTargetPool.residentByteCost
+    }
+
     private static let unitQuad: [SceneParticleQuadVertex] = [
         .init(position: SIMD2(-0.5, -0.5), texcoord: SIMD2(0, 1)),
         .init(position: SIMD2( 0.5, -0.5), texcoord: SIMD2(1, 1)),
@@ -127,6 +131,7 @@ struct SceneParticleMetalPipeline {
         let state = renderState.blendMode == .additive
             ? (usesDepthAttachment ? depthAdditiveState : additiveState)
             : (usesDepthAttachment ? depthTranslucentState : translucentState)
+        ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
         encoder.setRenderPipelineState(state)
         if usesDepthAttachment {
             encoder.setDepthStencilState(depthState(for: renderState))
@@ -168,6 +173,7 @@ struct SceneParticleMetalPipeline {
             vertexCount: Self.unitQuad.count,
             instanceCount: drawState.count
         )
+        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
         return true
     }
 
@@ -196,6 +202,7 @@ struct SceneParticleMetalPipeline {
     ) -> Bool {
         guard let drawState = instances.currentDrawState(),
               let normal = binding.resolvedNormalArguments() else { return false }
+        ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
         encoder.setRenderPipelineState(
             renderState.blendMode == .additive ? refractAdditiveState : refractTranslucentState
         )
@@ -246,6 +253,7 @@ struct SceneParticleMetalPipeline {
             vertexCount: Self.unitQuad.count,
             instanceCount: drawState.count
         )
+        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
         return true
     }
 

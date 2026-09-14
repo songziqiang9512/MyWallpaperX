@@ -22,6 +22,7 @@ from scene_swift_source_sets import scene_swift_sources  # noqa: E402
 
 
 SWIFT_SOURCES = [
+    SCENE_ROOT / "Runtime/ScenePerformanceCounterHub.swift",
     *scene_swift_sources("authored_shader_frontend_core"),
     *scene_swift_sources("shader_variant_environment"),
     SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",

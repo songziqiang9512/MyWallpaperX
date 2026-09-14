@@ -81,6 +81,9 @@ final class ScenePerformanceHUDController {
             guard frames > 0 else { return "-" }
             return String(format: "%.2fms", Double(micros) / Double(frames) / 1000.0)
         }
+        func mib(_ bytes: UInt64) -> String {
+            String(format: "%.1fMiB", Double(bytes) / 1_048_576.0)
+        }
 
         let rendered = delta(.framesRendered)
         let cpu = ms(delta(.cpuFrameMicros), rendered)
@@ -89,6 +92,9 @@ final class ScenePerformanceHUDController {
         let busy = delta(.framesBusy)
         let dropped = delta(.framesDropped)
         let drawCalls = delta(.drawCalls)
+        let pipelineStateBinds = delta(.pipelineStateBinds)
+        let geometryDrawCalls = delta(.geometryDrawCalls)
+        let fallbackBranches = delta(.fallbackBranches)
         let stageSummary = [
             ("res", delta(.worldResolveMicros)),
             ("adm", delta(.frameAdmissionMicros)),
@@ -101,6 +107,8 @@ final class ScenePerformanceHUDController {
 
         label.stringValue = """
         FPS \(rendered)  busy \(busy)  drop \(dropped)  draw \(drawCalls)
+        bind \(pipelineStateBinds)  geometry \(geometryDrawCalls)  fallback \(fallbackBranches)
+        GPU \(mib(total(.gpuAllocatedBytes)))  RT pools \(mib(total(.renderTargetPoolBytes)))
         cpu \(cpu)  renderer \(renderer)  drawable \(drawable)
         stages: \(stageSummary)
 
@@ -113,13 +121,16 @@ final class ScenePerformanceHUDController {
             }
             .joined(separator: " ")
             NSLog(
-                "MWX PERF: rendered=%llu attempts=%llu busy=%llu dropped=%llu cpu=%@ renderer=%@ drawable=%@ draw=%llu stages{%@} launch{%@}",
+                "MWX PERF: rendered=%llu attempts=%llu busy=%llu dropped=%llu cpu=%@ renderer=%@ drawable=%@ draw=%llu binds=%llu geometry=%llu fallback=%llu gpu=%llu rtPools=%llu stages{%@} launch{%@}",
                 total(.framesRendered), total(.frameAttempts),
                 total(.framesBusy), total(.framesDropped),
                 ms(total(.cpuFrameMicros), total(.framesRendered)),
                 ms(total(.rendererMicros), total(.framesRendered)),
                 ms(total(.drawableWaitMicros), total(.framesRendered)),
-                total(.drawCalls), stageSummary, launchSummary
+                total(.drawCalls), total(.pipelineStateBinds),
+                total(.geometryDrawCalls), total(.fallbackBranches),
+                total(.gpuAllocatedBytes), total(.renderTargetPoolBytes),
+                stageSummary, launchSummary
             )
         }
         panel.contentView?.needsLayout = true

@@ -56,12 +56,19 @@ final class SceneParticleDepthTargetLease: @unchecked Sendable {
 final class SceneParticleDepthTargetPool: @unchecked Sendable {
     private struct Slot {
         var texture: MTLTexture
+        var byteCost: Int
         var isReserved: Bool
     }
 
     private let lock = NSLock()
     private var slots: [Slot] = []
     private let maximumSlots = 3
+
+    /// At most three fixed slots are visited, and only by the daemon's 1 Hz
+    /// resource sampler.
+    var residentByteCost: Int {
+        withLock { slots.reduce(0) { $0 + $1.byteCost } }
+    }
 
     func acquire(device: MTLDevice, width: Int, height: Int) -> SceneParticleDepthTargetLease? {
         guard width > 0, height > 0 else { return nil }
@@ -82,6 +89,10 @@ final class SceneParticleDepthTargetPool: @unchecked Sendable {
                         slot: reusable
                     ) else { return nil }
                     slots[reusable].texture = texture
+                    slots[reusable].byteCost = Self.byteCost(
+                        width: width,
+                        height: height
+                    ) ?? 0
                 }
                 index = reusable
             } else {
@@ -93,7 +104,11 @@ final class SceneParticleDepthTargetPool: @unchecked Sendable {
                           slot: slots.count
                       ) else { return nil }
                 index = slots.count
-                slots.append(Slot(texture: texture, isReserved: false))
+                slots.append(Slot(
+                    texture: texture,
+                    byteCost: Self.byteCost(width: width, height: height) ?? 0,
+                    isReserved: false
+                ))
             }
             slots[index].isReserved = true
             return SceneParticleDepthTargetLease(
@@ -128,6 +143,12 @@ final class SceneParticleDepthTargetPool: @unchecked Sendable {
         let texture = device.makeTexture(descriptor: descriptor)
         texture?.label = "Scene particle depth slot \(slot)"
         return texture
+    }
+
+    private static func byteCost(width: Int, height: Int) -> Int? {
+        let (pixels, pixelOverflow) = width.multipliedReportingOverflow(by: height)
+        let (bytes, byteOverflow) = pixels.multipliedReportingOverflow(by: 4)
+        return pixelOverflow || byteOverflow ? nil : bytes
     }
 
     private func withLock<Result>(_ operation: () -> Result) -> Result {

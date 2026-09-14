@@ -31,6 +31,10 @@ struct SceneImageLayerCompositor {
     private let colorBlendPipelineSlot: ScenePipelineSlot<SceneLayerColorBlendPipeline>
     let resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge?
 
+    var renderTargetResidentByteCost: Int {
+        colorBlendPipelineSlot.resolvedValue()?.renderTargetResidentByteCost ?? 0
+    }
+
     init?(device: MTLDevice) {
         self.init(pipelineRepository: SceneImageEffectPipelineRepository(device: device))
     }

@@ -63,6 +63,8 @@ final class SceneDependencyFrameRuntime {
     var debugPreparedOutputInstallFailureRecorded = false
 #endif
 
+    var renderTargetResidentByteCost: Int { targetPool.residentByteCost }
+
     init(
         descriptor: SceneRenderDescriptor,
         visibleLayerIDs: Set<Int>,

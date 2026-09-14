@@ -71,10 +71,14 @@
 
 ### M1 度量地基
 
-- **M1.1 常开定长 counter** 🔶 e04d6a26+300f6a1a：hub 已落地（16 定长槽：帧四分类、cpuFrame/renderer/drawableWait、drawCalls、7 个帧内阶段 micros）+ launch 五阶段/firstVisibleFrame 首次时间戳；现有 `SceneFramePerformanceTelemetry` 保持仅 debug 证据窗口。剩余：textureMemory/rtMemory/pipelineSwitches/geometry 与 fallback 分支计数（随 M2/M4 批次补）。
+- **M1.1 常开定长 counter** ✅ e04d6a26+300f6a1a+本批：hub 共 21 个定长槽，覆盖帧分类、cpuFrame/renderer/drawableWait、7 个帧内阶段 micros、真实 Metal draw 提交、pipeline state bind、geometry draw 与实际视觉 fallback 分支；launch 五阶段/firstVisibleFrame 保持首次时间戳。资源量由 daemon 1Hz 采样：`gpuAllocatedBytes` 使用 Metal 的进程/device 总分配量，避免把 buffer/PSO 混报为 texture-only memory；`renderTargetPoolBytes` 汇总现有有界 offscreen/named/depth/framebuffer 池的驻留预算值。全部 draw/bind 点进入同一 hub，资源采样不触发 lazy pipeline factory；现有 `SceneFramePerformanceTelemetry` 仍只用于 debug 证据窗口。
 - **M1.2 signpost** ✅ e04d6a26：OSSignposter 薄封装 + launch-state 事件 + firstVisibleFrame 首次记录。帧内阶段 interval 待按需补（counter 已覆盖归因）。
 - **M1.3 Debug HUD** ✅ d427ddaf：`ScenePerformanceHUD`（仅 DEBUG）浮窗 1Hz 差分展示 + 每 5s 结构化 `MWX PERF:` NSLog（累计均值/阶段分解/launch 时间戳），启用门 = evidence window 或 MYWALLPAPERX_SCENE_PERF_HUD=1；不进帧路径，Release 无此类型。
 - 验收：基线**机制**就绪 ✅；**M1 基线数字（2026-09-14，样本 1300076567 隔离副本 /tmp/mwx-baseline，Debug+evidence 窗，20s 稳态，6 layers/1 image/0 effects 简单场景）**：稳态 60fps（rendered 1189/busy 0/dropped 0）；cpu frame 累计均值 3.92ms（renderer 2.77 + drawable 0.28）；阶段均值 world-resolve 0.01 / frame-admission 0.30 / **prepass 2.03（占 cpu 52%，首要观测项）** / layer-loop 0.31 / seal 0.07；draw=1/帧；startupElapsedMS=941.7（含 0.4s 调度延迟；runner 同步 launch 路径不经 publishLaunchState——launch 阶段日志在同步路径缺失，已记 M2 后补）。原始日志 /private/tmp/mwx-baseline/run-before.log（临时区）。该样本无 graph/particle，trace/plan 重验证等风险项在复杂样本上占比更高，Patch A/B 后在同类简单样本上先比绝对值。**方法学警示（2026-09-14）**：全部基线/after 数字采自未签名 Debug 构建 → glslang 路由按许可合同不可用，effect 一律走 bounded frontend 回退（cpu/admission 口径=回退模式）；与生产签名模式的绝对值不可直接互换，模式内 before/after 对比有效。
+
+  **M1.1 收尾实测（2026-09-14，签名 Debug，同一机器、1300076567→2938612768 隔离副本、各批同为 20s）**：before `rendered=521/busy=23/dropped=0/cpuFrameMs=14.027`；after `525/23/0/14.459`，画面截图正常、同一 daemon 完成切换并退出。after 回传 `drawCalls=23022/pipelineStateBinds=23022/geometryDrawCalls=2337/fallbackBranches=0/gpuAllocatedBytes=885653504/renderTargetPoolBytes=88628632`。单次整段 CPU 差值混有 shader 准备与 Debug 逐帧诊断，不能归因给 counter；独立 `-O` hub 微基准把一次 bind+draw+geometry 三槽更新测为 38.83ns，按该次 graph 的 43.85 次命令/帧折算约 1.70µs/帧，低于 M1.3 的 0.1ms 常开预算。该数字只界定 hub 更新成本，不等同生产整帧性能。
+
+  最终产品树的 formal checkpoint 共 65 个模块全部通过，checkpoint 与 Developer ID 签名 Debug 构建均 `BUILD SUCCEEDED`、严格 codesign 有效；code-health 保持交接时的 `181 warnings / 19 errors`，本批触达的 `SceneMetalRenderer.swift` 行数回到 HEAD 的 825，`SceneDependencyFrameRuntime.swift` 为 799，没有新增或放大 hard-limit error。最终签名产物再以隔离副本验证强杀恢复：simple `1300076567` 为 `rendered=3641/busy=0/dropped=0/drawCalls=25472/geometryDrawCalls=21831`，graph `2938612768` 为 `433/23/0/55424/433`，两者 pipeline bind 与 draw 提交数一致、fallback 为 0、daemon 退出后无孤儿；恢复后的 Metal 直出截图分别保持窗边人物与霓虹唱片完整构图。消融：删除 renderer 每层 `.encoded` 的 1 个近似 draw 计数入口，计数改附着到既有 9 个真实 Metal primitive 提交和对应 bind 点；没有新增 render/fallback 选择分支，产品视觉路径净增 0，权威数不变。
 
 ### M2 引擎减税
 

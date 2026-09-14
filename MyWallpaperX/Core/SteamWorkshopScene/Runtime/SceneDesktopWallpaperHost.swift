@@ -97,6 +97,31 @@ final class SceneDesktopWallpaperHost {
         performanceProfile = profile
     }
 
+    /// Refreshes resource gauges from constant-time owner values. This is
+    /// called by the daemon's 1 Hz stats timer, never by the frame driver.
+    func refreshPerformanceResourceGauges() {
+        var gpuAllocatedBytes: UInt64 = 0
+        var renderTargetPoolBytes: UInt64 = 0
+        var capturedDeviceAllocation = false
+        for surface in surfaces.values {
+            if !capturedDeviceAllocation {
+                gpuAllocatedBytes = UInt64(
+                    clamping: surface.metalView.renderer.device.currentAllocatedSize
+                )
+                capturedDeviceAllocation = true
+            }
+            let resident = UInt64(
+                clamping: surface.metalView.renderTargetResidentByteCost
+            )
+            let (sum, overflow) = renderTargetPoolBytes
+                .addingReportingOverflow(resident)
+            renderTargetPoolBytes = overflow ? UInt64.max : sum
+        }
+        let hub = ScenePerformanceCounterHub.shared
+        hub.set(.gpuAllocatedBytes, gpuAllocatedBytes)
+        hub.set(.renderTargetPoolBytes, renderTargetPoolBytes)
+    }
+
     /// A host is process-local runtime state. SceneDaemonRuntime owns the
     /// product instance; the explicit DEBUG evidence runner owns its own.
     init() {

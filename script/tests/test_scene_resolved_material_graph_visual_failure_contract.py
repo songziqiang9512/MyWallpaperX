@@ -44,6 +44,7 @@ VISUAL_FAILURE_PASSTHROUGH_SOURCE = SCENE_ROOT / (
     "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
 )
 SWIFT_SOURCES = [
+    SCENE_ROOT / "Runtime/ScenePerformanceCounterHub.swift",
     *PUBLICATION_FIXTURE["SWIFT_SOURCES"],
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialAttachmentKind.swift",

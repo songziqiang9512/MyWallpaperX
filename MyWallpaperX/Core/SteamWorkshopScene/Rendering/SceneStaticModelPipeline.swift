@@ -401,6 +401,7 @@ struct SceneStaticModelPipeline {
             )
         )
 
+        ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
         encoder.setRenderPipelineState(state)
         encoder.setDepthStencilState(
             writesDepth ? writingDepthState : nonwritingDepthState
@@ -441,6 +442,7 @@ struct SceneStaticModelPipeline {
             indexBuffer: mesh.indexBuffer,
             indexBufferOffset: 0
         )
+        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
         return true
     }
 

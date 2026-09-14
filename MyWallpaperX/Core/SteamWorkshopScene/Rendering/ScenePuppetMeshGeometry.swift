@@ -69,6 +69,7 @@ enum ScenePuppetMeshGeometry {
                 if let bindColorBlend {
                     bindColorBlend(encoder, sourceTexture, mvp)
                 } else {
+                    ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
                     encoder.setRenderPipelineState(renderPipelineState)
                     var matrix = mvp
                     encoder.setVertexBytes(
@@ -96,6 +97,7 @@ enum ScenePuppetMeshGeometry {
                     indexBuffer: indexBuffer,
                     indexBufferOffset: 0
                 )
+                ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
                 return true
             },
             authoredSize: SIMD2(layerWidth, layerHeight),

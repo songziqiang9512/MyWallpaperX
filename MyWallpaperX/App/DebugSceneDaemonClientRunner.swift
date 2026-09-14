@@ -221,6 +221,11 @@ enum DebugSceneDaemonClientRunner {
                 "busy": latestStats.busy,
                 "dropped": latestStats.dropped,
                 "drawCalls": latestStats.drawCalls,
+                "pipelineStateBinds": latestStats.pipelineStateBinds,
+                "geometryDrawCalls": latestStats.geometryDrawCalls,
+                "fallbackBranches": latestStats.fallbackBranches,
+                "gpuAllocatedBytes": latestStats.gpuAllocatedBytes,
+                "renderTargetPoolBytes": latestStats.renderTargetPoolBytes,
                 "cpuFrameMs": latestStats.cpuFrameMs.map { $0 as Any }
                     ?? NSNull()
             ]

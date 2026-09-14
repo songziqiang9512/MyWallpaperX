@@ -45,6 +45,10 @@ final class SceneLayerColorBlendPipeline {
     private let state: MTLRenderPipelineState
     private let framebufferSnapshot: SceneFramebufferSnapshot
 
+    var renderTargetResidentByteCost: Int {
+        framebufferSnapshot.residentByteCost
+    }
+
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
         let options = MTLCompileOptions()
         guard let library = try? device.makeLibrary(
@@ -96,6 +100,7 @@ final class SceneLayerColorBlendPipeline {
             encoder: encoder
         )
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: false)
     }
 
     /// Binds the same blend fragment contract for caller-owned geometry. The
@@ -109,6 +114,7 @@ final class SceneLayerColorBlendPipeline {
     ) {
         var mvpCopy = mvp
         var mode = Int32(blendMode)
+        ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
         encoder.setRenderPipelineState(state)
         encoder.setVertexBytes(
             &mvpCopy,

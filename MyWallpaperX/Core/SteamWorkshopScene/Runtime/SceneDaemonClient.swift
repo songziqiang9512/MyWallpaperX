@@ -8,6 +8,11 @@ nonisolated struct SceneDaemonFrameStats: Equatable, Sendable {
     let busy: UInt64
     let dropped: UInt64
     let drawCalls: UInt64
+    let pipelineStateBinds: UInt64
+    let geometryDrawCalls: UInt64
+    let fallbackBranches: UInt64
+    let gpuAllocatedBytes: UInt64
+    let renderTargetPoolBytes: UInt64
     let cpuFrameMs: Double?
 }
 

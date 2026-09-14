@@ -571,8 +571,8 @@ struct SceneMetalRenderer {
                         for: layer.contentKind
                     )
                 )
-                if drawOutcome.encoded {
-                    ScenePerformanceCounterHub.shared.bump(.drawCalls)
+                if case .layerSourcePassthrough = drawOutcome {
+                    ScenePerformanceCounterHub.shared.bump(.fallbackBranches)
                 }
 #if DEBUG
                 if frameDynamicLayerIDs.contains(layer.id) {

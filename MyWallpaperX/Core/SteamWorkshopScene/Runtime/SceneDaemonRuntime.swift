@@ -256,6 +256,7 @@ final class SceneDaemonRuntime {
         timer.schedule(deadline: .now() + 1, repeating: 1)
         timer.setEventHandler { [weak self] in
             guard let self, !self.isShuttingDown else { return }
+            self.host.refreshPerformanceResourceGauges()
             let counters = ScenePerformanceCounterHub.shared.snapshot()
             let rendered = counters[.framesRendered] ?? 0
             var event: [String: Any] = [
@@ -264,7 +265,12 @@ final class SceneDaemonRuntime {
                 "rendered": rendered,
                 "busy": counters[.framesBusy] ?? 0,
                 "dropped": counters[.framesDropped] ?? 0,
-                "drawCalls": counters[.drawCalls] ?? 0
+                "drawCalls": counters[.drawCalls] ?? 0,
+                "pipelineStateBinds": counters[.pipelineStateBinds] ?? 0,
+                "geometryDrawCalls": counters[.geometryDrawCalls] ?? 0,
+                "fallbackBranches": counters[.fallbackBranches] ?? 0,
+                "gpuAllocatedBytes": counters[.gpuAllocatedBytes] ?? 0,
+                "renderTargetPoolBytes": counters[.renderTargetPoolBytes] ?? 0
             ]
             if rendered > 0 {
                 event["cpuFrameMs"] = Double(

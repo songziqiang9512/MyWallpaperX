@@ -106,7 +106,22 @@ extension SceneDaemonClient {
         guard let rendered = Self.unsignedInteger(payload["rendered"]),
               let busy = Self.unsignedInteger(payload["busy"]),
               let dropped = Self.unsignedInteger(payload["dropped"]),
-              let drawCalls = Self.unsignedInteger(payload["drawCalls"]) else {
+              let drawCalls = Self.unsignedInteger(payload["drawCalls"]),
+              let pipelineStateBinds = Self.unsignedInteger(
+                  payload["pipelineStateBinds"]
+              ),
+              let geometryDrawCalls = Self.unsignedInteger(
+                  payload["geometryDrawCalls"]
+              ),
+              let fallbackBranches = Self.unsignedInteger(
+                  payload["fallbackBranches"]
+              ),
+              let gpuAllocatedBytes = Self.unsignedInteger(
+                  payload["gpuAllocatedBytes"]
+              ),
+              let renderTargetPoolBytes = Self.unsignedInteger(
+                  payload["renderTargetPoolBytes"]
+              ) else {
             return
         }
         let stats = SceneDaemonFrameStats(
@@ -114,6 +129,11 @@ extension SceneDaemonClient {
             busy: busy,
             dropped: dropped,
             drawCalls: drawCalls,
+            pipelineStateBinds: pipelineStateBinds,
+            geometryDrawCalls: geometryDrawCalls,
+            fallbackBranches: fallbackBranches,
+            gpuAllocatedBytes: gpuAllocatedBytes,
+            renderTargetPoolBytes: renderTargetPoolBytes,
             cpuFrameMs: Self.double(payload["cpuFrameMs"])
         )
         latestFrameStats = stats

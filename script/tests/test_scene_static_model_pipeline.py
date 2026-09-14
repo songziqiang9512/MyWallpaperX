@@ -23,6 +23,9 @@ DIRECTIONAL_LIGHT_SOURCE = (
     SCENE_ROOT / "Format/SceneDirectionalLightDefinition.swift"
 )
 SPOT_LIGHT_SOURCE = SCENE_ROOT / "Format/SceneSpotLightDefinition.swift"
+PERFORMANCE_COUNTER_SOURCE = (
+    SCENE_ROOT / "Runtime/ScenePerformanceCounterHub.swift"
+)
 
 LIGHTING_STUB = r'''
 struct SceneRenderDescriptor {
@@ -136,6 +139,7 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
                     str(lighting_stub),
                     str(LIGHT_SOURCE),
                     str(DYNAMIC_SNAPSHOT_SOURCE),
+                    str(PERFORMANCE_COUNTER_SOURCE),
                     str(PIPELINE_SOURCE),
                 ],
                 capture_output=True,
@@ -288,6 +292,7 @@ enum MaterialHarness {
                     str(lighting_stub),
                     str(LIGHT_SOURCE),
                     str(DYNAMIC_SNAPSHOT_SOURCE),
+                    str(PERFORMANCE_COUNTER_SOURCE),
                     str(PIPELINE_SOURCE),
                     str(harness),
                     "-framework", "Metal",
@@ -472,6 +477,7 @@ enum DepthPlanHarness {
                     str(lighting_stub),
                     str(LIGHT_SOURCE),
                     str(DYNAMIC_SNAPSHOT_SOURCE),
+                    str(PERFORMANCE_COUNTER_SOURCE),
                     str(PIPELINE_SOURCE),
                     str(harness),
                     "-framework", "Metal",

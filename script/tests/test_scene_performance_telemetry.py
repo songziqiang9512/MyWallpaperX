@@ -30,6 +30,27 @@ RENDERER_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalRenderer.swift"
 )
+COUNTER_HUB_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/ScenePerformanceCounterHub.swift"
+)
+DAEMON_RUNTIME_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDaemonRuntime.swift"
+)
+RENDER_COMMAND_SOURCES = [
+    REPOSITORY_ROOT / path
+    for path in [
+        "MyWallpaperX/Core/SteamWorkshopScene/Effects/SceneSpotLightPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Particles/SceneParticleMetalPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneLayerColorBlendPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/ScenePuppetMeshGeometry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/ScenePuppetPlaybackState.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneStaticModelPipeline.swift",
+    ]
+]
 DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
 PERFORMANCE_RUNNER_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner+Performance.swift"
@@ -84,6 +105,37 @@ enum Harness {
             "gpuSamples": value.gpuSampleCount,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+        print(String(decoding: data, as: UTF8.self))
+    }
+}
+'''
+
+COUNTER_HARNESS = r'''
+import Foundation
+
+@main
+enum CounterHarness {
+    static func main() throws {
+        let hub = ScenePerformanceCounterHub()
+        hub.bump(.pipelineStateBinds)
+        hub.recordDraw(usesGeometry: false)
+        hub.recordDraw(usesGeometry: true)
+        hub.bump(.fallbackBranches)
+        hub.set(.gpuAllocatedBytes, 123_456)
+        hub.set(.renderTargetPoolBytes, 65_432)
+        let snapshot = hub.snapshot()
+        let payload: [String: UInt64] = [
+            "slots": UInt64(snapshot.count),
+            "drawCalls": snapshot[.drawCalls] ?? 0,
+            "pipelineStateBinds": snapshot[.pipelineStateBinds] ?? 0,
+            "geometryDrawCalls": snapshot[.geometryDrawCalls] ?? 0,
+            "fallbackBranches": snapshot[.fallbackBranches] ?? 0,
+            "gpuAllocatedBytes": snapshot[.gpuAllocatedBytes] ?? 0,
+            "renderTargetPoolBytes": snapshot[.renderTargetPoolBytes] ?? 0,
+        ]
+        let data = try JSONSerialization.data(
+            withJSONObject: payload, options: [.sortedKeys]
+        )
         print(String(decoding: data, as: UTF8.self))
     }
 }
@@ -164,6 +216,59 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertIn("discontinuities=%d", performance_runner)
         self.assertIn("droppedMS=%.3f", performance_runner)
         self.assertIn("debugEvidence.reset()", performance_runner)
+
+
+class ScenePerformanceCounterHubTests(unittest.TestCase):
+    def test_fixed_slots_support_counters_and_resource_gauges(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-counter-hub-") as directory:
+            root = Path(directory)
+            harness = root / "CounterHarness.swift"
+            binary = root / "scene-counter-hub"
+            harness.write_text(COUNTER_HARNESS, encoding="utf-8")
+            compilation = subprocess.run(
+                [
+                    "swiftc",
+                    str(COUNTER_HUB_SOURCE),
+                    str(harness),
+                    "-o",
+                    str(binary),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(compilation.returncode, 0, compilation.stderr)
+            completed = subprocess.run(
+                [str(binary)], check=True, capture_output=True, text=True
+            )
+            result = json.loads(completed.stdout)
+        self.assertEqual(result["slots"], 21)
+        self.assertEqual(result["drawCalls"], 2)
+        self.assertEqual(result["pipelineStateBinds"], 1)
+        self.assertEqual(result["geometryDrawCalls"], 1)
+        self.assertEqual(result["fallbackBranches"], 1)
+        self.assertEqual(result["gpuAllocatedBytes"], 123_456)
+        self.assertEqual(result["renderTargetPoolBytes"], 65_432)
+
+    def test_render_commands_record_every_pipeline_bind_and_draw(self) -> None:
+        source = "\n".join(
+            path.read_text(encoding="utf-8") for path in RENDER_COMMAND_SOURCES
+        )
+        self.assertEqual(
+            source.count("encoder.setRenderPipelineState("),
+            source.count(".bump(.pipelineStateBinds)"),
+        )
+        self.assertEqual(
+            source.count("encoder.drawPrimitives(")
+            + source.count("encoder.drawIndexedPrimitives("),
+            source.count(".recordDraw(usesGeometry:"),
+        )
+
+    def test_resource_gauges_are_sampled_at_one_hertz_outside_frame_driver(self) -> None:
+        runtime = DAEMON_RUNTIME_SOURCE.read_text(encoding="utf-8")
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("self.host.refreshPerformanceResourceGauges()", runtime)
+        self.assertIn("repeating: 1", runtime)
+        self.assertNotIn("refreshPerformanceResourceGauges", frame_driver)
 
 
 if __name__ == "__main__":

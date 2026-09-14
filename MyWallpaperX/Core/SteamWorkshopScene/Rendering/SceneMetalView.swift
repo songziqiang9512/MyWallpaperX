@@ -78,6 +78,14 @@ class SceneMetalView: NSView {
     #if DEBUG
         let debugFrameCapture = SceneDebugFrameCapture()
     #endif
+
+    var renderTargetResidentByteCost: Int {
+        offscreenTexturePool.residentByteCost
+            + renderer.dependencyRuntime.renderTargetResidentByteCost
+            + renderer.imageCompositor.renderTargetResidentByteCost
+            + renderer.staticModelDepthTargetPool.residentByteCost
+            + (particlePlayback?.pipeline.renderTargetResidentByteCost ?? 0)
+    }
     init?(
         renderDescriptor: SceneRenderDescriptor, effectAdmissionCatalog: SceneEffectAdmissionCatalog,
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,

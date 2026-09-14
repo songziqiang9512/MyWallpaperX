@@ -12,6 +12,7 @@ final class SceneFramebufferSnapshot {
     private let byteBudget: Int
     private let label: String
     private var texture: MTLTexture?
+    private(set) var residentByteCost = 0
 
     init(
         device: MTLDevice,
@@ -66,6 +67,7 @@ final class SceneFramebufferSnapshot {
         guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
         texture.label = "\(label) \(width)x\(height)"
         self.texture = texture
+        residentByteCost = Self.byteCost(width: width, height: height) ?? 0
         return texture
     }
 

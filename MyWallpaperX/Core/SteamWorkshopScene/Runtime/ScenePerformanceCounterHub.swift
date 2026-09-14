@@ -3,8 +3,8 @@ import Foundation
 /// Always-on lightweight performance counters for the Scene runtime frame
 /// path (enabled in Release too). Contract: fixed-capacity accumulation
 /// slots indexed by metric — no unbounded arrays, no sorting, no
-/// percentiles. Per-frame cost is one NSLock plus a few integer adds. The
-/// hub stores no history windows; callers diff snapshots themselves.
+/// percentiles. Each update is one NSLock plus fixed integer work. The hub
+/// stores no history windows; callers diff snapshots themselves.
 enum ScenePerformanceMetric: Int, CaseIterable, Sendable {
     case frameAttempts
     case framesRendered
@@ -15,6 +15,15 @@ enum ScenePerformanceMetric: Int, CaseIterable, Sendable {
     case rendererMicros
     case drawableWaitMicros
     case drawCalls
+    case pipelineStateBinds
+    case geometryDrawCalls
+    case fallbackBranches
+    // Gauges sampled by the daemon at 1 Hz. `gpuAllocatedBytes` is Metal's
+    // process/device allocation total; it deliberately does not claim to be
+    // texture-only memory. `renderTargetPoolBytes` is the sum of the runtime's
+    // bounded render-target pool accounting values.
+    case gpuAllocatedBytes
+    case renderTargetPoolBytes
     // Renderer frame stages. `prologueMicros` includes the nested
     // `frameAdmissionMicros` window; both accumulate independently.
     case sourceUpdateMicros
@@ -59,6 +68,21 @@ nonisolated final class ScenePerformanceCounterHub: @unchecked Sendable {
 
     func add(_ metric: ScenePerformanceMetric, _ amount: UInt64) {
         withLock { counters[metric.rawValue] &+= amount }
+    }
+
+    func set(_ metric: ScenePerformanceMetric, _ value: UInt64) {
+        withLock { counters[metric.rawValue] = value }
+    }
+
+    /// Records one submitted Metal draw and its optional prepared/instanced
+    /// geometry branch with one lock acquisition.
+    func recordDraw(usesGeometry: Bool) {
+        withLock {
+            counters[ScenePerformanceMetric.drawCalls.rawValue] &+= 1
+            if usesGeometry {
+                counters[ScenePerformanceMetric.geometryDrawCalls.rawValue] &+= 1
+            }
+        }
     }
 
     func snapshot() -> [ScenePerformanceMetric: UInt64] {

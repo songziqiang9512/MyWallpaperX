@@ -15,6 +15,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 IMAGE_LAYER_METAL_SOURCE = SCENE_ROOT / "Rendering/SceneImageLayer.metal"
 SWIFT_SOURCES = [
+    SCENE_ROOT / "Runtime/ScenePerformanceCounterHub.swift",
     SCENE_ROOT / "Rendering/SceneLayerScreenAnchor.swift",
     SCENE_ROOT / "Rendering/SceneTextLayerPivot.swift",
     SCENE_ROOT / "Rendering/SceneCameraProjection.swift",
@@ -427,7 +428,8 @@ class SceneLayerScreenAnchorTests(unittest.TestCase):
             r"let shift = parallax \+ screenAnchor"
             r"[\s\S]{0,400}SceneMatrix\.translation\(SIMD3\(shift\.x, shift\.y, 0\)\)"
         ))
-        # 三个 imageModelMatrix 调用点都要喂真实的 cover 半宽高。
+        # Renderer 的两个 image model、prepared geometry，以及 utility
+        # model 路径都要喂真实的 cover 半宽高。
         renderer = RENDERER_SOURCE.read_text(encoding="utf-8")
         effect_execution = EFFECT_EXECUTION_SOURCE.read_text(encoding="utf-8")
         utility_frame_renderer = UTILITY_FRAME_RENDERER_SOURCE.read_text(
@@ -438,7 +440,7 @@ class SceneLayerScreenAnchorTests(unittest.TestCase):
         self.assertEqual(renderer.count("imageModelMatrix("), 2)
         self.assertEqual(utility_frame_renderer.count("imageModelMatrix("), 1)
         self.assertEqual(
-            renderer.count("visibleHalfExtents: cameraFrame.coverHalfExtents"), 2
+            renderer.count("visibleHalfExtents: cameraFrame.coverHalfExtents"), 3
         )
         self.assertEqual(
             utility_frame_renderer.count(

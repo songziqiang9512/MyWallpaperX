@@ -115,6 +115,9 @@ extension SceneMetalRenderer {
                 ? .encoded
                 : .failed(reasonCode: "main-pass-encode-failed")
         )
+        if encoded {
+            ScenePerformanceCounterHub.shared.bump(.fallbackBranches)
+        }
         return encoded
     }
 }

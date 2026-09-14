@@ -33,7 +33,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 
 ### 1.2 所有权权威
 
-进程现状（M5.6 后）：普通产品 Scene 命令由主 App 的 `SceneDaemonClient` 唯一接收；client 只持有可重放 authored intent、请求/记录身份、属性 revision、控制意图、显示拓扑和轻量统计，不持有 Metal/registry/graph/compositor。它经公共 `DaemonProcessTransport` 孵化同一 App 二进制的 `--mwx-scene-daemon` accessory 子进程；子进程跳过 AppDelegate/MainWindowCoordinator，`SceneDaemonRuntime` 以 `private let host` 显式持有唯一产品 Host，运行五类 prepared 产品、frame loop、表面和 compositor。Host 不再提供全局 `shared` 入口，普通 App 调用面也不引用 Host 类型。同二进制设计要求渲染源码继续位于 app target；实际隔离由 `@main` daemon 分支和实例所有权保证。`DaemonNewlineFrameBuffer` / `DaemonNewlineJSON` 统一 Video/Scene 的分帧和编码，`DaemonRestartBackoff` 统一 0/1/2/4…有界退避；业务 payload、会话身份与重放裁决仍留在各 client。Scene launch/first-present 按 requestID/recordID 过滤，属性以 revision+recordID 确认；热更新拒绝时 client 用合并后的 authored intent 触发同一 daemon Host 的完整重载。App 的屏幕参数观察、系统暂停/恢复与热键控制均经 multiplexer/client 发送 coarse 命令；daemon Host 不依赖跨进程无效的 App notification。外部 SceneTexture 只跨管道传路径与书签，daemon 恢复 URL 后由 Host 在表面同步上传范围内开闭安全作用域。App 退出等待所有 retiring transport 终止；终止事件经主 RunLoop common modes 投递，2 秒强退计时不依赖主队列。`DebugScenePlaybackRunner` 仅在显式 DEBUG 证据入口持有自己的隔离 Host，不参与普通产品分发。
+进程现状（M5.6 后）：普通产品 Scene 命令由主 App 的 `SceneDaemonClient` 唯一接收；client 只持有可重放 authored intent、请求/记录身份、属性 revision、控制意图、显示拓扑和轻量统计，不持有 Metal/registry/graph/compositor。它经公共 `DaemonProcessTransport` 孵化同一 App 二进制的 `--mwx-scene-daemon` accessory 子进程；子进程跳过 AppDelegate/MainWindowCoordinator，`SceneDaemonRuntime` 以 `private let host` 显式持有唯一产品 Host，运行五类 prepared 产品、frame loop、表面和 compositor。Host 不再提供全局 `shared` 入口，普通 App 调用面也不引用 Host 类型。同二进制设计要求渲染源码继续位于 app target；实际隔离由 `@main` daemon 分支和实例所有权保证。`DaemonNewlineFrameBuffer` / `DaemonNewlineJSON` 统一 Video/Scene 的分帧和编码，`DaemonRestartBackoff` 统一 0/1/2/4…有界退避；业务 payload、会话身份与重放裁决仍留在各 client。Scene launch/first-present 按 requestID/recordID 过滤，属性以 revision+recordID 确认；热更新拒绝时 client 用合并后的 authored intent 触发同一 daemon Host 的完整重载。App 的屏幕参数观察、系统暂停/恢复与热键控制均经 multiplexer/client 发送 coarse 命令；daemon Host 不依赖跨进程无效的 App notification。外部 SceneTexture 只跨管道传路径与书签，daemon 恢复 URL 后由 Host 在表面同步上传范围内开闭安全作用域。App 退出等待所有 retiring transport 终止；终止事件经主 RunLoop common modes 投递，2 秒强退计时不依赖主队列。`DebugScenePlaybackRunner` 仅在显式 DEBUG 证据入口持有自己的隔离 Host，不参与普通产品分发。M1.1 后 daemon 每秒把 21 槽定长 hub 投影为轻量 `frameStats`；主 App 只保存最新值，不参与采样或派生运行权威。
 （同一时刻各只有一个，禁止第二套）
 
 | 权威 | 持有者 | 存活期 | 替换方式 |
@@ -53,6 +53,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 | GPU 完成终结 | Metal 完成线程 → 唯一每帧 hop：`Task{@MainActor}` 回主线程（SubmissionCoordinator+FrameCommit） | 其余 completion 只做锁内记账 |
 | 启动准备 / deferred 纹理 / 动态文字 / 音频分析 / localStorage | 各自后台串行队列 | 跨线程只经 os_unfair_lock inbox（audio/media） |
 | shader 编译 | 外部子进程（glslang/spirv-cross，超时+字节+内存预算 SIGKILL） | 产物 MSL 字符串；makeLibrary 在 PassEncoder |
+| counter/resource gauge 快照 | draw/bind/fallback 点只更新定长 UInt64 槽；daemon 主线程 1Hz 从 owner 常数值与 `MTLDevice.currentAllocatedSize` 采样 | 不保留历史窗；IPC 只发送最新累计值/当前 gauge |
 
 ## 2. 加载与分配地图（按对象类）
 
@@ -68,6 +69,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 | 视频帧 | AVPlayer 解码线程 + CVMetalTextureCache 零拷贝 | per-source pending → 三段栅栏 | 帧期 | resource-generation（每帧 generation++） |
 | 动态文字/媒体缩略图 | 专用异步队列，签名/generation 去重 | pending 状态机 → 三段栅栏 | 帧期 | resource-generation |
 | graph render target | offscreen allocation cache（LRU 192-512MB + submissionPin/historyPin + history rehydrate） | lease/table（per layer plan） | 跨帧（history）或帧内 | geometry-extent / topology |
+| 性能 counter / 资源 gauge | frame/Metal 命令点定长累加；daemon 1Hz 读取 surface 的 offscreen、named、depth、framebuffer owner 值与 device allocation | `ScenePerformanceCounterHub` 21 槽；App client 仅最新快照 | daemon 进程期；无 history/percentile | 不参与五类产品失效；场景切换后累计 counter 延续、当前 gauge 覆盖 |
 | 帧 values | FrameDriver 每帧双 resolve 动态快照 | frameContext（值传递，字典 CoW） | 帧期 | value-only |
 | 完成态/history | SubmissionCoordinator pending → committedTails（finalTails 非空时阻塞下帧） | coordinator（per surface） | GPU 终结前 | topology/回滚 |
 
@@ -89,6 +91,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 14. **launch 世代**：newer-wins 世代号 + 取消令牌 + per-generation worker 队列；新后台准备必须持世代令牌，否则旧场景任务污染新场景。
 15. **catalog 不可变、整体替换**：capability catalog 无增量失效；token 含 ownerID 不跨 catalog 碰撞。"改一处能力"= 重建 catalog，不是 patch。
 16. **控制面单一通道与 Host 归属**（M5.6）：普通产品 UI/系统生命周期/屏幕变化→Scene 只经 `WallpaperEngineCommand` + multiplexer 或 client 的 typed display command → `SceneDaemonClient` → newline JSON；client 只投影 requestID/recordID 匹配的 daemon 事件。产品 Host 只由 daemon runtime 的私有实例持有，禁止恢复全局 singleton、让普通 App 调用面引用 Host，或在 Host 内监听只存在于 App 进程的通知。属性持久化仍只有 App 的 SteamWorkshopService，运行属性仍只有 daemon Host liveState；热更新拒绝由 client 完整重载，不产生第二 property owner。静音意图在 `PlaybackMuteState`，菜单/设置仍读 video 派生态（M0.2 未完成单一状态闭环）；预算档运行权威在 daemon Host。暂停意图必须跨无活动 Scene/重连窗口保留，退出必须等 retiring transport 清空或完成有界强退。DEBUG direct Host 只准作为显式隔离证据入口。
+17. **常开统计不升级为诊断树**（M1.1）：Release 可更新的只有 21 个 UInt64 槽和 launch 首次时间戳；Metal command 计数只在真实 bind/draw/fallback 分支递增。资源 gauge 只由 daemon 1Hz 覆盖，读取已有 owner 常数值，且不得为统计调用 lazy pipeline `resolve()`。`gpuAllocatedBytes` 是 Metal device 的进程总分配量，不得改名冒充 texture-only；`renderTargetPoolBytes` 是受跟踪有界池预算和，不含 CAMetalLayer drawable。窗口、percentile、完整 observation/evidence 仍是 DEBUG/主动诊断旁路。
 
 ## 4. 改A坏B 雷区对照表
 
@@ -103,7 +106,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 | 改属性生效/优先级 | lane 合并顺序 + revision 语义（userPropertiesJSON 缓存键）+ hasSameValuePayload 闸门 | 脚本动画被覆盖；属性改了画面不动 |
 | 改 SceneScript 定时器/帧状态 | 快照/discard 对只在真实帧 dispatch 的约定（不变量 9） | timer 双触发/丢失；deferred 帧后 VM 漂移 |
 | 加 invalidation 触发（档位切换/重连/显示变化） | executor.reset() 清 PSO 缓存 → warmup 跟进；catalog 整体重建 | 重置后首帧主线程秒级卡顿 |
-| 加 per-frame 遥测/诊断 | evidence 门三合一语义（不变量 12）+ sticky 行为 + Release 恒 false | Release 行为漂移；窗口样式意外变化 |
+| 加 per-frame 遥测/诊断 | 常开层只准定长整数更新（不变量 17）；完整 observation/evidence 仍服从 evidence 门三合一语义（不变量 12）+ sticky 行为 + Release 恒 false | Release 分配/字符串/遍历回归；窗口样式意外变化；统计触发 lazy pipeline 编译 |
 | 新 offscreen target 类型 | allocation cache key + pin 故事 + history-only 降级路径 | 在飞资源被逐出 → GPU target hazard |
 | 静音/预算档/命令层（M0.2/M0.7 已落地） | video previousAudibleVolume 恢复语义 + SceneSoundPlaybackRegistry 静音门 + `PlaybackMuteState`/`PlaybackPerformanceProfile` 权威 + daemon `setMuted`/`setPerformanceProfile` | video 音量恢复错档；Scene 音效/帧率不受控；第二静音权威 |
 | 动 puppet atlas/composed | coverage ledger + UV 合同 | puppet 采样错位（近期迁移高发区） |

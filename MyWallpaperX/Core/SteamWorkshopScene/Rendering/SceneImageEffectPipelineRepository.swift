@@ -27,6 +27,15 @@ final class ScenePipelineSlot<Value>: @unchecked Sendable {
             return value
         }
     }
+
+    /// Reads an already-resolved value without invoking the factory. Resource
+    /// telemetry must never compile a lazy pipeline merely to sample a gauge.
+    func resolvedValue() -> Value? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard case let .resolved(value) = state else { return nil }
+        return value
+    }
 }
 
 /// One launch owns one repository. Immutable Metal states are shared by every

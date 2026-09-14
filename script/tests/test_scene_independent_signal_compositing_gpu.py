@@ -29,6 +29,7 @@ COLOR_CARRIER_ANALYZER_SOURCE = SCENE_ROOT / (
     "SceneAuthoredShaderIndependentSignalColorCarrierCompositingAnalyzer.swift"
 )
 SWIFT_SOURCES = [
+    SCENE_ROOT / "Runtime/ScenePerformanceCounterHub.swift",
     *AUTHORED_SHADER_FRONTEND_SOURCES,
     *(
         []

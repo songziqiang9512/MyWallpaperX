@@ -131,6 +131,7 @@ extension SceneResolvedMaterialGraphExecutor {
             rejection: rejection
         )
         guard failure == nil else { return failure }
+        ScenePerformanceCounterHub.shared.bump(.fallbackBranches)
         effectLocalFailureReasonCode = reasonCode
         if reasonCode.hasPrefix("material-pass-preparation-")
             || reasonCode.hasPrefix("material-finalizer-") {

@@ -302,6 +302,7 @@ final class ScenePuppetPlaybackState {
             if let bindColorBlend {
                 bindColorBlend(encoder, sourceTexture, mvp)
             } else {
+                ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
                 encoder.setRenderPipelineState(renderPipelineState)
                 var matrix = mvp
                 encoder.setVertexBytes(&matrix, length: MemoryLayout<simd_float4x4>.size, index: 1)
@@ -313,6 +314,7 @@ final class ScenePuppetPlaybackState {
             encoder.setVertexBuffer(vertexBuffers[lastPreparedVertexBufferIndex], offset: 0, index: 0)
             encoder.drawIndexedPrimitives(type: .triangle, indexCount: mesh.indices.count,
                 indexType: .uint16, indexBuffer: indexBuffer, indexBufferOffset: 0)
+            ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
             return true
         }, authoredSize: authoredSize,
         effectSourceExtentContract: .exactSamplingTexture)
