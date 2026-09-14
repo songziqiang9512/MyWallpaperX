@@ -12,13 +12,13 @@
       "docs/scene/runtime-as-built-map.md",
       "docs/scene/scene-compatibility-roadmap.md",
       "docs/scene/scene-open-breakpoint-queue-2026-09-09.md",
+      "docs/scene/scene-runtime-daemon-contract.md",
       "docs/scene/semantics/official-client-behavior-research-workflow.md",
       "docs/scene/semantics/runtime-evidence-current.md",
       "docs/web/wallpaper-engine-web-rules.md",
       "docs/web/web-project-json-localization.md",
       "docs/web/web-project-json-runtime-model.md",
-      "docs/web/web-wallpaper-benchmark-standard.md",
-      "docs/scene/scene-runtime-daemon-contract.md"
+      "docs/web/web-wallpaper-benchmark-standard.md"
     ]
   },
   "roleDefinitions": {
@@ -315,6 +315,12 @@
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该日期化派生执行入口时，删除或转为 historical-evidence。"
     },
     {
+      "path": "docs/scene/scene-runtime-daemon-contract.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/README.md",
+      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+    },
+    {
       "path": "docs/scene/semantics/official-client-behavior-research-workflow.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/semantics/README.md",
@@ -349,12 +355,6 @@
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
       "currentStateAuthority": "docs/web/current-state.md"
-    },
-    {
-      "path": "docs/scene/scene-runtime-daemon-contract.md",
-      "role": "stable-contract",
-      "entrypoint": "docs/scene/README.md",
-      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
     }
   ]
 }

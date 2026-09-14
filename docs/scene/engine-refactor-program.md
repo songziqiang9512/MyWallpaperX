@@ -47,12 +47,15 @@
 
 ## 3. 里程碑与工位卡
 
+**交接门（2026-09-14，审计基点 c39d78a7）：尚未通过。** 基线 `ec490e1b` 与 `origin/codex/scene-capability-baseline` 一致，35 个本地提交；当前基点隔离 checkpoint 构建成功，但不据此追认每个历史提交的构建。已发现 M0 播放态协议分发、M3.2 同步 launch generation、M5.2 EOF/协议事件的纠偏项，须先逐项修复/验证，再进入 M5.3。历史卡内 ✅ 只表示原批落地声明，不等于本轮审计或完整 DoD 通过。Fast Suite manifest 仍含 `selection-required`；两个代表样本已选 `2938612768`、`1300076567`，人工结果待实测确认。
+
+
 卡格式：**改哪里 → 怎么做 → 验收门 → 回滚**。状态记录于卡内标题行；执行细节与 file:line 锚点查[事实架构地图](runtime-as-built-map.md)。
 
 ### M0 控制面命令化 + 公共层第一批（同进程）
 
 - **M0.1 命令层入公共层** ✅ f33b2386：`Core/PlaybackControl/` 三件（WallpaperEngineCommand / PlaybackEngineControlling / PlaybackCommandMultiplexer，未消费命令显式返回 false）；Scene 处理端接真实入口（loadScene→requestLaunch、pause/resume→setPlaybackPaused、stop→stop()）；video 处理端（pause/resume/stop→WallpaperEngine，setMuted/switchNext→WallpaperManager）。验收：UI 无直触引擎内部 ✅（状态栏已改）；web 处理端待 web 模块需要时补。
-- **M0.2 静音态升公共层** ⬜：静音从 video 音量派生态（`WallpaperManager+PlaybackSettings`）拆为公共回放态；video 保 volume 恢复语义，Scene 接 `SceneSoundPlaybackRegistry`。验收：任一引擎激活时菜单/设置静音一致生效。
+- **M0.2 静音态升公共层** 🔶 4626ed6e：公共静音意图与 Scene Sound 增益门已接入；菜单/设置仍读取 video 派生静音，音量滑杆与公共意图同步尚未闭环，不能宣称唯一静音状态完成。
 - **M0.3 设置容器拆公共层 + FPS 档** ✅ cbd96207：设置容器整块 git mv `Shared/Settings/`（同 target 零改动）；efficiency 分区新增最高帧率 30/60 分段（UserDefaults 持久化 + 命令层下发）；audio 区静音开关改命令层广播双引擎。验收：30 档下一帧起 30Hz、重启保持 ✅（档位持久化于 UserDefaults）。
 - **M0.4 状态栏菜单打通** ✅ f33b2386：三键改发命令；播放标题/图标按 video+scene 任一在播判定；注册点=setupStatusBar。Scene 静音消费随 M0.2 补齐。
 - **M0.5 播放按钮交互** ✅ ce13c3c0：pending 状态入 SteamWorkshopService（@Published launchPendingRecordID，单一 pending 模型）；点击立即置位、早退路径即清；scene launch 终态（launched/failed/cancelled）与 runtime 切换通知清除，video/web 1.5s 兜底；三处渲染接入（详情 footer 按钮、共享 BrowserItem 卡片 bar 徽标 hourglass、两个网格容器订阅刷新）。按钮保持可点击（newer-wins 安全）。
@@ -89,9 +92,9 @@
 ### M5 进程分离 daemon 化（主线）
 
 - **M5.1 设计门** ✅ 4a835efc：交付 [Scene Runtime Daemon 契约](scene-runtime-daemon-contract.md)（stable-contract 已登记）——IPC v1 冻结、生命周期/崩溃退避语义、线程约束审计结论（runtime 原样搬迁、帧循环留 daemon 主线程、帧线程隔离明确排除）。设计门已过，M5.2 起按步骤实施。
-- **M5.2 最小 daemon（同二进制模式，契约 §2 修订）** ✅ 868bbfe3：`SceneDaemonRuntime`（Core/PlaybackControl，仅 daemon 进程路径）——stdin 逐行命令→WallpaperEngineCommand 解码→Scene 引擎处理端（复用 M0.1 命令层：loadScene/pause/resume/stop/setMuted/setPerformanceProfile）；事件 stdout JSON 流（版本握手/五阶段 launchStateChanged/firstFramePresented 一次/frameStats 1Hz/exited）；stdin EOF=主程序断连→有序退出。`MyWallpaperXApplication` 增 `--mwx-scene-daemon` 分支（accessory App、跳过主 UI 装配），主 UI 路径零改动。验收：graph 样本隔离副本 smoke 实测（18s，stdin 保持打开 + pause 命令注入）——握手→五阶段 launchStateChanged→frameStats 20 条 1Hz→launched→firstFramePresented→EOF 后有序退出（exit 0）；checkpoint 构建 BUILD SUCCEEDED。
-- **M5.3 DaemonKit 公共层第二批**：daemon 孵化/指数退避重启/管道帧协议抽为共享 kit；注意 daemon target 只同步 `WallpaperDaemonSources/`，共享代码需新增挂双 target 的同步组。
-- **M5.4 命令迁移**：WallpaperEngineCommand 逐条改走管道；事件回传（launchState/firstFrame/frameStats 1Hz/error/exited）；断连 = 指数退避重启。注意：IPC `setProperty` 载荷需 SceneUserPropertyValue 的 JSON 编解码（其 Codable 已有，持久化在用）；属性编辑器的类型化直调（service.updateScenePropertyValue）保留在 App 侧，daemon 化后该 service 一并迁入 daemon。
+- **M5.2 最小 daemon（同二进制模式，契约 §2 修订）** 🔶 交接纠偏中；历史落地记录： 868bbfe3：`SceneDaemonRuntime`（Core/PlaybackControl，仅 daemon 进程路径）——stdin 逐行命令→WallpaperEngineCommand 解码→Scene 引擎处理端（复用 M0.1 命令层：loadScene/pause/resume/stop/setMuted/setPerformanceProfile）；事件 stdout JSON 流（版本握手/五阶段 launchStateChanged/firstFramePresented 一次/frameStats 1Hz/exited）；stdin EOF=主程序断连→有序退出。`MyWallpaperXApplication` 增 `--mwx-scene-daemon` 分支（accessory App、跳过主 UI 装配），主 UI 路径零改动。验收：graph 样本隔离副本 smoke 实测（18s，stdin 保持打开 + pause 命令注入）——握手→五阶段 launchStateChanged→frameStats 20 条 1Hz→launched→firstFramePresented→EOF 后有序退出（exit 0）；checkpoint 构建 BUILD SUCCEEDED。
+- **M5.3 DaemonKit 公共层第二批**：从现有 video 会话与 Scene daemon 抽取真实共用的孵化/退避/管道帧协议；Scene 使用 app target 的同二进制模式，不新增 Scene tool target。只有 video tool 也真实消费的源码才挂 app + 既有 WallpaperDaemon 双 target；先证明 ≥2 个消费者，再确定共享编译面。
+- **M5.4 命令迁移**：WallpaperEngineCommand 逐条改走管道；事件回传（launchState/firstFrame/frameStats 1Hz/error/exited）；断连 = 指数退避重启。注意：IPC `setProperty` 载荷需 SceneUserPropertyValue 的 JSON 编解码（其 Codable 已有，持久化在用）；属性编辑器与持久化服务保留在 App 侧，daemon 只消费带 revision 的 typed 值，不迁移整个 UI service 或创建第二持久化权威。
 - **M5.5 Host 瘦身**：主程序 Scene 宿主变 client stub（状态机+通知投影保留，渲染全删）；菜单/设置/热更新无感切换。
 - **M5.6 收尾**：切壁纸/退出/多屏拓扑/暂停恢复全链 daemon 化；旧同进程路径删除（消融）。
 - 验收：M6 全套 + Scene 满载时主程序 UI 无掉帧（对比 M1 基线）+ daemon 强杀自动恢复。
@@ -120,11 +123,11 @@ Fast Scene Suite → fixed/full matrix → 长稳（两档各跑）→ daemon �
 
 ### 4.2 属性热更新
 
-现状属性调节触发整卡重启；目标：调节 → `setProperty(properties, revision)` → liveState 值更新 + revision 递增 → 下一帧既有 value-only 路径消费。失效域分类：数值/颜色/bool/文字 → value-only；纹理 URL 类 → resource-generation（复用 deferred 装载机）；combo/可见性默认/结构类 → program-variant/topology 局部失效；任何一类不重启。应用失败保留重启路径兜底。UI 滑杆 ~150ms 去抖；验收 = ≤1 帧 + 轻量上传内可见、launch 状态不重放。M0 进程内实现，M5 同命令走管道。
+现状已优先使用进程内 typed 热应用，失败时保留 180ms 去抖重启；命令层 `.setProperty` 尚未消费。目标：调节 → `setProperty(properties, revision)` → liveState 值更新 + revision 递增 → 下一帧既有 value-only 路径消费。失效域分类：数值/颜色/bool/文字 → value-only；纹理 URL 类 → resource-generation（复用 deferred 装载机）；combo/可见性默认/结构类 → program-variant/topology 局部失效；任何一类不重启。应用失败保留重启路径兜底。UI 滑杆 ~150ms 去抖；验收 = ≤1 帧 + 轻量上传内可见、launch 状态不重放。M0 进程内实现，M5 同命令走管道。
 
 ### 4.3 进程分离
 
-参照 video daemon：`Process()` 孵化 `Contents/Helpers` 工具、stdin/stdout newline JSON、崩溃指数退避重启、daemon 内自建桌面级窗口。新 daemon 内含完整 Scene runtime；进程间只传 coarse 命令与轻量 counter，`MTLTexture` 等进程内对象不跨进程；诊断旁路留 daemon 内。IPC 合同：命令 `loadScene{rootURL,propertyOverrides,profile}` / `setProperty{...}` / `setDisplayConfiguration{screens}` / `setPerformanceProfile{fps}` / `setMuted` / `pause` / `resume` / `shutdown`；事件 `launchStateChanged` / `firstFramePresented` / `frameStats`(1Hz) / `error` / `exited`。隔离目标 = UI 响应、崩溃、堆、VM、编译器故障隔离；不承诺总 CPU/GPU 下降。
+Scene 使用 `Process()` 孵化自身二进制并传 `--mwx-scene-daemon`；video 保留既有 `Contents/Helpers` 工具。共同传输为 stdin/stdout newline JSON，主程序负责退避重启，daemon 内自建桌面级窗口。新 daemon 内含完整 Scene runtime；进程间只传 coarse 命令与轻量 counter，`MTLTexture` 等进程内对象不跨进程；诊断旁路留 daemon 内。IPC 合同：命令 `loadScene{rootURL,propertyOverrides,profile}` / `setProperty{...}` / `setDisplayConfiguration{screens}` / `setPerformanceProfile{fps}` / `setMuted` / `pause` / `resume` / `shutdown`；事件 `launchStateChanged` / `firstFramePresented` / `frameStats`(1Hz) / `error` / `exited`。隔离目标 = UI 响应、崩溃、堆、VM、编译器故障隔离；不承诺总 CPU/GPU 下降。
 
 ### 4.4 公共层拆分图
 
@@ -132,7 +135,7 @@ Fast Scene Suite → fixed/full matrix → 长稳（两档各跑）→ daemon �
 |---|---|---|---|
 | 一（M0） | 设置容器+分区枚举 | Modules/VideoLibrary/UI | Shared/Settings |
 | 一（M0） | 静音公共态、WallpaperEngineCommand+multiplexer | VideoLibrary/Core、新建 | Core/PlaybackControl |
-| 二（M5） | daemon 会话（孵化/退避重启/管道帧协议） | Core/Playback、WallpaperDaemonSources/Support | 新同步组 DaemonKit（挂 app+daemon 双 target） |
+| 二（M5） | daemon 会话（孵化/退避重启/管道帧协议） | Core/Playback、WallpaperDaemonSources/Support | DaemonKit（Scene 在 app target 内复用；video tool 真实消费部分才挂双 target） |
 
 ### 4.5 语言选型
 

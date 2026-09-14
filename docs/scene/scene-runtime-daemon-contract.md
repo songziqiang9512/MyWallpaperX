@@ -6,6 +6,8 @@
 >
 > 复核：2026-09-14
 >
+> 当前能力权威：[能力台账](semantics/coverage-ledger.md)。
+>
 > 现状权威：`docs/scene/semantics/coverage-ledger.md`。代码实际接线查[事实架构地图](runtime-as-built-map.md)。
 >
 > 退役条件：daemon 化完成并稳定后，本契约并入长期架构合同（runtime-architecture.md 增补进程章节），本文转 historical-evidence。
@@ -22,7 +24,7 @@
 
 **裁决依据**：
 1. 契约原定独立 tool target 依赖同步组（PBXFileSystemSynchronizedRootGroup）共享整引擎源码（Core/SteamWorkshopScene + Properties + Format + QuickJS，数百文件）——同步组的例外机制（membershipExceptions）只支持逐文件附加，整引擎共享 = 数百条例外的维护灾难（video daemon 可行是因其自有源码面小）。
-2. 同二进制消除版本偏差（helper 签名校验、license bundle、artifact 缓存协议随 bundle 自动一致）；无 DaemonKit 同步组需求。
+2. 同二进制消除版本偏差（helper 签名校验、license bundle、artifact 缓存协议随 bundle 自动一致）；Scene 引擎无跨 target 同步组需求；video tool 若消费共享 DaemonKit，仍需为该共享子集登记双 target membership。
 3. 崩溃隔离目标不变：独立进程，主程序存活并按 §4 退避重启。
 4. XPC 评估后不采用：service target 同样面临整引擎共享问题；粗粒度命令（1Hz 统计+偶发命令）下 pipe+JSON 与 Mach 消息无性能差异；桌面窗口呈现路径以 Process+管道已在 video daemon 生产验证；launchd 托管由主程序自管退避替代。
 
@@ -67,7 +69,7 @@
 
 ## 4. 生命周期与崩溃语义
 
-- **孵化**：主程序 `Process()` 启动 `Contents/Helpers/MyWallpaperXSceneDaemon`，三根管道；参数 `--display-id <id>` 族（多屏 = 每 daemon 一实例或单实例多表面，按 §5.2 原型实测裁决，优先单实例多表面）。
+- **孵化**：主程序 `Process()` 启动自身可执行文件并传 `--mwx-scene-daemon`，三根管道；单实例使用既有 Host 多表面模型，多屏控制与实测门留在 M5.4/M5.6。不得启动不存在的 Scene tool。
 - **崩溃/断连**：主程序侧指数退避重启（复用 video daemon 的 0.5s→…→上限退避），重启后自动 `loadScene` 恢复当前壁纸（rootURL 与属性覆盖由主程序持有）；连续失败超阈值 → 停止重试 + UI 错误态。
 - **有序退出**：`shutdown` → daemon 排空在飞 command buffer → `exited` → 进程退出；超时 3s 强杀。
 - **世代语义**：`loadScene` 世代号新者胜——旧准备的取消/回滚全部在 daemon 内完成，主程序无感知（只看到新 launchState 事件流）。
@@ -87,8 +89,8 @@ daemon 化采用"runtime 原样搬迁"策略——**不重写线程模型**，�
 
 | 步 | 内容 | 验收门 |
 |---|---|---|
-| M5.2 | 最小 daemon target 起桌面窗口出首帧 + 命令框架 | 手动：样本文隔离副本出首帧 |
-| M5.3 | DaemonKit 抽取（孵化/退避/帧协议）+ 双 target 同步组 | video daemon 行为回归不受影响 |
+| M5.2 | 同二进制 daemon 模式起桌面窗口 + 命令框架（实际 present 证据独立验证） | 手动：样本文隔离副本出首帧 |
+| M5.3 | DaemonKit 抽取（孵化/退避/帧协议）；Scene 同 app target，video tool 共用部分按需挂双 target | video daemon 行为回归不受影响 |
 | M5.4 | 命令迁移（EngineCommand→管道）+ 事件回传 + 退避重启 | 属性热更新/静音/FPS 档经管道全链可用 |
 | M5.5 | Host 瘦身为 client stub | 主程序无 Scene 渲染代码路径（grep 门） |
 | M5.6 | 生命周期收尾 + 旧路径删除（消融） | 切换/退出/多屏/暂停全链 + 能力台账零回退 |
@@ -97,9 +99,12 @@ daemon 化采用"runtime 原样搬迁"策略——**不重写线程模型**，�
 
 ## 7. 风险登记
 
+**M5.2 与目标的已知差距（c39d78a7 静态审计）：** 同二进制入口和无主 UI 装配已实现；主程序尚未孵化/迁移控制链。`setProperty` 解码为字符串后 handler 返回 false，display 命令未实现，load 的 profile 未消费；命令版本未检查；launch 事件缺 requestID，首帧事件来自提交计数且未按请求重置、缺 uptime，exited 缺 code。stdout 同步写尚无背压丢弃策略；EOF 不调用 Host.stop，固定 0.15s 退出不等于排空 GPU。以上是待修偏差，不能从历史 smoke 的进程 exit 0 推导完整生命周期或真实 present 成立。
+
+
 | 风险 | 缓解 |
 |---|---|
 | 多屏单实例 vs 多实例未定 | M5.2 原型实测（单实例多表面优先，与今天 surfaces 字典同构） |
 | QuickJS artifact 磁盘缓存并发（主程序预编译 + daemon 编译） | 缓存协议本就单写者原子替换；daemon 成为唯一编译者后主程序不再触发编译 |
 | 管道背压（frameStats 1Hz 足够小） | 事件丢弃策略：主程序忙时 daemon 侧只保留最新 frameStats |
-| 属性覆盖持久化迁移 | UserDefaults 键不动，读写方迁至 daemon；主程序设置面板经命令写 |
+| 属性覆盖持久化迁移 | UserDefaults 键与持久化读写留在主程序；daemon 经命令消费运行值，重启由主程序重放 |
