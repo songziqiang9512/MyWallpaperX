@@ -14,16 +14,18 @@
 
 ## 1. 执行摘要
 
-**保留已经成立的底座；先降低材质 admission 与帧状态构造成本，再按测量结果优化 GPU 和调度。每个替代必须交付一份删除清单。** 不整体换语言、不再做一次 daemon 化、不先搭完整新框架，不以切文件或增加缓存数量作为进展。
+**保留已经成立的底座；先固定平台边界并测量，再降低 admission、资源与合成的实际主导成本。每个替代必须交付一份删除清单。** 不整体换语言、不再做一次 daemon 化、不先搭完整新框架，不以切文件或增加缓存数量作为进展。
+
+Apple Silicon 专项从 [§8](#apple-silicon) 开始：按顺序执行，逐卡验收；这是 E0–E8 的细化，不增加第二条工程路线。
 
 启动阅读：本节 → §3 目标设计及其链接的逐对象生命周期合同 → §5 当前执行卡。具体证据只按 §2 的索引查找；文档与测试处置查 §6。不要在每批开工时重读全部资料。
 
 | 顺序 | 批次 | 结果 | 当前状态 |
 |---|---|---|---|
 | 先做 | E0 基线与验收修复 | 普通签名播放的成本归因、独立正反门、可比较输入 | 未执行 |
-| 首个代码批次 | E1 admission 与帧存储 | 少构造、少复制、少重推导；一帧共享必要投影 | 待 E0 |
+| CPU 成本候选 | E1 admission 与帧存储 | 少构造、少复制、少重推导；一帧共享必要投影 | 待 E0 |
 | 与 E1 分开 | E2 控制与产品依赖 | 唯一切换意图；公共控制层不依赖 Scene 实现；Shared 不调用模块 singleton | 可先做静态边界设计 |
-| E1 后 | E3 GPU 合成与资源 | 减少无必要的 pass、主 target 往返和临时驻留 | 待 GPU 归因 |
+| E0 后按归因 | E3 GPU 合成与资源 | 减少无必要的 pass、主 target 往返和临时驻留 | 待 GPU 归因 |
 | 条件执行 | E4 调度与多屏提交 | 有背压、不重复尝试、明确不可回滚的 GPU 提交点 | 正常模式有等待证据再启用 |
 | 独立切片 | E5 shader 语义收敛 | 一族结构化语义替代一族源码形状 matcher | 待选择最有价值的一族 |
 | 伴随上述批次 | E6 测试与依赖减重 | 保留行为／安全证据，减少重复编译和内部结构锁定 | 已完成路径与编译源集合维护；编译成本消融未执行 |
@@ -132,7 +134,7 @@ Swift 改动在 checkpoint 使用现有 selector/build；`run_checkpoint_build.s
 - **消融：**撤销使用 unsigned/fallback/debug 数字推断普通产品性能的结论；不删除旧失败现场。
 - **门／退出：**至少三次可比较结果；明确 route；counter 均值与分位数分开。若不能定位 CPU/admission/GPU/wait，先补最小观测，不进入全面改写。
 
-### E1 — 压缩 admission 与帧存储（第一优先）
+### E1 — 压缩 admission 与帧存储（CPU 热点成立时优先）
 
 - **依赖／入口：**E0 指向 CPU admission 或分配；F4–F7、FrameDriver、TextureRegistry、GraphExecutor Preparation/Validation、Program finalizer。
 - **E1a：**将 visibility、active closure、mutation grouping 收到同 surface/frame/phase 的已有投影；预检消费投影而不是重新从原始 descriptor 求值。覆盖动态增删层、隐藏 provider、parent／attachment 与 camera 差异。
@@ -214,4 +216,143 @@ Swift 改动在 checkpoint 使用现有 selector/build；`run_checkpoint_build.s
 
 每批续跑只保留一个短记录：`当前卡 → frozen source/owned paths → 已交付行为 → before/after → 旧职责撤销 → 未验证边界 → 下一首断点`。结果归现有证据 owner，本文只更新状态与指针，不恢复 M0–M6 式流水账。
 
-优先完成 E0，然后 E1a；若 E0 证明其他项明显主导，写一条含测量与影响面的裁决即可改变 E1/E3/E4 顺序。安全与唯一 owner 不变，现有方案与本文的工程顺序都不是不能被证据推翻的教条。
+先落实 §8 的 AS0 平台政策，再完成 E0/AS1；CPU admission 主导时优先 E1a，否则按成本归因选择 E3/E4。写一条含测量与影响面的裁决即可改变顺序。安全与唯一 owner 不变，现有方案与本文的工程顺序都不是不能被证据推翻的教条。
+
+
+<a id="apple-silicon"></a>
+## 8. Apple Silicon 优化执行计划与验收
+
+> 复核：2026-09-15，源码基点 `970a5645da8ffb6572717730d6a2cdb87315f402`。本节来自源码／配置与 Apple 公开资料审查；尚未执行性能实验，不代表已找到经测量确认的瓶颈。
+>
+> 平台目标以[长期技术边界](../architecture/technology-stack-boundaries.md#1-产品基线与迁移目标)为准。本节只管理待执行动作与验收，完成后结果归现有证据 owner、稳定设计归架构，不追加实验流水账。
+
+### 8.1 执行顺序与范围
+
+顺序为 **AS0 → AS1 → AS2 → AS3 → AS4 → AS5 → AS6 → AS7 → AS8 → AS9**。AS0 是政策落地，不需要先证明帧率收益；AS1 后，每卡先检查触发条件，不满足就记录“有证据不实施”并进入下一卡。AS1 如发现 CPU 或能耗成本明显主导，可把 AS5/AS6 前移，裁决写明测量、受影响 owner 和依赖。不得用“条件执行”跳过调查或验收，也不要求全部改造成新技术。
+
+| 卡 | 对应工程卡 | 可交付结果 | 前置／优先级 |
+|---|---|---|---|
+| AS0 平台与工具链 | E6/E8 | arm64 发布合同可机器核验 | 先做；产品行为不变 |
+| AS1 成本基线 | E0 | 相同画质下的 CPU/GPU/内存/能耗成本排序 | 所有性能实现前置 |
+| AS2 上传与驻留 | E3 | 降低加载等待、静态纹理访问和重复驻留成本 | 首个资源实验 |
+| AS3 合成与附件 | E3 | 减少不必要的 copy、store/load、pass 切换 | AS1 有 GPU/带宽证据 |
+| AS4 统一内存预算 | E3/E2 | 多屏、切换、压力下资源有界 | 复用 AS2 的资源生命周期 |
+| AS5 CPU 与几何 | E1 | 少构造、少复制；必要时 GPU skinning | CPU 热点成立后 |
+| AS6 调度与功耗 | E4/E2 | 正常播放节奏稳定，暂停后停止无用工作 | 保持唯一时钟与提交权 |
+| AS7 编译与 shader | E5/E6 | 降低已证实的启动编译或 shader 执行成本 | 单独冷启动／GPU 实验 |
+| AS8 Video/Web/音频 | E2/E8 | 保留系统加速，缩减跨进程与转换成本 | 每个 runtime 独立归因 |
+| AS9 集成与发布 | E8 | 最低设备、恢复、长稳和包体全部验收 | 前卡通过或明确不适用 |
+
+跨卡不混提交。每卡先展开 owned paths；文中类型是检索入口，不是对整个目录的编辑授权。已有未支持的作者能力留在兼容路线，不通过降低内容复杂度、跳过 effect、降低分辨率或新增 fallback 制造性能收益。
+
+### 8.2 AS0 — arm64-only 产品与依赖
+
+**当前事实：**[Xcode 配置](../../MyWallpaperX.xcodeproj/project.pbxproj)未显式固定 ARCHS；[发行构建](../../.github/workflows/build.yml)未显式传架构；[shader 工具依赖清单](../../script/scene_shader_compiler_dependencies.json)已有 arm64 描述。项目配置与 target 配置存在 26.2/26.0 的 deployment 值；需查有效设置，不能从文本直接断言实际部署版本错误。
+
+**实施：**App 与 WallpaperDaemon 的 Debug/Release 固定 arm64；检查 scheme、CI、嵌套 compiler/VM、Sparkle 与动态库。统一有效最低系统版本，撤销自有构建中仅为 Intel 存在的分支／产物；没有实际分支就不制造删除任务。禁用 Rosetta 开发依赖作为发布替代，不使用 `arm64e` 或开发机 `-mcpu=native` 缩窄设备覆盖。第三方 Universal 包可以保留，去除 slice 的体积收益另算并重新验证签名。
+
+**验收：**未来执行 `xcodebuild -showBuildSettings` 核对所有产品配置；对实际发行 Mach-O 清单执行 `lipo -archs`，自有二进制只有 arm64，第三方均含 arm64；`otool -L` 无开发机专有依赖。最低支持设备原生启动 App、helper、compiler，完成一条 Scene 和 Video 输出；AS0 以配置、依赖和本地原生构建／启动门进入 AS1，正式签名、公证及发行包全矩阵延后到 AS9，不阻塞成本调查。交付 before/after 包体与构建时间，但不把去掉 Intel slice 记成 arm64 播放加速。
+
+### 8.3 AS1 — 冻结可比较的基线和验收阈值
+
+复用 §4 的采集方式及事件定义。设备最低矩阵：M1 8 GB 或最低支持设备；另有一台较新 Apple Silicon 对照。缺设备时明确未验收，不能由高配机器推出低配通过。覆盖单屏 60 Hz、30 FPS 节能档及混合刷新率双屏；记录实际分辨率／缩放、供电、热状态、OS/Xcode、优化等级、签名、内容与路由 identity。低电量模式单独一组，不能混算。
+
+| 工作负载 | 首要测量 | 必须包含的反例 |
+|---|---|---|
+| 静态图、BC/TEX、多 mip、大纹理 | 冷／热首帧、解码/上传时间、CPU/GPU 峰值 | 数据纹理、非整块尺寸、加载取消、坏资源 |
+| 透明多层、背景读取、多 pass/history | GPU duration、附件读写量、encoder/copy 次数 | copy/swap、跨帧、局部失败、resize |
+| Puppet、粒子、脚本、动态文字 | CPU 分项、分配/复制、顶点量、事件轨迹 | 隐藏后恢复、附件、动态增删、文本快速修改 |
+| 视频与 Web、跨 runtime 切换 | 解码/转换、进程树内存、唤醒、首帧 | 循环、seek、mute、暂停、旧请求迟到 |
+| 暂停、多屏、睡眠、内存压力 | wakeups、present 间隔、驻留平台与恢复时间 | 断屏、缺 drawable、唤醒、A→B→C |
+
+**测试协议：**固定输入后至少三对 A/B，交替运行顺序；每次预热 30 s 后稳态记录至少 60 s，长动画至少覆盖一个完整周期。冷启动和应用缓存热启动各至少五次，报告每次值和中位数；五次启动不足以声称可信的启动 p95/p99。清冷缓存只针对隔离目录，不清系统全局缓存。先重复 baseline 得出噪声范围：对每个指标先取每次运行值（如该次 p95），噪声定义为各次值相对其中位数的最大偏差百分比；中位数为零时使用预登记的绝对误差门。主要计时指标噪声超过 5% 时先排除干扰或延长采集，不进入收益判定。温度漂移或其他进程干扰明显时作废重测。GPU Capture/validation 的时间不作为正常播放结果；截图及详细诊断另开语义验证窗口。[Apple 性能分析说明](https://developer.apple.com/documentation/xcode/optimizing-gpu-performance)
+
+**阈值必须在优化前冻结。**下表是本项目拟采用的起始准入门，不是 Apple 标准或现有达标事实。AS1 可以根据噪声与最低设备调整一次并记录理由；不能在候选失败后放宽。
+
+| 门 | 默认验收口径 |
+|---|---|
+| 有效收益 | 目标成本按每对 `(before-after)/before` 计算，再取配对降幅中位数，要求 ≥10% 且超过 baseline 重复运行噪声幅度的 2 倍；before 为零时改用预登记绝对门；报告所有运行值。不足则只能称结构改进，或结束实验 |
+| 非目标指标 | CPU/GPU p95、present p99、首帧与峰值内存不得恶化超过 `max(5%, 2×该指标噪声)`；还必须满足 AS1 冻结的绝对预算，不能因噪声大自动放行 |
+| 帧预算 | 为批准的内容／设备组合冻结 16.67 ms（60 FPS）或 33.33 ms（30 FPS）目标；分别检查 CPU、GPU 和 actual-present，不能把并行 CPU/GPU 时间简单相加。present 超过 1.5×目标间隔的比例默认 ≤1%，只统计按冻结策略应连续呈现的稳态窗口；暂停、按需静态、切换、缺 drawable 的故障注入单独验收，不计作普通播放掉帧。已有不达标内容单列债务，不能以相对改善宣称全局达标 |
+| 画面与事件 | 预登记 ROI、采样帧／时刻、色彩空间和容差；确定性事件顺序、identity、publication 必须一致。颜色格式／精度改动需独立参考，不能只对比可能错误的旧画面；未冻结容差不得批准视觉变更 |
+| 内存稳定 | 预热后 30 min 与 20 次切换／resize 后，资源 owner 数量无持续增长、旧 generation pin 最终归零；记录逻辑字节和进程 footprint，不能仅凭 allocator 未返还 RSS 判断泄漏或无泄漏 |
+| 功耗 | 相同输出与供电／热条件下比较进程树 CPU time、wakeups 和可取得的能量计量；整机功率需控制背景负载，不把 Energy Impact 等级当瓦数，不能由 FPS 推断省电 |
+
+同时保留 AS1 原始基线与每卡直接前驱，AS9 对原始基线重测总效果，防止每卡都在容差内却累计明显回退；热缓存命中集合、观察开销和实际运行路由必须可比。
+
+**工具边界：**[scene_wallpaper_benchmark.py](../../script/scene_wallpaper_benchmark.py)当前默认 duration 为 7 s，并面向证据窗口，不能直接拿默认结果做稳态性能门。使用其已存在的 `--app`、`--sample-root`、`--sample-id`、`--output-dir`、`--duration` 做对应语义验证；正常播放另用现有 hub/signpost 与短期 Instruments。缺分位数或某项计数时标记 unavailable 并补最小采集，不虚构一个尚不存在的“性能 PASS 命令”。计数器不可把完整 graph hash/序列化放入普通帧。
+
+### 8.4 AS2 — 纹理准备、异步上传与长期采样
+
+**入口／事实：**[SceneImageTextureUploader](../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift)的静态图使用 shared、shaderRead+renderTarget，mipmap 后同步等待；[SceneCompressedTextureUploader](../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneCompressedTextureUploader.swift)的 BC 归一化已使用 private/MPS，但仍同步等待。已有原生 BC、解码缓存和 [SceneTextureUploadCommandQueue](../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift)，不再另建上传系统。
+
+**按三个独立实验实施：**①在现有 load/preparation 内按批合并上传、mip、转换，completion 才发布 ready，允许独立资源重叠；②比较静态资源 staging→private 与 shared+`optimizeContentsForGPUAccess`，按实际用途缩窄 usage；③ GPU ready 后，只保留重建／sprite 后续帧确需的 CPU 数据，避免解码图与 GPU 图无限期双驻留。Apple 的存储优化是机会，不保证每种纹理都会压缩或更快。[纹理优化接口](https://developer.apple.com/documentation/metal/optimizing-texture-data)
+
+**合同：**最小资源单元维护 pending→ready/failed/cancelled；上传中 staging 保活且受预算约束；跨队列依赖显式成立。取消、换 generation、失败 completion 不得发布；不要在持锁时等待。纹理尺寸、mip 权威、purpose、alpha、UV、sampler、原生 BC 与数据通道语义必须保持。异步化如需改变返回合同，同批迁移 producer/consumer，不能同步 API 外包一层任务却仍逐项 wait。新路径先 observe-only（只观察），再 prefer-generic 验证，最后 generic-only 撤旧路；不静默双执行。
+
+**验收：**AS1 的纹理组全部正反例；每个资源版本最多一次 ready publication、无 stale publication、GPU fault、过早释放或缺 mip 采样；量化 wait 次数/总时长、首帧、上传峰值与稳态 GPU 时间。收益必须覆盖额外 staging 峰值与转换成本。触达图像 mip 上传时补 failure completion 检查，不能提交失败仍当 ready。退出 GPU drain 的等待在 [Shutdown](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Shutdown.swift)属于后台安全屏障，本卡不删除。
+
+### 8.5 AS3 — Apple GPU 的合成与附件优化
+
+**入口／事实：**[MainPassEncoder](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift)已复用兼容的主 encoder，但 offscreen 操作会结束它，颜色／深度默认 store，恢复主 pass 时 load；现有 target 池已使用 private。先在 prepared graph 标出 producer、consumer、最后使用与跨帧 pin，不在普通帧重算整图。
+
+**实施顺序：**去掉无消费者的 snapshot/copy → 精确决定最后使用后的 depth/store → 合并合法相邻 pass → 在现有池中复用寿命不重叠 target。仅当附件完全限于一个 pass 且无需 load/store/后续采样时选择 memoryless；history、背景读取、跨层和后续 pass 输入不适用。heap aliasing、tile shader、programmable blending 仅在前述手段不足且证据证明收益时另开本卡子实验。[Apple 移植建议](https://developer.apple.com/documentation/apple-silicon/porting-your-metal-code-to-apple-silicon)、[memoryless 限制](https://developer.apple.com/documentation/metal/mtlstoragemode/memoryless)
+
+**验收：**前后 graph 的作者顺序、读写版本和最终 store 一致；透明边缘、背景 effect、depth、copy/swap/history、mid-pass failure、resize、新组合均过 ROI/事件门。实测减少的 copy 字节／encoder／store 数必须能对应到具体被删除操作，GPU 时间或带宽收益过门；不能只报告理论字节。不得以关闭 Metal hazard tracking、扩大 in-flight 或跳过 final compositor 换速度。失败回同一 graph owner 的原安全排程。
+
+### 8.6 AS4 — 全进程统一内存预算与退场
+
+**事实：**[OffscreenTexturePool](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift)已有基于 `recommendedMaxWorkingSetSize / 32` 且带上下界的自动预算；[TextureLoader](../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader.swift)已有默认 1 GiB 解码缓存预算和 lease。它们证明已有局部预算，尚不证明多 surface／候选会话总峰值受控。
+
+**实施：**先实测同一资源被多个 surface、CPU cache、CVPixelBuffer 与 GPU target 引用时的物理／逻辑占用，再由已有 Host/resource owner 分配会话与 surface 预算。新增聚合账本只能收敛现有预算，不能成为第二资源 registry。`recommendedMaxWorkingSetSize` 是指导值，不是可用 RAM 或专属显存配额；不能与 RSS、每 surface device.currentAllocatedSize 简单相加。可重建 decode cache、未 pin 临时 target 优先回收；in-flight、history 当前版本、provider 正在被消费的帧必须等安全点。静态纹理跨屏复用只在相同 device、purpose、generation 与内容 identity 成立时做，资源共享不等于共享可变 renderer 状态。
+
+**验收：**M1/低内存、双屏、大图、快速切换和受控压力测试；峰值不超冻结的会话／总预算，无 swap 持续增长或分配失败循环；旧 session 的 lease/pin/GPU 资源在完成后释放。压力后继续播放与重新准备可恢复、无旧纹理串屏。内存压力 fixture 先用确定性预算注入，不在用户系统主动耗尽内存。若共享成本超过收益，保留局部资源并记录界限。
+
+### 8.7 AS5 — CPU 数据与 GPU 几何
+
+**先执行 E1：**对 admission、字典投影、数组复制和锁持有做采样归因，复用既有 prepared 索引和有界 scratch；dynamic readiness、extent、epoch、publication 检查仍每帧有效。动态 buffer 保持适合统一内存的 shared 与 completion 保护的 ring，不因“GPU 优化”统改 private。静态文字仅在字体／文本／布局相关 revision 失效时重栅格化；先查实际调用频率，不假设当前每帧重绘。
+
+**条件实验：**[PuppetAnimationEvaluator](../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift)在 CPU 遍历顶点变形，[PuppetPlaybackState](../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift)复制到复用的顶点 buffer。若变形/复制占稳态 CPU ≥10% 且是主导可消融项，静态顶点/权重一次上传，CPU 保留骨骼和约束，GPU vertex skinning 只消费当帧矩阵。不得为了 bounds/attachment 每帧 GPU readback；先明确 CPU 的精确 bounds 或经证明安全的 bounds 策略，不能让合成裁剪错误。
+
+**验收：**同时间／seed 的姿态、附件、bounds、透明边缘、动态骨骼覆盖、隐藏再显示一致；每帧实际复制字节与 CPU/GPU 时间过 AS1 门。小网格也不回退，CPU 省下的时间不能以更大的 GPU 瓶颈替代。粒子 GPU simulation、NEON 手写、整体 C++ 改写不是顺带工作；只有独立热点和确定事件/随机/排序合同后再评估。音频已有 Accelerate，不重写 FFT。通过后删除被替代的顶点循环／重复投影；失败原子退回单一执行路径。
+
+### 8.8 AS6 — 帧节奏、背压与暂停能耗
+
+**入口／事实：**[FrameDriver](../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift)采用 Timer/重试，[MetalView](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift)在部分 CPU 准备前取得 drawable。先执行 E4a 的 late acquire；正常模式仍有等待／唤醒证据才在同一 owner 内比较 [CAMetalDisplayLink](https://developer.apple.com/documentation/quartzcore/cametaldisplaylink)，不增加第二时间源，也不把 display-link 回调次数当作者模拟步数。
+
+**实施：**遵循 E4 的单 pending token、completion/deadline 合流与多屏事务。已有 completion 唤醒失败实验须先复核，不把 GPU 完成回调直接连到递归 render。梳理 pause→frame driver→provider/音频/输入的消费者关系，只在无消费者时停止采样／解码。静态按需呈现必须证明无 time/script/media/particle 等动态依赖，并登记属性、输入、resize、恢复的 invalidation；判断不充分时继续正常调度。QoS 按任务延迟需求使用系统调度，不手动绑 P/E 核。
+
+**验收：**普通模式 attempt 不放大；30/60 与混刷双屏符合冻结 present 门；一次用户/脚本事件只消费一次；某屏缺 drawable 不阻塞所有输入，也不伪回滚已提交 GPU 工作。暂停稳定后无持续 Scene render submission/busy retry（必要生命周期/属性响应另计）；录音或其他 runtime 仍有消费者时不能误停共享源。睡眠唤醒、热插拔、快速 stop、GPU failure 恢复正反例通过。功耗按 AS1 实测，不能只交付 Timer→DisplayLink 的 API 替换。
+
+### 8.9 AS7 — 编译、pipeline 与 shader 指令成本
+
+**事实：**[ResolvedMaterialPassEncoder](../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift)已有按 MSL source 去重的 library cache／并发 rendezvous；已有 generic artifact 与启动 warmup。不再把“增加 cache”当完整方案。
+
+**按热点选一个实验：**冷启动编译主导时，先减少重复 variant，项目自有稳定 shader 可评估构建期 metallib；仍有跨启动 PSO 编译成本才评估 MTLBinaryArchive。缓存 identity 覆盖设备／OS兼容边界、compiler、源码、function constants、格式/sample count/descriptor；损坏与不兼容 miss 应安全重建，禁止普通帧同步回编译。磁盘缓存容量与淘汰要一并交付。
+
+GPU shader 主导时，使用逐 pass/逐行统计挑选 ALU、采样或寄存器瓶颈；仅在数值误差合同允许的自有阶段试验 half、常量特化和绑定复用。作者源码的 float、数据纹理、HDR、深度、累计 history、长时间时钟不能全局降精度；禁止默认全局 fast-math 改写语义。新增 compute 才依据 pipeline 的 `threadExecutionWidth`/上限选 threadgroup，不硬编码“所有 Apple GPU 同一组宽”。[Apple 优化讲解](https://developer.apple.com/videos/play/wwdc2020/10632/)、[线程组选择](https://developer.apple.com/documentation/metal/calculating-threadgroup-and-grid-sizes)
+
+**验收：**冷／热启动分列、variant 命中和编译次数可解释；缓存损坏、升级、不同 GPU、并发取消均安全；普通稳定帧无新增 compile。shader 数值对独立参考过 ROI/事件门，暗部/渐变/极值/时间累积无漂移，收益覆盖编译和缓存增长。Metal 新版本迁移、argument buffer/ICB、tile 技术分别按实际 API 可用性、GPU family 和热点评估，不笼统视为 M1 不支持；需要较新芯片的具体能力必须有基线设备安全路径，不能引入第二 renderer 或让 M1 基线退化。
+
+### 8.10 AS8 — Video、Web、音频与跨引擎开销
+
+**调查边界：**本轮重点深入 Scene，其他 runtime 已核对接入与控制入口，未完成媒体 codec/网页负载 profiling；本卡先测量，不能把以下候选写成已确认瓶颈。
+
+| 领域与入口 | 先做什么／条件优化 | 验收 |
+|---|---|---|
+| [SceneVideoTextureSource](../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoTextureSource.swift) | 已有 AVPlayerItemVideoOutput + CVMetalTextureCache，当前 BGRA；只在转换显著时试验 NV12/P010 双平面，统一接入现有采样/颜色合同 | BT.709/2020、full/video range、SDR/HDR、alpha 支持边界明确；无色偏、额外 readback；循环/seek/暂停后帧 identity 与 CVMetalTexture 保活正确；CPU/GPU/峰值总收益成立 |
+| [Video helper](../../WallpaperDaemonSources/Daemon/Playback/WallpaperDaemon+Video.swift) | 保留 AVPlayerLayer/AVPlayerLooper；测多屏 player/session 数量与解码成本，不改写系统 decoder | 每种实际支持 codec/分辨率分别证明流畅与恢复；AVFoundation 接入不等于已证明硬件解码；不用 Scene compositor 接管纯 Video |
+| [Web scheduling bridge](../../MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+Scheduling.swift) | 保留 WebKit；区分页面作者工作、注入桥、截图/状态轮询与 WebContent/GPU 进程成本；删除已证实无消费者的重复桥消息 | 现有 Web benchmark 的系统状态/音频/切换门；暂停与恢复事件不丢，后台无桥消息风暴；不全局重写作者 requestAnimationFrame 来制造省电 |
+| [系统音频分析](../../MyWallpaperX/Core/Playback/SystemAudioSceneSpectrumAnalyzer.swift)、[系统状态](../../MyWallpaperX/Core/Playback/WallpaperEngine+SystemState.swift) | 复用 Accelerate 与共享采样链；按真实消费者启停，合并重复订阅和高频 IPC，不越过实时音频回调安全边界 | 音谱事件延迟/幅值、mute/恢复、多消费者并存正确；App/Scene/Video/Web 进程树 CPU 与 wakeups 不回退 |
+
+NV12/P010 与 HDR 属于颜色语义变化，不是换一个 pixel format 即完成；若无法闭合独立颜色证据，保留 BGRA 路径。Web 页面的任意脚本负载不能用宿主固定 FPS 保证。
+
+### 8.11 AS9 — 最终验收、交接与停止门
+
+1. **逐卡结论：**每项只能为“通过”“有证据不实施”“未验收”；必须给出源版本、机器/输入/路由 identity、基线、候选、噪声、正反例、旧职责撤销、剩余限制。未验收不计完成。所有运行结果写入[现有证据索引](semantics/runtime-evidence-current.md)，本节只保留状态指针。
+2. **最终产品门：**最低设备＋较新设备执行完整批准组合；至少 30 min 稳态、20 次切换/resize，并覆盖多屏、暂停、睡眠恢复、错误资源、GPU/上传失败和压力反例。长稳未见问题只证明此窗口，不称永久无泄漏。软件无法可靠注入的 GPU 故障明确区分 mock 与实际设备证据。
+3. **性能判定：**通过 AS1 的绝对预算与相对回归门；分别公布首帧、CPU、GPU、present、内存、功耗，不能用一个综合分数隐藏回退。无收益但职责明显收敛的变更可作为结构消融交付，不计性能目标完成。
+4. **验证与发行：**每个实现卡遵循 §4.2 的 selector 和风险梯度；GPU/资源卡必须有 actual completion→publication→terminal compositor→next-frame。最后对发行产物复验 arm64、嵌套代码、最低系统，并执行正式签名与公证门；无发行产物不得称发布完成。
+5. **回退与消融：**一个新 owner 生效时旧 owner 撤权；迁移开关有退役门，不能长期两套算法。连续两次有区分力实验无收益即停止，不无限加缓存、并行任务和 wrapper。遇到 stale、越界、颜色/顺序错误、暂停仍发布或第二提交权，先回安全路径，再缩小切片。
+
+每次交接使用一行表头：`卡 / 状态 / frozen source / 设备与输入 / 目标成本 before→after / 非目标回归 / 正反例 / 删除职责 / 证据链接 / 下一步`。无需另外生成每卡计划、架构副本或大批报告摘要。

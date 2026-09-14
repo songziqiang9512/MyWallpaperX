@@ -4,7 +4,7 @@
 
 > 状态：现役长期规范
 >
-> 最后复核：2026-08-15
+> 最后复核：2026-09-15（Apple Silicon 平台边界）
 >
 > 适用范围：MyWallpaperX 主 App、播放进程、Web / Scene runtime、SceneScript、shader 编译、测试与开发工具
 
@@ -29,6 +29,8 @@
 每项技术决策还必须同时维护三条轴：**目标合同**由本文和对应长期架构规定最终职责；**当前事实**由当前源码与可复现证据说明现状；**偏差债务**登记二者差异、当前 owner、route state/fallback、纠正门和退役条件。现有代码、测试和目录只证明当前事实，不得反向定义长期技术边界；触达旧实现时必须主动纠正当前纵向结果范围内的偏差，不得为兼容已知错误所有权继续扩张旧架构。
 
 ## 1. 产品基线与迁移目标
+
+**硬件目标：仅支持 Apple Silicon（arm64），不承担 Intel／Rosetta 产品兼容。** 自有 App、helper、compiler/VM worker 的发行构建统一 arm64；第三方嵌套二进制必须具备可原生执行的 arm64 slice，不为减包盲目修改供应商签名。默认覆盖最低系统允许的 M1 及更新设备，具体 Metal 能力按 device/pipeline 查询，不把最新芯片能力作为全机型前提。最低 macOS 版本由构建与发布配置统一声明；取消 Intel 支持不等于提升最低系统版本。此处是目标合同，落地与验收见[工程计划的 Apple Silicon 专项](../scene/engine-refactor-program.md#apple-silicon)。
 
 产品基线是 Swift-first 的原生 macOS 工程：AppKit 承担 App 生命周期、主界面、窗口和桌面宿主，SwiftUI 只作为 [AppKit 迁移计划](appkit-migration.md)列出的受控残留；Swift 承担产品模型、播放生命周期与 Scene host/runtime 所有权，Metal 承担 Scene GPU 执行，Python 承担测试、矩阵和开发自动化。通用 JavaScript VM、shader compiler 或隔离 service 当前是否已取得产品执行权，不在长期合同中保存移动快照；只由当前源码、对应专项覆盖表和运行证据索引裁决。
 
@@ -57,7 +59,7 @@ Scene 的迁移目标已经确定：保留 Swift/Metal 产品底座，把作者�
 | Python 3.12 | 测试、fixture、benchmark、矩阵、证据聚合和开发工具 | 不进入 App 帧循环或成为发布产品的 Scene runtime 依赖 |
 | Objective-C / Objective-C++ | Apple 或第三方 API 没有可维护 Swift/C 入口时的薄适配层 | 不作为新模块默认实现语言 |
 
-新增 Rust、Vulkan/MoltenVK、Electron、另一套 UI runtime 或完整 C++ renderer 不属于默认路线。只有当前栈存在可复现且无法通过较小边界解决的缺口，并完成维护成本、发布体积、签名、公证、双架构和退出方案评估后，才能单独提案。MirageWallpaper 等项目只提供 clean-room 结构线索，不是复制实现或引入第二套 renderer 的依据。
+新增 Rust、Vulkan/MoltenVK、Electron、另一套 UI runtime 或完整 C++ renderer 不属于默认路线。只有当前栈存在可复现且无法通过较小边界解决的缺口，并完成维护成本、发布体积、签名、公证、arm64 原生依赖和退出方案评估后，才能单独提案。MirageWallpaper 等项目只提供 clean-room 结构线索，不是复制实现或引入第二套 renderer 的依据。
 
 ## 3. 不可破坏的架构不变量
 
@@ -153,7 +155,7 @@ VM 首次进入受控开发产品路径前至少满足：
 6. 跨 VM/Swift 调用按帧批量化，并记录最小 CPU/内存基线；
 7. 上游、固定版本、许可证和可重复构建已登记。
 
-不要求完整 API、双架构、签名或公证后才开始开发验证；这些属于 release gate。未实现 host API 必须可诊断，并只回退受影响 binding/script domain。Hello World 或单个样本成功只证明集成链可运行，不证明 SceneScript 完整兼容。
+不要求完整 API、发行架构核验、签名或公证后才开始开发验证；这些属于 release gate。未实现 host API 必须可诊断，并只回退受影响 binding/script domain。Hello World 或单个样本成功只证明集成链可运行，不证明 SceneScript 完整兼容。
 
 ## 6. Shader compiler 路线
 
@@ -230,7 +232,7 @@ V0 必须先取得真实可见结果；V1–V3 的独立研究和 fixture 可以
 - NOTICE/third-party notices 和全部分发义务；
 - binary、dependency manifest、固定源码 revision、项目 patch 与构建产物哈希的一一对应；
 - 完整 corresponding-source/source archive；若使用 submodule，必须验证归档包含实际源码而非只有 gitlink；
-- arm64/x86_64、最低系统和动态库解析；
+- arm64 原生架构、最低系统和动态库解析（不要求 x86_64）；
 - Developer ID、hardened runtime、notarization、stapling 与 Gatekeeper；
 - sandbox/entitlement、文件和网络权限最小化；
 - crash、timeout、OOM、取消、更新、损坏缓存恢复和长稳；
@@ -238,7 +240,7 @@ V0 必须先取得真实可见结果；V1–V3 的独立研究和 fixture 可以
 
 依赖升级重新执行其保护风险相关的合同门，不能只因包管理器解析成功就合入。
 
-这些规则适用于 glslang、SPIRV-Cross、QuickJS-NG 及以后确有必要的 compiler/VM 依赖；采用通用语言库不等于授权引入第二套 renderer，也不改变 MirageWallpaper 的 clean-room 边界。开发门只保护第一次受控执行所需的来源、预算和故障隔离，完整 source archive、双架构、签名和公证不阻塞 V0 第一张真实画面。
+这些规则适用于 glslang、SPIRV-Cross、QuickJS-NG 及以后确有必要的 compiler/VM 依赖；采用通用语言库不等于授权引入第二套 renderer，也不改变 MirageWallpaper 的 clean-room 边界。开发门只保护第一次受控执行所需的来源、预算和故障隔离，完整 source archive、发行架构核验、签名和公证不阻塞 V0 第一张真实画面。
 
 ## 10. 工具链与语言模式
 

@@ -23,6 +23,7 @@ MyWallpaperX 是原生 macOS 动态壁纸程序：AppKit 管理窗口、壁纸�
 | 任务 | 只打开这个入口 |
 |---|---|
 | 架构重构、性能、代码与文档消融 | [重构执行计划](engine-refactor-program.md)：E0 基线到 E8 集成，每项含依赖、验收和回退 |
+| Apple Silicon 平台与性能优化 | [专项执行与验收](engine-refactor-program.md#apple-silicon)：现有工程计划的顺序细化 |
 | 兼容能力、可见正确性与发布完成门 | [兼容路线](scene-compatibility-roadmap.md)：P0–P5 |
 | 处理眼前尚未关闭的播放问题 | [当前断点队列](scene-open-breakpoint-queue-2026-09-09.md)：兼容路线的派生短表 |
 | 开始落代码、选择验证门 | [开发工作流](development/development-workflow.md) |
