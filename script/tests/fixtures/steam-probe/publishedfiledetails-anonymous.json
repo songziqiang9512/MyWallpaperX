@@ -1,0 +1,13 @@
+{
+  "fixture": "iSteamRemoteStorage-GetPublishedFileDetails-v1",
+  "publishedfileid": "3801789633",
+  "result": 1,
+  "consumer_appid": 0,
+  "creator_appid": 0,
+  "file_type": -1,
+  "file_size": "4299260",
+  "hcontent_file": "4450754402169591363",
+  "time_updated": 1789416523,
+  "consumer_shortcutid": 0,
+  "hasPreviewUrl": true
+}

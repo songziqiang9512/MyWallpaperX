@@ -1,0 +1,16 @@
+{
+  "fixture": "CPublishedFile_QueryFiles",
+  "anonymous": true,
+  "queryType": 1,
+  "total": 3204971,
+  "hasNextCursor": false,
+  "sampleItem": {
+    "publishedfileid": 3801789633,
+    "result": 1,
+    "consumer_appid": 431960,
+    "file_type": 0,
+    "file_size": 4299260,
+    "time_updated": 1789416523,
+    "hcontent_file": 4450754402169591363
+  }
+}

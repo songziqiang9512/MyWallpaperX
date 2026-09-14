@@ -33,7 +33,18 @@ internal static class Program
 {
     private static readonly ProtocolWriter writer = new();
 
-    private static async Task Main()
+    private static async Task<int> Main(string[] args)
+    {
+        // SK0.1 探针模式：独立于产品 NDJSON 服务循环，仅开发验证使用。
+        if (args.Length > 0 && args[0] == "probe")
+        {
+            return await Probe.ProbeHost.RunAsync(args[1..]).ConfigureAwait(false);
+        }
+        await RunServiceAsync().ConfigureAwait(false);
+        return 0;
+    }
+
+    private static async Task RunServiceAsync()
     {
         writer.Send(new { v = 1, role = "steam-service", status = "ready" });
 

@@ -1,0 +1,12 @@
+{
+  "fixture": "CPublishedFile_GetDetails",
+  "anonymous": true,
+  "publishedfileid": 3801789633,
+  "result": 1,
+  "consumer_appid": 431960,
+  "file_type": 0,
+  "file_size": 4299260,
+  "hcontent_file": 4450754402169591363,
+  "time_updated": 1789416523,
+  "hasPreviewUrl": true
+}

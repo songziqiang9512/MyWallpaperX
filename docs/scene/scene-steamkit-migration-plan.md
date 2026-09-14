@@ -194,7 +194,7 @@ Envelope：`v/type/requestId/processEpoch/accountEpoch`；认证另有 authAttem
 
 | 顺序 | 卡 | 交付物 | 状态 |
 |---|---|---|---|
-| 01 | SK0.1 | 依赖/平台与能力验证表、独立 fixture | 待实施 |
+| 01 | SK0.1 | 依赖/平台与能力验证表、独立 fixture | **部分完成**：匿名查询/详情矩阵已实测（[§10.1](#sk01-能力验证-2026-09-15)）；账号门（密码/QR/订阅/真实下载）探针就绪待授权账号验证 |
 | 02 | SK1.1 | 双端协议与离线协议测试 | 待实施 |
 | 03 | SK1.2 | App 能管理当前 helper 生命周期 | 待实施 |
 | 04 | SK2.1 | 同一会话的密码/二维码/Guard 后端 | 待实施 |
@@ -408,3 +408,27 @@ Envelope：`v/type/requestId/processEpoch/accountEpoch`；认证另有 authAttem
 - [Valve ISteamRemoteStorage](https://partner.steamgames.com/doc/webapi/ISteamRemoteStorage)中 publisher-key 订阅接口不能用于本客户端；普通用户协议的查询/写入权限与公开匿名查询逐项验证。类名存在不等于可用，不能绕过内容授权。
 - MirageWallpaper 仅为 third-party-reference-pattern：[本机 README](../../Reference%20Project/MirageWallpaper/README.md)与已核对职责说明长驻会话、token 恢复、订阅/收藏与下载集中在服务中；不复制 GPL 实现、Cookie 拼装或 UI。最终本项目不再依赖网页 Cookie 自动登录。
 - SDK 路径、78 MB、构建成功不是当前功能证明；发行前核对 .NET 支持期、self-contained native 依赖、arm64 最低系统与签名。AOT/trim/single-file 仅在反射与 native codec 等兼容实证后开启。
+
+<a id="sk01-能力验证-2026-09-15"></a>
+### 10.1 SK0.1 能力验证（2026-09-15 匿名链实测）
+
+工程：`dotnet 8.0.401`、`SteamKit2 3.4.0`（NuGet lock `LockModeFilePathAndContent`）、`RuntimeIdentifier osx-arm64`、[NOTICE](../../SteamService/NOTICE.md)。探针源码 `SteamService/Probe/`（仅开发验证，不进入产品 IPC 路径）；命令 `dotnet SteamService.dll probe <help|query|details|uquery|auth-password|auth-qr|restore|subscriptions|download|matrix>`。
+
+| 操作 | 实际调用 | 匿名 | 实测结果 |
+|---|---|---|---|
+| 公开浏览/排序 | 统一消息 `CPublishedFile.QueryFiles`（匿名 SteamKit 会话） | ✅ | query_type 1(最新)/3(趋势)/9(订阅)/11(点赞) 均可；每页 30，3 页去重 90；total≈320 万 |
+| 分页 | 请求 `page` 字段 | ✅ | 响应无 `next_cursor`；hasMore=`received==pageSize`；分页 token 由页码+排序+筛选摘要构成，不是游标 |
+| 标签筛选 | `requiredtags` | ✅ | `Video` 生效（total→139.8 万），与现有内容模式 tag 同形 |
+| 搜索 | `search_text` | ✅ | 生效 |
+| 趋势时间窗 | `days` 字段 | ❌ | 全部排序下被静默忽略（total 不变）；**能力缺口**：SK3.1 决定客户端按 `time_created` 过滤或砍掉该筛选 |
+| 匿名详情 | `CPublishedFile.GetDetails` | ✅ | result=1，含 `hcontent_file`/`file_size`/preview |
+| 匿名详情对照 | Web API `ISteamRemoteStorage/GetPublishedFileDetails/v1`（POST） | ✅ | HTTP 200；仅作对照路由，不作主链 |
+| Web API 列表查询 | `ISteamRemoteStorage/QueryFiles` | ❌ | 接口不存在（404）；`IPublishedFileService/QueryFiles` 需 Web API key → **该路由禁用**，公开浏览只走匿名统一消息 |
+| 匿名下载链 | `GetDepotDecryptionKey` | ❌ | AccessDenied：匿名取不到 depot key；**下载必须登录**（且需 WE 所有权），这是 SK0.1 账号门的硬依据 |
+| 密码/QR/token 恢复 | Authentication API + `SteamUser.LogOn` | 待验 | `probe auth-password/auth-qr/restore` 就绪；验收＝密码与 QR 到同一 SteamID、restore 同 SteamID |
+| 订阅/收藏列表 | `CPublishedFile.GetUserFiles(type=mysubscriptions/myfavorites)` + `AreFilesInSubscriptionList` | 待验 | `probe subscriptions` 就绪；需授权测试账号 |
+| 真实下载+完整性 | depot key→`GetManifestRequestCode(public)`→manifest→chunk adler→`project.json` 检查 | 待验 | `probe download <id> <out>` 就绪；需已购 WE 账号；元数据成功不算下载 |
+
+**冻结预算**（`SteamService/Probe/Budgets.cs`，改动需新证据）：query 页大小 30；HTTP 并发共享上限 2；超时 query 15s / details 20s / manifest 30s / chunk 60s / connect 12s / logon 30s；chunk worker 每 job 4；探针输出上限 2 GB / 10 万文件；进度合并 ≤4Hz（SK5 冻结 250 ms）。SDK `net8.0` + `osx-arm64` 单 RID；NuGet lock 双模式（路径+内容哈希）。
+
+脱敏 fixture（SK1.1 协议 golden 输入）：`script/tests/fixtures/steam-probe/{unified-queryfiles-page1,unified-getdetails-anonymous,publishedfiledetails-anonymous}.json`。账号门验证命令与隔离输出目录（`--state /private/tmp/mwx-sk01-probe`）在探针 help 中；令牌只落 state 目录（0600），stdout 脱敏。
