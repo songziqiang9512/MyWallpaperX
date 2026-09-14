@@ -11,6 +11,7 @@
     <AssemblyName>SteamService</AssemblyName>
     <RootNamespace>SteamService</RootNamespace>
     <Product>MyWallpaperX</Product>
+    <Version>0.1.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="SteamKit2" Version="3.4.0" />

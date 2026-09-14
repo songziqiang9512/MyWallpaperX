@@ -123,6 +123,9 @@ struct SteamServiceFrame: Equatable {
     var attempt: Int?
     var ok: Bool?
     var error: ProtocolErrorPayload?
+    var protocolVersion: Int?
+    var helperVersion: String?
+    var capabilities: [String]?
     var root: [String: SteamServiceJSON]
     var frameType: String
 
@@ -193,7 +196,11 @@ enum SteamServiceFrameDecoder {
             frame.event = event
             if case .int(let sequence)? = root["sequence"] { frame.sequence = sequence }
         case "ready":
-            break
+            if case .int(let protocolVersion)? = root["protocol"] { frame.protocolVersion = protocolVersion }
+            if case .string(let helperVersion)? = root["helperVersion"] { frame.helperVersion = helperVersion }
+            if case .array(let caps)? = root["capabilities"] {
+                frame.capabilities = caps.compactMap(\.stringValue)
+            }
         default:
             return .failure(.unknownType(frameType))
         }
@@ -209,54 +216,8 @@ enum SteamServiceFrameDecoder {
     }
 }
 
-/// 有界 NDJSON 分帧读取：半包/多包正确；单帧超限即报错并由调用方有界终止。
-final class SteamServiceFrameReader {
-    enum Outcome: Equatable { case frame, eof, overlong }
-
-    private(set) var lastOutcome: Outcome = .frame
-    private var pending = Data()
-    private let stream: ReadableStream
-
-    protocol ReadableStream {
-        func read(into buffer: UnsafeMutablePointer<UInt8>, count: Int) throws -> Int
-    }
-
-    init(stream: ReadableStream) {
-        self.stream = stream
-    }
-
-    /// 读取一帧（不含换行）；返回 nil 表示 EOF 或超长（检查 lastOutcome）。
-    func readFrame() throws -> String? {
-        while true {
-            if let newline = pending.firstIndex(of: 0x0A) {
-                let frameData = pending.subdata(in: pending.startIndex..<newline)
-                pending.removeSubrange(pending.startIndex...newline)
-                if frameData.count > SteamServiceProtocol.maxFrameBytes {
-                    lastOutcome = .overlong
-                    return nil
-                }
-                lastOutcome = .frame
-                return String(data: frameData, encoding: .utf8)
-            }
-            if pending.count > SteamServiceProtocol.maxFrameBytes {
-                pending.removeAll()
-                lastOutcome = .overlong
-                return nil
-            }
-            var chunk = [UInt8](repeating: 0, count: 65_536)
-            let read = try chunk.withUnsafeMutableBufferPointer { buffer in
-                try stream.read(into: buffer.baseAddress!, count: buffer.count)
-            }
-            if read == 0 {
-                let hadPartial = !pending.isEmpty
-                pending.removeAll()
-                lastOutcome = hadPartial ? .overlong : .eof
-                return nil
-            }
-            pending.append(contentsOf: chunk[0..<read])
-        }
-    }
-}
+/// 有界分帧复用公共层 `DaemonNewlineFrameBuffer`（无第二套分帧实现）；
+/// 单帧 1 MiB 上限由消费方以 `pendingByteCount` 检查并在超限时有界断开。
 
 /// JSON 值容器：data/payload 等开放字段按合同原样保留，不做语义解释。
 indirect enum SteamServiceJSON: Equatable {

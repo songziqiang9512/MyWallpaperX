@@ -129,7 +129,8 @@ internal static class ProtocolSelfTest
         // 10. 出站帧形状：ready/pong/result/event。
         var readyJson = JsonSerializer.Serialize(ProtocolMessages.Ready(1, ["ping", "shutdown"]));
         Check("ready-shape",
-            readyJson.Contains("\"type\":\"ready\"") && readyJson.Contains("\"protocol\":1"));
+            readyJson.Contains("\"type\":\"ready\"") && readyJson.Contains("\"protocol\":1")
+            && readyJson.Contains("\"helperVersion\""));
         var pongJson = JsonSerializer.Serialize(ProtocolMessages.ResultOk("req-ping-1", new { pong = true }, 1));
         Check("pong-shape",
             pongJson.Contains("\"type\":\"result\"") && pongJson.Contains("\"requestId\":\"req-ping-1\"") && pongJson.Contains("\"ok\":true"));

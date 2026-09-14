@@ -57,9 +57,14 @@ internal static class ProtocolMessages
         v = ProtocolLimits.Version,
         type = "ready",
         protocol = ProtocolLimits.Version,
+        helperVersion = HelperVersion,
         processEpoch,
         capabilities,
     };
+
+    // SK1.2 握手身份：binary/protocol identity 由 client 核验。
+    public static string HelperVersion =>
+        typeof(ProtocolMessages).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 
     public static object ResultOk(string requestId, object? data, int processEpoch) => new
     {

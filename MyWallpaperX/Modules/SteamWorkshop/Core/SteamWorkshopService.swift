@@ -111,6 +111,11 @@ final class SteamWorkshopService: ObservableObject {
 
     let communitySession = SteamCommunitySessionController.shared
 
+    /// SK1.2：Steam helper 生命周期客户端。模块统一持有；惰性创建（首次访问才
+    /// 需要），spawn 由首次命令触发，未登录启动不产生进程。不接 playback
+    /// multiplexer，不承担播放控制。
+    private(set) var steamServiceClient = SteamServiceClient()
+
     // MARK: - Download selection state
 
     @Published var activeDownloadItemID: String?

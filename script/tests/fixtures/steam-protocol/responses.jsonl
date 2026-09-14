@@ -1,4 +1,4 @@
-{"v":1,"type":"ready","protocol":1,"processEpoch":1,"capabilities":["ping","shutdown"]}
+{"v":1,"type":"ready","protocol":1,"helperVersion":"1.0.0","processEpoch":1,"capabilities":["ping","shutdown"]}
 {"v":1,"type":"result","requestId":"req-ping-1","ok":true,"data":{"pong":true}}
 {"v":1,"type":"event","event":"authState","requestId":"req-login-1","sequence":0,"state":"awaitingGuard","authAttemptId":"auth-1"}
 {"v":1,"type":"event","event":"authState","requestId":"req-login-1","sequence":1,"state":"online","authAttemptId":"auth-1"}
