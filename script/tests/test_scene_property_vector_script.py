@@ -39,6 +39,7 @@ SOURCES = [
     SCENE / "Rendering/SceneMatrix.swift",
     SCENE / "Rendering/SceneLayerWorldFrameResolver.swift",
     SCENE / "Rendering/SceneLayerDynamicWorldFrameResolver.swift",
+    SCENE / "Rendering/ScenePuppetAttachmentFrameSnapshot.swift",
     VM / "SceneScriptScalarRuntime.swift",
     VM / "SceneScriptQuickJSDomain+FrameTransaction.swift",
     VM / "SceneScriptLocalStorage.swift",
@@ -48,6 +49,7 @@ SOURCES = [
     VM / "SceneScriptEffectHandleBridge.swift",
     VM / "SceneScriptLayerHandleBridge.swift",
     VM / "SceneScriptLayerRuntimeDescriptorBridge.swift",
+    VM / "SceneScriptLayerWorldTransformPublication.swift",
     VM / "SceneScriptLayerWorldTransformProjection.swift",
     VM / "SceneScriptMediaEventBridge.swift",
     VM / "SceneScriptMediaFrameCoordinator.swift",
@@ -297,6 +299,7 @@ struct SceneRenderDescriptor {
         var authoredDependencies: [Int] = []
         var utilityLayer: Int? = nil
         var staticModelPath: String? = nil
+        var attachmentName: String? = nil
         var parentAttachmentBindFrame: [Float]? = nil
     }
     var layers: [Layer]
