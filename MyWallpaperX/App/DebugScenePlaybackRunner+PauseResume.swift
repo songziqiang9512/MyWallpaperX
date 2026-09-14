@@ -32,9 +32,9 @@ extension DebugScenePlaybackRunner {
     ) {
         guard let request else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + request.delay) {
-            let before = SceneDesktopWallpaperHost.shared.debugSnapshot()
-            WallpaperEngine.shared.pauseAllPlayers()
-            let paused = SceneDesktopWallpaperHost.shared.debugSnapshot()
+            let before = runtimeHost.debugSnapshot()
+            runtimeHost.setPlaybackPaused(true)
+            let paused = runtimeHost.debugSnapshot()
             let pauseAccepted = before.surfaceCount > 0
                 && before.surfaceCount == paused.surfaceCount
                 && !before.isPlaybackPaused
@@ -52,9 +52,9 @@ extension DebugScenePlaybackRunner {
                 paused.isFrameDriverActive ? "active" : "inactive"
             )
             DispatchQueue.main.asyncAfter(deadline: .now() + request.dwell) {
-                let beforeResume = SceneDesktopWallpaperHost.shared.debugSnapshot()
-                WallpaperEngine.shared.resumeAllPlayers()
-                let resumed = SceneDesktopWallpaperHost.shared.debugSnapshot()
+                let beforeResume = runtimeHost.debugSnapshot()
+                runtimeHost.setPlaybackPaused(false)
+                let resumed = runtimeHost.debugSnapshot()
                 let resumeAccepted = pauseAccepted
                     && beforeResume.surfaceCount == paused.surfaceCount
                     && beforeResume.isPlaybackPaused

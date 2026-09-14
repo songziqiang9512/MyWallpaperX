@@ -428,7 +428,7 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
 
     def test_debug_smoke_exercises_the_async_product_entrypoint(self) -> None:
         self.assertIn("--mwx-debug-scene-async-launch-smoke", self.debug_runner)
-        self.assertIn("SceneDesktopWallpaperHost.shared.requestLaunch(", self.debug_runner)
+        self.assertIn("runtimeHost.requestLaunch(", self.debug_runner)
         self.assertIn("phase=async-launch-request-returned", self.debug_runner)
         self.assertIn("phase=async-launch-ready", self.debug_runner)
 

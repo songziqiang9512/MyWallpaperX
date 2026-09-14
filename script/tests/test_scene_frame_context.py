@@ -59,6 +59,10 @@ PLAYBACK_CONTROL_SOURCE = (
 WALLPAPER_ENGINE_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine.swift"
 )
+SCENE_DAEMON_CLIENT_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDaemonClient.swift"
+)
 LIVE_CONSUMERS_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+LiveConsumers.swift"
@@ -872,7 +876,8 @@ class SceneFrameContextTests(unittest.TestCase):
             frame_driver, "private func scheduleFrameDriver("
         )
         self.assertIn("sceneFrameInterval / 8.0", frame_driver)
-        self.assertIn("sceneBusyFrameRetryInterval = max(", frame_driver)
+        self.assertIn("private var sceneBusyFrameRetryInterval", frame_driver)
+        self.assertIn("max(0.001, sceneFrameInterval / 8.0)", frame_driver)
         self.assertIn("0.001,", frame_driver)
         self.assertIn("surfaces.values.allSatisfy", render)
         self.assertIn("return .busy", render)
@@ -945,27 +950,23 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertLess(render_loop, barrier)
         self.assertLess(restore, frame_driver.index("restoreSceneScriptPointerEvents", restore))
 
-    def test_global_playback_control_delegates_active_scene_state(self) -> None:
+    def test_product_playback_control_keeps_scene_state_in_daemon_client(self) -> None:
         playback_control = PLAYBACK_CONTROL_SOURCE.read_text(encoding="utf-8")
         engine = WALLPAPER_ENGINE_SOURCE.read_text(encoding="utf-8")
+        client = SCENE_DAEMON_CLIENT_SOURCE.read_text(encoding="utf-8")
         combined = engine + playback_control
         self.assertIn("var isPlaybackPaused: Bool", combined)
         paused_getter = swift_body(combined, "var isPlaybackPaused: Bool")
         self.assertIn("playbackPaused", paused_getter)
-
-        pause = swift_body(playback_control, "public func pauseAllPlayers()")
-        resume = swift_body(playback_control, "public func resumeAllPlayers()")
-        self.assertIn(
-            "SceneDesktopWallpaperHost.shared.setPlaybackPaused(true)", pause
-        )
-        self.assertIn(
-            "SceneDesktopWallpaperHost.shared.setPlaybackPaused(false)", resume
-        )
-
-        is_playing = swift_body(engine, "public func isPlaying()")
-        self.assertIn("SceneDesktopWallpaperHost.shared", is_playing)
-        self.assertIn("activeRecordID", is_playing)
-        self.assertIn("isPlaybackActive", is_playing)
+        self.assertNotIn("SceneDesktopWallpaperHost", combined)
+        self.assertIn("case .pause:", client)
+        self.assertIn('sendSimpleCommand("pause")', client)
+        self.assertIn("case .resume:", client)
+        self.assertIn('sendSimpleCommand("resume")', client)
+        is_playing = swift_body(client, "var isPlaying: Bool")
+        self.assertIn("activeIntent", is_playing)
+        self.assertIn("transport?.isRunning", is_playing)
+        self.assertIn("!isPaused", is_playing)
 
     def test_debug_pause_resume_probe_uses_formal_playback_owner(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
@@ -978,9 +979,8 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("isPlaybackPaused: sceneClock.isPaused", snapshot)
         self.assertIn("isFrameDriverActive: frameTimer?.isValid == true", snapshot)
         self.assertIn('"MWX_SCENE_DEBUG_PAUSE_RESUME_AFTER"', probe)
-        self.assertIn("WallpaperEngine.shared.pauseAllPlayers()", probe)
-        self.assertIn("WallpaperEngine.shared.resumeAllPlayers()", probe)
-        self.assertNotIn("setPlaybackPaused(", probe)
+        self.assertIn("runtimeHost.setPlaybackPaused(true)", probe)
+        self.assertIn("runtimeHost.setPlaybackPaused(false)", probe)
         self.assertIn('state=paused accepted=%@', probe)
         self.assertIn('state=resumed accepted=%@', probe)
         self.assertIn('reason: "pause-resume-after"', probe)

@@ -147,7 +147,7 @@ enum DebugScenePlaybackRunner {
                 idleTimeoutMinutes: 10
             )
             if let frameIndex = requestedDropDynamicValuesFrameIndex {
-                guard SceneDesktopWallpaperHost.shared
+                guard runtimeHost
                     .setDebugDropDynamicValuesFrameIndex(frameIndex) else {
                     NSLog(
                         "MWX DEBUG SCENE: phase=precondition-failed reason=dynamic-values-fault-requires-evidence-window"
@@ -194,7 +194,7 @@ enum DebugScenePlaybackRunner {
             if ProcessInfo.processInfo.arguments.contains(
                 "--mwx-debug-scene-async-launch-smoke"
             ) {
-                SceneDesktopWallpaperHost.shared.requestLaunch(
+                runtimeHost.requestLaunch(
                     rootURL: rootURL,
                     propertyOverrides: requestedPropertyOverrides,
                     userPropertyTextureURLs: userPropertyTextureURLs,
@@ -203,8 +203,8 @@ enum DebugScenePlaybackRunner {
                 ) { result in
                     switch result {
                     case let .success(model):
-                        WallpaperEngine.shared.resumeAllPlayers()
-                        let snapshot = SceneDesktopWallpaperHost.shared.debugSnapshot()
+                        runtimeHost.setPlaybackPaused(false)
+                        let snapshot = runtimeHost.debugSnapshot()
                         NSLog(
                             "MWX DEBUG SCENE: phase=async-launch-ready root=%@ layers=%d surfaces=%d",
                             rootURL.path,
@@ -232,9 +232,9 @@ enum DebugScenePlaybackRunner {
                 // Freeze the synthetic pointer outside before surface creation so
                 // the first authored edge belongs to the declared benchmark step,
                 // not to the operator's current mouse location.
-                SceneDesktopWallpaperHost.shared.setDebugPointerOverride(.init())
+                runtimeHost.setDebugPointerOverride(.init())
             }
-            let model = try SceneDesktopWallpaperHost.shared.launch(
+            let model = try runtimeHost.launch(
                 rootURL: rootURL,
                 propertyOverrides: requestedPropertyOverrides,
                 userPropertyTextureURLs: userPropertyTextureURLs,
@@ -243,13 +243,13 @@ enum DebugScenePlaybackRunner {
             )
             scheduleRequestedMediaThumbnailSequence(rootURL: rootURL)
             // 隔离证据进程必须显式解除宿主在首个窗口出现前捕获的 focus pause。
-            WallpaperEngine.shared.resumeAllPlayers()
+            runtimeHost.setPlaybackPaused(false)
             scheduleRequestedAudioSpectrumFixture()
             let runtimeEvidenceURL = try writeRuntimeEvidence(
                 model: model,
                 to: evidenceDirectory
             )
-            let snapshot = SceneDesktopWallpaperHost.shared.debugSnapshot()
+            let snapshot = runtimeHost.debugSnapshot()
             let imageLayerCount = model.renderDescriptor.layers.filter(\.isImageRenderable).count
             let startupElapsedMS = (
                 ProcessInfo.processInfo.systemUptime - requestUptime
@@ -316,7 +316,7 @@ enum DebugScenePlaybackRunner {
             )
             scheduleStop(after: requestedDuration)
         } catch {
-            SceneDesktopWallpaperHost.shared.stop()
+            runtimeHost.stop()
             NSLog(
                 "MWX DEBUG SCENE: phase=launch-failed root=%@ error=%@",
                 rootURL.path,
@@ -345,9 +345,9 @@ enum DebugScenePlaybackRunner {
 
     private static func scheduleStop(after duration: TimeInterval) {
         DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
-            let before = SceneDesktopWallpaperHost.shared.debugSnapshot()
-            SceneDesktopWallpaperHost.shared.stop()
-            let after = SceneDesktopWallpaperHost.shared.debugSnapshot()
+            let before = runtimeHost.debugSnapshot()
+            runtimeHost.stop()
+            let after = runtimeHost.debugSnapshot()
             NSLog(
                 "MWX DEBUG SCENE: phase=stopped surfacesBefore=%d surfacesAfter=%d",
                 before.surfaceCount,
@@ -371,7 +371,7 @@ enum DebugScenePlaybackRunner {
     private static func scheduleResizeSequence(outputDirectory: URL) {
         for (index, event) in requestedResizeSequence.enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + event.delay) {
-                let accepted = SceneDesktopWallpaperHost.shared
+                let accepted = runtimeHost
                     .debugResizeSurfaces(scale: event.scale)
                 NSLog(
                     "MWX DEBUG SCENE: phase=surface-resize index=%d scale=%.4f accepted=%@",
@@ -393,12 +393,12 @@ enum DebugScenePlaybackRunner {
     private static func scheduleExecutorInvalidation(outputDirectory: URL) {
         guard let delay = requestedExecutorInvalidationDelay else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            let before = SceneDesktopWallpaperHost.shared.debugSnapshot()
-            let accepted = SceneDesktopWallpaperHost.shared
+            let before = runtimeHost.debugSnapshot()
+            let accepted = runtimeHost
                 .debugInvalidateResolvedMaterialRuntimes(
                     reason: .executorInvalidation
                 )
-            let after = SceneDesktopWallpaperHost.shared.debugSnapshot()
+            let after = runtimeHost.debugSnapshot()
             NSLog(
                 "MWX DEBUG SCENE: phase=executor-invalidation state=triggered accepted=%@ surfacesBefore=%d surfacesAfter=%d",
                 accepted ? "true" : "false",
@@ -517,7 +517,7 @@ enum DebugScenePlaybackRunner {
     }
 
     static func requestSnapshot(reason: String, outputDirectory: URL) {
-        guard let windowNumber = SceneDesktopWallpaperHost.shared
+        guard let windowNumber = runtimeHost
             .debugSnapshot().windowNumbers.first else {
             NSLog(
                 "MWX DEBUG SCENE: phase=snapshot-failed reason=%@ stage=surface-lookup error=unknown",
@@ -525,7 +525,7 @@ enum DebugScenePlaybackRunner {
             )
             return
         }
-        let accepted = SceneDesktopWallpaperHost.shared.requestDebugSnapshot(
+        let accepted = runtimeHost.requestDebugSnapshot(
             windowNumber: windowNumber,
             reason: reason,
             outputDirectory: outputDirectory
@@ -544,7 +544,7 @@ enum DebugScenePlaybackRunner {
             min(max(normalized.x + approach, -1), 1),
             normalized.y
         )
-        SceneDesktopWallpaperHost.shared.setDebugPointerOverride(.init(
+        runtimeHost.setDebugPointerOverride(.init(
             current: normalized,
             previous: previous,
             isInside: true,
@@ -572,7 +572,7 @@ enum DebugScenePlaybackRunner {
         primaryButtonIsDown: Bool,
         state: String
     ) {
-        SceneDesktopWallpaperHost.shared.setDebugPointerOverride(.init(
+        runtimeHost.setDebugPointerOverride(.init(
             current: normalized,
             previous: normalized,
             isInside: true,
@@ -588,7 +588,7 @@ enum DebugScenePlaybackRunner {
     }
 
     static func setPointerOutside() {
-        SceneDesktopWallpaperHost.shared.setDebugPointerOverride(.init())
+        runtimeHost.setDebugPointerOverride(.init())
         NSLog("MWX DEBUG SCENE: phase=pointer-state state=outside")
     }
 
@@ -596,13 +596,13 @@ enum DebugScenePlaybackRunner {
         _ replacements: [String: SceneUserPropertyValue]
     ) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            let before = SceneDesktopWallpaperHost.shared.debugSnapshot()
-            let accepted = SceneDesktopWallpaperHost.shared.applyUserPropertyValues(
+            let before = runtimeHost.debugSnapshot()
+            let accepted = runtimeHost.applyUserPropertyValues(
                 replacements,
                 changedPropertyKeys: Set(replacements.keys),
                 recordID: debugRecordID
             )
-            let after = SceneDesktopWallpaperHost.shared.debugSnapshot()
+            let after = runtimeHost.debugSnapshot()
             NSLog(
                 "MWX DEBUG SCENE: phase=live-property-update accepted=%@ surfacesBefore=%d surfacesAfter=%d windowsBefore=%@ windowsAfter=%@ keys=%@",
                 accepted ? "true" : "false",

@@ -5,7 +5,6 @@ import OSLog
 import QuartzCore
 
 final class SceneDesktopWallpaperHost {
-    static let shared = SceneDesktopWallpaperHost()
     private static let performanceLogger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "MyWallpaperX",
         category: "ScenePerformance"
@@ -98,7 +97,9 @@ final class SceneDesktopWallpaperHost {
         performanceProfile = profile
     }
 
-    private init() {
+    /// A host is process-local runtime state. SceneDaemonRuntime owns the
+    /// product instance; the explicit DEBUG evidence runner owns its own.
+    init() {
         installObservers()
     }
 

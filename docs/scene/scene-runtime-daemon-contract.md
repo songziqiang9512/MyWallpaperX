@@ -94,7 +94,7 @@ daemon 化采用"runtime 原样搬迁"策略——**不重写线程模型**，�
 | M5.2 | 同二进制 daemon 模式起桌面窗口 + 命令框架（实际 present 证据独立验证） | 手动：样本文隔离副本出首帧 |
 | M5.3 | 先抽取已有双消费者的 newline 分帧/编码；Scene 同 app target，本批只新增该真实共用文件的 app + video tool 双 target membership | split/coalesced/空帧门 + video daemon 行为回归 |
 | M5.4 ✅ | Scene client 接入；孵化/退避抽入 DaemonKit；命令迁移（EngineCommand→管道）+ 请求过滤事件回传 + 退避重启 | 属性热更新/拒绝重载兜底、静音/FPS/暂停、强杀恢复已过隔离实测 |
-| M5.5 | Host 瘦身为 client stub | 主程序无 Scene 渲染代码路径（grep 门） |
+| M5.5 ✅ | 删除 Host 全局入口；daemon runtime 显式拥有唯一产品 Host，主 App 保持 client stub | 普通主程序调用面无 Host 类型引用；DEBUG direct evidence 独立持有 |
 | M5.6 | 生命周期收尾 + 旧路径删除（消融） | 切换/退出/多屏/暂停全链 + 能力台账零回退 |
 
 每步过 checkpoint 构建；M5.4 起用 graph 样本隔离副本做 smoke（首帧 + setProperty 热更新 + 崩溃恢复）。
@@ -106,6 +106,8 @@ daemon 化采用"runtime 原样搬迁"策略——**不重写线程模型**，�
 **M5.3 双消费者裁决（2026-09-14）：** Video App client、WallpaperDaemon tool 与 Scene endpoint 原先各自拼接 newline 或维护输入 buffer；现统一消费无业务依赖的 `DaemonNewlineFrameBuffer` / `DaemonNewlineJSON`，协议 payload 与事件背压策略仍留在各端。孵化与退避此时只有 video client 一个生产消费者，因此没有提前抽成公共 wrapper；它们随 M5.4 Scene client 首次接线迁移。真实 Video helper 已用拆段命令和空帧回归到 ready/stopped；两个隔离 Scene daemon 均取得实际 present、持续统计和 GPU drain。公共层只运行于 coarse IPC，不进入帧内渲染热路。
 
 **M5.4 控制面迁移记录（2026-09-14）：** 普通产品 Scene 已由 App 内 `SceneDaemonClient` 唯一接收 `WallpaperEngineCommand`，再经同二进制 daemon 管道控制既有 Host；App 侧只保留可重放 authored intent、请求身份、属性 revision 和 1Hz 统计。`loadScene` 携带 typed 属性及外部纹理书签，子进程恢复 URL 后仍由唯一 Host 在同步纹理上传范围内开闭安全作用域；`setProperty` 以 revision+recordID 回执，拒绝时用已经合并的 authored intent 全量重载。所有 launch/first-present 事件按 requestID/recordID 投影，旧终态不能清除新 pending。graph/simple 隔离副本都通过首帧、20 秒播放、SIGKILL 后自动重放与恢复 present；数值属性样本验证热更新在同一进程生效并在崩溃后保留，非 live 属性验证拒绝后完整重载。Video daemon 拆段/空帧回归仍通过。该迁移不增加 visual owner；Metal/registry/graph/compositor 全留在 daemon。
+
+**M5.5 Host 所有权收口（2026-09-14）：** `SceneDesktopWallpaperHost` 不再暴露全局 `shared`；`SceneDaemonRuntime` 的私有实例是唯一产品 Host。普通 App 的 AppDelegate、应用入口、窗口协调器、WallpaperEngine 与 Steam 服务调用面均无 Host 类型引用，Scene client stub 只保存控制意图和投影 daemon 事件。同二进制 daemon 仍必须让完整 runtime 源码属于 app target，因此“主程序无渲染路径”的可执行含义是主进程不装配、不实例化且无法经全局入口取得 Host，而不是复制或搬走数百个 runtime 源文件。显式 DEBUG direct evidence runner 拥有独立 Host，只用于隔离样本，并由同一 owner 停止。graph/simple 均在强杀后由新 daemon 恢复实际 present，截图构图完整；本步不触碰帧算法、prepared 产品或失效域。
 
 
 | 风险 | 缓解 |

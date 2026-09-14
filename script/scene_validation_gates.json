@@ -166,6 +166,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalRenderer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDaemon*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Shutdown.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+SurfaceTeardown.swift",
@@ -173,6 +174,7 @@
         "script/tests/test_scene_daemon_protocol.py"
       ],
       "modules": [
+        "test_scene_daemon_client_wiring",
         "test_scene_daemon_protocol",
         "test_scene_wallpaper_async_launch"
       ]
@@ -587,9 +589,11 @@
         "test_scene_particle_audio_response",
         "test_scene_performance_telemetry",
         "test_scene_frame_vm_routing",
+        "test_scene_resolved_material_runtime_bridge",
         "test_scene_runtime_input",
         "test_scene_wallpaper_benchmark",
-        "test_scene_wallpaper_benchmark_media_event"
+        "test_scene_wallpaper_benchmark_media_event",
+        "test_scene_wallpaper_async_launch"
       ]
     },
     {

@@ -27,9 +27,9 @@ extension DebugScenePlaybackRunner {
     ) {
         guard let delay else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            let before = SceneDesktopWallpaperHost.shared.debugSnapshot()
-            SceneDesktopWallpaperHost.shared.stop()
-            let afterStop = SceneDesktopWallpaperHost.shared.debugSnapshot()
+            let before = runtimeHost.debugSnapshot()
+            runtimeHost.stop()
+            let afterStop = runtimeHost.debugSnapshot()
             NSLog(
                 "MWX DEBUG SCENE: phase=surface-stop-relaunch state=stopped surfacesBefore=%d surfacesAfter=%d",
                 before.surfaceCount,
@@ -37,15 +37,15 @@ extension DebugScenePlaybackRunner {
             )
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                 do {
-                    _ = try SceneDesktopWallpaperHost.shared.launch(
+                    _ = try runtimeHost.launch(
                         rootURL: rootURL,
                         propertyOverrides: propertyOverrides,
                         userPropertyTextureURLs: userPropertyTextureURLs,
                         logURL: logURL,
                         recordID: recordID
                     )
-                    WallpaperEngine.shared.resumeAllPlayers()
-                    let afterRelaunch = SceneDesktopWallpaperHost.shared
+                    runtimeHost.setPlaybackPaused(false)
+                    let afterRelaunch = runtimeHost
                         .debugSnapshot()
                     NSLog(
                         "MWX DEBUG SCENE: phase=surface-stop-relaunch state=relaunched accepted=true surfacesBefore=%d surfacesAfterStop=%d surfacesAfterRelaunch=%d",
@@ -60,7 +60,7 @@ extension DebugScenePlaybackRunner {
                         )
                     }
                 } catch {
-                    let afterRelaunch = SceneDesktopWallpaperHost.shared
+                    let afterRelaunch = runtimeHost
                         .debugSnapshot()
                     NSLog(
                         "MWX DEBUG SCENE: phase=surface-stop-relaunch state=relaunched accepted=false surfacesBefore=%d surfacesAfterStop=%d surfacesAfterRelaunch=%d error=%@",

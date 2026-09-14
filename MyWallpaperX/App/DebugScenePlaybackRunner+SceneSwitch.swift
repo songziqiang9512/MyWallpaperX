@@ -69,17 +69,17 @@ extension DebugScenePlaybackRunner {
             rootURL: request.rootURL
         )
         DispatchQueue.main.asyncAfter(deadline: .now() + request.delay) {
-            let before = SceneDesktopWallpaperHost.shared.debugSnapshot()
+            let before = runtimeHost.debugSnapshot()
             do {
-                let model = try SceneDesktopWallpaperHost.shared.launch(
+                let model = try runtimeHost.launch(
                     rootURL: request.rootURL,
                     propertyOverrides: propertyOverrides,
                     userPropertyTextureURLs: textureURLs,
                     logURL: logURL,
                     recordID: recordID
                 )
-                WallpaperEngine.shared.resumeAllPlayers()
-                let after = SceneDesktopWallpaperHost.shared.debugSnapshot()
+                runtimeHost.setPlaybackPaused(false)
+                let after = runtimeHost.debugSnapshot()
                 let layerIDs = model.renderDescriptor.layers.map(\.id)
                     .sorted().map(String.init).joined(separator: ",")
                 NSLog(
@@ -97,7 +97,7 @@ extension DebugScenePlaybackRunner {
                     )
                 }
             } catch {
-                let after = SceneDesktopWallpaperHost.shared.debugSnapshot()
+                let after = runtimeHost.debugSnapshot()
                 NSLog(
                     "MWX DEBUG SCENE: phase=scene-switch state=triggered accepted=false mode=%@ root=%@ surfacesBefore=%d surfacesAfter=%d error=%@",
                     request.usesAlternateRoot ? "alternate-input" : "same-input",

@@ -5046,7 +5046,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         )
         self.assertIn("multiple-runtime-lifecycle-faults", runner)
         self.assertIn(
-            "SceneDesktopWallpaperHost.shared.launch(", scene_switch_runner
+            "runtimeHost.launch(", scene_switch_runner
         )
         self.assertIn(
             "isIsolatedSampleRoot(candidate)", scene_switch_runner
@@ -5062,7 +5062,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             lifecycle_runner,
         )
         self.assertIn(
-            "SceneDesktopWallpaperHost.shared.stop()",
+            "runtimeHost.stop()",
             surface_stop_runner,
         )
         self.assertIn(
@@ -5082,11 +5082,11 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             lifecycle_runner,
         )
         self.assertIn(
-            "WallpaperEngine.shared.pauseAllPlayers()",
+            "runtimeHost.setPlaybackPaused(true)",
             pause_resume_runner,
         )
         self.assertIn(
-            "WallpaperEngine.shared.resumeAllPlayers()",
+            "runtimeHost.setPlaybackPaused(false)",
             pause_resume_runner,
         )
         self.assertIn('state=paused accepted=%@', pause_resume_runner)

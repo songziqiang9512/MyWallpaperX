@@ -63,6 +63,7 @@ final class SceneDaemonRuntime {
     }
 
     private let writer = SceneDaemonEventWriter(output: .standardOutput)
+    private let host = SceneDesktopWallpaperHost()
     private var observers: [NSObjectProtocol] = []
     private var statsTimer: DispatchSourceTimer?
     private var currentRequestID: UUID?
@@ -129,8 +130,8 @@ final class SceneDaemonRuntime {
             rootURL, overrides, textureReferences, profile, recordID
         ):
             lastPropertyRevision = 0
-            SceneDesktopWallpaperHost.shared.applyPerformanceProfile(profile)
-            SceneDesktopWallpaperHost.shared.requestLaunch(
+            host.applyPerformanceProfile(profile)
+            host.requestLaunch(
                 rootURL: rootURL,
                 propertyOverrides: overrides,
                 userPropertyTextureURLs: Self.resolveTextureURLs(
@@ -140,7 +141,7 @@ final class SceneDaemonRuntime {
             ) { _ in }
         case let .setProperty(values, revision, recordID):
             let accepted = revision > lastPropertyRevision
-                && SceneDesktopWallpaperHost.shared.applyUserPropertyValues(
+                && host.applyUserPropertyValues(
                     values,
                     changedPropertyKeys: Set(values.keys),
                     recordID: recordID
@@ -156,20 +157,20 @@ final class SceneDaemonRuntime {
                 "accepted": accepted
             ])
         case let .cancelLaunch(recordID):
-            SceneDesktopWallpaperHost.shared.cancelPendingLaunch(
+            host.cancelPendingLaunch(
                 recordID: recordID
             )
         case let .setPerformanceProfile(profile):
-            SceneDesktopWallpaperHost.shared.applyPerformanceProfile(profile)
+            host.applyPerformanceProfile(profile)
         case let .setMuted(muted):
             PlaybackMuteState.shared.setMuted(muted)
-            SceneDesktopWallpaperHost.shared.soundPlaybackRegistry?.setMuted(muted)
+            host.soundPlaybackRegistry?.setMuted(muted)
         case .pause:
             shouldPausePlayback = true
-            SceneDesktopWallpaperHost.shared.setPlaybackPaused(true)
+            host.setPlaybackPaused(true)
         case .resume:
             shouldPausePlayback = false
-            SceneDesktopWallpaperHost.shared.setPlaybackPaused(false)
+            host.setPlaybackPaused(false)
         case .shutdown:
             shutdown(exitCode: 0)
         }
@@ -188,7 +189,7 @@ final class SceneDaemonRuntime {
                 if state.phase == .accepted {
                     self.currentRequestID = state.requestID
                 } else if state.phase == .launched, self.shouldPausePlayback {
-                    SceneDesktopWallpaperHost.shared.setPlaybackPaused(true)
+                    self.host.setPlaybackPaused(true)
                 }
                 self.emit([
                     "v": SceneDaemonProtocol.version,
@@ -233,9 +234,10 @@ final class SceneDaemonRuntime {
             fileURLWithPath: outputPath,
             isDirectory: true
         ).standardizedFileURL
-        guard let windowNumber = SceneDesktopWallpaperHost.shared
-            .debugSnapshot().windowNumbers.first else { return }
-        _ = SceneDesktopWallpaperHost.shared.requestDebugSnapshot(
+        guard let windowNumber = host.debugSnapshot().windowNumbers.first else {
+            return
+        }
+        _ = host.requestDebugSnapshot(
             windowNumber: windowNumber,
             reason: "daemon-\(getpid())-first-present",
             outputDirectory: outputDirectory
@@ -275,7 +277,7 @@ final class SceneDaemonRuntime {
         isShuttingDown = true
         statsTimer?.cancel()
         statsTimer = nil
-        SceneDesktopWallpaperHost.shared.stopAndDrainGPU { [writer] drained in
+        host.stopAndDrainGPU { [writer] drained in
             let resolvedCode: Int32 = drained ? exitCode : 70
             guard let data = Self.encode([
                 "v": SceneDaemonProtocol.version,

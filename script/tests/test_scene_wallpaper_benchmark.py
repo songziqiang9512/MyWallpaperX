@@ -1372,10 +1372,10 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             source,
         )
         prelaunch_outside = source.index(
-            "SceneDesktopWallpaperHost.shared.setDebugPointerOverride(.init())"
+            "runtimeHost.setDebugPointerOverride(.init())"
         )
         launch = source.index(
-            "let model = try SceneDesktopWallpaperHost.shared.launch("
+            "let model = try runtimeHost.launch("
         )
         self.assertLess(prelaunch_outside, launch)
         before = source.index('requestSnapshot(reason: "before"')

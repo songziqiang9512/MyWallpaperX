@@ -148,7 +148,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  return
  }
  if DebugScenePlaybackRunner.runsIsolatedSceneSample {
- SceneDesktopWallpaperHost.shared.stop()
+ DebugScenePlaybackRunner.stop()
  return
  }
  if DebugWebPlaybackRunner.runsIsolatedWebWorkshopSample {

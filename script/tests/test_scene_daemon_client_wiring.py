@@ -18,7 +18,9 @@ def client_source() -> str:
 class SceneDaemonClientWiringTests(unittest.TestCase):
     def test_product_callers_do_not_reach_in_process_scene_host(self) -> None:
         product_callers = [
+            "MyWallpaperX/App/AppDelegate.swift",
             "MyWallpaperX/App/MainWindowCoordinator.swift",
+            "MyWallpaperX/App/MyWallpaperXApplication.swift",
             "MyWallpaperX/App/StatusBarController.swift",
             "MyWallpaperX/Core/Playback/WallpaperEngine.swift",
             "MyWallpaperX/Core/Playback/WallpaperEngine+PlaybackControl.swift",
@@ -28,7 +30,31 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
         for relative_path in product_callers:
             with self.subTest(path=relative_path):
                 source = (ROOT / relative_path).read_text(encoding="utf-8")
-                self.assertNotIn("SceneDesktopWallpaperHost.shared", source)
+                self.assertNotIn("SceneDesktopWallpaperHost", source)
+
+    def test_daemon_runtime_explicitly_owns_the_only_product_host(self) -> None:
+        runtime_path = (
+            ROOT
+            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDaemonRuntime.swift"
+        )
+        host_path = (
+            ROOT
+            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift"
+        )
+        runtime = runtime_path.read_text(encoding="utf-8")
+        host = host_path.read_text(encoding="utf-8")
+        self.assertIn("private let host = SceneDesktopWallpaperHost()", runtime)
+        self.assertNotIn("SceneDesktopWallpaperHost.shared", runtime)
+        self.assertNotIn("static let shared = SceneDesktopWallpaperHost()", host)
+
+    def test_direct_host_evidence_uses_a_debug_owned_instance(self) -> None:
+        runner = (
+            ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner+HostOwnership.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("#if DEBUG", runner)
+        self.assertIn("static let runtimeHost = SceneDesktopWallpaperHost()", runner)
+        self.assertIn("static func stop()", runner)
+        self.assertNotIn("SceneDesktopWallpaperHost.shared", runner)
 
     def test_control_plane_carries_typed_values_identity_and_texture_bookmark(self) -> None:
         command = (
