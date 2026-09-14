@@ -117,6 +117,8 @@
 - 同步 launch 与异步 requestLaunch 均在每次准备尝试前递增唯一 `nextSceneScriptGeneration`。`1a7e4020` 误删同步递增已在交接纠偏恢复；可执行入口测试覆盖成功/失败/成功得到 1/2/3，失败尝试不可复用身份。
 - 播放态 `isPlaying` 已补为 `PlaybackEngineControlling` 协议要求，multiplexer 读取具体处理端状态；回归测试覆盖 Scene 在播、广播暂停、video 定向恢复与注销。此前 extension-only 默认 false 的错误分发不得在 IPC client 中复现。Scene `.stop` 始终进入既有 Host.stop()（幂等），包括异步准备中尚无 launchContext 的阶段，避免 pending launch 在停止后继续激活。
 
+- UI pending 仍有归属缺口：SteamWorkshopService 保存 recordID，Scene 终态及 runtime 切换 observer 无条件清除；独立执行实际 observer，旧 A 的 launched 会清除仍解析纹理 URL 的新 B。Host 的 requestGeneration 守卫不能保护尚未送入 Host 的 UI 请求，纠正门须覆盖点击→异步纹理解析→accepted→终态全链。
+
 ## 5. 已做对、明确不动
 
 唯一权威五件套；offscreen 目标 LRU 池（字节预算+history pin）；粒子实例 ring buffer；视频 CVMetal 零拷贝+三段栅栏；动态文字异步光栅+签名去重；deferred base images；编译子进程三重预算 kill；userPropertiesJSON/topology/compiledOperations 等 revision 缓存族。

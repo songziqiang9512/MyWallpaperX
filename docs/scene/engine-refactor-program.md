@@ -47,7 +47,7 @@
 
 ## 3. 里程碑与工位卡
 
-**交接门（2026-09-14，审计基点 c39d78a7）：尚未通过。** 基线 `ec490e1b` 与 `origin/codex/scene-capability-baseline` 一致，35 个本地提交；当前基点隔离 checkpoint 构建成功，但不据此追认每个历史提交的构建。已发现 M0 播放态协议分发、M3.2 同步 launch generation、M5.2 EOF/协议事件的纠偏项，须先逐项修复/验证，再进入 M5.3。历史卡内 ✅ 只表示原批落地声明，不等于本轮审计或完整 DoD 通过。Fast Suite manifest 仍含 `selection-required`；两个代表样本已选 `2938612768`、`1300076567`，人工结果待实测确认。
+**交接门（2026-09-14，审计基点 c39d78a7）：尚未通过。** 基线 `ec490e1b` 与 `origin/codex/scene-capability-baseline` 一致，35 个本地提交；当前基点及 15 个历史产品提交均已在隔离 checkout 逐一重跑 checkpoint，全部 BUILD SUCCEEDED；另已补建初始文档提交的产品树；按 App 源码、Xcode 工程及 checkpoint 脚本树校验，35 个提交均覆盖到 16 个实测构建树，构建成功不覆盖语义与运行门。已发现 M0 播放态协议分发、M3.2 同步 launch generation、M5.2 EOF/协议事件的纠偏项，须先逐项修复/验证，再进入 M5.3。历史卡内 ✅ 只表示原批落地声明，不等于本轮审计或完整 DoD 通过。Fast Suite manifest 仍含 `selection-required`；两个代表样本已选 `2938612768`、`1300076567`，用户已确认仅恢复同步 generation 的签名 Debug 构建中，两份样本画面与动画正常；后续控制面及回滚候选亦已重跑：签名 Debug 可执行文件 SHA-256 `b39711d88de66e0ee1478f36a6add48bec746c1325899a7c30d58a5389510c36`，两样本各 20 秒、GPU 失败均为 0，用户再次确认画面与动画正常；graph 严格 matrix 的原有 22 项失败仍在，未代替 Fast Suite。当前候选 checkpoint 与 45 项定向测试通过。 已分别提交同步 generation（`c9130e68`）、命令分发（`b2bd56fe`）、executor memo 撤回（`17ecccce`）及 daemon 原型撤回（`df47b579`）；四个提交各自的隔离 checkpoint 均 BUILD SUCCEEDED。消融：generation/命令修复复用原路径，executor 删除一条 Bool memo 路径，daemon 删除一条未接入 CLI 路径，未新增权威或视觉分发。
 
 交接治理校正：历史 Light Shafts 文件链接改为明确退役标记，两个现役 direct-draw 几何类型补入目录合同及事实地图；semantics coverage / 文档登记 / governance 共 31 项通过，不代表运行验收完成。
 
@@ -60,9 +60,9 @@
 
 - **M0.1 命令层入公共层** 🔶 交接纠偏：`isPlaying` 补为协议要求，可执行命令分发测试已通过，完整批次门待关闭。原落地 f33b2386：`Core/PlaybackControl/` 三件（WallpaperEngineCommand / PlaybackEngineControlling / PlaybackCommandMultiplexer，未消费命令显式返回 false）；Scene 处理端接真实入口（loadScene→requestLaunch、pause/resume→setPlaybackPaused、stop→stop()）；video 处理端（pause/resume/stop→WallpaperEngine，setMuted/switchNext→WallpaperManager）。验收：UI 无直触引擎内部 ✅（状态栏已改）；web 处理端待 web 模块需要时补。
 - **M0.2 静音态升公共层** 🔶 4626ed6e：公共静音意图与 Scene Sound 增益门已接入；菜单/设置仍读取 video 派生静音，音量滑杆与公共意图同步尚未闭环，不能宣称唯一静音状态完成。
-- **M0.3 设置容器拆公共层 + FPS 档** ✅ cbd96207：设置容器整块 git mv `Shared/Settings/`（同 target 零改动）；efficiency 分区新增最高帧率 30/60 分段（UserDefaults 持久化 + 命令层下发）；audio 区静音开关改命令层广播双引擎。验收：30 档下一帧起 30Hz、重启保持 ✅（档位持久化于 UserDefaults）。
+- **M0.3 设置容器拆公共层 + FPS 档** 🔶 文件迁移/FPS 已落地，公共边界未完成：Shared 设置容器仍依赖具体模块 owner，目录迁移不能视为依赖倒置完成。历史实现 cbd96207：设置容器整块 git mv `Shared/Settings/`（同 target 零改动）；efficiency 分区新增最高帧率 30/60 分段（UserDefaults 持久化 + 命令层下发）；audio 区静音开关改命令层广播双引擎。验收：30 档下一帧起 30Hz、重启保持 ✅（档位持久化于 UserDefaults）。
 - **M0.4 状态栏菜单打通** ✅ f33b2386：三键改发命令；播放标题/图标按 video+scene 任一在播判定；注册点=setupStatusBar。Scene 静音消费随 M0.2 补齐。
-- **M0.5 播放按钮交互** ✅ ce13c3c0：pending 状态入 SteamWorkshopService（@Published launchPendingRecordID，单一 pending 模型）；点击立即置位、早退路径即清；scene launch 终态（launched/failed/cancelled）与 runtime 切换通知清除，video/web 1.5s 兜底；三处渲染接入（详情 footer 按钮、共享 BrowserItem 卡片 bar 徽标 hourglass、两个网格容器订阅刷新）。按钮保持可点击（newer-wins 安全）。
+- **M0.5 播放按钮交互** 🔶 交接待纠偏：终态 observer 未按 recordID/requestID 匹配，旧 Scene 终态可能清除新点击但尚在解析纹理 URL 的 pending；runtime 切换 observer 同样无归属。须补跨请求时序反例后修复，不能宣称 newer-wins 验收完成。历史实现 ce13c3c0：pending 状态入 SteamWorkshopService（@Published launchPendingRecordID，单一 pending 模型）；点击立即置位、早退路径即清；scene launch 终态（launched/failed/cancelled）与 runtime 切换通知清除，video/web 1.5s 兜底；三处渲染接入（详情 footer 按钮、共享 BrowserItem 卡片 bar 徽标 hourglass、两个网格容器订阅刷新）。按钮保持可点击；历史 newer-wins 安全声明不覆盖上述 pending 投影。
 - **M0.6 属性热更新** ✅ 既有实现核实（静态链路）：编辑器（ScenePropertyEditorView:254 / 纹理属性 :21,:37）→ `updateScenePropertyValue` 持久化覆盖 → **优先热应用** `applyUserPropertyValue(s)`（liveState.apply + 音效 canApply + deferred 可见性，revision 递增驱动 per-frame JSON 缓存）→ 仅 binding 校验失败/非活动记录时退回 180ms 去抖重启（保留兜底）。`rebuildRequiredPropertyKeys` 无填充方（恒空），全部可绑定属性类型均已热应用。运行时抽查归入 Fast Suite/人工验收。
 - **M0.7 性能档两档** ✅ cbd96207：`PlaybackPerformanceProfile`（60/30，UserDefaults）；宿主持有档位，FrameDriver 帧间隔与 busy 重试间隔由档位派生（硬编码 60Hz 常量删除），`.setPerformanceProfile` 热切换下次排帧生效。预算束其余维度（池帽/缓存帽/resident 系数）随 M4.2 接入同枚举。
 - 与 M1 文件不重叠，可并行。
