@@ -49,6 +49,7 @@ extension SteamWorkshopToolbarController {
     func configureAuthItems() {
         let service = SteamWorkshopService.shared
         let auth = service.steamAuth
+        let requiresLoginAttention = service.statusMessage.hasPrefix("需要登录 Steam")
 
         // SK2.2：账号按钮状态由新登录路线驱动（§3.1）。
         let symbolName: String
@@ -78,8 +79,8 @@ extension SteamWorkshopToolbarController {
             isBusy = false
         case .signedOut:
             symbolName = "person.crop.circle"
-            tint = .labelColor
-            tooltip = "登录 Steam"
+            tint = requiresLoginAttention ? .systemOrange : .labelColor
+            tooltip = requiresLoginAttention ? service.statusMessage : "登录 Steam"
             isBusy = false
         }
         accountButton.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Steam 账号")

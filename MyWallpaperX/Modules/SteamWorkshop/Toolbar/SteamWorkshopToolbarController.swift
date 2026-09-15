@@ -141,6 +141,15 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
             }
             .store(in: &cancellables)
 
+        SteamWorkshopService.shared.$statusMessage
+            .map { $0.hasPrefix("需要登录 Steam") }
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.configureAuthItems()
+            }
+            .store(in: &cancellables)
+
         SteamWorkshopService.shared.$source
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in

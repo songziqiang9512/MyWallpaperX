@@ -10,6 +10,22 @@ CORE = ROOT / "MyWallpaperX/Modules/SteamWorkshop/Core"
 
 
 class SteamDownloadAdmissionTests(unittest.TestCase):
+    def test_signed_out_guidance_is_visible_without_starting_login(self):
+        service = (CORE / "SteamWorkshopService.swift").read_text()
+        guidance = service[service.index("    func presentSteamLoginGuidance"):]
+        self.assertIn('statusMessage = "需要登录 Steam', guidance)
+        self.assertNotIn("showLoginPanel()", guidance[:guidance.index("    // MARK:")])
+
+        browser = (ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserView.swift").read_text()
+        self.assertIn("service.$statusMessage", browser)
+        self.assertIn('message.hasPrefix("需要登录 Steam")', browser)
+        self.assertIn("syncLoginGuidanceBanner", browser)
+
+        toolbar = (ROOT / "MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController.swift").read_text()
+        self.assertIn("SteamWorkshopService.shared.$statusMessage", toolbar)
+        toolbar_configuration = (ROOT / "MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController+Configuration.swift").read_text()
+        self.assertIn("requiresLoginAttention ? .systemOrange", toolbar_configuration)
+
     def test_service_admission(self):
         source = (CORE / "SteamWorkshopService+Downloads.swift").read_text()
         names = ["downloadWorkshopItem", "downloadAdmissionAccount", "canRequestDownload",
