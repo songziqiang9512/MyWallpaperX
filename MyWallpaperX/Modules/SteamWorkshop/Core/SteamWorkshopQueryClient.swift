@@ -54,6 +54,23 @@ nonisolated struct SteamWorkshopStagedReceipt: Equatable, Codable, Sendable {
     let stagingURL: URL
     let verifiedBytes: Int
 
+    /// Validate the helper-owned lease name lexically. Filesystem canonicalization is
+    /// deliberately excluded because it can rewrite `/private/tmp` and would also
+    /// turn validation into an implicit path-adoption operation.
+    nonisolated static func validatedStagingURL(path: String, stagingRoot: String) -> URL? {
+        guard stagingRoot.hasPrefix("/"), path.hasPrefix("/"),
+              !stagingRoot.utf8.contains(0), !path.utf8.contains(0) else { return nil }
+        let base = stagingRoot.replacingOccurrences(of: #"/+$"#, with: "", options: .regularExpression)
+        let components = base.dropFirst().split(separator: "/", omittingEmptySubsequences: false)
+        guard !base.isEmpty, components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }),
+              path.hasPrefix(base + "/") else { return nil }
+        let name = String(path.dropFirst(base.count + 1))
+        guard name.hasPrefix("job-"), name.utf8.count == 36,
+              name.dropFirst(4).utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) })
+        else { return nil }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }
+
     @MainActor init(frame: SteamServiceFrame, jobId: String, workshopId: String,
          accountSteamId: String, accountEpoch: Int, stagingRoot: String) throws {
         func validID(_ value: String) -> Bool {
@@ -76,19 +93,7 @@ nonisolated struct SteamWorkshopStagedReceipt: Equatable, Codable, Sendable {
               let total = data["totalBytes"]?.intValue, total > 0, total <= 8 * 1024 * 1024 * 1024,
               data["verifiedBytes"]?.intValue == total,
               let path = data["stagingPath"]?.stringValue,
-              stagingRoot.hasPrefix("/"), path.hasPrefix("/"),
-              !stagingRoot.utf8.contains(0), !path.utf8.contains(0) else { throw invalid }
-        // standardizedFileURL may rewrite /private/tmp to /tmp when it exists. Keep the
-        // helper's no-symlink spelling; do lexical containment without filesystem canonicalization.
-        let base = stagingRoot.replacingOccurrences(of: #"/+$"#, with: "", options: .regularExpression)
-        let components = base.dropFirst().split(separator: "/", omittingEmptySubsequences: false)
-        guard !base.isEmpty, components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }),
-              path.hasPrefix(base + "/") else { throw invalid }
-        let name = String(path.dropFirst(base.count + 1))
-        guard name.hasPrefix("job-"), name.utf8.count == 36,
-              name.dropFirst(4).utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) })
-        else { throw invalid }
-        let url = URL(fileURLWithPath: path, isDirectory: true)
+              let url = Self.validatedStagingURL(path: path, stagingRoot: stagingRoot) else { throw invalid }
         self.version = 2
         self.contentDigest = digest
         self.jobId = jobId

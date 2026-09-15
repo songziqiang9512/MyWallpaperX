@@ -2,7 +2,7 @@
 
 <!-- document-role: active-plan -->
 
-> 状态：现役专项计划；SK1–SK4.2 已有实现并完成本轮离线审查修复，SK4.3 已接通原子事务及播放感知版本回收。下一步按 §8 从 SK4.3 剩余可见/依赖门续接；代码完成不等于真实账号、UI 或发布验收完成。
+> 状态：现役专项计划；SK1–SK4.2 已有实现并完成本轮离线审查修复，SK4.3 已接通原子事务及播放感知版本回收；SK4.4 已闭合物理排空等待，并完成失败意图/暂存身份持久化与显式同 job 重试。下一步继续 manifest-aware 恢复与有限并发；代码完成不等于真实账号、UI 或发布验收完成。
 >
 > 复核：2026-09-15。本轮依据当前 Swift/C#、隔离文件系统与无网络协议测试、App Debug 构建；未使用真实账号、修改真实订阅或实测可见 UI。§10.1 保留早期探针证据，不能代替本轮构建的真实链路验收。
 >
@@ -215,7 +215,7 @@ Envelope：`v/type/requestId/processEpoch/accountEpoch`；认证另有 authAttem
 | 10 | SK4.1 | JobStore、队列与持久化 | 先在线准入；任务文件v2；staged/committing非终态；cancelAll一次保存、失败不假推进并提示。离线反例通过；历史与完整App操作仍待后续卡 |
 | 11 | SK4.2 | 下载与完整receipt | 描述符staging、清单预算、v2跨语言摘要、串行进度发布/统一分母、typed磁盘错误、取消与成功共用决策点均有离线门。真实Steam下载与SDK物理排空仍待验 |
 | 12 | SK4.3 | 原子入库与已下载 | 已接通版本准备/摘要与项目准入/元数据rename/列表刷新；ready 索引由事务 owner 有界 nofollow 读取且不依赖页面打开，播放 token 贯穿 Scene/Web/Video 及依赖宿主，旧版本按 ready/事务/消费引用延迟安全回收。离线事务门与 Debug build 通过；剩余真实可见、跨卷/断电实机与完整项目播放验收并入 SK7 |
-| 13 | SK4.4 | 取消、恢复、有限并发与重试 | 进行中：取消后的本地队列等待 helper 原 startDownload terminal（物理 I/O 排空）再推进，账号 epoch 改变不提前丢弃该排空 waiter；恢复、重试与并发仍待后续批次 |
+| 13 | SK4.4 | 取消、恢复、有限并发与重试 | 进行中：取消后的本地队列等待 helper 原 startDownload terminal（物理 I/O 排空）再推进，账号 epoch 改变不提前丢弃该排空 waiter；helper 分配的受管 staging 身份在内容写入前经进度事件交给 App 并落入 JobStore，pre-receipt 失败、错误与 staging 身份可跨重启保留，无旧 ready 时重建失败卡片；显式重试沿用同一逻辑 job、attempt 递增且不跨账号接管，已有 ready 始终优先保持可播放。离线事务/假 wire/Helper 门与 Debug build 通过；manifest-aware 恢复、disk-full 策略及双活动作业仍待后续批次 |
 | 14 | SK5.1 | 卡片 bar 真实进度填充 | 待实施 |
 | 15 | SK5.2 | 工具栏任务面板与队列交互 | 待实施 |
 | 16 | SK5.3 | 任务历史、保留策略与跨视图一致性 | 待实施 |
@@ -426,7 +426,7 @@ python3.12 script/run_scene_tests.py --scope all -k test_steam_ -j 1
 - [SteamKit2 3.4.0 项目](https://github.com/SteamRE/SteamKit/blob/3.4.0/SteamKit2/SteamKit2/SteamKit2.csproj)声明 net8.0/net10.0 与 LGPL-2.1-only；[许可证](https://github.com/SteamRE/SteamKit/blob/3.4.0/SteamKit2/SteamKit2/license.txt)及对应依赖分发义务必须落实。独立进程不自动免除义务；固定源码、NOTICE、重建/修改说明随发行策略验收。
 - [Authentication API](https://github.com/SteamRE/SteamKit/blob/3.4.0/SteamKit2/SteamKit2/Steam/Authentication/SteamAuthentication.cs)有 credentials/QR 认证入口；[认证样例](https://github.com/SteamRE/SteamKit/blob/3.4.0/Samples/000_Authentication/Program.cs)区分 poll、GuardData 与 LogOn。样例的 argv/打印 token 不能照搬；实际二维码刷新与平台认证权限由 SK0 验证。
 - [Valve ISteamRemoteStorage](https://partner.steamgames.com/doc/webapi/ISteamRemoteStorage)中 publisher-key 订阅接口不能用于本客户端；普通用户协议的查询/写入权限与公开匿名查询逐项验证。类名存在不等于可用，不能绕过内容授权。
-- MirageWallpaper 仅为 third-party-reference-pattern：[本机 README](../../Reference%20Project/MirageWallpaper/README.md)与已核对职责说明长驻会话、token 恢复、订阅/收藏与下载集中在服务中；不复制 GPL 实现、Cookie 拼装或 UI。最终本项目不再依赖网页 Cookie 自动登录。
+- MirageWallpaper 仅为 third-party-reference-pattern；已核对的本机参考项目 README（非仓库材料）说明长驻会话、token 恢复、订阅/收藏与下载集中在服务中。不复制 GPL 实现、Cookie 拼装或 UI。最终本项目不再依赖网页 Cookie 自动登录。
 - SDK 路径、78 MB、构建成功不是当前功能证明；发行前核对 .NET 支持期、self-contained native 依赖、arm64 最低系统与签名。AOT/trim/single-file 仅在反射与 native codec 等兼容实证后开启。
 
 <a id="sk01-能力验证-2026-09-15"></a>

@@ -41,6 +41,7 @@ internal sealed partial class SteamSession
         public required string JobId;
         public required string RequestId;
         public required string StagingRoot;
+        public string? StagingPath;
         public required ulong PublishedFileId;
         public required CancellationTokenSource Cancellation;
         public required AccountLease Account;
@@ -137,6 +138,11 @@ internal sealed partial class SteamSession
                 EmitDownloadProgress(context, "preparing", totalBytes: manifestTotalBytes, totalChunks: totalChunks);
                 using var lease = new WorkshopStagingLease(stagingRoot);
                 var staging = lease.Path;
+                context.StagingPath = staging;
+                // Publish the exact helper-owned lease before the first content write so
+                // the App can durably associate partial work with this logical attempt.
+                EmitDownloadProgress(context, "downloading",
+                    totalBytes: manifestTotalBytes, totalChunks: totalChunks);
 
                 var work = new ConcurrentQueue<(DepotManifest.FileData File, DepotManifest.ChunkData Chunk, string RelativePath)>();
                 foreach (var file in files)
@@ -250,6 +256,7 @@ internal sealed partial class SteamSession
             v = ProtocolLimits.Version, type = "event", @event = "downloadProgress",
             requestId = context.RequestId, processEpoch = ProcessEpoch, accountEpoch = context.Account.Epoch,
             jobId = context.JobId, sequence = update.Sequence, stage = update.Stage,
+            stagingPath = context.StagingPath,
             totalBytes = update.TotalBytes, verifiedBytes = update.VerifiedBytes,
             totalChunks = update.TotalChunks, verifiedChunks = update.VerifiedChunks,
         });

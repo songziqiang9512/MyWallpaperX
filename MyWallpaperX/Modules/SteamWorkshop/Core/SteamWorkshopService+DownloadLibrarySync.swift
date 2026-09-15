@@ -7,16 +7,6 @@ extension SteamWorkshopService {
         let videoFiles = directVideoFiles(in: videoLibraryRootURL)
         let webDirectories = directChildDirectories(in: webLibraryRootURL)
         let sceneDirectories = directChildDirectories(in: sceneLibraryRootURL)
-        if videoFiles.isEmpty && webDirectories.isEmpty && sceneDirectories.isEmpty && managed.isEmpty {
-            downloads = downloads.filter {
-                if case .queued = $0.status { return true }
-                if case .downloading = $0.status { return true }
-                if case .failed = $0.status { return true }
-                return false
-            }
-            scheduleLibraryVersionReclamation()
-            return
-        }
 
         var records: [SteamWorkshopDownloadRecord] = managed.values.compactMap { snapshot in
             guard let commit = snapshot.commit,
@@ -40,12 +30,21 @@ extension SteamWorkshopService {
             seenIDs.insert(record.id)
         }
 
-        let transient = downloads.filter { record in
+        var transient = downloads.filter { record in
             switch record.status {
             case .queued, .downloading, .failed:
                 return !records.contains(where: { $0.id == record.id })
             case .ready:
                 return false
+            }
+        }
+        var projectedIDs = Set(records.map(\.id)).union(transient.map(\.id))
+        if let account = steamAuth.steamId {
+            for job in downloadJobStore.jobs.sorted(by: { $0.updatedAt > $1.updatedAt })
+            where job.accountSteamId == account && !projectedIDs.contains(job.workshopItemId) {
+                guard let record = transientDownloadRecord(for: job) else { continue }
+                transient.append(record)
+                projectedIDs.insert(record.id)
             }
         }
 
@@ -73,6 +72,47 @@ extension SteamWorkshopService {
             deferPublishing: true
         )
         scheduleLibraryVersionReclamation()
+    }
+
+    /// Rebuild the user-visible projection from durable intent after relaunch. A
+    /// published ready record wins for the same item so a failed update never
+    /// hides or disables the previous-current content.
+    private func transientDownloadRecord(for job: SteamDownloadJob) -> SteamWorkshopDownloadRecord? {
+        let status: SteamWorkshopDownloadRecord.Status
+        switch job.state {
+        case .queued:
+            status = .queued
+        case .running, .staged, .committing:
+            status = .downloading
+        case .failed:
+            status = .failed(job.failureMessage ?? "下载失败，请重试。")
+        case .cancelled, .completed:
+            return nil
+        }
+        let item = browserItemForDownload(id: job.workshopItemId)
+        return SteamWorkshopDownloadRecord(
+            id: job.workshopItemId,
+            title: item?.title ?? job.title,
+            description: item?.descriptionText ?? "",
+            tags: item?.tags ?? [],
+            folderURL: libraryRootURL,
+            projectFileURL: nil,
+            ownEntryHTMLURL: nil,
+            dependencyHostEntryHTMLURL: nil,
+            dependencyHostFolderURL: nil,
+            entryHTMLURL: nil,
+            resolvedWebRootURL: nil,
+            previewURL: item?.previewImageURL,
+            sourceVideoURL: nil,
+            exportedVideoURL: nil,
+            updatedAt: job.updatedAt,
+            sizeText: item?.fileSizeText ?? "未知大小",
+            status: status,
+            browserItem: item,
+            contentType: .unknown,
+            dependencyItemID: nil,
+            dependencyStatus: .none
+        )
     }
 
     private func directChildDirectories(in root: URL) -> [URL] {

@@ -92,20 +92,42 @@ extension SteamWorkshopService {
 
     func startDownloadRequest(_ request: SteamWorkshopPendingDownloadRequest) {
         guard let account = downloadAdmissionAccount() else { return }
-        // SK4.1：直接点击与出队续跑共用同一入队/启动语义——
-        // 已在队列/执行中的任务不会被重复入队或二次 started。
-        let (job, _) = downloadJobStore.enqueue(
-            workshopItemId: request.id,
-            title: request.pageTitle ?? "Workshop #\(request.id)",
+        let job: SteamDownloadJob
+        if let failed = downloadJobStore.failedJob(
+            forWorkshopItemId: request.id,
             accountSteamId: account
-        )
+        ) {
+            // Explicit retry keeps one logical job and advances its attempt. A
+            // different account can never adopt the failed intent.
+            guard let retried = downloadJobStore.apply(.started, toID: failed.id) else {
+                statusMessage = "下载重试任务无法保存，未开始下载。"
+                return
+            }
+            job = retried
+        } else {
+            // SK4.1：直接点击与出队续跑共用同一入队/启动语义——
+            // 已在队列/执行中的任务不会被重复入队或二次 started。
+            let (enqueued, _) = downloadJobStore.enqueue(
+                workshopItemId: request.id,
+                title: request.pageTitle ?? "Workshop #\(request.id)",
+                accountSteamId: account
+            )
+            guard downloadJobStore.lastSaveSucceeded else {
+                statusMessage = "下载任务无法保存，未开始下载。"
+                return
+            }
+            guard enqueued.accountSteamId == account else { return }
+            if enqueued.state == .queued {
+                guard let started = downloadJobStore.apply(.started, toID: enqueued.id) else { return }
+                job = started
+            } else {
+                job = enqueued
+            }
+        }
         guard job.accountSteamId == account else { return }
         guard downloadJobStore.lastSaveSucceeded else {
             statusMessage = "下载任务无法保存，未开始下载。"
             return
-        }
-        if job.state == .queued {
-            guard downloadJobStore.apply(.started, toID: job.id) != nil else { return }
         }
         beginDownloadWorkflow(request)
     }
@@ -125,6 +147,13 @@ extension SteamWorkshopService {
         let observer = steamServiceClient.addEventObserver { [weak self] frame in
             guard let self, self.activeDownloadJobKey == key, self.steamServiceClient.accountEpoch == epoch,
                   frame.event == "downloadProgress", frame.jobId == key else { return }
+            if let path = frame.root["stagingPath"]?.stringValue,
+               let stagingURL = SteamWorkshopStagedReceipt.validatedStagingURL(
+                    path: path,
+                    stagingRoot: self.steamDownloadStagingRootURL.path
+               ), self.downloadJobStore.job(id: job.id)?.stagingPath != stagingURL.path {
+                _ = self.downloadJobStore.apply(.stagingAllocated(stagingURL.path), toID: job.id)
+            }
             // Card progress projection is the next UI slice; never derive success from an event.
             let stage = frame.root["stage"]?.stringValue ?? ""
             self.statusMessage = stage == "validating" ? "正在校验 \(job.title)…" : "正在下载 \(job.title)…"
@@ -188,7 +217,16 @@ extension SteamWorkshopService {
                 let cancelled = error is CancellationError || self.activeDownloadWasCancelled
                     || (error as? SteamServiceClient.RequestError) == .cancelled
                 _ = self.downloadJobStore.apply(cancelled ? .cancelled : .failed(error.localizedDescription), toID: job.id)
-                self.removeTransientRecord(id: request.id)
+                if cancelled {
+                    self.removeTransientRecord(id: request.id)
+                } else {
+                    self.upsertTransientRecord(
+                        id: request.id,
+                        title: job.title,
+                        status: .failed(error.localizedDescription),
+                        sizeText: self.downloadStatusSizeText(for: request.id)
+                    )
+                }
                 self.reloadInstalledItems()
                 self.statusMessage = cancelled ? "已取消下载。" : error.localizedDescription
                 if !cancelled { self.downloadError = error.localizedDescription }

@@ -62,6 +62,9 @@ class SteamDownloadExecutionTests(unittest.TestCase):
     def test_publication_failure_preserves_old_pointer(self):
         self.run_case('publish-failure')
 
+    def test_network_failure_persists_and_explicit_retry_reuses_job(self):
+        self.run_case('network-failure')
+
 
 if __name__ == '__main__':
     unittest.main()

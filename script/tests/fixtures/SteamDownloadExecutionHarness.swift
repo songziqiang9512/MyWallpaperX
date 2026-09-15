@@ -21,6 +21,7 @@ final class Transport: SteamServiceTransporting {
     var commands: [[String: Any]] = []
     var receipt: [String: Any] = [:]
     var hold = false
+    var failStart = false
     private var heldStartRequest: [String: Any]?
     func emit(_ frame: [String: Any]) { var bytes = try! JSONSerialization.data(withJSONObject: frame); bytes.append(10); onOutput?(bytes) }
     func start() throws { isRunning = true; emit(["v":1,"type":"ready","protocol":1,"helperVersion":"test"]) }
@@ -28,8 +29,19 @@ final class Transport: SteamServiceTransporting {
         let request = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
         commands.append(request)
         let command = request["command"] as! String
+        if command == "startDownload" {
+            emit(["v":1,"type":"event","event":"downloadProgress","requestId":request["requestId"]!,
+                  "accountEpoch":request["accountEpoch"]!,"jobId":request["jobId"]!,"sequence":1,
+                  "stage":"downloading","stagingPath":receipt["stagingPath"]!])
+        }
         if command == "startDownload" && hold {
             heldStartRequest = request
+            return true
+        }
+        if command == "startDownload" && failStart {
+            emit(["v":1,"type":"result","ok":false,"requestId":request["requestId"]!,
+                  "accountEpoch":request["accountEpoch"]!,
+                  "error":["code":"network","message":"fixture network failure"]])
             return true
         }
         var data = receipt
@@ -84,7 +96,12 @@ final class Transport: SteamServiceTransporting {
     func presentSteamLoginGuidance(context: String) { statusMessage = "login required" }
     func appendSteamAuthDebugLog(_ message: String) {}
     func upsertTransientRecord(id: String, title: String, status: SteamWorkshopDownloadRecord.Status, sizeText: String) {
-        downloads.append(.init(id: id, title: title, sizeText: sizeText, status: status))
+        let record = SteamWorkshopDownloadRecord(id: id, title: title, sizeText: sizeText, status: status)
+        if let index = downloads.firstIndex(where: { $0.id == id }) {
+            downloads[index] = record
+        } else {
+            downloads.append(record)
+        }
     }
     func reloadInstalledItems() { reloads += 1 }
     static func itemByMergingAuthorMetadata(into: SteamWorkshopBrowserItem?, id: String, title: String?,
@@ -100,6 +117,7 @@ final class Transport: SteamServiceTransporting {
         let fixture = try JSONSerialization.jsonObject(with: Data(contentsOf: base.appendingPathComponent("receipt.json"))) as! [String: Any]
         transport.receipt = fixture["data"] as! [String: Any]
         transport.hold = mode == "cancel" || mode == "switch"
+        transport.failStart = mode == "network-failure"
         let service = SteamWorkshopService(base: base, transport: transport)
         service.downloadWorkshopItem(id: "123456", pageTitle: "test")
         while !transport.commands.contains(where: { $0["command"] as? String == "startDownload" }) { await Task.yield() }
@@ -126,7 +144,7 @@ final class Transport: SteamServiceTransporting {
             precondition(result.commit?.jobId == key && result.commit?.attempt == 1)
             precondition(service.downloadJobStore.jobs.last?.state == .completed && service.reloads == 1)
             precondition(transport.commands.filter { $0["command"] as? String == "startDownload" }.count == 1)
-        } else {
+        } else if mode != "network-failure" {
             let oldMarker = try String(contentsOf: marker, encoding: .utf8)
             precondition(oldMarker == "OLD READY POINTER")
             precondition(service.downloadJobStore.jobs.last?.state != .completed)
@@ -134,6 +152,25 @@ final class Transport: SteamServiceTransporting {
                 while !transport.commands.contains(where: { $0["command"] as? String == "cancelDownload" }) { await Task.yield() }
                 precondition(transport.commands.contains { $0["command"] as? String == "cancelDownload" && $0["jobId"] as? String == key })
             }
+        } else {
+            let oldMarker = try String(contentsOf: marker, encoding: .utf8)
+            precondition(oldMarker == "OLD READY POINTER")
+            guard let failure = service.downloadJobStore.jobs.last else { fatalError("missing failed job") }
+            precondition(failure.state == .failed && failure.attempt == 1 && failure.stagingPath != nil)
+            guard case let .failed(message)? = service.downloads.first?.status else {
+                fatalError("missing failed card")
+            }
+            precondition(!message.isEmpty && message == failure.failureMessage)
+            let reloaded = SteamDownloadJobStore(persistenceURL: base.appendingPathComponent("jobs.json"))
+            precondition(reloaded.failedJob(
+                forWorkshopItemId: "123456", accountSteamId: "76561198000000000")?.id == failure.id)
+            transport.failStart = false
+            service.downloadWorkshopItem(id: "123456", pageTitle: "test")
+            while service.activeDownloadTask != nil { await Task.yield() }
+            let starts = transport.commands.filter { $0["command"] as? String == "startDownload" }
+            precondition(starts.count == 2 && starts.last?["jobId"] as? String == failure.id + "-2",
+                "explicit retry must keep logical job identity and increment attempt")
+            precondition(service.downloadJobStore.jobs.last?.state == .completed)
         }
         await service.steamServiceClient.stop(shutdownTimeout: 0)
         print("EXECUTION PASS: \(mode)")

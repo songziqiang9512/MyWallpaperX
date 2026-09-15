@@ -91,6 +91,13 @@ import Foundation
         let store = SteamDownloadJobStore(persistenceURL: url)
         let job = store.enqueue(workshopItemId: "123456", title: "test", accountSteamId: "76561198000000000").job
         precondition(store.apply(.started, toID: job.id) != nil)
+        let allocatedPath = base.appendingPathComponent("staging/job-" + String(repeating: "a", count: 32)).path
+        precondition(store.apply(.stagingAllocated(allocatedPath), toID: job.id)?.stagingPath == allocatedPath)
+        precondition(store.apply(.stagingAllocated(base.appendingPathComponent("outside").path), toID: job.id) == nil,
+            "one attempt cannot adopt a second staging path")
+        let allocated = SteamDownloadJobStore(persistenceURL: url)
+        precondition(allocated.job(id: job.id)?.stagingPath == allocatedPath,
+            "staging identity must survive a crash before the receipt")
         let key = job.id + "-1"
         var frame = frame
         var data = frame.root["data"]!.objectValue!
@@ -119,6 +126,24 @@ import Foundation
         let unrelated = SteamDownloadJobStore(persistenceURL: url)
         unrelated.reconcileInterruptedCommits(published: ["123456": commit])
         precondition(unrelated.job(id: job.id)?.state == .failed, "different job cannot settle transaction")
+        let retryURL = base.appendingPathComponent("retry.json")
+        let failed = SteamDownloadJobStore(persistenceURL: retryURL)
+        let failedJob = failed.enqueue(
+            workshopItemId: "777777", title: "retry", accountSteamId: job.accountSteamId).job
+        precondition(failed.apply(.started, toID: failedJob.id) != nil)
+        precondition(failed.apply(.stagingAllocated(allocatedPath), toID: failedJob.id) != nil)
+        precondition(failed.apply(.failed("network"), toID: failedJob.id) != nil)
+        let failedReload = SteamDownloadJobStore(persistenceURL: retryURL)
+        let durableFailure = failedReload.failedJob(
+            forWorkshopItemId: failedJob.workshopItemId, accountSteamId: job.accountSteamId)
+        precondition(durableFailure?.id == failedJob.id && durableFailure?.stagingPath == allocatedPath,
+            "pre-receipt failure and owned staging identity must persist")
+        precondition(failedReload.failedJob(
+            forWorkshopItemId: failedJob.workshopItemId, accountSteamId: "other") == nil,
+            "another account cannot adopt a failed job")
+        let retried = failedReload.apply(.started, toID: durableFailure!.id)
+        precondition(retried?.id == failedJob.id && retried?.attempt == 2 && retried?.stagingPath == nil,
+            "explicit retry keeps logical identity and starts a fresh attempt")
         let failureURL = base.appendingPathComponent("save-failure.json")
         let failure = SteamDownloadJobStore(persistenceURL: failureURL)
         let pending = failure.enqueue(workshopItemId: "654321", title: "test", accountSteamId: job.accountSteamId).job

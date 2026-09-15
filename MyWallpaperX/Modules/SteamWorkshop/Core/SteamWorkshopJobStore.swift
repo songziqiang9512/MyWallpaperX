@@ -51,6 +51,7 @@ struct SteamDownloadJob: Codable, Identifiable, Equatable {
 
 enum SteamDownloadJobEvent: Equatable {
     case started
+    case stagingAllocated(String)
     case staged(SteamWorkshopStagedReceipt)
     case committing(SteamWorkshopLibraryCommit)
     case completed
@@ -76,6 +77,10 @@ enum SteamDownloadJobReducer {
             next.receipt = nil
             next.preparedCommit = nil
             next.stagingPath = nil
+        case .stagingAllocated(let path):
+            guard job.state == .running, path.hasPrefix("/"), !path.utf8.contains(0),
+                  job.stagingPath == nil || job.stagingPath == path else { return nil }
+            next.stagingPath = path
         case .staged(let receipt):
             guard job.state == .running, receipt.jobId == "\(job.id)-\(job.attempt)",
                   receipt.workshopId == job.workshopItemId, receipt.accountSteamId == job.accountSteamId else { return nil }
@@ -153,6 +158,15 @@ final class SteamDownloadJobStore: ObservableObject {
 
     func activeJob(forWorkshopItemId workshopItemId: String) -> SteamDownloadJob? {
         jobs.first { $0.workshopItemId == workshopItemId && $0.isActive }
+    }
+
+    func failedJob(forWorkshopItemId workshopItemId: String, accountSteamId: String) -> SteamDownloadJob? {
+        jobs
+            .filter {
+                $0.workshopItemId == workshopItemId && $0.state == .failed
+                    && $0.accountSteamId == accountSteamId
+            }
+            .max { $0.updatedAt < $1.updatedAt }
     }
 
     func isQueuedOrRunning(workshopItemId: String) -> Bool {
@@ -268,8 +282,9 @@ final class SteamDownloadJobStore: ObservableObject {
     // MARK: - 持久化（版本化 + 原子替换 + 无凭据）
 
     private func save(_ candidate: [SteamDownloadJob]) {
-        // Preserve receipt-bearing failures for reconciliation/owned cleanup, never resume them implicitly.
-        let persisted = candidate.filter { $0.isActive || ($0.receipt != nil && $0.state != .completed) }
+        // Failed jobs are durable user-visible intent. They are retried only by an
+        // explicit user action and retain their staging identity for bounded cleanup.
+        let persisted = candidate.filter { $0.isActive || $0.state == .failed }
         let state = PersistedState(version: Self.persistenceVersion, jobs: persisted)
         guard let data = try? JSONEncoder().encode(state) else {
             lastSaveSucceeded = false
