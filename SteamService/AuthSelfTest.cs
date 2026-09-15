@@ -44,18 +44,28 @@ internal static class AuthSelfTest
 
         // 5. CancelAuthentication 后 Submit 返回 false（验证码窗口已关）。
         var session = new SteamSession(new ProtocolWriter(), new TerminalTracker());
-        session.BeginLoginPassword("req-submit-test", "user", "pw");
+        session.BeginAuthenticationForTest("req-submit-test", "client-attempt-a");
         var activeId = SessionTestHook.ActiveAttemptId(session);
         Check("active-attempt-exists", activeId != null);
-        session.CancelAuthentication(null);
+        Check("client-attempt-identity-preserved", activeId == "client-attempt-a");
+        Check("wrong-cancel-keeps-current",
+            !session.CancelAuthentication("wrong-id") && session.TestActiveAttemptId == activeId);
+        Check("targeted-cancel-accepted", session.CancelAuthentication(activeId));
         Check("submit-after-cancel-rejected",
             activeId == null || session.SubmitChallenge(activeId, "12345") == false);
 
         // 6. cancelAuthentication 指定错误 attemptId 不取消活动 attempt。
-        var book2 = new AuthAttemptBook();
-        var attempt2 = book2.Begin("req-c", "password");
-        Check("wrong-attempt-id-does-not-cancel",
-            book2.CanEmit(attempt2.AttemptId));
+        var nextId = session.BeginAuthenticationForTest("req-next-test", "client-attempt-b");
+        Check("late-cancel-does-not-cancel-successor",
+            !session.CancelAuthentication(activeId) && session.TestActiveAttemptId == nextId);
+        session.CancelAuthentication(nextId);
+        Check("cancelled-attempt-cannot-finish-online", !book.TryFinish(first.AttemptId, "online"));
+        try
+        {
+            book.Begin("different-request", "qr", first.AttemptId);
+            Check("reused-attempt-id-rejected", false);
+        }
+        catch (ArgumentException) { Check("reused-attempt-id-rejected", true); }
 
         // 7. Guard 认证器：Submit 解除等待中的验证码请求。
         var received = new List<(string State, string? Email, bool? Incorrect)>();
@@ -91,6 +101,27 @@ internal static class AuthSelfTest
         var deadTask = deadAuthenticator.GetEmailCodeAsync("qq.com", false);
         Check("dead-attempt-suppresses-report-and-cancels-wait",
             deadReceived == 0 && deadTask.IsCanceled);
+
+        // Account dispatch and connection callback identity use the real session owner.
+        var account = new SteamSession(new ProtocolWriter(), new TerminalTracker());
+        var sourceA = account.PublishAccountForTest(1, "76561198000000001");
+        var leaseA = account.CaptureAccountForTest(1);
+        var sent = 0;
+        Check("current-account-can-dispatch", account.SendForAccountForTest(leaseA, () => sent++) && sent == 1);
+        var sourceB = account.PublishAccountForTest(2, "76561198000000002");
+        Check("switch-cancels-old-queue-waits", leaseA.Disconnected.IsCancellationRequested);
+        Check("queued-old-account-cannot-dispatch", !account.SendForAccountForTest(leaseA, () => sent++) && sent == 1);
+        var leaseB = account.CaptureAccountForTest(2);
+        account.ConnectionLostForTest(sourceA);
+        Check("old-disconnect-cannot-clear-new-account", account.IsLoggedIn && account.SteamId == "76561198000000002");
+        Check("old-epoch-cannot-logout-new-account", !account.AdvanceAccountEpoch(1) && account.IsLoggedIn);
+        account.ConnectionLostForTest(sourceB);
+        Check("disconnect-invalidates-admitted-private-work", !account.SendForAccountForTest(leaseB, () => sent++) && !account.IsLoggedIn);
+        var sourceC = account.PublishAccountForTest(3, "76561198000000002");
+        Check("same-user-new-connection-does-not-revive-old-lease", !account.SendForAccountForTest(leaseB, () => sent++));
+        Check("old-completed-cancel-cannot-clear-new-account", !account.CancelAuthentication("test-2") && account.IsLoggedIn);
+        Check("cancel-after-success-retires-exact-account", account.CancelAuthentication("test-3") && !account.IsLoggedIn);
+        account.ConnectionLostForTest(sourceC);
 
         Console.Out.WriteLine(System.Text.Json.JsonSerializer.Serialize(new
         {

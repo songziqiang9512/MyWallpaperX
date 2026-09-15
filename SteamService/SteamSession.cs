@@ -15,6 +15,7 @@ internal sealed class AuthAttemptBook
         public required string AttemptId { get; init; }
         public required string RequestId { get; init; }
         public required string Mode { get; init; }
+        public long AccountEpoch { get; set; }
         public int Sequence { get; set; }
         public bool IsDead { get; set; }
         public string? DeathReason { get; set; }
@@ -26,14 +27,20 @@ internal sealed class AuthAttemptBook
     private int attemptCounter;
 
     /// 创建新 attempt；旧活动 attempt 被作废（调用方负责取消其轮询）。
-    public Attempt Begin(string requestId, string mode)
+    public Attempt Begin(string requestId, string mode, string? attemptId = null)
     {
         lock (gate)
         {
-            attemptCounter += 1;
+            if (attemptId != null && attempts.ContainsKey(attemptId))
+                throw new ArgumentException("authAttemptId must be unique");
+            if (attemptId == null)
+            {
+                do { attemptId = $"auth-{++attemptCounter}"; }
+                while (attempts.ContainsKey(attemptId));
+            }
             var attempt = new Attempt
             {
-                AttemptId = $"auth-{attemptCounter}",
+                AttemptId = attemptId,
                 RequestId = requestId,
                 Mode = mode,
             };
@@ -176,10 +183,9 @@ internal sealed partial class SteamSession : IAsyncDisposable
     private readonly object gate = new();
 
     private SteamClient? client;
-    private CallbackManager? callbacks;
     private SteamUser? user;
     private PublishedFile publishedFiles = null!;
-    private CancellationTokenSource? lifetime = new();
+    private CancellationTokenSource? lifetime;
     private readonly SemaphoreSlim connectGate = new(1, 1);
     private readonly SemaphoreSlim sessionGate = new(1, 1);
     private Task? callbackLoop;
@@ -190,6 +196,21 @@ internal sealed partial class SteamSession : IAsyncDisposable
     private bool isAnonymous;
     private string steamId = "";
     private string accountName = "";
+    private string? completedAuthAttemptId;
+    private long accountEpoch;
+    private long connectionGeneration;
+
+    public bool AdvanceAccountEpoch(long epoch)
+    {
+        lock (gate)
+        {
+            if (epoch <= accountEpoch) return false;
+            CancelAuthentication(null);
+            accountEpoch = epoch;
+            ResetConnectionLocked();
+            return true;
+        }
+    }
 
     private sealed class AuthAttemptContext
     {
@@ -217,6 +238,36 @@ internal sealed partial class SteamSession : IAsyncDisposable
         }
     }
 
+    internal string BeginAuthenticationForTest(string requestId, string attemptId) =>
+        BeginAttempt(requestId, "test", attemptId).Book.AttemptId;
+
+    // Offline seams exercise the same epoch, dispatch and callback guards without Connect/LogOn.
+    internal SteamClient PublishAccountForTest(long epoch, string id)
+    {
+        if (!AdvanceAccountEpoch(epoch)) throw new ArgumentException("stale test epoch");
+        lock (gate)
+        {
+            client = EnsureSession(); // constructs callbacks only; never calls Connect/LogOn
+            isLoggedIn = true;
+            completedAuthAttemptId = $"test-{epoch}";
+            steamId = id;
+            return client;
+        }
+    }
+
+    internal AccountLease CaptureAccountForTest(long epoch)
+    {
+        lock (gate) return CaptureAccountLocked(epoch);
+    }
+
+    internal bool SendForAccountForTest(AccountLease lease, Action send)
+    {
+        try { return SendForAccount(lease, () => { send(); return true; }, CancellationToken.None); }
+        catch (AccountChangedException) { return false; }
+    }
+
+    internal void ConnectionLostForTest(SteamClient source) => ConnectionLost(source);
+
     public SteamSession(ProtocolWriter writer, TerminalTracker terminals)
     {
         this.writer = writer;
@@ -225,9 +276,9 @@ internal sealed partial class SteamSession : IAsyncDisposable
 
     // ---- 命令入口（业务 dispatch 调用；异步命令的 terminal 由本类发送） ----
 
-    public void BeginLoginPassword(string requestId, string username, string password)
+    public void BeginLoginPassword(string requestId, string username, string password, string? attemptId = null)
     {
-        var (book, context) = BeginAttempt(requestId, "password");
+        var (book, context) = BeginAttempt(requestId, "password", attemptId);
         var cancellation = context.Cancellation;
         _ = Task.Run(async () =>
         {
@@ -241,7 +292,14 @@ internal sealed partial class SteamSession : IAsyncDisposable
                     () => attemptBook.CanEmit(book.AttemptId));
                 context.Authenticator = authenticator;
                 EmitAuthState(book, requestId, "authenticating");
-                var session = await client!.Authentication
+                SteamClient authClient;
+                lock (gate)
+                {
+                    cancellation.Token.ThrowIfCancellationRequested();
+                    if (!attemptBook.CanEmit(book.AttemptId)) throw new OperationCanceledException(cancellation.Token);
+                    authClient = client!;
+                }
+                var session = await authClient.Authentication
                     .BeginAuthSessionViaCredentialsAsync(new AuthSessionDetails
                     {
                         Username = username,
@@ -260,7 +318,7 @@ internal sealed partial class SteamSession : IAsyncDisposable
                     FinishCancelled(book, requestId);
                     return;
                 }
-                await LogOnWithTokenAsync(pollResult.AccountName, pollResult.RefreshToken, cancellation.Token)
+                await LogOnWithTokenAsync(book, pollResult.AccountName, pollResult.RefreshToken, cancellation.Token)
                     .ConfigureAwait(false);
                 FinishSuccess(book, requestId, pollResult.AccountName, pollResult.RefreshToken,
                     pollResult.AccessToken, pollResult.NewGuardData);
@@ -276,9 +334,9 @@ internal sealed partial class SteamSession : IAsyncDisposable
         }, CancellationToken.None);
     }
 
-    public void BeginLoginQR(string requestId)
+    public void BeginLoginQR(string requestId, string? attemptId = null)
     {
-        var (book, context) = BeginAttempt(requestId, "qr");
+        var (book, context) = BeginAttempt(requestId, "qr", attemptId);
         var cancellation = context.Cancellation;
         _ = Task.Run(async () =>
         {
@@ -286,7 +344,14 @@ internal sealed partial class SteamSession : IAsyncDisposable
             {
                 EmitAuthState(book, requestId, "connecting");
                 await EnsureConnectedAsync(cancellation.Token).ConfigureAwait(false);
-                var session = await client!.Authentication
+                SteamClient authClient;
+                lock (gate)
+                {
+                    cancellation.Token.ThrowIfCancellationRequested();
+                    if (!attemptBook.CanEmit(book.AttemptId)) throw new OperationCanceledException(cancellation.Token);
+                    authClient = client!;
+                }
+                var session = await authClient.Authentication
                     .BeginAuthSessionViaQRAsync(new AuthSessionDetails
                     {
                         IsPersistentSession = true,
@@ -304,7 +369,7 @@ internal sealed partial class SteamSession : IAsyncDisposable
                     FinishCancelled(book, requestId);
                     return;
                 }
-                await LogOnWithTokenAsync(pollResult.AccountName, pollResult.RefreshToken, cancellation.Token)
+                await LogOnWithTokenAsync(book, pollResult.AccountName, pollResult.RefreshToken, cancellation.Token)
                     .ConfigureAwait(false);
                 FinishSuccess(book, requestId, pollResult.AccountName, pollResult.RefreshToken,
                     pollResult.AccessToken, pollResult.NewGuardData);
@@ -320,9 +385,9 @@ internal sealed partial class SteamSession : IAsyncDisposable
         }, CancellationToken.None);
     }
 
-    public void BeginRestore(string requestId, string restoredToken, string? accountNameHint)
+    public void BeginRestore(string requestId, string restoredToken, string? accountNameHint, string? attemptId = null)
     {
-        var (book, context) = BeginAttempt(requestId, "restore");
+        var (book, context) = BeginAttempt(requestId, "restore", attemptId);
         var cancellation = context.Cancellation;
         _ = Task.Run(async () =>
         {
@@ -330,7 +395,7 @@ internal sealed partial class SteamSession : IAsyncDisposable
             {
                 EmitAuthState(book, requestId, "connecting");
                 await EnsureConnectedAsync(cancellation.Token).ConfigureAwait(false);
-                await LogOnWithTokenAsync(accountNameHint ?? "", restoredToken, cancellation.Token)
+                await LogOnWithTokenAsync(book, accountNameHint ?? "", restoredToken, cancellation.Token)
                     .ConfigureAwait(false);
                 FinishSuccess(book, requestId, accountNameHint ?? "", restoredToken,
                     resultAccessToken: null, newGuardData: null);
@@ -363,46 +428,48 @@ internal sealed partial class SteamSession : IAsyncDisposable
         lock (gate)
         {
             var book = activeAuthContext?.Book;
-            if (book == null) return false;
+            if (book == null)
+            {
+                // Success may already be on stdout when App closes the panel.
+                // Only that exact completed attempt may retire its connection.
+                if (authAttemptId == null || completedAuthAttemptId != authAttemptId) return false;
+                ResetConnectionLocked();
+                return true;
+            }
             if (authAttemptId != null && book.AttemptId != authAttemptId) return false;
             context = activeAuthContext;
             activeAuthContext = null;
+            ResetConnectionLocked();
+            attemptBook.TryFinish(context!.Book.AttemptId, "cancelled");
+            context.Authenticator?.Cancel();
+            try { context.Cancellation.Cancel(); } catch (ObjectDisposedException) { }
+            FinishCancelled(context.Book, context.Book.RequestId);
+            return true;
         }
-        attemptBook.TryFinish(context!.Book.AttemptId, "cancelled");
-        context.Authenticator?.Cancel();
-        try { context.Cancellation.Cancel(); } catch (ObjectDisposedException) { }
-        return true;
     }
 
     public void Logout(string requestId)
     {
         CancelAuthentication(null);
-        if (isLoggedIn)
-        {
-            // 会话正在拆除：匿名标志一并清除，不给查询路径留下半拆状态窗口。
-            isAnonymous = false;
-            try { user!.LogOff(); } catch { }
-        }
-        isLoggedIn = false;
-        steamId = "";
-        accountName = "";
-        attemptBook.Reset();
+        lock (gate) { ResetConnectionLocked(); }
         // dispatch 层已为该 requestId 持有唯一 terminal 槽，此处直接发送。
-        writer.Send(ProtocolMessages.ResultOk(requestId, new { loggedOut = true }, ProcessEpoch));
+        writer.Send(ProtocolMessages.ResultOk(requestId, new { loggedOut = true }, ProcessEpoch, accountEpoch));
     }
 
     // ---- attempt 生命周期 ----
 
-    private (AuthAttemptBook.Attempt Book, AuthAttemptContext Context) BeginAttempt(string requestId, string mode)
+    private (AuthAttemptBook.Attempt Book, AuthAttemptContext Context) BeginAttempt(string requestId, string mode, string? attemptId = null)
     {
         lock (gate)
         {
+            var book = attemptBook.Begin(requestId, mode, attemptId);
+            book.AccountEpoch = accountEpoch;
             // 旧 attempt（如有）立即作废：切方式/重试不得并存两条认证流。
             if (activeAuthContext != null)
             {
                 CancelAuthentication(null);
             }
-            var book = attemptBook.Begin(requestId, mode);
+            ResetConnectionLocked();
             var context = new AuthAttemptContext
             {
                 Book = book,
@@ -427,9 +494,9 @@ internal sealed partial class SteamSession : IAsyncDisposable
     private void EmitAuthState(AuthAttemptBook.Attempt book, string requestId, string state,
         string? challengeUrl = null, string? emailDomain = null, bool? previousCodeWasIncorrect = null)
     {
-        if (!attemptBook.CanEmit(book.AttemptId)) return;
-        lock (book)
+        lock (gate)
         {
+            if (!attemptBook.CanEmit(book.AttemptId)) return;
             book.Sequence += 1;
             // 认证状态字段置于事件顶层（与 golden responses.jsonl 合同一致）。
             writer.Send(new
@@ -442,6 +509,7 @@ internal sealed partial class SteamSession : IAsyncDisposable
                 processEpoch = ProcessEpoch,
                 state,
                 authAttemptId = book.AttemptId,
+                accountEpoch = book.AccountEpoch,
                 challengeUrl,
                 emailDomain,
                 previousCodeWasIncorrect,
@@ -453,32 +521,42 @@ internal sealed partial class SteamSession : IAsyncDisposable
         AuthAttemptBook.Attempt book, string requestId, string realAccountName,
         string resultRefreshToken, string? resultAccessToken, string? newGuardData)
     {
-        if (!attemptBook.TryFinish(book.AttemptId, "online")) return;
-        ClearContextIfCurrent(book.AttemptId);
-        if (!terminals.TryBegin(requestId)) return;
-        // 令牌与真实账号名只在 result 的 private 包装内出站；展示名另行掩码
-        // （持久化需要真实名做 restore 的 Username 提示，掩码名仅供 UI）。
-        writer.Send(new
+        lock (gate)
         {
-            v = ProtocolLimits.Version,
-            type = "result",
-            requestId,
-            processEpoch = ProcessEpoch,
-            ok = true,
-            data = new
+            if (!attemptBook.TryFinish(book.AttemptId, "online"))
             {
-                state = "online",
-                steamId,
-                accountName = MaskAccount(accountName),
-            },
-            @private = new
+                FinishCancelled(book, requestId);
+                return;
+            }
+            completedAuthAttemptId = book.AttemptId;
+            ClearContextIfCurrent(book.AttemptId);
+            if (!terminals.TryBegin(requestId)) return;
+            // 令牌与真实账号名只在 result 的 private 包装内出站；展示名另行掩码
+            // （持久化需要真实名做 restore 的 Username 提示，掩码名仅供 UI）。
+            writer.Send(new
             {
-                refreshToken = resultRefreshToken,
-                accessToken = resultAccessToken,
-                guardData = newGuardData,
-                accountName = realAccountName,
-            },
-        });
+                v = ProtocolLimits.Version,
+                type = "result",
+                requestId,
+                processEpoch = ProcessEpoch,
+                authAttemptId = book.AttemptId,
+                accountEpoch = book.AccountEpoch,
+                ok = true,
+                data = new
+                {
+                    state = "online",
+                    steamId,
+                    accountName = MaskAccount(accountName),
+                },
+                @private = new
+                {
+                    refreshToken = resultRefreshToken,
+                    accessToken = resultAccessToken,
+                    guardData = newGuardData,
+                    accountName = realAccountName,
+                },
+            });
+        }
     }
 
     private void FinishCancelled(AuthAttemptBook.Attempt book, string requestId)
@@ -488,15 +566,19 @@ internal sealed partial class SteamSession : IAsyncDisposable
         // 终态只由 per-requestId 槽位守卫：取消路径（cancelAuthentication 已把
         // attempt 标死）也必须给 App 的 pending 请求一个 cancelled 终态。
         if (!terminals.TryBegin(requestId)) return;
-        writer.Send(ProtocolMessages.ResultError(requestId, "cancelled", "authentication cancelled", ProcessEpoch));
+        writer.Send(ProtocolMessages.ResultError(requestId, "cancelled", "authentication cancelled", ProcessEpoch, book.AccountEpoch));
     }
 
     private void FinishFailed(AuthAttemptBook.Attempt book, string requestId, string code, string message)
     {
-        attemptBook.TryFinish(book.AttemptId, code);
-        ClearContextIfCurrent(book.AttemptId);
+        lock (gate)
+        {
+            if (activeAuthContext?.Book.AttemptId == book.AttemptId) ResetConnectionLocked();
+            attemptBook.TryFinish(book.AttemptId, code);
+            ClearContextIfCurrent(book.AttemptId);
+        }
         if (!terminals.TryBegin(requestId)) return;
-        writer.Send(ProtocolMessages.ResultError(requestId, code, message, ProcessEpoch));
+        writer.Send(ProtocolMessages.ResultError(requestId, code, message, ProcessEpoch, book.AccountEpoch));
     }
 
     private static string MaskAccount(string name) =>
@@ -553,71 +635,101 @@ internal sealed partial class SteamSession : IAsyncDisposable
 
     // ---- 连接与登录 ----
 
-    private void EnsureSession()
+    // Called only under gate. Old callbacks/pumps retain their own source and cannot
+    // satisfy a new connection's waiter, even when SteamKit delivers a late LoggedOn.
+    private void ResetConnectionLocked()
     {
-        if (client != null) return;
-        var configuration = SteamConfiguration.Create(b => b.WithHttpClientFactory(_ => new HttpClient(
-            new SocketsHttpHandler
-            {
-                PooledConnectionLifetime = TimeSpan.FromMinutes(10),
-                ConnectTimeout = TimeSpan.FromSeconds(20),
-            })
+        connectionGeneration++;
+        lock (downloadGate)
         {
-            Timeout = Timeout.InfiniteTimeSpan,
-        }));
-        client = new SteamClient(configuration);
-        callbacks = new CallbackManager(client);
-        user = client.GetHandler<SteamUser>()!;
-        publishedFiles = client.GetHandler<SteamUnifiedMessages>()!.CreateService<PublishedFile>();
-        apps = client.GetHandler<SteamApps>()!;
-        content = client.GetHandler<SteamContent>()!;
-        callbacks.Subscribe<SteamClient.ConnectedCallback>(OnConnected);
-        callbacks.Subscribe<SteamClient.DisconnectedCallback>(OnDisconnected);
-        callbacks.Subscribe<SteamUser.LoggedOnCallback>(OnLoggedOn);
-        callbackLoop = PumpAsync();
+            foreach (var download in activeDownloads.Values) download.Cancellation.Cancel();
+        }
+        var oldClient = client;
+        client = null;
+        isLoggedIn = false;
+        isAnonymous = false;
+        steamId = "";
+        accountName = "";
+        completedAuthAttemptId = null;
+        connectedSource?.TrySetException(new IOException("Steam connection replaced."));
+        loggedOnSource?.TrySetException(new IOException("Steam connection replaced."));
+        connectedSource = null;
+        loggedOnSource = null;
+        var oldLifetime = lifetime;
+        lifetime = null;
+        try { oldLifetime?.Cancel(); } catch (ObjectDisposedException) { }
+        try { oldClient?.Disconnect(); } catch { }
+    }
+
+    private SteamClient EnsureSession()
+    {
+        lock (gate)
+        {
+            if (client != null) return client;
+            var configuration = SteamConfiguration.Create(b => b.WithHttpClientFactory(_ => new HttpClient(
+                new SocketsHttpHandler
+                {
+                    PooledConnectionLifetime = TimeSpan.FromMinutes(10),
+                    ConnectTimeout = TimeSpan.FromSeconds(20),
+                }) { Timeout = Timeout.InfiniteTimeSpan }));
+            var source = new SteamClient(configuration);
+            var manager = new CallbackManager(source);
+            var cancellation = new CancellationTokenSource();
+            client = source;
+            lifetime = cancellation;
+            user = source.GetHandler<SteamUser>()!;
+            publishedFiles = source.GetHandler<SteamUnifiedMessages>()!.CreateService<PublishedFile>();
+            apps = source.GetHandler<SteamApps>()!;
+            content = source.GetHandler<SteamContent>()!;
+            manager.Subscribe<SteamClient.ConnectedCallback>(_ =>
+            {
+                lock (gate) { if (ReferenceEquals(client, source)) connectedSource?.TrySetResult(true); }
+            });
+            manager.Subscribe<SteamClient.DisconnectedCallback>(_ => ConnectionLost(source));
+            manager.Subscribe<SteamUser.LoggedOnCallback>(result =>
+            {
+                lock (gate) { if (ReferenceEquals(client, source)) loggedOnSource?.TrySetResult(result); }
+            });
+            manager.Subscribe<SteamUser.LoggedOffCallback>(_ => ConnectionLost(source));
+            callbackLoop = PumpAsync(source, manager, cancellation);
+            return source;
+        }
     }
 
     private async Task EnsureConnectedAsync(CancellationToken ct)
     {
-        EnsureSession();
-        if (client!.IsConnected) return;
-        // 单飞连接：并发查询共享一次连接建立，避免互踩 Disconnect。
         await connectGate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (client.IsConnected) return;
-            Exception? lastError = null;
-            for (var attempt = 1; attempt <= 3; attempt++)
+            ct.ThrowIfCancellationRequested();
+            var source = EnsureSession();
+            Task<bool> connected;
+            lock (gate)
             {
                 ct.ThrowIfCancellationRequested();
-                connectedSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-                client.Connect();
-                try
-                {
-                    await connectedSource.Task
-                        .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.ConnectTimeoutSeconds), ct)
-                        .ConfigureAwait(false);
-                    return;
-                }
-                catch (Exception error) when (error is not OperationCanceledException || !ct.IsCancellationRequested)
-                {
-                    lastError = error;
-                    try { client.Disconnect(); } catch { }
-                    if (attempt < 3)
-                    {
-                        await Task.Delay(500 * attempt, ct).ConfigureAwait(false);
-                    }
-                }
+                if (!ReferenceEquals(client, source)) throw new IOException("Steam connection replaced.");
+                if (source.IsConnected) return;
+                connectedSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                connected = connectedSource.Task;
+                source.Connect();
             }
-            throw new IOException($"Steam connect failed: {lastError?.Message}");
+            // One bounded connect per request. Failed sources are retired, never reused
+            // for an uncorrelated second connect/logon attempt.
+            try
+            {
+                await connected.WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.ConnectTimeoutSeconds), ct)
+                    .ConfigureAwait(false);
+            }
+            catch
+            {
+                lock (gate) { if (ReferenceEquals(client, source)) ResetConnectionLocked(); }
+                throw;
+            }
         }
-        finally
-        {
-            connectGate.Release();
-        }
+        finally { connectGate.Release(); }
     }
 
-    private async Task LogOnWithTokenAsync(string accountNameIn, string token, CancellationToken ct)
+    private async Task LogOnWithTokenAsync(AuthAttemptBook.Attempt book, string accountNameIn, string token, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(token))
         {
@@ -629,33 +741,34 @@ internal sealed partial class SteamSession : IAsyncDisposable
         await sessionGate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (isAnonymous)
+            lock (gate)
             {
-                // 恢复 SK2.1 不变量：令牌登录在新连接上进行。断开匿名会话后重连，
-                // 在飞的匿名查询按 typed network 失败一次，属用户发起登录的有界代价。
-                EnsureSession();
-                await connectGate.WaitAsync(ct).ConfigureAwait(false);
-                try
-                {
-                    isAnonymous = false;
-                    isLoggedIn = false;
-                    try { client!.Disconnect(); } catch { }
-                }
-                finally
-                {
-                    connectGate.Release();
-                }
-                await EnsureConnectedAsync(ct).ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+                if (!attemptBook.CanEmit(book.AttemptId)) throw new OperationCanceledException(ct);
+                // Public browsing may have logged on anonymously while waiting for QR/Guard.
+                // The token logon gets a fresh source; old LoggedOn callbacks cannot cross it.
+                if (isAnonymous || isLoggedIn) ResetConnectionLocked();
             }
-            loggedOnSource = new TaskCompletionSource<SteamUser.LoggedOnCallback>(TaskCreationOptions.RunContinuationsAsynchronously);
-            user!.LogOn(new SteamUser.LogOnDetails
+            await EnsureConnectedAsync(ct).ConfigureAwait(false);
+            SteamClient source;
+            lock (gate) { source = client ?? throw new IOException("Steam connection unavailable."); }
+            Task<SteamUser.LoggedOnCallback> logon;
+            lock (gate)
             {
-                Username = accountNameIn,
-                AccessToken = token,
-                ShouldRememberPassword = true,
-                LoginID = (uint)Random.Shared.Next(1, int.MaxValue),
-            });
-            var result = await loggedOnSource.Task
+                ct.ThrowIfCancellationRequested();
+                if (!attemptBook.CanEmit(book.AttemptId)) throw new OperationCanceledException(ct);
+                if (!ReferenceEquals(client, source)) throw new IOException("Steam connection replaced.");
+                loggedOnSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                logon = loggedOnSource.Task;
+                source.GetHandler<SteamUser>()!.LogOn(new SteamUser.LogOnDetails
+                {
+                    Username = accountNameIn,
+                    AccessToken = token,
+                    ShouldRememberPassword = true,
+                    LoginID = (uint)Random.Shared.Next(1, int.MaxValue),
+                });
+            }
+            var result = await logon
                 .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.RequestTimeoutSeconds), ct)
                 .ConfigureAwait(false);
             if (result.Result != EResult.OK)
@@ -663,18 +776,23 @@ internal sealed partial class SteamSession : IAsyncDisposable
                 // 明确拒绝（过期/撤销/无效/账号不存在）与瞬态失败分开表述：
                 // App 侧只对 rejected 删令牌，瞬态失败保留令牌下次再试（§3.3）。
                 if (result.Result is EResult.InvalidPassword or EResult.Expired or EResult.Revoked
-                    or EResult.AccountNotFound or EResult.AccountLoginDeniedThrottle)
+                    or EResult.AccountNotFound)
                 {
                     throw new IOException($"token logon rejected: {result.Result}");
                 }
                 throw new IOException($"token logon failed: {result.Result}");
             }
-            accountName = accountNameIn;
-            steamId = result.ClientSteamID?.ConvertToUInt64().ToString() ?? "";
-            isLoggedIn = true;
-            if (steamId.Length == 0)
+            lock (gate)
             {
-                throw new IOException("logged on without a resolvable SteamID.");
+                ct.ThrowIfCancellationRequested();
+                if (!attemptBook.CanEmit(book.AttemptId)) throw new OperationCanceledException(ct);
+                if (!ReferenceEquals(client, source)) throw new IOException("Steam connection replaced.");
+                var resolvedId = result.ClientSteamID?.ConvertToUInt64().ToString() ?? "";
+                if (resolvedId.Length == 0)
+                    throw new IOException("logged on without a resolvable SteamID.");
+                accountName = accountNameIn;
+                steamId = resolvedId;
+                isLoggedIn = true;
             }
         }
         finally
@@ -686,76 +804,83 @@ internal sealed partial class SteamSession : IAsyncDisposable
     /// 查询会话保证：已连接 +（未登录时）匿名会话；单飞串行化，幂等。
     private async Task EnsureQuerySessionAsync(CancellationToken ct)
     {
-        EnsureSession();
-        if (client!.IsConnected && (isLoggedIn || isAnonymous)) return;
         await sessionGate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (client.IsConnected && (isLoggedIn || isAnonymous)) return;
-            await EnsureConnectedAsync(ct).ConfigureAwait(false);
-            if (isLoggedIn || isAnonymous) return;
-            loggedOnSource = new TaskCompletionSource<SteamUser.LoggedOnCallback>(TaskCreationOptions.RunContinuationsAsynchronously);
-            user!.LogOnAnonymous();
-            var result = await loggedOnSource.Task
-                .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.LogOnTimeoutSeconds), ct)
-                .ConfigureAwait(false);
-            if (result.Result != EResult.OK)
+            lock (gate)
             {
-                throw new IOException($"anonymous logon failed: {result.Result}");
+                if (client is { IsConnected: true } && (isLoggedIn || isAnonymous)) return;
             }
-            isAnonymous = true;
+            await EnsureConnectedAsync(ct).ConfigureAwait(false);
+            SteamClient source;
+            Task<SteamUser.LoggedOnCallback> logon;
+            lock (gate)
+            {
+                ct.ThrowIfCancellationRequested();
+                source = client ?? throw new IOException("Steam connection unavailable.");
+                if (isLoggedIn || isAnonymous) return;
+                loggedOnSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                logon = loggedOnSource.Task;
+                source.GetHandler<SteamUser>()!.LogOnAnonymous();
+            }
+            try
+            {
+                var result = await logon.WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.LogOnTimeoutSeconds), ct)
+                    .ConfigureAwait(false);
+                lock (gate)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (!ReferenceEquals(client, source)) throw new IOException("Steam connection replaced.");
+                    if (result.Result != EResult.OK) throw new IOException($"anonymous logon failed: {result.Result}");
+                    isAnonymous = true;
+                }
+            }
+            catch
+            {
+                lock (gate) { if (ReferenceEquals(client, source)) ResetConnectionLocked(); }
+                throw;
+            }
         }
-        finally
-        {
-            sessionGate.Release();
-        }
+        finally { sessionGate.Release(); }
     }
 
-    private async Task PumpAsync()
+    private async Task PumpAsync(SteamClient source, CallbackManager manager, CancellationTokenSource cancellation)
     {
         try
         {
-            while (!lifetime!.IsCancellationRequested)
-            {
-                await callbacks!.RunWaitCallbackAsync(lifetime.Token).ConfigureAwait(false);
-            }
+            while (!cancellation.IsCancellationRequested)
+                await manager.RunWaitCallbackAsync(cancellation.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { }
-        catch (Exception error)
+        catch (Exception)
         {
-            writer.SendDiagnostic($"steam callback pump stopped: {error.Message}");
+            writer.SendDiagnostic("steam callback pump stopped");
+            ConnectionLost(source);
+        }
+        finally { cancellation.Dispose(); }
+    }
+
+    private void ConnectionLost(SteamClient source)
+    {
+        lock (gate)
+        {
+            if (!ReferenceEquals(client, source)) return;
+            CancelAuthentication(null);
+            ResetConnectionLocked();
+            writer.Send(new { v = ProtocolLimits.Version, type = "event", @event = "accountState",
+                processEpoch = ProcessEpoch, accountEpoch, state = "disconnected" });
         }
     }
-
-    private void OnConnected(SteamClient.ConnectedCallback callback) => connectedSource?.TrySetResult(true);
-
-    private void OnDisconnected(SteamClient.DisconnectedCallback callback)
-    {
-        // 断开后任何会话（登录/匿名）都不再有效：必须清标志，否则查询路径重连后
-        // 会因陈旧标志跳过重新登录，统一消息作业永远失败且无法自愈。
-        isLoggedIn = false;
-        isAnonymous = false;
-        connectedSource?.TrySetException(new IOException("Steam connection closed."));
-    }
-
-    private void OnLoggedOn(SteamUser.LoggedOnCallback callback) => loggedOnSource?.TrySetResult(callback);
 
     public async ValueTask DisposeAsync()
     {
-        CancelAuthentication(null);
-        if (client is { IsConnected: true })
+        Task? pump;
+        lock (gate)
         {
-            if (isLoggedIn)
-            {
-                try { user!.LogOff(); } catch { }
-            }
-            client.Disconnect();
+            CancelAuthentication(null);
+            ResetConnectionLocked();
+            pump = callbackLoop;
         }
-        lifetime?.Cancel();
-        if (callbackLoop != null)
-        {
-            try { await callbackLoop.ConfigureAwait(false); } catch { }
-        }
-        lifetime?.Dispose();
+        if (pump != null) { try { await pump.ConfigureAwait(false); } catch { } }
     }
 }

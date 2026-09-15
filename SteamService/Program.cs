@@ -36,13 +36,18 @@ internal static class Program
         }
         if (args.Length > 0 && args[0] == "selftest")
         {
+            if (args.Length > 1 && args[1] == "query") return SteamSession.RunQuerySelfTest();
+            if (args.Length > 1 && args[1] == "download") return DownloadSelfTest.Run();
+            if (args.Length > 1 && args[1] == "staging") return WorkshopStagingSelfTest.Run();
+            if (args.Length > 1 && args[1] == "manifest") return WorkshopManifestSelfTest.Run();
             if (args.Length > 1 && args[1] == "auth")
             {
                 return AuthSelfTest.Run();
             }
             return await ProtocolSelfTest.RunAsync(args.Length > 2 ? args[2..] : []).ConfigureAwait(false);
         }
-        return await RunServiceAsync().ConfigureAwait(false);
+        try { return await RunServiceAsync().ConfigureAwait(false); }
+        finally { await steamSession.DisposeAsync().ConfigureAwait(false); }
     }
 
     // §6 服务循环：有界帧读取 → envelope 解码 → 命令 dispatch 分离。
@@ -99,9 +104,32 @@ internal static class Program
             if (decode.Type != "request") continue;
 
             var requestId = decode.RequestId!;
+            var admission = terminals.TryAccept(requestId, ProtocolLimits.IsControlCommand(decode.Command!));
+            if (admission == TerminalTracker.Admission.Duplicate) continue;
+            if (admission == TerminalTracker.Admission.AtCapacity)
+            {
+                if (terminals.TryBegin(requestId))
+                    writer.Send(ProtocolMessages.ResultError(requestId, "rateLimited", "request capacity exceeded", 1));
+                continue;
+            }
+            if (decode.Command is "loginPassword" or "loginQR" or "restoreSession" or "logout")
+            {
+                if (decode.AccountEpoch is not { } epoch || !steamSession.AdvanceAccountEpoch(epoch))
+                {
+                    if (terminals.TryBegin(requestId))
+                        writer.Send(ProtocolMessages.ResultError(requestId, "cancelled", "stale account epoch", 1));
+                    continue;
+                }
+            }
             if (AsyncCommands.Contains(decode.Command!))
             {
-                DispatchAuthCommand(decode, requestId);
+                try { DispatchAuthCommand(decode, requestId); }
+                catch (ArgumentException error)
+                {
+                    if (terminals.TryBegin(requestId))
+                        writer.Send(ProtocolMessages.ResultError(requestId, "protocolMismatch",
+                            ProtocolRedactor.Redact(error.Message), 1));
+                }
                 continue;
             }
             if (!terminals.TryBegin(requestId))
@@ -135,7 +163,8 @@ internal static class Program
                 }
                 case "cancelAuthentication":
                 {
-                    var cancelled = steamSession.CancelAuthentication(decode.AuthAttemptId);
+                    var cancelled = decode.AuthAttemptId is { Length: > 0 } attemptId
+                        && steamSession.CancelAuthentication(attemptId);
                     writer.Send(ProtocolMessages.ResultOk(requestId, new { cancelled }, 1));
                     break;
                 }
@@ -160,28 +189,30 @@ internal static class Program
                 var password = decode.PrivateString("password");
                 if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
                 {
+                    if (!terminals.TryBegin(requestId)) return;
                     writer.Send(ProtocolMessages.ResultError(
                         requestId, "protocolMismatch",
                         "loginPassword requires payload.username and private.password", 1));
                     return;
                 }
-                steamSession.BeginLoginPassword(requestId, username, password);
+                steamSession.BeginLoginPassword(requestId, username, password, decode.AuthAttemptId);
                 return;
             }
             case "loginQR":
-                steamSession.BeginLoginQR(requestId);
+                steamSession.BeginLoginQR(requestId, decode.AuthAttemptId);
                 return;
             case "restoreSession":
             {
                 var token = decode.PrivateString("refreshToken");
                 if (string.IsNullOrEmpty(token))
                 {
+                    if (!terminals.TryBegin(requestId)) return;
                     writer.Send(ProtocolMessages.ResultError(
                         requestId, "protocolMismatch",
                         "restoreSession requires private.refreshToken", 1));
                     return;
                 }
-                steamSession.BeginRestore(requestId, token, decode.PayloadString("accountName"));
+                steamSession.BeginRestore(requestId, token, decode.PayloadString("accountName"), decode.AuthAttemptId);
                 return;
             }
             case "queryBrowse":
@@ -197,6 +228,7 @@ internal static class Program
                 var ids = decode.PayloadULongArray("ids");
                 if (ids.Length == 0)
                 {
+                    if (!terminals.TryBegin(requestId)) return;
                     writer.Send(ProtocolMessages.ResultError(
                         requestId, "protocolMismatch", "queryDetails requires payload.ids", 1));
                     return;
@@ -209,6 +241,7 @@ internal static class Program
                 var creator = decode.PayloadString("creatorSteamId");
                 if (creator == null || !ulong.TryParse(creator, out var creatorId) || creatorId == 0)
                 {
+                    if (!terminals.TryBegin(requestId)) return;
                     writer.Send(ProtocolMessages.ResultError(
                         requestId, "protocolMismatch", "queryAuthor requires payload.creatorSteamId", 1));
                     return;
@@ -223,12 +256,13 @@ internal static class Program
                 if (workshopId == null || !ulong.TryParse(workshopId, out var subscribeId)
                     || (desiredState != "subscribe" && desiredState != "unsubscribe"))
                 {
+                    if (!terminals.TryBegin(requestId)) return;
                     writer.Send(ProtocolMessages.ResultError(
                         requestId, "protocolMismatch",
                         "setSubscription requires payload.workshopId and payload.desiredState=subscribe|unsubscribe", 1));
                     return;
                 }
-                steamSession.BeginSetSubscription(requestId, subscribeId, desiredState == "subscribe");
+                steamSession.BeginSetSubscription(requestId, subscribeId, desiredState == "subscribe", decode.AccountEpoch);
                 return;
             }
             case "startDownload":
@@ -247,7 +281,7 @@ internal static class Program
                         "startDownload requires payload.workshopId, envelope jobId and payload.stagingRoot", 1));
                     return;
                 }
-                steamSession.BeginStartDownload(requestId, jobId, downloadId, stagingRoot);
+                steamSession.BeginStartDownload(requestId, jobId, downloadId, stagingRoot, decode.AccountEpoch);
                 return;
             }
             case "cancelDownload":
@@ -260,21 +294,22 @@ internal static class Program
                 return;
             }
             case "listSubscriptions":
-                steamSession.BeginListSubscriptions(requestId, decode.PayloadUInt("page") ?? 1);
+                steamSession.BeginListSubscriptions(requestId, decode.PayloadUInt("page") ?? 1, decode.AccountEpoch);
                 return;
             case "listFavorites":
-                steamSession.BeginListFavorites(requestId, decode.PayloadUInt("page") ?? 1);
+                steamSession.BeginListFavorites(requestId, decode.PayloadUInt("page") ?? 1, decode.AccountEpoch);
                 return;
             case "querySubscriptionStates":
             {
                 var ids = decode.PayloadULongArray("ids");
                 if (ids.Length == 0)
                 {
+                    if (!terminals.TryBegin(requestId)) return;
                     writer.Send(ProtocolMessages.ResultError(
                         requestId, "protocolMismatch", "querySubscriptionStates requires payload.ids", 1));
                     return;
                 }
-                steamSession.BeginQuerySubscriptionStates(requestId, ids);
+                steamSession.BeginQuerySubscriptionStates(requestId, ids, decode.AccountEpoch);
                 return;
             }
         }

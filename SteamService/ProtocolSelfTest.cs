@@ -104,6 +104,25 @@ internal static class ProtocolSelfTest
         // 8. TerminalTracker 去重。
         var tracker = new TerminalTracker();
         Check("terminal-tracker-dedups", tracker.TryBegin("r1") && !tracker.TryBegin("r1") && tracker.TryBegin("r2"));
+        var admissionTracker = new TerminalTracker();
+        Check("duplicate-rejected-before-execution",
+            admissionTracker.TryAccept("write") == TerminalTracker.Admission.Accepted
+            && admissionTracker.TryAccept("write") == TerminalTracker.Admission.Duplicate
+            && admissionTracker.TryBegin("write")
+            && admissionTracker.TryAccept("write") == TerminalTracker.Admission.Duplicate);
+        for (var index = 0; index < ProtocolLimits.MaxPendingRequests; index++)
+            admissionTracker.TryAccept($"queued-{index}");
+        Check("pending-admission-bounded",
+            admissionTracker.TryAccept("overflow") == TerminalTracker.Admission.AtCapacity);
+        Check("control-admission-remains-available",
+            admissionTracker.TryAccept("cancel", control: true) == TerminalTracker.Admission.Accepted);
+        admissionTracker.TryBegin("cancel");
+        admissionTracker.TryBegin("queued-0");
+        Check("terminal-releases-admission",
+            admissionTracker.TryAccept("next") == TerminalTracker.Admission.Accepted);
+        Check("numeric-version-rejected-without-throwing",
+            !ProtocolDecode.Parse("{\"v\":1.5,\"type\":\"ready\"}").Ok
+            && !ProtocolDecode.Parse("{\"v\":9999999999999999999999,\"type\":\"ready\"}").Ok);
 
         // 9. 日志泄密反例：哨兵值取自 golden private 包装；红actor 抹掉后不得回显。
         var loginResult = responses.Single(line => line.Contains("\"private\""));

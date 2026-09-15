@@ -16,6 +16,9 @@ internal static class ProtocolLimits
     public const uint AppId = 431960;
     public const int MaxFrameBytes = 1 * 1024 * 1024;
     public const int MaxPendingRequests = 256;
+    public const int ReservedControlRequests = 8;
+    public static bool IsControlCommand(string command) => command is
+        "shutdown" or "logout" or "cancelAuthentication" or "cancelDownload" or "submitChallenge";
     public const int RequestTimeoutSeconds = 30;
     public const int ConnectTimeoutSeconds = 12;
     public const int QueryTimeoutSeconds = 15;
@@ -73,22 +76,24 @@ internal static class ProtocolMessages
     public static string HelperVersion =>
         typeof(ProtocolMessages).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 
-    public static object ResultOk(string requestId, object? data, int processEpoch) => new
+    public static object ResultOk(string requestId, object? data, int processEpoch, long? accountEpoch = null) => new
     {
         v = ProtocolLimits.Version,
         type = "result",
         requestId,
         processEpoch,
+        accountEpoch,
         ok = true,
         data,
     };
 
-    public static object ResultError(string requestId, string code, string message, int processEpoch) => new
+    public static object ResultError(string requestId, string code, string message, int processEpoch, long? accountEpoch = null) => new
     {
         v = ProtocolLimits.Version,
         type = "result",
         requestId,
         processEpoch,
+        accountEpoch,
         ok = false,
         error = new { code, message },
     };
@@ -128,6 +133,10 @@ internal sealed class ProtocolDecode
     public string? EventName { get; private init; }
     public string? AuthAttemptId { get; private init; }
     public JsonElement Root { get; private init; }
+
+    public long? AccountEpoch => Root.TryGetProperty("accountEpoch", out var value)
+        && value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var epoch) && epoch >= 0
+        ? epoch : null;
 
     public JsonElement? Payload => Root.TryGetProperty("payload", out var payload) ? payload : null;
 
@@ -190,7 +199,8 @@ internal sealed class ProtocolDecode
         {
             return Fail("protocolMismatch", "frame is not a json object");
         }
-        if (!root.TryGetProperty("v", out var version) || version.ValueKind != JsonValueKind.Number || version.GetInt32() != ProtocolLimits.Version)
+        if (!root.TryGetProperty("v", out var version) || version.ValueKind != JsonValueKind.Number
+            || !version.TryGetInt32(out var versionNumber) || versionNumber != ProtocolLimits.Version)
         {
             return Fail("protocolMismatch", "unsupported protocol version");
         }
@@ -263,13 +273,39 @@ internal sealed class ProtocolDecode
 // terminal 去重：每个 requestId 只允许一个 result；重复发送被拦截而非双发。
 internal sealed class TerminalTracker
 {
+    internal enum Admission { Accepted, Duplicate, AtCapacity }
+    private readonly object gate = new();
+    private readonly HashSet<string> pending = new();
     private readonly ConcurrentDictionary<string, byte> terminals = new();
 
-    public bool TryBegin(string requestId) => terminals.TryAdd(requestId, 0);
+    // Reserve before dispatch, not after a remote side effect has completed.
+    public Admission TryAccept(string requestId, bool control = false)
+    {
+        lock (gate)
+        {
+            if (pending.Contains(requestId) || terminals.ContainsKey(requestId)) return Admission.Duplicate;
+            var limit = ProtocolLimits.MaxPendingRequests + (control ? ProtocolLimits.ReservedControlRequests : 0);
+            if (pending.Count >= limit) return Admission.AtCapacity;
+            pending.Add(requestId);
+            return Admission.Accepted;
+        }
+    }
+
+    public bool TryBegin(string requestId)
+    {
+        lock (gate)
+        {
+            pending.Remove(requestId);
+            return terminals.TryAdd(requestId, 0);
+        }
+    }
 
     public bool IsTerminal(string requestId) => terminals.ContainsKey(requestId);
 
-    public void Reset() => terminals.Clear();
+    public void Reset()
+    {
+        lock (gate) { pending.Clear(); terminals.Clear(); }
+    }
 }
 
 // 进度序号：发送侧保证每 requestId 单调；接收侧容忍乱序，terminal 一到即封口。

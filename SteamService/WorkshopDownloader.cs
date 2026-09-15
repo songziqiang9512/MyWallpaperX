@@ -1,4 +1,7 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
+using System.Buffers.Binary;
 using SteamKit2;
 using SteamKit2.CDN;
 using SteamKit2.Internal;
@@ -25,7 +28,6 @@ internal sealed partial class SteamSession
     private const int MaxStagedFiles = 200_000;
     /// Steam CDN 实际 chunk ≤1 MiB；这是恶意/异常 manifest 的 OOM 围栏（§3 硬拒绝最小 unsafe unit）。
     private const long MaxChunkBytes = 64L * 1024 * 1024;
-    private static readonly TimeSpan ProgressCoalesceInterval = TimeSpan.FromMilliseconds(250);
 
     /// SK4.2 依赖的会话处理器；EnsureSession 统一创建（SteamSession partial 共享）。
     private SteamApps apps = null!;
@@ -41,34 +43,48 @@ internal sealed partial class SteamSession
         public required string StagingRoot;
         public required ulong PublishedFileId;
         public required CancellationTokenSource Cancellation;
-        public int Sequence;
-        public long LastProgressTick;
+        public required AccountLease Account;
+        public required SteamClient Source;
+        public readonly DownloadProgressState Progress = new();
+        public bool TerminalDecided; // guarded by downloadGate, shared with cancellation acceptance
     }
 
-    public void BeginStartDownload(string requestId, string jobId, ulong publishedFileId, string stagingRoot)
+    public void BeginStartDownload(string requestId, string jobId, ulong publishedFileId, string stagingRoot, long? requestedEpoch)
     {
         ActiveDownload context;
-        lock (downloadGate)
+        lock (gate)
         {
-            if (activeDownloads.Values.Any(d => d.JobId == jobId))
+            AccountLease lease;
+            try { lease = CaptureAccountLocked(requestedEpoch); }
+            catch (AccountChangedException)
             {
-                EmitQueryFailure(requestId, "unsupportedQuery", "jobId already downloading");
+                EmitQueryFailure(requestId, "accessDenied", "download requires current account", requestedEpoch);
                 return;
             }
-            if (string.IsNullOrWhiteSpace(stagingRoot) || !Path.IsPathRooted(stagingRoot))
+            lock (downloadGate)
             {
-                EmitQueryFailure(requestId, "protocolMismatch", "stagingRoot must be an absolute path");
-                return;
+                if (activeDownloads.Count >= 1)
+                {
+                    EmitQueryFailure(requestId, "rateLimited", "previous download is still draining", requestedEpoch);
+                    return;
+                }
+                if (string.IsNullOrWhiteSpace(stagingRoot) || !Path.IsPathRooted(stagingRoot))
+                {
+                    EmitQueryFailure(requestId, "protocolMismatch", "stagingRoot must be an absolute path");
+                    return;
+                }
+                context = new ActiveDownload
+                {
+                    JobId = jobId,
+                    RequestId = requestId,
+                    StagingRoot = stagingRoot,
+                    PublishedFileId = publishedFileId,
+                    Cancellation = new CancellationTokenSource(),
+                    Account = lease,
+                    Source = client!,
+                };
+                activeDownloads.Add(jobId, context);
             }
-            context = new ActiveDownload
-            {
-                JobId = jobId,
-                RequestId = requestId,
-                StagingRoot = stagingRoot,
-                PublishedFileId = publishedFileId,
-                Cancellation = new CancellationTokenSource(),
-            };
-            activeDownloads.Add(jobId, context);
         }
 
         var cancellation = context.Cancellation;
@@ -77,35 +93,34 @@ internal sealed partial class SteamSession
             try
             {
                 EmitDownloadProgress(context, "resolving");
-                await EnsureQuerySessionAsync(cancellation.Token).ConfigureAwait(false);
+                lock (gate) ValidateAccountLocked(context.Account);
+                cancellation.Token.ThrowIfCancellationRequested();
 
-                var detail = await GetDetailsInternalAsync(publishedFileId, cancellation.Token)
+                var detail = await GetDetailsInternalAsync(context.Source, publishedFileId, cancellation.Token)
                     .ConfigureAwait(false);
                 if (detail.result != (uint)EResult.OK)
                 {
-                    throw new IOException($"GetDetails failed: {(EResult)detail.result}");
+                    throw SteamRequestFailure.FromResult((EResult)detail.result);
                 }
                 if (detail.consumer_appid != ProtocolLimits.AppId)
                 {
-                    EmitQueryFailure(requestId, "unsupportedContent", "item does not belong to Wallpaper Engine");
-                    return;
+                    throw new SteamRequestFailure("unsupportedContent", "item does not belong to Wallpaper Engine");
                 }
                 if (detail.hcontent_file == 0)
                 {
-                    EmitQueryFailure(requestId, "unsupportedContent", "item has no content manifest");
-                    return;
+                    throw new SteamRequestFailure("unsupportedContent", "item has no content manifest");
                 }
 
-                var depotId = await GetWorkshopDepotIdInternalAsync(cancellation.Token).ConfigureAwait(false);
-                var depotKey = await GetDepotDecryptionKeyInternalAsync(depotId, cancellation.Token)
+                var depotId = await GetWorkshopDepotIdInternalAsync(context.Source, cancellation.Token).ConfigureAwait(false);
+                var depotKey = await GetDepotDecryptionKeyInternalAsync(context.Source, depotId, cancellation.Token)
                     .ConfigureAwait(false);
-                var requestCode = await GetManifestRequestCodeInternalAsync(depotId, detail.hcontent_file, cancellation.Token)
+                var requestCode = await GetManifestRequestCodeInternalAsync(context.Source, depotId, detail.hcontent_file, cancellation.Token)
                     .ConfigureAwait(false);
-                var server = await GetContentServerInternalAsync(cancellation.Token).ConfigureAwait(false);
+                var server = await GetContentServerInternalAsync(context.Source, cancellation.Token).ConfigureAwait(false);
 
                 EmitDownloadProgress(context, "manifest");
                 DepotManifest manifest;
-                using (var manifestCdnClient = new SteamKit2.CDN.Client(client))
+                using (var manifestCdnClient = new SteamKit2.CDN.Client(context.Source))
                 {
                     manifest = await manifestCdnClient
                         .DownloadManifestAsync(depotId, detail.hcontent_file, requestCode, server, depotKey)
@@ -113,112 +128,63 @@ internal sealed partial class SteamSession
                         .ConfigureAwait(false);
                 }
 
-                var files = manifest.Files ?? throw new IOException("manifest has no file list.");
-                if (files.Count == 0 || files.Count > MaxStagedFiles)
-                {
-                    throw new IOException($"manifest file count {files.Count} out of budget.");
-                }
+                var files = manifest.Files ?? throw new InvalidDataException("manifest has no file list.");
+                var admitted = WorkshopManifestValidation.Validate(files,
+                    MaxStagedBytes, MaxStagedFiles, MaxChunkBytes, cancellation.Token);
+                var manifestTotalBytes = admitted.Bytes;
+                var totalChunks = admitted.Chunks;
 
-                var staging = ResolveContainedPath(stagingRoot, publishedFileId.ToString());
-                Directory.CreateDirectory(staging);
-                // §5.2 逃逸 symlink 拒绝：staging 目录本身被换成链接时拒绝写入。
-                if (File.ResolveLinkTarget(staging, returnFinalTarget: false) is not null)
-                {
-                    throw new IOException("staging path contains symlink; refusing per path contract.");
-                }
+                EmitDownloadProgress(context, "preparing", totalBytes: manifestTotalBytes, totalChunks: totalChunks);
+                using var lease = new WorkshopStagingLease(stagingRoot);
+                var staging = lease.Path;
 
-                // 先做纯校验遍历（symlink/路径围栏/逐 chunk 上限/字节预算），
-                // 全部通过后才创建和预分配任何文件——超预算内容不留半成品。
-                long manifestTotalBytes = 0;
-                int totalChunks = 0;
+                var work = new ConcurrentQueue<(DepotManifest.FileData File, DepotManifest.ChunkData Chunk, string RelativePath)>();
                 foreach (var file in files)
                 {
-                    if (file.Flags.HasFlag(EDepotFileFlag.Symlink))
-                    {
-                        throw new IOException("manifest contains symlink; refusing per path contract.");
-                    }
-                    ResolveContainedPath(staging, file.FileName);
+                    cancellation.Token.ThrowIfCancellationRequested();
                     if (file.Flags.HasFlag(EDepotFileFlag.Directory))
                     {
+                        lease.CreateDirectory(file.FileName);
                         continue;
                     }
-                    manifestTotalBytes += (long)file.TotalSize;
-                    if (manifestTotalBytes > MaxStagedBytes)
-                    {
-                        throw new IOException($"manifest total {manifestTotalBytes} bytes exceeds budget {MaxStagedBytes}.");
-                    }
+                    lease.CreateFile(file.FileName, checked((long)file.TotalSize));
                     foreach (var chunk in file.Chunks)
                     {
-                        if (chunk.UncompressedLength > MaxChunkBytes)
-                        {
-                            throw new IOException($"manifest chunk size {chunk.UncompressedLength} out of budget.");
-                        }
-                        totalChunks += 1;
-                    }
-                }
-
-                var work = new ConcurrentQueue<(DepotManifest.FileData File, DepotManifest.ChunkData Chunk, string Target)>();
-                foreach (var file in files)
-                {
-                    var target = ResolveContainedPath(staging, file.FileName);
-                    if (file.Flags.HasFlag(EDepotFileFlag.Directory))
-                    {
-                        Directory.CreateDirectory(target);
-                        continue;
-                    }
-                    var parent = Path.GetDirectoryName(target);
-                    if (!string.IsNullOrEmpty(parent)) Directory.CreateDirectory(parent);
-                    using (var resize = new FileStream(target, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite))
-                    {
-                        resize.SetLength((long)file.TotalSize);
-                    }
-                    foreach (var chunk in file.Chunks)
-                    {
-                        work.Enqueue((file, chunk, target));
+                        work.Enqueue((file, chunk, file.FileName));
                     }
                 }
 
                 var verifiedBytes = await DownloadChunksAsync(
-                    context, depotId, depotKey, server, work, totalChunks, cancellation.Token)
+                    context, lease, depotId, depotKey, server, work, totalChunks, cancellation.Token)
                     .ConfigureAwait(false);
 
                 // §5.4：取消请求后不得再以成功收口（staged 未提交，取消优先）。
                 cancellation.Token.ThrowIfCancellationRequested();
                 EmitDownloadProgress(context, "validating",
-                    totalBytes: manifestTotalBytes, verifiedBytes: verifiedBytes, totalChunks: totalChunks);
-                ValidateStagedFiles(files, staging);
+                    totalBytes: manifestTotalBytes, totalChunks: totalChunks);
+                string contentDigest;
+                try { contentDigest = ValidateStagedFiles(files, lease, cancellation.Token); }
+                catch (IOException error) { throw WorkshopStagingLease.ClassifyIO(error); }
 
-                var projectJsonPath = Path.Combine(staging, "project.json");
-                var projectJsonPresent = File.Exists(projectJsonPath);
-                if (terminals.TryBegin(requestId))
+                lease.VerifyPublicationPath();
+                var projectJsonPresent = true; // root project.json was admitted and verified via its descriptor
+                FinishDownloadSuccess(context, new
                 {
-                    writer.Send(ProtocolMessages.ResultOk(requestId, new
-                    {
-                        jobId = jobId,
-                        stagedComplete = true,
-                        workshopId = publishedFileId.ToString(),
-                        manifestId = detail.hcontent_file.ToString(),
-                        stagingPath = staging,
-                        verifiedBytes = verifiedBytes,
-                        totalBytes = manifestTotalBytes,
-                        projectJsonPresent,
-                    }, ProcessEpoch));
-                }
+                    receiptVersion = 2, contentDigest,
+                    accountSteamId = context.Account.SteamId.ToString(),
+                    jobId, stagedComplete = true, workshopId = publishedFileId.ToString(),
+                    manifestId = detail.hcontent_file.ToString(), stagingPath = staging,
+                    verifiedBytes, totalBytes = manifestTotalBytes, projectJsonPresent,
+                });
             }
-            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+            catch (Exception error) when (error is AccountChangedException ||
+                                          error is OperationCanceledException && cancellation.IsCancellationRequested)
             {
-                if (terminals.TryBegin(requestId))
-                {
-                    writer.Send(ProtocolMessages.ResultError(requestId, "cancelled", "download cancelled", ProcessEpoch));
-                }
+                FinishSteamRequestFailure(context, "cancelled", "download cancelled");
             }
             catch (Exception error)
             {
-                if (terminals.TryBegin(requestId))
-                {
-                    writer.Send(ProtocolMessages.ResultError(
-                        requestId, ClassifyDownloadError(error), ProtocolRedactor.Redact(error.Message), ProcessEpoch));
-                }
+                FinishSteamRequestFailure(context, ClassifyDownloadError(error), ProtocolRedactor.Redact(error.Message));
             }
             finally
             {
@@ -235,113 +201,96 @@ internal sealed partial class SteamSession
     {
         lock (downloadGate)
         {
-            if (!activeDownloads.TryGetValue(jobId, out var context)) return false;
+            if (!activeDownloads.TryGetValue(jobId, out var context) || context.TerminalDecided) return false;
             context.Cancellation.Cancel();
             return true;
         }
     }
 
-    private void EmitDownloadProgress(
-        ActiveDownload context, string stage,
-        long? totalBytes = null, long? verifiedBytes = null, int? totalChunks = null, int? verifiedChunks = null)
+    private void FinishDownloadSuccess(ActiveDownload context, object receipt)
     {
-        // chunk worker 并发调用：sequence 必须原子递增（§6 发送侧单调）。
-        var sequence = Interlocked.Increment(ref context.Sequence);
+        lock (gate)
+        lock (downloadGate)
+        {
+            context.Cancellation.Token.ThrowIfCancellationRequested();
+            ValidateAccountLocked(context.Account);
+            context.TerminalDecided = true;
+            if (terminals.TryBegin(context.RequestId))
+                writer.Send(ProtocolMessages.ResultOk(context.RequestId, receipt, ProcessEpoch, context.Account.Epoch));
+        }
+    }
+
+    private void FinishSteamRequestFailure(ActiveDownload context, string code, string message)
+    {
+        lock (downloadGate)
+        {
+            // An accepted cancel wins until the terminal decision. Success uses the same lock.
+            if (context.Cancellation.IsCancellationRequested) { code = "cancelled"; message = "download cancelled"; }
+            context.TerminalDecided = true;
+            if (terminals.TryBegin(context.RequestId))
+                writer.Send(ProtocolMessages.ResultError(context.RequestId, code, message, ProcessEpoch, context.Account.Epoch));
+        }
+    }
+
+    private void EmitDownloadProgress(ActiveDownload context, string stage,
+        long? totalBytes = null, int? totalChunks = null)
+    {
+        context.Progress.Publish(stage, totalBytes, totalChunks, update => SendDownloadProgress(context, update));
+    }
+
+    private void SendDownloadProgress(ActiveDownload context, DownloadProgressState.Snapshot update)
+    {
         writer.Send(new
         {
-            v = ProtocolLimits.Version,
-            type = "event",
-            @event = "downloadProgress",
-            requestId = context.RequestId,
-            sequence,
-            processEpoch = ProcessEpoch,
-            jobId = context.JobId,
-            stage,
-            totalBytes,
-            verifiedBytes,
-            totalChunks,
-            verifiedChunks,
+            v = ProtocolLimits.Version, type = "event", @event = "downloadProgress",
+            requestId = context.RequestId, processEpoch = ProcessEpoch, accountEpoch = context.Account.Epoch,
+            jobId = context.JobId, sequence = update.Sequence, stage = update.Stage,
+            totalBytes = update.TotalBytes, verifiedBytes = update.VerifiedBytes,
+            totalChunks = update.TotalChunks, verifiedChunks = update.VerifiedChunks,
         });
     }
 
-    /// ≤4Hz 合并的 chunk 进度；分母为未压缩总量（压缩字节不混入分母）。
-    private void EmitDownloadChunkProgress(
-        ActiveDownload context, long verifiedBytes, int verifiedChunks, int totalChunks)
+    internal static string ClassifyDownloadError(Exception error) => error switch
     {
-        var tick = Environment.TickCount64;
-        var last = Interlocked.Read(ref context.LastProgressTick);
-        if (last != 0 && tick - last < ProgressCoalesceInterval.TotalMilliseconds)
-        {
-            return;
-        }
-        // CAS 防止并发 worker 在同一窗口双发；竞争失败者直接放弃本条进度。
-        if (Interlocked.CompareExchange(ref context.LastProgressTick, tick, last) != last)
-        {
-            return;
-        }
-        EmitDownloadProgress(context, "chunks",
-            verifiedBytes: verifiedBytes, totalChunks: totalChunks, verifiedChunks: verifiedChunks);
-    }
+        SteamRequestFailure failure => failure.Code,
+        WorkshopStagingLease.Failure failure => failure.Code,
+        WorkshopManifestValidation.Rejected => "unsupportedContent",
+        InvalidDataException => "integrity",
+        UnauthorizedAccessException => "accessDenied",
+        TimeoutException or OperationCanceledException or IOException => "network",
+        _ => "unsupportedContent",
+    };
 
-    private static string ClassifyDownloadError(Exception error)
-    {
-        var message = error.Message;
-        if (message.Contains("RateLimited", StringComparison.OrdinalIgnoreCase)) return "rateLimited";
-        if (message.Contains("AccessDenied", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("decryption key denied", StringComparison.OrdinalIgnoreCase)) return "accessDenied";
-        // GetDetails 层级的失败（项目不存在/私有）属内容不可用，而非网络。
-        if (message.Contains("GetDetails failed", StringComparison.OrdinalIgnoreCase)) return "unsupportedContent";
-        // 路径围栏/预算是内容形状拒绝，不是网络失败。
-        if (message.Contains("symlink", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("escapes staging root", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("absolute path", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("budget", StringComparison.OrdinalIgnoreCase))
-        {
-            return "unsupportedContent";
-        }
-        // 损坏类：chunk 校验失败与解压失败（SteamKit 抛 InvalidDataException）。
-        if (message.Contains("chunk validation failed", StringComparison.OrdinalIgnoreCase)
-            || error is InvalidDataException)
-        {
-            return "integrity";
-        }
-        if (error is TimeoutException or OperationCanceledException) return "network";
-        if (error is IOException) return "network";
-        return "unsupportedContent";
-    }
 }
 
 // ---- 会话原语与 chunk 下载/校验（partial 续） ----
 internal sealed partial class SteamSession
 {
-    /// 跨 worker 的共享计数（字段可 Interlocked；异步方法不能带 ref）。
-    private sealed class DownloadCounters
-    {
-        public long VerifiedBytes;
-        public int DoneChunks;
-    }
-
-    private async Task<PublishedFileDetails> GetDetailsInternalAsync(ulong publishedFileId, CancellationToken ct)
+    private async Task<PublishedFileDetails> GetDetailsInternalAsync(SteamClient source, ulong publishedFileId, CancellationToken ct)
     {
         var request = new CPublishedFile_GetDetails_Request { appid = ProtocolLimits.AppId };
         request.publishedfileids.Add(publishedFileId);
-        var response = await publishedFiles.GetDetails(request)
+        ct.ThrowIfCancellationRequested();
+        var response = await source.GetHandler<SteamUnifiedMessages>()!.CreateService<PublishedFile>().GetDetails(request)
             .ToTask()
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
+        if (response.Result != EResult.OK) throw SteamRequestFailure.FromResult(response.Result);
         return response.Body.publishedfiledetails.FirstOrDefault(item => item.publishedfileid == publishedFileId)
-            ?? throw new IOException("GetDetails returned no entry.");
+            ?? throw new SteamRequestFailure("unsupportedContent", "GetDetails returned no entry.");
     }
 
-    private async Task<uint> GetWorkshopDepotIdInternalAsync(CancellationToken ct)
+    private async Task<uint> GetWorkshopDepotIdInternalAsync(SteamClient source, CancellationToken ct)
     {
-        var tokens = await apps.PICSGetAccessTokens([ProtocolLimits.AppId], [])
+        ct.ThrowIfCancellationRequested();
+        var tokens = await source.GetHandler<SteamApps>()!.PICSGetAccessTokens([ProtocolLimits.AppId], [])
             .ToTask()
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
         var request = new SteamApps.PICSRequest(ProtocolLimits.AppId);
         if (tokens.AppTokens.TryGetValue(ProtocolLimits.AppId, out var token)) request.AccessToken = token;
-        var response = await apps.PICSGetProductInfo([request], [])
+        ct.ThrowIfCancellationRequested();
+        var response = await source.GetHandler<SteamApps>()!.PICSGetProductInfo([request], [])
             .ToTask()
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
@@ -352,30 +301,33 @@ internal sealed partial class SteamSession
         return depot != 0 ? depot : throw new IOException("workshopdepot missing.");
     }
 
-    private async Task<byte[]> GetDepotDecryptionKeyInternalAsync(uint depotId, CancellationToken ct)
+    private async Task<byte[]> GetDepotDecryptionKeyInternalAsync(SteamClient source, uint depotId, CancellationToken ct)
     {
-        var result = await apps.GetDepotDecryptionKey(depotId, ProtocolLimits.AppId)
+        ct.ThrowIfCancellationRequested();
+        var result = await source.GetHandler<SteamApps>()!.GetDepotDecryptionKey(depotId, ProtocolLimits.AppId)
             .ToTask()
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
         if (result.Result != EResult.OK)
         {
-            throw new IOException($"depot decryption key denied: {result.Result}");
+            throw SteamRequestFailure.FromResult(result.Result);
         }
         return result.DepotKey;
     }
 
-    private async Task<ulong> GetManifestRequestCodeInternalAsync(uint depotId, ulong manifestId, CancellationToken ct)
+    private async Task<ulong> GetManifestRequestCodeInternalAsync(SteamClient source, uint depotId, ulong manifestId, CancellationToken ct)
     {
-        var code = await content.GetManifestRequestCode(depotId, ProtocolLimits.AppId, manifestId, "public")
+        ct.ThrowIfCancellationRequested();
+        var code = await source.GetHandler<SteamContent>()!.GetManifestRequestCode(depotId, ProtocolLimits.AppId, manifestId, "public")
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
-        return code != 0 ? code : throw new IOException("manifest request code unavailable.");
+        return code != 0 ? code : throw new SteamRequestFailure("accessDenied", "manifest request code unavailable.");
     }
 
-    private async Task<Server> GetContentServerInternalAsync(CancellationToken ct)
+    private async Task<Server> GetContentServerInternalAsync(SteamClient source, CancellationToken ct)
     {
-        var servers = await content.GetServersForSteamPipe()
+        ct.ThrowIfCancellationRequested();
+        var servers = await source.GetHandler<SteamContent>()!.GetServersForSteamPipe()
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
         var eligible = servers
@@ -391,33 +343,32 @@ internal sealed partial class SteamSession
 
     private async Task<long> DownloadChunksAsync(
         ActiveDownload context,
+        WorkshopStagingLease lease,
         uint depotId,
         byte[] depotKey,
         Server server,
-        ConcurrentQueue<(DepotManifest.FileData File, DepotManifest.ChunkData Chunk, string Target)> work,
+        ConcurrentQueue<(DepotManifest.FileData File, DepotManifest.ChunkData Chunk, string RelativePath)> work,
         int totalChunks,
         CancellationToken ct)
     {
-        var counters = new DownloadCounters();
         var workers = Enumerable.Range(0, Math.Min(DownloadWorkersPerJob, Math.Max(1, totalChunks)))
             .Select(_ => Task.Run(() => ChunkWorkerAsync(
-                context, depotId, depotKey, server, work, totalChunks, counters, ct)))
+                context, lease, depotId, depotKey, server, work, ct)))
             .ToArray();
         await Task.WhenAll(workers).ConfigureAwait(false);
-        return Interlocked.Read(ref counters.VerifiedBytes);
+        return context.Progress.VerifiedBytes;
     }
 
     private async Task ChunkWorkerAsync(
         ActiveDownload context,
+        WorkshopStagingLease lease,
         uint depotId,
         byte[] depotKey,
         Server server,
-        ConcurrentQueue<(DepotManifest.FileData File, DepotManifest.ChunkData Chunk, string Target)> work,
-        int totalChunks,
-        DownloadCounters counters,
+        ConcurrentQueue<(DepotManifest.FileData File, DepotManifest.ChunkData Chunk, string RelativePath)> work,
         CancellationToken ct)
     {
-        using var workerClient = new SteamKit2.CDN.Client(client);
+        using var workerClient = new SteamKit2.CDN.Client(context.Source);
         while (work.TryDequeue(out var item))
         {
             ct.ThrowIfCancellationRequested();
@@ -428,52 +379,74 @@ internal sealed partial class SteamSession
                 .ConfigureAwait(false);
             if (written != (int)item.Chunk.UncompressedLength)
             {
-                throw new IOException($"short chunk read: {written}/{item.Chunk.UncompressedLength}");
+                throw new InvalidDataException($"short chunk read: {written}/{item.Chunk.UncompressedLength}");
             }
             // §5.4 取消语义：停止取新 chunk，但已到手的写入要排空完成，
             // 不撕裂已校验的 chunk（staging 为本地盘，单 chunk 写入有界）。
-            using (var handle = File.OpenHandle(item.Target, FileMode.Open, FileAccess.Write,
-                FileShare.ReadWrite, FileOptions.Asynchronous | FileOptions.RandomAccess))
+            using (var handle = lease.OpenFile(item.RelativePath, write: true))
             {
-                await RandomAccess.WriteAsync(handle, buffer.AsMemory(0, written), (long)item.Chunk.Offset,
-                    CancellationToken.None).ConfigureAwait(false);
+                try
+                {
+                    await RandomAccess.WriteAsync(handle, buffer.AsMemory(0, written), (long)item.Chunk.Offset,
+                        CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (IOException error) { throw WorkshopStagingLease.ClassifyIO(error); }
             }
-            var verifiedNow = Interlocked.Add(ref counters.VerifiedBytes, written);
-            var doneNow = Interlocked.Increment(ref counters.DoneChunks);
-            EmitDownloadChunkProgress(context, verifiedNow, doneNow, totalChunks);
+            context.Progress.CompleteChunk(written, update => SendDownloadProgress(context, update));
         }
     }
 
-    private static void ValidateStagedFiles(
-        IReadOnlyList<DepotManifest.FileData> files, string staging)
+    internal static string ValidateStagedFiles(
+        IReadOnlyList<DepotManifest.FileData> files, WorkshopStagingLease lease, CancellationToken ct)
     {
-        foreach (var file in files.Where(f => !f.Flags.HasFlag(EDepotFileFlag.Directory)))
+        using var tree = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        // Canonical NFC UTF-8 path order; cross-language receipt digest v2.
+        foreach (var file in files.Where(f => !f.Flags.HasFlag(EDepotFileFlag.Directory))
+            .OrderBy(f => Convert.ToHexString(Encoding.UTF8.GetBytes(f.FileName.Replace('\\', '/').Normalize())), StringComparer.Ordinal))
         {
-            var target = ResolveContainedPath(staging, file.FileName);
-            using var stream = new FileStream(target, FileMode.Open, FileAccess.Read, FileShare.Read);
-            foreach (var chunk in file.Chunks)
+            ct.ThrowIfCancellationRequested();
+            using var stream = new FileStream(lease.OpenFile(file.FileName, write: false), FileAccess.Read);
+            if ((ulong)stream.Length != file.TotalSize) throw new InvalidDataException("staged file length mismatch");
+            using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            foreach (var chunk in file.Chunks.OrderBy(c => c.Offset))
             {
-                if (!IsChunkValid(stream, chunk))
+                ct.ThrowIfCancellationRequested();
+                if (!IsChunkValid(stream, chunk, ct, hash))
                 {
-                    throw new IOException($"chunk validation failed: {file.FileName} @ {chunk.Offset}");
+                    throw new InvalidDataException($"chunk validation failed: {file.FileName} @ {chunk.Offset}");
                 }
             }
+            var path = Encoding.UTF8.GetBytes(file.FileName.Replace('\\', '/').Normalize());
+            var header = new byte[4];
+            BinaryPrimitives.WriteUInt32LittleEndian(header, (uint)path.Length);
+            tree.AppendData(header);
+            tree.AppendData(path);
+            var size = new byte[8];
+            BinaryPrimitives.WriteUInt64LittleEndian(size, file.TotalSize);
+            tree.AppendData(size);
+            tree.AppendData(hash.GetHashAndReset());
         }
+        return Convert.ToHexString(tree.GetHashAndReset()).ToLowerInvariant();
     }
 
-    private static bool IsChunkValid(FileStream stream, DepotManifest.ChunkData chunk)
+    internal static bool IsChunkValid(Stream stream, DepotManifest.ChunkData chunk, CancellationToken ct, IncrementalHash hash)
     {
         if (chunk.UncompressedLength == 0) return true;
-        if ((ulong)stream.Length < chunk.Offset + chunk.UncompressedLength) return false;
+        if (chunk.Offset > (ulong)stream.Length || chunk.UncompressedLength > (ulong)stream.Length - chunk.Offset) return false;
         var buffer = new byte[chunk.UncompressedLength];
         stream.Position = (long)chunk.Offset;
         var read = 0;
         while (read < buffer.Length)
         {
-            var count = stream.Read(buffer, read, buffer.Length - read);
+            ct.ThrowIfCancellationRequested();
+            int count;
+            try { count = stream.Read(buffer, read, Math.Min(64 * 1024, buffer.Length - read)); }
+            catch (IOException error) { throw WorkshopStagingLease.ClassifyIO(error); }
             if (count == 0) return false;
             read += count;
         }
+        ct.ThrowIfCancellationRequested();
+        hash.AppendData(buffer);
         return DepotChunk.AdlerHash(buffer) == chunk.Checksum;
     }
 

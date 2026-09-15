@@ -63,6 +63,7 @@ internal sealed partial class SteamSession
                 .ToTask()
                 .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.QueryTimeoutSeconds), ct)
                 .ConfigureAwait(false);
+            RequireQuerySuccess(response.Result);
             var body = response.Body;
             var (items, wrongApp, errorEntries) = MapItems(body.publishedfiledetails);
             return new
@@ -95,9 +96,11 @@ internal sealed partial class SteamSession
                 .ToTask()
                 .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
                 .ConfigureAwait(false);
+            RequireQuerySuccess(response.Result);
             var (items, wrongApp, errorEntries) = MapItems(response.Body.publishedfiledetails);
             return new
             {
+                page = 0, total = ids.Count, hasMore = false,
                 items,
                 wrongAppDropped = wrongApp,
                 partial = errorEntries.Count > 0 ? errorEntries : null,
@@ -125,11 +128,11 @@ internal sealed partial class SteamSession
         });
     }
 
-    public void BeginListSubscriptions(string requestId, uint page)
+    public void BeginListSubscriptions(string requestId, uint page, long? requestedEpoch)
     {
-        RequireAccountForQuery(requestId, () => RunQueryAsync(requestId, async ct =>
+        RequireAccountForQuery(requestId, requestedEpoch, lease => RunQueryAsync(requestId, async ct =>
         {
-            var (total, files) = await GetUserFilesInternalAsync(OwnSteamId, "mysubscriptions", page, idsOnly: false, ct)
+            var (total, files) = await GetUserFilesInternalAsync(lease.SteamId, "mysubscriptions", page, idsOnly: false, ct, lease)
                 .ConfigureAwait(false);
             var (items, wrongApp, errorEntries) = MapItems(files);
             return new
@@ -141,14 +144,14 @@ internal sealed partial class SteamSession
                 wrongAppDropped = wrongApp,
                 partial = errorEntries.Count > 0 ? errorEntries : null,
             };
-        }));
+        }, lease));
     }
 
-    public void BeginListFavorites(string requestId, uint page)
+    public void BeginListFavorites(string requestId, uint page, long? requestedEpoch)
     {
-        RequireAccountForQuery(requestId, () => RunQueryAsync(requestId, async ct =>
+        RequireAccountForQuery(requestId, requestedEpoch, lease => RunQueryAsync(requestId, async ct =>
         {
-            var (total, files) = await GetUserFilesInternalAsync(OwnSteamId, "myfavorites", page, idsOnly: true, ct)
+            var (total, files) = await GetUserFilesInternalAsync(lease.SteamId, "myfavorites", page, idsOnly: true, ct, lease)
                 .ConfigureAwait(false);
             // favorites ids_only 时仅回 ID 列表。
             var ids = files.Select(f => f.publishedfileid.ToString()).ToArray();
@@ -161,17 +164,17 @@ internal sealed partial class SteamSession
                 hasMore = files.Count >= (int)QueryPageSize,
                 ids,
             };
-        }));
+        }, lease));
     }
 
-    public void BeginQuerySubscriptionStates(string requestId, IReadOnlyList<ulong> ids)
+    public void BeginQuerySubscriptionStates(string requestId, IReadOnlyList<ulong> ids, long? requestedEpoch)
     {
         if (ids.Count == 0 || ids.Count > 100)
         {
             EmitQueryFailure(requestId, "unsupportedQuery", "ids out of range");
             return;
         }
-        RequireAccountForQuery(requestId, () => RunQueryAsync(requestId, async ct =>
+        RequireAccountForQuery(requestId, requestedEpoch, lease => RunQueryAsync(requestId, async ct =>
         {
             var request = new CPublishedFile_AreFilesInSubscriptionList_Request
             {
@@ -182,20 +185,21 @@ internal sealed partial class SteamSession
             {
                 request.publishedfileids.Add(id);
             }
-            var response = await publishedFiles.AreFilesInSubscriptionList(request)
+            var response = await SendForAccount(lease, () => publishedFiles.AreFilesInSubscriptionList(request), ct)
                 .ToTask()
                 .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
                 .ConfigureAwait(false);
+            RequireQuerySuccess(response.Result);
             var states = response.Body.files.ToDictionary(f => f.publishedfileid.ToString(), f => f.inlist);
             return new { states };
-        }));
+        }, lease));
     }
 
     /// 订阅写入（SK3.3）：desiredState 单次写；App 侧凭 terminal 后的对账
     /// 查询确认结果。仅登录会话可写；未登录由 RequireAccountForQuery 拒绝。
-    public void BeginSetSubscription(string requestId, ulong publishedFileId, bool subscribe)
+    public void BeginSetSubscription(string requestId, ulong publishedFileId, bool subscribe, long? requestedEpoch)
     {
-        RequireAccountForQuery(requestId, () => RunQueryAsync(requestId, async ct =>
+        RequireAccountForQuery(requestId, requestedEpoch, lease => RunQueryAsync(requestId, async ct =>
         {
             EResult result;
             if (subscribe)
@@ -208,7 +212,7 @@ internal sealed partial class SteamSession
                     notify_client = true,
                     include_dependencies = true,
                 };
-                var response = await publishedFiles.Subscribe(request)
+                var response = await SendForAccount(lease, () => publishedFiles.Subscribe(request), ct)
                     .ToTask()
                     .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
                     .ConfigureAwait(false);
@@ -223,7 +227,7 @@ internal sealed partial class SteamSession
                     appid = checked((int)ProtocolLimits.AppId),
                     notify_client = true,
                 };
-                var response = await publishedFiles.Unsubscribe(request)
+                var response = await SendForAccount(lease, () => publishedFiles.Unsubscribe(request), ct)
                     .ToTask()
                     .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
                     .ConfigureAwait(false);
@@ -231,7 +235,7 @@ internal sealed partial class SteamSession
             }
             if (result != EResult.OK)
             {
-                throw new IOException($"subscription write failed: {result}");
+                throw SteamRequestFailure.FromResult(result);
             }
             return new
             {
@@ -239,79 +243,115 @@ internal sealed partial class SteamSession
                 desiredState = subscribe ? "subscribe" : "unsubscribe",
                 confirmed = true,
             };
-        }));
+        }, lease));
     }
 
     // ---- 内部 ----
 
-    private ulong OwnSteamId =>
-        ulong.TryParse(SteamId, out var id) ? id : throw new IOException("not signed in");
+    // Immutable admission identity. No queued private operation reads a later account.
+    internal sealed record AccountLease(long Epoch, long Connection, ulong SteamId, CancellationToken Disconnected);
 
-    private void RequireAccountForQuery(string requestId, Action run)
+    private AccountLease CaptureAccountLocked(long? requestedEpoch)
     {
-        // 必须以在线登录标志为准：断线重连后 steamId 可能仍是上一账号的残留，
-        // 而查询会话已降级为匿名——此时凭残留 steamId 查询/写入会静默拿到
-        // 空个人列表或写入失败（SK3.3 审查修复：与 OnDisconnected 清标志对齐）。
-        if (string.IsNullOrEmpty(SteamId) || !IsLoggedIn)
-        {
-            EmitQueryFailure(requestId, "accessDenied", "not signed in");
-            return;
-        }
-        run();
+        if (requestedEpoch != accountEpoch || !isLoggedIn || !ulong.TryParse(steamId, out var id))
+            throw new AccountChangedException();
+        return new(accountEpoch, connectionGeneration, id, lifetime?.Token ?? CancellationToken.None);
     }
 
-    private void RunQueryAsync(string requestId, Func<CancellationToken, Task<object>> work)
+    private void ValidateAccountLocked(AccountLease lease)
+    {
+        if (CaptureAccountLocked(lease.Epoch) != lease) throw new AccountChangedException();
+    }
+
+    private sealed class AccountChangedException : Exception { }
+
+    private T SendForAccount<T>(AccountLease lease, Func<T> send, CancellationToken ct)
+    {
+        lock (gate)
+        {
+            ct.ThrowIfCancellationRequested();
+            ValidateAccountLocked(lease);
+            return send(); // synchronous SteamKit enqueue and account transition share gate
+        }
+    }
+
+    private void RequireAccountForQuery(string requestId, long? requestedEpoch, Action<AccountLease> run)
+    {
+        lock (gate)
+        {
+            try { run(CaptureAccountLocked(requestedEpoch)); }
+            catch (AccountChangedException)
+            {
+                EmitQueryFailure(requestId, "accessDenied", "account is not online for this epoch", requestedEpoch);
+            }
+        }
+    }
+
+    private void RunQueryAsync(string requestId, Func<CancellationToken, Task<object>> work, AccountLease? lease = null)
     {
         _ = Task.Run(async () =>
         {
-            await QuerySlots.WaitAsync().ConfigureAwait(false);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
+                lease?.Disconnected ?? CancellationToken.None);
+            timeout.CancelAfter(TimeSpan.FromSeconds(ProtocolLimits.RequestTimeoutSeconds));
+            var acquired = false;
             try
             {
-                using var timeout = new CancellationTokenSource(
-                    TimeSpan.FromSeconds(ProtocolLimits.RequestTimeoutSeconds + 10));
+                await QuerySlots.WaitAsync(timeout.Token).ConfigureAwait(false);
+                acquired = true;
                 // 查询会话保证：连接 +（未登录时）匿名会话。统一消息在仅连接、
                 // 无任何会话时作业会被服务端拒绝（SK3.1 实测）。
-                await EnsureQuerySessionAsync(timeout.Token).ConfigureAwait(false);
+                if (lease == null) await EnsureQuerySessionAsync(timeout.Token).ConfigureAwait(false);
+                else { lock (gate) ValidateAccountLocked(lease); }
                 var payload = await work(timeout.Token).ConfigureAwait(false);
-                if (terminals.TryBegin(requestId))
+                lock (gate)
                 {
-                    writer.Send(ProtocolMessages.ResultOk(requestId, payload, ProcessEpoch));
+                    if (lease != null) ValidateAccountLocked(lease);
+                    if (terminals.TryBegin(requestId))
+                        writer.Send(ProtocolMessages.ResultOk(requestId, payload, ProcessEpoch, lease?.Epoch));
                 }
+            }
+            catch (AccountChangedException)
+            {
+                EmitQueryFailure(requestId, "cancelled", "account changed", lease?.Epoch);
             }
             catch (OperationCanceledException)
             {
-                EmitQueryFailure(requestId, "network", "query timed out");
+                EmitQueryFailure(requestId,
+                    lease?.Disconnected.IsCancellationRequested == true ? "cancelled" : "network",
+                    lease?.Disconnected.IsCancellationRequested == true ? "account changed" : "query timed out", lease?.Epoch);
             }
             catch (Exception error)
             {
-                EmitQueryFailure(requestId, ClassifyQueryError(error), ProtocolRedactor.Redact(error.Message));
+                EmitQueryFailure(requestId, ClassifyQueryError(error), ProtocolRedactor.Redact(error.Message), lease?.Epoch);
             }
             finally
             {
-                QuerySlots.Release();
+                if (acquired) QuerySlots.Release();
             }
         }, CancellationToken.None);
     }
 
-    private void EmitQueryFailure(string requestId, string code, string message)
+    private void EmitQueryFailure(string requestId, string code, string message, long? epoch = null)
     {
         if (!terminals.TryBegin(requestId)) return;
-        writer.Send(ProtocolMessages.ResultError(requestId, code, message, ProcessEpoch));
+        writer.Send(ProtocolMessages.ResultError(requestId, code, message, ProcessEpoch, epoch));
     }
 
     private static string ClassifyQueryError(Exception error)
     {
-        var message = error.Message;
-        if (message.Contains("RateLimited", StringComparison.OrdinalIgnoreCase)
-            || message.Contains("rate limit", StringComparison.OrdinalIgnoreCase))
-        {
-            return "rateLimited";
-        }
+        if (error is SteamRequestFailure failure) return failure.Code;
+        if (error is InvalidDataException) return "protocolMismatch";
         if (error is InvalidOperationException or ArgumentException)
         {
             return "unsupportedQuery";
         }
         return "network";
+    }
+
+    internal static void RequireQuerySuccess(EResult result)
+    {
+        if (result != EResult.OK) throw SteamRequestFailure.FromResult(result);
     }
 
     /// 统一条目映射：consumerAppID 强校验；result!=1 进 partial 错误列表。
@@ -350,14 +390,14 @@ internal sealed partial class SteamSession
                 consumerAppid = file.consumer_appid,
                 fileType = file.file_type,
                 hcontentFile = file.hcontent_file.ToString(),
-                tags = file.tags?.Select(t => t.tag).Where(t => !string.IsNullOrEmpty(t)).Take(8).ToArray(),
+                tags = file.tags?.Select(t => t.tag).Where(t => !string.IsNullOrEmpty(t)).ToArray(),
             });
         }
         return (items, wrongApp, partialErrors);
     }
 
     private async Task<(uint Total, ICollection<PublishedFileDetails> Files)> GetUserFilesInternalAsync(
-        ulong steamId, string type, uint page, bool idsOnly, CancellationToken ct)
+        ulong steamId, string type, uint page, bool idsOnly, CancellationToken ct, AccountLease? lease = null)
     {
         if (page == 0) page = 1;
         var request = new CPublishedFile_GetUserFiles_Request
@@ -369,10 +409,12 @@ internal sealed partial class SteamSession
             type = type,
             ids_only = idsOnly,
         };
-        var response = await publishedFiles.GetUserFiles(request)
-            .ToTask()
+        var job = lease == null ? publishedFiles.GetUserFiles(request)
+            : SendForAccount(lease, () => publishedFiles.GetUserFiles(request), ct);
+        var response = await job.ToTask()
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
+        RequireQuerySuccess(response.Result);
         return (response.Body.total, response.Body.publishedfiledetails);
     }
 }
