@@ -111,15 +111,14 @@ extension SteamWorkshopService {
 
     /// Single current pointer lives in the existing metadata index. Hidden versions are never scanned as ready.
     func managedDownloadSnapshots() -> [String: SteamWorkshopDownloadMetadataSnapshot] {
-        let files = (try? FileManager.default.contentsOfDirectory(at: downloadMetadataIndexDirectoryURL(),
-            includingPropertiesForKeys: [.fileSizeKey], options: [.skipsHiddenFiles])) ?? []
+        let entries = (try? SteamWorkshopLibraryTransaction.publishedMetadata(
+            libraryRoot: steamDownloadLibraryRootURL
+        )) ?? [:]
         var result: [String: SteamWorkshopDownloadMetadataSnapshot] = [:]
-        for file in files where file.pathExtension == "json" {
-            guard let size = try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 4 * 1024 * 1024,
-                  let data = try? Data(contentsOf: file),
-                  let snapshot = try? JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: data),
+        for (itemID, data) in entries {
+            guard let snapshot = try? JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: data),
                   let commit = snapshot.commit, commit.workshopId == snapshot.item.id,
-                  file.deletingPathExtension().lastPathComponent == commit.workshopId,
+                  itemID == commit.workshopId,
                   let content = try? SteamWorkshopLibraryTransaction.contentURL(for: commit, libraryRoot: steamDownloadLibraryRootURL),
                   snapshot.legacyFolderURL == content else { continue }
             result[commit.workshopId] = snapshot

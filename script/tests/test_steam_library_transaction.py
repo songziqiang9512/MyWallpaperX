@@ -66,6 +66,19 @@ import Foundation
             if mode != "prepare-only" {
                 try SteamWorkshopLibraryTransaction.publish(metadata: JSONEncoder().encode(commit), itemID: "123456", libraryRoot: library)
                 precondition(SteamWorkshopLibraryTransaction.isAvailable(commit, libraryRoot: library))
+                let outside = base.appendingPathComponent("outside-metadata.json")
+                try JSONEncoder().encode(commit).write(to: outside)
+                try FileManager.default.createSymbolicLink(
+                    at: library.appendingPathComponent(".mywallpaperx-steam-metadata/654321.json"),
+                    withDestinationURL: outside
+                )
+                let index = try SteamWorkshopLibraryTransaction.publishedMetadata(libraryRoot: library)
+                precondition(index.keys.sorted() == ["123456"])
+                let decoded = try JSONDecoder().decode(
+                    SteamWorkshopLibraryCommit.self,
+                    from: index["123456"]!
+                )
+                precondition(decoded == commit)
             }
             print("ACCEPTED")
         } catch {
@@ -304,7 +317,8 @@ class SteamLibraryTransactionTests(unittest.TestCase):
     def test_video_scene_dependency_web(self):
         for files in [{'project.json': b'{"type":"video","file":"a.mp4"}', 'a.mp4': b'video-fixture'},
                       {'project.json': b'{"type":"scene","file":"scene.json"}', 'scene.pkg': b'package-fixture'},
-                      {'project.json': b'{"type":"web","dependency":"987654"}'}]:
+                      {'project.json': b'{"type":"web","dependency":"987654"}'},
+                      {'project.json': b'{"type":" web ","dependency":987654}'}]:
             with self.subTest(files=files):
                 self.scenario(files=files)
 

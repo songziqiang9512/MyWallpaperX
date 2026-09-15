@@ -214,7 +214,7 @@ Envelope：`v/type/requestId/processEpoch/accountEpoch`；认证另有 authAttem
 | 09 | SK3.3 | 已订阅/收藏与订阅写入 | dev route + 共享SubscriptionStore，unknown不得写、写超时先对账、无自动重写、账号隔离；个人排序/筛选仅限已加载集合，明确标注。Cookie不再是可用fallback。真账号/可见门待验 |
 | 10 | SK4.1 | JobStore、队列与持久化 | 先在线准入；任务文件v2；staged/committing非终态；cancelAll一次保存、失败不假推进并提示。离线反例通过；历史与完整App操作仍待后续卡 |
 | 11 | SK4.2 | 下载与完整receipt | 描述符staging、清单预算、v2跨语言摘要、串行进度发布/统一分母、typed磁盘错误、取消与成功共用决策点均有离线门。真实Steam下载与SDK物理排空仍待验 |
-| 12 | SK4.3 | 原子入库与已下载 | 已接通版本准备/摘要与项目准入/元数据rename/列表刷新；播放 token 贯穿 Scene/Web/Video，旧版本按 ready/事务/消费引用延迟安全回收，离线事务门与 Debug build 通过。剩余：可见列表、跨卷/断电实机、完整项目播放及依赖验收 |
+| 12 | SK4.3 | 原子入库与已下载 | 已接通版本准备/摘要与项目准入/元数据rename/列表刷新；ready 索引由事务 owner 有界 nofollow 读取且不依赖页面打开，播放 token 贯穿 Scene/Web/Video 及依赖宿主，旧版本按 ready/事务/消费引用延迟安全回收。离线事务门与 Debug build 通过；剩余真实可见、跨卷/断电实机与完整项目播放验收并入 SK7 |
 | 13 | SK4.4 | 取消、恢复、有限并发与重试 | 待实施 |
 | 14 | SK5.1 | 卡片 bar 真实进度填充 | 待实施 |
 | 15 | SK5.2 | 工具栏任务面板与队列交互 | 待实施 |

@@ -141,6 +141,27 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             }
         }
     }
+    private static func readData(_ fd: FD, maximumBytes: Int) throws -> Data {
+        let before = try info(fd, regular: true)
+        try require(before.st_size >= 0 && before.st_size <= maximumBytes, "下载记录超出读取预算。")
+        var data = Data(count: Int(before.st_size))
+        try data.withUnsafeMutableBytes { buffer in
+            var offset = 0
+            while offset < buffer.count {
+                let count = Darwin.read(fd.value, buffer.baseAddress!.advanced(by: offset), buffer.count - offset)
+                if count < 0 && errno == EINTR { continue }
+                try require(count > 0, "下载记录读取不完整。")
+                offset += count
+            }
+        }
+        let after = try info(fd, regular: true)
+        try require(after.st_dev == before.st_dev && after.st_ino == before.st_ino
+            && after.st_size == before.st_size
+            && after.st_mtimespec.tv_sec == before.st_mtimespec.tv_sec
+            && after.st_mtimespec.tv_nsec == before.st_mtimespec.tv_nsec,
+            "下载记录在读取期间发生变化。")
+        return data
+    }
     private static func littleEndian<T: FixedWidthInteger>(_ value: T) -> Data {
         var value = value.littleEndian
         return withUnsafeBytes(of: &value) { Data($0) }
@@ -307,14 +328,28 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             }
         }
         guard let project = try JSONSerialization.jsonObject(with: projectData) as? [String: Any],
-              let type = project["type"] as? String, ["scene", "web", "video"].contains(type.lowercased()) else {
+              let rawType = project["type"] as? String else {
             throw Failure(message: "下载项目缺少有效的 scene/web/video 类型。")
         }
-        let contentType = type.lowercased()
-        let entry = (project["file"] as? String)?.replacingOccurrences(of: "\\", with: "/")
+        let contentType = rawType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        try require(["scene", "web", "video"].contains(contentType),
+            "下载项目缺少有效的 scene/web/video 类型。")
+        let entry = (project["file"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\\", with: "/")
         if let entry { _ = try parts(entry) }
-        if let preview = project["preview"] as? String, !preview.isEmpty { _ = try parts(preview) }
-        let dependency = project["dependency"] as? String
+        if let preview = (project["preview"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !preview.isEmpty { _ = try parts(preview) }
+        let dependency: String? = {
+            if let value = project["dependency"] as? String {
+                return value.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            if let value = project["dependency"] as? NSNumber,
+               !(project["dependency"] is Bool) {
+                return value.stringValue
+            }
+            return nil
+        }()
         if let dependency { try require(Self.validID(dependency)) }
         if contentType == "scene" {
             // Authored entry may live inside scene.pkg; the Scene loader owns package semantics.
@@ -414,6 +449,40 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             skippedDirectoryNames: skippedNames.sorted()
         )
     }
+
+    /// Reads the single published ready index without following metadata links.
+    /// Invalid/unrelated direct children are ignored; page/view lifecycle is not
+    /// part of ready discovery.
+    static func publishedMetadata(libraryRoot: URL) throws -> [String: Data] {
+        let library: FD
+        do {
+            library = try absoluteDirectory(libraryRoot)
+        } catch {
+            if errno == ENOENT { return [:] }
+            throw error
+        }
+        let index: FD
+        do {
+            index = try directory(library, metadataName)
+        } catch {
+            if errno == ENOENT { return [:] }
+            throw error
+        }
+        var result: [String: Data] = [:]
+        for name in try childNames(index, limit: 100_000) {
+            try Task.checkCancellation()
+            guard name.hasSuffix(".json") else { continue }
+            let itemID = String(name.dropLast(5))
+            guard validID(itemID),
+                  let file = try? openFile(index, name),
+                  let data = try? readData(file, maximumBytes: 4 * 1024 * 1024) else {
+                continue
+            }
+            result[itemID] = data
+        }
+        return result
+    }
+
     /// The rename is the commit point. Nothing after it may report a pre-commit failure.
     static func publish(metadata: Data, itemID: String, libraryRoot: URL) throws {
         try require(validID(itemID) && metadata.count <= 4 * 1024 * 1024)
