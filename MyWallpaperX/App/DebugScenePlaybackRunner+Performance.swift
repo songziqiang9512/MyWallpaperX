@@ -16,6 +16,7 @@ extension DebugScenePlaybackRunner {
     @MainActor
     private final class PerformanceResourceCollector {
         private var isActive = false
+        private var sampleTimer: DispatchSourceTimer?
         private var sampleCount = 0
         private var processSampleCount = 0
         private var firstProcessCPUTimeNanoseconds: UInt64?
@@ -27,11 +28,24 @@ extension DebugScenePlaybackRunner {
         func start() {
             isActive = true
             recordSample()
-            scheduleNextSample()
+            let timer = DispatchSource.makeTimerSource(queue: .main)
+            timer.schedule(
+                deadline: .now() + .seconds(1),
+                repeating: .seconds(1),
+                leeway: .milliseconds(50)
+            )
+            timer.setEventHandler { [weak self] in
+                guard let self, self.isActive else { return }
+                self.recordSample()
+            }
+            sampleTimer = timer
+            timer.resume()
         }
 
         func finish() -> PerformanceResourceSnapshot {
             isActive = false
+            sampleTimer?.cancel()
+            sampleTimer = nil
             recordSample()
             let cpuTimeNanoseconds: UInt64
             if let firstProcessCPUTimeNanoseconds,
@@ -50,14 +64,6 @@ extension DebugScenePlaybackRunner {
                 gpuAllocatedSampledPeakBytes: gpuAllocatedSampledPeakBytes,
                 renderTargetPoolSampledPeakBytes: renderTargetPoolSampledPeakBytes
             )
-        }
-
-        private func scheduleNextSample() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
-                guard let self, self.isActive else { return }
-                self.recordSample()
-                self.scheduleNextSample()
-            }
         }
 
         private func recordSample() {

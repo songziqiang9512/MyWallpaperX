@@ -249,6 +249,9 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertIn("phase=performance-resources", performance_runner)
         self.assertIn("proc_pid_rusage(getpid(), RUSAGE_INFO_V4", performance_runner)
         self.assertIn("refreshPerformanceResourceGauges()", performance_runner)
+        self.assertIn("DispatchSource.makeTimerSource(queue: .main)", performance_runner)
+        self.assertIn("repeating: .seconds(1)", performance_runner)
+        self.assertNotIn("scheduleNextSample()", performance_runner)
         self.assertIn("processFootprintSampledPeakBytes=%llu", performance_runner)
         self.assertIn("gpuAllocatedSampledPeakBytes=%llu", performance_runner)
 
