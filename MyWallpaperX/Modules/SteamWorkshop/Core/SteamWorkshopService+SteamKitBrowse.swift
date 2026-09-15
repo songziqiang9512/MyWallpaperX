@@ -90,6 +90,7 @@ extension SteamWorkshopService {
                     } else {
                         self.statusMessage = "已加载 \(filtered.count) 项。"
                     }
+                    self.appendSteamKitPartialNotice()
                 }
             } catch {
                 guard !Task.isCancelled else { return }
@@ -131,9 +132,7 @@ extension SteamWorkshopService {
                           self.shouldUseSteamKitBrowse else { return }
                     let filtered = self.steamKitPostFilter(result.items)
                         .map(SteamWorkshopBrowserItem.make(from:))
-                    let existingIDs = Set(self.browserItems.map(\.id))
-                    let newItems = filtered.filter { !existingIDs.contains($0.id) }
-                    self.browserItems.append(contentsOf: newItems)
+                    self.browserItems = filtered
                     self.browserNextPage = page + 1
                     self.hasMoreBrowserItems = result.hasMore
                     self.isLoadingMoreBrowserItems = false
@@ -141,6 +140,7 @@ extension SteamWorkshopService {
                     self.statusMessage = result.total > 0
                         ? "已加载 \(self.browserItems.count) 项 / 共 \(result.total) 项。"
                         : "已加载 \(self.browserItems.count) 项。"
+                    self.appendSteamKitPartialNotice()
                 }
             } catch {
                 await MainActor.run {
@@ -223,6 +223,7 @@ extension SteamWorkshopService {
                     self.statusMessage = result.total > 0
                         ? "已加载 \(processed.count) 项 / 共 \(result.total) 项。"
                         : "已加载 \(processed.count) 项。"
+                    self.appendSteamKitPartialNotice()
                 }
             } catch {
                 guard !Task.isCancelled else { return }
@@ -265,15 +266,14 @@ extension SteamWorkshopService {
                           self.shouldUseSteamKitPersonal else { return }
                     let processed = self.steamKitPersonalPostProcess(result.items)
                         .map(SteamWorkshopBrowserItem.make(from:))
-                    let existingIDs = Set(self.browserItems.map(\.id))
-                    let newItems = processed.filter { !existingIDs.contains($0.id) }
-                    self.browserItems.append(contentsOf: newItems)
+                    self.browserItems = processed
                     self.hasMoreBrowserItems = result.hasMore
                     self.isLoadingMoreBrowserItems = false
                     self.browserLoadMoreRetryAfter = .distantPast
                     self.statusMessage = result.total > 0
                         ? "已加载 \(self.browserItems.count) 项 / 共 \(result.total) 项。"
                         : "已加载 \(self.browserItems.count) 项。"
+                    self.appendSteamKitPartialNotice()
                 }
             } catch {
                 await MainActor.run {
@@ -288,6 +288,15 @@ extension SteamWorkshopService {
                 }
             }
         }
+    }
+
+    private func appendSteamKitPartialNotice() {
+        if source.isPersonal { statusMessage += " 排序和筛选仅作用于已加载项目。" }
+        else if steamKitWindowCutoffInterval != nil { statusMessage += " 时间筛选仅作用于已加载项目。" }
+        let errors = steamKitBrowseStore.partialErrors
+        guard !errors.isEmpty else { return }
+        let ids = errors.prefix(5).map(\.publishedFileId).joined(separator: "、")
+        statusMessage += " 另有 \(errors.count) 项暂不可用（\(ids)），可刷新重试。"
     }
 
     /// 个人来源后处理：标签过滤（GetUserFiles 无服务端筛选）+ 标题搜索 +
@@ -410,7 +419,7 @@ extension SteamWorkshopBrowserItem {
 }
 
 /// 分页与代际状态（SK3.2 QueryKey/generation）。UI 缓存仍以服务侧
-/// browserItems 为唯一权威，本类只负责键控取页。
+/// browserItems 为 UI 投影；本类保留同键原始已加载集合，后置过滤与排序只对整集合执行。
 @MainActor
 final class SteamKitBrowseStore {
     struct Key: Equatable {
@@ -429,6 +438,8 @@ final class SteamKitBrowseStore {
     private(set) var currentKey: Key?
     private(set) var nextPage = 1
     private(set) var hasMore = false
+    private(set) var rawItems: [SteamWorkshopQueryItem] = []
+    private(set) var partialErrors: [SteamWorkshopQueryPage.SteamWorkshopPartialError] = []
 
     private let queryClient: SteamWorkshopQueryClient
 
@@ -514,6 +525,8 @@ final class SteamKitBrowseStore {
 
     func resetFor(key: Key) {
         currentKey = key
+        rawItems = []
+        partialErrors = []
         nextPage = 1
         hasMore = true
     }
@@ -521,6 +534,18 @@ final class SteamKitBrowseStore {
     func bumpGeneration() -> Int {
         generation += 1
         return generation
+    }
+
+    private func merge(_ items: [SteamWorkshopQueryItem], page: Int,
+                       errors: [SteamWorkshopQueryPage.SteamWorkshopPartialError] = []) -> [SteamWorkshopQueryItem] {
+        if page == 1 { rawItems = []; partialErrors = [] }
+        var index = Dictionary(uniqueKeysWithValues: rawItems.enumerated().map { ($0.element.publishedFileId, $0.offset) })
+        for item in items {
+            if let offset = index[item.publishedFileId] { rawItems[offset] = item }
+            else { index[item.publishedFileId] = rawItems.count; rawItems.append(item) }
+        }
+        partialErrors.append(contentsOf: errors)
+        return rawItems
     }
 
     func fetch(
@@ -543,7 +568,7 @@ final class SteamKitBrowseStore {
         }
         nextPage = page + 1
         hasMore = result.hasMore
-        return (result.items, result.total, result.hasMore)
+        return (merge(result.items, page: page, errors: result.partialErrors), result.total, result.hasMore)
     }
 
     /// SK3.3：个人来源取页。已订阅直接结构化分页；收藏为 ID 分页 +
@@ -556,6 +581,10 @@ final class SteamKitBrowseStore {
         guard let key = currentKey, let source = key.source else {
             throw SteamServiceClient.RequestError.notReady
         }
+        guard key.personalSortRaw != SteamWorkshopPersonalSort.rating.rawValue,
+              key.personalSortRaw != SteamWorkshopPersonalSort.favorites.rawValue else {
+            throw SteamServiceClient.RequestError.helperError(code: "unsupportedQuery", message: "该排序暂不支持，请选择其他排序。")
+        }
         func commit(hasMore: Bool) {
             nextPage = page + 1
             self.hasMore = hasMore
@@ -567,21 +596,23 @@ final class SteamKitBrowseStore {
                 return (result.items, result.total, result.hasMore)
             }
             commit(hasMore: result.hasMore)
-            return (result.items, result.total, result.hasMore)
+            return (merge(result.items, page: page, errors: result.partialErrors), result.total, result.hasMore)
         case .myFavorites:
             let (ids, total, hasMore) = try await queryClient.favoriteIds(page: page)
             var items: [SteamWorkshopQueryItem] = []
+            var errors: [SteamWorkshopQueryPage.SteamWorkshopPartialError] = []
             for chunkStart in stride(from: 0, to: ids.count, by: 30) {
                 let chunk = Array(ids[chunkStart..<min(chunkStart + 30, ids.count)])
                 if chunk.isEmpty { continue }
                 let details = try await queryClient.details(ids: chunk)
                 items.append(contentsOf: details.items)
+                errors.append(contentsOf: details.partialErrors)
             }
             guard generation == self.generation, key == currentKey else {
                 return (items, total, hasMore)
             }
             commit(hasMore: hasMore)
-            return (items, total, hasMore)
+            return (merge(items, page: page, errors: errors), total, hasMore)
         default:
             throw SteamServiceClient.RequestError.helperError(
                 code: "unsupportedQuery", message: "unsupported personal source")
@@ -594,7 +625,7 @@ final class SteamKitBrowseStore {
         case .featured: return .trend
         case .recent: return .newest
         case .mostSubscribed: return .subscriptions
-        case .updated: return .newest
+        case .updated: return .updated
         case .mySubscriptions, .myFavorites: return .subscriptions
         }
     }

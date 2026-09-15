@@ -135,6 +135,10 @@ extension SteamWorkshopToolbarController {
             item.representedObject = Int(filter.rawValue)
             ageMenu.addItem(item)
         }
+        if service.isSteamKitBrowseEnabled {
+            ageMenuItem.title = "分级（暂不支持）"
+            ageMenuItem.isEnabled = false
+        }
         ageMenuItem.submenu = ageMenu
         menu.addItem(ageMenuItem)
 

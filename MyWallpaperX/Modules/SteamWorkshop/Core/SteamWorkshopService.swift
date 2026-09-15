@@ -129,6 +129,31 @@ final class SteamWorkshopService: ObservableObject {
         client: steamServiceClient
     )
 
+    private(set) lazy var steamSubscriptions: SteamWorkshopSubscriptionStore = {
+        let store = SteamWorkshopSubscriptionStore(
+            identity: { [weak self] in
+                guard let self, self.steamAuth.isOnline else { return nil }
+                return self.steamServiceClient.accountEpoch
+            },
+            read: { [weak self] id in
+                guard let self else { throw CancellationError() }
+                let states = try await self.steamWorkshopQueryClient.subscriptionStates(ids: [id])
+                guard let value = states[id] else { throw SteamServiceClient.RequestError.helperError(code: "protocolMismatch", message: "订阅状态缺失。") }
+                return value
+            },
+            write: { [weak self] id, desired in
+                guard let self else { throw CancellationError() }
+                try await self.steamWorkshopQueryClient.setSubscription(workshopId: id, subscribe: desired)
+            }
+        )
+
+        store.didReconcileWrite = { [weak self] _, _ in
+            guard let self, self.source == .mySubscriptions, self.shouldUseSteamKitPersonal else { return }
+            self.fetchBrowserItems(forceRefresh: true)
+        }
+        return store
+    }()
+
     /// SK4.1：下载任务单一权威（队列/去重/状态机/持久化）。旧 queued/
     /// pending 数组真值已移除，各入口读同一投影。
     private(set) lazy var downloadJobStore = SteamDownloadJobStore()
