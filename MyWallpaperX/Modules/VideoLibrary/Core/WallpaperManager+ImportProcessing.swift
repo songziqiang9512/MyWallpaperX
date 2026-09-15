@@ -59,7 +59,8 @@ extension WallpaperManager {
         }
     }
     func processImportedVideos(from urls: [URL], presentingIn window: NSWindow?, context: ImportContext,
-                               autoplayToken: ImportedVideoAutoplayGate.Token? = nil) {
+                               autoplayToken: ImportedVideoAutoplayGate.Token? = nil,
+                               resourceLifetime: PlaybackResourceLifetime? = nil) {
         guard !urls.isEmpty else { return }
         let existingPathsSnapshot = Set(wallpapers.map { normalizedPath($0.path) })
         let generation = autoplayToken == nil ? beginImportPreparationRequest() : nil
@@ -77,7 +78,13 @@ extension WallpaperManager {
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 if let generation, !self.isImportPreparationRequestCurrent(generation) { return }
-                self.applyPreparedImportResult(prepared, presentingIn: window, context: context, autoplayToken: autoplayToken)
+                self.applyPreparedImportResult(
+                    prepared,
+                    presentingIn: window,
+                    context: context,
+                    autoplayToken: autoplayToken,
+                    resourceLifetime: resourceLifetime
+                )
             }
         }
         if autoplayToken == nil { setImportPreparationWorkItem(workItem) }
@@ -280,7 +287,9 @@ extension WallpaperManager {
     private func applyPreparedImportResult(
         _ prepared: ImportPreparationResult,
         presentingIn window: NSWindow?,
-        context: ImportContext, autoplayToken: ImportedVideoAutoplayGate.Token?
+        context: ImportContext,
+        autoplayToken: ImportedVideoAutoplayGate.Token?,
+        resourceLifetime: PlaybackResourceLifetime?
     ) {
         // 应用阶段只在主线程改模型，后台预处理结果不直接碰 @Published 属性。
         var counters = prepared.counters
@@ -352,6 +361,10 @@ extension WallpaperManager {
 
         // 先把导入结果反馈给用户，缩略图/静帧放到后台补齐。
         scheduleImportedAssetsProcessing(insertedURLs)
+        // Once this function returns, every accepted source is represented in
+        // WallpaperManager.wallpapers and is included in Steam version GC's
+        // persistent-path protection set.
+        withExtendedLifetime(resourceLifetime) {}
     }
 
     private func schedulePreviewAssetGeneration(for url: URL) {

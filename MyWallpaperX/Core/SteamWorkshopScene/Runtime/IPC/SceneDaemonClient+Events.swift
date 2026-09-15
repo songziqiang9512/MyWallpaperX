@@ -70,12 +70,15 @@ extension SceneDaemonClient {
         launchState = state
         if phase == .launched {
             activeIntent = pendingIntent
+            activeResourceLifetime = pendingResourceLifetime
             activeRecordID = pendingIntent?.recordID
             activeRequestID = requestID
             pendingIntent = nil
+            pendingResourceLifetime = nil
             pendingRequestID = nil
         } else if phase == .cancelled || phase == .failed {
             pendingIntent = nil
+            pendingResourceLifetime = nil
             pendingRequestID = nil
         }
         NotificationCenter.default.post(
@@ -158,6 +161,7 @@ extension SceneDaemonClient {
     func handleTermination(status: Int32, generation: UInt64) {
         if let retiring = retiringTransports.removeValue(forKey: generation) {
             retiring.closeIO()
+            retiringResourceLifetimes.removeValue(forKey: generation)
         }
         if expectedTerminationGenerations.remove(generation) != nil {
             finishShutdownIfPossible()
@@ -171,14 +175,20 @@ extension SceneDaemonClient {
         endpointReady = false
         latestFrameStats = nil
 
+        let recoveryUsesPendingIntent = pendingIntent != nil
         let recoveryIntent = pendingIntent ?? activeIntent
+        let recoveryResourceLifetime = recoveryUsesPendingIntent
+            ? pendingResourceLifetime
+            : activeResourceLifetime
         activeIntent = nil
+        activeResourceLifetime = nil
         activeRecordID = nil
         activeRequestID = nil
         pendingRequestID = nil
         pendingPropertyRevisions.removeAll(keepingCapacity: true)
         guard let recoveryIntent else { return }
         pendingIntent = recoveryIntent
+        pendingResourceLifetime = recoveryResourceLifetime
         scheduleRestart(reason: "daemon-exited-\(status)")
     }
 
@@ -195,6 +205,7 @@ extension SceneDaemonClient {
             )
             launchState = state
             pendingIntent = nil
+            pendingResourceLifetime = nil
             pendingRequestID = nil
             NotificationCenter.default.post(
                 name: .sceneWallpaperLaunchStateDidChange,

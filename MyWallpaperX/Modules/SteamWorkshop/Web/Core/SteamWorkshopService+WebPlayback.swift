@@ -54,8 +54,12 @@ extension SteamWorkshopService {
             return
         }
 
+        // The immutable version remains readable until the concrete consumer
+        // (Scene, Web, or the Video import pipeline) releases this token.
+        let resourceLifetime = libraryVersionLifetime(for: record)
+
         if record.contentType == .scene {
-            requestSceneRender(record)
+            requestSceneRender(record, resourceLifetime: resourceLifetime)
             return
         }
 
@@ -75,7 +79,8 @@ extension SteamWorkshopService {
                     "rootURL": playbackContext.effectiveRootURL,
                     "propertiesJSON": playbackContext.propertyPayloadJSON as Any,
                     "language": playbackContext.language,
-                    "runtimeProfile": runtimeProfile
+                    "runtimeProfile": runtimeProfile,
+                    "resourceLifetime": resourceLifetime as Any
                 ]
             )
             statusMessage = "已将 \(record.title) 发送到 HTML 网页壁纸实验宿主"
@@ -89,7 +94,11 @@ extension SteamWorkshopService {
             return
         }
         let autoplayToken = ImportedVideoAutoplayGate.shared.claim()
-        ImportedVideoPlaybackRequest(localURL: videoURL, autoplayToken: autoplayToken)
+        ImportedVideoPlaybackRequest(
+            localURL: videoURL,
+            autoplayToken: autoplayToken,
+            resourceLifetime: resourceLifetime
+        )
             .post(name: .steamWorkshopVideoReadyToPlay)
         statusMessage = "已将 \(record.title) 发送到视频库并准备播放"
         scheduleLaunchPendingFallbackClear(recordID: record.id)

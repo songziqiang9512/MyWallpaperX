@@ -13,14 +13,36 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 CORE = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core'
 SOURCES = [ROOT / 'MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift',
            ROOT / 'MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift',
+           ROOT / 'MyWallpaperX/Core/PlaybackControl/PlaybackResourceLifetime.swift',
            *[CORE / name for name in ('SteamServiceProtocol.swift', 'SteamServiceClient.swift',
-             'SteamWorkshopQueryClient.swift', 'SteamWorkshopLibraryTransaction.swift', 'SteamWorkshopJobStore.swift')]]
+             'SteamWorkshopQueryClient.swift', 'SteamWorkshopLibraryTransaction.swift',
+             'SteamWorkshopLibraryVersionLease.swift', 'SteamWorkshopJobStore.swift')]]
 HARNESS = r'''
 import Foundation
 @main struct Harness {
     @MainActor static func main() async throws {
         let base = URL(fileURLWithPath: CommandLine.arguments[1])
         let mode = CommandLine.arguments[2]
+        if mode == "reclaim" {
+            let library = base.appendingPathComponent("library")
+            let retained = Set(CommandLine.arguments.dropFirst(3))
+            let result = try SteamWorkshopLibraryTransaction.reclaimVersions(
+                libraryRoot: library,
+                retaining: retained,
+                minimumAge: 3_600
+            )
+            precondition(result.removedDirectoryNames.count == 1)
+            if let protected = retained.first {
+                let content = library.appendingPathComponent(".mywallpaperx-steam-versions")
+                    .appendingPathComponent(protected).appendingPathComponent("content/index.html")
+                precondition(SteamWorkshopLibraryTransaction.versionDirectoryName(
+                    containing: content,
+                    libraryRoot: library
+                ) == protected)
+            }
+            print("RECLAIMED: \(result.removedDirectoryNames.joined(separator: ","))")
+            return
+        }
         let frame = try SteamServiceFrameDecoder.decode(Data(contentsOf: base.appendingPathComponent("receipt.json"))).get()
         let receipt = try SteamWorkshopStagedReceipt(frame: frame, jobId: "test-job-1", workshopId: "123456",
             accountSteamId: "76561198000000000", accountEpoch: 7, stagingRoot: base.appendingPathComponent("staging").path)
@@ -31,6 +53,12 @@ import Foundation
             let commit = try await task.value
             if mode == "cancel" { fatalError("cancelled prepare succeeded") }
             try verifyJobRecovery(frame: frame, commit: commit, base: base)
+            let leases = SteamWorkshopLibraryVersionLeaseRegistry()
+            var lifetime: PlaybackResourceLifetime? = leases.acquire(commit)
+            precondition(leases.protectedDirectoryNames() == [commit.directoryName])
+            lifetime = nil
+            withExtendedLifetime(lifetime) {}
+            precondition(leases.protectedDirectoryNames().isEmpty)
             try JSONEncoder().encode(commit).write(to: base.appendingPathComponent("prepared.json"))
             if mode != "prepare-only" {
                 try SteamWorkshopLibraryTransaction.publish(metadata: JSONEncoder().encode(commit), itemID: "123456", libraryRoot: library)
@@ -224,6 +252,44 @@ class SteamLibraryTransactionTests(unittest.TestCase):
             for i in range(64):
                 (versions / str(i)).mkdir()
         self.scenario(mutate=mutate, accepted=False)
+
+    def test_reclaim_only_old_unreferenced_uuid_version(self):
+        with tempfile.TemporaryDirectory(prefix='mwx-steam-reclaim-', dir='/private/tmp') as temporary:
+            root = pathlib.Path(temporary)
+            versions = root / 'library' / '.mywallpaperx-steam-versions'
+            versions.mkdir(parents=True)
+            retained = '11111111-1111-4111-8111-111111111111'
+            old = '22222222-2222-4222-8222-222222222222'
+            young = '33333333-3333-4333-8333-333333333333'
+            linked = '44444444-4444-4444-8444-444444444444'
+            for name in (retained, old, young):
+                content = versions / name / 'content'
+                content.mkdir(parents=True)
+                (content / 'index.html').write_text(name)
+            unknown = versions / 'owned-but-unknown'
+            unknown.mkdir()
+            outside = root / 'outside'
+            outside.mkdir()
+            (outside / 'sentinel').write_text('untouched')
+            (versions / linked).symlink_to(outside, target_is_directory=True)
+            old_stamp = 1_600_000_000
+            for name in (retained, old):
+                os.utime(versions / name, (old_stamp, old_stamp))
+
+            result = subprocess.run(
+                [str(self.binary), str(root), 'reclaim', retained],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(old, result.stdout)
+            self.assertFalse((versions / old).exists())
+            self.assertTrue((versions / retained).is_dir())
+            self.assertTrue((versions / young).is_dir())
+            self.assertTrue(unknown.is_dir())
+            self.assertTrue((versions / linked).is_symlink())
+            self.assertEqual((outside / 'sentinel').read_text(), 'untouched')
 
     def test_project_rejections(self):
         for project in [b'not json', b'{}', b'{"type":"application","file":"x"}',

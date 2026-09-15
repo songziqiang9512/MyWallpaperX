@@ -24,6 +24,12 @@ nonisolated enum SteamWorkshopLibraryTransaction {
     static let metadataName = ".mywallpaperx-steam-metadata"
     static let maxBytes = 8 * 1024 * 1024 * 1024
 
+    struct ReclamationResult: Equatable, Sendable {
+        let removedDirectoryNames: [String]
+        let retainedDirectoryNames: [String]
+        let skippedDirectoryNames: [String]
+    }
+
     struct Failure: LocalizedError {
         let message: String
         var errorDescription: String? { message }
@@ -138,6 +144,64 @@ nonisolated enum SteamWorkshopLibraryTransaction {
     private static func littleEndian<T: FixedWidthInteger>(_ value: T) -> Data {
         var value = value.littleEndian
         return withUnsafeBytes(of: &value) { Data($0) }
+    }
+
+    private static func childNames(_ root: FD, limit: Int = 1_024) throws -> [String] {
+        let duplicate = dup(root.value)
+        guard duplicate >= 0 else { throw Failure(message: "无法枚举下载目录。") }
+        guard let stream = fdopendir(duplicate) else {
+            close(duplicate)
+            throw Failure(message: "无法枚举下载目录。")
+        }
+        defer { closedir(stream) }
+        var names: [String] = []
+        while true {
+            errno = 0
+            guard let entry = readdir(stream) else {
+                try require(errno == 0, "下载目录枚举失败。")
+                break
+            }
+            let name = withUnsafePointer(to: &entry.pointee.d_name) {
+                $0.withMemoryRebound(to: CChar.self, capacity: Int(MAXNAMLEN) + 1) {
+                    String(cString: $0)
+                }
+            }
+            if name == "." || name == ".." { continue }
+            try require(!name.isEmpty && !name.contains("/") && !name.utf8.contains(0))
+            names.append(name)
+            try require(names.count <= limit, "保留的下载/版本目录超过回收扫描预算。")
+        }
+        return names.sorted()
+    }
+
+    /// Descriptor-anchored deletion that never follows links and verifies that
+    /// the directory name still identifies the opened inode before unlinking it.
+    private static func removeOwnedTree(parent: FD, name: String) throws {
+        var named = stat()
+        try require(fstatat(parent.value, name, &named, AT_SYMLINK_NOFOLLOW) == 0)
+        try require((named.st_mode & S_IFMT) == S_IFDIR, "仅回收受管版本目录。")
+        let opened = try directory(parent, name)
+        let openedInfo = try info(opened, regular: false)
+        try require(named.st_dev == openedInfo.st_dev && named.st_ino == openedInfo.st_ino,
+            "版本目录在回收前发生变化。")
+
+        for child in try childNames(opened) {
+            try Task.checkCancellation()
+            var value = stat()
+            try require(fstatat(opened.value, child, &value, AT_SYMLINK_NOFOLLOW) == 0)
+            if (value.st_mode & S_IFMT) == S_IFDIR {
+                try removeOwnedTree(parent: opened, name: child)
+            } else {
+                try require(unlinkat(opened.value, child, 0) == 0, "版本文件回收失败。")
+            }
+        }
+
+        var current = stat()
+        try require(fstatat(parent.value, name, &current, AT_SYMLINK_NOFOLLOW) == 0)
+        try require((current.st_mode & S_IFMT) == S_IFDIR
+            && current.st_dev == openedInfo.st_dev && current.st_ino == openedInfo.st_ino,
+            "版本目录在回收期间被替换。")
+        try require(unlinkat(parent.value, name, AT_REMOVEDIR) == 0, "版本目录回收失败。")
     }
     // Retention never silently consumes unlimited disk while lifecycle-aware garbage collection is pending.
     private static func admitRetainedBytes(in root: FD) throws {
@@ -275,6 +339,80 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         try require(commit.version == 1 && validID(commit.workshopId) && UUID(uuidString: commit.directoryName) != nil)
         try require(commit.directoryName.utf8.count == 36 && !commit.directoryName.contains("/"))
         return libraryRoot.appendingPathComponent(versionsName).appendingPathComponent(commit.directoryName).appendingPathComponent("content", isDirectory: true)
+    }
+
+    static func versionDirectoryName(containing url: URL, libraryRoot: URL) -> String? {
+        guard url.isFileURL,
+              let configuredLibrary = try? configuredRoot(libraryRoot) else { return nil }
+        let versions = configuredLibrary.appendingPathComponent(versionsName, isDirectory: true)
+        let resolvedURL = url.resolvingSymlinksInPath().standardizedFileURL
+        let resolvedVersions = versions.resolvingSymlinksInPath().standardizedFileURL
+        let prefix = resolvedVersions.path + "/"
+        guard resolvedURL.path.hasPrefix(prefix) else { return nil }
+        let remainder = resolvedURL.path.dropFirst(prefix.count)
+        guard let first = remainder.split(separator: "/", omittingEmptySubsequences: true).first else {
+            return nil
+        }
+        let name = String(first)
+        guard name.utf8.count == 36, UUID(uuidString: name) != nil else { return nil }
+        return name.lowercased()
+    }
+
+    /// Reclaims only direct UUID version directories that are old enough and
+    /// absent from the caller's complete live/reference set. Unknown entries are
+    /// left untouched. The caller owns readiness, job and playback identities.
+    static func reclaimVersions(
+        libraryRoot: URL,
+        retaining directoryNames: Set<String>,
+        minimumAge: TimeInterval,
+        now: Date = Date()
+    ) throws -> ReclamationResult {
+        try require(minimumAge >= 0 && minimumAge.isFinite)
+        let library = try absoluteDirectory(libraryRoot, create: true)
+        let versions: FD
+        do {
+            versions = try directory(library, versionsName)
+        } catch {
+            if errno == ENOENT {
+                return ReclamationResult(removedDirectoryNames: [], retainedDirectoryNames: [], skippedDirectoryNames: [])
+            }
+            throw error
+        }
+        let retained = Set(directoryNames.map { $0.lowercased() })
+        var removedNames: [String] = []
+        var retainedNames: [String] = []
+        var skippedNames: [String] = []
+        for name in try childNames(versions) {
+            try Task.checkCancellation()
+            let normalized = name.lowercased()
+            guard name.utf8.count == 36, UUID(uuidString: name) != nil else {
+                skippedNames.append(name)
+                continue
+            }
+            if retained.contains(normalized) {
+                retainedNames.append(normalized)
+                continue
+            }
+            var value = stat()
+            guard fstatat(versions.value, name, &value, AT_SYMLINK_NOFOLLOW) == 0,
+                  (value.st_mode & S_IFMT) == S_IFDIR else {
+                skippedNames.append(name)
+                continue
+            }
+            let modified = Date(timeIntervalSince1970:
+                TimeInterval(value.st_mtimespec.tv_sec) + TimeInterval(value.st_mtimespec.tv_nsec) / 1_000_000_000)
+            guard now.timeIntervalSince(modified) >= minimumAge else {
+                retainedNames.append(normalized)
+                continue
+            }
+            try removeOwnedTree(parent: versions, name: name)
+            removedNames.append(normalized)
+        }
+        return ReclamationResult(
+            removedDirectoryNames: removedNames.sorted(),
+            retainedDirectoryNames: retainedNames.sorted(),
+            skippedDirectoryNames: skippedNames.sorted()
+        )
     }
     /// The rename is the commit point. Nothing after it may report a pre-commit failure.
     static func publish(metadata: Data, itemID: String, libraryRoot: URL) throws {

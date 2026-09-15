@@ -8,6 +8,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GATE_SOURCES = [
+    REPO_ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackResourceLifetime.swift",
     REPO_ROOT / "MyWallpaperX/Shared/UI/ImportedVideoAutoplayGate.swift",
     REPO_ROOT / "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineVideoAutoplayRequests.swift",
     REPO_ROOT / "MyWallpaperX/Shared/UI/WallpaperRuntimeSwitch.swift",
@@ -21,6 +22,7 @@ class ImportedVideoAutoplayGateTests(unittest.TestCase):
 
         let gate = ImportedVideoAutoplayGate.shared
         let requests = OnlineVideoAutoplayRequests()
+        final class TestLifetime: PlaybackResourceLifetime {}
 
         let firstRequest = requests.request(for: 101)
         let latestRequest = requests.request(for: 202)
@@ -48,12 +50,16 @@ class ImportedVideoAutoplayGateTests(unittest.TestCase):
         ) { notification in
             decodedRequest = ImportedVideoPlaybackRequest(notification: notification)
         }
+        let lifetime = TestLifetime()
         ImportedVideoPlaybackRequest(
-            localURL: URL(fileURLWithPath: "/tmp/latest.mp4"), autoplayToken: currentSameItem
+            localURL: URL(fileURLWithPath: "/tmp/latest.mp4"),
+            autoplayToken: currentSameItem,
+            resourceLifetime: lifetime
         ).post(name: Notification.Name("AutoplayGateTest"))
         NotificationCenter.default.removeObserver(observer)
         precondition(decodedRequest?.localURL.path == "/tmp/latest.mp4")
         precondition(decodedRequest?.autoplayToken == currentSameItem)
+        precondition(decodedRequest?.resourceLifetime === lifetime)
 
         print("imported-video-autoplay-gate-pass")
         """

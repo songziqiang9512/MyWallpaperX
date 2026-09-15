@@ -14,7 +14,8 @@ extension WallpaperEngine {
         recordID: String? = nil,
         language: String,
         runtimeProfile: WebRuntimeProfile = .standard,
-        multiDisplayEnabled: Bool
+        multiDisplayEnabled: Bool,
+        resourceLifetime: PlaybackResourceLifetime? = nil
     ) {
         postWallpaperRuntimeWillSwitch(to: .web, recordID: recordID)
         currentWebPropertiesJSON = propertiesJSON ?? "{}"
@@ -28,7 +29,8 @@ extension WallpaperEngine {
                 recordID: recordID,
                 language: language,
                 runtimeProfile: runtimeProfile,
-                multiDisplayEnabled: multiDisplayEnabled
+                multiDisplayEnabled: multiDisplayEnabled,
+                resourceLifetime: resourceLifetime
             )
         )
     }

@@ -366,6 +366,8 @@ final class SteamWorkshopService: ObservableObject {
     var activeDownloadJobKey: String?
     var activeDownloadTask: Task<Void, Never>?
     var activeDownloadWasCancelled = false
+    let steamLibraryVersionLeaseRegistry = SteamWorkshopLibraryVersionLeaseRegistry()
+    var libraryVersionReclamationTask: Task<Void, Never>?
     var selectedItemDetailTask: Task<Void, Never>?
     var discoveryBrowseSnapshot: SteamWorkshopDiscoveryBrowseSnapshot?
     var currentBrowserScrollOffsetY: CGFloat = 0

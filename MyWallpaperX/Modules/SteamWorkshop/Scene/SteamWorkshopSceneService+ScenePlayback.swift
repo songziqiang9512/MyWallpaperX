@@ -5,10 +5,14 @@ struct SteamWorkshopScenePlaybackRequest {
     let propertyOverrides: [String: SceneUserPropertyValue]
     let userPropertyTextures: [String: ScenePlaybackTextureReference]
     let recordID: String
+    let resourceLifetime: PlaybackResourceLifetime?
 }
 
 extension SteamWorkshopService {
-    func requestSceneRender(_ record: SteamWorkshopDownloadRecord) {
+    func requestSceneRender(
+        _ record: SteamWorkshopDownloadRecord,
+        resourceLifetime: PlaybackResourceLifetime? = nil
+    ) {
         guard record.contentType == .scene else { return }
 
         let propertyOverrides = scenePropertyOverrides(for: record)
@@ -21,7 +25,8 @@ extension SteamWorkshopService {
                         rootURL: record.folderURL,
                         propertyOverrides: propertyOverrides,
                         userPropertyTextures: references,
-                        recordID: record.id
+                        recordID: record.id,
+                        resourceLifetime: resourceLifetime
                     )
                 ]
             )

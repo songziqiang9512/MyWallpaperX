@@ -86,6 +86,7 @@ extension WallpaperEngine {
         let language: String
         let runtimeProfile: WebRuntimeProfile
         let multiDisplayEnabled: Bool
+        let resourceLifetime: PlaybackResourceLifetime?
 
         init(
             id: UUID = UUID(),
@@ -96,7 +97,8 @@ extension WallpaperEngine {
             recordID: String?,
             language: String,
             runtimeProfile: WebRuntimeProfile,
-            multiDisplayEnabled: Bool
+            multiDisplayEnabled: Bool,
+            resourceLifetime: PlaybackResourceLifetime? = nil
         ) {
             self.id = id
             self.entryURL = entryURL
@@ -107,6 +109,7 @@ extension WallpaperEngine {
             self.language = language
             self.runtimeProfile = runtimeProfile
             self.multiDisplayEnabled = multiDisplayEnabled
+            self.resourceLifetime = resourceLifetime
         }
     }
 

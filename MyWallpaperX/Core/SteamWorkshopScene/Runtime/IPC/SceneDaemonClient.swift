@@ -61,6 +61,14 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var activeRequestID: UUID?
     var pendingRequestID: UUID?
     var pendingPropertyRevisions: [UInt64: String] = [:]
+    struct RetainedResourceLifetime {
+        let rootURL: URL
+        let recordID: String?
+        let lifetime: PlaybackResourceLifetime
+    }
+    var pendingResourceLifetime: RetainedResourceLifetime?
+    var activeResourceLifetime: RetainedResourceLifetime?
+    var retiringResourceLifetimes: [UInt64: [PlaybackResourceLifetime]] = [:]
     private var lastPropertyRevision: UInt64 = 0
     private var performanceProfile = PlaybackPerformanceProfile.current
     private var isPaused = false
@@ -166,6 +174,27 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         activeIntent?.recordID == recordID || pendingIntent?.recordID == recordID
     }
 
+    func retainResourceLifetime(
+        _ lifetime: PlaybackResourceLifetime?,
+        rootURL: URL,
+        recordID: String?
+    ) {
+        pendingResourceLifetime = lifetime.map {
+            RetainedResourceLifetime(
+                rootURL: rootURL.resolvingSymlinksInPath().standardizedFileURL,
+                recordID: recordID,
+                lifetime: $0
+            )
+        }
+    }
+
+    func discardPendingResourceLifetime(rootURL: URL, recordID: String?) {
+        guard pendingResourceLifetime?.recordID == recordID,
+              pendingResourceLifetime?.rootURL
+                == rootURL.resolvingSymlinksInPath().standardizedFileURL else { return }
+        pendingResourceLifetime = nil
+    }
+
 #if DEBUG
     var debugProcessIdentifier: Int32? {
         guard let transport, transport.isRunning else { return nil }
@@ -205,6 +234,10 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         restartWorkItem = nil
         handshakeWorkItem?.cancel()
         handshakeWorkItem = nil
+        let resourceLifetimes = [pendingResourceLifetime?.lifetime, activeResourceLifetime?.lifetime]
+            .compactMap { $0 }
+        pendingResourceLifetime = nil
+        activeResourceLifetime = nil
         pendingIntent = nil
         activeIntent = nil
         pendingRequestID = nil
@@ -216,6 +249,9 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         restartBackoff.reset()
         guard let transport else { return }
         let generation = sessionGeneration
+        if !resourceLifetimes.isEmpty {
+            retiringResourceLifetimes[generation, default: []].append(contentsOf: resourceLifetimes)
+        }
         expectedTerminationGenerations.insert(generation)
         retiringTransports[generation] = transport
         self.transport = nil
@@ -233,6 +269,11 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     }
 
     func requestLaunch(_ request: ScenePlaybackLoadRequest) {
+        let normalizedRoot = request.rootURL.resolvingSymlinksInPath().standardizedFileURL
+        if pendingResourceLifetime?.rootURL != normalizedRoot
+            || pendingResourceLifetime?.recordID != request.recordID {
+            pendingResourceLifetime = nil
+        }
         pendingIntent = request
         pendingRequestID = nil
         pendingPropertyRevisions.removeAll(keepingCapacity: true)

@@ -112,7 +112,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             recordID: request.recordID,
             language: request.language,
             runtimeProfile: request.runtimeProfile,
-            multiDisplayEnabled: multiDisplayEnabled
+            multiDisplayEnabled: multiDisplayEnabled,
+            resourceLifetime: request.resourceLifetime
         )
         currentRequest = updatedRequest
         reconcileDisplaySurfaces(for: updatedRequest)
@@ -229,7 +230,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                         recordID: request.recordID,
                         language: request.language,
                         runtimeProfile: request.runtimeProfile,
-                        multiDisplayEnabled: request.multiDisplayEnabled
+                        multiDisplayEnabled: request.multiDisplayEnabled,
+                        resourceLifetime: request.resourceLifetime
                     )
                 }
                 refreshReadableResourceRoots(using: effectivePropertiesJSON)

@@ -12,6 +12,7 @@ final class ImportedVideoAutoplayGate: @unchecked Sendable {
 
     static let shared = ImportedVideoAutoplayGate()
     static let notificationUserInfoKey = "importedVideoAutoplayToken"
+    static let resourceLifetimeUserInfoKey = "importedVideoResourceLifetime"
 
     private let lock = NSLock()
     private var generation: UInt64 = 0
@@ -39,17 +40,28 @@ final class ImportedVideoAutoplayGate: @unchecked Sendable {
 struct ImportedVideoPlaybackRequest {
     let localURL: URL
     let autoplayToken: ImportedVideoAutoplayGate.Token
+    let resourceLifetime: PlaybackResourceLifetime?
 
-    init(localURL: URL, autoplayToken: ImportedVideoAutoplayGate.Token) {
+    init(
+        localURL: URL,
+        autoplayToken: ImportedVideoAutoplayGate.Token,
+        resourceLifetime: PlaybackResourceLifetime? = nil
+    ) {
         self.localURL = localURL
         self.autoplayToken = autoplayToken
+        self.resourceLifetime = resourceLifetime
     }
 
     init?(notification: Notification) {
         guard let localURL = notification.userInfo?["localURL"] as? URL,
               let autoplayToken = notification.userInfo?[ImportedVideoAutoplayGate.notificationUserInfoKey]
                 as? ImportedVideoAutoplayGate.Token else { return nil }
-        self.init(localURL: localURL, autoplayToken: autoplayToken)
+        self.init(
+            localURL: localURL,
+            autoplayToken: autoplayToken,
+            resourceLifetime: notification.userInfo?[ImportedVideoAutoplayGate.resourceLifetimeUserInfoKey]
+                as? PlaybackResourceLifetime
+        )
     }
 
     func post(name: Notification.Name) {
@@ -58,7 +70,8 @@ struct ImportedVideoPlaybackRequest {
             object: nil,
             userInfo: [
                 "localURL": localURL,
-                ImportedVideoAutoplayGate.notificationUserInfoKey: autoplayToken
+                ImportedVideoAutoplayGate.notificationUserInfoKey: autoplayToken,
+                ImportedVideoAutoplayGate.resourceLifetimeUserInfoKey: resourceLifetime as Any
             ]
         )
     }

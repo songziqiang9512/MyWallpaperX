@@ -435,6 +435,7 @@ enum MainWindowCoordinator {
             let recordID = notification.userInfo?["recordID"] as? String
             let language = notification.userInfo?["language"] as? String ?? "en-us"
             let runtimeProfile = notification.userInfo?["runtimeProfile"] as? WallpaperEngine.WebRuntimeProfile ?? .standard
+            let resourceLifetime = notification.userInfo?["resourceLifetime"] as? PlaybackResourceLifetime
             wallpaperManager.clearCurrentWallpaperReference()
             wallpaperManager.activeWallpaperRuntime = .web
             wallpaperManager.stopAutoSwitchTimer()
@@ -445,7 +446,8 @@ enum MainWindowCoordinator {
                 recordID: recordID,
                 language: language,
                 runtimeProfile: runtimeProfile,
-                multiDisplayEnabled: wallpaperManager.settings.multiDisplayEnabled
+                multiDisplayEnabled: wallpaperManager.settings.multiDisplayEnabled,
+                resourceLifetime: resourceLifetime
             )
             wallpaperManager.isPlaying = WallpaperEngine.shared.isPlaying()
         }
@@ -462,6 +464,11 @@ enum MainWindowCoordinator {
             MainActor.assumeIsolated {
                 guard let request = notification.userInfo?["request"]
                         as? SteamWorkshopScenePlaybackRequest else { return }
+                SceneDaemonClient.shared.retainResourceLifetime(
+                    request.resourceLifetime,
+                    rootURL: request.rootURL,
+                    recordID: request.recordID
+                )
                 let accepted = PlaybackCommandMultiplexer.shared.dispatch(
                     .loadScene(.init(
                         rootURL: request.rootURL,
@@ -472,6 +479,10 @@ enum MainWindowCoordinator {
                     to: .scene
                 )
                 if !accepted {
+                    SceneDaemonClient.shared.discardPendingResourceLifetime(
+                        rootURL: request.rootURL,
+                        recordID: request.recordID
+                    )
                     SteamWorkshopService.shared.downloadError =
                         "Scene daemon 控制端尚未就绪"
                     SteamWorkshopService.shared.clearLaunchPending(

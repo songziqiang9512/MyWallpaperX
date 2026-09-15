@@ -14,6 +14,7 @@ extension SteamWorkshopService {
                 if case .failed = $0.status { return true }
                 return false
             }
+            scheduleLibraryVersionReclamation()
             return
         }
 
@@ -71,6 +72,7 @@ extension SteamWorkshopService {
             selectedIDs: nextSelectedIDs,
             deferPublishing: true
         )
+        scheduleLibraryVersionReclamation()
     }
 
     private func directChildDirectories(in root: URL) -> [URL] {

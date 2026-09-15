@@ -2,7 +2,7 @@
 
 <!-- document-role: active-plan -->
 
-> 状态：现役专项计划；SK1–SK4.2 已有实现并完成本轮离线审查修复，SK4.3 已接通部分事务链。下一步按 §8 从 SK4.3 剩余门续接；代码完成不等于真实账号、UI 或发布验收完成。
+> 状态：现役专项计划；SK1–SK4.2 已有实现并完成本轮离线审查修复，SK4.3 已接通原子事务及播放感知版本回收。下一步按 §8 从 SK4.3 剩余可见/依赖门续接；代码完成不等于真实账号、UI 或发布验收完成。
 >
 > 复核：2026-09-15。本轮依据当前 Swift/C#、隔离文件系统与无网络协议测试、App Debug 构建；未使用真实账号、修改真实订阅或实测可见 UI。§10.1 保留早期探针证据，不能代替本轮构建的真实链路验收。
 >
@@ -162,7 +162,7 @@ SteamKit 提供协议能力，不等于完整 Wallpaper Engine 下载器。SK0 �
 5. **原子入库：**Swift 校验 staged receipt（job/account/version/path/manifest）→复制或移动至库内临时版本→验证→原子发布记录；持久化提交阶段/receipt，覆盖文件提交与记录更新之间的崩溃恢复，不假设二者天然是同一原子操作。跨卷不能假定 rename 原子。磁盘满/取消/重复完成不覆盖旧 ready。更新使用版本目录或等价安全替换，正在播放的旧版本保留到消费端释放；属性/依赖/预览映射继续按稳定 workshopID 关联。
    下载完成凭证采用显式 `receiptVersion=2`，必须包含并核对 `jobId/workshopId/accountSteamId/accountEpoch/manifestId`、`stagedComplete/projectJsonPresent`、相等且有界的 `verifiedBytes/totalBytes`，以及本次 base 下的独占 `job-<GUID>` 直接子目录。`contentDigest` 是按 NFC UTF-8 路径字节序排序的所有普通文件的 SHA-256：每行依次写入路径 UTF-8 长度（UInt32 little-endian）、路径、文件长度（UInt64 little-endian）、文件 SHA-256 二进制；再对这些行串联求 SHA-256。空目录保留但不参与摘要。App 复制时再次计算同一摘要，拒绝 helper 完成后发生的内容变化。Swift 查询 API 返回完整 typed receipt，不丢弃为 Void，不以协议成功直接发布 ready。路径字段校验只确认归属和格式，不替代消费端的文件身份、链接、项目内容重验；入库提交前再次核对当前账号及作业 attempt。
    当前发布 owner 仍为现有 `.mywallpaperx-steam-metadata/<workshopId>.json`：完整内容放入库内 `.mywallpaperx-steam-versions/<UUID>/content`，该元数据增加 commit 指针，临时版本自身不代表 ready。文件复制/摘要和 project 验收在 utility task；最后账号与 attempt 检查到元数据 rename 之间不挂起。任务状态为 `running → staged(receipt) → committing(commit) → completed`，receipt/commit 先持久化再推进状态；重启只以身份完全一致且内容路径可用的已发布记录对账，未发布事务保留失败现场并等待用户重试。旧 v1 活动任务文件可读取，写入升为 v2；失败保存不向观察者发布虚假的状态变化。
-   更新保留旧版本原路径；移除受管下载写 tombstone，避免旧目录被扫描复活。播放 lease 感知回收尚未完成，当前不自动删除旧版本、失败版本或 helper 暂存树。每个暂存/版本根最多64个直接子项；开始新作业前已有内容不得超过24GiB，再加单次8GiB上限，使单根最多32GiB（同时受200k节点/8MiB路径索引预算约束），超限明确拒绝。回收策略必须在后续职责内完成，不能把该暂存保留方案当无限期最终设计。
+   更新保留旧版本原路径；移除受管下载写 tombstone，避免旧目录被扫描复活。版本回收只处理 `.mywallpaperx-steam-versions` 下超过 24 小时的直接 UUID 目录，以当前 ready、JobStore 未决 commit、Scene/Web 活跃消费 token 和 Video 库持久路径组成保留集；删除过程基于目录描述符、不跟随链接，并在最终删除前复核 inode。未知条目与 helper 暂存树不进入该回收；暂存失败现场必须等 SK4.4 的物理 I/O 排空/恢复 owner 接管，不能由普通同步顺手删除。每个暂存/版本根最多64个直接子项；开始新作业前已有内容不得超过24GiB，再加单次8GiB上限，使单根最多32GiB（同时受200k节点/8MiB路径索引预算约束），超限明确拒绝。
    项目准入要求有界有效 JSON、scene/web/video 类型、受限相对入口及预览/依赖路径；scene允许入口封装于scene.pkg，web允许合法依赖项目。该准入不等于视频解码、HTML效果或Scene视觉兼容验收。配置根路径可用原生 realpath 解析物理路径，receipt路径本身不得借此绕过nofollow；Foundation路径规范化会缩写系统别名，不用于安全路径比较。
 
 6. **恢复：**Swift 持久化最小 job intent/目标版本/暂存租约，不保存密码/token 到任务文件。App 重启后先校验 manifest 与本地块，显示“可继续”或“需重新下载”，不能伪装自动无损续传。网络断开可有界自动重试；账号切换后不自动恢复前账号任务，提示原账号恢复或移除任务。更新 manifest 改变时丢弃不匹配块，只清精确 job 暂存。
@@ -214,7 +214,7 @@ Envelope：`v/type/requestId/processEpoch/accountEpoch`；认证另有 authAttem
 | 09 | SK3.3 | 已订阅/收藏与订阅写入 | dev route + 共享SubscriptionStore，unknown不得写、写超时先对账、无自动重写、账号隔离；个人排序/筛选仅限已加载集合，明确标注。Cookie不再是可用fallback。真账号/可见门待验 |
 | 10 | SK4.1 | JobStore、队列与持久化 | 先在线准入；任务文件v2；staged/committing非终态；cancelAll一次保存、失败不假推进并提示。离线反例通过；历史与完整App操作仍待后续卡 |
 | 11 | SK4.2 | 下载与完整receipt | 描述符staging、清单预算、v2跨语言摘要、串行进度发布/统一分母、typed磁盘错误、取消与成功共用决策点均有离线门。真实Steam下载与SDK物理排空仍待验 |
-| 12 | SK4.3 | 原子入库与已下载 | 已接通版本准备/摘要与项目准入/元数据rename/列表刷新；离线失败与中断门通过。剩余：播放占用与安全回收、可见列表、跨卷/断电实机、完整项目播放及依赖验收 |
+| 12 | SK4.3 | 原子入库与已下载 | 已接通版本准备/摘要与项目准入/元数据rename/列表刷新；播放 token 贯穿 Scene/Web/Video，旧版本按 ready/事务/消费引用延迟安全回收，离线事务门与 Debug build 通过。剩余：可见列表、跨卷/断电实机、完整项目播放及依赖验收 |
 | 13 | SK4.4 | 取消、恢复、有限并发与重试 | 待实施 |
 | 14 | SK5.1 | 卡片 bar 真实进度填充 | 待实施 |
 | 15 | SK5.2 | 工具栏任务面板与队列交互 | 待实施 |
@@ -233,7 +233,7 @@ python3.12 script/run_scene_tests.py --scope all -k test_steam_ -j 1
 
 `script/tests/test_steam_helper_offline.py` 将当前 helper 源码和锁文件复制到隔离目录，仅使用本地空 feed 与已有包缓存 restore，运行 protocol/auth/manifest/staging/download/query 六套真实 C# 自检；缺 SDK/包缓存应失败，不跳过假绿。其余 maintained Swift harness 使用真实 client/query/JobStore/事务/执行器/订阅与分页源码及假 wire，磁盘测试只写隔离目录。账号门脚本只在显式真人验收时运行：`script/steam-auth-gate.sh --help`，支持 password/qr/wrong-password/restore；有整体 deadline、attempt/epoch、Guard ack与终态断言，禁止输出原始帧或令牌。二维码模式仅显示用户需要的临时挑战链接，不落盘登录凭据。
 
-当前偏差的 owner/退役门：SK4.3/4.4 接管暂存与旧版本生命周期回收（现有有界保留，不是永久GC策略）；SK5 接数字进度/队列/历史（当前只接阶段文案）；SK6 撤公共HTML/旧PTY/旧凭据与资源并完成默认路由切换；SK7 冻结 SDK global.json、自包含发布、许可材料与真实 UI/账号/性能验收。禁止用离线绿色把这些剩余门直接勾完。
+当前偏差的 owner/退役门：SK4.3 已接旧版本生命周期 token 与有龄期的安全回收，仍需可见/依赖验收；SK4.4 接管 helper 暂存失败现场、物理下载排空与恢复，当前有界保留不是永久暂存 GC 策略；SK5 接数字进度/队列/历史（当前只接阶段文案）；SK6 撤公共HTML/旧PTY/旧凭据与资源并完成默认路由切换；SK7 冻结 SDK global.json、自包含发布、许可材料与真实 UI/账号/性能验收。禁止用离线绿色把这些剩余门直接勾完。
 
 ### 8.1 每卡开工和完成的统一规则
 
@@ -336,7 +336,7 @@ python3.12 script/run_scene_tests.py --scope all -k test_steam_ -j 1
 
 - **依赖：**SK4.2。
 - **入口：**DownloadLibrarySync/LibraryRecords/元数据保存、现有 ready 模型、JobStore terminal 消费点。
-- **改造：**校验 receipt→库内临时版本→验证→发布 ready；记录 commit receipt/阶段，使“文件已提交、记录未提交”崩溃后可对账恢复，而不是凭目录非空当 ready。自动更新已下载、浏览卡、详情、队列；保存旧版本消费 lease。
+- **改造：**校验 receipt→库内临时版本→验证→发布 ready；记录 commit receipt/阶段，使“文件已提交、记录未提交”崩溃后可对账恢复，而不是凭目录非空当 ready。自动更新已下载、浏览卡、详情、队列；旧版本消费 lease 已贯穿 Scene/Web/Video，回收仅删除超过龄期且不在 ready/事务/消费保留集中的受管 UUID 版本。
 - **验收：**Video/Web/Scene 入库、未知类型/缺依赖、磁盘满、跨卷、崩溃注入、重复 stagedComplete；不重复记录、不覆盖旧 ready、不误播放。已下载页未打开也能在打开时看到新项；已有选择和当前桌面不变。
 - **撤旧：**替代 stdout success/目录存在即成功判断；helper 不直接发布本地 ready。
 
