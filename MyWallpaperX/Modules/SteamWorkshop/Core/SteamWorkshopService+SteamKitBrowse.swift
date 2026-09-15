@@ -157,14 +157,19 @@ extension SteamWorkshopService {
         }
     }
 
-    /// SK3.3：新 route 是否适用于当前个人来源上下文（需新路线在线）。
+    /// SK3.3：新 route 是否适用于当前个人来源上下文（需新路线在线）。工坊
+    /// ID/链接搜索与 discovery 同规则保留既有按 ID 解析 route（SK3.2 同裁决）。
     var shouldUseSteamKitPersonal: Bool {
-        isSteamKitBrowseEnabled && source.isPersonal && steamAuth.isOnline
+        isSteamKitBrowseEnabled
+            && source.isPersonal
+            && steamAuth.isOnline
+            && Self.workshopItemIDSearchID(from: browserQuery) == nil
     }
 
     func fetchPersonalViaSteamKit(forceRefresh: Bool) {
         let key = steamKitBrowseStore.makePersonalKey(
             source: source,
+            accountSteamID: steamAuth.steamId,
             contentMode: browserContentMode,
             theme: themeFilter,
             resolution: resolutionFilter,
@@ -184,14 +189,19 @@ extension SteamWorkshopService {
         cancelBrowserDetailHydration()
         isLoadingMoreBrowserItems = false
         isRefreshingBrowserFeed = forceRefresh
-        hasMoreBrowserItems = true
+        browserLoadMoreRetryAfter = .distantPast
+        browserNextPage = 2
         if keyChanged || browserItems.isEmpty {
             browserState = .loading
             browserItems = []
+            hasMoreBrowserItems = true
             statusMessage = source == .mySubscriptions
                 ? "正在加载「Steam 已订阅」…"
                 : "正在加载「我的收藏」…"
         } else {
+            // §4.1：同 key 刷新不闪回空白，旧页上方轻量状态。保留既有
+            // hasMore，避免已到底的 feed 在刷新期间再次触发 loadMore
+            // （与 discovery route 的 SK3.2 修复对齐）。
             statusMessage = "正在刷新…"
         }
 
@@ -231,6 +241,10 @@ extension SteamWorkshopService {
 
     func loadMorePersonalViaSteamKitIfNeeded() {
         guard !isLoadingMoreBrowserItems,
+              // 刷新在途时抑制 loadMore：与 discovery route 的 SK3.2 修复对齐，
+              // 否则 loadMore 的 bumpGeneration 会判废在途刷新并泄漏
+              // isRefreshingBrowserFeed。
+              !isRefreshingBrowserFeed,
               hasMoreBrowserItems,
               browserState == .loaded,
               Date() >= browserLoadMoreRetryAfter else {
@@ -407,6 +421,8 @@ final class SteamKitBrowseStore {
         /// SK3.3 个人来源：来源与个人排序参与键；discovery 键两者为 nil。
         let source: SteamWorkshopSource?
         let personalSortRaw: String?
+        /// §4.1/§3.3：账号身份参与个人来源键；discovery 键为 nil。
+        let accountSteamID: String?
     }
 
     private(set) var generation = 0
@@ -451,13 +467,16 @@ final class SteamKitBrowseStore {
             // 避免残留窗口值造成假性键变化。
             trendingWindowRaw: source.supportsTimeRange ? window.rawValue : "na",
             source: nil,
-            personalSortRaw: nil
+            personalSortRaw: nil,
+            accountSteamID: nil
         )
     }
 
-    /// SK3.3 个人来源键（已订阅/收藏）。
+    /// SK3.3 个人来源键（已订阅/收藏）。accountSteamID 参与键：换号后键必然
+    /// 变化（§4.1 QueryKey 含账号；§3.3 旧账号私有数据不展示给新账号）。
     func makePersonalKey(
         source: SteamWorkshopSource,
+        accountSteamID: String?,
         contentMode: SteamWorkshopBrowserContentMode,
         theme: SteamWorkshopThemeFilter,
         resolution: SteamWorkshopResolutionFilter,
@@ -484,9 +503,12 @@ final class SteamKitBrowseStore {
             sort: .subscriptions,
             tags: tags,
             search: search,
-            trendingWindowRaw: window.rawValue,
+            // 个人来源不支持时间段（supportsTimeRange 仅 featured），与 makeKey
+            // 一致固定 "na"，避免残留窗口值造成假性键变化。
+            trendingWindowRaw: source.supportsTimeRange ? window.rawValue : "na",
             source: source,
-            personalSortRaw: personalSort.rawValue
+            personalSortRaw: personalSort.rawValue,
+            accountSteamID: accountSteamID
         )
     }
 

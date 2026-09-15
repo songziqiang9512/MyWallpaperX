@@ -31,12 +31,15 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     private let previewView = SteamWorkshopPreviewImageContainerView()
     private var isRestoringScrollPosition = false
 
-    // SK3.3：订阅状态缓存与写入/查询在飞标记。
+    // SK3.3：订阅状态缓存与写入/查询在飞标记。缓存按账号身份限定：
+    // 换号即清空（§3.3 旧账号订阅状态不得展示给新账号）。
     private var subscriptionStatesByID: [String: Bool] = [:]
+    private var subscriptionStatesAccountSteamID: String?
     private var subscriptionWriteInFlight = false
     private var subscriptionStateFetchInFlight = false
-    private var subscriptionStateFetchedItemID: String?
     private var subscriptionStateFetchTask: (itemID: String, task: Task<Void, Never>)?
+    /// 状态查询失败后的有界重试冷却；冷却内不重复发查询也不显示"查询中"。
+    private var subscriptionStateRetryAfter: Date = .distantPast
 
     init(item: SteamWorkshopBrowserItem) {
         self.initialItem = item
@@ -70,6 +73,18 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             .sink { [weak self] _ in
                 guard let self else { return }
                 self.currentItem = self.resolvedCurrentItem(fallback: self.currentItem)
+                self.rebuild()
+            }
+            .store(in: &cancellables)
+
+        // SK3.3：账号身份变化（登录/登出/换号）即清订阅状态缓存并重建，
+        // 不等服务对象的其他事件（§3.3 旧账号状态不展示给新账号）。
+        service.steamAuth.$steamId
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.resetSubscriptionCacheIfAccountChanged()
                 self.rebuild()
             }
             .store(in: &cancellables)
@@ -427,6 +442,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     /// SK3.3：订阅次级动作。未登录点击只给工具栏指引（不排写操作）；
     /// 写入后经订阅状态查询对账，超时显示"待确认"。
     private func buildSubscriptionSection() {
+        resetSubscriptionCacheIfAccountChanged()
         let auth = service.steamAuth
         let stack = verticalStack(spacing: 8)
         stack.addArrangedSubview(divider())
@@ -459,13 +475,23 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
                 lines: 2
             ))
         } else if auth.isOnline {
-            stack.addArrangedSubview(label(
-                "正在查询订阅状态…",
-                font: .systemFont(ofSize: 12),
-                color: .secondaryLabelColor,
-                lines: 1
-            ))
-            fetchSubscriptionStateIfNeeded()
+            if subscriptionStateFetchInFlight || Date() >= subscriptionStateRetryAfter {
+                stack.addArrangedSubview(label(
+                    "正在查询订阅状态…",
+                    font: .systemFont(ofSize: 12),
+                    color: .secondaryLabelColor,
+                    lines: 1
+                ))
+                fetchSubscriptionStateIfNeeded()
+            } else {
+                // 查询失败后的冷却期：如实显示不可确认，不永久卡"查询中"。
+                stack.addArrangedSubview(label(
+                    "订阅状态暂时无法确认，稍后自动重试；仍可直接点击订阅。",
+                    font: .systemFont(ofSize: 12),
+                    color: .secondaryLabelColor,
+                    lines: 2
+                ))
+            }
         } else {
             stack.addArrangedSubview(label(
                 "登录后可订阅该项目；未登录点击只会得到提示，不会排队写入。",
@@ -476,6 +502,17 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         }
 
         contentStack.addArrangedSubview(stack)
+    }
+
+    /// 账号身份变化即清空订阅状态缓存与在飞标记（§3.3）；同账号调用为无操作。
+    private func resetSubscriptionCacheIfAccountChanged() {
+        let accountSteamID = service.steamAuth.steamId
+        guard subscriptionStatesAccountSteamID != accountSteamID else { return }
+        subscriptionStatesAccountSteamID = accountSteamID
+        subscriptionStatesByID.removeAll()
+        subscriptionStateFetchInFlight = false
+        subscriptionStateFetchTask = nil
+        subscriptionStateRetryAfter = .distantPast
     }
 
     private func subscriptionButtonTitle(state: Bool?) -> String {
@@ -490,15 +527,26 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         let itemID = currentItem.id
         guard subscriptionStatesByID[itemID] == nil,
               subscriptionStateFetchTask?.itemID != itemID,
-              !subscriptionStateFetchInFlight else { return }
+              !subscriptionStateFetchInFlight,
+              Date() >= subscriptionStateRetryAfter else { return }
         subscriptionStateFetchInFlight = true
+        let accountSteamID = service.steamAuth.steamId
         let queryClient = service.steamWorkshopQueryClient
         subscriptionStateFetchTask = (itemID, Task { [weak self] in
             let states = try? await queryClient.subscriptionStates(ids: [itemID])
             await MainActor.run { [weak self] in
                 guard let self else { return }
-                self.subscriptionStatesByID[itemID] = states?[itemID]
                 self.subscriptionStateFetchInFlight = false
+                self.subscriptionStateFetchTask = nil
+                // 换号后的迟到回包不写入新账号的缓存（§3.3）。
+                if self.service.steamAuth.steamId == accountSteamID {
+                    if let state = states?[itemID] {
+                        self.subscriptionStatesByID[itemID] = state
+                    } else {
+                        // 查询失败：有界冷却，随下次界面重建重试，不永久卡"查询中"。
+                        self.subscriptionStateRetryAfter = Date().addingTimeInterval(30)
+                    }
+                }
                 if self.currentItem.id == itemID { self.rebuild() }
             }
         })
@@ -515,6 +563,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         let desired = !(subscriptionStatesByID[itemID] ?? false)
         subscriptionWriteInFlight = true
         rebuild()
+        let accountSteamID = service.steamAuth.steamId
         let queryClient = service.steamWorkshopQueryClient
         Task { [weak self] in
             do {
@@ -524,6 +573,11 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
                 await MainActor.run { [weak self] in
                     guard let self else { return }
                     self.subscriptionWriteInFlight = false
+                    // 换号后迟到的写入回执/对账不更新新账号的缓存与文案（§3.3）。
+                    guard self.service.steamAuth.steamId == accountSteamID else {
+                        self.rebuild()
+                        return
+                    }
                     if let confirmed = states?[itemID] {
                         self.subscriptionStatesByID[itemID] = confirmed
                         service.statusMessage = confirmed
@@ -540,14 +594,17 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
                 await MainActor.run { [weak self] in
                     guard let self else { return }
                     self.subscriptionWriteInFlight = false
-                    service.statusMessage = "订阅操作失败：\(error.localizedDescription)"
+                    if self.service.steamAuth.steamId == accountSteamID {
+                        service.statusMessage = "订阅操作失败：\(error.localizedDescription)"
+                    }
                     self.rebuild()
                 }
             }
         }
     }
 
-    private func buildWebDiagnosticsSection() {        guard let webDownloadRecord else { return }
+    private func buildWebDiagnosticsSection() {
+        guard let webDownloadRecord else { return }
         contentStack.addArrangedSubview(divider())
 
         let stack = verticalStack(spacing: 10)

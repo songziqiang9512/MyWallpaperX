@@ -249,7 +249,10 @@ internal sealed partial class SteamSession
 
     private void RequireAccountForQuery(string requestId, Action run)
     {
-        if (string.IsNullOrEmpty(SteamId))
+        // 必须以在线登录标志为准：断线重连后 steamId 可能仍是上一账号的残留，
+        // 而查询会话已降级为匿名——此时凭残留 steamId 查询/写入会静默拿到
+        // 空个人列表或写入失败（SK3.3 审查修复：与 OnDisconnected 清标志对齐）。
+        if (string.IsNullOrEmpty(SteamId) || !IsLoggedIn)
         {
             EmitQueryFailure(requestId, "accessDenied", "not signed in");
             return;
