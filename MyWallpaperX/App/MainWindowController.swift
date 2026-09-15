@@ -219,6 +219,11 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
             default: return false
             }
         }
+        if activeModule == .steamWorkshop {
+            // 浏览页没有 Quick Look 语义；把 Space/Esc 留给当前 Steam 控件，
+            // 不得回落到此前本地壁纸选择的通用预览。
+            return false
+        }
 
         switch event.keyCode {
         case 49: // Space

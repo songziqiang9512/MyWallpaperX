@@ -8,6 +8,7 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 UI = ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI"
 KEYBOARD = UI / "SteamWorkshopGridKeyboardNavigation.swift"
+MAIN_WINDOW = ROOT / "MyWallpaperX/App/MainWindowController.swift"
 
 
 class SteamKeyboardNavigationTests(unittest.TestCase):
@@ -77,6 +78,18 @@ import Foundation
             "private func handleArrowKey", 1
         )[0]
         self.assertNotIn("service.", focus_item)
+
+    def test_browser_space_cannot_fall_through_to_local_wallpaper_quick_look(self):
+        window = MAIN_WINDOW.read_text()
+        handler = window.split("private func handleQuickLookKeyDown", 1)[1].split(
+            "private func isEditingTextInput", 1
+        )[0]
+        downloads = handler.index("activeModule == .steamWorkshop && SteamWorkshopDownloadsBridge.shared.isActive")
+        browser_stop = handler.index("if activeModule == .steamWorkshop {", downloads)
+        generic_preview = handler.index("quickLookPreviewController.openPreview", browser_stop)
+        self.assertLess(downloads, browser_stop)
+        self.assertLess(browser_stop, generic_preview)
+        self.assertIn("return false", handler[browser_stop:generic_preview])
 
 
 if __name__ == "__main__":
