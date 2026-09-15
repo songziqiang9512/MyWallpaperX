@@ -61,7 +61,6 @@ extension SteamWorkshopService {
     func canRequestDownload(id: String) -> Bool {
         activeDownloadItemID != id
             && !isQueuedDownloadRequest(id: id)
-            && pendingDownloadRequest?.id != id
     }
 
     private func isValidWorkshopItemID(_ itemID: String) -> Bool {
@@ -75,14 +74,23 @@ extension SteamWorkshopService {
         activeDownloadItemID != nil
             || activeDownloadTask != nil
             || activeDownloadProcess != nil
-            || pendingDownloadRequest != nil
-            || !queuedDownloadRequests.isEmpty
+            || !downloadJobStore.activeJobs.isEmpty
             || isAuthenticating
             || isLoginSheetPresented
             || authPhase == .awaitingGuardCode
     }
 
     func startDownloadRequest(_ request: SteamWorkshopPendingDownloadRequest) {
+        // SK4.1：直接点击与出队续跑共用同一入队/启动语义——
+        // 已在队列/执行中的任务不会被重复入队或二次 started。
+        let (job, _) = downloadJobStore.enqueue(
+            workshopItemId: request.id,
+            title: request.pageTitle ?? "Workshop #\(request.id)",
+            accountSteamId: steamAuth.steamId ?? "anonymous"
+        )
+        if job.state == .queued {
+            downloadJobStore.apply(.started, toID: job.id)
+        }
         beginDownloadWorkflow(request)
     }
 
@@ -219,11 +227,10 @@ extension SteamWorkshopService {
         guard hasSuccessfulOutput || hasStagedContent else {
             if outputIndicatesAuthenticationFailure(output) {
                 expireAuthenticationAndPromptRelogin(
-                    reason: "Steam 下载认证已失效，请继续输入账号密码并完成 Guard 验证。",
-                    pendingDownload: request
+                    reason: "Steam 下载认证已失效。请使用工具栏的「登录 Steam」重新登录后再试。"
                 )
                 throw NSError(domain: "SteamWorkshop", code: 11, userInfo: [
-                    NSLocalizedDescriptionKey: "当前 Steam 登录态已失效，请继续登录。登录成功后会自动继续下载。"
+                    NSLocalizedDescriptionKey: "当前 Steam 登录态已失效。请使用工具栏的「登录 Steam」。"
                 ])
             }
             if outputIndicatesAccessRestriction(output) {
@@ -283,11 +290,10 @@ extension SteamWorkshopService {
             let sessionRecovered = await validateSavedAuthenticationSessionIfNeeded(force: true)
             guard sessionRecovered else {
                 expireAuthenticationAndPromptRelogin(
-                    reason: "Steam 下载认证已失效，请继续输入账号密码并完成 Guard 验证。",
-                    pendingDownload: SteamWorkshopPendingDownloadRequest(id: id, pageTitle: pageTitle, item: item ?? browserItemForDownload(id: id))
+                    reason: "Steam 下载认证已失效。请使用工具栏的「登录 Steam」重新登录后再试。"
                 )
                 throw NSError(domain: "SteamWorkshop", code: 11, userInfo: [
-                    NSLocalizedDescriptionKey: "当前 Steam 登录态已失效，请继续登录。登录成功后会自动继续下载。"
+                    NSLocalizedDescriptionKey: "当前 Steam 登录态已失效。请使用工具栏的「登录 Steam」。"
                 ])
             }
 
@@ -397,18 +403,14 @@ extension SteamWorkshopService {
 
     func cancelDownloadImmediately(itemID: String? = nil, showFeedback: Bool) {
         if let itemID, itemID != activeDownloadItemID {
-            if pendingDownloadRequest?.id == itemID {
-                pendingDownloadRequest = nil
+            // SK4.1：队列真值在 JobStore——取消排队任务并清投影。
+            if let job = downloadJobStore.activeJob(forWorkshopItemId: itemID) {
+                downloadJobStore.cancel(id: job.id)
                 removeTransientRecord(id: itemID)
                 if showFeedback {
-                    statusMessage = "已取消待验证的下载请求。"
+                    statusMessage = "已将 \(itemID) 移出下载队列。"
                 }
                 return
-            }
-            guard removeQueuedDownloadRequest(id: itemID) else { return }
-            removeTransientRecord(id: itemID)
-            if showFeedback {
-                statusMessage = "已将 \(itemID) 移出下载队列。"
             }
             return
         }
@@ -483,7 +485,9 @@ extension SteamWorkshopService {
         return nil
     }
 
-    func expireAuthenticationAndPromptRelogin(reason: String, pendingDownload: SteamWorkshopPendingDownloadRequest?) {
+    /// SK2.2/SK4.1：会话过期只做过期标注与就地提示；不自动弹登录、不保留
+    /// 待续接任务（用户登录后重新确认下载）。
+    func expireAuthenticationAndPromptRelogin(reason: String) {
         cancelActiveLoginSession()
         defaults.removeObject(forKey: Constants.defaultsLastAuthenticatedAt)
         steamGuardCode = ""
@@ -494,51 +498,59 @@ extension SteamWorkshopService {
         lastSuccessfulSessionValidationAt = nil
         authError = nil
         authStatusMessage = reason
-        self.pendingDownloadRequest = pendingDownload
-        if let pendingDownload {
-            upsertTransientRecord(
-                id: pendingDownload.id,
-                title: pendingDownload.pageTitle ?? "Workshop #\(pendingDownload.id)",
-                status: .queued,
-                sizeText: downloadStatusSizeText(for: pendingDownload.id)
-            )
-        }
-        isLoginSheetPresented = true
     }
 
     private func enqueueDownloadRequest(id: String, pageTitle: String?, item: SteamWorkshopBrowserItem?) {
-        let request = SteamWorkshopPendingDownloadRequest(id: id, pageTitle: pageTitle, item: item)
-        queuedDownloadRequests.append(request)
+        let title = pageTitle ?? "Workshop #\(id)"
+        // SK4.1：入队真值在 JobStore——同项去重，重复点击/跨来源点击只一个任务。
+        let (job, isNew) = downloadJobStore.enqueue(
+            workshopItemId: id,
+            title: title,
+            accountSteamId: steamAuth.steamId ?? "anonymous"
+        )
+        // 执行载荷不入任务文件：会话内内存映射，出队时取回。
+        if let item {
+            steamJobItemPayloads[id] = item
+        }
+        guard isNew else {
+            statusMessage = "\(title) 已在下载队列中。"
+            return
+        }
         upsertTransientRecord(
             id: id,
-            title: pageTitle ?? "Workshop #\(id)",
+            title: title,
             status: .queued,
             sizeText: downloadStatusSizeText(for: id)
         )
-        statusMessage = "已将 \(pageTitle ?? "Workshop #\(id)") 加入下载队列。"
+        statusMessage = "已将 \(title) 加入下载队列。"
     }
 
     private func processNextQueuedDownloadIfPossible() {
         guard activeDownloadItemID == nil,
               activeDownloadTask == nil,
-              pendingDownloadRequest == nil,
               !isLoginSheetPresented,
               authPhase != .awaitingGuardCode,
-              !isAuthenticating,
-              !queuedDownloadRequests.isEmpty else { return }
+              !isAuthenticating else { return }
 
-        let next = queuedDownloadRequests.removeFirst()
-        startDownloadRequest(next)
+        // SK4.1：出队即 started（attempt 递增）；按当前账号隔离。
+        guard let next = downloadJobStore.popNextQueued(
+            forAccount: steamAuth.steamId
+        ) else { return }
+        startDownloadRequest(SteamWorkshopPendingDownloadRequest(
+            id: next.workshopItemId,
+            pageTitle: next.title,
+            item: steamJobItemPayloads[next.workshopItemId]
+        ))
     }
 
     private func removeQueuedDownloadRequest(id: String) -> Bool {
-        guard let index = queuedDownloadRequests.firstIndex(where: { $0.id == id }) else { return false }
-        queuedDownloadRequests.remove(at: index)
-        return true
+        guard let job = downloadJobStore.activeJob(forWorkshopItemId: id),
+              job.state == .queued else { return false }
+        return downloadJobStore.cancel(id: job.id) != nil
     }
 
     private func isQueuedDownloadRequest(id: String) -> Bool {
-        queuedDownloadRequests.contains(where: { $0.id == id })
+        downloadJobStore.isQueuedOrRunning(workshopItemId: id)
     }
 
     private func downloadStatusSizeText(for id: String) -> String {

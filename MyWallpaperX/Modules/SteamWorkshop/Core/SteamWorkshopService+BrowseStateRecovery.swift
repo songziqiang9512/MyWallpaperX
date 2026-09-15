@@ -123,8 +123,7 @@ extension SteamWorkshopService {
         selectedDownloadDetailError = nil
         isRefreshingSelectedDownloadDetailItem = false
         downloadError = nil
-        pendingDownloadRequest = nil
-        queuedDownloadRequests = []
+        downloadJobStore.cancelAll()
         activeDownloadWasCancelled = false
         zoomOffset = 0
 

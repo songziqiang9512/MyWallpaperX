@@ -366,12 +366,8 @@ final class SteamWorkshopLoginOverlayView: NSView, NSTextFieldDelegate {
         passwordGroup.isHidden = awaitingGuard
         guardGroup.isHidden = !awaitingGuard
 
-        if let pendingTitle = pendingDownloadTitle {
-            pendingCalloutLabel.stringValue = "登录成功后会自动继续下载：\(pendingTitle)"
-            pendingCallout.isHidden = false
-        } else {
-            pendingCallout.isHidden = true
-        }
+        // §1 规则 3：不提示"登录后自动继续下载"——未登录点击不创建待续接任务。
+        pendingCallout.isHidden = true
 
         let primaryTitle: String
         let symbolName: String
@@ -398,14 +394,8 @@ final class SteamWorkshopLoginOverlayView: NSView, NSTextFieldDelegate {
     }
 
     private var pendingDownloadTitle: String? {
-        if let title = service.pendingDownloadRequest?.pageTitle?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !title.isEmpty {
-            return title
-        }
-        if let pending = service.pendingDownloadRequest {
-            return "Workshop #\(pending.id)"
-        }
-        return nil
+        // SK4.1：待续接下载意图已随 JobStore 移除；保留占位避免旧调用点崩溃。
+        nil
     }
 
     private func refreshAppearance() {

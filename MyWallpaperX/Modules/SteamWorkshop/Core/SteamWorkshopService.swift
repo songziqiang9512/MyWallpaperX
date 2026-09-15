@@ -129,6 +129,13 @@ final class SteamWorkshopService: ObservableObject {
         client: steamServiceClient
     )
 
+    /// SK4.1：下载任务单一权威（队列/去重/状态机/持久化）。旧 queued/
+    /// pending 数组真值已移除，各入口读同一投影。
+    private(set) lazy var downloadJobStore = SteamDownloadJobStore()
+
+    /// SK4.1：出队重建执行请求所需的内存载荷映射（不入任务文件）。
+    var steamJobItemPayloads: [String: SteamWorkshopBrowserItem] = [:]
+
     /// SK2.3：唯一登录面板入口。重复调用聚焦同一面板，不产生第二个认证流。
     func showLoginPanel() {
         SteamLoginPanelController.shared.show(auth: steamAuth)
@@ -179,7 +186,7 @@ final class SteamWorkshopService: ObservableObject {
     /// 注意：旧 SteamCMD 密码条目暂不删除——下载仍走旧 route，其退役
     /// 挂接 SK6 迁移门（§8.1 SK2.3"成功迁移条件下"）。
     func signOutEverywhere() {
-        let hasActiveDownloads = activeDownloadTask != nil || !queuedDownloadRequests.isEmpty
+        let hasActiveDownloads = activeDownloadTask != nil || downloadJobStore.queuedCount > 0
         if hasActiveDownloads {
             let alert = NSAlert()
             alert.messageText = "退出 Steam 登录？"
@@ -197,12 +204,10 @@ final class SteamWorkshopService: ObservableObject {
             self.cancelDownloadImmediately(showFeedback: false)
             self.defaults.removeObject(forKey: Constants.defaultsLastUsername)
             self.defaults.removeObject(forKey: Constants.defaultsLastAuthenticatedAt)
-            self.pendingDownloadRequest = nil
-            // 排队任务与旧路线内存态一并清空，避免登出后用遗留凭据续跑（§3.3）。
-            for queued in self.queuedDownloadRequests {
-                self.removeTransientRecord(id: queued.id)
+            // SK4.1：队列真值在 JobStore——取消全部任务并清理对应投影。
+            for workshopID in self.downloadJobStore.cancelAll() {
+                self.removeTransientRecord(id: workshopID)
             }
-            self.queuedDownloadRequests.removeAll()
             self.steamUsername = ""
             self.steamPassword = ""
             self.steamGuardCode = ""
@@ -317,8 +322,6 @@ final class SteamWorkshopService: ObservableObject {
     var startupTask: Task<Void, Never>?
     var loginBootstrapTimeoutTask: Task<Void, Never>?
     var loginSessionID: String = ""
-    var pendingDownloadRequest: SteamWorkshopPendingDownloadRequest?
-    var queuedDownloadRequests: [SteamWorkshopPendingDownloadRequest] = []
     var lastSuccessfulSessionValidationAt: Date?
     var activeDownloadProcess: Process?
     var activeDownloadTask: Task<Void, Never>?
@@ -383,6 +386,23 @@ final class SteamWorkshopService: ObservableObject {
         }
         observeWebPlaybackFailures()
         installLaunchPendingObservers()
+        observeSteamAccountIdentityForPersonalSources()
+    }
+
+    /// SK3.3（§3.3/§3.2）：账号身份变化（登录成功/登出/在线换号）即失效当前
+    /// 个人来源视图——旧账号的私有列表与空态不得展示给新账号；登录后当前
+    /// 个人来源立即同账号重读。navigateToBrowse 递增 navigationVersion，
+    /// 在飞的旧账号取页/追加页按 navigationVersion+generation 双守卫判废。
+    private func observeSteamAccountIdentityForPersonalSources() {
+        steamAuth.$steamId
+            .dropFirst()
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self, self.source.isPersonal else { return }
+                self.navigateToBrowse()
+            }
+            .store(in: &cancellables)
     }
 
     private func refreshDisplayedDownloads() {

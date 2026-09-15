@@ -257,9 +257,9 @@ extension SteamWorkshopService {
         try? fileManager.removeItem(at: downloadMetadataFileURL(for: record))
 
         downloads.removeAll { $0.id == itemID }
-        queuedDownloadRequests.removeAll { $0.id == itemID }
-        if pendingDownloadRequest?.id == itemID {
-            pendingDownloadRequest = nil
+        // SK4.1：删除本地项时取消其排队任务（JobStore 真值）。
+        if let job = downloadJobStore.activeJob(forWorkshopItemId: itemID) {
+            downloadJobStore.cancel(id: job.id)
         }
         if selectedDownloadID == itemID {
             selectedDownloadID = nil

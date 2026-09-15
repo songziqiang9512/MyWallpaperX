@@ -75,13 +75,7 @@ extension SteamWorkshopService {
         authStatusMessage = "Steam 登录已建立。当前会记住你的凭据，后续下载前会先验证当前会话；如果远端会话失效，再提示继续登录。"
         loginInputHandle?.write(Data("quit\r".utf8))
         fetchBrowserItems()
-        let pendingDownload = pendingDownloadRequest
-        pendingDownloadRequest = nil
-        if let pendingDownload {
-            DispatchQueue.main.async {
-                SteamWorkshopService.shared.startDownloadRequest(pendingDownload)
-            }
-        }
+        // §1 规则 3：登录成功不自动执行登录前的下载点击——用户重新确认。
     }
 
     func finalizeInteractiveLoginFailure(message: String, closeLoginSheet: Bool = false) {
