@@ -7,6 +7,43 @@ import WebKit
 /// deletion cannot repeatedly evict unrelated, newly regenerated state.
 @MainActor
 enum SteamWorkshopLegacyAcquisitionRetirement {
+    struct Environment {
+        let cachesRoot: URL?
+        let applicationSupportRoot: URL?
+        let deleteCredential: @MainActor () -> OSStatus
+        let removeWebDataStore: @MainActor (
+            @escaping @MainActor @Sendable (Error?) -> Void
+        ) -> Void
+
+        @MainActor
+        static func live(fileManager: FileManager) -> Environment {
+            Environment(
+                cachesRoot: fileManager.urls(
+                    for: .cachesDirectory,
+                    in: .userDomainMask
+                ).first,
+                applicationSupportRoot: fileManager.urls(
+                    for: .applicationSupportDirectory,
+                    in: .userDomainMask
+                ).first,
+                deleteCredential: {
+                    let query: [String: Any] = [
+                        kSecClass as String: kSecClassGenericPassword,
+                        kSecAttrService as String: credentialService,
+                        kSecAttrAccount as String: credentialAccount
+                    ]
+                    return SecItemDelete(query as CFDictionary)
+                },
+                removeWebDataStore: { completion in
+                    WKWebsiteDataStore.remove(
+                        forIdentifier: webDataStoreIdentifier,
+                        completionHandler: completion
+                    )
+                }
+            )
+        }
+    }
+
     private static let credentialMarker = "SteamWorkshop.retirement.credential.v1"
     private static let cacheMarker = "SteamWorkshop.retirement.cache.v1"
     private static let runtimeMarker = "SteamWorkshop.retirement.runtime.v1"
@@ -22,20 +59,41 @@ enum SteamWorkshopLegacyAcquisitionRetirement {
         defaults: UserDefaults,
         fileManager: FileManager = .default
     ) {
-        retireCredential(defaults: defaults)
-        retireCache(defaults: defaults, fileManager: fileManager)
-        retireRuntime(defaults: defaults, fileManager: fileManager)
-        retireWebDataStore(defaults: defaults)
+        run(
+            defaults: defaults,
+            fileManager: fileManager,
+            environment: .live(fileManager: fileManager)
+        )
     }
 
-    private static func retireCredential(defaults: UserDefaults) {
+    /// Injectable only at the system boundary so isolated gates can execute
+    /// the production marker/retry/path logic without touching the login
+    /// Keychain or the dedicated live WebKit store.
+    static func run(
+        defaults: UserDefaults,
+        fileManager: FileManager,
+        environment: Environment
+    ) {
+        retireCredential(defaults: defaults, environment: environment)
+        retireCache(
+            defaults: defaults,
+            fileManager: fileManager,
+            root: environment.cachesRoot
+        )
+        retireRuntime(
+            defaults: defaults,
+            fileManager: fileManager,
+            root: environment.applicationSupportRoot
+        )
+        retireWebDataStore(defaults: defaults, environment: environment)
+    }
+
+    private static func retireCredential(
+        defaults: UserDefaults,
+        environment: Environment
+    ) {
         guard !defaults.bool(forKey: credentialMarker) else { return }
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: credentialService,
-            kSecAttrAccount as String: credentialAccount
-        ]
-        let status = SecItemDelete(query as CFDictionary)
+        let status = environment.deleteCredential()
         guard status == errSecSuccess || status == errSecItemNotFound else {
             NSLog("[SteamWorkshopRetirement] legacy credential deletion failed: %d", status)
             return
@@ -47,16 +105,14 @@ enum SteamWorkshopLegacyAcquisitionRetirement {
 
     private static func retireCache(
         defaults: UserDefaults,
-        fileManager: FileManager
+        fileManager: FileManager,
+        root: URL?
     ) {
         guard !defaults.bool(forKey: cacheMarker),
-              let cachesRoot = fileManager.urls(
-                for: .cachesDirectory,
-                in: .userDomainMask
-              ).first else {
+              let root else {
             return
         }
-        let target = cachesRoot
+        let target = root
             .appendingPathComponent("MyWallpaperX", isDirectory: true)
             .appendingPathComponent("SteamWorkshop", isDirectory: true)
             .standardizedFileURL
@@ -73,16 +129,14 @@ enum SteamWorkshopLegacyAcquisitionRetirement {
 
     private static func retireRuntime(
         defaults: UserDefaults,
-        fileManager: FileManager
+        fileManager: FileManager,
+        root: URL?
     ) {
         guard !defaults.bool(forKey: runtimeMarker),
-              let appSupportRoot = fileManager.urls(
-                for: .applicationSupportDirectory,
-                in: .userDomainMask
-              ).first else {
+              let root else {
             return
         }
-        let target = appSupportRoot
+        let target = root
             .appendingPathComponent("MyWallpaperX", isDirectory: true)
             .appendingPathComponent("SteamWorkshopRuntime", isDirectory: true)
             .standardizedFileURL
@@ -97,9 +151,12 @@ enum SteamWorkshopLegacyAcquisitionRetirement {
         }
     }
 
-    private static func retireWebDataStore(defaults: UserDefaults) {
+    private static func retireWebDataStore(
+        defaults: UserDefaults,
+        environment: Environment
+    ) {
         guard !defaults.bool(forKey: webStoreMarker) else { return }
-        WKWebsiteDataStore.remove(forIdentifier: webDataStoreIdentifier) { error in
+        environment.removeWebDataStore { error in
             guard error == nil else {
                 NSLog(
                     "[SteamWorkshopRetirement] legacy web store deletion failed: %@",

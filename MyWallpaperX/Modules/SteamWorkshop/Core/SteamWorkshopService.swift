@@ -286,14 +286,7 @@ final class SteamWorkshopService: ObservableObject {
     /// backend and preserves the isolated defaults suite used by runtime gates.
     let defaults: UserDefaults = {
 #if DEBUG
-        let arguments = ProcessInfo.processInfo.arguments
-        if let index = arguments.firstIndex(of: "--mwx-debug-user-defaults-suite"),
-           arguments.indices.contains(index + 1) {
-            let suiteName = arguments[index + 1]
-            precondition(
-                suiteName.hasPrefix("com.songziqiang.MyWallpaperX.Debug."),
-                "Debug defaults suite must use the MyWallpaperX Debug namespace"
-            )
+        if let suiteName = SteamWorkshopService.isolatedDebugDefaultsSuiteName() {
             guard let defaults = UserDefaults(suiteName: suiteName) else {
                 preconditionFailure("Unable to create Debug defaults suite")
             }
@@ -341,7 +334,14 @@ final class SteamWorkshopService: ObservableObject {
     // MARK: - Lifecycle
 
     private init() {
-        SteamWorkshopLegacyAcquisitionRetirement.run(defaults: defaults)
+        if Self.isolatedDebugDefaultsSuiteName() == nil {
+            SteamWorkshopLegacyAcquisitionRetirement.run(defaults: defaults)
+        } else {
+            // Runtime gates intentionally use a private defaults suite. Never
+            // let that fresh marker namespace trigger deletion in the user's
+            // real login Keychain, WebKit store, caches or runtime directory.
+            NSLog("MWX DEBUG RETIREMENT: skipped for isolated defaults suite")
+        }
 #if DEBUG
         let isIsolatedWebSampleRun = ProcessInfo.processInfo.arguments.contains("--mwx-debug-run-web-workshop-id")
 #else
@@ -358,6 +358,24 @@ final class SteamWorkshopService: ObservableObject {
         observeWebPlaybackFailures()
         installLaunchPendingObservers()
         observeSteamAccountIdentityForPersonalSources()
+    }
+
+    private static func isolatedDebugDefaultsSuiteName() -> String? {
+#if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: "--mwx-debug-user-defaults-suite"),
+              arguments.indices.contains(index + 1) else {
+            return nil
+        }
+        let suiteName = arguments[index + 1]
+        precondition(
+            suiteName.hasPrefix("com.songziqiang.MyWallpaperX.Debug."),
+            "Debug defaults suite must use the MyWallpaperX Debug namespace"
+        )
+        return suiteName
+#else
+        return nil
+#endif
     }
 
     /// SK3.3（§3.3/§3.2）：账号身份变化（登录成功/登出/在线换号）即失效当前
