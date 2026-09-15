@@ -47,6 +47,7 @@ extension SteamWorkshopService {
             browserState = .failed("作者标识不可用")
             hasMoreBrowserItems = false
             isLoadingMoreBrowserItems = false
+            browserLoadMoreFailureMessage = nil
             isRefreshingBrowserFeed = false
             statusMessage = "无法解析该作者的 SteamID，请从作品详情重新进入作者工坊。"
             return
@@ -85,6 +86,7 @@ extension SteamWorkshopService {
 
         browserFetchTask?.cancel()
         isLoadingMoreBrowserItems = false
+        browserLoadMoreFailureMessage = nil
         isRefreshingBrowserFeed = forceRefresh
         browserLoadMoreRetryAfter = .distantPast
         if keyChanged || browserItems.isEmpty {
@@ -154,6 +156,7 @@ extension SteamWorkshopService {
         let page = steamKitBrowseStore.nextPage
         let generation = steamKitBrowseStore.bumpGeneration()
         let expectedNavigationVersion = navigationVersion
+        browserLoadMoreFailureMessage = nil
         isLoadingMoreBrowserItems = true
         Task(priority: .userInitiated) { [weak self] in
             guard let self else { return }
@@ -169,6 +172,7 @@ extension SteamWorkshopService {
                     self.browserItems = filtered
                     self.hasMoreBrowserItems = result.hasMore
                     self.isLoadingMoreBrowserItems = false
+                    self.browserLoadMoreFailureMessage = nil
                     self.browserLoadMoreRetryAfter = .distantPast
                     self.statusMessage = result.total > 0
                         ? "已加载 \(self.browserItems.count) 项 / 共 \(result.total) 项。"
@@ -181,6 +185,7 @@ extension SteamWorkshopService {
                           generation == self.steamKitBrowseStore.generation else { return }
                     self.isLoadingMoreBrowserItems = false
                     self.hasMoreBrowserItems = true
+                    self.browserLoadMoreFailureMessage = "加载失败 · 重试"
                     self.browserLoadMoreRetryAfter = Date().addingTimeInterval(
                         Constants.loadMoreRetryCooldown
                     )
@@ -205,6 +210,7 @@ extension SteamWorkshopService {
             browserState = .loaded
             hasMoreBrowserItems = false
             isLoadingMoreBrowserItems = false
+            browserLoadMoreFailureMessage = nil
             isRefreshingBrowserFeed = false
             statusMessage = "需要登录，请使用工具栏的「登录 Steam」。"
             return
@@ -229,6 +235,7 @@ extension SteamWorkshopService {
 
         browserFetchTask?.cancel()
         isLoadingMoreBrowserItems = false
+        browserLoadMoreFailureMessage = nil
         isRefreshingBrowserFeed = forceRefresh
         browserLoadMoreRetryAfter = .distantPast
         if keyChanged || browserItems.isEmpty {
@@ -296,6 +303,7 @@ extension SteamWorkshopService {
         let page = steamKitBrowseStore.nextPage
         let generation = steamKitBrowseStore.bumpGeneration()
         let expectedNavigationVersion = navigationVersion
+        browserLoadMoreFailureMessage = nil
         isLoadingMoreBrowserItems = true
         Task(priority: .userInitiated) { [weak self] in
             guard let self else { return }
@@ -311,6 +319,7 @@ extension SteamWorkshopService {
                     self.browserItems = processed
                     self.hasMoreBrowserItems = result.hasMore
                     self.isLoadingMoreBrowserItems = false
+                    self.browserLoadMoreFailureMessage = nil
                     self.browserLoadMoreRetryAfter = .distantPast
                     self.statusMessage = result.total > 0
                         ? "已加载 \(self.browserItems.count) 项 / 共 \(result.total) 项。"
@@ -323,6 +332,7 @@ extension SteamWorkshopService {
                           generation == self.steamKitBrowseStore.generation else { return }
                     self.isLoadingMoreBrowserItems = false
                     self.hasMoreBrowserItems = true
+                    self.browserLoadMoreFailureMessage = "加载失败 · 重试"
                     self.browserLoadMoreRetryAfter = Date().addingTimeInterval(
                         Constants.loadMoreRetryCooldown
                     )

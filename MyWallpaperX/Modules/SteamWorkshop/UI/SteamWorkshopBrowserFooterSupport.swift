@@ -10,18 +10,23 @@ enum SteamWorkshopBrowserFooterSupport {
         case hidden
         case ready
         case loading
+        case failed(String)
         case exhausted
     }
 
     static let itemID = "__steam_workshop_grid_footer__"
 
     static func resolvedState(
+        failureMessage: String?,
         isLoadingMore: Bool,
         hasMore: Bool,
         itemIDs: [String]
     ) -> State {
         if isLoadingMore {
             return .loading
+        }
+        if let failureMessage, hasMore, !itemIDs.isEmpty {
+            return .failed(failureMessage)
         }
         if hasMore, !itemIDs.isEmpty {
             return .ready
@@ -40,15 +45,42 @@ enum SteamWorkshopBrowserFooterSupport {
             return "继续下滑以加载更多项目。"
         case .loading:
             return "正在加载更多项目…"
+        case .failed(let message):
+            return message
         case .exhausted:
             return "已到达底部，更多作品请以 Steam 官方页面为准。"
         }
     }
 
-    static func configure(_ item: AppKitSteamWorkshopBrowserFooterItem, state: State) {
+    static func configure(
+        _ item: AppKitSteamWorkshopBrowserFooterItem,
+        state: State,
+        onRetry: @escaping () -> Void
+    ) {
+        let symbol: (name: String, accessibilityDescription: String)
+        switch state {
+        case .ready:
+            symbol = ("arrow.down.circle", "可以加载更多内容")
+        case .failed:
+            symbol = ("exclamationmark.triangle", "加载更多内容失败")
+        case .exhausted, .hidden:
+            symbol = ("checkmark.circle", "没有更多内容")
+        case .loading:
+            symbol = ("arrow.down.circle", "正在加载更多内容")
+        }
+        let showsRetry: Bool
+        if case .failed = state {
+            showsRetry = true
+        } else {
+            showsRetry = false
+        }
         item.configure(
             text: text(for: state),
-            showsProgress: state == .loading
+            showsProgress: state == .loading,
+            showsRetry: showsRetry,
+            symbolName: symbol.name,
+            symbolAccessibilityDescription: symbol.accessibilityDescription,
+            onRetry: onRetry
         )
     }
 
@@ -58,7 +90,13 @@ enum SteamWorkshopBrowserFooterSupport {
         sectionInset: NSEdgeInsets
     ) -> NSSize {
         let width = max(120, boundsWidth - sectionInset.left - sectionInset.right)
-        let height: CGFloat = state == .exhausted ? 52 : 40
+        let height: CGFloat
+        switch state {
+        case .exhausted, .failed:
+            height = 52
+        default:
+            height = 40
+        }
         return NSSize(width: floor(width), height: height)
     }
 }

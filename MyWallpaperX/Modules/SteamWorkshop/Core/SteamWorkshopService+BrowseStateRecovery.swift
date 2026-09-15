@@ -38,6 +38,7 @@ extension SteamWorkshopService {
         previewReloadToken += 1
         isLoadingMoreBrowserItems = false
         hasMoreBrowserItems = true
+        browserLoadMoreFailureMessage = nil
         browserLoadMoreRetryAfter = .distantPast
         lastPreviewPrefetchIDSet.removeAll()
         selectedBrowserItem = nil

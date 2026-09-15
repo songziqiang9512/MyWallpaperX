@@ -94,6 +94,7 @@ extension SteamWorkshopService {
             browserItems: browserItems,
             browserState: browserState,
             hasMoreBrowserItems: hasMoreBrowserItems,
+            browserLoadMoreFailureMessage: browserLoadMoreFailureMessage,
             statusMessage: statusMessage,
             currentPageTitle: currentPageTitle,
             browserQuery: browserQuery,
@@ -121,6 +122,7 @@ extension SteamWorkshopService {
         hasMoreBrowserItems = snapshot.hasMoreBrowserItems
         steamKitBrowseStore.restore(snapshot.steamKitBrowseSnapshot)
         isLoadingMoreBrowserItems = false
+        browserLoadMoreFailureMessage = snapshot.browserLoadMoreFailureMessage
         statusMessage = snapshot.statusMessage
         currentPageTitle = snapshot.currentPageTitle
         currentWorkshopItemID = snapshot.currentWorkshopItemID

@@ -10,8 +10,22 @@ final class AppKitSteamWorkshopBrowserFooterItem: NSCollectionViewItem {
         view = AppKitSteamWorkshopBrowserFooterView(frame: .zero)
     }
 
-    func configure(text: String, showsProgress: Bool) {
-        (view as? AppKitSteamWorkshopBrowserFooterView)?.configure(text: text, showsProgress: showsProgress)
+    func configure(
+        text: String,
+        showsProgress: Bool,
+        showsRetry: Bool,
+        symbolName: String,
+        symbolAccessibilityDescription: String,
+        onRetry: @escaping () -> Void
+    ) {
+        (view as? AppKitSteamWorkshopBrowserFooterView)?.configure(
+            text: text,
+            showsProgress: showsProgress,
+            showsRetry: showsRetry,
+            symbolName: symbolName,
+            symbolAccessibilityDescription: symbolAccessibilityDescription,
+            onRetry: onRetry
+        )
     }
 }
 
@@ -20,6 +34,8 @@ final class AppKitSteamWorkshopBrowserFooterView: NSView {
     private let progressIndicator = NSProgressIndicator()
     private let statusIconView = NSImageView()
     private let textField = NSTextField(labelWithString: "")
+    private let retryButton = NSButton(title: "重试", target: nil, action: nil)
+    private var retryHandler: (() -> Void)?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -31,10 +47,23 @@ final class AppKitSteamWorkshopBrowserFooterView: NSView {
         setup()
     }
 
-    func configure(text: String, showsProgress: Bool) {
+    func configure(
+        text: String,
+        showsProgress: Bool,
+        showsRetry: Bool,
+        symbolName: String,
+        symbolAccessibilityDescription: String,
+        onRetry: @escaping () -> Void
+    ) {
         textField.stringValue = text
         progressIndicator.isHidden = !showsProgress
         statusIconView.isHidden = showsProgress
+        statusIconView.image = NSImage(
+            systemSymbolName: symbolName,
+            accessibilityDescription: symbolAccessibilityDescription
+        )
+        retryButton.isHidden = !showsRetry
+        retryHandler = showsRetry ? onRetry : nil
         if showsProgress {
             progressIndicator.startAnimation(nil)
         } else {
@@ -59,6 +88,13 @@ final class AppKitSteamWorkshopBrowserFooterView: NSView {
         textField.alignment = .center
         textField.lineBreakMode = .byTruncatingTail
 
+        retryButton.bezelStyle = .rounded
+        retryButton.controlSize = .small
+        retryButton.target = self
+        retryButton.action = #selector(retryLoadMore)
+        retryButton.setAccessibilityLabel("重试加载更多项目")
+        retryButton.isHidden = true
+
         stackView.orientation = .horizontal
         stackView.alignment = .centerY
         stackView.distribution = .gravityAreas
@@ -67,6 +103,7 @@ final class AppKitSteamWorkshopBrowserFooterView: NSView {
         stackView.addArrangedSubview(progressIndicator)
         stackView.addArrangedSubview(statusIconView)
         stackView.addArrangedSubview(textField)
+        stackView.addArrangedSubview(retryButton)
 
         addSubview(stackView)
         NSLayoutConstraint.activate([
@@ -74,5 +111,9 @@ final class AppKitSteamWorkshopBrowserFooterView: NSView {
             stackView.centerYAnchor.constraint(equalTo: centerYAnchor),
             textField.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -24)
         ])
+    }
+
+    @objc private func retryLoadMore() {
+        retryHandler?()
     }
 }

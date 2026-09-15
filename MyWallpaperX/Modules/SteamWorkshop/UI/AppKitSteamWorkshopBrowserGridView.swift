@@ -67,7 +67,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             guard let self else { return nil }
             if id == SteamWorkshopBrowserFooterSupport.itemID {
                 let item = AppKitSteamWorkshopBrowserFooterItem()
-                SteamWorkshopBrowserFooterSupport.configure(item, state: self.footerState)
+                self.configureFooter(item)
                 return item
             }
             guard let item = self.itemsByID[id] else { return nil }
@@ -182,12 +182,13 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             }
             .store(in: &cancellables)
 
-        Publishers.CombineLatest(
+        Publishers.CombineLatest3(
             service.$isLoadingMoreBrowserItems,
-            service.$hasMoreBrowserItems
+            service.$hasMoreBrowserItems,
+            service.$browserLoadMoreFailureMessage
         )
         .receive(on: DispatchQueue.main)
-        .sink { [weak self] _, _ in
+        .sink { [weak self] _, _, _ in
             self?.refreshFooterState()
         }
         .store(in: &cancellables)
@@ -238,6 +239,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         itemsByID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
         orderedIDs = items.map(\.id)
         footerState = SteamWorkshopBrowserFooterSupport.resolvedState(
+            failureMessage: service.browserLoadMoreFailureMessage,
             isLoadingMore: service.isLoadingMoreBrowserItems,
             hasMore: service.hasMoreBrowserItems,
             itemIDs: orderedIDs
@@ -306,7 +308,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             guard let id = dataSource.itemIdentifier(for: indexPath) else { continue }
             if id == SteamWorkshopBrowserFooterSupport.itemID {
                 guard let footerItem = collectionView.item(at: indexPath) as? AppKitSteamWorkshopBrowserFooterItem else { continue }
-                SteamWorkshopBrowserFooterSupport.configure(footerItem, state: footerState)
+                configureFooter(footerItem)
                 continue
             }
             guard let cell = collectionView.item(at: indexPath) as? AppKitSteamWorkshopBrowserItem else { continue }
@@ -584,6 +586,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     private func refreshFooterState(forceReload: Bool = false) {
         let previousState = footerState
         let newState = SteamWorkshopBrowserFooterSupport.resolvedState(
+            failureMessage: service.browserLoadMoreFailureMessage,
             isLoadingMore: service.isLoadingMoreBrowserItems,
             hasMore: service.hasMoreBrowserItems,
             itemIDs: orderedIDs
@@ -602,7 +605,13 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
 
     private func configureVisibleFooterIfNeeded() {
         collectionView.visibleItems().compactMap { $0 as? AppKitSteamWorkshopBrowserFooterItem }.forEach {
-            SteamWorkshopBrowserFooterSupport.configure($0, state: footerState)
+            configureFooter($0)
+        }
+    }
+
+    private func configureFooter(_ item: AppKitSteamWorkshopBrowserFooterItem) {
+        SteamWorkshopBrowserFooterSupport.configure(item, state: footerState) { [weak self] in
+            self?.service.retryLoadingMoreBrowserItems()
         }
     }
 
@@ -641,7 +650,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         guard let id = dataSource.itemIdentifier(for: indexPath) else { return }
         if id == SteamWorkshopBrowserFooterSupport.itemID {
             if let footerItem = item as? AppKitSteamWorkshopBrowserFooterItem {
-                SteamWorkshopBrowserFooterSupport.configure(footerItem, state: footerState)
+                configureFooter(footerItem)
             }
             return
         }

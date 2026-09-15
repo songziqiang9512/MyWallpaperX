@@ -128,6 +128,7 @@ struct SteamWorkshopDiscoveryBrowseSnapshot {
     let browserItems: [SteamWorkshopBrowserItem]
     let browserState: SteamWorkshopBrowserLoadState
     let hasMoreBrowserItems: Bool
+    let browserLoadMoreFailureMessage: String?
     let statusMessage: String
     let currentPageTitle: String
     let browserQuery: String

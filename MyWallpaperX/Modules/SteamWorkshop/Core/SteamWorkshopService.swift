@@ -22,6 +22,9 @@ final class SteamWorkshopService: ObservableObject {
     @Published var previewReloadToken: Int = 0
     @Published var isLoadingMoreBrowserItems = false
     @Published var hasMoreBrowserItems = true
+    /// 追加页失败只发布展示状态；已加载页、页码与查询 generation 仍由
+    /// `SteamKitBrowseStore` 唯一持有。非 nil 时网格底部提供显式重试。
+    @Published var browserLoadMoreFailureMessage: String?
     @Published var downloads: [SteamWorkshopDownloadRecord] = [] {
         didSet { refreshDisplayedDownloads() }
     }
