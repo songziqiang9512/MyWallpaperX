@@ -263,6 +263,28 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         try admitRetainedBytes(in: root)
         return url
     }
+
+    /// Deletes only one exact helper-owned direct staging lease. Validation is
+    /// lexical first and deletion remains descriptor-relative/no-follow, so an
+    /// unknown sibling or a replaced/symlinked lease is never adopted.
+    static func removeStagingLease(stagingURL: URL, stagingRoot: URL) throws {
+        let configured = try configuredRoot(stagingRoot)
+        guard let validated = SteamWorkshopStagedReceipt.validatedStagingURL(
+            path: stagingURL.path,
+            stagingRoot: configured.path
+        ), validated.path == stagingURL.path else {
+            throw Failure(message: "拒绝清理不属于当前下载任务的暂存目录。")
+        }
+        let root = try absoluteDirectory(configured)
+        let name = validated.lastPathComponent
+        var value = stat()
+        if fstatat(root.value, name, &value, AT_SYMLINK_NOFOLLOW) != 0 {
+            if errno == ENOENT { return }
+            throw Failure(message: "无法检查下载暂存目录。")
+        }
+        try removeOwnedTree(parent: root, name: name)
+    }
+
     static func prepare(receipt: SteamWorkshopStagedReceipt, attempt: Int, libraryRoot: URL) throws -> SteamWorkshopLibraryCommit {
         try Task.checkCancellation()
         try require(receipt.version == 2 && attempt > 0 && receipt.verifiedBytes > 0 && receipt.verifiedBytes <= maxBytes)

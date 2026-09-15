@@ -270,18 +270,32 @@ internal static class Program
                 var workshopId = decode.PayloadString("workshopId");
                 var jobId = decode.StringField("jobId");
                 var stagingRoot = decode.PayloadString("stagingRoot");
+                var resumeStagingPath = decode.PayloadString("resumeStagingPath");
+                var resumeManifestText = decode.PayloadString("resumeManifestId");
+                ulong? resumeManifestId = null;
+                var hasResumePath = !string.IsNullOrEmpty(resumeStagingPath);
+                var hasResumeManifest = !string.IsNullOrEmpty(resumeManifestText);
+                if (hasResumeManifest && ulong.TryParse(resumeManifestText, out var parsedManifest)
+                    && parsedManifest > 0)
+                {
+                    resumeManifestId = parsedManifest;
+                }
                 if (workshopId == null || !ulong.TryParse(workshopId, out var downloadId)
-                    || string.IsNullOrEmpty(jobId) || string.IsNullOrEmpty(stagingRoot))
+                    || string.IsNullOrEmpty(jobId) || string.IsNullOrEmpty(stagingRoot)
+                    || hasResumePath != hasResumeManifest
+                    || hasResumeManifest && resumeManifestId == null
+                    || hasResumePath && !Path.IsPathRooted(resumeStagingPath!))
                 {
                     // 异步命令不预占 requestId，但校验失败的 terminal 在此发送：
                     // 经 TryBegin 保证重复 requestId 不双发 terminal（§6）。
                     if (!terminals.TryBegin(requestId)) return;
                     writer.Send(ProtocolMessages.ResultError(
                         requestId, "protocolMismatch",
-                        "startDownload requires payload.workshopId, envelope jobId and payload.stagingRoot", 1));
+                        "startDownload requires workshopId, jobId, stagingRoot and a complete valid resume identity", 1));
                     return;
                 }
-                steamSession.BeginStartDownload(requestId, jobId, downloadId, stagingRoot, decode.AccountEpoch);
+                steamSession.BeginStartDownload(requestId, jobId, downloadId, stagingRoot, decode.AccountEpoch,
+                    resumeStagingPath, resumeManifestId);
                 return;
             }
             case "cancelDownload":

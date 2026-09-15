@@ -212,9 +212,19 @@ final class SteamWorkshopQueryClient {
         jobId: String,
         workshopId: String,
         accountSteamId: String,
-        stagingRoot: String
+        stagingRoot: String,
+        resumeStagingPath: String? = nil,
+        resumeManifestId: String? = nil
     ) async throws -> SteamWorkshopStagedReceipt {
         let epoch = client.accountEpoch
+        var payload: [String: SteamServiceJSON] = [
+            "workshopId": .string(workshopId),
+            "stagingRoot": .string(stagingRoot),
+        ]
+        if let resumeStagingPath, let resumeManifestId {
+            payload["resumeStagingPath"] = .string(resumeStagingPath)
+            payload["resumeManifestId"] = .string(resumeManifestId)
+        }
         // Keep the start request alive after the caller is cancelled. The helper's
         // original terminal is the physical-drain acknowledgement; the separate
         // cancelDownload response only says that cancellation was accepted.
@@ -222,10 +232,7 @@ final class SteamWorkshopQueryClient {
             try await client.request(
                 command: "startDownload",
                 jobId: jobId,
-                payload: .object([
-                    "workshopId": .string(workshopId),
-                    "stagingRoot": .string(stagingRoot),
-                ]),
+                payload: .object(payload),
                 private: nil,
                 timeout: nil,
                 awaitRemoteTerminalAcrossAccountEpochChanges: true

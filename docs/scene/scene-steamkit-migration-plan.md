@@ -2,7 +2,7 @@
 
 <!-- document-role: active-plan -->
 
-> 状态：现役专项计划；SK1–SK4.2 已有实现并完成本轮离线审查修复，SK4.3 已接通原子事务及播放感知版本回收；SK4.4 已闭合物理排空等待，并完成失败意图/暂存身份持久化与显式同 job 重试。下一步继续 manifest-aware 恢复与有限并发；代码完成不等于真实账号、UI 或发布验收完成。
+> 状态：现役专项计划；SK1–SK4.2 已有实现并完成本轮离线审查修复，SK4.3 已接通原子事务及播放感知版本回收；SK4.4 已闭合物理排空等待、manifest-bound 暂存恢复、精确 lease 清理及显式同 job 重试。下一步继续 disk-full 策略与有限并发；代码完成不等于真实账号、UI 或发布验收完成。
 >
 > 复核：2026-09-15。本轮依据当前 Swift/C#、隔离文件系统与无网络协议测试、App Debug 构建；未使用真实账号、修改真实订阅或实测可见 UI。§10.1 保留早期探针证据，不能代替本轮构建的真实链路验收。
 >
@@ -156,13 +156,13 @@ helper 进度合并最多 4Hz，Swift UI 渲染最多 4Hz，只更新可见同 I
 SteamKit 提供协议能力，不等于完整 Wallpaper Engine 下载器。SK0 必须证明真实账号下的授权/manifest/CDN 流程可行。helper 顺序为：item 类型与 app 校验 → 授权/内容定位 → manifest → 有界 chunk 下载/解压/校验 → stagedComplete。直接 UGC、depot 内容、依赖和集合需分别识别；集合不能当普通文件下载，未支持时给出网页/子项说明。不要用第三方私有实现填补能力。
 
 1. **下载调度：**Swift 重构为统一 JobStore，保留去重、排队、取消的用户能力，当前 App FIFO 与 helper 都只允许 1 个活动作业，作业内最多 4 个 chunk worker；旧作业未排空时拒绝下一作业。SK4.4 先闭合排空/恢复/重试再决定是否增并发；已撤全局 staging 清理，不能为提高并行度恢复共享路径删除。
-2. **路径/预算：**Swift 为每 job 分配隔离 staging 与受控根，helper 不能接受任意 outputRoot 写用户目录。拒绝 `..`、绝对路径、逃逸 symlink、大小写/Unicode 冲突、非法长度；约束文件数、展开字节、并发、重试与磁盘空间，空间估计包括旧版本＋暂存＋提交空间。持久下载暂存由任务租约管理，不在真实 Scene 样本根试验。helper 只接受已存在且祖先无符号链接的 staging 基目录；每作业排他创建随机子目录（0700），不复用旧树。以目录描述符逐层 openat/O_NOFOLLOW 创建和打开节点，新文件 O_EXCL/0600；记录设备、inode 和创建时间，写入/终验拒绝替换节点、多硬链接及非普通文件。成功前再次核对回执路径的根目录身份。释放租约只关闭描述符，不递归删除路径；失败暂存的登记清理和交付后的消费者复核由后续任务事务负责，不能把本机目录视为不可篡改。
+2. **路径/预算：**Swift 为每 job 分配隔离 staging 与受控根，helper 不能接受任意 outputRoot 写用户目录。拒绝 `..`、绝对路径、逃逸 symlink、大小写/Unicode 冲突、非法长度；约束文件数、展开字节、并发、重试与磁盘空间，空间估计包括旧版本＋暂存＋提交空间。持久下载暂存由任务租约管理，不在真实 Scene 样本根试验。helper 只接受已存在且祖先无符号链接的 staging 基目录；新作业排他创建随机直接子目录（0700），恢复仅可重新打开 JobStore 持久化的同一 `job-<GUID>` 直接子目录，且服务端当前 manifestID 必须一致。以目录描述符逐层 openat/O_NOFOLLOW 创建或收养 manifest 已声明节点，新文件 O_EXCL/0600；记录设备、inode 和创建时间，写入/终验拒绝替换节点、多硬链接及非普通文件。已有文件长度一致后逐 chunk 校验，只有有效块计入恢复进度，其余块重新下载。成功前再次核对回执路径的根目录身份。释放 helper 租约只关闭描述符；App 等到物理 terminal 后，以同样的直接 lease/name/no-follow/inode 边界精确清理成功、取消或不可恢复 manifest 失配的暂存，不枚举或删除未知兄弟目录。
 3. **校验：**写盘前整份 manifest 纯校验：无符号总量先与剩余预算比较，再安全转为文件长度；chunk 按 offset 验证无重叠、无空洞、完整覆盖文件。清单内路径统一检查目录/文件及大小写、Unicode 规范化冲突。首期另设 262144 chunk、单路径 4096 字符/64 层、路径索引 8Mi 字符预算；这些是资源拒绝上限，不是兼容性声明。根目录必须有非空 `project.json`。终验核对实际长度与 checksum，在文件/chunk/每次至多 64KiB 读取间响应取消。manifest/chunk 完整性和最终内容/类型校验分层；只有 metadata/零字节/部分文件不算完成。CDN 失败有 backoff 与上限，权限拒绝先判断会话/许可，不无限换服务器。进度区分网络字节、已验证字节与阶段总量，避免压缩字节分母混用。
 4. **取消：**取消队列立即完成；活动作业请求取消后停止新 chunk，排空写入，回 `cancelled` 才释放 job；UI 可先“正在取消…”。helper 崩溃/管道 EOF 不得显示完成。需要强杀时只杀本任务 helper，并使其所有活动作业进入可恢复/失败，不能杀用户 Steam 客户端。
 5. **原子入库：**Swift 校验 staged receipt（job/account/version/path/manifest）→复制或移动至库内临时版本→验证→原子发布记录；持久化提交阶段/receipt，覆盖文件提交与记录更新之间的崩溃恢复，不假设二者天然是同一原子操作。跨卷不能假定 rename 原子。磁盘满/取消/重复完成不覆盖旧 ready。更新使用版本目录或等价安全替换，正在播放的旧版本保留到消费端释放；属性/依赖/预览映射继续按稳定 workshopID 关联。
    下载完成凭证采用显式 `receiptVersion=2`，必须包含并核对 `jobId/workshopId/accountSteamId/accountEpoch/manifestId`、`stagedComplete/projectJsonPresent`、相等且有界的 `verifiedBytes/totalBytes`，以及本次 base 下的独占 `job-<GUID>` 直接子目录。`contentDigest` 是按 NFC UTF-8 路径字节序排序的所有普通文件的 SHA-256：每行依次写入路径 UTF-8 长度（UInt32 little-endian）、路径、文件长度（UInt64 little-endian）、文件 SHA-256 二进制；再对这些行串联求 SHA-256。空目录保留但不参与摘要。App 复制时再次计算同一摘要，拒绝 helper 完成后发生的内容变化。Swift 查询 API 返回完整 typed receipt，不丢弃为 Void，不以协议成功直接发布 ready。路径字段校验只确认归属和格式，不替代消费端的文件身份、链接、项目内容重验；入库提交前再次核对当前账号及作业 attempt。
    当前发布 owner 仍为现有 `.mywallpaperx-steam-metadata/<workshopId>.json`：完整内容放入库内 `.mywallpaperx-steam-versions/<UUID>/content`，该元数据增加 commit 指针，临时版本自身不代表 ready。文件复制/摘要和 project 验收在 utility task；最后账号与 attempt 检查到元数据 rename 之间不挂起。任务状态为 `running → staged(receipt) → committing(commit) → completed`，receipt/commit 先持久化再推进状态；重启只以身份完全一致且内容路径可用的已发布记录对账，未发布事务保留失败现场并等待用户重试。旧 v1 活动任务文件可读取，写入升为 v2；失败保存不向观察者发布虚假的状态变化。
-   更新保留旧版本原路径；移除受管下载写 tombstone，避免旧目录被扫描复活。版本回收只处理 `.mywallpaperx-steam-versions` 下超过 24 小时的直接 UUID 目录，以当前 ready、JobStore 未决 commit、Scene/Web 活跃消费 token 和 Video 库持久路径组成保留集；依赖型 Web 的同一个 token 同时租住壳与依赖宿主的具体版本。删除过程基于目录描述符、不跟随链接，并在最终删除前复核 inode。未知条目与 helper 暂存树不进入该回收；暂存失败现场必须等 SK4.4 的物理 I/O 排空/恢复 owner 接管，不能由普通同步顺手删除。每个暂存/版本根最多64个直接子项；开始新作业前已有内容不得超过24GiB，再加单次8GiB上限，使单根最多32GiB（同时受200k节点/8MiB路径索引预算约束），超限明确拒绝。
+   更新保留旧版本原路径；移除受管下载写 tombstone，避免旧目录被扫描复活。版本回收只处理 `.mywallpaperx-steam-versions` 下超过 24 小时的直接 UUID 目录，以当前 ready、JobStore 未决 commit、Scene/Web 活跃消费 token 和 Video 库持久路径组成保留集；依赖型 Web 的同一个 token 同时租住壳与依赖宿主的具体版本。删除过程基于目录描述符、不跟随链接，并在最终删除前复核 inode。未知条目与 helper 暂存树不进入版本回收；SK4.4 的下载 owner 只凭当前 job 的精确 lease identity，在 helper 物理排空后单独清理，不由普通同步枚举。每个暂存/版本根最多64个直接子项；开始新作业前已有内容不得超过24GiB，再加单次8GiB上限，使单根最多32GiB（同时受200k节点/8MiB路径索引预算约束），超限明确拒绝。
    项目准入要求有界有效 JSON、scene/web/video 类型、受限相对入口及预览/依赖路径；scene允许入口封装于scene.pkg，web允许合法依赖项目。该准入不等于视频解码、HTML效果或Scene视觉兼容验收。配置根路径可用原生 realpath 解析物理路径，receipt路径本身不得借此绕过nofollow；Foundation路径规范化会缩写系统别名，不用于安全路径比较。
 
 6. **恢复：**Swift 持久化最小 job intent/目标版本/暂存租约，不保存密码/token 到任务文件。App 重启后先校验 manifest 与本地块，显示“可继续”或“需重新下载”，不能伪装自动无损续传。网络断开可有界自动重试；账号切换后不自动恢复前账号任务，提示原账号恢复或移除任务。更新 manifest 改变时丢弃不匹配块，只清精确 job 暂存。
@@ -215,7 +215,7 @@ Envelope：`v/type/requestId/processEpoch/accountEpoch`；认证另有 authAttem
 | 10 | SK4.1 | JobStore、队列与持久化 | 先在线准入；任务文件v2；staged/committing非终态；cancelAll一次保存、失败不假推进并提示。离线反例通过；历史与完整App操作仍待后续卡 |
 | 11 | SK4.2 | 下载与完整receipt | 描述符staging、清单预算、v2跨语言摘要、串行进度发布/统一分母、typed磁盘错误、取消与成功共用决策点均有离线门。真实Steam下载与SDK物理排空仍待验 |
 | 12 | SK4.3 | 原子入库与已下载 | 已接通版本准备/摘要与项目准入/元数据rename/列表刷新；ready 索引由事务 owner 有界 nofollow 读取且不依赖页面打开，播放 token 贯穿 Scene/Web/Video 及依赖宿主，旧版本按 ready/事务/消费引用延迟安全回收。离线事务门与 Debug build 通过；剩余真实可见、跨卷/断电实机与完整项目播放验收并入 SK7 |
-| 13 | SK4.4 | 取消、恢复、有限并发与重试 | 进行中：取消后的本地队列等待 helper 原 startDownload terminal（物理 I/O 排空）再推进，账号 epoch 改变不提前丢弃该排空 waiter；helper 分配的受管 staging 身份在内容写入前经进度事件交给 App 并落入 JobStore，pre-receipt 失败、错误与 staging 身份可跨重启保留，无旧 ready 时重建失败卡片；显式重试沿用同一逻辑 job、attempt 递增且不跨账号接管，已有 ready 始终优先保持可播放。离线事务/假 wire/Helper 门与 Debug build 通过；manifest-aware 恢复、disk-full 策略及双活动作业仍待后续批次 |
+| 13 | SK4.4 | 取消、恢复、有限并发与重试 | 进行中：取消后的本地队列等待 helper 原 startDownload terminal（物理 I/O 排空）再推进，账号 epoch 改变不提前丢弃该排空 waiter；helper 分配的受管 staging path+manifestID 在内容写入前经进度事件落入 JobStore，崩溃重启只显示显式恢复，重试沿用同一逻辑 job 并递增 attempt、不跨账号。helper 仅重开同一直接 lease，当前 manifest 一致后逐块校验并跳过有效块；manifest 变化、取消与成功在物理 terminal 后由 App 描述符相对精确清理当前 lease，未知兄弟和链接目标不受影响；旧 ready 始终保持可播放。离线事务 19 项、假 wire 执行 6 项与 Helper protocol/auth/manifest/staging/download/query 门通过；disk-full 策略及双活动作业仍待后续批次，真实网络续传/崩溃/可见 UI 并入 SK7 |
 | 14 | SK5.1 | 卡片 bar 真实进度填充 | 待实施 |
 | 15 | SK5.2 | 工具栏任务面板与队列交互 | 待实施 |
 | 16 | SK5.3 | 任务历史、保留策略与跨视图一致性 | 待实施 |

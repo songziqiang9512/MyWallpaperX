@@ -21,7 +21,7 @@ final class Transport: SteamServiceTransporting {
     var commands: [[String: Any]] = []
     var receipt: [String: Any] = [:]
     var hold = false
-    var failStart = false
+    var startErrorCode: String?
     private var heldStartRequest: [String: Any]?
     func emit(_ frame: [String: Any]) { var bytes = try! JSONSerialization.data(withJSONObject: frame); bytes.append(10); onOutput?(bytes) }
     func start() throws { isRunning = true; emit(["v":1,"type":"ready","protocol":1,"helperVersion":"test"]) }
@@ -32,16 +32,18 @@ final class Transport: SteamServiceTransporting {
         if command == "startDownload" {
             emit(["v":1,"type":"event","event":"downloadProgress","requestId":request["requestId"]!,
                   "accountEpoch":request["accountEpoch"]!,"jobId":request["jobId"]!,"sequence":1,
-                  "stage":"downloading","stagingPath":receipt["stagingPath"]!])
+                  "stage":"downloading","stagingPath":receipt["stagingPath"]!,
+                  "manifestId":receipt["manifestId"]!])
         }
         if command == "startDownload" && hold {
             heldStartRequest = request
             return true
         }
-        if command == "startDownload" && failStart {
+        if command == "startDownload", let startErrorCode {
             emit(["v":1,"type":"result","ok":false,"requestId":request["requestId"]!,
                   "accountEpoch":request["accountEpoch"]!,
-                  "error":["code":"network","message":"fixture network failure"]])
+                  "error":["code":startErrorCode,"message":startErrorCode == "integrity"
+                    ? "staging manifest changed" : "fixture network failure"]])
             return true
         }
         var data = receipt
@@ -117,7 +119,8 @@ final class Transport: SteamServiceTransporting {
         let fixture = try JSONSerialization.jsonObject(with: Data(contentsOf: base.appendingPathComponent("receipt.json"))) as! [String: Any]
         transport.receipt = fixture["data"] as! [String: Any]
         transport.hold = mode == "cancel" || mode == "switch"
-        transport.failStart = mode == "network-failure"
+        transport.startErrorCode = mode == "network-failure" ? "network"
+            : mode == "manifest-mismatch" ? "integrity" : nil
         let service = SteamWorkshopService(base: base, transport: transport)
         service.downloadWorkshopItem(id: "123456", pageTitle: "test")
         while !transport.commands.contains(where: { $0["command"] as? String == "startDownload" }) { await Task.yield() }
@@ -144,6 +147,8 @@ final class Transport: SteamServiceTransporting {
             precondition(result.commit?.jobId == key && result.commit?.attempt == 1)
             precondition(service.downloadJobStore.jobs.last?.state == .completed && service.reloads == 1)
             precondition(transport.commands.filter { $0["command"] as? String == "startDownload" }.count == 1)
+            precondition(!FileManager.default.fileExists(atPath: transport.receipt["stagingPath"] as! String),
+                "successful publication must retire its exact staging lease")
         } else if mode != "network-failure" {
             let oldMarker = try String(contentsOf: marker, encoding: .utf8)
             precondition(oldMarker == "OLD READY POINTER")
@@ -151,6 +156,16 @@ final class Transport: SteamServiceTransporting {
             if mode == "cancel" {
                 while !transport.commands.contains(where: { $0["command"] as? String == "cancelDownload" }) { await Task.yield() }
                 precondition(transport.commands.contains { $0["command"] as? String == "cancelDownload" && $0["jobId"] as? String == key })
+                precondition(!FileManager.default.fileExists(atPath: transport.receipt["stagingPath"] as! String),
+                    "physical cancellation terminal must retire its exact staging lease")
+            }
+            if mode == "manifest-mismatch" {
+                guard let failure = service.downloadJobStore.jobs.last else { fatalError("missing failed job") }
+                precondition(failure.state == .failed && failure.stagingPath == nil
+                    && failure.stagingManifestId == nil,
+                    "manifest mismatch must invalidate recovery identity")
+                precondition(!FileManager.default.fileExists(atPath: transport.receipt["stagingPath"] as! String),
+                    "manifest mismatch must retire its exact staging lease")
             }
         } else {
             let oldMarker = try String(contentsOf: marker, encoding: .utf8)
@@ -164,13 +179,18 @@ final class Transport: SteamServiceTransporting {
             let reloaded = SteamDownloadJobStore(persistenceURL: base.appendingPathComponent("jobs.json"))
             precondition(reloaded.failedJob(
                 forWorkshopItemId: "123456", accountSteamId: "76561198000000000")?.id == failure.id)
-            transport.failStart = false
+            transport.startErrorCode = nil
             service.downloadWorkshopItem(id: "123456", pageTitle: "test")
             while service.activeDownloadTask != nil { await Task.yield() }
             let starts = transport.commands.filter { $0["command"] as? String == "startDownload" }
             precondition(starts.count == 2 && starts.last?["jobId"] as? String == failure.id + "-2",
                 "explicit retry must keep logical job identity and increment attempt")
+            let retryPayload = starts.last?["payload"] as? [String: Any]
+            precondition(retryPayload?["resumeStagingPath"] as? String == failure.stagingPath
+                && retryPayload?["resumeManifestId"] as? String == failure.stagingManifestId,
+                "explicit retry must send the persisted manifest-bound staging identity")
             precondition(service.downloadJobStore.jobs.last?.state == .completed)
+            precondition(!FileManager.default.fileExists(atPath: transport.receipt["stagingPath"] as! String))
         }
         await service.steamServiceClient.stop(shutdownTimeout: 0)
         print("EXECUTION PASS: \(mode)")

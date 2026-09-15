@@ -3,8 +3,9 @@ using Microsoft.Win32.SafeHandles;
 
 namespace SteamService;
 
-// macOS descriptor-relative staging. The base must already exist; no existing job
-// tree is adopted. Dispose releases handles only, never deletes user-visible paths.
+// macOS descriptor-relative staging. The base must already exist. A new job gets
+// an exclusive root; resume may adopt only one exact direct managed lease and
+// then only manifest-declared nodes. Dispose releases handles only.
 internal sealed class WorkshopStagingLease : IDisposable
 {
     private const int DirectoryFlags = 0x00100000 | 0x01000000 | 0x00000100;
@@ -67,14 +68,31 @@ internal sealed class WorkshopStagingLease : IDisposable
             throw new Rejected("staging node is not an exclusive regular file/directory");
         return new(value.Device, value.Inode, value.BirthSeconds, value.BirthNanoseconds);
     }
-    internal WorkshopStagingLease(string basePath)
+    internal WorkshopStagingLease(string basePath) : this(basePath, existingPath: null) { }
+    internal static WorkshopStagingLease Resume(string basePath, string existingPath) =>
+        new(basePath, existingPath);
+
+    private WorkshopStagingLease(string basePath, string? existingPath)
     {
         if (!OperatingSystem.IsMacOS() || RuntimeInformation.ProcessArchitecture != Architecture.Arm64)
             throw new PlatformNotSupportedException("staging requires macOS arm64");
         if (!System.IO.Path.IsPathFullyQualified(basePath)) throw new Rejected("staging base must be absolute");
         using var parent = OpenAbsoluteDirectory(basePath);
-        string name = "job-" + Guid.NewGuid().ToString("N");
-        if (mkdirat(parent, name, 0x1c0) != 0) throw NativeFailure();
+        string name;
+        if (existingPath == null)
+        {
+            name = "job-" + Guid.NewGuid().ToString("N");
+            if (mkdirat(parent, name, 0x1c0) != 0) throw NativeFailure();
+        }
+        else
+        {
+            string basePrefix = basePath.TrimEnd('/');
+            if (basePrefix.Length == 0 || !existingPath.StartsWith(basePrefix + '/', StringComparison.Ordinal))
+                throw new Rejected("resume staging path escapes configured base");
+            name = existingPath[(basePrefix.Length + 1)..];
+            if (!ValidLeaseName(name) || name.Contains('/'))
+                throw new Rejected("resume staging path is not a direct managed lease");
+        }
         root = Handle(openat(parent, name, DirectoryFlags));
         try
         {
@@ -84,6 +102,9 @@ internal sealed class WorkshopStagingLease : IDisposable
         }
         catch { root.Dispose(); throw; }
     }
+    private static bool ValidLeaseName(string name) =>
+        name.Length == 36 && name.StartsWith("job-", StringComparison.Ordinal)
+            && name.AsSpan(4).ToString().All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f');
     private static SafeFileHandle OpenAbsoluteDirectory(string path)
     {
         if (!System.IO.Path.IsPathFullyQualified(path)) throw new Rejected("absolute directory required");
@@ -109,7 +130,7 @@ internal sealed class WorkshopStagingLease : IDisposable
             throw new Rejected("invalid staging relative path");
         return parts;
     }
-    private SafeFileHandle Directory(string[] parts, int count, bool create)
+    private SafeFileHandle Directory(string[] parts, int count, bool create, bool adoptExisting = false)
     {
         var current = Handle(openat(root, ".", DirectoryFlags));
         try
@@ -119,8 +140,15 @@ internal sealed class WorkshopStagingLease : IDisposable
                 string key = string.Join('/', parts.Take(i + 1));
                 if (!directories.TryGetValue(key, out var expected))
                 {
-                    if (!create) throw new Rejected("unprepared staging directory");
-                    if (mkdirat(current, parts[i], 0x1c0) != 0) throw NativeFailure();
+                    if (create)
+                    {
+                        if (mkdirat(current, parts[i], 0x1c0) != 0
+                            && !(adoptExisting && Marshal.GetLastPInvokeError() == 17)) throw NativeFailure();
+                    }
+                    else if (!adoptExisting)
+                    {
+                        throw new Rejected("unprepared staging directory");
+                    }
                     using var created = Handle(openat(current, parts[i], DirectoryFlags));
                     expected = Inspect(created, true);
                     directories.Add(key, expected);
@@ -143,6 +171,11 @@ internal sealed class WorkshopStagingLease : IDisposable
         var parts = Parts(relative);
         using var directory = Directory(parts, parts.Length, true);
     }
+    internal void ResumeDirectory(string relative)
+    {
+        var parts = Parts(relative);
+        using var directory = Directory(parts, parts.Length, create: true, adoptExisting: true);
+    }
     internal void CreateFile(string relative, long length)
     {
         var parts = Parts(relative);
@@ -152,6 +185,40 @@ internal sealed class WorkshopStagingLease : IDisposable
         files.Add(string.Join('/', parts), identity);
         try { RandomAccess.SetLength(file, length); }
         catch (IOException error) { throw ClassifyIO(error); }
+    }
+    internal bool ResumeFile(string relative, long length)
+    {
+        var parts = Parts(relative);
+        using var parent = Directory(parts, parts.Length - 1, create: true, adoptExisting: true);
+        int descriptor = openat(parent, parts[^1], FileFlags);
+        bool existing = descriptor >= 0;
+        SafeFileHandle file;
+        if (existing)
+        {
+            file = Handle(descriptor);
+        }
+        else
+        {
+            if (Marshal.GetLastPInvokeError() != 2) throw NativeFailure();
+            file = Handle(openat_create(parent, parts[^1], FileFlags | 2 | 0x200 | 0x800,
+                0, 0, 0, 0, 0, 0x180));
+        }
+        using (file)
+        {
+            var identity = Inspect(file, false);
+            if (existing)
+            {
+                if (RandomAccess.GetLength(file) != length)
+                    throw new Rejected("resume staging file length changed");
+            }
+            else
+            {
+                try { RandomAccess.SetLength(file, length); }
+                catch (IOException error) { throw ClassifyIO(error); }
+            }
+            files.Add(string.Join('/', parts), identity);
+        }
+        return existing;
     }
     internal SafeFileHandle OpenFile(string relative, bool write)
     {

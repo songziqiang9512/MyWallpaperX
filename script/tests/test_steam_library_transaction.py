@@ -23,6 +23,29 @@ import Foundation
     @MainActor static func main() async throws {
         let base = URL(fileURLWithPath: CommandLine.arguments[1])
         let mode = CommandLine.arguments[2]
+        if mode == "cleanup" || mode == "cleanup-replaced" {
+            let root = base.appendingPathComponent("staging", isDirectory: true)
+            let target = root.appendingPathComponent("job-" + String(repeating: "c", count: 32), isDirectory: true)
+            if mode == "cleanup" {
+                try SteamWorkshopLibraryTransaction.removeStagingLease(stagingURL: target, stagingRoot: root)
+                precondition(!FileManager.default.fileExists(atPath: target.path))
+                try SteamWorkshopLibraryTransaction.removeStagingLease(stagingURL: target, stagingRoot: root)
+                let sentinel = try String(contentsOf: base.appendingPathComponent("outside/sentinel"), encoding: .utf8)
+                precondition(sentinel == "untouched")
+                print("CLEANED")
+            } else {
+                do {
+                    try SteamWorkshopLibraryTransaction.removeStagingLease(stagingURL: target, stagingRoot: root)
+                    fatalError("replaced staging lease was removed")
+                } catch {
+                    precondition(FileManager.default.fileExists(atPath: target.path))
+                    let sentinel = try String(contentsOf: base.appendingPathComponent("outside/sentinel"), encoding: .utf8)
+                    precondition(sentinel == "untouched")
+                    print("REJECTED REPLACEMENT")
+                }
+            }
+            return
+        }
         if mode == "reclaim" {
             let library = base.appendingPathComponent("library")
             let retained = Set(CommandLine.arguments.dropFirst(3))
@@ -92,12 +115,16 @@ import Foundation
         let job = store.enqueue(workshopItemId: "123456", title: "test", accountSteamId: "76561198000000000").job
         precondition(store.apply(.started, toID: job.id) != nil)
         let allocatedPath = base.appendingPathComponent("staging/job-" + String(repeating: "a", count: 32)).path
-        precondition(store.apply(.stagingAllocated(allocatedPath), toID: job.id)?.stagingPath == allocatedPath)
-        precondition(store.apply(.stagingAllocated(base.appendingPathComponent("outside").path), toID: job.id) == nil,
+        precondition(store.apply(.stagingAllocated(path: allocatedPath, manifestId: "123"), toID: job.id)?.stagingPath == allocatedPath)
+        precondition(store.apply(.stagingAllocated(
+            path: base.appendingPathComponent("outside").path, manifestId: "123"), toID: job.id) == nil,
             "one attempt cannot adopt a second staging path")
         let allocated = SteamDownloadJobStore(persistenceURL: url)
-        precondition(allocated.job(id: job.id)?.stagingPath == allocatedPath,
-            "staging identity must survive a crash before the receipt")
+        precondition(allocated.job(id: job.id)?.state == .failed
+            && allocated.job(id: job.id)?.stagingPath == allocatedPath
+            && allocated.job(id: job.id)?.stagingManifestId == "123"
+            && allocated.job(id: job.id)?.failureMessage?.contains("校验并恢复") == true,
+            "manifest-bound staging must survive a crash behind explicit retry")
         let key = job.id + "-1"
         var frame = frame
         var data = frame.root["data"]!.objectValue!
@@ -131,7 +158,7 @@ import Foundation
         let failedJob = failed.enqueue(
             workshopItemId: "777777", title: "retry", accountSteamId: job.accountSteamId).job
         precondition(failed.apply(.started, toID: failedJob.id) != nil)
-        precondition(failed.apply(.stagingAllocated(allocatedPath), toID: failedJob.id) != nil)
+        precondition(failed.apply(.stagingAllocated(path: allocatedPath, manifestId: "123"), toID: failedJob.id) != nil)
         precondition(failed.apply(.failed("network"), toID: failedJob.id) != nil)
         let failedReload = SteamDownloadJobStore(persistenceURL: retryURL)
         let durableFailure = failedReload.failedJob(
@@ -141,9 +168,10 @@ import Foundation
         precondition(failedReload.failedJob(
             forWorkshopItemId: failedJob.workshopItemId, accountSteamId: "other") == nil,
             "another account cannot adopt a failed job")
-        let retried = failedReload.apply(.started, toID: durableFailure!.id)
-        precondition(retried?.id == failedJob.id && retried?.attempt == 2 && retried?.stagingPath == nil,
-            "explicit retry keeps logical identity and starts a fresh attempt")
+        let retried = failedReload.apply(.resumed, toID: durableFailure!.id)
+        precondition(retried?.id == failedJob.id && retried?.attempt == 2
+            && retried?.stagingPath == allocatedPath && retried?.stagingManifestId == "123",
+            "explicit retry keeps logical identity and its manifest-bound staging lease")
         let failureURL = base.appendingPathComponent("save-failure.json")
         let failure = SteamDownloadJobStore(persistenceURL: failureURL)
         let pending = failure.enqueue(workshopItemId: "654321", title: "test", accountSteamId: job.accountSteamId).job
@@ -330,6 +358,48 @@ class SteamLibraryTransactionTests(unittest.TestCase):
             self.assertTrue((versions / young).is_dir())
             self.assertTrue(unknown.is_dir())
             self.assertTrue((versions / linked).is_symlink())
+            self.assertEqual((outside / 'sentinel').read_text(), 'untouched')
+
+    def test_remove_only_exact_owned_staging_lease(self):
+        with tempfile.TemporaryDirectory(prefix='mwx-steam-staging-cleanup-', dir='/private/tmp') as temporary:
+            root = pathlib.Path(temporary)
+            outside = root / 'outside'
+            outside.mkdir()
+            (outside / 'sentinel').write_text('untouched')
+            target = root / 'staging' / ('job-' + 'c' * 32)
+            (target / 'nested').mkdir(parents=True)
+            (target / 'nested' / 'data').write_text('partial')
+            (target / 'inside-link').symlink_to(outside / 'sentinel')
+            sibling = root / 'staging' / ('job-' + 'd' * 32)
+            sibling.mkdir()
+            (sibling / 'keep').write_text('keep')
+
+            result = subprocess.run(
+                [str(self.binary), str(root), 'cleanup'], capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('CLEANED', result.stdout)
+            self.assertFalse(target.exists())
+            self.assertEqual((outside / 'sentinel').read_text(), 'untouched')
+            self.assertEqual((sibling / 'keep').read_text(), 'keep')
+
+    def test_replaced_staging_lease_is_not_adopted_for_cleanup(self):
+        with tempfile.TemporaryDirectory(prefix='mwx-steam-staging-replaced-', dir='/private/tmp') as temporary:
+            root = pathlib.Path(temporary)
+            outside = root / 'outside'
+            outside.mkdir()
+            (outside / 'sentinel').write_text('untouched')
+            staging = root / 'staging'
+            staging.mkdir()
+            target = staging / ('job-' + 'c' * 32)
+            target.symlink_to(outside, target_is_directory=True)
+
+            result = subprocess.run(
+                [str(self.binary), str(root), 'cleanup-replaced'], capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('REJECTED REPLACEMENT', result.stdout)
+            self.assertTrue(target.is_symlink())
             self.assertEqual((outside / 'sentinel').read_text(), 'untouched')
 
     def test_project_rejections(self):

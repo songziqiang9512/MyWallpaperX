@@ -65,6 +65,9 @@ class SteamDownloadExecutionTests(unittest.TestCase):
     def test_network_failure_persists_and_explicit_retry_reuses_job(self):
         self.run_case('network-failure')
 
+    def test_manifest_mismatch_invalidates_and_cleans_recovery_identity(self):
+        self.run_case('manifest-mismatch')
+
 
 if __name__ == '__main__':
     unittest.main()

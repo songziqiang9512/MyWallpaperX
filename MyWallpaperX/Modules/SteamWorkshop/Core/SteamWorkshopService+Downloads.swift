@@ -99,7 +99,9 @@ extension SteamWorkshopService {
         ) {
             // Explicit retry keeps one logical job and advances its attempt. A
             // different account can never adopt the failed intent.
-            guard let retried = downloadJobStore.apply(.started, toID: failed.id) else {
+            let event: SteamDownloadJobEvent = failed.stagingPath != nil && failed.stagingManifestId != nil
+                ? .resumed : .started
+            guard let retried = downloadJobStore.apply(event, toID: failed.id) else {
                 statusMessage = "下载重试任务无法保存，未开始下载。"
                 return
             }
@@ -148,11 +150,16 @@ extension SteamWorkshopService {
             guard let self, self.activeDownloadJobKey == key, self.steamServiceClient.accountEpoch == epoch,
                   frame.event == "downloadProgress", frame.jobId == key else { return }
             if let path = frame.root["stagingPath"]?.stringValue,
+               let manifestId = frame.root["manifestId"]?.stringValue,
                let stagingURL = SteamWorkshopStagedReceipt.validatedStagingURL(
                     path: path,
                     stagingRoot: self.steamDownloadStagingRootURL.path
-               ), self.downloadJobStore.job(id: job.id)?.stagingPath != stagingURL.path {
-                _ = self.downloadJobStore.apply(.stagingAllocated(stagingURL.path), toID: job.id)
+               ), let current = self.downloadJobStore.job(id: job.id),
+               current.stagingPath != stagingURL.path || current.stagingManifestId != manifestId {
+                _ = self.downloadJobStore.apply(
+                    .stagingAllocated(path: stagingURL.path, manifestId: manifestId),
+                    toID: job.id
+                )
             }
             // Card progress projection is the next UI slice; never derive success from an event.
             let stage = frame.root["stage"]?.stringValue ?? ""
@@ -187,7 +194,13 @@ extension SteamWorkshopService {
                 _ = try await withTaskCancellationHandler { try await allocation.value } onCancel: { allocation.cancel() }
                 try checkCurrent()
                 let receipt = try await self.steamWorkshopQueryClient.startStagedDownload(
-                    jobId: key, workshopId: request.id, accountSteamId: job.accountSteamId, stagingRoot: staging.path)
+                    jobId: key,
+                    workshopId: request.id,
+                    accountSteamId: job.accountSteamId,
+                    stagingRoot: staging.path,
+                    resumeStagingPath: job.stagingPath,
+                    resumeManifestId: job.stagingManifestId
+                )
                 try checkCurrent()
                 guard self.downloadJobStore.apply(.staged(receipt), toID: job.id) != nil else {
                     throw SteamWorkshopLibraryTransaction.Failure(message: "无法保存下载凭证，尚未入库。")
@@ -203,6 +216,10 @@ extension SteamWorkshopService {
                 guard self.downloadJobStore.apply(.committing(commit), toID: job.id) != nil else {
                     throw SteamWorkshopLibraryTransaction.Failure(message: "无法保存入库事务，旧版本保持不变。")
                 }
+                // The copied version is complete; retire the exact helper lease
+                // before publishing ready. A cleanup failure keeps the old ready
+                // pointer and the recoverable job identity instead of leaking it.
+                try await self.removeOwnedDownloadStaging(receipt.stagingURL.path)
                 // No suspension between the final identity check and the metadata rename.
                 try checkCurrent()
                 try self.publishDownloadedVersion(request, commit: commit, libraryRoot: library)
@@ -214,26 +231,64 @@ extension SteamWorkshopService {
                     : "内容已入库；任务记录保存失败，下次启动将对账。"
             } catch {
                 guard self.activeDownloadJobKey == key else { return }
-                let cancelled = error is CancellationError || self.activeDownloadWasCancelled
+                var terminalError: Error = error
+                var cancelled = error is CancellationError || self.activeDownloadWasCancelled
                     || (error as? SteamServiceClient.RequestError) == .cancelled
-                _ = self.downloadJobStore.apply(cancelled ? .cancelled : .failed(error.localizedDescription), toID: job.id)
+                let invalidRecovery: Bool = {
+                    guard case let .helperError(code, _) = error as? SteamServiceClient.RequestError else {
+                        return false
+                    }
+                    return code == "integrity" || code == "unsupportedContent" || code == "protocolMismatch"
+                }()
+                if (cancelled || invalidRecovery),
+                   let stagingPath = self.downloadJobStore.job(id: job.id)?.stagingPath {
+                    do {
+                        try await self.removeOwnedDownloadStaging(stagingPath)
+                        if invalidRecovery {
+                            _ = self.downloadJobStore.apply(.recoveryInvalidated, toID: job.id)
+                        }
+                    } catch {
+                        cancelled = false
+                        terminalError = SteamWorkshopLibraryTransaction.Failure(
+                            message: "下载已停止，但暂存目录无法安全清理：\(error.localizedDescription)"
+                        )
+                    }
+                }
+                _ = self.downloadJobStore.apply(
+                    cancelled ? .cancelled : .failed(terminalError.localizedDescription),
+                    toID: job.id
+                )
                 if cancelled {
                     self.removeTransientRecord(id: request.id)
                 } else {
                     self.upsertTransientRecord(
                         id: request.id,
                         title: job.title,
-                        status: .failed(error.localizedDescription),
+                        status: .failed(terminalError.localizedDescription),
                         sizeText: self.downloadStatusSizeText(for: request.id)
                     )
                 }
                 self.reloadInstalledItems()
-                self.statusMessage = cancelled ? "已取消下载。" : error.localizedDescription
-                if !cancelled { self.downloadError = error.localizedDescription }
-                // Staging and uncommitted versions are retained for safe owned recovery/cleanup.
-                // Cancellation of a waiter is not proof that the helper's disk I/O has drained.
+                self.statusMessage = cancelled ? "已取消下载。" : terminalError.localizedDescription
+                if !cancelled { self.downloadError = terminalError.localizedDescription }
             }
         }
+    }
+
+    private func removeOwnedDownloadStaging(_ path: String) async throws {
+        let stagingRoot = steamDownloadStagingRootURL
+        guard let stagingURL = SteamWorkshopStagedReceipt.validatedStagingURL(
+            path: path,
+            stagingRoot: stagingRoot.path
+        ) else {
+            throw SteamWorkshopLibraryTransaction.Failure(message: "下载暂存身份无效。")
+        }
+        try await Task.detached(priority: .utility) {
+            try SteamWorkshopLibraryTransaction.removeStagingLease(
+                stagingURL: stagingURL,
+                stagingRoot: stagingRoot
+            )
+        }.value
     }
 
     func cancelActiveDownload() { cancelDownloadImmediately(showFeedback: true) }

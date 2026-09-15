@@ -42,6 +42,9 @@ internal sealed partial class SteamSession
         public required string RequestId;
         public required string StagingRoot;
         public string? StagingPath;
+        public string? StagingManifestId;
+        public string? ResumeStagingPath;
+        public ulong? ResumeManifestId;
         public required ulong PublishedFileId;
         public required CancellationTokenSource Cancellation;
         public required AccountLease Account;
@@ -50,7 +53,14 @@ internal sealed partial class SteamSession
         public bool TerminalDecided; // guarded by downloadGate, shared with cancellation acceptance
     }
 
-    public void BeginStartDownload(string requestId, string jobId, ulong publishedFileId, string stagingRoot, long? requestedEpoch)
+    public void BeginStartDownload(
+        string requestId,
+        string jobId,
+        ulong publishedFileId,
+        string stagingRoot,
+        long? requestedEpoch,
+        string? resumeStagingPath = null,
+        ulong? resumeManifestId = null)
     {
         ActiveDownload context;
         lock (gate)
@@ -79,6 +89,8 @@ internal sealed partial class SteamSession
                     JobId = jobId,
                     RequestId = requestId,
                     StagingRoot = stagingRoot,
+                    ResumeStagingPath = resumeStagingPath,
+                    ResumeManifestId = resumeManifestId,
                     PublishedFileId = publishedFileId,
                     Cancellation = new CancellationTokenSource(),
                     Account = lease,
@@ -111,6 +123,12 @@ internal sealed partial class SteamSession
                 {
                     throw new SteamRequestFailure("unsupportedContent", "item has no content manifest");
                 }
+                context.StagingManifestId = detail.hcontent_file.ToString();
+                if (context.ResumeManifestId is ulong expectedManifest
+                    && expectedManifest != detail.hcontent_file)
+                {
+                    throw new SteamRequestFailure("integrity", "staging manifest changed");
+                }
 
                 var depotId = await GetWorkshopDepotIdInternalAsync(context.Source, cancellation.Token).ConfigureAwait(false);
                 var depotKey = await GetDepotDecryptionKeyInternalAsync(context.Source, depotId, cancellation.Token)
@@ -136,7 +154,10 @@ internal sealed partial class SteamSession
                 var totalChunks = admitted.Chunks;
 
                 EmitDownloadProgress(context, "preparing", totalBytes: manifestTotalBytes, totalChunks: totalChunks);
-                using var lease = new WorkshopStagingLease(stagingRoot);
+                bool resuming = context.ResumeStagingPath != null;
+                using var lease = resuming
+                    ? WorkshopStagingLease.Resume(stagingRoot, context.ResumeStagingPath!)
+                    : new WorkshopStagingLease(stagingRoot);
                 var staging = lease.Path;
                 context.StagingPath = staging;
                 // Publish the exact helper-owned lease before the first content write so
@@ -150,13 +171,26 @@ internal sealed partial class SteamSession
                     cancellation.Token.ThrowIfCancellationRequested();
                     if (file.Flags.HasFlag(EDepotFileFlag.Directory))
                     {
-                        lease.CreateDirectory(file.FileName);
+                        if (resuming) lease.ResumeDirectory(file.FileName);
+                        else lease.CreateDirectory(file.FileName);
                         continue;
                     }
-                    lease.CreateFile(file.FileName, checked((long)file.TotalSize));
+                    bool existing = resuming
+                        ? lease.ResumeFile(file.FileName, checked((long)file.TotalSize))
+                        : false;
+                    if (!resuming) lease.CreateFile(file.FileName, checked((long)file.TotalSize));
                     foreach (var chunk in file.Chunks)
                     {
-                        work.Enqueue((file, chunk, file.FileName));
+                        if (existing && IsStagedChunkValid(lease, file.FileName, chunk, cancellation.Token))
+                        {
+                            context.Progress.CompleteChunk(
+                                checked((int)chunk.UncompressedLength),
+                                update => SendDownloadProgress(context, update));
+                        }
+                        else
+                        {
+                            work.Enqueue((file, chunk, file.FileName));
+                        }
                     }
                 }
 
@@ -256,7 +290,7 @@ internal sealed partial class SteamSession
             v = ProtocolLimits.Version, type = "event", @event = "downloadProgress",
             requestId = context.RequestId, processEpoch = ProcessEpoch, accountEpoch = context.Account.Epoch,
             jobId = context.JobId, sequence = update.Sequence, stage = update.Stage,
-            stagingPath = context.StagingPath,
+            stagingPath = context.StagingPath, manifestId = context.StagingManifestId,
             totalBytes = update.TotalBytes, verifiedBytes = update.VerifiedBytes,
             totalChunks = update.TotalChunks, verifiedChunks = update.VerifiedChunks,
         });
@@ -460,6 +494,17 @@ internal sealed partial class SteamSession
         ct.ThrowIfCancellationRequested();
         hash.AppendData(buffer);
         return DepotChunk.AdlerHash(buffer) == chunk.Checksum;
+    }
+
+    private static bool IsStagedChunkValid(
+        WorkshopStagingLease lease,
+        string relativePath,
+        DepotManifest.ChunkData chunk,
+        CancellationToken ct)
+    {
+        using var stream = new FileStream(lease.OpenFile(relativePath, write: false), FileAccess.Read);
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        return IsChunkValid(stream, chunk, ct, hash);
     }
 
     /// 路径围栏：manifest 内相对路径必须解析到 stagingRoot 之内。

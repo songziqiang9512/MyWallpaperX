@@ -39,6 +39,7 @@ struct SteamDownloadJob: Codable, Identifiable, Equatable {
     let queueOrdinal: Int
     let accountSteamId: String
     var stagingPath: String?
+    var stagingManifestId: String? = nil
     var receipt: SteamWorkshopStagedReceipt? = nil
     var preparedCommit: SteamWorkshopLibraryCommit? = nil
     var failureMessage: String?
@@ -51,7 +52,9 @@ struct SteamDownloadJob: Codable, Identifiable, Equatable {
 
 enum SteamDownloadJobEvent: Equatable {
     case started
-    case stagingAllocated(String)
+    case resumed
+    case stagingAllocated(path: String, manifestId: String)
+    case recoveryInvalidated
     case staged(SteamWorkshopStagedReceipt)
     case committing(SteamWorkshopLibraryCommit)
     case completed
@@ -77,16 +80,35 @@ enum SteamDownloadJobReducer {
             next.receipt = nil
             next.preparedCommit = nil
             next.stagingPath = nil
-        case .stagingAllocated(let path):
+            next.stagingManifestId = nil
+        case .resumed:
+            guard job.state == .failed, let path = job.stagingPath, path.hasPrefix("/"),
+                  let manifestId = job.stagingManifestId,
+                  SteamWorkshopLibraryTransaction.validID(manifestId) else { return nil }
+            next.state = .running
+            next.attempt = job.attempt + 1
+            next.failureMessage = nil
+            next.receipt = nil
+            next.preparedCommit = nil
+        case .stagingAllocated(let path, let manifestId):
             guard job.state == .running, path.hasPrefix("/"), !path.utf8.contains(0),
-                  job.stagingPath == nil || job.stagingPath == path else { return nil }
+                  SteamWorkshopLibraryTransaction.validID(manifestId),
+                  (job.stagingPath == nil || job.stagingPath == path),
+                  (job.stagingManifestId == nil || job.stagingManifestId == manifestId) else { return nil }
             next.stagingPath = path
+            next.stagingManifestId = manifestId
+        case .recoveryInvalidated:
+            guard job.state == .running else { return nil }
+            next.stagingPath = nil
+            next.stagingManifestId = nil
         case .staged(let receipt):
             guard job.state == .running, receipt.jobId == "\(job.id)-\(job.attempt)",
-                  receipt.workshopId == job.workshopItemId, receipt.accountSteamId == job.accountSteamId else { return nil }
+                  receipt.workshopId == job.workshopItemId, receipt.accountSteamId == job.accountSteamId,
+                  job.stagingManifestId == nil || job.stagingManifestId == receipt.manifestId else { return nil }
             next.state = .staged
             next.receipt = receipt
             next.stagingPath = receipt.stagingURL.path
+            next.stagingManifestId = receipt.manifestId
         case .committing(let commit):
             guard job.state == .staged, commit.jobId == job.receipt?.jobId,
                   commit.attempt == job.attempt, commit.workshopId == job.workshopItemId,
@@ -207,6 +229,7 @@ final class SteamDownloadJobStore: ObservableObject {
             queueOrdinal: ordinal,
             accountSteamId: accountSteamId,
             stagingPath: stagingPath,
+            stagingManifestId: nil,
             failureMessage: nil,
             createdAt: stamp,
             updatedAt: stamp
@@ -311,9 +334,17 @@ final class SteamDownloadJobStore: ObservableObject {
         }
         jobs = state.jobs
         ordinal = jobs.map(\.queueOrdinal).max() ?? 0
-        // 重启后 running 意图不再可信：回退为 queued 等待重新调度（意图保留）。
+        // A named, manifest-bound partial is offered only through explicit retry.
+        // Work without a recovery identity falls back to queued intent.
         for index in jobs.indices where jobs[index].state == .running {
-            jobs[index].state = .queued
+            if jobs[index].stagingPath != nil && jobs[index].stagingManifestId != nil {
+                jobs[index].state = .failed
+                jobs[index].failureMessage = "上次下载被中断；请重试以校验并恢复已完成的数据块。"
+            } else {
+                jobs[index].state = .queued
+                jobs[index].stagingPath = nil
+                jobs[index].stagingManifestId = nil
+            }
         }
         lastSaveSucceeded = true
     }

@@ -34,6 +34,47 @@ internal static class WorkshopStagingSelfTest
             Reject("base symlink", () => { using var denied = new WorkshopStagingLease(alias); });
             Directory.CreateDirectory(Path.Combine(outside, "child"));
             Reject("ancestor symlink", () => { using var denied = new WorkshopStagingLease(Path.Combine(alias, "child")); });
+
+            string resumePath;
+            using (var seed = new WorkshopStagingLease(fixture))
+            {
+                resumePath = seed.Path;
+                seed.CreateFile("partial/data", 4);
+                using var handle = seed.OpenFile("partial/data", true);
+                RandomAccess.Write(handle, new byte[] { 7, 8, 9, 10 }, 0);
+            }
+            using (var resumed = WorkshopStagingLease.Resume(fixture, resumePath))
+            {
+                Check("resume adopts exact file", resumed.ResumeFile("partial/data", 4));
+                using (var handle = resumed.OpenFile("partial/data", false))
+                {
+                    var value = new byte[4];
+                    RandomAccess.Read(handle, value, 0);
+                    Check("resume retains partial bytes", value.SequenceEqual(new byte[] { 7, 8, 9, 10 }));
+                }
+                Check("resume creates missing file", !resumed.ResumeFile("partial/missing", 2));
+                using (var handle = resumed.OpenFile("partial/missing", false))
+                    Check("resume missing file is preallocated", RandomAccess.GetLength(handle) == 2);
+                File.WriteAllText(Path.Combine(resumePath, "wrong-length"), "x");
+                Reject("resume rejects wrong length", () => resumed.ResumeFile("wrong-length", 2));
+                File.CreateSymbolicLink(Path.Combine(resumePath, "file-link"), sentinel);
+                Reject("resume rejects file symlink", () => resumed.ResumeFile("file-link", 9));
+                Check("create resume hardlink fixture", link(sentinel, Path.Combine(resumePath, "file-hardlink")) == 0);
+                Reject("resume rejects hardlink", () => resumed.ResumeFile("file-hardlink", new FileInfo(sentinel).Length));
+            }
+            Reject("resume rejects outside path", () =>
+            {
+                using var denied = WorkshopStagingLease.Resume(fixture, outside);
+            });
+            Reject("resume rejects unmanaged child", () =>
+            {
+                using var denied = WorkshopStagingLease.Resume(fixture, Path.Combine(fixture, "outside"));
+            });
+            Reject("resume rejects symlink base", () =>
+            {
+                using var denied = WorkshopStagingLease.Resume(alias, Path.Combine(alias, Path.GetFileName(resumePath)));
+            });
+
             using var first = new WorkshopStagingLease(fixture);
             using var second = new WorkshopStagingLease(fixture);
             Check("separate exclusive roots", first.Path != second.Path);
