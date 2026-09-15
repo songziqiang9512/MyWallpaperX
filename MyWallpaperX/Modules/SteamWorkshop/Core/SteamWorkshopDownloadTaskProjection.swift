@@ -52,3 +52,49 @@ enum SteamWorkshopDownloadTaskProjection {
         }
     }
 }
+
+struct SteamWorkshopDownloadHistorySummary: Identifiable, Equatable {
+    let jobID: String
+    let workshopItemID: String
+    let title: String
+    let latestOutcome: SteamDownloadHistoryOutcome
+    let latestTerminalAt: Date
+    let recordID: String?
+    let attempts: [SteamDownloadHistoryEntry]
+
+    var id: String { jobID }
+}
+
+/// SK5.3 read projection. Attempts remain durable JobStore records; grouping is
+/// recomputed from the bounded history snapshot and never becomes a second owner.
+enum SteamWorkshopDownloadHistoryProjection {
+    static func summaries(
+        from history: [SteamDownloadHistoryEntry],
+        accountSteamID: String?
+    ) -> [SteamWorkshopDownloadHistorySummary] {
+        guard let accountSteamID, !accountSteamID.isEmpty else { return [] }
+        return Dictionary(grouping: history.filter { $0.accountSteamId == accountSteamID }, by: \.jobID)
+            .compactMap { jobID, attempts -> SteamWorkshopDownloadHistorySummary? in
+                let orderedAttempts = attempts.sorted { lhs, rhs in
+                    if lhs.terminalAt != rhs.terminalAt { return lhs.terminalAt > rhs.terminalAt }
+                    return lhs.attempt > rhs.attempt
+                }
+                guard let latest = orderedAttempts.first else { return nil }
+                return SteamWorkshopDownloadHistorySummary(
+                    jobID: jobID,
+                    workshopItemID: latest.workshopItemId,
+                    title: latest.title,
+                    latestOutcome: latest.outcome,
+                    latestTerminalAt: latest.terminalAt,
+                    recordID: latest.recordID,
+                    attempts: orderedAttempts
+                )
+            }
+            .sorted { lhs, rhs in
+                if lhs.latestTerminalAt != rhs.latestTerminalAt {
+                    return lhs.latestTerminalAt > rhs.latestTerminalAt
+                }
+                return lhs.jobID < rhs.jobID
+            }
+    }
+}

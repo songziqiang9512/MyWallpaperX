@@ -50,6 +50,28 @@ struct SteamDownloadJob: Codable, Identifiable, Equatable {
     var isTerminal: Bool { state.isTerminal }
 }
 
+enum SteamDownloadHistoryOutcome: String, Codable, Equatable {
+    case completed
+    case failed
+    case cancelled
+}
+
+/// A durable, terminal attempt owned by JobStore. `recordID` is only a reference
+/// to the download library; history never decides whether an item is still ready.
+struct SteamDownloadHistoryEntry: Codable, Identifiable, Equatable {
+    let jobID: String
+    let workshopItemId: String
+    let title: String
+    let accountSteamId: String
+    let attempt: Int
+    let outcome: SteamDownloadHistoryOutcome
+    let failureMessage: String?
+    let recordID: String?
+    let terminalAt: Date
+
+    var id: String { "\(jobID)-\(attempt)" }
+}
+
 enum SteamDownloadJobEvent: Equatable {
     case started
     case resumed
@@ -135,11 +157,37 @@ final class SteamDownloadJobStore: ObservableObject {
     struct PersistedState: Codable {
         var version: Int
         var jobs: [SteamDownloadJob]
+        var history: [SteamDownloadHistoryEntry]
+
+        private enum CodingKeys: String, CodingKey {
+            case version
+            case jobs
+            case history
+        }
+
+        init(version: Int, jobs: [SteamDownloadJob], history: [SteamDownloadHistoryEntry] = []) {
+            self.version = version
+            self.jobs = jobs
+            self.history = history
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            version = try container.decode(Int.self, forKey: .version)
+            jobs = try container.decode([SteamDownloadJob].self, forKey: .jobs)
+            history = try container.decodeIfPresent(
+                [SteamDownloadHistoryEntry].self,
+                forKey: .history
+            ) ?? []
+        }
     }
 
-    static let persistenceVersion = 2
+    static let persistenceVersion = 3
+    static let historyLimit = 100
+    static let historyRetentionInterval: TimeInterval = 30 * 24 * 60 * 60
 
     @Published private(set) var jobs: [SteamDownloadJob] = []
+    @Published private(set) var history: [SteamDownloadHistoryEntry] = []
     /// 最近一次持久化是否成功；失败时 UI 可提示（不伪报已保存）。
     private(set) var lastSaveSucceeded = true
 
@@ -205,6 +253,11 @@ final class SteamDownloadJobStore: ObservableObject {
         jobs.filter { $0.state == .queued }.count
     }
 
+    func history(forAccount accountSteamId: String?) -> [SteamDownloadHistoryEntry] {
+        guard let accountSteamId, !accountSteamId.isEmpty else { return [] }
+        return history.filter { $0.accountSteamId == accountSteamId }
+    }
+
     // MARK: - 命令
 
     /// 入队（去重）：已有同 item 非终态任务则原样返回 (existing, false)。
@@ -238,6 +291,7 @@ final class SteamDownloadJobStore: ObservableObject {
         save(candidate)
         guard lastSaveSucceeded else { return (job, false) }
         jobs = candidate
+        history = normalizedHistory(history, now: stamp)
         return (job, true)
     }
 
@@ -260,9 +314,13 @@ final class SteamDownloadJobStore: ObservableObject {
         }
         var candidate = jobs
         candidate[index] = next
-        save(candidate)
+        let candidateHistory = next.isTerminal
+            ? upsertingHistoryEntry(for: next, into: history)
+            : history
+        save(candidate, history: candidateHistory)
         guard lastSaveSucceeded else { return nil }
         jobs = candidate
+        history = normalizedHistory(candidateHistory, now: next.updatedAt)
         return next
     }
 
@@ -277,17 +335,54 @@ final class SteamDownloadJobStore: ObservableObject {
     func cancelAll(forAccount accountSteamId: String? = nil) -> [String] {
         let stamp = now()
         var cancelledIDs: [String] = []
+        var cancelledJobs: [SteamDownloadJob] = []
         let candidate = jobs.map { job in
             guard job.isActive, accountSteamId == nil || job.accountSteamId == accountSteamId,
                   let next = SteamDownloadJobReducer.apply(.cancelled, to: job, now: stamp) else { return job }
             cancelledIDs.append(job.workshopItemId)
+            cancelledJobs.append(next)
             return next
         }
         guard !cancelledIDs.isEmpty else { return [] }
-        save(candidate)
+        let candidateHistory = cancelledJobs.reduce(history) { partial, job in
+            upsertingHistoryEntry(for: job, into: partial)
+        }
+        save(candidate, history: candidateHistory)
         guard lastSaveSucceeded else { return [] }
         jobs = candidate
+        history = normalizedHistory(candidateHistory, now: stamp)
         return cancelledIDs
+    }
+
+    /// Removes only terminal history records. Jobs, queue intent and the download
+    /// library remain untouched.
+    @discardableResult
+    func clearHistory(forAccount accountSteamId: String? = nil) -> Int {
+        let candidate: [SteamDownloadHistoryEntry]
+        if let accountSteamId {
+            candidate = history.filter { $0.accountSteamId != accountSteamId }
+        } else {
+            candidate = []
+        }
+        let removedCount = history.count - candidate.count
+        guard removedCount > 0 else { return 0 }
+        save(jobs, history: candidate)
+        guard lastSaveSucceeded else { return 0 }
+        history = candidate
+        return removedCount
+    }
+
+    /// Refresh the time-based retention boundary on a user-visible history read,
+    /// without a timer or a second in-memory history owner.
+    @discardableResult
+    func pruneExpiredHistory() -> Int {
+        let candidate = normalizedHistory(history, now: now())
+        let removedCount = history.count - candidate.count
+        guard removedCount > 0 else { return 0 }
+        save(jobs, history: candidate)
+        guard lastSaveSucceeded else { return 0 }
+        history = candidate
+        return removedCount
     }
 
     /// Caller supplies only available, published metadata pointers. Unpublished directories cannot settle a job.
@@ -304,11 +399,19 @@ final class SteamDownloadJobStore: ObservableObject {
 
     // MARK: - 持久化（版本化 + 原子替换 + 无凭据）
 
-    private func save(_ candidate: [SteamDownloadJob]) {
+    private func save(
+        _ candidate: [SteamDownloadJob],
+        history candidateHistory: [SteamDownloadHistoryEntry]? = nil
+    ) {
         // Failed jobs are durable user-visible intent. They are retried only by an
         // explicit user action and retain their staging identity for bounded cleanup.
         let persisted = candidate.filter { $0.isActive || $0.state == .failed }
-        let state = PersistedState(version: Self.persistenceVersion, jobs: persisted)
+        let retainedHistory = normalizedHistory(candidateHistory ?? history, now: now())
+        let state = PersistedState(
+            version: Self.persistenceVersion,
+            jobs: persisted,
+            history: retainedHistory
+        )
         guard let data = try? JSONEncoder().encode(state) else {
             lastSaveSucceeded = false
             return
@@ -328,11 +431,14 @@ final class SteamDownloadJobStore: ObservableObject {
             return
         }
         guard let state = try? JSONDecoder().decode(PersistedState.self, from: data),
-              (state.version == 1 || state.version == Self.persistenceVersion) else {
+              (1...Self.persistenceVersion).contains(state.version) else {
             quarantineCorruptedFile()
             return
         }
         jobs = state.jobs
+        let stamp = now()
+        var restoredHistory = normalizedHistory(state.history, now: stamp)
+        var recoveredFailureIDs: Set<String> = []
         ordinal = jobs.map(\.queueOrdinal).max() ?? 0
         // A named, manifest-bound partial is offered only through explicit retry.
         // Work without a recovery identity falls back to queued intent.
@@ -340,13 +446,80 @@ final class SteamDownloadJobStore: ObservableObject {
             if jobs[index].stagingPath != nil && jobs[index].stagingManifestId != nil {
                 jobs[index].state = .failed
                 jobs[index].failureMessage = "上次下载被中断；请重试以校验并恢复已完成的数据块。"
+                jobs[index].updatedAt = stamp
+                recoveredFailureIDs.insert(jobs[index].id)
             } else {
                 jobs[index].state = .queued
                 jobs[index].stagingPath = nil
                 jobs[index].stagingManifestId = nil
             }
         }
-        lastSaveSucceeded = true
+        // v1/v2 had no history field. Preserve their retryable failures as one
+        // terminal attempt, and make crash recovery idempotent by the same key.
+        for job in jobs where job.state == .failed
+            && (state.version < Self.persistenceVersion || recoveredFailureIDs.contains(job.id)) {
+            restoredHistory = upsertingHistoryEntry(for: job, into: restoredHistory)
+        }
+        history = normalizedHistory(restoredHistory, now: stamp)
+
+        if state.version != Self.persistenceVersion || history != state.history || jobs != state.jobs {
+            save(jobs, history: history)
+        } else {
+            lastSaveSucceeded = true
+        }
+    }
+
+    private func upsertingHistoryEntry(
+        for job: SteamDownloadJob,
+        into candidate: [SteamDownloadHistoryEntry]
+    ) -> [SteamDownloadHistoryEntry] {
+        guard let entry = historyEntry(for: job) else { return candidate }
+        return candidate.filter { $0.id != entry.id } + [entry]
+    }
+
+    private func historyEntry(for job: SteamDownloadJob) -> SteamDownloadHistoryEntry? {
+        let outcome: SteamDownloadHistoryOutcome
+        switch job.state {
+        case .completed:
+            outcome = .completed
+        case .failed:
+            outcome = .failed
+        case .cancelled:
+            outcome = .cancelled
+        case .queued, .running, .staged, .committing:
+            return nil
+        }
+        return SteamDownloadHistoryEntry(
+            jobID: job.id,
+            workshopItemId: job.workshopItemId,
+            title: job.title,
+            accountSteamId: job.accountSteamId,
+            attempt: job.attempt,
+            outcome: outcome,
+            failureMessage: job.failureMessage,
+            recordID: outcome == .completed ? job.workshopItemId : nil,
+            terminalAt: job.updatedAt
+        )
+    }
+
+    private func normalizedHistory(
+        _ candidate: [SteamDownloadHistoryEntry],
+        now: Date
+    ) -> [SteamDownloadHistoryEntry] {
+        let cutoff = now.addingTimeInterval(-Self.historyRetentionInterval)
+        var entryByID: [String: SteamDownloadHistoryEntry] = [:]
+        for entry in candidate where entry.terminalAt >= cutoff {
+            if let existing = entryByID[entry.id], existing.terminalAt >= entry.terminalAt {
+                continue
+            }
+            entryByID[entry.id] = entry
+        }
+        return Array(entryByID.values
+            .sorted { lhs, rhs in
+                if lhs.terminalAt != rhs.terminalAt { return lhs.terminalAt > rhs.terminalAt }
+                return lhs.id < rhs.id
+            }
+            .prefix(Self.historyLimit))
     }
 
     private func quarantineCorruptedFile() {
@@ -354,6 +527,7 @@ final class SteamDownloadJobStore: ObservableObject {
             .appendingPathComponent("jobs.corrupted-\(Int(Date().timeIntervalSince1970)).json")
         try? FileManager.default.moveItem(at: persistenceURL, to: backup)
         jobs = []
+        history = []
         lastSaveSucceeded = true
     }
 }

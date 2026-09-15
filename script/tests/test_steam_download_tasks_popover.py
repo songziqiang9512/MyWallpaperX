@@ -1,4 +1,4 @@
-"""Exercise the SK5.2 current-task projection and guard the AppKit wiring."""
+"""Exercise SK5.2 current and SK5.3 history projections plus AppKit wiring."""
 import pathlib
 import subprocess
 import tempfile
@@ -58,7 +58,36 @@ import Foundation
         precondition(!SteamWorkshopDownloadTaskProjection.isCancellable(visible[0]))
         precondition(SteamWorkshopDownloadTaskProjection.isCancellable(visible[1]))
         precondition(SteamWorkshopDownloadTaskProjection.isCancellable(visible[3]))
-        print("Download task projection: account filter, terminal exclusion, active/failed/queued FIFO PASS")
+
+        func history(_ job: String, _ attempt: Int, _ outcome: SteamDownloadHistoryOutcome,
+                     _ time: TimeInterval, account: String = "A") -> SteamDownloadHistoryEntry {
+            SteamDownloadHistoryEntry(
+                jobID: job,
+                workshopItemId: "item-\(job)",
+                title: "History \(job)",
+                accountSteamId: account,
+                attempt: attempt,
+                outcome: outcome,
+                failureMessage: outcome == .failed ? "failed" : nil,
+                recordID: outcome == .completed ? "item-\(job)" : nil,
+                terminalAt: Date(timeIntervalSince1970: time)
+            )
+        }
+        let entries = [
+            history("retry", 1, .failed, 110),
+            history("other", 1, .completed, 500, account: "B"),
+            history("done", 1, .completed, 150),
+            history("retry", 2, .completed, 200)
+        ]
+        precondition(SteamWorkshopDownloadHistoryProjection.summaries(
+            from: entries, accountSteamID: nil).isEmpty)
+        let summaries = SteamWorkshopDownloadHistoryProjection.summaries(
+            from: entries, accountSteamID: "A")
+        precondition(summaries.map(\.jobID) == ["retry", "done"])
+        precondition(summaries[0].attempts.map(\.attempt) == [2, 1])
+        precondition(summaries[0].latestOutcome == .completed)
+        precondition(summaries[0].recordID == "item-retry")
+        print("Download task/history projection: account isolation, stable ordering and attempt grouping PASS")
     }
 }
 '''
@@ -80,12 +109,14 @@ import Foundation
         controller = (TOOLBAR / "SteamWorkshopToolbarController.swift").read_text()
         layouts = (TOOLBAR / "SteamWorkshopToolbarController+Layouts.swift").read_text()
         actions = (TOOLBAR / "SteamWorkshopToolbarController+Actions.swift").read_text()
+        selection = (CORE / "SteamWorkshopService+DownloadSelection.swift").read_text()
 
         self.assertIn("private let popover = NSPopover()", ui)
         self.assertIn("popover.behavior = .transient", ui)
         self.assertIn("func startObserving()", ui)
         self.assertIn("func stopObserving()", ui)
         self.assertIn("service.downloadJobStore.$jobs", ui)
+        self.assertIn("service.downloadJobStore.$history", ui)
         self.assertIn("service.steamAuth.$expired", ui)
         self.assertIn("请使用工具栏重新登录", ui)
         self.assertIn("service.downloadProgressStore.addObserver", ui)
@@ -95,6 +126,18 @@ import Foundation
         self.assertIn("Keep existing rows fixed", ui)
         self.assertIn("取消全部下载任务？", ui)
         self.assertIn("已下载文件不会被删除", ui)
+        self.assertIn('["进行中", "历史"]', ui)
+        self.assertIn("SteamWorkshopDownloadHistoryProjection.summaries", ui)
+        self.assertIn("清空下载历史？", ui)
+        self.assertIn("不会取消任务，也不会删除已下载文件", ui)
+        self.assertIn("已下载文件不存在", ui)
+        self.assertIn("availableDownloadRecord(forHistoryRecordID: recordID)", ui)
+        self.assertIn("service.focusDownloadRecordFromHistory(itemID: recordID)", ui)
+        self.assertIn("func focusDownloadRecordFromHistory", selection)
+        focus = selection.split("func focusDownloadRecordFromHistory", 1)[1].split("\n    }", 1)[0]
+        self.assertIn("downloadsDisplayMode = .all", focus)
+        self.assertIn('downloadsQuery = ""', focus)
+        self.assertIn("selectDownload(itemID: itemID)", focus)
         self.assertIn('"selectedItem": "steamDownloads"', ui)
         self.assertNotIn("Timer.scheduledTimer", ui)
         self.assertNotIn("NSMenu()", ui)

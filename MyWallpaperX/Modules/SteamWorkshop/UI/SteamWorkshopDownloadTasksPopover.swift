@@ -69,7 +69,9 @@ final class SteamWorkshopDownloadTasksPopoverController: NSObject, NSPopoverDele
     private lazy var contentController = SteamWorkshopDownloadTasksContentController(
         service: service,
         cancelAll: { [weak self] in self?.confirmCancelAll() },
+        clearHistory: { [weak self] in self?.confirmClearHistory() },
         showDetail: { [weak self] job in self?.showDetail(for: job) },
+        showHistory: { [weak self] summary in self?.showHistory(summary) },
         viewDownloaded: { [weak self] in self?.viewDownloaded() }
     )
     private let windowProvider: () -> NSWindow?
@@ -134,6 +136,47 @@ final class SteamWorkshopDownloadTasksPopoverController: NSObject, NSPopoverDele
     }
 
     private func showDetail(for job: SteamDownloadJob) {
+        showWorkshopDetail(itemID: job.workshopItemId, title: job.title)
+    }
+
+    private func showHistory(_ summary: SteamWorkshopDownloadHistorySummary) {
+        if let recordID = summary.recordID,
+           service.availableDownloadRecord(forHistoryRecordID: recordID) != nil {
+            close()
+            NotificationCenter.default.post(
+                name: .appKitSelectItemRequested,
+                object: nil,
+                userInfo: ["selectedItem": "steamDownloads"]
+            )
+            DispatchQueue.main.async { [service] in
+                service.focusDownloadRecordFromHistory(itemID: recordID)
+            }
+            return
+        }
+
+        if summary.latestOutcome == .completed {
+            let alert = NSAlert()
+            alert.messageText = "已下载文件不存在"
+            alert.informativeText = "历史记录仍会保留，但它不是本地文件或已下载状态的权威。"
+            alert.alertStyle = .informational
+            alert.addButton(withTitle: "查看作品详情")
+            alert.addButton(withTitle: "留在历史")
+            let handle: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+                guard response == .alertFirstButtonReturn else { return }
+                self?.showWorkshopDetail(itemID: summary.workshopItemID, title: summary.title)
+            }
+            if let window = windowProvider() {
+                alert.beginSheetModal(for: window, completionHandler: handle)
+            } else {
+                handle(alert.runModal())
+            }
+            return
+        }
+
+        showWorkshopDetail(itemID: summary.workshopItemID, title: summary.title)
+    }
+
+    private func showWorkshopDetail(itemID: String, title: String) {
         close()
         NotificationCenter.default.post(
             name: .appKitSelectItemRequested,
@@ -141,7 +184,32 @@ final class SteamWorkshopDownloadTasksPopoverController: NSObject, NSPopoverDele
             userInfo: ["selectedItem": "steamWorkshop"]
         )
         DispatchQueue.main.async { [service] in
-            service.presentDownloadTaskDetail(itemID: job.workshopItemId, title: job.title)
+            service.presentDownloadTaskDetail(itemID: itemID, title: title)
+        }
+    }
+
+    private func confirmClearHistory() {
+        guard let accountSteamID = service.steamAuth.steamId else { return }
+        let count = service.downloadJobStore.history(forAccount: accountSteamID).count
+        guard count > 0 else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "清空下载历史？"
+        alert.informativeText = "将删除当前账号的 \(count) 条终结记录；不会取消任务，也不会删除已下载文件。"
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "清空历史")
+        alert.addButton(withTitle: "保留历史")
+        let apply: (NSApplication.ModalResponse) -> Void = { [weak self] response in
+            guard response == .alertFirstButtonReturn, let self else { return }
+            let removed = self.service.downloadJobStore.clearHistory(forAccount: accountSteamID)
+            self.service.statusMessage = removed > 0
+                ? "已清空 \(removed) 条下载历史；已下载文件保持不变。"
+                : "无法保存历史清理操作，请重试。"
+        }
+        if let window = windowProvider() {
+            alert.beginSheetModal(for: window, completionHandler: apply)
+        } else {
+            apply(alert.runModal())
         }
     }
 
@@ -163,14 +231,29 @@ private final class SteamWorkshopDownloadTasksContentController: NSViewControlle
 
     private let service: SteamWorkshopService
     private let cancelAll: () -> Void
+    private let clearHistory: () -> Void
     private let showDetail: (SteamDownloadJob) -> Void
+    private let showHistory: (SteamWorkshopDownloadHistorySummary) -> Void
     private let viewDownloaded: () -> Void
     private var cancellables = Set<AnyCancellable>()
     private var rowByJobID: [String: SteamWorkshopDownloadTaskRowView] = [:]
     private var orderedJobIDs: [String] = []
+    private var historyRows: [SteamWorkshopDownloadHistoryRowView] = []
+    private var renderedHistory: [SteamWorkshopDownloadHistorySummary] = []
+    private var latestJobs: [SteamDownloadJob] = []
+    private var latestHistory: [SteamDownloadHistoryEntry] = []
+    private var latestAccountSteamID: String?
+    private var latestSessionExpired = false
 
     private let countLabel = NSTextField(labelWithString: "")
+    private let modeControl = NSSegmentedControl(
+        labels: ["进行中", "历史"],
+        trackingMode: .selectOne,
+        target: nil,
+        action: nil
+    )
     private let cancelAllButton = NSButton(title: "全部取消", target: nil, action: nil)
+    private let clearHistoryButton = NSButton(title: "清空历史", target: nil, action: nil)
     private let emptyLabel = NSTextField(labelWithString: "当前没有下载任务")
     private let scrollView = NSScrollView()
     private let documentView = FlippedView()
@@ -179,12 +262,16 @@ private final class SteamWorkshopDownloadTasksContentController: NSViewControlle
     init(
         service: SteamWorkshopService,
         cancelAll: @escaping () -> Void,
+        clearHistory: @escaping () -> Void,
         showDetail: @escaping (SteamDownloadJob) -> Void,
+        showHistory: @escaping (SteamWorkshopDownloadHistorySummary) -> Void,
         viewDownloaded: @escaping () -> Void
     ) {
         self.service = service
         self.cancelAll = cancelAll
+        self.clearHistory = clearHistory
         self.showDetail = showDetail
+        self.showHistory = showHistory
         self.viewDownloaded = viewDownloaded
         super.init(nibName: nil, bundle: nil)
     }
@@ -197,9 +284,12 @@ private final class SteamWorkshopDownloadTasksContentController: NSViewControlle
         view = root
         preferredContentSize = NSSize(width: 396, height: 492)
 
-        let heading = NSTextField(labelWithString: "下载任务")
-        heading.font = .systemFont(ofSize: 15, weight: .semibold)
-        heading.setAccessibilityRole(.staticText)
+        modeControl.selectedSegment = 0
+        modeControl.segmentStyle = .rounded
+        modeControl.controlSize = .small
+        modeControl.target = self
+        modeControl.action = #selector(handleModeChanged)
+        modeControl.setAccessibilityLabel("下载任务列表")
 
         countLabel.font = .systemFont(ofSize: 12)
         countLabel.textColor = .secondaryLabelColor
@@ -211,7 +301,15 @@ private final class SteamWorkshopDownloadTasksContentController: NSViewControlle
         cancelAllButton.isEnabled = false
         cancelAllButton.toolTip = "取消当前账号全部进行中和排队中的下载任务"
 
-        let header = NSStackView(views: [heading, countLabel, NSView(), cancelAllButton])
+        clearHistoryButton.bezelStyle = .inline
+        clearHistoryButton.controlSize = .small
+        clearHistoryButton.target = self
+        clearHistoryButton.action = #selector(handleClearHistory)
+        clearHistoryButton.isHidden = true
+        clearHistoryButton.isEnabled = false
+        clearHistoryButton.toolTip = "只清除当前账号的终结记录，不删除已下载文件"
+
+        let header = NSStackView(views: [modeControl, countLabel, NSView(), cancelAllButton, clearHistoryButton])
         header.orientation = .horizontal
         header.alignment = .centerY
         header.spacing = 8
@@ -280,32 +378,54 @@ private final class SteamWorkshopDownloadTasksContentController: NSViewControlle
 
     func startObserving() {
         guard cancellables.isEmpty else { return }
-        resetRows()
-        Publishers.CombineLatest3(
+        service.downloadJobStore.pruneExpiredHistory()
+        resetAllRows()
+        Publishers.CombineLatest4(
             service.downloadJobStore.$jobs,
+            service.downloadJobStore.$history,
             service.steamAuth.$steamId,
             service.steamAuth.$expired
         )
             .receive(on: RunLoop.main)
-            .sink { [weak self] jobs, accountSteamID, sessionExpired in
-                self?.reconcile(
-                    jobs: jobs,
-                    accountSteamID: accountSteamID,
-                    sessionExpired: sessionExpired
-                )
+            .sink { [weak self] jobs, history, accountSteamID, sessionExpired in
+                guard let self else { return }
+                self.latestJobs = jobs
+                self.latestHistory = history
+                self.latestAccountSteamID = accountSteamID
+                self.latestSessionExpired = sessionExpired
+                self.renderSelectedMode()
             }
             .store(in: &cancellables)
     }
 
     func stopObserving() {
         cancellables.removeAll()
-        resetRows()
+        resetAllRows()
     }
 
     @objc private func handleCancelAll() { cancelAll() }
+    @objc private func handleClearHistory() { clearHistory() }
     @objc private func handleViewDownloaded() { viewDownloaded() }
 
-    private func reconcile(
+    @objc private func handleModeChanged() {
+        renderSelectedMode()
+    }
+
+    private func renderSelectedMode() {
+        if modeControl.selectedSegment == 1 {
+            resetCurrentRows()
+            reconcileHistory(history: latestHistory, accountSteamID: latestAccountSteamID)
+        } else {
+            resetHistoryRows()
+            reconcileCurrent(
+                jobs: latestJobs,
+                accountSteamID: latestAccountSteamID,
+                sessionExpired: latestSessionExpired
+            )
+        }
+    }
+
+    private func reconcileCurrent(
         jobs: [SteamDownloadJob],
         accountSteamID: String?,
         sessionExpired: Bool
@@ -353,9 +473,38 @@ private final class SteamWorkshopDownloadTasksContentController: NSViewControlle
         emptyLabel.isHidden = !desired.isEmpty
         scrollView.isHidden = desired.isEmpty
         cancelAllButton.isEnabled = desired.contains(where: SteamWorkshopDownloadTaskProjection.isCancellable)
+        cancelAllButton.isHidden = false
+        clearHistoryButton.isHidden = true
     }
 
-    private func resetRows() {
+    private func reconcileHistory(
+        history: [SteamDownloadHistoryEntry],
+        accountSteamID: String?
+    ) {
+        let desired = SteamWorkshopDownloadHistoryProjection.summaries(
+            from: history,
+            accountSteamID: accountSteamID
+        )
+        if desired != renderedHistory {
+            resetHistoryRows()
+            for summary in desired {
+                let row = SteamWorkshopDownloadHistoryRowView(summary: summary, show: showHistory)
+                historyRows.append(row)
+                rowsStack.addArrangedSubview(row)
+            }
+            renderedHistory = desired
+        }
+
+        countLabel.stringValue = desired.isEmpty ? "" : "\(desired.count) 项"
+        emptyLabel.stringValue = accountSteamID == nil ? "登录 Steam 后可查看当前账号的下载历史" : "当前没有下载历史"
+        emptyLabel.isHidden = !desired.isEmpty
+        scrollView.isHidden = desired.isEmpty
+        cancelAllButton.isHidden = true
+        clearHistoryButton.isHidden = false
+        clearHistoryButton.isEnabled = !desired.isEmpty
+    }
+
+    private func resetCurrentRows() {
         rowByJobID.values.forEach {
             $0.unbind()
             rowsStack.removeArrangedSubview($0)
@@ -364,6 +513,145 @@ private final class SteamWorkshopDownloadTasksContentController: NSViewControlle
         rowByJobID.removeAll()
         orderedJobIDs.removeAll()
     }
+
+    private func resetHistoryRows() {
+        historyRows.forEach {
+            rowsStack.removeArrangedSubview($0)
+            $0.removeFromSuperview()
+        }
+        historyRows.removeAll()
+        renderedHistory.removeAll()
+    }
+
+    private func resetAllRows() {
+        resetCurrentRows()
+        resetHistoryRows()
+    }
+}
+
+@MainActor
+private final class SteamWorkshopDownloadHistoryRowView: NSView {
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    private let summary: SteamWorkshopDownloadHistorySummary
+    private let show: (SteamWorkshopDownloadHistorySummary) -> Void
+
+    init(
+        summary: SteamWorkshopDownloadHistorySummary,
+        show: @escaping (SteamWorkshopDownloadHistorySummary) -> Void
+    ) {
+        self.summary = summary
+        self.show = show
+        super.init(frame: .zero)
+        configureViews()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { nil }
+
+    private func configureViews() {
+        translatesAutoresizingMaskIntoConstraints = false
+
+        let icon = NSImageView()
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        icon.imageScaling = .scaleProportionallyDown
+        icon.image = NSImage(
+            systemSymbolName: iconName,
+            accessibilityDescription: outcomeText
+        )
+        icon.contentTintColor = outcomeColor
+
+        let titleLabel = NSTextField(labelWithString: summary.title)
+        titleLabel.font = .systemFont(ofSize: 12.5, weight: .semibold)
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.maximumNumberOfLines = 1
+        titleLabel.toolTip = summary.title
+
+        let statusLabel = NSTextField(labelWithString: statusText)
+        statusLabel.font = .systemFont(ofSize: 10.5)
+        statusLabel.textColor = outcomeColor
+        statusLabel.lineBreakMode = .byTruncatingTail
+        statusLabel.maximumNumberOfLines = 1
+        statusLabel.toolTip = summary.attempts.first?.failureMessage
+
+        let detailButton = NSButton(
+            title: summary.latestOutcome == .completed ? "查看" : "详情",
+            target: self,
+            action: #selector(handleShow)
+        )
+        detailButton.bezelStyle = .inline
+        detailButton.controlSize = .small
+
+        let titleRow = NSStackView(views: [titleLabel, NSView(), detailButton])
+        titleRow.orientation = .horizontal
+        titleRow.alignment = .centerY
+        titleRow.spacing = 6
+
+        let body = NSStackView(views: [titleRow, statusLabel])
+        body.translatesAutoresizingMaskIntoConstraints = false
+        body.orientation = .vertical
+        body.alignment = .width
+        body.spacing = 6
+
+        let separator = NSBox()
+        separator.boxType = .separator
+        separator.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(icon)
+        addSubview(body)
+        addSubview(separator)
+        NSLayoutConstraint.activate([
+            heightAnchor.constraint(equalToConstant: 72),
+            icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            icon.centerYAnchor.constraint(equalTo: centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 24),
+            icon.heightAnchor.constraint(equalToConstant: 24),
+            body.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 12),
+            body.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            body.centerYAnchor.constraint(equalTo: centerYAnchor),
+            separator.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            separator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            separator.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+        setAccessibilityLabel("\(summary.title)，\(statusText)")
+    }
+
+    private var statusText: String {
+        let attempts = summary.attempts.count == 1 ? "1 次尝试" : "\(summary.attempts.count) 次尝试"
+        return "\(outcomeText) · \(attempts) · \(Self.dateFormatter.string(from: summary.latestTerminalAt))"
+    }
+
+    private var outcomeText: String {
+        switch summary.latestOutcome {
+        case .completed: return "已完成"
+        case .failed: return "失败"
+        case .cancelled: return "已取消"
+        }
+    }
+
+    private var iconName: String {
+        switch summary.latestOutcome {
+        case .completed: return "checkmark.circle.fill"
+        case .failed: return "exclamationmark.circle.fill"
+        case .cancelled: return "xmark.circle.fill"
+        }
+    }
+
+    private var outcomeColor: NSColor {
+        switch summary.latestOutcome {
+        case .completed: return .systemGreen
+        case .failed: return .systemRed
+        case .cancelled: return .secondaryLabelColor
+        }
+    }
+
+    @objc private func handleShow() { show(summary) }
 }
 
 @MainActor

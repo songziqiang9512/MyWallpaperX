@@ -165,7 +165,16 @@ import Foundation
         let afterCrash = SteamDownloadJobStore(persistenceURL: url)
         afterCrash.reconcileInterruptedCommits(published: ["123456": prepared])
         precondition(afterCrash.job(id: job.id)?.state == .completed, "published record settles interrupted job")
+        precondition(afterCrash.history.count == 1
+            && afterCrash.history[0].outcome == .completed
+            && afterCrash.history[0].recordID == "123456"
+            && afterCrash.history[0].attempt == 1,
+            "completed terminal must persist one library reference")
         precondition(afterCrash.apply(.completed, toID: job.id) == nil, "duplicate terminal rejected")
+        let afterCompletedRestart = SteamDownloadJobStore(persistenceURL: url)
+        precondition(afterCompletedRestart.history.count == 1
+            && afterCompletedRestart.history[0].id == afterCrash.history[0].id,
+            "completed restart must not duplicate history")
         try persisted.write(to: url)
         let beforePublishCrash = SteamDownloadJobStore(persistenceURL: url)
         beforePublishCrash.reconcileInterruptedCommits(published: [:])

@@ -148,6 +148,42 @@ extension SteamWorkshopService {
         return record
     }
 
+    /// Resolve a history reference against the live library. The history record
+    /// itself never proves that downloaded content still exists.
+    func availableDownloadRecord(forHistoryRecordID recordID: String) -> SteamWorkshopDownloadRecord? {
+        guard let record = downloadRecord(for: recordID) else { return nil }
+        if SteamWorkshopLibraryTransaction.versionDirectoryName(
+            containing: record.folderURL,
+            libraryRoot: steamDownloadLibraryRootURL
+        ) != nil {
+            guard let snapshot = managedDownloadSnapshots()[recordID],
+                  let commit = snapshot.commit,
+                  SteamWorkshopLibraryTransaction.isAvailable(
+                      commit,
+                      libraryRoot: steamDownloadLibraryRootURL
+                  ) else { return nil }
+            return record
+        }
+
+        let fileManager = FileManager.default
+        switch record.contentType {
+        case .video:
+            return record.videoURL == nil ? nil : record
+        case .web:
+            guard let entry = record.entryHTMLURL,
+                  fileManager.fileExists(atPath: entry.path) else { return nil }
+            return record
+        case .scene:
+            let scenePackage = record.folderURL.appendingPathComponent("scene.pkg")
+            guard fileManager.fileExists(atPath: scenePackage.path)
+                    || record.projectFileURL.map({ fileManager.fileExists(atPath: $0.path) }) == true
+            else { return nil }
+            return record
+        case .unknown:
+            return nil
+        }
+    }
+
     func playableDownloadRecord(for itemID: String) -> SteamWorkshopDownloadRecord? {
         guard let record = latestDownloadRecord(for: itemID),
               canLaunchDownloadRecord(record) else {
