@@ -26,6 +26,10 @@ final class SteamWorkshopDownloadsQuickLookController: NSObject, QLPreviewPanelD
     private var previewURL: URL?
     private var refreshPreview: (() -> URL?)?
 
+    var isVisible: Bool {
+        QLPreviewPanel.sharedPreviewPanelExists() && QLPreviewPanel.shared().isVisible
+    }
+
     func open(previewURL: URL, refreshPreview: @escaping () -> URL?) {
         self.previewURL = previewURL
         self.refreshPreview = refreshPreview

@@ -215,7 +215,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         if activeModule == .steamWorkshop && SteamWorkshopDownloadsBridge.shared.isActive {
             switch event.keyCode {
             case 49: SteamWorkshopDownloadsBridge.shared.previewSelected(); return true
-            case 53: SteamWorkshopDownloadsQuickLookController.shared.close(); return true
+            case 53:
+                guard SteamWorkshopDownloadsQuickLookController.shared.isVisible else { return false }
+                SteamWorkshopDownloadsQuickLookController.shared.close()
+                return true
             default: return false
             }
         }

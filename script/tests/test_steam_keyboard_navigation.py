@@ -9,6 +9,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 UI = ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI"
 KEYBOARD = UI / "SteamWorkshopGridKeyboardNavigation.swift"
 MAIN_WINDOW = ROOT / "MyWallpaperX/App/MainWindowController.swift"
+DOWNLOADS_SUPPORT = UI / "AppKitSteamWorkshopDownloadsSupport.swift"
 
 
 class SteamKeyboardNavigationTests(unittest.TestCase):
@@ -90,6 +91,30 @@ import Foundation
         self.assertLess(downloads, browser_stop)
         self.assertLess(browser_stop, generic_preview)
         self.assertIn("return false", handler[browser_stop:generic_preview])
+
+    def test_downloads_escape_closes_only_the_active_steam_surface(self):
+        window = MAIN_WINDOW.read_text()
+        downloads = (UI / "AppKitSteamWorkshopDownloadsGridView.swift").read_text()
+        support = DOWNLOADS_SUPPORT.read_text()
+
+        handler = window.split("private func handleQuickLookKeyDown", 1)[1].split(
+            "private func isEditingTextInput", 1
+        )[0]
+        steam_branch = handler.split(
+            "activeModule == .steamWorkshop && SteamWorkshopDownloadsBridge.shared.isActive", 1
+        )[1].split("if activeModule == .steamWorkshop {", 1)[0]
+        self.assertIn("SteamWorkshopDownloadsQuickLookController.shared.isVisible", steam_branch)
+        self.assertIn("else { return false }", steam_branch)
+        self.assertIn("var isVisible: Bool", support)
+        self.assertIn("QLPreviewPanel.sharedPreviewPanelExists()", support)
+
+        escape = downloads.split("private func handleEscapeKey()", 1)[1].split(
+            "private func handleArrowKey", 1
+        )[0]
+        self.assertIn("service.exitDownloadsMultiSelectMode()", escape)
+        self.assertIn("service.selectedDownloadInspectorItem != nil", escape)
+        self.assertIn("InspectorHostActions.postClose()", escape)
+        self.assertIn("return handleEscapeKey()", downloads)
 
 
 if __name__ == "__main__":

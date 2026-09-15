@@ -358,6 +358,16 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         return true
     }
 
+    private func handleEscapeKey() -> Bool {
+        if service.isDownloadsMultiSelectMode {
+            service.exitDownloadsMultiSelectMode()
+            return true
+        }
+        guard service.selectedDownloadInspectorItem != nil else { return false }
+        InspectorHostActions.postClose()
+        return true
+    }
+
     private func handleArrowKey(_ keyCode: UInt16) -> Bool {
         guard let destination = SteamWorkshopGridKeyboardNavigation.destinationIndex(
             keyCode: keyCode,
@@ -543,6 +553,8 @@ extension AppKitSteamWorkshopDownloadsContainerView: SteamWorkshopKeyboardDelega
         case let keyCode where SteamWorkshopGridKeyboardNavigation.isPrimaryActionKey(keyCode):
             guard !event.isARepeat else { return true }
             return handleReturnKey()
+        case 53:
+            return handleEscapeKey()
         default:
             break
         }
