@@ -36,7 +36,7 @@ struct SteamDownloadJob: Codable, Identifiable, Equatable {
     let title: String
     var state: SteamDownloadJobState
     var attempt: Int
-    let queueOrdinal: Int
+    var queueOrdinal: Int
     let accountSteamId: String
     var stagingPath: String?
     var stagingManifestId: String? = nil
@@ -73,6 +73,8 @@ struct SteamDownloadHistoryEntry: Codable, Identifiable, Equatable {
 }
 
 enum SteamDownloadJobEvent: Equatable {
+    case retryQueued(ordinal: Int)
+    case resourcesReleased
     case started
     case resumed
     case stagingAllocated(path: String, manifestId: String)
@@ -94,6 +96,17 @@ enum SteamDownloadJobReducer {
         var next = job
         next.updatedAt = now
         switch event {
+        case .retryQueued(let ordinal):
+            guard job.state == .failed else { return nil }
+            next.state = .queued
+            next.queueOrdinal = ordinal
+            next.failureMessage = nil
+        case .resourcesReleased:
+            guard job.state == .completed || job.state == .cancelled else { return nil }
+            next.stagingPath = nil
+            next.stagingManifestId = nil
+            next.receipt = nil
+            next.preparedCommit = nil
         case .started:
             guard job.state == .queued || job.state == .failed else { return nil }
             next.state = .running
@@ -101,8 +114,7 @@ enum SteamDownloadJobReducer {
             next.failureMessage = nil
             next.receipt = nil
             next.preparedCommit = nil
-            next.stagingPath = nil
-            next.stagingManifestId = nil
+            // A queued retry retains its manifest-bound staging identity.
         case .resumed:
             guard job.state == .failed, let path = job.stagingPath, path.hasPrefix("/"),
                   let manifestId = job.stagingManifestId,
@@ -145,7 +157,7 @@ enum SteamDownloadJobReducer {
             next.state = .failed
             next.failureMessage = message
         case .cancelled:
-            guard !job.isTerminal else { return nil }
+            guard !job.isTerminal || job.state == .failed else { return nil }
             next.state = .cancelled
         }
         return next
@@ -290,6 +302,10 @@ final class SteamDownloadJobStore: ObservableObject {
             return (existing, false)
         }
         ordinal += 1
+        if let failed = failedJob(forWorkshopItemId: workshopItemId, accountSteamId: accountSteamId) {
+            let queued = apply(.retryQueued(ordinal: ordinal), toID: failed.id)
+            return (queued ?? failed, queued != nil)
+        }
         let stamp = now()
         let job = SteamDownloadJob(
             id: UUID().uuidString,
@@ -332,7 +348,7 @@ final class SteamDownloadJobStore: ObservableObject {
         }
         var candidate = jobs
         candidate[index] = next
-        let candidateHistory = next.isTerminal
+        let candidateHistory = next.isTerminal && next.state != jobs[index].state
             ? upsertingHistoryEntry(for: next, into: history)
             : history
         save(candidate, history: candidateHistory)
@@ -423,7 +439,7 @@ final class SteamDownloadJobStore: ObservableObject {
     ) {
         // Failed jobs are durable user-visible intent. They are retried only by an
         // explicit user action and retain their staging identity for bounded cleanup.
-        let persisted = candidate.filter { $0.isActive || $0.state == .failed }
+        let persisted = candidate.filter { $0.isActive || $0.state == .failed || $0.stagingPath != nil || $0.preparedCommit != nil }
         let retainedHistory = normalizedHistory(candidateHistory ?? history, now: now())
         let state = PersistedState(
             version: Self.persistenceVersion,

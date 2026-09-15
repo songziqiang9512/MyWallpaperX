@@ -1,7 +1,7 @@
 import Foundation
 
 extension SteamWorkshopService {
-    func libraryVersionLifetime(for record: SteamWorkshopDownloadRecord) -> PlaybackResourceLifetime? {
+    func libraryVersionLifetime(for record: SteamWorkshopDownloadRecord) throws -> PlaybackResourceLifetime? {
         // Lease the concrete model paths rather than re-reading the latest ready
         // pointer. A card may still carry the previous version while an update is
         // publishing, and dependency-backed Web consumes both version trees.
@@ -15,13 +15,23 @@ extension SteamWorkshopService {
         guard !directoryNames.isEmpty else {
             return nil
         }
-        return steamLibraryVersionLeaseRegistry.acquire(directoryNames: directoryNames)
+        guard let lease = steamLibraryVersionLeaseRegistry.acquire(directoryNames: directoryNames) else {
+            throw SteamWorkshopLibraryTransaction.Failure(message: "此版本已开始回收，请刷新列表后选择当前版本。")
+        }
+        return lease
     }
 
     func scheduleLibraryVersionReclamation() {
         guard libraryVersionReclamationTask == nil else { return }
         let library = steamDownloadLibraryRootURL
-        let snapshots = managedDownloadSnapshots()
+        let snapshots: [String: SteamWorkshopDownloadMetadataSnapshot]
+        do {
+            snapshots = try loadManagedDownloadSnapshots(requireComplete: true)
+        } catch {
+            NSLog("MWX Steam library: incomplete index; reclamation deferred: %@", error.localizedDescription)
+            return
+        }
+        let leases = steamLibraryVersionLeaseRegistry
         var retained = Set(snapshots.values.compactMap { snapshot -> String? in
             guard let commit = snapshot.commit, !commit.removed else { return nil }
             return commit.directoryName.lowercased()
@@ -61,10 +71,12 @@ extension SteamWorkshopService {
 
         libraryVersionReclamationTask = Task { [weak self] in
             let work = Task.detached(priority: .utility) {
-                try SteamWorkshopLibraryTransaction.reclaimVersions(
+                try await SteamWorkshopLibraryTransaction.reclaimVersions(
                     libraryRoot: library,
                     retaining: retained,
-                    minimumAge: 24 * 60 * 60
+                    minimumAge: 24 * 60 * 60,
+                    admitRemoval: { await leases.beginReclamation($0) },
+                    removalFailed: { await leases.reclamationFailed($0) }
                 )
             }
             do {

@@ -252,6 +252,12 @@ extension SteamWorkshopService {
         }
 
         let fileManager = FileManager.default
+        if case .failed = record.status,
+           let account = steamAuth.steamId,
+           let job = downloadJobStore.failedJob(forWorkshopItemId: itemID, accountSteamId: account) {
+            discardFailedDownload(jobID: job.id)
+            guard downloadJobStore.job(id: job.id)?.state == .cancelled else { return false }
+        }
         if var snapshot = managedDownloadSnapshots()[itemID], var commit = snapshot.commit {
             commit.removed = true
             snapshot.commit = commit

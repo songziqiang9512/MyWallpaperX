@@ -95,6 +95,7 @@ final class Transport: SteamServiceTransporting {
     let libraryRootURL: URL; let steamDownloadStagingRootURL: URL
     var steamDownloadLibraryRootURL: URL { (try? SteamWorkshopLibraryTransaction.configuredRoot(libraryRootURL)) ?? libraryRootURL }
     let maximumConcurrentDownloads = 2
+    var terminalDownloadCleanupTask: Task<Void, Never>?
     var activeDownloadItemIDs: Set<String> = []
     var activeDownloadJobKeysByItemID: [String: String] = [:]
     var activeDownloadTasks: [String: Task<Void, Never>] = [:]
@@ -140,7 +141,7 @@ final class Transport: SteamServiceTransporting {
         transport.receipt = fixture["data"] as! [String: Any]
         transport.hold = mode == "cancel" || mode == "switch"
             || mode == "concurrent-cancel" || mode == "concurrent-success"
-        transport.startErrorCode = mode == "network-failure" ? "network"
+        transport.startErrorCode = ["network-failure", "busy-retry", "abandon"].contains(mode) ? "network"
             : mode == "manifest-mismatch" ? "integrity"
             : mode == "disk-full" ? "diskFull" : nil
         let service = SteamWorkshopService(base: base, transport: transport)
@@ -231,9 +232,16 @@ final class Transport: SteamServiceTransporting {
             precondition(result.commit?.jobId == key && result.commit?.attempt == 1)
             precondition(service.downloadJobStore.jobs.last?.state == .completed && service.reloads == 1)
             precondition(transport.commands.filter { $0["command"] as? String == "startDownload" }.count == 1)
+            let corrupt = marker.deletingLastPathComponent().appendingPathComponent("654321.json")
+            try Data("broken-json".utf8).write(to: corrupt)
+            precondition(service.managedDownloadSnapshots().keys.sorted() == ["123456"])
+            do {
+                _ = try service.loadManagedDownloadSnapshots(requireComplete: true)
+                fatalError("corrupt metadata must prevent GC, while display retains valid entries")
+            } catch {}
             precondition(!FileManager.default.fileExists(atPath: transport.receipt["stagingPath"] as! String),
                 "successful publication must retire its exact staging lease")
-        } else if mode != "network-failure" && mode != "disk-full" {
+        } else if !["network-failure", "busy-retry", "abandon", "publish-failure", "disk-full"].contains(mode) {
             let oldMarker = try String(contentsOf: marker, encoding: .utf8)
             precondition(oldMarker == "OLD READY POINTER")
             precondition(service.downloadJobStore.jobs.last?.state != .completed)
@@ -251,7 +259,7 @@ final class Transport: SteamServiceTransporting {
                 precondition(!FileManager.default.fileExists(atPath: transport.receipt["stagingPath"] as! String),
                     "manifest mismatch must retire its exact staging lease")
             }
-        } else if mode == "network-failure" {
+        } else if ["network-failure", "busy-retry", "abandon", "publish-failure"].contains(mode) {
             let oldMarker = try String(contentsOf: marker, encoding: .utf8)
             precondition(oldMarker == "OLD READY POINTER")
             guard let failure = service.downloadJobStore.jobs.last else { fatalError("missing failed job") }
@@ -263,7 +271,35 @@ final class Transport: SteamServiceTransporting {
             let reloaded = SteamDownloadJobStore(persistenceURL: base.appendingPathComponent("jobs.json"))
             precondition(reloaded.failedJob(
                 forWorkshopItemId: "123456", accountSteamId: "76561198000000000")?.id == failure.id)
+            if mode == "abandon" {
+                let sibling = service.steamDownloadStagingRootURL.appendingPathComponent("keep.txt")
+                try Data("keep".utf8).write(to: sibling)
+                service.discardFailedDownload(jobID: failure.id)
+                await service.terminalDownloadCleanupTask?.value
+                precondition(!FileManager.default.fileExists(atPath: failure.stagingPath!))
+                precondition(FileManager.default.fileExists(atPath: sibling.path))
+                let after = SteamDownloadJobStore(persistenceURL: base.appendingPathComponent("jobs.json"))
+                precondition(after.failedJob(forWorkshopItemId: "123456", accountSteamId: failure.accountSteamId) == nil)
+                precondition(service.downloads.isEmpty)
+                await service.steamServiceClient.stop(shutdownTimeout: 0)
+                print("EXECUTION PASS: \(mode)")
+                return
+            }
+            if mode == "publish-failure" {
+                precondition(FileManager.default.fileExists(atPath: failure.stagingPath!))
+                let index = marker.deletingLastPathComponent()
+                try FileManager.default.removeItem(at: index) // fixture symlink only
+                try FileManager.default.moveItem(at: base.appendingPathComponent("outside-index"), to: index)
+            }
             transport.startErrorCode = nil
+            if mode == "busy-retry" {
+                service.reservedLibraryCopyBytesByJobKey["fixture-other"] = 0
+                service.downloadWorkshopItem(id: "123456", pageTitle: "test")
+                let queued = service.downloadJobStore.job(id: failure.id)!
+                precondition(queued.state == .queued && queued.attempt == 1 && queued.stagingPath == failure.stagingPath)
+                precondition(service.downloadJobStore.jobs.count == 1 && transport.commands.count == 1)
+                service.reservedLibraryCopyBytesByJobKey.removeAll()
+            }
             service.downloadWorkshopItem(id: "123456", pageTitle: "test")
             while !service.activeDownloadTasks.isEmpty { await Task.yield() }
             let starts = transport.commands.filter { $0["command"] as? String == "startDownload" }

@@ -687,6 +687,7 @@ private final class SteamWorkshopDownloadTaskRowView: NSView {
     private let progressBar = SteamWorkshopGlassBarView()
     private let cancelButton = NSButton(title: "取消", target: nil, action: nil)
     private let retryButton = NSButton(title: "重试", target: nil, action: nil)
+    private let discardButton = NSButton(title: "放弃", target: nil, action: nil)
     private let detailButton = NSButton(title: "详情", target: nil, action: nil)
 
     init(
@@ -732,6 +733,8 @@ private final class SteamWorkshopDownloadTaskRowView: NSView {
         cancelButton.isEnabled = isCancellable && !isCancellationRequested
         retryButton.isHidden = job.state != .failed
         retryButton.isEnabled = job.state == .failed && !sessionExpired
+        discardButton.isHidden = job.state != .failed
+        discardButton.setAccessibilityLabel("放弃下载并清理暂存：\(job.title)")
         detailButton.isEnabled = true
         cancelButton.setAccessibilityLabel("取消：\(job.title)")
         retryButton.setAccessibilityLabel("重试：\(job.title)")
@@ -786,7 +789,7 @@ private final class SteamWorkshopDownloadTaskRowView: NSView {
         progressBar.setAccessibilityElement(true)
         progressBar.setAccessibilityRole(.progressIndicator)
 
-        [cancelButton, retryButton, detailButton].forEach {
+        [cancelButton, retryButton, discardButton, detailButton].forEach {
             $0.bezelStyle = .inline
             $0.controlSize = .small
         }
@@ -794,10 +797,12 @@ private final class SteamWorkshopDownloadTaskRowView: NSView {
         cancelButton.action = #selector(handleCancel)
         retryButton.target = self
         retryButton.action = #selector(handleRetry)
+        discardButton.target = self
+        discardButton.action = #selector(handleDiscard)
         detailButton.target = self
         detailButton.action = #selector(handleDetail)
 
-        let buttons = NSStackView(views: [cancelButton, retryButton, detailButton])
+        let buttons = NSStackView(views: [cancelButton, retryButton, discardButton, detailButton])
         buttons.orientation = .horizontal
         buttons.alignment = .centerY
         buttons.spacing = 5
@@ -1138,6 +1143,10 @@ private final class SteamWorkshopDownloadTaskRowView: NSView {
                 announce: true
             )
         }
+    }
+
+    @objc private func handleDiscard() {
+        service.discardFailedDownload(jobID: job.id)
     }
     @objc private func handleDetail() { showDetail(job) }
 }

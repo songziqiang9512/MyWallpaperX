@@ -449,8 +449,10 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         libraryRoot: URL,
         retaining directoryNames: Set<String>,
         minimumAge: TimeInterval,
-        now: Date = Date()
-    ) throws -> ReclamationResult {
+        now: Date = Date(),
+        admitRemoval: @Sendable (String) async -> Bool = { _ in true },
+        removalFailed: @Sendable (String) async -> Void = { _ in }
+    ) async throws -> ReclamationResult {
         try require(minimumAge >= 0 && minimumAge.isFinite)
         let library = try absoluteDirectory(libraryRoot, create: true)
         let versions: FD
@@ -489,7 +491,17 @@ nonisolated enum SteamWorkshopLibraryTransaction {
                 retainedNames.append(normalized)
                 continue
             }
-            try removeOwnedTree(parent: versions, name: name)
+            guard await admitRemoval(normalized) else {
+                retainedNames.append(normalized)
+                continue
+            }
+            do {
+                try Task.checkCancellation()
+                try removeOwnedTree(parent: versions, name: name)
+            } catch {
+                await removalFailed(normalized)
+                throw error
+            }
             removedNames.append(normalized)
         }
         return ReclamationResult(
@@ -502,19 +514,19 @@ nonisolated enum SteamWorkshopLibraryTransaction {
     /// Reads the single published ready index without following metadata links.
     /// Invalid/unrelated direct children are ignored; page/view lifecycle is not
     /// part of ready discovery.
-    static func publishedMetadata(libraryRoot: URL) throws -> [String: Data] {
+    static func publishedMetadata(libraryRoot: URL, requireComplete: Bool = false) throws -> [String: Data] {
         let library: FD
         do {
             library = try absoluteDirectory(libraryRoot)
         } catch {
-            if errno == ENOENT { return [:] }
+            if errno == ENOENT && !requireComplete { return [:] }
             throw error
         }
         let index: FD
         do {
             index = try directory(library, metadataName)
         } catch {
-            if errno == ENOENT { return [:] }
+            if errno == ENOENT && !requireComplete { return [:] }
             throw error
         }
         var result: [String: Data] = [:]
@@ -522,12 +534,13 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             try Task.checkCancellation()
             guard name.hasSuffix(".json") else { continue }
             let itemID = String(name.dropLast(5))
-            guard validID(itemID),
-                  let file = try? openFile(index, name),
-                  let data = try? readData(file, maximumBytes: 4 * 1024 * 1024) else {
-                continue
+            guard validID(itemID) else { continue }
+            do {
+                let file = try openFile(index, name)
+                result[itemID] = try readData(file, maximumBytes: 4 * 1024 * 1024)
+            } catch {
+                if requireComplete { throw error }
             }
-            result[itemID] = data
         }
         return result
     }

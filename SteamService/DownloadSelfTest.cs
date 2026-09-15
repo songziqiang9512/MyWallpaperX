@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text.Json;
 using SteamKit2;
@@ -25,10 +26,29 @@ internal static class DownloadSelfTest
         Check(SteamSession.ClassifyDownloadError(SteamRequestFailure.FromResult(EResult.AccessDenied)) == "accessDenied");
         Check(SteamSession.ClassifyDownloadError(SteamRequestFailure.FromResult(EResult.RateLimitExceeded)) == "rateLimited");
         Check(SteamSession.ClassifyDownloadError(new InvalidDataException("anything")) == "integrity");
+        Check(TestPhysicalDrain().GetAwaiter().GetResult());
+        long gib = 1024L * 1024 * 1024;
+        Check(SteamSession.CanReserveDiskBytes(gib, 6 * gib,
+            SteamSession.RemainingReservation(8 * gib, 7 * gib)));
         Check(SteamSession.ClassifyDownloadError(WorkshopStagingLease.ClassifyIO(new IOException("opaque", 28))) == "diskFull");
         Check(SteamSession.ClassifyDownloadError(WorkshopStagingLease.ClassifyIO(new IOException("opaque", 112))) == "diskFull");
         Check(SteamSession.ClassifyDownloadError(WorkshopStagingLease.ClassifyIO(new IOException("opaque", 13))) == "accessDenied");
         Check(SteamSession.ClassifyDownloadError(WorkshopStagingLease.ClassifyIO(new IOException("disk full", 5))) == "integrity");
+        Check(SteamSession.MaxChunkDownloadAttempts == 3);
+        Check(SteamSession.ChunkRetryBackoffDelay(1) == TimeSpan.FromMilliseconds(500)
+            && SteamSession.ChunkRetryBackoffDelay(2) == TimeSpan.FromMilliseconds(2000)
+            && SteamSession.ChunkRetryBackoffDelay(9) == TimeSpan.FromMilliseconds(2000));
+        Check(SteamSession.IsRetryableChunkFetch(new TimeoutException(), CancellationToken.None));
+        Check(SteamSession.IsRetryableChunkFetch(new HttpRequestException("cdn"), CancellationToken.None));
+        Check(SteamSession.IsRetryableChunkFetch(new SocketException(), CancellationToken.None));
+        // A transport-level timeout surfaces as TaskCanceledException without the job token.
+        Check(SteamSession.IsRetryableChunkFetch(new OperationCanceledException(), CancellationToken.None));
+        Check(SteamSession.IsRetryableChunkFetch(SteamRequestFailure.FromResult(EResult.Busy), CancellationToken.None));
+        Check(SteamSession.IsRetryableChunkFetch(SteamRequestFailure.FromResult(EResult.RateLimitExceeded), CancellationToken.None));
+        Check(!SteamSession.IsRetryableChunkFetch(SteamRequestFailure.FromResult(EResult.AccessDenied), CancellationToken.None));
+        Check(!SteamSession.IsRetryableChunkFetch(new InvalidDataException("short read"), CancellationToken.None));
+        Check(!SteamSession.IsRetryableChunkFetch(WorkshopStagingLease.ClassifyIO(new IOException("disk full", 28)), CancellationToken.None));
+        Check(!SteamSession.IsRetryableChunkFetch(new TimeoutException(), new CancellationToken(canceled: true)));
         Check(SteamSession.MaxActiveDownloadJobs == 2
             && SteamSession.MaxConcurrentDownloadChunks == 4
             && SteamSession.TestActiveDownloadCapacity()
@@ -55,6 +75,26 @@ internal static class DownloadSelfTest
         for (int i = 0; i < 100; i++) Check(SteamSession.TestDownloadTerminalRace());
         Console.WriteLine($"download progress/errors/cancellation: {count}/{count} PASS (offline)");
         return 0;
+    }
+
+    private static async Task<bool> TestPhysicalDrain()
+    {
+        foreach (bool timeOut in new[] { false, true })
+        {
+            using var cancellation = new CancellationTokenSource();
+            var physical = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var cancelled = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var waiter = SteamSession.AwaitPhysicalOperation(physical.Task,
+                () => cancelled.TrySetResult(true), timeOut ? TimeSpan.Zero : TimeSpan.FromSeconds(5), cancellation.Token);
+            if (!timeOut) cancellation.Cancel();
+            await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            if (waiter.IsCompleted) return false;
+            physical.SetResult(1); // simulate a non-cancellable decode finishing later
+            try { await waiter; return false; }
+            catch (TimeoutException) when (timeOut) {}
+            catch (OperationCanceledException) when (!timeOut) {}
+        }
+        return true;
     }
 
     private static async Task<bool> TestSharedChunkBudget()

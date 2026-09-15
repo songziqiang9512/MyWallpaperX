@@ -307,6 +307,7 @@ final class SteamWorkshopService: ObservableObject {
     let downloadProgressStore = SteamWorkshopDownloadProgressStore()
     let steamLibraryVersionLeaseRegistry = SteamWorkshopLibraryVersionLeaseRegistry()
     var libraryVersionReclamationTask: Task<Void, Never>?
+    var terminalDownloadCleanupTask: Task<Void, Never>?
     var selectedItemDetailTask: Task<Void, Never>?
     var discoveryBrowseSnapshot: SteamWorkshopDiscoveryBrowseSnapshot?
     var currentBrowserScrollOffsetY: CGFloat = 0

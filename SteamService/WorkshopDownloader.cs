@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Net.Http;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Buffers.Binary;
@@ -31,6 +33,8 @@ internal sealed partial class SteamSession
     private const int MaxStagedFiles = 200_000;
     /// Steam CDN 实际 chunk ≤1 MiB；这是恶意/异常 manifest 的 OOM 围栏（§3 硬拒绝最小 unsafe unit）。
     private const long MaxChunkBytes = 64L * 1024 * 1024;
+    /// §5.3：CDN 失败有 backoff 与上限；每个 chunk 至多重试 3 次有界网络类失败。
+    internal const int MaxChunkDownloadAttempts = 3;
 
     /// SK4.2 依赖的会话处理器；EnsureSession 统一创建（SteamSession partial 共享）。
     private SteamApps apps = null!;
@@ -148,9 +152,10 @@ internal sealed partial class SteamSession
                 DepotManifest manifest;
                 using (var manifestCdnClient = new SteamKit2.CDN.Client(context.Source))
                 {
-                    manifest = await manifestCdnClient
-                        .DownloadManifestAsync(depotId, detail.hcontent_file, requestCode, server, depotKey)
-                        .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.ManifestTimeoutSeconds), cancellation.Token)
+                    manifest = await AwaitPhysicalOperation(
+                        manifestCdnClient.DownloadManifestAsync(depotId, detail.hcontent_file, requestCode, server, depotKey),
+                        manifestCdnClient.Dispose,
+                        TimeSpan.FromSeconds(ProtocolLimits.ManifestTimeoutSeconds), cancellation.Token)
                         .ConfigureAwait(false);
                 }
 
@@ -488,31 +493,108 @@ internal sealed partial class SteamSession
         CancellationToken ct)
     {
         using var workerClient = new SteamKit2.CDN.Client(context.Source);
-        while (work.TryDequeue(out var item))
+        // §5.3：CDN 失败有 backoff 与上限。超时/传输取消已由 AwaitPhysicalOperation
+        // 释放当前 CDN 连接，因此 worker 持有可替换的当前客户端；重试上限
+        // MaxChunkDownloadAttempts，权限/完整性类失败不重试（§5.3 不无限换服务器）。
+        SteamKit2.CDN.Client client = workerClient;
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            var buffer = new byte[item.Chunk.UncompressedLength];
-            var written = await WithDownloadChunkSlot(async () =>
-                await workerClient
-                    .DownloadDepotChunkAsync(depotId, item.Chunk, server, buffer, depotKey)
-                    .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.ChunkTimeoutSeconds), ct)
-                    .ConfigureAwait(false), ct).ConfigureAwait(false);
-            if (written != (int)item.Chunk.UncompressedLength)
+            while (work.TryDequeue(out var item))
             {
-                throw new InvalidDataException($"short chunk read: {written}/{item.Chunk.UncompressedLength}");
-            }
-            // §5.4 取消语义：停止取新 chunk，但已到手的写入要排空完成，
-            // 不撕裂已校验的 chunk（staging 为本地盘，单 chunk 写入有界）。
-            using (var handle = lease.OpenFile(item.RelativePath, write: true))
-            {
-                try
+                ct.ThrowIfCancellationRequested();
+                await WithDownloadChunkSlot(async () =>
                 {
-                    await RandomAccess.WriteAsync(handle, buffer.AsMemory(0, written), (long)item.Chunk.Offset,
-                        CancellationToken.None).ConfigureAwait(false);
-                }
-                catch (IOException error) { throw WorkshopStagingLease.ClassifyIO(error); }
+                    ct.ThrowIfCancellationRequested();
+                    var buffer = new byte[item.Chunk.UncompressedLength];
+                    int written;
+                    for (int attempt = 1; ; attempt++)
+                    {
+                        try
+                        {
+                            written = await AwaitPhysicalOperation(
+                                client.DownloadDepotChunkAsync(depotId, item.Chunk, server, buffer, depotKey),
+                                client.Dispose,
+                                TimeSpan.FromSeconds(ProtocolLimits.ChunkTimeoutSeconds), ct).ConfigureAwait(false);
+                            break;
+                        }
+                        catch (Exception error) when (attempt < MaxChunkDownloadAttempts
+                            && IsRetryableChunkFetch(error, ct))
+                        {
+                            var previous = client;
+                            client = new SteamKit2.CDN.Client(context.Source);
+                            if (!ReferenceEquals(previous, workerClient)) previous.Dispose();
+                            await Task.Delay(ChunkRetryBackoffDelay(attempt), ct).ConfigureAwait(false);
+                        }
+                    }
+                    if (written != (int)item.Chunk.UncompressedLength)
+                    {
+                        throw new InvalidDataException($"short chunk read: {written}/{item.Chunk.UncompressedLength}");
+                    }
+                    // §5.4 取消语义：停止取新 chunk，但已到手的写入要排空完成，
+                    // 不撕裂已校验的 chunk（staging 为本地盘，单 chunk 写入有界）。
+                    using (var handle = lease.OpenFile(item.RelativePath, write: true))
+                    {
+                        try
+                        {
+                            await RandomAccess.WriteAsync(handle, buffer.AsMemory(0, written), (long)item.Chunk.Offset,
+                                CancellationToken.None).ConfigureAwait(false);
+                        }
+                        catch (IOException error) { throw WorkshopStagingLease.ClassifyIO(error); }
+                    }
+                    lock (downloadGate)
+                        context.ReservedStagingBytes = RemainingReservation(context.ReservedStagingBytes, written);
+                    context.Progress.CompleteChunk(written, update => SendDownloadProgress(context, update));
+                    return written;
+                }, ct).ConfigureAwait(false);
             }
-            context.Progress.CompleteChunk(written, update => SendDownloadProgress(context, update));
+        }
+        finally
+        {
+            if (!ReferenceEquals(client, workerClient)) client.Dispose();
+        }
+    }
+
+    /// Only bounded network-class chunk fetch failures are retried; access denied
+    /// must surface as a session/permission decision and integrity as a terminal.
+    internal static bool IsRetryableChunkFetch(Exception error, CancellationToken ct)
+    {
+        if (ct.IsCancellationRequested) return false;
+        return error switch
+        {
+            SteamRequestFailure failure => failure.Code is "network" or "rateLimited",
+            WorkshopStagingLease.Failure or InvalidDataException => false,
+            TimeoutException or OperationCanceledException or IOException
+                or HttpRequestException or SocketException => true,
+            _ => false,
+        };
+    }
+
+    internal static TimeSpan ChunkRetryBackoffDelay(int attempt) => TimeSpan.FromMilliseconds(attempt switch
+    {
+        1 => 500,
+        _ => 2000,
+    });
+
+    internal static long RemainingReservation(long reserved, long written) =>
+        written >= 0 && written <= reserved ? reserved - written
+            : throw new InvalidDataException("staging reservation accounting mismatch");
+
+    // WaitAsync only cancels the waiter. Disposing the CDN transport requests
+    // network cancellation; the original task still owns decryption buffers and
+    // must finish before the chunk slot or download terminal can be released.
+    internal static async Task<T> AwaitPhysicalOperation<T>(
+        Task<T> operation, Action cancelTransport, TimeSpan timeout, CancellationToken ct)
+    {
+        try { return await operation.WaitAsync(timeout, ct).ConfigureAwait(false); }
+        catch (Exception error) when (error is TimeoutException or OperationCanceledException)
+        {
+            try { cancelTransport(); }
+            finally
+            {
+                try { await operation.ConfigureAwait(false); }
+                catch { /* Observe physical termination; preserve the original cancellation/timeout. */ }
+            }
+            throw;
         }
     }
 
@@ -590,25 +672,4 @@ internal sealed partial class SteamSession
 
     internal async Task<T> WithDownloadChunkSlotForTest<T>(Func<Task<T>> body, CancellationToken ct) =>
         await WithDownloadChunkSlot(body, ct).ConfigureAwait(false);
-
-    /// 路径围栏：manifest 内相对路径必须解析到 stagingRoot 之内。
-    internal static string ResolveContainedPath(string root, string relative)
-    {
-        var normalized = relative.Replace('\\', Path.DirectorySeparatorChar)
-            .Replace('/', Path.DirectorySeparatorChar);
-        if (Path.IsPathRooted(normalized))
-        {
-            throw new IOException($"manifest contains absolute path: {relative}");
-        }
-        var fullRoot = Path.GetFullPath(root);
-        var full = Path.GetFullPath(Path.Combine(fullRoot, normalized));
-        var prefix = fullRoot.EndsWith(Path.DirectorySeparatorChar)
-            ? fullRoot
-            : fullRoot + Path.DirectorySeparatorChar;
-        if (!full.StartsWith(prefix, StringComparison.Ordinal))
-        {
-            throw new IOException($"manifest path escapes staging root: {relative}");
-        }
-        return full;
-    }
 }

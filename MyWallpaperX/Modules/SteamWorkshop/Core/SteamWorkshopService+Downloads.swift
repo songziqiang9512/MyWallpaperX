@@ -193,6 +193,7 @@ extension SteamWorkshopService {
                     self.activeDownloadItemIDs.remove(request.id)
                     self.steamJobItemPayloads.removeValue(forKey: request.id)
                 }
+                self.scheduleTerminalDownloadCleanup()
                 self.processNextQueuedDownloadIfPossible()
             }
             @MainActor func checkCurrent() throws {
@@ -251,10 +252,6 @@ extension SteamWorkshopService {
                 guard self.downloadJobStore.apply(.committing(commit), toID: job.id) != nil else {
                     throw SteamWorkshopLibraryTransaction.Failure(message: "无法保存入库事务，旧版本保持不变。")
                 }
-                // The copied version is complete; retire the exact helper lease
-                // before publishing ready. A cleanup failure keeps the old ready
-                // pointer and the recoverable job identity instead of leaking it.
-                try await self.removeOwnedDownloadStaging(receipt.stagingURL.path)
                 // No suspension between the final identity check and the metadata rename.
                 try checkCurrent()
                 try self.publishDownloadedVersion(request, commit: commit, libraryRoot: library)
@@ -265,6 +262,9 @@ extension SteamWorkshopService {
                 self.downloadProgressStore.clear(itemID: request.id, jobKey: key)
                 self.statusMessage = recorded ? "已完成 \(job.title) 下载"
                     : "内容已入库；任务记录保存失败，下次启动将对账。"
+                // Publish UI while the account/attempt check is still current.
+                // Cleanup can suspend; it must not project an old account afterwards.
+                if recorded { await self.cleanupTerminalDownload(job.id) }
             } catch {
                 guard self.activeDownloadJobKeysByItemID[request.id] == key else { return }
                 var terminalError: Error = error
@@ -331,6 +331,62 @@ extension SteamWorkshopService {
         }.value
     }
 
+    /// Terminal cleanup is durable and independent of login. A published ready
+    /// pointer is never rolled back because deleting its staging lease failed.
+    @discardableResult
+    private func cleanupTerminalDownload(_ jobID: String) async -> Bool {
+        guard let job = downloadJobStore.job(id: jobID),
+              job.state == .completed || job.state == .cancelled else { return false }
+        do {
+            if let path = job.stagingPath { try await removeOwnedDownloadStaging(path) }
+            return downloadJobStore.apply(.resourcesReleased, toID: jobID) != nil
+        } catch {
+            downloadError = "内容状态已保存，但下载暂存清理失败，稍后将重试：\(error.localizedDescription)"
+            return false
+        }
+    }
+
+    func scheduleTerminalDownloadCleanup() {
+        guard terminalDownloadCleanupTask == nil else { return }
+        terminalDownloadCleanupTask = Task { [weak self] in
+            guard let self else { return }
+            // Drain terminals arriving while filesystem work suspends this actor.
+            // A failed deletion is attempted only once per drain, avoiding a spin.
+            var attempted: Set<String> = []
+            while let job = self.downloadJobStore.jobs.first(where: {
+                ($0.state == .completed || $0.state == .cancelled)
+                    && ($0.stagingPath != nil || $0.preparedCommit != nil)
+                    && !attempted.contains($0.id)
+                    && self.activeDownloadJobKeysByItemID[$0.workshopItemId] != "\($0.id)-\($0.attempt)"
+            }) {
+                attempted.insert(job.id)
+                await self.cleanupTerminalDownload(job.id)
+            }
+            self.terminalDownloadCleanupTask = nil
+        }
+    }
+
+    func discardFailedDownload(jobID: String) {
+        guard let job = downloadJobStore.job(id: jobID), job.state == .failed,
+              job.accountSteamId == steamAuth.steamId else { return }
+        // Old releases could persist duplicate failed intents for the same item.
+        // Abandon all matching failures so an older record cannot reappear.
+        let failures = downloadJobStore.jobs.filter {
+            $0.state == .failed && $0.workshopItemId == job.workshopItemId
+                && $0.accountSteamId == job.accountSteamId
+        }
+        for failure in failures {
+            guard downloadJobStore.cancel(id: failure.id) != nil else {
+                downloadError = "放弃下载任务无法保存，请重试。"
+                scheduleTerminalDownloadCleanup()
+                return
+            }
+            downloadProgressStore.clear(itemID: failure.workshopItemId, jobKey: "\(failure.id)-\(failure.attempt)")
+        }
+        removeTransientRecord(id: job.workshopItemId)
+        scheduleTerminalDownloadCleanup()
+    }
+
     private func reserveLibraryCopyCapacity(
         required: Int64,
         available: Int64,
@@ -389,6 +445,7 @@ extension SteamWorkshopService {
                    downloadJobStore.cancel(id: job.id) != nil {
                     steamJobItemPayloads.removeValue(forKey: itemID)
                     removeTransientRecord(id: itemID)
+                    scheduleTerminalDownloadCleanup()
                     if showFeedback { statusMessage = "已移出下载队列。" }
                 }
                 return

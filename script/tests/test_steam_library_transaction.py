@@ -70,12 +70,23 @@ import Foundation
         if mode == "reclaim" {
             let library = base.appendingPathComponent("library")
             let retained = Set(CommandLine.arguments.dropFirst(3))
-            let result = try SteamWorkshopLibraryTransaction.reclaimVersions(
+            let result = try await SteamWorkshopLibraryTransaction.reclaimVersions(
                 libraryRoot: library,
                 retaining: retained,
                 minimumAge: 3_600
             )
             precondition(result.removedDirectoryNames.count == 1)
+            // Snapshot retention was frozen before this playback lease arrived.
+            let leases = SteamWorkshopLibraryVersionLeaseRegistry()
+            let protected = retained.first!
+            let lateLease = leases.acquire(directoryNames: [protected])!
+            let denied = try await SteamWorkshopLibraryTransaction.reclaimVersions(
+                libraryRoot: library, retaining: [], minimumAge: 3_600,
+                admitRemoval: { await leases.beginReclamation($0) },
+                removalFailed: { await leases.reclamationFailed($0) }
+            )
+            precondition(denied.removedDirectoryNames.isEmpty)
+            withExtendedLifetime(lateLease) {}
             if let protected = retained.first {
                 let content = library.appendingPathComponent(".mywallpaperx-steam-versions")
                     .appendingPathComponent(protected).appendingPathComponent("content/index.html")
@@ -103,9 +114,15 @@ import Foundation
                 directoryNames: [commit.directoryName, dependencyVersion]
             )
             precondition(leases.protectedDirectoryNames() == [commit.directoryName, dependencyVersion])
+            precondition(!leases.beginReclamation(commit.directoryName))
+            precondition(!leases.beginReclamation(dependencyVersion))
             lifetime = nil
             withExtendedLifetime(lifetime) {}
             precondition(leases.protectedDirectoryNames().isEmpty)
+            precondition(leases.beginReclamation(commit.directoryName))
+            precondition(leases.acquire(commit) == nil, "deletion reservation rejects a late playback lease")
+            leases.reclamationFailed(commit.directoryName)
+            precondition(leases.acquire(commit) != nil, "failed deletion releases its reservation")
             try JSONEncoder().encode(commit).write(to: base.appendingPathComponent("prepared.json"))
             if mode != "prepare-only" {
                 try SteamWorkshopLibraryTransaction.publish(metadata: JSONEncoder().encode(commit), itemID: "123456", libraryRoot: library)
@@ -118,6 +135,10 @@ import Foundation
                 )
                 let index = try SteamWorkshopLibraryTransaction.publishedMetadata(libraryRoot: library)
                 precondition(index.keys.sorted() == ["123456"])
+                do {
+                    _ = try SteamWorkshopLibraryTransaction.publishedMetadata(libraryRoot: library, requireComplete: true)
+                    fatalError("incomplete nofollow index must prevent reclamation")
+                } catch {}
                 let decoded = try JSONDecoder().decode(
                     SteamWorkshopLibraryCommit.self,
                     from: index["123456"]!

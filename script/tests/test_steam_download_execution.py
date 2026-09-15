@@ -13,10 +13,13 @@ class SteamDownloadExecutionTests(unittest.TestCase):
         cls.build = tempfile.TemporaryDirectory(prefix='mwx-steam-execution-build-')
         folder = pathlib.Path(cls.build.name)
         source = (CORE / 'SteamWorkshopService+DownloadLibrarySync.swift').read_text()
-        start = source.index('    func publishDownloadedVersion(')
-        end = source.index('\n    }', start) + len('\n    }')
+        methods = []
+        for name in ('publishDownloadedVersion', 'managedDownloadSnapshots', 'loadManagedDownloadSnapshots'):
+            start = source.index('    func ' + name + '(')
+            end = source.index('\n    }', start) + len('\n    }')
+            methods.append(source[start:end])
         publisher = folder / 'Publisher.swift'
-        publisher.write_text('import Foundation\nextension SteamWorkshopService {\n' + source[start:end] + '\n}')
+        publisher.write_text('import Foundation\nextension SteamWorkshopService {\n' + '\n'.join(methods) + '\n}')
         cls.binary = folder / 'execution'
         subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *map(str, SOURCES),
                         str(CORE / 'SteamWorkshopService+Downloads.swift'), str(publisher),
@@ -69,6 +72,12 @@ class SteamDownloadExecutionTests(unittest.TestCase):
 
     def test_publication_failure_preserves_old_pointer(self):
         self.run_case('publish-failure')
+
+    def test_busy_retry_reuses_queued_identity_and_staging(self):
+        self.run_case('busy-retry')
+
+    def test_abandon_removes_failed_intent_and_only_owned_staging(self):
+        self.run_case('abandon')
 
     def test_network_failure_persists_and_explicit_retry_reuses_job(self):
         self.run_case('network-failure')

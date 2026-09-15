@@ -4,6 +4,7 @@ extension SteamWorkshopService {
     func reloadInstalledItems() {
         let managed = managedDownloadSnapshots()
         reconcileDownloadCommits(managed)
+        scheduleTerminalDownloadCleanup()
         let videoFiles = directVideoFiles(in: videoLibraryRootURL)
         let webDirectories = directChildDirectories(in: webLibraryRootURL)
         let sceneDirectories = directChildDirectories(in: sceneLibraryRootURL)
@@ -151,16 +152,27 @@ extension SteamWorkshopService {
 
     /// Single current pointer lives in the existing metadata index. Hidden versions are never scanned as ready.
     func managedDownloadSnapshots() -> [String: SteamWorkshopDownloadMetadataSnapshot] {
-        let entries = (try? SteamWorkshopLibraryTransaction.publishedMetadata(
-            libraryRoot: steamDownloadLibraryRootURL
-        )) ?? [:]
+        (try? loadManagedDownloadSnapshots(requireComplete: false)) ?? [:]
+    }
+
+    func loadManagedDownloadSnapshots(requireComplete: Bool) throws -> [String: SteamWorkshopDownloadMetadataSnapshot] {
+        let entries = try SteamWorkshopLibraryTransaction.publishedMetadata(
+            libraryRoot: steamDownloadLibraryRootURL, requireComplete: requireComplete
+        )
         var result: [String: SteamWorkshopDownloadMetadataSnapshot] = [:]
         for (itemID, data) in entries {
-            guard let snapshot = try? JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: data),
-                  let commit = snapshot.commit, commit.workshopId == snapshot.item.id,
+            guard let snapshot = try? JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: data) else {
+                if requireComplete { throw SteamWorkshopLibraryTransaction.Failure(message: "下载索引不完整，已暂停版本回收。") }
+                continue
+            }
+            guard let commit = snapshot.commit else { continue } // legacy metadata has no managed version
+            guard commit.workshopId == snapshot.item.id,
                   itemID == commit.workshopId,
                   let content = try? SteamWorkshopLibraryTransaction.contentURL(for: commit, libraryRoot: steamDownloadLibraryRootURL),
-                  snapshot.legacyFolderURL == content else { continue }
+                  snapshot.legacyFolderURL == content else {
+                if requireComplete { throw SteamWorkshopLibraryTransaction.Failure(message: "下载索引身份无效，已暂停版本回收。") }
+                continue
+            }
             result[commit.workshopId] = snapshot
         }
         return result
