@@ -23,6 +23,8 @@ internal sealed partial class SteamSession
     private const int DownloadWorkersPerJob = 4;
     private const long MaxStagedBytes = 8L * 1024 * 1024 * 1024;
     private const int MaxStagedFiles = 200_000;
+    /// Steam CDN 实际 chunk ≤1 MiB；这是恶意/异常 manifest 的 OOM 围栏（§3 硬拒绝最小 unsafe unit）。
+    private const long MaxChunkBytes = 64L * 1024 * 1024;
     private static readonly TimeSpan ProgressCoalesceInterval = TimeSpan.FromMilliseconds(250);
 
     /// SK4.2 依赖的会话处理器；EnsureSession 统一创建（SteamSession partial 共享）。
@@ -119,16 +121,45 @@ internal sealed partial class SteamSession
 
                 var staging = ResolveContainedPath(stagingRoot, publishedFileId.ToString());
                 Directory.CreateDirectory(staging);
+                // §5.2 逃逸 symlink 拒绝：staging 目录本身被换成链接时拒绝写入。
+                if (File.ResolveLinkTarget(staging, returnFinalTarget: false) is not null)
+                {
+                    throw new IOException("staging path contains symlink; refusing per path contract.");
+                }
 
+                // 先做纯校验遍历（symlink/路径围栏/逐 chunk 上限/字节预算），
+                // 全部通过后才创建和预分配任何文件——超预算内容不留半成品。
                 long manifestTotalBytes = 0;
                 int totalChunks = 0;
-                var work = new ConcurrentQueue<(DepotManifest.FileData File, DepotManifest.ChunkData Chunk, string Target)>();
                 foreach (var file in files)
                 {
                     if (file.Flags.HasFlag(EDepotFileFlag.Symlink))
                     {
                         throw new IOException("manifest contains symlink; refusing per path contract.");
                     }
+                    ResolveContainedPath(staging, file.FileName);
+                    if (file.Flags.HasFlag(EDepotFileFlag.Directory))
+                    {
+                        continue;
+                    }
+                    manifestTotalBytes += (long)file.TotalSize;
+                    if (manifestTotalBytes > MaxStagedBytes)
+                    {
+                        throw new IOException($"manifest total {manifestTotalBytes} bytes exceeds budget {MaxStagedBytes}.");
+                    }
+                    foreach (var chunk in file.Chunks)
+                    {
+                        if (chunk.UncompressedLength > MaxChunkBytes)
+                        {
+                            throw new IOException($"manifest chunk size {chunk.UncompressedLength} out of budget.");
+                        }
+                        totalChunks += 1;
+                    }
+                }
+
+                var work = new ConcurrentQueue<(DepotManifest.FileData File, DepotManifest.ChunkData Chunk, string Target)>();
+                foreach (var file in files)
+                {
                     var target = ResolveContainedPath(staging, file.FileName);
                     if (file.Flags.HasFlag(EDepotFileFlag.Directory))
                     {
@@ -141,22 +172,18 @@ internal sealed partial class SteamSession
                     {
                         resize.SetLength((long)file.TotalSize);
                     }
-                    manifestTotalBytes += (long)file.TotalSize;
                     foreach (var chunk in file.Chunks)
                     {
-                        totalChunks += 1;
                         work.Enqueue((file, chunk, target));
                     }
                 }
-                if (manifestTotalBytes > MaxStagedBytes)
-                {
-                    throw new IOException($"manifest total {manifestTotalBytes} bytes exceeds budget {MaxStagedBytes}.");
-                }
 
                 var verifiedBytes = await DownloadChunksAsync(
-                    context, depotId, depotKey, work, totalChunks, cancellation.Token)
+                    context, depotId, depotKey, server, work, totalChunks, cancellation.Token)
                     .ConfigureAwait(false);
 
+                // §5.4：取消请求后不得再以成功收口（staged 未提交，取消优先）。
+                cancellation.Token.ThrowIfCancellationRequested();
                 EmitDownloadProgress(context, "validating",
                     totalBytes: manifestTotalBytes, verifiedBytes: verifiedBytes, totalChunks: totalChunks);
                 ValidateStagedFiles(files, staging);
@@ -167,6 +194,7 @@ internal sealed partial class SteamSession
                 {
                     writer.Send(ProtocolMessages.ResultOk(requestId, new
                     {
+                        jobId = jobId,
                         stagedComplete = true,
                         workshopId = publishedFileId.ToString(),
                         manifestId = detail.hcontent_file.ToString(),
@@ -217,14 +245,15 @@ internal sealed partial class SteamSession
         ActiveDownload context, string stage,
         long? totalBytes = null, long? verifiedBytes = null, int? totalChunks = null, int? verifiedChunks = null)
     {
-        context.Sequence += 1;
+        // chunk worker 并发调用：sequence 必须原子递增（§6 发送侧单调）。
+        var sequence = Interlocked.Increment(ref context.Sequence);
         writer.Send(new
         {
             v = ProtocolLimits.Version,
             type = "event",
             @event = "downloadProgress",
             requestId = context.RequestId,
-            sequence = context.Sequence,
+            sequence,
             processEpoch = ProcessEpoch,
             jobId = context.JobId,
             stage,
@@ -240,12 +269,16 @@ internal sealed partial class SteamSession
         ActiveDownload context, long verifiedBytes, int verifiedChunks, int totalChunks)
     {
         var tick = Environment.TickCount64;
-        if (context.LastProgressTick != 0
-            && tick - context.LastProgressTick < ProgressCoalesceInterval.TotalMilliseconds)
+        var last = Interlocked.Read(ref context.LastProgressTick);
+        if (last != 0 && tick - last < ProgressCoalesceInterval.TotalMilliseconds)
         {
             return;
         }
-        context.LastProgressTick = tick;
+        // CAS 防止并发 worker 在同一窗口双发；竞争失败者直接放弃本条进度。
+        if (Interlocked.CompareExchange(ref context.LastProgressTick, tick, last) != last)
+        {
+            return;
+        }
         EmitDownloadProgress(context, "chunks",
             verifiedBytes: verifiedBytes, totalChunks: totalChunks, verifiedChunks: verifiedChunks);
     }
@@ -258,6 +291,21 @@ internal sealed partial class SteamSession
             || message.Contains("decryption key denied", StringComparison.OrdinalIgnoreCase)) return "accessDenied";
         // GetDetails 层级的失败（项目不存在/私有）属内容不可用，而非网络。
         if (message.Contains("GetDetails failed", StringComparison.OrdinalIgnoreCase)) return "unsupportedContent";
+        // 路径围栏/预算是内容形状拒绝，不是网络失败。
+        if (message.Contains("symlink", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("escapes staging root", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("absolute path", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("budget", StringComparison.OrdinalIgnoreCase))
+        {
+            return "unsupportedContent";
+        }
+        // 损坏类：chunk 校验失败与解压失败（SteamKit 抛 InvalidDataException）。
+        if (message.Contains("chunk validation failed", StringComparison.OrdinalIgnoreCase)
+            || error is InvalidDataException)
+        {
+            return "integrity";
+        }
+        if (error is TimeoutException or OperationCanceledException) return "network";
         if (error is IOException) return "network";
         return "unsupportedContent";
     }
@@ -345,6 +393,7 @@ internal sealed partial class SteamSession
         ActiveDownload context,
         uint depotId,
         byte[] depotKey,
+        Server server,
         ConcurrentQueue<(DepotManifest.FileData File, DepotManifest.ChunkData Chunk, string Target)> work,
         int totalChunks,
         CancellationToken ct)
@@ -352,7 +401,7 @@ internal sealed partial class SteamSession
         var counters = new DownloadCounters();
         var workers = Enumerable.Range(0, Math.Min(DownloadWorkersPerJob, Math.Max(1, totalChunks)))
             .Select(_ => Task.Run(() => ChunkWorkerAsync(
-                context, depotId, depotKey, work, totalChunks, counters, ct)))
+                context, depotId, depotKey, server, work, totalChunks, counters, ct)))
             .ToArray();
         await Task.WhenAll(workers).ConfigureAwait(false);
         return Interlocked.Read(ref counters.VerifiedBytes);
@@ -362,6 +411,7 @@ internal sealed partial class SteamSession
         ActiveDownload context,
         uint depotId,
         byte[] depotKey,
+        Server server,
         ConcurrentQueue<(DepotManifest.FileData File, DepotManifest.ChunkData Chunk, string Target)> work,
         int totalChunks,
         DownloadCounters counters,
@@ -372,7 +422,6 @@ internal sealed partial class SteamSession
         {
             ct.ThrowIfCancellationRequested();
             var buffer = new byte[item.Chunk.UncompressedLength];
-            var server = await GetContentServerInternalAsync(ct).ConfigureAwait(false);
             var written = await workerClient
                 .DownloadDepotChunkAsync(depotId, item.Chunk, server, buffer, depotKey)
                 .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.ChunkTimeoutSeconds), ct)
@@ -381,11 +430,13 @@ internal sealed partial class SteamSession
             {
                 throw new IOException($"short chunk read: {written}/{item.Chunk.UncompressedLength}");
             }
+            // §5.4 取消语义：停止取新 chunk，但已到手的写入要排空完成，
+            // 不撕裂已校验的 chunk（staging 为本地盘，单 chunk 写入有界）。
             using (var handle = File.OpenHandle(item.Target, FileMode.Open, FileAccess.Write,
                 FileShare.ReadWrite, FileOptions.Asynchronous | FileOptions.RandomAccess))
             {
-                await RandomAccess.WriteAsync(handle, buffer.AsMemory(0, written), (long)item.Chunk.Offset, ct)
-                    .ConfigureAwait(false);
+                await RandomAccess.WriteAsync(handle, buffer.AsMemory(0, written), (long)item.Chunk.Offset,
+                    CancellationToken.None).ConfigureAwait(false);
             }
             var verifiedNow = Interlocked.Add(ref counters.VerifiedBytes, written);
             var doneNow = Interlocked.Increment(ref counters.DoneChunks);

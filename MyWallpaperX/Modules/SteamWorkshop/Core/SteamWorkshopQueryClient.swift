@@ -152,12 +152,9 @@ final class SteamWorkshopQueryClient {
     }
 
     /// 取消在途分级下载；helper 以 cancelled terminal 收口该请求。
+    /// jobId 与 startDownload 一致放信封（helper 的 cancelDownload 只读信封字段）。
     func cancelStagedDownload(jobId: String) async throws {
-        _ = try await client.request(
-            command: "cancelDownload",
-            jobId: jobId,
-            payload: .object(["jobId": .string(jobId)])
-        )
+        _ = try await client.request(command: "cancelDownload", jobId: jobId)
     }
 
     /// 订阅状态批量核对（需登录）。

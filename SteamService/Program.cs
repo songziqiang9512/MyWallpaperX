@@ -239,6 +239,9 @@ internal static class Program
                 if (workshopId == null || !ulong.TryParse(workshopId, out var downloadId)
                     || string.IsNullOrEmpty(jobId) || string.IsNullOrEmpty(stagingRoot))
                 {
+                    // 异步命令不预占 requestId，但校验失败的 terminal 在此发送：
+                    // 经 TryBegin 保证重复 requestId 不双发 terminal（§6）。
+                    if (!terminals.TryBegin(requestId)) return;
                     writer.Send(ProtocolMessages.ResultError(
                         requestId, "protocolMismatch",
                         "startDownload requires payload.workshopId, envelope jobId and payload.stagingRoot", 1));
@@ -249,6 +252,8 @@ internal static class Program
             }
             case "cancelDownload":
             {
+                // 同步收口的异步命令：TryBegin 保证每 requestId 至多一个 terminal。
+                if (!terminals.TryBegin(requestId)) return;
                 var cancelJobId = decode.StringField("jobId");
                 var cancelled = cancelJobId != null && steamSession.CancelDownload(cancelJobId);
                 writer.Send(ProtocolMessages.ResultOk(requestId, new { cancelled }, 1));

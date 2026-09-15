@@ -75,7 +75,6 @@ internal static class ProbeHost
               probe auth-qr                                        QR challenge flow, saves session
               probe restore                                        silent restore from saved session
               probe subscriptions                                  logged-on: mysubscriptions/myfavorites pages
-              probe subscriptions                                    logged-on: mysubscriptions/myfavorites pages
               probe matrix [--fixtures DIR]                        anonymous capability matrix + fixtures
             options: --state DIR (default /tmp/mwx-sk01-probe), --fixtures DIR
             stdout is JSON lines; prompts go to stderr. Tokens never printed.

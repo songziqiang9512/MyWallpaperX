@@ -93,8 +93,8 @@ final class SteamServiceClient {
     }
 
     var onStateChange: ((ClientState) -> Void)?
-    /// 非终态事件（authState/downloadProgress 等）。
-    var onEvent: ((SteamServiceFrame) -> Void)?
+    // 非终态事件（authState/downloadProgress 等）统一走观察者注册表
+    // （addEventObserver；SK4.2 起不再保留单观察者属性作为第二真值）。
     private var eventObservers: [UUID: (SteamServiceFrame) -> Void] = [:]
 
     /// SK4.2：多观察者事件订阅（下载进度与认证状态并存）。
