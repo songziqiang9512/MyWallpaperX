@@ -11,6 +11,9 @@ enum SteamWorkshopLegacyAcquisitionRetirement {
         let cachesRoot: URL?
         let applicationSupportRoot: URL?
         let deleteCredential: @MainActor () -> OSStatus
+        let fetchWebDataStoreIdentifiers: @MainActor (
+            @escaping @MainActor @Sendable ([UUID]) -> Void
+        ) -> Void
         let removeWebDataStore: @MainActor (
             @escaping @MainActor @Sendable (Error?) -> Void
         ) -> Void
@@ -33,6 +36,13 @@ enum SteamWorkshopLegacyAcquisitionRetirement {
                         kSecAttrAccount as String: credentialAccount
                     ]
                     return SecItemDelete(query as CFDictionary)
+                },
+                fetchWebDataStoreIdentifiers: { completion in
+                    // WebKit's class-level store APIs dispatch back through its
+                    // own run loop. Initialize that owner before asking for the
+                    // legacy store inventory during early App construction.
+                    _ = WKWebsiteDataStore.default()
+                    WKWebsiteDataStore.fetchAllDataStoreIdentifiers(completion)
                 },
                 removeWebDataStore: { completion in
                     WKWebsiteDataStore.remove(
@@ -156,15 +166,21 @@ enum SteamWorkshopLegacyAcquisitionRetirement {
         environment: Environment
     ) {
         guard !defaults.bool(forKey: webStoreMarker) else { return }
-        environment.removeWebDataStore { error in
-            guard error == nil else {
-                NSLog(
-                    "[SteamWorkshopRetirement] legacy web store deletion failed: %@",
-                    error!.localizedDescription
-                )
+        environment.fetchWebDataStoreIdentifiers { identifiers in
+            guard identifiers.contains(webDataStoreIdentifier) else {
+                defaults.set(true, forKey: webStoreMarker)
                 return
             }
-            defaults.set(true, forKey: webStoreMarker)
+            environment.removeWebDataStore { error in
+                guard error == nil else {
+                    NSLog(
+                        "[SteamWorkshopRetirement] legacy web store deletion failed: %@",
+                        error!.localizedDescription
+                    )
+                    return
+                }
+                defaults.set(true, forKey: webStoreMarker)
+            }
         }
     }
 
