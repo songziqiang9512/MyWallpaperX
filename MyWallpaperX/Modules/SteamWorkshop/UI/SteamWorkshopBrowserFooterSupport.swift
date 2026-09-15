@@ -9,6 +9,7 @@ enum SteamWorkshopBrowserFooterSupport {
     enum State: Equatable {
         case hidden
         case ready
+        case emptyPage
         case loading
         case failed(String)
         case exhausted
@@ -25,9 +26,10 @@ enum SteamWorkshopBrowserFooterSupport {
         if isLoadingMore {
             return .loading
         }
-        if let failureMessage, hasMore, !itemIDs.isEmpty {
+        if let failureMessage, hasMore {
             return .failed(failureMessage)
         }
+        if hasMore, itemIDs.isEmpty { return .emptyPage }
         if hasMore, !itemIDs.isEmpty {
             return .ready
         }
@@ -43,6 +45,8 @@ enum SteamWorkshopBrowserFooterSupport {
             return ""
         case .ready:
             return "继续下滑以加载更多项目。"
+        case .emptyPage:
+            return "已加载页暂无匹配项目 · 继续加载"
         case .loading:
             return "正在加载更多项目…"
         case .failed(let message):
@@ -59,7 +63,7 @@ enum SteamWorkshopBrowserFooterSupport {
     ) {
         let symbol: (name: String, accessibilityDescription: String)
         switch state {
-        case .ready:
+        case .ready, .emptyPage:
             symbol = ("arrow.down.circle", "可以加载更多内容")
         case .failed:
             symbol = ("exclamationmark.triangle", "加载更多内容失败")
@@ -71,6 +75,8 @@ enum SteamWorkshopBrowserFooterSupport {
         let showsRetry: Bool
         if case .failed = state {
             showsRetry = true
+        } else if state == .emptyPage {
+            showsRetry = true
         } else {
             showsRetry = false
         }
@@ -78,6 +84,7 @@ enum SteamWorkshopBrowserFooterSupport {
             text: text(for: state),
             showsProgress: state == .loading,
             showsRetry: showsRetry,
+            retryTitle: state == .emptyPage ? "继续加载" : "重试",
             symbolName: symbol.name,
             symbolAccessibilityDescription: symbol.accessibilityDescription,
             onRetry: onRetry

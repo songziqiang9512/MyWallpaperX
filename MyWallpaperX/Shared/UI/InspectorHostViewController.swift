@@ -99,7 +99,12 @@ private final class InspectorHostRootView: NSView {
     }
 }
 
-private final class InspectorHostCardView: NSView {
+final class InspectorHostCardView: NSView {
+    var onClose: (() -> Void)?
+    var headerTitleOverride: String?
+    private var centeredHeaderConstraint: NSLayoutConstraint?
+    private var iconWidthConstraint: NSLayoutConstraint?
+    private let headerSpacer = NSView()
     private let glassView = NSGlassEffectView()
     private let panelOverlayView = NSView()
     private let stackView = NSStackView()
@@ -133,6 +138,11 @@ private final class InspectorHostCardView: NSView {
         }
 
         let isInfoPanel = request.chromeStyle == .infoPanel
+        infoTitleLabel.stringValue = headerTitleOverride ?? "详情"
+        centeredHeaderConstraint?.isActive = headerTitleOverride != nil
+        iconWidthConstraint?.constant = headerTitleOverride == nil ? 18 : 32
+        headerSpacer.isHidden = headerTitleOverride != nil
+        infoTitleLabel.alignment = headerTitleOverride == nil ? .left : .center
         titleLabel.stringValue = request.title
         subtitleLabel.stringValue = request.subtitle ?? ""
         subtitleLabel.isHidden = subtitleLabel.stringValue.isEmpty
@@ -154,6 +164,8 @@ private final class InspectorHostCardView: NSView {
         guard isViewLoadedInWindow || window != nil || superview != nil else { return }
         let isDark = InspectorGlassPalette.isDarkMode(for: self)
 
+        glassView.layer?.cornerRadius = 22
+        glassView.layer?.masksToBounds = true
         glassView.cornerRadius = 22
         glassView.style = .regular
         glassView.tintColor = InspectorGlassPalette.baseTint(isDark: isDark)
@@ -198,7 +210,7 @@ private final class InspectorHostCardView: NSView {
     private func setup() {
         wantsLayer = true
         layer?.cornerRadius = 22
-        layer?.masksToBounds = false
+        layer?.masksToBounds = true
 
         setupGlass()
         setupPanelOverlay()
@@ -249,8 +261,9 @@ private final class InspectorHostCardView: NSView {
         iconView.image = NSImage(systemSymbolName: "info.circle.fill", accessibilityDescription: "详情")
         iconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 17, weight: .semibold)
         iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconWidthConstraint = iconView.widthAnchor.constraint(equalToConstant: 18)
         NSLayoutConstraint.activate([
-            iconView.widthAnchor.constraint(equalToConstant: 18),
+            iconWidthConstraint!,
             iconView.heightAnchor.constraint(equalToConstant: 18)
         ])
 
@@ -280,7 +293,7 @@ private final class InspectorHostCardView: NSView {
             closeButton.heightAnchor.constraint(equalToConstant: 32)
         ])
 
-        let spacer = NSView()
+        let spacer = headerSpacer
         spacer.translatesAutoresizingMaskIntoConstraints = false
 
         headerRow.addArrangedSubview(iconView)
@@ -289,6 +302,9 @@ private final class InspectorHostCardView: NSView {
         headerRow.addArrangedSubview(spacer)
         headerRow.addArrangedSubview(closeButton)
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        let centered = infoTitleLabel.centerXAnchor.constraint(equalTo: headerRow.centerXAnchor)
+        centered.priority = .defaultHigh
+        centeredHeaderConstraint = centered
 
         stackView.addArrangedSubview(headerRow)
         addSubview(stackView)
@@ -327,6 +343,7 @@ private final class InspectorHostCardView: NSView {
     }
 
     @objc private func closeInspector() {
+        if let onClose { onClose(); return }
         guard let request else { return }
         InspectorHostActions.postClose(module: request.token.module, cardID: request.token.cardID)
     }
@@ -336,7 +353,7 @@ private final class InspectorHostCardView: NSView {
     }
 }
 
-private enum InspectorGlassPalette {
+enum InspectorGlassPalette {
     static func isDarkMode(for view: NSView) -> Bool {
         return view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
     }

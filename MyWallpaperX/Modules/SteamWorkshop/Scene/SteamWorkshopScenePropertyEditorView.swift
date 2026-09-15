@@ -28,8 +28,6 @@ struct SteamWorkshopScenePropertyEditorView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                Text("属性调节")
-                    .font(.headline)
                 Spacer(minLength: 0)
                 Button("恢复默认", systemImage: "arrow.counterclockwise") {
                     values = context.catalog.defaultValues
@@ -40,7 +38,7 @@ struct SteamWorkshopScenePropertyEditorView: View {
                 }
                 .help("恢复这个 Scene 壁纸的默认属性")
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 0)
             .padding(.vertical, 14)
 
             Divider()
@@ -51,33 +49,35 @@ struct SteamWorkshopScenePropertyEditorView: View {
                         propertyRow(definition)
                     }
                 }
-                .padding(20)
+                .padding(.vertical, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .frame(minWidth: 440, minHeight: 480)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.clear)
     }
 
     @ViewBuilder
     private func propertyRow(_ definition: SceneUserPropertyDefinition) -> some View {
         switch definition.kind {
         case .bool:
-            Toggle(title(for: definition), isOn: boolBinding(for: definition))
-                .toggleStyle(.switch)
+            propertyLine(definition) {
+                Toggle(title(for: definition), isOn: boolBinding(for: definition))
+                    .toggleStyle(.switch).labelsHidden()
+            }
         case .slider:
             sliderRow(definition)
         case .color:
-            ColorPicker(
-                title(for: definition),
-                selection: colorBinding(for: definition),
-                supportsOpacity: false
-            )
+            propertyLine(definition) {
+                ColorPicker(title(for: definition), selection: colorBinding(for: definition), supportsOpacity: false).labelsHidden()
+            }
         case .combo:
             comboRow(definition)
         case .textInput:
-            TextField(title(for: definition), text: textBinding(for: definition))
-                .textFieldStyle(.roundedBorder)
+            propertyLine(definition) {
+                TextField(title(for: definition), text: textBinding(for: definition))
+                    .textFieldStyle(.roundedBorder).labelsHidden()
+            }
         case .group:
             if let text = displayText(for: definition) {
                 Text(text)
@@ -104,14 +104,12 @@ struct SteamWorkshopScenePropertyEditorView: View {
             forKey: definition.key,
             record: record
         )
-        return VStack(alignment: .leading, spacing: 7) {
-            Text(title(for: definition))
-            HStack(spacing: 8) {
+        return propertyLine(definition) {
+            VStack(alignment: .trailing, spacing: 8) {
                 Text(selectedURL?.lastPathComponent ?? "使用作者默认纹理")
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .foregroundStyle(.secondary)
-                Spacer(minLength: 8)
                 if selectedURL != nil {
                     Button {
                         values[definition.key] = definition.defaultValue ?? .string("")
@@ -150,22 +148,24 @@ struct SteamWorkshopScenePropertyEditorView: View {
         values[definition.key] = .string(url.path)
     }
 
+    private func propertyLine<Control: View>(_ definition: SceneUserPropertyDefinition, @ViewBuilder control: () -> Control) -> some View {
+        HStack(alignment: .center, spacing: 16) {
+            Text(title(for: definition)).frame(width: 112, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+            control().frame(maxWidth: .infinity, alignment: .trailing)
+        }
+    }
+
     private func sliderRow(_ definition: SceneUserPropertyDefinition) -> some View {
         let range = sliderRange(for: definition)
         let step = sliderStep(for: definition, range: range)
-        return VStack(alignment: .leading, spacing: 7) {
-            HStack {
-                Text(title(for: definition))
-                Spacer(minLength: 12)
-                Text(formattedSliderValue(definition))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
+        return propertyLine(definition) {
+            HStack(spacing: 8) {
+                Slider(value: sliderBinding(for: definition, range: range), in: range, step: step)
+                    .accessibilityLabel(title(for: definition))
+                Text(formattedSliderValue(definition)).monospacedDigit().foregroundStyle(.secondary)
+                    .frame(minWidth: 32, alignment: .trailing)
             }
-            Slider(
-                value: sliderBinding(for: definition, range: range),
-                in: range,
-                step: step
-            )
         }
     }
 
@@ -177,12 +177,14 @@ struct SteamWorkshopScenePropertyEditorView: View {
             catalog: context.catalog
         )
         if !options.isEmpty {
-            Picker(title(for: definition), selection: valueBinding(for: definition)) {
-                ForEach(options) { option in
-                    Text(displayText(option.label) ?? option.label).tag(option.value)
+            propertyLine(definition) {
+                Picker(title(for: definition), selection: valueBinding(for: definition)) {
+                    ForEach(options) { option in
+                        Text(displayText(option.label) ?? option.label).tag(option.value)
+                    }
                 }
+                .pickerStyle(.menu).labelsHidden()
             }
-            .pickerStyle(.menu)
         }
     }
 

@@ -22,10 +22,12 @@ final class InspectorFooterButton: NSControl {
     private let kind: InspectorFooterButtonKind
     private var rawTitle: String
     private var rawImage: NSImage?
-    private let contentStack = NSStackView()
+    private let contentStack = NSView()
     private let iconView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
     private var isPressed = false
+    private var isHovering = false
+    private var hoverTrackingArea: NSTrackingArea?
 
     init(
         title: String,
@@ -52,6 +54,21 @@ final class InspectorFooterButton: NSControl {
         didSet { updateStyle() }
     }
 
+    override var acceptsFirstResponder: Bool { isEnabled }
+
+    override func keyDown(with event: NSEvent) {
+        if isEnabled, let key = event.charactersIgnoringModifiers, key == " " || key == "\r" {
+            _ = accessibilityPerformPress()
+        } else {
+            super.keyDown(with: event)
+        }
+    }
+
+    override func accessibilityPerformPress() -> Bool {
+        guard isEnabled, let action else { return false }
+        return NSApp.sendAction(action, to: target, from: self)
+    }
+
     override var allowsVibrancy: Bool {
         false
     }
@@ -75,7 +92,13 @@ final class InspectorFooterButton: NSControl {
     }
 
     private func setup() {
-        focusRingType = .none
+        focusRingType = .exterior
+        setAccessibilityElement(true)
+        setAccessibilityRole(.button)
+        if !rawTitle.isEmpty {
+            setAccessibilityLabel(rawTitle)
+            toolTip = rawTitle
+        }
         wantsLayer = true
         layer?.cornerRadius = 10
         layer?.borderWidth = 0.7
@@ -85,15 +108,12 @@ final class InspectorFooterButton: NSControl {
     }
 
     private func setupContentViews() {
-        contentStack.orientation = .horizontal
-        contentStack.alignment = .centerY
-        contentStack.spacing = rawTitle.isEmpty ? 0 : 7
         contentStack.translatesAutoresizingMaskIntoConstraints = false
 
         updateIconImage()
         iconView.imageScaling = .scaleProportionallyDown
         iconView.translatesAutoresizingMaskIntoConstraints = false
-        contentStack.addArrangedSubview(iconView)
+        contentStack.addSubview(iconView)
 
         if rawTitle.isEmpty {
             titleLabel.isHidden = true
@@ -102,19 +122,32 @@ final class InspectorFooterButton: NSControl {
             titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
             titleLabel.alignment = .center
             titleLabel.lineBreakMode = .byTruncatingTail
+            titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             titleLabel.translatesAutoresizingMaskIntoConstraints = false
-            contentStack.addArrangedSubview(titleLabel)
+            contentStack.addSubview(titleLabel)
         }
 
         addSubview(contentStack)
+        let inset: CGFloat = rawTitle.isEmpty ? 0 : 12
         NSLayoutConstraint.activate([
-            contentStack.centerXAnchor.constraint(equalTo: centerXAnchor),
+            contentStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
+            contentStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
             contentStack.centerYAnchor.constraint(equalTo: centerYAnchor),
-            contentStack.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: rawTitle.isEmpty ? 0 : 12),
-            contentStack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: rawTitle.isEmpty ? 0 : -12),
+            contentStack.heightAnchor.constraint(equalToConstant: 22),
+            iconView.centerYAnchor.constraint(equalTo: contentStack.centerYAnchor),
             iconView.widthAnchor.constraint(equalToConstant: rawTitle.isEmpty ? 18 : 16),
             iconView.heightAnchor.constraint(equalToConstant: rawTitle.isEmpty ? 18 : 16)
         ])
+        if rawTitle.isEmpty {
+            iconView.centerXAnchor.constraint(equalTo: contentStack.centerXAnchor).isActive = true
+        } else {
+            NSLayoutConstraint.activate([
+                iconView.leadingAnchor.constraint(equalTo: contentStack.leadingAnchor),
+                titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 7),
+                titleLabel.trailingAnchor.constraint(equalTo: contentStack.trailingAnchor),
+                titleLabel.centerYAnchor.constraint(equalTo: contentStack.centerYAnchor)
+            ])
+        }
     }
 
     func setSymbol(_ symbolName: String, accessibilityDescription: String?) {
@@ -126,12 +159,24 @@ final class InspectorFooterButton: NSControl {
     func setTitle(_ title: String) {
         rawTitle = title
         titleLabel.stringValue = title
+        setAccessibilityLabel(title)
+        toolTip = title
         invalidateIntrinsicContentSize()
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         isEnabled ? super.hitTest(point) : nil
     }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverTrackingArea { removeTrackingArea(hoverTrackingArea) }
+        let area = NSTrackingArea(rect: .zero, options: [.activeAlways, .mouseEnteredAndExited, .inVisibleRect], owner: self)
+        addTrackingArea(area)
+        hoverTrackingArea = area
+    }
+    override func mouseEntered(with event: NSEvent) { isHovering = true; updateStyle() }
+    override func mouseExited(with event: NSEvent) { isHovering = false; updateStyle() }
 
     override func mouseDown(with event: NSEvent) {
         guard isEnabled else { return }
@@ -199,7 +244,7 @@ final class InspectorFooterButton: NSControl {
         )
         titleLabel.textColor = text
         layer?.backgroundColor = fill.cgColor
-        layer?.borderColor = border.cgColor
+        layer?.borderColor = (isHovering && isEnabled ? NSColor.controlAccentColor.withAlphaComponent(0.5) : border).cgColor
     }
 
     private func updateIconImage() {
@@ -213,6 +258,6 @@ final class InspectorFooterButton: NSControl {
     }
 
     private func resolvedIsDarkMode() -> Bool {
-        UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark"
+        effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
     }
 }

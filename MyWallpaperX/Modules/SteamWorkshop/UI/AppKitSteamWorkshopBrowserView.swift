@@ -32,9 +32,6 @@ final class AppKitSteamWorkshopBrowserView: NSView {
         onOpen: { [weak self] item in
             self?.service.presentItemDetail(item)
         },
-        onAuthor: { [weak self] item in
-            self?.service.showAuthorWorkshop(for: item)
-        },
         onDownload: { [weak self] item in
             self?.service.requestDownloadForBrowserItem(item)
         },
@@ -198,7 +195,7 @@ final class AppKitSteamWorkshopBrowserView: NSView {
         case .failed(let message):
             return .error(message)
         case .loaded:
-            if service.hasVisibleBrowserItems {
+            if service.hasVisibleBrowserItems || service.hasMoreBrowserItems {
                 return .grid
             }
             if let message = personalLoginGuidance {

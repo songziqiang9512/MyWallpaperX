@@ -14,6 +14,7 @@ final class AppKitSteamWorkshopBrowserFooterItem: NSCollectionViewItem {
         text: String,
         showsProgress: Bool,
         showsRetry: Bool,
+        retryTitle: String = "重试",
         symbolName: String,
         symbolAccessibilityDescription: String,
         onRetry: @escaping () -> Void
@@ -22,6 +23,7 @@ final class AppKitSteamWorkshopBrowserFooterItem: NSCollectionViewItem {
             text: text,
             showsProgress: showsProgress,
             showsRetry: showsRetry,
+            retryTitle: retryTitle,
             symbolName: symbolName,
             symbolAccessibilityDescription: symbolAccessibilityDescription,
             onRetry: onRetry
@@ -51,6 +53,7 @@ final class AppKitSteamWorkshopBrowserFooterView: NSView {
         text: String,
         showsProgress: Bool,
         showsRetry: Bool,
+        retryTitle: String = "重试",
         symbolName: String,
         symbolAccessibilityDescription: String,
         onRetry: @escaping () -> Void
@@ -63,6 +66,8 @@ final class AppKitSteamWorkshopBrowserFooterView: NSView {
             accessibilityDescription: symbolAccessibilityDescription
         )
         retryButton.isHidden = !showsRetry
+        retryButton.title = retryTitle
+        retryButton.setAccessibilityLabel("\(retryTitle)更多项目")
         retryHandler = showsRetry ? onRetry : nil
         if showsProgress {
             progressIndicator.startAnimation(nil)

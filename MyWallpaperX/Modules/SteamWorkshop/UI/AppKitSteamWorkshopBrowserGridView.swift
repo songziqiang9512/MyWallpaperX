@@ -14,7 +14,6 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
 
     private let service: SteamWorkshopService
     var onOpen: (SteamWorkshopBrowserItem) -> Void
-    var onAuthor: (SteamWorkshopBrowserItem) -> Void
     var onDownload: (SteamWorkshopBrowserItem) -> Void
     var onSetAsWallpaper: (SteamWorkshopDownloadRecord) -> Void
     var onCancelDownload: (SteamWorkshopBrowserItem) -> Void
@@ -50,6 +49,21 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         collectionView.backgroundColors = [.clear]
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         collectionView.keyboardDelegate = self
+        collectionView.accessibleItemsProvider = { [weak self] in
+            guard let self else { return [] }
+            return self.collectionView.indexPathsForVisibleItems().sorted().compactMap {
+                self.collectionView.item(at: $0)?.view
+            }
+        }
+        collectionView.contextMenuProvider = { [weak self] path in
+            guard let self, let path, let id = self.dataSource.itemIdentifier(for: path),
+                  let item = self.itemsByID[id] else { return nil }
+            let previous = self.keyboardFocusedID
+            self.keyboardFocusedID = id
+            self.updateKeyboardFocusItem(withID: previous, focused: false)
+            self.updateKeyboardFocusItem(withID: id, focused: true)
+            return SteamWorkshopItemMenu.make(item: item, service: self.service)
+        }
         collectionView.cardPressStateHandler = { [weak self] indexPath, pressed in
             guard let self,
                   let item = self.collectionView.item(at: indexPath) as? AppKitSteamWorkshopBrowserItem else { return }
@@ -81,14 +95,12 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     init(
         service: SteamWorkshopService,
         onOpen: @escaping (SteamWorkshopBrowserItem) -> Void,
-        onAuthor: @escaping (SteamWorkshopBrowserItem) -> Void,
         onDownload: @escaping (SteamWorkshopBrowserItem) -> Void,
         onSetAsWallpaper: @escaping (SteamWorkshopDownloadRecord) -> Void,
         onCancelDownload: @escaping (SteamWorkshopBrowserItem) -> Void
     ) {
         self.service = service
         self.onOpen = onOpen
-        self.onAuthor = onAuthor
         self.onDownload = onDownload
         self.onSetAsWallpaper = onSetAsWallpaper
         self.onCancelDownload = onCancelDownload
@@ -344,7 +356,6 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             isDownloaded: service.isDownloaded(itemID: id),
             isKeyboardFocused: keyboardFocusedID == id,
             onOpen: { [weak self] in self?.onOpen(item) },
-            onAuthor: { [weak self] in self?.onAuthor(item) },
             onDownload: { [weak self] in self?.onDownload(item) },
             onSetAsWallpaper: { [weak self] in
                 guard let self, let record = self.service.downloadRecord(for: id) else { return }
@@ -365,7 +376,6 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             isDownloaded: service.isDownloaded(itemID: id),
             isKeyboardFocused: keyboardFocusedID == id,
             onOpen: { [weak self] in self?.onOpen(item) },
-            onAuthor: { [weak self] in self?.onAuthor(item) },
             onDownload: { [weak self] in self?.onDownload(item) },
             onSetAsWallpaper: { [weak self] in
                 guard let self, let record = self.service.downloadRecord(for: id) else { return }
@@ -383,6 +393,9 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             return
         }
         guard service.hasMoreBrowserItems, !service.isLoadingMoreBrowserItems else { return }
+        // Filtering may hide an entire raw page. Keep a manual continuation
+        // rather than automatically draining an unbounded personal collection.
+        guard !orderedIDs.isEmpty else { return }
         guard let documentView = scrollView.documentView else { return }
         let contentHeight = documentView.frame.height
         let viewportHeight = scrollView.contentView.bounds.height
@@ -672,6 +685,12 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
 
 extension AppKitSteamWorkshopBrowserContainerView: SteamWorkshopKeyboardDelegate {
     func steamWorkshopCollectionView(_ collectionView: SteamWorkshopKeyboardCollectionView, handleKey event: NSEvent) -> Bool {
+        if event.keyCode == 96 && event.modifierFlags.contains(.shift),
+           let id = keyboardFocusedID, let item = itemsByID[id],
+           let path = indexPathForItemID(id), let frame = flowLayout.layoutAttributesForItem(at: path)?.frame {
+            SteamWorkshopItemMenu.make(item: item, service: service).popUp(positioning: nil, at: NSPoint(x: frame.midX, y: frame.midY), in: collectionView)
+            return true
+        }
         let disallowedModifiers: NSEvent.ModifierFlags = [.command, .control, .option]
         guard event.modifierFlags.intersection(disallowedModifiers).isEmpty else { return false }
         switch event.keyCode {

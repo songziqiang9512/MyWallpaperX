@@ -36,7 +36,13 @@ struct SteamBrowseFooterHarness {
             isLoadingMore: false,
             hasMore: true,
             itemIDs: []
-        ) == .hidden, "a page-level error belongs to the full-page state when no old page exists")
+        ) == .failed("加载失败 · 重试"), "an empty filtered page must keep its retry control")
+        precondition(SteamWorkshopBrowserFooterSupport.resolvedState(
+            failureMessage: nil, isLoadingMore: false, hasMore: true, itemIDs: []
+        ) == .emptyPage, "raw pagination must survive an empty visible projection")
+        precondition(SteamWorkshopBrowserFooterSupport.resolvedState(
+            failureMessage: nil, isLoadingMore: false, hasMore: false, itemIDs: []
+        ) == .hidden)
 
         let inset = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
         let failedSize = SteamWorkshopBrowserFooterSupport.size(

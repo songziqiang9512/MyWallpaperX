@@ -23,9 +23,6 @@ final class AppKitSteamWorkshopDownloadsView: NSView {
         },
         onSetAsWallpaper: { [weak self] record in
             self?.service.setAsWallpaper(record)
-        },
-        onReveal: { [weak self] record in
-            self?.service.revealItem(record)
         }
     )
 

@@ -4,7 +4,6 @@
 //
 
 import AppKit
-import ImageIO
 import QuartzCore
 
 final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
@@ -23,7 +22,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     private let detailButton = SteamWorkshopOverlayIconButton()
     private let titleMarqueeView = SteamWorkshopMarqueeTextView()
     private let statusBadgeButton = SteamWorkshopOverlayIconButton()
-    private let statusSpinner = NSProgressIndicator()
 
     private var previewLoadCancellation: SteamWorkshopPreviewLoadCancellation?
     private var previewRetryTask: Task<Void, Never>?
@@ -33,7 +31,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     private var currentDownloadVideoURL: URL?
     private var currentTitleText = ""
     private var onOpen: (() -> Void)?
-    private var onAuthor: (() -> Void)?
     private var onDownload: (() -> Void)?
     private var onSetAsWallpaper: (() -> Void)?
     private var onCancelDownload: (() -> Void)?
@@ -132,7 +129,9 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     }
 
     override func loadView() {
-        view = NSView()
+        let root = SteamWorkshopCardAccessibilityView()
+        root.onPress = { [weak self] in self?.onOpen?() }
+        view = root
         buildHierarchy()
     }
 
@@ -148,7 +147,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         titleMarqueeView.text = ""
         previewImageView.image = nil
         onOpen = nil
-        onAuthor = nil
         onDownload = nil
         onSetAsWallpaper = nil
         onCancelDownload = nil
@@ -181,8 +179,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         overlayBar.setProgressAnimationVisible(false)
         overlayBar.applyProgress(style: .neutral, fraction: nil, indeterminate: false, animated: false)
         statusBadgeButton.layer?.removeAnimation(forKey: "steam.status.spin")
-        statusSpinner.stopAnimation(nil)
-        statusSpinner.isHidden = true
         previewRetryTask?.cancel()
         refreshThemeAwareAppearance()
     }
@@ -197,13 +193,11 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         isMultiSelectMode: Bool = false,
         isKeyboardFocused: Bool,
         onOpen: @escaping () -> Void,
-        onAuthor: @escaping () -> Void,
         onDownload: @escaping () -> Void,
         onSetAsWallpaper: @escaping () -> Void,
         onCancelDownload: @escaping () -> Void
     ) {
         self.onOpen = onOpen
-        self.onAuthor = onAuthor
         self.onDownload = onDownload
         self.onSetAsWallpaper = onSetAsWallpaper
         self.onCancelDownload = onCancelDownload
@@ -212,6 +206,27 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         currentPreviewSourceURL = item.previewImageURL
         currentDebugID = item.id
         currentItem = item
+        (view as? SteamWorkshopCardAccessibilityView)?.onMenu = { [weak self] in
+            guard let self, let item = self.currentItem, self.currentDisplayContext == .browser else { return nil }
+            return SteamWorkshopItemMenu.make(item: item, service: SteamWorkshopService.shared)
+        }
+        view.setAccessibilityElement(true)
+        view.setAccessibilityRole(.group)
+        view.setAccessibilityLabel(item.title)
+        view.setAccessibilityCustomActions([
+            NSAccessibilityCustomAction(name: "查看详情", handler: { [weak self] in
+                self?.onOpen?()
+                return self != nil
+            })
+        ] + (displayContext == .browser ? [
+            NSAccessibilityCustomAction(name: "作品操作菜单", handler: { [weak self] in
+                guard let self, self.currentDisplayContext == .browser,
+                      let item = self.currentItem else { return false }
+                SteamWorkshopItemMenu.make(item: item, service: SteamWorkshopService.shared)
+                    .popUp(positioning: nil, at: NSPoint(x: self.view.bounds.midX, y: self.view.bounds.midY), in: self.view)
+                return true
+            })
+        ] : []))
         currentDownloadRecord = downloadRecord
         currentIsDownloading = isDownloading
         currentIsDownloaded = isDownloaded
@@ -233,13 +248,11 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         isMultiSelectMode: Bool = false,
         isKeyboardFocused: Bool,
         onOpen: @escaping () -> Void,
-        onAuthor: @escaping () -> Void,
         onDownload: @escaping () -> Void,
         onSetAsWallpaper: @escaping () -> Void,
         onCancelDownload: @escaping () -> Void
     ) {
         self.onOpen = onOpen
-        self.onAuthor = onAuthor
         self.onDownload = onDownload
         self.onSetAsWallpaper = onSetAsWallpaper
         self.onCancelDownload = onCancelDownload
@@ -248,6 +261,27 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         currentPreviewSourceURL = item.previewImageURL
         currentDebugID = item.id
         currentItem = item
+        (view as? SteamWorkshopCardAccessibilityView)?.onMenu = { [weak self] in
+            guard let self, let item = self.currentItem, self.currentDisplayContext == .browser else { return nil }
+            return SteamWorkshopItemMenu.make(item: item, service: SteamWorkshopService.shared)
+        }
+        view.setAccessibilityElement(true)
+        view.setAccessibilityRole(.group)
+        view.setAccessibilityLabel(item.title)
+        view.setAccessibilityCustomActions([
+            NSAccessibilityCustomAction(name: "查看详情", handler: { [weak self] in
+                self?.onOpen?()
+                return self != nil
+            })
+        ] + (displayContext == .browser ? [
+            NSAccessibilityCustomAction(name: "作品操作菜单", handler: { [weak self] in
+                guard let self, self.currentDisplayContext == .browser,
+                      let item = self.currentItem else { return false }
+                SteamWorkshopItemMenu.make(item: item, service: SteamWorkshopService.shared)
+                    .popUp(positioning: nil, at: NSPoint(x: self.view.bounds.midX, y: self.view.bounds.midY), in: self.view)
+                return true
+            })
+        ] : []))
         currentDownloadRecord = downloadRecord
         currentIsDownloading = isDownloading
         currentIsDownloaded = isDownloaded
@@ -292,10 +326,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
             y: barMidY,
             width: iconSize,
             height: iconSize
-        )
-        statusSpinner.frame = statusBadgeButton.frame.insetBy(
-            dx: max(4, iconSize * 0.2),
-            dy: max(4, iconSize * 0.2)
         )
         let detailButtonX = metrics.barEdgeInset
         detailButton.frame = CGRect(
@@ -776,11 +806,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         statusBadgeButton.action = #selector(handleStatusAction)
         overlayBar.addSubview(statusBadgeButton)
 
-        statusSpinner.style = .spinning
-        statusSpinner.controlSize = .small
-        statusSpinner.isDisplayedWhenStopped = false
-        statusSpinner.isHidden = true
-        overlayBar.addSubview(statusSpinner)
 
         refreshThemeAwareAppearance()
     }
@@ -871,7 +896,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         let isBarVisible = barVisible ?? currentBarVisibility
         titleMarqueeView.setActive(isBarVisible)
         overlayBar.setProgressAnimationVisible(isBarVisible)
-        updateStatusBadgeLoadingIndicator(barVisible: isBarVisible)
     }
 
     func setPreviewVisible(_ visible: Bool) {
@@ -882,11 +906,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
 
     private func syncPreviewAnimationState() {
         previewImageView.animates = isPreviewVisible
-    }
-
-    private func updateStatusBadgeLoadingIndicator(barVisible _: Bool) {
-        statusSpinner.stopAnimation(nil)
-        statusSpinner.isHidden = true
     }
 
     private func applyHoverStyle(animated: Bool) {
@@ -1092,54 +1111,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         }
     }
 
-    private func loadStaticLocalAnimatedPreview(from localURL: URL, fallbackVideoURL: URL?) {
-        let cacheKey = steamWorkshopPreviewCacheKey(for: localURL)
-        if let cached = SteamWorkshopPreviewImageCache.shared.cachedImage(forKey: cacheKey),
-           !steamWorkshopPreviewImageLooksSuspicious(cached) {
-            previewImageView.image = cached
-            syncPreviewAnimationState()
-            previewPlaceholderView.setState(.hidden)
-            updatePreviewImageFrame()
-            return
-        }
-
-        previewImageView.image = nil
-        previewPlaceholderView.setState(.loading)
-        updatePreviewImageFrame()
-
-        SteamWorkshopPreviewImageCache.shared.load(forKey: cacheKey, loader: {
-            Self.staticPreviewImage(fromAnimatedFileAt: localURL, maxPixelSize: 720)
-        }) { [weak self] image in
-            guard let self, self.currentPreviewURL == localURL else { return }
-            if let image {
-                self.previewImageView.image = image
-                self.syncPreviewAnimationState()
-                self.previewPlaceholderView.setState(.hidden)
-            } else if let fallbackVideoURL {
-                self.loadGeneratedDownloadPreview(from: fallbackVideoURL)
-                return
-            } else {
-                self.previewImageView.image = nil
-                self.previewPlaceholderView.setState(.unavailable)
-            }
-            self.updatePreviewImageFrame()
-        }
-    }
-
-    private static func staticPreviewImage(fromAnimatedFileAt url: URL, maxPixelSize: CGFloat) -> NSImage? {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-        let options: [CFString: Any] = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceThumbnailMaxPixelSize: Int(maxPixelSize),
-            kCGImageSourceShouldCacheImmediately: true
-        ]
-        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
-            return nil
-        }
-        return NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
-    }
-
     private func loadGeneratedDownloadPreview(from videoURL: URL) {
         let expectedPreviewURL = currentPreviewURL
         if let cached = SteamWorkshopDownloadThumbnailPipeline.shared.cachedThumbnail(for: videoURL) {
@@ -1324,5 +1295,17 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
             refreshThemeAwareAppearance()
             view.needsLayout = true
         }
+    }
+}
+
+/// The card itself opens details; secondary operations remain in its context menu.
+private final class SteamWorkshopCardAccessibilityView: NSView {
+    var onPress: (() -> Void)?
+    var onMenu: (() -> NSMenu?)?
+    override func menu(for event: NSEvent) -> NSMenu? { onMenu?() ?? super.menu(for: event) }
+    override func accessibilityPerformPress() -> Bool {
+        guard let onPress else { return false }
+        onPress()
+        return true
     }
 }

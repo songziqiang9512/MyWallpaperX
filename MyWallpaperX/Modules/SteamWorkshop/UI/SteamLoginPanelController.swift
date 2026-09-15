@@ -4,7 +4,6 @@
 //
 
 import AppKit
-import CoreImage
 import Combine
 
 /// SK2.2：唯一登录面板（二维码 / 账号密码 / Guard），由模块持有而非浏览页。
@@ -23,24 +22,18 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     private var cancellables = Set<AnyCancellable>()
     private var loginTask: Task<Void, Never>?
 
-    // 页面控件
-    private let modeSegment = NSSegmentedControl(
-        labels: ["二维码登录", "账号密码"],
-        trackingMode: .selectOne,
-        target: nil,
-        action: nil
-    )
-    private let containerStack = NSStackView()
-    private let qrImageView = NSImageView()
-    private let qrHintLabel = NSTextField(labelWithString: "使用 Steam 手机应用扫码确认")
-    private let refreshQRButton = NSButton(title: "刷新二维码", target: nil, action: nil)
-    private let zoomQRButton = NSButton(title: "放大二维码", target: nil, action: nil)
-    private let usernameField = NSTextField()
-    private let passwordField = NSSecureTextField()
-    private let rememberCheck = NSButton(checkboxWithTitle: "记住登录（下次打开自动恢复）", target: nil, action: nil)
-    private let loginButton = NSButton(title: "登录", target: nil, action: nil)
-    private let statusLabel = NSTextField(labelWithString: "")
-    private let cancelButton = NSButton(title: "取消登录", target: nil, action: nil)
+    private let panelView = SteamLoginPanelView()
+    private var modeSegment: NSSegmentedControl { panelView.modeSegment }
+    private var qrImageView: NSImageView { panelView.qrImageView }
+    private var refreshQRButton: NSButton { panelView.refreshQRButton }
+    private var zoomQRButton: NSButton { panelView.zoomQRButton }
+    private var usernameField: NSTextField { panelView.usernameField }
+    private var passwordField: NSSecureTextField { panelView.passwordField }
+    private var rememberCheck: NSButton { panelView.rememberCheck }
+    private var loginButton: NSButton { panelView.loginButton }
+    private var statusLabel: NSTextField { panelView.statusLabel }
+    private var cancelButton: NSButton { panelView.cancelButton }
+    private var codeField: NSTextField { panelView.codeField }
 
     private var zoomWindow: NSWindow?
 
@@ -55,6 +48,18 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         loginButton.target = self
         loginButton.action = #selector(submitPassword)
         loginButton.keyEquivalent = "\r"
+        usernameField.target = self
+        usernameField.action = #selector(submitPassword)
+        passwordField.target = self
+        passwordField.action = #selector(submitPassword)
+        panelView.guardSubmitButton.target = self
+        panelView.guardSubmitButton.action = #selector(submitGuardCode)
+        panelView.guardSubmitButton.keyEquivalent = "\r"
+        codeField.target = self
+        codeField.action = #selector(submitGuardCode)
+        panelView.doneButton.target = self
+        panelView.doneButton.action = #selector(cancelAndClose)
+        panelView.doneButton.keyEquivalent = "\r"
         cancelButton.target = self
         cancelButton.action = #selector(cancelAndClose)
         // Esc = 取消并关闭（§9 可用性）。
@@ -87,8 +92,10 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
             defer: false
         )
         window.title = "二维码"
+        window.level = .floating
+        self.window?.addChildWindow(window, ordered: .above)
         window.isReleasedWhenClosed = false
-        let imageView = NSImageView(frame: NSRect(x: 20, y: 12, width: 280, height: 280))
+        let imageView = SteamLoginQRCodeImageView(frame: NSRect(x: 20, y: 12, width: 280, height: 280))
         imageView.image = image
         imageView.imageScaling = .scaleProportionallyUpOrDown
         let hint = NSTextField(labelWithString: "使用 Steam 手机应用扫码确认")
@@ -127,18 +134,22 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         self.auth = auth
         observe(auth: auth)
 
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 460),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
+        let window = SteamLoginWindow(
+            contentRect: NSRect(x: 0, y: 0, width: SteamLoginPanelView.width, height: SteamLoginPanelView.height),
+            styleMask: [.borderless], backing: .buffered, defer: false
         )
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = true
+        window.isMovableByWindowBackground = true
+        window.hidesOnDeactivate = false
+        window.level = .floating
         window.title = "登录 Steam"
         window.isReleasedWhenClosed = false
         window.delegate = self
         self.window = window
 
-        buildContent()
+        window.contentView = panelView
         resetForNewAttempt()
         if auth.isOnline {
             // 已在线的「切换账号」：进密码页（避免空白二维码页），说明会替换当前
@@ -156,8 +167,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         // 关闭面板 = 取消认证；迟到的成功回调不会再打开窗口（observe 中判断可见性）。
         // 不保存上次输入的秘密（§3.2）。
-        passwordField.stringValue = ""
-        codeField.stringValue = ""
+        panelView.clearSecrets()
         zoomWindow?.close()
         guard let auth else { return }
         loginTask?.cancel()
@@ -184,6 +194,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     private func setStatus(_ text: String) {
         guard statusLabel.stringValue != text else { return }
         statusLabel.stringValue = text
+        statusLabel.toolTip = text
         if !text.isEmpty, window?.isVisible == true {
             NSAccessibility.post(element: statusLabel, notification: .valueChanged)
         }
@@ -206,10 +217,12 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
             setStatus("请在 Steam 手机应用中确认本次登录")
         case .awaitingDeviceCode(let previousIncorrect):
             showPage(.guardInput(.deviceCode(previousIncorrect: previousIncorrect)))
+            panelView.guardSubmitButton.isEnabled = true
             setStatus(previousIncorrect ? "上一枚验证码被拒绝，请重新输入" : "已进入 Steam 令牌验证")
             window?.makeFirstResponder(codeField)
         case .awaitingEmailCode(let emailDomain, let previousIncorrect):
             showPage(.guardInput(.emailCode(emailDomain: emailDomain, previousIncorrect: previousIncorrect)))
+            panelView.guardSubmitButton.isEnabled = true
             setStatus(previousIncorrect
                 ? "上一枚验证码被拒绝，请重新输入"
                 : "验证码已发送到邮箱 \(emailDomain ?? "(未知)")")
@@ -217,12 +230,18 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         case .online:
             // §3.3：Keychain 保存失败必须可见，不伪报已保存——面板不自动关闭。
             if auth?.tokenSaveResult == .failed {
-                setStatus("登录成功，但 Keychain 保存失败——本次会话不会被记住，可关闭后重试登录。")
+                showPage(.completed)
+                setStatus("本次会话可正常使用。")
             } else {
                 window?.close()
             }
-        case .failed(let code, let message):
-            setStatus("登录失败（\(code)）：\(message)")
+        case .failed(_, let message):
+            if modeSegment.selectedSegment == 0 {
+                zoomWindow?.close()
+                panelView.setQRImage(nil)
+                panelView.stopQRLoading()
+            }
+            setStatus("登录未完成：\(message)")
             loginButton.isEnabled = true
         }
     }
@@ -231,7 +250,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
 
     @objc private func modeSwitched() {
         // 先同步作废旧 attempt，再切页；远端取消只携带旧身份。
-        statusLabel.stringValue = ""
+        setStatus("")
         loginButton.isEnabled = true
         switch modeSegment.selectedSegment {
         case 0:
@@ -257,7 +276,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     }
 
     @objc private func submitPassword() {
-        guard let auth else { return }
+        guard loginButton.isEnabled, let auth else { return }
         let username = usernameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let password = passwordField.stringValue
         if username.isEmpty {
@@ -270,7 +289,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
             window?.makeFirstResponder(passwordField)
             return
         }
-        statusLabel.stringValue = ""
+        setStatus("")
         loginButton.isEnabled = false
         loginTask?.cancel()
         auth.cancelPendingAuthentication()
@@ -303,6 +322,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
 
     private func resetForNewAttempt() {
         setStatus("")
+        loginButton.isEnabled = true
         rememberCheck.state = UserDefaults.standard.bool(forKey: SteamWorkshopTokenStore.rememberPreferenceKey)
             ? .on : .off
     }
@@ -321,144 +341,28 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
             } catch {
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
+                    self?.panelView.setQRImage(nil)
+                    self?.panelView.stopQRLoading()
                     self?.setStatus("二维码登录未完成：\(error.localizedDescription)")
                 }
             }
         }
     }
 
-    // MARK: - 页面构建（沿用系统控件风格）
+    // MARK: - 页面投影
 
-    private enum Page {
-        case qr
-        case password
-        case guardInput(GuardKind)
-
-        enum GuardKind {
-            case deviceConfirmation
-            case deviceCode(previousIncorrect: Bool)
-            case emailCode(emailDomain: String?, previousIncorrect: Bool)
-        }
-
-        var contentHeight: CGFloat {
-            switch self {
-            case .qr: return 470
-            case .password: return 340
-            case .guardInput: return 360
-            }
-        }
-    }
-
-    private func buildContent() {
-        let content = NSStackView()
-        content.orientation = .vertical
-        content.alignment = .centerX
-        content.spacing = 14
-        content.edgeInsets = NSEdgeInsets(top: 20, left: 24, bottom: 20, right: 24)
-        content.translatesAutoresizingMaskIntoConstraints = false
-
-        let titleLabel = NSTextField(labelWithString: "登录 Steam")
-        titleLabel.font = .boldSystemFont(ofSize: NSFont.systemFontSize + 3)
-
-        containerStack.orientation = .vertical
-        containerStack.alignment = .centerX
-        containerStack.spacing = 12
-        containerStack.translatesAutoresizingMaskIntoConstraints = false
-
-        statusLabel.font = .systemFont(ofSize: NSFont.systemFontSize - 1)
-        statusLabel.textColor = .secondaryLabelColor
-        statusLabel.maximumNumberOfLines = 3
-        statusLabel.preferredMaxLayoutWidth = 340
-        statusLabel.alignment = .center
-        statusLabel.setAccessibilityElement(true)
-        statusLabel.setAccessibilityRole(.staticText)
-        statusLabel.setAccessibilityLabel("Steam 登录状态")
-
-        cancelButton.bezelStyle = .rounded
-        cancelButton.controlSize = .small
-
-        content.addArrangedSubview(titleLabel)
-        content.addArrangedSubview(modeSegment)
-        content.addArrangedSubview(containerStack)
-        content.addArrangedSubview(rememberCheck)
-        content.addArrangedSubview(statusLabel)
-        content.addArrangedSubview(cancelButton)
-
-        window?.contentView = NSView()
-        window?.contentView?.addSubview(content)
-        NSLayoutConstraint.activate([
-            content.topAnchor.constraint(equalTo: window!.contentView!.topAnchor),
-            content.bottomAnchor.constraint(equalTo: window!.contentView!.bottomAnchor),
-            content.leadingAnchor.constraint(equalTo: window!.contentView!.leadingAnchor),
-            content.trailingAnchor.constraint(equalTo: window!.contentView!.trailingAnchor),
-        ])
-
-        showPage(.qr)
-    }
+    private typealias Page = SteamLoginPanelView.Page
 
     private func showPage(_ page: Page) {
         // A replaced challenge must never leave a scannable old enlarged image.
         zoomWindow?.close()
-        qrImageView.image = nil
-        containerStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        window?.contentView?.subviews.first?.invalidateIntrinsicContentSize()
-
-        switch page {
-        case .qr:
-            qrImageView.image = nil
-            qrHintLabel.textColor = .secondaryLabelColor
-            refreshQRButton.bezelStyle = .rounded
-            refreshQRButton.controlSize = .small
-            zoomQRButton.bezelStyle = .rounded
-            zoomQRButton.controlSize = .small
-            let qrActions = NSStackView(views: [refreshQRButton, zoomQRButton])
-            qrActions.orientation = .horizontal
-            qrActions.alignment = .centerY
-            qrActions.spacing = 8
-            containerStack.addArrangedSubview(qrImageView)
-            containerStack.addArrangedSubview(qrHintLabel)
-            containerStack.addArrangedSubview(qrActions)
-        case .password:
-            containerStack.addArrangedSubview(self.usernameField)
-            containerStack.addArrangedSubview(passwordField)
-            containerStack.addArrangedSubview(loginButton)
-        case .guardInput(let kind):
-            let hint = NSTextField(labelWithString: guardHint(kind))
-            hint.textColor = .secondaryLabelColor
-            hint.preferredMaxLayoutWidth = 330
-            hint.maximumNumberOfLines = 3
-            hint.alignment = .center
-            containerStack.addArrangedSubview(hint)
-            switch kind {
-            case .deviceConfirmation:
-                break
-            case .deviceCode, .emailCode:
-                containerStack.addArrangedSubview(codeField)
-                let submit = NSButton(title: "提交验证码", target: self, action: #selector(submitGuardCode))
-                submit.bezelStyle = .rounded
-                submit.keyEquivalent = "\r"
-                containerStack.addArrangedSubview(submit)
-            }
-        }
-
-        window?.setContentSize(NSSize(width: 400, height: page.contentHeight))
-    }
-
-    private let codeField = NSTextField()
-
-    private func guardHint(_ kind: Page.GuardKind) -> String {
-        switch kind {
-        case .deviceConfirmation:
-            return "请在 Steam 手机应用中确认本次登录。"
-        case .deviceCode:
-            return "输入 Steam 手机令牌上显示的当前验证码。"
-        case .emailCode(let domain, _):
-            return "验证码已发送到邮箱 \(domain ?? "(未知)")，请输入邮件中的验证码。"
-        }
+        panelView.setQRImage(nil)
+        panelView.showPage(page)
+        // All auth modes occupy the same window frame; only the body changes.
     }
 
     @objc private func submitGuardCode() {
-        guard let auth else { return }
+        guard panelView.guardSubmitButton.isEnabled, let auth else { return }
         let code = codeField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !code.isEmpty else {
             setStatus("请输入验证码。")
@@ -466,27 +370,16 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
             return
         }
         setStatus("正在提交验证码…")
-        Task { await auth.submit(code: code) }
+        panelView.guardSubmitButton.isEnabled = false
+        Task { [weak self] in
+            await auth.submit(code: code)
+            self?.panelView.guardSubmitButton.isEnabled = true
+        }
     }
 
     // MARK: - 二维码渲染（本机 Core Image，清晰缩放）
 
     private func renderQR(url: String) {
-        guard let filter = CIFilter(name: "CIQRCodeGenerator") else { return }
-        filter.setValue(Data(url.utf8), forKey: "inputMessage")
-        filter.setValue("H", forKey: "inputCorrectionLevel")
-        guard let output = filter.outputImage else { return }
-        let scale: CGFloat = 10
-        let scaled = output.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-        guard let cgImage = CIContext().createCGImage(scaled, from: scaled.extent) else { return }
-        let size = CGFloat(240)
-        let image = NSImage(size: NSSize(width: size, height: size))
-        image.lockFocus()
-        NSColor.white.setFill()
-        NSRect(x: 0, y: 0, width: size, height: size).fill()
-        NSImage(cgImage: cgImage, size: NSSize(width: size - 16, height: size - 16))
-            .draw(in: NSRect(x: 8, y: 8, width: size - 16, height: size - 16))
-        image.unlockFocus()
-        qrImageView.image = image
+        panelView.setQRImage(SteamLoginQRCodeImageView.image(for: url))
     }
 }

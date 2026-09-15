@@ -1,23 +1,20 @@
 import AppKit
 import Combine
-import ObjectiveC
-import UniformTypeIdentifiers
 
 final class AppKitSteamWorkshopItemDetailView: NSView {
     private enum Metrics {
-        static let previewHeight: CGFloat = 156
-        static let cornerRadius: CGFloat = 18
         static let contentSpacing: CGFloat = 16
-        static let contentTopInset: CGFloat = 22
-        static let footerHeight: CGFloat = InspectorFooterMetrics.height
+        static let contentTopInset: CGFloat = 8
+        static let footerHeight: CGFloat = SteamWorkshopDetailFooterView.height
     }
 
     private let service = SteamWorkshopService.shared
     private let initialItem: SteamWorkshopBrowserItem
     private var currentItem: SteamWorkshopBrowserItem
     private var cancellables = Set<AnyCancellable>()
-    private var webPropertiesExpanded = false
-    private var webAdvancedPropertiesExpanded = false
+    private var subscriptionHint: String?
+    private var diagnosticsPanelToken: UUID?
+    private var diagnosticsPanelStack: NSStackView?
     private var webDiagnosticsExpanded = false
     private var downloadProgressObserverID: UUID?
     private var downloadProgressSnapshot: SteamWorkshopDownloadProgressSnapshot?
@@ -27,13 +24,14 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     private var didBuildInitialContent = false
     private lazy var sceneInspectionController = SteamWorkshopSceneInspectionController { [weak self] in
         self?.rebuild(preservingScrollPosition: true)
+        self?.refreshDiagnosticsPanel()
     }
 
     private let rootStack = NSStackView()
-    private let scrollView = InspectorFadingScrollView()
+    private let scrollView = InspectorFadingScrollView(fadeRatio: 0)
     private let documentContainer = SteamWorkshopDetailDocumentView()
     private let contentStack = NSStackView()
-    private let footerView = NSView()
+    private let footerView = SteamWorkshopDetailFooterView()
     private let previewView = SteamWorkshopPreviewImageContainerView()
     private var isRestoringScrollPosition = false
 
@@ -56,8 +54,12 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     func configure(item: SteamWorkshopBrowserItem) {
         let isSameItem = item.id == currentItem.id
         if !isSameItem {
-            webPropertiesExpanded = false
-            webAdvancedPropertiesExpanded = false
+            if diagnosticsPanelToken == SteamWorkshopPropertyPanelController.shared.presentationID {
+                SteamWorkshopPropertyPanelController.shared.close()
+            }
+            diagnosticsPanelStack = nil
+            diagnosticsPanelToken = nil
+            subscriptionHint = nil
             webDiagnosticsExpanded = false
             sceneInspectionController.reset()
             bindDownloadProgress(to: item.id)
@@ -67,6 +69,15 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     }
 
     private func observeService() {
+        WallpaperManager.shared.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.rebuild() }
+            .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: .sceneWallpaperLaunchStateDidChange)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.rebuild() }
+            .store(in: &cancellables)
+
         service.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -81,6 +92,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             .sink { [weak self] _ in
                 guard let self else { return }
                 self.service.steamSubscriptions.synchronizeAccount()
+                if self.service.steamAuth.isOnline { self.subscriptionHint = nil }
                 self.rebuild()
             }
             .store(in: &cancellables)
@@ -101,7 +113,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
                    changedRecordID != webDownloadRecord.id {
                     return
                 }
-                self.rebuild(preservingScrollPosition: true)
+                self.refreshDiagnosticsPanel()
             }
             .store(in: &cancellables)
 
@@ -195,43 +207,6 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         return value.isEmpty ? "暂无更多描述" : value
     }
 
-    private var secondaryFactText: String? {
-        let values = [
-            currentItem.scoreText,
-            currentItem.subscriptionsText.map { "订阅 \($0)" },
-            currentItem.favoritesText.map { "收藏 \($0)" }
-        ].compactMap { $0 }
-        return values.isEmpty ? nil : values.joined(separator: "  ·  ")
-    }
-
-    private var statusFactText: String? {
-        let values = [
-            currentItem.visibilityText.map { "可见性 \($0)" },
-            currentItem.moderationText.map { "状态 \($0)" }
-        ].compactMap { $0 }
-        return values.isEmpty ? nil : values.joined(separator: "  ·  ")
-    }
-
-    private var heroBadges: [String] {
-        [currentItem.workshopTypeText, currentItem.ageRatingText, currentItem.genreText]
-            .compactMap { value in
-                let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                return trimmed.isEmpty ? nil : trimmed
-            }
-    }
-
-    private var statFacts: [(String, String)] {
-        [
-            ("分辨率", currentItem.resolutionText),
-            ("文件大小", currentItem.fileSizeText),
-            ("发布时间", currentItem.postedText),
-            ("分类", currentItem.categoryText)
-        ].compactMap { label, value in
-            guard let value, !value.isEmpty else { return nil }
-            return (label, value)
-        }
-    }
-
     private func setup() {
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
@@ -250,7 +225,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         contentStack.orientation = .vertical
         contentStack.alignment = .leading
         contentStack.spacing = Metrics.contentSpacing
-        contentStack.edgeInsets = NSEdgeInsets(top: Metrics.contentTopInset, left: 0, bottom: 0, right: 0)
+        contentStack.edgeInsets = NSEdgeInsets(top: Metrics.contentTopInset, left: 0, bottom: 16, right: 0)
         contentStack.translatesAutoresizingMaskIntoConstraints = false
 
         documentContainer.translatesAutoresizingMaskIntoConstraints = false
@@ -289,13 +264,8 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         downloadProgressIndicator = nil
 
         buildPreviewSection()
-        buildMetaSection()
-        buildDownloadProgressSection()
+        contentStack.addArrangedSubview(divider())
         buildContentSection()
-        buildSubscriptionSection()
-        buildWebPropertiesSection()
-        buildWebDiagnosticsSection()
-        buildSceneDiagnosticsSection()
         buildNoticeSection()
         pinContentSectionsToFullWidth()
         buildFooterActions()
@@ -320,7 +290,20 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     private func pinContentSectionsToFullWidth() {
         contentStack.arrangedSubviews.forEach { section in
             section.widthAnchor.constraint(equalTo: contentStack.widthAnchor).isActive = true
+            constrainColumnContent(in: section)
         }
+    }
+
+    /// Give wrapping text and section rows a real available width. Intrinsic
+    /// widths from long titles, author names or server messages must not widen
+    /// the scroll document or push neighboring controls outside the card.
+    private func constrainColumnContent(in view: NSView) {
+        if let stack = view as? NSStackView, stack.orientation == .vertical {
+            for child in stack.arrangedSubviews where child is NSTextField || child is NSStackView || child is NSBox {
+                child.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+            }
+        }
+        view.subviews.forEach { constrainColumnContent(in: $0) }
     }
 
     private func buildPreviewSection() {
@@ -336,7 +319,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         stack.addArrangedSubview(previewView)
         NSLayoutConstraint.activate([
             previewView.widthAnchor.constraint(equalTo: stack.widthAnchor),
-            previewView.heightAnchor.constraint(equalToConstant: Metrics.previewHeight)
+            previewView.heightAnchor.constraint(equalToConstant: 156)
         ])
 
         let title = label(
@@ -345,70 +328,46 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             color: .labelColor,
             lines: 2
         )
+        title.alignment = .center
+        stack.setCustomSpacing(14, after: previewView)
         stack.addArrangedSubview(title)
-
-        if !currentItem.author.isEmpty {
-            stack.addArrangedSubview(label(
-                currentItem.author,
-                font: .systemFont(ofSize: 12, weight: .medium),
-                color: .secondaryLabelColor,
-                lines: 1
-            ))
-        }
-
-        if let secondaryFactText {
-            stack.addArrangedSubview(label(
-                secondaryFactText,
-                font: .systemFont(ofSize: 11, weight: .medium),
-                color: .secondaryLabelColor,
-                lines: 2
-            ))
+        stack.setCustomSpacing(14, after: title)
+        let authorRow = NSStackView(views: [authorButton(), subscriptionButton()])
+        authorRow.orientation = .horizontal
+        authorRow.distribution = .fillEqually
+        authorRow.spacing = 8
+        authorRow.translatesAutoresizingMaskIntoConstraints = false
+        authorRow.heightAnchor.constraint(equalToConstant: 36).isActive = true
+        stack.addArrangedSubview(authorRow)
+        if let subscriptionHint {
+            let hint = label(subscriptionHint, font: .systemFont(ofSize: 12), color: .secondaryLabelColor, lines: 0)
+            hint.alignment = .center
+            stack.addArrangedSubview(hint)
         }
 
         contentStack.addArrangedSubview(stack)
     }
 
-    private func buildMetaSection() {
-        guard !heroBadges.isEmpty || statusFactText != nil else { return }
-        let stack = verticalStack(spacing: 10)
-
-        if !heroBadges.isEmpty {
-            let row = NSStackView()
-            row.orientation = .horizontal
-            row.alignment = .centerY
-            row.spacing = 8
-            row.translatesAutoresizingMaskIntoConstraints = false
-            heroBadges.forEach { row.addArrangedSubview(badge($0)) }
-            stack.addArrangedSubview(row)
-        }
-
-        if let statusFactText {
-            stack.addArrangedSubview(label(
-                statusFactText,
-                font: .systemFont(ofSize: 11, weight: .medium),
-                color: .secondaryLabelColor,
-                lines: 2
-            ))
-        }
-
-        contentStack.addArrangedSubview(stack)
-    }
-
-    private func buildDownloadProgressSection() {
+    private func makeDownloadProgressView() -> NSView? {
         let queued = service.isQueuedForDownload(itemID: currentItem.id)
-        guard downloadProgressSnapshot != nil || queued else { return }
+        guard queued || service.isDownloading(itemID: currentItem.id) || downloadProgressSnapshot?.phase == .saving else { return nil }
 
-        let stack = verticalStack(spacing: 8)
-        stack.addArrangedSubview(divider())
+        let stack = verticalStack(spacing: 4)
         let header = NSStackView()
         header.orientation = .horizontal
-        header.alignment = .firstBaseline
+        header.alignment = .centerY
         header.spacing = 10
-        header.addArrangedSubview(sectionTitle("下载进度"))
-        header.addArrangedSubview(spacer())
         let status = label("", font: .systemFont(ofSize: 12, weight: .medium), color: .secondaryLabelColor, lines: 1)
         header.addArrangedSubview(status)
+        status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        header.addArrangedSubview(spacer())
+        let cancel = footerIconButton(symbolName: "xmark", help: "取消下载", action: #selector(cancelDownload))
+        cancel.isEnabled = downloadProgressSnapshot?.phase != .saving
+        cancel.widthAnchor.constraint(equalToConstant: 28).isActive = true
+        cancel.heightAnchor.constraint(equalToConstant: 28).isActive = true
+        header.addArrangedSubview(cancel)
         stack.addArrangedSubview(header)
+        header.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
 
         let indicator = NSProgressIndicator()
         indicator.style = .bar
@@ -424,8 +383,8 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
 
         downloadProgressLabel = status
         downloadProgressIndicator = indicator
-        contentStack.addArrangedSubview(stack)
         updateDownloadProgressControls(announcingFrom: nil)
+        return stack
     }
 
     private func updateDownloadProgressControls(
@@ -486,32 +445,40 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     }
 
     private func buildContentSection() {
-        let stack = verticalStack(spacing: 14)
-
-        if !statFacts.isEmpty {
+        let stack = verticalStack(spacing: 12)
+        let metadataTags = Set([currentItem.workshopTypeText, currentItem.ageRatingText, currentItem.resolutionText].compactMap { $0?.lowercased() })
+        let uniqueTags = currentItem.tags.filter { !metadataTags.contains($0.lowercased()) }
+        if !uniqueTags.isEmpty {
+            stack.addArrangedSubview(SteamWorkshopTagStripView(tags: uniqueTags))
             stack.addArrangedSubview(divider())
-            let grid = factsGrid(statFacts)
-            stack.addArrangedSubview(grid)
         }
-
+        stack.addArrangedSubview(sectionTitle("作品数据"))
+        var facts: [(String, String)] = []
+        for (name, value) in [
+            ("类型", currentItem.workshopTypeText), ("分辨率", currentItem.resolutionText),
+            ("文件大小", currentItem.fileSizeText), ("发布时间", currentItem.postedText),
+            ("更新时间", currentItem.updatedText), ("分类", currentItem.categoryText),
+            ("浏览", currentItem.scoreText?.replacingOccurrences(of: "浏览 ", with: "")),
+            ("订阅", currentItem.subscriptionsText), ("收藏", currentItem.favoritesText),
+            ("累计订阅", currentItem.lifetimeSubscriptionsText), ("累计收藏", currentItem.lifetimeFavoritesText),
+            ("可见性", currentItem.visibilityText), ("年龄分级", currentItem.ageRatingText),
+            ("审核状态", currentItem.moderationText)
+        ] {
+            if let value, !value.isEmpty { facts.append((name, value)) }
+        }
+        if !currentItem.dependencyIDs.isEmpty { facts.append(("依赖作品", currentItem.dependencyIDs.joined(separator: "、"))) }
+        facts.append(("作品 ID", currentItem.id))
+        stack.addArrangedSubview(factsGrid(facts))
         stack.addArrangedSubview(divider())
-        let descriptionStack = verticalStack(spacing: 6)
-        descriptionStack.addArrangedSubview(sectionTitle("描述"))
-        descriptionStack.addArrangedSubview(label(
-            detailDescriptionLine,
-            font: .systemFont(ofSize: 13),
-            color: .labelColor,
-            lines: 3
-        ))
-        stack.addArrangedSubview(descriptionStack)
-
+        stack.addArrangedSubview(sectionTitle("作品描述"))
+        stack.addArrangedSubview(label(detailDescriptionLine, font: .systemFont(ofSize: 13), color: .labelColor, lines: 0))
         contentStack.addArrangedSubview(stack)
     }
 
     private func buildNoticeSection() {
         let stack = verticalStack(spacing: 8)
 
-        if let currentDetailError, webDownloadRecord == nil {
+        if let currentDetailError {
             stack.addArrangedSubview(errorNotice(message: currentDetailError) { [weak self] in
                 guard let self else { return }
                 self.service.retryInspectorDetailRefresh(for: self.currentItem.id)
@@ -527,7 +494,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             })
         }
 
-        if isRefreshingDetail, webDownloadRecord == nil {
+        if isRefreshingDetail {
             stack.addArrangedSubview(notice(icon: "arrow.triangle.2.circlepath", text: "正在补全该项目的详情信息…"))
         }
 
@@ -541,13 +508,6 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             ))
         }
 
-        if !currentItem.dependencyIDs.isEmpty {
-            stack.addArrangedSubview(notice(
-                icon: "link.badge.plus",
-                text: "该项目依赖以下 Workshop 项：\(currentItem.dependencyIDs.joined(separator: "、"))"
-            ))
-        }
-
         if currentItem.hasAdultContent {
             stack.addArrangedSubview(notice(icon: "exclamationmark.triangle.fill", text: "此项目被 Steam 标记为成人内容"))
         }
@@ -557,73 +517,66 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     }
 
     /// UI projects the shared account-scoped state; only known state can be toggled.
-    private func buildSubscriptionSection() {
-        let store = service.steamSubscriptions
-        let state = store.state(for: currentItem.id)
-        let online = service.steamAuth.isOnline
-        let stack = verticalStack(spacing: 8)
-        stack.addArrangedSubview(divider())
-        let header = NSStackView()
-        header.orientation = .horizontal
-        header.alignment = .centerY
-        header.spacing = 12
-        header.addArrangedSubview(sectionTitle("订阅"))
+    private func authorButton() -> NSView {
+        let hasName = SteamWorkshopDetailRefreshSupport.hasAuthorName(currentItem)
+        let author = footerButton(title: hasName ? currentItem.author : (isRefreshingDetail ? "正在获取作者…" : "作者名称暂不可用"), symbolName: "person.crop.circle", kind: .secondary, target: self, action: #selector(openAuthorWorkshop))
+        author.toolTip = hasName ? "查看 \(currentItem.author) 的工坊" : "查看作者工坊"
+        author.isEnabled = !isRefreshingDetail && (service.selectedDownloadInspectorItem?.id == currentItem.id || SteamWorkshopService.resolvedAuthorWorkshopURL(for: currentItem) != nil)
+        author.heightAnchor.constraint(equalToConstant: 36).isActive = true
+        author.layer?.cornerRadius = 18
+        return author
+    }
+
+    private func subscriptionButton() -> InspectorFooterButton {
+        let state = service.steamSubscriptions.state(for: currentItem.id)
         let title: String
-        let message: String
+        let symbol: String
         var enabled = true
-        if !online {
-            title = "需要登录 Steam"
-            message = "请使用工具栏的登录按钮，登录后可查询与管理订阅。"
-        } else {
+        if !service.steamAuth.isOnline { title = "订阅"; symbol = "plus" }
+        else {
             switch state {
+            case .known(let subscribed): title = subscribed ? "已订阅" : "订阅"; symbol = subscribed ? "checkmark" : "plus"
             case .unknown:
-                title = "查询中…"; message = "正在查询订阅状态…"; enabled = false
+                title = "查询中…"; symbol = "clock"; enabled = false
+                let id = currentItem.id
                 Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    if self.service.steamSubscriptions.state(for: self.currentItem.id) == .unknown {
-                        self.service.steamSubscriptions.refresh(self.currentItem.id)
-                    }
+                    guard let self, self.currentItem.id == id, self.service.steamSubscriptions.state(for: id) == .unknown else { return }
+                    self.service.steamSubscriptions.refresh(id)
                 }
-            case .loading:
-                title = "查询中…"; message = "正在查询订阅状态…"; enabled = false
-            case .known(let subscribed):
-                title = subscribed ? "取消订阅" : "订阅"
-                message = subscribed ? "已订阅。取消订阅不会删除本地文件或中断播放。" : "未订阅。订阅后可从「Steam 已订阅」查看与下载。"
-            case .writing:
-                title = "正在处理…"; message = "正在提交订阅操作…"; enabled = false
-            case .reconciling:
-                title = "核对中…"; message = "正在向 Steam 核对操作结果…"; enabled = false
-            case .unconfirmed(let reason):
-                title = "重新查询"; message = reason
+            case .loading: title = "查询中…"; symbol = "clock"; enabled = false
+            case .writing, .reconciling: title = "核对中…"; symbol = "clock"; enabled = false
+            case .unconfirmed: title = "待确认"; symbol = "questionmark.circle"
             }
         }
-        let button = NSButton(title: title, target: self, action: #selector(toggleSubscriptionClicked))
-        button.bezelStyle = .rounded
-        button.controlSize = .small
-        button.isEnabled = enabled
-        header.addArrangedSubview(spacer())
-        header.addArrangedSubview(button)
-        stack.addArrangedSubview(header)
-        stack.addArrangedSubview(label(message, font: .systemFont(ofSize: 12), color: .secondaryLabelColor, lines: 2))
-        contentStack.addArrangedSubview(stack)
+        let subscription = footerButton(title: title, symbolName: symbol, kind: .secondary, target: self, action: #selector(toggleSubscriptionClicked(_:)))
+        subscription.layer?.cornerRadius = 16
+        subscription.isEnabled = enabled
+        subscription.toolTip = service.steamAuth.isOnline ? "管理作品订阅；不会删除本地壁纸" : "请使用工具栏登录 Steam 后订阅"
+        return subscription
     }
 
-    @objc private func toggleSubscriptionClicked() {
+    @objc private func toggleSubscriptionClicked(_ sender: NSView) {
         guard service.steamAuth.isOnline else {
-            service.presentSteamLoginGuidance(context: "订阅")
+            subscriptionHint = "请使用工具栏登录 Steam，登录后即可订阅。"
+            rebuild(preservingScrollPosition: true)
             return
         }
-        let store = service.steamSubscriptions
-        switch store.state(for: currentItem.id) {
-        case .known: store.toggle(currentItem.id)
-        case .unknown, .unconfirmed: store.refresh(currentItem.id)
-        default: break
+        let entry = SteamWorkshopItemMenu.subscription(item: currentItem, service: service)
+        if service.steamSubscriptions.state(for: currentItem.id) == .known(true) {
+            let menu = NSMenu()
+            menu.autoenablesItems = false
+            menu.addItem(entry)
+            let hint = NSMenuItem(title: "不会删除本地文件或中断播放", action: nil, keyEquivalent: "")
+            hint.isEnabled = false
+            menu.addItem(hint)
+            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.maxY + 4), in: sender)
+        } else if entry.isEnabled, let action = entry.action {
+            NSApp.sendAction(action, to: entry.target, from: entry)
         }
     }
 
-    private func buildWebDiagnosticsSection() {
+    private func buildWebDiagnosticsSection(in destination: NSStackView) {
         guard let webDownloadRecord else { return }
-        contentStack.addArrangedSubview(divider())
 
         let stack = verticalStack(spacing: 10)
         let header = NSStackView()
@@ -654,114 +607,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             buildWebDiagnosticsReport(report, record: webDownloadRecord, descriptor: webProjectDescriptor, in: stack)
         }
 
-        contentStack.addArrangedSubview(stack)
-    }
-
-    private func buildWebPropertiesSection() {
-        guard let record = webDownloadRecord,
-              let descriptor = webProjectDescriptor else { return }
-
-        let values = service.effectiveWebPropertyValues(for: record, descriptor: descriptor)
-        let renderableDefinitions = descriptor.propertyDefinitions.filter {
-            service.shouldRenderWebPropertyControl(
-                $0,
-                staticContentSummary: descriptor.staticContentSummary
-            )
-                && service.shouldDisplayWebProperty(
-                    $0,
-                    values: values,
-                    definitions: descriptor.propertyDefinitions
-                )
-        }
-        guard !renderableDefinitions.isEmpty else { return }
-
-        contentStack.addArrangedSubview(divider())
-
-        let shouldUseCollapsedPresentation = renderableDefinitions.count > 8
-        if !shouldUseCollapsedPresentation {
-            webPropertiesExpanded = true
-        }
-
-        let stack = verticalStack(spacing: 12)
-        let header = NSStackView()
-        header.orientation = .horizontal
-        header.alignment = .firstBaseline
-        header.spacing = 12
-        header.translatesAutoresizingMaskIntoConstraints = false
-
-        let titleStack = verticalStack(spacing: 4)
-        titleStack.addArrangedSubview(sectionTitle("WEB 属性"))
-        titleStack.addArrangedSubview(label(
-            record.isDependencyBackedWeb
-                ? "属性定义来自依赖宿主，当前修改会写回这个补丁壳样本"
-                : "根据当前壁纸的 project.json 动态生成调节项",
-            font: .systemFont(ofSize: 12),
-            color: .secondaryLabelColor,
-            lines: 0
-        ))
-        header.addArrangedSubview(titleStack)
-        header.addArrangedSubview(spacer())
-
-        if shouldUseCollapsedPresentation {
-            let toggle = NSButton(
-                title: webPropertiesExpanded ? "收起" : "展开 \(renderableDefinitions.count) 项",
-                target: self,
-                action: #selector(toggleWebProperties)
-            )
-            toggle.bezelStyle = .rounded
-            toggle.controlSize = .small
-            header.addArrangedSubview(toggle)
-        }
-        stack.addArrangedSubview(header)
-
-        if webPropertiesExpanded {
-            let resetRow = NSStackView()
-            resetRow.orientation = .horizontal
-            resetRow.alignment = .centerY
-            resetRow.translatesAutoresizingMaskIntoConstraints = false
-            resetRow.addArrangedSubview(spacer())
-            let reset = NSButton(title: "重置", target: self, action: #selector(resetWebProperties))
-            reset.bezelStyle = .rounded
-            reset.controlSize = .small
-            resetRow.addArrangedSubview(reset)
-            stack.addArrangedSubview(resetRow)
-
-            let primary = renderableDefinitions.filter { service.isPrimaryWebPropertyControl($0) }
-            let advanced = renderableDefinitions.filter { !service.isPrimaryWebPropertyControl($0) }
-            let visibleOptionsByKey = Dictionary(uniqueKeysWithValues: renderableDefinitions.map {
-                (
-                    $0.key,
-                    service.visibleWebPropertyOptions(
-                        for: $0,
-                        values: values,
-                        definitions: descriptor.propertyDefinitions
-                    )
-                )
-            })
-
-            primary.forEach {
-                stack.addArrangedSubview(webPropertyControl(definition: $0, value: values[$0.key] ?? $0.defaultValue, visibleOptions: visibleOptionsByKey[$0.key] ?? [], record: record))
-            }
-
-            if !advanced.isEmpty {
-                let advancedToggle = NSButton(
-                    title: webAdvancedPropertiesExpanded ? "收起高级参数" : "展开高级参数 \(advanced.count) 项",
-                    target: self,
-                    action: #selector(toggleAdvancedWebProperties)
-                )
-                advancedToggle.bezelStyle = .inline
-                advancedToggle.alignment = .left
-                stack.addArrangedSubview(advancedToggle)
-
-                if webAdvancedPropertiesExpanded {
-                    advanced.forEach {
-                        stack.addArrangedSubview(webPropertyControl(definition: $0, value: values[$0.key] ?? $0.defaultValue, visibleOptions: visibleOptionsByKey[$0.key] ?? [], record: record))
-                    }
-                }
-            }
-        }
-
-        contentStack.addArrangedSubview(stack)
+        destination.addArrangedSubview(stack)
     }
 
     private func buildWebDiagnosticsReport(
@@ -812,59 +658,93 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             }
         }
     }
-    private func buildSceneDiagnosticsSection() {
+    private func buildSceneDiagnosticsSection(in destination: NSStackView) {
         guard let record = sceneDownloadRecord else { return }
-        contentStack.addArrangedSubview(
+        destination.addArrangedSubview(
             sceneInspectionController.makeSection(for: record)
         )
     }
 
     private func buildFooterActions() {
-        let primary = primaryFooterButton()
-        let author = footerButton(
-            title: "作者工坊",
-            symbolName: "person.crop.circle.fill",
-            kind: .secondary,
-            target: self,
-            action: #selector(openAuthorWorkshop)
-        )
-        let isDownloadInspectorItem = service.selectedDownloadInspectorItem?.id == currentItem.id
-        author.isEnabled = !isRefreshingDetail && (isDownloadInspectorItem || SteamWorkshopService.resolvedAuthorWorkshopURL(for: currentItem) != nil)
-        let browser = footerIconButton(symbolName: "safari", help: "网页浏览", action: #selector(openWorkshopDetail))
-        let refresh = footerIconButton(symbolName: "arrow.clockwise", help: "刷新详情", action: #selector(refreshDetail))
-        refresh.isEnabled = !isRefreshingDetail
+        let primary = makeDownloadProgressView() ?? primaryFooterButton()
+        let webpage = footerIconButton(symbolName: "safari", help: "在浏览器打开作品", action: #selector(openWorkshopDetail))
+        let properties = footerIconButton(symbolName: "gearshape", help: "属性调节", action: #selector(openProperties))
+        properties.isEnabled = latestDownloadRecord?.status == .ready && latestDownloadRecord?.contentType != .unknown
+        if latestDownloadRecord?.status != .ready { properties.toolTip = "下载完成后可查看属性" }
+        let diagnosticsMenu = NSMenu()
+        diagnosticsMenu.addItem(SteamWorkshopMenuItem(title: "播放诊断", symbol: "stethoscope") { [weak self] in self?.openDiagnostics() })
+        properties.menu = diagnosticsMenu
+        footerView.configure(primary: primary, webpage: webpage, properties: properties)
+    }
 
-        [primary, author, browser, refresh].forEach {
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            footerView.addSubview($0)
+    private func openDiagnostics() {
+        guard let record = latestDownloadRecord, record.contentType == .scene || record.contentType == .web else { return }
+        let stack = verticalStack(spacing: 12)
+        let scroll = NSScrollView()
+        scroll.drawsBackground = false
+        scroll.hasVerticalScroller = true
+        scroll.documentView = stack
+        stack.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor).isActive = true
+        diagnosticsPanelStack = stack
+        diagnosticsPanelToken = SteamWorkshopPropertyPanelController.shared.show(title: "播放诊断", subtitle: record.title, content: scroll)
+        refreshDiagnosticsPanel()
+    }
+
+    private func refreshDiagnosticsPanel() {
+        guard let token = diagnosticsPanelToken,
+              SteamWorkshopPropertyPanelController.shared.presentationID == token,
+              let stack = diagnosticsPanelStack, let record = latestDownloadRecord else { return }
+        stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        if record.contentType == .scene {
+            buildSceneDiagnosticsSection(in: stack)
+        } else if record.contentType == .web {
+            buildWebDiagnosticsSection(in: stack)
         }
+        for child in stack.arrangedSubviews { child.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true }
+    }
 
-        let iconButtonWidth = Metrics.footerHeight
-        NSLayoutConstraint.activate([
-            primary.leadingAnchor.constraint(equalTo: footerView.leadingAnchor, constant: 2),
-            primary.topAnchor.constraint(equalTo: footerView.topAnchor),
-            primary.bottomAnchor.constraint(equalTo: footerView.bottomAnchor),
-            primary.heightAnchor.constraint(equalToConstant: Metrics.footerHeight),
-            author.leadingAnchor.constraint(equalTo: primary.trailingAnchor, constant: 6),
-            author.topAnchor.constraint(equalTo: footerView.topAnchor),
-            author.bottomAnchor.constraint(equalTo: footerView.bottomAnchor),
-            author.heightAnchor.constraint(equalToConstant: Metrics.footerHeight),
-            browser.leadingAnchor.constraint(equalTo: author.trailingAnchor, constant: 6),
-            browser.topAnchor.constraint(equalTo: footerView.topAnchor),
-            browser.bottomAnchor.constraint(equalTo: footerView.bottomAnchor),
-            browser.widthAnchor.constraint(equalToConstant: iconButtonWidth),
-            browser.heightAnchor.constraint(equalToConstant: Metrics.footerHeight),
-            refresh.leadingAnchor.constraint(equalTo: browser.trailingAnchor, constant: 6),
-            refresh.trailingAnchor.constraint(equalTo: footerView.trailingAnchor, constant: -2),
-            refresh.topAnchor.constraint(equalTo: footerView.topAnchor),
-            refresh.bottomAnchor.constraint(equalTo: footerView.bottomAnchor),
-            refresh.widthAnchor.constraint(equalToConstant: iconButtonWidth),
-            refresh.heightAnchor.constraint(equalToConstant: Metrics.footerHeight),
-            author.widthAnchor.constraint(equalTo: primary.widthAnchor)
-        ])
+    @objc private func openProperties() {
+        guard let record = latestDownloadRecord, record.status == .ready else { return }
+        switch record.contentType {
+        case .unknown: return
+        case .scene:
+            sceneInspectionController.requestPropertyEditor(for: record)
+        case .web:
+            SteamWorkshopPropertyPanelController.shared.show(title: "Web 属性调节", subtitle: record.title,
+                content: SteamWorkshopWebPropertyEditorView(record: record))
+        case .video:
+            let text = label("视频壁纸没有作者可调属性。音量、播放速度及播放方式使用应用的播放设置。", font: .systemFont(ofSize: 13), color: .secondaryLabelColor, lines: 0)
+            SteamWorkshopPropertyPanelController.shared.show(title: "Video 属性", subtitle: record.title, content: text)
+        }
+    }
+
+    private var isCurrentWallpaper: Bool {
+        guard let record = latestDownloadRecord else { return false }
+        switch record.contentType {
+        case .unknown: return false
+        case .scene: return SceneDaemonClient.shared.activeRecordID == record.id
+        case .web: return service.isActiveWebRecord(record)
+        case .video:
+            guard WallpaperEngine.shared.currentPlaybackContentKind == .video,
+                  let path = WallpaperEngine.shared.currentContentPath else { return false }
+            return [record.videoURL, record.exportedVideoURL, record.sourceVideoURL].compactMap { $0 }
+                .contains { $0.resolvingSymlinksInPath().standardizedFileURL.path == path }
+        }
+    }
+
+    @objc private func stopCurrentWallpaper() {
+        guard isCurrentWallpaper, let record = latestDownloadRecord else { rebuild(); return }
+        // Web currently shares the Video command handler and WallpaperEngine owner.
+        let consumed = PlaybackCommandMultiplexer.shared.dispatch(.stop, to: record.contentType == .scene ? .scene : .video)
+        if !consumed { subscriptionHint = "停止播放未完成，请重试。" }
+        rebuild()
     }
 
     private func primaryFooterButton() -> InspectorFooterButton {
+        if isCurrentWallpaper {
+            return footerButton(title: "停止播放", symbolName: "stop.fill", kind: .secondary, target: self, action: #selector(stopCurrentWallpaper))
+        }
+
         if downloadProgressSnapshot?.phase == .saving {
             let button = footerButton(
                 title: "正在保存…",
@@ -886,12 +766,12 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             )
         }
 
-        let record = latestDownloadRecord ?? downloadRecord
+        let record = latestDownloadRecord.flatMap { $0.status == .ready ? $0 : nil } ?? downloadRecord
         if let record,
            case let .missing(itemID) = record.dependencyStatus {
             if service.isDownloading(itemID: itemID) || service.isQueuedForDownload(itemID: itemID) {
                 return footerButton(
-                    title: service.isQueuedForDownload(itemID: itemID) ? "依赖等待下载" : "依赖下载中",
+                    title: "取消依赖下载",
                     symbolName: "hourglass.circle.fill",
                     kind: .danger,
                     target: self,
@@ -909,13 +789,15 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
 
         if let record {
             if service.isLaunchPending(record.id) {
-                return footerButton(
+                let button = footerButton(
                     title: "正在切换…",
                     symbolName: "hourglass.circle.fill",
                     kind: .primary,
                     target: self,
                     action: #selector(setAsWallpaper)
                 )
+                button.isEnabled = false
+                return button
             }
             return footerButton(
                 title: "设为壁纸",
@@ -926,9 +808,8 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             )
         }
 
-        let isSceneItem = currentItem.workshopTypeText?.localizedCaseInsensitiveCompare("Scene") == .orderedSame
         let button = footerButton(
-            title: latestDownloadFailure != nil ? "重新下载" : (isSceneItem ? "下载 Scene" : "下载视频"),
+            title: latestDownloadFailure != nil ? "重试下载" : "下载壁纸",
             symbolName: latestDownloadFailure != nil ? "arrow.clockwise.circle.fill" : "arrow.down.circle.fill",
             kind: .primary,
             target: self,
@@ -938,207 +819,9 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         return button
     }
 
-    private func webPropertyControl(
-        definition: SteamWorkshopWebPropertyDefinition,
-        value: SteamWorkshopWebPropertyValue,
-        visibleOptions: [SteamWorkshopWebPropertyOption],
-        record: SteamWorkshopDownloadRecord
-    ) -> NSView {
-        let card = NSStackView()
-        card.orientation = .vertical
-        card.alignment = .leading
-        card.spacing = 8
-        card.edgeInsets = NSEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
-        card.translatesAutoresizingMaskIntoConstraints = false
-        card.wantsLayer = true
-        card.layer?.cornerRadius = 12
-        card.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.10).cgColor
-        card.layer?.borderWidth = 0.7
-        card.layer?.borderColor = NSColor.white.withAlphaComponent(0.06).cgColor
-
-        var summaryLabel: NSTextField?
-        if definition.kind != .group && definition.kind != .label {
-            let row = NSStackView()
-            row.orientation = .horizontal
-            row.alignment = .firstBaseline
-            row.spacing = 8
-            row.translatesAutoresizingMaskIntoConstraints = false
-            row.addArrangedSubview(label(definition.title, font: .systemFont(ofSize: 12, weight: .semibold), color: .labelColor, lines: 1))
-            row.addArrangedSubview(spacer())
-            let valueLabel = label(valueSummary(value, definition: definition), font: .systemFont(ofSize: 11, weight: .medium), color: .secondaryLabelColor, lines: 1)
-            summaryLabel = valueLabel
-            row.addArrangedSubview(valueLabel)
-            card.addArrangedSubview(row)
-        }
-
-        card.addArrangedSubview(controlView(definition: definition, value: value, visibleOptions: visibleOptions, record: record, summaryLabel: summaryLabel))
-
-        if let footnote = propertyFootnote(definition: definition, visibleOptions: visibleOptions) {
-            card.addArrangedSubview(label(footnote, font: .systemFont(ofSize: 10, weight: .medium), color: .secondaryLabelColor, lines: 0))
-        }
-
-        return card
-    }
-
-    private func controlView(
-        definition: SteamWorkshopWebPropertyDefinition,
-        value: SteamWorkshopWebPropertyValue,
-        visibleOptions: [SteamWorkshopWebPropertyOption],
-        record: SteamWorkshopDownloadRecord,
-        summaryLabel: NSTextField?
-    ) -> NSView {
-        switch definition.kind {
-        case .slider:
-            let target = WebPropertyActionTarget(view: self, record: record, definition: definition, summaryLabel: summaryLabel)
-            let slider = WebPropertySlider(value: value.numberValue ?? definition.defaultValue.numberValue ?? definition.minimumValue ?? 0,
-                                           minValue: definition.minimumValue ?? 0,
-                                           maxValue: definition.maximumValue ?? max((definition.minimumValue ?? 0) + 1, value.numberValue ?? 1),
-                                           target: target,
-                                           action: #selector(WebPropertyActionTarget.sliderChanged(_:)))
-            slider.isContinuous = true
-            slider.identifier = NSUserInterfaceItemIdentifier(definition.key)
-            slider.translatesAutoresizingMaskIntoConstraints = false
-            slider.onTrackingEnded = { [weak target] slider in
-                target?.sliderTrackingEnded(slider)
-            }
-            retainActionTarget(target, for: slider)
-            return slider
-        case .toggle:
-            let checkbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
-            checkbox.state = (value.boolValue ?? definition.defaultValue.boolValue ?? false) ? .on : .off
-            let target = WebPropertyActionTarget(view: self, record: record, definition: definition)
-            checkbox.target = target
-            checkbox.action = #selector(WebPropertyActionTarget.toggleChanged(_:))
-            retainActionTarget(target, for: checkbox)
-            return checkbox
-        case .combo:
-            let popup = NSPopUpButton()
-            if visibleOptions.isEmpty {
-                popup.addItem(withTitle: "当前没有可选项")
-                popup.isEnabled = false
-            } else {
-                var selectedValueID: String?
-                if visibleOptions.contains(where: { $0.value == value }) == false {
-                    popup.addItem(withTitle: "当前值：\(valueSummary(value, definition: definition))（不可选）")
-                    popup.lastItem?.isEnabled = false
-                    popup.selectItem(at: 0)
-                }
-                visibleOptions.forEach { option in
-                    popup.addItem(withTitle: option.label)
-                    popup.lastItem?.representedObject = option.id as NSString
-                    if option.value == value {
-                        selectedValueID = option.id
-                    }
-                }
-                if let selectedIndex = visibleOptions.firstIndex(where: { $0.value == value }) {
-                    popup.selectItem(withTitle: visibleOptions[selectedIndex].label)
-                }
-                if let selectedValueID,
-                   let item = popup.itemArray.first(where: { ($0.representedObject as? String) == selectedValueID }) {
-                    popup.select(item)
-                }
-            }
-            let target = WebPropertyActionTarget(view: self, record: record, definition: definition, visibleOptions: visibleOptions)
-            popup.target = target
-            popup.action = #selector(WebPropertyActionTarget.popupChanged(_:))
-            retainActionTarget(target, for: popup)
-            return popup
-        case .file, .directory:
-            let row = NSStackView()
-            row.orientation = .vertical
-            row.alignment = .leading
-            row.spacing = 8
-            let buttonRow = NSStackView()
-            buttonRow.orientation = .horizontal
-            buttonRow.spacing = 10
-            let choose = NSButton(title: definition.kind == .directory ? "选择文件夹" : "选择文件", target: nil, action: nil)
-            choose.bezelStyle = .rounded
-            choose.controlSize = .small
-            let target = WebPropertyActionTarget(view: self, record: record, definition: definition, summaryLabel: summaryLabel)
-            choose.target = target
-            choose.action = #selector(WebPropertyActionTarget.choosePath(_:))
-            retainActionTarget(target, for: choose)
-            buttonRow.addArrangedSubview(choose)
-            if !(value.stringValue ?? "").isEmpty {
-                let clear = NSButton(title: "清空", target: target, action: #selector(WebPropertyActionTarget.clearPath(_:)))
-                clear.bezelStyle = .rounded
-                clear.controlSize = .small
-                buttonRow.addArrangedSubview(clear)
-            }
-            buttonRow.addArrangedSubview(spacer())
-            row.addArrangedSubview(buttonRow)
-            row.addArrangedSubview(textField(textValue(value, definition: definition), placeholder: definition.kind == .directory ? "选择目录路径" : "选择文件路径", target: target, action: #selector(WebPropertyActionTarget.textChanged(_:))))
-            return row
-        case .label, .group:
-            return label(definition.title, font: definition.kind == .group ? .systemFont(ofSize: 13, weight: .semibold) : .systemFont(ofSize: 12), color: .labelColor, lines: 0)
-        case .color:
-            return colorControl(value: value, definition: definition, record: record, summaryLabel: summaryLabel)
-        case .text, .unknown:
-            let target = WebPropertyActionTarget(view: self, record: record, definition: definition, summaryLabel: summaryLabel)
-            return textField(textValue(value, definition: definition), placeholder: definition.title, target: target, action: #selector(WebPropertyActionTarget.textChanged(_:)))
-        }
-    }
-
-    private func colorControl(
-        value: SteamWorkshopWebPropertyValue,
-        definition: SteamWorkshopWebPropertyDefinition,
-        record: SteamWorkshopDownloadRecord,
-        summaryLabel: NSTextField?
-    ) -> NSView {
-        let row = NSStackView()
-        row.orientation = .horizontal
-        row.alignment = .centerY
-        row.spacing = 10
-        row.translatesAutoresizingMaskIntoConstraints = false
-
-        let target = WebPropertyActionTarget(view: self, record: record, definition: definition, summaryLabel: summaryLabel)
-        let colorWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 42, height: 26))
-        colorWell.color = color(from: value.stringValue ?? definition.defaultValue.stringValue ?? "0 0 0")
-        colorWell.target = target
-        colorWell.action = #selector(WebPropertyActionTarget.colorChanged(_:))
-        colorWell.translatesAutoresizingMaskIntoConstraints = false
-        retainActionTarget(target, for: colorWell)
-        row.addArrangedSubview(colorWell)
-
-        let field = textField(
-            textValue(value, definition: definition),
-            placeholder: "R G B",
-            target: target,
-            action: #selector(WebPropertyActionTarget.textChanged(_:))
-        )
-        target.textField = field
-        row.addArrangedSubview(field)
-
-        NSLayoutConstraint.activate([
-            colorWell.widthAnchor.constraint(equalToConstant: 42),
-            colorWell.heightAnchor.constraint(equalToConstant: 26)
-        ])
-        return row
-    }
-
-    private func retainActionTarget(_ target: WebPropertyActionTarget, for control: NSControl) {
-        objc_setAssociatedObject(control, "[\(Unmanaged.passUnretained(control).toOpaque())].target", target, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-    }
-
-    @objc private func toggleWebProperties() {
-        webPropertiesExpanded.toggle()
-        rebuild(preservingScrollPosition: true)
-    }
-
-    @objc private func toggleAdvancedWebProperties() {
-        webAdvancedPropertiesExpanded.toggle()
-        rebuild(preservingScrollPosition: true)
-    }
-
     @objc private func toggleWebDiagnostics() {
         webDiagnosticsExpanded.toggle()
-        rebuild(preservingScrollPosition: true)
-    }
-
-    @objc private func resetWebProperties() {
-        guard let webDownloadRecord else { return }
-        service.resetWebPropertyValues(for: webDownloadRecord)
-        rebuild(preservingScrollPosition: true)
+        refreshDiagnosticsPanel()
     }
 
     @objc private func requestDownload() {
@@ -1179,20 +862,6 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         service.openWorkshopDetailPage(for: currentItem)
     }
 
-    @objc private func refreshDetail() {
-        service.retryInspectorDetailRefresh(for: currentItem.id)
-    }
-
-    private func updateWebProperty(_ value: SteamWorkshopWebPropertyValue, definition: SteamWorkshopWebPropertyDefinition, record: SteamWorkshopDownloadRecord, preview: Bool = false) {
-        if preview {
-            service.previewWebPropertyValue(value, for: definition, record: record)
-            return
-        } else {
-            service.updateWebPropertyValue(value, for: definition, record: record)
-        }
-        rebuild(preservingScrollPosition: true)
-    }
-
     private func verticalStack(spacing: CGFloat) -> NSStackView {
         let stack = NSStackView()
         stack.orientation = .vertical
@@ -1221,35 +890,20 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     }
 
     private func sectionTitle(_ text: String) -> NSTextField {
-        label(text, font: .systemFont(ofSize: 11, weight: .semibold), color: .secondaryLabelColor, lines: 1)
+        let title = label(text, font: .systemFont(ofSize: 11, weight: .semibold), color: .secondaryLabelColor, lines: 1)
+        title.alignment = .center
+        return title
     }
 
     private func divider() -> NSView {
         let view = NSBox()
-        view.boxType = .separator
+        view.boxType = .custom
+        view.borderType = .noBorder
+        view.fillColor = NSColor.labelColor.withAlphaComponent(0.10)
+        view.contentViewMargins = .zero
         view.translatesAutoresizingMaskIntoConstraints = false
         view.heightAnchor.constraint(equalToConstant: 1).isActive = true
         return view
-    }
-
-    private func badge(_ text: String) -> NSView {
-        let label = label(text, font: .systemFont(ofSize: 11, weight: .semibold), color: .labelColor, lines: 1)
-        label.alignment = .center
-        let container = NSView()
-        container.wantsLayer = true
-        container.layer?.cornerRadius = 15
-        container.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.12).cgColor
-        container.layer?.borderWidth = 0.6
-        container.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
-        container.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 15),
-            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -15),
-            label.topAnchor.constraint(equalTo: container.topAnchor, constant: 7),
-            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -7)
-        ])
-        return container
     }
 
     private func factsGrid(_ facts: [(String, String)]) -> NSView {
@@ -1370,258 +1024,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         return button
     }
 
-    private func textField(_ value: String, placeholder: String, target: AnyObject, action: Selector) -> NSTextField {
-        let field = NSTextField(string: value)
-        field.placeholderString = placeholder
-        field.target = target
-        field.action = action
-        field.delegate = target as? NSTextFieldDelegate
-        field.translatesAutoresizingMaskIntoConstraints = false
-        retainActionTarget(target as! WebPropertyActionTarget, for: field)
-        return field
-    }
 
-    private func textValue(_ value: SteamWorkshopWebPropertyValue, definition: SteamWorkshopWebPropertyDefinition) -> String {
-        if let stringValue = value.stringValue { return stringValue }
-        if let numberValue = value.numberValue { return formattedNumber(numberValue, allowsFractional: true, precision: definition.fractionalPrecision) }
-        if let boolValue = value.boolValue { return boolValue ? "true" : "false" }
-        return ""
-    }
-
-    private func color(from raw: String) -> NSColor {
-        guard let components = SteamWorkshopService.parseWebColorComponents(from: raw) else {
-            return .black
-        }
-        return NSColor(
-            deviceRed: components.red,
-            green: components.green,
-            blue: components.blue,
-            alpha: 1
-        )
-    }
-
-    private func colorString(from color: NSColor) -> String {
-        let resolved = color.usingColorSpace(.deviceRGB) ?? .black
-        return String(
-            format: "%.6f %.6f %.6f",
-            resolved.redComponent,
-            resolved.greenComponent,
-            resolved.blueComponent
-        )
-    }
-
-    private func valueSummary(_ value: SteamWorkshopWebPropertyValue, definition: SteamWorkshopWebPropertyDefinition) -> String {
-        if let stringValue = value.stringValue { return SteamWorkshopService.normalizedWebDisplayText(stringValue) }
-        if let numberValue = value.numberValue { return formattedNumber(numberValue, allowsFractional: definition.allowsFractionalValues, precision: definition.fractionalPrecision) }
-        if let boolValue = value.boolValue { return boolValue ? "开" : "关" }
-        return "-"
-    }
-
-    private func propertyFootnote(definition: SteamWorkshopWebPropertyDefinition, visibleOptions: [SteamWorkshopWebPropertyOption]) -> String? {
-        switch definition.kind {
-        case .combo where !visibleOptions.isEmpty:
-            return "\(visibleOptions.count) options"
-        case .color:
-            return "Wallpaper Engine RGB string"
-        case .file:
-            return "Wallpaper Engine file path string"
-        case .directory:
-            if let mode = definition.directoryMode {
-                return "Wallpaper Engine directory path string  ·  mode \(mode)"
-            }
-            return "Wallpaper Engine directory path string"
-        case .slider, .label, .group, .toggle, .text, .unknown, .combo:
-            return nil
-        }
-    }
-
-    private func formattedNumber(_ value: Double, allowsFractional: Bool, precision: Int?) -> String {
-        if !allowsFractional {
-            return String(Int(value.rounded()))
-        }
-        let digits = max(precision ?? 2, 0)
-        return String(format: "%.\(digits)f", value)
-    }
-
-    private func normalizedSliderValue(_ value: Double, definition: SteamWorkshopWebPropertyDefinition) -> Double {
-        if definition.allowsFractionalValues {
-            let precision = SteamWorkshopService.effectiveWebSliderPrecision(for: definition) ?? 2
-            guard precision >= 0 else { return value }
-            let scale = pow(10.0, Double(precision))
-            return (value * scale).rounded() / scale
-        }
-        return value.rounded()
-    }
-
-    private func allowedContentTypes(for fileType: String?) -> [UTType] {
-        guard let normalized = fileType?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
-              !normalized.isEmpty else { return [] }
-        switch normalized {
-        case "image": return [.image]
-        case "video": return [.movie, .video, .mpeg4Movie, .quickTimeMovie]
-        case "audio", "music": return [.audio, .mp3, .mpeg4Audio]
-        case "font": return [.font]
-        default: return []
-        }
-    }
-
-    private final class WebPropertySlider: NSSlider {
-        var isTrackingMouse = false
-        var onTrackingEnded: ((NSSlider) -> Void)?
-
-        override func mouseDown(with event: NSEvent) {
-            isTrackingMouse = true
-            super.mouseDown(with: event)
-            isTrackingMouse = false
-            onTrackingEnded?(self)
-        }
-    }
-
-    private final class WebPropertyActionTarget: NSObject, NSTextFieldDelegate {
-        weak var view: AppKitSteamWorkshopItemDetailView?
-        let record: SteamWorkshopDownloadRecord
-        let definition: SteamWorkshopWebPropertyDefinition
-        let visibleOptions: [SteamWorkshopWebPropertyOption]
-        weak var summaryLabel: NSTextField?
-        weak var textField: NSTextField?
-        private var pendingColorString: String?
-        private var colorPanelCloseObserver: NSObjectProtocol?
-
-        init(
-            view: AppKitSteamWorkshopItemDetailView,
-            record: SteamWorkshopDownloadRecord,
-            definition: SteamWorkshopWebPropertyDefinition,
-            visibleOptions: [SteamWorkshopWebPropertyOption] = [],
-            summaryLabel: NSTextField? = nil
-        ) {
-            self.view = view
-            self.record = record
-            self.definition = definition
-            self.visibleOptions = visibleOptions
-            self.summaryLabel = summaryLabel
-        }
-
-        deinit {
-            if let colorPanelCloseObserver {
-                NotificationCenter.default.removeObserver(colorPanelCloseObserver)
-            }
-        }
-
-        @objc func toggleChanged(_ sender: NSButton) {
-            view?.updateWebProperty(.bool(sender.state == .on), definition: definition, record: record)
-        }
-
-        @objc func popupChanged(_ sender: NSPopUpButton) {
-            guard let selectedID = sender.selectedItem?.representedObject as? String,
-                  let option = visibleOptions.first(where: { $0.id == selectedID }) else { return }
-            view?.updateWebProperty(option.value, definition: definition, record: record)
-        }
-
-        @objc func sliderChanged(_ sender: NSSlider) {
-            let normalized = view?.normalizedSliderValue(sender.doubleValue, definition: definition) ?? sender.doubleValue
-            sender.doubleValue = normalized
-            summaryLabel?.stringValue = view?.valueSummary(.number(normalized), definition: definition) ?? String(normalized)
-            view?.updateWebProperty(.number(normalized), definition: definition, record: record, preview: true)
-            if let slider = sender as? WebPropertySlider {
-                if !slider.isTrackingMouse {
-                    commitSliderValue(sender)
-                }
-            } else if !sender.isHighlighted {
-                commitSliderValue(sender)
-            }
-        }
-
-        @objc func textChanged(_ sender: NSTextField) {
-            commitTextFieldValue(sender.stringValue)
-        }
-
-        func controlTextDidChange(_ notification: Notification) {
-            guard let field = notification.object as? NSTextField else { return }
-            previewTextFieldValue(field.stringValue)
-        }
-
-        func controlTextDidEndEditing(_ notification: Notification) {
-            guard let field = notification.object as? NSTextField else { return }
-            commitTextFieldValue(field.stringValue)
-        }
-
-        @objc func colorChanged(_ sender: NSColorWell) {
-            guard let colorString = view?.colorString(from: sender.color) else { return }
-            observeColorPanelCloseIfNeeded()
-            pendingColorString = colorString
-            summaryLabel?.stringValue = view?.valueSummary(.string(colorString), definition: definition) ?? colorString
-            textField?.stringValue = colorString
-            view?.updateWebProperty(.string(colorString), definition: definition, record: record, preview: true)
-        }
-
-        @objc func choosePath(_ sender: NSButton) {
-            let panel = NSOpenPanel()
-            let selectsDirectories = definition.kind == .directory
-            panel.canChooseFiles = !selectsDirectories
-            panel.canChooseDirectories = selectsDirectories
-            panel.allowsMultipleSelection = false
-            panel.resolvesAliases = true
-            panel.canCreateDirectories = selectsDirectories
-            panel.prompt = selectsDirectories ? "选择目录" : "选择文件"
-            if !selectsDirectories {
-                panel.allowedContentTypes = view?.allowedContentTypes(for: definition.fileType) ?? []
-            }
-            if panel.runModal() == .OK, let url = panel.url {
-                view?.updateWebProperty(.string(url.path), definition: definition, record: record)
-            }
-        }
-
-        @objc func clearPath(_ sender: NSButton) {
-            view?.updateWebProperty(.string(""), definition: definition, record: record)
-        }
-
-        private func observeColorPanelCloseIfNeeded() {
-            guard colorPanelCloseObserver == nil else { return }
-            colorPanelCloseObserver = NotificationCenter.default.addObserver(
-                forName: NSWindow.willCloseNotification,
-                object: NSColorPanel.shared,
-                queue: .main
-            ) { [weak self] _ in
-                self?.commitPendingColor()
-            }
-        }
-
-        private func commitSliderValue(_ sender: NSSlider) {
-            let normalized = view?.normalizedSliderValue(sender.doubleValue, definition: definition) ?? sender.doubleValue
-            sender.doubleValue = normalized
-            summaryLabel?.stringValue = view?.valueSummary(.number(normalized), definition: definition) ?? String(normalized)
-            view?.updateWebProperty(.number(normalized), definition: definition, record: record)
-        }
-
-        func sliderTrackingEnded(_ sender: NSSlider) {
-            commitSliderValue(sender)
-        }
-
-        private func previewTextFieldValue(_ rawValue: String) {
-            pendingColorString = nil
-            let value = webPropertyValue(from: rawValue)
-            summaryLabel?.stringValue = view?.valueSummary(value, definition: definition) ?? rawValue
-            view?.updateWebProperty(value, definition: definition, record: record, preview: true)
-        }
-
-        private func commitTextFieldValue(_ rawValue: String) {
-            pendingColorString = nil
-            view?.updateWebProperty(webPropertyValue(from: rawValue), definition: definition, record: record)
-        }
-
-        private func commitPendingColor() {
-            guard let pendingColorString else { return }
-            self.pendingColorString = nil
-            view?.updateWebProperty(.string(pendingColorString), definition: definition, record: record)
-        }
-
-        private func webPropertyValue(from rawValue: String) -> SteamWorkshopWebPropertyValue {
-            if definition.kind == .slider, let value = Double(rawValue) {
-                return .number(value)
-            }
-            return .string(rawValue)
-        }
-    }
 }
 
 private final class ClosureButton: NSButton {

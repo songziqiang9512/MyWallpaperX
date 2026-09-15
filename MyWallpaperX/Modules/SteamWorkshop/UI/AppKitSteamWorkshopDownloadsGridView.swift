@@ -14,7 +14,6 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
     private let service: SteamWorkshopService
     var onOpen: (SteamWorkshopBrowserItem) -> Void
     var onSetAsWallpaper: (SteamWorkshopDownloadRecord) -> Void
-    var onReveal: (SteamWorkshopDownloadRecord) -> Void
 
     private var cancellables = Set<AnyCancellable>()
     private var orderedIDs: [String] = []
@@ -41,6 +40,12 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         cv.backgroundColors = [.clear]
         cv.translatesAutoresizingMaskIntoConstraints = false
         cv.keyboardDelegate = self
+        cv.accessibleItemsProvider = { [weak self] in
+            guard let self else { return [] }
+            return self.collectionView.indexPathsForVisibleItems().sorted().compactMap {
+                self.collectionView.item(at: $0)?.view
+            }
+        }
         cv.cardPressStateHandler = { [weak self] indexPath, pressed in
             guard let self,
                   let item = self.collectionView.item(at: indexPath) as? AppKitSteamWorkshopBrowserItem else { return }
@@ -85,13 +90,11 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
     init(
         service: SteamWorkshopService,
         onOpen: @escaping (SteamWorkshopBrowserItem) -> Void,
-        onSetAsWallpaper: @escaping (SteamWorkshopDownloadRecord) -> Void,
-        onReveal: @escaping (SteamWorkshopDownloadRecord) -> Void
+        onSetAsWallpaper: @escaping (SteamWorkshopDownloadRecord) -> Void
     ) {
         self.service = service
         self.onOpen = onOpen
         self.onSetAsWallpaper = onSetAsWallpaper
-        self.onReveal = onReveal
         super.init(frame: .zero)
         setup()
     }
@@ -250,9 +253,6 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
             isKeyboardFocused: service.effectiveSelectedDownloadIDs.contains(record.id),
             onOpen: { [weak self] in
                 self?.presentDownloadDetail(for: record.id)
-            },
-            onAuthor: { [weak self] in
-                self?.onReveal(record)
             },
             onDownload: { [weak self] in
                 guard let self else { return }

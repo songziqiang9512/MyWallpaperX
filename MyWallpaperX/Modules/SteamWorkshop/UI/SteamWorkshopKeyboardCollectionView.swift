@@ -7,6 +7,10 @@ protocol SteamWorkshopKeyboardDelegate: AnyObject {
 final class SteamWorkshopKeyboardCollectionView: NSCollectionView {
     weak var keyboardDelegate: SteamWorkshopKeyboardDelegate?
     var onBackgroundLeftClick: (() -> Void)?
+    var accessibleItemsProvider: (() -> [Any])?
+    override func accessibilityChildren() -> [Any]? { accessibleItemsProvider?() ?? super.accessibilityChildren() }
+    override func isAccessibilityElement() -> Bool { accessibleItemsProvider != nil || super.isAccessibilityElement() }
+    override func accessibilityRole() -> NSAccessibility.Role? { accessibleItemsProvider != nil ? .list : super.accessibilityRole() }
     var contextMenuProvider: ((IndexPath?) -> NSMenu?)?
     var primaryClickHandler: ((IndexPath) -> Bool)?
     var cardPressStateHandler: ((IndexPath, Bool) -> Void)?

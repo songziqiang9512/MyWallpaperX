@@ -46,6 +46,7 @@ final class SteamWorkshopSceneInspectionController {
     private var request: Request?
     private var snapshot: Snapshot?
     private var propertyMessage: String?
+    private var propertyPanelToken: UUID?
     private var diagnosticsExpanded = false
     private var diagnosticsRequested = false
     private var shouldOpenPropertiesAfterPreparation = false
@@ -200,8 +201,11 @@ final class SteamWorkshopSceneInspectionController {
         startInspection(for: record, purpose: .diagnostics)
     }
 
-    private func requestPropertyEditor(for record: SteamWorkshopDownloadRecord) {
+    func requestPropertyEditor(for record: SteamWorkshopDownloadRecord) {
+        let loading = NSTextField(wrappingLabelWithString: "正在准备 Scene 属性…")
+        propertyPanelToken = SteamWorkshopPropertyPanelController.shared.show(title: "Scene 属性调节", subtitle: record.title, content: loading)
         let identity = inspectionIdentity(for: record)
+        presentedIdentity = identity
         propertyMessage = nil
         if let snapshot, snapshot.identity == identity {
             presentPropertyEditor(
@@ -300,11 +304,15 @@ final class SteamWorkshopSceneInspectionController {
         record: SteamWorkshopDownloadRecord,
         sourceFacts: SceneRuntimeSourceFacts
     ) {
+        guard let propertyPanelToken,
+              SteamWorkshopPropertyPanelController.shared.presentationID == propertyPanelToken else { return }
         guard let context = service.scenePropertyContext(
             for: record,
             sourceFacts: sourceFacts
         ) else {
             propertyMessage = "当前 Scene 没有可调节的受支持属性，或属性模型尚未解析成功。"
+            SteamWorkshopPropertyPanelController.shared.show(title: "Scene 属性调节", subtitle: record.title,
+                content: NSTextField(wrappingLabelWithString: propertyMessage!))
             onStateChange()
             return
         }

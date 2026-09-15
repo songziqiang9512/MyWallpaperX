@@ -56,7 +56,7 @@ class SceneDetailDiagnosticsOnDemandTests(unittest.TestCase):
     def test_detail_rebuild_only_delegates_scene_section(self) -> None:
         body = function_body(
             self.detail,
-            "private func buildSceneDiagnosticsSection()",
+            "private func buildSceneDiagnosticsSection(in destination:",
         )
         self.assertIn("sceneInspectionController.makeSection(for: record)", body)
         self.assertNotIn("SceneDiagnosticsBuilder", body)
@@ -81,7 +81,7 @@ class SceneDetailDiagnosticsOnDemandTests(unittest.TestCase):
         )
         properties = function_body(
             self.controller,
-            "private func requestPropertyEditor(for record:",
+            "func requestPropertyEditor(for record:",
         )
         self.assertIn("startInspection(for: record, purpose: .diagnostics)", diagnostics)
         self.assertIn("startInspection(for: record, purpose: .properties)", properties)
