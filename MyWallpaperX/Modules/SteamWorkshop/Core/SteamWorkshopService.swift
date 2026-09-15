@@ -105,9 +105,9 @@ final class SteamWorkshopService: ObservableObject {
     @Published var activeAuthorWorkshopName: String?
     @Published var navigationVersion: Int = 0
 
-    /// SK1.2：Steam helper 生命周期客户端。模块统一持有；spawn 由首次登录动作
-    /// 触发（SteamAuthRoute.ensureHelperReady），未登录启动不产生进程。不接
-    /// playback multiplexer，不承担播放控制。
+    /// SK1.2：Steam helper 生命周期客户端。模块统一持有；spawn 由首次结构化
+    /// 公开查询、用户登录动作或已授权恢复触发。本地库启动不预取、不产生
+    /// helper 进程；不接 playback multiplexer，不承担播放控制。
     private(set) var steamServiceClient = SteamServiceClient()
 
     /// SK2.2：新登录路线（SteamKit）权威。登录面板与工具栏账号状态的数据源。
@@ -352,9 +352,9 @@ final class SteamWorkshopService: ObservableObject {
         }
         reloadInstalledItems()
         refreshDisplayedDownloads()
-        if !isIsolatedWebSampleRun {
-            fetchBrowserItems()
-        }
+        // Public discovery is demand-loaded by prepareForBrowserEntry(). Keep
+        // local-library startup free of helper/network work; an authorized
+        // saved-session restore above remains the sole intentional exception.
         observeWebPlaybackFailures()
         installLaunchPendingObservers()
         observeSteamAccountIdentityForPersonalSources()

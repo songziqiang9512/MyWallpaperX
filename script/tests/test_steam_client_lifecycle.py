@@ -8,6 +8,16 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 class SteamClientLifecycleTests(unittest.TestCase):
+    def test_public_query_is_deferred_until_browser_entry(self):
+        service = (ROOT / "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift").read_text()
+        initializer = service[service.index("    private init()"):service.index("    private static func isolatedDebugDefaultsSuiteName")]
+        self.assertNotIn("fetchBrowserItems()", initializer)
+
+        fetching = (ROOT / "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseFetching.swift").read_text()
+        entry = fetching[fetching.index("    func prepareForBrowserEntry()"):fetching.index("    /// SK6.2")]
+        self.assertIn("browserItems.isEmpty || browserState == .idle", entry)
+        self.assertIn("fetchBrowserItems(forceRefresh: true)", entry)
+
     def test_real_client_with_fake_transport(self):
         sources = [
             "MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift",
