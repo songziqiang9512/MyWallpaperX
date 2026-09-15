@@ -49,38 +49,43 @@ extension SteamWorkshopToolbarController {
     func configureAuthItems() {
         let service = SteamWorkshopService.shared
         let auth = service.steamAuth
-        let oldBusy = service.isPreparingRuntime || service.isAuthenticating
 
         // SK2.2：账号按钮状态由新登录路线驱动（§3.1）。
         let symbolName: String
         let tint: NSColor
         let tooltip: String
+        let isBusy: Bool
         switch auth.displayState {
         case .online:
             symbolName = "person.crop.circle.badge.checkmark"
             tint = .controlAccentColor
             tooltip = "Steam 账号菜单"
+            isBusy = false
         case .connecting, .awaitingInput:
             symbolName = "hourglass"
             tint = .secondaryLabelColor
             tooltip = "正在登录 Steam…"
+            isBusy = true
         case .expired:
             symbolName = "person.crop.circle.badge.exclamationmark"
             tint = .systemOrange
             tooltip = "重新登录"
+            isBusy = false
         case .failed:
             symbolName = "person.crop.circle.badge.exclamationmark"
             tint = .systemOrange
             tooltip = "登录出现问题，点击重新登录"
+            isBusy = false
         case .signedOut:
             symbolName = "person.crop.circle"
             tint = .labelColor
             tooltip = "登录 Steam"
+            isBusy = false
         }
         accountButton.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Steam 账号")
         accountButton.contentTintColor = tint
-        accountButton.toolTip = oldBusy ? "正在处理 Steam 登录…" : tooltip
-        accountButton.isEnabled = !oldBusy
+        accountButton.toolTip = tooltip
+        accountButton.isEnabled = !isBusy
         accountToolbarItem.toolTip = accountButton.toolTip
     }
 

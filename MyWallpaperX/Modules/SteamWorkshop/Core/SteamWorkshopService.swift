@@ -9,7 +9,6 @@ import Combine
 @MainActor
 final class SteamWorkshopService: ObservableObject {
     static let shared = SteamWorkshopService()
-    static let authorNameStore = SteamWorkshopAuthorNameStore()
 
     // MARK: - Browser feed state
 
@@ -98,18 +97,13 @@ final class SteamWorkshopService: ObservableObject {
         didSet { refreshDisplayedDownloads() }
     }
     @Published var zoomOffset: Int = 0
-    @Published var statusMessage: String = "浏览页使用原生网格展示，后台抓取 Wallpaper Engine 创意工坊内容。"
+    @Published var statusMessage: String = "浏览页使用 SteamKit 结构化数据展示 Wallpaper Engine 创意工坊内容。"
     @Published var currentWorkshopItemID: String?
     @Published var currentPageTitle: String = "Steam 创意工坊"
     @Published var browserSectionTitle: String = "Steam 创意工坊"
     @Published var isBrowsingAuthorWorkshop = false
     @Published var activeAuthorWorkshopName: String?
-    @Published var requestedURL: URL
     @Published var navigationVersion: Int = 0
-    @Published var communityAccountID: String?
-    @Published var communityAccountName: String?
-
-    let communitySession = SteamCommunitySessionController.shared
 
     /// SK1.2：Steam helper 生命周期客户端。模块统一持有；spawn 由首次登录动作
     /// 触发（SteamAuthRoute.ensureHelperReady），未登录启动不产生进程。不接
@@ -215,9 +209,8 @@ final class SteamWorkshopService: ObservableObject {
         }
     }
 
-    /// SK2.3：退出登录 = 新路线登出（epoch 递增+令牌清理）+ 旧路线会话清理。
+    /// SK2.3：退出登录 = 新路线登出（epoch 递增+令牌清理）。
     /// 有活动/排队任务时先说明一次；本地文件与当前壁纸不受影响。
-    /// 旧 SteamCMD 密码条目的显式迁移清理仍归 SK6；下载执行器已不再消费它。
     func signOutEverywhere() {
         let hasActiveDownloads = !activeDownloadTasks.isEmpty || downloadJobStore.queuedCount > 0
         if hasActiveDownloads {
@@ -230,13 +223,7 @@ final class SteamWorkshopService: ObservableObject {
         }
         Task { @MainActor [weak self] in
             guard let self else { return }
-            // Cleanup runs before signOut suspends; its completion cannot clear a new account.
-            // 旧路线清理（不含旧密码删除，理由见上）。
-            self.cancelActiveLoginSession()
-            self.clearCommunitySession()
             self.cancelDownloadImmediately(showFeedback: false)
-            self.defaults.removeObject(forKey: Constants.defaultsLastUsername)
-            self.defaults.removeObject(forKey: Constants.defaultsLastAuthenticatedAt)
             // SK4.1：队列真值在 JobStore——取消全部任务并清理对应投影。
             for workshopID in self.downloadJobStore.cancelAll() {
                 self.removeTransientRecord(id: workshopID)
@@ -245,16 +232,6 @@ final class SteamWorkshopService: ObservableObject {
             if !self.downloadJobStore.lastSaveSucceeded {
                 self.downloadError = "取消队列未能保存；任务执行已停止，请检查磁盘后重试。"
             }
-            self.steamUsername = ""
-            self.steamPassword = ""
-            self.steamGuardCode = ""
-            self.requiresLogin = true
-            self.isAnonymousBrowsing = false
-            self.authPhase = .credentials
-            self.authSessionState = .expired
-            self.lastSuccessfulSessionValidationAt = nil
-            self.isLoginSheetPresented = false
-            self.authError = nil
             let cleared = await self.steamAuth.signOut()
             guard self.steamAuth.phase == .idle else { return }
             self.statusMessage = cleared ? "已退出 Steam 登录。"
@@ -282,23 +259,6 @@ final class SteamWorkshopService: ObservableObject {
     @Published var selectedDownloadDetailError: String?
     @Published var selectedBrowserItemError: String?
 
-    // MARK: - Authentication state
-
-    @Published var requiresLogin: Bool = true
-    @Published var isAnonymousBrowsing = false
-    @Published var authPhase: SteamWorkshopAuthenticationPhase = .credentials
-    @Published var isLoginSheetPresented = false
-    @Published var isAuthenticating = false
-    @Published var isPreparingRuntime = false
-    @Published var authStatusMessage: String = "首次进入请登录 Steam，软件会使用随 App 打包的 SteamCMD 并保留登录态。"
-    @Published var authError: String?
-    @Published var authSessionState: SteamWorkshopAuthSessionState = .unknown
-    @Published var steamRuntimeVersion: String = "未检测"
-    @Published var steamRuntimeUpdateStatus: String = "当前使用 App 内置 SteamCMD 基线版本。"
-    @Published var steamUsername: String = ""
-    @Published var steamPassword: String = ""
-    @Published var steamGuardCode: String = ""
-
     // MARK: - Web runtime state
 
     @Published var lastWebPlaybackFailureRecordID: String?
@@ -314,22 +274,16 @@ final class SteamWorkshopService: ObservableObject {
     // MARK: - Runtime tasks and processes
 
     var browserFetchTask: Task<Void, Never>?
-    var browserDetailHydrationTask: Task<Void, Never>?
     var webRuntimePreloadTask: Task<Void, Never>?
-    var browserNextPage = 1
-    var prefetchedBrowserPageKeys = Set<String>()
-    var prefetchedBrowserPages: [String: SteamWorkshopBrowseStubPage] = [:]
-    var pendingBrowserDetailStubs: [SteamWorkshopBrowseStub] = []
-    var pendingBrowserDetailStubIDs = Set<String>()
-    var browserDetailRetryCounts: [String: Int] = [:]
-    var prioritizedVisibleBrowserItemIDs: [String] = []
     var lastPreviewPrefetchIDSet = Set<String>()
-    var backgroundDetailDeferralUntil: Date = .distantPast
     var browserLoadMoreRetryAfter: Date = .distantPast
 
     // MARK: - Shared infrastructure
 
     var cancellables = Set<AnyCancellable>()
+    /// Shared preference owner for Scene property values and security-scoped
+    /// texture bookmarks. This is independent of the retired acquisition
+    /// backend and preserves the isolated defaults suite used by runtime gates.
     let defaults: UserDefaults = {
 #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
@@ -349,20 +303,6 @@ final class SteamWorkshopService: ObservableObject {
 #endif
         return .standard
     }()
-    var loginProcess: Process?
-    var loginInputHandle: FileHandle?
-    var loginOutputHandle: FileHandle?
-    var loginOutputBuffer: String = ""
-    var loginPasswordSent = false
-    var loginSucceeded = false
-    var loginSubmittedGuardCode = false
-    var pendingLoginUsername: String = ""
-    var pendingLoginPassword: String = ""
-    var pendingLoginCommand: String?
-    var startupTask: Task<Void, Never>?
-    var loginBootstrapTimeoutTask: Task<Void, Never>?
-    var loginSessionID: String = ""
-    var lastSuccessfulSessionValidationAt: Date?
     let maximumConcurrentDownloads = 2
     var activeDownloadJobKeysByItemID: [String: String] = [:]
     var activeDownloadTasks: [String: Task<Void, Never>] = [:]
@@ -401,39 +341,14 @@ final class SteamWorkshopService: ObservableObject {
     // MARK: - Lifecycle
 
     private init() {
-        requestedURL = SteamWorkshopService.makeBrowseURL(
-            browserContentMode: .video,
-            source: .featured,
-            query: "",
-            trendingWindow: .week,
-            themeFilter: .all,
-            ageRatingFilter: .all,
-            resolutionFilter: .all,
-            categoryFilter: .all,
-            page: 1,
-            personalSort: .subscriptionDate
-        )
+        SteamWorkshopLegacyAcquisitionRetirement.run(defaults: defaults)
 #if DEBUG
         let isIsolatedWebSampleRun = ProcessInfo.processInfo.arguments.contains("--mwx-debug-run-web-workshop-id")
 #else
         let isIsolatedWebSampleRun = false
 #endif
         if !isIsolatedWebSampleRun {
-#if DEBUG
-            if !isSteamKitBrowseEnabled {
-                // 整版本回退必须恢复旧 route 的完整启动 owner，而不是只把
-                // 浏览函数切回去。该分支只由进程启动参数触发，发行构建不可达。
-                loadAuthenticationState()
-                refreshSteamRuntimeStatus()
-                loadCachedBrowserItemsIfPossible()
-            } else {
-                restoreSavedSteamSessionIfAuthorized()
-            }
-#else
-            // SK6.1：启动不再读取旧密码/SteamCMD 状态或 HTML 浏览缓存。
-            // 旧凭据和缓存留待 SK6.2 按精确清单退役；本批只撤销其产品执行权。
             restoreSavedSteamSessionIfAuthorized()
-#endif
         }
         reloadInstalledItems()
         refreshDisplayedDownloads()

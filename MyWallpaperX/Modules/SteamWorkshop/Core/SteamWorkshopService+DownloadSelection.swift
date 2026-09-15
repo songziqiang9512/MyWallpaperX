@@ -175,7 +175,6 @@ extension SteamWorkshopService {
     }
 
     private func presentDownloadInspector(_ item: SteamWorkshopBrowserItem) {
-        prioritizeUserRequestedDetail()
         selectedDownloadInspectorItem = item
         selectedDownloadDetailItem = item
         selectedDownloadDetailError = nil

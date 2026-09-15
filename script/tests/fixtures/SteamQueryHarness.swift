@@ -36,6 +36,7 @@ final class QueryTransport: SteamServiceTransporting {
              "description": "detail-\(id)", "consumerAppid": 431960, "fileSize": size,
              "visibility": 0, "banned": false, "subscriptions": 12, "favorited": 3,
              "lifetimeSubscriptions": 20, "lifetimeFavorited": 4, "views": 50,
+             "dependencyIds": ["20", "21"],
              "tags": ["1", "2", "3", "4", "5", "6", "7", "8", "Video"]]
         }
         func page(_ number: Int, _ items: [[String: Any]]) -> [String: Any] {
@@ -48,6 +49,7 @@ final class QueryTransport: SteamServiceTransporting {
         precondition(first.items[0].creatorSteamId == "76561198000000000")
         precondition(first.items[0].description == "detail-1")
         precondition(first.items[0].subscriptions == 12 && first.items[0].views == 50)
+        precondition(first.items[0].dependencyIds == ["20", "21"])
         for key in ["items", "page", "total", "hasMore", "wrongAppDropped"] {
             payload = page(1, [item("1", 10)]); payload.removeValue(forKey: key)
             do { _ = try await query.browse(sort: .newest, page: 1); fatalError("missing field accepted: \(key)") }
@@ -63,6 +65,9 @@ final class QueryTransport: SteamServiceTransporting {
         var badBanned = item("1", 1); badBanned["banned"] = "false"
         payload = page(1, [badBanned])
         do { _ = try await query.browse(sort: .newest, page: 1); fatalError("bad moderation accepted") } catch { }
+        var badDependency = item("1", 1); badDependency["dependencyIds"] = ["not-an-id"]
+        payload = page(1, [badDependency])
+        do { _ = try await query.browse(sort: .newest, page: 1); fatalError("bad dependency accepted") } catch { }
         payload = ["states": ["1": "false"]]
         do { _ = try await query.subscriptionStates(ids: ["1"]); fatalError("invalid bool accepted") } catch { }
         payload = ["states": [:]]
@@ -90,6 +95,7 @@ final class QueryTransport: SteamServiceTransporting {
         _ = try await browse.fetchPersonal(page: 3, generation: browse.generation - 1)
         precondition(browse.nextPage == 3 && browse.rawItems.count == 2, "stale page cannot commit")
         precondition(SteamKitBrowseStore.sort(for: .updated) == .updated)
+        let discoverySnapshot = browse.snapshot()
 
         let authorKey = browse.makeAuthorKey(creatorSteamID: "76561198000000000", contentMode: .video,
             theme: .all, resolution: .all, category: .all)
@@ -113,6 +119,11 @@ final class QueryTransport: SteamServiceTransporting {
         }
         let details = try await browse.fetch(page: 1, generation: browse.bumpGeneration())
         precondition(details.items.map(\.publishedFileId) == ["11"] && !details.hasMore)
+        let detailGeneration = browse.generation
+        browse.restore(discoverySnapshot)
+        precondition(browse.generation == detailGeneration + 1)
+        precondition(browse.currentKey == key && browse.nextPage == 3 && browse.hasMore)
+        precondition(browse.rawItems.map(\.publishedFileId) == ["1", "2"])
 
         var epoch: Int? = 1
         var writes = 0

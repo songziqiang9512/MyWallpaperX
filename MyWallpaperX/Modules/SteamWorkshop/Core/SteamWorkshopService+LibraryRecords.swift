@@ -657,132 +657,6 @@ extension SteamWorkshopService {
         return Self.loadDetailCache(id: id)
     }
 
-    nonisolated static func cachedItemNeedsHydration(for stub: SteamWorkshopBrowseStub) -> Bool {
-        SteamWorkshopDetailRefreshSupport.cachedItemNeedsHydration(for: stub)
-    }
-
-    nonisolated static func applyingCachedAuthorNameIfPossible(to item: SteamWorkshopBrowserItem) async -> SteamWorkshopBrowserItem {
-        guard item.author == "未知作者" else { return item }
-        let keys = authorCacheKeys(
-            creatorID: creatorID(from: item.authorProfileURL) ?? creatorID(from: item.authorWorkshopURL),
-            authorProfileURL: item.authorProfileURL,
-            authorWorkshopURL: item.authorWorkshopURL
-        )
-        guard let cachedAuthorName = await Self.authorNameStore.name(for: keys) else { return item }
-        return SteamWorkshopBrowserItem(
-            id: item.id,
-            title: item.title,
-            author: cachedAuthorName,
-            authorProfileURL: item.authorProfileURL,
-            authorWorkshopURL: item.authorWorkshopURL,
-            hasAdultContent: item.hasAdultContent,
-            summary: item.summary,
-            descriptionText: item.descriptionText,
-            tags: item.tags,
-            workshopTypeText: item.workshopTypeText,
-            ageRatingText: item.ageRatingText,
-            genreText: item.genreText,
-            categoryText: item.categoryText,
-            dependencyIDs: item.dependencyIDs,
-            previewImageURL: item.previewImageURL,
-            previewVideoURL: item.previewVideoURL,
-            previewAssetKind: item.previewAssetKind,
-            fileSizeText: item.fileSizeText,
-            resolutionText: item.resolutionText,
-            postedText: item.postedText,
-            updatedText: item.updatedText,
-            favoritesText: item.favoritesText,
-            subscriptionsText: item.subscriptionsText,
-            scoreText: item.scoreText,
-            lifetimeFavoritesText: item.lifetimeFavoritesText,
-            lifetimeSubscriptionsText: item.lifetimeSubscriptionsText,
-            visibilityText: item.visibilityText,
-            moderationText: item.moderationText,
-            detailFields: item.detailFields,
-            detailURL: item.detailURL
-        )
-    }
-
-    nonisolated static func resolvedAuthorName(
-        creatorID: String?,
-        stub: SteamWorkshopBrowseStub,
-        authorProfileURL: URL?,
-        authorWorkshopURL: URL?
-    ) async -> String {
-        let stubAuthor = normalizedStubAuthor(
-            SteamWorkshopBrowseStub(
-                id: stub.id,
-                title: stub.title,
-                author: stub.author,
-                authorProfileURL: authorProfileURL ?? stub.authorProfileURL,
-                authorWorkshopURL: authorWorkshopURL ?? stub.authorWorkshopURL,
-                hasAdultContent: stub.hasAdultContent,
-                summary: stub.summary,
-                previewImageURL: stub.previewImageURL
-            )
-        )
-
-        if stubAuthor != "未知作者" {
-            await saveAuthorNameIfPossible(
-                stubAuthor,
-                creatorID: creatorID,
-                authorProfileURL: authorProfileURL ?? stub.authorProfileURL,
-                authorWorkshopURL: authorWorkshopURL ?? stub.authorWorkshopURL
-            )
-            return stubAuthor
-        }
-
-        let keys = authorCacheKeys(
-            creatorID: creatorID,
-            authorProfileURL: authorProfileURL ?? stub.authorProfileURL,
-            authorWorkshopURL: authorWorkshopURL ?? stub.authorWorkshopURL
-        )
-        if let cachedName = await Self.authorNameStore.name(for: keys) {
-            return cachedName
-        }
-        return stubAuthor
-    }
-
-    nonisolated static func saveAuthorNameIfPossible(
-        _ authorName: String?,
-        creatorID: String?,
-        authorProfileURL: URL?,
-        authorWorkshopURL: URL?
-    ) async {
-        guard let authorName else { return }
-        let normalizedName = normalizeAuthorName(authorName)
-        let keys = authorCacheKeys(
-            creatorID: creatorID,
-            authorProfileURL: authorProfileURL,
-            authorWorkshopURL: authorWorkshopURL
-        )
-        await Self.authorNameStore.store(name: normalizedName, for: keys)
-    }
-
-    nonisolated static func authorCacheKeys(
-        creatorID explicitCreatorID: String?,
-        authorProfileURL: URL?,
-        authorWorkshopURL: URL?
-    ) -> [String] {
-        var keys: [String] = []
-        if let explicitCreatorID, !explicitCreatorID.isEmpty {
-            keys.append("creator:\(explicitCreatorID)")
-        }
-        if let authorProfileURL {
-            keys.append("profile:\((normalizeSteamCommunityURL(authorProfileURL.absoluteString) ?? authorProfileURL).absoluteString.lowercased())")
-        }
-        if let normalizedWorkshopURL = normalizedAuthorWorkshopURL(authorWorkshopURL) {
-            keys.append("workshop:\(normalizedWorkshopURL.absoluteString.lowercased())")
-        }
-        if let profileCreatorID = creatorID(from: authorProfileURL) {
-            keys.append("creator:\(profileCreatorID)")
-        }
-        if let workshopCreatorID = creatorID(from: authorWorkshopURL) {
-            keys.append("creator:\(workshopCreatorID)")
-        }
-        return Array(NSOrderedSet(array: keys)) as? [String] ?? keys
-    }
-
     nonisolated static func creatorID(from url: URL?) -> String? {
         guard let url else { return nil }
         let components = url.absoluteURL.pathComponents
@@ -791,7 +665,12 @@ extension SteamWorkshopService {
             return nil
         }
         let candidate = components[profilesIndex + 1].trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        return candidate.isEmpty ? nil : candidate
+        guard !candidate.isEmpty,
+              candidate.unicodeScalars.allSatisfy({ (48...57).contains($0.value) }),
+              let value = UInt64(candidate), value != 0 else {
+            return nil
+        }
+        return candidate
     }
 
     private func videoFileCandidates(in directory: URL) -> [URL] {

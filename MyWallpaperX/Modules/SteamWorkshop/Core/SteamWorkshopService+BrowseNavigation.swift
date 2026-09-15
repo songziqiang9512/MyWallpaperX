@@ -15,11 +15,10 @@ extension SteamWorkshopService {
             workshopURL: workshopURL
         )
         setBrowserQuery("")
-        requestedURL = requestedURLForCurrentContext(page: 1)
         navigationVersion += 1
         currentWorkshopItemID = nil
         currentPageTitle = browseContext.isAuthorWorkshop ? browseContext.title : source.pageTitle
-        statusMessage = loadingStatusMessage(for: browseContext)
+        statusMessage = "正在加载作者工坊列表…"
         fetchBrowserItems()
         requestSteamWorkshopBrowserSelection()
     }
@@ -28,7 +27,6 @@ extension SteamWorkshopService {
         guard browseContext.isAuthorWorkshop else { return }
         browserFetchTask?.cancel()
         browserFetchTask = nil
-        cancelBrowserDetailHydration()
         selectedItemDetailTask?.cancel()
         selectedItemDetailTask = nil
         navigationVersion += 1
@@ -43,26 +41,6 @@ extension SteamWorkshopService {
         }
         discoveryBrowseSnapshot = nil
         suppressAutomaticBrowseNavigation = false
-    }
-
-    func requestedURLForCurrentContext(page: Int) -> URL {
-        switch browseContext {
-        case .discovery:
-            return Self.makeBrowseURL(
-                browserContentMode: browserContentMode,
-                source: source,
-                query: browserQuery,
-                trendingWindow: trendingWindow,
-                themeFilter: themeFilter,
-                ageRatingFilter: ageRatingFilter,
-                resolutionFilter: resolutionFilter,
-                categoryFilter: categoryFilter,
-                page: page,
-                personalSort: personalSort
-            )
-        case .authorWorkshop(_, let workshopURL):
-            return Self.makeAuthorWorkshopURL(baseURL: workshopURL, page: page)
-        }
     }
 
     func handleBrowserQueryChanged() {
@@ -116,15 +94,13 @@ extension SteamWorkshopService {
             browserItems: browserItems,
             browserState: browserState,
             hasMoreBrowserItems: hasMoreBrowserItems,
-            browserNextPage: browserNextPage,
             statusMessage: statusMessage,
             currentPageTitle: currentPageTitle,
-            requestedURL: requestedURL,
             browserQuery: browserQuery,
             currentWorkshopItemID: currentWorkshopItemID,
             selectedBrowserItem: selectedBrowserItem,
-            prefetchedBrowserPageKeys: prefetchedBrowserPageKeys,
-            scrollOffsetY: currentBrowserScrollOffsetY
+            scrollOffsetY: currentBrowserScrollOffsetY,
+            steamKitBrowseSnapshot: steamKitBrowseStore.snapshot()
         )
     }
 
@@ -143,18 +119,16 @@ extension SteamWorkshopService {
         browserItems = snapshot.browserItems
         browserState = snapshot.browserState
         hasMoreBrowserItems = snapshot.hasMoreBrowserItems
-        browserNextPage = snapshot.browserNextPage
+        steamKitBrowseStore.restore(snapshot.steamKitBrowseSnapshot)
         isLoadingMoreBrowserItems = false
         statusMessage = snapshot.statusMessage
         currentPageTitle = snapshot.currentPageTitle
-        requestedURL = snapshot.requestedURL
         currentWorkshopItemID = snapshot.currentWorkshopItemID
         if let selectedID = snapshot.selectedBrowserItem?.id {
             selectedBrowserItem = snapshot.browserItems.first(where: { $0.id == selectedID }) ?? snapshot.selectedBrowserItem
         } else {
             selectedBrowserItem = nil
         }
-        prefetchedBrowserPageKeys = snapshot.prefetchedBrowserPageKeys
         pendingBrowserScrollRestoreOffset = snapshot.scrollOffsetY
     }
 

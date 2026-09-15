@@ -111,16 +111,6 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
             }
             .store(in: &cancellables)
 
-        Publishers.CombineLatest(
-            SteamWorkshopService.shared.$requiresLogin,
-            SteamWorkshopService.shared.$isAnonymousBrowsing
-        )
-        .receive(on: RunLoop.main)
-        .sink { [weak self] _, _ in
-            self?.configureAuthItems()
-        }
-        .store(in: &cancellables)
-
         // SK2.2：账号按钮随新登录路线状态刷新。
         SteamWorkshopService.shared.steamAuth.$phase
             .receive(on: RunLoop.main)
@@ -150,13 +140,6 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
                 self?.configureAuthItems()
             }
             .store(in: &cancellables)
-
-        SteamWorkshopService.shared.$isPreparingRuntime
-        .receive(on: RunLoop.main)
-        .sink { [weak self] _ in
-            self?.configureAuthItems()
-        }
-        .store(in: &cancellables)
 
         SteamWorkshopService.shared.$source
             .receive(on: RunLoop.main)

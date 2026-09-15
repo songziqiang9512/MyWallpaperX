@@ -36,7 +36,6 @@ extension SteamWorkshopService {
             }
             if !activeDownloadItemIDs.contains(id) {
                 statusMessage = "\(title) 已在下载任务中。"
-                appendSteamAuthDebugLog("DOWNLOAD BLOCKED: duplicate active/queued request. requestedID=\(id)")
             }
             return
         }
@@ -84,9 +83,6 @@ extension SteamWorkshopService {
     private var isDownloadWorkflowBusy: Bool {
         activeDownloadTasks.count >= maximumConcurrentDownloads
             || !reservedLibraryCopyBytesByJobKey.isEmpty
-            || isAuthenticating
-            || isLoginSheetPresented
-            || authPhase == .awaitingGuardCode
     }
 
     func startDownloadRequest(_ request: SteamWorkshopPendingDownloadRequest) {
@@ -441,10 +437,7 @@ extension SteamWorkshopService {
     }
 
     private func processNextQueuedDownloadIfPossible() {
-        guard !isLoginSheetPresented,
-              authPhase != .awaitingGuardCode,
-              !isAuthenticating,
-              reservedLibraryCopyBytesByJobKey.isEmpty else { return }
+        guard reservedLibraryCopyBytesByJobKey.isEmpty else { return }
 
         // 恢复任务只按当前在线账号出队。无账号时保持队列原样，不制造匿名任务。
         guard steamAuth.isOnline, let account = steamAuth.steamId else { return }

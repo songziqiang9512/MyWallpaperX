@@ -5,8 +5,8 @@
 
 import Foundation
 
-// SK6.1：SteamKit 统一查询已取得默认浏览执行权。发行构建没有双后端
-// 设置或同请求 fallback；DEBUG 的整版本回退参数只用于隔离升级验收。
+// SK6.2：SteamKit 统一查询是唯一浏览执行权，没有双后端设置或同请求
+// fallback。
 // 合同（§4.1）：
 // - QueryKey（排序/标签/搜索/时间窗）+ generation：条件变化重置分页；
 //   逆序/迟到响应按 generation 丢弃，已有页不清空。
@@ -17,30 +17,20 @@ import Foundation
 // - 详情批条目自带网格所需字段（标题/预览/标签/大小/更新时间），
 //   打开详情面板仍走既有按 ID 补全路径。
 extension SteamWorkshopService {
-    var isSteamKitBrowseEnabled: Bool {
-#if DEBUG
-        return !ProcessInfo.processInfo.arguments.contains("--mwx-legacy-steam-browse")
-#else
-        return true
-#endif
-    }
-
     /// 公开 discovery route。作者页与严格 ID 分别走同一个 store 的
     /// `.author`/`.details` 查询，绝不掉回 HTML。
     var shouldUseSteamKitBrowse: Bool {
-        isSteamKitBrowseEnabled
-            && !source.isPersonal
+        !source.isPersonal
             && !browseContext.isAuthorWorkshop
             && Self.workshopItemIDSearchID(from: browserQuery) == nil
     }
 
     var shouldUseSteamKitAuthor: Bool {
-        isSteamKitBrowseEnabled && browseContext.isAuthorWorkshop
+        browseContext.isAuthorWorkshop
     }
 
     var shouldUseSteamKitItemLookup: Bool {
-        isSteamKitBrowseEnabled
-            && !browseContext.isAuthorWorkshop
+        !browseContext.isAuthorWorkshop
             && Self.workshopItemIDSearchID(from: browserQuery) != nil
     }
 
@@ -52,7 +42,7 @@ extension SteamWorkshopService {
         if case .authorWorkshop(_, let workshopURL) = browseContext,
            Self.creatorID(from: workshopURL) == nil {
             browserFetchTask?.cancel()
-            cancelBrowserDetailHydration()
+            browserFetchTask = nil
             browserItems = []
             browserState = .failed("作者标识不可用")
             hasMoreBrowserItems = false
@@ -94,11 +84,9 @@ extension SteamWorkshopService {
         let expectedNavigationVersion = navigationVersion
 
         browserFetchTask?.cancel()
-        cancelBrowserDetailHydration()
         isLoadingMoreBrowserItems = false
         isRefreshingBrowserFeed = forceRefresh
         browserLoadMoreRetryAfter = .distantPast
-        browserNextPage = 2
         if keyChanged || browserItems.isEmpty {
             browserState = .loading
             browserItems = []
@@ -123,12 +111,12 @@ extension SteamWorkshopService {
                     guard self.navigationVersion == expectedNavigationVersion,
                           generation == self.steamKitBrowseStore.generation,
                           self.shouldUseSteamKitStructuredBrowse else { return }
+                    self.browserFetchTask = nil
                     let filtered = self.steamKitStructuredPostProcess(result.items)
                         .map(SteamWorkshopBrowserItem.make(from:))
                     self.browserItems = filtered
                     self.browserState = .loaded
                     self.hasMoreBrowserItems = result.hasMore
-                    self.browserNextPage = 2
                     self.isRefreshingBrowserFeed = false
                     if result.total > 0 {
                         self.statusMessage = "已加载 \(filtered.count) 项 / 共 \(result.total) 项。"
@@ -142,6 +130,7 @@ extension SteamWorkshopService {
                 await MainActor.run {
                     guard self.navigationVersion == expectedNavigationVersion,
                           generation == self.steamKitBrowseStore.generation else { return }
+                    self.browserFetchTask = nil
                     if self.browserItems.isEmpty {
                         self.browserState = .failed("加载失败：\(error.localizedDescription)")
                     }
@@ -178,7 +167,6 @@ extension SteamWorkshopService {
                     let filtered = self.steamKitStructuredPostProcess(result.items)
                         .map(SteamWorkshopBrowserItem.make(from:))
                     self.browserItems = filtered
-                    self.browserNextPage = page + 1
                     self.hasMoreBrowserItems = result.hasMore
                     self.isLoadingMoreBrowserItems = false
                     self.browserLoadMoreRetryAfter = .distantPast
@@ -205,15 +193,14 @@ extension SteamWorkshopService {
     /// 个人来源始终由新 route 接管。离线时在原区域显示登录指引，不创建
     /// helper 请求，也不回落到 Cookie/HTML。
     var shouldUseSteamKitPersonal: Bool {
-        isSteamKitBrowseEnabled
-            && source.isPersonal
+        source.isPersonal
             && !browseContext.isAuthorWorkshop
     }
 
     func fetchPersonalViaSteamKit(forceRefresh: Bool) {
         guard steamAuth.isOnline else {
             browserFetchTask?.cancel()
-            cancelBrowserDetailHydration()
+            browserFetchTask = nil
             browserItems = []
             browserState = .loaded
             hasMoreBrowserItems = false
@@ -241,11 +228,9 @@ extension SteamWorkshopService {
         let expectedNavigationVersion = navigationVersion
 
         browserFetchTask?.cancel()
-        cancelBrowserDetailHydration()
         isLoadingMoreBrowserItems = false
         isRefreshingBrowserFeed = forceRefresh
         browserLoadMoreRetryAfter = .distantPast
-        browserNextPage = 2
         if keyChanged || browserItems.isEmpty {
             browserState = .loading
             browserItems = []
@@ -269,6 +254,7 @@ extension SteamWorkshopService {
                     guard self.navigationVersion == expectedNavigationVersion,
                           generation == self.steamKitBrowseStore.generation,
                           self.shouldUseSteamKitPersonal else { return }
+                    self.browserFetchTask = nil
                     let processed = self.steamKitPersonalPostProcess(result.items)
                         .map(SteamWorkshopBrowserItem.make(from:))
                     self.browserItems = processed
@@ -285,6 +271,7 @@ extension SteamWorkshopService {
                 await MainActor.run {
                     guard self.navigationVersion == expectedNavigationVersion,
                           generation == self.steamKitBrowseStore.generation else { return }
+                    self.browserFetchTask = nil
                     if self.browserItems.isEmpty {
                         self.browserState = .failed("加载失败：\(error.localizedDescription)")
                     }
@@ -501,7 +488,7 @@ extension SteamWorkshopBrowserItem {
             ageRatingText: nil,
             genreText: nil,
             categoryText: nil,
-            dependencyIDs: [],
+            dependencyIDs: item.dependencyIds,
             previewImageURL: item.previewUrl.flatMap(URL.init(string:)),
             previewVideoURL: nil,
             previewAssetKind: .stillImage,
@@ -582,7 +569,7 @@ extension SteamWorkshopBrowserItem {
             ageRatingText: ageRating,
             genreText: genre,
             categoryText: category,
-            dependencyIDs: fallback.dependencyIDs,
+            dependencyIDs: item.dependencyIds,
             previewImageURL: item.previewUrl.flatMap(URL.init(string:)) ?? fallback.previewImageURL,
             previewVideoURL: fallback.previewVideoURL,
             previewAssetKind: fallback.previewAssetKind,
@@ -643,6 +630,14 @@ final class SteamKitBrowseStore {
         let personalSortRaw: String?
         /// §4.1/§3.3：账号身份参与个人来源键；discovery 键为 nil。
         let accountSteamID: String?
+    }
+
+    struct Snapshot {
+        let key: Key?
+        let nextPage: Int
+        let hasMore: Bool
+        let rawItems: [SteamWorkshopQueryItem]
+        let partialErrors: [SteamWorkshopQueryPage.SteamWorkshopPartialError]
     }
 
     private(set) var generation = 0
@@ -785,6 +780,34 @@ final class SteamKitBrowseStore {
     func bumpGeneration() -> Int {
         generation += 1
         return generation
+    }
+
+    func snapshot() -> Snapshot {
+        Snapshot(
+            key: currentKey,
+            nextPage: nextPage,
+            hasMore: hasMore,
+            rawItems: rawItems,
+            partialErrors: partialErrors
+        )
+    }
+
+    func restore(_ snapshot: Snapshot) {
+        generation += 1
+        currentKey = snapshot.key
+        nextPage = snapshot.nextPage
+        hasMore = snapshot.hasMore
+        rawItems = snapshot.rawItems
+        partialErrors = snapshot.partialErrors
+    }
+
+    func clear() {
+        generation += 1
+        currentKey = nil
+        nextPage = 1
+        hasMore = false
+        rawItems = []
+        partialErrors = []
     }
 
     private func merge(_ items: [SteamWorkshopQueryItem], page: Int,

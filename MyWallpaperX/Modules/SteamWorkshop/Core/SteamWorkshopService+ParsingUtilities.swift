@@ -1,16 +1,6 @@
 import Foundation
 
 extension SteamWorkshopService {
-    nonisolated static func normalizedStubTitle(_ stub: SteamWorkshopBrowseStub) -> String {
-        let title = stub.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return title.isEmpty ? "Workshop #\(stub.id)" : title
-    }
-
-    nonisolated static func normalizedStubAuthor(_ stub: SteamWorkshopBrowseStub) -> String {
-        let author = normalizeAuthorName(stub.author ?? "")
-        return author.isEmpty ? "未知作者" : author
-    }
-
     nonisolated static func formatSteamTimestamp(_ timestamp: Int64?) -> String? {
         guard let timestamp, timestamp > 0 else { return nil }
         return DateFormatter.localizedString(
@@ -126,18 +116,6 @@ extension SteamWorkshopService {
         return isResolutionTag(tag)
     }
 
-    nonisolated static func normalizeAuthorName(_ text: String) -> String {
-        let normalized = normalizeText(text)
-        guard !normalized.isEmpty else { return "" }
-        let statusTokens = ["在线", "离线", "游戏中", "正在游戏", "当前离线"]
-        for token in statusTokens {
-            if let range = normalized.range(of: token) {
-                return String(normalized[..<range.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-        }
-        return normalized
-    }
-
     nonisolated static func firstCapture(pattern: String, in html: String) -> String? {
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) else {
             return nil
@@ -149,18 +127,6 @@ extension SteamWorkshopService {
         let targetRange = match.numberOfRanges > 1 ? match.range(at: 1) : match.range(at: 0)
         guard let swiftRange = Range(targetRange, in: html) else { return nil }
         return String(html[swiftRange])
-    }
-
-    nonisolated static func firstCaptureMatches(pattern: String, in html: String) -> [String] {
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) else {
-            return []
-        }
-        let range = NSRange(html.startIndex..<html.endIndex, in: html)
-        return regex.matches(in: html, options: [], range: range).compactMap { match in
-            let targetRange = match.numberOfRanges > 1 ? match.range(at: 1) : match.range(at: 0)
-            guard let swiftRange = Range(targetRange, in: html) else { return nil }
-            return normalizeText(String(html[swiftRange]))
-        }
     }
 
     nonisolated static func normalizeText(_ text: String) -> String {

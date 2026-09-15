@@ -155,10 +155,8 @@ extension SteamWorkshopToolbarController {
             item.representedObject = Int(filter.rawValue)
             ageMenu.addItem(item)
         }
-        if service.isSteamKitBrowseEnabled {
-            ageMenuItem.title = "分级（暂不支持）"
-            ageMenuItem.isEnabled = false
-        }
+        ageMenuItem.title = "分级（暂不支持）"
+        ageMenuItem.isEnabled = false
         ageMenuItem.submenu = ageMenu
         menu.addItem(ageMenuItem)
 
@@ -294,12 +292,6 @@ extension SteamWorkshopToolbarController {
         guard let ascending = sender.representedObject as? Bool else { return }
         SteamWorkshopService.shared.downloadsSortAscending = ascending
         configureDownloadsSortItem()
-    }
-
-    @objc func handleBrowseAnonymously() {
-        DispatchQueue.main.async {
-            SteamWorkshopService.shared.browseAnonymously()
-        }
     }
 
     @objc func handleThemeFilterItem(_ sender: NSMenuItem) {

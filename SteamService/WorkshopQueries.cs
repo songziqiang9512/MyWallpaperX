@@ -50,6 +50,7 @@ internal sealed partial class SteamSession
                 page = page,
                 return_metadata = true,
                 return_tags = true,
+                return_children = true,
             };
             foreach (var tag in requiredTags.Where(t => !string.IsNullOrWhiteSpace(t)))
             {
@@ -87,7 +88,13 @@ internal sealed partial class SteamSession
         }
         RunQueryAsync(requestId, async ct =>
         {
-            var request = new CPublishedFile_GetDetails_Request { appid = ProtocolLimits.AppId };
+            var request = new CPublishedFile_GetDetails_Request
+            {
+                appid = ProtocolLimits.AppId,
+                includetags = true,
+                includemetadata = true,
+                includechildren = true,
+            };
             foreach (var id in ids)
             {
                 request.publishedfileids.Add(id);
@@ -398,6 +405,12 @@ internal sealed partial class SteamSession
                 lifetimeSubscriptions = file.lifetime_subscriptions,
                 lifetimeFavorited = file.lifetime_favorited,
                 views = file.views,
+                dependencyIds = file.children?
+                    .Select(child => child.publishedfileid)
+                    .Where(id => id != 0)
+                    .Distinct()
+                    .Select(id => id.ToString())
+                    .ToArray() ?? [],
                 fileType = file.file_type,
                 hcontentFile = file.hcontent_file.ToString(),
                 tags = file.tags?.Select(t => t.tag).Where(t => !string.IsNullOrEmpty(t)).ToArray(),
@@ -418,6 +431,7 @@ internal sealed partial class SteamSession
             numperpage = QueryPageSize,
             type = type,
             ids_only = idsOnly,
+            return_children = !idsOnly,
         };
         var job = lease == null ? publishedFiles.GetUserFiles(request)
             : SendForAccount(lease, () => publishedFiles.GetUserFiles(request), ct);

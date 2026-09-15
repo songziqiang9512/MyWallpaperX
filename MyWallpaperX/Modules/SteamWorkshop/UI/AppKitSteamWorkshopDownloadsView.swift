@@ -49,7 +49,6 @@ final class AppKitSteamWorkshopDownloadsView: NSView {
             return
         }
 
-        service.isLoginSheetPresented = false
         if service.downloads.isEmpty {
             service.reloadInstalledItems()
         }

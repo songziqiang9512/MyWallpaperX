@@ -25,6 +25,7 @@ struct SteamWorkshopQueryItem: Equatable {
     let lifetimeSubscriptions: Int?
     let lifetimeFavorited: Int?
     let views: Int?
+    let dependencyIds: [String]
     let tags: [String]
 }
 
@@ -310,6 +311,7 @@ final class SteamWorkshopQueryClient {
                   let id = object["publishedfileid"]?.stringValue, validID(id),
                   let title = object["title"]?.stringValue,
                   object["consumerAppid"]?.intValue == 431960,
+                  let dependencyValues = object["dependencyIds"]?.arrayValue,
                   let tagValues = object["tags"]?.arrayValue else { throw malformed }
             for key in ["fileSize", "timeUpdated", "timeCreated", "timeSubscribed", "visibility",
                         "subscriptions", "favorited", "lifetimeSubscriptions", "lifetimeFavorited", "views"] {
@@ -330,6 +332,11 @@ final class SteamWorkshopQueryClient {
             let tags = try tagValues.map { tag -> String in
                 guard let text = tag.stringValue else { throw malformed }; return text
             }
+            let dependencyIds = try dependencyValues.map { dependency -> String in
+                guard let id = dependency.stringValue, validID(id) else { throw malformed }
+                return id
+            }
+            guard Set(dependencyIds).count == dependencyIds.count else { throw malformed }
             return SteamWorkshopQueryItem(publishedFileId: id, creatorSteamId: creatorSteamId, title: title,
                 description: object["description"]?.stringValue,
                 previewUrl: object["previewUrl"]?.stringValue, fileSize: object["fileSize"]?.intValue,
@@ -341,7 +348,7 @@ final class SteamWorkshopQueryClient {
                 favorited: object["favorited"]?.intValue,
                 lifetimeSubscriptions: object["lifetimeSubscriptions"]?.intValue,
                 lifetimeFavorited: object["lifetimeFavorited"]?.intValue,
-                views: object["views"]?.intValue, tags: tags)
+                views: object["views"]?.intValue, dependencyIds: dependencyIds, tags: tags)
         }
         guard Set(items.map(\.publishedFileId)).count == items.count else { throw malformed }
         let partial: [SteamServiceJSON]

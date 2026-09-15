@@ -20,6 +20,7 @@ internal sealed partial class SteamSession
         RequireQuerySuccess(EResult.OK); count++;
         var valid = new PublishedFileDetails { publishedfileid = 123, creator = 76561198000000000,
             result = 1, consumer_appid = 431960, title = "test" };
+        valid.children.Add(new() { publishedfileid = 456 });
         for (int i = 0; i < 12; i++) valid.tags.Add(new() { tag = "tag" + i });
         var mapped = MapItems([valid, new PublishedFileDetails { publishedfileid = 456, result = 9 },
             new PublishedFileDetails { publishedfileid = 789, result = 1, consumer_appid = 1 }]);
@@ -29,6 +30,7 @@ internal sealed partial class SteamSession
         Check(item.RootElement.GetProperty("creatorSteamId").GetString() == "76561198000000000");
         Check(item.RootElement.TryGetProperty("description", out _)
             && item.RootElement.TryGetProperty("subscriptions", out _));
+        Check(item.RootElement.GetProperty("dependencyIds")[0].GetString() == "456");
         using var partial = JsonDocument.Parse(JsonSerializer.Serialize(mapped.PartialErrors[0]));
         Check(partial.RootElement.GetProperty("publishedfileid").GetString() == "456");
         Check(!SortMap.ContainsKey("updated"));

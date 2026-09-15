@@ -19,13 +19,11 @@ final class AppKitSteamWorkshopBrowserView: NSView {
     private var cancellables = Set<AnyCancellable>()
     private var currentState: ContentState?
     private var inspectorDetailView: AppKitSteamWorkshopItemDetailView?
-    private var loginOverlayView: SteamWorkshopLoginOverlayView?
     private var lastRequestedCardID: String?
     private var visibleCardID: String?
     private var latestInspectorItem: SteamWorkshopBrowserItem?
     private var isHandlingHostClose = false
     private var isShowingDownloadError = false
-    private var isShowingAuthError = false
 
     private lazy var gridView = AppKitSteamWorkshopBrowserContainerView(
         service: service,
@@ -64,15 +62,12 @@ final class AppKitSteamWorkshopBrowserView: NSView {
         if window == nil {
             InspectorHostActions.postClose(module: .steamWorkshop)
             service.dismissItemDetail()
-            removeLoginOverlay()
             return
         }
 
         service.prepareForBrowserEntry()
         syncContent(force: true)
-        syncLoginOverlay(isPresented: service.isLoginSheetPresented)
         presentPendingDownloadErrorIfNeeded()
-        presentPendingAuthErrorIfNeeded()
         syncSelectedInspectorItem(service.selectedBrowserItem)
     }
 
@@ -116,31 +111,11 @@ final class AppKitSteamWorkshopBrowserView: NSView {
             .sink { [weak self] item in self?.syncSelectedInspectorItem(item) }
             .store(in: &cancellables)
 
-        service.$isLoginSheetPresented
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] isPresented in self?.syncLoginOverlay(isPresented: isPresented) }
-            .store(in: &cancellables)
-
         service.$downloadError
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.presentPendingDownloadErrorIfNeeded() }
             .store(in: &cancellables)
 
-        service.$authError
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.presentPendingAuthErrorIfNeeded() }
-            .store(in: &cancellables)
-
-        NotificationCenter.default.publisher(for: .steamWorkshopModeDidChange)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] notification in
-                guard notification.userInfo?["enabled"] as? Bool == true,
-                      notification.userInfo?["isDownloads"] as? Bool == true else {
-                    return
-                }
-                self?.service.isLoginSheetPresented = false
-            }
-            .store(in: &cancellables)
     }
 
     private func observeInspectorHost() {
@@ -409,33 +384,6 @@ final class AppKitSteamWorkshopBrowserView: NSView {
         inspectorDetailView = nil
     }
 
-    private func syncLoginOverlay(isPresented: Bool) {
-        guard window != nil else { return }
-        if isPresented {
-            installLoginOverlayIfNeeded()
-        } else {
-            removeLoginOverlay()
-        }
-    }
-
-    private func installLoginOverlayIfNeeded() {
-        guard loginOverlayView == nil else { return }
-        let overlayView = SteamWorkshopLoginOverlayView()
-        loginOverlayView = overlayView
-        addSubview(overlayView, positioned: .above, relativeTo: nil)
-        NSLayoutConstraint.activate([
-            overlayView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            overlayView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            overlayView.topAnchor.constraint(equalTo: topAnchor),
-            overlayView.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
-    }
-
-    private func removeLoginOverlay() {
-        loginOverlayView?.removeFromSuperview()
-        loginOverlayView = nil
-    }
-
     private func presentPendingDownloadErrorIfNeeded() {
         guard let message = service.downloadError, !message.isEmpty else { return }
         guard !isShowingDownloadError else { return }
@@ -451,24 +399,6 @@ final class AppKitSteamWorkshopBrowserView: NSView {
             guard let self else { return }
             self.service.downloadError = nil
             self.isShowingDownloadError = false
-        }
-    }
-
-    private func presentPendingAuthErrorIfNeeded() {
-        guard let message = service.authError, !message.isEmpty else { return }
-        guard !isShowingAuthError else { return }
-        guard let window else { return }
-
-        isShowingAuthError = true
-        let alert = NSAlert()
-        alert.messageText = "Steam 登录失败"
-        alert.informativeText = message
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "确定")
-        alert.beginSheetModal(for: window) { [weak self] _ in
-            guard let self else { return }
-            self.service.authError = nil
-            self.isShowingAuthError = false
         }
     }
 

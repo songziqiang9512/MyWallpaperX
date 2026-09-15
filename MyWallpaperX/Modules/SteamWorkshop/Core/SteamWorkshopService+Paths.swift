@@ -13,7 +13,6 @@ extension SteamWorkshopService {
               arguments.indices.contains(flagIndex + 1) else {
             return nil
         }
-
         let rawPath = arguments[flagIndex + 1].trimmingCharacters(in: .whitespacesAndNewlines)
         guard !rawPath.isEmpty else { return nil }
         return URL(fileURLWithPath: rawPath, isDirectory: true)
@@ -21,42 +20,6 @@ extension SteamWorkshopService {
             .standardizedFileURL
     }
 #endif
-
-    var bundledSteamBundleURL: URL? {
-        Bundle.main.resourceURL?
-            .appendingPathComponent(Constants.bundledSteamBundleName, isDirectory: true)
-    }
-
-    var bundledSteamRootURL: URL? {
-        bundledSteamBundleURL?
-            .appendingPathComponent(Constants.bundledSteamRootName, isDirectory: true)
-    }
-
-    var bundledSteamCmdURL: URL? {
-        bundledSteamRootURL?.appendingPathComponent("steamcmd.sh")
-    }
-
-    var activeSteamRootURL: URL? {
-        guard let bundledSteamRootURL, validateSteamRuntime(at: bundledSteamRootURL) else {
-            return nil
-        }
-        return bundledSteamRootURL
-    }
-
-    var activeSteamCmdURL: URL? {
-        guard let bundledSteamCmdURL,
-              let bundledSteamRootURL,
-              validateSteamRuntime(at: bundledSteamRootURL) else {
-            return nil
-        }
-        return bundledSteamCmdURL
-    }
-
-    var runtimeInstallRootURL: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-            .appendingPathComponent("MyWallpaperX", isDirectory: true)
-            .appendingPathComponent("SteamWorkshopRuntime", isDirectory: true)
-    }
 
     var steamDownloadStagingRootURL: URL {
         let configured = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -68,19 +31,9 @@ extension SteamWorkshopService {
         (try? SteamWorkshopLibraryTransaction.configuredRoot(libraryRootURL)) ?? libraryRootURL
     }
 
-    var stagingWorkshopContentRootURL: URL {
-        runtimeInstallRootURL
-            .appendingPathComponent("steamapps", isDirectory: true)
-            .appendingPathComponent("workshop", isDirectory: true)
-            .appendingPathComponent("content", isDirectory: true)
-            .appendingPathComponent(Constants.workshopAppID, isDirectory: true)
-    }
-
     var libraryRootURL: URL {
 #if DEBUG
-        if let debugWorkshopLibraryRootURL {
-            return debugWorkshopLibraryRootURL
-        }
+        if let debugWorkshopLibraryRootURL { return debugWorkshopLibraryRootURL }
 #endif
         return FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Movies", isDirectory: true)
@@ -108,14 +61,5 @@ extension SteamWorkshopService {
             .appendingPathComponent("Caches", isDirectory: true)
             .appendingPathComponent("MyWallpaperX", isDirectory: true)
             .appendingPathComponent("SteamWorkshop", isDirectory: true)
-    }
-
-    var steamAuthDebugLogURL: URL {
-        cacheDirectoryURL.appendingPathComponent("steamcmd-auth-debug.log")
-    }
-
-    var bundledSteamMetadataURL: URL? {
-        bundledSteamBundleURL?
-            .appendingPathComponent(Constants.bundledSteamMetadataName)
     }
 }
