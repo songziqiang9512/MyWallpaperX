@@ -19,7 +19,7 @@ REQUIRED_BUNDLE_EXECUTABLES = (
     Path("Contents/Helpers/MyWallpaperXWallpaperDaemon"),
     Path("Contents/Helpers/glslang"),
     Path("Contents/Helpers/spirv-cross"),
-    Path("Contents/Helpers/SteamService/SteamService"),
+    Path("Contents/Resources/SteamService/SteamService"),
 )
 THIRD_PARTY_HELPERS = {
     Path("Contents/Helpers/glslang"),
@@ -129,7 +129,7 @@ def validate_bundle(app: Path) -> None:
         if not path.is_file():
             raise RuntimeError(f"Required bundled executable is missing: {relative}")
 
-    validate_steam_helper(app / "Contents/Helpers/SteamService")
+    validate_steam_helper(app / "Contents/Resources/SteamService")
 
     mach_o_count = 0
     third_party_count = 0
@@ -193,14 +193,38 @@ def validate_steam_helper(helper: Path) -> None:
         raise RuntimeError("SteamService dependency licenses are missing")
 
 
+def validate_codesign(app: Path) -> None:
+    # arm64 requires all executable code in the bundle to be signed. .NET PE
+    # assemblies cannot carry signatures, so the embed step must demote them
+    # to resources (no exec bits) — this probe fails if that regresses.
+    for path in app.rglob("*"):
+        relative = path.relative_to(app)
+        if relative.parts[:2] in (("Contents", "Resources"), ("Contents", "_CodeSignature")):
+            continue
+        if not path.is_file() or path.is_symlink():
+            continue
+        if path.stat().st_mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH):
+            with path.open("rb") as handle:
+                magic = handle.read(4)
+            if magic not in (b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe"):
+                raise RuntimeError(
+                    f"Executable non-Mach-O file inside Contents (cannot be signed): {relative}"
+                )
+    run_checked(["/usr/bin/codesign", "--verify", "--strict", str(app)])
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--project", type=Path, required=True)
     parser.add_argument("--app", type=Path, required=True)
+    parser.add_argument("--skip-codesign", action="store_true",
+                        help="skip signature verification (unsigned local builds)")
     args = parser.parse_args()
     try:
         validate_project(args.project.resolve())
         validate_bundle(args.app.resolve())
+        if not args.skip_codesign:
+            validate_codesign(args.app.resolve())
     except RuntimeError as error:
         parser.error(str(error))
     return 0

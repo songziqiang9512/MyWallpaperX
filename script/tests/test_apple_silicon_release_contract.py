@@ -22,7 +22,7 @@ def load_validator():
 class AppleSiliconReleaseContractTests(unittest.TestCase):
     def test_helper_is_required_self_contained_and_embedded_by_xcode(self):
         validator = load_validator()
-        self.assertIn(Path("Contents/Helpers/SteamService/SteamService"), validator.REQUIRED_BUNDLE_EXECUTABLES)
+        self.assertIn(Path("Contents/Resources/SteamService/SteamService"), validator.REQUIRED_BUNDLE_EXECUTABLES)
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             with self.assertRaises(RuntimeError):

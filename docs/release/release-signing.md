@@ -52,7 +52,7 @@ can also use **检查更新…** from the application or status-bar menu.
 
 ## SteamService build and signing boundary
 
-Xcode's App target publishes and embeds `Contents/Helpers/SteamService/` in both
+Xcode's App target publishes and embeds `Contents/Resources/SteamService/` in both
 Debug and Release. Install SDK **8.0.401** (`SteamService/global.json`); CI selects
 that version explicitly. The helper ships a pinned **.NET 8.0.31 osx-arm64** runtime,
 so users do not need an SDK or runtime installation. NuGet restore is locked;
