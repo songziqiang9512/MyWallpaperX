@@ -2,7 +2,7 @@
 
 <!-- document-role: active-plan -->
 
-> 状态：现役专项计划；SK1–SK4.2 已有实现并完成本轮离线审查修复，SK4.3 已接通原子事务及播放感知版本回收；SK4.4 工程切片已闭合物理排空、manifest-bound 恢复、精确 lease 清理、同 job 重试、两活动作业/共享 chunk 上限及跨作业磁盘预留；SK5.1 工程切片已接通 item/attempt 精确数字进度、独立裁剪 fill 与卡片/详情增量投影；SK5.2 工程切片已接通账号隔离的工具栏 badge、单一瞬态任务 popover 及当前队列交互；SK5.3 工程切片已由同一 JobStore 接通持久 terminal history、attempt 汇总、有界保留/清理与已下载定位；SK6.1 已完成默认结构化路由和 sidecar 回退边界，SK6.2 已撤旧获取源码、产品引用、专用状态与 78.97 MiB 随包 runtime。SK7.1 已开始隔离 arm64 Debug 全链路 UI 验收，个人来源登录引导、未登录下载可见反馈、本地库启动延迟查询、缺失 helper 的 typed 错误／账号隔离，以及 ready 后真实崩溃的有界替换与后续公开查询已覆盖；账号、下载、播放、其余异常与完整性能矩阵仍待继续。当前 Debug 包尚未内嵌 SteamService helper，self-contained arm64 打包与签名仍是 SK7.2 硬门。
+> 状态：现役专项计划；SK1–SK4.2 已有实现并完成本轮离线审查修复，SK4.3 已接通原子事务及播放感知版本回收；SK4.4 工程切片已闭合物理排空、manifest-bound 恢复、精确 lease 清理、同 job 重试、两活动作业/共享 chunk 上限及跨作业磁盘预留；SK5.1 工程切片已接通 item/attempt 精确数字进度、独立裁剪 fill 与卡片/详情增量投影；SK5.2 工程切片已接通账号隔离的工具栏 badge、单一瞬态任务 popover 及当前队列交互；SK5.3 工程切片已由同一 JobStore 接通持久 terminal history、attempt 汇总、有界保留/清理与已下载定位；SK6.1 已完成默认结构化路由和 sidecar 回退边界，SK6.2 已撤旧获取源码、产品引用、专用状态与 78.97 MiB 随包 runtime。SK7.1 已开始隔离 arm64 Debug 全链路 UI 验收，个人来源登录引导、未登录下载可见反馈、本地库启动延迟查询、缺失 helper 的 typed 错误／账号隔离，以及 ready 后真实崩溃的有界替换与后续公开查询已覆盖；账号、下载、播放、其余异常与完整性能矩阵仍待继续。Xcode 已接入自包含 arm64 SteamService；SK7.2 的真实 Developer ID 签名、公证、最低支持机与完整账号链路仍未验收。
 >
 > 复核：2026-09-15。本轮依据当前 Swift/C#、隔离文件系统与无网络协议测试、App Debug 构建、匿名公开列表／未登录个人来源／缺失 helper 重试页的隔离可见 UI，以及当前 M4 上的开发 helper 启动/RSS/匿名三页查询观测；未使用真实账号、修改真实订阅或实测下载、播放与低配／完整 App 性能。§10.1 保留早期探针证据，不能代替本轮构建的真实链路验收。
 >
@@ -222,9 +222,9 @@ Envelope：`v/type/requestId/processEpoch/accountEpoch`；认证另有 authAttem
 | 15 | SK5.2 | 工具栏任务面板与队列交互 | 工程切片已闭合：浏览、作者和已下载工具栏共享同一 `steamDownloadTasks` 项；浏览与已下载页均保留账号入口，badge 只按当前 SteamID 计算非完成/非取消任务（含失败待重试），VoiceOver 与 overflow menu 同步数量。每个窗口的 toolbar controller 只惰性持有一个 transient `NSPopover`；普通按钮锚定工具栏，系统溢出时改锚窗口顶缘，外部点击/Esc 走系统关闭语义。面板打开才订阅 JobStore 的低频结构变化，逐行再按 item/jobKey/attempt 订阅 SK5.1 progress store；关闭清空 Combine/逐项 observer/缩略图请求，不停止任务。行内展示缩略图、长标题截断、阶段、真实大小/速度与稳定后 ETA、进度、取消/重试/详情；已有行在面板打开期间原位更新且不因状态变化重排，新任务追加，重新打开才恢复活动→失败待重试→排队/FIFO 排序。“全部取消”一次列数量确认且不删已下载文件，“查看已下载”和详情都走现有 Shell/Inspector 路由，完成路径不主动导航或打开面板。独立执行测试覆盖账号过滤、终态排除、排序/count/attempt identity，静态合同覆盖单 popover、溢出锚点、关闭解绑与无 Timer/NSMenu 第二刷新源；10 个 Steam 离线模块及 arm64 无签名 Debug build 通过。真实多任务按钮命中、键盘/Esc、深浅色和辅助功能的可见实机验收仍并入 SK7 |
 | 16 | SK5.3 | 任务历史、保留策略与跨视图一致性 | 工程切片已闭合：JobStore 持久 envelope 升级为 v3，仍读取 v1/v2；jobs 与 terminal history 同一次原子写入，完成/失败/取消按 `jobID-attempt` 幂等记录，retry 沿用逻辑 job 并由面板汇总 attempts。保留配置冻结为最近 100 条且最长 30 天，每次写入/加载及打开历史面板时裁剪；历史按 SteamID 隔离，清空仅删当前账号终结记录，保存失败不假清除且不改变队列/失败重试意图/本地库。完成历史只保存既有库 recordID 引用；点击时重新通过当前 managed metadata/文件可用性判定，存在则导航已下载并定位/打开 inspector，不存在则明确提示并可转作品详情。popover 顶部已接“进行中｜历史”，切换/关闭解绑当前行高频 observer，历史只消费 JobStore 低频发布，无第二累计源。可执行测试覆盖 v2 无 history 迁移、完成重启不重复、两次失败 attempt 汇总、账号隔离、100/30 天裁剪、清理原子失败与任务保留；AppKit arm64 无签名 Debug build 通过。真实 20 次跨页下载/取消/重试、可见定位、observer/task 计数及键盘/辅助功能仍归 SK7，未以离线门宣称交互验收完成 |
 | 17 | SK6.1 | 老用户数据迁移与新路切换 | 工程切片已闭合：该批 Release 固定由 SteamKit route 接管、DEBUG 曾保留一次整版本回退参数；discovery、严格 ID、作者作品、在线个人列表与离线登录指引均先由同一 `SteamKitBrowseStore` 路由，creator SteamID 支持作者查询。App 启动和浏览入口不再读取旧密码、runtime 状态或私人 HTML cache，只允许此前授权的新 token 静默恢复。任务默认写 `jobs-v3.json`；sidecar 不存在时只读导入旧 `jobs.json`，损坏旧文件保持原位且不生成新版状态，之后两文件互不写入。既有 Video/Web/Scene 目录、managed/legacy metadata、属性与选择 owner 未改，启动仍先 reload 本地库。该批的 DEBUG 回退与保持原字节旧状态已在 SK6.2 按精确清单退役；SK6.1 的隔离 fixture 与构建证据不替代 SK7 真实升级、账号和播放门 |
-| 18 | SK6.2 | SteamCMD/自动社区登录产品引用与资源退役 | 工程切片已闭合：删除 `Authentication`/交互状态、`CommunitySessionController`、社区适配、HTML parsing/stub/hydration queue 及旧 SwiftUI 登录层共 8 个纯旧源码文件，并把其余混合文件收敛为单一结构化查询、现有 AppKit 网格/详情/下载库/播放入口和用户主动公开外链。移除 DEBUG 路由开关、PTY/输出解析/旧状态布尔量、自动社区登录与个人 HTML producer；产品模块扫描无旧类型或调用。删除 `SteamCMDRuntime.bundle` 全部 91 个 tracked paths、82,807,675 bytes（78.97 MiB）；隔离 Debug `.app` 扫描旧 runtime 路径为 0，Web runtime 源码仍参与成功构建。升级启动以四个独立 marker 精确清除旧密码 Keychain（service/account）、旧用户名/认证时间 defaults、专用 WebKit store UUID、`Caches/MyWallpaperX/SteamWorkshop` 与 `Application Support/MyWallpaperX/SteamWorkshopRuntime`；失败仅重试本组件，不触及系统浏览器、Steam 客户端、`SteamJobs` 或 Video/Web/Scene 壁纸库。专用 WebKit store 清理会先初始化 WebKit store owner、枚举当前标识，仅在旧 UUID 确实存在时删除；不存在也写入完成 marker，避免 App 构造早期直接调用 class-level store API 的 `WTF::RunLoop::dispatch` 崩溃。隔离 DEBUG runtime gate 的私有 defaults suite 不执行真实退休清理，避免新 marker 命名空间误删用户 Keychain、WebKit store、cache 或 runtime；注入系统边界的可执行 Swift harness 已证明成功幂等、失败组件独立重试、精确目标删除且 sibling sentinel 保留。隔离 staged arm64 Debug App 启动命中 skip 诊断，启动前后的真实旧 Keychain 条目仍存在、生产 marker 仍未写入。删除 HTML producer 前补齐结构化 children→dependency IDs 严格映射，并使作者页往返恢复 store 分页快照。12 个 Steam 离线模块、helper protocol/auth/manifest/staging/download/query 自检和 arm64 无签名 Debug build 通过。开发 helper 下公开列表已在隔离 App 可见，但尚未实测生产启动的真实旧数据清理、账号、下载、播放与完整 UI／性能矩阵；隔离包同时确认当前尚无内嵌 SteamService helper，该发行阻断明确归 SK7.2，不能以环境注入或编译绿色冒充发布可用 |
+| 18 | SK6.2 | SteamCMD/自动社区登录产品引用与资源退役 | 工程切片已闭合：删除 `Authentication`/交互状态、`CommunitySessionController`、社区适配、HTML parsing/stub/hydration queue 及旧 SwiftUI 登录层共 8 个纯旧源码文件，并把其余混合文件收敛为单一结构化查询、现有 AppKit 网格/详情/下载库/播放入口和用户主动公开外链。移除 DEBUG 路由开关、PTY/输出解析/旧状态布尔量、自动社区登录与个人 HTML producer；产品模块扫描无旧类型或调用。删除 `SteamCMDRuntime.bundle` 全部 91 个 tracked paths、82,807,675 bytes（78.97 MiB）；隔离 Debug `.app` 扫描旧 runtime 路径为 0，Web runtime 源码仍参与成功构建。升级启动以四个独立 marker 精确清除旧密码 Keychain（service/account）、旧用户名/认证时间 defaults、专用 WebKit store UUID、`Caches/MyWallpaperX/SteamWorkshop` 与 `Application Support/MyWallpaperX/SteamWorkshopRuntime`；失败仅重试本组件，不触及系统浏览器、Steam 客户端、`SteamJobs` 或 Video/Web/Scene 壁纸库。专用 WebKit store 清理会先初始化 WebKit store owner、枚举当前标识，仅在旧 UUID 确实存在时删除；不存在也写入完成 marker，避免 App 构造早期直接调用 class-level store API 的 `WTF::RunLoop::dispatch` 崩溃。隔离 DEBUG runtime gate 的私有 defaults suite 不执行真实退休清理，避免新 marker 命名空间误删用户 Keychain、WebKit store、cache 或 runtime；注入系统边界的可执行 Swift harness 已证明成功幂等、失败组件独立重试、精确目标删除且 sibling sentinel 保留。隔离 staged arm64 Debug App 启动命中 skip 诊断，启动前后的真实旧 Keychain 条目仍存在、生产 marker 仍未写入。删除 HTML producer 前补齐结构化 children→dependency IDs 严格映射，并使作者页往返恢复 store 分页快照。12 个 Steam 离线模块、helper protocol/auth/manifest/staging/download/query 自检和 arm64 无签名 Debug build 通过。开发 helper 下公开列表已在隔离 App 可见，但尚未实测生产启动的真实旧数据清理、账号、下载、播放与完整 UI／性能矩阵；该批隔离包当时未内嵌 SteamService；后续打包修复见 SK7.2，不能以环境注入或编译绿色冒充发布可用 |
 | 19 | SK7.1 | 全链路 UI、异常与性能验收 | 进行中：隔离 staged arm64 Debug App 已执行匿名公开列表和未登录个人来源入口。`Steam 已订阅` 中央空态现在直接从唯一 `source`/`steamAuth` 权威派生登录引导，并订阅账号身份变化；不保存第二个登录布尔量、不创建 helper 请求、不自动打开认证窗口，工具栏账号项仍是唯一用户动作。未登录点击公开卡片下载时继续由同步 admission 在 JobStore／瞬态投影／执行器之前拒绝；既有单一 `statusMessage` 现在驱动浏览区就地横幅与账号按钮橙色提示，来源切换后由后续状态覆盖，不累计 toast 或回放被拒绝点击。App 初始化不再 eager fetch 公开 feed；浏览视图已有的 `prepareForBrowserEntry()` 成为按需查询入口，已授权 token 恢复仍是允许的启动例外。公开 helper readiness 与 auth intent 已分离：signed-out 的公共查询启动／协议失败不会再伪装成登录失败；客户端 typed error 实现 `LocalizedError`，缺失组件给出可操作中文文案。可见运行确认本地库启动停留期间零 helper，进入 Steam 浏览后才出现一个 helper 并由 skeleton 收口到可滚动列表；缺失 helper 时同一主窗口显示可重试错误，重复重试仍有界，账号按钮保持“登录 Steam”且无认证面板。同时确认中央空态、下载提示横幅、账号按钮 Help 切换、来源切换清除提示，以及未登录下载隔离目录没有生成 `jobs-v3.json`。可执行 lifecycle fault injection 证明 ready helper 崩溃会使 pending 公共请求 typed `connectionLost` 收口、未登录账号投影保持 signed-out、只创建一个新 session generation，连续 ready/crash 在预算耗尽后进入 terminated 而不无限拉起；§9.1 的两个当前开发 helper gate 又以精确 child `SIGKILL` 分别复验 idle 与 pending 查询崩溃，确认 generation 1→2、单 replacement、pending typed failure、显式重试成功与有界 shutdown。下载任务 popover 中原本仅有视觉 fill 的进度条现已补齐 progress-indicator role、逐任务 label 和实时 value；通知只在阶段或 10% bucket 变化时发送，取消／重试的即时状态也走同一有界出口。popover 打开后一次性把焦点放到“进行中／历史”，每行取消、重试、详情和历史查看的辅助名称都包含作品标题，不新增观察或刷新 owner。账号工具栏按钮不再只有固定“Steam 账号”图标描述，其动态辅助名称与同一 display state/登录提示文案同步，未引入第二个状态源。浏览网格现由容器持有瞬时键盘焦点，方向键按当前列数移动并滚入可见区域，Return／小键盘 Enter 复用唯一详情回调，Esc 仍关闭现有 inspector；它与已下载网格共享纯导航 owner，移动不写业务选择或任务状态，卡片异步刷新也保留焦点字段。追加页失败现在由同一分页 owner 发布底部“加载失败 · 重试”状态，显式按钮只解除短暂冷却并复用当前 route、QueryKey、generation 和单请求 guard；既有可执行查询反例确认失败不推进 nextPage、不清空旧页，来源往返快照也保留该失败展示，不创建 UI 第二缓存。主窗口的 Space／Esc 分发也在 Steam 浏览页停止，不再回落到此前本地壁纸选择的通用 Quick Look；Steam 已下载页仅在自身 Quick Look 确实可见时吞掉 Esc，否则由网格退出多选或关闭现有 inspector。登录面板的密码与 Guard 表单现有 Return 默认动作和明确首次焦点，二维码放大成为可 Tab 的系统按钮；二维码／状态文本补齐辅助语义，状态只在真实文本变化时发出有限通知。§9.1 已记录当前 M4 的开发 helper 启动、空闲 RSS、三页探针与产品 IPC 观测，所有测量进程均正常退出且无残留。15 个 Steam 模块（含键盘移动、分页失败 footer 与旧页保持可执行反例）和 arm64 Debug build 通过。当前仅证明开发 helper、离线 fault injection、辅助属性代码路径、键盘导航与分页失败展示合同，以及这些未登录／缺失组件交互切片；底部重试仍未做真实断网触发与点击实测，真实账号／Guard、订阅写入、已授权下载／取消／重试、播放、网络／磁盘、20 次交互、低配／完整 App 性能、深浅色、键盘实按／VoiceOver 实际朗读和正式签名包仍未验收，不能称 SK7.1 完成 |
-| 20 | SK7.2 | arm64 发布、许可与升级验收 | 待实施 |
+| 20 | SK7.2 | arm64 发布、许可与升级验收 | 已接入固定 SDK、自包含 .NET 8.0.31/osx-arm64、Xcode 内嵌、逐项 native 签名脚本及许可随包；真实签名、公证、最低支持机和账号/下载链仍待验收 |
 
 本轮审查维护门（全部无真实账号/外部网络，不能替代 §9）：
 
@@ -235,7 +235,7 @@ python3.12 script/run_scene_tests.py --scope all -k test_steam_ -j 1
 
 `script/tests/test_steam_helper_offline.py` 将当前 helper 源码和锁文件复制到隔离目录，仅使用本地空 feed 与已有包缓存 restore，运行 protocol/auth/manifest/staging/download/query 六套真实 C# 自检；缺 SDK/包缓存应失败，不跳过假绿。其余 maintained Swift harness 使用真实 client/query/JobStore/事务/执行器/订阅与分页源码及假 wire，磁盘测试只写隔离目录。账号门脚本只在显式真人验收时运行：`script/steam-auth-gate.sh --help`，支持 password/qr/wrong-password/restore；有整体 deadline、attempt/epoch、Guard ack与终态断言，禁止输出原始帧或令牌。二维码模式仅显示用户需要的临时挑战链接，不落盘登录凭据。
 
-当前偏差的 owner/退役门：SK4.3 已接旧版本生命周期 token 与有龄期的安全回收，仍需可见/依赖验收；SK4.4 接管 helper 暂存失败现场、物理下载排空与恢复，当前有界保留不是永久暂存 GC 策略；SK5.1–SK5.3 已接数字进度、统一任务面板和 JobStore 有界历史，但真实可见/多任务/observer 压力证据仍归 SK7；SK6 撤公共HTML/旧PTY/旧凭据与资源并完成默认路由切换；SK7 冻结 SDK global.json、自包含发布、许可材料与真实 UI/账号/性能验收。禁止用离线绿色把这些剩余门直接勾完。
+当前偏差的 owner/退役门：SK4.3 已接旧版本生命周期 token 与有龄期的安全回收，仍需可见/依赖验收；SK4.4 接管 helper 暂存失败现场、物理下载排空与恢复，当前有界保留不是永久暂存 GC 策略；SK5.1–SK5.3 已接数字进度、统一任务面板和 JobStore 有界历史，但真实可见/多任务/observer 压力证据仍归 SK7；SK6 撤公共HTML/旧PTY/旧凭据与资源并完成默认路由切换；SK7 继续真实签名发行与 UI/账号/性能验收。禁止用离线绿色把这些剩余门直接勾完。
 
 ### 8.1 每卡开工和完成的统一规则
 
@@ -399,6 +399,32 @@ python3.12 script/run_scene_tests.py --scope all -k test_steam_ -j 1
 - **停止：**唯一失败证据、归属不明文件/真实数据不得顺手删除；未获所需清理确认时记录剩余项，不能宣称旧路径已全部退役。
 
 当前 Release workflow 已撤销对不存在的 `SteamCMDRuntime.bundle`、`steamcmd`、`libsteaminput.dylib` 与旧 Breakpad Inspector 的条件签名探针；门禁同时扫描源码资源和发布配置，防止已退役 runtime 以静默 `-e` 分支重新成为包职责。
+
+### 登录与详情的视觉约束
+
+登录面板采用与详情卡相同的 `InspectorGlassPalette`、22 点圆角与玻璃层；固定 **420×480 pt**，二维码、密码及 Guard 切换只更新中部内容，不移动或缩放窗口。账号、密码、验证码使用有标签的 40 点输入容器；二维码有独立白底、四模块静区与无插值呈现，失效/刷新会清除原图及放大窗。认证状态仍由既有 Route/Controller 控制，展示 View 不启动请求、不保存账号凭据。
+
+详情只有一条阅读顺序：156 点高横向封面 → 居中标题 → **等宽作者/订阅双按钮** → 单行标签 → 默认展开的作品数据 → 完整作品描述。封面采用本地视频详情的高度，不以顶部羽化覆盖。作者昵称只在详情查询时补全：登录后通过 SteamKit Player 公开资料，匿名时通过 Steam 官方公开 profile XML（无 Cookie、无重定向、不触发登录），按钮显示真实昵称，点击仅进入作者工坊；资料暂不可用时明确提示，不把 ID 或“作者工坊”冒充昵称。名称请求绑定连接身份，最多等待 6 秒；公开请求并发上限 2、响应上限 128 KiB，禁用 DTD 并核对作者 SteamID，成功缓存最多 512 项且有效期 30 分钟，缺失昵称不得丢弃其余详情。订阅状态来自唯一账号 owner，未登录只就地引导工具栏登录，已订阅通过菜单取消。数据使用两列键值网格，统计、类型、大小、分级、时间只在数据区出现，标签独立置于其上方；未知字段不补零，浏览数不当评分。类型、分辨率等已展示字段从标签去重。标签不另设小标题，仅占一行，胶囊保留完整自然宽度，内容过多在面板裁切范围内横向滚动，不省略、不换行、不扩大面板，隐藏滚动条，支持触控板双轴手势和普通鼠标滚轮横向浏览。作者操作区、标签、作品数据与描述之间用淡分隔线分层。类目标题和订阅提示居中；长作品标题最多两行且完整文本可访问。
+
+底部固定**一行三个按钮**：可伸展的主任务 + 38 点网页图标 + 38 点属性齿轮，相邻间距 8 点。主任务按当前作品显示“下载壁纸 / 设为壁纸 / 停止播放”；异步阶段另外显示排队/下载进度、正在保存/正在切换、失败重试与缺少依赖的明确状态。停止前重新匹配实际活动作品，不能按全局“有引擎正在播放”误停别的作品；暂停中的当前壁纸仍可停止。网页按钮仅打开作品页；图标有 tooltip、辅助功能名称和键盘焦点。
+
+属性从正文移入同款玻璃面板，宽度使用详情的同一 360 点常量，高度固定 620 点，禁止用户调整尺寸；标题居中、左侧名称、右侧控件，按作者定义顺序排列，只滚动内容，不重复封面。右上关闭，Escape 关闭；现有属性持久化/预览 owner 不变。Web 仅显示作者声明且当前可见的受支持控件，按原默认值恢复；Scene 仅在点击齿轮后异步准备作者属性，关闭或切换属性面板后迟到结果不得重开。Video 没有作者属性时明确说明，不伪造参数，也不把全局播放设置写成单作品设置。未下载齿轮禁用并说明原因；缺依赖或没有属性给出明确空态，不弹登录。不同类型的作品数据以当前实际字段为准，不对 Scene 打开详情就扫描/生成诊断。
+
+登录、详情及属性面板的玻璃层、背景图层与最外层均按 22 点圆角裁切，不允许矩形底色漏出。登录及属性窗口高于主窗口，点击主窗口不能将面板压到背后。
+
+登录公共区域位置固定，记住登录位于提交按钮之前；右上角关闭与 Escape/Cmd-W 取消本次认证。密码可显隐且关闭清空两份编辑缓冲；二维码失效就地显示提示与重新生成。登录成功但保存失败展示“完成”，不再暗示登录未完成。
+
+浏览卡片右键、Shift-F10 与辅助功能动作提供同一作品菜单；详情订阅动作复用该命令投影。菜单绑定作品 ID，并在写操作前重验账号 epoch、订阅状态或下载 job/attempt，不按易变 indexPath 执行。未知订阅只查询，保存中不取消，不提供未实现的暂停/收藏写操作。布局门覆盖深浅色、固定尺寸、显隐密码、长标题/窄宽度；发布前仍需真实账号与下载验收。
+
+### 审查修复后的执行边界
+
+- **版本回收：**删除前必须完整读取并校验 managed metadata；缺失、读失败、解码失败或身份不匹配使本轮回收停止。展示列表可跳过坏条目，回收不得把它们视为空。每个版本删除前通过同一主 actor lease registry 预约；先获得的播放 lease 阻止回收，预约后的迟到播放拒绝并提示刷新。删除失败退回预约。
+- **物理排空与空间：**CDN timeout/cancel 先终止 transport，再等待原始任务完成；共享 chunk slot 包含解密 buffer 和本地写入。磁盘 reservation 随已成功写入字节递减，只保留未完成分配量，空间不足仍保留可恢复暂存。
+- **入库与清理：**prepare → 持久 committing → 发布 metadata → 持久 completed → 清理暂存。发布失败保留 manifest-bound staging；发布后的清理失败不回滚 ready。completed/cancelled 的未释放资源责任持久化，重载及物理任务退出后继续清理；失败删除不无限自旋。
+- **重试与放弃：**忙碌重试复用同账号逻辑 job，以新 FIFO ordinal 排队，实际启动时递增 attempt，携带原 staging/manifest。失败行提供“重试／放弃”；放弃及删除失败记录先取消同账号同项目失败意图，再精确清理其 staging，其他账号与未知兄弟路径不受影响。
+- **分页：**已加载页被本地过滤为空且 hasMore 时保留网格 footer，提供“继续加载”；失败可重试。空页不自动连续拉空后续页。
+
+这些边界须由生产 owner 的可执行反例覆盖；离线 fixture、构建与无账号 helper 启动不替代以下真实链路门。
 
 ### SK7.1 — 全链路交互与性能验收
 
