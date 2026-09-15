@@ -2,15 +2,15 @@
 
 <!-- document-role: active-plan -->
 
-> 状态：现役专项计划；当前仅 SteamService 协议骨架已存在，以下为待实施设计，不代表迁移或 UI 验收完成。
+> 状态：现役专项计划；SK1–SK4.2 已有实现并完成本轮离线审查修复，SK4.3 已接通部分事务链。下一步按 §8 从 SK4.3 剩余门续接；代码完成不等于真实账号、UI 或发布验收完成。
 >
-> 复核：2026-09-15。依据当前 Swift/C#、SteamKit2 3.4.0 与公开资料；没有登录真实账号、修改订阅、运行下载或实测新 UI。
+> 复核：2026-09-15。本轮依据当前 Swift/C#、隔离文件系统与无网络协议测试、App Debug 构建；未使用真实账号、修改真实订阅或实测可见 UI。§10.1 保留早期探针证据，不能代替本轮构建的真实链路验收。
 >
 > 权威：本计划细化[工程路线 E2/E6/E8](engine-refactor-program.md)，覆盖 Video/Web/Scene 共用的 Steam 内容获取，不改变播放器。本文覆盖此前“双网页登录/自动弹登录/保留订阅 HTML 主路径”的方案。
 >
 > 退役：SK0–SK7 完成、SteamCMD 与自动社区登录/个人列表抓取产品路径撤除、交互/数据/发布门通过后，稳定合同和功能证据接管终态，本文转历史。
 
-实施从 [§8 工作卡](#work-cards) 的 SK0.1 开始；产品交互约束查 §3–§4，数据/协议边界查 §5–§7，完整验收查 §9。不要先实现整个平台再补 UI。
+实施从 [§8 工作卡](#work-cards) 的当前剩余项开始；产品交互约束查 §3–§4，数据/协议边界查 §5–§7，完整验收查 §9。不要先实现整个平台再补 UI。
 
 ## 1. 确定的产品规则
 
@@ -26,12 +26,12 @@
 
 | 当前源码证据 | 改造决定 |
 |---|---|
-| [SteamService/Program.cs](../../SteamService/Program.cs)仅有 ping/shutdown，requestId 未完整回显；[csproj](../../SteamService/SteamService.csproj)仍含 osx-x64 | 产品化有界 IPC、会话、查询与传输，发行限定 osx-arm64；骨架不能当功能完成证据 |
-| [Authentication](../../MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Authentication.swift)管理 PTY、密码 Keychain、pendingDownloadRequest | 重写认证适配，移除 PTY 解析/下载自动登录；改成 token/GuardData 与明确用户触发的 AuthAttempt |
-| [CommunitySessionController](../../MyWallpaperX/Modules/SteamWorkshop/Core/SteamCommunitySessionController.swift)自动拉起网页登录、渲染个人列表 HTML | 撤销产品调用、社区独立账号与私人 HTML 抓取。旧 Cookie 不转成主凭据、不作为迁移前置，专用 store 的退役见 §7 |
+| [SteamService/Program.cs](../../SteamService/Program.cs)已有有界 IPC、认证、查询、下载；[csproj](../../SteamService/SteamService.csproj)限定 osx-arm64 | 继续真实链路与发行验收；SDK 固定、自包含、签名与许可仍属 SK7.2 |
+| [Authentication](../../MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Authentication.swift)仍保留旧 PTY/密码 Keychain 辅助职责；工具栏已使用 AuthRoute | 重写认证适配，移除 PTY 解析/下载自动登录；改成 token/GuardData 与明确用户触发的 AuthAttempt |
+| [CommunitySessionController](../../MyWallpaperX/Modules/SteamWorkshop/Core/SteamCommunitySessionController.swift)仍含显式社区登录与 HTML 解析旧职责；个人入口已不自动弹窗或递归抓取 | 撤销产品调用、社区独立账号与私人 HTML 抓取。旧 Cookie 不转成主凭据、不作为迁移前置，专用 store 的退役见 §7 |
 | [来源模型](../../MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopBrowseFilters.swift)已有“Steam 已订阅/我的收藏” | 保留标签与导航；统一从 SteamService 的结构化 queries 获取，不再新增平行订阅页 |
 | [BrowseFetching](../../MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseFetching.swift)与 [Hydration](../../MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseHydration.swift)已有导航版本、详情补全 | 保留 identity/取消思想，重写数据请求与分页；旧 DOM/HTML 解析和个人登录依赖撤除，不并行保留第二数据权威 |
-| [Downloads](../../MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Downloads.swift)已有队列/取消，但使用全局 staging | 用统一 JobStore＋每任务 staging 重写；保留用户能力，不保留全局临时目录和自动登录副作用 |
+| [Downloads](../../MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Downloads.swift)已使用 JobStore、SteamKit 与独占 staging；旧全局清理已撤 | 继续播放占用回收、重试和任务历史；禁止恢复共享目录互删或下载自动登录 |
 | [卡片](../../MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem.swift)与 [GlassBar](../../MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItemSupportViews.swift)已有下载绿/排队蓝整条着色 | 改成实际进度填充，保留卡片点击、标题与布局；增量更新可见 bar，不重建网格 |
 | [工具栏布局](../../MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController+Layouts.swift)与 [标识](../../MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarIdentifiers.swift)没有任务入口 | 新增任务按钮与 AppKit popover；浏览页和已下载页均保留账号入口，避免任务面板另开登录入口 |
 | [DownloadLibrarySync](../../MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadLibrarySync.swift)维护 ready 记录与本地库 | 保留并明确为唯一入库发布者；与 JobStore 分离职责，helper stagedComplete 不等于 ready |
@@ -60,7 +60,7 @@ SteamService（C#）：SteamKit Authentication / Queries / Subscriptions / CDN
 
 工具栏账号区域：未登录显示“登录 Steam”；恢复中显示“正在恢复…”（仍可打开账号状态并取消恢复）；在线显示头像/昵称；过期显示“重新登录”。已登录菜单仅“账号信息/切换账号/退出登录”。没有“登录 Steam 社区/切换 Steam 社区账号”。
 
-`authState = signedOut/restoring/connecting/awaitingPassword/awaitingQR/awaitingGuard/online/reconnecting/expired`。`helperReady`、网络 connected、token 已保存与 online 分开。每次认证带 authAttemptId/accountEpoch；迟到消息不能弹新窗口、存错 token 或恢复已取消认证。
+`authState = signedOut/restoring/connecting/awaitingPassword/awaitingQR/awaitingGuard/online/reconnecting/expired`。`helperReady`、网络 connected、token 已保存与 online 分开。每次认证带 authAttemptId/accountEpoch；authAttemptId 在 App 发请求前生成，事件和成功结果回传同一身份。关闭面板、切方式时先同步作废本地尝试并取消请求 Task，再发带原 authAttemptId 的远端取消；不能依赖首事件或旧账号是否在线，也不能用无目标取消影响后续尝试。迟到消息不能弹新窗口、存错 token 或恢复已取消认证。
 
 | 触发 | 必须发生 | 禁止发生 |
 |---|---|---|
@@ -70,6 +70,8 @@ SteamService（C#）：SteamKit Authentication / Queries / Subscriptions / CDN
 | 未登录进入已订阅/收藏 | 原区域显示账号空态与工具栏指引，保留筛选 | 自动 WebView 登录或把无权限误报“没有订阅” |
 | 主动点击工具栏登录 | 打开/聚焦唯一登录面板，开始所选方式 | 重复点击产生多个认证窗口 |
 | token 被拒绝/断线需要验证 | 已有内容保持，受影响活动任务标“需要重新登录”，等待工具栏操作 | 验证窗口自行出现或自动提交旧密码 |
+
+账号身份由 App 的单调 accountEpoch 驱动。helper 接受新认证/退出时先作废旧连接；私有请求入队时固定 epoch、SteamID、连接代，在远端发送及返回前各复核一次。校验与同步发送和换号共用会话锁，禁止排队请求读取新账号身份。连接回调只允许完成其原连接的等待者；断线/LoggedOff 或 helper 退出立即撤销在线投影，保留已保存令牌并等待用户操作，不弹登录窗。取消与成功回包交错时，原 authAttemptId 仍可撤销其刚完成的会话，但不能撤销后续账号。下载绑定原连接并在换号时取消，内容验收仍按下载工作卡执行。
 
 ### 3.2 密码与二维码面板
 
@@ -88,6 +90,8 @@ SteamService（C#）：SteamKit Authentication / Queries / Subscriptions / CDN
 
 Keychain 按 SteamID/accountName 保存 refresh token 与服务端需要的 GuardData；UserDefaults 仅保存账号显示名、偏好和非敏感时间。token 更新原子替换，不能先删旧 token 再写失败。不开启记住时仅驻内存；成功后清除此账号遗留的旧密码/token 持久凭据。旧密码只在用户主动密码登录迁移时使用或由用户重新输入，不能启动自动试登；新会话确认后退役旧密码条目。
 
+退出先同步关闭记住偏好和独立的“允许恢复已保存会话”标记，再清理 Keychain；删除失败必须显示，不能在下次启动恢复残留令牌。交互换号先撤销旧恢复授权，只有新令牌原子保存成功才重新授权；仅重新勾选偏好不能使旧令牌复活。恢复失败的凭据处置归账号 owner，并校验原 epoch，浏览模块只展示结果，不自行删令牌。退出的网络收尾不得再次清理新账号状态。
+
 token 不保证固定 200 天；以服务端过期/撤销结果为准。本地 exp 只用于提示。后台重连指数退避、有上限；网络失败不删 token，明确拒绝才标 expired。退出/换号统一增 epoch，取消旧作业的账号权限，旧私有缓存不展示给新账号；退出前一次说明活动任务将停止，保留本地文件和当前播放。对因过期而中断的**已经明确提交**的任务，登录同账号成功后先对账，再按原任务的自动恢复偏好继续；新账号不得接管旧任务。
 
 ## 4. 浏览、订阅、卡片与任务面板重新设计
@@ -103,7 +107,7 @@ token 不保证固定 200 天；以服务端过期/撤销结果为准。本地 e
 | 我的收藏 | 同主账号结构化收藏查询 | 不能退回网页登录；接口未通过 SK0 则该能力标待完成，不宣称迁移完成 |
 | 工坊 ID/链接/作者作品 | 严格 ID/URL 解析、consumerAppID 校验、结构化详情/作者查询 | 非目标 app、集合、删除、私有/无权限分别显示；网页外链仍可主动打开 |
 
-`QueryKey = source/accountEpoch/search/sort/filter/contentMode/locale`；每次查询有 queryGeneration。初始建议每页 30 项、详情批 20 项、查询 debounce 300 ms、列表/详情请求上限 2，SK0 按真实 API 限额冻结；helper 真正分页 token 由 Swift 当不透明值使用，不擅自当页码+1。
+`QueryKey = source/accountEpoch/search/sort/filter/contentMode/locale`；每次查询有 queryGeneration。当前协议为页码分页、每页 30 项，收藏详情批 30 项（helper 上限 80），查询并发 2。仅在成功采纳当前 generation 页后推进 nextPage；hasMore 按实际返回页宽判断。将来若服务接口改游标，显式升级协议，不能继续假定页码。搜索 debounce 300 ms 是仍需实测的交互目标。
 
 - 初次加载 skeleton；滚动近底部只预取下一页，最多一个 loadMore，generation 变化取消旧页；按 workshopID 去重。失败保留已经加载页，底部“加载失败 · 重试”，不能清空整个网格。
 - 搜索/筛选变化从第一页重新开始，来源切换保留各自页面与滚动 anchor；刷新用旧数据上方的轻量状态，不闪回空白。新 query 的回包校验 generation，不能让慢旧页覆盖新页面。
@@ -151,11 +155,16 @@ helper 进度合并最多 4Hz，Swift UI 渲染最多 4Hz，只更新可见同 I
 
 SteamKit 提供协议能力，不等于完整 Wallpaper Engine 下载器。SK0 必须证明真实账号下的授权/manifest/CDN 流程可行。helper 顺序为：item 类型与 app 校验 → 授权/内容定位 → manifest → 有界 chunk 下载/解压/校验 → stagedComplete。直接 UGC、depot 内容、依赖和集合需分别识别；集合不能当普通文件下载，未支持时给出网页/子项说明。不要用第三方私有实现填补能力。
 
-1. **下载调度：**Swift 重构为统一 JobStore，保留去重、排队、取消的用户能力，首期最多 2 个活动作业；helper 内 chunk 并行设共享总上限与每 job 上限，SK0 实测冻结，不让每项各自开满并发。先拆掉 [Downloads 的全局 staging 清理](../../MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Downloads.swift)假设，否则并行任务会互相删除。
-2. **路径/预算：**Swift 为每 job 分配隔离 staging 与受控根，helper 不能接受任意 outputRoot 写用户目录。拒绝 `..`、绝对路径、逃逸 symlink、大小写/Unicode 冲突、非法长度；约束文件数、展开字节、并发、重试与磁盘空间，空间估计包括旧版本＋暂存＋提交空间。持久下载暂存由任务租约管理，不在真实 Scene 样本根试验。
-3. **校验：**manifest/chunk 完整性和最终内容/类型校验分层；只有 metadata/零字节/部分文件不算完成。CDN 失败有 backoff 与上限，权限拒绝先判断会话/许可，不无限换服务器。进度区分网络字节、已验证字节与阶段总量，避免压缩字节分母混用。
+1. **下载调度：**Swift 重构为统一 JobStore，保留去重、排队、取消的用户能力，当前 App FIFO 与 helper 都只允许 1 个活动作业，作业内最多 4 个 chunk worker；旧作业未排空时拒绝下一作业。SK4.4 先闭合排空/恢复/重试再决定是否增并发；已撤全局 staging 清理，不能为提高并行度恢复共享路径删除。
+2. **路径/预算：**Swift 为每 job 分配隔离 staging 与受控根，helper 不能接受任意 outputRoot 写用户目录。拒绝 `..`、绝对路径、逃逸 symlink、大小写/Unicode 冲突、非法长度；约束文件数、展开字节、并发、重试与磁盘空间，空间估计包括旧版本＋暂存＋提交空间。持久下载暂存由任务租约管理，不在真实 Scene 样本根试验。helper 只接受已存在且祖先无符号链接的 staging 基目录；每作业排他创建随机子目录（0700），不复用旧树。以目录描述符逐层 openat/O_NOFOLLOW 创建和打开节点，新文件 O_EXCL/0600；记录设备、inode 和创建时间，写入/终验拒绝替换节点、多硬链接及非普通文件。成功前再次核对回执路径的根目录身份。释放租约只关闭描述符，不递归删除路径；失败暂存的登记清理和交付后的消费者复核由后续任务事务负责，不能把本机目录视为不可篡改。
+3. **校验：**写盘前整份 manifest 纯校验：无符号总量先与剩余预算比较，再安全转为文件长度；chunk 按 offset 验证无重叠、无空洞、完整覆盖文件。清单内路径统一检查目录/文件及大小写、Unicode 规范化冲突。首期另设 262144 chunk、单路径 4096 字符/64 层、路径索引 8Mi 字符预算；这些是资源拒绝上限，不是兼容性声明。根目录必须有非空 `project.json`。终验核对实际长度与 checksum，在文件/chunk/每次至多 64KiB 读取间响应取消。manifest/chunk 完整性和最终内容/类型校验分层；只有 metadata/零字节/部分文件不算完成。CDN 失败有 backoff 与上限，权限拒绝先判断会话/许可，不无限换服务器。进度区分网络字节、已验证字节与阶段总量，避免压缩字节分母混用。
 4. **取消：**取消队列立即完成；活动作业请求取消后停止新 chunk，排空写入，回 `cancelled` 才释放 job；UI 可先“正在取消…”。helper 崩溃/管道 EOF 不得显示完成。需要强杀时只杀本任务 helper，并使其所有活动作业进入可恢复/失败，不能杀用户 Steam 客户端。
 5. **原子入库：**Swift 校验 staged receipt（job/account/version/path/manifest）→复制或移动至库内临时版本→验证→原子发布记录；持久化提交阶段/receipt，覆盖文件提交与记录更新之间的崩溃恢复，不假设二者天然是同一原子操作。跨卷不能假定 rename 原子。磁盘满/取消/重复完成不覆盖旧 ready。更新使用版本目录或等价安全替换，正在播放的旧版本保留到消费端释放；属性/依赖/预览映射继续按稳定 workshopID 关联。
+   下载完成凭证采用显式 `receiptVersion=2`，必须包含并核对 `jobId/workshopId/accountSteamId/accountEpoch/manifestId`、`stagedComplete/projectJsonPresent`、相等且有界的 `verifiedBytes/totalBytes`，以及本次 base 下的独占 `job-<GUID>` 直接子目录。`contentDigest` 是按 NFC UTF-8 路径字节序排序的所有普通文件的 SHA-256：每行依次写入路径 UTF-8 长度（UInt32 little-endian）、路径、文件长度（UInt64 little-endian）、文件 SHA-256 二进制；再对这些行串联求 SHA-256。空目录保留但不参与摘要。App 复制时再次计算同一摘要，拒绝 helper 完成后发生的内容变化。Swift 查询 API 返回完整 typed receipt，不丢弃为 Void，不以协议成功直接发布 ready。路径字段校验只确认归属和格式，不替代消费端的文件身份、链接、项目内容重验；入库提交前再次核对当前账号及作业 attempt。
+   当前发布 owner 仍为现有 `.mywallpaperx-steam-metadata/<workshopId>.json`：完整内容放入库内 `.mywallpaperx-steam-versions/<UUID>/content`，该元数据增加 commit 指针，临时版本自身不代表 ready。文件复制/摘要和 project 验收在 utility task；最后账号与 attempt 检查到元数据 rename 之间不挂起。任务状态为 `running → staged(receipt) → committing(commit) → completed`，receipt/commit 先持久化再推进状态；重启只以身份完全一致且内容路径可用的已发布记录对账，未发布事务保留失败现场并等待用户重试。旧 v1 活动任务文件可读取，写入升为 v2；失败保存不向观察者发布虚假的状态变化。
+   更新保留旧版本原路径；移除受管下载写 tombstone，避免旧目录被扫描复活。播放 lease 感知回收尚未完成，当前不自动删除旧版本、失败版本或 helper 暂存树。每个暂存/版本根最多64个直接子项；开始新作业前已有内容不得超过24GiB，再加单次8GiB上限，使单根最多32GiB（同时受200k节点/8MiB路径索引预算约束），超限明确拒绝。回收策略必须在后续职责内完成，不能把该暂存保留方案当无限期最终设计。
+   项目准入要求有界有效 JSON、scene/web/video 类型、受限相对入口及预览/依赖路径；scene允许入口封装于scene.pkg，web允许合法依赖项目。该准入不等于视频解码、HTML效果或Scene视觉兼容验收。配置根路径可用原生 realpath 解析物理路径，receipt路径本身不得借此绕过nofollow；Foundation路径规范化会缩写系统别名，不用于安全路径比较。
+
 6. **恢复：**Swift 持久化最小 job intent/目标版本/暂存租约，不保存密码/token 到任务文件。App 重启后先校验 manifest 与本地块，显示“可继续”或“需重新下载”，不能伪装自动无损续传。网络断开可有界自动重试；账号切换后不自动恢复前账号任务，提示原账号恢复或移除任务。更新 manifest 改变时丢弃不匹配块，只清精确 job 暂存。
 7. **自动进入已下载：**入库事务成功后一次性发布 ready 记录、更新浏览卡片/队列面板/已下载列表；即使已下载页未打开也必须更新数据源。历史条目引用同一 recordID，不复制一套已下载状态。失败/取消留在任务历史，不冒充已下载；更新成功合并同一 workshopID，不新增重复卡片。不自动切换页面、选中其他卡片或打断当前播放。
 8. **播放：**现有“下载”不产生播放 intent。未来若增加“下载并设为壁纸”，必须另存用户操作的播放 epoch/display/选择，成功时重新确认仍为最新意图；不是本次默认行为。
@@ -190,22 +199,22 @@ Envelope：`v/type/requestId/processEpoch/accountEpoch`；认证另有 authAttem
 <a id="work-cards"></a>
 ## 8. 可逐张实施的工作卡
 
-**当前起点：SK0.1；所有工作卡均待实施。** 默认按下表从上到下执行，一张卡一个可验证结果和一个职责提交。阶段 SK0–SK7 只用于分组，阶段完成必须包括其所有子卡；前文设计合同不因卡片摘要省略而失效。当前卡及完成证据链接只在下表更新，不为每张卡创建新计划文件。
+**当前续接：SK4.3 的剩余工作 → SK4.4 → SK5 → SK6 → SK7。** SK0–SK3 的真实账号/可见门仍未完成，合并进入 SK7 的最终当前构建验收，不重新搭建已存在的 owner。 默认按下表从上到下执行，一张卡一个可验证结果和一个职责提交。阶段 SK0–SK7 只用于分组，阶段完成必须包括其所有子卡；前文设计合同不因卡片摘要省略而失效。当前卡及完成证据链接只在下表更新，不为每张卡创建新计划文件。
 
 | 顺序 | 卡 | 交付物 | 状态 |
 |---|---|---|---|
-| 01 | SK0.1 | 依赖/平台与能力验证表、独立 fixture | **部分完成**：匿名矩阵 + 密码登录/令牌恢复/订阅收藏/真实下载完整性已实测（[§10.1](#sk01-能力验证-2026-09-15)）；仅剩 QR 扫码确认闭环，并入 SK2.1 认证卡验收 |
-| 02 | SK1.1 | 双端协议与离线协议测试 | **完成**：`SteamService/Protocol.cs`（envelope/有界分帧/terminal 去重/脱敏/解码与 dispatch 分离）+ Swift `SteamServiceProtocol.swift` + 共享 golden（`script/tests/fixtures/steam-protocol/`）。C# selftest 19/19、Swift harness 8/8、Python golden 11/11、活体循环冒烟（重复 requestId 压制、未知命令类型化错误、shutdown 有界关闭）通过 |
-| 03 | SK1.2 | App 能管理当前 helper 生命周期 | **完成**：`SteamServiceClient.swift`（握手 identity=protocol+helperVersion、generation 绑定陈旧回包防线、有界退避重启、超时/取消/EOF typed state、帧缓冲 1MiB 上限、可注入 fake transport；复用 DaemonKit 传输，Swift 侧重复分帧器已撤）。离线矩阵 15/15 + 真实 spawn（Debug dll 与 Release publish apphost）3/3；`script/publish-steam-helper.sh` 确定性发布；`SteamWorkshopService` 统一持有客户端（惰性、不接 multiplexer）。App checkpoint Debug build 通过。apphost 需 `DOTNET_ROOT`（self-contained 属 SK7.2） |
-| 04 | SK2.1 | 同一会话的密码/二维码/Guard 后端 | **部分完成（后端已落地）**：`SteamService/SteamSession.cs`——attempt 簿记（单活动/顶替作废/迟到扫码与验证码抑制、令牌仅在 result private 包装出站）、Guard 分型（手机确认/设备码/邮箱码独立事件）、QR 挑战与刷新事件、取消闭环（取消后登录请求必收 cancelled 终态；实测验证）、异步认证命令 terminal 归会话所有。自检 auth 12/12（离线）、协议 19/19、golden 双端测试绿；Swift `SteamAccountSession` 消费点 + harness auth 7/7、生命周期 15/15。**待账号门**：`script/steam-auth-gate.sh` password/qr/wrong-password/restore 四路实测（QR 扫码闭环在此补验，即 SK0.1 遗留项） |
-| 05 | SK2.2 | 工具栏唯一登录入口与面板 | **完成（待最终 App 内验收）**：`SteamAuthRoute` + `SteamLoginPanelController`（二维码/账号密码分段默认码、CoreImage 本机渲染、刷新/切方式先取消、Guard 分型+错误聚焦、Esc/放大窗/记住偏好、关闭=取消+清秘密、唯一面板幂等、迟到回调不弹回）；工具栏账号按钮新状态机+菜单（撤社区登录/匿名浏览入口）；自动弹登录全链清零（Downloads 四分支、个人列表入口与 Cookie 过期路径、ensureAuthenticated 只抛错不弹窗）；登录被拒不创建 pending/幽灵排队记录。子代理独立审查 2 轮（初审 REQUEST_CHANGES 4 必修+6 应修 → 全部修复 → 复核 APPROVE）。**边界**：signOut 不清旧 SteamCMD 凭据（SK2.3）；helper 崩溃不翻转在线显示（SK2.3 恢复语义）；`isAuthenticating` 被拒分支不推进旧队列（SK4 消解）；旧 route 死代码（handleBrowseAnonymously/presentLoginGate 等）留 SK6.2 退役。App checkpoint Debug build 通过；真实账号登录验收并入最终构建（用户指示） |
-| 06 | SK2.3 | Keychain、静默恢复、换号与退出 | **完成（待最终 App 内验收）**：`SteamWorkshopTokenStore`（原子 Keychain：update-first 不先删后写，serviceOverride 隔离可测）；启动静默恢复（记住偏好授权才执行，expectedSteamId 校验不存错账号，明确拒绝才删令牌+标 expired，网络失败保留）；登录成功按偏好保存（真实账号名经 helper private 包装回传做 restore Username，掩码名仅 UI）；保存失败面板可见不伪报；expired 展示态+「重新登录」；换号/退出统一 epoch 递增（含在线切换）；signOutEverywhere（确认对话框覆盖进行中+排队任务、清空队列与旧路线内存态、本地文件与壁纸保留、旧 SteamCMD 密码条目保留至 SK6 迁移门）。子代理独立审查 2 轮（REQUEST_CHANGES 4 必修+6 应修 → 修复 → 抽验 APPROVE）。离线：token 矩阵 13/13（evidence harness）+ 六套回归全绿。**边界**：helper 不消费 epoch/响应不校验（SK3 私人请求接入前补齐）；Throttle 归 rejected 偏严；真实账号恢复闭环与退出后重连并入最终构建验收 |
-| 07 | SK3.1 | 统一结构化查询生产者 | **完成（待最终 App 内验收）**：`SteamService/WorkshopQueries.cs`（SteamSession partial）——queryBrowse（4 排序/requiredtags/search/页码分页/hasMore=received==pageSize）、queryDetails（批量+单条 partial 错误）、queryAuthor（GetUserFiles 以作者 steamid，匿名实测可用）、listSubscriptions/listFavorites/querySubscriptionStates（需登录，未登录 typed accessDenied）；consumerAppID 强校验+wrongAppDropped 计数；查询共享 2 并发槽+有界超时；单飞连接+匿名会话保证（connect/LogOnAnonymous 并发互踩实测修复）；查询失败统一 taxonomy typed。Swift `SteamWorkshopQueryClient`（页模型/详情/订阅/收藏/状态消费 API）。实测：匿名三页×30 去重 90 全唯一、详情批含坏 ID 的 partial 正确、未登录订阅查询拒绝。App/helper 构建通过；六套离线回归全绿。**边界**：查询无取消命令（App 以 generation 丢弃陈旧页，helper 有界超时必出 terminal）；shutdown 丢弃 in-flight 查询（App 侧 typed 失败） |
-| 08 | SK3.2 | 浏览分页、过滤与详情补全 UI | **完成（dev 注入，待最终 App 内验收）**：`SteamWorkshopService+SteamKitBrowse.swift`——QueryKey（排序/标签/搜索/时间窗）+generation 防陈旧页；同 key 刷新不闪回空白；追加页失败冷却重试、已有页保留、按 ID 去重；条目自带网格字段（标题/预览/标签/大小/更新时间/分级提示），详情面板打开走既有按 ID 补全；dev 注入 `--mwx-steam-kit-browse` 或 defaults 键，SK6.1 前不接管发行默认；个人/作者来源仍走既有 route。App checkpoint Debug build 通过。**边界**：趋势时间窗为已加载项客户端过滤（服务端 days 缺口）；年龄分级过滤本 route 未开放；作者模式接 queryAuthor 待后续卡；补全队列重接待 SK7 评估 |
-| 09 | SK3.3 | 已订阅/收藏重接与订阅写入 | **完成（dev 注入，待最终 App 内验收）**：个人来源新 route（`shouldUseSteamKitPersonal`：dev flag + 新路线在线）——已订阅 `GetUserFiles(mysubscriptions)` 直接分页，收藏 ID 分页+详情批补全（30/批）；标签/搜索/个人排序（订阅时间/更新时间/大小/名称）客户端后处理；离线保持 SK2.2 指引路径，Cookie 旧 route 为 fallback。订阅写入：helper `setSubscription`（Subscribe/Unsubscribe 统一消息，含依赖）+ Swift `setSubscription` + 详情面板订阅次级按钮（状态查询→写入→对账确认；未登录点击仅就地提示；超时显示待确认）；`timeSubscribed` 进映射。同批含 SK3.1/SK3.2 审查代理修复：loggedOnSource 竞态单飞化、匿名会话存续下 token 登录前重连、断线清陈旧会话标志、favorites hasMore 页宽修正、browse store fetch 代际提交守卫+loadMore 防杀刷新、ID 搜索留旧 route、ByteCountFormatter→fileSizeText、steamKitPostFilter 支持时间段守卫。App/helper 构建通过；六套回归全绿。**边界**：真账号读写与取消订阅保留本地验证并入最终构建；rating/favorites 个人排序无数据（SK0.1 缺口） |
-| 10 | SK4.1 | 单一 JobStore、队列与任务持久化 | **完成（fake 验证，待最终 App 内验收）**：`SteamWorkshopJobStore`——job/attempt/queueOrdinal/state/staging租约/accountSteamId；迁移只经 reducer（非法迁移拒绝、failed 重试 attempt 递增）；同 item 去重；FIFO 出队按账号隔离；持久化版本化 JSON 原子替换、无凭据、损坏隔离、running 重启回退 queued、终态不落盘。旧真值移除：pendingDownloadRequest/queuedDownloadRequests 删除，8 个文件改走 JobStore；登录成功不再自动续接旧下载点击；执行载荷不入任务文件（服务内存映射+browserItems 回退）。harness --jobs 17/17；六套回归全绿；App 构建通过。**边界**：执行器仍为旧 SteamCMD 流程（SK4.2 接 helper downloader+receipt、SK4.4 并发）；任务历史/保留策略归 SK5.3 |
-| 11 | SK4.2 | 一个真实下载作业与完整 staged receipt | **完成（staged；真账号闭环并入最终验收）**：`SteamService/WorkshopDownloader.cs`（SteamSession partial）——startDownload 命令闭合 GetDetails→workshopdepot(PICS)→depot key→manifest("public")→有界 chunk（4 worker/60s 超时）→逐 chunk Adler→project.json 检查→stagedComplete terminal（含 verifiedBytes/manifestId/stagingPath）；downloadProgress 事件 ≤4Hz 合并、阶段与未压缩字节分明；cancelDownload 终止写入并以 cancelled 收口；路径围栏（stagingRoot 绝对路径/逃逸/符号链接拒绝）+ 8GiB/200k 文件预算；查询/下载会话单飞共享。撤旧：ProbeDownloader 与 probe download/matrix 下载步骤删除（depot 链归产品）。实测：匿名 startDownload 全链 typed（resolving 事件→unsupportedContent FileNotFound 终态）、cancelDownload 未知 jobId cancelled:false。Swift 消费点：QueryClient.startStagedDownload/cancelStagedDownload + client 多观察者事件注册表（AccountSession 迁移）。**边界**：staged→入库与 ready 归 SK4.3；真账号完整下载闭环并入最终构建验收；Executor 与 JobStore 的执行器切换归 SK4.3/SK6.1 |
-| 12 | SK4.3 | 原子入库与自动进入已下载 | 待实施 |
+| 01 | SK0.1 | 依赖/平台与能力验证表 | §10.1 是早期探针基线；当前构建 QR/账号/下载实测仍待 SK7，不能仅凭旧探针关闭 |
+| 02 | SK1.1 | 双端协议与离线协议测试 | 实现及离线门完成：有界分帧/256业务+8控制准入/接收登记与terminal去重/脱敏；维护入口见本节下方 |
+| 03 | SK1.2 | helper 生命周期 | 实现及离线门完成：transport generation、握手超时拆旧、有界重启、取消/陈旧回包反例；真实崩溃/发行 apphost 门仍待验 |
+| 04 | SK2.1 | 密码/QR/Guard 后端 | attempt/账号/连接身份与取消已离线验证；真实四路账号门使用修复后的 steam-auth-gate.sh，需明确账号授权 |
+| 05 | SK2.2 | 工具栏唯一登录入口与面板 | 代码已接入；共用记住偏好、QR刷新/关闭生命周期已修。真实 App 面板/焦点/布局/不自动弹窗门尚待验，不记为 UI 完成 |
+| 06 | SK2.3 | Keychain、恢复、换号与退出 | epoch贯穿helper私有请求与回包；断线撤在线能力，取消抑制令牌采纳，退出先撤自动恢复授权并报告删除失败。离线门通过，真实Keychain/账号门待验 |
+| 07 | SK3.1 | 统一结构化查询 | 检查所有统一消息Result，严格解码、partial错误ID、完整tags、有界并发；离线反例通过，真实分页/权限与限流待验 |
+| 08 | SK3.2 | 浏览分页、过滤与详情 | dev route保留同key原始已加载集合，整集合投影排序、失败保留页；updated/分级无能力明确禁用。ID/作者/详情旧HTML撤除、默认切换仍在SK6，不能称完整浏览迁移完成 |
+| 09 | SK3.3 | 已订阅/收藏与订阅写入 | dev route + 共享SubscriptionStore，unknown不得写、写超时先对账、无自动重写、账号隔离；个人排序/筛选仅限已加载集合，明确标注。Cookie不再是可用fallback。真账号/可见门待验 |
+| 10 | SK4.1 | JobStore、队列与持久化 | 先在线准入；任务文件v2；staged/committing非终态；cancelAll一次保存、失败不假推进并提示。离线反例通过；历史与完整App操作仍待后续卡 |
+| 11 | SK4.2 | 下载与完整receipt | 描述符staging、清单预算、v2跨语言摘要、串行进度发布/统一分母、typed磁盘错误、取消与成功共用决策点均有离线门。真实Steam下载与SDK物理排空仍待验 |
+| 12 | SK4.3 | 原子入库与已下载 | 已接通版本准备/摘要与项目准入/元数据rename/列表刷新；离线失败与中断门通过。剩余：播放占用与安全回收、可见列表、跨卷/断电实机、完整项目播放及依赖验收 |
 | 13 | SK4.4 | 取消、恢复、有限并发与重试 | 待实施 |
 | 14 | SK5.1 | 卡片 bar 真实进度填充 | 待实施 |
 | 15 | SK5.2 | 工具栏任务面板与队列交互 | 待实施 |
@@ -214,6 +223,17 @@ Envelope：`v/type/requestId/processEpoch/accountEpoch`；认证另有 authAttem
 | 18 | SK6.2 | SteamCMD/自动社区登录产品引用与资源退役 | 待实施 |
 | 19 | SK7.1 | 全链路 UI、异常与性能验收 | 待实施 |
 | 20 | SK7.2 | arm64 发布、许可与升级验收 | 待实施 |
+
+本轮审查维护门（全部无真实账号/外部网络，不能替代 §9）：
+
+```bash
+python3.12 script/run_scene_tests.py --scope all -k test_steam_ -j 1
+/bin/bash script/run_checkpoint_build.sh
+```
+
+`script/tests/test_steam_helper_offline.py` 将当前 helper 源码和锁文件复制到隔离目录，仅使用本地空 feed 与已有包缓存 restore，运行 protocol/auth/manifest/staging/download/query 六套真实 C# 自检；缺 SDK/包缓存应失败，不跳过假绿。其余 maintained Swift harness 使用真实 client/query/JobStore/事务/执行器/订阅与分页源码及假 wire，磁盘测试只写隔离目录。账号门脚本只在显式真人验收时运行：`script/steam-auth-gate.sh --help`，支持 password/qr/wrong-password/restore；有整体 deadline、attempt/epoch、Guard ack与终态断言，禁止输出原始帧或令牌。二维码模式仅显示用户需要的临时挑战链接，不落盘登录凭据。
+
+当前偏差的 owner/退役门：SK4.3/4.4 接管暂存与旧版本生命周期回收（现有有界保留，不是永久GC策略）；SK5 接数字进度/队列/历史（当前只接阶段文案）；SK6 撤公共HTML/旧PTY/旧凭据与资源并完成默认路由切换；SK7 冻结 SDK global.json、自包含发布、许可材料与真实 UI/账号/性能验收。禁止用离线绿色把这些剩余门直接勾完。
 
 ### 8.1 每卡开工和完成的统一规则
 
@@ -411,6 +431,8 @@ Envelope：`v/type/requestId/processEpoch/accountEpoch`；认证另有 authAttem
 
 <a id="sk01-能力验证-2026-09-15"></a>
 ### 10.1 SK0.1 能力验证（2026-09-15 匿名链实测）
+
+以下保留早期探针记录；属于该探针当时的能力证据，不是本轮修复后产品构建的复验结果。
 
 工程：`dotnet 8.0.401`、`SteamKit2 3.4.0`（NuGet lock `LockModeFilePathAndContent`）、`RuntimeIdentifier osx-arm64`、[NOTICE](../../SteamService/NOTICE.md)。探针源码 `SteamService/Probe/`（仅开发验证，不进入产品 IPC 路径）；命令 `dotnet SteamService.dll probe <help|query|details|uquery|auth-password|auth-qr|restore|subscriptions|download|matrix>`。
 

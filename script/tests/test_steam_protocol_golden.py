@@ -22,7 +22,7 @@ FIXTURES = REPOSITORY_ROOT / "script/tests/fixtures/steam-protocol"
 ALLOWED_TYPES = {"request", "result", "event", "ready"}
 SECRET_KEYS = {
     "access_token",
-    "access_token",
+    "accesstoken",
     "refresh_token",
     "refreshtoken",
     "guard_data",
@@ -61,6 +61,10 @@ class SteamProtocolGoldenTests(unittest.TestCase):
         self.requests = [json.loads(line) for line in load_jsonl("requests.jsonl")]
         self.responses = [json.loads(line) for line in load_jsonl("responses.jsonl")]
         self.negatives = [json.loads(line) for line in load_jsonl("negative-frames.jsonl")]
+
+    def test_camel_case_secrets_cannot_escape_private(self) -> None:
+        self.assertEqual(secret_keys_in({"data": {"accessToken": "fake"}}), ["data.accessToken"])
+        self.assertEqual(secret_keys_in({"private": {"accessToken": "fake"}}), [])
 
     def test_error_code_taxonomy_single_source(self) -> None:
         self.assertIsInstance(self.codes, list)
