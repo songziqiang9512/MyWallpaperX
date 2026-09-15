@@ -192,7 +192,7 @@ final class SteamWorkshopService: ObservableObject {
 
     /// SK2.3：退出登录 = 新路线登出（epoch 递增+令牌清理）+ 旧路线会话清理。
     /// 有活动/排队任务时先说明一次；本地文件与当前壁纸不受影响。
-    /// 旧 SteamCMD 密码条目的显式迁移清理仍归 SK6。
+    /// 旧 SteamCMD 密码条目的显式迁移清理仍归 SK6；下载执行器已不再消费它。
     func signOutEverywhere() {
         let hasActiveDownloads = activeDownloadTask != nil || downloadJobStore.queuedCount > 0
         if hasActiveDownloads {
@@ -338,7 +338,7 @@ final class SteamWorkshopService: ObservableObject {
     var loginBootstrapTimeoutTask: Task<Void, Never>?
     var loginSessionID: String = ""
     var lastSuccessfulSessionValidationAt: Date?
-    var activeDownloadProcess: Process?
+    var activeDownloadJobKey: String?
     var activeDownloadTask: Task<Void, Never>?
     var activeDownloadWasCancelled = false
     var selectedItemDetailTask: Task<Void, Never>?

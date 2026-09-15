@@ -6,7 +6,7 @@
 import Combine
 import Foundation
 
-// SK4.1：下载任务单一权威（job/attempt/queue ordinal/state/receipt 扩展位）。
+// 下载任务单一权威：job/attempt/queue ordinal/state/receipt/提交阶段。
 //
 // 合同：
 // - 同一 workshopItem 至多一个非终态任务（去重）；同任务重试递增 attempt。
@@ -15,7 +15,7 @@ import Foundation
 //   保留后以空状态继续；保存失败对外可见（不伪报已保存）。
 // - 账号隔离：任务携带 accountSteamId；出队/取消可按账号过滤，其它账号的
 //   任务不接管。
-// - 执行器不在本类（SK4.2 接 helper downloader；SK4.1 仅 fake 验证）。
+// - 执行器在 Service；库内现有元数据指针是 ready 的唯一提交依据。
 
 enum SteamDownloadJobState: String, Codable, Equatable {
     case queued
@@ -24,11 +24,10 @@ enum SteamDownloadJobState: String, Codable, Equatable {
     case failed
     case cancelled
 
-    // SK4.1：staged 也是终态——当前执行器（旧 SteamCMD 流程）成功即内联
-    // 入库，没有独立的“staged 待提交”阶段；若 staged 保持 active，job 会
-    // 永久占据去重/忙碌判定且跨重启复活。SK4.2/SK4.3 引入 receipt 与原子
-    // 提交阶段（§5.5）时再复核 staged 的持久化语义。
-    var isTerminal: Bool { self == .staged || self == .failed || self == .cancelled }
+    case committing
+    case completed
+
+    var isTerminal: Bool { self == .completed || self == .failed || self == .cancelled }
 }
 
 struct SteamDownloadJob: Codable, Identifiable, Equatable {
@@ -40,6 +39,8 @@ struct SteamDownloadJob: Codable, Identifiable, Equatable {
     let queueOrdinal: Int
     let accountSteamId: String
     var stagingPath: String?
+    var receipt: SteamWorkshopStagedReceipt? = nil
+    var preparedCommit: SteamWorkshopLibraryCommit? = nil
     var failureMessage: String?
     let createdAt: Date
     var updatedAt: Date
@@ -50,7 +51,9 @@ struct SteamDownloadJob: Codable, Identifiable, Equatable {
 
 enum SteamDownloadJobEvent: Equatable {
     case started
-    case staged
+    case staged(SteamWorkshopStagedReceipt)
+    case committing(SteamWorkshopLibraryCommit)
+    case completed
     case failed(String)
     case cancelled
 }
@@ -70,15 +73,30 @@ enum SteamDownloadJobReducer {
             next.state = .running
             next.attempt = job.attempt + 1
             next.failureMessage = nil
-        case .staged:
-            guard job.state == .running else { return nil }
+            next.receipt = nil
+            next.preparedCommit = nil
+            next.stagingPath = nil
+        case .staged(let receipt):
+            guard job.state == .running, receipt.jobId == "\(job.id)-\(job.attempt)",
+                  receipt.workshopId == job.workshopItemId, receipt.accountSteamId == job.accountSteamId else { return nil }
             next.state = .staged
+            next.receipt = receipt
+            next.stagingPath = receipt.stagingURL.path
+        case .committing(let commit):
+            guard job.state == .staged, commit.jobId == job.receipt?.jobId,
+                  commit.attempt == job.attempt, commit.workshopId == job.workshopItemId,
+                  commit.manifestId == job.receipt?.manifestId, commit.contentDigest == job.receipt?.contentDigest else { return nil }
+            next.state = .committing
+            next.preparedCommit = commit
+        case .completed:
+            guard job.state == .committing, job.preparedCommit != nil else { return nil }
+            next.state = .completed
         case .failed(let message):
-            guard job.state == .queued || job.state == .running else { return nil }
+            guard !job.isTerminal else { return nil }
             next.state = .failed
             next.failureMessage = message
         case .cancelled:
-            guard job.state == .queued || job.state == .running else { return nil }
+            guard !job.isTerminal else { return nil }
             next.state = .cancelled
         }
         return next
@@ -92,7 +110,7 @@ final class SteamDownloadJobStore: ObservableObject {
         var jobs: [SteamDownloadJob]
     }
 
-    static let persistenceVersion = 1
+    static let persistenceVersion = 2
 
     @Published private(set) var jobs: [SteamDownloadJob] = []
     /// 最近一次持久化是否成功；失败时 UI 可提示（不伪报已保存）。
@@ -139,7 +157,7 @@ final class SteamDownloadJobStore: ObservableObject {
 
     func isQueuedOrRunning(workshopItemId: String) -> Bool {
         jobs.contains {
-            $0.workshopItemId == workshopItemId && ($0.state == .queued || $0.state == .running)
+            $0.workshopItemId == workshopItemId && $0.isActive
         }
     }
 
@@ -179,8 +197,10 @@ final class SteamDownloadJobStore: ObservableObject {
             createdAt: stamp,
             updatedAt: stamp
         )
-        jobs.append(job)
-        save()
+        let candidate = jobs + [job]
+        save(candidate)
+        guard lastSaveSucceeded else { return (job, false) }
+        jobs = candidate
         return (job, true)
     }
 
@@ -201,8 +221,11 @@ final class SteamDownloadJobStore: ObservableObject {
               let next = SteamDownloadJobReducer.apply(event, to: jobs[index], now: now()) else {
             return nil
         }
-        jobs[index] = next
-        save()
+        var candidate = jobs
+        candidate[index] = next
+        save(candidate)
+        guard lastSaveSucceeded else { return nil }
+        jobs = candidate
         return next
     }
 
@@ -215,20 +238,38 @@ final class SteamDownloadJobStore: ObservableObject {
     /// （供调用方清理对应 UI 投影）。
     @discardableResult
     func cancelAll(forAccount accountSteamId: String? = nil) -> [String] {
-        let targets = jobs.filter { job in
-            job.isActive && (accountSteamId == nil || job.accountSteamId == accountSteamId)
+        let stamp = now()
+        var cancelledIDs: [String] = []
+        let candidate = jobs.map { job in
+            guard job.isActive, accountSteamId == nil || job.accountSteamId == accountSteamId,
+                  let next = SteamDownloadJobReducer.apply(.cancelled, to: job, now: stamp) else { return job }
+            cancelledIDs.append(job.workshopItemId)
+            return next
         }
-        for job in targets {
-            _ = apply(.cancelled, toID: job.id)
+        guard !cancelledIDs.isEmpty else { return [] }
+        save(candidate)
+        guard lastSaveSucceeded else { return [] }
+        jobs = candidate
+        return cancelledIDs
+    }
+
+    /// Caller supplies only available, published metadata pointers. Unpublished directories cannot settle a job.
+    func reconcileInterruptedCommits(published: [String: SteamWorkshopLibraryCommit]) {
+        for job in activeJobs where job.state == .staged || job.state == .committing {
+            if job.state == .committing, let commit = published[job.workshopItemId],
+               commit == job.preparedCommit, !commit.removed {
+                _ = apply(.completed, toID: job.id)
+            } else {
+                _ = apply(.failed("上次入库未提交，旧版本保持不变；请重新发起下载。"), toID: job.id)
+            }
         }
-        return targets.map(\.workshopItemId)
     }
 
     // MARK: - 持久化（版本化 + 原子替换 + 无凭据）
 
-    private func save() {
-        // 终态任务不持久化（历史/记录由下载库与 SK5.3 任务历史承担）。
-        let persisted = jobs.filter(\.isActive)
+    private func save(_ candidate: [SteamDownloadJob]) {
+        // Preserve receipt-bearing failures for reconciliation/owned cleanup, never resume them implicitly.
+        let persisted = candidate.filter { $0.isActive || ($0.receipt != nil && $0.state != .completed) }
         let state = PersistedState(version: Self.persistenceVersion, jobs: persisted)
         guard let data = try? JSONEncoder().encode(state) else {
             lastSaveSucceeded = false
@@ -249,7 +290,7 @@ final class SteamDownloadJobStore: ObservableObject {
             return
         }
         guard let state = try? JSONDecoder().decode(PersistedState.self, from: data),
-              state.version == Self.persistenceVersion else {
+              (state.version == 1 || state.version == Self.persistenceVersion) else {
             quarantineCorruptedFile()
             return
         }

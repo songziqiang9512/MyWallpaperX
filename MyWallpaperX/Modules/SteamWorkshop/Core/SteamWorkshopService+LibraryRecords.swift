@@ -60,7 +60,9 @@ extension SteamWorkshopService {
 
         func existingRelativePath(_ rawPath: String?) -> String? {
             guard let relativePath = normalizedRelativePath(rawPath) else { return nil }
-            let candidate = directory.appendingPathComponent(relativePath)
+            let root = directory.resolvingSymlinksInPath().standardizedFileURL.path
+            let candidate = directory.appendingPathComponent(relativePath).resolvingSymlinksInPath().standardizedFileURL
+            guard candidate.path.hasPrefix(root + "/") else { return nil }
             return fileManager.fileExists(atPath: candidate.path) ? relativePath : nil
         }
 
@@ -156,7 +158,15 @@ extension SteamWorkshopService {
         try? data.write(to: detailCacheFileURL(id: item.id), options: [.atomic])
     }
 
-    func buildInstalledRecord(at directory: URL) -> SteamWorkshopDownloadRecord? {
+    func buildInstalledRecord(at directory: URL, resolvingIDs: Set<String> = [],
+                              managedSnapshots: [String: SteamWorkshopDownloadMetadataSnapshot]? = nil) -> SteamWorkshopDownloadRecord? {
+        let managed = managedSnapshots ?? managedDownloadSnapshots()
+        if let snapshot = managed[directory.lastPathComponent] {
+            guard let commit = snapshot.commit,
+                  SteamWorkshopLibraryTransaction.isAvailable(commit, libraryRoot: steamDownloadLibraryRootURL) else { return nil }
+            return buildInstalledRecord(from: snapshot, legacyDirectory: snapshot.legacyFolderURL,
+                fallbackProject: nil, fallbackIdentifier: snapshot.item.id, resolvingIDs: resolvingIDs, managedSnapshots: managed)
+        }
         let projectURL = directory.appendingPathComponent("project.json")
         let metadataURL = Self.legacyDownloadMetadataFileURL(for: directory)
         let hasProject = FileManager.default.fileExists(atPath: projectURL.path)
@@ -174,7 +184,8 @@ extension SteamWorkshopService {
             from: metadata,
             legacyDirectory: directory,
             fallbackProject: project,
-            fallbackIdentifier: identifier
+            fallbackIdentifier: identifier,
+            resolvingIDs: resolvingIDs, managedSnapshots: managed
         )
     }
 
@@ -433,9 +444,14 @@ extension SteamWorkshopService {
         from metadata: SteamWorkshopDownloadMetadataSnapshot?,
         legacyDirectory: URL?,
         fallbackProject: SteamWorkshopProject?,
-        fallbackIdentifier: String
+        fallbackIdentifier: String,
+        resolvingIDs: Set<String> = [],
+        managedSnapshots: [String: SteamWorkshopDownloadMetadataSnapshot]? = nil
     ) -> SteamWorkshopDownloadRecord? {
         let identifier = metadata?.item.id ?? fallbackIdentifier
+        guard !resolvingIDs.contains(identifier) else { return nil }
+        let resolving = resolvingIDs.union([identifier])
+        let managed = managedSnapshots ?? managedDownloadSnapshots()
         let resolvedLegacyDirectory: URL? = {
             if let legacyFolderURL = metadata?.legacyFolderURL,
                FileManager.default.fileExists(atPath: legacyFolderURL.path) {
@@ -520,12 +536,19 @@ extension SteamWorkshopService {
         let dependencyRecord: SteamWorkshopDownloadRecord? = {
             guard let dependencyItemID,
                   dependencyItemID != identifier else { return nil }
-            if let cachedRecord = latestDownloadRecord(for: dependencyItemID),
-               cachedRecord.webEntryURL != nil {
+            if let snapshot = managed[dependencyItemID] {
+                guard let commit = snapshot.commit,
+                      SteamWorkshopLibraryTransaction.isAvailable(commit, libraryRoot: steamDownloadLibraryRootURL) else { return nil }
+                return buildInstalledRecord(from: snapshot, legacyDirectory: snapshot.legacyFolderURL,
+                    fallbackProject: nil, fallbackIdentifier: dependencyItemID, resolvingIDs: resolving, managedSnapshots: managed)
+            }
+            if let cachedRecord = latestDownloadRecord(for: dependencyItemID), cachedRecord.webEntryURL != nil {
                 return cachedRecord
             }
-            return buildInstalledRecord(at: webLibraryRootURL.appendingPathComponent(dependencyItemID, isDirectory: true))
-                ?? buildInstalledRecord(at: sceneLibraryRootURL.appendingPathComponent(dependencyItemID, isDirectory: true))
+            return buildInstalledRecord(at: webLibraryRootURL.appendingPathComponent(dependencyItemID, isDirectory: true),
+                resolvingIDs: resolving, managedSnapshots: managed)
+                ?? buildInstalledRecord(at: sceneLibraryRootURL.appendingPathComponent(dependencyItemID, isDirectory: true),
+                    resolvingIDs: resolving, managedSnapshots: managed)
         }()
 
         let dependencyEntryHTMLURL = dependencyRecord?.webEntryURL

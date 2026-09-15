@@ -133,6 +133,7 @@ struct SteamWorkshopDownloadMetadataSnapshot: Codable {
     let previewRelativePath: String?
     let exportedVideoURL: URL?
     let legacyFolderURL: URL?
+    var commit: SteamWorkshopLibraryCommit? = nil
 }
 
 struct SteamWorkshopDetailParseResult {

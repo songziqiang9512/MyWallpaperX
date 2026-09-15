@@ -2,10 +2,12 @@ import Foundation
 
 extension SteamWorkshopService {
     func reloadInstalledItems() {
+        let managed = managedDownloadSnapshots()
+        reconcileDownloadCommits(managed)
         let videoFiles = directVideoFiles(in: videoLibraryRootURL)
         let webDirectories = directChildDirectories(in: webLibraryRootURL)
         let sceneDirectories = directChildDirectories(in: sceneLibraryRootURL)
-        if videoFiles.isEmpty && webDirectories.isEmpty && sceneDirectories.isEmpty {
+        if videoFiles.isEmpty && webDirectories.isEmpty && sceneDirectories.isEmpty && managed.isEmpty {
             downloads = downloads.filter {
                 if case .queued = $0.status { return true }
                 if case .downloading = $0.status { return true }
@@ -15,8 +17,14 @@ extension SteamWorkshopService {
             return
         }
 
-        var records: [SteamWorkshopDownloadRecord] = []
-        var seenIDs = Set<String>()
+        var records: [SteamWorkshopDownloadRecord] = managed.values.compactMap { snapshot in
+            guard let commit = snapshot.commit,
+                  SteamWorkshopLibraryTransaction.isAvailable(commit, libraryRoot: steamDownloadLibraryRootURL) else { return nil }
+            return buildInstalledRecord(from: snapshot, legacyDirectory: snapshot.legacyFolderURL,
+                fallbackProject: nil, fallbackIdentifier: snapshot.item.id, managedSnapshots: managed)
+        }
+        // Tombstones also suppress old legacy files; updates never delete files a player may still use.
+        var seenIDs = Set(managed.keys)
         for videoURL in videoFiles {
             let metadata = loadVideoDownloadMetadataSnapshot(for: videoURL)
             guard let record = buildInstalledVideoRecord(videoURL: videoURL, metadata: metadata),
@@ -25,7 +33,7 @@ extension SteamWorkshopService {
             seenIDs.insert(record.id)
         }
         for directory in webDirectories + sceneDirectories {
-            guard let record = buildInstalledRecord(at: directory),
+            guard let record = buildInstalledRecord(at: directory, managedSnapshots: managed),
                   seenIDs.contains(record.id) == false else { continue }
             records.append(record)
             seenIDs.insert(record.id)
@@ -83,57 +91,64 @@ extension SteamWorkshopService {
         }
     }
 
-    func syncDownloadedItemToLibrary(_ request: SteamWorkshopPendingDownloadRequest) async throws {
-        let id = request.id
-        let fileManager = FileManager.default
-        let sourceURL = stagingWorkshopContentRootURL.appendingPathComponent(id, isDirectory: true)
-        appendSteamAuthDebugLog("DOWNLOAD SYNC: source=\(sourceURL.path)")
-        guard fileManager.fileExists(atPath: sourceURL.path) else {
-            appendSteamAuthDebugLog("DOWNLOAD SYNC FAILED: staged source directory missing for id=\(id)")
-            throw NSError(domain: "SteamWorkshop", code: 6, userInfo: [
-                NSLocalizedDescriptionKey: "SteamCMD 已完成下载，但没有找到下载结果目录。"
-            ])
-        }
+    func publishDownloadedVersion(_ request: SteamWorkshopPendingDownloadRequest,
+                                  commit: SteamWorkshopLibraryCommit, libraryRoot: URL) throws {
+        let content = try SteamWorkshopLibraryTransaction.contentURL(for: commit, libraryRoot: libraryRoot)
+        let item = request.item ?? browserItemForDownload(id: request.id)
+            ?? Self.itemByMergingAuthorMetadata(into: nil, id: request.id, title: request.pageTitle,
+                author: "未知作者", authorProfileURL: nil, authorWorkshopURL: nil)
+        var snapshot = SteamWorkshopDownloadMetadataSnapshot(fetchedAt: commit.committedAt, item: item,
+            sourceVideoRelativePath: commit.contentType == "video" ? commit.entryPath : nil,
+            previewRelativePath: nil,
+            exportedVideoURL: commit.contentType == "video" ? commit.entryPath.map { content.appendingPathComponent($0) } : nil,
+            legacyFolderURL: content)
+        snapshot.commit = commit
+        try SteamWorkshopLibraryTransaction.publish(metadata: JSONEncoder().encode(snapshot),
+            itemID: request.id, libraryRoot: libraryRoot)
+    }
 
-        let item = await metadataItemForCompletedDownload(request)
-        let project = Self.loadWorkshopProject(from: sourceURL.appendingPathComponent("project.json"))
-        let sourceVideoURL = resolveVideoURL(in: sourceURL, preferredFileName: project?.file)
-        let htmlURL = resolveHTMLURL(in: sourceURL, preferredFileName: project?.file)
-        let dependencyID = project?.dependency?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let contentType = resolveContentType(
-            project: project,
-            directory: sourceURL,
-            videoURL: sourceVideoURL,
-            htmlURL: htmlURL,
-            dependencyItemID: dependencyID?.isEmpty == false ? dependencyID : nil,
-            browserItem: item
-        )
-
-        switch contentType {
-        case .video:
-            guard let sourceVideoURL else {
-                throw NSError(domain: "SteamWorkshop", code: 14, userInfo: [
-                    NSLocalizedDescriptionKey: "SteamCMD 已完成下载，但没有找到可保存的视频文件。"
-                ])
-            }
-            try persistVideoDownload(
-                item: item,
-                id: id,
-                sourceDirectoryURL: sourceURL,
-                sourceVideoURL: sourceVideoURL
-            )
-        case .scene:
-            let targetURL = sceneLibraryRootURL.appendingPathComponent(id, isDirectory: true)
-            try copyDownloadedDirectory(from: sourceURL, to: targetURL)
-            persistProjectDownloadMetadata(item: item, id: id, targetURL: targetURL)
-        case .web, .unknown:
-            let targetURL = webLibraryRootURL.appendingPathComponent(id, isDirectory: true)
-            try copyDownloadedDirectory(from: sourceURL, to: targetURL)
-            persistProjectDownloadMetadata(item: item, id: id, targetURL: targetURL)
+    /// Single current pointer lives in the existing metadata index. Hidden versions are never scanned as ready.
+    func managedDownloadSnapshots() -> [String: SteamWorkshopDownloadMetadataSnapshot] {
+        let files = (try? FileManager.default.contentsOfDirectory(at: downloadMetadataIndexDirectoryURL(),
+            includingPropertiesForKeys: [.fileSizeKey], options: [.skipsHiddenFiles])) ?? []
+        var result: [String: SteamWorkshopDownloadMetadataSnapshot] = [:]
+        for file in files where file.pathExtension == "json" {
+            guard let size = try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 4 * 1024 * 1024,
+                  let data = try? Data(contentsOf: file),
+                  let snapshot = try? JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: data),
+                  let commit = snapshot.commit, commit.workshopId == snapshot.item.id,
+                  file.deletingPathExtension().lastPathComponent == commit.workshopId,
+                  let content = try? SteamWorkshopLibraryTransaction.contentURL(for: commit, libraryRoot: steamDownloadLibraryRootURL),
+                  snapshot.legacyFolderURL == content else { continue }
+            result[commit.workshopId] = snapshot
         }
+        return result
+    }
+
+    /// A crash before metadata publication leaves the old ready pointer; after publication the job
+    /// can be completed from that exact commit. Never infer completion from a nonempty directory.
+    private func reconcileDownloadCommits(_ snapshots: [String: SteamWorkshopDownloadMetadataSnapshot]) {
+        guard activeDownloadTask == nil else { return }
+        let published = snapshots.compactMapValues { snapshot -> SteamWorkshopLibraryCommit? in
+            guard let commit = snapshot.commit,
+                  SteamWorkshopLibraryTransaction.isAvailable(commit, libraryRoot: steamDownloadLibraryRootURL) else { return nil }
+            return commit
+        }
+        downloadJobStore.reconcileInterruptedCommits(published: published)
     }
 
     func persistDownloadMetadata(item: SteamWorkshopBrowserItem, id: String, targetURL: URL) {
+        if let current = managedDownloadSnapshots()[id], let commit = current.commit {
+            var updated = SteamWorkshopDownloadMetadataSnapshot(fetchedAt: Date(), item: item,
+                sourceVideoRelativePath: current.sourceVideoRelativePath, previewRelativePath: current.previewRelativePath,
+                exportedVideoURL: current.exportedVideoURL, legacyFolderURL: current.legacyFolderURL)
+            updated.commit = commit
+            do {
+                try SteamWorkshopLibraryTransaction.publish(metadata: JSONEncoder().encode(updated),
+                    itemID: id, libraryRoot: steamDownloadLibraryRootURL)
+            } catch { statusMessage = "下载元数据更新失败：\(error.localizedDescription)" }
+            return
+        }
         if let record = latestDownloadRecord(for: id),
            record.contentType == .video,
            let videoURL = record.exportedVideoURL ?? record.sourceVideoURL {
@@ -141,54 +156,6 @@ extension SteamWorkshopService {
             return
         }
         persistProjectDownloadMetadata(item: item, id: id, targetURL: targetURL)
-    }
-
-    private func persistVideoDownload(
-        item: SteamWorkshopBrowserItem?,
-        id: String,
-        sourceDirectoryURL: URL,
-        sourceVideoURL: URL
-    ) throws {
-        let fileManager = FileManager.default
-        try fileManager.createDirectory(at: videoLibraryRootURL, withIntermediateDirectories: true)
-        try fileManager.createDirectory(at: downloadMetadataIndexDirectoryURL(), withIntermediateDirectories: true)
-
-        let resolvedItem = item ?? browserItemForDownload(id: id)
-        let title = resolvedItem?.title ?? Self.loadWorkshopProject(from: sourceDirectoryURL.appendingPathComponent("project.json"))?.title ?? "Workshop-\(id)"
-        let existingEntry = loadDownloadMetadataEntry(forItemID: id)
-        let destinationURL = uniqueExportURL(
-            baseName: sanitizedExportFileName(from: title).isEmpty ? "Workshop" : sanitizedExportFileName(from: title),
-            pathExtension: sourceVideoURL.pathExtension,
-            preferredExistingURL: existingEntry?.snapshot.exportedVideoURL
-        )
-        appendSteamAuthDebugLog("DOWNLOAD SYNC VIDEO: target=\(destinationURL.path)")
-
-        if fileManager.fileExists(atPath: destinationURL.path) {
-            try fileManager.removeItem(at: destinationURL)
-        }
-        do {
-            try fileManager.copyItem(at: sourceVideoURL, to: destinationURL)
-        } catch {
-            appendSteamAuthDebugLog("DOWNLOAD SYNC VIDEO FAILED: copyItem error=\(sanitizeSteamOutput(error.localizedDescription))")
-            throw error
-        }
-
-        guard let metadataItem = resolvedItem else {
-            return
-        }
-        let snapshot = SteamWorkshopDownloadMetadataSnapshot(
-            fetchedAt: Date(),
-            item: metadataItem,
-            sourceVideoRelativePath: nil,
-            previewRelativePath: nil,
-            exportedVideoURL: destinationURL,
-            legacyFolderURL: nil
-        )
-        let metadataURL = downloadMetadataFileURL(forVideoURL: destinationURL)
-        writeDownloadMetadataSnapshot(snapshot, to: metadataURL)
-        if let existingURL = existingEntry?.url, existingURL != metadataURL {
-            try? fileManager.removeItem(at: existingURL)
-        }
     }
 
     private func persistVideoDownloadMetadata(item: SteamWorkshopBrowserItem, videoURL: URL) {
@@ -227,21 +194,6 @@ extension SteamWorkshopService {
             legacyFolderURL: targetURL
         )
         writeDownloadMetadataSnapshot(snapshot, to: downloadMetadataFileURL(for: id))
-    }
-
-    private func copyDownloadedDirectory(from sourceURL: URL, to targetURL: URL) throws {
-        let fileManager = FileManager.default
-        try fileManager.createDirectory(at: targetURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        appendSteamAuthDebugLog("DOWNLOAD SYNC DIRECTORY: target=\(targetURL.path)")
-        if fileManager.fileExists(atPath: targetURL.path) {
-            try? fileManager.removeItem(at: targetURL)
-        }
-        do {
-            try fileManager.copyItem(at: sourceURL, to: targetURL)
-        } catch {
-            appendSteamAuthDebugLog("DOWNLOAD SYNC DIRECTORY FAILED: copyItem error=\(sanitizeSteamOutput(error.localizedDescription))")
-            throw error
-        }
     }
 
     private func writeDownloadMetadataSnapshot(_ snapshot: SteamWorkshopDownloadMetadataSnapshot, to url: URL) {
@@ -354,19 +306,6 @@ extension SteamWorkshopService {
         Set(["mp4", "webm", "mov", "m4v"]).contains(url.pathExtension.localizedLowercase)
     }
 
-    func stagedDownloadDirectoryContainsContent(id: String) -> Bool {
-        let sourceURL = stagingWorkshopContentRootURL.appendingPathComponent(id, isDirectory: true)
-        guard FileManager.default.fileExists(atPath: sourceURL.path),
-              let items = try? FileManager.default.contentsOfDirectory(
-                at: sourceURL,
-                includingPropertiesForKeys: nil,
-                options: [.skipsHiddenFiles]
-              ) else {
-            return false
-        }
-        return !items.isEmpty
-    }
-
     private func resolvePreviewRelativePath(in directory: URL) -> String? {
         let projectURL = directory.appendingPathComponent("project.json")
         let project = Self.loadWorkshopProject(from: projectURL)
@@ -378,40 +317,4 @@ extension SteamWorkshopService {
         )
     }
 
-    private func uniqueExportURL(
-        baseName: String,
-        pathExtension: String,
-        preferredExistingURL: URL?
-    ) -> URL {
-        let fileManager = FileManager.default
-        if let preferredExistingURL,
-           preferredExistingURL.deletingLastPathComponent() == exportedVideosRootURL {
-            return preferredExistingURL
-        }
-
-        let normalizedExtension = pathExtension.isEmpty ? "mp4" : pathExtension
-        var index = 0
-        while true {
-            let candidateName = index == 0
-                ? "\(baseName).\(normalizedExtension)"
-                : "\(baseName) (\(index)).\(normalizedExtension)"
-            let candidateURL = exportedVideosRootURL.appendingPathComponent(candidateName)
-            let metadataURL = downloadMetadataFileURL(forVideoURL: candidateURL)
-            if !fileManager.fileExists(atPath: candidateURL.path),
-               !fileManager.fileExists(atPath: metadataURL.path) {
-                return candidateURL
-            }
-            index += 1
-        }
-    }
-
-    private func sanitizedExportFileName(from title: String) -> String {
-        let invalidCharacters = CharacterSet(charactersIn: "/\\:?%*|\"<>")
-        let collapsed = title
-            .components(separatedBy: invalidCharacters)
-            .joined(separator: " ")
-            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return String(collapsed.prefix(120))
-    }
 }

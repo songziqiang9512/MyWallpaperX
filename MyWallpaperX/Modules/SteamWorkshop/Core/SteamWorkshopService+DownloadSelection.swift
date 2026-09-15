@@ -243,7 +243,18 @@ extension SteamWorkshopService {
         }
 
         let fileManager = FileManager.default
-        if record.contentType == .video {
+        if var snapshot = managedDownloadSnapshots()[itemID], var commit = snapshot.commit {
+            commit.removed = true
+            snapshot.commit = commit
+            do {
+                try SteamWorkshopLibraryTransaction.publish(metadata: JSONEncoder().encode(snapshot),
+                    itemID: itemID, libraryRoot: steamDownloadLibraryRootURL)
+            } catch {
+                statusMessage = "移除失败：\(error.localizedDescription)"
+                return false
+            }
+            // Preserve immutable content until no playback owner can reference it. No live-file deletion.
+        } else if record.contentType == .video {
             if let videoURL = record.exportedVideoURL ?? record.sourceVideoURL,
                fileManager.fileExists(atPath: videoURL.path) {
                 try? fileManager.removeItem(at: videoURL)
@@ -254,7 +265,9 @@ extension SteamWorkshopService {
                    || record.folderURL.deletingLastPathComponent() == sceneLibraryRootURL) {
             try? fileManager.removeItem(at: record.folderURL)
         }
-        try? fileManager.removeItem(at: downloadMetadataFileURL(for: record))
+        if managedDownloadSnapshots()[itemID] == nil {
+            try? fileManager.removeItem(at: downloadMetadataFileURL(for: record))
+        }
 
         downloads.removeAll { $0.id == itemID }
         // SK4.1：删除本地项时取消其排队任务（JobStore 真值）。

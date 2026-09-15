@@ -58,6 +58,16 @@ extension SteamWorkshopService {
             .appendingPathComponent("SteamWorkshopRuntime", isDirectory: true)
     }
 
+    var steamDownloadStagingRootURL: URL {
+        let configured = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("MyWallpaperX/SteamJobs/Staging", isDirectory: true)
+        return (try? SteamWorkshopLibraryTransaction.configuredRoot(configured)) ?? configured
+    }
+
+    var steamDownloadLibraryRootURL: URL {
+        (try? SteamWorkshopLibraryTransaction.configuredRoot(libraryRootURL)) ?? libraryRootURL
+    }
+
     var stagingWorkshopContentRootURL: URL {
         runtimeInstallRootURL
             .appendingPathComponent("steamapps", isDirectory: true)
