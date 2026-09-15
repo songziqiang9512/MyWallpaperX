@@ -20,6 +20,8 @@ internal static class ProtocolLimits
     public const int ConnectTimeoutSeconds = 12;
     public const int QueryTimeoutSeconds = 15;
     public const int DetailsTimeoutSeconds = 20;
+    public const int ManifestTimeoutSeconds = 30;
+    public const int ChunkTimeoutSeconds = 60;
     public const int LogOnTimeoutSeconds = 30;
     public const long OverlongDrainCapBytes = 8 * 1024 * 1024;
 }

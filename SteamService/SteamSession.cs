@@ -569,6 +569,8 @@ internal sealed partial class SteamSession : IAsyncDisposable
         callbacks = new CallbackManager(client);
         user = client.GetHandler<SteamUser>()!;
         publishedFiles = client.GetHandler<SteamUnifiedMessages>()!.CreateService<PublishedFile>();
+        apps = client.GetHandler<SteamApps>()!;
+        content = client.GetHandler<SteamContent>()!;
         callbacks.Subscribe<SteamClient.ConnectedCallback>(OnConnected);
         callbacks.Subscribe<SteamClient.DisconnectedCallback>(OnDisconnected);
         callbacks.Subscribe<SteamUser.LoggedOnCallback>(OnLoggedOn);

@@ -38,10 +38,11 @@ final class SteamAccountSession {
     }
 
     private let client: SteamServiceClient
+    private var eventObserverID: UUID?
 
     init(client: SteamServiceClient) {
         self.client = client
-        client.onEvent = { [weak self] frame in
+        eventObserverID = client.addEventObserver { [weak self] frame in
             self?.handleEvent(frame)
         }
     }

@@ -53,7 +53,7 @@ internal static class Program
         "loginPassword", "loginQR", "restoreSession",
         "queryBrowse", "queryDetails", "queryAuthor",
         "listSubscriptions", "listFavorites", "querySubscriptionStates",
-        "setSubscription",
+        "setSubscription", "startDownload", "cancelDownload",
     };
 
     private static readonly SteamSession steamSession = new(writer, terminals);
@@ -229,6 +229,29 @@ internal static class Program
                     return;
                 }
                 steamSession.BeginSetSubscription(requestId, subscribeId, desiredState == "subscribe");
+                return;
+            }
+            case "startDownload":
+            {
+                var workshopId = decode.PayloadString("workshopId");
+                var jobId = decode.StringField("jobId");
+                var stagingRoot = decode.PayloadString("stagingRoot");
+                if (workshopId == null || !ulong.TryParse(workshopId, out var downloadId)
+                    || string.IsNullOrEmpty(jobId) || string.IsNullOrEmpty(stagingRoot))
+                {
+                    writer.Send(ProtocolMessages.ResultError(
+                        requestId, "protocolMismatch",
+                        "startDownload requires payload.workshopId, envelope jobId and payload.stagingRoot", 1));
+                    return;
+                }
+                steamSession.BeginStartDownload(requestId, jobId, downloadId, stagingRoot);
+                return;
+            }
+            case "cancelDownload":
+            {
+                var cancelJobId = decode.StringField("jobId");
+                var cancelled = cancelJobId != null && steamSession.CancelDownload(cancelJobId);
+                writer.Send(ProtocolMessages.ResultOk(requestId, new { cancelled }, 1));
                 return;
             }
             case "listSubscriptions":

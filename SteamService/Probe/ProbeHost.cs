@@ -48,9 +48,6 @@ internal static class ProbeHost
                     return 0;
                 case "subscriptions":
                     return await RunSubscriptionsAsync(fixturesDir, cts.Token).ConfigureAwait(false);
-                case "download":
-                    if (positional.Count < 3) throw new ArgumentException("usage: probe download <publishedFileId> <outputRoot> [--anonymous]");
-                    return await RunDownloadAsync(positional.Skip(1).ToList(), cts.Token).ConfigureAwait(false);
                 case "uquery":
                     return await RunUnifiedQueryAsync(positional.Skip(1).ToList(), cts.Token).ConfigureAwait(false);
                 case "matrix":
@@ -78,7 +75,7 @@ internal static class ProbeHost
               probe auth-qr                                        QR challenge flow, saves session
               probe restore                                        silent restore from saved session
               probe subscriptions                                  logged-on: mysubscriptions/myfavorites pages
-              probe download <id> <outputRoot> [--anonymous]       depot chain to staging + integrity
+              probe subscriptions                                    logged-on: mysubscriptions/myfavorites pages
               probe matrix [--fixtures DIR]                        anonymous capability matrix + fixtures
             options: --state DIR (default /tmp/mwx-sk01-probe), --fixtures DIR
             stdout is JSON lines; prompts go to stderr. Tokens never printed.
@@ -258,45 +255,8 @@ internal static class ProbeHost
         return 0;
     }
 
-    private static async Task<int> RunDownloadAsync(List<string> args, CancellationToken ct)
-    {
-        var anonymous = args.Remove("--anonymous");
-        if (args.Count < 2 || !ulong.TryParse(args[0], out var id))
-        {
-            throw new ArgumentException("usage: probe download <publishedFileId> <outputRoot> [--anonymous]");
-        }
-        var outputRoot = args[1];
-        await using var session = new ProbeSession();
-        await session.ConnectAsync(ct).ConfigureAwait(false);
-        if (anonymous)
-        {
-            await session.LogOnAnonymousAsync(ct).ConfigureAwait(false);
-        }
-        else
-        {
-            var saved = ProbeAuth.LoadSavedSession()
-                ?? throw new IOException("no saved session; use --anonymous or run auth first.");
-            await session.LogOnWithTokenAsync(saved.AccountName, saved.RefreshToken, ct).ConfigureAwait(false);
-        }
-        var report = await ProbeDownloader.DownloadAsync(session, id, outputRoot, ct).ConfigureAwait(false);
-        ProbeReport.Emit(new
-        {
-            probe = "download",
-            stage = "complete",
-            report.PublishedFileId,
-            report.Mode,
-            report.ManifestId,
-            report.DepotId,
-            report.FileCount,
-            report.ManifestTotalBytes,
-            report.VerifiedUncompressedBytes,
-            report.ProjectJsonPresent,
-            sha256ProjectJson = report.Sha256ProjectJson,
-            report.StagingDir,
-            report.ElapsedMs,
-        });
-        return 0;
-    }
+    // SK4.2 撤旧：probe download 命令与 ProbeDownloader 已删除——depot 下载链
+    // 由产品 WorkshopDownloader（startDownload 命令）承担，探针不再保留第二实现。
 
     // 匿名能力矩阵：公开查询 3 排序 × 3 页 + 详情 + 匿名会话 GetDetails + 下载链。
     // 匿名/登录会话统一消息查询探针：CPublishedFile.QueryFiles over SteamKit client。
@@ -459,47 +419,10 @@ internal static class ProbeHost
                         hasPreviewUrl = !string.IsNullOrEmpty(detail.preview_url),
                     }, new JsonSerializerOptions { WriteIndented = true }));
             }
-
-            ProbeReport.Emit(new { probe = "matrix", stage = "anonymous-download", sampleId = sampleId.ToString() });
-            ProbeDownloader.DownloadReport? report = null;
-            try
-            {
-                var outputRoot = Path.Combine(ProbeAuth.StateDir, "downloads");
-                report = await ProbeDownloader.DownloadAsync(session, sampleId, outputRoot, ct).ConfigureAwait(false);
-                ProbeReport.Emit(new
-                {
-                    probe = "matrix",
-                    stage = "anonymous-download-complete",
-                    report.PublishedFileId,
-                    report.ManifestId,
-                    report.DepotId,
-                    report.FileCount,
-                    report.ManifestTotalBytes,
-                    report.VerifiedUncompressedBytes,
-                    report.ProjectJsonPresent,
-                    report.ElapsedMs,
-                });
-            }
-            catch (Exception error)
-            {
-                ProbeReport.Emit(new { probe = "matrix", stage = "anonymous-download-failed", error = error.Message });
-            }
-            if (fixturesDir != null && report != null)
-            {
-                ProbeFixtures.Write(fixturesDir, "anonymous-download-summary.json",
-                    JsonSerializer.Serialize(new
-                    {
-                        fixture = "download-chain-anonymous",
-                        report.PublishedFileId,
-                        report.ManifestId,
-                        report.DepotId,
-                        report.FileCount,
-                        report.ManifestTotalBytes,
-                        report.VerifiedUncompressedBytes,
-                        report.ProjectJsonPresent,
-                    }, new JsonSerializerOptions { WriteIndented = true }));
-            }
         }
+
+        // SK4.2 撤旧：matrix 的匿名下载探针已移除（depot 链归产品
+        // WorkshopDownloader；SK0.1 事实：匿名 depot key AccessDenied）。
 
         // Web API 匿名详情（对照路由）：确认 GetPublishedFileDetails 是否仍匿名可用。
         try

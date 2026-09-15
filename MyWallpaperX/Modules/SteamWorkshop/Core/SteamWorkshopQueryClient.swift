@@ -129,6 +129,37 @@ final class SteamWorkshopQueryClient {
         )
     }
 
+    // MARK: - SK4.2 分级下载（staged；入库归 SK4.3）
+
+    /// 发起 helper 下载：授权→manifest→有界 chunk→校验→stagedComplete。
+    /// 进度经事件观察者（downloadProgress）；终态为本调用返回。
+    /// timeout 为 nil：下载不受请求超时约束，取消走 cancelStagedDownload。
+    func startStagedDownload(
+        jobId: String,
+        workshopId: String,
+        stagingRoot: String
+    ) async throws {
+        _ = try await client.request(
+            command: "startDownload",
+            jobId: jobId,
+            payload: .object([
+                "workshopId": .string(workshopId),
+                "stagingRoot": .string(stagingRoot),
+            ]),
+            private: nil,
+            timeout: nil
+        )
+    }
+
+    /// 取消在途分级下载；helper 以 cancelled terminal 收口该请求。
+    func cancelStagedDownload(jobId: String) async throws {
+        _ = try await client.request(
+            command: "cancelDownload",
+            jobId: jobId,
+            payload: .object(["jobId": .string(jobId)])
+        )
+    }
+
     /// 订阅状态批量核对（需登录）。
     func subscriptionStates(ids: [String]) async throws -> [String: Bool] {
         let frame = try await client.request(

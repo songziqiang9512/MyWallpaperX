@@ -95,6 +95,25 @@ final class SteamServiceClient {
     var onStateChange: ((ClientState) -> Void)?
     /// 非终态事件（authState/downloadProgress 等）。
     var onEvent: ((SteamServiceFrame) -> Void)?
+    private var eventObservers: [UUID: (SteamServiceFrame) -> Void] = [:]
+
+    /// SK4.2：多观察者事件订阅（下载进度与认证状态并存）。
+    @discardableResult
+    func addEventObserver(_ handler: @escaping (SteamServiceFrame) -> Void) -> UUID {
+        let id = UUID()
+        eventObservers[id] = handler
+        return id
+    }
+
+    func removeEventObserver(_ id: UUID) {
+        eventObservers[id] = nil
+    }
+
+    private func dispatchEvent(_ frame: SteamServiceFrame) {
+        for handler in eventObservers.values {
+            handler(frame)
+        }
+    }
 
     /// SK2.3：账号代际。换号/退出递增，随请求出站；旧账号迟到响应据此判废。
     var accountEpoch = 0
@@ -359,7 +378,7 @@ final class SteamServiceClient {
         }
 
         // 事件：进行中任务的进度照常投递；未知 requestId 的事件也投递给业务侧过滤。
-        onEvent?(frame)
+        dispatchEvent(frame)
     }
 
     private func resolveHandshake(_ frame: SteamServiceFrame) {
