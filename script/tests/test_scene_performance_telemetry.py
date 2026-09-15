@@ -62,7 +62,9 @@ enum Harness {
             throw NSError(domain: "TelemetryHarness", code: 1)
         }
         let telemetry = SceneFramePerformanceTelemetry()
-        telemetry.reset(at: 10)
+        telemetry.beginStage("stale-stage")
+        telemetry.reset(at: 10, targetFPS: 30)
+        telemetry.endStage("stale-stage")
         telemetry.recordDriverCallback(at: 10)
         telemetry.recordDriverCallback(at: 10.02)
         telemetry.recordDriverCallback(at: 10.04)
@@ -73,6 +75,11 @@ enum Harness {
         telemetry.recordPreparation(drawableWait: 0.003, preEncode: 0.007)
         telemetry.recordMainFrame(duration: 0.030)
         telemetry.recordSubmitted(on: commandBuffer)
+        telemetry.recordPresented(at: 10.100, streamID: 1)
+        telemetry.recordPresented(at: 10.116, streamID: 1)
+        telemetry.recordPresented(at: 10.156, streamID: 1)
+        telemetry.recordPresented(at: 10.200, streamID: 2)
+        telemetry.recordPresented(at: 10.260, streamID: 2)
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
         let value = telemetry.snapshot(at: 11)
@@ -84,6 +91,15 @@ enum Harness {
             "failed": value.failed,
             "submittedFPS": value.submittedFPS,
             "completedFPS": value.completedFPS,
+            "presented": value.presented,
+            "presentStreams": value.presentationStreamCount,
+            "presentIntervals": value.presentationIntervalCount,
+            "presentP50": value.presentationIntervalP50,
+            "presentP95": value.presentationIntervalP95,
+            "presentP99": value.presentationIntervalP99,
+            "presentMax": value.presentationIntervalMax,
+            "presentOver1_5Budget": value.presentationOverOneAndHalfBudget,
+            "stages": telemetry.stageSummary().count,
             "callbackP95": value.callbackIntervalP95,
             "callbackOver16": value.callbackOverBudget,
             "discontinuities": value.discontinuityCount,
@@ -177,6 +193,15 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertEqual(self.result["failed"], 0)
         self.assertEqual(self.result["submittedFPS"], 1)
         self.assertEqual(self.result["completedFPS"], 1)
+        self.assertEqual(self.result["presented"], 5)
+        self.assertEqual(self.result["presentStreams"], 2)
+        self.assertEqual(self.result["presentIntervals"], 3)
+        self.assertAlmostEqual(self.result["presentP50"], 0.04)
+        self.assertAlmostEqual(self.result["presentP95"], 0.06)
+        self.assertAlmostEqual(self.result["presentP99"], 0.06)
+        self.assertAlmostEqual(self.result["presentMax"], 0.06)
+        self.assertEqual(self.result["presentOver1_5Budget"], 1)
+        self.assertEqual(self.result["stages"], 0)
         self.assertAlmostEqual(self.result["callbackP95"], 0.02)
         self.assertEqual(self.result["callbackOver16"], 2)
         self.assertEqual(self.result["discontinuities"], 1)
@@ -209,11 +234,15 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertIn("PlaybackPerformanceProfile(rawValue: framesPerSecond)", performance_runner)
         self.assertIn("runtimeHost.applyPerformanceProfile(profile)", performance_runner)
         self.assertIn("runtimeHost.performanceProfile.maxFPS", performance_runner)
+        self.assertIn("reset(\n                targetFPS: targetFPS", performance_runner)
+        self.assertIn("performanceTelemetry?.recordWillPresent", view)
+        self.assertIn("drawable.addPresentedHandler", SOURCE.read_text(encoding="utf-8"))
+        self.assertIn("presentedDrawable.presentedTime", SOURCE.read_text(encoding="utf-8"))
         self.assertIn("phase=performance", performance_runner)
         self.assertIn("targetFPS=%d", performance_runner)
         self.assertIn("discontinuities=%d", performance_runner)
         self.assertIn("droppedMS=%.3f", performance_runner)
-        self.assertIn("debugEvidence.reset()", performance_runner)
+        self.assertIn("debugEvidence.reset(", performance_runner)
 
 
 class ScenePerformanceCounterHubTests(unittest.TestCase):

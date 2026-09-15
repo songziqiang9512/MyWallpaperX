@@ -499,6 +499,7 @@ final class SceneDesktopWallpaperHost {
                 userPropertyTextureURLs: launchContext.userPropertyTextureURLs,
                 dynamicTextFieldsByLayerID:
                     launchContext.frameSchema.dynamicTextFieldsByLayerID,
+                presentationStreamID: UInt64(screenID),
                 firstFramePresentationRegistration: {
                     [weak firstFramePresentationRegistration] drawable in
                     firstFramePresentationRegistration?.arm(on: drawable) ?? false

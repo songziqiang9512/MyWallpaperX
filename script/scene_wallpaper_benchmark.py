@@ -658,6 +658,10 @@ PERFORMANCE_INT_FIELDS = {
     "submitted": "submitted_frames",
     "completed": "completed_frames",
     "failed": "failed_frames",
+    "presented": "presented_frames",
+    "presentStreams": "presentation_stream_count",
+    "presentIntervals": "presentation_interval_count",
+    "presentOver1_5Budget": "presentation_over_1_5_budget",
     "callbackOver16": "callback_over_16_67_ms",
     "callbackOver33": "callback_over_33_33_ms",
     "discontinuities": "discontinuity_count",
@@ -672,6 +676,10 @@ PERFORMANCE_FLOAT_FIELDS = {
     "elapsed": "measurement_elapsed_seconds",
     "submittedFPS": "submitted_fps_total",
     "completedFPS": "completed_fps_total",
+    "presentP50MS": "actual_present_p50_ms",
+    "presentP95MS": "actual_present_p95_ms",
+    "presentP99MS": "actual_present_p99_ms",
+    "presentMaxMS": "actual_present_max_ms",
     "callbackP50MS": "callback_p50_ms",
     "callbackP95MS": "callback_p95_ms",
     "callbackMaxMS": "callback_max_ms",
@@ -749,10 +757,27 @@ def performance_metrics(log_text: str, surface_count: int | None) -> dict[str, A
         return {"available": False, "error": "performance target FPS must be 30 or 60"}
     if surface_count is None or surface_count <= 0:
         return {"available": False, "error": "performance surface count must be positive"}
+    if metrics["presentation_stream_count"] != surface_count:
+        return {
+            "available": False,
+            "error": "performance presentation stream count does not match surfaces",
+        }
+    expected_intervals = (
+        metrics["presented_frames"] - metrics["presentation_stream_count"]
+    )
+    if expected_intervals <= 0:
+        return {"available": False, "error": "actual-present intervals unavailable"}
+    if metrics["presentation_interval_count"] != expected_intervals:
+        return {"available": False, "error": "actual-present interval identity mismatch"}
+    if metrics["presentation_over_1_5_budget"] > expected_intervals:
+        return {"available": False, "error": "actual-present over-budget count invalid"}
 
     metrics["driver_fps"] = metrics["driver_callbacks"] / elapsed
     metrics["submitted_fps_per_surface"] = metrics["submitted_fps_total"] / surface_count
     metrics["completed_fps_per_surface"] = metrics["completed_fps_total"] / surface_count
+    metrics["actual_present_over_1_5_budget_ratio"] = (
+        metrics["presentation_over_1_5_budget"] / expected_intervals
+    )
     return metrics
 
 
@@ -775,6 +800,7 @@ def summarize_performance(results: list[dict[str, Any]]) -> dict[str, Any]:
             "unavailable_count": unavailable,
             "lowest_driver_fps": None,
             "slowest_startup_ready_ms": None,
+            "highest_actual_present_p99_ms": None,
         }
     lowest_id, lowest = min(available, key=lambda item: item[1]["driver_fps"])
     startup_values = [
@@ -783,6 +809,10 @@ def summarize_performance(results: list[dict[str, Any]]) -> dict[str, Any]:
         if isinstance(result.get("runtime", {}).get("startup_ready_ms"), (int, float))
     ]
     slowest = max(startup_values, key=lambda item: item[1]) if startup_values else None
+    highest_present_id, highest_present = max(
+        available,
+        key=lambda item: item[1]["actual_present_p99_ms"],
+    )
     return {
         "available_count": len(available),
         "unavailable_count": unavailable,
@@ -790,6 +820,10 @@ def summarize_performance(results: list[dict[str, Any]]) -> dict[str, Any]:
         "slowest_startup_ready_ms": (
             {"id": slowest[0], "milliseconds": slowest[1]} if slowest else None
         ),
+        "highest_actual_present_p99_ms": {
+            "id": highest_present_id,
+            "milliseconds": highest_present["actual_present_p99_ms"],
+        },
     }
 
 

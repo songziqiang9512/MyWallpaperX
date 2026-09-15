@@ -40,6 +40,7 @@ class SceneMetalView: NSView {
     private let metalDevice: MTLDevice
     private let preparedDynamicTextFieldsByLayerID:
         [Int: Set<SceneDynamicTextField>]
+    private let presentationStreamID: UInt64
     private let textureAnimationPlaybackRuntime:
         SceneTextureAnimationPlaybackRuntime
     let renderer: SceneMetalRenderer
@@ -101,6 +102,7 @@ class SceneMetalView: NSView {
         ),
         userPropertyTextureURLs: [String: URL] = [:],
         dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:],
+        presentationStreamID: UInt64,
         firstFramePresentationRegistration:
             ((CAMetalDrawable) -> Bool)? = nil,
         frame: NSRect
@@ -114,6 +116,7 @@ class SceneMetalView: NSView {
         ) else { return nil }
         metalDevice = renderer.device
         preparedDynamicTextFieldsByLayerID = dynamicTextFieldsByLayerID
+        self.presentationStreamID = presentationStreamID
         self.firstFramePresentationRegistration =
             firstFramePresentationRegistration
         self.textureAnimationPlaybackRuntime = textureAnimationPlaybackRuntime
@@ -576,9 +579,18 @@ class SceneMetalView: NSView {
                 preEncode: ProcessInfo.processInfo.systemUptime - drawableAcquired
             )
         }
-        let onDrawableWillPresent = firstFramePresentationRegistration.map {
-            registration in
-            { drawable in _ = registration(drawable) }
+        let presentationRegistration = firstFramePresentationRegistration
+        let onDrawableWillPresent: ((CAMetalDrawable) -> Void)?
+        if presentationRegistration != nil || performanceTelemetry != nil {
+            onDrawableWillPresent = { [presentationStreamID] drawable in
+                _ = presentationRegistration?(drawable)
+                performanceTelemetry?.recordWillPresent(
+                    drawable,
+                    streamID: presentationStreamID
+                )
+            }
+        } else {
+            onDrawableWillPresent = nil
         }
         let outcome = renderer.renderFrame(
             imageTextures: frameImageTextures,

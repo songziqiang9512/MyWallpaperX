@@ -2167,7 +2167,10 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         log = (
             "MWX DEBUG SCENE: phase=performance targetFPS=60 elapsed=6.833 callbacks=410 "
             "submitted=410 completed=409 failed=0 submittedFPS=60.004 "
-            "completedFPS=59.857 callbackP50MS=16.666 callbackP95MS=16.698 "
+            "completedFPS=59.857 presented=408 presentStreams=1 presentIntervals=407 "
+            "presentP50MS=16.667 presentP95MS=16.700 presentP99MS=20.000 "
+            "presentMaxMS=34.000 presentOver1_5Budget=1 "
+            "callbackP50MS=16.666 callbackP95MS=16.698 "
             "callbackMaxMS=17.171 callbackOver16=199 callbackOver33=0 "
             "discontinuities=1 droppedMS=750.000 maxRawFrameMS=1000.000 "
             "drawableMissed=0 drawableWaitP95MS=0.013 drawableWaitMaxMS=0.034 "
@@ -2188,9 +2191,19 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(metrics["dropped_frame_time_ms"], 750)
         self.assertEqual(metrics["maximum_raw_frame_time_ms"], 1000)
         self.assertAlmostEqual(metrics["completed_fps_per_surface"], 59.857)
+        self.assertAlmostEqual(metrics["actual_present_p99_ms"], 20)
+        self.assertAlmostEqual(
+            metrics["actual_present_over_1_5_budget_ratio"],
+            1 / 407,
+        )
         self.assertAlmostEqual(metrics["pre_encode_p95_ms"], 7.671)
         self.assertAlmostEqual(metrics["gpu_frame_p95_ms"], 3.886)
-        two_surface = benchmark.performance_metrics(log, surface_count=2)
+        two_surface_log = log.replace(
+            "presented=408 presentStreams=1 presentIntervals=407",
+            "presented=408 presentStreams=2 presentIntervals=406",
+            1,
+        )
+        two_surface = benchmark.performance_metrics(two_surface_log, surface_count=2)
         self.assertAlmostEqual(two_surface["completed_fps_per_surface"], 29.9285)
         self.assertEqual(benchmark.performance_failures(metrics), [])
 
@@ -2205,20 +2218,32 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertIn("duplicate performance field", benchmark.performance_metrics(duplicate, 1)["error"])
         missing = "phase=performance elapsed=1 callbacks=60"
         self.assertIn("missing performance fields", benchmark.performance_metrics(missing, 1)["error"])
-        invalid_target = (
-            "phase=performance targetFPS=45 elapsed=1 callbacks=60 submitted=60 "
-            "completed=60 failed=0 submittedFPS=60 completedFPS=60 "
-            "callbackP50MS=16 callbackP95MS=17 callbackMaxMS=18 "
-            "callbackOver16=1 callbackOver33=0 discontinuities=0 droppedMS=0 "
-            "maxRawFrameMS=18 drawableMissed=0 drawableWaitP95MS=0 "
-            "drawableWaitMaxMS=0 preEncodeP95MS=1 preEncodeMaxMS=1 "
-            "mainFrameP95MS=2 mainFrameMaxMS=2 cpuP50MS=1 cpuP95MS=1 "
-            "cpuMaxMS=1 cpuOver16=0 cpuOver33=0 gpuSamples=60 gpuP50MS=1 "
-            "gpuP95MS=1 gpuMaxMS=1 gpuOver16=0 gpuOver33=0"
+        valid_log = (
+            "phase=performance targetFPS=60 elapsed=1 callbacks=60 submitted=60 "
+            "completed=60 failed=0 submittedFPS=60 completedFPS=60 presented=60 "
+            "presentStreams=1 presentIntervals=59 presentP50MS=16 presentP95MS=17 "
+            "presentP99MS=18 presentMaxMS=20 presentOver1_5Budget=0 "
+            "callbackP50MS=16 callbackP95MS=17 callbackMaxMS=18 callbackOver16=1 "
+            "callbackOver33=0 discontinuities=0 droppedMS=0 maxRawFrameMS=18 "
+            "drawableMissed=0 drawableWaitP95MS=0 drawableWaitMaxMS=0 "
+            "preEncodeP95MS=1 preEncodeMaxMS=1 mainFrameP95MS=2 mainFrameMaxMS=2 "
+            "cpuP50MS=1 cpuP95MS=1 cpuMaxMS=1 cpuOver16=0 cpuOver33=0 "
+            "gpuSamples=60 gpuP50MS=1 gpuP95MS=1 gpuMaxMS=1 gpuOver16=0 gpuOver33=0"
         )
+        invalid_target = valid_log.replace("targetFPS=60", "targetFPS=45", 1)
         self.assertIn(
             "target FPS must be 30 or 60",
             benchmark.performance_metrics(invalid_target, 1)["error"],
+        )
+        missing_stream = valid_log.replace("presentStreams=1", "presentStreams=0", 1)
+        self.assertIn(
+            "stream count does not match surfaces",
+            benchmark.performance_metrics(missing_stream, 1)["error"],
+        )
+        missing_intervals = valid_log.replace("presentIntervals=59", "presentIntervals=0", 1)
+        self.assertIn(
+            "interval identity mismatch",
+            benchmark.performance_metrics(missing_intervals, 1)["error"],
         )
 
     def test_performance_summary_preserves_worst_sample_identity(self) -> None:
@@ -2227,14 +2252,22 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 "id": "fast",
                 "runtime": {
                     "startup_ready_ms": 800.0,
-                    "performance": {"available": True, "driver_fps": 60.0},
+                    "performance": {
+                        "available": True,
+                        "driver_fps": 60.0,
+                        "actual_present_p99_ms": 17.0,
+                    },
                 },
             },
             {
                 "id": "slow",
                 "runtime": {
                     "startup_ready_ms": 1800.0,
-                    "performance": {"available": True, "driver_fps": 48.0},
+                    "performance": {
+                        "available": True,
+                        "driver_fps": 48.0,
+                        "actual_present_p99_ms": 29.0,
+                    },
                 },
             },
             {"id": "missing", "runtime": {"performance": {"available": False}}},
@@ -2246,6 +2279,10 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(
             summary["slowest_startup_ready_ms"],
             {"id": "slow", "milliseconds": 1800.0},
+        )
+        self.assertEqual(
+            summary["highest_actual_present_p99_ms"],
+            {"id": "slow", "milliseconds": 29.0},
         )
 
     def test_live_property_arguments_and_strict_identity_gate(self) -> None:

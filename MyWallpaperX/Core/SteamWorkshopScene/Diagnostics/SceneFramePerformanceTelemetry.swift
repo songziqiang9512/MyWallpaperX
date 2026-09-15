@@ -1,5 +1,6 @@
 import Foundation
 @preconcurrency import Metal
+@preconcurrency import QuartzCore
 
 nonisolated struct SceneFramePerformanceSnapshot: Sendable {
     let elapsed: TimeInterval
@@ -9,6 +10,14 @@ nonisolated struct SceneFramePerformanceSnapshot: Sendable {
     let failed: Int
     let submittedFPS: Double
     let completedFPS: Double
+    let presented: Int
+    let presentationStreamCount: Int
+    let presentationIntervalCount: Int
+    let presentationIntervalP50: TimeInterval
+    let presentationIntervalP95: TimeInterval
+    let presentationIntervalP99: TimeInterval
+    let presentationIntervalMax: TimeInterval
+    let presentationOverOneAndHalfBudget: Int
     let callbackIntervalP50: TimeInterval
     let callbackIntervalP95: TimeInterval
     let callbackIntervalMax: TimeInterval
@@ -48,6 +57,10 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
     private var submitted = 0
     private var completed = 0
     private var failed = 0
+    private var presented = 0
+    private var presentationFrameBudget: TimeInterval = 1.0 / 60.0
+    private var lastPresentationByStreamID: [UInt64: TimeInterval] = [:]
+    private var presentationIntervals: [TimeInterval] = []
     private var drawableMissed = 0
     private var callbackIntervals: [TimeInterval] = []
     private var stageDurations: [String: [TimeInterval]] = [:]
@@ -61,7 +74,11 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
     private var preEncodeDurations: [TimeInterval] = []
     private var mainFrameDurations: [TimeInterval] = []
 
-    func reset(at uptime: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+    func reset(
+        at uptime: TimeInterval = ProcessInfo.processInfo.systemUptime,
+        targetFPS: Int = 60
+    ) {
+        precondition(targetFPS == 30 || targetFPS == 60)
         withLock {
             generation &+= 1
             measurementStart = uptime
@@ -70,9 +87,14 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
             submitted = 0
             completed = 0
             failed = 0
+            presented = 0
+            presentationFrameBudget = 1.0 / Double(targetFPS)
+            lastPresentationByStreamID.removeAll(keepingCapacity: true)
+            presentationIntervals.removeAll(keepingCapacity: true)
             drawableMissed = 0
             callbackIntervals.removeAll(keepingCapacity: true)
             stageDurations.removeAll(keepingCapacity: true)
+            openStages.removeAll(keepingCapacity: true)
             discontinuityCount = 0
             droppedFrameTime = 0
             maximumRawFrameTime = 0
@@ -168,6 +190,22 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
         }
     }
 
+    func recordWillPresent(_ drawable: CAMetalDrawable, streamID: UInt64) {
+        let token = withLock { generation }
+        drawable.addPresentedHandler { [weak self] presentedDrawable in
+            self?.recordPresented(
+                at: presentedDrawable.presentedTime,
+                streamID: streamID,
+                generation: token
+            )
+        }
+    }
+
+    func recordPresented(at uptime: TimeInterval, streamID: UInt64) {
+        let token = withLock { generation }
+        recordPresented(at: uptime, streamID: streamID, generation: token)
+    }
+
     func snapshot(at uptime: TimeInterval = ProcessInfo.processInfo.systemUptime)
         -> SceneFramePerformanceSnapshot {
         withLock {
@@ -180,6 +218,23 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
                 failed: failed,
                 submittedFPS: Double(submitted) / elapsed,
                 completedFPS: Double(completed) / elapsed,
+                presented: presented,
+                presentationStreamCount: lastPresentationByStreamID.count,
+                presentationIntervalCount: presentationIntervals.count,
+                presentationIntervalP50: Self.percentile(
+                    presentationIntervals, 0.50
+                ),
+                presentationIntervalP95: Self.percentile(
+                    presentationIntervals, 0.95
+                ),
+                presentationIntervalP99: Self.percentile(
+                    presentationIntervals, 0.99
+                ),
+                presentationIntervalMax: presentationIntervals.max() ?? 0,
+                presentationOverOneAndHalfBudget: Self.countOverThreshold(
+                    presentationIntervals,
+                    threshold: presentationFrameBudget * 1.5
+                ),
                 callbackIntervalP50: Self.percentile(callbackIntervals, 0.50),
                 callbackIntervalP95: Self.percentile(callbackIntervals, 0.95),
                 callbackIntervalMax: callbackIntervals.max() ?? 0,
@@ -227,6 +282,26 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
         }
     }
 
+    private func recordPresented(
+        at uptime: TimeInterval,
+        streamID: UInt64,
+        generation token: UInt64
+    ) {
+        guard uptime.isFinite, uptime > 0 else { return }
+        withLock {
+            guard generation == token else { return }
+            presented += 1
+            if let previous = lastPresentationByStreamID[streamID],
+               uptime > previous {
+                presentationIntervals.append(uptime - previous)
+            }
+            lastPresentationByStreamID[streamID] = max(
+                uptime,
+                lastPresentationByStreamID[streamID] ?? 0
+            )
+        }
+    }
+
     private static func percentile(_ values: [TimeInterval], _ quantile: Double) -> TimeInterval {
         guard !values.isEmpty else { return 0 }
         let sorted = values.sorted()
@@ -236,6 +311,13 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
 
     private static func countOverBudget(_ values: [TimeInterval], multiplier: Double) -> Int {
         let threshold = frameBudget * multiplier
+        return countOverThreshold(values, threshold: threshold)
+    }
+
+    private static func countOverThreshold(
+        _ values: [TimeInterval],
+        threshold: TimeInterval
+    ) -> Int {
         return values.reduce(into: 0) { count, value in
             if value > threshold { count += 1 }
         }
