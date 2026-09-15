@@ -114,10 +114,28 @@ extension DebugScenePlaybackRunner {
     ) {
         let targetFPS = runtimeHost.performanceProfile.maxFPS
         let latestEnd = duration - 1.5
-        let candidates = [
-            (start: afterSnapshotDelay + 0.75, end: latestEnd),
-            (start: 2.0, end: min(latestEnd, afterSnapshotDelay - 0.5)),
-        ].filter { $0.end - $0.start >= 1 }
+        let candidates: [(start: TimeInterval, end: TimeInterval)]
+        if ProcessInfo.processInfo.arguments.contains(
+            "--mwx-debug-scene-performance-warmup"
+        ) {
+            guard let warmup = argumentValue(
+                after: "--mwx-debug-scene-performance-warmup"
+            ).flatMap(TimeInterval.init),
+                  warmup.isFinite,
+                  warmup >= 0,
+                  latestEnd - warmup >= 1 else {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=precondition-failed reason=invalid-performance-warmup"
+                )
+                return
+            }
+            candidates = [(start: warmup, end: latestEnd)]
+        } else {
+            candidates = [
+                (start: afterSnapshotDelay + 0.75, end: latestEnd),
+                (start: 2.0, end: min(latestEnd, afterSnapshotDelay - 0.5)),
+            ].filter { $0.end - $0.start >= 1 }
+        }
         guard let window = candidates.max(by: {
             ($0.end - $0.start) < ($1.end - $1.start)
         }) else { return }
@@ -132,8 +150,9 @@ extension DebugScenePlaybackRunner {
             let resources = resourceCollector.finish()
             let value = SceneFramePerformanceTelemetry.debugEvidence.snapshot()
             NSLog(
-                "MWX DEBUG SCENE: phase=performance targetFPS=%d elapsed=%.3f callbacks=%d submitted=%d completed=%d failed=%d submittedFPS=%.3f completedFPS=%.3f presented=%d presentStreams=%d presentIntervals=%d presentP50MS=%.3f presentP95MS=%.3f presentP99MS=%.3f presentMaxMS=%.3f presentOver1_5Budget=%d callbackP50MS=%.3f callbackP95MS=%.3f callbackMaxMS=%.3f callbackOver16=%d callbackOver33=%d discontinuities=%d droppedMS=%.3f maxRawFrameMS=%.3f drawableMissed=%d drawableWaitP95MS=%.3f drawableWaitMaxMS=%.3f preEncodeP95MS=%.3f preEncodeMaxMS=%.3f mainFrameP95MS=%.3f mainFrameMaxMS=%.3f cpuP50MS=%.3f cpuP95MS=%.3f cpuMaxMS=%.3f cpuOver16=%d cpuOver33=%d gpuSamples=%d gpuP50MS=%.3f gpuP95MS=%.3f gpuMaxMS=%.3f gpuOver16=%d gpuOver33=%d",
+                "MWX DEBUG SCENE: phase=performance targetFPS=%d warmupSeconds=%.3f elapsed=%.3f callbacks=%d submitted=%d completed=%d failed=%d submittedFPS=%.3f completedFPS=%.3f presented=%d presentStreams=%d presentIntervals=%d presentP50MS=%.3f presentP95MS=%.3f presentP99MS=%.3f presentMaxMS=%.3f presentOver1_5Budget=%d callbackP50MS=%.3f callbackP95MS=%.3f callbackMaxMS=%.3f callbackOver16=%d callbackOver33=%d discontinuities=%d droppedMS=%.3f maxRawFrameMS=%.3f drawableMissed=%d drawableWaitP95MS=%.3f drawableWaitMaxMS=%.3f preEncodeP95MS=%.3f preEncodeMaxMS=%.3f mainFrameP95MS=%.3f mainFrameMaxMS=%.3f cpuP50MS=%.3f cpuP95MS=%.3f cpuMaxMS=%.3f cpuOver16=%d cpuOver33=%d gpuSamples=%d gpuP50MS=%.3f gpuP95MS=%.3f gpuMaxMS=%.3f gpuOver16=%d gpuOver33=%d",
                 targetFPS,
+                window.start,
                 value.elapsed,
                 value.driverCallbacks,
                 value.submitted,

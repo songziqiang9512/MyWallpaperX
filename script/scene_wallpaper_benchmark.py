@@ -685,6 +685,7 @@ PERFORMANCE_INT_FIELDS = {
     "gpuOver33": "gpu_over_33_33_ms",
 }
 PERFORMANCE_FLOAT_FIELDS = {
+    "warmupSeconds": "measurement_warmup_seconds",
     "elapsed": "measurement_elapsed_seconds",
     "submittedFPS": "submitted_fps_total",
     "completedFPS": "completed_fps_total",
@@ -6402,6 +6403,20 @@ def append_performance_profile_argument(
     ])
 
 
+def append_performance_warmup_argument(
+    command: list[str],
+    warmup_seconds: float | None,
+) -> None:
+    if warmup_seconds is None:
+        return
+    if not math.isfinite(warmup_seconds) or warmup_seconds < 0:
+        raise ValueError("performance warmup must be finite and nonnegative")
+    command.extend([
+        "--mwx-debug-scene-performance-warmup",
+        str(warmup_seconds),
+    ])
+
+
 def append_resize_sequence_argument(
     command: list[str],
     resize_sequence: str | None,
@@ -6838,6 +6853,7 @@ def run_sample(
     duration: float,
     performance_fps: int,
     after_snapshot_delay: float | None,
+    performance_warmup: float | None = None,
     periodic_snapshot_interval: float | None = None,
     resize_sequence: str | None = None,
     drop_dynamic_values_frame: int | None = None,
@@ -6883,6 +6899,7 @@ def run_sample(
         str(duration),
     ]
     append_performance_profile_argument(command, performance_fps)
+    append_performance_warmup_argument(command, performance_warmup)
     if after_snapshot_delay is not None:
         command.extend([
             "--mwx-debug-scene-after-snapshot-delay",
@@ -8124,6 +8141,14 @@ def parse_args() -> argparse.Namespace:
         help="explicit playback performance profile used by the Debug evidence runner",
     )
     parser.add_argument(
+        "--performance-warmup",
+        type=float,
+        help=(
+            "explicit seconds after ready before performance measurement; "
+            "AS1 steady-state runs require 30"
+        ),
+    )
+    parser.add_argument(
         "--keep-runtime",
         action="store_true",
         help=(
@@ -8208,6 +8233,17 @@ def main() -> int:
         )
         return 2
     duration = args.duration
+    if args.performance_warmup is not None and (
+        not math.isfinite(args.performance_warmup)
+        or args.performance_warmup < 0
+        or args.performance_warmup > duration - 2.5
+    ):
+        print(
+            "Scene benchmark precondition failed: performance warmup must be "
+            "finite, nonnegative, and leave at least one measurement second",
+            file=sys.stderr,
+        )
+        return 2
     if args.after_snapshot_delay is not None and (
         not math.isfinite(args.after_snapshot_delay)
         or args.after_snapshot_delay <= 1
@@ -8263,6 +8299,7 @@ def main() -> int:
                 duration=duration,
                 performance_fps=args.performance_fps,
                 after_snapshot_delay=args.after_snapshot_delay,
+                performance_warmup=args.performance_warmup,
                 periodic_snapshot_interval=args.periodic_snapshot_interval,
                 resize_sequence=args.resize_sequence,
                 drop_dynamic_values_frame=args.drop_dynamic_values_frame,

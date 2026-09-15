@@ -235,6 +235,8 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertIn("PlaybackPerformanceProfile(rawValue: framesPerSecond)", performance_runner)
         self.assertIn("runtimeHost.applyPerformanceProfile(profile)", performance_runner)
         self.assertIn("runtimeHost.performanceProfile.maxFPS", performance_runner)
+        self.assertIn("--mwx-debug-scene-performance-warmup", performance_runner)
+        self.assertIn("warmupSeconds=%.3f", performance_runner)
         self.assertIn("reset(\n                targetFPS: targetFPS", performance_runner)
         self.assertIn("performanceTelemetry?.recordWillPresent", view)
         self.assertIn("drawable.addPresentedHandler", SOURCE.read_text(encoding="utf-8"))

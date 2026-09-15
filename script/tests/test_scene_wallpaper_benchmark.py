@@ -2165,7 +2165,8 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
 
     def test_performance_metrics_parse_v7_evidence_and_normalize_surfaces(self) -> None:
         log = (
-            "MWX DEBUG SCENE: phase=performance targetFPS=60 elapsed=6.833 callbacks=410 "
+            "MWX DEBUG SCENE: phase=performance targetFPS=60 warmupSeconds=30 "
+            "elapsed=6.833 callbacks=410 "
             "submitted=410 completed=409 failed=0 submittedFPS=60.004 "
             "completedFPS=59.857 presented=408 presentStreams=1 presentIntervals=407 "
             "presentP50MS=16.667 presentP95MS=16.700 presentP99MS=20.000 "
@@ -2190,6 +2191,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         metrics = benchmark.performance_metrics(log, surface_count=1)
         self.assertTrue(metrics["available"])
         self.assertEqual(metrics["target_fps"], 60)
+        self.assertEqual(metrics["measurement_warmup_seconds"], 30)
         self.assertEqual(metrics["driver_callbacks"], 410)
         self.assertAlmostEqual(metrics["driver_fps"], 410 / 6.833)
         self.assertEqual(metrics["completed_frames"], 409)
@@ -2243,7 +2245,8 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         missing = "phase=performance elapsed=1 callbacks=60"
         self.assertIn("missing performance fields", benchmark.performance_metrics(missing, 1)["error"])
         valid_log = (
-            "phase=performance targetFPS=60 elapsed=1 callbacks=60 submitted=60 "
+            "phase=performance targetFPS=60 warmupSeconds=30 elapsed=1 "
+            "callbacks=60 submitted=60 "
             "completed=60 failed=0 submittedFPS=60 completedFPS=60 presented=60 "
             "presentStreams=1 presentIntervals=59 presentP50MS=16 presentP95MS=17 "
             "presentP99MS=18 presentMaxMS=20 presentOver1_5Budget=0 "
@@ -2542,6 +2545,21 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             ])
         with self.assertRaisesRegex(ValueError, "30 or 60 FPS"):
             benchmark.append_performance_profile_argument([], 45)
+
+    def test_performance_warmup_argument_is_explicit_and_bounded(self) -> None:
+        command = ["MyWallpaperX"]
+        benchmark.append_performance_warmup_argument(command, 30)
+        self.assertEqual(command, [
+            "MyWallpaperX",
+            "--mwx-debug-scene-performance-warmup",
+            "30",
+        ])
+        unchanged = ["MyWallpaperX"]
+        benchmark.append_performance_warmup_argument(unchanged, None)
+        self.assertEqual(unchanged, ["MyWallpaperX"])
+        for invalid in (-1, float("nan"), float("inf")):
+            with self.assertRaisesRegex(ValueError, "finite and nonnegative"):
+                benchmark.append_performance_warmup_argument([], invalid)
 
     def test_media_properties_arguments_are_atomic_and_bounded(self) -> None:
         command = ["MyWallpaperX"]
@@ -7289,12 +7307,17 @@ utility layer 763: skippedHidden kind=composition
                 "--output-dir", "/tmp/results",
             ]
             default_args = benchmark.parse_args()
-            sys.argv.extend(["--performance-fps", "30"])
+            sys.argv.extend([
+                "--performance-fps", "30",
+                "--performance-warmup", "30",
+            ])
             efficient_args = benchmark.parse_args()
         finally:
             sys.argv = old_argv
         self.assertEqual(default_args.performance_fps, 60)
+        self.assertIsNone(default_args.performance_warmup)
         self.assertEqual(efficient_args.performance_fps, 30)
+        self.assertEqual(efficient_args.performance_warmup, 30)
 
     def test_cursor_ripple_persistence_can_be_required_from_cli(self) -> None:
         old_argv = sys.argv
