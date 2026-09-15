@@ -22,6 +22,9 @@ extension SteamWorkshopToolbarController {
             configureFilterItem()
             return filterToolbarItem
         case .steamAccount: return accountToolbarItem
+        case .steamDownloadTasks:
+            configureDownloadTasksItem()
+            return downloadTasksToolbarItem
         case .steamRefresh: return refreshToolbarItem
         case .steamZoom: return zoomToolbarItem
         case .steamSearch:
@@ -56,6 +59,8 @@ extension SteamWorkshopToolbarController {
             .flexibleSpace,
             .steamAccount,
             .space,
+            .steamDownloadTasks,
+            .space,
             .steamRefresh,
             .space,
             .steamContentMode,
@@ -77,6 +82,10 @@ extension SteamWorkshopToolbarController {
             .sidebarTrackingSeparator,
             .steamDownloadsTitle,
             .flexibleSpace,
+            .steamAccount,
+            .space,
+            .steamDownloadTasks,
+            .space,
             .steamDownloadsSelect,
             .space,
             .steamDownloadsDelete,

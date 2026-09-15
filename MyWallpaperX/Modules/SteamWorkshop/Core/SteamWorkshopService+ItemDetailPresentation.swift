@@ -1,6 +1,48 @@
 import Foundation
 
 extension SteamWorkshopService {
+    func presentDownloadTaskDetail(itemID: String, title: String) {
+        if let item = browserItemForDownload(id: itemID) {
+            presentItemDetail(item)
+            return
+        }
+        guard let detailURL = URL(
+            string: "https://steamcommunity.com/sharedfiles/filedetails/?id=\(itemID)"
+        ) else { return }
+        presentItemDetail(SteamWorkshopBrowserItem(
+            id: itemID,
+            title: title,
+            author: "未知作者",
+            authorProfileURL: nil,
+            authorWorkshopURL: nil,
+            hasAdultContent: false,
+            summary: "",
+            descriptionText: "",
+            tags: [],
+            workshopTypeText: nil,
+            ageRatingText: nil,
+            genreText: nil,
+            categoryText: "Wallpaper",
+            dependencyIDs: [],
+            previewImageURL: nil,
+            previewVideoURL: nil,
+            previewAssetKind: .unknown,
+            fileSizeText: nil,
+            resolutionText: nil,
+            postedText: nil,
+            updatedText: nil,
+            favoritesText: nil,
+            subscriptionsText: nil,
+            scoreText: nil,
+            lifetimeFavoritesText: nil,
+            lifetimeSubscriptionsText: nil,
+            visibilityText: nil,
+            moderationText: nil,
+            detailFields: [],
+            detailURL: detailURL
+        ))
+    }
+
     func presentItemDetail(_ item: SteamWorkshopBrowserItem) {
         prioritizeUserRequestedDetail()
         let resolvedItem = browserItems.first(where: { $0.id == item.id }) ?? item

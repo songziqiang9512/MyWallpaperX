@@ -59,6 +59,26 @@ extension SteamWorkshopToolbarController {
         SteamWorkshopService.shared.refresh()
     }
 
+    @objc func handleDownloadTasks() {
+        guard isSteamWorkshopMode else { return }
+        if downloadTasksButtonView.button.window != nil {
+            downloadTasksPopoverController.toggle(relativeTo: downloadTasksButtonView.button)
+            return
+        }
+        // The toolbar's menu-form item has no attached custom view. Anchor its
+        // popover to the owning window's top trailing edge instead.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let contentView = self.window?.contentView else { return }
+            let anchor = NSRect(
+                x: max(0, contentView.bounds.maxX - 32),
+                y: contentView.bounds.maxY,
+                width: 1,
+                height: 1
+            )
+            self.downloadTasksPopoverController.toggle(relativeTo: contentView, positioningRect: anchor)
+        }
+    }
+
     @objc func handleBackToDiscovery() {
         SteamWorkshopService.shared.returnToDiscoveryBrowse()
     }
@@ -336,6 +356,7 @@ extension SteamWorkshopToolbarController {
             .steamTrendingWindow,
             .steamFilter,
             .steamAccount,
+            .steamDownloadTasks,
             .steamRefresh,
             .steamZoom,
             .steamSearch,

@@ -84,6 +84,18 @@ extension SteamWorkshopToolbarController {
         accountToolbarItem.toolTip = accountButton.toolTip
     }
 
+    func configureDownloadTasksItem() {
+        let service = SteamWorkshopService.shared
+        let count = SteamWorkshopDownloadTaskProjection.unfinishedCount(
+            in: service.downloadJobStore.jobs,
+            accountSteamID: service.steamAuth.steamId
+        )
+        downloadTasksButtonView.update(count: count)
+        let title = count == 0 ? "下载任务" : "下载任务（\(count) 项）"
+        downloadTasksToolbarItem.toolTip = title
+        downloadTasksToolbarItem.menuFormRepresentation?.title = title
+    }
+
     func configureAuthorBackItem() {
         let isBrowsingAuthorWorkshop = SteamWorkshopService.shared.isBrowsingAuthorWorkshop
         authorBackToolbarItem.isEnabled = isBrowsingAuthorWorkshop

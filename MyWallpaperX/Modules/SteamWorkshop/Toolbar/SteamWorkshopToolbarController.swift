@@ -21,12 +21,15 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
     private(set) var isDownloadsMode = false
     private var observers: [NSObjectProtocol] = []
     private var cancellables = Set<AnyCancellable>()
+    private var existingDownloadTasksPopoverController: SteamWorkshopDownloadTasksPopoverController?
 
     private let discoveryBrowserIdentifiers: [NSToolbarItem.Identifier] = [
         .sidebarTrackingSeparator,
         NSToolbarItem.Identifier("ToolbarTitle"),
         .flexibleSpace,
         .steamAccount,
+        .space,
+        .steamDownloadTasks,
         .space,
         .steamRefresh,
         .space,
@@ -50,6 +53,8 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         .steamAuthorBack,
         .space,
         .steamAccount,
+        .space,
+        .steamDownloadTasks,
         .space,
         .steamRefresh,
         .space,
@@ -128,6 +133,14 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.configureAuthItems()
+                self?.configureDownloadTasksItem()
+            }
+            .store(in: &cancellables)
+
+        SteamWorkshopService.shared.downloadJobStore.$jobs
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.configureDownloadTasksItem()
             }
             .store(in: &cancellables)
 
@@ -246,6 +259,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
 
     private func switchMode(enabled: Bool, isDownloads: Bool) {
         guard enabled else {
+            existingDownloadTasksPopoverController?.close()
             isSteamWorkshopMode = false
             isDownloadsMode = false
             return
@@ -255,6 +269,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
 
         if isDownloads {
             configureDownloadsTitleItem()
+            configureAuthItems()
             configureDownloadsSelectItem()
             configureDownloadsDeleteItem()
             configureDownloadsInfoItem()
@@ -268,6 +283,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
             configureAuthItems()
             configureRefreshItem()
         }
+        configureDownloadTasksItem()
         configureZoomItem()
     }
 
@@ -646,5 +662,39 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         item.view = accountButton
         return item
     }()
+
+    lazy var downloadTasksButtonView = SteamWorkshopDownloadTasksToolbarButton(
+        target: self,
+        action: #selector(handleDownloadTasks)
+    )
+
+    lazy var downloadTasksToolbarItem: NSToolbarItem = {
+        let item = NSToolbarItem(itemIdentifier: .steamDownloadTasks)
+        item.label = "下载任务"
+        item.paletteLabel = "下载任务"
+        item.toolTip = "查看下载任务"
+        item.autovalidates = false
+        item.view = downloadTasksButtonView
+        let overflowItem = NSMenuItem(
+            title: "下载任务",
+            action: #selector(handleDownloadTasks),
+            keyEquivalent: ""
+        )
+        overflowItem.target = self
+        item.menuFormRepresentation = overflowItem
+        return item
+    }()
+
+    var downloadTasksPopoverController: SteamWorkshopDownloadTasksPopoverController {
+        if let existingDownloadTasksPopoverController {
+            return existingDownloadTasksPopoverController
+        }
+        let controller = SteamWorkshopDownloadTasksPopoverController(
+            service: .shared,
+            windowProvider: { [weak self] in self?.window }
+        )
+        existingDownloadTasksPopoverController = controller
+        return controller
+    }
 
 }
