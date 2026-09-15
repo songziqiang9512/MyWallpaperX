@@ -398,6 +398,8 @@ python3.12 script/run_scene_tests.py --scope all -k test_steam_ -j 1
 - **验收：**当前产品构建/调用/包内容扫描旧 SteamCMD、自动社区登录、个人 HTML 获取均清零；行为回归仍通过；没有误删 UI 列表、壁纸 Web runtime 或用户浏览器数据。
 - **停止：**唯一失败证据、归属不明文件/真实数据不得顺手删除；未获所需清理确认时记录剩余项，不能宣称旧路径已全部退役。
 
+当前 Release workflow 已撤销对不存在的 `SteamCMDRuntime.bundle`、`steamcmd`、`libsteaminput.dylib` 与旧 Breakpad Inspector 的条件签名探针；门禁同时扫描源码资源和发布配置，防止已退役 runtime 以静默 `-e` 分支重新成为包职责。
+
 ### SK7.1 — 全链路交互与性能验收
 
 - **依赖：**SK6.2；前卡证据绑定当前构建。

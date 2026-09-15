@@ -158,22 +158,6 @@ jobs:
               "$HELPER_PATH"
           fi
 
-          for code_path in \
-            "$APP_PATH/Contents/Resources/SteamCMDRuntime.bundle/Steam/steamcmd" \
-            "$APP_PATH/Contents/Resources/SteamCMDRuntime.bundle/Steam/libsteaminput.dylib" \
-            "$APP_PATH/Contents/Resources/SteamCMDRuntime.bundle/Steam/Frameworks/Breakpad.framework/Versions/A/Resources/Inspector"
-          do
-            if [ -e "$code_path" ]; then
-              codesign \
-                --force \
-                --timestamp \
-                --options runtime \
-                --preserve-metadata=identifier,entitlements,flags \
-                --sign "$DEVELOPER_ID_APPLICATION" \
-                "$code_path"
-            fi
-          done
-
           while IFS= read -r bundle_path; do
             codesign \
               --force \

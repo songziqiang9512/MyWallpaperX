@@ -73,6 +73,10 @@ class SteamBackendMigrationTests(unittest.TestCase):
         for relative in retired_sources:
             self.assertFalse((CORE / relative).exists(), relative)
         self.assertFalse((ROOT / "MyWallpaperX/Resources/SteamCMDRuntime.bundle").exists())
+        release_workflow = (ROOT / ".github/workflows/build.yml").read_text()
+        self.assertNotIn("SteamCMDRuntime.bundle", release_workflow)
+        self.assertNotIn("libsteaminput.dylib", release_workflow)
+        self.assertNotIn("/Steam/steamcmd", release_workflow)
 
     def test_retirement_cleanup_is_exact_and_does_not_touch_wallpaper_libraries(self):
         cleanup = (CORE / "SteamWorkshopLegacyAcquisitionRetirement.swift").read_text()
