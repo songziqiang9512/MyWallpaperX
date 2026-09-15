@@ -433,7 +433,7 @@ python3.12 script/run_scene_tests.py --scope all -k test_steam_ -j 1
 
 ### 9.1 当前开发 helper 性能观测（2026-09-15）
 
-环境仅为当前 Apple Silicon M4／16 GB 开发机，产物是 framework-dependent `SteamService/bin/Debug/net8.0/osx-arm64/SteamService`，通过 `DOTNET_ROOT` 使用本机 .NET runtime；不是低配机、self-contained helper、签名 App 或完整 UI 性能门。
+环境仅为当前 Apple Silicon M4／16 GB 开发机，产物是 framework-dependent `SteamService/bin/publish/SteamService`，通过 `DOTNET_ROOT` 使用本机 .NET runtime；曾产生协议失配的旧 `bin/Debug` 产物不计入下表。这里不是低配机、self-contained helper、签名 App 或完整 UI 性能门。
 
 | 路径 | 次数 | 当前观测 | 证据边界 |
 |---|---:|---|---|
@@ -443,7 +443,7 @@ python3.12 script/run_scene_tests.py --scope all -k test_steam_ -j 1
 | ready 后真实 helper 崩溃→自动替换→产品查询 | 1 | 精确 `SIGKILL` generation 1 的唯一 child；43.0 ms 后 generation 2 ready，仍只有一个 helper；随后 `queryBrowse` 接纳 29 项、1 个 partial、wrong-app 0、`hasMore=true`；有界 stop 后 gate/helper 均 exit 0／无残留 | 一次性 gate 位于隔离临时目录并已移入废纸篓；只证明当前 framework-dependent 开发 helper 的进程换代，不含 UI、账号、下载或长期 crash loop |
 | pending 产品查询中 helper 崩溃→显式重试 | 1 | 查询发出 100 ms 后精确 `SIGKILL` generation 1 的唯一 child；pending 以 typed `connectionLost` 失败，43.1 ms 后 generation 2 ready 且仍只有一个 helper；显式重试接纳 29 项、1 个 partial、wrong-app 0、`hasMore=true`；有界 stop 后 gate/helper 均 exit 0／无残留 | 一次性 gate 位于隔离临时目录并已移入废纸篓；未证明 App 错误页、自动重试、账号、下载物理排空或断网恢复 |
 
-三组命令结束后 `pgrep -x SteamService` 均为空；这里只建立当前 helper 的量级与残留反例门。SK7.1 仍需低配机上的完整 App 主线程、滚动、图片、20 次任务交互、下载并发和长驻内存实测。
+上述开发 helper 与 gate 结束后 `pgrep -x SteamService` 均为空；这里只建立当前 helper 的量级与残留反例门。SK7.1 仍需低配机上的完整 App 主线程、滚动、图片、20 次任务交互、下载并发和长驻内存实测。
 
 ## 10. 来源与能力边界
 
