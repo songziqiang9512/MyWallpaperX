@@ -29,6 +29,14 @@ enum SteamWorkshopTokenStore {
     }
 
     static let rememberPreferenceKey = "SteamWorkshop.steamKitRememberLogin"
+    static let restoreAuthorizedKey = "SteamWorkshop.steamKitRestoreAuthorized"
+
+    static var isRestoreAuthorized: Bool {
+        // Existing saved sessions predate this gate; explicit revocation always stores false.
+        UserDefaults.standard.object(forKey: restoreAuthorizedKey) == nil
+            || UserDefaults.standard.bool(forKey: restoreAuthorizedKey)
+    }
+
     static let lastAccountNameKey = "SteamWorkshop.steamKitLastAccountName"
     static let lastRestoredAtKey = "SteamWorkshop.steamKitLastRestoredAt"
 

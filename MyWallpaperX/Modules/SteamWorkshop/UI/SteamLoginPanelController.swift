@@ -152,9 +152,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         zoomWindow?.close()
         guard let auth else { return }
         loginTask?.cancel()
-        if !auth.isOnline {
-            Task { await auth.cancel() }
-        }
+        auth.cancelPendingAuthentication()
     }
 
     @objc private func cancelAndClose() {
@@ -167,7 +165,8 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         auth.$phase
             .receive(on: RunLoop.main)
             .sink { [weak self] phase in
-                guard let self, let window = self.window, window.isVisible else { return }
+                guard let self, let window = self.window, window.isVisible,
+                      self.auth?.phase == phase else { return }
                 self.apply(phase: phase)
             }
             .store(in: &cancellables)
@@ -222,8 +221,9 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     // MARK: - 动作
 
     @objc private func modeSwitched() {
-        // 切换方式先取消旧 attempt（§3.2），取消收口后再进入新页面（串行化）。
+        // 先同步作废旧 attempt，再切页；远端取消只携带旧身份。
         statusLabel.stringValue = ""
+        loginButton.isEnabled = true
         switch modeSegment.selectedSegment {
         case 0:
             cancelThenStart { [weak self] in self?.startQRLogin() }
@@ -236,19 +236,12 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         cancelThenStart { [weak self] in self?.startQRLogin() }
     }
 
-    /// 取消旧 attempt 收口后再执行新动作，避免 cancel 的异步收尾落到新 attempt 之后。
+    /// 本地先失效，远端异步取消不会影响新 attempt。
     private func cancelThenStart(_ run: @escaping () -> Void) {
         loginTask?.cancel()
         guard let auth else { return }
-        if auth.isOnline {
-            run()
-            return
-        }
-        loginTask = Task { [weak self] in
-            await auth.cancel()
-            guard !Task.isCancelled else { return }
-            await MainActor.run { run() }
-        }
+        auth.cancelPendingAuthentication()
+        run()
     }
 
     @objc private func submitPassword() {
@@ -268,20 +261,23 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         statusLabel.stringValue = ""
         loginButton.isEnabled = false
         loginTask?.cancel()
+        auth.cancelPendingAuthentication()
         loginTask = Task { [weak self] in
             do {
                 // 成功后不在此处关窗：由 apply(.online) 依据 tokenSaveResult 决定
                 // 直接关闭还是提示"Keychain 保存失败"（§3.3 不伪报已保存）。
                 _ = try await auth.loginPassword(username: username, password: password)
             } catch SteamServiceClient.RequestError.helperError(let code, let message) {
+                guard !Task.isCancelled else { return }
                 await MainActor.run {
                     self?.loginButton.isEnabled = true
                     self?.setStatus("登录失败（\(code)）：\(message)")
                     self?.window?.makeFirstResponder(self?.passwordField)
                 }
             } catch is CancellationError {
-                await MainActor.run { self?.loginButton.isEnabled = true }
+                return
             } catch {
+                guard !Task.isCancelled else { return }
                 await MainActor.run {
                     self?.loginButton.isEnabled = true
                     self?.setStatus("登录失败：\(error.localizedDescription)")
@@ -305,11 +301,13 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         showPage(.qr)
         setStatus("正在生成二维码…")
         loginTask?.cancel()
+        auth.cancelPendingAuthentication()
         loginTask = Task { [weak self] in
             do {
                 _ = try await auth.loginQR()
             } catch is CancellationError {
             } catch {
+                guard !Task.isCancelled else { return }
                 await MainActor.run {
                     self?.setStatus("二维码登录未完成：\(error.localizedDescription)")
                 }
@@ -367,6 +365,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         content.addArrangedSubview(titleLabel)
         content.addArrangedSubview(modeSegment)
         content.addArrangedSubview(containerStack)
+        content.addArrangedSubview(rememberCheck)
         content.addArrangedSubview(statusLabel)
         content.addArrangedSubview(cancelButton)
 
@@ -383,6 +382,9 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     }
 
     private func showPage(_ page: Page) {
+        // A replaced challenge must never leave a scannable old enlarged image.
+        zoomWindow?.close()
+        qrImageView.image = nil
         containerStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         window?.contentView?.subviews.first?.invalidateIntrinsicContentSize()
 
@@ -398,7 +400,6 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         case .password:
             containerStack.addArrangedSubview(self.usernameField)
             containerStack.addArrangedSubview(passwordField)
-            containerStack.addArrangedSubview(rememberCheck)
             containerStack.addArrangedSubview(loginButton)
         case .guardInput(let kind):
             let hint = NSTextField(labelWithString: guardHint(kind))

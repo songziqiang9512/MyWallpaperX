@@ -27,6 +27,8 @@ final class SteamAccountSession {
 
     var onPhaseChange: ((AuthPhase) -> Void)?
     private(set) var activeAttemptId: String?
+    private var completedAttemptId: String?
+    private var activeRequest: Task<SteamServiceFrame, Error>?
 
     /// 最近一次登录成功返回的会话令牌（仅驻内存；持久化由 SteamAuthRoute/
     /// TokenStore 决定）。accountName 为真实名（private 包装），供令牌持久化。
@@ -87,48 +89,93 @@ final class SteamAccountSession {
         )
     }
 
-    /// 取消当前认证流；login 调用将以 cancelled 失败收口。
-    func cancel() async {
-        guard activeAttemptId != nil else { return }
-        _ = try? await client.request(command: "cancelAuthentication")
+    /// Invalidate synchronously, before a window closes or another attempt starts.
+    /// The detached control request targets this exact attempt, never its successor.
+    @discardableResult
+    func cancelCurrentAttempt(includingUnadoptedResult: Bool = false) -> Task<Void, Never>? {
+        guard let attemptId = activeAttemptId ?? (includingUnadoptedResult ? completedAttemptId : nil) else { return nil }
+        completedAttemptId = nil
         activeAttemptId = nil
+        activeRequest?.cancel()
+        activeRequest = nil
+        lastSessionTokens = nil
         phase = .cancelled
+        return sendCancellation(attemptId)
     }
 
-    // MARK: - 私有
+    func cancel() async {
+        await cancelCurrentAttempt()?.value
+    }
+
+    private func sendCancellation(_ attemptId: String) -> Task<Void, Never> {
+        let client = client
+        return Task {
+            guard client.currentIdentity != nil else { return }
+            _ = try? await client.request(command: "cancelAuthentication", authAttemptId: attemptId)
+        }
+    }
 
     private func beginAuth(
         command: String,
         payload: SteamServiceJSON?,
         privatePayload: SteamServiceJSON?
     ) async throws -> SteamServiceFrame {
+        try Task.checkCancellation()
+        cancelCurrentAttempt()
+        let attemptId = UUID().uuidString
+        activeAttemptId = attemptId
+        completedAttemptId = nil
+        lastSessionTokens = nil
         phase = .connecting
-        let frame = try await client.request(
-            command: command,
-            payload: payload,
-            private: privatePayload,
-            timeout: nil
-        )
-        if let steamId = frame.root["data"]?.objectValue?["steamId"]?.stringValue {
+        let request = Task { [client] in
+            try await client.request(command: command, authAttemptId: attemptId,
+                                     payload: payload, private: privatePayload, timeout: nil)
+        }
+        activeRequest = request
+        do {
+            let frame = try await withTaskCancellationHandler {
+                try await request.value
+            } onCancel: {
+                request.cancel()
+            }
+            try Task.checkCancellation()
+            guard activeAttemptId == attemptId, frame.authAttemptId == attemptId else {
+                throw CancellationError()
+            }
+            let id = try steamId(from: frame)
+            if let secrets = frame.root["private"]?.objectValue,
+               let refreshToken = secrets["refreshToken"]?.stringValue {
+                lastSessionTokens = (refreshToken, secrets["guardData"]?.stringValue,
+                                     secrets["accountName"]?.stringValue)
+            }
+            completedAttemptId = attemptId
             activeAttemptId = nil
-            phase = .online(steamId: steamId, accountName: frame.root["data"]?.objectValue?["accountName"]?.stringValue)
+            activeRequest = nil
+            phase = .online(steamId: id, accountName: frame.root["data"]?.objectValue?["accountName"]?.stringValue)
+            return frame
+        } catch {
+            // Local request cancellation alone does not stop helper polling.
+            if activeAttemptId == attemptId {
+                _ = sendCancellation(attemptId)
+                activeAttemptId = nil
+                activeRequest = nil
+                lastSessionTokens = nil
+                if Task.isCancelled || error is CancellationError ||
+                    error as? SteamServiceClient.RequestError == .cancelled {
+                    phase = .cancelled
+                } else if case SteamServiceClient.RequestError.helperError(let code, let message) = error {
+                    phase = .failed(code: code, message: message)
+                } else {
+                    phase = .failed(code: "network", message: error.localizedDescription)
+                }
+            }
+            throw error
         }
-        if let privatePayload = frame.root["private"]?.objectValue,
-           let refreshToken = privatePayload["refreshToken"]?.stringValue {
-            lastSessionTokens = (
-                refreshToken: refreshToken,
-                guardData: privatePayload["guardData"]?.stringValue,
-                accountName: privatePayload["accountName"]?.stringValue
-            )
-        }
-        return frame
     }
 
     private func handleEvent(_ frame: SteamServiceFrame) {
-        guard frame.event == "authState" else { return }
-        if let attemptId = frame.authAttemptId {
-            activeAttemptId = attemptId
-        }
+        guard frame.event == "authState", let attemptId = activeAttemptId,
+              frame.authAttemptId == attemptId else { return }
         guard let state = frame.root["state"]?.stringValue else { return }
         switch state {
         case "connecting":

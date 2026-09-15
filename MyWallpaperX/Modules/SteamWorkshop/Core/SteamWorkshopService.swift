@@ -146,20 +146,28 @@ final class SteamWorkshopService: ObservableObject {
     /// 网络失败保留令牌下次再试。
     func restoreSavedSteamSessionIfAuthorized() {
         guard UserDefaults.standard.bool(forKey: SteamWorkshopTokenStore.rememberPreferenceKey),
+              SteamWorkshopTokenStore.isRestoreAuthorized,
               let saved = SteamWorkshopTokenStore.load() else { return }
+        let scheduledEpoch = steamAuth.client.accountEpoch
         Task { @MainActor [weak self] in
-            guard let self else { return }
+            guard let self, self.steamAuth.client.accountEpoch == scheduledEpoch else { return }
+            let restoreEpoch = scheduledEpoch + 1
             do {
                 let steamId = try await self.steamAuth.restore(
                     refreshToken: saved.refreshToken,
                     accountName: saved.accountName,
                     expectedSteamId: saved.steamId
                 )
+                guard self.steamAuth.client.accountEpoch == restoreEpoch else { return }
                 if saved.accountName.isEmpty == false {
                     self.statusMessage = "已恢复 Steam 登录（\(saved.accountName)）。"
                 }
                 _ = steamId
+            } catch is CancellationError {
+                return
             } catch {
+                guard self.steamAuth.client.accountEpoch == restoreEpoch ||
+                    (self.steamAuth.client.accountEpoch == restoreEpoch + 1 && self.steamAuth.expired) else { return }
                 // 账号不一致与过期都删令牌+标过期，但文案区分（不能匹配
                 // localizedDescription——Swift 枚举错误默认不含关联 message）。
                 var mismatch = false
@@ -169,11 +177,12 @@ final class SteamWorkshopService: ObservableObject {
                 }
                 switch SteamAuthRoute.disposition(for: error) {
                 case .deleteToken:
-                    SteamWorkshopTokenStore.delete()
-                    self.steamAuth.markExpired()
                     self.statusMessage = mismatch
-                        ? "保存的登录与实际账号不一致，已登出并清除保存信息。请重新登录。"
+                        ? "保存的登录与实际账号不一致，已停止恢复。请重新登录。"
                         : "保存的 Steam 登录已过期。请使用工具栏的「登录 Steam」重新登录。"
+                    if self.steamAuth.tokenDeletionFailed {
+                        self.statusMessage += " 已禁止自动恢复，但 Keychain 清理失败。"
+                    }
                 case .keepToken:
                     self.statusMessage = "已保存的 Steam 登录暂无法恢复（网络原因），保留登录信息，下次启动再试。"
                 }
@@ -183,8 +192,7 @@ final class SteamWorkshopService: ObservableObject {
 
     /// SK2.3：退出登录 = 新路线登出（epoch 递增+令牌清理）+ 旧路线会话清理。
     /// 有活动/排队任务时先说明一次；本地文件与当前壁纸不受影响。
-    /// 注意：旧 SteamCMD 密码条目暂不删除——下载仍走旧 route，其退役
-    /// 挂接 SK6 迁移门（§8.1 SK2.3"成功迁移条件下"）。
+    /// 旧 SteamCMD 密码条目的显式迁移清理仍归 SK6。
     func signOutEverywhere() {
         let hasActiveDownloads = activeDownloadTask != nil || downloadJobStore.queuedCount > 0
         if hasActiveDownloads {
@@ -197,7 +205,7 @@ final class SteamWorkshopService: ObservableObject {
         }
         Task { @MainActor [weak self] in
             guard let self else { return }
-            await self.steamAuth.signOut()
+            // Cleanup runs before signOut suspends; its completion cannot clear a new account.
             // 旧路线清理（不含旧密码删除，理由见上）。
             self.cancelActiveLoginSession()
             self.clearCommunitySession()
@@ -207,6 +215,10 @@ final class SteamWorkshopService: ObservableObject {
             // SK4.1：队列真值在 JobStore——取消全部任务并清理对应投影。
             for workshopID in self.downloadJobStore.cancelAll() {
                 self.removeTransientRecord(id: workshopID)
+                self.steamJobItemPayloads.removeValue(forKey: workshopID)
+            }
+            if !self.downloadJobStore.lastSaveSucceeded {
+                self.downloadError = "取消队列未能保存；任务执行已停止，请检查磁盘后重试。"
             }
             self.steamUsername = ""
             self.steamPassword = ""
@@ -218,7 +230,10 @@ final class SteamWorkshopService: ObservableObject {
             self.lastSuccessfulSessionValidationAt = nil
             self.isLoginSheetPresented = false
             self.authError = nil
-            self.statusMessage = "已退出 Steam 登录。"
+            let cleared = await self.steamAuth.signOut()
+            guard self.steamAuth.phase == .idle else { return }
+            self.statusMessage = cleared ? "已退出 Steam 登录。"
+                : "已退出并禁止自动恢复，但 Keychain 中的旧令牌清理失败。"
         }
     }
 

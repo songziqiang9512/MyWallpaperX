@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 /// Steam helper 的双管道传输抽象：生产走 DaemonProcessTransport 适配，
 /// 离线测试注入 fake（SK1.2）。帧由 SteamServiceFrameReader 层负责，传输只看字节。
@@ -49,7 +50,11 @@ final class SteamServiceProcessTransport: SteamServiceTransporting {
     func terminate() { daemonTransport.terminate() }
 
     func scheduleForcedTermination(after delay: TimeInterval) {
-        daemonTransport.scheduleForcedTermination(after: delay)
+        let target = daemonTransport
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + delay) {
+            guard target.process.isRunning else { return }
+            kill(target.process.processIdentifier, SIGKILL)
+        }
     }
 }
 
@@ -116,7 +121,14 @@ final class SteamServiceClient {
     }
 
     /// SK2.3：账号代际。换号/退出递增，随请求出站；旧账号迟到响应据此判废。
-    var accountEpoch = 0
+    var accountEpoch = 0 {
+        didSet {
+            guard oldValue != accountEpoch else { return }
+            for id in pendingRequests.compactMap({ $0.value.accountEpoch != nil ? $0.key : nil }) {
+                failPending(requestId: id, error: .cancelled)
+            }
+        }
+    }
 
     var currentIdentity: HelperIdentity? {
         if case .ready(let identity) = state { return identity }
@@ -139,6 +151,7 @@ final class SteamServiceClient {
 
     private struct PendingRequest {
         let generation: UInt64
+        let accountEpoch: Int?
         let continuation: CheckedContinuation<SteamServiceFrame, Error>
     }
 
@@ -175,9 +188,13 @@ final class SteamServiceClient {
             guard let identity = currentIdentity else { break }
             return identity
         case .connecting:
-            throw RequestError.notReady
-        case .terminated, .incompatibleProtocol:
+            return try await waitForHandshake()
+        case .incompatibleProtocol:
             throw RequestError.incompatibleProtocol
+        case .terminated:
+            // A new explicit start can recover after the automatic retry budget
+            // is exhausted; automatic retries never enter through this state.
+            restartBackoff.reset()
         default:
             break
         }
@@ -189,12 +206,14 @@ final class SteamServiceClient {
 
         isStopping = false
         sessionGeneration += 1
+        let generation = sessionGeneration
         state = .connecting
         frames = DaemonNewlineFrameBuffer()
 
         let transport = transportFactory(URL(fileURLWithPath: resolvedPath))
         transport.onOutput = { [weak self] data in
             MainActor.assumeIsolated {
+                guard self?.sessionGeneration == generation else { return }
                 self?.handleOutput(data)
             }
         }
@@ -206,6 +225,7 @@ final class SteamServiceClient {
         }
         transport.onTermination = { [weak self] status in
             MainActor.assumeIsolated {
+                guard self?.sessionGeneration == generation else { return }
                 self?.handleTermination(exitStatus: status)
             }
         }
@@ -269,8 +289,25 @@ final class SteamServiceClient {
         private privatePayload: SteamServiceJSON? = nil,
         timeout: TimeInterval? = SteamServiceProtocol.requestTimeout
     ) async throws -> SteamServiceFrame {
+        let capturedEpoch = accountEpoch
+        let accountScoped = ["loginPassword", "loginQR", "restoreSession", "listSubscriptions",
+                             "listFavorites", "querySubscriptionStates", "setSubscription", "startDownload"].contains(command)
+        try Task.checkCancellation()
+        // Process readiness is independent of account authentication. Public queries
+        // can start the helper without creating a login attempt or opening UI.
+        if state == .idle || state == .connecting {
+            _ = try await start()
+        }
+        try Task.checkCancellation()
         guard case .ready = state, let transport else {
             throw RequestError.notReady
+        }
+        guard !accountScoped || capturedEpoch == accountEpoch else { throw RequestError.cancelled }
+        let isControl = ["shutdown", "logout", "cancelAuthentication", "cancelDownload", "submitChallenge"].contains(command)
+        // Keep teardown/Guard responsive even when all business slots are occupied.
+        let requestLimit = SteamServiceProtocol.maxPendingRequests + (isControl ? 8 : 0)
+        guard pendingRequests.count < requestLimit else {
+            throw RequestError.helperError(code: "rateLimited", message: "request capacity exceeded")
         }
         requestSequence += 1
         let requestId = "req-\(sessionGeneration)-\(requestSequence)"
@@ -289,14 +326,22 @@ final class SteamServiceClient {
         ) else {
             throw RequestError.notReady
         }
-        guard transport.send(data) else {
-            throw RequestError.connectionLost
+        guard data.count <= SteamServiceProtocol.maxFrameBytes + 1 else {
+            throw RequestError.helperError(code: "protocolMismatch", message: "request frame exceeds limit")
         }
-        return try await withCheckedThrowingContinuation { continuation in
+        return try await withTaskCancellationHandler(operation: {
+          try await withCheckedThrowingContinuation { continuation in
             pendingRequests[requestId] = PendingRequest(
                 generation: sessionGeneration,
+                accountEpoch: accountScoped ? capturedEpoch : nil,
                 continuation: continuation
             )
+            // Register before send: an injectable transport may reply synchronously.
+            guard transport.send(data) else {
+                failPending(requestId: requestId, error: .connectionLost)
+                return
+            }
+            guard pendingRequests[requestId] != nil else { return }
             guard let timeout else { return }
             let workItem = DispatchWorkItem { [weak self] in
                 MainActor.assumeIsolated {
@@ -305,7 +350,11 @@ final class SteamServiceClient {
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: workItem)
             timeoutWorkItems[requestId] = workItem
-        }
+          }
+        }, onCancel: { [weak self] in
+            guard let client = self else { return }
+            Task { @MainActor in client.failPending(requestId: requestId, error: .cancelled) }
+        })
     }
 
     // MARK: - 定位（开发 route：env 覆盖；产品 route：app bundle Helpers）
@@ -329,6 +378,10 @@ final class SteamServiceClient {
 
     private func handleOutput(_ data: Data) {
         for frame in frames.append(data) {
+            guard frame.count <= SteamServiceProtocol.maxFrameBytes else {
+                failProtocolConnection(reason: "frame exceeded 1 MiB limit")
+                return
+            }
             guard let line = String(data: frame, encoding: .utf8) else { continue }
             switch SteamServiceFrameDecoder.decode(line) {
             case .failure(let error):
@@ -340,11 +393,7 @@ final class SteamServiceClient {
         }
         if frames.pendingByteCount > SteamServiceProtocol.maxFrameBytes {
             // §6 帧上限：上限内无换行边界即视为协议破坏，有界断开。
-            transport?.terminate()
-            transport = nil
-            state = .connectionLost(reason: "frame buffer exceeded 1 MiB limit")
-            failAllPending(.connectionLost)
-            handleUnexpectedStop()
+            failProtocolConnection(reason: "frame buffer exceeded 1 MiB limit")
         }
     }
 
@@ -364,7 +413,11 @@ final class SteamServiceClient {
             if let workItem = timeoutWorkItems.removeValue(forKey: requestId) {
                 workItem.cancel()
             }
-            if frame.ok == true {
+            if let epoch = pending.accountEpoch,
+               epoch != accountEpoch || (frame.accountEpoch != nil && frame.accountEpoch != epoch)
+                || (frame.ok == true && frame.accountEpoch == nil) {
+                pending.continuation.resume(throwing: RequestError.cancelled)
+            } else if frame.ok == true {
                 pending.continuation.resume(returning: frame)
             } else if let error = frame.error {
                 pending.continuation.resume(throwing: RequestError.helperError(
@@ -387,11 +440,9 @@ final class SteamServiceClient {
             let version = frame.protocolVersion ?? -1
             guard version == SteamServiceProtocol.version, let helperVersion = frame.helperVersion else {
                 state = .incompatibleProtocol(reportedVersion: version == -1 ? nil : version)
-                transport?.terminate()
-                transport = nil
+                retireTransport()
                 return
             }
-            restartBackoff.reset()
             let identity = HelperIdentity(
                 protocolVersion: version,
                 helperVersion: helperVersion,
@@ -403,12 +454,12 @@ final class SteamServiceClient {
         }
         // 握手期收到非 ready 帧：视为协议失配。
         state = .incompatibleProtocol(reportedVersion: nil)
-        transport?.terminate()
-        transport = nil
+        retireTransport()
     }
 
     private func waitForHandshake() async throws -> HelperIdentity {
         while true {
+            try Task.checkCancellation()
             switch state {
             case .ready(let identity):
                 return identity
@@ -428,6 +479,7 @@ final class SteamServiceClient {
         let workItem = DispatchWorkItem { [weak self] in
             MainActor.assumeIsolated {
                 guard let self, case .connecting = self.state else { return }
+                self.retireTransport()
                 self.state = .connectionLost(reason: "handshake timeout")
                 self.handleUnexpectedStop()
             }
@@ -448,9 +500,10 @@ final class SteamServiceClient {
         handleUnexpectedStop()
     }
 
-    /// 有界重启：退避后重新 spawn；握手成功即重置退避，超过上限进入 terminated。
+    /// 有界重启：ready 不重置失败计数，防止 ready/崩溃循环无限重启。
     private func handleUnexpectedStop() {
         guard !isStopping else { return }
+        restartWorkItem?.cancel()
         guard restartBackoff.consecutiveFailureCount < maximumRestartAttempts else {
             state = .terminated
             return
@@ -467,6 +520,23 @@ final class SteamServiceClient {
         }
         restartWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+    }
+
+    private func retireTransport() {
+        guard let previous = transport else { return }
+        transport = nil
+        previous.onOutput = nil
+        previous.onError = nil
+        previous.onTermination = nil
+        previous.scheduleForcedTermination(after: 1)
+        previous.terminate()
+    }
+
+    private func failProtocolConnection(reason: String) {
+        retireTransport()
+        state = .connectionLost(reason: reason)
+        failAllPending(.connectionLost)
+        handleUnexpectedStop()
     }
 
     private func failPending(requestId: String, error: RequestError) {
