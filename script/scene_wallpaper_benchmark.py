@@ -78,6 +78,15 @@ RUNTIME_EVIDENCE_RE = re.compile(
 )
 STOPPED_RE = re.compile(r"phase=stopped surfacesBefore=(?P<before>\d+) surfacesAfter=(?P<after>\d+)")
 PERFORMANCE_LINE_RE = re.compile(r"phase=performance (?P<fields>[^\r\n]+)")
+PERFORMANCE_STAGES_LINE_RE = re.compile(
+    r"phase=performance-stages(?P<fields>[^\r\n]*)"
+)
+PERFORMANCE_STAGE_RE = re.compile(
+    rf"(?P<name>[a-z0-9]+(?:-[a-z0-9]+)*)="
+    rf"p50:(?P<p50>{FLOAT_PATTERN})ms "
+    rf"p95:(?P<p95>{FLOAT_PATTERN})ms "
+    r"n:(?P<sample_count>\d+)"
+)
 LIVE_PROPERTY_UPDATE_RE = re.compile(
     r"phase=live-property-update accepted=(?P<accepted>true|false) "
     r"surfacesBefore=(?P<before>\d+) surfacesAfter=(?P<after>\d+) "
@@ -708,6 +717,72 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def performance_stage_metrics(log_text: str) -> dict[str, Any]:
+    matches = list(PERFORMANCE_STAGES_LINE_RE.finditer(log_text))
+    if len(matches) != 1:
+        return {
+            "available": False,
+            "error": f"expected one performance stages event, found {len(matches)}",
+        }
+
+    fields = matches[0].group("fields")
+    parsed: dict[str, dict[str, Any]] = {}
+    cursor = 0
+    try:
+        while cursor < len(fields):
+            while cursor < len(fields) and fields[cursor].isspace():
+                cursor += 1
+            if cursor == len(fields):
+                break
+            match = PERFORMANCE_STAGE_RE.match(fields, cursor)
+            if match is None:
+                token = fields[cursor:].split(maxsplit=1)[0]
+                return {
+                    "available": False,
+                    "error": f"invalid performance stage token: {token}",
+                }
+            name = match.group("name")
+            if name in parsed:
+                return {
+                    "available": False,
+                    "error": f"duplicate performance stage: {name}",
+                }
+            p50_ms = float(match.group("p50"))
+            p95_ms = float(match.group("p95"))
+            sample_count = int(match.group("sample_count"))
+            if not math.isfinite(p50_ms) or p50_ms < 0:
+                raise ValueError(f"invalid performance stage p50: {name}")
+            if not math.isfinite(p95_ms) or p95_ms < p50_ms:
+                raise ValueError(f"invalid performance stage p95: {name}")
+            if sample_count <= 0:
+                raise ValueError(f"invalid performance stage sample count: {name}")
+            parsed[name] = {
+                "p50_ms": p50_ms,
+                "p95_ms": p95_ms,
+                "sample_count": sample_count,
+            }
+            cursor = match.end()
+    except ValueError as error:
+        return {"available": False, "error": str(error)}
+
+    if not parsed:
+        return {"available": False, "error": "performance stages are empty"}
+
+    stages = {name: parsed[name] for name in sorted(parsed)}
+    highest_name, highest = max(
+        stages.items(),
+        key=lambda item: item[1]["p95_ms"],
+    )
+    return {
+        "available": True,
+        "stages": stages,
+        "highest_p95": {
+            "name": highest_name,
+            "milliseconds": highest["p95_ms"],
+        },
+    }
+
+
 def performance_metrics(log_text: str, surface_count: int | None) -> dict[str, Any]:
     matches = list(PERFORMANCE_LINE_RE.finditer(log_text))
     if len(matches) != 1:
@@ -778,6 +853,14 @@ def performance_metrics(log_text: str, surface_count: int | None) -> dict[str, A
     metrics["actual_present_over_1_5_budget_ratio"] = (
         metrics["presentation_over_1_5_budget"] / expected_intervals
     )
+    stage_metrics = performance_stage_metrics(log_text)
+    if stage_metrics.get("available") is not True:
+        return {
+            "available": False,
+            "error": "performance stages unavailable: "
+            + str(stage_metrics.get("error", "unknown error")),
+        }
+    metrics["cpu_stages"] = stage_metrics
     return metrics
 
 

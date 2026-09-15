@@ -284,7 +284,7 @@ Steam 账号、订阅与下载获取的具体迁移由 [Steam 获取专项](scen
 
 同时保留 AS1 原始基线与每卡直接前驱，AS9 对原始基线重测总效果，防止每卡都在容差内却累计明显回退；热缓存命中集合、观察开销和实际运行路由必须可比。
 
-**工具边界：**[scene_wallpaper_benchmark.py](../../script/scene_wallpaper_benchmark.py)当前默认 duration 为 7 s，并面向证据窗口，不能直接拿默认结果做稳态性能门。使用其 `--app`、`--sample-root`、`--sample-id`、`--output-dir`、`--duration` 做对应语义验证；duration 会归一到 7…3600 s，但总运行时长不等于性能窗口，AS1 必须以报告中的 `measurement_elapsed_seconds >= 60` 为准。`--performance-fps {30,60}` 必须显式传给 Debug runner，默认 60，并由运行日志回报实际档位，不能继承用户偏好后再在报告中硬编码身份。当前 Debug evidence telemetry 只在 drawable 即将提交时按 surface stream 注册 `addPresentedHandler`，用非零 `presentedTime` 计算 actual-present p50/p95/p99/max 与超过 1.5 倍目标间隔的比例；流数不等于 ready surface 数、首样本后没有区间或计数身份不闭合时整项 unavailable。正常播放另用现有 hub/signpost 与短期 Instruments。缺分位数或某项计数时标记 unavailable 并补最小采集，不虚构一个尚不存在的“性能 PASS 命令”。计数器不可把完整 graph hash/序列化放入普通帧。
+**工具边界：**[scene_wallpaper_benchmark.py](../../script/scene_wallpaper_benchmark.py)当前默认 duration 为 7 s，并面向证据窗口，不能直接拿默认结果做稳态性能门。使用其 `--app`、`--sample-root`、`--sample-id`、`--output-dir`、`--duration` 做对应语义验证；duration 会归一到 7…3600 s，但总运行时长不等于性能窗口，AS1 必须以报告中的 `measurement_elapsed_seconds >= 60` 为准。`--performance-fps {30,60}` 必须显式传给 Debug runner，默认 60，并由运行日志回报实际档位，不能继承用户偏好后再在报告中硬编码身份。当前 Debug evidence telemetry 只在 drawable 即将提交时按 surface stream 注册 `addPresentedHandler`，用非零 `presentedTime` 计算 actual-present p50/p95/p99/max 与超过 1.5 倍目标间隔的比例；流数不等于 ready surface 数、首样本后没有区间或计数身份不闭合时整项 unavailable。CPU 阶段的 p50/p95/样本数也由同一工具严格解析进 `cpu_stages`，缺失、重复、非法或样本数为零时性能证据整体 unavailable；`highest_p95` 只用于定位首要成本，`prologue`、`frame-admission` 及更深 admission 等嵌套阶段不可相加。正常播放另用现有 hub/signpost 与短期 Instruments。缺分位数或某项计数时标记 unavailable 并补最小采集，不虚构一个尚不存在的“性能 PASS 命令”。计数器不可把完整 graph hash/序列化放入普通帧。
 
 ### 8.4 AS2 — 纹理准备、异步上传与长期采样
 

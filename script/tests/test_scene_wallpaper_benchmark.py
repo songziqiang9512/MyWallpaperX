@@ -2178,7 +2178,10 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "mainFrameMaxMS=8.311 cpuP50MS=0.348 cpuP95MS=0.380 "
             "cpuMaxMS=0.578 cpuOver16=0 cpuOver33=0 gpuSamples=409 "
             "gpuP50MS=2.279 gpuP95MS=3.886 gpuMaxMS=4.752 "
-            "gpuOver16=0 gpuOver33=0"
+            "gpuOver16=0 gpuOver33=0\n"
+            "MWX DEBUG SCENE: phase=performance-stages "
+            "layer-loop=p50:4.000ms p95:5.500ms n:407 "
+            "prologue=p50:1.000ms p95:1.500ms n:407"
         )
         metrics = benchmark.performance_metrics(log, surface_count=1)
         self.assertTrue(metrics["available"])
@@ -2198,6 +2201,14 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         )
         self.assertAlmostEqual(metrics["pre_encode_p95_ms"], 7.671)
         self.assertAlmostEqual(metrics["gpu_frame_p95_ms"], 3.886)
+        self.assertEqual(
+            metrics["cpu_stages"]["highest_p95"],
+            {"name": "layer-loop", "milliseconds": 5.5},
+        )
+        self.assertEqual(
+            metrics["cpu_stages"]["stages"]["prologue"],
+            {"p50_ms": 1.0, "p95_ms": 1.5, "sample_count": 407},
+        )
         two_surface_log = log.replace(
             "presented=408 presentStreams=1 presentIntervals=407",
             "presented=408 presentStreams=2 presentIntervals=406",
@@ -2228,7 +2239,8 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "drawableMissed=0 drawableWaitP95MS=0 drawableWaitMaxMS=0 "
             "preEncodeP95MS=1 preEncodeMaxMS=1 mainFrameP95MS=2 mainFrameMaxMS=2 "
             "cpuP50MS=1 cpuP95MS=1 cpuMaxMS=1 cpuOver16=0 cpuOver33=0 "
-            "gpuSamples=60 gpuP50MS=1 gpuP95MS=1 gpuMaxMS=1 gpuOver16=0 gpuOver33=0"
+            "gpuSamples=60 gpuP50MS=1 gpuP95MS=1 gpuMaxMS=1 gpuOver16=0 gpuOver33=0\n"
+            "phase=performance-stages layer-loop=p50:1ms p95:2ms n:60"
         )
         invalid_target = valid_log.replace("targetFPS=60", "targetFPS=45", 1)
         self.assertIn(
@@ -2244,6 +2256,36 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertIn(
             "interval identity mismatch",
             benchmark.performance_metrics(missing_intervals, 1)["error"],
+        )
+        missing_stages = valid_log.split("\nphase=performance-stages", 1)[0]
+        self.assertIn(
+            "expected one performance stages event",
+            benchmark.performance_metrics(missing_stages, 1)["error"],
+        )
+        duplicate_stage = valid_log.replace(
+            "layer-loop=p50:1ms p95:2ms n:60",
+            "layer-loop=p50:1ms p95:2ms n:60 "
+            "layer-loop=p50:1ms p95:2ms n:60",
+            1,
+        )
+        self.assertIn(
+            "duplicate performance stage",
+            benchmark.performance_metrics(duplicate_stage, 1)["error"],
+        )
+        malformed_stage = valid_log + " trailing-token"
+        self.assertIn(
+            "invalid performance stage token",
+            benchmark.performance_metrics(malformed_stage, 1)["error"],
+        )
+        inverted_stage = valid_log.replace("p50:1ms p95:2ms", "p50:2ms p95:1ms", 1)
+        self.assertIn(
+            "invalid performance stage p95",
+            benchmark.performance_metrics(inverted_stage, 1)["error"],
+        )
+        empty_stage = valid_log.replace("n:60", "n:0", 1)
+        self.assertIn(
+            "invalid performance stage sample count",
+            benchmark.performance_metrics(empty_stage, 1)["error"],
         )
 
     def test_performance_summary_preserves_worst_sample_identity(self) -> None:
