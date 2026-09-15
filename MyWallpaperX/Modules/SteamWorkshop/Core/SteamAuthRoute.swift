@@ -61,7 +61,12 @@ final class SteamAuthRoute: ObservableObject {
             guard let self else { return }
             switch state {
             case .ready, .connecting, .idle: break
-            default: self.connectionLost()
+            default:
+                // Public browse shares the helper but is not an authentication
+                // attempt. A public-query startup/protocol failure must not
+                // project a signed-out account as a failed login.
+                guard self.hasAccountConnectionIntent else { return }
+                self.connectionLost()
             }
         }
         eventObserverID = client.addEventObserver { [weak self] frame in
@@ -72,6 +77,17 @@ final class SteamAuthRoute: ObservableObject {
     }
 
     var isOnline: Bool { steamId != nil }
+
+    private var hasAccountConnectionIntent: Bool {
+        if isOnline { return true }
+        switch phase {
+        case .connecting, .authenticating, .awaitingDeviceConfirmation,
+             .awaitingDeviceCode, .awaitingEmailCode, .qrChallenge, .online:
+            return true
+        case .idle, .failed, .cancelled:
+            return false
+        }
+    }
 
     /// 工具栏展示态（§3.1）。
     enum DisplayState: Equatable {

@@ -84,13 +84,30 @@ final class SteamServiceClient {
         case terminated
     }
 
-    enum RequestError: Error, Equatable {
+    enum RequestError: LocalizedError, Equatable {
         case notReady
         case cancelled
         case requestTimedOut
         case connectionLost
         case incompatibleProtocol
         case helperError(code: String, message: String)
+
+        var errorDescription: String? {
+            switch self {
+            case .notReady:
+                return "Steam 服务组件不可用，请重新安装或更新 App 后重试。"
+            case .cancelled:
+                return "操作已取消。"
+            case .requestTimedOut:
+                return "Steam 服务响应超时，请稍后重试。"
+            case .connectionLost:
+                return "Steam 服务连接已中断，请重试。"
+            case .incompatibleProtocol:
+                return "Steam 服务版本不兼容，请更新或重新安装 App。"
+            case .helperError(_, let message):
+                return message
+            }
+        }
     }
 
     var state: ClientState = .idle {

@@ -10,8 +10,12 @@ final class FakeSteamTransport: SteamServiceTransporting {
     var sends = 0
     var requests: [[String: Any]] = []
     var terminated = false
+    var startThrows = false
     var staleTermination: ((Int32) -> Void)?
     func start() throws {
+        if startThrows {
+            throw NSError(domain: "SteamServiceClientLifecycleHarness", code: 1)
+        }
         isRunning = true
         staleTermination = onTermination
         if readyOnStart { emit(["v": 1, "type": "ready", "protocol": 1, "helperVersion": "0.1.0"]) }
@@ -152,6 +156,30 @@ final class FakeSteamTransport: SteamServiceTransporting {
     }
 
     @MainActor static func accountRouteLifecycle() async throws {
+        let unavailableTransport = FakeSteamTransport()
+        unavailableTransport.startThrows = true
+        let unavailableClient = SteamServiceClient(
+            executablePath: "/fake",
+            maximumRestartAttempts: 0,
+            transportFactory: { _ in unavailableTransport }
+        )
+        let signedOutRoute = SteamAuthRoute(client: unavailableClient, persistence: .init(
+            remember: { false }, setRemember: { _ in }, setRestoreAuthorized: { _ in },
+            save: { _ in false }, delete: { true }, saveMetadata: { _ in }, clearMetadata: {}
+        ))
+        do {
+            _ = try await unavailableClient.request(command: "queryBrowse")
+            fatalError("missing public helper succeeded")
+        } catch SteamServiceClient.RequestError.notReady {}
+        precondition(
+            signedOutRoute.displayState == .signedOut,
+            "public helper failure must not become an authentication failure"
+        )
+        precondition(
+            SteamServiceClient.RequestError.notReady.localizedDescription
+                == "Steam 服务组件不可用，请重新安装或更新 App 后重试。"
+        )
+
         let transport = FakeSteamTransport()
         transport.replyOnSend = false
         let client = SteamServiceClient(executablePath: "/fake", maximumRestartAttempts: 0,
