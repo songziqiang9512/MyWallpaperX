@@ -368,6 +368,7 @@ final class SteamWorkshopService: ObservableObject {
     var activeDownloadTasks: [String: Task<Void, Never>] = [:]
     var cancelledDownloadJobKeys: Set<String> = []
     var reservedLibraryCopyBytesByJobKey: [String: Int64] = [:]
+    let downloadProgressStore = SteamWorkshopDownloadProgressStore()
     let steamLibraryVersionLeaseRegistry = SteamWorkshopLibraryVersionLeaseRegistry()
     var libraryVersionReclamationTask: Task<Void, Never>?
     var selectedItemDetailTask: Task<Void, Never>?

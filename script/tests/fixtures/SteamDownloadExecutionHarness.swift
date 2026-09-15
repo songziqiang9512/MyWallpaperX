@@ -91,6 +91,7 @@ final class Transport: SteamServiceTransporting {
     let steamServiceClient: SteamServiceClient
     let steamWorkshopQueryClient: SteamWorkshopQueryClient
     let downloadJobStore: SteamDownloadJobStore
+    let downloadProgressStore = SteamWorkshopDownloadProgressStore()
     let libraryRootURL: URL; let steamDownloadStagingRootURL: URL
     var steamDownloadLibraryRootURL: URL { (try? SteamWorkshopLibraryTransaction.configuredRoot(libraryRootURL)) ?? libraryRootURL }
     let maximumConcurrentDownloads = 2

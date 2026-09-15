@@ -266,7 +266,9 @@ final class SteamWorkshopMarqueeTextView: NSView {
         guard bounds.width.isFinite, bounds.height.isFinite else { return }
 
         let baseWidth = measuredWidth(for: displayText)
-        guard shouldScroll(baseWidth: baseWidth), isActive else {
+        guard shouldScroll(baseWidth: baseWidth),
+              isActive,
+              !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             containerLayer.transform = CATransform3DIdentity
@@ -305,19 +307,50 @@ final class SteamWorkshopMarqueeTextView: NSView {
     }
 }
 
+enum SteamWorkshopDownloadProgressPalette {
+    enum Tone {
+        case neutral
+        case transfer
+        case queued
+        case waiting
+        case failure
+    }
+
+    static func color(for tone: Tone, darkMode: Bool) -> NSColor {
+        switch tone {
+        case .neutral:
+            return darkMode
+                ? NSColor.white.withAlphaComponent(0.18)
+                : NSColor.black.withAlphaComponent(0.10)
+        case .transfer:
+            return .systemGreen
+        case .queued:
+            return .systemBlue
+        case .waiting:
+            return .systemOrange
+        case .failure:
+            return .systemRed
+        }
+    }
+}
+
 final class SteamWorkshopGlassBarView: NSGlassEffectView {
     enum AccentStyle {
         case neutral
         case downloading
         case queued
+        case waiting
+        case failed
         case ready
     }
 
     private let glossLayer = CAGradientLayer()
-    private let accentLayer = CAGradientLayer()
-    private let scanLayer = CAGradientLayer()
+    private let fillClipLayer = CALayer()
+    private let fillLayer = CAGradientLayer()
     private var accentStyle: AccentStyle = .neutral
-    private var showsScanAnimation = false
+    private var progressFraction: CGFloat?
+    private var showsIndeterminateProgress = false
+    private var progressAnimationVisible = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -334,9 +367,11 @@ final class SteamWorkshopGlassBarView: NSGlassEffectView {
         layer?.masksToBounds = false
         layer?.borderWidth = 1
         layer?.backgroundColor = NSColor.clear.cgColor
-        accentLayer.startPoint = CGPoint(x: 0, y: 0.5)
-        accentLayer.endPoint = CGPoint(x: 1, y: 0.5)
-        layer?.addSublayer(accentLayer)
+        fillClipLayer.masksToBounds = true
+        fillLayer.startPoint = CGPoint(x: 0, y: 0.5)
+        fillLayer.endPoint = CGPoint(x: 1, y: 0.5)
+        fillClipLayer.addSublayer(fillLayer)
+        layer?.addSublayer(fillClipLayer)
         glossLayer.colors = [
             NSColor.white.withAlphaComponent(0.14).cgColor,
             NSColor.white.withAlphaComponent(0.04).cgColor,
@@ -346,17 +381,14 @@ final class SteamWorkshopGlassBarView: NSGlassEffectView {
         glossLayer.startPoint = CGPoint(x: 0.18, y: 0.98)
         glossLayer.endPoint = CGPoint(x: 0.82, y: 0.08)
         layer?.addSublayer(glossLayer)
-        scanLayer.startPoint = CGPoint(x: 0, y: 0.5)
-        scanLayer.endPoint = CGPoint(x: 1, y: 0.5)
-        layer?.addSublayer(scanLayer)
         updateMaterial()
     }
 
     override func layout() {
         super.layout()
-        accentLayer.frame = bounds
         glossLayer.frame = bounds
-        scanLayer.frame = CGRect(x: -bounds.width * 0.62, y: 0, width: bounds.width * 0.62, height: bounds.height)
+        updateProgressFrames(animated: false)
+        updateProgressAnimation()
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -366,93 +398,92 @@ final class SteamWorkshopGlassBarView: NSGlassEffectView {
 
     private func updateMaterial() {
         let isDarkMode = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        let accentBaseColor: NSColor = {
+        let tone: SteamWorkshopDownloadProgressPalette.Tone = {
             switch accentStyle {
-            case .neutral:
-                return isDarkMode ? NSColor.white.withAlphaComponent(0.18) : NSColor.black.withAlphaComponent(0.10)
-            case .downloading:
-                return NSColor.systemGreen
-            case .queued:
-                return NSColor.systemBlue
-            case .ready:
-                return isDarkMode ? NSColor.white.withAlphaComponent(0.18) : NSColor.black.withAlphaComponent(0.10)
+            case .neutral, .ready: return .neutral
+            case .downloading: return .transfer
+            case .queued: return .queued
+            case .waiting: return .waiting
+            case .failed: return .failure
             }
         }()
-        let usesSolidStatusFill = accentStyle == .downloading || accentStyle == .queued
+        let accentBaseColor = SteamWorkshopDownloadProgressPalette.color(for: tone, darkMode: isDarkMode)
+        let usesStatusFill = accentStyle != .neutral && accentStyle != .ready
 
-        style = usesSolidStatusFill ? .regular : .regular
-        tintColor = {
-            if usesSolidStatusFill {
-                return accentBaseColor.withAlphaComponent(0.80)
-            }
-            return isDarkMode
-                ? NSColor(calibratedWhite: 0.10, alpha: accentStyle == .neutral ? 0.82 : 0.66)
-                : NSColor(calibratedWhite: 1.0, alpha: accentStyle == .neutral ? 0.72 : 0.58)
-        }()
+        style = .regular
+        tintColor = isDarkMode
+            ? NSColor(calibratedWhite: 0.10, alpha: 0.82)
+            : NSColor(calibratedWhite: 1.0, alpha: 0.72)
 
-        layer?.backgroundColor = (usesSolidStatusFill
-            ? accentBaseColor.withAlphaComponent(0.80)
-            : NSColor.clear
-        ).cgColor
-        layer?.borderColor = (usesSolidStatusFill
-            ? NSColor.white.withAlphaComponent(isDarkMode ? 0.18 : 0.14)
-            : accentBaseColor.withAlphaComponent(isDarkMode ? 0.34 : 0.22)
-        ).cgColor
+        layer?.backgroundColor = NSColor.clear.cgColor
+        let neutral = SteamWorkshopDownloadProgressPalette.color(for: .neutral, darkMode: isDarkMode)
+        layer?.borderColor = neutral.withAlphaComponent(isDarkMode ? 0.34 : 0.22).cgColor
 
-        accentLayer.colors = usesSolidStatusFill
-            ? [
-                accentBaseColor.withAlphaComponent(0.84).cgColor,
-                accentBaseColor.withAlphaComponent(0.80).cgColor,
-                accentBaseColor.withAlphaComponent(0.84).cgColor
-            ]
-            : [
-                accentBaseColor.withAlphaComponent(isDarkMode ? 0.34 : 0.22).cgColor,
-                accentBaseColor.withAlphaComponent(isDarkMode ? 0.18 : 0.10).cgColor,
-                NSColor.clear.cgColor
-            ]
-        accentLayer.locations = usesSolidStatusFill ? [0, 0.5, 1] : [0, 0.55, 1]
+        fillLayer.colors = [
+            accentBaseColor.withAlphaComponent(usesStatusFill ? 0.88 : 0.34).cgColor,
+            accentBaseColor.withAlphaComponent(usesStatusFill ? 0.72 : 0.18).cgColor,
+            accentBaseColor.withAlphaComponent(usesStatusFill ? 0.84 : 0.08).cgColor
+        ]
+        fillLayer.locations = [0, 0.55, 1]
 
-        glossLayer.isHidden = usesSolidStatusFill
-        scanLayer.colors = usesSolidStatusFill
-            ? [
-                NSColor.clear.cgColor,
-                NSColor.white.withAlphaComponent(isDarkMode ? 0.08 : 0.10).cgColor,
-                NSColor.white.withAlphaComponent(isDarkMode ? 0.34 : 0.30).cgColor,
-                NSColor.white.withAlphaComponent(isDarkMode ? 0.08 : 0.10).cgColor,
-                NSColor.clear.cgColor
-            ]
-            : [
-                NSColor.clear.cgColor,
-                accentBaseColor.withAlphaComponent(isDarkMode ? 0.20 : 0.16).cgColor,
-                NSColor.white.withAlphaComponent(isDarkMode ? 0.18 : 0.16).cgColor,
-                accentBaseColor.withAlphaComponent(isDarkMode ? 0.16 : 0.12).cgColor,
-                NSColor.clear.cgColor
-            ]
-        scanLayer.locations = [0, 0.22, 0.5, 0.78, 1]
-        updateScanAnimation()
+        glossLayer.isHidden = false
+        updateProgressFrames(animated: false)
+        updateProgressAnimation()
     }
 
-    func applyAccentStyle(_ style: AccentStyle, animated: Bool) {
+    func applyProgress(
+        style: AccentStyle,
+        fraction: Double?,
+        indeterminate: Bool,
+        animated: Bool
+    ) {
         accentStyle = style
+        progressFraction = fraction.map { CGFloat(min(1, max(0, $0))) }
+        showsIndeterminateProgress = indeterminate
         updateMaterial()
+        updateProgressFrames(animated: animated)
+        updateProgressAnimation()
     }
 
-    func setScanAnimationEnabled(_ enabled: Bool) {
-        showsScanAnimation = enabled
-        updateScanAnimation()
+    func setProgressAnimationVisible(_ visible: Bool) {
+        progressAnimationVisible = visible
+        updateProgressAnimation()
     }
 
-    private func updateScanAnimation() {
-        scanLayer.removeAnimation(forKey: "steam.bar.scan")
-        scanLayer.isHidden = !showsScanAnimation
-        guard showsScanAnimation, bounds.width > 0 else { return }
+    private func updateProgressFrames(animated: Bool) {
+        let width: CGFloat
+        if let progressFraction {
+            width = bounds.width * progressFraction
+        } else if showsIndeterminateProgress {
+            width = max(24, bounds.width * 0.24)
+        } else if accentStyle == .queued || accentStyle == .waiting || accentStyle == .failed {
+            width = min(10, bounds.width)
+        } else {
+            width = 0
+        }
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(animated ? 0.18 : 0)
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
+        fillClipLayer.frame = CGRect(x: 0, y: 0, width: max(0, width), height: bounds.height)
+        fillClipLayer.cornerRadius = layer?.cornerRadius ?? 0
+        fillLayer.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height)
+        CATransaction.commit()
+    }
+
+    private func updateProgressAnimation() {
+        fillClipLayer.removeAnimation(forKey: "steam.bar.indeterminate")
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        guard showsIndeterminateProgress,
+              progressAnimationVisible,
+              !reduceMotion,
+              bounds.width > fillClipLayer.bounds.width else { return }
         let animation = CABasicAnimation(keyPath: "transform.translation.x")
-        animation.fromValue = -bounds.width * 1.18
-        animation.toValue = bounds.width * 2.18
-        animation.duration = 1.75
+        animation.fromValue = -fillClipLayer.bounds.width
+        animation.toValue = bounds.width
+        animation.duration = 1.45
         animation.repeatCount = .infinity
         animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
         animation.isRemovedOnCompletion = false
-        scanLayer.add(animation, forKey: "steam.bar.scan")
+        fillClipLayer.add(animation, forKey: "steam.bar.indeterminate")
     }
 }

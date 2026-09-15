@@ -19,6 +19,12 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     private var webPropertiesExpanded = false
     private var webAdvancedPropertiesExpanded = false
     private var webDiagnosticsExpanded = false
+    private var downloadProgressObserverID: UUID?
+    private var downloadProgressSnapshot: SteamWorkshopDownloadProgressSnapshot?
+    private var downloadProgressLabel: NSTextField?
+    private var downloadProgressIndicator: NSProgressIndicator?
+    private var downloadProgressAccessibilityBucket: Int?
+    private var didBuildInitialContent = false
     private lazy var sceneInspectionController = SteamWorkshopSceneInspectionController { [weak self] in
         self?.rebuild(preservingScrollPosition: true)
     }
@@ -37,7 +43,9 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         super.init(frame: .zero)
         setup()
         observeService()
+        bindDownloadProgress(to: item.id)
         rebuild()
+        didBuildInitialContent = true
     }
 
     @available(*, unavailable)
@@ -52,6 +60,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             webAdvancedPropertiesExpanded = false
             webDiagnosticsExpanded = false
             sceneInspectionController.reset()
+            bindDownloadProgress(to: item.id)
         }
         currentItem = resolvedCurrentItem(fallback: item)
         rebuild(preservingScrollPosition: isSameItem)
@@ -96,6 +105,29 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             }
             .store(in: &cancellables)
 
+    }
+
+    private func bindDownloadProgress(to itemID: String) {
+        if let downloadProgressObserverID {
+            service.downloadProgressStore.removeObserver(downloadProgressObserverID)
+        }
+        downloadProgressObserverID = nil
+        downloadProgressLabel = nil
+        downloadProgressIndicator = nil
+        downloadProgressAccessibilityBucket = nil
+        downloadProgressSnapshot = service.downloadProgressStore.snapshot(for: itemID)
+        downloadProgressObserverID = service.downloadProgressStore.addObserver(for: itemID, owner: self) { [weak self] snapshot in
+            guard let self, self.currentItem.id == itemID else { return }
+            let previous = self.downloadProgressSnapshot
+            self.downloadProgressSnapshot = snapshot
+            let changesStructure = (previous == nil) != (snapshot == nil)
+            let changesPhase = previous?.phase != snapshot?.phase
+            if self.didBuildInitialContent, changesStructure || changesPhase {
+                self.rebuild(preservingScrollPosition: true)
+            } else {
+                self.updateDownloadProgressControls(announcingFrom: previous)
+            }
+        }
     }
 
     private func resolvedCurrentItem(fallback: SteamWorkshopBrowserItem) -> SteamWorkshopBrowserItem {
@@ -253,9 +285,12 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         currentItem = resolvedCurrentItem(fallback: currentItem)
         contentStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         footerView.subviews.forEach { $0.removeFromSuperview() }
+        downloadProgressLabel = nil
+        downloadProgressIndicator = nil
 
         buildPreviewSection()
         buildMetaSection()
+        buildDownloadProgressSection()
         buildContentSection()
         buildSubscriptionSection()
         buildWebPropertiesSection()
@@ -357,6 +392,97 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         }
 
         contentStack.addArrangedSubview(stack)
+    }
+
+    private func buildDownloadProgressSection() {
+        let queued = service.isQueuedForDownload(itemID: currentItem.id)
+        guard downloadProgressSnapshot != nil || queued else { return }
+
+        let stack = verticalStack(spacing: 8)
+        stack.addArrangedSubview(divider())
+        let header = NSStackView()
+        header.orientation = .horizontal
+        header.alignment = .firstBaseline
+        header.spacing = 10
+        header.addArrangedSubview(sectionTitle("下载进度"))
+        header.addArrangedSubview(spacer())
+        let status = label("", font: .systemFont(ofSize: 12, weight: .medium), color: .secondaryLabelColor, lines: 1)
+        header.addArrangedSubview(status)
+        stack.addArrangedSubview(header)
+
+        let indicator = NSProgressIndicator()
+        indicator.style = .bar
+        indicator.controlSize = .small
+        indicator.minValue = 0
+        indicator.maxValue = 1
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        indicator.setAccessibilityElement(true)
+        indicator.setAccessibilityRole(.progressIndicator)
+        indicator.setAccessibilityLabel("下载进度")
+        stack.addArrangedSubview(indicator)
+        indicator.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+
+        downloadProgressLabel = status
+        downloadProgressIndicator = indicator
+        contentStack.addArrangedSubview(stack)
+        updateDownloadProgressControls(announcingFrom: nil)
+    }
+
+    private func updateDownloadProgressControls(
+        announcingFrom previous: SteamWorkshopDownloadProgressSnapshot?
+    ) {
+        guard let label = downloadProgressLabel,
+              let indicator = downloadProgressIndicator else { return }
+        if let snapshot = downloadProgressSnapshot {
+            label.stringValue = snapshot.statusText()
+            let indeterminate = snapshot.fraction == nil
+                && snapshot.phase != .waiting
+                && snapshot.phase != .failed
+                && snapshot.phase != .saving
+            indicator.isIndeterminate = indeterminate
+            if indeterminate && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+                indicator.startAnimation(nil)
+            } else {
+                indicator.stopAnimation(nil)
+                indicator.doubleValue = snapshot.fraction ?? 0.04
+            }
+            label.textColor = SteamWorkshopDownloadProgressPalette.color(
+                for: progressPaletteTone(for: snapshot.phase),
+                darkMode: effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            )
+            indicator.setAccessibilityValue(snapshot.statusText())
+            let bucket = snapshot.percent.map { $0 / 10 }
+            if previous != nil,
+               bucket != downloadProgressAccessibilityBucket,
+               window != nil {
+                NSAccessibility.post(element: indicator, notification: .valueChanged)
+            }
+            downloadProgressAccessibilityBucket = bucket
+        } else {
+            label.stringValue = "等待下载"
+            indicator.isIndeterminate = false
+            indicator.stopAnimation(nil)
+            indicator.doubleValue = 0.04
+            label.textColor = SteamWorkshopDownloadProgressPalette.color(
+                for: .queued,
+                darkMode: effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            )
+            indicator.setAccessibilityValue("等待下载")
+            downloadProgressAccessibilityBucket = nil
+        }
+    }
+
+    private func progressPaletteTone(
+        for phase: SteamWorkshopDownloadProgressSnapshot.Phase
+    ) -> SteamWorkshopDownloadProgressPalette.Tone {
+        switch phase {
+        case .connecting, .preparing, .transferring, .validating, .saving:
+            return .transfer
+        case .waiting:
+            return .waiting
+        case .failed:
+            return .failure
+        }
     }
 
     private func buildContentSection() {
@@ -739,6 +865,17 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     }
 
     private func primaryFooterButton() -> InspectorFooterButton {
+        if downloadProgressSnapshot?.phase == .saving {
+            let button = footerButton(
+                title: "正在保存…",
+                symbolName: "checkmark.circle.fill",
+                kind: .primary,
+                target: self,
+                action: #selector(cancelDownload)
+            )
+            button.isEnabled = false
+            return button
+        }
         if service.isDownloading(itemID: currentItem.id) || service.isQueuedForDownload(itemID: currentItem.id) {
             return footerButton(
                 title: service.isQueuedForDownload(itemID: currentItem.id) ? "取消队列" : "取消下载",

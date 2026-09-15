@@ -16,7 +16,8 @@ SOURCES = [ROOT / 'MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift',
            ROOT / 'MyWallpaperX/Core/PlaybackControl/PlaybackResourceLifetime.swift',
            *[CORE / name for name in ('SteamServiceProtocol.swift', 'SteamServiceClient.swift',
              'SteamWorkshopQueryClient.swift', 'SteamWorkshopLibraryTransaction.swift',
-             'SteamWorkshopLibraryVersionLease.swift', 'SteamWorkshopJobStore.swift')]]
+             'SteamWorkshopLibraryVersionLease.swift', 'SteamWorkshopJobStore.swift',
+             'SteamWorkshopDownloadProgress.swift')]]
 HARNESS = r'''
 import Foundation
 @main struct Harness {

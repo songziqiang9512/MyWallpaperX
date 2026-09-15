@@ -2,7 +2,7 @@
 
 <!-- document-role: active-plan -->
 
-> 状态：现役专项计划；SK1–SK4.2 已有实现并完成本轮离线审查修复，SK4.3 已接通原子事务及播放感知版本回收；SK4.4 工程切片已闭合物理排空、manifest-bound 恢复、精确 lease 清理、同 job 重试、两活动作业/共享 chunk 上限及跨作业磁盘预留。下一步进入 SK5.1；代码完成不等于真实账号、UI 或发布验收完成。
+> 状态：现役专项计划；SK1–SK4.2 已有实现并完成本轮离线审查修复，SK4.3 已接通原子事务及播放感知版本回收；SK4.4 工程切片已闭合物理排空、manifest-bound 恢复、精确 lease 清理、同 job 重试、两活动作业/共享 chunk 上限及跨作业磁盘预留；SK5.1 工程切片已接通 item/attempt 精确数字进度、独立裁剪 fill 与卡片/详情增量投影。下一步进入 SK5.2；代码完成不等于真实账号、UI 或发布验收完成。
 >
 > 复核：2026-09-15。本轮依据当前 Swift/C#、隔离文件系统与无网络协议测试、App Debug 构建；未使用真实账号、修改真实订阅或实测可见 UI。§10.1 保留早期探针证据，不能代替本轮构建的真实链路验收。
 >
@@ -216,7 +216,7 @@ Envelope：`v/type/requestId/processEpoch/accountEpoch`；认证另有 authAttem
 | 11 | SK4.2 | 下载与完整receipt | 描述符staging、清单预算、v2跨语言摘要、串行进度发布/统一分母、typed磁盘错误、取消与成功共用决策点均有离线门。真实Steam下载与SDK物理排空仍待验 |
 | 12 | SK4.3 | 原子入库与已下载 | 已接通版本准备/摘要与项目准入/元数据rename/列表刷新；ready 索引由事务 owner 有界 nofollow 读取且不依赖页面打开，播放 token 贯穿 Scene/Web/Video 及依赖宿主，旧版本按 ready/事务/消费引用延迟安全回收。离线事务门与 Debug build 通过；剩余真实可见、跨卷/断电实机与完整项目播放验收并入 SK7 |
 | 13 | SK4.4 | 取消、恢复、有限并发与重试 | 工程切片已闭合：取消后的本地队列等待各自 helper 原 startDownload terminal（物理 I/O 排空）再推进，账号 epoch 改变不提前丢弃 waiter；helper 分配的受管 staging path+manifestID 在内容写入前落入 JobStore，崩溃重启只显示显式恢复，重试沿用同一逻辑 job 并递增 attempt、不跨账号。helper 仅重开同一直接 lease，当前 manifest 一致后逐块校验并跳过有效块；manifest 变化、取消与成功在物理 terminal 后由 App 精确清理当前 lease，未知兄弟和链接目标不受影响。App/helper 同为 2 个活动作业，各 job 最多 4 worker、跨 job 共享 4 个 CDN chunk 槽；A/B 假 wire 消融证明取消 A 不撤 B 的 task/running/ready。helper 缺失块与 App 版本复制均有跨作业磁盘预留、256MiB 安全余量及同卷跨进程保守额度，disk-full 保留可恢复暂存并给出重试动作；双成功假 wire 证明版本复制串行且两个 ready 均发布。离线事务 20 项、假 wire 执行 9 项、admission 两槽反例与 Helper protocol/auth/manifest/staging 39/download 115/query 门通过；真实双下载/续传/崩溃/disk-full 恢复及可见 UI 仍并入 SK7，不以离线绿色代替 |
-| 14 | SK5.1 | 卡片 bar 真实进度填充 | 待实施 |
+| 14 | SK5.1 | 卡片 bar 真实进度填充 | 工程切片已闭合：helper 的 `sequence/stage/totalBytes/verifiedBytes` 由非 `ObservableObject` 的 item+jobKey+attempt store 严格吸收，拒绝旧 attempt、乱序、回退、超分母及超 8GiB 投影，不再把 helper 进度写入 service-wide `statusMessage`。浏览/已下载卡片只观察同 ID，reuse 显式解绑且弱 owner 自动清退；详情页在字节增量时只原位改 label/indicator，仅阶段/结构变化重建。`SteamWorkshopGlassBarView` 保留中性底轨并用独立 clip layer 按真实比例填充；未知分母才用不定态，已排队/下载/等待/失败语义色集中为 blue/green/orange/red，校验/保存/失败保留已验证比例，保存阶段禁用取消。标题/操作层在 fill 之上，窄卡只显示百分比，减少动态效果时不跑不定填充/走马灯，VoiceOver 只按阶段或 10% 桶通知。独立测试覆盖 0/1/50/100%、未知分母、等待/保存/失败保留、旧 attempt 与 A/B 观察隔离；9 个 Steam 离线模块及 arm64 无签名 Debug build 通过。真实 Steam 传输、深浅色/小宽度/点击/辅助功能的可见实机验收仍并入 SK7，未生产的 pause capability 仍不展示 |
 | 15 | SK5.2 | 工具栏任务面板与队列交互 | 待实施 |
 | 16 | SK5.3 | 任务历史、保留策略与跨视图一致性 | 待实施 |
 | 17 | SK6.1 | 老用户数据迁移与新路切换 | 待实施 |
@@ -233,7 +233,7 @@ python3.12 script/run_scene_tests.py --scope all -k test_steam_ -j 1
 
 `script/tests/test_steam_helper_offline.py` 将当前 helper 源码和锁文件复制到隔离目录，仅使用本地空 feed 与已有包缓存 restore，运行 protocol/auth/manifest/staging/download/query 六套真实 C# 自检；缺 SDK/包缓存应失败，不跳过假绿。其余 maintained Swift harness 使用真实 client/query/JobStore/事务/执行器/订阅与分页源码及假 wire，磁盘测试只写隔离目录。账号门脚本只在显式真人验收时运行：`script/steam-auth-gate.sh --help`，支持 password/qr/wrong-password/restore；有整体 deadline、attempt/epoch、Guard ack与终态断言，禁止输出原始帧或令牌。二维码模式仅显示用户需要的临时挑战链接，不落盘登录凭据。
 
-当前偏差的 owner/退役门：SK4.3 已接旧版本生命周期 token 与有龄期的安全回收，仍需可见/依赖验收；SK4.4 接管 helper 暂存失败现场、物理下载排空与恢复，当前有界保留不是永久暂存 GC 策略；SK5 接数字进度/队列/历史（当前只接阶段文案）；SK6 撤公共HTML/旧PTY/旧凭据与资源并完成默认路由切换；SK7 冻结 SDK global.json、自包含发布、许可材料与真实 UI/账号/性能验收。禁止用离线绿色把这些剩余门直接勾完。
+当前偏差的 owner/退役门：SK4.3 已接旧版本生命周期 token 与有龄期的安全回收，仍需可见/依赖验收；SK4.4 接管 helper 暂存失败现场、物理下载排空与恢复，当前有界保留不是永久暂存 GC 策略；SK5.1 已接数字进度及卡片/详情投影，SK5.2–SK5.3 仍需接统一队列面板与历史保留；SK6 撤公共HTML/旧PTY/旧凭据与资源并完成默认路由切换；SK7 冻结 SDK global.json、自包含发布、许可材料与真实 UI/账号/性能验收。禁止用离线绿色把这些剩余门直接勾完。
 
 ### 8.1 每卡开工和完成的统一规则
 

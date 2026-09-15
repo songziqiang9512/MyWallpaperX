@@ -148,6 +148,7 @@ extension SteamWorkshopService {
               downloadJobStore.lastSaveSucceeded else { return }
         let epoch = steamServiceClient.accountEpoch
         let key = "\(job.id)-\(job.attempt)"
+        downloadProgressStore.begin(itemID: request.id, jobKey: key, attempt: job.attempt)
         activeDownloadItemIDs.insert(request.id)
         activeDownloadJobKeysByItemID[request.id] = key
         statusMessage = "正在通过 Steam 下载 \(job.title)…"
@@ -169,9 +170,20 @@ extension SteamWorkshopService {
                     toID: job.id
                 )
             }
-            // Card progress projection is the next UI slice; never derive success from an event.
+            // Progress remains item scoped and never enters the service-wide
+            // ObservableObject stream. A helper event never establishes success.
             let stage = frame.root["stage"]?.stringValue ?? ""
-            self.statusMessage = stage == "validating" ? "正在校验 \(job.title)…" : "正在下载 \(job.title)…"
+            if let sequence = frame.sequence {
+                _ = self.downloadProgressStore.receiveHelperEvent(
+                    itemID: request.id,
+                    jobKey: key,
+                    attempt: job.attempt,
+                    sequence: sequence,
+                    stage: stage,
+                    totalBytes: frame.root["totalBytes"]?.intValue.map(Int64.init),
+                    verifiedBytes: frame.root["verifiedBytes"]?.intValue.map(Int64.init)
+                )
+            }
         }
         let task = Task { [weak self] in
             guard let self else { return }
@@ -215,6 +227,7 @@ extension SteamWorkshopService {
                 guard self.downloadJobStore.apply(.staged(receipt), toID: job.id) != nil else {
                     throw SteamWorkshopLibraryTransaction.Failure(message: "无法保存下载凭证，尚未入库。")
                 }
+                self.downloadProgressStore.markSaving(itemID: request.id, jobKey: key)
                 try await self.claimLibraryCopyCapacity(jobKey: key)
                 try checkCurrent()
                 let library = self.steamDownloadLibraryRootURL
@@ -253,6 +266,7 @@ extension SteamWorkshopService {
                 let recorded = self.downloadJobStore.apply(.completed, toID: job.id) != nil
                 self.removeTransientRecord(id: request.id)
                 self.reloadInstalledItems()
+                self.downloadProgressStore.clear(itemID: request.id, jobKey: key)
                 self.statusMessage = recorded ? "已完成 \(job.title) 下载"
                     : "内容已入库；任务记录保存失败，下次启动将对账。"
             } catch {
@@ -287,6 +301,7 @@ extension SteamWorkshopService {
                 )
                 if cancelled {
                     self.removeTransientRecord(id: request.id)
+                    self.downloadProgressStore.clear(itemID: request.id, jobKey: key)
                 } else {
                     self.upsertTransientRecord(
                         id: request.id,
@@ -295,6 +310,7 @@ extension SteamWorkshopService {
                         sizeText: self.downloadStatusSizeText(for: request.id)
                     )
                     self.downloadError = failureMessage
+                    self.downloadProgressStore.fail(itemID: request.id, jobKey: key, message: failureMessage)
                 }
                 self.reloadInstalledItems()
                 self.statusMessage = cancelled ? "已取消下载。" : failureMessage

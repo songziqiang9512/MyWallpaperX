@@ -124,6 +124,7 @@ extension SteamWorkshopService {
         isRefreshingSelectedDownloadDetailItem = false
         downloadError = nil
         downloadJobStore.cancelAll()
+        downloadProgressStore.removeAll()
         zoomOffset = 0
 
         browseContext = .discovery

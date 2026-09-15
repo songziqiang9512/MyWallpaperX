@@ -54,12 +54,24 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     private var shouldPersistBarVisibility = false
     private var currentDebugID = ""
     private var isPreviewVisible = false
+    private weak var downloadProgressStore: SteamWorkshopDownloadProgressStore?
+    private var downloadProgressObserverID: UUID?
+    private var boundProgressItemID: String?
+    private var currentProgressSnapshot: SteamWorkshopDownloadProgressSnapshot?
+    private var currentItem: SteamWorkshopBrowserItem?
+    private var currentDownloadRecord: SteamWorkshopDownloadRecord?
+    private var currentIsDownloading = false
+    private var currentIsDownloaded = false
+    private var currentIsKeyboardFocused = false
+    private var progressAccessibilityBucket: Int?
+    private var progressAccessibilityPhase: SteamWorkshopDownloadProgressSnapshot.Phase?
 
     private enum ActionKind {
         case download
         case cancel
         case setAsWallpaper
         case retry
+        case saving
     }
 
     enum DisplayContext {
@@ -69,8 +81,13 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
 
     private enum BarState {
         case idle
-        case downloading
         case queued
+        case connecting
+        case preparing
+        case transferring
+        case validating
+        case saving
+        case waiting
         case ready
         case failed
     }
@@ -121,6 +138,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
 
     override func prepareForReuse() {
         super.prepareForReuse()
+        unbindDownloadProgress()
         previewLoadCancellation?.cancel()
         previewLoadCancellation = nil
         currentPreviewURL = nil
@@ -148,12 +166,20 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         shouldPersistBarVisibility = false
         currentDebugID = ""
         isPreviewVisible = false
+        currentItem = nil
+        currentDownloadRecord = nil
+        currentIsDownloading = false
+        currentIsDownloaded = false
+        currentIsKeyboardFocused = false
+        currentProgressSnapshot = nil
+        progressAccessibilityBucket = nil
+        progressAccessibilityPhase = nil
         cardView.layer?.transform = CATransform3DIdentity
         overlayBar.alphaValue = 0
         hoverOutlineView.alphaValue = 0
         titleMarqueeView.setActive(false)
-        overlayBar.setScanAnimationEnabled(false)
-        overlayBar.applyAccentStyle(.neutral, animated: false)
+        overlayBar.setProgressAnimationVisible(false)
+        overlayBar.applyProgress(style: .neutral, fraction: nil, indeterminate: false, animated: false)
         statusBadgeButton.layer?.removeAnimation(forKey: "steam.status.spin")
         statusSpinner.stopAnimation(nil)
         statusSpinner.isHidden = true
@@ -165,6 +191,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         displayContext: DisplayContext = .browser,
         item: SteamWorkshopBrowserItem,
         downloadRecord: SteamWorkshopDownloadRecord?,
+        downloadProgressStore: SteamWorkshopDownloadProgressStore,
         isDownloading: Bool,
         isDownloaded: Bool,
         isMultiSelectMode: Bool = false,
@@ -184,16 +211,15 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         currentDownloadVideoURL = downloadRecord?.videoURL
         currentPreviewSourceURL = item.previewImageURL
         currentDebugID = item.id
+        currentItem = item
+        currentDownloadRecord = downloadRecord
+        currentIsDownloading = isDownloading
+        currentIsDownloaded = isDownloaded
+        self.isMultiSelectMode = isMultiSelectMode
+        currentIsKeyboardFocused = isKeyboardFocused
         prefersCircularPlayBadge = false
         syncPreviewAnimationState()
-        applyContent(
-            item: item,
-            downloadRecord: downloadRecord,
-            isDownloading: isDownloading,
-            isDownloaded: isDownloaded,
-            isMultiSelectMode: isMultiSelectMode,
-            isKeyboardFocused: isKeyboardFocused
-        )
+        bindDownloadProgress(to: downloadProgressStore, itemID: item.id)
         loadPreview(from: item.previewImageURL, fallbackVideoURL: currentDownloadVideoURL)
     }
 
@@ -201,6 +227,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         displayContext: DisplayContext = .browser,
         item: SteamWorkshopBrowserItem,
         downloadRecord: SteamWorkshopDownloadRecord?,
+        downloadProgressStore: SteamWorkshopDownloadProgressStore,
         isDownloading: Bool,
         isDownloaded: Bool,
         isMultiSelectMode: Bool = false,
@@ -220,16 +247,15 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         currentDownloadVideoURL = downloadRecord?.videoURL
         currentPreviewSourceURL = item.previewImageURL
         currentDebugID = item.id
+        currentItem = item
+        currentDownloadRecord = downloadRecord
+        currentIsDownloading = isDownloading
+        currentIsDownloaded = isDownloaded
+        self.isMultiSelectMode = isMultiSelectMode
+        currentIsKeyboardFocused = isKeyboardFocused
         prefersCircularPlayBadge = false
         syncPreviewAnimationState()
-        applyContent(
-            item: item,
-            downloadRecord: downloadRecord,
-            isDownloading: isDownloading,
-            isDownloaded: isDownloaded,
-            isMultiSelectMode: isMultiSelectMode,
-            isKeyboardFocused: isKeyboardFocused
-        )
+        bindDownloadProgress(to: downloadProgressStore, itemID: item.id)
         loadPreview(from: item.previewImageURL, fallbackVideoURL: currentDownloadVideoURL)
     }
 
@@ -356,6 +382,68 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         super.mouseUp(with: event)
     }
 
+    private func bindDownloadProgress(to store: SteamWorkshopDownloadProgressStore, itemID: String) {
+        if downloadProgressStore === store, boundProgressItemID == itemID {
+            receiveDownloadProgress(store.snapshot(for: itemID))
+            return
+        }
+        unbindDownloadProgress()
+        downloadProgressStore = store
+        boundProgressItemID = itemID
+        currentProgressSnapshot = nil
+        progressAccessibilityBucket = nil
+        progressAccessibilityPhase = nil
+        downloadProgressObserverID = store.addObserver(for: itemID, owner: self) { [weak self] snapshot in
+            self?.receiveDownloadProgress(snapshot)
+        }
+    }
+
+    private func unbindDownloadProgress() {
+        if let downloadProgressObserverID {
+            downloadProgressStore?.removeObserver(downloadProgressObserverID)
+        }
+        downloadProgressObserverID = nil
+        downloadProgressStore = nil
+        boundProgressItemID = nil
+    }
+
+    private func receiveDownloadProgress(_ snapshot: SteamWorkshopDownloadProgressSnapshot?) {
+        guard snapshot?.itemID == boundProgressItemID || snapshot == nil else { return }
+        let previous = currentProgressSnapshot
+        currentProgressSnapshot = snapshot
+        applyCurrentContent()
+        updateProgressAccessibility(previous: previous, current: snapshot)
+    }
+
+    private func applyCurrentContent() {
+        guard let currentItem else { return }
+        applyContent(
+            item: currentItem,
+            downloadRecord: currentDownloadRecord,
+            isDownloading: currentIsDownloading,
+            isDownloaded: currentIsDownloaded,
+            isMultiSelectMode: isMultiSelectMode,
+            isKeyboardFocused: currentIsKeyboardFocused
+        )
+    }
+
+    private func updateProgressAccessibility(
+        previous: SteamWorkshopDownloadProgressSnapshot?,
+        current: SteamWorkshopDownloadProgressSnapshot?
+    ) {
+        let value = current?.statusText() ?? currentTitleText
+        overlayBar.setAccessibilityValue(value)
+        let bucket = current?.percent.map { $0 / 10 }
+        let phase = current?.phase
+        let shouldAnnounce = previous != nil
+            && (phase != progressAccessibilityPhase || bucket != progressAccessibilityBucket)
+        progressAccessibilityPhase = phase
+        progressAccessibilityBucket = bucket
+        if shouldAnnounce, view.window != nil {
+            NSAccessibility.post(element: overlayBar, notification: .valueChanged)
+        }
+    }
+
     private func applyContent(
         item: SteamWorkshopBrowserItem,
         downloadRecord: SteamWorkshopDownloadRecord?,
@@ -377,6 +465,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         currentTitleText = item.title
         titleMarqueeView.text = displayTitle
         detailButton.setAccessibilityLabel("详细信息：\(item.title)")
+        statusBadgeButton.toolTip = currentProgressSnapshot?.failureMessage ?? downloadRecord?.failureMessage
 
         currentActionKind = resolvedActionKind(
             downloadRecord: downloadRecord,
@@ -405,8 +494,19 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         isDownloading: Bool,
         isDownloaded: Bool
     ) -> BarState {
+        if let phase = currentProgressSnapshot?.phase {
+            switch phase {
+            case .connecting: return .connecting
+            case .preparing: return .preparing
+            case .transferring: return .transferring
+            case .validating: return .validating
+            case .saving: return .saving
+            case .waiting: return .waiting
+            case .failed: return .failed
+            }
+        }
         if isDownloading || downloadRecord?.status == .downloading {
-            return .downloading
+            return .connecting
         }
         if downloadRecord?.status == .queued {
             return .queued
@@ -431,11 +531,14 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
             ?? "未知大小"
 
         switch barState {
-        case .downloading:
-            return "下载中  ·  \(sizeText)"
+        case .connecting, .preparing, .transferring, .validating, .saving, .waiting:
+            let compact = view.bounds.width > 0 && view.bounds.width < 230
+            return currentProgressSnapshot?.statusText(compact: compact) ?? "下载中  ·  \(sizeText)"
         case .queued:
             return "等待下载  ·  \(sizeText)"
-        case .idle, .ready, .failed:
+        case .failed:
+            return currentProgressSnapshot?.statusText() ?? "下载失败 · 重试"
+        case .idle, .ready:
             return item.title
         }
     }
@@ -445,11 +548,11 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
             return false
         }
         switch state {
-        case .downloading, .queued:
+        case .queued, .connecting, .preparing, .transferring, .validating, .saving, .waiting, .failed:
             return true
         case .ready:
             return currentDisplayContext == .browser
-        case .idle, .failed:
+        case .idle:
             return false
         }
     }
@@ -459,6 +562,16 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         isDownloading: Bool,
         isDownloaded: Bool
     ) -> ActionKind {
+        if let phase = currentProgressSnapshot?.phase {
+            switch phase {
+            case .saving:
+                return .saving
+            case .failed:
+                return .retry
+            case .connecting, .preparing, .transferring, .validating, .waiting:
+                return .cancel
+            }
+        }
         if isDownloading || downloadRecord?.status == .queued {
             return .cancel
         }
@@ -491,11 +604,9 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
             tintColor = .white
             accessibilityLabel = "下载：\(itemTitle)"
         case .cancel:
-            symbolName = currentBarState == .downloading ? "arrow.clockwise" : "xmark"
+            symbolName = "xmark"
             tintColor = .white
-            accessibilityLabel = currentBarState == .downloading
-                ? "下载中：\(itemTitle)"
-                : "取消下载：\(itemTitle)"
+            accessibilityLabel = "取消下载：\(itemTitle)"
         case .setAsWallpaper:
             if isLaunchPending {
                 symbolName = "hourglass"
@@ -509,6 +620,10 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
             symbolName = "square.and.arrow.down"
             tintColor = .white
             accessibilityLabel = "重新下载：\(itemTitle)"
+        case .saving:
+            symbolName = "checkmark.circle"
+            tintColor = .white
+            accessibilityLabel = "正在保存：\(itemTitle)"
         }
 
         statusBadgeButton.image = NSImage(
@@ -517,6 +632,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         )
         statusBadgeButton.iconTintColor = tintColor
         statusBadgeButton.setAccessibilityLabel(accessibilityLabel)
+        statusBadgeButton.isEnabled = actionKind != .saving
         updateContinuousAnimationState()
     }
 
@@ -643,6 +759,9 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
 
         overlayBar.alphaValue = 0
         overlayBar.wantsLayer = true
+        overlayBar.setAccessibilityElement(true)
+        overlayBar.setAccessibilityRole(.progressIndicator)
+        overlayBar.setAccessibilityLabel("下载进度")
         cardView.addSubview(overlayBar)
 
         detailButton.image = NSImage(systemSymbolName: "info.circle", accessibilityDescription: "详细信息")
@@ -710,7 +829,21 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         overlayBarShadowView.layer?.shadowOpacity = currentBarVisibility ? 0.11 : 0.08
         overlayBarShadowView.layer?.shadowRadius = 18
         overlayBarShadowView.layer?.shadowOffset = CGSize(width: 0, height: -1)
-        overlayBar.applyAccentStyle(barAccentStyle(for: currentBarState), animated: false)
+        let progressFraction = currentProgressSnapshot?.fraction
+        let indeterminate = progressFraction == nil && {
+            switch currentBarState {
+            case .connecting, .preparing, .transferring, .validating:
+                return true
+            case .idle, .queued, .saving, .waiting, .ready, .failed:
+                return false
+            }
+        }()
+        overlayBar.applyProgress(
+            style: barAccentStyle(for: currentBarState),
+            fraction: progressFraction,
+            indeterminate: indeterminate,
+            animated: false
+        )
 
         detailButton.normalBackgroundColor = .clear
         detailButton.hoverBackgroundColor = .clear
@@ -735,8 +868,8 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
 
     private func updateContinuousAnimationState(barVisible: Bool? = nil) {
         let isBarVisible = barVisible ?? currentBarVisibility
-        titleMarqueeView.setActive(isBarVisible && (currentBarState == .idle || currentBarState == .ready || currentBarState == .failed))
-        overlayBar.setScanAnimationEnabled(isBarVisible && (currentBarState == .downloading || currentBarState == .queued))
+        titleMarqueeView.setActive(isBarVisible)
+        overlayBar.setProgressAnimationVisible(isBarVisible)
         updateStatusBadgeLoadingIndicator(barVisible: isBarVisible)
     }
 
@@ -750,16 +883,9 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         previewImageView.animates = isPreviewVisible
     }
 
-    private func updateStatusBadgeLoadingIndicator(barVisible: Bool) {
-        let shouldSpin = barVisible && currentActionKind == .cancel && currentBarState == .downloading
-        if shouldSpin {
-            statusBadgeButton.image = nil
-            statusSpinner.isHidden = false
-            statusSpinner.startAnimation(nil)
-        } else {
-            statusSpinner.stopAnimation(nil)
-            statusSpinner.isHidden = true
-        }
+    private func updateStatusBadgeLoadingIndicator(barVisible _: Bool) {
+        statusSpinner.stopAnimation(nil)
+        statusSpinner.isHidden = true
     }
 
     private func applyHoverStyle(animated: Bool) {
@@ -819,13 +945,17 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
 
     private func barAccentStyle(for state: BarState) -> SteamWorkshopGlassBarView.AccentStyle {
         switch state {
-        case .downloading:
+        case .connecting, .preparing, .transferring, .validating, .saving:
             return .downloading
         case .queued:
             return .queued
+        case .waiting:
+            return .waiting
+        case .failed:
+            return .failed
         case .ready:
             return currentDisplayContext == .downloads ? .ready : .neutral
-        case .idle, .failed:
+        case .idle:
             return .neutral
         }
     }
@@ -1176,6 +1306,8 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
             onCancelDownload?()
         case .setAsWallpaper:
             onSetAsWallpaper?()
+        case .saving:
+            break
         }
     }
 

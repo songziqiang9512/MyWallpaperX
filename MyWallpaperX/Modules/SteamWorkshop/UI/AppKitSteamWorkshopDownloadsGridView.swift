@@ -243,6 +243,7 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
             displayContext: .downloads,
             item: displayItem,
             downloadRecord: record,
+            downloadProgressStore: service.downloadProgressStore,
             isDownloading: record.status == .downloading,
             isDownloaded: canLaunchRecord,
             isMultiSelectMode: service.isDownloadsMultiSelectMode,
