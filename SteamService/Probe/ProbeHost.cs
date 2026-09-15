@@ -9,6 +9,46 @@ internal static class ProbeHost
     private const string DetailsUrl = "getpublishedfiledetails";
     private const string CollectionUrl = "getcollectiondetails";
 
+    /// 路径守卫：绝对路径、规整化后不含 .. 段、且限定在仓库根或系统临时根
+    /// 之下。探针只写 fixture 与隔离 state，不写任意位置。
+    private static string ResolveProbeDirectory(string value, string? repoRoot, string tempRoot)
+    {
+        if (!Path.IsPathRooted(value))
+        {
+            throw new ArgumentException($"probe output directory must be absolute: {value}");
+        }
+        var full = Path.GetFullPath(value);
+        if (full.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Contains(".."))
+        {
+            throw new ArgumentException($"probe output directory must not contain '..': {value}");
+        }
+        var roots = new List<string>();
+        if (repoRoot != null) roots.Add(Path.GetFullPath(repoRoot));
+        roots.Add(tempRoot);
+        // macOS 的 /tmp 与 /private/tmp 互为符号链接，显式覆盖两个形态。
+        roots.Add(Path.GetFullPath("/private/tmp"));
+        roots.Add(Path.GetFullPath("/tmp"));
+        if (roots.Any(root => full.StartsWith(root, StringComparison.Ordinal)))
+        {
+            return full;
+        }
+        throw new ArgumentException($"probe output directory outside repository/temp roots: {value}");
+    }
+
+    private static string? FindRepositoryRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null)
+        {
+            if (File.Exists(Path.Combine(dir.FullName, "MyWallpaperX.xcodeproj", "project.pbxproj")))
+            {
+                return dir.FullName;
+            }
+            dir = dir.Parent;
+        }
+        return null;
+    }
+
     public static async Task<int> RunAsync(string[] args)
     {
         string? fixturesDir = null;
@@ -20,6 +60,12 @@ internal static class ProbeHost
             else if (args[i] == "--state" && i + 1 < args.Length) stateDir = args[++i];
             else positional.Add(args[i]);
         }
+        // 路径守卫：目录必须绝对、规整化后不含 .. 逃逸，且限定在仓库根或
+        // 系统临时根之下（探针只写 fixture 与隔离 state，不写任意位置）。
+        var repoRoot = FindRepositoryRoot();
+        var tempRoot = Path.GetFullPath(Path.GetTempPath());
+        if (fixturesDir != null) fixturesDir = ResolveProbeDirectory(fixturesDir, repoRoot, tempRoot);
+        if (stateDir != null) stateDir = ResolveProbeDirectory(stateDir, repoRoot, tempRoot);
         if (stateDir != null) ProbeAuth.StateDir = stateDir;
 
         var command = positional.Count > 0 ? positional[0] : "help";

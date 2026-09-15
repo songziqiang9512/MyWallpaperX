@@ -26,6 +26,8 @@ internal static class ProtocolLimits
     public const int ManifestTimeoutSeconds = 30;
     public const int ChunkTimeoutSeconds = 60;
     public const int LogOnTimeoutSeconds = 30;
+    // terminal 保留窗容量：超过后移除最旧记录，保持进程生命周期内存有界。
+    public const int TerminalRetentionCapacity = 8192;
     public const long OverlongDrainCapBytes = 8 * 1024 * 1024;
 }
 
@@ -277,6 +279,8 @@ internal sealed class TerminalTracker
     private readonly object gate = new();
     private readonly HashSet<string> pending = new();
     private readonly ConcurrentDictionary<string, byte> terminals = new();
+    // terminal 完成序（FIFO）：驱动有界保留窗。
+    private readonly ConcurrentQueue<string> terminalOrder = new();
 
     // Reserve before dispatch, not after a remote side effect has completed.
     public Admission TryAccept(string requestId, bool control = false)
@@ -296,7 +300,17 @@ internal sealed class TerminalTracker
         lock (gate)
         {
             pending.Remove(requestId);
-            return terminals.TryAdd(requestId, 0);
+            if (!terminals.TryAdd(requestId, 0)) return false;
+            terminalOrder.Enqueue(requestId);
+            // 有界保留窗：仅保留最近 N 个 terminal。超窗的最旧记录移除后，
+            // 同 ID 重复帧理论上可重新获得 terminal——Swift 按 generation
+            // 丢弃陈旧帧，实际不可达；换取进程生命周期内的有界内存。
+            while (terminalOrder.Count > ProtocolLimits.TerminalRetentionCapacity
+                   && terminalOrder.TryDequeue(out var oldest))
+            {
+                terminals.TryRemove(oldest, out _);
+            }
+            return true;
         }
     }
 
@@ -304,7 +318,12 @@ internal sealed class TerminalTracker
 
     public void Reset()
     {
-        lock (gate) { pending.Clear(); terminals.Clear(); }
+        lock (gate)
+        {
+            pending.Clear();
+            terminals.Clear();
+            terminalOrder.Clear();
+        }
     }
 }
 

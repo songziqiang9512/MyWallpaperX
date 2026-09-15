@@ -158,10 +158,10 @@
 			files = ();
 			inputPaths = ();
 			name = "Embed SteamService";
-			outputPaths = ("$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/SteamService",);
+			outputPaths = ("$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Resources/SteamService",);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "/bin/bash \"$SRCROOT/script/publish-steam-helper.sh\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers/SteamService\" \"$DERIVED_FILE_DIR/SteamService\"\n";
+			shellScript = "/bin/bash \"$SRCROOT/script/publish-steam-helper.sh\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/SteamService\" \"$DERIVED_FILE_DIR/SteamService\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

@@ -22,6 +22,10 @@ if [[ -e "$PUBLISH_DIR" ]]; then
     echo "Refusing to replace a non-SteamService output: $PUBLISH_DIR" >&2; exit 2
   fi
 fi
+# Clean stale temp dirs from interrupted embeds: they live next to the
+# output and would otherwise be copied/signed into the app bundle.
+/usr/bin/find "$(dirname "$PUBLISH_DIR")" -maxdepth 1 -name '.mwx-steam-publish.*' \
+  -exec /bin/rm -rf {} + 2>/dev/null || true
 /bin/mkdir -p "$(dirname "$PUBLISH_DIR")"
 FRESH_DIR="$(/usr/bin/mktemp -d "$(dirname "$PUBLISH_DIR")/.mwx-steam-publish.XXXXXX")"
 trap '/bin/rm -rf -- "$FRESH_DIR"' EXIT
@@ -34,9 +38,22 @@ cd "$REPO_ROOT/SteamService"
   -p:BaseOutputPath="$INTERMEDIATE_DIR/bin/" -o "$FRESH_DIR"
 [[ -x "$FRESH_DIR/SteamService" && -f "$FRESH_DIR/SteamService.dll" && -f "$FRESH_DIR/libhostfxr.dylib" \
    && -f "$FRESH_DIR/libcoreclr.dylib" && -f "$FRESH_DIR/SteamKit2.dll" ]] || exit 1
-if [[ "${CODE_SIGNING_ALLOWED:-NO}" == YES && -n "${EXPANDED_CODE_SIGN_IDENTITY:-}" ]]; then
-  /bin/bash "$REPO_ROOT/script/sign-steam-helper.sh" "$FRESH_DIR" "$EXPANDED_CODE_SIGN_IDENTITY"
-fi
+# arm64 codesign treats every executable file inside Contents/ as nested code
+# requiring a signature, and .NET PE assemblies cannot be signed. Strip the
+# exec bit from non-Mach-O files so the outer app signature accepts them as
+# resources; only real Mach-O binaries stay executable.
+while IFS= read -r -d '' f; do
+  if /usr/bin/file -b "$f" | /usr/bin/grep -q Mach-O; then
+    /bin/chmod 755 "$f"
+  else
+    /bin/chmod 644 "$f"
+  fi
+done < <(/usr/bin/find "$FRESH_DIR" -type f -print0)
+# arm64 requires every nested Mach-O to be signed. Use the build's own code
+# signing identity when Xcode provides one, ad-hoc ("-") otherwise; local
+# ad-hoc builds stay unhardened (no library validation on same-team deps).
+HELPER_SIGN_IDENTITY="${EXPANDED_CODE_SIGN_IDENTITY:--}"
+/bin/bash "$REPO_ROOT/script/sign-steam-helper.sh" "$FRESH_DIR" "$HELPER_SIGN_IDENTITY"
 
 /bin/mkdir -p "$PUBLISH_DIR"
 /usr/bin/rsync -a --delete "$FRESH_DIR/" "$PUBLISH_DIR/"
