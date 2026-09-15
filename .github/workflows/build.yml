@@ -140,7 +140,16 @@ jobs:
             MARKETING_VERSION="$MARKETING_VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_VERSION" \
             CODE_SIGNING_ALLOWED=NO \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=NO \
             build
+
+      - name: Validate Apple Silicon release contract
+        run: |
+          APP_PATH="$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION/$APP_NAME.app"
+          python3 script/validate_apple_silicon_release.py \
+            --project "$PROJECT_PATH" \
+            --app "$APP_PATH"
 
       - name: Sign app
         env:

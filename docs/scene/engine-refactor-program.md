@@ -2,7 +2,7 @@
 
 <!-- document-role: active-plan -->
 
-> 状态：现役工程重构计划；已完成调查、生命周期设计及源码／文档职责重排；E0 性能基线和下述运行时成本消融尚未执行。
+> 状态：现役工程重构计划；已完成调查、生命周期设计、源码／文档职责重排及 AS0 平台工程切片；AS0 最低设备与可见输出矩阵、E0/AS1 性能基线及下述运行时成本消融尚未执行。
 >
 > 基点：2026-09-15，`a7863c3e0bf5c2d7f134c7378aff1d13424a5c10`，调查开始时工作区干净。
 >
@@ -254,6 +254,8 @@ Steam 账号、订阅与下载获取的具体迁移由 [Steam 获取专项](scen
 **实施：**App 与 WallpaperDaemon 的 Debug/Release 固定 arm64；检查 scheme、CI、嵌套 compiler/VM、Sparkle 与动态库。统一有效最低系统版本，撤销自有构建中仅为 Intel 存在的分支／产物；没有实际分支就不制造删除任务。禁用 Rosetta 开发依赖作为发布替代，不使用 `arm64e` 或开发机 `-mcpu=native` 缩窄设备覆盖。第三方 Universal 包可以保留，去除 slice 的体积收益另算并重新验证签名。
 
 **验收：**未来执行 `xcodebuild -showBuildSettings` 核对所有产品配置；对实际发行 Mach-O 清单执行 `lipo -archs`，自有二进制只有 arm64，第三方均含 arm64；`otool -L` 无开发机专有依赖。最低支持设备原生启动 App、helper、compiler，完成一条 Scene 和 Video 输出；AS0 以配置、依赖和本地原生构建／启动门进入 AS1，正式签名、公证及发行包全矩阵延后到 AS9，不阻塞成本调查。交付 before/after 包体与构建时间，但不把去掉 Intel slice 记成 arm64 播放加速。
+
+**当前结果（2026-09-15）：**App 与 WallpaperDaemon 的 Debug/Release 有效设置已固定为 `ARCHS=arm64`、最低 macOS 26.0，Release workflow 显式覆盖架构并在签名前执行机器门。当前无签名 Release `.app` 的 9 个 Mach-O 中，2 个自有二进制仅含 arm64，glslang、SPIRV-Cross 与 Sparkle 的 7 个第三方二进制均含 arm64；依赖及 `LC_RPATH` 未发现开发机绝对路径。配置变更的隔离冷构建 before/after 为 236.92 s／235.59 s，包体均为 163,864 KiB；约 0.6% 的时间差按单次测量记为噪声，不声明构建提速或包体收益。当前 M4 本机的 Release App 已原生存活 5 s 后主动终止；WallpaperDaemon 在主显示器完成 `launched → stdin EOF → stopped`，glslang 以 exit 0 回报 16.4.0，SPIRV-Cross 以其约定的 exit 1 回报 `vulkan-sdk-1.4.357.0`，均无进程残留。最低支持 M1、签名／公证包、当前构建的 Scene／Video 可见输出因设备与锁屏条件未验收，不能由本机配置门外推；AS1 只可开始不依赖这些外部门的基线准备。
 
 ### 8.3 AS1 — 冻结可比较的基线和验收阈值
 
