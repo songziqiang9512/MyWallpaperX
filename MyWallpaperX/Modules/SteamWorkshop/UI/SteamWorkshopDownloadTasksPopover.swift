@@ -96,6 +96,10 @@ final class SteamWorkshopDownloadTasksPopoverController: NSObject, NSPopoverDele
         }
         contentController.startObserving()
         popover.show(relativeTo: positioningRect ?? view.bounds, of: view, preferredEdge: .maxY)
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.popover.isShown else { return }
+            self.contentController.requestInitialFocus()
+        }
     }
 
     func close() {
@@ -403,6 +407,10 @@ private final class SteamWorkshopDownloadTasksContentController: NSViewControlle
         resetAllRows()
     }
 
+    func requestInitialFocus() {
+        view.window?.makeFirstResponder(modeControl)
+    }
+
     @objc private func handleCancelAll() { cancelAll() }
     @objc private func handleClearHistory() { clearHistory() }
     @objc private func handleViewDownloaded() { viewDownloaded() }
@@ -587,6 +595,7 @@ private final class SteamWorkshopDownloadHistoryRowView: NSView {
         )
         detailButton.bezelStyle = .inline
         detailButton.controlSize = .small
+        detailButton.setAccessibilityLabel("\(detailButton.title)：\(summary.title)")
 
         let titleRow = NSStackView(views: [titleLabel, NSView(), detailButton])
         titleRow.orientation = .horizontal
@@ -724,6 +733,9 @@ private final class SteamWorkshopDownloadTaskRowView: NSView {
         retryButton.isHidden = job.state != .failed
         retryButton.isEnabled = job.state == .failed && !sessionExpired
         detailButton.isEnabled = true
+        cancelButton.setAccessibilityLabel("取消：\(job.title)")
+        retryButton.setAccessibilityLabel("重试：\(job.title)")
+        detailButton.setAccessibilityLabel("详情：\(job.title)")
         applyJobFallback()
         loadPreviewIfNeeded()
         if let snapshot = service.downloadProgressStore.snapshot(for: job.workshopItemId) {
