@@ -28,6 +28,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Select SteamService SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.401"
+
       - name: Select repository Python
         uses: actions/setup-python@v7
         with:
@@ -157,6 +162,8 @@ jobs:
         run: |
           APP_PATH="$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION/$APP_NAME.app"
 
+          /bin/bash script/sign-steam-helper.sh "$APP_PATH/Contents/Helpers/SteamService" "$DEVELOPER_ID_APPLICATION"
+
           HELPER_PATH="$APP_PATH/Contents/Helpers/${APP_NAME}WallpaperDaemon"
           if [ -x "$HELPER_PATH" ]; then
             codesign \
@@ -180,7 +187,6 @@ jobs:
           codesign \
             --force \
             --timestamp \
-            --deep \
             --options runtime \
             --sign "$DEVELOPER_ID_APPLICATION" \
             "$APP_PATH"

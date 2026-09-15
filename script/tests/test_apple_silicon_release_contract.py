@@ -3,6 +3,8 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import unittest
+import json
+import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -18,6 +20,30 @@ def load_validator():
 
 
 class AppleSiliconReleaseContractTests(unittest.TestCase):
+    def test_helper_is_required_self_contained_and_embedded_by_xcode(self):
+        validator = load_validator()
+        self.assertIn(Path("Contents/Helpers/SteamService/SteamService"), validator.REQUIRED_BUNDLE_EXECUTABLES)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with self.assertRaises(RuntimeError):
+                validator.validate_steam_helper(root)
+            for name in ("SteamService", "SteamService.dll", "SteamKit2.dll", "libhostfxr.dylib",
+                         "libhostpolicy.dylib", "libcoreclr.dylib", "System.Private.CoreLib.dll", "NOTICE.md"):
+                (root / name).write_bytes(b"fixture")
+            (root / "licenses").mkdir()
+            (root / "licenses/SteamKit2-LGPL-2.1.txt").write_text("fixture")
+            config = root / "SteamService.runtimeconfig.json"
+            config.write_text(json.dumps({"runtimeOptions": {"framework": {"name": "Microsoft.NETCore.App"}}}))
+            with self.assertRaises(RuntimeError):
+                validator.validate_steam_helper(root)
+            config.write_text(json.dumps({"runtimeOptions": {"includedFrameworks": [{"name": "Microsoft.NETCore.App"}]}}))
+            validator.validate_steam_helper(root)
+        project = (ROOT / "MyWallpaperX.xcodeproj/project.pbxproj").read_text()
+        self.assertIn("script/publish-steam-helper.sh", project)
+        self.assertIn("script/sign-steam-helper.sh", (ROOT / ".github/workflows/build.yml").read_text())
+        publish = (ROOT / "script/publish-steam-helper.sh").read_text()
+        self.assertIn("-p:TargetName=SteamService", publish)
+        self.assertIn('$FRESH_DIR/SteamService.dll', publish)
     def test_project_and_release_workflow_freeze_arm64(self):
         project = (ROOT / "MyWallpaperX.xcodeproj/project.pbxproj").read_text()
         workflow = (ROOT / ".github/workflows/build.yml").read_text()

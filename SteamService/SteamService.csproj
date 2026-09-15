@@ -3,6 +3,11 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin/**;obj/**</DefaultItemExcludes>
+    <PublishSingleFile>false</PublishSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <RuntimeFrameworkVersion>8.0.31</RuntimeFrameworkVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <InvariantGlobalization>false</InvariantGlobalization>
@@ -15,5 +20,6 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="SteamKit2" Version="3.4.0" />
+    <Content Include="NOTICE.md;licenses/**/*" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

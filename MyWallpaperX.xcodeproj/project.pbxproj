@@ -150,6 +150,21 @@
 		};
 /* End PBXGroup section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		A40000012F810003005688A8 /* Embed SteamService */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ();
+			name = "Embed SteamService";
+			outputPaths = ("$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/SteamService",);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "/bin/bash \"$SRCROOT/script/publish-steam-helper.sh\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers/SteamService\" \"$DERIVED_FILE_DIR/SteamService\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXNativeTarget section */
 		98CED6382F6AF877005688A8 /* MyWallpaperX */ = {
 			isa = PBXNativeTarget;
@@ -159,6 +174,7 @@
 				98CED6362F6AF877005688A8 /* Frameworks */,
 				98CED6372F6AF877005688A8 /* Resources */,
 				A10000322F6B0001005688A8 /* CopyFiles */,
+				A40000012F810003005688A8 /* Embed SteamService */,
 			);
 			buildRules = (
 			);
@@ -410,6 +426,7 @@
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = H9QWU9XN8R;
 				ENABLE_APP_SANDBOX = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MyWallpaperX/Info.plist;
@@ -455,6 +472,7 @@
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=macosx*]" = H9QWU9XN8R;
 				ENABLE_APP_SANDBOX = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MyWallpaperX/Info.plist;

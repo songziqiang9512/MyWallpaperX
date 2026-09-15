@@ -49,3 +49,31 @@ release workflow does not bump or commit project versions after publishing.
 The release job is guarded to run only on `main`; dispatching it against another
 ref does not publish. Installed release builds check the feed once per day and
 can also use **检查更新…** from the application or status-bar menu.
+
+## SteamService build and signing boundary
+
+Xcode's App target publishes and embeds `Contents/Helpers/SteamService/` in both
+Debug and Release. Install SDK **8.0.401** (`SteamService/global.json`); CI selects
+that version explicitly. The helper ships a pinned **.NET 8.0.31 osx-arm64** runtime,
+so users do not need an SDK or runtime installation. NuGet restore is locked;
+`SteamService/NOTICE.md` and `licenses/` accompany the generated directory.
+Review runtime security updates independently of the fixed build SDK.
+
+`script/publish-steam-helper.sh` publishes into a fresh temporary directory and
+mirrors only a recognized generated helper output, removing stale dependencies.
+Xcode's `TARGETNAME` must not change the managed entry assembly: the script fixes
+`TargetName=SteamService` explicitly and rejects a missing `SteamService.dll`.
+Per-build intermediates live in DerivedData, outside the source tree.
+
+`script/sign-steam-helper.sh <helper-dir> <identity>` signs native dependencies
+before the apphost. Real signing identities use hardened runtime and apphost
+`com.apple.security.cs.allow-jit`; native libraries must have the same Team ID.
+The outer App is signed after nested code, without `--deep --force` re-signing
+that would overwrite helper entitlements. Ad-hoc `-` is a local, unhardened test
+path because it has no Team ID for library validation. It does not prove the
+Developer ID/notarization gate.
+
+The arm64 bundle validator requires the helper, its runtime and license material.
+A release still needs actual signed-bundle launch, full account/list/download
+flow on the minimum supported Mac, notarization and Gatekeeper verification.
+Build or offline self-tests do not close those gates.

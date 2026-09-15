@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import stat
 import subprocess
@@ -18,6 +19,7 @@ REQUIRED_BUNDLE_EXECUTABLES = (
     Path("Contents/Helpers/MyWallpaperXWallpaperDaemon"),
     Path("Contents/Helpers/glslang"),
     Path("Contents/Helpers/spirv-cross"),
+    Path("Contents/Helpers/SteamService/SteamService"),
 )
 THIRD_PARTY_HELPERS = {
     Path("Contents/Helpers/glslang"),
@@ -127,6 +129,8 @@ def validate_bundle(app: Path) -> None:
         if not path.is_file():
             raise RuntimeError(f"Required bundled executable is missing: {relative}")
 
+    validate_steam_helper(app / "Contents/Helpers/SteamService")
+
     mach_o_count = 0
     third_party_count = 0
     required_paths = {app / relative for relative in REQUIRED_BUNDLE_EXECUTABLES}
@@ -159,7 +163,7 @@ def validate_bundle(app: Path) -> None:
                     f"Mach-O has non-system absolute dependency: {relative} -> {dependency}"
                 )
         for rpath in rpath_names(run_checked(["otool", "-l", str(path)])):
-            if rpath.startswith(SAFE_RPATH_PREFIXES):
+            if rpath in ("@loader_path", "@executable_path") or rpath.startswith(SAFE_RPATH_PREFIXES):
                 continue
             if rpath.startswith(SYSTEM_DEPENDENCY_PREFIXES):
                 continue
@@ -172,6 +176,21 @@ def validate_bundle(app: Path) -> None:
         f"{mach_o_count - third_party_count} owned files are arm64-only; "
         f"{third_party_count} third-party files include arm64"
     )
+
+
+def validate_steam_helper(helper: Path) -> None:
+    for name in ("SteamService", "SteamService.dll", "SteamKit2.dll", "libhostfxr.dylib",
+                 "libhostpolicy.dylib", "libcoreclr.dylib", "System.Private.CoreLib.dll", "NOTICE.md"):
+        if not (helper / name).is_file():
+            raise RuntimeError(f"Incomplete self-contained SteamService: missing {name}")
+    try:
+        runtime = json.loads((helper / "SteamService.runtimeconfig.json").read_text())["runtimeOptions"]
+    except (OSError, ValueError, KeyError) as error:
+        raise RuntimeError("SteamService runtime configuration is missing or invalid") from error
+    if runtime.get("framework") or runtime.get("frameworks") or not runtime.get("includedFrameworks"):
+        raise RuntimeError("SteamService must not depend on a machine-installed .NET runtime")
+    if not (helper / "licenses/SteamKit2-LGPL-2.1.txt").is_file():
+        raise RuntimeError("SteamService dependency licenses are missing")
 
 
 def main() -> int:

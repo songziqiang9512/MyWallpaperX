@@ -29,6 +29,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Select SteamService SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.401"
+
       - name: Select repository Python
         uses: actions/setup-python@v7
         with:
