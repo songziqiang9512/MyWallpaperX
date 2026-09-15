@@ -287,7 +287,8 @@ final class SteamServiceClient {
         attempt: Int? = nil,
         payload: SteamServiceJSON? = nil,
         private privatePayload: SteamServiceJSON? = nil,
-        timeout: TimeInterval? = SteamServiceProtocol.requestTimeout
+        timeout: TimeInterval? = SteamServiceProtocol.requestTimeout,
+        awaitRemoteTerminalAcrossAccountEpochChanges: Bool = false
     ) async throws -> SteamServiceFrame {
         let capturedEpoch = accountEpoch
         let accountScoped = ["loginPassword", "loginQR", "restoreSession", "listSubscriptions",
@@ -333,7 +334,9 @@ final class SteamServiceClient {
           try await withCheckedThrowingContinuation { continuation in
             pendingRequests[requestId] = PendingRequest(
                 generation: sessionGeneration,
-                accountEpoch: accountScoped ? capturedEpoch : nil,
+                accountEpoch: accountScoped && !awaitRemoteTerminalAcrossAccountEpochChanges
+                    ? capturedEpoch
+                    : nil,
                 continuation: continuation
             )
             // Register before send: an injectable transport may reply synchronously.

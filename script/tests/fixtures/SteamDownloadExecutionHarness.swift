@@ -21,18 +21,37 @@ final class Transport: SteamServiceTransporting {
     var commands: [[String: Any]] = []
     var receipt: [String: Any] = [:]
     var hold = false
+    private var heldStartRequest: [String: Any]?
     func emit(_ frame: [String: Any]) { var bytes = try! JSONSerialization.data(withJSONObject: frame); bytes.append(10); onOutput?(bytes) }
     func start() throws { isRunning = true; emit(["v":1,"type":"ready","protocol":1,"helperVersion":"test"]) }
     func send(_ data: Data) -> Bool {
         let request = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
         commands.append(request)
         let command = request["command"] as! String
-        if command == "startDownload" && hold { return true }
+        if command == "startDownload" && hold {
+            heldStartRequest = request
+            return true
+        }
         var data = receipt
         data["jobId"] = request["jobId"]
         emit(["v":1,"type":"result","ok":true,"requestId":request["requestId"]!,
               "accountEpoch":request["accountEpoch"]!,"data":command == "startDownload" ? data : [:]])
         return true
+    }
+    func finishHeldCancellation() {
+        guard let request = heldStartRequest else { fatalError("missing held start") }
+        heldStartRequest = nil
+        emit(["v":1,"type":"result","ok":false,"requestId":request["requestId"]!,
+              "accountEpoch":request["accountEpoch"]!,
+              "error":["code":"cancelled","message":"download cancelled"]])
+    }
+    func finishHeldSuccess() {
+        guard let request = heldStartRequest else { fatalError("missing held start") }
+        heldStartRequest = nil
+        var data = receipt
+        data["jobId"] = request["jobId"]
+        emit(["v":1,"type":"result","ok":true,"requestId":request["requestId"]!,
+              "accountEpoch":request["accountEpoch"]!,"data":data])
     }
     func closeInput() {}
     func terminate() { isRunning = false }
@@ -85,8 +104,20 @@ final class Transport: SteamServiceTransporting {
         service.downloadWorkshopItem(id: "123456", pageTitle: "test")
         while !transport.commands.contains(where: { $0["command"] as? String == "startDownload" }) { await Task.yield() }
         let key = transport.commands.first! ["jobId"] as! String
-        if mode == "cancel" { service.cancelActiveDownload() }
-        if mode == "switch" { service.steamServiceClient.accountEpoch += 1; service.steamAuth.steamId = "76561198000000001" }
+        if mode == "cancel" {
+            service.cancelActiveDownload()
+            while !transport.commands.contains(where: { $0["command"] as? String == "cancelDownload" }) {
+                await Task.yield()
+            }
+            precondition(service.activeDownloadTask != nil, "local queue advanced before helper drain")
+            transport.finishHeldCancellation()
+        }
+        if mode == "switch" {
+            service.steamServiceClient.accountEpoch += 1
+            service.steamAuth.steamId = "76561198000000001"
+            precondition(service.activeDownloadTask != nil, "epoch change dropped the physical-drain waiter")
+            transport.finishHeldSuccess()
+        }
         while service.activeDownloadTask != nil { await Task.yield() }
         let marker = base.appendingPathComponent("library/.mywallpaperx-steam-metadata/123456.json")
         if mode == "success" {

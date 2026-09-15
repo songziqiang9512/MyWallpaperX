@@ -210,7 +210,10 @@ final class SteamWorkshopQueryClient {
         stagingRoot: String
     ) async throws -> SteamWorkshopStagedReceipt {
         let epoch = client.accountEpoch
-        let frame = try await withTaskCancellationHandler {
+        // Keep the start request alive after the caller is cancelled. The helper's
+        // original terminal is the physical-drain acknowledgement; the separate
+        // cancelDownload response only says that cancellation was accepted.
+        let requestTask = Task { @MainActor [client] in
             try await client.request(
                 command: "startDownload",
                 jobId: jobId,
@@ -219,8 +222,12 @@ final class SteamWorkshopQueryClient {
                     "stagingRoot": .string(stagingRoot),
                 ]),
                 private: nil,
-                timeout: nil
+                timeout: nil,
+                awaitRemoteTerminalAcrossAccountEpochChanges: true
             )
+        }
+        let frame = try await withTaskCancellationHandler {
+            try await requestTask.value
         } onCancel: {
             Task { @MainActor [client] in
                 _ = try? await client.request(command: "cancelDownload", jobId: jobId)

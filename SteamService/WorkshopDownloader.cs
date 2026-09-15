@@ -215,6 +215,10 @@ internal sealed partial class SteamSession
             context.Cancellation.Token.ThrowIfCancellationRequested();
             ValidateAccountLocked(context.Account);
             context.TerminalDecided = true;
+            // The original startDownload terminal is the App's physical-drain
+            // acknowledgement. Retire ownership before publishing it so a next
+            // job cannot race this finally block and observe a false busy state.
+            activeDownloads.Remove(context.JobId);
             if (terminals.TryBegin(context.RequestId))
                 writer.Send(ProtocolMessages.ResultOk(context.RequestId, receipt, ProcessEpoch, context.Account.Epoch));
         }
@@ -227,6 +231,7 @@ internal sealed partial class SteamSession
             // An accepted cancel wins until the terminal decision. Success uses the same lock.
             if (context.Cancellation.IsCancellationRequested) { code = "cancelled"; message = "download cancelled"; }
             context.TerminalDecided = true;
+            activeDownloads.Remove(context.JobId);
             if (terminals.TryBegin(context.RequestId))
                 writer.Send(ProtocolMessages.ResultError(context.RequestId, code, message, ProcessEpoch, context.Account.Epoch));
         }
