@@ -156,7 +156,9 @@ internal sealed partial class SteamSession
             {
                 page,
                 total,
-                hasMore = files.Count >= 50,
+                // hasMore 与 GetUserFiles 实际请求的 numperpage（QueryPageSize）一致；
+                // 修复：原硬编码 50 与页大小 30 不符，满页时 hasMore 恒为 false。
+                hasMore = files.Count >= (int)QueryPageSize,
                 ids,
             };
         }));
@@ -186,6 +188,57 @@ internal sealed partial class SteamSession
                 .ConfigureAwait(false);
             var states = response.Body.files.ToDictionary(f => f.publishedfileid.ToString(), f => f.inlist);
             return new { states };
+        }));
+    }
+
+    /// 订阅写入（SK3.3）：desiredState 单次写；App 侧凭 terminal 后的对账
+    /// 查询确认结果。仅登录会话可写；未登录由 RequireAccountForQuery 拒绝。
+    public void BeginSetSubscription(string requestId, ulong publishedFileId, bool subscribe)
+    {
+        RequireAccountForQuery(requestId, () => RunQueryAsync(requestId, async ct =>
+        {
+            EResult result;
+            if (subscribe)
+            {
+                var request = new CPublishedFile_Subscribe_Request
+                {
+                    publishedfileid = publishedFileId,
+                    list_type = 1,
+                    appid = checked((int)ProtocolLimits.AppId),
+                    notify_client = true,
+                    include_dependencies = true,
+                };
+                var response = await publishedFiles.Subscribe(request)
+                    .ToTask()
+                    .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
+                    .ConfigureAwait(false);
+                result = response.Result;
+            }
+            else
+            {
+                var request = new CPublishedFile_Unsubscribe_Request
+                {
+                    publishedfileid = publishedFileId,
+                    list_type = 1,
+                    appid = checked((int)ProtocolLimits.AppId),
+                    notify_client = true,
+                };
+                var response = await publishedFiles.Unsubscribe(request)
+                    .ToTask()
+                    .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
+                    .ConfigureAwait(false);
+                result = response.Result;
+            }
+            if (result != EResult.OK)
+            {
+                throw new IOException($"subscription write failed: {result}");
+            }
+            return new
+            {
+                workshopId = publishedFileId.ToString(),
+                desiredState = subscribe ? "subscribe" : "unsubscribe",
+                confirmed = true,
+            };
         }));
     }
 
@@ -290,6 +343,7 @@ internal sealed partial class SteamSession
                 fileSize = file.file_size,
                 timeUpdated = file.time_updated,
                 timeCreated = file.time_created,
+                timeSubscribed = file.time_subscribed,
                 consumerAppid = file.consumer_appid,
                 fileType = file.file_type,
                 hcontentFile = file.hcontent_file.ToString(),

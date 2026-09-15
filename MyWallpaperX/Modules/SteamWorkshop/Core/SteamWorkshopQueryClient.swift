@@ -13,6 +13,7 @@ struct SteamWorkshopQueryItem: Equatable {
     let fileSize: Int?
     let timeUpdated: Int?
     let timeCreated: Int?
+    let timeSubscribed: Int?
     let consumerAppId: Int?
     let tags: [String]
 }
@@ -102,14 +103,30 @@ final class SteamWorkshopQueryClient {
     }
 
     /// 收藏 ID 列表（需登录；ids_only）。
-    func favoriteIds(page: Int) async throws -> [String] {
+    func favoriteIds(page: Int) async throws -> (ids: [String], total: Int, hasMore: Bool) {
         let frame = try await client.request(
             command: "listFavorites",
             payload: .object(["page": SteamServiceJSON.int(page)])
         )
         guard case .object(let data)? = frame.root["data"],
-              case .array(let ids)? = data["ids"] else { return [] }
-        return ids.compactMap(\.stringValue)
+              case .array(let ids)? = data["ids"] else { return ([], 0, false) }
+        return (
+            ids.compactMap(\.stringValue),
+            data["total"]?.intValue ?? 0,
+            data["hasMore"]?.boolValue ?? false
+        )
+    }
+
+    /// 订阅写入（SK3.3）：desiredState 单次写；调用方随后用
+    /// subscriptionStates 对账确认。
+    func setSubscription(workshopId: String, subscribe: Bool) async throws {
+        _ = try await client.request(
+            command: "setSubscription",
+            payload: .object([
+                "workshopId": .string(workshopId),
+                "desiredState": .string(subscribe ? "subscribe" : "unsubscribe"),
+            ])
+        )
     }
 
     /// 订阅状态批量核对（需登录）。
@@ -142,6 +159,7 @@ final class SteamWorkshopQueryClient {
                 fileSize: object["fileSize"]?.intValue,
                 timeUpdated: object["timeUpdated"]?.intValue,
                 timeCreated: object["timeCreated"]?.intValue,
+                timeSubscribed: object["timeSubscribed"]?.intValue,
                 consumerAppId: object["consumerAppid"]?.intValue,
                 tags: object["tags"]?.arrayValue?.compactMap(\.stringValue) ?? []
             )

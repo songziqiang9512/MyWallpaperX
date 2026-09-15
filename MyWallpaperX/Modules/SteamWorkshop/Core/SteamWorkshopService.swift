@@ -121,7 +121,12 @@ final class SteamWorkshopService: ObservableObject {
 
     /// SK3.2：新浏览 route 的键控取页状态（QueryKey/generation）。
     private(set) lazy var steamKitBrowseStore = SteamKitBrowseStore(
-        queryClient: SteamWorkshopQueryClient(client: steamServiceClient)
+        queryClient: steamWorkshopQueryClient
+    )
+
+    /// SK3.3：统一查询消费入口（个人列表、订阅状态与写入、详情批）。
+    private(set) lazy var steamWorkshopQueryClient = SteamWorkshopQueryClient(
+        client: steamServiceClient
     )
 
     /// SK2.3：唯一登录面板入口。重复调用聚焦同一面板，不产生第二个认证流。

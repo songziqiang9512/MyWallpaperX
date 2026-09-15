@@ -53,6 +53,7 @@ internal static class Program
         "loginPassword", "loginQR", "restoreSession",
         "queryBrowse", "queryDetails", "queryAuthor",
         "listSubscriptions", "listFavorites", "querySubscriptionStates",
+        "setSubscription",
     };
 
     private static readonly SteamSession steamSession = new(writer, terminals);
@@ -213,6 +214,21 @@ internal static class Program
                     return;
                 }
                 steamSession.BeginQueryAuthor(requestId, creatorId, decode.PayloadUInt("page") ?? 1);
+                return;
+            }
+            case "setSubscription":
+            {
+                var workshopId = decode.PayloadString("workshopId");
+                var desiredState = decode.PayloadString("desiredState");
+                if (workshopId == null || !ulong.TryParse(workshopId, out var subscribeId)
+                    || (desiredState != "subscribe" && desiredState != "unsubscribe"))
+                {
+                    writer.Send(ProtocolMessages.ResultError(
+                        requestId, "protocolMismatch",
+                        "setSubscription requires payload.workshopId and payload.desiredState=subscribe|unsubscribe", 1));
+                    return;
+                }
+                steamSession.BeginSetSubscription(requestId, subscribeId, desiredState == "subscribe");
                 return;
             }
             case "listSubscriptions":

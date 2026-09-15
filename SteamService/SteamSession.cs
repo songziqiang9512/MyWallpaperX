@@ -379,6 +379,8 @@ internal sealed partial class SteamSession : IAsyncDisposable
         CancelAuthentication(null);
         if (isLoggedIn)
         {
+            // 会话正在拆除：匿名标志一并清除，不给查询路径留下半拆状态窗口。
+            isAnonymous = false;
             try { user!.LogOff(); } catch { }
         }
         isLoggedIn = false;
@@ -619,34 +621,63 @@ internal sealed partial class SteamSession : IAsyncDisposable
         {
             throw new IOException("no refresh token returned by Steam.");
         }
-        loggedOnSource = new TaskCompletionSource<SteamUser.LoggedOnCallback>(TaskCreationOptions.RunContinuationsAsynchronously);
-        user!.LogOn(new SteamUser.LogOnDetails
+        // 令牌登录与匿名查询登录共用 loggedOnSource（SteamKit 不提供回调关联），
+        // 且同一连接上的第二次 ClientLogon 服务端行为未定义：经 sessionGate 单飞，
+        // 与 EnsureQuerySessionAsync 互斥（锁序 sessionGate→connectGate，无反向路径）。
+        await sessionGate.WaitAsync(ct).ConfigureAwait(false);
+        try
         {
-            Username = accountNameIn,
-            AccessToken = token,
-            ShouldRememberPassword = true,
-            LoginID = (uint)Random.Shared.Next(1, int.MaxValue),
-        });
-        var result = await loggedOnSource.Task
-            .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.RequestTimeoutSeconds), ct)
-            .ConfigureAwait(false);
-        if (result.Result != EResult.OK)
-        {
-            // 明确拒绝（过期/撤销/无效/账号不存在）与瞬态失败分开表述：
-            // App 侧只对 rejected 删令牌，瞬态失败保留令牌下次再试（§3.3）。
-            if (result.Result is EResult.InvalidPassword or EResult.Expired or EResult.Revoked
-                or EResult.AccountNotFound or EResult.AccountLoginDeniedThrottle)
+            if (isAnonymous)
             {
-                throw new IOException($"token logon rejected: {result.Result}");
+                // 恢复 SK2.1 不变量：令牌登录在新连接上进行。断开匿名会话后重连，
+                // 在飞的匿名查询按 typed network 失败一次，属用户发起登录的有界代价。
+                EnsureSession();
+                await connectGate.WaitAsync(ct).ConfigureAwait(false);
+                try
+                {
+                    isAnonymous = false;
+                    isLoggedIn = false;
+                    try { client!.Disconnect(); } catch { }
+                }
+                finally
+                {
+                    connectGate.Release();
+                }
+                await EnsureConnectedAsync(ct).ConfigureAwait(false);
             }
-            throw new IOException($"token logon failed: {result.Result}");
+            loggedOnSource = new TaskCompletionSource<SteamUser.LoggedOnCallback>(TaskCreationOptions.RunContinuationsAsynchronously);
+            user!.LogOn(new SteamUser.LogOnDetails
+            {
+                Username = accountNameIn,
+                AccessToken = token,
+                ShouldRememberPassword = true,
+                LoginID = (uint)Random.Shared.Next(1, int.MaxValue),
+            });
+            var result = await loggedOnSource.Task
+                .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.RequestTimeoutSeconds), ct)
+                .ConfigureAwait(false);
+            if (result.Result != EResult.OK)
+            {
+                // 明确拒绝（过期/撤销/无效/账号不存在）与瞬态失败分开表述：
+                // App 侧只对 rejected 删令牌，瞬态失败保留令牌下次再试（§3.3）。
+                if (result.Result is EResult.InvalidPassword or EResult.Expired or EResult.Revoked
+                    or EResult.AccountNotFound or EResult.AccountLoginDeniedThrottle)
+                {
+                    throw new IOException($"token logon rejected: {result.Result}");
+                }
+                throw new IOException($"token logon failed: {result.Result}");
+            }
+            accountName = accountNameIn;
+            steamId = result.ClientSteamID?.ConvertToUInt64().ToString() ?? "";
+            isLoggedIn = true;
+            if (steamId.Length == 0)
+            {
+                throw new IOException("logged on without a resolvable SteamID.");
+            }
         }
-        accountName = accountNameIn;
-        steamId = result.ClientSteamID?.ConvertToUInt64().ToString() ?? "";
-        isLoggedIn = true;
-        if (steamId.Length == 0)
+        finally
         {
-            throw new IOException("logged on without a resolvable SteamID.");
+            sessionGate.Release();
         }
     }
 
@@ -678,7 +709,8 @@ internal sealed partial class SteamSession : IAsyncDisposable
         }
     }
 
-    private async Task PumpAsync()    {
+    private async Task PumpAsync()
+    {
         try
         {
             while (!lifetime!.IsCancellationRequested)
@@ -697,6 +729,10 @@ internal sealed partial class SteamSession : IAsyncDisposable
 
     private void OnDisconnected(SteamClient.DisconnectedCallback callback)
     {
+        // 断开后任何会话（登录/匿名）都不再有效：必须清标志，否则查询路径重连后
+        // 会因陈旧标志跳过重新登录，统一消息作业永远失败且无法自愈。
+        isLoggedIn = false;
+        isAnonymous = false;
         connectedSource?.TrySetException(new IOException("Steam connection closed."));
     }
 

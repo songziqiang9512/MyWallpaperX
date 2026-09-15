@@ -7,6 +7,11 @@ extension SteamWorkshopService {
             loadMoreDiscoveryViaSteamKitIfNeeded()
             return
         }
+        // SK3.3：个人来源新 route 分页。
+        if shouldUseSteamKitPersonal {
+            loadMorePersonalViaSteamKitIfNeeded()
+            return
+        }
         guard !isLoadingMoreBrowserItems,
               hasMoreBrowserItems,
               browserState == .loaded,

@@ -49,6 +49,11 @@ extension SteamWorkshopService {
             fetchDiscoveryViaSteamKit(forceRefresh: forceRefresh)
             return
         }
+        // SK3.3：个人来源新 route（需新路线在线；离线保持 SK2.2 指引路径）。
+        if shouldUseSteamKitPersonal {
+            fetchPersonalViaSteamKit(forceRefresh: forceRefresh)
+            return
+        }
         browserFetchTask?.cancel()
         cancelBrowserDetailHydration()
         browserNextPage = 2

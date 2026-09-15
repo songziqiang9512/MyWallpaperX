@@ -31,6 +31,13 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     private let previewView = SteamWorkshopPreviewImageContainerView()
     private var isRestoringScrollPosition = false
 
+    // SK3.3：订阅状态缓存与写入/查询在飞标记。
+    private var subscriptionStatesByID: [String: Bool] = [:]
+    private var subscriptionWriteInFlight = false
+    private var subscriptionStateFetchInFlight = false
+    private var subscriptionStateFetchedItemID: String?
+    private var subscriptionStateFetchTask: (itemID: String, task: Task<Void, Never>)?
+
     init(item: SteamWorkshopBrowserItem) {
         self.initialItem = item
         self.currentItem = item
@@ -244,6 +251,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         buildPreviewSection()
         buildMetaSection()
         buildContentSection()
+        buildSubscriptionSection()
         buildWebPropertiesSection()
         buildWebDiagnosticsSection()
         buildSceneDiagnosticsSection()
@@ -416,8 +424,130 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         contentStack.addArrangedSubview(stack)
     }
 
-    private func buildWebDiagnosticsSection() {
-        guard let webDownloadRecord else { return }
+    /// SK3.3：订阅次级动作。未登录点击只给工具栏指引（不排写操作）；
+    /// 写入后经订阅状态查询对账，超时显示"待确认"。
+    private func buildSubscriptionSection() {
+        let auth = service.steamAuth
+        let stack = verticalStack(spacing: 8)
+        stack.addArrangedSubview(divider())
+
+        let header = NSStackView()
+        header.orientation = .horizontal
+        header.alignment = .centerY
+        header.spacing = 12
+        header.translatesAutoresizingMaskIntoConstraints = false
+        header.addArrangedSubview(sectionTitle("订阅"))
+
+        let state = subscriptionStatesByID[currentItem.id]
+        let button = NSButton(title: subscriptionButtonTitle(state: state), target: self, action: #selector(toggleSubscriptionClicked))
+        button.bezelStyle = .rounded
+        button.controlSize = .small
+        if subscriptionWriteInFlight {
+            button.title = "正在处理…"
+            button.isEnabled = false
+        }
+        header.addArrangedSubview(spacer())
+        header.addArrangedSubview(button)
+        stack.addArrangedSubview(header)
+
+        if let state {
+            stack.addArrangedSubview(label(
+                state ? "已订阅：内容更新时会出现在你的 Steam 订阅动态中。"
+                      : "未订阅：订阅后可从「Steam 已订阅」列表查看与下载。",
+                font: .systemFont(ofSize: 12),
+                color: .secondaryLabelColor,
+                lines: 2
+            ))
+        } else if auth.isOnline {
+            stack.addArrangedSubview(label(
+                "正在查询订阅状态…",
+                font: .systemFont(ofSize: 12),
+                color: .secondaryLabelColor,
+                lines: 1
+            ))
+            fetchSubscriptionStateIfNeeded()
+        } else {
+            stack.addArrangedSubview(label(
+                "登录后可订阅该项目；未登录点击只会得到提示，不会排队写入。",
+                font: .systemFont(ofSize: 12),
+                color: .secondaryLabelColor,
+                lines: 2
+            ))
+        }
+
+        contentStack.addArrangedSubview(stack)
+    }
+
+    private func subscriptionButtonTitle(state: Bool?) -> String {
+        switch state {
+        case .some(true): return "取消订阅"
+        case .some(false): return "订阅"
+        default: return "订阅状态查询中…"
+        }
+    }
+
+    private func fetchSubscriptionStateIfNeeded() {
+        let itemID = currentItem.id
+        guard subscriptionStatesByID[itemID] == nil,
+              subscriptionStateFetchTask?.itemID != itemID,
+              !subscriptionStateFetchInFlight else { return }
+        subscriptionStateFetchInFlight = true
+        let queryClient = service.steamWorkshopQueryClient
+        subscriptionStateFetchTask = (itemID, Task { [weak self] in
+            let states = try? await queryClient.subscriptionStates(ids: [itemID])
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.subscriptionStatesByID[itemID] = states?[itemID]
+                self.subscriptionStateFetchInFlight = false
+                if self.currentItem.id == itemID { self.rebuild() }
+            }
+        })
+    }
+
+    @objc private func toggleSubscriptionClicked() {
+        let itemID = currentItem.id
+        guard service.steamAuth.isOnline else {
+            // §1 规则 3：未登录点击不排写操作，只就地提示。
+            service.presentSteamLoginGuidance(context: "订阅")
+            return
+        }
+        guard !subscriptionWriteInFlight else { return }
+        let desired = !(subscriptionStatesByID[itemID] ?? false)
+        subscriptionWriteInFlight = true
+        rebuild()
+        let queryClient = service.steamWorkshopQueryClient
+        Task { [weak self] in
+            do {
+                try await queryClient.setSubscription(workshopId: itemID, subscribe: desired)
+                // 写后对账：状态以服务端查询结果为准，不盲信写入返回。
+                let states = try? await queryClient.subscriptionStates(ids: [itemID])
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    self.subscriptionWriteInFlight = false
+                    if let confirmed = states?[itemID] {
+                        self.subscriptionStatesByID[itemID] = confirmed
+                        service.statusMessage = confirmed
+                            ? "已订阅该项目（已核对）。"
+                            : "已取消订阅（已核对）。本地文件与播放不受影响。"
+                    } else {
+                        service.statusMessage = desired
+                            ? "订阅请求已提交，状态待确认。"
+                            : "取消订阅请求已提交，状态待确认。"
+                    }
+                    self.rebuild()
+                }
+            } catch {
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    self.subscriptionWriteInFlight = false
+                    service.statusMessage = "订阅操作失败：\(error.localizedDescription)"
+                    self.rebuild()
+                }
+            }
+        }
+    }
+
+    private func buildWebDiagnosticsSection() {        guard let webDownloadRecord else { return }
         contentStack.addArrangedSubview(divider())
 
         let stack = verticalStack(spacing: 10)
