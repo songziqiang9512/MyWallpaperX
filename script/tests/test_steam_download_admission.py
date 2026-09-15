@@ -25,6 +25,7 @@ class SteamDownloadAdmissionTests(unittest.TestCase):
         self.assertIn("SteamWorkshopService.shared.$statusMessage", toolbar)
         toolbar_configuration = (ROOT / "MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController+Configuration.swift").read_text()
         self.assertIn("requiresLoginAttention ? .systemOrange", toolbar_configuration)
+        self.assertIn('accountButton.setAccessibilityLabel("Steam 账号，\\(tooltip)")', toolbar_configuration)
 
     def test_service_admission(self):
         source = (CORE / "SteamWorkshopService+Downloads.swift").read_text()

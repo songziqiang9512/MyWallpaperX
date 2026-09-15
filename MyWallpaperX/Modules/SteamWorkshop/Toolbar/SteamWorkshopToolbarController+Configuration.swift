@@ -86,6 +86,7 @@ extension SteamWorkshopToolbarController {
         accountButton.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Steam 账号")
         accountButton.contentTintColor = tint
         accountButton.toolTip = tooltip
+        accountButton.setAccessibilityLabel("Steam 账号，\(tooltip)")
         accountButton.isEnabled = !isBusy
         accountToolbarItem.toolTip = accountButton.toolTip
     }
