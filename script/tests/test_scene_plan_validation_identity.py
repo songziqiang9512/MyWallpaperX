@@ -11,7 +11,6 @@ import unittest
 from script.tests.test_scene_wallpaper_async_launch import function_body
 
 ROOT = Path(__file__).resolve().parents[2]
-DIRECTORY = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution'
 SUPPORT = r'''
 import Foundation
 struct SceneAuthoredEffectRenderPlan {
@@ -31,6 +30,19 @@ struct SceneGraphRenderTargetPlan: Equatable {
     let inputExtent: Extent
     let logicalTargets: [Int]
     let commands: [Int]
+    static func makeInputsDigest(
+        inputRole: SceneAuthoredEffectInputRole,
+        inputWidth: Int,
+        inputHeight: Int,
+        materialFunctionTargets: Set<Int>
+    ) -> Int {
+        let roleSeed: Int
+        switch inputRole {
+        case .layerSource: roleSeed = 1
+        case .priorEffectOutput: roleSeed = 2
+        }
+        return roleSeed + inputWidth + inputHeight + materialFunctionTargets.count
+    }
     static func make(graph: SceneAuthoredEffectRenderPlan,
         inputRole: SceneAuthoredEffectInputRole, inputWidth: Int, inputHeight: Int,
         materialFunctionTargets: Set<Int>) -> Result<Self, Failure> {
@@ -42,7 +54,11 @@ final class Texture {}
 struct SceneGraphRenderTargetLease {
     struct Tokens { let first: Int; let second: Int }
     struct Textures { let first: Texture; let second: Texture }
-    struct Table { let plan: SceneGraphRenderTargetPlan; let fullFramePair: Textures }
+    struct Table {
+        let plan: SceneGraphRenderTargetPlan
+        let fullFramePair: Textures
+        let makeInputsDigest: Int
+    }
     struct Allocation { let resources: [Int: Int] }
     let generation: UInt64
     let fullFramePair: Tokens
@@ -78,13 +94,27 @@ TAIL = r'''
         let capability = SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability(
             graph: .init(effects: [.init(key: 7)], expectedPlan: expected))
         let zero = Texture(), one = Texture()
-        func lease(_ plan: SceneGraphRenderTargetPlan) -> SceneGraphRenderTargetLease {
+        let currentDigest = SceneGraphRenderTargetPlan.makeInputsDigest(
+            inputRole: .layerSource,
+            inputWidth: 16,
+            inputHeight: 16,
+            materialFunctionTargets: []
+        )
+        func lease(
+            _ plan: SceneGraphRenderTargetPlan,
+            makeInputsDigest: Int
+        ) -> SceneGraphRenderTargetLease {
             .init(generation: 3, fullFramePair: .init(first: 10, second: 11),
                 texturesByToken: [10: zero, 11: one],
-                table: .init(plan: plan, fullFramePair: .init(first: zero, second: one)),
+                table: .init(
+                    plan: plan,
+                    fullFramePair: .init(first: zero, second: one),
+                    makeInputsDigest: makeInputsDigest
+                ),
                 framebufferAllocation: .init(resources: [:]))
         }
-        let valid = lease(expected), invalid = lease(plan([999]))
+        let valid = lease(expected, makeInputsDigest: currentDigest)
+        let invalid = lease(plan([999]), makeInputsDigest: currentDigest + 1)
         let positiveFirst = SceneResolvedMaterialGraphExecutor()
         let validAccepted = positiveFirst.validate(capability: capability, leases: [valid])
         let invalidAccepted = positiveFirst.validate(capability: capability, leases: [invalid])
