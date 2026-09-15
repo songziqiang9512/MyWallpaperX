@@ -2429,6 +2429,14 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             with self.assertRaises(benchmark.argparse.ArgumentTypeError):
                 benchmark.positive_uint64(invalid)
 
+    def test_benchmark_duration_is_finite_and_supports_steady_state_runs(self) -> None:
+        self.assertEqual(benchmark.bounded_duration("0"), 7)
+        self.assertEqual(benchmark.bounded_duration("65"), 65)
+        self.assertEqual(benchmark.bounded_duration("1800"), 1800)
+        for invalid in ("nan", "inf", "3600.1", "invalid"):
+            with self.assertRaises(benchmark.argparse.ArgumentTypeError):
+                benchmark.bounded_duration(invalid)
+
     def test_performance_profile_argument_is_explicit_and_bounded(self) -> None:
         for frames_per_second in (30, 60):
             command = ["MyWallpaperX"]

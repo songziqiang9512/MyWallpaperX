@@ -617,10 +617,10 @@ enum DebugScenePlaybackRunner {
 
     static var requestedDuration: TimeInterval {
         guard let raw = argumentValue(after: "--mwx-debug-scene-duration"),
-              let duration = TimeInterval(raw) else {
+              let duration = TimeInterval(raw), duration.isFinite else {
             return 10
         }
-        return min(max(duration, 7), 60)
+        return min(max(duration, 7), 3_600)
     }
 
     static var requestedDropDynamicValuesFrameIndex: UInt64? {

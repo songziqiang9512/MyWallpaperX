@@ -7911,6 +7911,18 @@ def positive_uint64(raw: str) -> int:
     return value
 
 
+def bounded_duration(raw: str) -> float:
+    try:
+        value = float(raw)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("expected a finite duration") from error
+    if not math.isfinite(value) or value > 3_600:
+        raise argparse.ArgumentTypeError(
+            "expected a finite duration no greater than 3600 seconds"
+        )
+    return max(value, 7)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--app", required=True, type=Path, help="signed MyWallpaperX executable")
@@ -7926,7 +7938,7 @@ def parse_args() -> argparse.Namespace:
         help="run only this ID from the selected matrix; may be repeated",
     )
     parser.add_argument("--output-dir", required=True, type=Path)
-    parser.add_argument("--duration", type=float, default=7)
+    parser.add_argument("--duration", type=bounded_duration, default=7)
     parser.add_argument(
         "--performance-fps",
         type=int,
@@ -8018,7 +8030,7 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
-    duration = max(args.duration, 7)
+    duration = args.duration
     if args.after_snapshot_delay is not None and (
         not math.isfinite(args.after_snapshot_delay)
         or args.after_snapshot_delay <= 1

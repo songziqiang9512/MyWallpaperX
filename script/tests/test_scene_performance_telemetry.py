@@ -229,6 +229,7 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertIn("performanceTelemetry?.recordSubmitted", renderer)
         self.assertIn("schedulePerformanceMeasurement(", runner)
         self.assertIn("duration: requestedDuration", runner)
+        self.assertIn("min(max(duration, 7), 3_600)", runner)
         self.assertIn("afterSnapshotDelay: requestedAfterSnapshotDelay", runner)
         self.assertIn("applyRequestedPerformanceProfile()", runner)
         self.assertIn("PlaybackPerformanceProfile(rawValue: framesPerSecond)", performance_runner)
