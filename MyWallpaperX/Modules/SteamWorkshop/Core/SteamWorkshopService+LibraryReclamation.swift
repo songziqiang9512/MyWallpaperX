@@ -2,17 +2,20 @@ import Foundation
 
 extension SteamWorkshopService {
     func libraryVersionLifetime(for record: SteamWorkshopDownloadRecord) -> PlaybackResourceLifetime? {
-        guard let commit = managedDownloadSnapshots()[record.id]?.commit,
-              !commit.removed,
-              let content = try? SteamWorkshopLibraryTransaction.contentURL(
-                for: commit,
+        // Lease the concrete model paths rather than re-reading the latest ready
+        // pointer. A card may still carry the previous version while an update is
+        // publishing, and dependency-backed Web consumes both version trees.
+        let consumedRoots = [record.folderURL, record.dependencyHostFolderURL].compactMap { $0 }
+        let directoryNames = Set(consumedRoots.compactMap {
+            SteamWorkshopLibraryTransaction.versionDirectoryName(
+                containing: $0,
                 libraryRoot: steamDownloadLibraryRootURL
-              ),
-              content.resolvingSymlinksInPath().standardizedFileURL
-                == record.folderURL.resolvingSymlinksInPath().standardizedFileURL else {
+            )
+        })
+        guard !directoryNames.isEmpty else {
             return nil
         }
-        return steamLibraryVersionLeaseRegistry.acquire(commit)
+        return steamLibraryVersionLeaseRegistry.acquire(directoryNames: directoryNames)
     }
 
     func scheduleLibraryVersionReclamation() {

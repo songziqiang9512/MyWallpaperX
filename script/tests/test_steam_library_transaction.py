@@ -54,8 +54,11 @@ import Foundation
             if mode == "cancel" { fatalError("cancelled prepare succeeded") }
             try verifyJobRecovery(frame: frame, commit: commit, base: base)
             let leases = SteamWorkshopLibraryVersionLeaseRegistry()
-            var lifetime: PlaybackResourceLifetime? = leases.acquire(commit)
-            precondition(leases.protectedDirectoryNames() == [commit.directoryName])
+            let dependencyVersion = "11111111-1111-4111-8111-111111111111"
+            var lifetime: PlaybackResourceLifetime? = leases.acquire(
+                directoryNames: [commit.directoryName, dependencyVersion]
+            )
+            precondition(leases.protectedDirectoryNames() == [commit.directoryName, dependencyVersion])
             lifetime = nil
             withExtendedLifetime(lifetime) {}
             precondition(leases.protectedDirectoryNames().isEmpty)

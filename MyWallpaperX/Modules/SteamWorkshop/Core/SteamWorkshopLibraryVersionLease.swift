@@ -15,22 +15,33 @@ final class SteamWorkshopLibraryVersionLeaseRegistry {
     private var entries: [UUID: WeakEntry] = [:]
 
     func acquire(_ commit: SteamWorkshopLibraryCommit) -> PlaybackResourceLifetime {
-        let lease = SteamWorkshopLibraryVersionLease(directoryName: commit.directoryName)
+        acquire(directoryNames: [commit.directoryName])
+    }
+
+    func acquire(directoryNames: Set<String>) -> PlaybackResourceLifetime {
+        let normalized = Set(directoryNames.compactMap { name -> String? in
+            guard name.utf8.count == 36, UUID(uuidString: name) != nil else { return nil }
+            return name.lowercased()
+        })
+        precondition(!normalized.isEmpty, "A Steam library lease must own at least one managed version")
+        let lease = SteamWorkshopLibraryVersionLease(directoryNames: normalized)
         entries[lease.id] = WeakEntry(lease)
         return lease
     }
 
     func protectedDirectoryNames() -> Set<String> {
         entries = entries.filter { $0.value.lease != nil }
-        return Set(entries.values.compactMap { $0.lease?.directoryName })
+        return entries.values.reduce(into: Set<String>()) { result, entry in
+            result.formUnion(entry.lease?.directoryNames ?? [])
+        }
     }
 }
 
 private final class SteamWorkshopLibraryVersionLease: PlaybackResourceLifetime {
     let id = UUID()
-    let directoryName: String
+    let directoryNames: Set<String>
 
-    init(directoryName: String) {
-        self.directoryName = directoryName
+    init(directoryNames: Set<String>) {
+        self.directoryNames = directoryNames
     }
 }
