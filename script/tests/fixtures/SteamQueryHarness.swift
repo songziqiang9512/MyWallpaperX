@@ -59,6 +59,13 @@ final class QueryTransport: SteamServiceTransporting {
             payload = page(1, [bad])
             do { _ = try await query.browse(sort: .newest, page: 1); fatalError("bad item accepted") } catch { }
         }
+        var named = item("1", 1); named["creatorName"] = "海岸作者"
+        payload = page(1, [named])
+        let namedPage = try await query.browse(sort: .newest, page: 1)
+        precondition(namedPage.items.first?.creatorName == "海岸作者")
+        named["creatorName"] = 123
+        payload = page(1, [named])
+        do { _ = try await query.browse(sort: .newest, page: 1); fatalError("bad creator name accepted") } catch { }
         var badCreator = item("1", 1); badCreator["creatorSteamId"] = "vanity-name"
         payload = page(1, [badCreator])
         do { _ = try await query.browse(sort: .newest, page: 1); fatalError("bad creator accepted") } catch { }

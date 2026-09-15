@@ -104,7 +104,8 @@ internal sealed partial class SteamSession
                 .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
                 .ConfigureAwait(false);
             RequireQuerySuccess(response.Result);
-            var (items, wrongApp, errorEntries) = MapItems(response.Body.publishedfiledetails);
+            var creatorNames = await ResolveCreatorNamesAsync(response.Body.publishedfiledetails, ct).ConfigureAwait(false);
+            var (items, wrongApp, errorEntries) = MapItems(response.Body.publishedfiledetails, creatorNames);
             return new
             {
                 page = 0, total = ids.Count, hasMore = false,
@@ -363,7 +364,7 @@ internal sealed partial class SteamSession
 
     /// 统一条目映射：consumerAppID 强校验；result!=1 进 partial 错误列表。
     private static (List<object> Items, int WrongApp, List<object> PartialErrors) MapItems(
-        IEnumerable<PublishedFileDetails> files)
+        IEnumerable<PublishedFileDetails> files, IReadOnlyDictionary<ulong, string>? creatorNames = null)
     {
         var items = new List<object>();
         var partialErrors = new List<object>();
@@ -389,6 +390,7 @@ internal sealed partial class SteamSession
             {
                 publishedfileid = file.publishedfileid.ToString(),
                 creatorSteamId = file.creator == 0 ? null : file.creator.ToString(),
+                creatorName = creatorNames != null && creatorNames.TryGetValue(file.creator, out var name) ? name : null,
                 title = file.title,
                 description = file.file_description,
                 previewUrl = string.IsNullOrEmpty(file.preview_url) ? null : file.preview_url,

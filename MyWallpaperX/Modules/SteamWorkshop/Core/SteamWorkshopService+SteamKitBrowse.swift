@@ -487,7 +487,7 @@ extension SteamWorkshopBrowserItem {
         return SteamWorkshopBrowserItem(
             id: item.publishedFileId,
             title: item.title,
-            author: "",
+            author: item.creatorName ?? "",
             authorProfileURL: authorProfileURL,
             authorWorkshopURL: authorWorkshopURL,
             hasAdultContent: item.tags.contains(where: { $0.caseInsensitiveCompare("Mature") == .orderedSame }),
@@ -534,9 +534,8 @@ extension SteamWorkshopBrowserItem {
         let authorWorkshopURL = creator.flatMap {
             URL(string: "https://steamcommunity.com/profiles/\($0)/myworkshopfiles/?appid=431960")
         } ?? fallback.authorWorkshopURL
-        let author = fallback.author.isEmpty || fallback.author == "未知作者"
-            ? creator.map { "Steam \($0)" } ?? "未知作者"
-            : fallback.author
+        let sameCreator = creator == nil || SteamWorkshopService.creatorID(from: fallback.authorProfileURL) == creator
+        let author = item.creatorName ?? (sameCreator ? fallback.author : "")
         let workshopType = SteamWorkshopService.preferredTag(
             in: tags,
             matching: SteamWorkshopBrowserContentMode.allCases.map(\.requiredTagValue)

@@ -34,6 +34,23 @@ internal sealed partial class SteamSession
         using var partial = JsonDocument.Parse(JsonSerializer.Serialize(mapped.PartialErrors[0]));
         Check(partial.RootElement.GetProperty("publishedfileid").GetString() == "456");
         Check(!SortMap.ContainsKey("updated"));
+        var named = MapItems([valid], new Dictionary<ulong, string> { [valid.creator] = "海岸作者" });
+        using var namedItem = JsonDocument.Parse(JsonSerializer.Serialize(named.Items[0]));
+        Check(namedItem.RootElement.GetProperty("creatorName").GetString() == "海岸作者");
+        Check(item.RootElement.GetProperty("creatorName").ValueKind == JsonValueKind.Null);
+        string? ReadName(string xml, ulong id = 76561198000000000) {
+            using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml));
+            return ParsePublicCreatorName(stream, id);
+        }
+        Check(ReadName("<profile><steamID64>76561198000000000</steamID64><steamID><![CDATA[ 海岸 & 作者 ]]></steamID></profile>") == "海岸 & 作者");
+        Check(ReadName("<profile><steamID64>76561198000000001</steamID64><steamID>Wrong</steamID></profile>") == null);
+        Check(ReadName("<profile><steamID64>76561198000000000</steamID64></profile>") == null);
+        Check(ReadName("<profile><steamID64>76561198000000000</steamID64><steamID>   </steamID></profile>") == null);
+        Check(ReadName($"<profile><steamID64>76561198000000000</steamID64><steamID>{new string('a', 129)}</steamID></profile>") == null);
+        foreach (var xml in new[] { "<profile>", "<!DOCTYPE profile [<!ENTITY name SYSTEM 'file:///etc/passwd'>]><profile><steamID>&name;</steamID></profile>" }) {
+            try { ReadName(xml); Check(false); }
+            catch (System.Xml.XmlException) { Check(true); }
+        }
         Console.WriteLine($"query results/partial IDs/full tags: {count}/{count} PASS (offline)");
         return 0;
     }

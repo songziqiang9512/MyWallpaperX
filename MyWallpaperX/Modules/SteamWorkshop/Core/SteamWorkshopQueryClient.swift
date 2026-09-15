@@ -27,6 +27,7 @@ struct SteamWorkshopQueryItem: Equatable {
     let views: Int?
     let dependencyIds: [String]
     let tags: [String]
+    var creatorName: String? = nil
 }
 
 struct SteamWorkshopQueryPage: Equatable {
@@ -327,6 +328,8 @@ final class SteamWorkshopQueryClient {
             if let creator = object["creatorSteamId"], creator != .null, creator.stringValue == nil {
                 throw malformed
             }
+            if let name = object["creatorName"], name != .null, name.stringValue == nil { throw malformed }
+            let creatorName = object["creatorName"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines)
             let creatorSteamId = object["creatorSteamId"]?.stringValue
             if let creatorSteamId, !validID(creatorSteamId) { throw malformed }
             let tags = try tagValues.map { tag -> String in
@@ -348,7 +351,7 @@ final class SteamWorkshopQueryClient {
                 favorited: object["favorited"]?.intValue,
                 lifetimeSubscriptions: object["lifetimeSubscriptions"]?.intValue,
                 lifetimeFavorited: object["lifetimeFavorited"]?.intValue,
-                views: object["views"]?.intValue, dependencyIds: dependencyIds, tags: tags)
+                views: object["views"]?.intValue, dependencyIds: dependencyIds, tags: tags, creatorName: creatorName?.isEmpty == false ? creatorName : nil)
         }
         guard Set(items.map(\.publishedFileId)).count == items.count else { throw malformed }
         let partial: [SteamServiceJSON]

@@ -83,14 +83,6 @@ extension SteamWorkshopService {
 
     func refreshSelectedDownloadInspectorDetailIfNeeded(forceRefresh: Bool) {
         guard let item = selectedDownloadInspectorItem else { return }
-        if selectedDownloadRecord?.contentType == .scene {
-            selectedItemDetailTask?.cancel()
-            selectedItemDetailTask = nil
-            isRefreshingSelectedDownloadDetailItem = false
-            selectedDownloadDetailError = nil
-            selectedDownloadDetailItem = selectedDownloadInspectorItem
-            return
-        }
         if !forceRefresh && !SteamWorkshopDetailRefreshSupport.needsDownloadedMetadataRefresh(item) {
             return
         }
@@ -99,8 +91,12 @@ extension SteamWorkshopService {
         isRefreshingSelectedDownloadDetailItem = true
         selectedDownloadDetailError = nil
 
-        let browserContentMode: SteamWorkshopBrowserContentMode =
-            selectedDownloadRecord?.contentType == .web ? .web : .video
+        let browserContentMode: SteamWorkshopBrowserContentMode
+        switch latestDownloadRecord(for: item.id)?.contentType {
+        case .scene: browserContentMode = .scene
+        case .web: browserContentMode = .web
+        default: browserContentMode = .video
+        }
 
         selectedItemDetailTask = Task(priority: .userInitiated) { [weak self] in
             do {
