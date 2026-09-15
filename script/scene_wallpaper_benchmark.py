@@ -955,7 +955,20 @@ def performance_metrics(log_text: str, surface_count: int | None) -> dict[str, A
             "error": "performance resources unavailable: "
             + str(resource_metrics.get("error", "unknown error")),
         }
+    minimum_resource_samples = max(2, math.floor(elapsed))
+    if resource_metrics["sample_count"] < minimum_resource_samples:
+        return {
+            "available": False,
+            "error": "performance resource sample density is below one hertz",
+        }
     metrics["resources"] = resource_metrics
+    steady_state_reasons = []
+    if metrics["measurement_warmup_seconds"] < 30:
+        steady_state_reasons.append("measurement warmup is below 30 seconds")
+    if elapsed < 60:
+        steady_state_reasons.append("measurement elapsed is below 60 seconds")
+    metrics["steady_state_eligible"] = not steady_state_reasons
+    metrics["steady_state_ineligible_reasons"] = steady_state_reasons
     return metrics
 
 
@@ -976,6 +989,8 @@ def summarize_performance(results: list[dict[str, Any]]) -> dict[str, Any]:
         return {
             "available_count": 0,
             "unavailable_count": unavailable,
+            "steady_state_eligible_count": 0,
+            "steady_state_eligible_ids": [],
             "lowest_driver_fps": None,
             "slowest_startup_ready_ms": None,
             "highest_actual_present_p99_ms": None,
@@ -991,9 +1006,16 @@ def summarize_performance(results: list[dict[str, Any]]) -> dict[str, Any]:
         available,
         key=lambda item: item[1]["actual_present_p99_ms"],
     )
+    steady_state_eligible_ids = sorted(
+        sample_id
+        for sample_id, metrics in available
+        if metrics.get("steady_state_eligible") is True
+    )
     return {
         "available_count": len(available),
         "unavailable_count": unavailable,
+        "steady_state_eligible_count": len(steady_state_eligible_ids),
+        "steady_state_eligible_ids": steady_state_eligible_ids,
         "lowest_driver_fps": {"id": lowest_id, "fps": lowest["driver_fps"]},
         "slowest_startup_ready_ms": (
             {"id": slowest[0], "milliseconds": slowest[1]} if slowest else None

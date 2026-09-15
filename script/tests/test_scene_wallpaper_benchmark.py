@@ -2192,6 +2192,11 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertTrue(metrics["available"])
         self.assertEqual(metrics["target_fps"], 60)
         self.assertEqual(metrics["measurement_warmup_seconds"], 30)
+        self.assertFalse(metrics["steady_state_eligible"])
+        self.assertEqual(
+            metrics["steady_state_ineligible_reasons"],
+            ["measurement elapsed is below 60 seconds"],
+        )
         self.assertEqual(metrics["driver_callbacks"], 410)
         self.assertAlmostEqual(metrics["driver_fps"], 410 / 6.833)
         self.assertEqual(metrics["completed_frames"], 409)
@@ -2339,6 +2344,19 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "invalid performance resource field",
             benchmark.performance_metrics(negative_resource, 1)["error"],
         )
+        sparse_resources = valid_log.replace("elapsed=1", "elapsed=60", 1)
+        self.assertIn(
+            "sample density is below one hertz",
+            benchmark.performance_metrics(sparse_resources, 1)["error"],
+        )
+
+        steady_state = (
+            valid_log.replace("elapsed=1", "elapsed=60", 1)
+            .replace("samples=2 processSamples=2", "samples=60 processSamples=60", 1)
+        )
+        self.assertTrue(
+            benchmark.performance_metrics(steady_state, 1)["steady_state_eligible"]
+        )
 
     def test_performance_summary_preserves_worst_sample_identity(self) -> None:
         results = [
@@ -2350,6 +2368,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                         "available": True,
                         "driver_fps": 60.0,
                         "actual_present_p99_ms": 17.0,
+                        "steady_state_eligible": True,
                     },
                 },
             },
@@ -2361,6 +2380,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                         "available": True,
                         "driver_fps": 48.0,
                         "actual_present_p99_ms": 29.0,
+                        "steady_state_eligible": False,
                     },
                 },
             },
@@ -2369,6 +2389,8 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         summary = benchmark.summarize_performance(results)
         self.assertEqual(summary["available_count"], 2)
         self.assertEqual(summary["unavailable_count"], 1)
+        self.assertEqual(summary["steady_state_eligible_count"], 1)
+        self.assertEqual(summary["steady_state_eligible_ids"], ["fast"])
         self.assertEqual(summary["lowest_driver_fps"], {"id": "slow", "fps": 48.0})
         self.assertEqual(
             summary["slowest_startup_ready_ms"],
