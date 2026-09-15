@@ -349,6 +349,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     }
 
     func setKeyboardFocus(_ focused: Bool) {
+        currentIsKeyboardFocused = focused
         isSelectionHighlighted = focused
         refreshThemeAwareAppearance()
         if view.window != nil {

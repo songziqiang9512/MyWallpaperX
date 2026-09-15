@@ -342,15 +342,6 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         scrollToItem(nextID)
     }
 
-    private func moveFocus(delta: Int) -> Bool {
-        guard !orderedIDs.isEmpty else { return false }
-        let current = focusedIndex ?? 0
-        let next = min(max(0, current + delta), orderedIDs.count - 1)
-        guard next != current || keyboardFocusedID == nil else { return false }
-        focusItem(at: next)
-        return true
-    }
-
     private var focusedIndex: Int? {
         guard let id = keyboardFocusedID else { return nil }
         return orderedIDs.firstIndex(of: id)
@@ -368,18 +359,14 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
     }
 
     private func handleArrowKey(_ keyCode: UInt16) -> Bool {
-        switch keyCode {
-        case 123:
-            return moveFocus(delta: -1)
-        case 124:
-            return moveFocus(delta: 1)
-        case 126:
-            return moveFocus(delta: -currentColumnCount)
-        case 125:
-            return moveFocus(delta: currentColumnCount)
-        default:
-            return false
-        }
+        guard let destination = SteamWorkshopGridKeyboardNavigation.destinationIndex(
+            keyCode: keyCode,
+            currentIndex: focusedIndex,
+            itemCount: orderedIDs.count,
+            columnCount: currentColumnCount
+        ) else { return false }
+        focusItem(at: destination)
+        return true
     }
 
     func moveSelectionByArrowKey(_ keyCode: UInt16) {
@@ -553,7 +540,8 @@ extension AppKitSteamWorkshopDownloadsContainerView: SteamWorkshopKeyboardDelega
         switch event.keyCode {
         case 123, 124, 125, 126:
             return handleArrowKey(event.keyCode)
-        case 36, 76:
+        case let keyCode where SteamWorkshopGridKeyboardNavigation.isPrimaryActionKey(keyCode):
+            guard !event.isARepeat else { return true }
             return handleReturnKey()
         default:
             break

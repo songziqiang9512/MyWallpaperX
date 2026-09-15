@@ -22,6 +22,8 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     private var cancellables = Set<AnyCancellable>()
     private var itemsByID: [String: SteamWorkshopBrowserItem] = [:]
     private var orderedIDs: [String] = []
+    private var keyboardFocusedID: String?
+    private var currentColumnCount = 1
     private var footerState: SteamWorkshopBrowserFooterSupport.State = .hidden
     private var isApplyingSnapshot = false
     private var pendingFooterSnapshotRefresh = false
@@ -106,6 +108,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     }
 
     func requestFocus() {
+        ensureKeyboardFocus()
         window?.makeFirstResponder(collectionView)
     }
 
@@ -253,6 +256,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             updateBrowserScrollMetrics()
             prioritizeVisibleItemsForHydration()
             checkLoadMore()
+            ensureKeyboardFocus()
             return
         }
 
@@ -274,6 +278,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             self.updateBrowserScrollMetrics()
             self.prioritizeVisibleItemsForHydration()
             self.checkLoadMore()
+            self.ensureKeyboardFocus()
         }
     }
 
@@ -335,7 +340,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             downloadProgressStore: service.downloadProgressStore,
             isDownloading: service.isDownloading(itemID: id),
             isDownloaded: service.isDownloaded(itemID: id),
-            isKeyboardFocused: false,
+            isKeyboardFocused: keyboardFocusedID == id,
             onOpen: { [weak self] in self?.onOpen(item) },
             onAuthor: { [weak self] in self?.onAuthor(item) },
             onDownload: { [weak self] in self?.onDownload(item) },
@@ -356,7 +361,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             downloadProgressStore: service.downloadProgressStore,
             isDownloading: service.isDownloading(itemID: id),
             isDownloaded: service.isDownloaded(itemID: id),
-            isKeyboardFocused: false,
+            isKeyboardFocused: keyboardFocusedID == id,
             onOpen: { [weak self] in self?.onOpen(item) },
             onAuthor: { [weak self] in self?.onAuthor(item) },
             onDownload: { [weak self] in self?.onDownload(item) },
@@ -393,6 +398,72 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         return true
     }
 
+    private func ensureKeyboardFocus() {
+        guard !orderedIDs.isEmpty else {
+            let previousID = keyboardFocusedID
+            keyboardFocusedID = nil
+            updateKeyboardFocusItem(withID: previousID, focused: false)
+            return
+        }
+        if let focusedID = keyboardFocusedID, orderedIDs.contains(focusedID) {
+            updateKeyboardFocusItem(withID: focusedID, focused: true)
+            return
+        }
+        focusItem(at: 0)
+    }
+
+    private func focusItem(at index: Int) {
+        guard index >= 0, index < orderedIDs.count else { return }
+        let nextID = orderedIDs[index]
+        let previousID = keyboardFocusedID
+        keyboardFocusedID = nextID
+        updateKeyboardFocusItem(withID: previousID, focused: false)
+        updateKeyboardFocusItem(withID: nextID, focused: true)
+        scrollToItem(nextID)
+    }
+
+    private func handleArrowKey(_ keyCode: UInt16) -> Bool {
+        let currentIndex = keyboardFocusedID.flatMap { orderedIDs.firstIndex(of: $0) }
+        guard let destination = SteamWorkshopGridKeyboardNavigation.destinationIndex(
+            keyCode: keyCode,
+            currentIndex: currentIndex,
+            itemCount: orderedIDs.count,
+            columnCount: currentColumnCount
+        ) else { return false }
+        focusItem(at: destination)
+        return true
+    }
+
+    private func handlePrimaryActionKey() -> Bool {
+        guard let id = keyboardFocusedID,
+              let item = itemsByID[id] else { return false }
+        onOpen(item)
+        return true
+    }
+
+    private func scrollToItem(_ id: String) {
+        guard let indexPath = indexPathForItemID(id),
+              let attributes = flowLayout.layoutAttributesForItem(at: indexPath) else { return }
+        let itemFrame = attributes.frame
+        let visibleRect = scrollView.contentView.bounds
+        guard !visibleRect.contains(itemFrame) else { return }
+        let targetY = itemFrame.minY < visibleRect.minY
+            ? max(0, itemFrame.minY - 4)
+            : itemFrame.maxY - visibleRect.height + 4
+        scrollView.contentView.setBoundsOrigin(NSPoint(x: visibleRect.origin.x, y: targetY))
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+    }
+
+    private func updateKeyboardFocusItem(withID id: String?, focused: Bool) {
+        guard let id else { return }
+        if let item = cellForItemID(id) {
+            item.setKeyboardFocus(focused)
+            return
+        }
+        guard let indexPath = indexPathForItemID(id) else { return }
+        collectionView.reloadItems(at: Set([indexPath]))
+    }
+
     private func indexPathForItemID(_ id: String) -> IndexPath? {
         guard let index = orderedIDs.firstIndex(of: id) else { return nil }
         return IndexPath(item: index, section: 0)
@@ -426,6 +497,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             hoverScale: AppKitSteamWorkshopBrowserItem.hoverScale,
             sectionInset: flowLayout.sectionInset
         )
+        currentColumnCount = metrics.columns
         flowLayout.minimumInteritemSpacing = metrics.interitemSpacing
         flowLayout.minimumLineSpacing = metrics.lineSpacing
         let newSize = metrics.itemSize
@@ -591,7 +663,14 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
 
 extension AppKitSteamWorkshopBrowserContainerView: SteamWorkshopKeyboardDelegate {
     func steamWorkshopCollectionView(_ collectionView: SteamWorkshopKeyboardCollectionView, handleKey event: NSEvent) -> Bool {
+        let disallowedModifiers: NSEvent.ModifierFlags = [.command, .control, .option]
+        guard event.modifierFlags.intersection(disallowedModifiers).isEmpty else { return false }
         switch event.keyCode {
+        case 123, 124, 125, 126:
+            return handleArrowKey(event.keyCode)
+        case 36, 76:
+            guard !event.isARepeat else { return true }
+            return handlePrimaryActionKey()
         case 53:
             return handleEscapeKey()
         default:
