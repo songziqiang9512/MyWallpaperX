@@ -37,6 +37,10 @@ final class FakeSteamTransport: SteamServiceTransporting {
     func closeInput() {}
     func terminate() { isRunning = false; terminated = true }
     func scheduleForcedTermination(after delay: TimeInterval) {}
+    func crash(exitStatus: Int32 = 9) {
+        isRunning = false
+        onTermination?(exitStatus)
+    }
 }
 
 @main struct SteamServiceClientLifecycleHarness {
@@ -85,10 +89,60 @@ final class FakeSteamTransport: SteamServiceTransporting {
         old.staleTermination?(9)
         precondition(restarting.currentIdentity != nil, "old termination cannot tear down new session")
         await restarting.stop(shutdownTimeout: 0)
+        try await publicCrashRestartLifecycle()
         try await authenticationLifecycle()
         try await accountRouteLifecycle()
         try await stagedReceiptLifecycle()
-        print("Steam client lifecycle: cold start, synchronous reply, cancellation, frame limit, timeout teardown, stale callback PASS")
+        print("Steam client lifecycle: cold start, synchronous reply, cancellation, frame limit, timeout teardown, crash restart, stale callback PASS")
+    }
+
+    @MainActor static func publicCrashRestartLifecycle() async throws {
+        let original = FakeSteamTransport()
+        original.replyOnSend = false
+        let replacement = FakeSteamTransport()
+        var transportCount = 0
+        let client = SteamServiceClient(
+            executablePath: "/fake",
+            maximumRestartAttempts: 1,
+            transportFactory: { _ in
+                transportCount += 1
+                return transportCount == 1 ? original : replacement
+            }
+        )
+        let route = SteamAuthRoute(client: client, persistence: .init(
+            remember: { false }, setRemember: { _ in }, setRestoreAuthorized: { _ in },
+            save: { _ in false }, delete: { true }, saveMetadata: { _ in }, clearMetadata: {}
+        ))
+        let firstIdentity = try await client.start()
+        let query = Task { try await client.request(command: "queryBrowse", timeout: nil) }
+        while original.requests.isEmpty { await Task.yield() }
+        original.crash()
+        do {
+            _ = try await query.value
+            fatalError("public query survived helper crash")
+        } catch SteamServiceClient.RequestError.connectionLost {}
+        precondition(route.displayState == .signedOut, "public crash cannot become an auth failure")
+
+        let restartDeadline = Date().addingTimeInterval(1)
+        while client.currentIdentity == nil && Date() < restartDeadline {
+            await Task.yield()
+        }
+        guard let secondIdentity = client.currentIdentity else {
+            fatalError("bounded automatic replacement did not become ready")
+        }
+        precondition(
+            secondIdentity.sessionGeneration == firstIdentity.sessionGeneration + 1 && transportCount == 2,
+            "one crash must create exactly one new helper generation"
+        )
+        precondition(route.displayState == .signedOut, "replacement cannot create auth intent")
+
+        replacement.crash()
+        await Task.yield()
+        precondition(client.state == .terminated && transportCount == 2,
+                     "restart budget must stop a ready/crash loop")
+        precondition(route.displayState == .signedOut, "budget exhaustion cannot create auth intent")
+        await client.stop(shutdownTimeout: 0)
+        print("Public crash lifecycle: pending request failed, signed-out route preserved, single replacement and bounded exhaustion PASS")
     }
     @MainActor static func authenticationLifecycle() async throws {
         let transport = FakeSteamTransport()
