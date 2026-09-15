@@ -169,7 +169,7 @@ extension SteamWorkshopService {
     /// A crash before metadata publication leaves the old ready pointer; after publication the job
     /// can be completed from that exact commit. Never infer completion from a nonempty directory.
     private func reconcileDownloadCommits(_ snapshots: [String: SteamWorkshopDownloadMetadataSnapshot]) {
-        guard activeDownloadTask == nil else { return }
+        guard activeDownloadTasks.isEmpty else { return }
         let published = snapshots.compactMapValues { snapshot -> SteamWorkshopLibraryCommit? in
             guard let commit = snapshot.commit,
                   SteamWorkshopLibraryTransaction.isAvailable(commit, libraryRoot: steamDownloadLibraryRootURL) else { return nil }

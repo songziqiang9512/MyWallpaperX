@@ -219,7 +219,7 @@ final class SteamWorkshopService: ObservableObject {
     /// 有活动/排队任务时先说明一次；本地文件与当前壁纸不受影响。
     /// 旧 SteamCMD 密码条目的显式迁移清理仍归 SK6；下载执行器已不再消费它。
     func signOutEverywhere() {
-        let hasActiveDownloads = activeDownloadTask != nil || downloadJobStore.queuedCount > 0
+        let hasActiveDownloads = !activeDownloadTasks.isEmpty || downloadJobStore.queuedCount > 0
         if hasActiveDownloads {
             let alert = NSAlert()
             alert.messageText = "退出 Steam 登录？"
@@ -269,7 +269,7 @@ final class SteamWorkshopService: ObservableObject {
 
     // MARK: - Download selection state
 
-    @Published var activeDownloadItemID: String?
+    @Published var activeDownloadItemIDs: Set<String> = []
     @Published var isDownloadsMultiSelectMode = false
     @Published var selectedDownloadID: String?
     @Published var selectedDownloadIDs: Set<String> = []
@@ -363,9 +363,11 @@ final class SteamWorkshopService: ObservableObject {
     var loginBootstrapTimeoutTask: Task<Void, Never>?
     var loginSessionID: String = ""
     var lastSuccessfulSessionValidationAt: Date?
-    var activeDownloadJobKey: String?
-    var activeDownloadTask: Task<Void, Never>?
-    var activeDownloadWasCancelled = false
+    let maximumConcurrentDownloads = 2
+    var activeDownloadJobKeysByItemID: [String: String] = [:]
+    var activeDownloadTasks: [String: Task<Void, Never>] = [:]
+    var cancelledDownloadJobKeys: Set<String> = []
+    var reservedLibraryCopyBytesByJobKey: [String: Int64] = [:]
     let steamLibraryVersionLeaseRegistry = SteamWorkshopLibraryVersionLeaseRegistry()
     var libraryVersionReclamationTask: Task<Void, Never>?
     var selectedItemDetailTask: Task<Void, Never>?

@@ -110,7 +110,7 @@ extension SteamWorkshopService {
         isRefreshingSelectedBrowserItem = false
         currentWorkshopItemID = nil
         currentPageTitle = "Steam 创意工坊"
-        activeDownloadItemID = nil
+        activeDownloadItemIDs.removeAll()
         downloads = []
         downloadsQuery = ""
         downloadsSortMode = .updatedAt
@@ -124,7 +124,6 @@ extension SteamWorkshopService {
         isRefreshingSelectedDownloadDetailItem = false
         downloadError = nil
         downloadJobStore.cancelAll()
-        activeDownloadWasCancelled = false
         zoomOffset = 0
 
         browseContext = .discovery

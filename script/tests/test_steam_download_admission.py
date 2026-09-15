@@ -34,8 +34,11 @@ struct SteamWorkshopPendingDownloadRequest {
     let steamAuth = Auth()
     let downloadJobStore: SteamDownloadJobStore
     var statusMessage = ""
-    var activeDownloadItemID: String?
-    var activeDownloadTask: Task<Void, Never>?
+    let maximumConcurrentDownloads = 2
+    var activeDownloadItemIDs: Set<String> = []
+    var activeDownloadJobKeysByItemID: [String: String] = [:]
+    var activeDownloadTasks: [String: Task<Void, Never>] = [:]
+    var reservedLibraryCopyBytesByJobKey: [String: Int64] = [:]
     var isLoginSheetPresented = false
     enum Phase { case credentials, awaitingGuardCode }
     var authPhase = Phase.credentials
@@ -51,7 +54,9 @@ struct SteamWorkshopPendingDownloadRequest {
     func appendSteamAuthDebugLog(_ text: String) {}
     func isQueuedDownloadRequest(id: String) -> Bool { downloadJobStore.isQueuedOrRunning(workshopItemId: id) }
     func beginDownloadWorkflow(_ request: SteamWorkshopPendingDownloadRequest) {
-        started += 1; activeDownloadItemID = request.id
+        started += 1
+        activeDownloadItemIDs.insert(request.id)
+        activeDownloadTasks[request.id] = Task {}
     }
     enum Status { case queued }
     func upsertTransientRecord(id: String, title: String, status: Status, sizeText: String) { projected += 1 }
@@ -80,14 +85,16 @@ METHODS
         }
         let queued = service("queued.json")
         queued.steamAuth.steamId = "A"; queued.isDownloadWorkflowBusy = true
-        queued.activeDownloadItemID = "999999"
+        queued.activeDownloadItemIDs = ["999999"]
+        queued.activeDownloadTasks = ["busy-a": Task {}, "busy-b": Task {}]
         queued.downloadWorkshopItem(id: "123456")
         queued.downloadWorkshopItem(id: "123456")
         precondition(queued.downloadJobStore.jobs.count == 1 && queued.projected == 1)
         precondition(queued.downloadJobStore.jobs[0].accountSteamId == "A")
         // Simulate a recovered queue (no executor). Signed-out and another account cannot pop it.
         queued.steamAuth.steamId = nil
-        queued.activeDownloadItemID = nil
+        queued.activeDownloadItemIDs.removeAll()
+        queued.activeDownloadTasks.removeAll()
         queued.resumeQueue()
         precondition(queued.downloadJobStore.jobs[0].state == .queued)
         queued.steamAuth.steamId = "B"
@@ -101,8 +108,14 @@ METHODS
         let immediate = service("immediate.json")
         immediate.steamAuth.steamId = "A"
         immediate.downloadWorkshopItem(id: "654321")
-        precondition(immediate.started == 1 && immediate.downloadJobStore.jobs[0].accountSteamId == "A")
-        print("Download admission: signed-out idle/busy/direct entry, no login replay, dedup and account-isolated resume PASS")
+        immediate.downloadWorkshopItem(id: "654322")
+        immediate.downloadWorkshopItem(id: "654323")
+        precondition(immediate.started == 2 && immediate.activeDownloadTasks.count == 2,
+            "started=\(immediate.started) active=\(immediate.activeDownloadTasks.count) states=\(immediate.downloadJobStore.jobs.map { $0.state.rawValue })")
+        precondition(immediate.downloadJobStore.jobs[0].accountSteamId == "A")
+        precondition(immediate.downloadJobStore.activeJob(forWorkshopItemId: "654323")?.state == .queued,
+            "third job must remain queued behind the two-slot executor")
+        print("Download admission: signed-out idle/busy/direct entry, no login replay, dedup, account isolation and two-slot cap PASS")
     }
 }
 '''.replace("METHODS", "\n".join(methods))

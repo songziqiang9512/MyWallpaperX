@@ -150,7 +150,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             .sink { [weak self] _ in self?.scheduleLayoutItemSizeUpdate() }
             .store(in: &cancellables)
 
-        service.$activeDownloadItemID
+        service.$activeDownloadItemIDs
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.reloadVisibleItems()

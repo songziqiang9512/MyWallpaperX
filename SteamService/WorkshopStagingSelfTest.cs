@@ -52,6 +52,12 @@ internal static class WorkshopStagingSelfTest
                     RandomAccess.Read(handle, value, 0);
                     Check("resume retains partial bytes", value.SequenceEqual(new byte[] { 7, 8, 9, 10 }));
                 }
+                Check("resume probe leaves missing file absent",
+                    !resumed.TryResumeFile("partial/deferred", 3)
+                    && !File.Exists(Path.Combine(resumePath, "partial/deferred")));
+                resumed.CreateFile("partial/deferred", 3);
+                using (var handle = resumed.OpenFile("partial/deferred", false))
+                    Check("deferred resume creation is preallocated", RandomAccess.GetLength(handle) == 3);
                 Check("resume creates missing file", !resumed.ResumeFile("partial/missing", 2));
                 using (var handle = resumed.OpenFile("partial/missing", false))
                     Check("resume missing file is preallocated", RandomAccess.GetLength(handle) == 2);

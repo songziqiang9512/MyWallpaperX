@@ -29,6 +29,20 @@ internal static class DownloadSelfTest
         Check(SteamSession.ClassifyDownloadError(WorkshopStagingLease.ClassifyIO(new IOException("opaque", 112))) == "diskFull");
         Check(SteamSession.ClassifyDownloadError(WorkshopStagingLease.ClassifyIO(new IOException("opaque", 13))) == "accessDenied");
         Check(SteamSession.ClassifyDownloadError(WorkshopStagingLease.ClassifyIO(new IOException("disk full", 5))) == "integrity");
+        Check(SteamSession.MaxActiveDownloadJobs == 2
+            && SteamSession.MaxConcurrentDownloadChunks == 4
+            && SteamSession.TestActiveDownloadCapacity()
+            && TestSharedChunkBudget().GetAwaiter().GetResult()
+            && SteamSession.CanReserveDiskBytes(
+                8L * 1024 * 1024 * 1024,
+                16L * 1024 * 1024 * 1024 + 256L * 1024 * 1024,
+                8L * 1024 * 1024 * 1024)
+            && !SteamSession.CanReserveDiskBytes(
+                8L * 1024 * 1024 * 1024,
+                16L * 1024 * 1024 * 1024 + 256L * 1024 * 1024 - 1,
+                8L * 1024 * 1024 * 1024)
+            && !SteamSession.CanReserveDiskBytes(-1, long.MaxValue, 0)
+            && SteamSession.AvailableDiskBytesForTest(Path.GetTempPath()) > 256L * 1024 * 1024);
         using var cts = new CancellationTokenSource();
         using var stream = new CancelAfterRead(cts);
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
@@ -41,6 +55,37 @@ internal static class DownloadSelfTest
         for (int i = 0; i < 100; i++) Check(SteamSession.TestDownloadTerminalRace());
         Console.WriteLine($"download progress/errors/cancellation: {count}/{count} PASS (offline)");
         return 0;
+    }
+
+    private static async Task<bool> TestSharedChunkBudget()
+    {
+        var session = new SteamSession(new ProtocolWriter(), new TerminalTracker());
+        int active = 0, peak = 0;
+        var tasks = Enumerable.Range(0, 12).Select(_ => session.WithDownloadChunkSlotForTest(async () =>
+        {
+            int current = Interlocked.Increment(ref active);
+            int observed;
+            do
+            {
+                observed = peak;
+                if (observed >= current) break;
+            } while (Interlocked.CompareExchange(ref peak, current, observed) != observed);
+            await Task.Delay(20).ConfigureAwait(false);
+            Interlocked.Decrement(ref active);
+            return true;
+        }, CancellationToken.None));
+        if (!(await Task.WhenAll(tasks).ConfigureAwait(false)).All(value => value)
+            || peak != SteamSession.MaxConcurrentDownloadChunks) return false;
+
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        try
+        {
+            await session.WithDownloadChunkSlotForTest(() => Task.FromResult(true), cancelled.Token);
+            return false;
+        }
+        catch (OperationCanceledException) { }
+        return await session.WithDownloadChunkSlotForTest(() => Task.FromResult(true), CancellationToken.None);
     }
 
     private sealed class CancelAfterRead(CancellationTokenSource source) : MemoryStream(new byte[131072])
@@ -58,6 +103,35 @@ internal static class DownloadSelfTest
 
 internal sealed partial class SteamSession
 {
+    internal static bool TestActiveDownloadCapacity()
+    {
+        var session = new SteamSession(new ProtocolWriter(), new TerminalTracker());
+        var source = session.PublishAccountForTest(1, "76561198000000000");
+        try
+        {
+            for (int index = 0; index < MaxActiveDownloadJobs; index++)
+            {
+                var cancellation = new CancellationTokenSource();
+                session.activeDownloads.Add($"job-{index}", new ActiveDownload
+                {
+                    JobId = $"job-{index}", RequestId = $"request-{index}", StagingRoot = "/unused",
+                    PublishedFileId = 1, Cancellation = cancellation,
+                    Account = session.CaptureAccountForTest(1), Source = source,
+                });
+            }
+            if (session.DownloadJobCapacityAvailableLocked()) return false;
+            var removed = session.activeDownloads["job-0"];
+            session.activeDownloads.Remove("job-0");
+            removed.Cancellation.Dispose();
+            return session.DownloadJobCapacityAvailableLocked();
+        }
+        finally
+        {
+            foreach (var context in session.activeDownloads.Values) context.Cancellation.Dispose();
+            source.Disconnect();
+        }
+    }
+
     // Exercise the actual success/targeted-cancel decision without connecting to Steam.
     internal static bool TestDownloadTerminalRace()
     {

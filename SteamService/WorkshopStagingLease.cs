@@ -188,37 +188,26 @@ internal sealed class WorkshopStagingLease : IDisposable
     }
     internal bool ResumeFile(string relative, long length)
     {
+        if (TryResumeFile(relative, length)) return true;
+        CreateFile(relative, length);
+        return false;
+    }
+    internal bool TryResumeFile(string relative, long length)
+    {
         var parts = Parts(relative);
         using var parent = Directory(parts, parts.Length - 1, create: true, adoptExisting: true);
         int descriptor = openat(parent, parts[^1], FileFlags);
-        bool existing = descriptor >= 0;
-        SafeFileHandle file;
-        if (existing)
+        if (descriptor < 0)
         {
-            file = Handle(descriptor);
+            if (Marshal.GetLastPInvokeError() == 2) return false;
+            throw NativeFailure();
         }
-        else
-        {
-            if (Marshal.GetLastPInvokeError() != 2) throw NativeFailure();
-            file = Handle(openat_create(parent, parts[^1], FileFlags | 2 | 0x200 | 0x800,
-                0, 0, 0, 0, 0, 0x180));
-        }
-        using (file)
-        {
-            var identity = Inspect(file, false);
-            if (existing)
-            {
-                if (RandomAccess.GetLength(file) != length)
-                    throw new Rejected("resume staging file length changed");
-            }
-            else
-            {
-                try { RandomAccess.SetLength(file, length); }
-                catch (IOException error) { throw ClassifyIO(error); }
-            }
-            files.Add(string.Join('/', parts), identity);
-        }
-        return existing;
+        using var file = Handle(descriptor);
+        var identity = Inspect(file, false);
+        if (RandomAccess.GetLength(file) != length)
+            throw new Rejected("resume staging file length changed");
+        files.Add(string.Join('/', parts), identity);
+        return true;
     }
     internal SafeFileHandle OpenFile(string relative, bool write)
     {

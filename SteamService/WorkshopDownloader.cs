@@ -23,8 +23,11 @@ namespace SteamService;
 // - 只产出 staged 内容；入库/ready 由 SK4.3 的 App 侧事务负责。
 internal sealed partial class SteamSession
 {
+    internal const int MaxActiveDownloadJobs = 2;
+    internal const int MaxConcurrentDownloadChunks = 4;
     private const int DownloadWorkersPerJob = 4;
     private const long MaxStagedBytes = 8L * 1024 * 1024 * 1024;
+    private const long DiskSafetyReserveBytes = 256L * 1024 * 1024;
     private const int MaxStagedFiles = 200_000;
     /// Steam CDN 实际 chunk ≤1 MiB；这是恶意/异常 manifest 的 OOM 围栏（§3 硬拒绝最小 unsafe unit）。
     private const long MaxChunkBytes = 64L * 1024 * 1024;
@@ -35,6 +38,9 @@ internal sealed partial class SteamSession
 
     private readonly object downloadGate = new();
     private readonly Dictionary<string, ActiveDownload> activeDownloads = new();
+    private readonly SemaphoreSlim downloadChunkSlots = new(
+        MaxConcurrentDownloadChunks,
+        MaxConcurrentDownloadChunks);
 
     private sealed class ActiveDownload
     {
@@ -50,6 +56,7 @@ internal sealed partial class SteamSession
         public required AccountLease Account;
         public required SteamClient Source;
         public readonly DownloadProgressState Progress = new();
+        public long ReservedStagingBytes; // guarded by downloadGate
         public bool TerminalDecided; // guarded by downloadGate, shared with cancellation acceptance
     }
 
@@ -74,9 +81,9 @@ internal sealed partial class SteamSession
             }
             lock (downloadGate)
             {
-                if (activeDownloads.Count >= 1)
+                if (!DownloadJobCapacityAvailableLocked())
                 {
-                    EmitQueryFailure(requestId, "rateLimited", "previous download is still draining", requestedEpoch);
+                    EmitQueryFailure(requestId, "rateLimited", "download job capacity reached", requestedEpoch);
                     return;
                 }
                 if (string.IsNullOrWhiteSpace(stagingRoot) || !Path.IsPathRooted(stagingRoot))
@@ -166,6 +173,9 @@ internal sealed partial class SteamSession
                     totalBytes: manifestTotalBytes, totalChunks: totalChunks);
 
                 var work = new ConcurrentQueue<(DepotManifest.FileData File, DepotManifest.ChunkData Chunk, string RelativePath)>();
+                var missingFiles = new List<(string RelativePath, long Length)>();
+                long missingBytes = 0;
+                if (!resuming) ReserveStagingCapacity(context, manifestTotalBytes);
                 foreach (var file in files)
                 {
                     cancellation.Token.ThrowIfCancellationRequested();
@@ -176,9 +186,10 @@ internal sealed partial class SteamSession
                         continue;
                     }
                     bool existing = resuming
-                        ? lease.ResumeFile(file.FileName, checked((long)file.TotalSize))
+                        ? lease.TryResumeFile(file.FileName, checked((long)file.TotalSize))
                         : false;
                     if (!resuming) lease.CreateFile(file.FileName, checked((long)file.TotalSize));
+                    else if (!existing) missingFiles.Add((file.FileName, checked((long)file.TotalSize)));
                     foreach (var chunk in file.Chunks)
                     {
                         if (existing && IsStagedChunkValid(lease, file.FileName, chunk, cancellation.Token))
@@ -190,8 +201,16 @@ internal sealed partial class SteamSession
                         else
                         {
                             work.Enqueue((file, chunk, file.FileName));
+                            missingBytes = checked(missingBytes + (long)chunk.UncompressedLength);
                         }
                     }
+                }
+
+                if (resuming)
+                {
+                    ReserveStagingCapacity(context, missingBytes);
+                    foreach (var missing in missingFiles)
+                        lease.CreateFile(missing.RelativePath, missing.Length);
                 }
 
                 var verifiedBytes = await DownloadChunksAsync(
@@ -230,6 +249,7 @@ internal sealed partial class SteamSession
             {
                 lock (downloadGate)
                 {
+                    context.ReservedStagingBytes = 0;
                     activeDownloads.Remove(jobId);
                 }
                 context.Cancellation.Dispose();
@@ -246,6 +266,59 @@ internal sealed partial class SteamSession
             return true;
         }
     }
+
+    private bool DownloadJobCapacityAvailableLocked() => activeDownloads.Count < MaxActiveDownloadJobs;
+
+    private void ReserveStagingCapacity(ActiveDownload context, long requiredBytes)
+    {
+        lock (downloadGate)
+        {
+            long availableBytes;
+            try { availableBytes = AvailableDiskBytes(context.StagingRoot); }
+            catch (UnauthorizedAccessException)
+            {
+                throw new SteamRequestFailure("accessDenied", "staging disk capacity access denied");
+            }
+            catch (IOException)
+            {
+                throw new SteamRequestFailure("helperUnavailable", "staging disk capacity unavailable");
+            }
+            long reservedBytes = 0;
+            foreach (var active in activeDownloads.Values)
+            {
+                if (!ReferenceEquals(active, context))
+                    reservedBytes = checked(reservedBytes + active.ReservedStagingBytes);
+            }
+            if (!CanReserveDiskBytes(requiredBytes, availableBytes, reservedBytes))
+                throw new WorkshopStagingLease.Failure(
+                    "diskFull", "insufficient staging space; partial download retained");
+            context.ReservedStagingBytes = requiredBytes;
+        }
+    }
+
+    private static long AvailableDiskBytes(string path)
+    {
+        var full = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var drive = DriveInfo.GetDrives()
+            .Where(candidate =>
+            {
+                var root = candidate.RootDirectory.FullName.TrimEnd(Path.DirectorySeparatorChar)
+                    + Path.DirectorySeparatorChar;
+                return full.StartsWith(root, StringComparison.Ordinal);
+            })
+            .OrderByDescending(candidate => candidate.RootDirectory.FullName.Length)
+            .FirstOrDefault() ?? throw new IOException("staging volume unavailable");
+        return drive.AvailableFreeSpace;
+    }
+
+    internal static long AvailableDiskBytesForTest(string path) => AvailableDiskBytes(path);
+
+    internal static bool CanReserveDiskBytes(long requiredBytes, long availableBytes, long alreadyReservedBytes) =>
+        requiredBytes >= 0 && requiredBytes <= MaxStagedBytes
+            && availableBytes >= 0 && alreadyReservedBytes >= 0
+            && alreadyReservedBytes <= availableBytes
+            && requiredBytes <= availableBytes - alreadyReservedBytes
+            && DiskSafetyReserveBytes <= availableBytes - alreadyReservedBytes - requiredBytes;
 
     private void FinishDownloadSuccess(ActiveDownload context, object receipt)
     {
@@ -419,10 +492,11 @@ internal sealed partial class SteamSession
         {
             ct.ThrowIfCancellationRequested();
             var buffer = new byte[item.Chunk.UncompressedLength];
-            var written = await workerClient
-                .DownloadDepotChunkAsync(depotId, item.Chunk, server, buffer, depotKey)
-                .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.ChunkTimeoutSeconds), ct)
-                .ConfigureAwait(false);
+            var written = await WithDownloadChunkSlot(async () =>
+                await workerClient
+                    .DownloadDepotChunkAsync(depotId, item.Chunk, server, buffer, depotKey)
+                    .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.ChunkTimeoutSeconds), ct)
+                    .ConfigureAwait(false), ct).ConfigureAwait(false);
             if (written != (int)item.Chunk.UncompressedLength)
             {
                 throw new InvalidDataException($"short chunk read: {written}/{item.Chunk.UncompressedLength}");
@@ -506,6 +580,16 @@ internal sealed partial class SteamSession
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         return IsChunkValid(stream, chunk, ct, hash);
     }
+
+    private async Task<T> WithDownloadChunkSlot<T>(Func<Task<T>> body, CancellationToken ct)
+    {
+        await downloadChunkSlots.WaitAsync(ct).ConfigureAwait(false);
+        try { return await body().ConfigureAwait(false); }
+        finally { downloadChunkSlots.Release(); }
+    }
+
+    internal async Task<T> WithDownloadChunkSlotForTest<T>(Func<Task<T>> body, CancellationToken ct) =>
+        await WithDownloadChunkSlot(body, ct).ConfigureAwait(false);
 
     /// 路径围栏：manifest 内相对路径必须解析到 stagingRoot 之内。
     internal static string ResolveContainedPath(string root, string relative)

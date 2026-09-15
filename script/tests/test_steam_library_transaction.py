@@ -23,6 +23,26 @@ import Foundation
     @MainActor static func main() async throws {
         let base = URL(fileURLWithPath: CommandLine.arguments[1])
         let mode = CommandLine.arguments[2]
+        if mode == "capacity" {
+            let gib = Int64(1024 * 1024 * 1024)
+            let reserve = Int64(SteamWorkshopLibraryTransaction.diskSafetyReserveBytes)
+            precondition(SteamWorkshopLibraryTransaction.maximumRetainedBytesBeforeAdmissions == 16 * 1024 * 1024 * 1024)
+            precondition(SteamWorkshopLibraryTransaction.canReserveDiskBytes(
+                required: 8 * gib, available: 16 * gib + reserve, alreadyReserved: 8 * gib))
+            precondition(!SteamWorkshopLibraryTransaction.canReserveDiskBytes(
+                required: 8 * gib, available: 16 * gib + reserve - 1, alreadyReserved: 8 * gib))
+            precondition(!SteamWorkshopLibraryTransaction.canReserveDiskBytes(
+                required: -1, available: Int64.max, alreadyReserved: 0))
+            let available = try SteamWorkshopLibraryTransaction.availableDiskBytes(
+                at: base.appendingPathComponent("capacity-root", isDirectory: true))
+            precondition(available > 0)
+            let sameFileSystem = try SteamWorkshopLibraryTransaction.areOnSameFileSystem(
+                base.appendingPathComponent("capacity-root", isDirectory: true),
+                base.appendingPathComponent("capacity-peer", isDirectory: true))
+            precondition(sameFileSystem)
+            print("CAPACITY")
+            return
+        }
         if mode == "cleanup" || mode == "cleanup-replaced" {
             let root = base.appendingPathComponent("staging", isDirectory: true)
             let target = root.appendingPathComponent("job-" + String(repeating: "c", count: 32), isDirectory: true)
@@ -311,8 +331,14 @@ class SteamLibraryTransactionTests(unittest.TestCase):
             versions = root / 'library' / '.mywallpaperx-steam-versions'
             versions.mkdir()
             with (versions / 'retained').open('wb') as f:
-                f.truncate(25 * 1024 * 1024 * 1024)  # sparse, isolated fixture; no 25GiB payload allocation
+                f.truncate(17 * 1024 * 1024 * 1024)  # sparse, isolated fixture; no 17GiB payload allocation
         self.scenario(mutate=mutate, accepted=False)
+
+    def test_concurrent_disk_reservation_boundary(self):
+        with tempfile.TemporaryDirectory(prefix='mwx-steam-capacity-', dir='/private/tmp') as temporary:
+            result = subprocess.run([str(self.binary), temporary, 'capacity'], capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('CAPACITY', result.stdout)
 
     def test_retained_directory_budget(self):
         def mutate(root, stage):

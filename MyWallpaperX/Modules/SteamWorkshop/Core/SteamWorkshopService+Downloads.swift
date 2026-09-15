@@ -34,7 +34,7 @@ extension SteamWorkshopService {
             if downloadJobStore.activeJob(forWorkshopItemId: id)?.state == .queued {
                 processNextQueuedDownloadIfPossible()
             }
-            if activeDownloadItemID != id {
+            if !activeDownloadItemIDs.contains(id) {
                 statusMessage = "\(title) 已在下载任务中。"
                 appendSteamAuthDebugLog("DOWNLOAD BLOCKED: duplicate active/queued request. requestedID=\(id)")
             }
@@ -50,7 +50,7 @@ extension SteamWorkshopService {
         // 时先按 FIFO 出队，本次点击排在被出队任务之后——持久化队列不能被
         // 新点击永久饿死。
         processNextQueuedDownloadIfPossible()
-        if activeDownloadItemID != nil {
+        if activeDownloadTasks.count >= maximumConcurrentDownloads {
             enqueueDownloadRequest(id: id, pageTitle: pageTitle, item: requestItem)
             return
         }
@@ -68,8 +68,7 @@ extension SteamWorkshopService {
     }
 
     func canRequestDownload(id: String) -> Bool {
-        activeDownloadItemID != id
-            && !isQueuedDownloadRequest(id: id)
+        !isQueuedDownloadRequest(id: id)
     }
 
     private func isValidWorkshopItemID(_ itemID: String) -> Bool {
@@ -83,8 +82,8 @@ extension SteamWorkshopService {
     /// 的排空只走 processNextQueuedDownloadIfPossible（含上面 downloadWorkshopItem
     /// 的 FIFO 推活），否则重启恢复的 queued 任务会永久堵死新下载。
     private var isDownloadWorkflowBusy: Bool {
-        activeDownloadItemID != nil
-            || activeDownloadTask != nil
+        activeDownloadTasks.count >= maximumConcurrentDownloads
+            || !reservedLibraryCopyBytesByJobKey.isEmpty
             || isAuthenticating
             || isLoginSheetPresented
             || authPhase == .awaitingGuardCode
@@ -93,7 +92,16 @@ extension SteamWorkshopService {
     func startDownloadRequest(_ request: SteamWorkshopPendingDownloadRequest) {
         guard let account = downloadAdmissionAccount() else { return }
         let job: SteamDownloadJob
-        if let failed = downloadJobStore.failedJob(
+        if let active = downloadJobStore.activeJob(forWorkshopItemId: request.id) {
+            guard active.accountSteamId == account else { return }
+            if active.state == .queued {
+                guard let started = downloadJobStore.apply(.started, toID: active.id) else { return }
+                job = started
+            } else {
+                guard active.state == .running else { return }
+                job = active
+            }
+        } else if let failed = downloadJobStore.failedJob(
             forWorkshopItemId: request.id,
             accountSteamId: account
         ) {
@@ -135,19 +143,19 @@ extension SteamWorkshopService {
     }
 
     private func beginDownloadWorkflow(_ request: SteamWorkshopPendingDownloadRequest) {
-        guard activeDownloadTask == nil,
+        guard activeDownloadTasks.count < maximumConcurrentDownloads,
               let job = downloadJobStore.activeJob(forWorkshopItemId: request.id), job.state == .running,
               downloadJobStore.lastSaveSucceeded else { return }
         let epoch = steamServiceClient.accountEpoch
         let key = "\(job.id)-\(job.attempt)"
-        activeDownloadItemID = request.id
-        activeDownloadJobKey = key
-        activeDownloadWasCancelled = false
+        activeDownloadItemIDs.insert(request.id)
+        activeDownloadJobKeysByItemID[request.id] = key
         statusMessage = "正在通过 Steam 下载 \(job.title)…"
         upsertTransientRecord(id: request.id, title: job.title, status: .downloading,
                               sizeText: downloadStatusSizeText(for: request.id))
         let observer = steamServiceClient.addEventObserver { [weak self] frame in
-            guard let self, self.activeDownloadJobKey == key, self.steamServiceClient.accountEpoch == epoch,
+            guard let self, self.activeDownloadJobKeysByItemID[request.id] == key,
+                  self.steamServiceClient.accountEpoch == epoch,
                   frame.event == "downloadProgress", frame.jobId == key else { return }
             if let path = frame.root["stagingPath"]?.stringValue,
                let manifestId = frame.root["manifestId"]?.stringValue,
@@ -165,22 +173,24 @@ extension SteamWorkshopService {
             let stage = frame.root["stage"]?.stringValue ?? ""
             self.statusMessage = stage == "validating" ? "正在校验 \(job.title)…" : "正在下载 \(job.title)…"
         }
-        activeDownloadTask = Task { [weak self] in
+        let task = Task { [weak self] in
             guard let self else { return }
             defer {
                 self.steamServiceClient.removeEventObserver(observer)
-                if self.activeDownloadJobKey == key {
-                    self.activeDownloadTask = nil
-                    self.activeDownloadItemID = nil
-                    self.activeDownloadJobKey = nil
-                    self.activeDownloadWasCancelled = false
+                self.activeDownloadTasks[key] = nil
+                self.cancelledDownloadJobKeys.remove(key)
+                self.reservedLibraryCopyBytesByJobKey[key] = nil
+                if self.activeDownloadJobKeysByItemID[request.id] == key {
+                    self.activeDownloadJobKeysByItemID[request.id] = nil
+                    self.activeDownloadItemIDs.remove(request.id)
                     self.steamJobItemPayloads.removeValue(forKey: request.id)
-                    self.processNextQueuedDownloadIfPossible()
                 }
+                self.processNextQueuedDownloadIfPossible()
             }
             @MainActor func checkCurrent() throws {
                 try Task.checkCancellation()
-                guard self.activeDownloadJobKey == key, self.steamServiceClient.accountEpoch == epoch,
+                guard self.activeDownloadJobKeysByItemID[request.id] == key,
+                      self.steamServiceClient.accountEpoch == epoch,
                       self.steamAuth.steamId == job.accountSteamId,
                       let current = self.downloadJobStore.job(id: job.id), current.isActive,
                       current.attempt == job.attempt else { throw CancellationError() }
@@ -205,7 +215,23 @@ extension SteamWorkshopService {
                 guard self.downloadJobStore.apply(.staged(receipt), toID: job.id) != nil else {
                     throw SteamWorkshopLibraryTransaction.Failure(message: "无法保存下载凭证，尚未入库。")
                 }
+                try await self.claimLibraryCopyCapacity(jobKey: key)
+                try checkCurrent()
                 let library = self.steamDownloadLibraryRootURL
+                let capacity = Task.detached(priority: .utility) {
+                    (
+                        available: try SteamWorkshopLibraryTransaction.availableDiskBytes(at: library),
+                        sharesStagingVolume: try SteamWorkshopLibraryTransaction.areOnSameFileSystem(library, staging)
+                    )
+                }
+                let capacitySnapshot = try await capacity.value
+                try checkCurrent()
+                try self.reserveLibraryCopyCapacity(
+                    required: Int64(receipt.verifiedBytes),
+                    available: capacitySnapshot.available,
+                    sharesStagingVolume: capacitySnapshot.sharesStagingVolume,
+                    jobKey: key
+                )
                 let preparation = Task.detached(priority: .utility) {
                     try SteamWorkshopLibraryTransaction.prepare(receipt: receipt, attempt: job.attempt, libraryRoot: library)
                 }
@@ -230,9 +256,9 @@ extension SteamWorkshopService {
                 self.statusMessage = recorded ? "已完成 \(job.title) 下载"
                     : "内容已入库；任务记录保存失败，下次启动将对账。"
             } catch {
-                guard self.activeDownloadJobKey == key else { return }
+                guard self.activeDownloadJobKeysByItemID[request.id] == key else { return }
                 var terminalError: Error = error
-                var cancelled = error is CancellationError || self.activeDownloadWasCancelled
+                var cancelled = error is CancellationError || self.cancelledDownloadJobKeys.contains(key)
                     || (error as? SteamServiceClient.RequestError) == .cancelled
                 let invalidRecovery: Bool = {
                     guard case let .helperError(code, _) = error as? SteamServiceClient.RequestError else {
@@ -254,8 +280,9 @@ extension SteamWorkshopService {
                         )
                     }
                 }
+                let failureMessage = self.downloadFailureMessage(terminalError)
                 _ = self.downloadJobStore.apply(
-                    cancelled ? .cancelled : .failed(terminalError.localizedDescription),
+                    cancelled ? .cancelled : .failed(failureMessage),
                     toID: job.id
                 )
                 if cancelled {
@@ -264,15 +291,16 @@ extension SteamWorkshopService {
                     self.upsertTransientRecord(
                         id: request.id,
                         title: job.title,
-                        status: .failed(terminalError.localizedDescription),
+                        status: .failed(failureMessage),
                         sizeText: self.downloadStatusSizeText(for: request.id)
                     )
+                    self.downloadError = failureMessage
                 }
                 self.reloadInstalledItems()
-                self.statusMessage = cancelled ? "已取消下载。" : terminalError.localizedDescription
-                if !cancelled { self.downloadError = terminalError.localizedDescription }
+                self.statusMessage = cancelled ? "已取消下载。" : failureMessage
             }
         }
+        activeDownloadTasks[key] = task
     }
 
     private func removeOwnedDownloadStaging(_ path: String) async throws {
@@ -291,23 +319,79 @@ extension SteamWorkshopService {
         }.value
     }
 
+    private func reserveLibraryCopyCapacity(
+        required: Int64,
+        available: Int64,
+        sharesStagingVolume: Bool,
+        jobKey: String
+    ) throws {
+        var reserved = reservedLibraryCopyBytesByJobKey
+            .filter { $0.key != jobKey }
+            .values.reduce(Int64(0), +)
+        if sharesStagingVolume {
+            let helperJobs = activeDownloadTasks.keys.filter {
+                $0 != jobKey && reservedLibraryCopyBytesByJobKey[$0] == nil
+            }.count
+            reserved += Int64(helperJobs) * Int64(SteamWorkshopLibraryTransaction.maxBytes)
+        }
+        guard SteamWorkshopLibraryTransaction.canReserveDiskBytes(
+            required: required,
+            available: available,
+            alreadyReserved: reserved
+        ) else {
+            throw SteamWorkshopLibraryTransaction.Failure(
+                message: "磁盘空间不足，下载暂存已保留；释放空间后可重试。"
+            )
+        }
+        reservedLibraryCopyBytesByJobKey[jobKey] = required
+    }
+
+    private func claimLibraryCopyCapacity(jobKey: String) async throws {
+        // Copying a version changes the observed free-space value. Serialize
+        // copies so an earlier reservation is never subtracted a second time
+        // after its bytes have already reached disk.
+        while reservedLibraryCopyBytesByJobKey.keys.contains(where: { $0 != jobKey }) {
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        reservedLibraryCopyBytesByJobKey[jobKey] = 0
+    }
+
+    private func downloadFailureMessage(_ error: Error) -> String {
+        if case let .helperError(code, _) = error as? SteamServiceClient.RequestError,
+           code == "diskFull" {
+            return "磁盘空间不足，下载暂存已保留；释放空间后可重试。"
+        }
+        return error.localizedDescription
+    }
+
     func cancelActiveDownload() { cancelDownloadImmediately(showFeedback: true) }
     func cancelDownload(itemID: String) { cancelDownloadImmediately(itemID: itemID, showFeedback: true) }
 
     func cancelDownloadImmediately(itemID: String? = nil, showFeedback: Bool) {
-        if let itemID, itemID != activeDownloadItemID {
-            if let job = downloadJobStore.activeJob(forWorkshopItemId: itemID),
-               downloadJobStore.cancel(id: job.id) != nil {
-                steamJobItemPayloads.removeValue(forKey: itemID)
-                removeTransientRecord(id: itemID)
-                if showFeedback { statusMessage = "已移出下载队列。" }
+        let keys: [String]
+        if let itemID {
+            if let key = activeDownloadJobKeysByItemID[itemID] {
+                keys = [key]
+            } else {
+                if let job = downloadJobStore.activeJob(forWorkshopItemId: itemID),
+                   downloadJobStore.cancel(id: job.id) != nil {
+                    steamJobItemPayloads.removeValue(forKey: itemID)
+                    removeTransientRecord(id: itemID)
+                    if showFeedback { statusMessage = "已移出下载队列。" }
+                }
+                return
             }
-            return
+        } else {
+            keys = Array(activeDownloadTasks.keys)
         }
-        guard activeDownloadTask != nil else { return }
-        activeDownloadWasCancelled = true
-        activeDownloadTask?.cancel()
-        if showFeedback { statusMessage = "正在取消当前下载…" }
+        guard !keys.isEmpty else { return }
+        for key in keys {
+            cancelledDownloadJobKeys.insert(key)
+            activeDownloadTasks[key]?.cancel()
+        }
+        if showFeedback {
+            statusMessage = keys.count == 1 ? "正在取消当前下载…" : "正在取消 \(keys.count) 个下载…"
+        }
     }
 
     private func enqueueDownloadRequest(id: String, pageTitle: String?, item: SteamWorkshopBrowserItem?) {
@@ -341,22 +425,23 @@ extension SteamWorkshopService {
     }
 
     private func processNextQueuedDownloadIfPossible() {
-        guard activeDownloadItemID == nil,
-              activeDownloadTask == nil,
-              !isLoginSheetPresented,
+        guard !isLoginSheetPresented,
               authPhase != .awaitingGuardCode,
-              !isAuthenticating else { return }
+              !isAuthenticating,
+              reservedLibraryCopyBytesByJobKey.isEmpty else { return }
 
         // 恢复任务只按当前在线账号出队。无账号时保持队列原样，不制造匿名任务。
         guard steamAuth.isOnline, let account = steamAuth.steamId else { return }
-        guard let next = downloadJobStore.popNextQueued(
-            forAccount: account
-        ) else { return }
-        startDownloadRequest(SteamWorkshopPendingDownloadRequest(
-            id: next.workshopItemId,
-            pageTitle: next.title,
-            item: steamJobItemPayloads[next.workshopItemId]
-        ))
+        while activeDownloadTasks.count < maximumConcurrentDownloads,
+              let next = downloadJobStore.popNextQueued(forAccount: account) {
+            let before = activeDownloadTasks.count
+            startDownloadRequest(SteamWorkshopPendingDownloadRequest(
+                id: next.workshopItemId,
+                pageTitle: next.title,
+                item: steamJobItemPayloads[next.workshopItemId]
+            ))
+            if activeDownloadTasks.count == before { break }
+        }
     }
 
     private func isQueuedDownloadRequest(id: String) -> Bool {

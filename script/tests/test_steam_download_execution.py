@@ -35,9 +35,16 @@ class SteamDownloadExecutionTests(unittest.TestCase):
             files = {'project.json': b'{"type":"web","file":"index.html"}', 'index.html': b'hello'}
             for name, value in files.items():
                 (stage / name).write_bytes(value)
+            second_stage = root / 'staging' / ('job-' + 'b' * 32)
+            if mode in ('concurrent-cancel', 'concurrent-success'):
+                second_stage.mkdir(parents=True)
+                for name, value in files.items():
+                    (second_stage / name).write_bytes(value)
             index = root / 'library' / '.mywallpaperx-steam-metadata'
             index.mkdir(parents=True)
             (index / '123456.json').write_text('OLD READY POINTER')
+            if mode in ('concurrent-cancel', 'concurrent-success'):
+                (index / '654321.json').write_text('OLD SECOND READY POINTER')
             if mode == 'publish-failure':
                 index.rename(root / 'outside-index')
                 index.symlink_to(root / 'outside-index')
@@ -45,6 +52,7 @@ class SteamDownloadExecutionTests(unittest.TestCase):
                 'receiptVersion': 2, 'contentDigest': digest(files), 'jobId': 'replaced-by-wire-fixture',
                 'workshopId': '123456', 'accountSteamId': '76561198000000000', 'stagedComplete': True,
                 'projectJsonPresent': True, 'manifestId': '123', 'stagingPath': str(stage),
+                'secondStagingPath': str(second_stage),
                 'totalBytes': sum(map(len, files.values())), 'verifiedBytes': sum(map(len, files.values()))}}))
             result = subprocess.run([str(self.binary), str(root), mode], capture_output=True, text=True, timeout=15)
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -67,6 +75,15 @@ class SteamDownloadExecutionTests(unittest.TestCase):
 
     def test_manifest_mismatch_invalidates_and_cleans_recovery_identity(self):
         self.run_case('manifest-mismatch')
+
+    def test_cancel_one_of_two_active_jobs_does_not_retire_the_other(self):
+        self.run_case('concurrent-cancel')
+
+    def test_disk_full_retains_recoverable_staging_and_surfaces_action(self):
+        self.run_case('disk-full')
+
+    def test_two_successes_serialize_library_copy_and_publish_both(self):
+        self.run_case('concurrent-success')
 
 
 if __name__ == '__main__':

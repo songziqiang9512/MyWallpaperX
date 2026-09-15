@@ -23,6 +23,8 @@ nonisolated enum SteamWorkshopLibraryTransaction {
     static let versionsName = ".mywallpaperx-steam-versions"
     static let metadataName = ".mywallpaperx-steam-metadata"
     static let maxBytes = 8 * 1024 * 1024 * 1024
+    static let maximumRetainedBytesBeforeAdmissions = 16 * 1024 * 1024 * 1024
+    static let diskSafetyReserveBytes = 256 * 1024 * 1024
 
     struct ReclamationResult: Equatable, Sendable {
         let removedDirectoryNames: [String]
@@ -228,10 +230,35 @@ nonisolated enum SteamWorkshopLibraryTransaction {
     private static func admitRetainedBytes(in root: FD) throws {
         var total: Int64 = 0
         for entry in try files(root, topLevelLimit: 64) {
-            try require(entry.size <= Int64(24 * 1024 * 1024 * 1024) - total,
+            try require(entry.size <= Int64(maximumRetainedBytesBeforeAdmissions) - total,
                 "保留的下载/版本已达到磁盘预算；请先处理旧任务和版本。")
             total += entry.size
         }
+    }
+
+    static func availableDiskBytes(at root: URL) throws -> Int64 {
+        _ = try absoluteDirectory(root, create: true)
+        let attributes = try FileManager.default.attributesOfFileSystem(forPath: root.path)
+        guard let value = attributes[.systemFreeSize] as? NSNumber else {
+            throw Failure(message: "无法读取下载磁盘的剩余空间。")
+        }
+        return value.int64Value
+    }
+
+    static func areOnSameFileSystem(_ lhs: URL, _ rhs: URL) throws -> Bool {
+        _ = try absoluteDirectory(lhs, create: true)
+        _ = try absoluteDirectory(rhs, create: true)
+        let left = try FileManager.default.attributesOfFileSystem(forPath: lhs.path)[.systemNumber] as? NSNumber
+        let right = try FileManager.default.attributesOfFileSystem(forPath: rhs.path)[.systemNumber] as? NSNumber
+        guard let left, let right else { throw Failure(message: "无法识别下载目录所在磁盘。") }
+        return left == right
+    }
+
+    static func canReserveDiskBytes(required: Int64, available: Int64, alreadyReserved: Int64) -> Bool {
+        guard required >= 0, available >= 0, alreadyReserved >= 0,
+              required <= Int64(maxBytes), alreadyReserved <= available else { return false }
+        return required <= available - alreadyReserved
+            && Int64(diskSafetyReserveBytes) <= available - alreadyReserved - required
     }
     static func isAvailable(_ commit: SteamWorkshopLibraryCommit, libraryRoot: URL) -> Bool {
         guard !commit.removed, let url = try? contentURL(for: commit, libraryRoot: libraryRoot),
