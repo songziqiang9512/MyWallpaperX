@@ -667,6 +667,8 @@ private final class SteamWorkshopDownloadTaskRowView: NSView {
     private var speedSamples: [Double] = []
     private var lastByteSample: (bytes: Int64, date: Date)?
     private var lastProgressSequence = -1
+    private var progressAccessibilityBucket: Int?
+    private var progressAccessibilityPhase: SteamWorkshopDownloadProgressSnapshot.Phase?
     private var isCancellationRequested = false
     private var sessionExpired: Bool
 
@@ -709,10 +711,13 @@ private final class SteamWorkshopDownloadTaskRowView: NSView {
             speedSamples.removeAll()
             lastByteSample = nil
             lastProgressSequence = -1
+            progressAccessibilityBucket = nil
+            progressAccessibilityPhase = nil
             isCancellationRequested = false
         }
         titleLabel.stringValue = job.title
         titleLabel.toolTip = job.title
+        progressBar.setAccessibilityLabel("下载进度：\(job.title)")
         let isCancellable = SteamWorkshopDownloadTaskProjection.isCancellable(job)
         cancelButton.isHidden = !isCancellable
         cancelButton.isEnabled = isCancellable && !isCancellationRequested
@@ -723,6 +728,8 @@ private final class SteamWorkshopDownloadTaskRowView: NSView {
         loadPreviewIfNeeded()
         if let snapshot = service.downloadProgressStore.snapshot(for: job.workshopItemId) {
             apply(snapshot: snapshot)
+        } else {
+            updateFallbackProgressAccessibility()
         }
     }
 
@@ -764,6 +771,8 @@ private final class SteamWorkshopDownloadTaskRowView: NSView {
         progressBar.translatesAutoresizingMaskIntoConstraints = false
         progressBar.layer?.cornerRadius = 2.5
         progressBar.setProgressAnimationVisible(true)
+        progressBar.setAccessibilityElement(true)
+        progressBar.setAccessibilityRole(.progressIndicator)
 
         [cancelButton, retryButton, detailButton].forEach {
             $0.bezelStyle = .inline
@@ -865,6 +874,39 @@ private final class SteamWorkshopDownloadTaskRowView: NSView {
         }
     }
 
+    private func updateFallbackProgressAccessibility() {
+        let phase: SteamWorkshopDownloadProgressSnapshot.Phase?
+        let percent: Int?
+        if sessionExpired {
+            phase = .waiting
+            percent = nil
+        } else {
+            switch job.state {
+            case .queued:
+                phase = .waiting
+                percent = nil
+            case .running:
+                phase = .connecting
+                percent = nil
+            case .staged, .committing, .completed:
+                phase = .saving
+                percent = 100
+            case .failed:
+                phase = .failed
+                percent = nil
+            case .cancelled:
+                phase = nil
+                percent = nil
+            }
+        }
+        updateProgressAccessibility(
+            value: statusLabel.stringValue,
+            phase: phase,
+            percent: percent,
+            announce: true
+        )
+    }
+
     private func apply(snapshot: SteamWorkshopDownloadProgressSnapshot) {
         guard snapshot.itemID == job.workshopItemId,
               snapshot.jobKey == SteamWorkshopDownloadTaskProjection.jobKey(for: job) else { return }
@@ -926,6 +968,28 @@ private final class SteamWorkshopDownloadTaskRowView: NSView {
                 animated: false
             )
             statusLabel.toolTip = "Steam 会话已过期；任务不会自动打开登录面板。"
+        }
+        updateProgressAccessibility(
+            value: statusLabel.stringValue,
+            phase: sessionExpired ? .waiting : snapshot.phase,
+            percent: snapshot.percent,
+            announce: snapshot.sequence > 0
+        )
+    }
+
+    private func updateProgressAccessibility(
+        value: String,
+        phase: SteamWorkshopDownloadProgressSnapshot.Phase?,
+        percent: Int?,
+        announce: Bool
+    ) {
+        progressBar.setAccessibilityValue(value)
+        let bucket = percent.map { $0 / 10 }
+        let changed = phase != progressAccessibilityPhase || bucket != progressAccessibilityBucket
+        progressAccessibilityPhase = phase
+        progressAccessibilityBucket = bucket
+        if announce, changed, progressBar.window != nil {
+            NSAccessibility.post(element: progressBar, notification: .valueChanged)
         }
     }
 
@@ -1003,15 +1067,22 @@ private final class SteamWorkshopDownloadTaskRowView: NSView {
 
     @objc private func handleCancel() {
         guard SteamWorkshopDownloadTaskProjection.isCancellable(job) else { return }
+        let snapshot = service.downloadProgressStore.snapshot(for: job.workshopItemId)
         isCancellationRequested = true
         cancelButton.isEnabled = false
         statusLabel.stringValue = job.state == .queued ? "正在移出队列…" : "正在取消…"
         statusLabel.textColor = .secondaryLabelColor
         progressBar.applyProgress(
             style: .waiting,
-            fraction: service.downloadProgressStore.snapshot(for: job.workshopItemId)?.fraction,
+            fraction: snapshot?.fraction,
             indeterminate: false,
             animated: false
+        )
+        updateProgressAccessibility(
+            value: statusLabel.stringValue,
+            phase: .waiting,
+            percent: snapshot?.percent,
+            announce: true
         )
         cancel(job.workshopItemId)
         if job.state == .queued,
@@ -1021,6 +1092,12 @@ private final class SteamWorkshopDownloadTaskRowView: NSView {
             statusLabel.stringValue = "无法保存取消操作，请重试"
             statusLabel.textColor = .systemRed
             progressBar.applyProgress(style: .queued, fraction: nil, indeterminate: false, animated: false)
+            updateProgressAccessibility(
+                value: statusLabel.stringValue,
+                phase: .failed,
+                percent: nil,
+                announce: true
+            )
         }
     }
     @objc private func handleRetry() {
@@ -1028,6 +1105,12 @@ private final class SteamWorkshopDownloadTaskRowView: NSView {
         retryButton.isEnabled = false
         statusLabel.stringValue = "正在重试…"
         statusLabel.textColor = .secondaryLabelColor
+        updateProgressAccessibility(
+            value: statusLabel.stringValue,
+            phase: .waiting,
+            percent: service.downloadProgressStore.snapshot(for: job.workshopItemId)?.percent,
+            announce: true
+        )
         retry(job.workshopItemId, job.title)
         if let failed = service.downloadJobStore.failedJob(
             forWorkshopItemId: job.workshopItemId,
@@ -1036,6 +1119,12 @@ private final class SteamWorkshopDownloadTaskRowView: NSView {
             retryButton.isEnabled = true
             statusLabel.stringValue = "无法保存重试任务，请重试"
             statusLabel.textColor = .systemRed
+            updateProgressAccessibility(
+                value: statusLabel.stringValue,
+                phase: .failed,
+                percent: nil,
+                announce: true
+            )
         }
     }
     @objc private func handleDetail() { showDetail(job) }
