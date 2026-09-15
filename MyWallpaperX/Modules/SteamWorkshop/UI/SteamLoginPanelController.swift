@@ -34,6 +34,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     private let qrImageView = NSImageView()
     private let qrHintLabel = NSTextField(labelWithString: "使用 Steam 手机应用扫码确认")
     private let refreshQRButton = NSButton(title: "刷新二维码", target: nil, action: nil)
+    private let zoomQRButton = NSButton(title: "放大二维码", target: nil, action: nil)
     private let usernameField = NSTextField()
     private let passwordField = NSSecureTextField()
     private let rememberCheck = NSButton(checkboxWithTitle: "记住登录（下次打开自动恢复）", target: nil, action: nil)
@@ -49,8 +50,11 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         modeSegment.action = #selector(modeSwitched)
         refreshQRButton.target = self
         refreshQRButton.action = #selector(refreshQR)
+        zoomQRButton.target = self
+        zoomQRButton.action = #selector(showZoomWindow)
         loginButton.target = self
         loginButton.action = #selector(submitPassword)
+        loginButton.keyEquivalent = "\r"
         cancelButton.target = self
         cancelButton.action = #selector(cancelAndClose)
         // Esc = 取消并关闭（§9 可用性）。
@@ -63,6 +67,10 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
             action: #selector(showZoomWindow)
         ))
         qrImageView.toolTip = "点击放大二维码"
+        qrImageView.setAccessibilityElement(true)
+        qrImageView.setAccessibilityRole(.image)
+        qrImageView.setAccessibilityLabel("Steam 登录二维码")
+        qrImageView.setAccessibilityHelp("使用 Steam 手机应用扫码确认；也可按 Tab 移到“放大二维码”查看大图。")
     }
 
     /// 二维码放大窗：只复用当前挑战的图，独立关闭，不影响面板认证（§3.2）。
@@ -142,6 +150,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         }
         window.center()
         window.makeKeyAndOrderFront(nil)
+        window.makeFirstResponder(auth.isOnline ? usernameField : refreshQRButton)
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -173,7 +182,11 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     }
 
     private func setStatus(_ text: String) {
+        guard statusLabel.stringValue != text else { return }
         statusLabel.stringValue = text
+        if !text.isEmpty, window?.isVisible == true {
+            NSAccessibility.post(element: statusLabel, notification: .valueChanged)
+        }
     }
 
     private func apply(phase: SteamAccountSession.AuthPhase) {
@@ -194,17 +207,13 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         case .awaitingDeviceCode(let previousIncorrect):
             showPage(.guardInput(.deviceCode(previousIncorrect: previousIncorrect)))
             setStatus(previousIncorrect ? "上一枚验证码被拒绝，请重新输入" : "已进入 Steam 令牌验证")
-            if previousIncorrect {
-                window?.makeFirstResponder(codeField)
-            }
+            window?.makeFirstResponder(codeField)
         case .awaitingEmailCode(let emailDomain, let previousIncorrect):
             showPage(.guardInput(.emailCode(emailDomain: emailDomain, previousIncorrect: previousIncorrect)))
             setStatus(previousIncorrect
                 ? "上一枚验证码被拒绝，请重新输入"
                 : "验证码已发送到邮箱 \(emailDomain ?? "(未知)")")
-            if previousIncorrect {
-                window?.makeFirstResponder(codeField)
-            }
+            window?.makeFirstResponder(codeField)
         case .online:
             // §3.3：Keychain 保存失败必须可见，不伪报已保存——面板不自动关闭。
             if auth?.tokenSaveResult == .failed {
@@ -228,7 +237,10 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         case 0:
             cancelThenStart { [weak self] in self?.startQRLogin() }
         default:
-            cancelThenStart { [weak self] in self?.showPage(.password) }
+            cancelThenStart { [weak self] in
+                self?.showPage(.password)
+                self?.window?.makeFirstResponder(self?.usernameField)
+            }
         }
     }
 
@@ -358,6 +370,9 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         statusLabel.maximumNumberOfLines = 3
         statusLabel.preferredMaxLayoutWidth = 340
         statusLabel.alignment = .center
+        statusLabel.setAccessibilityElement(true)
+        statusLabel.setAccessibilityRole(.staticText)
+        statusLabel.setAccessibilityLabel("Steam 登录状态")
 
         cancelButton.bezelStyle = .rounded
         cancelButton.controlSize = .small
@@ -394,9 +409,15 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
             qrHintLabel.textColor = .secondaryLabelColor
             refreshQRButton.bezelStyle = .rounded
             refreshQRButton.controlSize = .small
+            zoomQRButton.bezelStyle = .rounded
+            zoomQRButton.controlSize = .small
+            let qrActions = NSStackView(views: [refreshQRButton, zoomQRButton])
+            qrActions.orientation = .horizontal
+            qrActions.alignment = .centerY
+            qrActions.spacing = 8
             containerStack.addArrangedSubview(qrImageView)
             containerStack.addArrangedSubview(qrHintLabel)
-            containerStack.addArrangedSubview(refreshQRButton)
+            containerStack.addArrangedSubview(qrActions)
         case .password:
             containerStack.addArrangedSubview(self.usernameField)
             containerStack.addArrangedSubview(passwordField)
@@ -415,6 +436,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
                 containerStack.addArrangedSubview(codeField)
                 let submit = NSButton(title: "提交验证码", target: self, action: #selector(submitGuardCode))
                 submit.bezelStyle = .rounded
+                submit.keyEquivalent = "\r"
                 containerStack.addArrangedSubview(submit)
             }
         }

@@ -8,6 +8,9 @@ import time
 import unittest
 from script.steam_auth_gate import GateError, run_gate
 
+ROOT = Path(__file__).resolve().parents[2]
+LOGIN_PANEL = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI/SteamLoginPanelController.swift'
+
 FAKE = r'''
 import json, sys, time
 mode = sys.argv[1]
@@ -79,3 +82,16 @@ class SteamAuthGateTests(unittest.TestCase):
     def test_deadline(self):
         started = time.monotonic(); self.run_case('deadline', fails=True)
         self.assertLess(time.monotonic() - started, 3)
+
+    def test_login_panel_exposes_keyboard_and_accessibility_actions(self):
+        panel = LOGIN_PANEL.read_text()
+        self.assertIn('loginButton.keyEquivalent = "\\r"', panel)
+        self.assertIn('submit.keyEquivalent = "\\r"', panel)
+        self.assertIn('window.makeFirstResponder(auth.isOnline ? usernameField : refreshQRButton)', panel)
+        self.assertIn('self?.window?.makeFirstResponder(self?.usernameField)', panel)
+        self.assertGreaterEqual(panel.count('window?.makeFirstResponder(codeField)'), 3)
+        self.assertIn('private let zoomQRButton', panel)
+        self.assertIn('zoomQRButton.action = #selector(showZoomWindow)', panel)
+        self.assertIn('qrImageView.setAccessibilityLabel("Steam 登录二维码")', panel)
+        self.assertIn('statusLabel.setAccessibilityRole(.staticText)', panel)
+        self.assertIn('NSAccessibility.post(element: statusLabel, notification: .valueChanged)', panel)
