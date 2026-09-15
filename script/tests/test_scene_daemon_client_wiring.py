@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def client_source() -> str:
-    runtime = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
+    runtime = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC"
     return "\n".join(
         (runtime / name).read_text(encoding="utf-8")
         for name in [
@@ -128,7 +128,10 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
         self.assertIn("applySystemPlaybackPausedState(true)", system_state)
         self.assertIn("applySystemPlaybackPausedState(false)", system_state)
         self.assertIn("PlaybackCommandMultiplexer.shared.dispatch(command)", hotkeys)
-        self.assertIn("dispatch(.setMuted(!isMuted))", hotkeys)
+        self.assertIn(
+            ".setMuted(!PlaybackMuteState.shared.isMuted)",
+            hotkeys,
+        )
         self.assertNotIn("WallpaperEngine.shared.togglePlayback()", hotkeys)
 
     def test_app_quit_waits_for_daemon_shutdown_completion(self) -> None:
