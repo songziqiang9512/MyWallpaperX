@@ -2181,7 +2181,11 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "gpuOver16=0 gpuOver33=0\n"
             "MWX DEBUG SCENE: phase=performance-stages "
             "layer-loop=p50:4.000ms p95:5.500ms n:407 "
-            "prologue=p50:1.000ms p95:1.500ms n:407"
+            "prologue=p50:1.000ms p95:1.500ms n:407\n"
+            "MWX DEBUG SCENE: phase=performance-resources samples=8 "
+            "processSamples=8 processFootprintSampledPeakBytes=134217728 "
+            "processCPUTimeMS=2387.500 gpuAllocatedSampledPeakBytes=67108864 "
+            "renderTargetPoolSampledPeakBytes=33554432"
         )
         metrics = benchmark.performance_metrics(log, surface_count=1)
         self.assertTrue(metrics["available"])
@@ -2208,6 +2212,15 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(
             metrics["cpu_stages"]["stages"]["prologue"],
             {"p50_ms": 1.0, "p95_ms": 1.5, "sample_count": 407},
+        )
+        self.assertEqual(
+            metrics["resources"]["process_footprint_sampled_peak_bytes"],
+            134_217_728,
+        )
+        self.assertAlmostEqual(metrics["resources"]["process_cpu_time_ms"], 2387.5)
+        self.assertEqual(
+            metrics["resources"]["gpu_allocated_sampled_peak_bytes"],
+            67_108_864,
         )
         two_surface_log = log.replace(
             "presented=408 presentStreams=1 presentIntervals=407",
@@ -2240,7 +2253,10 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "preEncodeP95MS=1 preEncodeMaxMS=1 mainFrameP95MS=2 mainFrameMaxMS=2 "
             "cpuP50MS=1 cpuP95MS=1 cpuMaxMS=1 cpuOver16=0 cpuOver33=0 "
             "gpuSamples=60 gpuP50MS=1 gpuP95MS=1 gpuMaxMS=1 gpuOver16=0 gpuOver33=0\n"
-            "phase=performance-stages layer-loop=p50:1ms p95:2ms n:60"
+            "phase=performance-stages layer-loop=p50:1ms p95:2ms n:60\n"
+            "phase=performance-resources samples=2 processSamples=2 "
+            "processFootprintSampledPeakBytes=100 processCPUTimeMS=200 "
+            "gpuAllocatedSampledPeakBytes=300 renderTargetPoolSampledPeakBytes=400"
         )
         invalid_target = valid_log.replace("targetFPS=60", "targetFPS=45", 1)
         self.assertIn(
@@ -2272,7 +2288,11 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "duplicate performance stage",
             benchmark.performance_metrics(duplicate_stage, 1)["error"],
         )
-        malformed_stage = valid_log + " trailing-token"
+        malformed_stage = valid_log.replace(
+            "layer-loop=p50:1ms p95:2ms n:60",
+            "layer-loop=p50:1ms p95:2ms n:60 trailing-token",
+            1,
+        )
         self.assertIn(
             "invalid performance stage token",
             benchmark.performance_metrics(malformed_stage, 1)["error"],
@@ -2286,6 +2306,35 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertIn(
             "invalid performance stage sample count",
             benchmark.performance_metrics(empty_stage, 1)["error"],
+        )
+        missing_resources = valid_log.split("\nphase=performance-resources", 1)[0]
+        self.assertIn(
+            "expected one performance resources event",
+            benchmark.performance_metrics(missing_resources, 1)["error"],
+        )
+        duplicate_resource = valid_log.replace(
+            "samples=2 processSamples=2",
+            "samples=2 samples=2 processSamples=2",
+            1,
+        )
+        self.assertIn(
+            "duplicate performance resource field",
+            benchmark.performance_metrics(duplicate_resource, 1)["error"],
+        )
+        insufficient_resources = valid_log.replace("samples=2", "samples=1", 1)
+        self.assertIn(
+            "at least two samples",
+            benchmark.performance_metrics(insufficient_resources, 1)["error"],
+        )
+        mismatched_resources = valid_log.replace("processSamples=2", "processSamples=1", 1)
+        self.assertIn(
+            "process sample identity mismatch",
+            benchmark.performance_metrics(mismatched_resources, 1)["error"],
+        )
+        negative_resource = valid_log.replace("processCPUTimeMS=200", "processCPUTimeMS=-1", 1)
+        self.assertIn(
+            "invalid performance resource field",
+            benchmark.performance_metrics(negative_resource, 1)["error"],
         )
 
     def test_performance_summary_preserves_worst_sample_identity(self) -> None:

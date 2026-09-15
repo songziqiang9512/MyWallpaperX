@@ -81,6 +81,9 @@ PERFORMANCE_LINE_RE = re.compile(r"phase=performance (?P<fields>[^\r\n]+)")
 PERFORMANCE_STAGES_LINE_RE = re.compile(
     r"phase=performance-stages(?P<fields>[^\r\n]*)"
 )
+PERFORMANCE_RESOURCES_LINE_RE = re.compile(
+    r"phase=performance-resources (?P<fields>[^\r\n]+)"
+)
 PERFORMANCE_STAGE_RE = re.compile(
     rf"(?P<name>[a-z0-9]+(?:-[a-z0-9]+)*)="
     rf"p50:(?P<p50>{FLOAT_PATTERN})ms "
@@ -707,6 +710,16 @@ PERFORMANCE_FLOAT_FIELDS = {
     "gpuP95MS": "gpu_frame_p95_ms",
     "gpuMaxMS": "gpu_frame_max_ms",
 }
+PERFORMANCE_RESOURCE_INT_FIELDS = {
+    "samples": "sample_count",
+    "processSamples": "process_sample_count",
+    "processFootprintSampledPeakBytes": "process_footprint_sampled_peak_bytes",
+    "gpuAllocatedSampledPeakBytes": "gpu_allocated_sampled_peak_bytes",
+    "renderTargetPoolSampledPeakBytes": "render_target_pool_sampled_peak_bytes",
+}
+PERFORMANCE_RESOURCE_FLOAT_FIELDS = {
+    "processCPUTimeMS": "process_cpu_time_ms",
+}
 
 
 def sha256(path: Path) -> str:
@@ -781,6 +794,79 @@ def performance_stage_metrics(log_text: str) -> dict[str, Any]:
             "milliseconds": highest["p95_ms"],
         },
     }
+
+
+def performance_resource_metrics(log_text: str) -> dict[str, Any]:
+    matches = list(PERFORMANCE_RESOURCES_LINE_RE.finditer(log_text))
+    if len(matches) != 1:
+        return {
+            "available": False,
+            "error": f"expected one performance resources event, found {len(matches)}",
+        }
+
+    raw_fields: dict[str, str] = {}
+    for token in matches[0].group("fields").split():
+        if token.count("=") != 1:
+            return {
+                "available": False,
+                "error": f"invalid performance resource token: {token}",
+            }
+        key, value = token.split("=", 1)
+        if not key or not value:
+            return {
+                "available": False,
+                "error": f"invalid performance resource token: {token}",
+            }
+        if key in raw_fields:
+            return {
+                "available": False,
+                "error": f"duplicate performance resource field: {key}",
+            }
+        raw_fields[key] = value
+
+    required = set(PERFORMANCE_RESOURCE_INT_FIELDS) | set(
+        PERFORMANCE_RESOURCE_FLOAT_FIELDS
+    )
+    missing = sorted(required - raw_fields.keys())
+    if missing:
+        return {
+            "available": False,
+            "error": "missing performance resource fields: " + ", ".join(missing),
+        }
+    unexpected = sorted(raw_fields.keys() - required)
+    if unexpected:
+        return {
+            "available": False,
+            "error": "unexpected performance resource fields: "
+            + ", ".join(unexpected),
+        }
+
+    metrics: dict[str, Any] = {"available": True}
+    try:
+        for source, destination in PERFORMANCE_RESOURCE_INT_FIELDS.items():
+            value = int(raw_fields[source])
+            if value < 0:
+                raise ValueError(f"negative performance resource field: {source}")
+            metrics[destination] = value
+        for source, destination in PERFORMANCE_RESOURCE_FLOAT_FIELDS.items():
+            value = float(raw_fields[source])
+            if not math.isfinite(value) or value < 0:
+                raise ValueError(f"invalid performance resource field: {source}")
+            metrics[destination] = value
+    except ValueError as error:
+        return {"available": False, "error": str(error)}
+
+    if metrics["sample_count"] < 2:
+        return {
+            "available": False,
+            "error": "performance resource window requires at least two samples",
+        }
+    if metrics["process_sample_count"] != metrics["sample_count"]:
+        return {
+            "available": False,
+            "error": "performance process sample identity mismatch",
+        }
+    return metrics
 
 
 def performance_metrics(log_text: str, surface_count: int | None) -> dict[str, Any]:
@@ -861,6 +947,14 @@ def performance_metrics(log_text: str, surface_count: int | None) -> dict[str, A
             + str(stage_metrics.get("error", "unknown error")),
         }
     metrics["cpu_stages"] = stage_metrics
+    resource_metrics = performance_resource_metrics(log_text)
+    if resource_metrics.get("available") is not True:
+        return {
+            "available": False,
+            "error": "performance resources unavailable: "
+            + str(resource_metrics.get("error", "unknown error")),
+        }
+    metrics["resources"] = resource_metrics
     return metrics
 
 

@@ -244,6 +244,11 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertIn("discontinuities=%d", performance_runner)
         self.assertIn("droppedMS=%.3f", performance_runner)
         self.assertIn("debugEvidence.reset(", performance_runner)
+        self.assertIn("phase=performance-resources", performance_runner)
+        self.assertIn("proc_pid_rusage(getpid(), RUSAGE_INFO_V4", performance_runner)
+        self.assertIn("refreshPerformanceResourceGauges()", performance_runner)
+        self.assertIn("processFootprintSampledPeakBytes=%llu", performance_runner)
+        self.assertIn("gpuAllocatedSampledPeakBytes=%llu", performance_runner)
 
 
 class ScenePerformanceCounterHubTests(unittest.TestCase):
