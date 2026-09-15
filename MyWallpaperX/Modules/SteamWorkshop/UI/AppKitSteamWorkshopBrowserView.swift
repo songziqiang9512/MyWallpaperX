@@ -10,7 +10,7 @@ final class AppKitSteamWorkshopBrowserView: NSView {
     private enum ContentState: Equatable {
         case loading
         case error(String)
-        case empty(String)
+        case empty(symbolName: String, message: String)
         case grid
     }
 
@@ -94,9 +94,11 @@ final class AppKitSteamWorkshopBrowserView: NSView {
             service.$hasMoreBrowserItems.map { _ in () }.eraseToAnyPublisher(),
             service.$browserContentMode.map { _ in () }.eraseToAnyPublisher(),
             service.$browserQuery.map { _ in () }.eraseToAnyPublisher(),
+            service.$source.map { _ in () }.eraseToAnyPublisher(),
             service.$currentPageTitle.map { _ in () }.eraseToAnyPublisher(),
             service.$isBrowsingAuthorWorkshop.map { _ in () }.eraseToAnyPublisher(),
-            service.$activeAuthorWorkshopName.map { _ in () }.eraseToAnyPublisher()
+            service.$activeAuthorWorkshopName.map { _ in () }.eraseToAnyPublisher(),
+            service.steamAuth.$steamId.map { _ in () }.eraseToAnyPublisher()
         ]
 
         syncPublishers.forEach { publisher in
@@ -150,7 +152,10 @@ final class AppKitSteamWorkshopBrowserView: NSView {
             if service.hasVisibleBrowserItems {
                 return .grid
             }
-            return .empty(emptyStateMessage)
+            if let message = personalLoginGuidance {
+                return .empty(symbolName: "person.crop.circle", message: message)
+            }
+            return .empty(symbolName: "square.grid.2x2", message: emptyStateMessage)
         }
     }
 
@@ -172,6 +177,17 @@ final class AppKitSteamWorkshopBrowserView: NSView {
             : "当前条件下没有抓取到\(service.browserContentMode.displayName)项目"
     }
 
+    /// The account route remains the sole authentication authority. This view
+    /// only derives the personal-feed presentation from that live identity;
+    /// it neither stores a second login flag nor starts authentication.
+    private var personalLoginGuidance: String? {
+        guard service.shouldUseSteamKitPersonal,
+              !service.steamAuth.isOnline else {
+            return nil
+        }
+        return "登录 Steam 后可查看当前账号的「\(service.source.displayName)」。请使用工具栏的「登录 Steam」。"
+    }
+
     private func syncContent(force: Bool = false) {
         let nextState = contentState()
         guard force || nextState != currentState else { return }
@@ -188,8 +204,8 @@ final class AppKitSteamWorkshopBrowserView: NSView {
         case .error(let message):
             contentView = makeErrorStateView(message: message)
             fillsHost = false
-        case .empty(let message):
-            contentView = makeCenteredStateView(symbolName: "square.grid.2x2", message: message)
+        case .empty(let symbolName, let message):
+            contentView = makeCenteredStateView(symbolName: symbolName, message: message)
             fillsHost = false
         case .grid:
             contentView = gridView

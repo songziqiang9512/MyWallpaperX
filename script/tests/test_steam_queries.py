@@ -8,6 +8,15 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 CORE = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core'
 
 class SteamQueryTests(unittest.TestCase):
+    def test_personal_empty_state_uses_live_auth_identity(self):
+        view = (ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserView.swift').read_text()
+        guidance = view[view.index('    private var personalLoginGuidance: String?'):]
+        self.assertIn('service.shouldUseSteamKitPersonal', guidance)
+        self.assertIn('!service.steamAuth.isOnline', guidance)
+        self.assertIn('请使用工具栏的「登录 Steam」', guidance)
+        self.assertIn('service.steamAuth.$steamId.map', view)
+        self.assertNotIn('service.showLoginPanel()', guidance)
+
     def test_real_query_and_subscription_owners(self):
         browse = (CORE / 'SteamWorkshopService+SteamKitBrowse.swift').read_text()
         store = browse[browse.index('@MainActor\nfinal class SteamKitBrowseStore'):]
