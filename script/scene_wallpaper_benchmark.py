@@ -653,6 +653,7 @@ SAMPLE_ROOT_DERIVED_FILES = (
     ".mywallpaperx-scene-preview-log.txt",
 )
 PERFORMANCE_INT_FIELDS = {
+    "targetFPS": "target_fps",
     "callbacks": "driver_callbacks",
     "submitted": "submitted_frames",
     "completed": "completed_frames",
@@ -726,7 +727,7 @@ def performance_metrics(log_text: str, surface_count: int | None) -> dict[str, A
             "error": "missing performance fields: " + ", ".join(missing),
         }
 
-    metrics: dict[str, Any] = {"available": True, "target_fps": 60.0}
+    metrics: dict[str, Any] = {"available": True}
     try:
         for source, destination in PERFORMANCE_INT_FIELDS.items():
             value = int(raw_fields[source])
@@ -744,6 +745,8 @@ def performance_metrics(log_text: str, surface_count: int | None) -> dict[str, A
     elapsed = metrics["measurement_elapsed_seconds"]
     if elapsed <= 0:
         return {"available": False, "error": "performance elapsed must be positive"}
+    if metrics["target_fps"] not in (30, 60):
+        return {"available": False, "error": "performance target FPS must be 30 or 60"}
     if surface_count is None or surface_count <= 0:
         return {"available": False, "error": "performance surface count must be positive"}
 
@@ -6176,6 +6179,18 @@ def append_dynamic_values_fault_argument(
         ])
 
 
+def append_performance_profile_argument(
+    command: list[str],
+    frames_per_second: int,
+) -> None:
+    if frames_per_second not in (30, 60):
+        raise ValueError("performance profile must be 30 or 60 FPS")
+    command.extend([
+        "--mwx-debug-scene-performance-fps",
+        str(frames_per_second),
+    ])
+
+
 def append_resize_sequence_argument(
     command: list[str],
     resize_sequence: str | None,
@@ -6610,6 +6625,7 @@ def run_sample(
     output_dir: Path,
     runtime_root: Path,
     duration: float,
+    performance_fps: int,
     after_snapshot_delay: float | None,
     periodic_snapshot_interval: float | None = None,
     resize_sequence: str | None = None,
@@ -6655,6 +6671,7 @@ def run_sample(
         "--mwx-debug-scene-duration",
         str(duration),
     ]
+    append_performance_profile_argument(command, performance_fps)
     if after_snapshot_delay is not None:
         command.extend([
             "--mwx-debug-scene-after-snapshot-delay",
@@ -7877,6 +7894,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--duration", type=float, default=7)
     parser.add_argument(
+        "--performance-fps",
+        type=int,
+        choices=(30, 60),
+        default=60,
+        help="explicit playback performance profile used by the Debug evidence runner",
+    )
+    parser.add_argument(
         "--keep-runtime",
         action="store_true",
         help=(
@@ -8014,6 +8038,7 @@ def main() -> int:
                 output_dir=output_dir,
                 runtime_root=runtime_root,
                 duration=duration,
+                performance_fps=args.performance_fps,
                 after_snapshot_delay=args.after_snapshot_delay,
                 periodic_snapshot_interval=args.periodic_snapshot_interval,
                 resize_sequence=args.resize_sequence,

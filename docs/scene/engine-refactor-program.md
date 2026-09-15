@@ -284,7 +284,7 @@ Steam 账号、订阅与下载获取的具体迁移由 [Steam 获取专项](scen
 
 同时保留 AS1 原始基线与每卡直接前驱，AS9 对原始基线重测总效果，防止每卡都在容差内却累计明显回退；热缓存命中集合、观察开销和实际运行路由必须可比。
 
-**工具边界：**[scene_wallpaper_benchmark.py](../../script/scene_wallpaper_benchmark.py)当前默认 duration 为 7 s，并面向证据窗口，不能直接拿默认结果做稳态性能门。使用其已存在的 `--app`、`--sample-root`、`--sample-id`、`--output-dir`、`--duration` 做对应语义验证；正常播放另用现有 hub/signpost 与短期 Instruments。缺分位数或某项计数时标记 unavailable 并补最小采集，不虚构一个尚不存在的“性能 PASS 命令”。计数器不可把完整 graph hash/序列化放入普通帧。
+**工具边界：**[scene_wallpaper_benchmark.py](../../script/scene_wallpaper_benchmark.py)当前默认 duration 为 7 s，并面向证据窗口，不能直接拿默认结果做稳态性能门。使用其 `--app`、`--sample-root`、`--sample-id`、`--output-dir`、`--duration` 做对应语义验证；`--performance-fps {30,60}` 必须显式传给 Debug runner，默认 60，并由运行日志回报实际档位，不能继承用户偏好后再在报告中硬编码身份。正常播放另用现有 hub/signpost 与短期 Instruments。缺分位数或某项计数时标记 unavailable 并补最小采集，不虚构一个尚不存在的“性能 PASS 命令”。计数器不可把完整 graph hash/序列化放入普通帧。
 
 ### 8.4 AS2 — 纹理准备、异步上传与长期采样
 

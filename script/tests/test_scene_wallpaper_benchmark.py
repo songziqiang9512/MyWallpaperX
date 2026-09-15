@@ -2165,7 +2165,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
 
     def test_performance_metrics_parse_v7_evidence_and_normalize_surfaces(self) -> None:
         log = (
-            "MWX DEBUG SCENE: phase=performance elapsed=6.833 callbacks=410 "
+            "MWX DEBUG SCENE: phase=performance targetFPS=60 elapsed=6.833 callbacks=410 "
             "submitted=410 completed=409 failed=0 submittedFPS=60.004 "
             "completedFPS=59.857 callbackP50MS=16.666 callbackP95MS=16.698 "
             "callbackMaxMS=17.171 callbackOver16=199 callbackOver33=0 "
@@ -2179,6 +2179,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         )
         metrics = benchmark.performance_metrics(log, surface_count=1)
         self.assertTrue(metrics["available"])
+        self.assertEqual(metrics["target_fps"], 60)
         self.assertEqual(metrics["driver_callbacks"], 410)
         self.assertAlmostEqual(metrics["driver_fps"], 410 / 6.833)
         self.assertEqual(metrics["completed_frames"], 409)
@@ -2204,6 +2205,21 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertIn("duplicate performance field", benchmark.performance_metrics(duplicate, 1)["error"])
         missing = "phase=performance elapsed=1 callbacks=60"
         self.assertIn("missing performance fields", benchmark.performance_metrics(missing, 1)["error"])
+        invalid_target = (
+            "phase=performance targetFPS=45 elapsed=1 callbacks=60 submitted=60 "
+            "completed=60 failed=0 submittedFPS=60 completedFPS=60 "
+            "callbackP50MS=16 callbackP95MS=17 callbackMaxMS=18 "
+            "callbackOver16=1 callbackOver33=0 discontinuities=0 droppedMS=0 "
+            "maxRawFrameMS=18 drawableMissed=0 drawableWaitP95MS=0 "
+            "drawableWaitMaxMS=0 preEncodeP95MS=1 preEncodeMaxMS=1 "
+            "mainFrameP95MS=2 mainFrameMaxMS=2 cpuP50MS=1 cpuP95MS=1 "
+            "cpuMaxMS=1 cpuOver16=0 cpuOver33=0 gpuSamples=60 gpuP50MS=1 "
+            "gpuP95MS=1 gpuMaxMS=1 gpuOver16=0 gpuOver33=0"
+        )
+        self.assertIn(
+            "target FPS must be 30 or 60",
+            benchmark.performance_metrics(invalid_target, 1)["error"],
+        )
 
     def test_performance_summary_preserves_worst_sample_identity(self) -> None:
         results = [
@@ -2375,6 +2391,21 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         for invalid in ("0", "-1", str(1 << 64), "1.5"):
             with self.assertRaises(benchmark.argparse.ArgumentTypeError):
                 benchmark.positive_uint64(invalid)
+
+    def test_performance_profile_argument_is_explicit_and_bounded(self) -> None:
+        for frames_per_second in (30, 60):
+            command = ["MyWallpaperX"]
+            benchmark.append_performance_profile_argument(
+                command,
+                frames_per_second,
+            )
+            self.assertEqual(command, [
+                "MyWallpaperX",
+                "--mwx-debug-scene-performance-fps",
+                str(frames_per_second),
+            ])
+        with self.assertRaisesRegex(ValueError, "30 or 60 FPS"):
+            benchmark.append_performance_profile_argument([], 45)
 
     def test_media_properties_arguments_are_atomic_and_bounded(self) -> None:
         command = ["MyWallpaperX"]
@@ -7111,6 +7142,23 @@ utility layer 763: skippedHidden kind=composition
         finally:
             sys.argv = old_argv
         self.assertTrue(args.require_graph_execution)
+
+    def test_performance_profile_is_explicit_and_defaults_to_standard(self) -> None:
+        old_argv = sys.argv
+        try:
+            sys.argv = [
+                "scene_wallpaper_benchmark.py",
+                "--app", "/tmp/MyWallpaperX",
+                "--sample-root", "/tmp/samples",
+                "--output-dir", "/tmp/results",
+            ]
+            default_args = benchmark.parse_args()
+            sys.argv.extend(["--performance-fps", "30"])
+            efficient_args = benchmark.parse_args()
+        finally:
+            sys.argv = old_argv
+        self.assertEqual(default_args.performance_fps, 60)
+        self.assertEqual(efficient_args.performance_fps, 30)
 
     def test_cursor_ripple_persistence_can_be_required_from_cli(self) -> None:
         old_argv = sys.argv

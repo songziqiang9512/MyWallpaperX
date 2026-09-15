@@ -10,7 +10,6 @@ import Foundation
 @MainActor
 enum DebugScenePlaybackRunner {
     private static let debugRecordID = "debug-scene-playback"
-
     private struct SceneRuntimeEvidence: Encodable {
         let schemaVersion = 1
         let sourceEntryPath: String
@@ -42,6 +41,7 @@ enum DebugScenePlaybackRunner {
             terminate(after: 0.1)
             return
         }
+        guard applyRequestedPerformanceProfile() else { return }
         let requestsDynamicValuesFault = ProcessInfo.processInfo.arguments.contains(
             "--mwx-debug-scene-drop-dynamic-values-frame"
         )

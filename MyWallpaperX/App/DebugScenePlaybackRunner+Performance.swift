@@ -1,11 +1,35 @@
 #if DEBUG
+import AppKit
 import Foundation
 
 extension DebugScenePlaybackRunner {
+    static func applyRequestedPerformanceProfile() -> Bool {
+        let flag = "--mwx-debug-scene-performance-fps"
+        guard ProcessInfo.processInfo.arguments.contains(flag) else { return true }
+        guard let raw = argumentValue(after: flag),
+              let framesPerSecond = Int(raw),
+              let profile = PlaybackPerformanceProfile(rawValue: framesPerSecond) else {
+            NSLog(
+                "MWX DEBUG SCENE: phase=precondition-failed reason=invalid-performance-profile"
+            )
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                NSApp.terminate(nil)
+            }
+            return false
+        }
+        runtimeHost.applyPerformanceProfile(profile)
+        NSLog(
+            "MWX DEBUG SCENE: phase=performance-profile targetFPS=%d",
+            profile.maxFPS
+        )
+        return true
+    }
+
     static func schedulePerformanceMeasurement(
         duration: TimeInterval,
         afterSnapshotDelay: TimeInterval
     ) {
+        let targetFPS = runtimeHost.performanceProfile.maxFPS
         let latestEnd = duration - 1.5
         let candidates = [
             (start: afterSnapshotDelay + 0.75, end: latestEnd),
@@ -20,7 +44,8 @@ extension DebugScenePlaybackRunner {
         DispatchQueue.main.asyncAfter(deadline: .now() + window.end) {
             let value = SceneFramePerformanceTelemetry.debugEvidence.snapshot()
             NSLog(
-                "MWX DEBUG SCENE: phase=performance elapsed=%.3f callbacks=%d submitted=%d completed=%d failed=%d submittedFPS=%.3f completedFPS=%.3f callbackP50MS=%.3f callbackP95MS=%.3f callbackMaxMS=%.3f callbackOver16=%d callbackOver33=%d discontinuities=%d droppedMS=%.3f maxRawFrameMS=%.3f drawableMissed=%d drawableWaitP95MS=%.3f drawableWaitMaxMS=%.3f preEncodeP95MS=%.3f preEncodeMaxMS=%.3f mainFrameP95MS=%.3f mainFrameMaxMS=%.3f cpuP50MS=%.3f cpuP95MS=%.3f cpuMaxMS=%.3f cpuOver16=%d cpuOver33=%d gpuSamples=%d gpuP50MS=%.3f gpuP95MS=%.3f gpuMaxMS=%.3f gpuOver16=%d gpuOver33=%d",
+                "MWX DEBUG SCENE: phase=performance targetFPS=%d elapsed=%.3f callbacks=%d submitted=%d completed=%d failed=%d submittedFPS=%.3f completedFPS=%.3f callbackP50MS=%.3f callbackP95MS=%.3f callbackMaxMS=%.3f callbackOver16=%d callbackOver33=%d discontinuities=%d droppedMS=%.3f maxRawFrameMS=%.3f drawableMissed=%d drawableWaitP95MS=%.3f drawableWaitMaxMS=%.3f preEncodeP95MS=%.3f preEncodeMaxMS=%.3f mainFrameP95MS=%.3f mainFrameMaxMS=%.3f cpuP50MS=%.3f cpuP95MS=%.3f cpuMaxMS=%.3f cpuOver16=%d cpuOver33=%d gpuSamples=%d gpuP50MS=%.3f gpuP95MS=%.3f gpuMaxMS=%.3f gpuOver16=%d gpuOver33=%d",
+                targetFPS,
                 value.elapsed,
                 value.driverCallbacks,
                 value.submitted,
