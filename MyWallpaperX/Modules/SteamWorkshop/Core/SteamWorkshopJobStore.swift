@@ -24,7 +24,11 @@ enum SteamDownloadJobState: String, Codable, Equatable {
     case failed
     case cancelled
 
-    var isTerminal: Bool { self == .failed || self == .cancelled }
+    // SK4.1：staged 也是终态——当前执行器（旧 SteamCMD 流程）成功即内联
+    // 入库，没有独立的“staged 待提交”阶段；若 staged 保持 active，job 会
+    // 永久占据去重/忙碌判定且跨重启复活。SK4.2/SK4.3 引入 receipt 与原子
+    // 提交阶段（§5.5）时再复核 staged 的持久化语义。
+    var isTerminal: Bool { self == .staged || self == .failed || self == .cancelled }
 }
 
 struct SteamDownloadJob: Codable, Identifiable, Equatable {

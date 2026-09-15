@@ -148,18 +148,6 @@ extension SteamWorkshopService {
         }
     }
 
-    func clearPendingDownloadRequest() {
-        // SK4.1：待处理意图真值在 JobStore——清当前账号的排队任务。
-        downloadJobStore.cancelAll(forAccount: steamAuth.steamId)
-        if authPhase == .authenticated, hasSavedCredentials {
-            if let lastAuthenticatedAt = defaults.object(forKey: Constants.defaultsLastAuthenticatedAt) as? Date {
-                authStatusMessage = "已检测到上次使用过的 Steam 凭据。下载前会先验证当前会话；如果远端会话已失效，再提示你继续登录。上次成功登录时间：\(lastAuthenticatedAt.formatted(date: .abbreviated, time: .shortened))。"
-            } else {
-                authStatusMessage = "已检测到已保存的 Steam 凭据。下载前会先验证当前会话；如果远端会话失效，再提示继续登录。"
-            }
-        }
-    }
-
     func presentLoginGateImmediately() {
         if authPhase == .awaitingGuardCode, loginInputHandle != nil {
             authError = nil

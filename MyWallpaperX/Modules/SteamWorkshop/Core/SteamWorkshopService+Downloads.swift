@@ -45,8 +45,15 @@ extension SteamWorkshopService {
         let requestItem = item ?? browserItemForDownload(id: id)
 
         guard canRequestDownload(id: id) else {
-            statusMessage = "\(title) 已在下载任务中。"
-            appendSteamAuthDebugLog("DOWNLOAD BLOCKED: duplicate active/queued request. requestedID=\(id)")
+            // SK4.1：目标仍在 queued 且执行器空闲（如重启恢复的任务）时，
+            // 本次点击直接推活出队，而不是让任务永远不可见地滞留。
+            if downloadJobStore.activeJob(forWorkshopItemId: id)?.state == .queued {
+                processNextQueuedDownloadIfPossible()
+            }
+            if activeDownloadItemID != id {
+                statusMessage = "\(title) 已在下载任务中。"
+                appendSteamAuthDebugLog("DOWNLOAD BLOCKED: duplicate active/queued request. requestedID=\(id)")
+            }
             return
         }
 
@@ -55,6 +62,14 @@ extension SteamWorkshopService {
             return
         }
 
+        // SK4.1：执行器空闲但同账号还有更早的 queued 意图（持久化恢复场景）
+        // 时先按 FIFO 出队，本次点击排在被出队任务之后——持久化队列不能被
+        // 新点击永久饿死。
+        processNextQueuedDownloadIfPossible()
+        if activeDownloadItemID != nil {
+            enqueueDownloadRequest(id: id, pageTitle: pageTitle, item: requestItem)
+            return
+        }
         startDownloadRequest(SteamWorkshopPendingDownloadRequest(id: id, pageTitle: pageTitle, item: requestItem))
     }
 
@@ -70,11 +85,13 @@ extension SteamWorkshopService {
             }
     }
 
+    /// SK4.1：执行器占用/认证忙碌判定。queued 任务不算忙碌——持久化队列
+    /// 的排空只走 processNextQueuedDownloadIfPossible（含上面 downloadWorkshopItem
+    /// 的 FIFO 推活），否则重启恢复的 queued 任务会永久堵死新下载。
     private var isDownloadWorkflowBusy: Bool {
         activeDownloadItemID != nil
             || activeDownloadTask != nil
             || activeDownloadProcess != nil
-            || !downloadJobStore.activeJobs.isEmpty
             || isAuthenticating
             || isLoginSheetPresented
             || authPhase == .awaitingGuardCode
@@ -131,6 +148,8 @@ extension SteamWorkshopService {
                     self.finishActiveDownloadState()
                     let message = error.localizedDescription
                     if error is SteamWorkshopDownloadControlError || error is CancellationError {
+                        // SK4.1：执行器取消结果写回 JobStore（用户取消/登出）。
+                        self.finishDownloadJob(id: id, event: .cancelled)
                         self.cleanupStagedDownload(id: id)
                         self.statusMessage = message
                         self.removeTransientRecord(id: id)
@@ -140,11 +159,14 @@ extension SteamWorkshopService {
                     let nsError = error as NSError
                     if nsError.domain == "SteamWorkshop", nsError.code == 11 {
                         // SK2.2：登录被拒不是任务；清理现场并移除瞬态记录（§9 任务数不增长）。
+                        self.finishDownloadJob(id: id, event: .failed(message))
                         self.cleanupStagedDownload(id: id)
                         self.statusMessage = message
                         self.removeTransientRecord(id: id)
                         return
                     }
+                    // SK4.1：执行器失败结果写回 JobStore，保持去重/忙碌真值一致。
+                    self.finishDownloadJob(id: id, event: .failed(message))
                     self.cleanupStagedDownload(id: id)
                     self.downloadError = message
                     self.statusMessage = message
@@ -188,6 +210,15 @@ extension SteamWorkshopService {
                 NSLocalizedDescriptionKey: "当前 Steam 登录态需要重新验证。请使用工具栏的「登录 Steam」。"
             ])
         }
+    }
+
+    /// SK4.1：把执行器结果写回 JobStore。job 已被先行终结（如登出 cancelAll
+    /// 或重复结果）时 reducer 拒绝、此处 no-op。没有这一步 job 会永远停在
+    /// running：去重（canRequestDownload）与忙碌判定被污染，重启后还会回退
+    /// queued 复活成重复任务。
+    func finishDownloadJob(id: String, event: SteamDownloadJobEvent) {
+        guard let job = downloadJobStore.activeJob(forWorkshopItemId: id) else { return }
+        downloadJobStore.apply(event, toID: job.id)
     }
 
     func cancelActiveDownload() {
@@ -252,6 +283,8 @@ extension SteamWorkshopService {
 
         try await syncDownloadedItemToLibrary(request)
         appendSteamAuthDebugLog("DOWNLOAD SYNC OK: copied staged content into library for id=\(id)")
+        // SK4.1：旧执行器成功即内联入库——staged 是本卡的成功终态。
+        finishDownloadJob(id: id, event: .staged)
         cleanupStagedDownload(id: id)
 
         finishActiveDownloadState()
@@ -503,7 +536,7 @@ extension SteamWorkshopService {
     private func enqueueDownloadRequest(id: String, pageTitle: String?, item: SteamWorkshopBrowserItem?) {
         let title = pageTitle ?? "Workshop #\(id)"
         // SK4.1：入队真值在 JobStore——同项去重，重复点击/跨来源点击只一个任务。
-        let (job, isNew) = downloadJobStore.enqueue(
+        let (_, isNew) = downloadJobStore.enqueue(
             workshopItemId: id,
             title: title,
             accountSteamId: steamAuth.steamId ?? "anonymous"
@@ -532,21 +565,17 @@ extension SteamWorkshopService {
               authPhase != .awaitingGuardCode,
               !isAuthenticating else { return }
 
-        // SK4.1：出队即 started（attempt 递增）；按当前账号隔离。
+        // SK4.1：出队即 started（attempt 递增）；按当前账号隔离。匿名会话
+        // 只出队匿名任务（与 enqueue 的 "anonymous" 标记一致），不接管其它
+        // 账号的恢复任务（§5.6 账号切换不自动恢复）。
         guard let next = downloadJobStore.popNextQueued(
-            forAccount: steamAuth.steamId
+            forAccount: steamAuth.steamId ?? "anonymous"
         ) else { return }
         startDownloadRequest(SteamWorkshopPendingDownloadRequest(
             id: next.workshopItemId,
             pageTitle: next.title,
             item: steamJobItemPayloads[next.workshopItemId]
         ))
-    }
-
-    private func removeQueuedDownloadRequest(id: String) -> Bool {
-        guard let job = downloadJobStore.activeJob(forWorkshopItemId: id),
-              job.state == .queued else { return false }
-        return downloadJobStore.cancel(id: job.id) != nil
     }
 
     private func isQueuedDownloadRequest(id: String) -> Bool {
