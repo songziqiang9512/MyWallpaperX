@@ -107,14 +107,23 @@ extension SteamWorkshopService {
 
         selectedItemDetailTask = Task(priority: .userInitiated) { [weak self] in
             do {
-                let refreshed = try await Self.fetchWorkshopItem(
-                    stub: stub,
-                    browserContentMode: browserContentMode,
-                    requestPriority: .userInitiated
-                )
+                guard let self else { return }
+                let refreshed: SteamWorkshopBrowserItem
+                if self.isSteamKitBrowseEnabled {
+                    refreshed = try await self.fetchWorkshopItemViaSteamKit(
+                        fallback: item,
+                        browserContentMode: browserContentMode
+                    )
+                } else {
+                    refreshed = try await Self.fetchWorkshopItem(
+                        stub: stub,
+                        browserContentMode: browserContentMode,
+                        requestPriority: .userInitiated
+                    )
+                }
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
-                    guard let self, self.selectedDownloadInspectorItem?.id == item.id else { return }
+                    guard self.selectedDownloadInspectorItem?.id == item.id else { return }
                     self.selectedDownloadDetailItem = refreshed
                     self.mergeBrowserItem(refreshed)
                     self.persistRefreshedDownloadInspectorMetadata(refreshed)
@@ -151,12 +160,14 @@ extension SteamWorkshopService {
         }
 
         if let cachedItem = record.displayItem,
-           Self.resolvedAuthorWorkshopURL(for: cachedItem) != nil {
+           Self.creatorID(from: cachedItem.authorProfileURL) != nil
+            || Self.creatorID(from: cachedItem.authorWorkshopURL) != nil {
             openAuthorWorksPage(for: cachedItem)
             return
         }
 
-        if Self.resolvedAuthorWorkshopURL(for: item) != nil {
+        if Self.creatorID(from: item.authorProfileURL) != nil
+            || Self.creatorID(from: item.authorWorkshopURL) != nil {
             persistRefreshedDownloadInspectorMetadata(item)
             openAuthorWorksPage(for: item)
             return
@@ -198,11 +209,26 @@ extension SteamWorkshopService {
         title: String?
     ) async -> SteamWorkshopBrowserItem? {
         if let fallback,
-           Self.resolvedAuthorWorkshopURL(for: fallback) != nil {
+           Self.creatorID(from: fallback.authorProfileURL) != nil
+            || Self.creatorID(from: fallback.authorWorkshopURL) != nil {
             return fallback
         }
 
         do {
+            if isSteamKitBrowseEnabled {
+                let base = fallback ?? Self.itemByMergingAuthorMetadata(
+                    into: nil,
+                    id: itemID,
+                    title: title,
+                    author: "未知作者",
+                    authorProfileURL: nil,
+                    authorWorkshopURL: nil
+                )
+                return try await fetchWorkshopItemViaSteamKit(
+                    fallback: base,
+                    browserContentMode: .all
+                )
+            }
             guard let detail = try await Self.fetchPublishedFileDetails(
                 ids: [itemID],
                 requestPriority: .userInitiated
@@ -346,14 +372,23 @@ extension SteamWorkshopService {
 
         selectedItemDetailTask = Task(priority: .userInitiated) { [weak self] in
             do {
-                let refreshed = try await Self.fetchWorkshopItem(
-                    stub: stub,
-                    browserContentMode: browserContentMode,
-                    requestPriority: .userInitiated
-                )
+                guard let self else { return }
+                let refreshed: SteamWorkshopBrowserItem
+                if self.isSteamKitBrowseEnabled {
+                    refreshed = try await self.fetchWorkshopItemViaSteamKit(
+                        fallback: item,
+                        browserContentMode: browserContentMode
+                    )
+                } else {
+                    refreshed = try await Self.fetchWorkshopItem(
+                        stub: stub,
+                        browserContentMode: browserContentMode,
+                        requestPriority: .userInitiated
+                    )
+                }
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
-                    guard let self, self.selectedBrowserItem?.id == item.id else { return }
+                    guard self.selectedBrowserItem?.id == item.id else { return }
                     self.selectedBrowserItem = refreshed
                     self.mergeBrowserItem(refreshed)
                     self.isRefreshingSelectedBrowserItem = false

@@ -2,7 +2,7 @@
 
 <!-- document-role: active-plan -->
 
-> 状态：现役专项计划；SK1–SK4.2 已有实现并完成本轮离线审查修复，SK4.3 已接通原子事务及播放感知版本回收；SK4.4 工程切片已闭合物理排空、manifest-bound 恢复、精确 lease 清理、同 job 重试、两活动作业/共享 chunk 上限及跨作业磁盘预留；SK5.1 工程切片已接通 item/attempt 精确数字进度、独立裁剪 fill 与卡片/详情增量投影；SK5.2 工程切片已接通账号隔离的工具栏 badge、单一瞬态任务 popover 及当前队列交互；SK5.3 工程切片已由同一 JobStore 接通持久 terminal history、attempt 汇总、有界保留/清理与已下载定位。下一步进入 SK6.1；代码完成不等于真实账号、UI 或发布验收完成。
+> 状态：现役专项计划；SK1–SK4.2 已有实现并完成本轮离线审查修复，SK4.3 已接通原子事务及播放感知版本回收；SK4.4 工程切片已闭合物理排空、manifest-bound 恢复、精确 lease 清理、同 job 重试、两活动作业/共享 chunk 上限及跨作业磁盘预留；SK5.1 工程切片已接通 item/attempt 精确数字进度、独立裁剪 fill 与卡片/详情增量投影；SK5.2 工程切片已接通账号隔离的工具栏 badge、单一瞬态任务 popover 及当前队列交互；SK5.3 工程切片已由同一 JobStore 接通持久 terminal history、attempt 汇总、有界保留/清理与已下载定位；SK6.1 工程切片已完成默认结构化路由、非破坏升级与 sidecar 回退边界。下一步进入 SK6.2 精确退役；代码完成不等于真实账号、UI 或发布验收完成。
 >
 > 复核：2026-09-15。本轮依据当前 Swift/C#、隔离文件系统与无网络协议测试、App Debug 构建；未使用真实账号、修改真实订阅或实测可见 UI。§10.1 保留早期探针证据，不能代替本轮构建的真实链路验收。
 >
@@ -212,16 +212,16 @@ Envelope：`v/type/requestId/processEpoch/accountEpoch`；认证另有 authAttem
 | 05 | SK2.2 | 工具栏唯一登录入口与面板 | 代码已接入；共用记住偏好、QR刷新/关闭生命周期已修。真实 App 面板/焦点/布局/不自动弹窗门尚待验，不记为 UI 完成 |
 | 06 | SK2.3 | Keychain、恢复、换号与退出 | epoch贯穿helper私有请求与回包；断线撤在线能力，取消抑制令牌采纳，退出先撤自动恢复授权并报告删除失败。离线门通过，真实Keychain/账号门待验 |
 | 07 | SK3.1 | 统一结构化查询 | 检查所有统一消息Result，严格解码、partial错误ID、完整tags、有界并发；离线反例通过，真实分页/权限与限流待验 |
-| 08 | SK3.2 | 浏览分页、过滤与详情 | dev route保留同key原始已加载集合，整集合投影排序、失败保留页；updated/分级无能力明确禁用。ID/作者/详情旧HTML撤除、默认切换仍在SK6，不能称完整浏览迁移完成 |
+| 08 | SK3.2 | 浏览分页、过滤与详情 | 结构化 route 保留同 key 原始已加载集合，整集合投影排序、失败保留页；updated/分级无能力明确禁用。SK6.1 已让 discovery/ID/作者/个人列表默认经过同一 store，旧 HTML producer 仅留作 DEBUG 整版本回退并待 SK6.2 删除；真实分页/权限仍不能称完整验收 |
 | 09 | SK3.3 | 已订阅/收藏与订阅写入 | dev route + 共享SubscriptionStore，unknown不得写、写超时先对账、无自动重写、账号隔离；个人排序/筛选仅限已加载集合，明确标注。Cookie不再是可用fallback。真账号/可见门待验 |
-| 10 | SK4.1 | JobStore、队列与持久化 | 先在线准入；staged/committing非终态；cancelAll一次保存、失败不假推进并提示。任务文件在 SK5.3 升至 v3 并兼容 v1/v2；完整 App 操作仍待 SK7 |
+| 10 | SK4.1 | JobStore、队列与持久化 | 先在线准入；staged/committing 非终态；cancelAll 一次保存、失败不假推进并提示。任务 envelope 在 SK5.3 升至 v3；SK6.1 将默认文件改为 `jobs-v3.json`，仅在 sidecar 不存在时只读导入 `jobs.json` 的 v1/v2/v3 快照，旧文件不写不隔离，完整 App 操作仍待 SK7 |
 | 11 | SK4.2 | 下载与完整receipt | 描述符staging、清单预算、v2跨语言摘要、串行进度发布/统一分母、typed磁盘错误、取消与成功共用决策点均有离线门。真实Steam下载与SDK物理排空仍待验 |
 | 12 | SK4.3 | 原子入库与已下载 | 已接通版本准备/摘要与项目准入/元数据rename/列表刷新；ready 索引由事务 owner 有界 nofollow 读取且不依赖页面打开，播放 token 贯穿 Scene/Web/Video 及依赖宿主，旧版本按 ready/事务/消费引用延迟安全回收。离线事务门与 Debug build 通过；剩余真实可见、跨卷/断电实机与完整项目播放验收并入 SK7 |
 | 13 | SK4.4 | 取消、恢复、有限并发与重试 | 工程切片已闭合：取消后的本地队列等待各自 helper 原 startDownload terminal（物理 I/O 排空）再推进，账号 epoch 改变不提前丢弃 waiter；helper 分配的受管 staging path+manifestID 在内容写入前落入 JobStore，崩溃重启只显示显式恢复，重试沿用同一逻辑 job 并递增 attempt、不跨账号。helper 仅重开同一直接 lease，当前 manifest 一致后逐块校验并跳过有效块；manifest 变化、取消与成功在物理 terminal 后由 App 精确清理当前 lease，未知兄弟和链接目标不受影响。App/helper 同为 2 个活动作业，各 job 最多 4 worker、跨 job 共享 4 个 CDN chunk 槽；A/B 假 wire 消融证明取消 A 不撤 B 的 task/running/ready。helper 缺失块与 App 版本复制均有跨作业磁盘预留、256MiB 安全余量及同卷跨进程保守额度，disk-full 保留可恢复暂存并给出重试动作；双成功假 wire 证明版本复制串行且两个 ready 均发布。离线事务 20 项、假 wire 执行 9 项、admission 两槽反例与 Helper protocol/auth/manifest/staging 39/download 115/query 门通过；真实双下载/续传/崩溃/disk-full 恢复及可见 UI 仍并入 SK7，不以离线绿色代替 |
 | 14 | SK5.1 | 卡片 bar 真实进度填充 | 工程切片已闭合：helper 的 `sequence/stage/totalBytes/verifiedBytes` 由非 `ObservableObject` 的 item+jobKey+attempt store 严格吸收，拒绝旧 attempt、乱序、回退、超分母及超 8GiB 投影，不再把 helper 进度写入 service-wide `statusMessage`。浏览/已下载卡片只观察同 ID，reuse 显式解绑且弱 owner 自动清退；详情页在字节增量时只原位改 label/indicator，仅阶段/结构变化重建。`SteamWorkshopGlassBarView` 保留中性底轨并用独立 clip layer 按真实比例填充；未知分母才用不定态，已排队/下载/等待/失败语义色集中为 blue/green/orange/red，校验/保存/失败保留已验证比例，保存阶段禁用取消。标题/操作层在 fill 之上，窄卡只显示百分比，减少动态效果时不跑不定填充/走马灯，VoiceOver 只按阶段或 10% 桶通知。独立测试覆盖 0/1/50/100%、未知分母、等待/保存/失败保留、旧 attempt 与 A/B 观察隔离；9 个 Steam 离线模块及 arm64 无签名 Debug build 通过。真实 Steam 传输、深浅色/小宽度/点击/辅助功能的可见实机验收仍并入 SK7，未生产的 pause capability 仍不展示 |
 | 15 | SK5.2 | 工具栏任务面板与队列交互 | 工程切片已闭合：浏览、作者和已下载工具栏共享同一 `steamDownloadTasks` 项；浏览与已下载页均保留账号入口，badge 只按当前 SteamID 计算非完成/非取消任务（含失败待重试），VoiceOver 与 overflow menu 同步数量。每个窗口的 toolbar controller 只惰性持有一个 transient `NSPopover`；普通按钮锚定工具栏，系统溢出时改锚窗口顶缘，外部点击/Esc 走系统关闭语义。面板打开才订阅 JobStore 的低频结构变化，逐行再按 item/jobKey/attempt 订阅 SK5.1 progress store；关闭清空 Combine/逐项 observer/缩略图请求，不停止任务。行内展示缩略图、长标题截断、阶段、真实大小/速度与稳定后 ETA、进度、取消/重试/详情；已有行在面板打开期间原位更新且不因状态变化重排，新任务追加，重新打开才恢复活动→失败待重试→排队/FIFO 排序。“全部取消”一次列数量确认且不删已下载文件，“查看已下载”和详情都走现有 Shell/Inspector 路由，完成路径不主动导航或打开面板。独立执行测试覆盖账号过滤、终态排除、排序/count/attempt identity，静态合同覆盖单 popover、溢出锚点、关闭解绑与无 Timer/NSMenu 第二刷新源；10 个 Steam 离线模块及 arm64 无签名 Debug build 通过。真实多任务按钮命中、键盘/Esc、深浅色和辅助功能的可见实机验收仍并入 SK7 |
 | 16 | SK5.3 | 任务历史、保留策略与跨视图一致性 | 工程切片已闭合：JobStore 持久 envelope 升级为 v3，仍读取 v1/v2；jobs 与 terminal history 同一次原子写入，完成/失败/取消按 `jobID-attempt` 幂等记录，retry 沿用逻辑 job 并由面板汇总 attempts。保留配置冻结为最近 100 条且最长 30 天，每次写入/加载及打开历史面板时裁剪；历史按 SteamID 隔离，清空仅删当前账号终结记录，保存失败不假清除且不改变队列/失败重试意图/本地库。完成历史只保存既有库 recordID 引用；点击时重新通过当前 managed metadata/文件可用性判定，存在则导航已下载并定位/打开 inspector，不存在则明确提示并可转作品详情。popover 顶部已接“进行中｜历史”，切换/关闭解绑当前行高频 observer，历史只消费 JobStore 低频发布，无第二累计源。可执行测试覆盖 v2 无 history 迁移、完成重启不重复、两次失败 attempt 汇总、账号隔离、100/30 天裁剪、清理原子失败与任务保留；AppKit arm64 无签名 Debug build 通过。真实 20 次跨页下载/取消/重试、可见定位、observer/task 计数及键盘/辅助功能仍归 SK7，未以离线门宣称交互验收完成 |
-| 17 | SK6.1 | 老用户数据迁移与新路切换 | 待实施 |
+| 17 | SK6.1 | 老用户数据迁移与新路切换 | 工程切片已闭合：Release 固定由 SteamKit route 接管，DEBUG 仅保留进程启动时的 `--mwx-legacy-steam-browse` 整版本回退参数，无可持久双后端开关；discovery、严格 ID、作者作品、在线个人列表与离线登录指引均在旧 HTML 分支之前由同一 `SteamKitBrowseStore` 路由，helper 结果新增经十进制校验的 creator SteamID 以支持作者查询。App 启动和浏览入口不再读旧密码、SteamCMD 状态、私人 HTML cache 或准备 SteamCMD；只允许用户此前授权的新 token 静默恢复，旧凭据/Cookie/cache 本批保持原字节且失去产品执行权，留待 SK6.2 精确删除。任务默认写 `jobs-v3.json`；sidecar 不存在时只读导入旧 `jobs.json`，中断 intent 恢复为 queued/显式 retry，损坏旧文件保持原位且不生成新版状态，之后两文件互不写入，避免旧版本把 v3 当损坏数据或双写。既有 Video/Web/Scene 目录、managed/legacy metadata、属性与选择 owner 未改，启动仍先 reload 本地库。隔离 fixture 覆盖旧库/属性 sentinel、旧密码/Cookie、损坏 HTML cache、v2 running job、损坏旧 job、重复启动与回退快照不变；结构化 query/author/details 可执行门、helper 220+ 离线检查及 arm64 无签名 Debug build 通过。未执行真实旧库播放、真实账号分页/作者/下载、升级安装与回退 App 实机，因此这些门仍并入 SK7，不能用 sentinel/编译宣称播放或外部链路验收 |
 | 18 | SK6.2 | SteamCMD/自动社区登录产品引用与资源退役 | 待实施 |
 | 19 | SK7.1 | 全链路 UI、异常与性能验收 | 待实施 |
 | 20 | SK7.2 | arm64 发布、许可与升级验收 | 待实施 |
@@ -381,6 +381,14 @@ python3.12 script/run_scene_tests.py --scope all -k test_steam_ -j 1
 - **改造：**迁移现有文件/元数据/属性/选择；旧私人 HTML 缓存失效但不删本地壁纸；旧活动作业排空/确认取消后切新路。冻结版本回退方案，明确新 schema 在旧版本中的保护行为。
 - **验收：**带旧库/旧密码/旧 Cookie/未完成旧作业/损坏缓存的升级 fixture；第一次启动无认证窗、无重复下载、已有壁纸仍可播放；回退不双写或破坏新记录。
 - **撤旧：**新后端取得默认执行权，旧后端失去运行时接管能力；真实库只用隔离副本验证。
+
+当前实现冻结的升级／回退边界如下：
+
+1. 路由选择只在进程启动时由构建类型与 DEBUG 参数决定，不支持运行中从旧下载切到新下载；所以切换前必须先退出旧 App，让旧进程内作业收口。新版本只恢复 JobStore 中可证明的 intent，不接管未知 SteamCMD 子进程或共享 staging。
+2. 新版本只写 `Application Support/MyWallpaperX/SteamJobs/jobs-v3.json`。首次没有该 sidecar 时可只读导入 `jobs.json`；导入成功、失败、后续执行都不改名、不删除、不隔离旧文件。已有 sidecar 时不再次合并旧文件，防止重放旧任务。
+3. 回退前先停止新版活动任务。旧版本只会看到保留的 `jobs.json`，不能看到或破坏 `jobs-v3.json`；回退版本不得用于创建需要再向前合并的新任务。再次升级以既有 sidecar 为准。本地库 ready/legacy 目录继续由原库 owner 读取，不随任务 schema 回退。
+4. 旧密码、专用 Cookie 和 HTML cache 不转换成 token，也不在 SK6.1 删除。默认启动／浏览不读取它们，因此损坏 cache 不影响新查询，凭据也不会触发认证窗；SK6.2 再依据精确清单清理产品代码、专用存储和打包资源。
+5. Steam 获取层没有独立持久筛选／选择 schema；Scene/Web 属性仍以原 record ID 与各自 defaults owner 保存。本批不搬迁、不重写这些键，只维持库 reload 与播放入口。真实升级 App 的首次播放和回退仍是 SK7 外部门。
 
 ### SK6.2 — 删除旧获取职责与打包资源
 

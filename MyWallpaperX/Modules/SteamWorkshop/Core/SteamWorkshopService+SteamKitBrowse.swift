@@ -5,11 +5,8 @@
 
 import Foundation
 
-// SK3.2：新浏览 route（SteamKit 统一查询消费）。
-//
-// 注入：开发期以 `--mwx-steam-kit-browse` 启动参数或 defaults 键
-// `SteamWorkshop.useSteamKitBrowse` 开启；SK6.1 前不接管发行默认，
-// 不提供用户可长期选择双后端的设置。
+// SK6.1：SteamKit 统一查询已取得默认浏览执行权。发行构建没有双后端
+// 设置或同请求 fallback；DEBUG 的整版本回退参数只用于隔离升级验收。
 // 合同（§4.1）：
 // - QueryKey（排序/标签/搜索/时间窗）+ generation：条件变化重置分页；
 //   逆序/迟到响应按 generation 丢弃，已有页不清空。
@@ -21,13 +18,15 @@ import Foundation
 //   打开详情面板仍走既有按 ID 补全路径。
 extension SteamWorkshopService {
     var isSteamKitBrowseEnabled: Bool {
-        if ProcessInfo.processInfo.arguments.contains("--mwx-steam-kit-browse") { return true }
-        return UserDefaults.standard.bool(forKey: "SteamWorkshop.useSteamKitBrowse")
+#if DEBUG
+        return !ProcessInfo.processInfo.arguments.contains("--mwx-legacy-steam-browse")
+#else
+        return true
+#endif
     }
 
-    /// 新 route 是否适用于当前浏览上下文（公开 discovery 来源；作者/个人
-    /// 来源分别待 SK3.3 及后续卡接入，期间走既有 route）。工坊 ID/链接
-    /// 搜索保留既有按 ID 解析 route（否则数字 ID 会退化为文本搜索）。
+    /// 公开 discovery route。作者页与严格 ID 分别走同一个 store 的
+    /// `.author`/`.details` 查询，绝不掉回 HTML。
     var shouldUseSteamKitBrowse: Bool {
         isSteamKitBrowseEnabled
             && !source.isPersonal
@@ -35,16 +34,58 @@ extension SteamWorkshopService {
             && Self.workshopItemIDSearchID(from: browserQuery) == nil
     }
 
+    var shouldUseSteamKitAuthor: Bool {
+        isSteamKitBrowseEnabled && browseContext.isAuthorWorkshop
+    }
+
+    var shouldUseSteamKitItemLookup: Bool {
+        isSteamKitBrowseEnabled
+            && !browseContext.isAuthorWorkshop
+            && Self.workshopItemIDSearchID(from: browserQuery) != nil
+    }
+
+    var shouldUseSteamKitStructuredBrowse: Bool {
+        shouldUseSteamKitBrowse || shouldUseSteamKitAuthor || shouldUseSteamKitItemLookup
+    }
+
     func fetchDiscoveryViaSteamKit(forceRefresh: Bool) {
-        let key = steamKitBrowseStore.makeKey(
-            source: source,
-            contentMode: browserContentMode,
-            theme: themeFilter,
-            resolution: resolutionFilter,
-            category: categoryFilter,
-            search: browserQuery.trimmingCharacters(in: .whitespacesAndNewlines),
-            window: trendingWindow
-        )
+        if case .authorWorkshop(_, let workshopURL) = browseContext,
+           Self.creatorID(from: workshopURL) == nil {
+            browserFetchTask?.cancel()
+            cancelBrowserDetailHydration()
+            browserItems = []
+            browserState = .failed("作者标识不可用")
+            hasMoreBrowserItems = false
+            isLoadingMoreBrowserItems = false
+            isRefreshingBrowserFeed = false
+            statusMessage = "无法解析该作者的 SteamID，请从作品详情重新进入作者工坊。"
+            return
+        }
+        let key: SteamKitBrowseStore.Key
+        if case .authorWorkshop(_, let workshopURL) = browseContext,
+           let creatorSteamID = Self.creatorID(from: workshopURL) {
+            key = steamKitBrowseStore.makeAuthorKey(
+                creatorSteamID: creatorSteamID,
+                contentMode: browserContentMode,
+                theme: themeFilter,
+                resolution: resolutionFilter,
+                category: categoryFilter
+            )
+        } else if let itemID = Self.workshopItemIDSearchID(from: browserQuery),
+                  shouldUseSteamKitItemLookup {
+            key = steamKitBrowseStore.makeDetailsKey(itemID: itemID)
+            currentWorkshopItemID = itemID
+        } else {
+            key = steamKitBrowseStore.makeKey(
+                source: source,
+                contentMode: browserContentMode,
+                theme: themeFilter,
+                resolution: resolutionFilter,
+                category: categoryFilter,
+                search: browserQuery.trimmingCharacters(in: .whitespacesAndNewlines),
+                window: trendingWindow
+            )
+        }
         let keyChanged = steamKitBrowseStore.currentKey != key
         if keyChanged {
             steamKitBrowseStore.resetFor(key: key)
@@ -62,7 +103,11 @@ extension SteamWorkshopService {
             browserState = .loading
             browserItems = []
             hasMoreBrowserItems = true
-            statusMessage = "正在加载 Steam 创意工坊…"
+            switch key.route {
+            case .author: statusMessage = "正在加载作者工坊列表…"
+            case .details(let itemID): statusMessage = "正在按 ID 加载创意工坊项目 \(itemID)…"
+            case .discovery, .personal: statusMessage = "正在加载 Steam 创意工坊…"
+            }
         } else {
             // §4.1：同 key 刷新不闪回空白，旧页上方轻量状态。保留既有
             // hasMore，避免已到底的 feed 在刷新期间再次触发 loadMore。
@@ -77,8 +122,8 @@ extension SteamWorkshopService {
                 await MainActor.run {
                     guard self.navigationVersion == expectedNavigationVersion,
                           generation == self.steamKitBrowseStore.generation,
-                          self.shouldUseSteamKitBrowse else { return }
-                    let filtered = self.steamKitPostFilter(result.items)
+                          self.shouldUseSteamKitStructuredBrowse else { return }
+                    let filtered = self.steamKitStructuredPostProcess(result.items)
                         .map(SteamWorkshopBrowserItem.make(from:))
                     self.browserItems = filtered
                     self.browserState = .loaded
@@ -129,8 +174,8 @@ extension SteamWorkshopService {
                 await MainActor.run {
                     guard self.navigationVersion == expectedNavigationVersion,
                           generation == self.steamKitBrowseStore.generation,
-                          self.shouldUseSteamKitBrowse else { return }
-                    let filtered = self.steamKitPostFilter(result.items)
+                          self.shouldUseSteamKitStructuredBrowse else { return }
+                    let filtered = self.steamKitStructuredPostProcess(result.items)
                         .map(SteamWorkshopBrowserItem.make(from:))
                     self.browserItems = filtered
                     self.browserNextPage = page + 1
@@ -157,16 +202,26 @@ extension SteamWorkshopService {
         }
     }
 
-    /// SK3.3：新 route 是否适用于当前个人来源上下文（需新路线在线）。工坊
-    /// ID/链接搜索与 discovery 同规则保留既有按 ID 解析 route（SK3.2 同裁决）。
+    /// 个人来源始终由新 route 接管。离线时在原区域显示登录指引，不创建
+    /// helper 请求，也不回落到 Cookie/HTML。
     var shouldUseSteamKitPersonal: Bool {
         isSteamKitBrowseEnabled
             && source.isPersonal
-            && steamAuth.isOnline
-            && Self.workshopItemIDSearchID(from: browserQuery) == nil
+            && !browseContext.isAuthorWorkshop
     }
 
     func fetchPersonalViaSteamKit(forceRefresh: Bool) {
+        guard steamAuth.isOnline else {
+            browserFetchTask?.cancel()
+            cancelBrowserDetailHydration()
+            browserItems = []
+            browserState = .loaded
+            hasMoreBrowserItems = false
+            isLoadingMoreBrowserItems = false
+            isRefreshingBrowserFeed = false
+            statusMessage = "需要登录，请使用工具栏的「登录 Steam」。"
+            return
+        }
         let key = steamKitBrowseStore.makePersonalKey(
             source: source,
             accountSteamID: steamAuth.steamId,
@@ -290,13 +345,63 @@ extension SteamWorkshopService {
         }
     }
 
+    /// Product detail owner after SK6.1. The helper is the only semantic data
+    /// source; preview MIME probing remains a bounded media request and cannot
+    /// change item identity, author, tags or subscription metadata.
+    func fetchWorkshopItemViaSteamKit(
+        fallback: SteamWorkshopBrowserItem,
+        browserContentMode: SteamWorkshopBrowserContentMode
+    ) async throws -> SteamWorkshopBrowserItem {
+        let page = try await steamWorkshopQueryClient.details(ids: [fallback.id])
+        guard let item = page.items.first(where: { $0.publishedFileId == fallback.id }) else {
+            throw SteamServiceClient.RequestError.helperError(
+                code: "unsupportedContent", message: "作品不存在或当前账号无权访问。")
+        }
+        guard browserContentMode.isAll || item.tags.contains(where: {
+            $0.caseInsensitiveCompare(browserContentMode.requiredTagValue) == .orderedSame
+        }) else {
+            throw SteamServiceClient.RequestError.helperError(
+                code: "unsupportedContent", message: "当前条目不是\(browserContentMode.displayName)。")
+        }
+        let detailed = SteamWorkshopBrowserItem.makeDetailed(from: item, fallback: fallback)
+        let enriched = try await Self.maybeEnrichPreviewKind(
+            for: detailed,
+            requestPriority: .userInitiated
+        )
+        Self.saveDetailCache(item: enriched)
+        return enriched
+    }
+
     private func appendSteamKitPartialNotice() {
-        if source.isPersonal { statusMessage += " 排序和筛选仅作用于已加载项目。" }
+        if steamKitBrowseStore.currentKey?.route == .personal {
+            statusMessage += " 排序和筛选仅作用于已加载项目。"
+        }
         else if steamKitWindowCutoffInterval != nil { statusMessage += " 时间筛选仅作用于已加载项目。" }
         let errors = steamKitBrowseStore.partialErrors
         guard !errors.isEmpty else { return }
         let ids = errors.prefix(5).map(\.publishedFileId).joined(separator: "、")
         statusMessage += " 另有 \(errors.count) 项暂不可用（\(ids)），可刷新重试。"
+    }
+
+    private func steamKitStructuredPostProcess(
+        _ items: [SteamWorkshopQueryItem]
+    ) -> [SteamWorkshopQueryItem] {
+        guard let key = steamKitBrowseStore.currentKey else { return items }
+        switch key.route {
+        case .details:
+            return items
+        case .author:
+            guard !key.tags.isEmpty else { return items }
+            return items.filter { item in
+                key.tags.allSatisfy { expected in
+                    item.tags.contains { $0.caseInsensitiveCompare(expected) == .orderedSame }
+                }
+            }
+        case .discovery:
+            return steamKitPostFilter(items)
+        case .personal:
+            return steamKitPersonalPostProcess(items)
+        }
     }
 
     /// 个人来源后处理：标签过滤（GetUserFiles 无服务端筛选）+ 标题搜索 +
@@ -376,12 +481,18 @@ extension SteamWorkshopBrowserItem {
         let detailURL = URL(string:
             "https://steamcommunity.com/sharedfiles/filedetails/?id=\(item.publishedFileId)&appid=431960"
         ) ?? URL(string: "https://steamcommunity.com/")!
+        let authorProfileURL = item.creatorSteamId.flatMap {
+            URL(string: "https://steamcommunity.com/profiles/\($0)/")
+        }
+        let authorWorkshopURL = item.creatorSteamId.flatMap {
+            URL(string: "https://steamcommunity.com/profiles/\($0)/myworkshopfiles/?appid=431960")
+        }
         return SteamWorkshopBrowserItem(
             id: item.publishedFileId,
             title: item.title,
             author: "",
-            authorProfileURL: nil,
-            authorWorkshopURL: nil,
+            authorProfileURL: authorProfileURL,
+            authorWorkshopURL: authorWorkshopURL,
             hasAdultContent: item.tags.contains(where: { $0.caseInsensitiveCompare("Mature") == .orderedSame }),
             summary: "",
             descriptionText: "",
@@ -411,6 +522,98 @@ extension SteamWorkshopBrowserItem {
         )
     }
 
+    static func makeDetailed(
+        from item: SteamWorkshopQueryItem,
+        fallback: SteamWorkshopBrowserItem
+    ) -> SteamWorkshopBrowserItem {
+        let tags = item.tags
+        let description = item.description?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let summary = description.isEmpty ? fallback.summary : description
+        let creator = item.creatorSteamId
+        let authorProfileURL = creator.flatMap {
+            URL(string: "https://steamcommunity.com/profiles/\($0)/")
+        } ?? fallback.authorProfileURL
+        let authorWorkshopURL = creator.flatMap {
+            URL(string: "https://steamcommunity.com/profiles/\($0)/myworkshopfiles/?appid=431960")
+        } ?? fallback.authorWorkshopURL
+        let author = fallback.author.isEmpty || fallback.author == "未知作者"
+            ? creator.map { "Steam \($0)" } ?? "未知作者"
+            : fallback.author
+        let workshopType = SteamWorkshopService.preferredTag(
+            in: tags,
+            matching: SteamWorkshopBrowserContentMode.allCases.map(\.requiredTagValue)
+        )
+        let ageRating = SteamWorkshopService.preferredTag(
+            in: tags,
+            matching: SteamWorkshopAgeRatingFilter.ratingTagValues
+        )
+        let category = SteamWorkshopService.preferredTag(
+            in: tags,
+            matching: SteamWorkshopCategoryFilter.allCases.dropFirst().map(\.rawValue)
+        )
+        let resolution = tags.first(where: SteamWorkshopService.isResolutionTag)
+        let genre = tags.first(where: { !SteamWorkshopService.isSystemWorkshopTag($0) })
+        let fileSizeText = item.fileSize.map { SteamWorkshopService.fileSizeText(forBytes: Int64($0)) }
+        let postedText = SteamWorkshopService.formatSteamTimestamp(item.timeCreated.map(Int64.init))
+        let updatedText = SteamWorkshopService.formatSteamTimestamp(item.timeUpdated.map(Int64.init))
+        let favoritesText = item.favorited.map(SteamWorkshopService.formatCount)
+        let subscriptionsText = item.subscriptions.map(SteamWorkshopService.formatCount)
+        let lifetimeFavoritesText = item.lifetimeFavorited.map(SteamWorkshopService.formatCount)
+        let lifetimeSubscriptionsText = item.lifetimeSubscriptions.map(SteamWorkshopService.formatCount)
+        let visibilityText = SteamWorkshopService.visibilityText(for: item.visibility)
+        let moderationText = SteamWorkshopService.moderationText(
+            banned: item.banned.map { $0 ? 1 : 0 },
+            banReason: item.banReason
+        )
+        return SteamWorkshopBrowserItem(
+            id: item.publishedFileId,
+            title: item.title,
+            author: author,
+            authorProfileURL: authorProfileURL,
+            authorWorkshopURL: authorWorkshopURL,
+            hasAdultContent: fallback.hasAdultContent || tags.contains(where: {
+                $0.caseInsensitiveCompare("Mature") == .orderedSame
+            }),
+            summary: summary,
+            descriptionText: description.isEmpty ? summary : description,
+            tags: tags,
+            workshopTypeText: workshopType,
+            ageRatingText: ageRating,
+            genreText: genre,
+            categoryText: category,
+            dependencyIDs: fallback.dependencyIDs,
+            previewImageURL: item.previewUrl.flatMap(URL.init(string:)) ?? fallback.previewImageURL,
+            previewVideoURL: fallback.previewVideoURL,
+            previewAssetKind: fallback.previewAssetKind,
+            fileSizeText: fileSizeText,
+            resolutionText: resolution,
+            postedText: postedText,
+            updatedText: updatedText,
+            favoritesText: favoritesText,
+            subscriptionsText: subscriptionsText,
+            scoreText: item.views.map { "浏览 \($0)" },
+            lifetimeFavoritesText: lifetimeFavoritesText,
+            lifetimeSubscriptionsText: lifetimeSubscriptionsText,
+            visibilityText: visibilityText,
+            moderationText: moderationText,
+            detailFields: SteamWorkshopService.buildOfficialDetailFields(
+                fileSizeText: fileSizeText,
+                resolutionText: resolution,
+                postedText: postedText,
+                updatedText: updatedText,
+                subscriptionsText: subscriptionsText,
+                favoritesText: favoritesText,
+                lifetimeSubscriptionsText: lifetimeSubscriptionsText,
+                lifetimeFavoritesText: lifetimeFavoritesText,
+                visibilityText: visibilityText,
+                moderationText: moderationText,
+                tags: tags
+            ),
+            detailURL: fallback.detailURL
+        )
+    }
+
     private static let relativeFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
@@ -422,7 +625,15 @@ extension SteamWorkshopBrowserItem {
 /// browserItems 为 UI 投影；本类保留同键原始已加载集合，后置过滤与排序只对整集合执行。
 @MainActor
 final class SteamKitBrowseStore {
+    enum Route: Equatable {
+        case discovery
+        case personal
+        case author(creatorSteamID: String)
+        case details(itemID: String)
+    }
+
     struct Key: Equatable {
+        let route: Route
         let sort: SteamWorkshopQuerySort
         let tags: [String]
         let search: String
@@ -471,6 +682,7 @@ final class SteamKitBrowseStore {
             tags.append(categoryTag)
         }
         return Key(
+            route: .discovery,
             sort: Self.sort(for: source),
             tags: tags,
             search: search,
@@ -511,6 +723,7 @@ final class SteamKitBrowseStore {
             tags.append(categoryTag)
         }
         return Key(
+            route: .personal,
             sort: .subscriptions,
             tags: tags,
             search: search,
@@ -520,6 +733,44 @@ final class SteamKitBrowseStore {
             source: source,
             personalSortRaw: personalSort.rawValue,
             accountSteamID: accountSteamID
+        )
+    }
+
+    func makeAuthorKey(
+        creatorSteamID: String,
+        contentMode: SteamWorkshopBrowserContentMode,
+        theme: SteamWorkshopThemeFilter,
+        resolution: SteamWorkshopResolutionFilter,
+        category: SteamWorkshopCategoryFilter
+    ) -> Key {
+        var tags: [String] = []
+        if !contentMode.isAll { tags.append(contentMode.requiredTagValue) }
+        for tag in [theme.tagValue, resolution.tagValue, category.tagValue].compactMap({ $0 })
+            where !tags.contains(where: { $0.caseInsensitiveCompare(tag) == .orderedSame }) {
+            tags.append(tag)
+        }
+        return Key(
+            route: .author(creatorSteamID: creatorSteamID),
+            sort: .newest,
+            tags: tags,
+            search: "",
+            trendingWindowRaw: "na",
+            source: nil,
+            personalSortRaw: nil,
+            accountSteamID: nil
+        )
+    }
+
+    func makeDetailsKey(itemID: String) -> Key {
+        Key(
+            route: .details(itemID: itemID),
+            sort: .newest,
+            tags: [],
+            search: "",
+            trendingWindowRaw: "na",
+            source: nil,
+            personalSortRaw: nil,
+            accountSteamID: nil
         )
     }
 
@@ -555,12 +806,34 @@ final class SteamKitBrowseStore {
         guard let key = currentKey else {
             throw SteamServiceClient.RequestError.notReady
         }
-        let result = try await queryClient.browse(
-            sort: key.sort,
-            page: page,
-            tags: key.tags,
-            search: key.search
-        )
+        let result: SteamWorkshopQueryPage
+        switch key.route {
+        case .discovery:
+            result = try await queryClient.browse(
+                sort: key.sort,
+                page: page,
+                tags: key.tags,
+                search: key.search
+            )
+        case .author(let creatorSteamID):
+            result = try await queryClient.author(creatorSteamId: creatorSteamID, page: page)
+        case .details(let itemID):
+            guard page == 1 else {
+                throw SteamServiceClient.RequestError.helperError(
+                    code: "unsupportedQuery", message: "detail lookup has one page")
+            }
+            let details = try await queryClient.details(ids: [itemID])
+            result = SteamWorkshopQueryPage(
+                page: page,
+                total: details.total,
+                hasMore: false,
+                items: details.items,
+                wrongAppDropped: details.wrongAppDropped,
+                partialErrors: details.partialErrors
+            )
+        case .personal:
+            throw SteamServiceClient.RequestError.notReady
+        }
         // 迟到/被取代的响应不得提交分页状态：否则旧页回包会把 nextPage
         // 推过头造成跳页缺数据。上层按代际丢弃合并，这里对齐提交语义。
         guard generation == self.generation, key == currentKey else {
@@ -578,7 +851,7 @@ final class SteamKitBrowseStore {
         page: Int,
         generation: Int
     ) async throws -> (items: [SteamWorkshopQueryItem], total: Int, hasMore: Bool) {
-        guard let key = currentKey, let source = key.source else {
+        guard let key = currentKey, key.route == .personal, let source = key.source else {
             throw SteamServiceClient.RequestError.notReady
         }
         guard key.personalSortRaw != SteamWorkshopPersonalSort.rating.rawValue,

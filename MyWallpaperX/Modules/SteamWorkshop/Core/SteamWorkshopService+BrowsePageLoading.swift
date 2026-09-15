@@ -2,8 +2,8 @@ import Foundation
 
 extension SteamWorkshopService {
     func loadMoreBrowserItemsIfNeeded() {
-        // SK3.2：dev 注入的新 route 分页。
-        if shouldUseSteamKitBrowse {
+        // SK6.1：公开/作者结构化 route 分页；ID lookup 会以 hasMore=false 收口。
+        if shouldUseSteamKitStructuredBrowse {
             loadMoreDiscoveryViaSteamKitIfNeeded()
             return
         }

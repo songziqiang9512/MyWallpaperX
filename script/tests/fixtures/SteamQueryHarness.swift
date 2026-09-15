@@ -32,7 +32,10 @@ final class QueryTransport: SteamServiceTransporting {
         let client = SteamServiceClient(executablePath: "/fake", transportFactory: { _ in wire })
         let query = SteamWorkshopQueryClient(client: client)
         func item(_ id: String, _ size: Int) -> [String: Any] {
-            ["publishedfileid": id, "title": id, "consumerAppid": 431960, "fileSize": size,
+            ["publishedfileid": id, "creatorSteamId": "76561198000000000", "title": id,
+             "description": "detail-\(id)", "consumerAppid": 431960, "fileSize": size,
+             "visibility": 0, "banned": false, "subscriptions": 12, "favorited": 3,
+             "lifetimeSubscriptions": 20, "lifetimeFavorited": 4, "views": 50,
              "tags": ["1", "2", "3", "4", "5", "6", "7", "8", "Video"]]
         }
         func page(_ number: Int, _ items: [[String: Any]]) -> [String: Any] {
@@ -42,6 +45,9 @@ final class QueryTransport: SteamServiceTransporting {
         wire.respond = { _ in payload }
         let first = try await query.browse(sort: .newest, page: 1)
         precondition(first.items[0].tags.count == 9)
+        precondition(first.items[0].creatorSteamId == "76561198000000000")
+        precondition(first.items[0].description == "detail-1")
+        precondition(first.items[0].subscriptions == 12 && first.items[0].views == 50)
         for key in ["items", "page", "total", "hasMore", "wrongAppDropped"] {
             payload = page(1, [item("1", 10)]); payload.removeValue(forKey: key)
             do { _ = try await query.browse(sort: .newest, page: 1); fatalError("missing field accepted: \(key)") }
@@ -51,6 +57,12 @@ final class QueryTransport: SteamServiceTransporting {
             payload = page(1, [bad])
             do { _ = try await query.browse(sort: .newest, page: 1); fatalError("bad item accepted") } catch { }
         }
+        var badCreator = item("1", 1); badCreator["creatorSteamId"] = "vanity-name"
+        payload = page(1, [badCreator])
+        do { _ = try await query.browse(sort: .newest, page: 1); fatalError("bad creator accepted") } catch { }
+        var badBanned = item("1", 1); badBanned["banned"] = "false"
+        payload = page(1, [badBanned])
+        do { _ = try await query.browse(sort: .newest, page: 1); fatalError("bad moderation accepted") } catch { }
         payload = ["states": ["1": "false"]]
         do { _ = try await query.subscriptionStates(ids: ["1"]); fatalError("invalid bool accepted") } catch { }
         payload = ["states": [:]]
@@ -78,6 +90,29 @@ final class QueryTransport: SteamServiceTransporting {
         _ = try await browse.fetchPersonal(page: 3, generation: browse.generation - 1)
         precondition(browse.nextPage == 3 && browse.rawItems.count == 2, "stale page cannot commit")
         precondition(SteamKitBrowseStore.sort(for: .updated) == .updated)
+
+        let authorKey = browse.makeAuthorKey(creatorSteamID: "76561198000000000", contentMode: .video,
+            theme: .all, resolution: .all, category: .all)
+        browse.resetFor(key: authorKey)
+        payload = page(1, [item("10", 10)])
+        wire.respond = { request in
+            precondition(request["command"] as? String == "queryAuthor")
+            let requestPayload = request["payload"] as! [String: Any]
+            precondition(requestPayload["creatorSteamId"] as? String == "76561198000000000")
+            return payload
+        }
+        let author = try await browse.fetch(page: 1, generation: browse.bumpGeneration())
+        precondition(author.items.map(\.publishedFileId) == ["10"])
+
+        let detailsKey = browse.makeDetailsKey(itemID: "11")
+        browse.resetFor(key: detailsKey)
+        payload = page(0, [item("11", 11)])
+        wire.respond = { request in
+            if request["command"] as? String != "queryDetails" { return [:] }
+            return payload
+        }
+        let details = try await browse.fetch(page: 1, generation: browse.bumpGeneration())
+        precondition(details.items.map(\.publishedFileId) == ["11"] && !details.hasMore)
 
         var epoch: Int? = 1
         var writes = 0

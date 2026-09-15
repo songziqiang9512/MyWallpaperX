@@ -84,6 +84,66 @@ import Foundation
         let migratedAgain = SteamDownloadJobStore(persistenceURL: migrationURL, now: { clock })
         precondition(migratedAgain.history.count == 1)
 
+        // SK6.1 uses a side-by-side v3 file. Import old unfinished intent once,
+        // but never mutate/quarantine the rollback snapshot or adjacent user data.
+        let upgradeRoot = base.appendingPathComponent("upgrade", isDirectory: true)
+        try FileManager.default.createDirectory(at: upgradeRoot, withIntermediateDirectories: true)
+        let legacyJobsURL = upgradeRoot.appendingPathComponent("jobs.json")
+        let legacyWriter = SteamDownloadJobStore(persistenceURL: legacyJobsURL, now: { clock })
+        let unfinished = legacyWriter.enqueue(
+            workshopItemId: "400", title: "Unfinished", accountSteamId: "A").job
+        precondition(legacyWriter.apply(.started, toID: unfinished.id) != nil)
+        var legacyObject = try JSONSerialization.jsonObject(
+            with: Data(contentsOf: legacyJobsURL)) as! [String: Any]
+        legacyObject["version"] = 2
+        legacyObject.removeValue(forKey: "history")
+        let legacyBytes = try JSONSerialization.data(
+            withJSONObject: legacyObject, options: [.sortedKeys])
+        try legacyBytes.write(to: legacyJobsURL, options: .atomic)
+
+        let libraryFile = upgradeRoot.appendingPathComponent("library/project.json")
+        let passwordFile = upgradeRoot.appendingPathComponent("credentials/legacy-password")
+        let cookieFile = upgradeRoot.appendingPathComponent("cookies/legacy-cookie")
+        let corruptCache = upgradeRoot.appendingPathComponent("cache/private-html.json")
+        for file in [libraryFile, passwordFile, cookieFile, corruptCache] {
+            try FileManager.default.createDirectory(
+                at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data("sentinel-\(file.lastPathComponent)".utf8).write(to: file)
+        }
+        let sentinels = try Dictionary(uniqueKeysWithValues:
+            [libraryFile, passwordFile, cookieFile, corruptCache].map { ($0, try Data(contentsOf: $0)) })
+        let v3URL = upgradeRoot.appendingPathComponent("jobs-v3.json")
+        let upgraded = SteamDownloadJobStore(
+            persistenceURL: v3URL, legacyImportURL: legacyJobsURL, now: { clock })
+        precondition(upgraded.jobs.count == 1 && upgraded.jobs[0].state == .queued)
+        precondition(upgraded.activeJob(forWorkshopItemId: "400") != nil,
+            "unfinished legacy intent must be imported exactly once")
+        let preservedLegacyBytes = try Data(contentsOf: legacyJobsURL)
+        precondition(preservedLegacyBytes == legacyBytes,
+            "new owner must not rewrite the old-version rollback snapshot")
+        precondition(FileManager.default.fileExists(atPath: v3URL.path))
+        for (file, bytes) in sentinels {
+            let preservedBytes = try Data(contentsOf: file)
+            precondition(preservedBytes == bytes,
+                "upgrade must not alter library, properties, credentials, cookies or HTML cache")
+        }
+        let upgradedAgain = SteamDownloadJobStore(
+            persistenceURL: v3URL, legacyImportURL: legacyJobsURL, now: { clock })
+        precondition(upgradedAgain.jobs.count == 1,
+            "existing v3 sidecar must win over legacy import without duplicate jobs")
+
+        let corruptLegacy = upgradeRoot.appendingPathComponent("corrupt-jobs.json")
+        let corruptV3 = upgradeRoot.appendingPathComponent("corrupt-jobs-v3.json")
+        let corruptBytes = Data("not-json".utf8)
+        try corruptBytes.write(to: corruptLegacy)
+        let rejected = SteamDownloadJobStore(
+            persistenceURL: corruptV3, legacyImportURL: corruptLegacy, now: { clock })
+        precondition(rejected.jobs.isEmpty && rejected.history.isEmpty)
+        let preservedCorruptBytes = try Data(contentsOf: corruptLegacy)
+        precondition(preservedCorruptBytes == corruptBytes)
+        precondition(!FileManager.default.fileExists(atPath: corruptV3.path),
+            "corrupt rollback data must remain inert instead of becoming new schema")
+
         // Retention is frozen at the newest 100 terminal attempts and 30 days.
         let boundedURL = base.appendingPathComponent("bounded.json")
         let bounded = SteamDownloadJobStore(persistenceURL: boundedURL, now: { clock })

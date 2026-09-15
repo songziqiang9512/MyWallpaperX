@@ -419,10 +419,21 @@ final class SteamWorkshopService: ObservableObject {
         let isIsolatedWebSampleRun = false
 #endif
         if !isIsolatedWebSampleRun {
-            loadAuthenticationState()
-            refreshSteamRuntimeStatus()
-            loadCachedBrowserItemsIfPossible()
+#if DEBUG
+            if !isSteamKitBrowseEnabled {
+                // 整版本回退必须恢复旧 route 的完整启动 owner，而不是只把
+                // 浏览函数切回去。该分支只由进程启动参数触发，发行构建不可达。
+                loadAuthenticationState()
+                refreshSteamRuntimeStatus()
+                loadCachedBrowserItemsIfPossible()
+            } else {
+                restoreSavedSteamSessionIfAuthorized()
+            }
+#else
+            // SK6.1：启动不再读取旧密码/SteamCMD 状态或 HTML 浏览缓存。
+            // 旧凭据和缓存留待 SK6.2 按精确清单退役；本批只撤销其产品执行权。
             restoreSavedSteamSessionIfAuthorized()
+#endif
         }
         reloadInstalledItems()
         refreshDisplayedDownloads()

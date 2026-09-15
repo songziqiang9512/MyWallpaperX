@@ -8,13 +8,23 @@ import Foundation
 /// SK3.1：结构化查询的 Swift 侧模型（helper IPC 是唯一数据源；无 UI 缓存）。
 struct SteamWorkshopQueryItem: Equatable {
     let publishedFileId: String
+    let creatorSteamId: String?
     let title: String
+    let description: String?
     let previewUrl: String?
     let fileSize: Int?
     let timeUpdated: Int?
     let timeCreated: Int?
     let timeSubscribed: Int?
     let consumerAppId: Int?
+    let visibility: Int?
+    let banned: Bool?
+    let banReason: String?
+    let subscriptions: Int?
+    let favorited: Int?
+    let lifetimeSubscriptions: Int?
+    let lifetimeFavorited: Int?
+    let views: Int?
     let tags: [String]
 }
 
@@ -301,20 +311,37 @@ final class SteamWorkshopQueryClient {
                   let title = object["title"]?.stringValue,
                   object["consumerAppid"]?.intValue == 431960,
                   let tagValues = object["tags"]?.arrayValue else { throw malformed }
-            for key in ["fileSize", "timeUpdated", "timeCreated", "timeSubscribed"] {
+            for key in ["fileSize", "timeUpdated", "timeCreated", "timeSubscribed", "visibility",
+                        "subscriptions", "favorited", "lifetimeSubscriptions", "lifetimeFavorited", "views"] {
                 if let value = object[key], value != .null {
                     guard let number = value.intValue, number >= 0 else { throw malformed }
                 }
             }
             if let preview = object["previewUrl"], preview != .null, preview.stringValue == nil { throw malformed }
+            for key in ["description", "banReason"] {
+                if let value = object[key], value != .null, value.stringValue == nil { throw malformed }
+            }
+            if let banned = object["banned"], banned != .null, banned.boolValue == nil { throw malformed }
+            if let creator = object["creatorSteamId"], creator != .null, creator.stringValue == nil {
+                throw malformed
+            }
+            let creatorSteamId = object["creatorSteamId"]?.stringValue
+            if let creatorSteamId, !validID(creatorSteamId) { throw malformed }
             let tags = try tagValues.map { tag -> String in
                 guard let text = tag.stringValue else { throw malformed }; return text
             }
-            return SteamWorkshopQueryItem(publishedFileId: id, title: title,
+            return SteamWorkshopQueryItem(publishedFileId: id, creatorSteamId: creatorSteamId, title: title,
+                description: object["description"]?.stringValue,
                 previewUrl: object["previewUrl"]?.stringValue, fileSize: object["fileSize"]?.intValue,
                 timeUpdated: object["timeUpdated"]?.intValue, timeCreated: object["timeCreated"]?.intValue,
                 timeSubscribed: object["timeSubscribed"]?.intValue,
-                consumerAppId: 431960, tags: tags)
+                consumerAppId: 431960, visibility: object["visibility"]?.intValue,
+                banned: object["banned"]?.boolValue, banReason: object["banReason"]?.stringValue,
+                subscriptions: object["subscriptions"]?.intValue,
+                favorited: object["favorited"]?.intValue,
+                lifetimeSubscriptions: object["lifetimeSubscriptions"]?.intValue,
+                lifetimeFavorited: object["lifetimeFavorited"]?.intValue,
+                views: object["views"]?.intValue, tags: tags)
         }
         guard Set(items.map(\.publishedFileId)).count == items.count else { throw malformed }
         let partial: [SteamServiceJSON]

@@ -193,31 +193,49 @@ final class SteamDownloadJobStore: ObservableObject {
 
     private var ordinal = 0
     private let persistenceURL: URL
+    /// SK6.1 rollback boundary: the new owner never writes or quarantines the
+    /// legacy filename. It may import that snapshot once when the v3 sidecar is
+    /// absent, leaving an older app a readable rollback source.
+    private let legacyImportURL: URL?
     private let now: () -> Date
 
-    init(persistenceURL: URL? = nil, now: @escaping () -> Date = Date.init) {
+    init(
+        persistenceURL: URL? = nil,
+        legacyImportURL: URL? = nil,
+        now: @escaping () -> Date = Date.init
+    ) {
         self.now = now
         if let persistenceURL {
             self.persistenceURL = persistenceURL
+            self.legacyImportURL = legacyImportURL
         } else {
             let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
                 .first!
                 .appendingPathComponent("MyWallpaperX/SteamJobs", isDirectory: true)
-            self.persistenceURL = base.appendingPathComponent("jobs.json")
+            self.persistenceURL = base.appendingPathComponent("jobs-v3.json")
+            self.legacyImportURL = base.appendingPathComponent("jobs.json")
         }
         // 注入路径与默认路径统一确保父目录存在，否则原子写入会静默失败。
         try? FileManager.default.createDirectory(
             at: self.persistenceURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        loadPersistedJobs()
+        if FileManager.default.fileExists(atPath: self.persistenceURL.path) {
+            loadPersistedJobs(from: self.persistenceURL, quarantineOnFailure: true)
+        } else if let legacyImportURL,
+                  FileManager.default.fileExists(atPath: legacyImportURL.path),
+                  loadPersistedJobs(from: legacyImportURL, quarantineOnFailure: false) {
+            // Import is copy-on-read. Persist only to the new sidecar and leave
+            // the old snapshot byte-for-byte intact for whole-version rollback.
+            save(jobs, history: history)
+        }
     }
 
     static func defaultPersistenceURL() -> URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
             .first!
             .appendingPathComponent("MyWallpaperX/SteamJobs", isDirectory: true)
-        return base.appendingPathComponent("jobs.json")
+        return base.appendingPathComponent("jobs-v3.json")
     }
 
     // MARK: - 查询
@@ -424,16 +442,16 @@ final class SteamDownloadJobStore: ObservableObject {
         }
     }
 
-    private func loadPersistedJobs() {
-        guard FileManager.default.fileExists(atPath: persistenceURL.path) else { return }
-        guard let data = try? Data(contentsOf: persistenceURL) else {
-            quarantineCorruptedFile()
-            return
+    @discardableResult
+    private func loadPersistedJobs(from sourceURL: URL, quarantineOnFailure: Bool) -> Bool {
+        guard let data = try? Data(contentsOf: sourceURL) else {
+            if quarantineOnFailure { quarantineCorruptedFile(at: sourceURL) }
+            return false
         }
         guard let state = try? JSONDecoder().decode(PersistedState.self, from: data),
               (1...Self.persistenceVersion).contains(state.version) else {
-            quarantineCorruptedFile()
-            return
+            if quarantineOnFailure { quarantineCorruptedFile(at: sourceURL) }
+            return false
         }
         jobs = state.jobs
         let stamp = now()
@@ -467,6 +485,7 @@ final class SteamDownloadJobStore: ObservableObject {
         } else {
             lastSaveSucceeded = true
         }
+        return true
     }
 
     private func upsertingHistoryEntry(
@@ -522,10 +541,10 @@ final class SteamDownloadJobStore: ObservableObject {
             .prefix(Self.historyLimit))
     }
 
-    private func quarantineCorruptedFile() {
-        let backup = persistenceURL.deletingLastPathComponent()
+    private func quarantineCorruptedFile(at sourceURL: URL) {
+        let backup = sourceURL.deletingLastPathComponent()
             .appendingPathComponent("jobs.corrupted-\(Int(Date().timeIntervalSince1970)).json")
-        try? FileManager.default.moveItem(at: persistenceURL, to: backup)
+        try? FileManager.default.moveItem(at: sourceURL, to: backup)
         jobs = []
         history = []
         lastSaveSucceeded = true

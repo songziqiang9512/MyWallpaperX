@@ -24,6 +24,19 @@ extension SteamWorkshopService {
 
     func prepareForBrowserEntry() {
         startupTask?.cancel()
+        if isSteamKitBrowseEnabled {
+            guard !isLoadingMoreBrowserItems, browserFetchTask == nil else { return }
+            if browserItems.isEmpty || browserState == .idle {
+                logBrowserDebug(
+                    "prepareForBrowserEntry trigger SteamKit fetch context=\(browseContext.title) state=\(browserState)"
+                )
+                fetchBrowserItems(forceRefresh: true)
+            }
+            return
+        }
+#if DEBUG
+        // Whole-route rollback only. Release builds never prepare the retired
+        // SteamCMD runtime, and one request never crosses between backends.
         startupTask = Task(priority: .userInitiated) { [weak self] in
             guard let self else { return }
             await self.prepareRuntimeIfNeeded()
@@ -40,16 +53,16 @@ extension SteamWorkshopService {
                 }
             }
         }
+#endif
     }
 
     func fetchBrowserItems(forceRefresh: Bool = false) {
-        // SK3.2：dev 注入的新 route（SteamKit 统一查询）优先；个人/作者来源
-        // 仍走既有 route（SK3.3/SK6.1 接管）。
-        if shouldUseSteamKitBrowse {
+        // SK6.1：公开、严格 ID 与作者列表由同一结构化 store 接管。
+        if shouldUseSteamKitStructuredBrowse {
             fetchDiscoveryViaSteamKit(forceRefresh: forceRefresh)
             return
         }
-        // SK3.3：个人来源新 route（需新路线在线；离线保持 SK2.2 指引路径）。
+        // 个人来源即使离线也由新 route 输出登录指引，禁止 Cookie/HTML fallback。
         if shouldUseSteamKitPersonal {
             fetchPersonalViaSteamKit(forceRefresh: forceRefresh)
             return
