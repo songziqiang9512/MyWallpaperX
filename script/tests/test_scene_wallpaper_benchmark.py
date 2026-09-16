@@ -2288,6 +2288,33 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "expected one performance stages event",
             benchmark.performance_metrics(missing_stages, 1)["error"],
         )
+        per_call_stages = "phase=performance-stages layer-loop=p50:1ms p95:2ms n:60\n"
+        frame_stages = (
+            "phase=performance-stages-frames "
+            "admit-executor-prepare=p50:2.000ms p95:2.500ms n:60\n"
+        )
+        # 没有 frames 行时该视图缺席，旧日志保持可解析。
+        self.assertIsNone(
+            benchmark.performance_frame_stage_metrics(per_call_stages)
+        )
+        frames_metrics = benchmark.performance_frame_stage_metrics(
+            per_call_stages + frame_stages
+        )
+        self.assertIsNotNone(frames_metrics)
+        self.assertTrue(frames_metrics["available"])
+        self.assertEqual(
+            sorted(frames_metrics["stages"]), ["admit-executor-prepare"]
+        )
+        # frames 行绝不能被当成第二个 per-call 事件，否则整项性能证据会失效。
+        both = benchmark.performance_stage_metrics(per_call_stages + frame_stages)
+        self.assertTrue(both["available"])
+        self.assertEqual(sorted(both["stages"]), ["layer-loop"])
+        # 只有 frames 行时仍必须判定缺少 per-call 阶段事件。
+        only_frames = benchmark.performance_stage_metrics(frame_stages)
+        self.assertFalse(only_frames["available"])
+        self.assertIn(
+            "expected one performance stages event", only_frames["error"]
+        )
         duplicate_stage = valid_log.replace(
             "layer-loop=p50:1ms p95:2ms n:60",
             "layer-loop=p50:1ms p95:2ms n:60 "

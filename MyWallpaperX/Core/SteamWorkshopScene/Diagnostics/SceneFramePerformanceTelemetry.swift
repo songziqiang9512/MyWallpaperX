@@ -65,6 +65,8 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
     private var callbackIntervals: [TimeInterval] = []
     private var stageDurations: [String: [TimeInterval]] = [:]
     private var openStages: [String: TimeInterval] = [:]
+    private var frameStageDurations: [String: [TimeInterval]] = [:]
+    private var openFrameStageTotals: [String: TimeInterval] = [:]
     private var discontinuityCount = 0
     private var droppedFrameTime: TimeInterval = 0
     private var maximumRawFrameTime: TimeInterval = 0
@@ -95,6 +97,8 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
             callbackIntervals.removeAll(keepingCapacity: true)
             stageDurations.removeAll(keepingCapacity: true)
             openStages.removeAll(keepingCapacity: true)
+            frameStageDurations.removeAll(keepingCapacity: true)
+            openFrameStageTotals.removeAll(keepingCapacity: true)
             discontinuityCount = 0
             droppedFrameTime = 0
             maximumRawFrameTime = 0
@@ -119,6 +123,14 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
     func recordCPUFrame(duration: TimeInterval) {
         withLock {
             cpuFrameDurations.append(max(0, duration))
+            // Frame boundary for the per-frame stage view: every stage that ran
+            // inside this frame has already ended, so fold the running totals
+            // and start the next frame clean. Per-call stages therefore become
+            // comparable with per-frame stages, which raw percentiles cannot be.
+            for (name, total) in openFrameStageTotals {
+                frameStageDurations[name, default: []].append(total)
+            }
+            openFrameStageTotals.removeAll(keepingCapacity: true)
         }
     }
 
@@ -133,7 +145,9 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
         let now = ProcessInfo.processInfo.systemUptime
         withLock {
             if let start = openStages.removeValue(forKey: name) {
-                stageDurations[name, default: []].append(max(0, now - start))
+                let elapsed = max(0, now - start)
+                stageDurations[name, default: []].append(elapsed)
+                openFrameStageTotals[name, default: 0] += elapsed
             }
         }
     }
@@ -141,6 +155,21 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
     func stageSummary() -> [String: (p50: TimeInterval, p95: TimeInterval, count: Int)] {
         withLock {
             stageDurations.mapValues { values in
+                (
+                    Self.percentile(values, 0.50),
+                    Self.percentile(values, 0.95),
+                    values.count
+                )
+            }
+        }
+    }
+
+    /// Per-frame stage totals. A nested stage that runs several times per frame
+    /// contributes its frame sum here, so percentile-over-frames figures are
+    /// additive against other per-frame stages.
+    func frameStageSummary() -> [String: (p50: TimeInterval, p95: TimeInterval, count: Int)] {
+        withLock {
+            frameStageDurations.mapValues { values in
                 (
                     Self.percentile(values, 0.50),
                     Self.percentile(values, 0.95),

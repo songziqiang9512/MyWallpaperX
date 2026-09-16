@@ -240,6 +240,21 @@ extension DebugScenePlaybackRunner {
             if !stageLine.isEmpty {
                 NSLog("MWX DEBUG SCENE: phase=performance-stages %@", stageLine)
             }
+            // Per-frame view: nested stages that run several times per frame are
+            // summed per frame, so these figures are additive against the
+            // per-frame stages. Raw stageSummary percentiles are not.
+            let frameStages =
+                SceneFramePerformanceTelemetry.debugEvidence.frameStageSummary()
+            let frameStageLine = frameStages.keys.sorted().map { name in
+                let summary = frameStages[name] ?? (0, 0, 0)
+                return "\(name)=p50:\(String(format: "%.3f", summary.0 * 1_000))ms p95:\(String(format: "%.3f", summary.1 * 1_000))ms n:\(summary.2)"
+            }.joined(separator: " ")
+            if !frameStageLine.isEmpty {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=performance-stages-frames %@",
+                    frameStageLine
+                )
+            }
             let processCPUTime = resources.processCPUTimeMilliseconds.map {
                 String(format: "%.3f", $0)
             } ?? "unavailable"

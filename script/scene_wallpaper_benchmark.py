@@ -79,7 +79,10 @@ RUNTIME_EVIDENCE_RE = re.compile(
 STOPPED_RE = re.compile(r"phase=stopped surfacesBefore=(?P<before>\d+) surfacesAfter=(?P<after>\d+)")
 PERFORMANCE_LINE_RE = re.compile(r"phase=performance (?P<fields>[^\r\n]+)")
 PERFORMANCE_STAGES_LINE_RE = re.compile(
-    r"phase=performance-stages(?P<fields>[^\r\n]*)"
+    r"phase=performance-stages (?P<fields>[^\r\n]*)"
+)
+PERFORMANCE_FRAME_STAGES_LINE_RE = re.compile(
+    r"phase=performance-stages-frames (?P<fields>[^\r\n]*)"
 )
 PERFORMANCE_RESOURCES_LINE_RE = re.compile(
     r"phase=performance-resources (?P<fields>[^\r\n]+)"
@@ -743,12 +746,16 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def performance_stage_metrics(log_text: str) -> dict[str, Any]:
-    matches = list(PERFORMANCE_STAGES_LINE_RE.finditer(log_text))
+def _performance_stage_metrics(
+    log_text: str,
+    pattern: re.Pattern[str],
+    label: str,
+) -> dict[str, Any]:
+    matches = list(pattern.finditer(log_text))
     if len(matches) != 1:
         return {
             "available": False,
-            "error": f"expected one performance stages event, found {len(matches)}",
+            "error": f"expected one {label} event, found {len(matches)}",
         }
 
     fields = matches[0].group("fields")
@@ -807,6 +814,28 @@ def performance_stage_metrics(log_text: str) -> dict[str, Any]:
             "milliseconds": highest["p95_ms"],
         },
     }
+
+
+def performance_stage_metrics(log_text: str) -> dict[str, Any]:
+    """Per-call stage percentiles; required evidence for a performance run."""
+    return _performance_stage_metrics(
+        log_text, PERFORMANCE_STAGES_LINE_RE, "performance stages"
+    )
+
+
+def performance_frame_stage_metrics(log_text: str) -> dict[str, Any] | None:
+    """Per-frame stage totals.
+
+    A nested stage that runs several times per frame is summed per frame here,
+    which makes its figures additive against per-frame stages; the per-call
+    percentiles above are not. Returns None for logs that predate this view so
+    older evidence stays parseable.
+    """
+    if PERFORMANCE_FRAME_STAGES_LINE_RE.search(log_text) is None:
+        return None
+    return _performance_stage_metrics(
+        log_text, PERFORMANCE_FRAME_STAGES_LINE_RE, "performance frame stages"
+    )
 
 
 def performance_resource_metrics(log_text: str) -> dict[str, Any]:
@@ -988,6 +1017,15 @@ def performance_metrics(log_text: str, surface_count: int | None) -> dict[str, A
             + str(stage_metrics.get("error", "unknown error")),
         }
     metrics["cpu_stages"] = stage_metrics
+    frame_stage_metrics = performance_frame_stage_metrics(log_text)
+    if frame_stage_metrics is not None:
+        if frame_stage_metrics.get("available") is not True:
+            return {
+                "available": False,
+                "error": "performance frame stages unavailable: "
+                + str(frame_stage_metrics.get("error", "unknown error")),
+            }
+        metrics["cpu_stages_frames"] = frame_stage_metrics
     resource_metrics = performance_resource_metrics(log_text)
     if resource_metrics.get("available") is not True:
         return {

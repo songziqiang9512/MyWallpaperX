@@ -85,7 +85,23 @@ enum Harness {
         telemetry.recordDriverCallback(at: 10.04)
         telemetry.recordFrameDelta(raw: 0.5, dropped: 0.25)
         telemetry.recordFrameDelta(raw: 0.02, dropped: 0)
+        // Per-frame aggregation: nested-stage runs twice inside the first frame
+        // and once inside the second, so the per-frame view holds two samples
+        // (the first being the sum of its two calls) while the per-call view
+        // holds three. The two existing frame boundaries are reused so the
+        // CPU-frame statistics asserted below stay unchanged.
+        for _ in 0..<2 {
+            telemetry.beginStage("nested-stage")
+            Thread.sleep(forTimeInterval: 0.002)
+            telemetry.endStage("nested-stage")
+        }
+        telemetry.beginStage("flat-stage")
+        Thread.sleep(forTimeInterval: 0.001)
+        telemetry.endStage("flat-stage")
         telemetry.recordCPUFrame(duration: 0.010)
+        telemetry.beginStage("nested-stage")
+        Thread.sleep(forTimeInterval: 0.001)
+        telemetry.endStage("nested-stage")
         telemetry.recordCPUFrame(duration: 0.020)
         telemetry.recordPreparation(drawableWait: 0.003, preEncode: 0.007)
         telemetry.recordMainFrame(duration: 0.030)
@@ -97,6 +113,8 @@ enum Harness {
         telemetry.recordPresented(at: 10.260, streamID: 2)
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
+        let frameStages = telemetry.frameStageSummary()
+        let callStages = telemetry.stageSummary()
         let value = telemetry.snapshot(at: 11)
         let payload: [String: Any] = [
             "elapsed": value.elapsed,
@@ -114,7 +132,14 @@ enum Harness {
             "presentP99": value.presentationIntervalP99,
             "presentMax": value.presentationIntervalMax,
             "presentOver1_5Budget": value.presentationOverOneAndHalfBudget,
-            "stages": telemetry.stageSummary().count,
+            "stages": callStages.count,
+            "staleStageRecorded": callStages["stale-stage"] != nil,
+            "frameNestedCount": frameStages["nested-stage"]?.count ?? -1,
+            "frameFlatCount": frameStages["flat-stage"]?.count ?? -1,
+            "callNestedCount": callStages["nested-stage"]?.count ?? -1,
+            "frameNestedP50MS": (frameStages["nested-stage"]?.p50 ?? 0) * 1_000,
+            "frameNestedP95MS": (frameStages["nested-stage"]?.p95 ?? 0) * 1_000,
+            "frameFlatP50MS": (frameStages["flat-stage"]?.p50 ?? 0) * 1_000,
             "callbackP95": value.callbackIntervalP95,
             "callbackOver16": value.callbackOverBudget,
             "discontinuities": value.discontinuityCount,
@@ -304,7 +329,20 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertAlmostEqual(self.result["presentP99"], 0.06)
         self.assertAlmostEqual(self.result["presentMax"], 0.06)
         self.assertEqual(self.result["presentOver1_5Budget"], 1)
-        self.assertEqual(self.result["stages"], 0)
+        self.assertEqual(self.result["stages"], 2)
+        self.assertFalse(self.result["staleStageRecorded"])
+        # Per-frame aggregation: nested-stage ran twice in frame one and once in
+        # frame two, so the per-frame view has two samples while the per-call
+        # view has three, and frame one's total is the sum of its two calls.
+        self.assertEqual(self.result["callNestedCount"], 3)
+        self.assertEqual(self.result["frameNestedCount"], 2)
+        self.assertEqual(self.result["frameFlatCount"], 1)
+        self.assertGreaterEqual(self.result["frameNestedP95MS"], 3.0)
+        self.assertGreater(self.result["frameNestedP50MS"], 0.5)
+        self.assertLessEqual(
+            self.result["frameNestedP50MS"], self.result["frameNestedP95MS"]
+        )
+        self.assertGreaterEqual(self.result["frameFlatP50MS"], 0.5)
         self.assertAlmostEqual(self.result["callbackP95"], 0.02)
         self.assertEqual(self.result["callbackOver16"], 2)
         self.assertEqual(self.result["discontinuities"], 1)
@@ -358,6 +396,10 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertIn("processFootprintSampledPeakBytes=%llu", performance_runner)
         self.assertIn("gpuAllocatedSampledPeakBytes=%llu", performance_runner)
         self.assertIn("processCPUTimeStatus=%@", performance_runner)
+        # 嵌套阶段的 per-frame 聚合必须由 runner 单独成行输出，不能覆盖 per-call 行。
+        self.assertIn("phase=performance-stages %@", performance_runner)
+        self.assertIn("phase=performance-stages-frames %@", performance_runner)
+        self.assertIn("frameStageSummary()", performance_runner)
         self.assertNotIn("ProcessCPUTimeNanoseconds", performance_runner)
         self.assertNotIn("cpuTimeNanoseconds", performance_runner)
 
