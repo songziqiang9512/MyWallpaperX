@@ -50,6 +50,7 @@ final class AppKitWallpaperCollectionView: NSCollectionView, GridCollectionViewP
                 let itemPoint = item.view.convert(point, from: self)
                 if item.shouldTriggerPlayAction(at: itemPoint) {
                     playRequestHandler?(indexPath)
+                    return // Playback consumes this click; never also open the inspector.
                 }
             }
         }

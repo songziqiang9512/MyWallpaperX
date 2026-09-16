@@ -38,7 +38,6 @@ extension NSToolbarItem.Identifier {
     static let olDownloadsTitle  = NSToolbarItem.Identifier("ToolbarOLDownloadsTitle")
     static let olDownloadsSelect = NSToolbarItem.Identifier("ToolbarOLDownloadsSelect")
     static let olDownloadsDelete = NSToolbarItem.Identifier("ToolbarOLDownloadsDelete")
-    static let olDownloadsInfo   = NSToolbarItem.Identifier("ToolbarOLDownloadsInfo")
     static let olDownloadsSort   = NSToolbarItem.Identifier("ToolbarOLDownloadsSort")
     static let olDownloadsReveal = NSToolbarItem.Identifier("ToolbarOLDownloadsReveal")
     static let olDownloadsSearch = NSToolbarItem.Identifier("ToolbarOLDownloadsSearch")
@@ -55,6 +54,11 @@ final class OnlineLibraryToolbarController: NSObject, NSSearchFieldDelegate {
 
     weak var toolbar: NSToolbar?
     weak var window:  NSWindow?
+
+    /// 在线库菜单按钮（API Key 设置/下载排序）的统一下拉面板。
+    lazy var menuPopover = ToolbarMenuPopoverPresenter(
+        fallbackAnchorProvider: { [weak self] in self?.window?.contentView }
+    )
 
     /// 切换到在线模式前保存的本地工具栏布局，退出时恢复
     var localModeIdentifiers: [NSToolbarItem.Identifier] = []
@@ -96,7 +100,6 @@ final class OnlineLibraryToolbarController: NSObject, NSSearchFieldDelegate {
         .olDownloadsSelect,
         .space,
         .olDownloadsDelete,
-        .olDownloadsInfo,
         .olDownloadsReveal,
         .olDownloadsSort,
         .space,
@@ -153,8 +156,7 @@ final class OnlineLibraryToolbarController: NSObject, NSSearchFieldDelegate {
         if isDownloads {
             configureDownloadsTitleItem()
             configureDownloadsSelectionItem()
-            configureDownloadsInfoItem()
-            configureDownloadsRevealItem()
+                configureDownloadsRevealItem()
             configureDownloadsSortItem()
         } else {
             titleUpdateHandler?(Title.browser)
@@ -170,7 +172,6 @@ final class OnlineLibraryToolbarController: NSObject, NSSearchFieldDelegate {
     func refreshDownloadsToolbarState() {
         guard isOnlineLibraryMode && isOnlineDownloadsMode else { return }
         configureDownloadsSelectionItem()
-        configureDownloadsInfoItem()
         configureDownloadsRevealItem()
         configureZoomItem()
     }
@@ -188,7 +189,6 @@ final class OnlineLibraryToolbarController: NSObject, NSSearchFieldDelegate {
         case .olDownloadsTitle:  return downloadsTitleItem
         case .olDownloadsSelect: return downloadsSelectItem
         case .olDownloadsDelete: return downloadsDeleteItem
-        case .olDownloadsInfo:   return downloadsInfoItem
         case .olDownloadsSort:   return downloadsSortItem
         case .olDownloadsReveal: return downloadsRevealItem
         case .olDownloadsSearch: return downloadsSearchItem
@@ -254,18 +254,6 @@ final class OnlineLibraryToolbarController: NSObject, NSSearchFieldDelegate {
         return item
     }()
 
-    lazy var downloadsInfoItem: NSToolbarItem = {
-        let item = NSToolbarItem(itemIdentifier: .olDownloadsInfo)
-        item.label = "信息"
-        item.paletteLabel = "信息"
-        item.toolTip = "查看信息"
-        item.autovalidates = false
-        item.image = NSImage(systemSymbolName: "info.circle", accessibilityDescription: "查看信息")
-        item.target = self
-        item.action = #selector(handleDownloadsInfoAction)
-        return item
-    }()
-
     lazy var downloadsRevealItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .olDownloadsReveal)
         item.label = "查看文件"
@@ -311,7 +299,7 @@ final class OnlineLibraryToolbarController: NSObject, NSSearchFieldDelegate {
 
     lazy var downloadsSearchField: NSSearchField = {
         let field = NSSearchField(frame: .zero)
-        field.placeholderString = "搜索 Pixabay 下载"
+        field.placeholderString = "搜索"
         field.sendsSearchStringImmediately = true
         field.sendsWholeSearchString = false
         field.target = self
@@ -450,7 +438,7 @@ final class OnlineLibraryToolbarController: NSObject, NSSearchFieldDelegate {
     lazy var searchField: NSSearchField = {
         let field = NSSearchField(frame: .zero)
         field.delegate = self
-        field.placeholderString = "探索 Pixabay"
+        field.placeholderString = "搜索"
         field.sendsSearchStringImmediately = true
         field.sendsWholeSearchString = false
         field.translatesAutoresizingMaskIntoConstraints = false
@@ -509,18 +497,6 @@ final class OnlineLibraryToolbarController: NSObject, NSSearchFieldDelegate {
         button.target       = self
         button.action       = #selector(handleSettingsButtonAction)
         button.toolTip      = "Pixabay API Key 设置"
-        // 绑定菜单：macOS 会在按钮下方弹出，不显示箭头指示器
-        let menu = NSMenu()
-        let changeItem = NSMenuItem(title: "更改 API Key", action: #selector(handleChangeAPIKey), keyEquivalent: "")
-        changeItem.target = self
-        changeItem.image  = NSImage.olSymbol("key", pointSize: 13, weight: .regular)
-        menu.addItem(changeItem)
-        menu.addItem(.separator())
-        let clearItem = NSMenuItem(title: "清空并返回登录界面", action: #selector(handleClearAPIKey), keyEquivalent: "")
-        clearItem.target = self
-        clearItem.image  = NSImage.olSymbol("door.left.hand.open", pointSize: 13, weight: .regular)
-        menu.addItem(clearItem)
-        button.menu = menu
         return button
     }()
 
@@ -634,12 +610,22 @@ extension OnlineLibraryToolbarController {
         OnlineLibraryService.shared.refresh()
     }
 
-    @objc private func handleSettingsButtonAction() {
-        // NSButton.menu 绑定后系统会自动在按钮下方弹出菜单，此方法作为备用 fallback
-        guard let menu = settingsButton.menu else { return }
-        let bounds = settingsButton.convert(settingsButton.bounds, to: nil)
-        let screen = settingsButton.window?.convertToScreen(bounds) ?? .zero
-        menu.popUp(positioning: nil, at: NSPoint(x: screen.minX, y: screen.minY), in: nil)
+    @objc private func handleSettingsButtonAction(_ sender: NSButton) {
+        menuPopover.toggle(anchor: sender) { [weak self] in
+            [
+                ToolbarMenuPopoverPresenter.Row(
+                    title: "更改 API Key",
+                    kind: .action,
+                    handler: { [weak self] in self?.handleChangeAPIKey() }
+                ),
+                .separator(),
+                ToolbarMenuPopoverPresenter.Row(
+                    title: "清空并返回登录界面",
+                    kind: .action,
+                    handler: { [weak self] in self?.handleClearAPIKey() }
+                )
+            ]
+        }
     }
 
     @objc private func handleChangeAPIKey() {
@@ -653,7 +639,6 @@ extension OnlineLibraryToolbarController {
     @objc private func handleDownloadsSelectAction() {
         OnlineDownloadsBridge.shared.toggleMultiSelect()
         configureDownloadsSelectionItem()
-        configureDownloadsInfoItem()
         configureDownloadsRevealItem()
     }
 
@@ -661,8 +646,7 @@ extension OnlineLibraryToolbarController {
         guard let window else {
             OnlineDownloadsBridge.shared.deleteSelected()
             configureDownloadsSelectionItem()
-            configureDownloadsInfoItem()
-            configureDownloadsRevealItem()
+                configureDownloadsRevealItem()
             return
         }
         let count = OnlineDownloadsBridge.shared.selectedCount
@@ -679,13 +663,8 @@ extension OnlineLibraryToolbarController {
             guard response == .alertFirstButtonReturn else { return }
             OnlineDownloadsBridge.shared.deleteSelected()
             self?.configureDownloadsSelectionItem()
-            self?.configureDownloadsInfoItem()
             self?.configureDownloadsRevealItem()
         }
-    }
-
-    @objc private func handleDownloadsInfoAction() {
-        MainWindowCoordinator.menuShowInfo()
     }
 
     @objc private func handleDownloadsRevealAction() {
@@ -701,48 +680,35 @@ extension OnlineLibraryToolbarController {
     }
 
     @objc private func handleDownloadsSortAction(_ sender: NSButton) {
-        let menu = NSMenu()
-        for mode in WallpaperSortMode.allCases {
-            menu.addItem(
-                makeDownloadsSortMenuItem(
+        menuPopover.toggle(anchor: sender) { [weak self] in
+            guard let self else { return [] }
+            let state = self.downloadsSortState
+            var rows: [ToolbarMenuPopoverPresenter.Row] = WallpaperSortMode.allCases.map { mode in
+                ToolbarMenuPopoverPresenter.Row(
                     title: mode.displayName,
-                    action: #selector(handleDownloadsSortModeAction(_:)),
-                    representedObject: mode,
-                    state: downloadsSortState.mode == mode ? .on : .off
+                    kind: .check,
+                    isChecked: state.mode == mode,
+                    handler: { [weak self] in self?.applyDownloadsSortMode(mode) }
                 )
-            )
+            }
+            rows.append(.separator())
+            rows.append(ToolbarMenuPopoverPresenter.Row(
+                title: "升序",
+                kind: .check,
+                isChecked: state.ascending,
+                handler: { [weak self] in self?.applyDownloadsSortDirection(true) }
+            ))
+            rows.append(ToolbarMenuPopoverPresenter.Row(
+                title: "降序",
+                kind: .check,
+                isChecked: !state.ascending,
+                handler: { [weak self] in self?.applyDownloadsSortDirection(false) }
+            ))
+            return rows
         }
-        menu.addItem(.separator())
-        [("升序", true), ("降序", false)].forEach { title, asc in
-            menu.addItem(
-                makeDownloadsSortMenuItem(
-                    title: title,
-                    action: #selector(handleDownloadsSortDirAction(_:)),
-                    representedObject: asc,
-                    state: downloadsSortState.ascending == asc ? .on : .off
-                )
-            )
-        }
-        let buttonBounds = sender.convert(sender.bounds, to: nil)
-        let screenRect = sender.window?.convertToScreen(buttonBounds) ?? .zero
-        menu.popUp(positioning: nil, at: NSPoint(x: screenRect.minX, y: screenRect.minY), in: nil)
     }
 
-    private func makeDownloadsSortMenuItem(
-        title: String,
-        action: Selector,
-        representedObject: Any,
-        state: NSControl.StateValue
-    ) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
-        item.target = self
-        item.representedObject = representedObject
-        item.state = state
-        return item
-    }
-
-    @objc private func handleDownloadsSortModeAction(_ sender: NSMenuItem) {
-        guard let mode = sender.representedObject as? WallpaperSortMode else { return }
+    private func applyDownloadsSortMode(_ mode: WallpaperSortMode) {
         downloadsSortState.mode = mode
         if mode == .none { downloadsSortState.ascending = true }
         NotificationCenter.default.post(name: .olDownloadsSortDidChange, object: nil, userInfo: [
@@ -752,8 +718,7 @@ extension OnlineLibraryToolbarController {
         configureDownloadsSortItem()
     }
 
-    @objc private func handleDownloadsSortDirAction(_ sender: NSMenuItem) {
-        guard let ascending = sender.representedObject as? Bool else { return }
+    private func applyDownloadsSortDirection(_ ascending: Bool) {
         downloadsSortState.ascending = ascending
         NotificationCenter.default.post(name: .olDownloadsSortDidChange, object: nil, userInfo: [
             "mode": downloadsSortState.mode.rawValue,
@@ -813,10 +778,6 @@ extension OnlineLibraryToolbarController {
         downloadsSelectItem.toolTip = isMultiSelect ? "退出选择模式" : "进入选择模式"
     }
 
-    private func configureDownloadsInfoItem() {
-        downloadsInfoItem.isEnabled = OnlineDownloadsBridge.shared.hasSingleSelection
-    }
-
     private func configureDownloadsRevealItem() {
         downloadsRevealItem.isEnabled = OnlineDownloadsBridge.shared.hasAnySelection
     }
@@ -846,8 +807,7 @@ extension OnlineLibraryToolbarController {
             .olDownloadsTitle,
             .olDownloadsSelect,
             .olDownloadsDelete,
-            .olDownloadsInfo,
-            .olDownloadsSort,
+                .olDownloadsSort,
             .olDownloadsReveal,
             .olDownloadsSearch,
             .space,

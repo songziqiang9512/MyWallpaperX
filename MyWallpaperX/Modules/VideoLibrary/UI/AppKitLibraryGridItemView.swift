@@ -736,6 +736,8 @@ private final class PlayBadgeView: NSView {
         }
         layer?.shadowPath = CGPath(ellipseIn: bounds.insetBy(dx: 1, dy: 1), transform: nil)
         glossLayer.frame = bounds
+        glossLayer.cornerRadius = radius
+        glossLayer.masksToBounds = true
     }
 
     private func updateGlyphAppearance() {

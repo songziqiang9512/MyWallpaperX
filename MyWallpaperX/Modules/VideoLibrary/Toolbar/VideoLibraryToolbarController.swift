@@ -56,6 +56,10 @@ final class VideoLibraryToolbarController: NSObject, NSToolbarDelegate, NSSearch
     private var observerTokens: [NSObjectProtocol] = []
     var pendingToolbarRefreshWorkItem: DispatchWorkItem?
     var lastRefreshSignature: ToolbarRefreshSignature?
+    /// 视频库排序按钮的统一下拉面板（箭头锚定按钮）。
+    lazy var menuPopover = ToolbarMenuPopoverPresenter(
+        fallbackAnchorProvider: { [weak self] in self?.window?.contentView }
+    )
     // 在线图库工具栏控制器
     lazy var onlineLibraryToolbarController = OnlineLibraryToolbarController(toolbar: toolbar, window: window)
     // Steam 创意工坊工具栏控制器
@@ -175,14 +179,6 @@ final class VideoLibraryToolbarController: NSObject, NSToolbarDelegate, NSSearch
         label: "标签",
         toolTip: "编辑标签",
         action: #selector(handleTagButtonAction)
-    )
-
-    lazy var infoItem = makeToolbarItem(
-        identifier: IDs.info,
-        symbolName: "info.circle",
-        label: "信息",
-        toolTip: "查看信息",
-        action: #selector(handleInfoButtonAction)
     )
 
     lazy var sortMenuButton: NSButton = {
@@ -551,7 +547,6 @@ final class VideoLibraryToolbarController: NSObject, NSToolbarDelegate, NSSearch
         deleteItem.isEnabled = availability.canUseLibraryActions && availability.hasAnySelection
         favoriteItem.isEnabled = availability.canUseLibraryActions && availability.hasAnySelection
         tagItem.isEnabled = availability.canUseLibraryActions && availability.hasAnySelection && availability.hasTags
-        infoItem.isEnabled = availability.canUseLibraryActions && availability.hasSingleSelection
         sortItem.isEnabled = availability.canUseLibraryActions
         configureFavoriteItem(isFavoritedState: isFavoritedState)
         configureSortItem()
@@ -627,12 +622,6 @@ final class VideoLibraryToolbarController: NSObject, NSToolbarDelegate, NSSearch
         }
     }
 
-    @objc func handleInfoButtonAction() {
-        performToolbarAction(requiresNonSettingsSelection: true) { _ in
-            wallpaperManager.toggleInspectorForSelectedWallpaper()
-        }
-    }
-
     func performToolbarAction(
         requiresNonSettingsSelection: Bool = false,
         refreshAfter: Bool = false,
@@ -699,51 +688,36 @@ final class VideoLibraryToolbarController: NSObject, NSToolbarDelegate, NSSearch
     }
 
     @objc func handleSortButtonAction(_ sender: NSButton) {
-        let key = wallpaperManager.currentSelectionContext.scrollPersistenceKey
-        let state = wallpaperManager.sortState(for: key)
-
-        let menu = NSMenu()
-        for mode in WallpaperSortMode.allCases {
-            menu.addItem(
-                makeSortMenuItem(
+        menuPopover.toggle(anchor: sender) { [weak self] in
+            guard let self else { return [] }
+            let key = self.wallpaperManager.currentSelectionContext.scrollPersistenceKey
+            let state = self.wallpaperManager.sortState(for: key)
+            var rows: [ToolbarMenuPopoverPresenter.Row] = WallpaperSortMode.allCases.map { mode in
+                ToolbarMenuPopoverPresenter.Row(
                     title: mode.displayName,
-                    action: #selector(handleSortMenuItemAction(_:)),
-                    representedObject: mode,
-                    state: state.mode == mode ? .on : .off
+                    kind: .check,
+                    isChecked: state.mode == mode,
+                    handler: { [weak self] in self?.applySortMode(mode) }
                 )
-            )
+            }
+            rows.append(.separator())
+            rows.append(ToolbarMenuPopoverPresenter.Row(
+                title: "升序",
+                kind: .check,
+                isChecked: state.ascending,
+                handler: { [weak self] in self?.applySortDirection(true) }
+            ))
+            rows.append(ToolbarMenuPopoverPresenter.Row(
+                title: "降序",
+                kind: .check,
+                isChecked: !state.ascending,
+                handler: { [weak self] in self?.applySortDirection(false) }
+            ))
+            return rows
         }
-        menu.addItem(.separator())
-        [("升序", true), ("降序", false)].forEach { title, asc in
-            menu.addItem(
-                makeSortMenuItem(
-                    title: title,
-                    action: #selector(handleSortDirAction(_:)),
-                    representedObject: asc,
-                    state: state.ascending == asc ? .on : .off
-                )
-            )
-        }
-        let buttonBounds = sender.convert(sender.bounds, to: nil)
-        let screenRect = sender.window?.convertToScreen(buttonBounds) ?? .zero
-        menu.popUp(positioning: nil, at: NSPoint(x: screenRect.minX, y: screenRect.minY), in: nil)
     }
 
-    private func makeSortMenuItem(
-        title: String,
-        action: Selector,
-        representedObject: Any,
-        state: NSControl.StateValue
-    ) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
-        item.target = self
-        item.representedObject = representedObject
-        item.state = state
-        return item
-    }
-
-    @objc func handleSortMenuItemAction(_ sender: NSMenuItem) {
-        guard let mode = sender.representedObject as? WallpaperSortMode else { return }
+    func applySortMode(_ mode: WallpaperSortMode) {
         let key = wallpaperManager.currentSelectionContext.scrollPersistenceKey
         var state = wallpaperManager.sortState(for: key)
         state.mode = mode
@@ -752,11 +726,10 @@ final class VideoLibraryToolbarController: NSObject, NSToolbarDelegate, NSSearch
         configureSortItem()
     }
 
-    @objc func handleSortDirAction(_ sender: NSMenuItem) {
-        guard let asc = sender.representedObject as? Bool else { return }
+    func applySortDirection(_ ascending: Bool) {
         let key = wallpaperManager.currentSelectionContext.scrollPersistenceKey
         var state = wallpaperManager.sortState(for: key)
-        state.ascending = asc
+        state.ascending = ascending
         wallpaperManager.setSortState(state, for: key)
         configureSortItem()
     }
@@ -782,16 +755,16 @@ extension VideoLibraryToolbarController {
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         // 工具栏布局固定，避免用户自定义打乱当前设计的分组顺序。
-        [IDs.sidebar, IDs.title, .flexibleSpace, IDs.import, IDs.select, .space, IDs.navigation, .space, IDs.delete, IDs.favorite, IDs.tag, IDs.info, IDs.sort, .space, IDs.zoom, .space, IDs.search]
+        [IDs.sidebar, IDs.title, .flexibleSpace, IDs.import, IDs.select, .space, IDs.navigation, .space, IDs.delete, IDs.favorite, IDs.tag, IDs.sort, .space, IDs.zoom, .space, IDs.search]
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         // 允许项与默认项保持一致，防止自定义面板暴露我们没有验证过的布局组合。
-        [IDs.sidebar, IDs.title, IDs.import, IDs.select, IDs.navigation, IDs.delete, IDs.favorite, IDs.tag, IDs.info, IDs.sort, IDs.zoom, IDs.search, .space, .flexibleSpace,
+        [IDs.sidebar, IDs.title, IDs.import, IDs.select, IDs.navigation, IDs.delete, IDs.favorite, IDs.tag, IDs.sort, IDs.zoom, IDs.search, .space, .flexibleSpace,
          .olCategory, .olRefresh, .olZoom, .olSearch, .olOrder, .olSettings,
-         .olDownloadsTitle, .olDownloadsSelect, .olDownloadsDelete, .olDownloadsInfo, .olDownloadsSort, .olDownloadsReveal, .olDownloadsSearch,
-         .steamSort, .steamPersonalList, .steamTrendingWindow, .steamFilter, .steamAccount, .steamRefresh, .steamZoom, .steamSearch, .steamDownloadsTitle, .steamDownloadsReveal, .steamDownloadsSearch,
-         .silImport, .silSelect, .silDelete, .silTag, .silInfo, .silSort, .silZoom, .silSearch]
+         .olDownloadsTitle, .olDownloadsSelect, .olDownloadsDelete, .olDownloadsSort, .olDownloadsReveal, .olDownloadsSearch,
+         .steamSort, .steamPersonalList, .steamTrendingWindow, .steamFilter, .steamAccount, .steamZoom, .steamSearch, .steamDownloadsTitle, .steamDownloadsSearch,
+         .silImport, .silSelect, .silDelete, .silTag, .silSort, .silZoom, .silSearch]
     }
 
     func toolbar(
@@ -816,8 +789,6 @@ extension VideoLibraryToolbarController {
             return favoriteItem
         case IDs.tag:
             return tagItem
-        case IDs.info:
-            return infoItem
         case IDs.sort:
             return sortItem
         case IDs.zoom:

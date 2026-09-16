@@ -12,6 +12,8 @@ final class SILCollectionView: NSCollectionView, GridCollectionViewProtocol {
     var contextMenuProvider: ((IndexPath?) -> NSMenu?)?
     var cardInteractionHandler: (() -> Void)?
     var cardPressStateHandler: ((IndexPath, Bool) -> Void)?
+    /// 返回 true 时吞掉本次点击（不进入系统选择流程）。
+    var primaryClickHandler: ((IndexPath) -> Bool)?
     var isBoxSelectionEnabled = false
     var boxSelectionBeginHandler: ((IndexPath?) -> Bool)?
     var boxSelectionUpdateHandler: ((NSRect) -> Void)?
@@ -37,6 +39,9 @@ final class SILCollectionView: NSCollectionView, GridCollectionViewProtocol {
             pressedCardIndexPath = indexPath
             pressedCardTimestamp = ProcessInfo.processInfo.systemUptime
             cardPressStateHandler?(indexPath, true)
+        }
+        if let indexPath, primaryClickHandler?(indexPath) == true {
+            return
         }
         super.mouseDown(with: event)
     }

@@ -43,6 +43,16 @@ final class SILGridContainerView: NSView, ModuleFocusable {
         cv.contextMenuProvider = { [weak self] ip in self?.makeContextMenu(for: ip) }
         cv.cardInteractionHandler = {}
         cv.cardPressStateHandler = { [weak self] ip, p in self?.updateCardPressState(at: ip, isPressed: p) }
+        // 已选中卡片再次点击：呼出详情面板（新选中由 didSelect 处理）。
+        cv.primaryClickHandler = { [weak self] ip in
+            guard let self, !SILService.shared.isMultiSelectMode,
+                  ip.item < orderedIDs.count else { return false }
+            if SILService.shared.selectedID == orderedIDs[ip.item] {
+                SILService.shared.presentInspectorForSelectedWallpaper()
+                return true
+            }
+            return false
+        }
         cv.boxSelectionBeginHandler = { [weak self] ip in self?.beginBoxSelection(at: ip) ?? false }
         cv.boxSelectionUpdateHandler = { [weak self] r in self?.updateBoxSelection(in: r) }
         cv.boxSelectionEndHandler = { [weak self] in self?.endBoxSelection() }
@@ -628,7 +638,9 @@ extension SILGridContainerView: NSCollectionViewDelegate {
         let svc = SILService.shared
         if !svc.isMultiSelectMode {
             guard let ip = ips.first, ip.item < orderedIDs.count else { return }
-            svc.setSingleSelection(orderedIDs[ip.item]); return
+            svc.setSingleSelection(orderedIDs[ip.item])
+            svc.presentInspectorForSelectedWallpaper()
+            return
         }
         let ids = Set(cv.selectionIndexPaths.compactMap { $0.item < orderedIDs.count ? orderedIDs[$0.item] : nil })
         svc.replaceMultiSelection(with: ids)

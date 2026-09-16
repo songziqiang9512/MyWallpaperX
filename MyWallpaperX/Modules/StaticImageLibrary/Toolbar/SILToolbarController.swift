@@ -17,7 +17,6 @@ extension NSToolbarItem.Identifier {
     static let silSelect = NSToolbarItem.Identifier("ToolbarSILSelect")
     static let silDelete = NSToolbarItem.Identifier("ToolbarSILDelete")
     static let silTag    = NSToolbarItem.Identifier("ToolbarSILTag")
-    static let silInfo   = NSToolbarItem.Identifier("ToolbarSILInfo")
     static let silSort   = NSToolbarItem.Identifier("ToolbarSILSort")
     static let silZoom   = NSToolbarItem.Identifier("ToolbarSILZoom")
     static let silSearch = NSToolbarItem.Identifier("ToolbarSILSearch")
@@ -31,6 +30,10 @@ final class SILToolbarController: NSObject, NSSearchFieldDelegate {
     private(set) var isSILMode = false
     private var observerTokens: [NSObjectProtocol] = []
     private var cancellables = Set<AnyCancellable>()
+    /// 图片库排序按钮的统一下拉面板（箭头锚定按钮）。
+    lazy var menuPopover = ToolbarMenuPopoverPresenter(
+        fallbackAnchorProvider: { [weak self] in self?.window?.contentView }
+    )
 
     private lazy var sortMenuButton: NSButton = {
         let button = NSButton(frame: NSRect(x: 0, y: 0, width: 28, height: 28))
@@ -55,7 +58,7 @@ final class SILToolbarController: NSObject, NSSearchFieldDelegate {
         NSToolbarItem.Identifier("ToolbarTitle"),
         .flexibleSpace,
         .silImport, .silSelect, .space,
-        .silDelete, .silTag, .silInfo, .silSort,
+        .silDelete, .silTag, .silSort,
         .space, .silZoom, .space, .silSearch
     ]
 
@@ -141,7 +144,6 @@ final class SILToolbarController: NSObject, NSSearchFieldDelegate {
         case .silSelect:  return makeSelectItem()
         case .silDelete:  return makeDeleteItem()
         case .silTag:     return makeTagItem()
-        case .silInfo:    return makeInfoItem()
         case .silSort:    return makeSortItem()
         case .silZoom:    return makeZoomItem()
         case .silSearch:  return makeSearchItem()
@@ -200,7 +202,7 @@ final class SILToolbarController: NSObject, NSSearchFieldDelegate {
     private lazy var searchField: NSSearchField = {
         let field = NSSearchField(frame: .zero)
         field.delegate = self
-        field.placeholderString = "搜索图片壁纸..."
+        field.placeholderString = "搜索"
         field.sendsSearchStringImmediately = true
         field.sendsWholeSearchString = false
         field.target = self
@@ -243,8 +245,6 @@ final class SILToolbarController: NSObject, NSSearchFieldDelegate {
                 item.isEnabled = !ids.isEmpty
             case .silTag:
                 item.isEnabled = !ids.isEmpty && !SILService.shared.silTags.isEmpty
-            case .silInfo:
-                item.isEnabled = ids.count == 1
             case .silSelect:
                 item.image = NSImage(systemSymbolName: isMulti ? "checkmark.circle.fill" : "checkmark.circle", accessibilityDescription: nil)
                 item.toolTip = isMulti ? "退出选择模式" : "进入选择模式"
@@ -302,16 +302,6 @@ private extension SILToolbarController {
         item.isEnabled = false
         item.image = NSImage(systemSymbolName: "tag", accessibilityDescription: "标签")
         item.target = self; item.action = #selector(handleTag)
-        return item
-    }
-    func makeInfoItem() -> NSToolbarItem {
-        let item = NSToolbarItem(itemIdentifier: .silInfo)
-        item.label = "信息"; item.paletteLabel = "查看信息"
-        item.toolTip = "查看图片信息"; item.autovalidates = false
-        item.isBordered = true
-        item.isEnabled = false
-        item.image = NSImage(systemSymbolName: "info.circle", accessibilityDescription: "信息")
-        item.target = self; item.action = #selector(handleInfo)
         return item
     }
     func makeSortItem() -> NSToolbarItem {
@@ -374,16 +364,6 @@ extension SILToolbarController {
             }
         }
     }
-    @objc func handleInfo() {
-        let service = SILService.shared
-        guard let id = service.singleEffectiveSelectedID,
-              service.wallpapers.contains(where: { $0.id == id }) else { return }
-        if service.selectedWallpaperForInspector?.id == id {
-            service.dismissSelectedWallpaperInspector()
-        } else {
-            service.presentInspectorForSelectedWallpaper()
-        }
-    }
     @objc func handleTag() {
         let svc = SILService.shared
         let ids = svc.effectiveSelectedIDs
@@ -410,54 +390,42 @@ extension SILToolbarController {
         }
     }
     @objc func handleSort(_ sender: NSButton) {
-        let menu = NSMenu(); let svc = SILService.shared
-        // 排除「最近使用」，图片库未实际记录 lastUsed
-        let visibleModes = SILSortMode.allCases.filter { $0 != .lastUsed }
-        for (i, mode) in visibleModes.enumerated() {
-            menu.addItem(
-                makeSortMenuItem(
+        let svc = SILService.shared
+        menuPopover.toggle(anchor: sender) { [weak self] in
+            guard let self else { return [] }
+            // 排除「最近使用」，图片库未实际记录 lastUsed
+            let visibleModes = SILSortMode.allCases.filter { $0 != .lastUsed }
+            var rows: [ToolbarMenuPopoverPresenter.Row] = visibleModes.map { mode in
+                ToolbarMenuPopoverPresenter.Row(
                     title: mode.displayName,
-                    action: #selector(handleSortMode(_:)),
-                    tag: i,
-                    state: svc.sortState.mode == mode ? .on : .off
+                    kind: .action,
+                    isChecked: svc.sortState.mode == mode,
+                    handler: { [weak self] in self?.applySortMode(mode) }
                 )
-            )
+            }
+            rows.append(.separator())
+            rows.append(ToolbarMenuPopoverPresenter.Row(
+                title: "升序",
+                kind: .action,
+                isChecked: svc.sortState.ascending,
+                handler: { [weak self] in self?.applySortDirection(true) }
+            ))
+            rows.append(ToolbarMenuPopoverPresenter.Row(
+                title: "降序",
+                kind: .action,
+                isChecked: !svc.sortState.ascending,
+                handler: { [weak self] in self?.applySortDirection(false) }
+            ))
+            return rows
         }
-        menu.addItem(.separator())
-        [("升序", 1), ("降序", 0)].forEach { title, tag in
-            menu.addItem(
-                makeSortMenuItem(
-                    title: title,
-                    action: #selector(handleSortDir(_:)),
-                    tag: tag,
-                    state: (tag == 1) == svc.sortState.ascending ? .on : .off
-                )
-            )
-        }
-        let buttonBounds = sender.convert(sender.bounds, to: nil)
-        let screenRect = sender.window?.convertToScreen(buttonBounds) ?? .zero
-        menu.popUp(positioning: nil, at: NSPoint(x: screenRect.minX, y: screenRect.minY), in: nil)
     }
-    private func makeSortMenuItem(
-        title: String,
-        action: Selector,
-        tag: Int,
-        state: NSControl.StateValue
-    ) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
-        item.target = self
-        item.tag = tag
-        item.state = state
-        return item
+    private func applySortMode(_ mode: SILSortMode) {
+        SILService.shared.sortState.mode = mode
+        SILService.shared.saveSortState()
+        refreshButtonStates()
     }
-    @objc private func handleSortMode(_ sender: NSMenuItem) {
-        let visibleModes = SILSortMode.allCases.filter { $0 != .lastUsed }
-        guard sender.tag < visibleModes.count else { return }
-        SILService.shared.sortState.mode = visibleModes[sender.tag]
-        SILService.shared.saveSortState(); refreshButtonStates()
-    }
-    @objc private func handleSortDir(_ sender: NSMenuItem) {
-        SILService.shared.sortState.ascending = sender.tag == 1
+    private func applySortDirection(_ ascending: Bool) {
+        SILService.shared.sortState.ascending = ascending
         SILService.shared.saveSortState()
     }
     @objc private func handleSearch(_ sender: NSSearchField) {

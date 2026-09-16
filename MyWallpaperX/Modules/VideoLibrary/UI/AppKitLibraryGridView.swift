@@ -992,8 +992,13 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
         guard indexPath.item >= 0, indexPath.item < orderedIDs.count else { return true }
 
         if !wallpaperManager.isMultiSelectMode {
-            // 单选态下已选中的卡片再次点击只吞掉事件，不让系统把 selection 反向切换掉。
-            return wallpaperManager.selectedWallpaperId == orderedIDs[indexPath.item]
+            // 单选态下点击已选中的卡片：呼出详情面板并吞掉事件，
+            // 不让系统把 selection 反向切换掉。
+            if wallpaperManager.selectedWallpaperId == orderedIDs[indexPath.item] {
+                wallpaperManager.presentInspectorForSelectedWallpaper()
+                return true
+            }
+            return false
         }
 
         // 多选态下点击空白卡片区域的行为是切换选中，不是播放。

@@ -95,7 +95,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
 
     private lazy var searchField: NSSearchField = {
         let f = NSSearchField()
-        f.placeholderString = "搜索 Pixabay 下载"
+        f.placeholderString = "搜索"
         f.sendsSearchStringImmediately = true
         f.translatesAutoresizingMaskIntoConstraints = false
         f.target = self
@@ -601,6 +601,14 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         reloadVisibleSelectionItems()
         syncInspectorSelectionIfNeeded()
         OnlineDownloadsBridge.shared.refreshToolbar()
+        // 单选态点击（含已选中卡片再次点击）直接呼出详情面板（呈现而非切换）。
+        if !isMultiSelectMode, availableInspectorSelectionIDs.contains(id) {
+            OnlineLibraryService.shared.presentInspectorForSelectedDownloadedItem(
+                id,
+                isMultiSelectMode: isMultiSelectMode,
+                availableIDs: availableInspectorSelectionIDs
+            )
+        }
         if let item = collectionView.item(at: indexPath) as? AppKitOLDownloadsItem {
             let point = item.view.convert(event.locationInWindow, from: nil)
             if item.shouldTriggerPlayAction(at: point) {

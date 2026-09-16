@@ -211,6 +211,8 @@ extension AppKitLibraryGridContainerView: NSCollectionViewDelegate {
                   indexPath.item < orderedIDs.count else { return }
             let selectedID = orderedIDs[indexPath.item]
             wallpaperManager.setSingleSelection(selectedID)
+            // 点击卡片直接呼出详情面板（与信息按钮同效）。
+            wallpaperManager.presentInspectorForSelectedWallpaper()
             return
         }
 
