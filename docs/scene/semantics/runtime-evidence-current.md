@@ -63,6 +63,25 @@
 
 **E6 债务与门禁状态（同日修复）：**覆盖该依赖归属路径的模块（`test_scene_external_primary_visual_failure_passthrough`、`test_scene_independent_signal_feedback`、`test_scene_preserved_channel_feedback_pair`、`test_scene_preserved_channel_ordered_feedback`、`test_scene_resolved_material_graph_executor`）此前在干净 HEAD 上因内嵌 harness 未同步签名而失败，属 E6 过期 fixture 债务。该债务已由 `aade7862` 修复：rendering/runtime 聚焦门现为 **14 通过 / 0 失败**。**这不改变上面撤回的结论**——任何 future 对依赖归属扫描的改写仍必须在绿色行为门下进行，但在 per-frame 聚合可用之前不应据该分解选择该路径作为消融点。
 
+**per-frame 聚合后的正确分解（同日续，提交 `15504794`）：**遥测已能在帧边界（`recordCPUFrame`）把同名阶段在同帧内的每次调用求和，并另发 `phase=performance-stages-frames` 行；per-call 行与 `cpu_stages` 语义不变。去仪器运行（CDHash `f251edccf906be7e98a0831af00745cf86211584`，`cpuP50MS` 5.921、elapsed 63.489、submitted 3809、failed 0）：
+
+| 阶段 | per-call p50 | **per-frame p50** | 占该帧 |
+|---|---|---|---|
+| `admit-executor-prepare` | 0.092 ms | **3.127 ms** | **52.8%** |
+| `admit-prepare-frame` | 4.014 ms | 4.014 ms | **67.8%** |
+| ├ `admit-target-pool` | 0.445 | 0.445 | 7.5% |
+| ├ `admit-frame-commit` | 0.265 | 0.265 | 4.5% |
+| ├ `admit-install-graph-outputs` | 0.005 | 0.005 | 0.1% |
+| └ coordinator 循环胶水（余项） | — | **≈0.172** | 2.9% |
+| `prologue` | 4.675 | 4.675 | 78.9% |
+| `layer-loop` | 0.927 | 0.927 | 15.6% |
+| `compositor-seal` | 0.238 | 0.238 | 4.0% |
+| `prepass` / `world-resolve` | 0.057 / 0.020 | 0.057 / 0.020 | 1.3% |
+
+顶层六项之和 0.020＋4.675＋0.057＋0.927＋0.238＝5.917，与 `cpuP50MS` 5.921 闭合。
+
+**修正后的结论（取代被撤回的推断）：**`admit-executor-prepare`（即 `executor.prepare` 每层一次）的每帧真实总量是 **3.127 ms，占产品帧 52.8%**，而频次乘法给出的 2.024 ms 低估约三分之一（per-call 分布右偏，均值远高于中位数）；coordinator 逐层循环胶水只有 **≈0.172 ms（2.9%）**。因此**下一个单职责消融目标就是 `executor.prepare` 内部**，而不是依赖归属扫描。约束不变：E1c 明确禁止跨 commandBuffer 缓存 PreparedGraph／PreparedPass，因此只能减少准备内部的重复工作；采样已把其热点定位在 `prepareMaterialPass` 与 `SceneResolvedMaterialProgramFinalizer.finalize`。`frames` 行是可选新视图，旧日志不含它时 `cpu_stages_frames` 字段缺席，既有证据不受影响。
+
 <a id="e-2026-09-16-as1-instrument-coupling"></a>
 ### 2026-09-16 AS1 仪器耦合：分阶段遥测与 execution observation 同标志，重 graph 测得帧约一半是仪器
 
