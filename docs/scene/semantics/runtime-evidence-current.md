@@ -22,6 +22,21 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-16-as3-gpu-operation-census"></a>
+### 2026-09-16 AS3 GPU 操作普查：重 graph 每帧 23 个主 pass、78 个 offscreen pass、0 个 blit 拷贝
+
+**结论：重 graph `2938612768` 在 `-O` Debug、单屏 60 FPS、30 s warmup + 63.5 s 窗口下，每帧恰好编码 23 个主合成 pass（即 22 次 pass 切分）、78 个 offscreen pass、128 个 draw，而 `textureCopyPasses`／`framebufferCaptures`／`graphOutputPublicationCopies`／`depthRenders` 全部为 **0**。因此 AS3 计划首选项「删除无消费者的 full-frame copy／capture」在本样本没有可删对象；GPU 成本结构是 pass 切分与 offscreen pass，不是拷贝。22 次切分与 22 个 `graph-resource source capture`（渲染式整图拷贝）恰好 1:1。**
+
+**身份与配置：**签名 Debug `-O` 构建 CDHash `9160d747dad6124fa33b8b6261e9d6f6fce79d06`，样本 `2938612768`（52 可见层／62 effect 描述／44 image／7 utility／dependency graph），`--no-execution-observations`、`--performance-fps 60`、warmup 30 s、duration 95（实测 elapsed 63.488／63.501／63.489 s），三次运行 `steady_state_eligible=true`、资源样本 65/65、`failed_frames=0`。
+
+**每帧普查（三次运行逐项相同；`phase=performance-gpu`）：** `mainPassRenders` **23.0**、`depthRenders` 0.0、`offscreenRenders` **78.0** ＝ `resolvedMaterialRenders` **51.0** ＋ `graphResourceSourceCaptures` **22.0** ＋ `graphResourceInitializations` **0.0** ＋ `offscreenEffectCaptures` **5.0**；`textureCopyPasses`／`framebufferCaptures`／`framebufferCaptureBytes`／`graphOutputPublicationCopies`／`textureCopyBytes`／`unmeasuredCopyPasses` 全为 0。HUD 同批 `MWX PERF` 证实 draw＝binds＝128/帧、geometry＝1/帧。
+
+**同批 GPU／CPU 与仪器开销：** `gpu_frame_p50` 7.566／7.530／7.588 ms（中位 7.566，噪声 0.8%）、`gpu_p95` 9.505／9.086／8.842 ms、`gpu_max` 11.5／10.683／9.919 ms、`gpuSamples` 3808–3809；`cpu_frame_p50` 5.956／5.889／5.918 ms（对照无普查的 AS1 门 CDHash `ce991b3c…` 的 5.958 ms，差异不可检出）。`actual_present_p50` 16.667 ms、`driver_fps` 59.995／59.999／59.995、`present_over_1_5_ratio` 0.18%／1.05%／0.87%（该项受桌面负载影响，见下）；footprint 918.2／931.1／930.9 MiB、GPU allocated 1002.9／1002.9／988.8 MiB、窗口进程 CPU 31876.7／31835.5／32038.4 ms。即普查计数器（约 100 次/帧的锁内自增）在 `cpu_frame_p50` 上不可检出，不改变被测口径。
+
+**读法与方法学边界：** `mainPassRenders` 是主 pass *创建*次数（本样本 1 次初始 + 22 次切分），不是 draw 数；`offscreenRenders` 的四个类别按构造分割总数，parser 对「四类之和 ≠ `offscreenRenders`」直接判性能证据 unavailable，避免漏分类被静默平均。普查只报编码操作计数，**没有任何 pass 时长语义**：Metal 只暴露 command buffer 级 GPU 时间，pass 级归因必须靠「计数定位 + before/after GPU 数值确认」。另：`graphResourceSourceCaptures` 是渲染式整纹理拷贝（render pass 写目标），所以 blit 计数为 0 并不等于没有整图拷贝；`framebufferCaptures`＝0 仅表示本样本没有走 `SceneFramebufferSnapshot` 的背景采样路径。
+
+**本轮裁决（不做消融）：** 该样本对仓库 matrix 为 NON-PASS（含 2 条真实能力缺口），且其 `graphOutputPublicationCopies`＝0（样本声明 `named_texture_references`），因此**尚不能证明这 22 个 source capture 属于最终产品路由而非阶段/回退路由**；在这些路由稳定、且 AS1 身份矩阵（30 FPS 档、双屏混合刷新、M1／低内存、Release 等价构建、明确含 blend／refraction／history 的样本）补齐前，不据此选择消融点，也不把「22 次切分」命名为待优化成本。普查按**回归保护**口径冻结：后续功能开发一旦重新引入整图序列化、重复 pass 切分或新增整图拷贝，可被同一口径测出。证据上限：单样本、单屏 60 FPS、`-O` Debug（非 Release 等价）、仅 M4。
+
 <a id="e-2026-09-16-as1-decoupled-heavy-baseline"></a>
 ### 2026-09-16 AS1 去仪器（产品代表性）重 graph 基线
 
