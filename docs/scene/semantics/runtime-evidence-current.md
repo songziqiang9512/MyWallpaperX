@@ -22,6 +22,42 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-16-as1-cpu-baseline"></a>
+### 2026-09-16 AS1 简单 workload 可信 CPU 基线（进程 CPU 计量单位修复后）
+
+**结论：`1300076567` 在修正进程 CPU 计量单位后取得同一 App identity、同一样本、同一配置的 3 次稳定可比基线，稳态首要 CPU 成本锁定为复合阶段 `prepass` 的 70.6%。这只是该单样本的当前性能事实（S3 executed 级成本归因），不构成 AS1 完成、不构成 Suite 或 matrix PASS、也不证明任何官方 parity。**
+
+**计量单位前置修复：**`rusage_info_v4.ri_user_time / ri_system_time` 是 Mach absolute-time ticks，旧代码按纳秒相加并除以 `1_000_000`。本机 `mach_timebase_info` 为 `125/3`，旧值低估约 42 倍，此前记录的 `processCPUTimeMS=419.373` 与同批 CPU 数字全部作废。提交 `98b2a363` 改为 fail-closed 换算：`DebugSceneProcessCPUTime` 用 `addingReportingOverflow` 合并两个 tick、用 `subtractingReportingOverflow` 校验 delta 单调性、经 `mach_timebase_info` 做带溢出检查的乘除换算；raw sum 溢出、delta 倒退、timebase 失败或非法、换算乘法溢出分别输出具名 `unavailable`，`scene_wallpaper_benchmark.py` 令任何非 `available` 状态使整个 performance resource 证据 NON-PASS，不再产生伪造的 0 ms。
+
+**运行身份：**签名 Debug App，`com.songziqiang.MyWallpaperX`（2.0.9 / 277），Team `H9QWU9XN8R`，CDHash `7cb4e2afda5b8c67a5760680d0f30c6eb1d2eb82`，可执行文件 SHA-256 `c7074d1806fefd3bd95ce69aa088e0c6b927831f96c50276e069da14ad8fd25b`，arm64，Developer ID Application + hardened runtime，`codesign --verify --deep --strict` 通过，staged 前后 identity 校验均为 true。输入 `1300076567`（阳光少女）project/package SHA-256 为 `f1bdc5b73a2b3813111287ba277f1a64d08c50fb5b67766ea194476af33f7aa9 / 87103bc5fa2ea2c1fe47a402cc72e47b9671790e2088b879946a147249620d50`，matrix SHA-256 `476239dc8c01600bc1398d464602c2f6a384661a414fc9a8338b7cabfceffe6f`。环境为 Apple M4 / macOS 27.0（26A428）/ Xcode 27.0，AC 供电。分支 `codex/engine-refactor-program`，基点 `98b2a363`。配置：`--performance-fps 60`、`--performance-warmup 30`、`--duration 95`，三次实测均为 `measurement_warmup_seconds=30.000`、`measurement_elapsed_seconds=63.739`。
+
+**三次稳定基线**（本机忽略缓存 `docs/scene/evidence/as1-simple-m4-20260916`，manifest SHA-256 `9e93155cd236d3b545507e89ff919487cd8c001846b4f9334a3b12f8774ff646`；report SHA-256 依次 `730f332d385c9c49d21c3fb476214f8af9a290d9d5c7274ad7fe4ea2dbadde13 / a73ad174a5d2910f52d1e40c1c0d2de0fd0c91d5ea72a1d34c066e9c7e1fdfad / 246f292e2f0c88bf5ea53a4d755494df498a0d456612be1e2c72e0a5f1538bcc`）。表中数值单位除标注外为 ms，噪声按「各次值相对中位数的最大偏差百分比」：
+
+| 指标 | baseline-a | baseline-b | baseline-c | 中位数 | 噪声 |
+|---|---|---|---|---|---|
+| cpu_frame_p50 | 2.872 | 2.819 | 2.963 | 2.872 | 3.2% |
+| cpu_frame_p95 | 3.720 | 3.684 | 3.605 | 3.684 | 2.1% |
+| prepass p50 | 2.006 | 1.990 | 2.111 | 2.006 | 5.2% |
+| prepass p95 | 2.792 | 2.746 | 2.692 | 2.746 | 2.0% |
+| prologue p50（含 frame-admission） | 0.387 | 0.365 | 0.399 | 0.387 | 5.7% |
+| frame-admission p50 | 0.313 | 0.298 | 0.324 | 0.313 | 4.8% |
+| layer-loop p50 | 0.315 | 0.312 | 0.312 | 0.312 | 1.0% |
+| compositor-seal p50 | 0.067 | 0.067 | 0.066 | 0.067 | 1.5% |
+| process CPU time（整窗口） | 17811.898 | 17967.199 | 18476.055 | 17967.199 | 2.8% |
+| process_cpu_ms/frame | 4.708 | 4.688 | 4.820 | 4.708 | 2.4% |
+| gpu_frame_p95 | 1.202 | 1.215 | 1.226 | 1.215 | 1.1% |
+| actual_present_p99 | 25.000 | 25.000 | 25.000 | 25.000 | 0.0% |
+| driver_fps | 60.000 | 59.996 | 59.996 | 59.996 | 0.0% |
+| startup_ready | 739.389 | 743.595 | 737.656 | 739.389 | 0.6% |
+| process footprint 峰值（MiB） | 188.782 | 190.704 | 188.798 | 188.798 | 1.0% |
+| GPU allocated 峰值（MiB） | 89.703 | 89.703 | 89.703 | 89.703 | 0.0% |
+
+**首要成本排序（中位 p50，占 `cpu_frame_p50`）：**`prepass` 2.006 ms / 70.6%；`prologue` 0.387 ms / 13.5%（其中 `frame-admission` 0.313 ms）；`layer-loop` 0.312 ms / 10.9%；`compositor-seal` 0.067 ms / 2.3%；`world-resolve`、`source-update` 各约 0.008 ms。六个顶层阶段之和三次为 2.790 / 2.748 / 2.903 ms，与 `cpu_frame_p50` 闭合，说明顶层分解无遗漏项。hub 独立报告在同一窗口给出 `prep 1.87–2.06 ms`、`renderer 2.86 ms`、`cpu 3.87 ms`、`busy=0 dropped=0 fallback=0 rtPools=0`，与阶段遥测一致。
+
+**闭合证据：**三次 submitted = completed = 3783 / 3833 / 3833，failed 均为 0；presented 3781 / 3832 / 3832，各 1 条 presentation stream 与 3780 / 3831 / 3831 个 interval，terminal compositor 与 next-frame 成立；`discontinuity_count=0`、`drawable_missed=0`、`dropped_frame_time=0`。资源侧 65/65/65 样本且 process 样本数闭合，`process_cpu_time_status=available`。三次运行均清理 staged App 与 runtime HOME，真实样本根未被写入。
+
+**边界：**①稳定值只取同批 run4–run6；同批 run1–run2 受冷态与紧邻签名构建干扰（run2 记录一次 `actual_present_max_ms=5099.992`、3536/3832 帧提交未呈现，run1 的 `startup_ready_ms` 高 19%），已作废并只保留为干扰现场，不能进入任何基线汇总。②`presentation_over_1_5_budget` 计数在稳定三次中为 86 / 90 / 24，仍受共享交互桌面干扰（噪声同口径 72%），不能据其判定呈现回归；`actual_present_p99` 三次恒为 25.000 ms 可作参考。③`1300076567` 不是纯静态样本（6 layers、4 particle layers、1 image、0 effect、0 script/timeline/condition），只能作为同一 workload 的可比基线，不能称纯静态基线，也不代表更纯的 `2356604986` 或重 graph `2938612768`。④本批只覆盖单屏 60 FPS 一档：30 FPS 节能档、混合刷新率双屏、M1 或最低支持设备、低电量模式、冷启动与应用缓存热启动各 5 次、功耗与 wakeups、以及 30 min 长稳全部未验收。⑤`prepass` 在本次记录时仍是复合阶段（粒子批次提供与分组、`SceneMainPassEncoder`、forward dependency provider 准备），70.6% 只定位到该复合阶段，尚不能据其宣称已定位单一可消融 owner。⑥`docs/scene/evidence/` 为本机忽略缓存，权威文档不链接该目录；缓存缺失时不能用本摘要冒充当前 HEAD 的 fresh 复现。
+
 <a id="e-2026-09-14-video-provider-command-generation"></a>
 ### 2026-09-14 video provider command generation 与双视频循环同步
 

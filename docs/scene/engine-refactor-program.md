@@ -2,7 +2,7 @@
 
 <!-- document-role: active-plan -->
 
-> 状态：现役工程重构计划；已完成调查、生命周期设计、源码／文档职责重排及 AS0 平台工程切片；AS0 最低设备与可见输出矩阵、E0/AS1 性能基线及下述运行时成本消融尚未执行。
+> 状态：现役工程重构计划；已完成调查、生命周期设计、源码／文档职责重排及 AS0 平台工程切片，并冻结 E0/AS1 简单 workload 的可信 CPU 基线（[证据](semantics/runtime-evidence-current.md#e-2026-09-16-as1-cpu-baseline)）；AS0 最低设备与可见输出矩阵、重 graph 与设备矩阵基线、启动／缓存分类及下述运行时成本消融尚未执行。
 >
 > 基点：2026-09-15，`a7863c3e0bf5c2d7f134c7378aff1d13424a5c10`，调查开始时工作区干净。
 >
@@ -22,7 +22,7 @@ Apple Silicon 专项从 [§8](#apple-silicon) 开始：按顺序执行，逐卡�
 
 | 顺序 | 批次 | 结果 | 当前状态 |
 |---|---|---|---|
-| 先做 | E0 基线与验收修复 | 普通签名播放的成本归因、独立正反门、可比较输入 | 未执行 |
+| 先做 | E0 基线与验收修复 | 普通签名播放的成本归因、独立正反门、可比较输入 | 进行中：进程 CPU 计量单位已 fail-closed 修复（`98b2a363`）；简单 workload `1300076567` 三次稳定基线已冻结（噪声 ≤5.7%），首要成本为 `prepass` 70.6%；重 graph、启动／缓存分类、设备矩阵与 30 FPS／双屏档待补 |
 | CPU 成本候选 | E1 admission 与帧存储 | 少构造、少复制、少重推导；一帧共享必要投影 | 待 E0 |
 | 与 E1 分开 | E2 控制与产品依赖 | 唯一切换意图；公共控制层不依赖 Scene 实现；Shared 不调用模块 singleton | 可先做静态边界设计 |
 | E0 后按归因 | E3 GPU 合成与资源 | 减少无必要的 pass、主 target 往返和临时驻留 | 待 GPU 归因 |
@@ -285,6 +285,10 @@ Steam 账号、订阅与下载获取的具体迁移由 [Steam 获取专项](scen
 同时保留 AS1 原始基线与每卡直接前驱，AS9 对原始基线重测总效果，防止每卡都在容差内却累计明显回退；热缓存命中集合、观察开销和实际运行路由必须可比。
 
 **工具边界：**[scene_wallpaper_benchmark.py](../../script/scene_wallpaper_benchmark.py)当前默认 duration 为 7 s，并面向证据窗口，不能直接拿默认结果做稳态性能门。使用其 `--app`、`--sample-root`、`--sample-id`、`--output-dir`、`--duration` 做对应语义验证；duration 会归一到 7…3600 s，但总运行时长不等于性能窗口，AS1 必须显式传 `--performance-warmup 30`，并同时以报告中的 `measurement_warmup_seconds >= 30`、`measurement_elapsed_seconds >= 60` 为准；该参数只控制 ready 后性能窗口，不再借用截图延迟。报告只在两项都满足时标记 `steady_state_eligible=true`，默认短跑仍可作语义证据但不会进入稳态资格汇总。`--performance-fps {30,60}` 必须显式传给 Debug runner，默认 60，并由运行日志回报实际档位，不能继承用户偏好后再在报告中硬编码身份。当前 Debug evidence telemetry 只在 drawable 即将提交时按 surface stream 注册 `addPresentedHandler`，用非零 `presentedTime` 计算 actual-present p50/p95/p99/max 与超过 1.5 倍目标间隔的比例；流数不等于 ready surface 数、首样本后没有区间或计数身份不闭合时整项 unavailable。CPU 阶段的 p50/p95/样本数也由同一工具严格解析进 `cpu_stages`，缺失、重复、非法或样本数为零时性能证据整体 unavailable；`highest_p95` 只用于定位首要成本，`prologue`、`frame-admission` 及更深 admission 等嵌套阶段不可相加。同一窗口另以 1 Hz 记录当前 Debug evidence 进程的 physical footprint、CPU time 增量、`MTLDevice.currentAllocatedSize` 与 render-target pool 的采样峰值；至少两个样本、进程样本数闭合且采样数不低于窗口秒数向下取整才进入 `resources`。这些是离散采样峰值且不包含普通播放的 WallpaperDaemon 进程树，不能据此关闭 process-tree、wakeups 或能耗验收。正常播放另用现有 hub/signpost 与短期 Instruments。缺分位数或某项计数时标记 unavailable 并补最小采集，不虚构一个尚不存在的“性能 PASS 命令”。计数器不可把完整 graph hash/序列化放入普通帧。
+
+**当前结果（2026-09-16）：**进程 CPU 计量单位已修复并提交 `98b2a363`。`rusage_info_v4.ri_user_time / ri_system_time` 是 Mach absolute-time ticks，旧代码按纳秒相加并除以 `1_000_000`，在本机 `125/3` timebase 下低估约 42 倍，此前所有 CPU 数字作废；`DebugSceneProcessCPUTime` 改为 fail-closed 换算，raw sum 溢出、delta 倒退、timebase 失败／非法、换算乘法溢出分别输出具名 `unavailable`，parser 令任何非 `available` 状态使 performance resource 证据 NON-PASS，不再产生伪造 0 ms。在该 App identity（CDHash `7cb4e2afda5b8c67a5760680d0f30c6eb1d2eb82`）下，`1300076567`（6 layers／4 particle layers／1 image／0 effect）取得三次稳定基线（30 s warmup、63.739 s 窗口、60 FPS）：`cpu_frame_p50` 2.872 ms、`cpu_frame_p95` 3.684 ms、每帧进程 CPU 4.708 ms、`gpu_frame_p95` 1.215 ms、`actual_present_p99` 25.000 ms、`startup_ready` 739.389 ms、GPU allocated 峰值 89.703 MiB。首要成本排序为 `prepass` 2.006 ms（占 `cpu_frame_p50` 70.6%）、`prologue` 0.387 ms（含 `frame-admission` 0.313 ms）、`layer-loop` 0.312 ms、`compositor-seal` 0.067 ms、`world-resolve`／`source-update` 各约 0.008 ms；六个顶层阶段之和与 `cpu_frame_p50` 闭合。`prepass` 仍是复合阶段（粒子批次提供与分组、`SceneMainPassEncoder`、forward dependency provider 准备），必须先补最小子阶段观测才能选定单一可证伪消融点，不能直接改写。同批 run1–run2 受冷态与紧邻签名构建干扰（run2 一次 5099.992 ms 呈现停顿）已作废。
+
+**本批冻结的消融门（候选前）：**目标成本按每对 `(before-after)/before` 计，要求 ≥10% 且超过 2× 该项 baseline 噪声；对 `prepass` p50（噪声 5.2%）即 ≥10.4%，`cpu_frame_p50`（3.2%）、`prepass` p95（2.0%）、每帧进程 CPU（2.4%）均为 ≥10%。非目标指标不得恶化超过 `max(5%, 2×该指标噪声)`。噪声高于 5% 的 `presentation_over_1_5_budget` 计数、`source-update` p50 与 `startup_ready` 不进入本轮收益判定；`actual_present_p99` 三次恒为 25.000 ms 只作呈现参考。30 FPS 节能档、混合刷新率双屏、M1 或最低支持设备、低电量模式、冷启动与应用缓存热启动各 5 次、功耗与 wakeups、30 min 长稳均未验收。详见[证据](semantics/runtime-evidence-current.md#e-2026-09-16-as1-cpu-baseline)。
 
 ### 8.4 AS2 — 纹理准备、异步上传与长期采样
 
