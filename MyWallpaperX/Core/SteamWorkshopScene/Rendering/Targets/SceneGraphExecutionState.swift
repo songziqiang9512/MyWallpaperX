@@ -315,17 +315,29 @@ nonisolated struct SceneGraphExecutionState: Equatable {
         let reusesStaticPlan = !reparsed && !allocationChanged
             && previous.materialFunctionTargets == materialFunctionTargets
         let operations: [Operation]
-        let signatures: ExecutionSignatures
+        let signatures: ExecutionSignatures?
         let historyClosure: Set<Identity>
         if reusesStaticPlan {
             guard let cachedOperations = previous.compiledOperations,
-                  let topology = previous.topologySignature,
-                  let complete = previous.planSignature,
                   allocation.resources == previous.authoredResources else {
                 return .failure(.stateMismatch)
             }
             operations = cachedOperations
-            signatures = .init(topology: topology, complete: complete)
+            if let topology = previous.topologySignature,
+               let complete = previous.planSignature {
+                signatures = .init(topology: topology, complete: complete)
+            } else if let value = executionSignatures(
+                graph: graph,
+                plan: targetPlan
+            ) {
+                // A reused state may carry compiled operations without
+                // signatures when the earlier redaction could prove nobody
+                // would read them. Recompute here instead of failing, so the
+                // carried-state contract stays identical.
+                signatures = value
+            } else {
+                return .failure(.stateMismatch)
+            }
             historyClosure = previous.historyClosureIdentities
         } else {
             switch compile(
@@ -345,14 +357,27 @@ nonisolated struct SceneGraphExecutionState: Equatable {
             case .failure(let failure): return .failure(failure)
             case .success: break
             }
-            guard let value = executionSignatures(
-                      graph: graph,
-                      plan: targetPlan
-                  ), let closure = Self.historyClosure(in: targetPlan) else {
+            guard let closure = Self.historyClosure(in: targetPlan) else {
                 return .failure(.stateMismatch)
             }
-            signatures = value
             historyClosure = closure
+            if reparsed, closure.isEmpty {
+                // No previous state to compare against, and a state without a
+                // history closure is never retained in a tail (both tail
+                // builders drop it), so these signatures can never be read.
+                // Do not serialize the whole graph for a value nobody consumes.
+                // executionSignatures only fails on an encoder error, which is
+                // unreachable for this total Codable payload, so the skipped
+                // call had no observable failure path here.
+                signatures = nil
+            } else if let value = executionSignatures(
+                graph: graph,
+                plan: targetPlan
+            ) {
+                signatures = value
+            } else {
+                return .failure(.stateMismatch)
+            }
         }
         if allocationChanged,
            freshAllocationReusesToken(previous: previous, allocation: allocation) {
@@ -368,11 +393,17 @@ nonisolated struct SceneGraphExecutionState: Equatable {
            previous.authoredResources != allocation.resources {
             return .failure(.allocationGenerationMismatch)
         }
-        if !reparsed, previous.topologySignature != signatures.topology {
+        // Before this redaction, reparsed == false implied the previous state
+        // carried both signatures, so binding them here removes no detection
+        // that could previously fire; it only tolerates a carried state whose
+        // signatures were deliberately skipped.
+        if !reparsed, let previousTopology = previous.topologySignature,
+           previousTopology != signatures?.topology {
             return .failure(.stateMismatch)
         }
         if !reparsed, !allocationChanged,
-           previous.planSignature != signatures.complete {
+           let previousComplete = previous.planSignature,
+           previousComplete != signatures?.complete {
             return .failure(.stateMismatch)
         }
 
@@ -591,8 +622,8 @@ nonisolated struct SceneGraphExecutionState: Equatable {
             lastContentGeneration: contentGeneration,
             compiledOperations: operations,
             materialFunctionTargets: materialFunctionTargets,
-            topologySignature: signatures.topology,
-            planSignature: signatures.complete
+            topologySignature: signatures?.topology,
+            planSignature: signatures?.complete
         )
         return .success(.init(
             nextState: next,
