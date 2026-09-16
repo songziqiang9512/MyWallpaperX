@@ -2,7 +2,7 @@
 
 <!-- document-role: active-plan -->
 
-> 状态：现役工程重构计划；已完成调查、生命周期设计、源码／文档职责重排及 AS0 平台工程切片；E0/AS1 简单 workload 已冻结 `-Onone` 与 `-O` 两套基线，并证明未优化构建的绝对 CPU 值与首要成本归因不代表产品（[证据](semantics/runtime-evidence-current.md#e-2026-09-16-as1-optimization-level)）；AS0 最低设备与可见输出矩阵、重 graph 与设备矩阵基线、启动／缓存分类及下述运行时成本消融尚未执行。
+> 状态：现役工程重构计划；已完成调查、生命周期设计、源码／文档职责重排及 AS0 平台工程切片；E0/AS1 简单与重 graph 两个 workload 均已冻结 `-O`（及简单样本的 `-Onone`）基线，并完成第一个单职责消融（重 graph 整图序列化，`cpu_frame_p50` −20.1%）（[证据](semantics/runtime-evidence-current.md#e-2026-09-16-e1c-whole-graph-serialization-ablation)）；AS0 最低设备与可见输出矩阵、其余消融、设备矩阵基线、启动／缓存分类尚未执行。
 >
 > 基点：2026-09-15，`a7863c3e0bf5c2d7f134c7378aff1d13424a5c10`，调查开始时工作区干净。
 >
@@ -22,7 +22,7 @@ Apple Silicon 专项从 [§8](#apple-silicon) 开始：按顺序执行，逐卡�
 
 | 顺序 | 批次 | 结果 | 当前状态 |
 |---|---|---|---|
-| 先做 | E0 基线与验收修复 | 普通签名播放的成本归因、独立正反门、可比较输入 | 进行中：进程 CPU 计量单位已 fail-closed 修复（`98b2a363`）；简单 workload 冻结 `-Onone`/`-O` 两套基线并证明 `-Onone` 不代表产品（`-O` 下 0.913 ms、占预算 5.5%、无 CPU 瓶颈，微消融记“有证据不实施”）；重 graph `2938612768` 冻结 `-O` 基线（12.85 ms、占预算 77%），首断点已归因到每帧整图 JSON 序列化（2.106 ms/帧、16.1%，慢分支 100%，违反普通帧禁序列化），为 E1c 候选；其 22 条 matrix 期望差异已分类为 13 条期待过时（legacy preview schema 退役）、2 条能力缺口（text script binding）、7 条待 owner 复核；另发现该 path 的 inner 门在干净 HEAD 已有 8/31 模块因 harness 未同步签名而失败（E6 债务）；启动／缓存分类、设备矩阵与 30 FPS／双屏档待补 |
+| 先做 | E0 基线与验收修复 | 普通签名播放的成本归因、独立正反门、可比较输入 | 进行中：进程 CPU 计量单位已 fail-closed 修复（`98b2a363`）；简单 workload 冻结 `-Onone`/`-O` 两套基线并证明 `-Onone` 不代表产品（`-O` 下 0.913 ms、占预算 5.5%，无 CPU 瓶颈，微消融记“有证据不实施”）；重 graph `2938612768` 冻结 `-O` 基线（12.85 ms、占预算 77%），首断点归因为每帧整图 JSON 序列化并已实施 E1c 消融（`cpu_frame_p50` −20.1%、`admit-executor-prepare` −50.8%，机制经栈采样确认，进程 footprint +6.7% 记为开放项待独立复测）；其 22 条 matrix 期望差异已分类为 13 条期待过时、2 条能力缺口、7 条待 owner 复核；另发现该 path 的 inner 门在干净 HEAD 已有 8/31 模块因 harness 未同步签名而失败（E6 债务）；启动／缓存分类、设备矩阵与 30 FPS／双屏档待补 |
 | CPU 成本候选 | E1 admission 与帧存储 | 少构造、少复制、少重推导；一帧共享必要投影 | 待 E0 |
 | 与 E1 分开 | E2 控制与产品依赖 | 唯一切换意图；公共控制层不依赖 Scene 实现；Shared 不调用模块 singleton | 可先做静态边界设计 |
 | E0 后按归因 | E3 GPU 合成与资源 | 减少无必要的 pass、主 target 往返和临时驻留 | 待 GPU 归因 |
@@ -295,6 +295,8 @@ Steam 账号、订阅与下载获取的具体迁移由 [Steam 获取专项](scen
 **重 graph 基线与下一步（2026-09-16）：**`2938612768`（52 可见层／62 effect 描述／44 image／7 utility／dependency graph）在 `-O` 证据构建下三次基线为 `cpu_frame_p50` 12.85 ms（占 16.67 ms 预算 77%）、`cpu_frame_p95` 13.30 ms、`gpu_frame_p95` 7.79–10.31 ms、`actual_present_p99` 16.667 ms、`driver_fps` 59.996。**首要 CPU 成本是 `admit-prepare-frame`（`SceneResolvedMaterialFramePreflight`）6.43 ms，占 50%，其内 `admit-executor-prepare` 每帧约 22 个嵌套样本；其次 `compositor-seal` 4.90 ms（38%）；简单样本的 `prepass` 首断点在此不再成立。** 因此重 graph 是本阶段真实 CPU 首断点，E1 的 admission/preflight 收敛（消费同帧已有投影，而不是每帧从 descriptor 重新求值）成为下一个候选纵向职责；`compositor-seal` 属提交/合成 owner，需独立证据再决定是否属 E3。该样本当前对仓库 matrix 为 NON-PASS（22 条期望不匹配）：13 条源于 legacy preview-log schema `authoredEffectGraph<Family>Count:` 已退役、parser 只能取到 `null`，属期待过时；2 条 text script binding 缺失属能力缺口；其余 7 条（effect graph 组成 62→54／92→84 与 sha 变化、utility 计划数 2→5／2→7、succeeded layer 集合 7→22）需对应 owner 复核后重建期望。**本批不修改任何 matrix 期望，也不把上述缺口计入性能结论。** 详见[证据](semantics/runtime-evidence-current.md#e-2026-09-16-as1-heavy-graph-baseline)。
 
 **重 graph CPU 首断点根因（2026-09-16 续）：**判别插桩实测，`State.reduce` 每帧 39 次、每次 p50 0.056 ms，其中 **`SceneGraphExecutionState.executionSignatures` 的整图 JSON 序列化占 0.054 ms 且样本数与 reduce 完全相同（慢分支 100%）**，合计 **2.106 ms/帧 = `cpu_frame_p50` 13.099 ms 的 16.1%**；`compile`+`validateAllocation` 只有 0.039 ms/帧。coordinator 探针进一步证明 `provisionalTails` 在 **100%（83820/83820）**的层上为空：尾巴只在 `!historyClosureIdentities.isEmpty` 时保留，本样本 22 个 resolved-material 层都没有 history closure，于是 `previous` 恒为 `.empty`、`reparsed` 恒真，**`reusesStaticPlan` 快速路径实际不可达**，每个 effect 每帧重新序列化整图后把签名随状态一起丢弃（`reparsed` 为真时两处签名比较本就被跳过）。**这直接违反「普通帧不得整图序列化/哈希」，修复方向是 E1c「把静态 ABI／graph 证明移到生成边界」。** 约束：不得靠扩展 tail 保留静态状态——`submissionQueueAcceptsFrameLocked()` 依赖 `finalTails.isEmpty`，尾巴普遍非空会阻塞提交队列，且尾巴的既有不变量只允许 history closure 存活；也不得为省成本削弱 `stateMismatch` 检测。这是下一个候选纵向职责，先于 `compositor-seal`（4.99 ms/帧、38%）的归因。全部观测插桩已精确回退，只留 report SHA-256 证据。另发现干净 HEAD 上该 path 的 inner 聚焦门已有 8/31 模块因内嵌 harness 未同步签名（`makeMapped` 缺 `makeInputsDigest` 等）而失败，属 E6 过期 fixture 债务，实施该修复前需一并处置。详见[证据](semantics/runtime-evidence-current.md#e-2026-09-16-heavy-graph-cpu-root-cause)。
+
+**E1c 消融结果（2026-09-16 续）：**已实施并验证「普通帧不再整图序列化」：`reduce` 在 `reparsed` 且 history closure 为空时跳过 `executionSignatures`（该签名在此路径上无人读取）。同一样本、同一窗口、三次 before／三次 after（构建仅本修复不同）：`cpu_frame_p50` 12.849 → 10.261 ms（**−20.1%**，噪声 0.3%/0.5%）、`cpu_frame_p95` 13.303 → 10.617 ms、`admit-executor-prepare` 0.189 → 0.093 ms/层（**−50.8%**）、`admit-prepare-frame` 6.426 → 3.826 ms、`frame-admission` 6.978 → 4.361 ms、每帧进程 CPU 15.116 → 12.461 ms（−17.6%），远超 ≥10% 且 >2× 噪声的冻结门；25 s 栈采样确认 `SceneGraphExecutionSignatureEnvelope` 42 → 0、`SceneGraphExecutionPlanSignature` 73 → 0。两条合同由既有 harness 抓出后保住：缓存快速路径对"无签名但有 compiled operations"的状态改为重算而非失败；签名比较先绑定上一帧签名（修复前 `reparsed == false` 必然带签名，故未移除任何可触发检测）。**非目标：`compositor-seal` +1.3%、`layer-loop` −1.7%、`gpu_frame_p95` −13.5%、present p99 中位数不变、fps 不变；但进程 footprint 采样峰值 +6.7%（876.8/884.8/893.6 → 944.4/958.2/932.5 MiB）超过冻结门，且无使峰值升高的机制、after 来自机器明显退化时段，故记为开放项，需安静机器独立复测后再裁决。** 下一个未归因首断点是 `compositor-seal` 4.965 ms/帧（约 48%）。详见[证据](semantics/runtime-evidence-current.md#e-2026-09-16-e1c-whole-graph-serialization-ablation)。
 
 ### 8.4 AS2 — 纹理准备、异步上传与长期采样
 

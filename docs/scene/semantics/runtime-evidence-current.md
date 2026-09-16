@@ -22,6 +22,27 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-16-e1c-whole-graph-serialization-ablation"></a>
+### 2026-09-16 E1c 消融：普通帧不再整图序列化（重 graph）
+
+**结论：`SceneGraphExecutionState.reduce` 在 `reparsed` 为真且 history closure 为空时不再计算 `executionSignatures`（整图 JSON ×2）。同一重 graph 样本与同一窗口、三次 before／三次 after：`cpu_frame_p50` 12.849 → 10.261 ms（**−20.1%**，噪声 0.3%/0.5%）、`cpu_frame_p95` 13.303 → 10.617 ms（−20.2%）、`admit-executor-prepare` 每层 0.189 → 0.093 ms（**−50.8%**，仍 22 次/帧）、`admit-prepare-frame` 6.426 → 3.826 ms（−40.5%）、`frame-admission` 6.978 → 4.361 ms（−37.5%）、每帧进程 CPU 15.116 → 12.461 ms（−17.6%）。全部远超冻结门（目标成本 ≥10% 且超过 2× 噪声）。**
+
+**为什么可以跳过：**没有 history closure 的状态不会被任何 submission tail 保留（两个 tail builder 都对该 effect 执行 `removeValue`），于是 `previous` 恒为 `.empty`、`reparsed` 恒真，两处签名比较（由 `!reparsed` 守卫）本就不执行，算出的签名随即随状态被丢弃。修复只在 `reparsed && closure.isEmpty` 时跳过这次序列化。
+
+**必须同时保住的两条合同（由既有 harness 当场抓出并据此修正）：**①可复用状态现在可能带 compiled operations 却没有签名，因此缓存计划快速路径改为**重算**签名而不是失败，保持"携带状态"合同不变；②两处签名比较先绑定上一帧签名再比较——修复前 `reparsed == false` 必然意味着上一状态带两个签名，因此没有移除任何原本可触发的检测，被跳过的状态只是不参与比较。
+
+**机制确认（不只是计时）：**对 after 运行做 25 s 栈采样，`SceneGraphExecutionSignatureEnvelope` 出现次数 42 → **0**，`SceneGraphExecutionPlanSignature` 73 → **0**；残留 `__JSONEncoder` 401 次来自其他路径（shader digest 等），与本修复无关。
+
+**身份与闭合：**before 构建 CDHash `7a564b837a36c819bd52a1d386fb9494dc74a47f`，after 构建 CDHash `a0d719789905103de7364e986503a1004c7809a6`，两者源码仅本修复不同。样本 `2938612768`，`--performance-fps 60`、warmup 30 s、elapsed ≈63.5 s。内容身份四次一致（`shader_contract_aggregate_sha256=8843ae45…`、`effect_graph_sha256=8a06e54b…`、visible=52、loaded=1.000）。三次 after 的 `submitted/completed/failed` 与 before 相同（3809/3808/0 等），`failed_frames=0`、`drawable_missed=0`、`discontinuity_count=0`、`process_cpu_time_status=available`。
+
+**非目标指标：**`compositor-seal` +1.3%（噪声 0.2%/0.7%，门 max(5%,1.4%)=5%）、`layer-loop` −1.7%、`gpu_frame_p95` −13.5%（噪声 23.6%/36.9%）、`actual_present_p99` 中位数不变（16.667 ms）、`driver_fps` 59.996 → 59.999。
+
+**未解决偏差（开放项）：**`process_footprint_sampled_peak_bytes` 为 876.8/884.8/893.6 MiB（before）对 944.4/958.2/932.5 MiB（after），中位 +6.7%，**超过冻结的 max(5%, 2×噪声)=5% 门**。删除分配没有使其升高的机制，该指标是 1 Hz 采样峰值，且 after 三次来自约一小时后、当时已明显退化的机器时段，因此本批只记录为开放项，不归因也不清过；需要安静机器上的独立复测（含回退构建对照）才能裁决。
+
+**作废运行：**after 第一次运行被本批自身的 25 s 采样命令污染（`actual_present_max_ms=1608.331`、`discontinuity_count=1`、`driver_fps=56.914`），已排除；之后的两次因 `performance presentation stream count does not match surfaces` 使性能证据整项 unavailable（其中一次耗时约 26 分钟），也排除。
+
+**边界：**①收益与偏差都只在这一个重 graph 样本、单屏 60 FPS 档、`-O` Debug（非 Release 等价）下测得。②`compositor-seal` 4.965 ms/帧（占 `cpu_frame_p50` 约 48%）仍是未归因的下一个首断点。③30 FPS 节能档、混刷双屏、M1 或最低设备、低电量、功耗与 wakeups、30 min 长稳仍未验收。④运行载荷在隔离目录，未归档。
+
 <a id="e-2026-09-16-heavy-graph-cpu-root-cause"></a>
 ### 2026-09-16 重 graph CPU 首断点根因：每帧整图 JSON 序列化
 
