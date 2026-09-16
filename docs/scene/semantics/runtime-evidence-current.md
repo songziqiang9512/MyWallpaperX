@@ -82,6 +82,12 @@
 
 **修正后的结论（取代被撤回的推断）：**`admit-executor-prepare`（即 `executor.prepare` 每层一次）的每帧真实总量是 **3.127 ms，占产品帧 52.8%**，而频次乘法给出的 2.024 ms 低估约三分之一（per-call 分布右偏，均值远高于中位数）；coordinator 逐层循环胶水只有 **≈0.172 ms（2.9%）**。因此**下一个单职责消融目标就是 `executor.prepare` 内部**，而不是依赖归属扫描。约束不变：E1c 明确禁止跨 commandBuffer 缓存 PreparedGraph／PreparedPass，因此只能减少准备内部的重复工作；采样已把其热点定位在 `prepareMaterialPass` 与 `SceneResolvedMaterialProgramFinalizer.finalize`。`frames` 行是可选新视图，旧日志不含它时 `cpu_stages_frames` 字段缺席，既有证据不受影响。
 
+**executor.prepare 的内部构成与一次被否证的消融（同日续）：**per-frame 遥测把 `admit-executor-prepare` 定为产品帧最大单项（3.127 ms、52.8%），故继续对其内部归因。对去仪器运行做 25 s 栈采样，用"叶子帧＋显式栈"重建祖先链（只统计含 `SceneResolvedMaterialGraphExecutor.prepare(token:` 的栈，共 5985 个叶子样本），其内部是**平坦分布**：哈希约 17%（`Hasher.combine(bytes:)` 6.7%、`String.hash(into:)` 4.2%、`SceneResolvedMaterial…` Hashable witness 3.0%、`Hasher._hash` 2.5%、`Int._rawHashValue` 0.9%）、ARC 与分配约 12%、`recordLaunchWarmupConsumption` 6.4%，其余为长尾。链条上 `prepareMaterialPass` 的最大 per-stage 实例唯一子节点即 `prepareAuthorizedResult`，后者又几乎只落在 `recordLaunchWarmupConsumption` 上，故先检验该项。
+
+**被否证的假设（含撤销）：**`recordLaunchWarmupConsumption` 的守卫是 `origin == .launchWarmup`，而调用方传 `cached.origin`；启动预热编译出的流水线永远是该 origin，于是每帧每个 prepared pass 都会执行 `withLock { Set.insert(compileStateKey) }`（对完整 compile-state key 求哈希），只为发现"已记过账"。①**探针**：临时让它立即返回，测得 `admit-executor-prepare` 3.127 → 2.936 ms、整帧 5.921 → 5.833 ms。②据此实现"全部预热键记完即停止探测"的修复（构建 CDHash `78661c20b718bcc5dc910547ec78cd5e5624dcb3`），三次运行得到 `admit-executor-prepare` 3.135／3.113／3.128 ms、`cpuP50MS` 5.937／5.979／6.012，**与 before（3.127／5.921）无差异**。即探针那 0.191 ms 是**运行间方差**，采样对该锁内插入的叶子占比也被高估。该修复**无实测收益，已按"方差无法区分时撤回"精确回退**，不留在代码里，也不作任何加速声明。
+
+**由此得到的裁决：**`executor.prepare` 内部没有单一主导项可做高收益微消融——要过冻结门（目标成本 ≥10% 且 >2× 噪声）需要约 ≥0.31 ms，而最大可疑项实测为 0。下一步若继续该路径必须做成**结构性**削减（E1b 的"固定静态骨架与整数索引、复用有界 scratch、消除实测大量复制的字典与查找"），并以**交替 A/B** 验证，不依赖栈采样占比；否则应换纵向职责（`layer-loop` 0.927 ms、`compositor-seal` 0.238 ms 都远小，或转向 AS2 纹理／AS3 合成的资源与带宽方向）。
+
 <a id="e-2026-09-16-as1-instrument-coupling"></a>
 ### 2026-09-16 AS1 仪器耦合：分阶段遥测与 execution observation 同标志，重 graph 测得帧约一半是仪器
 
