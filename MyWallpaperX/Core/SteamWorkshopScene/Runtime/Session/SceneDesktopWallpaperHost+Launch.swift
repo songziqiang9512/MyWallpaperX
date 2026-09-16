@@ -566,7 +566,7 @@ extension SceneDesktopWallpaperHost {
                 device: device,
                 visibleExecutionRootLayerIDs:
                     resolvedMaterialVisibleExecutionRootLayerIDs,
-                capturesExecutionObservations: Self.usesDebugEvidenceWindow,
+                capturesExecutionObservations: Self.usesExecutionObservationCapture,
                 cancellationCheck: { try cancellation?.check() }
             )
         firstSurfaceRuntimePreparation.start()
@@ -782,7 +782,7 @@ extension SceneDesktopWallpaperHost {
             resourceView: model.resourceView,
             logURL: logURL,
             recordID: recordID,
-            capturesExecutionObservations: Self.usesDebugEvidenceWindow
+            capturesExecutionObservations: Self.usesExecutionObservationCapture
         )
         try context.configurePreparedPuppetBones()
         try cancellation?.check()

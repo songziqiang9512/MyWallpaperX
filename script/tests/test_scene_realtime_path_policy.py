@@ -84,10 +84,23 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertGreaterEqual(
             launch.count(
-                "capturesExecutionObservations: Self.usesDebugEvidenceWindow"
+                "capturesExecutionObservations: Self.usesExecutionObservationCapture"
             ),
             2,
         )
+        host = (
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
+        ).read_text(encoding="utf-8")
+        # Observations stay strictly opt-in for the debug evidence window; the
+        # performance-only opt-out may only narrow that, never widen it, and
+        # non-DEBUG builds must still resolve to false.
+        definition = host.index(
+            "static var usesExecutionObservationCapture: Bool"
+        )
+        body = host[definition : host.index("\n    }", definition)]
+        self.assertIn("usesDebugEvidenceWindow", body)
+        self.assertIn("--mwx-debug-scene-no-execution-observations", body)
+        self.assertIn("false", body)
 
     def test_dynamic_frame_schema_is_prepared_at_launch(self) -> None:
         launch = (

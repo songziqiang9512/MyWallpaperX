@@ -639,4 +639,21 @@ final class SceneDesktopWallpaperHost {
 #endif
     }
 
+    /// Execution observations are the heavy evidence instrument: they build a
+    /// full `SceneGraphExecutionObservation` and SHA-256 graph mapping per
+    /// successful effect every frame. They stay strictly opt-in for the debug
+    /// evidence window, and a debug performance-only run may additionally
+    /// disable them so staged CPU can be measured without the instrument. The
+    /// per-stage performance telemetry does not depend on this switch.
+    static var usesExecutionObservationCapture: Bool {
+#if DEBUG
+        usesDebugEvidenceWindow
+            && !ProcessInfo.processInfo.arguments.contains(
+                "--mwx-debug-scene-no-execution-observations"
+            )
+#else
+        false
+#endif
+    }
+
 }
