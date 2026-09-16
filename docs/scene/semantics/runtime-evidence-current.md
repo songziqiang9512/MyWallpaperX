@@ -22,10 +22,46 @@
 
 ## 1. 当前证据快照
 
-<a id="e-2026-09-16-as1-cpu-baseline"></a>
-### 2026-09-16 AS1 简单 workload 可信 CPU 基线（进程 CPU 计量单位修复后）
+<a id="e-2026-09-16-as1-optimization-level"></a>
+### 2026-09-16 AS1 优化等级对照：未优化 Debug 基线不作产品代表
 
-**结论：`1300076567` 在修正进程 CPU 计量单位后取得同一 App identity、同一样本、同一配置的 3 次稳定可比基线，稳态首要 CPU 成本锁定为复合阶段 `prepass` 的 70.6%。这只是该单样本的当前性能事实（S3 executed 级成本归因），不构成 AS1 完成、不构成 Suite 或 matrix PASS、也不证明任何官方 parity。**
+**结论：同一源码、同一样本 `1300076567`、同一 30 s warmup 与 63.7 s 窗口，仅把 Debug 配置的 `SWIFT_OPTIMIZATION_LEVEL` 从 `-Onone` 改为 `-O` 后，`cpu_frame_p50` 从 2.829 ms 降到 0.913 ms（匹配插桩口径 −67.7%），`prepass` 从 2.008 ms 降到 0.445 ms，`particle-advance` 从 1.796 ms 降到 0.361 ms（−79.9%），每帧进程 CPU 从 4.708 ms 降到 2.412 ms。未优化基线的绝对 CPU 值与“prepass 占 70.6%”的归因因此不代表产品，只作 `-Onone` 事实保存。**
+
+**机制证据（25 s 进程采样，11688 个主线程样本）：**全局最大叶子全部是 Swift 运行时机制——`_platform_memmove` 96、`__swift_instantiateCanonicalPrespecializedGenericMetadata` 84、`_swift_getGenericMetadata` 75+52、`LockingConcurrentMap<GenericCacheEntry>::getOrInsert` 63、`swift_retain`/`swift_release` 105、`__swift_instantiateGenericMetadata` 43、`__swift_memcpy256_16` 39、`swift_beginAccess` 36。应用自身最大符号只是 `SceneParticleSimulator.apply(_:operatorIndex:duration:)` 112（约占粒子路径 10%），其祖先链为 `step → apply/emit/makeParticle/applyInitializers`，而不是批次分组、`renderTargetPool` 或 `SceneParticleDrawBatch` 的实例拷贝。即未优化的成本主要来自泛型元数据实例化、retain/release、独占性检查与大值类型复制，而非作者内容算法。
+
+**优化基线五次运行**（本机忽略缓存 `docs/scene/evidence/as1-simple-m4-optimized-20260916`，manifest SHA-256 `9a44b996302512311ae97faebd723e1891d196b6c534688801063954001b9d31`；签名 App CDHash `7a564b837a36c819bd52a1d386fb9494dc74a47f`，可执行文件 SHA-256 `49a01d123e5e593862597979e9e1cd070df1b3efcc1b6d4c33ace4d41a80f8b7`，Team `H9QWU9XN8R`，arm64；report SHA-256 依次 `120958fc7a38b06ba6609bed498232e0ab5ac030778b97e17ba8acad2372a1da / 3884a351e56c8e06aeabe846b7099a8c6b724c04708417cf9101b7f29c121dfd / 1ab650f4f5ff4f4ea523856c7712c61b2ad61be0a58c1e303041e2565be06f80 / f7eecc81f46febb289d84a2e7a94d23f675977825bb7c1f494de7807daae3ce1 / 4fa56528be8b3e17df6e6a4bb0cfc0d0500d95961dcc96ab61014e89b0211256`）。除优化等级外其余身份与未优化批一致；单位 ms。
+
+| 指标 | a | b | c | d | e | 中位数 | 噪声 |
+|---|---|---|---|---|---|---|---|
+| cpu_frame_p50 | 0.907 | 0.949 | 0.913 | 0.884 | 0.914 | 0.913 | 3.9% |
+| cpu_frame_p95 | 1.061 | 1.071 | 1.077 | 1.050 | 1.075 | 1.071 | 2.0% |
+| prepass p50 | 0.445 | 0.461 | 0.444 | 0.438 | 0.449 | 0.445 | 3.6% |
+| prepass p95 | 0.564 | 0.556 | 0.559 | 0.557 | 0.557 | 0.557 | 1.3% |
+| prepass-particles p50 | 0.428 | 0.443 | 0.427 | 0.421 | 0.431 | 0.428 | 3.5% |
+| particle-advance p50 | 0.360 | 0.369 | 0.361 | 0.355 | 0.361 | 0.361 | 2.2% |
+| particle-advance p95 | 0.474 | 0.462 | 0.472 | 0.465 | 0.466 | 0.466 | 1.7% |
+| layer-loop p50 | 0.188 | 0.187 | 0.191 | 0.184 | 0.187 | 0.187 | 2.1% |
+| compositor-seal p50 | 0.065 | 0.064 | 0.067 | 0.064 | 0.065 | 0.065 | 3.1% |
+| 进程 CPU / 帧 | 2.401 | 2.474 | 2.419 | 2.359 | 2.412 | 2.412 | 2.6% |
+| gpu_frame_p95 | 1.230 | 1.231 | 1.232 | 1.233 | 1.234 | 1.232 | 0.2% |
+| actual_present_p99 | 16.667 | 16.667 | 16.667 | 16.667 | 16.667 | 16.667 | 0.0% |
+| driver_fps | 60.000 | 60.000 | 60.010 | 60.000 | 60.004 | 60.000 | 0.0% |
+| startup_ready | 861.027 | 729.224 | 726.716 | 727.862 | 718.290 | 727.862 | 18.3% |
+| process footprint 峰值（MiB） | 189.439 | 188.610 | 188.782 | 187.314 | 187.532 | 188.610 | 0.7% |
+| GPU allocated 峰值（MiB） | 89.703 | 89.703 | 89.703 | 89.703 | 89.703 | 89.703 | 0.0% |
+
+**两种构建的同口径对照（中位数）：**`cpu_frame_p50` 2.829 → 0.913（−67.7%）；`prepass` 2.008 → 0.445（−77.8%）；`particle-advance` 1.796 → 0.361（−79.9%）；`layer-loop` 0.312 → 0.187；进程 CPU/帧 4.708 → 2.412（−48.8%）；`compositor-seal` 0.067 → 0.065（基本不变）；`actual_present_p99` 25.000 → 16.667；`presentation_over_1_5_budget` 24–90 → 1–8；`gpu_frame_p95` 1.215 → 1.232（噪声内）。
+
+**裁决：**①未优化 Debug 基线不得用于产品级 CPU 结论或消融收益判定，优化等级必须作为 AS1 身份的第一类轴显式记录。②`1300076567` 在 `-O` 下 `cpu_frame_p50` 只占 16.67 ms 预算的 5.3–5.7%，`actual_present_p99` 恒为 16.667 ms、`driver_fps` 60.000，该 workload 在优化构建下不存在 CPU 瓶颈。③因此对 `1300076567` 继续做 CPU 微消融属“有证据不实施”：按计划应转向具备真实 CPU 或 GPU 压力的内容（重 graph `2938612768`）或 AS2/AS3/AS6 的资源、带宽与调度方向，而不是在无瓶颈样本上优化噪声。④`compositor-seal` 在两种构建下几乎不变，说明纯 Metal 提交路径成本不是构建产物，AS3 类结论不受本次优化等级发现影响。
+
+**边界：**①`-O` Debug 不等同发布 Release：仍需保留 `DEBUG` 编译条件（性能遥测只在 DEBUG 存在）、未启用 WMO 与 LTO；它比 `-Onone` 更接近产品但不是 Release 等价，也未验证 Release 行为。②`prologue`（噪声 16.7%）、`frame-admission`（14.6%）、`particle-prepare-frame`（11.1%）、`particle-pointer-projection`（9.1%）在 `-O` 下已降到 10–180 µs 量级，噪声高于 5%，不得进入收益判定；`startup_ready` 首次 861 ms 属冷态。③五次运行中 `submitted/completed` 两次相差 1 帧（3834/3833、3831/3830），为快照时刻在途尾帧且 `failed_frames=0`，不能声称逐帧完全闭合。④30 FPS 节能档、混合刷新率双屏、M1 或最低设备、低电量模式、功耗与 wakeups、30 min 长稳仍未验收。⑤本机忽略缓存不得被权威文档链接。
+
+<a id="e-2026-09-16-as1-cpu-baseline"></a>
+### 2026-09-16 AS1 简单 workload 未优化 Debug 基线（进程 CPU 计量单位修复后）
+
+**后续更正（同日）：**本条数值取自未优化 `-Onone` 构建。[优化等级对照](#e-2026-09-16-as1-optimization-level) 证明其中约 68% 的 `cpu_frame_p50` 与约 80% 的 `particle-advance` 是未优化产物，因此本条的绝对 CPU 值与 `prepass` 70.6% 的占比只作 `-Onone` 事实保存，不得用于产品级 CPU 结论或消融收益判定；单位修正、fail-closed 语义与重复性结论不受影响。
+
+**结论：`1300076567` 在修正进程 CPU 计量单位后取得同一 App identity、同一样本、同一配置的 3 次稳定可比基线，稳态首要 CPU 成本锁定为复合阶段 `prepass` 的 70.6%。这只是该单样本在 `-Onone` 构建下的当前性能事实（S3 executed 级成本归因），不构成 AS1 完成、不构成 Suite 或 matrix PASS、也不证明任何官方 parity。**
 
 **计量单位前置修复：**`rusage_info_v4.ri_user_time / ri_system_time` 是 Mach absolute-time ticks，旧代码按纳秒相加并除以 `1_000_000`。本机 `mach_timebase_info` 为 `125/3`，旧值低估约 42 倍，此前记录的 `processCPUTimeMS=419.373` 与同批 CPU 数字全部作废。提交 `98b2a363` 改为 fail-closed 换算：`DebugSceneProcessCPUTime` 用 `addingReportingOverflow` 合并两个 tick、用 `subtractingReportingOverflow` 校验 delta 单调性、经 `mach_timebase_info` 做带溢出检查的乘除换算；raw sum 溢出、delta 倒退、timebase 失败或非法、换算乘法溢出分别输出具名 `unavailable`，`scene_wallpaper_benchmark.py` 令任何非 `available` 状态使整个 performance resource 证据 NON-PASS，不再产生伪造的 0 ms。
 

@@ -2,7 +2,7 @@
 
 <!-- document-role: active-plan -->
 
-> 状态：现役工程重构计划；已完成调查、生命周期设计、源码／文档职责重排及 AS0 平台工程切片，并冻结 E0/AS1 简单 workload 的可信 CPU 基线（[证据](semantics/runtime-evidence-current.md#e-2026-09-16-as1-cpu-baseline)）；AS0 最低设备与可见输出矩阵、重 graph 与设备矩阵基线、启动／缓存分类及下述运行时成本消融尚未执行。
+> 状态：现役工程重构计划；已完成调查、生命周期设计、源码／文档职责重排及 AS0 平台工程切片；E0/AS1 简单 workload 已冻结 `-Onone` 与 `-O` 两套基线，并证明未优化构建的绝对 CPU 值与首要成本归因不代表产品（[证据](semantics/runtime-evidence-current.md#e-2026-09-16-as1-optimization-level)）；AS0 最低设备与可见输出矩阵、重 graph 与设备矩阵基线、启动／缓存分类及下述运行时成本消融尚未执行。
 >
 > 基点：2026-09-15，`a7863c3e0bf5c2d7f134c7378aff1d13424a5c10`，调查开始时工作区干净。
 >
@@ -22,7 +22,7 @@ Apple Silicon 专项从 [§8](#apple-silicon) 开始：按顺序执行，逐卡�
 
 | 顺序 | 批次 | 结果 | 当前状态 |
 |---|---|---|---|
-| 先做 | E0 基线与验收修复 | 普通签名播放的成本归因、独立正反门、可比较输入 | 进行中：进程 CPU 计量单位已 fail-closed 修复（`98b2a363`）；简单 workload `1300076567` 三次稳定基线已冻结（噪声 ≤5.7%），首要成本为 `prepass` 70.6%；重 graph、启动／缓存分类、设备矩阵与 30 FPS／双屏档待补 |
+| 先做 | E0 基线与验收修复 | 普通签名播放的成本归因、独立正反门、可比较输入 | 进行中：进程 CPU 计量单位已 fail-closed 修复（`98b2a363`）；简单 workload 已冻结 `-Onone` 与 `-O` 两套可比较基线，并证明 `-Onone` 绝对值与归因不代表产品（`-O` 下 `cpu_frame_p50` 0.913 ms，仅占 16.67 ms 预算 5.5%，无 CPU 瓶颈）；该样本 CPU 微消融记为“有证据不实施”；重 graph、启动／缓存分类、设备矩阵与 30 FPS／双屏档待补 |
 | CPU 成本候选 | E1 admission 与帧存储 | 少构造、少复制、少重推导；一帧共享必要投影 | 待 E0 |
 | 与 E1 分开 | E2 控制与产品依赖 | 唯一切换意图；公共控制层不依赖 Scene 实现；Shared 不调用模块 singleton | 可先做静态边界设计 |
 | E0 后按归因 | E3 GPU 合成与资源 | 减少无必要的 pass、主 target 往返和临时驻留 | 待 GPU 归因 |
@@ -289,6 +289,8 @@ Steam 账号、订阅与下载获取的具体迁移由 [Steam 获取专项](scen
 **当前结果（2026-09-16）：**进程 CPU 计量单位已修复并提交 `98b2a363`。`rusage_info_v4.ri_user_time / ri_system_time` 是 Mach absolute-time ticks，旧代码按纳秒相加并除以 `1_000_000`，在本机 `125/3` timebase 下低估约 42 倍，此前所有 CPU 数字作废；`DebugSceneProcessCPUTime` 改为 fail-closed 换算，raw sum 溢出、delta 倒退、timebase 失败／非法、换算乘法溢出分别输出具名 `unavailable`，parser 令任何非 `available` 状态使 performance resource 证据 NON-PASS，不再产生伪造 0 ms。在该 App identity（CDHash `7cb4e2afda5b8c67a5760680d0f30c6eb1d2eb82`）下，`1300076567`（6 layers／4 particle layers／1 image／0 effect）取得三次稳定基线（30 s warmup、63.739 s 窗口、60 FPS）：`cpu_frame_p50` 2.872 ms、`cpu_frame_p95` 3.684 ms、每帧进程 CPU 4.708 ms、`gpu_frame_p95` 1.215 ms、`actual_present_p99` 25.000 ms、`startup_ready` 739.389 ms、GPU allocated 峰值 89.703 MiB。首要成本排序为 `prepass` 2.006 ms（占 `cpu_frame_p50` 70.6%）、`prologue` 0.387 ms（含 `frame-admission` 0.313 ms）、`layer-loop` 0.312 ms、`compositor-seal` 0.067 ms、`world-resolve`／`source-update` 各约 0.008 ms；六个顶层阶段之和与 `cpu_frame_p50` 闭合。`prepass` 仍是复合阶段（粒子批次提供与分组、`SceneMainPassEncoder`、forward dependency provider 准备），必须先补最小子阶段观测才能选定单一可证伪消融点，不能直接改写。同批 run1–run2 受冷态与紧邻签名构建干扰（run2 一次 5099.992 ms 呈现停顿）已作废。
 
 **本批冻结的消融门（候选前）：**目标成本按每对 `(before-after)/before` 计，要求 ≥10% 且超过 2× 该项 baseline 噪声；对 `prepass` p50（噪声 5.2%）即 ≥10.4%，`cpu_frame_p50`（3.2%）、`prepass` p95（2.0%）、每帧进程 CPU（2.4%）均为 ≥10%。非目标指标不得恶化超过 `max(5%, 2×该指标噪声)`。噪声高于 5% 的 `presentation_over_1_5_budget` 计数、`source-update` p50 与 `startup_ready` 不进入本轮收益判定；`actual_present_p99` 三次恒为 25.000 ms 只作呈现参考。30 FPS 节能档、混合刷新率双屏、M1 或最低支持设备、低电量模式、冷启动与应用缓存热启动各 5 次、功耗与 wakeups、30 min 长稳均未验收。详见[证据](semantics/runtime-evidence-current.md#e-2026-09-16-as1-cpu-baseline)。
+
+**优化等级对照与裁决（2026-09-16 后续）：**同一源码、同样本、同窗口，仅把 Debug 配置的 `SWIFT_OPTIMIZATION_LEVEL` 由 `-Onone` 改为 `-O`，`cpu_frame_p50` 由 2.829 ms 降到 0.913 ms（−67.7%），`prepass` 2.008→0.445 ms，`particle-advance` 1.796→0.361 ms（−79.9%），每帧进程 CPU 4.708→2.412 ms；`compositor-seal` 基本不变（0.067→0.065），`actual_present_p99` 25.000→16.667 ms。进程采样显示未优化的最大叶子是 Swift 运行时机制（泛型元数据实例化、retain/release、`swift_beginAccess` 独占性检查、`__swift_memcpy256_16`），应用自身最大符号 `SceneParticleSimulator.apply` 仅占粒子路径约 10%。**因此：①优化等级必须作为 AS1 身份的第一类轴记录，`-Onone` 绝对 CPU 值与 70.6% 的 `prepass` 占比不得用于产品结论或消融收益判定；②`1300076567` 在 `-O` 下 `cpu_frame_p50` 仅占 16.67 ms 预算的 5.3–5.7%、`driver_fps` 60.000、`actual_present_p99` 16.667 ms，该样本不存在 CPU 瓶颈；③对它继续做 CPU 微消融记为“有证据不实施”，下一步应转向具备真实压力的内容（重 graph `2938612768`）或 AS2／AS3／AS6 的资源、带宽与调度方向；④`-O` Debug 仍非 Release 等价（保留 DEBUG 遥测条件、未启用 WMO/LTO），发布级结论仍需独立验证。**优化基线五次运行与本机忽略缓存 manifest 见[证据](semantics/runtime-evidence-current.md#e-2026-09-16-as1-optimization-level)。
 
 ### 8.4 AS2 — 纹理准备、异步上传与长期采样
 
