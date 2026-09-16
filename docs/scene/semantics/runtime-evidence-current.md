@@ -43,24 +43,25 @@
 
 **产物与口径边界：**①这些运行由隔离目录内直接启动同一可执行文件完成（不经过 benchmark），只产出 app 日志；被终止时未写证据目录，因此本条目不含截图/runtime evidence，也不能声称 benchmark 的 evidence/矩阵门通过。②因此该基线目前**只能手动复现**；把它接入 benchmark 需要显式的 performance-only 模式，因为 observation 派生字段（如 `resolved_material_graph_execution`）在去仪器时会缺失，不能让既有证据运行静默降级。③`compositor-seal` 剩余 0.232 ms 属正常提交路径。④30 FPS、混刷双屏、M1、低电量、功耗与 wakeups、30 min 长稳仍未验收。⑤运行载荷在隔离目录，未归档。
 
-**`admit-prepare-frame` 的硬分解（同日续，去仪器，CDHash `6e596e37f3a40e24380eabb4364816ea7a64e6be`，`cpuP50MS` 5.987、submitted 3810、failed 0）：**
+**`admit-prepare-frame` 的子阶段观测（同日续，去仪器，CDHash `6e596e37f3a40e24380eabb4364816ea7a64e6be`，`cpuP50MS` 5.987、submitted 3810、failed 0）：**
 
-| 子阶段 | p50 | 占该帧 |
+| 子阶段 | 样本单位 | p50 |
 |---|---|---|
-| `admit-prepare-frame` | 4.014 ms | 67.7% |
-| ├ `admit-executor-prepare`（每帧 22 次 × 0.092） | 2.024 ms | 34% |
-| ├ coordinator 逐层请求循环（余项，未归因） | ≈1.252 ms | 21% |
-| ├ `admit-target-pool` | 0.456 ms | 7.6% |
-| ├ `admit-frame-commit` | 0.277 ms | 4.7% |
-| └ `admit-install-graph-outputs` | 0.005 ms | — |
+| `admit-prepare-frame` | 每帧（n=3810） | 4.014 ms |
+| ├ `admit-executor-prepare` | 每次调用（n=83820，22 次/帧） | 0.092 ms |
+| ├ `admit-target-pool` | 每帧（n=3810） | 0.456 ms |
+| ├ `admit-frame-commit` | 每帧（n=3810） | 0.277 ms |
+| └ `admit-install-graph-outputs` | 每帧（n=3810） | 0.005 ms |
 
-新增两个纯观测子阶段（`admit-install-graph-outputs`、`admit-frame-commit`）并用测试锁定标签与 defer 配对。其中 `install` 一项**否证了此前由栈采样得到的约 0.9 ms 估计**（实测 0.005 ms），据此重申：采样只可用于定位热点，不可用于估计占比。**下一个单一职责候选是 coordinator 的逐层请求循环（≈1.252 ms）**——依赖效果投影、`candidates.first(where:)` 线性扫描、`withDependencyEffect` 与 blueprint/commit-readiness 检查。该循环内 `executor.prepare` 的进一步热点由栈采样定位在 `prepareMaterialPass` 与 `SceneResolvedMaterialProgramFinalizer.finalize`；但 E1c 明确要求不跨 commandBuffer 缓存 PreparedGraph／PreparedPass，因此下一批只能在准备内部减少重复工作，不能缓存结果。`SceneResolvedMaterialFramePreflight.swift` 在 HEAD 上已是 912 行的未登记 code-health 错误，本次观测再加 7 行至 919；未抬高 800 上限，也未重构无关债务。
+新增两个纯观测子阶段（`admit-install-graph-outputs`、`admit-frame-commit`）并用测试锁定标签与 defer 配对。其中 `install` 一项**否证了此前由栈采样得到的约 0.9 ms 估计**（实测 0.005 ms），据此重申：采样只可用于定位热点，不可用于估计占比。
 
-**循环余项的定向（同日续；观测包装已退役）：**为切分该余项，把 coordinator 循环中"executor 之后"的区段（结果解包、`candidateBlueprintLocked`、`candidateIsCommitReadyLocked`、`provisionalCandidateTailsLocked`、candidate 追加）整体包进 `do {}` + defer 并加 `admit-commit-readiness` 阶段（构建 CDHash `1136cf2c66fa20bcb4b535c7e3d54edb6c2180d2`）。测得 **0.028 ms**；该次运行被机器高负载污染（`submitted=1090` 对正常 3810、`cpuP50MS=32.865` 对 5.9、各阶段整体放大约 5.4 倍），但按同一比例归一后约 **0.005 ms**，仅占 `admit-prepare-frame` 的 0.13%。**结论：循环"executor 之后"的 readiness 工作可忽略，约 1.25 ms 余项几乎全部在"executor 之前"的逐层投影**——依赖归属分支中的 `candidates.filter { $0.layerID == … }`（逐层分配新数组）、`request.frameInputs.dependencyEffects.map { … candidates.first(where:) … }`（线性扫描加数组分配）与 `withDependencyEffect`。这正是 E1b「固定 request／command 的静态骨架和整数索引；帧内填参数；复用有界 scratch，消除实测大量复制的字典」的范围。
+**方法学更正（同日自查）：**`admit-executor-prepare` 的 p50 是**每次调用**的取值，而 `admit-prepare-frame` 是**每帧**的取值。把前者乘以每帧频次再与后者相减，等于相加嵌套阶段的百分位，而本项目测量合同明确禁止（「`prologue`、`frame-admission` 及更深 admission 等嵌套阶段不可相加」）。因此先前据此写下的「余项 ≈1.252 ms」与「几乎全在 executor 之前的逐层投影」**不成立，已撤回**；把 per-call 中位数换算成 per-frame 总量需要每帧聚合而非频次乘法。可安全保留的结论只有：`admit-prepare-frame` 是该帧最大单项（4.014 ms，67.7%）；`admit-executor-prepare` 每次调用 p50 0.092 ms／p95 0.435 ms、每帧 22 次；`admit-target-pool`、`admit-frame-commit`、`admit-install-graph-outputs` 均为每帧项且合计约 0.74 ms。executor 在 `admit-prepare-frame` 中的真实占比需要 per-frame 聚合才能判定。
+
+**循环"executor 之后"区段的定向（同日续；观测包装已退役）：**把 coordinator 循环中结果解包、`candidateBlueprintLocked`、`candidateIsCommitReadyLocked`、`provisionalCandidateTailsLocked` 与 candidate 追加包进 `do {}` + defer 并加 `admit-commit-readiness` 阶段（构建 CDHash `1136cf2c66fa20bcb4b535c7e3d54edb6c2180d2`）。该阶段亦为每次调用（n=22/帧），实测 p50 **0.028 ms**；该次运行被机器高负载污染（`submitted=1090`、`cpuP50MS=32.865`、各阶段整体放大约 5.4 倍），按同一比例归一约 0.005 ms。即使按 22 次/帧上界估计，该区段也只占 `admit-prepare-frame` 的约 15%，且这与上面的嵌套不可相加限制无关——它比较的是同一次调用的两个嵌套区段。可表述为：**循环"executor 之后"的 readiness 工作相对很小**，但不得用它去反推 executor 之前区段的绝对份额。
 
 该 `do {}` 包装只用于证明这一否定结论，**已精确回退**，工作区与 HEAD 一致、循环保持原样；结论由本次运行身份与上述比值固定，不作为阶段遥测长期保留。
 
-**由此产生的执行顺序约束（已满足）：**实施 region-A 消融需要绿色门禁，而覆盖该依赖归属路径的模块（`test_scene_external_primary_visual_failure_passthrough`、`test_scene_independent_signal_feedback`、`test_scene_preserved_channel_feedback_pair`、`test_scene_preserved_channel_ordered_feedback`、`test_scene_resolved_material_graph_executor`）恰在干净 HEAD 上因内嵌 harness 未同步签名而失败。该 E6 债务已由 `aade7862` 修复，rendering/runtime 聚焦门现为 **14 通过 / 0 失败**，因此 region-A 单职责消融可以在绿色行为门下进行；仍不得在没有该路径行为门的情况下改写依赖归属扫描。
+**E6 债务与门禁状态（同日修复）：**覆盖该依赖归属路径的模块（`test_scene_external_primary_visual_failure_passthrough`、`test_scene_independent_signal_feedback`、`test_scene_preserved_channel_feedback_pair`、`test_scene_preserved_channel_ordered_feedback`、`test_scene_resolved_material_graph_executor`）此前在干净 HEAD 上因内嵌 harness 未同步签名而失败，属 E6 过期 fixture 债务。该债务已由 `aade7862` 修复：rendering/runtime 聚焦门现为 **14 通过 / 0 失败**。**这不改变上面撤回的结论**——任何 future 对依赖归属扫描的改写仍必须在绿色行为门下进行，但在 per-frame 聚合可用之前不应据该分解选择该路径作为消融点。
 
 <a id="e-2026-09-16-as1-instrument-coupling"></a>
 ### 2026-09-16 AS1 仪器耦合：分阶段遥测与 execution observation 同标志，重 graph 测得帧约一半是仪器
