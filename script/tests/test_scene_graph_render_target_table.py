@@ -396,7 +396,8 @@ enum Harness {
         ]
         let mappedValid: Bool
         switch TargetTable.makeMapped(
-            plan: plan, device: device, texturesByIdentity: mappedTextures
+            plan: plan, device: device, texturesByIdentity: mappedTextures,
+            makeInputsDigest: 0
         ) {
         case .success(let mapped):
             mappedValid = mapped.inputTexture === table.inputTexture
@@ -417,7 +418,8 @@ enum Harness {
                 first: table.inputTexture,
                 second: table.outputTexture
             ),
-            expectsInputOutputAlias: true
+            expectsInputOutputAlias: true,
+            makeInputsDigest: 0
         ) {
         case .success(let mapped):
             controlledEndpointAliasValid = mapped.inputOutputAliased
@@ -432,7 +434,8 @@ enum Harness {
         let mappedAliasFailure = failure(TargetTable.makeMapped(
             plan: plan,
             device: device,
-            texturesByIdentity: aliasedMappedTextures
+            texturesByIdentity: aliasedMappedTextures,
+            makeInputsDigest: 0
         ))
         let unexpectedDistinctEndpointFailure = failure(TargetTable.makeMapped(
             plan: plan,
@@ -442,7 +445,8 @@ enum Harness {
                 first: table.inputTexture,
                 second: table.outputTexture
             ),
-            expectsInputOutputAlias: true
+            expectsInputOutputAlias: true,
+            makeInputsDigest: 0
         ))
         var pairAliasedFramebufferTextures = aliasedMappedTextures
         pairAliasedFramebufferTextures[quarterA] = table.outputTexture
@@ -454,7 +458,8 @@ enum Harness {
                 first: table.inputTexture,
                 second: table.outputTexture
             ),
-            expectsInputOutputAlias: true
+            expectsInputOutputAlias: true,
+            makeInputsDigest: 0
         ))
         var siblingAliasedFramebufferTextures = aliasedMappedTextures
         siblingAliasedFramebufferTextures[quarterB] = quarterATexture
@@ -466,14 +471,16 @@ enum Harness {
                 first: table.inputTexture,
                 second: table.outputTexture
             ),
-            expectsInputOutputAlias: true
+            expectsInputOutputAlias: true,
+            makeInputsDigest: 0
         ))
         var incompleteMappedTextures = mappedTextures
         incompleteMappedTextures.removeValue(forKey: quarterB)
         let mappedIncompleteFailure = failure(TargetTable.makeMapped(
             plan: plan,
             device: device,
-            texturesByIdentity: incompleteMappedTextures
+            texturesByIdentity: incompleteMappedTextures,
+            makeInputsDigest: 0
         ))
         let invalidUsageDescriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .bgra8Unorm,
@@ -491,7 +498,8 @@ enum Harness {
         let mappedUsageFailure = failure(TargetTable.makeMapped(
             plan: plan,
             device: device,
-            texturesByIdentity: invalidUsageMappedTextures
+            texturesByIdentity: invalidUsageMappedTextures,
+            makeInputsDigest: 0
         ))
         let otherEffect = Graph.EffectKey(
             layerID: 10,

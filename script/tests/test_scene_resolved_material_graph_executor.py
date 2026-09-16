@@ -1987,7 +1987,8 @@ private func makeChainedLeases(
                 plan.output: texture(step.outputMember),
             ],
             fullFramePair: .init(first: zero, second: one),
-            expectsInputOutputAlias: step.inputMember == step.outputMember
+            expectsInputOutputAlias: step.inputMember == step.outputMember,
+            makeInputsDigest: 0
         ) {
         case let .success(value): mapped = value
         case .failure: return nil

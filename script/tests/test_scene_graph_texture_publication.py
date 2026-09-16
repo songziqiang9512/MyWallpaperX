@@ -469,7 +469,8 @@ private enum Harness {
                 first: lease.table.inputTexture,
                 second: lease.table.outputTexture
             ),
-            expectsInputOutputAlias: true
+            expectsInputOutputAlias: true,
+            makeInputsDigest: 0
         ) else { fatalError("alias table failed") }
         let aliasTokens = Dictionary(uniqueKeysWithValues:
             aliasTable.orderedPhysicalTextures.enumerated().map {
