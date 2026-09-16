@@ -43,6 +43,19 @@
 
 **产物与口径边界：**①这些运行由隔离目录内直接启动同一可执行文件完成（不经过 benchmark），只产出 app 日志；被终止时未写证据目录，因此本条目不含截图/runtime evidence，也不能声称 benchmark 的 evidence/矩阵门通过。②因此该基线目前**只能手动复现**；把它接入 benchmark 需要显式的 performance-only 模式，因为 observation 派生字段（如 `resolved_material_graph_execution`）在去仪器时会缺失，不能让既有证据运行静默降级。③`compositor-seal` 剩余 0.232 ms 属正常提交路径。④30 FPS、混刷双屏、M1、低电量、功耗与 wakeups、30 min 长稳仍未验收。⑤运行载荷在隔离目录，未归档。
 
+**`admit-prepare-frame` 的硬分解（同日续，去仪器，CDHash `6e596e37f3a40e24380eabb4364816ea7a64e6be`，`cpuP50MS` 5.987、submitted 3810、failed 0）：**
+
+| 子阶段 | p50 | 占该帧 |
+|---|---|---|
+| `admit-prepare-frame` | 4.014 ms | 67.7% |
+| ├ `admit-executor-prepare`（每帧 22 次 × 0.092） | 2.024 ms | 34% |
+| ├ coordinator 逐层请求循环（余项，未归因） | ≈1.252 ms | 21% |
+| ├ `admit-target-pool` | 0.456 ms | 7.6% |
+| ├ `admit-frame-commit` | 0.277 ms | 4.7% |
+| └ `admit-install-graph-outputs` | 0.005 ms | — |
+
+新增两个纯观测子阶段（`admit-install-graph-outputs`、`admit-frame-commit`）并用测试锁定标签与 defer 配对。其中 `install` 一项**否证了此前由栈采样得到的约 0.9 ms 估计**（实测 0.005 ms），据此重申：采样只可用于定位热点，不可用于估计占比。**下一个单一职责候选是 coordinator 的逐层请求循环（≈1.252 ms）**——依赖效果投影、`candidates.first(where:)` 线性扫描、`withDependencyEffect` 与 blueprint/commit-readiness 检查。该循环内 `executor.prepare` 的进一步热点由栈采样定位在 `prepareMaterialPass` 与 `SceneResolvedMaterialProgramFinalizer.finalize`；但 E1c 明确要求不跨 commandBuffer 缓存 PreparedGraph／PreparedPass，因此下一批只能在准备内部减少重复工作，不能缓存结果。`SceneResolvedMaterialFramePreflight.swift` 在 HEAD 上已是 912 行的未登记 code-health 错误，本次观测再加 7 行至 919；未抬高 800 上限，也未重构无关债务。
+
 <a id="e-2026-09-16-as1-instrument-coupling"></a>
 ### 2026-09-16 AS1 仪器耦合：分阶段遥测与 execution observation 同标志，重 graph 测得帧约一半是仪器
 
