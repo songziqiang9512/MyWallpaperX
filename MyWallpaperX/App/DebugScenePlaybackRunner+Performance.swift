@@ -8,7 +8,8 @@ extension DebugScenePlaybackRunner {
         let sampleCount: Int
         let processSampleCount: Int
         let processFootprintSampledPeakBytes: UInt64
-        let processCPUTimeMilliseconds: Double
+        let processCPUTimeMilliseconds: Double?
+        let processCPUTimeStatus: String
         let gpuAllocatedSampledPeakBytes: UInt64
         let renderTargetPoolSampledPeakBytes: UInt64
     }
@@ -19,8 +20,9 @@ extension DebugScenePlaybackRunner {
         private var sampleTimer: DispatchSourceTimer?
         private var sampleCount = 0
         private var processSampleCount = 0
-        private var firstProcessCPUTimeNanoseconds: UInt64?
-        private var latestProcessCPUTimeNanoseconds: UInt64?
+        private var firstProcessCPUTimeMachTicks: UInt64?
+        private var latestProcessCPUTimeMachTicks: UInt64?
+        private var processCPUTimeFailure: DebugSceneProcessCPUTime.Failure?
         private var processFootprintSampledPeakBytes: UInt64 = 0
         private var gpuAllocatedSampledPeakBytes: UInt64 = 0
         private var renderTargetPoolSampledPeakBytes: UInt64 = 0
@@ -47,20 +49,13 @@ extension DebugScenePlaybackRunner {
             sampleTimer?.cancel()
             sampleTimer = nil
             recordSample()
-            let cpuTimeNanoseconds: UInt64
-            if let firstProcessCPUTimeNanoseconds,
-               let latestProcessCPUTimeNanoseconds,
-               latestProcessCPUTimeNanoseconds >= firstProcessCPUTimeNanoseconds {
-                cpuTimeNanoseconds = latestProcessCPUTimeNanoseconds
-                    - firstProcessCPUTimeNanoseconds
-            } else {
-                cpuTimeNanoseconds = 0
-            }
+            let cpuTime = measuredProcessCPUTime()
             return PerformanceResourceSnapshot(
                 sampleCount: sampleCount,
                 processSampleCount: processSampleCount,
                 processFootprintSampledPeakBytes: processFootprintSampledPeakBytes,
-                processCPUTimeMilliseconds: Double(cpuTimeNanoseconds) / 1_000_000,
+                processCPUTimeMilliseconds: cpuTime.milliseconds,
+                processCPUTimeStatus: cpuTime.status,
                 gpuAllocatedSampledPeakBytes: gpuAllocatedSampledPeakBytes,
                 renderTargetPoolSampledPeakBytes: renderTargetPoolSampledPeakBytes
             )
@@ -78,17 +73,53 @@ extension DebugScenePlaybackRunner {
                 renderTargetPoolSampledPeakBytes,
                 counters[.renderTargetPoolBytes] ?? 0
             )
-            guard let usage = DebugScenePlaybackRunner.currentProcessResourceUsage()
-            else { return }
-            processSampleCount += 1
-            processFootprintSampledPeakBytes = max(
-                processFootprintSampledPeakBytes,
-                usage.footprintBytes
-            )
-            if firstProcessCPUTimeNanoseconds == nil {
-                firstProcessCPUTimeNanoseconds = usage.cpuTimeNanoseconds
+            switch DebugScenePlaybackRunner.currentProcessResourceUsage() {
+            case let .success(usage):
+                processSampleCount += 1
+                processFootprintSampledPeakBytes = max(
+                    processFootprintSampledPeakBytes,
+                    usage.footprintBytes
+                )
+                if firstProcessCPUTimeMachTicks == nil {
+                    firstProcessCPUTimeMachTicks = usage.cpuTimeMachTicks
+                }
+                latestProcessCPUTimeMachTicks = usage.cpuTimeMachTicks
+            case let .failure(failure):
+                if processCPUTimeFailure == nil {
+                    processCPUTimeFailure = failure
+                }
             }
-            latestProcessCPUTimeNanoseconds = usage.cpuTimeNanoseconds
+        }
+
+        private func measuredProcessCPUTime() -> (
+            milliseconds: Double?,
+            status: String
+        ) {
+            if let processCPUTimeFailure {
+                return (nil, processCPUTimeFailure.rawValue)
+            }
+            guard let firstProcessCPUTimeMachTicks,
+                  let latestProcessCPUTimeMachTicks else {
+                let failure = DebugSceneProcessCPUTime.Failure.processSampleUnavailable
+                return (nil, failure.rawValue)
+            }
+            let timebase: DebugSceneProcessCPUTime.Timebase
+            switch DebugSceneProcessCPUTime.currentTimebase() {
+            case let .success(value):
+                timebase = value
+            case let .failure(failure):
+                return (nil, failure.rawValue)
+            }
+            switch DebugSceneProcessCPUTime.elapsedMilliseconds(
+                firstMachTicks: firstProcessCPUTimeMachTicks,
+                latestMachTicks: latestProcessCPUTimeMachTicks,
+                timebase: timebase
+            ) {
+            case let .success(milliseconds):
+                return (milliseconds, "available")
+            case let .failure(failure):
+                return (nil, failure.rawValue)
+            }
         }
     }
 
@@ -209,12 +240,16 @@ extension DebugScenePlaybackRunner {
             if !stageLine.isEmpty {
                 NSLog("MWX DEBUG SCENE: phase=performance-stages %@", stageLine)
             }
+            let processCPUTime = resources.processCPUTimeMilliseconds.map {
+                String(format: "%.3f", $0)
+            } ?? "unavailable"
             NSLog(
-                "MWX DEBUG SCENE: phase=performance-resources samples=%d processSamples=%d processFootprintSampledPeakBytes=%llu processCPUTimeMS=%.3f gpuAllocatedSampledPeakBytes=%llu renderTargetPoolSampledPeakBytes=%llu",
+                "MWX DEBUG SCENE: phase=performance-resources samples=%d processSamples=%d processFootprintSampledPeakBytes=%llu processCPUTimeMS=%@ processCPUTimeStatus=%@ gpuAllocatedSampledPeakBytes=%llu renderTargetPoolSampledPeakBytes=%llu",
                 resources.sampleCount,
                 resources.processSampleCount,
                 resources.processFootprintSampledPeakBytes,
-                resources.processCPUTimeMilliseconds,
+                processCPUTime as NSString,
+                resources.processCPUTimeStatus as NSString,
                 resources.gpuAllocatedSampledPeakBytes,
                 resources.renderTargetPoolSampledPeakBytes
             )
@@ -222,22 +257,27 @@ extension DebugScenePlaybackRunner {
     }
 
     private static func currentProcessResourceUsage() -> (
-        footprintBytes: UInt64,
-        cpuTimeNanoseconds: UInt64
-    )? {
+        Result<(
+            footprintBytes: UInt64,
+            cpuTimeMachTicks: UInt64
+        ), DebugSceneProcessCPUTime.Failure>
+    ) {
         var usage = rusage_info_v4()
         let result = withUnsafeMutablePointer(to: &usage) { pointer in
             pointer.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) {
                 proc_pid_rusage(getpid(), RUSAGE_INFO_V4, $0)
             }
         }
-        guard result == 0 else { return nil }
-        let (cpuTimeNanoseconds, overflow) = usage.ri_user_time
-            .addingReportingOverflow(usage.ri_system_time)
-        return (
-            footprintBytes: usage.ri_phys_footprint,
-            cpuTimeNanoseconds: overflow ? UInt64.max : cpuTimeNanoseconds
-        )
+        guard result == 0 else { return .failure(.resourceUsageUnavailable) }
+        return DebugSceneProcessCPUTime.combinedMachTicks(
+            userMachTicks: usage.ri_user_time,
+            systemMachTicks: usage.ri_system_time
+        ).map { cpuTimeMachTicks in
+            (
+                footprintBytes: usage.ri_phys_footprint,
+                cpuTimeMachTicks: cpuTimeMachTicks
+            )
+        }
     }
 }
 #endif

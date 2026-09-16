@@ -721,6 +721,18 @@ PERFORMANCE_RESOURCE_INT_FIELDS = {
 PERFORMANCE_RESOURCE_FLOAT_FIELDS = {
     "processCPUTimeMS": "process_cpu_time_ms",
 }
+PERFORMANCE_RESOURCE_STRING_FIELDS = {
+    "processCPUTimeStatus": "process_cpu_time_status",
+}
+PERFORMANCE_RESOURCE_CPU_UNAVAILABLE_STATUSES = {
+    "process-sample-unavailable",
+    "resource-usage-unavailable",
+    "raw-tick-sum-overflow",
+    "tick-counter-regressed",
+    "timebase-unavailable",
+    "timebase-invalid",
+    "conversion-overflow",
+}
 
 
 def sha256(path: Path) -> str:
@@ -825,8 +837,10 @@ def performance_resource_metrics(log_text: str) -> dict[str, Any]:
             }
         raw_fields[key] = value
 
-    required = set(PERFORMANCE_RESOURCE_INT_FIELDS) | set(
-        PERFORMANCE_RESOURCE_FLOAT_FIELDS
+    required = (
+        set(PERFORMANCE_RESOURCE_INT_FIELDS)
+        | set(PERFORMANCE_RESOURCE_FLOAT_FIELDS)
+        | set(PERFORMANCE_RESOURCE_STRING_FIELDS)
     )
     missing = sorted(required - raw_fields.keys())
     if missing:
@@ -842,7 +856,33 @@ def performance_resource_metrics(log_text: str) -> dict[str, Any]:
             + ", ".join(unexpected),
         }
 
-    metrics: dict[str, Any] = {"available": True}
+    cpu_status = raw_fields["processCPUTimeStatus"]
+    cpu_time = raw_fields["processCPUTimeMS"]
+    if cpu_status != "available":
+        if cpu_status not in PERFORMANCE_RESOURCE_CPU_UNAVAILABLE_STATUSES:
+            return {
+                "available": False,
+                "error": f"invalid process CPU time status: {cpu_status}",
+            }
+        if cpu_time != "unavailable":
+            return {
+                "available": False,
+                "error": "unavailable process CPU time must not contain a numeric value",
+            }
+        return {
+            "available": False,
+            "error": f"process CPU time unavailable: {cpu_status}",
+        }
+    if cpu_time == "unavailable":
+        return {
+            "available": False,
+            "error": "available process CPU time is missing its numeric value",
+        }
+
+    metrics: dict[str, Any] = {
+        "available": True,
+        "process_cpu_time_status": cpu_status,
+    }
     try:
         for source, destination in PERFORMANCE_RESOURCE_INT_FIELDS.items():
             value = int(raw_fields[source])

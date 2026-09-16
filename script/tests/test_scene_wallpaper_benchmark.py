@@ -2185,7 +2185,8 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "prologue=p50:1.000ms p95:1.500ms n:407\n"
             "MWX DEBUG SCENE: phase=performance-resources samples=8 "
             "processSamples=8 processFootprintSampledPeakBytes=134217728 "
-            "processCPUTimeMS=2387.500 gpuAllocatedSampledPeakBytes=67108864 "
+            "processCPUTimeMS=2387.500 processCPUTimeStatus=available "
+            "gpuAllocatedSampledPeakBytes=67108864 "
             "renderTargetPoolSampledPeakBytes=33554432"
         )
         metrics = benchmark.performance_metrics(log, surface_count=1)
@@ -2264,6 +2265,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "phase=performance-stages layer-loop=p50:1ms p95:2ms n:60\n"
             "phase=performance-resources samples=2 processSamples=2 "
             "processFootprintSampledPeakBytes=100 processCPUTimeMS=200 "
+            "processCPUTimeStatus=available "
             "gpuAllocatedSampledPeakBytes=300 renderTargetPoolSampledPeakBytes=400"
         )
         invalid_target = valid_log.replace("targetFPS=60", "targetFPS=45", 1)
@@ -2343,6 +2345,24 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertIn(
             "invalid performance resource field",
             benchmark.performance_metrics(negative_resource, 1)["error"],
+        )
+        unavailable_cpu = valid_log.replace(
+            "processCPUTimeMS=200 processCPUTimeStatus=available",
+            "processCPUTimeMS=unavailable processCPUTimeStatus=tick-counter-regressed",
+            1,
+        )
+        self.assertIn(
+            "process CPU time unavailable: tick-counter-regressed",
+            benchmark.performance_metrics(unavailable_cpu, 1)["error"],
+        )
+        unknown_cpu_status = valid_log.replace(
+            "processCPUTimeStatus=available",
+            "processCPUTimeStatus=unknown",
+            1,
+        )
+        self.assertIn(
+            "invalid process CPU time status",
+            benchmark.performance_metrics(unknown_cpu_status, 1)["error"],
         )
         sparse_resources = valid_log.replace("elapsed=1", "elapsed=60", 1)
         self.assertIn(

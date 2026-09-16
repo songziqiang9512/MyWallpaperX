@@ -48,6 +48,9 @@ DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunn
 PERFORMANCE_RUNNER_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner+Performance.swift"
 )
+PROCESS_CPU_TIME_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner+ProcessCPUTime.swift"
+)
 
 HARNESS = r'''
 import Foundation
@@ -144,6 +147,94 @@ enum CounterHarness {
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload, options: [.sortedKeys]
+        )
+        print(String(decoding: data, as: UTF8.self))
+    }
+}
+'''
+
+PROCESS_CPU_TIME_HARNESS = r'''
+import Darwin
+import Foundation
+
+@main
+enum ProcessCPUTimeHarness {
+    static func main() throws {
+        let combined: UInt64
+        switch DebugSceneProcessCPUTime.combinedMachTicks(
+            userMachTicks: 100,
+            systemMachTicks: 50
+        ) {
+        case let .success(value): combined = value
+        case let .failure(error): throw error
+        }
+
+        let timebase = DebugSceneProcessCPUTime.Timebase(
+            numerator: 125,
+            denominator: 3
+        )
+        let elapsedMilliseconds: Double
+        switch DebugSceneProcessCPUTime.elapsedMilliseconds(
+            firstMachTicks: 1_000,
+            latestMachTicks: 1_003,
+            timebase: timebase
+        ) {
+        case let .success(value): elapsedMilliseconds = value
+        case let .failure(error): throw error
+        }
+
+        func failure<T>(
+            _ result: Result<T, DebugSceneProcessCPUTime.Failure>
+        ) -> String {
+            switch result {
+            case .success:
+                return "unexpected-success"
+            case let .failure(error):
+                return error.rawValue
+            }
+        }
+
+        let payload: [String: Any] = [
+            "combined": combined,
+            "elapsedMilliseconds": elapsedMilliseconds,
+            "sumOverflow": failure(
+                DebugSceneProcessCPUTime.combinedMachTicks(
+                    userMachTicks: UInt64.max,
+                    systemMachTicks: 1
+                )
+            ),
+            "regressed": failure(
+                DebugSceneProcessCPUTime.elapsedMilliseconds(
+                    firstMachTicks: 2,
+                    latestMachTicks: 1,
+                    timebase: timebase
+                )
+            ),
+            "timebaseFailure": failure(
+                DebugSceneProcessCPUTime.validatedTimebase(
+                    status: KERN_FAILURE,
+                    numerator: 125,
+                    denominator: 3
+                )
+            ),
+            "invalidTimebase": failure(
+                DebugSceneProcessCPUTime.validatedTimebase(
+                    status: KERN_SUCCESS,
+                    numerator: 125,
+                    denominator: 0
+                )
+            ),
+            "conversionOverflow": failure(
+                DebugSceneProcessCPUTime.elapsedMilliseconds(
+                    firstMachTicks: 0,
+                    latestMachTicks: UInt64.max,
+                    timebase: .init(numerator: UInt32.max, denominator: 1)
+                )
+            ),
+        ]
+        let data = try JSONSerialization.data(
+            withJSONObject: payload,
+            options: [.sortedKeys]
         )
         print(String(decoding: data, as: UTF8.self))
     }
@@ -254,6 +345,46 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertNotIn("scheduleNextSample()", performance_runner)
         self.assertIn("processFootprintSampledPeakBytes=%llu", performance_runner)
         self.assertIn("gpuAllocatedSampledPeakBytes=%llu", performance_runner)
+        self.assertIn("processCPUTimeStatus=%@", performance_runner)
+        self.assertNotIn("ProcessCPUTimeNanoseconds", performance_runner)
+        self.assertNotIn("cpuTimeNanoseconds", performance_runner)
+
+    def test_process_cpu_time_converts_mach_ticks_and_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-process-cpu-time-") as directory:
+            root = Path(directory)
+            harness = root / "ProcessCPUTimeHarness.swift"
+            binary = root / "process-cpu-time"
+            harness.write_text(PROCESS_CPU_TIME_HARNESS, encoding="utf-8")
+            compilation = subprocess.run(
+                [
+                    "swiftc",
+                    "-D",
+                    "DEBUG",
+                    str(PROCESS_CPU_TIME_SOURCE),
+                    str(harness),
+                    "-o",
+                    str(binary),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(compilation.returncode, 0, compilation.stderr)
+            completed = subprocess.run(
+                [str(binary)], check=True, capture_output=True, text=True
+            )
+            result = json.loads(completed.stdout)
+        self.assertEqual(result["combined"], 150)
+        self.assertAlmostEqual(result["elapsedMilliseconds"], 0.000125)
+        self.assertEqual(result["sumOverflow"], "raw-tick-sum-overflow")
+        self.assertEqual(result["regressed"], "tick-counter-regressed")
+        self.assertEqual(result["timebaseFailure"], "timebase-unavailable")
+        self.assertEqual(result["invalidTimebase"], "timebase-invalid")
+        self.assertEqual(result["conversionOverflow"], "conversion-overflow")
+        helper = PROCESS_CPU_TIME_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("mach_timebase_info(&info)", helper)
+        self.assertIn("addingReportingOverflow", helper)
+        self.assertIn("subtractingReportingOverflow", helper)
+        self.assertIn("multipliedReportingOverflow", helper)
 
 
 class ScenePerformanceCounterHubTests(unittest.TestCase):
