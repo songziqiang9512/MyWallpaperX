@@ -22,7 +22,7 @@ Apple Silicon 专项从 [§8](#apple-silicon) 开始：按顺序执行，逐卡�
 
 | 顺序 | 批次 | 结果 | 当前状态 |
 |---|---|---|---|
-| 先做 | E0 基线与验收修复 | 普通签名播放的成本归因、独立正反门、可比较输入 | 进行中：进程 CPU 计量单位已 fail-closed 修复（`98b2a363`）；简单 workload 冻结 `-Onone`/`-O` 基线并证明 `-Onone` 不代表产品；重 graph `2938612768` 已冻结**去仪器产品代表性基线**（`-O`、`cpu_frame_p50` 5.908 ms、噪声 0.3%；含仪器对照 10.326 ms，仪器占 42.8%），首断点 `admit-prepare-frame` 4.014 ms（该帧 67.7%），其内 `admit-executor-prepare` 为 per-call（p50 0.092／p95 0.435、22 次/帧）与三个每帧项合计约 0.74 ms；**嵌套阶段不可相加，executor 真实占比需 per-frame 聚合后才能定**（先前"余项 1.252 ms 全在投影"的推断已撤回）；已实施并交替验证 E1c 消融（`cpu_frame_p50` −20.0%）；其 22 条 matrix 期望差异已分类；该 path 的 inner 门原本在干净 HEAD 有 8/31 模块因过期 harness 失败，已由 `aade7862` 修复（现 14/0）；benchmark performance-only 模式、启动／缓存分类、设备矩阵与 30 FPS／双屏档待补 |
+| 先做 | E0 基线与验收修复 | 普通签名播放的成本归因、独立正反门、可比较输入 | 进行中：进程 CPU 计量单位已 fail-closed 修复（`98b2a363`）；简单 workload 冻结 `-Onone`/`-O` 基线并证明 `-Onone` 不代表产品；重 graph `2938612768` 已冻结**去仪器产品代表性基线**（`-O`、`cpu_frame_p50` 5.908 ms、噪声 0.3%；含仪器对照 10.326 ms，仪器占 42.8%），首断点 `admit-prepare-frame` 4.014 ms（该帧 67.7%）；**标准工具 performance-only 三次运行确认该 workload 在单屏 60 FPS 下 CPU p50 5.964／p95 6.274 ms、GPU p50 7.511／p95 9.463 ms、present p50 16.667 ms，均在 16.67 ms 冻结预算内（CPU 非瓶颈，GPU 更大 → 下一步转 AS3）**；已实施并交替验证 E1c 消融（`cpu_frame_p50` −20.0%）；其 22 条 matrix 期望差异已分类；该 path 的 inner 门原本在干净 HEAD 有 8/31 模块因过期 harness 失败，已由 `aade7862` 修复（现 14/0）；benchmark performance-only 模式、启动／缓存分类、设备矩阵与 30 FPS／双屏档待补 |
 | CPU 成本候选 | E1 admission 与帧存储 | 少构造、少复制、少重推导；一帧共享必要投影 | 待 E0 |
 | 与 E1 分开 | E2 控制与产品依赖 | 唯一切换意图；公共控制层不依赖 Scene 实现；Shared 不调用模块 singleton | 可先做静态边界设计 |
 | E0 后按归因 | E3 GPU 合成与资源 | 减少无必要的 pass、主 target 往返和临时驻留 | 待 GPU 归因 |
