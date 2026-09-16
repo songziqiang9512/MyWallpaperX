@@ -51,6 +51,10 @@ PERFORMANCE_RUNNER_SOURCE = (
 PROCESS_CPU_TIME_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner+ProcessCPUTime.swift"
 )
+PARTICLE_PLAYBACK_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+ParticlePlayback.swift"
+)
 
 HARNESS = r'''
 import Foundation
@@ -385,6 +389,37 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertIn("addingReportingOverflow", helper)
         self.assertIn("subtractingReportingOverflow", helper)
         self.assertIn("multipliedReportingOverflow", helper)
+
+    def test_prepass_cost_is_attributed_by_observation_substages(self) -> None:
+        """prepass 是复合阶段；子阶段只做归因，且必须保持遥测可选（普通播放无开销）。"""
+        renderer = RENDERER_SOURCE.read_text(encoding="utf-8")
+        particle = PARTICLE_PLAYBACK_SOURCE.read_text(encoding="utf-8")
+        view = VIEW_SOURCE.read_text(encoding="utf-8")
+
+        # 总括阶段仍在，子阶段不替代它。
+        self.assertIn('performanceTelemetry?.beginStage("prepass")', renderer)
+        self.assertIn('performanceTelemetry?.endStage("prepass")', renderer)
+
+        for label in (
+            "prepass-particles",
+            "prepass-encoder",
+            "prepass-forward-providers",
+        ):
+            self.assertIn(f'performanceTelemetry?.beginStage("{label}")', renderer)
+            self.assertIn(f'performanceTelemetry?.endStage("{label}")', renderer)
+
+        for label in (
+            "particle-prepare-frame",
+            "particle-pointer-projection",
+            "particle-advance",
+        ):
+            self.assertIn(f'performanceTelemetry?.beginStage("{label}")', particle)
+            self.assertIn(f'performanceTelemetry?.endStage("{label}")', particle)
+
+        # 粒子子阶段的遥测必须由渲染路径显式传入，而不是新增第二处时钟/观测。
+        self.assertIn("performanceTelemetry: SceneFramePerformanceTelemetry? = nil", particle)
+        self.assertIn("[performanceTelemetry] in", view)
+        self.assertIn("performanceTelemetry: performanceTelemetry", view)
 
 
 class ScenePerformanceCounterHubTests(unittest.TestCase):

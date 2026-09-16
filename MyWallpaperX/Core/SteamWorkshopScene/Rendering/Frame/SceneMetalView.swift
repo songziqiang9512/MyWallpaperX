@@ -602,10 +602,11 @@ class SceneMetalView: NSView {
             spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
             specializedBaseTextureSamplings: specializedBaseTextureSamplings,
             imagePipeline: imagePipeline,
-            particleBatchesProvider: {
+            particleBatchesProvider: { [performanceTelemetry] in
                 advanceParticles(
                     timing: timing, dynamicValues: dynamicValues,
-                    frameContext: frameContext, cameraFrame: cameraFrame
+                    frameContext: frameContext, cameraFrame: cameraFrame,
+                    performanceTelemetry: performanceTelemetry
                 )
             },
             particlePipeline: particlePlayback?.pipeline,

@@ -200,8 +200,12 @@ struct SceneMetalRenderer {
         hubStage(.prologueMicros, hubPrologueStart)
         performanceTelemetry?.beginStage("prepass")
         let hubPrepassStart = ProcessInfo.processInfo.systemUptime
+        // Sub-stages exist so the composite prepass cost can be attributed
+        // before any optimization; they are additive observations only.
+        performanceTelemetry?.beginStage("prepass-particles")
         let particleBatches = particleBatchesProvider()
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
+        performanceTelemetry?.endStage("prepass-particles")
         defer {
             if !didCommitParticleSubmission {
                 if let commandBuffer = particleSubmissionCommandBuffer,
@@ -225,14 +229,17 @@ struct SceneMetalRenderer {
             }
         }
         var stopsAfterClaimedFailure = false
+        performanceTelemetry?.beginStage("prepass-encoder")
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
             target: drawable.texture,
             clearColor: sceneClearColor,
             clearEnabled: frameDescriptor.camera.clearEnabled
         )
+        performanceTelemetry?.endStage("prepass-encoder")
         var forwardGraphProviderLayerIDs: Set<Int> = []
         if let imagePipeline {
+            performanceTelemetry?.beginStage("prepass-forward-providers")
             if let prepared = prepareForwardDependencyProviders(
                 orderedLayers: orderedLayers, layersByID: frameLayersByID,
                 imageTextures: imageTextures,
@@ -253,6 +260,7 @@ struct SceneMetalRenderer {
             } else {
                 stopsAfterClaimedFailure = true
             }
+            performanceTelemetry?.endStage("prepass-forward-providers")
         }
         performanceTelemetry?.endStage("prepass")
         hubStage(.prepassMicros, hubPrepassStart)

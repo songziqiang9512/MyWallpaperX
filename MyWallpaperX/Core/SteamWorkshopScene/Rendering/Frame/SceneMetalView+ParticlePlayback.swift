@@ -17,20 +17,29 @@ extension SceneMetalView {
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
         frameContext: SceneFrameContext,
-        cameraFrame: SceneParticleCameraFrame
+        cameraFrame: SceneParticleCameraFrame,
+        performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) -> [SceneParticleDrawBatch] {
         guard let particlePlayback else { return [] }
+        performanceTelemetry?.beginStage("particle-prepare-frame")
         particlePlayback.prepareFrame()
-        return particlePlayback.advance(
+        performanceTelemetry?.endStage("particle-prepare-frame")
+        performanceTelemetry?.beginStage("particle-pointer-projection")
+        let pointerLocalPositions = renderer.particlePointerLocalPositions(
+            frameContext: frameContext,
+            cameraFrame: cameraFrame,
+            demandedLayerIDs: particlePlayback.pointerControlPointLayerIDs
+        )
+        performanceTelemetry?.endStage("particle-pointer-projection")
+        performanceTelemetry?.beginStage("particle-advance")
+        let batches = particlePlayback.advance(
             by: timing.simulationFrameTime,
             dynamicValues: dynamicValues,
-            pointerLocalPositions: renderer.particlePointerLocalPositions(
-                frameContext: frameContext,
-                cameraFrame: cameraFrame,
-                demandedLayerIDs: particlePlayback.pointerControlPointLayerIDs
-            ),
+            pointerLocalPositions: pointerLocalPositions,
             audioSpectrum: frameContext.audioSpectrum
         )
+        performanceTelemetry?.endStage("particle-advance")
+        return batches
     }
 
     func teardownParticlePlayback(reason: SceneGraphExecutionResetReason) {
