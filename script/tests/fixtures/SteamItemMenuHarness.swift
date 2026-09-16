@@ -33,7 +33,7 @@ struct Job { enum State { case failed, queued }; let id: String; let workshopIte
     static func resolvedAuthorWorkshopURL(for item: SteamWorkshopBrowserItem) -> URL? { item.detailURL }
     func openAuthorWorksPage(for item: SteamWorkshopBrowserItem) { commands.append("author:" + item.id) }
     func openWorkshopDetailPage(for item: SteamWorkshopBrowserItem) { commands.append("web:" + item.id) }
-    func presentSteamLoginGuidance(context: String) { commands.append("guidance") }
+    func presentSteamLoginForUserAction(context: String) { commands.append("guidance") }
 }
 @main struct MenuHarness {
     @MainActor static func main() {

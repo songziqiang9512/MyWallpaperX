@@ -9,7 +9,14 @@ extension AppKitMainSplitViewController {
         }
         switch item {
         case .steamSubscribed:
-            service.source = .mySubscriptions
+            if service.source != .mySubscriptions {
+                service.suppressAutomaticBrowseNavigation = true
+                service.browserContentMode = .all
+                service.facetFilters = .none
+                service.setBrowserQuery("")
+                service.suppressAutomaticBrowseNavigation = false
+                service.source = .mySubscriptions
+            }
         case .steamWorkshop where service.source.isPersonal:
             service.source = .featured
         default:

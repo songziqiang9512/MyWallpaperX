@@ -75,16 +75,9 @@ final class SteamWorkshopService: ObservableObject {
     @Published var trendingWindow: SteamWorkshopTrendingWindow = .week {
         didSet { if !suppressAutomaticBrowseNavigation { navigateToBrowse() } }
     }
-    @Published var themeFilter: SteamWorkshopThemeFilter = .all {
-        didSet { if !suppressAutomaticBrowseNavigation { navigateToBrowse() } }
-    }
-    @Published var ageRatingFilter: SteamWorkshopAgeRatingFilter = .all {
-        didSet { if !suppressAutomaticBrowseNavigation { navigateToBrowse() } }
-    }
-    @Published var resolutionFilter: SteamWorkshopResolutionFilter = .all {
-        didSet { if !suppressAutomaticBrowseNavigation { navigateToBrowse() } }
-    }
-    @Published var categoryFilter: SteamWorkshopCategoryFilter = .all {
+    /// 浏览分面筛选唯一 Owner（类型/分级/分辨率/分类）。空值 = 不筛选；
+    /// 任一变化重置浏览键并重取第一页。
+    @Published var facetFilters: SteamWorkshopBrowseFacetFilters = .none {
         didSet { if !suppressAutomaticBrowseNavigation { navigateToBrowse() } }
     }
     @Published var downloadsQuery: String = "" {
@@ -242,9 +235,11 @@ final class SteamWorkshopService: ObservableObject {
         }
     }
 
-    /// SK2.2：未登录受保护动作的就地提示（§1 规则 3：提示本身不打开登录）。
-    func presentSteamLoginGuidance(context: String) {
-        statusMessage = "需要登录 Steam（\(context)）。请使用工具栏的「登录 Steam」。"
+    /// Only explicit protected actions open login; browsing/refresh never do.
+    /// The original action is not replayed after authentication.
+    func presentSteamLoginForUserAction(context: String) {
+        statusMessage = ""
+        showLoginPanel()
     }
 
     // MARK: - Download selection state
@@ -280,6 +275,8 @@ final class SteamWorkshopService: ObservableObject {
     var webRuntimePreloadTask: Task<Void, Never>?
     var lastPreviewPrefetchIDSet = Set<String>()
     var browserLoadMoreRetryAfter: Date = .distantPast
+    /// 稀疏筛选下连续无新增可见项的自动续载页数（见 maxConsecutiveEmptyLoadMorePages）。
+    var consecutiveEmptyLoadMorePages = 0
 
     // MARK: - Shared infrastructure
 

@@ -39,7 +39,7 @@ final class SteamWorkshopTagStripView: NSScrollView {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         drawsBackground = false
-        toolTip = "左右滑动或滚动鼠标滚轮查看全部标签"
+        setAccessibilityLabel("标签")
         hasHorizontalScroller = false
         hasVerticalScroller = false
         autohidesScrollers = true

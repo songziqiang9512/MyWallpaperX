@@ -43,6 +43,11 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         return scrollView
     }()
 
+    /// 刷新 Owner 已从工具栏按钮迁到原生下拉刷新（NSRefreshController，
+    /// macOS 27+）；旧 `.steamRefresh` 工具栏项已退役。仅在 macOS 27+ 时
+    /// 持有实例（存储属性不能标 @available，故用 AnyObject 存取）。
+    private var pullToRefreshController: AnyObject?
+
     private lazy var collectionView: SteamWorkshopKeyboardCollectionView = {
         let collectionView = SteamWorkshopKeyboardCollectionView()
         collectionView.isSelectable = false
@@ -63,6 +68,10 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             self.updateKeyboardFocusItem(withID: previous, focused: false)
             self.updateKeyboardFocusItem(withID: id, focused: true)
             return SteamWorkshopItemMenu.make(item: item, service: self.service)
+        }
+        collectionView.primaryClickHandler = { [weak self] path in
+            guard let self, let id = self.dataSource.itemIdentifier(for: path) else { return false }
+            return self.openItem(withID: id)
         }
         collectionView.cardPressStateHandler = { [weak self] indexPath, pressed in
             guard let self,
@@ -155,6 +164,10 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             scrollView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
+        if #available(macOS 27.0, *) {
+            installPullToRefreshIfSupported()
+        }
+
         service.$displayedBrowserItems
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.applyItems($0) }
@@ -226,6 +239,18 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             }
             .store(in: &cancellables)
 
+        // 下拉刷新的收口：feed 刷新结束（含失败/登录指引等同步结束路径）
+        // 就撤销刷新指示，不区分刷新发起方式。
+        service.$isRefreshingBrowserFeed
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isRefreshing in
+                guard let self, !isRefreshing else { return }
+                if #available(macOS 27.0, *) {
+                    (self.pullToRefreshController as? NSRefreshController)?.endRefreshing()
+                }
+            }
+            .store(in: &cancellables)
+
         moduleActivationObserver = NotificationCenter.default.addObserver(
             forName: .moduleDidBecomeActive,
             object: nil,
@@ -237,6 +262,21 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         }
 
         applyItems(service.displayedBrowserItems)
+    }
+
+    @available(macOS 27.0, *)
+    private func installPullToRefreshIfSupported() {
+        let controller = NSRefreshController()
+        controller.target = self
+        controller.action = #selector(handlePullToRefresh)
+        scrollView.refreshController = controller
+        pullToRefreshController = controller
+    }
+
+    @available(macOS 27.0, *)
+    @objc private func handlePullToRefresh() {
+        // 个人来源未登录时 refresh() 走既有登录指引路径并同步复位指示器。
+        service.refresh()
     }
 
     private func applyItems(_ items: [SteamWorkshopBrowserItem]) {
@@ -355,7 +395,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             isDownloading: service.isDownloading(itemID: id),
             isDownloaded: service.isDownloaded(itemID: id),
             isKeyboardFocused: keyboardFocusedID == id,
-            onOpen: { [weak self] in self?.onOpen(item) },
+            onOpen: { [weak self] in _ = self?.openItem(withID: id) },
             onDownload: { [weak self] in self?.onDownload(item) },
             onSetAsWallpaper: { [weak self] in
                 guard let self, let record = self.service.downloadRecord(for: id) else { return }
@@ -375,7 +415,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             isDownloading: service.isDownloading(itemID: id),
             isDownloaded: service.isDownloaded(itemID: id),
             isKeyboardFocused: keyboardFocusedID == id,
-            onOpen: { [weak self] in self?.onOpen(item) },
+            onOpen: { [weak self] in _ = self?.openItem(withID: id) },
             onDownload: { [weak self] in self?.onDownload(item) },
             onSetAsWallpaper: { [weak self] in
                 guard let self, let record = self.service.downloadRecord(for: id) else { return }
@@ -383,6 +423,18 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             },
             onCancelDownload: { [weak self] in self?.onCancelDownload(item) }
         )
+    }
+
+    @discardableResult
+    private func openItem(withID id: String) -> Bool {
+        guard let item = itemsByID[id] else { return false }
+        let previous = keyboardFocusedID
+        keyboardFocusedID = id
+        updateKeyboardFocusItem(withID: previous, focused: false)
+        updateKeyboardFocusItem(withID: id, focused: true)
+        window?.makeFirstResponder(collectionView)
+        onOpen(item)
+        return true
     }
 
     private func checkLoadMore() {

@@ -4,11 +4,13 @@
 //
 
 import AppKit
+import Combine
 import QuartzCore
 
 final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     static let hoverScale: CGFloat = 1.03
     private static let pressedScale: CGFloat = 0.98
+    private var cancellables = Set<AnyCancellable>()
 
     private let cardView = AppearanceAwareContainerView()
     private let hoverOutlineView = NSView()
@@ -29,6 +31,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     private var isPreviewLoadInFlight = false
     private var currentPreviewSourceURL: URL?
     private var currentDownloadVideoURL: URL?
+    private var isPlayingRecord = false
     private var currentTitleText = ""
     private var onOpen: (() -> Void)?
     private var onDownload: (() -> Void)?
@@ -69,6 +72,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         case setAsWallpaper
         case retry
         case saving
+        case stop
     }
 
     enum DisplayContext {
@@ -121,6 +125,15 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
 
     override init(nibName: NSNib.Name?, bundle: Bundle?) {
         super.init(nibName: nibName, bundle: bundle)
+        // 订阅状态变化（含其他入口触发的订阅）实时刷新卡片 bar 心形。
+        SteamWorkshopService.shared.steamSubscriptions.$states
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.refreshSubscribeHeart() }
+            .store(in: &cancellables)
+        SteamWorkshopService.shared.$source
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.refreshSubscribeHeart() }
+            .store(in: &cancellables)
     }
 
     @available(*, unavailable)
@@ -185,6 +198,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
 
     func configure(
         displayContext: DisplayContext = .browser,
+        isPlaying: Bool = false,
         item: SteamWorkshopBrowserItem,
         downloadRecord: SteamWorkshopDownloadRecord?,
         downloadProgressStore: SteamWorkshopDownloadProgressStore,
@@ -202,6 +216,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         self.onSetAsWallpaper = onSetAsWallpaper
         self.onCancelDownload = onCancelDownload
         currentDisplayContext = displayContext
+        isPlayingRecord = isPlaying && displayContext == .downloads
         currentDownloadVideoURL = downloadRecord?.videoURL
         currentPreviewSourceURL = item.previewImageURL
         currentDebugID = item.id
@@ -240,6 +255,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
 
     func configureMetadataOnly(
         displayContext: DisplayContext = .browser,
+        isPlaying: Bool = false,
         item: SteamWorkshopBrowserItem,
         downloadRecord: SteamWorkshopDownloadRecord?,
         downloadProgressStore: SteamWorkshopDownloadProgressStore,
@@ -257,6 +273,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         self.onSetAsWallpaper = onSetAsWallpaper
         self.onCancelDownload = onCancelDownload
         currentDisplayContext = displayContext
+        isPlayingRecord = isPlaying && displayContext == .downloads
         currentDownloadVideoURL = downloadRecord?.videoURL
         currentPreviewSourceURL = item.previewImageURL
         currentDebugID = item.id
@@ -495,7 +512,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         let displayTitle = resolvedDisplayTitle(item: item, downloadRecord: downloadRecord, barState: barState)
         currentTitleText = item.title
         titleMarqueeView.text = displayTitle
-        detailButton.setAccessibilityLabel("详细信息：\(item.title)")
+        detailButton.setAccessibilityLabel("订阅：\(item.title)")
         statusBadgeButton.toolTip = currentProgressSnapshot?.failureMessage ?? downloadRecord?.failureMessage
 
         currentActionKind = resolvedActionKind(
@@ -503,6 +520,14 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
             isDownloading: isDownloading,
             isDownloaded: isDownloaded
         )
+        if isPlayingRecord {
+            // 正在播放：bar 常显、淡红底、按钮切换为停止。
+            currentActionKind = .stop
+            shouldPersistBarVisibility = true
+            overlayBar.layer?.backgroundColor = NSColor.systemRed.withAlphaComponent(0.2).cgColor
+        } else if overlayBar.layer?.backgroundColor != NSColor.clear.cgColor {
+            overlayBar.layer?.backgroundColor = NSColor.clear.cgColor
+        }
         isLaunchPendingBadge = downloadRecord.map {
             SteamWorkshopService.shared.isLaunchPending($0.id)
         } ?? false
@@ -513,6 +538,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         )
 
         refreshThemeAwareAppearance()
+        refreshSubscribeHeart()
         if view.window != nil {
             applyHoverStyle(animated: false)
         } else {
@@ -655,6 +681,10 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
             symbolName = "checkmark.circle"
             tintColor = .white
             accessibilityLabel = "正在保存：\(itemTitle)"
+        case .stop:
+            symbolName = "stop.fill"
+            tintColor = .white
+            accessibilityLabel = "停止播放：\(itemTitle)"
         }
 
         statusBadgeButton.image = NSImage(
@@ -737,7 +767,9 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
 
         cardView.wantsLayer = true
         cardView.layer?.cornerRadius = Layout.cardCornerRadius
-        cardView.layer?.masksToBounds = false
+        // 裁切到圆角内：修复 bar/进度填充在圆角四角溢出成直角的问题
+        //（卡片阴影不透明度仅 0.03，裁切后视觉无感知差异）。
+        cardView.layer?.masksToBounds = true
         cardView.layer?.borderWidth = 0.8
         cardView.layer?.shadowColor = NSColor.black.cgColor
         cardView.layer?.shadowOpacity = 0.03
@@ -795,9 +827,9 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         overlayBar.setAccessibilityLabel("下载进度")
         cardView.addSubview(overlayBar)
 
-        detailButton.image = NSImage(systemSymbolName: "info.circle", accessibilityDescription: "详细信息")
+        detailButton.image = NSImage(systemSymbolName: "heart", accessibilityDescription: "订阅")
         detailButton.target = self
-        detailButton.action = #selector(handleOpen)
+        detailButton.action = #selector(handleSubscribeToggle)
         overlayBar.addSubview(detailButton)
 
         overlayBar.addSubview(titleMarqueeView)
@@ -889,6 +921,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         statusBadgeButton.borderWidth = 0
         statusBadgeButton.iconTintColor = fixedForeground
         statusBadgeButton.appearance = overlayBar.appearance
+        refreshSubscribeHeart()
         updateContinuousAnimationState()
     }
 
@@ -1270,6 +1303,53 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         onOpen?()
     }
 
+    /// 心形订阅：unknown 先拉取订阅状态，已知状态直接切换。
+    @objc private func handleSubscribeToggle() {
+        guard let item = currentItem else { return }
+        if currentDisplayContext == .downloads { onOpen?(); return }
+        guard SteamWorkshopService.shared.steamAuth.isOnline else {
+            SteamWorkshopService.shared.presentSteamLoginForUserAction(context: "订阅")
+            return
+        }
+        let store = SteamWorkshopService.shared.steamSubscriptions
+        switch store.state(for: item.id) {
+        case .known:
+            store.toggle(item.id)
+        default:
+            store.refresh(item.id)
+        }
+    }
+
+    /// Subscription membership comes only from the account-scoped store.
+    private func refreshSubscribeHeart() {
+        guard let item = currentItem else { return }
+        guard currentDisplayContext == .browser else {
+            detailButton.isEnabled = true
+            detailButton.image = NSImage(systemSymbolName: "info.circle", accessibilityDescription: "详细信息")
+            detailButton.iconTintColor = .labelColor
+            detailButton.setAccessibilityLabel("详细信息：\(item.title)")
+            return
+        }
+        let store = SteamWorkshopService.shared.steamSubscriptions
+        let state = store.state(for: item.id)
+        let subscribed: Bool
+        switch state {
+        case .known(let value):
+            subscribed = value
+        default:
+            subscribed = false
+        }
+        let busy = state == .loading || state == .writing || state == .reconciling
+        detailButton.isEnabled = !busy
+        detailButton.toolTip = nil
+        detailButton.iconTintColor = subscribed ? .systemRed : .labelColor
+        detailButton.image = NSImage(
+            systemSymbolName: subscribed ? "heart.fill" : "heart",
+            accessibilityDescription: subscribed ? "取消订阅" : "订阅"
+        )
+        detailButton.setAccessibilityLabel(busy ? "正在核对订阅：\(item.title)" : (subscribed ? "取消订阅：\(item.title)" : "订阅：\(item.title)"))
+    }
+
     @objc private func handleStatusAction() {
         switch currentActionKind {
         case .download, .retry:
@@ -1280,6 +1360,14 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
             onSetAsWallpaper?()
         case .saving:
             break
+        case .stop:
+            if let record = currentDownloadRecord,
+               SteamWorkshopService.shared.isRecordCurrentlyPlaying(record) {
+                PlaybackCommandMultiplexer.shared.dispatch(
+                    .stop,
+                    to: record.contentType == .scene ? .scene : .video
+                )
+            }
         }
     }
 

@@ -469,13 +469,13 @@ final class AppKitSidebarContainerView: NSView {
             children: [
                 SidebarNode(
                     kind: .onlineLibrary,
-                    title: "Pixabay 素材库",
+                    title: "Pixabay 浏览",
                     symbolName: "globe",
                     count: nil
                 ),
                 SidebarNode(
                     kind: .onlineDownloads,
-                    title: "Pixabay 下载",
+                    title: "已下载",
                     symbolName: "arrow.down.circle",
                     count: OnlineLibraryService.shared.downloadedIDs.count
                 )
@@ -487,13 +487,13 @@ final class AppKitSidebarContainerView: NSView {
             children: [
                 SidebarNode(
                     kind: .steamWorkshop,
-                    title: "Steam 创意工坊",
+                    title: "创意工坊",
                     symbolName: "shippingbox",
                     count: nil
-                ), SidebarNode(kind: .steamSubscribed, title: "Steam 已订阅", symbolName: "checkmark.circle", count: nil),
+                ), SidebarNode(kind: .steamSubscribed, title: "我的订阅", symbolName: "checkmark.circle", count: nil),
                 SidebarNode(
                     kind: .steamDownloads,
-                    title: "Steam 下载",
+                    title: "已下载",
                     symbolName: "arrow.down.doc",
                     count: signature.steamDownloadsCount
                 )

@@ -54,6 +54,9 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         }
         let reset = NSButton(title: "恢复默认", target: self, action: #selector(resetProperties))
         reset.bezelStyle = .rounded
+        reset.controlSize = .small
+        reset.image = NSImage(systemSymbolName: "arrow.counterclockwise", accessibilityDescription: nil)
+        reset.imagePosition = .imageLeading
         let resetRow = NSStackView(views: [spacer(), reset])
         resetRow.orientation = .horizontal
         contentStack.addArrangedSubview(resetRow)

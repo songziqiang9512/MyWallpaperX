@@ -81,10 +81,13 @@ class SceneDetailDiagnosticsOnDemandTests(unittest.TestCase):
         )
         properties = function_body(
             self.controller,
-            "func requestPropertyEditor(for record:",
+            "private func preparePropertyEditor(for record:",
         )
         self.assertIn("startInspection(for: record, purpose: .diagnostics)", diagnostics)
         self.assertIn("startInspection(for: record, purpose: .properties)", properties)
+        self.assertIn("retaining: self", properties)
+        entry = function_body(self.controller, "func requestPropertyEditor(for record:")
+        self.assertIn("preparation.preparePropertyEditor(for: record)", entry)
         self.assertEqual(self.controller.count("SceneDiagnosticsBuilder().build("), 1)
         start = function_body(self.controller, "private func startInspection(")
         diagnostics_branch = start[

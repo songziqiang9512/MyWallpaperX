@@ -13,25 +13,29 @@ namespace SteamService;
 // - Swift 侧以 queryGeneration+requestId 丢弃陈旧页；helper 不设查询取消命令，
 //   查询有界超时后必然出 terminal。
 // - 已知能力缺口（SK0.1 实测）：`days`（趋势时间窗）被服务端静默忽略，
-//   本类不发送该字段；`filetype`/年龄分级等尚未实证的筛选不开放。
+//   本类不发送该字段。分面筛选经 `taggroups` 开放（2026-09-16 实测：
+//   组内 OR、跨组 AND）；`filetype` 仍未实证，不开放。
 internal sealed partial class SteamSession
 {
     private const int MaxConcurrentQueries = 2;
     private const uint QueryPageSize = 30;
     private static readonly SemaphoreSlim QuerySlots = new(MaxConcurrentQueries, MaxConcurrentQueries);
 
-    /// 统一排序键（SK0.1 实测可用的 query_type）。
+    /// 统一排序键（SK0.1 实测可用的 query_type；21=RankedByLastUpdatedDate
+    /// 为 2026-09-16 匿名链实测补充）。
     private static readonly Dictionary<string, uint> SortMap = new(StringComparer.Ordinal)
     {
         ["newest"] = 1,
         ["trend"] = 3,
         ["subscriptions"] = 9,
         ["votes"] = 11,
+        ["updated"] = 21,
     };
 
     public void BeginQueryBrowse(
         string requestId, string sort, uint page,
-        IReadOnlyList<string> requiredTags, string? searchText)
+        IReadOnlyList<string> requiredTags, string? searchText,
+        IReadOnlyList<IReadOnlyList<string>>? tagGroups = null)
     {
         // 输入校验前置：不合法排序不触发连接（typed unsupportedQuery）。
         if (!SortMap.TryGetValue(sort, out var queryType))
@@ -55,6 +59,24 @@ internal sealed partial class SteamSession
             foreach (var tag in requiredTags.Where(t => !string.IsNullOrWhiteSpace(t)))
             {
                 request.requiredtags.Add(tag);
+            }
+            // 分面筛选（2026-09-16 实测语义）：每组内任一 tag 命中即算组命中
+            //（组内 OR），组与组之间要求全部命中（跨组 AND）；requiredtags
+            // 仍为 AND。与 App 侧"面内任选、跨面求交"的筛选合同一致。
+            if (tagGroups != null)
+            {
+                foreach (var group in tagGroups)
+                {
+                    var entry = new CPublishedFile_QueryFiles_Request.TagGroup();
+                    foreach (var tag in group.Where(t => !string.IsNullOrWhiteSpace(t)))
+                    {
+                        entry.tags.Add(tag);
+                    }
+                    if (entry.tags.Count > 0)
+                    {
+                        request.taggroups.Add(entry);
+                    }
+                }
             }
             if (!string.IsNullOrWhiteSpace(searchText))
             {

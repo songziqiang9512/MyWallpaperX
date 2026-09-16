@@ -2,16 +2,6 @@ import Foundation
 import AppKit
 
 extension SteamWorkshopService {
-    func focusDownloadRecordFromHistory(itemID: String) {
-        if isDownloadsMultiSelectMode {
-            exitDownloadsMultiSelectMode()
-        }
-        downloadsDisplayMode = .all
-        downloadsQuery = ""
-        selectDownload(itemID: itemID)
-        presentDownloadInfo(for: itemID)
-    }
-
     func selectDownload(itemID: String?) {
         let visibleIDs = Set(displayedDownloads.map(\.id))
         let resolvedItemID = itemID.flatMap { visibleIDs.contains($0) ? $0 : nil }

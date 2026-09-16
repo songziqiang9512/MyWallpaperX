@@ -97,7 +97,6 @@ extension SteamWorkshopToolbarController {
             in: service.downloadJobStore.jobs,
             accountSteamID: service.steamAuth.steamId
         )
-        downloadTasksButtonView.update(count: count)
         let title = count == 0 ? "下载任务" : "下载任务（\(count) 项）"
         downloadTasksToolbarItem.toolTip = title
         downloadTasksToolbarItem.menuFormRepresentation?.title = title
@@ -114,80 +113,48 @@ extension SteamWorkshopToolbarController {
         authorBackToolbarItem.toolTip = authorBackButton.toolTip
     }
 
-    func configureRefreshItem() {
-        let service = SteamWorkshopService.shared
-        let isRefreshing = service.isRefreshingBrowserFeed
-        refreshToolbarItem.isEnabled = !isDownloadsMode && !isRefreshing
-        refreshToolbarItem.image = NSImage(
-            systemSymbolName: isRefreshing ? "arrow.trianglehead.2.clockwise.rotate.90" : "arrow.clockwise",
-            accessibilityDescription: "刷新"
-        )
-        refreshToolbarItem.toolTip = isRefreshing
-            ? (service.isBrowsingAuthorWorkshop ? "正在刷新作者工坊列表…" : "正在刷新 Steam 创意工坊列表…")
-            : "刷新 Steam 创意工坊列表"
-    }
-
     func syncSortPopup() {
         let service = SteamWorkshopService.shared
         let source = service.source
-        sortPopupButton.menu?.removeAllItems()
-        if source.isPersonal {
-            populatePersonalSortMenu(sortPopupButton.menu)
-        } else {
-            populateSourceMenu(sortPopupButton.menu)
-        }
-        let selectedRawValue = source.isPersonal ? service.personalSort.rawValue : source.rawValue
-        sortPopupButton.itemArray.first { ($0.representedObject as? String) == selectedRawValue }.map {
-            sortPopupButton.select($0)
-        }
+        sortButton.title = source.isPersonal ? service.personalSort.displayName : source.displayName
         let isEnabled = !service.isBrowsingAuthorWorkshop
         sortToolbarItem.isEnabled = isEnabled
-        sortPopupButton.isEnabled = isEnabled
+        sortButton.isEnabled = isEnabled
         sortToolbarItem.label = source.isPersonal ? "排序" : "浏览来源"
         sortToolbarItem.paletteLabel = sortToolbarItem.label
         sortToolbarItem.toolTip = isEnabled
             ? (source.isPersonal ? "当前个人库排序：\(service.personalSort.displayName)" : "当前浏览来源：\(source.displayName)")
             : "作者工坊模式暂不支持切换浏览来源"
+        sortButton.toolTip = sortToolbarItem.toolTip
+        sortButton.sizeToFit()
     }
 
     func syncPersonalListPopup() {
         let service = SteamWorkshopService.shared
         let isEnabled = service.source.isPersonal && !service.isBrowsingAuthorWorkshop
-        personalListPopupButton.itemArray.first {
-            ($0.representedObject as? String) == service.source.rawValue
-        }.map { personalListPopupButton.select($0) }
+        personalListButton.title = service.source.toolbarDisplayName
         personalListToolbarItem.isEnabled = isEnabled
-        personalListPopupButton.isEnabled = isEnabled
+        personalListButton.isEnabled = isEnabled
         personalListToolbarItem.toolTip = isEnabled
             ? "当前个人列表：\(service.source.displayName)"
-            : "进入 Steam 已订阅后选择个人列表"
-    }
-
-    func syncContentModePopup() {
-        let allModes = SteamWorkshopBrowserContentMode.allCases
-        contentModePopupButton.selectItem(at: allModes.firstIndex(of: SteamWorkshopService.shared.browserContentMode) ?? 0)
-        let isEnabled = !SteamWorkshopService.shared.isBrowsingAuthorWorkshop
-        contentModeToolbarItem.isEnabled = isEnabled
-        contentModePopupButton.isEnabled = isEnabled
-        contentModeToolbarItem.toolTip = isEnabled
-            ? "当前浏览内容：\(SteamWorkshopService.shared.browserContentMode.displayName)"
-            : "作者工坊模式暂不支持切换内容类型"
+            : "进入「我的订阅」后选择个人列表"
+        personalListButton.toolTip = personalListToolbarItem.toolTip
+        personalListButton.sizeToFit()
     }
 
     func syncTrendingWindowPopup() {
-        let allWindows = SteamWorkshopTrendingWindow.allCases
-        trendingWindowPopupButton.selectItem(at: allWindows.firstIndex(of: SteamWorkshopService.shared.trendingWindow) ?? 0)
+        trendingWindowButton.title = SteamWorkshopService.shared.trendingWindow.displayName
         let isEnabled =
             SteamWorkshopService.shared.source.supportsTimeRange
             && !SteamWorkshopService.shared.isBrowsingAuthorWorkshop
         trendingWindowToolbarItem.isEnabled = isEnabled
-        trendingWindowPopupButton.isEnabled = isEnabled
+        trendingWindowButton.isEnabled = isEnabled
+        trendingWindowButton.sizeToFit()
     }
 
     func configureFilterItem() {
         let service = SteamWorkshopService.shared
-        let selectedCount = service.activeFilterDisplayParts.count
-        filterButton.title = selectedCount == 0 ? "筛选" : "筛选 \(selectedCount)"
+        filterButton.title = "筛选"
         let isEnabled = !service.isBrowsingAuthorWorkshop
         filterButton.toolTip = service.isBrowsingAuthorWorkshop
             ? "作者工坊模式暂不支持排序筛选"
@@ -199,19 +166,15 @@ extension SteamWorkshopToolbarController {
 
     func syncSearchField() {
         searchField.stringValue = SteamWorkshopService.shared.browserQuery
-        let isBrowsingAuthorWorkshop = SteamWorkshopService.shared.isBrowsingAuthorWorkshop
         searchToolbarItem.isEnabled = true
         searchField.isEnabled = true
-        searchField.placeholderString = isBrowsingAuthorWorkshop
-            ? "搜索当前作者作品"
-            : SteamWorkshopService.shared.browserContentMode.searchPlaceholder
+        searchField.placeholderString = "搜索"
     }
 
     func syncBrowserContextControls() {
         guard isSteamWorkshopMode, !isDownloadsMode else { return }
         titleUpdateHandler?(SteamWorkshopService.shared.browserSectionTitle)
         configureAuthorBackItem()
-        syncContentModePopup()
         syncSortPopup()
         syncPersonalListPopup()
         syncTrendingWindowPopup()
@@ -223,10 +186,9 @@ extension SteamWorkshopToolbarController {
     func refreshToolbarContextViews() {
         let views: [NSView] = [
             authorBackButton,
-            contentModePopupButton,
-            sortPopupButton,
-            personalListPopupButton,
-            trendingWindowPopupButton,
+            sortButton,
+            personalListButton,
+            trendingWindowButton,
             filterButton,
             searchField
         ]
@@ -262,22 +224,6 @@ extension SteamWorkshopToolbarController {
         downloadsDeleteItem.toolTip = enabled
             ? "删除当前选中的下载项"
             : "请先选中一个已下载或失败的项目"
-    }
-
-    func configureDownloadsInfoItem() {
-        let enabled = isDownloadsMode && SteamWorkshopService.shared.canShowSelectedDownloadInfo
-        downloadsInfoItem.isEnabled = enabled
-        downloadsInfoItem.toolTip = enabled
-            ? "查看当前选中下载项的详细信息"
-            : "请先单选一个下载项"
-    }
-
-    func configureDownloadsRevealItem() {
-        let enabled = isDownloadsMode && SteamWorkshopService.shared.canRevealSelectedDownload
-        downloadsRevealItem.isEnabled = enabled
-        downloadsRevealItem.toolTip = enabled
-            ? "在访达中显示当前选中的下载项"
-            : "请先单选一个下载项"
     }
 
     func configureDownloadsFilterItem() {

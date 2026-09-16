@@ -10,22 +10,15 @@ CORE = ROOT / "MyWallpaperX/Modules/SteamWorkshop/Core"
 
 
 class SteamDownloadAdmissionTests(unittest.TestCase):
-    def test_signed_out_guidance_is_visible_without_starting_login(self):
+    def test_explicit_signed_out_action_opens_login_without_banner(self):
         service = (CORE / "SteamWorkshopService.swift").read_text()
-        guidance = service[service.index("    func presentSteamLoginGuidance"):]
-        self.assertIn('statusMessage = "需要登录 Steam', guidance)
-        self.assertNotIn("showLoginPanel()", guidance[:guidance.index("    // MARK:")])
-
+        action = service[service.index("    func presentSteamLoginForUserAction"):]
+        action = action[:action.index("    // MARK:")]
+        self.assertIn('statusMessage = ""', action)
+        self.assertIn("showLoginPanel()", action)
         browser = (ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserView.swift").read_text()
-        self.assertIn("service.$statusMessage", browser)
-        self.assertIn('message.hasPrefix("需要登录 Steam")', browser)
-        self.assertIn("syncLoginGuidanceBanner", browser)
-
-        toolbar = (ROOT / "MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController.swift").read_text()
-        self.assertIn("SteamWorkshopService.shared.$statusMessage", toolbar)
-        toolbar_configuration = (ROOT / "MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController+Configuration.swift").read_text()
-        self.assertIn("requiresLoginAttention ? .systemOrange", toolbar_configuration)
-        self.assertIn('accountButton.setAccessibilityLabel("Steam 账号，\\(tooltip)")', toolbar_configuration)
+        self.assertNotIn("loginGuidanceBanner", browser)
+        self.assertNotIn("showLoginPanel()", browser)
 
     def test_service_admission(self):
         source = (CORE / "SteamWorkshopService+Downloads.swift").read_text()
@@ -66,7 +59,7 @@ struct SteamWorkshopPendingDownloadRequest {
     var projected = 0
     var guidance = 0
     init(_ url: URL) { downloadJobStore = SteamDownloadJobStore(persistenceURL: url) }
-    func presentSteamLoginGuidance(context: String) { guidance += 1 }
+    func presentSteamLoginForUserAction(context: String) { guidance += 1; isLoginSheetPresented = true }
     func browserItemForDownload(id: String) -> SteamWorkshopBrowserItem? { nil }
     func appendSteamAuthDebugLog(_ text: String) {}
     func isQueuedDownloadRequest(id: String) -> Bool { downloadJobStore.isQueuedOrRunning(workshopItemId: id) }
@@ -95,7 +88,7 @@ METHODS
             s.enqueueDirect()
             s.startDownloadRequest(.init(id: "123456", pageTitle: nil, item: nil))
             precondition(s.downloadJobStore.jobs.isEmpty && s.started == 0 && s.projected == 0)
-            precondition(s.steamJobItemPayloads.isEmpty && s.guidance == 3 && !s.isLoginSheetPresented)
+            precondition(s.steamJobItemPayloads.isEmpty && s.guidance == 3 && s.isLoginSheetPresented)
             s.steamAuth.steamId = "A"
             s.resumeQueue()
             precondition(s.started == 0, "login cannot revive a rejected click")

@@ -6,9 +6,6 @@ extension SteamWorkshopToolbarController {
         case .steamAuthorBack:
             configureAuthorBackItem()
             return authorBackToolbarItem
-        case .steamContentMode:
-            syncContentModePopup()
-            return contentModeToolbarItem
         case .steamSort:
             syncSortPopup()
             return sortToolbarItem
@@ -25,22 +22,17 @@ extension SteamWorkshopToolbarController {
         case .steamDownloadTasks:
             configureDownloadTasksItem()
             return downloadTasksToolbarItem
-        case .steamRefresh: return refreshToolbarItem
         case .steamZoom: return zoomToolbarItem
         case .steamSearch:
             syncSearchField()
             return searchToolbarItem
         case .steamDownloadsTitle: return downloadsTitleItem
-        case .steamDownloadsReveal: return downloadsRevealItem
         case .steamDownloadsSelect:
             configureDownloadsSelectItem()
             return downloadsSelectItem
         case .steamDownloadsDelete:
             configureDownloadsDeleteItem()
             return downloadsDeleteItem
-        case .steamDownloadsInfo:
-            configureDownloadsInfoItem()
-            return downloadsInfoItem
         case .steamDownloadsFilter:
             configureDownloadsFilterItem()
             return downloadsFilterItem
@@ -60,10 +52,6 @@ extension SteamWorkshopToolbarController {
             .steamAccount,
             .space,
             .steamDownloadTasks,
-            .space,
-            .steamRefresh,
-            .space,
-            .steamContentMode,
             .space,
             .steamPersonalList,
             .space,
@@ -89,8 +77,6 @@ extension SteamWorkshopToolbarController {
             .steamDownloadsSelect,
             .space,
             .steamDownloadsDelete,
-            .steamDownloadsInfo,
-            .steamDownloadsReveal,
             .steamDownloadsFilter,
             .steamDownloadsSort,
             .space,

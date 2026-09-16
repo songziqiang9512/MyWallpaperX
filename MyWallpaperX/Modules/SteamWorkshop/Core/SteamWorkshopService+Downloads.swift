@@ -60,7 +60,7 @@ extension SteamWorkshopService {
     /// 只读新账号 owner，不读旧密码/网页登录，也不触发恢复或登录 UI。
     private func downloadAdmissionAccount() -> String? {
         guard steamAuth.isOnline, let account = steamAuth.steamId, !account.isEmpty else {
-            presentSteamLoginGuidance(context: "下载")
+            presentSteamLoginForUserAction(context: "下载")
             return nil
         }
         return account

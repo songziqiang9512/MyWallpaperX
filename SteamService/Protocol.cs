@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -177,6 +178,29 @@ internal sealed class ProtocolDecode
                 .Where(s => !string.IsNullOrEmpty(s))
                 .ToArray()
             : Array.Empty<string>();
+
+    /// 二维字符串数组（queryBrowse 的 tagGroups：每组一组 tag）。空组与非
+    /// 字符串成员直接丢弃；外层数组缺失返回空数组，不构成协议错误。
+    public string[][] PayloadStringArrayArray(string name)
+    {
+        if (!(Payload is { } p && p.ValueKind == JsonValueKind.Object
+            && p.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Array))
+        {
+            return Array.Empty<string[]>();
+        }
+        var groups = new List<string[]>();
+        foreach (var entry in value.EnumerateArray())
+        {
+            if (entry.ValueKind != JsonValueKind.Array) continue;
+            var tags = entry.EnumerateArray()
+                .Where(e => e.ValueKind == JsonValueKind.String)
+                .Select(e => e.GetString()!)
+                .Where(s => !string.IsNullOrEmpty(s))
+                .ToArray();
+            if (tags.Length > 0) groups.Add(tags);
+        }
+        return groups.ToArray();
+    }
 
     public ulong[] PayloadULongArray(string name) =>
         PayloadStringArray(name)

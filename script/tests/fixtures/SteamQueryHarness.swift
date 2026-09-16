@@ -87,7 +87,7 @@ final class QueryTransport: SteamServiceTransporting {
 
         let browse = SteamKitBrowseStore(queryClient: query)
         let key = browse.makePersonalKey(source: .mySubscriptions, accountSteamID: "a", contentMode: .all,
-            theme: .all, resolution: .all, category: .all, search: "", window: .allTime, personalSort: .fileSize)
+            filters: .none, search: "", window: .allTime, personalSort: .fileSize)
         browse.resetFor(key: key)
         payload = page(1, [item("1", 10)])
         _ = try await browse.fetchPersonal(page: 1, generation: browse.bumpGeneration())
@@ -104,8 +104,75 @@ final class QueryTransport: SteamServiceTransporting {
         precondition(SteamKitBrowseStore.sort(for: .updated) == .updated)
         let discoverySnapshot = browse.snapshot()
 
+        // 分面筛选：discovery 键把面选择编译为服务端 taggroups（面内 OR、
+        // 跨面 AND），content mode 仍是 AND requiredtag；updated 排序放行。
+        let facetKey = browse.makeKey(source: .updated, contentMode: .video,
+            filters: SteamWorkshopBrowseFacetFilters(themes: [.anime], ageRating: .everyone,
+                resolutions: [.uhd4k]),
+            search: "", window: .allTime)
+        browse.resetFor(key: facetKey)
+        payload = page(1, [item("21", 10)])
+        var seenTagGroups: [[String]] = []
+        var seenTags: [String] = []
+        var seenSort = ""
+        wire.respond = { request in
+            precondition(request["command"] as? String == "queryBrowse")
+            let requestPayload = request["payload"] as! [String: Any]
+            seenSort = requestPayload["sort"] as! String
+            seenTags = requestPayload["tags"] as? [String] ?? []
+            seenTagGroups = requestPayload["tagGroups"] as? [[String]] ?? []
+            return payload
+        }
+        let facet = try await browse.fetch(page: 1, generation: browse.bumpGeneration())
+        precondition(seenSort == "updated", "updated sort reaches helper")
+        precondition(seenTags == ["Video"], "content mode stays AND tag")
+        precondition(seenTagGroups.count == 3 && seenTagGroups[0] == ["Anime"]
+            && seenTagGroups[1] == ["Everyone"] && seenTagGroups[2] == ["3840 x 2160"],
+            "facet groups: in-facet OR, cross-facet AND")
+        precondition(facet.items.count == 1)
+
+        let multi = SteamWorkshopBrowseFacetFilters(themes: [.anime, .nature],
+            ageRating: .everyone, resolutions: [.uhd4k, .fhd])
+        precondition(multi.tagGroups == [["Anime", "Nature"], ["Everyone"], ["3840 x 2160", "1920 x 1080"]])
+        precondition(multi.allows(tags: ["Nature", "Everyone", "1920 x 1080"]))
+        precondition(multi.allows(tags: ["anime", "Everyone", "3840 x 2160"]))
+        precondition(!multi.allows(tags: ["City", "Everyone", "1920 x 1080"]))
+        precondition(!multi.allows(tags: ["Anime", "Everyone", "2560 x 1440"]))
+        precondition(!multi.allows(tags: ["Anime", "Mature", "3840 x 2160"]))
+
+        var categories: SteamWorkshopBrowserContentMode = .all
+        categories.toggle(.video)
+        categories.toggle(.scene)
+        precondition(categories == [.video, .scene])
+        precondition(categories.queryTags == ["Video", "Scene"])
+        precondition(categories.allows(tags: ["Scene"]) && categories.allows(tags: ["video"]))
+        precondition(!categories.allows(tags: ["Web"]))
+        let combinedKey = browse.makeKey(source: .updated, contentMode: categories,
+            filters: multi, search: "", window: .allTime)
+        precondition(combinedKey != facetKey, "category combinations must invalidate the query")
+        precondition(combinedKey == browse.makeKey(source: .updated, contentMode: [.scene, .video],
+            filters: multi, search: "", window: .allTime), "click order must not change key")
+        browse.resetFor(key: combinedKey)
+        _ = try await browse.fetch(page: 1, generation: browse.bumpGeneration())
+        precondition(seenTags.isEmpty, "multiple categories cannot be AND required tags")
+        precondition(seenTagGroups == [["Video", "Scene"]] + multi.tagGroups)
+        var videoItem = item("31", 30)
+        videoItem["tags"] = ["Video", "Anime", "Everyone", "3840 x 2160"]
+        var sceneItem = item("32", 20)
+        sceneItem["tags"] = ["Scene", "Nature", "Everyone", "1920 x 1080"]
+        var webItem = item("33", 10)
+        webItem["tags"] = ["Web", "Anime", "Everyone", "3840 x 2160"]
+        payload = page(1, [videoItem, sceneItem, webItem])
+        let mixed = try await browse.fetch(page: 1, generation: browse.bumpGeneration())
+        let visibleIDs = Set(Projection(browse).steamKitPersonalPostProcess(mixed.items).map(\.publishedFileId))
+        precondition(visibleIDs == ["31", "32"], "grid projection must keep Video/Scene and reject Web")
+        categories.toggle(.scene)
+        precondition(categories == .video)
+        categories.toggle(.video)
+        precondition(categories == .all && categories.queryTags.isEmpty)
+
         let authorKey = browse.makeAuthorKey(creatorSteamID: "76561198000000000", contentMode: .video,
-            theme: .all, resolution: .all, category: .all)
+            filters: .none)
         browse.resetFor(key: authorKey)
         payload = page(1, [item("10", 10)])
         wire.respond = { request in
@@ -157,6 +224,8 @@ final class QueryTransport: SteamServiceTransporting {
             }
             fatalError("store did not settle")
         }
+        subscriptions.observeSubscribedIDs(["2"])
+        precondition(subscriptions.state(for: "2") == .known(true), "current subscription page seeds membership")
         subscriptions.toggle("1")
         precondition(writes == 0 && reads == 0, "unknown cannot write")
         subscriptions.refresh("1"); await waitIdle("1")
@@ -175,6 +244,7 @@ final class QueryTransport: SteamServiceTransporting {
         held?.resume(returning: true); held = nil
         for _ in 0..<20 { await Task.yield() }
         precondition(subscriptions.state(for: "1") == .unknown, "old account read cannot publish")
+        precondition(subscriptions.state(for: "2") == .unknown, "page membership cannot cross accounts")
         epoch = nil; subscriptions.refresh("1"); subscriptions.toggle("1")
         precondition(writes == 2 && subscriptions.state(for: "1") == .unknown)
         await client.stop(shutdownTimeout: 0)

@@ -47,7 +47,7 @@ struct SteamWorkshopQueryPage: Equatable {
 
 enum SteamWorkshopQuerySort: String {
     case newest
-    case updated // explicit unsupportedQuery until the server capability is verified
+    case updated // helper SortMap: query_type 21（2026-09-16 匿名链实测可用）
     case trend
     case subscriptions
     case votes
@@ -128,10 +128,13 @@ final class SteamWorkshopQueryClient {
         self.client = client
     }
 
+    /// tagGroups 语义（2026-09-16 SK0.1 探针实测）：组内任一 tag 命中即算
+    /// 命中（组内 OR），组与组之间要求全部命中（跨组 AND）。
     func browse(
         sort: SteamWorkshopQuerySort,
         page: Int,
         tags: [String] = [],
+        tagGroups: [[String]] = [],
         search: String? = nil
     ) async throws -> SteamWorkshopQueryPage {
         var fields: [String: SteamServiceJSON] = [
@@ -140,6 +143,11 @@ final class SteamWorkshopQueryClient {
         ]
         if !tags.isEmpty {
             fields["tags"] = .array(tags.map(SteamServiceJSON.string))
+        }
+        if !tagGroups.isEmpty {
+            fields["tagGroups"] = .array(tagGroups.map { group in
+                .array(group.map(SteamServiceJSON.string))
+            })
         }
         if let search, !search.isEmpty {
             fields["search"] = .string(search)

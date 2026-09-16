@@ -25,6 +25,8 @@ final class InspectorFooterButton: NSControl {
     private let contentStack = NSView()
     private let iconView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
+    private let progressFillLayer = CALayer()
+    private var progressFraction: Double?
     private var isPressed = false
     private var isHovering = false
     private var hoverTrackingArea: NSTrackingArea?
@@ -34,7 +36,7 @@ final class InspectorFooterButton: NSControl {
         image: NSImage?,
         kind: InspectorFooterButtonKind = .secondary,
         target: AnyObject?,
-        action: Selector
+        action: Selector?
     ) {
         self.kind = kind
         self.rawTitle = title
@@ -91,6 +93,36 @@ final class InspectorFooterButton: NSControl {
         updateStyle()
     }
 
+    override func layout() {
+        super.layout()
+        layoutProgressFill()
+    }
+
+    /// 进度填充：非 nil 时在按钮背景上从左到右铺一层高亮色。
+    func setProgressFill(_ fraction: Double?) {
+        progressFraction = fraction.flatMap { $0.isFinite ? min(1, max(0, $0)) : nil }
+        guard progressFraction != nil else {
+            progressFillLayer.removeFromSuperlayer()
+            return
+        }
+        if progressFillLayer.superlayer == nil {
+            layer?.insertSublayer(progressFillLayer, at: 0)
+        }
+        layoutProgressFill()
+    }
+
+    private func layoutProgressFill() {
+        guard let progressFraction else { return }
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.2)
+        progressFillLayer.frame = CGRect(
+            x: 0, y: 0,
+            width: bounds.width * CGFloat(progressFraction),
+            height: bounds.height
+        )
+        CATransaction.commit()
+    }
+
     private func setup() {
         focusRingType = .exterior
         setAccessibilityElement(true)
@@ -101,7 +133,9 @@ final class InspectorFooterButton: NSControl {
         }
         wantsLayer = true
         layer?.cornerRadius = 10
+        layer?.masksToBounds = true
         layer?.borderWidth = 0.7
+        progressFillLayer.backgroundColor = NSColor.white.withAlphaComponent(0.26).cgColor
         translatesAutoresizingMaskIntoConstraints = false
         setupContentViews()
         updateStyle()

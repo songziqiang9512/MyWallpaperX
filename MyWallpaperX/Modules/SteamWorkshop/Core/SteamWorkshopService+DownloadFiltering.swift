@@ -89,9 +89,12 @@ extension SteamWorkshopService {
     }
 
     func clearFilters() {
-        themeFilter = .all
-        ageRatingFilter = .all
-        resolutionFilter = .all
-        categoryFilter = .all
+        guard !facetFilters.isEmpty || !browserContentMode.isAll else { return }
+        let wasSuppressed = suppressAutomaticBrowseNavigation
+        suppressAutomaticBrowseNavigation = true
+        browserContentMode = .all
+        facetFilters = .none
+        suppressAutomaticBrowseNavigation = wasSuppressed
+        if !wasSuppressed { navigateToBrowse() }
     }
 }

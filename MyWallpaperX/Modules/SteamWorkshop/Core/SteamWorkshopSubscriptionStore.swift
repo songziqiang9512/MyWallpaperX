@@ -36,6 +36,16 @@ final class SteamWorkshopSubscriptionStore: ObservableObject {
         return states[id] ?? .unknown
     }
 
+    /// A successful current-account subscribed page proves positive membership.
+    /// Never overwrite an in-flight mutation or a newer known/readback result.
+    func observeSubscribedIDs(_ ids: [String]) {
+        synchronizeAccount()
+        guard epoch != nil else { return }
+        for id in ids where tasks[id] == nil && states[id] == nil {
+            states[id] = .known(true)
+        }
+    }
+
     func refresh(_ id: String) {
         synchronizeAccount()
         guard let epoch, tasks[id] == nil else { return }

@@ -16,8 +16,6 @@ final class AppKitSteamWorkshopBrowserView: NSView {
 
     private let service = SteamWorkshopService.shared
     private let contentHost = NSView()
-    private let loginGuidanceBanner = NSVisualEffectView()
-    private let loginGuidanceLabel = NSTextField(labelWithString: "")
     private var cancellables = Set<AnyCancellable>()
     private var currentState: ContentState?
     private var inspectorDetailView: AppKitSteamWorkshopItemDetailView?
@@ -84,38 +82,6 @@ final class AppKitSteamWorkshopBrowserView: NSView {
             contentHost.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
-        loginGuidanceBanner.translatesAutoresizingMaskIntoConstraints = false
-        loginGuidanceBanner.material = .popover
-        loginGuidanceBanner.blendingMode = .withinWindow
-        loginGuidanceBanner.state = .active
-        loginGuidanceBanner.wantsLayer = true
-        loginGuidanceBanner.layer?.cornerRadius = 10
-        loginGuidanceBanner.isHidden = true
-
-        let guidanceIcon = makeSymbol("person.crop.circle.badge.exclamationmark", pointSize: 16)
-        guidanceIcon.contentTintColor = .systemOrange
-        loginGuidanceLabel.font = .systemFont(ofSize: 12, weight: .medium)
-        loginGuidanceLabel.textColor = .labelColor
-        loginGuidanceLabel.maximumNumberOfLines = 0
-        loginGuidanceLabel.lineBreakMode = .byWordWrapping
-        let guidanceStack = NSStackView(views: [guidanceIcon, loginGuidanceLabel])
-        guidanceStack.translatesAutoresizingMaskIntoConstraints = false
-        guidanceStack.orientation = .horizontal
-        guidanceStack.alignment = .centerY
-        guidanceStack.spacing = 8
-        loginGuidanceBanner.addSubview(guidanceStack)
-        addSubview(loginGuidanceBanner)
-        NSLayoutConstraint.activate([
-            loginGuidanceBanner.topAnchor.constraint(equalTo: topAnchor, constant: 14),
-            loginGuidanceBanner.centerXAnchor.constraint(equalTo: centerXAnchor),
-            loginGuidanceBanner.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 24),
-            loginGuidanceBanner.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -24),
-            guidanceStack.leadingAnchor.constraint(equalTo: loginGuidanceBanner.leadingAnchor, constant: 12),
-            guidanceStack.trailingAnchor.constraint(equalTo: loginGuidanceBanner.trailingAnchor, constant: -12),
-            guidanceStack.topAnchor.constraint(equalTo: loginGuidanceBanner.topAnchor, constant: 8),
-            guidanceStack.bottomAnchor.constraint(equalTo: loginGuidanceBanner.bottomAnchor, constant: -8),
-            loginGuidanceLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 460)
-        ])
     }
 
     private func observeService() {
@@ -150,20 +116,6 @@ final class AppKitSteamWorkshopBrowserView: NSView {
             .sink { [weak self] _ in self?.presentPendingDownloadErrorIfNeeded() }
             .store(in: &cancellables)
 
-        service.$statusMessage
-            .map { message in
-                message.hasPrefix("需要登录 Steam") ? message : nil
-            }
-            .removeDuplicates()
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] message in self?.syncLoginGuidanceBanner(message) }
-            .store(in: &cancellables)
-
-    }
-
-    private func syncLoginGuidanceBanner(_ message: String?) {
-        loginGuidanceLabel.stringValue = message ?? ""
-        loginGuidanceBanner.isHidden = message == nil
     }
 
     private func observeInspectorHost() {
@@ -195,6 +147,7 @@ final class AppKitSteamWorkshopBrowserView: NSView {
         case .failed(let message):
             return .error(message)
         case .loaded:
+            // A locally filtered page does not exhaust the remote collection.
             if service.hasVisibleBrowserItems || service.hasMoreBrowserItems {
                 return .grid
             }

@@ -18,9 +18,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     private var webDiagnosticsExpanded = false
     private var downloadProgressObserverID: UUID?
     private var downloadProgressSnapshot: SteamWorkshopDownloadProgressSnapshot?
-    private var downloadProgressLabel: NSTextField?
-    private var downloadProgressIndicator: NSProgressIndicator?
-    private var downloadProgressAccessibilityBucket: Int?
+    private weak var primaryProgressButton: InspectorFooterButton?
     private var didBuildInitialContent = false
     private lazy var sceneInspectionController = SteamWorkshopSceneInspectionController { [weak self] in
         self?.rebuild(preservingScrollPosition: true)
@@ -54,9 +52,6 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     func configure(item: SteamWorkshopBrowserItem) {
         let isSameItem = item.id == currentItem.id
         if !isSameItem {
-            if diagnosticsPanelToken == SteamWorkshopPropertyPanelController.shared.presentationID {
-                SteamWorkshopPropertyPanelController.shared.close()
-            }
             diagnosticsPanelStack = nil
             diagnosticsPanelToken = nil
             subscriptionHint = nil
@@ -124,9 +119,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             service.downloadProgressStore.removeObserver(downloadProgressObserverID)
         }
         downloadProgressObserverID = nil
-        downloadProgressLabel = nil
-        downloadProgressIndicator = nil
-        downloadProgressAccessibilityBucket = nil
+        primaryProgressButton = nil
         downloadProgressSnapshot = service.downloadProgressStore.snapshot(for: itemID)
         downloadProgressObserverID = service.downloadProgressStore.addObserver(for: itemID, owner: self) { [weak self] snapshot in
             guard let self, self.currentItem.id == itemID else { return }
@@ -137,7 +130,8 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             if self.didBuildInitialContent, changesStructure || changesPhase {
                 self.rebuild(preservingScrollPosition: true)
             } else {
-                self.updateDownloadProgressControls(announcingFrom: previous)
+                self.primaryProgressButton?.setProgressFill(snapshot?.fraction)
+                if let snapshot { self.primaryProgressButton?.setTitle(snapshot.statusText(compact: true)) }
             }
         }
     }
@@ -260,8 +254,6 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         currentItem = resolvedCurrentItem(fallback: currentItem)
         contentStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         footerView.subviews.forEach { $0.removeFromSuperview() }
-        downloadProgressLabel = nil
-        downloadProgressIndicator = nil
 
         buildPreviewSection()
         contentStack.addArrangedSubview(divider())
@@ -346,89 +338,6 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         }
 
         contentStack.addArrangedSubview(stack)
-    }
-
-    private func makeDownloadProgressView() -> NSView? {
-        let queued = service.isQueuedForDownload(itemID: currentItem.id)
-        guard queued || service.isDownloading(itemID: currentItem.id) || downloadProgressSnapshot?.phase == .saving else { return nil }
-
-        let stack = verticalStack(spacing: 4)
-        let header = NSStackView()
-        header.orientation = .horizontal
-        header.alignment = .centerY
-        header.spacing = 10
-        let status = label("", font: .systemFont(ofSize: 12, weight: .medium), color: .secondaryLabelColor, lines: 1)
-        header.addArrangedSubview(status)
-        status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        header.addArrangedSubview(spacer())
-        let cancel = footerIconButton(symbolName: "xmark", help: "取消下载", action: #selector(cancelDownload))
-        cancel.isEnabled = downloadProgressSnapshot?.phase != .saving
-        cancel.widthAnchor.constraint(equalToConstant: 28).isActive = true
-        cancel.heightAnchor.constraint(equalToConstant: 28).isActive = true
-        header.addArrangedSubview(cancel)
-        stack.addArrangedSubview(header)
-        header.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-
-        let indicator = NSProgressIndicator()
-        indicator.style = .bar
-        indicator.controlSize = .small
-        indicator.minValue = 0
-        indicator.maxValue = 1
-        indicator.translatesAutoresizingMaskIntoConstraints = false
-        indicator.setAccessibilityElement(true)
-        indicator.setAccessibilityRole(.progressIndicator)
-        indicator.setAccessibilityLabel("下载进度")
-        stack.addArrangedSubview(indicator)
-        indicator.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-
-        downloadProgressLabel = status
-        downloadProgressIndicator = indicator
-        updateDownloadProgressControls(announcingFrom: nil)
-        return stack
-    }
-
-    private func updateDownloadProgressControls(
-        announcingFrom previous: SteamWorkshopDownloadProgressSnapshot?
-    ) {
-        guard let label = downloadProgressLabel,
-              let indicator = downloadProgressIndicator else { return }
-        if let snapshot = downloadProgressSnapshot {
-            label.stringValue = snapshot.statusText()
-            let indeterminate = snapshot.fraction == nil
-                && snapshot.phase != .waiting
-                && snapshot.phase != .failed
-                && snapshot.phase != .saving
-            indicator.isIndeterminate = indeterminate
-            if indeterminate && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-                indicator.startAnimation(nil)
-            } else {
-                indicator.stopAnimation(nil)
-                indicator.doubleValue = snapshot.fraction ?? 0.04
-            }
-            label.textColor = SteamWorkshopDownloadProgressPalette.color(
-                for: progressPaletteTone(for: snapshot.phase),
-                darkMode: effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            )
-            indicator.setAccessibilityValue(snapshot.statusText())
-            let bucket = snapshot.percent.map { $0 / 10 }
-            if previous != nil,
-               bucket != downloadProgressAccessibilityBucket,
-               window != nil {
-                NSAccessibility.post(element: indicator, notification: .valueChanged)
-            }
-            downloadProgressAccessibilityBucket = bucket
-        } else {
-            label.stringValue = "等待下载"
-            indicator.isIndeterminate = false
-            indicator.stopAnimation(nil)
-            indicator.doubleValue = 0.04
-            label.textColor = SteamWorkshopDownloadProgressPalette.color(
-                for: .queued,
-                darkMode: effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            )
-            indicator.setAccessibilityValue("等待下载")
-            downloadProgressAccessibilityBucket = nil
-        }
     }
 
     private func progressPaletteTone(
@@ -551,14 +460,14 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         let subscription = footerButton(title: title, symbolName: symbol, kind: .secondary, target: self, action: #selector(toggleSubscriptionClicked(_:)))
         subscription.layer?.cornerRadius = 16
         subscription.isEnabled = enabled
-        subscription.toolTip = service.steamAuth.isOnline ? "管理作品订阅；不会删除本地壁纸" : "请使用工具栏登录 Steam 后订阅"
+        subscription.toolTip = nil
         return subscription
     }
 
     @objc private func toggleSubscriptionClicked(_ sender: NSView) {
         guard service.steamAuth.isOnline else {
-            subscriptionHint = "请使用工具栏登录 Steam，登录后即可订阅。"
-            rebuild(preservingScrollPosition: true)
+            subscriptionHint = nil
+            service.presentSteamLoginForUserAction(context: "订阅")
             return
         }
         let entry = SteamWorkshopItemMenu.subscription(item: currentItem, service: service)
@@ -666,7 +575,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     }
 
     private func buildFooterActions() {
-        let primary = makeDownloadProgressView() ?? primaryFooterButton()
+        let primary = primaryFooterButton()
         let webpage = footerIconButton(symbolName: "safari", help: "在浏览器打开作品", action: #selector(openWorkshopDetail))
         let properties = footerIconButton(symbolName: "gearshape", help: "属性调节", action: #selector(openProperties))
         properties.isEnabled = latestDownloadRecord?.status == .ready && latestDownloadRecord?.contentType != .unknown
@@ -719,17 +628,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     }
 
     private var isCurrentWallpaper: Bool {
-        guard let record = latestDownloadRecord else { return false }
-        switch record.contentType {
-        case .unknown: return false
-        case .scene: return SceneDaemonClient.shared.activeRecordID == record.id
-        case .web: return service.isActiveWebRecord(record)
-        case .video:
-            guard WallpaperEngine.shared.currentPlaybackContentKind == .video,
-                  let path = WallpaperEngine.shared.currentContentPath else { return false }
-            return [record.videoURL, record.exportedVideoURL, record.sourceVideoURL].compactMap { $0 }
-                .contains { $0.resolvingSymlinksInPath().standardizedFileURL.path == path }
-        }
+        latestDownloadRecord.map { service.isRecordCurrentlyPlaying($0) } ?? false
     }
 
     @objc private func stopCurrentWallpaper() {
@@ -745,25 +644,35 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             return footerButton(title: "停止播放", symbolName: "stop.fill", kind: .secondary, target: self, action: #selector(stopCurrentWallpaper))
         }
 
-        if downloadProgressSnapshot?.phase == .saving {
+        // 下载中：保留原「下载壁纸」按钮，进度以从左到右的颜色填充表达
+        //（无独立进度条、无取消按钮、无大小信息）。
+        let snapshot = downloadProgressSnapshot
+        let isSaving = snapshot?.phase == .saving
+        if service.isDownloading(itemID: currentItem.id) {
             let button = footerButton(
-                title: "正在保存…",
-                symbolName: "checkmark.circle.fill",
+                title: snapshot?.statusText(compact: true) ?? "正在下载…",
+                symbolName: "arrow.down.circle.fill",
                 kind: .primary,
-                target: self,
-                action: #selector(cancelDownload)
+                target: nil,
+                action: nil
             )
             button.isEnabled = false
+            button.setProgressFill(snapshot?.fraction ?? 0)
+            primaryProgressButton = button
             return button
         }
-        if service.isDownloading(itemID: currentItem.id) || service.isQueuedForDownload(itemID: currentItem.id) {
-            return footerButton(
-                title: service.isQueuedForDownload(itemID: currentItem.id) ? "取消队列" : "取消下载",
+        if service.isQueuedForDownload(itemID: currentItem.id) {
+            let button = footerButton(
+                title: isSaving ? "正在保存…" : "排队中…",
                 symbolName: "hourglass.circle.fill",
-                kind: .danger,
-                target: self,
-                action: #selector(cancelDownload)
+                kind: .primary,
+                target: nil,
+                action: nil
             )
+            button.isEnabled = false
+            button.setProgressFill(isSaving ? 1 : 0)
+            primaryProgressButton = button
+            return button
         }
 
         let record = latestDownloadRecord.flatMap { $0.status == .ready ? $0 : nil } ?? downloadRecord
@@ -1013,7 +922,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         }
     }
 
-    private func footerButton(title: String, symbolName: String, kind: InspectorFooterButtonKind, target: AnyObject, action: Selector) -> InspectorFooterButton {
+    private func footerButton(title: String, symbolName: String, kind: InspectorFooterButtonKind, target: AnyObject?, action: Selector?) -> InspectorFooterButton {
         InspectorFooterButton(title: title, image: NSImage(systemSymbolName: symbolName, accessibilityDescription: title), kind: kind, target: target, action: action)
     }
 

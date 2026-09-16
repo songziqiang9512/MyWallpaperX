@@ -43,6 +43,19 @@ import AppKit
                     }
                 }
                 precondition(primary.frame.width == width - 2 * InspectorFooterMetrics.height - 16, "primary \(primary.frame) expected \(width) window \(window.frame)")
+                let originalFrame = primary.frame
+                primary.setProgressFill(0.5)
+                primary.layoutSubtreeIfNeeded()
+                let fill = primary.layer!.sublayers!.first!
+                precondition(primary.layer!.masksToBounds && primary.layer!.cornerRadius > 0)
+                precondition(abs(fill.frame.width - primary.bounds.width * 0.5) < 0.01)
+                primary.setProgressFill(2)
+                precondition(fill.frame.width == primary.bounds.width)
+                primary.setProgressFill(-1)
+                precondition(fill.frame.width == 0)
+                primary.setProgressFill(.nan)
+                precondition(fill.superlayer == nil)
+                precondition(primary.frame == originalFrame, "progress must preserve button geometry")
                 precondition(primary.acceptsFirstResponder)
                 precondition(primary.accessibilityPerformPress())
                 primary.isEnabled = false
@@ -60,12 +73,25 @@ import AppKit
             tags.layoutSubtreeIfNeeded()
             precondition(tags.contentView.bounds.origin.x == 50, "hidden-scroller clip must retain horizontal position")
             precondition(!tags.hasHorizontalScroller && !tags.hasVerticalScroller)
+            precondition(tags.toolTip == nil)
 
             for chip in tags.documentView!.subviews {
                 precondition(chip.frame.minX >= 0 && chip.frame.maxX <= tags.documentView!.bounds.width)
                 for peer in tags.documentView!.subviews where peer !== chip { precondition(!chip.frame.intersects(peer.frame)) }
             }
         }
+        let bar = SteamWorkshopGlassBarView(frame: NSRect(x: 0, y: 0, width: 200, height: 40))
+        bar.layer?.cornerRadius = 12
+        bar.applyProgress(style: .downloading, fraction: 0.5, indeterminate: false, animated: false)
+        bar.layoutSubtreeIfNeeded()
+        let clip = bar.layer!.sublayers!.first { $0.masksToBounds }!
+        precondition(bar.layer!.masksToBounds && clip.masksToBounds)
+        precondition(clip.frame.width == 100 && clip.frame.height == 40)
+        precondition(clip.cornerRadius == 12)
+        bar.applyProgress(style: .downloading, fraction: 2, indeterminate: false, animated: false)
+        precondition(clip.frame.width == 200)
+        bar.applyProgress(style: .downloading, fraction: .nan, indeterminate: false, animated: false)
+        precondition(clip.frame.width == 0)
         precondition(target.presses == 15)
         window.close()
         print("Detail footer: 15 width/title cases, one pinned action row and accessibility dispatch PASS")

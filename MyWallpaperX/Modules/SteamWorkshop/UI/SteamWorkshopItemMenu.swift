@@ -88,7 +88,7 @@ enum SteamWorkshopItemMenu {
         }
         let entry = SteamWorkshopMenuItem(title: title, symbol: "bookmark") {
             guard service.steamServiceClient.accountEpoch == epoch else { return }
-            guard service.steamAuth.isOnline else { service.presentSteamLoginGuidance(context: "订阅"); return }
+            guard service.steamAuth.isOnline else { service.presentSteamLoginForUserAction(context: "订阅"); return }
             guard service.steamSubscriptions.state(for: item.id) == state else { return }
             switch state {
             case .known: service.steamSubscriptions.toggle(item.id)

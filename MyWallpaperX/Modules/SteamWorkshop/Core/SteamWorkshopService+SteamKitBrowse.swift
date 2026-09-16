@@ -12,8 +12,10 @@ import Foundation
 //   逆序/迟到响应按 generation 丢弃，已有页不清空。
 // - 同 key 刷新不闪回空白（保留旧页，轻量刷新状态）。
 // - 追加页失败保留已有页、冷却后滑动重试；三页以上按 ID 去重。
-// - 已知边界：`days` 时间窗与年龄分级服务端不支持（SK0.1 缺口）——
-//   时间窗在已加载项上按 timeCreated 后置过滤；分级过滤本 route 未开放。
+// - 已知边界：`days` 时间窗服务端不支持（SK0.1 缺口）——时间窗在已加载项
+//   上按 timeCreated 后置过滤。分面筛选（类型/分级/分辨率/分类）已于
+//   2026-09-16 经 `taggroups` 实测开放：discovery 服务端执行（面内 OR、
+//   跨面 AND），author/personal 由 steamKitApplyKeyTagFilters 客户端后筛。
 // - 详情批条目自带网格所需字段（标题/预览/标签/大小/更新时间），
 //   打开详情面板仍走既有按 ID 补全路径。
 extension SteamWorkshopService {
@@ -58,9 +60,7 @@ extension SteamWorkshopService {
             key = steamKitBrowseStore.makeAuthorKey(
                 creatorSteamID: creatorSteamID,
                 contentMode: browserContentMode,
-                theme: themeFilter,
-                resolution: resolutionFilter,
-                category: categoryFilter
+                filters: facetFilters
             )
         } else if let itemID = Self.workshopItemIDSearchID(from: browserQuery),
                   shouldUseSteamKitItemLookup {
@@ -70,9 +70,7 @@ extension SteamWorkshopService {
             key = steamKitBrowseStore.makeKey(
                 source: source,
                 contentMode: browserContentMode,
-                theme: themeFilter,
-                resolution: resolutionFilter,
-                category: categoryFilter,
+                filters: facetFilters,
                 search: browserQuery.trimmingCharacters(in: .whitespacesAndNewlines),
                 window: trendingWindow
             )
@@ -89,6 +87,7 @@ extension SteamWorkshopService {
         browserLoadMoreFailureMessage = nil
         isRefreshingBrowserFeed = forceRefresh
         browserLoadMoreRetryAfter = .distantPast
+        consecutiveEmptyLoadMorePages = 0
         if keyChanged || browserItems.isEmpty {
             browserState = .loading
             browserItems = []
@@ -143,6 +142,10 @@ extension SteamWorkshopService {
         }
     }
 
+    /// 稀疏交叉筛选下自动续载的上限：连续多页无新增可见项即停止自动
+    /// 加载，保留远端 hasMore 与手动继续入口；刷新/改键时归零。
+    static let maxConsecutiveEmptyLoadMorePages = 3
+
     func loadMoreDiscoveryViaSteamKitIfNeeded() {
         guard !isLoadingMoreBrowserItems,
               // 刷新在途时抑制 loadMore：loadMore 的 bumpGeneration 会让
@@ -150,12 +153,14 @@ extension SteamWorkshopService {
               !isRefreshingBrowserFeed,
               hasMoreBrowserItems,
               browserState == .loaded,
+              consecutiveEmptyLoadMorePages < Self.maxConsecutiveEmptyLoadMorePages,
               Date() >= browserLoadMoreRetryAfter else {
             return
         }
         let page = steamKitBrowseStore.nextPage
         let generation = steamKitBrowseStore.bumpGeneration()
         let expectedNavigationVersion = navigationVersion
+        let previousVisibleCount = browserItems.count
         browserLoadMoreFailureMessage = nil
         isLoadingMoreBrowserItems = true
         Task(priority: .userInitiated) { [weak self] in
@@ -171,13 +176,25 @@ extension SteamWorkshopService {
                         .map(SteamWorkshopBrowserItem.make(from:))
                     self.browserItems = filtered
                     self.hasMoreBrowserItems = result.hasMore
+                    if filtered.count <= previousVisibleCount {
+                        self.consecutiveEmptyLoadMorePages += 1
+                        if self.consecutiveEmptyLoadMorePages >= Self.maxConsecutiveEmptyLoadMorePages {
+                            self.statusMessage = "已暂停自动加载，可继续加载或调整筛选。"
+                        }
+                    } else {
+                        self.consecutiveEmptyLoadMorePages = 0
+                    }
                     self.isLoadingMoreBrowserItems = false
-                    self.browserLoadMoreFailureMessage = nil
+                    self.browserLoadMoreFailureMessage = self.hasMoreBrowserItems
+                        && self.consecutiveEmptyLoadMorePages >= Self.maxConsecutiveEmptyLoadMorePages
+                        ? "已加载页暂无新增匹配项目 · 点击继续加载" : nil
                     self.browserLoadMoreRetryAfter = .distantPast
-                    self.statusMessage = result.total > 0
-                        ? "已加载 \(self.browserItems.count) 项 / 共 \(result.total) 项。"
-                        : "已加载 \(self.browserItems.count) 项。"
-                    self.appendSteamKitPartialNotice()
+                    if self.hasMoreBrowserItems {
+                        self.statusMessage = result.total > 0
+                            ? "已加载 \(self.browserItems.count) 项 / 共 \(result.total) 项。"
+                            : "已加载 \(self.browserItems.count) 项。"
+                        self.appendSteamKitPartialNotice()
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -219,9 +236,7 @@ extension SteamWorkshopService {
             source: source,
             accountSteamID: steamAuth.steamId,
             contentMode: browserContentMode,
-            theme: themeFilter,
-            resolution: resolutionFilter,
-            category: categoryFilter,
+            filters: facetFilters,
             search: browserQuery.trimmingCharacters(in: .whitespacesAndNewlines),
             window: trendingWindow,
             personalSort: personalSort
@@ -238,12 +253,13 @@ extension SteamWorkshopService {
         browserLoadMoreFailureMessage = nil
         isRefreshingBrowserFeed = forceRefresh
         browserLoadMoreRetryAfter = .distantPast
+        consecutiveEmptyLoadMorePages = 0
         if keyChanged || browserItems.isEmpty {
             browserState = .loading
             browserItems = []
             hasMoreBrowserItems = true
             statusMessage = source == .mySubscriptions
-                ? "正在加载「Steam 已订阅」…"
+                ? "正在加载「我的订阅」…"
                 : "正在加载「我的收藏」…"
         } else {
             // §4.1：同 key 刷新不闪回空白，旧页上方轻量状态。保留既有
@@ -262,6 +278,9 @@ extension SteamWorkshopService {
                           generation == self.steamKitBrowseStore.generation,
                           self.shouldUseSteamKitPersonal else { return }
                     self.browserFetchTask = nil
+                    if self.source == .mySubscriptions {
+                        self.steamSubscriptions.observeSubscribedIDs(result.items.map(\.publishedFileId))
+                    }
                     let processed = self.steamKitPersonalPostProcess(result.items)
                         .map(SteamWorkshopBrowserItem.make(from:))
                     self.browserItems = processed
@@ -297,12 +316,14 @@ extension SteamWorkshopService {
               !isRefreshingBrowserFeed,
               hasMoreBrowserItems,
               browserState == .loaded,
+              consecutiveEmptyLoadMorePages < Self.maxConsecutiveEmptyLoadMorePages,
               Date() >= browserLoadMoreRetryAfter else {
             return
         }
         let page = steamKitBrowseStore.nextPage
         let generation = steamKitBrowseStore.bumpGeneration()
         let expectedNavigationVersion = navigationVersion
+        let previousVisibleCount = browserItems.count
         browserLoadMoreFailureMessage = nil
         isLoadingMoreBrowserItems = true
         Task(priority: .userInitiated) { [weak self] in
@@ -314,17 +335,32 @@ extension SteamWorkshopService {
                     guard self.navigationVersion == expectedNavigationVersion,
                           generation == self.steamKitBrowseStore.generation,
                           self.shouldUseSteamKitPersonal else { return }
+                    if self.source == .mySubscriptions {
+                        self.steamSubscriptions.observeSubscribedIDs(result.items.map(\.publishedFileId))
+                    }
                     let processed = self.steamKitPersonalPostProcess(result.items)
                         .map(SteamWorkshopBrowserItem.make(from:))
                     self.browserItems = processed
                     self.hasMoreBrowserItems = result.hasMore
+                    if processed.count <= previousVisibleCount {
+                        self.consecutiveEmptyLoadMorePages += 1
+                        if self.consecutiveEmptyLoadMorePages >= Self.maxConsecutiveEmptyLoadMorePages {
+                            self.statusMessage = "已暂停自动加载，可继续加载或调整筛选。"
+                        }
+                    } else {
+                        self.consecutiveEmptyLoadMorePages = 0
+                    }
                     self.isLoadingMoreBrowserItems = false
-                    self.browserLoadMoreFailureMessage = nil
+                    self.browserLoadMoreFailureMessage = self.hasMoreBrowserItems
+                        && self.consecutiveEmptyLoadMorePages >= Self.maxConsecutiveEmptyLoadMorePages
+                        ? "已加载页暂无新增匹配项目 · 点击继续加载" : nil
                     self.browserLoadMoreRetryAfter = .distantPast
-                    self.statusMessage = result.total > 0
-                        ? "已加载 \(self.browserItems.count) 项 / 共 \(result.total) 项。"
-                        : "已加载 \(self.browserItems.count) 项。"
-                    self.appendSteamKitPartialNotice()
+                    if self.hasMoreBrowserItems {
+                        self.statusMessage = result.total > 0
+                            ? "已加载 \(self.browserItems.count) 项 / 共 \(result.total) 项。"
+                            : "已加载 \(self.browserItems.count) 项。"
+                        self.appendSteamKitPartialNotice()
+                    }
                 }
             } catch {
                 await MainActor.run {
@@ -354,9 +390,7 @@ extension SteamWorkshopService {
             throw SteamServiceClient.RequestError.helperError(
                 code: "unsupportedContent", message: "作品不存在或当前账号无权访问。")
         }
-        guard browserContentMode.isAll || item.tags.contains(where: {
-            $0.caseInsensitiveCompare(browserContentMode.requiredTagValue) == .orderedSame
-        }) else {
+        guard browserContentMode.allows(tags: item.tags) else {
             throw SteamServiceClient.RequestError.helperError(
                 code: "unsupportedContent", message: "当前条目不是\(browserContentMode.displayName)。")
         }
@@ -388,34 +422,41 @@ extension SteamWorkshopService {
         case .details:
             return items
         case .author:
-            guard !key.tags.isEmpty else { return items }
-            return items.filter { item in
-                key.tags.allSatisfy { expected in
-                    item.tags.contains { $0.caseInsensitiveCompare(expected) == .orderedSame }
-                }
-            }
+            return steamKitApplyKeyTagFilters(items, key: key)
         case .discovery:
-            return steamKitPostFilter(items)
+            return steamKitPostFilter(steamKitApplyKeyTagFilters(items, key: key))
         case .personal:
             return steamKitPersonalPostProcess(items)
         }
     }
 
-    /// 个人来源后处理：标签过滤（GetUserFiles 无服务端筛选）+ 标题搜索 +
-    /// 个人排序（rating/favorites 无对应数据，保持服务端顺序——SK0.1 缺口）。
+    /// 内容分类组内 OR，与其他分面 AND；所有 route 共享最终过滤。
+    /// 分面筛选（面内 OR、跨面 AND）统一在此执行。
+    private func steamKitApplyKeyTagFilters(
+        _ items: [SteamWorkshopQueryItem],
+        key: SteamKitBrowseStore.Key
+    ) -> [SteamWorkshopQueryItem] {
+        var result = items
+        if !key.contentTypeTags.isEmpty {
+            result = result.filter { item in
+                key.contentTypeTags.contains { modeTag in
+                    item.tags.contains { $0.caseInsensitiveCompare(modeTag) == .orderedSame }
+                }
+            }
+        }
+        guard !key.filters.isEmpty else { return result }
+        return result.filter { key.filters.allows(tags: $0.tags) }
+    }
+
+    /// 个人来源后处理：内容模式/分面过滤 + 标题搜索 +
+    /// 个人排序（rating/favorites 无返回字段，已从菜单移除）。
     private func steamKitPersonalPostProcess(
         _ items: [SteamWorkshopQueryItem]
     ) -> [SteamWorkshopQueryItem] {
         var result = steamKitPostFilter(items)
         let key = steamKitBrowseStore.currentKey
-        if let key, !key.tags.isEmpty {
-            result = result.filter { item in
-                key.tags.allSatisfy { tag in
-                    item.tags.contains {
-                        $0.caseInsensitiveCompare(tag) == .orderedSame
-                    }
-                }
-            }
+        if let key {
+            result = steamKitApplyKeyTagFilters(result, key: key)
         }
         if let key, !key.search.isEmpty {
             let search = key.search
@@ -430,8 +471,6 @@ extension SteamWorkshopService {
             result.sort { ($0.fileSize ?? 0) > ($1.fileSize ?? 0) }
         case .name:
             result.sort { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
-        case .rating, .favorites:
-            break
         }
         return result
     }
@@ -631,7 +670,10 @@ final class SteamKitBrowseStore {
     struct Key: Equatable {
         let route: Route
         let sort: SteamWorkshopQuerySort
-        let tags: [String]
+        /// 服务端 AND requiredtag（内容模式）。面内多选分面在 `filters`。
+        let contentTypeTags: [String]
+        /// 分面筛选组合参与键：任一面变化必然换键重置分页。
+        let filters: SteamWorkshopBrowseFacetFilters
         let search: String
         let trendingWindowRaw: String
         /// SK3.3 个人来源：来源与个人排序参与键；discovery 键两者为 nil。
@@ -665,30 +707,15 @@ final class SteamKitBrowseStore {
     func makeKey(
         source: SteamWorkshopSource,
         contentMode: SteamWorkshopBrowserContentMode,
-        theme: SteamWorkshopThemeFilter,
-        resolution: SteamWorkshopResolutionFilter,
-        category: SteamWorkshopCategoryFilter,
+        filters: SteamWorkshopBrowseFacetFilters,
         search: String,
         window: SteamWorkshopTrendingWindow
     ) -> Key {
-        var tags: [String] = []
-        if !contentMode.isAll {
-            tags.append(contentMode.requiredTagValue)
-        }
-        if let themeTag = theme.tagValue {
-            tags.append(themeTag)
-        }
-        if let resolutionTag = resolution.tagValue {
-            tags.append(resolutionTag)
-        }
-        if let categoryTag = category.tagValue,
-           !tags.contains(where: { $0.caseInsensitiveCompare(categoryTag) == .orderedSame }) {
-            tags.append(categoryTag)
-        }
-        return Key(
+        Key(
             route: .discovery,
             sort: Self.sort(for: source),
-            tags: tags,
+            contentTypeTags: contentMode.queryTags,
+            filters: filters,
             search: search,
             // 键与旧 route 的缓存键语义一致：不支持时间段的来源固定 "na"，
             // 避免残留窗口值造成假性键变化。
@@ -701,35 +728,21 @@ final class SteamKitBrowseStore {
 
     /// SK3.3 个人来源键（已订阅/收藏）。accountSteamID 参与键：换号后键必然
     /// 变化（§4.1 QueryKey 含账号；§3.3 旧账号私有数据不展示给新账号）。
+    /// 服务端无 tag 筛选能力，contentTypeTags/filters 仅由客户端后置执行。
     func makePersonalKey(
         source: SteamWorkshopSource,
         accountSteamID: String?,
         contentMode: SteamWorkshopBrowserContentMode,
-        theme: SteamWorkshopThemeFilter,
-        resolution: SteamWorkshopResolutionFilter,
-        category: SteamWorkshopCategoryFilter,
+        filters: SteamWorkshopBrowseFacetFilters,
         search: String,
         window: SteamWorkshopTrendingWindow,
         personalSort: SteamWorkshopPersonalSort
     ) -> Key {
-        var tags: [String] = []
-        if !contentMode.isAll {
-            tags.append(contentMode.requiredTagValue)
-        }
-        if let themeTag = theme.tagValue {
-            tags.append(themeTag)
-        }
-        if let resolutionTag = resolution.tagValue {
-            tags.append(resolutionTag)
-        }
-        if let categoryTag = category.tagValue,
-           !tags.contains(where: { $0.caseInsensitiveCompare(categoryTag) == .orderedSame }) {
-            tags.append(categoryTag)
-        }
-        return Key(
+        Key(
             route: .personal,
             sort: .subscriptions,
-            tags: tags,
+            contentTypeTags: contentMode.queryTags,
+            filters: filters,
             search: search,
             // 个人来源不支持时间段（supportsTimeRange 仅 featured），与 makeKey
             // 一致固定 "na"，避免残留窗口值造成假性键变化。
@@ -743,20 +756,13 @@ final class SteamKitBrowseStore {
     func makeAuthorKey(
         creatorSteamID: String,
         contentMode: SteamWorkshopBrowserContentMode,
-        theme: SteamWorkshopThemeFilter,
-        resolution: SteamWorkshopResolutionFilter,
-        category: SteamWorkshopCategoryFilter
+        filters: SteamWorkshopBrowseFacetFilters
     ) -> Key {
-        var tags: [String] = []
-        if !contentMode.isAll { tags.append(contentMode.requiredTagValue) }
-        for tag in [theme.tagValue, resolution.tagValue, category.tagValue].compactMap({ $0 })
-            where !tags.contains(where: { $0.caseInsensitiveCompare(tag) == .orderedSame }) {
-            tags.append(tag)
-        }
-        return Key(
+        Key(
             route: .author(creatorSteamID: creatorSteamID),
             sort: .newest,
-            tags: tags,
+            contentTypeTags: contentMode.queryTags,
+            filters: filters,
             search: "",
             trendingWindowRaw: "na",
             source: nil,
@@ -769,7 +775,8 @@ final class SteamKitBrowseStore {
         Key(
             route: .details(itemID: itemID),
             sort: .newest,
-            tags: [],
+            contentTypeTags: [],
+            filters: .none,
             search: "",
             trendingWindowRaw: "na",
             source: nil,
@@ -844,7 +851,8 @@ final class SteamKitBrowseStore {
             result = try await queryClient.browse(
                 sort: key.sort,
                 page: page,
-                tags: key.tags,
+                tags: key.contentTypeTags.count == 1 ? key.contentTypeTags : [],
+                tagGroups: (key.contentTypeTags.count > 1 ? [key.contentTypeTags] : []) + key.filters.tagGroups,
                 search: key.search
             )
         case .author(let creatorSteamID):
@@ -885,10 +893,6 @@ final class SteamKitBrowseStore {
     ) async throws -> (items: [SteamWorkshopQueryItem], total: Int, hasMore: Bool) {
         guard let key = currentKey, key.route == .personal, let source = key.source else {
             throw SteamServiceClient.RequestError.notReady
-        }
-        guard key.personalSortRaw != SteamWorkshopPersonalSort.rating.rawValue,
-              key.personalSortRaw != SteamWorkshopPersonalSort.favorites.rawValue else {
-            throw SteamServiceClient.RequestError.helperError(code: "unsupportedQuery", message: "该排序暂不支持，请选择其他排序。")
         }
         func commit(hasMore: Bool) {
             nextPage = page + 1

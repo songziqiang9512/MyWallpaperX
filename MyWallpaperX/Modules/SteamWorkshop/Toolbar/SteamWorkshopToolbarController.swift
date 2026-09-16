@@ -17,6 +17,20 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
     var localModeIdentifiers: [NSToolbarItem.Identifier] = []
     var titleUpdateHandler: ((String) -> Void)?
 
+    /// 普通菜单按钮（账号/下载筛选/下载排序）的统一 popover 呈现器。
+    /// 普通菜单按钮（账号/下载筛选/下载排序）的统一 popover 呈现器。
+    private(set) lazy var menuPopover = ToolbarMenuPopoverPresenter(
+        fallbackAnchorProvider: { [weak self] in self?.window?.contentView }
+    )
+    /// 筛选面板（分面复选）的 popover 容器，配置一次复用。
+    let filterPanelPopover: NSPopover = {
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.animates = true
+        return popover
+    }()
+    private(set) lazy var filterPanelController = SteamWorkshopFilterPanelController(service: .shared)
+
     private(set) var isSteamWorkshopMode = false
     private(set) var isDownloadsMode = false
     private var observers: [NSObjectProtocol] = []
@@ -30,10 +44,6 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         .steamAccount,
         .space,
         .steamDownloadTasks,
-        .space,
-        .steamRefresh,
-        .space,
-        .steamContentMode,
         .space,
         .steamSort,
         .space,
@@ -55,8 +65,6 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         .steamAccount,
         .space,
         .steamDownloadTasks,
-        .space,
-        .steamRefresh,
         .space,
         .steamZoom,
         .space,
@@ -162,7 +170,6 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         SteamWorkshopService.shared.$browserContentMode
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                self?.syncContentModePopup()
                 self?.configureFilterItem()
                 self?.syncSearchField()
             }
@@ -183,13 +190,6 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
             }
             .store(in: &cancellables)
 
-        SteamWorkshopService.shared.$isRefreshingBrowserFeed
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.configureRefreshItem()
-            }
-            .store(in: &cancellables)
-
         SteamWorkshopService.shared.$isBrowsingAuthorWorkshop
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
@@ -203,8 +203,6 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         )
         .receive(on: RunLoop.main)
         .sink { [weak self] _, _ in
-            self?.configureDownloadsInfoItem()
-            self?.configureDownloadsRevealItem()
             self?.configureDownloadsDeleteItem()
         }
         .store(in: &cancellables)
@@ -213,8 +211,6 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.configureDownloadsSelectItem()
-                self?.configureDownloadsInfoItem()
-                self?.configureDownloadsRevealItem()
                 self?.configureDownloadsDeleteItem()
             }
             .store(in: &cancellables)
@@ -236,22 +232,19 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
             }
             .store(in: &cancellables)
 
-        Publishers.CombineLatest4(
-            SteamWorkshopService.shared.$themeFilter,
-            SteamWorkshopService.shared.$ageRatingFilter,
-            SteamWorkshopService.shared.$resolutionFilter,
-            SteamWorkshopService.shared.$categoryFilter
-        )
-        .receive(on: RunLoop.main)
-        .sink { [weak self] _, _, _, _ in
-            self?.configureFilterItem()
-        }
-        .store(in: &cancellables)
+        SteamWorkshopService.shared.$facetFilters
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.configureFilterItem()
+            }
+            .store(in: &cancellables)
     }
 
     private func switchMode(enabled: Bool, isDownloads: Bool) {
         guard enabled else {
             existingDownloadTasksPopoverController?.close()
+            menuPopover.close()
+            filterPanelPopover.close()
             isSteamWorkshopMode = false
             isDownloadsMode = false
             return
@@ -264,8 +257,6 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
             configureAuthItems()
             configureDownloadsSelectItem()
             configureDownloadsDeleteItem()
-            configureDownloadsInfoItem()
-            configureDownloadsRevealItem()
             configureDownloadsFilterItem()
             configureDownloadsSortItem()
             syncDownloadsSearchField()
@@ -273,19 +264,26 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
             titleUpdateHandler?(SteamWorkshopService.shared.browserSectionTitle)
             syncBrowserContextControls()
             configureAuthItems()
-            configureRefreshItem()
         }
         configureDownloadTasksItem()
         configureZoomItem()
     }
 
-    lazy var personalListPopupButton: NSPopUpButton = {
-        let button = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 112, height: 30), pullsDown: false)
-        button.target = self
-        button.action = #selector(handlePersonalListAction(_:))
-        populatePersonalListMenu(button.menu)
+    /// 选择类控件统一为「当前值 + 下拉三角面板」按钮（与其他工具栏菜单
+    /// 同一箭头 popover 呈现），不再使用原生 NSPopUpButton 菜单。
+    private func makePullDownButton(title: String, action: Selector) -> NSButton {
+        let button = NSButton(title: title, target: self, action: action)
+        button.bezelStyle = .rounded
+        button.image = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 9, weight: .medium))
+        button.imagePosition = .imageTrailing
         return button
-    }()
+    }
+
+    lazy var personalListButton = makePullDownButton(
+        title: SteamWorkshopSource.mySubscriptions.displayName,
+        action: #selector(handlePersonalListAction(_:))
+    )
 
     lazy var personalListToolbarItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .steamPersonalList)
@@ -293,7 +291,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         item.paletteLabel = "个人列表"
         item.toolTip = "切换 Steam 个人列表"
         item.autovalidates = false
-        item.view = personalListPopupButton
+        item.view = personalListButton
         return item
     }()
 
@@ -330,18 +328,6 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         return item
     }()
 
-    lazy var downloadsRevealItem: NSToolbarItem = {
-        let item = NSToolbarItem(itemIdentifier: .steamDownloadsReveal)
-        item.label = "查看文件"
-        item.paletteLabel = "查看文件"
-        item.toolTip = "在访达中显示当前选中的下载项"
-        item.autovalidates = false
-        item.image = NSImage(systemSymbolName: "folder", accessibilityDescription: "查看文件")
-        item.target = self
-        item.action = #selector(handleRevealDownloads)
-        return item
-    }()
-
     lazy var downloadsDeleteItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .steamDownloadsDelete)
         item.label = "删除"
@@ -351,18 +337,6 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         item.image = NSImage(systemSymbolName: "trash", accessibilityDescription: "删除")
         item.target = self
         item.action = #selector(handleDeleteSelectedDownload)
-        return item
-    }()
-
-    lazy var downloadsInfoItem: NSToolbarItem = {
-        let item = NSToolbarItem(itemIdentifier: .steamDownloadsInfo)
-        item.label = "信息"
-        item.paletteLabel = "信息"
-        item.toolTip = "查看详细信息"
-        item.autovalidates = false
-        item.image = NSImage(systemSymbolName: "info.circle", accessibilityDescription: "信息")
-        item.target = self
-        item.action = #selector(handleShowSelectedDownloadInfo)
         return item
     }()
 
@@ -381,7 +355,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
     lazy var downloadsSearchField: NSSearchField = {
         let field = NSSearchField(frame: .zero)
         field.delegate = self
-        field.placeholderString = "搜索下载项"
+        field.placeholderString = "搜索"
         field.sendsSearchStringImmediately = true
         field.sendsWholeSearchString = false
         field.recentsAutosaveName = nil
@@ -504,33 +478,10 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         return item
     }()
 
-    lazy var contentModePopupButton: NSPopUpButton = {
-        let button = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 132, height: 30), pullsDown: false)
-        button.target = self
-        button.action = #selector(handleContentModeAction(_:))
-        SteamWorkshopBrowserContentMode.allCases.forEach { mode in
-            button.menu?.addItem(withTitle: mode.displayName, action: nil, keyEquivalent: "")
-        }
-        return button
-    }()
-
-    lazy var contentModeToolbarItem: NSToolbarItem = {
-        let item = NSToolbarItem(itemIdentifier: .steamContentMode)
-        item.label = "内容"
-        item.paletteLabel = "内容"
-        item.toolTip = "切换 Steam 创意工坊内容类型"
-        item.autovalidates = false
-        item.view = contentModePopupButton
-        return item
-    }()
-
-    lazy var sortPopupButton: NSPopUpButton = {
-        let button = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 118, height: 30), pullsDown: false)
-        button.target = self
-        button.action = #selector(handleSortAction(_:))
-        populateSourceMenu(button.menu)
-        return button
-    }()
+    lazy var sortButton = makePullDownButton(
+        title: SteamWorkshopSource.featured.displayName,
+        action: #selector(handleSortAction(_:))
+    )
 
     lazy var sortToolbarItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .steamSort)
@@ -538,19 +489,14 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         item.paletteLabel = "浏览来源"
         item.toolTip = "切换 Steam 创意工坊浏览来源"
         item.autovalidates = false
-        item.view = sortPopupButton
+        item.view = sortButton
         return item
     }()
 
-    lazy var trendingWindowPopupButton: NSPopUpButton = {
-        let button = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 102, height: 30), pullsDown: false)
-        button.target = self
-        button.action = #selector(handleTrendingWindowAction(_:))
-        SteamWorkshopTrendingWindow.allCases.forEach { window in
-            button.menu?.addItem(withTitle: window.displayName, action: nil, keyEquivalent: "")
-        }
-        return button
-    }()
+    lazy var trendingWindowButton = makePullDownButton(
+        title: SteamWorkshopTrendingWindow.week.displayName,
+        action: #selector(handleTrendingWindowAction(_:))
+    )
 
     lazy var trendingWindowToolbarItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .steamTrendingWindow)
@@ -558,7 +504,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         item.paletteLabel = "时间段"
         item.toolTip = "切换最热门榜单的时间范围"
         item.autovalidates = false
-        item.view = trendingWindowPopupButton
+        item.view = trendingWindowButton
         return item
     }()
 
@@ -583,7 +529,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
     lazy var searchField: NSSearchField = {
         let field = NSSearchField(frame: .zero)
         field.delegate = self
-        field.placeholderString = "搜索 Steam 视频"
+        field.placeholderString = "搜索"
         field.sendsSearchStringImmediately = true
         field.sendsWholeSearchString = false
         field.recentsAutosaveName = nil
@@ -621,18 +567,6 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         return item
     }()
 
-    lazy var refreshToolbarItem: NSToolbarItem = {
-        let item = NSToolbarItem(itemIdentifier: .steamRefresh)
-        item.label = "刷新"
-        item.paletteLabel = "刷新"
-        item.toolTip = "刷新 Steam 创意工坊列表"
-        item.autovalidates = false
-        item.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: "刷新")
-        item.target = self
-        item.action = #selector(handleRefresh)
-        return item
-    }()
-
     lazy var accountButton: NSButton = {
         let button = NSButton(frame: NSRect(x: 0, y: 0, width: 32, height: 32))
         button.bezelStyle = .texturedRounded
@@ -655,10 +589,19 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         return item
     }()
 
-    lazy var downloadTasksButtonView = SteamWorkshopDownloadTasksToolbarButton(
-        target: self,
-        action: #selector(handleDownloadTasks)
-    )
+    /// 与账号按钮同构的普通图标按钮（无角标）。
+    lazy var downloadTasksButton: NSButton = {
+        let button = NSButton(frame: NSRect(x: 0, y: 0, width: 32, height: 32))
+        button.bezelStyle = .texturedRounded
+        button.setButtonType(.momentaryPushIn)
+        button.isBordered = true
+        button.imagePosition = .imageOnly
+        button.imageScaling = .scaleProportionallyDown
+        button.image = NSImage(systemSymbolName: "arrow.down.to.line", accessibilityDescription: "下载任务")
+        button.target = self
+        button.action = #selector(handleDownloadTasks)
+        return button
+    }()
 
     lazy var downloadTasksToolbarItem: NSToolbarItem = {
         let item = NSToolbarItem(itemIdentifier: .steamDownloadTasks)
@@ -666,7 +609,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         item.paletteLabel = "下载任务"
         item.toolTip = "查看下载任务"
         item.autovalidates = false
-        item.view = downloadTasksButtonView
+        item.view = downloadTasksButton
         let overflowItem = NSMenuItem(
             title: "下载任务",
             action: #selector(handleDownloadTasks),
@@ -681,10 +624,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         if let existingDownloadTasksPopoverController {
             return existingDownloadTasksPopoverController
         }
-        let controller = SteamWorkshopDownloadTasksPopoverController(
-            service: .shared,
-            windowProvider: { [weak self] in self?.window }
-        )
+        let controller = SteamWorkshopDownloadTasksPopoverController(service: .shared)
         existingDownloadTasksPopoverController = controller
         return controller
     }

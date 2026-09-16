@@ -102,6 +102,10 @@ private final class InspectorHostRootView: NSView {
 final class InspectorHostCardView: NSView {
     var onClose: (() -> Void)?
     var headerTitleOverride: String?
+    /// Standalone windows use AppKit's shadow; embedded cards draw their own.
+    var drawsShadow = true
+    private let clippedContent = NSView()
+    var compactHeader = false
     private var centeredHeaderConstraint: NSLayoutConstraint?
     private var iconWidthConstraint: NSLayoutConstraint?
     private let headerSpacer = NSView()
@@ -138,6 +142,8 @@ final class InspectorHostCardView: NSView {
         }
 
         let isInfoPanel = request.chromeStyle == .infoPanel
+        stackView.spacing = compactHeader ? 8 : 14
+        stackView.edgeInsets.top = 18
         infoTitleLabel.stringValue = headerTitleOverride ?? "详情"
         centeredHeaderConstraint?.isActive = headerTitleOverride != nil
         iconWidthConstraint?.constant = headerTitleOverride == nil ? 18 : 32
@@ -178,9 +184,11 @@ final class InspectorHostCardView: NSView {
         panelOverlayView.layer?.borderWidth = 1
 
         layer?.shadowColor = NSColor.black.cgColor
-        layer?.shadowOpacity = isDark ? 0.40 : 0.12
-        layer?.shadowRadius = 25
-        layer?.shadowOffset = CGSize(width: 0, height: -16)
+        // Embedded inspectors cannot receive a WindowServer shadow. Approximate
+        // its neutral, compact falloff without changing density between themes.
+        layer?.shadowOpacity = drawsShadow ? 0.24 : 0
+        layer?.shadowRadius = 18
+        layer?.shadowOffset = CGSize(width: 0, height: -9)
 
         infoTitleLabel.textColor = .labelColor
         titleLabel.textColor = .labelColor
@@ -209,8 +217,22 @@ final class InspectorHostCardView: NSView {
 
     private func setup() {
         wantsLayer = true
+        // The outer layer casts the shadow; only the glass/background layers clip.
+        clipsToBounds = false
         layer?.cornerRadius = 22
-        layer?.masksToBounds = true
+        layer?.masksToBounds = false
+
+        clippedContent.wantsLayer = true
+        clippedContent.layer?.cornerRadius = 22
+        clippedContent.layer?.masksToBounds = true
+        clippedContent.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(clippedContent)
+        NSLayoutConstraint.activate([
+            clippedContent.leadingAnchor.constraint(equalTo: leadingAnchor),
+            clippedContent.trailingAnchor.constraint(equalTo: trailingAnchor),
+            clippedContent.topAnchor.constraint(equalTo: topAnchor),
+            clippedContent.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
 
         setupGlass()
         setupPanelOverlay()
@@ -219,10 +241,15 @@ final class InspectorHostCardView: NSView {
         refreshAppearance()
     }
 
+    override func layout() {
+        super.layout()
+        layer?.shadowPath = CGPath(roundedRect: bounds, cornerWidth: 22, cornerHeight: 22, transform: nil)
+    }
+
     private func setupGlass() {
         glassView.translatesAutoresizingMaskIntoConstraints = false
         glassView.wantsLayer = true
-        addSubview(glassView)
+        clippedContent.addSubview(glassView)
 
         NSLayoutConstraint.activate([
             glassView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -235,7 +262,7 @@ final class InspectorHostCardView: NSView {
     private func setupPanelOverlay() {
         panelOverlayView.translatesAutoresizingMaskIntoConstraints = false
         panelOverlayView.wantsLayer = true
-        addSubview(panelOverlayView)
+        clippedContent.addSubview(panelOverlayView)
 
         NSLayoutConstraint.activate([
             panelOverlayView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -257,6 +284,7 @@ final class InspectorHostCardView: NSView {
         headerRow.spacing = 12
         headerRow.detachesHiddenViews = true
         headerRow.translatesAutoresizingMaskIntoConstraints = false
+        headerRow.setContentHuggingPriority(.required, for: .vertical)
 
         iconView.image = NSImage(systemSymbolName: "info.circle.fill", accessibilityDescription: "详情")
         iconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 17, weight: .semibold)
@@ -307,7 +335,7 @@ final class InspectorHostCardView: NSView {
         centeredHeaderConstraint = centered
 
         stackView.addArrangedSubview(headerRow)
-        addSubview(stackView)
+        clippedContent.addSubview(stackView)
 
         NSLayoutConstraint.activate([
             stackView.leadingAnchor.constraint(equalTo: leadingAnchor),

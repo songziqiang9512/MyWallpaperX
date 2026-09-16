@@ -92,7 +92,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
             defer: false
         )
         window.title = "二维码"
-        window.level = .floating
+        window.level = .normal
         self.window?.addChildWindow(window, ordered: .above)
         window.isReleasedWhenClosed = false
         let imageView = SteamLoginQRCodeImageView(frame: NSRect(x: 20, y: 12, width: 280, height: 280))
@@ -143,7 +143,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         window.hasShadow = true
         window.isMovableByWindowBackground = true
         window.hidesOnDeactivate = false
-        window.level = .floating
+        window.level = .normal
         window.title = "登录 Steam"
         window.isReleasedWhenClosed = false
         window.delegate = self
@@ -159,12 +159,20 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         } else {
             startQRLogin()
         }
-        window.center()
+        let parent = NSApp.windows.first { $0.identifier?.rawValue == "MainWindow" }
+        if let parent {
+            parent.addChildWindow(window, ordered: .above)
+            window.setFrameOrigin(NSPoint(x: parent.frame.midX - window.frame.width / 2,
+                                          y: parent.frame.midY - window.frame.height / 2))
+        } else {
+            window.center()
+        }
         window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(auth.isOnline ? usernameField : refreshQRButton)
     }
 
     func windowWillClose(_ notification: Notification) {
+        if let window { window.parent?.removeChildWindow(window) }
         // 关闭面板 = 取消认证；迟到的成功回调不会再打开窗口（observe 中判断可见性）。
         // 不保存上次输入的秘密（§3.2）。
         panelView.clearSecrets()

@@ -202,8 +202,15 @@ final class SteamWorkshopSceneInspectionController {
     }
 
     func requestPropertyEditor(for record: SteamWorkshopDownloadRecord) {
+        // Property preparation belongs to the independent window, not to the
+        // detail view whose selection and lifetime can change while loading.
+        let preparation = SteamWorkshopSceneInspectionController(onStateChange: {})
+        preparation.preparePropertyEditor(for: record)
+    }
+
+    private func preparePropertyEditor(for record: SteamWorkshopDownloadRecord) {
         let loading = NSTextField(wrappingLabelWithString: "正在准备 Scene 属性…")
-        propertyPanelToken = SteamWorkshopPropertyPanelController.shared.show(title: "Scene 属性调节", subtitle: record.title, content: loading)
+        propertyPanelToken = SteamWorkshopPropertyPanelController.shared.show(title: "Scene 属性调节", subtitle: record.title, content: loading, retaining: self)
         let identity = inspectionIdentity(for: record)
         presentedIdentity = identity
         propertyMessage = nil

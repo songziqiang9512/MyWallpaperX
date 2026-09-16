@@ -74,10 +74,7 @@ extension SteamWorkshopService {
         source = .featured
         personalSort = .subscriptionDate
         trendingWindow = .week
-        themeFilter = .all
-        ageRatingFilter = .all
-        resolutionFilter = .all
-        categoryFilter = .all
+        facetFilters = .none
         suppressAutomaticBrowseNavigation = false
 
         navigationVersion += 1

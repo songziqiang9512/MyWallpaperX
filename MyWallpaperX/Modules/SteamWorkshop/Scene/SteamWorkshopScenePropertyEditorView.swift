@@ -37,9 +37,10 @@ struct SteamWorkshopScenePropertyEditorView: View {
                     )
                 }
                 .help("恢复这个 Scene 壁纸的默认属性")
+                .controlSize(.small)
             }
             .padding(.horizontal, 0)
-            .padding(.vertical, 14)
+            .padding(.vertical, 4)
 
             Divider()
 

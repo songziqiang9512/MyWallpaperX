@@ -3,6 +3,7 @@
 //  MyWallpaperX
 //
 
+import AppKit
 import Foundation
 
 extension SteamWorkshopService {
@@ -66,10 +67,17 @@ extension SteamWorkshopService {
 
     var activeFilterDisplayParts: [String] {
         var parts: [String] = []
-        if themeFilter != .all { parts.append(themeFilter.displayName) }
-        if let ageRating = ageRatingFilter.activeDisplayName { parts.append(ageRating) }
-        if resolutionFilter != .all { parts.append(resolutionFilter.displayName) }
-        if categoryFilter != .all { parts.append(categoryFilter.displayName) }
+        parts.append(
+            contentsOf: SteamWorkshopThemeFilter.allCases
+                .filter { facetFilters.themes.contains($0) }
+                .map(\.displayName)
+        )
+        if let ageRating = facetFilters.ageRating.activeDisplayName { parts.append(ageRating) }
+        parts.append(
+            contentsOf: SteamWorkshopResolutionFilter.allCases
+                .filter { facetFilters.resolutions.contains($0) }
+                .map(\.displayName)
+        )
         return parts
     }
 
@@ -148,39 +156,20 @@ extension SteamWorkshopService {
         return record
     }
 
-    /// Resolve a history reference against the live library. The history record
-    /// itself never proves that downloaded content still exists.
-    func availableDownloadRecord(forHistoryRecordID recordID: String) -> SteamWorkshopDownloadRecord? {
-        guard let record = downloadRecord(for: recordID) else { return nil }
-        if SteamWorkshopLibraryTransaction.versionDirectoryName(
-            containing: record.folderURL,
-            libraryRoot: steamDownloadLibraryRootURL
-        ) != nil {
-            guard let snapshot = managedDownloadSnapshots()[recordID],
-                  let commit = snapshot.commit,
-                  SteamWorkshopLibraryTransaction.isAvailable(
-                      commit,
-                      libraryRoot: steamDownloadLibraryRootURL
-                  ) else { return nil }
-            return record
-        }
-
-        let fileManager = FileManager.default
+    /// 该下载记录是否正在作为当前壁纸播放（下载页卡片播放态的判定源）。
+    func isRecordCurrentlyPlaying(_ record: SteamWorkshopDownloadRecord) -> Bool {
         switch record.contentType {
-        case .video:
-            return record.videoURL == nil ? nil : record
-        case .web:
-            guard let entry = record.entryHTMLURL,
-                  fileManager.fileExists(atPath: entry.path) else { return nil }
-            return record
-        case .scene:
-            let scenePackage = record.folderURL.appendingPathComponent("scene.pkg")
-            guard fileManager.fileExists(atPath: scenePackage.path)
-                    || record.projectFileURL.map({ fileManager.fileExists(atPath: $0.path) }) == true
-            else { return nil }
-            return record
         case .unknown:
-            return nil
+            return false
+        case .scene:
+            return SceneDaemonClient.shared.activeRecordID == record.id
+        case .web:
+            return isActiveWebRecord(record)
+        case .video:
+            guard WallpaperEngine.shared.currentPlaybackContentKind == .video,
+                  let path = WallpaperEngine.shared.currentContentPath else { return false }
+            return [record.videoURL, record.exportedVideoURL, record.sourceVideoURL].compactMap { $0 }
+                .contains { $0.resolvingSymlinksInPath().standardizedFileURL.path == path }
         }
     }
 

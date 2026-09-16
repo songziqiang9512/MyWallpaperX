@@ -120,7 +120,10 @@ internal sealed class ProbeSession : IAsyncDisposable
 
     public async Task<UnifiedQueryPage> QueryFilesAsync(
         int queryType, string? cursor, uint? page, IReadOnlyList<string> requiredTags,
-        string? searchText, uint numPerPage, uint? days, CancellationToken ct)
+        string? searchText, uint numPerPage, uint? days, CancellationToken ct,
+        bool matchAnyTags = false,
+        IReadOnlyList<string>? excludedTags = null,
+        IReadOnlyList<IReadOnlyList<string>>? tagGroups = null)
     {
         var request = new CPublishedFile_QueryFiles_Request
         {
@@ -133,6 +136,29 @@ internal sealed class ProbeSession : IAsyncDisposable
         foreach (var tag in requiredTags)
         {
             request.requiredtags.Add(tag);
+        }
+        if (matchAnyTags)
+        {
+            request.match_all_tags = false;
+        }
+        if (excludedTags != null)
+        {
+            foreach (var tag in excludedTags)
+            {
+                request.excludedtags.Add(tag);
+            }
+        }
+        if (tagGroups != null)
+        {
+            foreach (var group in tagGroups)
+            {
+                var entry = new CPublishedFile_QueryFiles_Request.TagGroup();
+                foreach (var tag in group)
+                {
+                    entry.tags.Add(tag);
+                }
+                request.taggroups.Add(entry);
+            }
         }
         if (!string.IsNullOrEmpty(searchText))
         {

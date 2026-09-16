@@ -20,7 +20,7 @@ class SteamQueryTests(unittest.TestCase):
     def test_real_query_and_subscription_owners(self):
         browse = (CORE / 'SteamWorkshopService+SteamKitBrowse.swift').read_text()
         store = browse[browse.index('@MainActor\nfinal class SteamKitBrowseStore'):]
-        projection = browse[browse.index('    private func steamKitPersonalPostProcess'):browse.index('\n}\n\n/// 查询条目')]
+        projection = browse[browse.index('    private func steamKitStructuredPostProcess'):browse.index('\n}\n\n/// 查询条目')]
         fixture = '''import Foundation
 @MainActor final class Projection {
  let steamKitBrowseStore: SteamKitBrowseStore
@@ -36,7 +36,8 @@ class SteamQueryTests(unittest.TestCase):
             sources = [ROOT / 'MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift',
                        ROOT / 'MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift',
                        *[CORE / name for name in ['SteamServiceProtocol.swift', 'SteamServiceClient.swift',
-                        'SteamWorkshopQueryClient.swift', 'SteamWorkshopSubscriptionStore.swift', 'SteamWorkshopBrowseFilters.swift']],
+                        'SteamWorkshopQueryClient.swift', 'SteamWorkshopSubscriptionStore.swift',
+                        'SteamWorkshopBrowseFilters.swift', 'SteamWorkshopAgeRatingSupport.swift']],
                        extracted, ROOT / 'script/tests/fixtures/SteamQueryHarness.swift']
             binary = folder / 'queries'
             subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *map(str, sources), '-o', str(binary)], check=True, timeout=120)

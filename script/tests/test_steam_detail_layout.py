@@ -10,10 +10,13 @@ class SteamDetailLayoutTests(unittest.TestCase):
     def test_long_primary_actions_and_narrow_widths(self):
         with tempfile.TemporaryDirectory(prefix='mwx-steam-detail-layout-', dir='/private/tmp') as temporary:
             binary = pathlib.Path(temporary) / 'footer'
+            support = (ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItemSupportViews.swift').read_text()
+            bar = pathlib.Path(temporary) / 'ActualGlassBar.swift'
+            bar.write_text('import AppKit\nimport QuartzCore\n' + support[support.index('enum SteamWorkshopDownloadProgressPalette'):])
             build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library',
                 str(ROOT / 'MyWallpaperX/Shared/UI/InspectorFooterMetrics.swift'),
                 str(ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDetailFooterView.swift'),
-                str(ROOT / 'script/tests/fixtures/SteamDetailFooterHarness.swift'), '-o', str(binary)],
+                str(bar), str(ROOT / 'script/tests/fixtures/SteamDetailFooterHarness.swift'), '-o', str(binary)],
                 capture_output=True, text=True, timeout=60)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)

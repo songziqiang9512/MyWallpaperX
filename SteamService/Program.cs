@@ -221,7 +221,8 @@ internal static class Program
                     decode.PayloadString("sort") ?? "trend",
                     decode.PayloadUInt("page") ?? 1,
                     decode.PayloadStringArray("tags"),
-                    decode.PayloadString("search"));
+                    decode.PayloadString("search"),
+                    decode.PayloadStringArrayArray("tagGroups"));
                 return;
             case "queryDetails":
             {

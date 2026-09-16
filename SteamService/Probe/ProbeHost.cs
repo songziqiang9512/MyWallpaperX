@@ -1,4 +1,5 @@
 using System.Text.Json;
+using SteamKit2.Internal;
 
 namespace SteamService.Probe;
 
@@ -121,6 +122,8 @@ internal static class ProbeHost
               probe auth-qr                                        QR challenge flow, saves session
               probe restore                                        silent restore from saved session
               probe subscriptions                                  logged-on: mysubscriptions/myfavorites pages
+              probe uquery [queryType] [--anonymous] [--tag A] [--exclude-tag A] [--taggroup A+B] [--match-any] [--search TEXT] [--days N]
+                                                                   unified-message QueryFiles, 3 pages; tag hit stats
               probe matrix [--fixtures DIR]                        anonymous capability matrix + fixtures
             options: --state DIR (default /tmp/mwx-sk01-probe), --fixtures DIR
             stdout is JSON lines; prompts go to stderr. Tokens never printed.
@@ -312,12 +315,18 @@ internal static class ProbeHost
         int? days = null;
         string? search = null;
         var tags = new List<string>();
+        var excludedTags = new List<string>();
+        var tagGroups = new List<IReadOnlyList<string>>();
+        var matchAnyTags = args.Remove("--match-any");
         for (var i = 0; i < args.Count; i++)
         {
             if (int.TryParse(args[i], out var q)) queryTypeArg = q;
             else if (args[i] == "--days" && i + 1 < args.Count && int.TryParse(args[++i], out var d)) days = d;
             else if (args[i] == "--search" && i + 1 < args.Count) search = args[++i];
             else if (args[i] == "--tag" && i + 1 < args.Count) tags.Add(args[++i]);
+            else if (args[i] == "--exclude-tag" && i + 1 < args.Count) excludedTags.Add(args[++i]);
+            else if (args[i] == "--taggroup" && i + 1 < args.Count)
+                tagGroups.Add(args[++i].Split('+').Where(part => part.Length > 0).ToList());
         }
         var types = queryTypeArg is { } t ? [t] : ProbeQueryTypes;
         await using var session = new ProbeSession();
@@ -339,7 +348,11 @@ internal static class ProbeHost
             for (var page = 1; page <= 3; page++)
             {
                 var pageResult = await session.QueryFilesAsync(queryType, cursor, (uint)page, tags, search,
-                    Budgets.QueryPageSize, (uint?)days, ct).ConfigureAwait(false);
+                    Budgets.QueryPageSize, (uint?)days, ct,
+                    matchAnyTags: matchAnyTags,
+                    excludedTags: excludedTags,
+                    tagGroups: tagGroups).ConfigureAwait(false);
+                var tagStats = TagStats(pageResult.Files, tags, excludedTags, tagGroups);
                 foreach (var file in pageResult.Files)
                 {
                     seen.Add(file.publishedfileid.ToString());
@@ -353,6 +366,8 @@ internal static class ProbeHost
                     total = pageResult.Total,
                     received = pageResult.Files.Count,
                     uniqueSoFar = seen.Count,
+                    matchAnyTags,
+                    tagStats,
                     hasNextCursor = !string.IsNullOrEmpty(pageResult.NextCursor),
                     firstTitle = pageResult.Files.Count > 0 ? pageResult.Files[0].title : null,
                 });
@@ -362,6 +377,33 @@ internal static class ProbeHost
             }
         }
         return 0;
+    }
+
+    /// 标签命中统计：核对服务端过滤语义（AND/OR/组）——有 requiredtags 时
+    /// 全命中行占比应为 100%（AND）或部分（OR 未生效）；taggroups 逐组报告
+    /// 组内任意命中占比。每项都统计 requiredtags 的 anyHit/allHit。
+    private static object TagStats(
+        IReadOnlyList<PublishedFileDetails> files,
+        IReadOnlyList<string> requiredTags,
+        IReadOnlyList<string> excludedTags,
+        IReadOnlyList<IReadOnlyList<string>> tagGroups)
+    {
+        if (requiredTags.Count == 0 && excludedTags.Count == 0 && tagGroups.Count == 0) return null;
+        var itemTags = files.Select(file => new HashSet<string>(
+            file.tags.Select(tag => tag.tag ?? ""),
+            StringComparer.OrdinalIgnoreCase)).ToList();
+        var anyHit = itemTags.Count(itemTags => requiredTags.Any(req => itemTags.Contains(req)));
+        var allHit = itemTags.Count(itemTags => requiredTags.All(req => itemTags.Contains(req)));
+        var excludedViolations = excludedTags.Count == 0
+            ? 0
+            : itemTags.Count(itemTags => excludedTags.Any(req => itemTags.Contains(req)));
+        var groups = tagGroups.Select((group, index) => new
+        {
+            group = index,
+            anyHit = itemTags.Count(itemTags => group.Any(req => itemTags.Contains(req))),
+            allHit = itemTags.Count(itemTags => group.All(req => itemTags.Contains(req))),
+        });
+        return new { anyHit, allHit, counted = itemTags.Count, excludedViolations, groups };
     }
 
     private static async Task<int> RunMatrixAsync(string? fixturesDir, CancellationToken ct)

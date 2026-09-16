@@ -364,7 +364,7 @@ final class SteamWorkshopGlassBarView: NSGlassEffectView {
 
     private func commonInit() {
         wantsLayer = true
-        layer?.masksToBounds = false
+        layer?.masksToBounds = true
         layer?.borderWidth = 1
         layer?.backgroundColor = NSColor.clear.cgColor
         fillClipLayer.masksToBounds = true
@@ -438,7 +438,7 @@ final class SteamWorkshopGlassBarView: NSGlassEffectView {
         animated: Bool
     ) {
         accentStyle = style
-        progressFraction = fraction.map { CGFloat(min(1, max(0, $0))) }
+        progressFraction = fraction.flatMap { $0.isFinite ? CGFloat(min(1, max(0, $0))) : nil }
         showsIndeterminateProgress = indeterminate
         updateMaterial()
         updateProgressFrames(animated: animated)

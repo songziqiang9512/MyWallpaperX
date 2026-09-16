@@ -65,6 +65,8 @@ enum MainWindowCoordinator {
  switch activeModule {
  case .onlineLibrary:
  return OnlineDownloadsBridge.shared.isActive ? "查看文件" : "刷新"
+ case .steamWorkshop:
+ return isSteamDownloadsMode ? "查看文件" : "刷新"
  default:
  return "查看文件"
  }
@@ -348,6 +350,8 @@ enum MainWindowCoordinator {
         case .steamWorkshop:
             if isSteamDownloadsMode {
                 SteamWorkshopService.shared.revealSelectedDownload()
+            } else {
+                SteamWorkshopService.shared.refresh()
             }
         }
     }
@@ -365,7 +369,7 @@ enum MainWindowCoordinator {
             }
             return true
         case .steamWorkshop:
-            return isSteamDownloadsMode && SteamWorkshopService.shared.canRevealSelectedDownload
+            return !isSteamDownloadsMode || SteamWorkshopService.shared.canRevealSelectedDownload
         }
     }
 

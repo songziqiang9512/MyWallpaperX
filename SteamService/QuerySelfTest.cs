@@ -33,7 +33,7 @@ internal sealed partial class SteamSession
         Check(item.RootElement.GetProperty("dependencyIds")[0].GetString() == "456");
         using var partial = JsonDocument.Parse(JsonSerializer.Serialize(mapped.PartialErrors[0]));
         Check(partial.RootElement.GetProperty("publishedfileid").GetString() == "456");
-        Check(!SortMap.ContainsKey("updated"));
+        Check(SortMap["updated"] == 21);
         var named = MapItems([valid], new Dictionary<ulong, string> { [valid.creator] = "海岸作者" });
         using var namedItem = JsonDocument.Parse(JsonSerializer.Serialize(named.Items[0]));
         Check(namedItem.RootElement.GetProperty("creatorName").GetString() == "海岸作者");

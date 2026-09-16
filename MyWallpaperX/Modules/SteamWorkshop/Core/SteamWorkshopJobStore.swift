@@ -406,6 +406,22 @@ final class SteamDownloadJobStore: ObservableObject {
         return removedCount
     }
 
+    /// Removes every terminal attempt of one job for the account (panel-side
+    /// clearing only; the download library is untouched).
+    @discardableResult
+    func removeHistory(forJobID jobID: String, accountSteamId: String?) -> Int {
+        guard let accountSteamId, !accountSteamId.isEmpty else { return 0 }
+        let candidate = history.filter {
+            $0.accountSteamId != accountSteamId || $0.jobID != jobID
+        }
+        let removedCount = history.count - candidate.count
+        guard removedCount > 0 else { return 0 }
+        save(jobs, history: candidate)
+        guard lastSaveSucceeded else { return 0 }
+        history = candidate
+        return removedCount
+    }
+
     /// Refresh the time-based retention boundary on a user-visible history read,
     /// without a timer or a second in-memory history owner.
     @discardableResult

@@ -201,6 +201,17 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
             }
             .store(in: &cancellables)
 
+        WallpaperManager.shared.objectWillChange.map { _ in () }
+            .merge(with: NotificationCenter.default.publisher(for: .sceneWallpaperLaunchStateDidChange).map { _ in () })
+            .receive(on: DispatchQueue.main)
+            .map { [weak self] _ -> Set<String> in
+                guard let self else { return [] }
+                return Set(self.service.downloads.filter { self.service.isRecordCurrentlyPlaying($0) }.map(\.id))
+            }
+            .removeDuplicates()
+            .sink { [weak self] _ in self?.refreshVisibleDownloadItems() }
+            .store(in: &cancellables)
+
         service.$zoomOffset
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -244,6 +255,7 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         let canLaunchRecord = service.cachedCanLaunchDownloadRecord(record)
         item.configure(
             displayContext: .downloads,
+            isPlaying: service.isRecordCurrentlyPlaying(record),
             item: displayItem,
             downloadRecord: record,
             downloadProgressStore: service.downloadProgressStore,
@@ -428,7 +440,7 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
 
             menu.addItem(
                 makeMenuItem(
-                    title: "信息",
+                    title: "详情信息",
                     symbolName: "info.circle",
                     action: #selector(contextShowInfo),
                     isEnabled: service.canShowSelectedDownloadInfo
@@ -465,6 +477,8 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
             keyboardFocusedID = id
             reloadKeyboardFocus(previous: previousID, next: id)
             service.selectDownload(itemID: id)
+            // 点击卡片（含已选中卡片再次点击）直接呼出详情面板。
+            service.presentSelectedDownloadInfo()
             return true
         }
 

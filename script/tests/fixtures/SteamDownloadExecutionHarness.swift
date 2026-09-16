@@ -116,7 +116,7 @@ final class Transport: SteamServiceTransporting {
     }
     func browserItemForDownload(id: String) -> SteamWorkshopBrowserItem? { nil }
     func latestDownloadRecord(for id: String) -> SteamWorkshopDownloadRecord? { downloads.first { $0.id == id } }
-    func presentSteamLoginGuidance(context: String) { statusMessage = "login required" }
+    func presentSteamLoginForUserAction(context: String) { statusMessage = "login required" }
     func appendSteamAuthDebugLog(_ message: String) {}
     func upsertTransientRecord(id: String, title: String, status: SteamWorkshopDownloadRecord.Status, sizeText: String) {
         let record = SteamWorkshopDownloadRecord(id: id, title: title, sizeText: sizeText, status: status)

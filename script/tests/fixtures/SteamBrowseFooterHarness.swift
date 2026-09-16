@@ -39,7 +39,7 @@ struct SteamBrowseFooterHarness {
         ) == .failed("加载失败 · 重试"), "an empty filtered page must keep its retry control")
         precondition(SteamWorkshopBrowserFooterSupport.resolvedState(
             failureMessage: nil, isLoadingMore: false, hasMore: true, itemIDs: []
-        ) == .emptyPage, "raw pagination must survive an empty visible projection")
+        ) == .ready, "filtered empty pages must retain manual continuation")
         precondition(SteamWorkshopBrowserFooterSupport.resolvedState(
             failureMessage: nil, isLoadingMore: false, hasMore: false, itemIDs: []
         ) == .hidden)
