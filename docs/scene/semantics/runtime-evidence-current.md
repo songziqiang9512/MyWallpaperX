@@ -60,7 +60,7 @@
 
 该 `do {}` 包装只用于证明这一否定结论，**已精确回退**，工作区与 HEAD 一致、循环保持原样；结论由本次运行身份与上述比值固定，不作为阶段遥测长期保留。
 
-**由此产生的执行顺序约束：**实施 region-A 消融需要绿色门禁，但覆盖该依赖归属路径的模块（`test_scene_external_primary_visual_failure_passthrough`、`test_scene_independent_signal_feedback`、`test_scene_preserved_channel_feedback_pair`、`test_scene_preserved_channel_ordered_feedback`、`test_scene_resolved_material_graph_executor`）恰恰在干净 HEAD 上就因内嵌 harness 未同步签名而失败。因此必须**先**完成 E6 的过期 harness 修复，**再**在绿色门禁下做 region-A 单职责消融；不得在没有该路径行为门的情况下改写依赖归属扫描。
+**由此产生的执行顺序约束（已满足）：**实施 region-A 消融需要绿色门禁，而覆盖该依赖归属路径的模块（`test_scene_external_primary_visual_failure_passthrough`、`test_scene_independent_signal_feedback`、`test_scene_preserved_channel_feedback_pair`、`test_scene_preserved_channel_ordered_feedback`、`test_scene_resolved_material_graph_executor`）恰在干净 HEAD 上因内嵌 harness 未同步签名而失败。该 E6 债务已由 `aade7862` 修复，rendering/runtime 聚焦门现为 **14 通过 / 0 失败**，因此 region-A 单职责消融可以在绿色行为门下进行；仍不得在没有该路径行为门的情况下改写依赖归属扫描。
 
 <a id="e-2026-09-16-as1-instrument-coupling"></a>
 ### 2026-09-16 AS1 仪器耦合：分阶段遥测与 execution observation 同标志，重 graph 测得帧约一半是仪器
@@ -130,7 +130,7 @@
 
 **插桩已回退：**`SceneGraphExecutionState.swift` 会被测试 harness 单独编译（`Targets` 层刻意不依赖诊断类型），在其中引入 `SceneFramePerformanceTelemetry` 会使 graph-path harness 编译失败。三处观测插桩因此已精确回退，工作区与 HEAD 一致；判别数据由本条 report SHA-256 固定，不在产品路径留下额外依赖。
 
-**顺带发现的既有门禁债务（非本批引入，已用干净 HEAD 复核）：**对 graph-path 文件运行 inner selector 时，31 个聚焦模块在**干净 HEAD** 上有 **8 个失败、23 个通过**：`test_scene_graph_texture_publication`、`test_scene_animated_material_visual_failure`、`test_scene_external_primary_visual_failure_passthrough`、`test_scene_independent_signal_feedback`、`test_scene_preserved_channel_feedback_pair`、`test_scene_preserved_channel_ordered_feedback`、`test_scene_resolved_material_graph_executor`、`test_scene_resolved_material_fbo_stage_activation`。根因是内嵌 Swift harness 未同步源码签名：`makeMapped(...)` 缺少新增的 `makeInputsDigest`、`Dictionary(uniqueKeysWithValues:)` 泛型 `Key` 无法推断、以及一处表达式类型检查超时。属 E6 的过期 fixture 债务；任何触及该路径的批次必须先处置它才能取得绿色门禁，否则只能以该既有失败基线放行。
+**顺带发现的既有门禁债务（非本批引入，已用干净 HEAD 复核；同日已修复）：**对 graph-path 文件运行 inner selector 时，31 个聚焦模块在干净 HEAD 上有 **8 个失败、23 个通过**：`test_scene_graph_texture_publication`、`test_scene_animated_material_visual_failure`、`test_scene_external_primary_visual_failure_passthrough`、`test_scene_independent_signal_feedback`、`test_scene_preserved_channel_feedback_pair`、`test_scene_preserved_channel_ordered_feedback`、`test_scene_resolved_material_graph_executor`、`test_scene_resolved_material_fbo_stage_activation`。根因是内嵌 Swift harness 早于 M4.1 make-inputs digest，`makeMapped(...)` 缺 `makeInputsDigest` 参数；`test_scene_resolved_material_graph_executor.py` 的共享 fixture 经 `EXECUTOR_FIXTURE` 驱动其中八个模块，另发现第 9 个（该 fixture 未覆盖的）`test_scene_graph_render_target_table` 亦有 8 处同类调用。**修复（提交 `aade7862`）：**在 10 个调用点传 `makeInputsDigest: 0`——0 表示"未记录 digest"，使 `validate` 回退到完整推导与结构比较，恰是这些 fixture 编写时所对的 M4.1 之前路径，而生产调用方始终从 allocator stage 传入真实 digest。修复后 9 个模块全部通过，rendering/runtime 聚焦门由 **12 通过 / 2 失败变为 14 通过 / 0 失败**，admission region-A 消融因此可在绿色行为门下进行。
 
 **边界：**①16.1% 与 100% 慢分支比例取自隔离目录中的未归档运行，权威记录为 report SHA-256 与本条数值。②该样本对仓库 matrix 仍是既有 22 条期望不匹配的 NON-PASS。③`compositor-seal` 4.99 ms/帧（38%）尚未归因，属独立下一步。④30 FPS 节能档、混刷双屏、M1 或最低设备、低电量、功耗与 wakeups、30 min 长稳仍未验收。
 
