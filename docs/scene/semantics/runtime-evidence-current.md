@@ -88,6 +88,27 @@
 
 **由此得到的裁决：**`executor.prepare` 内部没有单一主导项可做高收益微消融——要过冻结门（目标成本 ≥10% 且 >2× 噪声）需要约 ≥0.31 ms，而最大可疑项实测为 0。下一步若继续该路径必须做成**结构性**削减（E1b 的"固定静态骨架与整数索引、复用有界 scratch、消除实测大量复制的字典与查找"），并以**交替 A/B** 验证，不依赖栈采样占比；否则应换纵向职责（`layer-loop` 0.927 ms、`compositor-seal` 0.238 ms 都远小，或转向 AS2 纹理／AS3 合成的资源与带宽方向）。
 
+**AS1 产品代表性门禁记录（同日续，标准 benchmark，提交 `05f9ef0b`）：**benchmark 新增显式 performance-only 模式（`--no-execution-observations`，opt-in，向 staged app 追加去仪器开关；既有证据运行不变；报告内 `command` 自带该标志，身份自描述）。重 graph `2938612768` 三次运行（构建 CDHash `ce991b3c5add3a6dff1030bad9e7b0429899da46`，warmup 30.0 s、elapsed 63.49–63.50 s、`steady_state_eligible=true`、资源样本 65/65、`process_cpu_time_status=available`、`failed_frames=0`）：
+
+| 指标 | gate1 | gate2 | gate3 | 中位 | 噪声 |
+|---|---|---|---|---|---|
+| `cpu_frame_p50` | 5.988 | 5.964 | 5.958 | **5.964 ms** | 0.4% |
+| `cpu_frame_p95` | 6.274 | 6.211 | 6.303 | 6.274 ms | 1.0% |
+| `gpu_frame_p50` | 7.522 | 7.421 | 7.511 | **7.511 ms** | 1.2% |
+| `gpu_frame_p95` | 9.463 | 9.829 | 9.410 | 9.463 ms | 3.9% |
+| `actual_present_p50` | 16.667 | 16.667 | 16.667 | 16.667 ms | 0.0% |
+| `actual_present_p99` | 16.667 | 25.000 | 25.000 | 25.000 ms | 33.3% |
+| `present_over_1.5_ratio` | 0.0005 | 0.0155 | 0.0057 | 0.0057 | 169.6% |
+| `driver_fps` | 59.9975 | 59.9972 | 59.9474 | 59.9972 | 0.1% |
+| 进程 footprint 峰值 | 925.0 | 917.7 | 953.6 | 925.0 MiB | — |
+| `gpu_allocated` 峰值 | 1002.9 | 988.8 | 1002.9 | 1002.9 MiB | — |
+
+**门禁对照（§8.3 冻结表）：**在 16.67 ms 帧预算上，CPU p50/p95 与 GPU p50/p95 全部满足，`actual_present_p50` 恰为一个帧间隔；`presentation_over_1_5_budget` 比例中位 0.57%（≤1% 门），但该计数在共享交互桌面下噪声很大（单次最高 1.55%）。**结论：该 workload 在单屏 60 FPS 档下 CPU 与 GPU 都满足冻结预算，CPU 不是瓶颈。**
+
+**成本再框定：**GPU p50 7.511 ms 大于 CPU p50 5.964 ms，因此下一步的纵向机会在 **GPU／带宽侧（AS3 合成与附件）**，而不是继续在 `executor.prepare` 做微消融（其内部平坦、唯一可疑项实测为 0）。这与计划 E3 的前置条件「E0 GPU／copy／驻留证据」一致。
+
+**口径与边界：**①performance-only 运行按设计**不可**当作能力通过：同一样本期望不匹配由 22 条增至 30 条，新增 8 条恰为 observation 派生字段（GPU completion／compositor consumption／next-frame／executor 计数／terminal evidence）。②`actual_present_p95/p99` 与 over-budget 比例在共享交互桌面下仍属噪声项（p95 单次 25.0 ms、比例 0.0005–0.0155），按既有边界不进入回归判定。③仍为单样本、单屏 60 FPS、`-O` Debug（非 Release 等价）；30 FPS 档、混刷双屏、M1、低电量、冷/热启动、功耗与 30 min 长稳仍未验收。
+
 <a id="e-2026-09-16-as1-instrument-coupling"></a>
 ### 2026-09-16 AS1 仪器耦合：分阶段遥测与 execution observation 同标志，重 graph 测得帧约一半是仪器
 
