@@ -750,6 +750,22 @@ def resolved_graph_visual_failure_log(
 
 
 class SceneWallpaperBenchmarkTests(unittest.TestCase):
+    def test_performance_only_run_skips_execution_observations(self) -> None:
+        """去仪器模式必须是显式选项，且只在请求时才向 app 追加开关。"""
+        source = (SCRIPT_DIR / "scene_wallpaper_benchmark.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('"--no-execution-observations"', source)
+        self.assertIn("no_execution_observations: bool = False", source)
+        self.assertIn(
+            "no_execution_observations=args.no_execution_observations", source
+        )
+        # 默认不追加；仅显式请求才追加 app 开关。
+        self.assertEqual(source.count(
+            'command.append("--mwx-debug-scene-no-execution-observations")'
+        ), 1)
+        self.assertIn("if no_execution_observations:", source)
+
     def test_media_thumbnail_metrics_keep_current_and_previous_layer_identities(
         self,
     ) -> None:

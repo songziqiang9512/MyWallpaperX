@@ -6963,6 +6963,7 @@ def run_sample(
     require_effect_execution: bool = False,
     require_graph_execution: bool = False,
     require_cursor_ripple_persistence: bool = False,
+    no_execution_observations: bool = False,
 ) -> dict[str, Any]:
     sample_id = str(sample["id"])
     source = sample_root / "Scene" / sample_id
@@ -7000,6 +7001,12 @@ def run_sample(
     ]
     append_performance_profile_argument(command, performance_fps)
     append_performance_warmup_argument(command, performance_warmup)
+    if no_execution_observations:
+        # Performance-only run: the staged app still emits the per-call and
+        # per-frame stage telemetry and the 1 Hz resource samples, but skips the
+        # execution observation instrument, so the CPU figures describe product
+        # work. Observation-derived evidence fields are then absent by design.
+        command.append("--mwx-debug-scene-no-execution-observations")
     if after_snapshot_delay is not None:
         command.extend([
             "--mwx-debug-scene-after-snapshot-delay",
@@ -8232,6 +8239,15 @@ def parse_args() -> argparse.Namespace:
         help="run only this ID from the selected matrix; may be repeated",
     )
     parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument(
+        "--no-execution-observations",
+        action="store_true",
+        help=(
+            "performance-only run: keep stage and resource telemetry but skip "
+            "the execution observation instrument, so CPU figures describe "
+            "product work; observation-derived evidence becomes unavailable"
+        ),
+    )
     parser.add_argument("--duration", type=bounded_duration, default=7)
     parser.add_argument(
         "--performance-fps",
@@ -8408,6 +8424,7 @@ def main() -> int:
                 require_effect_stage_admission=args.require_effect_stage_admission,
                 require_effect_execution=args.require_effect_execution,
                 require_graph_execution=args.require_graph_execution,
+                no_execution_observations=args.no_execution_observations,
                 require_cursor_ripple_persistence=(
                     args.require_cursor_ripple_persistence
                 ),
