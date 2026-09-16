@@ -22,6 +22,27 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-16-as1-decoupled-heavy-baseline"></a>
+### 2026-09-16 AS1 去仪器（产品代表性）重 graph 基线
+
+**结论：同一重 graph 样本 `2938612768`、同一构建、同一 30 s warmup 与 63.5 s 窗口，关闭 execution observation 仪器后的产品代表性 `cpu_frame_p50` 为 5.908 ms（4 次 5.904/5.905/5.911/5.921，噪声 0.3%），含仪器对照为 10.326 ms（10.356/10.295）——仪器占 **42.8%**。去仪器口径下产品侧首要 CPU 成本是 `admit-prepare-frame` 3.994 ms，占该帧 **67.7%**；`compositor-seal` 降到 0.232 ms。**
+
+**身份与配置：**签名 Debug `-O` 构建 CDHash `d4f18217137cb42c7bf0c46a46f6140ca8518cd1`（含 `a8a6eae9` 的解耦与 `4b3a642d` 的 E1c 消融），样本 `2938612768`，`--mwx-debug-scene-evidence-dir` + `--mwx-debug-scene-no-execution-observations`、`--performance-fps 60`、warmup 30 s、duration 95（实测 elapsed 63.49–63.51 s）。含仪器对照不加该 opt-out，其余完全相同。
+
+| 指标 | 去仪器（4 次） | 含仪器对照（2 次） |
+|---|---|---|
+| `cpuP50MS` | 5.904 / 5.905 / 5.911 / 5.921 | 10.356 / 10.295 |
+| `cpuP95MS` | 6.170 / 6.139 / 6.150 / 6.127 | 10.730 / 10.579 |
+| `compositor-seal` p50 | 0.232 / 0.241 ms | 4.992 ms |
+| 进程 CPU（窗口） | 31993 / 32021 ms | 48023 ms |
+| `submitted/completed/failed` | 3809–3810 / 3808–3809 / 0 | 3809–3810 / 3808–3809 / 0 |
+| `presentP99MS` | 16.667（一次 25.000） | 16.667 |
+| `gpuAllocatedSampledPeakBytes` | 988.6 MiB | 988.6 MiB |
+
+**去仪器阶段表（p50，n 均为 3810，闭合）：**`world-resolve` 0.021 + `prologue` 4.668 + `prepass` 0.055 + `layer-loop` 0.923 + `compositor-seal` 0.232 + `source-update` 0.000 ≈ 5.899 ms，与 `cpuP50MS` 5.905 闭合。`prologue` 内为 `frame-admission` 4.610（含 `admit-prepare-frame` **3.994**、`admit-target-pool` 0.445、`admit-preflight-targets` 0.318、`admit-prep-requests` 0.092）。`admit-prepare-frame` 内已知子项只有 `admit-executor-prepare`（每帧 22 次 × 0.092–0.093 ms ≈ 2.05 ms，占该帧 34.7%），其余约 1.53 ms 尚未归因。`particle-*` 各阶段均为 0.000–0.012 ms，与简单样本形成对照。
+
+**产物与口径边界：**①这些运行由隔离目录内直接启动同一可执行文件完成（不经过 benchmark），只产出 app 日志；被终止时未写证据目录，因此本条目不含截图/runtime evidence，也不能声称 benchmark 的 evidence/矩阵门通过。②因此该基线目前**只能手动复现**；把它接入 benchmark 需要显式的 performance-only 模式，因为 observation 派生字段（如 `resolved_material_graph_execution`）在去仪器时会缺失，不能让既有证据运行静默降级。③`compositor-seal` 剩余 0.232 ms 属正常提交路径。④30 FPS、混刷双屏、M1、低电量、功耗与 wakeups、30 min 长稳仍未验收。⑤运行载荷在隔离目录，未归档。
+
 <a id="e-2026-09-16-as1-instrument-coupling"></a>
 ### 2026-09-16 AS1 仪器耦合：分阶段遥测与 execution observation 同标志，重 graph 测得帧约一半是仪器
 
