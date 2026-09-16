@@ -55,6 +55,14 @@ PARTICLE_PLAYBACK_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+ParticlePlayback.swift"
 )
+PREFLIGHT_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
+)
+SUBMISSION_COORDINATOR_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift"
+)
 
 HARNESS = r'''
 import Foundation
@@ -420,6 +428,35 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertIn("performanceTelemetry: SceneFramePerformanceTelemetry? = nil", particle)
         self.assertIn("[performanceTelemetry] in", view)
         self.assertIn("performanceTelemetry: performanceTelemetry", view)
+
+    def test_admission_cost_is_attributed_by_observation_substages(self) -> None:
+        """admit-prepare-frame 是复合阶段；两个子阶段只做归因且必须保持遥测可选。"""
+        preflight = PREFLIGHT_SOURCE.read_text(encoding="utf-8")
+        coordinator = SUBMISSION_COORDINATOR_SOURCE.read_text(encoding="utf-8")
+
+        # 总括阶段仍在，子阶段不替代它。
+        self.assertIn(
+            'performanceTelemetry?.beginStage("admit-prepare-frame")', preflight
+        )
+        self.assertIn(
+            'performanceTelemetry?.endStage("admit-prepare-frame")', preflight
+        )
+        for label in ("admit-install-graph-outputs", "admit-frame-commit"):
+            source = (
+                preflight if label == "admit-install-graph-outputs" else coordinator
+            )
+            self.assertIn(f'performanceTelemetry?.beginStage("{label}")', source)
+            self.assertIn(f'performanceTelemetry?.endStage("{label}")', source)
+        # 两个子阶段都必须用 defer 关闭，避免提前 return 留下未配对区间。
+        self.assertIn(
+            "defer {\n                    performanceTelemetry?.endStage("
+            '"admit-install-graph-outputs")\n                }',
+            preflight,
+        )
+        self.assertIn(
+            'defer { performanceTelemetry?.endStage("admit-frame-commit") }',
+            coordinator,
+        )
 
 
 class ScenePerformanceCounterHubTests(unittest.TestCase):

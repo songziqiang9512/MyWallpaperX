@@ -533,6 +533,10 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             provisionalTails = tails
         }
 
+        // Observation only: splits the post-loop commit path out of
+        // admit-prepare-frame so the remaining loop work can be located.
+        performanceTelemetry?.beginStage("admit-frame-commit")
+        defer { performanceTelemetry?.endStage("admit-frame-commit") }
         guard preparedEvidenceFitsLocked(candidates.map(\.prepared)) else {
             let reason = "execution-evidence-capacity"
             emission = framePreparationFailureLocked(candidates, reason: reason)

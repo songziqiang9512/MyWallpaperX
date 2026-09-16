@@ -93,6 +93,13 @@ extension SceneMetalRenderer {
                 performanceTelemetry: performanceTelemetry
             ) {
             case .ready:
+                // Observation only: splits admit-prepare-frame into the
+                // coordinator's preparation and the provider-output install so
+                // the remaining unattributed share can be located.
+                performanceTelemetry?.beginStage("admit-install-graph-outputs")
+                defer {
+                    performanceTelemetry?.endStage("admit-install-graph-outputs")
+                }
                 guard let preparedOutputs = imageCompositor
                         .preparedResolvedMaterialOutputTexturesByLayerID(),
                       dependencyRuntime.installPreparedGraphOutputs(
