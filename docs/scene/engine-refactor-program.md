@@ -304,6 +304,8 @@ Steam 账号、订阅与下载获取的具体迁移由 [Steam 获取专项](scen
 
 **admit-prepare-frame 进一步分解（同日续）：**加两个纯观测子阶段后，去仪器口径 `admit-prepare-frame` 4.014 ms 拆为 `admit-executor-prepare` 2.024（22 次/帧）、**coordinator 逐层请求循环余项 ≈1.252（21% 帧，下一个单一职责候选）**、`admit-target-pool` 0.456、`admit-frame-commit` 0.277、`admit-install-graph-outputs` **0.005**。最后一项**否证了栈采样给出的约 0.9 ms 估计**，再次说明采样只可用于定位、不可用于占比。循环内的进一步热点在 `prepareMaterialPass` 与 `SceneResolvedMaterialProgramFinalizer.finalize`，但 E1c 禁止跨 commandBuffer 缓存 PreparedGraph／PreparedPass，下一批只能在准备内部减少重复工作。详见[证据](semantics/runtime-evidence-current.md#e-2026-09-16-as1-decoupled-heavy-baseline)。
 
+**循环余项定向与顺序约束（同日续）：**用 `do {}` + defer 包裹循环"executor 之后"区段并加 `admit-commit-readiness` 阶段，实测 **0.028 ms**（该次运行受高负载污染、整体放大 5.4 倍；归一无负载约 0.005 ms，占 `admit-prepare-frame` 0.13%）。**结论：约 1.25 ms 余项几乎全在"executor 之前"的逐层投影**（依赖归属的 `candidates.filter` 分配、`dependencyEffects.map` 的 `first(where:)` 线性扫描、`withDependencyEffect`），属 E1b 范围。该观测包装仅用于证明否定结论，已精确回退。**顺序约束：覆盖该依赖归属路径的模块恰是干净 HEAD 上因过期 harness 失败的 8 个之一，因此必须先完成 E6 harness 修复，再在绿色门禁下做该 region-A 消融。** 详见[证据](semantics/runtime-evidence-current.md#e-2026-09-16-as1-decoupled-heavy-baseline)。
+
 ### 8.4 AS2 — 纹理准备、异步上传与长期采样
 
 **入口／事实：**[SceneImageTextureUploader](../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift)的静态图使用 shared、shaderRead+renderTarget，mipmap 后同步等待；[SceneCompressedTextureUploader](../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneCompressedTextureUploader.swift)的 BC 归一化已使用 private/MPS，但仍同步等待。已有原生 BC、解码缓存和 [SceneTextureUploadCommandQueue](../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift)，不再另建上传系统。

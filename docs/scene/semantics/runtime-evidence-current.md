@@ -56,6 +56,12 @@
 
 新增两个纯观测子阶段（`admit-install-graph-outputs`、`admit-frame-commit`）并用测试锁定标签与 defer 配对。其中 `install` 一项**否证了此前由栈采样得到的约 0.9 ms 估计**（实测 0.005 ms），据此重申：采样只可用于定位热点，不可用于估计占比。**下一个单一职责候选是 coordinator 的逐层请求循环（≈1.252 ms）**——依赖效果投影、`candidates.first(where:)` 线性扫描、`withDependencyEffect` 与 blueprint/commit-readiness 检查。该循环内 `executor.prepare` 的进一步热点由栈采样定位在 `prepareMaterialPass` 与 `SceneResolvedMaterialProgramFinalizer.finalize`；但 E1c 明确要求不跨 commandBuffer 缓存 PreparedGraph／PreparedPass，因此下一批只能在准备内部减少重复工作，不能缓存结果。`SceneResolvedMaterialFramePreflight.swift` 在 HEAD 上已是 912 行的未登记 code-health 错误，本次观测再加 7 行至 919；未抬高 800 上限，也未重构无关债务。
 
+**循环余项的定向（同日续；观测包装已退役）：**为切分该余项，把 coordinator 循环中"executor 之后"的区段（结果解包、`candidateBlueprintLocked`、`candidateIsCommitReadyLocked`、`provisionalCandidateTailsLocked`、candidate 追加）整体包进 `do {}` + defer 并加 `admit-commit-readiness` 阶段（构建 CDHash `1136cf2c66fa20bcb4b535c7e3d54edb6c2180d2`）。测得 **0.028 ms**；该次运行被机器高负载污染（`submitted=1090` 对正常 3810、`cpuP50MS=32.865` 对 5.9、各阶段整体放大约 5.4 倍），但按同一比例归一后约 **0.005 ms**，仅占 `admit-prepare-frame` 的 0.13%。**结论：循环"executor 之后"的 readiness 工作可忽略，约 1.25 ms 余项几乎全部在"executor 之前"的逐层投影**——依赖归属分支中的 `candidates.filter { $0.layerID == … }`（逐层分配新数组）、`request.frameInputs.dependencyEffects.map { … candidates.first(where:) … }`（线性扫描加数组分配）与 `withDependencyEffect`。这正是 E1b「固定 request／command 的静态骨架和整数索引；帧内填参数；复用有界 scratch，消除实测大量复制的字典」的范围。
+
+该 `do {}` 包装只用于证明这一否定结论，**已精确回退**，工作区与 HEAD 一致、循环保持原样；结论由本次运行身份与上述比值固定，不作为阶段遥测长期保留。
+
+**由此产生的执行顺序约束：**实施 region-A 消融需要绿色门禁，但覆盖该依赖归属路径的模块（`test_scene_external_primary_visual_failure_passthrough`、`test_scene_independent_signal_feedback`、`test_scene_preserved_channel_feedback_pair`、`test_scene_preserved_channel_ordered_feedback`、`test_scene_resolved_material_graph_executor`）恰恰在干净 HEAD 上就因内嵌 harness 未同步签名而失败。因此必须**先**完成 E6 的过期 harness 修复，**再**在绿色门禁下做 region-A 单职责消融；不得在没有该路径行为门的情况下改写依赖归属扫描。
+
 <a id="e-2026-09-16-as1-instrument-coupling"></a>
 ### 2026-09-16 AS1 仪器耦合：分阶段遥测与 execution observation 同标志，重 graph 测得帧约一半是仪器
 
