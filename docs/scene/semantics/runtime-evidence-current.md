@@ -22,6 +22,21 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-16-as1-instrument-coupling"></a>
+### 2026-09-16 AS1 仪器耦合：分阶段遥测与 execution observation 同标志，重 graph 测得帧约一半是仪器
+
+**结论：AS1 依赖的分阶段遥测与 `capturesExecutionObservations` 由同一个 `usesDebugEvidenceWindow` 开关控制，而 benchmark 每次运行都传 `--mwx-debug-scene-evidence-dir`，因此 AS1 测得的每一帧都携带完整 execution observation 仪器。在重 graph `2938612768` 上，`compositor-seal` 4.942 ms/帧（占 after 构建 `cpu_frame_p50` 10.343 ms 的 48%）几乎全部由该仪器构成，**不是产品热点**；对它继续归因或优化等于优化测量仪器，按计划记“有证据不实施”。**
+
+**单一决策点：**`SceneDesktopWallpaperHost+FrameDriver.swift:690` 以 `Self.usesDebugEvidenceWindow ? SceneFramePerformanceTelemetry.debugEvidence : nil` 决定是否传入分阶段遥测；同一标志在 `SceneDesktopWallpaperHost+Launch.swift:569 / 785` 作为 `capturesExecutionObservations` 传入协调器。`usesDebugEvidenceWindow` 只在 DEBUG 下等于“启动参数含 `--mwx-debug-scene-evidence-dir`”。`SceneResolvedMaterialSubmissionCoordinator+Completion.swift:265` 的 `guard capturesExecutionObservations else { result[identity] = []; continue }` 因此在该窗口内必然为真。
+
+**仪器在帧内的位置与规模：**`compositor-seal` 阶段含 `mainPass.finishEnsuringClear`、`encodeFrameReadback`、`imageCompositor.endResolvedMaterialFrame`（→ `bridge.sealFrame` → `coordinator.sealFrame` → `successObservationsLocked` → `SceneResolvedMaterialGraphObservationBuilder.make` → `SceneShaderStableDigest.hash` 的 mapping/sequence SHA-256，再构造完整 `SceneGraphExecutionObservation`）、`#if DEBUG reportDynamicLayerRenderEvidence`、`present`、`effectExecutionTelemetry.observeSharedCommandBuffer`、`commit`。对 after 构建的 25 s 栈采样中（调用树内实例的最大计数）：`endResolvedMaterialFrame` 5627、`sealFrame` 5627、`successObservations` 5566、`GraphObservationBuilder` 2670、`SceneGraphExecutionObservation` 1827、`SceneShaderStableDigest` 1153（其中 `mappingSHA256` 793、`sequenceSHA256` 774），而 `finishEnsuringClear` 仅 2、`observeSharedCommandBuffer` 259。采样只捕捉较慢路径，故这些数字用于定位而非精确定占比；但结合阶段遥测可判定该仪器占据 `compositor-seal` 的绝大部分。
+
+**独立佐证（无证据窗口运行）：**不放 `--mwx-debug-scene-evidence-dir`、仅给 `--mwx-debug-scene-root`／`--mwx-debug-scene-duration 100`／`--performance-fps 60`／`--performance-warmup 30` 直接启动同一 after 二进制，仍产出 `phase=ready`（layers=85、effects=62、surfaces=1）、`phase=performance targetFPS=60 warmupSeconds=30.000 elapsed=68.488` 与 `phase=performance-resources samples=70 processCPUTimeMS=34668.559 processCPUTimeStatus=available`，即资源与进程 CPU 采样**不**依赖证据窗口；但 `phase=performance-stages` **零次**（无阶段遥测）。按窗口归一：该运行 34668.559 ms / 68.488 s ≈ 506 ms/s，而含仪器的 after 运行 12.643 ms/帧 × ≈59.99 fps ≈ 759 ms/s，**低约 33%**，方向上独立印证仪器占显著份额。该手动运行的帧率、快照与 surface 驱动方式与 benchmark 不同，故只作方向性佐证，不作数值基线。
+
+**影响与下一步：**①`compositor-seal` 从“下一个未归因首断点”降级为仪器项；产品侧 CPU 首断点需在去仪器口径下重新归因。②目前的 AS1 绝对 CPU 值应标注为“证据窗口 CPU（含仪器）”，不能直接当作产品 CPU；重 graph 上可按 `cpu_frame_p50` 减去 `compositor-seal` 的仪器份额作粗略下界估计（≈5.4 ms/帧），但这不是冻结口径。③可信的产品代表性分阶段基线需要把两个开关解耦：让分阶段遥测跟随性能参数（如 `--mwx-debug-scene-performance-fps` 存在）而不要求 `--mwx-debug-scene-evidence-dir`，并保持 `capturesExecutionObservations` 仍只随证据窗口开启，这样既有门禁与既有期望不变。该解耦是独立可实现的诊断批次，属下一步。
+
+**边界：**①以上都只在重 graph 单样本、单屏 60 FPS 档、`-O` Debug 下测得。②`usesDebugEvidenceWindow` 在非 DEBUG 构建恒为 false，因此发布产物不含该仪器；本条的“仪器成本”只影响 DEBUG 证据窗口内的测量。③手动无窗口运行未验收画面、completion、presentation，也未归档。④30 FPS、混刷双屏、M1、低电量、功耗与 wakeups、30 min 长稳仍未验收。
+
 <a id="e-2026-09-16-e1c-whole-graph-serialization-ablation"></a>
 ### 2026-09-16 E1c 消融：普通帧不再整图序列化（重 graph）
 
