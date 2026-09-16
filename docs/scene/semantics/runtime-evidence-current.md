@@ -22,6 +22,38 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-16-as1-heavy-graph-baseline"></a>
+### 2026-09-16 AS1 重 graph 基线与 matrix 期望差异分类
+
+**结论：`2938612768`（52 可见层／62 effect 描述／44 image／7 utility／dependency graph）在 `-O` 证据构建下取得三次稳定基线，`cpu_frame_p50` 12.85 ms（占 16.67 ms 预算 77%），首要 CPU 成本为 `admit-prepare-frame` 6.43 ms（占 50%），其次 `compositor-seal` 4.90 ms（占 38%）。该样本当前对仓库 matrix 为 NON-PASS（22 条期望不匹配），但性能遥测本身可用。**
+
+**身份与配置：**与 `-O` 简单基线同一签名 App（CDHash `7a564b837a36c819bd52a1d386fb9494dc74a47f`，可执行文件 SHA-256 `49a01d123e5e593862597979e9e1cd070df1b3efcc1b6d4c33ace4d41a80f8b7`），取仓库正式 matrix `script/scene_wallpaper_sample_matrix.json` 成员，project/package SHA-256 为 `224360470a676696a07fc15a620c422126d1653f193d58b089c49b4e1a34f547 / 1f3a74c0241bb8f57c0abdbcded05562e329ebfc6ff47bf762e8b71f4e0326fc`，`--performance-fps 60`、warmup 30 s、elapsed ≈63.5 s。单位除注明外为 ms。
+
+| 指标 | graph1 | graph2 | graph3 | 中位数 |
+|---|---|---|---|---|
+| cpu_frame_p50 | 12.849 | 12.812 | 12.870 | 12.849 |
+| cpu_frame_p95 | 13.266 | 13.308 | 13.303 | 13.303 |
+| admit-prepare-frame p50 | 6.426 | 6.404 | 6.430 | 6.426 |
+| frame-admission p50 | 6.978 | 6.962 | 6.990 | 6.978 |
+| prologue p50 | 7.025 | 7.010 | 7.038 | 7.025 |
+| compositor-seal p50 | 4.899 | 4.891 | 4.910 | 4.899 |
+| layer-loop p50 | 0.838 | 0.830 | 0.839 | 0.838 |
+| gpu_frame_p95 | 10.199 | 7.792 | 10.308 | 10.199 |
+| driver_fps | 59.989 | 59.999 | 59.996 | 59.996 |
+| actual_present_p99 | 16.667 | 16.667 | 16.667 | 16.667 |
+
+**首要成本对照：**简单样本 `1300076567` 由 `prepass` 主导且 `admit-prepare-frame` 仅 0.018 ms；本样本相反，`admit-prepare-frame`（`SceneResolvedMaterialFramePreflight`）占 `cpu_frame_p50` 的 50%，其内部另有 `admit-executor-prepare` 每帧约 22 个嵌套样本（n=83798、p50 0.189 ms），`compositor-seal` 占 38%，`prepass` 不再是首断点。说明 admission/preflight 是重 graph 内容的真实 CPU 首断点，而不是优化等级产物。submitted/completed/failed 三次为 3809/3808/0，`failed_frames=0`，`process_cpu_time_status=available`。
+
+**matrix 期望差异分类（22 条；本批不修改任何期望）：**
+
+- **A. 13 条 `authored effect graph <Family> count mismatch`：**矩阵期望 0，运行时同名字段为 `null`。根因是该期望依赖的 legacy preview-log schema `^authoredEffectGraph<Family>Count: <n>$` **已退役**：当前 Swift 源码不再产出该行（最后触及于 `6b7c3fae refactor(scene): complete unified render chain cleanup`），改用 `effectStageAdmission:`／`effectStageRuntimeDisposition:`／`effectStaticRouteGroup:`／`resolved material execution capability:` 结构化 schema，parser 因此全部取到 `null`。分类为**期待过时（schema 迁移残留）**；纠正需按当前结构化 schema 重建期望并由 Scene admission owner 复核，不得把期望直接改成 `null`/`0` 来“全绿”。
+- **B. 4 条 effect graph 组成差异：**`effect_graph_effect_count` 62→54、`node_count` 92→84、`material_node_count` 92→84、`sha256` `b37712601155bd5c6b588da61be67411cd5b86989ee16b6e642a3a01b0666a77`→`8a06e54b45216c3167cccf09516ee393b7a98548283a912406cfa6238baf4b22`。期望恰好多 8 个 effect 与 8 个 material node。分类为**未裁决**：需 owner 判定这是授权变化（例如按 admission 排除某些 effect）还是组成回退；本批只记录差异与两侧 sha，不改期望，也不宣称回归。
+- **C. 2 条 utility 计划数增长：**`utility_named_target_planned` 2→5、`utility_named_binding_planned` 2→7，后者等于矩阵自身 `expected_utility_named_consumers=7`。分类为**倾向期待过时（覆盖面增长）**，需 named-target owner 复核后重建期望。
+- **D. 2 条 text script binding 缺失：**`text_script_binding_count` 2→0，`required_text_script_binding_layer_ids=[187,1095]` 未产生绑定。分类为**能力缺口（未支持）**，属 SceneScript/text 纵向职责，不在本批修复。
+- **E. 1 条 `resolved_material_graph_succeeded_layer_ids`：**实际 22 层 `[79,165,239,280,299,322,390,454,563,610,626,629,657,760,769,775,875,924,1234,1509,4707,118519]` 是期望 7 层 `[79,165,280,322,390,454,563]` 的超集。分类为**期待过时／覆盖面增长**，需 owner 确认目标集合后重建期望。
+
+**边界：**①该样本的 NON-PASS 属能力期望口径，性能遥测独立可用；不得据此声称 matrix、Suite 或 AS1 PASS。②期望差异与性能结论都不构成官方 parity。③本批未修改任何 matrix 期望，也未修复上述能力缺口。④三次 `submitted/completed` 均为 3809/3808（在途尾帧 1），非发布失败。⑤30 FPS 节能档、混刷双屏、M1 或最低设备、低电量、功耗与 wakeups、30 min 长稳仍未验收。⑥该样本含 91 MiB 作者 preview 资源，本机忽略缓存未固化，运行现场在隔离目录。
+
 <a id="e-2026-09-16-as1-optimization-level"></a>
 ### 2026-09-16 AS1 优化等级对照：未优化 Debug 基线不作产品代表
 
