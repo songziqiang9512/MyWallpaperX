@@ -22,6 +22,23 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-16-heavy-graph-cpu-root-cause"></a>
+### 2026-09-16 重 graph CPU 首断点根因：每帧整图 JSON 序列化
+
+**结论：`2938612768` 在 `-O` 证据构建下的首要 CPU 成本既不是粒子也不是合成，而是 `SceneGraphExecutionState.executionSignatures` 在每帧每一次状态归约中对整张 graph+plan 做两次 JSON 序列化。判别实测：`State.reduce` 每帧 39 次、每次 p50 0.056 ms，其中 `executionSignatures` 每次 p50 0.054 ms，其样本数与 reduce 完全相同（39/帧、148590 次／63.5 s），即慢分支占 **100%**；`compile` + `validateAllocation` 合计仅 0.039 ms/帧。序列化合计 **2.106 ms/帧**，占 `cpu_frame_p50` 13.099 ms 的 **16.1%**。**
+
+**触发根因：**`reusesStaticPlan` 快速路径要求 `!allocationChanged`，而运行日志显示 `allocationGeneration` 对每层每帧单调递增（同一窗口内 15,15,16,16,17,18,18,19…，同期 `effectGeneration=1`、`mappingGeneration=1` 保持稳定）。离屏纹理分配缓存每帧为每层 mint 新代际，于是每帧全部 39 次归约都落入慢分支，即使静态 graph/plan 输入并未改变。
+
+**修复方向与边界：**`executionSignatures(graph:plan:)` 的输出只用于写入新状态、并与上一帧比较以检测 `stateMismatch`；它只依赖 `(graph, targetPlan)`，不包含 allocation 代际。正确方向是 E1c 的「把静态 ABI／graph 证明移到生成边界」，而不是在普通帧持续序列化整图；该修复属独立可实现批次，本批只交付测量与根因，不顺手改。
+
+**方法与身份：**判别插桩为三个纯观测阶段（`executor-state-reduce`／`-recompile`／`-signature`），构建 CDHash `13603a842d049a9b0656513f1b1374ec9f8a36d4`，report SHA-256 `190dbf6395fead8f4832f8565bf68b57f922235e5f51e6ddb3a1aa07c8a2912c`；上一刀（仅 `executor-state-reduce`）构建 CDHash `eb10fee8a197f557aa7c067be88c42c54b75deaa`，report `0e3452865267fa228d5da3c692530eee946903a6c2ded3f796ae4af28907e180`。对同一运行另做 25 s 栈采样，应用侧出现只存在于慢分支的 `SceneGraphExecutionSignatureEnvelope.encode(to:)`、`SceneGraphExecutionPlanSignature.encode(to:)`、`SceneAuthoredEffectRenderPlan.Node/TextureIdentity.encode(to:)` 帧，与阶段遥测一致；采样器的递归计数会放大 JSON 帧，故只用其定性存在性，占比以阶段遥测为准。
+
+**插桩已回退：**`SceneGraphExecutionState.swift` 会被测试 harness 单独编译（`Targets` 层刻意不依赖诊断类型），在其中引入 `SceneFramePerformanceTelemetry` 会使 graph-path harness 编译失败。三处观测插桩因此已精确回退，工作区与 HEAD 一致；判别数据由本条 report SHA-256 固定，不在产品路径留下额外依赖。
+
+**顺带发现的既有门禁债务（非本批引入，已用干净 HEAD 复核）：**对 graph-path 文件运行 inner selector 时，31 个聚焦模块在**干净 HEAD** 上有 **8 个失败、23 个通过**：`test_scene_graph_texture_publication`、`test_scene_animated_material_visual_failure`、`test_scene_external_primary_visual_failure_passthrough`、`test_scene_independent_signal_feedback`、`test_scene_preserved_channel_feedback_pair`、`test_scene_preserved_channel_ordered_feedback`、`test_scene_resolved_material_graph_executor`、`test_scene_resolved_material_fbo_stage_activation`。根因是内嵌 Swift harness 未同步源码签名：`makeMapped(...)` 缺少新增的 `makeInputsDigest`、`Dictionary(uniqueKeysWithValues:)` 泛型 `Key` 无法推断、以及一处表达式类型检查超时。属 E6 的过期 fixture 债务；任何触及该路径的批次必须先处置它才能取得绿色门禁，否则只能以该既有失败基线放行。
+
+**边界：**①16.1% 与 100% 慢分支比例取自隔离目录中的未归档运行，权威记录为 report SHA-256 与本条数值。②该样本对仓库 matrix 仍是既有 22 条期望不匹配的 NON-PASS。③`compositor-seal` 4.99 ms/帧（38%）尚未归因，属独立下一步。④30 FPS 节能档、混刷双屏、M1 或最低设备、低电量、功耗与 wakeups、30 min 长稳仍未验收。
+
 <a id="e-2026-09-16-as1-heavy-graph-baseline"></a>
 ### 2026-09-16 AS1 重 graph 基线与 matrix 期望差异分类
 
