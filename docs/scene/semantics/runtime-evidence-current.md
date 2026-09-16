@@ -8,9 +8,9 @@
 
 > 状态：现役证据入口
 >
-> 最近核对：2026-09-14
+> 最近专项核对：2026-09-16（全量计划审计；未重跑 GPU/样本）。各证据仍以自身日期与构建身份为准。
 >
-> 当前核对分支：`codex/scene-capability-baseline`。本页只回答“哪条能力在什么代码/产品身份下取得过哪一级证据”，不决定开发顺序；唯一执行路线见[Scene兼容执行路线](../scene-compatibility-roadmap.md)。
+> 本次审计分支：`codex/engine-refactor-program`。本页只回答“哪条能力在什么代码/产品身份下取得过哪一级证据”，不决定开发顺序；唯一执行路线见[Scene兼容执行路线](../scene-compatibility-roadmap.md)。旧证据包不因此取得当前构建的有效性。
 >
 > 已完成的R4/R5/B0-B25迁移只作为历史provenance。下方`E-R4-*`、`E-R5-*`包保留精确追溯价值，但不能成为下一批、当前能力或可见完成的依据；历史计划统一从[历史索引](../../history/README.md)进入。
 
@@ -21,6 +21,24 @@
 自本次核对起，`docs/scene/evidence/`只作为仓库忽略的本机证据缓存，不再由Git跟踪。最终运行载荷可先通过`script/promote_scene_evidence.py`提纯并用逐文件manifest固定，再在本文记录输入、App、report/manifest identity、SHA-256和有界结论；权威文档不得链接或依赖该本机目录，缓存缺失时也不能用摘要冒充当前HEAD的fresh复现。`/private/tmp`只承载运行现场、重试和含第三方作者资源的不可提交fixture；本文此前保留的临时路径只作为当时provenance，文件可能已按产物治理清理。
 
 ## 1. 当前证据快照
+
+<a id="e-2026-09-16-corpus-plan-audit"></a>
+
+### E-2026-09-16-CORPUS-PLAN-AUDIT — 全量计划的输入与工具审计（只读事实）
+
+审计基点 `a96cb0eb`，分支 `codex/engine-refactor-program`，开工工作区干净、相对上游 ahead 76。此次只有计划/导航及本审计记录的文档写入，没有产品实现、构建或样本播放；不提升任何 S0–S5 能力等级。
+
+| 核对项 | 本次实际观察 | 证据边界 |
+|---|---|---|
+| 真实样本根 | 只读目录枚举得到 159 个目录，全部 numeric 且含 `project.json`；158 个有 `scene.pkg`，另一个 project 的入口为 `gifscene.json` | 只复核目录/入口，不等于本次全量解包、hash 或解析成功 |
+| 既有 authored 盘点 | 读取 census snapshot 的 summary、validation 和 `occurrence_index.items`，确认已有全量 compact occurrence/参数/字段索引；详细数字及大类仍以[盘点页](scene-corpus-capability-inventory.md)为准 | 本次未执行 census `verify/generate`，不宣称快照内容与当前全部包字节完全一致；其 `snapshot.boundaries` 明确未 join runtime evidence |
+| 既有样本归档/裁决 | archive 生成时间为 2026-09-12；逐样本统计及人工裁决仍以[验收台账](scene-sample-acceptance-ledger.md)为准 | 后续已有定向修复；旧集群、fail/unreviewed 不代表当前 HEAD 的 fresh 结果，不能自动改人工裁决 |
+| full matrix / Fast Suite | 读取机器文件：full matrix 仍为 45 个历史成员，Fast Suite `status=selection-required`，7 个候选 | 身份矩阵尚非全集，候选尚不能当可运行门；没有执行 matrix/Fast Suite |
+| 盘点与证据关联 | `snapshot_payload()` 保存 compact occurrence 的 family、sample、layer/pass/slot/component/property 位置；archive 聚合样本级运行/首断点 | 现有结构可以复用，但不等于已完成每项声明的代码链、场景与执行闭环关联 |
+| 启动入口 | `scene_wallpaper_benchmark.py::run_sample` 使用 `--mwx-debug-scene-root`；`SceneDaemonRuntime.handle(.loadScene)` 调 `host.requestLaunch` | 两类入口需明确区分；本次未证明 DEBUG 捕获与普通 App 启动输出相同，不推断不存在其他可复用采集接口 |
+| 参考材料 | 用户本次确认只有现成截图或视频 | 尚未逐份登记其版本、属性、时间或原始分辨率；没有可用受控 Windows 官方动态采集的证据 |
+
+复核方法为 `git status/log`、`python3.12 -B` 只读目录/JSON 字段检查及相关生成器、daemon、compositor 调用点阅读。未读取官方私有实现或 Mirage 源码；未运行 Ghidra、未获取新官方 golden。此记录只支持[兼容路线](../scene-compatibility-roadmap.md)选择 P0 的前置工作，不宣称新的 corpus 运行/视觉/性能结果。后续修复证据仍按各自精确 anchor 查阅。
 
 <a id="e-2026-09-16-as3-gpu-operation-census"></a>
 ### 2026-09-16 AS3 GPU 操作普查：重 graph 每帧 23 个主 pass、78 个 offscreen pass、0 个 blit 拷贝

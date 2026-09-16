@@ -340,7 +340,7 @@
       "path": "docs/scene/scene-compatibility-roadmap.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
-      "retirementCondition": "样本验收台账中所有真实样本均为 pass 或显式 platform-unsupported，P5 的帧时间基线、长稳与发布门全部通过，旧专用产品 owner 已删除或隔离，并由稳定架构合同、能力台账和专项表接管终态后，将本文转为 historical-evidence。"
+      "retirementCondition": "冻结全集每个样本完成声明与条件场景覆盖、真实显示/动态/参数人工验收和固定官方一致性对照，P5 通过，旧 owner 撤权，unknown/unsupported 未被计作完成，稳定架构、能力与证据权威接管终态后转 historical-evidence；范围缩减须另有明确裁决。"
     },
     {
       "path": "docs/scene/scene-open-breakpoint-queue-2026-09-09.md",
