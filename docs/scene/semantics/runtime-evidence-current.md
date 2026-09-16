@@ -33,7 +33,20 @@
 
 **独立佐证（无证据窗口运行）：**不放 `--mwx-debug-scene-evidence-dir`、仅给 `--mwx-debug-scene-root`／`--mwx-debug-scene-duration 100`／`--performance-fps 60`／`--performance-warmup 30` 直接启动同一 after 二进制，仍产出 `phase=ready`（layers=85、effects=62、surfaces=1）、`phase=performance targetFPS=60 warmupSeconds=30.000 elapsed=68.488` 与 `phase=performance-resources samples=70 processCPUTimeMS=34668.559 processCPUTimeStatus=available`，即资源与进程 CPU 采样**不**依赖证据窗口；但 `phase=performance-stages` **零次**（无阶段遥测）。按窗口归一：该运行 34668.559 ms / 68.488 s ≈ 506 ms/s，而含仪器的 after 运行 12.643 ms/帧 × ≈59.99 fps ≈ 759 ms/s，**低约 33%**，方向上独立印证仪器占显著份额。该手动运行的帧率、快照与 surface 驱动方式与 benchmark 不同，故只作方向性佐证，不作数值基线。
 
-**影响与下一步：**①`compositor-seal` 从“下一个未归因首断点”降级为仪器项；产品侧 CPU 首断点需在去仪器口径下重新归因。②目前的 AS1 绝对 CPU 值应标注为“证据窗口 CPU（含仪器）”，不能直接当作产品 CPU；重 graph 上可按 `cpu_frame_p50` 减去 `compositor-seal` 的仪器份额作粗略下界估计（≈5.4 ms/帧），但这不是冻结口径。③可信的产品代表性分阶段基线需要把两个开关解耦：让分阶段遥测跟随性能参数（如 `--mwx-debug-scene-performance-fps` 存在）而不要求 `--mwx-debug-scene-evidence-dir`，并保持 `capturesExecutionObservations` 仍只随证据窗口开启，这样既有门禁与既有期望不变。该解耦是独立可实现的诊断批次，属下一步。
+**解耦已实施并量化（同日续，提交 `a8a6eae9`）：**新增 `usesExecutionObservationCapture`——仍严格 opt-in 于 debug 证据窗口，另可被 `--mwx-debug-scene-no-execution-observations` 关闭，非 DEBUG 构建恒 false；两处启动调用点改用它，策略测试由"断言单一表达式"改为"断言该推导（证据窗口 AND opt-out）"，意图不变且更严格。同一手动启动方式、同样本、30 s warmup 与 63.5 s 窗口的 A/B：
+
+| 指标 | 带仪器 | 去仪器 run1 / run2 |
+|---|---|---|
+| `compositor-seal` p50 | 4.992 ms | **0.241 / 0.232 ms** |
+| `frame-admission` p50 | 4.414 ms | 4.586 / 4.610 ms |
+| `admit-prepare-frame` p50 | 3.875 ms | 3.972 / 3.994 ms |
+| `admit-executor-prepare` p50 | 0.095 ms | 0.092 / 0.093 ms |
+| 进程 CPU（窗口） | 48023.485 ms | **31992.766 / 32020.989 ms（−33.4%）** |
+| GPU allocated | 988.6 MiB | 988.6 MiB |
+
+带仪器对照复现 benchmark 数值（`compositor-seal` 4.942 对 4.992、`admit-prepare-frame` 3.826 对 3.875），说明该手动口径有效；被移除的正是仪器，其余阶段不受影响。据此重 graph 的产品代表性 `compositor-seal` 约 0.24 ms/帧，此前 4.94 ms 中约 4.75 ms 是仪器。
+
+**影响与下一步：**①`compositor-seal` 从“下一个未归因首断点”降级为仪器项；产品侧 CPU 首断点需在去仪器口径下重新归因。②现有 AS1 绝对 CPU 值应标注为“证据窗口 CPU（含仪器）”；去仪器口径下重 graph 的进程 CPU 约 32.0 s/63.5 s（≈8.4 ms/帧），而含仪器约 48.0 s（≈12.6 ms/帧）。③`--mwx-debug-scene-no-execution-observations` 目前只能手动传入；benchmark 尚未提供该模式，接线时须注意 observation 派生的证据字段（如 `resolved_material_graph_execution`）会随之缺失并新增期望不匹配，因此需要显式的 performance-only 模式而不是让既有证据运行静默降级。该接线是下一步。
 
 **边界：**①以上都只在重 graph 单样本、单屏 60 FPS 档、`-O` Debug 下测得。②`usesDebugEvidenceWindow` 在非 DEBUG 构建恒为 false，因此发布产物不含该仪器；本条的“仪器成本”只影响 DEBUG 证据窗口内的测量。③手动无窗口运行未验收画面、completion、presentation，也未归档。④30 FPS、混刷双屏、M1、低电量、功耗与 wakeups、30 min 长稳仍未验收。
 
