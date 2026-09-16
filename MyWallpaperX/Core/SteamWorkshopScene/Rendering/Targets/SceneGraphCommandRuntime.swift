@@ -93,6 +93,7 @@ struct SceneGraphCommandRuntime {
                 destinationLevel: 0,
                 destinationOrigin: .init(x: 0, y: 0, z: 0)
             )
+            SceneGPUCensus.recordTextureCopy(texture: source)
             encoder.endEncoding()
         case .swap:
             texturesByIdentity[command.source] = target

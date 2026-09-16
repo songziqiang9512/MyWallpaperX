@@ -33,6 +33,53 @@ enum ScenePerformanceMetric: Int, CaseIterable, Sendable {
     case prepassMicros
     case layerLoopMicros
     case compositorSealMicros
+    // Frame-path GPU operation census. These count encoded work — pass
+    // creations and whole-texture copies — so a composition change can be
+    // aimed at a named operation and then judged by GPU time. They are counts,
+    // never durations: no CPU-side bookkeeping can attribute GPU time to a
+    // pass, and none of these values may be read as one.
+    // `mainPassRenderPasses` includes the `depthRenderPasses` subset;
+    // `textureCopyBytes` includes `framebufferCaptureBytes`.
+    case mainPassRenderPasses
+    case depthRenderPasses
+    case offscreenRenderPasses
+    case textureCopyPasses
+    case framebufferCaptures
+    case framebufferCaptureBytes
+    case graphOutputPublicationCopies
+    case textureCopyBytes
+    /// Copies whose pixel format has no known bytes-per-pixel. They are counted
+    /// rather than guessed, so a byte total is never silently understated.
+    case unmeasuredCopyPasses
+    // Offscreen pass categories. They partition `offscreenRenderPasses`, which
+    // is what makes a redundant clear/capture pass visible as a named cost
+    // instead of one opaque total.
+    case resolvedMaterialRenderPasses
+    case graphResourceSourceCaptures
+    case graphResourceInitializations
+    case offscreenEffectCaptures
+}
+
+/// Why an offscreen render pass was encoded. Every case must feed exactly one
+/// category counter so the categories stay a partition of the offscreen total.
+enum SceneOffscreenPassKind: Sendable {
+    case resolvedMaterial
+    case graphResourceSourceCapture
+    case graphResourceInitialization
+    case offscreenEffectCapture
+
+    var metric: ScenePerformanceMetric {
+        switch self {
+        case .resolvedMaterial:
+            return .resolvedMaterialRenderPasses
+        case .graphResourceSourceCapture:
+            return .graphResourceSourceCaptures
+        case .graphResourceInitialization:
+            return .graphResourceInitializations
+        case .offscreenEffectCapture:
+            return .offscreenEffectCaptures
+        }
+    }
 }
 
 /// Scene launch phases with first-occurrence uptime timestamps. Capacity is
@@ -83,6 +130,68 @@ nonisolated final class ScenePerformanceCounterHub: @unchecked Sendable {
                 counters[ScenePerformanceMetric.geometryDrawCalls.rawValue] &+= 1
             }
         }
+    }
+
+    /// Records one created main composite pass. Each creation is one pass split,
+    /// so this is the pass-merge target for AS3; `usesDepth` marks a pass that
+    /// carries a depth attachment and therefore a depth load/store.
+    func recordMainPassRender(usesDepth: Bool) {
+        withLock {
+            counters[ScenePerformanceMetric.mainPassRenderPasses.rawValue] &+= 1
+            if usesDepth {
+                counters[ScenePerformanceMetric.depthRenderPasses.rawValue] &+= 1
+            }
+        }
+    }
+
+    /// An offscreen render pass: resolved material passes, graph resource
+    /// captures/initializations, and offscreen effect captures.
+    func recordOffscreenRender(_ kind: SceneOffscreenPassKind) {
+        withLock {
+            counters[ScenePerformanceMetric.offscreenRenderPasses.rawValue] &+= 1
+            counters[kind.metric.rawValue] &+= 1
+        }
+    }
+
+    /// Records one whole-texture copy pass and the bytes it moves. A `nil`
+    /// byte count means the pixel format has no known bytes-per-pixel; the
+    /// pass is counted as unmeasured instead of contributing a guessed size.
+    func recordTextureCopy(byteCount: Int?) {
+        withLock { recordCopyLocked(byteCount: byteCount) }
+    }
+
+    /// Records one full-frame framebuffer snapshot and its byte volume. This is
+    /// the operation AS3 removes first when it has no consumer, so it is kept
+    /// separate from ordinary exact copies.
+    func recordFramebufferCapture(byteCount: Int?) {
+        withLock {
+            recordCopyLocked(byteCount: byteCount)
+            counters[ScenePerformanceMetric.framebufferCaptures.rawValue] &+= 1
+            if let byteCount {
+                counters[ScenePerformanceMetric.framebufferCaptureBytes.rawValue] &+= UInt64(
+                    max(byteCount, 0)
+                )
+            }
+        }
+    }
+
+    /// Records one named-graph-output publication copy and its byte volume.
+    func recordGraphOutputPublication(byteCount: Int?) {
+        withLock {
+            recordCopyLocked(byteCount: byteCount)
+            counters[ScenePerformanceMetric.graphOutputPublicationCopies.rawValue] &+= 1
+        }
+    }
+
+    private func recordCopyLocked(byteCount: Int?) {
+        counters[ScenePerformanceMetric.textureCopyPasses.rawValue] &+= 1
+        guard let byteCount else {
+            counters[ScenePerformanceMetric.unmeasuredCopyPasses.rawValue] &+= 1
+            return
+        }
+        counters[ScenePerformanceMetric.textureCopyBytes.rawValue] &+= UInt64(
+            max(byteCount, 0)
+        )
     }
 
     func snapshot() -> [ScenePerformanceMetric: UInt64] {

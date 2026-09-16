@@ -795,6 +795,14 @@ class SceneGraphResourcePassEncoderTests(unittest.TestCase):
                     "swiftc",
                     "-parse-as-library",
                     str(support),
+                    str(
+                        REPOSITORY_ROOT
+                        / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift"
+                    ),
+                    str(
+                        REPOSITORY_ROOT
+                        / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift"
+                    ),
                     str(ENCODER_SOURCE),
                     str(harness),
                     "-framework",

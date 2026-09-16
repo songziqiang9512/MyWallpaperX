@@ -755,16 +755,13 @@ final class SceneDependencyFrameRuntime {
             sourceSlice: 0,
             sourceLevel: 0,
             sourceOrigin: .init(x: 0, y: 0, z: 0),
-            sourceSize: .init(
-                width: texture.width,
-                height: texture.height,
-                depth: 1
-            ),
+            sourceSize: .init(width: texture.width, height: texture.height, depth: 1),
             to: reservation.texture,
             destinationSlice: 0,
             destinationLevel: 0,
             destinationOrigin: .init(x: 0, y: 0, z: 0)
         )
+        SceneGPUCensus.recordGraphOutputPublication(texture: texture)
         blit.endEncoding()
         let reference = SceneNamedTextureReference(
             providerLayerID: layerID,

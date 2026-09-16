@@ -2255,6 +2255,111 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertAlmostEqual(two_surface["completed_fps_per_surface"], 29.9285)
         self.assertEqual(benchmark.performance_failures(metrics), [])
 
+    def test_performance_gpu_census_is_optional_but_strict_when_present(self) -> None:
+        census_line = (
+            "phase=performance-gpu frames=60 mainPassRenders=180 "
+            "depthRenders=12 offscreenRenders=240 resolvedMaterialRenders=96 "
+            "graphResourceSourceCaptures=72 graphResourceInitializations=48 "
+            "offscreenEffectCaptures=24 textureCopyPasses=40 "
+            "framebufferCaptures=6 framebufferCaptureBytes=49766400 "
+            "graphOutputPublicationCopies=4 textureCopyBytes=82944000 "
+            "unmeasuredCopyPasses=0"
+        )
+        # 旧日志没有普查行：保持可解析，不因新增观测让既有证据失效。
+        self.assertIsNone(benchmark.performance_gpu_census_metrics(""))
+        census = benchmark.performance_gpu_census_metrics(census_line)
+        self.assertTrue(census["available"])
+        self.assertEqual(census["frames"], 60)
+        self.assertEqual(census["main_pass_render_passes"], 180)
+        self.assertEqual(census["depth_render_passes"], 12)
+        self.assertEqual(census["offscreen_render_passes"], 240)
+        self.assertEqual(census["resolved_material_render_passes"], 96)
+        self.assertEqual(census["graph_resource_source_captures"], 72)
+        self.assertEqual(census["graph_resource_initializations"], 48)
+        self.assertEqual(census["offscreen_effect_captures"], 24)
+        self.assertEqual(census["texture_copy_passes"], 40)
+        self.assertEqual(census["framebuffer_captures"], 6)
+        self.assertEqual(census["framebuffer_capture_bytes"], 49_766_400)
+        self.assertEqual(census["graph_output_publication_copies"], 4)
+        self.assertEqual(census["texture_copy_bytes"], 82_944_000)
+        self.assertEqual(census["unmeasured_copy_passes"], 0)
+        self.assertAlmostEqual(
+            census["per_frame"]["main_pass_render_passes"], 3.0
+        )
+        self.assertAlmostEqual(census["per_frame"]["framebuffer_captures"], 0.1)
+        self.assertNotIn("frames", census["per_frame"])
+        # 行存在但缺字段、重复、零帧或内部矛盾时，性能证据必须整体失败。
+        missing = census_line.replace(" depthRenders=12", "", 1)
+        self.assertIn(
+            "missing performance gpu census fields",
+            benchmark.performance_gpu_census_metrics(missing)["error"],
+        )
+        duplicate = census_line.replace("frames=60", "frames=60 frames=60", 1)
+        self.assertIn(
+            "duplicate performance gpu census field",
+            benchmark.performance_gpu_census_metrics(duplicate)["error"],
+        )
+        zero_frames = census_line.replace("frames=60", "frames=0", 1)
+        self.assertIn(
+            "frames must be positive",
+            benchmark.performance_gpu_census_metrics(zero_frames)["error"],
+        )
+        inconsistent = census_line.replace("depthRenders=12", "depthRenders=999", 1)
+        self.assertIn(
+            "exceeds",
+            benchmark.performance_gpu_census_metrics(inconsistent)["error"],
+        )
+        # 四个 offscreen 类别必须恰好分割 offscreen 总数，否则说明有编码点漏分类。
+        unpartitioned = census_line.replace(
+            "offscreenEffectCaptures=24", "offscreenEffectCaptures=23", 1
+        )
+        self.assertIn(
+            "do not partition offscreen renders",
+            benchmark.performance_gpu_census_metrics(unpartitioned)["error"],
+        )
+        self.assertIn(
+            "expected one performance gpu census event",
+            benchmark.performance_gpu_census_metrics(
+                census_line + "\n" + census_line
+            )["error"],
+        )
+        # 普查行不能被当成 phase=performance 或 stage 事件。
+        metrics = benchmark.performance_metrics(census_line, 1)
+        self.assertIn("expected one performance event", metrics["error"])
+        valid_log = (
+            "phase=performance targetFPS=60 warmupSeconds=30 elapsed=1 "
+            "callbacks=60 submitted=60 "
+            "completed=60 failed=0 submittedFPS=60 completedFPS=60 presented=60 "
+            "presentStreams=1 presentIntervals=59 presentP50MS=16 presentP95MS=17 "
+            "presentP99MS=18 presentMaxMS=20 presentOver1_5Budget=0 "
+            "callbackP50MS=16 callbackP95MS=17 callbackMaxMS=18 callbackOver16=1 "
+            "callbackOver33=0 discontinuities=0 droppedMS=0 maxRawFrameMS=18 "
+            "drawableMissed=0 drawableWaitP95MS=0 drawableWaitMaxMS=0 "
+            "preEncodeP95MS=1 preEncodeMaxMS=1 mainFrameP95MS=2 mainFrameMaxMS=2 "
+            "cpuP50MS=1 cpuP95MS=1 cpuMaxMS=1 cpuOver16=0 cpuOver33=0 "
+            "gpuSamples=60 gpuP50MS=1 gpuP95MS=1 gpuMaxMS=1 gpuOver16=0 gpuOver33=0\n"
+            "phase=performance-stages layer-loop=p50:1ms p95:2ms n:60\n"
+            "phase=performance-resources samples=2 processSamples=2 "
+            "processFootprintSampledPeakBytes=100 processCPUTimeMS=200 "
+            "processCPUTimeStatus=available "
+            "gpuAllocatedSampledPeakBytes=300 renderTargetPoolSampledPeakBytes=400"
+        )
+        without_census = benchmark.performance_metrics(valid_log, 1)
+        self.assertTrue(without_census["available"])
+        self.assertNotIn("gpu_census", without_census)
+        with_census = benchmark.performance_metrics(
+            valid_log + "\n" + census_line, 1
+        )
+        self.assertTrue(with_census["available"])
+        self.assertEqual(
+            with_census["gpu_census"]["graph_output_publication_copies"], 4
+        )
+        broken_census = benchmark.performance_metrics(
+            valid_log + "\n" + zero_frames, 1
+        )
+        self.assertFalse(broken_census["available"])
+        self.assertIn("performance gpu census unavailable", broken_census["error"])
+
     def test_performance_metrics_fail_closed_on_missing_or_malformed_evidence(self) -> None:
         self.assertIn(
             "expected one performance event",

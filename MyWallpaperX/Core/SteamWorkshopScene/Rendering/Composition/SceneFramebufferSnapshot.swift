@@ -48,6 +48,7 @@ final class SceneFramebufferSnapshot {
             destinationLevel: 0,
             destinationOrigin: .init(x: 0, y: 0, z: 0)
         )
+        SceneGPUCensus.recordFramebufferCapture(texture: target)
         encoder.endEncoding()
         return destination
     }

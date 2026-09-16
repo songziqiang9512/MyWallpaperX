@@ -233,6 +233,7 @@ final class SceneResolvedMaterialPassEncoder {
             return false
         }
         encoder.label = "Scene resolved material pass"
+        SceneGPUCensus.recordOffscreenRender(.resolvedMaterial)
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
         encoder.setRenderPipelineState(pass.pipeline)
         encoder.setCullMode(.none)

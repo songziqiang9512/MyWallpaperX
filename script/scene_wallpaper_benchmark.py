@@ -87,6 +87,38 @@ PERFORMANCE_FRAME_STAGES_LINE_RE = re.compile(
 PERFORMANCE_RESOURCES_LINE_RE = re.compile(
     r"phase=performance-resources (?P<fields>[^\r\n]+)"
 )
+PERFORMANCE_GPU_LINE_RE = re.compile(
+    r"phase=performance-gpu (?P<fields>[^\r\n]+)"
+)
+# Window-scoped GPU operation census: counts of encoded passes and
+# whole-texture copies. Deliberately has no duration field — Metal exposes
+# per-command-buffer GPU time only, so these counts aim a composition change and
+# the GPU number above judges it.
+PERFORMANCE_GPU_CENSUS_FIELDS: dict[str, str] = {
+    "frames": "frames",
+    "mainPassRenders": "main_pass_render_passes",
+    "depthRenders": "depth_render_passes",
+    "offscreenRenders": "offscreen_render_passes",
+    "resolvedMaterialRenders": "resolved_material_render_passes",
+    "graphResourceSourceCaptures": "graph_resource_source_captures",
+    "graphResourceInitializations": "graph_resource_initializations",
+    "offscreenEffectCaptures": "offscreen_effect_captures",
+    "textureCopyPasses": "texture_copy_passes",
+    "framebufferCaptures": "framebuffer_captures",
+    "framebufferCaptureBytes": "framebuffer_capture_bytes",
+    "graphOutputPublicationCopies": "graph_output_publication_copies",
+    "textureCopyBytes": "texture_copy_bytes",
+    "unmeasuredCopyPasses": "unmeasured_copy_passes",
+}
+# The four offscreen categories must partition `offscreen_render_passes`; a
+# mismatch means either a new encoder site was not classified or a counter was
+# double-counted, and the census cannot be trusted for attribution.
+PERFORMANCE_GPU_OFFSCREEN_CATEGORIES = (
+    "resolved_material_render_passes",
+    "graph_resource_source_captures",
+    "graph_resource_initializations",
+    "offscreen_effect_captures",
+)
 PERFORMANCE_STAGE_RE = re.compile(
     rf"(?P<name>[a-z0-9]+(?:-[a-z0-9]+)*)="
     rf"p50:(?P<p50>{FLOAT_PATTERN})ms "
@@ -838,6 +870,99 @@ def performance_frame_stage_metrics(log_text: str) -> dict[str, Any] | None:
     )
 
 
+def performance_gpu_census_metrics(log_text: str) -> dict[str, Any] | None:
+    """Window-scoped GPU operation census.
+
+    Counts encoded passes and whole-texture copies so a composition change can
+    name the operation it removes. Returns None for logs that predate the census
+    so older evidence stays parseable; once the line is present it is validated
+    strictly and every failure makes the whole performance evidence unavailable.
+    """
+    matches = list(PERFORMANCE_GPU_LINE_RE.finditer(log_text))
+    if not matches:
+        return None
+    if len(matches) != 1:
+        return {
+            "available": False,
+            "error": f"expected one performance gpu census event, found {len(matches)}",
+        }
+
+    raw_fields: dict[str, str] = {}
+    for token in matches[0].group("fields").split():
+        if token.count("=") != 1:
+            return {
+                "available": False,
+                "error": f"invalid performance gpu census token: {token}",
+            }
+        key, value = token.split("=", 1)
+        if not key or not value:
+            return {
+                "available": False,
+                "error": f"invalid performance gpu census token: {token}",
+            }
+        if key in raw_fields:
+            return {
+                "available": False,
+                "error": f"duplicate performance gpu census field: {key}",
+            }
+        raw_fields[key] = value
+
+    missing = sorted(set(PERFORMANCE_GPU_CENSUS_FIELDS) - raw_fields.keys())
+    if missing:
+        return {
+            "available": False,
+            "error": "missing performance gpu census fields: " + ", ".join(missing),
+        }
+
+    metrics: dict[str, Any] = {"available": True}
+    try:
+        for source, destination in PERFORMANCE_GPU_CENSUS_FIELDS.items():
+            value = int(raw_fields[source])
+            if value < 0:
+                raise ValueError(f"negative performance gpu census field: {source}")
+            metrics[destination] = value
+    except ValueError as error:
+        return {"available": False, "error": str(error)}
+
+    frames = metrics["frames"]
+    if frames <= 0:
+        return {
+            "available": False,
+            "error": "performance gpu census frames must be positive",
+        }
+    subsets = (
+        ("depth_render_passes", "main_pass_render_passes"),
+        ("framebuffer_captures", "texture_copy_passes"),
+        ("graph_output_publication_copies", "texture_copy_passes"),
+        ("unmeasured_copy_passes", "texture_copy_passes"),
+        ("framebuffer_capture_bytes", "texture_copy_bytes"),
+    )
+    for subset, superset in subsets:
+        if metrics[subset] > metrics[superset]:
+            return {
+                "available": False,
+                "error": f"performance gpu census {subset} exceeds {superset}",
+            }
+    offscreen_categories = sum(
+        metrics[name] for name in PERFORMANCE_GPU_OFFSCREEN_CATEGORIES
+    )
+    if offscreen_categories != metrics["offscreen_render_passes"]:
+        return {
+            "available": False,
+            "error": (
+                "performance gpu census offscreen categories do not partition "
+                f"offscreen renders: {offscreen_categories} != "
+                f"{metrics['offscreen_render_passes']}"
+            ),
+        }
+    metrics["per_frame"] = {
+        destination: metrics[destination] / frames
+        for destination in PERFORMANCE_GPU_CENSUS_FIELDS.values()
+        if destination != "frames"
+    }
+    return metrics
+
+
 def performance_resource_metrics(log_text: str) -> dict[str, Any]:
     matches = list(PERFORMANCE_RESOURCES_LINE_RE.finditer(log_text))
     if len(matches) != 1:
@@ -1040,6 +1165,15 @@ def performance_metrics(log_text: str, surface_count: int | None) -> dict[str, A
             "error": "performance resource sample density is below one hertz",
         }
     metrics["resources"] = resource_metrics
+    gpu_census = performance_gpu_census_metrics(log_text)
+    if gpu_census is not None:
+        if gpu_census.get("available") is not True:
+            return {
+                "available": False,
+                "error": "performance gpu census unavailable: "
+                + str(gpu_census.get("error", "unknown error")),
+            }
+        metrics["gpu_census"] = gpu_census
     steady_state_reasons = []
     if metrics["measurement_warmup_seconds"] < 30:
         steady_state_reasons.append("measurement warmup is below 30 seconds")

@@ -11,7 +11,13 @@ enum SceneOffscreenEffectRenderer {
         descriptor.colorAttachments[0].loadAction = .clear
         descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
         descriptor.colorAttachments[0].storeAction = .store
-        return commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(
+            descriptor: descriptor
+        ) else {
+            return nil
+        }
+        SceneGPUCensus.recordOffscreenRender(.offscreenEffectCapture)
+        return encoder
     }
 
     static func captureSource(

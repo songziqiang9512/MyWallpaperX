@@ -177,6 +177,7 @@ final class SceneGraphResourcePassEncoder {
             return false
         }
         encoder.label = "Scene graph source capture"
+        SceneGPUCensus.recordOffscreenRender(.graphResourceSourceCapture)
         pipeline.bind(encoder: encoder)
         pipeline.drawLayer(
             texture: source,
@@ -213,6 +214,7 @@ final class SceneGraphResourcePassEncoder {
             return false
         }
         encoder.label = "Scene graph resource initialization"
+        SceneGPUCensus.recordOffscreenRender(.graphResourceInitialization)
         encoder.endEncoding()
         return true
     }
@@ -226,6 +228,7 @@ final class SceneGraphResourcePassEncoder {
             return false
         }
         encoder.label = "Scene graph exact resource copy"
+        SceneGPUCensus.recordTextureCopy(texture: source)
         encoder.copy(
             from: source,
             sourceSlice: 0,

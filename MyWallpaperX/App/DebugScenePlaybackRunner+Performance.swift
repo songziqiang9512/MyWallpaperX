@@ -12,10 +12,22 @@ extension DebugScenePlaybackRunner {
         let processCPUTimeStatus: String
         let gpuAllocatedSampledPeakBytes: UInt64
         let renderTargetPoolSampledPeakBytes: UInt64
+        let gpuCensus: [ScenePerformanceMetric: UInt64]
     }
 
     @MainActor
     private final class PerformanceResourceCollector {
+        /// Census metrics read from the always-on hub. The collector diffs the
+        /// hub across the measurement window so the emitted figures describe
+        /// this window only, not process lifetime.
+        private static let gpuCensusMetrics: [ScenePerformanceMetric] = [
+            .mainPassRenderPasses, .depthRenderPasses, .offscreenRenderPasses,
+            .resolvedMaterialRenderPasses, .graphResourceSourceCaptures,
+            .graphResourceInitializations, .offscreenEffectCaptures,
+            .textureCopyPasses, .framebufferCaptures, .framebufferCaptureBytes,
+            .graphOutputPublicationCopies, .textureCopyBytes, .unmeasuredCopyPasses,
+        ]
+
         private var isActive = false
         private var sampleTimer: DispatchSourceTimer?
         private var sampleCount = 0
@@ -26,9 +38,11 @@ extension DebugScenePlaybackRunner {
         private var processFootprintSampledPeakBytes: UInt64 = 0
         private var gpuAllocatedSampledPeakBytes: UInt64 = 0
         private var renderTargetPoolSampledPeakBytes: UInt64 = 0
+        private var gpuCensusBaseline: [ScenePerformanceMetric: UInt64] = [:]
 
         func start() {
             isActive = true
+            gpuCensusBaseline = ScenePerformanceCounterHub.shared.snapshot()
             recordSample()
             let timer = DispatchSource.makeTimerSource(queue: .main)
             timer.schedule(
@@ -57,8 +71,21 @@ extension DebugScenePlaybackRunner {
                 processCPUTimeMilliseconds: cpuTime.milliseconds,
                 processCPUTimeStatus: cpuTime.status,
                 gpuAllocatedSampledPeakBytes: gpuAllocatedSampledPeakBytes,
-                renderTargetPoolSampledPeakBytes: renderTargetPoolSampledPeakBytes
+                renderTargetPoolSampledPeakBytes: renderTargetPoolSampledPeakBytes,
+                gpuCensus: gpuCensusDeltas()
             )
+        }
+
+        /// Window-scoped census: current hub totals minus the window-start
+        /// snapshot. A counter that regressed (reset elsewhere) reports zero
+        /// rather than a wrapped value.
+        private func gpuCensusDeltas() -> [ScenePerformanceMetric: UInt64] {
+            let now = ScenePerformanceCounterHub.shared.snapshot()
+            return Self.gpuCensusMetrics.reduce(into: [:]) { result, metric in
+                let current = now[metric] ?? 0
+                let baseline = gpuCensusBaseline[metric] ?? 0
+                result[metric] = current >= baseline ? current - baseline : 0
+            }
         }
 
         private func recordSample() {
@@ -267,6 +294,30 @@ extension DebugScenePlaybackRunner {
                 resources.processCPUTimeStatus as NSString,
                 resources.gpuAllocatedSampledPeakBytes,
                 resources.renderTargetPoolSampledPeakBytes
+            )
+            // GPU operation census for this window. Counts of encoded work only:
+            // pass splits and whole-texture copies that AS3 can aim at, then
+            // judge by the GPU number above. Never a per-pass duration.
+            let census = resources.gpuCensus
+            func censusCount(_ metric: ScenePerformanceMetric) -> UInt64 {
+                census[metric] ?? 0
+            }
+            NSLog(
+                "MWX DEBUG SCENE: phase=performance-gpu frames=%d mainPassRenders=%llu depthRenders=%llu offscreenRenders=%llu resolvedMaterialRenders=%llu graphResourceSourceCaptures=%llu graphResourceInitializations=%llu offscreenEffectCaptures=%llu textureCopyPasses=%llu framebufferCaptures=%llu framebufferCaptureBytes=%llu graphOutputPublicationCopies=%llu textureCopyBytes=%llu unmeasuredCopyPasses=%llu",
+                value.submitted,
+                censusCount(.mainPassRenderPasses),
+                censusCount(.depthRenderPasses),
+                censusCount(.offscreenRenderPasses),
+                censusCount(.resolvedMaterialRenderPasses),
+                censusCount(.graphResourceSourceCaptures),
+                censusCount(.graphResourceInitializations),
+                censusCount(.offscreenEffectCaptures),
+                censusCount(.textureCopyPasses),
+                censusCount(.framebufferCaptures),
+                censusCount(.framebufferCaptureBytes),
+                censusCount(.graphOutputPublicationCopies),
+                censusCount(.textureCopyBytes),
+                censusCount(.unmeasuredCopyPasses)
             )
         }
     }

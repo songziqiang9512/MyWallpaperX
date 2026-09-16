@@ -1266,6 +1266,14 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     str(AGGREGATE_VALIDATION_RUNTIME_SOURCE),
                     str(GEOMETRY_RUNTIME_SOURCE),
                     str(STATIC_MODEL_RUNTIME_SOURCE),
+                    str(
+                        REPOSITORY_ROOT
+                        / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift"
+                    ),
+                    str(
+                        REPOSITORY_ROOT
+                        / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift"
+                    ),
                     str(harness),
                     "-framework",
                     "Metal",

@@ -27,6 +27,7 @@ AUTHORED_SHADER_FRONTEND_SOURCES = scene_swift_sources(
 COLOR_CARRIER_ANALYZER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderIndependentSignalColorCarrierCompositingAnalyzer.swift"
 SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
     *AUTHORED_SHADER_FRONTEND_SOURCES,
     *(
         []

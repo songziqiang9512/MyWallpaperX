@@ -63,6 +63,38 @@ SUBMISSION_COORDINATOR_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift"
 )
+GPU_CENSUS_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift"
+)
+MAIN_PASS_ENCODER_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneMainPassEncoder.swift"
+)
+GRAPH_RESOURCE_PASS_ENCODER_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneGraphResourcePassEncoder.swift"
+)
+MATERIAL_PASS_ENCODER_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift"
+)
+OFFSCREEN_EFFECT_ENCODER_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift"
+)
+FRAMEBUFFER_SNAPSHOT_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneFramebufferSnapshot.swift"
+)
+DEPENDENCY_FRAME_RUNTIME_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime.swift"
+)
+GRAPH_COMMAND_RUNTIME_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphCommandRuntime.swift"
+)
 
 HARNESS = r'''
 import Foundation
@@ -172,6 +204,17 @@ enum CounterHarness {
         hub.bump(.fallbackBranches)
         hub.set(.gpuAllocatedBytes, 123_456)
         hub.set(.renderTargetPoolBytes, 65_432)
+        hub.recordMainPassRender(usesDepth: false)
+        hub.recordMainPassRender(usesDepth: true)
+        hub.recordOffscreenRender(.resolvedMaterial)
+        hub.recordOffscreenRender(.resolvedMaterial)
+        hub.recordOffscreenRender(.graphResourceSourceCapture)
+        hub.recordOffscreenRender(.graphResourceInitialization)
+        hub.recordOffscreenRender(.offscreenEffectCapture)
+        hub.recordFramebufferCapture(byteCount: 8_294_400)
+        hub.recordGraphOutputPublication(byteCount: 4_147_200)
+        hub.recordTextureCopy(byteCount: 2_073_600)
+        hub.recordTextureCopy(byteCount: nil)
         let snapshot = hub.snapshot()
         let payload: [String: UInt64] = [
             "slots": UInt64(snapshot.count),
@@ -181,6 +224,78 @@ enum CounterHarness {
             "fallbackBranches": snapshot[.fallbackBranches] ?? 0,
             "gpuAllocatedBytes": snapshot[.gpuAllocatedBytes] ?? 0,
             "renderTargetPoolBytes": snapshot[.renderTargetPoolBytes] ?? 0,
+            "mainPassRenderPasses": snapshot[.mainPassRenderPasses] ?? 0,
+            "depthRenderPasses": snapshot[.depthRenderPasses] ?? 0,
+            "offscreenRenderPasses": snapshot[.offscreenRenderPasses] ?? 0,
+            "textureCopyPasses": snapshot[.textureCopyPasses] ?? 0,
+            "framebufferCaptures": snapshot[.framebufferCaptures] ?? 0,
+            "framebufferCaptureBytes": snapshot[.framebufferCaptureBytes] ?? 0,
+            "graphOutputPublicationCopies": snapshot[.graphOutputPublicationCopies] ?? 0,
+            "textureCopyBytes": snapshot[.textureCopyBytes] ?? 0,
+            "unmeasuredCopyPasses": snapshot[.unmeasuredCopyPasses] ?? 0,
+            "resolvedMaterialRenderPasses": snapshot[.resolvedMaterialRenderPasses] ?? 0,
+            "graphResourceSourceCaptures": snapshot[.graphResourceSourceCaptures] ?? 0,
+            "graphResourceInitializations": snapshot[.graphResourceInitializations] ?? 0,
+            "offscreenEffectCaptures": snapshot[.offscreenEffectCaptures] ?? 0,
+        ]
+        let data = try JSONSerialization.data(
+            withJSONObject: payload, options: [.sortedKeys]
+        )
+        print(String(decoding: data, as: UTF8.self))
+    }
+}
+'''
+
+GPU_CENSUS_HARNESS = r'''
+import Foundation
+import Metal
+
+@main
+enum GPUCensusHarness {
+    static func main() throws {
+        func texture(
+            _ format: MTLPixelFormat,
+            width: Int,
+            height: Int
+        ) -> MTLTexture? {
+            guard let device = MTLCreateSystemDefaultDevice() else { return nil }
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+                pixelFormat: format,
+                width: width,
+                height: height,
+                mipmapped: false
+            )
+            descriptor.usage = [.shaderRead, .renderTarget]
+            return device.makeTexture(descriptor: descriptor)
+        }
+
+        guard let bgra = texture(.bgra8Unorm, width: 16, height: 8),
+              let unknown = texture(.a8Unorm, width: 16, height: 8) else {
+            throw NSError(domain: "GPUCensusHarness", code: 1)
+        }
+        SceneGPUCensus.recordMainPassRender(usesDepth: false)
+        SceneGPUCensus.recordMainPassRender(usesDepth: true)
+        SceneGPUCensus.recordOffscreenRender(.resolvedMaterial)
+        SceneGPUCensus.recordOffscreenRender(.graphResourceInitialization)
+        SceneGPUCensus.recordFramebufferCapture(texture: bgra)
+        SceneGPUCensus.recordGraphOutputPublication(texture: bgra)
+        SceneGPUCensus.recordTextureCopy(texture: bgra)
+        SceneGPUCensus.recordTextureCopy(texture: unknown)
+        let snapshot = ScenePerformanceCounterHub.shared.snapshot()
+        let payload: [String: UInt64] = [
+            "mainPassRenderPasses": snapshot[.mainPassRenderPasses] ?? 0,
+            "depthRenderPasses": snapshot[.depthRenderPasses] ?? 0,
+            "offscreenRenderPasses": snapshot[.offscreenRenderPasses] ?? 0,
+            "textureCopyPasses": snapshot[.textureCopyPasses] ?? 0,
+            "framebufferCaptures": snapshot[.framebufferCaptures] ?? 0,
+            "framebufferCaptureBytes": snapshot[.framebufferCaptureBytes] ?? 0,
+            "graphOutputPublicationCopies": snapshot[.graphOutputPublicationCopies] ?? 0,
+            "textureCopyBytes": snapshot[.textureCopyBytes] ?? 0,
+            "unmeasuredCopyPasses": snapshot[.unmeasuredCopyPasses] ?? 0,
+            "resolvedMaterialRenderPasses": snapshot[.resolvedMaterialRenderPasses] ?? 0,
+            "graphResourceSourceCaptures": snapshot[.graphResourceSourceCaptures] ?? 0,
+            "graphResourceInitializations": snapshot[.graphResourceInitializations] ?? 0,
+            "offscreenEffectCaptures": snapshot[.offscreenEffectCaptures] ?? 0,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload, options: [.sortedKeys]
@@ -400,6 +515,25 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertIn("phase=performance-stages %@", performance_runner)
         self.assertIn("phase=performance-stages-frames %@", performance_runner)
         self.assertIn("frameStageSummary()", performance_runner)
+        # GPU 普查行：只报告窗口内的编码操作计数，不含任何阶段时长。
+        self.assertIn("phase=performance-gpu frames=%d", performance_runner)
+        for field in (
+            "mainPassRenders=%llu",
+            "depthRenders=%llu",
+            "offscreenRenders=%llu",
+            "resolvedMaterialRenders=%llu",
+            "graphResourceSourceCaptures=%llu",
+            "graphResourceInitializations=%llu",
+            "offscreenEffectCaptures=%llu",
+            "textureCopyPasses=%llu",
+            "framebufferCaptures=%llu",
+            "framebufferCaptureBytes=%llu",
+            "graphOutputPublicationCopies=%llu",
+            "textureCopyBytes=%llu",
+            "unmeasuredCopyPasses=%llu",
+        ):
+            self.assertIn(field, performance_runner)
+        self.assertIn("gpuCensusBaseline = ScenePerformanceCounterHub.shared.snapshot()", performance_runner)
         self.assertNotIn("ProcessCPUTimeNanoseconds", performance_runner)
         self.assertNotIn("cpuTimeNanoseconds", performance_runner)
 
@@ -524,13 +658,32 @@ class ScenePerformanceCounterHubTests(unittest.TestCase):
                 [str(binary)], check=True, capture_output=True, text=True
             )
             result = json.loads(completed.stdout)
-        self.assertEqual(result["slots"], 21)
+        self.assertEqual(result["slots"], 34)
         self.assertEqual(result["drawCalls"], 2)
         self.assertEqual(result["pipelineStateBinds"], 1)
         self.assertEqual(result["geometryDrawCalls"], 1)
         self.assertEqual(result["fallbackBranches"], 1)
         self.assertEqual(result["gpuAllocatedBytes"], 123_456)
         self.assertEqual(result["renderTargetPoolBytes"], 65_432)
+        # GPU census: main-pass depth renders are a subset of main-pass renders,
+        # and every copy contributes to the cumulative byte total.
+        self.assertEqual(result["mainPassRenderPasses"], 2)
+        self.assertEqual(result["depthRenderPasses"], 1)
+        # Offscreen categories partition the offscreen total.
+        self.assertEqual(result["offscreenRenderPasses"], 5)
+        self.assertEqual(result["resolvedMaterialRenderPasses"], 2)
+        self.assertEqual(result["graphResourceSourceCaptures"], 1)
+        self.assertEqual(result["graphResourceInitializations"], 1)
+        self.assertEqual(result["offscreenEffectCaptures"], 1)
+        self.assertEqual(result["framebufferCaptures"], 1)
+        self.assertEqual(result["framebufferCaptureBytes"], 8_294_400)
+        self.assertEqual(result["graphOutputPublicationCopies"], 1)
+        self.assertEqual(result["unmeasuredCopyPasses"], 1)
+        self.assertEqual(result["textureCopyPasses"], 4)
+        self.assertEqual(
+            result["textureCopyBytes"],
+            8_294_400 + 4_147_200 + 2_073_600,
+        )
 
     def test_render_commands_record_every_pipeline_bind_and_draw(self) -> None:
         source = "\n".join(
@@ -552,6 +705,106 @@ class ScenePerformanceCounterHubTests(unittest.TestCase):
         self.assertIn("self.host.refreshPerformanceResourceGauges()", runtime)
         self.assertIn("repeating: 1", runtime)
         self.assertNotIn("refreshPerformanceResourceGauges", frame_driver)
+
+
+class SceneGPUCensusTests(unittest.TestCase):
+    def test_census_counts_pass_splits_and_copy_bytes(self) -> None:
+        """普查只计编码操作：pass 创建与整纹理拷贝的字节量。"""
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-gpu-census-") as directory:
+            root = Path(directory)
+            harness = root / "GPUCensusHarness.swift"
+            binary = root / "scene-gpu-census"
+            harness.write_text(GPU_CENSUS_HARNESS, encoding="utf-8")
+            compilation = subprocess.run(
+                [
+                    "swiftc",
+                    str(COUNTER_HUB_SOURCE),
+                    str(GPU_CENSUS_SOURCE),
+                    str(harness),
+                    "-framework",
+                    "Metal",
+                    "-o",
+                    str(binary),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(compilation.returncode, 0, compilation.stderr)
+            completed = subprocess.run(
+                [str(binary)], check=True, capture_output=True, text=True
+            )
+            result = json.loads(completed.stdout)
+        self.assertEqual(result["mainPassRenderPasses"], 2)
+        self.assertEqual(result["depthRenderPasses"], 1)
+        self.assertEqual(result["offscreenRenderPasses"], 2)
+        self.assertEqual(result["resolvedMaterialRenderPasses"], 1)
+        self.assertEqual(result["graphResourceInitializations"], 1)
+        self.assertEqual(result["graphResourceSourceCaptures"], 0)
+        self.assertEqual(result["offscreenEffectCaptures"], 0)
+        # bgra8Unorm 16x8 = 512 bytes per copy; three measured copies plus one
+        # copy whose format has no known bytes-per-pixel.
+        self.assertEqual(result["textureCopyPasses"], 4)
+        self.assertEqual(result["framebufferCaptures"], 1)
+        self.assertEqual(result["framebufferCaptureBytes"], 512)
+        self.assertEqual(result["graphOutputPublicationCopies"], 1)
+        self.assertEqual(result["textureCopyBytes"], 1_536)
+        self.assertEqual(result["unmeasuredCopyPasses"], 1)
+
+    def test_every_frame_path_encoder_and_copy_is_counted(self) -> None:
+        """每个逐帧 render encoder 与整纹理 blit 都必须恰好计一次。"""
+        main_pass = MAIN_PASS_ENCODER_SOURCE.read_text(encoding="utf-8")
+        graph_resource = GRAPH_RESOURCE_PASS_ENCODER_SOURCE.read_text(encoding="utf-8")
+        material_pass = MATERIAL_PASS_ENCODER_SOURCE.read_text(encoding="utf-8")
+        offscreen = OFFSCREEN_EFFECT_ENCODER_SOURCE.read_text(encoding="utf-8")
+        snapshot = FRAMEBUFFER_SNAPSHOT_SOURCE.read_text(encoding="utf-8")
+        dependency = DEPENDENCY_FRAME_RUNTIME_SOURCE.read_text(encoding="utf-8")
+        command_runtime = GRAPH_COMMAND_RUNTIME_SOURCE.read_text(encoding="utf-8")
+
+        self.assertEqual(
+            main_pass.count("SceneGPUCensus.recordMainPassRender("), 1
+        )
+        self.assertEqual(main_pass.count("makeRenderCommandEncoder("), 1)
+        self.assertEqual(
+            graph_resource.count("SceneGPUCensus.recordOffscreenRender("), 2
+        )
+        self.assertEqual(
+            graph_resource.count(".graphResourceSourceCapture"), 1
+        )
+        self.assertEqual(
+            graph_resource.count(".graphResourceInitialization"), 1
+        )
+        self.assertEqual(
+            graph_resource.count("makeRenderCommandEncoder("), 2
+        )
+        self.assertEqual(
+            graph_resource.count("SceneGPUCensus.recordTextureCopy("), 1
+        )
+        self.assertEqual(
+            material_pass.count("SceneGPUCensus.recordOffscreenRender(.resolvedMaterial)"), 1
+        )
+        self.assertEqual(material_pass.count("makeRenderCommandEncoder("), 1)
+        self.assertEqual(
+            offscreen.count(
+                "SceneGPUCensus.recordOffscreenRender(.offscreenEffectCapture)"
+            ),
+            1,
+        )
+        self.assertEqual(offscreen.count("makeRenderCommandEncoder("), 1)
+        self.assertEqual(
+            snapshot.count("SceneGPUCensus.recordFramebufferCapture("), 1
+        )
+        self.assertEqual(
+            dependency.count("SceneGPUCensus.recordGraphOutputPublication("), 1
+        )
+        self.assertEqual(
+            command_runtime.count("SceneGPUCensus.recordTextureCopy("), 1
+        )
+        census = GPU_CENSUS_SOURCE.read_text(encoding="utf-8")
+        hub = COUNTER_HUB_SOURCE.read_text(encoding="utf-8")
+        # 字节量未知的格式必须计为 unmeasured，不能猜成 4 字节。
+        self.assertIn("unmeasuredCopyPasses", hub)
+        self.assertIn("bytesPerPixel", census)
+        self.assertIn("return nil", census)
 
 
 if __name__ == "__main__":
