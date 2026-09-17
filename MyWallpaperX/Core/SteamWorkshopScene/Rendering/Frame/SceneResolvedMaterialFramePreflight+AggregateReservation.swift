@@ -12,6 +12,9 @@ extension SceneMetalRenderer {
         imageTextures: SceneBaseImageTextureSnapshot,
         frameContext: SceneFrameContext,
         imageMVP: (SceneRenderDescriptor.Layer, [Float]?) -> simd_float4x4,
+        geometryMVP: (
+            SceneRenderDescriptor.Layer, SceneGeometryProduct
+        ) -> simd_float4x4,
         baseMaterialSelections: inout [Int: SceneBaseMaterialTextureSelection],
         failureReason: inout String?
     ) -> [SceneDependencyEffectInput]? {
@@ -19,6 +22,14 @@ extension SceneMetalRenderer {
             failureReason = "multi-provider-binding-vector-invalid"
             return nil
         }
+        guard let consumerLayer = layersByID[aggregate.consumerLayerID] else {
+            failureReason = "multi-provider-consumer-missing"
+            return nil
+        }
+        let consumerOutputMVP = imageMVP(
+            consumerLayer,
+            imageTextures.layerSourceRenderSize(for: consumerLayer.id)
+        )
         var dependencyEffects: [SceneDependencyEffectInput] = []
         for binding in aggregate.bindings {
             guard let providerLayer = layersByID[binding.providerLayerID] else {
@@ -41,6 +52,27 @@ extension SceneMetalRenderer {
                         + (providerSelection.rejectedProviderReason ?? "missing")
                 return nil
             }
+            let geometryProduct: SceneGeometryProduct?
+            let providerOutputMVP: simd_float4x4?
+            if binding.kind == .geometryLayer {
+                guard let product = imageTextures.geometryProduct(
+                    for: providerLayer.id,
+                    matching: providerSource.texture
+                ) else {
+                    failureReason = "multi-provider-geometry-product-invalid"
+                    return nil
+                }
+                geometryProduct = product
+                providerOutputMVP = geometryMVP(providerLayer, product)
+                    * SceneMatrix.scale(SIMD3(
+                        product.authoredSize.x,
+                        product.authoredSize.y,
+                        1
+                    ))
+            } else {
+                geometryProduct = nil
+                providerOutputMVP = nil
+            }
             var reason: String?
             guard let input = dependencyRuntime.reserveEffectInput(
                 for: binding,
@@ -56,6 +88,10 @@ extension SceneMetalRenderer {
                     for: providerLayer.id,
                     plans: plans
                 ),
+                geometryProduct: geometryProduct,
+                providerOutputMVP: providerOutputMVP,
+                consumerOutputMVP: binding.kind == .geometryLayer
+                    ? consumerOutputMVP : nil,
                 frameEpoch: textureRegistry.frameEpoch,
                 failureReason: &reason
             ) else {

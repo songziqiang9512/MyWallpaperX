@@ -13,6 +13,10 @@ nonisolated struct SceneDependencyRenderPlan {
             case resolvedMaterial
             case solidLayer
             case imageLayerBlend
+            /// A GeometryProduct provider is rasterized into its authored-
+            /// local target before the aggregate MaterialProgram samples it.
+            /// The sampling atlas itself is never a named layer publication.
+            case geometryLayer
             /// A visible image layer publishes its unified graph-final color
             /// into the same-frame named target consumed by a later
             /// MaterialProgram stage. It remains a normal compositor layer.

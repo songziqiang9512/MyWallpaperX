@@ -268,8 +268,11 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             }
             var observations: [SceneGraphExecutionObservation] = []
             for value in ledger.prepared.stages {
-                guard let mappingGeneration = blueprint
-                    .mappingGenerations[value.effect] else {
+                let localFailure = ledger.localOutputFailureReasonCode
+                let committedBase = ledger.committedBaseTails[value.effect]
+                guard let mappingGeneration = localFailure == nil
+                    ? blueprint.mappingGenerations[value.effect]
+                    : committedBase?.mappingGeneration ?? 0 else {
                     rejectionReason =
                         "frame-success-mapping-generation-missing"
                     return nil
@@ -283,14 +286,19 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                             transactionID: ledger.identity,
                             executionEpoch: ledger.epoch,
                             mappingGeneration: mappingGeneration,
-                            resetReason: blueprint.resetReasons[value.effect],
+                            resetReason: localFailure == nil
+                                ? blueprint.resetReasons[value.effect] : nil,
+                            committedBaseState: localFailure == nil
+                                ? nil : committedBase?.state,
                             terminalEffect: ledger.prepared.stages[
                                 ledger.prepared.stages.count - 1
                             ].effect,
                             terminalCompositorConsumed:
                                 ledger.compositorConsumed,
-                            outcome: .succeeded,
-                            gpu: .completed,
+                            outcome: localFailure.map {
+                                .failed(reasonCode: $0)
+                            } ?? .succeeded,
+                            gpu: localFailure == nil ? .completed : nil,
                             dependencyProviders:
                                 ledger.preparedDependencyEffects
                                     .map(\.providerLayerID)

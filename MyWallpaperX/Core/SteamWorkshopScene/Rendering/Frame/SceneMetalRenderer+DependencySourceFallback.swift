@@ -46,7 +46,8 @@ extension SceneMetalRenderer {
             viewportSize: viewportSize,
             pipeline: imagePipeline,
             textureRegistry: textureRegistry,
-            mainPass: mainPass
-        ) == true
+            mainPass: mainPass,
+            geometryProduct: imageTextures.geometryProducts[provider.id]
+        ) == .published
     }
 }

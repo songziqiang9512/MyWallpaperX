@@ -72,7 +72,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 | 材质资产纹理 | MaterialAssetTextureCatalog launch 内联同步解码 | catalog | 场景期 | resource-generation |
 | 视频帧 | AVPlayer 解码线程 + CVMetalTextureCache 零拷贝 | per-source pending → 三段栅栏 | 帧期 | resource-generation（每帧 generation++） |
 | 动态文字/媒体缩略图 | 专用异步队列，签名/generation 去重 | pending 状态机 → 三段栅栏 | 帧期 | resource-generation |
-| graph render target | offscreen allocation cache（LRU 192-512MB + submissionPin/historyPin + history rehydrate） | lease/table（per layer plan） | 跨帧（history）或帧内 | geometry-extent / topology |
+| graph render target | 每个 surface 的 offscreen allocation cache（自动预算为设备建议工作集 `/16`、192 MiB floor、1.5 GiB cap；显式注入优先；submissionPin/historyPin + history rehydrate） | lease/table（per layer plan） | 跨帧（history）或帧内 | geometry-extent / topology；当前没有跨 surface 的进程级聚合 cap |
 | 性能 counter / 资源 gauge | frame/Metal 命令点定长累加；daemon 1Hz 读取 surface 的 offscreen、named、depth、framebuffer owner 值与 device allocation | `ScenePerformanceCounterHub` 21 槽；App client 仅最新快照 | daemon 进程期；无 history/percentile | 不参与五类产品失效；场景切换后累计 counter 延续、当前 gauge 覆盖 |
 | 帧 values | FrameDriver 每帧双 resolve 动态快照 | frameContext（值传递，字典 CoW） | 帧期 | value-only |
 | 完成态/history | SubmissionCoordinator pending → committedTails（finalTails 非空时阻塞下帧） | coordinator（per surface） | GPU 终结前 | topology/回滚 |
@@ -91,7 +91,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 10. **QuickJS 线程绑定**：VM 创建于 launch 队列、adoptCurrentThread 迁移到使用线程；全部 VM 交互 Swift 状态无隔离标注（约定主线程）。换线程/进程必须 rebase 并迁移全部交互状态。
 11. **sticky 遥测只报首次**：effect/graph/失败类日志多为 once-per-subject；"不再报错"≠修复。
 12. **debug evidence 门三合一**：诊断 + benchmark 日志行（benchmark 恒传 flag+Debug 构建）+ **窗口层样式**。往门下加行为会改窗口表现；`#if DEBUG` 包裹物 Release 不存在。
-13. **puppet 双 lane**：`puppetAtlas` 仅 mesh UV 采样、`puppetComposed` 才能作 layer source；geometry 失败回退 TextureProduct 须保持 coverage 合同。
+13. **Puppet 单一 geometry owner**：`puppetAtlas` 仅是 mesh UV 采样源，普通 layer 由 `SceneGeometryProduct` 采样 atlas 或 graph-final 并写唯一 compositor。placement-exact named dependency 使用同一 GeometryProduct 在 authored-local 坐标栅格化到等比受限 target，并经现有 registry/publication/completion 发布；不存在通用 Puppet-as-flat-quad 回退。
 14. **launch 世代**：newer-wins 世代号 + 取消令牌 + per-generation worker 队列；新后台准备必须持世代令牌，否则旧场景任务污染新场景。
 15. **catalog 不可变、整体替换**：capability catalog 无增量失效；token 含 ownerID 不跨 catalog 碰撞。"改一处能力"= 重建 catalog，不是 patch。
 16. **控制面单一通道与 Host 归属**（M5.6）：普通产品 UI/系统生命周期/屏幕变化→Scene 只经 `WallpaperEngineCommand` + multiplexer 或 client 的 typed display command → `SceneDaemonClient` → newline JSON；client 只投影 requestID/recordID 匹配的 daemon 事件。产品 Host 只由 daemon runtime 的私有实例持有，禁止恢复全局 singleton、让普通 App 调用面引用 Host，或在 Host 内监听只存在于 App 进程的通知。属性持久化仍只有 App 的 SteamWorkshopService，运行属性仍只有 daemon Host liveState；热更新拒绝由 client 完整重载，不产生第二 property owner。静音意图在 `PlaybackMuteState`，菜单/设置仍读 video 派生态（M0.2 未完成单一状态闭环）；预算档运行权威在 daemon Host。暂停意图必须跨无活动 Scene/重连窗口保留，退出必须等 retiring transport 清空或完成有界强退。DEBUG direct Host 只准作为显式隔离证据入口。

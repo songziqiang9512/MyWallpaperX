@@ -74,7 +74,10 @@ struct SceneImageLayerCompositor {
     func drawOutcome(
         _ request: SceneImageLayerDrawRequest,
         explicitLayerSourcePublication: SceneTextureProviderPublication?,
-        resolvedMaterialGraphOutputPublisher: ((MTLTexture, SceneTextureContent) -> Bool)? = nil,
+        resolvedMaterialGraphOutputPublisher: ((
+            MTLTexture,
+            SceneTextureContent
+        ) -> SceneGraphOutputPublicationResult)? = nil,
         layerSourceGraphFallbackPublisher: ((MTLTexture) -> Bool)? = nil,
         pipeline: SceneImageLayerPipeline,
         mainPass: SceneMainPassEncoder,
@@ -297,19 +300,53 @@ struct SceneImageLayerCompositor {
                     reasonCode: "final-offscreen-texture-unavailable")
                 return .failed
             }
+            var graphOutputPublished = false
             if let resolvedMaterialGraphOutputPublisher {
-                guard let graphExecutionTicket,
-                      resolvedMaterialGraphOutputPublisher(finalTexture, graphExecutionTicket.finalContent) else {
-                    if let graphExecutionTicket {
-                        _ = consumeResolvedMaterialComposite(
+                guard let graphExecutionTicket else { return .failed }
+                let publicationResult = resolvedMaterialGraphOutputPublisher(
+                    finalTexture,
+                    graphExecutionTicket.finalContent
+                )
+                switch publicationResult {
+                case .published:
+                    graphOutputPublished = true
+                case let .unavailable(reasonCode):
+                    executionTrace?.recordRouteOperation(
+                        layerID: request.layer.id,
+                        origin: executionOrigin,
+                        operation: "named-provider-publication",
+                        outcome: .failed(reasonCode: reasonCode)
+                    )
+                    // Color providers still own a visible authored-order
+                    // output.  Preserve that main-compositor result; the
+                    // absent named target makes only its dependent consumer
+                    // take the ordinary local-miss path.
+                    guard graphExecutionTicket.finalContent != .data else {
+                        _ = consumeResolvedMaterialNamedPublication(
                             graphExecutionTicket,
                             texture: finalTexture,
-                            consumed: false,
+                            published: false,
                             layerID: request.layer.id,
                             executionTrace: executionTrace,
                             executionOrigin: executionOrigin
                         )
+                        return .failed
                     }
+                case let .invalid(reasonCode):
+                    executionTrace?.recordRouteOperation(
+                        layerID: request.layer.id,
+                        origin: executionOrigin,
+                        operation: "named-provider-publication",
+                        outcome: .failed(reasonCode: reasonCode)
+                    )
+                    _ = consumeResolvedMaterialNamedPublication(
+                        graphExecutionTicket,
+                        texture: finalTexture,
+                        published: false,
+                        layerID: request.layer.id,
+                        executionTrace: executionTrace,
+                        executionOrigin: executionOrigin
+                    )
                     return .failed
                 }
             }
@@ -319,6 +356,7 @@ struct SceneImageLayerCompositor {
                 // enter the color compositor, even when the provider also
                 // appears in the visible render order.
                 guard resolvedMaterialGraphOutputPublisher != nil,
+                      graphOutputPublished,
                       consumeResolvedMaterialNamedPublication(
                           graphExecutionTicket,
                           texture: finalTexture,

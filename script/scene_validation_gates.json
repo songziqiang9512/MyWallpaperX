@@ -439,6 +439,19 @@
       ]
     },
     {
+      "id": "offscreen-resident-budget",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureFramePreflight.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureResidentBudgetPolicy.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift"
+      ],
+      "modules": [
+        "test_scene_graph_render_target_table",
+        "test_scene_offscreen_texture_pool",
+        "test_scene_offscreen_texture_resident_budget"
+      ]
+    },
+    {
       "id": "render-graph",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/**",

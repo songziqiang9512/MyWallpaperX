@@ -316,6 +316,53 @@ extension SceneDependencyRenderPlan {
         return ordered
     }
 
+    /// A single Puppet provider keeps the same named sampler shape as an
+    /// ordinary image carrier, but its atlas is not a layer publication. The
+    /// dependency runtime must rasterize the prepared GeometryProduct into an
+    /// authored-local target before the consumer MaterialProgram samples it.
+    /// Keep this separate from the legacy image binding so a Puppet atlas can
+    /// never be admitted as an already-composited quad.
+    nonisolated static func materialProgramGeometryLayerReference(
+        layer: SceneRenderDescriptor.Layer,
+        visibleEffects: [SceneRenderDescriptor.EffectDescriptor],
+        references: [Reference],
+        layersByID: [Int: SceneRenderDescriptor.Layer],
+        visibleLayerIDs: Set<Int>
+    ) -> Reference? {
+        guard layer.contentKind == "image",
+              layer.puppetMeshPath != nil,
+              hasNoUtilityLayer(layer),
+              layer.childLayerIDs.isEmpty,
+              layer.authoredDependencies.isEmpty,
+              references.count == 1,
+              let reference = references.first,
+              activeDependencyProviderLayerIDs(
+                  layer: layer,
+                  references: references
+              ) == [reference.providerLayerID],
+              layer.dependencyLayerIDs == [reference.providerLayerID],
+              let provider = layersByID[reference.providerLayerID],
+              provider.contentKind == "image",
+              provider.puppetMeshPath != nil,
+              hasNoUtilityLayer(provider),
+              provider.childLayerIDs.isEmpty,
+              provider.authoredDependencies.isEmpty,
+              provider.dependencyLayerIDs.isEmpty,
+              provider.visible != false,
+              visibleLayerIDs.contains(provider.id),
+              aggregateReferenceShapeIsStrict(
+                  layer: layer,
+                  reference: reference
+              ) else {
+            return nil
+        }
+        let effects = visibleEffects.filter {
+            $0.id == reference.slot.effectID
+        }
+        guard effects.count == 1 else { return nil }
+        return reference
+    }
+
     /// A childless composition utility may consume one authored primary
     /// named target from an effectful solid provider.  The MaterialProgram
     /// owns the utility shader semantics; this carrier only proves the

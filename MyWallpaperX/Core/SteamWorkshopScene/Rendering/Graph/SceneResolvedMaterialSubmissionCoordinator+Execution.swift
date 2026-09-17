@@ -38,12 +38,13 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               ledger.layerID == layerID,
               let capability = capabilities.resolve(ledger.capabilityToken),
               capability.layerID == layerID,
-              case .externalPrimary = capability.dependencyOwnership,
+              externalDependencyOwnershipIsSupported(
+                  capability.dependencyOwnership
+              ),
               ledger.phase == .allocationCommitted,
               !ledger.claimConsumed,
-              dependencyReservationMatches(
-                  ledger.preparedDependencyEffect,
-                  unavailability: ledger.preparedDependencyUnavailability,
+              preparedDependencyReservationMatches(
+                  ledger,
                   ownership: capability.dependencyOwnership
               ),
               ledger.prepared.historyTokensByEffect.isEmpty,
@@ -99,6 +100,44 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         lock.unlock()
         emit(emission)
         return true
+    }
+
+    private func preparedDependencyReservationMatches(
+        _ ledger: PreparedLedger,
+        ownership: SceneResolvedMaterialDependencyOwnership
+    ) -> Bool {
+        switch ownership {
+        case .externalPrimary:
+            return ledger.preparedDependencyEffects.isEmpty
+                && dependencyReservationMatches(
+                    ledger.preparedDependencyEffect,
+                    unavailability: ledger.preparedDependencyUnavailability,
+                    ownership: ownership
+                )
+        case .externalAggregate:
+            guard ledger.preparedDependencyEffect == nil,
+                  ledger.preparedDependencyUnavailability == nil,
+                  let frameEpoch = frame?.textureRegistrySnapshot.frameEpoch
+            else { return false }
+            return dependencyEffectsReservationMatches(
+                ledger.preparedDependencyEffects,
+                ownership: ownership,
+                frameEpoch: frameEpoch
+            )
+        case .none, .graphInternal:
+            return false
+        }
+    }
+
+    private func externalDependencyOwnershipIsSupported(
+        _ ownership: SceneResolvedMaterialDependencyOwnership
+    ) -> Bool {
+        switch ownership {
+        case .externalPrimary, .externalAggregate:
+            return true
+        case .none, .graphInternal:
+            return false
+        }
     }
 
     func executeClaimed(
@@ -300,6 +339,13 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                       ),
                       binding.blendMode == 0
                         || binding.requiresResolvedMaterialProgram else {
+                    return false
+                }
+            case .geometryLayer:
+                guard binding.slot.passIndex == 0,
+                      binding.slot.slotIndex == 1,
+                      binding.blendMode == 0,
+                      binding.requiresResolvedMaterialProgram else {
                     return false
                 }
             case .visibleImageGraphOutput:

@@ -61,7 +61,10 @@ extension SceneDependencyRenderPlan {
                 binding.consumerLayerID == consumerLayerID
                     && binding.providerLayerID != consumerLayerID
                     && binding.referenceSlots == [binding.slot]
-                    && binding.kind == .imageLayerBlend
+                    && (
+                        binding.kind == .imageLayerBlend
+                            || binding.kind == .geometryLayer
+                    )
                     && binding.blendMode == 0
                     && binding.requiresResolvedMaterialProgram
             }

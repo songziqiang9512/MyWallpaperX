@@ -517,6 +517,18 @@ enum Harness {
             providerTexturePaths: ["_rt_FullFrameBuffer"],
             providerFirst: false
         )
+        let multiProviderForwardVisibleEffectfulGeometryPlan =
+            multiProviderCompositionPlan(
+                providerVisible: true,
+                providerEffectful: true,
+                providerTexturePaths: ["assets/provider-source.tex"],
+                providerFirst: false,
+                geometryProviderID: 601
+            )
+        let multiProviderGeometryPlan = multiProviderCompositionPlan(
+            geometryProviderID: 601
+        )
+        let nestedGeometryAggregatePlan = nestedGeometryProviderAggregatePlan()
         let routeUtilityProvider = layer(410, kind: .composition, visible: false)
         let routeUtilityConsumer = SceneRenderDescriptor.Layer(
             id: 411,
@@ -1204,6 +1216,49 @@ enum Harness {
                     .multiProviderAggregatesByConsumerLayerID[603] != nil,
                 "forwardUnsafeProvider": multiProviderForwardUnsafeProviderPlan
                     .multiProviderAggregatesByConsumerLayerID[603] == nil,
+                "forwardVisibleEffectfulGeometryProvider":
+                    multiProviderForwardVisibleEffectfulGeometryPlan
+                        .multiProviderAggregatesByConsumerLayerID[603] == nil,
+            ],
+            "multiProviderGeometry": multiProviderGeometryPlan
+                .multiProviderAggregatesByConsumerLayerID[603]
+                .map { aggregate in
+                    [
+                        "providers": aggregate.bindings.map(\.providerLayerID),
+                        "kinds": aggregate.bindings.map {
+                            String(describing: $0.kind)
+                        },
+                        "slots": aggregate.bindings.map {
+                            "\($0.slot.effectID):\($0.slot.passIndex):\($0.slot.slotIndex)"
+                        },
+                        "strict": aggregate.hasStrictBindingVector,
+                        "admitted": aggregate.admits(
+                            multiProviderGeometryPlan.references.filter {
+                                $0.consumerLayerID == 603
+                            }
+                        ),
+                    ]
+                },
+            "nestedGeometryAggregate": [
+                "nestedBindingKind": nestedGeometryAggregatePlan
+                    .bindingsByConsumerLayerID[701]
+                    .map { String(describing: $0.kind) } ?? "none",
+                "nestedRequiresProgram": nestedGeometryAggregatePlan
+                    .bindingsByConsumerLayerID[701]?
+                    .requiresResolvedMaterialProgram == true,
+                "aggregateProviders": nestedGeometryAggregatePlan
+                    .multiProviderAggregatesByConsumerLayerID[703]?
+                    .bindings.map(\.providerLayerID) ?? [],
+                "aggregateKinds": nestedGeometryAggregatePlan
+                    .multiProviderAggregatesByConsumerLayerID[703]?
+                    .bindings.map { String(describing: $0.kind) } ?? [],
+                "requiredProviders": nestedGeometryAggregatePlan
+                    .requiredProviderLayerIDs.sorted(),
+                "graphProviders": nestedGeometryAggregatePlan
+                    .requiredGraphOutputProviderLayerIDs.sorted(),
+                "issues": nestedGeometryAggregatePlan.issues.map {
+                    "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
+                },
             ],
             "multiProviderInactiveSuperset": [
                 "candidate": multiProviderInactiveSupersetPlan
@@ -2450,7 +2505,8 @@ enum Harness {
         extraSlotCount: Int = 0,
         unknownCombo: Bool = false,
         omitRenderOrderID: Int? = nil,
-        reverseEffectIDs: Bool = false
+        reverseEffectIDs: Bool = false,
+        geometryProviderID: Int? = nil
     ) -> SceneDependencyRenderPlan {
         func providerEffects(_ id: Int) -> [SceneRenderDescriptor.EffectDescriptor] {
             guard providerEffectful else { return [] }
@@ -2468,24 +2524,28 @@ enum Harness {
                 )]
             )]
         }
-        let providerA = SceneRenderDescriptor.Layer(
+        var providerA = SceneRenderDescriptor.Layer(
             id: 601,
             contentKind: "image",
             utilityLayer: nil,
             dependencyLayerIDs: [],
             childLayerIDs: [],
-            visible: providerVisible,
+            visible: geometryProviderID == 601 ? true : providerVisible,
             effects: providerEffects(601)
         )
-        let providerB = SceneRenderDescriptor.Layer(
+        providerA.puppetMeshPath = geometryProviderID == 601
+            ? "models/unseen-a.mdl" : nil
+        var providerB = SceneRenderDescriptor.Layer(
             id: 602,
             contentKind: "image",
             utilityLayer: nil,
             dependencyLayerIDs: [],
             childLayerIDs: providerChildLayerIDs,
-            visible: providerVisible,
+            visible: geometryProviderID == 602 ? true : providerVisible,
             effects: providerEffects(602)
         )
+        providerB.puppetMeshPath = geometryProviderID == 602
+            ? "models/unseen-b.mdl" : nil
         let pathA = "_rt_imageLayerComposite_601_a"
         let pathB = "_rt_imageLayerComposite_602_a"
         func namedEffect(
@@ -2571,9 +2631,110 @@ enum Harness {
                     $0 != omitRenderOrderID
                 }
             ),
-            visibleLayerIDs: providerVisible == true
-                ? [601, 602, 603] : [603],
+            visibleLayerIDs: Set(
+                (providerVisible == true ? [601, 602, 603] : [603])
+                    + (geometryProviderID.map { [$0] } ?? [])
+            ),
             executableUtilityConsumerLayerIDs: [603]
+        )
+    }
+
+    /// Unseen topology regression for the real failure shape: a composition
+    /// aggregate consumes a hidden Puppet graph provider, and that provider
+    /// itself samples one visible Puppet publication. The flat image route
+    /// remains rejected; both geometry edges must acquire typed ownership.
+    static func nestedGeometryProviderAggregatePlan()
+        -> SceneDependencyRenderPlan {
+        func namedEffect(
+            id: String,
+            providerID: Int,
+            trailingHole: Bool
+        ) -> SceneRenderDescriptor.EffectDescriptor {
+            let path = "_rt_imageLayerComposite_\(providerID)_a"
+            return .init(
+                id: id,
+                file: "effects/workshop/unseen/nested/effect.json",
+                visible: true,
+                passes: [.init(
+                    passIndex: 0,
+                    texturePaths: [path],
+                    textureSlots: trailingHole
+                        ? [nil, path, nil] : [nil, path],
+                    userTextureInputs: [],
+                    combos: trailingHole ? [:] : ["BLENDMODE": 0],
+                    constantShaderValues: [:]
+                )]
+            )
+        }
+        var rootGeometry = SceneRenderDescriptor.Layer(
+            id: 700,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [],
+            childLayerIDs: [],
+            visible: true,
+            effects: [.init(
+                id: "root-geometry-effect",
+                file: "effects/workshop/unseen/root/effect.json",
+                visible: true,
+                passes: []
+            )]
+        )
+        rootGeometry.puppetMeshPath = "models/unseen-root.mdl"
+        var nestedGeometry = SceneRenderDescriptor.Layer(
+            id: 701,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [700],
+            childLayerIDs: [],
+            visible: false,
+            effects: [namedEffect(
+                id: "nested-geometry",
+                providerID: 700,
+                trailingHole: true
+            )]
+        )
+        nestedGeometry.puppetMeshPath = "models/unseen-nested.mdl"
+        let flatProvider = SceneRenderDescriptor.Layer(
+            id: 702,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [],
+            childLayerIDs: [],
+            visible: false,
+            effects: []
+        )
+        let aggregate = SceneRenderDescriptor.Layer(
+            id: 703,
+            contentKind: "composition",
+            utilityLayer: .init(kind: .composition),
+            dependencyLayerIDs: [702, 701],
+            childLayerIDs: [],
+            visible: true,
+            effects: [
+                namedEffect(
+                    id: "flat-first",
+                    providerID: 702,
+                    trailingHole: false
+                ),
+                namedEffect(
+                    id: "geometry-second",
+                    providerID: 701,
+                    trailingHole: true
+                ),
+            ]
+        )
+        let descriptor = SceneRenderDescriptor(
+            layers: [rootGeometry, flatProvider, nestedGeometry, aggregate],
+            renderOrderLayerIDs: [700, 702, 701, 703]
+        )
+        return SceneDependencyRenderPlan(
+            descriptor: descriptor,
+            visibleLayerIDs: [700, 703],
+            executableUtilityConsumerLayerIDs: [703],
+            admittedResolvedMaterialReferences: Set(
+                SceneDependencyGraphAnalysis.references(in: descriptor.layers)
+            )
         )
     }
 
@@ -2995,6 +3156,29 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "visibleEffectfulProvider": True,
                 "forwardSafeProvider": True,
                 "forwardUnsafeProvider": True,
+                "forwardVisibleEffectfulGeometryProvider": True,
+            },
+        )
+        self.assertEqual(
+            self.result["multiProviderGeometry"],
+            {
+                "providers": [601, 602],
+                "kinds": ["geometryLayer", "imageLayerBlend"],
+                "slots": ["first:0:1", "second:0:1"],
+                "strict": True,
+                "admitted": True,
+            },
+        )
+        self.assertEqual(
+            self.result["nestedGeometryAggregate"],
+            {
+                "nestedBindingKind": "geometryLayer",
+                "nestedRequiresProgram": True,
+                "aggregateProviders": [702, 701],
+                "aggregateKinds": ["imageLayerBlend", "geometryLayer"],
+                "requiredProviders": [700, 701, 702],
+                "graphProviders": [700, 701],
+                "issues": [],
             },
         )
 

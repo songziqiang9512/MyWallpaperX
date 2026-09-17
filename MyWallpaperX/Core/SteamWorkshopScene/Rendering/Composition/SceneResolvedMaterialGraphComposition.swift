@@ -574,6 +574,39 @@ extension SceneImageLayerCompositor {
         }
     }
 
+    func discardResolvedMaterialNamedPublicationLocally(
+        _ ticket: SceneResolvedMaterialRuntimeBridge.ExecutionTicket,
+        texture: MTLTexture,
+        layerID: Int,
+        executionTrace: SceneEffectExecutionFrameTrace?,
+        executionOrigin: SceneEffectExecutionOrigin
+    ) -> Bool {
+        guard let resolvedMaterialRuntime else { return false }
+        let reasonCode = "named-provider-publication-unavailable"
+        switch resolvedMaterialRuntime.discardNamedPublicationOutputLocally(
+            ticket,
+            texture: texture,
+            reasonCode: reasonCode
+        ) {
+        case .consumed:
+            executionTrace?.recordRouteOperation(
+                layerID: layerID,
+                origin: executionOrigin,
+                operation: "named-provider-publication",
+                outcome: .failed(reasonCode: reasonCode)
+            )
+            return true
+        case let .failed(reasonCode):
+            executionTrace?.recordRouteOperation(
+                layerID: layerID,
+                origin: executionOrigin,
+                operation: "named-provider-publication",
+                outcome: .failed(reasonCode: reasonCode)
+            )
+            return false
+        }
+    }
+
     func recordResolvedMaterialFramePreflightFailure(_ reasonCode: String) {
         resolvedMaterialRuntime?.recordClaimedFailure(reasonCode: reasonCode)
     }

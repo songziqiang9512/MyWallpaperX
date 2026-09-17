@@ -3695,6 +3695,14 @@ private enum Harness {
             kind: .imageLayerBlend,
             requiresResolvedMaterialProgram: true
         )
+        let geometryExternalBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: layerID,
+            providerLayerID: namedReference.providerLayerID,
+            slot: externalBinding.slot,
+            blendMode: 0,
+            kind: .geometryLayer,
+            requiresResolvedMaterialProgram: true
+        )
         let crossLayerCapabilities = capabilities(
             crossLayerChain,
             catalog: catalog(
@@ -3708,6 +3716,22 @@ private enum Harness {
         let crossLayerCapability = crossLayerClaim.flatMap {
             crossLayerCapabilities.resolve($0.token, for: crossLayerChain)
         }
+        let geometryExternalCapabilities = capabilities(
+            crossLayerChain,
+            catalog: catalog(
+                for: crossLayerGraph,
+                namedProvidersByNode: [0: namedReference]
+            ),
+            namedProvider: namedReference,
+            dependencyBinding: geometryExternalBinding
+        )
+        let geometryExternalCapability = geometryExternalCapabilities
+            .claim(crossLayerChain).flatMap {
+                geometryExternalCapabilities.resolve(
+                    $0.token,
+                    for: crossLayerChain
+                )
+            }
         let mixedSystemNamedCapabilities = capabilities(
             crossLayerChain,
             catalog: catalog(
@@ -7757,6 +7781,12 @@ private enum Harness {
                       case let .externalPrimary(binding) =
                         capability.dependencyOwnership else { return false }
                 return binding == externalBinding
+            }(),
+            "geometryExternalOwnershipClaimed": {
+                guard let capability = geometryExternalCapability,
+                      case let .externalPrimary(binding) =
+                        capability.dependencyOwnership else { return false }
+                return binding == geometryExternalBinding
             }(),
             "mixedSystemNamedFallbackConservesExternalDependency": {
                 guard let capability = mixedSystemNamedCapability,

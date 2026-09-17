@@ -56,6 +56,8 @@ EXTRA_SOURCES = [
     SCENE_ROOT
     / "Compilation/ShaderPreparation/SceneGenericShaderFloatingModuloNormalizer.swift",
     SCENE_ROOT
+    / "Compilation/ShaderPreparation/SceneGenericShaderTernaryScalarConditionNormalizer.swift",
+    SCENE_ROOT
     / "Compilation/ShaderPreparation/SceneGenericShaderScalarArithmeticNormalizer.swift",
     SCENE_ROOT
     / "Compilation/ShaderPreparation/SceneGenericShaderScalarBuiltInLiteralNormalizer.swift",

@@ -382,18 +382,17 @@ class SceneDependencyVisibilityOwnerTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[2]
         launch = (
             root
-            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
+            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session"
             / "SceneDesktopWallpaperHost+Launch.swift"
         ).read_text()
         admission = (
             root
-            / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph"
-            / "EffectExecution"
+            / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material"
             / "SceneResolvedMaterialExecutionCapabilityAdmission.swift"
         ).read_text()
         preflight = (
             root
-            / "MyWallpaperX/Core/SteamWorkshopScene/Rendering"
+            / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame"
             / "SceneResolvedMaterialFramePreflight.swift"
         ).read_text()
         self.assertIn(

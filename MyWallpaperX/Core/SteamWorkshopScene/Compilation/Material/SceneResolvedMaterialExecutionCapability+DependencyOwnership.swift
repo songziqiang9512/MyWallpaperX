@@ -128,6 +128,11 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
                     && binding.slot.slotIndex == 1
                     && (binding.requiresResolvedMaterialProgram
                         || binding.blendMode == 0)
+            case .geometryLayer:
+                binding.slot.passIndex == 0
+                    && binding.slot.slotIndex == 1
+                    && binding.blendMode == 0
+                    && binding.requiresResolvedMaterialProgram
             case .visibleImageGraphOutput:
                 binding.slot.passIndex == 0
                     && binding.slot.slotIndex == 1

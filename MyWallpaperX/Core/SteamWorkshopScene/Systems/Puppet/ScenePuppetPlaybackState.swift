@@ -84,6 +84,7 @@ final class ScenePuppetPlaybackState {
     private var frameSamplesScratch: [ScenePuppetAnimationEvaluator.FrameSample?]
     private var signatureScratch: [FrameSignature]
     private var lastPreparedVertexBufferIndex = 0
+    private var preparedPublicationCommandBuffer: ObjectIdentifier?
     private var scriptBoneOverrides: [Int: ScenePuppetBoneOverride] = [:]
 #if DEBUG
     private var recordedBoneSkin = false
@@ -170,6 +171,7 @@ final class ScenePuppetPlaybackState {
         commandBuffer: MTLCommandBuffer,
         transaction: SceneSourceUpdateTransaction
     ) -> [String: simd_float4x4] {
+        preparedPublicationCommandBuffer = ObjectIdentifier(commandBuffer as AnyObject)
         for index in selection.clips.indices {
             let clip = selection.clips[index]
             frameSamplesScratch[index] = isVisible(
@@ -266,7 +268,14 @@ final class ScenePuppetPlaybackState {
     }
 
     func geometryProduct() -> SceneGeometryProduct {
-        SceneGeometryProduct(encode: {
+        SceneGeometryProduct(
+            ownerLayerID: layerID,
+            samplingTexture: atlasTexture,
+            isPreparedForPublication: { [self] commandBuffer in
+                preparedPublicationCommandBuffer
+                    == ObjectIdentifier(commandBuffer as AnyObject)
+            },
+            encode: {
             [self] encoder, sourceTexture, dependencyTexture, mvp, uniforms,
             bindColorBlend in
 #if DEBUG
@@ -316,8 +325,10 @@ final class ScenePuppetPlaybackState {
                 indexType: .uint16, indexBuffer: indexBuffer, indexBufferOffset: 0)
             ScenePerformanceCounterHub.shared.recordDraw(usesGeometry: true)
             return true
-        }, authoredSize: authoredSize,
-        effectSourceExtentContract: .exactSamplingTexture)
+            },
+            authoredSize: authoredSize,
+            effectSourceExtentContract: .exactSamplingTexture
+        )
     }
 
     /// Returns the current animated pose for SceneScript getters. This uses

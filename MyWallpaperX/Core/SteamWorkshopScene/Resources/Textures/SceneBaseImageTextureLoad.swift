@@ -120,6 +120,18 @@ struct SceneBaseImageTextureSnapshot {
     func isLayerSourcePending(_ layerID: Int) -> Bool {
         pendingLayerSourceIDs.contains(layerID)
     }
+
+    func geometryProduct(
+        for layerID: Int,
+        matching texture: MTLTexture
+    ) -> SceneGeometryProduct? {
+        guard let product = geometryProducts[layerID],
+              product.matchesInstalledSource(
+                  layerID: layerID,
+                  texture: texture
+              ) else { return nil }
+        return product
+    }
 }
 
 struct SceneBaseImageTextureStore {
@@ -169,8 +181,11 @@ struct SceneBaseImageTextureStore {
         samplingCandidate: SceneTextureCandidate?,
         layerID: Int
     ) {
+        contentGeneration &+= 1
         textures[layerID] = samplingAtlas
-        geometryProducts[layerID] = product
+        geometryProducts[layerID] = product.installing(
+            resourceGeneration: contentGeneration
+        )
         candidates[layerID] = samplingCandidate.flatMap {
             $0.texture === samplingAtlas ? $0 : nil
         }

@@ -2,10 +2,9 @@ import Foundation
 import Metal
 
 extension SceneDependencyFrameRuntime {
-    /// Verifies that every prepared provider output can be copied into its
-    /// independently reserved named target. The reservation must remain a
-    /// distinct texture because graph target allocation is free to reuse a
-    /// provider's final texture for a later transaction in the same frame.
+    /// Verifies that every prepared provider output can feed its independently
+    /// reserved named target. Flat providers copy the output; geometry
+    /// providers sample it while rasterizing their mesh into a local target.
     func installPreparedGraphOutputs(
         _ outputsByLayerID: [Int: MTLTexture],
         frameEpoch: UInt64
@@ -24,8 +23,8 @@ extension SceneDependencyFrameRuntime {
             guard let reservation = candidateReservation,
                   reservation.frameEpoch == frameEpoch,
                   reservation.providerLayerID == providerLayerID,
-                  reservation.width == output.width,
-                  reservation.height == output.height,
+                  reservation.sourceWidth == output.width,
+                  reservation.sourceHeight == output.height,
                   reservation.texture !== output,
                   reservation.texture.pixelFormat == output.pixelFormat,
                   output.textureType == .type2D,
@@ -140,10 +139,10 @@ extension SceneDependencyFrameRuntime {
             if reservation.providerLayerID != providerLayerID {
                 reasons.append("reservation-provider-mismatch")
             }
-            if reservation.width != output.width {
+            if reservation.sourceWidth != output.width {
                 reasons.append("width-mismatch")
             }
-            if reservation.height != output.height {
+            if reservation.sourceHeight != output.height {
                 reasons.append("height-mismatch")
             }
             if reservation.texture === output {
@@ -185,7 +184,8 @@ extension SceneDependencyFrameRuntime {
         let reservationDescription: String
         if let reservation {
             reservationDescription = [
-                "size=\(reservation.width)x\(reservation.height)",
+                "sourceSize=\(reservation.sourceWidth)x\(reservation.sourceHeight)",
+                "targetSize=\(reservation.width)x\(reservation.height)",
                 "kind=\(String(describing: reservation.kind))",
                 "frameEpoch=\(reservation.frameEpoch)",
                 "pixelFormat=\(reservation.texture.pixelFormat.rawValue)",

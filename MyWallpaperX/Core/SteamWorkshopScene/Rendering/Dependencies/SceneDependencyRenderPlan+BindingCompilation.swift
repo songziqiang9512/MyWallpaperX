@@ -417,6 +417,14 @@ extension SceneDependencyRenderPlan {
             // Resource ownership only: the admitted MaterialProgram still
             // proves shader semantics, scalar inputs and output authority.
             contract = (reference, 0, .imageLayerBlend, true)
+        } else if let reference = materialProgramGeometryLayerReference(
+            layer: layer,
+            visibleEffects: visibleEffects,
+            references: references,
+            layersByID: layersByID,
+            visibleLayerIDs: visibleLayerIDs
+        ) {
+            contract = (reference, 0, .geometryLayer, true)
         } else if let reference = visibleImageGraphOutputReference(
             layer: layer,
             visibleEffects: visibleEffects,
@@ -552,6 +560,15 @@ extension SceneDependencyRenderPlan {
                     && !provider.effects.contains(where: { $0.visible != false })
                     && provider.dependencyLayerIDs.isEmpty
                     && provider.authoredDependencies.isEmpty
+        case .geometryLayer:
+            provider.contentKind == "image"
+                && provider.puppetMeshPath != nil
+                && hasNoUtilityLayer(provider)
+                && provider.visible != false
+                && visibleLayerIDs.contains(provider.id)
+                && provider.childLayerIDs.isEmpty
+                && provider.dependencyLayerIDs.isEmpty
+                && provider.authoredDependencies.isEmpty
         case .visibleImageGraphOutput:
             provider.contentKind == "image"
                 && provider.puppetMeshPath == nil
@@ -564,6 +581,7 @@ extension SceneDependencyRenderPlan {
               (!providerHasVisibleEffects || (
                   (contract.kind == .imageLayerBlend
                       && provider.visible == false)
+                    || contract.kind == .geometryLayer
                     || contract.kind == .visibleImageGraphOutput
                     || (contract.kind == .solidLayer
                         && contract.requiresResolvedMaterialProgram)
@@ -687,6 +705,15 @@ extension SceneDependencyRenderPlan {
         ) != nil {
             return true
         }
+        if materialProgramGeometryLayerReference(
+            layer: layer,
+            visibleEffects: visibleEffects,
+            references: references,
+            layersByID: layersByID,
+            visibleLayerIDs: visibleLayerIDs
+        ) != nil {
+            return true
+        }
         if materialProgramSolidLayerReference(
             layer: layer,
             visibleEffects: visibleEffects,
@@ -767,8 +794,7 @@ extension SceneDependencyRenderPlan {
         let bindings = authoredActiveReferences.compactMap { reference -> Binding? in
             guard let provider = layersByID[reference.providerLayerID],
                   provider.contentKind == "image",
-                  provider.puppetMeshPath == nil,
-                  provider.utilityLayer == nil,
+                  hasNoUtilityLayer(provider),
                   provider.childLayerIDs.isEmpty,
                   !cyclicLayerIDs.contains(provider.id),
                   let providerOrder = order[provider.id],
@@ -779,13 +805,31 @@ extension SceneDependencyRenderPlan {
                     provider,
                     visibleLayerIDs: visibleLayerIDs
                 )
-            guard provider.visible == false || providerIsVisibleGraphOutput else {
+            let providerIsVisibleGeometryOutput = provider.puppetMeshPath != nil
+                && provider.visible != false
+                && visibleLayerIDs.contains(provider.id)
+                && provider.authoredDependencies.isEmpty
+                && provider.dependencyLayerIDs.isEmpty
+            guard provider.visible == false
+                    || providerIsVisibleGraphOutput
+                    || providerIsVisibleGeometryOutput else {
                 return nil
             }
             let providerHasVisibleEffects = provider.effects.contains {
                 $0.visible != false
             }
+            let bindingKind: Binding.Kind = provider.puppetMeshPath == nil
+                ? .imageLayerBlend : .geometryLayer
             let requiresForwardCapture = providerOrder > consumerOrder
+            // Pre-executing a visible effect graph would consume its one
+            // frame ticket before authored order reaches the provider.  The
+            // named publication is not a substitute for its main-compositor
+            // output, so keep this shape fail-closed until one ticket can own
+            // both outputs without double execution.
+            guard !(requiresForwardCapture
+                && providerHasVisibleEffects
+                && provider.visible != false
+                && visibleLayerIDs.contains(provider.id)) else { return nil }
             let supportsForwardSourceCapture = requiresForwardCapture
                 && provider.effects.isEmpty
                 && provider.dependencyLayerIDs.isEmpty
@@ -815,7 +859,7 @@ extension SceneDependencyRenderPlan {
                 providerLayerID: provider.id,
                 slot: reference.slot,
                 blendMode: 0,
-                kind: .imageLayerBlend,
+                kind: bindingKind,
                 requiresForwardCapture: requiresForwardCapture,
                 requiresResolvedMaterialProgram: true
             )

@@ -483,6 +483,143 @@
      "notes": "The opaque opening layer can no longer obtain static fallback display authority; its fade and destroy lifecycle remain unavailable."
     }
    ]
+  },
+  {
+   "family_key": "resource/model@9d3474c9219422b7",
+   "repair_state": "implemented",
+   "runtime_proof_state": "visible-chain-closed",
+   "regression_protection_state": "targeted-runtime",
+   "root_cause": "The dependency plan deliberately rejected Puppet-backed image layers as ordinary flat image providers, but it had no typed GeometryProduct publication for an exact-placement named dependency. The real 2959875782 chain therefore could not carry visible effectful Puppet 1413 through hidden Puppet graph provider 134 into composition aggregate 520. After admission was added, the remaining integrity failures exposed an authored 2667x1500 publication extent above the named-target 2048 dimension and a submission coordinator that still rejected singular geometry ownership.",
+   "public_fix": "Add an identity-free geometryLayer dependency profile for a visible image Puppet with no child, authored dependency or utility owner, restricted to primary pass 0 slot 1, normal blend and an admitted resolved MaterialProgram. Reserve a typed named target only when provider and consumer placement match exactly; rasterize the original atlas or graph-final through the same GeometryProduct in authored-local coordinates, proportionally limiting only the physical publication target, and retain exact consumer/provider/variant/slot/blend, texture, generation, frame-epoch, completion and publication checks. A visible Puppet leaf may feed a hidden nested graph provider and then an aggregate without adding an output owner. Ordinary publication misses discard only the provider output or dependent consumer while independent suffix work and a visible color provider's authored-order compositor output continue; data publications and identity drift remain fail closed. Forward visible effectful providers remain rejected because prepass would consume their sole graph ticket. The ordinary flat-image Puppet route remains rejected.",
+   "commit": "uncommitted-working-tree",
+   "targeted_samples": [
+    "2959875782"
+   ],
+   "roi_evidence": [
+    "/private/tmp/mwx-2959875782-geometry-typed-publication-postsplit-20260917-1349/results/2959875782/scene-ready-window.png sha256=5243699898fda5e22ffd6751805703205a52f6c0be37088b5a2e71032d095796 is non-black and visually complete at the original 3024x1964 capture resolution",
+    "/private/tmp/mwx-2959875782-geometry-typed-publication-postsplit-20260917-1349/results/2959875782/scene-after-window.png sha256=f94497ee9f33dc8f4409d5e16b9f3c02043373ce1c21a39dd21f48e8fbb6ec8b is non-black and visually complete with ready-to-after mean delta 0.012204862332652756 and changed ratio 0.27742116024957164",
+    "/private/tmp/mwx-2959875782-typed-outcome2-20260917-1802/results/2959875782/scene-ready-window.png sha256=9a0d18c5b4d37a6a2b2bc406be1e0fc590e9176cbe92f4adfb028b1e9a42a8d9 3024x1964 non-black full-frame ready capture of the final typed-outcome candidate",
+    "/private/tmp/mwx-2959875782-typed-outcome2-20260917-1802/results/2959875782/scene-after-window.png sha256=4654a709af23b688c3a4d53e23507fbb5105102d4e1a1eeff3a9c364c56d0aae 3024x1964 after capture with mean_delta=0.0086603 and changed_ratio=0.212629"
+   ],
+   "remaining_boundaries": [
+    "This family key is the census-minted model-resource anchor for the repaired event; the targeted result does not close all 37 samples, model revisions, arbitrary geometry providers, 3D, Puppet semantics or model-resource families.",
+    "Only the placement-exact primary pass-0 slot-1 normal-blend MaterialProgram profile is admitted, including its bounded hidden nested graph-provider form. Different provider/consumer placement, children, provider dependencies, forward visible effectful providers, non-primary variants, other slots or blends remain fail closed.",
+    "The Steam preview comparison is advisory and not fixed-phase official pixel or timing equivalence.",
+    "The -Onone observation-enabled diagnostic run is not product-performance evidence. A separate optimized no-observation steady-state probe held 30 FPS on the current M4 single-display environment, while the 60 FPS profile remained GPU-limited at about 48.99 FPS; low-end devices, multi-display, long-stability, Release equivalence and the AS3 60 FPS closure remain unverified.",
+    "The current uncommitted candidate has not been rerun across all 159 samples. The old full-set baseline plus targeted closure of its two failures cannot be reported as a fresh 159/159 candidate run."
+   ],
+   "regression_gates": [
+    {
+     "kind": "synthetic-positive",
+     "reference": "script/tests/test_scene_dependency_graph_output_runtime.py#test_graph_output_copies_into_distinct_reservation_and_publishes_once"
+    },
+    {
+     "kind": "synthetic-negative",
+     "reference": "script/tests/test_scene_dependency_render_plan.py#test_puppet_atlas_cannot_publish_as_flat_image_provider"
+    },
+    {
+     "kind": "synthetic-negative",
+     "reference": "script/tests/test_scene_resolved_material_runtime_bridge.py#test_resolved_material_runtime_bridge_compiles_and_executes"
+    },
+    {
+     "kind": "targeted-runtime",
+     "reference": "/private/tmp/mwx-2959875782-geometry-typed-publication-postsplit-20260917-1349/report.json#2959875782 sha256=ec92930c28ff386bbe8e5cd1c869150a90d4e8e95756738723ae9d8f9457ef00"
+    },
+    {
+     "kind": "targeted-runtime",
+     "reference": "/private/tmp/mwx-2959875782-typed-outcome2-20260917-1802/report.json#2959875782 sha256=40c9330d4aeb469622cfb94471908466884c9d894ed7289576b53e9fd3daf928"
+    }
+   ],
+   "events": [
+    {
+     "date": "2026-09-17",
+     "state": "implemented",
+     "commit": "uncommitted-working-tree",
+     "evidence_refs": [
+      "/private/tmp/mwx-2959875782-geometry-typed-publication-postsplit-20260917-1349/report.json#2959875782 sha256=ec92930c28ff386bbe8e5cd1c869150a90d4e8e95756738723ae9d8f9457ef00",
+      "docs/scene/semantics/runtime-evidence-current.md#e-2026-09-17-geometry-named-publication"
+     ],
+     "notes": "The post-responsibility-split Developer ID Debug candidate (CDHash 3c8c457639ba942edb868460de2a20e41beead35, executable SHA-256 53674cc720993e9c3a36bebff61d710707f1a3a0467a1d7c4c2a8a520665cf09) passed the fresh serial targeted run with failures empty. Layer 134 acquired external-primary geometry ownership, layer 520 retained the full four-input aggregate, utility capture succeeded for 520, named bindings succeeded for 134 and 520, visible graph or geometry publications succeeded for 130 and 1413, and named graph publications succeeded for 19, 134 and 138. GraphExecutor recorded 838 claimed, 838 encoded, 838 GPU encoded, zero failure and zero local fallback; exact-backend missing, wrong and failed sets were empty. Original-resolution ready and after screenshots were manually inspected as complete full-frame outputs with dynamic change. A separate optimized performance-only App (CDHash fc0b0c990379db781b65ebcc509d23fee5dd63f0) held 29.9995 FPS in the 30 FPS profile with zero failed frames, but reached only 48.99 FPS in the 60 FPS profile because GPU p50 and p95 exceeded 16.67 ms. This is bounded identity and execution closure plus a single-environment performance boundary, not official parity, 60 FPS completion, full-corpus rerun or release readiness."
+    },
+    {
+     "date": "2026-09-17",
+     "state": "implemented",
+     "commit": "uncommitted-working-tree",
+     "evidence_refs": [
+      "/private/tmp/mwx-2959875782-geometry-local-failure-final2-20260917-1603/report.json#2959875782 sha256=ded674d19b396f2dd7c8fc70ff52bea130c5a8bff5abdacda1d44f9b99473a87",
+      "docs/scene/semantics/runtime-evidence-current.md#e-2026-09-17-geometry-named-publication"
+     ],
+     "notes": "The final Developer ID Debug candidate after publication failure-radius repair (CDHash fb5b9fa247c23da81f8b781f4c817e3242f426ef, executable SHA-256 c9eea5e29257ef562116e76b938dabb6bf45517cba8c9eae5bc64041bff8eb8a) completed a fresh serial real-sample run with 75 submitted, 74 completed and zero failed frames. GraphExecutor recorded 929 claimed, 929 encoded, 929 GPU encoded, zero failure and zero local fallback; 220 terminal successes preserved next-frame and compositor evidence with no diagnostic, failed outcome or GPU failure. Utility capture, named binding, named graph publication and visible graph or geometry publication succeeded for the expected identities with empty failed sets, and both original-resolution screenshots were manually inspected as complete dynamic full-frame outputs. The report's only overall failure was the current session's unavailable performance presentation channel (presentStreams zero in two consecutive runs, including with caffeinate), so this event is fresh functional and visible closure, not a performance PASS."
+    },
+    {
+     "date": "2026-09-17",
+     "state": "implemented",
+     "commit": "uncommitted-working-tree",
+     "evidence_refs": [
+      "/private/tmp/mwx-2959875782-typed-outcome2-20260917-1802/report.json#2959875782 sha256=40c9330d4aeb469622cfb94471908466884c9d894ed7289576b53e9fd3daf928",
+      "docs/scene/semantics/runtime-evidence-current.md#e-2026-09-17-geometry-named-publication"
+     ],
+     "notes": "Independent review replaced the provider publication Bool? with the typed SceneGraphOutputPublicationResult (published / unavailable / invalid) so that only ordinary colour publication misses localize: colour providers keep their authored-order compositor output, typed .data providers and any reservation, epoch, object or registry identity drift consume the ticket with published:false and fail closed, geometry pose-not-ready and encode failures are ordinary unavailable while source, generation, placement and registry drift are invalid, and the coordinator only accepts the exact named-provider-publication-unavailable reason for a local discard. The intermediate candidate that misclassified a graph-output provider raw-capture route as invalid stopped the layer loop every frame at diagnostic graph-provider-raw-capture-invalid (report /private/tmp/mwx-2959875782-typed-outcome-20260917-1759/report.json, fifteen failures, no publication or screenshots); the shipped classification keeps that route an ordinary unavailable miss. Final signed Developer ID Debug candidate CDHash 968bef713ed64cfeba619eb82a2a4218ef1e5f52 (executable SHA-256 c4733a84776d457e1a4925c2adfb94ed22c38498991373ffcabe17f97d1a8ba5) passed the fresh serial targeted run with empty failures: 433 submitted, 432 completed, 432 presented, one presentation stream, GraphExecutor 634 claimed, 634 encoded, 634 GPU encoded, zero failure, zero local fallback, 220 terminal successes with next-frame, exact backend 37/37 complete, and empty failed sets for utility capture, named binding, named graph publication and visible graph publication. The same batch moved the consumer-side input resolution out of SceneDependencyFrameRuntime.swift into the new owner extension SceneDependencyFrameRuntime+EffectInputResolution.swift (845 to 653 lines), with the source layout and harness source lists updated."
+    }
+   ]
+  },
+  {
+   "family_key": "render-target/fbo@9901cebdf4c0a822",
+   "repair_state": "implemented",
+   "runtime_proof_state": "visible-chain-closed",
+   "regression_protection_state": "targeted-runtime",
+   "root_cause": "Each surface's single offscreen target pool derived its automatic resident budget from one thirty-second of Metal's recommended working set. On the exercised single-surface run that yielded 397284864 bytes, below the 411292672-byte atomic frame target requirement, so the existing integrity preflight correctly rejected every graph before allocation even though the authored target descriptors and programs were otherwise admissible.",
+   "public_fix": "Keep the existing per-surface pool, allocation cache and fail-closed frame preflight as the only target residency owner for that surface, but derive the automatic budget from one sixteenth of the recommended working set with the existing 192 MiB floor and a 1.5 GiB upper cap. Explicit injected budgets remain authoritative and over-budget frame sets are still rejected before allocation.",
+   "commit": "8cb2c343",
+   "targeted_samples": [
+    "3754630802"
+   ],
+   "roi_evidence": [
+    "/private/tmp/mwx-resident-budget-final-20260917/results/3754630802/scene-ready-window.png sha256=eb21d07eb4ce9dc9bc4886767bee1429e1f53d6fbf308a2d71ba709df2e021f0 is non-black with flat-border ratio 0.051596494762288475",
+    "/private/tmp/mwx-resident-budget-final-20260917/results/3754630802/scene-after-window.png sha256=7dfeeb5eaaa6ce3bec022c3285746ec9a782bad7c82ca380c7aaa5fd36050bc2 is non-black with ready-to-after mean delta 0.07155441552925512 and changed ratio 0.8000099677798252"
+   ],
+   "remaining_boundaries": [
+    "The targeted run closes identity and execution evidence for this sample only; the preview comparison is advisory and is not fixed-phase official pixel or timing equivalence.",
+    "The 1.5 GiB value is an upper cap, not a measured floor. This device was admitted by the one-sixteenth working-set share before the cap; M1 or lower-memory devices, multi-surface pressure, memory-pressure recovery and long-stability behavior remain unverified.",
+    "The automatic limit is per surface; there is no process-wide aggregate cap across multiple display surfaces.",
+    "This family key anchors the shared RGBA framebuffer residency event. It does not claim semantic closure for every framebuffer family, target format, topology or sample that uses the same pool."
+   ],
+   "regression_gates": [
+    {
+     "kind": "synthetic-positive",
+     "reference": "script/tests/test_scene_offscreen_texture_resident_budget.py#test_measured_requirement_crosses_only_the_device_share"
+    },
+    {
+     "kind": "synthetic-negative",
+     "reference": "script/tests/test_scene_graph_render_target_table.py#test_refuses_the_whole_allocation_before_exceeding_budget"
+    },
+    {
+     "kind": "targeted-runtime",
+     "reference": "/private/tmp/mwx-resident-budget-final-20260917/report.json#3754630802 sha256=9d656c2d2ba5aa7dcb91d85369ba8775b3198b0c2dc334ec25f8f63342ac0286"
+    }
+   ],
+   "events": [
+    {
+     "date": "2026-09-17",
+     "state": "implemented",
+     "commit": "8cb2c343",
+     "evidence_refs": [
+      "/private/tmp/mwx-fullset-baseline/run-3754630802/report.json#3754630802 sha256=51da324e16869b668468cd00197e596234644167736e4ee31cd0b35994d3aed6",
+      "docs/scene/semantics/runtime-evidence-current.md#e-2026-09-17-resident-target-budget"
+     ],
+     "notes": "The fresh signed Debug run passed with failures empty: 21 accepted layers all had the exact resolved-material graph backend, GPU completion, terminal compositor consumption and next-frame evidence; 453 frames were submitted, 452 completed and zero failed. Peak target-pool residency was 484508416 bytes inside the 794569728-byte automatic budget; the focused policy gate fixes the exact share and cap, while the target-table negative gate retains fail-closed rejection before allocation. This is identity and execution closure, not official visual parity or low-memory validation."
+    },
+    {
+     "date": "2026-09-17",
+     "state": "implemented",
+     "commit": "uncommitted-working-tree",
+     "evidence_refs": [
+      "/private/tmp/mwx-resident-budget-final-20260917/report.json#3754630802 sha256=9d656c2d2ba5aa7dcb91d85369ba8775b3198b0c2dc334ec25f8f63342ac0286",
+      "docs/scene/semantics/runtime-evidence-current.md#e-2026-09-17-resident-target-budget"
+     ],
+     "notes": "The final Developer ID Debug candidate (CDHash f6f90605f48593a3a532ec1476906a76b1e31cb8, executable SHA-256 53c22cfd272166a0c6fd77562719022e0106c6f00080965db278ccefac3d1578) passed the fresh serial rerun with failures empty. All 21 accepted layers had exact resolved-material-graph, GPU completion, terminal compositor consumption and next-frame evidence; 71 frames were submitted, 70 completed, zero failed and 70 presented. Peak target-pool residency was 484508416 bytes inside the 794569728-byte automatic budget. The report is targeted identity and execution closure only, not official visual parity, low-memory, multi-surface aggregate safety or long-stability evidence."
+    }
+   ]
   }
  ],
  "schema_version": 1,

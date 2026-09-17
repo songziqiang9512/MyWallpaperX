@@ -473,11 +473,15 @@ class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
         self.assertIn("bindColorBlend(encoder, sourceTexture, mvp)", playback)
         self.assertIn("func bindGeometry(", blend_pipeline)
         self.assertIn("if let geometryProduct", blend_pipeline)
-        self.assertGreaterEqual(renderer.count("if geometryProduct == nil,"), 2)
+        # Atlas/source fallback still refuses Puppet, while a successful graph
+        # output now flows through the typed GeometryProduct publication path.
+        self.assertEqual(renderer.count("if geometryProduct == nil,"), 1)
+        self.assertIn("geometryProduct: geometryProduct", renderer)
         self.assertIn("publications[layerID] = nil", base)
         self.assertNotIn("provider(.puppet", base)
         self.assertIn("sourceTexture,", recomposer)
-        self.assertNotIn("atlasTexture: MTLTexture", recomposer)
+        self.assertIn("atlasTexture: MTLTexture", recomposer)
+        self.assertIn("samplingTexture: atlasTexture", recomposer)
         self.assertIn("geometryModelMatrix(", preflight)
         self.assertIn(
             "SceneLayerCursorGeometry.effectProjectionInverse(\n                        effectProjectionMVP,",

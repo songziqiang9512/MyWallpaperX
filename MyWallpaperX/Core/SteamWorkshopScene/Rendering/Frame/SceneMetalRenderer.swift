@@ -329,6 +329,7 @@ struct SceneMetalRenderer {
                 dependencyRuntime: dependencyRuntime,
                 mainPass: mainPass,
                 commandBuffer: commandBuffer,
+                geometryProduct: imageTextures.geometryProducts[layer.id],
                 executionTrace: effectExecutionTrace
             ) {
                 if !providerGraphEncoded {
@@ -373,7 +374,8 @@ struct SceneMetalRenderer {
                     viewportSize: viewportSize,
                     pipeline: imagePipeline,
                     textureRegistry: textureRegistry,
-                    mainPass: mainPass
+                    mainPass: mainPass,
+                    geometryProduct: imageTextures.geometryProducts[layer.id]
                 )
             }
             guard frameVisibleLayerIDs.contains(layer.id) else { continue }
@@ -522,14 +524,18 @@ struct SceneMetalRenderer {
                                 pipeline: imagePipeline,
                                 textureRegistry: textureRegistry,
                                 mainPass: mainPass
-                            ) == true
+                            ) == .published
                     }
                 } else {
                     layerSourceGraphFallbackPublisher = nil
                 }
-                let resolvedMaterialGraphOutputPublisher: ((MTLTexture, SceneTextureContent) -> Bool)?
-                if geometryProduct == nil,
-                   dependencyRuntime.requiresDemandedGraphOutputCapture(for: layer.id) {
+                let resolvedMaterialGraphOutputPublisher: ((
+                    MTLTexture,
+                    SceneTextureContent
+                ) -> SceneGraphOutputPublicationResult)?
+                if dependencyRuntime.requiresDemandedGraphOutputCapture(
+                    for: layer.id
+                ) {
                     resolvedMaterialGraphOutputPublisher = { graphOutput, content in
                         dependencyRuntime.publishGraphOutputIfRequired(
                             layerID: layer.id,
@@ -537,8 +543,11 @@ struct SceneMetalRenderer {
                             publicationRole: .visibleMainLoop,
                             textureRegistry: textureRegistry,
                             commandBuffer: commandBuffer,
+                            geometryProduct: geometryProduct,
                             content: content
-                        ) == true
+                        ) ?? .invalid(
+                            reasonCode: "named-provider-publication-route-missing"
+                        )
                     }
                 } else {
                     resolvedMaterialGraphOutputPublisher = nil

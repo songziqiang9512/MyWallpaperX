@@ -553,7 +553,47 @@ extension SceneMetalRenderer {
                 func reserveDependencyInput(
                     _ source: SceneBaseMaterialTextureSource?
                 ) -> SceneDependencyEffectInput? {
-                    dependencyRuntime.reserveEffectInput(
+                    let geometryProduct: SceneGeometryProduct?
+                    let providerOutputMVP: simd_float4x4?
+                    let consumerOutputMVP: simd_float4x4?
+                    if binding.kind == .geometryLayer,
+                       let source,
+                       let product = imageTextures.geometryProduct(
+                           for: providerLayer.id,
+                           matching: source.texture
+                       ) {
+                        geometryProduct = product
+                        providerOutputMVP = geometryMVP(providerLayer, product)
+                            * SceneMatrix.scale(SIMD3(
+                                product.authoredSize.x,
+                                product.authoredSize.y,
+                                1
+                            ))
+                        if let consumerProduct = imageTextures.geometryProducts[
+                            layer.id
+                        ] {
+                            consumerOutputMVP = geometryMVP(
+                                layer,
+                                consumerProduct
+                            ) * SceneMatrix.scale(SIMD3(
+                                consumerProduct.authoredSize.x,
+                                consumerProduct.authoredSize.y,
+                                1
+                            ))
+                        } else {
+                            consumerOutputMVP = imageMVP(
+                                layer,
+                                imageTextures.layerSourceRenderSize(
+                                    for: layer.id
+                                )
+                            )
+                        }
+                    } else {
+                        geometryProduct = nil
+                        providerOutputMVP = nil
+                        consumerOutputMVP = nil
+                    }
+                    return dependencyRuntime.reserveEffectInput(
                         for: binding,
                         providerLayer: providerLayer,
                         providerTexture: source?.texture,
@@ -561,6 +601,9 @@ extension SceneMetalRenderer {
                         layerMVP: providerMVP,
                         viewportSize: frameContext.screenSize,
                         preparedOutputExtent: preparedOutputExtent,
+                        geometryProduct: geometryProduct,
+                        providerOutputMVP: providerOutputMVP,
+                        consumerOutputMVP: consumerOutputMVP,
                         frameEpoch: textureRegistry.frameEpoch,
                         failureReason: &dependencyFailureReason
                     )
@@ -626,6 +669,7 @@ extension SceneMetalRenderer {
                         imageTextures: imageTextures,
                         frameContext: frameContext,
                         imageMVP: imageMVP,
+                        geometryMVP: geometryMVP,
                         baseMaterialSelections: &baseMaterialSelections,
                         failureReason: &aggregateFailureReason
                     ) else {

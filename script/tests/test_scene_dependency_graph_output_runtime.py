@@ -23,6 +23,9 @@ AGGREGATE_VALIDATION_RUNTIME_SOURCE = RUNTIME_SOURCE.with_name(
 GEOMETRY_RUNTIME_SOURCE = RUNTIME_SOURCE.with_name(
     "SceneDependencyFrameRuntime+Geometry.swift"
 )
+EFFECT_INPUT_RESOLUTION_RUNTIME_SOURCE = RUNTIME_SOURCE.with_name(
+    "SceneDependencyFrameRuntime+EffectInputResolution.swift"
+)
 
 
 HARNESS_SOURCE = r'''
@@ -87,6 +90,7 @@ struct SceneDependencyRenderPlan {
             case resolvedMaterial
             case solidLayer
             case imageLayerBlend
+            case geometryLayer
             case visibleImageGraphOutput
         }
 
@@ -161,7 +165,10 @@ struct SceneDependencyRenderPlan {
                 binding.consumerLayerID == consumerLayerID
                     && binding.providerLayerID != consumerLayerID
                     && binding.referenceSlots == [binding.slot]
-                    && binding.kind == .imageLayerBlend
+                    && (
+                        binding.kind == .imageLayerBlend
+                            || binding.kind == .geometryLayer
+                    )
                     && binding.blendMode == 0
                     && binding.requiresResolvedMaterialProgram
             }
@@ -389,7 +396,7 @@ final class SceneFrameTextureRegistry {
 }
 
 final class SceneNamedRenderTargetPool {
-    static let maximumDimension = 4_096
+    static let maximumDimension = 2_048
     private let device: MTLDevice
     private(set) var residentByteCost = 0
 
@@ -507,6 +514,82 @@ struct SceneLayerFragmentUniforms {
     static func neutral() -> Self { .init() }
 }
 
+typealias ColorBlendBinder = () -> Void
+
+enum SceneEffectSourceExtentContract: Equatable {
+    case exactSamplingTexture
+}
+
+enum SceneMatrix {
+    static func ortho(
+        left: Float,
+        right: Float,
+        bottom: Float,
+        top: Float,
+        near: Float,
+        far: Float
+    ) -> simd_float4x4 {
+        let rl = right - left
+        let tb = top - bottom
+        let fn = far - near
+        return simd_float4x4(columns: (
+            SIMD4(2 / rl, 0, 0, 0),
+            SIMD4(0, 2 / tb, 0, 0),
+            SIMD4(0, 0, -1 / fn, 0),
+            SIMD4(-(right + left) / rl, -(top + bottom) / tb, -near / fn, 1)
+        ))
+    }
+
+    static func scale(_ value: SIMD3<Float>) -> simd_float4x4 {
+        simd_float4x4(diagonal: SIMD4(value, 1))
+    }
+}
+
+struct SceneGeometryProduct {
+    let ownerLayerID: Int
+    let samplingTexture: MTLTexture
+    let resourceGeneration: UInt64
+    let isPreparedForPublication: (MTLCommandBuffer) -> Bool
+    let encode: (
+        MTLRenderCommandEncoder,
+        MTLTexture,
+        MTLTexture?,
+        simd_float4x4,
+        SceneLayerFragmentUniforms,
+        ColorBlendBinder?
+    ) -> Bool
+    let authoredSize: SIMD2<Float>
+    let effectSourceExtentContract: SceneEffectSourceExtentContract
+
+    func matchesInstalledSource(
+        layerID: Int,
+        texture: MTLTexture
+    ) -> Bool {
+        ownerLayerID == layerID
+            && resourceGeneration > 0
+            && samplingTexture === texture
+            && authoredSize.x.isFinite
+            && authoredSize.y.isFinite
+            && authoredSize.x >= 1
+            && authoredSize.y >= 1
+    }
+
+    func supportsNamedProviderPlacement(
+        providerOutputMVP: simd_float4x4,
+        consumerOutputMVP: simd_float4x4
+    ) -> Bool {
+        for column in 0 ..< 4 {
+            for row in 0 ..< 4 {
+                guard providerOutputMVP[column][row]
+                        == consumerOutputMVP[column][row] else {
+                    return false
+                }
+            }
+        }
+        return true
+    }
+}
+
 extension SIMD3 where Scalar == Float {
     init(_ values: [Double], fill: Float) {
         self.init(
@@ -571,13 +654,15 @@ final class SceneMainPassEncoder {
         self.commandBuffer = commandBuffer
     }
 
-    func encodeOffscreen(_ body: (MTLCommandBuffer) -> Bool) -> Bool {
+    func encodeOffscreen<Result>(
+        _ body: (MTLCommandBuffer) -> Result
+    ) -> Result {
         body(commandBuffer)
     }
 
-    func withReadableTarget(
-        _ body: (MTLTexture, MTLCommandBuffer) -> Bool
-    ) -> Bool? {
+    func withReadableTarget<Result>(
+        _ body: (MTLTexture, MTLCommandBuffer) -> Result
+    ) -> Result? {
         body(texture, commandBuffer)
     }
 }
@@ -727,6 +812,50 @@ enum Harness {
             frameEpoch: 18,
             failureReason: &mixedVisibleReservationFailure
         )
+        var mixedSiblingReservationFailure: String?
+        let mixedSiblingInput = mixedRuntime.reserveEffectInput(
+            for: mixedSiblingBinding,
+            providerLayer: mixedSibling,
+            providerTexture: source,
+            providerCandidate: candidate,
+            layerMVP: matrix_identity_float4x4,
+            viewportSize: CGSize(width: 2, height: 2),
+            frameEpoch: 18,
+            failureReason: &mixedSiblingReservationFailure
+        )
+        let missingAggregateRegistry = SceneFrameTextureRegistry(frameEpoch: 18)
+        let aggregatePublicationMissIsUnavailable: Bool
+        switch mixedRuntime.aggregateEffectInputResolution(
+            for: mixedAggregate,
+            textureRegistry: missingAggregateRegistry
+        ) {
+        case let .unavailable(reasonCode):
+            aggregatePublicationMissIsUnavailable =
+                reasonCode == "external-primary-provider-capture-unavailable"
+        case .ready, .invalid:
+            aggregatePublicationMissIsUnavailable = false
+        }
+        let wrongAggregateRegistry = SceneFrameTextureRegistry(frameEpoch: 18)
+        let foreignAggregateTexture = texture(
+            device,
+            label: "foreign-aggregate-publication"
+        )
+        _ = wrongAggregateRegistry.publishReservedNamedLayerTarget(
+            reference: .init(providerLayerID: 710, variant: .primary),
+            frameEpoch: 18,
+            texture: foreignAggregateTexture
+        )
+        let aggregatePublicationIdentityDriftIsInvalid: Bool
+        switch mixedRuntime.aggregateEffectInputResolution(
+            for: mixedAggregate,
+            textureRegistry: wrongAggregateRegistry
+        ) {
+        case let .invalid(reasonCode):
+            aggregatePublicationIdentityDriftIsInvalid =
+                reasonCode == "external-primary-aggregate-publication-mismatch"
+        case .ready, .unavailable:
+            aggregatePublicationIdentityDriftIsInvalid = false
+        }
         let mixedOutput = texture(device, label: "mixed-provider-output")
         let mixedRegistry = SceneFrameTextureRegistry(frameEpoch: 18)
         let mixedOutputInstalled = mixedRuntime.installPreparedGraphOutputs(
@@ -740,11 +869,13 @@ enum Harness {
                 publicationRole: .visibleMainLoop,
                 textureRegistry: mixedRegistry,
                 commandBuffer: commandBuffer
-            ) == true
+            ) == .published
         let mixedConsumerKindsShareProviderPublication =
             mixedAggregate.hasStrictBindingVector
                 && mixedAggregateReservationFailure == nil
                 && mixedVisibleReservationFailure == nil
+                && mixedSiblingReservationFailure == nil
+                && mixedSiblingInput != nil
                 && mixedAggregateInput?.texture === mixedVisibleInput?.texture
                 && mixedOutputInstalled
                 && mixedPublicationSucceeded
@@ -830,7 +961,7 @@ enum Harness {
                     texture: physicalCarrier,
                     commandBuffer: commandBuffer
                 )
-            ) == true
+            ) == .published
         let preparedExtentCapturePublished = preparedExtentRegistry
             .completeNamedLayerTargetTexture(
                 reference: .init(providerLayerID: 700, variant: .primary),
@@ -843,7 +974,7 @@ enum Harness {
                 publicationRole: .visibleMainLoop,
                 textureRegistry: preparedExtentRegistry,
                 commandBuffer: commandBuffer
-            ) == true
+            ) == .published
         let preparedExtentWrongSize = texture(
             device,
             width: 7,
@@ -857,7 +988,317 @@ enum Harness {
                 publicationRole: .visibleMainLoop,
                 textureRegistry: preparedExtentRegistry,
                 commandBuffer: commandBuffer
-            ) == false
+            ) == .invalid(
+                reasonCode: "named-provider-publication-identity-invalid"
+            )
+
+        // Geometry providers reserve an authored-local target, but graph
+        // output remains only a sampling source. Publication must execute the
+        // typed GeometryProduct on the current command buffer and must reject
+        // stale identity, placement, pose, and encode state.
+        let geometryProvider = SceneRenderDescriptor.Layer(
+            id: 800,
+            contentKind: "image",
+            utilityLayer: nil,
+            alpha: 1,
+            colorRGB: [1, 1, 1]
+        )
+        let geometrySibling = SceneRenderDescriptor.Layer(
+            id: 801,
+            contentKind: "image",
+            utilityLayer: nil,
+            alpha: 1,
+            colorRGB: [1, 1, 1]
+        )
+        let geometryBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: 802,
+            providerLayerID: 800,
+            slot: .init(effectID: "geometry", passIndex: 0, slotIndex: 1),
+            blendMode: 0,
+            kind: .geometryLayer,
+            requiresResolvedMaterialProgram: true
+        )
+        let geometrySiblingBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: 802,
+            providerLayerID: 801,
+            slot: .init(effectID: "flat", passIndex: 0, slotIndex: 1),
+            blendMode: 0,
+            kind: .imageLayerBlend,
+            requiresResolvedMaterialProgram: true
+        )
+        let geometryAggregate = SceneDependencyRenderPlan.MultiProviderAggregate(
+            consumerLayerID: 802,
+            bindings: [geometryBinding, geometrySiblingBinding],
+            authoredSlotOrder: [geometryBinding.slot, geometrySiblingBinding.slot]
+        )
+        func geometryRuntime() -> SceneDependencyFrameRuntime {
+            SceneDependencyFrameRuntime(
+                descriptor: .init(
+                    layers: [geometryProvider, geometrySibling],
+                    bindings: [:],
+                    graphOutputProviderLayerIDs: [800],
+                    aggregates: [802: geometryAggregate]
+                ),
+                visibleLayerIDs: [800, 802],
+                executableUtilityConsumerLayerIDs: [802],
+                device: device
+            )
+        }
+        let geometryAtlas = texture(
+            device,
+            width: 3,
+            height: 2,
+            label: "geometry-atlas"
+        )
+        let geometryGraphOutput = texture(
+            device,
+            width: 3,
+            height: 2,
+            label: "geometry-graph-output"
+        )
+        let geometryGraphBytes = [UInt8](
+            repeating: 211,
+            count: geometryGraphOutput.width * geometryGraphOutput.height * 4
+        )
+        geometryGraphOutput.replace(
+            region: MTLRegionMake2D(
+                0, 0, geometryGraphOutput.width, geometryGraphOutput.height
+            ),
+            mipmapLevel: 0,
+            withBytes: geometryGraphBytes,
+            bytesPerRow: geometryGraphOutput.width * 4
+        )
+        var encodedGeometrySource: MTLTexture?
+        let geometryProduct = SceneGeometryProduct(
+            ownerLayerID: 800,
+            samplingTexture: geometryAtlas,
+            resourceGeneration: 7,
+            isPreparedForPublication: { candidate in
+                candidate === commandBuffer
+            },
+            encode: { _, sourceTexture, _, _, _, _ in
+                encodedGeometrySource = sourceTexture
+                return true
+            },
+            authoredSize: SIMD2(4, 3),
+            effectSourceExtentContract: .exactSamplingTexture
+        )
+        let geometrySuccessRuntime = geometryRuntime()
+        var geometryReservationFailure: String?
+        let geometryInput = geometrySuccessRuntime.reserveEffectInput(
+            for: geometryBinding,
+            providerLayer: geometryProvider,
+            providerTexture: geometryAtlas,
+            providerCandidate: nil,
+            layerMVP: matrix_identity_float4x4,
+            viewportSize: CGSize(width: 16, height: 9),
+            preparedOutputExtent: (width: 3, height: 2),
+            geometryProduct: geometryProduct,
+            providerOutputMVP: matrix_identity_float4x4,
+            consumerOutputMVP: matrix_identity_float4x4,
+            frameEpoch: 19,
+            failureReason: &geometryReservationFailure
+        )
+        let geometryPreparedOutputInstalled = geometrySuccessRuntime
+            .installPreparedGraphOutputs([800: geometryGraphOutput], frameEpoch: 19)
+        let geometryRegistry = SceneFrameTextureRegistry(frameEpoch: 19)
+        let geometryPublished = geometrySuccessRuntime
+            .publishGraphOutputIfRequired(
+                layerID: 800,
+                texture: geometryGraphOutput,
+                publicationRole: .visibleMainLoop,
+                textureRegistry: geometryRegistry,
+                commandBuffer: commandBuffer,
+                geometryProduct: geometryProduct
+            ) == .published
+        let geometryPublishedExactReservation = geometryRegistry
+            .completeNamedLayerTargetTexture(
+                reference: .init(providerLayerID: 800, variant: .primary),
+                frameEpoch: 19
+            ) === geometryInput?.texture
+        let oversizedGeometryProduct = SceneGeometryProduct(
+            ownerLayerID: 800,
+            samplingTexture: geometryAtlas,
+            resourceGeneration: 9,
+            isPreparedForPublication: { _ in true },
+            encode: { _, _, _, _, _, _ in true },
+            authoredSize: SIMD2(2_667, 1_500),
+            effectSourceExtentContract: .exactSamplingTexture
+        )
+        let oversizedGeometryRuntime = geometryRuntime()
+        var oversizedGeometryFailure: String?
+        let oversizedGeometryInput = oversizedGeometryRuntime.reserveEffectInput(
+            for: geometryBinding,
+            providerLayer: geometryProvider,
+            providerTexture: geometryAtlas,
+            providerCandidate: nil,
+            layerMVP: matrix_identity_float4x4,
+            viewportSize: CGSize(width: 16, height: 9),
+            preparedOutputExtent: (width: 3, height: 2),
+            geometryProduct: oversizedGeometryProduct,
+            providerOutputMVP: matrix_identity_float4x4,
+            consumerOutputMVP: matrix_identity_float4x4,
+            frameEpoch: 20,
+            failureReason: &oversizedGeometryFailure
+        )
+        let oversizedGeometryMVP = SceneDependencyFrameRuntime
+            .geometryPublicationMVP(oversizedGeometryProduct)
+        let oversizedGeometryNormalized = oversizedGeometryInput?.texture.width == 2_048
+            && oversizedGeometryInput?.texture.height == 1_152
+            && oversizedGeometryFailure == nil
+        let oversizedGeometryKeepsAuthoredLocalProjection =
+            abs((oversizedGeometryMVP?[0][0] ?? 0) - (2 / 2_667)) < 0.000001
+            && abs((oversizedGeometryMVP?[1][1] ?? 0) - (2 / 1_500)) < 0.000001
+
+        func geometryReservationRejected(
+            product: SceneGeometryProduct,
+            providerTexture: MTLTexture,
+            providerMVP: simd_float4x4 = matrix_identity_float4x4,
+            consumerMVP: simd_float4x4 = matrix_identity_float4x4,
+            expectedReason: String
+        ) -> Bool {
+            let runtime = geometryRuntime()
+            var reason: String?
+            return runtime.reserveEffectInput(
+                for: geometryBinding,
+                providerLayer: geometryProvider,
+                providerTexture: providerTexture,
+                providerCandidate: nil,
+                layerMVP: matrix_identity_float4x4,
+                viewportSize: CGSize(width: 16, height: 9),
+                preparedOutputExtent: (width: 3, height: 2),
+                geometryProduct: product,
+                providerOutputMVP: providerMVP,
+                consumerOutputMVP: consumerMVP,
+                frameEpoch: 20,
+                failureReason: &reason
+            ) == nil && reason == expectedReason
+        }
+        let wrongLayerGeometryProduct = SceneGeometryProduct(
+            ownerLayerID: 899,
+            samplingTexture: geometryAtlas,
+            resourceGeneration: 7,
+            isPreparedForPublication: { _ in true },
+            encode: { _, _, _, _, _, _ in true },
+            authoredSize: SIMD2(4, 3),
+            effectSourceExtentContract: .exactSamplingTexture
+        )
+        let wrongGenerationGeometryProduct = SceneGeometryProduct(
+            ownerLayerID: 800,
+            samplingTexture: geometryAtlas,
+            resourceGeneration: 0,
+            isPreparedForPublication: { _ in true },
+            encode: { _, _, _, _, _, _ in true },
+            authoredSize: SIMD2(4, 3),
+            effectSourceExtentContract: .exactSamplingTexture
+        )
+        var mismatchedPlacement = matrix_identity_float4x4
+        mismatchedPlacement.columns.3.x = 1
+        let geometryWrongLayerRejected = geometryReservationRejected(
+            product: wrongLayerGeometryProduct,
+            providerTexture: geometryAtlas,
+            expectedReason: "geometry-provider-source-identity-invalid"
+        )
+        let geometryWrongSourceRejected = geometryReservationRejected(
+            product: geometryProduct,
+            providerTexture: geometryGraphOutput,
+            expectedReason: "geometry-provider-source-identity-invalid"
+        )
+        let geometryWrongGenerationRejected = geometryReservationRejected(
+            product: wrongGenerationGeometryProduct,
+            providerTexture: geometryAtlas,
+            expectedReason: "geometry-provider-source-identity-invalid"
+        )
+        let geometryPlacementMismatchRejected = geometryReservationRejected(
+            product: geometryProduct,
+            providerTexture: geometryAtlas,
+            consumerMVP: mismatchedPlacement,
+            expectedReason: "geometry-provider-placement-mismatch"
+        )
+
+        let staleGeometryRuntime = geometryRuntime()
+        var staleGeometryFailure: String?
+        _ = staleGeometryRuntime.reserveEffectInput(
+            for: geometryBinding,
+            providerLayer: geometryProvider,
+            providerTexture: geometryAtlas,
+            providerCandidate: nil,
+            layerMVP: matrix_identity_float4x4,
+            viewportSize: CGSize(width: 16, height: 9),
+            preparedOutputExtent: (width: 3, height: 2),
+            geometryProduct: geometryProduct,
+            providerOutputMVP: matrix_identity_float4x4,
+            consumerOutputMVP: matrix_identity_float4x4,
+            frameEpoch: 21,
+            failureReason: &staleGeometryFailure
+        )
+        let staleGeometryRegistry = SceneFrameTextureRegistry(frameEpoch: 22)
+        let staleGeometryRejected = staleGeometryRuntime
+            .publishGraphOutputIfRequired(
+                layerID: 800,
+                texture: geometryGraphOutput,
+                publicationRole: .visibleMainLoop,
+                textureRegistry: staleGeometryRegistry,
+                commandBuffer: commandBuffer,
+                geometryProduct: geometryProduct
+            ) == .invalid(
+                reasonCode: "named-provider-reservation-missing"
+            )
+
+        func failedGeometryPublication(
+            prepared: Bool,
+            encodeResult: Bool,
+            frameEpoch: UInt64
+        ) -> Bool {
+            let product = SceneGeometryProduct(
+                ownerLayerID: 800,
+                samplingTexture: geometryAtlas,
+                resourceGeneration: 8,
+                isPreparedForPublication: { _ in prepared },
+                encode: { _, _, _, _, _, _ in encodeResult },
+                authoredSize: SIMD2(4, 3),
+                effectSourceExtentContract: .exactSamplingTexture
+            )
+            let runtime = geometryRuntime()
+            var reason: String?
+            guard runtime.reserveEffectInput(
+                for: geometryBinding,
+                providerLayer: geometryProvider,
+                providerTexture: geometryAtlas,
+                providerCandidate: nil,
+                layerMVP: matrix_identity_float4x4,
+                viewportSize: CGSize(width: 16, height: 9),
+                preparedOutputExtent: (width: 3, height: 2),
+                geometryProduct: product,
+                providerOutputMVP: matrix_identity_float4x4,
+                consumerOutputMVP: matrix_identity_float4x4,
+                frameEpoch: frameEpoch,
+                failureReason: &reason
+            ) != nil, reason == nil else { return false }
+            let registry = SceneFrameTextureRegistry(frameEpoch: frameEpoch)
+            return runtime.publishGraphOutputIfRequired(
+                layerID: 800,
+                texture: geometryGraphOutput,
+                publicationRole: .visibleMainLoop,
+                textureRegistry: registry,
+                commandBuffer: commandBuffer,
+                geometryProduct: product
+            ) == .unavailable(
+                reasonCode: prepared
+                    ? "geometry-provider-encode-unavailable"
+                    : "geometry-provider-pose-unavailable"
+            ) && registry.readyPublicationCount == 0
+        }
+        let geometryPoseNotReadyRejected = failedGeometryPublication(
+            prepared: false,
+            encodeResult: true,
+            frameEpoch: 23
+        )
+        let geometryEncodeFailureRejected = failedGeometryPublication(
+            prepared: true,
+            encodeResult: false,
+            frameEpoch: 24
+        )
         var reservationFailure: String?
         let provisionalInput = runtime.reserveEffectInput(
             for: binding,
@@ -946,7 +1387,7 @@ enum Harness {
             pipeline: .init(),
             textureRegistry: registry,
             mainPass: .init(texture: source, commandBuffer: commandBuffer)
-        ) == false
+        ) == .unavailable(reasonCode: "graph-provider-raw-capture-unavailable")
         let fallbackRuntime = SceneDependencyFrameRuntime(
             descriptor: descriptor,
             visibleLayerIDs: [400, 401],
@@ -978,7 +1419,7 @@ enum Harness {
                     texture: source,
                     commandBuffer: commandBuffer
                 )
-            ) == true
+            ) == .published
         let sourceFallbackReady: Bool
         switch fallbackRuntime.resolvedMaterialEffectInputResolution(
             for: 401,
@@ -998,7 +1439,9 @@ enum Harness {
             publicationRole: .visibleMainLoop,
             textureRegistry: registry,
             commandBuffer: commandBuffer
-        ) == false
+        ) == .invalid(
+            reasonCode: "named-provider-publication-identity-invalid"
+        )
         let failedPublicationLeftReservationUnpublished =
             registry.readyPublicationCount == 0
         let published = runtime.publishGraphOutputIfRequired(
@@ -1008,7 +1451,7 @@ enum Harness {
             textureRegistry: registry,
             commandBuffer: commandBuffer,
             content: .data
-        ) == true
+        ) == .published
         let readyInput: SceneDependencyEffectInput?
         switch runtime.resolvedMaterialEffectInputResolution(
             for: 401,
@@ -1079,7 +1522,7 @@ enum Harness {
             pipeline: .init(),
             textureRegistry: captureRegistry,
             mainPass: .init(texture: source, commandBuffer: commandBuffer)
-        ) == true
+        ) == .published
             && SceneOffscreenEffectRenderer.lastTextureFrame0
                 == capturedUV.uniform0
             && SceneOffscreenEffectRenderer.lastTextureFrame1
@@ -1124,7 +1567,7 @@ enum Harness {
             pipeline: .init(),
             textureRegistry: modelRegistry,
             mainPass: .init(texture: source, commandBuffer: commandBuffer)
-        ) == true
+        ) == .published
         let modelInput = modelRuntime.staticModelNamedAlbedo(
             for: 610,
             materialPath: "materials/unseen/runtime.json",
@@ -1166,6 +1609,16 @@ enum Harness {
         )
         let copiedGraphOutputBytes = gpuCompleted
             && publishedBytes == expectedOutputBytes
+        var geometryPublicationBytes = [UInt8](repeating: 255, count: 4 * 3 * 4)
+        geometryInput?.texture.getBytes(
+            &geometryPublicationBytes,
+            bytesPerRow: 4 * 4,
+            from: MTLRegionMake2D(0, 0, 4, 3),
+            mipmapLevel: 0
+        )
+        let geometryGraphOutputWasRasterInput = gpuCompleted
+            && encodedGeometrySource === geometryGraphOutput
+            && geometryPublicationBytes.allSatisfy { $0 == 0 }
         registry.frameEpoch = 14
         let epochAdvanceClearsReservation: Bool
         switch runtime.resolvedMaterialEffectInputResolution(
@@ -1187,6 +1640,10 @@ enum Harness {
             "reserved": provisionalInput != nil && reservationFailure == nil,
             "mixedConsumerKindsShareProviderPublication":
                 mixedConsumerKindsShareProviderPublication,
+            "aggregatePublicationMissIsUnavailable":
+                aggregatePublicationMissIsUnavailable,
+            "aggregatePublicationIdentityDriftIsInvalid":
+                aggregatePublicationIdentityDriftIsInvalid,
             "preparedExtentReserved": preparedExtentInput?.texture.width == 8
                 && preparedExtentInput?.texture.height == 4
                 && preparedExtentFailure == nil
@@ -1197,6 +1654,26 @@ enum Harness {
             "preparedExtentCapturePublished": preparedExtentCapturePublished,
             "preparedExtentPublished": preparedExtentPublished,
             "preparedExtentWrongSizeRejected": preparedExtentWrongSizeRejected,
+            "geometryReservation": geometryInput?.texture.width == 4
+                && geometryInput?.texture.height == 3
+                && geometryReservationFailure == nil,
+            "geometryPreparedOutputInstalled": geometryPreparedOutputInstalled,
+            "geometryPublished": geometryPublished,
+            "geometryPublishedExactReservation":
+                geometryPublishedExactReservation,
+            "oversizedGeometryNormalized": oversizedGeometryNormalized,
+            "oversizedGeometryKeepsAuthoredLocalProjection":
+                oversizedGeometryKeepsAuthoredLocalProjection,
+            "geometryGraphOutputWasRasterInput":
+                geometryGraphOutputWasRasterInput,
+            "geometryWrongLayerRejected": geometryWrongLayerRejected,
+            "geometryWrongSourceRejected": geometryWrongSourceRejected,
+            "geometryWrongGenerationRejected": geometryWrongGenerationRejected,
+            "geometryPlacementMismatchRejected":
+                geometryPlacementMismatchRejected,
+            "staleGeometryRejected": staleGeometryRejected,
+            "geometryPoseNotReadyRejected": geometryPoseNotReadyRejected,
+            "geometryEncodeFailureRejected": geometryEncodeFailureRejected,
             "resolvedMaterialReservesFromGeometryWithoutBaseSource":
                 resolvedMaterialReservesFromGeometryWithoutBaseSource,
             "imageProviderStillRequiresExactSource":
@@ -1249,6 +1726,7 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
     def test_graph_output_copies_into_distinct_reservation_and_publishes_once(
         self,
     ) -> None:
+        self.maxDiff = None
         with tempfile.TemporaryDirectory(
             prefix="mwx-scene-dependency-graph-output-"
         ) as directory:
@@ -1265,6 +1743,7 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     str(RUNTIME_SOURCE),
                     str(AGGREGATE_VALIDATION_RUNTIME_SOURCE),
                     str(GEOMETRY_RUNTIME_SOURCE),
+                    str(EFFECT_INPUT_RESOLUTION_RUNTIME_SOURCE),
                     str(STATIC_MODEL_RUNTIME_SOURCE),
                     str(
                         REPOSITORY_ROOT
@@ -1300,12 +1779,28 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "inactiveProviderNeedsNoReservation": True,
                     "reserved": True,
                     "mixedConsumerKindsShareProviderPublication": True,
+                    "aggregatePublicationMissIsUnavailable": True,
+                    "aggregatePublicationIdentityDriftIsInvalid": True,
                     "preparedExtentReserved": True,
                     "preparedExtentInstalled": True,
                     "preparedExtentFallbackCaptured": True,
                     "preparedExtentCapturePublished": True,
                     "preparedExtentPublished": True,
                     "preparedExtentWrongSizeRejected": True,
+                    "geometryReservation": True,
+                    "geometryPreparedOutputInstalled": True,
+                    "geometryPublished": True,
+                    "geometryPublishedExactReservation": True,
+                    "oversizedGeometryNormalized": True,
+                    "oversizedGeometryKeepsAuthoredLocalProjection": True,
+                    "geometryGraphOutputWasRasterInput": True,
+                    "geometryWrongLayerRejected": True,
+                    "geometryWrongSourceRejected": True,
+                    "geometryWrongGenerationRejected": True,
+                    "geometryPlacementMismatchRejected": True,
+                    "staleGeometryRejected": True,
+                    "geometryPoseNotReadyRejected": True,
+                    "geometryEncodeFailureRejected": True,
                     "resolvedMaterialReservesFromGeometryWithoutBaseSource": True,
                     "imageProviderStillRequiresExactSource": True,
                     "graphCaptureRequired": True,

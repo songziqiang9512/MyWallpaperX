@@ -60,6 +60,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         var ticketConsumed = false
         var outputConsumed = false
         var compositorConsumed = false
+        var localOutputFailureReasonCode: String?
         var submissionID: UInt64?
     }
 

@@ -14,6 +14,7 @@ extension SceneDependencyRenderPlan {
             case resolvedMaterial
             case solidLayer
             case imageLayerBlend
+            case geometryLayer
             case visibleImageGraphOutput
         }
 

@@ -147,6 +147,7 @@ enum ScenePuppetLayerLoad {
                     return staticOutcome(
                         layer: layer,
                         mesh: mesh,
+                        atlasTexture: atlasTexture,
                         layerWidth: layerWidth,
                         layerHeight: layerHeight,
                         device: device,
@@ -225,6 +226,7 @@ enum ScenePuppetLayerLoad {
         return staticOutcome(
             layer: layer,
             mesh: mesh,
+            atlasTexture: atlasTexture,
             layerWidth: layerWidth,
             layerHeight: layerHeight,
             device: device,
@@ -236,6 +238,7 @@ enum ScenePuppetLayerLoad {
     private static func staticOutcome(
         layer: SceneRenderDescriptor.Layer,
         mesh: SceneMdlPuppetMesh,
+        atlasTexture: MTLTexture,
         layerWidth: Float,
         layerHeight: Float,
         device: MTLDevice,
@@ -243,7 +246,9 @@ enum ScenePuppetLayerLoad {
         animationFallbackMessage: String?
     ) -> Outcome {
         switch ScenePuppetMeshGeometry.prepare(
+            layerID: layer.id,
             mesh: mesh,
+            atlasTexture: atlasTexture,
             layerWidth: layerWidth,
             layerHeight: layerHeight,
             device: device,

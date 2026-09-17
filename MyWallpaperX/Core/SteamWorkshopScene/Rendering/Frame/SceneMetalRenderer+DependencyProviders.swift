@@ -22,11 +22,19 @@ extension SceneMetalRenderer {
             return (nil, [], nil)
         }
         if requiresDependencyEffect, hasResolvedFramePlan {
-            if let aggregate = dependencyRuntime.aggregateEffectInputs(
-                for: layerID,
-                textureRegistry: textureRegistry
-            ) {
-                return (nil, aggregate, nil)
+            if let aggregate = dependencyRuntime.plan
+                .multiProviderAggregatesByConsumerLayerID[layerID] {
+                switch dependencyRuntime.aggregateEffectInputResolution(
+                    for: aggregate,
+                    textureRegistry: textureRegistry
+                ) {
+                case let .ready(inputs):
+                    return (nil, inputs, nil)
+                case let .unavailable(reasonCode):
+                    return (nil, [], (reasonCode, true))
+                case let .invalid(reasonCode):
+                    return (nil, [], (reasonCode, false))
+                }
             }
             switch dependencyRuntime.resolvedMaterialEffectInputResolution(
                 for: layerID,
@@ -62,6 +70,7 @@ extension SceneMetalRenderer {
         dependencyRuntime: SceneDependencyFrameRuntime,
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
+        geometryProduct: SceneGeometryProduct? = nil,
         executionTrace: SceneEffectExecutionFrameTrace?
     ) -> Bool? {
         guard dependencyRuntime.requiresDemandedGraphOutputCapture(
@@ -82,18 +91,27 @@ extension SceneMetalRenderer {
            dependencyBypassReason == nil {
             if let aggregate = dependencyRuntime.plan
                 .multiProviderAggregatesByConsumerLayerID[layer.id] {
-                guard let inputs = dependencyRuntime.aggregateEffectInputs(
+                switch dependencyRuntime.aggregateEffectInputResolution(
                     for: aggregate,
                     textureRegistry: textureRegistry
-                ), inputs.count == aggregate.bindings.count else {
+                ) {
+                case let .ready(inputs):
+                    dependencyEffects = inputs
+                    dependencyEffect = nil
+                case let .unavailable(reasonCode):
+                    dependencyRuntime.recordBindingFailure(for: layer.id)
+                    return imageCompositor
+                        .rejectResolvedMaterialDependencySubgraphLocally(
+                            layerID: layer.id,
+                            reasonCode: reasonCode
+                        )
+                case let .invalid(reasonCode):
                     dependencyRuntime.recordBindingFailure(for: layer.id)
                     imageCompositor.recordResolvedMaterialFramePreflightFailure(
-                        "external-primary-aggregate-input-unavailable"
+                        reasonCode
                     )
                     return false
                 }
-                dependencyEffects = inputs
-                dependencyEffect = nil
             } else {
                 switch dependencyRuntime.resolvedMaterialEffectInputResolution(
                     for: layer.id,
@@ -156,27 +174,56 @@ extension SceneMetalRenderer {
         case .failed:
             return false
         }
-        let published = dependencyRuntime.publishGraphOutputIfRequired(
+        let publicationResult = dependencyRuntime.publishGraphOutputIfRequired(
             layerID: layer.id,
             texture: texture,
             publicationRole: .namedProviderPrepass,
             textureRegistry: textureRegistry,
             commandBuffer: commandBuffer,
+            geometryProduct: geometryProduct,
             content: ticket.finalContent
-        ) == true
+        ) ?? .invalid(reasonCode: "named-provider-publication-route-missing")
         dependencyRuntime.recordBindingIfRequired(
             for: layer.id,
             encoded: ticket.consumesExternalPrimaryDependency,
             on: commandBuffer
         )
-        return imageCompositor.consumeResolvedMaterialNamedPublication(
-            ticket,
-            texture: texture,
-            published: published,
-            layerID: layer.id,
-            executionTrace: executionTrace,
-            executionOrigin: .image
-        ) && published
+        switch publicationResult {
+        case .published:
+            return imageCompositor.consumeResolvedMaterialNamedPublication(
+                ticket,
+                texture: texture,
+                published: true,
+                layerID: layer.id,
+                executionTrace: executionTrace,
+                executionOrigin: .image
+            )
+        case .unavailable where ticket.finalContent != .data:
+            return imageCompositor
+                .discardResolvedMaterialNamedPublicationLocally(
+                    ticket,
+                    texture: texture,
+                    layerID: layer.id,
+                    executionTrace: executionTrace,
+                    executionOrigin: .image
+                )
+        case let .unavailable(reasonCode), let .invalid(reasonCode):
+            executionTrace?.recordRouteOperation(
+                layerID: layer.id,
+                origin: .image,
+                operation: "named-provider-publication",
+                outcome: .failed(reasonCode: reasonCode)
+            )
+            _ = imageCompositor.consumeResolvedMaterialNamedPublication(
+                ticket,
+                texture: texture,
+                published: false,
+                layerID: layer.id,
+                executionTrace: executionTrace,
+                executionOrigin: .image
+            )
+            return false
+        }
     }
 
     /// Publishes the plan-proven image providers whose authored position is
@@ -238,6 +285,7 @@ extension SceneMetalRenderer {
                     dependencyRuntime: dependencyRuntime,
                     mainPass: mainPass,
                     commandBuffer: commandBuffer,
+                    geometryProduct: imageTextures.geometryProducts[provider.id],
                     executionTrace: executionTrace
                 ) == true else { return nil }
                 graphProviderLayerIDs.insert(provider.id)
@@ -283,7 +331,8 @@ extension SceneMetalRenderer {
                 viewportSize: viewportSize,
                 pipeline: imagePipeline,
                 textureRegistry: textureRegistry,
-                mainPass: mainPass
+                mainPass: mainPass,
+                geometryProduct: imageTextures.geometryProducts[provider.id]
             )
         }
         return graphProviderLayerIDs

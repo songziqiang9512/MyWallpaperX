@@ -8,6 +8,23 @@ enum SceneResolvedMaterialDependencyInputResolution {
     case invalid(reasonCode: String)
 }
 
+enum SceneResolvedMaterialAggregateInputResolution {
+    case ready([SceneDependencyEffectInput])
+    case unavailable(reasonCode: String)
+    case invalid(reasonCode: String)
+}
+
+enum SceneGraphOutputPublicationResult: Equatable {
+    case published
+    /// The prepared identity is still current, but the color product could
+    /// not be encoded or published on this frame. Only color providers may
+    /// localize this ordinary visual miss.
+    case unavailable(reasonCode: String)
+    /// Reservation, epoch, resource or registry identity no longer matches
+    /// the prepared provider contract. Callers must fail closed.
+    case invalid(reasonCode: String)
+}
+
 final class SceneDependencyFrameRuntime {
     enum GraphOutputPublicationRole {
         /// The authored visible layer publishes before its normal main-pass
@@ -20,6 +37,7 @@ final class SceneDependencyFrameRuntime {
     struct EffectTargetReservation {
         enum Kind: Hashable {
             case image
+            case geometry
             case resolvedMaterial
             case solidLayer
 
@@ -27,6 +45,8 @@ final class SceneDependencyFrameRuntime {
                 switch bindingKind {
                 case .imageLayerBlend, .visibleImageGraphOutput:
                     self = .image
+                case .geometryLayer:
+                    self = .geometry
                 case .resolvedMaterial:
                     self = .resolvedMaterial
                 case .solidLayer:
@@ -42,11 +62,17 @@ final class SceneDependencyFrameRuntime {
         let texture: MTLTexture
         let width: Int
         let height: Int
+        /// Exact graph/source texture extent before a GeometryProduct
+        /// rasterizes it into the provider-local publication target.
+        let sourceWidth: Int
+        let sourceHeight: Int
+        let geometryResourceGeneration: UInt64?
+        let geometrySamplingTexture: MTLTexture?
         let frameEpoch: UInt64
     }
 
     let plan: SceneDependencyRenderPlan
-    private let targetPool: SceneNamedRenderTargetPool
+    let targetPool: SceneNamedRenderTargetPool
     private let captureTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-capture")
     private let namedGraphOutputPublicationTelemetry = SceneGPUCompletionTelemetry(
         phase: "named-graph-output-publication"
@@ -135,259 +161,6 @@ final class SceneDependencyFrameRuntime {
         plan.blocksStaticLayerSourcePassthrough(for: layerID)
     }
 
-    func reserveEffectInput(
-        for binding: SceneDependencyRenderPlan.Binding,
-        providerLayer: SceneRenderDescriptor.Layer,
-        providerTexture: MTLTexture?,
-        providerCandidate: SceneTextureCandidate?,
-        layerMVP: simd_float4x4,
-        viewportSize: CGSize,
-        preparedOutputExtent: (width: Int, height: Int)? = nil,
-        frameEpoch: UInt64,
-        failureReason: inout String?
-    ) -> SceneDependencyEffectInput? {
-        guard frameEpoch > 0 else {
-            failureReason = "frame-epoch-invalid"
-            return nil
-        }
-        guard binding.providerLayerID == providerLayer.id else {
-            failureReason = "provider-layer-mismatch"
-            return nil
-        }
-        guard plan.bindingsByConsumerLayerID[binding.consumerLayerID] == binding
-            || plan.aggregateBindingIsPlanned(binding) else {
-            failureReason = "binding-not-planned"
-            return nil
-        }
-        // Aggregate members are an ordered, image-primary vector. Keep the
-        // strict shape check at reservation time so a forged/partially
-        // reconstructed member cannot acquire a named target and only fail
-        // later during graph execution.
-        if plan.aggregateBindingIsPlanned(binding) {
-            guard binding.consumerLayerID != binding.providerLayerID,
-                  binding.referenceSlots == [binding.slot],
-                  binding.kind == .imageLayerBlend,
-                  binding.blendMode == 0,
-                  binding.requiresResolvedMaterialProgram else {
-                failureReason = "aggregate-binding-shape-mismatch"
-                return nil
-            }
-        }
-        guard let extent = Self.captureExtent(
-            binding: binding,
-            providerLayer: providerLayer,
-            providerTexture: providerTexture,
-            providerCandidate: providerCandidate,
-            layerMVP: layerMVP,
-            viewportSize: viewportSize,
-            preparedOutputExtent: preparedOutputExtent,
-            failureReason: &failureReason
-        ) else {
-            return nil
-        }
-        synchronizeReservations(to: frameEpoch)
-        if plan.requiredGraphOutputProviderLayerIDs.contains(providerLayer.id) {
-            demandedGraphOutputProviderLayerIDs.insert(providerLayer.id)
-        }
-
-        let texture: MTLTexture
-        if let reservation = reservationsByProviderLayerID[providerLayer.id] {
-            guard reservation.frameEpoch == frameEpoch,
-                  reservation.providerLayerID == providerLayer.id,
-                  reservation.kind == .init(binding.kind),
-                  reservation.width == extent.width,
-                  reservation.height == extent.height,
-                  Self.isValidDependencyTexture(reservation.texture) else {
-                failureReason = "reservation-mismatch"
-                return nil
-            }
-            texture = reservation.texture
-        } else {
-            guard let reservedTexture = targetPool.texture(
-                      for: providerLayer.id,
-                      width: extent.width,
-                      height: extent.height
-                  ), reservedTexture.width == extent.width,
-                  reservedTexture.height == extent.height,
-                  Self.isValidDependencyTexture(reservedTexture) else {
-                failureReason = "target-pool-unavailable"
-                return nil
-            }
-            reservationsByProviderLayerID[providerLayer.id] = EffectTargetReservation(
-                providerLayerID: providerLayer.id,
-                kind: .init(binding.kind),
-                texture: reservedTexture,
-                width: extent.width,
-                height: extent.height,
-                frameEpoch: frameEpoch
-            )
-            texture = reservedTexture
-        }
-
-        return makeEffectInput(
-            binding: binding,
-            frameEpoch: frameEpoch,
-            texture: texture
-        )
-    }
-
-    func effectInput(
-        for consumerLayerID: Int,
-        textureRegistry: SceneFrameTextureRegistry
-    ) -> SceneDependencyEffectInput? {
-        guard let binding = plan.bindingsByConsumerLayerID[consumerLayerID] else {
-            return nil
-        }
-        let frameEpoch = textureRegistry.frameEpoch
-        synchronizeReservations(to: frameEpoch)
-        let reference = SceneNamedTextureReference(
-            providerLayerID: binding.providerLayerID,
-            variant: .primary
-        )
-        guard let resource = textureRegistry.completeNamedLayerTargetResource(
-            reference: reference,
-            frameEpoch: frameEpoch
-        ) else { return nil }
-        let texture = resource.publication.texture
-        if let reservation = reservationsByProviderLayerID[binding.providerLayerID] {
-            guard reservation.frameEpoch == frameEpoch,
-                  texture === reservation.texture else { return nil }
-        }
-        return makeEffectInput(
-            binding: binding,
-            frameEpoch: frameEpoch,
-            texture: texture,
-            content: resource.publication.candidate.content
-        )
-    }
-
-    /// Resolves every publication in a multi-provider aggregate in authored
-    /// slot order. Missing or mismatched members reject the whole aggregate so
-    /// execution cannot silently consume a partial provider set.
-    func aggregateEffectInputs(
-        for aggregate: SceneDependencyRenderPlan.MultiProviderAggregate,
-        textureRegistry: SceneFrameTextureRegistry
-    ) -> [SceneDependencyEffectInput]? {
-        let frameEpoch = textureRegistry.frameEpoch
-        guard frameEpoch > 0,
-              aggregate.hasStrictBindingVector,
-              plan.multiProviderAggregatesByConsumerLayerID[
-                  aggregate.consumerLayerID
-              ] == aggregate else { return nil }
-        synchronizeReservations(to: frameEpoch)
-        // `hasStrictBindingVector` proves this is already canonical. Do not
-        // sort here: silently reordering a corrupted aggregate would hide an
-        // authored slot/order mismatch from the execution ledger.
-        let orderedBindings = aggregate.bindings
-        var inputs: [SceneDependencyEffectInput] = []
-        for binding in orderedBindings {
-            let reference = SceneNamedTextureReference(
-                providerLayerID: binding.providerLayerID,
-                variant: .primary
-            )
-            guard let reservation = reservationsByProviderLayerID[
-                binding.providerLayerID
-            ], reservation.frameEpoch == frameEpoch,
-                  let resource = textureRegistry.completeNamedLayerTargetResource(
-                      reference: reference,
-                      frameEpoch: frameEpoch
-                  ), resource.publication.texture === reservation.texture else { return nil }
-            let texture = resource.publication.texture
-            inputs.append(makeEffectInput(
-                binding: binding,
-                frameEpoch: frameEpoch,
-                texture: texture,
-                content: resource.publication.candidate.content
-            ))
-        }
-        return aggregateInputVectorIsValid(
-            inputs,
-            aggregate: aggregate,
-            frameEpoch: frameEpoch
-        ) ? inputs : nil
-    }
-
-    func aggregateEffectInputs(
-        for consumerLayerID: Int,
-        textureRegistry: SceneFrameTextureRegistry
-    ) -> [SceneDependencyEffectInput]? {
-        guard let aggregate = plan
-            .multiProviderAggregatesByConsumerLayerID[consumerLayerID] else {
-            return nil
-        }
-        return aggregateEffectInputs(
-            for: aggregate,
-            textureRegistry: textureRegistry
-        )
-    }
-
-    /// Resolves a dependency already reserved by unified frame preparation.
-    /// A valid reservation without a same-frame publication is an ordinary
-    /// provider visual failure; reservation/epoch/object drift remains an
-    /// integrity rejection and must not enter the local passthrough path.
-    func resolvedMaterialEffectInputResolution(
-        for consumerLayerID: Int,
-        textureRegistry: SceneFrameTextureRegistry
-    ) -> SceneResolvedMaterialDependencyInputResolution {
-        guard let binding = plan.bindingsByConsumerLayerID[consumerLayerID] else {
-            return .invalid(reasonCode: "external-primary-binding-missing")
-        }
-        let frameEpoch = textureRegistry.frameEpoch
-        guard frameEpoch > 0 else {
-            return .invalid(reasonCode: "external-primary-frame-epoch-invalid")
-        }
-        synchronizeReservations(to: frameEpoch)
-        guard let reservation = reservationsByProviderLayerID[
-            binding.providerLayerID
-        ] else {
-            return .invalid(reasonCode: "external-primary-reservation-missing")
-        }
-        guard reservation.frameEpoch == frameEpoch,
-              reservation.providerLayerID == binding.providerLayerID,
-              reservation.kind == .init(binding.kind) else {
-            return .invalid(reasonCode: "external-primary-reservation-mismatch")
-        }
-        let reference = SceneNamedTextureReference(
-            providerLayerID: binding.providerLayerID,
-            variant: .primary
-        )
-        guard let resource = textureRegistry.completeNamedLayerTargetResource(
-            reference: reference,
-            frameEpoch: frameEpoch
-        ) else {
-            return .unavailable(
-                reasonCode: "external-primary-provider-capture-unavailable"
-            )
-        }
-        let texture = resource.publication.texture
-        guard texture === reservation.texture else {
-            return .invalid(reasonCode: "external-primary-publication-mismatch")
-        }
-        return .ready(makeEffectInput(
-            binding: binding,
-            frameEpoch: frameEpoch,
-            texture: texture,
-            content: resource.publication.candidate.content
-        ))
-    }
-
-    func recordBindingIfRequired(
-        for consumerLayerID: Int,
-        encoded: Bool,
-        on commandBuffer: MTLCommandBuffer
-    ) {
-        guard plan.bindingsByConsumerLayerID[consumerLayerID] != nil
-            || plan.multiProviderAggregatesByConsumerLayerID[
-                consumerLayerID
-            ] != nil else { return }
-        bindingTelemetry.record(layerID: consumerLayerID, encoded: encoded, on: commandBuffer)
-    }
-
-    func recordBindingFailure(for consumerLayerID: Int) {
-        guard plan.requiredEffectConsumerLayerIDs.contains(consumerLayerID) else { return }
-        bindingTelemetry.recordFailure(layerID: consumerLayerID)
-    }
-
     @discardableResult
     func captureProviderIfRequired(
         layer: SceneRenderDescriptor.Layer,
@@ -401,12 +174,19 @@ final class SceneDependencyFrameRuntime {
         pipeline: SceneImageLayerPipeline,
         textureRegistry: SceneFrameTextureRegistry,
         mainPass: SceneMainPassEncoder,
+        geometryProduct: SceneGeometryProduct? = nil,
         permitsGraphOutputSourceFallback: Bool = false
-    ) -> Bool? {
+    ) -> SceneGraphOutputPublicationResult? {
         guard plan.requiredProviderLayerIDs.contains(layer.id) else { return nil }
         guard permitsGraphOutputSourceFallback
             || !plan.requiredGraphOutputProviderLayerIDs.contains(layer.id) else {
-            return false
+            // A graph-output provider publishes through the graph route, not
+            // through this raw capture entry point. That is an ordinary
+            // route-not-applicable miss: the caller keeps its previous
+            // current and the consumer side localizes a missing publication.
+            return .unavailable(
+                reasonCode: "graph-provider-raw-capture-unavailable"
+            )
         }
 #if DEBUG
         if debugCaptureFault.shouldDropCapture(
@@ -418,7 +198,7 @@ final class SceneDependencyFrameRuntime {
                 "MWX DEBUG SCENE: phase=named-provider-capture-fault state=dropped provider=%d reason=debug-evidence-injected-capture-failure",
                 layer.id
             )
-            return false
+            return .unavailable(reasonCode: "named-provider-capture-unavailable")
         }
 #endif
         let frameEpoch = textureRegistry.frameEpoch
@@ -433,7 +213,7 @@ final class SceneDependencyFrameRuntime {
                reference: reference,
                frameEpoch: frameEpoch
            ) != nil {
-            return true
+            return .published
         }
         let providerBindings = plan.bindingsByConsumerLayerID.values.filter {
             $0.providerLayerID == layer.id
@@ -455,10 +235,37 @@ final class SceneDependencyFrameRuntime {
             viewportSize: viewportSize,
             failureReason: &captureFailureReason
         )
-        guard (providerBindings.isEmpty != staticModelBindings.isEmpty),
-              let extent else {
+        let hasNormalBindings = !providerBindings.isEmpty
+        let hasStaticModelBindings = !staticModelBindings.isEmpty
+        guard hasNormalBindings || hasStaticModelBindings else {
             captureTelemetry.recordFailure(layerID: layer.id)
-            return false
+            return .invalid(reasonCode: "named-provider-binding-missing")
+        }
+        guard hasNormalBindings != hasStaticModelBindings else {
+            // Mixed image and static-model consumers are not a proven capture
+            // shape. Keep the previous local radius instead of stopping the
+            // frame; the consumer side still localizes its missing
+            // publication.
+            captureTelemetry.recordFailure(layerID: layer.id)
+            return .unavailable(
+                reasonCode: "named-provider-binding-shape-unsupported"
+            )
+        }
+        guard let extent else {
+            captureTelemetry.recordFailure(layerID: layer.id)
+            // A reservation is this frame's identity proof for the provider.
+            // Once it exists, failing to reconstruct the same extent is
+            // identity drift and must fail closed; otherwise the source is
+            // simply not ready and the ordinary local miss still applies.
+            return reservation == nil
+                ? .unavailable(
+                    reasonCode: captureFailureReason
+                        ?? "named-provider-source-unavailable"
+                )
+                : .invalid(
+                    reasonCode: captureFailureReason
+                        ?? "named-provider-capture-identity-invalid"
+                )
         }
         let binding = providerBindings.first
         let providerTargetKind = binding.map {
@@ -466,7 +273,9 @@ final class SceneDependencyFrameRuntime {
         }
         guard binding == nil || providerBindings.allSatisfy({
             EffectTargetReservation.Kind($0.kind) == providerTargetKind
-        }) else { return false }
+        }) else {
+            return .invalid(reasonCode: "named-provider-binding-kind-invalid")
+        }
         let target: MTLTexture
         if let reservation {
             guard reservation.frameEpoch == frameEpoch,
@@ -479,7 +288,7 @@ final class SceneDependencyFrameRuntime {
                   reservation.texture.width == extent.width,
                   reservation.texture.height == extent.height else {
                 captureTelemetry.recordFailure(layerID: layer.id)
-                return false
+                return .invalid(reasonCode: "named-provider-reservation-invalid")
             }
             if let publishedTexture = textureRegistry
                 .completeNamedLayerTargetTexture(
@@ -488,9 +297,9 @@ final class SceneDependencyFrameRuntime {
                 ) {
                 guard publishedTexture === reservation.texture else {
                     captureTelemetry.recordFailure(layerID: layer.id)
-                    return false
+                    return .invalid(reasonCode: "named-provider-publication-identity-invalid")
                 }
-                return true
+                return .published
             }
             target = reservation.texture
         } else {
@@ -500,7 +309,7 @@ final class SceneDependencyFrameRuntime {
                       height: extent.height
                   ) else {
                 captureTelemetry.recordFailure(layerID: layer.id)
-                return false
+                return .unavailable(reasonCode: "named-provider-target-unavailable")
             }
             target = pooledTarget
         }
@@ -508,14 +317,23 @@ final class SceneDependencyFrameRuntime {
         let encoded: Bool
         switch binding?.kind {
         case .imageLayerBlend, .visibleImageGraphOutput:
-            guard let sourceTexture,
-                  let sourceCandidate,
-                  Self.isExactImageProviderCandidate(
-                      sourceCandidate,
-                      matching: sourceTexture
-                  ) else {
+            guard let sourceTexture, let sourceCandidate else {
                 captureTelemetry.recordFailure(layerID: layer.id)
-                return false
+                return .unavailable(reasonCode: "image-provider-source-unavailable")
+            }
+            guard sourceCandidate.texture === sourceTexture else {
+                captureTelemetry.recordFailure(layerID: layer.id)
+                return .invalid(reasonCode: "image-provider-source-identity-invalid")
+            }
+            guard Self.isExactImageProviderCandidate(
+                sourceCandidate,
+                matching: sourceTexture
+            ) else {
+                // Unresolved content/sampling or a wrong-purpose candidate
+                // means no exact provider atom exists yet. Keep the ordinary
+                // local radius for that pending state.
+                captureTelemetry.recordFailure(layerID: layer.id)
+                return .unavailable(reasonCode: "image-provider-source-unavailable")
             }
             encoded = mainPass.encodeOffscreen { commandBuffer in
                 var uniforms = SceneLayerFragmentUniforms.neutral()
@@ -542,6 +360,25 @@ final class SceneDependencyFrameRuntime {
                 )
                 return didEncode
             }
+        case .geometryLayer:
+            guard let sourceTexture,
+                  let geometryProduct else {
+                captureTelemetry.recordFailure(layerID: layer.id)
+                return .unavailable(reasonCode: "geometry-provider-source-unavailable")
+            }
+            return mainPass.encodeOffscreen {
+                commandBuffer -> SceneGraphOutputPublicationResult in
+                publishGeometryOutputIfRequired(
+                    layerID: layer.id,
+                    sourceTexture: sourceTexture,
+                    geometryProduct: geometryProduct,
+                    textureRegistry: textureRegistry,
+                    commandBuffer: commandBuffer,
+                    telemetry: captureTelemetry
+                ) ?? .invalid(
+                    reasonCode: "geometry-provider-publication-route-missing"
+                )
+            }
         case .resolvedMaterial:
             guard let utility = layer.utilityLayer,
                   let geometry = SceneCaptureGeometryResolver.resolve(
@@ -550,7 +387,7 @@ final class SceneDependencyFrameRuntime {
                       viewportSize: viewportSize
                   ) else {
                 captureTelemetry.recordFailure(layerID: layer.id)
-                return false
+                return .invalid(reasonCode: "resolved-provider-geometry-invalid")
             }
             var didObserveCommandBuffer = false
             encoded = mainPass.withReadableTarget { mainTexture, commandBuffer in
@@ -578,7 +415,7 @@ final class SceneDependencyFrameRuntime {
         case .solidLayer:
             guard let sourceTexture else {
                 captureTelemetry.recordFailure(layerID: layer.id)
-                return false
+                return .unavailable(reasonCode: "solid-provider-source-unavailable")
             }
             var uniforms = SceneLayerFragmentUniforms.neutral()
             uniforms.alpha = max(0, providerAlpha ?? Float(layer.alpha ?? 1))
@@ -612,7 +449,7 @@ final class SceneDependencyFrameRuntime {
                       candidate: sourceCandidate
                   ) else {
                 captureTelemetry.recordFailure(layerID: layer.id)
-                return false
+                return .unavailable(reasonCode: "static-model-provider-source-unavailable")
             }
             var uniforms = SceneLayerFragmentUniforms.neutral()
             uniforms.alpha = max(0, providerAlpha ?? Float(layer.alpha ?? 1))
@@ -658,7 +495,7 @@ final class SceneDependencyFrameRuntime {
                 frameEpoch: frameEpoch
             ) === target else {
                 captureTelemetry.recordFailure(layerID: layer.id)
-                return false
+                return .invalid(reasonCode: "named-provider-registry-publication-invalid")
             }
 #if DEBUG
             if debugCaptureFault.observeSuccessfulCapture(for: layer.id) {
@@ -671,6 +508,8 @@ final class SceneDependencyFrameRuntime {
 #endif
         }
         return encoded
+            ? .published
+            : .unavailable(reasonCode: "named-provider-encode-unavailable")
     }
 
     /// Publishes the exact current source when a visible effect graph has no
@@ -687,8 +526,9 @@ final class SceneDependencyFrameRuntime {
         viewportSize: CGSize,
         pipeline: SceneImageLayerPipeline,
         textureRegistry: SceneFrameTextureRegistry,
-        mainPass: SceneMainPassEncoder
-    ) -> Bool? {
+        mainPass: SceneMainPassEncoder,
+        geometryProduct: SceneGeometryProduct? = nil
+    ) -> SceneGraphOutputPublicationResult? {
         guard plan.requiredGraphOutputProviderLayerIDs.contains(layer.id) else {
             return nil
         }
@@ -702,6 +542,7 @@ final class SceneDependencyFrameRuntime {
             pipeline: pipeline,
             textureRegistry: textureRegistry,
             mainPass: mainPass,
+            geometryProduct: geometryProduct,
             permitsGraphOutputSourceFallback: true
         )
     }
@@ -715,8 +556,9 @@ final class SceneDependencyFrameRuntime {
         publicationRole: GraphOutputPublicationRole,
         textureRegistry: SceneFrameTextureRegistry,
         commandBuffer: MTLCommandBuffer,
+        geometryProduct: SceneGeometryProduct? = nil,
         content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
-    ) -> Bool? {
+    ) -> SceneGraphOutputPublicationResult? {
         guard plan.requiredGraphOutputProviderLayerIDs.contains(layerID) else {
             return nil
         }
@@ -733,21 +575,42 @@ final class SceneDependencyFrameRuntime {
         }
         let frameEpoch = textureRegistry.frameEpoch
         synchronizeReservations(to: frameEpoch)
-        guard let reservation = reservationsByProviderLayerID[layerID],
-              reservation.frameEpoch == frameEpoch,
+        guard let reservation = reservationsByProviderLayerID[layerID] else {
+            publicationTelemetry.recordFailure(layerID: layerID)
+            return .invalid(reasonCode: "named-provider-reservation-missing")
+        }
+        if reservation.kind == .geometry {
+            guard let geometryProduct else {
+                publicationTelemetry.recordFailure(layerID: layerID)
+                return .invalid(reasonCode: "geometry-provider-product-missing")
+            }
+            return publishGeometryOutputIfRequired(
+                layerID: layerID,
+                sourceTexture: texture,
+                geometryProduct: geometryProduct,
+                textureRegistry: textureRegistry,
+                commandBuffer: commandBuffer,
+                telemetry: publicationTelemetry,
+                content: content
+            )
+        }
+        guard reservation.frameEpoch == frameEpoch,
               reservation.providerLayerID == layerID,
               reservation.texture !== texture,
-              reservation.width == texture.width,
-              reservation.height == texture.height,
+              reservation.sourceWidth == texture.width,
+              reservation.sourceHeight == texture.height,
               reservation.texture.pixelFormat == texture.pixelFormat,
               texture.textureType == .type2D,
               texture.sampleCount == 1,
               texture.mipmapLevelCount == 1,
               texture.usage.contains(.renderTarget),
-              texture.usage.contains(.shaderRead),
-              let blit = commandBuffer.makeBlitCommandEncoder() else {
+              texture.usage.contains(.shaderRead) else {
             publicationTelemetry.recordFailure(layerID: layerID)
-            return false
+            return .invalid(reasonCode: "named-provider-publication-identity-invalid")
+        }
+        guard let blit = commandBuffer.makeBlitCommandEncoder() else {
+            publicationTelemetry.recordFailure(layerID: layerID)
+            return .unavailable(reasonCode: "named-provider-publication-encoder-unavailable")
         }
         blit.label = "Scene named graph publication layer=\(layerID)"
         blit.copy(
@@ -777,14 +640,14 @@ final class SceneDependencyFrameRuntime {
             frameEpoch: frameEpoch
         )?.publication.texture === reservation.texture else {
             publicationTelemetry.recordFailure(layerID: layerID)
-            return false
+            return .invalid(reasonCode: "named-provider-registry-publication-invalid")
         }
         publicationTelemetry.record(
             layerID: layerID,
             encoded: true,
             on: commandBuffer
         )
-        return true
+        return .published
     }
 
     func synchronizeReservations(to frameEpoch: UInt64) {

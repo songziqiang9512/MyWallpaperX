@@ -508,6 +508,18 @@ final class SceneResolvedMaterialRuntimeBridge {
         )
     }
 
+    func discardNamedPublicationOutputLocally(
+        _ ticket: ExecutionTicket,
+        texture: MTLTexture,
+        reasonCode: String
+    ) -> CompositeOutcome {
+        submissions.discardNamedPublicationOutputLocally(
+            ticket,
+            texture: texture,
+            reasonCode: reasonCode
+        )
+    }
+
     @discardableResult
     func sealFrame(on commandBuffer: MTLCommandBuffer) -> Bool {
         submissions.sealFrame(on: commandBuffer)

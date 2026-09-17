@@ -2063,6 +2063,59 @@ enum Harness {
 
         do {
             let binding = externalPrimaryBinding(
+                slotIndex: 1,
+                blendMode: 0,
+                kind: .geometryLayer,
+                requiresResolvedMaterialProgram: true
+            )
+            let reservedTexture = makeTexture(
+                device,
+                "geometry-dependency-reservation"
+            )
+            let reserved = dependencyInput(
+                binding: binding,
+                texture: reservedTexture
+            )
+            let exact = executeExternalDependency(
+                device: device,
+                queue: queue,
+                binding: binding,
+                preparedDependencyEffect: reserved,
+                readyDependencyEffect: dependencyInput(
+                    binding: binding,
+                    texture: reservedTexture
+                )
+            )
+            results["geometryDependencyExactReadyMatchIssuesTicket"] =
+                exact.reasonCode == "encoded"
+                && exact.consumesExternalPrimaryDependency == true
+
+            let wrongSlotBinding = externalPrimaryBinding(
+                slotIndex: 2,
+                blendMode: 0,
+                kind: .geometryLayer,
+                requiresResolvedMaterialProgram: true
+            )
+            let wrongSlot = executeExternalDependency(
+                device: device,
+                queue: queue,
+                binding: wrongSlotBinding,
+                preparedDependencyEffect: dependencyInput(
+                    binding: wrongSlotBinding,
+                    texture: reservedTexture
+                ),
+                readyDependencyEffect: dependencyInput(
+                    binding: wrongSlotBinding,
+                    texture: reservedTexture
+                )
+            )
+            results["geometryDependencyWrongSlotRejected"] =
+                wrongSlot.reasonCode != "encoded"
+                && wrongSlot.consumesExternalPrimaryDependency != true
+        }
+
+        do {
+            let binding = externalPrimaryBinding(
                 slotIndex: 3,
                 blendMode: 0,
                 kind: .solidLayer
@@ -2647,6 +2700,174 @@ enum Harness {
         do {
             SceneResolvedMaterialGraphExecutor.prepareCallCount = 0
             SceneResolvedMaterialGraphExecutor.prepareTokens = []
+            SceneResolvedMaterialGraphExecutor.encodeSucceeds = true
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [
+                7: makeAtomicPrepared(device: device, layerID: 7, generation: 1),
+                8: makeAtomicPrepared(device: device, layerID: 8, generation: 2),
+            ]
+            let firstBinding = SceneDependencyRenderPlan.Binding(
+                consumerLayerID: 7,
+                providerLayerID: 41,
+                slot: .init(effectID: "first", passIndex: 0, slotIndex: 1),
+                blendMode: 0,
+                kind: .imageLayerBlend,
+                requiresResolvedMaterialProgram: true
+            )
+            let secondBinding = SceneDependencyRenderPlan.Binding(
+                consumerLayerID: 7,
+                providerLayerID: 42,
+                slot: .init(effectID: "second", passIndex: 0, slotIndex: 1),
+                blendMode: 0,
+                kind: .imageLayerBlend,
+                requiresResolvedMaterialProgram: true
+            )
+            let aggregate = SceneDependencyRenderPlan.MultiProviderAggregate(
+                consumerLayerID: 7,
+                bindings: [firstBinding, secondBinding],
+                authoredSlotOrder: [firstBinding.slot, secondBinding.slot]
+            )
+            let inputs = [firstBinding, secondBinding].map { binding in
+                dependencyInput(
+                    binding: binding,
+                    texture: makeTexture(
+                        device,
+                        "aggregate-local-\(binding.providerLayerID)"
+                    ),
+                    frameEpoch: 15
+                )
+            }
+            let coordinator = makeCoordinator(
+                device,
+                layerIDs: [7, 8],
+                dependencyOwnershipByLayerID: [
+                    7: .externalAggregate(aggregate)
+                ]
+            )
+            let aggregateTargets = makeAtomicTargets(
+                layerID: 7,
+                generation: 1
+            )
+            let suffixTargets = makeAtomicTargets(
+                layerID: 8,
+                generation: 2
+            )
+            let pool = SceneOffscreenTexturePool(factory: { plan in
+                plan.graphPlan.key.layerID == 7
+                    ? aggregateTargets.prepared : suffixTargets.prepared
+            })
+            let buffer = queue.makeCommandBuffer()!
+            coordinator.beginFrame(
+                textureSnapshot: .init(frameIndex: 15, valid: true),
+                dynamicSnapshot: .init(),
+                frameInputs: .init()
+            )
+            func aggregateClaim(_ layerID: Int) ->
+                SceneResolvedMaterialRuntimeBridge.ClaimedExecution {
+                switch coordinator.preflightClaim(layerID: layerID) {
+                case let .claimed(value): return value
+                case let .rejected(reasonCode): fatalError(reasonCode)
+                case .notMigrated: fatalError("claim unavailable")
+                }
+            }
+            let consumerClaim = aggregateClaim(7)
+            let suffixClaim = aggregateClaim(8)
+            let prepared = coordinator.prepareFrame(
+                [
+                    .init(
+                        claim: consumerClaim,
+                        targetPlan: .init(
+                            token: consumerClaim.token,
+                            allocation: .init(
+                                graphPlan: .init(key: .init(layerID: 7))
+                            )
+                        ),
+                        sourceTexture: makeTexture(
+                            device,
+                            "aggregate-local-consumer"
+                        ),
+                        sourceUniforms: .init(),
+                        sourcePipeline: .init(),
+                        frameInputs: SceneResolvedMaterialRuntimeBridge
+                            .FrameInputs.fixture.withDependencyEffect(
+                                nil,
+                                dependencyEffects: inputs
+                            )
+                    ),
+                    .init(
+                        claim: suffixClaim,
+                        targetPlan: .init(
+                            token: suffixClaim.token,
+                            allocation: .init(
+                                graphPlan: .init(key: .init(layerID: 8))
+                            )
+                        ),
+                        sourceTexture: makeTexture(
+                            device,
+                            "aggregate-local-suffix"
+                        ),
+                        sourceUniforms: .init(),
+                        sourcePipeline: .init(),
+                        frameInputs: .fixture
+                    ),
+                ],
+                pool: pool,
+                commandBuffer: buffer
+            )
+            let preparedReady: Bool
+            if case .ready = prepared { preparedReady = true }
+            else { preparedReady = false }
+            let rejected = coordinator.rejectPreparedExternalDependencyLocally(
+                layerID: 7,
+                reasonCode: "external-primary-provider-capture-unavailable"
+            )
+            let suffixComposited: Bool
+            switch coordinator.claim(layerID: 8) {
+            case let .claimed(claim):
+                switch coordinator.executeClaimed(
+                    claim: claim,
+                    dependencyEffect: nil,
+                    commandBuffer: buffer
+                ) {
+                case let .encoded(texture, ticket):
+                    if case .consumed = coordinator.markComposite(
+                        ticket,
+                        texture: texture,
+                        consumed: true
+                    ) {
+                        suffixComposited = true
+                    } else { suffixComposited = false }
+                case .failed:
+                    suffixComposited = false
+                }
+            case .rejected, .notMigrated:
+                suffixComposited = false
+            }
+            let sealed = coordinator.sealFrame(on: buffer)
+            buffer.commit()
+            buffer.waitUntilCompleted()
+            coordinator.completeCommandBuffer(
+                identity: ObjectIdentifier(buffer),
+                status: buffer.status == .completed && buffer.error == nil
+                    ? .completed : .failed
+            )
+            _ = coordinator.endFrame()
+            results["aggregatePublicationMissRejectsOnlyConsumer"] =
+                aggregate.hasStrictBindingVector
+                && preparedReady
+                && rejected
+                && suffixComposited
+                && sealed
+                && buffer.status == .completed
+                && buffer.error == nil
+                && coordinator.frameFailures == 0
+                && aggregateTargets.commit.submissionPin.releaseCount == 1
+                && suffixTargets.commit.submissionPin.releaseCount == 1
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
+        }
+
+        do {
+            SceneResolvedMaterialGraphExecutor.prepareCallCount = 0
+            SceneResolvedMaterialGraphExecutor.prepareTokens = []
             SceneResolvedMaterialGraphExecutor.encodeSucceeds = false
             SceneResolvedMaterialGraphExecutor.preparedByToken = [
                 7: makeAtomicPrepared(device: device, layerID: 7, generation: 1),
@@ -3127,6 +3348,179 @@ enum Harness {
             SceneResolvedMaterialGraphExecutor
                 .preparedDependencyTextureByToken = [:]
             SceneResolvedMaterialGraphExecutor.encodeSucceeds = false
+        }
+
+        do {
+            SceneResolvedMaterialGraphExecutor.prepareCallCount = 0
+            SceneResolvedMaterialGraphExecutor.prepareTokens = []
+            SceneResolvedMaterialGraphExecutor.encodeSucceeds = true
+            let providerPrepared = makeAtomicPrepared(
+                device: device,
+                layerID: 7,
+                generation: 1
+            )
+            let suffixPrepared = makeAtomicPrepared(
+                device: device,
+                layerID: 8,
+                generation: 2
+            )
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [
+                7: providerPrepared,
+                8: suffixPrepared,
+            ]
+            let recorder = LogRecorder()
+            let coordinator = makeCoordinator(
+                device,
+                layerIDs: [7, 8],
+                logSink: { recorder.append($0) }
+            )
+            let providerTargets = makeAtomicTargets(
+                layerID: 7,
+                generation: 1
+            )
+            let suffixTargets = makeAtomicTargets(
+                layerID: 8,
+                generation: 2
+            )
+            let pool = SceneOffscreenTexturePool(factory: { plan in
+                plan.graphPlan.key.layerID == 7
+                    ? providerTargets.prepared : suffixTargets.prepared
+            })
+            let buffer = queue.makeCommandBuffer()!
+            coordinator.beginFrame(
+                textureSnapshot: .init(frameIndex: 14, valid: true),
+                dynamicSnapshot: .init(),
+                frameInputs: .init()
+            )
+            func localClaim(_ layerID: Int) ->
+                SceneResolvedMaterialRuntimeBridge.ClaimedExecution {
+                switch coordinator.preflightClaim(layerID: layerID) {
+                case let .claimed(value): return value
+                case let .rejected(reasonCode): fatalError(reasonCode)
+                case .notMigrated: fatalError("claim unavailable")
+                }
+            }
+            let providerClaim = localClaim(7)
+            let suffixClaim = localClaim(8)
+            let preparation = coordinator.prepareFrame(
+                [providerClaim, suffixClaim].map { claim in
+                    .init(
+                        claim: claim,
+                        targetPlan: .init(
+                            token: claim.token,
+                            allocation: .init(
+                                graphPlan: .init(key: .init(
+                                    layerID: claim.layerID
+                                ))
+                            )
+                        ),
+                        sourceTexture: makeTexture(
+                            device,
+                            "named-publication-local-\(claim.layerID)"
+                        ),
+                        sourceUniforms: .init(),
+                        sourcePipeline: .init(),
+                        frameInputs: .fixture
+                    )
+                },
+                pool: pool,
+                commandBuffer: buffer
+            )
+            let preparedReady: Bool
+            if case .ready = preparation { preparedReady = true }
+            else { preparedReady = false }
+
+            var providerDiscarded = false
+            var namedPublicationIntegrityReasonRejected = false
+            switch coordinator.claim(layerID: 7) {
+            case let .claimed(claim):
+                switch coordinator.executeClaimed(
+                    claim: claim,
+                    dependencyEffect: nil,
+                    commandBuffer: buffer
+                ) {
+                case let .encoded(texture, ticket):
+                    // Identity/epoch drift must not enter the ordinary
+                    // local-discard route; only the typed ordinary miss may.
+                    if case .failed = coordinator
+                        .discardNamedPublicationOutputLocally(
+                            ticket,
+                            texture: texture,
+                            reasonCode:
+                                "named-provider-publication-identity-invalid"
+                        ) {
+                        namedPublicationIntegrityReasonRejected = true
+                    }
+                    if case .consumed = coordinator
+                        .discardNamedPublicationOutputLocally(
+                            ticket,
+                            texture: texture,
+                            reasonCode:
+                                "named-provider-publication-unavailable"
+                        ) {
+                        providerDiscarded = true
+                    }
+                case .failed:
+                    break
+                }
+            case .rejected, .notMigrated:
+                break
+            }
+
+            let suffixComposited: Bool
+            switch coordinator.claim(layerID: 8) {
+            case let .claimed(claim):
+                switch coordinator.executeClaimed(
+                    claim: claim,
+                    dependencyEffect: nil,
+                    commandBuffer: buffer
+                ) {
+                case let .encoded(texture, ticket):
+                    if case .consumed = coordinator.markComposite(
+                        ticket,
+                        texture: texture,
+                        consumed: true
+                    ) {
+                        suffixComposited = true
+                    } else {
+                        suffixComposited = false
+                    }
+                case .failed:
+                    suffixComposited = false
+                }
+            case .rejected, .notMigrated:
+                suffixComposited = false
+            }
+            let stayedLocal = coordinator.frameFailures == 0
+                && coordinator.frameRequiresDrop == false
+                && coordinator.frameLocalFallbacks[7]
+                    == "named-provider-publication-unavailable"
+            let sealed = coordinator.sealFrame(on: buffer)
+            buffer.commit()
+            buffer.waitUntilCompleted()
+            coordinator.completeCommandBuffer(
+                identity: ObjectIdentifier(buffer),
+                status: buffer.status == .completed && buffer.error == nil
+                    ? .completed : .failed
+            )
+            _ = coordinator.endFrame()
+            results["namedPublicationMissKeepsSuffixAndFrameLocal"] =
+                preparedReady
+                && providerDiscarded
+                && namedPublicationIntegrityReasonRejected
+                && suffixComposited
+                && stayedLocal
+                && sealed
+                && buffer.status == .completed
+                && buffer.error == nil
+                && coordinator.activeByID.isEmpty
+                && coordinator.pendingSubmissions.isEmpty
+                && providerTargets.commit.submissionPin.releaseCount == 1
+                && suffixTargets.commit.submissionPin.releaseCount == 1
+                && recorder.lines.contains {
+                    $0.contains("named-publication-local-discard layer=7")
+                }
+            SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
         }
 
         do {
@@ -4698,6 +5092,64 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("consumeResolvedMaterialComposite(", compositor)
         self.assertIn("return .failed", compositor)
 
+        publication_failure_start = compositor.index(
+            "switch publicationResult {"
+        )
+        data_provider_start = compositor.index(
+            "if let graphExecutionTicket,\n"
+            "               graphExecutionTicket.finalContent == .data {",
+            publication_failure_start,
+        )
+        publication_failure = compositor[
+            publication_failure_start:data_provider_start
+        ]
+        self.assertIn("case .published:", publication_failure)
+        self.assertIn("graphOutputPublished = true", publication_failure)
+        unavailable_start = publication_failure.index(
+            "case let .unavailable(reasonCode):"
+        )
+        invalid_start = publication_failure.index(
+            "case let .invalid(reasonCode):"
+        )
+        unavailable_branch = publication_failure[
+            unavailable_start:invalid_start
+        ]
+        invalid_branch = publication_failure[invalid_start:]
+        self.assertIn(
+            "guard graphExecutionTicket.finalContent != .data else {",
+            unavailable_branch,
+        )
+        self.assertIn("published: false", unavailable_branch)
+        self.assertNotIn(
+            "consumeResolvedMaterialComposite(",
+            unavailable_branch,
+        )
+        self.assertIn("published: false", invalid_branch)
+        self.assertIn("return .failed", invalid_branch)
+        self.assertNotIn(
+            "consumeResolvedMaterialComposite(",
+            invalid_branch,
+        )
+        data_provider_path = compositor[
+            data_provider_start:compositor.index(
+                "let finalValues = SceneImageLayerUniformValues(",
+                data_provider_start,
+            )
+        ]
+        self.assertIn("graphOutputPublished,", data_provider_path)
+        self.assertIn("return .failed", data_provider_path)
+        visible_color_path = compositor[
+            compositor.index(
+                "let finalValues = SceneImageLayerUniformValues(",
+                data_provider_start,
+            ):compositor.index(
+                "return request.geometryProduct == nil",
+                data_provider_start,
+            )
+        ]
+        self.assertIn("SceneImageLayerMainPassRenderer.draw(", visible_color_path)
+        self.assertIn("consumeResolvedMaterialComposite(", visible_color_path)
+
     def test_external_dependency_is_late_ready_and_composited_once(self) -> None:
         bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
         coordinator = SUBMISSION_COORDINATOR.read_text(encoding="utf-8")
@@ -5132,6 +5584,8 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "externalDependencyWrongBlendRejected",
                 "externalDependencyWrongEpochRejected",
                 "externalDependencyWrongObjectRejected",
+                "geometryDependencyExactReadyMatchIssuesTicket",
+                "geometryDependencyWrongSlotRejected",
                 "solidDependencyExactReadyMatchIssuesTicket",
                 "solidProgramDependencySlotOneIssuesTicket",
                 "solidProgramDependencyContentDriftRejected",
@@ -5184,6 +5638,8 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "cascadingDependencyCaptureFailureRejectsTransitiveSubgraph",
                 "repeatTerminalPublicationRejectsBeforeLedgerAndPreservesPreviousCurrent",
                 "preparedProviderOutputKeepsNamedReservationWithoutCompositorOwnership",
+                "namedPublicationMissKeepsSuffixAndFrameLocal",
+                "aggregatePublicationMissRejectsOnlyConsumer",
                 "twoCandidatesPublishConsumeAndCommitAtomically",
                 "postClaimFailureDropsWholeFrame",
                 "foreignBufferRejectedBeforePrepare",

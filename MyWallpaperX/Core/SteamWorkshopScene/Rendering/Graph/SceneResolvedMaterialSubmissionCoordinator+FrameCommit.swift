@@ -305,6 +305,102 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         )
     }
 
+    /// Terminates one already encoded named-provider transaction without
+    /// publishing its candidate output or advancing its history.  The encoded
+    /// resources remain pinned through the shared command-buffer completion,
+    /// while later independent transactions are rebased on the last scheduled
+    /// tails.  This is the post-encode counterpart of the prepared dependency
+    /// rejection path and is intentionally restricted to the typed ordinary
+    /// named-publication miss.
+    func discardNamedPublicationOutputLocally(
+        _ ticket: Bridge.ExecutionTicket,
+        texture: MTLTexture,
+        reasonCode: String
+    ) -> Bridge.CompositeOutcome {
+        guard reasonCode == "named-provider-publication-unavailable" else {
+            return .failed(reasonCode: "named-publication-local-reason-rejected")
+        }
+        var diagnostic: String?
+        lock.lock()
+        guard terminalFailureReason == nil, frameIsActive,
+              framePreparationComplete, !frameRequiresDrop,
+              frameFailure == nil,
+              let ledgerIndex = activeTransactions.firstIndex(
+                  of: ticket.identity
+              ),
+              var ledger = activeByID[ticket.identity],
+              ledger.epoch == ticket.epoch,
+              ledger.phase == .encoded,
+              !ledger.ticketConsumed,
+              ticket.finalTextureIdentity == ObjectIdentifier(texture),
+              texture === ledger.prepared.finalTexture,
+              ledger.candidateTails != nil,
+              ledger.commandBuffer.status == .notEnqueued,
+              frameLocalFallbacks[ledger.layerID] == nil,
+              activeTransactions[..<ledgerIndex].allSatisfy({
+                  activeByID[$0]?.phase == .outputConsumed
+              }),
+              activeTransactions[
+                  activeTransactions.index(after: ledgerIndex)...
+              ].allSatisfy({
+                  activeByID[$0]?.phase == .allocationCommitted
+              }) else {
+            lock.unlock()
+            return .failed(
+                reasonCode: "named-publication-local-discard-rejected"
+            )
+        }
+
+        let successorIDs = Array(
+            activeTransactions[
+                activeTransactions.index(after: ledgerIndex)...
+            ]
+        )
+        var rebasedTails = scheduledTails
+        var rebasedByIdentity: [UInt64: [Graph.EffectKey: Tail]] = [:]
+        for successorID in successorIDs {
+            guard let successor = activeByID[successorID],
+                  let blueprint = successor.blueprint,
+                  let commit = successor.commit else {
+                lock.unlock()
+                return .failed(
+                    reasonCode: "named-publication-successor-rebase-rejected"
+                )
+            }
+            rebasedTails = committedCandidateTailsLocked(
+                blueprint: blueprint,
+                startingAt: rebasedTails,
+                commit: commit,
+                prepared: successor.prepared
+            )
+            guard tailsAreValid(rebasedTails) else {
+                lock.unlock()
+                return .failed(
+                    reasonCode: "named-publication-successor-tail-rejected"
+                )
+            }
+            rebasedByIdentity[successorID] = rebasedTails
+        }
+
+        ledger.ticketConsumed = true
+        ledger.outputConsumed = true
+        ledger.compositorConsumed = false
+        ledger.localOutputFailureReasonCode = reasonCode
+        ledger.phase = .outputConsumed
+        activeByID[ticket.identity] = ledger
+        preparedLedgerByLayerID.removeValue(forKey: ledger.layerID)
+        frameLocalFallbacks[ledger.layerID] = reasonCode
+        for successorID in successorIDs {
+            activeByID[successorID]?.candidateTails =
+                rebasedByIdentity[successorID]
+        }
+        diagnostic = "named-publication-local-discard layer=\(ledger.layerID)"
+            + " reason=\(reasonCode)"
+        lock.unlock()
+        if let diagnostic { logSink(diagnostic) }
+        return .consumed
+    }
+
     private func markFinalOutput(
         _ ticket: Bridge.ExecutionTicket,
         texture: MTLTexture,

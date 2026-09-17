@@ -255,6 +255,7 @@
           "SceneGenericShaderStraightAlphaPreservingLowering+Utilities.swift",
           "SceneGenericShaderStraightAlphaPreservingLowering.swift",
           "SceneGenericShaderStraightAlphaWholeOutputUnionLowering.swift",
+          "SceneGenericShaderTernaryScalarConditionNormalizer.swift",
           "SceneGenericShaderTextureSamplingNormalizer.swift",
           "SceneGenericShaderTypedDataRGBFilterLowering.swift",
           "SceneGenericShaderVaryingNormalizer.swift",
@@ -322,6 +323,7 @@
         "file_globs": [
           "SceneDependencyCaptureFault.swift",
           "SceneDependencyFrameRuntime+AggregateValidation.swift",
+          "SceneDependencyFrameRuntime+EffectInputResolution.swift",
           "SceneDependencyFrameRuntime+Geometry.swift",
           "SceneDependencyFrameRuntime+StaticModel.swift",
           "SceneDependencyFrameRuntime.swift",

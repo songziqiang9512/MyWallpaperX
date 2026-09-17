@@ -441,7 +441,16 @@ enum SceneFrameTextureIdentity: Equatable {
     case layerSource(Int)
 }
 
-struct SceneGeometryProduct {}
+struct SceneGeometryProduct {
+    func matchesInstalledSource(
+        layerID: Int,
+        texture: MTLTexture
+    ) -> Bool {
+        _ = layerID
+        _ = texture
+        return false
+    }
+}
 
 struct SceneTextureCandidate {
     let texture: MTLTexture

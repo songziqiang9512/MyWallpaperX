@@ -31,6 +31,7 @@ extension SceneMetalRenderer {
               ),
               let provider = layersByID[declaration.providerLayerID],
               provider.contentKind == "image",
+              provider.puppetMeshPath == nil,
               provider.utilityLayer == nil,
               provider.visible == false,
               provider.childLayerIDs.isEmpty,

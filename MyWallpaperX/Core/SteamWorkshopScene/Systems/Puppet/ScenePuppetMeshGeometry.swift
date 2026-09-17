@@ -33,7 +33,9 @@ enum ScenePuppetMeshGeometry {
     }
 
     static func prepare(
+        layerID: Int,
         mesh: SceneMdlPuppetMesh,
+        atlasTexture: MTLTexture,
         layerWidth: Float,
         layerHeight: Float,
         device: MTLDevice,
@@ -63,6 +65,8 @@ enum ScenePuppetMeshGeometry {
         let indexCount = indices.count
         let renderPipelineState = pipeline.state
         let product = SceneGeometryProduct(
+            ownerLayerID: layerID,
+            samplingTexture: atlasTexture,
             encode: {
                 encoder, sourceTexture, dependencyTexture, mvp, uniforms,
                 bindColorBlend in
