@@ -8,7 +8,9 @@ nonisolated enum SceneGenericShaderScalarArithmeticNormalizer {
         SceneGenericShaderScalarVectorBroadcastNormalizer.rewrite(
             SceneGenericShaderScalarBuiltInLiteralNormalizer.rewrite(
                 SceneGenericShaderFloatingModuloNormalizer.rewrite(
-                    SceneGenericShaderBooleanScalarArithmeticNormalizer.rewrite(source)
+                    SceneGenericShaderBooleanScalarArithmeticNormalizer.rewrite(
+                        SceneGenericShaderTernaryScalarConditionNormalizer.rewrite(source)
+                    )
                 )
             ),
             stage: stage
