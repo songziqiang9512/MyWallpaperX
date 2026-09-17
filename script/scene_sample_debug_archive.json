@@ -802,8 +802,25 @@
     {
       "bundle_identifier": "com.songziqiang.MyWallpaperX",
       "bundle_version": "277",
-      "cdhash": "918475e7b5ab8933c1d54c9a0b4caef9ff291521",
-      "executable_sha256": "78bfa77e018524beeed4d411731c7591af2d540d7bbcc9592ee389ad44c3d06e",
+      "cdhash": "29c3c09c573ec0803ce9ab44434578d1ae6fd3bf",
+      "executable_sha256": "0aa80e88f209c733aa4bccffb6827bc453eaa3a4485b5a7d82af7d326350eebf",
+      "runtime_bundle_path": null,
+      "runtime_executable_path": null,
+      "runtime_retained": false,
+      "runtime_root_path": null,
+      "short_version": "2.0.9",
+      "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.codex/DerivedData/Build/Products/Debug/MyWallpaperX.app",
+      "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.codex/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
+      "source_signature_verified": true,
+      "team_identifier": "H9QWU9XN8R",
+      "verified_after": true,
+      "verified_before": true
+    },
+    {
+      "bundle_identifier": "com.songziqiang.MyWallpaperX",
+      "bundle_version": "277",
+      "cdhash": "d8e9aa707027fa62e4081cc10202aea9a8e76e7e",
+      "executable_sha256": "356b6058a7cd740b12757c8a9b80fe2f5d8d52fccfd864d7da2ce07c9fe246db",
       "runtime_bundle_path": null,
       "runtime_executable_path": null,
       "runtime_retained": false,
@@ -1227,8 +1244,8 @@
     {
       "bundle_identifier": "com.songziqiang.MyWallpaperX",
       "bundle_version": "277",
-      "cdhash": "918475e7b5ab8933c1d54c9a0b4caef9ff291521",
-      "executable_sha256": "78bfa77e018524beeed4d411731c7591af2d540d7bbcc9592ee389ad44c3d06e",
+      "cdhash": "d8e9aa707027fa62e4081cc10202aea9a8e76e7e",
+      "executable_sha256": "356b6058a7cd740b12757c8a9b80fe2f5d8d52fccfd864d7da2ce07c9fe246db",
       "runtime_bundle_path": null,
       "runtime_executable_path": null,
       "runtime_retained": false,
@@ -1278,23 +1295,6 @@
     {
       "bundle_identifier": "com.songziqiang.MyWallpaperX",
       "bundle_version": "277",
-      "cdhash": "918475e7b5ab8933c1d54c9a0b4caef9ff291521",
-      "executable_sha256": "78bfa77e018524beeed4d411731c7591af2d540d7bbcc9592ee389ad44c3d06e",
-      "runtime_bundle_path": null,
-      "runtime_executable_path": null,
-      "runtime_retained": false,
-      "runtime_root_path": null,
-      "short_version": "2.0.9",
-      "source_bundle_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.codex/DerivedData/Build/Products/Debug/MyWallpaperX.app",
-      "source_executable_path": "/Users/songziqiang/Documents/Development/MyWallpaperX/.codex/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX",
-      "source_signature_verified": true,
-      "team_identifier": "H9QWU9XN8R",
-      "verified_after": true,
-      "verified_before": true
-    },
-    {
-      "bundle_identifier": "com.songziqiang.MyWallpaperX",
-      "bundle_version": "277",
       "cdhash": "a31bd68aa2e84050c26bb5aa1a8d8383b85c743a",
       "executable_sha256": "34bdca213a505839ee4ee707ca712d01f4f59a7fd61a6208ebaafafe07704735",
       "runtime_bundle_path": null,
@@ -1550,8 +1550,8 @@
     {
       "bundle_identifier": "com.songziqiang.MyWallpaperX",
       "bundle_version": "277",
-      "cdhash": "a31bd68aa2e84050c26bb5aa1a8d8383b85c743a",
-      "executable_sha256": "34bdca213a505839ee4ee707ca712d01f4f59a7fd61a6208ebaafafe07704735",
+      "cdhash": "d8e9aa707027fa62e4081cc10202aea9a8e76e7e",
+      "executable_sha256": "356b6058a7cd740b12757c8a9b80fe2f5d8d52fccfd864d7da2ce07c9fe246db",
       "runtime_bundle_path": null,
       "runtime_executable_path": null,
       "runtime_retained": false,
@@ -1567,8 +1567,8 @@
     {
       "bundle_identifier": "com.songziqiang.MyWallpaperX",
       "bundle_version": "277",
-      "cdhash": "a31bd68aa2e84050c26bb5aa1a8d8383b85c743a",
-      "executable_sha256": "34bdca213a505839ee4ee707ca712d01f4f59a7fd61a6208ebaafafe07704735",
+      "cdhash": "d8e9aa707027fa62e4081cc10202aea9a8e76e7e",
+      "executable_sha256": "356b6058a7cd740b12757c8a9b80fe2f5d8d52fccfd864d7da2ce07c9fe246db",
       "runtime_bundle_path": null,
       "runtime_executable_path": null,
       "runtime_retained": false,
@@ -1618,8 +1618,8 @@
     {
       "bundle_identifier": "com.songziqiang.MyWallpaperX",
       "bundle_version": "277",
-      "cdhash": "a31bd68aa2e84050c26bb5aa1a8d8383b85c743a",
-      "executable_sha256": "34bdca213a505839ee4ee707ca712d01f4f59a7fd61a6208ebaafafe07704735",
+      "cdhash": "d8e9aa707027fa62e4081cc10202aea9a8e76e7e",
+      "executable_sha256": "356b6058a7cd740b12757c8a9b80fe2f5d8d52fccfd864d7da2ce07c9fe246db",
       "runtime_bundle_path": null,
       "runtime_executable_path": null,
       "runtime_retained": false,
@@ -2230,8 +2230,8 @@
     {
       "bundle_identifier": "com.songziqiang.MyWallpaperX",
       "bundle_version": "277",
-      "cdhash": "a31bd68aa2e84050c26bb5aa1a8d8383b85c743a",
-      "executable_sha256": "34bdca213a505839ee4ee707ca712d01f4f59a7fd61a6208ebaafafe07704735",
+      "cdhash": "d8e9aa707027fa62e4081cc10202aea9a8e76e7e",
+      "executable_sha256": "356b6058a7cd740b12757c8a9b80fe2f5d8d52fccfd864d7da2ce07c9fe246db",
       "runtime_bundle_path": null,
       "runtime_executable_path": null,
       "runtime_retained": false,
@@ -2247,8 +2247,8 @@
     {
       "bundle_identifier": "com.songziqiang.MyWallpaperX",
       "bundle_version": "277",
-      "cdhash": "a31bd68aa2e84050c26bb5aa1a8d8383b85c743a",
-      "executable_sha256": "34bdca213a505839ee4ee707ca712d01f4f59a7fd61a6208ebaafafe07704735",
+      "cdhash": "d8e9aa707027fa62e4081cc10202aea9a8e76e7e",
+      "executable_sha256": "356b6058a7cd740b12757c8a9b80fe2f5d8d52fccfd864d7da2ce07c9fe246db",
       "runtime_bundle_path": null,
       "runtime_executable_path": null,
       "runtime_retained": false,
@@ -2434,8 +2434,8 @@
     {
       "bundle_identifier": "com.songziqiang.MyWallpaperX",
       "bundle_version": "277",
-      "cdhash": "a31bd68aa2e84050c26bb5aa1a8d8383b85c743a",
-      "executable_sha256": "34bdca213a505839ee4ee707ca712d01f4f59a7fd61a6208ebaafafe07704735",
+      "cdhash": "29c3c09c573ec0803ce9ab44434578d1ae6fd3bf",
+      "executable_sha256": "0aa80e88f209c733aa4bccffb6827bc453eaa3a4485b5a7d82af7d326350eebf",
       "runtime_bundle_path": null,
       "runtime_executable_path": null,
       "runtime_retained": false,
@@ -2705,7 +2705,7 @@
     }
   ],
   "claimBoundary": "runtime-first-breakpoint-and-lifecycle-diagnostics-only-not-visual-correctness",
-  "generatedAtUtc": "2026-09-17T20:03:05.863564+00:00",
+  "generatedAtUtc": "2026-09-17T23:32:06.080507+00:00",
   "kind": "scene-sample-debug-archive",
   "reports": [
     {
@@ -3042,14 +3042,14 @@
       "matrixSha256": "a08a4bb5b109eea528680f17bce82988589c02e41c51a43d1f6213ad69751762",
       "path": "/private/tmp/mwx-fullset-baseline/run-2974757317/report.json",
       "sampleCount": 1,
-      "sha256": "1e7244da0ce5bf5db7a531cedf94b5c477832f54f98173def25efbb816bee6fc"
+      "sha256": "c91875bc687f50103fcd75e74fda54d2b69071d48f249c42876996c46a5df46a"
     },
     {
       "matrix": "P0.3 fullset identity-only baseline",
       "matrixSha256": "a08a4bb5b109eea528680f17bce82988589c02e41c51a43d1f6213ad69751762",
       "path": "/private/tmp/mwx-fullset-baseline/run-2986218263/report.json",
       "sampleCount": 1,
-      "sha256": "543edb6fa2123f6939198a91240b581b04794794f43009e2f90c1f849502f53f"
+      "sha256": "ac0aadbbf384cb7ffcc8b2215664eaec6ae93d52b65ea4ec2c9af924e1e4725a"
     },
     {
       "matrix": "P0.3 fullset identity-only baseline",
@@ -3224,7 +3224,7 @@
       "matrixSha256": "a08a4bb5b109eea528680f17bce82988589c02e41c51a43d1f6213ad69751762",
       "path": "/private/tmp/mwx-fullset-baseline/run-3396722575/report.json",
       "sampleCount": 1,
-      "sha256": "31ca68b50e2df3d1a7d8689a134061088cb6d5ae6bf9ab1d7ecbe83772b4bd4c"
+      "sha256": "be2a026c499f4dbb0dece12cb88a269bad92270d7cd631c1c3d64ce1536464f0"
     },
     {
       "matrix": "P0.3 fullset identity-only baseline",
@@ -3350,14 +3350,14 @@
       "matrixSha256": "a08a4bb5b109eea528680f17bce82988589c02e41c51a43d1f6213ad69751762",
       "path": "/private/tmp/mwx-fullset-baseline/run-3665307769/report.json",
       "sampleCount": 1,
-      "sha256": "3f168f25810a4d61d57427fa3dd5e89e909b59243c7e94136fb5fb40df9e7ee1"
+      "sha256": "09c9e35e0f19ac7a616c163400de95150e9ab78aa7f5ebe54acd2368d9b0282a"
     },
     {
       "matrix": "P0.3 fullset identity-only baseline",
       "matrixSha256": "a08a4bb5b109eea528680f17bce82988589c02e41c51a43d1f6213ad69751762",
       "path": "/private/tmp/mwx-fullset-baseline/run-3690859128/report.json",
       "sampleCount": 1,
-      "sha256": "8085ab25f0ce621b950038d31d5b97db4ce708347093771d49c2877a3780fee6"
+      "sha256": "2549066e922cafd80f2bd782736e62be9ed508d82492f23fc9409fb84f452f0e"
     },
     {
       "matrix": "P0.3 fullset identity-only baseline",
@@ -3378,7 +3378,7 @@
       "matrixSha256": "a08a4bb5b109eea528680f17bce82988589c02e41c51a43d1f6213ad69751762",
       "path": "/private/tmp/mwx-fullset-baseline/run-3712499998/report.json",
       "sampleCount": 1,
-      "sha256": "a39f0c23bae96b7a32fd4014d2d8d8fbb9c4f0a758d55744c152aafc93a79f71"
+      "sha256": "dbb1db88811e77ac7d07d4cc94e60902947619b3f5301040278c577c2f7ee0b8"
     },
     {
       "matrix": "P0.3 fullset identity-only baseline",
@@ -3630,14 +3630,14 @@
       "matrixSha256": "a08a4bb5b109eea528680f17bce82988589c02e41c51a43d1f6213ad69751762",
       "path": "/private/tmp/mwx-fullset-baseline/run-3779904456/report.json",
       "sampleCount": 1,
-      "sha256": "5e48e9700123f74a6a3e8b3546858552221c16ae8288bfb2ac08553505f2c1ce"
+      "sha256": "b8aaf6513160499f3f400874a23b7ca82d2d058a452607fcd16395538186769c"
     },
     {
       "matrix": "P0.3 fullset identity-only baseline",
       "matrixSha256": "a08a4bb5b109eea528680f17bce82988589c02e41c51a43d1f6213ad69751762",
       "path": "/private/tmp/mwx-fullset-baseline/run-3780119725/report.json",
       "sampleCount": 1,
-      "sha256": "8854c2b823b17de2dce1e0848385352cd58c7c21e6767321f6ea8632d3a30981"
+      "sha256": "5672abd935639958b5ca824a2371a34c01ac9e64fa5f5a0a7b13413bc0c9ab22"
     },
     {
       "matrix": "P0.3 fullset identity-only baseline",
@@ -3714,7 +3714,7 @@
       "matrixSha256": "a08a4bb5b109eea528680f17bce82988589c02e41c51a43d1f6213ad69751762",
       "path": "/private/tmp/mwx-fullset-baseline/run-3788467391/report.json",
       "sampleCount": 1,
-      "sha256": "5f375832a1f0ddb83ef473e58499e586c611601cf364804ecb705c199906a241"
+      "sha256": "18d345ae8d570c5e4f242e945bf391f36a7e99166cf63d7694a533e5e65d5433"
     },
     {
       "matrix": "P0.3 fullset identity-only baseline",
@@ -6538,7 +6538,7 @@
         "report": {
           "path": "/private/tmp/mwx-fullset-baseline/run-2974757317/report.json",
           "sampleIndex": 0,
-          "sha256": "1e7244da0ce5bf5db7a531cedf94b5c477832f54f98173def25efbb816bee6fc"
+          "sha256": "c91875bc687f50103fcd75e74fda54d2b69071d48f249c42876996c46a5df46a"
         },
         "sampleEvidencePaths": {
           "after_snapshot": "/private/tmp/mwx-fullset-baseline/run-2974757317/results/2974757317/scene-after-window.png",
@@ -6558,12 +6558,12 @@
         },
         "evidenceSummary": {
           "acceptedGraphLayerCount": 25,
-          "afterFlatBorderRatio": 0.0351027397260274,
+          "afterFlatBorderRatio": 0.03172844480257857,
           "afterNonBlackObserved": true,
           "graphEvidenceObserved": true,
           "nextFrameLayerCount": 24,
-          "previewSpatialColorSimilarityAdvisory": 0.8213,
-          "readyFlatBorderRatio": 0.03351631748589847,
+          "previewSpatialColorSimilarityAdvisory": 0.8186,
+          "readyFlatBorderRatio": 0.032374764974482946,
           "readyNonBlackObserved": true,
           "surfaceCount": 1,
           "terminalCompositorLayerCount": 24
@@ -6607,7 +6607,7 @@
         "report": {
           "path": "/private/tmp/mwx-fullset-baseline/run-2986218263/report.json",
           "sampleIndex": 0,
-          "sha256": "543edb6fa2123f6939198a91240b581b04794794f43009e2f90c1f849502f53f"
+          "sha256": "ac0aadbbf384cb7ffcc8b2215664eaec6ae93d52b65ea4ec2c9af924e1e4725a"
         },
         "sampleEvidencePaths": {
           "after_snapshot": "/private/tmp/mwx-fullset-baseline/run-2986218263/results/2986218263/scene-after-window.png",
@@ -6627,12 +6627,12 @@
         },
         "evidenceSummary": {
           "acceptedGraphLayerCount": 1,
-          "afterFlatBorderRatio": 0.020682245500940104,
+          "afterFlatBorderRatio": 0.02201685468708031,
           "afterNonBlackObserved": true,
           "graphEvidenceObserved": true,
           "nextFrameLayerCount": 1,
-          "previewSpatialColorSimilarityAdvisory": 0.8282,
-          "readyFlatBorderRatio": 0.02063188289014236,
+          "previewSpatialColorSimilarityAdvisory": 0.8295,
+          "readyFlatBorderRatio": 0.02201685468708031,
           "readyNonBlackObserved": true,
           "surfaceCount": 1,
           "terminalCompositorLayerCount": 1
@@ -8195,7 +8195,7 @@
         "report": {
           "path": "/private/tmp/mwx-fullset-baseline/run-3396722575/report.json",
           "sampleIndex": 0,
-          "sha256": "31ca68b50e2df3d1a7d8689a134061088cb6d5ae6bf9ab1d7ecbe83772b4bd4c"
+          "sha256": "be2a026c499f4dbb0dece12cb88a269bad92270d7cd631c1c3d64ce1536464f0"
         },
         "sampleEvidencePaths": {
           "after_snapshot": "/private/tmp/mwx-fullset-baseline/run-3396722575/results/3396722575/scene-after-window.png",
@@ -8215,12 +8215,12 @@
         },
         "evidenceSummary": {
           "acceptedGraphLayerCount": 25,
-          "afterFlatBorderRatio": 0.4400181305398872,
+          "afterFlatBorderRatio": 0.4611284582326081,
           "afterNonBlackObserved": true,
           "graphEvidenceObserved": true,
           "nextFrameLayerCount": 25,
-          "previewSpatialColorSimilarityAdvisory": 0.9253,
-          "readyFlatBorderRatio": 0.45673851732473814,
+          "previewSpatialColorSimilarityAdvisory": 0.9235,
+          "readyFlatBorderRatio": 0.45906359118990064,
           "readyNonBlackObserved": true,
           "surfaceCount": 1,
           "terminalCompositorLayerCount": 25
@@ -9517,7 +9517,7 @@
         "report": {
           "path": "/private/tmp/mwx-fullset-baseline/run-3665307769/report.json",
           "sampleIndex": 0,
-          "sha256": "3f168f25810a4d61d57427fa3dd5e89e909b59243c7e94136fb5fb40df9e7ee1"
+          "sha256": "09c9e35e0f19ac7a616c163400de95150e9ab78aa7f5ebe54acd2368d9b0282a"
         },
         "sampleEvidencePaths": {
           "after_snapshot": "/private/tmp/mwx-fullset-baseline/run-3665307769/results/3665307769/scene-after-window.png",
@@ -9537,12 +9537,12 @@
         },
         "evidenceSummary": {
           "acceptedGraphLayerCount": 9,
-          "afterFlatBorderRatio": 0.24540021488047273,
+          "afterFlatBorderRatio": 0.2602739726027397,
           "afterNonBlackObserved": true,
           "graphEvidenceObserved": true,
           "nextFrameLayerCount": 9,
-          "previewSpatialColorSimilarityAdvisory": 0.8918,
-          "readyFlatBorderRatio": 0.27063188289014234,
+          "previewSpatialColorSimilarityAdvisory": 0.8913,
+          "readyFlatBorderRatio": 0.2711606903035187,
           "readyNonBlackObserved": true,
           "surfaceCount": 1,
           "terminalCompositorLayerCount": 9
@@ -9629,7 +9629,7 @@
         "report": {
           "path": "/private/tmp/mwx-fullset-baseline/run-3690859128/report.json",
           "sampleIndex": 0,
-          "sha256": "8085ab25f0ce621b950038d31d5b97db4ce708347093771d49c2877a3780fee6"
+          "sha256": "2549066e922cafd80f2bd782736e62be9ed508d82492f23fc9409fb84f452f0e"
         },
         "sampleEvidencePaths": {
           "after_snapshot": "/private/tmp/mwx-fullset-baseline/run-3690859128/results/3690859128/scene-after-window.png",
@@ -9649,12 +9649,12 @@
         },
         "evidenceSummary": {
           "acceptedGraphLayerCount": 1,
-          "afterFlatBorderRatio": 0.3697119258662369,
+          "afterFlatBorderRatio": 0.36778135911899007,
           "afterNonBlackObserved": true,
           "graphEvidenceObserved": true,
           "nextFrameLayerCount": 1,
-          "previewSpatialColorSimilarityAdvisory": 0.8674,
-          "readyFlatBorderRatio": 0.3684780419016922,
+          "previewSpatialColorSimilarityAdvisory": 0.8677,
+          "readyFlatBorderRatio": 0.3680919285522428,
           "readyNonBlackObserved": true,
           "surfaceCount": 1,
           "terminalCompositorLayerCount": 1
@@ -9812,7 +9812,7 @@
         "report": {
           "path": "/private/tmp/mwx-fullset-baseline/run-3712499998/report.json",
           "sampleIndex": 0,
-          "sha256": "a39f0c23bae96b7a32fd4014d2d8d8fbb9c4f0a758d55744c152aafc93a79f71"
+          "sha256": "dbb1db88811e77ac7d07d4cc94e60902947619b3f5301040278c577c2f7ee0b8"
         },
         "sampleEvidencePaths": {
           "after_snapshot": "/private/tmp/mwx-fullset-baseline/run-3712499998/results/3712499998/scene-after-window.png",
@@ -9832,11 +9832,11 @@
         },
         "evidenceSummary": {
           "acceptedGraphLayerCount": 0,
-          "afterFlatBorderRatio": 0.099122011818426,
+          "afterFlatBorderRatio": 0.09614222401289282,
           "afterNonBlackObserved": true,
           "graphEvidenceObserved": true,
           "nextFrameLayerCount": 0,
-          "previewSpatialColorSimilarityAdvisory": 0.7768,
+          "previewSpatialColorSimilarityAdvisory": 0.7695,
           "readyFlatBorderRatio": 0.10210179962395917,
           "readyNonBlackObserved": true,
           "surfaceCount": 1,
@@ -12030,7 +12030,7 @@
         "report": {
           "path": "/private/tmp/mwx-fullset-baseline/run-3779904456/report.json",
           "sampleIndex": 0,
-          "sha256": "5e48e9700123f74a6a3e8b3546858552221c16ae8288bfb2ac08553505f2c1ce"
+          "sha256": "b8aaf6513160499f3f400874a23b7ca82d2d058a452607fcd16395538186769c"
         },
         "sampleEvidencePaths": {
           "after_snapshot": "/private/tmp/mwx-fullset-baseline/run-3779904456/results/3779904456/scene-after-window.png",
@@ -12050,12 +12050,12 @@
         },
         "evidenceSummary": {
           "acceptedGraphLayerCount": 2,
-          "afterFlatBorderRatio": 0.0524694466827827,
+          "afterFlatBorderRatio": 0.04184293580445877,
           "afterNonBlackObserved": true,
           "graphEvidenceObserved": true,
           "nextFrameLayerCount": 2,
-          "previewSpatialColorSimilarityAdvisory": 0.9108,
-          "readyFlatBorderRatio": 0.02710347837765243,
+          "previewSpatialColorSimilarityAdvisory": 0.9101,
+          "readyFlatBorderRatio": 0.02707829707225356,
           "readyNonBlackObserved": true,
           "surfaceCount": 1,
           "terminalCompositorLayerCount": 2
@@ -12099,7 +12099,7 @@
         "report": {
           "path": "/private/tmp/mwx-fullset-baseline/run-3780119725/report.json",
           "sampleIndex": 0,
-          "sha256": "8854c2b823b17de2dce1e0848385352cd58c7c21e6767321f6ea8632d3a30981"
+          "sha256": "5672abd935639958b5ca824a2371a34c01ac9e64fa5f5a0a7b13413bc0c9ab22"
         },
         "sampleEvidencePaths": {
           "after_snapshot": "/private/tmp/mwx-fullset-baseline/run-3780119725/results/3780119725/scene-after-window.png",
@@ -12119,12 +12119,12 @@
         },
         "evidenceSummary": {
           "acceptedGraphLayerCount": 20,
-          "afterFlatBorderRatio": 0.05586052914316411,
+          "afterFlatBorderRatio": 0.04938893365565404,
           "afterNonBlackObserved": true,
           "graphEvidenceObserved": true,
           "nextFrameLayerCount": 20,
-          "previewSpatialColorSimilarityAdvisory": 0.7584,
-          "readyFlatBorderRatio": 0.05701886919151222,
+          "previewSpatialColorSimilarityAdvisory": 0.7659,
+          "readyFlatBorderRatio": 0.0557849852269675,
           "readyNonBlackObserved": true,
           "surfaceCount": 1,
           "terminalCompositorLayerCount": 20
@@ -12791,7 +12791,7 @@
         "report": {
           "path": "/private/tmp/mwx-fullset-baseline/run-3788467391/report.json",
           "sampleIndex": 0,
-          "sha256": "5f375832a1f0ddb83ef473e58499e586c611601cf364804ecb705c199906a241"
+          "sha256": "18d345ae8d570c5e4f242e945bf391f36a7e99166cf63d7694a533e5e65d5433"
         },
         "sampleEvidencePaths": {
           "after_snapshot": "/private/tmp/mwx-fullset-baseline/run-3788467391/results/3788467391/scene-after-window.png",
@@ -12811,12 +12811,12 @@
         },
         "evidenceSummary": {
           "acceptedGraphLayerCount": 3,
-          "afterFlatBorderRatio": 0.4206537066881547,
+          "afterFlatBorderRatio": 0.8945826618318561,
           "afterNonBlackObserved": true,
           "graphEvidenceObserved": true,
           "nextFrameLayerCount": 3,
-          "previewSpatialColorSimilarityAdvisory": 0.7398,
-          "readyFlatBorderRatio": 0.3158323260811174,
+          "previewSpatialColorSimilarityAdvisory": 0.9062,
+          "readyFlatBorderRatio": 0.8941797609454741,
           "readyNonBlackObserved": true,
           "surfaceCount": 1,
           "terminalCompositorLayerCount": 3

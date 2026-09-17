@@ -312,6 +312,10 @@ PARTICLE_SKIPPED_TRANSPARENT_RE = re.compile(
     re.MULTILINE,
 )
 PARTICLE_LAYER_OK_RE = re.compile(r'^particle layer (?P<id>\d+) .*: OK ', re.MULTILINE)
+PARTICLE_STICKY_LOADED_RE = re.compile(
+    r"^particle sticky loaded: (?P<loaded>\d+) / (?P<total>\d+)$",
+    re.MULTILINE,
+)
 AUDIO_SCALED_VALUE_PROGRAM_RE = re.compile(
     r"^scene audio scaled value: schema=bounded-audio-scaled-value-v1 "
     r"bindings=(?P<bindings>\d+) "
@@ -1883,6 +1887,7 @@ def particle_runtime_metrics(preview_text: str) -> dict[str, Any]:
     visible_match = PARTICLE_VISIBLE_RE.search(preview_text)
     skipped_hidden_match = PARTICLE_SKIPPED_HIDDEN_RE.search(preview_text)
     skipped_transparent_match = PARTICLE_SKIPPED_TRANSPARENT_RE.search(preview_text)
+    sticky_loaded_match = PARTICLE_STICKY_LOADED_RE.search(preview_text)
     loaded = int(loaded_match.group("loaded")) if loaded_match else 0
     candidates = int(loaded_match.group("total")) if loaded_match else 0
     return {
@@ -1905,6 +1910,10 @@ def particle_runtime_metrics(preview_text: str) -> dict[str, Any]:
         "has_transparent_evidence": skipped_transparent_match is not None,
         "skipped_transparent": int(skipped_transparent_match.group("count"))
         if skipped_transparent_match else 0,
+        "sticky_loaded": int(sticky_loaded_match.group("loaded"))
+        if sticky_loaded_match else None,
+        "sticky_total": int(sticky_loaded_match.group("total"))
+        if sticky_loaded_match else None,
         "loaded_layer_ids": [int(match.group("id")) for match in PARTICLE_LAYER_OK_RE.finditer(preview_text)],
     }
 
@@ -8235,6 +8244,8 @@ def run_sample(
             "particle_skipped_hidden": particle_runtime["skipped_hidden"],
             "particle_skipped_transparent": particle_runtime["skipped_transparent"],
             "particle_loaded_layer_ids": particle_runtime["loaded_layer_ids"],
+        "particle_sticky_loaded": particle_runtime["sticky_loaded"],
+        "particle_sticky_total": particle_runtime["sticky_total"],
             "audio_scaled_value": audio_scaled_value,
             "camera_projection": camera_match.group("projection") if camera_match else None,
             "camera_parallax": camera_match.group("parallax") == "true" if camera_match else None,

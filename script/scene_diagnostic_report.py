@@ -317,18 +317,28 @@ def _resource_events(runtime: Mapping[str, Any]) -> list[dict[str, Any]]:
     """
     specifications = (
         ("texture_candidates", "loaded_textures", "BaseImageTextureStore",
-         "base-image-texture-load-incomplete", "image-layer"),
+         "base-image-texture-load-incomplete", "image-layer", None),
         ("text_candidates", "loaded_textures_text", "SceneTextTextureLoader",
-         "text-texture-load-incomplete", "text-layer"),
+         "text-texture-load-incomplete", "text-layer", None),
         ("solid_candidates", "loaded_solid_layers", "SceneSolidTextureLoader",
-         "solid-texture-load-incomplete", "solid-layer"),
+         "solid-texture-load-incomplete", "solid-layer", None),
         ("particle_candidates", "loaded_particle_layers", "ParticleRuntime",
-         "particle-layer-load-incomplete", "particle-layer"),
+         "particle-layer-load-incomplete", "particle-layer",
+         "particle_sticky_loaded"),
     )
     events: list[dict[str, Any]] = []
-    for candidate_field, loaded_field, owner, reason, shape in specifications:
+    for candidate_field, loaded_field, owner, reason, shape, sticky_field in specifications:
         candidates = _integer(runtime.get(candidate_field))
         loaded = _integer(runtime.get(loaded_field))
+        # The snapshot-instant loaded count undercounts bursty/short-lifetime
+        # particle systems whose particles may all be dead between frames; the
+        # sticky count (layers that produced a batch at ANY point in the run)
+        # is the "did the system ever execute" evidence, so it supersedes the
+        # instant count when present.
+        if sticky_field:
+            sticky = _integer(runtime.get(sticky_field))
+            if sticky is not None:
+                loaded = max(loaded, sticky)
         if candidates is None or candidates <= 0 or loaded is None:
             continue
         if loaded >= candidates:
