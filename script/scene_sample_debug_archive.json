@@ -785,8 +785,8 @@
     {
       "bundle_identifier": "com.songziqiang.MyWallpaperX",
       "bundle_version": "277",
-      "cdhash": "918475e7b5ab8933c1d54c9a0b4caef9ff291521",
-      "executable_sha256": "78bfa77e018524beeed4d411731c7591af2d540d7bbcc9592ee389ad44c3d06e",
+      "cdhash": "a31bd68aa2e84050c26bb5aa1a8d8383b85c743a",
+      "executable_sha256": "34bdca213a505839ee4ee707ca712d01f4f59a7fd61a6208ebaafafe07704735",
       "runtime_bundle_path": null,
       "runtime_executable_path": null,
       "runtime_retained": false,
@@ -2705,7 +2705,7 @@
     }
   ],
   "claimBoundary": "runtime-first-breakpoint-and-lifecycle-diagnostics-only-not-visual-correctness",
-  "generatedAtUtc": "2026-09-17T17:54:48.122872+00:00",
+  "generatedAtUtc": "2026-09-17T18:54:50.334147+00:00",
   "kind": "scene-sample-debug-archive",
   "reports": [
     {
@@ -3035,7 +3035,7 @@
       "matrixSha256": "a08a4bb5b109eea528680f17bce82988589c02e41c51a43d1f6213ad69751762",
       "path": "/private/tmp/mwx-fullset-baseline/run-2959875782/report.json",
       "sampleCount": 1,
-      "sha256": "7090e6f45dd6bbac87ce71269a85f40320ba3aa84274540149bf195043feefa0"
+      "sha256": "1809400fc3a8806d40f2211a2e439ebb59d6926923c55ef62cef8e3603124f4b"
     },
     {
       "matrix": "P0.3 fullset identity-only baseline",
@@ -6466,35 +6466,35 @@
         "report": {
           "path": "/private/tmp/mwx-fullset-baseline/run-2959875782/report.json",
           "sampleIndex": 0,
-          "sha256": "7090e6f45dd6bbac87ce71269a85f40320ba3aa84274540149bf195043feefa0"
+          "sha256": "1809400fc3a8806d40f2211a2e439ebb59d6926923c55ef62cef8e3603124f4b"
         },
         "sampleEvidencePaths": {
-          "after_snapshot": "/private/tmp/mwx-fullset-baseline/run-2959875782/results/2959875782/scene-after-window.png",
-          "app_log": "/private/tmp/mwx-fullset-baseline/run-2959875782/results/2959875782/app.log",
-          "preview_log": "/private/tmp/mwx-fullset-baseline/run-2959875782/results/2959875782/scene-preview.log",
-          "ready_snapshot": "/private/tmp/mwx-fullset-baseline/run-2959875782/results/2959875782/scene-ready-window.png",
-          "runtime_evidence": "/tmp/mwx-fullset-baseline/run-2959875782/results/2959875782/scene-runtime-evidence.json"
+          "after_snapshot": "/private/tmp/mwx-2959-obs-probe/results/2959875782/scene-after-window.png",
+          "app_log": "/private/tmp/mwx-2959-obs-probe/results/2959875782/app.log",
+          "preview_log": "/private/tmp/mwx-2959-obs-probe/results/2959875782/scene-preview.log",
+          "ready_snapshot": "/private/tmp/mwx-2959-obs-probe/results/2959875782/scene-ready-window.png",
+          "runtime_evidence": "/tmp/mwx-2959-obs-probe/results/2959875782/scene-runtime-evidence.json"
         }
       },
       "id": "2959875782",
-      "nextAction": "repair-shared-owner:effect-admission:EffectStageAdmission:admitted-fallback",
+      "nextAction": "inspect-fallback-and-authored-visual-ROI",
       "runtime": {
         "benchmarkResultIgnored": {
-          "failureCount": 4,
-          "passed": false,
+          "failureCount": 0,
+          "passed": true,
           "reason": "matrix-and-benchmark-expectations-are-not-runtime-breakpoints"
         },
         "evidenceSummary": {
-          "acceptedGraphLayerCount": 81,
-          "afterFlatBorderRatio": 0.05540726564598442,
+          "acceptedGraphLayerCount": 82,
+          "afterFlatBorderRatio": 0.055600322320709106,
           "afterNonBlackObserved": true,
           "graphEvidenceObserved": true,
-          "nextFrameLayerCount": 43,
-          "previewSpatialColorSimilarityAdvisory": 0.747,
-          "readyFlatBorderRatio": 0.05556674724684394,
+          "nextFrameLayerCount": 47,
+          "previewSpatialColorSimilarityAdvisory": 0.7465,
+          "readyFlatBorderRatio": 0.055835347837765247,
           "readyNonBlackObserved": true,
           "surfaceCount": 1,
-          "terminalCompositorLayerCount": 43
+          "terminalCompositorLayerCount": 44
         },
         "firstBreakpoint": {
           "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
@@ -6506,231 +6506,14 @@
           "severity": "degraded",
           "stage": "effect-admission",
           "unit": {
-            "descriptorId": "1299#effect#1308",
+            "descriptorId": "1315#effect#1326",
             "effectIndex": 4,
             "kind": "effect",
-            "layerId": 1299
+            "layerId": 1315
           }
         },
-        "secondaryEvents": [
-          {
-            "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-            "evidenceBasis": "runtime.effect_stage_admission.records",
-            "failureRadius": "effect",
-            "fallbackPreservedTerminalCompositor": null,
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
-            "severity": "degraded",
-            "stage": "effect-admission",
-            "unit": {
-              "descriptorId": "1315#effect#1326",
-              "effectIndex": 4,
-              "kind": "effect",
-              "layerId": 1315
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-            "evidenceBasis": "runtime.effect_stage_admission.records",
-            "failureRadius": "effect",
-            "fallbackPreservedTerminalCompositor": null,
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
-            "severity": "degraded",
-            "stage": "effect-admission",
-            "unit": {
-              "descriptorId": "134#effect#873",
-              "effectIndex": 4,
-              "kind": "effect",
-              "layerId": 134
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-            "evidenceBasis": "runtime.effect_stage_admission.records",
-            "failureRadius": "effect",
-            "fallbackPreservedTerminalCompositor": null,
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
-            "severity": "degraded",
-            "stage": "effect-admission",
-            "unit": {
-              "descriptorId": "520#effect#529",
-              "effectIndex": 0,
-              "kind": "effect",
-              "layerId": 520
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-            "evidenceBasis": "runtime.effect_stage_admission.records",
-            "failureRadius": "effect",
-            "fallbackPreservedTerminalCompositor": null,
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
-            "severity": "degraded",
-            "stage": "effect-admission",
-            "unit": {
-              "descriptorId": "520#effect#618",
-              "effectIndex": 2,
-              "kind": "effect",
-              "layerId": 520
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-            "evidenceBasis": "runtime.effect_stage_admission.records",
-            "failureRadius": "effect",
-            "fallbackPreservedTerminalCompositor": null,
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
-            "severity": "degraded",
-            "stage": "effect-admission",
-            "unit": {
-              "descriptorId": "520#effect#634",
-              "effectIndex": 3,
-              "kind": "effect",
-              "layerId": 520
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-            "evidenceBasis": "runtime.effect_stage_admission.records",
-            "failureRadius": "effect",
-            "fallbackPreservedTerminalCompositor": null,
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
-            "severity": "degraded",
-            "stage": "effect-admission",
-            "unit": {
-              "descriptorId": "520#effect#647",
-              "effectIndex": 4,
-              "kind": "effect",
-              "layerId": 520
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-            "evidenceBasis": "runtime.effect_stage_admission.records",
-            "failureRadius": "effect",
-            "fallbackPreservedTerminalCompositor": null,
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
-            "severity": "degraded",
-            "stage": "effect-admission",
-            "unit": {
-              "descriptorId": "63#effect#657",
-              "effectIndex": 6,
-              "kind": "effect",
-              "layerId": 63
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-            "evidenceBasis": "runtime.effect_stage_admission.records",
-            "failureRadius": "effect",
-            "fallbackPreservedTerminalCompositor": null,
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
-            "severity": "degraded",
-            "stage": "effect-admission",
-            "unit": {
-              "descriptorId": "63#effect#666",
-              "effectIndex": 7,
-              "kind": "effect",
-              "layerId": 63
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-            "evidenceBasis": "runtime.effect_stage_admission.records",
-            "failureRadius": "effect",
-            "fallbackPreservedTerminalCompositor": null,
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
-            "severity": "degraded",
-            "stage": "effect-admission",
-            "unit": {
-              "descriptorId": "63#effect#679",
-              "effectIndex": 8,
-              "kind": "effect",
-              "layerId": 63
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "effect-local-passthrough",
-            "evidenceBasis": "runtime.effect_stage_admission.records",
-            "failureRadius": "effect",
-            "fallbackPreservedTerminalCompositor": null,
-            "owner": "EffectStageAdmission",
-            "reasonCode": "admitted-fallback",
-            "severity": "degraded",
-            "stage": "effect-admission",
-            "unit": {
-              "descriptorId": "801#effect#866",
-              "effectIndex": 4,
-              "kind": "effect",
-              "layerId": 801
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "resolved-material-graph",
-            "evidenceBasis": "runtime.resolved_material_graph_execution.layer_routes.missing_layer_ids",
-            "failureRadius": "layer",
-            "fallbackPreservedTerminalCompositor": null,
-            "owner": "GraphExecutor",
-            "reasonCode": "graph-execution-missing",
-            "severity": "blocking",
-            "stage": "graph-execution",
-            "unit": {
-              "kind": "layer",
-              "layerId": 520
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "resolved-material-graph",
-            "evidenceBasis": "runtime.resolved_material_graph_execution.layer_routes.missing_gpu_completed_layer_ids",
-            "failureRadius": "layer",
-            "fallbackPreservedTerminalCompositor": null,
-            "owner": "GraphExecutor",
-            "reasonCode": "gpu-completion-missing",
-            "severity": "blocking",
-            "stage": "gpu-completion",
-            "unit": {
-              "kind": "layer",
-              "layerId": 520
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "graph-output",
-            "evidenceBasis": "runtime.resolved_material_graph_execution.layer_routes.missing_compositor_consumed_layer_ids",
-            "failureRadius": "layer",
-            "fallbackPreservedTerminalCompositor": null,
-            "owner": "SceneCompositor",
-            "reasonCode": "terminal-compositor-missing",
-            "severity": "blocking",
-            "stage": "terminal-compositor",
-            "unit": {
-              "kind": "layer",
-              "layerId": 520
-            }
-          },
-          {
-            "capabilityProfileOrAuthoredShape": "graph-output",
-            "evidenceBasis": "runtime.resolved_material_graph_execution.layer_routes.missing_next_frame_layer_ids",
-            "failureRadius": "layer",
-            "fallbackPreservedTerminalCompositor": null,
-            "owner": "SceneCompositor",
-            "reasonCode": "next-frame-missing",
-            "severity": "blocking",
-            "stage": "next-frame",
-            "unit": {
-              "kind": "layer",
-              "layerId": 520
-            }
-          }
-        ],
-        "status": "blocked"
+        "secondaryEvents": [],
+        "status": "degraded-runtime"
       },
       "title": "[R18] Lexaiduer Last Origin Dark Elven Forest Ranger Wedding Dress X-Ray Animated"
     },
@@ -13980,8 +13763,8 @@
     "reportedSampleCount": 159,
     "sampleCount": 159,
     "statusCounts": {
-      "blocked": 2,
-      "degraded-runtime": 30,
+      "blocked": 1,
+      "degraded-runtime": 31,
       "structural-chain-complete-visual-review": 127
     }
   }
