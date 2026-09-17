@@ -9,10 +9,10 @@
 ## 1. 来源
 
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（159 个 numeric sample）。
-- 运行归档：`scene_sample_debug_archive.json` SHA-256 `8215416ab591988e2f84efe99f38393bce5fb2b978331a573c1e6b21d453fb04`（生成于 2026-09-17T15:17:56.280205+00:00）。
-- 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `6e870cf9e716242f6d1dcb2ffa7793dae16567f4`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
+- 运行归档：`scene_sample_debug_archive.json` SHA-256 `3bd6b8230164f52d9ca47e5288de5cb2a910a49dfd5cec8b598bf8a9ffbde515`（生成于 2026-09-17T17:54:48.122872+00:00）。
+- 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
 - 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `2bf7c1d1992b9d215b5308e6e65a322013ee06fadb3c46d0cff04fc9c2b870c6`。
-- 本页生成于 2026-09-17T16:00:47.476371+00:00。
+- 本页生成于 2026-09-17T17:57:06.147784+00:00。
 
 ## 2. 汇总
 
