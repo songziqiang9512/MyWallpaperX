@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "kind": "scene-capability-family-map",
+  "purpose": "P0.2 声明→公共能力粗映射输入：把 census 结构 family 按 (domain, kind) 粗映射到台账登记的公共能力 id + contract profile，并显式登记静态不可判定的 unknown。映射只表达声明覆盖关系，不表达运行支持。",
+  "identity_boundary": "capability id、profile 与 scope 只能由公共语义/台账行命名；sample、layer、path、hash、截图身份禁止进入本文件任何字段。",
+  "authority_rule": "vocabulary 的 authority.row 必须逐字出现在 authority.doc 中；该检查在 verify 与测试执行，不进入快照 payload（台账行文编辑不得使 corpus 快照漂移）。",
+  "static_boundary": "粗映射在声明覆盖层面多对多成立；family 内的颜色/状态/组合语义差异仍按语义 profile 待修复/验收时细化，未细化前 profile 携带 coarse 后缀且不算语义闭合。",
+  "vocabulary": {
+    "cap.resource.index": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "PKG/TEX/资源索引"},
+      "scope": "入口/VFS/PKG/TEX/字体/模型/音频等作者资源的定位、索引与 fingerprint 职责。"
+    },
+    "cap.resource.texture-provider": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Typed texture provider"},
+      "scope": "typed 纹理 slot/provider、purpose、generation、publication 与 candidate 合同。"
+    },
+    "cap.layer.ir": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Scene IR 与基础层级"},
+      "scope": "对象/层级/顺序/父子 transform/visibility 的 loss-preserving IR 与 admission。"
+    },
+    "cap.material.ir": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "EffectDefinition/Material IR"},
+      "scope": "effect definition、material pass、slot、combo、constant 的保真 IR 与 Program 合同。"
+    },
+    "cap.effect.executor": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Bounded effect executors"},
+      "scope": "effect 链按 prepared Program/graph 执行、previous-current 与局部失败半径。"
+    },
+    "cap.shader.source-contract": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Shader source/include/annotation/declaration contract"},
+      "scope": "作者 shader source/include/annotation/declaration 保真与 preparation 合同。"
+    },
+    "cap.graph.fbo": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Generic FBO command graph"},
+      "scope": "FBO/copy/swap/compose/condition 等 authored graph command 与 target 计划。"
+    },
+    "cap.graph.utility-composition": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Utility composition"},
+      "scope": "utility/composition/fullscreen 对象与 bounded current capture。"
+    },
+    "cap.particle.runtime": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Particle runtime"},
+      "scope": "粒子 definition/emitter/initializer/operator/renderer/control point/child 的准备与模拟。"
+    },
+    "cap.text.runtime": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Text/Font runtime"},
+      "scope": "文字/字体的栅格化、排版与纹理 publication。"
+    },
+    "cap.audio.declarations": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Audio declarations"},
+      "scope": "音频声明（sound 层、audio combo/常量、音频资源）的登记与消费资格。"
+    },
+    "cap.light.hdr": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "2D lighting/Scene HDR"},
+      "scope": "2D 灯光/Scene HDR 目标合同；当前级别 L0，声明映射不表示执行支持。"
+    },
+    "cap.camera.parallax": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Camera Parallax"},
+      "scope": "相机视差状态与 live 属性。"
+    },
+    "cap.camera.shake": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Scene Camera Shake"},
+      "scope": "Scene 相机 shake 状态与 live 属性。"
+    },
+    "cap.timeline.runtime": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Timeline runtime"},
+      "scope": "作者 animation/Timeline 的解析、evaluator 与 playback。"
+    },
+    "cap.scenescript.binding-ir": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "SceneScript property binding IR"},
+      "scope": "SceneScript wrapper/binding 的保真 IR 与准入。"
+    },
+    "cap.property.user": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "User Properties"},
+      "scope": "user/project 属性 schema、UI 去向、typed snapshot 与 binding。"
+    },
+    "cap.property.atomic-state": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "Atomic live property state/routing"},
+      "scope": "live property 原子求值、优先级路由与 visibility/condition 消费。"
+    },
+    "cap.model3d.runtime": {
+      "authority": {"doc": "docs/scene/semantics/coverage-ledger.md", "row": "3D model/camera/physics"},
+      "scope": "3D 模型/几何/scene camera 的 bounded 执行；physics 当前 L0。"
+    }
+  },
+  "rules": [
+    {"rule_id": "rule.resource.sound", "match": {"domain": "resource", "kind": "sound"}, "capabilities": [{"capability": "cap.resource.index", "profile": "sound-resource-coarse"}, {"capability": "cap.audio.declarations", "profile": "sound-resource-coarse"}]},
+    {"rule_id": "rule.resource.font", "match": {"domain": "resource", "kind": "font"}, "capabilities": [{"capability": "cap.resource.index", "profile": "font-resource-coarse"}, {"capability": "cap.text.runtime", "profile": "font-resource-coarse"}]},
+    {"rule_id": "rule.resource.effect", "match": {"domain": "resource", "kind": "effect"}, "capabilities": [{"capability": "cap.resource.index", "profile": "effect-definition-resource-coarse"}, {"capability": "cap.material.ir", "profile": "effect-definition-resource-coarse"}]},
+    {"rule_id": "rule.resource.model", "match": {"domain": "resource", "kind": "model"}, "capabilities": [{"capability": "cap.resource.index", "profile": "model-resource-coarse"}, {"capability": "cap.model3d.runtime", "profile": "model-resource-coarse"}]},
+    {"rule_id": "rule.resource.json", "match": {"domain": "resource", "kind": "json"}, "capabilities": [{"capability": "cap.resource.index", "profile": "json-resource-coarse"}]},
+    {"rule_id": "rule.resource.material", "match": {"domain": "resource", "kind": "material"}, "capabilities": [{"capability": "cap.resource.index", "profile": "material-resource-coarse"}, {"capability": "cap.material.ir", "profile": "material-resource-coarse"}]},
+    {"rule_id": "rule.resource.particle", "match": {"domain": "resource", "kind": "particle"}, "capabilities": [{"capability": "cap.resource.index", "profile": "particle-resource-coarse"}, {"capability": "cap.particle.runtime", "profile": "particle-resource-coarse"}]},
+    {"rule_id": "rule.shader.frag", "match": {"domain": "shader", "kind": "frag"}, "capabilities": [{"capability": "cap.shader.source-contract", "profile": "stage-frag-coarse"}]},
+    {"rule_id": "rule.shader.vert", "match": {"domain": "shader", "kind": "vert"}, "capabilities": [{"capability": "cap.shader.source-contract", "profile": "stage-vert-coarse"}]},
+    {"rule_id": "rule.material.image-pass", "match": {"domain": "material", "kind": "image-pass"}, "capabilities": [{"capability": "cap.material.ir", "profile": "image-pass-coarse"}]},
+    {"rule_id": "rule.material.effect-pass", "match": {"domain": "material", "kind": "effect-pass"}, "capabilities": [{"capability": "cap.material.ir", "profile": "effect-pass-coarse"}]},
+    {"rule_id": "rule.effect.authored-graph", "match": {"domain": "effect", "kind": "authored-graph"}, "capabilities": [{"capability": "cap.effect.executor", "profile": "authored-graph-coarse"}]},
+    {"rule_id": "rule.effect.unresolved", "match": {"domain": "effect", "kind": "unresolved"}, "unknown_reason": "effect-declaration-unresolved-static"},
+    {"rule_id": "rule.render-graph.effect-pass", "match": {"domain": "render-graph", "kind": "effect-pass"}, "capabilities": [{"capability": "cap.graph.fbo", "profile": "graph-effect-pass-coarse"}]},
+    {"rule_id": "rule.render-target.fbo", "match": {"domain": "render-target", "kind": "fbo"}, "capabilities": [{"capability": "cap.graph.fbo", "profile": "fbo-target-coarse"}]},
+    {"rule_id": "rule.texture.package-resource", "match": {"domain": "texture", "kind": "package-resource"}, "capabilities": [{"capability": "cap.resource.index", "profile": "physical-texture-coarse"}]},
+    {"rule_id": "rule.texture.image-material-slot", "match": {"domain": "texture", "kind": "image-material-slot"}, "capabilities": [{"capability": "cap.resource.texture-provider", "profile": "material-slot-coarse"}]},
+    {"rule_id": "rule.texture.particle-material-slot", "match": {"domain": "texture", "kind": "particle-material-slot"}, "capabilities": [{"capability": "cap.resource.texture-provider", "profile": "particle-material-slot-coarse"}]},
+    {"rule_id": "rule.texture.effect-material-slot", "match": {"domain": "texture", "kind": "effect-material-slot"}, "capabilities": [{"capability": "cap.resource.texture-provider", "profile": "effect-material-slot-coarse"}]},
+    {"rule_id": "rule.texture.shader-default-slot", "match": {"domain": "texture", "kind": "shader-default-slot"}, "capabilities": [{"capability": "cap.resource.texture-provider", "profile": "shader-default-slot-coarse"}]},
+    {"rule_id": "rule.texture.graph-binding", "match": {"domain": "texture", "kind": "graph-binding"}, "capabilities": [{"capability": "cap.graph.fbo", "profile": "graph-target-binding-coarse"}]},
+    {"rule_id": "rule.texture.base-image-system-current", "match": {"domain": "texture", "kind": "base-image-system-current"}, "capabilities": [{"capability": "cap.resource.texture-provider", "profile": "system-publication-current-coarse"}]},
+    {"rule_id": "rule.texture.base-image-system-previous", "match": {"domain": "texture", "kind": "base-image-system-previous"}, "capabilities": [{"capability": "cap.resource.texture-provider", "profile": "system-publication-previous-coarse"}]},
+    {"rule_id": "rule.texture.effect-system-current", "match": {"domain": "texture", "kind": "effect-system-current"}, "capabilities": [{"capability": "cap.resource.texture-provider", "profile": "system-publication-current-coarse"}]},
+    {"rule_id": "rule.texture.effect-system-previous", "match": {"domain": "texture", "kind": "effect-system-previous"}, "capabilities": [{"capability": "cap.resource.texture-provider", "profile": "system-publication-previous-coarse"}]},
+    {"rule_id": "rule.layer.image", "match": {"domain": "layer", "kind": "image"}, "capabilities": [{"capability": "cap.layer.ir", "profile": "image-layer-coarse"}]},
+    {"rule_id": "rule.layer.text", "match": {"domain": "layer", "kind": "text"}, "capabilities": [{"capability": "cap.layer.ir", "profile": "text-layer-coarse"}, {"capability": "cap.text.runtime", "profile": "text-layer-coarse"}]},
+    {"rule_id": "rule.layer.particle", "match": {"domain": "layer", "kind": "particle"}, "capabilities": [{"capability": "cap.layer.ir", "profile": "particle-layer-coarse"}, {"capability": "cap.particle.runtime", "profile": "particle-layer-config-coarse"}]},
+    {"rule_id": "rule.layer.utility", "match": {"domain": "layer", "kind": "utility"}, "capabilities": [{"capability": "cap.layer.ir", "profile": "utility-layer-coarse"}, {"capability": "cap.graph.utility-composition", "profile": "utility-layer-coarse"}]},
+    {"rule_id": "rule.layer.sound", "match": {"domain": "layer", "kind": "sound"}, "capabilities": [{"capability": "cap.layer.ir", "profile": "sound-layer-coarse"}, {"capability": "cap.audio.declarations", "profile": "sound-layer-coarse"}]},
+    {"rule_id": "rule.layer.light", "match": {"domain": "layer", "kind": "light"}, "capabilities": [{"capability": "cap.layer.ir", "profile": "light-layer-coarse"}, {"capability": "cap.light.hdr", "profile": "light-layer-coarse"}]},
+    {"rule_id": "rule.layer.shape", "match": {"domain": "layer", "kind": "shape"}, "capabilities": [{"capability": "cap.layer.ir", "profile": "shape-layer-coarse"}]},
+    {"rule_id": "rule.layer.camera", "match": {"domain": "layer", "kind": "camera"}, "capabilities": [{"capability": "cap.layer.ir", "profile": "camera-object-coarse"}, {"capability": "cap.camera.parallax", "profile": "camera-object-coarse"}, {"capability": "cap.camera.shake", "profile": "camera-object-coarse"}]},
+    {"rule_id": "rule.particle.definition", "match": {"domain": "particle", "kind": "definition"}, "capabilities": [{"capability": "cap.particle.runtime", "profile": "particle-definition-coarse"}]},
+    {"rule_id": "rule.particle.emitter", "match": {"domain": "particle", "kind": "emitter"}, "capabilities": [{"capability": "cap.particle.runtime", "profile": "particle-emitter-coarse"}]},
+    {"rule_id": "rule.particle.initializer", "match": {"domain": "particle", "kind": "initializer"}, "capabilities": [{"capability": "cap.particle.runtime", "profile": "particle-initializer-coarse"}]},
+    {"rule_id": "rule.particle.operator", "match": {"domain": "particle", "kind": "operator"}, "capabilities": [{"capability": "cap.particle.runtime", "profile": "particle-operator-coarse"}]},
+    {"rule_id": "rule.particle.renderer", "match": {"domain": "particle", "kind": "renderer"}, "capabilities": [{"capability": "cap.particle.runtime", "profile": "particle-renderer-coarse"}]},
+    {"rule_id": "rule.particle.controlpoint", "match": {"domain": "particle", "kind": "controlpoint"}, "capabilities": [{"capability": "cap.particle.runtime", "profile": "particle-controlpoint-coarse"}]},
+    {"rule_id": "rule.particle.children", "match": {"domain": "particle", "kind": "children"}, "capabilities": [{"capability": "cap.particle.runtime", "profile": "particle-children-coarse"}]},
+    {"rule_id": "rule.particle.material", "match": {"domain": "particle", "kind": "material"}, "capabilities": [{"capability": "cap.particle.runtime", "profile": "particle-material-coarse"}]},
+    {"rule_id": "rule.particle.layer", "match": {"domain": "particle", "kind": "layer"}, "capabilities": [{"capability": "cap.particle.runtime", "profile": "particle-layer-config-coarse"}]},
+    {"rule_id": "rule.dynamic-input.scenescript", "match": {"domain": "dynamic-input", "kind": "scenescript"}, "capabilities": [{"capability": "cap.scenescript.binding-ir", "profile": "scenescript-binding-coarse"}]},
+    {"rule_id": "rule.dynamic-input.scenescript-user", "match": {"domain": "dynamic-input", "kind": "scenescript+user-property"}, "capabilities": [{"capability": "cap.scenescript.binding-ir", "profile": "scenescript-user-mixed-coarse"}, {"capability": "cap.property.user", "profile": "scenescript-user-mixed-coarse"}]},
+    {"rule_id": "rule.dynamic-input.scenescript-timeline", "match": {"domain": "dynamic-input", "kind": "scenescript+timeline"}, "capabilities": [{"capability": "cap.scenescript.binding-ir", "profile": "scenescript-timeline-mixed-coarse"}, {"capability": "cap.timeline.runtime", "profile": "scenescript-timeline-mixed-coarse"}]},
+    {"rule_id": "rule.dynamic-input.timeline", "match": {"domain": "dynamic-input", "kind": "timeline"}, "capabilities": [{"capability": "cap.timeline.runtime", "profile": "timeline-binding-coarse"}]},
+    {"rule_id": "rule.dynamic-input.user-property", "match": {"domain": "dynamic-input", "kind": "user-property"}, "capabilities": [{"capability": "cap.property.user", "profile": "user-property-direct-coarse"}]},
+    {"rule_id": "rule.dynamic-input.condition", "match": {"domain": "dynamic-input", "kind": "condition"}, "capabilities": [{"capability": "cap.property.atomic-state", "profile": "condition-coarse"}]},
+    {"rule_id": "rule.project-property.slider", "match": {"domain": "project-property", "kind": "slider"}, "capabilities": [{"capability": "cap.property.user", "profile": "project-property-slider-coarse"}]},
+    {"rule_id": "rule.project-property.text", "match": {"domain": "project-property", "kind": "text"}, "capabilities": [{"capability": "cap.property.user", "profile": "project-property-text-coarse"}]},
+    {"rule_id": "rule.project-property.bool", "match": {"domain": "project-property", "kind": "bool"}, "capabilities": [{"capability": "cap.property.user", "profile": "project-property-bool-coarse"}]},
+    {"rule_id": "rule.project-property.color", "match": {"domain": "project-property", "kind": "color"}, "capabilities": [{"capability": "cap.property.user", "profile": "project-property-color-coarse"}]},
+    {"rule_id": "rule.project-property.textinput", "match": {"domain": "project-property", "kind": "textinput"}, "capabilities": [{"capability": "cap.property.user", "profile": "project-property-textinput-coarse"}]},
+    {"rule_id": "rule.project-property.combo", "match": {"domain": "project-property", "kind": "combo"}, "capabilities": [{"capability": "cap.property.user", "profile": "project-property-combo-coarse"}]},
+    {"rule_id": "rule.project-property.group", "match": {"domain": "project-property", "kind": "group"}, "capabilities": [{"capability": "cap.property.user", "profile": "project-property-group-coarse"}]},
+    {"rule_id": "rule.project-property.scenetexture", "match": {"domain": "project-property", "kind": "scenetexture"}, "capabilities": [{"capability": "cap.property.user", "profile": "project-property-scenetexture-coarse"}, {"capability": "cap.resource.texture-provider", "profile": "project-property-scenetexture-coarse"}]},
+    {"rule_id": "rule.project-property.usershortcut", "match": {"domain": "project-property", "kind": "usershortcut"}, "capabilities": [{"capability": "cap.property.user", "profile": "project-property-usershortcut-coarse"}]},
+    {"rule_id": "rule.project-property.empty-kind", "match": {"domain": "project-property", "kind": ""}, "unknown_reason": "project-property-kind-empty"},
+    {"rule_id": "rule.project-property.unknown-kind", "match": {"domain": "project-property", "kind": "unknown"}, "unknown_reason": "project-property-kind-unknown"},
+    {"rule_id": "rule.fallback.resource", "match": {"domain": "resource"}, "unknown_reason": "family-map-domain-fallback"},
+    {"rule_id": "rule.fallback.shader", "match": {"domain": "shader"}, "unknown_reason": "family-map-domain-fallback"},
+    {"rule_id": "rule.fallback.material", "match": {"domain": "material"}, "unknown_reason": "family-map-domain-fallback"},
+    {"rule_id": "rule.fallback.effect", "match": {"domain": "effect"}, "unknown_reason": "family-map-domain-fallback"},
+    {"rule_id": "rule.fallback.render-graph", "match": {"domain": "render-graph"}, "unknown_reason": "family-map-domain-fallback"},
+    {"rule_id": "rule.fallback.render-target", "match": {"domain": "render-target"}, "unknown_reason": "family-map-domain-fallback"},
+    {"rule_id": "rule.fallback.texture", "match": {"domain": "texture"}, "unknown_reason": "family-map-domain-fallback"},
+    {"rule_id": "rule.fallback.layer", "match": {"domain": "layer"}, "unknown_reason": "family-map-domain-fallback"},
+    {"rule_id": "rule.fallback.particle", "match": {"domain": "particle"}, "unknown_reason": "family-map-domain-fallback"},
+    {"rule_id": "rule.fallback.dynamic-input", "match": {"domain": "dynamic-input"}, "unknown_reason": "family-map-domain-fallback"},
+    {"rule_id": "rule.fallback.project-property", "match": {"domain": "project-property"}, "unknown_reason": "family-map-domain-fallback"}
+  ],
+  "family_overrides": {}
+}

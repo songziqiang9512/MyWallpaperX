@@ -61,6 +61,7 @@ DEFAULT_STOCK_ROOT = (
 )
 DEFAULT_MATRIX = REPOSITORY_ROOT / "script/scene_wallpaper_full_sample_matrix.json"
 DEFAULT_LEDGER = REPOSITORY_ROOT / "script/scene_capability_repair_ledger.json"
+DEFAULT_FAMILY_MAP = REPOSITORY_ROOT / "script/scene_capability_family_map.json"
 
 DOMAINS = (
     "resource",
@@ -647,6 +648,338 @@ def _family_feature_summary(values: list[dict[str, Any]]) -> dict[str, Any]:
     return summary
 
 
+FAMILY_MAP_SCHEMA_VERSION = 1
+_EMPTY_FAMILY_MAP: dict[str, Any] = {
+    "schema_version": FAMILY_MAP_SCHEMA_VERSION,
+    "vocabulary": {},
+    "rules": [],
+    "family_overrides": {},
+}
+
+
+def load_family_map(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Load the P0.2 declared-capability mapping input with structural validation.
+
+    Structural failures surface as census validation failures so a broken map
+    can never silently widen, narrow, or misdirect the family→capability
+    association. Vocabulary anchor literals are deliberately checked only by
+    `family_map_anchor_failures` (verify/tests), never here: ledger prose edits
+    must not make the corpus snapshot drift.
+    """
+    if not path.is_file():
+        return dict(_EMPTY_FAMILY_MAP), [{"code": "family-map-missing", "path": str(path)}]
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        return dict(_EMPTY_FAMILY_MAP), [
+            {"code": "family-map-unreadable", "path": str(path), "detail": str(error)}
+        ]
+    if not isinstance(payload, dict):
+        return dict(_EMPTY_FAMILY_MAP), [{"code": "family-map-root-not-object", "path": str(path)}]
+    return payload, _family_map_structural_failures(payload)
+
+
+def _family_map_structural_failures(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    import re
+
+    failures: list[dict[str, Any]] = []
+    if payload.get("schema_version") != FAMILY_MAP_SCHEMA_VERSION:
+        failures.append({
+            "code": "family-map-schema-version",
+            "detail": str(payload.get("schema_version")),
+        })
+    vocabulary = payload.get("vocabulary")
+    if not isinstance(vocabulary, dict) or not vocabulary:
+        failures.append({"code": "family-map-vocabulary-missing"})
+        vocabulary = {}
+    for capability, entry in sorted(vocabulary.items()):
+        if not re.fullmatch(r"cap\.[a-z0-9]+(\.[a-z0-9-]+)+", capability):
+            failures.append({"code": "family-map-invalid-capability-id", "capability": capability})
+        if not isinstance(entry, dict):
+            failures.append({"code": "family-map-invalid-vocabulary-entry", "capability": capability})
+            continue
+        authority = entry.get("authority")
+        if not isinstance(authority, dict) or not authority.get("doc") or not authority.get("row"):
+            failures.append({"code": "family-map-invalid-authority", "capability": capability})
+        if not entry.get("scope"):
+            failures.append({"code": "family-map-missing-scope", "capability": capability})
+    rules = payload.get("rules")
+    if not isinstance(rules, list) or not rules:
+        failures.append({"code": "family-map-rules-missing"})
+        rules = []
+    seen_rule_ids: set[str] = set()
+    domain_fallback_index: dict[str, int] = {}
+    for index, rule in enumerate(rules):
+        if not isinstance(rule, dict):
+            failures.append({"code": "family-map-invalid-rule", "detail": repr(rule)[:120]})
+            continue
+        rule_id = rule.get("rule_id")
+        if (
+            not isinstance(rule_id, str)
+            or not rule_id.startswith("rule.")
+            or rule_id in seen_rule_ids
+        ):
+            failures.append({"code": "family-map-invalid-rule-id", "rule_id": str(rule_id)})
+        seen_rule_ids.add(str(rule_id))
+        match = rule.get("match")
+        if not isinstance(match, dict) or not isinstance(match.get("domain"), str):
+            failures.append({"code": "family-map-invalid-match", "rule_id": str(rule_id)})
+            continue
+        domain = str(match["domain"])
+        kind = match.get("kind")
+        capabilities = rule.get("capabilities")
+        unknown_reason = rule.get("unknown_reason")
+        if capabilities is not None and not isinstance(capabilities, list):
+            failures.append({
+                "code": "family-map-invalid-capabilities-type",
+                "rule_id": str(rule_id),
+            })
+            capabilities = None
+        if bool(capabilities) == bool(unknown_reason):
+            failures.append({
+                "code": "family-map-rule-outcome-required",
+                "rule_id": str(rule_id),
+            })
+        if kind is None:
+            earlier_specific = any(
+                isinstance(prior, dict)
+                and isinstance(prior.get("match"), dict)
+                and prior["match"].get("domain") == domain
+                and prior["match"].get("kind") is not None
+                for prior in rules[index + 1:]
+            )
+            if earlier_specific:
+                failures.append({
+                    "code": "family-map-fallback-before-specific",
+                    "rule_id": str(rule_id),
+                    "domain": domain,
+                })
+            domain_fallback_index[domain] = index
+        if isinstance(unknown_reason, str) and not unknown_reason:
+            failures.append({"code": "family-map-empty-unknown-reason", "rule_id": str(rule_id)})
+        if isinstance(capabilities, list):
+            if not capabilities:
+                failures.append({"code": "family-map-empty-capabilities", "rule_id": str(rule_id)})
+            for ref in capabilities:
+                if not isinstance(ref, dict) or not ref.get("profile"):
+                    failures.append({
+                        "code": "family-map-invalid-capability-ref",
+                        "rule_id": str(rule_id),
+                    })
+                    continue
+                if ref.get("capability") not in vocabulary:
+                    failures.append({
+                        "code": "family-map-undefined-capability",
+                        "rule_id": str(rule_id),
+                        "capability": str(ref.get("capability")),
+                    })
+    overrides = payload.get("family_overrides")
+    if not isinstance(overrides, dict):
+        failures.append({"code": "family-map-overrides-not-object"})
+        overrides = {}
+    for family_key, override in sorted(overrides.items(), key=lambda kv: str(kv[0])):
+        if not isinstance(family_key, str) or not family_key:
+            failures.append({"code": "family-map-invalid-override-key", "family_key": str(family_key)})
+            continue
+        if not isinstance(override, dict):
+            failures.append({"code": "family-map-invalid-override", "family_key": family_key})
+            continue
+        override_capabilities = override.get("capabilities")
+        override_unknown = override.get("unknown_reason")
+        if override_capabilities is not None and not isinstance(override_capabilities, list):
+            failures.append({
+                "code": "family-map-invalid-capabilities-type",
+                "family_key": family_key,
+            })
+            override_capabilities = None
+        if bool(override_capabilities) == bool(override_unknown):
+            failures.append({
+                "code": "family-map-override-outcome-required",
+                "family_key": family_key,
+            })
+            continue
+        if isinstance(override_capabilities, list):
+            if not override_capabilities:
+                failures.append({
+                    "code": "family-map-override-empty-capabilities",
+                    "family_key": family_key,
+                })
+            for ref in override_capabilities:
+                if not isinstance(ref, dict) or not ref.get("profile"):
+                    failures.append({
+                        "code": "family-map-invalid-capability-ref",
+                        "family_key": family_key,
+                    })
+                    continue
+                if ref.get("capability") not in vocabulary:
+                    failures.append({
+                        "code": "family-map-undefined-capability",
+                        "family_key": family_key,
+                        "capability": str(ref.get("capability")),
+                    })
+        if isinstance(override_unknown, str) and not override_unknown:
+            failures.append({
+                "code": "family-map-empty-unknown-reason",
+                "family_key": family_key,
+            })
+    return failures
+
+
+def _apply_family_map(
+    families: list[dict[str, Any]],
+    family_map: dict[str, Any],
+    failures: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Attach declared-capability refs to each family row (first match wins)."""
+    rules = family_map.get("rules") if isinstance(family_map.get("rules"), list) else []
+    overrides = (
+        family_map.get("family_overrides")
+        if isinstance(family_map.get("family_overrides"), dict)
+        else {}
+    )
+    mapped = 0
+    unknown = 0
+    unknown_reasons: Counter[str] = Counter()
+    per_capability: dict[str, dict[str, int]] = {}
+    for row in families:
+        key = str(row["family_key"])
+        override = overrides.get(key)
+        outcome: Any = None
+        rule_id: Any = None
+        if override is not None:
+            if not isinstance(override, dict):
+                row["capability_state"] = "unknown"
+                row["capability_unknown_reason"] = "family-map-invalid-override"
+                unknown += 1
+                unknown_reasons["family-map-invalid-override"] += 1
+                failures.append({
+                    "code": "family-map-invalid-override",
+                    "family_key": key,
+                })
+                continue
+            outcome = override
+            rule_id = f"family-override:{key}"
+        else:
+            for rule in rules:
+                if not isinstance(rule, dict):
+                    continue
+                match = rule.get("match")
+                if not isinstance(match, dict) or match.get("domain") != row["domain"]:
+                    continue
+                kind = match.get("kind")
+                if kind is not None and kind != row["kind"]:
+                    continue
+                outcome = rule
+                rule_id = rule.get("rule_id")
+                break
+        if outcome is None:
+            row["capability_state"] = "unknown"
+            row["capability_unknown_reason"] = "family-map-no-rule"
+            unknown += 1
+            unknown_reasons["family-map-no-rule"] += 1
+            failures.append({"code": "family-map-unmatched-family", "family_key": key})
+            continue
+        capabilities = outcome.get("capabilities")
+        if capabilities is not None and not isinstance(capabilities, list):
+            row["capability_state"] = "unknown"
+            row["capability_unknown_reason"] = "family-map-invalid-capabilities-type"
+            unknown += 1
+            unknown_reasons["family-map-invalid-capabilities-type"] += 1
+            failures.append({
+                "code": "family-map-invalid-capabilities-type",
+                "family_key": key,
+            })
+            continue
+        if capabilities:
+            refs = [
+                {
+                    "capability": str(ref["capability"]),
+                    "profile": str(ref["profile"]),
+                    "rule_id": str(rule_id),
+                }
+                for ref in capabilities
+                if isinstance(ref, dict) and ref.get("capability") and ref.get("profile")
+            ]
+            row["capability_refs"] = refs
+            row["capability_state"] = "mapped"
+            mapped += 1
+            for ref in refs:
+                bucket = per_capability.setdefault(
+                    ref["capability"],
+                    {"family_count": 0, "occurrence_count": 0, "sample_count": 0, "sample_id_set": set()},
+                )
+                bucket["family_count"] += 1
+                bucket["occurrence_count"] += int(row.get("occurrence_count", 0))
+                bucket["sample_id_set"].update(str(value) for value in row.get("sample_ids", []))
+                bucket["sample_count"] = len(bucket["sample_id_set"])
+        else:
+            reason = str(outcome.get("unknown_reason") or "family-map-empty-outcome")
+            row["capability_state"] = "unknown"
+            row["capability_unknown_reason"] = reason
+            unknown += 1
+            unknown_reasons[reason] += 1
+    return {
+        "mapped_family_count": mapped,
+        "unknown_family_count": unknown,
+        "unknown_reason_counts": dict(sorted(unknown_reasons.items())),
+        "per_capability": {
+            capability: {
+                key: value for key, value in sorted(bucket.items())
+                if key != "sample_id_set"
+            }
+            for capability, bucket in sorted(per_capability.items())
+        },
+    }
+
+
+def family_map_anchor_failures(
+    family_map: dict[str, Any],
+    repository_root: Path,
+) -> list[dict[str, Any]]:
+    """Verify vocabulary authority rows literally exist in their owning docs.
+
+    Report-only: run by verify/tests so ledger prose edits fail verification
+    without coupling the deterministic corpus snapshot payload to doc text.
+    """
+    failures: list[dict[str, Any]] = []
+    vocabulary = family_map.get("vocabulary")
+    if not isinstance(vocabulary, dict):
+        return failures
+    doc_cache: dict[str, str] = {}
+    root = repository_root.resolve()
+    for capability, entry in sorted(vocabulary.items()):
+        authority = entry.get("authority") if isinstance(entry, dict) else None
+        if not isinstance(authority, dict):
+            continue
+        doc = str(authority.get("doc") or "")
+        row = str(authority.get("row") or "")
+        if not doc or not row:
+            continue
+        text = doc_cache.get(doc)
+        if text is None:
+            doc_path = (root / doc).resolve()
+            try:
+                doc_path.relative_to(root)
+            except ValueError:
+                failures.append({
+                    "code": "family-map-anchor-escapes-repository",
+                    "capability": capability,
+                    "doc": doc,
+                })
+                text = ""
+            else:
+                text = doc_path.read_text(encoding="utf-8") if doc_path.is_file() else ""
+            doc_cache[doc] = text
+        if row not in text:
+            failures.append({
+                "code": "family-map-anchor-missing",
+                "capability": capability,
+                "doc": doc,
+                "row": row,
+            })
+    return failures
+
+
 def load_repair_ledger(path: Path) -> dict[str, Any]:
     if not path.is_file():
         return {
@@ -800,6 +1133,7 @@ def build_census(
     stock_root: Path,
     matrix_path: Path,
     ledger_path: Path,
+    family_map_path: Path = DEFAULT_FAMILY_MAP,
 ) -> dict[str, Any]:
     samples_root = samples_root.expanduser().resolve()
     stock_root = stock_root.expanduser().resolve()
@@ -870,6 +1204,9 @@ def build_census(
     ledger = load_repair_ledger(ledger_path)
     family_keys = {item["family_key"] for item in all_occurrences}
     ledger_failures = validate_repair_ledger(ledger, family_keys)
+    family_rows = _family_rollup(all_occurrences, ledger)
+    family_map, family_map_failures = load_family_map(family_map_path)
+    capability_stats = _apply_family_map(family_rows, family_map, family_map_failures)
     schema_conservation = schema.conservation()
     parsed_count = sum(row["parse_state"] == "parsed" for row in sample_rows)
     failed_count = len(sample_rows) - parsed_count
@@ -952,6 +1289,8 @@ def build_census(
             "occurrence_ids": family_namespace_failures,
         })
     failures.extend(ledger_failures)
+    failures.extend(family_map_failures)
+    vocabulary = family_map.get("vocabulary") if isinstance(family_map.get("vocabulary"), dict) else {}
     stock_sha, stock_files, stock_bytes = directory_manifest(stock_root)
     result = {
         "schema_version": 1,
@@ -972,6 +1311,10 @@ def build_census(
                 "repair_ledger": {
                     "relative_path": relative_repo_path(ledger_path),
                     "sha256": sha256_file(ledger_path) if ledger_path.is_file() else None,
+                },
+                "family_map": {
+                    "relative_path": relative_repo_path(family_map_path),
+                    "sha256": sha256_file(family_map_path) if family_map_path.is_file() else None,
                 },
             },
             "boundaries": [
@@ -1011,14 +1354,23 @@ def build_census(
             ).items())),
             "family_count": len(family_keys),
             "families_by_domain": dict(sorted(Counter(
-                item["domain"] for item in _family_rollup(all_occurrences, ledger)
+                item["domain"] for item in family_rows
             ).items())),
+            "capability_mapping": {
+                "vocabulary_count": len(vocabulary),
+                "rule_count": len(family_map.get("rules") or []),
+                "override_count": len(family_map.get("family_overrides") or {}),
+                "mapped_family_count": capability_stats["mapped_family_count"],
+                "unknown_family_count": capability_stats["unknown_family_count"],
+                "unknown_reason_counts": capability_stats["unknown_reason_counts"],
+                "capability_coverage": capability_stats["per_capability"],
+            },
             "parameter_profile_count": len(parameter_payloads),
             "schema_field_profile_count": len(schema.payloads()),
             "unclassified_count": len(unclassified),
             "generic_or_unknown_family_count": sum(
                 any(token in item["kind"].casefold() for token in ("unknown", "unresolved", "malformed"))
-                for item in _family_rollup(all_occurrences, ledger)
+                for item in family_rows
             ),
             "package_anomaly_count": sum(len(row["diagnostics"]) for row in sample_rows),
             "texture": {
@@ -1036,7 +1388,8 @@ def build_census(
             ]),
         },
         "samples": sorted(sample_rows, key=lambda value: value["sample_id"]),
-        "families": _family_rollup(all_occurrences, ledger),
+        "families": family_rows,
+        "capability_vocabulary": dict(sorted(vocabulary.items())),
         "occurrences": all_occurrences,
         "parameter_profiles": parameter_payloads,
         "schema_fields": schema.payloads(),
@@ -1075,6 +1428,16 @@ def build_census(
                     "use_count": len(texture_uses),
                     "missing_count": len(texture_visibility_failures),
                     "balanced": not texture_visibility_failures,
+                },
+                "capability_mapping": {
+                    "families_total": len(family_rows),
+                    "mapped": capability_stats["mapped_family_count"],
+                    "unknown": capability_stats["unknown_family_count"],
+                    "balanced": (
+                        capability_stats["mapped_family_count"]
+                        + capability_stats["unknown_family_count"]
+                        == len(family_rows)
+                    ),
                 },
             },
             "determinism": {
@@ -1165,6 +1528,16 @@ def render_markdown(census: dict[str, Any]) -> str:
         "dynamic-input": "[属性/输入](runtime-input-property-coverage.md)",
         "project-property": "[属性/输入](runtime-input-property-coverage.md)",
     }
+    capability_mapping = summary.get("capability_mapping")
+    if isinstance(capability_mapping, dict):
+        dev_bullet = "- 开发按“真实可见链第一断裂边覆盖的共享 family”排序；大类用于汇总，不允许把所有纹理、Effect 或粒子一次性做成巨型补丁。"
+        if dev_bullet in lines:
+            lines.insert(lines.index(dev_bullet), (
+                f"- 公共能力粗映射：**{capability_mapping['mapped_family_count']}** 个 family "
+                f"按声明形态映射到台账登记能力，**{capability_mapping['unknown_family_count']}** 个显式 unknown"
+                f"（`{json.dumps(capability_mapping['unknown_reason_counts'], ensure_ascii=False, sort_keys=True)}`）；"
+                "映射只表达声明覆盖关系，不表示运行支持。"
+            ))
     for domain in DOMAINS:
         lines.append(
             f"| `{domain}` | {domain_rows.get(domain, 0)} | {family_domains.get(domain, 0)} | {authorities[domain]} |"
@@ -1205,6 +1578,35 @@ def render_markdown(census: dict[str, Any]) -> str:
         "",
         "完整 family、payload-free feature summary、样本归属与 revision 数在机器快照中；此表故意只保留前 80 个高覆盖项，避免人类文档成为不可维护的 payload 转储。",
         "",
+    ]
+    if isinstance(capability_mapping, dict):
+        lines += [
+            "### 4.1 公共能力映射概览",
+            "",
+            "> family→capability 是 P0.2 的声明覆盖粗映射（`script/scene_capability_family_map.json` 规则驱动，多对多、可反查）；coarse profile 表示语义差异未细化，不能当能力闭合。映射与运行支持无关；每项能力的真实等级只查 [能力台账](coverage-ledger.md)与专项表。",
+            "",
+            "| capability | 台账 authority 行 | family | occurrence | 样本 |",
+            "|---|---|---:|---:|---:|",
+        ]
+        capability_coverage = capability_mapping["capability_coverage"]
+        vocabulary_rows = census.get("capability_vocabulary", {})
+        for capability, bucket in capability_coverage.items():
+            authority = ((vocabulary_rows.get(capability) or {}).get("authority") or {})
+            anchor_doc = str(authority.get("doc", "")).replace("docs/scene/semantics/", "")
+            anchor_row = str(authority.get("row", "")).replace("|", "\\|")
+            lines.append(
+                f"| `{capability}` | [{anchor_row}]({anchor_doc}) | "
+                f"{bucket['family_count']} | {bucket['occurrence_count']} | {bucket['sample_count']} |"
+            )
+        unknown_reasons = capability_mapping["unknown_reason_counts"]
+        lines += [
+            "",
+            f"显式 unknown family 共 **{capability_mapping['unknown_family_count']}** 个，"
+            f"原因分布：`{json.dumps(unknown_reasons, ensure_ascii=False, sort_keys=True)}`；"
+            "unknown 是静态不可判定的显式登记，不是运行失败，也不得据此宣称缺失。",
+            "",
+        ]
+    lines += [
         "## 5. 全部样本清单",
         "",
         "| 样本 | 标题 | 对象 | Effect | 粒子层 | occurrence | 人工对照 | matrix/runtime |",
@@ -1218,7 +1620,12 @@ def render_markdown(census: dict[str, Any]) -> str:
             .replace(">", "&gt;")
             .replace("|", "\\|")
         )
-        manual = "截图+说明" if sample["has_manual_screenshot"] and sample["has_user_observation"] else "无"
+        if sample["has_manual_screenshot"] and sample["has_user_observation"]:
+            manual = "截图+说明"
+        elif sample["has_manual_screenshot"]:
+            manual = "截图"
+        else:
+            manual = "无"
         matrix_state = (
             f"tracked{summary['matrix_sample_count']} / census未join runtime"
             if sample["in_full_matrix"]
@@ -1374,6 +1781,7 @@ def snapshot_payload(census: dict[str, Any]) -> dict[str, Any]:
         "summary": census["summary"],
         "samples": samples,
         "families": census["families"],
+        "capability_vocabulary": census.get("capability_vocabulary", {}),
         "parameter_profiles": parameter_profiles,
         "schema_fields": census["schema_fields"],
         "unclassified": census["unclassified"],
@@ -1393,7 +1801,10 @@ def snapshot_payload(census: dict[str, Any]) -> dict[str, Any]:
 def generate(args: argparse.Namespace) -> int:
     outputs = [args.snapshot, args.markdown]
     ensure_outputs_outside_roots(outputs, [args.samples_root, args.stock_root])
-    census = build_census(args.samples_root, args.stock_root, args.matrix, args.ledger)
+    census = build_census(
+        args.samples_root, args.stock_root, args.matrix, args.ledger,
+        getattr(args, "family_map", DEFAULT_FAMILY_MAP),
+    )
     if census["validation"]["failures"]:
         print(json.dumps(census["validation"], ensure_ascii=False, indent=2), file=sys.stderr)
         return 1
@@ -1413,7 +1824,10 @@ def generate(args: argparse.Namespace) -> int:
 
 def verify(args: argparse.Namespace) -> int:
     ensure_outputs_outside_roots([args.snapshot, args.markdown], [args.samples_root, args.stock_root])
-    expected = build_census(args.samples_root, args.stock_root, args.matrix, args.ledger)
+    expected = build_census(
+        args.samples_root, args.stock_root, args.matrix, args.ledger,
+        getattr(args, "family_map", DEFAULT_FAMILY_MAP),
+    )
     failures = list(expected["validation"]["failures"])
     expected_snapshot = canonical_json_bytes(snapshot_payload(expected))
     expected_markdown = (render_markdown(expected) + "\n").encode("utf-8")
@@ -1421,6 +1835,8 @@ def verify(args: argparse.Namespace) -> int:
         failures.append({"code": "snapshot-drift", "path": str(args.snapshot)})
     if not args.markdown.is_file() or args.markdown.read_bytes() != expected_markdown:
         failures.append({"code": "markdown-drift", "path": str(args.markdown)})
+    family_map, _ = load_family_map(getattr(args, "family_map", DEFAULT_FAMILY_MAP))
+    failures.extend(family_map_anchor_failures(family_map, REPOSITORY_ROOT))
     print(json.dumps({
         "passed": not failures,
         "sample_count": expected["summary"]["discovered_sample_count"],
@@ -1436,7 +1852,10 @@ def query(args: argparse.Namespace) -> int:
         return 2
     live = getattr(args, "live", False)
     if live:
-        census = build_census(args.samples_root, args.stock_root, args.matrix, args.ledger)
+        census = build_census(
+            args.samples_root, args.stock_root, args.matrix, args.ledger,
+            getattr(args, "family_map", DEFAULT_FAMILY_MAP),
+        )
         if census["validation"]["failures"]:
             print(json.dumps(census["validation"], ensure_ascii=False, indent=2), file=sys.stderr)
             return 1
@@ -1484,6 +1903,7 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
         subparser.add_argument("--stock-root", type=Path, default=DEFAULT_STOCK_ROOT)
         subparser.add_argument("--matrix", type=Path, default=DEFAULT_MATRIX)
         subparser.add_argument("--ledger", type=Path, default=DEFAULT_LEDGER)
+        subparser.add_argument("--family-map", type=Path, default=DEFAULT_FAMILY_MAP)
         if command != "query":
             subparser.add_argument(
                 "--snapshot",

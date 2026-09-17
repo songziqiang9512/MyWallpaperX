@@ -12,6 +12,7 @@
 - 物理 corpus 共 **10538** 个 PKG entry / **10537** 个唯一路径，包体约 **5.604 GB**；tracked baseline 在单独的 milestone 扩容并建立运行期待前仍为 45，期间不得称为当前完整快照门。
 - package anomaly：样本 `3768724269` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 59/80，同字节；该包 87 entries / 86 unique paths）；重复entry继续保留在物理守恒中，不是漏扫。
 - 结构 fallback 记录为 **93**，另有 **6** 个 generic/unknown/unresolved family；两者都不是运行失败数。本 census 未 join 运行证据的样本，其第一 blocker 保持 `unknown`，不得从静态形态猜测。
+- 公共能力粗映射：**2500** 个 family 按声明形态映射到台账登记能力，**7** 个显式 unknown（`{"effect-declaration-unresolved-static": 1, "project-property-kind-empty": 1, "project-property-kind-unknown": 5}`）；映射只表达声明覆盖关系，不表示运行支持。
 - 开发按“真实可见链第一断裂边覆盖的共享 family”排序；大类用于汇总，不允许把所有纹理、Effect 或粒子一次性做成巨型补丁。
 
 ## 2. 口径与权威边界
@@ -141,6 +142,34 @@
 
 完整 family、payload-free feature summary、样本归属与 revision 数在机器快照中；此表故意只保留前 80 个高覆盖项，避免人类文档成为不可维护的 payload 转储。
 
+### 4.1 公共能力映射概览
+
+> family→capability 是 P0.2 的声明覆盖粗映射（`script/scene_capability_family_map.json` 规则驱动，多对多、可反查）；coarse profile 表示语义差异未细化，不能当能力闭合。映射与运行支持无关；每项能力的真实等级只查 [能力台账](coverage-ledger.md)与专项表。
+
+| capability | 台账 authority 行 | family | occurrence | 样本 |
+|---|---|---:|---:|---:|
+| `cap.audio.declarations` | [Audio declarations](coverage-ledger.md) | 16 | 113 | 41 |
+| `cap.camera.parallax` | [Camera Parallax](coverage-ledger.md) | 5 | 7 | 7 |
+| `cap.camera.shake` | [Scene Camera Shake](coverage-ledger.md) | 5 | 7 | 7 |
+| `cap.effect.executor` | [Bounded effect executors](coverage-ledger.md) | 13 | 3263 | 147 |
+| `cap.graph.fbo` | [Generic FBO command graph](coverage-ledger.md) | 36 | 5662 | 147 |
+| `cap.graph.utility-composition` | [Utility composition](coverage-ledger.md) | 52 | 525 | 20 |
+| `cap.layer.ir` | [Scene IR 与基础层级](coverage-ledger.md) | 1019 | 5978 | 159 |
+| `cap.light.hdr` | [2D lighting/Scene HDR](coverage-ledger.md) | 8 | 15 | 6 |
+| `cap.material.ir` | [EffectDefinition/Material IR](coverage-ledger.md) | 47 | 9960 | 159 |
+| `cap.model3d.runtime` | [3D model/camera/physics](coverage-ledger.md) | 2 | 1194 | 158 |
+| `cap.particle.runtime` | [Particle runtime](coverage-ledger.md) | 714 | 15152 | 102 |
+| `cap.property.atomic-state` | [Atomic live property state/routing](coverage-ledger.md) | 1 | 916 | 42 |
+| `cap.property.user` | [User Properties](coverage-ledger.md) | 67 | 6743 | 159 |
+| `cap.resource.index` | [PKG/TEX/资源索引](coverage-ledger.md) | 40 | 8296 | 159 |
+| `cap.resource.texture-provider` | [Typed texture provider](coverage-ledger.md) | 42 | 8445 | 158 |
+| `cap.scenescript.binding-ir` | [SceneScript property binding IR](coverage-ledger.md) | 325 | 2856 | 90 |
+| `cap.shader.source-contract` | [Shader source/include/annotation/declaration contract](coverage-ledger.md) | 296 | 2242 | 149 |
+| `cap.text.runtime` | [Text/Font runtime](coverage-ledger.md) | 178 | 995 | 78 |
+| `cap.timeline.runtime` | [Timeline runtime](coverage-ledger.md) | 19 | 309 | 43 |
+
+显式 unknown family 共 **7** 个，原因分布：`{"effect-declaration-unresolved-static": 1, "project-property-kind-empty": 1, "project-property-kind-unknown": 5}`；unknown 是静态不可判定的显式登记，不是运行失败，也不得据此宣称缺失。
+
 ## 5. 全部样本清单
 
 | 样本 | 标题 | 对象 | Effect | 粒子层 | occurrence | 人工对照 | matrix/runtime |
@@ -152,67 +181,67 @@
 | `1507413154` | 百褶裙 | 3 | 1 | 1 | 72 | 无 | 新增 / census未join runtime |
 | `1507593643` | 蕾丝吊带 | 3 | 0 | 2 | 83 | 无 | 新增 / census未join runtime |
 | `1511889295` | 死库水 | 3 | 1 | 2 | 119 | 无 | 新增 / census未join runtime |
-| `1553008362` | [Jidan Hua] Ichigo and 002 (Darling in the Franxx) - animated | 1 | 4 | 0 | 50 | 截图+说明 | tracked45 / census未join runtime |
-| `1636394814` | [Jaku Denpa] Shigure (Kantai Collection) - animated xray | 3 | 21 | 0 | 191 | 截图+说明 | tracked45 / census未join runtime |
-| `1937925563` | Tropical Paradise 4K [Customizable Colors &amp; Audio Visualizer] - Vaporwave &amp; Neon | 16 | 51 | 3 | 735 | 截图+说明 | tracked45 / census未join runtime |
+| `1553008362` | [Jidan Hua] Ichigo and 002 (Darling in the Franxx) - animated | 1 | 4 | 0 | 50 | 截图 | tracked45 / census未join runtime |
+| `1636394814` | [Jaku Denpa] Shigure (Kantai Collection) - animated xray | 3 | 21 | 0 | 191 | 截图 | tracked45 / census未join runtime |
+| `1937925563` | Tropical Paradise 4K [Customizable Colors &amp; Audio Visualizer] - Vaporwave &amp; Neon | 16 | 51 | 3 | 735 | 截图 | tracked45 / census未join runtime |
 | `1989767609` | Black tights（透视） | 1 | 1 | 0 | 23 | 无 | 新增 / census未join runtime |
 | `1994794519` | D.VA_OVERWATCH[X-Ray] | 3 | 2 | 2 | 86 | 无 | 新增 / census未join runtime |
-| `2067939514` | Windows Visualizer | 45 | 80 | 4 | 807 | 截图+说明 | tracked45 / census未join runtime |
+| `2067939514` | Windows Visualizer | 45 | 80 | 4 | 807 | 截图 | tracked45 / census未join runtime |
 | `2069136288` | [R18] Lexaiduer DOA Nagisa x Tamaki X-Ray Animated | 5 | 27 | 0 | 236 | 无 | 新增 / census未join runtime |
 | `2112262451` | [R18] Sakimi Chan Azur Lane Belfast X-Ray Animated | 6 | 35 | 0 | 282 | 无 | 新增 / census未join runtime |
-| `2131872317` | Night Market by 俊伦 何 in 4K | 18 | 21 | 9 | 653 | 截图+说明 | tracked45 / census未join runtime |
-| `2134765860` | Bunk | 42 | 79 | 1 | 931 | 截图+说明 | tracked45 / census未join runtime |
+| `2131872317` | Night Market by 俊伦 何 in 4K | 18 | 21 | 9 | 653 | 截图 | tracked45 / census未join runtime |
+| `2134765860` | Bunk | 42 | 79 | 1 | 931 | 截图 | tracked45 / census未join runtime |
 | `2163522240` | [18+] jk x-ray 🔞😍 | 3 | 2 | 0 | 38 | 无 | 新增 / census未join runtime |
 | `2179185481` | Azur Lane / 18+ X-ray NSFW &amp; SFW (3 Versions ) | 3 | 1 | 0 | 39 | 无 | 新增 / census未join runtime |
 | `2181251652` | Mio Tokisaki (X-Ray) | 1 | 1 | 0 | 23 | 无 | 新增 / census未join runtime |
 | `2231088993` | Ahri X-Ray | 1 | 3 | 0 | 42 | 无 | 新增 / census未join runtime |
-| `2241938645` | KDA Akali [4k Version] | 6 | 10 | 2 | 221 | 截图+说明 | tracked45 / census未join runtime |
+| `2241938645` | KDA Akali [4k Version] | 6 | 10 | 2 | 221 | 截图 | tracked45 / census未join runtime |
 | `2269193950` | WLOP - Nap | 4 | 4 | 2 | 134 | 无 | 新增 / census未join runtime |
 | `2304304373` | Don't Die | 22 | 8 | 10 | 439 | 无 | 新增 / census未join runtime |
 | `2356604986` | 1265079-1322607782 | 1 | 0 | 0 | 9 | 无 | 新增 / census未join runtime |
-| `2419444134` | Nier Reincarnation - Akeha | 10 | 13 | 4 | 272 | 截图+说明 | tracked45 / census未join runtime |
-| `2470144420` | 女孩独享的宁静傍晚 | 4 | 6 | 2 | 124 | 截图+说明 | tracked45 / census未join runtime |
-| `2473638329` | Genshin Impact \| +18 / NSFW &amp; SFW | 2 | 7 | 1 | 105 | 截图+说明 | tracked45 / census未join runtime |
+| `2419444134` | Nier Reincarnation - Akeha | 10 | 13 | 4 | 272 | 截图 | tracked45 / census未join runtime |
+| `2470144420` | 女孩独享的宁静傍晚 | 4 | 6 | 2 | 124 | 截图 | tracked45 / census未join runtime |
+| `2473638329` | Genshin Impact \| +18 / NSFW &amp; SFW | 2 | 7 | 1 | 105 | 截图 | tracked45 / census未join runtime |
 | `2505351195` | Nier Automata / +21 \| NSFW &amp; SFW | 2 | 6 | 1 | 95 | 无 | 新增 / census未join runtime |
 | `2607203340` | Tomb Raider +18 | 2 | 4 | 1 | 74 | 无 | 新增 / census未join runtime |
 | `2684431262` | 麻匪 炫酷音频律动 Windows | 17 | 25 | 1 | 262 | 无 | 新增 / census未join runtime |
 | `2775915974` | R18*JK(escalator)エスカレーターJKさんX-ray | 4 | 12 | 0 | 144 | 无 | 新增 / census未join runtime |
 | `2794098047` | 麻匪 是姐姐还是妹妹 windows | 15 | 20 | 1 | 319 | 无 | 新增 / census未join runtime |
 | `2797913147` | 【R18】连体黑丝#4K#视差#可互动臀部#动态 | 3 | 7 | 0 | 79 | 无 | 新增 / census未join runtime |
-| `2802243144` | 冰公主-by Wlop 时间日期已修复 16:9 -music 订阅后点赞，养成好习惯 | 12 | 8 | 2 | 184 | 截图+说明 | tracked45 / census未join runtime |
+| `2802243144` | 冰公主-by Wlop 时间日期已修复 16:9 -music 订阅后点赞，养成好习惯 | 12 | 8 | 2 | 184 | 截图 | tracked45 / census未join runtime |
 | `2808874251` | youer | 6 | 0 | 5 | 138 | 无 | 新增 / census未join runtime |
 | `2813231542` | 清新美女 R-18 | 6 | 13 | 1 | 196 | 无 | 新增 / census未join runtime |
 | `2824109832` | Yor Forger - NIXEU 4K | 5 | 17 | 2 | 283 | 无 | 新增 / census未join runtime |
 | `2837223712` | 李擎洲：阿狸[4K] | 7 | 1 | 4 | 142 | 无 | 新增 / census未join runtime |
-| `2884628849` | 麻匪 小姐姐 | 26 | 33 | 0 | 442 | 截图+说明 | tracked45 / census未join runtime |
+| `2884628849` | 麻匪 小姐姐 | 26 | 33 | 0 | 442 | 截图 | tracked45 / census未join runtime |
 | `2896873092` | Genshin Impact: Thicc Girls Spread Collage X-Ray R18+ | 11 | 64 | 0 | 536 | 无 | 新增 / census未join runtime |
-| `2902406982` | 麻匪 月半与鬼哭 所有元素自定义 | 140 | 115 | 1 | 1672 | 截图+说明 | tracked45 / census未join runtime |
+| `2902406982` | 麻匪 月半与鬼哭 所有元素自定义 | 140 | 115 | 1 | 1672 | 截图 | tracked45 / census未join runtime |
 | `2917306763` | [4K/动态/R18/衣服透视可调]碧蓝航线-独角兽妹妹「天使的护理时间」-B站慕慕慕慕斯小蛋糕 | 8 | 15 | 0 | 163 | 无 | 新增 / census未join runtime |
 | `2932631210` | 欧派-音乐乱动 | 6 | 7 | 3 | 181 | 无 | 新增 / census未join runtime |
-| `2938612768` | 麻匪 音频识别 Media Player | 85 | 73 | 5 | 1351 | 截图+说明 | tracked45 / census未join runtime |
+| `2938612768` | 麻匪 音频识别 Media Player | 85 | 73 | 5 | 1351 | 截图 | tracked45 / census未join runtime |
 | `2942486721` | R18 Ishtar And Ereshkigal / 遠坂 凛 Tohsaka Rin 4K [Fate/Grand Order] [NSFW] | 1 | 5 | 0 | 56 | 无 | 新增 / census未join runtime |
 | `2959875782` | [R18] Lexaiduer Last Origin Dark Elven Forest Ranger Wedding Dress X-Ray Animated | 136 | 292 | 0 | 2729 | 无 | 新增 / census未join runtime |
-| `2974757317` | 麻匪 音频识别 悬浮窗 Media Player | 53 | 67 | 4 | 1149 | 截图+说明 | tracked45 / census未join runtime |
+| `2974757317` | 麻匪 音频识别 悬浮窗 Media Player | 53 | 67 | 4 | 1149 | 截图 | tracked45 / census未join runtime |
 | `2986218263` | Tokisaki Asaba &amp; Tokisaki Mio │18+ X-Ray │NSFW &amp; SFW│VERSIONS | 5 | 1 | 1 | 73 | 无 | 新增 / census未join runtime |
-| `2998757800` | 碧蓝航线-利托里奥【R18版/可触摸/天气变化】-B站慕慕慕慕斯小蛋糕 | 22 | 22 | 15 | 722 | 截图+说明 | tracked45 / census未join runtime |
+| `2998757800` | 碧蓝航线-利托里奥【R18版/可触摸/天气变化】-B站慕慕慕慕斯小蛋糕 | 22 | 22 | 15 | 722 | 截图 | tracked45 / census未join runtime |
 | `3002649614` | 纯欲少女 | 4 | 0 | 0 | 25 | 无 | 新增 / census未join runtime |
 | `3025969015` | 黑龙闹海 | 9 | 7 | 7 | 278 | 无 | 新增 / census未join runtime |
-| `3028090166` | WLOP [Tian Nan2] | 12 | 20 | 2 | 347 | 截图+说明 | tracked45 / census未join runtime |
-| `3088601835` | Winter Wanderer Xayah - League of Legends [ NAMAKXIN ] | 31 | 36 | 19 | 853 | 截图+说明 | tracked45 / census未join runtime |
+| `3028090166` | WLOP [Tian Nan2] | 12 | 20 | 2 | 347 | 截图 | tracked45 / census未join runtime |
+| `3088601835` | Winter Wanderer Xayah - League of Legends [ NAMAKXIN ] | 31 | 36 | 19 | 853 | 截图 | tracked45 / census未join runtime |
 | `3113287126` | Dome 4k {Artwork by WLOP} | 31 | 46 | 5 | 797 | 无 | 新增 / census未join runtime |
 | `3113554287` | 【可随时间变化】窗旁の伊蕾娜 （优化版本） | 6 | 1 | 0 | 54 | 无 | 新增 / census未join runtime |
-| `3122339805` | Pixels | 190 | 17 | 0 | 788 | 截图+说明 | tracked45 / census未join runtime |
-| `3141421197` | GraspOfTheAbyss | 1 | 1 | 0 | 12 | 截图+说明 | tracked45 / census未join runtime |
+| `3122339805` | Pixels | 190 | 17 | 0 | 788 | 截图 | tracked45 / census未join runtime |
+| `3141421197` | GraspOfTheAbyss | 1 | 1 | 0 | 12 | 截图 | tracked45 / census未join runtime |
 | `3147346398` | ⛏🧱Minecraft Lo-Fi Fireplace [4k HDR] WE adaptation by Becco38 | 11 | 2 | 0 | 86 | 无 | 新增 / census未join runtime |
 | `3167210190` | [Blue Archive] 奶牛装明日奈 | 1 | 5 | 0 | 61 | 无 | 新增 / census未join runtime |
 | `3211615441` | 捆绑悬挂 \| Bind &amp; Suspend [ 可交互/interactive \| iumu \| X-ray \| 4k \| 明日方舟/Arknights ] | 26 | 116 | 0 | 998 | 无 | 新增 / census未join runtime |
 | `3219398263` | Acheron Black Hole (StarchaserArt) | 10 | 1 | 6 | 187 | 无 | 新增 / census未join runtime |
 | `3233141951` | 熠烛 御剑驭龙-红鸾樱落 高度自定义Red Warbler-Sakura falls （Highly customizable） | 65 | 59 | 9 | 998 | 无 | 新增 / census未join runtime |
 | `3238423642` | Katana Girl with Hologram (Adjustable; 4k; Cyberpunk Samurai) MX | 96 | 123 | 31 | 2995 | 无 | 新增 / census未join runtime |
-| `3264246690` | 麻匪 wlop 鬼刀 月牙儿 16:9 16:10 21:9 32:9 | 36 | 33 | 0 | 558 | 无 | 新增 / census未join runtime |
+| `3264246690` | 麻匪 wlop 鬼刀 月牙儿 16:9 16:10 21:9 32:9 | 36 | 33 | 0 | 558 | 截图 | 新增 / census未join runtime |
 | `3287715210` | 发光少女 4K动态壁纸 | 12 | 8 | 2 | 190 | 无 | 新增 / census未join runtime |
-| `3290491250` | frieren | 5 | 3 | 1 | 73 | 截图+说明 | tracked45 / census未join runtime |
-| `3299228616` | Lonely Cat: Audio visualizer , Clock , Chill , Multi language | 271 | 276 | 42 | 4189 | 截图+说明 | tracked45 / census未join runtime |
+| `3290491250` | frieren | 5 | 3 | 1 | 73 | 截图 | tracked45 / census未join runtime |
+| `3299228616` | Lonely Cat: Audio visualizer , Clock , Chill , Multi language | 271 | 276 | 42 | 4189 | 截图 | tracked45 / census未join runtime |
 | `3323988600` | Hentai Goddess of Victory Nikke ANIMATED \| Huge Ass Cowgirl \| NSFW R-18 \| Customizable | 6 | 6 | 4 | 205 | 无 | 新增 / census未join runtime |
 | `3363252053` | 【Parallax视差】Hatsune Miku 初音未来 光与影——夜莺Night Light and Shadow | 48 | 34 | 4 | 776 | 无 | 新增 / census未join runtime |
 | `3389974179` | 落日与白皙的大腿 | 4 | 4 | 0 | 99 | 无 | 新增 / census未join runtime |
@@ -223,7 +252,7 @@
 | `3448845950` | 麻匪 媒体音频标签【148项自定义】Media Player 16:9 16:10 21:9 32:9 | 81 | 103 | 2 | 1280 | 无 | 新增 / census未join runtime |
 | `3470948192` | 水滴 三体 \| Droplet -SYKM | 49 | 6 | 0 | 334 | 无 | 新增 / census未join runtime |
 | `3472940912` | -Tsukatsuki Rio [ blue archive ] - 4K | 3 | 6 | 0 | 90 | 无 | 新增 / census未join runtime |
-| `3477054430` | Cat with headphones on the roof | 15 | 2 | 0 | 131 | 无 | 新增 / census未join runtime |
+| `3477054430` | Cat with headphones on the roof | 15 | 2 | 0 | 131 | 截图 | 新增 / census未join runtime |
 | `3487629864` | 云曦老婆 (18+) | 4 | 5 | 2 | 98 | 无 | 新增 / census未join runtime |
 | `3509243656` | 三体实时演算 \| Three-Body problem - SYKM | 142 | 12 | 4 | 1248 | 无 | 新增 / census未join runtime |
 | `3554161528` | Blue Archive-Sorasaki Hina 空崎日奈[4K] | 37 | 24 | 13 | 845 | 无 | 新增 / census未join runtime |
@@ -242,43 +271,43 @@
 | `3703104370` | Rio&amp;菲比-adoc(涟) | 1 | 6 | 0 | 66 | 无 | 新增 / census未join runtime |
 | `3712499998` | 鸣潮 \|\| 3.3pv \| 自星海尽处回响 | 21 | 0 | 5 | 459 | 无 | 新增 / census未join runtime |
 | `3721456868` | 绯雪1 \|\| 鸣潮 | 13 | 18 | 2 | 313 | 无 | 新增 / census未join runtime |
-| `3738202317` | Albedo. | 1 | 4 | 0 | 57 | 截图+说明 | tracked45 / census未join runtime |
-| `3742133044` | 凌霄·双司镇命·无常&lt;1&gt;-[深空之眼] | 4 | 5 | 2 | 122 | 截图+说明 | tracked45 / census未join runtime |
-| `3743305891` | 战双 | 8 | 4 | 1 | 143 | 截图+说明 | tracked45 / census未join runtime |
-| `3747492842` | [4k]Leon S Kennedy X-ray \| Resident Evil 4 Remake \| Re4 | 21 | 13 | 1 | 575 | 截图+说明 | tracked45 / census未join runtime |
+| `3738202317` | Albedo. | 1 | 4 | 0 | 57 | 截图 | tracked45 / census未join runtime |
+| `3742133044` | 凌霄·双司镇命·无常&lt;1&gt;-[深空之眼] | 4 | 5 | 2 | 122 | 截图 | tracked45 / census未join runtime |
+| `3743305891` | 战双 | 8 | 4 | 1 | 143 | 截图 | tracked45 / census未join runtime |
+| `3747492842` | [4k]Leon S Kennedy X-ray \| Resident Evil 4 Remake \| Re4 | 21 | 13 | 1 | 575 | 截图 | tracked45 / census未join runtime |
 | `3748311238` | 大 | 6 | 17 | 0 | 260 | 无 | 新增 / census未join runtime |
 | `3749463715` | 还能在大 ∑ 2 | 28 | 37 | 8 | 1013 | 无 | 新增 / census未join runtime |
-| `3750342273` | Night snowy mountains | 8 | 6 | 1 | 114 | 截图+说明 | tracked45 / census未join runtime |
-| `3750813609` | Asian Temple in the Mountains | 13 | 5 | 9 | 390 | 截图+说明 | tracked45 / census未join runtime |
+| `3750342273` | Night snowy mountains | 8 | 6 | 1 | 114 | 截图 | tracked45 / census未join runtime |
+| `3750813609` | Asian Temple in the Mountains | 13 | 5 | 9 | 390 | 截图 | tracked45 / census未join runtime |
 | `3754630802` | WLOP [ChineseNewYear 7] | 38 | 31 | 10 | 1043 | 无 | 新增 / census未join runtime |
 | `3754639143` | WLOP 银月 | 22 | 20 | 2 | 457 | 无 | 新增 / census未join runtime |
-| `3757555836` | 名将杀【兰汤春酽_赵姬】限制级8K | 9 | 9 | 7 | 423 | 截图+说明 | tracked45 / census未join runtime |
+| `3757555836` | 名将杀【兰汤春酽_赵姬】限制级8K | 9 | 9 | 7 | 423 | 截图 | tracked45 / census未join runtime |
 | `3763323436` | 补 碧蓝航线 拉菲 Azur lane Laffey | 4 | 6 | 1 | 97 | 无 | 新增 / census未join runtime |
 | `3763428294` | 秧秧·玄翎1\|\|穗穗\|\|舟行画中，心随风远\|\|鸣潮 | 16 | 25 | 3 | 401 | 无 | 新增 / census未join runtime |
-| `3765760121` | 【4K】三色堇与她 | 13 | 12 | 1 | 207 | 截图+说明 | tracked45 / census未join runtime |
+| `3765760121` | 【4K】三色堇与她 | 13 | 12 | 1 | 207 | 截图 | tracked45 / census未join runtime |
 | `3765904723` | 调月莉音 | 5 | 9 | 0 | 124 | 无 | 新增 / census未join runtime |
-| `3766387484` | ARKNIGHTS ENDFIELD ARCANE CHEN XIANGYU | 7 | 13 | 1 | 229 | 截图+说明 | tracked45 / census未join runtime |
-| `3766403294` | 仪玄(AI) | 2 | 1 | 0 | 29 | 截图+说明 | tracked45 / census未join runtime |
-| `3766415113` | The last pour | 1 | 0 | 0 | 9 | 截图+说明 | tracked45 / census未join runtime |
-| `3767232084` | 谬因 | 3 | 7 | 2 | 157 | 截图+说明 | tracked45 / census未join runtime |
-| `3767343314` | Universe Abstract - By: CroSsHaiR-&gt; | 4 | 3 | 3 | 117 | 截图+说明 | tracked45 / census未join runtime |
-| `3767460992` | Magic mushroom | 9 | 39 | 0 | 262 | 截图+说明 | tracked45 / census未join runtime |
-| `3768020435` | Silver Wolf with media integration | 9 | 3 | 0 | 71 | 截图+说明 | tracked45 / census未join runtime |
-| `3768229922` | 麻匪 赤芒 音频互动 | 58 | 74 | 2 | 815 | 截图+说明 | tracked45 / census未join runtime |
-| `3768724269` | ARKNIGHTS ENDFIELD 4K GILBERTA IN CLOUDS | 17 | 12 | 4 | 311 | 截图+说明 | tracked45 / census未join runtime |
-| `3768903841` | Naha Gaze at Firework \| northway. | 37 | 18 | 5 | 413 | 截图+说明 | tracked45 / census未join runtime |
-| `3769364482` | 戴拿奥特曼 强壮型【Ultraman Dyna Strong Type】dy柊明 | 10 | 13 | 3 | 378 | 截图+说明 | tracked45 / census未join runtime |
-| `3769688830` | Spirit Blossom Springs Ahri (Adjustable; League of Legends) MX | 26 | 59 | 6 | 771 | 截图+说明 | tracked45 / census未join runtime |
-| `3769761761` | Yoru and Mitaka asa | 20 | 24 | 5 | 512 | 截图+说明 | tracked45 / census未join runtime |
-| `3770444459` | 三国杀【节气 夏至 2026】8K | 6 | 4 | 5 | 245 | 截图+说明 | tracked45 / census未join runtime |
-| `3770462923` | gt3rs@d4rk | 4 | 5 | 0 | 100 | 截图+说明 | tracked45 / census未join runtime |
+| `3766387484` | ARKNIGHTS ENDFIELD ARCANE CHEN XIANGYU | 7 | 13 | 1 | 229 | 截图 | tracked45 / census未join runtime |
+| `3766403294` | 仪玄(AI) | 2 | 1 | 0 | 29 | 截图 | tracked45 / census未join runtime |
+| `3766415113` | The last pour | 1 | 0 | 0 | 9 | 截图 | tracked45 / census未join runtime |
+| `3767232084` | 谬因 | 3 | 7 | 2 | 157 | 截图 | tracked45 / census未join runtime |
+| `3767343314` | Universe Abstract - By: CroSsHaiR-&gt; | 4 | 3 | 3 | 117 | 截图 | tracked45 / census未join runtime |
+| `3767460992` | Magic mushroom | 9 | 39 | 0 | 262 | 截图 | tracked45 / census未join runtime |
+| `3768020435` | Silver Wolf with media integration | 9 | 3 | 0 | 71 | 截图 | tracked45 / census未join runtime |
+| `3768229922` | 麻匪 赤芒 音频互动 | 58 | 74 | 2 | 815 | 截图 | tracked45 / census未join runtime |
+| `3768724269` | ARKNIGHTS ENDFIELD 4K GILBERTA IN CLOUDS | 17 | 12 | 4 | 311 | 截图 | tracked45 / census未join runtime |
+| `3768903841` | Naha Gaze at Firework \| northway. | 37 | 18 | 5 | 413 | 截图 | tracked45 / census未join runtime |
+| `3769364482` | 戴拿奥特曼 强壮型【Ultraman Dyna Strong Type】dy柊明 | 10 | 13 | 3 | 378 | 截图 | tracked45 / census未join runtime |
+| `3769688830` | Spirit Blossom Springs Ahri (Adjustable; League of Legends) MX | 26 | 59 | 6 | 771 | 截图 | tracked45 / census未join runtime |
+| `3769761761` | Yoru and Mitaka asa | 20 | 24 | 5 | 512 | 截图 | tracked45 / census未join runtime |
+| `3770444459` | 三国杀【节气 夏至 2026】8K | 6 | 4 | 5 | 245 | 截图 | tracked45 / census未join runtime |
+| `3770462923` | gt3rs@d4rk | 4 | 5 | 0 | 100 | 截图 | tracked45 / census未join runtime |
 | `3775355045` | 交错战线_DAIBLOS CORE_x-ray_4K_1 | 2 | 1 | 0 | 31 | 无 | 新增 / census未join runtime |
 | `3775373546` | 交错战线_DAIBLOS CORE_x-ray_4K_2 | 2 | 1 | 0 | 31 | 无 | 新增 / census未join runtime |
 | `3777761326` | I do Anything | 7 | 22 | 1 | 254 | 无 | 新增 / census未join runtime |
 | `3779026256` | [魔法少女的魔女审判] 月代雪 X 樱羽艾玛 音频识别 | 30 | 22 | 2 | 482 | 无 | 新增 / census未join runtime |
 | `3779904456` | 尤诺2 \|\| 鸣潮 | 15 | 11 | 5 | 391 | 无 | 新增 / census未join runtime |
-| `3780119725` | in the rain V 31 | 89 | 37 | 48 | 1982 | 无 | 新增 / census未join runtime |
-| `3780391264` | Agnes Tachyon Umamusume Neon | 19 | 7 | 10 | 513 | 无 | 新增 / census未join runtime |
+| `3780119725` | in the rain V 31 | 89 | 37 | 48 | 1982 | 截图 | 新增 / census未join runtime |
+| `3780391264` | Agnes Tachyon Umamusume Neon | 19 | 7 | 10 | 513 | 截图 | 新增 / census未join runtime |
 | `3780940857` | 枕澜 蒂法 电脑动态壁纸 最终幻想7 TIFA Final Fantasy VII | 2 | 1 | 0 | 23 | 无 | 新增 / census未join runtime |
 | `3781307553` | Look this | 2 | 5 | 0 | 63 | 无 | 新增 / census未join runtime |
 | `3782740481` | WLOP Violet 紫 | 23 | 21 | 1 | 472 | 无 | 新增 / census未join runtime |

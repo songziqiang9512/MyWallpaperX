@@ -549,5 +549,170 @@ class SceneCapabilityCensusTests(unittest.TestCase):
         )
 
 
+class SceneCapabilityFamilyMapTests(unittest.TestCase):
+    def test_default_family_map_loads_without_structural_failures(self) -> None:
+        family_map, failures = census.load_family_map(census.DEFAULT_FAMILY_MAP)
+        self.assertEqual(failures, [])
+        self.assertTrue(family_map["vocabulary"])
+        self.assertTrue(family_map["rules"])
+
+    def test_default_family_map_anchors_resolve_in_authority_docs(self) -> None:
+        family_map, failures = census.load_family_map(census.DEFAULT_FAMILY_MAP)
+        self.assertEqual(failures, [])
+        self.assertEqual(
+            census.family_map_anchor_failures(family_map, census.REPOSITORY_ROOT),
+            [],
+        )
+
+    def test_apply_family_map_matches_rules_and_records_unknown(self) -> None:
+        family_map = {
+            "schema_version": 1,
+            "vocabulary": {
+                "cap.a.one": {"authority": {"doc": "d.md", "row": "r"}, "scope": "s"},
+            },
+            "rules": [
+                {
+                    "rule_id": "rule.a.k1",
+                    "match": {"domain": "a", "kind": "k1"},
+                    "capabilities": [{"capability": "cap.a.one", "profile": "p-coarse"}],
+                },
+                {
+                    "rule_id": "rule.a.fallback",
+                    "match": {"domain": "a"},
+                    "unknown_reason": "fallback-unknown",
+                },
+            ],
+            "family_overrides": {"a/k2@x": {"unknown_reason": "manual-unknown"}},
+        }
+        self.assertEqual(census._family_map_structural_failures(family_map), [])
+        families = [
+            {"family_key": "a/k1@x", "domain": "a", "kind": "k1", "occurrence_count": 2, "sample_count": 2, "sample_ids": ["s1", "s2"]},
+            {"family_key": "a/k9@y", "domain": "a", "kind": "k9", "occurrence_count": 3, "sample_count": 2, "sample_ids": ["s2", "s3"]},
+            {"family_key": "a/k2@x", "domain": "a", "kind": "k2", "occurrence_count": 1, "sample_count": 1, "sample_ids": ["s1"]},
+        ]
+        apply_failures: list[dict] = []
+        stats = census._apply_family_map(families, family_map, apply_failures)
+        self.assertEqual(apply_failures, [])
+        self.assertEqual(families[0]["capability_state"], "mapped")
+        self.assertEqual(families[0]["capability_refs"][0]["capability"], "cap.a.one")
+        self.assertEqual(families[0]["capability_refs"][0]["rule_id"], "rule.a.k1")
+        self.assertEqual(families[1]["capability_state"], "unknown")
+        self.assertEqual(families[1]["capability_unknown_reason"], "fallback-unknown")
+        self.assertEqual(families[2]["capability_unknown_reason"], "manual-unknown")
+        self.assertEqual(stats["mapped_family_count"], 1)
+        self.assertEqual(stats["unknown_family_count"], 2)
+        self.assertEqual(stats["per_capability"]["cap.a.one"]["occurrence_count"], 2)
+        self.assertEqual(stats["per_capability"]["cap.a.one"]["sample_count"], 2)
+
+    def test_structural_failures_capture_undefined_capability_and_rule_order(self) -> None:
+        bad = {
+            "schema_version": 1,
+            "vocabulary": {
+                "cap.a.one": {"authority": {"doc": "d.md", "row": "r"}, "scope": "s"},
+            },
+            "rules": [
+                {
+                    "rule_id": "rule.bad.ref",
+                    "match": {"domain": "a", "kind": "k"},
+                    "capabilities": [{"capability": "cap.missing.x", "profile": "p"}],
+                },
+                {"rule_id": "rule.bad.none", "match": {"domain": "a"}},
+                {"rule_id": "rule.fallback", "match": {"domain": "a"}, "unknown_reason": "fb"},
+                {"rule_id": "rule.bad.order", "match": {"domain": "b"}, "unknown_reason": "fb"},
+                {
+                    "rule_id": "rule.bad.late-specific",
+                    "match": {"domain": "b", "kind": "k"},
+                    "capabilities": [{"capability": "cap.a.one", "profile": "p"}],
+                },
+                {"rule_id": "rule.bad.dup", "match": {"domain": "a"}, "unknown_reason": "fb"},
+                {"rule_id": "rule.fallback", "match": {"domain": "c"}, "unknown_reason": "fb"},
+            ],
+            "family_overrides": {
+                "a/bad@type": "bogus",
+                "a/bad@outcome": {"profile": "p"},
+                "a/bad@ref": {"capabilities": [{"capability": "cap.missing.x", "profile": "p"}]},
+                "a/bad@empty-reason": {"unknown_reason": ""},
+                "a/bad@capabilities-type": {"capabilities": "bogus"},
+                "a/good@override": {"unknown_reason": "manual-unknown"},
+            },
+        }
+        codes = {
+            item["code"] for item in census._family_map_structural_failures(bad)
+        }
+        self.assertIn("family-map-undefined-capability", codes)
+        self.assertIn("family-map-rule-outcome-required", codes)
+        self.assertIn("family-map-fallback-before-specific", codes)
+        self.assertIn("family-map-invalid-rule-id", codes)
+        self.assertIn("family-map-invalid-override", codes)
+        self.assertIn("family-map-override-outcome-required", codes)
+        self.assertIn("family-map-invalid-capabilities-type", codes)
+
+    def test_structural_failures_attribute_override_refs_with_clean_rules(self) -> None:
+        clean_rules_map = {
+            "schema_version": 1,
+            "vocabulary": {
+                "cap.a.one": {"authority": {"doc": "d.md", "row": "r"}, "scope": "s"},
+            },
+            "rules": [
+                {
+                    "rule_id": "rule.a.fallback",
+                    "match": {"domain": "a"},
+                    "unknown_reason": "fallback-unknown",
+                },
+            ],
+            "family_overrides": {
+                "a/good@x": {"capabilities": [{"capability": "cap.missing.x", "profile": "p"}]},
+            },
+        }
+        failures = census._family_map_structural_failures(clean_rules_map)
+        self.assertEqual(
+            [failure["code"] for failure in failures],
+            ["family-map-undefined-capability"],
+        )
+        self.assertEqual(failures[0].get("family_key"), "a/good@x")
+
+    def test_apply_family_map_defends_against_malformed_override(self) -> None:
+        family_map = {
+            "schema_version": 1,
+            "vocabulary": {},
+            "rules": [],
+            "family_overrides": {"a/k1@x": "bogus"},
+        }
+        families = [
+            {"family_key": "a/k1@x", "domain": "a", "kind": "k1", "occurrence_count": 1, "sample_count": 1, "sample_ids": ["s1"]},
+        ]
+        apply_failures: list[dict] = []
+        stats = census._apply_family_map(families, family_map, apply_failures)
+        self.assertEqual(families[0]["capability_state"], "unknown")
+        self.assertEqual(families[0]["capability_unknown_reason"], "family-map-invalid-override")
+        self.assertIn(
+            "family-map-invalid-override",
+            {failure["code"] for failure in apply_failures},
+        )
+        self.assertEqual(stats["unknown_family_count"], 1)
+
+    def test_anchor_failures_report_missing_row(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            doc = root / "ledger.md"
+            doc.write_text("# row exists here\n", encoding="utf-8")
+            family_map = {
+                "vocabulary": {
+                    "cap.ok.one": {
+                        "authority": {"doc": "ledger.md", "row": "row exists"},
+                        "scope": "s",
+                    },
+                    "cap.bad.one": {
+                        "authority": {"doc": "ledger.md", "row": "not present"},
+                        "scope": "s",
+                    },
+                },
+            }
+            failures = census.family_map_anchor_failures(family_map, root)
+            self.assertEqual(len(failures), 1)
+            self.assertEqual(failures[0]["capability"], "cap.bad.one")
+            self.assertEqual(failures[0]["code"], "family-map-anchor-missing")
+
+
 if __name__ == "__main__":
     unittest.main()
