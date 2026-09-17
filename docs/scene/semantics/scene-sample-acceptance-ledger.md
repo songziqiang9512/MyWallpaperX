@@ -9,10 +9,10 @@
 ## 1. 来源
 
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（159 个 numeric sample）。
-- 运行归档：`scene_sample_debug_archive.json` SHA-256 `b89ec6b8429d9c1c1af252aca577d756573774db27092d031b8efb516ce79b73`（生成于 2026-09-17T18:54:50.334147+00:00）。
+- 运行归档：`scene_sample_debug_archive.json` SHA-256 `49c14bc72faef8fd96cfb7a4e82a1903349cfc73ed14ed52aeb601b6f968a3cc`（生成于 2026-09-17T20:03:05.863564+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
 - 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `2bf7c1d1992b9d215b5308e6e65a322013ee06fadb3c46d0cff04fc9c2b870c6`。
-- 本页生成于 2026-09-17T18:56:32.042329+00:00。
+- 本页生成于 2026-09-17T20:06:25.615453+00:00。
 
 ## 2. 汇总
 
@@ -38,15 +38,14 @@
 | `particle-load` | 粒子层资源加载 | 9 |
 | `texture-load` | 基础图片纹理加载 | 3 |
 | `scenescript` | SceneScript 异常 | 11 |
-| `terminal-output` | terminal compositor / 输出链 | 1 |
-| `visual-review` | 结构链完整，待视觉验收 | 127 |
+| `terminal-output` | terminal compositor / 输出链 | 0 |
+| `visual-review` | 结构链完整，待视觉验收 | 128 |
 | `not-run` | 尚无隔离运行证据 | 0 |
 
 | 运行状态 | 样本数 |
 |---|---:|
-| `blocked` | 1 |
 | `degraded-runtime` | 31 |
-| `structural-chain-complete-visual-review` | 127 |
+| `structural-chain-complete-visual-review` | 128 |
 
 作者参数：104 个样本声明了 schemecolor 之外的用户参数，共 2960 项，其中 814 项带 `condition`。参数进入播放链路的验收随各样本的视觉裁决一起记录，不单独计数。
 
@@ -210,7 +209,7 @@
 | `3790806929` | Winter Artoria Pendragon \| Fate/Zero [… | 2(0) bool 1 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3790956325` | 骚暖暖 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3791905266` | Dohrn's  Vision | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3792249095` | Beth's Wallpaper | 仅 schemecolor | `blocked` | `terminal-compositor / SceneCompositor / terminal-output-flat-preview-divergence / captured-scene-output` | `terminal-output` | `unreviewed` |  |
+| `3792249095` | Beth's Wallpaper | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3792400801` | Girl \| Dark Background \| Dark / Color… | 9(0) bool 7 color 1 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3792817546` | 小羊不吃草 (地雷系)#滕子京大王 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3793328876` | 大凤Taihou&白凤Hakuhou-HanAI | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |

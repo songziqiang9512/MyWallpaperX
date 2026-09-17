@@ -56,6 +56,49 @@ class DiagnosticReportError(ValueError):
     """Raised when an input is not a benchmark report shape."""
 
 
+PREVIEW_ORACLE_REGISTRY_PATH = (
+    Path(__file__).resolve().parent / "scene_sample_preview_oracle_registry.json"
+)
+
+
+def load_preview_oracle_registry(
+    path: Path | None = None,
+) -> dict[str, str]:
+    """Load sample_id -> reason_code for samples whose flat authored preview
+    cannot serve as a spatial-similarity oracle (time-dependent content and
+    similar). Malformed registries fail closed with a typed error; an absent
+    file means no registration."""
+    registry_path = path or PREVIEW_ORACLE_REGISTRY_PATH
+    if not registry_path.is_file():
+        return {}
+    payload = json.loads(registry_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise DiagnosticReportError(
+            "preview oracle registry root is not an object"
+        )
+    uncontrolled = payload.get("uncontrolled")
+    if not isinstance(uncontrolled, dict):
+        raise DiagnosticReportError(
+            "preview oracle registry uncontrolled is not an object"
+        )
+    reasons: dict[str, str] = {}
+    for sample_id, entry in sorted(uncontrolled.items()):
+        if not isinstance(sample_id, str) or not sample_id.isdigit():
+            raise DiagnosticReportError(
+                "preview oracle registry has a non-numeric sample id: "
+                + repr(sample_id)
+            )
+        if not isinstance(entry, dict) or not isinstance(
+            entry.get("reason_code"), str
+        ) or not entry["reason_code"]:
+            raise DiagnosticReportError(
+                "preview oracle registry entry needs a reason_code string: "
+                + sample_id
+            )
+        reasons[sample_id] = entry["reason_code"]
+    return reasons
+
+
 def _mapping(value: object) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
@@ -319,7 +362,10 @@ def _resource_events(runtime: Mapping[str, Any]) -> list[dict[str, Any]]:
     return events
 
 
-def _output_events(sample: Mapping[str, Any]) -> list[dict[str, Any]]:
+def _output_events(
+    sample: Mapping[str, Any],
+    preview_oracle_uncontrolled: Mapping[str, str] | None = None,
+) -> list[dict[str, Any]]:
     evidence = _mapping(sample.get("evidence"))
     events: list[dict[str, Any]] = []
     if evidence.get("ready_non_black") is not True or (
@@ -341,6 +387,9 @@ def _output_events(sample: Mapping[str, Any]) -> list[dict[str, Any]]:
     preview = _mapping(evidence.get("preview_visual"))
     metrics = _mapping(preview.get("metrics"))
     spatial_similarity = metrics.get("spatial_color_similarity")
+    registered_reason = (preview_oracle_uncontrolled or {}).get(
+        str(sample.get("id"))
+    )
     if (
         isinstance(ready_border, (int, float))
         and not isinstance(ready_border, bool)
@@ -352,6 +401,7 @@ def _output_events(sample: Mapping[str, Any]) -> list[dict[str, Any]]:
         and isinstance(spatial_similarity, (int, float))
         and not isinstance(spatial_similarity, bool)
         and spatial_similarity < 0.9
+        and registered_reason is None
     ):
         events.append(_event(
             stage="terminal-compositor",
@@ -741,7 +791,9 @@ def _evidence_summary(sample: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _sample_observation(
-    sample: Mapping[str, Any], report_index: int
+    sample: Mapping[str, Any],
+    report_index: int,
+    preview_oracle_uncontrolled: Mapping[str, str] | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     sample_id = sample.get("id")
     if not isinstance(sample_id, str) or not sample_id:
@@ -761,7 +813,7 @@ def _sample_observation(
         runtime, compositor_ids, next_frame_ids
     ))
     events.extend(_named_target_events(runtime))
-    events.extend(_output_events(sample))
+    events.extend(_output_events(sample, preview_oracle_uncontrolled))
     events = _deduplicate(events)
 
     if any(event["severity"] == "blocking" for event in events):
@@ -868,6 +920,7 @@ def _clusters(
 
 def normalize_reports(
     reports: Sequence[Mapping[str, Any]],
+    preview_oracle_uncontrolled: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Return deterministic diagnostics for already-loaded benchmark reports."""
     samples: list[dict[str, Any]] = []
@@ -894,7 +947,11 @@ def normalize_reports(
                 raise DiagnosticReportError(
                     f"report {report_index} contains a non-object sample"
                 )
-            observation, events = _sample_observation(raw_sample, report_index)
+            observation, events = _sample_observation(
+                raw_sample,
+                report_index,
+                preview_oracle_uncontrolled,
+            )
             samples.append(observation)
             cluster_inputs.append((
                 report_index, observation["sampleId"], events
@@ -945,9 +1002,10 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = _parser().parse_args(argv)
     try:
-        normalized = normalize_reports([
-            _load_report(path) for path in arguments.reports
-        ])
+        normalized = normalize_reports(
+            [_load_report(path) for path in arguments.reports],
+            load_preview_oracle_registry(),
+        )
     except DiagnosticReportError as error:
         print(f"scene_diagnostic_report: {error}", file=sys.stderr)
         return 2

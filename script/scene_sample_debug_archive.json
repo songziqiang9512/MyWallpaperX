@@ -2705,7 +2705,7 @@
     }
   ],
   "claimBoundary": "runtime-first-breakpoint-and-lifecycle-diagnostics-only-not-visual-correctness",
-  "generatedAtUtc": "2026-09-17T18:54:50.334147+00:00",
+  "generatedAtUtc": "2026-09-17T20:03:05.863564+00:00",
   "kind": "scene-sample-debug-archive",
   "reports": [
     {
@@ -3791,7 +3791,7 @@
       "matrixSha256": "a08a4bb5b109eea528680f17bce82988589c02e41c51a43d1f6213ad69751762",
       "path": "/private/tmp/mwx-fullset-baseline/run-3792249095/report.json",
       "sampleCount": 1,
-      "sha256": "350046e03147fba93b283f5e6485b3a120a0137e1279ea0739e6915ae7f3ca40"
+      "sha256": "1bf578d8d45bf3e54684bd116283aec01edf70c6590c5497b3eebcb5f430ffe4"
     },
     {
       "matrix": "P0.3 fullset identity-only baseline",
@@ -13458,18 +13458,18 @@
         "report": {
           "path": "/private/tmp/mwx-fullset-baseline/run-3792249095/report.json",
           "sampleIndex": 0,
-          "sha256": "350046e03147fba93b283f5e6485b3a120a0137e1279ea0739e6915ae7f3ca40"
+          "sha256": "1bf578d8d45bf3e54684bd116283aec01edf70c6590c5497b3eebcb5f430ffe4"
         },
         "sampleEvidencePaths": {
-          "after_snapshot": "/private/tmp/mwx-fullset-baseline/run-3792249095/results/3792249095/scene-after-window.png",
-          "app_log": "/private/tmp/mwx-fullset-baseline/run-3792249095/results/3792249095/app.log",
-          "preview_log": "/private/tmp/mwx-fullset-baseline/run-3792249095/results/3792249095/scene-preview.log",
-          "ready_snapshot": "/private/tmp/mwx-fullset-baseline/run-3792249095/results/3792249095/scene-ready-window.png",
-          "runtime_evidence": "/tmp/mwx-fullset-baseline/run-3792249095/results/3792249095/scene-runtime-evidence.json"
+          "after_snapshot": "/private/tmp/mwx-3792249095-probe/results/3792249095/scene-after-window.png",
+          "app_log": "/private/tmp/mwx-3792249095-probe/results/3792249095/app.log",
+          "preview_log": "/private/tmp/mwx-3792249095-probe/results/3792249095/scene-preview.log",
+          "ready_snapshot": "/private/tmp/mwx-3792249095-probe/results/3792249095/scene-ready-window.png",
+          "runtime_evidence": "/tmp/mwx-3792249095-probe/results/3792249095/scene-runtime-evidence.json"
         }
       },
       "id": "3792249095",
-      "nextAction": "repair-shared-owner:terminal-compositor:SceneCompositor:terminal-output-flat-preview-divergence",
+      "nextAction": "perform-authored-preview-and-next-frame-visual-review",
       "runtime": {
         "benchmarkResultIgnored": {
           "failureCount": 0,
@@ -13482,27 +13482,15 @@
           "afterNonBlackObserved": true,
           "graphEvidenceObserved": true,
           "nextFrameLayerCount": 7,
-          "previewSpatialColorSimilarityAdvisory": 0.8423,
+          "previewSpatialColorSimilarityAdvisory": 0.8496,
           "readyFlatBorderRatio": 1.0,
           "readyNonBlackObserved": true,
           "surfaceCount": 1,
           "terminalCompositorLayerCount": 7
         },
-        "firstBreakpoint": {
-          "capabilityProfileOrAuthoredShape": "captured-scene-output",
-          "evidenceBasis": "evidence.flat_border_ratio/preview_visual.metrics.spatial_color_similarity",
-          "failureRadius": "scene",
-          "fallbackPreservedTerminalCompositor": null,
-          "owner": "SceneCompositor",
-          "reasonCode": "terminal-output-flat-preview-divergence",
-          "severity": "blocking",
-          "stage": "terminal-compositor",
-          "unit": {
-            "kind": "scene"
-          }
-        },
+        "firstBreakpoint": null,
         "secondaryEvents": [],
-        "status": "blocked"
+        "status": "structural-chain-complete-visual-review"
       },
       "title": "Beth's Wallpaper"
     },
@@ -13742,6 +13730,11 @@
       "sampleCount": 159,
       "sha256": "1956fc0da8796b6ce79965aa33822b848c043c59e26ecc867f6aca2c5b3e30af"
     },
+    "previewOracleRegistry": {
+      "path": "/Users/songziqiang/Documents/Development/MyWallpaperX/script/scene_sample_preview_oracle_registry.json",
+      "registeredSampleCount": 1,
+      "sha256": "b86322c623c2190f13e27a90261b38e1355929825a4e718db4f711bdb29a18cf"
+    },
     "sampleCount": 159,
     "sampleIdManifestSha256": "dce37464a0d15c860e3bd8566784f227419d4b2f5e9f4e7f053e38139d760776",
     "samplesRoot": "/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene"
@@ -13756,16 +13749,14 @@
       "script-execution:scene-script-bad-return": 2,
       "script-execution:scene-script-exception-range-error": 1,
       "script-execution:scene-script-exception-reference-error": 1,
-      "script-execution:scene-script-exception-type-error": 7,
-      "terminal-compositor:terminal-output-flat-preview-divergence": 1
+      "script-execution:scene-script-exception-type-error": 7
     },
     "normalizedDiagnosticClaim": "runtime-and-output-diagnostics-only-not-visual-correctness",
     "reportedSampleCount": 159,
     "sampleCount": 159,
     "statusCounts": {
-      "blocked": 1,
       "degraded-runtime": 31,
-      "structural-chain-complete-visual-review": 127
+      "structural-chain-complete-visual-review": 128
     }
   }
 }

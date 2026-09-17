@@ -503,6 +503,43 @@ class SceneDiagnosticReportTests(unittest.TestCase):
             "runtime-and-output-diagnostics-only-not-visual-correctness",
         )
 
+    def test_registered_preview_oracle_skips_flat_preview_divergence(self) -> None:
+        """A registered time-dependent sample must not earn a blocking
+        terminal breakpoint from the flat-preview spatial comparison; an
+        unregistered sample with identical metrics still fails closed."""
+        divergent_evidence = {
+            "ready_non_black": True,
+            "after_non_black": True,
+            "flat_border_ratio": {"ready": 1.0, "after": 1.0},
+            "preview_visual": {
+                "status": "available",
+                "metrics": {"spatial_color_similarity": 0.4},
+            },
+        }
+        registered = sample("3792249095")
+        registered["evidence"] = divergent_evidence
+        unregistered = sample("1111111111")
+        unregistered["evidence"] = divergent_evidence
+        result = diagnostic.normalize_reports(
+            [report(registered, unregistered)],
+            preview_oracle_uncontrolled={
+                "3792249095": "time-dependent-content"
+            },
+        )
+        by_id = {s["sampleId"]: s for s in result["samples"]}
+        self.assertEqual(
+            by_id["3792249095"]["basicDisplayStatus"],
+            "terminal-chain-complete",
+        )
+        self.assertEqual(by_id["3792249095"]["firstBreakpoint"], None)
+        self.assertEqual(
+            by_id["1111111111"]["basicDisplayStatus"], "blocked"
+        )
+        self.assertEqual(
+            by_id["1111111111"]["firstBreakpoint"]["reasonCode"],
+            "terminal-output-flat-preview-divergence",
+        )
+
     def test_cli_emits_stable_sorted_json(self) -> None:
         payload = report(sample("healthy"))
         with tempfile.TemporaryDirectory() as directory:

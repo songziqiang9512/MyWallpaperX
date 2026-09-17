@@ -26,7 +26,10 @@ if str(SCRIPT_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
 from scene_capability_census_io import iter_numeric_sample_directories
-from scene_diagnostic_report import normalize_reports
+from scene_diagnostic_report import (
+    load_preview_oracle_registry,
+    normalize_reports,
+)
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -148,7 +151,14 @@ def build_archive(
                 raise ValueError(f"duplicate sample id across reports: {sample_id}")
             raw_by_id[sample_id] = (report_path, report_sha, index, sample)
 
-    normalized = normalize_reports(reports)
+    preview_oracle_registry_path = (
+        Path(__file__).resolve().parent
+        / "scene_sample_preview_oracle_registry.json"
+    )
+    preview_oracle_uncontrolled = load_preview_oracle_registry(
+        preview_oracle_registry_path
+    )
+    normalized = normalize_reports(reports, preview_oracle_uncontrolled)
     observations = {
         str(item["sampleId"]): item
         for item in normalized.get("samples", [])
@@ -237,6 +247,11 @@ def build_archive(
                 "path": str(snapshot_path),
                 "sha256": sha256_file(snapshot_path),
                 "sampleCount": len(static_rows),
+            },
+            "previewOracleRegistry": {
+                "path": str(preview_oracle_registry_path),
+                "sha256": sha256_file(preview_oracle_registry_path),
+                "registeredSampleCount": len(preview_oracle_uncontrolled),
             },
         },
         "reports": report_meta,

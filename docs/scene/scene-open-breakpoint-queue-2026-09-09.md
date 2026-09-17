@@ -23,7 +23,7 @@ P0 续跑状态（2026-09-18 08:xx 更新，事实覆盖至 `c60d26a9` 及其后
 
 - **现役 Goal（2026-09-18 用户授权设定）**：遵照现役 Scene 兼容执行路线，从 P0.3 收尾态持续推进——修复剩余 blocked 样本（现役唯一 `3792249095` terminal divergence）与 `2959875782` 残留的 `1315#effect#1326` effect-local-passthrough 降级链、按 P0.4 依赖排序进入 P1 公共能力修复主循环、P2 逐样本剩余缺口、P3 参数与条件闭环；每批改动经独立子代理审查，保持唯一运行主链并持续消融相关冗余。遇到外部依赖记录阻塞并继续不依赖它的工作；只有真实满足整体完成条件才标记完成。提交已获用户授权（单职责分批、不推送）。
 
-- **当前身份覆盖已完整**：159/159 样本均具备当前身份（CDHash `a31bd68a…`、executable `34bdca21…`）的 fresh 运行证据（2026-09-17 的 76 个 + 2026-09-18 串行补齐的 83 个，全部 PASS）；identity-only PASS ≠ 视觉验收完成。归档 `script/scene_sample_debug_archive.json`（SHA-256 `b89ec6b8…`）状态 `127 structural / 31 degraded / 1 blocked`；验收台账与调试台账已同步。
+- **当前身份覆盖已完整**：159/159 样本均具备当前身份（CDHash `a31bd68a…`、executable `34bdca21…`）的 fresh 运行证据（2026-09-17 的 76 个 + 2026-09-18 串行补齐的 83 个，全部 PASS）；identity-only PASS ≠ 视觉验收完成。归档 `script/scene_sample_debug_archive.json`（SHA-256 `49c14bc7…`）状态 `128 structural / 31 degraded / 0 blocked`；验收台账与调试台账已同步。
 - **已落码修复（全部已提交、各含独立审查与真实样本验证）**：
   - `SceneGenericShaderTernaryScalarConditionNormalizer`：WE 方言数值三元条件 stage-link 拒绝 → 可编译（`3767343314` 恢复）。
   - `SceneMdlPuppetMeshReader` stride 表 +48：Puppet 网格解析失败 → 角色恢复（`3767232084` 恢复）。
@@ -33,7 +33,7 @@ P0 续跑状态（2026-09-18 08:xx 更新，事实覆盖至 `c60d26a9` 及其后
   - benchmark 观测门恢复感知（`61a69b1a`）：frame-0 layer-source 瞬态+已恢复不再误判 FAIL。
 - **现役开放项（按序，各含下一步）**：
   1. `2959875782` **观测缺口已闭合（2026-09-18）**：归档 blocked 的根因是基线跑用了**旧二进制 `918475e7…`（不含 typed geometry publication 修复 `07133cbf`）**——缺观测的 4 层（19/134/138/520）正是该缺口依赖链；当前身份 `a31bd68a…` fresh 运行 47 层全观测、PASS failures=[]，归档状态随之 blocked→degraded-runtime。**现役残留（降级）**：`1315#effect#1326` 仍走 effect-local-passthrough（radius=effect、severity=degraded），是新的更小待修缺口（P2 逐样本层）。probe=该效果的 visual failure 归因。
-  2. `3792249095`：`terminal-output-flat-preview-divergence`（**现役唯一 blocked**，未诊断）。
+  2. `3792249095`：terminal divergence 已按 reference-uncontrolled 豁免（实时时钟内容 vs 固化预览，oracle 不适用，登记于 `scene_sample_preview_oracle_registry.json`）——现役 **0 blocked**。若该样本再现非 oracle 类失败，按新证据重新归因。
   3. `3747492842`「额外闪烁」：需固定 phase 的动态对照（文字裁切=参考视口不可控、多余 Leon=用户 Picture 属性状态差异，均已归因，见 Q1 行 1）。
   4. P0.3b 产品路径采集：选型 (b)（client/daemon 显式可取消 evidence 命令，保持"诊断非播放前置"边界），须独立设计审查。
 - **基础设施与边界（操作纪律）**：基线数据 `/private/tmp/mwx-fullset-baseline/`（瞬态目录，关键结论已抄录运行证据页 P03 证据包）；presentation 遥测必须单实例串行+前台+caffeinate（并行/锁屏/遮挡都会全灭）；`launch-program-failure` NSLog 在默认救援成功时也打印，勿据此归因；新 Swift 文件须同步测试源清单与 `scene_swift_source_sets.json`；新 python compile+run 测试会被 Mimosa hook 误拦，走 evidence 手动门；`--phase inner` 跳过 semantics_coverage，文档批须显式跑。

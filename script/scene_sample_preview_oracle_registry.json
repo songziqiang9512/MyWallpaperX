@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "kind": "scene-preview-oracle-registry",
+  "purpose": "登记 flat authored preview 不能作为 terminal 输出空间相似度 oracle 的样本。时间依赖等内容使输出必然偏离预览——登记后归档 normalizer 不再把该对比发散记为 blocking 终端断点。登记只影响诊断分类，不影响任何产品视觉路径。",
+  "identity_boundary": "sample_id 只作 oracle 适用性证据定位；non-black、结构门、执行链证据等其它门不受本登记影响。",
+  "uncontrolled": {
+    "3792249095": {
+      "reason_code": "time-dependent-content",
+      "note": "实时时钟样本：terminal 输出渲染当次运行时刻的日期/时间（证据目录截图为 'GOOD MORNING FRI 18 SEPTEMBER 2026 01:23 AM'），作者 preview 固化另一时刻；spatial_color_similarity 对比必然发散。该样本 3 次连续 fresh 运行 benchmark 均 passed=true failures=[]（仅证明内容时间依赖与运行可复现，非视觉验收结论）。"
+    }
+  }
+}
