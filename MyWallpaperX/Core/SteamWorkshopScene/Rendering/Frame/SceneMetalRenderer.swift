@@ -269,7 +269,8 @@ struct SceneMetalRenderer {
         frameLayers: for layer in orderedLayers {
             if stopsAfterClaimedFailure { break frameLayers }
             defer {
-                if !stopsAfterClaimedFailure { renderUtilityPlans(triggeredBy: layer.id,
+                if !stopsAfterClaimedFailure,
+                   !renderUtilityPlans(triggeredBy: layer.id,
                     imagePipeline: imagePipeline,
                     offscreenTexturePool: offscreenTexturePool, frameContext: frameContext,
                     worldFramesByLayerID: frameWorldFrames, cameraFrame: cameraFrame,
@@ -277,7 +278,13 @@ struct SceneMetalRenderer {
                     time: time, mainPass: mainPass, commandBuffer: commandBuffer,
                     effectExecutionTrace: effectExecutionTrace,
                     resolvedMaterialFrameTargetPlans:
-                        resolvedMaterialFrameTargetPlans) }
+                        resolvedMaterialFrameTargetPlans) {
+                    // A utility plan that hit typed identity drift already
+                    // sealed the frame as failed, so stop the layer loop like
+                    // every other `.invalid` consumer instead of encoding
+                    // work that can never be presented.
+                    stopsAfterClaimedFailure = true
+                }
             }
             // Its graph was already executed and published before an earlier
             // consumer. Keep authored trigger order, but never consume the
@@ -353,7 +360,7 @@ struct SceneMetalRenderer {
                     visibleHalfExtents: cameraFrame.coverHalfExtents,
                     usesPerspective: cameraFrame.resolvesPerspective(for: layer)
                 )
-                _ = dependencyRuntime.captureProviderIfRequired(
+                let captureResult = dependencyRuntime.captureProviderIfRequired(
                     layer: layer,
                     sourceTexture: baseSource?.texture,
                     sourceCandidate: baseSource?.candidate,
@@ -377,6 +384,26 @@ struct SceneMetalRenderer {
                     mainPass: mainPass,
                     geometryProduct: imageTextures.geometryProducts[layer.id]
                 )
+                // This route owns no publication of its own: an ordinary
+                // miss keeps previous-current and the consumer-side
+                // resolution localises it. A typed identity rejection is only
+                // visible here, so it must fail closed instead of being
+                // downgraded to that ordinary miss.
+                if case let .invalid(reasonCode)? = captureResult {
+                    effectExecutionTrace?.recordRouteOperation(
+                        layerID: layer.id,
+                        origin: Self.effectExecutionOrigin(
+                            for: layer.contentKind
+                        ),
+                        operation: "named-provider-capture",
+                        outcome: .failed(reasonCode: reasonCode)
+                    )
+                    imageCompositor.recordResolvedMaterialFramePreflightFailure(
+                        reasonCode
+                    )
+                    stopsAfterClaimedFailure = true
+                    break frameLayers
+                }
             }
             guard frameVisibleLayerIDs.contains(layer.id) else { continue }
             switch layer.contentKind {

@@ -3,6 +3,11 @@ import Metal
 import simd
 
 enum SceneUtilityPlanFrameRenderer {
+    /// Returns `false` when a typed identity rejection claimed the frame, so
+    /// the caller stops the layer loop exactly like the other `.invalid`
+    /// consumers instead of encoding layers whose frame is already sealed as
+    /// failed.
+    @discardableResult
     static func render(
         renderer: SceneMetalRenderer,
         plans: [SceneUtilityLayerRuntimePlan],
@@ -23,7 +28,7 @@ enum SceneUtilityPlanFrameRenderer {
         resolvedMaterialFrameTargetPlans: [
             Int: SceneResolvedMaterialFrameTargetPlan
         ] = [:]
-    ) {
+    ) -> Bool {
         for plan in plans {
             guard let layer = renderer.layersByID[plan.layerID] else { continue }
             let model = renderer.imageModelMatrix(
@@ -51,10 +56,41 @@ enum SceneUtilityPlanFrameRenderer {
             // entering the shared compositor; projecting it onto the legacy
             // singular input would silently drop every provider after the
             // first one.
-            let dependencyEffects = dependencyRuntime.aggregateEffectInputs(
-                for: layer.id,
-                textureRegistry: renderer.textureRegistry
-            ) ?? []
+            let dependencyEffects: [SceneDependencyEffectInput]
+            var dependencyAggregateInvalidReason: String?
+            if let aggregate = dependencyRuntime.plan
+                .multiProviderAggregatesByConsumerLayerID[layer.id] {
+                switch dependencyRuntime.aggregateEffectInputResolution(
+                    for: aggregate,
+                    textureRegistry: renderer.textureRegistry
+                ) {
+                case let .ready(inputs):
+                    dependencyEffects = inputs
+                case .unavailable(reasonCode: _):
+                    // Ordinary provider miss: this utility layer keeps its
+                    // previous-current output and the shared binding
+                    // telemetry records the local fallback below.
+                    dependencyEffects = []
+                case let .invalid(reasonCode):
+                    dependencyEffects = []
+                    dependencyAggregateInvalidReason = reasonCode
+                }
+            } else {
+                dependencyEffects = []
+            }
+            if let reasonCode = dependencyAggregateInvalidReason {
+                // Reservation, epoch, slot-vector or publication identity
+                // drift is only visible here. It must fail closed instead of
+                // being localised as an ordinary provider miss, and it must
+                // stop the whole layer loop like every other `.invalid`
+                // consumer: the frame is sealed as failed, so continuing only
+                // encodes work that can never be presented.
+                dependencyRuntime.recordBindingFailure(for: layer.id)
+                imageCompositor.recordResolvedMaterialFramePreflightFailure(
+                    reasonCode
+                )
+                return false
+            }
             let captured: Bool
             if requiresDependencyEffect,
                dependencyEffect == nil,
@@ -101,5 +137,6 @@ enum SceneUtilityPlanFrameRenderer {
                 on: commandBuffer
             )
         }
+        return true
     }
 }

@@ -198,11 +198,12 @@ extension SceneMetalRenderer {
                 executionTrace: executionTrace,
                 executionOrigin: .image
             )
-        case .unavailable where ticket.finalContent != .data:
+        case let .unavailable(reasonCode) where ticket.finalContent != .data:
             return imageCompositor
                 .discardResolvedMaterialNamedPublicationLocally(
                     ticket,
                     texture: texture,
+                    reasonCode: reasonCode,
                     layerID: layer.id,
                     executionTrace: executionTrace,
                     executionOrigin: .image
@@ -311,7 +312,7 @@ extension SceneMetalRenderer {
                 visibleHalfExtents: cameraFrame.coverHalfExtents,
                 usesPerspective: cameraFrame.resolvesPerspective(for: provider)
             )
-            _ = dependencyRuntime.captureProviderIfRequired(
+            let captureResult = dependencyRuntime.captureProviderIfRequired(
                 layer: provider,
                 sourceTexture: baseSource?.texture,
                 sourceCandidate: baseSource?.candidate,
@@ -334,6 +335,24 @@ extension SceneMetalRenderer {
                 mainPass: mainPass,
                 geometryProduct: imageTextures.geometryProducts[provider.id]
             )
+            // Same policy as the visible capture route: an ordinary miss is
+            // localized by the consumer-side resolution, while a typed
+            // identity rejection can only be seen here and aborts the prepass
+            // so the caller stops on the claimed failure.
+            if case let .invalid(reasonCode)? = captureResult {
+                executionTrace?.recordRouteOperation(
+                    layerID: provider.id,
+                    origin: Self.effectExecutionOrigin(
+                        for: provider.contentKind
+                    ),
+                    operation: "named-provider-capture",
+                    outcome: .failed(reasonCode: reasonCode)
+                )
+                imageCompositor.recordResolvedMaterialFramePreflightFailure(
+                    reasonCode
+                )
+                return nil
+            }
         }
         return graphProviderLayerIDs
     }

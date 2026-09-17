@@ -332,11 +332,20 @@ enum Harness {
         self.assertIn("break frameLayers", source)
         utility_defer = source.index("defer {")
         utility_guard = source.index(
-            "if !stopsAfterClaimedFailure {", utility_defer
+            "if !stopsAfterClaimedFailure,", utility_defer
         )
+        utility_call = source.index(
+            "!renderUtilityPlans(triggeredBy: layer.id,", utility_guard
+        )
+        self.assertLess(utility_guard, utility_call)
+        # A utility plan that hits typed identity drift must feed the same stop
+        # flag as every other `.invalid` consumer, so a frame already sealed as
+        # failed is not re-encoded for the remaining layers.
         self.assertLess(
-            utility_guard,
-            source.index("renderUtilityPlans(", utility_guard),
+            source.index("stopsAfterClaimedFailure = true", utility_call),
+            source.index(
+                "if forwardGraphProviderLayerIDs.contains", utility_call
+            ),
         )
         transaction_source = TRANSACTION.read_text(encoding="utf-8")
         self.assertIn("case pending", transaction_source)

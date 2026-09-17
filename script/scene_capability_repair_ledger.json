@@ -230,14 +230,14 @@
     {
      "date": "2026-09-17",
      "state": "implemented",
-     "commit": "uncommitted-working-tree",
+     "commit": "ed216562",
      "evidence_refs": [
       "docs/scene/evidence/20260917-ternary-scalar-condition/harness-output.json",
       "docs/scene/evidence/20260917-ternary-scalar-condition/glslang-raw.log",
       "docs/scene/evidence/20260917-ternary-scalar-condition/glslang-normalized.log",
       "/private/tmp/mwx-p03-out/history-3767343314-fixed/report.json#3767343314"
      ],
-     "notes": "The 3767343314 layer-17 sharpen occurrence newly reached stage-link after earlier containment cleared and was rejected: author.frag:59 numeric-literal ternary condition (mask = 0 ? 1 - mask : mask;) is valid WE dialect but rejected by the Vulkan GLSL stage link (boolean expression expected). Fix: new SceneGenericShaderTernaryScalarConditionNormalizer (rewrites only a number token that is the entire ternary condition: 0->false, nonzero->true; expression conditions stay rejected fail-closed) chained first in SceneGenericShaderScalarArithmeticNormalizer. Verified: harness 8/8 checks ok; glslang raw exit 2 with exactly one boolean-expression error vs normalized exit 0; real-sample rerun benchmark PASS failures=[] with 17#effect#32 executing program=5bad29f6 every frame via genericCompilerArtifact (mask slot rescued by the authored util/white presence-independent default). Working tree uncommitted pending user authorization; in-repo python regression gate blocked by Mimosa security hook (compile-run false positive) so the manual gate lives in docs/scene/evidence/20260917-ternary-scalar-condition/README.md."
+     "notes": "The 3767343314 layer-17 sharpen occurrence newly reached stage-link after earlier containment cleared and was rejected: author.frag:59 numeric-literal ternary condition (mask = 0 ? 1 - mask : mask;) is valid WE dialect but rejected by the Vulkan GLSL stage link (boolean expression expected). Fix: new SceneGenericShaderTernaryScalarConditionNormalizer (rewrites only a number token that is the entire ternary condition: 0->false, nonzero->true; expression conditions stay rejected fail-closed) chained first in SceneGenericShaderScalarArithmeticNormalizer. Verified: harness 8/8 checks ok; glslang raw exit 2 with exactly one boolean-expression error vs normalized exit 0; real-sample rerun benchmark PASS failures=[] with 17#effect#32 executing program=5bad29f6 every frame via genericCompilerArtifact (mask slot rescued by the authored util/white presence-independent default). Committed as ed216562; in-repo python regression gate blocked by Mimosa security hook (compile-run false positive) so the manual gate lives in docs/scene/evidence/20260917-ternary-scalar-condition/README.md."
     }
    ]
   },
@@ -491,7 +491,7 @@
    "regression_protection_state": "targeted-runtime",
    "root_cause": "The dependency plan deliberately rejected Puppet-backed image layers as ordinary flat image providers, but it had no typed GeometryProduct publication for an exact-placement named dependency. The real 2959875782 chain therefore could not carry visible effectful Puppet 1413 through hidden Puppet graph provider 134 into composition aggregate 520. After admission was added, the remaining integrity failures exposed an authored 2667x1500 publication extent above the named-target 2048 dimension and a submission coordinator that still rejected singular geometry ownership.",
    "public_fix": "Add an identity-free geometryLayer dependency profile for a visible image Puppet with no child, authored dependency or utility owner, restricted to primary pass 0 slot 1, normal blend and an admitted resolved MaterialProgram. Reserve a typed named target only when provider and consumer placement match exactly; rasterize the original atlas or graph-final through the same GeometryProduct in authored-local coordinates, proportionally limiting only the physical publication target, and retain exact consumer/provider/variant/slot/blend, texture, generation, frame-epoch, completion and publication checks. A visible Puppet leaf may feed a hidden nested graph provider and then an aggregate without adding an output owner. Ordinary publication misses discard only the provider output or dependent consumer while independent suffix work and a visible color provider's authored-order compositor output continue; data publications and identity drift remain fail closed. Forward visible effectful providers remain rejected because prepass would consume their sole graph ticket. The ordinary flat-image Puppet route remains rejected.",
-   "commit": "uncommitted-working-tree",
+   "commit": "07133cbf",
    "targeted_samples": [
     "2959875782"
    ],
@@ -534,7 +534,7 @@
     {
      "date": "2026-09-17",
      "state": "implemented",
-     "commit": "uncommitted-working-tree",
+     "commit": "07133cbf",
      "evidence_refs": [
       "/private/tmp/mwx-2959875782-geometry-typed-publication-postsplit-20260917-1349/report.json#2959875782 sha256=ec92930c28ff386bbe8e5cd1c869150a90d4e8e95756738723ae9d8f9457ef00",
       "docs/scene/semantics/runtime-evidence-current.md#e-2026-09-17-geometry-named-publication"
@@ -544,7 +544,7 @@
     {
      "date": "2026-09-17",
      "state": "implemented",
-     "commit": "uncommitted-working-tree",
+     "commit": "07133cbf",
      "evidence_refs": [
       "/private/tmp/mwx-2959875782-geometry-local-failure-final2-20260917-1603/report.json#2959875782 sha256=ded674d19b396f2dd7c8fc70ff52bea130c5a8bff5abdacda1d44f9b99473a87",
       "docs/scene/semantics/runtime-evidence-current.md#e-2026-09-17-geometry-named-publication"
@@ -554,12 +554,12 @@
     {
      "date": "2026-09-17",
      "state": "implemented",
-     "commit": "uncommitted-working-tree",
+     "commit": "07133cbf",
      "evidence_refs": [
       "/private/tmp/mwx-2959875782-typed-outcome2-20260917-1802/report.json#2959875782 sha256=40c9330d4aeb469622cfb94471908466884c9d894ed7289576b53e9fd3daf928",
       "docs/scene/semantics/runtime-evidence-current.md#e-2026-09-17-geometry-named-publication"
      ],
-     "notes": "Independent review replaced the provider publication Bool? with the typed SceneGraphOutputPublicationResult (published / unavailable / invalid) so that only ordinary colour publication misses localize: colour providers keep their authored-order compositor output, typed .data providers and any reservation, epoch, object or registry identity drift consume the ticket with published:false and fail closed, geometry pose-not-ready and encode failures are ordinary unavailable while source, generation, placement and registry drift are invalid, and the coordinator only accepts the exact named-provider-publication-unavailable reason for a local discard. The intermediate candidate that misclassified a graph-output provider raw-capture route as invalid stopped the layer loop every frame at diagnostic graph-provider-raw-capture-invalid (report /private/tmp/mwx-2959875782-typed-outcome-20260917-1759/report.json, fifteen failures, no publication or screenshots); the shipped classification keeps that route an ordinary unavailable miss. Final signed Developer ID Debug candidate CDHash 968bef713ed64cfeba619eb82a2a4218ef1e5f52 (executable SHA-256 c4733a84776d457e1a4925c2adfb94ed22c38498991373ffcabe17f97d1a8ba5) passed the fresh serial targeted run with empty failures: 433 submitted, 432 completed, 432 presented, one presentation stream, GraphExecutor 634 claimed, 634 encoded, 634 GPU encoded, zero failure, zero local fallback, 220 terminal successes with next-frame, exact backend 37/37 complete, and empty failed sets for utility capture, named binding, named graph publication and visible graph publication. The same batch moved the consumer-side input resolution out of SceneDependencyFrameRuntime.swift into the new owner extension SceneDependencyFrameRuntime+EffectInputResolution.swift (845 to 653 lines), with the source layout and harness source lists updated."
+     "notes": "Independent review replaced the provider publication Bool? with the typed SceneGraphOutputPublicationResult (published / unavailable / invalid) so that only ordinary colour publication misses localize: colour providers keep their authored-order compositor output, typed .data providers and any reservation, epoch, object or registry identity drift consume the ticket with published:false and fail closed, geometry pose-not-ready and encode failures are ordinary unavailable while source, generation, placement and registry drift are invalid, and the coordinator only accepts the exact named-provider-publication-unavailable reason for a local discard. The intermediate candidate that misclassified a graph-output provider raw-capture route as invalid stopped the layer loop every frame at diagnostic graph-provider-raw-capture-invalid (report /private/tmp/mwx-2959875782-typed-outcome-20260917-1759/report.json, fifteen failures, no publication or screenshots); the shipped classification keeps that route an ordinary unavailable miss. Final signed Developer ID Debug candidate CDHash 968bef713ed64cfeba619eb82a2a4218ef1e5f52 (executable SHA-256 c4733a84776d457e1a4925c2adfb94ed22c38498991373ffcabe17f97d1a8ba5) passed the fresh serial targeted run with empty failures: 433 submitted, 432 completed, 432 presented, one presentation stream, GraphExecutor 634 claimed, 634 encoded, 634 GPU encoded, zero failure, zero local fallback, 220 terminal successes with next-frame, exact backend 37/37 complete, and empty failed sets for utility capture, named binding, named graph publication and visible graph publication. The same batch moved the consumer-side input resolution out of SceneDependencyFrameRuntime.swift into the new owner extension SceneDependencyFrameRuntime+EffectInputResolution.swift (845 to 659 lines at this commit; the later review follow-up batch of the same family removed the two legacy aggregateEffectInputs overloads and left the pair at 672 and 173 lines), with the source layout and harness source lists updated."
     }
    ]
   },
@@ -612,7 +612,7 @@
     {
      "date": "2026-09-17",
      "state": "implemented",
-     "commit": "uncommitted-working-tree",
+     "commit": "a8fea925",
      "evidence_refs": [
       "/private/tmp/mwx-resident-budget-final-20260917/report.json#3754630802 sha256=9d656c2d2ba5aa7dcb91d85369ba8775b3198b0c2dc334ec25f8f63342ac0286",
       "docs/scene/semantics/runtime-evidence-current.md#e-2026-09-17-resident-target-budget"

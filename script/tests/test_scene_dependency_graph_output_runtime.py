@@ -991,6 +991,56 @@ enum Harness {
             ) == .invalid(
                 reasonCode: "named-provider-publication-identity-invalid"
             )
+        // The publication route fills its named target with a single
+        // full-region blit, so a reservation whose target normalized below
+        // its prepared source must refuse the copy instead of writing out of
+        // bounds.
+        let oversizedSource = texture(
+            device,
+            width: 4096,
+            height: 1,
+            label: "prepared-extent-oversized-source"
+        )
+        var oversizedSourceReservationFailure: String?
+        let oversizedSourceReservation = preparedExtentRuntime
+            .reserveEffectInput(
+                for: preparedExtentBinding,
+                providerLayer: preparedExtentProvider,
+                providerTexture: oversizedSource,
+                providerCandidate: SceneTextureCandidate(
+                    texture: oversizedSource,
+                    purpose: .premultipliedColor,
+                    content: .init(isResolved: true),
+                    sampling: .linearClamp,
+                    uvTransform: .identity
+                ),
+                layerMVP: matrix_identity_float4x4,
+                viewportSize: CGSize(width: 4096, height: 1),
+                preparedOutputExtent: (width: 4096, height: 1),
+                frameEpoch: 23,
+                failureReason: &oversizedSourceReservationFailure
+            )
+        let oversizedSourceRegistry = SceneFrameTextureRegistry(frameEpoch: 23)
+        let oversizedSourceInstalled = preparedExtentRuntime
+            .installPreparedGraphOutputs(
+                [700: oversizedSource],
+                frameEpoch: 23
+            )
+        let preparedExtentTargetBelowSourceRejected =
+            oversizedSourceReservation?.texture.width == 2_048
+                && oversizedSourceReservation?.texture.height == 1
+                && oversizedSourceReservationFailure == nil
+                && oversizedSourceInstalled
+                && preparedExtentRuntime.publishGraphOutputIfRequired(
+                    layerID: 700,
+                    texture: oversizedSource,
+                    publicationRole: .visibleMainLoop,
+                    textureRegistry: oversizedSourceRegistry,
+                    commandBuffer: commandBuffer
+                ) == .invalid(
+                    reasonCode:
+                        "named-provider-publication-target-extent-invalid"
+                )
 
         // Geometry providers reserve an authored-local target, but graph
         // output remains only a sampling source. Publication must execute the
@@ -1654,6 +1704,8 @@ enum Harness {
             "preparedExtentCapturePublished": preparedExtentCapturePublished,
             "preparedExtentPublished": preparedExtentPublished,
             "preparedExtentWrongSizeRejected": preparedExtentWrongSizeRejected,
+            "preparedExtentTargetBelowSourceRejected":
+                preparedExtentTargetBelowSourceRejected,
             "geometryReservation": geometryInput?.texture.width == 4
                 && geometryInput?.texture.height == 3
                 && geometryReservationFailure == nil,
@@ -1787,6 +1839,7 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "preparedExtentCapturePublished": True,
                     "preparedExtentPublished": True,
                     "preparedExtentWrongSizeRejected": True,
+                    "preparedExtentTargetBelowSourceRejected": True,
                     "geometryReservation": True,
                     "geometryPreparedOutputInstalled": True,
                     "geometryPublished": True,

@@ -32,19 +32,11 @@ extension SceneDependencyFrameRuntime {
     }
 
     /// Resolves every publication in a multi-provider aggregate in authored
-    /// slot order. Missing or mismatched members reject the whole aggregate so
-    /// execution cannot silently consume a partial provider set.
-    func aggregateEffectInputs(
-        for aggregate: SceneDependencyRenderPlan.MultiProviderAggregate,
-        textureRegistry: SceneFrameTextureRegistry
-    ) -> [SceneDependencyEffectInput]? {
-        guard case let .ready(inputs) = aggregateEffectInputResolution(
-            for: aggregate,
-            textureRegistry: textureRegistry
-        ) else { return nil }
-        return inputs
-    }
-
+    /// slot order. A member that is merely unpublished this frame is an
+    /// ordinary `unavailable`; a missing reservation, a mismatched slot
+    /// vector or a publication identity drift rejects the whole aggregate as
+    /// `invalid`, so execution cannot silently consume a partial provider set
+    /// and callers cannot downgrade integrity drift into a local miss.
     func aggregateEffectInputResolution(
         for aggregate: SceneDependencyRenderPlan.MultiProviderAggregate,
         textureRegistry: SceneFrameTextureRegistry
@@ -110,20 +102,6 @@ extension SceneDependencyFrameRuntime {
             )
         }
         return .ready(inputs)
-    }
-
-    func aggregateEffectInputs(
-        for consumerLayerID: Int,
-        textureRegistry: SceneFrameTextureRegistry
-    ) -> [SceneDependencyEffectInput]? {
-        guard let aggregate = plan
-            .multiProviderAggregatesByConsumerLayerID[consumerLayerID] else {
-            return nil
-        }
-        return aggregateEffectInputs(
-            for: aggregate,
-            textureRegistry: textureRegistry
-        )
     }
 
     /// Resolves a dependency already reserved by unified frame preparation.

@@ -594,6 +594,19 @@ final class SceneDependencyFrameRuntime {
                 content: content
             )
         }
+        // This route fills its named target with one full-region blit, so
+        // source and target extent must be identical. A reservation whose
+        // target normalized below its source cannot be filled here and must
+        // fail closed instead of copying out of bounds; only the geometry
+        // route may rasterize a larger source into a smaller authored-local
+        // target.
+        guard reservation.width == reservation.sourceWidth,
+              reservation.height == reservation.sourceHeight else {
+            publicationTelemetry.recordFailure(layerID: layerID)
+            return .invalid(
+                reasonCode: "named-provider-publication-target-extent-invalid"
+            )
+        }
         guard reservation.frameEpoch == frameEpoch,
               reservation.providerLayerID == layerID,
               reservation.texture !== texture,
