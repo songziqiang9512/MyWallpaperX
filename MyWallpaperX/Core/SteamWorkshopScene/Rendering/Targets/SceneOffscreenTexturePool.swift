@@ -30,7 +30,13 @@ extension SceneResolvedMaterialInFlightCapacity {
 
 final class SceneOffscreenTexturePool {
     private static let minimumAutomaticResidentByteBudget = 192 * 1_024 * 1_024
-    private static let maximumAutomaticResidentByteBudget = 512 * 1_024 * 1_024
+    // 1.5 GiB: measured floor for heavy legitimate scenes — sample
+    // 3754630802 (39 large 4K-class layers) requires 392 MiB of required
+    // frame targets, which exceeded the previous 512 MiB cap on a 16 GiB
+    // machine (recommendedMaxWorkingSetSize/32 = 379 MiB) and hard-rejected
+    // every frame. The budget still bounds pathology: anything above the
+    // cap keeps failing closed via the frame preflight integrity gate.
+    private static let maximumAutomaticResidentByteBudget = 1_536 * 1_024 * 1_024
 
     /// A neutral source-copy target used by structural composition. Effect
     /// stages never receive this surface; they use persistent graph targets.
@@ -88,7 +94,7 @@ final class SceneOffscreenTexturePool {
         recommendedMaxWorkingSetSize: UInt64
     ) -> Int {
         let proposed = min(
-            recommendedMaxWorkingSetSize / 32,
+            recommendedMaxWorkingSetSize / 16,
             UInt64(maximumAutomaticResidentByteBudget)
         )
         return max(Int(proposed), minimumAutomaticResidentByteBudget)

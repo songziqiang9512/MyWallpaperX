@@ -213,6 +213,7 @@
         "Compilation/ShaderPreparation/SceneGenericShaderInactiveBuiltinOverloadCanonicalizer.swift",
         "Compilation/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
         "Compilation/ShaderPreparation/SceneGenericShaderBooleanScalarArithmeticNormalizer.swift",
+        "Compilation/ShaderPreparation/SceneGenericShaderTernaryScalarConditionNormalizer.swift",
         "Compilation/ShaderPreparation/SceneGenericShaderFloatingModuloNormalizer.swift",
         "Compilation/ShaderPreparation/SceneGenericShaderScalarArithmeticNormalizer.swift",
         "Compilation/ShaderPreparation/SceneGenericShaderScalarBuiltInLiteralNormalizer.swift",
