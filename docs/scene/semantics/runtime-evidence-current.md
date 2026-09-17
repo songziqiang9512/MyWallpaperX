@@ -22,6 +22,53 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-17-reference-viewport-uncontrolled"></a>
+
+### E-2026-09-17-REFERENCE-VIEWPORT-UNCONTROLLED — 断点 #1 参考图不可作绝对位置 oracle，且复合层可见性确有缺口
+
+本条处理队列 Q1 第 1 行 `3747492842`「文字裁切、额外闪烁」。两个症状被分开裁决，其中一个由"用户属性差异"改判为**真实产品缺陷**。
+
+参考图视口不可控（症状「文字裁切」不是产品缺陷）：样本自带用户截图 `截屏2026-07-28 01.48.33.png`（3024×1964，官方客户端同款）的第 0..65 行 `max=0`（**66 行纯黑**），内容从第 66 行开始，即墙纸区域只有 3024×1898。由此 cover 尺度为 `1898/2160 = 0.878704`、水平裁切 `175.1 px`；我方证据窗口是 3024×1964、尺度 `0.909259`、裁切 `233.78 px`，**水平裁切相差 58.7 px**。对背景 ROI 做全分辨率 NCC 仿射拟合独立给出参考图尺度 `0.966500`（换算全屏 `0.878799`，与黑带推算的 `0.878704` 相差 0.01%）、相对 `tx=+58.50`、`ty=+64.00`，score 0.828；**注意两个模型只在尺度上一致**：黑带模型的平移是 `tx=-175.11`，而拟合自身的平移估计是 `tx=-167.45`，两者相差约 `8 px`，因此绝对落点只能给到 ±10 px 量级。下面的落点一律使用**黑带模型**：layer 152 纯色线左端（画布 x=242.961）在我方落到屏幕 x=**−12.9（被裁）**、在参考图落到 **+38.4（可见）**（同一元素若改用拟合平移会得到 `+46.1`，差 7.7 px，属上述模型差）；实测长横条为我方 screen y=421..423 / x=0..402 与参考 screen y=471..474 / x=41..427（参考实测左端 41 与黑带模型预测 38.4 相差 2.6 px）；layer 264（VHS 时间/日期）画布字形高度 131.9 vs 132.0（比 **1.0008**）。标题层 191 在两张图里都无 keystone（顶部/底部三段宽度比同为约 1.3%，左右两半竖直跨度相同），即两图都未倾斜。结论：该参考图登记为 `reference-uncontrolled`，只能用于缺块/层序/方向与相对关系，不能作为绝对位置 oracle。**未跑新的官方对照**；这是对既有用户截图的测量，不是 parity 证据。
+
+小 Leon 是作者内容，但其开关未被执行（真实缺陷）：作者随包 `preview.gif`（188×188、50 帧）首帧**明确含**该小 Leon，故它属作者内容而非我们的多余输出；该层是 layer 273「可调整组合层」（`models/util/composelayer.json`，`visible.user = leonmovement`，`project.json` 默认 `true`）。小 Leon ROI 取屏幕 (330,820)-(950,1330)，换算到画布为 x 620..1302、y_top 902..1463；273 的子层为 329/243/317/250/247/253/343，其中 243（x 386..652）、317（x 584..1243）、250（x 464..686）、247（x 517..841）、253（x 865..2004）五个的屏幕包围盒都与该 ROI 相交，只有 343（y_top 1825 起）不相交；ROI 内亮像素（屏幕 y 989..1176）折算画布为 x 777..889、y_top 1088..1293，落在 317/247/253 的盒内。同一签名 Debug App（CDHash `ab539e4a5db944a99235624aa1d3012c4a11ed8d`）上的四个单变量受控运行给出如下对照（每行只翻转一个用户属性；四个 report 均严格 `1/1 PASS / failures=[]`）：
+
+| 运行 | 光束 ROI `>60` | 小 Leon ROI 亮像素 | 标题带亮像素 | `renderDescriptor` 可见性 168 / 191 / 273 |
+|---|---|---|---|---|
+| 基线（全默认） | 49.030% | 1.879% | 27.057% | true / true / true |
+| `lightbeam=false` | **4.650%**（已隐藏 ✓） | 1.843% | 26.151% | **false** / true / true |
+| `leonmovement=false` | 49.089% | **1.892%**（未隐藏 ✗） | 26.999% | true / true / **false** |
+| `titlevisible=false` + `leonmovement=false` | 49.177% | 1.908%（未隐藏 ✗） | **0.000%**（已隐藏 ✓） | true / **false** / **false** |
+
+即：**image 层 168 与 text 层 191 都正确执行 `visible=false`，只有复合层 273 的子树仍被合成**。`leonmovement=false` 运行（`/private/tmp/mwx-3747492842-leonmovement-off-20260917/report.json` SHA-256 `7b620f42a0c7321ecdbbc39e38c224738f2b8944f592f23e8904ff37407216ee`、截图 SHA-256 `1ab34c77237a79a29326b610feb9de7f68b3bdbe12eb6347c1db4c27eed37022`）里 `effectivePropertyValues.leonmovement = false` 且 `renderDescriptor.layers[id=273].visible = false`，画面与基线只差动画噪声（全幅均值 4.07、`>60` 占 1.199%；ROI 内 `>60` 仅 0.096%）。`lightbeam=false` 运行见 `/private/tmp/mwx-3747492842-lightbeam-off-20260917/report.json` SHA-256 `297f34660b27dee551057049fa49628e707159c3b8bb1edf30a7cf4dd99a1b08`（截图 SHA-256 `3db262f518df92a72e5d6ab09b93a6c1d0057c9cb0df2d915ecffde527389d7f`），`titlevisible=false` 运行见 `/private/tmp/mwx-3747492842-titlevisible-off-20260917/`。
+
+另外：这次运行的 `propertyBindingProgram.definitions` 里没有 layer 273 的可见性 target，引擎日志的 `dynamic layer visibility` 只覆盖 9 个层（59/152/173/186/191/264/265/783/796）——其中 191 在内并正确隐藏，168 与 273 都不在内（168 正确隐藏、273 未隐藏）。因此"是否进入逐帧 visibility owner"这一名单同样不解释差异：可见性的实际判定发生在帧内。
+
+另两处只读事实（**都没有定位到断点，反而排除了一个候选**）：
+
+- 用户属性驱动的 `visible` 在本次运行的属性绑定程序里**不产生任何 instruction**：`propertyBindingProgram` 的 73 条 instruction 中 `layer` 类 target 只有 alpha/color/scale（152 alpha+color+scale、186 scale、191 alpha、264 alpha、265 scale、59 alpha、796 alpha），**没有一条 `.layer(*, .visibility)`**，因此 `liveLayerVisibilityTargets`（`ScenePropertyBindingProgram.swift:231-246`，从 instruction 过滤 `.layer(_, .visibility)` 得到）为空集。据此**排除** `SceneDynamicLayerVisibilityRouteAdmission.targets(in:candidates:)`（`SceneResolvedMaterialExecutionCapabilityAdmission.swift:168-192`）作为断点：候选集共有三条来源——`SceneDesktopWallpaperHost+LiveConsumers.swift:226`（`propertyBindingProgram.liveLayerVisibilityTargets`）、`SceneDesktopWallpaperHost+DeferredBaseImages.swift:41`（其条件子集 `liveConditionalLayerVisibilityTargets`）、以及同文件内 `SceneResolvedMaterialExecutionCapabilityAdmission.swift:251` 经 `SceneDesktopWallpaperHost+Launch.swift:490/509` 传入的 `dynamicLayerVisibilityOwnerTargets`（该集合由 `propertyVectorScriptTargets ∪ propertyLayerVisibilityTargets` 组成，后者即 `liveLayerVisibilityTargets`）；本次运行三者都为空，而守卫位于 `for target in candidates {` 的第一句，故它**一次都不会被求值**。（本句早先误写为"LiveConsumers.swift:226 是唯一调用点"，已按独立核验修正。）
+- 那 9 层 `dynamic layer visibility` 日志来自 `SceneDesktopWallpaperHost+FrameDriver.swift:768-796`，枚举的是**帧 snapshot 中存在 `.layer(id,.visibility)` 条目的层**；这些条目由 `SceneScriptDynamicLayerRuntime.init`（`SceneScriptDynamicLayerRuntime.swift:47-57`）的 `descriptor.layers.filter { authoredMutationLayerIDs.contains($0.id) }` 生成，即**只有带 SceneScript authored mutation 的层**才有逐帧可见性条目。实测 191 在集合内（有 text 脚本，且 `titlevisible=false` 时日志为 `source=authored value=false effective=false`），**168 与 273 都不在集合内**。
+
+关键反证（把逐层可见性求解排除出候选）：
+
+| 层 | 有逐帧可见性条目 | descriptor `visible` | 画面结果 |
+|---|---|---|---|
+| 191 text | 是 | false | 正确隐藏（经 snapshot 条目） |
+| 168 quad | 否 | false | **正确隐藏**（走 `hasCurrentSourceDisplayAuthority` 的回落 `layer.visible != false`） |
+| 273 composition | 否 | false | **未隐藏**，子树仍合成 |
+
+168 与 273 都不在逐帧条目集合内、descriptor 都为 `false`，但只有 168 隐藏 ⇒ **逐层可见性求解本身不能解释差异**（`SceneLayerVisibility.isEffectivelyVisible` 走 parent chain，且既有合成门 `test_scene_dynamic_layer_visibility#test_dynamic_visibility_and_parent_propagation` 通过）。因此断点在下游把 273 子树画进输出的路径，或帧内 descriptor（renderer 持有的实例）与运行证据记录的 `runtimeInput.renderDescriptor` 对 273 不一致。另需独立记录：**用户属性驱动的 `visible` 在无 SceneScript mutation 的层上不进入逐帧 visibility owner，只依赖 launch descriptor 的静态值**——这是与复合层缺口相邻但成因不同的边界，它解释 273 为何没有逐帧条目，但不足以解释它为何不隐藏（168 即反证）。
+
+第二样本负对照（把缺口收窄到"嵌套复合层"）：换一个同样"复合层有子层 + 用户属性驱动可见性"的样本 `3264246690`（layer 586/608/620/960/976 都是 `models/util/composelayer.json`、各自有 2–3 个子层、`visible` 由用户属性驱动；其中 `_1` 的**唯一**消费者是 layer 586 的 `visible`）做同样的单变量探测：
+- 两次同配置基线 `/private/tmp/mwx-3264246690-baseline-20260917/` 与 `-baseline2-20260917/` 的 after 截图差异为 mean `0.8516`、`>60` **0.045%**（该样本近乎确定性渲染，噪声地板极低）；
+- `_1=false`（`- _1false-20260917/`，strict `1/1 PASS`）相对两次基线分别为 `>60` **3.230%** 与 **3.064%**（约 70 倍噪声地板），`effectivePropertyValues._1=false`、`renderDescriptor.layers[586].visible=false`；目视对照（屏幕 x 2350..3024、y 780..1010）显示基线中的 hazard-stripe「…NGER」整块在覆盖运行里**完全消失**。
+- 结论：**根层复合层的用户属性可见性正常工作**。而 `3747492842` 的 layer 273 是**复合根 434 的子层**（`parent=434`，434 自身是 `models/util/composelayer.json` 且其子树被 utility capture），它的可见性不生效。
+
+边界与下一步：本条给出四路可复现的单变量正反对照、"**嵌套复合层（父层为被捕获的复合根）的 `visible=false` 不抑制其子树**"的行为事实、一个根层复合层的负对照、对准入守卫的排除、以及对逐层可见性求解的排除；**断点仍未定位**。已知判别点是结构性的（根层工作、嵌套不工作），且 `SceneDynamicLayerVisibilityRouteAdmission` 的守卫形状（`parentID == nil`）恰好与之一致，但该守卫在本样本从未被求值，故只能作为"当初的准入意图"线索，不能当作原因。下一步的最小可证伪门是对帧内 `frameVisibleLayerIDs` 是否含 273/317/253、以及帧内 `layers[273].visible` 做 typed 断言，据此在 (a) 帧内 descriptor 与记录不一致 与 (b) 父层捕获路径绕过子层可见性判定 之间判定；不要在任何一侧被证实前改动产品代码。仍未验证：authored（非用户属性）`visible=false` 的嵌套复合层、多层嵌套、脚本/Timeline 驱动的嵌套复合层可见性、捕获语义与官方对照。
+
+只读全 corpus 影响面（159 样本，按 `image == models/util/composelayer.json` 且 `children > 0` 统计，只描述声明不证明运行支持）：**拥有子层的 composelayer 只有 14 处，其中 12 处是根层、2 处是嵌套层**。根层 12 处 = 用户属性驱动 8 处 + 无可见性声明 4 处（后者无法开关，不构成本缺口）；嵌套 2 处 = `3747492842:273`（用户属性驱动，即本缺口）与 `3448845950:669`（`parent=189`，无可见性声明）。无子层的 264 处里虽有 35 处 `authored-false`、117 处条件用户绑定等，但没有子树可抑制。因此本缺口当前的实测footprint 是 **1 处 / 1 样本**（`3747492842:273`），而**不是**全部复合层；早先"9 处 / 5 样本"的估计把根层用户绑定一并算入，已由 `3264246690` 的负对照排除。扫描明细 `/private/tmp/mwx-composition-visibility-impact.json`。
+
+「额外闪烁」仍未归因：14 帧序列的逐帧差异分布在全画面（1–2%/帧）且与作者声明的 film grain / VHS / 雪粒子一致，静态参考图无法裁决动态行为，需要固定 phase 的动态对照。`script/scene_sample_acceptance_verdicts.json` 对 `3747492842` 的人工 verdict 仍为 `fail`，agent 不改写该文件。
+
 <a id="e-2026-09-17-text-host-contract"></a>
 
 ### E-2026-09-17-TEXT-HOST-CONTRACT — text 成为共享 provider host，脚本与脚本属性绑定恢复 typed 消费
