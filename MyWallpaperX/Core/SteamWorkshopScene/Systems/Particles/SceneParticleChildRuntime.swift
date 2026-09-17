@@ -41,6 +41,13 @@ final class SceneParticleChildRuntime {
     /// Launch-stable demand used by the host to avoid projecting the pointer
     /// for particle layers whose prepared child graph cannot consume it.
     let hasPointerControlPointConsumer: Bool
+    /// One-line launch summary for the DEBUG evidence path: how many child
+    /// systems the expansion produced versus how many declarations it saw.
+    var expansionSummary: String {
+        "templates=\(templates.count) unsupported=\(unsupportedDetails.count) "
+            + "systems=\(systems.count) handlesAllChildren=\(handlesAllChildren)"
+    }
+
     var hasTemplates: Bool {
         !templates.isEmpty
     }
@@ -58,6 +65,8 @@ final class SceneParticleChildRuntime {
     }
 
     private let layerID: Int
+    private var didLogInstanceCensus = false
+    private var censusTimeAccumulator: TimeInterval = 0
     private let layerAlpha: Float
     private let device: MTLDevice
     private let templates: [SceneParticleChildTemplate]
@@ -198,6 +207,21 @@ final class SceneParticleChildRuntime {
         var batches: [SceneParticleDrawBatch] = []
         batches.reserveCapacity(templates.count)
         var failures: [String] = []
+        // DEBUG probe: throttled spawn/instance census (every ~5s of sim time).
+        censusTimeAccumulator += frameDelta
+        if !didLogInstanceCensus || censusTimeAccumulator >= 5 {
+            didLogInstanceCensus = true
+            censusTimeAccumulator = 0
+            let spawned = templates.compactMap { instanceScratch[$0.index]?.count }
+            let systemParticleCounts = systems.map { $0.simulator.particles.count }
+            let systemParticleTotal = systemParticleCounts.reduce(0, +)
+            NSLog(
+                "MWX DEBUG SCENE: phase=particle-child-census layer=%d templates=%d systems=%d systemParticles=%d spawnedTotal=%d emptyTemplates=%d nonEmptySystems=%d",
+                layerID, templates.count, systems.count,
+                systemParticleTotal, spawned.reduce(0, +), spawned.count,
+                systemParticleCounts.filter { $0 > 0 }.count
+            )
+        }
         for template in templates {
             guard let instances = instanceScratch[template.index], !instances.isEmpty else {
                 continue

@@ -453,6 +453,14 @@ final class SceneParticleRuntime {
         }
     }
 
+    var childRuntimeSummaries: [String] {
+        layers.compactMap { layer in
+            layer.childRuntime.map {
+                "layer=\(layer.layerID): \($0.expansionSummary)"
+            }
+        }
+    }
+
     func addDiagnostic(
         kind: SceneParticleRuntimeDiagnosticKind, layerID: Int?, path: String, detail: String? = nil
     ) {

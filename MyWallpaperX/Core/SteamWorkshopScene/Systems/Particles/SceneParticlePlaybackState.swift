@@ -16,6 +16,11 @@ final class SceneParticlePlaybackState {
     /// scan is needed to decide whether pointer projection is required.
     let pointerControlPointLayerIDs: Set<Int>
     private(set) var batches: [SceneParticleDrawBatch]
+    /// Union of layer IDs that produced a draw batch at ANY point in the run.
+    /// The snapshot-instant batch list undercounts bursty/short-lifetime
+    /// particle systems whose particles may all be dead between frames; this
+    /// sticky set is the "did the system ever execute" evidence.
+    private(set) var stickyBatchLayerIDs: Set<Int> = []
     private var didTeardown = false
     private var frameTransaction: FrameTransaction?
     var hasAudioConsumer: Bool { runtime.hasAudioConsumer }
@@ -48,6 +53,7 @@ final class SceneParticlePlaybackState {
         self.runtime = runtime
         self.pointerControlPointLayerIDs = runtime.pointerControlPointLayerIDs
         self.batches = runtime.advance(by: 0)
+        stickyBatchLayerIDs.formUnion(self.batches.map(\.layerID))
     }
 
     func advance(
@@ -67,6 +73,7 @@ final class SceneParticlePlaybackState {
                 right: audioSpectrum.right
             )
         )
+        stickyBatchLayerIDs.formUnion(batches.map(\.layerID))
         return batches
     }
 
@@ -89,6 +96,7 @@ final class SceneParticlePlaybackState {
         guard let frameTransaction else { return }
         runtime.restoreFrame(frameTransaction.runtime)
         batches = frameTransaction.batches
+        stickyBatchLayerIDs.formUnion(batches.map(\.layerID))
         self.frameTransaction = nil
     }
 
@@ -154,6 +162,9 @@ final class SceneParticlePlaybackState {
                     + "refract=\(batch.refraction != nil)"
             )
         }
+        for summary in runtime.childRuntimeSummaries {
+            lines.append("particle child runtime \(summary)")
+        }
         for value in runtime.diagnostics {
             lines.append(
                 "particle diagnostic \(value.kind.rawValue) layer=\(value.layerID.map(String.init) ?? "nil") "
@@ -164,6 +175,9 @@ final class SceneParticlePlaybackState {
             batchLayerIDs: batches.map(\.layerID),
             visibleLayerCount: renderableLayers.count
         ))
+        lines.append(
+            "particle sticky loaded: \(stickyBatchLayerIDs.union(batches.map(\.layerID)).count) / \(renderableLayers.count)"
+        )
         lines.append(
             "particle refract loaded: \(Set(batches.filter { $0.refraction != nil }.map(\.layerID)).count)"
         )
