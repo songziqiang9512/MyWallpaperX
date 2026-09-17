@@ -21,6 +21,8 @@
 
 P0 续跑状态（2026-09-18 08:xx 更新，事实覆盖至 `c60d26a9` 及其后的文档清理批；历史过程记录查 git log 与运行证据页的 P03 证据包，不再在本块累积流水账）：
 
+- **现役 Goal（2026-09-18 用户授权设定）**：遵照现役 Scene 兼容执行路线，从 P0.3 收尾态持续推进——修复剩余 blocked 样本（`2959875782` 观测捕获缺口、`3792249095` terminal divergence）、按 P0.4 依赖排序进入 P1 公共能力修复主循环、P2 逐样本剩余缺口、P3 参数与条件闭环；每批改动经独立子代理审查，保持唯一运行主链并持续消融相关冗余。遇到外部依赖记录阻塞并继续不依赖它的工作；只有真实满足整体完成条件才标记完成。提交已获用户授权（单职责分批、不推送）。
+
 - **当前身份覆盖已完整**：159/159 样本均具备当前身份（CDHash `a31bd68a…`、executable `34bdca21…`）的 fresh 运行证据（2026-09-17 的 76 个 + 2026-09-18 串行补齐的 83 个，全部 PASS）；identity-only PASS ≠ 视觉验收完成。归档 `script/scene_sample_debug_archive.json`（SHA-256 `3bd6b823…`）状态 `127 structural-chain-complete-visual-review / 30 degraded-runtime / 2 blocked`；验收台账与调试台账已同步。
 - **已落码修复（全部已提交、各含独立审查与真实样本验证）**：
   - `SceneGenericShaderTernaryScalarConditionNormalizer`：WE 方言数值三元条件 stage-link 拒绝 → 可编译（`3767343314` 恢复）。
@@ -30,7 +32,7 @@ P0 续跑状态（2026-09-18 08:xx 更新，事实覆盖至 `c60d26a9` 及其后
   - text host 合同补 objectText（`cc69da74`）：`3747492842` 属性绑定 9→12。
   - benchmark 观测门恢复感知（`61a69b1a`）：frame-0 layer-source 瞬态+已恢复不再误判 FAIL。
 - **现役开放项（按序，各含下一步）**：
-  1. `2959875782`：归档仍 blocked——accepted 层 completion/compositor **观测捕获缺失**（executor 实际在跑，claimed=33-38、168 次成功）；publication 链本身已闭合。probe=定位该层 completion 观测未入档的原因。
+  1. `2959875782`：归档仍 blocked——**同二进制（a31bd68a）两次运行行为非确定性**（2026-09-18 诊断）：基线跑（04:32，机器高负载）frame 0 的 EffectStageAdmission 让 11 个效果走 admitted-fallback，fallback 绘制计数 196→697 持续累积（整程未恢复 Program），layers 19/138 的 graph-execution 观测缺失 → 4 条 accepted-layer 证据缺失；复 probe 跑（空闲机器）fallback=0、47 层全 Program 观测、PASS failures=[]。两次编译均 0 失败、accepted 数相近（371 vs 394）——分歧在 admission 决策而非编译。probe=读 EffectStageAdmission 的 fallback 决策源（frame 0 时哪个输入未就绪触发 fallback lane）与是否存在"Program 就绪后从 fallback 恢复"的路径；若 admission 锁存 fallback 而不随 Program 就绪恢复，即为待修的公共缺口（对照启动响应合同的候选事务语义）。
   2. `3792249095`：`terminal-output-flat-preview-divergence`（归档第二个 blocked，未诊断）。
   3. `3747492842`「额外闪烁」：需固定 phase 的动态对照（文字裁切=参考视口不可控、多余 Leon=用户 Picture 属性状态差异，均已归因，见 Q1 行 1）。
   4. P0.3b 产品路径采集：选型 (b)（client/daemon 显式可取消 evidence 命令，保持"诊断非播放前置"边界），须独立设计审查。
