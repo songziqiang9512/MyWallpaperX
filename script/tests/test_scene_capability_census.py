@@ -548,6 +548,207 @@ class SceneCapabilityCensusTests(unittest.TestCase):
             )},
         )
 
+    def test_repair_references_gate_accepts_resolved_and_transient_targets(self) -> None:
+        # A kind outside the built-in defaults proves the gate reads the ledger's
+        # own contract instead of silently falling back to the defaults.
+        ledger = {
+            "entry_contract": {
+                "regression_gate_kinds": [
+                    *census.DEFAULT_REGRESSION_GATE_KINDS, "fixture-only-kind",
+                ],
+            },
+            "families": [{
+                "family_key": "effect/fixture@1",
+                "commit": "uncommitted-working-tree",
+                "targeted_samples": ["3747492842"],
+                "roi_evidence": [
+                    "script/scene_capability_census.py#anchor",
+                    "/private/tmp/mwx-some-run/report.json sha256=deadbeef",
+                ],
+                "regression_gates": [
+                    {
+                        "kind": "synthetic-positive",
+                        "reference": "script/tests/test_scene_capability_census.py"
+                                     "#test_family_key_ignores_concrete_revision_values",
+                    },
+                    {
+                        "kind": "fixture-only-kind",
+                        "reference": "script/scene_capability_census.py"
+                                     "#validate_repair_references",
+                    },
+                    {
+                        "kind": "targeted-runtime",
+                        "reference": "/private/tmp/mwx-some-run/report.json#3747492842",
+                    },
+                ],
+                "events": [{
+                    "date": "2026-09-17",
+                    "state": "implemented",
+                    "commit": "abcdef0",
+                    "evidence_refs": ["script/scene_capability_census.py#anchor"],
+                    "notes": "fixture",
+                }],
+            }],
+        }
+        failures = census.validate_repair_references(
+            ledger, {"3747492842"}, census.REPOSITORY_ROOT
+        )
+        self.assertEqual(failures, [])
+
+    def test_repair_references_gate_rejects_dangling_and_unknown_targets(self) -> None:
+        ledger = {
+            "entry_contract": {"regression_gate_kinds": list(census.DEFAULT_REGRESSION_GATE_KINDS)},
+            "families": [{
+                "family_key": "effect/fixture@1",
+                "commit": "not-a-commit",
+                "targeted_samples": ["0000000000"],
+                "roi_evidence": ["docs/scene/semantics/does-not-exist.md"],
+                "regression_gates": [
+                    {
+                        "kind": "synthetic-positive",
+                        "reference": "script/tests/test_scene_dynamic_snapshot.py"
+                                     "#test_symbol_absent_from_every_file_zz",
+                    },
+                    {
+                        "kind": "synthetic-negative",
+                        "reference": "script/tests/test_missing_fixture_file.py#test_nothing",
+                    },
+                    {
+                        "kind": "synthetic-negative",
+                        "reference": "../outside-the-repository.py#test_nothing",
+                    },
+                    {"kind": "made-up-kind", "reference": "script/tests/whatever.py#test_x"},
+                ],
+                "events": [{
+                    "date": "2026-09-17",
+                    "state": "implemented",
+                    "commit": "abcdef0",
+                    "evidence_refs": ["docs/scene/semantics/does-not-exist.md"],
+                    "notes": "fixture",
+                }],
+            }],
+        }
+        codes = {failure["code"] for failure in census.validate_repair_references(
+            ledger, {"3747492842"}, census.REPOSITORY_ROOT
+        )}
+        self.assertEqual(codes, {
+            "repair-sample-reference-unknown",
+            "repair-gate-symbol-missing",
+            "repair-gate-file-missing",
+            "repair-gate-reference-outside-repository",
+            "repair-gate-kind-unknown",
+            "repair-evidence-file-missing",
+            "repair-commit-shape-invalid",
+        })
+
+    def test_default_repair_ledger_has_no_dangling_references(self) -> None:
+        ledger = census.load_repair_ledger(census.DEFAULT_LEDGER)
+        snapshot = json.loads(
+            (census.REPOSITORY_ROOT / "script/scene_capability_census_snapshot.json")
+            .read_text(encoding="utf-8")
+        )
+        sample_ids: set[str] = set()
+
+        def collect(node: object) -> None:
+            if isinstance(node, dict):
+                values = node.get("sample_ids")
+                if isinstance(values, list):
+                    sample_ids.update(v for v in values if isinstance(v, str))
+                for value in node.values():
+                    collect(value)
+            elif isinstance(node, list):
+                for value in node:
+                    collect(value)
+
+        collect(snapshot)
+        self.assertTrue(sample_ids)
+        failures = census.validate_repair_references(
+            ledger, sample_ids, census.REPOSITORY_ROOT
+        )
+        self.assertEqual(failures, [])
+
+    def test_repair_references_gate_never_raises_on_malformed_input(self) -> None:
+        malformed = [
+            None,
+            [],
+            "not a ledger",
+            {"families": 5},
+            {"families": [{"family_key": "a", "regression_gates": 5}]},
+            {"families": [{"family_key": "a", "regression_gates": True}]},
+            {"families": [{"family_key": "a", "regression_gates": [
+                {"kind": [], "reference": "script/tests/test_scene_capability_census.py#x"},
+            ]}]},
+            {"families": [{"family_key": "a", "targeted_samples": 7, "roi_evidence": 7}]},
+            {"families": [{"family_key": "a", "events": 7}]},
+            {"families": [{"family_key": "a", "events": [{"evidence_refs": 7}]}]},
+            {"families": [{"family_key": "a", "regression_gates": [
+                {"kind": "synthetic-positive", "reference": "a\u0000b.py#x"},
+            ]}]},
+            {"families": 5, "entry_contract": 7},
+        ]
+        for index, ledger in enumerate(malformed):
+            with self.subTest(index=index):
+                failures = census.validate_repair_references(
+                    ledger, {"3747492842"}, census.REPOSITORY_ROOT
+                )
+                self.assertIsInstance(failures, list)
+        self.assertEqual(
+            {"repair-ledger-not-object"},
+            {failure["code"] for failure in census.validate_repair_references(
+                None, set(), census.REPOSITORY_ROOT
+            )},
+        )
+
+    def test_repair_references_gate_rejects_references_that_escape(self) -> None:
+        ledger = {
+            "families": [{
+                "commit": "abcdef0",
+                "roi_evidence": [
+                    "../../../../etc/hosts",
+                    "#anchor only",
+                ],
+                "regression_gates": [
+                    {
+                        "kind": "synthetic-positive",
+                        "reference": "../sibling-with-same-prefix/file.py#test_x",
+                    },
+                ],
+            }],
+        }
+        codes = {failure["code"] for failure in census.validate_repair_references(
+            ledger, set(), census.REPOSITORY_ROOT
+        )}
+        self.assertEqual(codes, {
+            "repair-gate-reference-outside-repository",
+            "repair-evidence-reference-outside-repository",
+        })
+
+    def test_repair_gate_symbol_must_be_a_whole_identifier(self) -> None:
+        ledger = {
+            "families": [{
+                "commit": "abcdef0",
+                "regression_gates": [
+                    {
+                        "kind": "synthetic-positive",
+                        "reference": "script/scene_capability_census.py"
+                                     "#validate_repair_references",
+                    },
+                    {
+                        "kind": "synthetic-negative",
+                        "reference": "script/scene_capability_census.py"
+                                     "#validate_repair",
+                    },
+                ],
+            }],
+        }
+        failures = census.validate_repair_references(
+            ledger, set(), census.REPOSITORY_ROOT
+        )
+        self.assertEqual(
+            [failure["code"] for failure in failures],
+            ["repair-gate-symbol-missing"],
+        )
+
 
 class SceneCapabilityFamilyMapTests(unittest.TestCase):
     def test_default_family_map_loads_without_structural_failures(self) -> None:

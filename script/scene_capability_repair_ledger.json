@@ -81,7 +81,7 @@
      "commit": "3fa1499c",
      "evidence_refs": [
       "/private/tmp/mwx-historical-framebuffer-155-pass.xKJb3S/report.json#1553008362",
-      "docs/scene/semantics/runtime-evidence-index.md#e-historical-framebuffer-material-alias"
+      "docs/history/scene/runtime-evidence-index.md#e-historical-framebuffer-material-alias"
      ],
      "notes": "The Water Waves stage and its three following Shake stages all used the same exact historical alias and completed GPU publication, terminal composition and next-frame execution."
     }
@@ -128,7 +128,7 @@
      "commit": "3fa1499c",
      "evidence_refs": [
       "/private/tmp/mwx-historical-framebuffer-155-pass.xKJb3S/report.json#1553008362",
-      "docs/scene/semantics/runtime-evidence-index.md#e-historical-framebuffer-material-alias"
+      "docs/history/scene/runtime-evidence-index.md#e-historical-framebuffer-material-alias"
      ],
      "notes": "The Water Waves stage and its three following Shake stages all used the same exact historical alias and completed GPU publication, terminal composition and next-frame execution."
     }
@@ -175,7 +175,7 @@
      "commit": "ad78674d",
      "evidence_refs": [
       "/private/tmp/mwx-rounded-mask-sentinel.QI9Ruq/report.json#3768724269",
-      "docs/scene/semantics/runtime-evidence-index.md#e-authored-straight-rgb-alpha-factor"
+      "docs/history/scene/runtime-evidence-index.md#e-authored-straight-rgb-alpha-factor"
      ],
      "notes": "The updated tracked sentinel passed 1/1: layer 163 completed GPU encoding, exact effect-output publication, terminal composition and next-frame execution while layers 17 and 100 remained successful in the same atomic frame."
     }
@@ -223,7 +223,7 @@
      "evidence_refs": [
       "/private/tmp/mwx-sharpen-329-pass2.0UK8Uq/report.json#3290491250",
       "/private/tmp/mwx-sharpen-376-containment.6UQprb/report.json#3767343314",
-      "docs/scene/semantics/runtime-evidence-index.md#e-authored-straight-whole-color-unorm"
+      "docs/history/scene/runtime-evidence-index.md#e-authored-straight-whole-color-unorm"
      ],
      "notes": "Layer 116 completed GPU encoding, exact effect-output publication, terminal composition and next-frame execution; the central character became visibly readable while the second family occurrence remained contained at later unsupported stages."
     },
@@ -282,7 +282,7 @@
      "commit": "9977d585",
      "evidence_refs": [
       "/private/tmp/mwx-pulse-display-pass2-376822/report.json#3768229922",
-      "docs/scene/semantics/runtime-evidence-index.md#e-authored-straight-rgb-scalar-alpha"
+      "docs/history/scene/runtime-evidence-index.md#e-authored-straight-rgb-scalar-alpha"
      ],
      "notes": "Layers 225, 513, 516, 519, 522, 533 and 534 all obtained Program ownership, completed exact effect-output publication and GPU execution, were consumed by the compositor on the first frame, and succeeded again on the next frame."
     }
@@ -306,7 +306,8 @@
    "remaining_boundaries": [
     "The shader proof covers only one sampled source RGB mixed with one fragment-uniform RGB by a finite bounded scalar while preserving that sample's alpha; second color sources, alpha rewrites, varying tint, custom or shadowed builtins, unbounded weights and ambiguous source identities remain rejected.",
     "The captured-main proof requires one exact layerSource identity across the complete launch envelope; competing graph candidates, authored defaults, non-regular samplers, wrong source modes, mixed variants and independent alpha signals remain rejected.",
-    "This repair does not implement the head-click SceneScript toggle, other dynamic overlay effects, unrelated particle families, or Wallpaper Engine pixel and timing equivalence."
+    "This repair does not implement the head-click SceneScript toggle, other dynamic overlay effects, unrelated particle families, or Wallpaper Engine pixel and timing equivalence.",
+    "Retired a dangling synthetic-negative gate script/tests/test_scene_resolved_material_execution_capability.py#test_launch_precompiles_the_static_texture_readiness_envelope: 87d254c8 retired the dedicated effect runtime and removed that test with it; the family's rejection contract stays covered by its other synthetic-negative gate. See E-2026-09-17 census referential-integrity gate."
    ],
    "regression_gates": [
     {
@@ -324,10 +325,6 @@
     {
      "kind": "synthetic-negative",
      "reference": "script/tests/test_scene_shader_color_contract.py#test_scanline_uniform_rgb_mix_rejects_unproven_shapes"
-    },
-    {
-     "kind": "synthetic-negative",
-     "reference": "script/tests/test_scene_resolved_material_execution_capability.py#test_launch_precompiles_the_static_texture_readiness_envelope"
     },
     {
      "kind": "targeted-runtime",
@@ -364,12 +361,13 @@
    ],
    "remaining_boundaries": [
     "Layer 397 is a hidden controller that must keep ticking and map shared.clack to sixteen visual layers; its module, shared state, update callback and mutations are not executed.",
-    "The suppression protects static composition but provides no click interaction, dynamic overlay visibility or Wallpaper Engine equivalence."
+    "The suppression protects static composition but provides no click interaction, dynamic overlay visibility or Wallpaper Engine equivalence.",
+    "The synthetic-positive gate was repointed to the successor of a rename in 5d7bb4a5. That commit also moved the visible-field assertion from suppression (unproven-inline-scenescript diagnostic) to previous-current (awaiting-scenescript-publication); the gate therefore certifies the current refusal semantics while the public_fix prose above still describes the original suppression behaviour. The owned alpha field stays suppressed in both, and the sibling synthetic-negative gate is unchanged."
    ],
    "regression_gates": [
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_script_binding_parser.py#test_unproven_display_scripts_suppress_layers_and_descendants"
+     "reference": "script/tests/test_scene_script_binding_parser.py#test_visible_scripts_keep_previous_current_while_alpha_stays_suppressed"
     },
     {
      "kind": "synthetic-negative",
@@ -387,7 +385,7 @@
      "commit": "9977d585",
      "evidence_refs": [
       "/private/tmp/mwx-pulse-display-pass2-376822/results/3768229922/scene-preview.log",
-      "docs/scene/semantics/runtime-evidence-index.md#e-authored-straight-rgb-scalar-alpha"
+      "docs/history/scene/runtime-evidence-index.md#e-authored-straight-rgb-scalar-alpha"
      ],
      "notes": "The controller is now explicitly suppressed rather than granted static fallback authority; its actual SceneScript behavior remains unavailable."
     }
@@ -409,12 +407,13 @@
    ],
    "remaining_boundaries": [
     "Layer 202 is the authored head hit target and cursorClick producer; ordered pointer edges, solid-only hit testing, capture, shared.clack mutation, alpha blinking and user-property application are not implemented.",
-    "The suppression protects static composition but does not make the head clickable or show and hide the authored overlay."
+    "The suppression protects static composition but does not make the head clickable or show and hide the authored overlay.",
+    "The synthetic-positive gate was repointed to the successor of a rename in 5d7bb4a5. That commit also moved the visible-field assertion from suppression (unproven-inline-scenescript diagnostic) to previous-current (awaiting-scenescript-publication); the gate therefore certifies the current refusal semantics while the public_fix prose above still describes the original suppression behaviour. The owned alpha field stays suppressed in both, and the sibling synthetic-negative gate is unchanged."
    ],
    "regression_gates": [
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_script_binding_parser.py#test_unproven_display_scripts_suppress_layers_and_descendants"
+     "reference": "script/tests/test_scene_script_binding_parser.py#test_visible_scripts_keep_previous_current_while_alpha_stays_suppressed"
     },
     {
      "kind": "synthetic-negative",
@@ -432,7 +431,7 @@
      "commit": "9977d585",
      "evidence_refs": [
       "/private/tmp/mwx-pulse-display-pass2-376822/results/3768229922/scene-preview.log",
-      "docs/scene/semantics/runtime-evidence-index.md#e-authored-straight-rgb-scalar-alpha"
+      "docs/history/scene/runtime-evidence-index.md#e-authored-straight-rgb-scalar-alpha"
      ],
      "notes": "The click-owner layer is now explicitly suppressed rather than granted static fallback authority; no pointer or script execution is claimed."
     }
@@ -455,12 +454,13 @@
    ],
    "remaining_boundaries": [
     "Layer 354's authored fade, visible mutation and delayed destroy lifecycle are not executed; the correct official opening timing remains unknown in this runtime.",
-    "The exposed opening-phase composition is not proof of final-phase or Wallpaper Engine pixel and timing equivalence."
+    "The exposed opening-phase composition is not proof of final-phase or Wallpaper Engine pixel and timing equivalence.",
+    "The synthetic-positive gate was repointed to the successor of a rename in 5d7bb4a5. That commit also moved the visible-field assertion from suppression (unproven-inline-scenescript diagnostic) to previous-current (awaiting-scenescript-publication); the gate therefore certifies the current refusal semantics while the public_fix prose above still describes the original suppression behaviour. The owned alpha field stays suppressed in both, and the sibling synthetic-negative gate is unchanged."
    ],
    "regression_gates": [
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_script_binding_parser.py#test_unproven_display_scripts_suppress_layers_and_descendants"
+     "reference": "script/tests/test_scene_script_binding_parser.py#test_visible_scripts_keep_previous_current_while_alpha_stays_suppressed"
     },
     {
      "kind": "synthetic-negative",
@@ -478,7 +478,7 @@
      "commit": "9977d585",
      "evidence_refs": [
       "/private/tmp/mwx-pulse-display-pass2-376822/results/3768229922/scene-preview.log",
-      "docs/scene/semantics/runtime-evidence-index.md#e-authored-straight-rgb-scalar-alpha"
+      "docs/history/scene/runtime-evidence-index.md#e-authored-straight-rgb-scalar-alpha"
      ],
      "notes": "The opaque opening layer can no longer obtain static fallback display authority; its fade and destroy lifecycle remain unavailable."
     }
@@ -506,7 +506,8 @@
     "Only the placement-exact primary pass-0 slot-1 normal-blend MaterialProgram profile is admitted, including its bounded hidden nested graph-provider form. Different provider/consumer placement, children, provider dependencies, forward visible effectful providers, non-primary variants, other slots or blends remain fail closed.",
     "The Steam preview comparison is advisory and not fixed-phase official pixel or timing equivalence.",
     "The -Onone observation-enabled diagnostic run is not product-performance evidence. A separate optimized no-observation steady-state probe held 30 FPS on the current M4 single-display environment, while the 60 FPS profile remained GPU-limited at about 48.99 FPS; low-end devices, multi-display, long-stability, Release equivalence and the AS3 60 FPS closure remain unverified.",
-    "The current uncommitted candidate has not been rerun across all 159 samples. The old full-set baseline plus targeted closure of its two failures cannot be reported as a fresh 159/159 candidate run."
+    "The current uncommitted candidate has not been rerun across all 159 samples. The old full-set baseline plus targeted closure of its two failures cannot be reported as a fresh 159/159 candidate run.",
+    "Retired a dangling synthetic-negative gate script/tests/test_scene_resolved_material_runtime_bridge.py#test_resolved_material_runtime_bridge_compiles_and_executes: that test name never existed as a test definition in any commit (the string only ever appeared as ledger text), and the file's actual tests are positive or unrelated; the family's rejection contract stays covered by its other synthetic-negative gate. See E-2026-09-17 census referential-integrity gate."
    ],
    "regression_gates": [
     {
@@ -516,10 +517,6 @@
     {
      "kind": "synthetic-negative",
      "reference": "script/tests/test_scene_dependency_render_plan.py#test_puppet_atlas_cannot_publish_as_flat_image_provider"
-    },
-    {
-     "kind": "synthetic-negative",
-     "reference": "script/tests/test_scene_resolved_material_runtime_bridge.py#test_resolved_material_runtime_bridge_compiles_and_executes"
     },
     {
      "kind": "targeted-runtime",

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path, PurePosixPath
@@ -90,6 +91,15 @@ REPAIR_STATUS_CONTRACT = {
         "none", "synthetic", "targeted-runtime", "milestone",
     ],
 }
+
+# The repair ledger may record an in-flight event before the batch lands; the
+# placeholder is accepted by shape and must be replaced by a real commit in the
+# follow-up write-back.
+REPAIR_COMMIT_PLACEHOLDER = "uncommitted-working-tree"
+DEFAULT_REGRESSION_GATE_KINDS = (
+    "synthetic-positive", "synthetic-negative", "targeted-runtime", "milestone",
+)
+
 
 GENERATOR_PATHS = (
     "script/scene_capability_census.py",
@@ -1128,6 +1138,185 @@ def validate_repair_ledger(
     return failures
 
 
+def validate_repair_references(
+    ledger: Any,
+    known_sample_ids: set[str],
+    repository_root: Path,
+) -> list[dict[str, Any]]:
+    """Referential integrity for the repair ledger.
+
+    Field and enum shape is `validate_repair_ledger`'s job. This gate answers a
+    different question: do the recorded references still exist? A sentinel that
+    names a deleted test, an unknown sample or a moved document claims
+    regression protection that no longer exists, so it must fail closed.
+
+    Repository-external references (typically /private/tmp run artefacts) are
+    transient by artifact governance and are not failures. Commit identifiers are
+    only shape-checked here so the census stays reproducible without depending on
+    local history; resolving them belongs to an explicit audit.
+
+    This is a validator: malformed containers must produce failure records, never
+    exceptions, so every access below goes through a shape guard.
+    """
+    failures: list[dict[str, Any]] = []
+    repository_root = repository_root.resolve()
+    if not isinstance(ledger, dict):
+        return [{"code": "repair-ledger-not-object", "value": repr(ledger)[:80]}]
+
+    def entries(value: Any) -> list[Any]:
+        return value if isinstance(value, list) else []
+
+    def fields(value: Any) -> dict[str, Any]:
+        return value if isinstance(value, dict) else {}
+
+    entry_contract = ledger.get("entry_contract")
+    declared_kinds = (
+        entry_contract.get("regression_gate_kinds")
+        if isinstance(entry_contract, dict) else None
+    )
+    allowed_kinds = set(
+        declared_kinds if isinstance(declared_kinds, list)
+        and all(isinstance(kind, str) for kind in declared_kinds)
+        else DEFAULT_REGRESSION_GATE_KINDS
+    )
+    cache: dict[Path, str | None] = {}
+
+    def repository_text(path: Path) -> str | None:
+        if path not in cache:
+            try:
+                cache[path] = (
+                    path.read_text(encoding="utf-8", errors="replace")
+                    if path.is_file() else None
+                )
+            except OSError:
+                cache[path] = None
+        return cache[path]
+
+    def inside_repository(path_part: str) -> Path | None:
+        """Resolve a repository-relative reference, or None when it escapes."""
+        if not path_part:
+            return None
+        target = Path(path_part)
+        try:
+            target = (
+                target.resolve() if target.is_absolute()
+                else (repository_root / target).resolve()
+            )
+        except (OSError, RuntimeError, ValueError):
+            return None
+        return target if target.is_relative_to(repository_root) else None
+
+    for index, item in enumerate(entries(ledger.get("families"))):
+        if not isinstance(item, dict):
+            continue
+        key = item.get("family_key")
+        family_label = key if isinstance(key, str) else f"#{index}"
+
+        for sample in entries(item.get("targeted_samples")):
+            if isinstance(sample, str) and sample not in known_sample_ids:
+                failures.append({
+                    "code": "repair-sample-reference-unknown",
+                    "family_key": family_label,
+                    "sample_id": sample,
+                })
+
+        for gate in entries(item.get("regression_gates")):
+            gate = fields(gate)
+            kind = gate.get("kind")
+            reference = gate.get("reference")
+            if not isinstance(reference, str) or not reference.strip():
+                continue
+            if not isinstance(kind, str) or kind not in allowed_kinds:
+                failures.append({
+                    "code": "repair-gate-kind-unknown",
+                    "family_key": family_label,
+                    "kind": kind if isinstance(kind, str) else repr(kind)[:40],
+                })
+                continue
+            if kind == "targeted-runtime":
+                continue
+            path_part, _, symbol = reference.partition("#")
+            target = inside_repository(path_part)
+            if target is None:
+                failures.append({
+                    "code": "repair-gate-reference-outside-repository",
+                    "family_key": family_label,
+                    "reference": reference,
+                })
+                continue
+            text = repository_text(target)
+            if text is None:
+                failures.append({
+                    "code": "repair-gate-file-missing",
+                    "family_key": family_label,
+                    "reference": reference,
+                })
+                continue
+            name = symbol.split()[0] if symbol.strip() else ""
+            if name and not _symbol_present(name, text):
+                failures.append({
+                    "code": "repair-gate-symbol-missing",
+                    "family_key": family_label,
+                    "reference": reference,
+                })
+
+        evidence_groups = [("roi_evidence", entries(item.get("roi_evidence")))]
+        events = entries(item.get("events"))
+        for event_index, event in enumerate(events):
+            evidence_groups.append((
+                f"events[{event_index}].evidence_refs",
+                entries(fields(event).get("evidence_refs")),
+            ))
+        for field, references in evidence_groups:
+            for reference in references:
+                if not isinstance(reference, str):
+                    continue
+                path_part = reference.split("#")[0].split(" ")[0]
+                if path_part.startswith("/"):
+                    continue
+                target = inside_repository(path_part)
+                if target is None:
+                    failures.append({
+                        "code": "repair-evidence-reference-outside-repository",
+                        "family_key": family_label,
+                        "field": field,
+                        "reference": reference,
+                    })
+                elif not target.exists():
+                    failures.append({
+                        "code": "repair-evidence-file-missing",
+                        "family_key": family_label,
+                        "field": field,
+                        "reference": reference,
+                    })
+
+        commits = [item.get("commit")]
+        commits.extend(fields(event).get("commit") for event in events)
+        for commit in commits:
+            if commit == REPAIR_COMMIT_PLACEHOLDER:
+                continue
+            if not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{7,40}", commit):
+                failures.append({
+                    "code": "repair-commit-shape-invalid",
+                    "family_key": family_label,
+                    "commit": commit if isinstance(commit, str) else repr(commit)[:40],
+                })
+    return failures
+
+
+def _symbol_present(name: str, text: str) -> bool:
+    """The referenced symbol must appear as a whole identifier.
+
+    Recorded gate symbols are of two kinds: Python test method names and Swift
+    harness function names embedded in the test files' raw harness strings. A
+    whole-word match covers both while rejecting a symbol that survives only as
+    a fragment of a longer identifier.
+    """
+    return re.search(
+        rf"(?<![A-Za-z0-9_]){re.escape(name)}(?![A-Za-z0-9_])", text
+    ) is not None
+
+
 def build_census(
     samples_root: Path,
     stock_root: Path,
@@ -1204,6 +1393,11 @@ def build_census(
     ledger = load_repair_ledger(ledger_path)
     family_keys = {item["family_key"] for item in all_occurrences}
     ledger_failures = validate_repair_ledger(ledger, family_keys)
+    ledger_failures.extend(validate_repair_references(
+        ledger,
+        {sample.name for sample in samples},
+        REPOSITORY_ROOT,
+    ))
     family_rows = _family_rollup(all_occurrences, ledger)
     family_map, family_map_failures = load_family_map(family_map_path)
     capability_stats = _apply_family_map(family_rows, family_map, family_map_failures)
