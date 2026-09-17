@@ -11,7 +11,7 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（159 个 numeric sample）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `6a15950a17594148fa98fb2a36f9782e50931b4dc18a33435ed7fc4586511c94`（生成于 2026-09-12T00:10:46.463939+00:00）。
 - 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `2bf7c1d1992b9d215b5308e6e65a322013ee06fadb3c46d0cff04fc9c2b870c6`。
-- 本页生成于 2026-09-12T00:10:46.619122+00:00。
+- 本页生成于 2026-09-17T15:06:14.235379+00:00。
 
 ## 2. 汇总
 
@@ -21,6 +21,15 @@
 | `pass` | 0 |
 | `fail` | 19 |
 | `platform-unsupported` | 0 |
+
+| 官方对照状态 | 样本数 |
+|---|---:|
+| `unknown` | 159 |
+| `not-run` | 0 |
+| `blocked` | 0 |
+| `compared` | 0 |
+
+- 已裁决但缺观看者身份的条目：**19**；已裁决但缺截图/视频身份的条目：**19**（P0.2 `sample → verdict` 关系要求的字段；缺项保持 `unknown`，不由生成器补写）。此处只统计**裁决自己引用的** run/截图身份，与 corpus 清单（docs/scene/semantics/scene-corpus-capability-inventory.md）的「人工对照」列（样本目录自带的用户截图 `截屏*.png` 与 `用户观察说明.md`）不是同一事实，两页不可互相替代。
 
 | 首断点集群 | 含义 | 样本数 |
 |---|---|---:|

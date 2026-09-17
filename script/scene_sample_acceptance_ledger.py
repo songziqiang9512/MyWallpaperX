@@ -23,6 +23,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import re
 import sys
 from collections import Counter
 from datetime import datetime, timezone
@@ -39,6 +41,11 @@ DEFAULT_OUTPUT = (
 )
 
 ALLOWED_VERDICTS = ("unreviewed", "pass", "fail", "platform-unsupported")
+# P0.2 relation schema for `sample -> verdict`.  The overlay predates these
+# fields, so an absent value is `unknown` until a reviewer records it; the
+# loader never rewrites the human file to satisfy the schema.
+UNKNOWN = "unknown"
+ALLOWED_OFFICIAL_STATES = ("unknown", "not-run", "blocked", "compared")
 FINAL_GATE = (
     "每个样本在真实播放中正确显示与播放，且作者参数（project.json user properties）"
     "全部进入播放链路"
@@ -157,7 +164,14 @@ def cluster_for(status: str, first_breakpoint: Mapping[str, Any] | None) -> str:
     return "visual-review"
 
 
-def load_verdicts(path: Path) -> dict[str, dict[str, str]]:
+def load_verdicts(path: Path) -> dict[str, dict[str, Any]]:
+    """Load the hand-maintained verdict overlay.
+
+    Only a person who watched real playback may author these entries, so the
+    loader never invents values: fields added by the P0.2 relation schema stay
+    ``unknown`` until a reviewer fills them in, and the historical overlay does
+    not have to be rewritten for the ledger to build.
+    """
     document = _json(path)
     allowed = document.get("allowedVerdicts")
     if allowed != list(ALLOWED_VERDICTS):
@@ -165,7 +179,7 @@ def load_verdicts(path: Path) -> dict[str, dict[str, str]]:
     verdicts = document.get("verdicts")
     if not isinstance(verdicts, Mapping):
         raise ValueError("verdict overlay has no verdicts object")
-    result: dict[str, dict[str, str]] = {}
+    result: dict[str, dict[str, Any]] = {}
     for sample_id, entry in verdicts.items():
         if not (isinstance(sample_id, str) and sample_id.isdigit()):
             raise ValueError(f"verdict key is not a numeric sample id: {sample_id!r}")
@@ -180,11 +194,272 @@ def load_verdicts(path: Path) -> dict[str, dict[str, str]]:
             raise ValueError(f"sample {sample_id} verdict note/reviewedOn must be strings")
         if verdict != "unreviewed" and not reviewed_on:
             raise ValueError(f"sample {sample_id} verdict {verdict} requires reviewedOn")
-        result[sample_id] = {"verdict": verdict, "note": note, "reviewedOn": reviewed_on}
+        reviewer = entry.get("reviewer", UNKNOWN)
+        remaining = entry.get("remainingDifferences", UNKNOWN)
+        official = entry.get("officialComparison", UNKNOWN)
+        if not isinstance(reviewer, str) or not isinstance(remaining, str):
+            raise ValueError(
+                f"sample {sample_id} viewer/remaining-difference fields must be strings"
+            )
+        # A blank string is not a recorded value: normalizing it to `unknown`
+        # keeps the "reviewed without viewer" gap honest instead of letting a
+        # placeholder erase the gap the P0.2 schema exists to expose.
+        if not reviewer.strip():
+            reviewer = UNKNOWN
+        if not remaining.strip():
+            remaining = UNKNOWN
+        if not isinstance(official, str) or official not in ALLOWED_OFFICIAL_STATES:
+            raise ValueError(
+                f"sample {sample_id} officialComparison must be one of "
+                f"{list(ALLOWED_OFFICIAL_STATES)}"
+            )
+        runs = _string_list(entry.get("runs"), sample_id, "runs")
+        evidence = _string_list(entry.get("evidence"), sample_id, "evidence")
+        result[sample_id] = {
+            "verdict": verdict,
+            "note": note,
+            "reviewedOn": reviewed_on,
+            "reviewer": reviewer,
+            "runs": runs,
+            "evidence": evidence,
+            "remainingDifferences": remaining,
+            "officialComparison": official,
+        }
     return result
 
 
-def build_ledger(samples_root: Path, archive_path: Path, verdicts_path: Path) -> dict[str, Any]:
+def _string_list(value: Any, sample_id: str, field: str) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f"sample {sample_id} {field} must be a list of strings")
+    return list(value)
+
+
+# Suffixes a verdict reference may carry after its path.  Only recognized
+# spellings are stripped: an anchor is `#L12`/`#10` style and an annotation is a
+# known checksum/size note.  Any other trailing text stays part of the path, so
+# a filename containing spaces, `#` or `=` is never truncated into a different,
+# possibly existing file.
+_ANNOTATION_SUFFIX = re.compile(
+    r"\s+(?:sha256|sha1|sha512|md5|blake2b|blake3|crc32|checksum|hash|size|bytes)=\S+$",
+    re.IGNORECASE,
+)
+_ANCHOR_SUFFIX = re.compile(r"#(?:L\d+|\d+)$", re.IGNORECASE)
+# Bounded: a pathological string must not spin here.
+_MAX_SUFFIX_STRIPS = 8
+
+
+def _reference_variants(reference: str) -> list[str]:
+    """Path spellings one reference may cite.
+
+    Every spelling is derived from the reference itself by removing a suffix,
+    never a prefix: the literal spelling, the same string without trailing
+    whitespace, and repeated removals of a recognized anchor or annotation
+    suffix.  Truncating at the first space is deliberately not a variant -- that
+    would turn ``... 01.48.33.png`` into a different path and reject evidence
+    that exists, and stripping an unrecognized ``#...`` suffix would let a
+    same-prefix sibling vouch for a citation naming a different file.
+    """
+    variants: list[str] = []
+
+    def add(candidate: str) -> None:
+        if candidate.strip() and not candidate.startswith("#") and candidate not in variants:
+            variants.append(candidate)
+
+    add(reference)
+    add(reference.rstrip())
+    for candidate in list(variants):
+        current = candidate
+        for _ in range(_MAX_SUFFIX_STRIPS):
+            stripped = _ANNOTATION_SUFFIX.sub("", current).rstrip()
+            stripped = _ANCHOR_SUFFIX.sub("", stripped).rstrip()
+            if stripped == current or not stripped:
+                break
+            current = stripped
+            add(current)
+    return variants
+
+
+def _spelled_inside(
+    repository_root: Path,
+    candidate: Path,
+    spelled_root: Path | None = None,
+) -> bool:
+    """Whether a citation spells a location inside the repository.
+
+    Lexical only: symlinks and ``..`` are not resolved, because the question is
+    where the author wrote the path, not where the filesystem sends it.  Every
+    spelling of the root is accepted, so a repository whose path is reached
+    through a symlinked prefix (``/var`` on macOS) is still recognized as the
+    repository rather than mistaken for an external artifact.
+    """
+    normalized = Path(os.path.normpath(candidate))
+    roots = [repository_root, repository_root.resolve()]
+    if spelled_root is not None:
+        roots += [spelled_root, spelled_root.resolve()]
+    for spelling in roots:
+        prefix = str(spelling).rstrip("/")
+        # The raw spelling matters as much as the normalized one: `/repo/../x`
+        # is written inside the repository even though it resolves outside.
+        if str(candidate) == prefix or str(candidate).startswith(prefix + "/"):
+            return True
+        if normalized.is_relative_to(Path(os.path.normpath(spelling))):
+            return True
+    return False
+
+
+def _classify_reference(
+    reference: str,
+    repository_root: Path,
+    spelled_root: Path | None = None,
+) -> str:
+    """Classify one verdict reference; ``""`` means it is acceptable.
+
+    References landing outside the repository are transient by artifact
+    governance and are accepted without an existence check -- the requirement
+    they carry (P0.2) is that acceptance evidence recorded *inside* the
+    repository is still there, and a repository-internal citation written as an
+    absolute path is checked exactly like a relative one.  A directory is not
+    evidence identity, and an unresolvable spelling is a failure rather than an
+    exception.
+    """
+    variants = _reference_variants(reference)
+    if not variants:
+        return "verdict-evidence-reference-empty"
+    saw_escape = False
+    saw_directory = False
+    for variant in variants:
+        expanded = Path(os.path.expandvars(os.path.expanduser(variant)))
+        absolute = expanded.is_absolute()
+        candidate = expanded if absolute else repository_root / expanded
+        try:
+            target = candidate.resolve()
+        except (OSError, RuntimeError, ValueError):
+            continue
+        if not target.is_relative_to(repository_root):
+            # Only a citation spelled outside the repository is a transient
+            # artifact; one spelled inside that resolves outside (a `..` path
+            # or a repository symlink pointing out) is an escape, whichever way
+            # it is written.
+            if absolute and not _spelled_inside(repository_root, candidate, spelled_root):
+                return ""
+            saw_escape = True
+            continue
+        try:
+            if not target.exists():
+                continue
+            if target.is_file():
+                return ""
+        except OSError:
+            return "verdict-evidence-reference-unresolvable"
+        saw_directory = True
+    if saw_escape:
+        return "verdict-evidence-reference-outside-repository"
+    if saw_directory:
+        return "verdict-evidence-not-a-file"
+    return "verdict-evidence-file-missing"
+
+
+def validate_verdict_references(
+    verdicts: Mapping[str, Mapping[str, Any]],
+    repository_root: Path,
+) -> list[dict[str, Any]]:
+    """Referential integrity for the run/evidence a verdict cites.
+
+    Unknown sample ids stay `build_ledger`'s contract; this gate owns the other
+    half of the P0.2 `sample -> verdict` relation: a verdict that cites run or
+    screenshot paths which no longer exist inside the repository cannot support
+    the acceptance decision it records. Repository-external references are
+    transient by artifact governance and are never failures, but a repository
+    path that exists as a directory is not evidence identity either.
+
+    This is a validator: malformed containers produce failure records, never
+    exceptions, so it stays callable from audit scripts on unnormalized input.
+    """
+    failures: list[dict[str, Any]] = []
+    if not isinstance(verdicts, Mapping):
+        return [{
+            "code": "verdict-container-shape-invalid",
+            "sample_id": "",
+            "field": "",
+            "reference": repr(verdicts),
+        }]
+    try:
+        root = Path(repository_root)
+        resolved_root = root.resolve()
+    except (OSError, RuntimeError, TypeError, ValueError):
+        return [{
+            "code": "verdict-repository-root-invalid",
+            "sample_id": "",
+            "field": "",
+            "reference": repr(repository_root),
+        }]
+    try:
+        entries = list(verdicts.items())
+    except Exception:  # noqa: BLE001 - this validator never raises
+        return [{
+            "code": "verdict-container-shape-invalid",
+            "sample_id": "",
+            "field": "",
+            "reference": repr(verdicts),
+        }]
+    for sample_id, entry in entries:
+        if not isinstance(entry, Mapping):
+            failures.append({
+                "code": "verdict-entry-shape-invalid",
+                "sample_id": sample_id,
+                "field": "",
+                "reference": "",
+            })
+            continue
+        for field in ("runs", "evidence"):
+            try:
+                references = entry.get(field)
+            except (AttributeError, KeyError, RuntimeError, TypeError, ValueError):
+                failures.append({
+                    "code": "verdict-entry-shape-invalid",
+                    "sample_id": sample_id,
+                    "field": field,
+                    "reference": repr(entry),
+                })
+                continue
+            if references is None:
+                continue
+            if not isinstance(references, list):
+                failures.append({
+                    "code": "verdict-evidence-reference-invalid",
+                    "sample_id": sample_id,
+                    "field": field,
+                    "reference": repr(references),
+                })
+                continue
+            for reference in references:
+                if not isinstance(reference, str):
+                    failures.append({
+                        "code": "verdict-evidence-reference-invalid",
+                        "sample_id": sample_id,
+                        "field": field,
+                        "reference": repr(reference),
+                    })
+                    continue
+                code = _classify_reference(reference, resolved_root, root)
+                if code:
+                    failures.append({
+                        "code": code,
+                        "sample_id": sample_id,
+                        "field": field,
+                        "reference": reference,
+                    })
+    return failures
+
+
+def build_ledger(
+    samples_root: Path,
+    archive_path: Path,
+    verdicts_path: Path,
+    repository_root: Path | None = None,
+) -> dict[str, Any]:
     if not samples_root.is_dir():
         raise ValueError(f"samples root is not a directory: {samples_root}")
     sample_dirs = iter_numeric_sample_directories(samples_root)
@@ -218,7 +493,12 @@ def build_ledger(samples_root: Path, archive_path: Path, verdicts_path: Path) ->
             status = str(runtime.get("status", "runtime-status-unknown"))
             candidate = runtime.get("firstBreakpoint")
             first_breakpoint = candidate if isinstance(candidate, Mapping) else None
-        verdict = verdicts.get(sample_id, {"verdict": "unreviewed", "note": "", "reviewedOn": ""})
+        verdict = verdicts.get(sample_id, {
+            "verdict": "unreviewed", "note": "", "reviewedOn": "",
+            "reviewer": UNKNOWN, "runs": [], "evidence": [],
+            "remainingDifferences": UNKNOWN,
+            "officialComparison": UNKNOWN,
+        })
         rows.append({
             "id": sample_id,
             "title": authored["title"],
@@ -240,7 +520,20 @@ def build_ledger(samples_root: Path, archive_path: Path, verdicts_path: Path) ->
             "verdict": verdict["verdict"],
             "reviewedOn": verdict["reviewedOn"],
             "note": verdict["note"],
+            "reviewer": verdict["reviewer"],
+            "runs": list(verdict["runs"]),
+            "evidence": list(verdict["evidence"]),
+            "remainingDifferences": verdict["remainingDifferences"],
+            "officialComparison": verdict["officialComparison"],
         })
+
+    reference_root = REPOSITORY_ROOT if repository_root is None else Path(repository_root)
+    reference_failures = validate_verdict_references(verdicts, reference_root)
+    if reference_failures:
+        raise ValueError(
+            f"verdict overlay has dangling references ({len(reference_failures)}): "
+            f"{json.dumps(reference_failures[:5], ensure_ascii=False)}"
+        )
 
     verdict_counts = Counter(row["verdict"] for row in rows)
     cluster_counts = Counter(row["cluster"] for row in rows)
@@ -268,6 +561,20 @@ def build_ledger(samples_root: Path, archive_path: Path, verdicts_path: Path) ->
             "samplesWithAuthoredParameters": len(authored_rows),
             "authoredParameterTotal": sum(row["authored"]["parameterCount"] for row in rows),
             "conditionalParameterTotal": sum(row["authored"]["conditionalCount"] for row in rows),
+            "officialComparisonCounts": {
+                key: sum(
+                    1 for row in rows if row["officialComparison"] == key
+                )
+                for key in ALLOWED_OFFICIAL_STATES
+            },
+            "reviewedWithoutViewer": sum(
+                1 for row in rows
+                if row["verdict"] != "unreviewed" and row["reviewer"] == UNKNOWN
+            ),
+            "reviewedWithoutEvidence": sum(
+                1 for row in rows
+                if row["verdict"] != "unreviewed" and not row["evidence"]
+            ),
         },
         "samples": rows,
     }
@@ -308,6 +615,23 @@ def render_markdown(ledger: Mapping[str, Any]) -> str:
     ]
     for key in ALLOWED_VERDICTS:
         lines.append(f"| `{key}` | {summary['verdictCounts'][key]} |")
+    lines += [
+        "",
+        "| 官方对照状态 | 样本数 |",
+        "|---|---:|",
+    ]
+    for key in ALLOWED_OFFICIAL_STATES:
+        lines.append(f"| `{key}` | {summary['officialComparisonCounts'][key]} |")
+    lines += [
+        "",
+        f"- 已裁决但缺观看者身份的条目：**{summary['reviewedWithoutViewer']}**；"
+        f"已裁决但缺截图/视频身份的条目：**{summary['reviewedWithoutEvidence']}**"
+        "（P0.2 `sample → verdict` 关系要求的字段；缺项保持 `unknown`，不由生成器补写）。"
+        "此处只统计**裁决自己引用的** run/截图身份，与 corpus 清单"
+        "（docs/scene/semantics/scene-corpus-capability-inventory.md）的「人工对照」列"
+        "（样本目录自带的用户截图 `截屏*.png` 与 `用户观察说明.md`）不是同一事实，"
+        "两页不可互相替代。",
+    ]
     lines += ["", "| 首断点集群 | 含义 | 样本数 |", "|---|---|---:|"]
     for key in CLUSTER_ORDER:
         lines.append(f"| `{key}` | {CLUSTER_LABELS[key]} | {summary['clusterCounts'][key]} |")
