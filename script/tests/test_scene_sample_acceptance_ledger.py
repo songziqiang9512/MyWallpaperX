@@ -18,6 +18,10 @@ if str(SCRIPT_ROOT) not in sys.path:
 
 from scene_sample_acceptance_ledger import (  # noqa: E402
     ALLOWED_VERDICTS,
+    DEFAULT_ARCHIVE,
+    DEFAULT_OUTPUT,
+    DEFAULT_SAMPLES_ROOT,
+    DEFAULT_VERDICTS,
     build_ledger,
     cluster_for,
     render_markdown,
@@ -109,6 +113,10 @@ class SceneSampleAcceptanceLedgerTests(unittest.TestCase):
         self.assertEqual(cluster_for("degraded-runtime", {"stage": "script-execution", "owner": "SceneScriptVM"}), "scenescript")
         self.assertEqual(cluster_for("structural-chain-complete-visual-review", None), "visual-review")
         self.assertEqual(cluster_for("not-run", None), "not-run")
+        self.assertEqual(
+            cluster_for("blocked", {"stage": "terminal-compositor", "owner": "SceneCompositor"}),
+            "terminal-output",
+        )
 
     def test_invalid_overlays_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -360,6 +368,101 @@ class SceneSampleAcceptanceLedgerTests(unittest.TestCase):
                 }))
                 with self.assertRaisesRegex(ValueError, "reference-empty"):
                     build_ledger(samples, archive, empty, root)
+
+    def test_archive_identity_line_reports_every_execution_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = self._corpus(root)
+            overlay = _write(root / "verdicts.json", _verdicts({}))
+            cdhash = "aa" * 20
+            archive = _write(root / "archive.json", {
+                **_archive([]),
+                "appIdentities": [
+                    {"cdhash": cdhash, "executable_sha256": "bb" * 32},
+                    {"cdhash": cdhash, "executable_sha256": "bb" * 32},
+                    {"cdhash": None, "executable_sha256": "cc" * 32},
+                ],
+            })
+            markdown = render_markdown(build_ledger(samples, archive, overlay, root))
+            self.assertEqual(markdown.count(f"CDHash `{cdhash}`"), 1)
+            self.assertIn(f"executable SHA-256 `{'cc' * 32}`", markdown)
+            self.assertIn("不止一个执行身份", markdown)
+
+            # A blank cdhash is missing, not a second identity.
+            blanks = _write(root / "blanks.json", {
+                **_archive([]),
+                "appIdentities": [
+                    {"cdhash": "  ", "executable_sha256": "dd" * 32},
+                    {"cdhash": None, "executable_sha256": "dd" * 32},
+                ],
+            })
+            markdown = render_markdown(build_ledger(samples, blanks, overlay, root))
+            self.assertEqual(markdown.count(f"executable SHA-256 `{'dd' * 32}`"), 1)
+            self.assertNotIn("不止一个执行身份", markdown)
+
+            # A pipe in an identity must not break the summary tables.
+            piped = _write(root / "piped.json", {
+                **_archive([]),
+                "appIdentities": [{"cdhash": "aa|bb", "executable_sha256": None}],
+            })
+            markdown = render_markdown(build_ledger(samples, piped, overlay, root))
+            self.assertIn("CDHash `aa\\|bb`", markdown)
+
+            # Non-string identity fields are missing, not identities.
+            malformed_items = _write(root / "malformed-items.json", {
+                **_archive([]),
+                "appIdentities": [
+                    7, "x", None,
+                    {"cdhash": 7, "executable_sha256": ["y"]},
+                    {"cdhash": "aa", "executable_sha256": None},
+                ],
+            })
+            markdown = render_markdown(build_ledger(samples, malformed_items, overlay, root))
+            self.assertEqual(markdown.count("CDHash `aa`"), 1)
+
+            # Malformed containers must still render a page.
+            for payload in (5, {"unexpected": "mapping"}, "text"):
+                degenerate = _write(root / "degenerate.json", {
+                    **_archive([]), "appIdentities": payload,
+                })
+                markdown = render_markdown(build_ledger(samples, degenerate, overlay, root))
+                self.assertIn("归档运行身份：未记录", markdown)
+                self.assertNotIn("不止一个执行身份", markdown)
+
+            baseline_lines = len(markdown.splitlines())
+            injected = _write(root / "injected.json", {
+                **_archive([]),
+                "appIdentities": [{"cdhash": "aa\n- 注入行", "executable_sha256": None}],
+            })
+            markdown = render_markdown(build_ledger(samples, injected, overlay, root))
+            self.assertEqual(len(markdown.splitlines()), baseline_lines)
+            self.assertFalse(
+                any(line.startswith("- 注入行") for line in markdown.splitlines())
+            )
+
+    def test_committed_ledger_page_is_regenerable_from_its_inputs(self) -> None:
+        """The checked-in page must match the checked-in archive and overlay.
+
+        Nothing else compares the generated page with its inputs, so a rebuilt
+        archive or a changed template could otherwise leave the page stale
+        while every focused test still passes.
+        """
+        if not DEFAULT_SAMPLES_ROOT.is_dir():
+            self.skipTest("read-only sample root is unavailable")
+        if not DEFAULT_OUTPUT.is_file():
+            self.skipTest("generated page is not present")
+        ledger = build_ledger(DEFAULT_SAMPLES_ROOT, DEFAULT_ARCHIVE, DEFAULT_VERDICTS)
+        strip = [
+            line
+            for line in render_markdown(ledger).splitlines()
+            if not line.startswith("- 本页生成于")
+        ]
+        committed = [
+            line
+            for line in DEFAULT_OUTPUT.read_text(encoding="utf-8").splitlines()
+            if not line.startswith("- 本页生成于")
+        ]
+        self.assertEqual(committed, strip)
 
     def test_verdict_loader_never_rewrites_the_human_overlay(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

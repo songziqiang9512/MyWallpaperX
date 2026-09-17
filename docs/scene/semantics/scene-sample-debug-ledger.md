@@ -213,15 +213,15 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 | `mwx-v4-authored-sample-audit-part-3-of-4` | 40 | `f8fb14de3ae911c55e67f220a90d77b237ef0ba2c4e96ea1b053c0ea28c65075` |
 | `mwx-v4-authored-sample-audit-part-4-of-4` | 39 | `e10934d7e2d116d66a7b6d9a70bd28c8d116349a87ca05101ea8a69cc3831751` |
 
-机器可查询的合并档案是 [`scene_sample_debug_archive.json`](../../../script/scene_sample_debug_archive.json)（SHA-256 `36e8d7b1662414c73972742e4fb91e4afd14c48d1fed57f4af5dacf26b19268a`）。它覆盖 `159/159` 个样本，状态为 `117 structural-chain-complete-visual-review`、`37 degraded-runtime`、`5 blocked`。这些状态只描述运行安全和首断点，`structural-chain-complete-visual-review` 仍要求 authored preview/ROI 与 next-frame 视觉复核，不能写成“正确显示”。首断点计数为：
+机器可查询的合并档案是 [`scene_sample_debug_archive.json`](../../../script/scene_sample_debug_archive.json)（SHA-256 `8215416ab591988e2f84efe99f38393bce5fb2b978331a573c1e6b21d453fb04`，生成于 2026-09-17T15:17:56Z，由 2026-09-17 05:41–09:08 的 159 个全量 report 重建）。它覆盖 `159/159` 个样本，状态为 `127 structural-chain-complete-visual-review`、`30 degraded-runtime`、`2 blocked`。这些状态只描述运行安全和首断点，`structural-chain-complete-visual-review` 仍要求 authored preview/ROI 与 next-frame 视觉复核，不能写成“正确显示”。**该档案含两个执行身份**（158 个 report 为 CDHash `918475e7…`、1 个为 `6e870cf9…`），且 `3754630802` 的 run 目录被后一次重试覆盖，故其归档状态与那次 sweep 的 `final-verdicts.json` 判定不一致——单样本结论以该样本自己的 report 身份为准，身份边界见[运行证据](runtime-evidence-current.md#e-2026-09-17-p03-fullset-baseline-and-split-identity)。首断点计数为：
 
-- `effect-admission:admitted-fallback` 12；`effect-admission:unified-capability-unavailable` 9。
 - `resource-load:particle-layer-load-incomplete` 9；`resource-load:base-image-texture-load-incomplete` 3。
-- `graph-execution:graph-execution-missing` 2。
-- `script-execution:scene-script-exception-range-error` 3；`script-execution:scene-script-exception-type-error` 2。
-- 另有 1 个 dynamic-uniform binding passthrough 和 1 个 material-pass preparation/library compilation passthrough。
+- `script-execution:scene-script-exception-type-error` 7；`script-execution:scene-script-bad-return` 2；`script-execution:scene-script-exception-reference-error` 1；`script-execution:scene-script-exception-range-error` 1。
+- `graph-execution:layer-source-not-ready` 5。
+- `effect-admission:unified-capability-unavailable` 2；`effect-admission:admitted-fallback` 1。
+- `terminal-compositor:terminal-output-flat-preview-divergence` 1。
 
-五个需要先回到公共 owner 的 blocked 样本是 `2824109832`（effect admission 后仍有未认领 visible effect）、`3448845950`（GraphExecutor 缺失多层且无 terminal/next-frame）、`3470948192`（terminal flat-preview divergence）、`3775355045` 和 `3775373546`（layer 22 的 GraphExecutor execution missing）。`3509243656`、`3610154602`、`3612199597` 等真实样本还记录了 SceneScript typed exception；这说明“脚本路径更好”不能由全量 probe 推断。
+两个 blocked 样本是 `2959875782` 和 `3792249095`。`2959875782` 的括注是它的**首断点**（`effect-admission / EffectStageAdmission / admitted-fallback`，profile `effect-local-passthrough`），使其 blocked 的**阻塞原因**是 layer 520 的 graph/gpu/compositor/next-frame 事件缺失，即该 report 的 4 条 accepted-layer 失败项；它在当前身份 `a31bd68a…` 的 76 样本增量复核中 matrix 判定已转 PASS，该次 report 归一为 `degraded`（**归档未重建，本页与归档仍记 `blocked`**），且**首断点没有消失**，仍归 effect-admission owner。`3792249095` 的括注即其阻塞原因（`terminal-compositor / SceneCompositor / terminal-output-flat-preview-divergence`，profile `captured-scene-output`）。
 
 本档案的生成器是 [`scene_sample_debug_archive.py`](../../../script/scene_sample_debug_archive.py)，测试为 [`test_scene_sample_debug_archive.py`](../../../script/tests/test_scene_sample_debug_archive.py)。它只合并样本静态事实与现有 report/diagnostic first breakpoint，不保存样本副本、截图或作者 payload；`/private/tmp` report 路径是 provenance，缓存消失后不能用本页代替重新运行。
 

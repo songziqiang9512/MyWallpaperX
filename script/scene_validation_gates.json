@@ -1209,10 +1209,12 @@
       "patterns": [
         "script/scene_sample_acceptance_ledger.py",
         "script/scene_sample_acceptance_verdicts.json",
-        "docs/scene/semantics/scene-sample-acceptance-ledger.md"
+        "docs/scene/semantics/scene-sample-acceptance-ledger.md",
+        "script/scene_sample_debug_archive.json"
       ],
       "modules": [
-        "test_scene_sample_acceptance_ledger"
+        "test_scene_sample_acceptance_ledger",
+        "test_scene_sample_debug_archive"
       ]
     },
     {

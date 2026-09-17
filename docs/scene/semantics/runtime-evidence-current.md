@@ -22,6 +22,29 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-17-p03-fullset-baseline-and-split-identity"></a>
+
+### E-2026-09-17-P03-FULLSET-BASELINE-AND-SPLIT-IDENTITY — 全量 sweep 是单二进制，但留存 report 含两个身份；当前身份下只复核了 76/159
+
+本条只整理**已经跑过**的证据并给出身份与执行边界，不新增任何运行结论。`/private/tmp` 运行现场会被清理，因此结论以本条与两份台账为准。
+
+全量 sweep（`/private/tmp/mwx-fullset-baseline`）覆盖 `159/159` 个样本，**sweep 本身由同一个二进制跑完**：执行身份 CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`（executable SHA-256 `78bfa77e018524beeed4d411731c7591af2d540d7bbcc9592ee389ad44c3d06e`），运行窗 2026-09-17 05:41–08:18 本地；驱动汇总 `final-verdicts.json`（08:18）记录 **157 PASS / 2 FAIL**。**采集模式是混合的**：先由 4 路并行 worker 跑完（worker 记录 159 条、分片 56/35/34/34，`driver.log` 记 `06:41:53 all workers complete`），随后对 chunk 0 的 70 个样本单实例重跑（约 07:06–08:15）。**现存 159 份 report 的构成是 88 份并行段 + 69 份串行段 + 2 份单独调用**（08:18 的 `run-3738202317` 与 09:08 的 `run-3754630802`）。因此这份基线的样本身份与结构/首断点结论可用，**并行段以及并行遥测受限的 report 的 performance/presentation 数字不可当作性能基线**（与队列 P0.3a 的既有口径一致）。
+
+**留存的 159 份 report 并不全是同一个身份**：158 份为 `918475e7…`（`78bfa77e…`），第 159 份是 `run-3754630802`（09:08）——身份 `6e870cf9e716242f6d1dcb2ffa7793dae16567f4`（executable SHA-256 `93e4c3bc59bd57b6e75ee5f859131bd161ec54cc8eb9f38f6d80b1c6f8e89a67`）。该 report 在 sweep 之后由另一次单独调用重建（sweep 于 07:35 判定它 FAIL），且这次调用发生在 `d50610b0`（puppet mesh 48-byte stride）、`ed216562`（numeric ternary conditions）、`61a69b1a`（recovered layer-source diagnostics）、`09dfbe58` 这些修复之后，report 为 `passed=true`。因此归档里它的状态（`structural-chain-complete-visual-review`）**既不是那次 sweep 的判定，也不是当前 HEAD 的判定**；单样本结论必须回到该样本自己的 report 身份。
+
+两个 FAIL 样本（失败项逐条取自 `final-verdicts.json`）：
+
+- `2959875782`，4 条，全部是 accepted layer 证据缺失：`resolved material graph accepted layer` 的 GPU completion、compositor consumption、next-frame、exact backend evidence missing。该 sweep 运行的 `admitted-fallback` 计数为 11。
+- `3754630802`，13 条：`performance evidence unavailable: performance presentation stream count does not match surfaces`、accepted layer 的同样 4 条、`resolved material graph successful transaction count below two`、`resolved material graph executor reported failures`、`executor claimed / encoded / GPU encoded count is zero`、`observation diagnostic reported`、`utility capture execution below planned count`、`non-black window evidence missing`。
+
+归档已按这 159 个 report 重建：`script/scene_sample_debug_archive.json` SHA-256 `8215416ab591988e2f84efe99f38393bce5fb2b978331a573c1e6b21d453fb04`（生成于 2026-09-17T15:17:56Z），状态为 `127 structural-chain-complete-visual-review`、`30 degraded-runtime`、`2 blocked`，取代 2026-09-12 的旧归档（当时只合并 5 个 report、`112/44/3`）。**归档含两个执行身份**（158 个 `918475e7…` + 1 个 `6e870cf9…`），运行状态因此是混合身份事实；归档的 `appIdentities` 与 `samples` 同长同序、逐 index 对应（各 159 条，index 105 即 `3754630802`），该对齐关系目前只由生成器保证、未写进 schema。注意 `2959875782` 在**归档里仍是 `blocked`**（归档由 sweep 的 report 派生），只有在该样本**当前身份**的 report 上重新归一才得到 `degraded`——两者不可混写。两个 blocked 样本是 `2959875782`（首断点 `effect-admission / EffectStageAdmission / admitted-fallback`，使其 blocked 的是 layer 520 的 graph/gpu/compositor/next-frame 事件缺失）与 `3792249095`（`terminal-compositor / SceneCompositor / terminal-output-flat-preview-divergence`）。
+
+当前 HEAD 身份下的复核是部分的：二进制构建并签名于 2026-09-17 21:46:53（构建时工作树 HEAD `dc147773`，Developer ID 签名），CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、executable SHA-256 `34bdca213a505839ee4ee707ca712d01f4f59a7fd61a6208ebaafafe07704735`；复核会话在 HEAD `4cdda661` 下复用同一 CDHash（其间未重建，`dc147773..97a179a9` 无 `.swift` 改动）。已完成 **76/159，76 个 report 全部 PASS**（22:19:28–23:16:45，`summary-worker-all.jsonl` 76 条、attempts 全为 1），随后在准备第 77 个样本 `3470948192` 时被停止——该样本留下 `results/`（含 `app.log`）与 `runtime/` 但没有 report，驱动 stdout 为空，因此这次复核没有完成记录。此前还有一次并行尝试（21:48–22:18），它在未覆盖样本上留下 45 份 `stdout-*.log`（22:18:53 起的串行会话又写了 77 份，其中 1 份属于未覆盖样本）：未覆盖样本合计 46 份日志 = 20 份 PASS 记录、6 份 presentation-only FAIL（`performance presentation stream count does not match surfaces`，即并行遥测限制，不是产品失败）、10 份空文件、10 份 traceback（并行段在 22:15–22:18 被中断）；另有 37 个样本没有任何痕迹。这些日志不带 App 身份字段、对应 report 已不存在，不能当作运行证据。
+
+与全量基线逐样本比对只有一处状态变化：`2959875782` 的 matrix 判定由 FAIL 转 PASS，当前身份 report 归一为 `degraded`（`admitted-fallback` 11→1、`admitted-generic` 175→191、`secondaryEvents` 14→0），**但归档仍记 `blocked`、首断点仍是 `effect-admission / EffectStageAdmission / admitted-fallback`，不能写成断点已修复或已关闭**。两次运行之间落地的产品提交不止两个（`8cb2c343`、`a8fea925`、`07133cbf`、`aca7da40`、`cc69da74`），因此这一处变化不能唯一归因到其中任一提交。
+
+未完成边界（明确）：**P0.3「与当前 HEAD 同身份的全量基线」尚未完成**；本页与台账中的运行状态、首断点按归档身份读取，不得把 76/76 PASS 或归档的 `127/159` 安全状态写成视觉通过，也不得把 `2959875782` 的单点变化外推为全量结论。剩余工作是对这 83 个样本（含基线上 FAIL 的 `3754630802`）在当前身份下定向补齐，**不整体重跑**。
+
 <a id="e-2026-09-17-reference-viewport-uncontrolled"></a>
 
 ### E-2026-09-17-REFERENCE-VIEWPORT-UNCONTROLLED — 断点 #1 参考图不可作绝对位置 oracle；两个报告症状都不是产品缺陷

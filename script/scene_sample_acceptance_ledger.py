@@ -58,6 +58,7 @@ CLUSTER_ORDER = (
     "particle-load",
     "texture-load",
     "scenescript",
+    "terminal-output",
     "visual-review",
     "not-run",
 )
@@ -66,6 +67,7 @@ CLUSTER_LABELS = {
     "particle-load": "粒子层资源加载",
     "texture-load": "基础图片纹理加载",
     "scenescript": "SceneScript 异常",
+    "terminal-output": "terminal compositor / 输出链",
     "visual-review": "结构链完整，待视觉验收",
     "not-run": "尚无隔离运行证据",
 }
@@ -161,6 +163,8 @@ def cluster_for(status: str, first_breakpoint: Mapping[str, Any] | None) -> str:
         return "texture-load"
     if stage == "script-execution":
         return "scenescript"
+    if stage in {"terminal-compositor", "terminal-output"}:
+        return "terminal-output"
     return "visual-review"
 
 
@@ -454,6 +458,52 @@ def validate_verdict_references(
     return failures
 
 
+def _app_identity_label(identity: Mapping[str, Any]) -> str:
+    """Render one archive build identity for the page header."""
+    cdhash = _identity_text(identity.get("cdhash"))
+    if cdhash:
+        return _cell(f"CDHash `{cdhash}`", 80)
+    executable = _identity_text(identity.get("executableSha256"))
+    if executable:
+        return _cell(f"executable SHA-256 `{executable}`", 96)
+    return ""
+
+
+def _distinct_app_identities(archive: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Distinct build identities of an archive, in first-appearance order.
+
+    Degenerate archives must still render: a malformed ``appIdentities``
+    container yields no identity rather than an exception, because this is a
+    report renderer, not a validator of its inputs.
+    """
+    try:
+        items = list(archive.get("appIdentities") or [])
+    except TypeError:
+        return []
+    identities: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in items:
+        if not isinstance(item, Mapping):
+            continue
+        identity = {
+            "cdhash": _identity_text(item.get("cdhash")),
+            "executableSha256": _identity_text(item.get("executable_sha256")),
+        }
+        label = identity["cdhash"] or identity["executableSha256"]
+        if not label or label in seen:
+            continue
+        seen.add(label)
+        identities.append(identity)
+    return identities
+
+
+def _identity_text(value: Any) -> str:
+    """A build-identity field as text; missing and blank mean the same thing."""
+    if not isinstance(value, str):
+        return ""
+    return value.strip()
+
+
 def build_ledger(
     samples_root: Path,
     archive_path: Path,
@@ -551,6 +601,10 @@ def build_ledger(
                 "path": str(archive_path),
                 "sha256": sha256_file(archive_path),
                 "generatedAtUtc": archive.get("generatedAtUtc"),
+                # The distinct build identities the archived reports actually
+                # ran under: runtime status must never be read as a claim about
+                # current HEAD, and two identities mean a mixed archive.
+                "appIdentities": _distinct_app_identities(archive),
             },
             "verdicts": {"path": str(verdicts_path), "sha256": sha256_file(verdicts_path)},
         },
@@ -605,6 +659,25 @@ def render_markdown(ledger: Mapping[str, Any]) -> str:
         f"- 样本根：`{source['samplesRoot']}`（{source['sampleCount']} 个 numeric sample）。",
         f"- 运行归档：`{Path(source['archive']['path']).name}` SHA-256 `{source['archive']['sha256']}`"
         f"（生成于 {source['archive']['generatedAtUtc']}）。",
+        "- 归档运行身份："
+        + (
+            "、".join(
+                label
+                for label in (
+                    _app_identity_label(identity)
+                    for identity in source["archive"]["appIdentities"]
+                )
+                if label
+            )
+            or "未记录"
+        )
+        + (
+            "；下方运行状态与首断点只对这些实际执行身份有效，不等于当前 HEAD 的构建；"
+            "单个样本若被后续重试覆盖，其状态以该样本自己的 report 身份为准。"
+            if len(source["archive"]["appIdentities"]) <= 1
+            else "；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，"
+            "单样本结论必须回到该样本自己的 report 身份。"
+        ),
         f"- 裁决覆盖层：`{Path(source['verdicts']['path']).name}` SHA-256 `{source['verdicts']['sha256']}`。",
         f"- 本页生成于 {ledger['generatedAtUtc']}。",
         "",
