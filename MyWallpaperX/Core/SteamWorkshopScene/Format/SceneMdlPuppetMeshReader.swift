@@ -62,16 +62,22 @@ enum SceneMdlPuppetMeshReader {
         "MDLV0017": [80, 84],
         "MDLV0019": [80],
         "MDLV0021": [80, 84],
-        "MDLV0023": [80, 84],
+        // 48: proven by the real Workshop puppet asset in sample 3767232084
+        // (224 vertices, indices 0...223 with full coverage, finite positions
+        // spanning the authored 1920x1080 layer and UVs in [0, 1]).
+        "MDLV0023": [48, 80, 84],
     ]
     private static let magicLength = 8
     // Magic + trailing NUL, matching the audited player's marker size.
     private static let markerSize = 9
     private static let meshHeaderSize = 8
     // Verified vertex layouts: 52 bytes across MDLV0014/0016 assets, 80 bytes
-    // across MDLV0017/0023 assets, and 84 bytes for the verified skinned base
-    // asset. Position is 3 floats at offset 0, UV the final 2 floats. Other
-    // version/stride pairs fail closed until a real asset proves them.
+    // across MDLV0017/0023 assets, 84 bytes for the verified skinned base
+    // asset, and 48 bytes proven by the real Workshop puppet asset in sample
+    // 3767232084 (224 vertices, indices 0...223 with full coverage, finite
+    // positions spanning the authored 1920x1080 layer, UVs within
+    // [-0.004, 1.005]). Other version/stride pairs fail closed until a real
+    // asset proves them.
     private static let maxAbsolutePosition: Float = 1_000_000
     private static let maxAbsoluteUV: Float = 64
 

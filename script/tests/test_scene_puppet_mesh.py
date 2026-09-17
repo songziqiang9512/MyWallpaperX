@@ -202,6 +202,9 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         cls.fixtures = {
             "stride80.mdl": build_mdl(),
             "stride84.mdl": build_mdl(stride=84),
+            # Proven by the real Workshop puppet asset in sample 3767232084:
+            # 224 vertices of 48 bytes with full index coverage.
+            "stride48.mdl": build_mdl(stride=48),
             "mdlv0014.mdl": build_mdl(magic=b"MDLV0014", stride=52),
             "mdlv0016.mdl": build_mdl(magic=b"MDLV0016", stride=52),
             "mdlv0016-with-mdat.mdl": build_mdl(
@@ -272,6 +275,12 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         self.assertTrue(entry["ok"], entry)
         self.assertEqual(entry["stride"], 84)
         self.assertEqual(entry["vertices"][1], [10.0, -20.0, 0.0, 0.5, 0.75])
+
+    def test_stride_48_block_proven_by_real_asset_parses(self):
+        entry = self.results["stride48.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertEqual((entry["version"], entry["stride"]), ("MDLV0023", 48))
+        self.assertEqual(entry["vertices"][0], [-10.0, -20.0, 0.0, 0.25, 0.75])
 
     def test_mdlv0016_reads_only_the_verified_stride_52_mesh(self):
         entry = self.results["mdlv0016.mdl"]
