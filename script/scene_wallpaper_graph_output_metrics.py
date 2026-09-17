@@ -143,6 +143,8 @@ def resolved_material_graph_observation_metrics(
     validation_failures: list[str] = []
     terminal_successes: list[dict[str, Any]] = []
     diagnostic_count = 0
+    layer_source_transient_diagnostics: list[dict[str, Any]] = []
+    other_diagnostic_count = 0
     failed_outcome_count = 0
     gpu_failed_count = 0
     if "schema=1 axis=graph-execution" in log_text and not payloads:
@@ -177,6 +179,31 @@ def resolved_material_graph_observation_metrics(
         trigger = fields.get("trigger", "")
         if "diagnostic" in fields:
             diagnostic_count += 1
+            # A frame-0 `layer-source-not-ready` is the designed async-provider
+            # previous-current startup path; it only stays a failure when the
+            # same layer never recovers a successful compositor-consumed
+            # execution at a later frame (recovery classification below).
+            try:
+                diagnostic_frame = int(fields.get("frame", ""))
+            except ValueError:
+                diagnostic_frame = None
+            entries: list[tuple[int, str]] = []
+            for item in fields.get("entries", "").split(","):
+                layer_text, _, reason = item.partition(":")
+                if layer_text.isdigit() and reason:
+                    entries.append((int(layer_text), reason))
+            if (
+                fields.get("diagnostic") == "layer-local-fallback"
+                and diagnostic_frame is not None
+                and entries
+                and all(reason == "layer-source-not-ready" for _, reason in entries)
+            ):
+                layer_source_transient_diagnostics.append({
+                    "frame": diagnostic_frame,
+                    "layers": [layer for layer, _ in entries],
+                })
+            else:
+                other_diagnostic_count += 1
             continue
         if malformed or not required_fields.issubset(fields):
             validation_failures.append(
@@ -420,7 +447,27 @@ def resolved_material_graph_observation_metrics(
             "history_content_discarded": history_content_discarded,
         })
 
-    if diagnostic_count:
+    recovered_transient_count = 0
+    unrecovered_transient_count = 0
+    for diagnostic in layer_source_transient_diagnostics:
+        layers = diagnostic["layers"]
+        # Recovery must mirror the contract: every referenced layer needs a
+        # next-frame-triggered terminal success (succeeded + compositor
+        # consumed) strictly after the diagnostic frame.
+        later_recovered_layers = {
+            observation["layer_id"]
+            for observation in terminal_successes
+            if observation["layer_id"] in layers
+            and "next-frame" in observation["trigger"]
+            and observation["frame"] > diagnostic["frame"]
+            and observation["outcome"] == "succeeded"
+            and observation["compositor_consumed"]
+        }
+        if layers and all(layer in later_recovered_layers for layer in layers):
+            recovered_transient_count += 1
+        else:
+            unrecovered_transient_count += 1
+    if other_diagnostic_count or unrecovered_transient_count:
         validation_failures.append(
             "resolved material graph observation diagnostic reported"
         )
@@ -764,6 +811,13 @@ def resolved_material_graph_observation_metrics(
             observation["compositor_consumed"] for observation in terminal_successes
         ),
         "diagnostic_count": diagnostic_count,
+        "layer_source_transient_diagnostics_recovered": (
+            recovered_transient_count
+        ),
+        "layer_source_transient_diagnostics_unrecovered": (
+            unrecovered_transient_count
+        ),
+        "other_diagnostic_count": other_diagnostic_count,
         "failed_outcome_count": failed_outcome_count,
         "gpu_failed_count": gpu_failed_count,
         "dependency_consumed_provider_layer_ids": sorted({
