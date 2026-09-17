@@ -136,9 +136,25 @@ final class SceneParticleRuntime {
         let builtInTextureRegistry = SceneParticleBuiltInTextureRegistry(device: device)
         var pointerDemandLayerIDs = Set<Int>()
         for layer in particleLayers {
-            guard let rawPath = layer.particlePath else { continue }
+            guard let rawPath = layer.particlePath else {
+                addDiagnostic(
+                    kind: .missingDefinition,
+                    layerID: layer.id,
+                    path: "",
+                    detail: "particle layer has no definition reference"
+                )
+                continue
+            }
             let path = SceneParticleAssetGraphLoader.normalizedPath(rawPath)
-            guard let asset = graph.assetsByPath[path] else { continue }
+            guard let asset = graph.assetsByPath[path] else {
+                addDiagnostic(
+                    kind: .missingDefinition,
+                    layerID: layer.id,
+                    path: path,
+                    detail: "definition asset missing from the loaded particle graph"
+                )
+                continue
+            }
             let layerImageMap = layerImageEmissionMaps[layer.id]
             let worldSpaceFrame = staticWorldSpaceFrames[layer.id]
             guard !asset.definition.flags.isWorldSpace || worldSpaceFrame != nil else {
