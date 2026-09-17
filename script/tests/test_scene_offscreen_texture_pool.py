@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,38 +12,8 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
-
-from scene_swift_source_sets import scene_swift_sources
-
-# The pool references the execution-capability catalog, whose closure is the
-# material program graph; compose the proven finalizer closure with the
-# pool-specific Targets files below.
-SWIFT_SOURCES = list(dict.fromkeys([
+SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
-    SOURCE_ROOT / "Format/SceneBCTextureDecoder.swift",
-    SOURCE_ROOT / "Format/SceneTexContainer.swift",
-    SOURCE_ROOT / "Format/SceneTexDataReader.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderSourceGraph.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift",
-    *scene_swift_sources("authored_shader_frontend_implementation"),
-    *scene_swift_sources("authored_shader_preparation_implementation"),
-    *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
-    *scene_swift_sources("resolved_material_frame_finalization"),
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneCompressedTextureUploader.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureMipUploader.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureCandidate.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneStockTextureSemanticRegistry.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSlotBinding.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureProviderPublication.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneFrameTextureRegistry.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetPlan.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetPlan+Clear.swift",
@@ -73,9 +42,9 @@ SWIFT_SOURCES = list(dict.fromkeys([
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenResolutionPolicy.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureResidentBudgetPolicy.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTexturePool.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
-]))
+]
 
 
 HARNESS = r'''
@@ -126,6 +95,55 @@ struct SceneFrameTextureResource {
     var isCompleteGraphResource: Bool {
         resourceGeneration > 0
             && resourceGeneration == publication.contentGeneration
+    }
+}
+
+nonisolated enum SceneResolvedMaterialExecutionCapabilityCatalog {
+    struct Token: Hashable {}
+}
+
+extension SceneLayerGraphTargetPlan {
+    static func make(
+        plans: [SceneGraphRenderTargetPlan],
+        pairPlan: SceneLayerFullFramePairPlan,
+        byteBudget: Int,
+        pairStorage: FullFramePairStorage = .owned
+    ) -> Result<Self, Failure> {
+        make(
+            plans: plans,
+            pairPlan: pairPlan,
+            byteBudget: byteBudget,
+            pairStorage: pairStorage,
+            makeInputsDigests: Array(repeating: 0, count: plans.count)
+        )
+    }
+}
+
+extension SceneOffscreenTexturePool {
+    func preparePersistentGraphTargets(
+        admittedGraphs: [SceneAuthoredEffectRenderPlan],
+        materialFunctionTargetsByEffect: [
+            SceneAuthoredEffectRenderPlan.EffectKey:
+                Set<SceneAuthoredEffectRenderPlan.TextureIdentity>
+        ] = [:],
+        pairPlan: SceneLayerFullFramePairPlan,
+        extentPolicy: SceneFullFrameExtentPolicy = .standard,
+        requestedWidth: Int,
+        requestedHeight: Int,
+        usesSharedFullFrameWorkingPair: Bool = false,
+        orderingContext: SceneGraphCommandQueueOrderingContext? = nil
+    ) -> ScenePreparedPersistentGraphTargets? {
+        guard let plan = framePlanForPersistentGraphTargets(
+            admittedGraphs: admittedGraphs,
+            materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
+            pairPlan: pairPlan,
+            extentPolicy: extentPolicy,
+            requestedWidth: requestedWidth,
+            requestedHeight: requestedHeight,
+            usesSharedFullFrameWorkingPair: usesSharedFullFrameWorkingPair,
+            orderingContext: orderingContext
+        ) else { return nil }
+        return preparePersistentGraphTargets(framePlan: plan)
     }
 }
 
@@ -3945,6 +3963,28 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         )
         self.assertTrue(self.result["mixedFrameReadyAfterHistoryRelease"])
         self.assertTrue(self.result["inFlightHistoryPreservesPinnedSeed"])
+
+    def test_fit_transient_blocker_is_not_reported_as_byte_budget(self) -> None:
+        self.assertTrue(
+            self.result[
+                "requiredSharedResidencySurvivesTransientCapacityDeferral"
+            ]
+        )
+        source = (
+            REPOSITORY_ROOT
+            / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneOffscreenTextureFramePreflight.swift"
+        ).read_text(encoding="utf-8")
+        branch = source.index(
+            "if requiredBytes.map({ $0 > byteBudget }) != false {"
+        )
+        log = source.index("phase=frame-target-budget-blocked")
+        rejection = source.index(
+            'return .rejected(reasonCode: "frame-target-byte-budget-exceeded")'
+        )
+        transient = source.index("let transientIDs = Set(")
+        self.assertLess(branch, log)
+        self.assertLess(log, rejection)
+        self.assertLess(rejection, transient)
 
     def test_same_queue_reuse_is_bounded_and_fail_closed(self) -> None:
         self.assertTrue(

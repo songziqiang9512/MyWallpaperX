@@ -224,19 +224,19 @@ enum SceneOffscreenTextureFramePreflight {
     ) -> Result {
         let required = values.filter(\.requiredByFrame)
         let requiredBytes = cost(required)
-#if DEBUG
-        if ProcessInfo.processInfo.arguments.contains(
-            "--mwx-debug-scene-evidence-dir"
-        ) {
-            NSLog(
-                "MWX DEBUG SCENE: phase=frame-target-budget-blocked requiredBytes=%lld budgetBytes=%ld residents=%ld",
-                requiredBytes ?? -1,
-                byteBudget,
-                values.count
-            )
-        }
-#endif
         if requiredBytes.map({ $0 > byteBudget }) != false {
+#if DEBUG
+            if ProcessInfo.processInfo.arguments.contains(
+                "--mwx-debug-scene-evidence-dir"
+            ) {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=frame-target-budget-blocked requiredBytes=%lld budgetBytes=%ld residents=%ld",
+                    requiredBytes ?? -1,
+                    byteBudget,
+                    values.count
+                )
+            }
+#endif
             return .rejected(reasonCode: "frame-target-byte-budget-exceeded")
         }
         let transientIDs = Set(values.filter(\.isTransientBlocker).map(\.id))

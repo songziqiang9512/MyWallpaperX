@@ -470,6 +470,7 @@
           "SceneOffscreenTextureFramePreflight.swift",
           "SceneOffscreenTexturePool+PersistentGraphTargets.swift",
           "SceneOffscreenTexturePool.swift",
+          "SceneOffscreenTextureResidentBudgetPolicy.swift",
           "SceneOffscreenTextureResidency.swift",
           "ScenePersistentGraphTargetAllocator.swift"
         ],
