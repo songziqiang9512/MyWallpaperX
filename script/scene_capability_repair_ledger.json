@@ -620,6 +620,72 @@
      "notes": "The final Developer ID Debug candidate (CDHash f6f90605f48593a3a532ec1476906a76b1e31cb8, executable SHA-256 53c22cfd272166a0c6fd77562719022e0106c6f00080965db278ccefac3d1578) passed the fresh serial rerun with failures empty. All 21 accepted layers had exact resolved-material-graph, GPU completion, terminal compositor consumption and next-frame evidence; 71 frames were submitted, 70 completed, zero failed and 70 presented. Peak target-pool residency was 484508416 bytes inside the 794569728-byte automatic budget. The report is targeted identity and execution closure only, not official visual parity, low-memory, multi-surface aggregate safety or long-stability evidence."
     }
    ]
+  },
+  {
+   "family_key": "dynamic-input/scenescript+user-property@b6c2ad8748c2c0a7",
+   "repair_state": "implemented",
+   "runtime_proof_state": "partial-chain",
+   "regression_protection_state": "targeted-runtime",
+   "root_cause": "Text content admission enumerated the exact outer wrapper key sets that could own a dynamic text target, and the user property router had no host kind for an object's text field. A wrapper that combines the script's own declared scriptproperties with an outer user property therefore had no owner at all: the authored text script never executed and every user property bound under text/scriptproperties/<name> was classified as an unsupported target. On the exercised sample layer 191 was left without any dynamic owner and the run published zero text-host scriptInstanceProperty definitions.",
+   "public_fix": "Make object text a first-class host in the shared SceneScriptDynamicProviderHostContract instead of enumerating key sets per consumer: add the objectText host kind, let it accept script+value and script+user+value in addition to the existing scriptproperties shapes, and allow an outer user key that names a real user property. Route the text content projection through the contract and classify text fields as objectText in sceneScriptHostKind so a user property bound to a text field's script properties resolves to the existing scriptInstanceProperty target. No registry, owner, route or second property channel is added.",
+   "commit": "uncommitted-working-tree",
+   "targeted_samples": [
+    "3747492842"
+   ],
+   "roi_evidence": [
+    "/private/tmp/mwx-3747492842-texthost-before-20260917/report.json#3747492842 sha256=fe5f3c15970c789da1ed2d3aa1e136e4d23fafd7239575c632ea0cd4c61c08bf is the strict 1/1 PASS pre-fix baseline whose propertyBindingProgram holds 70 definitions and 9 scriptInstanceProperty entries, none on a text host, with app.log phase=owner-effects frame=0 totalLayers=6 and phase=owner-effects-admission admittedOwners=6 and no text(layerID: 191) owner callback in its 27 target= lines",
+    "/private/tmp/mwx-3747492842-texthost-after-20260917/report.json#3747492842 sha256=8f41162eb0a1417d89e670bc0de2c5ea2d7f4a7572e7dfef66fb61b1780c7ea6 is the strict 1/1 PASS post-fix run whose propertyBindingProgram holds 73 definitions and 12 scriptInstanceProperty entries, the three added ones being text/scriptproperties/allowTilt on layers 59, 191 and 264, with phase=owner-effects totalLayers and phase=owner-effects-admission admittedOwners moving 6 to 7, a new owner=text(layerID: 191, ...content) summary entry and a completed text(layerID: 191) content callback",
+    "/private/tmp/mwx-3747492842-texthost-after-20260917/results/3747492842/scene-after-window.png sha256=88a5b12e8321a8f7e0940698bf7877ae8c9cc3bcc6ca280e6ebfe477e30eceb4 is non-black with ready-to-after changed ratio 0.2770185764394013 and 392 submitted / 391 completed / 0 failed / 390 presented frames on one presentation stream"
+   ],
+   "remaining_boundaries": [
+    "The run closes the authored wrapper -> binding and owner admission -> script execution -> typed target identity and execution chain only. Three independent reasons keep the change unobservable in this run's ready/after captures: the layer 191 script returns its input value unchanged, a thisLayer.angles write does not surface as its own layer mutation (layers 59 and 264 were already live before this batch with the same layers=1 summary), and the before run carried 54 real cursorMove events while the after run carried none, so input.cursorWorldPosition being at the canvas centre is a run state rather than a structural fact. The falsifiable next gate is to move the pointer off centre and assert the .layer(191, .angles) mutation and admission.",
+    "189 user property references under text/scriptproperties/<name> across 40 samples now classify, but no per-property visible or audible acceptance scenario was executed; only the static classification is closed. Three-key text wrappers move from unsupported to live as well, so the impact set is wider than the four-key shape alone.",
+    "Conditional values, hidden controllers, dynamic input families and official comparison for these bindings remain unverified.",
+    "Only one of the 62 corpus-wide [script, scriptproperties, user, value] wrappers sits on a text field; other hosts keep their existing contract entries and were not re-exercised.",
+    "commit is recorded as uncommitted-working-tree because this event is authored inside the same batch it describes; the landing SHA must replace it in the follow-up write-back, and the census payload hash is only reproducible by re-running generate."
+   ],
+   "regression_gates": [
+    {
+     "kind": "synthetic-positive",
+     "reference": "script/tests/test_scene_dynamic_text_binding.py#test_wrapper_level_host_contract_gates_the_string_user_key"
+    },
+    {
+     "kind": "synthetic-positive",
+     "reference": "script/tests/test_scene_dynamic_text_binding.py#test_text_host_accepts_scripted_and_property_bound_wrappers"
+    },
+    {
+     "kind": "synthetic-positive",
+     "reference": "script/tests/test_scene_dynamic_text_binding.py#test_text_script_properties_route_and_direct_text_still_works"
+    },
+    {
+     "kind": "synthetic-positive",
+     "reference": "script/tests/test_scene_property_vector_script.py#test_text_wrapper_admission_follows_the_shared_host_contract"
+    },
+    {
+     "kind": "synthetic-negative",
+     "reference": "script/tests/test_scene_dynamic_text_binding.py#test_wrapper_level_host_contract_gates_the_string_user_key (the same four-key wrapper with a String user stays rejected for objectVector and objectScalar)"
+    },
+    {
+     "kind": "synthetic-negative",
+     "reference": "script/tests/test_scene_dynamic_text_binding.py#test_text_script_properties_route_and_direct_text_still_works (a text scriptproperties binding without a script source stays unsupported)"
+    },
+    {
+     "kind": "targeted-runtime",
+     "reference": "/private/tmp/mwx-3747492842-texthost-after-20260917/report.json#3747492842 sha256=8f41162eb0a1417d89e670bc0de2c5ea2d7f4a7572e7dfef66fb61b1780c7ea6"
+    }
+   ],
+   "events": [
+    {
+     "date": "2026-09-17",
+     "state": "implemented",
+     "commit": "uncommitted-working-tree",
+     "evidence_refs": [
+      "docs/scene/semantics/runtime-evidence-current.md#e-2026-09-17-text-host-contract",
+      "/private/tmp/mwx-3747492842-texthost-after-20260917/report.json#3747492842 sha256=8f41162eb0a1417d89e670bc0de2c5ea2d7f4a7572e7dfef66fb61b1780c7ea6"
+     ],
+     "notes": "Independent of any sample routing, object text was missing as a host kind in the shared wrapper contract, so both consumers of that contract failed closed by omission: the scripted text wrapper combined scriptproperties with a user binding, and the user binding under text scriptproperties had no host to classify. The fix extends the one shared contract and routes both consumers through it. A read-only corpus scan over 159 samples measured the impact set: one rejected text wrapper (3747492842 /objects/14/text) and 189 user property references under text/scriptproperties/<name> across 40 samples and 39 property names. The signed Developer ID Debug candidate CDHash ab539e4a5db944a99235624aa1d3012c4a11ed8d (executable SHA-256 b86283d26f59062936126d95dc281134118049b5d34350bb4990e40e1acbd7af) re-ran the isolated sample with strict 1/1 PASS and empty failures, moving scriptInstanceProperty definitions from 9 to 12 and the log's phase=owner-effects totalLayers and phase=owner-effects-admission admittedOwners from 6 to 7. The inner gate focused-tests ran 24 modules ALL OK and the checkpoint Debug build reported BUILD SUCCEEDED; repo-wide code-health still fails only on files outside this batch. The same batch also restored three standalone harnesses whose source lists and stand-ins had been stale since the 970a5645 file split; that repair removed no assertion."
+    }
+   ]
   }
  ],
  "schema_version": 1,

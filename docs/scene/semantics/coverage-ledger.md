@@ -1,5 +1,11 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-17 text 接入共享 provider host 合同（S3 executed bounded）
+
+对象 text 现在是共享 wrapper/host 合同的一等 host。`SceneScriptDynamicProviderHostContract` 新增 `objectText`，其准入集合为原三条键集加四键集 `["script","scriptproperties","user","value"]`，并以 `acceptsStringOuterUser` 允许外层 `user` 携带真实用户属性（`user` 为 `NSNull` 的既存分支未改动）；`SceneScriptStringProgram.projection` 改为向该合同查询而不是内联枚举键集，`sceneScriptHostKind` 把 text 字段分类为 `objectText`。修复前真实 `3747492842` 的 layer 191 作者 `text` 包装键为 `["script","scriptproperties","user","value"]`，因此整条脚本没有 owner，且 `text/scriptproperties/*` 下的用户属性绑定全部落入 unsupported：同一运行的 `propertyBindingProgram` 只有 9 条 `scriptInstanceProperty` 且全部落在 `origin`/`angles` 上。
+
+修复后同一隔离样本 strict `1/1 PASS / failures=[]`：`scriptInstanceProperty` 9→12（新增 layer 59/191/264 的 `text/scriptproperties/allowTilt`），`phase=owner-effects … totalLayers` 与 `phase=owner-effects-admission … admittedOwners` 6→7，并首次出现 layer 191 的 text content 回调；帧链、唯一 compositor 与 next-frame 不变。只读 159 样本扫描测得影响面：四键 text 包装 1 处（即该层），`text/scriptproperties/<name>` 下的用户属性引用 189 处 / 40 样本 / 39 个属性名（其中 3 键 text 包装同样由 unsupported 变为 live）。完整身份、正反门与边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-17-text-host-contract)。该批只闭合 identity/execution 链：两个消费者分别是鼠标倾斜与脚本侧变换，脚本返回值未变、angles 写入不体现为独立 layer mutation，且本次 after 证据窗口无指针事件，因此没有可见像素断言；下一轮可证伪门是让指针离中心并对 `.layer(191, .angles)` 的 mutation/admission 断言。189 处绑定的逐属性可见/可听验收（作者参数完整性）仍未做。
+
 ## 2026-09-14 video provider command generation 与 EOF 归属（S4 bounded visible）
 
 作者视频控制现在与 prepared 参数合同遵循相同的单一归属原则：SceneScript 的 seek/play/pause/rate 先进入现役 typed command transaction；每次命令、host suspend/resume、rebuild 或 rollback 都推进 `SceneVideoPlayerEventState.commandGeneration` 并使旧 player anchor 失效。AVPlayerItem EOF notification 只有在 provider 仍播放、anchor 属于当前 command generation，且当前 item time 已到达 duration 的一个 timescale tick 范围内时才可改变 lifecycle；作者已发出重启命令后迟到的旧 EOF 被忽略，不能把新一轮播放重置到旧终点。资源 publication、GraphProduct、GPU completion 与唯一 compositor owner不变，没有增加样本分支、第二时钟、阻塞等待、预算或 fallback。

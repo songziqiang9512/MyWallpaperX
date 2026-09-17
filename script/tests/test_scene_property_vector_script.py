@@ -2014,6 +2014,28 @@ enum Harness {
             "modelTintBindings": modelTintProgram.bindings.count,
             "modelTintValue": vector(modelTintResult.values[modelTintTarget]),
             "modelTintFailures": modelTintResult.failures.count,
+            "textWrapperAdmission": Dictionary(uniqueKeysWithValues: [
+                ["script", "value"],
+                ["script", "scriptproperties", "value"],
+                ["script", "user", "value"],
+                ["script", "scriptproperties", "user", "value"],
+                ["animation", "script", "value"],
+                ["script", "scriptproperties"],
+            ].map { keys in
+                (
+                    keys.joined(separator: "+"),
+                    SceneScriptStringProgram.projectedTargets(
+                        descriptor: descriptor,
+                        scriptBindings: [
+                            textBinding(
+                                source: mediaPropertiesSource,
+                                value: "Placeholder",
+                                wrapperKeys: keys
+                            )
+                        ]
+                    ).contains(.text(layerID: 77, field: .content))
+                )
+            }),
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -2065,7 +2087,12 @@ enum Harness {
         return text
     }
 
-    static func textBinding(source: String, value: String) -> SceneScriptBindingIR {
+    static func textBinding(
+        source: String,
+        value: String,
+        wrapperKeys: [String] = ["script", "value"],
+        properties: [String: SceneJSONValue] = [:]
+    ) -> SceneScriptBindingIR {
         .init(
             source: source,
             owner: .init(
@@ -2078,10 +2105,10 @@ enum Harness {
                 passID: nil
             ),
             targetPath: [.key("objects"), .index(2), .key("text")],
-            properties: [:],
+            properties: properties,
             authoredValue: .string(value),
             valueType: .string,
-            wrapperKeys: ["script", "value"]
+            wrapperKeys: wrapperKeys
         )
     }
 
@@ -2767,6 +2794,24 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["stringValue"], "春日歌 / Artist / Live / Album / Album Artist / Rock,Pop / music")
         self.assertEqual(value["stringFailures"], 0)
         self.assertTrue(value["stringGenerationDeduplicated"])
+
+    def test_text_wrapper_admission_follows_the_shared_host_contract(self) -> None:
+        admission = self.result()["textWrapperAdmission"]
+        for admitted in (
+            "script+value",
+            "script+scriptproperties+value",
+            "script+user+value",
+            "script+scriptproperties+user+value",
+        ):
+            self.assertTrue(
+                admission[admitted],
+                f"text wrapper {admitted} must own a text content target",
+            )
+        for rejected in ("animation+script+value", "script+scriptproperties"):
+            self.assertFalse(
+                admission[rejected],
+                f"text wrapper {rejected} must stay unowned",
+            )
 
     def test_media_events_follow_authored_family_and_callback_order(self) -> None:
         value = self.result()

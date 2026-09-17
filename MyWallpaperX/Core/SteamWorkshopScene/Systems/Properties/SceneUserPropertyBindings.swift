@@ -538,6 +538,7 @@ nonisolated struct SceneUserPropertyBindingParser {
             case "alpha": return .objectScalar
             case "angles", "origin", "scale", "color": return .objectVector
             case "visible": return .objectVisibility
+            case "text": return .objectText
             default: return nil
             }
         }

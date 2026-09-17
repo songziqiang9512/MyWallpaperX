@@ -51,6 +51,7 @@ nonisolated struct SceneTimelinePlaybackMutation: Equatable, Sendable {}
 nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {}
 nonisolated struct SceneScriptPuppetBoneMutation: Equatable, Sendable {}
 nonisolated struct SceneScriptVideoCommand: Equatable, Sendable {}
+nonisolated struct SceneTextureAnimationCommand: Equatable, Sendable {}
 
 nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
     case visibility, origin, scale, angles, color

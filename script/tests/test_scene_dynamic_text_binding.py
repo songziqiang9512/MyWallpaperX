@@ -70,6 +70,81 @@ enum Harness {
             )], diagnostics: []),
             catalog: catalog
         )
+        let hostShapes: [(String, SceneScriptDynamicProviderHostContract.HostKind, [String])] = [
+            ("objectText/script+value", .objectText, ["script", "value"]),
+            ("objectText/script+user+value", .objectText, ["script", "user", "value"]),
+            ("objectText/script+scriptproperties+value", .objectText,
+                ["script", "scriptproperties", "value"]),
+            ("objectText/script+scriptproperties+user+value", .objectText,
+                ["script", "scriptproperties", "user", "value"]),
+            ("objectText/animation+script+value", .objectText,
+                ["animation", "script", "value"]),
+            ("objectText/script+scriptproperties", .objectText,
+                ["script", "scriptproperties"]),
+            ("objectVector/script+scriptproperties+user+value", .objectVector,
+                ["script", "scriptproperties", "user", "value"]),
+            ("objectVector/script+scriptproperties+value", .objectVector,
+                ["script", "scriptproperties", "value"]),
+            ("objectScalar/script+scriptproperties+user+value", .objectScalar,
+                ["script", "scriptproperties", "user", "value"]),
+            ("objectScalar/script+scriptproperties+value", .objectScalar,
+                ["script", "scriptproperties", "value"]),
+        ]
+        let hostShapeSupport = Dictionary(uniqueKeysWithValues: hostShapes.map {
+            ($0.0, SceneScriptDynamicProviderHostContract.supports(keys: $0.2, host: $0.1))
+        })
+        let textScript = "export function update(value) { return value; }"
+        let fourKeyWrapper: [String: Any] = [
+            "script": textScript,
+            "scriptproperties": ["flag": true],
+            "user": "probe_format",
+            "value": "clock",
+        ]
+        var nullUserWrapper = fourKeyWrapper
+        nullUserWrapper["user"] = NSNull()
+        let wrapperShapes: [(String, [String: Any], SceneScriptDynamicProviderHostContract.HostKind)] = [
+            ("objectText/4keys+string-user", fourKeyWrapper, .objectText),
+            ("objectText/4keys+null-user", nullUserWrapper, .objectText),
+            ("objectVisibility/4keys+string-user", fourKeyWrapper, .objectVisibility),
+            ("objectVector/4keys+string-user", fourKeyWrapper, .objectVector),
+            ("objectScalar/4keys+string-user", fourKeyWrapper, .objectScalar),
+            ("objectText/3keys+string-user", [
+                "script": textScript,
+                "user": "probe_format",
+                "value": "clock",
+            ], .objectText),
+        ]
+        let wrapperShapeSupport = Dictionary(uniqueKeysWithValues: wrapperShapes.map {
+            ($0.0, SceneScriptDynamicProviderHostContract.supports($0.1, host: $0.2))
+        })
+        func parsedTargets(_ object: [String: Any]) -> [String] {
+            SceneUserPropertyBindingParser()
+                .parse(root: ["objects": [object]])
+                .bindings.map { String(describing: $0.target) }
+        }
+        let scriptPropertyTargets = parsedTargets([
+            "id": 7,
+            "text": [
+                "script": textScript,
+                "scriptproperties": [
+                    "use24hFormat": ["user": "probe_format", "value": true],
+                ],
+                "value": "clock",
+            ],
+        ])
+        let directTextTargets = parsedTargets([
+            "id": 9,
+            "text": ["user": "probe_caption", "value": "clock"],
+        ])
+        let scriptlessScriptPropertyTargets = parsedTargets([
+            "id": 11,
+            "text": [
+                "scriptproperties": [
+                    "use24hFormat": ["user": "probe_format", "value": true],
+                ],
+                "value": "clock",
+            ],
+        ])
         let payload: [String: Any] = [
             "targets": compilation.program.instructions.map { String(describing: $0.target) },
             "types": compilation.program.instructions.map { $0.valueType.rawValue },
@@ -82,6 +157,11 @@ enum Harness {
             "wrongKindCodes": wrongKind.diagnostics.map { $0.code.rawValue },
             "conditionalCount": conditional.program.instructions.count,
             "conditionalCodes": conditional.diagnostics.map { $0.code.rawValue },
+            "hostShapeSupport": hostShapeSupport,
+            "wrapperShapeSupport": wrapperShapeSupport,
+            "scriptPropertyTargets": scriptPropertyTargets,
+            "directTextTargets": directTextTargets,
+            "scriptlessScriptPropertyTargets": scriptlessScriptPropertyTargets,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -158,6 +238,50 @@ class SceneDynamicTextBindingTests(unittest.TestCase):
         self.assertEqual(self.result["wrongKindCodes"], ["propertyKindMismatch"])
         self.assertEqual(self.result["conditionalCount"], 0)
         self.assertIn("conditionalBinding", self.result["conditionalCodes"])
+
+    def test_text_host_accepts_scripted_and_property_bound_wrappers(self) -> None:
+        support = self.result["hostShapeSupport"]
+        for admitted in (
+            "objectText/script+value",
+            "objectText/script+user+value",
+            "objectText/script+scriptproperties+value",
+            "objectText/script+scriptproperties+user+value",
+            "objectVector/script+scriptproperties+user+value",
+            "objectVector/script+scriptproperties+value",
+            "objectScalar/script+scriptproperties+value",
+        ):
+            self.assertTrue(support[admitted], f"{admitted} must be admitted")
+        for rejected in (
+            "objectText/animation+script+value",
+            "objectText/script+scriptproperties",
+            "objectScalar/script+scriptproperties+user+value",
+        ):
+            self.assertFalse(support[rejected], f"{rejected} must stay rejected")
+
+    def test_wrapper_level_host_contract_gates_the_string_user_key(self) -> None:
+        support = self.result["wrapperShapeSupport"]
+        self.assertTrue(support["objectText/4keys+string-user"])
+        self.assertTrue(support["objectText/4keys+null-user"])
+        self.assertTrue(support["objectVisibility/4keys+string-user"])
+        self.assertTrue(support["objectText/3keys+string-user"])
+        self.assertFalse(support["objectVector/4keys+string-user"])
+        self.assertFalse(support["objectScalar/4keys+string-user"])
+
+    def test_text_script_properties_route_and_direct_text_still_works(self) -> None:
+        script_property = self.result["scriptPropertyTargets"]
+        self.assertEqual(len(script_property), 1)
+        self.assertIn("scriptProperty(layerID: 7", script_property[0])
+        self.assertIn("scriptproperties", script_property[0])
+        self.assertIn("use24hFormat", script_property[0])
+
+        direct = self.result["directTextTargets"]
+        self.assertEqual(len(direct), 1)
+        self.assertIn("text(layerID: 9", direct[0])
+        self.assertIn("content", direct[0])
+
+        scriptless = self.result["scriptlessScriptPropertyTargets"]
+        self.assertEqual(len(scriptless), 1)
+        self.assertIn("unsupported", scriptless[0])
 
 
 if __name__ == "__main__":

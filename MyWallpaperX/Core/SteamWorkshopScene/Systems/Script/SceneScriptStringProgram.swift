@@ -747,9 +747,10 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
               binding.targetPath == [
                   .key("objects"), .index(objectIndex), .key("text"),
               ],
-              (binding.wrapperKeys == ["script", "value"] ||
-                binding.wrapperKeys == ["script", "scriptproperties", "value"] ||
-                binding.wrapperKeys == ["script", "user", "value"]),
+              SceneScriptDynamicProviderHostContract.supports(
+                  keys: binding.wrapperKeys ?? [],
+                  host: .objectText
+              ),
               layer.textScript?.source == binding.source,
               case let .string(authored)? = binding.authoredValue,
               layer.text == authored,
