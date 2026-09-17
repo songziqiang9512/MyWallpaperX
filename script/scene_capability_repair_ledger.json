@@ -628,7 +628,7 @@
    "regression_protection_state": "targeted-runtime",
    "root_cause": "Text content admission enumerated the exact outer wrapper key sets that could own a dynamic text target, and the user property router had no host kind for an object's text field. A wrapper that combines the script's own declared scriptproperties with an outer user property therefore had no owner at all: the authored text script never executed and every user property bound under text/scriptproperties/<name> was classified as an unsupported target. On the exercised sample layer 191 was left without any dynamic owner and the run published zero text-host scriptInstanceProperty definitions.",
    "public_fix": "Make object text a first-class host in the shared SceneScriptDynamicProviderHostContract instead of enumerating key sets per consumer: add the objectText host kind, let it accept script+value and script+user+value in addition to the existing scriptproperties shapes, and allow an outer user key that names a real user property. Route the text content projection through the contract and classify text fields as objectText in sceneScriptHostKind so a user property bound to a text field's script properties resolves to the existing scriptInstanceProperty target. No registry, owner, route or second property channel is added.",
-   "commit": "uncommitted-working-tree",
+   "commit": "cc69da74",
    "targeted_samples": [
     "3747492842"
    ],
@@ -642,7 +642,7 @@
     "189 user property references under text/scriptproperties/<name> across 40 samples now classify, but no per-property visible or audible acceptance scenario was executed; only the static classification is closed. Three-key text wrappers move from unsupported to live as well, so the impact set is wider than the four-key shape alone.",
     "Conditional values, hidden controllers, dynamic input families and official comparison for these bindings remain unverified.",
     "Only one of the 62 corpus-wide [script, scriptproperties, user, value] wrappers sits on a text field; other hosts keep their existing contract entries and were not re-exercised.",
-    "commit is recorded as uncommitted-working-tree because this event is authored inside the same batch it describes; the landing SHA must replace it in the follow-up write-back, and the census payload hash is only reproducible by re-running generate."
+    "The census payload hash is only reproducible by re-running generate; matrix and benchmark do not assert propertyBindingProgram, so the targeted runtime sentinel above is a manual evidence comparison rather than a machine gate."
    ],
    "regression_gates": [
     {
@@ -678,7 +678,7 @@
     {
      "date": "2026-09-17",
      "state": "implemented",
-     "commit": "uncommitted-working-tree",
+     "commit": "cc69da74",
      "evidence_refs": [
       "docs/scene/semantics/runtime-evidence-current.md#e-2026-09-17-text-host-contract",
       "/private/tmp/mwx-3747492842-texthost-after-20260917/report.json#3747492842 sha256=8f41162eb0a1417d89e670bc0de2c5ea2d7f4a7572e7dfef66fb61b1780c7ea6"
