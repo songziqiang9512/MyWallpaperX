@@ -164,6 +164,34 @@ enum SceneUtilityLayerRuntimePlanner {
         let namedTargetProviderIDs = Set(
             dependencyPlan.bindingsByConsumerLayerID.values.map(\.providerLayerID)
         )
+        let layersByID = Dictionary(
+            uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) }
+        )
+        // A binding is conditional when either endpoint's visibility is owned
+        // by a script anywhere up its parent chain: launch admission planned
+        // it optimistically (the authored value is only the seed), so the
+        // binding may legitimately stay idle until the owning script shows
+        // the layer.
+        func endpointIsScriptOwnedVisible(_ layerID: Int) -> Bool {
+            var current = layersByID[layerID]
+            var visited: Set<Int> = []
+            while let candidate = current {
+                if candidate.displayScriptOwnership?.visible == true {
+                    return true
+                }
+                guard visited.insert(candidate.id).inserted else { break }
+                current = candidate.parentID.flatMap { layersByID[$0] }
+            }
+            return false
+        }
+        func bindingIsConditional(_ binding: SceneDependencyRenderPlan.Binding)
+            -> Bool {
+            endpointIsScriptOwnedVisible(binding.consumerLayerID)
+                || endpointIsScriptOwnedVisible(binding.providerLayerID)
+        }
+        let namedBindingConditionalCount = dependencyPlan
+            .bindingsByConsumerLayerID.values
+            .filter(bindingIsConditional).count
         let namedTargetGaps = ordered.filter {
             $0.requiresNamedTarget && !namedTargetProviderIDs.contains($0.layerID)
         }
@@ -174,6 +202,7 @@ enum SceneUtilityLayerRuntimePlanner {
             "utilityNamedConsumerCount: \(dependencyPlan.namedReferenceConsumerLayerIDs.count)",
             "utilityNamedTargetPlannedCount: \(namedTargetProviderIDs.count)",
             "utilityNamedBindingPlannedCount: \(dependencyPlan.bindingsByConsumerLayerID.count)",
+            "utilityNamedBindingConditionalCount: \(namedBindingConditionalCount)",
             "utilityNamedTargetGapCount: \(namedTargetGaps.count)",
             "utilityDependencyIssueCount: \(dependencyPlan.issues.count)",
         ]

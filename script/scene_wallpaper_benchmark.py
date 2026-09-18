@@ -350,6 +350,9 @@ UTILITY_NAMED_CONSUMER_COUNT_RE = re.compile(
 UTILITY_NAMED_BINDING_PLANNED_RE = re.compile(
     r"^utilityNamedBindingPlannedCount: (?P<count>\d+)$", re.MULTILINE
 )
+UTILITY_NAMED_BINDING_CONDITIONAL_RE = re.compile(
+    r"^utilityNamedBindingConditionalCount: (?P<count>\d+)$", re.MULTILINE
+)
 UTILITY_NAMED_TARGET_GAP_RE = re.compile(
     r"^utilityNamedTargetGapCount: (?P<count>\d+)$", re.MULTILINE
 )
@@ -2430,6 +2433,9 @@ def utility_runtime_metrics(preview_text: str) -> dict[str, Any]:
     named_consumer_match = UTILITY_NAMED_CONSUMER_COUNT_RE.search(preview_text)
     named_target_match = UTILITY_NAMED_TARGET_PLANNED_RE.search(preview_text)
     named_binding_match = UTILITY_NAMED_BINDING_PLANNED_RE.search(preview_text)
+    named_binding_conditional_match = UTILITY_NAMED_BINDING_CONDITIONAL_RE.search(
+        preview_text
+    )
     named_gap_match = UTILITY_NAMED_TARGET_GAP_RE.search(preview_text)
     layers = [
         {
@@ -2458,6 +2464,9 @@ def utility_runtime_metrics(preview_text: str) -> dict[str, Any]:
         "named_consumers": int(named_consumer_match.group("count")) if named_consumer_match else 0,
         "named_target_planned": int(named_target_match.group("count")) if named_target_match else 0,
         "named_binding_planned": int(named_binding_match.group("count")) if named_binding_match else 0,
+        "named_binding_conditional": int(
+            named_binding_conditional_match.group("count")
+        ) if named_binding_conditional_match else 0,
         "named_target_gaps": int(named_gap_match.group("count")) if named_gap_match else 0,
         "layers": layers,
     }
@@ -6468,6 +6477,7 @@ def named_target_binding_failures(
     sample: dict[str, Any],
     planned_count: int,
     metrics: dict[str, Any],
+    conditional_count: int = 0,
 ) -> list[str]:
     succeeded = set(metrics["succeeded_layer_ids"])
     failed_only = set(metrics["failed_layer_ids"]).difference(succeeded)
@@ -6485,8 +6495,16 @@ def named_target_binding_failures(
         or len(expected_provider_unavailable) > planned_count
     ):
         failures.append("named target binding unavailable set mismatch")
+    # Bindings planned through optimistic launch visibility (either endpoint's
+    # visibility is owned by a script, so the authored value is only a seed)
+    # may legitimately stay idle until the owning script shows the layer. They
+    # are excused from the required success count. This is an aggregate bound:
+    # unconditional bindings are required in total, not individually - the
+    # per-layer membership contract lives in
+    # required_named_target_binding_succeeded_layer_ids.
     required_success_count = max(
-        0, planned_count - len(expected_provider_unavailable)
+        0,
+        planned_count - len(expected_provider_unavailable) - conditional_count,
     )
     if len(succeeded) < required_success_count:
         failures.append("named target binding execution below planned count")
@@ -7741,6 +7759,7 @@ def run_sample(
         sample,
         utility_runtime["named_binding_planned"],
         named_target_binding_execution,
+        conditional_count=utility_runtime["named_binding_conditional"],
     ))
     failures.extend(particle_runtime_failures(sample, particle_runtime))
     blur_runtime_count = preview_text.count("effect runtime gaussian-blur;")
@@ -8165,6 +8184,9 @@ def run_sample(
             "utility_named_consumers": utility_runtime["named_consumers"],
             "utility_named_target_planned": utility_runtime["named_target_planned"],
             "utility_named_binding_planned": utility_runtime["named_binding_planned"],
+            "utility_named_binding_conditional": utility_runtime[
+                "named_binding_conditional"
+            ],
             "utility_named_target_gaps": utility_runtime["named_target_gaps"],
             "utility_layers": utility_runtime["layers"],
             "utility_capture_succeeded_layer_ids": utility_capture_execution["succeeded_layer_ids"],

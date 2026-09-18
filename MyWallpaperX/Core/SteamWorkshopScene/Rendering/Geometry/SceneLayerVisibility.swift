@@ -81,6 +81,14 @@ enum SceneLayerVisibility {
             if let resolved, case let .bool(value) = resolved.value {
                 return value
             }
+            if snapshot == nil {
+                // Launch admission runs before any script: the authored value
+                // is only the seed a visibility script may override. Treat the
+                // script-owned field as visible so routes and plans are not
+                // frozen dead by the seed; every per-frame consumer passes a
+                // snapshot and keeps gating by the published value.
+                return true
+            }
             return layer.visible != false
         }
         if let resolved, case let .bool(value) = resolved.value {

@@ -7657,6 +7657,26 @@ utility layer 763: skippedHidden kind=composition
             ),
             ["named target binding unavailable set mismatch"],
         )
+        # Conditional (script-owned visibility) bindings are excused from the
+        # required success count; unconditional ones still bind the aggregate.
+        self.assertEqual(
+            benchmark.named_target_binding_failures(
+                {},
+                3,
+                binding_metrics,
+                conditional_count=2,
+            ),
+            [],
+        )
+        self.assertEqual(
+            benchmark.named_target_binding_failures(
+                {},
+                3,
+                binding_metrics,
+                conditional_count=1,
+            ),
+            ["named target binding execution below planned count"],
+        )
 
         missing = benchmark.particle_runtime_metrics("loaded: 20 / 24\n")
         self.assertEqual(
