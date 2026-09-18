@@ -74,12 +74,18 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         let visibilityProducers = dynamicProducers.userProperties.filter {
             $0.target == visibilityTarget
         }
+        // Script-owned effect visibility (the batch-B producer channel)
+        // publishes through the sceneScript lane with no user-property key;
+        // the snapshot value is the per-frame authority.
+        let sceneScriptOwned =
+            dynamicProducers.sceneScriptTargets.contains(visibilityTarget)
         let resolvedVisibilityTarget: SceneDynamicTarget? =
-            visibilityProducers.count == 1
+            (visibilityProducers.count == 1
                 && visibilityProducers.first?.valueType == .bool
                 && dynamicProducers.authoredFallbackTargets.contains(
                     visibilityTarget
-                )
+                ))
+            || sceneScriptOwned
             ? visibilityTarget : nil
         let pairLeaf = pairLeafActivationTopologyIsSupported(
             product.graph,
