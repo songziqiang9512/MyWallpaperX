@@ -192,7 +192,13 @@ struct SceneRuntimeModelBuilder {
             scriptBindings: sceneDocument.scriptBindings,
             timelineTargets: timelineTargets,
             admittedLayerColorConsumerIDs: sceneScriptColorConsumerLayerIDs,
-            shaderContracts: assetCatalog.shaderContracts
+            shaderContracts: assetCatalog.shaderContracts,
+            // D1 seed authority: the projection guard reads the authored
+            // descriptor, while each effect-visibility definition's seed
+            // reads the load-prepared state so the frame snapshot starts at
+            // the matcher-prepared visibility (hidden), not the binding
+            // seed.
+            preparedDescriptor: runtimeDescriptor
         )
         // Script-owned effect-visibility targets (the batch-B producer
         // channel): these effects are activation-gated executable stages.

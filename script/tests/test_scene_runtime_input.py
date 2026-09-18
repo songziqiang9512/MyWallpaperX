@@ -294,6 +294,10 @@ class SceneRuntimeInputTests(unittest.TestCase):
         self.assertNotIn("SceneDiagnosticsBuilder", source)
         self.assertNotIn("let diagnostics: SceneDiagnosticsReport", source)
         self.assertNotIn("SceneInterpretation", source)
+        # D1 seed authority wiring: the producer projection must receive the
+        # load-prepared descriptor so effect-visibility snapshot seeds read
+        # the prepared state, not the binding seed.
+        self.assertIn("preparedDescriptor: runtimeDescriptor", source)
         self.assertIn(
             ".effectLocalDirectBoolEffectVisibilityTargets",
             runtime_input,

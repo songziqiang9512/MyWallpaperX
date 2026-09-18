@@ -452,8 +452,11 @@ nonisolated enum SceneScriptLayerMutationBridge {
     /// Effect-visibility targets stage `thisObject.visible` writes on the
     /// property-object handle; the configure call defines that accessor and
     /// records the (layer, effect) identity the staged value publishes to.
+    /// `seedVisible` is the binding's authored `visible` seed - the getter's
+    /// read default before any staged write. Distinct from the snapshot seed,
+    /// which carries the load-prepared state.
     static func configureEffectVisibilityTarget(
-        owner: OpaquePointer, target: SceneDynamicTarget
+        owner: OpaquePointer, target: SceneDynamicTarget, seedVisible: Bool
     ) throws {
         guard case let .effectVisibility(layerID, effectIndex) = target else {
             return
@@ -463,6 +466,7 @@ nonisolated enum SceneScriptLayerMutationBridge {
             owner,
             Int64(layerID),
             Int64(effectIndex),
+            seedVisible,
             &diagnostic,
             diagnostic.count
         )

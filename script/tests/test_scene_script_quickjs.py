@@ -2137,7 +2137,7 @@ int main(void) {
     char effect_visibility_diagnostic[512] = {0};
     failures += check(
         mwx_scene_quickjs_owner_configure_effect_visibility_target(
-            effect_visibility, 17, 2,
+            effect_visibility, 17, 2, true,
             effect_visibility_diagnostic, sizeof(effect_visibility_diagnostic)
         ) == MWX_SCENE_QUICKJS_OK,
         "effect visibility target configure", effect_visibility_diagnostic
@@ -2158,6 +2158,34 @@ int main(void) {
         effect_visibility, 49, 1, MWX_SCENE_QUICKJS_OK, 1,
         "staged visible true publishes through the update"
     );
+    // D1 seed authority: the getter's read default is the configured binding
+    // seed, not a hardcoded true. A false seed reads false until staged;
+    // a staged write still overrides it.
+    const char *seed_false_source =
+        "export function update(){ return thisObject.visible ? 1 : 0; }";
+    MWXSceneQuickJSOwner *seed_false_owner = mwx_scene_quickjs_owner_create(
+        domain, seed_false_source, strlen(seed_false_source),
+        50, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        seed_false_owner != NULL, "seed false compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        seed_false_owner, 17, "seed false owner identity"
+    );
+    char seed_false_diagnostic[512] = {0};
+    failures += check(
+        mwx_scene_quickjs_owner_configure_effect_visibility_target(
+            seed_false_owner, 17, 3, false,
+            seed_false_diagnostic, sizeof(seed_false_diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK,
+        "seed false target configure", seed_false_diagnostic
+    );
+    failures += update(
+        seed_false_owner, 50, 1, MWX_SCENE_QUICKJS_OK, 0,
+        "unstaged getter reads the false seed"
+    );
+    mwx_scene_quickjs_owner_destroy(seed_false_owner);
     failures += media_thumbnail(
         media_animation, 19, 1, MWX_SCENE_QUICKJS_OK,
         "media thumbnail present event"

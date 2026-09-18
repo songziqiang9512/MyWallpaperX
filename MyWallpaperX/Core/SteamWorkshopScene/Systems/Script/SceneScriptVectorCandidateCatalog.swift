@@ -7,12 +7,13 @@ nonisolated extension SceneScriptVectorProgram {
         timelineTargets: Set<SceneDynamicTarget> = [],
         admittedLayerColorConsumerIDs: Set<Int> = [],
         shaderContracts: [SceneShaderContract] = [],
-        excludedTargets: Set<SceneDynamicTarget> = []
+        excludedTargets: Set<SceneDynamicTarget> = [],
+        preparedDescriptor: SceneRenderDescriptor? = nil
     ) -> SceneScriptVectorCandidateCatalog {
         let namedTextureDependencyLayerIDs =
             SceneNamedTextureDependencyReferenceAnalysis.participatingLayerIDs(
-                in: descriptor.layers
-            )
+            in: descriptor.layers
+        )
         let authoredCandidates = scriptBindings.enumerated().compactMap {
             authoredOrdinal, binding in
             projection(
@@ -21,7 +22,8 @@ nonisolated extension SceneScriptVectorProgram {
                 descriptor: descriptor,
                 timelineTargets: timelineTargets,
                 admittedLayerColorConsumerIDs: admittedLayerColorConsumerIDs,
-                namedTextureDependencyLayerIDs: namedTextureDependencyLayerIDs
+                namedTextureDependencyLayerIDs: namedTextureDependencyLayerIDs,
+                preparedDescriptor: preparedDescriptor
             )
         }
         let dynamicModelPaths = Set(
@@ -204,7 +206,8 @@ nonisolated extension SceneScriptVectorProgram {
         descriptor: SceneRenderDescriptor,
         timelineTargets: Set<SceneDynamicTarget>,
         admittedLayerColorConsumerIDs: Set<Int>,
-        namedTextureDependencyLayerIDs: Set<Int>
+        namedTextureDependencyLayerIDs: Set<Int>,
+        preparedDescriptor: SceneRenderDescriptor? = nil
     ) -> SceneScriptVectorCandidate? {
         if let candidate = visibilityProjection(
             binding,
@@ -216,7 +219,8 @@ nonisolated extension SceneScriptVectorProgram {
         if let candidate = effectVisibilityProjection(
             binding,
             authoredOrdinal: authoredOrdinal,
-            descriptor: descriptor
+            descriptor: descriptor,
+            preparedDescriptor: preparedDescriptor
         ) {
             return candidate
         }
@@ -402,15 +406,23 @@ nonisolated extension SceneScriptVectorProgram {
     }
 
     /// Effect-level `visible` scripts (the stock media-thumbnail toggle family)
-    /// drive the effect's activation, not the layer's. The authored value is
-    /// the seed; the script publishes the live value through the event
-    /// lifecycle. Handlers write `thisObject.visible`, which the C host stages
-    /// for this effect-visibility target, so the owner needs the stateful
-    /// construction for property-object access.
+    /// drive the effect's activation, not the layer's. Handlers write
+    /// `thisObject.visible`, which the C host stages for this effect-visibility
+    /// target, so the owner needs the stateful construction for property-object
+    /// access.
+    /// Seed authority (D1): the guard deliberately reads the AUTHORED
+    /// descriptor - the binding's seed must match the authored `visible`
+    /// state, before any load projection (media matcher) flips the runtime
+    /// state. The definition's seed reads the PREPARED descriptor when one is
+    /// supplied - the frame snapshot's initial value must match the
+    /// load-prepared state (hidden for matcher-flipped effects), while the
+    /// script event lifecycle owns runtime values. Two distinct reads of two
+    /// distinct descriptor states by design.
     private static func effectVisibilityProjection(
         _ binding: SceneScriptBindingIR,
         authoredOrdinal: Int,
-        descriptor: SceneRenderDescriptor
+        descriptor: SceneRenderDescriptor,
+        preparedDescriptor: SceneRenderDescriptor? = nil
     ) -> SceneScriptVectorCandidate? {
         guard binding.owner.kind == .effect,
               binding.targetKey == "visible",
@@ -433,6 +445,23 @@ nonisolated extension SceneScriptVectorProgram {
         guard effect.effectID == binding.owner.effectID,
               let authored = binding.authoredValue?.boolValue,
               (effect.visible ?? true) == authored else { return nil }
+        // Prepared seed: same layer/effect identity in the prepared tree.
+        // An identity mismatch falls back to the authored seed (fail-safe to
+        // the pre-D1 behavior) instead of inventing a state.
+        var preparedVisible = authored
+        if let preparedDescriptor,
+           preparedDescriptor.layers.indices.contains(objectIndex),
+           preparedDescriptor.layers[objectIndex].id == layerID,
+           preparedDescriptor.layers[objectIndex].layerIndex == objectIndex,
+           preparedDescriptor.layers[objectIndex].effects.indices.contains(
+               effectIndex
+           ),
+           preparedDescriptor.layers[objectIndex].effects[effectIndex]
+               .effectID == effect.effectID {
+            preparedVisible =
+                preparedDescriptor.layers[objectIndex]
+                .effects[effectIndex].visible ?? true
+        }
         return .init(
             authoredOrdinal: authoredOrdinal,
             source: binding.source,
@@ -442,7 +471,7 @@ nonisolated extension SceneScriptVectorProgram {
                     effectIndex: effectIndex
                 ),
                 valueType: .bool,
-                authoredValue: .bool(authored)
+                authoredValue: .bool(preparedVisible)
             ),
             properties: [:],
             livePropertyInputTargets: [],
@@ -450,7 +479,8 @@ nonisolated extension SceneScriptVectorProgram {
             dynamicImageReferences: [],
             requiresStatefulOwner: true,
             evaluatesAfterSharedProviders: false,
-            dynamicMaterialModelPath: nil
+            dynamicMaterialModelPath: nil,
+            effectVisibilityGetterSeed: authored
         )
     }
 

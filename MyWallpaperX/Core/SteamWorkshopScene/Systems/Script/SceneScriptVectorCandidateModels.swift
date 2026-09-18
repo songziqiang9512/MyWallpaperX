@@ -49,6 +49,11 @@ nonisolated struct SceneScriptVectorCandidate: Sendable {
     let dynamicMaterialModelPath: String?
     /// A validated user-property input feeding this sole value producer.
     var userPropertyInputKey: String? = nil
+    /// The binding's authored `visible` seed for effect-visibility owners:
+    /// the C getter's read default before any staged write. Deliberately the
+    /// binding seed, NOT the definition's prepared `authoredValue` (which
+    /// carries the load-prepared state); nil on every other candidate kind.
+    var effectVisibilityGetterSeed: Bool? = nil
 
     var allowsDynamicLayerSideEffects: Bool {
         requiresStatefulOwner || !dynamicImageReferences.isEmpty

@@ -1,7 +1,9 @@
 import Foundation
 
-/// Preserves the exact authored value whenever a shared-VM owner is absent
-/// from the committed candidate. This catalog never evaluates JavaScript.
+/// Preserves each candidate's definition seed (the load-prepared state for
+/// effect-visibility targets, the authored value otherwise) whenever a
+/// shared-VM owner is absent from the committed candidate. This catalog never
+/// evaluates JavaScript.
 nonisolated struct SceneScriptFallbackCatalog: Sendable {
     let definitions: [SceneDynamicTargetDefinition]
     let targets: Set<SceneDynamicTarget>

@@ -600,11 +600,13 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_property_object_scope(
 
 /// Declares that this owner drives an effect's visibility. The property-object
 /// handle then exposes a writable `visible` whose staged value the update
-/// passthrough publishes for the frame.
+/// passthrough publishes for the frame. `seed_visible` is the getter's read
+/// default before any staged write: the binding's authored `visible` seed.
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_effect_visibility_target(
     MWXSceneQuickJSOwner *owner,
     int64_t layer_id,
     int64_t effect_index,
+    bool seed_visible,
     char *diagnostic,
     size_t diagnostic_capacity
 );

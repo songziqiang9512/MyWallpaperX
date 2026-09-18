@@ -63,14 +63,16 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         admittedLayerColorConsumerIDs: Set<Int> = [],
         excludedTargets: Set<SceneDynamicTarget> = [],
         generation: UInt64,
-        budget: SceneScriptScalarBudget = .default
+        budget: SceneScriptScalarBudget = .default,
+        preparedDescriptor: SceneRenderDescriptor? = nil
     ) -> SceneScriptVectorProgram {
         let projection = project(
             descriptor: descriptor,
             scriptBindings: scriptBindings,
             timelineTargets: timelineTargets,
             admittedLayerColorConsumerIDs: admittedLayerColorConsumerIDs,
-            excludedTargets: excludedTargets
+            excludedTargets: excludedTargets,
+            preparedDescriptor: preparedDescriptor
         )
         let program = compileNonPass(
             domain: domain,
@@ -232,6 +234,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                       ),
                       allowsStatefulLayerSideEffects:
                         candidate.requiresStatefulOwner,
+                      effectVisibilityGetterSeed:
+                        candidate.effectVisibilityGetterSeed,
                       generation: generation,
                       budget: budget
                 )

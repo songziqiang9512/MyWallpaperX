@@ -44,6 +44,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         hasCurrentAnimation: Bool = false,
         dynamicImagePathsByAuthoredIdentity: [String: String] = [:],
         allowsStatefulLayerSideEffects: Bool = false,
+        effectVisibilityGetterSeed: Bool? = nil,
         generation: UInt64,
         budget: SceneScriptScalarBudget
     ) throws {
@@ -126,7 +127,10 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                 throw Self.failure(scopeResult, diagnostic)
             }
             try SceneScriptLayerMutationBridge.configureEffectVisibilityTarget(
-                owner: created, target: target
+                owner: created, target: target,
+                // The getter's read default is the binding's authored seed,
+                // not the definition's prepared snapshot seed.
+                seedVisible: effectVisibilityGetterSeed ?? true
             )
             try SceneScriptEffectHandleBridge.configure(
                 owner: created,

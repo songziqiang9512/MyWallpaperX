@@ -345,7 +345,7 @@ static JSValue effect_visibility_getter(
         context,
         owner->effect_visibility_staged
             ? owner->effect_visibility_staged_visible
-            : true
+            : owner->effect_visibility_seed_visible
     );
 }
 
@@ -375,6 +375,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_effect_visibility_target
     MWXSceneQuickJSOwner *owner,
     int64_t layer_id,
     int64_t effect_index,
+    bool seed_visible,
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
@@ -425,6 +426,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_effect_visibility_target
     owner->effect_visibility_configured = true;
     owner->effect_visibility_layer_id = layer_id;
     owner->effect_visibility_effect_index = (int32_t)effect_index;
+    owner->effect_visibility_seed_visible = seed_visible != 0;
     return MWX_SCENE_QUICKJS_OK;
 }
 
