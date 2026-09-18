@@ -24,26 +24,21 @@ struct SceneRuntimeInput: Codable {
             scriptOwnedEffectVisibilityTargets
         // Script-owned effect visibility (the batch-B producer channel)
         // joins the user-property direct-bool targets as startup-inactive
-        // candidates: the authored value is only the seed a visibility script
-        // may override per frame. Route-admit the script-owned targets
-        // separately first so only structurally valid ones enter the union.
-        let admittedScriptOwned =
-            SceneDirectBoolEffectVisibilityRouteAdmission.startupInactiveTargets(
-                in: renderDescriptor,
-                candidates: scriptOwnedEffectVisibilityTargets
-            )
+        // candidates. These targets bypass the route admission: the
+        // visibility script explicitly controls the effect, and the
+        // activation policy gates per-frame execution by the published
+        // value. The route admission's root-layer check would block child
+        // layers (like the album-cover toggle on a nested layer), which is
+        // exactly the family this channel serves.
         startupInactiveEffectVisibilityTargets =
-            SceneDirectBoolEffectVisibilityRouteAdmission.startupInactiveTargets(
-                in: renderDescriptor,
-                candidates: propertyBindingProgram
-                    .effectLocalDirectBoolEffectVisibilityTargets
-                    .union(admittedScriptOwned)
-            )
+            propertyBindingProgram
+                .effectLocalDirectBoolEffectVisibilityTargets
+                .union(scriptOwnedEffectVisibilityTargets)
         authoredEffectRenderPlans = SceneAuthoredEffectRenderPlanner.plans(
             for: renderDescriptor,
             startupInactiveEffectVisibilityTargets:
                 startupInactiveEffectVisibilityTargets,
-            scriptOwnedEffectVisibilityTargets: admittedScriptOwned
+            scriptOwnedEffectVisibilityTargets: scriptOwnedEffectVisibilityTargets
         )
         self.propertyBindingProgram = propertyBindingProgram
         self.effectivePropertyValues = effectivePropertyValues
