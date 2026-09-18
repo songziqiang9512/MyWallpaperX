@@ -194,13 +194,22 @@ struct SceneRuntimeModelBuilder {
             admittedLayerColorConsumerIDs: sceneScriptColorConsumerLayerIDs,
             shaderContracts: assetCatalog.shaderContracts
         )
+        // Script-owned effect-visibility targets (the batch-B producer
+        // channel): these effects are activation-gated executable stages.
+        let scriptOwnedEffectVisibilityTargets = Set(
+            propertyVectorProjection.targets.compactMap { target -> SceneDynamicTarget? in
+                guard case .effectVisibility = target else { return nil }
+                return target
+            }
+        )
         let runtimeInput = SceneRuntimeInput(
             renderDescriptor: runtimeDescriptor,
             propertyBindingProgram: compilation.program,
             effectivePropertyValues: project.userProperties.effectiveValues(
                 overrides: propertyOverrides
             ),
-            shaderContracts: assetCatalog.shaderContracts
+            shaderContracts: assetCatalog.shaderContracts,
+            scriptOwnedEffectVisibilityTargets: scriptOwnedEffectVisibilityTargets
         )
 
         return SceneRuntimeModel(

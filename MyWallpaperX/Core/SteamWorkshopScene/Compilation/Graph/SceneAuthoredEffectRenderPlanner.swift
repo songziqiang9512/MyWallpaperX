@@ -5,7 +5,8 @@ enum SceneAuthoredEffectRenderPlanner {
 
     nonisolated static func plans(
         for descriptor: SceneRenderDescriptor,
-        startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = []
+        startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = [],
+        scriptOwnedEffectVisibilityTargets: Set<SceneDynamicTarget> = []
     ) -> [SceneAuthoredEffectRenderPlan] {
         let definitions = Dictionary(
             grouping: descriptor.effectDefinitions,
@@ -30,9 +31,35 @@ enum SceneAuthoredEffectRenderPlanner {
                         ? effectIndex : nil
                 }
             )
+            // Script-owned effect visibility (the batch-B producer channel):
+            // the authored value is only the seed a visibility script may
+            // override per frame. These effects are included as
+            // activation-gated executable stages.
+            let scriptGatedIndices: Set<Int> = Set(
+                layer.effects.enumerated().compactMap { effectIndex, effect in
+                    let target = SceneDynamicTarget.effectVisibility(
+                        layerID: layer.id,
+                        effectIndex: effectIndex
+                    )
+                    // The same structural preconditions as the route
+                    // admission (root layer, ordinary content kind, no
+                    // dependencies) gate script-gated inclusion so that a
+                    // structurally unsupported layer cannot lose its visible
+                    // effects' resolved execution.
+                    guard layer.parentID == nil,
+                          layer.childLayerIDs.isEmpty,
+                          layer.dependencyLayerIDs.isEmpty,
+                          layer.authoredDependencies.isEmpty,
+                          ["image", "solid", "text"].contains(layer.contentKind),
+                          layer.utilityLayer == nil else { return nil }
+                    return effect.visible == false
+                            && scriptOwnedEffectVisibilityTargets.contains(target)
+                        ? effectIndex : nil
+                }
+            )
             let tentativeIndices = visibleIndices.union(
                 propertyInactiveCandidates
-            )
+            ).union(scriptGatedIndices)
             guard !tentativeIndices.isEmpty else { return nil }
             let tentative = plan(
                 for: layer,
@@ -53,7 +80,7 @@ enum SceneAuthoredEffectRenderPlanner {
             )
             let selectedIndices = visibleIndices.union(
                 safePropertyInactiveIndices
-            )
+            ).union(scriptGatedIndices)
             guard !selectedIndices.isEmpty else { return nil }
             return selectedIndices == tentativeIndices
                 ? tentative
