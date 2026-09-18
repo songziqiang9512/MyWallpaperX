@@ -1880,14 +1880,16 @@ def runtime_evidence_metrics(path: Path) -> dict[str, Any]:
 
 
 def particle_runtime_metrics(preview_text: str) -> dict[str, Any]:
-    loaded_match = PARTICLE_LOADED_RE.search(preview_text)
+    loaded_matches = list(PARTICLE_LOADED_RE.finditer(preview_text))
+    loaded_match = loaded_matches[-1] if loaded_matches else None
     refract_loaded_match = PARTICLE_REFRACT_LOADED_RE.search(preview_text)
     initial_live_match = PARTICLE_INITIAL_LIVE_RE.search(preview_text)
     authored_match = PARTICLE_AUTHORED_RE.search(preview_text)
     visible_match = PARTICLE_VISIBLE_RE.search(preview_text)
     skipped_hidden_match = PARTICLE_SKIPPED_HIDDEN_RE.search(preview_text)
     skipped_transparent_match = PARTICLE_SKIPPED_TRANSPARENT_RE.search(preview_text)
-    sticky_loaded_match = PARTICLE_STICKY_LOADED_RE.search(preview_text)
+    sticky_matches = list(PARTICLE_STICKY_LOADED_RE.finditer(preview_text))
+    sticky_loaded_match = sticky_matches[-1] if sticky_matches else None
     loaded = int(loaded_match.group("loaded")) if loaded_match else 0
     candidates = int(loaded_match.group("total")) if loaded_match else 0
     return {

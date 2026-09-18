@@ -212,7 +212,7 @@ enum DebugScenePlaybackRunner {
                             snapshot.surfaceCount
                         )
                         if let evidenceDirectory {
-                            scheduleSnapshots(outputDirectory: evidenceDirectory)
+                            scheduleSnapshots(outputDirectory: evidenceDirectory, previewLogURL: previewLogURL)
                         }
                         terminate(after: requestedDuration)
                     case let .failure(error):
@@ -278,7 +278,7 @@ enum DebugScenePlaybackRunner {
                     )
                     schedulePeriodicSnapshots(outputDirectory: evidenceDirectory)
                 } else {
-                    scheduleSnapshots(outputDirectory: evidenceDirectory)
+                    scheduleSnapshots(outputDirectory: evidenceDirectory, previewLogURL: previewLogURL)
                 }
                 scheduleResizeSequence(outputDirectory: evidenceDirectory)
                 scheduleExecutorInvalidation(
@@ -358,11 +358,26 @@ enum DebugScenePlaybackRunner {
     }
 
     private static func scheduleSnapshots(
-        outputDirectory: URL
+        outputDirectory: URL,
+        previewLogURL: URL?
     ) {
         for (reason, delay) in [("ready", 1.0), ("after", requestedAfterSnapshotDelay)] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 requestSnapshot(reason: reason, outputDirectory: outputDirectory)
+                // The launch-time particle summary undercounts child-only
+                // containers (their particles spawn after advance-by-0); the
+                // after point captures the settled state for the evidence.
+                if reason == "after", let previewLogURL {
+                    // Append: the launch-time evidence lines above must
+                    // survive for the benchmark's validation gates.
+                    let lines = runtimeHost.debugParticleLoadReportLines()
+                    let report = lines.joined(separator: "\n") + "\n"
+                    if let handle = try? FileHandle(forWritingTo: previewLogURL) {
+                        defer { try? handle.close() }
+                        try? handle.seekToEnd()
+                        try? handle.write(contentsOf: Data(report.utf8))
+                    }
+                }
             }
         }
         schedulePeriodicSnapshots(outputDirectory: outputDirectory)
