@@ -425,10 +425,12 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 case let .success(initialization):
                     if let initialization {
                         guard case let .scalar(initializedValue) = initialization.value else {
+                            // Data-shaped bad-return: fail the frame and let a
+                            // later frame retry, consistent with the retry
+                            // contract.
                             failures[binding.target] = .badReturn(
                                 "scalar initialization returned a non-scalar value"
                             )
-                            disabledTargets.insert(binding.target)
                             binding.discardLayerMutations()
                             continue
                         }
@@ -448,7 +450,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     }
                 case let .failure(failure):
                     failures[binding.target] = failure
-                    disabledTargets.insert(binding.target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(binding.target)
+                    }
                     binding.discardLayerMutations()
                     continue
                 }
@@ -474,7 +478,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     )
                 case let .failure(failure):
                     failures[binding.target] = failure
-                    disabledTargets.insert(binding.target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(binding.target)
+                    }
                     binding.discardLayerMutations()
                     continue
                 }
@@ -501,7 +507,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     }
                 case let .failure(failure):
                     failures[binding.target] = failure
-                    disabledTargets.insert(binding.target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(binding.target)
+                    }
                     binding.discardLayerMutations()
                     continue
                 }
@@ -528,7 +536,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     )
                 case let .failure(failure):
                     failures[binding.target] = failure
-                    disabledTargets.insert(binding.target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(binding.target)
+                    }
                     binding.discardLayerMutations()
                     continue
                 }
@@ -554,7 +564,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     )
                 case let .failure(failure):
                     failures[binding.target] = failure
-                    disabledTargets.insert(binding.target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(binding.target)
+                    }
                     binding.discardLayerMutations()
                     continue
                 }
@@ -581,7 +593,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     )
                 case let .failure(failure):
                     failures[binding.target] = failure
-                    disabledTargets.insert(binding.target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(binding.target)
+                    }
                     binding.discardLayerMutations()
                     continue
                 }
@@ -606,7 +620,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     )
                 case let .failure(failure):
                     failures[binding.target] = failure
-                    disabledTargets.insert(binding.target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(binding.target)
+                    }
                     binding.discardLayerMutations()
                     continue
                 }
@@ -634,7 +650,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             case let .success(evaluation):
                 if case let .failure(failure) = binding.commitStorage() {
                     failures[binding.target] = failure
-                    disabledTargets.insert(binding.target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(binding.target)
+                    }
                     binding.discardLayerMutations()
                     continue
                 }
@@ -757,7 +775,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 }
             case let .failure(failure):
                 failures[binding.target] = failure
-                disabledTargets.insert(binding.target)
+                if failure.permanentlyDisablesOwner {
+                    disabledTargets.insert(binding.target)
+                }
                 binding.discardLayerMutations()
             }
         }

@@ -601,6 +601,7 @@ enum Harness {
             "badCode": bad.failures[target]?.code as Any,
             "badAgainPublished": badAgain.values[target] != nil,
             "badAgainFailed": badAgain.failures[target] != nil,
+            "badAgainCode": badAgain.failures[target]?.code as Any,
             "undefinedValue": boolValue(undefinedResult, target: target) as Any,
             "hiddenSharedCode": failureCode(hiddenShared) as Any,
             "hiddenHandleCode": failureCode(hiddenHandle) as Any,
@@ -720,8 +721,12 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
     def test_non_boolean_return_fails_only_the_owner(self) -> None:
         self.assertFalse(self.value["badPublished"])
         self.assertEqual(self.value["badCode"], "bad-return")
+        # Retry contract: the second evaluation runs again (no owner fuse) and
+        # fails with the same data-shaped bad-return; nothing is published
+        # either frame and the property keeps previous-current.
         self.assertFalse(self.value["badAgainPublished"])
-        self.assertFalse(self.value["badAgainFailed"])
+        self.assertTrue(self.value["badAgainFailed"])
+        self.assertEqual(self.value["badAgainCode"], "bad-return")
 
     def test_undefined_preserves_the_boolean_input(self) -> None:
         self.assertTrue(self.value["undefinedValue"])

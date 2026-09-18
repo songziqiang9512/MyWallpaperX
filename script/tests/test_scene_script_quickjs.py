@@ -1556,7 +1556,7 @@ int main(void) {
     );
 
     const char *vec3_nonfinite_return_source =
-        "export function update(value) { return {x:value.x, y:NaN, z:value.z}; }";
+        "export function update(value) { return {x:value.x, y:value.y>1?NaN:value.y, z:value.z}; }";
     MWXSceneQuickJSOwner *vec3_nonfinite_return = mwx_scene_quickjs_owner_create(
         domain, vec3_nonfinite_return_source,
         strlen(vec3_nonfinite_return_source), 133,
@@ -1571,6 +1571,15 @@ int main(void) {
         vec3_nonfinite_return, 133, vec3_input, "", "{}",
         MWX_SCENE_QUICKJS_BAD_RETURN, NULL,
         "Vec3 callback non-finite component remains rejected"
+    );
+    // Retry contract: the same owner succeeds on a later frame with valid
+    // data, proving the bad-return did not fuse the owner off.
+    const double vec3_recovered_input[3] = {7, 0, 0};
+    const double vec3_recovered_expected[3] = {7, 0, 0};
+    failures += update_vec3(
+        vec3_nonfinite_return, 133, vec3_recovered_input, "", "{}",
+        MWX_SCENE_QUICKJS_OK, vec3_recovered_expected,
+        "Vec3 bad-return owner recovers on the next frame"
     );
 
     const char *vec3_string_return_source =
@@ -1764,6 +1773,12 @@ int main(void) {
     failures += check(bad_return != NULL, "bad return compile", diagnostic);
     failures += update(
         bad_return, 5, 1, MWX_SCENE_QUICKJS_BAD_RETURN, 0, "bad return"
+    );
+    // A value-validation failure is data-shaped: the owner stays callable and
+    // retries the next frame instead of fusing off. Exceptions keep the fuse.
+    failures += update(
+        bad_return, 5, 1, MWX_SCENE_QUICKJS_BAD_RETURN, 0,
+        "bad return retries instead of disabling"
     );
 
     MWXSceneQuickJSOwner *budget = mwx_scene_quickjs_owner_create(

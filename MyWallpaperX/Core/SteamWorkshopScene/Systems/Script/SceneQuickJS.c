@@ -16,6 +16,16 @@ enum SceneInputProperty {
     SCENE_INPUT_CURSOR_LEFT_DOWN,
 };
 
+static bool failure_permanently_disables(MWXSceneQuickJSResult result) {
+    // A returned value that failed validation is data-shaped: the same script
+    // can produce a valid value on a later frame once upstream producers
+    // publish (corpus: shared-state ordering). Those failures keep
+    // previous-current for the frame and retry. Code-shaped failures
+    // (exceptions), runaway cost (budget/interrupt) and pathological mutation
+    // volume keep the permanent fuse.
+    return result != MWX_SCENE_QUICKJS_BAD_RETURN;
+}
+
 static JSValue freeze_snapshot_value(
     MWXSceneQuickJSDomain *domain,
     JSValue value
@@ -1894,7 +1904,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
     JS_FreeValue(domain->context, update);
     if (result != MWX_SCENE_QUICKJS_OK) {
         mwx_scene_quickjs_owner_discard_layer_mutations(owner);
-        owner->disabled = true;
+        if (failure_permanently_disables(result)) {
+            owner->disabled = true;
+        }
     }
     return result;
 }
@@ -2157,7 +2169,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_string(
     JS_FreeValue(domain->context, update);
     if (result != MWX_SCENE_QUICKJS_OK) {
         mwx_scene_quickjs_owner_discard_layer_mutations(owner);
-        owner->disabled = true;
+        if (failure_permanently_disables(result)) {
+            owner->disabled = true;
+        }
     }
     return result;
 }
@@ -2242,7 +2256,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vec3(
     JS_FreeValue(domain->context, update);
     if (result != MWX_SCENE_QUICKJS_OK) {
         mwx_scene_quickjs_owner_discard_layer_mutations(owner);
-        owner->disabled = true;
+        if (failure_permanently_disables(result)) {
+            owner->disabled = true;
+        }
     }
     return result;
 }

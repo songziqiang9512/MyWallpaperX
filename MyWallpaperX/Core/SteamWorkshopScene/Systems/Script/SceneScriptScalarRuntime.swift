@@ -165,6 +165,16 @@ nonisolated enum SceneScriptScalarRuntimeFailure: Error, Equatable, Sendable {
         case .mutationOverflow: "mutation-overflow"
         }
     }
+
+    /// A returned value that failed validation is data-shaped: the same script
+    /// can produce a valid value on a later frame once upstream producers
+    /// publish (corpus: shared-state ordering). Those failures fail the frame,
+    /// keep previous-current, and retry; code-shaped failures (exceptions,
+    /// budget, overflow) keep the permanent fuse.
+    var permanentlyDisablesOwner: Bool {
+        if case .badReturn = self { return false }
+        return true
+    }
 }
 
 nonisolated struct SceneScriptScalarEvaluation: Equatable, Sendable {

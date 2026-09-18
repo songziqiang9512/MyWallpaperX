@@ -403,7 +403,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     }
                 case let .failure(failure):
                     failures[target] = failure
-                    disabledTargets.insert(target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(target)
+                    }
                     binding.owner.discardLayerMutations()
                     continue
                 }
@@ -432,7 +434,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     )
                 case let .failure(failure):
                     failures[target] = failure
-                    disabledTargets.insert(target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(target)
+                    }
                     binding.owner.discardLayerMutations()
                     continue
                 }
@@ -470,7 +474,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     }
                 case let .failure(failure):
                     failures[target] = failure
-                    disabledTargets.insert(target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(target)
+                    }
                     binding.owner.discardLayerMutations()
                     continue
                 }
@@ -500,7 +506,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     )
                 case let .failure(failure):
                     failures[target] = failure
-                    disabledTargets.insert(target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(target)
+                    }
                     binding.owner.discardLayerMutations()
                     continue
                 }
@@ -529,7 +537,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     )
                 case let .failure(failure):
                     failures[target] = failure
-                    disabledTargets.insert(target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(target)
+                    }
                     binding.owner.discardLayerMutations()
                     continue
                 }
@@ -559,7 +569,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     )
                 case let .failure(failure):
                     failures[target] = failure
-                    disabledTargets.insert(target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(target)
+                    }
                     binding.owner.discardLayerMutations()
                     continue
                 }
@@ -587,7 +599,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     )
                 case let .failure(failure):
                     failures[target] = failure
-                    disabledTargets.insert(target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(target)
+                    }
                     binding.owner.discardLayerMutations()
                     continue
                 }
@@ -620,7 +634,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         callbackLayerMutations = resolved.mutations
                     case let .failure(failure):
                         failures[target] = failure
-                        disabledTargets.insert(target)
+                        if failure.permanentlyDisablesOwner {
+                            disabledTargets.insert(target)
+                        }
                         binding.owner.discardLayerMutations()
                         continue
                     }
@@ -629,7 +645,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 }
                 if case let .failure(failure) = binding.owner.commitStorage() {
                     failures[target] = failure
-                    disabledTargets.insert(target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(target)
+                    }
                     binding.owner.discardLayerMutations()
                     continue
                 }
@@ -757,7 +775,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 }
             case let .failure(failure):
                 failures[target] = failure
-                disabledTargets.insert(target)
+                if failure.permanentlyDisablesOwner {
+                    disabledTargets.insert(target)
+                }
                 binding.owner.discardLayerMutations()
             }
         }

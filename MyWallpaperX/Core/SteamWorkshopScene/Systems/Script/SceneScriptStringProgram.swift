@@ -413,7 +413,9 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 case .success: break
                 case let .failure(failure):
                     failures[binding.target] = failure
-                    disabledTargets.insert(binding.target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(binding.target)
+                    }
                     binding.discardLayerMutations()
                     continue
                 }
@@ -437,10 +439,12 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 case let .success(initialization):
                     if let initialization {
                         guard case let .string(initialized) = initialization.value else {
+                            // Data-shaped bad-return: fail the frame and let a
+                            // later frame retry, consistent with the retry
+                            // contract.
                             failures[binding.target] = .badReturn(
                                 "string initialization returned a non-string value"
                             )
-                            disabledTargets.insert(binding.target)
                             binding.discardLayerMutations()
                             continue
                         }
@@ -460,7 +464,9 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                     }
                 case let .failure(failure):
                     failures[binding.target] = failure
-                    disabledTargets.insert(binding.target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(binding.target)
+                    }
                     binding.discardLayerMutations()
                     continue
                 }
@@ -550,7 +556,9 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             case let .success(evaluation):
                 if case let .failure(failure) = binding.commitStorage() {
                     failures[binding.target] = failure
-                    disabledTargets.insert(binding.target)
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(binding.target)
+                    }
                     binding.discardLayerMutations()
                     continue
                 }
@@ -630,7 +638,9 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 }
             case let .failure(failure):
                 failures[binding.target] = failure
-                disabledTargets.insert(binding.target)
+                if failure.permanentlyDisablesOwner {
+                    disabledTargets.insert(binding.target)
+                }
                 binding.discardLayerMutations()
             }
         }
@@ -719,7 +729,9 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             return true
         case let .failure(failure):
             failures[binding.target] = failure
-            disabledTargets.insert(binding.target)
+            if failure.permanentlyDisablesOwner {
+                disabledTargets.insert(binding.target)
+            }
             binding.discardLayerMutations()
             return false
         }

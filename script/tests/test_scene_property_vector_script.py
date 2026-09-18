@@ -2745,7 +2745,9 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertTrue(value["currentPropertyLiveConsumer"], value)
         self.assertEqual(value["invalidCurrentPropertyFailure"], "bad-return", value)
         self.assertFalse(value["invalidCurrentPropertyPublished"], value)
-        self.assertTrue(value["invalidCurrentPropertyConsumerDisabled"], value)
+        # Retry contract: a data-shaped bad-return fails the frame but keeps
+        # the consumer's live-property target active for later frames.
+        self.assertFalse(value["invalidCurrentPropertyConsumerDisabled"], value)
 
     def test_generic_pass_scalar_executes_static_properties_and_audio(self) -> None:
         value = self.result()
