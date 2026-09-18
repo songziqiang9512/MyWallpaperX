@@ -2,7 +2,7 @@
 
 <!-- document-role: active-plan -->
 
-> 状态：现役工程重构计划；已完成调查、生命周期设计、源码／文档职责重排及 AS0 平台工程切片；E0/AS1 简单与重 graph 两个 workload 均已冻结 `-O`（及简单样本的 `-Onone`）基线，并完成第一个单职责消融（重 graph 整图序列化，`cpu_frame_p50` −20.1%）（[证据](semantics/runtime-evidence-current.md#e-2026-09-16-e1c-whole-graph-serialization-ablation)）；AS0 最低设备与可见输出矩阵、其余消融、设备矩阵基线、启动／缓存分类尚未执行。
+> 状态：现役工程重构计划；已完成调查、生命周期设计、源码／文档职责重排及 AS0 平台工程切片；E0/AS1 简单与重 graph 两个 workload 均已冻结 `-O`（及简单样本的 `-Onone`）基线，并完成第一个单职责消融（重 graph 整图序列化，`cpu_frame_p50` −20.1%）（[证据](semantics/runtime-evidence-current.md#e-2026-09-16-e1c-whole-graph-serialization-ablation)）；AS0 最低设备与可见输出矩阵、其余消融、设备矩阵基线、启动／缓存分类尚未执行。2026-09-18 完成只读减负可行性普查（静态勘察、未运行产品；证据存本机证据缓存 `docs/scene/evidence/20260918-codebase-reduction-feasibility/`），E1／E5／E6 卡已并入量化收敛候选。
 >
 > 基点：2026-09-15，`a7863c3e0bf5c2d7f134c7378aff1d13424a5c10`，调查开始时工作区干净。
 >
@@ -27,8 +27,8 @@ Apple Silicon 专项从 [§8](#apple-silicon) 开始：按顺序执行，逐卡�
 | 与 E1 分开 | E2 控制与产品依赖 | 唯一切换意图；公共控制层不依赖 Scene 实现；Shared 不调用模块 singleton | 可先做静态边界设计 |
 | E0 后按归因 | E3 GPU 合成与资源 | 减少无必要的 pass、主 target 往返和临时驻留 | 已有 GPU 归因＋普查口径（每帧 23 主 pass／78 offscreen pass／0 拷贝，`gpu_frame_p50` 7.53–7.59 ms 在 16.67 ms 预算内）；**因样本路由未证实而暂不消融，改作回归保护**；AS1 身份矩阵待补 |
 | 条件执行 | E4 调度与多屏提交 | 有背压、不重复尝试、明确不可回滚的 GPU 提交点 | 正常模式有等待证据再启用 |
-| 独立切片 | E5 shader 语义收敛 | 一族结构化语义替代一族源码形状 matcher | 待选择最有价值的一族 |
-| 伴随上述批次 | E6 测试与依赖减重 | 保留行为／安全证据，减少重复编译和内部结构锁定 | 已完成路径与编译源集合维护；编译成本消融未执行 |
+| 独立切片 | E5 shader 语义收敛 | 一族结构化语义替代一族源码形状 matcher | 待选择最有价值的一族；2026-09-18 普查已量化候选面与 fallback 审计前置（见 E5 卡） |
+| 伴随上述批次 | E6 测试与依赖减重 | 保留行为／安全证据，减少重复编译和内部结构锁定 | 已完成路径与编译源集合维护；编译成本消融未执行；源码文本断言迁移候选已量化（26 文件 43,912 行，见 E6 卡） |
 | 现在起持续 | E7 文档减重 | 一个工程入口、短当前表、研究与历史按需读取 | 入口、生命周期合同、源码职责导航与旧计划归档已完成；大型台账逐条消融仍开放 |
 | 最后 | E8 产品验收 | 普通播放、交互、资源、恢复、发布边界可复核 | 待前置闭合 |
 
@@ -140,6 +140,7 @@ Swift 改动在 checkpoint 使用现有 selector/build；`run_checkpoint_build.s
 - **E1a：**将 visibility、active closure、mutation grouping 收到同 surface/frame/phase 的已有投影；预检消费投影而不是重新从原始 descriptor 求值。覆盖动态增删层、隐藏 provider、parent／attachment 与 camera 差异。
 - **E1b：**固定 request／command 的静态骨架和整数索引；帧内填参数、资源与 lease。复用有界 scratch 存储，优先消除实测大量复制的字典；coordinator 仍持有唯一提交权。
 - **E1c：**把静态 ABI／graph 证明移到生成边界；live texture、function target、extent、epoch、pin 仍核验。不要跨 commandBuffer 缓存 PreparedGraph／PreparedPass。
+- **普查并入（2026-09-18）：**只读普查确认的收敛候选（证据：本机证据缓存 `docs/scene/evidence/20260918-codebase-reduction-feasibility/`）：①每帧 ≥5 层请求包装（`FrameTargetRequest→FrameTargetPlan→FramePreparationRequest→PreparedGraph→ExecutionTicket`）压扁为 prepared 投影；②preflight 消费 launch 期已算的 `resolvedMaterialVisibleExecutionRootLayerIDs`（当前仅首表面使用）而非每帧重求可见集；③Dependencies 的 legacy 单 provider 与 aggregate 双路径（`FrameInputs.dependencyEffect/dependencyEffects` 双字段、BindingCompilation legacy 分支、Coordinator 空 ledger 分支）收敛为 aggregate-only，同一 `SceneDependencyRenderPlan` 的 ≥3 处独立编译合一；④SceneScript 四家族 prepare/complete/discard 样板与失败路径全量 failure 字典共享。
 - **消融：**旧重复求值函数／请求构造分支被替代后删除；移除同一字段多份持久状态。单纯新增 cache 而旧构造仍执行不算完成。
 - **门：**`test_scene_dynamic_snapshot`、`test_scene_dynamic_layer_visibility`、`test_scene_layer_world_frame`、`test_scene_plan_validation_identity`、`test_scene_resolved_material_graph_executor`，再由 selector 加相关模块；同输入画面与 next-frame；admission／allocation A/B。
 - **退路：**以这一职责的旧直接路径整体回退；不保留永久布尔开关。generation／wrong texture／history counterexample 失败立即撤回优化。
@@ -178,6 +179,8 @@ Steam 账号、订阅与下载获取的具体迁移由 [Steam 获取专项](scen
 ### E5 — shader 语义压缩
 
 - **依赖／入口：**从频繁失败／增长最多的一族选，不重写所有 shader。ShaderFrontend、ShaderPreparation、Program finalizer、现役 compiler helper。
+- **普查事实（2026-09-18）：**编译链双 MSL 生产器并存（bounded Swift frontend 发射器与 glslang→SPIR-V 通用后端产出同一 `SceneAuthoredShaderProgram`）；67 个源码形状 analyzer 共 28,479 行；`RouteProfile` 550 行 fact→profile 匹配树且 `init` 内重跑 7 个 analyzer、`Variant+Compilation` 再跑 7 个；ColorTransfer 事实 4 处独立推导；`prepareShaderStages` 6 个调用点；进程内／持久 preparation、frontend program、generic artifact 三层缓存叠置。48 个 profile 中 46 已 generic-only、1 prefer-generic、1 observe-only；bounded frontend 仍是其余 profile 的 typed fallback owner。终态估算可收敛 25–33k 行（Compilation 的 31–41%）。
+- **前置：**任何 bounded frontend 发射器（约 3.2k 行）与配套 analyzer 的退役批次，必须先按 profile 审计 generic→boundedFrontend 的 fallback reason／计数，证明对应回退路径未被合法输入触达或已可按失败合同硬拒绝；退役按 owner-migration 门执行（真实纵向正证、未见组合、fallback 审计、一次回滚演练），禁止未审计先删。
 - **工作：**颜色／数据纹理用途、alpha 表示和边界转换在已有 IR／编译流程形成明确事实；等价表达式走同一 lowering。先覆盖一个 bounded family，再扩大。
 - **消融：**被替代的 analyzer／normalizer／generated-source matcher 成族删除；老 tests 中仅检查变量名和源码段的预期改成输入输出语义与拒绝反例。
 - **门：**`test_scene_shader_color_contract`、`test_scene_generic_shader_program_artifact`、`test_scene_resolved_material_program_finalizer`；至少多个等价写法／未见组合，数据纹理不误做颜色转换、slot hole 不丢失、编译失败局部降级；实际 GPU／ROI。
@@ -187,6 +190,7 @@ Steam 账号、订阅与下载获取的具体迁移由 [Steam 获取专项](scen
 
 - **入口：**scene_validation_gates、scene_swift_source_sets、source_layout、tests 下嵌入式 Swift harness、check_code_health、CI。
 - **工作：**按“独立行为／安全反例／装配检查／实现耦合”归类；先测最慢模块编译占比。共享已存在的 source-set 与 fixture support，避免一个 test import 另一个 test 再拼大段 stub 的依赖链。
+- **普查并入（2026-09-18）：**26 个直接断言 Swift 源码文本的测试文件（43,912 行，约 23% 测试量）迁为行为断言是 E1/E5 实现侧收缩的前置摩擦面，按触达族分批迁移，不一次性重写。精确删除候选（删除时同步 `scene_source_layout`／`scene_validation_gates`／`scene_swift_source_sets` 与引用测试）：`SceneGraphNodeScheduler.encode` 零调用链（含 `SceneGraphCommandRuntime`、`makeCommandRuntime`，约 150–200 行）；5 个仅 harness 引用文件共 139 行（`SceneDirectDrawLayerRenderer`／`SceneScriptLayerWorldTransformPublication`／`SceneEffectMaskSemantics`／`SceneAuthoredShaderPreparation+Support`／`SteamWorkshopSceneDownloadRecord+Scene`）；launch 期一次性报告器约 279 行。
 - **消融：**只删除证明已由独立行为门替代的重复内部断言／过期 fixture；安全和视觉反例保留。统一 source list 真值后撤销手写镜像；不得把选择器改成漏测来提速。
 - **缓存条件：**若引入 harness 编译缓存，key 必含源码、harness、flags、SDK、编译器、架构和依赖内容；损坏重编，不能复用旧测试二进制冒充当前源码。
 - **结构门：**19 个现有 code-health errors 分派到实际职责批次；只对已删除／迁移旧路径收缩 baseline，不抬高 800 上限。1536 行 Settings 按设置状态与动作消费者归责，先删耦合后拆 UI。
