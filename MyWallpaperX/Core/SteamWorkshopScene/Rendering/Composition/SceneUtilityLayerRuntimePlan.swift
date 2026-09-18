@@ -192,6 +192,18 @@ enum SceneUtilityLayerRuntimePlanner {
         let namedBindingConditionalCount = dependencyPlan
             .bindingsByConsumerLayerID.values
             .filter(bindingIsConditional).count
+        let namedBindingConditionalLayerIDs = dependencyPlan
+            .bindingsByConsumerLayerID
+            .filter { bindingIsConditional($0.value) }
+            .keys
+            .sorted()
+            .map(String.init)
+            .joined(separator: ",")
+        let namedBindingConsumerLayerIDs = dependencyPlan
+            .bindingsByConsumerLayerID.keys
+            .sorted()
+            .map(String.init)
+            .joined(separator: ",")
         let namedTargetGaps = ordered.filter {
             $0.requiresNamedTarget && !namedTargetProviderIDs.contains($0.layerID)
         }
@@ -203,6 +215,8 @@ enum SceneUtilityLayerRuntimePlanner {
             "utilityNamedTargetPlannedCount: \(namedTargetProviderIDs.count)",
             "utilityNamedBindingPlannedCount: \(dependencyPlan.bindingsByConsumerLayerID.count)",
             "utilityNamedBindingConditionalCount: \(namedBindingConditionalCount)",
+            "utilityNamedBindingConditionalLayerIDs: \(namedBindingConditionalLayerIDs)",
+            "utilityNamedBindingConsumerLayerIDs: \(namedBindingConsumerLayerIDs)",
             "utilityNamedTargetGapCount: \(namedTargetGaps.count)",
             "utilityDependencyIssueCount: \(dependencyPlan.issues.count)",
         ]

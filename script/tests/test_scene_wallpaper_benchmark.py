@@ -7657,8 +7657,24 @@ utility layer 763: skippedHidden kind=composition
             ),
             ["named target binding unavailable set mismatch"],
         )
-        # Conditional (script-owned visibility) bindings are excused from the
-        # required success count; unconditional ones still bind the aggregate.
+        # Conditional (script-owned visibility) bindings are excused by
+        # member: planned consumers {70, 182} minus conditional {70} minus
+        # unavailable {182} leaves nothing required; dropping the conditional
+        # excuse (or the unavailable expectation) makes the remaining members
+        # binding. The count fallback still applies without membership data.
+        membership_utility = {
+            "named_binding_conditional_layer_ids": [70],
+            "named_binding_consumer_layer_ids": [70, 182],
+        }
+        self.assertEqual(
+            benchmark.named_target_binding_failures(
+                expected_passthrough,
+                2,
+                binding_metrics,
+                utility_metrics=membership_utility,
+            ),
+            [],
+        )
         self.assertEqual(
             benchmark.named_target_binding_failures(
                 {},
