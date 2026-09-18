@@ -808,6 +808,25 @@ static MWXSceneQuickJSResult call_string(
         JS_FreeValue(domain->context, result);
         return MWX_SCENE_QUICKJS_OK;
     }
+    if (JS_IsNumber(result)) {
+        // Author scripts return Numbers for string properties (a computed date
+        // is the corpus case). JavaScript property assignment coerces via
+        // ToString; match that instead of failing the callback. Non-finite
+        // numbers keep their JS spelling ("NaN"/"Infinity") like any engine
+        // applying ToString semantics would produce.
+        JSValue coerced = JS_ToString(domain->context, result);
+        JS_FreeValue(domain->context, result);
+        if (JS_IsException(coerced)) {
+            write_diagnostic(
+                diagnostic, diagnostic_capacity,
+                "callback number-to-string coercion failed"
+            );
+            return discard_layer_mutations_after_failure(
+                owner, MWX_SCENE_QUICKJS_BAD_RETURN
+            );
+        }
+        result = coerced;
+    }
     if (!JS_IsString(result)) {
         JS_FreeValue(domain->context, result);
         write_diagnostic(

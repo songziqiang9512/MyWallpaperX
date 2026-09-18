@@ -1476,6 +1476,42 @@ int main(void) {
         "Vec3 callback returns host Vec3 input after layer mutation"
     );
 
+    // Official Vec2/Vec3 contract: mix(other, amount: Number|Vec) is the
+    // per-component lerp the corpus uses for audio-driven colors
+    // (`3470948192` godrays color constant).
+    const char *vec3_mix_source =
+        "export function update(value) {"
+        "return new Vec3(0,0,0).mix(new Vec3(10,20,30),0.5)"
+        ".mix(new Vec3(0,0,0),new Vec3(0.4,0.5,0.6));}";
+    MWXSceneQuickJSOwner *vec3_mix = mwx_scene_quickjs_owner_create(
+        domain, vec3_mix_source, strlen(vec3_mix_source), 135,
+        diagnostic, sizeof(diagnostic)
+    );
+    failures += check(vec3_mix != NULL, "Vec3 mix compile", diagnostic);
+    const double vec3_mix_expected[3] = {3, 5, 6};
+    failures += update_vec3(
+        vec3_mix, 135, vec3_input, "", "{}",
+        MWX_SCENE_QUICKJS_OK, vec3_mix_expected,
+        "Vec3 mix with number and vector amounts"
+    );
+
+    const char *vec2_mix_source =
+        "let saved;"
+        "export function init(){saved=new Vec2(0,0).mix(new Vec2(4,8),0.25);}"
+        "export function update(value){value.x=saved.x;value.y=saved.y;"
+        "value.z=0;return value;}";
+    MWXSceneQuickJSOwner *vec2_mix = mwx_scene_quickjs_owner_create(
+        domain, vec2_mix_source, strlen(vec2_mix_source), 136,
+        diagnostic, sizeof(diagnostic)
+    );
+    failures += check(vec2_mix != NULL, "Vec2 mix compile", diagnostic);
+    const double vec2_mix_expected[3] = {1, 2, 0};
+    failures += update_vec3(
+        vec2_mix, 136, vec3_input, "", "{}",
+        MWX_SCENE_QUICKJS_OK, vec2_mix_expected,
+        "Vec2 mix with number amount"
+    );
+
     const char *vec3_noop_mutation_source =
         "export function update(value) {"
         "thisLayer.angles = new Vec3(0, 0, 0);"
@@ -2381,16 +2417,45 @@ int main(void) {
         MWX_SCENE_QUICKJS_STALE_OWNER, "stale cursor owner"
     );
 
+    // String properties take Numbers via JS ToString coercion: the corpus
+    // computes dates as Numbers (`3122339805` World Time). Non-numbers stay
+    // rejected so a broken script cannot silently publish junk.
+    const char *numeric_string_source =
+        "export function update(){return 25;}";
+    MWXSceneQuickJSOwner *numeric_string = mwx_scene_quickjs_owner_create(
+        domain, numeric_string_source, strlen(numeric_string_source),
+        24, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(numeric_string != NULL, "numeric string compile", diagnostic);
+    failures += update_string(
+        numeric_string, 24, "safe", MWX_SCENE_QUICKJS_OK, "25",
+        "numeric callback return coerced to string"
+    );
+
+    const char *fractional_string_source =
+        "export function update(){return 1.5;}";
+    MWXSceneQuickJSOwner *fractional_string = mwx_scene_quickjs_owner_create(
+        domain, fractional_string_source, strlen(fractional_string_source),
+        25, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        fractional_string != NULL, "fractional string compile", diagnostic
+    );
+    failures += update_string(
+        fractional_string, 25, "safe", MWX_SCENE_QUICKJS_OK, "1.5",
+        "fractional callback return coerced to string"
+    );
+
     const char *bad_string_source =
-        "export function update(){return 42;}";
+        "export function update(){return {value:42};}";
     MWXSceneQuickJSOwner *bad_string = mwx_scene_quickjs_owner_create(
         domain, bad_string_source, strlen(bad_string_source),
-        24, diagnostic, sizeof(diagnostic)
+        26, diagnostic, sizeof(diagnostic)
     );
     failures += check(bad_string != NULL, "bad string compile", diagnostic);
     failures += update_string(
-        bad_string, 24, "safe", MWX_SCENE_QUICKJS_BAD_RETURN, "",
-        "non-string callback return rejected"
+        bad_string, 26, "safe", MWX_SCENE_QUICKJS_BAD_RETURN, "",
+        "non-numeric non-string callback return rejected"
     );
 
     const char *audio_source =
@@ -3854,6 +3919,8 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(media_properties_owner);
     mwx_scene_quickjs_owner_destroy(media_timeline_owner);
     mwx_scene_quickjs_owner_destroy(bad_string);
+    mwx_scene_quickjs_owner_destroy(numeric_string);
+    mwx_scene_quickjs_owner_destroy(fractional_string);
     mwx_scene_quickjs_owner_destroy(cursor_consumer);
     mwx_scene_quickjs_owner_destroy(cursor_owner);
     mwx_scene_quickjs_owner_destroy(audio_owner);
@@ -3935,6 +4002,8 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(vec3);
     mwx_scene_quickjs_owner_destroy(vec3_return_contract);
     mwx_scene_quickjs_owner_destroy(vec3_noop_mutation);
+    mwx_scene_quickjs_owner_destroy(vec3_mix);
+    mwx_scene_quickjs_owner_destroy(vec2_mix);
     mwx_scene_quickjs_owner_destroy(vec3_invalid_return);
     mwx_scene_quickjs_owner_destroy(vec3_nonfinite_return);
     mwx_scene_quickjs_owner_destroy(vec3_string_return);
