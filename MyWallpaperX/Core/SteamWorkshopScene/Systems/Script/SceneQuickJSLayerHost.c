@@ -2867,9 +2867,11 @@ static JSValue sort_layer(
         // An authored sort shifts the shared catalog order; the dirty record
         // carries the new order to Swift, which repositions the layer in its
         // own order authority. No dynamic journal: the shift is idempotent
-        // per script semantics and Swift owns admission. A same-callback
-        // staged property write on the sorted layer takes precedence and
-        // drops the sort (read-your-writes covers properties only).
+        // per script semantics and Swift owns admission. Known residual
+        // (review-recorded): the actual drop of a same-callback staged
+        // property write happens in Swift's mutation coalescer, and a
+        // same-frame dynamic topology rebuild re-derives order from the
+        // baseline+journal, which does not yet include authored sorts.
         if (!mark_dirty(owner, target))
             return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
     }
