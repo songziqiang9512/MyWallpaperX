@@ -2842,8 +2842,9 @@ static JSValue sort_layer(
     MWXSceneQuickJSLayerRecord *target = resolve_layer_argument(
         context, owner, argv[0]
     );
-    if (target == NULL || !target->dynamic ||
-        target->owner_identity != owner->identity)
+    if (target == NULL)
+        return JS_ThrowTypeError(context, "sortLayer target is stale");
+    if (target->dynamic && target->owner_identity != owner->identity)
         return JS_ThrowTypeError(context, "sortLayer target is not an owned dynamic layer");
     int32_t count = active_count(owner->domain);
     int32_t desired = (int32_t)order_value >= count ? count - 1 : (int32_t)order_value;
@@ -2851,15 +2852,26 @@ static JSValue sort_layer(
     if (desired == old) return JS_UNDEFINED;
     const uint32_t target_index =
         (uint32_t)(target - owner->domain->layers);
-    if (!append_dynamic_layer_topology_operation(
-            owner, MWX_SCENE_QUICKJS_DYNAMIC_LAYER_SORT,
-            target_index, desired))
-        return JS_ThrowInternalError(
-            context, "dynamic layer topology operation journal exceeded"
-        );
-    if (!mark_dirty(owner, target)) {
-        discard_last_dynamic_layer_topology_operation(owner);
-        return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
+    if (target->dynamic) {
+        if (!append_dynamic_layer_topology_operation(
+                owner, MWX_SCENE_QUICKJS_DYNAMIC_LAYER_SORT,
+                target_index, desired))
+            return JS_ThrowInternalError(
+                context, "dynamic layer topology operation journal exceeded"
+            );
+        if (!mark_dirty(owner, target)) {
+            discard_last_dynamic_layer_topology_operation(owner);
+            return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
+        }
+    } else {
+        // An authored sort shifts the shared catalog order; the dirty record
+        // carries the new order to Swift, which repositions the layer in its
+        // own order authority. No dynamic journal: the shift is idempotent
+        // per script semantics and Swift owns admission. A same-callback
+        // staged property write on the sorted layer takes precedence and
+        // drops the sort (read-your-writes covers properties only).
+        if (!mark_dirty(owner, target))
+            return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
     }
     for (uint32_t i = 0; i < owner->domain->layer_count; ++i) {
         MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[i];

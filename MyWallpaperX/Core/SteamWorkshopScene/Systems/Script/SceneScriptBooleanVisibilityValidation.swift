@@ -39,6 +39,16 @@ nonisolated enum SceneScriptBooleanVisibilityValidation {
         var resolved: [SceneScriptLayerMutation] = []
         resolved.reserveCapacity(mutations.count)
         for mutation in mutations {
+            // An order-only authored mutation is a script-driven sort of an
+            // authored layer (batch C): it carries its own target index and
+            // edits no display state, so it passes through untouched. Dynamic
+            // upserts also carry no fields but must keep their asset-path
+            // resolution below.
+            if mutation.kind == .upsert && mutation.fields.isEmpty
+                && !mutation.isDynamic {
+                resolved.append(mutation)
+                continue
+            }
             if !mutation.isDynamic {
                 if mutation.kind == .destroy {
                     guard mutation.layerID == layerID,

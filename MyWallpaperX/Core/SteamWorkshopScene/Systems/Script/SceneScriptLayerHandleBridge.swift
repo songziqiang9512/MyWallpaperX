@@ -550,6 +550,10 @@ nonisolated enum SceneScriptLayerMutationBridge {
             switch (kind, raw.dynamic, raw.fields) {
             case (.destroy, 0, 0), (.destroy, 1, 0), (.upsert, 1, 0):
                 break
+            case (.upsert, 0, 0):
+                // An order-only authored mutation: the script sorted this
+                // authored layer and the record carries the new order index.
+                break
             case (.upsert, 0, _)
                 where !fields.isEmpty && fields.isSubset(of: .authoredFields):
                 break

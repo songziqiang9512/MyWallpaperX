@@ -3109,19 +3109,6 @@ int main(void) {
         "cross-owner dynamic layer is readable but not writable"
     );
 
-    MWXSceneQuickJSOwner *static_sort = mwx_scene_quickjs_owner_create(
-        domain,
-        "export function update(value){thisScene.sortLayer(thisLayer,0);return value;}",
-        strlen("export function update(value){thisScene.sortLayer(thisLayer,0);return value;}"),
-        44, diagnostic, sizeof(diagnostic)
-    );
-    failures += check(static_sort != NULL, "static sort owner compile", diagnostic);
-    failures += configure_owner_layer(static_sort, 42, "static sort owner identity");
-    failures += update(
-        static_sort, 44, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
-        "static layer sort rejected until topology publication is supported"
-    );
-
     MWXSceneQuickJSOwner *static_setter = mwx_scene_quickjs_owner_create(
         domain,
         "export function update(value){thisLayer.origin=new Vec3(1,2,3);return value;}",
@@ -3954,6 +3941,41 @@ int main(void) {
         "localStorage mutation budget is sticky"
     );
     mwx_scene_quickjs_owner_discard_storage_transaction(storage_budget);
+
+    // Authored sorts: run after every other order-sensitive fixture because
+    // the sort permanently shifts the shared catalog order. The order-only
+    // mutation carries the new index to Swift. Layer 42's index at this point
+    // is whatever earlier fixtures left; the assertions pin the shape, not an
+    // absolute index.
+    MWXSceneQuickJSOwner *static_sort = mwx_scene_quickjs_owner_create(
+        domain,
+        "export function update(value){thisScene.sortLayer(thisLayer,0);return value;}",
+        strlen("export function update(value){thisScene.sortLayer(thisLayer,0);return value;}"),
+        44, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(static_sort != NULL, "static sort owner compile", diagnostic);
+    failures += configure_owner_layer(static_sort, 42, "static sort owner identity");
+    failures += update(
+        static_sort, 44, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "authored layer sort accepted"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(static_sort) == 1,
+        "authored layer sort mutation staged", ""
+    );
+    {
+        MWXSceneQuickJSLayerMutation sort_mutation = {0};
+        failures += check(
+            mwx_scene_quickjs_owner_layer_mutation_at(
+                static_sort, 0, &sort_mutation, diagnostic, sizeof(diagnostic)
+            ) == MWX_SCENE_QUICKJS_OK
+                && sort_mutation.kind == MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT
+                && sort_mutation.dynamic == 0
+                && sort_mutation.fields == 0
+                && sort_mutation.layer_id == 42,
+            "authored layer sort order-only mutation", ""
+        );
+    }
 
     mwx_scene_quickjs_owner_invalidate(positive);
     failures += update(

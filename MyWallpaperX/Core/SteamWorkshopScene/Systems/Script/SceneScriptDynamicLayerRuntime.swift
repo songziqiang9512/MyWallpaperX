@@ -129,6 +129,31 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     }
                     continue
                 }
+                // An order-only authored mutation is a script-driven sort: the
+                // C catalog shifted its order atomically, and the reported
+                // index is the new position. Move the layer; every other
+                // layer shifts implicitly because both sides start from the
+                // same pre-state.
+                if mutation.fields.isEmpty {
+                    guard mutation.kind == .upsert,
+                          mutation.orderIndex >= 0,
+                          !candidateDestroyedAuthoredLayerIDs.contains(
+                              mutation.layerID
+                          ),
+                          let current = candidateOrder.firstIndex(
+                              of: mutation.layerID
+                          ) else {
+                        return .failure(.invalidArgument(
+                            "invalid authored layer sort"
+                        ))
+                    }
+                    candidateOrder.remove(at: current)
+                    candidateOrder.insert(
+                        mutation.layerID,
+                        at: min(mutation.orderIndex, candidateOrder.count)
+                    )
+                    continue
+                }
                 guard mutation.kind == .upsert,
                       !candidateDestroyedAuthoredLayerIDs.contains(
                           mutation.layerID

@@ -1574,6 +1574,15 @@ The same replay's three remaining effect-local passthroughs were all the shared 
 - **真实回放**：`3470948192` 隔离副本 9 秒（report SHA-256 `21f0879423b57b089f78385b1a98270c3e119628fa8e4ee165f83b657dbc07c8`）**PASS failures=[]**；layer 115 scale 恰好 1 次 frame-0 失败 + 随后 `callback=completed … output=vector3(1.0187497948436404, 2000.0, 1.0187497948436404)`——动画值真实流动，冻结解除。
 - **证据边界**：豁免仅覆盖 update 路径的 BAD_RETURN；init/timer/media-dispatch 的失败仍熔断（若语料证明 init 型瞬态也存在，再立切片）；重试不设连续失败上限——永久坏数据的脚本会每帧失败并记录诊断（成本有界：每 owner 中断预算不变，日志量有界），该取舍经审查确认。不证明全部失败码×全部 owner 形态的矩阵，也不证明整样本视觉 parity。
 
+<a id="e-2026-09-18-authored-layer-sort"></a>
+### E-2026-09-18-AUTHORED-LAYER-SORT: 脚本驱动的作者层重排
+
+- **目标合同**：`thisScene.sortLayer(layer, index)` 对**作者层**生效——脚本可重排作者渲染顺序（官方 EasyTransitions+/轮播家族的核心依赖；corpus `sortLayer` 18 样本）。此前只允许 dynamic 层，作者层一律 `sortLayer target is not an owned dynamic layer`。
+- **实现**（顺序权威不新增——`SceneScriptDynamicLayerRuntime.order` 本就是唯一顺序账本）：①C `sort_layer` 解除作者层拒绝：动态层维持原路径（拓扑 journal + mark_dirty），作者层直接 `mark_dirty`（排序在共享 catalog 中原子平移，幂等于脚本语义；Swift 拥有准入）——同一回调内同层的 staged 属性写优先于排序（read-your-writes 只覆盖属性）；②桥接放行 `(.upsert, 0, 0)`（作者层排序 = 空字段 + 新 orderIndex 的 mutation）；③`SceneScriptDynamicLayerRuntime.apply` 新增作者排序分支：按上报索引在 `order` 数组中重排（bump topologyRevision 使 prepared 投影失效）；④`SceneScriptBooleanVisibilityValidation` 放行空字段排序 mutation 直通（**仅限作者层**——动态 upsert 同样空字段但必须走资源路径解析，初版漏 `!isDynamic` 导致动态图资源路径未解析，回放暴露后修正）。
+- **验证**：host harness 新增断言（作者排序 OK、恰 1 条 order-only mutation、layer/fields 形状正确——绝对序号不断言，形状即契约）；`test_scene_script_quickjs` 2/2、property vector gate 20/20、boolean visibility + dependency render plan 等共 60/60（含动态图资源路径回归）。签名 Debug App CDHash `95b994334f91f79127262477e2c6f44c19c2c5c7`、main executable SHA-256 `e61e04906fe3f7ba6ad40c714916aad76e26cb6378c70e65aa78d6567d99b13a`、deep/strict 签名有效。
+- **真实回放（验收样本）**：`3788066613`（EasyTransitions+ 幻灯片）9 秒 **PASS failures=[]**（report SHA-256 `6ed1e65e2d6cc095cc2330a38a0e09d7896bc02891cbc58b3fa3c85948d63d0d`）；layer 18 幻灯片 owner `callback=completed`（init 的 getChildren→排序→子层 alpha 编排全链执行），全样本唯一剩余脚本失败为已归因的作者缺陷（layer 15 strict 模式写 Boolean 原语）。
+- **证据边界**：排序的**视觉**效果（幻灯片轮播的画面切换）未做逐帧 ROI 断言（可执行链与样本 PASS 已证）；跨 owner 同帧排序冲突按准入序 last-write；排序与 dynamic 层混排的顺序语义未专项验证。
+
 <a id="e-2026-09-18-effect-visibility-live-channel"></a>
 ### E-2026-09-18-EFFECT-VISIBILITY-LIVE-CHANNEL: 效果可见性脚本的实时通道
 
