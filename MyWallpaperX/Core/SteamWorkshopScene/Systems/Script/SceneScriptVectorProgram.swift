@@ -349,6 +349,16 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     > consumedMediaTimelineGenerations[target, default: 0]
                     ? event : nil
             }
+            // Event-only owners (no `init`/`update`) mirror the scalar/string
+            // quiescence contract: with no pending event and no value hook or
+            // timer there is nothing to run, so the binding stays idle instead
+            // of entering a C update that would only pass through.
+            if changedUserPropertiesJSON == nil,
+               pendingPlaybackEvent == nil, pendingMediaEvent == nil,
+               pendingPropertiesEvent == nil, pendingTimelineEvent == nil,
+               !binding.owner.requiresFrameEvaluation {
+                continue
+            }
             var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
             var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
             var callbackLayerMutations: [SceneScriptLayerMutation] = []

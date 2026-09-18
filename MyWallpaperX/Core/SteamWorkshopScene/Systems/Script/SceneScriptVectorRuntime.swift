@@ -8,6 +8,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     let handlesMediaPlayback: Bool
     let handlesMediaProperties: Bool
     let handlesMediaTimeline: Bool
+    let handlesUserProperties: Bool
     let exportedCursorEvents: Set<SceneScriptCursorEventKind>
     let handle: OpaquePointer
     private let domain: SceneScriptQuickJSDomain
@@ -15,11 +16,23 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     private let valueType: SceneDynamicValueType
     private let dynamicImagePathsByAuthoredIdentity: [String: String]
     private let allowsStatefulLayerSideEffects: Bool
+    private let handlesInit: Bool
+    private let handlesUpdate: Bool
+    private var hasInitialized = false
     private var lastAudioGeneration: UInt64?
 
     var allowsDynamicLayerSideEffects: Bool {
         allowsStatefulLayerSideEffects
             || !dynamicImagePathsByAuthoredIdentity.isEmpty
+    }
+
+    /// Event-only owners (no `init`/`update`) run exclusively through their
+    /// event dispatches. A C update call would pass through unchanged, but the
+    /// scalar/string quiescence mirror skips owners with nothing to run; the
+    /// program-side skip relies on this flag.
+    var requiresFrameEvaluation: Bool {
+        handlesUpdate || (handlesInit && !hasInitialized)
+            || mwx_scene_quickjs_owner_active_timer_count(handle) > 0
     }
 
     init(
@@ -83,6 +96,9 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         var handlesMediaPlayback = false
         var handlesMediaProperties = false
         var handlesMediaTimeline = false
+        var handlesUserProperties = false
+        var handlesInit = false
+        var handlesUpdate = false
         var exportedCursorEvents: Set<SceneScriptCursorEventKind> = []
         var ownerHasAudioRegistration = false
         do {
@@ -129,6 +145,15 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             handlesMediaTimeline = try SceneScriptOwnerExportBridge.contains(
                 "mediaTimelineChanged", owner: created
             )
+            handlesUserProperties = try SceneScriptOwnerExportBridge.contains(
+                "applyUserProperties", owner: created
+            )
+            handlesInit = try SceneScriptOwnerExportBridge.contains(
+                "init", owner: created
+            )
+            handlesUpdate = try SceneScriptOwnerExportBridge.contains(
+                "update", owner: created
+            )
             for event in SceneScriptCursorEventKind.allCases {
                 if try SceneScriptOwnerExportBridge.contains(
                     event.callbackName, owner: created
@@ -140,22 +165,40 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                 owner: created
             )
             if valueType == .bool {
-                let hasValueHook = try SceneScriptOwnerExportBridge.contains(
-                    "init", owner: created
-                ) || SceneScriptOwnerExportBridge.contains("update", owner: created)
                 let handlesDestroy = try SceneScriptOwnerExportBridge.contains(
                     "destroy", owner: created
                 )
-                guard hasValueHook, !handlesDestroy,
-                      !handlesMediaThumbnail, !handlesMediaPlayback,
-                      !handlesMediaProperties, !handlesMediaTimeline,
-                      (allowsStatefulLayerSideEffects
-                        || exportedCursorEvents.isEmpty),
-                      (dynamicImagePathsByAuthoredIdentity.isEmpty
-                        && !allowsStatefulLayerSideEffects
-                        ? !ownerHasAudioRegistration
-                        : true) else {
-                    throw SceneScriptScalarRuntimeFailure.invalidSource
+                // Cursor handlers are deliberately excluded: a cursor-bearing
+                // event-only owner would also be claimed by the standalone
+                // cursor program's borrow path and silently drop both. Such
+                // scripts stay rejected exactly as before this batch.
+                let hasEventHook = handlesMediaThumbnail || handlesMediaPlayback
+                    || handlesMediaProperties || handlesMediaTimeline
+                    || handlesUserProperties
+                if handlesInit || handlesUpdate {
+                    guard !handlesDestroy,
+                          !handlesMediaThumbnail, !handlesMediaPlayback,
+                          !handlesMediaProperties, !handlesMediaTimeline,
+                          (allowsStatefulLayerSideEffects
+                            || exportedCursorEvents.isEmpty),
+                          (dynamicImagePathsByAuthoredIdentity.isEmpty
+                            && !allowsStatefulLayerSideEffects
+                            ? !ownerHasAudioRegistration
+                            : true) else {
+                        throw SceneScriptScalarRuntimeFailure.invalidSource
+                    }
+                } else {
+                    // Event-only owner: constructed only when a property/media
+                    // dispatch will drive it, it never runs per-frame (the
+                    // program skips it via requiresFrameEvaluation), and its
+                    // handlers need the stateful mutation journal for layer
+                    // writes. C's missing-update update path is a passthrough,
+                    // so an occasional evaluation is harmless.
+                    guard hasEventHook, exportedCursorEvents.isEmpty,
+                          !handlesDestroy, !ownerHasAudioRegistration,
+                          allowsStatefulLayerSideEffects else {
+                        throw SceneScriptScalarRuntimeFailure.invalidSource
+                    }
                 }
             }
         } catch {
@@ -168,6 +211,9 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         self.handlesMediaPlayback = handlesMediaPlayback
         self.handlesMediaProperties = handlesMediaProperties
         self.handlesMediaTimeline = handlesMediaTimeline
+        self.handlesUserProperties = handlesUserProperties
+        self.handlesInit = handlesInit
+        self.handlesUpdate = handlesUpdate
         self.exportedCursorEvents = exportedCursorEvents
     }
 
@@ -273,6 +319,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             return .failure(Self.failure(result, diagnostic))
         }
         guard didInitialize != 0 else { return .success(nil) }
+        hasInitialized = true
         guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
             SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(.invalidArgument("effect handle layer identity unavailable"))
