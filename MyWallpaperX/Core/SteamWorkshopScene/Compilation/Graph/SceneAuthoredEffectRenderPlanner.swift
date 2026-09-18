@@ -41,11 +41,12 @@ enum SceneAuthoredEffectRenderPlanner {
                         layerID: layer.id,
                         effectIndex: effectIndex
                     )
-                    // The same structural preconditions as the route
-                    // admission (root layer, ordinary content kind, no
-                    // dependencies) gate script-gated inclusion so that a
-                    // structurally unsupported layer cannot lose its visible
-                    // effects' resolved execution.
+                    // Defense-in-depth authored prechecks for script-gated
+                    // inclusion; the route admission's full structural
+                    // filter (visibility, computed dependency and
+                    // passthrough-blocked sets) runs upstream in
+                    // SceneRuntimeInput. These checks alone are NOT
+                    // equivalent to the route admission.
                     guard layer.parentID == nil,
                           layer.childLayerIDs.isEmpty,
                           layer.dependencyLayerIDs.isEmpty,

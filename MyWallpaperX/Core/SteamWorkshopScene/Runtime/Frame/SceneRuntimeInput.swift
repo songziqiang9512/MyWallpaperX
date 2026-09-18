@@ -24,12 +24,17 @@ struct SceneRuntimeInput: Codable {
             scriptOwnedEffectVisibilityTargets
         // Script-owned effect visibility (the batch-B producer channel)
         // joins the user-property direct-bool targets as startup-inactive
-        // candidates. These targets bypass the route admission: the
-        // visibility script explicitly controls the effect, and the
-        // activation policy gates per-frame execution by the published
-        // value. The route admission's root-layer check would block child
-        // layers (like the album-cover toggle on a nested layer), which is
-        // exactly the family this channel serves.
+        // candidates for the admission and admission catalog only (the raw
+        // union keeps the admission catalog's subset validation sound).
+        // The planner receives BOTH sets after the route admission's
+        // structural filter, matching the pre-batch baseline where the
+        // user-property set was route-filtered before planning: the
+        // planner's property-inactive candidate path has no structural
+        // prechecks, so an unfiltered candidate on a dependency-consumer,
+        // dependency-provider, or passthrough-blocked layer would enter
+        // the plan there and later lose the layer's resolved execution.
+        // The planner's script-gated path keeps its authored prechecks as
+        // defense in depth, not as a route-admission equivalent.
         startupInactiveEffectVisibilityTargets =
             propertyBindingProgram
                 .effectLocalDirectBoolEffectVisibilityTargets
@@ -37,8 +42,18 @@ struct SceneRuntimeInput: Codable {
         authoredEffectRenderPlans = SceneAuthoredEffectRenderPlanner.plans(
             for: renderDescriptor,
             startupInactiveEffectVisibilityTargets:
-                startupInactiveEffectVisibilityTargets,
-            scriptOwnedEffectVisibilityTargets: scriptOwnedEffectVisibilityTargets
+                SceneDirectBoolEffectVisibilityRouteAdmission
+                .startupInactiveTargets(
+                    in: renderDescriptor,
+                    candidates: propertyBindingProgram
+                        .effectLocalDirectBoolEffectVisibilityTargets
+                ),
+            scriptOwnedEffectVisibilityTargets:
+                SceneDirectBoolEffectVisibilityRouteAdmission
+                .startupInactiveTargets(
+                    in: renderDescriptor,
+                    candidates: scriptOwnedEffectVisibilityTargets
+                )
         )
         self.propertyBindingProgram = propertyBindingProgram
         self.effectivePropertyValues = effectivePropertyValues

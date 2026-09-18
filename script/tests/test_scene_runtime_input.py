@@ -88,21 +88,43 @@ struct SceneAuthoredEffectRenderPlan: Codable, Equatable {
 }
 
 enum SceneAuthoredEffectRenderPlanner {
+    nonisolated(unsafe) static var receivedStartupInactiveTargets: Set<
+        SceneDynamicTarget
+    > = []
+    nonisolated(unsafe) static var receivedScriptOwnedTargets: Set<
+        SceneDynamicTarget
+    > = []
+
     static func plans(
         for descriptor: SceneRenderDescriptor,
-        startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = []
+        startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = [],
+        scriptOwnedEffectVisibilityTargets: Set<SceneDynamicTarget> = []
     ) -> [SceneAuthoredEffectRenderPlan] {
-        [SceneAuthoredEffectRenderPlan(layerID: descriptor.entryPath.count)]
+        receivedStartupInactiveTargets = startupInactiveEffectVisibilityTargets
+        receivedScriptOwnedTargets = scriptOwnedEffectVisibilityTargets
+        return [SceneAuthoredEffectRenderPlan(layerID: descriptor.entryPath.count)]
     }
 }
 
 enum SceneDirectBoolEffectVisibilityRouteAdmission {
+    // Stands in for the real structural route admission: candidates on the
+    // sentinel layer (999) model a structurally inadmissible layer the real
+    // filter rejects. If SceneRuntimeInput ever stops filtering before the
+    // planner, the sentinel survives into the recorded planner arguments
+    // and the harness assertions fail.
+    nonisolated(unsafe) static var structurallyRejectedLayerID = 999
+
     static func startupInactiveTargets(
         in descriptor: SceneRenderDescriptor,
         candidates: Set<SceneDynamicTarget>
     ) -> Set<SceneDynamicTarget> {
         _ = descriptor
-        return candidates
+        return Set(candidates.filter { target in
+            guard case let .effectVisibility(layerID, _) = target else {
+                return true
+            }
+            return layerID != structurallyRejectedLayerID
+        })
     }
 }
 
@@ -113,6 +135,23 @@ enum Harness {
         let visibilityTarget = SceneDynamicTarget.effectVisibility(
             layerID: 42,
             effectIndex: 0
+        )
+        // A distinct script-owned target proves the planner receives the
+        // un-unioned user-property set: if the union leaked into the planner
+        // argument, the recorded startup-inactive argument would contain both.
+        let scriptOwnedVisibilityTarget = SceneDynamicTarget.effectVisibility(
+            layerID: 7,
+            effectIndex: 0
+        )
+        // Structurally inadmissible sentinel targets (layer 999): the route
+        // admission must drop them before the planner sees either set.
+        let sentinelUserTarget = SceneDynamicTarget.effectVisibility(
+            layerID: 999,
+            effectIndex: 0
+        )
+        let sentinelScriptTarget = SceneDynamicTarget.effectVisibility(
+            layerID: 999,
+            effectIndex: 1
         )
         let path = SceneUserPropertyPath(components: [
             .key("objects"), .index(0), .key("alpha"),
@@ -125,6 +164,11 @@ enum Harness {
                     valueType: .bool,
                     authoredValue: .bool(false)
                 ),
+                .init(
+                    target: sentinelUserTarget,
+                    valueType: .bool,
+                    authoredValue: .bool(false)
+                ),
             ],
             instructions: [
                 .init(propertyKey: "opacity", path: path, target: target, valueType: .scalar),
@@ -132,6 +176,12 @@ enum Harness {
                     propertyKey: "visible",
                     path: path,
                     target: visibilityTarget,
+                    valueType: .bool
+                ),
+                .init(
+                    propertyKey: "visible_sentinel",
+                    path: path,
+                    target: sentinelUserTarget,
                     valueType: .bool
                 ),
             ]
@@ -149,17 +199,30 @@ enum Harness {
             renderDescriptor: .init(entryPath: "scene.json"),
             propertyBindingProgram: program,
             effectivePropertyValues: effectiveValues,
-            shaderContracts: shaderContracts
+            shaderContracts: shaderContracts,
+            scriptOwnedEffectVisibilityTargets: [
+                scriptOwnedVisibilityTarget, sentinelScriptTarget,
+            ]
         )
         let payload: [String: Any] = [
             "entryPath": input.renderDescriptor.entryPath,
             "authoredPlanCount": input.authoredEffectRenderPlans.count,
             "programRetained": input.propertyBindingProgram == program,
             "directVisibilityTargetRetained":
-                input.directBoolEffectVisibilityTargets == [visibilityTarget],
+                input.directBoolEffectVisibilityTargets
+                    == [visibilityTarget, sentinelUserTarget],
             "startupVisibilityTargetRetained":
                 input.startupInactiveEffectVisibilityTargets
+                    == [
+                        visibilityTarget, sentinelUserTarget,
+                        scriptOwnedVisibilityTarget, sentinelScriptTarget,
+                    ],
+            "plannerReceivesUnunionedStartupTargets":
+                SceneAuthoredEffectRenderPlanner.receivedStartupInactiveTargets
                     == [visibilityTarget],
+            "plannerReceivesScriptOwnedTargets":
+                SceneAuthoredEffectRenderPlanner.receivedScriptOwnedTargets
+                    == [scriptOwnedVisibilityTarget],
             "valuesRetained": input.effectivePropertyValues == effectiveValues,
             "contractsRetained": input.shaderContracts == shaderContracts,
             "hostBuiltinContract": shaderContracts.count == 1
@@ -208,6 +271,8 @@ class SceneRuntimeInputTests(unittest.TestCase):
         self.assertTrue(self.result["programRetained"])
         self.assertTrue(self.result["directVisibilityTargetRetained"])
         self.assertTrue(self.result["startupVisibilityTargetRetained"])
+        self.assertTrue(self.result["plannerReceivesUnunionedStartupTargets"])
+        self.assertTrue(self.result["plannerReceivesScriptOwnedTargets"])
         self.assertTrue(self.result["valuesRetained"])
         self.assertTrue(self.result["contractsRetained"])
         self.assertTrue(self.result["hostBuiltinContract"])
