@@ -293,6 +293,12 @@ struct MWXSceneQuickJSOwner {
     bool disabled;
     bool value_only;
     bool effectful_boolean;
+    /// Set when the property this owner drives belongs to the layer itself
+    /// (layer/text fields) instead of an effect, particle or material
+    /// component. `thisObject` then binds to the layer's own object so its
+    /// writes travel the layer mutation journal rather than a look-alike
+    /// property store.
+    bool property_object_is_layer;
     bool teardown_started;
     uint32_t destroy_callback_count;
     JSValue material_function_layer;

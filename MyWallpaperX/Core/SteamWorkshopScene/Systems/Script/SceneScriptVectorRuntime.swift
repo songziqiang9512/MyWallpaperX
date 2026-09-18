@@ -100,6 +100,15 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             guard layerResult == MWX_SCENE_QUICKJS_OK else {
                 throw Self.failure(layerResult, diagnostic)
             }
+            let scopeResult = mwx_scene_quickjs_owner_set_property_object_scope(
+                created,
+                SceneScriptLayerMutationBridge.propertyObjectIsLayer(target) ? 1 : 0,
+                &diagnostic,
+                diagnostic.count
+            )
+            guard scopeResult == MWX_SCENE_QUICKJS_OK else {
+                throw Self.failure(scopeResult, diagnostic)
+            }
             try SceneScriptEffectHandleBridge.configure(
                 owner: created,
                 effectNames: effectNames

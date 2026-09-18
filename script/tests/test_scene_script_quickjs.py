@@ -3025,6 +3025,103 @@ int main(void) {
         42, 2, "clock", "static layer transform snapshot"
     );
 
+    // A layer property belongs to the layer itself: `thisObject` is the same
+    // object as `thisLayer` (one object model, one mutation journal), and
+    // `getChildren()` hands back ordinary handles for authored children.
+    const char *property_object_source =
+        "let child;"
+        "export function init(){child=thisObject.getChildren()[0];}"
+        "export function update(value){"
+        "if(thisObject!==thisLayer)throw new Error('object identity');"
+        "if(typeof thisObject.getAnimation!=='function')"
+        "throw new Error('layer animation');"
+        "let rejected=false;"
+        "try{thisObject.getChildren(1);}catch(error){rejected=true;}"
+        "if(!rejected)throw new Error('children arguments');"
+        "const children=thisObject.getChildren();"
+        "if(children.length!==1)throw new Error('child count');"
+        "if(child.id!==42||child.name!=='C1')throw new Error('child identity');"
+        "if(thisScene.getLayer('C1').getChildren().length!==0)"
+        "throw new Error('leaf children');"
+        "thisObject.getAnimation().play();"
+        "thisObject.visible=false;thisLayer.alpha=0.5;"
+        "child.visible=false;child.color=new Vec3(0.25,0.5,0.75);"
+        "return value;}";
+    MWXSceneQuickJSOwner *property_object = mwx_scene_quickjs_owner_create(
+        domain, property_object_source, strlen(property_object_source),
+        47, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        property_object != NULL, "property object compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        property_object, 17, "property object owner identity"
+    );
+    char scope_diagnostic[512] = {0};
+    failures += check(
+        mwx_scene_quickjs_owner_set_property_object_scope(
+            property_object, 1, scope_diagnostic, sizeof(scope_diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK,
+        "property object scope", scope_diagnostic
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_configure_current_animation(
+            property_object, 1, scope_diagnostic, sizeof(scope_diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK,
+        "property object animation configure", scope_diagnostic
+    );
+    failures += update(
+        property_object, 47, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "property object and child writes"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(property_object) == 2,
+        "property object mutations coalesce per layer", ""
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_animation_command_count(property_object) == 1,
+        "property object keeps the current property animation", ""
+    );
+    failures += layer_mutation(
+        property_object, 0, MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT, 0,
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY
+            | MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA,
+        17, 0, "", "thisObject and thisLayer share one layer mutation"
+    );
+    failures += layer_mutation(
+        property_object, 1, MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT, 0,
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY
+            | MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR,
+        42, 2, "clock", "getChildren handle writes the child layer"
+    );
+
+    // Component properties keep the property-object handle: only layer and
+    // text properties belong to the layer itself.
+    const char *component_object_source =
+        "export function update(value){"
+        "if(thisObject===thisLayer)throw new Error('component scope');"
+        "if(typeof thisObject.getAnimation!=='function')"
+        "throw new Error('component animation');"
+        "return value;}";
+    MWXSceneQuickJSOwner *component_object = mwx_scene_quickjs_owner_create(
+        domain, component_object_source, strlen(component_object_source),
+        48, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        component_object != NULL, "component object compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        component_object, 42, "component object owner identity"
+    );
+    failures += update(
+        component_object, 48, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "component property object keeps its own handle"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(component_object) == 0,
+        "component property object writes nothing", ""
+    );
+
     const char *authored_self_destroy_source =
         "export function update(value){"
         "thisScene.destroyLayer('C1');return value;}";
@@ -3788,6 +3885,8 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(dynamic_intruder);
     mwx_scene_quickjs_owner_destroy(static_sort);
     mwx_scene_quickjs_owner_destroy(static_setter);
+    mwx_scene_quickjs_owner_destroy(property_object);
+    mwx_scene_quickjs_owner_destroy(component_object);
     mwx_scene_quickjs_owner_destroy(authored_self_destroy);
     mwx_scene_quickjs_owner_destroy(authored_peer_destroy);
     mwx_scene_quickjs_owner_destroy(authored_peer);

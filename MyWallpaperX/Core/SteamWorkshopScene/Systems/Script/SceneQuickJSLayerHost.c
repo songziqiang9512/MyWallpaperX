@@ -37,6 +37,10 @@ static JSValue make_layer_handle(
     bool persistent
 );
 
+static int32_t active_count(MWXSceneQuickJSDomain *domain);
+
+static int32_t storage_at_order(MWXSceneQuickJSDomain *domain, int32_t order);
+
 static void finalize_layer_handle(JSRuntime *runtime, JSValue value) {
     (void)runtime;
     free(JS_GetOpaque(value, JS_GetClassID(value)));
@@ -1521,6 +1525,68 @@ static JSValue get_parent(
     return JS_ThrowTypeError(context, "layer parent identity is invalid");
 }
 
+/// Children are the layers that name this layer as their parent, in render
+/// order. Each child is the same callback-scoped layer handle any other lookup
+/// returns, so writes travel the existing owner mutation journal instead of a
+/// second object surface.
+static JSValue get_children(
+    JSContext *context, JSValueConst this_value, int argc,
+    JSValueConst *argv, int magic, void *opaque
+) {
+    (void)this_value; (void)argv; (void)magic;
+    MWXSceneQuickJSLayerHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
+    if (record == NULL || argc != 0)
+        return JS_ThrowTypeError(context, "getChildren layer handle is stale");
+    MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
+    if (!callback_owns(owner))
+        return JS_ThrowTypeError(context, "getChildren is unavailable");
+    JSValue result = JS_NewArray(context);
+    if (JS_IsException(result)) return result;
+    const int32_t count = active_count(handle->domain);
+    uint32_t emitted = 0;
+    for (int32_t order = 0; order < count; ++order) {
+        const int32_t storage = storage_at_order(handle->domain, order);
+        if (storage < 0) {
+            JS_FreeValue(context, result);
+            return JS_ThrowInternalError(
+                context, "layer render order is invalid"
+            );
+        }
+        MWXSceneQuickJSLayerRecord *child = &handle->domain->layers[storage];
+        if (!child->has_parent || child->parent_id != record->layer_id) continue;
+        JSValue layer = make_layer_handle(context, owner, (uint32_t)storage, true);
+        if (JS_IsException(layer) || JS_SetPropertyUint32(
+                context, result, emitted, layer
+            ) < 0) {
+            JS_FreeValue(context, result);
+            return JS_EXCEPTION;
+        }
+        emitted += 1;
+    }
+    return result;
+}
+
+static bool define_get_children(
+    JSContext *context, JSValue layer, MWXSceneQuickJSOwner *owner,
+    uint32_t index, bool owner_target, bool persistent
+) {
+    MWXSceneQuickJSLayerHandle *handle = calloc(1, sizeof(*handle));
+    if (handle == NULL) return false;
+    *handle = (MWXSceneQuickJSLayerHandle){
+        .domain = owner->domain, .owner_identity = owner->identity,
+        .layer_index = index,
+        .callback_epoch = owner->domain->callback_epoch,
+        .owner_target = owner_target, .persistent = persistent,
+    };
+    JSValue function = JS_NewCClosure(
+        context, get_children, "getChildren", free_layer_handle, 0, 0, handle
+    );
+    return !JS_IsException(function) && JS_DefinePropertyValueStr(
+        context, layer, "getChildren", function, JS_PROP_ENUMERABLE
+    ) >= 0;
+}
+
 static JSValue get_transform_matrix(
     JSContext *context, JSValueConst this_value, int argc,
     JSValueConst *argv, int magic, void *opaque
@@ -2322,6 +2388,12 @@ static JSValue make_layer_handle(
         JS_FreeValue(context, layer);
         return JS_EXCEPTION;
     }
+    if (!define_get_children(
+            context, layer, owner, index, owner_target, persistent
+        )) {
+        JS_FreeValue(context, layer);
+        return JS_EXCEPTION;
+    }
     if (!define_get_transform_matrix(
             context, layer, owner, index, owner_target, persistent
         )) {
@@ -2884,6 +2956,14 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
         if (!define_property(context, owner->material_function_layer, owner, 0, true, true,
                              fields[field].name, fields[field].property, fields[field].writable))
             return false;
+    // The owner's own layer handle must carry the same writable surface as
+    // every looked-up layer handle: a swallowed `thisLayer.alpha = value` is a
+    // silent divergence from the reference engine, not a capability boundary.
+    if (!define_property(context, owner->material_function_layer, owner, 0, true, true,
+                         "alpha", LAYER_ALPHA, true) ||
+        !define_property(context, owner->material_function_layer, owner, 0, true, true,
+                         "color", LAYER_COLOR, true))
+        return false;
     if (!define_get_video_texture(
             context, owner->material_function_layer, owner, 0, true, true
         )) return false;
@@ -2891,6 +2971,9 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
             context, owner->material_function_layer, owner, 0, true, true
         )) return false;
     if (!define_get_parent(
+            context, owner->material_function_layer, owner, 0, true, true
+        )) return false;
+    if (!define_get_children(
             context, owner->material_function_layer, owner, 0, true, true
         )) return false;
     if (!define_get_transform_matrix(

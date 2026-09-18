@@ -583,6 +583,24 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_layer_identity(
     size_t diagnostic_capacity
 );
 
+/// Declares whether the property this owner drives belongs to the layer itself
+/// (layer/text fields) or to a component such as an effect. Only the layer
+/// case rebinds `thisObject` to the layer's own object; component properties
+/// keep the property-object handle that serves IThisPropertyObject.getAnimation.
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_property_object_scope(
+    MWXSceneQuickJSOwner *owner,
+    uint32_t property_object_is_layer,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+/// Defines the current-property animation accessor on the owner's own layer
+/// handle. Only layer/text property owners may call this: for component
+/// properties the current property belongs to the component, not the layer.
+bool mwx_scene_quickjs_define_property_animation_accessor(
+    MWXSceneQuickJSOwner *owner
+);
+
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_authored_layer_baseline(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,

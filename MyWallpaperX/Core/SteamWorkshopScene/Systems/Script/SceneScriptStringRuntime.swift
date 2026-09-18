@@ -83,6 +83,9 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         var handlesUpdate = false
         do {
             try SceneScriptLayerMutationBridge.configure(owner: created, target: target)
+            try SceneScriptLayerMutationBridge.configurePropertyObjectScope(
+                owner: created, target: target
+            )
             var updateAvailable: UInt32 = 0
             let updateResult = "update".withCString {
                 mwx_scene_quickjs_owner_has_function(

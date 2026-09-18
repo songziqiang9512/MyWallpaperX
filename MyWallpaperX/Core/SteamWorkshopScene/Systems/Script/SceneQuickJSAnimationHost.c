@@ -132,6 +132,29 @@ bool mwx_scene_quickjs_install_object_handle(MWXSceneQuickJSOwner *owner) {
     return true;
 }
 
+/// A layer property belongs to the layer, so `thisObject` is the layer's own
+/// handle there and the documented `ILayer extends IObject` surface includes
+/// the current property's animation. Only that scope gets the accessor: for an
+/// effect or particle property the current property is the component's, and
+/// exposing it through the layer handle would misattribute its owner.
+bool mwx_scene_quickjs_define_property_animation_accessor(
+    MWXSceneQuickJSOwner *owner
+) {
+    if (owner == NULL || owner->domain == NULL ||
+        !JS_IsObject(owner->material_function_layer)) {
+        return false;
+    }
+    JSContext *context = owner->domain->context;
+    JSValue animation = JS_NewCClosure(
+        context, get_animation, "getAnimation", NULL, 0, 0, owner
+    );
+    if (JS_IsException(animation)) return false;
+    return JS_DefinePropertyValueStr(
+        context, owner->material_function_layer, "getAnimation",
+        animation, JS_PROP_ENUMERABLE
+    ) >= 0;
+}
+
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_read_bound_scalar(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,

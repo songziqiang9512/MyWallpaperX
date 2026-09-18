@@ -327,6 +327,9 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         var handlesUpdate = false
         do {
             try SceneScriptLayerMutationBridge.configure(owner: created, target: target)
+            try SceneScriptLayerMutationBridge.configurePropertyObjectScope(
+                owner: created, target: target
+            )
             try SceneScriptEffectHandleBridge.configure(
                 owner: created,
                 effectNames: effectNames

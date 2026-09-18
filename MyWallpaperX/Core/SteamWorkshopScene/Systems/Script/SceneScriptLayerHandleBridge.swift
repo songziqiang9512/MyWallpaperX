@@ -421,6 +421,34 @@ nonisolated enum SceneScriptLayerMutationBridge {
         }
     }
 
+    /// A layer or text property belongs to the layer itself, so the script's
+    /// `thisObject` is that layer's own object. Effect, particle and material
+    /// properties belong to their component and keep the property-object
+    /// handle that serves `IThisPropertyObject.getAnimation`.
+    static func propertyObjectIsLayer(_ target: SceneDynamicTarget) -> Bool {
+        switch target {
+        case .layer, .text: true
+        default: false
+        }
+    }
+
+    static func configurePropertyObjectScope(
+        owner: OpaquePointer, target: SceneDynamicTarget
+    ) throws {
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let result = mwx_scene_quickjs_owner_set_property_object_scope(
+            owner,
+            propertyObjectIsLayer(target) ? 1 : 0,
+            &diagnostic,
+            diagnostic.count
+        )
+        guard result == MWX_SCENE_QUICKJS_OK else {
+            throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                String(cString: diagnostic)
+            )
+        }
+    }
+
     static func mutations(
         owner: OpaquePointer,
         ownerTarget: SceneDynamicTarget

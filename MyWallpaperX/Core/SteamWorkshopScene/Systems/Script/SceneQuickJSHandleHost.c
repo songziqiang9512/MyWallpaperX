@@ -300,6 +300,33 @@ void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner) {
     }
 }
 
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_property_object_scope(
+    MWXSceneQuickJSOwner *owner,
+    uint32_t property_object_is_layer,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (owner == NULL || owner->domain == NULL || property_object_is_layer > 1 ||
+        owner->domain->callback_active) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "invalid property object scope"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    if (property_object_is_layer != 0 &&
+        !mwx_scene_quickjs_define_property_animation_accessor(owner)) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "property object animation accessor unavailable"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    owner->property_object_is_layer = property_object_is_layer != 0;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
 bool mwx_scene_quickjs_bind_owner_handles(
     MWXSceneQuickJSOwner *owner,
     JSValue *previous_layer,
@@ -320,9 +347,18 @@ bool mwx_scene_quickjs_bind_owner_handles(
         ? JS_UNDEFINED
         : JS_DupValue(context, owner->material_function_layer);
     owner->domain->active_scene = JS_DupValue(context, owner->scene_handle);
+    // A layer property belongs to the layer, so `thisObject` is that layer's
+    // own object: property writes then reach the owner mutation journal. The
+    // `object_handle` still owns the bound property values for component
+    // properties and for the bound-scalar read path.
+    JSValue object = owner->object_handle;
+    if (owner->property_object_is_layer &&
+        !JS_IsUndefined(owner->material_function_layer)) {
+        object = owner->material_function_layer;
+    }
     owner->domain->active_object = owner->value_only
         ? JS_UNDEFINED
-        : JS_DupValue(context, owner->object_handle);
+        : JS_DupValue(context, object);
     return true;
 }
 
