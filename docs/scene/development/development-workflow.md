@@ -47,6 +47,12 @@ authored data → loss-preserving IR → prepared Program/graph/resources
 
 `observe-only`、`prefer-generic`、`generic-only` 和 `disable-generic` 只是有退出条件的迁移状态。不得静默双执行、永久保留 DEBUG 开关、永久依赖 fallback 或用 route 数、compile success、recognized、非黑画面、matrix PASS、单样本通过宣称兼容完成。
 
+结构成本与功能同受治理：形状 analyzer/matcher、请求包装层、protocol、registry 与专用 fallback 家族由 `script/scene_source_layout.json` 的 ratchet 冻结现值，增长要在批次描述中写明 owner、理由与退役条件后显式改基线，收缩随对应卡关闭同批下降。每逢兼容阶段收口或重构卡关闭时重做一次结构普查（家族计数、死引用、双 owner、重复推导），结果登记进重构计划的对应卡，不另建普查文档体系。
+
+审查结论绑定行为证据：审查输入必须包含跨批次性质清单（同类 identity、lifecycle、失败半径问题在其他卡是否同样成立）和至少一个可执行反例（伪造时钟、会话或 stale generation 注入）；形状断言全绿、编译通过或路线计数不能单独作为接受理由。
+
+治理脚手架自身遵守同一规则：route/profile/authority/ratchet 与诊断机制在达成终态后进入退役清单；迁移完成后不保留空转的门、台账或 DEBUG 开关，防止治理成为新的常驻成本。
+
 ## 事实和文档
 
 - 最终怎样：[`runtime-architecture.md`](../design/runtime-architecture.md)；

@@ -16,6 +16,8 @@
 - Scene 当前入口是：[`docs/README.md`](docs/README.md) → [Scene 一页说明](docs/scene/README.md)；按任务选择 [`docs/scene/development/development-workflow.md`](docs/scene/development/development-workflow.md) → [架构](docs/scene/design/runtime-architecture.md)、[路线](docs/scene/scene-compatibility-roadmap.md)、[能力台账](docs/scene/semantics/coverage-ledger.md)、[运行证据](docs/scene/semantics/runtime-evidence-current.md)。不要从历史计划或截图开始任务。
 - 目标主链只有一条：`authored data -> prepared Program/graph/resources -> typed frame update -> Metal encode -> unique compositor/output`。不得按 sample/layer/path/hash/screenshot 选择视觉算法，不得新增第二套 property、provider、clock、graph、resource registry 或 compositor。
 - 任何偏差都写清目标合同、当前事实、owner、fallback/route、纠正门和退役条件；触达旧 owner 时优先在当前纵向结果内纠偏，不能为兼容错误实现继续扩张 matcher、wrapper、专用分支或测试预期。
+- 结构性家族（形状 analyzer/matcher、请求包装层、protocol、registry、专用 fallback）的规模只允许收缩；增长必须显式修改 `script/scene_source_layout.json` 的机器预算并写明 owner、理由与退役条件，收缩随对应卡关闭同批 ratchet 下降。
+- 规则与合同文档本身按删除方向维护：修订必须收敛或替换现有条款，不得只在末尾追加；新增约束优先落成机器可检的门（ratchet、清单、脚本），无法机械化的约束必须自带判定程序。
 
 ## 3. Scene 硬边界
 
@@ -29,6 +31,7 @@
 ## 4. 验证、提交与报告
 
 - 门禁服从实际失败半径：inner → checkpoint → integration → milestone。模块必须显式选择；`--scope scene` 不等于全量，full/fixed/签名/发布只在风险确实跨越时运行。
+- 产品代码测试断言行为（输入、输出、事件、反例），不得把源码文本、内部符号名或实现形状作为通过条件；存量按所属卡迁移，不为通过形状门新增同类断言。
 - Swift 产品改动在 checkpoint 再 Debug build；GPU/VM/资源/生命周期/可见变化使用隔离代表内容；可见结论必须有实际执行身份、completion、publication、terminal compositor、next-frame 及相称 ROI/事件证据。
 - 一个批次交付一个可见或可执行结果。提交只包含一个职责批次，信息写明问题、根因、实际结果和验证；禁止宽泛暂存。
 - `.codex` 是可重建工作区，不是源码或知识库；`docs/scene/evidence/` 是仓库忽略的本机证据缓存。正式工具进 `script/`，测试进 `script/tests/`，一次性文件进 `/private/tmp`。最终报告明确实际改动、验证结果、跳过/未验证边界、工作区和提交状态。
