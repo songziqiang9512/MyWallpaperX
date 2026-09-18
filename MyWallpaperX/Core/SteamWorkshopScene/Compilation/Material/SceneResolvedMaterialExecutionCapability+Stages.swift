@@ -142,7 +142,15 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             ) : nil
         let requiresPointer = pointerScalarMinimum != nil
         guard resolvedVisibilityTarget != nil || requiresPointer else {
+            recordNilPolicy("no-visibility-producer")
             return nil
+        }
+        if sceneScriptVisibilityOwned, resolvedVisibilityTarget != nil {
+            NSLog(
+                "MWX stage activation policy: layer=%d effect=%d producer=sceneScript result=constructed",
+                product.graph.layerID,
+                effect.key.effectIndex
+            )
         }
         return .init(
             effectVisibilityTarget: resolvedVisibilityTarget,
