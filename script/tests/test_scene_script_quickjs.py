@@ -3976,6 +3976,27 @@ int main(void) {
             "authored layer sort order-only mutation", ""
         );
     }
+    // Committing the sort owner runs the topology rebuild: the journaled
+    // authored SORT op replays through the relaxed authored branch and the
+    // new order is what later owners read.
+    mwx_scene_quickjs_owner_commit_layer_mutations(static_sort);
+    const char *sort_order_readback_source =
+        "export function update(value){"
+        "return thisScene.getLayer(0).id===42?1:0;}";
+    MWXSceneQuickJSOwner *sort_order_readback = mwx_scene_quickjs_owner_create(
+        domain, sort_order_readback_source, strlen(sort_order_readback_source),
+        49, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        sort_order_readback != NULL, "sort order readback compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        sort_order_readback, 17, "sort order readback owner identity"
+    );
+    failures += update(
+        sort_order_readback, 49, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "committed authored sort survives the topology rebuild"
+    );
 
     mwx_scene_quickjs_owner_invalidate(positive);
     failures += update(
@@ -4028,6 +4049,7 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(destroyed_enumerated);
     mwx_scene_quickjs_owner_destroy(dynamic_intruder);
     mwx_scene_quickjs_owner_destroy(static_sort);
+    mwx_scene_quickjs_owner_destroy(sort_order_readback);
     mwx_scene_quickjs_owner_destroy(static_setter);
     mwx_scene_quickjs_owner_destroy(property_object);
     mwx_scene_quickjs_owner_destroy(component_object);

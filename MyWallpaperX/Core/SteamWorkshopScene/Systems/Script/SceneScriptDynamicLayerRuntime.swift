@@ -101,6 +101,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         var candidateDefinitionOrder = authoredDefinitionOrder
         var candidateDefinitions = authoredDefinitionsByTarget
         var authoredTargets = Set<SceneDynamicTarget>()
+        var authoredSorts: [Int: Int] = [:]
         for mutation in mutations {
             guard mutation.origin.x.isFinite, mutation.origin.y.isFinite,
                   mutation.origin.z.isFinite, mutation.scale.x.isFinite,
@@ -131,27 +132,21 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 }
                 // An order-only authored mutation is a script-driven sort: the
                 // C catalog shifted its order atomically, and the reported
-                // index is the new position. Move the layer; every other
-                // layer shifts implicitly because both sides start from the
-                // same pre-state.
+                // index is the final absolute position. Collect it; the sort
+                // pass below applies the whole set after creates/destroys/
+                // field writes have settled, reproducing the C order exactly.
                 if mutation.fields.isEmpty {
                     guard mutation.kind == .upsert,
                           mutation.orderIndex >= 0,
                           !candidateDestroyedAuthoredLayerIDs.contains(
                               mutation.layerID
                           ),
-                          let current = candidateOrder.firstIndex(
-                              of: mutation.layerID
-                          ) else {
+                          candidateOrder.contains(mutation.layerID) else {
                         return .failure(.invalidArgument(
                             "invalid authored layer sort"
                         ))
                     }
-                    candidateOrder.remove(at: current)
-                    candidateOrder.insert(
-                        mutation.layerID,
-                        at: min(mutation.orderIndex, candidateOrder.count)
-                    )
+                    authoredSorts[mutation.layerID] = mutation.orderIndex
                     continue
                 }
                 guard mutation.kind == .upsert,
@@ -321,6 +316,24 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 candidateOrder.insert(
                     mutation.layerID,
                     at: min(mutation.orderIndex, candidateOrder.count)
+                )
+            }
+        }
+        // Apply the collected authored sorts: sorted layers take their final
+        // absolute positions; every other layer keeps its relative order and
+        // fills the gaps. For frames whose order changes are authored sorts
+        // only, this reproduces the C catalog's final order; a frame mixing
+        // authored sorts with dynamic creates can still diverge (inherited
+        // from the emission-time absolute index, shared with the dynamic
+        // path).
+        if !authoredSorts.isEmpty {
+            for layerID in authoredSorts.keys {
+                candidateOrder.removeAll { $0 == layerID }
+            }
+            for (layerID, index) in authoredSorts.sorted(by: { $0.value < $1.value }) {
+                candidateOrder.insert(
+                    layerID,
+                    at: min(index, candidateOrder.count)
                 )
             }
         }

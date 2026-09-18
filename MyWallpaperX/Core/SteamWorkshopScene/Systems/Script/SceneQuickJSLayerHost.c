@@ -623,7 +623,10 @@ static void rebuild_dynamic_layer_topology(
             }
             break;
         case MWX_SCENE_QUICKJS_DYNAMIC_LAYER_SORT:
-            if (!dynamic_layer_record_is_active(record) ||
+            if (!dynamic_layer_record_is_active(record)) break;
+            // Authored layers accept any owner's sort (matching the C-side
+            // admission); dynamic layers stay owned by their creator.
+            if (record->dynamic &&
                 record->owner_identity != operation->owner_identity) break;
             topology_sequence_remove(sequence, &count, operation->layer_index);
             if (!topology_sequence_insert(
@@ -2852,28 +2855,19 @@ static JSValue sort_layer(
     if (desired == old) return JS_UNDEFINED;
     const uint32_t target_index =
         (uint32_t)(target - owner->domain->layers);
-    if (target->dynamic) {
-        if (!append_dynamic_layer_topology_operation(
-                owner, MWX_SCENE_QUICKJS_DYNAMIC_LAYER_SORT,
-                target_index, desired))
-            return JS_ThrowInternalError(
-                context, "dynamic layer topology operation journal exceeded"
-            );
-        if (!mark_dirty(owner, target)) {
-            discard_last_dynamic_layer_topology_operation(owner);
-            return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
-        }
-    } else {
-        // An authored sort shifts the shared catalog order; the dirty record
-        // carries the new order to Swift, which repositions the layer in its
-        // own order authority. No dynamic journal: the shift is idempotent
-        // per script semantics and Swift owns admission. Known residual
-        // (review-recorded): the actual drop of a same-callback staged
-        // property write happens in Swift's mutation coalescer, and a
-        // same-frame dynamic topology rebuild re-derives order from the
-        // baseline+journal, which does not yet include authored sorts.
-        if (!mark_dirty(owner, target))
-            return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
+    // Authored and dynamic sorts share the topology journal: baseline+ops
+    // rebuild reproduces the sort across mixed frames, rolls it back when the
+    // owning batch is rejected, and keeps the C catalog consistent with the
+    // order the dirty record reports to Swift.
+    if (!append_dynamic_layer_topology_operation(
+            owner, MWX_SCENE_QUICKJS_DYNAMIC_LAYER_SORT,
+            target_index, desired))
+        return JS_ThrowInternalError(
+            context, "dynamic layer topology operation journal exceeded"
+        );
+    if (!mark_dirty(owner, target)) {
+        discard_last_dynamic_layer_topology_operation(owner);
+        return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
     }
     for (uint32_t i = 0; i < owner->domain->layer_count; ++i) {
         MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[i];
