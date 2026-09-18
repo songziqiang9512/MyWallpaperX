@@ -61,12 +61,39 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
         pairStep: SceneLayerFullFramePairPlan.EffectStep?
     ) -> SceneResolvedMaterialStageActivationPolicy? {
+        // Launch diagnostics for the script-owned visibility admission: the
+        // sceneScript lane is new, and a silent nil here reads downstream as
+        // a permanently dead effect.
+        let sceneScriptVisibilityOwned =
+            dynamicProducers.sceneScriptTargets.contains(
+                SceneDynamicTarget.effectVisibility(
+                    layerID: product.graph.layerID,
+                    effectIndex: product.graph.effects.first?.key.effectIndex
+                        ?? -1
+                )
+            )
+        func recordNilPolicy(_ reason: String) {
+            if sceneScriptVisibilityOwned {
+                NSLog(
+                    "MWX stage activation policy: layer=%d effect=%d producer=sceneScript reason=%@",
+                    product.graph.layerID,
+                    product.graph.effects.first?.key.effectIndex ?? -1,
+                    reason as NSString
+                )
+            }
+        }
         guard dependencyOwnership.preEncodeVisualFailureSlots(
                   in: product.graph
-              ) != nil,
-              product.graph.effects.count == 1,
+              ) != nil else {
+            recordNilPolicy("pre-encode-visual-failure-slots-unavailable")
+            return nil
+        }
+        guard product.graph.effects.count == 1,
               let effect = product.graph.effects.first,
-              product.clearFunctions.functions.isEmpty else { return nil }
+              product.clearFunctions.functions.isEmpty else {
+            recordNilPolicy("effect-shape-unsupported")
+            return nil
+        }
         let visibilityTarget = SceneDynamicTarget.effectVisibility(
             layerID: effect.key.layerID,
             effectIndex: effect.key.effectIndex
@@ -101,7 +128,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     pairStep: $0
                 )
             } == true
-        guard pairLeaf || framebufferVisibility else { return nil }
+        guard pairLeaf || framebufferVisibility else {
+            recordNilPolicy("activation-topology-unsupported")
+            return nil
+        }
         let pointerScalarMinimum = pairLeaf && materials.count == 1
             && materials.values.first?.variants
                 .launchEnvelopeProvesSpatialWeightedPointerProvider == true
