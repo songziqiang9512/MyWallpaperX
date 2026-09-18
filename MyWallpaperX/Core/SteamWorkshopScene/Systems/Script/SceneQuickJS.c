@@ -1893,6 +1893,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
     }
     if (!JS_IsFunction(domain->context, update)) {
         *output = input;
+        if (owner->effect_visibility_staged) {
+            *output = owner->effect_visibility_staged_visible ? 1 : 0;
+            owner->effect_visibility_staged = false;
+        }
         return MWX_SCENE_QUICKJS_OK;
     }
     MWXSceneQuickJSResult result = call_primitive(
@@ -1907,6 +1911,14 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
         if (failure_permanently_disables(result)) {
             owner->disabled = true;
         }
+        return result;
+    }
+    if (owner->effect_visibility_staged) {
+        // A `thisObject.visible` write on an effect-visibility owner is the
+        // frame's published value; consume it so it does not leak into later
+        // frames.
+        *output = owner->effect_visibility_staged_visible ? 1 : 0;
+        owner->effect_visibility_staged = false;
     }
     return result;
 }

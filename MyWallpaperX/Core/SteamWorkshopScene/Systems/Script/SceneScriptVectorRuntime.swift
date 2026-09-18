@@ -125,6 +125,9 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             guard scopeResult == MWX_SCENE_QUICKJS_OK else {
                 throw Self.failure(scopeResult, diagnostic)
             }
+            try SceneScriptLayerMutationBridge.configureEffectVisibilityTarget(
+                owner: created, target: target
+            )
             try SceneScriptEffectHandleBridge.configure(
                 owner: created,
                 effectNames: effectNames
@@ -496,7 +499,18 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         (value: SceneDynamicValue, mutations: [SceneScriptLayerMutation]),
         SceneScriptScalarRuntimeFailure
     > {
-        SceneScriptBooleanVisibilityValidation.validate(
+        if case .effectVisibility = target {
+            // The staged effect-visibility write publishes straight into the
+            // typed effect-activation channel; layer mutations have no cohort
+            // here and would signal a routing bug.
+            guard mutations.isEmpty else {
+                return .failure(.invalidArgument(
+                    "Effect visibility owner produced out-of-cohort mutations"
+                ))
+            }
+            return .success((publishedValue, []))
+        }
+        return SceneScriptBooleanVisibilityValidation.validate(
             valueType: valueType,
             target: target,
             allowsLayerSideEffects: allowsDynamicLayerSideEffects,

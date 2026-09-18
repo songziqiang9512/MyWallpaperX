@@ -2119,6 +2119,45 @@ int main(void) {
         mwx_scene_quickjs_owner_animation_command_count(media_animation) == 0,
         "media absent command count", diagnostic
     );
+    // Effect-visibility owner: `thisObject.visible` stages into the owner and
+    // the update passthrough publishes it for the frame (batch B contract).
+    const char *effect_visibility_source =
+        "export function mediaThumbnailChanged(event)"
+        "{ thisObject.visible = event.hasThumbnail; }";
+    MWXSceneQuickJSOwner *effect_visibility = mwx_scene_quickjs_owner_create(
+        domain, effect_visibility_source, strlen(effect_visibility_source),
+        49, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        effect_visibility != NULL, "effect visibility compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        effect_visibility, 17, "effect visibility owner identity"
+    );
+    char effect_visibility_diagnostic[512] = {0};
+    failures += check(
+        mwx_scene_quickjs_owner_configure_effect_visibility_target(
+            effect_visibility, 17, 2,
+            effect_visibility_diagnostic, sizeof(effect_visibility_diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK,
+        "effect visibility target configure", effect_visibility_diagnostic
+    );
+    failures += media_thumbnail(
+        effect_visibility, 49, 0, MWX_SCENE_QUICKJS_OK,
+        "effect visibility absent event"
+    );
+    failures += update(
+        effect_visibility, 49, 1, MWX_SCENE_QUICKJS_OK, 0,
+        "staged visible false publishes through the update"
+    );
+    failures += media_thumbnail(
+        effect_visibility, 49, 1, MWX_SCENE_QUICKJS_OK,
+        "effect visibility present event"
+    );
+    failures += update(
+        effect_visibility, 49, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "staged visible true publishes through the update"
+    );
     failures += media_thumbnail(
         media_animation, 19, 1, MWX_SCENE_QUICKJS_OK,
         "media thumbnail present event"
@@ -3927,6 +3966,7 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(stale_effect);
     mwx_scene_quickjs_owner_destroy(named_animation);
     mwx_scene_quickjs_owner_destroy(media_animation);
+    mwx_scene_quickjs_owner_destroy(effect_visibility);
     mwx_scene_quickjs_owner_destroy(immutable_media_playback);
     mwx_scene_quickjs_owner_destroy(playback_error);
     mwx_scene_quickjs_owner_destroy(media_assign_failure);

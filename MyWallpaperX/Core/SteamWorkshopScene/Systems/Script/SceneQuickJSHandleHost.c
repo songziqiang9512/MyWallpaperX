@@ -327,6 +327,107 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_property_object_scope(
     return MWX_SCENE_QUICKJS_OK;
 }
 
+static JSValue effect_visibility_getter(
+    JSContext *context,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv,
+    int magic,
+    void *opaque
+) {
+    (void)this_value; (void)argc; (void)argv; (void)magic;
+    MWXSceneQuickJSOwner *owner = opaque;
+    if (owner == NULL || owner->domain == NULL ||
+        !owner->domain->callback_active || owner->domain->active_owner != owner) {
+        return JS_ThrowTypeError(context, "effect visibility host is unavailable");
+    }
+    return JS_NewBool(
+        context,
+        owner->effect_visibility_staged
+            ? owner->effect_visibility_staged_visible
+            : true
+    );
+}
+
+static JSValue effect_visibility_setter(
+    JSContext *context,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv,
+    int magic,
+    void *opaque
+) {
+    (void)this_value; (void)magic;
+    MWXSceneQuickJSOwner *owner = opaque;
+    if (owner == NULL || owner->domain == NULL ||
+        !owner->domain->callback_active || owner->domain->active_owner != owner ||
+        argc != 1 || !JS_IsBool(argv[0])) {
+        return JS_ThrowTypeError(
+            context, "effect visibility expects a boolean"
+        );
+    }
+    owner->effect_visibility_staged = true;
+    owner->effect_visibility_staged_visible = JS_ToBool(context, argv[0]) > 0;
+    return JS_UNDEFINED;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_effect_visibility_target(
+    MWXSceneQuickJSOwner *owner,
+    int64_t layer_id,
+    int64_t effect_index,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (owner == NULL || owner->domain == NULL ||
+        owner->domain->callback_active || layer_id < -9007199254740991LL ||
+        layer_id > 9007199254740991LL || effect_index < 0 ||
+        effect_index > INT32_MAX || !JS_IsObject(owner->object_handle)) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "invalid effect visibility target"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    JSContext *context = owner->domain->context;
+    JSValue getter = JS_NewCClosure(
+        context, effect_visibility_getter, "get visible", NULL, 0, 0, owner
+    );
+    JSValue setter = JS_NewCClosure(
+        context, effect_visibility_setter, "set visible", NULL, 1, 0, owner
+    );
+    if (JS_IsException(getter) || JS_IsException(setter)) {
+        JS_FreeValue(context, getter);
+        JS_FreeValue(context, setter);
+        return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    }
+    // JS_DefinePropertyGetSet consumes both closures when it runs; a failed
+    // atom allocation leaves them unconsumed and must free them here.
+    JSAtom atom = JS_NewAtom(context, "visible");
+    int defined = -1;
+    if (atom != JS_ATOM_NULL) {
+        defined = JS_DefinePropertyGetSet(
+            context, owner->object_handle, atom, getter, setter,
+            JS_PROP_ENUMERABLE
+        );
+        JS_FreeAtom(context, atom);
+    } else {
+        JS_FreeValue(context, getter);
+        JS_FreeValue(context, setter);
+    }
+    if (defined < 0) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "effect visibility accessor define failed"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    owner->effect_visibility_configured = true;
+    owner->effect_visibility_layer_id = layer_id;
+    owner->effect_visibility_effect_index = (int32_t)effect_index;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
 bool mwx_scene_quickjs_bind_owner_handles(
     MWXSceneQuickJSOwner *owner,
     JSValue *previous_layer,

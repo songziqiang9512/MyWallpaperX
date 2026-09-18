@@ -587,9 +587,24 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_layer_identity(
 /// (layer/text fields) or to a component such as an effect. Only the layer
 /// case rebinds `thisObject` to the layer's own object; component properties
 /// keep the property-object handle that serves IThisPropertyObject.getAnimation.
+/// Declares whether the property this owner drives belongs to the layer itself
+/// (layer/text fields) or to a component such as an effect. Only the layer
+/// case rebinds `thisObject` to the layer's own object; component properties
+/// keep the property-object handle that serves IThisPropertyObject.getAnimation.
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_property_object_scope(
     MWXSceneQuickJSOwner *owner,
     uint32_t property_object_is_layer,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+/// Declares that this owner drives an effect's visibility. The property-object
+/// handle then exposes a writable `visible` whose staged value the update
+/// passthrough publishes for the frame.
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_effect_visibility_target(
+    MWXSceneQuickJSOwner *owner,
+    int64_t layer_id,
+    int64_t effect_index,
     char *diagnostic,
     size_t diagnostic_capacity
 );

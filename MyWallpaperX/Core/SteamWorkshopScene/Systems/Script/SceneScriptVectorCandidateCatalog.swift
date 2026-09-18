@@ -213,6 +213,13 @@ nonisolated extension SceneScriptVectorProgram {
         ) {
             return candidate
         }
+        if let candidate = effectVisibilityProjection(
+            binding,
+            authoredOrdinal: authoredOrdinal,
+            descriptor: descriptor
+        ) {
+            return candidate
+        }
         if let candidate = layerColorProjection(
             binding,
             authoredOrdinal: authoredOrdinal,
@@ -389,6 +396,59 @@ nonisolated extension SceneScriptVectorProgram {
             hasCurrentAnimation: false,
             dynamicImageReferences: [],
             requiresStatefulOwner: false,
+            evaluatesAfterSharedProviders: false,
+            dynamicMaterialModelPath: nil
+        )
+    }
+
+    /// Effect-level `visible` scripts (the stock media-thumbnail toggle family)
+    /// drive the effect's activation, not the layer's. The authored value is
+    /// the seed; the script publishes the live value through the event
+    /// lifecycle. Handlers write `thisObject.visible`, which the C host stages
+    /// for this effect-visibility target, so the owner needs the stateful
+    /// construction for property-object access.
+    private static func effectVisibilityProjection(
+        _ binding: SceneScriptBindingIR,
+        authoredOrdinal: Int,
+        descriptor: SceneRenderDescriptor
+    ) -> SceneScriptVectorCandidate? {
+        guard binding.owner.kind == .effect,
+              binding.targetKey == "visible",
+              binding.valueType == .boolean,
+              binding.wrapperKeys == ["script", "value"],
+              binding.properties.isEmpty,
+              let effectIndex = binding.owner.effectIndex,
+              let objectIndex = binding.owner.objectIndex,
+              let layerID = binding.owner.objectID,
+              binding.targetPath == [
+                  .key("objects"), .index(objectIndex),
+                  .key("effects"), .index(effectIndex), .key("visible"),
+              ],
+              descriptor.layers.indices.contains(objectIndex),
+              descriptor.layers[objectIndex].id == layerID,
+              descriptor.layers[objectIndex].layerIndex == objectIndex,
+              descriptor.layers[objectIndex].effects.indices.contains(effectIndex)
+        else { return nil }
+        let effect = descriptor.layers[objectIndex].effects[effectIndex]
+        guard effect.effectID == binding.owner.effectID,
+              let authored = binding.authoredValue?.boolValue,
+              (effect.visible ?? true) == authored else { return nil }
+        return .init(
+            authoredOrdinal: authoredOrdinal,
+            source: binding.source,
+            definition: .init(
+                target: .effectVisibility(
+                    layerID: layerID,
+                    effectIndex: effectIndex
+                ),
+                valueType: .bool,
+                authoredValue: .bool(authored)
+            ),
+            properties: [:],
+            livePropertyInputTargets: [],
+            hasCurrentAnimation: false,
+            dynamicImageReferences: [],
+            requiresStatefulOwner: true,
             evaluatesAfterSharedProviders: false,
             dynamicMaterialModelPath: nil
         )

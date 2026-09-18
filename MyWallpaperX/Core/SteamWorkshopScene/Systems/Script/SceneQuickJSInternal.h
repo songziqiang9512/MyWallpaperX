@@ -316,6 +316,14 @@ struct MWXSceneQuickJSOwner {
     bool current_animation_available;
     uint32_t target_layer_index;
     bool target_layer_configured;
+    /// Set for owners whose property is an effect's visibility. The object
+    /// handle exposes a writable `visible` that stages into the slot below;
+    /// the update passthrough consumes it as the frame's published value.
+    bool effect_visibility_configured;
+    int64_t effect_visibility_layer_id;
+    int32_t effect_visibility_effect_index;
+    bool effect_visibility_staged;
+    bool effect_visibility_staged_visible;
     uint32_t effect_count;
     char **effect_names;
     size_t audio_registration_count;
