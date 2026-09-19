@@ -1058,6 +1058,105 @@ enum Harness {
                 commandBuffer: commandBuffer,
                 imagePipeline: SceneImageLayerPipeline()
             ) == .published
+        // Hidden effect-chain provider under a resolvedMaterial binding:
+        // within-cap prepared extents keep identity, over-cap extents
+        // normalize, and the rasterized publication publishes color /
+        // fails closed for data. (A reservation whose extent differs from
+        // normalized(source) is unreachable through reserveEffectInput -
+        // both derive from the same function - so the mismatch guard is
+        // exercised implicitly by these shapes.)
+        let hiddenChainProvider = SceneRenderDescriptor.Layer(
+            id: 800,
+            contentKind: "image",
+            utilityLayer: nil,
+            alpha: 1,
+            colorRGB: [1, 1, 1],
+            effects: [.init(visible: true)]
+        )
+        let hiddenChainBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: 801,
+            providerLayerID: 800,
+            slot: .init(effectID: "hidden", passIndex: 0, slotIndex: 1),
+            blendMode: 0,
+            kind: .resolvedMaterial
+        )
+        let hiddenChainRuntime = SceneDependencyFrameRuntime(
+            descriptor: .init(
+                layers: [hiddenChainProvider],
+                bindings: [801: hiddenChainBinding],
+                graphOutputProviderLayerIDs: [800]
+            ),
+            visibleLayerIDs: [800, 801],
+            executableUtilityConsumerLayerIDs: [],
+            device: device
+        )
+        var hiddenWithinCapFailure: String?
+        let hiddenWithinCap = hiddenChainRuntime.reserveEffectInput(
+            for: hiddenChainBinding,
+            providerLayer: hiddenChainProvider,
+            providerTexture: nil,
+            providerCandidate: nil,
+            layerMVP: matrix_identity_float4x4,
+            viewportSize: CGSize(width: 1024, height: 512),
+            preparedOutputExtent: (width: 1024, height: 512),
+            frameEpoch: 31,
+            failureReason: &hiddenWithinCapFailure
+        )
+        let hiddenOverCapRuntime = SceneDependencyFrameRuntime(
+            descriptor: .init(
+                layers: [hiddenChainProvider],
+                bindings: [801: hiddenChainBinding],
+                graphOutputProviderLayerIDs: [800]
+            ),
+            visibleLayerIDs: [800, 801],
+            executableUtilityConsumerLayerIDs: [],
+            device: device
+        )
+        var hiddenOverCapFailure: String?
+        let hiddenOverCap = hiddenOverCapRuntime.reserveEffectInput(
+            for: hiddenChainBinding,
+            providerLayer: hiddenChainProvider,
+            providerTexture: nil,
+            providerCandidate: nil,
+            layerMVP: matrix_identity_float4x4,
+            viewportSize: CGSize(width: 4096, height: 2048),
+            preparedOutputExtent: (width: 4096, height: 2048),
+            frameEpoch: 32,
+            failureReason: &hiddenOverCapFailure
+        )
+        let hiddenOverCapOutput = texture(
+            device,
+            width: 4096,
+            height: 2048,
+            label: "hidden-chain-oversized-output"
+        )
+        let hiddenOverCapRegistry = SceneFrameTextureRegistry(frameEpoch: 32)
+        let hiddenOverCapInstalled = hiddenOverCapRuntime
+            .installPreparedGraphOutputs(
+                [800: hiddenOverCapOutput],
+                frameEpoch: 32
+            )
+        let hiddenOverCapPublished = hiddenOverCapRuntime
+            .publishGraphOutputIfRequired(
+                layerID: 800,
+                texture: hiddenOverCapOutput,
+                publicationRole: .namedProviderPrepass,
+                textureRegistry: hiddenOverCapRegistry,
+                commandBuffer: commandBuffer,
+                imagePipeline: SceneImageLayerPipeline()
+            ) == .published
+        let hiddenDataRejected = hiddenOverCapRuntime
+            .publishGraphOutputIfRequired(
+                layerID: 800,
+                texture: hiddenOverCapOutput,
+                publicationRole: .namedProviderPrepass,
+                textureRegistry: hiddenOverCapRegistry,
+                commandBuffer: commandBuffer,
+                content: .data,
+                imagePipeline: SceneImageLayerPipeline()
+            ) == .invalid(
+                reasonCode: "named-provider-publication-target-extent-invalid"
+            )
         let oversizedDataRejected =
             preparedExtentRuntime.publishGraphOutputIfRequired(
                 layerID: 700,
@@ -1734,6 +1833,15 @@ enum Harness {
             "preparedExtentCapturePublished": preparedExtentCapturePublished,
             "preparedExtentPublished": preparedExtentPublished,
             "preparedExtentWrongSizeRejected": preparedExtentWrongSizeRejected,
+            "hiddenWithinCapIdentity": hiddenWithinCap?.texture.width == 1_024
+                && hiddenWithinCap?.texture.height == 512
+                && hiddenWithinCapFailure == nil,
+            "hiddenOverCapNormalized": hiddenOverCap?.texture.width == 2_048
+                && hiddenOverCap?.texture.height == 1_024
+                && hiddenOverCapFailure == nil
+                && hiddenOverCapInstalled,
+            "hiddenOverCapPublished": hiddenOverCapPublished,
+            "hiddenDataRejected": hiddenDataRejected,
             "oversizedRasterizedPublished": oversizedRasterizedPublished,
             "oversizedDataRejected": oversizedDataRejected,
             "preparedExtentTargetBelowSourceRejected":
@@ -1872,6 +1980,10 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "preparedExtentPublished": True,
                     "preparedExtentWrongSizeRejected": True,
                     "preparedExtentTargetBelowSourceRejected": True,
+                    "hiddenWithinCapIdentity": True,
+                    "hiddenOverCapNormalized": True,
+                    "hiddenOverCapPublished": True,
+                    "hiddenDataRejected": True,
                     "oversizedRasterizedPublished": True,
                     "oversizedDataRejected": True,
                     "geometryReservation": True,
