@@ -63,7 +63,14 @@ extension SceneDependencyRenderPlan {
         // A hidden provider with authored effects is itself an executable
         // dependency consumer. Walk only the provider closure reachable from
         // visible roots; unrelated hidden effect graphs do not gain a route.
+        // Conditional-content consumers (hidden layers that DECLARE
+        // dependency references) are also reachable roots: the author
+        // declared the dependency, so the provider chain must be ready when
+        // the layer is shown.
         var reachableConsumerLayerIDs = visibleLayerIDs
+        for reference in references where layersByID[reference.providerLayerID] != nil {
+            reachableConsumerLayerIDs.insert(reference.consumerLayerID)
+        }
         var changed = true
         while changed {
             changed = false
