@@ -207,21 +207,11 @@ final class SceneParticleChildRuntime {
         var batches: [SceneParticleDrawBatch] = []
         batches.reserveCapacity(templates.count)
         var failures: [String] = []
-        // DEBUG probe: throttled spawn/instance census (every ~5s of sim time).
+        // DEBUG probe: throttled spawn/instance census (~1s of sim time) with
+        // the built batch count, to distinguish bursty lifecycle windows from
+        // batch-creation gaps at snapshot time.
         censusTimeAccumulator += frameDelta
-        if !didLogInstanceCensus || censusTimeAccumulator >= 5 {
-            didLogInstanceCensus = true
-            censusTimeAccumulator = 0
-            let spawned = templates.compactMap { instanceScratch[$0.index]?.count }
-            let systemParticleCounts = systems.map { $0.simulator.particles.count }
-            let systemParticleTotal = systemParticleCounts.reduce(0, +)
-            NSLog(
-                "MWX DEBUG SCENE: phase=particle-child-census layer=%d templates=%d systems=%d systemParticles=%d spawnedTotal=%d emptyTemplates=%d nonEmptySystems=%d",
-                layerID, templates.count, systems.count,
-                systemParticleTotal, spawned.reduce(0, +), spawned.count,
-                systemParticleCounts.filter { $0 > 0 }.count
-            )
-        }
+        let censusDue = !didLogInstanceCensus || censusTimeAccumulator >= 1
         for template in templates {
             guard let instances = instanceScratch[template.index], !instances.isEmpty else {
                 continue
@@ -244,6 +234,20 @@ final class SceneParticleChildRuntime {
                 orientationAxis: template.orientationAxis,
                 usesPerspective: template.usesPerspective
             ))
+        }
+        if censusDue {
+            didLogInstanceCensus = true
+            censusTimeAccumulator = 0
+            let spawned = templates.compactMap { instanceScratch[$0.index]?.count }
+            let systemParticleCounts = systems.map { $0.simulator.particles.count }
+            let systemParticleTotal = systemParticleCounts.reduce(0, +)
+            NSLog(
+                "MWX DEBUG SCENE: phase=particle-child-census layer=%d templates=%d systems=%d systemParticles=%d spawnedTotal=%d emptyTemplates=%d nonEmptySystems=%d batches=%d bufferFailures=%d",
+                layerID, templates.count, systems.count,
+                systemParticleTotal, spawned.reduce(0, +), spawned.count,
+                systemParticleCounts.filter { $0 > 0 }.count,
+                batches.count, failures.count
+            )
         }
         return SceneParticleChildAdvanceResult(
             batches: batches,
