@@ -541,6 +541,20 @@ extension SceneDependencyRenderPlan {
         let providerKindIsSupported = switch contract.kind {
         case .resolvedMaterial:
             provider.utilityLayer?.kind == .composition
+                // A hidden conditional image provider whose visible effect
+                // chain produces the sampled composite: the consumer (e.g.
+                // the user-gated X-ray layer) samples the chain's graph
+                // output. The chain renders at its authored position, so
+                // no forward capture is involved.
+                || (
+                    provider.contentKind == "image"
+                        && provider.puppetMeshPath == nil
+                        && hasNoUtilityLayer(provider)
+                        && provider.visible == false
+                        && providerHasVisibleEffects
+                        && provider.dependencyLayerIDs.isEmpty
+                        && provider.authoredDependencies.isEmpty
+                )
         case .solidLayer:
             provider.contentKind == "solid"
                 && hasNoUtilityLayer(provider)
@@ -592,6 +606,9 @@ extension SceneDependencyRenderPlan {
               || contract.kind == .visibleImageGraphOutput
               || (contract.kind == .solidLayer
                   && contract.requiresResolvedMaterialProgram)
+              || (contract.kind == .resolvedMaterial
+                  && provider.visible == false
+                  && providerHasVisibleEffects)
         )
         let noChildren = provider.childLayerIDs.isEmpty
         let activeDepsOk = providerActiveDependencies.isEmpty
