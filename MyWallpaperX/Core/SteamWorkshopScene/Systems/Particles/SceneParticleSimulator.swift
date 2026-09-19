@@ -9,6 +9,7 @@ import Foundation
 nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     struct FrameSnapshot {
         let particles: [SceneParticleState]
+        let transientRenderBirths: [SceneParticleState]
         let birthEvents: [SceneParticleState]
         let deathEvents: [SceneParticleState]
         let simulationTime: Double
@@ -30,6 +31,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     let maximumParticleCount: Int
     let diagnostics: [SceneParticleSimulationDiagnostic]
     var particles: [SceneParticleState] = []
+    /// Birth-state samples whose complete authored lifetime fell inside the
+    /// current display callback. They remain lifecycle-dead and event-visible;
+    /// Sprite assembly alone may render the sample once before the next advance.
+    private var transientRenderBirths: [SceneParticleState] = []
     private(set) var birthEvents: [SceneParticleState] = []
     private(set) var deathEvents: [SceneParticleState] = []
     private(set) var simulationTime = 0.0
@@ -170,11 +175,14 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         dynamicInstanceOverride: SceneParticleInstanceOverride? = nil,
         audioInput: SceneParticleAudioInput = .silent
     ) {
+        transientRenderBirths.removeAll(keepingCapacity: true)
         self.dynamicControlPoints = dynamicControlPoints
         self.dynamicControlPointAngles = dynamicControlPointAngles
         activeInstanceOverride = dynamicInstanceOverride ?? instanceOverride
         self.audioInput = audioInput
         guard duration.isFinite, duration > 0 else { return }
+        let birthEventStart = birthEvents.count
+        let deathEventStart = deathEvents.count
         for index in emitters.indices { emitters[index].beginFrame() }
         accumulator += duration
         while accumulator + 1e-12 >= fixedTimeStep {
@@ -182,6 +190,29 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             accumulator -= fixedTimeStep
         }
         if accumulator < 0 { accumulator = 0 }
+        publishTransientRenderBirths(
+            birthEventStart: birthEventStart,
+            deathEventStart: deathEventStart
+        )
+    }
+
+    /// Returns the authored-order Sprite sample set for the current display
+    /// callback. The common path returns the persistent array through COW;
+    /// allocation and sorting occur only when a particle was born and died
+    /// entirely between two display callbacks.
+    nonisolated func renderParticlesForCurrentAdvance() -> [SceneParticleState] {
+        guard !transientRenderBirths.isEmpty else { return particles }
+        var result = particles
+        result.reserveCapacity(particles.count + transientRenderBirths.count)
+        result.append(contentsOf: transientRenderBirths)
+        result.sort { $0.id < $1.id }
+        return result
+    }
+
+    /// Current-callback diagnostic used by lifecycle/performance validation.
+    /// Zero means the ordinary persistent render path stayed active.
+    nonisolated var transientRenderSampleCount: Int {
+        transientRenderBirths.count
     }
 
     nonisolated func consumeBirthEvents() -> [SceneParticleState] {
@@ -204,6 +235,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     nonisolated func frameSnapshot() -> FrameSnapshot {
         FrameSnapshot(
             particles: particles,
+            transientRenderBirths: transientRenderBirths,
             birthEvents: birthEvents,
             deathEvents: deathEvents,
             simulationTime: simulationTime,
@@ -224,6 +256,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
     nonisolated func restoreFrame(_ snapshot: FrameSnapshot) {
         particles = snapshot.particles
+        transientRenderBirths = snapshot.transientRenderBirths
         birthEvents = snapshot.birthEvents
         deathEvents = snapshot.deathEvents
         simulationTime = snapshot.simulationTime
@@ -239,6 +272,47 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         eventColorContext = snapshot.eventColorContext
         stepSnapshotRecorder = snapshot.stepSnapshotRecorder
         positionOscillationCache = snapshot.positionOscillationCache
+    }
+
+    private nonisolated func publishTransientRenderBirths(
+        birthEventStart: Int,
+        deathEventStart: Int
+    ) {
+        guard birthEventStart < birthEvents.count,
+              deathEventStart < deathEvents.count
+        else { return }
+        let birthRange = birthEventStart ..< birthEvents.count
+        for death in deathEvents[deathEventStart...] {
+            guard let birth = birthEvent(in: birthRange, matching: death.id) else {
+                continue
+            }
+            transientRenderBirths.append(birth)
+        }
+    }
+
+    /// Birth identities are globally monotonic, so the current-callback suffix
+    /// is ordered even when deaths from multiple fixed steps are not. Binary
+    /// search keeps the no-intersection steady-state path allocation-free; the
+    /// transient array only grows after a real same-callback match.
+    private nonisolated func birthEvent(
+        in range: Range<Int>,
+        matching identity: UInt64
+    ) -> SceneParticleState? {
+        var lower = range.lowerBound
+        var upper = range.upperBound
+        while lower < upper {
+            let middle = lower + (upper - lower) / 2
+            let candidate = birthEvents[middle]
+            if candidate.id < identity {
+                lower = middle + 1
+            } else {
+                upper = middle
+            }
+        }
+        guard lower < range.upperBound, birthEvents[lower].id == identity else {
+            return nil
+        }
+        return birthEvents[lower]
     }
 
     nonisolated func updateFollowEventColor(_ color: SIMD3<Double>) {
@@ -305,6 +379,14 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         let emitter = definition.emitters[index]
         if case .unsupported = emitter.kind { return }
         let spawnPlan = emitterSpawnPlans[index]
+        guard let emitterFrame = definition.emitterControlPointFrame(
+            for: emitter, instanceOverride: activeInstanceOverride,
+            dynamicControlPoints: dynamicControlPoints,
+            dynamicControlPointAngles: dynamicControlPointAngles,
+            controlPointsByID: controlPointsByID,
+            controlPointSourcesAreValid: controlPointSourcesAreValid,
+            preparedOrigin: spawnPlan.origin
+        ) else { return }
         guard let audioScale = emissionAudioScale(for: spawnPlan) else { return }
         if spawnPlan.usesRandomPeriodicEmission,
            activeInstanceOverride?.rate != nil || activeInstanceOverride?.count != nil { return }
@@ -337,7 +419,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         }
         count = min(count, maximumParticleCount - particles.count)
         for _ in 0..<count {
-            if let particle = makeParticle(emitter, spawnPlan: spawnPlan) {
+            if let particle = makeParticle(
+                emitter, spawnPlan: spawnPlan, frame: emitterFrame
+            ) {
                 particles.append(particle)
                 birthEvents.append(particle)
             }
@@ -346,16 +430,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
     private nonisolated func makeParticle(
         _ emitter: SceneParticleEmitter,
-        spawnPlan: SceneParticleEmitterSpawnPlan
+        spawnPlan: SceneParticleEmitterSpawnPlan,
+        frame: SceneParticleEmitterControlPointFrame
     ) -> SceneParticleState? {
-        guard let frame = definition.emitterControlPointFrame(
-            for: emitter, instanceOverride: activeInstanceOverride,
-            dynamicControlPoints: dynamicControlPoints,
-            dynamicControlPointAngles: dynamicControlPointAngles,
-            controlPointsByID: controlPointsByID,
-            controlPointSourcesAreValid: controlPointSourcesAreValid,
-            preparedOrigin: spawnPlan.origin
-        ), spawnPlan.hasBoundedDirectionsAndSign,
+        guard spawnPlan.hasBoundedDirectionsAndSign,
               let speedMinimum = spawnPlan.speedMinimum,
               let speedMaximum = spawnPlan.speedMaximum else { return nil }
         var velocity = SIMD3<Double>.zero

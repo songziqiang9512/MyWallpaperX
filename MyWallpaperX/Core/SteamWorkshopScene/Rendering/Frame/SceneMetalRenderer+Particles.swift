@@ -9,7 +9,8 @@ extension SceneMetalRenderer {
         cameraFrame: SceneParticleCameraFrame,
         viewportSize: SIMD2<Float>,
         mainPass: SceneMainPassEncoder,
-        commandBuffer: MTLCommandBuffer
+        commandBuffer: MTLCommandBuffer,
+        performanceObservations: inout [SceneParticlePerformanceObservation]?
     ) -> SceneParticleDepthTargetLease? {
         // Install completion ownership before the first draw.  A command can
         // cross the enqueue/commit boundary as soon as the shared renderer
@@ -92,6 +93,11 @@ extension SceneMetalRenderer {
                 didEncode = false
             }
             if didEncode {
+                performanceObservations?.append(SceneParticlePerformanceObservation(
+                    layerID: batch.layerID,
+                    instanceCount: batch.instances.count,
+                    isRefraction: batch.refraction != nil
+                ))
                 // Reserve the slot for this command only after the pipeline
                 // confirms that a draw was actually encoded.  The renderer's
                 // outer defer handles a later preflight/seal rejection while

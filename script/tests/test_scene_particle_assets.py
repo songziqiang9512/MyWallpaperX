@@ -90,6 +90,14 @@ enum Harness {
             "emitter": [["name": "sphereRandom"]]
         ], relativePath: "particles/refract.json", under: directory)
         try writeJSON([
+            "material": "materials/particle/refract-single.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/refract-single.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/refract-missing-normal.json",
+            "emitter": [["name": "sphereRandom"]]
+        ], relativePath: "particles/refract-missing-normal.json", under: directory)
+        try writeJSON([
             "material": "materials/particle/unknown-blend.json",
             "emitter": [["name": "sphereRandom"]]
         ], relativePath: "particles/unknown-blend.json", under: directory)
@@ -175,6 +183,20 @@ enum Harness {
                 combos: ["REFRACT": 1]
             ),
             SceneParticleMaterialPass(
+                materialPath: "materials/particle/refract-single.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/refract-blank"],
+                blending: "translucent",
+                combos: ["REFRACT": 1]
+            ),
+            SceneParticleMaterialPass(
+                materialPath: "materials/particle/refract-missing-normal.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/refract-blank", "particle/missing-normal"],
+                blending: "translucent",
+                combos: ["REFRACT": 1]
+            ),
+            SceneParticleMaterialPass(
                 materialPath: "materials/particle/unknown-blend.json",
                 shaderPath: "shaders/genericparticle.json",
                 texturePaths: ["particle/root"],
@@ -237,6 +259,7 @@ enum Harness {
                 "particles/builtin-texture.json",
                 "particles/drop-texture.json",
                 "particles/refract.json",
+                "particles/refract-single.json",
                 "particles/unknown-blend.json",
                 "particles/unsupported-state.json",
                 "particles/depth.json",
@@ -256,6 +279,7 @@ enum Harness {
         let halo = graph.assetsByPath["particles/builtin-texture.json"]
         let drop = graph.assetsByPath["particles/drop-texture.json"]
         let refract = graph.assetsByPath["particles/refract.json"]
+        let singleSlotRefract = graph.assetsByPath["particles/refract-single.json"]
         let unknownBlend = graph.assetsByPath["particles/unknown-blend.json"]
         let unsupportedState = graph.assetsByPath["particles/unsupported-state.json"]
         let depth = graph.assetsByPath["particles/depth.json"]
@@ -272,6 +296,44 @@ enum Harness {
             cacheDirectory: directory
         )
         let localDrop = localDropGraph.assetsByPath["particles/drop-texture.json"]
+        let missingNormalGraph = SceneParticleAssetGraphLoader(
+            resourceView: resourceView
+        ).load(
+            rootPaths: ["particles/refract-missing-normal.json"],
+            materialPasses: passes,
+            cacheDirectory: directory
+        )
+        let missingNormalRefract = missingNormalGraph.assetsByPath[
+            "particles/refract-missing-normal.json"
+        ]
+        let singleSlotGraphWired: Bool
+        if let singleSlotRefract,
+           let declaration = singleSlotRefract.refraction {
+            singleSlotGraphWired = singleSlotRefract.textureSource != nil
+                && declaration.normalTextureSource == nil
+        } else {
+            singleSlotGraphWired = false
+        }
+        let missingExplicitNormalRejected: Bool
+        if let missingNormalRefract {
+            missingExplicitNormalRejected = missingNormalRefract.textureSource == nil
+                && missingNormalRefract.refraction == nil
+                && missingNormalGraph.diagnostics.contains {
+                    $0.kind == .refractionUnsupported
+                        && $0.detail == "normalTextureUnavailable"
+                }
+        } else {
+            missingExplicitNormalRejected = false
+        }
+        let singleSlotPlan = SceneParticleRefractionPlanner.plan(
+            for: SceneParticleMaterialPass(
+                materialPath: "materials/particle/refract.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/refract-blank"],
+                blending: "translucent",
+                combos: ["REFRACT": 1]
+            )
+        )
         let diagnostics = Dictionary(grouping: graph.diagnostics, by: { $0.kind.rawValue })
             .mapValues(\.count)
         return [
@@ -294,6 +356,8 @@ enum Harness {
             "refractHasTextureSource": refract?.textureSource != nil,
             "refractHasPlan": refract?.refraction != nil,
             "refractDefaultAmount": refract?.refraction?.amount ?? -1,
+            "singleSlotGraphWired": singleSlotGraphWired,
+            "missingExplicitNormalRejected": missingExplicitNormalRejected,
             "unknownBlendRejected": unknownBlend?.pipelineState == nil,
             "unknownBlendStateRejected": unknownBlend?.renderState == nil,
             "unsupportedStateRejected": unsupportedState?.pipelineState == nil
@@ -328,6 +392,28 @@ enum Harness {
                     blending: "translucent",
                     combos: ["REFRACT": 1],
                     cullMode: "normal"
+                )
+            ) == nil,
+            "singleSlotRefractionUsesFlatNormal": singleSlotPlan.map {
+                $0.normalReference == nil
+            } ?? false,
+            "twoSlotRefractionPreservesNormal": SceneParticleRefractionPlanner.plan(
+                for: SceneParticleMaterialPass(
+                    materialPath: "materials/particle/refract.json",
+                    shaderPath: "shaders/genericparticle.json",
+                    texturePaths: ["particle/refract-blank", "particle/refract-normal"],
+                    blending: "translucent",
+                    combos: ["REFRACT": 1]
+                )
+            )?.normalReference == "particle/refract-normal",
+            "normalSlotHoleRejected": SceneParticleRefractionPlanner.plan(
+                for: SceneParticleMaterialPass(
+                    materialPath: "materials/particle/refract.json",
+                    shaderPath: "shaders/genericparticle.json",
+                    texturePaths: ["particle/refract-blank"],
+                    textureSlots: ["particle/refract-blank", nil],
+                    blending: "translucent",
+                    combos: ["REFRACT": 1]
                 )
             ) == nil,
             "diagnostics": diagnostics
@@ -642,7 +728,7 @@ class SceneParticleAssetTests(unittest.TestCase):
 
     def test_synthetic_asset_graph(self) -> None:
         result = self.run_harness("synthetic")
-        self.assertEqual(result["assetCount"], 16)
+        self.assertEqual(result["assetCount"], 17)
         self.assertEqual(
             result["rootPaths"],
             [
@@ -652,6 +738,7 @@ class SceneParticleAssetTests(unittest.TestCase):
                 "particles/builtin-texture.json",
                 "particles/drop-texture.json",
                 "particles/refract.json",
+                "particles/refract-single.json",
                 "particles/unknown-blend.json",
                 "particles/unsupported-state.json",
                 "particles/depth.json",
@@ -677,6 +764,8 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertTrue(result["refractHasTextureSource"])
         self.assertTrue(result["refractHasPlan"])
         self.assertAlmostEqual(result["refractDefaultAmount"], 0.05, places=6)
+        self.assertTrue(result["singleSlotGraphWired"])
+        self.assertTrue(result["missingExplicitNormalRejected"])
         self.assertTrue(result["unknownBlendRejected"])
         self.assertTrue(result["unknownBlendStateRejected"])
         self.assertTrue(result["unsupportedStateRejected"])
@@ -692,6 +781,9 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertTrue(result["missingShaderRejected"])
         self.assertTrue(result["unknownEnabledComboRejected"])
         self.assertTrue(result["normalCullRefractionRejected"])
+        self.assertTrue(result["singleSlotRefractionUsesFlatNormal"])
+        self.assertTrue(result["twoSlotRefractionPreservesNormal"])
+        self.assertTrue(result["normalSlotHoleRejected"])
         self.assertEqual(
             result["diagnostics"],
             {

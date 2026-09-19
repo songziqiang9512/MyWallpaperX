@@ -348,6 +348,10 @@ enum Harness {
             try printJSON(playbackDeltaBounds())
         case "frame-transaction-synthetic":
             try printJSON(frameTransactionBounds())
+        case "subframe-lifetime-synthetic":
+            try printJSON(syntheticSubframeLifetime())
+        case "subframe-child-lifecycle-synthetic":
+            try printJSON(syntheticSubframeChildLifecycle())
         case "synthetic":
             try printJSON(synthetic())
         default:
@@ -426,10 +430,344 @@ enum Harness {
         var expected = SceneParticleSimulator(definition: definition, seed: 17)
         expected.advance(by: 1.0 / 60.0)
         expected.advance(by: 1.0 / 60.0)
+        let subframeDefinition = SceneParticleDefinitionParser().parse(root: [
+            "material": "materials/unused.json",
+            "maxcount": 8,
+            "emitter": [[
+                "name": "sphererandom", "rate": 120,
+                "distancemin": 0, "distancemax": 0,
+            ]],
+            "initializer": [[
+                "name": "lifetimerandom", "min": 0.0004, "max": 0.0004,
+            ]],
+            "renderer": [["name": "sprite"]],
+        ])
+        let subframe = SceneParticleSimulator(definition: subframeDefinition, seed: 19)
+        subframe.advance(by: 1.0 / 60.0)
+        let subframeSnapshot = subframe.frameSnapshot()
+        let transientBeforeConsume = subframe.renderParticlesForCurrentAdvance().count
+        _ = subframe.consumeBirthEvents()
+        _ = subframe.consumeDeathEvents()
+        let transientAfterConsume = subframe.renderParticlesForCurrentAdvance().count
+        subframe.advance(by: 0)
+        let transientAfterNextAdvance = subframe.renderParticlesForCurrentAdvance().count
+        subframe.restoreFrame(subframeSnapshot)
+        let steadyDefinition = SceneParticleDefinitionParser().parse(root: [
+            "material": "materials/unused.json",
+            "maxcount": 8,
+            "emitter": [[
+                "name": "sphererandom", "rate": 60,
+                "distancemin": 0, "distancemax": 0,
+            ]],
+            "initializer": [[
+                "name": "lifetimerandom", "min": 0.025, "max": 0.025,
+            ]],
+            "renderer": [["name": "sprite"]],
+        ])
+        let steady = SceneParticleSimulator(definition: steadyDefinition, seed: 23)
+        steady.advance(by: 1.0 / 60.0)
+        _ = steady.consumeBirthEvents()
+        _ = steady.consumeDeathEvents()
+        steady.advance(by: 1.0 / 60.0)
         return [
             "sameParticles": retry.particles == expected.particles,
             "sameTime": retry.simulationTime == expected.simulationTime,
             "sameRandom": retry.random.state == expected.random.state,
+            "transientPersistentCount": subframe.particles.count,
+            "transientBeforeConsume": transientBeforeConsume,
+            "transientAfterConsume": transientAfterConsume,
+            "transientAfterNextAdvance": transientAfterNextAdvance,
+            "transientRestored": subframe.renderParticlesForCurrentAdvance().count,
+            "steadyPersistentCount": steady.particles.count,
+            "steadyTransientCount": steady.transientRenderSampleCount,
+        ]
+    }
+
+    private static func syntheticSubframeLifetime() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mwx-particle-subframe-lifetime-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 100,
+            "controlpoint": [["id": 1, "flags": 1, "offset": "0 0 0"]],
+            "emitter": [[
+                "name": "sphererandom", "rate": 50, "controlpoint": 1,
+                "distancemin": 0, "distancemax": 0,
+            ]],
+            "initializer": [
+                ["name": "lifetimerandom", "min": 0.02, "max": 0.02],
+                ["name": "sizerandom", "min": 8, "max": 8],
+            ],
+            "renderer": [["name": "sprite"]],
+            "children": [["name": "particles/child.json", "type": "static"]],
+        ], to: directory.appendingPathComponent("particles/root.json"))
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 100,
+            "emitter": [[
+                "name": "sphererandom", "rate": 120,
+                "distancemin": 0, "distancemax": 0,
+            ]],
+            "initializer": [
+                ["name": "lifetimerandom", "min": 0.0004, "max": 0.0004],
+                ["name": "sizerandom", "min": 4, "max": 4],
+            ],
+            "renderer": [["name": "sprite"]],
+        ], to: directory.appendingPathComponent("particles/child.json"))
+        let descriptor = SceneRenderDescriptor(
+            layers: [layer(
+                984, "particles/root.json",
+                particleLifetime: 0.02, particleRate: 3.95
+            )],
+            renderOrderLayerIDs: [984],
+            materialPasses: [
+                .init(
+                    materialPath: "materials/shared.json",
+                    shaderPath: "genericparticle",
+                    texturePaths: ["shared.png"],
+                    blending: "additive"
+                )
+            ]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw HarnessError.noMetal
+        }
+        let runtime = SceneParticleRuntime(
+            descriptor: descriptor,
+            cacheDirectory: directory,
+            device: device
+        )
+        let pointer = SIMD3<Double>(32, 48, 0)
+        let first = runtime.advance(
+            by: 1.0 / 20.0,
+            pointerLocalPositions: [984: pointer]
+        )
+        let lifecycle = runtime.lifecycleSnapshot
+        let rootBatch = first.first { $0.particlePath == "particles/root.json" }
+        let childBatch = first.first { $0.particlePath == "particles/child.json" }
+        let second = runtime.advance(by: 1.0 / 120.0)
+        return [
+            "rootInstanceCount": rootBatch?.instances.count ?? 0,
+            "childInstanceCount": childBatch?.instances.count ?? 0,
+            "rootPositions": rootBatch?.instances.map {
+                [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+            } ?? [],
+            "rootPersistentCount": lifecycle.rootParticleCount,
+            "childPersistentCount": lifecycle.childParticleCount,
+            "secondAdvanceInstanceCount": second.reduce(0) { $0 + $1.instances.count },
+        ]
+    }
+
+    private static func syntheticSubframeChildLifecycle() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mwx-particle-subframe-child-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+
+        func writeShortParticle(
+            _ path: String,
+            flags: Int = 0,
+            children: [[String: Any]] = []
+        ) throws {
+            var root: [String: Any] = [
+                "material": "materials/shared.json", "maxcount": 8,
+                "flags": flags,
+                "emitter": [[
+                    "name": "sphererandom", "rate": 0, "instantaneous": 1,
+                    "distancemin": 0, "distancemax": 0,
+                ]],
+                "initializer": [
+                    ["name": "lifetimerandom", "min": 0.0004, "max": 0.0004],
+                    ["name": "sizerandom", "min": 4, "max": 4],
+                ],
+                "renderer": [["name": "sprite"]],
+            ]
+            if !children.isEmpty { root["children"] = children }
+            try writeJSON(root, to: directory.appendingPathComponent(path))
+        }
+
+        try writeShortParticle("particles/static-world.json", flags: 1)
+        try writeShortParticle("particles/spawn-leaf.json")
+        try writeShortParticle("particles/death-leaf.json")
+        try writeShortParticle("particles/nested-leaf.json")
+        try writeShortParticle(
+            "particles/spawn-parent.json",
+            children: [[
+                "name": "particles/nested-leaf.json", "type": "eventspawn",
+                "maxcount": 1,
+            ]]
+        )
+
+        func writeRoot(_ path: String, child: [String: Any]) throws {
+            try writeJSON([
+                "material": "materials/shared.json", "maxcount": 8,
+                "emitter": [[
+                    "name": "sphererandom", "rate": 0, "instantaneous": 1,
+                    "distancemin": 0, "distancemax": 0,
+                ]],
+                "initializer": [[
+                    "name": "lifetimerandom", "min": 0.0004, "max": 0.0004,
+                ]],
+                "renderer": [["name": "sprite"]],
+                "children": [child],
+            ], to: directory.appendingPathComponent(path))
+        }
+        try writeRoot("particles/root-static.json", child: [
+            "name": "particles/static-world.json", "type": "static",
+            "origin": "7 9 0", "maxcount": 1,
+        ])
+        try writeRoot("particles/root-spawn.json", child: [
+            "name": "particles/spawn-leaf.json", "type": "eventspawn", "maxcount": 1,
+        ])
+        try writeRoot("particles/root-death.json", child: [
+            "name": "particles/death-leaf.json", "type": "eventdeath", "maxcount": 1,
+        ])
+        try writeRoot("particles/root-depth-two.json", child: [
+            "name": "particles/spawn-parent.json", "type": "eventspawn", "maxcount": 1,
+        ])
+        func writeRepeatingRoot(_ path: String, child: [String: Any]) throws {
+            try writeJSON([
+                "material": "materials/shared.json", "maxcount": 16,
+                "emitter": [[
+                    "name": "sphererandom", "rate": 60,
+                    "distancemin": 0, "distancemax": 0,
+                ]],
+                "initializer": [[
+                    "name": "lifetimerandom", "min": 10, "max": 10,
+                ]],
+                "renderer": [["name": "sprite"]],
+                "children": [child],
+            ], to: directory.appendingPathComponent(path))
+        }
+        try writeRepeatingRoot("particles/root-replace-depth-one.json", child: [
+            "name": "particles/spawn-leaf.json", "type": "eventspawn", "maxcount": 1,
+        ])
+        try writeRepeatingRoot("particles/root-replace-depth-two.json", child: [
+            "name": "particles/spawn-parent.json", "type": "eventspawn", "maxcount": 1,
+        ])
+
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw HarnessError.noMetal
+        }
+        let pass = SceneRenderDescriptor.MaterialPassDescriptor(
+            materialPath: "materials/shared.json",
+            shaderPath: "genericparticle",
+            texturePaths: ["shared.png"],
+            blending: "additive"
+        )
+        func runtime(_ id: Int, _ path: String) -> SceneParticleRuntime {
+            SceneParticleRuntime(
+                descriptor: SceneRenderDescriptor(
+                    layers: [layer(id, path)],
+                    renderOrderLayerIDs: [id],
+                    materialPasses: [pass]
+                ),
+                cacheDirectory: directory,
+                device: device
+            )
+        }
+        func instances(
+            _ batches: [SceneParticleDrawBatch], path: String
+        ) -> [SceneParticleGPUInstance] {
+            batches.first { $0.particlePath == path }?.instances ?? []
+        }
+        func childInstanceTotal(_ batches: [SceneParticleDrawBatch]) -> Int {
+            batches.filter { $0.particlePath != "particles/root-static.json"
+                && $0.particlePath != "particles/root-spawn.json"
+                && $0.particlePath != "particles/root-death.json"
+                && $0.particlePath != "particles/root-depth-two.json"
+            }.reduce(0) { $0 + $1.instances.count }
+        }
+
+        let staticRuntime = runtime(991, "particles/root-static.json")
+        let staticFirst = staticRuntime.advance(by: 1.0 / 60.0)
+        let staticFirstLifecycle = staticRuntime.lifecycleSnapshot
+        let staticSecond = staticRuntime.advance(by: 1.0 / 60.0)
+        let staticInstances = instances(staticFirst, path: "particles/static-world.json")
+
+        let spawnRuntime = runtime(992, "particles/root-spawn.json")
+        _ = spawnRuntime.advance(by: 1.0 / 60.0)
+        let spawnSecond = spawnRuntime.advance(by: 1.0 / 60.0)
+        let spawnSecondLifecycle = spawnRuntime.lifecycleSnapshot
+        let spawnThird = spawnRuntime.advance(by: 1.0 / 60.0)
+
+        let deathRuntime = runtime(993, "particles/root-death.json")
+        _ = deathRuntime.advance(by: 1.0 / 60.0)
+        let deathSecond = deathRuntime.advance(by: 1.0 / 60.0)
+        let deathSecondLifecycle = deathRuntime.lifecycleSnapshot
+        let deathThird = deathRuntime.advance(by: 1.0 / 60.0)
+
+        let depthRuntime = runtime(994, "particles/root-depth-two.json")
+        _ = depthRuntime.advance(by: 1.0 / 60.0)
+        let depthSecond = depthRuntime.advance(by: 1.0 / 60.0)
+        let depthSecondLifecycle = depthRuntime.lifecycleSnapshot
+        let depthThird = depthRuntime.advance(by: 1.0 / 60.0)
+        let depthThirdLifecycle = depthRuntime.lifecycleSnapshot
+        let depthFourth = depthRuntime.advance(by: 1.0 / 60.0)
+
+        let replacementRuntime = runtime(995, "particles/root-replace-depth-one.json")
+        _ = replacementRuntime.advance(by: 1.0 / 60.0)
+        let replacementSecond = replacementRuntime.advance(by: 1.0 / 60.0)
+        let replacementSecondLifecycle = replacementRuntime.lifecycleSnapshot
+        let replacementThird = replacementRuntime.advance(by: 1.0 / 60.0)
+        let replacementThirdLifecycle = replacementRuntime.lifecycleSnapshot
+
+        let nestedReplacementRuntime = runtime(996, "particles/root-replace-depth-two.json")
+        _ = nestedReplacementRuntime.advance(by: 1.0 / 60.0)
+        _ = nestedReplacementRuntime.advance(by: 1.0 / 60.0)
+        let nestedReplacementThird = nestedReplacementRuntime.advance(by: 1.0 / 60.0)
+        let nestedReplacementThirdLifecycle = nestedReplacementRuntime.lifecycleSnapshot
+        let nestedReplacementFourth = nestedReplacementRuntime.advance(by: 1.0 / 60.0)
+        let nestedReplacementFourthLifecycle = nestedReplacementRuntime.lifecycleSnapshot
+
+        return [
+            "staticCount": staticInstances.count,
+            "staticPosition": staticInstances.first.map {
+                [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+            } ?? [],
+            "staticLifecycleSystems": staticFirstLifecycle.childSystemCount,
+            "staticLifecycleParticles": staticFirstLifecycle.childParticleCount,
+            "staticNextCount": childInstanceTotal(staticSecond),
+            "spawnCount": instances(spawnSecond, path: "particles/spawn-leaf.json").count,
+            "spawnLifecycleSystems": spawnSecondLifecycle.childSystemCount,
+            "spawnLifecycleParticles": spawnSecondLifecycle.childParticleCount,
+            "spawnNextCount": childInstanceTotal(spawnThird),
+            "deathCount": instances(deathSecond, path: "particles/death-leaf.json").count,
+            "deathLifecycleSystems": deathSecondLifecycle.childSystemCount,
+            "deathLifecycleParticles": deathSecondLifecycle.childParticleCount,
+            "deathNextCount": childInstanceTotal(deathThird),
+            "depthOneCount": instances(
+                depthSecond, path: "particles/spawn-parent.json"
+            ).count,
+            "depthOneRemainingSystems": depthSecondLifecycle.childSystemCount,
+            "depthTwoCount": instances(
+                depthThird, path: "particles/nested-leaf.json"
+            ).count,
+            "depthTwoLifecycleSystems": depthThirdLifecycle.childSystemCount,
+            "depthTwoLifecycleParticles": depthThirdLifecycle.childParticleCount,
+            "depthTwoNextCount": childInstanceTotal(depthFourth),
+            "replacementSecondCount": instances(
+                replacementSecond, path: "particles/spawn-leaf.json"
+            ).count,
+            "replacementSecondSystems": replacementSecondLifecycle.childSystemCount,
+            "replacementThirdCount": instances(
+                replacementThird, path: "particles/spawn-leaf.json"
+            ).count,
+            "replacementThirdSystems": replacementThirdLifecycle.childSystemCount,
+            "nestedReplacementThirdCount": instances(
+                nestedReplacementThird, path: "particles/nested-leaf.json"
+            ).count,
+            "nestedReplacementThirdSystems": nestedReplacementThirdLifecycle.childSystemCount,
+            "nestedReplacementFourthCount": instances(
+                nestedReplacementFourth, path: "particles/nested-leaf.json"
+            ).count,
+            "nestedReplacementFourthSystems": nestedReplacementFourthLifecycle.childSystemCount,
         ]
     }
 
@@ -443,7 +781,10 @@ enum Harness {
             "particles/root.json", material: "materials/shared.json",
             lifetime: 1, rate: 0, instantaneous: 1,
             children: [[
-                "name": "particles/child.json", "type": "eventfollow",
+                "name": "particles/child-force.json", "type": "eventfollow",
+                "maxcount": 1, "scale": "2.5 2.5 1",
+            ], [
+                "name": "particles/child-emitter.json", "type": "eventfollow",
                 "maxcount": 1, "scale": "2.5 2.5 1",
             ]], under: directory
         )
@@ -463,7 +804,42 @@ enum Harness {
                 ["name": "movement"],
             ],
             "renderer": [["name": "sprite"]],
-        ], to: directory.appendingPathComponent("particles/child.json"))
+        ], to: directory.appendingPathComponent("particles/child-force.json"))
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 1,
+            "controlpoint": [["id": 1, "flags": 1, "offset": "0 0 0"]],
+            "emitter": [[
+                "name": "sphererandom", "rate": 0, "instantaneous": 1,
+                "distancemin": 0, "distancemax": 0, "controlpoint": 1,
+            ]],
+            "initializer": [["name": "lifetimerandom", "min": 1, "max": 1]],
+            "renderer": [["name": "sprite"]],
+        ], to: directory.appendingPathComponent("particles/child-emitter.json"))
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 1,
+            "controlpoint": [["id": 1, "flags": 1, "offset": "0 0 0"]],
+            "emitter": [[
+                "name": "sphererandom", "rate": 0, "instantaneous": 1,
+                "origin": "5 0 0", "distancemin": 0, "distancemax": 0,
+                "controlpoint": 1,
+            ]],
+            "initializer": [["name": "lifetimerandom", "min": 1, "max": 1]],
+            "renderer": [["name": "sprite"]],
+            "children": [[
+                "name": "particles/child-static-emitter.json", "type": "eventfollow",
+                "maxcount": 1, "scale": "2.5 2.5 1",
+            ]],
+        ], to: directory.appendingPathComponent("particles/root-pointer.json"))
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 1,
+            "controlpoint": [["id": 1, "flags": 0, "offset": "4 0 0"]],
+            "emitter": [[
+                "name": "sphererandom", "rate": 0, "instantaneous": 1,
+                "distancemin": 0, "distancemax": 0, "controlpoint": 1,
+            ]],
+            "initializer": [["name": "lifetimerandom", "min": 1, "max": 1]],
+            "renderer": [["name": "sprite"]],
+        ], to: directory.appendingPathComponent("particles/child-static-emitter.json"))
         let descriptor = SceneRenderDescriptor(
             layers: [layer(18, "particles/root.json")],
             renderOrderLayerIDs: [18],
@@ -508,9 +884,58 @@ enum Harness {
                 )
             }
             guard let value = batches.first(where: {
-                $0.particlePath == "particles/child.json"
+                $0.particlePath == "particles/child-force.json"
             })?.instances.first?.velocityAndTrail else { return [] }
             return [value.x, value.y, value.z]
+        }
+        func emitterPositions(
+            initialPointer: SIMD3<Double>?,
+            recoveredPointer: SIMD3<Double>? = nil,
+            dynamic: SIMD3<Double>? = nil
+        ) -> [[Float]] {
+            let runtime = SceneParticleRuntime(
+                descriptor: descriptor, cacheDirectory: directory, device: device
+            )
+            var batches: [SceneParticleDrawBatch] = []
+            for _ in 0..<2 {
+                batches = runtime.advance(
+                    by: 1.0 / 60.0,
+                    dynamicValues: dynamic.map(dynamicSnapshot) ?? .empty(frameIndex: 0),
+                    pointerLocalPositions: initialPointer.map { [18: $0] } ?? [:]
+                )
+            }
+            if let recoveredPointer {
+                batches = runtime.advance(
+                    by: 1.0 / 60.0,
+                    pointerLocalPositions: [18: recoveredPointer]
+                )
+            }
+            return batches.first(where: {
+                $0.particlePath == "particles/child-emitter.json"
+            })?.instances.map {
+                [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+            } ?? []
+        }
+        func rootPointerChildStaticPosition() -> [Float] {
+            let pointerDescriptor = SceneRenderDescriptor(
+                layers: [layer(19, "particles/root-pointer.json")],
+                renderOrderLayerIDs: [19],
+                materialPasses: descriptor.materialPasses
+            )
+            let runtime = SceneParticleRuntime(
+                descriptor: pointerDescriptor, cacheDirectory: directory, device: device
+            )
+            var batches: [SceneParticleDrawBatch] = []
+            for _ in 0..<2 {
+                batches = runtime.advance(
+                    by: 1.0 / 60.0,
+                    pointerLocalPositions: [19: SIMD3(10, 0, 0)]
+                )
+            }
+            guard let position = batches.first(where: {
+                $0.particlePath == "particles/child-static-emitter.json"
+            })?.instances.first?.positionAndSize else { return [] }
+            return [position.x, position.y, position.z]
         }
         return [
             "outside": velocity(pointer: nil),
@@ -520,6 +945,18 @@ enum Harness {
             "dynamicInsideScaled": velocity(
                 pointer: nil, dynamic: SIMD3(10, 0, 0)
             ),
+            "emitterMissing": emitterPositions(initialPointer: nil),
+            "emitterDynamicOnly": emitterPositions(
+                initialPointer: nil, dynamic: SIMD3(10, 0, 0)
+            ),
+            "emitterRecovered": emitterPositions(
+                initialPointer: nil, recoveredPointer: SIMD3(10, 0, 0)
+            ),
+            // Root pointer overlays are root-only. The root emitter's +5 origin
+            // makes the event-follow child origin differ from pointer x=10:
+            // authored child CP1 yields 15 + 4*2.5 = 25, while the old leak
+            // would add child-local (10-15)/2.5 to CP1 and yield x=20.
+            "rootPointerChildStaticPosition": rootPointerChildStaticPosition(),
             "pointerDemandLayerIDs": demandRuntime.pointerControlPointLayerIDs.sorted(),
         ]
     }
@@ -2544,6 +2981,8 @@ enum Harness {
         visible: Bool = true,
         particleAlpha: Double? = nil,
         particleSize: Double? = nil,
+        particleLifetime: Double? = nil,
+        particleRate: Double? = nil,
         particleCount: Double? = nil,
         particleNormalizedColor: SIMD3<Double>? = nil,
         alphaHasUser: Bool = false,
@@ -2554,6 +2993,7 @@ enum Harness {
         .init(
             id: id, name: nil, contentKind: "particle", particlePath: path,
             particleInstanceOverride: (particleAlpha != nil || particleSize != nil
+                || particleLifetime != nil || particleRate != nil
                 || particleCount != nil || particleNormalizedColor != nil
                 || controlPoint != nil) ?
                 SceneParticleInstanceOverride(
@@ -2568,8 +3008,14 @@ enum Harness {
                         value: .scalar($0), userPropertyKey: "size",
                         hasScript: false, hasAnimation: false
                     ) },
-                    lifetime: nil,
-                    rate: nil,
+                    lifetime: particleLifetime.map { SceneParticleBoundValue(
+                        value: .scalar($0), userPropertyKey: nil,
+                        hasScript: false, hasAnimation: false
+                    ) },
+                    rate: particleRate.map { SceneParticleBoundValue(
+                        value: .scalar($0), userPropertyKey: nil,
+                        hasScript: false, hasAnimation: false
+                    ) },
                     speed: nil,
                     count: particleCount.map { SceneParticleBoundValue(
                         value: .scalar($0), userPropertyKey: "count",
@@ -2969,6 +3415,70 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertTrue(result["sameParticles"])
         self.assertTrue(result["sameTime"])
         self.assertTrue(result["sameRandom"])
+        self.assertEqual(result["transientPersistentCount"], 0)
+        self.assertGreater(result["transientBeforeConsume"], 0)
+        self.assertEqual(
+            result["transientAfterConsume"], result["transientBeforeConsume"]
+        )
+        self.assertEqual(result["transientAfterNextAdvance"], 0)
+        self.assertEqual(
+            result["transientRestored"], result["transientBeforeConsume"]
+        )
+        self.assertEqual(result["steadyPersistentCount"], 1)
+        self.assertEqual(result["steadyTransientCount"], 0)
+
+    def test_subframe_lifetime_renders_root_and_child_sprite_once_without_resurrection(self) -> None:
+        result = self.run_harness("subframe-lifetime-synthetic")
+        self.assertGreater(result["rootInstanceCount"], 0)
+        self.assertGreater(result["childInstanceCount"], 0)
+        self.assertEqual(result["rootPersistentCount"], 0)
+        self.assertEqual(result["childPersistentCount"], 0)
+        self.assertEqual(result["secondAdvanceInstanceCount"], 0)
+        for position in result["rootPositions"]:
+            self.assertAlmostEqual(position[0], 32, places=5)
+            self.assertAlmostEqual(position[1], 48, places=5)
+            self.assertAlmostEqual(position[2], 0, places=5)
+
+    def test_subframe_child_final_sample_survives_retirement_then_never_repeats(self) -> None:
+        result = self.run_harness("subframe-child-lifecycle-synthetic")
+        self.assertEqual(result["staticCount"], 1)
+        self.assertEqual(result["staticPosition"], [7, 9, 0])
+        self.assertEqual(result["staticLifecycleSystems"], 0)
+        self.assertEqual(result["staticLifecycleParticles"], 0)
+        self.assertEqual(result["staticNextCount"], 0)
+
+        self.assertEqual(result["spawnCount"], 1)
+        self.assertEqual(result["spawnLifecycleSystems"], 0)
+        self.assertEqual(result["spawnLifecycleParticles"], 0)
+        self.assertEqual(result["spawnNextCount"], 0)
+
+        self.assertEqual(result["deathCount"], 1)
+        self.assertEqual(result["deathLifecycleSystems"], 0)
+        self.assertEqual(result["deathLifecycleParticles"], 0)
+        self.assertEqual(result["deathNextCount"], 0)
+
+        self.assertEqual(result["depthOneCount"], 1)
+        # The depth-one system retired; only the newly queued depth-two owner remains.
+        self.assertEqual(result["depthOneRemainingSystems"], 1)
+        self.assertEqual(result["depthTwoCount"], 1)
+        self.assertEqual(result["depthTwoLifecycleSystems"], 0)
+        self.assertEqual(result["depthTwoLifecycleParticles"], 0)
+        self.assertEqual(result["depthTwoNextCount"], 0)
+
+        # A retiring maxcount=1 owner must leave admission before the same
+        # callback's next event is reconciled. The retired sample still draws
+        # once, while lifecycle contains only the newly queued replacement.
+        self.assertEqual(result["replacementSecondCount"], 1)
+        self.assertEqual(result["replacementSecondSystems"], 1)
+        self.assertEqual(result["replacementThirdCount"], 1)
+        self.assertEqual(result["replacementThirdSystems"], 1)
+
+        # The same contract applies to nested event children. One live depth-one
+        # replacement plus one live depth-two replacement remain after each frame.
+        self.assertEqual(result["nestedReplacementThirdCount"], 1)
+        self.assertEqual(result["nestedReplacementThirdSystems"], 2)
+        self.assertEqual(result["nestedReplacementFourthCount"], 1)
+        self.assertEqual(result["nestedReplacementFourthSystems"], 2)
 
     def test_velocity_random_uses_official_zero_for_each_omitted_endpoint(self) -> None:
         result = self.run_harness("velocity-defaults-synthetic")
@@ -2987,8 +3497,14 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertEqual(result["outside"], [0, 0, 0])
         self.assertAlmostEqual(result["insideScaled"][0], 2.5, places=5)
         self.assertEqual(result["insideScaled"][1:], [0, 0])
-        self.assertAlmostEqual(result["dynamicInsideScaled"][0], 2.5, places=5)
-        self.assertEqual(result["dynamicInsideScaled"][1:], [0, 0])
+        self.assertEqual(result["dynamicInsideScaled"], [0, 0, 0])
+        self.assertEqual(result["emitterMissing"], [])
+        self.assertEqual(result["emitterDynamicOnly"], [])
+        self.assertEqual(len(result["emitterRecovered"]), 1)
+        self.assertAlmostEqual(result["emitterRecovered"][0][0], 10, places=5)
+        self.assertAlmostEqual(result["emitterRecovered"][0][1], 0, places=5)
+        self.assertAlmostEqual(result["emitterRecovered"][0][2], 0, places=5)
+        self.assertEqual(result["rootPointerChildStaticPosition"], [25, 0, 0])
         self.assertEqual(result["pointerDemandLayerIDs"], [18])
 
     def test_dynamic_control_point_angles_reach_root_and_child_emitters(self) -> None:

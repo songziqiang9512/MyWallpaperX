@@ -167,6 +167,7 @@ final class SceneParticleChildRuntime {
         audioInput: SceneParticleAudioInput = .silent
     ) -> SceneParticleChildAdvanceResult {
         var limitations: Set<String> = []
+        var retiredRenderSystems: [SceneParticleChildSystem] = []
         let parentFrames = advanceDepthOne(
             by: frameDelta,
             rootParticles: parentParticles,
@@ -175,6 +176,7 @@ final class SceneParticleChildRuntime {
             dynamicControlPointAngles: dynamicControlPointAngles,
             audioInput: audioInput
         )
+        retireCompletedSystems(depth: 1, into: &retiredRenderSystems)
         spawn(
             from: spawnEvents, trigger: .spawn, depth: 1, parentPath: nil,
             scopeID: nil, parentOrigin: .zero, limitations: &limitations
@@ -194,13 +196,23 @@ final class SceneParticleChildRuntime {
             dynamicControlPoints: dynamicControlPoints,
             dynamicControlPointAngles: dynamicControlPointAngles,
             audioInput: audioInput,
+            retiredRenderSystems: &retiredRenderSystems,
             limitations: &limitations
         )
+
+        // Retirement is collected by depth, while system IDs preserve authored
+        // creation order across depths. Sort only on the exceptional retirement
+        // path so instance assembly can merge live and render-only systems in the
+        // same order as the former all-live array.
+        if retiredRenderSystems.count > 1 {
+            retiredRenderSystems.sort { $0.id < $1.id }
+        }
 
         SceneParticleChildInstanceBuilder.rebuildAll(
             templates: templates,
             templatesByIndex: templatesByIndex,
             systems: systems,
+            renderOnlySystems: retiredRenderSystems,
             layerAlpha: layerAlpha,
             into: &instanceScratch
         )
@@ -353,7 +365,6 @@ final class SceneParticleChildRuntime {
                 particles: systems[index].simulator.particles
             ))
         }
-        removeCompletedSystems(depth: 1)
         return frames
     }
 
@@ -364,6 +375,7 @@ final class SceneParticleChildRuntime {
         dynamicControlPoints: [Int: SIMD3<Double>],
         dynamicControlPointAngles: [Int: SIMD3<Double>],
         audioInput: SceneParticleAudioInput,
+        retiredRenderSystems: inout [SceneParticleChildSystem],
         limitations: inout Set<String>
     ) {
         guard !nestedParentPaths.isEmpty else { return }
@@ -406,7 +418,10 @@ final class SceneParticleChildRuntime {
             let deaths = systems[index].simulator.consumeDeathEvents()
             updateWorldSpaceOrigins(systemAt: index, births: births, deaths: deaths)
         }
-        removeCompletedSystems(depth: 2)
+        // A completed depth-two owner must leave admission budgets before this
+        // callback's parent events are reconciled. Its final render sample stays
+        // in the local render-only list until instance assembly.
+        retireCompletedSystems(depth: 2, into: &retiredRenderSystems)
         for frame in parentFrames {
             spawn(
                 from: frame.births, trigger: .spawn, depth: 2, parentPath: frame.path,
@@ -423,15 +438,25 @@ final class SceneParticleChildRuntime {
         }
     }
 
-    private func removeCompletedSystems(depth: Int) {
-        systems.removeAll {
-            $0.depth == depth
-                && $0.parentParticleID == nil
-                && $0.simulator.simulationTime > 0
-                && $0.emissionCompletionTime != nil
-                && $0.simulator.simulationTime + 1e-12 >= ($0.emissionCompletionTime ?? .infinity)
-                && $0.simulator.particles.isEmpty
+    private func retireCompletedSystems(
+        depth: Int,
+        into retiredRenderSystems: inout [SceneParticleChildSystem]
+    ) {
+        systems.removeAll { system in
+            guard isCompleted(system, atDepth: depth) else { return false }
+            retiredRenderSystems.append(system)
+            return true
         }
+    }
+
+    private func isCompleted(_ system: SceneParticleChildSystem, atDepth depth: Int) -> Bool {
+        system.depth == depth
+            && system.parentParticleID == nil
+            && system.simulator.simulationTime > 0
+            && system.emissionCompletionTime != nil
+            && system.simulator.simulationTime + 1e-12
+                >= (system.emissionCompletionTime ?? .infinity)
+            && system.simulator.particles.isEmpty
     }
 
     /// The frame producer supplies root-local dynamic values and an optional pointer.
@@ -456,11 +481,10 @@ final class SceneParticleChildRuntime {
                 values[identity] = childLocal
             }
         }
-        if !template.pointerControlPointIdentities.isEmpty,
-           let pointerLocalPosition {
-            let childLocalPosition = template.transform.inversePosition(
-                pointerLocalPosition - system.origin
-            )
+        if !template.pointerControlPointIdentities.isEmpty {
+            let childLocalPosition = pointerLocalPosition.map {
+                template.transform.inversePosition($0 - system.origin)
+            }
             let pointerValues = template.definition.pointerControlPointValues(
                 at: childLocalPosition,
                 identities: template.pointerControlPointIdentities

@@ -137,6 +137,14 @@ enum Harness {
         telemetry.recordCPUFrame(duration: 0.020)
         telemetry.recordPreparation(drawableWait: 0.003, preEncode: 0.007)
         telemetry.recordMainFrame(duration: 0.030)
+        telemetry.recordParticleSubmission(
+            [
+                .init(layerID: 984, instanceCount: 3, isRefraction: true),
+                .init(layerID: 984, instanceCount: 2, isRefraction: false),
+                .init(layerID: 12, instanceCount: 1, isRefraction: false),
+            ],
+            on: commandBuffer
+        )
         telemetry.recordSubmitted(on: commandBuffer)
         telemetry.recordPresented(at: 10.100, streamID: 1)
         telemetry.recordPresented(at: 10.116, streamID: 1)
@@ -145,9 +153,21 @@ enum Harness {
         telemetry.recordPresented(at: 10.260, streamID: 2)
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
+        guard let staleCommandBuffer = queue.makeCommandBuffer() else {
+            throw NSError(domain: "TelemetryHarness", code: 2)
+        }
+        let staleTelemetry = SceneFramePerformanceTelemetry()
+        staleTelemetry.recordParticleSubmission(
+            [.init(layerID: 77, instanceCount: 4, isRefraction: true)],
+            on: staleCommandBuffer
+        )
+        staleTelemetry.reset(at: 20, targetFPS: 60)
+        staleCommandBuffer.commit()
+        staleCommandBuffer.waitUntilCompleted()
         let frameStages = telemetry.frameStageSummary()
         let callStages = telemetry.stageSummary()
         let value = telemetry.snapshot(at: 11)
+        let particleLayers = telemetry.particleLayerSnapshot()
         let payload: [String: Any] = [
             "elapsed": value.elapsed,
             "callbacks": value.driverCallbacks,
@@ -184,6 +204,19 @@ enum Harness {
             "preEncodeP95": value.preEncodeP95,
             "mainFrameP95": value.mainFrameP95,
             "gpuSamples": value.gpuSampleCount,
+            "particle984SubmittedFrames": particleLayers[984]?.submittedFrames ?? -1,
+            "particle984CompletedFrames": particleLayers[984]?.completedFrames ?? -1,
+            "particle984FailedFrames": particleLayers[984]?.failedFrames ?? -1,
+            "particle984EncodedBatches": particleLayers[984]?.encodedBatches ?? -1,
+            "particle984CompletedBatches": particleLayers[984]?.completedBatches ?? -1,
+            "particle984EncodedInstances": particleLayers[984]?.encodedInstances ?? -1,
+            "particle984CompletedInstances": particleLayers[984]?.completedInstances ?? -1,
+            "particle984RefractionBatches": particleLayers[984]?.refractionBatches ?? -1,
+            "particle984CompletedRefractionBatches": particleLayers[984]?.completedRefractionBatches ?? -1,
+            "particle12SubmittedFrames": particleLayers[12]?.submittedFrames ?? -1,
+            "particle12EncodedBatches": particleLayers[12]?.encodedBatches ?? -1,
+            "particle12EncodedInstances": particleLayers[12]?.encodedInstances ?? -1,
+            "staleParticleLayerCount": staleTelemetry.particleLayerSnapshot().count,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -470,6 +503,19 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
         self.assertEqual(self.result["preEncodeP95"], 0.007)
         self.assertEqual(self.result["mainFrameP95"], 0.03)
         self.assertGreaterEqual(self.result["gpuSamples"], 0)
+        self.assertEqual(self.result["particle984SubmittedFrames"], 1)
+        self.assertEqual(self.result["particle984CompletedFrames"], 1)
+        self.assertEqual(self.result["particle984FailedFrames"], 0)
+        self.assertEqual(self.result["particle984EncodedBatches"], 2)
+        self.assertEqual(self.result["particle984CompletedBatches"], 2)
+        self.assertEqual(self.result["particle984EncodedInstances"], 5)
+        self.assertEqual(self.result["particle984CompletedInstances"], 5)
+        self.assertEqual(self.result["particle984RefractionBatches"], 1)
+        self.assertEqual(self.result["particle984CompletedRefractionBatches"], 1)
+        self.assertEqual(self.result["particle12SubmittedFrames"], 1)
+        self.assertEqual(self.result["particle12EncodedBatches"], 1)
+        self.assertEqual(self.result["particle12EncodedInstances"], 1)
+        self.assertEqual(self.result["staleParticleLayerCount"], 0)
 
     def test_runtime_wires_measurement_outside_snapshot_capture(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
@@ -793,8 +839,11 @@ class SceneGPUCensusTests(unittest.TestCase):
         self.assertEqual(
             snapshot.count("SceneGPUCensus.recordFramebufferCapture("), 1
         )
+        # Named graph output has two mutually exclusive encoding owners: the
+        # rasterized-color render path and the identity-blit path. Each owner
+        # must publish exactly once when selected.
         self.assertEqual(
-            dependency.count("SceneGPUCensus.recordGraphOutputPublication("), 1
+            dependency.count("SceneGPUCensus.recordGraphOutputPublication("), 2
         )
         self.assertEqual(
             command_runtime.count("SceneGPUCensus.recordTextureCopy("), 1

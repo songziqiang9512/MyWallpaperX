@@ -61,12 +61,113 @@ enum Harness {
         if CommandLine.arguments.count == 2,
            CommandLine.arguments[1] == "position-around-control-point" {
             try printJSON(positionAroundControlPointResults())
+        } else if CommandLine.arguments.count == 2,
+                  CommandLine.arguments[1] == "emitter-pointer" {
+            try printJSON(emitterPointerResults())
         } else if CommandLine.arguments.count == 3,
                   CommandLine.arguments[1] == "census" {
             try printJSON(census(rootPath: CommandLine.arguments[2]))
         } else {
             try printJSON(syntheticResults())
         }
+    }
+
+    private static func emitterPointerResults() throws -> [String: Any] {
+        // CP0 remains the particle-system origin. An omitted emitter source
+        // must not turn a serialized flags=1 CP0 into a pointer consumer.
+        let originJSON = #"""
+        {"material":"p.json","maxcount":8,"starttime":1,
+         "controlpoint":[{"id":0,"flags":1,"offset":"0 0 0"}],
+         "emitter":[{"name":"sphererandom","instantaneous":4,"rate":0,"distancemin":0,"distancemax":0,"speedmin":1,"speedmax":1,"directions":"0 0 0"}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}]}
+        """#
+        let originDefinition = try SceneParticleDefinitionParser().parse(
+            root: object(originJSON)
+        )
+        var originInjected = simulator(originJSON, seed: 71, step: 0.1)
+        originInjected.advance(by: 0.1, dynamicControlPoints: [0: SIMD3(5, 6, 0)])
+
+        // Shuriken-cursor shape: explicit emitter control-point reference.
+        let shurikenJSON = #"""
+        {"material":"p.json","maxcount":8,"starttime":1,
+         "controlpoint":[{"id":0,"flags":0,"offset":"0 0 0"},{"id":1,"flags":1,"offset":"0 0 0"}],
+         "emitter":[{"name":"sphererandom","controlpoint":1,"instantaneous":4,"rate":0,"distancemin":0,"distancemax":0,"speedmin":1,"speedmax":1,"directions":"0 0 0"}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}]}
+        """#
+        let shurikenDefinition = try SceneParticleDefinitionParser().parse(
+            root: object(shurikenJSON)
+        )
+        var shurikenFollow = simulator(shurikenJSON, seed: 71, step: 0.1)
+        let shurikenPrewarmPositions = shurikenFollow.particles.map {
+            vector($0.position)
+        }
+        shurikenFollow.advance(by: 0.1, dynamicControlPoints: [1: SIMD3(7, 8, 0)])
+        var shurikenOutside = simulator(shurikenJSON, seed: 71, step: 0.1)
+        shurikenOutside.advance(
+            by: 0.1, dynamicControlPoints: [1: SIMD3(repeating: .nan)]
+        )
+
+        // dust-motes shape: pointer CP1 consumed only by controlpointattract;
+        // the static CP0 keeps the emitter's default identity out.
+        let attractOnlyJSON = #"""
+        {"material":"p.json","maxcount":8,
+         "controlpoint":[{"id":0,"flags":0,"offset":"0 0 0"},{"id":1,"flags":1,"offset":"0 0 0"}],
+         "emitter":[{"name":"sphererandom","instantaneous":4,"rate":0,"distancemin":0,"distancemax":0,"speedmin":1,"speedmax":1,"directions":"0 0 0"}],
+         "operator":[{"name":"controlpointattract","controlpoint":1,"scale":500,"threshold":5000}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}]}
+        """#
+        let attractOnlyDefinition = try SceneParticleDefinitionParser().parse(
+            root: object(attractOnlyJSON)
+        )
+
+        // Rejections: world-space system, static CP1, and layer-image emitter.
+        let worldSpaceJSON = #"""
+        {"material":"p.json","maxcount":8,"flags":1,
+         "controlpoint":[{"id":1,"flags":1,"offset":"0 0 0"}],
+         "emitter":[{"name":"sphererandom","controlpoint":1,"instantaneous":4,"rate":0,"distancemin":0,"distancemax":0,"speedmin":1,"speedmax":1,"directions":"0 0 0"}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}]}
+        """#
+        let worldSpaceDefinition = try SceneParticleDefinitionParser().parse(
+            root: object(worldSpaceJSON)
+        )
+        let staticCP1JSON = #"""
+        {"material":"p.json","maxcount":8,
+         "controlpoint":[{"id":1,"flags":0,"offset":"0 0 0"}],
+         "emitter":[{"name":"sphererandom","controlpoint":1,"instantaneous":4,"rate":0,"distancemin":0,"distancemax":0,"speedmin":1,"speedmax":1,"directions":"0 0 0"}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}]}
+        """#
+        let staticCP1Definition = try SceneParticleDefinitionParser().parse(
+            root: object(staticCP1JSON)
+        )
+        let layerImageJSON = #"""
+        {"material":"p.json","maxcount":8,
+         "controlpoint":[{"id":1,"flags":1,"offset":"0 0 0"}],
+         "emitter":[{"name":"layerimage","controlpoint":1,"instantaneous":4}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
+         "renderer":[{"name":"sprite"}]}
+        """#
+        let layerImageDefinition = try SceneParticleDefinitionParser().parse(
+            root: object(layerImageJSON)
+        )
+
+        return [
+            "originIdentities": originDefinition.pointerControlPointIdentities,
+            "originInjectedPositions": originInjected.particles.map { vector($0.position) },
+            "shurikenIdentities": shurikenDefinition.pointerControlPointIdentities,
+            "shurikenPrewarmPositions": shurikenPrewarmPositions,
+            "shurikenFollowPositions": shurikenFollow.particles.map { vector($0.position) },
+            "shurikenOutsideCount": shurikenOutside.particles.count,
+            "shurikenDiagnostics": shurikenFollow.diagnostics.map(\.kind.rawValue),
+            "attractOnlyIdentities": attractOnlyDefinition.pointerControlPointIdentities,
+            "worldSpaceIdentities": worldSpaceDefinition.pointerControlPointIdentities,
+            "staticCP1Identities": staticCP1Definition.pointerControlPointIdentities,
+            "layerImageIdentities": layerImageDefinition.pointerControlPointIdentities
+        ]
     }
 
     private static func positionAroundControlPointResults() throws -> [String: Any] {
@@ -79,8 +180,10 @@ enum Harness {
         partitionedFrames.advance(by: 0.1)
         partitionedFrames.advance(by: 0.1)
 
+        let pointerFields = #""bounds":"0 1","count":4,"controlpoint":1,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0""#
+        let pointerPoint = #"{"id":1,"flags":1,"offset":"0 0 0"}"#
         let pointerJSON = positionAroundJSON(
-            fields, point: #"{"id":0,"flags":1,"offset":"0 0 0"}"#
+            pointerFields, point: pointerPoint
         )
         let pointerDefinition = try SceneParticleDefinitionParser().parse(
             data: Data(pointerJSON.utf8)
@@ -93,7 +196,7 @@ enum Harness {
         var missingPointer = simulator(pointerJSON, seed: 71, step: 0.1)
         missingPointer.advance(by: 0.1)
         var pointerBaseline = simulator(
-            positionAroundJSON("", point: #"{"id":0,"flags":1,"offset":"0 0 0"}"#),
+            positionAroundJSON("", point: pointerPoint),
             seed: 71, step: 0.1
         )
         pointerBaseline.advance(by: 0.1)
@@ -484,15 +587,14 @@ enum Harness {
             controlPointForceJSON(
                 scale: "2",
                 threshold: "20",
-                extra: #", "blendoutstart":2, "blendoutend":2"#,
-                controlPoint: 0
+                extra: #", "blendoutstart":2, "blendoutend":2"#
             ),
             seed: 1,
             step: 1
         )
         pointerInactiveTailBlend.advance(
             by: 1,
-            dynamicControlPoints: [0: SIMD3(10, 0, 0)]
+            dynamicControlPoints: [1: SIMD3(10, 0, 0)]
         )
         var pointerLifetimeBlend = simulator(
             controlPointForceJSON(
@@ -2580,7 +2682,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["pointerPushVelocity"], [-2, 0, 0])
         self.assertEqual(self.results["pointerOutsideVelocity"], [0, 0, 0])
         self.assertEqual(self.results["pointerAtCenterVelocity"], [0, 0, 0])
-        self.assertEqual(self.results["pointerZeroVelocity"], [2, 0, 0])
+        self.assertEqual(self.results["pointerZeroVelocity"], [0, 0, 0])
         self.assertEqual(self.results["pointerInactiveTailBlendVelocity"], [2, 0, 0])
         self.assertAlmostEqual(self.results["pointerLifetimeBlendVelocity"][0], 1.8)
         self.assertEqual(self.results["pointerMapped"], [3, 4, 0])
@@ -3137,7 +3239,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             ["emitterShapeBounded", "positionAroundControlPointBounded"],
         )
         self.assertTrue(result["partitioned"])
-        self.assertEqual(result["pointerValues"], [0])
+        self.assertEqual(result["pointerValues"], [1])
         for actual, expected in zip(result["pointerFirstPosition"], [7, 6, 0]):
             self.assertAlmostEqual(actual, expected)
         self.assertEqual(
@@ -3160,6 +3262,33 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(len(result["invalidDiagnostics"]), 10)
         for diagnostics in result["invalidDiagnostics"]:
             self.assertIn("positionAroundControlPointUnsupported", diagnostics)
+
+    def test_emitter_pointer_control_point_follows_cursor_shapes(self) -> None:
+        result = self.run_harness("emitter-pointer")
+        # CP0 stays the particle-system origin even when raw flags serialize
+        # as 1; an omitted emitter source is not a pointer declaration.
+        self.assertEqual(result["originIdentities"], [])
+        for position in result["originInjectedPositions"]:
+            for value, wanted in zip(position, [0, 0, 0]):
+                self.assertAlmostEqual(value, wanted)
+        # Shuriken-cursor shape: explicit emitter reference to pointer CP1.
+        self.assertEqual(result["shurikenIdentities"], [1])
+        # Prewarm runs before the first pointer frame. It must neither create
+        # origin particles nor consume the instantaneous burst.
+        self.assertEqual(result["shurikenPrewarmPositions"], [])
+        self.assertEqual(len(result["shurikenFollowPositions"]), 4)
+        for position in result["shurikenFollowPositions"]:
+            for value, wanted in zip(position, [7, 8, 0]):
+                self.assertAlmostEqual(value, wanted)
+        # An unprojected pointer fails only the unsafe emission unit.
+        self.assertEqual(result["shurikenOutsideCount"], 0)
+        self.assertIn("pointerControlPointBounded", result["shurikenDiagnostics"])
+        # dust-motes shape keeps the operator-only identity set.
+        self.assertEqual(result["attractOnlyIdentities"], [1])
+        # World-space systems, static CP1, and layer-image emitters stay out.
+        self.assertEqual(result["worldSpaceIdentities"], [])
+        self.assertEqual(result["staticCP1Identities"], [])
+        self.assertEqual(result["layerImageIdentities"], [])
 
     def test_random_initializer_exponent_biases_values_towards_minimum(self) -> None:
         uniform = self.results["uniformSizeAmount"]

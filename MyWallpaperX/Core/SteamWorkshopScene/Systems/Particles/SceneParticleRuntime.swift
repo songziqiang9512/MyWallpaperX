@@ -276,25 +276,26 @@ final class SceneParticleRuntime {
             var births: [SceneParticleState] = []
             var deaths: [SceneParticleState] = []
             var parentParticles: [SceneParticleState] = []
-            var controlPoints = dynamicValues.particleControlPoints(
+            let dynamicControlPoints = dynamicValues.particleControlPoints(
                 layerID: layerID
             )
             let controlPointAngles = dynamicValues.particleControlPointAngles(
                 layerID: layerID
             )
             if let root = layers[index].rootRender {
+                var rootControlPoints = dynamicControlPoints
                 let pointerValues = root.definition.pointerControlPointValues(
                     at: pointerLocalPositions[layerID],
                     identities: root.pointerControlPointIdentities
                 )
-                controlPoints.merge(pointerValues) { _, pointer in pointer }
+                rootControlPoints.merge(pointerValues) { _, pointer in pointer }
                 let dynamicOverride = dynamicValues.particleInstanceValues(layerID: layerID)
                 let instanceOverride = root.simulator.instanceOverride?.resolving(
                     dynamicOverride
                 )
                 root.simulator.advance(
                     by: frameDelta,
-                    dynamicControlPoints: controlPoints,
+                    dynamicControlPoints: rootControlPoints,
                     dynamicControlPointAngles: controlPointAngles,
                     dynamicInstanceOverride: instanceOverride,
                     audioInput: audioInput
@@ -311,7 +312,7 @@ final class SceneParticleRuntime {
                     deathEvents: deaths,
                     parentParticles: parentParticles,
                     pointerLocalPosition: pointerLocalPositions[layerID],
-                    dynamicControlPoints: controlPoints,
+                    dynamicControlPoints: dynamicControlPoints,
                     dynamicControlPointAngles: controlPointAngles,
                     audioInput: audioInput
                 )
@@ -409,10 +410,9 @@ final class SceneParticleRuntime {
         layerAlpha: Float
     ) {
         let stepSnapshots = root.simulator.consumeStepSnapshots()
-        let particles = root.simulator.particles
         if let rope = root.rope {
             root.instances = rope.instances(
-                particles: particles,
+                particles: root.simulator.particles,
                 layerAlpha: layerAlpha,
                 simulationTime: root.simulator.simulationTime
             )
@@ -420,12 +420,13 @@ final class SceneParticleRuntime {
         }
         if var history = root.ropeTrailHistory {
             root.instances = history.advance(
-                snapshots: stepSnapshots, currentParticles: particles,
+                snapshots: stepSnapshots, currentParticles: root.simulator.particles,
                 layerAlpha: layerAlpha
             )
             root.ropeTrailHistory = history
             return
         }
+        let particles = root.simulator.renderParticlesForCurrentAdvance()
         root.instances.removeAll(keepingCapacity: true)
         root.instances.reserveCapacity(particles.count)
         for particle in particles {

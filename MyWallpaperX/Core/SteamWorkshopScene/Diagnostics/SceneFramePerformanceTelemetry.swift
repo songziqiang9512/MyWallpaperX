@@ -46,7 +46,44 @@ nonisolated struct SceneFramePerformanceSnapshot: Sendable {
     let gpuOverDoubleBudget: Int
 }
 
+nonisolated struct SceneParticlePerformanceObservation: Equatable, Sendable {
+    let layerID: Int
+    let instanceCount: Int
+    let isRefraction: Bool
+}
+
+nonisolated struct SceneParticleLayerPerformanceSnapshot: Equatable, Sendable {
+    let layerID: Int
+    let submittedFrames: Int
+    let completedFrames: Int
+    let failedFrames: Int
+    let encodedBatches: Int
+    let completedBatches: Int
+    let encodedInstances: Int
+    let completedInstances: Int
+    let refractionBatches: Int
+    let completedRefractionBatches: Int
+}
+
 nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
+    private struct ParticleFrame: Sendable {
+        var batches = 0
+        var instances = 0
+        var refractionBatches = 0
+    }
+
+    private struct ParticleLayerAccumulator: Sendable {
+        var submittedFrames = 0
+        var completedFrames = 0
+        var failedFrames = 0
+        var encodedBatches = 0
+        var completedBatches = 0
+        var encodedInstances = 0
+        var completedInstances = 0
+        var refractionBatches = 0
+        var completedRefractionBatches = 0
+    }
+
     static let debugEvidence = SceneFramePerformanceTelemetry()
     private static let frameBudget = 1.0 / 60.0
     private let lock = NSLock()
@@ -75,6 +112,7 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
     private var drawableWaitDurations: [TimeInterval] = []
     private var preEncodeDurations: [TimeInterval] = []
     private var mainFrameDurations: [TimeInterval] = []
+    private var particleLayers: [Int: ParticleLayerAccumulator] = [:]
 
     func reset(
         at uptime: TimeInterval = ProcessInfo.processInfo.systemUptime,
@@ -107,6 +145,7 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
             drawableWaitDurations.removeAll(keepingCapacity: true)
             preEncodeDurations.removeAll(keepingCapacity: true)
             mainFrameDurations.removeAll(keepingCapacity: true)
+            particleLayers.removeAll(keepingCapacity: true)
         }
     }
 
@@ -219,6 +258,66 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
         }
     }
 
+    /// Active evidence only: associates particle draws that were actually
+    /// encoded with the shared frame command buffer that owns their GPU work.
+    /// Ordinary playback never calls this because it has no performance
+    /// telemetry instance.
+    func recordParticleSubmission(
+        _ observations: [SceneParticlePerformanceObservation],
+        on commandBuffer: MTLCommandBuffer
+    ) {
+        guard !observations.isEmpty else { return }
+        let frames = observations.reduce(into: [Int: ParticleFrame]()) {
+            result, observation in
+            var frame = result[observation.layerID] ?? ParticleFrame()
+            frame.batches += 1
+            frame.instances += max(0, observation.instanceCount)
+            if observation.isRefraction {
+                frame.refractionBatches += 1
+            }
+            result[observation.layerID] = frame
+        }
+        let token = withLock { () -> UInt64 in
+            for (layerID, frame) in frames {
+                var accumulator = particleLayers[layerID]
+                    ?? ParticleLayerAccumulator()
+                accumulator.submittedFrames += 1
+                accumulator.encodedBatches += frame.batches
+                accumulator.encodedInstances += frame.instances
+                accumulator.refractionBatches += frame.refractionBatches
+                particleLayers[layerID] = accumulator
+            }
+            return generation
+        }
+        commandBuffer.addCompletedHandler { [weak self] buffer in
+            self?.recordParticleCompletion(
+                frames,
+                succeeded: buffer.status == .completed,
+                generation: token
+            )
+        }
+    }
+
+    func particleLayerSnapshot() -> [Int: SceneParticleLayerPerformanceSnapshot] {
+        withLock {
+            particleLayers.reduce(into: [:]) { result, element in
+                let (layerID, value) = element
+                result[layerID] = SceneParticleLayerPerformanceSnapshot(
+                    layerID: layerID,
+                    submittedFrames: value.submittedFrames,
+                    completedFrames: value.completedFrames,
+                    failedFrames: value.failedFrames,
+                    encodedBatches: value.encodedBatches,
+                    completedBatches: value.completedBatches,
+                    encodedInstances: value.encodedInstances,
+                    completedInstances: value.completedInstances,
+                    refractionBatches: value.refractionBatches,
+                    completedRefractionBatches: value.completedRefractionBatches
+                )
+            }
+        }
+    }
+
     func recordWillPresent(_ drawable: CAMetalDrawable, streamID: UInt64) {
         let token = withLock { generation }
         drawable.addPresentedHandler { [weak self] presentedDrawable in
@@ -307,6 +406,29 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
             }
             if gpuStart > 0, gpuEnd >= gpuStart {
                 gpuFrameDurations.append(gpuEnd - gpuStart)
+            }
+        }
+    }
+
+    private func recordParticleCompletion(
+        _ frames: [Int: ParticleFrame],
+        succeeded: Bool,
+        generation token: UInt64
+    ) {
+        withLock {
+            guard generation == token else { return }
+            for (layerID, frame) in frames {
+                var accumulator = particleLayers[layerID]
+                    ?? ParticleLayerAccumulator()
+                if succeeded {
+                    accumulator.completedFrames += 1
+                    accumulator.completedBatches += frame.batches
+                    accumulator.completedInstances += frame.instances
+                    accumulator.completedRefractionBatches += frame.refractionBatches
+                } else {
+                    accumulator.failedFrames += 1
+                }
+                particleLayers[layerID] = accumulator
             }
         }
     }

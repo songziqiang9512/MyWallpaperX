@@ -76,7 +76,7 @@ final class SceneVideoTextureSource {
 }
 
 nonisolated struct SceneParticleRefractionDeclaration {
-    let normalTextureSource: SceneParticleTextureSource
+    let normalTextureSource: SceneParticleTextureSource?
     let amount: Float
     let overbright: Float
 }
@@ -167,6 +167,13 @@ enum Harness {
             loader: loader,
             device: device
         )
+        let flatDefault = try refraction(
+            colorURL: opaqueURL,
+            normalURL: nil,
+            amount: 0.25,
+            loader: loader,
+            device: device
+        )
         let fractional = try refraction(
             colorURL: fractionalURL,
             normalURL: neutralURL,
@@ -249,6 +256,7 @@ enum Harness {
         let paddedNormal = try normalArguments(padded.binding)
         let sameFileNormal = try normalArguments(sameFile.binding)
         let clampBorderNormal = try normalArguments(clampBorder.binding)
+        let flatDefaultNormal = try normalArguments(flatDefault.binding)
         let wrongPurposeRejected = SceneParticleRefractionBinding(
             normalCandidate: candidate(
                 texture: dxt5nNormal.texture,
@@ -353,6 +361,13 @@ enum Harness {
                     blendMode: .translucent,
                     gradientBackground: true
                 ),
+                "flatDefault": try draw(
+                    device: device,
+                    refraction: flatDefault,
+                    particleAlpha: 1,
+                    blendMode: .translucent,
+                    gradientBackground: true
+                ),
                 "padded": try draw(
                     device: device,
                     refraction: padded,
@@ -378,6 +393,16 @@ enum Harness {
                     !sameFile.binding.usesStaticNormalCandidate,
                 "sameFileSharesUpload":
                     sameFile.color === sameFileNormal.texture,
+                "flatDefaultPixel": readPixel(
+                    flatDefaultNormal.texture
+                ).map(Int.init),
+                "flatDefaultSize": [
+                    flatDefaultNormal.texture.width,
+                    flatDefaultNormal.texture.height,
+                ],
+                "flatDefaultLinearClamp":
+                    flatDefaultNormal.sampling == .linearClamp,
+                "flatDefaultUsesFrames": flatDefaultNormal.usesParticleFrames,
                 "oversizedSameSourceRejected": oversizedSameSourceRejected,
                 "clampBorderLegacy":
                     !clampBorder.binding.usesStaticNormalCandidate
@@ -533,7 +558,7 @@ enum Harness {
 
     private static func refraction(
         colorURL: URL,
-        normalURL: URL,
+        normalURL: URL?,
         amount: Float,
         loader: SceneTextureLoader,
         device: MTLDevice
@@ -541,7 +566,7 @@ enum Harness {
         guard let loaded = SceneParticleRefractionTextureLoader.load(
             colorSource: .file(colorURL),
             declaration: SceneParticleRefractionDeclaration(
-                normalTextureSource: .file(normalURL),
+                normalTextureSource: normalURL.map(SceneParticleTextureSource.file),
                 amount: amount,
                 overbright: 1
             ),
@@ -841,6 +866,12 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
             )),
             2,
         )
+        self.assertLessEqual(
+            max(abs(left - right) for left, right in zip(
+                pixels["flatDefault"], pixels["neutral"]
+            )),
+            2,
+        )
 
     def test_static_normal_candidate_is_atomic_and_legacy_routes_stay_closed(
         self,
@@ -854,6 +885,10 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
         self.assertTrue(routes["multiImageLegacy"], routes)
         self.assertTrue(routes["sameFileLegacy"], routes)
         self.assertTrue(routes["sameFileSharesUpload"], routes)
+        self.assertEqual(routes["flatDefaultPixel"], [255, 128, 255, 128])
+        self.assertEqual(routes["flatDefaultSize"], [1, 1])
+        self.assertTrue(routes["flatDefaultLinearClamp"], routes)
+        self.assertFalse(routes["flatDefaultUsesFrames"], routes)
         self.assertTrue(routes["oversizedSameSourceRejected"], routes)
         self.assertTrue(routes["clampBorderLegacy"], routes)
         self.assertTrue(routes["invalidMappedRejected"], routes)

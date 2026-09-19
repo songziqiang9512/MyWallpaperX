@@ -112,7 +112,8 @@ extension SceneParticleSimulationMath {
             if controlPointEmitters.allSatisfy({ emitter in
                 definition.emitterControlPointFrame(
                     for: emitter, instanceOverride: instanceOverride,
-                    dynamicControlPoints: [:]
+                    dynamicControlPoints: [:],
+                    requiresDynamicPointerValue: false
                 ) != nil
             }) {
                 add(.controlPointEmitterBounded, "sources=\(controlPointEmitters.count)")
@@ -126,7 +127,8 @@ extension SceneParticleSimulationMath {
                 let supported = angledEmitters.allSatisfy {
                     definition.emitterControlPointFrame(
                         for: $0, instanceOverride: instanceOverride,
-                        dynamicControlPoints: [:]
+                        dynamicControlPoints: [:],
+                        requiresDynamicPointerValue: false
                     ) != nil
                 }
                 add(supported ? .controlPointEmitterAnglesBounded
@@ -240,6 +242,7 @@ extension SceneParticleSimulationMath {
         let pointerPoints = definition.controlPoints.filter(\.followsPointer)
         if !pointerPoints.isEmpty {
             let positionAroundIdentities = definition.positionAroundPointerControlPointIdentities
+            let emitterIdentities = definition.emitterPointerControlPointIdentities
             let forceIdentities = Set(definition.operators.compactMap { value -> Int? in
                 guard definition.supportsBoundedControlPointForce(value),
                       case let .supported(plan) = value.controlPointForceAdmission
@@ -250,7 +253,8 @@ extension SceneParticleSimulationMath {
                 guard let identity = point.id else { return false }
                 return point.hasBoundedPointerInput
                     && (forceIdentities.contains(identity)
-                        || positionAroundIdentities.contains(identity))
+                        || positionAroundIdentities.contains(identity)
+                        || emitterIdentities.contains(identity))
             }
             add(supported ? .pointerControlPointBounded
                           : .pointerControlPointUnsupported,

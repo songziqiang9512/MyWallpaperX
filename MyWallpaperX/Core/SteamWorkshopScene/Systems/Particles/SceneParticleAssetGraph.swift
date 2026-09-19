@@ -177,10 +177,18 @@ nonisolated struct SceneParticleAssetGraphLoader {
             var refraction: SceneParticleRefractionDeclaration?
             if let refract = materialPass?.combos["REFRACT"], refract != 0 {
                 if let refractionPlan,
-                   let normal = resolveTextureSource(
-                       named: refractionPlan.normalReference,
-                       filesByPath: filesByPath
-                   ) {
+                   refractionPlan.normalReference == nil {
+                    refraction = SceneParticleRefractionDeclaration(
+                        normalTextureSource: nil,
+                        amount: refractionPlan.amount,
+                        overbright: refractionPlan.overbright
+                    )
+                } else if let refractionPlan,
+                          let normalReference = refractionPlan.normalReference,
+                          let normal = resolveTextureSource(
+                              named: normalReference,
+                              filesByPath: filesByPath
+                          ) {
                     refraction = SceneParticleRefractionDeclaration(
                         normalTextureSource: normal,
                         amount: refractionPlan.amount,

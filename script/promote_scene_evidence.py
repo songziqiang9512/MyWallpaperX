@@ -21,6 +21,7 @@ DEFAULT_EVIDENCE_KEYS = (
     "preview_log",
     "runtime_evidence",
     "ready_snapshot",
+    "hover_snapshot",
     "after_snapshot",
 )
 

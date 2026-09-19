@@ -205,6 +205,8 @@ struct SceneMetalRenderer {
         performanceTelemetry?.beginStage("prepass-particles")
         let particleBatches = particleBatchesProvider()
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
+        var particlePerformanceObservations: [SceneParticlePerformanceObservation]? =
+            performanceTelemetry == nil ? nil : []
         performanceTelemetry?.endStage("prepass-particles")
         defer {
             if !didCommitParticleSubmission {
@@ -815,7 +817,8 @@ struct SceneMetalRenderer {
                         Float(viewportSize.height)
                     ),
                     mainPass: mainPass,
-                    commandBuffer: commandBuffer
+                    commandBuffer: commandBuffer,
+                    performanceObservations: &particlePerformanceObservations
                 ) {
                     frameDepthLeases.append(depthLease)
                 }
@@ -850,6 +853,12 @@ struct SceneMetalRenderer {
         if let effectExecutionTrace {
             effectExecutionTelemetry.observeSharedCommandBuffer(
                 for: effectExecutionTrace,
+                on: commandBuffer
+            )
+        }
+        if let particlePerformanceObservations {
+            performanceTelemetry?.recordParticleSubmission(
+                particlePerformanceObservations,
                 on: commandBuffer
             )
         }

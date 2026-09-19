@@ -319,6 +319,24 @@ extension DebugScenePlaybackRunner {
                 censusCount(.textureCopyBytes),
                 censusCount(.unmeasuredCopyPasses)
             )
+            let particleLayers =
+                SceneFramePerformanceTelemetry.debugEvidence.particleLayerSnapshot()
+            for layerID in particleLayers.keys.sorted() {
+                guard let layer = particleLayers[layerID] else { continue }
+                NSLog(
+                    "MWX DEBUG SCENE: phase=performance-particle layer=%d submittedFrames=%d completedFrames=%d failedFrames=%d encodedBatches=%d completedBatches=%d encodedInstances=%d completedInstances=%d refractionBatches=%d completedRefractionBatches=%d",
+                    layer.layerID,
+                    layer.submittedFrames,
+                    layer.completedFrames,
+                    layer.failedFrames,
+                    layer.encodedBatches,
+                    layer.completedBatches,
+                    layer.encodedInstances,
+                    layer.completedInstances,
+                    layer.refractionBatches,
+                    layer.completedRefractionBatches
+                )
+            }
         }
     }
 

@@ -6,7 +6,7 @@ nonisolated struct SceneParticleMaterialConstant: Equatable, Sendable {
 }
 
 nonisolated struct SceneParticleRefractionDeclaration: Equatable, Sendable {
-    let normalTextureSource: SceneParticleTextureSource
+    let normalTextureSource: SceneParticleTextureSource?
     let amount: Float
     let overbright: Float
 }
@@ -14,7 +14,7 @@ nonisolated struct SceneParticleRefractionDeclaration: Equatable, Sendable {
 nonisolated enum SceneParticleRefractionPlanner {
     struct Plan: Equatable, Sendable {
         let colorReference: String
-        let normalReference: String
+        let normalReference: String?
         let amount: Float
         let overbright: Float
     }
@@ -34,11 +34,9 @@ nonisolated enum SceneParticleRefractionPlanner {
                   $0.key == "REFRACT"
                       || (($0.key == "CUTOUT" || $0.key == "LIGHTING") && $0.value == 0)
               }),
-              pass.textureSlots.count == 2,
+              (1 ... 2).contains(pass.textureSlots.count),
               let color = pass.textureSlots[0],
-              let normal = pass.textureSlots[1],
               !color.isEmpty,
-              !normal.isEmpty,
               !pass.hasUserTextureInputs,
               !pass.hasUserShaderValues,
               renderState.depthTest == .disabled,
@@ -47,6 +45,16 @@ nonisolated enum SceneParticleRefractionPlanner {
               [.unspecified, .default].contains(renderState.alphaWriting),
               [.translucent, .additive].contains(renderState.blending) else {
             return nil
+        }
+
+        let normal: String?
+        if pass.textureSlots.count == 2 {
+            guard let reference = pass.textureSlots[1], !reference.isEmpty else {
+                return nil
+            }
+            normal = reference
+        } else {
+            normal = nil
         }
 
         let allowed = Set([

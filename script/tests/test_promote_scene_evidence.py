@@ -23,6 +23,7 @@ class PromoteSceneEvidenceTests(unittest.TestCase):
             "preview_log": result / "scene-preview.log",
             "runtime_evidence": result / "scene-runtime-evidence.json",
             "ready_snapshot": result / "scene-ready-window.png",
+            "hover_snapshot": result / "scene-hover-window.png",
             "after_snapshot": result / "scene-after-window.png",
         }
         for key, path in files.items():
@@ -62,7 +63,11 @@ class PromoteSceneEvidenceTests(unittest.TestCase):
                 manifest["retention_class"],
                 "local-ignored-evidence-cache",
             )
-            self.assertEqual(len(manifest["runs"][0]["files"]), 5)
+            self.assertEqual(len(manifest["runs"][0]["files"]), 6)
+            self.assertEqual(
+                manifest["runs"][0]["files"][4]["key"],
+                "hover_snapshot",
+            )
             self.assertEqual(
                 manifest["runs"][0]["report_sha256"],
                 promotion.sha256(report),

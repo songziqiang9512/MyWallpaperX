@@ -66,7 +66,7 @@ nonisolated struct SceneParticleControlPointForcePlan {
 
 nonisolated extension SceneParticleControlPoint {
     var hasBoundedPointerInput: Bool {
-        guard rawFlags == 1, let id, (0 ... 7).contains(id), angles == nil,
+        guard rawFlags == 1, let id, (1 ... 7).contains(id), angles == nil,
               parentControlPoint == nil else { return false }
         return hasExactZeroOffset
     }
@@ -228,7 +228,8 @@ nonisolated extension SceneParticleDefinition {
         dynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
         controlPointsByID: [Int: SceneParticleControlPoint]? = nil,
         controlPointSourcesAreValid: Bool? = nil,
-        preparedOrigin: SIMD3<Double>? = nil
+        preparedOrigin: SIMD3<Double>? = nil,
+        requiresDynamicPointerValue: Bool = true
     ) -> SceneParticleEmitterControlPointFrame? {
         let localOrigin = preparedOrigin
             ?? SceneParticleSimulationMath.vector(emitter.origin, fallback: .zero)
@@ -246,6 +247,11 @@ nonisolated extension SceneParticleDefinition {
             point = controlPointsByID[source]
         } else {
             point = controlPoints.first(where: { $0.id == source })
+        }
+        if requiresDynamicPointerValue,
+           point?.hasBoundedPointerInput == true,
+           dynamicControlPoints[source] == nil {
+            return nil
         }
         let angleOverride = instanceOverride?.controlPointAngles[source]
         let dynamicAngle = dynamicControlPointAngles[source]
@@ -319,7 +325,28 @@ nonisolated extension SceneParticleDefinition {
             return plan.controlPoint
         })
         identities.formUnion(positionAroundPointerControlPointIdentities)
+        identities.formUnion(emitterPointerControlPointIdentities)
         return identities.sorted()
+    }
+
+    /// Root Sphere/Box emitters with an explicit pointer control-point source
+    /// emit from that frame-varying position. CP0 remains the particle-system
+    /// origin, and an omitted emitter source therefore stays origin-relative.
+    var emitterPointerControlPointIdentities: Set<Int> {
+        guard !flags.isWorldSpace, !flags.usesPerspective,
+              !operators.contains(where: \.isWorldSpaceMovement) else { return [] }
+        return Set(emitters.compactMap { emitter in
+            guard emitter.kind == .sphereRandom || emitter.kind == .boxRandom
+            else { return nil }
+            guard let identity = emitter.controlPoint,
+                  SceneParticleSimulationMath.supportsControlPointSource(
+                      identity, in: self
+                  ),
+                  controlPoints.contains(where: {
+                      $0.id == identity && $0.hasBoundedPointerInput
+                  }) else { return nil }
+            return identity
+        })
     }
 
     /// Resolves only the frame-varying pointer value against a prepared identity
