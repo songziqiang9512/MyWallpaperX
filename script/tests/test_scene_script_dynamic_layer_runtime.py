@@ -467,6 +467,30 @@ enum Harness {
             ),
         ])
         revisionRuntime.commit(valueOnlyPlan)
+        // Mixed-frame unified order semantics: the mutations carry the C
+        // catalog's FINAL absolute positions (the ABI has no step-wise
+        // journal ops). Both interleavings of a dynamic create and an
+        // authored sort must reproduce their own C final orders:
+        // sequence A ([sort 10->1, create X@2] in C) -> [20, 10, X];
+        // sequence B ([create X@0, sort 10->2] in C) -> [X, 20, 10].
+        let mixedARuntime = SceneScriptDynamicLayerRuntime(
+            descriptor: descriptor,
+            authoredMutationLayerIDs: [10]
+        )
+        let mixedAResult = mixedARuntime.apply([
+            mutation(-1, order: 2, text: "X"),
+            mutation(10, dynamic: false, order: 1, fields: []),
+        ])
+        let mixedAOrder = mixedARuntime.snapshot().renderOrderLayerIDs
+        let mixedBRuntime = SceneScriptDynamicLayerRuntime(
+            descriptor: descriptor,
+            authoredMutationLayerIDs: [10]
+        )
+        let mixedBResult = mixedBRuntime.apply([
+            mutation(10, dynamic: false, order: 2, fields: []),
+            mutation(-1, order: 0, text: "X"),
+        ])
+        let mixedBOrder = mixedBRuntime.snapshot().renderOrderLayerIDs
         let payload: [String: Any] = [
             "styleBeforeCommit": styleBeforeCommit,
             "styleAlphaPublished": styleAfterCommit.authoredLayerValues[.layer(layerID: 10, field: .alpha)] == .scalar(0.25),
@@ -476,6 +500,10 @@ enum Harness {
             "priorSnapshotStable": beforeCreate.dynamicLayers.isEmpty,
             "createdIDs": afterCreate.dynamicLayers.map(\.id),
             "createdOrder": afterCreate.renderOrderLayerIDs,
+            "mixedAResultSucceeded": succeeded(mixedAResult),
+            "mixedAOrder": mixedAOrder,
+            "mixedBResultSucceeded": succeeded(mixedBResult),
+            "mixedBOrder": mixedBOrder,
             "moveSucceeded": succeeded(move),
             "movedOrder": afterMove.renderOrderLayerIDs,
             "staticAccepted": succeeded(staticUpdate),
@@ -617,6 +645,12 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertEqual(self.result["createdOrder"], [10, -1, 20])
         self.assertTrue(self.result["moveSucceeded"])
         self.assertEqual(self.result["movedOrder"], [10, 20, -1])
+
+    def test_mixed_frames_reproduce_their_c_final_orders(self) -> None:
+        self.assertTrue(self.result["mixedAResultSucceeded"])
+        self.assertEqual(self.result["mixedAOrder"], [20, 10, -1])
+        self.assertTrue(self.result["mixedBResultSucceeded"])
+        self.assertEqual(self.result["mixedBOrder"], [-1, 20, 10])
 
     def test_static_transform_mutation_and_failed_batch_are_atomic(self) -> None:
         self.assertTrue(self.result["staticAccepted"])

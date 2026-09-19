@@ -101,7 +101,12 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         var candidateDefinitionOrder = authoredDefinitionOrder
         var candidateDefinitions = authoredDefinitionsByTarget
         var authoredTargets = Set<SceneDynamicTarget>()
-        var authoredSorts: [Int: Int] = [:]
+        // Unified order semantics: every order-affecting mutation (dynamic
+        // creates, dynamic and authored sorts) contributes the layer's FINAL
+        // absolute position from the C catalog; the single ascending
+        // insertion pass below reproduces the C order for mixed frames and
+        // is independent of the mutation stream order.
+        var orderFinalPositions: [Int: Int] = [:]
         for mutation in mutations {
             guard mutation.origin.x.isFinite, mutation.origin.y.isFinite,
                   mutation.origin.z.isFinite, mutation.scale.x.isFinite,
@@ -146,7 +151,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                             "invalid authored layer sort"
                         ))
                     }
-                    authoredSorts[mutation.layerID] = mutation.orderIndex
+                    orderFinalPositions[mutation.layerID] = mutation.orderIndex
                     continue
                 }
                 guard mutation.kind == .upsert,
@@ -312,25 +317,20 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     return .failure(.invalidArgument("dynamic layer is invalid"))
                 }
                 candidateLayers[mutation.layerID] = layer
-                candidateOrder.removeAll { $0 == mutation.layerID }
-                candidateOrder.insert(
-                    mutation.layerID,
-                    at: min(mutation.orderIndex, candidateOrder.count)
-                )
+                orderFinalPositions[mutation.layerID] = mutation.orderIndex
             }
         }
-        // Apply the collected authored sorts: sorted layers take their final
-        // absolute positions; every other layer keeps its relative order and
-        // fills the gaps. For frames whose order changes are authored sorts
-        // only, this reproduces the C catalog's final order; a frame mixing
-        // authored sorts with dynamic creates can still diverge (inherited
-        // from the emission-time absolute index, shared with the dynamic
-        // path).
-        if !authoredSorts.isEmpty {
-            for layerID in authoredSorts.keys {
+        // Apply the collected order mutations: every affected layer takes
+        // its FINAL absolute position from the C catalog; every other layer
+        // keeps its relative order and fills the gaps. Ascending insertion
+        // over the whole set reproduces the C final order for mixed frames
+        // (dynamic creates + authored sorts) and is independent of the
+        // mutation stream order.
+        if !orderFinalPositions.isEmpty {
+            for layerID in orderFinalPositions.keys {
                 candidateOrder.removeAll { $0 == layerID }
             }
-            for (layerID, index) in authoredSorts.sorted(by: { $0.value < $1.value }) {
+            for (layerID, index) in orderFinalPositions.sorted(by: { $0.value < $1.value }) {
                 candidateOrder.insert(
                     layerID,
                     at: min(index, candidateOrder.count)

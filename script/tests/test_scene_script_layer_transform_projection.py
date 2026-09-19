@@ -64,6 +64,7 @@ nonisolated enum SceneDynamicTextField: Hashable, Sendable {
 nonisolated enum SceneDynamicTarget: Hashable, Sendable {
     case layer(layerID: Int, field: SceneDynamicLayerField)
     case text(layerID: Int, field: SceneDynamicTextField)
+    case effectVisibility(layerID: Int, effectIndex: Int)
     case effectConstant(layerID: Int, effectIndex: Int, passIndex: Int, name: String)
 }
 
@@ -99,7 +100,7 @@ nonisolated enum SceneScriptBindingPathComponent: Equatable, Sendable {
 }
 
 nonisolated struct SceneScriptBindingOwner: Sendable {
-    enum Kind: Sendable { case object, pass }
+    enum Kind: Sendable { case object, effect, pass }
     let kind: Kind
     let objectIndex: Int?
     let objectID: Int?
