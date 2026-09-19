@@ -4063,6 +4063,44 @@ private enum Harness {
                     == .externalPrimary(downgradeSiblingBinding)
         }()
 
+        // Registered boundary (review P2-1): a script-gated stage whose
+        // resolved named dependency points at a provider OUTSIDE the
+        // layer's externalPrimary binding fails the pre-proof, and the
+        // downgrade is rejected by the passthrough topology (the stage's
+        // bindings carry a named texture, which the leaf branch does not
+        // accept) - the whole layer fails closed. The corpus does not
+        // contain this shape; this fixture pins the fail-closed behavior.
+        let mismatchedScriptStageCapabilities = capabilities(
+            dependencyActivationChain,
+            catalog: catalog(
+                for: dependencyActivationGraph,
+                namedProvidersByNode: [0: SceneNamedTextureReference(
+                    providerLayerID: 880,
+                    variant: .primary
+                )]
+            ),
+            dynamicProducers: .init(
+                userProperties: [],
+                authoredFallbackTargets: [],
+                timelineTargets: [],
+                sceneScriptTargets: [dependencyActivationTarget]
+            ),
+            namedProvider: dependencyNamedReference,
+            dependencyBinding: dependencyExternalBinding,
+            forcedInitiallyInactiveEffectKeys: [effect]
+        )
+        let mismatchedScriptStageClaim = mismatchedScriptStageCapabilities
+            .claim(dependencyActivationChain)
+        let mismatchedScriptStageCapability = mismatchedScriptStageClaim
+            .flatMap {
+                mismatchedScriptStageCapabilities.resolve(
+                    $0.token,
+                    for: dependencyActivationChain
+                )
+            }
+        let mismatchedScriptStageFailsClosed =
+            mismatchedScriptStageCapability == nil
+
         // Coverage gap (recorded): the passthrough predicate's
         // `.unresolved` slot-binding disjunct is not reachable from a
         // standalone fixture - the pair planner rejects an unresolved
@@ -8197,6 +8235,8 @@ private enum Harness {
                 unproducedNamedSlotConsumerFailsClosed,
             "downgradeWithActiveSiblingResolvesPassthrough":
                 downgradeWithActiveSiblingResolvesPassthrough,
+            "mismatchedScriptStageFailsClosed":
+                mismatchedScriptStageFailsClosed,
             "crossLayerExactOwnershipClaimed": {
                 guard let capability = crossLayerCapability,
                       case let .externalPrimary(binding) =
