@@ -220,6 +220,38 @@ private enum Harness {
                 ),
                 activeSlots: [1]
             ),
+            // Stock water-ripple shape: the vertex stage re-reads the
+            // varying's .xy outside the copy/mapping statements to derive
+            // ripple coordinates. Read-only references must not revoke the
+            // identity fact; only writes matter.
+            "readOnlyRippleReuse": .init(
+                vertex: componentVertex.replacingOccurrences(
+                    of: "v_TexCoord = a_TexCoord.xyxy;",
+                    with: String(
+                        [
+                            "v_TexCoord = a_TexCoord.xyxy;",
+                            "vec2 coordsRotated = v_TexCoord.xy;",
+                            "coordsRotated *= 1.333;",
+                        ].joined(separator: "\n    ")
+                    )
+                ),
+                fragment: componentFragment,
+                activeSlots: [1]
+            ),
+            // A write outside the allowed statements still revokes the fact.
+            "strayWrite": .init(
+                vertex: componentVertex.replacingOccurrences(
+                    of: "gl_Position = vec4(a_Position, 1.0);",
+                    with: String(
+                        [
+                            "gl_Position = vec4(a_Position, 1.0);",
+                            "v_TexCoord.xy = vec2(0.5);",
+                        ].joined(separator: "\n    ")
+                    )
+                ),
+                fragment: componentFragment,
+                activeSlots: [1]
+            ),
         ]
 
         let output = cases.mapValues { pair in
@@ -343,6 +375,11 @@ class SceneAuthoredShaderSameSlotMappedCoordinateTests(unittest.TestCase):
         )
         self.assertEqual(result["unusedHelperControlFlow"], result["component"])
         self.assertEqual(
+            result["readOnlyRippleReuse"],
+            result["component"],
+            "read-only varying reuse must keep the identity fact",
+        )
+        self.assertEqual(
             result["unseenNames"],
             [{
                 "textureSlot": 6,
@@ -365,6 +402,7 @@ class SceneAuthoredShaderSameSlotMappedCoordinateTests(unittest.TestCase):
             "earlyReturn",
             "offsetCoordinate",
             "extraMappedUse",
+            "strayWrite",
         ):
             with self.subTest(name=name):
                 self.assertEqual(result[name], [])

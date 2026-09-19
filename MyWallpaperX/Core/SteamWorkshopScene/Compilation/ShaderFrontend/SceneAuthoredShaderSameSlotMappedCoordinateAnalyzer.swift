@@ -420,8 +420,15 @@ nonisolated enum SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer {
               })
         else { return false }
 
+        // The identity fact is about what the mapping statements WRITE into
+        // the varying's mapped components. Read-only references elsewhere
+        // (e.g. stock water ripple shaders re-reading v_TexCoord.xy for the
+        // ripple coordinates) do not change the sampled value, so only write
+        // references must stay inside the allowed ranges.
         let varyingReferences = references(mapping.varyingName, in: unit)
-        guard varyingReferences.allSatisfy({ index in
+        guard varyingReferences.filter({
+            isWriteReference($0, in: unit)
+        }).allSatisfy({ index in
             allowed.contains(where: { $0.contains(index) })
         }) else { return false }
 
@@ -429,6 +436,24 @@ nonisolated enum SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer {
         return !attributeReferences.isEmpty && attributeReferences.allSatisfy {
             index in allowed.contains(where: { $0.contains(index) })
         }
+    }
+
+    /// A varying reference is a write when the name is followed directly
+    /// (or through one swizzle) by an assignment operator.
+    private static func isWriteReference(_ index: Int, in unit: Unit) -> Bool {
+        let tokens = unit.tokens
+        var next = index + 1
+        if next < tokens.count, tokens[next].text == "." {
+            next += 2
+        }
+        guard next < tokens.count else { return false }
+        if tokens[next].text == "=" { return true }
+        let compound: Set<String> = [
+            "+", "-", "*", "/", "%", "&", "|", "^"
+        ]
+        return compound.contains(tokens[next].text)
+            && next + 1 < tokens.count
+            && tokens[next + 1].text == "="
     }
 
     private static func linkedVarying(
