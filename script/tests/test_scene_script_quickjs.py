@@ -4026,6 +4026,43 @@ int main(void) {
         "committed authored sort survives the topology rebuild"
     );
 
+    // Mixed-frame cross-check: one callback creates a dynamic text layer at
+    // index 0 and sorts authored layer 42 to index 1. The committed rebuild
+    // must reproduce the C final order [created, 42, ...] - the same
+    // final-position pattern the Swift runtime fixtures assert.
+    MWXSceneQuickJSOwner *mixed_frame = mwx_scene_quickjs_owner_create(
+        domain,
+        "export function update(value){"
+        "const created=thisScene.createLayer({text:'mwx-mixed'});"
+        "if(created==null)return -1;"
+        "thisScene.sortLayer(thisLayer,1);"
+        "const createdIndex=thisScene.getLayerIndex(created);"
+        "const sortedIndex=thisScene.getLayerIndex(thisLayer);"
+        "const ok=(createdIndex>1&&sortedIndex===1)?1:0;"
+        "thisScene.destroyLayer(created);"
+        "return ok;}",
+        strlen("export function update(value){"
+        "const created=thisScene.createLayer({text:'mwx-mixed'});"
+        "if(created==null)return -1;"
+        "thisScene.sortLayer(thisLayer,1);"
+        "const createdIndex=thisScene.getLayerIndex(created);"
+        "const sortedIndex=thisScene.getLayerIndex(thisLayer);"
+        "const ok=(createdIndex>1&&sortedIndex===1)?1:0;"
+        "thisScene.destroyLayer(created);"
+        "return ok;}"),
+        52, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        mixed_frame != NULL, "mixed frame compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        mixed_frame, 42, "mixed frame owner identity"
+    );
+    failures += update(
+        mixed_frame, 52, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "mixed frame reproduces the C final order [created, 42, ...]"
+    );
+
     mwx_scene_quickjs_owner_invalidate(positive);
     failures += update(
         positive, 1, 3, MWX_SCENE_QUICKJS_STALE_OWNER, 0, "stale owner"
@@ -4078,6 +4115,7 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(dynamic_intruder);
     mwx_scene_quickjs_owner_destroy(static_sort);
     mwx_scene_quickjs_owner_destroy(sort_order_readback);
+    mwx_scene_quickjs_owner_destroy(mixed_frame);
     mwx_scene_quickjs_owner_destroy(static_setter);
     mwx_scene_quickjs_owner_destroy(property_object);
     mwx_scene_quickjs_owner_destroy(component_object);
