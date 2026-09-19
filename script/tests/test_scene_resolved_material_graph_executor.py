@@ -684,6 +684,7 @@ private typealias Template = SceneResolvedMaterialTemplate
 private typealias Capabilities = SceneResolvedMaterialExecutionCapabilityCatalog
 
 private let layerID = 81
+private var debugLastCandidateFailureCode = ""
 private let effect = Graph.EffectKey(
     layerID: layerID,
     effectIndex: 0,
@@ -3217,7 +3218,8 @@ private func capabilities(
     > = [],
     functionsByEffect: [Graph.EffectKey: SceneJSONValue] = [:],
     assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
-    assetFormatFacts: [String: Int] = [:]
+    assetFormatFacts: [String: Int] = [:],
+    forcedInitiallyInactiveEffectKeys: Set<Graph.EffectKey> = []
 ) -> Capabilities {
     let graph = admittedGraph.renderGraph
     let materialNodes = graph.nodes.filter { $0.kind == .material }
@@ -3334,11 +3336,44 @@ private func capabilities(
             )
         }
     )
-    let candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+    var candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
         descriptor: descriptor,
         authoredPlans: [graph],
         dynamicEffectVisibilityOwners: dynamicEffectVisibilityOwners
     )
+    for candidate in candidates {
+        if case let .failure(failure) = candidate.result {
+            debugLastCandidateFailureCode = failure.code
+        }
+    }
+    if !forcedInitiallyInactiveEffectKeys.isEmpty {
+        // D2a seam: simulates the frozen D2b route-admission carve-out, which
+        // will mark script-gated initially-inactive effects on dependency
+        // consumers that the current route filter still rejects.
+        candidates = candidates.map { candidate in
+            guard case let .success(admitted) = candidate.result else {
+                return candidate
+            }
+            let marked = SceneResolvedMaterialAdmittedLayer(
+                layerID: admitted.layerID,
+                products: admitted.products,
+                pairPlan: admitted.pairPlan,
+                dependencyOwnership: admitted.dependencyOwnership,
+                potentialExternalPrimaryBindings:
+                    admitted.potentialExternalPrimaryBindings,
+                unavailableDependencyStageReasons:
+                    admitted.unavailableDependencyStageReasons,
+                initiallyInactiveEffectKeys:
+                    admitted.initiallyInactiveEffectKeys
+                    .union(forcedInitiallyInactiveEffectKeys),
+                sourceRoute: admitted.sourceRoute,
+                isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
+                isGraphOutputProvider: admitted.isGraphOutputProvider,
+                requiresGraphOutputProvider: admitted.requiresGraphOutputProvider
+            )
+            return .init(layerID: candidate.layerID, result: .success(marked))
+        }
+    }
     return .init(
         admissionCandidates: candidates,
         materialCatalog: catalog,
@@ -3661,6 +3696,379 @@ private enum Harness {
             visible: true,
             generation: 51
         )
+
+        // D2a: the media-toggle shape - a script-gated initially-inactive
+        // effect on an externalPrimary dependency consumer. The forced
+        // marking simulates the frozen D2b route carve-out (the current
+        // route filter rejects dependency-consumer targets). The stage
+        // consumes the provider texture through slot 1, so dependency
+        // finalization must match the externalPrimary binding exactly.
+        let dependencyActivationGraph = graph(
+            targets: [],
+            nodes: [material(0, ordinal: 0, target: output, read: input)]
+        )
+        let dependencyActivationChain = admittedGraph(dependencyActivationGraph)
+        let dependencyActivationTarget = SceneDynamicTarget.effectVisibility(
+            layerID: effect.layerID,
+            effectIndex: effect.effectIndex
+        )
+        let dependencyNamedReference = SceneNamedTextureReference(
+            providerLayerID: 879,
+            variant: .primary
+        )
+        let dependencyExternalBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: layerID,
+            providerLayerID: dependencyNamedReference.providerLayerID,
+            slot: .init(
+                effectID: effect.descriptorID,
+                passIndex: 0,
+                slotIndex: 1
+            ),
+            blendMode: 0,
+            kind: .resolvedMaterial
+        )
+        let dependencyActivationCapabilities = capabilities(
+            dependencyActivationChain,
+            catalog: catalog(
+                for: dependencyActivationGraph,
+                namedProvidersByNode: [0: dependencyNamedReference]
+            ),
+            dynamicProducers: .init(
+                userProperties: [],
+                authoredFallbackTargets: [],
+                timelineTargets: [],
+                sceneScriptTargets: [dependencyActivationTarget]
+            ),
+            namedProvider: dependencyNamedReference,
+            dependencyBinding: dependencyExternalBinding,
+            forcedInitiallyInactiveEffectKeys: [effect]
+        )
+        let dependencyActivationClaim = dependencyActivationCapabilities
+            .claim(dependencyActivationChain)
+        let dependencyActivationCapability = dependencyActivationClaim
+            .flatMap {
+                dependencyActivationCapabilities.resolve(
+                    $0.token,
+                    for: dependencyActivationChain
+                )
+            }
+        let dependencyActivationFinalized = {
+            guard let capability = dependencyActivationCapability,
+                  case let .externalPrimary(binding) =
+                    capability.dependencyOwnership else { return false }
+            return binding == dependencyExternalBinding
+                && capability.stages.first?.activationPolicy?
+                    .effectVisibilityTarget == dependencyActivationTarget
+        }()
+
+        // Per-frame on the dependency consumer: the D1 seed (authored
+        // hidden) evaluates inactive and publishes previous-current without
+        // sampling the provider slot; the sceneScript lane overrides to
+        // active and the program continues.
+        // Only the inactive frame is exercised here: it is the permanent
+        // no-producer steady state and needs no provider publication. The
+        // active frame on a dependency consumer additionally samples the
+        // provider publication (renderer-layer machinery, D3).
+        func executeInactiveDependencyActivation(
+            generation: UInt64
+        ) -> (
+            prepared: Bool,
+            encoded: Bool,
+            gpu: Bool,
+            pixelsPreserved: Bool,
+            fallbackFree: Bool
+        ) {
+            guard let claim = dependencyActivationClaim,
+                  let capability = dependencyActivationCapability,
+                  let leases = makeChainedLeases(
+                      capability,
+                      device: device,
+                      generation: generation
+                  ), let executor = Executor(
+                      device: device,
+                      capabilities: dependencyActivationCapabilities
+                  ), let command = queue.makeCommandBuffer() else {
+                return (false, false, false, false, false)
+            }
+            // D1 seed semantics: the authored definition carries the
+            // prepared hidden seed and no sceneScript value is staged.
+            let dynamic = SceneDynamicSnapshotResolver().resolve(
+                frameIndex: generation,
+                generation: generation,
+                definitions: [.init(
+                    target: dependencyActivationTarget,
+                    valueType: .bool,
+                    authoredValue: .bool(false)
+                )]
+            ).snapshot
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: leases,
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(generation),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                frameInputs: .init(dynamicValues: dynamic),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: generation,
+                resetGeneration: generation
+            )
+            let reason = "effect-activation-visibility-disabled"
+            guard case let .success(preparedGraph) = preparation,
+                  let stage = preparedGraph.stages.first else {
+                return (false, false, false, false, false)
+            }
+            let prepared = stage.effectLocalActivationBypassReasonCode == reason
+                && stage.effectLocalFailureReasonCode == nil
+                && stage.programCacheKeys == [
+                    "activation-passthrough:" + reason
+                ]
+            let encoded = executor.encode(
+                preparedGraph,
+                commandBuffer: command
+            )
+            guard encoded,
+                  let readback = appendReadback(
+                      preparedGraph.finalTexture,
+                      commandBuffer: command
+                  ) else {
+                return (
+                    prepared,
+                    encoded,
+                    false,
+                    false,
+                    executor.effectLocalFallbackCounts.isEmpty
+                )
+            }
+            command.commit()
+            command.waitUntilCompleted()
+            let gpu = command.status == .completed && command.error == nil
+            return (
+                prepared,
+                encoded,
+                gpu,
+                gpu && matches(readback.firstPixel, [0, 0, 255, 255])
+                    && matches(readback.lastPixel, [0, 0, 255, 255]),
+                executor.effectLocalFallbackCounts.isEmpty
+            )
+        }
+        let inactiveDependencyActivation = executeInactiveDependencyActivation(
+            generation: 60
+        )
+
+        // 反门 (documented fail-closed): the same consumer shape with NO
+        // sceneScript producer - the activation policy fails to construct
+        // and the initially-inactive stage must downgrade, but a
+        // named-consuming leaf stage does not satisfy the passthrough
+        // topology (only effect-input or .unresolved bindings do), so the
+        // whole layer fails closed. This is the recorded D2b constraint:
+        // the carve-out must guarantee the policy constructs.
+        let dependencyNoProducerCapabilities = capabilities(
+            dependencyActivationChain,
+            catalog: catalog(
+                for: dependencyActivationGraph,
+                namedProvidersByNode: [0: dependencyNamedReference]
+            ),
+            namedProvider: dependencyNamedReference,
+            dependencyBinding: dependencyExternalBinding,
+            forcedInitiallyInactiveEffectKeys: [effect]
+        )
+        let dependencyNoProducerClaim = dependencyNoProducerCapabilities
+            .claim(dependencyActivationChain)
+        let dependencyNoProducerCapability = dependencyNoProducerClaim
+            .flatMap {
+                dependencyNoProducerCapabilities.resolve(
+                    $0.token,
+                    for: dependencyActivationChain
+                )
+            }
+        // The observable rejection code is execution-stage-conservation:
+        // the passthrough-unsafe stage is omitted first, and the stage-count
+        // guard masks the inner code. Both mean the same fail-closed layer.
+        let unproducedNamedSlotConsumerFailsClosed =
+            dependencyNoProducerCapability == nil
+            && dependencyNoProducerCapabilities.reportLines.contains {
+                $0.contains("execution-stage-conservation")
+            }
+
+        // 反门 (downgrade viability): the real corpus shape - an ACTIVE
+        // sibling effect carries the externalPrimary binding while the
+        // script-gated initially-inactive sibling (input-only) downgrades
+        // to a passthrough. Finalize stays satisfied through the active
+        // sibling's named dependency.
+        let downgradeSiblingGraph = Graph(
+            layerID: layerID,
+            effects: [
+                .init(
+                    key: chainedFirstEffect,
+                    definitionPath:
+                        "effects/pixel-admittedGraph-first/effect.json",
+                    input: input,
+                    output: chainedFirstOutput,
+                    nodeIndices: [0]
+                ),
+                .init(
+                    key: chainedSecondEffect,
+                    definitionPath:
+                        "effects/pixel-admittedGraph-second/effect.json",
+                    input: chainedFirstOutput,
+                    output: chainedSecondOutput,
+                    nodeIndices: [1]
+                ),
+            ],
+            renderTargets: [],
+            nodes: [
+                material(
+                    0,
+                    ordinal: 0,
+                    target: chainedFirstOutput,
+                    read: input,
+                    owner: chainedFirstEffect
+                ),
+                material(
+                    1,
+                    ordinal: 0,
+                    target: chainedSecondOutput,
+                    read: chainedFirstOutput,
+                    owner: chainedSecondEffect
+                ),
+            ],
+            finalOutput: chainedSecondOutput,
+            blockers: []
+        )
+        // Driven directly at the stage pipeline: the current route
+        // admission cannot express the D2b marking on a dependency consumer
+        // (conservation rejects it before preparation), so this fixture
+        // constructs the admitted layer with the marking the carve-out will
+        // produce and runs compileProgramFirstStages itself.
+        // The slot's effectID must name the node's owner effect for the
+        // resolved dependency to match the binding exactly.
+        let downgradeSiblingBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: layerID,
+            providerLayerID: dependencyNamedReference.providerLayerID,
+            slot: .init(
+                effectID: chainedFirstEffect.descriptorID,
+                passIndex: 0,
+                slotIndex: 1
+            ),
+            blendMode: 0,
+            kind: .resolvedMaterial
+        )
+        let downgradeSiblingDescriptor = SceneRenderDescriptor(
+            layers: [
+                .init(
+                    id: layerID,
+                    effects: [
+                        .init(
+                            id: chainedFirstEffect.descriptorID,
+                            file: "effects/pixel-admittedGraph-first/effect.json",
+                            visible: true,
+                            passes: [.init(passIndex: 0, combos: [:])]
+                        ),
+                        .init(
+                            id: chainedSecondEffect.descriptorID,
+                            file: "effects/pixel-admittedGraph-second/effect.json",
+                            visible: false,
+                            passes: [.init(passIndex: 0, combos: [:])]
+                        ),
+                    ]
+                ),
+                .init(
+                    id: dependencyNamedReference.providerLayerID,
+                    effects: []
+                ),
+            ],
+            materialPasses: downgradeSiblingGraph.nodes.compactMap { node in
+                node.materialPath.map {
+                    SceneRenderDescriptor.MaterialPassDescriptor(
+                        id: node.materialPassID!,
+                        materialPath: $0,
+                        combos: [:]
+                    )
+                }
+            },
+            effectDefinitions: downgradeSiblingGraph.effects.map {
+                .init(relativePath: $0.definitionPath, functions: nil)
+            }
+        )
+        var downgradeProducts: [SceneGraphAdmissionProduct] = []
+        var downgradeProductsValid = true
+        for effect in downgradeSiblingGraph.effects {
+            let stage = Graph(
+                layerID: downgradeSiblingGraph.layerID,
+                effects: [effect],
+                renderTargets: downgradeSiblingGraph.renderTargets.filter {
+                    $0.texture.effect == effect.key
+                },
+                nodes: downgradeSiblingGraph.nodes.filter {
+                    effect.nodeIndices.contains($0.nodeIndex)
+                },
+                finalOutput: effect.output,
+                blockers: []
+            )
+            switch SceneGraphAdmissionCompiler.compile(
+                graph: stage,
+                descriptor: downgradeSiblingDescriptor,
+                functions: nil
+            ) {
+            case let .success(product): downgradeProducts.append(product)
+            case .failure: downgradeProductsValid = false
+            }
+        }
+        var downgradeAdmitted: SceneResolvedMaterialAdmittedLayer?
+        if downgradeProductsValid,
+           downgradeProducts.count == downgradeSiblingGraph.effects.count,
+           case let .success(pair) = SceneLayerFullFramePairPlan.make(
+               conditionPrunedGraphs: downgradeProducts.map(\.graph)
+           ) {
+            downgradeAdmitted = SceneResolvedMaterialAdmittedLayer(
+                layerID: layerID,
+                products: downgradeProducts,
+                pairPlan: pair,
+                dependencyOwnership: .externalPrimary(downgradeSiblingBinding),
+                initiallyInactiveEffectKeys: [chainedSecondEffect],
+                sourceRoute: .capturedLayerTexture,
+                isVisibleExecutionRoot: true,
+                isGraphOutputProvider: false,
+                requiresGraphOutputProvider: false
+            )
+        }
+        let downgradeStageResult = downgradeAdmitted.map {
+            SceneResolvedMaterialExecutionCapabilityCatalog
+                .compileProgramFirstStages(
+                    $0,
+                    materialCatalog: catalog(
+                        for: downgradeSiblingGraph,
+                        namedProvidersByNode: [0: dependencyNamedReference]
+                    ),
+                    demandIssues: [],
+                    dynamicProducers: .empty,
+                    assetFormatFacts: [:],
+                    assetStates: [:],
+                    maximumVariantsPerMaterial: 16
+                )
+        }
+        let downgradeWithActiveSiblingResolvesPassthrough = {
+            guard let result = downgradeStageResult,
+                  case let .success(compiled) = result,
+                  compiled.stages.count == 2 else { return false }
+            return compiled.stages.first?.subject?.family
+                == "resolved-material"
+                && compiled.stages.last?.subject?.family
+                    == "initially-inactive-passthrough"
+                && compiled.dependencyOwnership
+                    == .externalPrimary(downgradeSiblingBinding)
+        }()
+
+        // Coverage gap (recorded): the passthrough predicate's
+        // `.unresolved` slot-binding disjunct is not reachable from a
+        // standalone fixture - the pair planner rejects an unresolved
+        // binding before the predicate runs - and no harness path drives a
+        // compiled product through it. The corpus/replay layer is the only
+        // would-be coverage owner until a dedicated fixture exists.
         let materialFunction = runMaterialFunctionScenario(
             device: device,
             queue: queue,
@@ -7776,6 +8184,19 @@ private enum Harness {
                     && activeActivation.gpu
                     && activeActivation.pixelsPreserved
                     && activeActivation.fallbackFree,
+            "dependencyActivationStageCompileAndFinalizeClose":
+                dependencyActivationFinalized,
+            "inactiveDependencyActivationPublishesPreviousCurrent":
+                dependencyActivationFinalized
+                    && inactiveDependencyActivation.prepared
+                    && inactiveDependencyActivation.encoded
+                    && inactiveDependencyActivation.gpu
+                    && inactiveDependencyActivation.pixelsPreserved
+                    && inactiveDependencyActivation.fallbackFree,
+            "unproducedNamedSlotConsumerFailsClosed":
+                unproducedNamedSlotConsumerFailsClosed,
+            "downgradeWithActiveSiblingResolvesPassthrough":
+                downgradeWithActiveSiblingResolvesPassthrough,
             "crossLayerExactOwnershipClaimed": {
                 guard let capability = crossLayerCapability,
                       case let .externalPrimary(binding) =
@@ -8605,6 +9026,7 @@ private enum Harness {
         ]
         let payload: [String: Any] = [
             "metalAvailable": true,
+            "debugLastCandidateFailureCode": debugLastCandidateFailureCode,
             "results": results,
             "failureCodes": [
                 "crossLayer": crossLayerFailure,
