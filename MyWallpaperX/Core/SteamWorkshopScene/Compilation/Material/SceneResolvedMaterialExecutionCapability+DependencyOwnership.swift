@@ -323,22 +323,6 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
             ) else { return nil }
             keys.insert(key)
         }
-        #if DEBUG
-        for reference in effectiveReferences {
-            NSLog(
-                "MWX XRPROBE: layer=%d provider=%d slotEffect=%@ pass=%d slotIdx=%d variant=%ld",
-                layer.id,
-                reference.providerLayerID,
-                String(reference.slot.effectID),
-                reference.slot.passIndex,
-                reference.slot.slotIndex,
-                reference.variant.rawValue
-            )
-        }
-        for key in keys {
-            NSLog("MWX XRPROBE: key layer=%d effectIndex=%d id=%@", key.layerID, key.effectIndex, key.descriptorID)
-        }
-        #endif
         return keys.isEmpty ? nil : keys
     }
 
