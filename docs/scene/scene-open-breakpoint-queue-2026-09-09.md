@@ -67,6 +67,19 @@ P0 续跑状态（2026-09-18 08:xx 更新，事实覆盖至 `c60d26a9` 及其后
 - **基础设施与边界（操作纪律）**：基线数据 `/private/tmp/mwx-fullset-baseline/`（瞬态目录，关键结论已抄录运行证据页 P03 证据包）；presentation 遥测必须单实例串行+前台+caffeinate（并行/锁屏/遮挡都会全灭）；`launch-program-failure` NSLog 在默认救援成功时也打印，勿据此归因；新 Swift 文件须同步测试源清单与 `scene_swift_source_sets.json`；新 python compile+run 测试会被 Mimosa hook 误拦，走 evidence 手动门；`--phase inner` 跳过 semantics_coverage，文档批须显式跑。
 - **残留小项**：样本根注入的 `shaders/blobsSM40` 写入者未查（低优先）；P0.2 引用门 5 条 P3（`97a179a9` 批记录，线上影响为零）；`3780119725` actual-present intervals 偶发（复检 PASS）。
 
+### Q1.5 — 指针/鼠标交互缺陷簇（2026-09-19 用户实机观察，P2 优先）
+
+用户实机反馈聚成一类：**指针坐标管线**（mouse → typed frame update → effect 消费）的方向/偏移缺陷。
+
+| # | 症状 | 样本 | 初步定位 |
+|---|---|---|---|
+| 1 | X-Ray 遮罩中心点与鼠标不同步、有偏移；上下方向反转 | `2959875782`（xraylayer 条件层，D3 后已能渲染） | X-Ray effect 消费鼠标位置的坐标映射：疑似 Y 轴反转 + 中心点变换差 |
+| 2 | 拖动可移动窗口图层：向上拖、窗口向下跑（方向反转） | `3122339805` | 拖拽 delta 的 Y 方向符号或 origin 映射反转 |
+| 3 | **保护约束**：`2163522240`（竖长图）拖拽方向当前**正确**（鼠标上移图片向下，内容跟手）——修复 #2 时不得破坏 | `2163522240` | 两样本的拖拽实现/坐标系可能不同，需逐一定位各自消费链 |
+| 4 | 粒子/轨迹等效果跟随鼠标不完善 | 多样本（eventfollow 集群） | 指针 provider 的覆盖面缺口，范围待盘点 |
+
+**排查入口**：指针位置从 App 输入 → frameInputs（pointer provider）→ typed update → 消费效果的管线；重点核对 Y 轴约定（Metal Y-down vs WE/Y-up）与 layer 变换（scale/origin）合成顺序。**关闭门**：#1/#2 修复后真实鼠标操作录屏对照；#3 在修复前后均保持正确；#4 单独盘点。
+
 ### Q1 — 作者参数、视觉验收与 tracked matrix
 
 | 复现索引（非修复优先级） | 尚未关闭的问题 | 下一次操作与关闭条件 |
