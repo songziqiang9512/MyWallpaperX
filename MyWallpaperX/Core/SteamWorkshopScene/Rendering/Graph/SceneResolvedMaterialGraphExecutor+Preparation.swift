@@ -519,7 +519,9 @@ extension SceneResolvedMaterialGraphExecutor {
 
         guard visited == Set(graph.nodes.map(\.nodeIndex)),
               programKeys.count == graph.nodes.filter({ $0.kind == .material }).count
-        else { return .graphStructureRejected }
+        else {
+            return .graphStructureRejected
+        }
         guard let final = publications[pairStep.outputIdentity],
               let representation = representation(final)
                 ?? (final.publication.candidate.content == .data

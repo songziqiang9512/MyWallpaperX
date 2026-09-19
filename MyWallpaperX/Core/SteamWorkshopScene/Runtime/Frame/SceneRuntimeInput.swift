@@ -52,7 +52,8 @@ struct SceneRuntimeInput: Codable {
                 SceneDirectBoolEffectVisibilityRouteAdmission
                 .startupInactiveTargets(
                     in: renderDescriptor,
-                    candidates: scriptOwnedEffectVisibilityTargets
+                    candidates: scriptOwnedEffectVisibilityTargets,
+                    scriptOwnedCandidates: scriptOwnedEffectVisibilityTargets
                 )
         )
         self.propertyBindingProgram = propertyBindingProgram

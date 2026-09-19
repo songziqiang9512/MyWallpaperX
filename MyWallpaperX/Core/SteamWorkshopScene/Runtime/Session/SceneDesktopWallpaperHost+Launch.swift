@@ -510,6 +510,8 @@ extension SceneDesktopWallpaperHost {
                     dynamicLayerVisibilityOwnerTargets,
                 startupInactiveEffectVisibilityTargets:
                     runtimeInput.startupInactiveEffectVisibilityTargets,
+                scriptOwnedStartupInactiveEffectVisibilityTargets:
+                    runtimeInput.scriptOwnedEffectVisibilityTargets,
                 conditionSchemaEvidence:
                     SceneGraphConditionSchemaEvidenceCompiler.compile(
                         descriptor: runtimeInput.renderDescriptor,

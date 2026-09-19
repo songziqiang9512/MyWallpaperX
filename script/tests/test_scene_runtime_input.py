@@ -116,15 +116,18 @@ enum SceneDirectBoolEffectVisibilityRouteAdmission {
 
     static func startupInactiveTargets(
         in descriptor: SceneRenderDescriptor,
-        candidates: Set<SceneDynamicTarget>
+        candidates: Set<SceneDynamicTarget>,
+        scriptOwnedCandidates: Set<SceneDynamicTarget> = []
     ) -> Set<SceneDynamicTarget> {
         _ = descriptor
-        return Set(candidates.filter { target in
+        func admissible(_ target: SceneDynamicTarget) -> Bool {
             guard case let .effectVisibility(layerID, _) = target else {
                 return true
             }
             return layerID != structurallyRejectedLayerID
-        })
+        }
+        return Set(candidates.filter(admissible))
+            .union(scriptOwnedCandidates.filter(admissible))
     }
 }
 

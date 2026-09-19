@@ -54,7 +54,8 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
 nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
     static func startupInactiveTargets(
         in descriptor: SceneRenderDescriptor,
-        candidates: Set<SceneDynamicTarget>
+        candidates: Set<SceneDynamicTarget>,
+        scriptOwnedCandidates: Set<SceneDynamicTarget> = []
     ) -> Set<SceneDynamicTarget> {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let structuralUtilityConsumerLayerIDs =
@@ -74,7 +75,8 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
             in: descriptor,
             candidates: candidates,
             visibleLayerIDs: visibleLayerIDs,
-            dependencyPlan: dependencyPlan
+            dependencyPlan: dependencyPlan,
+            scriptOwnedCandidates: scriptOwnedCandidates
         )
     }
 
@@ -82,14 +84,16 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
         in descriptor: SceneRenderDescriptor,
         candidates: Set<SceneDynamicTarget>,
         visibleLayerIDs: Set<Int>,
-        dependencyPlan: SceneDependencyRenderPlan
+        dependencyPlan: SceneDependencyRenderPlan,
+        scriptOwnedCandidates: Set<SceneDynamicTarget> = []
     ) -> Set<SceneDynamicTarget> {
         targets(
             in: descriptor,
             candidates: candidates,
             visibleLayerIDs: visibleLayerIDs,
             dependencyPlan: dependencyPlan,
-            requiresInitiallyInactiveEffect: true
+            requiresInitiallyInactiveEffect: true,
+            scriptOwnedCandidates: scriptOwnedCandidates
         )
     }
 
@@ -125,7 +129,8 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
         candidates: Set<SceneDynamicTarget>,
         visibleLayerIDs: Set<Int>,
         dependencyPlan: SceneDependencyRenderPlan,
-        requiresInitiallyInactiveEffect: Bool
+        requiresInitiallyInactiveEffect: Bool,
+        scriptOwnedCandidates: Set<SceneDynamicTarget> = []
     ) -> Set<SceneDynamicTarget> {
         let layersByID = Dictionary(
             uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) }
@@ -138,7 +143,7 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
             .union(dependencyPlan.bindingsByConsumerLayerID.keys)
         let dependencyProviderLayerIDs = dependencyPlan.requiredProviderLayerIDs
             .union(dependencyPlan.requiredGraphOutputProviderLayerIDs)
-        return Set(candidates.compactMap { target in
+        return Set(candidates.union(scriptOwnedCandidates).compactMap { target in
             guard case let .effectVisibility(layerID, effectIndex) = target,
                   let layer = layersByID[layerID],
                   layer.effects.indices.contains(effectIndex),
@@ -146,14 +151,30 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
                     == requiresInitiallyInactiveEffect,
                   visibleLayerIDs.contains(layerID),
                   layer.parentID == nil,
-                  layer.childLayerIDs.isEmpty,
-                  layer.dependencyLayerIDs.isEmpty,
-                  layer.authoredDependencies.isEmpty,
-                  ["image", "solid", "text"].contains(layer.contentKind),
-                  !dependencyConsumerLayerIDs.contains(layerID),
-                  !dependencyProviderLayerIDs.contains(layerID),
-                  !dependencyPlan.staticLayerSourcePassthroughBlockedLayerIDs
-                    .contains(layerID) else { return nil }
+                  layer.childLayerIDs.isEmpty else { return nil }
+            // D2b script lane: the dependency checks are waived for
+            // script-owned candidates only - the media toggle family lives
+            // on externalPrimary consumers whose dependency closure is
+            // captured unconditionally. The passthrough-blocked flag blocks
+            // the degraded layer-SOURCE route; an activation-gated
+            // script-gated stage does not use that route. Provider layers
+            // stay rejected.
+            let scriptOwned = scriptOwnedCandidates.contains(target)
+            if !scriptOwned {
+                guard layer.dependencyLayerIDs.isEmpty,
+                      layer.authoredDependencies.isEmpty,
+                      ["image", "solid", "text"].contains(layer.contentKind),
+                      !dependencyConsumerLayerIDs.contains(layerID),
+                      !dependencyPlan.staticLayerSourcePassthroughBlockedLayerIDs
+                        .contains(layerID)
+                else { return nil }
+            } else {
+                guard ["image", "solid", "text"]
+                    .contains(layer.contentKind) else { return nil }
+            }
+            guard !dependencyProviderLayerIDs.contains(layerID) else {
+                return nil
+            }
             guard case nil = layer.utilityLayer else { return nil }
             return target
         })
@@ -242,6 +263,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         dynamicEffectVisibilityOwners: Set<DynamicEffectVisibilityOwner> = [],
         dynamicLayerVisibilityOwnerTargets: Set<SceneDynamicTarget> = [],
         startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = [],
+        scriptOwnedStartupInactiveEffectVisibilityTargets:
+            Set<SceneDynamicTarget> = [],
         conditionSchemaEvidence: [Graph.EffectKey: SceneGraphConditionSchemaEvidence] = [:]
     ) -> [Candidate] {
         let descriptorGroups = Dictionary(grouping: descriptor.layers, by: \.id)
@@ -290,7 +313,9 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 in: descriptor,
                 candidates: startupInactiveEffectVisibilityTargets,
                 visibleLayerIDs: executableVisibleRootLayerIDs,
-                dependencyPlan: dependencyPlan
+                dependencyPlan: dependencyPlan,
+                scriptOwnedCandidates:
+                    scriptOwnedStartupInactiveEffectVisibilityTargets
             )
         let activeLayerIDs = Set(descriptor.layers.compactMap { layer in
             layer.effects.contains(where: { $0.visible != false }) ? layer.id : nil

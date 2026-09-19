@@ -41,16 +41,14 @@ enum SceneAuthoredEffectRenderPlanner {
                         layerID: layer.id,
                         effectIndex: effectIndex
                     )
-                    // Defense-in-depth authored prechecks for script-gated
-                    // inclusion; the route admission's full structural
-                    // filter (visibility, computed dependency and
-                    // passthrough-blocked sets) runs upstream in
-                    // SceneRuntimeInput. These checks alone are NOT
-                    // equivalent to the route admission.
+                    // Defense-in-depth authored prechecks: the route
+                    // admission (with the D2b script-lane carve-out) already
+                    // filtered the incoming set, so these repeat only the
+                    // NON-waived checks (root, ordinary content kind, no
+                    // children, no utility) and deliberately omit the
+                    // dependency checks the carve-out waives.
                     guard layer.parentID == nil,
                           layer.childLayerIDs.isEmpty,
-                          layer.dependencyLayerIDs.isEmpty,
-                          layer.authoredDependencies.isEmpty,
                           ["image", "solid", "text"].contains(layer.contentKind),
                           layer.utilityLayer == nil else { return nil }
                     return effect.visible == false

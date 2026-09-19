@@ -162,20 +162,27 @@ extension SceneResolvedMaterialGraphExecutor {
         effectLocalActivationBypassReasonCode: inout String?,
         rejection: Failure = .graphStructureRejected
     ) -> Failure? {
-        guard dependencyOwnership.preEncodeVisualFailureSlots(in: graph) != nil,
-              [
-                "effect-activation-visibility-disabled",
-                "effect-activation-pointer-provider-unavailable",
-                "effect-activation-scalar-below-minimum",
-                "initially-inactive-property-stage-passthrough",
-              ].contains(reasonCode),
-              visualFailureTopologyIsSupported(
-                  reasonCode: reasonCode,
-                  transition: transition,
-                  graph: graph,
-                  pairStep: pairStep,
-                  snapshot: snapshot
-              ) else { return rejection }
+        guard dependencyOwnership.preEncodeVisualFailureSlots(in: graph) != nil else {
+            return rejection
+        }
+        guard [
+            "effect-activation-visibility-disabled",
+            "effect-activation-pointer-provider-unavailable",
+            "effect-activation-scalar-below-minimum",
+            "initially-inactive-property-stage-passthrough",
+            "script-gated-dependency-preproof-mismatch",
+        ].contains(reasonCode) else {
+            return rejection
+        }
+        guard visualFailureTopologyIsSupported(
+            reasonCode: reasonCode,
+            transition: transition,
+            graph: graph,
+            pairStep: pairStep,
+            snapshot: snapshot
+        ) else {
+            return rejection
+        }
         let failure = prepareStagePassthrough(
             programIdentity: "activation-passthrough:\(reasonCode)",
             pairStep: pairStep,

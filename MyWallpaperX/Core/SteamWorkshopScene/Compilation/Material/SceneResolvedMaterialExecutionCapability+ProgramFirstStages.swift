@@ -102,6 +102,35 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     ))
                     continue
                 }
+                if initiallyInactive,
+                   compiled.stages[0].activationPolicy?
+                       .effectVisibilityPropertyKey == nil {
+                    // D2b script lane: pre-proof the resolved dependencies
+                    // against the layer's externalPrimary binding before
+                    // finalization runs. A stage outside the binding would
+                    // fail finalization for the whole layer; it downgrades
+                    // to the passthrough instead, keeping active siblings'
+                    // dependency satisfaction intact.
+                    if !dependencyPreproofMayStayResolved(
+                        stage: compiled.stages[0],
+                        ownership: admitted.dependencyOwnership
+                    ) {
+                        guard initiallyInactiveStageMayPassthrough(
+                            product,
+                            pairPlan: admitted.pairPlan
+                        ) else {
+                            return .failure(rejection(
+                                "initially-inactive-stage-passthrough-unsafe"
+                            ))
+                        }
+                        stages.append(.initiallyInactivePassthrough(
+                            product: product,
+                            reasonCode:
+                                "script-gated-dependency-preproof-mismatch"
+                        ))
+                        continue
+                    }
+                }
                 stages.append(compiled.stages[0])
                 allMaterials.merge(compiled.materials) { current, _ in current }
 
@@ -176,6 +205,47 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 $0.effect == effect.key
             })
         )
+    }
+
+    /// D2b script-lane pre-proof: a script-gated initially-inactive stage
+    /// whose resolved external dependencies sit outside the layer's
+    /// externalPrimary binding would fail finalization for the whole layer.
+    /// Those stages downgrade to the passthrough instead. Stages without
+    /// external dependencies stay resolved - the active siblings keep the
+    /// binding satisfied, and the union over resolved stages is unchanged.
+    /// Stages with framebuffers on an externalPrimary consumer also
+    /// downgrade: the runtime activation passthrough cannot serve that
+    /// shape yet (preEncodeVisualFailureSlots returns nil when the stage's
+    /// own effect occupies binding slots), so the FBO stage stays a
+    /// compile-time passthrough until executor support exists. Effects
+    /// that occupy no binding slot keep working via the empty-slot list.
+    private static func dependencyPreproofMayStayResolved(
+        stage: StageCapability,
+        ownership: SceneResolvedMaterialDependencyOwnership
+    ) -> Bool {
+        guard case let .externalPrimary(binding) = ownership else {
+            return true
+        }
+        guard case let .resolved(product, _, _) = stage else { return true }
+        guard product.graph.renderTargets.isEmpty else { return false }
+        switch resolvedExternalDependencies(in: stage) {
+        case .none:
+            return true
+        case .invalid:
+            return false
+        case let .exact(dependencies):
+            let expected = Set(binding.referenceSlots.map { slot in
+                BindingDependency(
+                    consumerLayerID: binding.consumerLayerID,
+                    providerLayerID: binding.providerLayerID,
+                    slot: slot
+                )
+            })
+            return dependencies.allSatisfy { dependency in
+                dependency.origin == .terminalNamed
+                    && expected.contains(dependency.bindingDependency)
+            }
+        }
     }
 
     /// Only a launch-time visual contract, unproven texture purpose, or
