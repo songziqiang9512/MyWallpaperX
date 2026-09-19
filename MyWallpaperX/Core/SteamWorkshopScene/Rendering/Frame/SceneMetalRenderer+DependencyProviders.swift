@@ -71,6 +71,7 @@ extension SceneMetalRenderer {
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
         geometryProduct: SceneGeometryProduct? = nil,
+        imagePipeline: SceneImageLayerPipeline? = nil,
         executionTrace: SceneEffectExecutionFrameTrace?
     ) -> Bool? {
         guard dependencyRuntime.requiresDemandedGraphOutputCapture(
@@ -181,7 +182,8 @@ extension SceneMetalRenderer {
             textureRegistry: textureRegistry,
             commandBuffer: commandBuffer,
             geometryProduct: geometryProduct,
-            content: ticket.finalContent
+            content: ticket.finalContent,
+            imagePipeline: imagePipeline
         ) ?? .invalid(reasonCode: "named-provider-publication-route-missing")
         dependencyRuntime.recordBindingIfRequired(
             for: layer.id,
@@ -287,6 +289,7 @@ extension SceneMetalRenderer {
                     mainPass: mainPass,
                     commandBuffer: commandBuffer,
                     geometryProduct: imageTextures.geometryProducts[provider.id],
+                    imagePipeline: imagePipeline,
                     executionTrace: executionTrace
                 ) == true else { return nil }
                 graphProviderLayerIDs.insert(provider.id)

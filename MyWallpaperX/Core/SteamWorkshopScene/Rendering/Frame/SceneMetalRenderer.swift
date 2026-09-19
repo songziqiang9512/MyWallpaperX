@@ -337,6 +337,7 @@ struct SceneMetalRenderer {
                 mainPass: mainPass,
                 commandBuffer: commandBuffer,
                 geometryProduct: imageTextures.geometryProducts[layer.id],
+                imagePipeline: imagePipeline,
                 executionTrace: effectExecutionTrace
             ) {
                 if !providerGraphEncoded {
@@ -571,7 +572,8 @@ struct SceneMetalRenderer {
                             textureRegistry: textureRegistry,
                             commandBuffer: commandBuffer,
                             geometryProduct: geometryProduct,
-                            content: content
+                            content: content,
+                            imagePipeline: imagePipeline
                         ) ?? .invalid(
                             reasonCode: "named-provider-publication-route-missing"
                         )

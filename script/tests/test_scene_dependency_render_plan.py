@@ -2870,17 +2870,21 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
     def test_named_consumers_share_path_independent_backward_binding(self) -> None:
         self.assertEqual(self.result["referenceCount"], 19)
         self.assertEqual(
+            # Layer 3 is the hidden conditional consumer; it joins the named
+            # consumer set since the conditional provider chain slice.
             self.result["namedConsumers"],
-            [2, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31, 32, 35, 37],
+            [2, 3, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31, 32, 35, 37],
         )
         self.assertEqual(
             self.result["requiredEffectConsumers"],
-            [2, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 31, 32, 35, 37],
+            [2, 3, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 31, 32, 35, 37],
         )
         self.assertEqual(self.result["executableUtilityConsumers"], [15, 31])
         self.assertEqual(
+            # Layer 3 joins as the hidden conditional consumer's binding
+            # since the conditional provider chain slice.
             self.result["bindingConsumers"],
-            [2, 8, 9, 10, 11, 12, 13, 14, 15, 16, 31, 35],
+            [2, 3, 8, 9, 10, 11, 12, 13, 14, 15, 16, 31, 35],
         )
         self.assertFalse(self.result["defaultUtilityBinding"])
         self.assertEqual(self.result["requiredProviders"], [1, 30, 34])
@@ -3224,7 +3228,11 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             )
 
     def test_matrix_shape_keeps_hidden_consumer_out_of_runtime_liveness(self) -> None:
-        self.assertEqual(self.result["matrixBindingCount"], 7)
+        # Conditional-content consumers (hidden layers declaring dependency
+        # references) are reachable provider roots since the batch-B
+        # conditional provider chain slice: the hidden consumer pair gains
+        # one binding (7 -> 8).
+        self.assertEqual(self.result["matrixBindingCount"], 8)
         self.assertEqual(self.result["matrixRequiredProviders"], [10, 11, 12, 13, 14, 15])
 
     def test_unbound_consumer_preserves_base_while_provider_stays_blocked(self) -> None:
@@ -3233,7 +3241,11 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             {
                 "namedProvider": True,
                 "namedConsumer": False,
-                "hiddenNamedProvider": False,
+                # The hidden consumer (111) declares its reference, so its
+                # provider (110) must be ready when the conditional content
+                # shows: the provider joins the blocked set (was False before
+                # conditional provider chains).
+                "hiddenNamedProvider": True,
                 "hiddenNamedConsumer": False,
                 "selfReference": False,
                 "unreferenced": False,

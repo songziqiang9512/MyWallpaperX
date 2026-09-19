@@ -557,7 +557,8 @@ final class SceneDependencyFrameRuntime {
         textureRegistry: SceneFrameTextureRegistry,
         commandBuffer: MTLCommandBuffer,
         geometryProduct: SceneGeometryProduct? = nil,
-        content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
+        content: SceneTextureContent = .color(.resolved(.premultipliedAlpha)),
+        imagePipeline: SceneImageLayerPipeline? = nil
     ) -> SceneGraphOutputPublicationResult? {
         guard plan.requiredGraphOutputProviderLayerIDs.contains(layerID) else {
             return nil
@@ -594,18 +595,77 @@ final class SceneDependencyFrameRuntime {
                 content: content
             )
         }
-        // This route fills its named target with one full-region blit, so
-        // source and target extent must be identical. A reservation whose
-        // target normalized below its source cannot be filled here and must
-        // fail closed instead of copying out of bounds; only the geometry
-        // route may rasterize a larger source into a smaller authored-local
-        // target.
-        guard reservation.width == reservation.sourceWidth,
-              reservation.height == reservation.sourceHeight else {
-            publicationTelemetry.recordFailure(layerID: layerID)
-            return .invalid(
-                reasonCode: "named-provider-publication-target-extent-invalid"
+        // Within-cap extents keep the exact one-full-region-blit contract.
+        // An over-cap resolved-color output may instead rasterize into its
+        // aspect-normalized capped target - the same downsampling contract
+        // the geometry route already owns. Preserved-channel (.data) content
+        // never resamples and stays fail-closed over-cap.
+        let withinCapBlit = reservation.width == reservation.sourceWidth
+            && reservation.height == reservation.sourceHeight
+        if !withinCapBlit {
+            let normalized = Self.normalizedExtent(
+                width: reservation.sourceWidth,
+                height: reservation.sourceHeight
             )
+            // The source format/renderTarget-usage checks the blit branch
+            // makes are guaranteed upstream here: installPreparedGraphOutputs
+            // enforces pool/output format and usage equality for demanded
+            // providers, and the single image pipeline construction site
+            // defaults to the pool's bgra8Unorm.
+            guard content.isColorContent,
+                  let imagePipeline,
+                  let normalized,
+                  normalized.width == reservation.width,
+                  normalized.height == reservation.height,
+                  reservation.frameEpoch == frameEpoch,
+                  reservation.providerLayerID == layerID,
+                  reservation.texture !== texture,
+                  reservation.sourceWidth == texture.width,
+                  reservation.sourceHeight == texture.height,
+                  texture.textureType == .type2D,
+                  texture.sampleCount == 1,
+                  texture.mipmapLevelCount == 1,
+                  texture.usage.contains(.shaderRead) else {
+                publicationTelemetry.recordFailure(layerID: layerID)
+                return .invalid(
+                    reasonCode: "named-provider-publication-target-extent-invalid"
+                )
+            }
+            guard SceneOffscreenEffectRenderer.captureSource(
+                sourceTexture: texture,
+                target: reservation.texture,
+                sourceUniforms: .neutral(),
+                pipeline: imagePipeline,
+                commandBuffer: commandBuffer
+            ) else {
+                publicationTelemetry.recordFailure(layerID: layerID)
+                return .unavailable(
+                    reasonCode: "named-provider-publication-encoder-unavailable"
+                )
+            }
+            SceneGPUCensus.recordGraphOutputPublication(texture: reservation.texture)
+            let rasterizedReference = SceneNamedTextureReference(
+                providerLayerID: layerID,
+                variant: .primary
+            )
+            guard textureRegistry.publishReservedNamedLayerTarget(
+                reference: rasterizedReference,
+                frameEpoch: frameEpoch,
+                texture: reservation.texture,
+                content: content
+            ), textureRegistry.completeNamedLayerTargetResource(
+                reference: rasterizedReference,
+                frameEpoch: frameEpoch
+            )?.publication.texture === reservation.texture else {
+                publicationTelemetry.recordFailure(layerID: layerID)
+                return .invalid(reasonCode: "named-provider-registry-publication-invalid")
+            }
+            publicationTelemetry.record(
+                layerID: layerID,
+                encoded: true,
+                on: commandBuffer
+            )
+            return .published
         }
         guard reservation.frameEpoch == frameEpoch,
               reservation.providerLayerID == layerID,

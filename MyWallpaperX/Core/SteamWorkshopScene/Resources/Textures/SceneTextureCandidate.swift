@@ -154,6 +154,13 @@ nonisolated enum SceneTextureContent: Hashable, Sendable {
             return true
         }
     }
+
+    /// Color content is the only shape the over-cap rasterized publication
+    /// may resample; preserved-channel and data semantics stay fail-closed.
+    var isColorContent: Bool {
+        guard case .color = self else { return false }
+        return true
+    }
 }
 
 /// Immutable texture and slot metadata published as one value. Consumers must

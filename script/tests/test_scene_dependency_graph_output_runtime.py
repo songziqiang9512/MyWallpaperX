@@ -61,11 +61,13 @@ struct SceneUtilityLayer {
 
 struct SceneRenderDescriptor {
     struct Layer {
+        struct Effect { let visible: Bool? }
         let id: Int
         let contentKind: String
         let utilityLayer: SceneUtilityLayer?
         let alpha: Double?
         let colorRGB: [Double]?
+        var effects: [Effect] = []
         let clampUVs: Bool? = nil
         let noInterpolation: Bool? = nil
     }
@@ -479,6 +481,7 @@ struct SceneTextureContent: Equatable {
     var isData = false
     static let data = Self(isResolved: true, isData: true)
     static func color(_ value: StubColor) -> Self { .init(isResolved: true) }
+    var isColorContent: Bool { !isData }
 }
 
 struct SceneTextureCandidate {
@@ -1026,6 +1029,8 @@ enum Harness {
                 [700: oversizedSource],
                 frameEpoch: 23
             )
+        // Over-cap without a rasterization pipeline keeps the historical
+        // fail-closed contract.
         let preparedExtentTargetBelowSourceRejected =
             oversizedSourceReservation?.texture.width == 2_048
                 && oversizedSourceReservation?.texture.height == 1
@@ -1038,6 +1043,31 @@ enum Harness {
                     textureRegistry: oversizedSourceRegistry,
                     commandBuffer: commandBuffer
                 ) == .invalid(
+                    reasonCode:
+                        "named-provider-publication-target-extent-invalid"
+                )
+        // Over-cap resolved COLOR with a rasterization pipeline publishes
+        // through the aspect-normalized capped target (the same downsampling
+        // contract the geometry route owns); data content stays fail-closed.
+        let oversizedRasterizedPublished =
+            preparedExtentRuntime.publishGraphOutputIfRequired(
+                layerID: 700,
+                texture: oversizedSource,
+                publicationRole: .visibleMainLoop,
+                textureRegistry: oversizedSourceRegistry,
+                commandBuffer: commandBuffer,
+                imagePipeline: SceneImageLayerPipeline()
+            ) == .published
+        let oversizedDataRejected =
+            preparedExtentRuntime.publishGraphOutputIfRequired(
+                layerID: 700,
+                texture: oversizedSource,
+                publicationRole: .visibleMainLoop,
+                textureRegistry: oversizedSourceRegistry,
+                commandBuffer: commandBuffer,
+                content: .data,
+                imagePipeline: SceneImageLayerPipeline()
+            ) == .invalid(
                     reasonCode:
                         "named-provider-publication-target-extent-invalid"
                 )
@@ -1704,6 +1734,8 @@ enum Harness {
             "preparedExtentCapturePublished": preparedExtentCapturePublished,
             "preparedExtentPublished": preparedExtentPublished,
             "preparedExtentWrongSizeRejected": preparedExtentWrongSizeRejected,
+            "oversizedRasterizedPublished": oversizedRasterizedPublished,
+            "oversizedDataRejected": oversizedDataRejected,
             "preparedExtentTargetBelowSourceRejected":
                 preparedExtentTargetBelowSourceRejected,
             "geometryReservation": geometryInput?.texture.width == 4
@@ -1840,6 +1872,8 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "preparedExtentPublished": True,
                     "preparedExtentWrongSizeRejected": True,
                     "preparedExtentTargetBelowSourceRejected": True,
+                    "oversizedRasterizedPublished": True,
+                    "oversizedDataRejected": True,
                     "geometryReservation": True,
                     "geometryPreparedOutputInstalled": True,
                     "geometryPublished": True,

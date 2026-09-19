@@ -290,6 +290,50 @@ extension SceneDependencyFrameRuntime {
             }
             return extent
         case .resolvedMaterial:
+            // A hidden effect-chain provider admitted by the hidden-provider
+            // contract publishes its graph output later in this same frame.
+            // The preflight deliberately passes no base texture for
+            // resolvedMaterial consumers, so the reservation extent follows
+            // the provider's prepared graph output extent, with its source
+            // texture as the texture-backed fallback.
+            if providerLayer.utilityLayer == nil,
+               providerLayer.effects.contains(where: { $0.visible != false }) {
+                guard binding.providerLayerID == providerLayer.id else {
+                    failureReason = "provider-layer-mismatch"
+                    return nil
+                }
+                if let preparedOutputExtent {
+                    // Over-cap graph outputs rasterize into the capped named
+                    // target (aspect-preserving, same contract as the
+                    // geometry route); within-cap extents stay identity so
+                    // the blit publication route keeps its exact contract.
+                    guard preparedOutputExtent.width > 0,
+                          preparedOutputExtent.height > 0 else {
+                        failureReason = "prepared-output-extent-invalid"
+                        return nil
+                    }
+                    let longestEdge = max(
+                        preparedOutputExtent.width,
+                        preparedOutputExtent.height
+                    )
+                    if longestEdge
+                        <= SceneNamedRenderTargetPool.maximumDimension {
+                        return preparedOutputExtent
+                    }
+                    return normalizedExtent(
+                        width: preparedOutputExtent.width,
+                        height: preparedOutputExtent.height
+                    )
+                }
+                guard let providerTexture else {
+                    failureReason = "image-provider-invalid"
+                    return nil
+                }
+                return normalizedExtent(
+                    width: providerTexture.width,
+                    height: providerTexture.height
+                )
+            }
             guard let utility = providerLayer.utilityLayer,
                   let geometry = SceneCaptureGeometryResolver.resolve(
                       kind: utility.kind,
