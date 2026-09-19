@@ -517,9 +517,21 @@ extension SceneDependencyRenderPlan {
             ))
             return nil
         }
+        #if DEBUG
+        if layer.id == 1315, provider.id == 813 {
+            NSLog("MWX XG1: layer=1315 order[813]=%@ order[1315]=%@",
+                  order[813].map(String.init) ?? "nil",
+                  order[1315].map(String.init) ?? "nil")
+        }
+        #endif
         guard let providerOrder = order[provider.id],
               let consumerOrder = order[layer.id],
               providerOrder != consumerOrder else {
+            #if DEBUG
+            if layer.id == 1315, provider.id == 813 {
+                NSLog("MWX XG1: FAIL order lookup")
+            }
+            #endif
             issues.append(Issue(
                 kind: .forwardUtilityProvider,
                 layerID: layer.id,
@@ -548,7 +560,6 @@ extension SceneDependencyRenderPlan {
                 // no forward capture is involved.
                 || (
                     provider.contentKind == "image"
-                        && provider.puppetMeshPath == nil
                         && hasNoUtilityLayer(provider)
                         && provider.visible == false
                         && providerHasVisibleEffects
