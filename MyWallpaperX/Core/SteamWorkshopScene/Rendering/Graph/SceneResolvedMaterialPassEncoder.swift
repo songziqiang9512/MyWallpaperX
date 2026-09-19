@@ -225,7 +225,22 @@ final class SceneResolvedMaterialPassEncoder {
 
         let descriptor = MTLRenderPassDescriptor()
         descriptor.colorAttachments[0].texture = pass.target
-        descriptor.colorAttachments[0].loadAction = .dontCare
+        // Admission proves a full-channel overwrite pipeline state, not that
+        // authored geometry rasterizes every target pixel: vertex displacement
+        // (e.g. perspective effects) leaves regions unrasterized, and those
+        // regions must compose as premultiplied transparent instead of
+        // undefined attachment memory.
+        if pass.storedContent.isColorContent {
+            descriptor.colorAttachments[0].loadAction = .clear
+            descriptor.colorAttachments[0].clearColor = MTLClearColor(
+                red: 0,
+                green: 0,
+                blue: 0,
+                alpha: 0
+            )
+        } else {
+            descriptor.colorAttachments[0].loadAction = .dontCare
+        }
         descriptor.colorAttachments[0].storeAction = .store
         guard let encoder = commandBuffer.makeRenderCommandEncoder(
             descriptor: descriptor
