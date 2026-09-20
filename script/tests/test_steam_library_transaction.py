@@ -234,8 +234,24 @@ import Foundation
             )
             let task = Task.detached { try SteamWorkshopLibraryTransaction.prepare(receipt: receipt, attempt: 1, libraryRoot: library) }
             if mode == "cancel" { task.cancel() }
+            if mode == "cancel-during-copy" {
+                let incoming = library.appendingPathComponent(".mywallpaperx-steam-incoming", isDirectory: true)
+                var observedOwnedCopy = false
+                for _ in 0..<5_000 {
+                    let names = (try? FileManager.default.contentsOfDirectory(atPath: incoming.path)) ?? []
+                    if names.contains(where: { $0.utf8.count == 36 && UUID(uuidString: $0) != nil }) {
+                        observedOwnedCopy = true
+                        break
+                    }
+                    try await Task.sleep(nanoseconds: 1_000_000)
+                }
+                precondition(observedOwnedCopy, "prepare never exposed its bounded incoming generation")
+                task.cancel()
+            }
             let commit = try await task.value
-            if mode == "cancel" { fatalError("cancelled prepare succeeded") }
+            if mode == "cancel" || mode == "cancel-during-copy" {
+                fatalError("cancelled prepare succeeded")
+            }
             let content = try SteamWorkshopLibraryTransaction.contentURL(for: commit, libraryRoot: library)
             precondition(commit.version == 2)
             precondition(SteamWorkshopLibraryTransaction.isManagedPublicDirectory(content, libraryRoot: library))
@@ -315,7 +331,15 @@ import Foundation
                 precondition(decoded == commit)
             }
             print("ACCEPTED")
+        } catch is CancellationError {
+            guard mode == "cancel" || mode == "cancel-during-copy" else {
+                fatalError("unexpected cancellation")
+            }
+            print("CANCELLED")
         } catch {
+            if mode == "cancel" || mode == "cancel-during-copy" {
+                fatalError("cancel scenario failed without cancellation: \(error.localizedDescription)")
+            }
             print("REJECTED: \(error.localizedDescription)")
         }
     }
@@ -484,7 +508,10 @@ class SteamLibraryTransactionTests(unittest.TestCase):
                 mutate(root, stage)
             result = subprocess.run([str(self.binary), str(root), mode], capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
-            self.assertIn('ACCEPTED' if accepted else 'REJECTED', result.stdout)
+            if mode in ('cancel', 'cancel-during-copy'):
+                self.assertIn('CANCELLED', result.stdout)
+            else:
+                self.assertIn('ACCEPTED' if accepted else 'REJECTED', result.stdout)
             self.assertEqual(old.read_bytes(), b'OLD PLAYING CONTENT')
             if not accepted or mode in ('prepare-only', 'generation-lease'):
                 self.assertEqual(marker.read_bytes(), b'OLD READY POINTER')
@@ -532,6 +559,17 @@ class SteamLibraryTransactionTests(unittest.TestCase):
 
     def test_cancel_before_copy(self):
         self.scenario(mode='cancel', accepted=False)
+
+    def test_cancel_during_copy_removes_owned_incoming_generation(self):
+        self.scenario(
+            files={
+                'project.json': b'{"type":"web","file":"index.html"}',
+                'index.html': b'<h1>safe</h1>',
+                'payload.bin': b'x' * (64 * 1024 * 1024),
+            },
+            mode='cancel-during-copy',
+            accepted=False,
+        )
 
     def test_missing_public_ownership_marker_is_not_ready(self):
         self.scenario(mode='marker-missing', accepted=False)

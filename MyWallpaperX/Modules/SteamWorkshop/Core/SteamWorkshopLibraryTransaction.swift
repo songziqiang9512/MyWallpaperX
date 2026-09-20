@@ -296,7 +296,8 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         parent: FD,
         name: String,
         expectedIdentity: SteamWorkshopStagingLeaseIdentity? = nil,
-        expectedMarker: SteamWorkshopLibraryCommit? = nil
+        expectedMarker: SteamWorkshopLibraryCommit? = nil,
+        honorTaskCancellation: Bool = true
     ) throws {
         var named = stat()
         try require(fstatat(parent.value, name, &named, AT_SYMLINK_NOFOLLOW) == 0)
@@ -319,14 +320,15 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         }
 
         for child in try childNames(opened) {
-            try Task.checkCancellation()
+            if honorTaskCancellation { try Task.checkCancellation() }
             var value = stat()
             try require(fstatat(opened.value, child, &value, AT_SYMLINK_NOFOLLOW) == 0)
             if (value.st_mode & S_IFMT) == S_IFDIR {
                 try removeOwnedTree(
                     parent: opened,
                     name: child,
-                    expectedIdentity: directoryIdentity(value)
+                    expectedIdentity: directoryIdentity(value),
+                    honorTaskCancellation: honorTaskCancellation
                 )
             } else {
                 try require(unlinkat(opened.value, child, 0) == 0, "版本文件回收失败。")
@@ -576,7 +578,18 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         let version = try directory(incoming, name, create: true, exclusive: true)
         let versionIdentity = directoryIdentity(try info(version, regular: false))
         defer {
-            try? removeOwnedTree(parent: incoming, name: name, expectedIdentity: versionIdentity)
+            // Cancellation stops the copy, but it must not cancel removal of the
+            // exact descriptor-bound partial generation that this invocation owns.
+            do {
+                try removeOwnedTree(
+                    parent: incoming,
+                    name: name,
+                    expectedIdentity: versionIdentity,
+                    honorTaskCancellation: false
+                )
+            } catch {
+                NSLog("MWX Steam library: owned incoming rollback failed: %@", error.localizedDescription)
+            }
             _ = unlinkat(library.value, incomingName, AT_REMOVEDIR)
         }
         let destination = try directory(version, "content", create: true, exclusive: true)
