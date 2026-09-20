@@ -1139,13 +1139,16 @@
         "script/scene_matrix_contract.py",
         "script/scene_matrix_suite.py",
         "script/generate_scene_full_matrix.py",
+        "script/scene_product_entry_audio_baseline.py",
         "script/scene_wallpaper_media_event.py",
         "script/scene_wallpaper_*matrix.json",
-        "script/scene_wallpaper_benchmark.py"
+        "script/scene_wallpaper_benchmark.py",
+        "script/tests/test_scene_product_entry_audio_baseline.py"
       ],
       "modules": [
         "test_scene_matrix_contract",
         "test_scene_matrix_suite",
+        "test_scene_product_entry_audio_baseline",
         "test_scene_wallpaper_benchmark",
         "test_scene_wallpaper_benchmark_media_event"
       ]

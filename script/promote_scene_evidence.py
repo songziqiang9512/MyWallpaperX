@@ -16,10 +16,13 @@ from typing import Any
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE_ROOT = REPOSITORY_ROOT / "docs/scene/evidence"
 RUN_LABEL_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]*")
+SAMPLE_ID_PATTERN = re.compile(r"[0-9]+")
 DEFAULT_EVIDENCE_KEYS = (
     "app_log",
+    "app_log_path",
     "preview_log",
     "runtime_evidence",
+    "daemon_client_result_path",
     "ready_snapshot",
     "hover_snapshot",
     "pointer_trajectory_snapshots",
@@ -83,13 +86,23 @@ def promotion_plan(
         if not isinstance(samples, list) or not samples:
             raise ValueError(f"report has no samples: {report_path}")
         files: list[dict[str, Any]] = []
+        sample_ids: set[str] = set()
         report_bytes = report_path.stat().st_size
         total_bytes += report_bytes
         for sample in samples:
             sample_id = str(sample.get("id", ""))
             evidence = sample.get("evidence")
-            if not sample_id or not isinstance(evidence, dict):
+            if (
+                SAMPLE_ID_PATTERN.fullmatch(sample_id) is None
+                or not isinstance(evidence, dict)
+            ):
                 raise ValueError(f"report sample evidence is malformed: {report_path}")
+            if sample_id in sample_ids:
+                raise ValueError(
+                    f"report has duplicate sample identity {sample_id}: {report_path}"
+                )
+            sample_ids.add(sample_id)
+            seen_sources: set[Path] = set()
             for key in evidence_keys:
                 raw_value = evidence.get(key)
                 if key == "pointer_trajectory_snapshots":
@@ -118,6 +131,9 @@ def promotion_plan(
                     continue
                 for archived_key, raw_source in sources:
                     source = evidence_source(report_path, raw_source)
+                    if source in seen_sources:
+                        continue
+                    seen_sources.add(source)
                     suffix = "".join(source.suffixes)
                     relative = (
                         Path("samples") / sample_id / f"{archived_key}{suffix}"
@@ -168,7 +184,13 @@ def promote(
             for item in planned["files"]:
                 source = Path(item["source"])
                 relative = Path(item["relative"])
-                archived = run_root / relative
+                archived = (run_root / relative).resolve()
+                try:
+                    archived.relative_to(run_root.resolve())
+                except ValueError as error:
+                    raise ValueError(
+                        f"archive path escapes run destination: {relative}"
+                    ) from error
                 archived.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(source, archived)
                 archived_files.append({

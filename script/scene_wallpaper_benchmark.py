@@ -41,6 +41,13 @@ from scene_preview_visual_evidence import (
     collect_preview_visual_evidence,
     summarize_preview_visual_evidence,
 )
+from scene_product_entry_audio_baseline import (
+    PRODUCT_ENTRY_AUDIO_MODE,
+    classify_product_entry_result,
+    load_audio_declaration_matrix,
+    product_entry_command,
+    summarize_product_entry_results,
+)
 from scene_wallpaper_graph_output_metrics import (
     named_graph_output_publication_execution_metrics,
     resolved_material_graph_observation_metrics,
@@ -7248,6 +7255,173 @@ def cursor_ripple_visible_failures(
     return failures
 
 
+def rebuildable_artifact_removal_metrics(path: Path) -> tuple[int, int]:
+    if path.is_symlink() or not path.is_dir():
+        return 1, path.lstat().st_size
+    count = 0
+    size_bytes = 0
+    with os.scandir(path) as entries:
+        for entry in entries:
+            child = Path(entry.path)
+            if entry.is_dir(follow_symlinks=False):
+                child_count, child_bytes = rebuildable_artifact_removal_metrics(
+                    child
+                )
+                count += child_count
+                size_bytes += child_bytes
+            else:
+                count += 1
+                size_bytes += entry.stat(follow_symlinks=False).st_size
+    return count, size_bytes
+
+
+def run_product_entry_audio_sample(
+    runtime_binary: Path,
+    sample_root: Path,
+    sample: dict[str, Any],
+    output_dir: Path,
+    runtime_root: Path,
+    duration: float,
+) -> dict[str, Any]:
+    sample_id = str(sample["id"])
+    source = sample_root / "Scene" / sample_id
+    result_dir = output_dir / "results" / sample_id
+    runtime_sample = runtime_root / "runtime-samples" / sample_id
+    runtime_home = runtime_root / "runtime-homes" / sample_id
+    runtime_workshop = runtime_root / "runtime-workshops" / sample_id
+    result_dir.mkdir(parents=True)
+    runtime_home.mkdir(parents=True)
+    runtime_workshop.mkdir(parents=True)
+
+    package_path = scene_package_path(source) if source.is_dir() else None
+    preflight_failures: list[str] = []
+    if not (source / "project.json").is_file():
+        preflight_failures.append("Scene sample project.json is missing")
+    if package_path is None:
+        preflight_failures.append("Scene sample package is missing")
+    if preflight_failures:
+        return {
+            "id": sample_id,
+            "passed": False,
+            "baseline": {
+                "status": "source-invalid",
+                "passed": False,
+                "failures": preflight_failures,
+                "evidence_ceiling": "S0-no-executable-result",
+            },
+            "failures": preflight_failures,
+            "command": None,
+            "exit_code": None,
+            "timed_out": False,
+            "hashes": {},
+            "evidence": {},
+            "daemon_client_result": None,
+            "runtime_sample": str(runtime_sample),
+            "runtime_home": str(runtime_home),
+            "runtime_workshop": str(runtime_workshop),
+            "runtime_retained": True,
+        }
+
+    copy_sample(source, runtime_sample)
+    for file_name in SAMPLE_ROOT_DERIVED_FILES:
+        (runtime_sample / file_name).unlink(missing_ok=True)
+    hashes = {
+        "project_sha256": sha256(source / "project.json"),
+        "package_sha256": sha256(package_path),
+    }
+    command = product_entry_command(
+        runtime_binary=runtime_binary,
+        runtime_sample=runtime_sample,
+        result_dir=result_dir,
+        runtime_workshop=runtime_workshop,
+        sample_id=sample_id,
+        duration=duration,
+    )
+    environment = os.environ.copy()
+    environment["HOME"] = str(runtime_home)
+    environment["CFFIXED_USER_HOME"] = str(runtime_home)
+    app_log = result_dir / "app.log"
+    timed_out = False
+    with app_log.open("w", encoding="utf-8") as log_handle:
+        process = subprocess.Popen(
+            command,
+            cwd=output_dir,
+            env=environment,
+            stdout=log_handle,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        try:
+            exit_code = process.wait(timeout=duration + 60)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            process.terminate()
+            try:
+                exit_code = process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                exit_code = process.wait(timeout=5)
+
+    daemon_result_path = result_dir / "scene-daemon-client-result.json"
+    daemon_result: Any = None
+    if daemon_result_path.is_file():
+        try:
+            daemon_result = json.loads(
+                daemon_result_path.read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError):
+            daemon_result = None
+    baseline = classify_product_entry_result(
+        sample_id,
+        daemon_result,
+        exit_code=exit_code,
+        timed_out=timed_out,
+    )
+    removed_artifact_count = 0
+    removed_artifact_bytes = 0
+    retained_names = {"app.log", "scene-daemon-client-result.json"}
+    for artifact in result_dir.iterdir():
+        if artifact.name in retained_names:
+            continue
+        artifact_count, artifact_bytes = rebuildable_artifact_removal_metrics(
+            artifact
+        )
+        removed_artifact_count += artifact_count
+        removed_artifact_bytes += artifact_bytes
+        if artifact.is_dir() and not artifact.is_symlink():
+            shutil.rmtree(artifact)
+        else:
+            artifact.unlink()
+    evidence = {
+        "app_log_path": str(app_log),
+        "app_log_sha256": sha256(app_log),
+        "daemon_client_result_path": (
+            str(daemon_result_path) if daemon_result_path.is_file() else None
+        ),
+        "daemon_client_result_sha256": (
+            sha256(daemon_result_path) if daemon_result_path.is_file() else None
+        ),
+        "removed_rebuildable_artifact_count": removed_artifact_count,
+        "removed_rebuildable_artifact_bytes": removed_artifact_bytes,
+    }
+    return {
+        "id": sample_id,
+        "passed": baseline["passed"],
+        "baseline": baseline,
+        "failures": baseline["failures"],
+        "command": command,
+        "exit_code": exit_code,
+        "timed_out": timed_out,
+        "hashes": hashes,
+        "evidence": evidence,
+        "daemon_client_result": daemon_result,
+        "runtime_sample": str(runtime_sample),
+        "runtime_home": str(runtime_home),
+        "runtime_workshop": str(runtime_workshop),
+        "runtime_retained": True,
+    }
+
+
 def run_sample(
     runtime_binary: Path,
     sample_root: Path,
@@ -8549,7 +8723,9 @@ def apply_runtime_retention(
         return
 
     for result in results:
-        for key in ("runtime_sample", "runtime_home"):
+        for key in ("runtime_sample", "runtime_home", "runtime_workshop"):
+            if key not in result:
+                continue
             path = Path(result[key])
             try:
                 path.resolve().relative_to(runtime_root.resolve())
@@ -8594,6 +8770,22 @@ def parse_args() -> argparse.Namespace:
         "--matrix",
         type=Path,
         default=Path(__file__).with_name("scene_wallpaper_sample_matrix.json"),
+    )
+    parser.add_argument(
+        "--product-entry-audio-baseline",
+        action="store_true",
+        help=(
+            "run the census audio relationship set through the isolated "
+            "SteamWorkshopService product entry and stop at S3 publication"
+        ),
+    )
+    parser.add_argument(
+        "--audio-declaration-snapshot",
+        type=Path,
+        default=Path(__file__).with_name(
+            "scene_capability_census_snapshot.json"
+        ),
+        help="tracked capability snapshot that owns the audio relationship IDs",
     )
     parser.add_argument(
         "--sample-id",
@@ -8703,6 +8895,29 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    product_entry_incompatible_options = any((
+        args.no_execution_observations,
+        args.performance_fps != 60,
+        args.performance_warmup is not None,
+        args.after_snapshot_delay is not None,
+        args.periodic_snapshot_interval is not None,
+        args.resize_sequence is not None,
+        args.drop_dynamic_values_frame is not None,
+        args.audio_spectrum_fixture,
+        args.audio_spectrum_silence_fixture,
+        args.require_effect_stage_admission,
+        args.require_effect_execution,
+        args.require_graph_execution,
+        args.require_cursor_ripple_persistence,
+    ))
+    if args.product_entry_audio_baseline and product_entry_incompatible_options:
+        print(
+            "Scene benchmark precondition failed: product-entry audio baseline "
+            "cannot use direct-host visual, fixture, performance, or execution "
+            "options",
+            file=sys.stderr,
+        )
+        return 2
     if args.audio_spectrum_fixture and args.audio_spectrum_silence_fixture:
         print(
             "Scene benchmark precondition failed: audio spectrum PCM and silence "
@@ -8744,10 +8959,19 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
-    matrix_path = args.matrix.expanduser().resolve()
+    matrix_path = (
+        args.audio_declaration_snapshot.expanduser().resolve()
+        if args.product_entry_audio_baseline
+        else args.matrix.expanduser().resolve()
+    )
     try:
-        matrix = select_matrix_samples(load_matrix(matrix_path), args.sample_id)
-    except ValueError as error:
+        unfiltered_matrix = (
+            load_audio_declaration_matrix(matrix_path)
+            if args.product_entry_audio_baseline
+            else load_matrix(matrix_path)
+        )
+        matrix = select_matrix_samples(unfiltered_matrix, args.sample_id)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"Scene benchmark precondition failed: {error}", file=sys.stderr)
         return 2
     output_dir = require_fresh_output_dir(args.output_dir.expanduser().resolve())
@@ -8767,32 +8991,59 @@ def main() -> int:
         return 2
 
     try:
-        results = [
-            run_sample(
-                runtime_binary=runtime_binary,
-                sample_root=args.sample_root.expanduser().resolve(),
-                sample=sample,
-                output_dir=output_dir,
-                runtime_root=runtime_root,
-                duration=duration,
-                performance_fps=args.performance_fps,
-                after_snapshot_delay=args.after_snapshot_delay,
-                performance_warmup=args.performance_warmup,
-                periodic_snapshot_interval=args.periodic_snapshot_interval,
-                resize_sequence=args.resize_sequence,
-                drop_dynamic_values_frame=args.drop_dynamic_values_frame,
-                audio_spectrum_fixture=args.audio_spectrum_fixture,
-                audio_spectrum_silence_fixture=args.audio_spectrum_silence_fixture,
-                require_effect_stage_admission=args.require_effect_stage_admission,
-                require_effect_execution=args.require_effect_execution,
-                require_graph_execution=args.require_graph_execution,
-                no_execution_observations=args.no_execution_observations,
-                require_cursor_ripple_persistence=(
-                    args.require_cursor_ripple_persistence
-                ),
-            )
-            for sample in matrix["samples"]
-        ]
+        if args.product_entry_audio_baseline:
+            results = []
+            for index, sample in enumerate(matrix["samples"], start=1):
+                sample_id = str(sample["id"])
+                print(
+                    f"Scene product-entry audio baseline "
+                    f"[{index}/{len(matrix['samples'])}]: {sample_id}",
+                    flush=True,
+                )
+                result = run_product_entry_audio_sample(
+                    runtime_binary=runtime_binary,
+                    sample_root=args.sample_root.expanduser().resolve(),
+                    sample=sample,
+                    output_dir=output_dir,
+                    runtime_root=runtime_root,
+                    duration=duration,
+                )
+                results.append(result)
+                print(
+                    f"{sample_id}: {result['baseline']['status']}",
+                    flush=True,
+                )
+        else:
+            results = [
+                run_sample(
+                    runtime_binary=runtime_binary,
+                    sample_root=args.sample_root.expanduser().resolve(),
+                    sample=sample,
+                    output_dir=output_dir,
+                    runtime_root=runtime_root,
+                    duration=duration,
+                    performance_fps=args.performance_fps,
+                    after_snapshot_delay=args.after_snapshot_delay,
+                    performance_warmup=args.performance_warmup,
+                    periodic_snapshot_interval=args.periodic_snapshot_interval,
+                    resize_sequence=args.resize_sequence,
+                    drop_dynamic_values_frame=args.drop_dynamic_values_frame,
+                    audio_spectrum_fixture=args.audio_spectrum_fixture,
+                    audio_spectrum_silence_fixture=(
+                        args.audio_spectrum_silence_fixture
+                    ),
+                    require_effect_stage_admission=(
+                        args.require_effect_stage_admission
+                    ),
+                    require_effect_execution=args.require_effect_execution,
+                    require_graph_execution=args.require_graph_execution,
+                    no_execution_observations=args.no_execution_observations,
+                    require_cursor_ripple_persistence=(
+                        args.require_cursor_ripple_persistence
+                    ),
+                )
+                for sample in matrix["samples"]
+            ]
     except (Exception, KeyboardInterrupt):
         if not args.keep_runtime:
             try:
@@ -8807,10 +9058,26 @@ def main() -> int:
         verify_staged_app(app_identity)
     except AppIdentityError as error:
         for result in results:
-            result["failures"].append(f"staged app identity failure: {error}")
+            failure = f"staged app identity failure: {error}"
+            result["failures"].append(failure)
             result["passed"] = False
+            if args.product_entry_audio_baseline:
+                result["baseline"]["failures"].append(failure)
+                result["baseline"]["passed"] = False
+                result["baseline"]["status"] = "staged-app-identity-failure"
 
-    passed = all(result["passed"] for result in results)
+    summary = (
+        summarize_product_entry_results(results)
+        if args.product_entry_audio_baseline
+        else {
+            "passed": all(result["passed"] for result in results),
+            "sample_count": len(results),
+            "passed_count": sum(result["passed"] for result in results),
+            "preview_visual": summarize_preview_visual_evidence(results),
+            "performance": summarize_performance(results),
+        }
+    )
+    passed = bool(summary["passed"])
     apply_runtime_retention(
         runtime_root=runtime_root,
         app_identity=app_identity,
@@ -8819,29 +9086,31 @@ def main() -> int:
     )
     report = {
         "schema_version": 2,
+        "mode": (
+            PRODUCT_ENTRY_AUDIO_MODE
+            if args.product_entry_audio_baseline
+            else "direct-host-scene-benchmark"
+        ),
         "matrix": matrix["name"],
         "matrix_path": str(matrix_path),
         "matrix_sha256": sha256(matrix_path),
+        "matrix_source": matrix.get("source"),
         "command": sys.argv,
         "app_identity": app_identity,
         "sample_root": str(args.sample_root.expanduser().resolve()),
-        "summary": {
-            "passed": passed,
-            "sample_count": len(results),
-            "passed_count": sum(result["passed"] for result in results),
-            "preview_visual": summarize_preview_visual_evidence(results),
-            "performance": summarize_performance(results),
-        },
+        "summary": summary,
         "samples": results,
     }
     report_path = output_dir / "report.json"
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Scene benchmark {'PASS' if passed else 'FAIL'}: {report_path}")
-    for result in results:
-        print(
-            f"{result['id']}: {'PASS' if result['passed'] else 'FAIL'} "
-            f"loaded={result['runtime']['loaded_ratio']:.3f} failures={result['failures']}"
-        )
+    if not args.product_entry_audio_baseline:
+        for result in results:
+            print(
+                f"{result['id']}: {'PASS' if result['passed'] else 'FAIL'} "
+                f"loaded={result['runtime']['loaded_ratio']:.3f} "
+                f"failures={result['failures']}"
+            )
     return 0 if passed else 1
 
 

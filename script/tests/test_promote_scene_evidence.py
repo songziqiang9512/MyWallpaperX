@@ -40,6 +40,7 @@ class PromoteSceneEvidenceTests(unittest.TestCase):
                 "runtime_sample": str(output / "runtime/runtime-samples/42"),
                 "evidence": {
                     **{key: str(path) for key, path in files.items()},
+                    "app_log_path": str(files["app_log"]),
                     "pointer_trajectory_snapshots": [
                         str(path) for path in trajectory
                     ],
@@ -107,6 +108,70 @@ class PromoteSceneEvidenceTests(unittest.TestCase):
                         Path("v1/test-package"),
                         max_package_mib=1,
                     )
+
+    def test_caches_product_entry_log_and_daemon_result_aliases(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-evidence-promotion-") as directory:
+            root = Path(directory)
+            output = root / "output"
+            result = output / "results/42"
+            result.mkdir(parents=True)
+            app_log = result / "app.log"
+            daemon_result = result / "scene-daemon-client-result.json"
+            app_log.write_text("product entry", encoding="utf-8")
+            daemon_result.write_text("{}", encoding="utf-8")
+            report = output / "report.json"
+            report.write_text(
+                json.dumps({
+                    "samples": [{
+                        "id": "42",
+                        "evidence": {
+                            "app_log_path": str(app_log),
+                            "daemon_client_result_path": str(daemon_result),
+                        },
+                    }],
+                }),
+                encoding="utf-8",
+            )
+
+            planned, total_bytes = promotion.promotion_plan([
+                ("product-entry", report),
+            ])
+
+            self.assertEqual(
+                [item["key"] for item in planned[0]["files"]],
+                ["app_log_path", "daemon_client_result_path"],
+            )
+            self.assertEqual(
+                total_bytes,
+                report.stat().st_size + app_log.stat().st_size
+                + daemon_result.stat().st_size,
+            )
+
+    def test_rejects_escaping_or_duplicate_sample_identities(self) -> None:
+        malformed_ids = ("/tmp/escape", "../escape", "１２３", "sample-42")
+        for sample_id in malformed_ids:
+            with self.subTest(sample_id=sample_id), tempfile.TemporaryDirectory(
+                prefix="mwx-evidence-promotion-"
+            ) as directory:
+                report = self.make_report(Path(directory))
+                payload = json.loads(report.read_text(encoding="utf-8"))
+                payload["samples"][0]["id"] = sample_id
+                report.write_text(json.dumps(payload), encoding="utf-8")
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "sample evidence is malformed",
+                ):
+                    promotion.promotion_plan([("malformed", report)])
+
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-evidence-promotion-"
+        ) as directory:
+            report = self.make_report(Path(directory))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["samples"].append(payload["samples"][0])
+            report.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "duplicate sample identity"):
+                promotion.promotion_plan([("duplicate", report)])
 
     def test_rejects_malformed_pointer_trajectory_evidence(self) -> None:
         malformed_values = (
