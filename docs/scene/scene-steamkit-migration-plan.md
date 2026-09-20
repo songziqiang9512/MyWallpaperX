@@ -2,9 +2,9 @@
 
 <!-- document-role: active-plan -->
 
-> 状态：现役专项计划；SK1–SK4.2 已有实现并完成本轮离线审查修复，SK4.3 已接通原子事务及播放感知版本回收；SK4.4 工程切片已闭合物理排空、manifest-bound 恢复、精确 lease 清理、同 job 重试、两活动作业/共享 chunk 上限及跨作业磁盘预留；SK5.1 工程切片已接通 item/attempt 精确数字进度、独立裁剪 fill 与卡片/详情增量投影；SK5.2 工程切片已接通账号隔离的工具栏 badge、单一瞬态任务 popover 及当前队列交互；SK5.3 工程切片已由同一 JobStore 接通持久 terminal history、attempt 汇总、有界保留/清理与已下载定位；SK6.1 已完成默认结构化路由和 sidecar 回退边界，SK6.2 已撤旧获取源码、产品引用、专用状态与 78.97 MiB 随包 runtime。SK7.1 已开始隔离 arm64 Debug 全链路 UI 验收，个人来源登录引导、未登录下载可见反馈、本地库启动延迟查询、缺失 helper 的 typed 错误／账号隔离，以及 ready 后真实崩溃的有界替换与后续公开查询已覆盖；账号、下载、播放、其余异常与完整性能矩阵仍待继续。Xcode 已接入自包含 arm64 SteamService；SK7.2 的真实 Developer ID 签名、公证、最低支持机与完整账号链路仍未验收。
+> 状态：现役专项计划；SK1–SK4.2 已有实现并完成本轮离线审查修复，SK4.3 已接通原子事务及播放感知版本回收；SK4.4 工程切片已闭合物理排空、manifest-bound 恢复、精确 lease 清理、同 job 重试、两活动作业/共享 chunk 上限及跨作业磁盘预留；SK5.1 工程切片已接通 item/attempt 精确数字进度、独立裁剪 fill 与卡片/详情增量投影；SK5.2 已接通账号隔离的工具栏 badge、单一瞬态任务 popover 及当前队列交互；SK5.3 已由同一 JobStore 接通持久 terminal history、attempt 汇总、有界保留/清理与已下载定位；SK6.1 已完成默认结构化路由和 sidecar 回退边界，SK6.2 已撤旧获取源码、产品引用、专用状态与 78.97 MiB 随包 runtime。SK7.1 已闭合 App/helper bundle 定位回归：构建、发布验证、产品定位和实际产物现统一为 `Contents/Resources/SteamService/SteamService`，不保留 `Contents/PlugIns` fallback；候选 Debug App 已从普通 UI 显示远程列表、执行搜索并生成二维码 challenge。当前项转为 ready 内容的公开类型目录发布与精确暂存回收。真实账号完成、下载、播放、其余异常与完整性能矩阵仍待继续。SK7.2 的真实发行公证、最低支持机与完整账号链路仍未验收。
 >
-> 复核：2026-09-15。本轮依据当前 Swift/C#、隔离文件系统与无网络协议测试、App Debug 构建、匿名公开列表／未登录个人来源／缺失 helper 重试页的隔离可见 UI，以及当前 M4 上的开发 helper 启动/RSS/匿名三页查询观测；未使用真实账号、修改真实订阅或实测下载、播放与低配／完整 App 性能。§10.1 保留早期探针证据，不能代替本轮构建的真实链路验收。
+> 复核：2026-09-20。本轮依据当前 Swift/C#、隔离文件系统与无网络协议测试、Developer ID Debug 构建、自包含 bundle helper 的直接匿名查询，以及候选 App 普通创意工坊 UI 的列表／搜索／二维码 challenge；未提交账号凭据、未完成登录、未修改真实订阅，也未实测下载、播放与低配／完整 App 性能。§10.1 保留早期探针证据，不能代替当前候选的未执行场景。
 >
 > 权威：本计划细化[工程路线 E2/E6/E8](engine-refactor-program.md)，覆盖 Video/Web/Scene 共用的 Steam 内容获取，不改变播放器。本文覆盖此前“双网页登录/自动弹登录/保留订阅 HTML 主路径”的方案。
 >
@@ -426,6 +426,13 @@ python3.12 script/run_scene_tests.py --scope all -k test_steam_ -j 1
 
 这些边界须由生产 owner 的可执行反例覆盖；离线 fixture、构建与无账号 helper 启动不替代以下真实链路门。
 
+### SK7.1 当前复核队列（2026-09-20）
+
+本轮跨专题执行顺序不另建平行计划：先关闭本卡的 App/helper 定位回归，再核对并修正“ready 内容仍留在 `.mywallpaperx-steam-versions`”的物理入库职责，使 Video/Web/Scene 成品进入各自公开目录并只清理由该 job 拥有的下载暂存；随后回到 [Scene 当前断点队列 Q1.4–Q1.6](scene-open-breakpoint-queue-2026-09-09.md#q14--音频频谱与采集生命周期2026-09-20-当前态)，依次做音频样本全集与普通 App 采集、频谱分布／冻结、丁达尔射线、鼠标点击及粒子／轨迹／X-Ray。每项先核对公共 owner 与首断点；旧分支、重复 owner 或错误版本目录不能因已有测试而保留。
+
+1. **App/helper 定位回归（已闭合）：**唯一发行位置是 `Contents/Resources/SteamService/SteamService`；产品定位器与行为门命中同一路径，环境变量只保留为显式开发覆盖，空覆盖、缺失及不可执行 helper 均失败关闭。Developer ID Debug build、签名验证、普通 App 匿名列表、搜索和主动二维码 challenge 已完成；没有账号 terminal，因此不写“登录成功”。
+2. **物理入库与暂存回收（当前项）：**当前 `.mywallpaperx-steam-versions` 是版本事务内部目录，不应成为用户最终成品位置。先追踪 staged receipt → commit → metadata → ready → player lease 的唯一 owner，再让成功内容以作者类型进入 `创意工坊/Video|Web|Scene` 的稳定命名；只有 publication 与 metadata 都成功后才精确回收该 job 的 staging/旧隐藏版本。需覆盖崩溃恢复、更新 previous-current、同 ID 重试、视频文件名冲突、Web/Scene 目录原子发布和播放 lease，禁止宽泛清理真实库。
+
 ### SK7.1 — 全链路交互与性能验收
 
 - **依赖：**SK6.2；前卡证据绑定当前构建。
@@ -459,12 +466,13 @@ python3.12 script/run_scene_tests.py --scope all -k test_steam_ -j 1
 
 项目初始验收目标：本地点击 pending 反馈 ≤100 ms；progress ≤4Hz、terminal 立即；主线程不做网络/解压/校验，连续滚动不被下载阻塞。数值为实施前需冻结的产品门，不是当前实测。记住登录后的恢复不额外弹窗；未登录或已取消时任何非用户主动登录/订阅/下载事件引起认证 UI，均为阻断缺陷。最少执行 20 次跨页面下载/取消/重试及一轮 App 重启恢复，记录任务/进程/资源是否有界；不得把有限测试称为永不丢数据。
 
-### 9.1 当前开发 helper 性能观测（2026-09-15）
+### 9.1 当前 helper 与产品接缝观测（2026-09-20）
 
-环境仅为当前 Apple Silicon M4／16 GB 开发机，产物是 framework-dependent `SteamService/bin/publish/SteamService`，通过 `DOTNET_ROOT` 使用本机 .NET runtime；曾产生协议失配的旧 `bin/Debug` 产物不计入下表。这里不是低配机、self-contained helper、签名 App 或完整 UI 性能门。
+2026-09-15 的前五行仍是当前 Apple Silicon M4／16 GB 上的开发 helper 历史基线，其中 framework-dependent `SteamService/bin/publish/SteamService` 通过本机 .NET runtime；2026-09-20 新增行绑定自包含、Developer ID 签名 Debug App。这里都不是低配机、发行公证包或完整账号/下载性能门。
 
 | 路径 | 次数 | 当前观测 | 证据边界 |
 |---|---:|---|---|
+| 候选 Debug App → bundle helper → 公开列表／搜索／主动登录 | 1 | App `CDHash=629798bfa90214b6fca17b1b9bb5e47d8e8f63db`；helper 进程实际路径为 `Contents/Resources/SteamService/SteamService`。创意工坊首屏显示远程卡片；搜索 `Night vibe` 返回 `Night vibe / music / Assetto Corsa` 与 `Couple vibe / sound`；账号入口生成二维码并显示“等待扫码确认…”，随后由取证主动取消 | 证明普通 App 已恢复 helper spawn、匿名列表/搜索和 QR challenge 发起；没有扫码、账号 terminal、token 保存、订阅、下载或发行包证明。隔离库根为 `/private/tmp/mwx-steam-app.XLmlOd/Workshop`，取证后已删除，未写真实壁纸库 |
 | 产品服务冷／暖启动→ready→shutdown | 5 | 首次 585.3 ms，随后 35.2–37.9 ms；ready 后 RSS 最大 47.3 MiB；5/5 exit 0 | 只量 helper handshake 与空闲驻留，不含 App、查询、图片或下载 |
 | 匿名统一消息 `uquery` 三页 | 3 | 每次 3×30；去重 90；总时延中位 8.03 s、最大 10.61 s；峰值 RSS 110.9 MiB；3/3 exit 0 | 开发探针路线，用于确认当前 SteamKit 匿名查询形状，不代替产品解码/UI |
 | 产品 NDJSON `queryBrowse` 三页 | 1 | ready 36.3 ms；三页 terminal 5.32/1.31/1.29 s，总计 7.92 s；84 个接纳项全部跨页唯一，6 个 `result != OK` 条目进入 partial，wrong-app 0；峰值 RSS 112.7 MiB；shutdown exit 0 | `hasMore` 依据原始满页响应保持 true；安全 partial 丢弃不是缺页证明。单轮且当前网络可变，不构成性能完成 |

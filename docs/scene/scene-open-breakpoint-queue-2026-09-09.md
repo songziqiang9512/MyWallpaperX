@@ -75,6 +75,8 @@ P0 续跑状态（2026-09-18 08:xx 更新，事实覆盖至 `c60d26a9` 及其后
 
 **仍开放而不得算通过：**这仍是隔离 Debug benchmark，不替代 P0.3 普通 App→client→daemon→`requestLaunch` 当前全集基线；1 秒是本机可复现 retirement 边界，不是 Apple 固定时序。最终 identity 下的真实 exclude→include transition 与可控 teardown error 尚未执行；系统 tap 可能混入其他进程声音；wallpaper-local 独立幅度、官方 FFT bins/归一化/平滑数值、固定同输入官方对照、长稳、多屏、暂停/锁屏/睡眠和设备热插拔恢复均未验证。后续音频批只在 fresh 首断点或上述场景证据出现时继续扩实现，不能因本次单样本 PASS 宣称频谱兼容完成。
 
+**用户复核追加（2026-09-20，后续音频两批）：**先用现有 corpus/capability 工具枚举全部声明音频采集、频谱 provider、Audio Bars/Enhanced Audio Bars 与 SceneScript audio consumer 的样本和条件场景，关联到普通 App→client→daemon→`requestLaunch`→单一 `SystemAudioSpectrumService`→typed publication→GPU consumer 的首断点；Debug 构建身份本身不能解释采集失效，也不能把 benchmark 单样本外推为全集。随后以同一可控输入检查 band/bin 映射、频率尺度、窗口、归一化、平滑与左右/声道合并，专门复现“左侧柱集中偏高、右侧长期低振幅”以及“播放一段时间后右侧冻结、只剩左侧第一柱活动”；修复必须落在共享 analyzer/publication/lifecycle owner，并验证所有受影响样本、不同柱数、长稳和重新采集，不得按样本重排柱子或用随机抖动掩盖冻结。
+
 ### Q1.5 — 指针/鼠标交互缺陷簇（2026-09-19 用户实机观察，P2 优先）
 
 用户实机反馈聚成一类：**指针坐标管线**（mouse → typed frame update → effect 消费）的方向/偏移缺陷。
@@ -84,7 +86,8 @@ P0 续跑状态（2026-09-18 08:xx 更新，事实覆盖至 `c60d26a9` 及其后
 | 1 | X-Ray 遮罩中心点与鼠标不同步、有偏移；上下方向反转 | `2959875782`（xraylayer 条件层，D3 后已能渲染） | 2026-09-20已修公共effect-texture inverse的半幅局部坐标缺陷并拆分raw output MVP；合成四象限达到有界S4，真实AppKit鼠标/官方同输入仍待验 |
 | 2 | 拖动可移动窗口图层：向上拖、窗口向下跑（方向反转） | `3122339805` | 拖拽 delta 的 Y 方向符号或 origin 映射反转 |
 | 3 | **保护约束**：`2163522240`（竖长图）拖拽方向当前**正确**（鼠标上移图片向下，内容跟手）——修复 #2 时不得破坏 | `2163522240` | 两样本的拖拽实现/坐标系可能不同，需逐一定位各自消费链 |
-| 4 | 粒子/轨迹等效果跟随鼠标不完善 | 当前 corpus 唯一显式 pointer-emitter：`3238423642:984`；CP0 operator/initializer 另有 4 资产/4 样本 | CP0/emitter、optional-normal REFRACT、亚显示帧 Sprite 与DEBUG previous第二owner已校准；layer 984已有四点S4 draw/completion/ROI，仍缺previous-pointer作者效果与官方固定输入对照 |
+| 4 | 粒子/轨迹等效果跟随鼠标不完善 | 用户复核样本 `3554161528`、`3790726145`、`3792817546`；当前 census 唯一显式 Sphere/Box pointer-emitter 为 `3238423642:984`，CP0 operator/initializer 另有 4 资产/4 样本 | 先逐样本确认真实声明是 pointer provider、cursor event、SceneScript dynamic layer 还是粒子 control point，不把外观看似轨迹当同一算法；随后沿公共 typed pointer/event→particle/graph consumer 修复并回归全集。既有 984 四点 S4 只作 sentinel，不能替代三项新样本验收 |
+| 5 | 所有作者鼠标点击事件必须送达正确脚本 owner，不能只证明移动坐标 | 全 corpus 的 `cursorDown/cursorUp/cursorMove`、button/inside/previous-current consumer；已知事件脚本含 `3122339805:167` | 建立声明→实例化 owner→AppKit hit/input→事件队列→下一帧 mutation/publication→compositor 的全集关联；覆盖按下、释放、移出、窗口焦点/多屏和条件隐藏。禁止新增第二事件总线，丢失或 stale 事件只局部失败 |
 
 **排查入口与关闭门：**指针位置从 App 输入 → frameInputs（pointer provider）→ typed update → 各消费效果；#1/#2 修复后需真实鼠标操作录屏，#3 在修复前后保持正确，#4 独立按粒子公共链验收。`SceneMetalView+SceneScriptCursorInteraction.swift` 的场景转换已含 y=0 顶部映射；`3122339805:167` 的作者脚本消费 `cursorDown/cursorMove/cursorUp` 的 `event.worldPosition`。runner 的合成 `setPointer` 只驱动 provider，不经过 AppKit cursor 事件分发，故 #1/#2 的真实拖拽方向取证仍需要用户鼠标交互；这不阻塞其他不依赖人工鼠标的批次。禁止为修 #1/#2 全局翻转 pointer：`2163522240` 是必须保持的正确方向 sentinel。
 
@@ -101,6 +104,8 @@ P0 续跑状态（2026-09-18 08:xx 更新，事实覆盖至 `c60d26a9` 及其后
 后继共享intensity批次已把exact point/spot/directional object的user/SceneScript wrapper统一投影到`.layer(...,.intensity)`，由同一`SceneDynamicSnapshot`发布；启动期对全部light candidate预留color/intensity consumer，真正的灯选择与draw仍逐帧服从canonical visibility，避免作者隐藏或隐藏父链在live显示后失去资格。direct-static snapshot与standalone volumetric spot cone共用同一typed color/intensity helper，旧launch-frozen spot值和renderer第二可见性owner已撤销；standalone plan又以实际实例化的scalar target和穷尽source evidence共同准入，只接受唯一顶层、小写exact `intensity`，大小写变体、额外nested source、`color/visible`和其他host均失败关闭。负数/非有限/超Float输出只拒绝该producer并保留下层fallback。最终候选签名App上真实`3437487219`同一surface/window live切`backlight 0→0.5`严格1/1 PASS，1064/1063/1061 submitted/completed/presented、0 failed；右下地球ROI luma`28.01→44.53`且顶部背景近稳，达到有界`S4 visible`。同App重跑`3662790108`仍有point的3组snapshot/completion和420/419/0 failed frame，但SceneScript owner先以`candidate aggregate source exceeds UTF-8 byte budget`失败关闭、teardown owners=0；该matrix因不要求motion而显示PASS，不能记作动态point或太阳系通过。真实`3768903841`的4个standalone spot均`succeeded`且711/710/709 submitted/completed/presented、0 failed，原分辨率序列可见动态光锥；整份matrix仍因7项已撤权effect专用计数过期而NON-PASS，不能记作整样本通过。
 
 **下一公共首断点：**先审计QuickJS candidate aggregate-source预算的计算、去重与owner聚合，判定是真实超预算还是重复source/accounting；禁止直接放宽预算。关闭门为`3662790108:3692`脚本owner成功准入、intensity沿同一typed target发布并产生GPU/next-frame可见证据，同时超预算反例仍失败关闭。其后仍分离处理shadow/PBR与官方衰减/像素公式、2D lit material、tube/HDR/tone-map和固定官方同输入；不把directional ROI外推为完整lighting或parity。精确身份、matrix、manifest、hash与证据上限见[共享intensity证据](semantics/runtime-evidence-current.md#e-2026-09-20-shared-light-intensity)。
+
+**用户复核追加（2026-09-20，丁达尔射线专项）：**真实 `3769761761`、`3766387484`、`1315486372` 的射线形状、方向与位置均列为未关闭，不能由上述 direct light/spot intensity 证据覆盖。下一步先盘点三包及全集中 light shafts/god rays/Tyndall 的 authored effect/pass、遮罩或深度来源、projection/coordinate uniforms、dynamic property 与 graph publication，逐样本定位共同最早失效环节；再按 source-derived 公共合同修 shader frontend/typed uniform/graph/compositor owner。关闭至少需要三样本相同候选构建的GPU completion、publication、next-frame、原分辨率方向/中心/轮廓 ROI，并保留固定官方同输入为待执行门；不得用 effect 名、sample ID、截图 hash 或手调常量选视觉算法。
 
 ### Q1 — 作者参数、视觉验收与 tracked matrix
 

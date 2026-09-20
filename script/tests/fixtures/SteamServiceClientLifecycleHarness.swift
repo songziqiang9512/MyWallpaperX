@@ -45,6 +45,7 @@ final class FakeSteamTransport: SteamServiceTransporting {
 
 @main struct SteamServiceClientLifecycleHarness {
     @MainActor static func main() async throws {
+        try helperLocationLifecycle()
         let first = FakeSteamTransport()
         let client = SteamServiceClient(executablePath: "/fake", transportFactory: { _ in first })
         let response = try await client.request(command: "queryBrowse")
@@ -94,6 +95,51 @@ final class FakeSteamTransport: SteamServiceTransporting {
         try await accountRouteLifecycle()
         try await stagedReceiptLifecycle()
         print("Steam client lifecycle: cold start, synchronous reply, cancellation, frame limit, timeout teardown, crash restart, stale callback PASS")
+    }
+
+    @MainActor static func helperLocationLifecycle() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-steam-helper-location-\(UUID().uuidString)", isDirectory: true)
+        let helperDirectory = root.appendingPathComponent("SteamService", isDirectory: true)
+        let helper = helperDirectory.appendingPathComponent("SteamService")
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: helperDirectory, withIntermediateDirectories: true)
+        precondition(FileManager.default.createFile(atPath: helper.path, contents: Data("fixture".utf8)))
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: helper.path)
+
+        precondition(
+            SteamServiceClient.locateHelperExecutable(environment: [:], resourceURL: root) == helper.path,
+            "product helper must resolve from the app Resources directory"
+        )
+        precondition(
+            SteamServiceClient.locateHelperExecutable(
+                environment: ["MWX_STEAM_HELPER_COMMAND": "/private/tmp/steam-helper-override"],
+                resourceURL: root
+            ) == "/private/tmp/steam-helper-override",
+            "explicit development helper override must remain authoritative"
+        )
+        precondition(
+            SteamServiceClient.locateHelperExecutable(
+                environment: ["MWX_STEAM_HELPER_COMMAND": ""],
+                resourceURL: root
+            ) == nil,
+            "empty explicit override must suppress the bundled helper"
+        )
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: helper.path)
+        precondition(
+            SteamServiceClient.locateHelperExecutable(environment: [:], resourceURL: root) == nil,
+            "non-executable bundled helper must fail closed"
+        )
+        try FileManager.default.removeItem(at: helper)
+        precondition(
+            SteamServiceClient.locateHelperExecutable(environment: [:], resourceURL: root) == nil,
+            "missing helper under an existing Resources directory must fail closed"
+        )
+        precondition(
+            SteamServiceClient.locateHelperExecutable(environment: [:], resourceURL: nil) == nil,
+            "missing app resource directory must fail closed"
+        )
+        print("Helper location: Resources executable, override authority, and fail-closed negatives PASS")
     }
 
     @MainActor static func publicCrashRestartLifecycle() async throws {

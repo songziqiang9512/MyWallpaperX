@@ -377,17 +377,21 @@ final class SteamServiceClient {
         })
     }
 
-    // MARK: - 定位（开发 route：env 覆盖；产品 route：app bundle Helpers）
+    // MARK: - 定位（开发 route：env 覆盖；产品 route：app bundle Resources）
 
-    static func locateHelperExecutable() -> String? {
-        if let override = ProcessInfo.processInfo.environment["MWX_STEAM_HELPER_COMMAND"] {
+    static func locateHelperExecutable(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        resourceURL: URL? = Bundle.main.resourceURL,
+        fileManager: FileManager = .default
+    ) -> String? {
+        if let override = environment["MWX_STEAM_HELPER_COMMAND"] {
             return override.isEmpty ? nil : override
         }
-        if let bundled = Bundle.main.builtInPlugInsURL?
+        if let bundled = resourceURL?
             .appendingPathComponent("SteamService", isDirectory: true)
             .appendingPathComponent("SteamService")
             .path,
-           FileManager.default.isExecutableFile(atPath: bundled)
+           fileManager.isExecutableFile(atPath: bundled)
         {
             return bundled
         }
