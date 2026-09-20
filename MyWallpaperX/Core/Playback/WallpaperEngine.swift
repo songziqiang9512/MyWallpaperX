@@ -84,6 +84,14 @@ public final class WallpaperEngine: NSObject {
     var lastWebSpectrumPushAt: CFTimeInterval = 0
     var lastWebSpectrumLevels: [Float] = []
     var systemAudioSpectrumService: SystemAudioSpectrumService
+    var sceneDaemonAudioSpectrumDemand = SceneAudioSpectrumCaptureDemand.none
+    var sceneDaemonAudioSpectrumGeneration: UInt64?
+    var sceneAudioSpectrumCaptureRouting = SceneAudioSpectrumCaptureRoutingState()
+    let systemAudioSpectrumLevelHandoff = LatestValueHandoff<[Float]>()
+    let webAudioSpectrumLevelHandoff = LatestValueHandoff<[Float]>()
+    let sceneAudioSpectrumRouteHandoff = LatestValueHandoff<
+        SceneAudioSpectrumRoutedFrame
+    >()
 
     var pauseWhenOtherAppFocused = true
     var pauseWhenOtherAppFullscreen = true

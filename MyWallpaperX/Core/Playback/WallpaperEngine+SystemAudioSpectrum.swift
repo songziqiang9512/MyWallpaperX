@@ -6,35 +6,71 @@
 import Foundation
 import QuartzCore
 
+nonisolated struct SceneAudioSpectrumRoutedFrame: Sendable {
+    let left: [Float]
+    let right: [Float]
+    let left32: [Float]
+    let right32: [Float]
+    let left64: [Float]
+    let right64: [Float]
+    let captureToken: SceneAudioSpectrumCaptureToken
+}
+
 extension WallpaperEngine {
     func makeSystemAudioSpectrumService(barCount: Int) -> SystemAudioSpectrumService {
         let service = SystemAudioSpectrumService(barCount: barCount)
         service.onLevels = { [weak self] levels in
-            DispatchQueue.main.async {
-                self?.updateSystemAudioSpectrumLevels(levels)
+            guard let self else { return }
+            systemAudioSpectrumLevelHandoff.submit(levels) { [weak self] in
+                DispatchQueue.main.async { [weak self] in
+                    self?.drainLatestSystemAudioSpectrumLevels()
+                }
             }
         }
         service.onWebLevels = { [weak self] levels in
-            DispatchQueue.main.async {
-                self?.updateWebAudioSpectrumLevels(levels)
+            guard let self else { return }
+            webAudioSpectrumLevelHandoff.submit(levels) { [weak self] in
+                DispatchQueue.main.async { [weak self] in
+                    self?.drainLatestWebAudioSpectrumLevels()
+                }
             }
         }
-        // Scene 消费者按渲染帧自行采样，这里直接发布到 inbox，不经过主队列，
-        // 避免在 30 Hz 采集与 60 Hz 渲染之间多插一层调度延迟。
-        service.onSceneLevels = {
+        // Capture owns one FFT producer. Main-queue routing chooses exactly one
+        // active Scene endpoint: the in-process DEBUG host or the product daemon.
+        service.onSceneLevels = { [weak self]
             left, right, left32, right32, left64, right64,
             token in
-            SceneAudioSpectrumInbox.shared.publishSystemCapture(
+            guard let self else { return }
+            let frame = SceneAudioSpectrumRoutedFrame(
                 left: left,
                 right: right,
                 left32: left32,
                 right32: right32,
                 left64: left64,
                 right64: right64,
-                token: token
+                captureToken: token
             )
+            sceneAudioSpectrumRouteHandoff.submit(frame) { [weak self] in
+                DispatchQueue.main.async { [weak self] in
+                    self?.drainLatestSceneAudioSpectrumFrame()
+                }
+            }
         }
         return service
+    }
+
+    private func drainLatestSystemAudioSpectrumLevels() {
+        guard let levels = systemAudioSpectrumLevelHandoff.takeLatest() else {
+            return
+        }
+        updateSystemAudioSpectrumLevels(levels)
+    }
+
+    private func drainLatestWebAudioSpectrumLevels() {
+        guard let levels = webAudioSpectrumLevelHandoff.takeLatest() else {
+            return
+        }
+        updateWebAudioSpectrumLevels(levels)
     }
 
     /// 由 `SceneAudioSpectrumInbox` 的需求变化驱动。Scene 没有消费者时不采集。
@@ -44,6 +80,23 @@ extension WallpaperEngine {
                 self?.refreshSystemAudioSpectrumCapture()
             }
         }
+    }
+
+    /// Updates the only remote Scene capture consumer. A generation-bound
+    /// demand cannot survive daemon restart or publish into a replacement
+    /// endpoint with a coincidentally equal local scope epoch.
+    func setSceneDaemonAudioSpectrumDemand(
+        _ demand: SceneAudioSpectrumCaptureDemand,
+        generation: UInt64
+    ) {
+        if demand.requiresSpectrum {
+            sceneDaemonAudioSpectrumDemand = demand
+            sceneDaemonAudioSpectrumGeneration = generation
+        } else if sceneDaemonAudioSpectrumGeneration == generation {
+            sceneDaemonAudioSpectrumDemand = .none
+            sceneDaemonAudioSpectrumGeneration = nil
+        }
+        refreshSystemAudioSpectrumCapture()
     }
 
     public func setSystemAudioSpectrumEnabled(_ enabled: Bool) {
@@ -154,13 +207,25 @@ extension WallpaperEngine {
         let debugSceneSilenceOwnsInbox = false
         let debugSceneFixtureOwnsInbox = false
 #endif
-        // Scene 不走 daemon session，因此不参与 currentPlaybackContentKind 判定；
-        // 需求完全由 Scene runtime 侧的消费者声明决定。
-        let sceneDemand = SceneAudioSpectrumInbox.shared.captureDemand
-        let sceneCaptureRequested = captureAllowed
-            && sceneDemand.requiresSpectrum
-            && !debugSceneFixtureOwnsInbox
-        if !sceneDemand.requiresSpectrum
+        let localSceneDemand = SceneAudioSpectrumInbox.shared.captureDemand
+        let remoteSceneDemand = sceneDaemonAudioSpectrumDemand
+        // Product Scene executes in the daemon. Its request takes precedence
+        // over the mutually exclusive direct-host DEBUG route. The tap remains
+        // in the main App, so excluding the main process still naturally
+        // includes sound emitted by the daemon process.
+        let requestedRoute = SceneAudioSpectrumCaptureRoutingState.resolvedRoute(
+            captureAllowed: captureAllowed,
+            debugFixtureOwnsInbox: debugSceneFixtureOwnsInbox,
+            localDemand: localSceneDemand,
+            daemonDemand: remoteSceneDemand,
+            daemonGeneration: sceneDaemonAudioSpectrumGeneration
+        )
+        if sceneAudioSpectrumCaptureRouting.update(route: requestedRoute) {
+            sceneAudioSpectrumRouteHandoff.discardPendingValue()
+        }
+        let sceneCaptureRequested = requestedRoute != .none
+        if !localSceneDemand.requiresSpectrum
+            || !captureAllowed
             || debugSceneSilenceOwnsInbox {
             SceneAudioSpectrumInbox.shared.clearSnapshot()
         }
@@ -168,10 +233,53 @@ extension WallpaperEngine {
             overlayEnabled: captureAllowed && currentSystemAudioSpectrumEnabled,
             webEnabled: webCaptureRequested,
             sceneEnabled: sceneCaptureRequested,
-            includeCurrentProcessAudio: sceneCaptureRequested
-                && sceneDemand.includesCurrentProcessOutput,
-            sceneCaptureScopeEpoch: sceneDemand.scopeEpoch
+            includeCurrentProcessAudio:
+                requestedRoute.includesCaptureProcessOutput,
+            sceneCaptureScopeEpoch: sceneAudioSpectrumCaptureRouting.scopeEpoch
         )
+    }
+
+    private func drainLatestSceneAudioSpectrumFrame() {
+        guard let frame = sceneAudioSpectrumRouteHandoff.takeLatest(),
+              sceneAudioSpectrumCaptureRouting.accepts(frame.captureToken) else {
+            return
+        }
+        switch sceneAudioSpectrumCaptureRouting.route {
+        case .none:
+            return
+        case let .daemon(demand, generation):
+            // `captureToken` describes the main-App tap, which must exclude the
+            // main process for a daemon target. The transported token instead
+            // preserves the daemon-local demand identity.
+            SceneDaemonClient.shared.publishAudioSpectrum(
+                left: frame.left,
+                right: frame.right,
+                left32: frame.left32,
+                right32: frame.right32,
+                left64: frame.left64,
+                right64: frame.right64,
+                token: SceneAudioSpectrumCaptureToken(
+                    scopeEpoch: demand.scopeEpoch,
+                    includesCurrentProcessOutput: demand
+                        .includesCurrentProcessOutput
+                ),
+                generation: generation
+            )
+        case let .local(demand):
+            SceneAudioSpectrumInbox.shared.publishSystemCapture(
+                left: frame.left,
+                right: frame.right,
+                left32: frame.left32,
+                right32: frame.right32,
+                left64: frame.left64,
+                right64: frame.right64,
+                token: SceneAudioSpectrumCaptureToken(
+                    scopeEpoch: demand.scopeEpoch,
+                    includesCurrentProcessOutput:
+                        demand.includesCurrentProcessOutput
+                )
+            )
+        }
     }
 
 #if DEBUG

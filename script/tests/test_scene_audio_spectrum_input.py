@@ -22,12 +22,6 @@ CAPTURE_BUFFER_SOURCE = (
 SERVICE_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/Playback/SystemAudioSpectrumService.swift"
 )
-ENGINE_SPECTRUM_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine+SystemAudioSpectrum.swift"
-)
-DEBUG_FIXTURE_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner+AudioSpectrum.swift"
-)
 GRAPH_EXECUTOR_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor.swift"
 )
@@ -142,7 +136,7 @@ enum Harness {
         )
 
         var observed: [Bool] = []
-        inbox.setDemandObserver { observed.append($0) }
+        inbox.setDemandObserver { observed.append($0.requiresSpectrum) }
 
         let initial = inbox.latest()
         inbox.publish(
@@ -771,47 +765,6 @@ class SceneAudioSpectrumWiringTests(unittest.TestCase):
         self.assertIn("publishedAtUptime", source)
         self.assertIn("now - publishedAtUptime", source)
         self.assertNotIn("sin(", source, "stale 处理不得生成时间驱动的假波形")
-
-    def test_engine_routes_scene_levels_into_the_inbox(self) -> None:
-        source = ENGINE_SPECTRUM_SOURCE.read_text(encoding="utf-8")
-        self.assertIn(
-            "left64: left64",
-            source,
-        )
-        self.assertIn("left32: left32", source)
-        self.assertEqual(
-            source.count("SceneAudioSpectrumInbox.shared.captureDemand"),
-            1,
-            "consumer 与 capture scope 必须由同一次原子快照读取",
-        )
-        self.assertIn("sceneEnabled: sceneCaptureRequested", source)
-        self.assertEqual(source.count("includeCurrentProcessAudio:"), 1)
-        self.assertIn("sceneCaptureScopeEpoch: sceneDemand.scopeEpoch", source)
-
-    def test_debug_fixture_exclusively_owns_the_scene_inbox(self) -> None:
-        source = ENGINE_SPECTRUM_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("debugSceneFixtureOwnsInbox", source)
-        self.assertIn('"--mwx-debug-scene-audio-spectrum-fixture"', source)
-        self.assertIn('"--mwx-debug-scene-audio-silence-fixture"', source)
-        self.assertIn("&& !debugSceneFixtureOwnsInbox", source)
-        fixture = DEBUG_FIXTURE_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("MWX DEBUG SCENE AUDIO: mode=silence", fixture)
-        self.assertIn("SceneAudioSpectrumInbox.shared.clearSnapshot()", fixture)
-
-    def test_engine_stops_scene_capture_under_system_interruptions(self) -> None:
-        source = ENGINE_SPECTRUM_SOURCE.read_text(encoding="utf-8")
-        self.assertRegex(
-            source,
-            r"let sceneCaptureRequested = captureAllowed\s*"
-            r"&& sceneDemand\.requiresSpectrum",
-        )
-        service = SERVICE_SOURCE.read_text(encoding="utf-8")
-        self.assertRegex(
-            service,
-            r"if self\.sceneEnabled != sceneEnabled \{\s*"
-            r"self\.clearSceneLevels\(\)",
-            "锁屏/休眠/暂停撤销 Scene consumer 时必须由唯一 service 归零",
-        )
 
     def test_debug_audio_consumption_proof_joins_encoded_uniform_to_snapshot(self) -> None:
         source = GRAPH_EXECUTOR_SOURCE.read_text(encoding="utf-8")

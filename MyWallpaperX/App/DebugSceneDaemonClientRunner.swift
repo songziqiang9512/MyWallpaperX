@@ -2,9 +2,9 @@
 import AppKit
 import Foundation
 
-/// Isolated product-control smoke: App command -> Scene client -> same-binary
-/// daemon. It can either kill the first child to exercise restart/replay or
-/// switch to a second isolated sample through the product command path.
+/// Isolated shared daemon-control smoke: DEBUG dispatch -> Scene client ->
+/// same-binary daemon. It can either kill the first child to exercise
+/// restart/replay or switch to a second isolated sample through the same client.
 @MainActor
 enum DebugSceneDaemonClientRunner {
     private static let flag = "--mwx-debug-scene-daemon-client"
@@ -15,6 +15,8 @@ enum DebugSceneDaemonClientRunner {
     private static let propertyKeyFlag = "--mwx-debug-scene-property-key"
     private static let propertyValueFlag = "--mwx-debug-scene-property-value"
     private static let propertyTypeFlag = "--mwx-debug-scene-property-type"
+    private static let stableDaemonClientFlag =
+        "--mwx-debug-scene-daemon-stable"
     private static let recordID = "debug-scene-daemon-client"
     private static let switchRecordID = "debug-scene-daemon-client-switch"
 
@@ -26,6 +28,10 @@ enum DebugSceneDaemonClientRunner {
     private static var failures: [String] = []
     private static var didForceTerminate = false
     private static var didRequestSwitch = false
+    private static var audioSpectrumDemand: SceneAudioSpectrumCaptureDemand?
+    private static var audioSpectrumPublications: [
+        SceneDaemonAudioSpectrumPublication
+    ] = []
     private static var evidenceDirectory: URL?
 
     static var isRequested: Bool {
@@ -60,6 +66,14 @@ enum DebugSceneDaemonClientRunner {
             try? FileManager.default.createDirectory(
                 at: evidenceDirectory,
                 withIntermediateDirectories: true
+            )
+            NSApp.activate(ignoringOtherApps: true)
+            WallpaperEngine.shared.updateSettings(
+                pauseWhenOtherAppFocused: false,
+                pauseWhenOtherAppFullscreen: false,
+                pauseWhenUnplugged: false,
+                pauseWhenIdle: false,
+                idleTimeoutMinutes: 10
             )
         }
         installObservers()
@@ -152,6 +166,12 @@ enum DebugSceneDaemonClientRunner {
                     }
                     return
                 }
+                // Stable mode preserves the shared daemon-client downstream.
+                // Ordinary UI/Steam entry and daemon recovery remain separate
+                // probes with distinct evidence ceilings.
+                if runsStableDaemonClient {
+                    return
+                }
                 guard !didForceTerminate else {
                     PlaybackCommandMultiplexer.shared.dispatch(
                         .setPerformanceProfile(maxFPS: 60),
@@ -178,6 +198,28 @@ enum DebugSceneDaemonClientRunner {
         ) { notification in
             MainActor.assumeIsolated {
                 latestStats = notification.object as? SceneDaemonFrameStats
+            }
+        })
+        observers.append(NotificationCenter.default.addObserver(
+            forName: .sceneDaemonAudioSpectrumDemandDidChange,
+            object: nil,
+            queue: .main
+        ) { notification in
+            MainActor.assumeIsolated {
+                guard let demand = notification.object
+                        as? SceneAudioSpectrumCaptureDemand else { return }
+                audioSpectrumDemand = demand
+            }
+        })
+        observers.append(NotificationCenter.default.addObserver(
+            forName: .sceneDaemonAudioSpectrumDidPublish,
+            object: nil,
+            queue: .main
+        ) { notification in
+            MainActor.assumeIsolated {
+                guard let publication = notification.object
+                        as? SceneDaemonAudioSpectrumPublication else { return }
+                audioSpectrumPublications.append(publication)
             }
         })
         observers.append(NotificationCenter.default.addObserver(
@@ -213,6 +255,13 @@ enum DebugSceneDaemonClientRunner {
             "daemonProcessIDs": daemonProcessIDs,
             "recoveredAfterForcedTermination": recovered,
             "switchCompletedInSameDaemon": switchCompleted,
+            "stableDaemonClientRequested": runsStableDaemonClient,
+            "audioSpectrumDemanded": audioSpectrumDemand?.requiresSpectrum
+                ?? false,
+            "audioSpectrumScopeEpoch": audioSpectrumDemand?.scopeEpoch
+                ?? 0,
+            "audioSpectrumPublicationCount": audioSpectrumPublications.count,
+            "audioSpectrumPublicationPeaks": audioSpectrumPublications.map(\.peak),
             "failures": failures
         ]
         if let latestStats {
@@ -272,6 +321,10 @@ enum DebugSceneDaemonClientRunner {
 
     private static var validRecordIDs: Set<String> {
         switchRootURL == nil ? [recordID] : [recordID, switchRecordID]
+    }
+
+    private static var runsStableDaemonClient: Bool {
+        ProcessInfo.processInfo.arguments.contains(stableDaemonClientFlag)
     }
 
     private static func exerciseControlCommands() {

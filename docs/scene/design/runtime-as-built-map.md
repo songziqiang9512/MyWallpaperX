@@ -35,7 +35,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 
 ### 1.2 所有权权威
 
-进程现状（M5.6 后）：普通产品 Scene 命令由主 App 的 `SceneDaemonClient` 唯一接收；client 只持有可重放 authored intent、请求/记录身份、属性 revision、控制意图、显示拓扑和轻量统计，不持有 Metal/registry/graph/compositor。它经公共 `DaemonProcessTransport` 孵化同一 App 二进制的 `--mwx-scene-daemon` accessory 子进程；子进程跳过 AppDelegate/MainWindowCoordinator，`SceneDaemonRuntime` 以 `private let host` 显式持有唯一产品 Host，运行五类 prepared 产品、frame loop、表面和 compositor。Host 不再提供全局 `shared` 入口，普通 App 调用面也不引用 Host 类型。同二进制设计要求渲染源码继续位于 app target；实际隔离由 `@main` daemon 分支和实例所有权保证。`DaemonNewlineFrameBuffer` / `DaemonNewlineJSON` 统一 Video/Scene 的分帧和编码，`DaemonRestartBackoff` 统一 0/1/2/4…有界退避；业务 payload、会话身份与重放裁决仍留在各 client。Scene launch/first-present 按 requestID/recordID 过滤，属性以 revision+recordID 确认；热更新拒绝时 client 用合并后的 authored intent 触发同一 daemon Host 的完整重载。App 的屏幕参数观察、系统暂停/恢复与热键控制均经 multiplexer/client 发送 coarse 命令；daemon Host 不依赖跨进程无效的 App notification。外部 SceneTexture 只跨管道传路径与书签，daemon 恢复 URL 后由 Host 在表面同步上传范围内开闭安全作用域。App 退出等待所有 retiring transport 终止；终止事件经主 RunLoop common modes 投递，2 秒强退计时不依赖主队列。`DebugScenePlaybackRunner` 仅在显式 DEBUG 证据入口持有自己的隔离 Host，不参与普通产品分发。M1.1 后 daemon 每秒把 21 槽定长 hub 投影为轻量 `frameStats`；主 App 只保存最新值，不参与采样或派生运行权威。
+进程现状（M5.6 后）：普通产品 Scene 命令由主 App 的 `SceneDaemonClient` 唯一接收；client 只持有可重放 authored intent、请求/记录身份、属性 revision、控制意图、显示拓扑和轻量统计，不持有 Metal/registry/graph/compositor。它经公共 `DaemonProcessTransport` 孵化同一 App 二进制的 `--mwx-scene-daemon` accessory 子进程；子进程跳过 AppDelegate/MainWindowCoordinator，`SceneDaemonRuntime` 以 `private let host` 显式持有唯一产品 Host，运行五类 prepared 产品、frame loop、表面和 compositor。Host 不再提供全局 `shared` 入口，普通 App 调用面也不引用 Host 类型。同二进制设计要求渲染源码继续位于 app target；实际隔离由 `@main` daemon 分支和实例所有权保证。`DaemonNewlineFrameBuffer` / `DaemonNewlineJSON` 统一 Video/Scene 的分帧和编码，`DaemonRestartBackoff` 统一 0/1/2/4…有界退避；业务 payload、会话身份与重放裁决仍留在各 client。Scene launch/first-present 按 requestID/recordID 过滤，属性以 revision+recordID 确认；热更新拒绝时 client 用合并后的 authored intent 触发同一 daemon Host 的完整重载。App 的屏幕参数观察、系统暂停/恢复与热键控制均经 multiplexer/client 发送 coarse 命令；daemon Host 不依赖跨进程无效的 App notification。外部 SceneTexture 只跨管道传路径与书签，daemon 恢复 URL 后由 Host 在表面同步上传范围内开闭安全作用域。音频采集仍只由主 App 的 `SystemAudioSpectrumService` 持有单一系统 tap/FFT；daemon 的 typed demand经 client generation 回传，App 用独立 route epoch选择 direct DEBUG inbox 或产品 daemon，并把同一 16/32/64×L/R 快照送回 daemon-local inbox。overlay、Web 与 Scene 各自先经单槽 latest-only handoff进入App主线程，App→pipe和daemon reader→主线程再以普通控制命令为顺序屏障，只在相邻屏障之间保留一个高频帧。writer与reader两侧都把已接纳控制 backlog 限在256条/8 MiB；任一侧拒绝普通控制都失败关闭对应endpoint，不静默保留旧状态，关闭时只丢droppable并排空已接纳控制。Video/Web 的30 Hz `setSpectrumLevels`使用相同droppable入口。App tap 排除主 App 时仍自然包含独立 daemon 的 wallpaper Sound；daemon token继续拥有本地 scope identity。App 退出等待所有 retiring transport 终止；终止事件经主 RunLoop common modes 投递，2 秒强退计时不依赖主队列。`DebugScenePlaybackRunner` 仅在显式 DEBUG 证据入口持有自己的隔离 Host，不参与普通产品分发。M1.1 后 daemon 每秒把 21 槽定长 hub 投影为轻量 `frameStats`；主 App 只保存最新值，不参与采样或派生运行权威。
 （同一时刻各只有一个，禁止第二套）
 
 | 权威 | 持有者 | 存活期 | 替换方式 |
@@ -43,6 +43,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 | identity/作者顺序 | launchContext.renderDescriptor + catalog | 单次 launch | 场景切换整体替换 |
 | frame clock/typed channels | daemon Host 的 sceneClock + FrameDriver 状态机 | daemon launch 期 | 暂停/恢复 |
 | property/state | liveState.effectiveValues + revision | launch 期，值变 revision++ | value-only 帧路径消费 |
+| audio capture / typed spectrum | 主 App `SystemAudioSpectrumService`持有tap/FFT；daemon `SceneAudioSpectrumInbox`持有当前 Scene demand/snapshot；client只做generation-bound投影 | App进程期 / daemon launch scope | demand/route epoch换代、daemon generation替换；控制屏障分段的高频帧latest-only |
 | resource/provider registry | SceneFrameTextureRegistry（per surface view） | per view | 每帧 beginFrame 重发布 |
 | graph/target/publication/completion | SceneResolvedMaterialRuntimeBridge（catalog+SubmissionCoordinator，**per surface**） | per surface/场景 | invalidate 整体重置；catalog 不可变、整体替换 |
 | compositor/drawable | SceneMetalView 的 CAMetalLayer + 唯一 main pass | per surface | — |
@@ -53,7 +54,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 |---|---|---|
 | frame tick / QuickJS / 粒子 / Metal encode / commit | **daemon 主线程**（Timer on RunLoop.main） | VM 经 adoptCurrentThread 绑定；0 actor / 0 类型级 @MainActor，全靠约定 |
 | GPU 完成终结 | Metal 完成线程 → 唯一每帧 hop：`Task{@MainActor}` 回主线程（SubmissionCoordinator+FrameCommit） | 其余 completion 只做锁内记账 |
-| 启动准备 / deferred 纹理 / 动态文字 / 音频分析 / localStorage | 各自后台串行队列 | 跨线程只经 os_unfair_lock inbox（audio/media） |
+| 启动准备 / deferred 纹理 / 动态文字 / 音频分析 / localStorage | 各自后台串行队列 | 音频FFT在App采集队列；App主线程只做route/IPC enqueue，daemon主线程把latest帧发布到os_unfair_lock inbox；media仍经自身inbox |
 | shader 编译 | 外部子进程（glslang/spirv-cross，超时+字节+内存预算 SIGKILL） | 产物 MSL 字符串；makeLibrary 在 PassEncoder |
 | counter/resource gauge 快照 | draw/bind/fallback 点只更新定长 UInt64 槽；daemon 主线程 1Hz 从 owner 常数值与 `MTLDevice.currentAllocatedSize` 采样 | 不保留历史窗；IPC 只发送最新累计值/当前 gauge |
 
@@ -96,6 +97,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 15. **catalog 不可变、整体替换**：capability catalog 无增量失效；token 含 ownerID 不跨 catalog 碰撞。"改一处能力"= 重建 catalog，不是 patch。
 16. **控制面单一通道与 Host 归属**（M5.6）：普通产品 UI/系统生命周期/屏幕变化→Scene 只经 `WallpaperEngineCommand` + multiplexer 或 client 的 typed display command → `SceneDaemonClient` → newline JSON；client 只投影 requestID/recordID 匹配的 daemon 事件。产品 Host 只由 daemon runtime 的私有实例持有，禁止恢复全局 singleton、让普通 App 调用面引用 Host，或在 Host 内监听只存在于 App 进程的通知。属性持久化仍只有 App 的 SteamWorkshopService，运行属性仍只有 daemon Host liveState；热更新拒绝由 client 完整重载，不产生第二 property owner。静音意图在 `PlaybackMuteState`，菜单/设置仍读 video 派生态（M0.2 未完成单一状态闭环）；预算档运行权威在 daemon Host。暂停意图必须跨无活动 Scene/重连窗口保留，退出必须等 retiring transport 清空或完成有界强退。DEBUG direct Host 只准作为显式隔离证据入口。
 17. **常开统计不升级为诊断树**（M1.1）：Release 可更新的只有 21 个 UInt64 槽和 launch 首次时间戳；Metal command 计数只在真实 bind/draw/fallback 分支递增。资源 gauge 只由 daemon 1Hz 覆盖，读取已有 owner 常数值，且不得为统计调用 lazy pipeline `resolve()`。`gpuAllocatedBytes` 是 Metal device 的进程总分配量，不得改名冒充 texture-only；`renderTargetPoolBytes` 是受跟踪有界池预算和，不含 CAMetalLayer drawable。窗口、percentile、完整 observation/evidence 仍是 DEBUG/主动诊断旁路。
+18. **跨进程音频只有一个producer和一个目标inbox**：主 App 的系统tap/FFT是唯一producer；产品目标是daemon-local `SceneAudioSpectrumInbox`，direct-host DEBUG目标与其互斥。daemon需求携本地scope epoch，client再用session generation、active transport/retirement、App route epoch与capture token拒绝stale callback；不得把两进程的singleton当共享内存，也不得用阻塞pipe、主线程闭包或无界队列保存30Hz历史。普通控制命令是顺序屏障，屏障两侧的音频/Video-Web频谱各自只保留最新待处理值；关闭只排空已接纳控制，不重放droppable帧。
 
 ## 4. 改A坏B 雷区对照表
 

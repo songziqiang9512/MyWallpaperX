@@ -50,7 +50,11 @@ extension WallpaperEngine {
 
     func send(_ command: DaemonCommand, to session: DisplayDaemonSession) {
         guard let data = try? DaemonNewlineJSON.encode(command) else { return }
-        session.transport.send(data)
+        if command.action == "setSpectrumLevels" {
+            session.transport.sendLatest(data)
+        } else {
+            session.transport.sendRequired(data)
+        }
     }
 
     func resizedSpectrumLevels(_ levels: [Float], count: Int) -> [Float] {

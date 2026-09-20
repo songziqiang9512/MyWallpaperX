@@ -481,20 +481,6 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             r"\}\s*self\.reconcileCaptureState\(\)",
         )
 
-    def test_engine_publishes_scope_checked_system_capture(self) -> None:
-        source = ENGINE_SOURCE.read_text(encoding="utf-8")
-        scene_wiring = source[
-            source.index("service.onSceneLevels =") : source.index("return service")
-        ]
-        self.assertEqual(
-            scene_wiring.count("SceneAudioSpectrumInbox.shared.publishSystemCapture("),
-            1,
-        )
-        self.assertNotIn("SceneAudioSpectrumInbox.shared.publish(", scene_wiring)
-        self.assertIn("token in", scene_wiring)
-        self.assertIn("token: token", scene_wiring)
-        self.assertIn("sceneCaptureScopeEpoch: sceneDemand.scopeEpoch", source)
-
     def test_bar_count_reconfigures_the_stable_capture_service(self) -> None:
         source = ENGINE_SOURCE.read_text(encoding="utf-8")
         configuration = source[

@@ -26,6 +26,7 @@ PROPERTY = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/Scene
 PROFILE = ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"
 COMMAND = ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift"
 SCREEN = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneScreenTopology.swift"
+AUDIO = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift"
 
 
 HARNESS = r'''
@@ -115,6 +116,64 @@ import Foundation
             "profile": 60, "propertyOverrides": [:],
             "userPropertyTextures": ["cover": ["path": "/tmp/a", "bookmark": "%%"]]
         ]) { badBookmarkRejected = true } else { badBookmarkRejected = false }
+        let bands16 = Array(repeating: 0.25, count: 16)
+        let bands32 = Array(repeating: 0.5, count: 32)
+        let bands64 = Array(repeating: 0.75, count: 64)
+        let audioValid: Bool
+        if case let .success(.publishAudioSpectrum(frame)) = decode([
+            "v": 1, "cmd": "publishAudioSpectrum",
+            "left": bands16, "right": bands16,
+            "left32": bands32, "right32": bands32,
+            "left64": bands64, "right64": bands64,
+            "scopeEpoch": 9, "includesDaemonProcessOutput": true,
+        ]) {
+            audioValid = frame.left == bands16.map(Float.init)
+                && frame.left32 == bands32.map(Float.init)
+                && frame.left64 == bands64.map(Float.init)
+                && frame.captureToken == SceneAudioSpectrumCaptureToken(
+                    scopeEpoch: 9,
+                    includesCurrentProcessOutput: true
+                )
+        } else { audioValid = false }
+        let audioWrongShapeRejected: Bool
+        if case .failure(.invalidPayload("publishAudioSpectrum")) = decode([
+            "v": 1, "cmd": "publishAudioSpectrum",
+            "left": Array(bands16.dropLast()), "right": bands16,
+            "left32": bands32, "right32": bands32,
+            "left64": bands64, "right64": bands64,
+            "scopeEpoch": 9, "includesDaemonProcessOutput": true,
+        ]) { audioWrongShapeRejected = true } else { audioWrongShapeRejected = false }
+        let audioBooleanBandRejected: Bool
+        let booleanBands: [Any] = [true] + bands16.dropFirst().map { $0 as Any }
+        if case .failure(.invalidPayload("publishAudioSpectrum")) = decode([
+            "v": 1, "cmd": "publishAudioSpectrum",
+            "left": booleanBands, "right": bands16,
+            "left32": bands32, "right32": bands32,
+            "left64": bands64, "right64": bands64,
+            "scopeEpoch": 9, "includesDaemonProcessOutput": true,
+        ]) { audioBooleanBandRejected = true } else { audioBooleanBandRejected = false }
+        let activeAdmission = SceneDaemonEventAdmission(
+            sessionGeneration: 7,
+            hasActiveTransport: true,
+            generationIsRetiring: false,
+            terminationIsExpected: false
+        )
+        let noTransportAdmission = SceneDaemonEventAdmission(
+            sessionGeneration: 7,
+            hasActiveTransport: false,
+            generationIsRetiring: false,
+            terminationIsExpected: false
+        )
+        let retiringAdmission = SceneDaemonEventAdmission(
+            sessionGeneration: 7,
+            hasActiveTransport: true,
+            generationIsRetiring: true,
+            terminationIsExpected: true
+        )
+        let eventAdmissionValid = activeAdmission.accepts(generation: 7)
+            && !activeAdmission.accepts(generation: 6)
+            && !noTransportAdmission.accepts(generation: 7)
+            && !retiringAdmission.accepts(generation: 7)
         let profileBudgetsValid =
             PlaybackPerformanceProfile.standard.sceneTextureDecodeCacheByteBudget
                 == 1_024 * 1_024 * 1_024
@@ -132,6 +191,10 @@ import Foundation
             "displayValid": displayValid,
             "duplicateDisplayRejected": duplicateDisplayRejected,
             "badBookmarkRejected": badBookmarkRejected,
+            "audioValid": audioValid,
+            "audioWrongShapeRejected": audioWrongShapeRejected,
+            "audioBooleanBandRejected": audioBooleanBandRejected,
+            "eventAdmissionValid": eventAdmissionValid,
             "profileBudgetsValid": profileBudgetsValid,
         ]
         print(String(data: try JSONEncoder().encode(payload), encoding: .utf8)!)
@@ -150,7 +213,7 @@ class SceneDaemonProtocolTests(unittest.TestCase):
             compiled = subprocess.run(
                 [
                     "xcrun", "swiftc", "-parse-as-library",
-                    str(PROPERTY), str(COMMAND), str(PROFILE), str(SCREEN),
+                    str(PROPERTY), str(COMMAND), str(PROFILE), str(SCREEN), str(AUDIO),
                     str(PROTOCOL),
                     str(harness),
                     "-o", str(binary),

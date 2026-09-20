@@ -19,6 +19,59 @@ import Foundation
         backoff.reset()
         precondition(backoff.nextDelay() == 0)
 
+        var buffered = DaemonCommandBuffer<String, String>()
+        buffered.enqueueDroppable("A1")
+        precondition(buffered.enqueueControl(
+            "C", byteCount: 1, maximumCount: 2, maximumBytes: 8
+        ))
+        buffered.enqueueDroppable("A2")
+        buffered.enqueueDroppable("A3")
+        guard case .droppable("A1")? = buffered.takeFirst(),
+              case .control("C", 1)? = buffered.takeFirst(),
+              case .droppable("A3")? = buffered.takeFirst(),
+              buffered.takeFirst() == nil else {
+            preconditionFailure("latest-only values crossed a control barrier")
+        }
+        buffered.enqueueDroppable("drop-before-close")
+        precondition(buffered.enqueueControl(
+            "shutdown", byteCount: 8, maximumCount: 2, maximumBytes: 8
+        ))
+        buffered.enqueueDroppable("drop-after-close")
+        buffered.discardDroppable()
+        guard case .control("shutdown", 8)? = buffered.takeFirst(),
+              buffered.takeFirst() == nil else {
+            preconditionFailure("close must retain controls and discard latest values")
+        }
+
+        var bounded = DaemonCommandBuffer<String, String>()
+        bounded.enqueueDroppable("A1")
+        precondition(bounded.enqueueControl(
+            "C1", byteCount: 4, maximumCount: 2, maximumBytes: 8
+        ))
+        bounded.enqueueDroppable("A2")
+        bounded.enqueueDroppable("A3")
+        precondition(bounded.enqueueControl(
+            "C2", byteCount: 4, maximumCount: 2, maximumBytes: 8
+        ))
+        bounded.enqueueDroppable("A4")
+        precondition(!bounded.enqueueControl(
+            "C3", byteCount: 1, maximumCount: 2, maximumBytes: 8
+        ))
+        guard bounded.controlCount == 2, bounded.controlBytes == 8,
+              case .droppable("A1")? = bounded.takeFirst(),
+              case .control("C1", 4)? = bounded.takeFirst(),
+              case .droppable("A3")? = bounded.takeFirst(),
+              case .control("C2", 4)? = bounded.takeFirst(),
+              case .droppable("A4")? = bounded.takeFirst(),
+              bounded.takeFirst() == nil,
+              bounded.controlCount == 0,
+              bounded.controlBytes == 0 else {
+            preconditionFailure("bounded interleaved command admission failed")
+        }
+        precondition(!bounded.enqueueControl(
+            "oversize", byteCount: 9, maximumCount: 2, maximumBytes: 8
+        ))
+
         let transport = DaemonProcessTransport(
             executableURL: URL(fileURLWithPath: "/bin/cat"),
             arguments: []
@@ -37,6 +90,35 @@ import Foundation
         while !didTerminate
             && RunLoop.current.run(mode: .default, before: terminationDeadline) {}
         precondition(didTerminate)
+
+        let stalled = DaemonProcessTransport(
+            executableURL: URL(fileURLWithPath: "/bin/sleep"),
+            arguments: ["3"]
+        )
+        var stalledDidTerminate = false
+        stalled.onTermination = { _ in stalledDidTerminate = true }
+        try stalled.start()
+        let droppableFrame = Data(repeating: 0x61, count: 16_384)
+        let startedAt = Date()
+        for _ in 0 ..< 10_000 {
+            precondition(stalled.sendLatest(droppableFrame))
+        }
+        precondition(Date().timeIntervalSince(startedAt) < 0.5)
+        let boundedControl = Data(repeating: 0x62, count: 1_048_576)
+        let acceptedControls = (0 ..< 32).filter { _ in
+            stalled.send(boundedControl)
+        }.count
+        precondition(acceptedControls > 0 && acceptedControls < 32)
+        let terminationStartedAt = Date()
+        precondition(!stalled.sendRequired(boundedControl))
+        precondition(Date().timeIntervalSince(terminationStartedAt) < 0.5)
+        let stalledTerminationDeadline = Date().addingTimeInterval(3)
+        while !stalledDidTerminate
+            && RunLoop.current.run(
+                mode: .default,
+                before: stalledTerminationDeadline
+            ) {}
+        precondition(stalledDidTerminate)
         print("daemon-process-transport-pass")
     }
 }

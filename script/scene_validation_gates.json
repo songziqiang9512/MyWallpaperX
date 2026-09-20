@@ -222,6 +222,8 @@
         "script/tests/test_scene_daemon_protocol.py"
       ],
       "modules": [
+        "test_scene_audio_capture_scope",
+        "test_scene_audio_spectrum_input",
         "test_scene_daemon_client_wiring",
         "test_scene_daemon_protocol",
         "test_scene_wallpaper_async_launch"
@@ -234,6 +236,8 @@
         "MyWallpaperX/App/DebugSceneDaemonClientRunner.swift",
         "MyWallpaperX/App/MainWindowCoordinator.swift",
         "MyWallpaperX/App/StatusBarController.swift",
+        "MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift",
+        "MyWallpaperX/Core/Playback/WallpaperEngine+DaemonEvents.swift",
         "MyWallpaperX/Core/Playback/WallpaperEngine+DaemonSessionLifecycle.swift",
         "MyWallpaperX/Core/Playback/WallpaperEngine+PlaybackControl.swift",
         "MyWallpaperX/Core/Playback/WallpaperEngine+SystemAudioLifecycle.swift",
@@ -1027,10 +1031,15 @@
     {
       "id": "scene-playback-input",
       "patterns": [
-        "MyWallpaperX/Core/Playback/*Scene*"
+        "MyWallpaperX/Core/Playback/*Scene*",
+        "MyWallpaperX/Core/Playback/WallpaperEngine+SystemAudioSpectrum.swift",
+        "MyWallpaperX/Core/Playback/SystemAudioSpectrumService.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift"
       ],
       "modules": [
-        "test_scene_audio_spectrum_input"
+        "test_scene_audio_capture_scope",
+        "test_scene_audio_spectrum_input",
+        "test_system_audio_spectrum"
       ]
     },
     {

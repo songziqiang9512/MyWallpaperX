@@ -52,6 +52,86 @@ private final class SceneDaemonEventWriter: @unchecked Sendable {
     }
 }
 
+/// One bounded handoff from the stdin reader to the daemon main thread.
+/// Adjacent audio commands coalesce, while every ordinary command is a barrier
+/// that prevents values from opposite sides from replacing or overtaking.
+private final class SceneDaemonCommandInbox: @unchecked Sendable {
+    typealias DecodedCommand = Result<
+        SceneDaemonCommand,
+        SceneDaemonProtocolFailure
+    >
+
+    private let lock = NSLock()
+    private var commands = DaemonCommandBuffer<
+        DecodedCommand,
+        SceneDaemonAudioSpectrumFrame
+    >()
+    private var drainScheduled = false
+    private var acceptingCommands = true
+
+    @discardableResult
+    func submit(
+        _ command: DecodedCommand,
+        byteCount: Int,
+        scheduleDrain: () -> Void
+    ) -> Bool {
+        lock.lock()
+        guard acceptingCommands,
+              byteCount <= DaemonCommandBufferLimits
+                .maximumPendingControlBytes else {
+            acceptingCommands = false
+            lock.unlock()
+            return false
+        }
+        let accepted: Bool
+        if case let .success(.publishAudioSpectrum(frame)) = command {
+            commands.enqueueDroppable(frame)
+            accepted = true
+        } else {
+            accepted = commands.enqueueControl(
+                command,
+                byteCount: byteCount,
+                maximumCount:
+                    DaemonCommandBufferLimits.maximumPendingControlCount,
+                maximumBytes:
+                    DaemonCommandBufferLimits.maximumPendingControlBytes
+            )
+        }
+        guard accepted else {
+            acceptingCommands = false
+            lock.unlock()
+            return false
+        }
+        let shouldSchedule = !drainScheduled
+        drainScheduled = true
+        lock.unlock()
+        if shouldSchedule {
+            scheduleDrain()
+        }
+        return true
+    }
+
+    func takeNext() -> DaemonCommandBuffer<
+        DecodedCommand,
+        SceneDaemonAudioSpectrumFrame
+    >.Entry? {
+        lock.lock()
+        let command = commands.takeFirst()
+        if command == nil {
+            drainScheduled = false
+        }
+        lock.unlock()
+        return command
+    }
+
+    func clear() {
+        lock.lock()
+        acceptingCommands = false
+        commands.removeAll()
+        lock.unlock()
+    }
+}
+
 /// Scene-specific daemon endpoint. Generic process spawning and retry policy
 /// live in DaemonKit; this type owns only the Scene command/event projection.
 @MainActor
@@ -63,6 +143,7 @@ final class SceneDaemonRuntime {
     }
 
     private let writer = SceneDaemonEventWriter(output: .standardOutput)
+    private let commands = SceneDaemonCommandInbox()
     private let host = SceneDesktopWallpaperHost()
     private var observers: [NSObjectProtocol] = []
     private var statsTimer: DispatchSourceTimer?
@@ -70,6 +151,8 @@ final class SceneDaemonRuntime {
     private var lastPropertyRevision: UInt64 = 0
     private var shouldPausePlayback = false
     private var isShuttingDown = false
+    private var audioDemand = SceneAudioSpectrumCaptureDemand.none
+    private var didReportNonSilentAudioPublication = false
 
     deinit {
         statsTimer?.cancel()
@@ -82,6 +165,7 @@ final class SceneDaemonRuntime {
             "v": SceneDaemonProtocol.version,
             "role": "scene-daemon"
         ])
+        installAudioSpectrumDemandBridge()
         installObservers()
         installStatsTimer()
         startCommandLoop()
@@ -102,26 +186,59 @@ final class SceneDaemonRuntime {
     }
 
     private func startCommandLoop() {
+        let commands = self.commands
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             while let line = readLine(strippingNewline: true) {
                 guard !line.isEmpty else { continue }
+                let byteCount = line.lengthOfBytes(using: .utf8)
                 let result = SceneDaemonProtocol.decodeCommand(Data(line.utf8))
-                DispatchQueue.main.async { [weak self] in
-                    guard let self, !self.isShuttingDown else { return }
-                    switch result {
-                    case let .success(command): self.handle(command)
-                    case let .failure(failure):
-                        self.emitError(
-                            code: failure.code,
-                            message: String(describing: failure)
-                        )
+                guard commands.submit(
+                    result,
+                    byteCount: byteCount,
+                    scheduleDrain: {
+                        DispatchQueue.main.async { [weak self] in
+                            self?.drainPendingCommands()
+                        }
                     }
+                ) else {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.handleCommandAdmissionOverflow()
+                    }
+                    break
                 }
             }
             DispatchQueue.main.async { [weak self] in
                 self?.shutdown(exitCode: 0)
             }
         }
+    }
+
+    private func drainPendingCommands() {
+        guard !isShuttingDown else { return }
+        while !isShuttingDown, let pending = commands.takeNext() {
+            switch pending {
+            case let .droppable(frame):
+                handle(.publishAudioSpectrum(frame))
+            case let .control(result, _):
+                switch result {
+                case let .success(command): handle(command)
+                case let .failure(failure):
+                    emitError(
+                        code: failure.code,
+                        message: String(describing: failure)
+                    )
+                }
+            }
+        }
+    }
+
+    private func handleCommandAdmissionOverflow() {
+        guard !isShuttingDown else { return }
+        emitError(
+            code: "command-backpressure-overflow",
+            message: "Scene daemon command backlog exceeded its bounded budget"
+        )
+        shutdown(exitCode: 70)
     }
 
     private func handle(_ command: SceneDaemonCommand) {
@@ -171,6 +288,31 @@ final class SceneDaemonRuntime {
         case let .setMuted(muted):
             PlaybackMuteState.shared.setMuted(muted)
             host.soundPlaybackRegistry?.setMuted(muted)
+        case let .publishAudioSpectrum(frame):
+            let accepted = SceneAudioSpectrumInbox.shared.publishSystemCapture(
+                left: frame.left,
+                right: frame.right,
+                left32: frame.left32,
+                right32: frame.right32,
+                left64: frame.left64,
+                right64: frame.right64,
+                token: frame.captureToken
+            )
+            if accepted, !didReportNonSilentAudioPublication {
+                let peak = (
+                    frame.left64 + frame.right64
+                ).max() ?? 0
+                guard peak > 0 else { return }
+                didReportNonSilentAudioPublication = true
+                emit([
+                    "v": SceneDaemonProtocol.version,
+                    "event": "audioSpectrumPublished",
+                    "scopeEpoch": frame.captureToken.scopeEpoch,
+                    "includesDaemonProcessOutput": frame.captureToken
+                        .includesCurrentProcessOutput,
+                    "peak": peak
+                ])
+            }
         case .pause:
             shouldPausePlayback = true
             host.setPlaybackPaused(true)
@@ -180,6 +322,33 @@ final class SceneDaemonRuntime {
         case .shutdown:
             shutdown(exitCode: 0)
         }
+    }
+
+    private func installAudioSpectrumDemandBridge() {
+        SceneAudioSpectrumInbox.shared.setDemandObserver { [weak self] demand in
+            DispatchQueue.main.async { [weak self] in
+                guard let self, !self.isShuttingDown else { return }
+                self.publishAudioSpectrumDemand(demand)
+            }
+        }
+        publishAudioSpectrumDemand(
+            SceneAudioSpectrumInbox.shared.captureDemand
+        )
+    }
+
+    private func publishAudioSpectrumDemand(
+        _ demand: SceneAudioSpectrumCaptureDemand
+    ) {
+        guard demand != audioDemand else { return }
+        audioDemand = demand
+        didReportNonSilentAudioPublication = false
+        emit([
+            "v": SceneDaemonProtocol.version,
+            "event": "audioSpectrumDemandChanged",
+            "requiresSpectrum": demand.requiresSpectrum,
+            "includesDaemonProcessOutput": demand.includesCurrentProcessOutput,
+            "scopeEpoch": demand.scopeEpoch
+        ])
     }
 
     private func installObservers() {
@@ -287,6 +456,8 @@ final class SceneDaemonRuntime {
     private func shutdown(exitCode: Int32) {
         guard !isShuttingDown else { return }
         isShuttingDown = true
+        SceneAudioSpectrumInbox.shared.setDemandObserver(nil)
+        commands.clear()
         statsTimer?.cancel()
         statsTimer = nil
         host.stopAndDrainGPU { [writer] drained in

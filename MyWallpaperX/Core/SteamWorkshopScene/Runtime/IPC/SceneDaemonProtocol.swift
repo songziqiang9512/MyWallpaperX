@@ -19,9 +19,23 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
     case setDisplayConfiguration([SceneScreenTopology])
     case setPerformanceProfile(PlaybackPerformanceProfile)
     case setMuted(Bool)
+    case publishAudioSpectrum(SceneDaemonAudioSpectrumFrame)
     case pause
     case resume
     case shutdown
+}
+
+/// Latest-only audio payload crossing from the main-App capture owner into the
+/// Scene daemon. The token is expressed in the daemon's demand scope; the main
+/// App's system tap has its own process-relative inclusion policy.
+nonisolated struct SceneDaemonAudioSpectrumFrame: Equatable, Sendable {
+    let left: [Float]
+    let right: [Float]
+    let left32: [Float]
+    let right32: [Float]
+    let left64: [Float]
+    let right64: [Float]
+    let captureToken: SceneAudioSpectrumCaptureToken
 }
 
 nonisolated enum SceneDaemonProtocolFailure: Error, Equatable {
@@ -37,6 +51,23 @@ nonisolated enum SceneDaemonProtocolFailure: Error, Equatable {
         case .unsupportedCommand: "unsupported-command"
         case .invalidPayload: "invalid-command-payload"
         }
+    }
+}
+
+/// Pure admission rule for events arriving from an asynchronous child stdout.
+/// A numeric generation alone is insufficient during graceful retirement,
+/// because queued frames can arrive before that generation's termination event.
+nonisolated struct SceneDaemonEventAdmission: Equatable, Sendable {
+    let sessionGeneration: UInt64
+    let hasActiveTransport: Bool
+    let generationIsRetiring: Bool
+    let terminationIsExpected: Bool
+
+    func accepts(generation: UInt64) -> Bool {
+        generation == sessionGeneration
+            && hasActiveTransport
+            && !generationIsRetiring
+            && !terminationIsExpected
     }
 }
 
@@ -111,6 +142,50 @@ nonisolated enum SceneDaemonProtocol {
                 return .failure(.invalidPayload(action))
             }
             return .success(.setMuted(muted))
+        case "publishAudioSpectrum":
+            guard let left = spectrumLevels(
+                    payload["left"],
+                    count: SceneAudioSpectrumSnapshot.bandCount
+                  ),
+                  let right = spectrumLevels(
+                    payload["right"],
+                    count: SceneAudioSpectrumSnapshot.bandCount
+                  ),
+                  let left32 = spectrumLevels(
+                    payload["left32"],
+                    count: SceneAudioSpectrumSnapshot.mediumBandCount
+                  ),
+                  let right32 = spectrumLevels(
+                    payload["right32"],
+                    count: SceneAudioSpectrumSnapshot.mediumBandCount
+                  ),
+                  let left64 = spectrumLevels(
+                    payload["left64"],
+                    count: SceneAudioSpectrumSnapshot.extendedBandCount
+                  ),
+                  let right64 = spectrumLevels(
+                    payload["right64"],
+                    count: SceneAudioSpectrumSnapshot.extendedBandCount
+                  ),
+                  let scopeEpoch = unsignedInteger(payload["scopeEpoch"]),
+                  scopeEpoch > 0,
+                  let includesDaemonProcessOutput = boolean(
+                    payload["includesDaemonProcessOutput"]
+                  ) else {
+                return .failure(.invalidPayload(action))
+            }
+            return .success(.publishAudioSpectrum(.init(
+                left: left,
+                right: right,
+                left32: left32,
+                right32: right32,
+                left64: left64,
+                right64: right64,
+                captureToken: .init(
+                    scopeEpoch: scopeEpoch,
+                    includesCurrentProcessOutput: includesDaemonProcessOutput
+                )
+            )))
         case "pause": return .success(.pause)
         case "resume": return .success(.resume)
         case "shutdown": return .success(.shutdown)
@@ -225,5 +300,21 @@ nonisolated enum SceneDaemonProtocol {
               CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
         let value = number.doubleValue
         return value.isFinite ? value : nil
+    }
+
+    private static func spectrumLevels(_ raw: Any?, count: Int) -> [Float]? {
+        guard let values = raw as? [Any], values.count == count else {
+            return nil
+        }
+        var result: [Float] = []
+        result.reserveCapacity(count)
+        for rawValue in values {
+            guard let value = finiteDouble(rawValue), value >= 0,
+                  value <= Double(Float.greatestFiniteMagnitude) else {
+                return nil
+            }
+            result.append(Float(value))
+        }
+        return result
     }
 }

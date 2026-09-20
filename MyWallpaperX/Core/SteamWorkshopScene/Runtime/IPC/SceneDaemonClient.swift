@@ -22,12 +22,24 @@ nonisolated struct SceneDaemonClientFailure: Equatable, Sendable {
     let recordID: String?
 }
 
+nonisolated struct SceneDaemonAudioSpectrumPublication: Equatable, Sendable {
+    let scopeEpoch: UInt64
+    let includesDaemonProcessOutput: Bool
+    let peak: Float
+}
+
 extension Notification.Name {
     static let sceneDaemonFrameStatsDidChange = Notification.Name(
         "SceneDaemonFrameStatsDidChange"
     )
     static let sceneDaemonClientDidFail = Notification.Name(
         "SceneDaemonClientDidFail"
+    )
+    static let sceneDaemonAudioSpectrumDemandDidChange = Notification.Name(
+        "SceneDaemonAudioSpectrumDemandDidChange"
+    )
+    static let sceneDaemonAudioSpectrumDidPublish = Notification.Name(
+        "SceneDaemonAudioSpectrumDidPublish"
     )
 }
 
@@ -55,6 +67,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var launchState: SceneWallpaperLaunchState?
     var latestFrameStats: SceneDaemonFrameStats?
     var activeRecordID: String?
+    var audioSpectrumDemand = SceneAudioSpectrumCaptureDemand.none
+    var audioSpectrumDemandGeneration: UInt64?
 
     var activeIntent: ScenePlaybackLoadRequest?
     var pendingIntent: ScenePlaybackLoadRequest?
@@ -245,6 +259,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         pendingPropertyRevisions.removeAll(keepingCapacity: true)
         activeRecordID = nil
         endpointReady = false
+        revokeAudioSpectrumDemand(generation: sessionGeneration)
         latestFrameStats = nil
         restartBackoff.reset()
         guard let transport else { return }
@@ -418,6 +433,40 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             options: [.sortedKeys]
         ), transport?.send(data) == true else {
             transport?.terminate()
+            return
+        }
+    }
+
+    func publishAudioSpectrum(
+        left: [Float],
+        right: [Float],
+        left32: [Float],
+        right32: [Float],
+        left64: [Float],
+        right64: [Float],
+        token: SceneAudioSpectrumCaptureToken,
+        generation: UInt64
+    ) {
+        guard generation == sessionGeneration,
+              endpointReady,
+              audioSpectrumDemandGeneration == generation,
+              audioSpectrumDemand.requiresSpectrum,
+              audioSpectrumDemand.scopeEpoch == token.scopeEpoch,
+              audioSpectrumDemand.includesCurrentProcessOutput
+                == token.includesCurrentProcessOutput else { return }
+        guard let data = try? DaemonNewlineJSON.encodeJSONObject([
+            "v": SceneDaemonProtocol.version,
+            "cmd": "publishAudioSpectrum",
+            "left": left,
+            "right": right,
+            "left32": left32,
+            "right32": right32,
+            "left64": left64,
+            "right64": right64,
+            "scopeEpoch": token.scopeEpoch,
+            "includesDaemonProcessOutput": token.includesCurrentProcessOutput
+        ], options: [.sortedKeys]),
+              transport?.sendLatest(data) == true else {
             return
         }
     }

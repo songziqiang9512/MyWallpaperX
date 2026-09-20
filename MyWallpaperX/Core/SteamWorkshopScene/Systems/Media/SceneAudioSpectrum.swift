@@ -131,6 +131,98 @@ nonisolated struct SceneAudioSpectrumCaptureToken: Equatable, Sendable {
     let includesCurrentProcessOutput: Bool
 }
 
+/// One bounded latest-only handoff. Producers can submit while the consumer
+/// queue is blocked without accumulating one closure/value pair per frame.
+final class LatestValueHandoff<Value: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var latestValue: Value?
+    private var drainScheduled = false
+
+    func submit(_ value: Value, scheduleDrain: () -> Void) {
+        lock.lock()
+        latestValue = value
+        let shouldSchedule = !drainScheduled
+        drainScheduled = true
+        lock.unlock()
+        if shouldSchedule { scheduleDrain() }
+    }
+
+    func takeLatest() -> Value? {
+        lock.lock()
+        let value = latestValue
+        latestValue = nil
+        drainScheduled = false
+        lock.unlock()
+        return value
+    }
+
+    /// The already scheduled drain retains the single wakeup and may consume a
+    /// newer value submitted after this invalidation.
+    func discardPendingValue() {
+        lock.lock()
+        latestValue = nil
+        lock.unlock()
+    }
+}
+
+/// One mutually exclusive destination for the App-owned system capture.
+nonisolated enum SceneAudioSpectrumCaptureRoute: Equatable, Sendable {
+    case none
+    case local(SceneAudioSpectrumCaptureDemand)
+    case daemon(SceneAudioSpectrumCaptureDemand, generation: UInt64)
+
+    /// This is the process running the system tap, not necessarily the process
+    /// that owns the target inbox.
+    var includesCaptureProcessOutput: Bool {
+        switch self {
+        case .none, .daemon: false
+        case let .local(demand): demand.includesCurrentProcessOutput
+        }
+    }
+}
+
+/// Pure routing state for the single capture producer. Route changes receive an
+/// App-owned epoch so callbacks from a retiring tap cannot publish into a new
+/// local/daemon target even when daemon-local scope values coincide.
+nonisolated struct SceneAudioSpectrumCaptureRoutingState: Equatable, Sendable {
+    private(set) var route = SceneAudioSpectrumCaptureRoute.none
+    private(set) var scopeEpoch: UInt64 = 0
+    private var nextScopeEpoch: UInt64 = 1
+
+    static func resolvedRoute(
+        captureAllowed: Bool,
+        debugFixtureOwnsInbox: Bool,
+        localDemand: SceneAudioSpectrumCaptureDemand,
+        daemonDemand: SceneAudioSpectrumCaptureDemand,
+        daemonGeneration: UInt64?
+    ) -> SceneAudioSpectrumCaptureRoute {
+        guard captureAllowed, !debugFixtureOwnsInbox else { return .none }
+        if daemonDemand.requiresSpectrum, let daemonGeneration {
+            return .daemon(daemonDemand, generation: daemonGeneration)
+        }
+        if localDemand.requiresSpectrum {
+            return .local(localDemand)
+        }
+        return .none
+    }
+
+    @discardableResult
+    mutating func update(route requestedRoute: SceneAudioSpectrumCaptureRoute) -> Bool {
+        guard route != requestedRoute else { return false }
+        route = requestedRoute
+        scopeEpoch = nextScopeEpoch
+        nextScopeEpoch &+= 1
+        return true
+    }
+
+    func accepts(_ token: SceneAudioSpectrumCaptureToken) -> Bool {
+        route != .none
+            && token.scopeEpoch == scopeEpoch
+            && token.includesCurrentProcessOutput
+                == route.includesCaptureProcessOutput
+    }
+}
+
 /// 采集线程与渲染线程之间的单一交汇点。
 ///
 /// 采集在 `SystemAudioSpectrumService` 的串行队列上产生快照，Scene 渲染在主线程读取。
@@ -161,7 +253,7 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
     private var nextCaptureScopeEpoch: UInt64 = 1
     private var publishedAtUptime: TimeInterval?
     private var demand = SceneAudioSpectrumCaptureDemand.none
-    private var demandObserver: ((Bool) -> Void)?
+    private var demandObserver: ((SceneAudioSpectrumCaptureDemand) -> Void)?
     private var hasLoggedNonSilentPublication = false
     private let uptime: @Sendable () -> TimeInterval
 
@@ -310,6 +402,7 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
     /// process set still matches the active Scene demand. A demand transition
     /// therefore rejects callbacks from the retiring tap before its async stop
     /// has completed, rather than relabeling an old-source frame as new input.
+    @discardableResult
     func publishSystemCapture(
         left: [Float],
         right: [Float],
@@ -318,7 +411,7 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
         left64: [Float],
         right64: [Float],
         token: SceneAudioSpectrumCaptureToken
-    ) {
+    ) -> Bool {
         publish(
             left: left,
             right: right,
@@ -330,6 +423,7 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
         )
     }
 
+    @discardableResult
     private func publish(
         left: [Float],
         right: [Float],
@@ -338,7 +432,7 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
         left64: [Float],
         right64: [Float],
         requiredCaptureToken: SceneAudioSpectrumCaptureToken?
-    ) {
+    ) -> Bool {
         os_unfair_lock_lock(&lock)
         if let requiredCaptureToken,
            (!demand.requiresSpectrum
@@ -346,7 +440,7 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
             || demand.includesCurrentProcessOutput
                 != requiredCaptureToken.includesCurrentProcessOutput) {
             os_unfair_lock_unlock(&lock)
-            return
+            return false
         }
         let generation = nextGeneration
         nextGeneration &+= 1
@@ -380,6 +474,7 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
                 includesCurrentProcessOutput ? "true" : "false"
             )
         }
+        return true
     }
 
     /// 声明/撤销 Scene 侧的采集需求。
@@ -429,11 +524,13 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
         }
         let observer = demandObserver
         os_unfair_lock_unlock(&lock)
-        observer?(requestedDemand.requiresSpectrum)
+        observer?(requestedDemand)
     }
 
     /// 由播放引擎注册，用于在需求变化时重新协调采集状态。
-    func setDemandObserver(_ observer: ((Bool) -> Void)?) {
+    func setDemandObserver(
+        _ observer: ((SceneAudioSpectrumCaptureDemand) -> Void)?
+    ) {
         os_unfair_lock_lock(&lock)
         demandObserver = observer
         os_unfair_lock_unlock(&lock)
@@ -464,15 +561,16 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
         } else {
             scopeEpoch = previousDemand.scopeEpoch
         }
-        demand = SceneAudioSpectrumCaptureDemand(
+        let resetDemand = SceneAudioSpectrumCaptureDemand(
             requiresSpectrum: false,
             includesCurrentProcessOutput: false,
             scopeEpoch: scopeEpoch
         )
+        demand = resetDemand
         let observer = demandObserver
         os_unfair_lock_unlock(&lock)
         if previousDemand.requiresSpectrum {
-            observer?(false)
+            observer?(resetDemand)
         }
     }
 }

@@ -168,6 +168,5 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
         self.assertNotIn("self.clearLaunchPending()", terminal)
         self.assertNotIn("self?.clearLaunchPending()", terminal)
 
-
 if __name__ == "__main__":
     unittest.main()

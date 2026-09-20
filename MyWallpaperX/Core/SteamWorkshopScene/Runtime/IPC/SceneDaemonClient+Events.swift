@@ -4,7 +4,9 @@ import Foundation
 @MainActor
 extension SceneDaemonClient {
     func consumeOutput(_ data: Data, generation: UInt64) {
-        guard generation == sessionGeneration else { return }
+        guard activeEventAdmission.accepts(generation: generation) else {
+            return
+        }
         for frame in outputFrames.append(data) {
             guard let payload = try? JSONSerialization.jsonObject(with: frame)
                     as? [String: Any],
@@ -28,6 +30,10 @@ extension SceneDaemonClient {
             case "firstFramePresented": handleFirstFrame(payload)
             case "frameStats": handleFrameStats(payload)
             case "propertyUpdateResult": handlePropertyUpdateResult(payload)
+            case "audioSpectrumDemandChanged":
+                handleAudioSpectrumDemand(payload, generation: generation)
+            case "audioSpectrumPublished":
+                handleAudioSpectrumPublication(payload, generation: generation)
             case "error":
                 publishFailure(
                     code: payload["code"] as? String ?? "daemon-error",
@@ -158,12 +164,95 @@ extension SceneDaemonClient {
         requestLaunch(request)
     }
 
+    private func handleAudioSpectrumDemand(
+        _ payload: [String: Any],
+        generation: UInt64
+    ) {
+        guard endpointReady,
+              activeEventAdmission.accepts(generation: generation),
+              let requiresSpectrum = payload["requiresSpectrum"] as? Bool,
+              let includesDaemonProcessOutput = payload[
+                "includesDaemonProcessOutput"
+              ] as? Bool,
+              let scopeEpoch = Self.unsignedInteger(payload["scopeEpoch"]),
+              (!requiresSpectrum || scopeEpoch > 0),
+              requiresSpectrum || !includesDaemonProcessOutput else {
+            publishFailure(
+                code: "malformed-event",
+                message: "Invalid Scene audio spectrum demand"
+            )
+            return
+        }
+        let demand = SceneAudioSpectrumCaptureDemand(
+            requiresSpectrum: requiresSpectrum,
+            includesCurrentProcessOutput: includesDaemonProcessOutput,
+            scopeEpoch: scopeEpoch
+        )
+        guard audioSpectrumDemandGeneration != generation
+                || audioSpectrumDemand != demand else { return }
+        audioSpectrumDemand = demand
+        audioSpectrumDemandGeneration = generation
+        WallpaperEngine.shared.setSceneDaemonAudioSpectrumDemand(
+            demand,
+            generation: generation
+        )
+        NotificationCenter.default.post(
+            name: .sceneDaemonAudioSpectrumDemandDidChange,
+            object: demand
+        )
+    }
+
+    private func handleAudioSpectrumPublication(
+        _ payload: [String: Any],
+        generation: UInt64
+    ) {
+        guard endpointReady,
+              activeEventAdmission.accepts(generation: generation),
+              audioSpectrumDemandGeneration == generation,
+              let scopeEpoch = Self.unsignedInteger(payload["scopeEpoch"]),
+              let includesDaemonProcessOutput = payload[
+                "includesDaemonProcessOutput"
+              ] as? Bool,
+              let peakValue = Self.double(payload["peak"]),
+              peakValue.isFinite, peakValue > 0,
+              scopeEpoch == audioSpectrumDemand.scopeEpoch,
+              includesDaemonProcessOutput
+                == audioSpectrumDemand.includesCurrentProcessOutput else {
+            return
+        }
+        NotificationCenter.default.post(
+            name: .sceneDaemonAudioSpectrumDidPublish,
+            object: SceneDaemonAudioSpectrumPublication(
+                scopeEpoch: scopeEpoch,
+                includesDaemonProcessOutput: includesDaemonProcessOutput,
+                peak: Float(peakValue)
+            )
+        )
+    }
+
+    func revokeAudioSpectrumDemand(generation: UInt64) {
+        guard audioSpectrumDemandGeneration == generation else { return }
+        let hadDemand = audioSpectrumDemand.requiresSpectrum
+        audioSpectrumDemand = .none
+        audioSpectrumDemandGeneration = nil
+        guard hadDemand else { return }
+        WallpaperEngine.shared.setSceneDaemonAudioSpectrumDemand(
+            .none,
+            generation: generation
+        )
+        NotificationCenter.default.post(
+            name: .sceneDaemonAudioSpectrumDemandDidChange,
+            object: SceneAudioSpectrumCaptureDemand.none
+        )
+    }
+
     func handleTermination(status: Int32, generation: UInt64) {
         if let retiring = retiringTransports.removeValue(forKey: generation) {
             retiring.closeIO()
             retiringResourceLifetimes.removeValue(forKey: generation)
         }
         if expectedTerminationGenerations.remove(generation) != nil {
+            revokeAudioSpectrumDemand(generation: generation)
             finishShutdownIfPossible()
             return
         }
@@ -174,6 +263,7 @@ extension SceneDaemonClient {
         transport = nil
         endpointReady = false
         latestFrameStats = nil
+        revokeAudioSpectrumDemand(generation: generation)
 
         let recoveryUsesPendingIntent = pendingIntent != nil
         let recoveryIntent = pendingIntent ?? activeIntent
@@ -190,6 +280,17 @@ extension SceneDaemonClient {
         pendingIntent = recoveryIntent
         pendingResourceLifetime = recoveryResourceLifetime
         scheduleRestart(reason: "daemon-exited-\(status)")
+    }
+
+    private var activeEventAdmission: SceneDaemonEventAdmission {
+        SceneDaemonEventAdmission(
+            sessionGeneration: sessionGeneration,
+            hasActiveTransport: transport != nil,
+            generationIsRetiring: retiringTransports[sessionGeneration] != nil,
+            terminationIsExpected: expectedTerminationGenerations.contains(
+                sessionGeneration
+            )
+        )
     }
 
     func scheduleRestart(reason: String) {
