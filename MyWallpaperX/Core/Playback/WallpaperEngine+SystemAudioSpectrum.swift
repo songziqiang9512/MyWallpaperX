@@ -70,7 +70,6 @@ extension WallpaperEngine {
         peakCapsEnabled: Bool
     ) {
         let normalizedBarCount = max(12, min(48, barCount))
-        let previousBarCount = currentSystemAudioSpectrumBarCount
         currentSystemAudioSpectrumEnabled = enabled
         currentSystemAudioSpectrumColorHex = colorHex
         currentSystemAudioSpectrumOffsetX = max(-0.35, min(0.35, offsetX))
@@ -80,11 +79,11 @@ extension WallpaperEngine {
         currentSpectrumLevels = Array(repeating: 0, count: normalizedBarCount)
         lastSpectrumPushAt = 0
 
-        if normalizedBarCount != previousBarCount {
-            systemAudioSpectrumService.setConsumers(overlayEnabled: false, webEnabled: false)
-            systemAudioSpectrumService = makeSystemAudioSpectrumService(barCount: normalizedBarCount)
-        }
-        systemAudioSpectrumService.updateConfiguration(style: style, sensitivity: sensitivity)
+        systemAudioSpectrumService.updateConfiguration(
+            style: style,
+            sensitivity: sensitivity,
+            barCount: normalizedBarCount
+        )
         refreshSystemAudioSpectrumCapture()
 
         if currentPlaybackContentKind == .web {

@@ -106,7 +106,7 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         host = HOST_SOURCE.read_text(encoding="utf-8")
         activate = swift_body(
             host,
-            "func activate(_ context: SceneDesktopWallpaperLaunchContext) throws",
+            "func activate(",
         )
         demand_index = activate.index(
             "updateAudioSpectrumDemand(context, hasParticleAudioConsumer: false)"

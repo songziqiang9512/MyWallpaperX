@@ -67,6 +67,14 @@ P0 续跑状态（2026-09-18 08:xx 更新，事实覆盖至 `c60d26a9` 及其后
 - **基础设施与边界（操作纪律）**：基线数据 `/private/tmp/mwx-fullset-baseline/`（瞬态目录，关键结论已抄录运行证据页 P03 证据包）；presentation 遥测必须单实例串行+前台+caffeinate（并行/锁屏/遮挡都会全灭）；`launch-program-failure` NSLog 在默认救援成功时也打印，勿据此归因；新 Swift 文件须同步测试源清单与 `scene_swift_source_sets.json`；新 python compile+run 测试会被 Mimosa hook 误拦，走 evidence 手动门；`--phase inner` 跳过 semantics_coverage，文档批须显式跑。
 - **残留小项**：样本根注入的 `shaders/blobsSM40` 写入者未查（低优先）；P0.2 引用门 5 条 P3（`97a179a9` 批记录，线上影响为零）；`3780119725` actual-present intervals 偶发（复检 PASS）。
 
+### Q1.4 — 音频频谱与采集生命周期（2026-09-20 当前态）
+
+**本批首断点已修复：**当前提交前二进制从已有 `exclude-current-process` tap 切到 Scene Sound 所需 `include-current-process` 时，同步 destroy→create 会先触发一次 CoreAudio `OSStatus 560947818 / !obj`，等待 retry 后才恢复，造成约 2.39 秒无 Scene publication。`SystemAudioSpectrumService` 现在按 IOProc→aggregate→tap 检查每个销毁结果；失败 identity 保留并由同一服务重试，全部成功或明确已不存在后才记录 monotonic 1 秒 retirement deadline。IOProc 尚存时不再清空 callback-owned stream format/buffer/throttle state，只有 IOProc 已销毁或确认不存在后才在 capture queue 重置。scope 换代、configuration invalidation 与 demand stop→快速 restart 统一走一个 `startCaptureIfNeeded` gate，并以 restart sequence、scope epoch、process scope、active consumer 共同拒绝 stale closure。overlay 柱数变化只换队列内 analyzer，不再替换服务或撤销 Web/Scene consumer；无旧资源的初次启动仍立即执行。旧 restart wrapper 已由公共 gate 取代，未保留 scope 专用 wrapper；没有第二 tap、FFT、provider 或 registry。
+
+**当前验证与证据：**最终音频相关 8 模块 **84/84 PASS**，含 Web+Scene 活跃时柱数切换、stop/IOProc/aggregate/tap 四类部分失败、callback state 不早退役及 stale generation 不读 buffer 的反例；checkpoint 与 Developer ID Debug build 均成功。同批前一产品 identity `CDHash=519c64b9a8baa3e616da70987d40daf7608d30bb` 实际完成 exclude→retirement wait→include generation 2、全程无 `!obj`；随后 callback 并发加固使二进制 identity 变化，因此该 transition 不冒充最终构建 fresh 证据。最终 App `CDHash=c91a01c63e2cef52b09909baa20984497d2d8736` 对真实只读 `3780119725` 定向 **1/1 PASS / failures=[]**，隔离 HOME 无旧 consumer，直接启动 include generation 1；32-band layers `436/594/666`、64-band layer `380` 与 layer `378` generic SceneScript particle rate 均消费同一非零 generation，195/194/0 frame、0 drawable miss，原分辨率 after 帧可见底部频谱条。transition/final report 与双运行 manifest SHA-256=`782533e15f5d69cf193aacb02cdf178722121c72468274d88afe605f47e845a2 / e75f573d52b92a90f17ff79120e06f1088bafeb903bbd8cb2d3d20998757c34b / 58086f8ac90afe77bb111f10078805c6eaf430719585fcec7ee267beb6df97ac`；详见 [current evidence](semantics/runtime-evidence-current.md#e-2026-09-20-audio-capture-resource-retirement)。
+
+**仍开放而不得算通过：**这仍是隔离 Debug benchmark，不替代 P0.3 普通 App→client→daemon→`requestLaunch` 当前全集基线；1 秒是本机可复现 retirement 边界，不是 Apple 固定时序。最终 identity 下的真实 exclude→include transition 与可控 teardown error 尚未执行；系统 tap 可能混入其他进程声音；wallpaper-local 独立幅度、官方 FFT bins/归一化/平滑数值、固定同输入官方对照、长稳、多屏、暂停/锁屏/睡眠和设备热插拔恢复均未验证。后续音频批只在 fresh 首断点或上述场景证据出现时继续扩实现，不能因本次单样本 PASS 宣称频谱兼容完成。
+
 ### Q1.5 — 指针/鼠标交互缺陷簇（2026-09-19 用户实机观察，P2 优先）
 
 用户实机反馈聚成一类：**指针坐标管线**（mouse → typed frame update → effect 消费）的方向/偏移缺陷。

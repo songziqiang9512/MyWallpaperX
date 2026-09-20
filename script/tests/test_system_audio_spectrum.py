@@ -429,7 +429,7 @@ class SystemAudioSpectrumTests(unittest.TestCase):
         self.assertIn("_ token: SceneAudioSpectrumCaptureToken", callback_declaration)
 
         start_capture = source[
-            source.index("private func startCaptureIfNeeded()")
+            source.index("private func startCaptureIfNeeded(")
             : source.index("private func reconcileCaptureState()")
         ]
         self.assertIn("let resourceGeneration = captureResourceGeneration", start_capture)
@@ -459,7 +459,7 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             "Scene callback must report the captured frame's immutable scope token",
         )
 
-    def test_scope_change_cancels_recovery_before_immediate_reconcile(self) -> None:
+    def test_scope_change_delays_only_live_resource_replacement(self) -> None:
         source = SERVICE_SOURCE.read_text(encoding="utf-8")
         set_consumers = source[
             source.index("func setConsumers(") : source.index("func updateConfiguration(")
@@ -476,7 +476,8 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             r"self\.captureRetryWorkItem = nil\s*"
             r"self\.captureRetryAttempt = 0\s*"
             r"self\.cancelCaptureRestart\(\).*?"
-            r"if self\.hasCaptureResources \{\s*self\.stopCapture\(\)\s*\}\s*"
+            r"if self\.hasCaptureResources \{\s*"
+            r"self\.stopCapture\(\)\s*\}\s*"
             r"\}\s*self\.reconcileCaptureState\(\)",
         )
 
@@ -493,6 +494,29 @@ class SystemAudioSpectrumTests(unittest.TestCase):
         self.assertIn("token in", scene_wiring)
         self.assertIn("token: token", scene_wiring)
         self.assertIn("sceneCaptureScopeEpoch: sceneDemand.scopeEpoch", source)
+
+    def test_bar_count_reconfigures_the_stable_capture_service(self) -> None:
+        source = ENGINE_SOURCE.read_text(encoding="utf-8")
+        configuration = source[
+            source.index("public func configureSystemAudioSpectrum(")
+            : source.index("func setWebAudioSpectrumRequested(")
+        ]
+        self.assertNotIn(
+            "systemAudioSpectrumService =",
+            configuration,
+            "presentation changes must not replace the shared capture owner",
+        )
+        self.assertNotIn(
+            "systemAudioSpectrumService.setConsumers(overlayEnabled: false",
+            configuration,
+            "bar-count changes must not tear down Web/Scene capture",
+        )
+        self.assertRegex(
+            configuration,
+            r"systemAudioSpectrumService\.updateConfiguration\(\s*"
+            r"style: style,\s*sensitivity: sensitivity,\s*"
+            r"barCount: normalizedBarCount\s*\)",
+        )
 
 
 if __name__ == "__main__":
