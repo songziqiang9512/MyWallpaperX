@@ -2,9 +2,10 @@
 import AppKit
 import Foundation
 
-/// Isolated shared daemon-control smoke: DEBUG dispatch -> Scene client ->
-/// same-binary daemon. It can either kill the first child to exercise
-/// restart/replay or switch to a second isolated sample through the same client.
+/// Isolated shared daemon-control smoke. The default path dispatches directly to
+/// the Scene client for control-plane recovery/switch tests. Product-entry mode
+/// instead uses SteamWorkshopService -> notification -> MainWindowCoordinator ->
+/// multiplexer -> Scene client -> same-binary daemon.
 @MainActor
 enum DebugSceneDaemonClientRunner {
     private static let flag = "--mwx-debug-scene-daemon-client"
@@ -39,15 +40,26 @@ enum DebugSceneDaemonClientRunner {
             && argumentValue(after: rootFlag) != nil
     }
 
+    static var requiresProductCoordinator: Bool {
+        DebugSceneProductEntryPolicy.requiresProductCoordinator(
+            arguments: ProcessInfo.processInfo.arguments
+        )
+    }
+
     static func scheduleIfRequested() {
         guard isRequested, let rootPath = argumentValue(after: rootFlag) else {
             return
         }
         let rootURL = URL(fileURLWithPath: rootPath, isDirectory: true)
             .resolvingSymlinksInPath().standardizedFileURL
-        let realSampleRoot = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Movies/MyWallpaperX/创意工坊/Scene")
-            .standardizedFileURL.path
+        guard let realWorkshopRoot = DebugSceneProductEntryPolicy
+            .protectedWorkshopRootURL() else {
+            NSLog("MWX SCENE CLIENT: phase=precondition-failed reason=account-home-unavailable")
+            NSApp.terminate(nil)
+            return
+        }
+        let realSampleRoot = realWorkshopRoot
+            .appendingPathComponent("Scene", isDirectory: true).path
         guard !rootURL.path.hasPrefix(realSampleRoot + "/") else {
             NSLog("MWX SCENE CLIENT: phase=precondition-failed reason=isolated-root-required")
             NSApp.terminate(nil)
@@ -77,18 +89,24 @@ enum DebugSceneDaemonClientRunner {
             )
         }
         installObservers()
-        let accepted = PlaybackCommandMultiplexer.shared.dispatch(
-            .loadScene(.init(
-                rootURL: rootURL,
-                propertyOverrides: [:],
-                userPropertyTextures: [:],
-                recordID: recordID
-            )),
-            to: .scene
-        )
+        let issued: Bool
+        if runsProductEntry {
+            issued = requestThroughSteamWorkshopProductEntry(rootURL: rootURL)
+        } else {
+            issued = PlaybackCommandMultiplexer.shared.dispatch(
+                .loadScene(.init(
+                    rootURL: rootURL,
+                    propertyOverrides: [:],
+                    userPropertyTextures: [:],
+                    recordID: recordID
+                )),
+                to: .scene
+            )
+        }
         NSLog(
-            "MWX SCENE CLIENT: phase=load-dispatched accepted=%@ root=%@",
-            accepted ? "true" : "false",
+            "MWX SCENE CLIENT: phase=load-dispatched entry=%@ issued=%@ root=%@",
+            runsProductEntry ? "steam-workshop-product" : "direct-client",
+            issued ? "true" : "false",
             rootURL.path
         )
         DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
@@ -241,6 +259,9 @@ enum DebugSceneDaemonClientRunner {
     }
 
     private static func finish() {
+        let client = SceneDaemonClient.shared
+        let observedDemand = audioSpectrumDemand ?? client.audioSpectrumDemand
+        let observedStats = latestStats ?? client.latestFrameStats
         let uniqueRequests = Set(firstPresentRequestIDs)
         let uniquePIDs = Set(daemonProcessIDs)
         let switchCompleted = switchRootURL != nil
@@ -256,26 +277,32 @@ enum DebugSceneDaemonClientRunner {
             "recoveredAfterForcedTermination": recovered,
             "switchCompletedInSameDaemon": switchCompleted,
             "stableDaemonClientRequested": runsStableDaemonClient,
-            "audioSpectrumDemanded": audioSpectrumDemand?.requiresSpectrum
-                ?? false,
-            "audioSpectrumScopeEpoch": audioSpectrumDemand?.scopeEpoch
-                ?? 0,
+            "sampleID": requestedSampleID,
+            "launchEntry": runsProductEntry
+                ? "steam-workshop-product"
+                : "direct-client",
+            "launchPhase": client.launchState?.phase.rawValue ?? "none",
+            "activeRecordID": client.activeRecordID ?? NSNull(),
+            "daemonProcessID": client.debugProcessIdentifier.map { Int($0) }
+                ?? NSNull(),
+            "audioSpectrumDemanded": observedDemand.requiresSpectrum,
+            "audioSpectrumScopeEpoch": observedDemand.scopeEpoch,
             "audioSpectrumPublicationCount": audioSpectrumPublications.count,
             "audioSpectrumPublicationPeaks": audioSpectrumPublications.map(\.peak),
             "failures": failures
         ]
-        if let latestStats {
+        if let observedStats {
             result["latestStats"] = [
-                "rendered": latestStats.rendered,
-                "busy": latestStats.busy,
-                "dropped": latestStats.dropped,
-                "drawCalls": latestStats.drawCalls,
-                "pipelineStateBinds": latestStats.pipelineStateBinds,
-                "geometryDrawCalls": latestStats.geometryDrawCalls,
-                "fallbackBranches": latestStats.fallbackBranches,
-                "gpuAllocatedBytes": latestStats.gpuAllocatedBytes,
-                "renderTargetPoolBytes": latestStats.renderTargetPoolBytes,
-                "cpuFrameMs": latestStats.cpuFrameMs.map { $0 as Any }
+                "rendered": observedStats.rendered,
+                "busy": observedStats.busy,
+                "dropped": observedStats.dropped,
+                "drawCalls": observedStats.drawCalls,
+                "pipelineStateBinds": observedStats.pipelineStateBinds,
+                "geometryDrawCalls": observedStats.geometryDrawCalls,
+                "fallbackBranches": observedStats.fallbackBranches,
+                "gpuAllocatedBytes": observedStats.gpuAllocatedBytes,
+                "renderTargetPoolBytes": observedStats.renderTargetPoolBytes,
+                "cpuFrameMs": observedStats.cpuFrameMs.map { $0 as Any }
                     ?? NSNull()
             ]
         }
@@ -325,6 +352,80 @@ enum DebugSceneDaemonClientRunner {
 
     private static var runsStableDaemonClient: Bool {
         ProcessInfo.processInfo.arguments.contains(stableDaemonClientFlag)
+    }
+
+    private static var runsProductEntry: Bool {
+        requiresProductCoordinator
+    }
+
+    private static var requestedSampleID: String {
+        argumentValue(after: rootFlag).map {
+            URL(fileURLWithPath: $0, isDirectory: true).lastPathComponent
+        } ?? ""
+    }
+
+    private static func requestThroughSteamWorkshopProductEntry(
+        rootURL: URL
+    ) -> Bool {
+        let fileManager = FileManager.default
+        guard let realUserHome = DebugSceneProductEntryPolicy
+                .protectedUserHomeURL(),
+              let realWorkshopRoot = DebugSceneProductEntryPolicy
+                .protectedWorkshopRootURL(),
+              runsStableDaemonClient,
+              switchRootURL == nil,
+              let rawWorkshopRoot = argumentValue(
+                after: "--mwx-debug-workshop-root"
+              ),
+              DebugSceneProductEntryPolicy.isolatedExistingDirectory(
+                rawPath: rawWorkshopRoot,
+                disjointFrom: realWorkshopRoot,
+                fileManager: fileManager
+              ) != nil,
+              DebugSceneProductEntryPolicy.isolatedExistingDirectory(
+                rawPath: rootURL.path,
+                disjointFrom: realWorkshopRoot,
+                fileManager: fileManager
+              ) != nil,
+              let fixedHome = ProcessInfo.processInfo.environment[
+                "CFFIXED_USER_HOME"
+              ],
+              DebugSceneProductEntryPolicy.isolatedExistingDirectory(
+                rawPath: fixedHome,
+                disjointFrom: realUserHome,
+                fileManager: fileManager
+              ) != nil,
+              argumentValue(after: "--mwx-debug-user-defaults-suite")
+                .map({ $0.hasPrefix("com.songziqiang.MyWallpaperX.Debug.") })
+                == true,
+              fileManager.fileExists(
+                atPath: rootURL.appendingPathComponent("project.json").path
+              ) else { return false }
+        let record = SteamWorkshopDownloadRecord(
+            id: recordID,
+            title: rootURL.lastPathComponent,
+            description: "Isolated Scene product-entry evidence",
+            tags: ["Scene"],
+            folderURL: rootURL,
+            projectFileURL: rootURL.appendingPathComponent("project.json"),
+            ownEntryHTMLURL: nil,
+            dependencyHostEntryHTMLURL: nil,
+            dependencyHostFolderURL: nil,
+            entryHTMLURL: nil,
+            resolvedWebRootURL: nil,
+            previewURL: nil,
+            sourceVideoURL: nil,
+            exportedVideoURL: nil,
+            updatedAt: Date(),
+            sizeText: "",
+            status: .ready,
+            browserItem: nil,
+            contentType: .scene,
+            dependencyItemID: nil,
+            dependencyStatus: .none
+        )
+        SteamWorkshopService.shared.requestSceneRender(record)
+        return true
     }
 
     private static func exerciseControlCommands() {

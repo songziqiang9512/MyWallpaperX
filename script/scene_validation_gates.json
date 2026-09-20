@@ -234,6 +234,7 @@
       "patterns": [
         "MyWallpaperX/App/AppDelegate.swift",
         "MyWallpaperX/App/DebugSceneDaemonClientRunner.swift",
+        "MyWallpaperX/App/DebugSceneProductEntryPolicy.swift",
         "MyWallpaperX/App/MainWindowCoordinator.swift",
         "MyWallpaperX/App/StatusBarController.swift",
         "MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift",
@@ -249,10 +250,12 @@
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift",
         "MyWallpaperX/Shared/UI/WallpaperRuntimeSwitch.swift",
         "script/tests/test_daemon_process_transport.py",
+        "script/tests/test_debug_scene_product_entry_policy.py",
         "script/tests/test_scene_daemon_client_wiring.py"
       ],
       "modules": [
         "test_daemon_process_transport",
+        "test_debug_scene_product_entry_policy",
         "test_playback_command_multiplexer",
         "test_scene_daemon_client_wiring",
         "test_scene_daemon_protocol"

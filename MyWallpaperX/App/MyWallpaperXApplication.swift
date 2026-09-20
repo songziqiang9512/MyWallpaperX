@@ -33,7 +33,8 @@ enum MyWallpaperXApplication {
         }
 #if DEBUG
         if !runsIsolatedWebWorkshopSample
-            && !DebugScenePlaybackRunner.runsIsolatedSceneSample {
+            && (!DebugScenePlaybackRunner.runsIsolatedSceneSample
+                || DebugSceneDaemonClientRunner.requiresProductCoordinator) {
             MainWindowCoordinator.configure(with: WallpaperManager.shared)
         }
 #else
