@@ -279,6 +279,16 @@ enum Harness {
             userPropertyDefinitions: [],
             generation: 7
         )
+        let eventOnlyAudioProgram = SceneScriptVectorProgram.compile(
+            domain: try SceneScriptQuickJSDomain(),
+            descriptor: descriptor(),
+            scriptBindings: [binding(source: """
+                const spectrum = engine.registerAudioBuffers(64);
+                export function mediaPlaybackChanged() {}
+                """)],
+            userPropertyDefinitions: [],
+            generation: 14
+        )
         let destroyProgram = SceneScriptVectorProgram.compile(
             domain: try SceneScriptQuickJSDomain(),
             descriptor: descriptor(),
@@ -489,9 +499,13 @@ enum Harness {
         )
         let dynamicSource = """
             export let __workshopId = '2727665642';
-            const audio = engine.registerAudioBuffers(16);
+            const audio = engine.registerAudioBuffers(64);
             const bars = [];
+            let isMediaPlaying = false;
+            let initCount = 0;
+            let mediaEventCount = 0;
             export function init() {
+                initCount += 1;
                 const index = thisScene.getLayerIndex(thisLayer);
                 for (let i = 0; i < 2; ++i) {
                     const bar = thisScene.createLayer({
@@ -505,6 +519,11 @@ enum Harness {
                     thisScene.sortLayer(bar, index);
                     bars.push(bar);
                 }
+            }
+            export function mediaPlaybackChanged(event) {
+                mediaEventCount += 1;
+                isMediaPlaying = event.state !== MediaPlaybackEvent.PLAYBACK_STOPPED;
+                for (const bar of bars) { bar.visible = isMediaPlaying; }
             }
             export function update(value) {
                 thisLayer.scale = new Vec3(2, 3, 1);
@@ -521,7 +540,7 @@ enum Harness {
                     bars[i].origin = new Vec3(i * 10, 0, 0);
                     bars[i].scale = new Vec3(1, audio.average[i] * 10, 1);
                 }
-                return value;
+                return initCount === 1 && mediaEventCount === 1 ? value : false;
             }
             """
         let dynamicProgram = SceneScriptVectorProgram.compile(
@@ -531,11 +550,30 @@ enum Harness {
             userPropertyDefinitions: [],
             generation: 11
         )
+        let dynamicAudio = SceneAudioSpectrumSnapshot(
+            left: Array(repeating: 0, count: 16),
+            right: Array(repeating: 0, count: 16),
+            left64: [1] + Array(repeating: 0, count: 63),
+            right64: [1] + Array(repeating: 0, count: 63),
+            generation: 1
+        )
         let dynamic = dynamicProgram.evaluate(
             inputs: [target: .bool(true)],
             effectivePropertyValues: [:],
-            frame: frame(runtime: 2)
+            frame: frame(runtime: 2),
+            mediaPlaybackEvent: .init(state: 1, generation: 1),
+            audioSpectrum: dynamicAudio
         )
+        let dynamicDuplicate = dynamicProgram.evaluate(
+            inputs: [target: .bool(true)],
+            effectivePropertyValues: [:],
+            frame: frame(runtime: 3),
+            mediaPlaybackEvent: .init(state: 1, generation: 1),
+            audioSpectrum: dynamicAudio
+        )
+        let dynamicCreated = dynamic.layerMutations.filter {
+            $0.isDynamic && $0.assetPath != nil
+        }
         let sharedTransactionDomain = try SceneScriptQuickJSDomain()
         let failedStyleProgram = SceneScriptVectorProgram.compile(
             domain: try SceneScriptQuickJSDomain(), descriptor: dynamicImageDescriptor(),
@@ -607,6 +645,8 @@ enum Harness {
             "hiddenHandleCode": failureCode(hiddenHandle) as Any,
             "timerCode": failureCode(timer) as Any,
             "audioDefinitions": audioProgram.definitions.count,
+            "eventOnlyAudioDefinitions":
+                eventOnlyAudioProgram.definitions.count,
             "destroyDefinitions": destroyProgram.definitions.count,
             "parentedProjected": parented.targets.count,
             "userWrappedProjected": userWrapped.targets.count,
@@ -649,8 +689,17 @@ enum Harness {
                 .map(\.callbackName).sorted() ?? [],
             "dynamicDefinitions": dynamicProgram.definitions.count,
             "dynamicHasAudio": dynamicProgram.hasAudioConsumers,
+            "dynamicMediaOwnerCount":
+                dynamicProgram.mediaOwnerRegistrations.count,
             "dynamicValue": boolValue(dynamic, target: target) as Any,
             "dynamicLayerCount": dynamic.layerMutations.count,
+            "dynamicMediaVisible": dynamicCreated.count == 2
+                && dynamicCreated.allSatisfy(\.visible),
+            "dynamicAudioScaleY": dynamicCreated.first?.scale.y ?? -1,
+            "dynamicFailureCount": dynamic.failures.count,
+            "dynamicDuplicateValue":
+                boolValue(dynamicDuplicate, target: target) as Any,
+            "dynamicDuplicateFailureCount": dynamicDuplicate.failures.count,
             "authoredStyleAlpha": dynamic.layerMutations.first(where: { !$0.isDynamic && $0.fields.contains(.alpha) })?.alpha ?? -1,
             "authoredStyleColorY": dynamic.layerMutations.first(where: { !$0.isDynamic && $0.fields.contains(.color) })?.color.y ?? -1,
             "failedStyleDiscarded": failedStyle.values.isEmpty && failedStyle.layerMutations.isEmpty && !failedStyle.failures.isEmpty,
@@ -794,7 +843,13 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
         self.assertTrue(self.value["failedStyleDiscarded"])
         self.assertEqual(self.value["dynamicDefinitions"], 1)
         self.assertTrue(self.value["dynamicHasAudio"])
+        self.assertEqual(self.value["dynamicMediaOwnerCount"], 1)
         self.assertTrue(self.value["dynamicValue"])
+        self.assertTrue(self.value["dynamicMediaVisible"])
+        self.assertEqual(self.value["dynamicAudioScaleY"], 10)
+        self.assertEqual(self.value["dynamicFailureCount"], 0)
+        self.assertTrue(self.value["dynamicDuplicateValue"])
+        self.assertEqual(self.value["dynamicDuplicateFailureCount"], 0)
         self.assertEqual(self.value["dynamicLayerCount"], 4)
         self.assertEqual(self.value["dynamicOwnerEffectsCount"], 1)
         self.assertTrue(self.value["dynamicOwnerEffectsTarget"])
@@ -813,6 +868,7 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
         self.assertIsNone(self.value["hiddenHandleCode"])
         self.assertEqual(self.value["timerCode"], "exception")
         self.assertEqual(self.value["audioDefinitions"], 1)
+        self.assertEqual(self.value["eventOnlyAudioDefinitions"], 0)
         self.assertEqual(self.value["destroyDefinitions"], 0)
         self.assertFalse(self.value["teardownDestroyInvoked"])
         self.assertTrue(self.value["teardownQuiescent"])

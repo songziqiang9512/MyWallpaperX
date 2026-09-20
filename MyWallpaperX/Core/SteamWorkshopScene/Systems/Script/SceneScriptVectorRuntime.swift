@@ -175,17 +175,16 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                 let handlesDestroy = try SceneScriptOwnerExportBridge.contains(
                     "destroy", owner: created
                 )
+                let hasMediaHook = handlesMediaThumbnail || handlesMediaPlayback
+                    || handlesMediaProperties || handlesMediaTimeline
                 // Cursor handlers are deliberately excluded: a cursor-bearing
                 // event-only owner would also be claimed by the standalone
                 // cursor program's borrow path and silently drop both. Such
                 // scripts stay rejected exactly as before this batch.
-                let hasEventHook = handlesMediaThumbnail || handlesMediaPlayback
-                    || handlesMediaProperties || handlesMediaTimeline
-                    || handlesUserProperties
+                let hasEventHook = hasMediaHook || handlesUserProperties
                 if handlesInit || handlesUpdate {
                     guard !handlesDestroy,
-                          !handlesMediaThumbnail, !handlesMediaPlayback,
-                          !handlesMediaProperties, !handlesMediaTimeline,
+                          (allowsStatefulLayerSideEffects || !hasMediaHook),
                           (allowsStatefulLayerSideEffects
                             || exportedCursorEvents.isEmpty),
                           (dynamicImagePathsByAuthoredIdentity.isEmpty
