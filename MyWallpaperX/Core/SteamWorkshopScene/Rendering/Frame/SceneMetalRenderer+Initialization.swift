@@ -68,10 +68,10 @@ extension SceneMetalRenderer {
             return layers.count == ids.count ? layers : nil
         }
         self.layersByID = byID
-        self.lightLayerIDs = renderDescriptor.layers.compactMap { layer in
-            layer.spotLight != nil || layer.directionalLight != nil
-                ? layer.id : nil
-        }
+        self.lightLayerIDs = SceneLightSnapshot.orderedLightLayerIDs(
+            descriptor: renderDescriptor,
+            layersByID: byID
+        )
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
             in: renderDescriptor,
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,

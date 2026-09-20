@@ -1064,7 +1064,7 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 | Puppet spring/rigid/rope/wind | `L0` | fixed timestep solver、events、确定性 golden |
 | 2D PBR maps | `L0` | normal/roughness/metalness/emissive slot 与 color space |
 | Bounded standalone volumetric `lspot` | `L3 bounded` | 四束 authored cone 已按 source order、world origin 与 relative Mirror angle Timeline direct draw；无 lit-material interaction |
-| Generic point/spot/tube/directional light | `L0` | typed 四灯 IR、author-enabled material、ambient、provider 与完整排序/坐标链 |
+| Generic point/spot/tube/directional light | `L3 bounded direct-static / S3 point executed` | 当前只把directional/point/spot按当前作者render order与canonical visible set纳入同一总计4灯snapshot，并由现役direct static-model diffuse consumer执行；真实`3662790108`的1个point驱动14个lit-model draw且GPU completion成功。tube、2D lit material、shadow/PBR/HDR、动态intensity、完整官方坐标/衰减与像素parity仍为`L0`；见[点光证据](runtime-evidence-current.md#e-2026-09-20-point-light-static-model) |
 | Generic lit-material shadow/reflection/light volume | `L0` | standalone `lspot` cone 不含 material interaction；仍需 RT graph、depth/occlusion、预算和像素门 |
 | Official Scene Bloom target identity | `L1` | typed scene target 已定义；binding 尚未分类 |
 | Official Scene HDR/Bloom post runtime | `L0` | HDR targets、tone mapping、scene ordering |

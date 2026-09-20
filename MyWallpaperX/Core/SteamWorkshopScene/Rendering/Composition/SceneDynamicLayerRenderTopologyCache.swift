@@ -78,10 +78,10 @@ final class SceneDynamicLayerRenderTopologyCache {
                 layersByID[layerID] == nil ? nil : (layerID, offset)
             }
         )
-        let lightLayerIDs = descriptor.layers.compactMap { layer in
-            layer.spotLight != nil || layer.directionalLight != nil
-                ? layer.id : nil
-        }
+        let lightLayerIDs = SceneLightSnapshot.orderedLightLayerIDs(
+            descriptor: descriptor,
+            layersByID: layersByID
+        )
         let projection = Projection(
             descriptor: descriptor,
             layersByID: layersByID,

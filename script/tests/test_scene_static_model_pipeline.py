@@ -19,15 +19,24 @@ MODEL_SOURCE = SCENE_ROOT / "Format/SceneMdlStaticModel.swift"
 SAMPLING_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift"
 UV_TRANSFORM_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift"
 LIGHT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift"
+VISIBILITY_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerVisibility.swift"
 DIRECTIONAL_LIGHT_SOURCE = (
     SCENE_ROOT / "Format/SceneDirectionalLightDefinition.swift"
 )
+POINT_LIGHT_SOURCE = SCENE_ROOT / "Format/ScenePointLightDefinition.swift"
 SPOT_LIGHT_SOURCE = SCENE_ROOT / "Format/SceneSpotLightDefinition.swift"
 PERFORMANCE_COUNTER_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift"
 )
 
 LIGHTING_STUB = r'''
+struct SceneLayerDisplayScriptOwnership {
+    let visible: Bool
+    let alpha: Bool
+    var isEmpty: Bool { !visible && !alpha }
+    var fields: [String] { [] }
+}
+
 struct SceneRenderDescriptor {
     struct LightingDescriptor {
         struct DistanceFog {
@@ -45,12 +54,26 @@ struct SceneRenderDescriptor {
     struct Layer {
         let id: Int
         let visible: Bool?
+        var pointLight: ScenePointLightDefinition? = nil
         let spotLight: SceneSpotLightDefinition?
         let directionalLight: SceneDirectionalLightDefinition?
+        var parentID: Int? = nil
+        var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
     }
 
     let lighting: LightingDescriptor?
     let layers: [Layer]
+    let renderOrderLayerIDs: [Int]
+
+    init(
+        lighting: LightingDescriptor?,
+        layers: [Layer],
+        renderOrderLayerIDs: [Int]? = nil
+    ) {
+        self.lighting = lighting
+        self.layers = layers
+        self.renderOrderLayerIDs = renderOrderLayerIDs ?? layers.map(\.id)
+    }
 }
 '''
 
@@ -96,7 +119,6 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
         self.assertIn("(uniforms.materialFlags.x & 2u) != 0u", source)
         self.assertIn("(uniforms.materialFlags.y & 1u) != 0u", source)
         self.assertIn("(uniforms.materialFlags.y & 2u) == 0u", source)
-        self.assertIn("receivesLighting ? uniforms.materialFlags.z : 0u", source)
         self.assertIn("sampler componentSampler [[sampler(1)]]", source)
         self.assertIn("out.componentUV = uniforms.componentTextureFrame0.xy", source)
         self.assertIn("componentTexture.sample(componentSampler, in.componentUV).a", source)
@@ -104,11 +126,6 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
         self.assertIn("uniforms.emissiveColorAndBrightness.w", source)
         self.assertIn("uniforms.lightDirectionIntensity[lightIndex]", source)
         self.assertIn("max(dot(normal, light.xyz), 0.0)", source)
-        self.assertIn("uniforms.spotPositionRadius[lightIndex]", source)
-        self.assertIn("uniforms.spotDirectionInnerCosine[lightIndex]", source)
-        self.assertIn("uniforms.spotColorIntensity[lightIndex]", source)
-        self.assertIn("out.worldPosition = worldPosition.xyz", source)
-        self.assertIn("radial * cone * diffuse", source)
         self.assertNotIn("lighting / (float3(1.0) + lighting)", source)
         self.assertIn("uniforms.materialFlags.w != 0", source)
         self.assertIn("surfaceColor = mix(albedo.rgb, tinted, albedo.a)", source)
@@ -135,6 +152,7 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
                     str(SAMPLING_SOURCE),
                     str(UV_TRANSFORM_SOURCE),
                     str(DIRECTIONAL_LIGHT_SOURCE),
+                    str(POINT_LIGHT_SOURCE),
                     str(SPOT_LIGHT_SOURCE),
                     str(lighting_stub),
                     str(LIGHT_SOURCE),
@@ -158,6 +176,7 @@ import simd
 @main
 enum MaterialHarness {
     static func main() {
+        precondition(SceneStaticModelPipeline.hasExpectedUniformABI)
         let definitions: [SceneDynamicTargetDefinition] = [
             .init(
                 target: .materialConstant(
@@ -288,6 +307,7 @@ enum MaterialHarness {
                     str(SAMPLING_SOURCE),
                     str(UV_TRANSFORM_SOURCE),
                     str(DIRECTIONAL_LIGHT_SOURCE),
+                    str(POINT_LIGHT_SOURCE),
                     str(SPOT_LIGHT_SOURCE),
                     str(lighting_stub),
                     str(LIGHT_SOURCE),
@@ -324,6 +344,11 @@ enum LightSnapshotHarness {
             density: nil, exponent: nil, volumetricsExponent: nil,
             castsVolumetrics: nil, castsShadow: true, isSolid: true
         )
+        let point = ScenePointLightDefinition(
+            kind: "lpoint", colorRGB: [0.8, 0.6, 0.4], intensity: 2,
+            radius: 40, castsVolumetrics: false, castsShadow: false,
+            isSolid: true
+        )
         let descriptor = SceneRenderDescriptor(
             lighting: .init(
                 ambientColorRGB: [0.1, 0.2, 0.3],
@@ -331,10 +356,16 @@ enum LightSnapshotHarness {
                 distanceFog: .init(color: [0.1, 0.2, 0.3], start: 10, end: 100,
                                    startDensity: 0.2, endDensity: 0.8)
             ),
-            layers: [.init(
-                id: 7, visible: true, spotLight: spot,
-                directionalLight: nil
-            )]
+            layers: [
+                .init(
+                    id: 6, visible: true, pointLight: point,
+                    spotLight: nil, directionalLight: nil
+                ),
+                .init(
+                    id: 7, visible: true, pointLight: nil,
+                    spotLight: spot, directionalLight: nil
+                ),
+            ]
         )
         let frame = simd_float4x4(columns: (
             SIMD4<Float>(1, 0, 0, 0),
@@ -344,14 +375,23 @@ enum LightSnapshotHarness {
         ))
         let snapshot = SceneLightSnapshot.make(
             descriptor: descriptor,
-            worldFramesByLayerID: [7: frame],
-            dynamicLayerColors: [7: SIMD3(0.25, 0.5, 1)]
+            worldFramesByLayerID: [6: frame, 7: frame],
+            dynamicLayerColors: [
+                6: SIMD3(1, 0.5, 0.25),
+                7: SIMD3(0.25, 0.5, 1),
+            ]
         )
         precondition(snapshot.ambient == SIMD3(0.3, 0.3, 0.3))
         precondition(snapshot.distanceFogColor == SIMD4(0.1, 0.2, 0.3, 1))
         precondition(snapshot.distanceFogRange == SIMD4(10, 100, 0.2, 0.8))
         precondition(snapshot.directional.isEmpty)
+        precondition(snapshot.point.count == 1)
+        precondition(snapshot.point[0].position == SIMD3(10, 20, 30))
+        precondition(snapshot.point[0].color == SIMD3(1, 0.5, 0.25))
+        precondition(snapshot.point[0].intensity == 2)
+        precondition(snapshot.point[0].radius == 40)
         precondition(snapshot.spot.count == 1)
+        precondition(snapshot.overflowCount == 0)
         let light = snapshot.spot[0]
         precondition(light.position == SIMD3(10, 20, 30))
         precondition(light.directionFromLight == SIMD3(0, 0, -1))
@@ -359,6 +399,110 @@ enum LightSnapshotHarness {
         precondition(light.intensity == 3 && light.radius == 6000)
         precondition(abs(light.innerConeCosine - cos(Float.pi / 6)) < 1e-6)
         precondition(abs(light.outerConeCosine - cos(Float.pi / 4)) < 1e-6)
+
+        func makePoint(_ intensity: Float, radius: Float = 40)
+            -> ScenePointLightDefinition {
+            .init(
+                kind: "lpoint", colorRGB: [1, 1, 1], intensity: intensity,
+                radius: radius, castsVolumetrics: nil, castsShadow: nil,
+                isSolid: nil
+            )
+        }
+        func direction(_ intensity: Float)
+            -> SceneDirectionalLightDefinition {
+            .init(colorRGB: [1, 1, 1], intensity: intensity)
+        }
+        func cone(_ intensity: Float) -> SceneSpotLightDefinition {
+            .init(
+                kind: "lspot", colorRGB: [1, 1, 1], intensity: intensity,
+                radius: 40, innerConeDegrees: 60, outerConeDegrees: 90,
+                density: nil, exponent: nil, volumetricsExponent: nil,
+                castsVolumetrics: nil, castsShadow: nil, isSolid: nil
+            )
+        }
+        let orderedDescriptor = SceneRenderDescriptor(
+            lighting: nil,
+            layers: [
+                .init(id: 1, visible: true, pointLight: nil,
+                      spotLight: nil, directionalLight: direction(11)),
+                .init(id: 2, visible: true, pointLight: makePoint(12),
+                      spotLight: nil, directionalLight: nil),
+                .init(id: 3, visible: true, pointLight: nil,
+                      spotLight: cone(13), directionalLight: nil,
+                      parentID: 30),
+                .init(id: 4, visible: true, pointLight: nil,
+                      spotLight: nil, directionalLight: direction(14)),
+                .init(id: 5, visible: true, pointLight: makePoint(15),
+                      spotLight: nil, directionalLight: nil),
+                .init(id: 6, visible: true, pointLight: nil,
+                      spotLight: cone(16), directionalLight: nil,
+                      displayScriptOwnership: .init(
+                          visible: true, alpha: false
+                      )),
+                .init(id: 7, visible: true, pointLight: makePoint(17),
+                      spotLight: nil, directionalLight: nil),
+                .init(id: 30, visible: false, pointLight: nil,
+                      spotLight: nil, directionalLight: nil),
+            ],
+            renderOrderLayerIDs: [7, 6, 5, 4, 30, 3, 2, 1]
+        )
+        let orderedByID = Dictionary(
+            uniqueKeysWithValues: orderedDescriptor.layers.map { ($0.id, $0) }
+        )
+        let orderedIDs = SceneLightSnapshot.orderedLightLayerIDs(
+            descriptor: orderedDescriptor, layersByID: orderedByID
+        )
+        precondition(orderedIDs == [7, 6, 5, 4, 3, 2, 1])
+        let hiddenTarget = SceneDynamicTarget.layer(
+            layerID: 6, field: .visibility
+        )
+        let visibilitySnapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 1,
+            generation: 1,
+            definitions: [.init(
+                target: hiddenTarget,
+                valueType: .bool,
+                authoredValue: .bool(true)
+            )],
+            userValues: [:],
+            sceneScriptValues: [hiddenTarget: .bool(false)]
+        ).snapshot
+        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
+            in: orderedDescriptor,
+            layersByID: orderedByID,
+            snapshot: visibilitySnapshot
+        )
+        precondition(!visibleLayerIDs.contains(6))
+        precondition(!visibleLayerIDs.contains(3))
+        let bounded = SceneLightSnapshot.make(
+            descriptor: orderedDescriptor,
+            worldFramesByLayerID: Dictionary(
+                uniqueKeysWithValues: (1...7).map { ($0, frame) }
+            ),
+            candidateLayerIDs: orderedIDs,
+            layersByID: orderedByID,
+            visibleLayerIDs: visibleLayerIDs
+        )
+        precondition(bounded.directional.map(\.intensity) == [14])
+        precondition(bounded.point.map(\.intensity) == [17, 15, 12])
+        precondition(bounded.spot.isEmpty)
+        precondition(bounded.overflowCount == 1)
+
+        let invalidRadiusDescriptor = SceneRenderDescriptor(
+            lighting: nil,
+            layers: [
+                .init(id: 8, visible: true, pointLight: makePoint(1, radius: 0),
+                      spotLight: nil, directionalLight: nil),
+                .init(id: 9, visible: true, pointLight: makePoint(1, radius: -1),
+                      spotLight: nil, directionalLight: nil),
+            ]
+        )
+        let invalidRadius = SceneLightSnapshot.make(
+            descriptor: invalidRadiusDescriptor,
+            worldFramesByLayerID: [8: frame, 9: frame]
+        )
+        precondition(invalidRadius.point.isEmpty)
+        precondition(invalidRadius.ambient == SIMD3(1, 1, 1))
     }
 }
 '''
@@ -374,8 +518,11 @@ enum LightSnapshotHarness {
                     swiftc,
                     "-parse-as-library",
                     str(DIRECTIONAL_LIGHT_SOURCE),
+                    str(POINT_LIGHT_SOURCE),
                     str(SPOT_LIGHT_SOURCE),
                     str(lighting_stub),
+                    str(DYNAMIC_SNAPSHOT_SOURCE),
+                    str(VISIBILITY_SOURCE),
                     str(LIGHT_SOURCE),
                     str(harness),
                     "-o", str(executable),
@@ -473,6 +620,7 @@ enum DepthPlanHarness {
                     str(SAMPLING_SOURCE),
                     str(UV_TRANSFORM_SOURCE),
                     str(DIRECTIONAL_LIGHT_SOURCE),
+                    str(POINT_LIGHT_SOURCE),
                     str(SPOT_LIGHT_SOURCE),
                     str(lighting_stub),
                     str(LIGHT_SOURCE),
@@ -519,8 +667,6 @@ enum DepthPlanHarness {
             "emissiveMaskTextureFrame: SceneTextureUVTransform?",
             "emissiveMaskSampling: SceneTextureSampling?",
             "lighting: SceneLightSnapshot",
-            "let spots = Self.encodedSpots(lighting.spot)",
-            "UInt32(lighting.spot.count)",
             "struct SceneStaticModelDepthPlan",
             "case isolated",
             "lhs.geometryIdentity == rhs.geometryIdentity",

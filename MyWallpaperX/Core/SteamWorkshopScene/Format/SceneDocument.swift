@@ -202,6 +202,7 @@ struct SceneDocumentLoader {
                 resolvedObject: root,
                 authoredObject: authoredRoot
             ),
+            pointLight: ScenePointLightDefinition.parse(root),
             spotLight: SceneSpotLightDefinition.parse(root),
             directionalLight: SceneDirectionalLightDefinition.parse(root),
             particleInstanceOverride: SceneParticleDefinitionParser().parseInstanceOverride(

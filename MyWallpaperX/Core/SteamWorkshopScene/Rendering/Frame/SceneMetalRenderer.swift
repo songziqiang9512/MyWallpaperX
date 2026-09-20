@@ -163,8 +163,16 @@ struct SceneMetalRenderer {
             descriptor: frameDescriptor,
             worldFramesByLayerID: frameWorldFrames, dynamicLayerColors: dynamicLightColors,
             candidateLayerIDs: frameProjection.lightLayerIDs,
-            layersByID: frameLayersByID
+            layersByID: frameLayersByID,
+            visibleLayerIDs: frameVisibleLayerIDs
         )
+#if DEBUG
+        let collectsPointLightExecutionEvidence =
+            SceneDesktopWallpaperHost.usesDebugEvidenceWindow
+            && frameContext.frameIndex <= 2
+            && !frameLightSnapshot.point.isEmpty
+        var pointLitStaticModelLayerIDs: [Int] = []
+#endif
         performanceTelemetry?.beginStage("frame-admission")
         let hubFrameAdmissionStart = ProcessInfo.processInfo.systemUptime
         let resolvedMaterialFrameAdmission = admitResolvedMaterialFrameTargets(
@@ -773,6 +781,12 @@ struct SceneMetalRenderer {
                         writesDepth: prepared.writesDepth,
                         encoder: encoder
                     )
+#if DEBUG
+                    if collectsPointLightExecutionEvidence,
+                       encoded, material.receivesLighting {
+                        pointLitStaticModelLayerIDs.append(layer.id)
+                    }
+#endif
                     dependencyRuntime.recordStaticModelBindingIfRequired(
                         for: layer.id,
                         encoded: encoded,
@@ -837,6 +851,31 @@ struct SceneMetalRenderer {
             return .dropped(reasonCode: "resolved-material-frame-seal-rejected")
         }
 #if DEBUG
+        if collectsPointLightExecutionEvidence {
+            let encodedLayerIDs = pointLitStaticModelLayerIDs
+                .map(String.init).joined(separator: ",")
+            let encodedLayerCount = pointLitStaticModelLayerIDs.count
+            NSLog(
+                "MWX DEBUG SCENE: phase=static-model-light-snapshot frame=%llu directional=%d point=%d spot=%d overflow=%d pointLitEncoded=%d layers=%@",
+                frameContext.frameIndex,
+                frameLightSnapshot.directional.count,
+                frameLightSnapshot.point.count,
+                frameLightSnapshot.spot.count,
+                frameLightSnapshot.overflowCount,
+                encodedLayerCount,
+                encodedLayerIDs
+            )
+            commandBuffer.addCompletedHandler { buffer in
+                NSLog(
+                    "MWX DEBUG SCENE: phase=static-model-light-completion frame=%llu status=%@ error=%@ pointLitEncoded=%d layers=%@",
+                    frameContext.frameIndex,
+                    String(describing: buffer.status),
+                    buffer.error.map(String.init(describing:)) ?? "none",
+                    encodedLayerCount,
+                    encodedLayerIDs
+                )
+            }
+        }
         reportDynamicLayerRenderEvidence(
             projection: frameProjection,
             imageTextures: imageTextures,

@@ -262,6 +262,7 @@ extension SceneDocument {
         var staticModelPath: String? = nil
         let particlePath: String?
         let sound: SceneSoundLayerDefinition?
+        var pointLight: ScenePointLightDefinition? = nil
         var spotLight: SceneSpotLightDefinition? = nil
         var directionalLight: SceneDirectionalLightDefinition? = nil
         let particleInstanceOverride: SceneParticleInstanceOverride?

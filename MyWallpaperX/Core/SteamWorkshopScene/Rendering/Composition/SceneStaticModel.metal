@@ -22,11 +22,14 @@ struct SceneStaticModelUniforms {
     float4 viewTintBackAndEnabled;
     float4 cameraPosition;
     uint4 materialFlags;
-    float4 ambientAndCount;
+    uint4 lightCounts;
+    float4 ambientColor;
     float4 distanceFogColor;
     float4 distanceFogRange;
     float4 lightDirectionIntensity[4];
     float4 lightColor[4];
+    float4 pointPositionRadius[4];
+    float4 pointColorIntensity[4];
     float4 spotPositionRadius[4];
     float4 spotDirectionInnerCosine[4];
     float4 spotColorIntensity[4];
@@ -83,9 +86,9 @@ fragment half4 sceneStaticModelFragment(
         : float3(0.0, 0.0, 1.0);
     bool receivesLighting = (uniforms.materialFlags.y & 2u) == 0u;
     float3 lighting = receivesLighting
-        ? uniforms.ambientAndCount.xyz
+        ? uniforms.ambientColor.xyz
         : float3(1.0);
-    uint lightCount = uint(uniforms.ambientAndCount.w);
+    uint lightCount = uniforms.lightCounts.x;
     for (uint lightIndex = 0;
          receivesLighting && lightIndex < min(lightCount, 4u);
          ++lightIndex) {
@@ -93,7 +96,27 @@ fragment half4 sceneStaticModelFragment(
         float diffuse = max(dot(normal, light.xyz), 0.0);
         lighting += uniforms.lightColor[lightIndex].xyz * light.w * diffuse;
     }
-    uint spotCount = receivesLighting ? uniforms.materialFlags.z : 0u;
+    uint pointCount = receivesLighting ? uniforms.lightCounts.y : 0u;
+    for (uint lightIndex = 0; lightIndex < min(pointCount, 4u); ++lightIndex) {
+        float4 positionRadius = uniforms.pointPositionRadius[lightIndex];
+        float3 toLight = positionRadius.xyz - in.worldPosition;
+        float distanceSquared = dot(toLight, toLight);
+        if (distanceSquared <= 1e-8) {
+            continue;
+        }
+        float distanceToLight = sqrt(distanceSquared);
+        float3 directionTowardLight = toLight / distanceToLight;
+        float radial = clamp(
+            1.0 - distanceToLight / max(positionRadius.w, 1e-4),
+            0.0,
+            1.0
+        );
+        radial *= radial;
+        float diffuse = max(dot(normal, directionTowardLight), 0.0);
+        float4 colorIntensity = uniforms.pointColorIntensity[lightIndex];
+        lighting += colorIntensity.xyz * colorIntensity.w * radial * diffuse;
+    }
+    uint spotCount = receivesLighting ? uniforms.lightCounts.z : 0u;
     for (uint lightIndex = 0; lightIndex < min(spotCount, 4u); ++lightIndex) {
         float4 positionRadius = uniforms.spotPositionRadius[lightIndex];
         float3 toLight = positionRadius.xyz - in.worldPosition;

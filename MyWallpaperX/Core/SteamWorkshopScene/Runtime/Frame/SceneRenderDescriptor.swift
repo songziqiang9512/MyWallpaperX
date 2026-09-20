@@ -128,6 +128,7 @@ struct SceneRenderDescriptorBuilder {
                     staticModelPath: object.staticModelPath,
                     usesPerspective: object.usesPerspective,
                     particlePath: object.particlePath,
+                    pointLight: object.pointLight,
                     spotLight: object.spotLight,
                     directionalLight: object.directionalLight,
                     particleInstanceOverride: object.particleInstanceOverride,
@@ -285,6 +286,9 @@ struct SceneRenderDescriptorBuilder {
         }
         if object.particlePath != nil {
             return "particle"
+        }
+        if object.pointLight != nil {
+            return "pointLight"
         }
         if object.spotLight != nil {
             return "spotLight"

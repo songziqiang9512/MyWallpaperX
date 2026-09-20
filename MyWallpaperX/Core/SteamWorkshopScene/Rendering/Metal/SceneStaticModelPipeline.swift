@@ -130,7 +130,8 @@ private struct SceneStaticModelUniforms {
     var viewTintBackAndEnabled: SIMD4<Float>
     var cameraPosition: SIMD4<Float>
     var materialFlags: SIMD4<UInt32>
-    var ambientAndCount: SIMD4<Float>
+    var lightCounts: SIMD4<UInt32>
+    var ambientColor: SIMD4<Float>
     var distanceFogColor: SIMD4<Float>
     var distanceFogRange: SIMD4<Float>
     var lightDirectionIntensity0: SIMD4<Float>
@@ -141,6 +142,14 @@ private struct SceneStaticModelUniforms {
     var lightColor1: SIMD4<Float>
     var lightColor2: SIMD4<Float>
     var lightColor3: SIMD4<Float>
+    var pointPositionRadius0: SIMD4<Float>
+    var pointPositionRadius1: SIMD4<Float>
+    var pointPositionRadius2: SIMD4<Float>
+    var pointPositionRadius3: SIMD4<Float>
+    var pointColorIntensity0: SIMD4<Float>
+    var pointColorIntensity1: SIMD4<Float>
+    var pointColorIntensity2: SIMD4<Float>
+    var pointColorIntensity3: SIMD4<Float>
     var spotPositionRadius0: SIMD4<Float>
     var spotPositionRadius1: SIMD4<Float>
     var spotPositionRadius2: SIMD4<Float>
@@ -172,7 +181,8 @@ struct SceneStaticModelPipeline {
         colorPixelFormat: MTLPixelFormat = .bgra8Unorm,
         depthPixelFormat: MTLPixelFormat = .depth32Float
     ) {
-        guard let library = device.makeDefaultLibrary(),
+        guard Self.hasExpectedUniformABI,
+              let library = device.makeDefaultLibrary(),
               let vertex = library.makeFunction(name: "sceneStaticModelVertex"),
               let fragment = library.makeFunction(name: "sceneStaticModelFragment") else {
             return nil
@@ -314,6 +324,7 @@ struct SceneStaticModelPipeline {
             return false
         }
         let lights = Self.encodedLights(lighting.directional)
+        let points = Self.encodedPoints(lighting.point)
         let spots = Self.encodedSpots(lighting.spot)
         let brightness = material.usesHDRBrightness
             ? max(material.brightness, 0)
@@ -362,14 +373,20 @@ struct SceneStaticModelPipeline {
                     | (colorTextureIsPremultiplied ? 2 : 0),
                 (emissiveMask == nil ? 0 : 1)
                     | (material.receivesLighting ? 0 : 2),
-                UInt32(lighting.spot.count),
+                0,
                 material.textureAlphaIsTintMask ? 1 : 0
             ),
-            ambientAndCount: SIMD4(
+            lightCounts: SIMD4(
+                UInt32(lighting.directional.count),
+                UInt32(lighting.point.count),
+                UInt32(lighting.spot.count),
+                0
+            ),
+            ambientColor: SIMD4(
                 lighting.ambient.x,
                 lighting.ambient.y,
                 lighting.ambient.z,
-                Float(lighting.directional.count)
+                0
             ),
             distanceFogColor: lighting.distanceFogColor,
             distanceFogRange: lighting.distanceFogRange,
@@ -381,6 +398,14 @@ struct SceneStaticModelPipeline {
             lightColor1: lights[1].color,
             lightColor2: lights[2].color,
             lightColor3: lights[3].color,
+            pointPositionRadius0: points[0].positionRadius,
+            pointPositionRadius1: points[1].positionRadius,
+            pointPositionRadius2: points[2].positionRadius,
+            pointPositionRadius3: points[3].positionRadius,
+            pointColorIntensity0: points[0].colorIntensity,
+            pointColorIntensity1: points[1].colorIntensity,
+            pointColorIntensity2: points[2].colorIntensity,
+            pointColorIntensity3: points[3].colorIntensity,
             spotPositionRadius0: spots[0].positionRadius,
             spotPositionRadius1: spots[1].positionRadius,
             spotPositionRadius2: spots[2].positionRadius,
@@ -491,10 +516,38 @@ struct SceneStaticModelPipeline {
         && MemoryLayout<SceneMdlStaticModel.Vertex>.offset(of: \.tangent) == 32
         && MemoryLayout<SceneMdlStaticModel.Vertex>.offset(of: \.uv) == 48
 
+    /// Swift/MSL constant-buffer ABI. The paired Metal source compiles in the
+    /// same test that executes this gate; host-side drift rejects pipeline
+    /// preparation before any draw can be encoded.
+    static let hasExpectedUniformABI =
+        MemoryLayout<SceneStaticModelUniforms>.stride == 864
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.modelMatrix) == 0
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.viewProjectionMatrix) == 64
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.normalMatrix) == 128
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.textureFrame0) == 176
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.materialFlags) == 320
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.lightCounts) == 336
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.ambientColor) == 352
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.lightDirectionIntensity0) == 400
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.lightDirectionIntensity3) == 448
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.lightColor0) == 464
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.lightColor3) == 512
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.pointPositionRadius0) == 528
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.pointPositionRadius3) == 576
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.pointColorIntensity0) == 592
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.pointColorIntensity3) == 640
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotPositionRadius0) == 656
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotPositionRadius3) == 704
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotDirectionInnerCosine0) == 720
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotDirectionInnerCosine3) == 768
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotColorIntensity0) == 784
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotColorIntensity3) == 832
+        && MemoryLayout<SceneStaticModelUniforms>.offset(of: \.spotOuterCosines) == 848
+
     private static func encodedLights(
         _ lights: [SceneLightSnapshot.Directional]
     ) -> [(directionIntensity: SIMD4<Float>, color: SIMD4<Float>)] {
-        (0..<4).map { index in
+        (0..<SceneLightSnapshot.maximumLightCount).map { index in
             guard lights.indices.contains(index) else {
                 return (.zero, .zero)
             }
@@ -519,7 +572,7 @@ struct SceneStaticModelPipeline {
         colorIntensity: SIMD4<Float>,
         outerCosine: Float
     )] {
-        (0..<4).map { index in
+        (0..<SceneLightSnapshot.maximumLightCount).map { index in
             guard lights.indices.contains(index) else {
                 return (.zero, .zero, .zero, 0)
             }
@@ -540,6 +593,30 @@ struct SceneStaticModelPipeline {
                     light.intensity
                 ),
                 light.outerConeCosine
+            )
+        }
+    }
+
+    private static func encodedPoints(
+        _ lights: [SceneLightSnapshot.Point]
+    ) -> [(
+        positionRadius: SIMD4<Float>,
+        colorIntensity: SIMD4<Float>
+    )] {
+        (0..<SceneLightSnapshot.maximumLightCount).map { index in
+            guard lights.indices.contains(index) else {
+                return (.zero, .zero)
+            }
+            let light = lights[index]
+            return (
+                SIMD4(
+                    light.position.x, light.position.y, light.position.z,
+                    light.radius
+                ),
+                SIMD4(
+                    light.color.x, light.color.y, light.color.z,
+                    light.intensity
+                )
             )
         }
     }

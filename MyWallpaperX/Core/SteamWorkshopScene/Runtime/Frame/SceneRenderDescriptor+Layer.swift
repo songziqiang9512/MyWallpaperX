@@ -11,6 +11,7 @@ extension SceneRenderDescriptor {
         var staticModelPath: String? = nil
         var usesPerspective: Bool? = nil
         let particlePath: String?
+        var pointLight: ScenePointLightDefinition? = nil
         var spotLight: SceneSpotLightDefinition? = nil
         var directionalLight: SceneDirectionalLightDefinition? = nil
         var particleInstanceOverride: SceneParticleInstanceOverride?

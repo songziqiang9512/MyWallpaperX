@@ -23,6 +23,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneObjectDependency.swift",
     SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
     SOURCE_ROOT / "Format/SceneDirectionalLightDefinition.swift",
+    SOURCE_ROOT / "Format/ScenePointLightDefinition.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptDefinition.swift",
     SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
     SOURCE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
@@ -80,6 +81,27 @@ SCENE_FIXTURE = {
             "name": "Empty model field",
             "model": "",
             "perspective": False,
+        },
+        {
+            "id": 60,
+            "light": "lpoint",
+            "color": {"script": "return value;", "value": "0.1 0.2 0.3"},
+            "intensity": {"script": "return value;", "value": 2.5},
+            "radius": 40,
+        },
+        {
+            "id": 70,
+            "light": "point",
+            "color": "1 0.5 0.25",
+            "intensity": 1.5,
+            "radius": 20,
+        },
+        {
+            "id": 80,
+            "light": "pointless",
+            "color": "1 1 1",
+            "intensity": 1,
+            "radius": 10,
         },
     ],
 }
@@ -140,6 +162,30 @@ struct SceneProject {
 @main
 enum Harness {
     static func main() throws {
+        let invalidPoint = ScenePointLightDefinition.parse([
+            "light": "lpoint", "color": "1 invalid 0 0",
+            "intensity": true, "radius": Double.infinity,
+        ])!
+        precondition(invalidPoint.colorRGB == nil)
+        precondition(invalidPoint.intensity == nil)
+        precondition(invalidPoint.radius == nil)
+        let invalidDirectional = SceneDirectionalLightDefinition.parse([
+            "light": "ldirectional", "color": "1 nan 0",
+            "intensity": false,
+        ])!
+        precondition(invalidDirectional.colorRGB == nil)
+        precondition(invalidDirectional.intensity == nil)
+        let invalidSpot = SceneSpotLightDefinition.parse([
+            "light": "lspot", "color": "1 inf 0",
+            "intensity": Double.nan, "radius": true,
+            "innercone": Double.infinity, "outercone": false,
+        ])!
+        precondition(invalidSpot.colorRGB == nil)
+        precondition(invalidSpot.intensity == nil)
+        precondition(invalidSpot.radius == nil)
+        precondition(invalidSpot.innerConeDegrees == nil)
+        precondition(invalidSpot.outerConeDegrees == nil)
+
         let fog: [String: Any] = [
             "fogdistance": true, "fogdistancecolor": "0.1 0.2 0.3",
             "fogdistancestart": 10, "fogdistanceend": 100,
@@ -165,6 +211,10 @@ enum Harness {
                 "id": object.id,
                 "model": object.staticModelPath ?? "-",
                 "perspective": object.usesPerspective as Any? ?? NSNull(),
+                "pointKind": object.pointLight?.kind as Any? ?? NSNull(),
+                "pointColor": object.pointLight?.colorRGB as Any? ?? NSNull(),
+                "pointIntensity": object.pointLight?.intensity as Any? ?? NSNull(),
+                "pointRadius": object.pointLight?.radius as Any? ?? NSNull(),
             ] as [String: Any]
         }
         let payload: [String: Any] = [
@@ -240,6 +290,19 @@ class SceneStaticModelDocumentTests(unittest.TestCase):
 
     def test_native_perspective_fov_is_retained(self) -> None:
         self.assertEqual(self.result["fov"], 50)
+
+    def test_point_light_aliases_and_wrapped_fallbacks_are_retained(self) -> None:
+        objects = {entry["id"]: entry for entry in self.result["objects"]}
+        self.assertEqual(objects[60]["pointKind"], "lpoint")
+        for actual, expected in zip(objects[60]["pointColor"], [0.1, 0.2, 0.3]):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(objects[60]["pointIntensity"], 2.5)
+        self.assertEqual(objects[60]["pointRadius"], 40)
+        self.assertEqual(objects[70]["pointKind"], "point")
+        self.assertEqual(objects[70]["pointColor"], [1, 0.5, 0.25])
+        self.assertEqual(objects[70]["pointIntensity"], 1.5)
+        self.assertEqual(objects[70]["pointRadius"], 20)
+        self.assertIsNone(objects[80]["pointKind"])
 
 
 if __name__ == "__main__":
