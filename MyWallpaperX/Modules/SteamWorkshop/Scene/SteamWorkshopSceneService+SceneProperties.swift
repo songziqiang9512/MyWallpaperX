@@ -88,6 +88,48 @@ extension SteamWorkshopService {
         return values
     }
 
+#if DEBUG
+    /// Exercises the ordinary preference-backed product entry without leaving
+    /// evidence-only values in the selected Debug defaults suite. The normal
+    /// request still reads through `scenePropertyOverrides(for:)`; this scope
+    /// supplies the isolated startup state in the process argument domain and
+    /// restores that volatile domain after the request has captured it.
+    func debugRequestSceneRender(
+        _ record: SteamWorkshopDownloadRecord,
+        temporaryPropertyOverrides overrides: [String: SceneUserPropertyValue]
+    ) -> Bool {
+        let arguments = ProcessInfo.processInfo.arguments
+        let suiteFlag = "--mwx-debug-user-defaults-suite"
+        guard !overrides.isEmpty,
+              arguments.contains("--mwx-debug-scene-daemon-client"),
+              arguments.contains("--mwx-debug-scene-product-entry"),
+              let suiteIndex = arguments.firstIndex(of: suiteFlag),
+              arguments.indices.contains(suiteIndex + 1),
+              arguments[suiteIndex + 1].hasPrefix(
+                "com.songziqiang.MyWallpaperX.Debug."
+              ) else {
+            return false
+        }
+        let key = ScenePropertyOverrideStore.defaultsPrefix + record.id
+        guard let encodedOverrides = try? JSONEncoder().encode(overrides) else {
+            return false
+        }
+        let domainName = UserDefaults.argumentDomain
+        let previousDomain = defaults.volatileDomain(forName: domainName)
+        var temporaryDomain = previousDomain
+        temporaryDomain[key] = encodedOverrides
+        defaults.setVolatileDomain(temporaryDomain, forName: domainName)
+        defer {
+            defaults.setVolatileDomain(previousDomain, forName: domainName)
+        }
+        guard scenePropertyOverrides(for: record) == overrides else {
+            return false
+        }
+        requestSceneRender(record)
+        return true
+    }
+#endif
+
     func scenePropertyContext(
         for record: SteamWorkshopDownloadRecord,
         sourceFacts: SceneRuntimeSourceFacts

@@ -45,6 +45,7 @@ from scene_product_entry_audio_baseline import (
     PRODUCT_ENTRY_AUDIO_MODE,
     classify_product_entry_result,
     load_audio_declaration_matrix,
+    parse_product_entry_property_overrides,
     product_entry_command,
     summarize_product_entry_results,
 )
@@ -7282,6 +7283,7 @@ def run_product_entry_audio_sample(
     output_dir: Path,
     runtime_root: Path,
     duration: float,
+    property_overrides: dict[str, str | float | bool],
 ) -> dict[str, Any]:
     sample_id = str(sample["id"])
     source = sample_root / "Scene" / sample_id
@@ -7316,6 +7318,7 @@ def run_product_entry_audio_sample(
             "hashes": {},
             "evidence": {},
             "daemon_client_result": None,
+            "property_overrides": property_overrides,
             "runtime_sample": str(runtime_sample),
             "runtime_home": str(runtime_home),
             "runtime_workshop": str(runtime_workshop),
@@ -7336,6 +7339,7 @@ def run_product_entry_audio_sample(
         runtime_workshop=runtime_workshop,
         sample_id=sample_id,
         duration=duration,
+        property_overrides=property_overrides,
     )
     environment = os.environ.copy()
     environment["HOME"] = str(runtime_home)
@@ -7376,6 +7380,7 @@ def run_product_entry_audio_sample(
         daemon_result,
         exit_code=exit_code,
         timed_out=timed_out,
+        expected_property_overrides=property_overrides,
     )
     removed_artifact_count = 0
     removed_artifact_bytes = 0
@@ -7415,6 +7420,7 @@ def run_product_entry_audio_sample(
         "hashes": hashes,
         "evidence": evidence,
         "daemon_client_result": daemon_result,
+        "property_overrides": property_overrides,
         "runtime_sample": str(runtime_sample),
         "runtime_home": str(runtime_home),
         "runtime_workshop": str(runtime_workshop),
@@ -8788,6 +8794,13 @@ def parse_args() -> argparse.Namespace:
         help="tracked capability snapshot that owns the audio relationship IDs",
     )
     parser.add_argument(
+        "--product-entry-properties-json",
+        help=(
+            "typed string/number/bool startup overrides for one explicitly "
+            "selected product-entry audio sample"
+        ),
+    )
+    parser.add_argument(
         "--sample-id",
         action="append",
         help="run only this ID from the selected matrix; may be repeated",
@@ -8895,6 +8908,25 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    try:
+        product_entry_property_overrides = (
+            parse_product_entry_property_overrides(
+                args.product_entry_properties_json
+            )
+        )
+    except ValueError as error:
+        print(f"Scene benchmark precondition failed: {error}", file=sys.stderr)
+        return 2
+    if args.product_entry_properties_json is not None and (
+        not args.product_entry_audio_baseline
+        or len(args.sample_id or []) != 1
+    ):
+        print(
+            "Scene benchmark precondition failed: product-entry properties "
+            "require product-entry audio mode and exactly one --sample-id",
+            file=sys.stderr,
+        )
+        return 2
     product_entry_incompatible_options = any((
         args.no_execution_observations,
         args.performance_fps != 60,
@@ -9007,6 +9039,7 @@ def main() -> int:
                     output_dir=output_dir,
                     runtime_root=runtime_root,
                     duration=duration,
+                    property_overrides=product_entry_property_overrides,
                 )
                 results.append(result)
                 print(
@@ -9101,6 +9134,10 @@ def main() -> int:
         "summary": summary,
         "samples": results,
     }
+    if args.product_entry_audio_baseline:
+        report["product_entry_property_overrides"] = (
+            product_entry_property_overrides
+        )
     report_path = output_dir / "report.json"
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Scene benchmark {'PASS' if passed else 'FAIL'}: {report_path}")

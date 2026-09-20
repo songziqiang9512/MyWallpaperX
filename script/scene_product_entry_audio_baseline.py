@@ -66,6 +66,122 @@ def private_defaults_suite(sample_id: str) -> str:
     return PRIVATE_DEFAULTS_PREFIX + sample_id
 
 
+def parse_product_entry_property_overrides(
+    raw_payload: str | None,
+) -> dict[str, str | float | bool]:
+    if raw_payload is None:
+        return {}
+    try:
+        raw_payload_size = len(raw_payload.encode("utf-8"))
+    except UnicodeEncodeError as error:
+        raise ValueError(
+            "product-entry property override payload must be valid UTF-8"
+        ) from error
+    if raw_payload_size > 65_536:
+        raise ValueError("product-entry property override payload is too large")
+
+    def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(
+                    f"duplicate product-entry property override key: {key}"
+                )
+            result[key] = value
+        return result
+
+    def reject_constant(value: str) -> Any:
+        raise ValueError(f"invalid product-entry property number: {value}")
+
+    try:
+        payload = json.loads(
+            raw_payload,
+            object_pairs_hook=unique_object,
+            parse_constant=reject_constant,
+        )
+    except (json.JSONDecodeError, RecursionError) as error:
+        raise ValueError(
+            "product-entry property overrides must be valid JSON"
+        ) from error
+    if not isinstance(payload, dict) or not 1 <= len(payload) <= 64:
+        raise ValueError(
+            "product-entry property overrides must contain 1...64 entries"
+        )
+
+    normalized: dict[str, str | float | bool] = {}
+    for key, value in payload.items():
+        try:
+            key_size = len(key.encode("utf-8")) if isinstance(key, str) else 0
+        except UnicodeEncodeError as error:
+            raise ValueError(
+                "invalid product-entry property override key"
+            ) from error
+        if (
+            not isinstance(key, str)
+            or not key
+            or key_size > 512
+            or any(ord(character) < 32 or ord(character) == 127 for character in key)
+        ):
+            raise ValueError("invalid product-entry property override key")
+        if isinstance(value, bool):
+            normalized[key] = value
+        elif type(value) in (int, float):
+            try:
+                number = float(value)
+            except (OverflowError, ValueError) as error:
+                raise ValueError(
+                    "product-entry property override must be finite"
+                ) from error
+            if not math.isfinite(number):
+                raise ValueError("product-entry property override must be finite")
+            normalized[key] = number
+        elif isinstance(value, str):
+            try:
+                value_size = len(value.encode("utf-8"))
+            except UnicodeEncodeError as error:
+                raise ValueError(
+                    "invalid product-entry property override string"
+                ) from error
+            if value_size > 16_384:
+                raise ValueError(
+                    "invalid product-entry property override string"
+                )
+            normalized[key] = value
+        else:
+            raise ValueError(
+                "product-entry property override values must be string, number, or bool"
+            )
+    return dict(sorted(normalized.items()))
+
+
+def typed_property_overrides_match(
+    actual: Any,
+    expected: dict[str, str | float | bool],
+) -> bool:
+    if not isinstance(actual, dict) or set(actual) != set(expected):
+        return False
+    for key, expected_value in expected.items():
+        actual_value = actual[key]
+        if isinstance(expected_value, bool):
+            if type(actual_value) is not bool or actual_value is not expected_value:
+                return False
+        elif isinstance(expected_value, str):
+            if type(actual_value) is not str or actual_value != expected_value:
+                return False
+        elif type(expected_value) in (int, float):
+            if type(actual_value) not in (int, float):
+                return False
+            try:
+                actual_number = float(actual_value)
+            except (OverflowError, ValueError):
+                return False
+            if not math.isfinite(actual_number) or actual_number != float(expected_value):
+                return False
+        else:
+            return False
+    return True
+
+
 def product_entry_command(
     runtime_binary: Path,
     runtime_sample: Path,
@@ -73,8 +189,9 @@ def product_entry_command(
     runtime_workshop: Path,
     sample_id: str,
     duration: float,
+    property_overrides: dict[str, str | float | bool] | None = None,
 ) -> list[str]:
-    return [
+    command = [
         str(runtime_binary),
         "--mwx-debug-scene-daemon-client",
         "--mwx-debug-scene-product-entry",
@@ -90,6 +207,17 @@ def product_entry_command(
         "--mwx-debug-user-defaults-suite",
         private_defaults_suite(sample_id),
     ]
+    if property_overrides:
+        command.extend([
+            "--mwx-debug-scene-properties-json",
+            json.dumps(
+                property_overrides,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        ])
+    return command
 
 
 def classify_product_entry_result(
@@ -98,6 +226,7 @@ def classify_product_entry_result(
     *,
     exit_code: int,
     timed_out: bool,
+    expected_property_overrides: dict[str, str | float | bool] | None = None,
 ) -> dict[str, Any]:
     failures: list[str] = []
     process_failed = False
@@ -138,6 +267,12 @@ def classify_product_entry_result(
         identity_failed = True
     if payload.get("stableDaemonClientRequested") is not True:
         failures.append("stable daemon client mode missing")
+        identity_failed = True
+    if expected_property_overrides is not None and not typed_property_overrides_match(
+        payload.get("startupPropertyOverrides"),
+        expected_property_overrides,
+    ):
+        failures.append("product-entry property override identity mismatch")
         identity_failed = True
 
     first_present_count = _nonnegative_integer(payload.get("firstPresentCount"))
@@ -217,6 +352,7 @@ def classify_product_entry_result(
         "nonzero_publication_count": len(positive_peaks),
         "maximum_publication_peak": max(positive_peaks, default=None),
         "rendered_frames": rendered,
+        "startup_property_overrides": payload.get("startupPropertyOverrides"),
     }
 
 

@@ -741,17 +741,35 @@ enum DebugScenePlaybackRunner {
         requestedPropertyValues(after: "--mwx-debug-scene-live-properties-json")
     }
 
-    private static func requestedPropertyValues(
+    static func requestedPropertyValues(
         after flag: String
     ) -> [String: SceneUserPropertyValue] {
-        guard let payload = argumentValue(after: flag),
-              let data = payload.data(using: .utf8),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return [:]
+        strictRequestedPropertyValues(after: flag) ?? [:]
+    }
+
+    static func strictRequestedPropertyValues(
+        after flag: String
+    ) -> [String: SceneUserPropertyValue]? {
+        guard let payload = argumentValue(after: flag) else { return [:] }
+        guard let data = payload.data(using: .utf8), data.count <= 65_536,
+              let object = try? JSONSerialization.jsonObject(with: data)
+                as? [String: Any],
+              object.count <= 64 else {
+            return nil
         }
-        return object.reduce(into: [:]) { values, entry in
-            values[entry.key] = SceneUserPropertyValue.parse(entry.value)
+        var values: [String: SceneUserPropertyValue] = [:]
+        for (key, rawValue) in object {
+            guard !key.isEmpty,
+                  key.utf8.count <= 512,
+                  key.unicodeScalars.allSatisfy({
+                      $0.value >= 32 && $0.value != 127
+                  }),
+                  let value = SceneUserPropertyValue.parse(rawValue) else {
+                return nil
+            }
+            values[key] = value
         }
+        return values
     }
 
     static func requestedUserPropertyTextureURLs(rootURL: URL) -> [String: URL] {

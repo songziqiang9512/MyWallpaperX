@@ -16,6 +16,8 @@ enum DebugSceneDaemonClientRunner {
     private static let propertyKeyFlag = "--mwx-debug-scene-property-key"
     private static let propertyValueFlag = "--mwx-debug-scene-property-value"
     private static let propertyTypeFlag = "--mwx-debug-scene-property-type"
+    private static let startupPropertiesFlag =
+        "--mwx-debug-scene-properties-json"
     private static let stableDaemonClientFlag =
         "--mwx-debug-scene-daemon-stable"
     private static let recordID = "debug-scene-daemon-client"
@@ -74,6 +76,14 @@ enum DebugSceneDaemonClientRunner {
         evidenceDirectory = argumentValue(after: evidenceFlag).map {
             URL(fileURLWithPath: $0, isDirectory: true).standardizedFileURL
         }
+        guard let startupPropertyOverrides = DebugScenePlaybackRunner
+                .strictRequestedPropertyValues(
+                    after: startupPropertiesFlag
+                ) else {
+            NSLog("MWX SCENE CLIENT: phase=precondition-failed reason=invalid-startup-properties")
+            NSApp.terminate(nil)
+            return
+        }
         if let evidenceDirectory {
             try? FileManager.default.createDirectory(
                 at: evidenceDirectory,
@@ -91,7 +101,10 @@ enum DebugSceneDaemonClientRunner {
         installObservers()
         let issued: Bool
         if runsProductEntry {
-            issued = requestThroughSteamWorkshopProductEntry(rootURL: rootURL)
+            issued = requestThroughSteamWorkshopProductEntry(
+                rootURL: rootURL,
+                propertyOverrides: startupPropertyOverrides
+            )
         } else {
             issued = PlaybackCommandMultiplexer.shared.dispatch(
                 .loadScene(.init(
@@ -278,6 +291,11 @@ enum DebugSceneDaemonClientRunner {
             "switchCompletedInSameDaemon": switchCompleted,
             "stableDaemonClientRequested": runsStableDaemonClient,
             "sampleID": requestedSampleID,
+            "startupPropertyOverrides": (
+                DebugScenePlaybackRunner.strictRequestedPropertyValues(
+                    after: startupPropertiesFlag
+                ) ?? [:]
+            ).mapValues(\.foundationValue),
             "launchEntry": runsProductEntry
                 ? "steam-workshop-product"
                 : "direct-client",
@@ -365,7 +383,8 @@ enum DebugSceneDaemonClientRunner {
     }
 
     private static func requestThroughSteamWorkshopProductEntry(
-        rootURL: URL
+        rootURL: URL,
+        propertyOverrides: [String: SceneUserPropertyValue]
     ) -> Bool {
         let fileManager = FileManager.default
         guard let realUserHome = DebugSceneProductEntryPolicy
@@ -424,8 +443,15 @@ enum DebugSceneDaemonClientRunner {
             dependencyItemID: nil,
             dependencyStatus: .none
         )
-        SteamWorkshopService.shared.requestSceneRender(record)
-        return true
+        let service = SteamWorkshopService.shared
+        if propertyOverrides.isEmpty {
+            service.requestSceneRender(record)
+            return true
+        }
+        return service.debugRequestSceneRender(
+            record,
+            temporaryPropertyOverrides: propertyOverrides
+        )
     }
 
     private static func exerciseControlCommands() {

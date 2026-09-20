@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import stat
 import sys
@@ -24,6 +26,7 @@ def successful_payload(sample_id: str = "123") -> dict[str, object]:
         "launchPhase": "launched",
         "activeRecordID": "debug-scene-daemon-client",
         "stableDaemonClientRequested": True,
+        "startupPropertyOverrides": {},
         "firstPresentCount": 1,
         "firstPresentRecordIDs": ["debug-scene-daemon-client"],
         "uniqueRequestCount": 1,
@@ -148,6 +151,69 @@ class SceneProductEntryAudioBaselineTests(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
                 baseline.private_defaults_suite(invalid)
 
+    def test_typed_startup_overrides_are_bounded_and_preserved(self) -> None:
+        overrides = baseline.parse_product_entry_property_overrides(
+            '{"enabled":true,"mode":"0","rate":1.5}'
+        )
+        self.assertEqual(overrides, {
+            "enabled": True,
+            "mode": "0",
+            "rate": 1.5,
+        })
+        command = baseline.product_entry_command(
+            runtime_binary=Path("/tmp/MyWallpaperX"),
+            runtime_sample=Path("/tmp/sample/123"),
+            result_dir=Path("/tmp/result/123"),
+            runtime_workshop=Path("/tmp/workshop/123"),
+            sample_id="123",
+            duration=9,
+            property_overrides=overrides,
+        )
+        payload_index = command.index("--mwx-debug-scene-properties-json") + 1
+        self.assertEqual(
+            json.loads(command[payload_index]),
+            overrides,
+        )
+
+        invalid_payloads = (
+            "{}",
+            "[]",
+            '{"duplicate":true,"duplicate":false}',
+            '{"nested":{"value":1}}',
+            '{"nan":NaN}',
+            '{"bad\\u0000key":true}',
+            r'{"\ud800":true}',
+            r'{"bad":"\ud800"}',
+            '{"huge":' + ("9" * 10_000) + "}",
+        )
+        for payload in invalid_payloads:
+            with self.subTest(payload=payload), self.assertRaises(ValueError):
+                baseline.parse_product_entry_property_overrides(payload)
+
+    def test_unbounded_startup_overrides_fail_as_preconditions(self) -> None:
+        for payload in (
+            r'{"bad":"\ud800"}',
+            '{"huge":' + ("9" * 10_000) + "}",
+        ):
+            previous = sys.argv
+            errors = io.StringIO()
+            try:
+                sys.argv = [
+                    "scene_wallpaper_benchmark.py",
+                    "--app", "/tmp/MyWallpaperX",
+                    "--sample-root", "/tmp/samples",
+                    "--output-dir", "/tmp/results",
+                    "--product-entry-properties-json",
+                    payload,
+                ]
+                with contextlib.redirect_stderr(errors):
+                    exit_code = benchmark.main()
+            finally:
+                sys.argv = previous
+            self.assertEqual(exit_code, 2)
+            self.assertIn("precondition failed", errors.getvalue())
+            self.assertNotIn("Traceback", errors.getvalue())
+
     def test_result_classifier_stops_at_capture_publication(self) -> None:
         result = baseline.classify_product_entry_result(
             "123",
@@ -162,6 +228,52 @@ class SceneProductEntryAudioBaselineTests(unittest.TestCase):
         self.assertFalse(result["consumer_execution_validated"])
         self.assertEqual(result["nonzero_publication_count"], 2)
         self.assertEqual(result["maximum_publication_peak"], 0.5)
+
+        overridden = successful_payload()
+        overridden["startupPropertyOverrides"] = {"mode": "0"}
+        matched = baseline.classify_product_entry_result(
+            "123",
+            overridden,
+            exit_code=0,
+            timed_out=False,
+            expected_property_overrides={"mode": "0"},
+        )
+        self.assertTrue(matched["passed"])
+        mismatch = baseline.classify_product_entry_result(
+            "123",
+            overridden,
+            exit_code=0,
+            timed_out=False,
+            expected_property_overrides={"mode": "1"},
+        )
+        self.assertFalse(mismatch["passed"])
+        self.assertEqual(mismatch["status"], "result-identity-invalid")
+
+        for actual, expected in ((True, 1.0), (1, True), (False, 0.0), (0, False)):
+            typed_mismatch = successful_payload()
+            typed_mismatch["startupPropertyOverrides"] = {"value": actual}
+            result = baseline.classify_product_entry_result(
+                "123",
+                typed_mismatch,
+                exit_code=0,
+                timed_out=False,
+                expected_property_overrides={"value": expected},
+            )
+            with self.subTest(actual=actual, expected=expected):
+                self.assertFalse(result["passed"])
+                self.assertEqual(result["status"], "result-identity-invalid")
+
+        overflowed = successful_payload()
+        overflowed["startupPropertyOverrides"] = {"value": 10**400}
+        overflow_result = baseline.classify_product_entry_result(
+            "123",
+            overflowed,
+            exit_code=0,
+            timed_out=False,
+            expected_property_overrides={"value": 1.0},
+        )
+        self.assertFalse(overflow_result["passed"])
+        self.assertEqual(overflow_result["status"], "result-identity-invalid")
 
     def test_result_classifier_preserves_first_breakpoint_buckets(self) -> None:
         cases: list[tuple[str, object]] = []
@@ -306,6 +418,9 @@ payload = {
     "launchPhase": "launched",
     "activeRecordID": "debug-scene-daemon-client",
     "stableDaemonClientRequested": True,
+    "startupPropertyOverrides": json.loads(
+        value("--mwx-debug-scene-properties-json")
+    ) if "--mwx-debug-scene-properties-json" in arguments else {},
     "firstPresentCount": 1,
     "firstPresentRecordIDs": ["debug-scene-daemon-client"],
     "uniqueRequestCount": 1,
@@ -340,6 +455,7 @@ evidence.mkdir(parents=True, exist_ok=True)
                 output_dir=output,
                 runtime_root=runtime,
                 duration=7,
+                property_overrides={"mode": "0"},
             )
 
             self.assertTrue(result["passed"])
@@ -348,6 +464,7 @@ evidence.mkdir(parents=True, exist_ok=True)
                 "capture-publication-observed",
             )
             self.assertEqual(result["daemon_client_result"]["failures"], [])
+            self.assertEqual(result["property_overrides"], {"mode": "0"})
             self.assertTrue(Path(result["runtime_home"]).is_dir())
             self.assertTrue(Path(result["runtime_workshop"]).is_dir())
             self.assertTrue(result["evidence"]["app_log_sha256"])
