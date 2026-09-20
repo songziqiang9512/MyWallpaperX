@@ -13,11 +13,23 @@ class SteamDownloadExecutionTests(unittest.TestCase):
         cls.build = tempfile.TemporaryDirectory(prefix='mwx-steam-execution-build-')
         folder = pathlib.Path(cls.build.name)
         source = (CORE / 'SteamWorkshopService+DownloadLibrarySync.swift').read_text()
+        def extract_function(signature):
+            start = source.index(signature)
+            opening = source.index('{', start)
+            depth = 0
+            for index in range(opening, len(source)):
+                if source[index] == '{':
+                    depth += 1
+                elif source[index] == '}':
+                    depth -= 1
+                    if depth == 0:
+                        return source[start:index + 1]
+            raise AssertionError('unterminated Swift function: ' + signature)
         methods = []
         for name in ('publishDownloadedVersion', 'managedDownloadSnapshots', 'loadManagedDownloadSnapshots'):
-            start = source.index('    func ' + name + '(')
-            end = source.index('\n    }', start) + len('\n    }')
-            methods.append(source[start:end])
+            methods.append(extract_function('    func ' + name + '('))
+        migration = extract_function('    private func scheduleLegacyLibraryPublicationMigration(')
+        methods.append(migration.replace('    private func ', '    func ', 1))
         publisher = folder / 'Publisher.swift'
         publisher.write_text('import Foundation\nextension SteamWorkshopService {\n' + '\n'.join(methods) + '\n}')
         cls.binary = folder / 'execution'
@@ -55,7 +67,10 @@ class SteamDownloadExecutionTests(unittest.TestCase):
                 'receiptVersion': 2, 'contentDigest': digest(files), 'jobId': 'replaced-by-wire-fixture',
                 'workshopId': '123456', 'accountSteamId': '76561198000000000', 'stagedComplete': True,
                 'projectJsonPresent': True, 'manifestId': '123', 'stagingPath': str(stage),
+                'stagingDevice': str(stage.stat().st_dev), 'stagingInode': str(stage.stat().st_ino),
                 'secondStagingPath': str(second_stage),
+                'secondStagingDevice': str(second_stage.stat().st_dev) if second_stage.exists() else None,
+                'secondStagingInode': str(second_stage.stat().st_ino) if second_stage.exists() else None,
                 'totalBytes': sum(map(len, files.values())), 'verifiedBytes': sum(map(len, files.values()))}}))
             result = subprocess.run([str(self.binary), str(root), mode], capture_output=True, text=True, timeout=15)
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -85,6 +100,12 @@ class SteamDownloadExecutionTests(unittest.TestCase):
     def test_manifest_mismatch_invalidates_and_cleans_recovery_identity(self):
         self.run_case('manifest-mismatch')
 
+    def test_first_progress_rejects_same_name_replacement_before_binding(self):
+        self.run_case('prebind-replacement')
+
+    def test_v3_identityless_partial_does_not_resume_or_adopt_replacement(self):
+        self.run_case('legacy-partial-retry')
+
     def test_cancel_one_of_two_active_jobs_does_not_retire_the_other(self):
         self.run_case('concurrent-cancel')
 
@@ -93,6 +114,18 @@ class SteamDownloadExecutionTests(unittest.TestCase):
 
     def test_two_successes_serialize_library_copy_and_publish_both(self):
         self.run_case('concurrent-success')
+
+    def test_legacy_publication_migration_runs_through_service_owner(self):
+        self.run_case('migration-success')
+
+    def test_legacy_publication_waits_for_shared_copy_capacity(self):
+        self.run_case('migration-capacity')
+
+    def test_legacy_publication_cas_preserves_newer_pointer(self):
+        self.run_case('migration-cas')
+
+    def test_legacy_publication_retries_transient_type_root_failure(self):
+        self.run_case('migration-retry')
 
 
 if __name__ == '__main__':

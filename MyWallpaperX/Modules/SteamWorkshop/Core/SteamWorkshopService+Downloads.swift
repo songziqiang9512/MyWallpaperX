@@ -103,7 +103,9 @@ extension SteamWorkshopService {
         ) {
             // Explicit retry keeps one logical job and advances its attempt. A
             // different account can never adopt the failed intent.
-            let event: SteamDownloadJobEvent = failed.stagingPath != nil && failed.stagingManifestId != nil
+            let event: SteamDownloadJobEvent = failed.stagingPath != nil
+                && failed.stagingManifestId != nil
+                && failed.stagingLeaseIdentity != nil
                 ? .resumed : .started
             guard let retried = downloadJobStore.apply(event, toID: failed.id) else {
                 statusMessage = "下载重试任务无法保存，未开始下载。"
@@ -155,16 +157,41 @@ extension SteamWorkshopService {
                   self.steamServiceClient.accountEpoch == epoch,
                   frame.event == "downloadProgress", frame.jobId == key else { return }
             if let path = frame.root["stagingPath"]?.stringValue,
-               let manifestId = frame.root["manifestId"]?.stringValue,
-               let stagingURL = SteamWorkshopStagedReceipt.validatedStagingURL(
+               let manifestId = frame.root["manifestId"]?.stringValue {
+                guard let deviceText = frame.root["stagingDevice"]?.stringValue,
+                      let device = UInt64(deviceText),
+                      let inodeText = frame.root["stagingInode"]?.stringValue,
+                      let inode = UInt64(inodeText), inode > 0,
+                      let stagingURL = SteamWorkshopStagedReceipt.validatedStagingURL(
                     path: path,
                     stagingRoot: self.steamDownloadStagingRootURL.path
-               ), let current = self.downloadJobStore.job(id: job.id),
-               current.stagingPath != stagingURL.path || current.stagingManifestId != manifestId {
-                _ = self.downloadJobStore.apply(
-                    .stagingAllocated(path: stagingURL.path, manifestId: manifestId),
-                    toID: job.id
-                )
+                      ), let current = self.downloadJobStore.job(id: job.id) else {
+                    self.activeDownloadTasks[key]?.cancel()
+                    return
+                }
+                let helperIdentity = SteamWorkshopStagingLeaseIdentity(device: device, inode: inode)
+                guard let localIdentity = try? SteamWorkshopLibraryTransaction.stagingLeaseIdentity(
+                    stagingURL: stagingURL,
+                    stagingRoot: self.steamDownloadStagingRootURL
+                ), localIdentity == helperIdentity else {
+                    self.activeDownloadTasks[key]?.cancel()
+                    return
+                }
+                if current.stagingPath != stagingURL.path
+                    || current.stagingManifestId != manifestId
+                    || current.stagingLeaseIdentity != helperIdentity {
+                    guard self.downloadJobStore.apply(
+                        .stagingAllocated(
+                            path: stagingURL.path,
+                            manifestId: manifestId,
+                            leaseIdentity: helperIdentity
+                        ),
+                        toID: job.id
+                    ) != nil else {
+                        self.activeDownloadTasks[key]?.cancel()
+                        return
+                    }
+                }
             }
             // Progress remains item scoped and never enters the service-wide
             // ObservableObject stream. A helper event never establishes success.
@@ -218,9 +245,26 @@ extension SteamWorkshopService {
                     accountSteamId: job.accountSteamId,
                     stagingRoot: staging.path,
                     resumeStagingPath: job.stagingPath,
-                    resumeManifestId: job.stagingManifestId
+                    resumeManifestId: job.stagingManifestId,
+                    resumeStagingLeaseIdentity: job.stagingLeaseIdentity
                 )
                 try checkCurrent()
+                guard let helperIdentity = receipt.stagingLeaseIdentity,
+                      let allocatedIdentity = self.downloadJobStore.job(id: job.id)?.stagingLeaseIdentity,
+                      helperIdentity == allocatedIdentity else {
+                    throw SteamWorkshopLibraryTransaction.Failure(
+                        message: "下载暂存身份未在内容写入前持久化，拒绝收养终态路径。"
+                    )
+                }
+                let localIdentity = try SteamWorkshopLibraryTransaction.stagingLeaseIdentity(
+                    stagingURL: receipt.stagingURL,
+                    stagingRoot: staging
+                )
+                guard localIdentity == helperIdentity else {
+                    throw SteamWorkshopLibraryTransaction.Failure(
+                        message: "下载暂存目录在 helper 完成后发生替换。"
+                    )
+                }
                 guard self.downloadJobStore.apply(.staged(receipt), toID: job.id) != nil else {
                     throw SteamWorkshopLibraryTransaction.Failure(message: "无法保存下载凭证，尚未入库。")
                 }
@@ -276,10 +320,11 @@ extension SteamWorkshopService {
                     }
                     return code == "integrity" || code == "unsupportedContent" || code == "protocolMismatch"
                 }()
-                if (cancelled || invalidRecovery),
-                   let stagingPath = self.downloadJobStore.job(id: job.id)?.stagingPath {
+                if cancelled || invalidRecovery,
+                   let cleanupJob = self.downloadJobStore.job(id: job.id),
+                   cleanupJob.stagingPath != nil {
                     do {
-                        try await self.removeOwnedDownloadStaging(stagingPath)
+                        try await self.removeOwnedDownloadStaging(cleanupJob)
                         if invalidRecovery {
                             _ = self.downloadJobStore.apply(.recoveryInvalidated, toID: job.id)
                         }
@@ -315,8 +360,14 @@ extension SteamWorkshopService {
         activeDownloadTasks[key] = task
     }
 
-    private func removeOwnedDownloadStaging(_ path: String) async throws {
+    private func removeOwnedDownloadStaging(_ job: SteamDownloadJob) async throws {
         let stagingRoot = steamDownloadStagingRootURL
+        guard let path = job.stagingPath,
+              let leaseIdentity = job.stagingLeaseIdentity else {
+            throw SteamWorkshopLibraryTransaction.Failure(
+                message: "下载暂存缺少稳定身份，拒绝按路径清理。"
+            )
+        }
         guard let stagingURL = SteamWorkshopStagedReceipt.validatedStagingURL(
             path: path,
             stagingRoot: stagingRoot.path
@@ -326,7 +377,8 @@ extension SteamWorkshopService {
         try await Task.detached(priority: .utility) {
             try SteamWorkshopLibraryTransaction.removeStagingLease(
                 stagingURL: stagingURL,
-                stagingRoot: stagingRoot
+                stagingRoot: stagingRoot,
+                expectedIdentity: leaseIdentity
             )
         }.value
     }
@@ -338,7 +390,7 @@ extension SteamWorkshopService {
         guard let job = downloadJobStore.job(id: jobID),
               job.state == .completed || job.state == .cancelled else { return false }
         do {
-            if let path = job.stagingPath { try await removeOwnedDownloadStaging(path) }
+            if job.stagingPath != nil { try await removeOwnedDownloadStaging(job) }
             return downloadJobStore.apply(.resourcesReleased, toID: jobID) != nil
         } catch {
             downloadError = "内容状态已保存，但下载暂存清理失败，稍后将重试：\(error.localizedDescription)"
@@ -387,7 +439,7 @@ extension SteamWorkshopService {
         scheduleTerminalDownloadCleanup()
     }
 
-    private func reserveLibraryCopyCapacity(
+    func reserveLibraryCopyCapacity(
         required: Int64,
         available: Int64,
         sharesStagingVolume: Bool,
@@ -414,7 +466,7 @@ extension SteamWorkshopService {
         reservedLibraryCopyBytesByJobKey[jobKey] = required
     }
 
-    private func claimLibraryCopyCapacity(jobKey: String) async throws {
+    func claimLibraryCopyCapacity(jobKey: String) async throws {
         // Copying a version changes the observed free-space value. Serialize
         // copies so an earlier reservation is never subtracted a second time
         // after its bytes have already reached disk.

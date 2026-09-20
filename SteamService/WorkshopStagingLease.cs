@@ -15,6 +15,8 @@ internal sealed class WorkshopStagingLease : IDisposable
     private readonly Dictionary<string, Identity> directories = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Identity> files = new(StringComparer.Ordinal);
     internal string Path { get; }
+    internal int Device => rootIdentity.Device;
+    internal ulong Inode => rootIdentity.Inode;
 
     internal class Failure(string code, string message) : IOException(message)
     {
@@ -69,10 +71,17 @@ internal sealed class WorkshopStagingLease : IDisposable
         return new(value.Device, value.Inode, value.BirthSeconds, value.BirthNanoseconds);
     }
     internal WorkshopStagingLease(string basePath) : this(basePath, existingPath: null) { }
-    internal static WorkshopStagingLease Resume(string basePath, string existingPath) =>
-        new(basePath, existingPath);
+    internal static WorkshopStagingLease Resume(
+        string basePath,
+        string existingPath,
+        int expectedDevice,
+        ulong expectedInode) => new(basePath, existingPath, expectedDevice, expectedInode);
 
-    private WorkshopStagingLease(string basePath, string? existingPath)
+    private WorkshopStagingLease(
+        string basePath,
+        string? existingPath,
+        int? expectedDevice = null,
+        ulong? expectedInode = null)
     {
         if (!OperatingSystem.IsMacOS() || RuntimeInformation.ProcessArchitecture != Architecture.Arm64)
             throw new PlatformNotSupportedException("staging requires macOS arm64");
@@ -97,6 +106,13 @@ internal sealed class WorkshopStagingLease : IDisposable
         try
         {
             rootIdentity = Inspect(root, true);
+            if (existingPath != null
+                && (expectedDevice == null || expectedInode == null
+                    || rootIdentity.Device != expectedDevice
+                    || rootIdentity.Inode != expectedInode))
+            {
+                throw new Rejected("resume staging identity changed");
+            }
             Path = System.IO.Path.Combine(basePath, name);
             VerifyPublicationPath();
         }

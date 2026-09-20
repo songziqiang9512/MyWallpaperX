@@ -273,18 +273,38 @@ internal static class Program
                 var stagingRoot = decode.PayloadString("stagingRoot");
                 var resumeStagingPath = decode.PayloadString("resumeStagingPath");
                 var resumeManifestText = decode.PayloadString("resumeManifestId");
+                var resumeDeviceText = decode.PayloadString("resumeStagingDevice");
+                var resumeInodeText = decode.PayloadString("resumeStagingInode");
                 ulong? resumeManifestId = null;
+                int? resumeStagingDevice = null;
+                ulong? resumeStagingInode = null;
                 var hasResumePath = !string.IsNullOrEmpty(resumeStagingPath);
                 var hasResumeManifest = !string.IsNullOrEmpty(resumeManifestText);
+                var hasResumeDevice = !string.IsNullOrEmpty(resumeDeviceText);
+                var hasResumeInode = !string.IsNullOrEmpty(resumeInodeText);
                 if (hasResumeManifest && ulong.TryParse(resumeManifestText, out var parsedManifest)
                     && parsedManifest > 0)
                 {
                     resumeManifestId = parsedManifest;
                 }
+                if (hasResumeDevice && int.TryParse(resumeDeviceText, out var parsedDevice)
+                    && parsedDevice >= 0)
+                {
+                    resumeStagingDevice = parsedDevice;
+                }
+                if (hasResumeInode && ulong.TryParse(resumeInodeText, out var parsedInode)
+                    && parsedInode > 0)
+                {
+                    resumeStagingInode = parsedInode;
+                }
                 if (workshopId == null || !ulong.TryParse(workshopId, out var downloadId)
                     || string.IsNullOrEmpty(jobId) || string.IsNullOrEmpty(stagingRoot)
                     || hasResumePath != hasResumeManifest
+                    || hasResumePath != hasResumeDevice
+                    || hasResumePath != hasResumeInode
                     || hasResumeManifest && resumeManifestId == null
+                    || hasResumeDevice && resumeStagingDevice == null
+                    || hasResumeInode && resumeStagingInode == null
                     || hasResumePath && !Path.IsPathRooted(resumeStagingPath!))
                 {
                     // 异步命令不预占 requestId，但校验失败的 terminal 在此发送：
@@ -296,7 +316,7 @@ internal static class Program
                     return;
                 }
                 steamSession.BeginStartDownload(requestId, jobId, downloadId, stagingRoot, decode.AccountEpoch,
-                    resumeStagingPath, resumeManifestId);
+                    resumeStagingPath, resumeManifestId, resumeStagingDevice, resumeStagingInode);
                 return;
             }
             case "cancelDownload":

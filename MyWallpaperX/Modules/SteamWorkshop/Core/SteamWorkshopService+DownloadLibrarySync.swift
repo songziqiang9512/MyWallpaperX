@@ -3,11 +3,20 @@ import Foundation
 extension SteamWorkshopService {
     func reloadInstalledItems() {
         let managed = managedDownloadSnapshots()
+        scheduleLegacyLibraryPublicationMigration(from: managed)
         reconcileDownloadCommits(managed)
         scheduleTerminalDownloadCleanup()
         let videoFiles = directVideoFiles(in: videoLibraryRootURL)
-        let webDirectories = directChildDirectories(in: webLibraryRootURL)
-        let sceneDirectories = directChildDirectories(in: sceneLibraryRootURL)
+        let webDirectories = directChildDirectories(in: webLibraryRootURL).filter {
+            !SteamWorkshopLibraryTransaction.isReservedManagedPublicDirectory(
+                $0, libraryRoot: steamDownloadLibraryRootURL
+            )
+        }
+        let sceneDirectories = directChildDirectories(in: sceneLibraryRootURL).filter {
+            !SteamWorkshopLibraryTransaction.isReservedManagedPublicDirectory(
+                $0, libraryRoot: steamDownloadLibraryRootURL
+            )
+        }
 
         var records: [SteamWorkshopDownloadRecord] = managed.values.compactMap { snapshot in
             guard let commit = snapshot.commit,
@@ -150,7 +159,8 @@ extension SteamWorkshopService {
             itemID: request.id, libraryRoot: libraryRoot)
     }
 
-    /// Single current pointer lives in the existing metadata index. Hidden versions are never scanned as ready.
+    /// Single current pointer lives in the existing metadata index. Managed version directories are
+    /// never inferred as ready by the public legacy scanner.
     func managedDownloadSnapshots() -> [String: SteamWorkshopDownloadMetadataSnapshot] {
         (try? loadManagedDownloadSnapshots(requireComplete: false)) ?? [:]
     }
@@ -176,6 +186,133 @@ extension SteamWorkshopService {
             result[commit.workshopId] = snapshot
         }
         return result
+    }
+
+    /// Upgrade the retired hidden v1 layout in the background. Copy and validation happen off the
+    /// main actor; publication re-checks the exact old pointer before atomically replacing metadata.
+    /// A playing v1 path is never moved or deleted here and remains protected by the normal lease /
+    /// engine-reference reclamation set.
+    private func scheduleLegacyLibraryPublicationMigration(
+        from snapshots: [String: SteamWorkshopDownloadMetadataSnapshot]
+    ) {
+        guard legacyLibraryPublicationMigrationTask == nil else { return }
+        let candidates = snapshots.values.filter {
+            $0.commit?.version == 1 && $0.commit?.removed == false
+        }.sorted { $0.item.id < $1.item.id }
+        guard !candidates.isEmpty else { return }
+        let library = steamDownloadLibraryRootURL
+        let staging = steamDownloadStagingRootURL
+        legacyLibraryPublicationMigrationTask = Task { [weak self] in
+            guard let self else { return }
+            var migratedCount = 0
+            var deferredCount = 0
+        candidateLoop:
+            for candidate in candidates {
+                guard let legacyCommit = candidate.commit else { continue }
+                let capacityKey = "legacy-migration:" + (
+                    SteamWorkshopLibraryTransaction.storageIdentity(for: legacyCommit)
+                        ?? candidate.item.id
+                )
+                var preparedMigration: SteamWorkshopLibraryCommit?
+                for retry in 0..<3 {
+                    if retry > 0 {
+                        let delay = retry == 1 ? UInt64(250_000_000) : UInt64(1_000_000_000)
+                        do { try await Task.sleep(nanoseconds: delay) }
+                        catch { break candidateLoop }
+                    }
+                    do {
+                        let before = try self.loadManagedDownloadSnapshots(requireComplete: true)[candidate.item.id]
+                        guard before?.commit == legacyCommit else {
+                            continue candidateLoop // A delete/update already won.
+                        }
+                        if let prepared = preparedMigration,
+                           !SteamWorkshopLibraryTransaction.isAvailable(
+                               prepared,
+                               libraryRoot: library
+                           ) {
+                            self.reservedLibraryCopyBytesByJobKey[capacityKey] = nil
+                            preparedMigration = nil
+                        }
+                        if preparedMigration == nil {
+                            try await self.claimLibraryCopyCapacity(jobKey: capacityKey)
+                            do {
+                                defer { self.reservedLibraryCopyBytesByJobKey[capacityKey] = nil }
+                                let capacity = try await Task.detached(priority: .utility) {
+                                    (
+                                        required: try SteamWorkshopLibraryTransaction.migrationRequiredBytes(
+                                            for: legacyCommit,
+                                            libraryRoot: library
+                                        ),
+                                        available: try SteamWorkshopLibraryTransaction.availableDiskBytes(at: library),
+                                        sharesStagingVolume: try SteamWorkshopLibraryTransaction.areOnSameFileSystem(
+                                            library,
+                                            staging
+                                        )
+                                    )
+                                }.value
+                                try self.reserveLibraryCopyCapacity(
+                                    required: capacity.required,
+                                    available: capacity.available,
+                                    sharesStagingVolume: capacity.sharesStagingVolume,
+                                    jobKey: capacityKey
+                                )
+                                preparedMigration = try await Task.detached(priority: .utility) {
+                                    try SteamWorkshopLibraryTransaction.migrateLegacyCommit(
+                                        legacyCommit, libraryRoot: library
+                                    )
+                                }.value
+                            }
+                        }
+                        guard let migratedCommit = preparedMigration else {
+                            throw SteamWorkshopLibraryTransaction.Failure(
+                                message: "旧下载版本尚未完成公开目录准备。"
+                            )
+                        }
+                        let current = try self.loadManagedDownloadSnapshots(requireComplete: true)[candidate.item.id]
+                        guard current?.commit == legacyCommit else {
+                            continue candidateLoop // A delete/update won while the copy was in flight.
+                        }
+                        let content = try SteamWorkshopLibraryTransaction.contentURL(
+                            for: migratedCommit, libraryRoot: library
+                        )
+                        var updated = SteamWorkshopDownloadMetadataSnapshot(
+                            fetchedAt: current?.fetchedAt ?? candidate.fetchedAt,
+                            item: current?.item ?? candidate.item,
+                            sourceVideoRelativePath: current?.sourceVideoRelativePath,
+                            previewRelativePath: current?.previewRelativePath,
+                            exportedVideoURL: migratedCommit.contentType == "video"
+                                ? migratedCommit.entryPath.map { content.appendingPathComponent($0) }
+                                : nil,
+                            legacyFolderURL: content
+                        )
+                        updated.commit = migratedCommit
+                        try SteamWorkshopLibraryTransaction.publish(
+                            metadata: JSONEncoder().encode(updated),
+                            itemID: candidate.item.id,
+                            libraryRoot: library
+                        )
+                        migratedCount += 1
+                        continue candidateLoop
+                    } catch is CancellationError {
+                        break candidateLoop
+                    } catch {
+                        if retry == 2 {
+                            deferredCount += 1
+                            NSLog("MWX Steam library: v1 public migration deferred for %@: %@",
+                                  candidate.item.id, error.localizedDescription)
+                        }
+                    }
+                }
+            }
+            self.legacyLibraryPublicationMigrationTask = nil
+            if migratedCount > 0 {
+                NSLog("MWX Steam library: migrated %d hidden version(s) into public type folders", migratedCount)
+                self.reloadInstalledItems()
+            }
+            if deferredCount > 0 {
+                NSLog("MWX Steam library: %d hidden version migration(s) remain retryable", deferredCount)
+            }
+        }
     }
 
     /// A crash before metadata publication leaves the old ready pointer; after publication the job

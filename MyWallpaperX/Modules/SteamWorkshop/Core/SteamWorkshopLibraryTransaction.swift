@@ -3,6 +3,10 @@ import CryptoKit
 import Darwin
 
 /// The existing metadata index publishes this pointer. Version directories alone are never ready.
+///
+/// Version 1 commits point into the retired hidden-version layout and remain readable only so the
+/// service can migrate them without touching a playing path. Version 2 commits point at immutable
+/// direct children of Video/Web/Scene. The metadata rename remains the only ready commit point.
 nonisolated struct SteamWorkshopLibraryCommit: Codable, Equatable, Sendable {
     let version: Int
     let workshopId: String
@@ -20,22 +24,31 @@ nonisolated struct SteamWorkshopLibraryCommit: Codable, Equatable, Sendable {
 /// Disk preparation is detached from UI. Publication is a small, synchronous operation performed
 /// by the service after checking the live account and job attempt. No old content is deleted.
 nonisolated enum SteamWorkshopLibraryTransaction {
+    /// Read-only compatibility root for version 1 commits. New content is never prepared here.
     static let versionsName = ".mywallpaperx-steam-versions"
+    static let incomingName = ".mywallpaperx-steam-incoming"
     static let metadataName = ".mywallpaperx-steam-metadata"
+    static let ownershipMarkerName = ".mywallpaperx-steam-version.json"
     static let maxBytes = 8 * 1024 * 1024 * 1024
     static let maximumRetainedBytesBeforeAdmissions = 16 * 1024 * 1024 * 1024
     static let diskSafetyReserveBytes = 256 * 1024 * 1024
 
     struct ReclamationResult: Equatable, Sendable {
-        let removedDirectoryNames: [String]
-        let retainedDirectoryNames: [String]
-        let skippedDirectoryNames: [String]
+        let removedStorageIdentities: [String]
+        let retainedStorageIdentities: [String]
+        let skippedEntries: [String]
     }
 
     struct Failure: LocalizedError {
         let message: String
         var errorDescription: String? { message }
     }
+
+    private static let publicTypeDirectories = [
+        "video": "Video",
+        "web": "Web",
+        "scene": "Scene",
+    ]
     private final class FD {
         let value: Int32
         init(_ value: Int32) throws {
@@ -169,6 +182,84 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         return withUnsafeBytes(of: &value) { Data($0) }
     }
 
+    private static func publicTypeDirectoryName(for contentType: String) throws -> String {
+        guard let name = publicTypeDirectories[contentType] else {
+            throw Failure(message: "下载项目缺少有效的 scene/web/video 类型。")
+        }
+        return name
+    }
+
+    private static func managedPublicDirectoryWorkshopID(_ name: String) -> String? {
+        guard let separator = name.firstIndex(of: "-") else { return nil }
+        let workshopId = String(name[..<separator])
+        let suffix = String(name[name.index(after: separator)...])
+        guard validID(workshopId), suffix.utf8.count == 36,
+              UUID(uuidString: suffix) != nil else { return nil }
+        return workshopId
+    }
+
+    private static func validPublicDirectoryName(_ name: String, workshopId: String) -> Bool {
+        let prefix = workshopId + "-"
+        guard name.hasPrefix(prefix) else { return false }
+        return managedPublicDirectoryWorkshopID(name) == workshopId
+    }
+
+    private static func storageIdentity(forVersion version: Int, contentType: String,
+                                        workshopId: String, directoryName: String) -> String? {
+        switch version {
+        case 1:
+            guard directoryName.utf8.count == 36, UUID(uuidString: directoryName) != nil else { return nil }
+            return "v1:" + directoryName.lowercased()
+        case 2:
+            guard publicTypeDirectories[contentType] != nil,
+                  validID(workshopId), validPublicDirectoryName(directoryName, workshopId: workshopId) else { return nil }
+            return "v2:\(contentType):\(directoryName.lowercased())"
+        default:
+            return nil
+        }
+    }
+
+    static func storageIdentity(for commit: SteamWorkshopLibraryCommit) -> String? {
+        storageIdentity(forVersion: commit.version, contentType: commit.contentType,
+                        workshopId: commit.workshopId, directoryName: commit.directoryName)
+    }
+
+    static func isValidStorageIdentity(_ identity: String) -> Bool {
+        let parts = identity.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
+        if parts.count == 2, parts[0] == "v1" || parts[0] == "incoming" {
+            return parts[1].utf8.count == 36 && UUID(uuidString: parts[1]) != nil
+        }
+        guard parts.count == 3, parts[0] == "v2", publicTypeDirectories[parts[1]] != nil else { return false }
+        guard let workshopId = managedPublicDirectoryWorkshopID(parts[2]) else { return false }
+        return validPublicDirectoryName(parts[2], workshopId: workshopId)
+    }
+
+    private static func directoryIdentity(_ value: stat) -> SteamWorkshopStagingLeaseIdentity {
+        SteamWorkshopStagingLeaseIdentity(
+            device: UInt64(value.st_dev),
+            inode: UInt64(value.st_ino)
+        )
+    }
+
+    private static func sameDirectory(_ value: stat, as expected: SteamWorkshopStagingLeaseIdentity) -> Bool {
+        directoryIdentity(value) == expected
+    }
+
+    private static func markerCommit(in root: FD) throws -> SteamWorkshopLibraryCommit {
+        let marker = try openFile(root, ownershipMarkerName)
+        let data = try readData(marker, maximumBytes: 16 * 1024)
+        let commit = try JSONDecoder().decode(SteamWorkshopLibraryCommit.self, from: data)
+        try require(commit.version == 2 && storageIdentity(for: commit) != nil,
+                    "受管下载版本标记无效。")
+        return commit
+    }
+
+    private static func writeMarker(_ commit: SteamWorkshopLibraryCommit, to root: FD) throws {
+        let file = try openFile(root, ownershipMarkerName, create: true)
+        try write(try JSONEncoder().encode(commit), to: file)
+        try require(fsync(file.value) == 0, "下载版本标记无法同步到磁盘。")
+    }
+
     private static func childNames(_ root: FD, limit: Int = 1_024) throws -> [String] {
         let duplicate = dup(root.value)
         guard duplicate >= 0 else { throw Failure(message: "无法枚举下载目录。") }
@@ -199,21 +290,44 @@ nonisolated enum SteamWorkshopLibraryTransaction {
 
     /// Descriptor-anchored deletion that never follows links and verifies that
     /// the directory name still identifies the opened inode before unlinking it.
-    private static func removeOwnedTree(parent: FD, name: String) throws {
+    private struct OwnedDirectoryChanged: Error {}
+
+    private static func removeOwnedTree(
+        parent: FD,
+        name: String,
+        expectedIdentity: SteamWorkshopStagingLeaseIdentity? = nil,
+        expectedMarker: SteamWorkshopLibraryCommit? = nil
+    ) throws {
         var named = stat()
         try require(fstatat(parent.value, name, &named, AT_SYMLINK_NOFOLLOW) == 0)
         try require((named.st_mode & S_IFMT) == S_IFDIR, "仅回收受管版本目录。")
+        if let expectedIdentity, !sameDirectory(named, as: expectedIdentity) {
+            throw OwnedDirectoryChanged()
+        }
         let opened = try directory(parent, name)
         let openedInfo = try info(opened, regular: false)
-        try require(named.st_dev == openedInfo.st_dev && named.st_ino == openedInfo.st_ino,
-            "版本目录在回收前发生变化。")
+        guard named.st_dev == openedInfo.st_dev && named.st_ino == openedInfo.st_ino else {
+            throw OwnedDirectoryChanged()
+        }
+        if let expectedIdentity, !sameDirectory(openedInfo, as: expectedIdentity) {
+            throw OwnedDirectoryChanged()
+        }
+        if let expectedMarker {
+            guard (try? markerCommit(in: opened)) == expectedMarker else {
+                throw OwnedDirectoryChanged()
+            }
+        }
 
         for child in try childNames(opened) {
             try Task.checkCancellation()
             var value = stat()
             try require(fstatat(opened.value, child, &value, AT_SYMLINK_NOFOLLOW) == 0)
             if (value.st_mode & S_IFMT) == S_IFDIR {
-                try removeOwnedTree(parent: opened, name: child)
+                try removeOwnedTree(
+                    parent: opened,
+                    name: child,
+                    expectedIdentity: directoryIdentity(value)
+                )
             } else {
                 try require(unlinkat(opened.value, child, 0) == 0, "版本文件回收失败。")
             }
@@ -221,9 +335,10 @@ nonisolated enum SteamWorkshopLibraryTransaction {
 
         var current = stat()
         try require(fstatat(parent.value, name, &current, AT_SYMLINK_NOFOLLOW) == 0)
-        try require((current.st_mode & S_IFMT) == S_IFDIR
-            && current.st_dev == openedInfo.st_dev && current.st_ino == openedInfo.st_ino,
-            "版本目录在回收期间被替换。")
+        guard (current.st_mode & S_IFMT) == S_IFDIR
+            && current.st_dev == openedInfo.st_dev && current.st_ino == openedInfo.st_ino else {
+            throw OwnedDirectoryChanged()
+        }
         try require(unlinkat(parent.value, name, AT_REMOVEDIR) == 0, "版本目录回收失败。")
     }
     // Retention never silently consumes unlimited disk while lifecycle-aware garbage collection is pending.
@@ -234,6 +349,41 @@ nonisolated enum SteamWorkshopLibraryTransaction {
                 "保留的下载/版本已达到磁盘预算；请先处理旧任务和版本。")
             total += entry.size
         }
+    }
+
+    /// The public layout is still a version store. Count v1 compatibility,
+    /// crash-orphan incoming and every reserved v2 generation before admitting
+    /// another full copy; unrelated user folders in the public roots are not owned.
+    private static func admitLibraryRetainedBytes(in library: FD, adding bytes: Int64) throws {
+        try require(bytes >= 0 && bytes <= Int64(maxBytes))
+        var total: Int64 = 0
+        func add(_ amount: Int64) throws {
+            try require(amount >= 0
+                && amount <= Int64(maximumRetainedBytesBeforeAdmissions) - total,
+                "保留的下载/版本已达到磁盘预算；请先处理旧任务和版本。")
+            total += amount
+        }
+        func addTree(_ root: FD, topLevelLimit: Int? = nil) throws {
+            for entry in try files(root, topLevelLimit: topLevelLimit) {
+                try add(entry.size)
+            }
+        }
+
+        if let versions = try? directory(library, versionsName) {
+            try addTree(versions, topLevelLimit: 64)
+        }
+        if let incoming = try? directory(library, incomingName) {
+            try addTree(incoming, topLevelLimit: 64)
+        }
+        for typeDirectoryName in publicTypeDirectories.values.sorted() {
+            guard let typeRoot = try? directory(library, typeDirectoryName) else { continue }
+            for name in try childNames(typeRoot, limit: 100_000)
+            where managedPublicDirectoryWorkshopID(name) != nil {
+                let managed = try directory(typeRoot, name)
+                try addTree(managed)
+            }
+        }
+        try add(bytes)
     }
 
     static func availableDiskBytes(at root: URL) throws -> Int64 {
@@ -264,6 +414,9 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         guard !commit.removed, let url = try? contentURL(for: commit, libraryRoot: libraryRoot),
               let root = try? absoluteDirectory(url), let project = try? openFile(root, "project.json"),
               let size = try? info(project, regular: true).st_size, size > 0, size <= 1024 * 1024 else { return false }
+        if commit.version == 2 {
+            guard (try? markerCommit(in: root)) == commit else { return false }
+        }
         if let entry = commit.entryPath, (try? openFile(root, entry)) != nil { return true }
         if commit.contentType == "scene" { return (try? openFile(root, "scene.pkg")) != nil }
         return commit.contentType == "web" && commit.entryPath == nil
@@ -291,10 +444,39 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         return url
     }
 
-    /// Deletes only one exact helper-owned direct staging lease. Validation is
-    /// lexical first and deletion remains descriptor-relative/no-follow, so an
-    /// unknown sibling or a replaced/symlinked lease is never adopted.
-    static func removeStagingLease(stagingURL: URL, stagingRoot: URL) throws {
+    /// Capture the exact helper lease inode when its terminal receipt is accepted.
+    /// The persisted identity is later required by preparation and cleanup.
+    static func stagingLeaseIdentity(
+        stagingURL: URL,
+        stagingRoot: URL
+    ) throws -> SteamWorkshopStagingLeaseIdentity {
+        let configured = try configuredRoot(stagingRoot)
+        guard let validated = SteamWorkshopStagedReceipt.validatedStagingURL(
+            path: stagingURL.path,
+            stagingRoot: configured.path
+        ), validated.path == stagingURL.path else {
+            throw Failure(message: "拒绝清理不属于当前下载任务的暂存目录。")
+        }
+        let root = try absoluteDirectory(configured)
+        let name = validated.lastPathComponent
+        var named = stat()
+        try require(fstatat(root.value, name, &named, AT_SYMLINK_NOFOLLOW) == 0,
+                    "无法检查下载暂存目录。")
+        try require((named.st_mode & S_IFMT) == S_IFDIR, "下载暂存目录身份无效。")
+        let opened = try directory(root, name)
+        let openedInfo = try info(opened, regular: false)
+        try require(named.st_dev == openedInfo.st_dev && named.st_ino == openedInfo.st_ino,
+                    "下载暂存目录在验收期间发生变化。")
+        return directoryIdentity(openedInfo)
+    }
+
+    /// Deletes only the exact receipt-bound helper staging inode. A missing old
+    /// lease is already clean; a same-name replacement is never adopted.
+    static func removeStagingLease(
+        stagingURL: URL,
+        stagingRoot: URL,
+        expectedIdentity: SteamWorkshopStagingLeaseIdentity
+    ) throws {
         let configured = try configuredRoot(stagingRoot)
         guard let validated = SteamWorkshopStagedReceipt.validatedStagingURL(
             path: stagingURL.path,
@@ -309,19 +491,94 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             if errno == ENOENT { return }
             throw Failure(message: "无法检查下载暂存目录。")
         }
-        try removeOwnedTree(parent: root, name: name)
+        do {
+            try removeOwnedTree(parent: root, name: name, expectedIdentity: expectedIdentity)
+        } catch is OwnedDirectoryChanged {
+            throw Failure(message: "下载暂存目录已被同名替换，拒绝清理。")
+        }
     }
 
-    static func prepare(receipt: SteamWorkshopStagedReceipt, attempt: Int, libraryRoot: URL) throws -> SteamWorkshopLibraryCommit {
-        try Task.checkCancellation()
-        try require(receipt.version == 2 && attempt > 0 && receipt.verifiedBytes > 0 && receipt.verifiedBytes <= maxBytes)
-        let source = try absoluteDirectory(receipt.stagingURL)
+    static func prepare(receipt: SteamWorkshopStagedReceipt, attempt: Int,
+                        libraryRoot: URL) throws -> SteamWorkshopLibraryCommit {
+        try require(receipt.version == 2 && receipt.stagingLeaseIdentity != nil,
+                    "下载凭证缺少稳定的暂存目录身份。")
+        return try prepareSource(
+            sourceURL: receipt.stagingURL,
+            expectedSourceIdentity: receipt.stagingLeaseIdentity,
+            verifiedBytes: Int64(receipt.verifiedBytes),
+            expectedDigest: receipt.contentDigest,
+            workshopId: receipt.workshopId,
+            jobId: receipt.jobId,
+            attempt: attempt,
+            manifestId: receipt.manifestId,
+            committedAt: Date(),
+            libraryRoot: libraryRoot
+        )
+    }
+
+    /// Copy a retired hidden v1 commit into the public immutable layout. The caller publishes the
+    /// returned v2 commit only after re-reading the current metadata pointer; the v1 tree remains
+    /// available to an existing player until lifecycle-aware reclamation proves it is unused.
+    static func migrationRequiredBytes(
+        for commit: SteamWorkshopLibraryCommit,
+        libraryRoot: URL
+    ) throws -> Int64 {
+        try require(commit.version == 1 && !commit.removed && storageIdentity(for: commit) != nil,
+                    "旧下载版本身份无效，无法迁移。")
+        let source = try absoluteDirectory(try contentURL(for: commit, libraryRoot: libraryRoot))
         let inventory = try files(source)
+        try require(!inventory.contains { $0.path == ownershipMarkerName }, "旧下载版本包含保留标记名。")
+        return try inventory.reduce(Int64(0)) { partial, entry in
+            try require(entry.size <= Int64(maxBytes) - partial)
+            return partial + entry.size
+        }
+    }
+
+    static func migrateLegacyCommit(_ commit: SteamWorkshopLibraryCommit,
+                                    libraryRoot: URL) throws -> SteamWorkshopLibraryCommit {
+        let sourceURL = try contentURL(for: commit, libraryRoot: libraryRoot)
+        let total = try migrationRequiredBytes(for: commit, libraryRoot: libraryRoot)
+        return try prepareSource(
+            sourceURL: sourceURL,
+            expectedSourceIdentity: nil,
+            verifiedBytes: total,
+            expectedDigest: commit.contentDigest,
+            workshopId: commit.workshopId,
+            jobId: commit.jobId,
+            attempt: commit.attempt,
+            manifestId: commit.manifestId,
+            committedAt: commit.committedAt,
+            libraryRoot: libraryRoot
+        )
+    }
+
+    private static func prepareSource(sourceURL: URL,
+                                      expectedSourceIdentity: SteamWorkshopStagingLeaseIdentity?,
+                                      verifiedBytes: Int64, expectedDigest: String,
+                                      workshopId: String, jobId: String, attempt: Int,
+                                      manifestId: String, committedAt: Date,
+                                      libraryRoot: URL) throws -> SteamWorkshopLibraryCommit {
+        try Task.checkCancellation()
+        try require(validID(workshopId) && !jobId.isEmpty && attempt > 0
+            && verifiedBytes > 0 && verifiedBytes <= Int64(maxBytes))
+        let source = try absoluteDirectory(sourceURL)
+        if let expectedSourceIdentity {
+            let sourceInfo = try info(source, regular: false)
+            try require(sameDirectory(sourceInfo, as: expectedSourceIdentity),
+                        "下载暂存目录已被同名替换，拒绝入库。")
+        }
+        let inventory = try files(source)
+        try require(!inventory.contains { $0.path == ownershipMarkerName }, "下载内容使用了保留标记名。")
         let library = try absoluteDirectory(libraryRoot, create: true)
-        let versions = try directory(library, versionsName, create: true)
-        try admitRetainedBytes(in: versions)
+        try admitLibraryRetainedBytes(in: library, adding: verifiedBytes)
+        let incoming = try directory(library, incomingName, create: true)
         let name = UUID().uuidString.lowercased()
-        let version = try directory(versions, name, create: true, exclusive: true)
+        let version = try directory(incoming, name, create: true, exclusive: true)
+        let versionIdentity = directoryIdentity(try info(version, regular: false))
+        defer {
+            try? removeOwnedTree(parent: incoming, name: name, expectedIdentity: versionIdentity)
+            _ = unlinkat(library.value, incomingName, AT_REMOVEDIR)
+        }
         let destination = try directory(version, "content", create: true, exclusive: true)
         var total: Int64 = 0
         var tree = SHA256()
@@ -360,7 +617,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             total += entry.size
         }
         let digest = tree.finalize().map { String(format: "%02x", $0) }.joined()
-        try require(total == receipt.verifiedBytes && digest == receipt.contentDigest, "下载内容在入库前发生变化。")
+        try require(total == verifiedBytes && digest == expectedDigest, "下载内容在入库前发生变化。")
         // Bounded project parsing from the newly copied, descriptor-anchored version.
         let projectFD = try openFile(destination, "project.json")
         let projectSize = try info(projectFD, regular: true).st_size
@@ -412,42 +669,109 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             _ = try openFile(destination, entry)
         }
         try Task.checkCancellation()
-        return SteamWorkshopLibraryCommit(version: 1, workshopId: receipt.workshopId, jobId: receipt.jobId,
-            attempt: attempt, directoryName: name, manifestId: receipt.manifestId, contentDigest: digest,
-            contentType: contentType, entryPath: entry, committedAt: Date())
+        let typeDirectoryName = try publicTypeDirectoryName(for: contentType)
+        let typeDirectory = try directory(library, typeDirectoryName, create: true)
+        let finalDirectoryName = workshopId + "-" + name
+        let commit = SteamWorkshopLibraryCommit(
+            version: 2,
+            workshopId: workshopId,
+            jobId: jobId,
+            attempt: attempt,
+            directoryName: finalDirectoryName,
+            manifestId: manifestId,
+            contentDigest: digest,
+            contentType: contentType,
+            entryPath: entry,
+            committedAt: committedAt
+        )
+        try writeMarker(commit, to: destination)
+        try require(fsync(destination.value) == 0, "下载版本目录无法同步到磁盘。")
+        try require(renameatx_np(version.value, "content", typeDirectory.value, finalDirectoryName, UInt32(RENAME_EXCL)) == 0,
+                    "下载版本发布失败；旧版本保持不变。")
+        try require(fsync(typeDirectory.value) == 0, "下载类型目录无法同步到磁盘。")
+        return commit
     }
     static func validID(_ id: String) -> Bool {
         !id.isEmpty && id.utf8.allSatisfy { (48...57).contains($0) } && (UInt64(id) ?? 0) > 0
     }
     static func contentURL(for commit: SteamWorkshopLibraryCommit, libraryRoot: URL) throws -> URL {
-        try require(commit.version == 1 && validID(commit.workshopId) && UUID(uuidString: commit.directoryName) != nil)
-        try require(commit.directoryName.utf8.count == 36 && !commit.directoryName.contains("/"))
-        return libraryRoot.appendingPathComponent(versionsName).appendingPathComponent(commit.directoryName).appendingPathComponent("content", isDirectory: true)
+        try require(storageIdentity(for: commit) != nil)
+        if commit.version == 1 {
+            return libraryRoot.appendingPathComponent(versionsName)
+                .appendingPathComponent(commit.directoryName)
+                .appendingPathComponent("content", isDirectory: true)
+        }
+        return libraryRoot.appendingPathComponent(try publicTypeDirectoryName(for: commit.contentType), isDirectory: true)
+            .appendingPathComponent(commit.directoryName, isDirectory: true)
     }
 
-    static func versionDirectoryName(containing url: URL, libraryRoot: URL) -> String? {
+    static func storageIdentity(containing url: URL, libraryRoot: URL) -> String? {
         guard url.isFileURL,
               let configuredLibrary = try? configuredRoot(libraryRoot) else { return nil }
-        let versions = configuredLibrary.appendingPathComponent(versionsName, isDirectory: true)
         let resolvedURL = url.resolvingSymlinksInPath().standardizedFileURL
+
+        // Version 1 compatibility: hidden UUID/content trees are read only and
+        // remain leaseable until migration plus reclamation have both finished.
+        let versions = configuredLibrary.appendingPathComponent(versionsName, isDirectory: true)
         let resolvedVersions = versions.resolvingSymlinksInPath().standardizedFileURL
         let prefix = resolvedVersions.path + "/"
-        guard resolvedURL.path.hasPrefix(prefix) else { return nil }
-        let remainder = resolvedURL.path.dropFirst(prefix.count)
-        guard let first = remainder.split(separator: "/", omittingEmptySubsequences: true).first else {
-            return nil
+        if resolvedURL.path.hasPrefix(prefix) {
+            let remainder = resolvedURL.path.dropFirst(prefix.count)
+            if let first = remainder.split(separator: "/", omittingEmptySubsequences: true).first {
+                let name = String(first)
+                if name.utf8.count == 36, UUID(uuidString: name) != nil {
+                    return "v1:" + name.lowercased()
+                }
+            }
         }
-        let name = String(first)
-        guard name.utf8.count == 36, UUID(uuidString: name) != nil else { return nil }
-        return name.lowercased()
+
+        for (contentType, typeDirectoryName) in publicTypeDirectories {
+            let configuredTypeRoot = configuredLibrary.appendingPathComponent(typeDirectoryName, isDirectory: true)
+            let typeRoot = configuredTypeRoot.resolvingSymlinksInPath().standardizedFileURL
+            let typePrefix = typeRoot.path + "/"
+            guard resolvedURL.path.hasPrefix(typePrefix) else { continue }
+            let remainder = resolvedURL.path.dropFirst(typePrefix.count)
+            guard let first = remainder.split(separator: "/", omittingEmptySubsequences: true).first else { continue }
+            let name = String(first)
+            // Open through the physical configured spelling. Foundation may abbreviate
+            // /private/tmp to the /tmp symlink while resolving the comparison path.
+            let directoryURL = configuredTypeRoot.appendingPathComponent(name, isDirectory: true)
+            guard let root = try? absoluteDirectory(directoryURL),
+                  let marker = try? markerCommit(in: root),
+                  marker.contentType == contentType,
+                  marker.directoryName == name,
+                  let identity = storageIdentity(for: marker) else { continue }
+            return identity
+        }
+        return nil
     }
 
-    /// Reclaims only direct UUID version directories that are old enough and
-    /// absent from the caller's complete live/reference set. Unknown entries are
-    /// left untouched. The caller owns readiness, job and playback identities.
+    static func isManagedPublicDirectory(_ url: URL, libraryRoot: URL) -> Bool {
+        storageIdentity(containing: url, libraryRoot: libraryRoot)?.hasPrefix("v2:") == true
+    }
+
+    /// Public legacy discovery must fail closed for the entire managed naming
+    /// namespace, even when a v2 marker is missing or corrupt. Otherwise a bare
+    /// project file could become a second ready owner after metadata publication.
+    static func isReservedManagedPublicDirectory(_ url: URL, libraryRoot: URL) -> Bool {
+        guard url.isFileURL,
+              managedPublicDirectoryWorkshopID(url.lastPathComponent) != nil,
+              let configuredLibrary = try? configuredRoot(libraryRoot),
+              let physicalParent = try? configuredRoot(url.deletingLastPathComponent()) else { return false }
+        return publicTypeDirectories.values.contains { typeDirectoryName in
+            let expected = configuredLibrary.appendingPathComponent(typeDirectoryName, isDirectory: true)
+            guard let physicalExpected = try? configuredRoot(expected) else { return false }
+            return physicalExpected.standardizedFileURL.path
+                == physicalParent.standardizedFileURL.path
+        }
+    }
+
+    /// Reclaims only descriptor-verified managed versions that are old enough and absent from the
+    /// caller's complete ready/job/playback set. Public user content without our exact marker and
+    /// unknown hidden entries are left untouched.
     static func reclaimVersions(
         libraryRoot: URL,
-        retaining directoryNames: Set<String>,
+        retaining storageIdentities: Set<String>,
         minimumAge: TimeInterval,
         now: Date = Date(),
         admitRemoval: @Sendable (String) async -> Bool = { _ in true },
@@ -455,59 +779,123 @@ nonisolated enum SteamWorkshopLibraryTransaction {
     ) async throws -> ReclamationResult {
         try require(minimumAge >= 0 && minimumAge.isFinite)
         let library = try absoluteDirectory(libraryRoot, create: true)
-        let versions: FD
-        do {
-            versions = try directory(library, versionsName)
-        } catch {
-            if errno == ENOENT {
-                return ReclamationResult(removedDirectoryNames: [], retainedDirectoryNames: [], skippedDirectoryNames: [])
-            }
-            throw error
-        }
-        let retained = Set(directoryNames.map { $0.lowercased() })
-        var removedNames: [String] = []
-        var retainedNames: [String] = []
-        var skippedNames: [String] = []
-        for name in try childNames(versions) {
-            try Task.checkCancellation()
-            let normalized = name.lowercased()
-            guard name.utf8.count == 36, UUID(uuidString: name) != nil else {
-                skippedNames.append(name)
-                continue
-            }
-            if retained.contains(normalized) {
-                retainedNames.append(normalized)
-                continue
-            }
-            var value = stat()
-            guard fstatat(versions.value, name, &value, AT_SYMLINK_NOFOLLOW) == 0,
-                  (value.st_mode & S_IFMT) == S_IFDIR else {
-                skippedNames.append(name)
-                continue
-            }
+        let retained = Set(storageIdentities.map { $0.lowercased() })
+        var removedIdentities: [String] = []
+        var retainedIdentities: [String] = []
+        var skippedEntries: [String] = []
+
+        func oldEnough(_ value: stat) -> Bool {
             let modified = Date(timeIntervalSince1970:
                 TimeInterval(value.st_mtimespec.tv_sec) + TimeInterval(value.st_mtimespec.tv_nsec) / 1_000_000_000)
-            guard now.timeIntervalSince(modified) >= minimumAge else {
-                retainedNames.append(normalized)
-                continue
+            return now.timeIntervalSince(modified) >= minimumAge
+        }
+
+        func removeIfAdmitted(
+            parent: FD,
+            name: String,
+            identity: String,
+            value: stat,
+            expectedMarker: SteamWorkshopLibraryCommit? = nil,
+            entryLabel: String
+        ) async throws {
+            if retained.contains(identity) || !oldEnough(value) {
+                retainedIdentities.append(identity)
+                return
             }
-            guard await admitRemoval(normalized) else {
-                retainedNames.append(normalized)
-                continue
+            guard await admitRemoval(identity) else {
+                retainedIdentities.append(identity)
+                return
             }
             do {
                 try Task.checkCancellation()
-                try removeOwnedTree(parent: versions, name: name)
+                try removeOwnedTree(
+                    parent: parent,
+                    name: name,
+                    expectedIdentity: directoryIdentity(value),
+                    expectedMarker: expectedMarker
+                )
+            } catch is OwnedDirectoryChanged {
+                await removalFailed(identity)
+                skippedEntries.append(entryLabel)
+                return
             } catch {
-                await removalFailed(normalized)
+                await removalFailed(identity)
                 throw error
             }
-            removedNames.append(normalized)
+            removedIdentities.append(identity)
         }
+
+        if let versions = try? directory(library, versionsName) {
+            for name in try childNames(versions) {
+                try Task.checkCancellation()
+                guard name.utf8.count == 36, UUID(uuidString: name) != nil else {
+                    skippedEntries.append(versionsName + "/" + name)
+                    continue
+                }
+                var value = stat()
+                guard fstatat(versions.value, name, &value, AT_SYMLINK_NOFOLLOW) == 0,
+                      (value.st_mode & S_IFMT) == S_IFDIR else {
+                    skippedEntries.append(versionsName + "/" + name)
+                    continue
+                }
+                try await removeIfAdmitted(parent: versions, name: name,
+                    identity: "v1:" + name.lowercased(), value: value,
+                    entryLabel: versionsName + "/" + name)
+            }
+        }
+
+        if let incoming = try? directory(library, incomingName) {
+            for name in try childNames(incoming) {
+                try Task.checkCancellation()
+                guard name.utf8.count == 36, UUID(uuidString: name) != nil else {
+                    skippedEntries.append(incomingName + "/" + name)
+                    continue
+                }
+                var value = stat()
+                guard fstatat(incoming.value, name, &value, AT_SYMLINK_NOFOLLOW) == 0,
+                      (value.st_mode & S_IFMT) == S_IFDIR else {
+                    skippedEntries.append(incomingName + "/" + name)
+                    continue
+                }
+                try await removeIfAdmitted(parent: incoming, name: name,
+                    identity: "incoming:" + name.lowercased(), value: value,
+                    entryLabel: incomingName + "/" + name)
+            }
+            _ = unlinkat(library.value, incomingName, AT_REMOVEDIR)
+        }
+
+        for (contentType, typeDirectoryName) in publicTypeDirectories.sorted(by: { $0.key < $1.key }) {
+            guard let typeRoot = try? directory(library, typeDirectoryName) else { continue }
+            for name in try childNames(typeRoot, limit: 100_000) {
+                try Task.checkCancellation()
+                var value = stat()
+                guard fstatat(typeRoot.value, name, &value, AT_SYMLINK_NOFOLLOW) == 0,
+                      (value.st_mode & S_IFMT) == S_IFDIR,
+                      let root = try? directory(typeRoot, name),
+                      let openedInfo = try? info(root, regular: false),
+                      openedInfo.st_dev == value.st_dev,
+                      openedInfo.st_ino == value.st_ino,
+                      let marker = try? markerCommit(in: root),
+                      marker.contentType == contentType,
+                      marker.directoryName == name,
+                      let identity = storageIdentity(for: marker) else {
+                    continue // Public user content is not an error and is never adopted.
+                }
+                try await removeIfAdmitted(
+                    parent: typeRoot,
+                    name: name,
+                    identity: identity,
+                    value: value,
+                    expectedMarker: marker,
+                    entryLabel: typeDirectoryName + "/" + name
+                )
+            }
+        }
+
         return ReclamationResult(
-            removedDirectoryNames: removedNames.sorted(),
-            retainedDirectoryNames: retainedNames.sorted(),
-            skippedDirectoryNames: skippedNames.sorted()
+            removedStorageIdentities: removedIdentities.sorted(),
+            retainedStorageIdentities: retainedIdentities.sorted(),
+            skippedEntries: skippedEntries.sorted()
         )
     }
 

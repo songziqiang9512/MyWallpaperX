@@ -53,6 +53,13 @@ enum SteamWorkshopQuerySort: String {
     case votes
 }
 
+/// Stable filesystem identity for one helper-owned staging lease. A lexical
+/// `job-*` name is not ownership: the name may be replaced before cleanup.
+nonisolated struct SteamWorkshopStagingLeaseIdentity: Codable, Equatable, Sendable {
+    let device: UInt64
+    let inode: UInt64
+}
+
 /// helper 的下载完成凭证；只证明协议字段一致，不等于磁盘内容或入库成功。
 /// 入库 owner 必须重新验收文件及项目内容，并在提交前复核账号/作业身份。
 nonisolated struct SteamWorkshopStagedReceipt: Equatable, Codable, Sendable {
@@ -65,6 +72,9 @@ nonisolated struct SteamWorkshopStagedReceipt: Equatable, Codable, Sendable {
     let manifestId: String
     let stagingURL: URL
     let verifiedBytes: Int
+    /// Optional only for decoding pre-v4 durable jobs. New receipts always bind
+    /// the helper lease path to its exact filesystem identity.
+    let stagingLeaseIdentity: SteamWorkshopStagingLeaseIdentity?
 
     /// Validate the helper-owned lease name lexically. Filesystem canonicalization is
     /// deliberately excluded because it can rewrite `/private/tmp` and would also
@@ -102,6 +112,10 @@ nonisolated struct SteamWorkshopStagedReceipt: Equatable, Codable, Sendable {
               validID(accountSteamId), data["accountSteamId"]?.stringValue == accountSteamId,
               let manifestId = data["manifestId"]?.stringValue, validID(manifestId),
               data["projectJsonPresent"]?.boolValue == true,
+              let stagingDeviceText = data["stagingDevice"]?.stringValue,
+              let stagingDevice = UInt64(stagingDeviceText),
+              let stagingInodeText = data["stagingInode"]?.stringValue,
+              let stagingInode = UInt64(stagingInodeText), stagingInode > 0,
               let total = data["totalBytes"]?.intValue, total > 0, total <= 8 * 1024 * 1024 * 1024,
               data["verifiedBytes"]?.intValue == total,
               let path = data["stagingPath"]?.stringValue,
@@ -115,6 +129,10 @@ nonisolated struct SteamWorkshopStagedReceipt: Equatable, Codable, Sendable {
         self.manifestId = manifestId
         self.stagingURL = url
         self.verifiedBytes = total
+        self.stagingLeaseIdentity = SteamWorkshopStagingLeaseIdentity(
+            device: stagingDevice,
+            inode: stagingInode
+        )
     }
 }
 
@@ -234,16 +252,25 @@ final class SteamWorkshopQueryClient {
         accountSteamId: String,
         stagingRoot: String,
         resumeStagingPath: String? = nil,
-        resumeManifestId: String? = nil
+        resumeManifestId: String? = nil,
+        resumeStagingLeaseIdentity: SteamWorkshopStagingLeaseIdentity? = nil
     ) async throws -> SteamWorkshopStagedReceipt {
         let epoch = client.accountEpoch
         var payload: [String: SteamServiceJSON] = [
             "workshopId": .string(workshopId),
             "stagingRoot": .string(stagingRoot),
         ]
-        if let resumeStagingPath, let resumeManifestId {
+        let resumeFieldCount = [
+            resumeStagingPath != nil,
+            resumeManifestId != nil,
+            resumeStagingLeaseIdentity != nil,
+        ].filter { $0 }.count
+        guard resumeFieldCount == 0 || resumeFieldCount == 3 else { throw malformed }
+        if let resumeStagingPath, let resumeManifestId, let resumeStagingLeaseIdentity {
             payload["resumeStagingPath"] = .string(resumeStagingPath)
             payload["resumeManifestId"] = .string(resumeManifestId)
+            payload["resumeStagingDevice"] = .string(String(resumeStagingLeaseIdentity.device))
+            payload["resumeStagingInode"] = .string(String(resumeStagingLeaseIdentity.inode))
         }
         // Keep the start request alive after the caller is cancelled. The helper's
         // original terminal is the physical-drain acknowledgement; the separate

@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Buffers.Binary;
+using System.Globalization;
 using SteamKit2;
 using SteamKit2.CDN;
 using SteamKit2.Internal;
@@ -53,8 +54,12 @@ internal sealed partial class SteamSession
         public required string StagingRoot;
         public string? StagingPath;
         public string? StagingManifestId;
+        public string? StagingDevice;
+        public string? StagingInode;
         public string? ResumeStagingPath;
         public ulong? ResumeManifestId;
+        public int? ResumeStagingDevice;
+        public ulong? ResumeStagingInode;
         public required ulong PublishedFileId;
         public required CancellationTokenSource Cancellation;
         public required AccountLease Account;
@@ -71,7 +76,9 @@ internal sealed partial class SteamSession
         string stagingRoot,
         long? requestedEpoch,
         string? resumeStagingPath = null,
-        ulong? resumeManifestId = null)
+        ulong? resumeManifestId = null,
+        int? resumeStagingDevice = null,
+        ulong? resumeStagingInode = null)
     {
         ActiveDownload context;
         lock (gate)
@@ -102,6 +109,8 @@ internal sealed partial class SteamSession
                     StagingRoot = stagingRoot,
                     ResumeStagingPath = resumeStagingPath,
                     ResumeManifestId = resumeManifestId,
+                    ResumeStagingDevice = resumeStagingDevice,
+                    ResumeStagingInode = resumeStagingInode,
                     PublishedFileId = publishedFileId,
                     Cancellation = new CancellationTokenSource(),
                     Account = lease,
@@ -168,10 +177,16 @@ internal sealed partial class SteamSession
                 EmitDownloadProgress(context, "preparing", totalBytes: manifestTotalBytes, totalChunks: totalChunks);
                 bool resuming = context.ResumeStagingPath != null;
                 using var lease = resuming
-                    ? WorkshopStagingLease.Resume(stagingRoot, context.ResumeStagingPath!)
+                    ? WorkshopStagingLease.Resume(
+                        stagingRoot,
+                        context.ResumeStagingPath!,
+                        context.ResumeStagingDevice!.Value,
+                        context.ResumeStagingInode!.Value)
                     : new WorkshopStagingLease(stagingRoot);
                 var staging = lease.Path;
                 context.StagingPath = staging;
+                context.StagingDevice = lease.Device.ToString(CultureInfo.InvariantCulture);
+                context.StagingInode = lease.Inode.ToString(CultureInfo.InvariantCulture);
                 // Publish the exact helper-owned lease before the first content write so
                 // the App can durably associate partial work with this logical attempt.
                 EmitDownloadProgress(context, "downloading",
@@ -238,6 +253,7 @@ internal sealed partial class SteamSession
                     accountSteamId = context.Account.SteamId.ToString(),
                     jobId, stagedComplete = true, workshopId = publishedFileId.ToString(),
                     manifestId = detail.hcontent_file.ToString(), stagingPath = staging,
+                    stagingDevice = context.StagingDevice, stagingInode = context.StagingInode,
                     verifiedBytes, totalBytes = manifestTotalBytes, projectJsonPresent,
                 });
             }
@@ -369,6 +385,7 @@ internal sealed partial class SteamSession
             requestId = context.RequestId, processEpoch = ProcessEpoch, accountEpoch = context.Account.Epoch,
             jobId = context.JobId, sequence = update.Sequence, stage = update.Stage,
             stagingPath = context.StagingPath, manifestId = context.StagingManifestId,
+            stagingDevice = context.StagingDevice, stagingInode = context.StagingInode,
             totalBytes = update.TotalBytes, verifiedBytes = update.VerifiedBytes,
             totalChunks = update.TotalChunks, verifiedChunks = update.VerifiedChunks,
         });

@@ -84,22 +84,31 @@ import Foundation
         let migratedAgain = SteamDownloadJobStore(persistenceURL: migrationURL, now: { clock })
         precondition(migratedAgain.history.count == 1)
 
-        // SK6.1 uses a side-by-side v3 file. Import old unfinished intent once,
-        // but never mutate/quarantine the rollback snapshot or adjacent user data.
+        // The v4 owner imports the prior v3 sidecar copy-on-read. A baseline v3
+        // reader must retain its exact rollback bytes after v4 writes/restarts.
         let upgradeRoot = base.appendingPathComponent("upgrade", isDirectory: true)
         try FileManager.default.createDirectory(at: upgradeRoot, withIntermediateDirectories: true)
-        let legacyJobsURL = upgradeRoot.appendingPathComponent("jobs.json")
-        let legacyWriter = SteamDownloadJobStore(persistenceURL: legacyJobsURL, now: { clock })
+        let v3URL = upgradeRoot.appendingPathComponent("jobs-v3.json")
+        let legacyWriter = SteamDownloadJobStore(persistenceURL: v3URL, now: { clock })
         let unfinished = legacyWriter.enqueue(
             workshopItemId: "400", title: "Unfinished", accountSteamId: "A").job
         precondition(legacyWriter.apply(.started, toID: unfinished.id) != nil)
+        precondition(legacyWriter.apply(.stagingAllocated(
+            path: upgradeRoot.appendingPathComponent(
+                "staging/job-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ).path,
+            manifestId: "44",
+            leaseIdentity: SteamWorkshopStagingLeaseIdentity(device: 1, inode: 2)
+        ), toID: unfinished.id) != nil)
         var legacyObject = try JSONSerialization.jsonObject(
-            with: Data(contentsOf: legacyJobsURL)) as! [String: Any]
-        legacyObject["version"] = 2
-        legacyObject.removeValue(forKey: "history")
+            with: Data(contentsOf: v3URL)) as! [String: Any]
+        legacyObject["version"] = 3
+        var legacyJobs = legacyObject["jobs"] as! [[String: Any]]
+        legacyJobs[0].removeValue(forKey: "stagingLeaseIdentity")
+        legacyObject["jobs"] = legacyJobs
         let legacyBytes = try JSONSerialization.data(
             withJSONObject: legacyObject, options: [.sortedKeys])
-        try legacyBytes.write(to: legacyJobsURL, options: .atomic)
+        try legacyBytes.write(to: v3URL, options: .atomic)
 
         let libraryFile = upgradeRoot.appendingPathComponent("library/project.json")
         let passwordFile = upgradeRoot.appendingPathComponent("credentials/legacy-password")
@@ -112,37 +121,81 @@ import Foundation
         }
         let sentinels = try Dictionary(uniqueKeysWithValues:
             [libraryFile, passwordFile, cookieFile, corruptCache].map { ($0, try Data(contentsOf: $0)) })
-        let v3URL = upgradeRoot.appendingPathComponent("jobs-v3.json")
+        let olderJobsURL = upgradeRoot.appendingPathComponent("jobs.json")
+        let olderWriter = SteamDownloadJobStore(persistenceURL: olderJobsURL, now: { clock })
+        _ = olderWriter.enqueue(workshopItemId: "999", title: "Stale", accountSteamId: "A")
+        let olderBytes = try Data(contentsOf: olderJobsURL)
+        let v4URL = upgradeRoot.appendingPathComponent("jobs-v4.json")
         let upgraded = SteamDownloadJobStore(
-            persistenceURL: v3URL, legacyImportURL: legacyJobsURL, now: { clock })
-        precondition(upgraded.jobs.count == 1 && upgraded.jobs[0].state == .queued)
+            persistenceURL: v4URL,
+            legacyImportURL: v3URL,
+            olderLegacyImportURL: olderJobsURL,
+            now: { clock }
+        )
+        precondition(upgraded.jobs.count == 1 && upgraded.jobs[0].state == .queued
+            && upgraded.jobs[0].stagingPath == nil
+            && upgraded.jobs[0].stagingManifestId == nil
+            && upgraded.jobs[0].stagingLeaseIdentity == nil,
+            "identityless v3 partial must retain intent but discard lexical recovery state")
         precondition(upgraded.activeJob(forWorkshopItemId: "400") != nil,
             "unfinished legacy intent must be imported exactly once")
-        let preservedLegacyBytes = try Data(contentsOf: legacyJobsURL)
+        precondition(upgraded.activeJob(forWorkshopItemId: "999") == nil,
+            "an existing v3 owner must win over conflicting older intent")
+        let preservedLegacyBytes = try Data(contentsOf: v3URL)
         precondition(preservedLegacyBytes == legacyBytes,
             "new owner must not rewrite the old-version rollback snapshot")
-        precondition(FileManager.default.fileExists(atPath: v3URL.path))
+        precondition(FileManager.default.fileExists(atPath: v4URL.path))
+        let baselineV3Object = try JSONSerialization.jsonObject(
+            with: preservedLegacyBytes) as! [String: Any]
+        precondition(baselineV3Object["version"] as? Int == 3,
+            "the retained sidecar must remain readable by a version-3 owner")
         for (file, bytes) in sentinels {
             let preservedBytes = try Data(contentsOf: file)
             precondition(preservedBytes == bytes,
                 "upgrade must not alter library, properties, credentials, cookies or HTML cache")
         }
         let upgradedAgain = SteamDownloadJobStore(
-            persistenceURL: v3URL, legacyImportURL: legacyJobsURL, now: { clock })
+            persistenceURL: v4URL,
+            legacyImportURL: v3URL,
+            olderLegacyImportURL: olderJobsURL,
+            now: { clock }
+        )
         precondition(upgradedAgain.jobs.count == 1,
-            "existing v3 sidecar must win over legacy import without duplicate jobs")
+            "existing v4 sidecar must win over v3 import without duplicate jobs")
+        let v3BytesAfterRestart = try Data(contentsOf: v3URL)
+        precondition(v3BytesAfterRestart == legacyBytes,
+            "v4 restart must not rewrite the v3 rollback source")
+        let olderBytesAfterRestart = try Data(contentsOf: olderJobsURL)
+        precondition(olderBytesAfterRestart == olderBytes,
+            "v4 must not rewrite the older fallback source")
 
-        let corruptLegacy = upgradeRoot.appendingPathComponent("corrupt-jobs.json")
-        let corruptV3 = upgradeRoot.appendingPathComponent("corrupt-jobs-v3.json")
+        let absentV4 = upgradeRoot.appendingPathComponent("absent-v3-jobs-v4.json")
+        let absentV3 = upgradeRoot.appendingPathComponent("absent-v3-jobs-v3.json")
+        let fallback = SteamDownloadJobStore(
+            persistenceURL: absentV4,
+            legacyImportURL: absentV3,
+            olderLegacyImportURL: olderJobsURL,
+            now: { clock }
+        )
+        precondition(fallback.activeJob(forWorkshopItemId: "999") != nil
+            && FileManager.default.fileExists(atPath: absentV4.path),
+            "jobs.json is eligible only when the v3 predecessor is absent")
+
+        let corruptLegacy = upgradeRoot.appendingPathComponent("corrupt-jobs-v3.json")
+        let corruptV4 = upgradeRoot.appendingPathComponent("corrupt-jobs-v4.json")
         let corruptBytes = Data("not-json".utf8)
         try corruptBytes.write(to: corruptLegacy)
         let rejected = SteamDownloadJobStore(
-            persistenceURL: corruptV3, legacyImportURL: corruptLegacy, now: { clock })
+            persistenceURL: corruptV4,
+            legacyImportURL: corruptLegacy,
+            olderLegacyImportURL: olderJobsURL,
+            now: { clock }
+        )
         precondition(rejected.jobs.isEmpty && rejected.history.isEmpty)
         let preservedCorruptBytes = try Data(contentsOf: corruptLegacy)
         precondition(preservedCorruptBytes == corruptBytes)
-        precondition(!FileManager.default.fileExists(atPath: corruptV3.path),
-            "corrupt rollback data must remain inert instead of becoming new schema")
+        precondition(!FileManager.default.fileExists(atPath: corruptV4.path),
+            "an existing corrupt v3 must fail closed instead of replaying stale jobs.json")
 
         // Retention is frozen at the newest 100 terminal attempts and 30 days.
         let boundedURL = base.appendingPathComponent("bounded.json")
@@ -168,7 +221,7 @@ import Foundation
         precondition(expiringStore.pruneExpiredHistory() == 1)
         precondition(expiringStore.history.isEmpty)
 
-        print("Download history: v3 migration, attempt aggregation, retention, account clear and atomic failure PASS")
+        print("Download history: v4 sidecar migration, rollback preservation, retention, account clear and atomic failure PASS")
     }
 }
 '''
@@ -187,7 +240,7 @@ import Foundation
 
     def test_persistence_schema_is_credential_free(self):
         source = (CORE / "SteamWorkshopJobStore.swift").read_text()
-        self.assertIn("static let persistenceVersion = 3", source)
+        self.assertIn("static let persistenceVersion = 4", source)
         self.assertIn("static let historyLimit = 100", source)
         self.assertIn("30 * 24 * 60 * 60", source)
         self.assertNotIn("password", source.lower())

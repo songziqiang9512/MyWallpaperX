@@ -370,7 +370,8 @@ final class FakeSteamTransport: SteamServiceTransporting {
         let path = base + "/job-" + String(repeating: "a", count: 32)
         let valid: [String: Any] = ["receiptVersion": 2, "contentDigest": String(repeating: "a", count: 64), "jobId": "job", "workshopId": "123456",
             "accountSteamId": "76561198000000000", "stagedComplete": true, "manifestId": "18446744073709551615",
-            "stagingPath": path, "projectJsonPresent": true, "totalBytes": 2, "verifiedBytes": 2]
+            "stagingPath": path, "stagingDevice": "1", "stagingInode": "2",
+            "projectJsonPresent": true, "totalBytes": 2, "verifiedBytes": 2]
         func run(_ data: [String: Any], accept: Bool, epochDelta: Int = 0) async throws {
             let before = transport.requests.count
             let task = Task { try await query.startStagedDownload(jobId: "job", workshopId: "123456",
@@ -384,6 +385,8 @@ final class FakeSteamTransport: SteamServiceTransporting {
                 precondition(accept, "invalid receipt accepted")
                 precondition(receipt.stagingURL.path == path && receipt.verifiedBytes == 2)
                 precondition(receipt.manifestId == "18446744073709551615", "64-bit ID preserved")
+                precondition(receipt.stagingLeaseIdentity == SteamWorkshopStagingLeaseIdentity(
+                    device: 1, inode: 2), "helper descriptor identity preserved")
             } catch { if accept { throw error } }
         }
         try await run(valid, accept: true)
@@ -395,6 +398,8 @@ final class FakeSteamTransport: SteamServiceTransporting {
             ("receiptVersion", 1), ("jobId", "other"), ("workshopId", "654321"),
             ("accountSteamId", "76561198000000001"), ("manifestId", "18446744073709551616"),
             ("manifestId", "-1"), ("manifestId", ""), ("stagedComplete", false),
+            ("stagingDevice", "-1"), ("stagingDevice", "x"),
+            ("stagingInode", "0"), ("stagingInode", "x"),
             ("projectJsonPresent", false), ("verifiedBytes", 1), ("totalBytes", -1),
             ("totalBytes", 9 * 1024 * 1024 * 1024), ("verifiedBytes", "2"),
             ("stagingPath", "/outside/" + String(repeating: "a", count: 32)),

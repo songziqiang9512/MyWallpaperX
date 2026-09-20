@@ -40,6 +40,7 @@ struct SteamDownloadJob: Codable, Identifiable, Equatable {
     let accountSteamId: String
     var stagingPath: String?
     var stagingManifestId: String? = nil
+    var stagingLeaseIdentity: SteamWorkshopStagingLeaseIdentity? = nil
     var receipt: SteamWorkshopStagedReceipt? = nil
     var preparedCommit: SteamWorkshopLibraryCommit? = nil
     var failureMessage: String?
@@ -77,7 +78,11 @@ enum SteamDownloadJobEvent: Equatable {
     case resourcesReleased
     case started
     case resumed
-    case stagingAllocated(path: String, manifestId: String)
+    case stagingAllocated(
+        path: String,
+        manifestId: String,
+        leaseIdentity: SteamWorkshopStagingLeaseIdentity
+    )
     case recoveryInvalidated
     case staged(SteamWorkshopStagedReceipt)
     case committing(SteamWorkshopLibraryCommit)
@@ -105,6 +110,7 @@ enum SteamDownloadJobReducer {
             guard job.state == .completed || job.state == .cancelled else { return nil }
             next.stagingPath = nil
             next.stagingManifestId = nil
+            next.stagingLeaseIdentity = nil
             next.receipt = nil
             next.preparedCommit = nil
         case .started:
@@ -114,35 +120,49 @@ enum SteamDownloadJobReducer {
             next.failureMessage = nil
             next.receipt = nil
             next.preparedCommit = nil
-            // A queued retry retains its manifest-bound staging identity.
+            // A queued retry may retain a complete descriptor-bound recovery
+            // identity. A direct retry of an identityless failed job must start
+            // a fresh helper lease instead of re-adopting its old lexical path.
+            if job.state == .failed && job.stagingLeaseIdentity == nil {
+                next.stagingPath = nil
+                next.stagingManifestId = nil
+            }
         case .resumed:
             guard job.state == .failed, let path = job.stagingPath, path.hasPrefix("/"),
                   let manifestId = job.stagingManifestId,
-                  SteamWorkshopLibraryTransaction.validID(manifestId) else { return nil }
+                  SteamWorkshopLibraryTransaction.validID(manifestId),
+                  job.stagingLeaseIdentity != nil else { return nil }
             next.state = .running
             next.attempt = job.attempt + 1
             next.failureMessage = nil
             next.receipt = nil
             next.preparedCommit = nil
-        case .stagingAllocated(let path, let manifestId):
+        case .stagingAllocated(let path, let manifestId, let leaseIdentity):
             guard job.state == .running, path.hasPrefix("/"), !path.utf8.contains(0),
                   SteamWorkshopLibraryTransaction.validID(manifestId),
                   (job.stagingPath == nil || job.stagingPath == path),
-                  (job.stagingManifestId == nil || job.stagingManifestId == manifestId) else { return nil }
+                  (job.stagingManifestId == nil || job.stagingManifestId == manifestId),
+                  (job.stagingLeaseIdentity == nil || job.stagingLeaseIdentity == leaseIdentity)
+            else { return nil }
             next.stagingPath = path
             next.stagingManifestId = manifestId
+            next.stagingLeaseIdentity = leaseIdentity
         case .recoveryInvalidated:
             guard job.state == .running else { return nil }
             next.stagingPath = nil
             next.stagingManifestId = nil
+            next.stagingLeaseIdentity = nil
         case .staged(let receipt):
             guard job.state == .running, receipt.jobId == "\(job.id)-\(job.attempt)",
                   receipt.workshopId == job.workshopItemId, receipt.accountSteamId == job.accountSteamId,
-                  job.stagingManifestId == nil || job.stagingManifestId == receipt.manifestId else { return nil }
+                  job.stagingManifestId == nil || job.stagingManifestId == receipt.manifestId,
+                  let stagedIdentity = job.stagingLeaseIdentity,
+                  stagedIdentity == receipt.stagingLeaseIdentity else { return nil }
             next.state = .staged
             next.receipt = receipt
             next.stagingPath = receipt.stagingURL.path
             next.stagingManifestId = receipt.manifestId
+            next.stagingLeaseIdentity = receipt.stagingLeaseIdentity
         case .committing(let commit):
             guard job.state == .staged, commit.jobId == job.receipt?.jobId,
                   commit.attempt == job.attempt, commit.workshopId == job.workshopItemId,
@@ -194,7 +214,7 @@ final class SteamDownloadJobStore: ObservableObject {
         }
     }
 
-    static let persistenceVersion = 3
+    static let persistenceVersion = 4
     static let historyLimit = 100
     static let historyRetentionInterval: TimeInterval = 30 * 24 * 60 * 60
 
@@ -205,27 +225,31 @@ final class SteamDownloadJobStore: ObservableObject {
 
     private var ordinal = 0
     private let persistenceURL: URL
-    /// SK6.1 rollback boundary: the new owner never writes or quarantines the
-    /// legacy filename. It may import that snapshot once when the v3 sidecar is
-    /// absent, leaving an older app a readable rollback source.
-    private let legacyImportURL: URL?
+    /// Rollback boundary: the current owner never writes or quarantines an
+    /// earlier schema filename. It may import the newest readable snapshot once
+    /// when the v4 sidecar is absent, leaving older apps byte-for-byte sources.
+    private let legacyImportURLs: [URL]
     private let now: () -> Date
 
     init(
         persistenceURL: URL? = nil,
         legacyImportURL: URL? = nil,
+        olderLegacyImportURL: URL? = nil,
         now: @escaping () -> Date = Date.init
     ) {
         self.now = now
         if let persistenceURL {
             self.persistenceURL = persistenceURL
-            self.legacyImportURL = legacyImportURL
+            self.legacyImportURLs = [legacyImportURL, olderLegacyImportURL].compactMap { $0 }
         } else {
             let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
                 .first!
                 .appendingPathComponent("MyWallpaperX/SteamJobs", isDirectory: true)
-            self.persistenceURL = base.appendingPathComponent("jobs-v3.json")
-            self.legacyImportURL = base.appendingPathComponent("jobs.json")
+            self.persistenceURL = base.appendingPathComponent("jobs-v4.json")
+            self.legacyImportURLs = [
+                base.appendingPathComponent("jobs-v3.json"),
+                base.appendingPathComponent("jobs.json"),
+            ]
         }
         // 注入路径与默认路径统一确保父目录存在，否则原子写入会静默失败。
         try? FileManager.default.createDirectory(
@@ -234,12 +258,19 @@ final class SteamDownloadJobStore: ObservableObject {
         )
         if FileManager.default.fileExists(atPath: self.persistenceURL.path) {
             loadPersistedJobs(from: self.persistenceURL, quarantineOnFailure: true)
-        } else if let legacyImportURL,
-                  FileManager.default.fileExists(atPath: legacyImportURL.path),
-                  loadPersistedJobs(from: legacyImportURL, quarantineOnFailure: false) {
-            // Import is copy-on-read. Persist only to the new sidecar and leave
-            // the old snapshot byte-for-byte intact for whole-version rollback.
-            save(jobs, history: history)
+        } else {
+            for legacyImportURL in legacyImportURLs {
+                guard FileManager.default.fileExists(atPath: legacyImportURL.path) else { continue }
+                if loadPersistedJobs(from: legacyImportURL, quarantineOnFailure: false) {
+                    // Import is copy-on-read. Persist only to the v4 sidecar and
+                    // leave the old snapshot intact for whole-version rollback.
+                    save(jobs, history: history)
+                }
+                // The newest existing predecessor is authoritative even when
+                // corrupt. Falling through could replay stale intent from an
+                // older filename that its owner had already superseded.
+                break
+            }
         }
     }
 
@@ -247,7 +278,7 @@ final class SteamDownloadJobStore: ObservableObject {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
             .first!
             .appendingPathComponent("MyWallpaperX/SteamJobs", isDirectory: true)
-        return base.appendingPathComponent("jobs-v3.json")
+        return base.appendingPathComponent("jobs-v4.json")
     }
 
     // MARK: - 查询
@@ -490,10 +521,25 @@ final class SteamDownloadJobStore: ObservableObject {
         var restoredHistory = normalizedHistory(state.history, now: stamp)
         var recoveredFailureIDs: Set<String> = []
         ordinal = jobs.map(\.queueOrdinal).max() ?? 0
-        // A named, manifest-bound partial is offered only through explicit retry.
-        // Work without a recovery identity falls back to queued intent.
+        // A partial is resumable only when path, manifest and descriptor identity
+        // were durably captured as one unit. Older schemas had no identity; keep
+        // their logical intent but never re-adopt the lexical staging name.
+        for index in jobs.indices {
+            let hasRecoveryField = jobs[index].stagingPath != nil
+                || jobs[index].stagingManifestId != nil
+                || jobs[index].stagingLeaseIdentity != nil
+            let hasCompleteRecovery = jobs[index].stagingPath != nil
+                && jobs[index].stagingManifestId != nil
+                && jobs[index].stagingLeaseIdentity != nil
+            if hasRecoveryField && !hasCompleteRecovery {
+                jobs[index].stagingPath = nil
+                jobs[index].stagingManifestId = nil
+                jobs[index].stagingLeaseIdentity = nil
+            }
+        }
         for index in jobs.indices where jobs[index].state == .running {
-            if jobs[index].stagingPath != nil && jobs[index].stagingManifestId != nil {
+            if jobs[index].stagingPath != nil && jobs[index].stagingManifestId != nil
+                && jobs[index].stagingLeaseIdentity != nil {
                 jobs[index].state = .failed
                 jobs[index].failureMessage = "上次下载被中断；请重试以校验并恢复已完成的数据块。"
                 jobs[index].updatedAt = stamp
@@ -502,6 +548,7 @@ final class SteamDownloadJobStore: ObservableObject {
                 jobs[index].state = .queued
                 jobs[index].stagingPath = nil
                 jobs[index].stagingManifestId = nil
+                jobs[index].stagingLeaseIdentity = nil
             }
         }
         // v1/v2 had no history field. Preserve their retryable failures as one
