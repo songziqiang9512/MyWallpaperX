@@ -161,6 +161,19 @@ enum Harness {
             ],
             audioSpectrum: .silent
         )
+        var pointerState = SceneSurfacePointerState(
+            current: SIMD2(0.25, 0.5),
+            previous: SIMD2(-0.75, 0.5),
+            sceneScriptCurrent: SIMD2(0.25, 0.5),
+            isInside: true,
+            isPrimaryButtonDown: false,
+            sceneScriptPrimaryButtonIsDown: false
+        )
+        let pointerInputChanged = pointerState.apply(.init(
+            current: SIMD2(0.75, -0.5),
+            isInside: true,
+            isPrimaryButtonDown: true
+        ))
         let payload: [String: Any] = [
             "first": timing(first),
             "second": timing(second),
@@ -186,6 +199,18 @@ enum Harness {
                 "materialFunctionMutations": context.materialFunctionMutations.map {
                     ["layerID": $0.layerID, "effectIndex": $0.effectIndex, "functionName": $0.functionName]
                 },
+            ],
+            "pointerInput": [
+                "changed": pointerInputChanged,
+                "current": [pointerState.current.x, pointerState.current.y],
+                "previous": [pointerState.previous.x, pointerState.previous.y],
+                "scriptCurrent": [
+                    pointerState.sceneScriptCurrent.x,
+                    pointerState.sceneScriptCurrent.y,
+                ],
+                "inside": pointerState.isInside,
+                "primaryDown": pointerState.isPrimaryButtonDown,
+                "scriptPrimaryDown": pointerState.sceneScriptPrimaryButtonIsDown,
             ],
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
@@ -454,6 +479,17 @@ class SceneFrameContextTests(unittest.TestCase):
             self.result["context"]["materialFunctionMutations"],
             [{"layerID": 17, "effectIndex": 2, "functionName": "clearHistory"}],
         )
+
+    def test_pointer_producer_input_cannot_overwrite_submitted_frame_history(self) -> None:
+        self.assertEqual(self.result["pointerInput"], {
+            "changed": True,
+            "current": [0.75, -0.5],
+            "previous": [-0.75, 0.5],
+            "scriptCurrent": [0.75, -0.5],
+            "inside": True,
+            "primaryDown": True,
+            "scriptPrimaryDown": True,
+        })
 
     def test_view_publishes_camera_parallax_from_the_typed_snapshot(self) -> None:
         source = VIEW_FRAME_CONTEXT_SOURCE.read_text(encoding="utf-8")

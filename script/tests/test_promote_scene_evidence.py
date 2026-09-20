@@ -26,14 +26,23 @@ class PromoteSceneEvidenceTests(unittest.TestCase):
             "hover_snapshot": result / "scene-hover-window.png",
             "after_snapshot": result / "scene-after-window.png",
         }
+        trajectory = [
+            result / "scene-pointer-trajectory-00-window.png",
+            result / "scene-pointer-trajectory-01-window.png",
+        ]
         for key, path in files.items():
             path.write_bytes(key.encode("utf-8"))
+        for index, path in enumerate(trajectory):
+            path.write_bytes(f"trajectory-{index}".encode("utf-8"))
         report = {
             "samples": [{
                 "id": "42",
                 "runtime_sample": str(output / "runtime/runtime-samples/42"),
                 "evidence": {
-                    key: str(path) for key, path in files.items()
+                    **{key: str(path) for key, path in files.items()},
+                    "pointer_trajectory_snapshots": [
+                        str(path) for path in trajectory
+                    ],
                 },
             }],
         }
@@ -63,10 +72,21 @@ class PromoteSceneEvidenceTests(unittest.TestCase):
                 manifest["retention_class"],
                 "local-ignored-evidence-cache",
             )
-            self.assertEqual(len(manifest["runs"][0]["files"]), 6)
+            self.assertEqual(len(manifest["runs"][0]["files"]), 8)
             self.assertEqual(
                 manifest["runs"][0]["files"][4]["key"],
                 "hover_snapshot",
+            )
+            self.assertEqual(
+                [
+                    item["key"]
+                    for item in manifest["runs"][0]["files"]
+                    if item["key"].startswith("pointer_trajectory_snapshot_")
+                ],
+                [
+                    "pointer_trajectory_snapshot_00",
+                    "pointer_trajectory_snapshot_01",
+                ],
             )
             self.assertEqual(
                 manifest["runs"][0]["report_sha256"],
@@ -87,6 +107,56 @@ class PromoteSceneEvidenceTests(unittest.TestCase):
                         Path("v1/test-package"),
                         max_package_mib=1,
                     )
+
+    def test_rejects_malformed_pointer_trajectory_evidence(self) -> None:
+        malformed_values = (
+            "scene-pointer-trajectory-00-window.png",
+            {"0": "scene-pointer-trajectory-00-window.png"},
+            2,
+            ["scene-pointer-trajectory-00-window.png"],
+            ["scene-pointer-trajectory-00-window.png", 2],
+            ["scene-pointer-trajectory-00-window.png", ""],
+            ["scene-pointer-trajectory-00-window.png"] * 9,
+        )
+        for value in malformed_values:
+            with self.subTest(value=value):
+                with tempfile.TemporaryDirectory(
+                    prefix="mwx-evidence-promotion-"
+                ) as directory:
+                    report = self.make_report(Path(directory))
+                    payload = json.loads(report.read_text(encoding="utf-8"))
+                    payload["samples"][0]["evidence"][
+                        "pointer_trajectory_snapshots"
+                    ] = value
+                    report.write_text(json.dumps(payload), encoding="utf-8")
+                    with self.assertRaisesRegex(
+                        ValueError,
+                        "pointer trajectory evidence is malformed",
+                    ):
+                        promotion.promotion_plan([("malformed", report)])
+
+    def test_allows_absent_none_or_empty_pointer_trajectory_evidence(self) -> None:
+        for value in ("absent", None, []):
+            with self.subTest(value=value):
+                with tempfile.TemporaryDirectory(
+                    prefix="mwx-evidence-promotion-"
+                ) as directory:
+                    report = self.make_report(Path(directory))
+                    payload = json.loads(report.read_text(encoding="utf-8"))
+                    if value == "absent":
+                        del payload["samples"][0]["evidence"][
+                            "pointer_trajectory_snapshots"
+                        ]
+                    else:
+                        payload["samples"][0]["evidence"][
+                            "pointer_trajectory_snapshots"
+                        ] = value
+                    report.write_text(json.dumps(payload), encoding="utf-8")
+                    planned, _ = promotion.promotion_plan([("valid", report)])
+                    self.assertFalse(any(
+                        item["key"].startswith("pointer_trajectory_snapshot_")
+                        for item in planned[0]["files"]
+                    ))
 
 
 if __name__ == "__main__":

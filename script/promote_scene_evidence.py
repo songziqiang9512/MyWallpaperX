@@ -22,6 +22,7 @@ DEFAULT_EVIDENCE_KEYS = (
     "runtime_evidence",
     "ready_snapshot",
     "hover_snapshot",
+    "pointer_trajectory_snapshots",
     "after_snapshot",
 )
 
@@ -90,14 +91,43 @@ def promotion_plan(
             if not sample_id or not isinstance(evidence, dict):
                 raise ValueError(f"report sample evidence is malformed: {report_path}")
             for key in evidence_keys:
-                raw_source = evidence.get(key)
-                if not isinstance(raw_source, str):
+                raw_value = evidence.get(key)
+                if key == "pointer_trajectory_snapshots":
+                    if raw_value is None:
+                        continue
+                    if not isinstance(raw_value, list) or len(raw_value) not in (
+                        0, 2, 3, 4, 5, 6, 7, 8
+                    ):
+                        raise ValueError(
+                            f"pointer trajectory evidence is malformed: {report_path}"
+                        )
+                    if any(
+                        not isinstance(raw_source, str) or not raw_source
+                        for raw_source in raw_value
+                    ):
+                        raise ValueError(
+                            f"pointer trajectory evidence is malformed: {report_path}"
+                        )
+                    sources = [
+                        (f"pointer_trajectory_snapshot_{index:02d}", raw_source)
+                        for index, raw_source in enumerate(raw_value)
+                    ]
+                elif isinstance(raw_value, str):
+                    sources = [(key, raw_value)]
+                else:
                     continue
-                source = evidence_source(report_path, raw_source)
-                suffix = "".join(source.suffixes)
-                relative = Path("samples") / sample_id / f"{key}{suffix}"
-                files.append({"key": key, "source": source, "relative": relative})
-                total_bytes += source.stat().st_size
+                for archived_key, raw_source in sources:
+                    source = evidence_source(report_path, raw_source)
+                    suffix = "".join(source.suffixes)
+                    relative = (
+                        Path("samples") / sample_id / f"{archived_key}{suffix}"
+                    )
+                    files.append({
+                        "key": archived_key,
+                        "source": source,
+                        "relative": relative,
+                    })
+                    total_bytes += source.stat().st_size
         planned_runs.append({
             "label": label,
             "report": report_path,

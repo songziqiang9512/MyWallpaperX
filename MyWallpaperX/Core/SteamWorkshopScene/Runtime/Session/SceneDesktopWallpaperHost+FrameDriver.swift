@@ -795,14 +795,4 @@ extension SceneDesktopWallpaperHost {
         }
     }
 #endif
-    func updateMouseLocations() {
-#if DEBUG
-        if let debugPointerOverride {
-            surfaces.values.forEach { $0.metalView.applyPointerState(debugPointerOverride) }
-            return
-        }
-#endif
-        let mouseLocation = NSEvent.mouseLocation
-        surfaces.values.forEach { $0.metalView.updateMouseLocationInScreen(mouseLocation) }
-    }
 }

@@ -11,6 +11,7 @@ import tempfile
 import unittest
 from collections import defaultdict
 from pathlib import Path
+from unittest import mock
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPT_DIR))
@@ -1291,6 +1292,107 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                         "cursor_drag_to_normalized": value
                     })
 
+    def test_pointer_trajectory_accepts_only_bounded_distinct_points(self) -> None:
+        self.assertEqual(
+            benchmark.pointer_trajectory_normalized({
+                "pointer_trajectory_normalized": [
+                    [-0.75, 0.5],
+                    [0, 0],
+                    [0.75, -0.5],
+                ]
+            }),
+            [(-0.75, 0.5), (0.0, 0.0), (0.75, -0.5)],
+        )
+        self.assertIsNone(benchmark.pointer_trajectory_normalized({}))
+        for value in (
+            [[0, 0]],
+            [[0, 0]] * 9,
+            [[0, 0], [0, 0]],
+            [[0, 0], [2, 0]],
+            [[0, 0], [float("nan"), 0]],
+            [[0, 0], [True, 0]],
+            "0,0",
+        ):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    benchmark.pointer_trajectory_normalized({
+                        "pointer_trajectory_normalized": value
+                    })
+
+    def test_pointer_trajectory_minimum_change_is_a_bounded_finite_ratio(self) -> None:
+        self.assertIsNone(benchmark.pointer_trajectory_minimum_changed_ratio({}))
+        self.assertEqual(
+            benchmark.pointer_trajectory_minimum_changed_ratio({
+                "minimum_pointer_trajectory_changed_ratio": 0.05
+            }),
+            0.05,
+        )
+        for value in (True, "0.1", -0.01, 1.01, float("nan"), float("inf")):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    benchmark.pointer_trajectory_minimum_changed_ratio({
+                        "minimum_pointer_trajectory_changed_ratio": value
+                    })
+
+    def test_pointer_trajectory_motion_compares_ready_and_each_successive_point(self) -> None:
+        ready = Path("ready.png")
+        snapshots = [Path("point-00.png"), Path("point-01.png"), Path("point-02.png")]
+        with mock.patch.object(
+            benchmark,
+            "png_motion_metrics",
+            side_effect=lambda before, after: (before.name, after.name),
+        ):
+            self.assertEqual(
+                benchmark.pointer_trajectory_motion_metrics(ready, snapshots),
+                [
+                    ("ready.png", "point-00.png"),
+                    ("point-00.png", "point-01.png"),
+                    ("point-01.png", "point-02.png"),
+                ],
+            )
+        self.assertIsNone(benchmark.pointer_trajectory_motion_metrics(ready, []))
+
+    def test_pointer_trajectory_excludes_parallel_pointer_interactions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "matrix.json"
+            base = {
+                "schema_version": 1,
+                "name": "fixture",
+                "samples": [{
+                    "id": "1",
+                    "pointer_trajectory_normalized": [[-0.5, 0], [0.5, 0]],
+                }],
+            }
+            path.write_text(json.dumps(base), encoding="utf-8")
+            self.assertEqual(
+                benchmark.load_matrix(path)["samples"][0]["id"],
+                "1",
+            )
+            base["samples"][0]["hover_pointer_normalized"] = [0, 0]
+            path.write_text(json.dumps(base), encoding="utf-8")
+            with self.assertRaisesRegex(
+                ValueError,
+                "cannot be combined with hover_pointer_normalized",
+            ):
+                benchmark.load_matrix(path)
+
+    def test_pointer_trajectory_minimum_change_requires_trajectory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "matrix.json"
+            path.write_text(json.dumps({
+                "schema_version": 1,
+                "name": "fixture",
+                "samples": [{
+                    "id": "1",
+                    "minimum_pointer_trajectory_changed_ratio": 0.05,
+                }],
+            }), encoding="utf-8")
+            with self.assertRaisesRegex(
+                ValueError,
+                "requires pointer_trajectory_normalized",
+            ):
+                benchmark.load_matrix(path)
+
     def test_cursor_drag_requires_hover_and_owns_primary_edges(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "matrix.json"
@@ -1375,6 +1477,7 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
 
     def test_debug_runner_sequences_before_hover_and_after_frames(self) -> None:
         source = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
+        pointer_source = DEBUG_POINTER_DRAG_SOURCE.read_text(encoding="utf-8")
         self.assertIn("--mwx-debug-scene-hover-pointer-json", source)
         self.assertIn("--mwx-debug-scene-hover-pointer-stationary-entry", source)
         self.assertIn("--mwx-debug-scene-primary-click", source)
@@ -1397,21 +1500,20 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         before = source.index('requestSnapshot(reason: "before"')
         move_state = source.index("movePointer(to: hoverPointer)", before)
         hold_state = source.index("holdPointer(at: hoverPointer)", move_state)
-        hover = source.index('reason: "hover"', hold_state)
-        outside = source.index("setPointerOutside()", hover)
-        after = source.index('reason: "after"', outside)
+        result = source.index("schedulePointerResultSnapshot(", hold_state)
         self.assertLess(before, move_state)
         self.assertLess(move_state, hold_state)
-        self.assertLess(hold_state, hover)
+        self.assertLess(hold_state, result)
+        hover = pointer_source.index('reason: "hover"')
+        outside = pointer_source.index("setPointerOutside()", hover)
+        after = pointer_source.index('reason: "after"', outside)
         self.assertLess(hover, outside)
         self.assertLess(outside, after)
-        self.assertIn("previous: previous", source)
-        self.assertIn("state=move", source)
-        self.assertIn('state: "hold"', source)
+        self.assertIn("state=move", pointer_source)
+        self.assertIn('state: "hold"', pointer_source)
         press = source.index('state: "press"', hold_state)
         release = source.index('state: "release"', press)
         self.assertLess(press, release)
-        self.assertLess(release, hover)
         subframe_branch = source.index("if requestedPrimaryClickSubframe", press)
         subframe_release = source.index(
             'primaryButtonIsDown: false, state: "release"',

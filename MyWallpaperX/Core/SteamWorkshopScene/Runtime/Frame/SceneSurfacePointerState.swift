@@ -1,6 +1,14 @@
 import CoreGraphics
 import simd
 
+/// One producer sample. Frame history is deliberately absent: `previous` is
+/// owned by the submitted-frame transaction, not by AppKit or debug inputs.
+nonisolated struct SceneSurfacePointerInput: Equatable, Sendable {
+    var current: SIMD2<Float> = .zero
+    var isInside = false
+    var isPrimaryButtonDown = false
+}
+
 nonisolated struct SceneSurfacePointerState: Equatable, Sendable {
     var current: SIMD2<Float> = .zero
     var previous: SIMD2<Float> = .zero
@@ -8,6 +16,20 @@ nonisolated struct SceneSurfacePointerState: Equatable, Sendable {
     var isInside = false
     var isPrimaryButtonDown = false
     var sceneScriptPrimaryButtonIsDown = false
+
+    /// Applies producer state without overwriting submitted-frame history.
+    /// Returns whether the SceneScript event-facing input changed.
+    mutating func apply(_ input: SceneSurfacePointerInput) -> Bool {
+        let changed = sceneScriptCurrent != input.current
+            || isInside != input.isInside
+            || sceneScriptPrimaryButtonIsDown != input.isPrimaryButtonDown
+        current = input.current
+        sceneScriptCurrent = input.current
+        isInside = input.isInside
+        isPrimaryButtonDown = input.isPrimaryButtonDown
+        sceneScriptPrimaryButtonIsDown = input.isPrimaryButtonDown
+        return changed
+    }
 }
 
 nonisolated struct SceneSurfacePointerEvent: Equatable, Sendable {

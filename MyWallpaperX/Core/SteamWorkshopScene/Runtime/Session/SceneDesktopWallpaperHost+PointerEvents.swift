@@ -1,6 +1,21 @@
 import AppKit
 
 extension SceneDesktopWallpaperHost {
+    func updateMouseLocations() {
+#if DEBUG
+        if let debugPointerOverride {
+            surfaces.values.forEach {
+                $0.metalView.applyPointerInput(debugPointerOverride)
+            }
+            return
+        }
+#endif
+        let mouseLocation = NSEvent.mouseLocation
+        surfaces.values.forEach {
+            $0.metalView.updateMouseLocationInScreen(mouseLocation)
+        }
+    }
+
     func installPointerEventMonitorsIfNeeded() {
         removePointerEventMonitors()
         guard launchContext?.sceneScriptCursorProgram.ownerCount ?? 0 > 0 else {

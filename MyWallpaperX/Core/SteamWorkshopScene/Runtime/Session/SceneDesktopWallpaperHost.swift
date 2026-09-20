@@ -81,7 +81,7 @@ final class SceneDesktopWallpaperHost {
             .sceneTextureDecodeCacheByteBudget
     )
 #if DEBUG
-    var debugPointerOverride: SceneSurfacePointerState?
+    var debugPointerOverride: SceneSurfacePointerInput?
     var debugSurfaceReferenceFrames: [CGDirectDisplayID: NSRect] = [:]
     var debugDropDynamicValuesFrameIndex: UInt64?
     var debugDidDropDynamicValues = false
@@ -344,8 +344,8 @@ final class SceneDesktopWallpaperHost {
             .flatMap { $0 }
     }
 
-    func setDebugPointerOverride(_ state: SceneSurfacePointerState?) {
-        debugPointerOverride = state
+    func setDebugPointerOverride(_ input: SceneSurfacePointerInput?) {
+        debugPointerOverride = input
         updateMouseLocations()
     }
 

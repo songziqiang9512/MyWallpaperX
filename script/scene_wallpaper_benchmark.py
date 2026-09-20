@@ -1263,6 +1263,13 @@ def load_matrix(path: Path) -> dict[str, Any]:
         primary_click = cursor_primary_click(sample)
         subframe_click = cursor_primary_click_subframe(sample)
         drag_pointer = cursor_drag_to_normalized(sample)
+        pointer_trajectory = pointer_trajectory_normalized(sample)
+        minimum_trajectory_change = pointer_trajectory_minimum_changed_ratio(sample)
+        if minimum_trajectory_change is not None and pointer_trajectory is None:
+            raise ValueError(
+                "minimum_pointer_trajectory_changed_ratio requires "
+                "pointer_trajectory_normalized"
+            )
         if stationary_entry and hover_pointer is None:
             raise ValueError(
                 "hover_pointer_stationary_entry requires hover_pointer_normalized"
@@ -1283,6 +1290,15 @@ def load_matrix(path: Path) -> dict[str, Any]:
             raise ValueError(
                 "cursor_drag_to_normalized cannot be combined with cursor_primary_click"
             )
+        if pointer_trajectory is not None:
+            if hover_pointer is not None:
+                raise ValueError(
+                    "pointer_trajectory_normalized cannot be combined with hover_pointer_normalized"
+                )
+            if stationary_entry or primary_click or drag_pointer is not None:
+                raise ValueError(
+                    "pointer_trajectory_normalized cannot be combined with other pointer interactions"
+                )
     return payload
 
 
@@ -1323,6 +1339,73 @@ def hover_pointer_normalized(
     if not math.isfinite(x) or not math.isfinite(y) or not (-1 <= x <= 1 and -1 <= y <= 1):
         raise ValueError("hover_pointer_normalized must stay within [-1, 1]")
     return (x, y)
+
+
+def pointer_trajectory_normalized(
+    sample: dict[str, Any],
+) -> list[tuple[float, float]] | None:
+    raw = sample.get("pointer_trajectory_normalized")
+    if raw is None:
+        return None
+    if not isinstance(raw, list) or not 2 <= len(raw) <= 8:
+        raise ValueError(
+            "pointer_trajectory_normalized must contain 2 to 8 points"
+        )
+    points: list[tuple[float, float]] = []
+    for value in raw:
+        if (
+            not isinstance(value, list)
+            or len(value) != 2
+            or any(type(component) not in (int, float) for component in value)
+        ):
+            raise ValueError(
+                "pointer_trajectory_normalized points must contain two numbers"
+            )
+        point = (float(value[0]), float(value[1]))
+        if (
+            not all(math.isfinite(component) for component in point)
+            or not all(-1 <= component <= 1 for component in point)
+        ):
+            raise ValueError(
+                "pointer_trajectory_normalized must stay within [-1, 1]"
+            )
+        if points and points[-1] == point:
+            raise ValueError(
+                "pointer_trajectory_normalized consecutive points must differ"
+            )
+        points.append(point)
+    return points
+
+
+def pointer_trajectory_minimum_changed_ratio(
+    sample: dict[str, Any],
+) -> float | None:
+    raw = sample.get("minimum_pointer_trajectory_changed_ratio")
+    if raw is None:
+        return None
+    if type(raw) not in (int, float):
+        raise ValueError(
+            "minimum_pointer_trajectory_changed_ratio must be a number"
+        )
+    value = float(raw)
+    if not math.isfinite(value) or not 0 <= value <= 1:
+        raise ValueError(
+            "minimum_pointer_trajectory_changed_ratio must stay within [0, 1]"
+        )
+    return value
+
+
+def pointer_trajectory_motion_metrics(
+    ready_snapshot: Path,
+    trajectory_snapshots: list[Path],
+) -> list[dict[str, float] | None] | None:
+    if not trajectory_snapshots:
+        return None
+    inputs = [ready_snapshot, *trajectory_snapshots]
+    return [
+        png_motion_metrics(before, after)
+        for before, after in zip(inputs[:-1], inputs[1:], strict=True)
+    ]
 
 
 def hover_pointer_stationary_entry(sample: dict[str, Any]) -> bool:
@@ -7292,7 +7375,10 @@ def run_sample(
         runtime_sample,
         failures,
     )
+    pointer_trajectory = pointer_trajectory_normalized(sample)
     hover_pointer = hover_pointer_normalized(sample)
+    if pointer_trajectory is not None:
+        hover_pointer = pointer_trajectory[0]
     hover_pointer_stationary = hover_pointer_stationary_entry(sample)
     primary_click = cursor_primary_click(sample)
     subframe_click = cursor_primary_click_subframe(sample)
@@ -7322,6 +7408,11 @@ def run_sample(
                     {"x": drag_pointer[0], "y": drag_pointer[1]},
                     separators=(",", ":"),
                 ),
+            ])
+        if pointer_trajectory is not None:
+            command.extend([
+                "--mwx-debug-scene-pointer-trajectory-json",
+                json.dumps(pointer_trajectory, separators=(",", ":")),
             ])
     environment = os.environ.copy()
     environment["HOME"] = str(runtime_home)
@@ -7559,6 +7650,14 @@ def run_sample(
     ready_snapshot = result_dir / f"scene-{initial_reason}-window.png"
     hover_snapshot = result_dir / "scene-hover-window.png"
     after_snapshot = result_dir / "scene-after-window.png"
+    pointer_trajectory_snapshots = (
+        [
+            result_dir / f"scene-pointer-trajectory-{index:02d}-window.png"
+            for index in range(len(pointer_trajectory))
+        ]
+        if pointer_trajectory is not None
+        else []
+    )
     ready_non_black = png_has_non_black_pixel(ready_snapshot)
     hover_non_black = (
         png_has_non_black_pixel(hover_snapshot)
@@ -7566,6 +7665,9 @@ def run_sample(
         else None
     )
     after_non_black = png_has_non_black_pixel(after_snapshot)
+    pointer_trajectory_non_black = [
+        png_has_non_black_pixel(path) for path in pointer_trajectory_snapshots
+    ]
     flat_border_ratio = {
         "ready": png_flat_border_ratio(ready_snapshot),
         "after": png_flat_border_ratio(after_snapshot),
@@ -7580,6 +7682,10 @@ def run_sample(
         }
         if hover_pointer is not None
         else None
+    )
+    pointer_trajectory_motion = pointer_trajectory_motion_metrics(
+        ready_snapshot,
+        pointer_trajectory_snapshots,
     )
     puppet_interaction = None
     response = sample.get("cursor_drag_response", "hold")
@@ -8063,6 +8169,19 @@ def run_sample(
         failures.extend(cursor_interaction_output_failures(
             sample, hover_motion, drag_pointer
         ))
+    if pointer_trajectory is not None:
+        if not all(pointer_trajectory_non_black):
+            failures.append("pointer trajectory window evidence missing")
+        minimum_trajectory_change = pointer_trajectory_minimum_changed_ratio(sample)
+        if minimum_trajectory_change is not None and (
+            pointer_trajectory_motion is None
+            or any(
+                metric is None
+                or metric["changed_ratio"] < float(minimum_trajectory_change)
+                for metric in pointer_trajectory_motion
+            )
+        ):
+            failures.append("pointer trajectory output evidence below minimum")
     if sample.get("requires_motion"):
         minimum_changed_ratio = float(sample.get("minimum_changed_ratio", 0))
         if motion is None or motion["changed_ratio"] < minimum_changed_ratio:
@@ -8118,6 +8237,9 @@ def run_sample(
             "sample_root_residue": sample_root_residue,
             "ready_snapshot": str(ready_snapshot),
             "hover_snapshot": str(hover_snapshot) if hover_pointer is not None else None,
+            "pointer_trajectory_snapshots": [
+                str(path) for path in pointer_trajectory_snapshots
+            ],
             "after_snapshot": str(after_snapshot),
             "ready_non_black": ready_non_black,
             "hover_non_black": hover_non_black,
@@ -8125,6 +8247,8 @@ def run_sample(
             "flat_border_ratio": flat_border_ratio,
             "motion": motion,
             "hover_motion": hover_motion,
+            "pointer_trajectory_non_black": pointer_trajectory_non_black,
+            "pointer_trajectory_motion": pointer_trajectory_motion,
             "puppet_interaction": puppet_interaction,
             "preview_visual": preview_visual,
         },
@@ -8143,6 +8267,10 @@ def run_sample(
             "cursor_primary_click_subframe": subframe_click,
             "cursor_drag_to_normalized": (
                 list(drag_pointer) if drag_pointer is not None else None
+            ),
+            "pointer_trajectory_normalized": (
+                [list(point) for point in pointer_trajectory]
+                if pointer_trajectory is not None else None
             ),
             "cursor_ripple_persistence": cursor_ripple_persistence,
             "cursor_ripple_visible": cursor_ripple_visible,

@@ -33,17 +33,11 @@ extension SceneMetalView {
         updatePointer(windowPoint)
     }
 
-    func applyPointerState(_ state: SceneSurfacePointerState) {
-        let previousState = pointerState
-        pointerState = state
-        pointerState.sceneScriptCurrent = state.current
-        pointerState.sceneScriptPrimaryButtonIsDown = state.isPrimaryButtonDown
-        if previousState.sceneScriptCurrent != state.current
-            || previousState.isInside != state.isInside
-            || previousState.sceneScriptPrimaryButtonIsDown != state.isPrimaryButtonDown {
+    func applyPointerInput(_ input: SceneSurfacePointerInput) {
+        if pointerState.apply(input) {
             appendSceneScriptPointerEvent()
         }
-        let parallaxTarget = state.isInside ? state.current : .zero
+        let parallaxTarget = input.isInside ? input.current : .zero
         parallaxPointerSmoother.setTarget(
             parallaxTarget,
             timestamp: CACurrentMediaTime()

@@ -66,6 +66,8 @@ RUNTIME_EVIDENCE_METRICS = [
 PRESERVED_KEYS = [
     "hover_pointer_normalized",
     "cursor_drag_to_normalized",
+    "pointer_trajectory_normalized",
+    "minimum_pointer_trajectory_changed_ratio",
     "requires_motion",
     "minimum_changed_ratio",
     "maximum_changed_ratio",
