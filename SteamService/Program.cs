@@ -66,7 +66,8 @@ internal static class Program
     private static async Task<int> RunServiceAsync()
     {
         steamSession.ProcessEpoch = 1;
-        writer.Send(ProtocolMessages.Ready(1, ["ping", "shutdown"]));
+        writer.Send(ProtocolMessages.Ready(
+            1, ["ping", "shutdown", SteamSession.StagingAcknowledgementCapability]));
 
         using var stdin = Console.OpenStandardInput();
         var reader = new FrameReader(stdin);
@@ -166,6 +167,28 @@ internal static class Program
                     var cancelled = decode.AuthAttemptId is { Length: > 0 } attemptId
                         && steamSession.CancelAuthentication(attemptId);
                     writer.Send(ProtocolMessages.ResultOk(requestId, new { cancelled }, 1));
+                    break;
+                }
+                case "acknowledgeDownloadStaging":
+                {
+                    var jobId = decode.StringField("jobId");
+                    var path = decode.PayloadString("stagingPath");
+                    var manifestId = decode.PayloadString("manifestId");
+                    var device = decode.PayloadString("stagingDevice");
+                    var inode = decode.PayloadString("stagingInode");
+                    if (string.IsNullOrEmpty(jobId) || string.IsNullOrEmpty(path)
+                        || string.IsNullOrEmpty(manifestId) || string.IsNullOrEmpty(device)
+                        || string.IsNullOrEmpty(inode) || !Path.IsPathRooted(path))
+                    {
+                        writer.Send(ProtocolMessages.ResultError(requestId, "protocolMismatch",
+                            "acknowledgeDownloadStaging requires the complete staging identity",
+                            1, decode.AccountEpoch));
+                        break;
+                    }
+                    var acknowledged = steamSession.AcknowledgeDownloadStaging(
+                        jobId, path, manifestId, device, inode, decode.AccountEpoch);
+                    writer.Send(ProtocolMessages.ResultOk(
+                        requestId, new { acknowledged }, 1, decode.AccountEpoch));
                     break;
                 }
                 case "logout":

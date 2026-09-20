@@ -36,6 +36,8 @@ internal sealed partial class SteamSession
     private const long MaxChunkBytes = 64L * 1024 * 1024;
     /// §5.3：CDN 失败有 backoff 与上限；每个 chunk 至多重试 3 次有界网络类失败。
     internal const int MaxChunkDownloadAttempts = 3;
+    internal const string StagingAcknowledgementCapability = "download-staging-ack-v1";
+    internal const int StagingAcknowledgementTimeoutSeconds = 30;
 
     /// SK4.2 依赖的会话处理器；EnsureSession 统一创建（SteamSession partial 共享）。
     private SteamApps apps = null!;
@@ -65,6 +67,8 @@ internal sealed partial class SteamSession
         public required AccountLease Account;
         public required SteamClient Source;
         public readonly DownloadProgressState Progress = new();
+        public readonly TaskCompletionSource<bool> StagingAcknowledgement = new(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         public long ReservedStagingBytes; // guarded by downloadGate
         public bool TerminalDecided; // guarded by downloadGate, shared with cancellation acceptance
     }
@@ -143,7 +147,7 @@ internal sealed partial class SteamSession
                 {
                     throw new SteamRequestFailure("unsupportedContent", "item has no content manifest");
                 }
-                context.StagingManifestId = detail.hcontent_file.ToString();
+                var stagingManifestId = detail.hcontent_file.ToString(CultureInfo.InvariantCulture);
                 if (context.ResumeManifestId is ulong expectedManifest
                     && expectedManifest != detail.hcontent_file)
                 {
@@ -184,11 +188,33 @@ internal sealed partial class SteamSession
                         context.ResumeStagingInode!.Value)
                     : new WorkshopStagingLease(stagingRoot);
                 var staging = lease.Path;
-                context.StagingPath = staging;
-                context.StagingDevice = lease.Device.ToString(CultureInfo.InvariantCulture);
-                context.StagingInode = lease.Inode.ToString(CultureInfo.InvariantCulture);
-                // Publish the exact helper-owned lease before the first content write so
-                // the App can durably associate partial work with this logical attempt.
+                PublishStagingIdentity(
+                    context,
+                    staging,
+                    stagingManifestId,
+                    lease.Device.ToString(CultureInfo.InvariantCulture),
+                    lease.Inode.ToString(CultureInfo.InvariantCulture));
+                // Publish the exact helper-owned lease and stop before the first
+                // content node/write until the App confirms durable JobStore identity.
+                try
+                {
+                    EmitDownloadProgress(context, "allocated",
+                        totalBytes: manifestTotalBytes, totalChunks: totalChunks);
+                    await AwaitStagingAcknowledgementAsync(context, cancellation.Token)
+                        .ConfigureAwait(false);
+                }
+                catch
+                {
+                    if (!resuming)
+                    {
+                        try { lease.RemoveUnacknowledgedIfEmpty(); }
+                        catch (Exception cleanupError)
+                        {
+                            writer.SendDiagnostic($"unacknowledged staging cleanup failed: {cleanupError.Message}");
+                        }
+                    }
+                    throw;
+                }
                 EmitDownloadProgress(context, "downloading",
                     totalBytes: manifestTotalBytes, totalChunks: totalChunks);
 
@@ -285,6 +311,69 @@ internal sealed partial class SteamSession
             if (!activeDownloads.TryGetValue(jobId, out var context) || context.TerminalDecided) return false;
             context.Cancellation.Cancel();
             return true;
+        }
+    }
+
+    public bool AcknowledgeDownloadStaging(
+        string jobId,
+        string stagingPath,
+        string manifestId,
+        string stagingDevice,
+        string stagingInode,
+        long? requestedEpoch)
+    {
+        lock (downloadGate)
+        {
+            if (!activeDownloads.TryGetValue(jobId, out var context)
+                || context.TerminalDecided || context.Cancellation.IsCancellationRequested
+                || requestedEpoch == null || context.Account.Epoch != requestedEpoch
+                || context.StagingPath != stagingPath
+                || context.StagingManifestId != manifestId
+                || context.StagingDevice != stagingDevice
+                || context.StagingInode != stagingInode)
+            {
+                return false;
+            }
+            return context.StagingAcknowledgement.TrySetResult(true);
+        }
+    }
+
+    private void PublishStagingIdentity(
+        ActiveDownload context,
+        string stagingPath,
+        string manifestId,
+        string stagingDevice,
+        string stagingInode)
+    {
+        lock (downloadGate)
+        {
+            if (!activeDownloads.TryGetValue(context.JobId, out var active)
+                || !ReferenceEquals(active, context) || context.TerminalDecided)
+            {
+                throw new SteamRequestFailure("integrity", "download staging owner changed");
+            }
+            context.Cancellation.Token.ThrowIfCancellationRequested();
+            context.StagingPath = stagingPath;
+            context.StagingManifestId = manifestId;
+            context.StagingDevice = stagingDevice;
+            context.StagingInode = stagingInode;
+        }
+    }
+
+    private static async Task AwaitStagingAcknowledgementAsync(
+        ActiveDownload context,
+        CancellationToken cancellation,
+        TimeSpan? timeout = null)
+    {
+        try
+        {
+            await context.StagingAcknowledgement.Task.WaitAsync(
+                timeout ?? TimeSpan.FromSeconds(StagingAcknowledgementTimeoutSeconds), cancellation)
+                .ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            throw new SteamRequestFailure("integrity", "staging acknowledgement timed out");
         }
     }
 

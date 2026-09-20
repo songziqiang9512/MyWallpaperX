@@ -51,7 +51,7 @@ class SteamDownloadExecutionTests(unittest.TestCase):
             for name, value in files.items():
                 (stage / name).write_bytes(value)
             second_stage = root / 'staging' / ('job-' + 'b' * 32)
-            if mode in ('concurrent-cancel', 'concurrent-success'):
+            if mode in ('concurrent-cancel', 'concurrent-success', 'missing-resume-fresh'):
                 second_stage.mkdir(parents=True)
                 for name, value in files.items():
                     (second_stage / name).write_bytes(value)
@@ -79,6 +79,24 @@ class SteamDownloadExecutionTests(unittest.TestCase):
     def test_success(self):
         self.run_case('success')
 
+    def test_staging_identity_is_persisted_before_helper_acknowledgement(self):
+        self.run_case('staging-ack')
+
+    def test_staging_persistence_failure_never_acknowledges_helper_writes(self):
+        self.run_case('staging-save-failure')
+
+    def test_helper_without_staging_ack_capability_never_starts_download(self):
+        self.run_case('missing-staging-ack-capability')
+
+    def test_staging_ack_timeout_invalidates_helper_deleted_lease(self):
+        self.run_case('staging-ack-timeout')
+
+    def test_allocated_event_rejects_wrong_account_epoch(self):
+        self.run_case('allocated-wrong-account-epoch')
+
+    def test_allocated_event_rejects_missing_account_epoch(self):
+        self.run_case('allocated-missing-account-epoch')
+
     def test_cancel_sends_exact_job_and_does_not_publish(self):
         self.run_case('cancel')
 
@@ -96,6 +114,9 @@ class SteamDownloadExecutionTests(unittest.TestCase):
 
     def test_network_failure_persists_and_explicit_retry_reuses_job(self):
         self.run_case('network-failure')
+
+    def test_missing_persisted_resume_lease_restarts_fresh_on_same_retry(self):
+        self.run_case('missing-resume-fresh')
 
     def test_manifest_mismatch_invalidates_and_cleans_recovery_identity(self):
         self.run_case('manifest-mismatch')

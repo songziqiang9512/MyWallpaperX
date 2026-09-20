@@ -21,6 +21,15 @@ final class Transport: SteamServiceTransporting {
     var commands: [[String: Any]] = []
     var receipt: [String: Any] = [:]
     var hold = false
+    var requireStagingAcknowledgement = false
+    var failJobStoreBeforeAllocatedEvent = false
+    var jobStoreURL: URL?
+    var savedJobStoreURL: URL?
+    var observedPersistedIdentityBeforeAcknowledgement = false
+    var advertiseStagingAcknowledgement = true
+    var rejectStagingAcknowledgementWithIntegrity = false
+    var allocatedEventHasWrongAccountEpoch = false
+    var allocatedEventOmitsAccountEpoch = false
     var replaceStagingBeforeProgress = false
     var startErrorCode: String?
     private var didReplaceStaging = false
@@ -40,13 +49,29 @@ final class Transport: SteamServiceTransporting {
         return data
     }
     func emit(_ frame: [String: Any]) { var bytes = try! JSONSerialization.data(withJSONObject: frame); bytes.append(10); onOutput?(bytes) }
-    func start() throws { isRunning = true; emit(["v":1,"type":"ready","protocol":1,"helperVersion":"test"]) }
+    func start() throws {
+        isRunning = true
+        emit([
+            "v": 1, "type": "ready", "protocol": 1, "helperVersion": "test",
+            "capabilities": advertiseStagingAcknowledgement
+                ? ["ping", "shutdown", SteamServiceProtocol.stagingAcknowledgementCapability]
+                : ["ping", "shutdown"],
+        ])
+    }
     func send(_ data: Data) -> Bool {
         let request = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
         commands.append(request)
         let command = request["command"] as! String
         let responseData = receiptData(for: request)
         if command == "startDownload" {
+            if failJobStoreBeforeAllocatedEvent {
+                let original = jobStoreURL!.appendingPathExtension("before-allocation")
+                try! FileManager.default.moveItem(at: jobStoreURL!, to: original)
+                try! FileManager.default.createDirectory(
+                    at: jobStoreURL!, withIntermediateDirectories: false
+                )
+                savedJobStoreURL = original
+            }
             if replaceStagingBeforeProgress && !didReplaceStaging {
                 didReplaceStaging = true
                 let target = URL(fileURLWithPath: responseData["stagingPath"] as! String, isDirectory: true)
@@ -56,15 +81,69 @@ final class Transport: SteamServiceTransporting {
                 try! FileManager.default.createDirectory(at: target, withIntermediateDirectories: false)
                 try! Data("replacement".utf8).write(to: target.appendingPathComponent("sentinel"))
             }
-            emit(["v":1,"type":"event","event":"downloadProgress","requestId":request["requestId"]!,
-                  "accountEpoch":request["accountEpoch"]!,"jobId":request["jobId"]!,"sequence":1,
-                  "stage":"downloading","stagingPath":responseData["stagingPath"]!,
-                  "manifestId":responseData["manifestId"]!,
-                  "stagingDevice":responseData["stagingDevice"]!,
-                  "stagingInode":responseData["stagingInode"]!])
+            var progress: [String: Any] = [
+                "v": 1, "type": "event", "event": "downloadProgress",
+                "requestId": request["requestId"]!, "jobId": request["jobId"]!, "sequence": 1,
+                "stage": requireStagingAcknowledgement || failJobStoreBeforeAllocatedEvent
+                    ? "allocated" : "downloading",
+                "stagingPath": responseData["stagingPath"]!,
+                "manifestId": responseData["manifestId"]!,
+                "stagingDevice": responseData["stagingDevice"]!,
+                "stagingInode": responseData["stagingInode"]!,
+            ]
+            if !allocatedEventOmitsAccountEpoch {
+                let accountEpoch = request["accountEpoch"] as! Int
+                progress["accountEpoch"] = allocatedEventHasWrongAccountEpoch
+                    ? accountEpoch + 1 : accountEpoch
+            }
+            emit(progress)
         }
-        if command == "startDownload" && hold {
+        if command == "startDownload"
+            && (hold || requireStagingAcknowledgement || failJobStoreBeforeAllocatedEvent) {
             heldStartRequests[request["jobId"] as! String] = request
+            return true
+        }
+        if command == "acknowledgeDownloadStaging" {
+            precondition(requireStagingAcknowledgement)
+            let payload = request["payload"] as! [String: Any]
+            let persisted = try! JSONSerialization.jsonObject(
+                with: Data(contentsOf: jobStoreURL!)
+            ) as! [String: Any]
+            let jobs = persisted["jobs"] as! [[String: Any]]
+            let jobKey = request["jobId"] as! String
+            let job = jobs.first { candidate in
+                guard let id = candidate["id"] as? String,
+                      let attempt = candidate["attempt"] as? Int else { return false }
+                return "\(id)-\(attempt)" == jobKey
+            }!
+            let identity = job["stagingLeaseIdentity"] as! [String: Any]
+            precondition(job["stagingPath"] as? String == payload["stagingPath"] as? String)
+            precondition(job["stagingManifestId"] as? String == payload["manifestId"] as? String)
+            precondition(String(identity["device"] as! UInt64) == payload["stagingDevice"] as? String)
+            precondition(String(identity["inode"] as! UInt64) == payload["stagingInode"] as? String)
+            observedPersistedIdentityBeforeAcknowledgement = true
+            emit(["v":1,"type":"result","ok":true,"requestId":request["requestId"]!,
+                  "accountEpoch":request["accountEpoch"]!,
+                  "data":["acknowledged":!rejectStagingAcknowledgementWithIntegrity]])
+            if rejectStagingAcknowledgementWithIntegrity {
+                try! FileManager.default.removeItem(
+                    at: URL(fileURLWithPath: responseData["stagingPath"] as! String)
+                )
+                finishHeldFailure(
+                    jobId: jobKey,
+                    code: "integrity",
+                    message: "staging acknowledgement timed out"
+                )
+            } else if let startErrorCode {
+                finishHeldFailure(
+                    jobId: jobKey,
+                    code: startErrorCode,
+                    message: startErrorCode == "integrity"
+                        ? "staging manifest changed" : "fixture network failure"
+                )
+            } else if !hold {
+                finishHeldSuccess(jobId: jobKey)
+            }
             return true
         }
         if command == "startDownload", let startErrorCode {
@@ -88,6 +167,20 @@ final class Transport: SteamServiceTransporting {
         emit(["v":1,"type":"result","ok":false,"requestId":request["requestId"]!,
               "accountEpoch":request["accountEpoch"]!,
               "error":["code":"cancelled","message":"download cancelled"]])
+    }
+    func finishHeldFailure(jobId: String, code: String, message: String) {
+        guard let request = heldStartRequests.removeValue(forKey: jobId) else {
+            fatalError("missing held start")
+        }
+        emit(["v":1,"type":"result","ok":false,"requestId":request["requestId"]!,
+              "accountEpoch":request["accountEpoch"]!,
+              "error":["code":code,"message":message]])
+    }
+    func restoreJobStoreAfterAllocationFailure() {
+        guard let jobStoreURL, let savedJobStoreURL else { fatalError("missing failed JobStore fixture") }
+        try! FileManager.default.removeItem(at: jobStoreURL)
+        try! FileManager.default.moveItem(at: savedJobStoreURL, to: jobStoreURL)
+        self.savedJobStoreURL = nil
     }
     func finishHeldSuccess(jobId: String? = nil) {
         let selected = jobId ?? heldStartRequests.keys.first
@@ -157,11 +250,20 @@ final class Transport: SteamServiceTransporting {
         let transport = Transport()
         let fixture = try JSONSerialization.jsonObject(with: Data(contentsOf: base.appendingPathComponent("receipt.json"))) as! [String: Any]
         transport.receipt = fixture["data"] as! [String: Any]
+        transport.jobStoreURL = base.appendingPathComponent("jobs.json")
+        transport.advertiseStagingAcknowledgement = mode != "missing-staging-ack-capability"
+        transport.requireStagingAcknowledgement = mode != "missing-staging-ack-capability"
+        transport.failJobStoreBeforeAllocatedEvent = mode == "staging-save-failure"
+        transport.rejectStagingAcknowledgementWithIntegrity = mode == "staging-ack-timeout"
+        transport.allocatedEventHasWrongAccountEpoch = mode == "allocated-wrong-account-epoch"
+        transport.allocatedEventOmitsAccountEpoch = mode == "allocated-missing-account-epoch"
         transport.hold = mode == "cancel" || mode == "switch"
             || mode == "concurrent-cancel" || mode == "concurrent-success"
             || mode == "prebind-replacement" || mode == "legacy-partial-retry"
+            || mode == "allocated-wrong-account-epoch"
+            || mode == "allocated-missing-account-epoch"
         transport.replaceStagingBeforeProgress = mode == "prebind-replacement"
-        transport.startErrorCode = ["network-failure", "busy-retry", "abandon"].contains(mode) ? "network"
+        transport.startErrorCode = ["network-failure", "missing-resume-fresh", "busy-retry", "abandon"].contains(mode) ? "network"
             : mode == "manifest-mismatch" ? "integrity"
             : mode == "disk-full" ? "diskFull" : nil
         if mode == "legacy-partial-retry" {
@@ -309,8 +411,69 @@ final class Transport: SteamServiceTransporting {
             return
         }
         service.downloadWorkshopItem(id: "123456", pageTitle: "test")
+        if mode == "missing-staging-ack-capability" {
+            for _ in 0..<100_000 where !service.activeDownloadTasks.isEmpty { await Task.yield() }
+            precondition(service.activeDownloadTasks.isEmpty)
+            precondition(!transport.commands.contains { $0["command"] as? String == "startDownload" },
+                "a helper without the mandatory staging ack capability must never start a download")
+            precondition(service.downloadJobStore.jobs.last?.state == .failed)
+            let marker = base.appendingPathComponent("library/.mywallpaperx-steam-metadata/123456.json")
+            let oldMarker = try String(contentsOf: marker, encoding: .utf8)
+            precondition(oldMarker == "OLD READY POINTER")
+            await service.steamServiceClient.stop(shutdownTimeout: 0)
+            print("EXECUTION PASS: \(mode)")
+            return
+        }
         while !transport.commands.contains(where: { $0["command"] as? String == "startDownload" }) { await Task.yield() }
         let key = transport.commands.first! ["jobId"] as! String
+        if mode == "staging-ack" {
+            var observedAcknowledgement = false
+            for _ in 0..<100_000 {
+                if transport.commands.contains(where: {
+                    $0["command"] as? String == "acknowledgeDownloadStaging"
+                        && $0["jobId"] as? String == key
+                }) {
+                    observedAcknowledgement = true
+                    break
+                }
+                await Task.yield()
+            }
+            precondition(observedAcknowledgement,
+                "helper start advanced without a durable staging acknowledgement")
+        }
+        if mode == "staging-save-failure" {
+            var observedCancellation = false
+            for _ in 0..<100_000 {
+                if transport.commands.contains(where: {
+                    $0["command"] as? String == "cancelDownload"
+                        && $0["jobId"] as? String == key
+                }) {
+                    observedCancellation = true
+                    break
+                }
+                await Task.yield()
+            }
+            precondition(observedCancellation,
+                "failed staging persistence did not cancel the helper start")
+            precondition(!transport.commands.contains(where: {
+                $0["command"] as? String == "acknowledgeDownloadStaging"
+            }), "failed staging persistence must never release helper writes")
+            transport.restoreJobStoreAfterAllocationFailure()
+            try FileManager.default.removeItem(
+                at: URL(fileURLWithPath: transport.receipt["stagingPath"] as! String)
+            )
+            transport.finishHeldCancellation(jobId: key)
+        }
+        if mode == "allocated-wrong-account-epoch" || mode == "allocated-missing-account-epoch" {
+            while !transport.commands.contains(where: {
+                $0["command"] as? String == "cancelDownload" && $0["jobId"] as? String == key
+            }) { await Task.yield() }
+            precondition(!transport.commands.contains {
+                $0["command"] as? String == "acknowledgeDownloadStaging"
+            }, "a stale or unscoped allocated event must never release helper writes")
+            precondition(service.downloadJobStore.job(id: key.split(separator: "-").dropLast().joined(separator: "-"))?.stagingPath == nil)
+            transport.finishHeldCancellation(jobId: key)
+        }
         if mode == "concurrent-cancel" {
             service.downloadWorkshopItem(id: "654321", pageTitle: "second")
             while transport.commands.filter({ $0["command"] as? String == "startDownload" }).count < 2 {
@@ -395,12 +558,18 @@ final class Transport: SteamServiceTransporting {
             precondition(service.downloadJobStore.jobs.allSatisfy { $0.state == .completed })
             precondition(!FileManager.default.fileExists(atPath: transport.receipt["stagingPath"] as! String))
             precondition(!FileManager.default.fileExists(atPath: transport.receipt["secondStagingPath"] as! String))
-        } else if mode == "success" {
+        } else if mode == "success" || mode == "staging-ack" {
             precondition(service.downloadError == nil, service.downloadError ?? service.statusMessage)
             let result = try JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: Data(contentsOf: marker))
             precondition(result.commit?.jobId == key && result.commit?.attempt == 1)
             precondition(service.downloadJobStore.jobs.last?.state == .completed && service.reloads == 1)
             precondition(transport.commands.filter { $0["command"] as? String == "startDownload" }.count == 1)
+            if mode == "staging-ack" {
+                precondition(transport.observedPersistedIdentityBeforeAcknowledgement)
+                precondition(transport.commands.filter {
+                    $0["command"] as? String == "acknowledgeDownloadStaging"
+                }.count == 1)
+            }
             let corrupt = marker.deletingLastPathComponent().appendingPathComponent("654321.json")
             try Data("broken-json".utf8).write(to: corrupt)
             precondition(service.managedDownloadSnapshots().keys.sorted() == ["123456"])
@@ -410,7 +579,7 @@ final class Transport: SteamServiceTransporting {
             } catch {}
             precondition(!FileManager.default.fileExists(atPath: transport.receipt["stagingPath"] as! String),
                 "successful publication must retire its exact staging lease")
-        } else if !["network-failure", "busy-retry", "abandon", "publish-failure", "disk-full"].contains(mode) {
+        } else if !["network-failure", "missing-resume-fresh", "busy-retry", "abandon", "publish-failure", "disk-full"].contains(mode) {
             let oldMarker = try String(contentsOf: marker, encoding: .utf8)
             precondition(oldMarker == "OLD READY POINTER")
             precondition(service.downloadJobStore.jobs.last?.state != .completed)
@@ -427,6 +596,26 @@ final class Transport: SteamServiceTransporting {
                     "manifest mismatch must invalidate recovery identity")
                 precondition(!FileManager.default.fileExists(atPath: transport.receipt["stagingPath"] as! String),
                     "manifest mismatch must retire its exact staging lease")
+            }
+            if mode == "staging-save-failure" {
+                precondition(service.downloadJobStore.jobs.last?.state == .failed
+                    && service.downloadJobStore.jobs.last?.stagingPath == nil
+                    && service.downloadJobStore.jobs.last?.failureMessage?.isEmpty == false,
+                    "persistence failure must remain visible without adopting helper storage")
+                precondition(!FileManager.default.fileExists(
+                    atPath: transport.receipt["stagingPath"] as! String
+                ), "unacknowledged helper lease must be retired without App ownership")
+            }
+            if mode == "staging-ack-timeout" {
+                precondition(service.downloadJobStore.jobs.last?.state == .failed
+                    && service.downloadJobStore.jobs.last?.stagingPath == nil
+                    && service.downloadJobStore.jobs.last?.stagingLeaseIdentity == nil,
+                    "ack timeout must invalidate the helper-deleted recovery lease")
+            }
+            if mode == "allocated-wrong-account-epoch" || mode == "allocated-missing-account-epoch" {
+                precondition(service.downloadJobStore.jobs.last?.state == .failed
+                    && service.downloadJobStore.jobs.last?.stagingPath == nil,
+                    "unscoped allocated events must not bind durable storage: \(String(describing: service.downloadJobStore.jobs.last))")
             }
             if mode == "prebind-replacement" {
                 let replacement = URL(
@@ -466,7 +655,7 @@ final class Transport: SteamServiceTransporting {
                     atPath: base.appendingPathComponent("legacy-partial-original").path
                 ))
             }
-        } else if ["network-failure", "busy-retry", "abandon", "publish-failure"].contains(mode) {
+        } else if ["network-failure", "missing-resume-fresh", "busy-retry", "abandon", "publish-failure"].contains(mode) {
             let oldMarker = try String(contentsOf: marker, encoding: .utf8)
             precondition(oldMarker == "OLD READY POINTER")
             guard let failure = service.downloadJobStore.jobs.last else { fatalError("missing failed job") }
@@ -498,13 +687,20 @@ final class Transport: SteamServiceTransporting {
                 try FileManager.default.removeItem(at: index) // fixture symlink only
                 try FileManager.default.moveItem(at: base.appendingPathComponent("outside-index"), to: index)
             }
+            if mode == "missing-resume-fresh" {
+                try FileManager.default.removeItem(atPath: failure.stagingPath!)
+                transport.receipt["stagingPath"] = transport.receipt["secondStagingPath"]
+                transport.receipt["stagingDevice"] = transport.receipt["secondStagingDevice"]
+                transport.receipt["stagingInode"] = transport.receipt["secondStagingInode"]
+            }
             transport.startErrorCode = nil
             if mode == "busy-retry" {
                 service.reservedLibraryCopyBytesByJobKey["fixture-other"] = 0
                 service.downloadWorkshopItem(id: "123456", pageTitle: "test")
                 let queued = service.downloadJobStore.job(id: failure.id)!
                 precondition(queued.state == .queued && queued.attempt == 1 && queued.stagingPath == failure.stagingPath)
-                precondition(service.downloadJobStore.jobs.count == 1 && transport.commands.count == 1)
+                precondition(service.downloadJobStore.jobs.count == 1
+                    && transport.commands.filter { $0["command"] as? String == "startDownload" }.count == 1)
                 service.reservedLibraryCopyBytesByJobKey.removeAll()
             }
             service.downloadWorkshopItem(id: "123456", pageTitle: "test")
@@ -513,13 +709,21 @@ final class Transport: SteamServiceTransporting {
             precondition(starts.count == 2 && starts.last?["jobId"] as? String == failure.id + "-2",
                 "explicit retry must keep logical job identity and increment attempt")
             let retryPayload = starts.last?["payload"] as? [String: Any]
-            precondition(retryPayload?["resumeStagingPath"] as? String == failure.stagingPath
-                && retryPayload?["resumeManifestId"] as? String == failure.stagingManifestId
-                && retryPayload?["resumeStagingDevice"] as? String
-                    == failure.stagingLeaseIdentity.map { String($0.device) }
-                && retryPayload?["resumeStagingInode"] as? String
-                    == failure.stagingLeaseIdentity.map { String($0.inode) },
-                "explicit retry must send the complete descriptor-bound staging identity")
+            if mode == "missing-resume-fresh" {
+                precondition(retryPayload?["resumeStagingPath"] == nil
+                    && retryPayload?["resumeManifestId"] == nil
+                    && retryPayload?["resumeStagingDevice"] == nil
+                    && retryPayload?["resumeStagingInode"] == nil,
+                    "a missing persisted lease must restart fresh on the same explicit retry")
+            } else {
+                precondition(retryPayload?["resumeStagingPath"] as? String == failure.stagingPath
+                    && retryPayload?["resumeManifestId"] as? String == failure.stagingManifestId
+                    && retryPayload?["resumeStagingDevice"] as? String
+                        == failure.stagingLeaseIdentity.map { String($0.device) }
+                    && retryPayload?["resumeStagingInode"] as? String
+                        == failure.stagingLeaseIdentity.map { String($0.inode) },
+                    "explicit retry must send the complete descriptor-bound staging identity")
+            }
             precondition(service.downloadJobStore.jobs.last?.state == .completed)
             precondition(!FileManager.default.fileExists(atPath: transport.receipt["stagingPath"] as! String))
         } else {

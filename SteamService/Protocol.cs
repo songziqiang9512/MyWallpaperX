@@ -19,7 +19,8 @@ internal static class ProtocolLimits
     public const int MaxPendingRequests = 256;
     public const int ReservedControlRequests = 8;
     public static bool IsControlCommand(string command) => command is
-        "shutdown" or "logout" or "cancelAuthentication" or "cancelDownload" or "submitChallenge";
+        "shutdown" or "logout" or "cancelAuthentication" or "cancelDownload"
+            or "acknowledgeDownloadStaging" or "submitChallenge";
     public const int RequestTimeoutSeconds = 30;
     public const int ConnectTimeoutSeconds = 12;
     public const int QueryTimeoutSeconds = 15;

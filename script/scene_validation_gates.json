@@ -262,6 +262,34 @@
       ]
     },
     {
+      "id": "steam-helper-runtime",
+      "patterns": [
+        "SteamService/**",
+        "script/tests/fixtures/steam-protocol/**"
+      ],
+      "modules": [
+        "test_steam_helper_offline",
+        "test_steam_protocol_golden"
+      ]
+    },
+    {
+      "id": "steam-download-control",
+      "patterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamServiceProtocol.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamServiceClient.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopQueryClient.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Downloads.swift",
+        "script/tests/fixtures/SteamDownloadExecutionHarness.swift",
+        "script/tests/fixtures/SteamServiceClientLifecycleHarness.swift"
+      ],
+      "modules": [
+        "test_steam_client_lifecycle",
+        "test_steam_download_execution",
+        "test_steam_download_progress",
+        "test_steam_protocol_golden"
+      ]
+    },
+    {
       "id": "scene-script-cursor",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram.swift",

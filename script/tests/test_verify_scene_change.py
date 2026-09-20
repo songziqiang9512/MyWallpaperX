@@ -207,6 +207,44 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("test_scene_daemon_client_wiring", focused.command)
         self.assertIn("test_scene_daemon_protocol", focused.command)
 
+    def test_steam_helper_change_selects_helper_and_protocol_contracts(self) -> None:
+        gates, groups = verify.build_plan(
+            ["SteamService/WorkshopDownloader.cs"],
+            arguments(),
+            self.registry,
+        )
+        self.assertEqual(
+            [gate.gate_id for gate in gates],
+            ["focused-tests", "build-verify"],
+        )
+        self.assertIn("steam-helper-runtime", groups)
+        self.assertIn("test_steam_helper_offline", gates[0].command)
+        self.assertIn("test_steam_protocol_golden", gates[0].command)
+
+    def test_steam_download_control_change_selects_product_contracts(self) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Downloads.swift",
+                "script/tests/fixtures/SteamDownloadExecutionHarness.swift",
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertEqual(
+            [gate.gate_id for gate in gates],
+            ["focused-tests", "code-health", "build-verify"],
+        )
+        self.assertIn("steam-download-control", groups)
+        focused = gates[0]
+        for module in (
+            "test_steam_client_lifecycle",
+            "test_steam_download_execution",
+            "test_steam_download_progress",
+            "test_steam_protocol_golden",
+        ):
+            with self.subTest(module=module):
+                self.assertIn(module, focused.command)
+
     def test_launch_change_selects_existing_fallback_admission_module(self) -> None:
         gates, groups = verify.build_plan(
             [

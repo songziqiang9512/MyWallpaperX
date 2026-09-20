@@ -8,6 +8,7 @@ import Foundation
 /// （C# 侧 `ProtocolErrorCodes.Codes` 与此数组同序）。
 enum SteamServiceProtocol {
     static let version = 1
+    static let stagingAcknowledgementCapability = "download-staging-ack-v1"
     static let maxFrameBytes = 1_048_576
     static let maxPendingRequests = 256
     static let requestTimeout: TimeInterval = 30

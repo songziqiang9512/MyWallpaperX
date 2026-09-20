@@ -32,6 +32,7 @@ PRODUCT_PREFIXES = (
     "MyWallpaperX/",
     "MyWallpaperX.xcodeproj/",
     "MyWallpaperXHelp/",
+    "SteamService/",
     "WallpaperDaemonSources/",
 )
 ROOT_GOVERNANCE_FILES = {"AGENTS.md", "README.md", ".gitignore"}

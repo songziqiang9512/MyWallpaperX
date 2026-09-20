@@ -156,6 +156,11 @@ extension SteamWorkshopService {
             guard let self, self.activeDownloadJobKeysByItemID[request.id] == key,
                   self.steamServiceClient.accountEpoch == epoch,
                   frame.event == "downloadProgress", frame.jobId == key else { return }
+            guard frame.accountEpoch == epoch else {
+                self.activeDownloadTasks[key]?.cancel()
+                return
+            }
+            let stage = frame.root["stage"]?.stringValue ?? ""
             if let path = frame.root["stagingPath"]?.stringValue,
                let manifestId = frame.root["manifestId"]?.stringValue {
                 guard let deviceText = frame.root["stagingDevice"]?.stringValue,
@@ -192,10 +197,29 @@ extension SteamWorkshopService {
                         return
                     }
                 }
+                if stage == "allocated" {
+                    Task { @MainActor [weak self] in
+                        guard let self,
+                              self.activeDownloadJobKeysByItemID[request.id] == key,
+                              self.steamServiceClient.accountEpoch == epoch,
+                              !self.cancelledDownloadJobKeys.contains(key),
+                              let current = self.downloadJobStore.job(id: job.id),
+                              current.isActive, current.attempt == job.attempt else { return }
+                        do {
+                            try await self.steamWorkshopQueryClient.acknowledgeStagedDownload(
+                                jobId: key,
+                                stagingPath: stagingURL.path,
+                                manifestId: manifestId,
+                                stagingLeaseIdentity: helperIdentity
+                            )
+                        } catch {
+                            self.activeDownloadTasks[key]?.cancel()
+                        }
+                    }
+                }
             }
             // Progress remains item scoped and never enters the service-wide
             // ObservableObject stream. A helper event never establishes success.
-            let stage = frame.root["stage"]?.stringValue ?? ""
             if let sequence = frame.sequence {
                 _ = self.downloadProgressStore.receiveHelperEvent(
                     itemID: request.id,
@@ -239,14 +263,44 @@ extension SteamWorkshopService {
                 }
                 _ = try await withTaskCancellationHandler { try await allocation.value } onCancel: { allocation.cancel() }
                 try checkCurrent()
+                var resumePath = job.stagingPath
+                var resumeManifestId = job.stagingManifestId
+                var resumeIdentity = job.stagingLeaseIdentity
+                if resumePath != nil || resumeManifestId != nil || resumeIdentity != nil {
+                    let persistedIdentityIsCurrent: Bool
+                    if let path = resumePath,
+                       resumeManifestId != nil,
+                       let expectedIdentity = resumeIdentity,
+                       let stagingURL = SteamWorkshopStagedReceipt.validatedStagingURL(
+                        path: path,
+                        stagingRoot: staging.path
+                       ) {
+                        persistedIdentityIsCurrent = (try? SteamWorkshopLibraryTransaction.stagingLeaseIdentity(
+                            stagingURL: stagingURL,
+                            stagingRoot: staging
+                        )) == expectedIdentity
+                    } else {
+                        persistedIdentityIsCurrent = false
+                    }
+                    if !persistedIdentityIsCurrent {
+                        guard self.downloadJobStore.apply(.recoveryInvalidated, toID: job.id) != nil else {
+                            throw SteamWorkshopLibraryTransaction.Failure(
+                                message: "无法保存失效的下载暂存身份，未开始下载。"
+                            )
+                        }
+                        resumePath = nil
+                        resumeManifestId = nil
+                        resumeIdentity = nil
+                    }
+                }
                 let receipt = try await self.steamWorkshopQueryClient.startStagedDownload(
                     jobId: key,
                     workshopId: request.id,
                     accountSteamId: job.accountSteamId,
                     stagingRoot: staging.path,
-                    resumeStagingPath: job.stagingPath,
-                    resumeManifestId: job.stagingManifestId,
-                    resumeStagingLeaseIdentity: job.stagingLeaseIdentity
+                    resumeStagingPath: resumePath,
+                    resumeManifestId: resumeManifestId,
+                    resumeStagingLeaseIdentity: resumeIdentity
                 )
                 try checkCurrent()
                 guard let helperIdentity = receipt.stagingLeaseIdentity,

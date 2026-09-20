@@ -304,6 +304,28 @@ final class SteamWorkshopQueryClient {
         _ = try await client.request(command: "cancelDownload", jobId: jobId)
     }
 
+    /// Release the helper's pre-write barrier only after the App has persisted
+    /// the exact lease identity for this logical attempt.
+    func acknowledgeStagedDownload(
+        jobId: String,
+        stagingPath: String,
+        manifestId: String,
+        stagingLeaseIdentity: SteamWorkshopStagingLeaseIdentity
+    ) async throws {
+        let frame = try await client.request(
+            command: "acknowledgeDownloadStaging",
+            jobId: jobId,
+            payload: .object([
+                "stagingPath": .string(stagingPath),
+                "manifestId": .string(manifestId),
+                "stagingDevice": .string(String(stagingLeaseIdentity.device)),
+                "stagingInode": .string(String(stagingLeaseIdentity.inode)),
+            ])
+        )
+        let data = try resultData(frame)
+        guard data["acknowledged"]?.boolValue == true else { throw malformed }
+    }
+
     /// 订阅状态批量核对（需登录）。
     func subscriptionStates(ids: [String]) async throws -> [String: Bool] {
         let frame = try await client.request(

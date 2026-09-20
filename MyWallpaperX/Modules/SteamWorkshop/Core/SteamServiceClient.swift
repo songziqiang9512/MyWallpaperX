@@ -309,7 +309,8 @@ final class SteamServiceClient {
     ) async throws -> SteamServiceFrame {
         let capturedEpoch = accountEpoch
         let accountScoped = ["loginPassword", "loginQR", "restoreSession", "listSubscriptions",
-                             "listFavorites", "querySubscriptionStates", "setSubscription", "startDownload"].contains(command)
+                             "listFavorites", "querySubscriptionStates", "setSubscription", "startDownload",
+                             "acknowledgeDownloadStaging"].contains(command)
         try Task.checkCancellation()
         // Process readiness is independent of account authentication. Public queries
         // can start the helper without creating a login attempt or opening UI.
@@ -317,11 +318,16 @@ final class SteamServiceClient {
             _ = try await start()
         }
         try Task.checkCancellation()
-        guard case .ready = state, let transport else {
+        guard case .ready(let identity) = state, let transport else {
             throw RequestError.notReady
         }
+        if command == "startDownload",
+           !identity.capabilities.contains(SteamServiceProtocol.stagingAcknowledgementCapability) {
+            throw RequestError.incompatibleProtocol
+        }
         guard !accountScoped || capturedEpoch == accountEpoch else { throw RequestError.cancelled }
-        let isControl = ["shutdown", "logout", "cancelAuthentication", "cancelDownload", "submitChallenge"].contains(command)
+        let isControl = ["shutdown", "logout", "cancelAuthentication", "cancelDownload",
+                         "acknowledgeDownloadStaging", "submitChallenge"].contains(command)
         // Keep teardown/Guard responsive even when all business slots are occupied.
         let requestLimit = SteamServiceProtocol.maxPendingRequests + (isControl ? 8 : 0)
         guard pendingRequests.count < requestLimit else {

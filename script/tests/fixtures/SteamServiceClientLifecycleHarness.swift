@@ -18,7 +18,12 @@ final class FakeSteamTransport: SteamServiceTransporting {
         }
         isRunning = true
         staleTermination = onTermination
-        if readyOnStart { emit(["v": 1, "type": "ready", "protocol": 1, "helperVersion": "0.1.0"]) }
+        if readyOnStart {
+            emit([
+                "v": 1, "type": "ready", "protocol": 1, "helperVersion": "0.1.0",
+                "capabilities": [SteamServiceProtocol.stagingAcknowledgementCapability],
+            ])
+        }
     }
     func emit(_ frame: [String: Any]) {
         var data = try! JSONSerialization.data(withJSONObject: frame)

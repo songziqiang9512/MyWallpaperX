@@ -12,6 +12,8 @@ internal sealed class WorkshopStagingLease : IDisposable
     private const int FileFlags = 0x01000000 | 0x00000100 | 0x00000004;
     private readonly SafeFileHandle root;
     private readonly Identity rootIdentity;
+    private readonly string basePath;
+    private readonly string name;
     private readonly Dictionary<string, Identity> directories = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Identity> files = new(StringComparer.Ordinal);
     internal string Path { get; }
@@ -46,6 +48,8 @@ internal sealed class WorkshopStagingLease : IDisposable
         nint x3, nint x4, nint x5, nint x6, nint x7, uint mode);
     [DllImport("libSystem.B.dylib", SetLastError = true)] private static extern int mkdirat(SafeFileHandle dir, string path, uint mode);
     [DllImport("libSystem.B.dylib", SetLastError = true)] private static extern int fstat(SafeFileHandle fd, out Stat value);
+    [DllImport("libSystem.B.dylib", SetLastError = true)] private static extern int unlinkat(
+        SafeFileHandle dir, string path, int flags);
 
     private static SafeFileHandle Handle(int fd)
     {
@@ -86,22 +90,24 @@ internal sealed class WorkshopStagingLease : IDisposable
         if (!OperatingSystem.IsMacOS() || RuntimeInformation.ProcessArchitecture != Architecture.Arm64)
             throw new PlatformNotSupportedException("staging requires macOS arm64");
         if (!System.IO.Path.IsPathFullyQualified(basePath)) throw new Rejected("staging base must be absolute");
+        this.basePath = basePath;
         using var parent = OpenAbsoluteDirectory(basePath);
-        string name;
+        string selectedName;
         if (existingPath == null)
         {
-            name = "job-" + Guid.NewGuid().ToString("N");
-            if (mkdirat(parent, name, 0x1c0) != 0) throw NativeFailure();
+            selectedName = "job-" + Guid.NewGuid().ToString("N");
+            if (mkdirat(parent, selectedName, 0x1c0) != 0) throw NativeFailure();
         }
         else
         {
             string basePrefix = basePath.TrimEnd('/');
             if (basePrefix.Length == 0 || !existingPath.StartsWith(basePrefix + '/', StringComparison.Ordinal))
                 throw new Rejected("resume staging path escapes configured base");
-            name = existingPath[(basePrefix.Length + 1)..];
-            if (!ValidLeaseName(name) || name.Contains('/'))
+            selectedName = existingPath[(basePrefix.Length + 1)..];
+            if (!ValidLeaseName(selectedName) || selectedName.Contains('/'))
                 throw new Rejected("resume staging path is not a direct managed lease");
         }
+        name = selectedName;
         root = Handle(openat(parent, name, DirectoryFlags));
         try
         {
@@ -242,6 +248,22 @@ internal sealed class WorkshopStagingLease : IDisposable
     {
         using var namedRoot = OpenAbsoluteDirectory(Path);
         if (Inspect(namedRoot, true) != rootIdentity) throw new Rejected("staging publication path changed");
+    }
+    /// A newly allocated lease has no children before the App acknowledges its
+    /// durable identity. Reopen and compare immediately before pathname removal;
+    /// a replacement observed at either check fails closed.
+    internal void RemoveUnacknowledgedIfEmpty(Action? beforeFinalIdentityCheck = null)
+    {
+        using var parent = OpenAbsoluteDirectory(basePath);
+        using var namedRoot = Handle(openat(parent, name, DirectoryFlags));
+        if (Inspect(namedRoot, true) != rootIdentity)
+            throw new Rejected("unacknowledged staging root identity changed");
+        beforeFinalIdentityCheck?.Invoke();
+        using var finalNamedRoot = Handle(openat(parent, name, DirectoryFlags));
+        if (Inspect(finalNamedRoot, true) != rootIdentity)
+            throw new Rejected("unacknowledged staging root identity changed before removal");
+        const int AtRemoveDir = 0x80;
+        if (unlinkat(parent, name, AtRemoveDir) != 0) throw NativeFailure();
     }
     public void Dispose() => root.Dispose();
 }

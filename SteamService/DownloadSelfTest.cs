@@ -35,6 +35,7 @@ internal static class DownloadSelfTest
         Check(SteamSession.ClassifyDownloadError(WorkshopStagingLease.ClassifyIO(new IOException("opaque", 13))) == "accessDenied");
         Check(SteamSession.ClassifyDownloadError(WorkshopStagingLease.ClassifyIO(new IOException("disk full", 5))) == "integrity");
         Check(SteamSession.MaxChunkDownloadAttempts == 3);
+        Check(SteamSession.TestStagingAcknowledgementBarrier().GetAwaiter().GetResult());
         Check(SteamSession.ChunkRetryBackoffDelay(1) == TimeSpan.FromMilliseconds(500)
             && SteamSession.ChunkRetryBackoffDelay(2) == TimeSpan.FromMilliseconds(2000)
             && SteamSession.ChunkRetryBackoffDelay(9) == TimeSpan.FromMilliseconds(2000));
@@ -143,6 +144,90 @@ internal static class DownloadSelfTest
 
 internal sealed partial class SteamSession
 {
+    internal static async Task<bool> TestStagingAcknowledgementBarrier()
+    {
+        var session = new SteamSession(new ProtocolWriter(), new TerminalTracker());
+        var source = session.PublishAccountForTest(1, "76561198000000000");
+        var cancellation = new CancellationTokenSource();
+        var context = new ActiveDownload
+        {
+            JobId = "job-ack", RequestId = "request-ack", StagingRoot = "/unused",
+            PublishedFileId = 1,
+            Cancellation = cancellation, Account = session.CaptureAccountForTest(1), Source = source,
+        };
+        session.activeDownloads.Add(context.JobId, context);
+        try
+        {
+            var waiting = AwaitStagingAcknowledgementAsync(context, cancellation.Token);
+            await Task.Yield();
+            if (waiting.IsCompleted
+                || session.AcknowledgeDownloadStaging(
+                    context.JobId, "/private/tmp/job-ack", "123", "1", "2", 1))
+            {
+                return false;
+            }
+            await Task.Run(() => session.PublishStagingIdentity(
+                context, "/private/tmp/job-ack", "123", "1", "2")).ConfigureAwait(false);
+            if (session.AcknowledgeDownloadStaging(
+                    context.JobId, context.StagingPath!, context.StagingManifestId!,
+                    context.StagingDevice!, "wrong", 1)
+                || session.AcknowledgeDownloadStaging(
+                    context.JobId, context.StagingPath!, context.StagingManifestId!,
+                    context.StagingDevice!, context.StagingInode!, 2)
+                || waiting.IsCompleted)
+            {
+                return false;
+            }
+            if (!session.AcknowledgeDownloadStaging(
+                    context.JobId, context.StagingPath!, context.StagingManifestId!,
+                    context.StagingDevice!, context.StagingInode!, 1)) return false;
+            await waiting.ConfigureAwait(false);
+            if (session.AcknowledgeDownloadStaging(
+                    context.JobId, context.StagingPath!, context.StagingManifestId!,
+                    context.StagingDevice!, context.StagingInode!, 1)) return false;
+
+            var cancelled = new ActiveDownload
+            {
+                JobId = "job-cancel", RequestId = "request-cancel", StagingRoot = "/unused",
+                StagingPath = "/private/tmp/job-cancel", StagingManifestId = "456",
+                StagingDevice = "3", StagingInode = "4", PublishedFileId = 1,
+                Cancellation = new CancellationTokenSource(),
+                Account = session.CaptureAccountForTest(1), Source = source,
+            };
+            session.activeDownloads.Add(cancelled.JobId, cancelled);
+            var cancelledWait = AwaitStagingAcknowledgementAsync(cancelled, cancelled.Cancellation.Token);
+            cancelled.Cancellation.Cancel();
+            try { await cancelledWait.ConfigureAwait(false); return false; }
+            catch (OperationCanceledException) { }
+            finally
+            {
+                session.activeDownloads.Remove(cancelled.JobId);
+                cancelled.Cancellation.Dispose();
+            }
+            var timedOut = new ActiveDownload
+            {
+                JobId = "job-timeout", RequestId = "request-timeout", StagingRoot = "/unused",
+                PublishedFileId = 1, Cancellation = new CancellationTokenSource(),
+                Account = session.CaptureAccountForTest(1), Source = source,
+            };
+            try
+            {
+                await AwaitStagingAcknowledgementAsync(
+                    timedOut, CancellationToken.None, TimeSpan.Zero).ConfigureAwait(false);
+                return false;
+            }
+            catch (SteamRequestFailure failure) when (failure.Code == "integrity") { }
+            finally { timedOut.Cancellation.Dispose(); }
+            return true;
+        }
+        finally
+        {
+            session.activeDownloads.Remove(context.JobId);
+            cancellation.Dispose();
+            source.Disconnect();
+        }
+    }
+
     internal static bool TestActiveDownloadCapacity()
     {
         var session = new SteamSession(new ProtocolWriter(), new TerminalTracker());

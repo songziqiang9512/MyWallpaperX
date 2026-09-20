@@ -102,6 +102,46 @@ internal static class WorkshopStagingSelfTest
                 File.ReadAllText(replacementSentinel) == "replacement"
                 && Directory.Exists(originalResume));
 
+            string unacknowledgedPath;
+            using (var unacknowledged = new WorkshopStagingLease(fixture))
+            {
+                unacknowledgedPath = unacknowledged.Path;
+                unacknowledged.RemoveUnacknowledgedIfEmpty();
+            }
+            Check("exact unacknowledged empty lease removed", !Directory.Exists(unacknowledgedPath));
+
+            using (var replacedUnacknowledged = new WorkshopStagingLease(fixture))
+            {
+                string path = replacedUnacknowledged.Path;
+                string original = path + ".unacknowledged-original";
+                Directory.Move(path, original);
+                Directory.CreateDirectory(path);
+                string replacement = Path.Combine(path, "sentinel");
+                File.WriteAllText(replacement, "replacement");
+                Reject("unacknowledged replacement is never deleted",
+                    () => replacedUnacknowledged.RemoveUnacknowledgedIfEmpty());
+                Check("unacknowledged replacement remains untouched",
+                    File.ReadAllText(replacement) == "replacement" && Directory.Exists(original));
+                Directory.Delete(path, recursive: true);
+                Directory.Delete(original);
+            }
+
+            using (var racedUnacknowledged = new WorkshopStagingLease(fixture))
+            {
+                string path = racedUnacknowledged.Path;
+                string original = path + ".unacknowledged-race-original";
+                Reject("unacknowledged empty replacement after first check is not deleted", () =>
+                    racedUnacknowledged.RemoveUnacknowledgedIfEmpty(() =>
+                    {
+                        Directory.Move(path, original);
+                        Directory.CreateDirectory(path);
+                    }));
+                Check("unacknowledged empty replacement remains after final identity check",
+                    Directory.Exists(path) && Directory.Exists(original));
+                Directory.Delete(path);
+                Directory.Delete(original);
+            }
+
             using var first = new WorkshopStagingLease(fixture);
             using var second = new WorkshopStagingLease(fixture);
             Check("separate exclusive roots", first.Path != second.Path);

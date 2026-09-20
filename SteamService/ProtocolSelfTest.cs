@@ -116,6 +116,8 @@ internal static class ProtocolSelfTest
             admissionTracker.TryAccept("overflow") == TerminalTracker.Admission.AtCapacity);
         Check("control-admission-remains-available",
             admissionTracker.TryAccept("cancel", control: true) == TerminalTracker.Admission.Accepted);
+        Check("staging-ack-is-reserved-control",
+            ProtocolLimits.IsControlCommand("acknowledgeDownloadStaging"));
         admissionTracker.TryBegin("cancel");
         admissionTracker.TryBegin("queued-0");
         Check("terminal-releases-admission",
@@ -146,10 +148,12 @@ internal static class ProtocolSelfTest
         }
 
         // 10. 出站帧形状：ready/pong/result/event。
-        var readyJson = JsonSerializer.Serialize(ProtocolMessages.Ready(1, ["ping", "shutdown"]));
+        var readyJson = JsonSerializer.Serialize(ProtocolMessages.Ready(
+            1, ["ping", "shutdown", SteamSession.StagingAcknowledgementCapability]));
         Check("ready-shape",
             readyJson.Contains("\"type\":\"ready\"") && readyJson.Contains("\"protocol\":1")
-            && readyJson.Contains("\"helperVersion\""));
+            && readyJson.Contains("\"helperVersion\"")
+            && readyJson.Contains(SteamSession.StagingAcknowledgementCapability));
         var pongJson = JsonSerializer.Serialize(ProtocolMessages.ResultOk("req-ping-1", new { pong = true }, 1));
         Check("pong-shape",
             pongJson.Contains("\"type\":\"result\"") && pongJson.Contains("\"requestId\":\"req-ping-1\"") && pongJson.Contains("\"ok\":true"));
