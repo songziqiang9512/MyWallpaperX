@@ -8,11 +8,11 @@
 
 - 当前真实 Scene 根发现 **159** 个样本，**159/159** 的 project、PKGV 索引和入口 JSON 可解析。
 - tracked full-matrix baseline 当前覆盖 **45** 个历史成员，状态为 `pending-expansion`；本 census 新发现但未 join 运行证据的样本为 `1300076567, 1315486372, 1439846152, 1480826543, 1507413154, 1507593643, 1511889295, 1989767609, 1994794519, 2069136288, 2112262451, 2163522240, 2179185481, 2181251652, 2231088993, 2269193950, 2304304373, 2356604986, 2505351195, 2607203340, 2684431262, 2775915974, 2794098047, 2797913147, 2808874251, 2813231542, 2824109832, 2837223712, 2896873092, 2917306763, 2932631210, 2942486721, 2959875782, 2986218263, 3002649614, 3025969015, 3113287126, 3113554287, 3147346398, 3167210190, 3211615441, 3219398263, 3233141951, 3238423642, 3264246690, 3287715210, 3323988600, 3363252053, 3389974179, 3395392965, 3395777145, 3396722575, 3437487219, 3448845950, 3470948192, 3472940912, 3477054430, 3487629864, 3509243656, 3554161528, 3585875739, 3601964477, 3609108600, 3610154602, 3612199597, 3612795410, 3629927359, 3655958892, 3662790108, 3665307769, 3690859128, 3699213569, 3703104370, 3712499998, 3721456868, 3748311238, 3749463715, 3754630802, 3754639143, 3763323436, 3763428294, 3765904723, 3775355045, 3775373546, 3777761326, 3779026256, 3779904456, 3780119725, 3780391264, 3780940857, 3781307553, 3782740481, 3784012236, 3786185473, 3786641495, 3787355076, 3787382101, 3788066613, 3788467391, 3788645041, 3788698200, 3788734811, 3788897599, 3789316755, 3790631363, 3790726145, 3790806929, 3790956325, 3791905266, 3792249095, 3792400801, 3792817546, 3793328876, 3793978239`，是否曾单独运行不能由静态扫描判断。
-- 全量 authored census 共保存 **64816** 个 typed occurrence、**2507** 个公共结构 family、**1664** 个参数 profile 与 **11641** 个 JSON 字段 profile。
+- 全量 authored census 共保存 **66244** 个 typed occurrence、**2535** 个公共结构 family、**1664** 个参数 profile 与 **11641** 个 JSON 字段 profile。
 - 物理 corpus 共 **10538** 个 PKG entry / **10537** 个唯一路径，包体约 **5.604 GB**；tracked baseline 在单独的 milestone 扩容并建立运行期待前仍为 45，期间不得称为当前完整快照门。
 - package anomaly：样本 `3768724269` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 59/80，同字节；该包 87 entries / 86 unique paths）；重复entry继续保留在物理守恒中，不是漏扫。
 - 结构 fallback 记录为 **93**，另有 **6** 个 generic/unknown/unresolved family；两者都不是运行失败数。本 census 未 join 运行证据的样本，其第一 blocker 保持 `unknown`，不得从静态形态猜测。
-- 公共能力粗映射：**2500** 个 family 按声明形态映射到台账登记能力，**7** 个显式 unknown（`{"effect-declaration-unresolved-static": 1, "project-property-kind-empty": 1, "project-property-kind-unknown": 5}`）；映射只表达声明覆盖关系，不表示运行支持。
+- 公共能力粗映射：**2528** 个 family 按声明形态映射到台账登记能力，**7** 个显式 unknown（`{"effect-declaration-unresolved-static": 1, "project-property-kind-empty": 1, "project-property-kind-unknown": 5}`）；映射只表达声明覆盖关系，不表示运行支持。
 - 开发按“真实可见链第一断裂边覆盖的共享 family”排序；大类用于汇总，不允许把所有纹理、Effect 或粒子一次性做成巨型补丁。
 
 ## 2. 口径与权威边界
@@ -38,6 +38,7 @@
 | `render-target` | 478 | 7 | [Graph/Shader](render-graph-shader-coverage.md) |
 | `texture` | 11902 | 69 | [格式/资源](scene-format-and-render-graph.md) / [Graph/Shader](render-graph-shader-coverage.md) / [Provider](runtime-input-property-coverage.md) |
 | `particle` | 14244 | 645 | [粒子](particle-component-coverage.md) |
+| `audio-declaration` | 1428 | 28 | [音频声明](coverage-ledger.md) |
 | `dynamic-input` | 7733 | 339 | [属性/输入](runtime-input-property-coverage.md) |
 | `project-property` | 2960 | 34 | [属性/输入](runtime-input-property-coverage.md) |
 
@@ -52,6 +53,21 @@
 - 对象类型：`{"camera": 7, "image": 2047, "light": 15, "particle": 481, "shape": 15, "sound": 50, "text": 791, "utility": 525}`；静态非 hidden：`{"camera": 6, "image": 1314, "light": 13, "particle": 399, "shape": 9, "sound": 50, "text": 533, "utility": 470}`。
 - Effect instance **3264**，粒子 root layer **481**；动态 wrapper：`{"condition_wrappers": 916, "script_wrappers": 2854, "timeline_wrappers": 309, "user_bindings": 3801}`。
 - 粒子组件分布完整保存在机器快照 `summary.particle.component_counts`；Effect/Graph/FBO、包内 shader uniform/annotation/combo、material authored combo/constant 与全部 JSON 字段可按 family/profile 查询。active/prepared shader variant 仍以专项 census 与运行证据为准。
+
+### 3.3 音频声明与 consumer 意图关系
+
+- payload-free 音频关系共 **1428** 个 occurrence / **120** 个样本；其中 editor `supportsaudioprocessing=true` 为 **79** 个样本，存在至少一种非 project 声明关系的样本为 **120** 个。
+- 标记有而没有非 project 声明关系：`无`；有声明关系而没有 editor 标记：`1553008362, 1636394814, 1994794519, 2069136288, 2112262451, 2269193950, 2473638329, 2505351195, 2607203340, 2775915974, 2797913147, 2802243144, 2824109832, 2896873092, 2942486721, 2959875782, 2998757800, 3025969015, 3088601835, 3167210190, 3323988600, 3395392965, 3699213569, 3703104370, 3738202317, 3750342273, 3750813609, 3757555836, 3763323436, 3766403294, 3767232084, 3769761761, 3770444459, 3781307553, 3786641495, 3787355076, 3788645041, 3790631363, 3790956325, 3791905266, 3793328876`。两者都不是运行支持集合，不能从静态相等或差集推导 capture demand。
+- 静态 consumer 意图为 **52** 个样本：`1937925563, 2131872317, 2134765860, 2241938645, 2419444134, 2684431262, 2794098047, 2813231542, 2884628849, 2902406982, 2932631210, 2938612768, 2974757317, 3002649614, 3211615441, 3233141951, 3238423642, 3264246690, 3299228616, 3363252053, 3395777145, 3396722575, 3448845950, 3477054430, 3554161528, 3585875739, 3601964477, 3610154602, 3612199597, 3612795410, 3655958892, 3662790108, 3665307769, 3747492842, 3749463715, 3754639143, 3765904723, 3767460992, 3768020435, 3768229922, 3768724269, 3769688830, 3777761326, 3779026256, 3780119725, 3780391264, 3787382101, 3788066613, 3788467391, 3789316755, 3790806929, 3792249095`。这里只接受精确源码数组形状、显式启用的 material/particle 响应或 proven-global 且分辨率有效的 SceneScript 调用；material active variant/host ABI 与所有运行 execution 尚未 join，因此本批 runtime-confirmed 仍为 **0**。
+- editor 标记有而静态意图无：`2067939514, 2917306763, 3113287126, 3113554287, 3122339805, 3147346398, 3287715210, 3290491250, 3470948192, 3487629864, 3509243656, 3609108600, 3690859128, 3712499998, 3721456868, 3743305891, 3748311238, 3754630802, 3763428294, 3765760121, 3769364482, 3779904456, 3782740481, 3788734811, 3788897599, 3792400801, 3792817546`；静态意图有而 editor 标记无：`无`。普通 App 运行基线必须覆盖这些差集与全部声明关系，不能只测标记集合。
+
+| 声明关系 | occurrence | 样本 | 静态状态分布 |
+|---|---:|---:|---|
+| `material-audio-response` | 84 | 25 | `{"activation": {"absent": 3, "disabled": 1, "enabled": 80}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
+| `material-host-spectrum` | 934 | 113 | `{"activation": {"disabled": 1, "enabled": 80, "not-authored": 853}, "runtime_admission": {"launch-envelope-unjoined": 934}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {"preprocessor-conditioned": 2554, "source-shape-exact": 52}}` |
+| `particle-audio-response` | 70 | 14 | `{"activation": {"disabled": 1, "enabled": 51, "missing-mode": 18}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
+| `project-support-enabled` | 79 | 79 | `{"activation": {}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
+| `scenescript-registration` | 261 | 50 | `{"activation": {}, "runtime_admission": {}, "script_admission": {"resolution-unresolved": 69, "statically-admitted": 192}, "script_resolution": {"16": 187, "32": 1, "64": 4, "dynamic-or-invalid": 69}, "script_scope": {"proven-global": 261}, "source_abi": {}}` |
 
 ## 4. 当前公共 family 影响面索引
 
@@ -70,6 +86,7 @@
 | `particle/initializer-lifetimerandom@4f49d422ee93b4b2` | `particle/initializer` | 541 | 97 | 440 / 94 | `untriaged` |
 | `particle/initializer-sizerandom@af7900ad7fa8e825` | `particle/initializer` | 671 | 96 | 553 / 93 | `untriaged` |
 | `particle/renderer-sprite@13d5b961a929229b` | `particle/renderer` | 470 | 95 | 387 / 90 | `untriaged` |
+| `audio-declaration/material-host-spectrum@f54a244027c2d7a1` | `audio-declaration/material-host-spectrum` | 644 | 91 | 390 / 89 | `untriaged` |
 | `particle/controlpoint-1@dd58b5d5d5dc53b6` | `particle/controlpoint` | 567 | 89 | 455 / 87 | `untriaged` |
 | `particle/controlpoint-2@610f46c501bc0ab3` | `particle/controlpoint` | 567 | 89 | 455 / 87 | `untriaged` |
 | `particle/controlpoint-3@c68c0bfbed2d003f` | `particle/controlpoint` | 567 | 89 | 455 / 87 | `untriaged` |
@@ -104,6 +121,7 @@
 | `render-graph/effect-pass@aa00f242facc660d` | `render-graph/effect-pass` | 127 | 43 | 90 / 40 | `untriaged` |
 | `material/image-pass@3d8e72eb1cf88e44` | `material/image-pass` | 315 | 41 | 167 / 39 | `untriaged` |
 | `particle/initializer-alpharandom@6ee0ff0ba37418ef` | `particle/initializer` | 141 | 39 | 111 / 38 | `untriaged` |
+| `audio-declaration/material-host-spectrum@b45ca2db59b7644c` | `audio-declaration/material-host-spectrum` | 176 | 41 | 57 / 36 | `untriaged` |
 | `render-target/fbo@9901cebdf4c0a822` | `render-target/fbo` | 207 | 38 | 149 / 34 | `implemented` |
 | `texture/particle-material-slot@e4ffb6288070b82c` | `texture/particle-material-slot` | 68 | 36 | 64 / 33 | `untriaged` |
 | `particle/children-child-definition@9ac07766b41dd3ec` | `particle/children` | 131 | 33 | 117 / 33 | `untriaged` |
@@ -116,6 +134,7 @@
 | `material/effect-pass@a1fbcf4e6cc961a5` | `material/effect-pass` | 133 | 30 | 102 / 29 | `untriaged` |
 | `texture/particle-material-slot@dfeab2f354eab98d` | `texture/particle-material-slot` | 63 | 29 | 59 / 28 | `untriaged` |
 | `particle/material@39fc82b1fae017f5` | `particle/material` | 56 | 30 | 46 / 27 | `untriaged` |
+| `audio-declaration/scenescript-registration@08713f299396333a` | `audio-declaration/scenescript-registration` | 69 | 30 | 43 / 27 | `untriaged` |
 | `render-graph/effect-pass@ec2c0b2d9211f95c` | `render-graph/effect-pass` | 77 | 29 | 60 / 27 | `untriaged` |
 | `particle/operator-movement@553cd133739c7c5a` | `particle/operator` | 61 | 28 | 57 / 27 | `untriaged` |
 | `effect/authored-graph@49c310bdbcb3af55` | `effect/authored-graph` | 112 | 27 | 91 / 26 | `untriaged` |
@@ -136,9 +155,6 @@
 | `particle/initializer-lifetimerandom@95632b66f37d7953` | `particle/initializer` | 93 | 26 | 83 / 21 | `untriaged` |
 | `particle/initializer-sizerandom@e0dd54a817ccc18e` | `particle/initializer` | 46 | 24 | 37 / 21 | `untriaged` |
 | `particle/emitter-sphererandom@5a95afd97c419886` | `particle/emitter` | 37 | 23 | 34 / 21 | `untriaged` |
-| `layer/particle@7e8a8ba4b06bd409` | `layer/particle` | 75 | 21 | 73 / 21 | `untriaged` |
-| `layer/sound@c8fc9e2c506965ac` | `layer/sound` | 22 | 21 | 22 / 21 | `untriaged` |
-| `layer/image@afc7972d972dbecb` | `layer/image` | 36 | 21 | 33 / 20 | `untriaged` |
 
 完整 family、payload-free feature summary、样本归属与 revision 数在机器快照中；此表故意只保留前 80 个高覆盖项，避免人类文档成为不可维护的 payload 转储。
 
@@ -148,7 +164,7 @@
 
 | capability | 台账 authority 行 | family | occurrence | 样本 |
 |---|---|---:|---:|---:|
-| `cap.audio.declarations` | [Audio declarations](coverage-ledger.md) | 16 | 113 | 41 |
+| `cap.audio.declarations` | [Audio declarations](coverage-ledger.md) | 44 | 1541 | 126 |
 | `cap.camera.parallax` | [Camera Parallax](coverage-ledger.md) | 5 | 7 | 7 |
 | `cap.camera.shake` | [Scene Camera Shake](coverage-ledger.md) | 5 | 7 | 7 |
 | `cap.effect.executor` | [Bounded effect executors](coverage-ledger.md) | 13 | 3263 | 147 |
@@ -181,157 +197,157 @@
 | `1507413154` | 百褶裙 | 3 | 1 | 1 | 72 | 无 | 新增 / census未join runtime |
 | `1507593643` | 蕾丝吊带 | 3 | 0 | 2 | 83 | 无 | 新增 / census未join runtime |
 | `1511889295` | 死库水 | 3 | 1 | 2 | 119 | 无 | 新增 / census未join runtime |
-| `1553008362` | [Jidan Hua] Ichigo and 002 (Darling in the Franxx) - animated | 1 | 4 | 0 | 50 | 截图 | tracked45 / census未join runtime |
-| `1636394814` | [Jaku Denpa] Shigure (Kantai Collection) - animated xray | 3 | 21 | 0 | 191 | 截图 | tracked45 / census未join runtime |
-| `1937925563` | Tropical Paradise 4K [Customizable Colors &amp; Audio Visualizer] - Vaporwave &amp; Neon | 16 | 51 | 3 | 735 | 截图 | tracked45 / census未join runtime |
+| `1553008362` | [Jidan Hua] Ichigo and 002 (Darling in the Franxx) - animated | 1 | 4 | 0 | 53 | 截图 | tracked45 / census未join runtime |
+| `1636394814` | [Jaku Denpa] Shigure (Kantai Collection) - animated xray | 3 | 21 | 0 | 209 | 截图 | tracked45 / census未join runtime |
+| `1937925563` | Tropical Paradise 4K [Customizable Colors &amp; Audio Visualizer] - Vaporwave &amp; Neon | 16 | 51 | 3 | 761 | 截图 | tracked45 / census未join runtime |
 | `1989767609` | Black tights（透视） | 1 | 1 | 0 | 23 | 无 | 新增 / census未join runtime |
-| `1994794519` | D.VA_OVERWATCH[X-Ray] | 3 | 2 | 2 | 86 | 无 | 新增 / census未join runtime |
-| `2067939514` | Windows Visualizer | 45 | 80 | 4 | 807 | 截图 | tracked45 / census未join runtime |
-| `2069136288` | [R18] Lexaiduer DOA Nagisa x Tamaki X-Ray Animated | 5 | 27 | 0 | 236 | 无 | 新增 / census未join runtime |
-| `2112262451` | [R18] Sakimi Chan Azur Lane Belfast X-Ray Animated | 6 | 35 | 0 | 282 | 无 | 新增 / census未join runtime |
-| `2131872317` | Night Market by 俊伦 何 in 4K | 18 | 21 | 9 | 653 | 截图 | tracked45 / census未join runtime |
-| `2134765860` | Bunk | 42 | 79 | 1 | 931 | 截图 | tracked45 / census未join runtime |
+| `1994794519` | D.VA_OVERWATCH[X-Ray] | 3 | 2 | 2 | 87 | 无 | 新增 / census未join runtime |
+| `2067939514` | Windows Visualizer | 45 | 80 | 4 | 850 | 截图 | tracked45 / census未join runtime |
+| `2069136288` | [R18] Lexaiduer DOA Nagisa x Tamaki X-Ray Animated | 5 | 27 | 0 | 251 | 无 | 新增 / census未join runtime |
+| `2112262451` | [R18] Sakimi Chan Azur Lane Belfast X-Ray Animated | 6 | 35 | 0 | 300 | 无 | 新增 / census未join runtime |
+| `2131872317` | Night Market by 俊伦 何 in 4K | 18 | 21 | 9 | 667 | 截图 | tracked45 / census未join runtime |
+| `2134765860` | Bunk | 42 | 79 | 1 | 949 | 截图 | tracked45 / census未join runtime |
 | `2163522240` | [18+] jk x-ray 🔞😍 | 3 | 2 | 0 | 38 | 无 | 新增 / census未join runtime |
 | `2179185481` | Azur Lane / 18+ X-ray NSFW &amp; SFW (3 Versions ) | 3 | 1 | 0 | 39 | 无 | 新增 / census未join runtime |
 | `2181251652` | Mio Tokisaki (X-Ray) | 1 | 1 | 0 | 23 | 无 | 新增 / census未join runtime |
 | `2231088993` | Ahri X-Ray | 1 | 3 | 0 | 42 | 无 | 新增 / census未join runtime |
-| `2241938645` | KDA Akali [4k Version] | 6 | 10 | 2 | 221 | 截图 | tracked45 / census未join runtime |
-| `2269193950` | WLOP - Nap | 4 | 4 | 2 | 134 | 无 | 新增 / census未join runtime |
+| `2241938645` | KDA Akali [4k Version] | 6 | 10 | 2 | 228 | 截图 | tracked45 / census未join runtime |
+| `2269193950` | WLOP - Nap | 4 | 4 | 2 | 135 | 无 | 新增 / census未join runtime |
 | `2304304373` | Don't Die | 22 | 8 | 10 | 439 | 无 | 新增 / census未join runtime |
 | `2356604986` | 1265079-1322607782 | 1 | 0 | 0 | 9 | 无 | 新增 / census未join runtime |
-| `2419444134` | Nier Reincarnation - Akeha | 10 | 13 | 4 | 272 | 截图 | tracked45 / census未join runtime |
+| `2419444134` | Nier Reincarnation - Akeha | 10 | 13 | 4 | 290 | 截图 | tracked45 / census未join runtime |
 | `2470144420` | 女孩独享的宁静傍晚 | 4 | 6 | 2 | 124 | 截图 | tracked45 / census未join runtime |
-| `2473638329` | Genshin Impact \| +18 / NSFW &amp; SFW | 2 | 7 | 1 | 105 | 截图 | tracked45 / census未join runtime |
-| `2505351195` | Nier Automata / +21 \| NSFW &amp; SFW | 2 | 6 | 1 | 95 | 无 | 新增 / census未join runtime |
-| `2607203340` | Tomb Raider +18 | 2 | 4 | 1 | 74 | 无 | 新增 / census未join runtime |
-| `2684431262` | 麻匪 炫酷音频律动 Windows | 17 | 25 | 1 | 262 | 无 | 新增 / census未join runtime |
-| `2775915974` | R18*JK(escalator)エスカレーターJKさんX-ray | 4 | 12 | 0 | 144 | 无 | 新增 / census未join runtime |
-| `2794098047` | 麻匪 是姐姐还是妹妹 windows | 15 | 20 | 1 | 319 | 无 | 新增 / census未join runtime |
-| `2797913147` | 【R18】连体黑丝#4K#视差#可互动臀部#动态 | 3 | 7 | 0 | 79 | 无 | 新增 / census未join runtime |
-| `2802243144` | 冰公主-by Wlop 时间日期已修复 16:9 -music 订阅后点赞，养成好习惯 | 12 | 8 | 2 | 184 | 截图 | tracked45 / census未join runtime |
+| `2473638329` | Genshin Impact \| +18 / NSFW &amp; SFW | 2 | 7 | 1 | 111 | 截图 | tracked45 / census未join runtime |
+| `2505351195` | Nier Automata / +21 \| NSFW &amp; SFW | 2 | 6 | 1 | 99 | 无 | 新增 / census未join runtime |
+| `2607203340` | Tomb Raider +18 | 2 | 4 | 1 | 77 | 无 | 新增 / census未join runtime |
+| `2684431262` | 麻匪 炫酷音频律动 Windows | 17 | 25 | 1 | 273 | 无 | 新增 / census未join runtime |
+| `2775915974` | R18*JK(escalator)エスカレーターJKさんX-ray | 4 | 12 | 0 | 150 | 无 | 新增 / census未join runtime |
+| `2794098047` | 麻匪 是姐姐还是妹妹 windows | 15 | 20 | 1 | 332 | 无 | 新增 / census未join runtime |
+| `2797913147` | 【R18】连体黑丝#4K#视差#可互动臀部#动态 | 3 | 7 | 0 | 83 | 无 | 新增 / census未join runtime |
+| `2802243144` | 冰公主-by Wlop 时间日期已修复 16:9 -music 订阅后点赞，养成好习惯 | 12 | 8 | 2 | 188 | 截图 | tracked45 / census未join runtime |
 | `2808874251` | youer | 6 | 0 | 5 | 138 | 无 | 新增 / census未join runtime |
-| `2813231542` | 清新美女 R-18 | 6 | 13 | 1 | 196 | 无 | 新增 / census未join runtime |
-| `2824109832` | Yor Forger - NIXEU 4K | 5 | 17 | 2 | 283 | 无 | 新增 / census未join runtime |
+| `2813231542` | 清新美女 R-18 | 6 | 13 | 1 | 202 | 无 | 新增 / census未join runtime |
+| `2824109832` | Yor Forger - NIXEU 4K | 5 | 17 | 2 | 295 | 无 | 新增 / census未join runtime |
 | `2837223712` | 李擎洲：阿狸[4K] | 7 | 1 | 4 | 142 | 无 | 新增 / census未join runtime |
-| `2884628849` | 麻匪 小姐姐 | 26 | 33 | 0 | 442 | 截图 | tracked45 / census未join runtime |
-| `2896873092` | Genshin Impact: Thicc Girls Spread Collage X-Ray R18+ | 11 | 64 | 0 | 536 | 无 | 新增 / census未join runtime |
-| `2902406982` | 麻匪 月半与鬼哭 所有元素自定义 | 140 | 115 | 1 | 1672 | 截图 | tracked45 / census未join runtime |
-| `2917306763` | [4K/动态/R18/衣服透视可调]碧蓝航线-独角兽妹妹「天使的护理时间」-B站慕慕慕慕斯小蛋糕 | 8 | 15 | 0 | 163 | 无 | 新增 / census未join runtime |
-| `2932631210` | 欧派-音乐乱动 | 6 | 7 | 3 | 181 | 无 | 新增 / census未join runtime |
-| `2938612768` | 麻匪 音频识别 Media Player | 85 | 73 | 5 | 1351 | 截图 | tracked45 / census未join runtime |
-| `2942486721` | R18 Ishtar And Ereshkigal / 遠坂 凛 Tohsaka Rin 4K [Fate/Grand Order] [NSFW] | 1 | 5 | 0 | 56 | 无 | 新增 / census未join runtime |
-| `2959875782` | [R18] Lexaiduer Last Origin Dark Elven Forest Ranger Wedding Dress X-Ray Animated | 136 | 292 | 0 | 2729 | 无 | 新增 / census未join runtime |
-| `2974757317` | 麻匪 音频识别 悬浮窗 Media Player | 53 | 67 | 4 | 1149 | 截图 | tracked45 / census未join runtime |
+| `2884628849` | 麻匪 小姐姐 | 26 | 33 | 0 | 466 | 截图 | tracked45 / census未join runtime |
+| `2896873092` | Genshin Impact: Thicc Girls Spread Collage X-Ray R18+ | 11 | 64 | 0 | 579 | 无 | 新增 / census未join runtime |
+| `2902406982` | 麻匪 月半与鬼哭 所有元素自定义 | 140 | 115 | 1 | 1754 | 截图 | tracked45 / census未join runtime |
+| `2917306763` | [4K/动态/R18/衣服透视可调]碧蓝航线-独角兽妹妹「天使的护理时间」-B站慕慕慕慕斯小蛋糕 | 8 | 15 | 0 | 173 | 无 | 新增 / census未join runtime |
+| `2932631210` | 欧派-音乐乱动 | 6 | 7 | 3 | 188 | 无 | 新增 / census未join runtime |
+| `2938612768` | 麻匪 音频识别 Media Player | 85 | 73 | 5 | 1369 | 截图 | tracked45 / census未join runtime |
+| `2942486721` | R18 Ishtar And Ereshkigal / 遠坂 凛 Tohsaka Rin 4K [Fate/Grand Order] [NSFW] | 1 | 5 | 0 | 61 | 无 | 新增 / census未join runtime |
+| `2959875782` | [R18] Lexaiduer Last Origin Dark Elven Forest Ranger Wedding Dress X-Ray Animated | 136 | 292 | 0 | 2883 | 无 | 新增 / census未join runtime |
+| `2974757317` | 麻匪 音频识别 悬浮窗 Media Player | 53 | 67 | 4 | 1163 | 截图 | tracked45 / census未join runtime |
 | `2986218263` | Tokisaki Asaba &amp; Tokisaki Mio │18+ X-Ray │NSFW &amp; SFW│VERSIONS | 5 | 1 | 1 | 73 | 无 | 新增 / census未join runtime |
-| `2998757800` | 碧蓝航线-利托里奥【R18版/可触摸/天气变化】-B站慕慕慕慕斯小蛋糕 | 22 | 22 | 15 | 722 | 截图 | tracked45 / census未join runtime |
-| `3002649614` | 纯欲少女 | 4 | 0 | 0 | 25 | 无 | 新增 / census未join runtime |
-| `3025969015` | 黑龙闹海 | 9 | 7 | 7 | 278 | 无 | 新增 / census未join runtime |
+| `2998757800` | 碧蓝航线-利托里奥【R18版/可触摸/天气变化】-B站慕慕慕慕斯小蛋糕 | 22 | 22 | 15 | 738 | 截图 | tracked45 / census未join runtime |
+| `3002649614` | 纯欲少女 | 4 | 0 | 0 | 27 | 无 | 新增 / census未join runtime |
+| `3025969015` | 黑龙闹海 | 9 | 7 | 7 | 280 | 无 | 新增 / census未join runtime |
 | `3028090166` | WLOP [Tian Nan2] | 12 | 20 | 2 | 347 | 截图 | tracked45 / census未join runtime |
-| `3088601835` | Winter Wanderer Xayah - League of Legends [ NAMAKXIN ] | 31 | 36 | 19 | 853 | 截图 | tracked45 / census未join runtime |
-| `3113287126` | Dome 4k {Artwork by WLOP} | 31 | 46 | 5 | 797 | 无 | 新增 / census未join runtime |
-| `3113554287` | 【可随时间变化】窗旁の伊蕾娜 （优化版本） | 6 | 1 | 0 | 54 | 无 | 新增 / census未join runtime |
-| `3122339805` | Pixels | 190 | 17 | 0 | 788 | 截图 | tracked45 / census未join runtime |
+| `3088601835` | Winter Wanderer Xayah - League of Legends [ NAMAKXIN ] | 31 | 36 | 19 | 875 | 截图 | tracked45 / census未join runtime |
+| `3113287126` | Dome 4k {Artwork by WLOP} | 31 | 46 | 5 | 801 | 无 | 新增 / census未join runtime |
+| `3113554287` | 【可随时间变化】窗旁の伊蕾娜 （优化版本） | 6 | 1 | 0 | 56 | 无 | 新增 / census未join runtime |
+| `3122339805` | Pixels | 190 | 17 | 0 | 790 | 截图 | tracked45 / census未join runtime |
 | `3141421197` | GraspOfTheAbyss | 1 | 1 | 0 | 12 | 截图 | tracked45 / census未join runtime |
-| `3147346398` | ⛏🧱Minecraft Lo-Fi Fireplace [4k HDR] WE adaptation by Becco38 | 11 | 2 | 0 | 86 | 无 | 新增 / census未join runtime |
-| `3167210190` | [Blue Archive] 奶牛装明日奈 | 1 | 5 | 0 | 61 | 无 | 新增 / census未join runtime |
-| `3211615441` | 捆绑悬挂 \| Bind &amp; Suspend [ 可交互/interactive \| iumu \| X-ray \| 4k \| 明日方舟/Arknights ] | 26 | 116 | 0 | 998 | 无 | 新增 / census未join runtime |
+| `3147346398` | ⛏🧱Minecraft Lo-Fi Fireplace [4k HDR] WE adaptation by Becco38 | 11 | 2 | 0 | 89 | 无 | 新增 / census未join runtime |
+| `3167210190` | [Blue Archive] 奶牛装明日奈 | 1 | 5 | 0 | 65 | 无 | 新增 / census未join runtime |
+| `3211615441` | 捆绑悬挂 \| Bind &amp; Suspend [ 可交互/interactive \| iumu \| X-ray \| 4k \| 明日方舟/Arknights ] | 26 | 116 | 0 | 1049 | 无 | 新增 / census未join runtime |
 | `3219398263` | Acheron Black Hole (StarchaserArt) | 10 | 1 | 6 | 187 | 无 | 新增 / census未join runtime |
-| `3233141951` | 熠烛 御剑驭龙-红鸾樱落 高度自定义Red Warbler-Sakura falls （Highly customizable） | 65 | 59 | 9 | 998 | 无 | 新增 / census未join runtime |
-| `3238423642` | Katana Girl with Hologram (Adjustable; 4k; Cyberpunk Samurai) MX | 96 | 123 | 31 | 2995 | 无 | 新增 / census未join runtime |
-| `3264246690` | 麻匪 wlop 鬼刀 月牙儿 16:9 16:10 21:9 32:9 | 36 | 33 | 0 | 558 | 截图 | 新增 / census未join runtime |
-| `3287715210` | 发光少女 4K动态壁纸 | 12 | 8 | 2 | 190 | 无 | 新增 / census未join runtime |
-| `3290491250` | frieren | 5 | 3 | 1 | 73 | 截图 | tracked45 / census未join runtime |
-| `3299228616` | Lonely Cat: Audio visualizer , Clock , Chill , Multi language | 271 | 276 | 42 | 4189 | 截图 | tracked45 / census未join runtime |
-| `3323988600` | Hentai Goddess of Victory Nikke ANIMATED \| Huge Ass Cowgirl \| NSFW R-18 \| Customizable | 6 | 6 | 4 | 205 | 无 | 新增 / census未join runtime |
-| `3363252053` | 【Parallax视差】Hatsune Miku 初音未来 光与影——夜莺Night Light and Shadow | 48 | 34 | 4 | 776 | 无 | 新增 / census未join runtime |
+| `3233141951` | 熠烛 御剑驭龙-红鸾樱落 高度自定义Red Warbler-Sakura falls （Highly customizable） | 65 | 59 | 9 | 1022 | 无 | 新增 / census未join runtime |
+| `3238423642` | Katana Girl with Hologram (Adjustable; 4k; Cyberpunk Samurai) MX | 96 | 123 | 31 | 3035 | 无 | 新增 / census未join runtime |
+| `3264246690` | 麻匪 wlop 鬼刀 月牙儿 16:9 16:10 21:9 32:9 | 36 | 33 | 0 | 571 | 截图 | 新增 / census未join runtime |
+| `3287715210` | 发光少女 4K动态壁纸 | 12 | 8 | 2 | 192 | 无 | 新增 / census未join runtime |
+| `3290491250` | frieren | 5 | 3 | 1 | 76 | 截图 | tracked45 / census未join runtime |
+| `3299228616` | Lonely Cat: Audio visualizer , Clock , Chill , Multi language | 271 | 276 | 42 | 4346 | 截图 | tracked45 / census未join runtime |
+| `3323988600` | Hentai Goddess of Victory Nikke ANIMATED \| Huge Ass Cowgirl \| NSFW R-18 \| Customizable | 6 | 6 | 4 | 207 | 无 | 新增 / census未join runtime |
+| `3363252053` | 【Parallax视差】Hatsune Miku 初音未来 光与影——夜莺Night Light and Shadow | 48 | 34 | 4 | 801 | 无 | 新增 / census未join runtime |
 | `3389974179` | 落日与白皙的大腿 | 4 | 4 | 0 | 99 | 无 | 新增 / census未join runtime |
-| `3395392965` | 请叫我帅锅-小姨定制 | 1 | 1 | 0 | 21 | 无 | 新增 / census未join runtime |
-| `3395777145` | 麻匪 光 音频识别 Media Player 16:9 16:10 21:9 | 21 | 39 | 0 | 518 | 无 | 新增 / census未join runtime |
-| `3396722575` | 麻匪 NIXEU 黄泉 超多自定义模块 音频识别 Media Player 16:9 16:10 4:3 21:9 32:9 | 61 | 76 | 16 | 1799 | 无 | 新增 / census未join runtime |
+| `3395392965` | 请叫我帅锅-小姨定制 | 1 | 1 | 0 | 22 | 无 | 新增 / census未join runtime |
+| `3395777145` | 麻匪 光 音频识别 Media Player 16:9 16:10 21:9 | 21 | 39 | 0 | 533 | 无 | 新增 / census未join runtime |
+| `3396722575` | 麻匪 NIXEU 黄泉 超多自定义模块 音频识别 Media Player 16:9 16:10 4:3 21:9 32:9 | 61 | 76 | 16 | 1827 | 无 | 新增 / census未join runtime |
 | `3437487219` | 3D Earth - Close Orbit [HDR10 Optimized] | 21 | 4 | 2 | 201 | 无 | 新增 / census未join runtime |
-| `3448845950` | 麻匪 媒体音频标签【148项自定义】Media Player 16:9 16:10 21:9 32:9 | 81 | 103 | 2 | 1280 | 无 | 新增 / census未join runtime |
-| `3470948192` | 水滴 三体 \| Droplet -SYKM | 49 | 6 | 0 | 334 | 无 | 新增 / census未join runtime |
+| `3448845950` | 麻匪 媒体音频标签【148项自定义】Media Player 16:9 16:10 21:9 32:9 | 81 | 103 | 2 | 1291 | 无 | 新增 / census未join runtime |
+| `3470948192` | 水滴 三体 \| Droplet -SYKM | 49 | 6 | 0 | 338 | 无 | 新增 / census未join runtime |
 | `3472940912` | -Tsukatsuki Rio [ blue archive ] - 4K | 3 | 6 | 0 | 90 | 无 | 新增 / census未join runtime |
-| `3477054430` | Cat with headphones on the roof | 15 | 2 | 0 | 131 | 截图 | 新增 / census未join runtime |
-| `3487629864` | 云曦老婆 (18+) | 4 | 5 | 2 | 98 | 无 | 新增 / census未join runtime |
-| `3509243656` | 三体实时演算 \| Three-Body problem - SYKM | 142 | 12 | 4 | 1248 | 无 | 新增 / census未join runtime |
-| `3554161528` | Blue Archive-Sorasaki Hina 空崎日奈[4K] | 37 | 24 | 13 | 845 | 无 | 新增 / census未join runtime |
-| `3585875739` | Miku Monitoring | 3 | 6 | 2 | 133 | 无 | 新增 / census未join runtime |
-| `3601964477` | 千咲 \|\| 鸣潮 \|\| 枫 \|\| 4K | 33 | 20 | 3 | 513 | 无 | 新增 / census未join runtime |
-| `3609108600` | 千咲 \|\| 鸣潮 \|\| 4K | 5 | 12 | 0 | 140 | 无 | 新增 / census未join runtime |
-| `3610154602` | 千咲 \|\| 鸣潮 \|\| 高塔 \|\| 4K | 26 | 16 | 2 | 404 | 无 | 新增 / census未join runtime |
-| `3612199597` | 千咲 \|\| 鸣潮 \|\| 与千咲的穗波散步 \|\| 咖啡厅天台 \|\| 4K | 30 | 20 | 5 | 707 | 无 | 新增 / census未join runtime |
-| `3612795410` | 千咲 \|\| 鸣潮 \|\| 与千咲的穗波散步 \|\| 喷泉广场 \|\| 4K | 30 | 22 | 1 | 447 | 无 | 新增 / census未join runtime |
+| `3477054430` | Cat with headphones on the roof | 15 | 2 | 0 | 133 | 截图 | 新增 / census未join runtime |
+| `3487629864` | 云曦老婆 (18+) | 4 | 5 | 2 | 102 | 无 | 新增 / census未join runtime |
+| `3509243656` | 三体实时演算 \| Three-Body problem - SYKM | 142 | 12 | 4 | 1255 | 无 | 新增 / census未join runtime |
+| `3554161528` | Blue Archive-Sorasaki Hina 空崎日奈[4K] | 37 | 24 | 13 | 855 | 无 | 新增 / census未join runtime |
+| `3585875739` | Miku Monitoring | 3 | 6 | 2 | 148 | 无 | 新增 / census未join runtime |
+| `3601964477` | 千咲 \|\| 鸣潮 \|\| 枫 \|\| 4K | 33 | 20 | 3 | 519 | 无 | 新增 / census未join runtime |
+| `3609108600` | 千咲 \|\| 鸣潮 \|\| 4K | 5 | 12 | 0 | 143 | 无 | 新增 / census未join runtime |
+| `3610154602` | 千咲 \|\| 鸣潮 \|\| 高塔 \|\| 4K | 26 | 16 | 2 | 409 | 无 | 新增 / census未join runtime |
+| `3612199597` | 千咲 \|\| 鸣潮 \|\| 与千咲的穗波散步 \|\| 咖啡厅天台 \|\| 4K | 30 | 20 | 5 | 716 | 无 | 新增 / census未join runtime |
+| `3612795410` | 千咲 \|\| 鸣潮 \|\| 与千咲的穗波散步 \|\| 喷泉广场 \|\| 4K | 30 | 22 | 1 | 454 | 无 | 新增 / census未join runtime |
 | `3629927359` | 奶牛大鸭鸭 2 | 25 | 0 | 0 | 203 | 无 | 新增 / census未join runtime |
-| `3655958892` | R18 Acheron &amp; Black Swan 黄泉&amp;黑天鹅 [Honkai:Star Rail] [NSFW] | 11 | 10 | 0 | 173 | 无 | 新增 / census未join runtime |
-| `3662790108` | 实时太阳系 Live Solar System - SYKM | 847 | 70 | 0 | 4611 | 无 | 新增 / census未join runtime |
-| `3665307769` | 爱弥斯1 \|\| 鸣潮 \|\| 4K | 29 | 30 | 3 | 595 | 无 | 新增 / census未join runtime |
-| `3690859128` | 爱弥斯2 \|\| 鸣潮 \|\| 4K | 21 | 14 | 9 | 597 | 无 | 新增 / census未join runtime |
-| `3699213569` | 碧蓝航线Azurlane-斯特拉斯堡&amp;克莱蒙梭（By Adramahlihk） | 1 | 5 | 0 | 60 | 无 | 新增 / census未join runtime |
-| `3703104370` | Rio&amp;菲比-adoc(涟) | 1 | 6 | 0 | 66 | 无 | 新增 / census未join runtime |
-| `3712499998` | 鸣潮 \|\| 3.3pv \| 自星海尽处回响 | 21 | 0 | 5 | 459 | 无 | 新增 / census未join runtime |
-| `3721456868` | 绯雪1 \|\| 鸣潮 | 13 | 18 | 2 | 313 | 无 | 新增 / census未join runtime |
-| `3738202317` | Albedo. | 1 | 4 | 0 | 57 | 截图 | tracked45 / census未join runtime |
+| `3655958892` | R18 Acheron &amp; Black Swan 黄泉&amp;黑天鹅 [Honkai:Star Rail] [NSFW] | 11 | 10 | 0 | 180 | 无 | 新增 / census未join runtime |
+| `3662790108` | 实时太阳系 Live Solar System - SYKM | 847 | 70 | 0 | 4615 | 无 | 新增 / census未join runtime |
+| `3665307769` | 爱弥斯1 \|\| 鸣潮 \|\| 4K | 29 | 30 | 3 | 603 | 无 | 新增 / census未join runtime |
+| `3690859128` | 爱弥斯2 \|\| 鸣潮 \|\| 4K | 21 | 14 | 9 | 605 | 无 | 新增 / census未join runtime |
+| `3699213569` | 碧蓝航线Azurlane-斯特拉斯堡&amp;克莱蒙梭（By Adramahlihk） | 1 | 5 | 0 | 62 | 无 | 新增 / census未join runtime |
+| `3703104370` | Rio&amp;菲比-adoc(涟) | 1 | 6 | 0 | 69 | 无 | 新增 / census未join runtime |
+| `3712499998` | 鸣潮 \|\| 3.3pv \| 自星海尽处回响 | 21 | 0 | 5 | 463 | 无 | 新增 / census未join runtime |
+| `3721456868` | 绯雪1 \|\| 鸣潮 | 13 | 18 | 2 | 317 | 无 | 新增 / census未join runtime |
+| `3738202317` | Albedo. | 1 | 4 | 0 | 60 | 截图 | tracked45 / census未join runtime |
 | `3742133044` | 凌霄·双司镇命·无常&lt;1&gt;-[深空之眼] | 4 | 5 | 2 | 122 | 截图 | tracked45 / census未join runtime |
-| `3743305891` | 战双 | 8 | 4 | 1 | 143 | 截图 | tracked45 / census未join runtime |
-| `3747492842` | [4k]Leon S Kennedy X-ray \| Resident Evil 4 Remake \| Re4 | 21 | 13 | 1 | 575 | 截图 | tracked45 / census未join runtime |
-| `3748311238` | 大 | 6 | 17 | 0 | 260 | 无 | 新增 / census未join runtime |
-| `3749463715` | 还能在大 ∑ 2 | 28 | 37 | 8 | 1013 | 无 | 新增 / census未join runtime |
-| `3750342273` | Night snowy mountains | 8 | 6 | 1 | 114 | 截图 | tracked45 / census未join runtime |
-| `3750813609` | Asian Temple in the Mountains | 13 | 5 | 9 | 390 | 截图 | tracked45 / census未join runtime |
-| `3754630802` | WLOP [ChineseNewYear 7] | 38 | 31 | 10 | 1043 | 无 | 新增 / census未join runtime |
-| `3754639143` | WLOP 银月 | 22 | 20 | 2 | 457 | 无 | 新增 / census未join runtime |
-| `3757555836` | 名将杀【兰汤春酽_赵姬】限制级8K | 9 | 9 | 7 | 423 | 截图 | tracked45 / census未join runtime |
-| `3763323436` | 补 碧蓝航线 拉菲 Azur lane Laffey | 4 | 6 | 1 | 97 | 无 | 新增 / census未join runtime |
-| `3763428294` | 秧秧·玄翎1\|\|穗穗\|\|舟行画中，心随风远\|\|鸣潮 | 16 | 25 | 3 | 401 | 无 | 新增 / census未join runtime |
-| `3765760121` | 【4K】三色堇与她 | 13 | 12 | 1 | 207 | 截图 | tracked45 / census未join runtime |
-| `3765904723` | 调月莉音 | 5 | 9 | 0 | 124 | 无 | 新增 / census未join runtime |
+| `3743305891` | 战双 | 8 | 4 | 1 | 145 | 截图 | tracked45 / census未join runtime |
+| `3747492842` | [4k]Leon S Kennedy X-ray \| Resident Evil 4 Remake \| Re4 | 21 | 13 | 1 | 592 | 截图 | tracked45 / census未join runtime |
+| `3748311238` | 大 | 6 | 17 | 0 | 265 | 无 | 新增 / census未join runtime |
+| `3749463715` | 还能在大 ∑ 2 | 28 | 37 | 8 | 1018 | 无 | 新增 / census未join runtime |
+| `3750342273` | Night snowy mountains | 8 | 6 | 1 | 115 | 截图 | tracked45 / census未join runtime |
+| `3750813609` | Asian Temple in the Mountains | 13 | 5 | 9 | 391 | 截图 | tracked45 / census未join runtime |
+| `3754630802` | WLOP [ChineseNewYear 7] | 38 | 31 | 10 | 1052 | 无 | 新增 / census未join runtime |
+| `3754639143` | WLOP 银月 | 22 | 20 | 2 | 465 | 无 | 新增 / census未join runtime |
+| `3757555836` | 名将杀【兰汤春酽_赵姬】限制级8K | 9 | 9 | 7 | 425 | 截图 | tracked45 / census未join runtime |
+| `3763323436` | 补 碧蓝航线 拉菲 Azur lane Laffey | 4 | 6 | 1 | 100 | 无 | 新增 / census未join runtime |
+| `3763428294` | 秧秧·玄翎1\|\|穗穗\|\|舟行画中，心随风远\|\|鸣潮 | 16 | 25 | 3 | 413 | 无 | 新增 / census未join runtime |
+| `3765760121` | 【4K】三色堇与她 | 13 | 12 | 1 | 209 | 截图 | tracked45 / census未join runtime |
+| `3765904723` | 调月莉音 | 5 | 9 | 0 | 128 | 无 | 新增 / census未join runtime |
 | `3766387484` | ARKNIGHTS ENDFIELD ARCANE CHEN XIANGYU | 7 | 13 | 1 | 229 | 截图 | tracked45 / census未join runtime |
-| `3766403294` | 仪玄(AI) | 2 | 1 | 0 | 29 | 截图 | tracked45 / census未join runtime |
+| `3766403294` | 仪玄(AI) | 2 | 1 | 0 | 30 | 截图 | tracked45 / census未join runtime |
 | `3766415113` | The last pour | 1 | 0 | 0 | 9 | 截图 | tracked45 / census未join runtime |
-| `3767232084` | 谬因 | 3 | 7 | 2 | 157 | 截图 | tracked45 / census未join runtime |
+| `3767232084` | 谬因 | 3 | 7 | 2 | 159 | 截图 | tracked45 / census未join runtime |
 | `3767343314` | Universe Abstract - By: CroSsHaiR-&gt; | 4 | 3 | 3 | 117 | 截图 | tracked45 / census未join runtime |
-| `3767460992` | Magic mushroom | 9 | 39 | 0 | 262 | 截图 | tracked45 / census未join runtime |
-| `3768020435` | Silver Wolf with media integration | 9 | 3 | 0 | 71 | 截图 | tracked45 / census未join runtime |
-| `3768229922` | 麻匪 赤芒 音频互动 | 58 | 74 | 2 | 815 | 截图 | tracked45 / census未join runtime |
-| `3768724269` | ARKNIGHTS ENDFIELD 4K GILBERTA IN CLOUDS | 17 | 12 | 4 | 311 | 截图 | tracked45 / census未join runtime |
+| `3767460992` | Magic mushroom | 9 | 39 | 0 | 281 | 截图 | tracked45 / census未join runtime |
+| `3768020435` | Silver Wolf with media integration | 9 | 3 | 0 | 73 | 截图 | tracked45 / census未join runtime |
+| `3768229922` | 麻匪 赤芒 音频互动 | 58 | 74 | 2 | 838 | 截图 | tracked45 / census未join runtime |
+| `3768724269` | ARKNIGHTS ENDFIELD 4K GILBERTA IN CLOUDS | 17 | 12 | 4 | 315 | 截图 | tracked45 / census未join runtime |
 | `3768903841` | Naha Gaze at Firework \| northway. | 37 | 18 | 5 | 413 | 截图 | tracked45 / census未join runtime |
-| `3769364482` | 戴拿奥特曼 强壮型【Ultraman Dyna Strong Type】dy柊明 | 10 | 13 | 3 | 378 | 截图 | tracked45 / census未join runtime |
-| `3769688830` | Spirit Blossom Springs Ahri (Adjustable; League of Legends) MX | 26 | 59 | 6 | 771 | 截图 | tracked45 / census未join runtime |
-| `3769761761` | Yoru and Mitaka asa | 20 | 24 | 5 | 512 | 截图 | tracked45 / census未join runtime |
-| `3770444459` | 三国杀【节气 夏至 2026】8K | 6 | 4 | 5 | 245 | 截图 | tracked45 / census未join runtime |
+| `3769364482` | 戴拿奥特曼 强壮型【Ultraman Dyna Strong Type】dy柊明 | 10 | 13 | 3 | 384 | 截图 | tracked45 / census未join runtime |
+| `3769688830` | Spirit Blossom Springs Ahri (Adjustable; League of Legends) MX | 26 | 59 | 6 | 777 | 截图 | tracked45 / census未join runtime |
+| `3769761761` | Yoru and Mitaka asa | 20 | 24 | 5 | 524 | 截图 | tracked45 / census未join runtime |
+| `3770444459` | 三国杀【节气 夏至 2026】8K | 6 | 4 | 5 | 247 | 截图 | tracked45 / census未join runtime |
 | `3770462923` | gt3rs@d4rk | 4 | 5 | 0 | 100 | 截图 | tracked45 / census未join runtime |
 | `3775355045` | 交错战线_DAIBLOS CORE_x-ray_4K_1 | 2 | 1 | 0 | 31 | 无 | 新增 / census未join runtime |
 | `3775373546` | 交错战线_DAIBLOS CORE_x-ray_4K_2 | 2 | 1 | 0 | 31 | 无 | 新增 / census未join runtime |
-| `3777761326` | I do Anything | 7 | 22 | 1 | 254 | 无 | 新增 / census未join runtime |
-| `3779026256` | [魔法少女的魔女审判] 月代雪 X 樱羽艾玛 音频识别 | 30 | 22 | 2 | 482 | 无 | 新增 / census未join runtime |
-| `3779904456` | 尤诺2 \|\| 鸣潮 | 15 | 11 | 5 | 391 | 无 | 新增 / census未join runtime |
-| `3780119725` | in the rain V 31 | 89 | 37 | 48 | 1982 | 截图 | 新增 / census未join runtime |
-| `3780391264` | Agnes Tachyon Umamusume Neon | 19 | 7 | 10 | 513 | 截图 | 新增 / census未join runtime |
+| `3777761326` | I do Anything | 7 | 22 | 1 | 266 | 无 | 新增 / census未join runtime |
+| `3779026256` | [魔法少女的魔女审判] 月代雪 X 樱羽艾玛 音频识别 | 30 | 22 | 2 | 487 | 无 | 新增 / census未join runtime |
+| `3779904456` | 尤诺2 \|\| 鸣潮 | 15 | 11 | 5 | 397 | 无 | 新增 / census未join runtime |
+| `3780119725` | in the rain V 31 | 89 | 37 | 48 | 1993 | 截图 | 新增 / census未join runtime |
+| `3780391264` | Agnes Tachyon Umamusume Neon | 19 | 7 | 10 | 516 | 截图 | 新增 / census未join runtime |
 | `3780940857` | 枕澜 蒂法 电脑动态壁纸 最终幻想7 TIFA Final Fantasy VII | 2 | 1 | 0 | 23 | 无 | 新增 / census未join runtime |
-| `3781307553` | Look this | 2 | 5 | 0 | 63 | 无 | 新增 / census未join runtime |
-| `3782740481` | WLOP Violet 紫 | 23 | 21 | 1 | 472 | 无 | 新增 / census未join runtime |
+| `3781307553` | Look this | 2 | 5 | 0 | 66 | 无 | 新增 / census未join runtime |
+| `3782740481` | WLOP Violet 紫 | 23 | 21 | 1 | 480 | 无 | 新增 / census未join runtime |
 | `3784012236` | &gt;R-18&lt; 蔚蓝档案 Blue_Archive\|06\|飛鳥馬 トキ 时 Toki_Asuma X-ray | 2 | 1 | 0 | 35 | 无 | 新增 / census未join runtime |
 | `3786185473` | ELF PARADISE～欢迎来到性夜♪色情精灵们的淫乱圣诞节特别篇～ \| (x-ray) | 4 | 4 | 0 | 79 | 无 | 新增 / census未join runtime |
-| `3786641495` | Albedo - Look at here my master | 2 | 12 | 0 | 99 | 无 | 新增 / census未join runtime |
-| `3787355076` | 维琳娜-申请入股 | 1 | 1 | 0 | 21 | 无 | 新增 / census未join runtime |
-| `3787382101` | 清宵 \|\| 万剑 \|\| 鸣潮 | 15 | 12 | 3 | 370 | 无 | 新增 / census未join runtime |
-| `3788066613` | [Hajily-1825][R-18]2025-07-04 Fleurdelys 3D P1 | 17 | 1 | 2 | 200 | 无 | 新增 / census未join runtime |
-| `3788467391` | Miku and Monster | 5 | 18 | 1 | 179 | 无 | 新增 / census未join runtime |
-| `3788645041` | 奥黛塔(破洞版) | 3 | 8 | 0 | 97 | 无 | 新增 / census未join runtime |
+| `3786641495` | Albedo - Look at here my master | 2 | 12 | 0 | 109 | 无 | 新增 / census未join runtime |
+| `3787355076` | 维琳娜-申请入股 | 1 | 1 | 0 | 22 | 无 | 新增 / census未join runtime |
+| `3787382101` | 清宵 \|\| 万剑 \|\| 鸣潮 | 15 | 12 | 3 | 375 | 无 | 新增 / census未join runtime |
+| `3788066613` | [Hajily-1825][R-18]2025-07-04 Fleurdelys 3D P1 | 17 | 1 | 2 | 202 | 无 | 新增 / census未join runtime |
+| `3788467391` | Miku and Monster | 5 | 18 | 1 | 190 | 无 | 新增 / census未join runtime |
+| `3788645041` | 奥黛塔(破洞版) | 3 | 8 | 0 | 100 | 无 | 新增 / census未join runtime |
 | `3788698200` | NFFA画风 维琳娜2（可去防封马赛克+可去时钟） | 3 | 1 | 1 | 69 | 无 | 新增 / census未join runtime |
-| `3788734811` | 庄方宜-1 | 4 | 5 | 2 | 107 | 无 | 新增 / census未join runtime |
-| `3788897599` | ArT丨R18丨4K丨Red Q | 18 | 25 | 3 | 532 | 无 | 新增 / census未join runtime |
-| `3789316755` | Fern_Frieren | 8 | 6 | 2 | 143 | 无 | 新增 / census未join runtime |
-| `3790631363` | 三国杀【水殿香来 曹金玉】限制级 4K | 8 | 7 | 6 | 326 | 无 | 新增 / census未join runtime |
+| `3788734811` | 庄方宜-1 | 4 | 5 | 2 | 113 | 无 | 新增 / census未join runtime |
+| `3788897599` | ArT丨R18丨4K丨Red Q | 18 | 25 | 3 | 540 | 无 | 新增 / census未join runtime |
+| `3789316755` | Fern_Frieren | 8 | 6 | 2 | 149 | 无 | 新增 / census未join runtime |
+| `3790631363` | 三国杀【水殿香来 曹金玉】限制级 4K | 8 | 7 | 6 | 330 | 无 | 新增 / census未join runtime |
 | `3790726145` | 周于希54 | 2 | 0 | 1 | 31 | 无 | 新增 / census未join runtime |
-| `3790806929` | Winter Artoria Pendragon \| Fate/Zero [4K] | 7 | 9 | 3 | 179 | 无 | 新增 / census未join runtime |
-| `3790956325` | 骚暖暖 | 1 | 2 | 0 | 30 | 无 | 新增 / census未join runtime |
-| `3791905266` | Dohrn's Vision | 2 | 3 | 1 | 96 | 无 | 新增 / census未join runtime |
-| `3792249095` | Beth's Wallpaper | 17 | 10 | 2 | 229 | 无 | 新增 / census未join runtime |
-| `3792400801` | Girl \| Dark Background \| Dark / Colored Versions \| 4K | 8 | 14 | 1 | 187 | 无 | 新增 / census未join runtime |
-| `3792817546` | 小羊不吃草 (地雷系)#滕子京大王 | 5 | 0 | 1 | 60 | 无 | 新增 / census未join runtime |
-| `3793328876` | 大凤Taihou&amp;白凤Hakuhou-HanAI | 1 | 6 | 0 | 66 | 无 | 新增 / census未join runtime |
+| `3790806929` | Winter Artoria Pendragon \| Fate/Zero [4K] | 7 | 9 | 3 | 183 | 无 | 新增 / census未join runtime |
+| `3790956325` | 骚暖暖 | 1 | 2 | 0 | 31 | 无 | 新增 / census未join runtime |
+| `3791905266` | Dohrn's Vision | 2 | 3 | 1 | 97 | 无 | 新增 / census未join runtime |
+| `3792249095` | Beth's Wallpaper | 17 | 10 | 2 | 233 | 无 | 新增 / census未join runtime |
+| `3792400801` | Girl \| Dark Background \| Dark / Colored Versions \| 4K | 8 | 14 | 1 | 196 | 无 | 新增 / census未join runtime |
+| `3792817546` | 小羊不吃草 (地雷系)#滕子京大王 | 5 | 0 | 1 | 62 | 无 | 新增 / census未join runtime |
+| `3793328876` | 大凤Taihou&amp;白凤Hakuhou-HanAI | 1 | 6 | 0 | 69 | 无 | 新增 / census未join runtime |
 | `3793978239` | 埃吉尔掰穴 | 1 | 0 | 0 | 9 | 无 | 新增 / census未join runtime |
 
 ## 6. 修复事件记录与防回归合同

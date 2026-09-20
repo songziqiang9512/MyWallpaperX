@@ -42,7 +42,7 @@ from scene_capability_census_io import (
     tree_manifest,
 )
 from scene_capability_census_particles import census_particle_layer, particle_summary
-from scene_capability_census_resources import census_package_resources
+from scene_capability_census_resources import census_package_resources, shader_profile
 from scene_capability_census_profiles import (
     ParameterProfiles,
     SchemaInventory,
@@ -52,6 +52,7 @@ from scene_capability_census_profiles import (
     recursive_dynamic_features,
     revision_key,
     safe_value_shape,
+    scenescript_audio_registrations,
 )
 
 
@@ -74,9 +75,18 @@ DOMAINS = (
     "render-target",
     "texture",
     "particle",
+    "audio-declaration",
     "dynamic-input",
     "project-property",
 )
+
+AUDIO_SPECTRUM_UNIFORM_PATTERN = re.compile(
+    r"^g_AudioSpectrum(16|32|64)(Left|Right)$"
+)
+AUDIO_RESPONSE_COMBO_KEY = "audioprocessing"
+AUDIO_RESPONSE_CONSTANT_KEYS = {
+    "frequencymin", "frequencymax", "audioexponent", "audiobounds", "audioamount",
+}
 
 # These enums describe the workflow and evidence of a recorded repair event.
 # They are not capability implementation/current/support/todo levels.
@@ -239,6 +249,7 @@ def _dynamic_occurrences(
     sample_id: str,
     root: dict[str, Any],
     objects: list[Any],
+    layer_visibilities: list[str],
 ) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
 
@@ -247,6 +258,7 @@ def _dynamic_occurrences(
         path_pattern: list[str],
         json_pointer: list[str],
         layer_id: Any = None,
+        inherited_visibility: str = "unknown",
     ) -> None:
         if isinstance(value, dict):
             source_kinds = []
@@ -270,8 +282,9 @@ def _dynamic_occurrences(
                     "keys": sorted(value),
                     "value": safe_value_shape(value),
                 }
+                dynamic_id = occurrence_id("dynamic-input", location)
                 results.append({
-                    "occurrence_id": occurrence_id("dynamic-input", location),
+                    "occurrence_id": dynamic_id,
                     "family_key": family_key("dynamic-input", "+".join(sorted(source_kinds)), shape),
                     "revision_key": canonical_sha256(value),
                     "domain": "dynamic-input",
@@ -281,12 +294,54 @@ def _dynamic_occurrences(
                     "shape": shape,
                     "runtime_proof": {"state": "not-joined"},
                 })
+                script = value.get("script")
+                registration = (
+                    scenescript_audio_registrations(script)
+                    if isinstance(script, str) else None
+                )
+                if registration is not None:
+                    audio_location = {
+                        "sample_id": sample_id,
+                        "layer_id": layer_id,
+                        "owner_occurrence": dynamic_id,
+                        "declaration_kind": "scenescript-registration",
+                    }
+                    audio_shape = {
+                        "owner_domain": "dynamic-input",
+                        "resolution_states": registration["resolution_states"],
+                        "scope_states": registration["scope_states"],
+                        "admission_states": registration["admission_states"],
+                    }
+                    results.append({
+                        "occurrence_id": occurrence_id(
+                            "audio-declaration", audio_location
+                        ),
+                        "family_key": family_key(
+                            "audio-declaration", "scenescript-registration", audio_shape
+                        ),
+                        "revision_key": revision_key(
+                            dynamic_id, registration["call_count"],
+                            registration["resolution_states"],
+                        ),
+                        "domain": "audio-declaration",
+                        "kind": "scenescript-registration",
+                        "location": audio_location,
+                        "effective_visibility": inherited_visibility,
+                        "owner_occurrence": dynamic_id,
+                        "trigger": (
+                            "proven-module-evaluation"
+                            if registration["scope_states"] == ["proven-global"]
+                            else "mixed-or-unproven"
+                        ),
+                        **registration,
+                    })
             for key, child in sorted(value.items(), key=lambda item: str(item[0]).casefold()):
                 visit(
                     child,
                     [*path_pattern, str(key)],
                     [*json_pointer, str(key)],
                     layer_id,
+                    inherited_visibility,
                 )
         elif isinstance(value, list):
             for index, child in enumerate(value):
@@ -295,14 +350,225 @@ def _dynamic_occurrences(
                     [*path_pattern, "[]"],
                     [*json_pointer, str(index)],
                     layer_id,
+                    inherited_visibility,
                 )
 
     for object_index, value in enumerate(objects):
         if isinstance(value, dict):
-            visit(value, ["objects", "[]"], ["objects", str(object_index)], value.get("id"))
+            visit(
+                value,
+                ["objects", "[]"],
+                ["objects", str(object_index)],
+                value.get("id"),
+                layer_visibilities[object_index],
+            )
     general = root.get("general")
     if isinstance(general, dict):
-        visit(general, ["general"], ["general"])
+        visit(general, ["general"], ["general"], inherited_visibility="not-applicable")
+    return results
+
+
+def _project_audio_support_occurrences(
+    *, sample_id: str, project: dict[str, Any]
+) -> list[dict[str, Any]]:
+    general = project.get("general")
+    if not isinstance(general, dict) or "supportsaudioprocessing" not in general:
+        return []
+    value = general["supportsaudioprocessing"]
+    if value is False:
+        return []
+    kind = "project-support-enabled" if value is True else "project-support-invalid"
+    location = {
+        "sample_id": sample_id,
+        "declaration_kind": kind,
+        "json_pointer": "/general/supportsaudioprocessing",
+    }
+    shape = {"value_state": "enabled" if value is True else "invalid"}
+    return [{
+        "occurrence_id": occurrence_id("audio-declaration", location),
+        "family_key": family_key("audio-declaration", kind, shape),
+        "revision_key": revision_key(value),
+        "domain": "audio-declaration",
+        "kind": kind,
+        "location": location,
+        "effective_visibility": "not-applicable",
+        "trigger": "editor-capability-hint",
+        "value_state": shape["value_state"],
+    }]
+
+
+def _shader_audio_contract(
+    view: SceneResourceView, shader_identity: Any
+) -> dict[str, Any] | None:
+    if not isinstance(shader_identity, str) or not shader_identity:
+        return None
+    normalized = normalize_path(shader_identity)
+    suffix = PurePosixPath(normalized).suffix.casefold()
+    stage_suffixes = {".vert", ".frag", ".comp", ".inc"}
+    candidates = [normalized] if suffix in stage_suffixes else []
+    shader_root = (
+        normalized if normalized.casefold().startswith("shaders/")
+        else f"shaders/{normalized}"
+    )
+    if suffix not in stage_suffixes:
+        candidates.extend(f"{shader_root}{stage}" for stage in (".vert", ".frag", ".comp"))
+    resolutions: set[int] = set()
+    channels: set[str] = set()
+    stages: set[str] = set()
+    exact_resolutions: set[int] = set()
+    exact_channels: set[str] = set()
+    exact_stages: set[str] = set()
+    source_abi_states: Counter[str] = Counter()
+    declares_audio_processing_combo = False
+    resources: set[tuple[str, str]] = set()
+    for candidate in candidates:
+        resource = view.resolve(candidate)
+        if resource is None:
+            continue
+        resource_key = (resource.origin, normalize_path(resource.relative_path).casefold())
+        if resource_key in resources:
+            continue
+        resources.add(resource_key)
+        profile = shader_profile(resource)
+        declares_audio_processing_combo = declares_audio_processing_combo or any(
+            str(name).casefold() == AUDIO_RESPONSE_COMBO_KEY
+            for name in profile.get("combo_names", [])
+        )
+        for uniform in profile.get("audio_uniforms", []):
+            match = AUDIO_SPECTRUM_UNIFORM_PATTERN.fullmatch(
+                str(uniform.get("name", ""))
+            )
+            if match is None:
+                continue
+            resolution = int(match.group(1))
+            channel = match.group(2).casefold()
+            stage = PurePosixPath(resource.relative_path).suffix.casefold().lstrip(".")
+            resolutions.add(resolution)
+            channels.add(channel)
+            stages.add(stage)
+            if uniform.get("conditional_state") != "unconditional":
+                state = "preprocessor-conditioned"
+            elif stage not in {"vert", "frag", "comp"}:
+                state = "stage-unresolved"
+            elif uniform.get("type") != "float":
+                state = "wrong-type"
+            elif uniform.get("array_state") == "scalar":
+                state = "missing-array"
+            elif uniform.get("array_state") != "literal":
+                state = "dynamic-array"
+            elif uniform.get("array_length") != resolution:
+                state = "wrong-array-length"
+            else:
+                state = "source-shape-exact"
+                exact_resolutions.add(resolution)
+                exact_channels.add(channel)
+                exact_stages.add(stage)
+            source_abi_states[state] += 1
+    if not resolutions:
+        return None
+    return {
+        "resolutions": sorted(resolutions),
+        "channels": sorted(channels),
+        "shader_stages": sorted(stages),
+        "source_exact_resolutions": sorted(exact_resolutions),
+        "source_exact_channels": sorted(exact_channels),
+        "source_exact_stages": sorted(exact_stages),
+        "source_abi_state_counts": dict(sorted(source_abi_states.items())),
+        "runtime_admission_state": "launch-envelope-unjoined",
+        "source_declares_audio_processing_combo": declares_audio_processing_combo,
+    }
+
+
+def _audio_owner_occurrences(
+    *, sample_id: str, occurrences: list[dict[str, Any]], view: SceneResourceView
+) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for owner in occurrences:
+        owner_domain = owner.get("domain")
+        owner_id = owner.get("occurrence_id")
+        if not isinstance(owner_id, str):
+            continue
+        declarations: list[tuple[str, dict[str, Any], str]] = []
+        if owner_domain == "material":
+            audio_processing_state = str(
+                owner.get("audio_processing_state", "absent")
+            )
+            contract = _shader_audio_contract(view, owner.get("shader_identity"))
+            if contract is not None:
+                activation_state = (
+                    "not-authored"
+                    if audio_processing_state == "absent" else audio_processing_state
+                )
+                declarations.append((
+                    "material-host-spectrum",
+                    {
+                        **contract,
+                        "activation_state": activation_state,
+                    },
+                    "raw-shader-declaration",
+                ))
+            combo_keys = {
+                str(key).casefold()
+                for key in [
+                    *owner.get("combo_keys", []),
+                    *owner.get("instance_combo_keys", []),
+                ]
+            }
+            constant_keys = {
+                str(key).casefold()
+                for key in [
+                    *owner.get("constant_keys", []),
+                    *owner.get("instance_constant_keys", []),
+                ]
+            }
+            audio_combo = AUDIO_RESPONSE_COMBO_KEY in combo_keys
+            audio_constants = sorted(constant_keys & AUDIO_RESPONSE_CONSTANT_KEYS)
+            if audio_combo or audio_constants:
+                declarations.append((
+                    "material-audio-response",
+                    {
+                        "has_audio_combo": audio_combo,
+                        "audio_constant_keys": audio_constants,
+                        "activation_state": audio_processing_state,
+                    },
+                    "authored-combo-or-constant",
+                ))
+        elif owner_domain == "particle":
+            audio_keys = sorted(
+                str(key).casefold()
+                for key in owner.get("parameter_keys", [])
+                if str(key).casefold().startswith("audioprocessing")
+            )
+            if audio_keys:
+                declarations.append((
+                    "particle-audio-response",
+                    {
+                        "audio_parameter_keys": audio_keys,
+                        "activation_state": str(
+                            owner.get("audio_processing_state", "missing-mode")
+                        ),
+                    },
+                    "bounded-particle-component",
+                ))
+        for kind, declaration, trigger in declarations:
+            location = {
+                "sample_id": sample_id,
+                "owner_occurrence": owner_id,
+                "declaration_kind": kind,
+            }
+            shape = {"owner_domain": owner_domain, **declaration}
+            results.append({
+                "occurrence_id": occurrence_id("audio-declaration", location),
+                "family_key": family_key("audio-declaration", kind, shape),
+                "revision_key": revision_key(owner_id, declaration),
+                "domain": "audio-declaration",
+                "kind": kind,
+                "location": location,
+                "effective_visibility": owner.get("effective_visibility", "unknown"),
+                "owner_occurrence": owner_id,
+                "trigger": trigger,
+                **declaration,
+            })
     return results
 
 
@@ -571,6 +837,7 @@ def _sample_census(
             sample_id=sample_id,
             root=scene,
             objects=objects,
+            layer_visibilities=layer_visibilities,
         )
         property_occurrences = _project_properties(
             sample_id=sample_id,
@@ -579,6 +846,15 @@ def _sample_census(
         )
         occurrences.extend(dynamic_occurrences)
         occurrences.extend(property_occurrences)
+        occurrences.extend(_project_audio_support_occurrences(
+            sample_id=sample_id,
+            project=project,
+        ))
+        occurrences.extend(_audio_owner_occurrences(
+            sample_id=sample_id,
+            occurrences=occurrences,
+            view=view,
+        ))
         base.update({
             "parse_state": "parsed",
             "object_kind_counts": dict(sorted(object_counts.items())),
@@ -644,7 +920,13 @@ def _family_feature_summary(values: list[dict[str, Any]]) -> dict[str, Any]:
     allowed = (
         "state", "slot_state", "provenance", "target_kind", "compose", "format", "uvs",
         "component_name", "parameter_keys", "combo_keys", "constant_keys", "render_state",
-        "shader_features",
+        "shader_features", "trigger", "value_state", "resolutions", "channels",
+        "shader_stages", "has_audio_combo", "audio_constant_keys",
+        "audio_parameter_keys", "resolution_states", "call_count", "activation_state",
+        "scope_states", "admission_states", "statically_admitted_call_count",
+        "source_exact_resolutions", "source_exact_channels", "source_exact_stages",
+        "source_abi_state_counts", "runtime_admission_state",
+        "source_declares_audio_processing_combo",
     )
     summary: dict[str, Any] = {}
     for field in allowed:
@@ -656,6 +938,93 @@ def _family_feature_summary(values: list[dict[str, Any]]) -> dict[str, Any]:
         if variants:
             summary[field] = [json.loads(value) for value in sorted(variants)[:32]]
     return summary
+
+
+def summarize_audio_declarations(
+    occurrences: list[dict[str, Any]],
+) -> dict[str, Any]:
+    audio = [
+        item for item in occurrences if item.get("domain") == "audio-declaration"
+    ]
+
+    def is_static_consumer_intent(item: dict[str, Any]) -> bool:
+        kind = item.get("kind")
+        state = item.get("activation_state")
+        if kind == "material-host-spectrum":
+            return bool(item.get("source_exact_resolutions"))
+        if kind in {"material-audio-response", "particle-audio-response"}:
+            return state in {"enabled", "dynamic"}
+        return kind == "scenescript-registration" and (
+            int(item.get("statically_admitted_call_count", 0)) > 0
+        )
+
+    by_kind: dict[str, Any] = {}
+    for kind in sorted({str(item.get("kind")) for item in audio}):
+        values = [item for item in audio if item.get("kind") == kind]
+        activation_states = Counter(
+            str(item["activation_state"])
+            for item in values if "activation_state" in item
+        )
+        resolution_states = Counter(
+            "+".join(str(value) for value in item["resolution_states"])
+            for item in values if isinstance(item.get("resolution_states"), list)
+        )
+        scope_states: Counter[str] = Counter()
+        admission_states: Counter[str] = Counter()
+        source_abi_states: Counter[str] = Counter()
+        runtime_admission_states = Counter(
+            str(item["runtime_admission_state"])
+            for item in values if "runtime_admission_state" in item
+        )
+        for item in values:
+            scope_states.update(item.get("scope_state_counts", {}))
+            admission_states.update(item.get("admission_state_counts", {}))
+            source_abi_states.update(item.get("source_abi_state_counts", {}))
+        by_kind[kind] = {
+            "occurrence_count": len(values),
+            "sample_count": len({str(item["location"]["sample_id"]) for item in values}),
+            "sample_ids": sorted({str(item["location"]["sample_id"]) for item in values}),
+            "activation_state_counts": dict(sorted(activation_states.items())),
+            "resolution_state_counts": dict(sorted(resolution_states.items())),
+            "scope_state_counts": dict(sorted(scope_states.items())),
+            "admission_state_counts": dict(sorted(admission_states.items())),
+            "source_abi_state_counts": dict(sorted(source_abi_states.items())),
+            "runtime_admission_state_counts": dict(sorted(
+                runtime_admission_states.items()
+            )),
+        }
+    support_samples = {
+        str(item["location"]["sample_id"])
+        for item in audio if item.get("kind") == "project-support-enabled"
+    }
+    relationship_samples = {
+        str(item["location"]["sample_id"])
+        for item in audio if item.get("kind") not in {
+            "project-support-enabled", "project-support-invalid",
+        }
+    }
+    static_intent_samples = {
+        str(item["location"]["sample_id"])
+        for item in audio if is_static_consumer_intent(item)
+    }
+    return {
+        "declaration_occurrence_count": len(audio),
+        "declaration_sample_count": len({
+            str(item["location"]["sample_id"]) for item in audio
+        }),
+        "project_support_sample_count": len(support_samples),
+        "relationship_sample_count": len(relationship_samples),
+        "relationship_sample_ids": sorted(relationship_samples),
+        "static_consumer_intent_sample_count": len(static_intent_samples),
+        "static_consumer_intent_sample_ids": sorted(static_intent_samples),
+        "support_without_relationship": sorted(support_samples - relationship_samples),
+        "relationship_without_support": sorted(relationship_samples - support_samples),
+        "support_without_static_intent": sorted(support_samples - static_intent_samples),
+        "static_intent_without_support": sorted(static_intent_samples - support_samples),
+        "runtime_confirmed_sample_count": 0,
+        "runtime_confirmed_sample_ids": [],
+        "by_kind": by_kind,
+    }
 
 
 FAMILY_MAP_SCHEMA_VERSION = 1
@@ -1580,6 +1949,7 @@ def build_census(
             "particle": particle_summary([
                 item for item in all_occurrences if item["domain"] == "particle"
             ]),
+            "audio_declarations": summarize_audio_declarations(all_occurrences),
         },
         "samples": sorted(sample_rows, key=lambda value: value["sample_id"]),
         "families": family_rows,
@@ -1719,6 +2089,7 @@ def render_markdown(census: dict[str, Any]) -> str:
         "render-target": "[Graph/Shader](render-graph-shader-coverage.md)",
         "texture": "[格式/资源](scene-format-and-render-graph.md) / [Graph/Shader](render-graph-shader-coverage.md) / [Provider](runtime-input-property-coverage.md)",
         "particle": "[粒子](particle-component-coverage.md)",
+        "audio-declaration": "[音频声明](coverage-ledger.md)",
         "dynamic-input": "[属性/输入](runtime-input-property-coverage.md)",
         "project-property": "[属性/输入](runtime-input-property-coverage.md)",
     }
@@ -1751,6 +2122,34 @@ def render_markdown(census: dict[str, Any]) -> str:
         f"- Effect instance **{summary['effect_instance_count']}**，粒子 root layer **{summary['particle_layer_count']}**；动态 wrapper：`{json.dumps(summary['dynamic_feature_counts'], ensure_ascii=False, sort_keys=True)}`。",
         f"- 粒子组件分布完整保存在机器快照 `summary.particle.component_counts`；Effect/Graph/FBO、包内 shader uniform/annotation/combo、material authored combo/constant 与全部 JSON 字段可按 family/profile 查询。active/prepared shader variant 仍以专项 census 与运行证据为准。",
     ]
+    audio = summary.get("audio_declarations") or summarize_audio_declarations(
+        census.get("occurrences", [])
+    )
+    lines += [
+        "",
+        "### 3.3 音频声明与 consumer 意图关系",
+        "",
+        f"- payload-free 音频关系共 **{audio['declaration_occurrence_count']}** 个 occurrence / **{audio['declaration_sample_count']}** 个样本；其中 editor `supportsaudioprocessing=true` 为 **{audio['project_support_sample_count']}** 个样本，存在至少一种非 project 声明关系的样本为 **{audio['relationship_sample_count']}** 个。",
+        f"- 标记有而没有非 project 声明关系：`{', '.join(audio['support_without_relationship']) or '无'}`；有声明关系而没有 editor 标记：`{', '.join(audio['relationship_without_support']) or '无'}`。两者都不是运行支持集合，不能从静态相等或差集推导 capture demand。",
+        f"- 静态 consumer 意图为 **{audio['static_consumer_intent_sample_count']}** 个样本：`{', '.join(audio['static_consumer_intent_sample_ids']) or '无'}`。这里只接受精确源码数组形状、显式启用的 material/particle 响应或 proven-global 且分辨率有效的 SceneScript 调用；material active variant/host ABI 与所有运行 execution 尚未 join，因此本批 runtime-confirmed 仍为 **{audio['runtime_confirmed_sample_count']}**。",
+        f"- editor 标记有而静态意图无：`{', '.join(audio['support_without_static_intent']) or '无'}`；静态意图有而 editor 标记无：`{', '.join(audio['static_intent_without_support']) or '无'}`。普通 App 运行基线必须覆盖这些差集与全部声明关系，不能只测标记集合。",
+        "",
+        "| 声明关系 | occurrence | 样本 | 静态状态分布 |",
+        "|---|---:|---:|---|",
+    ]
+    for kind, values in audio["by_kind"].items():
+        distribution = {
+            "activation": values["activation_state_counts"],
+            "script_resolution": values["resolution_state_counts"],
+            "script_scope": values["scope_state_counts"],
+            "script_admission": values["admission_state_counts"],
+            "source_abi": values["source_abi_state_counts"],
+            "runtime_admission": values["runtime_admission_state_counts"],
+        }
+        lines.append(
+            f"| `{kind}` | {values['occurrence_count']} | {values['sample_count']} | "
+            f"`{json.dumps(distribution, ensure_ascii=False, sort_keys=True)}` |"
+        )
     lines += [
         "",
         "## 4. 当前公共 family 影响面索引",
@@ -1962,6 +2361,7 @@ def snapshot_payload(census: dict[str, Any]) -> dict[str, Any]:
                     "layer_id", "object_index", "effect_index", "definition_pass_index",
                     "material_pass_index", "slot_index", "fbo_index", "component_category",
                     "component_index", "package_entry_index", "property_name",
+                    "owner_occurrence", "declaration_kind", "json_pointer",
                 )
                 if key in value["location"]
             },

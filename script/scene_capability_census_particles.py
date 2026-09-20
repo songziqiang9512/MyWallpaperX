@@ -28,6 +28,25 @@ PARTICLE_COMPONENT_CATEGORIES = (
 )
 
 
+def _audio_processing_state(component: dict[str, Any]) -> str:
+    value = component.get("audioprocessingmode")
+    if "audioprocessingmode" not in component:
+        return "missing-mode"
+    if isinstance(value, dict):
+        if any(key in value for key in ("script", "user", "animation", "condition")):
+            return "dynamic"
+        value = value.get("value")
+    if isinstance(value, bool):
+        return "invalid"
+    if isinstance(value, (int, float)) and float(value).is_integer():
+        mode = int(value)
+        if mode == 0:
+            return "disabled"
+        if 1 <= mode <= 3:
+            return "enabled"
+    return "invalid"
+
+
 def census_particle_layer(
     *,
     sample_id: str,
@@ -235,6 +254,7 @@ def census_particle_layer(
                     "location": component_location,
                     "effective_visibility": layer_visibility,
                     "parameter_keys": parameter_keys,
+                    "audio_processing_state": _audio_processing_state(component),
                     "parameter_profile_refs": sorted(set(refs)),
                 })
                 if category == "children":

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
@@ -20,7 +21,6 @@ SCRIPT_API_PATTERN = re.compile(
     r"\b(engine|thisLayer|thisScene|shared|audioBuffer|media|cursor|pointer|"
     r"currentMousePosition|previousMousePosition)\b"
 )
-
 
 def value_kind(value: Any) -> str:
     if value is None:
@@ -142,6 +142,286 @@ def script_profile(source: str) -> dict[str, Any]:
         "api_families": apis,
         "features": sorted(features),
     }
+
+
+def scenescript_audio_registrations(source: str) -> dict[str, Any] | None:
+    """Return payload-free, scope-aware AudioBuffers registrations.
+
+    This is deliberately a conservative JavaScript lexer, not an evaluator.
+    Only a direct ``engine.registerAudioBuffers`` (or the equivalent computed
+    string member) at proven top-level scope with an exact supported resolution
+    is statically admitted. Nested/callback calls and expressions remain
+    explicit unknowns for module evaluation instead of being upgraded to
+    consumers. Comments, strings and regular-expression bodies are ignored;
+    executable template interpolations are still scanned.
+    """
+
+    tokens = _javascript_tokens(source)
+    resolutions: list[str] = []
+    scopes: list[str] = []
+    admissions: list[str] = []
+    index = 0
+    while index < len(tokens):
+        open_index = _audio_registration_open_paren(tokens, index)
+        if open_index is None:
+            index += 1
+            continue
+        closing_index = _matching_paren(tokens, open_index)
+        scope = _registration_scope(tokens, index)
+        resolution = (
+            _registration_resolution(tokens[open_index + 1:closing_index])
+            if closing_index is not None else "dynamic-or-invalid"
+        )
+        scopes.append(scope)
+        resolutions.append(resolution)
+        if scope == "proven-global" and resolution in {"16", "32", "64"}:
+            admissions.append("statically-admitted")
+        elif scope == "proven-global":
+            admissions.append("resolution-unresolved")
+        else:
+            admissions.append("scope-unproven")
+        index = (closing_index + 1) if closing_index is not None else open_index + 1
+    if not resolutions:
+        return None
+    return {
+        "call_count": len(resolutions),
+        "resolution_states": sorted(set(resolutions)),
+        "scope_states": sorted(set(scopes)),
+        "admission_states": sorted(set(admissions)),
+        "statically_admitted_call_count": admissions.count("statically-admitted"),
+        "resolution_state_counts": dict(sorted(Counter(resolutions).items())),
+        "scope_state_counts": dict(sorted(Counter(scopes).items())),
+        "admission_state_counts": dict(sorted(Counter(admissions).items())),
+    }
+
+
+@dataclass(frozen=True)
+class _JavaScriptToken:
+    kind: str
+    value: str
+    start: int
+    end: int
+    brace_depth: int
+    paren_depth: int
+
+
+def _javascript_tokens(source: str) -> list[_JavaScriptToken]:
+    """Tokenize only the structure needed by the audio declaration census."""
+
+    tokens: list[_JavaScriptToken] = []
+    brace_depth = 0
+    paren_depth = 0
+
+    def append(kind: str, value: str, start: int, end: int) -> None:
+        tokens.append(_JavaScriptToken(
+            kind, value, start, end, brace_depth, paren_depth
+        ))
+
+    def skip_quoted(index: int, quote: str) -> tuple[int, str | None]:
+        value: list[str] = []
+        simple = True
+        index += 1
+        while index < len(source):
+            character = source[index]
+            if character == "\\":
+                simple = False
+                index += 2
+                continue
+            if character == quote:
+                return index + 1, "".join(value) if simple else None
+            value.append(character)
+            index += 1
+        return index, None
+
+    def regex_starts_here() -> bool:
+        if not tokens:
+            return True
+        return tokens[-1].value in {
+            "(", "[", "{", ",", ":", ";", "=", "=>", "!", "?",
+            "return", "case", "throw", "typeof", "void", "delete", "in",
+        }
+
+    def skip_regex(index: int) -> int:
+        index += 1
+        in_class = False
+        while index < len(source):
+            character = source[index]
+            if character == "\\":
+                index += 2
+                continue
+            if character == "[":
+                in_class = True
+            elif character == "]":
+                in_class = False
+            elif character == "/" and not in_class:
+                index += 1
+                while index < len(source) and (
+                    source[index].isalpha() or source[index] in "$_"
+                ):
+                    index += 1
+                return index
+            elif character in "\r\n":
+                return index
+            index += 1
+        return index
+
+    def scan_template(index: int) -> int:
+        index += 1
+        while index < len(source):
+            character = source[index]
+            following = source[index + 1] if index + 1 < len(source) else ""
+            if character == "\\":
+                index += 2
+                continue
+            if character == "`":
+                return index + 1
+            if character == "$" and following == "{":
+                index = scan_code(index + 2, template_expression=True)
+                continue
+            index += 1
+        return index
+
+    def scan_code(index: int, *, template_expression: bool = False) -> int:
+        nonlocal brace_depth, paren_depth
+        expression_base_brace_depth = brace_depth
+        while index < len(source):
+            character = source[index]
+            following = source[index + 1] if index + 1 < len(source) else ""
+            if template_expression and character == "}" and (
+                brace_depth == expression_base_brace_depth
+            ):
+                return index + 1
+            if character.isspace():
+                index += 1
+                continue
+            if character == "/" and following == "/":
+                index += 2
+                while index < len(source) and source[index] not in "\r\n":
+                    index += 1
+                continue
+            if character == "/" and following == "*":
+                index += 2
+                while index + 1 < len(source) and source[index:index + 2] != "*/":
+                    index += 1
+                index = min(len(source), index + 2)
+                continue
+            if character in {"'", '"'}:
+                start = index
+                index, value = skip_quoted(index, character)
+                append("string", value or "", start, index)
+                continue
+            if character == "`":
+                index = scan_template(index)
+                continue
+            if character == "/" and regex_starts_here():
+                index = skip_regex(index)
+                continue
+            if character.isalpha() or character in "$_":
+                start = index
+                index += 1
+                while index < len(source) and (
+                    source[index].isalnum() or source[index] in "$_"
+                ):
+                    index += 1
+                append("identifier", source[start:index], start, index)
+                continue
+            if character.isdigit():
+                start = index
+                index += 1
+                while index < len(source) and (
+                    source[index].isalnum() or source[index] in ".xX_"
+                ):
+                    index += 1
+                append("number", source[start:index], start, index)
+                continue
+            if character == "=" and following == ">":
+                append("punctuation", "=>", index, index + 2)
+                index += 2
+                continue
+            if character == "{":
+                append("punctuation", character, index, index + 1)
+                brace_depth += 1
+            elif character == "}":
+                brace_depth = max(0, brace_depth - 1)
+                append("punctuation", character, index, index + 1)
+            elif character == "(":
+                append("punctuation", character, index, index + 1)
+                paren_depth += 1
+            elif character == ")":
+                paren_depth = max(0, paren_depth - 1)
+                append("punctuation", character, index, index + 1)
+            else:
+                append("punctuation", character, index, index + 1)
+            index += 1
+        return index
+
+    scan_code(0)
+    return tokens
+
+
+def _audio_registration_open_paren(
+    tokens: list[_JavaScriptToken], index: int
+) -> int | None:
+    if [token.value for token in tokens[index:index + 4]] == [
+        "engine", ".", "registerAudioBuffers", "(",
+    ]:
+        return index + 3
+    candidate = tokens[index:index + 5]
+    if [token.value for token in candidate] == [
+        "engine", "[", "registerAudioBuffers", "]", "(",
+    ] and len(candidate) == 5 and candidate[2].kind == "string":
+        return index + 4
+    return None
+
+
+def _matching_paren(
+    tokens: list[_JavaScriptToken], open_index: int
+) -> int | None:
+    depth = tokens[open_index].paren_depth
+    for index in range(open_index + 1, len(tokens)):
+        token = tokens[index]
+        if token.value == ")" and token.paren_depth == depth:
+            return index
+    return None
+
+
+def _registration_scope(
+    tokens: list[_JavaScriptToken], call_index: int
+) -> str:
+    call = tokens[call_index]
+    if call.brace_depth != 0:
+        return "non-global-or-nested"
+    boundary = -1
+    for index in range(call_index - 1, -1, -1):
+        token = tokens[index]
+        if token.brace_depth == 0 and token.value in {";", "}"}:
+            boundary = index
+            break
+    prefix = tokens[boundary + 1:call_index]
+    if any(token.value in {"=>", "function"} for token in prefix):
+        return "non-global-or-nested"
+    return "proven-global"
+
+
+def _registration_resolution(tokens: list[_JavaScriptToken]) -> str:
+    values = [token.value for token in tokens]
+    if not values:
+        return "16"
+    if len(tokens) == 1 and tokens[0].kind == "number" and values[0] in {
+        "16", "32", "64",
+    }:
+        return values[0]
+    if len(tokens) == 3 and values[0:2] == ["engine", "."]:
+        match = re.fullmatch(r"AUDIO_RESOLUTION_(16|32|64)", values[2])
+        if match is not None:
+            return match.group(1)
+    if len(tokens) == 4 and values[0] == "engine" and values[1] == "[" and (
+        tokens[2].kind == "string" and values[3] == "]"
+    ):
+        match = re.fullmatch(r"AUDIO_RESOLUTION_(16|32|64)", values[2])
+        if match is not None:
+            return match.group(1)
+    return "dynamic-or-invalid"
 
 
 FAMILY_REVISION_FIELDS = {

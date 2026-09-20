@@ -1197,6 +1197,7 @@
       "patterns": [
         "script/scene_capability_census*.py",
         "script/scene_capability_census_snapshot.json",
+        "script/scene_capability_family_map.json",
         "script/scene_capability_repair_ledger.json",
         "docs/scene/semantics/scene-corpus-capability-inventory.md"
       ],

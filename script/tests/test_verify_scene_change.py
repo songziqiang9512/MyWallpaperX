@@ -161,6 +161,16 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertEqual(gates[-1].gate_id, "unmapped-change")
         self.assertEqual(gates[-1].status, "blocked")
 
+    def test_capability_family_map_selects_capability_census_gate(self) -> None:
+        gates, groups = verify.build_plan(
+            ["script/scene_capability_family_map.json"],
+            arguments(phase="inner"),
+            self.registry,
+        )
+        self.assertEqual([gate.gate_id for gate in gates], ["focused-tests"])
+        self.assertIn("capability-census", groups)
+        self.assertIn("test_scene_capability_census", gates[0].command)
+
     def test_scene_daemon_change_selects_protocol_and_launch_contracts(self) -> None:
         gates, groups = verify.build_plan(
             [

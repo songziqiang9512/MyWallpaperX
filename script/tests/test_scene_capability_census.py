@@ -18,8 +18,15 @@ if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
 import scene_capability_census as census
-from scene_capability_census_io import PkgArchive, ensure_outputs_outside_roots
-from scene_capability_census_profiles import family_key
+from scene_capability_census_io import (
+    PkgArchive,
+    ResolvedResource,
+    ensure_outputs_outside_roots,
+)
+from scene_capability_census_profiles import (
+    family_key,
+    scenescript_audio_registrations,
+)
 
 
 def pkg(entries: list[tuple[str, bytes]], magic: str = "PKGV0024") -> bytes:
@@ -75,6 +82,7 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                 "file": "scene.json",
                 "title": "Fixture",
                 "general": {
+                    "supportsaudioprocessing": True,
                     "properties": {
                         "toggle": {"type": "bool", "value": True, "order": 0, "text": "Toggle"}
                     }
@@ -112,7 +120,13 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                         "combos": {"MASK": 0},
                         "constantshadervalues": {
                             "alpha": {
-                                "script": "export function update() { return engine.frametime; }",
+                                "script": (
+                                    "// engine.registerAudioBuffers(64);\n"
+                                    "const ignored = 'engine.registerAudioBuffers(16)';\n"
+                                    "const audio = engine.registerAudioBuffers("
+                                    "engine.AUDIO_RESOLUTION_32);\n"
+                                    "export function update() { return engine.frametime; }"
+                                ),
                                 "value": 1,
                             }
                         },
@@ -167,6 +181,8 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                 "shader": "effects/fixture", "blending": "translucent",
                 "depthtest": "disabled", "depthwrite": "disabled",
                 "cullmode": "nocull", "textures": [None, "mask"],
+                "combos": {"AUDIOPROCESSING": 0},
+                "constantshadervalues": {"audioamount": 1},
                 "usertextures": [
                     {"type": "SYSTEM", "name": "  $mediaThumbnail  "},
                     {"type": "property", "name": "not-system"},
@@ -176,7 +192,10 @@ class SceneCapabilityCensusTests(unittest.TestCase):
             ("particles/root.json", json_bytes({
                 "maxcount": 10, "starttime": 0,
                 "material": "materials/particle.json",
-                "emitter": [{"id": 1, "name": "sphererandom", "rate": 2}],
+                "emitter": [{
+                    "id": 1, "name": "sphererandom", "rate": 2,
+                    "audioprocessingmode": 3,
+                }],
                 "initializer": [{"id": 2, "name": "lifetimerandom", "min": 1, "max": 2}],
                 "operator": [{"id": 3, "name": "movement", "gravity": "0 1 0"}],
                 "renderer": [{"id": 4, "name": "sprite"}],
@@ -195,9 +214,17 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                 "depthwrite": "disabled", "cullmode": "nocull",
             }]})),
             ("materials/particle.tex", b"not-a-real-tex"),
-            ("shaders/fixture.vert", b"uniform mat4 g_ModelViewProjectionMatrix;\nvoid main() {}\n"),
-            ("shaders/fixture.frag", (
+            ("shaders/effects/fixture.vert", b"uniform mat4 g_ModelViewProjectionMatrix;\nvoid main() {}\n"),
+            ("shaders/effects/fixture.frag", (
                 b'uniform sampler2D g_Texture0; // {"mode":"rgbmask","combo":"MASK"}\n'
+                b"// uniform float g_AudioSpectrum64Right[64];\n"
+                b"uniform float g_AudioSpectrum16Left[16];\n"
+                b"uniform float g_AudioSpectrum16Right[16];\n"
+                b"uniform vec2 g_AudioSpectrum32Left[32];\n"
+                b"uniform float g_AudioSpectrum32Right[16];\n"
+                b"#if 0\n"
+                b"uniform float g_AudioSpectrum64Left[64];\n"
+                b"#endif\n"
                 b"uniform float g_Alpha;\nvoid main() {}\n"
             )),
         ]
@@ -230,7 +257,7 @@ class SceneCapabilityCensusTests(unittest.TestCase):
             domains = first["summary"]["occurrences_by_domain"]
             for domain in (
                 "resource", "shader", "layer", "effect", "material", "render-graph", "render-target",
-                "texture", "particle", "dynamic-input", "project-property",
+                "texture", "particle", "audio-declaration", "dynamic-input", "project-property",
             ):
                 self.assertGreater(domains.get(domain, 0), 0, domain)
             serialized = census.canonical_json_bytes(first)
@@ -255,6 +282,139 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                 {"hidden", "visible"},
             )
             self.assertTrue(all(profile.get("occurrence_refs") for profile in first["parameter_profiles"]))
+            audio = [
+                item for item in first["occurrences"]
+                if item["domain"] == "audio-declaration"
+            ]
+            self.assertEqual(
+                Counter(item["kind"] for item in audio),
+                {
+                    "project-support-enabled": 1,
+                    "material-host-spectrum": 1,
+                    "material-audio-response": 1,
+                    "particle-audio-response": 1,
+                    "scenescript-registration": 1,
+                },
+            )
+            script_audio = next(
+                item for item in audio if item["kind"] == "scenescript-registration"
+            )
+            self.assertEqual(script_audio["resolution_states"], ["32"])
+            self.assertEqual(script_audio["call_count"], 1)
+            self.assertEqual(script_audio["scope_states"], ["proven-global"])
+            self.assertEqual(script_audio["admission_states"], ["statically-admitted"])
+            material_audio = next(
+                item for item in audio if item["kind"] == "material-host-spectrum"
+            )
+            self.assertEqual(material_audio["resolutions"], [16, 32, 64])
+            self.assertEqual(material_audio["channels"], ["left", "right"])
+            self.assertEqual(material_audio["source_exact_resolutions"], [16])
+            self.assertEqual(
+                material_audio["source_abi_state_counts"],
+                {
+                    "preprocessor-conditioned": 1,
+                    "source-shape-exact": 2,
+                    "wrong-array-length": 1,
+                    "wrong-type": 1,
+                },
+            )
+            self.assertEqual(
+                material_audio["runtime_admission_state"],
+                "launch-envelope-unjoined",
+            )
+            self.assertEqual(material_audio["effective_visibility"], "hidden")
+            audio_summary = first["summary"]["audio_declarations"]
+            self.assertEqual(audio_summary["project_support_sample_count"], 1)
+            self.assertEqual(audio_summary["relationship_sample_count"], 1)
+            self.assertEqual(audio_summary["relationship_sample_ids"], ["0000000001"])
+            self.assertEqual(audio_summary["static_consumer_intent_sample_count"], 1)
+            self.assertEqual(
+                audio_summary["static_consumer_intent_sample_ids"],
+                ["0000000001"],
+            )
+            self.assertEqual(audio_summary["runtime_confirmed_sample_count"], 0)
+            self.assertFalse(audio_summary["support_without_relationship"])
+            self.assertFalse(audio_summary["relationship_without_support"])
+
+    def test_scenescript_audio_registration_scope_is_conservative(self) -> None:
+        profile = scenescript_audio_registrations("""
+            // engine.registerAudioBuffers(16)
+            const ignored = "engine.registerAudioBuffers(32)";
+            const pattern = /engine.registerAudioBuffers\\(/;
+            const direct = engine.registerAudioBuffers(engine.AUDIO_RESOLUTION_32);
+            const computed = engine["registerAudioBuffers"](
+                engine["AUDIO_RESOLUTION_64"]
+            );
+            const interpolated = `${engine.registerAudioBuffers(16)}`;
+            function callback() { return engine.registerAudioBuffers(16); }
+            const arrow = () => engine.registerAudioBuffers(16);
+            const bare = engine.registerAudioBuffers(AUDIO_RESOLUTION_16);
+        """)
+        self.assertIsNotNone(profile)
+        assert profile is not None
+        self.assertEqual(profile["call_count"], 6)
+        self.assertEqual(profile["statically_admitted_call_count"], 3)
+        self.assertEqual(
+            profile["resolution_state_counts"],
+            {"16": 3, "32": 1, "64": 1, "dynamic-or-invalid": 1},
+        )
+        self.assertEqual(
+            profile["scope_state_counts"],
+            {"non-global-or-nested": 2, "proven-global": 4},
+        )
+        self.assertEqual(
+            profile["admission_state_counts"],
+            {
+                "resolution-unresolved": 1,
+                "scope-unproven": 2,
+                "statically-admitted": 3,
+            },
+        )
+
+    def test_shader_combo_annotation_does_not_imply_material_activation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-audio-shader-") as directory:
+            shader = Path(directory) / "fixture.frag"
+            shader.write_text(
+                "uniform float g_AudioSpectrum16Left[16]; "
+                "// {\"combo\":\"AUDIOPROCESSING\",\"default\":1}\n",
+                encoding="utf-8",
+            )
+
+            class FixtureView:
+                def resolve(self, path: str) -> ResolvedResource | None:
+                    if path == "shaders/fixture.frag":
+                        return ResolvedResource(
+                            origin="fixture",
+                            relative_path=path,
+                            file_path=shader,
+                        )
+                    return None
+
+            owner = {
+                "occurrence_id": "material/fixture",
+                "domain": "material",
+                "shader_identity": "fixture",
+                "audio_processing_state": "absent",
+                "effective_visibility": "visible",
+                "combo_keys": [],
+                "instance_combo_keys": [],
+                "constant_keys": [],
+                "instance_constant_keys": [],
+            }
+            relationships = census._audio_owner_occurrences(
+                sample_id="fixture",
+                occurrences=[owner],
+                view=FixtureView(),
+            )
+            host = next(
+                item for item in relationships
+                if item["kind"] == "material-host-spectrum"
+            )
+            self.assertTrue(host["source_declares_audio_processing_combo"])
+            self.assertEqual(host["activation_state"], "not-authored")
+            self.assertEqual(
+                host["runtime_admission_state"], "launch-envelope-unjoined"
+            )
 
     def test_system_usertextures_are_typed_by_scope_role_and_visibility(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-census-") as directory:
@@ -338,9 +498,9 @@ class SceneCapabilityCensusTests(unittest.TestCase):
             self.assertEqual(census.generate(args), 0)
             stored = json.loads(snapshot.read_text(encoding="utf-8"))
             self.assertNotIn("occurrences", stored)
-            self.assertEqual(stored["validation"]["occurrence_index"]["count"], 56)
-            self.assertEqual(len(stored["validation"]["occurrence_index"]["items"]), 56)
-            self.assertEqual(stored["samples"][0]["occurrence_count"], 56)
+            self.assertEqual(stored["validation"]["occurrence_index"]["count"], 61)
+            self.assertEqual(len(stored["validation"]["occurrence_index"]["items"]), 61)
+            self.assertEqual(stored["samples"][0]["occurrence_count"], 61)
             system_index = [
                 item for item in stored["validation"]["occurrence_index"]["items"]
                 if "-system-" in item["kind"]

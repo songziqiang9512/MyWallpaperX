@@ -28,6 +28,7 @@ from scene_capability_census_profiles import (
 UNIFORM_PATTERN = re.compile(
     r"\buniform\s+(?:(?:lowp|mediump|highp)\s+)?"
     r"([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)"
+    r"\s*(?:\[\s*([^\]\r\n]*)\s*\])?\s*;"
 )
 INCLUDE_PATTERN = re.compile(r"^\s*#\s*include\b", re.MULTILINE)
 ANNOTATION_PATTERN = re.compile(r"//\s*(?:\[[^\]]+\]\s*)?(\{[^\r\n]+\})")
@@ -51,14 +52,111 @@ def _decode_source(payload: bytes) -> str | None:
     return None
 
 
-def _shader_profile(resource: ResolvedResource) -> dict[str, Any]:
+def _strip_c_family_comments(source: str) -> str:
+    """Blank comments while preserving source offsets and newlines."""
+
+    result = list(source)
+    index = 0
+    state = "code"
+    while index < len(source):
+        character = source[index]
+        following = source[index + 1] if index + 1 < len(source) else ""
+        if state == "code" and character == "/" and following == "/":
+            result[index] = result[index + 1] = " "
+            index += 2
+            state = "line-comment"
+            continue
+        if state == "code" and character == "/" and following == "*":
+            result[index] = result[index + 1] = " "
+            index += 2
+            state = "block-comment"
+            continue
+        if state == "line-comment":
+            if character in "\r\n":
+                state = "code"
+            else:
+                result[index] = " "
+        elif state == "block-comment":
+            if character == "*" and following == "/":
+                result[index] = result[index + 1] = " "
+                index += 2
+                state = "code"
+                continue
+            if character not in "\r\n":
+                result[index] = " "
+        index += 1
+    return "".join(result)
+
+
+def _preprocessor_conditioned_lines(source: str) -> set[int]:
+    """Return lines guarded by any preprocessor condition.
+
+    The census does not evaluate shader variants. Even ``#if 1`` remains
+    conditioned because launch-envelope defines are the execution authority.
+    """
+
+    conditioned: set[int] = set()
+    depth = 0
+    for line_number, line in enumerate(source.splitlines(), start=1):
+        directive = re.match(r"^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b", line)
+        keyword = directive.group(1) if directive is not None else None
+        if keyword == "endif":
+            conditioned.add(line_number)
+            depth = max(0, depth - 1)
+            continue
+        if depth > 0 or keyword is not None:
+            conditioned.add(line_number)
+        if keyword in {"if", "ifdef", "ifndef"}:
+            depth += 1
+    return conditioned
+
+
+def shader_profile(resource: ResolvedResource) -> dict[str, Any]:
     source = _decode_source(resource.read_bytes())
     if source is None:
         return {"state": "malformed-text"}
-    uniforms = sorted({
-        (value_type, name)
-        for value_type, name in UNIFORM_PATTERN.findall(source)
-    })
+    structural_source = _strip_c_family_comments(source)
+    conditioned_lines = _preprocessor_conditioned_lines(structural_source)
+    uniform_records: set[tuple[str, str, str, int | None, str]] = set()
+    for match in UNIFORM_PATTERN.finditer(structural_source):
+        value_type, name, array_expression = match.groups()
+        if array_expression is None:
+            array_state = "scalar"
+            array_length = None
+        elif re.fullmatch(r"[0-9]+", array_expression.strip()):
+            array_state = "literal"
+            array_length = int(array_expression.strip())
+        else:
+            array_state = "dynamic"
+            array_length = None
+        line_number = structural_source.count("\n", 0, match.start()) + 1
+        conditional_state = (
+            "preprocessor-conditioned"
+            if line_number in conditioned_lines else "unconditional"
+        )
+        uniform_records.add((
+            value_type, name, array_state, array_length, conditional_state,
+        ))
+    uniforms = [
+        {"type": value_type, "name": name}
+        for value_type, name in sorted({
+            (value[0], value[1]) for value in uniform_records
+        })
+    ]
+    audio_uniforms = [
+        {
+            "type": value_type,
+            "name": name,
+            "array_state": array_state,
+            "array_length": array_length,
+            "conditional_state": conditional_state,
+        }
+        for value_type, name, array_state, array_length, conditional_state
+        in sorted(uniform_records, key=lambda value: (
+            value[1].casefold(), value[0], value[2], value[3] or -1, value[4]
+        ))
+        if re.fullmatch(r"g_AudioSpectrum(?:16|32|64)(?:Left|Right)", name)
+    ]
     annotation_fields: set[str] = set()
     combo_names: set[str] = set()
     format_combo_names: set[str] = set()
@@ -124,10 +222,8 @@ def _shader_profile(resource: ResolvedResource) -> dict[str, Any]:
         "line_count": source.count("\n") + 1,
         "include_count": len(INCLUDE_PATTERN.findall(source)),
         "uniform_count": len(uniforms),
-        "uniforms": [
-            {"type": value_type, "name": name}
-            for value_type, name in uniforms
-        ],
+        "uniforms": uniforms,
+        "audio_uniforms": audio_uniforms,
         "annotation_fields": sorted(annotation_fields),
         "combo_names": sorted(combo_names),
         "format_combo_names": sorted(format_combo_names),
@@ -204,7 +300,7 @@ def census_package_resources(
             continue
 
         if extension in {".frag", ".vert", ".comp", ".inc"}:
-            profile = _shader_profile(resource)
+            profile = shader_profile(resource)
             shape = {
                 "extension": extension,
                 "state": profile["state"],

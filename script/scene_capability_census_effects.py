@@ -49,6 +49,42 @@ def nested_visibility(parent: str, value: Any) -> str:
     return "visible"
 
 
+def audio_processing_state(
+    material_pass: dict[str, Any],
+    instance_pass: dict[str, Any] | None = None,
+) -> str:
+    """Classify the authored AUDIOPROCESSING combo without retaining its value."""
+
+    def lookup(mapping: Any) -> tuple[bool, Any]:
+        if not isinstance(mapping, dict):
+            return False, None
+        for key, value in mapping.items():
+            if str(key).casefold() == "audioprocessing":
+                return True, value
+        return False, None
+
+    present, value = lookup(
+        instance_pass.get("combos") if isinstance(instance_pass, dict) else None
+    )
+    if not present:
+        present, value = lookup(material_pass.get("combos"))
+    if not present:
+        return "absent"
+    if isinstance(value, dict):
+        if any(key in value for key in ("script", "user", "animation", "condition")):
+            return "dynamic"
+        value = value.get("value")
+    if isinstance(value, bool):
+        return "invalid"
+    if isinstance(value, (int, float)) and float(value).is_integer():
+        mode = int(value)
+        if mode == 0:
+            return "disabled"
+        if 1 <= mode <= 3:
+            return "enabled"
+    return "invalid"
+
+
 def object_kind(value: dict[str, Any]) -> str:
     if isinstance(value.get("particle"), str):
         return "particle"
@@ -378,6 +414,7 @@ def census_image_layer(
             "render_state": pass_shape["render_state"],
             "combo_keys": pass_shape["combo_keys"],
             "constant_keys": pass_shape["constant_keys"],
+            "audio_processing_state": audio_processing_state(pass_value),
             "parameter_profile_refs": sorted(set(refs)),
         })
         slots = pass_value.get("textures")
@@ -594,6 +631,17 @@ def census_effect(
                 "render_state": pass_shape["render_state"],
                 "combo_keys": pass_shape["combo_keys"],
                 "constant_keys": pass_shape["constant_keys"],
+                "instance_combo_keys": sorted(
+                    str(key) for key in (instance_pass.get("combos") or {})
+                ) if material_pass_index == 0 else [],
+                "instance_constant_keys": sorted(
+                    str(key).casefold()
+                    for key in (instance_pass.get("constantshadervalues") or {})
+                ) if material_pass_index == 0 else [],
+                "audio_processing_state": audio_processing_state(
+                    material_pass,
+                    instance_pass if material_pass_index == 0 else None,
+                ),
                 "parameter_profile_refs": sorted(set(refs)),
             })
             material_slots = material_pass.get("textures")
