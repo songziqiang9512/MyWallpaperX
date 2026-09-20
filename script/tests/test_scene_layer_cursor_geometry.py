@@ -42,6 +42,14 @@ enum Harness {
             * SceneMatrix.scale(SIMD3(0.7, 1.3, 1))
         let projected = transformedMVP * local
         let normalized = SIMD2(projected.x, projected.y) / projected.w
+        let effectCardMVP = SceneMatrix.translation(SIMD3(0.2, -0.1, 0))
+            * SceneMatrix.rotationZ(.pi / 3)
+            * SceneMatrix.scale(SIMD3(0.7, 1.3, 1))
+        let effectCardProjected = effectCardMVP * local
+        let effectCardNormalized = SIMD2(
+            effectCardProjected.x,
+            effectCardProjected.y
+        ) / effectCardProjected.w
         let singular = SceneMatrix.scale(SIMD3(0, 1, 1))
         let largeDepthProjection = SceneMatrix.ortho(
             left: -128, right: 128,
@@ -53,7 +61,7 @@ enum Harness {
             up: SIMD3(0, 1, 0)
         )
         let singularUnusedProjection = SceneLayerCursorGeometry
-            .effectProjectionInverse(singular, required: false)
+            .effectTextureProjectionInverse(singular, required: false)
         let inverseRestoresKnownPoint: Bool = {
             guard let inverse = SceneLayerCursorGeometry.inverseModelViewProjection(
                 transformedMVP
@@ -61,6 +69,33 @@ enum Harness {
             let restored = inverse * projected
             return abs(restored.x / restored.w - local.x) < 0.00001
                 && abs(restored.y / restored.w - local.y) < 0.00001
+        }()
+        let effectTextureProjection: [Float] = {
+            guard let inverse = SceneLayerCursorGeometry
+                .effectTextureProjectionInverse(
+                    effectCardMVP,
+                    required: true
+                ) else { return [] }
+            let shaderClip = SIMD4<Float>(
+                effectCardNormalized.x,
+                effectCardNormalized.y,
+                0,
+                1
+            )
+            let projectedTexture = inverse * shaderClip
+            guard projectedTexture.w.isFinite,
+                  abs(projectedTexture.w) > 0.00000001 else { return [] }
+            return [
+                projectedTexture.x / projectedTexture.w * 0.5,
+                projectedTexture.y / projectedTexture.w * 0.5,
+            ]
+        }()
+        let rippleTextureUV: [Float] = {
+            guard effectTextureProjection.count == 2 else { return [] }
+            return [
+                effectTextureProjection[0] + 0.5,
+                1 - (effectTextureProjection[1] + 0.5),
+            ]
         }()
         let result: [String: Any] = [
             "identityCenter": pair(SceneLayerCursorGeometry.layerUV(
@@ -80,24 +115,27 @@ enum Harness {
                 modelViewProjection: singular
             ) == nil,
             "inverseRestoresKnownPoint": inverseRestoresKnownPoint,
+            "effectTextureProjection": effectTextureProjection,
+            "rippleTextureUV": rippleTextureUV,
             "singularInverseRejected":
                 SceneLayerCursorGeometry.inverseModelViewProjection(singular) == nil,
             "singularUnusedProjectionUsesIdentity":
                 singularUnusedProjection == matrix_identity_float4x4,
             "singularRequiredProjectionRejected": SceneLayerCursorGeometry
-                .effectProjectionInverse(singular, required: true) == nil,
+                .effectTextureProjectionInverse(
+                    singular,
+                    required: true
+                ) == nil,
             "largeDepthOrthographicProjectionAccepted":
                 SceneLayerCursorGeometry.layerPoint(
                     mouseNormalized: .zero,
                     modelViewProjection: largeDepthProjection
                 ) != nil,
-            "invertibleRequiredProjectionMatchesStrictInverse":
-                SceneLayerCursorGeometry.effectProjectionInverse(
+            "invertibleRequiredProjectionIsAvailable":
+                SceneLayerCursorGeometry.effectTextureProjectionInverse(
                     transformedMVP,
                     required: true
-                ) == SceneLayerCursorGeometry.inverseModelViewProjection(
-                    transformedMVP
-                ),
+                ) != nil,
             "particleLocalPosition": triple(SceneParticlePointerProjection.localPosition(
                 mouseNormalized: normalized,
                 isInside: true,
@@ -182,6 +220,14 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
             [0.6, 0.7],
         )
 
+    def test_effect_texture_projection_maps_clip_to_centered_local(self) -> None:
+        self.assert_pair_almost_equal(
+            self.result["effectTextureProjection"], [0.1, -0.2]
+        )
+        self.assert_pair_almost_equal(
+            self.result["rippleTextureUV"], [0.6, 0.7]
+        )
+
     def test_finite_points_outside_layer_remain_available_for_halo_clipping(self) -> None:
         self.assert_pair_almost_equal(self.result["outsideFinite"], [2.0, 2.0])
 
@@ -199,7 +245,7 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
         self.assertTrue(self.result["singularUnusedProjectionUsesIdentity"])
         self.assertTrue(self.result["singularRequiredProjectionRejected"])
         self.assertTrue(
-            self.result["invertibleRequiredProjectionMatchesStrictInverse"]
+            self.result["invertibleRequiredProjectionIsAvailable"]
         )
 
 

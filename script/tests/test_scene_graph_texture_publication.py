@@ -409,6 +409,7 @@ private func resolveProgram(
         renderSize: CGSize(width: 2, height: 2),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: matrix_identity_float4x4,
+        effectOutputModelViewProjection: matrix_identity_float4x4,
         effectTextureProjectionMatrixInverse: matrix_identity_float4x4
     )
     guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(

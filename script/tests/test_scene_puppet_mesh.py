@@ -484,7 +484,7 @@ class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
         self.assertIn("samplingTexture: atlasTexture", recomposer)
         self.assertIn("geometryModelMatrix(", preflight)
         self.assertIn(
-            "SceneLayerCursorGeometry.effectProjectionInverse(\n                        effectProjectionMVP,",
+            "SceneLayerCursorGeometry.effectTextureProjectionInverse(\n                        effectProjectionMVP,",
             preflight,
         )
         self.assertIn(

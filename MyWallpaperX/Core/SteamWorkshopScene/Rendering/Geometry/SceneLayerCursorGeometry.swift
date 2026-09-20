@@ -66,14 +66,31 @@ enum SceneLayerCursorGeometry {
         return inverse
     }
 
-    /// Supplies identity only when the admitted execution graph has proven
-    /// that neither effect projection nor layer-local pointer data is read.
-    static func effectProjectionInverse(
+    /// Converts clip coordinates into the effect-texture coordinate convention
+    /// consumed by authored projection uniforms. Authored shaders first map a
+    /// screen pointer into clip space and then multiply the projected result by
+    /// 0.5, so the inverse must produce `2 * layerLocal` rather than the
+    /// `layerLocal` returned by a bare output-MVP inverse. The authored shader
+    /// owns any later centered-local-to-UV conversion; adding a translation here
+    /// would double that conversion for cursor ripple and move X-Ray to an edge.
+    ///
+    /// Identity is supplied only when the admitted execution graph has proven
+    /// that no effect projection uniform is read.
+    static func effectTextureProjectionInverse(
         _ modelViewProjection: simd_float4x4,
         required: Bool
     ) -> simd_float4x4? {
-        inverseModelViewProjection(modelViewProjection)
-            ?? (required ? nil : matrix_identity_float4x4)
+        guard required else { return matrix_identity_float4x4 }
+        guard let inverse = inverseModelViewProjection(modelViewProjection) else {
+            return nil
+        }
+        let centeredLocalToEffectTexture = simd_float4x4(
+            SIMD4(2, 0, 0, 0),
+            SIMD4(0, 2, 0, 0),
+            SIMD4(0, 0, 1, 0),
+            SIMD4(0, 0, 0, 1)
+        )
+        return centeredLocalToEffectTexture * inverse
     }
 
     private static func localPoint(

@@ -809,7 +809,7 @@ extension SceneMetalRenderer {
                 outputMVP
             }
             guard let effectTextureProjectionMatrixInverse =
-                    SceneLayerCursorGeometry.effectProjectionInverse(
+                    SceneLayerCursorGeometry.effectTextureProjectionInverse(
                         effectProjectionMVP,
                         required: claim.frameInputContract
                             .requiresInvertibleEffectTextureProjection
@@ -898,6 +898,7 @@ extension SceneMetalRenderer {
                 ) * 0.5,
                 primaryButtonIsDown: frameContext.pointer.isPrimaryButtonDown,
                 layerModelMatrix: layerModelMatrix,
+                effectOutputModelViewProjection: effectProjectionMVP,
                 effectTextureProjectionMatrixInverse:
                     effectTextureProjectionMatrixInverse,
                 frameTime: Float(frameContext.frameTime),

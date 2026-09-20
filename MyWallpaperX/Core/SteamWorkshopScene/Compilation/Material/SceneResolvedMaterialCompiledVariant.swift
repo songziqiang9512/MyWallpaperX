@@ -141,8 +141,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         preparedUniformBindings.contains { binding in
             guard case let .host(host) = binding.source else { return false }
             switch host {
-            case .effectModelViewProjection,
-                 .effectTextureProjectionMatrix,
+            case .effectTextureProjectionMatrix,
                  .effectTextureProjectionMatrixInverse:
                 return true
             default:

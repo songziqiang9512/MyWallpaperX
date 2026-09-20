@@ -128,6 +128,10 @@ final class SceneResolvedMaterialRuntimeBridge {
         let pointerMovement: Float
         let primaryButtonIsDown: Bool
         let layerModelMatrix: simd_float4x4
+        /// The emitted output card used by forward/effect-model projection.
+        /// This remains the actual placement MVP and is intentionally not
+        /// derived back from the pointer-facing inverse convention below.
+        let effectOutputModelViewProjection: simd_float4x4
         let effectTextureProjectionMatrixInverse: simd_float4x4
         let frameTime: Float
         let time: Float
@@ -148,6 +152,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             pointerMovement: Float,
             primaryButtonIsDown: Bool,
             layerModelMatrix: simd_float4x4,
+            effectOutputModelViewProjection: simd_float4x4,
             effectTextureProjectionMatrixInverse: simd_float4x4,
             frameTime: Float,
             time: Float,
@@ -164,6 +169,8 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.pointerMovement = pointerMovement
             self.primaryButtonIsDown = primaryButtonIsDown
             self.layerModelMatrix = layerModelMatrix
+            self.effectOutputModelViewProjection =
+                effectOutputModelViewProjection
             self.effectTextureProjectionMatrixInverse = effectTextureProjectionMatrixInverse
             self.frameTime = frameTime
             self.time = time
@@ -186,6 +193,8 @@ final class SceneResolvedMaterialRuntimeBridge {
                 pointerMovement: pointerMovement,
                 primaryButtonIsDown: primaryButtonIsDown,
                 layerModelMatrix: layerModelMatrix,
+                effectOutputModelViewProjection:
+                    effectOutputModelViewProjection,
                 effectTextureProjectionMatrixInverse:
                     effectTextureProjectionMatrixInverse,
                 frameTime: frameTime,

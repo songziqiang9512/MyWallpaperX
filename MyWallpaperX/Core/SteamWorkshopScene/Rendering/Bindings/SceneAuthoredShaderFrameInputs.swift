@@ -85,6 +85,7 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
     let screenSize: CGSize
     let modelViewProjection: simd_float4x4
     let layerModelMatrix: simd_float4x4
+    let effectOutputModelViewProjection: simd_float4x4
     let effectTextureProjectionMatrix: simd_float4x4
     let effectTextureProjectionMatrixInverse: simd_float4x4
     let sceneTime: Float
@@ -103,6 +104,7 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         screenSize: CGSize,
         modelViewProjection: simd_float4x4,
         layerModelMatrix: simd_float4x4,
+        effectOutputModelViewProjection: simd_float4x4,
         effectTextureProjectionMatrix: simd_float4x4 = matrix_identity_float4x4,
         effectTextureProjectionMatrixInverse: simd_float4x4,
         sceneTime: Float,
@@ -120,6 +122,8 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         self.screenSize = screenSize
         self.modelViewProjection = modelViewProjection
         self.layerModelMatrix = layerModelMatrix
+        self.effectOutputModelViewProjection =
+            effectOutputModelViewProjection
         self.effectTextureProjectionMatrix = effectTextureProjectionMatrix
         self.effectTextureProjectionMatrixInverse = effectTextureProjectionMatrixInverse
         self.sceneTime = sceneTime

@@ -211,6 +211,8 @@ extension SceneResolvedMaterialGraphExecutor {
                         renderSize: CGSize(width: target.width, height: target.height),
                         modelViewProjection: Self.fullTargetMVP(target),
                         layerModelMatrix: frameInputs.layerModelMatrix,
+                        effectOutputModelViewProjection:
+                            frameInputs.effectOutputModelViewProjection,
                         effectTextureProjectionMatrixInverse:
                             frameInputs.effectTextureProjectionMatrixInverse,
                         implicitFramebufferIdentity: pairStep.inputIdentity

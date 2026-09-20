@@ -157,6 +157,9 @@ private typealias Template = SceneResolvedMaterialTemplate
 
 private let fixtureLayerID = 42
 private let effectProjectionInverse = simd_float4x4(diagonal: SIMD4(2, 3, 4, 5))
+private let effectOutputModelViewProjection = simd_float4x4(
+    diagonal: SIMD4(7, 11, 13, 17)
+)
 private let layerModelMatrix = simd_float4x4(diagonal: SIMD4(6, 7, 8, 9))
 
 private func vertexSource(
@@ -866,6 +869,48 @@ private func template(
     )!
 }
 
+private func effectProjectionRequirementToken(
+    _ hostUniform: String
+) -> String {
+    let shader = contract(
+        revision: "effect-projection-requirement-\(hostUniform)",
+        uniformMetadata: nil,
+        semanticProbes: false,
+        vertexSourceOverride: """
+        attribute vec3 a_Position;
+        attribute vec2 a_TexCoord;
+        varying vec2 v_TexCoord;
+        uniform mat4 \(hostUniform);
+        void main() {
+            v_TexCoord = a_TexCoord;
+            gl_Position = mul(vec4(a_Position, 1.0), \(hostUniform));
+        }
+        """
+    )
+    let admitted = template(shader)
+    let cache: SceneResolvedMaterialVariantCache
+    switch SceneResolvedMaterialVariantCache.launchValidated(
+        template: admitted,
+        maximumVariantCount: 1
+    ) {
+    case let .success(value):
+        cache = value
+    case let .failure(failure):
+        return "launch-failed:\(String(describing: failure))"
+    }
+    switch cache.precompileLaunchEnvelope(
+        implicitFramebufferIdentity: nil
+    ) {
+    case .success:
+        break
+    case let .failure(failure):
+        return "precompile-failed:\(String(describing: failure))"
+    }
+    return cache.requiresInvertibleEffectTextureProjection
+        ? "required"
+        : "unrequired"
+}
+
 private func compatibilityTargetTextureCandidateTokens() -> [String: Any] {
     let shader = contract(
         revision: "compatibility-target-texture-candidate",
@@ -1147,6 +1192,7 @@ private func uniformInputs() -> SceneAuthoredShaderUniformInputs {
         screenSize: CGSize(width: 1920, height: 1080),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: layerModelMatrix,
+        effectOutputModelViewProjection: effectOutputModelViewProjection,
         effectTextureProjectionMatrix: effectProjectionInverse.inverse,
         effectTextureProjectionMatrixInverse: effectProjectionInverse,
         sceneTime: 2,
@@ -1340,6 +1386,7 @@ private func finalize(
             renderSize: CGSize(width: 640, height: 360),
             modelViewProjection: matrix_identity_float4x4,
             layerModelMatrix: resolvedLayerModelMatrix,
+            effectOutputModelViewProjection: effectOutputModelViewProjection,
             effectTextureProjectionMatrixInverse: effectProjectionInverse,
             implicitFramebufferIdentity: implicitFramebufferIdentity
         )
@@ -1420,6 +1467,7 @@ private func crossTemplateRuntimeLoopCacheToken(_ device: MTLDevice) -> String {
                 renderSize: CGSize(width: 640, height: 360),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: layerModelMatrix,
+        effectOutputModelViewProjection: effectOutputModelViewProjection,
         effectTextureProjectionMatrixInverse: effectProjectionInverse,
         implicitFramebufferIdentity: nil
     )
@@ -1450,6 +1498,7 @@ private func reachabilityIdentityMismatchToken(_ device: MTLDevice) -> String {
                 renderSize: CGSize(width: 640, height: 360),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: layerModelMatrix,
+        effectOutputModelViewProjection: effectOutputModelViewProjection,
         effectTextureProjectionMatrixInverse: effectProjectionInverse,
         implicitFramebufferIdentity: framebufferTexture()
     )
@@ -1506,6 +1555,7 @@ private func variantSelectionKeyMismatchTokens(
                 renderSize: CGSize(width: 640, height: 360),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: layerModelMatrix,
+        effectOutputModelViewProjection: effectOutputModelViewProjection,
         effectTextureProjectionMatrixInverse: effectProjectionInverse
     )
     let result = SceneResolvedMaterialProgramFinalizer.finalize(
@@ -1538,6 +1588,7 @@ private func resolverInvariantTokens(_ device: MTLDevice) -> [String: String] {
                 renderSize: CGSize(width: 640, height: 360),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: layerModelMatrix,
+        effectOutputModelViewProjection: effectOutputModelViewProjection,
         effectTextureProjectionMatrixInverse: effectProjectionInverse
     )
     guard case let .success(selection) = cache.resolveSelection(readyInput),
@@ -1552,6 +1603,7 @@ private func resolverInvariantTokens(_ device: MTLDevice) -> [String: String] {
                 renderSize: CGSize(width: 640, height: 360),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: layerModelMatrix,
+        effectOutputModelViewProjection: effectOutputModelViewProjection,
         effectTextureProjectionMatrixInverse: effectProjectionInverse
     )
 
@@ -3628,6 +3680,7 @@ private func namedProviderRuntimePurposeTokens(
                         renderSize: CGSize(width: 2, height: 2),
             modelViewProjection: matrix_identity_float4x4,
             layerModelMatrix: matrix_identity_float4x4,
+            effectOutputModelViewProjection: matrix_identity_float4x4,
             effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
             implicitFramebufferIdentity: graphTexture()
         )
@@ -5365,6 +5418,7 @@ private enum Harness {
         }
         let effectModelViewProjectionEncoded =
             [0, 5, 10, 15].enumerated().allSatisfy { index, component in
+                let outputDiagonal: [Float] = [7, 11, 13, 17]
                 let targetScale: Float = switch component {
                 case 0: 1 / 640
                 case 5: 1 / 360
@@ -5373,7 +5427,7 @@ private enum Harness {
                 return abs(float(
                     programA.uniformBytes,
                     at: effectModelViewProjectionField.offset + component * 4
-                ) - expectedForwardDiagonal[index] * targetScale) < 0.000_001
+                ) - outputDiagonal[index] * targetScale) < 0.000_001
             }
         let parallaxField = programA.frontendProgram.uniformLayout.fields.first {
             $0.name == "g_ParallaxPosition"
@@ -5790,11 +5844,23 @@ private enum Harness {
         let sameSlotMappedCoordinate = sameSlotMappedCoordinateTokens(device)
         let mixedSystemNamedProvider = mixedSystemNamedProviderTokens(device)
         let namedProviderRuntimePurpose = namedProviderRuntimePurposeTokens(device)
+        let effectProjectionRequirements = [
+            "modelOnly": effectProjectionRequirementToken(
+                "g_EffectModelViewProjectionMatrix"
+            ),
+            "textureForward": effectProjectionRequirementToken(
+                "g_EffectTextureProjectionMatrix"
+            ),
+            "textureInverse": effectProjectionRequirementToken(
+                "g_EffectTextureProjectionMatrixInverse"
+            ),
+        ]
         let result: [String: Any] = [
             "metalAvailable": true,
             "sameSlotMappedCoordinate": sameSlotMappedCoordinate,
             "mixedSystemNamedProvider": mixedSystemNamedProvider,
             "namedProviderRuntimePurpose": namedProviderRuntimePurpose,
+            "effectProjectionRequirements": effectProjectionRequirements,
             "attenuationEligibilityCases": attenuationEligibility,
             "colorBlendEligibilityCases": colorBlendEligibility,
             "exactCrossStageUniformCases": exactCrossStageUniformCases,
@@ -6192,6 +6258,19 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "prepared": 1,
                 "frontend": 1,
                 "capacity": 0,
+            },
+            self.result,
+        )
+
+    def test_only_texture_projection_consumers_require_an_invertible_matrix(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["effectProjectionRequirements"],
+            {
+                "modelOnly": "unrequired",
+                "textureForward": "required",
+                "textureInverse": "required",
             },
             self.result,
         )

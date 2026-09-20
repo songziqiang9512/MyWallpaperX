@@ -1,5 +1,11 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-20 X-Ray effect-texture projection 与output MVP分权（L3 bounded / S4 directional visible）
+
+作者`g_EffectTextureProjectionMatrixInverse`现在由同一emitted output card的`S(2,2,1) * outputMVP.inverse`形成，使stock X-Ray在作者vertex末尾`*0.5`后恢复centered local；host不增加UV平移或第二次Y翻转，Cursor Ripple/Fluid仍由作者shader自己的`+0.5/Y flip`完成UV约定。`g_EffectTextureProjectionMatrix`保持该inverse的精确倒数，`g_EffectModelViewProjectionMatrix`则从同一个preflight raw output MVP独立编码target-pixel→layer-local，避免X-Ray倍率污染Shine/COPYBG。只有texture forward/inverse consumer要求可逆projection；model-only stage不再执行无关inverse或因其奇异扩大失败域，无projection consumer走identity，required singular仍fail closed。能力沿现役`prepared FrameInputContract → typed frame inputs → MaterialProgram/GraphExecutor → Metal → unique compositor`执行，无第二pointer/geometry/output owner。
+
+真实`2959875782`在`outfit=4`四象限回放中，layers`91/1299/1315`完成named binding，`1299#effect#1308`与`1315#effect#1326`保持genericCompilerArtifact，三层GPU/compositor/next-frame闭合；四张原分辨率截图显示X-Ray局部按左右/上下输入换象限。matrix仍只因既有consumer 79三项失败保持NON-PASS。共享反例`3767343314` Cursor Ripple与`3113287126` Shine/COPYBG均为严格**1/1 PASS / failures=[]**；前者未取得点击/传播/衰减ROI。完整身份、hash与证据上限见[当前运行证据](runtime-evidence-current.md#e-2026-09-20-xray-effect-projection)。本项只到2D/orthographic、固定clip z=0与合成pointer的有界可见结果；真实AppKit鼠标、Puppet screen→atlas、crop/fit/rotation/perspective、previous/button、自动mask中心oracle、固定官方同输入和官方parity仍开放。
+
 ## 2026-09-17 text 接入共享 provider host 合同（S3 executed bounded）
 
 对象 text 现在是共享 wrapper/host 合同的一等 host。`SceneScriptDynamicProviderHostContract` 新增 `objectText`，其准入集合为原三条键集加四键集 `["script","scriptproperties","user","value"]`，并以 `acceptsStringOuterUser` 允许外层 `user` 携带真实用户属性（`user` 为 `NSNull` 的既存分支未改动）；`SceneScriptStringProgram.projection` 改为向该合同查询而不是内联枚举键集，`sceneScriptHostKind` 把 text 字段分类为 `objectText`。修复前真实 `3747492842` 的 layer 191 作者 `text` 包装键为 `["script","scriptproperties","user","value"]`，因此整条脚本没有 owner，且 `text/scriptproperties/*` 下的用户属性绑定全部落入 unsupported：同一运行的 `propertyBindingProgram` 只有 9 条 `scriptInstanceProperty` 且全部落在 `origin`/`angles` 上。

@@ -125,12 +125,12 @@ enum Harness {
             "fullscreenSize": [fullscreen.pixelSize.width, fullscreen.pixelSize.height],
             "fullscreenOutput": matrix(fullscreen.outputMVP),
             "fullscreenCanonicalProjectionInvertible":
-                SceneLayerCursorGeometry.effectProjectionInverse(
+                SceneLayerCursorGeometry.effectTextureProjectionInverse(
                     fullscreenFromSingularLayer.outputMVP,
                     required: true
                 ) != nil,
             "singularCompositionProjectionRejected":
-                SceneLayerCursorGeometry.effectProjectionInverse(
+                SceneLayerCursorGeometry.effectTextureProjectionInverse(
                     compositionFromSingularLayer.outputMVP,
                     required: true
                 ) == nil,

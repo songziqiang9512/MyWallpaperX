@@ -1118,6 +1118,9 @@ extension SceneResolvedMaterialRuntimeBridge.FrameInputs {
         pointerMovement: 0,
         primaryButtonIsDown: false,
         layerModelMatrix: .init(diagonal: .init(repeating: 1)),
+        effectOutputModelViewProjection: .init(
+            diagonal: .init(repeating: 1)
+        ),
         effectTextureProjectionMatrixInverse: .init(
             diagonal: .init(repeating: 1)
         ),
@@ -1139,6 +1142,8 @@ extension SceneResolvedMaterialRuntimeBridge.FrameInputs {
             pointerMovement: pointerMovement,
             primaryButtonIsDown: primaryButtonIsDown,
             layerModelMatrix: layerModelMatrix,
+            effectOutputModelViewProjection:
+                effectOutputModelViewProjection,
             effectTextureProjectionMatrixInverse:
                 effectTextureProjectionMatrixInverse,
             frameTime: frameTime,

@@ -54,7 +54,7 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
                 1
             ))
             return encodeMatrix(
-                inputs.effectTextureProjectionMatrix * targetPixelsToLayer,
+                inputs.effectOutputModelViewProjection * targetPixelsToLayer,
                 type: type
             )
         case .effectTextureProjectionMatrix:

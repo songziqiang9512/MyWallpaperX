@@ -43,6 +43,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
         renderSize: CGSize,
         modelViewProjection: simd_float4x4,
         layerModelMatrix: simd_float4x4,
+        effectOutputModelViewProjection: simd_float4x4,
         effectTextureProjectionMatrixInverse: simd_float4x4,
         implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity? = nil
     ) -> SceneResolvedMaterialFinalizationInput {
@@ -53,6 +54,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
             renderSize: renderSize,
             modelViewProjection: modelViewProjection,
             layerModelMatrix: layerModelMatrix,
+            effectOutputModelViewProjection: effectOutputModelViewProjection,
             effectTextureProjectionMatrixInverse: effectTextureProjectionMatrixInverse,
             implicitFramebufferIdentity: implicitFramebufferIdentity
         )
@@ -115,6 +117,7 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
     let renderSize: CGSize
     let modelViewProjection: simd_float4x4
     let layerModelMatrix: simd_float4x4
+    let effectOutputModelViewProjection: simd_float4x4
     let effectTextureProjectionMatrixInverse: simd_float4x4
     /// Current full-frame graph input for shader samplers that explicitly
     /// declare a `framebuffer` or `previous` material alias without an authored
@@ -138,6 +141,8 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
             screenSize: frameSnapshot.frameInputs.screenSize,
             modelViewProjection: modelViewProjection,
             layerModelMatrix: layerModelMatrix,
+            effectOutputModelViewProjection:
+                effectOutputModelViewProjection,
             effectTextureProjectionMatrix:
                 effectTextureProjectionMatrixInverse.inverse,
             effectTextureProjectionMatrixInverse: effectTextureProjectionMatrixInverse,

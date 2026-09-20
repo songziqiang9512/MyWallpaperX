@@ -362,6 +362,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let dynamicValues: SceneDynamicSnapshot
         let pointerIsInside: Bool
         let layerModelMatrix: simd_float4x4
+        let effectOutputModelViewProjection: simd_float4x4
         let effectTextureProjectionMatrixInverse: simd_float4x4
         let dependencyEffect: SceneDependencyEffectInput?
         // The production frame contract now carries an aggregate vector. The
@@ -380,6 +381,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.dynamicValues = dynamicValues
             self.pointerIsInside = pointerIsInside
             layerModelMatrix = matrix_identity_float4x4
+            effectOutputModelViewProjection = matrix_identity_float4x4
             effectTextureProjectionMatrixInverse = matrix_identity_float4x4
             self.dependencyEffect = dependencyEffect
             self.dependencyUnavailability = dependencyUnavailability
@@ -7810,6 +7812,7 @@ private enum Harness {
                 renderSize: CGSize(width: extent.width, height: extent.height),
                 modelViewProjection: Executor.fullTargetMVP(firstTexture),
                 layerModelMatrix: matrix_identity_float4x4,
+                effectOutputModelViewProjection: matrix_identity_float4x4,
                 effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
                 implicitFramebufferIdentity: input
             )
@@ -7844,6 +7847,7 @@ private enum Harness {
                 renderSize: CGSize(width: extent.width, height: extent.height),
                 modelViewProjection: Executor.fullTargetMVP(firstTexture),
                 layerModelMatrix: matrix_identity_float4x4,
+                effectOutputModelViewProjection: matrix_identity_float4x4,
                 effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
                 implicitFramebufferIdentity: input
             )
