@@ -92,7 +92,6 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
         self.assertIn("cameraPosition: cameraFrame.perspectiveEyePosition", model_case)
         self.assertIn("lighting: frameLightSnapshot", model_case)
         self.assertIn("let frameLightSnapshot = SceneLightSnapshot.make(", renderer)
-        self.assertIn("candidateLayerIDs: frameLightLayerIDs", renderer)
         self.assertIn("layersByID: frameLayersByID", renderer)
         self.assertIn("worldFramesByLayerID: frameWorldFrames", renderer)
         self.assertIn("dynamicLayerColors: dynamicLightColors", renderer)

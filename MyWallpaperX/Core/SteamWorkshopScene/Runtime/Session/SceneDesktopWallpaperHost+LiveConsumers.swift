@@ -199,6 +199,9 @@ extension SceneDesktopWallpaperHost {
         )
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let effectTargets = resolvedMaterialExecutionCapabilities.liveConsumerTargets
+        let lightTargets = SceneLightSnapshot.liveConsumerTargets(
+            descriptor: descriptor
+        )
         let hasOrthographicCamera = descriptor.camera.orthoWidth.map {
             $0.isFinite && $0 > 0
         } == true && descriptor.camera.orthoHeight.map {
@@ -240,6 +243,7 @@ extension SceneDesktopWallpaperHost {
         return descriptor.layers.reduce(
             into: effectTargets
                 .union(cameraTargets)
+                .union(lightTargets)
                 .union(layerVisibilityTargets)
                 .union(modelMaterialTargets)
                 .union(soundPlaybackProgram.liveConsumerTargets)
@@ -277,10 +281,6 @@ extension SceneDesktopWallpaperHost {
             case "solid":
                 targets.insert(.layer(layerID: layer.id, field: .alpha))
                 targets.insert(.layer(layerID: layer.id, field: .color))
-            case "spotLight", "directionalLight":
-                if visibleLayerIDs.contains(layer.id) {
-                    targets.insert(.layer(layerID: layer.id, field: .color))
-                }
             case "particle":
                 let fields: [SceneDynamicParticleField] = [
                     .alpha, .size, .lifetime, .rate, .speed, .count,

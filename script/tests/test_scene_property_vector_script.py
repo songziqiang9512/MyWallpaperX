@@ -288,6 +288,7 @@ struct SceneRenderDescriptor {
         var colorRGB: [Float]? = nil
         var spotLight: Bool? = nil
         var directionalLight: Bool? = nil
+        var authoredLightIntensity: Float? { nil }
         let scaleHasScript: Bool?
         let alpha: Double?
         let effects: [EffectDescriptor]

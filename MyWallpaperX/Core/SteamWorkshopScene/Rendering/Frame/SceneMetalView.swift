@@ -98,6 +98,8 @@ class SceneMetalView: NSView {
         renderDescriptor: SceneRenderDescriptor, effectAdmissionCatalog: SceneEffectAdmissionCatalog,
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
         staticModelResources: ScenePreparedStaticModelResources = .empty,
+        instantiatedSceneScriptTargets: Set<SceneDynamicTarget> = [],
+        scriptSourceEvidence: [SceneScriptSourceEvidenceIR] = [],
         pipelineRepository: SceneImageEffectPipelineRepository,
         imageLayerPipeline: SceneImageLayerPipeline,
         resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge,
@@ -119,6 +121,8 @@ class SceneMetalView: NSView {
             effectAdmissionCatalog: effectAdmissionCatalog,
             baseMaterialProviderBindings: baseMaterialProviderBindings,
             staticModelResources: staticModelResources,
+            instantiatedSceneScriptTargets: instantiatedSceneScriptTargets,
+            scriptSourceEvidence: scriptSourceEvidence,
             pipelineRepository: pipelineRepository, resolvedMaterialRuntime: resolvedMaterialRuntime
         ) else { return nil }
         metalDevice = renderer.device

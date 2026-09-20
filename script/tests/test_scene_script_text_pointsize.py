@@ -168,6 +168,7 @@ struct SceneRenderDescriptor {
         let alpha: Double?
         let effects: [EffectDescriptor]
         let contentKind: String
+        let authoredLightIntensity: Float?
         let particleInstanceOverride: SceneParticleInstanceOverride?
         let text: String?
         let textStyle: TextStyle?
@@ -330,6 +331,41 @@ enum Harness {
             unsupportedTextFieldRejected = true
         }
 
+        let lightDescriptor = Self.lightDescriptor(intensity: 6)
+        let lightDomain = try SceneScriptQuickJSDomain()
+        try lightDomain.configureLayerCatalog(lightDescriptor)
+        let lightTarget = SceneDynamicTarget.layer(
+            layerID: 88, field: .intensity
+        )
+        let lightProgram = SceneScriptScalarProgram.compile(
+            domain: lightDomain,
+            descriptor: lightDescriptor,
+            scriptBindings: [lightBinding(source: lightSource)],
+            generation: 12
+        )
+        let lightResult = lightProgram.evaluate(
+            inputs: [lightTarget: .scalar(6)], frame: frame
+        )
+        let invalidLightDomain = try SceneScriptQuickJSDomain()
+        try invalidLightDomain.configureLayerCatalog(lightDescriptor)
+        let invalidLightProgram = SceneScriptScalarProgram.compile(
+            domain: invalidLightDomain,
+            descriptor: lightDescriptor,
+            scriptBindings: [lightBinding(source: invalidLightSource)],
+            generation: 13
+        )
+        let invalidLightResult = invalidLightProgram.evaluate(
+            inputs: [lightTarget: .scalar(6)], frame: frame
+        )
+        let nonLightIntensity = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [binding(
+                source: lightSource, value: 48, targetKey: "intensity"
+            )],
+            generation: 14
+        )
+
         let payload: [String: Any] = [
             "bindings": program.bindings.count,
             "value": scalar(result.values[target]),
@@ -357,6 +393,16 @@ enum Harness {
             "highCode": high.failures[target]?.code ?? "",
             "highValue": scalar(high.values[target]),
             "unsupportedTextFieldRejected": unsupportedTextFieldRejected,
+            "lightBindings": lightProgram.bindings.count,
+            "lightValue": scalar(lightResult.values[lightTarget]),
+            "lightProjected": SceneScriptScalarProgram.projectedTargets(
+                descriptor: lightDescriptor,
+                scriptBindings: [lightBinding(source: lightSource)]
+            ) == [lightTarget],
+            "invalidLightCode":
+                invalidLightResult.failures[lightTarget]?.code ?? "",
+            "invalidLightPublished": invalidLightResult.values[lightTarget] != nil,
+            "nonLightIntensityRejected": nonLightIntensity.bindings.isEmpty,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -403,6 +449,7 @@ enum Harness {
             alpha: 1,
             effects: [],
             contentKind: "text",
+            authoredLightIntensity: nil,
             particleInstanceOverride: nil,
             text: "12:00",
             textStyle: .init(
@@ -411,6 +458,46 @@ enum Harness {
                 pointSize: pointSize
             )
         )])
+    }
+
+    static func lightDescriptor(intensity: Float) -> SceneRenderDescriptor {
+        .init(layers: [.init(
+            id: 88,
+            layerIndex: 0,
+            name: "Point",
+            visible: true,
+            originXYZ: [0, 0, 0],
+            scaleXYZ: [1, 1, 1],
+            anglesXYZ: [0, 0, 0],
+            colorRGB: [1, 1, 1],
+            alpha: 1,
+            effects: [],
+            contentKind: "pointLight",
+            authoredLightIntensity: intensity,
+            particleInstanceOverride: nil,
+            text: nil,
+            textStyle: nil
+        )])
+    }
+
+    static func lightBinding(source: String) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .object,
+                objectIndex: 0,
+                objectID: 88,
+                effectIndex: nil,
+                effectID: nil,
+                passIndex: nil,
+                passID: nil
+            ),
+            targetPath: [.key("objects"), .index(0), .key("intensity")],
+            properties: ["gain": .number(0.5)],
+            authoredValue: .number(6),
+            valueType: .number,
+            wrapperKeys: ["script", "scriptproperties", "value"]
+        )
     }
 
     static func binding(
@@ -456,6 +543,22 @@ enum Harness {
 
     static let highSource = """
     export function update(value) { return 1025; }
+    """
+
+    static let lightSource = """
+    export var scriptProperties = createScriptProperties()
+        .addSlider({name: 'gain', label: 'Gain', value: 0.5,
+                    min: 0, max: 1, integer: false})
+        .finish();
+    export function update(value) { return value * scriptProperties.gain; }
+    """
+
+    static let invalidLightSource = """
+    export var scriptProperties = createScriptProperties()
+        .addSlider({name: 'gain', label: 'Gain', value: 0.5,
+                    min: 0, max: 1, integer: false})
+        .finish();
+    export function update(value) { return -1; }
     """
 }
 '''
@@ -579,6 +682,12 @@ class SceneScriptTextPointSizeTests(unittest.TestCase):
         self.assertEqual(result["highCode"], "")
         self.assertEqual(result["highValue"], 1025)
         self.assertTrue(result["unsupportedTextFieldRejected"])
+        self.assertEqual(result["lightBindings"], 1)
+        self.assertEqual(result["lightValue"], 3)
+        self.assertTrue(result["lightProjected"])
+        self.assertEqual(result["invalidLightCode"], "bad-return")
+        self.assertFalse(result["invalidLightPublished"])
+        self.assertTrue(result["nonLightIntensityRejected"])
 
 
 if __name__ == "__main__":

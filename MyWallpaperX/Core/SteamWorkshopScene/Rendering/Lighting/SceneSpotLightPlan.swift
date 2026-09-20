@@ -15,18 +15,25 @@ nonisolated struct SceneSpotLightPlan {
     let baseAngles: SIMD3<Float>
     let angleAnimation: SceneTimelineAnimation
 
-    nonisolated init?(layer: SceneRenderDescriptor.Layer) {
+    nonisolated init?(
+        layer: SceneRenderDescriptor.Layer,
+        instantiatedSceneScriptTargets: Set<SceneDynamicTarget> = [],
+        scriptSourceEvidence: [SceneScriptSourceEvidenceIR] = []
+    ) {
         guard layer.contentKind == "spotLight",
               let light = layer.spotLight,
               light.kind == "lspot",
               light.castsVolumetrics == true,
               light.isSolid == true,
-              layer.visible != false,
               layer.parentID == nil,
               layer.childLayerIDs.isEmpty,
               layer.dependencyLayerIDs.isEmpty,
               layer.effects.isEmpty,
-              !layer.hasInlineScript,
+              Self.supportsInlineScripts(
+                  layer,
+                  instantiatedTargets: instantiatedSceneScriptTargets,
+                  sourceEvidence: scriptSourceEvidence
+              ),
               let colorValues = light.colorRGB,
               colorValues.count == 3,
               colorValues.allSatisfy({ (0...1).contains($0) }),
@@ -58,6 +65,40 @@ nonisolated struct SceneSpotLightPlan {
         self.volumetricsExponent = volumetricsExponent
         baseAngles = SIMD3(angleValues[0], angleValues[1], angleValues[2])
         angleAnimation = timeline.animation
+    }
+
+    /// The standalone cone consumes these live fields from the same typed
+    /// frame snapshot as model lighting. Other inline hosts still reject the
+    /// bounded plan instead of silently freezing an authored fallback.
+    private nonisolated static func supportsInlineScripts(
+        _ layer: SceneRenderDescriptor.Layer,
+        instantiatedTargets: Set<SceneDynamicTarget>,
+        sourceEvidence: [SceneScriptSourceEvidenceIR]
+    ) -> Bool {
+        let layerEvidence = sourceEvidence.filter {
+            $0.owner.objectID == layer.id
+        }
+        guard layer.hasInlineScript else { return layerEvidence.isEmpty }
+
+        // The instantiated scalar program is the producer authority. Source
+        // evidence is independently exhaustive, so a bounded cone is admitted
+        // only when that authority covers the layer's sole authored script and
+        // the script is the exact top-level lowercase intensity wrapper.
+        let intensityTarget = SceneDynamicTarget.layer(
+            layerID: layer.id, field: .intensity
+        )
+        guard instantiatedTargets.contains(intensityTarget),
+              layerEvidence.count == 1,
+              let evidence = layerEvidence.first,
+              evidence.owner.kind == .object,
+              evidence.owner.objectIndex == layer.layerIndex,
+              evidence.targetPath == [
+                  .key("objects"), .index(layer.layerIndex),
+                  .key("intensity"),
+              ] else {
+            return false
+        }
+        return true
     }
 
     nonisolated func authoredAngle(at sceneTime: Double) -> Float? {

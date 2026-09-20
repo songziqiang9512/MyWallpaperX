@@ -167,6 +167,27 @@ enum Harness {
             if case .layerScale(layerID: 11) = binding.target { return true }
             return false
         }
+        let lightIntensityTargetClassified = SceneUserPropertyBindingParser().parse(
+            root: [
+                "objects": [[
+                    "id": 12,
+                    "light": "lpoint",
+                    "intensity": ["user": "size", "value": 0.5],
+                ]],
+            ]
+        ).bindings.contains { binding in
+            if case .lightIntensity(layerID: 12) = binding.target { return true }
+            return false
+        }
+        let nonLightIntensityRejected = SceneUserPropertyBindingParser().parse(
+            root: [
+                "objects": [[
+                    "id": 13,
+                    "image": "models/user/a.json",
+                    "intensity": ["user": "size", "value": 0.5],
+                ]],
+            ]
+        ).bindings.allSatisfy(\.target.isUnsupported)
         return [
             "definitionCount": catalog.definitions.count,
             "definitionKinds": kinds,
@@ -212,6 +233,8 @@ enum Harness {
                     overBudgetProvider
                 ) == nil,
             "scaleTargetClassified": scaleTargetClassified,
+            "lightIntensityTargetClassified": lightIntensityTargetClassified,
+            "nonLightIntensityRejected": nonLightIntensityRejected,
             "shaderStrength": wrapperValue(shaderValues, key: "strength"),
             "layerAlpha": wrapperValue(object, key: "alpha"),
             "particleCount": wrapperValue(particleOverride, key: "count"),
@@ -298,6 +321,7 @@ enum Harness {
         case .layerAlpha: "layerAlpha"
         case .layerScale: "layerScale"
         case .layerColor: "layerColor"
+        case .lightIntensity: "lightIntensity"
         case .effectVisibility: "effectVisibility"
         case .camera: "camera"
         case .text: "text"
@@ -461,6 +485,8 @@ class SceneUserPropertyTests(unittest.TestCase):
         self.assertEqual(result["nestedProviderFallback"], 0.6)
         self.assertTrue(result["overBudgetProviderRejected"])
         self.assertTrue(result["scaleTargetClassified"])
+        self.assertTrue(result["lightIntensityTargetClassified"])
+        self.assertTrue(result["nonLightIntensityRejected"])
         self.assertEqual(result["unsupportedNestedDirect"], "Hello")
         self.assertEqual(result["missingFallback"], 0.25)
         self.assertEqual(result["unsupportedConditionalFallback"], 0.2)

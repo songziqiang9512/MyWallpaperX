@@ -40,6 +40,7 @@ struct SceneLightSnapshot {
         descriptor: SceneRenderDescriptor,
         worldFramesByLayerID: [Int: simd_float4x4],
         dynamicLayerColors: [Int: SIMD3<Float>] = [:],
+        dynamicSnapshot: SceneDynamicSnapshot? = nil,
         candidateLayerIDs: [Int]? = nil,
         layersByID: [Int: SceneRenderDescriptor.Layer]? = nil,
         visibleLayerIDs: Set<Int>? = nil
@@ -64,8 +65,16 @@ struct SceneLightSnapshot {
                     ?? (layer.visible != false) else { continue }
             guard let frame = worldFramesByLayerID[layer.id] else { continue }
             let dynamicColor = dynamicLayerColors[layer.id]
+            let intensity = dynamicSnapshot.flatMap {
+                SceneDynamicLayerValues.lightIntensity(
+                    layerID: layer.id,
+                    authoredValue: authoredIntensity(layer),
+                    snapshot: $0
+                )
+            } ?? authoredIntensity(layer)
             if let light = directional(
-                layer: layer, frame: frame, dynamicColor: dynamicColor
+                layer: layer, frame: frame, dynamicColor: dynamicColor,
+                intensity: intensity
             ) {
                 if acceptedCount < maximumLightCount {
                     directionalLights.append(light)
@@ -74,7 +83,8 @@ struct SceneLightSnapshot {
                     overflowCount += 1
                 }
             } else if let light = point(
-                layer: layer, frame: frame, dynamicColor: dynamicColor
+                layer: layer, frame: frame, dynamicColor: dynamicColor,
+                intensity: intensity
             ) {
                 if acceptedCount < maximumLightCount {
                     pointLights.append(light)
@@ -83,7 +93,8 @@ struct SceneLightSnapshot {
                     overflowCount += 1
                 }
             } else if let light = spot(
-                layer: layer, frame: frame, dynamicColor: dynamicColor
+                layer: layer, frame: frame, dynamicColor: dynamicColor,
+                intensity: intensity
             ) {
                 if acceptedCount < maximumLightCount {
                     spotLights.append(light)
@@ -121,10 +132,34 @@ struct SceneLightSnapshot {
         }
     }
 
+    /// Declares launch-stable typed inputs for every authored light candidate.
+    /// Frame visibility remains the snapshot consumer's authority, but it may
+    /// change through a typed producer after launch. Reserving the candidate
+    /// set here prevents authored-hidden lights or hidden parent chains from
+    /// losing their color/intensity lanes when they later become visible.
+    static func liveConsumerTargets(
+        descriptor: SceneRenderDescriptor
+    ) -> Set<SceneDynamicTarget> {
+        let layersByID = Dictionary(
+            uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) }
+        )
+        return orderedLightLayerIDs(
+            descriptor: descriptor,
+            layersByID: layersByID
+        ).reduce(into: Set<SceneDynamicTarget>()) { targets, layerID in
+            guard let layer = layersByID[layerID] else { return }
+            targets.insert(.layer(layerID: layerID, field: .color))
+            if authoredIntensity(layer) != nil {
+                targets.insert(.layer(layerID: layerID, field: .intensity))
+            }
+        }
+    }
+
     private static func directional(
         layer: SceneRenderDescriptor.Layer,
         frame: simd_float4x4,
-        dynamicColor: SIMD3<Float>?
+        dynamicColor: SIMD3<Float>?,
+        intensity: Float?
     ) -> Directional? {
         guard let definition = layer.directionalLight,
               let direction = normalized(SIMD3(
@@ -132,7 +167,7 @@ struct SceneLightSnapshot {
                   frame.columns.2.y,
                   frame.columns.2.z
               )),
-              let intensity = definition.intensity,
+              let intensity,
               intensity.isFinite, intensity >= 0 else { return nil }
         return Directional(
             directionTowardLight: direction,
@@ -142,13 +177,22 @@ struct SceneLightSnapshot {
         )
     }
 
+    private static func authoredIntensity(
+        _ layer: SceneRenderDescriptor.Layer
+    ) -> Float? {
+        layer.pointLight?.intensity
+            ?? layer.spotLight?.intensity
+            ?? layer.directionalLight?.intensity
+    }
+
     private static func point(
         layer: SceneRenderDescriptor.Layer,
         frame: simd_float4x4,
-        dynamicColor: SIMD3<Float>?
+        dynamicColor: SIMD3<Float>?,
+        intensity: Float?
     ) -> Point? {
         guard let definition = layer.pointLight,
-              let intensity = definition.intensity,
+              let intensity,
               let radius = definition.radius,
               intensity.isFinite, intensity >= 0,
               radius.isFinite, radius > 0,
@@ -165,7 +209,8 @@ struct SceneLightSnapshot {
     private static func spot(
         layer: SceneRenderDescriptor.Layer,
         frame: simd_float4x4,
-        dynamicColor: SIMD3<Float>?
+        dynamicColor: SIMD3<Float>?,
+        intensity: Float?
     ) -> Spot? {
         guard let definition = layer.spotLight,
               let direction = normalized(-SIMD3(
@@ -173,7 +218,7 @@ struct SceneLightSnapshot {
                   frame.columns.2.y,
                   frame.columns.2.z
               )),
-              let intensity = definition.intensity,
+              let intensity,
               let radius = definition.radius,
               let innerCone = definition.innerConeDegrees,
               let outerCone = definition.outerConeDegrees,

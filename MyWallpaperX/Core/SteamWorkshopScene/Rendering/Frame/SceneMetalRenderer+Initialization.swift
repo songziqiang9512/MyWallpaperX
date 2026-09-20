@@ -9,6 +9,8 @@ extension SceneMetalRenderer {
         effectAdmissionCatalog: SceneEffectAdmissionCatalog,
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
         staticModelResources: ScenePreparedStaticModelResources = .empty,
+        instantiatedSceneScriptTargets: Set<SceneDynamicTarget> = [],
+        scriptSourceEvidence: [SceneScriptSourceEvidenceIR] = [],
         pipelineRepository: SceneImageEffectPipelineRepository,
         resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge? = nil
     ) {
@@ -31,6 +33,8 @@ extension SceneMetalRenderer {
         self.effectAdmissionCatalog = effectAdmissionCatalog
         self.spotLightRuntime = SceneSpotLightRuntime(
             descriptor: renderDescriptor,
+            instantiatedSceneScriptTargets: instantiatedSceneScriptTargets,
+            scriptSourceEvidence: scriptSourceEvidence,
             pipeline: pipelineRepository.spotLight()
         )
         let resolvedMaterialLayerIDs = resolvedMaterialRuntime?.executionLayerIDs ?? []

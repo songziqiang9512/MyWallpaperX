@@ -96,6 +96,8 @@ extension ScenePropertyBindingCompiler {
             )
         case let .layerColor(layerID):
             (.layer(layerID: layerID, field: .color), .vector3, .color)
+        case let .lightIntensity(layerID):
+            (.layer(layerID: layerID, field: .intensity), .scalar, .slider)
         case let .text(layerID, field):
             switch field {
             case .content:

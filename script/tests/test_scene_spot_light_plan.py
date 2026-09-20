@@ -34,6 +34,7 @@ enum SceneDocument {
 struct SceneRenderDescriptor {
     struct Layer {
         let id: Int
+        let layerIndex: Int
         let contentKind: String
         let spotLight: SceneSpotLightDefinition?
         let visible: Bool?
@@ -45,6 +46,31 @@ struct SceneRenderDescriptor {
         let anglesXYZ: [Float]?
         let timelines: [SceneDocument.SceneObjectTimeline]
     }
+}
+
+enum SceneDynamicLayerField: Hashable {
+    case intensity
+}
+
+enum SceneDynamicTarget: Hashable {
+    case layer(layerID: Int, field: SceneDynamicLayerField)
+}
+
+enum SceneScriptBindingPathComponent: Equatable {
+    case key(String)
+    case index(Int)
+}
+
+struct SceneScriptBindingOwner {
+    enum Kind { case object, effect }
+    let kind: Kind
+    let objectIndex: Int?
+    let objectID: Int?
+}
+
+struct SceneScriptSourceEvidenceIR {
+    let owner: SceneScriptBindingOwner
+    let targetPath: [SceneScriptBindingPathComponent]
 }
 
 @main
@@ -110,20 +136,48 @@ enum Harness {
         id: Int,
         light: SceneSpotLightDefinition? = definition(),
         animation: SceneTimelineAnimation = animation(),
-        hasInlineScript: Bool = false
+        visible: Bool = true,
+        scriptHost: String? = nil
     ) -> SceneRenderDescriptor.Layer {
         .init(
             id: id,
+            layerIndex: 0,
             contentKind: "spotLight",
             spotLight: light,
-            visible: true,
+            visible: visible,
             parentID: nil,
             childLayerIDs: [],
             dependencyLayerIDs: [],
             effects: [],
-            hasInlineScript: hasInlineScript,
+            hasInlineScript: scriptHost != nil,
             anglesXYZ: [0, 0, 2.35619],
             timelines: [.init(host: .angles, animation: animation)]
+        )
+    }
+
+    static func sourceEvidence(
+        id: Int,
+        host: String
+    ) -> SceneScriptSourceEvidenceIR {
+        .init(
+            owner: .init(kind: .object, objectIndex: 0, objectID: id),
+            targetPath: [.key("objects"), .index(0), .key(host)]
+        )
+    }
+
+    static func scriptedPlan(
+        id: Int,
+        host: String,
+        instantiatedTargets: Set<SceneDynamicTarget>? = nil,
+        extraEvidence: [SceneScriptSourceEvidenceIR] = []
+    ) -> SceneSpotLightPlan? {
+        SceneSpotLightPlan(
+            layer: layer(id: id, scriptHost: host),
+            instantiatedSceneScriptTargets: instantiatedTargets ?? [
+                .layer(layerID: id, field: .intensity),
+            ],
+            scriptSourceEvidence: [sourceEvidence(id: id, host: host)]
+                + extraEvidence
         )
     }
 
@@ -164,9 +218,64 @@ enum Harness {
             "wideConeRejected": SceneSpotLightPlan(
                 layer: layer(id: 1, light: definition(outerCone: 20))
             ) == nil,
-            "scriptRejected": SceneSpotLightPlan(
-                layer: layer(id: 1, hasInlineScript: true)
+            "supportedIntensityScriptAccepted": SceneSpotLightPlan(
+                layer: layer(id: 1, scriptHost: "intensity"),
+                instantiatedSceneScriptTargets: [
+                    .layer(layerID: 1, field: .intensity),
+                ],
+                scriptSourceEvidence: [sourceEvidence(id: 1, host: "intensity")]
+            ) != nil,
+            "caseVariantRejected": scriptedPlan(id: 2, host: "Intensity") == nil,
+            "nestedScriptRejected": scriptedPlan(
+                id: 3,
+                host: "intensity",
+                extraEvidence: [
+                    .init(
+                        owner: .init(
+                            kind: .object,
+                            objectIndex: 0,
+                            objectID: 3
+                        ),
+                        targetPath: [
+                            .key("objects"), .index(0), .key("light"),
+                            .key("nested"),
+                        ]
+                    ),
+                ]
             ) == nil,
+            "uninstantiatedIntensityRejected": scriptedPlan(
+                id: 7,
+                host: "intensity",
+                instantiatedTargets: []
+            ) == nil,
+            "otherLayerTargetRejected": scriptedPlan(
+                id: 8,
+                host: "intensity",
+                instantiatedTargets: [
+                    .layer(layerID: 999, field: .intensity),
+                ]
+            ) == nil,
+            "evidenceWithoutInlineMarkerRejected": SceneSpotLightPlan(
+                layer: layer(id: 9),
+                instantiatedSceneScriptTargets: [
+                    .layer(layerID: 9, field: .intensity),
+                ],
+                scriptSourceEvidence: [
+                    sourceEvidence(id: 9, host: "intensity"),
+                ]
+            ) == nil,
+            "unwiredColorScriptRejected": scriptedPlan(
+                id: 4, host: "color"
+            ) == nil,
+            "unwiredVisibilityScriptRejected": scriptedPlan(
+                id: 5, host: "visible"
+            ) == nil,
+            "unsupportedScriptRejected": scriptedPlan(
+                id: 6, host: "radius"
+            ) == nil,
+            "authoredHiddenAccepted": SceneSpotLightPlan(
+                layer: layer(id: 1, visible: false)
+            ) != nil,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -197,7 +306,16 @@ class SceneSpotLightPlanTests(unittest.TestCase):
         self.assertTrue(result["loopRejected"], result)
         self.assertTrue(result["absoluteRejected"], result)
         self.assertTrue(result["wideConeRejected"], result)
-        self.assertTrue(result["scriptRejected"], result)
+        self.assertTrue(result["supportedIntensityScriptAccepted"], result)
+        self.assertTrue(result["caseVariantRejected"], result)
+        self.assertTrue(result["nestedScriptRejected"], result)
+        self.assertTrue(result["uninstantiatedIntensityRejected"], result)
+        self.assertTrue(result["otherLayerTargetRejected"], result)
+        self.assertTrue(result["evidenceWithoutInlineMarkerRejected"], result)
+        self.assertTrue(result["unwiredColorScriptRejected"], result)
+        self.assertTrue(result["unwiredVisibilityScriptRejected"], result)
+        self.assertTrue(result["unsupportedScriptRejected"], result)
+        self.assertTrue(result["authoredHiddenAccepted"], result)
         angles = result["mirrorAngles"]
         self.assertEqual(len(angles), 5, result)
         self.assertAlmostEqual(angles[0], angles[4], places=4)

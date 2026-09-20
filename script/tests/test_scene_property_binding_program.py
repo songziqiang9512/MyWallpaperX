@@ -950,6 +950,42 @@ enum Harness {
         let layerScaleOutOfDomain = layerScale.program.evaluate(
             effectiveValues: ["layerScale": .number(2.1)]
         )
+        let lightIntensityTarget = SceneDynamicTarget.layer(
+            layerID: 24,
+            field: .intensity
+        )
+        let lightIntensity = compiler.compile(
+            report: .init(bindings: [binding(
+                "lightIntensity",
+                .number(0.5),
+                24,
+                .lightIntensity(layerID: 24)
+            )], diagnostics: []),
+            catalog: .init(definitions: [property(
+                "lightIntensity",
+                .slider,
+                .number(0.5),
+                minimumValue: -1,
+                maximumValue: 1
+            )])
+        )
+        let lightIntensityAuthored = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 15,
+            generation: 15,
+            definitions: lightIntensity.program.definitions
+        ).snapshot
+        let lightIntensityEvaluation = lightIntensity.program.evaluate(
+            effectiveValues: ["lightIntensity": .number(0.25)]
+        )
+        let lightIntensityUser = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 16,
+            generation: 16,
+            definitions: lightIntensity.program.definitions,
+            userValues: lightIntensityEvaluation.userValues
+        ).snapshot
+        let negativeLightIntensity = lightIntensity.program.evaluate(
+            effectiveValues: ["lightIntensity": .number(-0.5)]
+        )
         let nonUniformLayerScale = compiler.compile(
             report: .init(bindings: [binding(
                 "layerScale",
@@ -1236,6 +1272,16 @@ enum Harness {
                 layerScaleOutOfDomain.userValues[layerScaleTarget] == nil,
             "layerScaleOutOfDomainCodes":
                 codes(layerScaleOutOfDomain.diagnostics),
+            "lightIntensityCount": lightIntensity.program.instructions.count,
+            "lightIntensityCodes": codes(lightIntensity.diagnostics),
+            "lightIntensityAuthored":
+                resolved(lightIntensityAuthored[lightIntensityTarget]),
+            "lightIntensityUser":
+                resolved(lightIntensityUser[lightIntensityTarget]),
+            "lightIntensityNegativeMissing":
+                negativeLightIntensity.userValues[lightIntensityTarget] == nil,
+            "lightIntensityNegativeCodes":
+                codes(negativeLightIntensity.diagnostics),
             "nonUniformLayerScaleCount":
                 nonUniformLayerScale.program.instructions.count,
             "nonUniformLayerScaleCodes": codes(nonUniformLayerScale.diagnostics),
@@ -1612,6 +1658,23 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
         self.assertEqual(
             self.result["nonUniformLayerScaleCodes"],
             ["invalidAuthoredValue"],
+        )
+
+    def test_light_intensity_uses_the_shared_scalar_snapshot(self) -> None:
+        self.assertEqual(self.result["lightIntensityCount"], 1)
+        self.assertEqual(self.result["lightIntensityCodes"], [])
+        self.assertEqual(
+            self.result["lightIntensityAuthored"],
+            ["scalar(0.5)", "authored"],
+        )
+        self.assertEqual(
+            self.result["lightIntensityUser"],
+            ["scalar(0.25)", "userProperty"],
+        )
+        self.assertTrue(self.result["lightIntensityNegativeMissing"])
+        self.assertEqual(
+            self.result["lightIntensityNegativeCodes"],
+            ["invalidRuntimeValue"],
         )
 
     def test_direct_local_contrast_strength_compiles_as_scalar_target(self) -> None:

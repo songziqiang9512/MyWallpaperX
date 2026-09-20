@@ -107,12 +107,19 @@ final class SceneSpotLightPipeline {
 
     func draw(
         plan: SceneSpotLightPlan,
+        color: SIMD3<Float>,
+        intensity: Float,
         worldOrigin: SIMD2<Float>,
         viewProjection: simd_float4x4,
         sceneTime: Double,
         encoder: MTLRenderCommandEncoder
     ) -> Bool {
-        guard worldOrigin.x.isFinite,
+        guard color.x.isFinite, color.y.isFinite, color.z.isFinite,
+              (0...1).contains(color.x),
+              (0...1).contains(color.y),
+              (0...1).contains(color.z),
+              intensity.isFinite, intensity >= 0,
+              worldOrigin.x.isFinite,
               worldOrigin.y.isFinite,
               viewProjection.columns.0.allFinite,
               viewProjection.columns.1.allFinite,
@@ -138,12 +145,12 @@ final class SceneSpotLightPipeline {
         var vertices = Self.vertices
         var mvp = viewProjection * model
         var uniforms = Uniforms(
-            color: SIMD4(plan.color, 1),
+            color: SIMD4(color, 1),
             innerRatio: innerHalfWidth / supportHalfWidth,
             density: plan.density,
             exponent: plan.exponent,
             volumetricsExponent: plan.volumetricsExponent,
-            intensity: plan.intensity
+            intensity: intensity
         )
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
         encoder.setRenderPipelineState(state)

@@ -70,6 +70,8 @@ enum Harness {
         pipeline: SceneSpotLightPipeline,
         plan: SceneSpotLightPlan,
         time: Double,
+        color: SIMD3<Float>? = nil,
+        intensity: Float? = nil,
         origin: SIMD2<Float> = SIMD2(-0.55, 0.82),
         background: Float = 0
     ) -> (accepted: Bool, bytes: [UInt8]) {
@@ -93,6 +95,8 @@ enum Harness {
         let encoder = command.makeRenderCommandEncoder(descriptor: pass)!
         let accepted = pipeline.draw(
             plan: plan,
+            color: color ?? plan.color,
+            intensity: intensity ?? plan.intensity,
             worldOrigin: origin,
             viewProjection: matrix_identity_float4x4,
             sceneTime: time,
@@ -137,6 +141,22 @@ enum Harness {
             plan: plan(outerDegrees: 2.91),
             time: 0
         )
+        let zeroIntensity = render(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            plan: plan(),
+            time: 0,
+            intensity: 0
+        )
+        let dynamicColor = render(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            plan: plan(),
+            time: 0,
+            color: SIMD3(1, 0, 0)
+        )
         let invalid = render(
             device: device,
             queue: queue,
@@ -144,6 +164,14 @@ enum Harness {
             plan: plan(),
             time: 0,
             origin: SIMD2(.nan, 0)
+        )
+        let invalidIntensity = render(
+            device: device,
+            queue: queue,
+            pipeline: pipeline,
+            plan: plan(),
+            time: 0,
+            intensity: .nan
         )
         let brightBackground = render(
             device: device,
@@ -169,6 +197,7 @@ enum Harness {
             "metalUnavailable": false,
             "accepted": first.accepted && second.accepted && narrow.accepted,
             "invalidRejected": !invalid.accepted,
+            "invalidIntensityRejected": !invalidIntensity.accepted,
             "visiblePixels": visibleOffsets.count,
             "premultiplied": premultiplied,
             "semiTransparent": (alphaValues.max() ?? 255) < 128,
@@ -185,6 +214,11 @@ enum Harness {
                 > alphaTotal(first.bytes, rows: (height * 3 / 4)..<height),
             "timelineMovesBeam": first.bytes != second.bytes,
             "outerConeChangesWidth": first.bytes != narrow.bytes,
+            "zeroIntensityClearsCone": zeroIntensity.accepted
+                && !stride(from: 0, to: zeroIntensity.bytes.count, by: 4)
+                    .contains { zeroIntensity.bytes[$0 + 3] > 0 },
+            "dynamicColorChangesCone": dynamicColor.accepted
+                && dynamicColor.bytes != first.bytes,
             "authoredBlue": blue > green,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -215,6 +249,7 @@ class SceneSpotLightRenderingTests(unittest.TestCase):
             self.skipTest("Metal is unavailable")
         self.assertTrue(result["accepted"], result)
         self.assertTrue(result["invalidRejected"], result)
+        self.assertTrue(result["invalidIntensityRejected"], result)
         self.assertGreater(result["visiblePixels"], 30, result)
         self.assertTrue(result["premultiplied"], result)
         self.assertTrue(result["semiTransparent"], result)
@@ -224,6 +259,8 @@ class SceneSpotLightRenderingTests(unittest.TestCase):
         self.assertTrue(result["projectsUpward"], result)
         self.assertTrue(result["timelineMovesBeam"], result)
         self.assertTrue(result["outerConeChangesWidth"], result)
+        self.assertTrue(result["zeroIntensityClearsCone"], result)
+        self.assertTrue(result["dynamicColorChangesCone"], result)
         self.assertTrue(result["authoredBlue"], result)
 
 

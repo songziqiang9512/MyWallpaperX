@@ -258,6 +258,10 @@ extension SteamWorkshopService {
             return renderDescriptor.layers.contains {
                 $0.id == layerID && $0.supportsDirectLayerColorConsumer
             }
+        case let .lightIntensity(layerID):
+            return renderDescriptor.layers.contains {
+                $0.id == layerID && $0.authoredLightIntensity != nil
+            }
         case let .camera(field):
             let normalizedField = field.localizedLowercase
             if [

@@ -106,12 +106,25 @@ nonisolated enum SceneDynamicSceneField: String, Codable, Equatable, Hashable, S
 nonisolated enum SceneDynamicLayerField: String, Codable, Equatable, Hashable, Sendable {
     case visibility
     case alpha
+    case intensity
     case origin
     case size
     case scale
     case angles
     case color
     case volume
+}
+
+private extension SceneDynamicLayerField {
+    nonisolated var userPropertyScalarRange: ClosedRange<Double>? {
+        switch self {
+        case .intensity:
+            0 ... Double(Float.greatestFiniteMagnitude)
+        case .visibility, .alpha, .origin, .size, .scale, .angles, .color,
+             .volume:
+            nil
+        }
+    }
 }
 
 nonisolated enum SceneDynamicTextField: String, Codable, Equatable, Hashable, Sendable {
@@ -234,7 +247,7 @@ nonisolated struct SceneDynamicTargetDefinition: Codable, Equatable, Hashable, S
         case let .vector3(x, y, z): [x, y, z]
         default: nil
         }
-        if let consumerRange = target.cameraUserPropertyScalarRange {
+        if let consumerRange = target.userPropertyScalarRange {
             guard let numericComponents,
                   numericComponents.allSatisfy({
                       $0.isFinite && consumerRange.contains($0)
@@ -249,9 +262,15 @@ nonisolated struct SceneDynamicTargetDefinition: Codable, Equatable, Hashable, S
 }
 
 private extension SceneDynamicTarget {
-    nonisolated var cameraUserPropertyScalarRange: ClosedRange<Double>? {
-        guard case let .camera(field) = self else { return nil }
-        return field.userPropertyScalarRange
+    nonisolated var userPropertyScalarRange: ClosedRange<Double>? {
+        switch self {
+        case let .camera(field):
+            field.userPropertyScalarRange
+        case let .layer(_, field):
+            field.userPropertyScalarRange
+        default:
+            nil
+        }
     }
 }
 

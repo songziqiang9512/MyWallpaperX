@@ -98,7 +98,7 @@ nonisolated extension SceneScriptScalarProgram {
                       layer.text != nil,
                       let descriptorPointSize = layer.textStyle?.pointSize,
                       descriptorPointSize.isFinite,
-                      SceneScriptScalarOwner.accepts(authored),
+                      SceneScriptScalarOwner.accepts(authored, for: target),
                       Float(authored).bitPattern == descriptorPointSize.bitPattern else {
                     return nil
                 }
@@ -123,6 +123,26 @@ nonisolated extension SceneScriptScalarProgram {
                     return nil
                 }
                 return .particle(layerID: layerID, field: .rate)
+            }
+            if binding.targetPath == [
+                .key("objects"), .index(objectIndex), .key("intensity"),
+            ] {
+                let target = SceneDynamicTarget.layer(
+                    layerID: layerID, field: .intensity
+                )
+                let validWrapper =
+                    (binding.wrapperKeys == ["script", "value"]
+                        && binding.properties.isEmpty)
+                    || SceneScriptDynamicProviderHostContract.supports(
+                        keys: binding.wrapperKeys ?? [], host: .objectScalar
+                    )
+                guard binding.targetKey == "intensity", validWrapper,
+                      let intensity = layer.authoredLightIntensity,
+                      intensity.isFinite, intensity >= 0,
+                      Float(authored).bitPattern == intensity.bitPattern else {
+                    return nil
+                }
+                return target
             }
             let target = SceneDynamicTarget.layer(layerID: layerID, field: .alpha)
             let isTimelineWrapper =

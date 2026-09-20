@@ -84,5 +84,11 @@ extension SceneRenderDescriptor {
             sizeWH
         }
 
+        nonisolated var authoredLightIntensity: Float? {
+            pointLight?.intensity
+                ?? spotLight?.intensity
+                ?? directionalLight?.intensity
+        }
+
     }
 }

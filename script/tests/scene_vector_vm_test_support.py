@@ -329,6 +329,7 @@ struct SceneRenderDescriptor {
         var staticModelPath: String? = nil
         var spotLight: Int? = nil
         var directionalLight: Int? = nil
+        var authoredLightIntensity: Float? { nil }
         var utilityLayer: UtilityLayer? = nil
         var parentID: Int? = nil
         var childLayerIDs: [Int] = []

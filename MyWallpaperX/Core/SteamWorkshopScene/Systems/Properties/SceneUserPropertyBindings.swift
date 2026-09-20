@@ -34,6 +34,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
     case layerAlpha(layerID: Int)
     case layerScale(layerID: Int)
     case layerColor(layerID: Int)
+    case lightIntensity(layerID: Int)
     case effectVisibility(layerID: Int, effectIndex: Int, effectPath: String?)
     case camera(field: String)
     case text(layerID: Int, field: TextField)
@@ -61,8 +62,9 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
             return true
         case let .camera(field):
             return field == "cameraparallax" || field == "camerashake"
-        case .layerAlpha, .layerScale, .layerColor, .text, .particle, .soundVolume,
-             .shaderValue, .materialShaderValue, .scriptProperty, .unsupported:
+        case .layerAlpha, .layerScale, .layerColor, .lightIntensity, .text,
+             .particle, .soundVolume, .shaderValue, .materialShaderValue,
+             .scriptProperty, .unsupported:
             return false
         }
     }
@@ -289,6 +291,12 @@ nonisolated struct SceneUserPropertyBindingParser {
         }
         if components.count == 3, Self.key(components[2]) == "scale" {
             return .layerScale(layerID: layerID)
+        }
+        if components.count == 3,
+           Self.key(components[2]) == "intensity",
+           let light = (object["light"] as? String)?.localizedLowercase,
+           ["ldirectional", "lpoint", "point", "lspot"].contains(light) {
+            return .lightIntensity(layerID: layerID)
         }
         if components.count == 3,
            Self.key(components[2]) == "volume",

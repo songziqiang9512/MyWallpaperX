@@ -162,6 +162,7 @@ struct SceneMetalRenderer {
         let frameLightSnapshot = SceneLightSnapshot.make(
             descriptor: frameDescriptor,
             worldFramesByLayerID: frameWorldFrames, dynamicLayerColors: dynamicLightColors,
+            dynamicSnapshot: frameContext.dynamicValues,
             candidateLayerIDs: frameProjection.lightLayerIDs,
             layersByID: frameLayersByID,
             visibleLayerIDs: frameVisibleLayerIDs
@@ -806,6 +807,7 @@ struct SceneMetalRenderer {
                     break frameLayers
                 }
             case "spotLight":
+                guard frameVisibleLayerIDs.contains(layer.id) else { continue }
                 spotLightRuntime.render(
                     layerID: layer.id, worldFrame: frameWorldFrames[layer.id],
                     frame: .init(

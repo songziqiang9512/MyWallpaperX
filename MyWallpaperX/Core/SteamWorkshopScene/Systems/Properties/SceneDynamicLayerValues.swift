@@ -36,6 +36,29 @@ nonisolated enum SceneDynamicLayerValues {
         )
     }
 
+    /// Resolves the one typed intensity lane shared by model-lighting and the
+    /// standalone volumetric spot cone. A malformed or out-of-domain value is
+    /// local to this field and falls back to the authored value; snapshot
+    /// publication remains the sole previous-current owner.
+    static func lightIntensity(
+        layerID: Int,
+        authoredValue: Float?,
+        snapshot: SceneDynamicSnapshot
+    ) -> Float? {
+        let target = SceneDynamicTarget.layer(
+            layerID: layerID, field: .intensity
+        )
+        if let resolved = snapshot[target],
+           case let .scalar(value) = resolved.value,
+           value.isFinite, value >= 0,
+           value <= Double(Float.greatestFiniteMagnitude) {
+            return Float(value)
+        }
+        guard let authoredValue,
+              authoredValue.isFinite, authoredValue >= 0 else { return nil }
+        return authoredValue
+    }
+
     private static func normalizedAlpha(_ value: Double) -> Float {
         guard value.isFinite else { return 1 }
         return Float(min(max(value, 0), 1))

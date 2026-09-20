@@ -494,6 +494,13 @@ final class SceneDesktopWallpaperHost {
                     launchContext.baseMaterialProviderBindings,
                 staticModelResources:
                     launchContext.preparedDeviceResources.staticModels,
+                instantiatedSceneScriptTargets: Set(
+                    launchContext.sceneScriptScalarProgram.definitions.map(
+                        \.target
+                    )
+                ),
+                scriptSourceEvidence:
+                    launchContext.sceneScriptSourceEvidence,
                 pipelineRepository:
                     launchContext.preparedDeviceResources.pipelineRepository,
                 imageLayerPipeline:

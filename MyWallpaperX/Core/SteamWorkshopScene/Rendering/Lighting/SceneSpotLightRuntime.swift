@@ -4,6 +4,7 @@ import simd
 final class SceneSpotLightRuntime {
     struct Frame {
         let sceneTime: Double
+        let dynamicValues: SceneDynamicSnapshot
         let viewProjection: simd_float4x4
         let mainPass: SceneMainPassEncoder
         let commandBuffer: MTLCommandBuffer
@@ -15,6 +16,7 @@ final class SceneSpotLightRuntime {
             commandBuffer: MTLCommandBuffer
         ) {
             sceneTime = frameContext.sceneTime
+            dynamicValues = frameContext.dynamicValues
             viewProjection = cameraFrame.viewProjection(
                 usesPerspective: cameraFrame.defaultsToPerspective
             )
@@ -29,11 +31,18 @@ final class SceneSpotLightRuntime {
 
     init(
         descriptor: SceneRenderDescriptor,
+        instantiatedSceneScriptTargets: Set<SceneDynamicTarget> = [],
+        scriptSourceEvidence: [SceneScriptSourceEvidenceIR] = [],
         pipeline: @autoclosure () -> SceneSpotLightPipeline?
     ) {
         plansByLayerID = Dictionary(
             uniqueKeysWithValues: descriptor.layers.compactMap { layer in
-                SceneSpotLightPlan(layer: layer).map { (layer.id, $0) }
+                SceneSpotLightPlan(
+                    layer: layer,
+                    instantiatedSceneScriptTargets:
+                        instantiatedSceneScriptTargets,
+                    scriptSourceEvidence: scriptSourceEvidence
+                ).map { (layer.id, $0) }
             }
         )
         self.pipeline = plansByLayerID.isEmpty ? nil : pipeline()
@@ -51,8 +60,23 @@ final class SceneSpotLightRuntime {
             telemetry.recordFailure(layerID: layerID)
             return
         }
+        let color = SceneDynamicLayerValues.color(
+            layerID: layerID,
+            authoredValue: [plan.color.x, plan.color.y, plan.color.z],
+            snapshot: frame.dynamicValues
+        )
+        guard let intensity = SceneDynamicLayerValues.lightIntensity(
+            layerID: layerID,
+            authoredValue: plan.intensity,
+            snapshot: frame.dynamicValues
+        ) else {
+            telemetry.recordFailure(layerID: layerID)
+            return
+        }
         let encoded = pipeline.draw(
             plan: plan,
+            color: color,
+            intensity: intensity,
             worldOrigin: SIMD2(worldFrame.columns.3.x, worldFrame.columns.3.y),
             viewProjection: frame.viewProjection,
             sceneTime: frame.sceneTime,

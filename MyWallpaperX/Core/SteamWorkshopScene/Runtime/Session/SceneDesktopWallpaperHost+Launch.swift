@@ -79,6 +79,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let sceneScriptFallbackDefinitions: [SceneDynamicTargetDefinition]
     let sceneScriptVectorMediaRoute: SceneScriptVectorMediaRouteState
     let sceneScriptScalarProgram: SceneScriptScalarProgram
+    let sceneScriptSourceEvidence: [SceneScriptSourceEvidenceIR]
     let sceneScriptStringProgram: SceneScriptStringProgram
     let sceneScriptDynamicLayerRuntime: SceneScriptDynamicLayerRuntime
     let sceneScriptStorageSession: SceneScriptLocalStorageSession?
@@ -760,6 +761,7 @@ extension SceneDesktopWallpaperHost {
             sceneScriptFallbackDefinitions: sceneScriptFallbackDefinitions,
             sceneScriptVectorMediaRoute: sceneScriptVectorMediaRoute,
             sceneScriptScalarProgram: sceneScriptScalarProgram,
+            sceneScriptSourceEvidence: model.sceneDocument.scriptSourceEvidence,
             sceneScriptStringProgram: sceneScriptStringProgram,
             sceneScriptDynamicLayerRuntime: frameSchema.dynamicLayerRuntime,
             sceneScriptStorageSession: sceneScriptStorageSession,

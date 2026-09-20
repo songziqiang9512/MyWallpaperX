@@ -290,7 +290,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             throw SceneScriptScalarRuntimeFailure.invalidSource
         }
         guard Self.supports(target),
-              Self.accepts(authoredValue) else {
+              Self.accepts(authoredValue, for: target) else {
             throw SceneScriptScalarRuntimeFailure.invalidArgument(
                 "invalid scalar owner target or authored value"
             )
@@ -421,7 +421,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         expectedGeneration: UInt64,
         interruptBudget: UInt64?
     ) -> Result<SceneScriptScalarEvaluation?, SceneScriptScalarRuntimeFailure> {
-        guard Self.accepts(input), frame.timeOfDay.isFinite,
+        guard Self.accepts(input, for: target), frame.timeOfDay.isFinite,
               (0...1).contains(frame.timeOfDay), frame.frameTime.isFinite,
               frame.frameTime >= 0, frame.runtime.isFinite,
               frame.runtime >= 0 else {
@@ -452,7 +452,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         }
         hasInitialized = true
         guard didInitialize != 0 else { return .success(nil) }
-        guard Self.accepts(output),
+        guard Self.accepts(output, for: target),
               let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
             SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(.badReturn("invalid initialized scalar output"))
@@ -486,7 +486,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         expectedGeneration: UInt64,
         interruptBudget: UInt64? = nil
     ) -> Result<SceneScriptScalarEvaluation, SceneScriptScalarRuntimeFailure> {
-        guard Self.accepts(input) else {
+        guard Self.accepts(input, for: target) else {
             return .failure(.invalidArgument("invalid scalar input"))
         }
         guard frame.timeOfDay.isFinite,
@@ -540,7 +540,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
                 return .failure(failure)
             }
         }
-        guard Self.accepts(output) else {
+        guard Self.accepts(output, for: target) else {
             SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(.badReturn("invalid scalar output"))
         }
@@ -746,8 +746,13 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         return field == .pointSize
     }
 
-    static func accepts(_ value: Double) -> Bool {
-        value.isFinite
+    static func accepts(_ value: Double, for target: SceneDynamicTarget) -> Bool {
+        guard value.isFinite else { return false }
+        if case .layer(_, .intensity) = target {
+            return value >= 0
+                && value <= Double(Float.greatestFiniteMagnitude)
+        }
+        return true
     }
 
     func invalidate() {

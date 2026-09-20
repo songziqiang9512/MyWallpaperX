@@ -15,6 +15,7 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 METAL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneStaticModel.metal"
 PIPELINE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelPipeline.swift"
 DYNAMIC_SNAPSHOT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift"
+DYNAMIC_LAYER_VALUES_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicLayerValues.swift"
 MODEL_SOURCE = SCENE_ROOT / "Format/SceneMdlStaticModel.swift"
 SAMPLING_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift"
 UV_TRANSFORM_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift"
@@ -157,6 +158,7 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
                     str(lighting_stub),
                     str(LIGHT_SOURCE),
                     str(DYNAMIC_SNAPSHOT_SOURCE),
+                    str(DYNAMIC_LAYER_VALUES_SOURCE),
                     str(PERFORMANCE_COUNTER_SOURCE),
                     str(PIPELINE_SOURCE),
                 ],
@@ -312,6 +314,7 @@ enum MaterialHarness {
                     str(lighting_stub),
                     str(LIGHT_SOURCE),
                     str(DYNAMIC_SNAPSHOT_SOURCE),
+                    str(DYNAMIC_LAYER_VALUES_SOURCE),
                     str(PERFORMANCE_COUNTER_SOURCE),
                     str(PIPELINE_SOURCE),
                     str(harness),
@@ -373,13 +376,34 @@ enum LightSnapshotHarness {
             SIMD4<Float>(0, 0, 1, 0),
             SIMD4<Float>(10, 20, 30, 1)
         ))
+        let dynamicSnapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 1,
+            generation: 1,
+            definitions: [
+                .init(
+                    target: .layer(layerID: 6, field: .intensity),
+                    valueType: .scalar,
+                    authoredValue: .scalar(2)
+                ),
+                .init(
+                    target: .layer(layerID: 7, field: .intensity),
+                    valueType: .scalar,
+                    authoredValue: .scalar(3)
+                ),
+            ],
+            userValues: [.layer(layerID: 6, field: .intensity): .scalar(4)],
+            sceneScriptValues: [
+                .layer(layerID: 7, field: .intensity): .scalar(5),
+            ]
+        ).snapshot
         let snapshot = SceneLightSnapshot.make(
             descriptor: descriptor,
             worldFramesByLayerID: [6: frame, 7: frame],
             dynamicLayerColors: [
                 6: SIMD3(1, 0.5, 0.25),
                 7: SIMD3(0.25, 0.5, 1),
-            ]
+            ],
+            dynamicSnapshot: dynamicSnapshot
         )
         precondition(snapshot.ambient == SIMD3(0.3, 0.3, 0.3))
         precondition(snapshot.distanceFogColor == SIMD4(0.1, 0.2, 0.3, 1))
@@ -388,7 +412,7 @@ enum LightSnapshotHarness {
         precondition(snapshot.point.count == 1)
         precondition(snapshot.point[0].position == SIMD3(10, 20, 30))
         precondition(snapshot.point[0].color == SIMD3(1, 0.5, 0.25))
-        precondition(snapshot.point[0].intensity == 2)
+        precondition(snapshot.point[0].intensity == 4)
         precondition(snapshot.point[0].radius == 40)
         precondition(snapshot.spot.count == 1)
         precondition(snapshot.overflowCount == 0)
@@ -396,9 +420,79 @@ enum LightSnapshotHarness {
         precondition(light.position == SIMD3(10, 20, 30))
         precondition(light.directionFromLight == SIMD3(0, 0, -1))
         precondition(light.color == SIMD3(0.25, 0.5, 1))
-        precondition(light.intensity == 3 && light.radius == 6000)
+        precondition(light.intensity == 5 && light.radius == 6000)
         precondition(abs(light.innerConeCosine - cos(Float.pi / 6)) < 1e-6)
         precondition(abs(light.outerConeCosine - cos(Float.pi / 4)) < 1e-6)
+        let liveTargets = SceneLightSnapshot.liveConsumerTargets(
+            descriptor: descriptor
+        )
+        precondition(liveTargets == [
+            .layer(layerID: 6, field: .color),
+            .layer(layerID: 6, field: .intensity),
+            .layer(layerID: 7, field: .color),
+            .layer(layerID: 7, field: .intensity),
+        ])
+        let hiddenParentDescriptor = SceneRenderDescriptor(
+            lighting: nil,
+            layers: [
+                .init(
+                    id: 8, visible: false, pointLight: nil,
+                    spotLight: nil, directionalLight: nil
+                ),
+                .init(
+                    id: 9, visible: false, pointLight: nil,
+                    spotLight: nil,
+                    directionalLight: .init(
+                        colorRGB: [1, 1, 1], intensity: 11
+                    ),
+                    parentID: 8
+                ),
+            ]
+        )
+        precondition(SceneLightSnapshot.liveConsumerTargets(
+            descriptor: hiddenParentDescriptor
+        ) == [
+            .layer(layerID: 9, field: .color),
+            .layer(layerID: 9, field: .intensity),
+        ])
+        let activatedSnapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 2,
+            generation: 2,
+            definitions: [
+                .init(
+                    target: .layer(layerID: 8, field: .visibility),
+                    valueType: .bool, authoredValue: .bool(false)
+                ),
+                .init(
+                    target: .layer(layerID: 9, field: .visibility),
+                    valueType: .bool, authoredValue: .bool(false)
+                ),
+                .init(
+                    target: .layer(layerID: 9, field: .intensity),
+                    valueType: .scalar, authoredValue: .scalar(11)
+                ),
+            ],
+            userValues: [
+                .layer(layerID: 8, field: .visibility): .bool(true),
+                .layer(layerID: 9, field: .visibility): .bool(true),
+                .layer(layerID: 9, field: .intensity): .scalar(19),
+            ]
+        ).snapshot
+        let hiddenLayersByID = Dictionary(uniqueKeysWithValues:
+            hiddenParentDescriptor.layers.map { ($0.id, $0) }
+        )
+        let activatedVisibleIDs = SceneLayerVisibility.visibleLayerIDs(
+            in: hiddenParentDescriptor,
+            layersByID: hiddenLayersByID,
+            snapshot: activatedSnapshot
+        )
+        let activated = SceneLightSnapshot.make(
+            descriptor: hiddenParentDescriptor,
+            worldFramesByLayerID: [9: frame],
+            dynamicSnapshot: activatedSnapshot,
+            visibleLayerIDs: activatedVisibleIDs
+        )
+        precondition(activated.directional.map(\.intensity) == [19])
 
         func makePoint(_ intensity: Float, radius: Float = 40)
             -> ScenePointLightDefinition {
@@ -522,6 +616,7 @@ enum LightSnapshotHarness {
                     str(SPOT_LIGHT_SOURCE),
                     str(lighting_stub),
                     str(DYNAMIC_SNAPSHOT_SOURCE),
+                    str(DYNAMIC_LAYER_VALUES_SOURCE),
                     str(VISIBILITY_SOURCE),
                     str(LIGHT_SOURCE),
                     str(harness),
@@ -625,6 +720,7 @@ enum DepthPlanHarness {
                     str(lighting_stub),
                     str(LIGHT_SOURCE),
                     str(DYNAMIC_SNAPSHOT_SOURCE),
+                    str(DYNAMIC_LAYER_VALUES_SOURCE),
                     str(PERFORMANCE_COUNTER_SOURCE),
                     str(PIPELINE_SOURCE),
                     str(harness),
