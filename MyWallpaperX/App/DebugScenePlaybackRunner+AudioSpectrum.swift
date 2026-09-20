@@ -144,17 +144,26 @@ extension DebugScenePlaybackRunner {
                 right64: levels.right64
             )
             if frame.isMultiple(of: 30) {
+                let upperHalfStart = levels.left.count / 2
                 let shapeDelta = meanAbsoluteDelta(
                     levels.left,
                     previousLeft
                 )
+                let upperShapeDelta = meanAbsoluteDelta(
+                    levels.left,
+                    previousLeft,
+                    from: upperHalfStart
+                )
                 NSLog(
                     "MWX DEBUG SCENE AUDIO: frame=%d leftRange=%.3f...%.3f "
-                        + "shapeDelta=%.4f rightPeak=%.3f",
+                        + "shapeDelta=%.4f upperPeak=%.3f upperShapeDelta=%.4f "
+                        + "rightPeak=%.3f",
                     frame,
                     levels.left.min() ?? 0,
                     levels.left.max() ?? 0,
                     shapeDelta,
+                    levels.left.dropFirst(upperHalfStart).max() ?? 0,
+                    upperShapeDelta,
                     levels.right64.max() ?? 0
                 )
             }
@@ -170,20 +179,22 @@ extension DebugScenePlaybackRunner {
 
     private nonisolated static func meanAbsoluteDelta(
         _ current: [Float],
-        _ previous: [Float]?
+        _ previous: [Float]?,
+        from startIndex: Int = 0
     ) -> Float {
         guard let previous else { return 0 }
         let count = min(current.count, previous.count)
-        guard count > 0 else { return 0 }
+        let lowerBound = min(max(0, startIndex), count)
+        guard lowerBound < count else { return 0 }
         var total: Float = 0
-        for index in 0 ..< count {
+        for index in lowerBound ..< count {
             total += abs(current[index] - previous[index])
         }
-        return total / Float(count)
+        return total / Float(count - lowerBound)
     }
 
     /// 确定性 PCM 只负责提供可复现的宽频输入；它不直接构造频谱。隔离样本因此会
-    /// 经过与系统音频相同的滚动窗、FFT、官方 64-band identity、响应与包络，再由
+    /// 经过与系统音频相同的滚动窗、FFT、对数频带、响应与包络，再由
     /// shared inbox 交给作者 shader。两个宽频能量团以不同连续相位缓慢穿过频段，
     /// 让验证能区分“真实形态变化”和“冻结频谱只被 Scroll 平移”；所有变化仍来自
     /// PCM，零输入模式保持严格静止。
@@ -204,9 +215,9 @@ extension DebugScenePlaybackRunner {
             var mixed: Float = 0
             for index in 0 ..< toneCount {
                 let position = (Float(index) + 0.5) / Float(toneCount)
-                // 二次分布在 sqrt-like 官方 band identity 上近似均匀落点；这里只
+                // 对数分布让固定输入覆盖整个低频到高频横轴；这里只
                 // 生成测试 PCM，不参与产品频带映射。
-                let frequency = 55 + 14_445 * position * position
+                let frequency = 55 * pow(14_500 / 55, position)
                 let firstCenter = 0.23
                     + 0.14 * sin((elapsed * 0.19 + channelPhase * 0.09) * 2 * .pi)
                 let secondCenter = 0.71

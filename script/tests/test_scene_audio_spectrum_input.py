@@ -276,11 +276,53 @@ enum Harness {
         )
         let mono = analyzeFresh(signedChannels: [toneA], sampleRate: sampleRate)
 
+        let channelSwitchAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
+        _ = channelSwitchAnalyzer.analyze(
+            signedChannels: [toneA, toneB],
+            sampleRate: sampleRate
+        )
+        let monoAfterStereo = channelSwitchAnalyzer.analyze(
+            signedChannels: [toneA],
+            sampleRate: sampleRate
+        )
+        let freshMonoAfterStereo = analyzeFresh(
+            signedChannels: [toneA],
+            sampleRate: sampleRate
+        )
+
+        let changedSampleRate: Float = 44_100
+        let changedRateTone = sineWave(
+            frequency: 440,
+            frameCount: frameCount,
+            at: changedSampleRate
+        )
+        let rateSwitchAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
+        _ = rateSwitchAnalyzer.analyze(
+            signedChannels: [toneB],
+            sampleRate: sampleRate
+        )
+        let afterRateSwitch = rateSwitchAnalyzer.analyze(
+            signedChannels: [changedRateTone],
+            sampleRate: changedSampleRate
+        )
+        let freshChangedRate = analyzeFresh(
+            signedChannels: [changedRateTone],
+            sampleRate: changedSampleRate
+        )
+
         let invalidRate = analyzeFresh(
             signedChannels: [toneA, toneB],
             sampleRate: 0
         )
         let empty = analyzeFresh(signedChannels: [], sampleRate: sampleRate)
+        let highSampleRate: Float = 192_000
+        let highRateTone = (0 ..< frameCount).map { index in
+            sin(2 * .pi * 440 * Float(index) / highSampleRate) * 0.5
+        }
+        let highRate = analyzeFresh(
+            signedChannels: [highRateTone],
+            sampleRate: highSampleRate
+        )
 
         var withNaN = toneA
         withNaN[10] = .nan
@@ -325,6 +367,45 @@ enum Harness {
             sampleRate: sampleRate
         )
 
+        let continuityAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
+        var previousContinuity: [Float]?
+        var changedUpperBands = Set<Int>()
+        var changedUpperBandsLate = Set<Int>()
+        var lateConsecutiveShapeChanges = 0
+        var continuityFirstBandPeak: Float = 0
+        let partialFrameCount = 1_600
+        for frame in 0 ..< 192 {
+            let targetBand = 8 + (frame / 12) % 8
+            let centerProgress = (Float(targetBand) + 0.5) / 16
+            let frequency = 32 * pow(16_000 / 32, centerProgress)
+            let input = sineWave(
+                frequency: frequency,
+                frameCount: partialFrameCount,
+                amplitude: 0.12,
+                startSample: frame * partialFrameCount
+            ).map { $0 + 0.25 }
+            let levels = continuityAnalyzer.analyze(
+                signedChannels: [input],
+                sampleRate: sampleRate
+            )
+            continuityFirstBandPeak = max(continuityFirstBandPeak, levels.left[0])
+            if let previousContinuity {
+                for index in 8 ..< 16
+                where abs(levels.left[index] - previousContinuity[index]) > 0.001 {
+                    changedUpperBands.insert(index)
+                    if frame >= 96 {
+                        changedUpperBandsLate.insert(index)
+                    }
+                }
+                if frame >= 96,
+                   zip(levels.left[8 ..< 16], previousContinuity[8 ..< 16])
+                    .contains(where: { pair in abs(pair.0 - pair.1) > 0.001 }) {
+                    lateConsecutiveShapeChanges += 1
+                }
+            }
+            previousContinuity = levels.left
+        }
+
         return [
             "available": true,
             "bandCount": bandCount,
@@ -351,12 +432,20 @@ enum Harness {
             "attackSecondPeak": attackSecond.left64.max() ?? 0,
             "releaseFirstPeak": releaseFirst.left64.max() ?? 0,
             "releaseSecondPeak": releaseSecond.left64.max() ?? 0,
-            "left16DerivedFrom64": averageResample(stereo.left64, count: 16)
-                == stereo.left,
-            "left32DerivedFrom64": averageResample(stereo.left64, count: 32)
-                == stereo.left32,
+            "left16PeakMatches64Group": peakBand(stereo.left64) / 4
+                == peakBand(stereo.left),
+            "right16PeakMatches64Group": peakBand(stereo.right64) / 4
+                == peakBand(stereo.right),
+            "left32PeakMatches64Group": peakBand(stereo.left64) / 2
+                == peakBand(stereo.left32),
+            "right32PeakMatches64Group": peakBand(stereo.right64) / 2
+                == peakBand(stereo.right32),
             "firstPartialSilent": firstPartial.left.allSatisfy { $0 == 0 },
             "secondPartialNonZero": secondPartial.left.contains { $0 > 0 },
+            "changedUpperBandCount": changedUpperBands.count,
+            "changedUpperBandCountLate": changedUpperBandsLate.count,
+            "lateConsecutiveShapeChanges": lateConsecutiveShapeChanges,
+            "continuityFirstBandPeak": continuityFirstBandPeak,
             "deterministic": repeated.left == stereo.left
                 && repeated.right == stereo.right
                 && repeated.left32 == stereo.left32
@@ -369,11 +458,25 @@ enum Harness {
             "monoMatchesStereoLeft": mono.left == stereo.left
                 && mono.left32 == stereo.left32
                 && mono.left64 == stereo.left64,
+            "channelSwitchMatchesFresh": levelsEqual(
+                monoAfterStereo,
+                freshMonoAfterStereo
+            ) && monoAfterStereo.left == monoAfterStereo.right
+                && monoAfterStereo.left32 == monoAfterStereo.right32
+                && monoAfterStereo.left64 == monoAfterStereo.right64,
+            "sampleRateSwitchMatchesFresh": levelsEqual(
+                afterRateSwitch,
+                freshChangedRate
+            ),
             "invalidRateLeft": invalidRate.left,
             "emptyLeft": empty.left,
+            "highRateNonZero": highRate.left.contains { $0 > 0 },
             "sanitizedToneFinite": sanitizedTone.left.allSatisfy { $0.isFinite },
             "sanitizedTonePeakBand": peakBand(sanitizedTone.left),
             "biasedPeakBand": peakBand(biasedResult.left),
+            "biasedFirstBand": biasedResult.left[0],
+            "unbiasedFirstBand": stereo.left[0],
+            "biasedToneDelta": meanAbsoluteDelta(biasedResult.left, stereo.left),
             "allWithinUnitRange": (stereo.left + stereo.right)
                 .allSatisfy { $0 >= 0 && $0 <= 1 }
                 && (stereo.left32 + stereo.right32)
@@ -396,11 +499,24 @@ enum Harness {
     static func sineWave(
         frequency: Float,
         frameCount: Int,
-        amplitude: Float = 0.5
+        amplitude: Float = 0.5,
+        startSample: Int = 0,
+        at sourceSampleRate: Float = Harness.sampleRate
     ) -> [Float] {
         (0 ..< frameCount).map { index in
-            sin(2 * .pi * frequency * Float(index) / sampleRate) * amplitude
+            sin(
+                2 * .pi * frequency * Float(startSample + index) / sourceSampleRate
+            ) * amplitude
         }
+    }
+
+    static func levelsEqual(
+        _ lhs: SystemAudioSceneSpectrumAnalyzer.Levels,
+        _ rhs: SystemAudioSceneSpectrumAnalyzer.Levels
+    ) -> Bool {
+        lhs.left == rhs.left && lhs.right == rhs.right
+            && lhs.left32 == rhs.left32 && lhs.right32 == rhs.right32
+            && lhs.left64 == rhs.left64 && lhs.right64 == rhs.right64
     }
 
     static func peakBand(_ levels: [Float]) -> Int {
@@ -413,12 +529,11 @@ enum Harness {
         return bestIndex
     }
 
-    static func averageResample(_ values: [Float], count: Int) -> [Float] {
-        let stride = values.count / count
-        return (0 ..< count).map { outputIndex in
-            let start = outputIndex * stride
-            return values[start ..< start + stride].reduce(0, +) / Float(stride)
-        }
+    static func meanAbsoluteDelta(_ lhs: [Float], _ rhs: [Float]) -> Float {
+        guard lhs.count == rhs.count, !lhs.isEmpty else { return .infinity }
+        return zip(lhs, rhs).reduce(0) { partial, pair in
+            partial + abs(pair.0 - pair.1)
+        } / Float(lhs.count)
     }
 }
 '''
@@ -591,7 +706,8 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
             analyzer["stereoLeft64PeakBand"],
             analyzer["stereoRight64PeakBand"],
         )
-        self.assertTrue(analyzer["left16DerivedFrom64"])
+        self.assertTrue(analyzer["left16PeakMatches64Group"])
+        self.assertTrue(analyzer["right16PeakMatches64Group"])
 
     def test_analyzer_emits_thirty_two_bands_from_the_same_fft(self) -> None:
         analyzer = self.result["analyzer"]
@@ -602,7 +718,8 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
             analyzer["stereoLeft32PeakBand"],
             analyzer["stereoRight32PeakBand"],
         )
-        self.assertTrue(analyzer["left32DerivedFrom64"])
+        self.assertTrue(analyzer["left32PeakMatches64Group"])
+        self.assertTrue(analyzer["right32PeakMatches64Group"])
 
     def test_silence_produces_a_stable_zero_spectrum(self) -> None:
         analyzer = self.result["analyzer"]
@@ -615,23 +732,23 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
 
     def test_tones_land_in_the_expected_low_to_high_bands(self) -> None:
         analyzer = self.result["analyzer"]
-        # 官方 producer 先以 sqrt-like 曲线映射到 64 档，再对相邻档求平均：
-        # 440 Hz 落在 64 档的 10（投影后 16 档的 2），5 kHz 落在 64 档的 37
-        #（投影后 16 档的 9）。这同时锁住 producer 与投影方向。
+        # 公开合同只要求低频到高频。Scene producer 以 32 Hz -> 16 kHz
+        # 的对数边界把常见音乐频率分布到整个横轴，16/32/64 档都从
+        # 同一 FFT 直接求值，不用会把能量压到左侧的 sqrt-like 私有映射。
         self.assertEqual(
             analyzer["stereoLeftPeakBand"],
-            2,
-            "440 Hz 必须落在官方 64-to-16 投影下的第 2 段",
+            6,
+            "440 Hz 必须落在对数划分下的第 6 段",
         )
         self.assertEqual(
             analyzer["stereoRightPeakBand"],
-            9,
+            13,
             "5 kHz 必须落在更高频段，证明频段顺序由低到高",
         )
-        self.assertEqual(analyzer["stereoLeft64PeakBand"], 10)
-        self.assertEqual(analyzer["stereoRight64PeakBand"], 37)
-        self.assertEqual(analyzer["stereoLeft32PeakBand"], 5)
-        self.assertEqual(analyzer["stereoRight32PeakBand"], 18)
+        self.assertEqual(analyzer["stereoLeft64PeakBand"], 27)
+        self.assertEqual(analyzer["stereoRight64PeakBand"], 52)
+        self.assertEqual(analyzer["stereoLeft32PeakBand"], 13)
+        self.assertEqual(analyzer["stereoRight32PeakBand"], 26)
         self.assertLess(
             analyzer["stereoLeftPeakBand"],
             analyzer["stereoRightPeakBand"],
@@ -694,27 +811,78 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
         )
         self.assertTrue(analyzer["monoMatchesStereoLeft"])
 
+    def test_format_switch_resets_previous_envelopes_atomically(self) -> None:
+        analyzer = self.result["analyzer"]
+        self.assertTrue(
+            analyzer["channelSwitchMatchesFresh"],
+            "stereo→mono 后不得把旧右声道或旧包络泄漏到镜像输出",
+        )
+        self.assertTrue(
+            analyzer["sampleRateSwitchMatchesFresh"],
+            "采样率改变后必须按新 FFT bin identity 从干净包络开始",
+        )
+
     def test_invalid_inputs_fail_closed_to_zero(self) -> None:
         analyzer = self.result["analyzer"]
         self.assertEqual(
             analyzer["invalidRateLeft"], [0.0] * 16, "非法采样率必须归零"
         )
         self.assertEqual(analyzer["emptyLeft"], [0.0] * 16, "空输入必须归零")
+        self.assertTrue(
+            analyzer["highRateNonZero"],
+            "高采样率分析窗必须有界截断，不能因超过FFT容量而让整链归零",
+        )
 
     def test_non_finite_samples_do_not_corrupt_the_spectrum(self) -> None:
         analyzer = self.result["analyzer"]
         self.assertTrue(analyzer["sanitizedToneFinite"])
         self.assertEqual(
             analyzer["sanitizedTonePeakBand"],
-            2,
+            6,
             "个别非有限采样被置零后，主频段判定仍应成立",
         )
 
-    def test_dc_bias_remains_finite_and_bounded(self) -> None:
+    def test_dc_bias_is_removed_before_frequency_banding(self) -> None:
+        analyzer = self.result["analyzer"]
         self.assertEqual(
-            self.result["analyzer"]["biasedPeakBand"],
+            analyzer["biasedPeakBand"],
+            6,
+            "tap 直流偏置不得把主频从 440 Hz 推到第 0 柱",
+        )
+        self.assertAlmostEqual(
+            analyzer["biasedFirstBand"],
+            analyzer["unbiasedFirstBand"],
+            delta=0.000_1,
+        )
+        self.assertLess(
+            analyzer["biasedToneDelta"],
+            0.000_01,
+            "去直流后，同一波形的频谱不应因固定偏置变形",
+        )
+
+    def test_long_running_upper_bands_keep_updating_without_dc_first_bar_takeover(
+        self,
+    ) -> None:
+        analyzer = self.result["analyzer"]
+        self.assertEqual(
+            analyzer["changedUpperBandCount"],
+            8,
+            "连续高频输入必须让右半全部频段持续更新，不得冻结",
+        )
+        self.assertEqual(
+            analyzer["changedUpperBandCountLate"],
+            8,
+            "第二个完整扫描周期仍必须让右半全部频段变化，不能只靠早期变化过门",
+        )
+        self.assertGreater(
+            analyzer["lateConsecutiveShapeChanges"],
             0,
-            "官方 producer 跳过 DC bin，但不私自减均值；偏置应落在最低可见档",
+            "第二周期必须存在相邻帧形态变化，不能在后半程冻结",
+        )
+        self.assertLess(
+            analyzer["continuityFirstBandPeak"],
+            0.15,
+            "正负直流偏置不得变成只剩第 0 柱活动的假频谱",
         )
 
 

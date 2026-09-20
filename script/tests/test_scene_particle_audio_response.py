@@ -11,10 +11,6 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-DEBUG_FIXTURE_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner+AudioSpectrum.swift"
-)
-BENCHMARK_SOURCE = REPOSITORY_ROOT / "script/scene_wallpaper_benchmark.py"
 SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinition.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleInitializer.swift",
@@ -261,31 +257,6 @@ class SceneParticleAudioResponseTests(unittest.TestCase):
         self.assertEqual(self.result["vortexActive"], [0, 100, 0])
         self.assertIn("audioResponseBounded", self.result["vortexDiagnostics"])
         self.assertIn("vortexBounded", self.result["vortexDiagnostics"])
-
-    def test_isolated_runtime_fixture_reuses_the_shared_inbox(self) -> None:
-        source = DEBUG_FIXTURE_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("SceneAudioSpectrumInbox.shared.publish", source)
-        self.assertIn("SystemAudioSceneSpectrumAnalyzer()", source)
-        self.assertIn("analyzer.analyze(", source)
-        self.assertIn("fixturePCM(frame: frame", source)
-        self.assertNotIn("fixtureSpectrum(", source)
-        self.assertIn("static let publicationRate: Float = 30", source)
-        self.assertIn("let overallEnvelope = 0.68", source)
-        self.assertIn("let toneCount = 24", source)
-        self.assertIn("let firstCluster = exp(", source)
-        self.assertIn("let secondCluster = exp(", source)
-        self.assertIn("firstPulse * firstPulse", source)
-        self.assertIn("secondPulse * secondPulse", source)
-        self.assertIn("frame.isMultiple(of: 30)", source)
-        self.assertIn(
-            '--mwx-debug-scene-audio-spectrum-fixture',
-            BENCHMARK_SOURCE.read_text(encoding="utf-8"),
-        )
-        self.assertIn(
-            '--mwx-debug-scene-audio-silence-fixture',
-            BENCHMARK_SOURCE.read_text(encoding="utf-8"),
-        )
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,7 +8,7 @@
 
 > 状态：现役证据入口
 >
-> 最近专项核对：2026-09-20（X-Ray effect-texture projection、particle pointer连续轨迹、共享light intensity进入同一typed frame链、system-audio普通App→daemon桥与120样本产品入口基线）。各证据仍以自身日期与构建身份为准。
+> 最近专项核对：2026-09-21（共享system-audio analyzer频段分布与长时右半更新、组合media+audio owner；此前X-Ray effect-texture projection、particle pointer连续轨迹、共享light intensity、普通App→daemon桥与120样本产品入口基线仍按各自身份保留）。各证据仍以自身日期与构建身份为准。
 >
 > 本次审计分支：`codex/engine-refactor-program`。本页只回答“哪条能力在什么代码/产品身份下取得过哪一级证据”，不决定开发顺序；唯一执行路线见[Scene兼容执行路线](../scene-compatibility-roadmap.md)。旧证据包不因此取得当前构建的有效性。
 >
@@ -21,6 +21,20 @@
 自本次核对起，`docs/scene/evidence/`只作为仓库忽略的本机证据缓存，不再由Git跟踪。最终运行载荷可先通过`script/promote_scene_evidence.py`提纯并用逐文件manifest固定，再在本文记录输入、App、report/manifest identity、SHA-256和有界结论；权威文档不得链接或依赖该本机目录，缓存缺失时也不能用摘要冒充当前HEAD的fresh复现。`/private/tmp`只承载运行现场、重试和含第三方作者资源的不可提交fixture；本文此前保留的临时路径只作为当时provenance，文件可能已按产物治理清理。
 
 ## 1. 当前证据快照
+
+<a id="e-2026-09-21-audio-spectrum-band-distribution"></a>
+
+### E-2026-09-21-AUDIO-SPECTRUM-BAND-DISTRIBUTION — 共享 analyzer 恢复横轴频段分布并排除右半长时冻结
+
+**公开合同与基线反例：**官方公开 [IEngine.registerAudioBuffers](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html)、[AudioBuffers](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html) 与 [shader audio globals](https://docs.wallpaperengine.io/en/scene/shader/variables.html) 只固定16/32/64档、left/right、低频到高频及正值/通常0...1的作者输入形状；没有公开可移植的FFT窗口、精确频率边界、归一化或平滑公式。基线`311115e3`却把 sqrt-like progress map、640-bin上界、约0.501窗口中心和64→16/32平均降采样写成“官方 identity”。先写失败门后，同一48 kHz/4096-frame输入证明440 Hz与5 kHz在16档落于`2/9`，而对440 Hz增加固定`+0.5` DC会使主峰移到第0档；它与2026-09-20真实`3780119725`两张post-publication ROI中“左侧显著更高、右侧逐段趋平”的人工观察一致。该静态/可执行反例只定案项目实现错误，不声称已知Windows私有算法。
+
+**唯一 producer 修正：**`SystemAudioSceneSpectrumAnalyzer`仍是系统PCM到`SceneAudioSpectrumSnapshot`的唯一owner；每声道各执行一次滚动窗FFT，16/32/64档复用该声道同一magnitudes。每声道先去除当前分析窗均值，再使用标准Hann与coherent amplitude scale；三档均按项目明确选择的`32 Hz...16 kHz`对数边界直接取峰值，不再把64档平均压成低分辨率。三档左右各自复用相同快起慢落响应；mono仍镜像、静音/非法/nonfinite仍稳定归零，reset与采样率/声道数格式切换均同时清滚动窗和全部包络。采样率扩大时分析窗有界截到4096，避免旧`windowCount > fftSize`分支让高采样率整链归零。Debug确定性PCM只改成对数覆盖宽频输入，并每30个逻辑fixture帧额外记录右半`upperPeak/upperShapeDelta`；它仍必须经过产品analyzer和shared inbox，不直接构造频谱，不进入Release产品路径。没有第二tap、producer、provider、clock、registry或compositor，也没有按sample/layer/effect/path/hash选择映射。
+
+**自动门与构建：**修复前门精确失败为440 Hz peak `2`（目标`6`）、5 kHz位置错误、DC偏置peak `0`（目标`6`）。最终同输入分别落于`16:6/13、32:13/26、64:27/52`；biased/unbiased频谱mean delta `<0.00001`。长时门以真实采集节拍的1600-frame分块、连续相位、固定DC和每12帧换一个右半目标band运行192帧；首轮与第二个完整扫描周期均有8个右半band发生`>0.001`变化，后半程仍存在相邻帧形态差，且第0band峰值`<0.15`。同一analyzer的stereo→mono与48 kHz→44.1 kHz格式切换结果分别等于fresh analyzer，证明旧L/R包络和旧bin identity已原子撤销。`test_scene_audio_spectrum_input` 31项与粒子音频响应4项共**35/35 PASS**；统一inner选择16模块并全部通过。被删除的粒子第5项只检查Swift/Python源码字符串与内部常数，不能证明行为，现由共享analyzer可执行门和产品运行证据承担该合同。`git diff --check`和隔离checkpoint build成功；code-health仅在本批外已有OnlineLibrary/Steam/Video ratchet与既有超行文件上失败，本批analyzer为391行。最终源码另以Developer ID Debug完成build，`codesign --verify --deep --strict`通过。
+
+**真实样本执行与可见序列：**最终签名App为`com.songziqiang.MyWallpaperX`、Team`H9QWU9XN8R`、CDHash`bfdce4ea405996f55eda89d57a8b457d215e4438`，launcher/debug-dylib SHA-256为`524f64b7d4c4dce047a488c836bf92cce060d5c3021bb55a2080fd83344f41f4 / 653cd374b0e40baaf179f344c51182904a188c4df27aa869c683bb55429e0712`；运行前后均通过deep/strict验签。只读`3780119725`副本的project/package SHA-256仍为`5aab4436376b20aa5e7a4c574769ba94b4acb6209ac40c1f20d273e58cf62546 / 712e522744c3122c91a6422217bd2707aa565e52496516ca06ed0acd88c56481`；matrix SHA-256=`93af65ed640c7ac1cbde82b651b24670659d14ba51d3073b3602cd7f594b7746`。40秒定向benchmark以确定性宽频PCM经过同一产品analyzer、shared inbox和作者32/64-band material consumer，结果**1/1 PASS / failures=[]**、406 submitted / 405 completed / 0 failed、0 drawable miss。frame30...810共27个每30逻辑fixture帧采样点的`upperPeak=0.372...0.691`、`upperShapeDelta=0.0016...0.0145`、`rightPeak=0.422...0.741`，没有右半归零、冻结或只剩第一柱；相隔约20秒的两张3024×1964帧及1824×520 ROI人工确认横轴左右段柱条都可见且形态改变。report/app-log/runtime-evidence/两张ROI SHA-256为`525842f3f51f2c91bd338a1bcc6c18ba8302bc5e5f97eaff3c9a62be29963876 / b7665143b683b49676fccb1afe633e6bea16e46bbb50a168cc6dd7e9f100c544 / 2a535b1b414c659d3f3889c4bd51f4d635a6c81498ce2efd7041969aafc44d9d / 289d4d21af787e81e8cacf0958b875596cecefe1d98584e855787c5646d8b16a / 3ab07cf739cd25cde483e27864416a5d3905cede72414e7b6a55d5811f0609cc`。最终提纯载荷保存在ignored本机缓存`docs/scene/evidence/2026-09-21-audio-spectrum-band-distribution-final/`，manifest SHA-256=`9b555595047817b8070297205d4ed81629bd60069ee625892e12119b72a173f0`、载荷28,059,507 bytes，不含App、Workshop package、runtime sample/HOME/cache；同日无`-final`后缀目录只保留首轮审查前候选身份，不能替代本条最终证据。
+
+**证据上限与开放项：**本批最高为`S4 deterministic-fixture-visible`：证明共享analyzer数值次序、右半持续更新和一个真实作者32/64-band可见consumer，不把Debug fixture冒充普通系统tap或真实音乐。尚未对120个声明样本逐一取得post-publication ROI，也未覆盖作者不同bar count/shape、三个默认隐藏consumer的开启场景、系统音乐左右声道、重新采集、暂停/锁屏/睡眠、多屏、设备热插拔或小时级长稳；项目对数边界、Hann、峰值聚合、响应和包络均为bounded平台选择，不是官方数值parity。缺少固定官方同输入对照，因此不是S5、完整音频兼容、性能完成或发布就绪。
 
 <a id="e-2026-09-20-xray-effect-projection"></a>
 
