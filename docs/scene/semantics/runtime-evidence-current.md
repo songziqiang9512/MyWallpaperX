@@ -8,7 +8,7 @@
 
 > 状态：现役证据入口
 >
-> 最近专项核对：2026-09-21（共享system-audio analyzer频段分布与长时右半更新、组合media+audio owner；此前X-Ray effect-texture projection、particle pointer连续轨迹、共享light intensity、普通App→daemon桥与120样本产品入口基线仍按各自身份保留）。各证据仍以自身日期与构建身份为准。
+> 最近专项核对：2026-09-21（当前HEAD签名Debug App的普通system tap、受控外部声源与120样本产品入口基线；共享system-audio analyzer频段分布与长时右半更新、组合media+audio owner仍按各自身份保留）。各证据仍以自身日期与构建身份为准。
 >
 > 本次审计分支：`codex/engine-refactor-program`。本页只回答“哪条能力在什么代码/产品身份下取得过哪一级证据”，不决定开发顺序；唯一执行路线见[Scene兼容执行路线](../scene-compatibility-roadmap.md)。旧证据包不因此取得当前构建的有效性。
 >
@@ -21,6 +21,18 @@
 自本次核对起，`docs/scene/evidence/`只作为仓库忽略的本机证据缓存，不再由Git跟踪。最终运行载荷可先通过`script/promote_scene_evidence.py`提纯并用逐文件manifest固定，再在本文记录输入、App、report/manifest identity、SHA-256和有界结论；权威文档不得链接或依赖该本机目录，缓存缺失时也不能用摘要冒充当前HEAD的fresh复现。`/private/tmp`只承载运行现场、重试和含第三方作者资源的不可提交fixture；本文此前保留的临时路径只作为当时provenance，文件可能已按产物治理清理。
 
 ## 1. 当前证据快照
+
+<a id="e-2026-09-21-audio-current-head-controlled-corpus"></a>
+
+### E-2026-09-21-AUDIO-CURRENT-HEAD-CONTROLLED-CORPUS — 当前签名Debug App以普通system tap重跑120样本产品入口基线
+
+**目标合同与当前身份：**本批不改采集、FFT、provider或产品分发，只复核`d4d4d5bf`共享analyzer修正及后续Steam文档批后的当前HEAD `31c4d6482af8146a50a8c6b858dea62f1105b4b7`，回答用户所述“Debug构建是否使音频采集失效”。普通链仍是`SteamWorkshopService.requestSceneRender → MainWindowCoordinator → PlaybackCommandMultiplexer → SceneDaemonClient → daemon requestLaunch/demand → App唯一SystemAudioSpectrumService tap/analyzer → generation-bound daemon publication`；DEBUG runner只负责隔离产品入口与结果观察，没有第二tap、FFT、inbox或consumer。7个现役模块`test_system_audio_spectrum / recovery / scene_audio_capture_scope / demand / response / spectrum_input / product_entry_audio_baseline`全通过；从当前HEAD新建的Developer ID Debug App为`com.songziqiang.MyWallpaperX` 2.0.9 (277)、Team`H9QWU9XN8R`、CDHash`6a6ad75bb8d952534206745921547b047f7f7a43`、launcher/debug dylib SHA-256=`7d5f935ad9d16c5fb281efb394e8000ff701607340d73e37231ac5983de63d0d / 573b0b8c1bf2d8bd6fc4ae847be3e1bad066de4f5424e95d161ba2dc0ce9d90f`；build log SHA-256=`da5684b5654bc37f7b97d9c6c1ed3e9d3fcc2790cf9c369f675554c1e5689a4e`且`BUILD SUCCEEDED`，全集前后`codesign --verify --deep --strict`均通过。
+
+**普通tap与恢复反例：**同一App先对真实只读样本副本`3780119725`运行35秒普通产品入口且不使用确定性PCM fixture，得到唯一request/first-present、scope epoch 1、peak`0.35030558705329895`、375 rendered / 7 busy / 0 dropped / 0 fallback、`failures=[]`，report/app-log/result SHA-256=`f090ef03e0d633d9f5fbf3aad0f9c3b3b506604f5e55447b2fe5eb3e178e8a65 / 262dadd79ace1f7d16ae39a1c9226f7e01bb3b84f9fb0758a650809bc31024c0 / 3ed27f24dc177ee4a14a80f2c40e2e61ce12a937d017d54712cd0da6b27cdf21`。随后全集按操作记录用独立`ffplay -nodisp -loglevel error -loop 0 -volume 1 /System/Library/Sounds/Glass.aiff`持续播放该macOS系统音（SHA-256=`b337d8e01066c30de2f296763609b7e488bb3c6ea817aa875ee999d708433cf9`）作为公共外部声源；例如 external-audio consumer `1937925563`明确记录`scope=exclude-current-process`、48 kHz/stereo、非零PCM、stop→1秒retirement→generation 2重启、再次非零PCM与daemon peak`0.13581807911396027`。该控制进程没有另行生成并封存PID/起止时间生命周期记录；样本日志只证明tap收到外部非零PCM并在退休后恢复，不能证明每帧输入仅来自Glass.aiff。这足以反驳“当前Debug构建全局禁用采集”，但低音量系统声只控制“存在持续外部输入”，不是精确振幅、频谱数值或官方oracle。
+
+**120样本结果与守恒：**输入仍唯一来自冻结snapshot（SHA-256=`e32998934156d93b637006a0a66468edd42660bc1b0e6309b6df648193295894`）的120个关系样本/1,428条声明。25秒全量120/120首先得到66个`capture-publication-observed`、48个`audio-demand-missing`、1个`first-present-missing`、2个`launch-not-complete`、3个`nonzero-publication-missing`；用同一二进制、声源和隔离策略对`2959875782/3238423642/3448845950/3662790108/3754630802/3767460992`统一补跑60秒后，后五项取得非零publication，`2959875782`稳定为no-demand。覆盖合并后的当前全集精确为 **71/120 S3 capture-publication、49/120 no-demand、0个未完成/零publication残留**，没有删样本或从分母移除失败。52个保守静态consumer intent中49个取得publication；剩余三项`3754639143/3777761326/3788066613`的默认no-demand分别对应默认未选`newproperty="0"`分支、作者硬编码隐藏的三个Pulse effect、默认`show1=false`，不是system tap失败。另有22个静态规则未确认的样本由运行join补足publication；其余46个no-demand继续是conditional/hidden/launch-envelope-unjoined unknown，不能记作unsupported或通过。当前71/49相较旧70/50的唯一净变化是已由Q1.4e修复的`3779026256`。
+
+**预跑、留存和证据上限：**最初7秒预跑因明显低于现役25秒窗口，在前8项出现launch/publication未完成后中止；未提供稳定外部声源的25秒预跑又在`1937925563/2067939514`形成“有demand但无非零输入”，确认控制变量缺口后中止。两者不进入当前基线。最终full/supplement report SHA-256=`da8f218faf4ec5752972cd879473c49f8b677c9135b9c03c86f08693422daed7 / 501f2ff31e3964729aed0fefc6105e214e50fa947cfccf8e25c9cb275a2e1810`；代表、全量和补跑的257份report/log/result连同1份manifest保存到ignored本机缓存，manifest SHA-256=`71462bffbbf1659baf4bcf8ddeccb95f9bb89188bae51bb62488d63d69a54240`、载荷41,774,190 bytes。运行内已精确删除6,104个可重建派生产物/690,985,371 bytes，隔离runtime sample/HOME/Workshop均退役。该证据最高仍是`S3-capture-publication`，`visual_validated_count=0 / consumer_execution_validated_count=0`；没有证明人工UI卡片入口、49个no-demand的作者consumer缺失、71个consumer实际执行、频谱视觉、不同bar count/shape、暂停/锁屏/设备切换/多屏长稳或固定官方同输入parity。下一批只对作者可达的`3754639143 newproperty="0"`与`3788066613 show1=true`建立typed启动override和relaunch证据；`3777761326`作为effect作者固定隐藏的负例，不通过常开采集伪造。
 
 <a id="e-2026-09-21-audio-spectrum-band-distribution"></a>
 
