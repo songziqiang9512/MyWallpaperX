@@ -4,7 +4,13 @@ import pathlib
 import subprocess
 import tempfile
 import unittest
-from script.tests.test_steam_library_transaction import CORE, ROOT, SOURCES, digest
+from script.tests.test_steam_library_transaction import (
+    CORE,
+    ROOT,
+    SOURCES,
+    assert_public_generation_name,
+    digest,
+)
 
 
 class SteamDownloadExecutionTests(unittest.TestCase):
@@ -66,12 +72,12 @@ class SteamDownloadExecutionTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.build.cleanup()
 
-    def run_case(self, mode):
+    def run_case(self, mode, files=None):
         with tempfile.TemporaryDirectory(prefix='mwx-steam-execution-', dir='/private/tmp') as directory:
             root = pathlib.Path(directory)
             stage = root / 'staging' / ('job-' + 'a' * 32)
             stage.mkdir(parents=True)
-            files = {'project.json': b'{"type":"web","file":"index.html"}', 'index.html': b'hello'}
+            files = files or {'project.json': b'{"type":"web","file":"index.html"}', 'index.html': b'hello'}
             for name, value in files.items():
                 (stage / name).write_bytes(value)
             second_stage = root / 'staging' / ('job-' + 'b' * 32)
@@ -99,9 +105,30 @@ class SteamDownloadExecutionTests(unittest.TestCase):
             result = subprocess.run([str(self.binary), str(root), mode], capture_output=True, text=True, timeout=15)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn('EXECUTION PASS: ' + mode, result.stdout)
+            if mode == 'success':
+                snapshot = json.loads((index / '123456.json').read_text())
+                commit = snapshot['commit']
+                expected_type = json.loads(files['project.json'])['type'].strip().lower()
+                type_directory = {'video': 'Video', 'web': 'Web', 'scene': 'Scene'}[expected_type]
+                self.assertEqual(commit['version'], 2)
+                self.assertEqual(commit['contentType'], expected_type)
+                assert_public_generation_name(self, commit['directoryName'], '123456')
+                self.assertTrue((root / 'library' / type_directory / commit['directoryName']).is_dir())
+                self.assertFalse((root / 'library' / '.mywallpaperx-steam-versions').exists())
+                incoming = root / 'library' / '.mywallpaperx-steam-incoming'
+                self.assertTrue(not incoming.exists() or not any(incoming.iterdir()))
+                self.assertFalse(stage.exists())
+                self.assertEqual(json.loads((root / 'jobs.json').read_text())['jobs'], [])
 
-    def test_success(self):
-        self.run_case('success')
+    def test_success_publishes_each_type_and_retires_transients(self):
+        fixtures = [
+            {'project.json': b'{"type":"video","file":"a.mp4"}', 'a.mp4': b'video'},
+            {'project.json': b'{"type":"web","file":"index.html"}', 'index.html': b'web'},
+            {'project.json': b'{"type":"scene","file":"scene.json"}', 'scene.pkg': b'scene'},
+        ]
+        for files in fixtures:
+            with self.subTest(project=files['project.json']):
+                self.run_case('success', files=files)
 
     def test_staging_identity_is_persisted_before_helper_acknowledgement(self):
         self.run_case('staging-ack')

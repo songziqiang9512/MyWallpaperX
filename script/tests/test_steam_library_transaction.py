@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 import unicodedata
 import unittest
+import uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 CORE = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core'
@@ -18,6 +19,19 @@ SOURCES = [ROOT / 'MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift',
              'SteamWorkshopQueryClient.swift', 'SteamWorkshopLibraryTransaction.swift',
              'SteamWorkshopLibraryVersionLease.swift', 'SteamWorkshopJobStore.swift',
              'SteamWorkshopDownloadProgress.swift')]]
+
+
+def assert_public_generation_name(test_case, directory_name, workshop_id):
+    prefix = workshop_id + '-'
+    test_case.assertTrue(directory_name.startswith(prefix))
+    suffix = directory_name[len(prefix):]
+    try:
+        parsed = uuid.UUID(suffix)
+    except ValueError as error:
+        test_case.fail(f'non-UUID public generation name: {directory_name}: {error}')
+    test_case.assertEqual(str(parsed), suffix)
+
+
 HARNESS = r'''
 import Foundation
 import Darwin
@@ -584,10 +598,14 @@ class SteamLibraryTransactionTests(unittest.TestCase):
                 self.assertEqual(marker.read_bytes(), b'OLD READY POINTER')
             else:
                 commit = json.loads(marker.read_bytes())
-                content = root / 'library' / commit['contentType'].capitalize() / commit['directoryName']
+                self.assertEqual(commit['version'], 2)
+                assert_public_generation_name(self, commit['directoryName'], '123456')
+                type_directory = {'video': 'Video', 'web': 'Web', 'scene': 'Scene'}[commit['contentType']]
+                content = root / 'library' / type_directory / commit['directoryName']
                 for name, value in files.items():
                     self.assertEqual((content / name).read_bytes(), value)
                 self.assertEqual(commit['contentDigest'], digest(files))
+            self.assertFalse((root / 'library' / '.mywallpaperx-steam-versions').exists())
             incoming = root / 'library' / '.mywallpaperx-steam-incoming'
             self.assertTrue(not incoming.exists() or not any(len(path.name) == 36 for path in incoming.iterdir()))
             return result.stdout
@@ -930,7 +948,7 @@ class SteamLibraryTransactionTests(unittest.TestCase):
             with self.subTest(project=project):
                 self.scenario(files={'project.json': project, 'index.html': b'hello'}, accepted=False)
 
-    def test_video_scene_dependency_web(self):
+    def test_all_project_types_publish_only_to_public_type_folders(self):
         for files in [{'project.json': b'{"type":"video","file":"a.mp4"}', 'a.mp4': b'video-fixture'},
                       {'project.json': b'{"type":"scene","file":"scene.json"}', 'scene.pkg': b'package-fixture'},
                       {'project.json': b'{"type":"web","dependency":"987654"}'},
