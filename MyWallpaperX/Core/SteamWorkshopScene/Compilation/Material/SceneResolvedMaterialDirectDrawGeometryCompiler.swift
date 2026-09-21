@@ -15,7 +15,7 @@ nonisolated enum SceneResolvedMaterialDirectDrawGeometryCompiler {
         materials: [Catalog.MaterialKey: Catalog.MaterialCapability]
     ) -> Contract {
         let candidates = materials.values.compactMap(
-            linearPerspectiveGeometry
+            perspectiveDirectDrawGeometry
         )
         guard candidates.count == 1, let geometry = candidates.first else {
             return .centeredHalfCanvas
@@ -23,7 +23,7 @@ nonisolated enum SceneResolvedMaterialDirectDrawGeometryCompiler {
         return geometry
     }
 
-    private static func linearPerspectiveGeometry(
+    private static func perspectiveDirectDrawGeometry(
         _ material: Catalog.MaterialCapability
     ) -> Contract? {
         let snapshot = material.variants.launchEnvelopeCapabilitySnapshot()
@@ -31,7 +31,9 @@ nonisolated enum SceneResolvedMaterialDirectDrawGeometryCompiler {
               !snapshot.variants.isEmpty,
               snapshot.variants.allSatisfy({ variant in
                   variant.resolvedIntegerCombos["DIRECTDRAW"] == 1
-                      && variant.resolvedIntegerCombos["RAYMODE"] == 0
+                      && variant.resolvedIntegerCombos["RAYMODE"].map {
+                          (0 ... 2).contains($0)
+                      } == true
                       && provesPerspectiveQuad(
                           variant,
                           pointKeys: pointKeys

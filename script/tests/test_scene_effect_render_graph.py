@@ -298,6 +298,12 @@ struct SceneRenderDescriptor {
     struct Layer {
         let id: Int
         let effects: [EffectDescriptor]
+        let parentID: Int? = nil
+        let childLayerIDs: [Int] = []
+        let dependencyLayerIDs: [Int] = []
+        let authoredDependencies: [Int] = []
+        let contentKind: String = "image"
+        let utilityLayer: Int? = nil
     }
 
     struct MaterialPassDescriptor {

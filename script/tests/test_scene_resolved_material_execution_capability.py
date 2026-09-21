@@ -138,7 +138,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             capability,
         )
         self.assertIn("schema=prepared-direct-draw-geometry-v1", capability)
-        self.assertIn('resolvedIntegerCombos["RAYMODE"] == 0', geometry_compiler)
         self.assertIn("declarations.count == 1", geometry_compiler)
         self.assertIn("case let .staticExact(value)", geometry_compiler)
         self.assertIn(
