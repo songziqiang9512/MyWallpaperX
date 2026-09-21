@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,44 @@ from typing import Any
 PRODUCT_ENTRY_AUDIO_MODE = "product-entry-audio-baseline"
 PRODUCT_ENTRY_RECORD_ID = "debug-scene-daemon-client"
 PRIVATE_DEFAULTS_PREFIX = "com.songziqiang.MyWallpaperX.Debug.AudioCorpus."
+
+_MATERIAL_AUDIO_CONSUMPTION_PREFIX = (
+    "MWX typed input consumption: channel=audio-spectrum "
+    "consumer=material-uniform "
+)
+_MATERIAL_AUDIO_CONSUMPTION_RE = re.compile(
+    re.escape(_MATERIAL_AUDIO_CONSUMPTION_PREFIX)
+    + r"layer=(?P<layer>-?\d+) effect=(?P<effect>-?\d+) "
+    + r"descriptor=(?P<descriptor>\S+) node=(?P<node>\d+) "
+    + r"uniform=g_AudioSpectrum(?P<uniform_count>16|32|64)"
+    + r"(?P<uniform_side>Left|Right) side=(?P<side>left|right) "
+    + r"count=(?P<count>16|32|64) frame=(?P<frame>\d+) "
+    + r"generation=(?P<generation>\d+) "
+    + r"state=(?P<state>silent|nonzero) nonZero=(?P<nonzero>\d+) "
+    + r"first=(?P<first>\S+) peak=(?P<peak>\S+)"
+)
+_SCENESCRIPT_AUDIO_VALUE_PREFIX = "callback=audioValuePublished type="
+_SCENESCRIPT_AUDIO_VALUE_RE = re.compile(
+    r"MWX SceneScript VM: target=(?P<target>.*?) "
+    r"callback=audioValuePublished "
+    r"type=(?P<type>bool|scalar|vector2|vector3) "
+    r"generation=(?P<generation>\d+) .*? route=(?P<route>\S+)"
+)
+_SCENESCRIPT_EFFECT_TARGET_RE = re.compile(
+    r"effectConstant\(layerID: (?P<layer>-?\d+), "
+    r"effectIndex: (?P<effect>\d+), passIndex: (?P<pass>\d+), "
+    r'name: "(?P<name>(?:\\.|[^"\\])*)"\)'
+)
+_SCENESCRIPT_FIELD_TARGET_RE = re.compile(
+    r"(?P<target_kind>layer|particle|text)\(layerID: (?P<layer>-?\d+), "
+    r"field: MyWallpaperX\.SceneDynamic(?P<field_owner>Layer|Particle|Text)Field\."
+    r"(?P<field>[A-Za-z][A-Za-z0-9]*)\)"
+)
+_SCENESCRIPT_FIELD_OWNER_BY_KIND = {
+    "layer": "Layer",
+    "particle": "Particle",
+    "text": "Text",
+}
 
 
 def load_audio_declaration_matrix(snapshot_path: Path) -> dict[str, Any]:
@@ -180,6 +219,266 @@ def reconcile_no_demand_declarations(
         "unresolved_sample_ids": categories["unresolved"],
         "evidence_ceiling": "declaration-reconciliation-only",
         "runtime_validated": False,
+        "visual_validated": False,
+    }
+
+
+def inventory_saved_audio_consumer_events(
+    sample_ids: list[str],
+    log_text_by_sample: dict[str, str],
+) -> dict[str, Any]:
+    """Inventory generic non-silent consumer events in saved product logs.
+
+    The caller owns report/app/log identity and must supply only samples whose
+    capture publication was independently accepted. This join raises the
+    evidence ceiling only when the existing renderer or SceneScript owner logged
+    a non-silent consumer event. It deliberately does not infer particle audio
+    execution from scene-level demand, and it never upgrades an event to visual
+    response or official parity.
+    """
+    if (
+        not sample_ids
+        or any(
+            not isinstance(value, str)
+            or not value.isascii()
+            or not value.isdigit()
+            for value in sample_ids
+        )
+        or sample_ids != sorted(sample_ids)
+        or len(sample_ids) != len(set(sample_ids))
+    ):
+        raise ValueError(
+            "audio consumer sample identities must be unique sorted ASCII digits"
+        )
+    if not isinstance(log_text_by_sample, dict) or set(log_text_by_sample) != set(
+        sample_ids
+    ):
+        raise ValueError("audio consumer log identities do not conserve the sample set")
+    if any(type(value) is not str for value in log_text_by_sample.values()):
+        raise ValueError("audio consumer logs must be text")
+
+    rows: list[dict[str, Any]] = []
+    material_resolution_consumer_counts: Counter[int] = Counter()
+    material_resolution_sample_ids: dict[int, list[str]] = {
+        16: [], 32: [], 64: [],
+    }
+    material_side_profile_counts: Counter[str] = Counter()
+    script_target_kind_counts: Counter[str] = Counter()
+    script_target_type_counts: Counter[str] = Counter()
+
+    for sample_id in sample_ids:
+        log_text = log_text_by_sample[sample_id]
+        material_matches = list(_MATERIAL_AUDIO_CONSUMPTION_RE.finditer(log_text))
+        if log_text.count(_MATERIAL_AUDIO_CONSUMPTION_PREFIX) != len(material_matches):
+            raise ValueError(
+                f"malformed material audio consumer event for sample: {sample_id}"
+            )
+        material_consumers: dict[
+            tuple[int, int, str, int, int], dict[str, Any]
+        ] = {}
+        for match in material_matches:
+            value = match.groupdict()
+            count = int(value["count"])
+            side = value["side"]
+            if (
+                value["uniform_count"] != value["count"]
+                or value["uniform_side"].casefold() != side
+            ):
+                raise ValueError(
+                    f"material audio consumer identity mismatch for sample: {sample_id}"
+                )
+            try:
+                first = float(value["first"])
+                peak = float(value["peak"])
+            except (OverflowError, ValueError) as error:
+                raise ValueError(
+                    f"material audio consumer value is malformed for sample: {sample_id}"
+                ) from error
+            if not math.isfinite(first) or not math.isfinite(peak):
+                raise ValueError(
+                    f"material audio consumer value is non-finite for sample: {sample_id}"
+                )
+            state = value["state"]
+            generation = int(value["generation"])
+            nonzero = int(value["nonzero"])
+            if state == "silent":
+                if nonzero != 0 or peak != 0:
+                    raise ValueError(
+                        f"silent material audio event is inconsistent for sample: {sample_id}"
+                    )
+                continue
+            if generation <= 0 or not 1 <= nonzero <= count or peak <= 0:
+                raise ValueError(
+                    f"non-silent material audio event is inconsistent for sample: {sample_id}"
+                )
+            identity = (
+                int(value["layer"]),
+                int(value["effect"]),
+                value["descriptor"],
+                int(value["node"]),
+                count,
+            )
+            consumer = material_consumers.setdefault(identity, {
+                "layer_id": identity[0],
+                "effect_index": identity[1],
+                "descriptor": identity[2],
+                "node_index": identity[3],
+                "resolution": identity[4],
+                "nonzero_sides": set(),
+                "first_nonzero_generation_by_side": {},
+            })
+            consumer["nonzero_sides"].add(side)
+            previous = consumer["first_nonzero_generation_by_side"].get(side)
+            consumer["first_nonzero_generation_by_side"][side] = (
+                generation if previous is None else min(previous, generation)
+            )
+
+        material_rows: list[dict[str, Any]] = []
+        material_resolutions: set[int] = set()
+        for identity in sorted(material_consumers):
+            consumer = material_consumers[identity]
+            sides = sorted(consumer.pop("nonzero_sides"))
+            consumer["nonzero_sides"] = sides
+            consumer["first_nonzero_generation_by_side"] = dict(sorted(
+                consumer["first_nonzero_generation_by_side"].items()
+            ))
+            material_rows.append(consumer)
+            resolution = int(consumer["resolution"])
+            material_resolutions.add(resolution)
+            material_resolution_consumer_counts[resolution] += 1
+            material_side_profile_counts["+".join(sides)] += 1
+        for resolution in sorted(material_resolutions):
+            material_resolution_sample_ids[resolution].append(sample_id)
+
+        script_matches = list(_SCENESCRIPT_AUDIO_VALUE_RE.finditer(log_text))
+        if log_text.count(_SCENESCRIPT_AUDIO_VALUE_PREFIX) != len(script_matches):
+            raise ValueError(
+                f"malformed SceneScript audio consumer event for sample: {sample_id}"
+            )
+        script_consumers: dict[str, dict[str, Any]] = {}
+        for match in script_matches:
+            value = match.groupdict()
+            generation = int(value["generation"])
+            if generation <= 0 or value["route"] != "generic-only":
+                raise ValueError(
+                    f"SceneScript audio consumer identity is invalid for sample: {sample_id}"
+                )
+            target = value["target"]
+            effect_target = _SCENESCRIPT_EFFECT_TARGET_RE.fullmatch(target)
+            field_target = _SCENESCRIPT_FIELD_TARGET_RE.fullmatch(target)
+            if effect_target is not None:
+                target_kind = "effectConstant"
+            elif field_target is not None:
+                target_kind = str(field_target["target_kind"])
+                if (
+                    _SCENESCRIPT_FIELD_OWNER_BY_KIND[target_kind]
+                    != field_target["field_owner"]
+                ):
+                    raise ValueError(
+                        "SceneScript audio consumer field owner is invalid for "
+                        f"sample: {sample_id}"
+                    )
+            else:
+                raise ValueError(
+                    f"SceneScript audio consumer target is invalid for sample: {sample_id}"
+                )
+            consumer = script_consumers.get(target)
+            if consumer is None:
+                script_consumers[target] = {
+                    "target": target,
+                    "target_kind": target_kind,
+                    "value_type": value["type"],
+                    "first_nonzero_generation": generation,
+                }
+            else:
+                if consumer["value_type"] != value["type"]:
+                    raise ValueError(
+                        "SceneScript audio consumer value type changed for "
+                        f"sample: {sample_id}"
+                    )
+                consumer["first_nonzero_generation"] = min(
+                    int(consumer["first_nonzero_generation"]), generation
+                )
+        script_rows = [script_consumers[key] for key in sorted(script_consumers)]
+        for consumer in script_rows:
+            script_target_kind_counts[str(consumer["target_kind"])] += 1
+            script_target_type_counts[str(consumer["value_type"])] += 1
+
+        has_material = bool(material_rows)
+        has_script = bool(script_rows)
+        if has_material and has_script:
+            event_class = "material-and-scenescript-consumer-events"
+        elif has_material:
+            event_class = "material-consumer-events"
+        elif has_script:
+            event_class = "scenescript-consumer-events"
+        else:
+            event_class = "no-consumer-event-in-saved-log"
+        rows.append({
+            "sample_id": sample_id,
+            "event_class": event_class,
+            "consumer_event_executed": has_material or has_script,
+            "material_uniform_consumers": material_rows,
+            "material_resolutions": sorted(material_resolutions),
+            "scenescript_consumers": script_rows,
+            "scenescript_target_kinds": sorted({
+                str(value["target_kind"]) for value in script_rows
+            }),
+            "evidence_ceiling": (
+                "S3-saved-log-consumer-event"
+                if has_material or has_script
+                else "S3-capture-publication-only"
+            ),
+            "visual_validated": False,
+        })
+
+    event_classes = Counter(str(row["event_class"]) for row in rows)
+    consumer_event_sample_ids = [
+        str(row["sample_id"]) for row in rows if row["consumer_event_executed"]
+    ]
+    no_consumer_event_sample_ids = [
+        str(row["sample_id"]) for row in rows if not row["consumer_event_executed"]
+    ]
+    return {
+        "schema_version": 1,
+        "sample_count": len(sample_ids),
+        "consumer_event_sample_count": len(consumer_event_sample_ids),
+        "consumer_event_sample_ids": consumer_event_sample_ids,
+        "no_consumer_event_sample_count": len(no_consumer_event_sample_ids),
+        "no_consumer_event_sample_ids": no_consumer_event_sample_ids,
+        "event_class_counts": dict(sorted(event_classes.items())),
+        "material_uniform_sample_count": sum(
+            bool(row["material_uniform_consumers"]) for row in rows
+        ),
+        "material_uniform_consumer_count": sum(
+            len(row["material_uniform_consumers"]) for row in rows
+        ),
+        "material_resolution_consumer_counts": {
+            str(key): material_resolution_consumer_counts[key]
+            for key in (16, 32, 64)
+        },
+        "material_resolution_sample_ids": {
+            str(key): material_resolution_sample_ids[key]
+            for key in (16, 32, 64)
+        },
+        "material_side_profile_counts": dict(sorted(
+            material_side_profile_counts.items()
+        )),
+        "scenescript_sample_count": sum(
+            bool(row["scenescript_consumers"]) for row in rows
+        ),
+        "scenescript_target_count": sum(
+            len(row["scenescript_consumers"]) for row in rows
+        ),
+        "scenescript_target_kind_counts": dict(sorted(
+            script_target_kind_counts.items()
+        )),
+        "scenescript_target_type_counts": dict(sorted(
+            script_target_type_counts.items()
+        )),
+        "samples": rows,
+        "evidence_ceiling": "S3-saved-log-consumer-event-inventory",
+        "particle_component_execution_validated": False,
         "visual_validated": False,
     }
 

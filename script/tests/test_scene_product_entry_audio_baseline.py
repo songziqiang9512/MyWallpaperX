@@ -268,6 +268,200 @@ class SceneProductEntryAudioBaselineTests(unittest.TestCase):
                 )
                 self.assertEqual(result["unresolved_sample_ids"], ["123"])
 
+    def test_saved_consumer_inventory_preserves_owner_shape_and_evidence_ceiling(
+        self,
+    ) -> None:
+        material_left = (
+            "MWX typed input consumption: channel=audio-spectrum "
+            "consumer=material-uniform layer=12 effect=3 "
+            "descriptor=12#effect#90 node=4 "
+            "uniform=g_AudioSpectrum32Left side=left count=32 "
+            "frame=8 generation=5 state=nonzero nonZero=3 "
+            "first=0 peak=0.75"
+        )
+        material_right = material_left.replace(
+            "Spectrum32Left side=left", "Spectrum32Right side=right"
+        ).replace("nonZero=3", "nonZero=2").replace("peak=0.75", "peak=0.5")
+        script_particle = (
+            "MWX SceneScript VM: target=particle(layerID: 44, "
+            "field: MyWallpaperX.SceneDynamicParticleField.rate) "
+            "callback=audioValuePublished type=scalar generation=6 "
+            "input=0.25 output=0.5 route=generic-only"
+        )
+        script_layer = (
+            "MWX SceneScript VM: target=layer(layerID: 55, "
+            "field: MyWallpaperX.SceneDynamicLayerField.scale) "
+            "callback=audioValuePublished type=vector3 generation=7 "
+            "input=vector3(1, 1, 1) output=vector3(2, 2, 2) "
+            "route=generic-only"
+        )
+        result = baseline.inventory_saved_audio_consumer_events(
+            ["123", "456", "789", "999"],
+            {
+                "123": "\n".join((material_left, material_right)),
+                "456": script_particle,
+                "789": "\n".join((material_left, material_right, script_layer)),
+                "999": "unrelated runtime log",
+            },
+        )
+
+        self.assertEqual(result["sample_count"], 4)
+        self.assertEqual(result["consumer_event_sample_count"], 3)
+        self.assertEqual(result["no_consumer_event_sample_ids"], ["999"])
+        self.assertEqual(result["event_class_counts"], {
+            "material-and-scenescript-consumer-events": 1,
+            "material-consumer-events": 1,
+            "no-consumer-event-in-saved-log": 1,
+            "scenescript-consumer-events": 1,
+        })
+        self.assertEqual(result["material_uniform_sample_count"], 2)
+        self.assertEqual(result["material_uniform_consumer_count"], 2)
+        self.assertEqual(result["material_resolution_consumer_counts"], {
+            "16": 0,
+            "32": 2,
+            "64": 0,
+        })
+        self.assertEqual(result["material_resolution_sample_ids"]["32"], [
+            "123", "789",
+        ])
+        self.assertEqual(result["material_side_profile_counts"], {
+            "left+right": 2,
+        })
+        self.assertEqual(result["scenescript_sample_count"], 2)
+        self.assertEqual(result["scenescript_target_count"], 2)
+        self.assertEqual(result["scenescript_target_kind_counts"], {
+            "layer": 1,
+            "particle": 1,
+        })
+        self.assertEqual(result["scenescript_target_type_counts"], {
+            "scalar": 1,
+            "vector3": 1,
+        })
+        self.assertFalse(result["particle_component_execution_validated"])
+        self.assertFalse(result["visual_validated"])
+        rows = {value["sample_id"]: value for value in result["samples"]}
+        self.assertEqual(
+            rows["123"]["material_uniform_consumers"][0]["nonzero_sides"],
+            ["left", "right"],
+        )
+        self.assertEqual(
+            rows["456"]["evidence_ceiling"],
+            "S3-saved-log-consumer-event",
+        )
+        self.assertEqual(
+            rows["999"]["evidence_ceiling"],
+            "S3-capture-publication-only",
+        )
+
+    def test_saved_consumer_inventory_preserves_authored_left_only_uniforms(
+        self,
+    ) -> None:
+        log = (
+            "MWX typed input consumption: channel=audio-spectrum "
+            "consumer=material-uniform layer=380 effect=0 "
+            "descriptor=380#effect#381 node=0 "
+            "uniform=g_AudioSpectrum64Left side=left count=64 "
+            "frame=26 generation=7 state=nonzero nonZero=1 "
+            "first=0 peak=0.125"
+        )
+        result = baseline.inventory_saved_audio_consumer_events(
+            ["3780391264"], {"3780391264": log}
+        )
+
+        self.assertEqual(result["material_side_profile_counts"], {"left": 1})
+        self.assertEqual(
+            result["samples"][0]["material_uniform_consumers"][0][
+                "nonzero_sides"
+            ],
+            ["left"],
+        )
+
+    def test_saved_consumer_inventory_fails_closed_on_identity_or_telemetry_drift(
+        self,
+    ) -> None:
+        valid_material = (
+            "MWX typed input consumption: channel=audio-spectrum "
+            "consumer=material-uniform layer=12 effect=3 "
+            "descriptor=12#effect#90 node=4 "
+            "uniform=g_AudioSpectrum16Left side=left count=16 "
+            "frame=8 generation=5 state=nonzero nonZero=3 "
+            "first=0 peak=0.75"
+        )
+        invalid_cases = (
+            (["456", "123"], {"123": "", "456": ""}),
+            (["123", "123"], {"123": ""}),
+            (["sample-123"], {"sample-123": ""}),
+            (["123"], {}),
+            (["123"], {"123": 1}),
+            (["123"], {"123": valid_material.replace(
+                "Spectrum16Left side=left", "Spectrum16Left side=right"
+            )}),
+            (["123"], {"123": valid_material.replace(
+                "state=nonzero nonZero=3", "state=nonzero nonZero=0"
+            )}),
+            (["123"], {"123": valid_material.replace("peak=0.75", "peak=nan")}),
+            (["123"], {"123": (
+                "MWX SceneScript VM: target=layer(layerID: 1, field: scale) "
+                "callback=audioValuePublished type=scalar generation=0 "
+                "input=0 output=0 route=generic-only"
+            )}),
+            (["123"], {"123": (
+                "MWX SceneScript VM: target=cursor(layerID: 1, field: scale) "
+                "callback=audioValuePublished type=scalar generation=1 "
+                "input=0 output=0 route=generic-only"
+            )}),
+            (["123"], {"123": (
+                "MWX SceneScript VM: target=layer(layerID: 1, "
+                "field: MyWallpaperX.SceneDynamicParticleField.rate) "
+                "callback=audioValuePublished type=scalar generation=1 "
+                "input=0 output=0 route=generic-only"
+            )}),
+        )
+        for sample_ids, logs in invalid_cases:
+            with self.subTest(sample_ids=sample_ids, logs=logs):
+                with self.assertRaises(ValueError):
+                    baseline.inventory_saved_audio_consumer_events(sample_ids, logs)
+
+    def test_saved_consumer_inventory_rejects_value_type_drift_for_one_target(
+        self,
+    ) -> None:
+        target = (
+            "layer(layerID: 55, "
+            "field: MyWallpaperX.SceneDynamicLayerField.scale)"
+        )
+        scalar = (
+            f"MWX SceneScript VM: target={target} "
+            "callback=audioValuePublished type=scalar generation=6 "
+            "input=0.25 output=0.5 route=generic-only"
+        )
+        vector = (
+            f"MWX SceneScript VM: target={target} "
+            "callback=audioValuePublished type=vector3 generation=7 "
+            "input=vector3(1, 1, 1) output=vector3(2, 2, 2) "
+            "route=generic-only"
+        )
+
+        with self.assertRaisesRegex(ValueError, "value type changed"):
+            baseline.inventory_saved_audio_consumer_events(
+                ["123"], {"123": "\n".join((scalar, vector))}
+            )
+
+    def test_saved_consumer_inventory_does_not_promote_silent_uniforms(self) -> None:
+        silent = (
+            "MWX typed input consumption: channel=audio-spectrum "
+            "consumer=material-uniform layer=12 effect=3 "
+            "descriptor=12#effect#90 node=4 "
+            "uniform=g_AudioSpectrum16Left side=left count=16 "
+            "frame=0 generation=0 state=silent nonZero=0 first=0 peak=0"
+        )
+        result = baseline.inventory_saved_audio_consumer_events(
+            ["123"], {"123": silent}
+        )
+
+        self.assertEqual(result["consumer_event_sample_count"], 0)
+        self.assertEqual(result["no_consumer_event_sample_ids"], ["123"])
+        self.assertEqual(result["material_uniform_consumer_count"], 0)
+
     def test_product_command_uses_only_existing_product_entry(self) -> None:
         command = baseline.product_entry_command(
             runtime_binary=Path("/tmp/MyWallpaperX"),

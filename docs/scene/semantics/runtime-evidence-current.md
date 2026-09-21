@@ -8,7 +8,7 @@
 
 > 状态：现役证据入口
 >
-> 最近专项核对：2026-09-21（当前HEAD签名Debug App的普通system tap、受控外部声源与120样本产品入口基线；三个作者属性门控的音频consumer已用typed启动override做默认/启用配对；余下41个默认no-demand声明关系已按官方启用合同和live census闭合为40个未作者激活的Shake/Pulse schema与1个缺mode的particle负例；共享system-audio analyzer频段分布与长时右半更新、组合media+audio owner，以及`WEVector`环形频谱公共修复在四个真实样本中的consumer执行仍按各自身份保留）。各证据仍以自身日期与构建身份为准。
+> 最近专项核对：2026-09-21（当前HEAD签名Debug App的普通system tap、受控外部声源与120样本产品入口基线；三个作者属性门控的音频consumer已用typed启动override做默认/启用配对；余下41个默认no-demand声明关系已按官方启用合同和live census闭合为40个未作者激活的Shake/Pulse schema与1个缺mode的particle负例；跨4个已登记Debug可执行身份的78个作者可达publication保存日志进一步守恒为77项material/SceneScript非零consumer事件与1项particle component执行观测缺口，这不是单一当前候选重跑；共享system-audio analyzer频段分布与长时右半更新、组合media+audio owner，以及`WEVector`环形频谱公共修复在四个真实样本中的consumer执行仍按各自身份保留）。各证据仍以自身日期与构建身份为准。
 >
 > 本次审计分支：`codex/engine-refactor-program`。本页只回答“哪条能力在什么代码/产品身份下取得过哪一级证据”，不决定开发顺序；唯一执行路线见[Scene兼容执行路线](../scene-compatibility-roadmap.md)。旧证据包不因此取得当前构建的有效性。
 >
@@ -21,6 +21,22 @@
 自本次核对起，`docs/scene/evidence/`只作为仓库忽略的本机证据缓存，不再由Git跟踪。最终运行载荷可先通过`script/promote_scene_evidence.py`提纯并用逐文件manifest固定，再在本文记录输入、App、report/manifest identity、SHA-256和有界结论；权威文档不得链接或依赖该本机目录，缓存缺失时也不能用摘要冒充当前HEAD的fresh复现。`/private/tmp`只承载运行现场、重试和含第三方作者资源的不可提交fixture；本文此前保留的临时路径只作为当时provenance，文件可能已按产物治理清理。
 
 ## 1. 当前证据快照
+
+<a id="e-2026-09-21-audio-author-reachable-consumer-inventory"></a>
+
+### E-2026-09-21-AUDIO-AUTHOR-REACHABLE-CONSUMER-INVENTORY — 跨4个已登记构建身份的78个作者可达音频样本保存日志执行关系
+
+**目标、输入与守恒：**本批不重跑产品、不修改tap/FFT/analyzer/provider/renderer，只对已经取得非零publication且作者可达的现有保存日志建立consumer执行关系；`b8816ee8dabd8f1f57cd1133b203764287768ecb`是本次**分析基线commit**，不是这些运行report宣称的源码commit。输入由当前全集full/supplement的66+5项、WEVector sibling 3项、WEVector代表1项，以及`3754639143/3788066613/3765760121`三个明确typed作者条件各1项组成，共78项且无重复；保存运行实际分属4个已登记Debug executable identity，样本数为71/4/2/1，**没有单一当前候选二进制运行全部78项**，`single_candidate_runtime_validated=false`。七份report SHA-256依次为`da8f218faf4ec5752972cd879473c49f8b677c9135b9c03c86f08693422daed7 / 501f2ff31e3964729aed0fefc6105e214e50fa947cfccf8e25c9cb275a2e1810 / e3d4b111c06304be3214b9e6aa7836c04ef8680786fdf41ca64d6f0f1b8261df / 9cb4fac006624d9c3e53830b9ed1e0dccc80f62ae30038c75ba48e10738316f3 / 4714a27baa487db3639638272fe4016cbe97a482cc8f54f1c8279394864f9cdf / a4984e4a14d664e6811b383adff3a6ea9e0e758854876738d2fed1cb73336b79 / e7be2f96331241cb4ceb9cafd216358675853e24cb8d09fc75a9225ac0d72e2b`；每个实际使用的app log另以逐样本SHA-256保存在ignored证据inventory中。生成器逐项比较report与当前census的project/package SHA-256，**78/78两类fingerprint均相等**后才允许runtime→static join；live只读census仍为159样本、66,244 occurrence、2,535 family、1,428条音频声明/120样本，payload SHA-256=`49f2202aad8bbf501e334144f1a19938cc385160a646d66124fd444de0cc40e2`且零validation failure。
+
+**公共事件与owner关系：**既有renderer在material uniform取得非零snapshot时发布`audio-spectrum/material-uniform`事件，QuickJS owner在`audioValuePublished`时发布target/type/generation；新增Python纯函数只解析这两种已有通用事件，严格检查样本集合、现役effect/layer/particle/text target identity、同target value type稳定性、uniform边/长度、silent/nonzero、finite值、非静音事件generation与`generic-only`route，不增加CLI、产品日志、第二统计表或常驻成本；generation 0的初始silent material事件合法且只被忽略。结果为 **77/78** 有consumer事件：33项material-only、19项SceneScript-only、25项两者都有；58个样本共有129个material consumer，16/32/64分辨率分别55/33/41个consumer、覆盖19/23/35个样本。127个consumer左右两边均取得非零事件；`3780391264`的两个consumer仅左边非零，这是保存的作者uniform形态，不得通过虚构right uniform当作全局平衡修复。44个样本共有225个SceneScript target：45 effectConstant / 145 layer / 35 particle，value type为17 bool / 72 scalar / 7 vector2 / 129 vector3。
+
+129个material事件按`sample/layer/effect`连接唯一material pass，只有多pass歧义时再以运行node连接definition pass，最终129/129各自连接唯一`material/effect-pass` owner及其`material-host-spectrum`声明。225个脚本target中221项同时精确连接静态字段owner与`scenescript-registration`；`3448845950`的effect constant存在精确动态owner，但真实压缩脚本通过计算成员名注册音频，保守lexer没有静态registration，故登记`runtime-event-resolves-static-registration-unknown`而不引入JS求值。另三项运行target只可连接到同层其他脚本owner：`3509243656` visibility（同层origin/scale）、`3743305891` color（同层visible）、`3792817546` color（同层visible）；均登记`runtime-borrowed-owner-target`，保留运行事实与静态声明不是一一字段关系的边界，不能伪造exact owner或据此宣称字段语义正确。
+
+**首个公共观测门与证据上限：**唯一没有material/SceneScript事件的是`2131872317`。该样本静态音频关系精确为两个enabled、dynamic的Sphere Random emitter particle response、11个`not-authored` material host schema和一个project支持标记，没有SceneScript registration；其产品日志已取得非零capture publication。因此它把前一批“含particle声明的关联候选”收窄成当前 **particle-only author-reachable consumer**，但当前日志仍没有prepared particle component使用非零snapshot求值的事件。结论只到“粒子component执行观测缺口”，不能倒推粒子响应未执行或视觉失败。下一门是在现有execution-observation capture中增加有界、payload-free的particle component evaluation事件，重跑`2131872317`并保留completion/publication/terminal compositor/next-frame和相称动态序列；不新增第二particle/audio/provider owner。
+
+ignored本机证据`inventory.json / manifest.md` SHA-256=`2abcb724579ca635942ba0fbce2dd3989a087beaed3dcc41da1b8f6f9c208bb2 / a8b4c56d70b068a5c5b95f4dda75f50f8ac9cb81864456abffe37521ba992e1a`。当前最高为**跨已登记构建身份**的`S3 saved-log consumer event inventory`：direct frequency array只证明frequency-addressable material消费，不能自动解释为可见频谱柱；本批没有证明单一当前候选全集、粒子component执行、频谱/粒子视觉响应、连续变化、长稳、普通人工UI选择或固定官方同输入parity。Q1.4f既有440Hz/5kHz与192帧右半更新证据继续回答共享analyzer“左重右冻”旧问题；没有新的反例时，本批不按样本重排频段或重复修改analyzer。
+
+**验证与独立审查：**现役selector选择的9个inner模块全部通过，额外census 24项、helper/test/generator py_compile、inventory JSON解析与`git diff --check`通过；没有Swift产品改动，故没有新建App或把旧构建冒充本批build。首轮冻结diff SHA-256=`12f9687e987d1d684a5ebbcd4ff57805c448febd17e22d4ad3478b65a4477d70`经独立只读审查为 **CHANGES REQUIRED**：SceneScript target/type漂移未由helper失败关闭，runtime→census join缺project/package fingerprint守恒，4个runtime executable身份与analysis commit未充分分离，且generation文案误伤合法silent generation 0。修正后helper严格fullmatch target/field owner并拒绝同target type漂移；生成器逐项要求78/78 project/package双hash一致，显式列出4个runtime identity及`single_candidate_runtime_validated=false`；文档同步降低为跨构建保存日志盘点。最终冻结diff SHA-256=`713816f7d695151a08ae58d82eb330b16ac729f81f0c829391215611071985a5`经同一审查者全量复审为 **APPROVE / P0–P3无遗留 finding**。审查者确认77/1、129、225、221/1/3守恒与两个sentinel，且没有样本dispatch、第二owner/统计链、静默双执行、常驻帧成本、扩大失效域或验收放宽；其未编辑、构建、运行测试/产品、生成缓存、暂存或提交，批准不替代主Agent测试或提升上述证据上限。
 
 <a id="e-2026-09-21-scenescript-wevector-audio-ring"></a>
 
