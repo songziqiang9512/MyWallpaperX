@@ -151,13 +151,21 @@ final class FakeSteamTransport: SteamServiceTransporting {
         let original = FakeSteamTransport()
         original.replyOnSend = false
         let replacement = FakeSteamTransport()
+        let explicitRetry = FakeSteamTransport()
+        explicitRetry.replyOnSend = false
+        let postRetryReplacement = FakeSteamTransport()
         var transportCount = 0
         let client = SteamServiceClient(
             executablePath: "/fake",
             maximumRestartAttempts: 1,
             transportFactory: { _ in
                 transportCount += 1
-                return transportCount == 1 ? original : replacement
+                switch transportCount {
+                case 1: return original
+                case 2: return replacement
+                case 3: return explicitRetry
+                default: return postRetryReplacement
+                }
             }
         )
         let route = SteamAuthRoute(client: client, persistence: .init(
@@ -165,6 +173,11 @@ final class FakeSteamTransport: SteamServiceTransporting {
             save: { _ in false }, delete: { true }, saveMetadata: { _ in }, clearMetadata: {}
         ))
         let firstIdentity = try await client.start()
+        let signedOutEpoch = client.accountEpoch
+        original.emit(["v": 1, "type": "event", "event": "accountState",
+                       "accountEpoch": signedOutEpoch, "state": "disconnected"])
+        precondition(route.displayState == .signedOut && client.accountEpoch == signedOutEpoch,
+                     "anonymous disconnect cannot create or advance authentication state")
         let query = Task { try await client.request(command: "queryBrowse", timeout: nil) }
         while original.requests.isEmpty { await Task.yield() }
         original.crash()
@@ -192,8 +205,48 @@ final class FakeSteamTransport: SteamServiceTransporting {
         precondition(client.state == .terminated && transportCount == 2,
                      "restart budget must stop a ready/crash loop")
         precondition(route.displayState == .signedOut, "budget exhaustion cannot create auth intent")
+
+        do {
+            _ = try await client.request(command: "listSubscriptions")
+            fatalError("account work recovered a terminated helper without account intent")
+        } catch SteamServiceClient.RequestError.notReady {}
+        precondition(client.state == .terminated && transportCount == 2,
+                     "non-public work cannot reset the terminated-helper budget")
+
+        let firstRetry = Task { try await client.request(command: "queryBrowse", timeout: nil) }
+        let secondRetry = Task { try await client.request(command: "queryDetails", timeout: nil) }
+        while explicitRetry.requests.count < 2 { await Task.yield() }
+        precondition(transportCount == 3,
+                     "concurrent explicit public retries must share one helper generation")
+        for request in explicitRetry.requests {
+            explicitRetry.emit(["v": 1, "type": "result", "requestId": request["requestId"]!, "ok": true])
+        }
+        let firstResult = try await firstRetry.value
+        let secondResult = try await secondRetry.value
+        precondition(firstResult.ok == true && secondResult.ok == true
+            && Set(explicitRetry.requests.compactMap { $0["command"] as? String })
+                == Set(["queryBrowse", "queryDetails"]),
+            "explicit public retries must complete through the shared recovered helper")
+        precondition(route.displayState == .signedOut, "public retry cannot create auth intent")
+
+        let recoveredIdentity = client.currentIdentity
+        explicitRetry.crash()
+        let recoveredRestartDeadline = Date().addingTimeInterval(1)
+        while client.currentIdentity == nil && Date() < recoveredRestartDeadline {
+            await Task.yield()
+        }
+        guard let postRetryIdentity = client.currentIdentity else {
+            fatalError("explicit recovery did not reset one bounded automatic restart")
+        }
+        precondition(postRetryIdentity.sessionGeneration == recoveredIdentity?.sessionGeneration.advanced(by: 1)
+            && transportCount == 4,
+            "explicit recovery must reset exactly one automatic restart budget")
+        postRetryReplacement.crash()
+        await Task.yield()
+        precondition(client.state == .terminated && transportCount == 4,
+                     "the reset automatic restart budget must remain bounded")
         await client.stop(shutdownTimeout: 0)
-        print("Public crash lifecycle: pending request failed, signed-out route preserved, single replacement and bounded exhaustion PASS")
+        print("Public crash lifecycle: signed-out isolation, typed explicit recovery, shared generation and reset bounded restart PASS")
     }
     @MainActor static func authenticationLifecycle() async throws {
         let transport = FakeSteamTransport()

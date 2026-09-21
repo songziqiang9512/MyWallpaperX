@@ -72,6 +72,10 @@ final class SteamAuthRoute: ObservableObject {
         eventObserverID = client.addEventObserver { [weak self] frame in
             guard let self, frame.event == "accountState", frame.accountEpoch == self.client.accountEpoch,
                   frame.root["state"]?.stringValue == "disconnected" else { return }
+            // Anonymous public browse owns no account session. Its Steam
+            // connection can drop without creating a failed-login state or
+            // advancing the account epoch used to reject stale private work.
+            guard self.hasAccountConnectionIntent else { return }
             self.connectionLost()
         }
     }

@@ -166,6 +166,13 @@ final class SteamServiceClient {
     private var isStopping = false
     private var timeoutWorkItems: [String: DispatchWorkItem] = [:]
 
+    /// Anonymous read commands may recover a terminated helper directly from
+    /// their explicit request. Account, mutation, download, and control work
+    /// must enter through their existing intent/session owners instead.
+    private static let anonymousReadCommands: Set<String> = [
+        "queryBrowse", "queryDetails", "queryAuthor",
+    ]
+
     private struct PendingRequest {
         let generation: UInt64
         let accountEpoch: Int?
@@ -314,7 +321,8 @@ final class SteamServiceClient {
         try Task.checkCancellation()
         // Process readiness is independent of account authentication. Public queries
         // can start the helper without creating a login attempt or opening UI.
-        if state == .idle || state == .connecting {
+        let mayRecoverTerminatedHelper = Self.anonymousReadCommands.contains(command)
+        if state == .idle || state == .connecting || (state == .terminated && mayRecoverTerminatedHelper) {
             _ = try await start()
         }
         try Task.checkCancellation()
