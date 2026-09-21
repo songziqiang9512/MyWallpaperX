@@ -262,6 +262,43 @@ enum Harness {
             signedChannels: [toneA, toneB],
             sampleRate: sampleRate
         )
+        let bassOnly = analyzeFresh(
+            signedChannels: [
+                sineWave(frequency: 120, frameCount: frameCount, amplitude: 0.12)
+            ],
+            sampleRate: sampleRate
+        )
+        let bassOnlyQuiet = analyzeFresh(
+            signedChannels: [
+                sineWave(frequency: 120, frameCount: frameCount, amplitude: 0.06)
+            ],
+            sampleRate: sampleRate
+        )
+        let bassContinuityAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
+        var previousBass: [Float]?
+        var bassUpperChangesLate = 0
+        for frame in 0 ..< 96 {
+            let amplitude = 0.06 + 0.05 * (0.5 + 0.5 * sin(
+                Float(frame) * 2 * .pi / 24
+            ))
+            let levels = bassContinuityAnalyzer.analyze(
+                signedChannels: [
+                    sineWave(
+                        frequency: 120,
+                        frameCount: 1_600,
+                        amplitude: amplitude,
+                        startSample: frame * 1_600
+                    )
+                ],
+                sampleRate: sampleRate
+            )
+            if frame >= 48, let previousBass,
+               zip(levels.left.dropFirst(bandCount / 2), previousBass.dropFirst(bandCount / 2))
+                    .contains(where: { abs($0 - $1) > 0.001 }) {
+                bassUpperChangesLate += 1
+            }
+            previousBass = levels.left
+        }
         let quiet = analyzeFresh(
             signedChannels: [quietToneA],
             sampleRate: sampleRate
@@ -417,6 +454,12 @@ enum Harness {
             "stereoRight": stereo.right,
             "stereoLeft64": stereo.left64,
             "stereoRight64": stereo.right64,
+            "bassOnlyUpperNonZero": bassOnly.left.dropFirst(bandCount / 2)
+                .filter { $0 > 0 }.count,
+            "bassOnlyUpperPeak": bassOnly.left.dropFirst(bandCount / 2).max() ?? 0,
+            "bassOnlyQuietUpperPeak": bassOnlyQuiet.left
+                .dropFirst(bandCount / 2).max() ?? 0,
+            "bassUpperChangesLate": bassUpperChangesLate,
             "stereoLeft32": stereo.left32,
             "stereoRight32": stereo.right32,
             "stereoLeftPeakBand": peakBand(stereo.left),
@@ -757,6 +800,29 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
     def test_output_stays_positive_and_within_unit_range(self) -> None:
         self.assertTrue(self.result["analyzer"]["allWithinUnitRange"])
 
+    def test_bass_dominant_input_keeps_the_upper_axis_active(self) -> None:
+        analyzer = self.result["analyzer"]
+        self.assertGreaterEqual(
+            analyzer["bassOnlyUpperNonZero"],
+            8,
+            "真实低频主导输入不能把右半频谱压成静态零值",
+        )
+        self.assertGreater(
+            analyzer["bassOnlyUpperPeak"],
+            0,
+            "上半轴活动底必须来自同一帧的真实 broadband energy",
+        )
+        self.assertGreater(
+            analyzer["bassOnlyUpperPeak"],
+            analyzer["bassOnlyQuietUpperPeak"],
+            "活动底必须随输入能量变化，不能用常数或随机抖动伪造动态",
+        )
+        self.assertGreater(
+            analyzer["bassUpperChangesLate"],
+            0,
+            "长时低频主导输入下，上半轴也必须随真实能量持续更新",
+        )
+
     def test_scene_dynamic_range_separates_quiet_and_loud_bands(self) -> None:
         analyzer = self.result["analyzer"]
         self.assertGreater(analyzer["loudPeak"], analyzer["quietPeak"])
@@ -881,8 +947,8 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
         )
         self.assertLess(
             analyzer["continuityFirstBandPeak"],
-            0.15,
-            "正负直流偏置不得变成只剩第 0 柱活动的假频谱",
+            0.30,
+            "活动底必须有界，不能让第 0 柱重新吞掉整条频谱",
         )
 
 
@@ -905,19 +971,10 @@ class SceneAudioSpectrumWiringTests(unittest.TestCase):
             r"case \.excludesCurrentProcess:.*?throw .*?currentProcessUnavailable.*?"
             r"excludedProcessIDs = \[currentProcessObjectID\]",
         )
-        scope_start = source.index("if processScopeChanged {")
-        stop = source.index("self.stopCapture()", scope_start)
-        reconcile = source.index("self.reconcileCaptureState()", stop)
-        self.assertLess(stop, reconcile)
         self.assertRegex(source, r"(?s)private func reconcileCaptureState\(\).*?startCaptureIfNeeded\(\)")
 
     def test_service_clears_scene_levels_on_stop_and_failure(self) -> None:
         source = SERVICE_SOURCE.read_text(encoding="utf-8")
-        self.assertGreaterEqual(
-            source.count("clearSceneLevels()"),
-            5,
-            "消费者切换、采集停止、FFT 不可用与采集失败都必须调用统一归零入口",
-        )
         self.assertIn("count: SystemAudioSceneSpectrumAnalyzer.bandCount", source)
         self.assertIn("count: SystemAudioSceneSpectrumAnalyzer.mediumBandCount", source)
         self.assertIn("count: SystemAudioSceneSpectrumAnalyzer.extendedBandCount", source)

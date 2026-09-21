@@ -63,16 +63,16 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                     style: SystemAudioSpectrumStyle,
                     sensitivity: SystemAudioSpectrumSensitivity
                 ) {}
-                func analyze(rectifiedMono: [Float], sampleRate: Float) -> [Float] { [] }
+                func analyze(leftLevels: [Float], rightLevels: [Float]) -> [Float] { [] }
             }
 
             final class SystemAudioWebSpectrumAnalyzer {
                 static let outputLevelCount = 128
-                func analyze(_ frame: SystemAudioCapturedFrame, sampleRate: Float) -> [Float] { [] }
+                func analyze(_ levels: SystemAudioSceneSpectrumAnalyzer.Levels) -> [Float] { [] }
             }
 
             final class SystemAudioSceneSpectrumAnalyzer {
-                struct Bands {
+                struct Levels {
                     let left: [Float] = []
                     let right: [Float] = []
                     let left32: [Float] = []
@@ -86,8 +86,8 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                 static let extendedBandCount = 64
                 init?() {}
                 func reset() {}
-                func analyze(_ frame: SystemAudioCapturedFrame, sampleRate: Float) -> Bands {
-                    Bands()
+                func analyze(_ frame: SystemAudioCapturedFrame, sampleRate: Float) -> Levels {
+                    Levels()
                 }
             }
 
@@ -520,6 +520,58 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                     && !absentState.hasSyntheticAggregate
                     && !absentState.hasSyntheticTap,
                    "bad-object must clear only the proven-absent dependency chain")
+
+            // Revoking only the Scene endpoint must not retire the shared tap
+            // while Web/Video continues to consume the canonical producer.
+            let sceneRevoke = SystemAudioSpectrumService(barCount: 16)
+            sceneRevoke.debugEnableRecoveryTesting()
+            sceneRevoke.setConsumers(
+                overlayEnabled: false,
+                webEnabled: true,
+                sceneEnabled: true,
+                includeCurrentProcessAudio: false,
+                sceneCaptureScopeEpoch: 10
+            )
+            var sceneRevokeState = sceneRevoke.debugRecoverySnapshot()
+            expect(sceneRevokeState.captureStartTokens == [token(10, includesCurrent: false)],
+                   "Scene revoke fixture must start one shared capture")
+            sceneRevoke.debugSetSyntheticCaptureResourcesActiveForTesting(true)
+            sceneRevoke.setConsumers(
+                overlayEnabled: false,
+                webEnabled: true,
+                sceneEnabled: false,
+                includeCurrentProcessAudio: false,
+                sceneCaptureScopeEpoch: 11
+            )
+            sceneRevokeState = sceneRevoke.debugRecoverySnapshot()
+            expect(sceneRevokeState.captureStopCount == 0,
+                   "Scene endpoint revoke must not stop Web/Video capture")
+            expect(sceneRevokeState.captureStartTokens.count == 1,
+                   "Scene endpoint revoke must not start a second capture")
+            let readsBeforeRevokedFrame = sceneRevokeState.capturedFrameReadCount
+            sceneRevoke.debugSimulateSceneRevokedFrameProcessingForTesting()
+            sceneRevokeState = sceneRevoke.debugRecoverySnapshot()
+            expect(sceneRevokeState.capturedFrameReadCount == readsBeforeRevokedFrame + 1,
+                   "revoked Scene token must pass shared processing admission while Web/Video remains active")
+            sceneRevoke.setConsumers(
+                overlayEnabled: false,
+                webEnabled: true,
+                sceneEnabled: true,
+                includeCurrentProcessAudio: false,
+                sceneCaptureScopeEpoch: 11
+            )
+            sceneRevokeState = sceneRevoke.debugRecoverySnapshot()
+            expect(sceneRevokeState.captureStopCount == 1,
+                   "Scene re-enable must retire the old token's capture")
+            expect(sceneRevokeState.scheduledRecoveryKinds.last == "resource-retirement-start",
+                   "Scene re-enable must use the shared retirement gate")
+            let sceneReenableStartIndex = sceneRevokeState.scheduledRecoveryKinds.count - 1
+            expect(sceneRevoke.debugPerformScheduledRecoveryForTesting(
+                at: sceneReenableStartIndex
+            ), "Scene re-enable retirement closure must execute")
+            sceneRevokeState = sceneRevoke.debugRecoverySnapshot()
+            expect(sceneRevokeState.captureStartTokens.last == token(11, includesCurrent: false),
+                   "Scene re-enable must publish a new scope token")
 
             print("System audio recovery coordination tests passed")
             #else

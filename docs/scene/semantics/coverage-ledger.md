@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-22 Video/Web/Scene 统一音频 producer（S2 shared owner / focused behavior）
+
+`SystemAudioSpectrumService` 的 CoreAudio tap、aggregate device 与 PCM decoder 原本只有一个 owner，但三个消费方向各自持有 Scene 4096-FFT、Web 4096-FFT、Overlay 1024-FFT。当前唯一 canonical owner 是 `SystemAudioSceneSpectrumAnalyzer`，一次产生双声道 16/32/64 bands；Web/Video 与 Overlay 只做 typed projection，不再接收 PCM 或建立第二 FFT。Scene endpoint 撤销不清空仍工作的 shared rolling window；停止、失败和资源代际切换仍统一 reset。2026-09-22 当前执行的采集、恢复（含 revoke→reenable）、scope、demand、Scene/粒子与低频长时行为门共 7 组通过；第一次 checkpoint 的 Embed SteamService .NET restore 曾 SIGSEGV，隔离重试后 `script/run_checkpoint_build.sh` 为 `BUILD SUCCEEDED`。这条台账只证明公共 owner 和受控行为边界；revoked-frame 仅为 processing-admission 证据，cursor 音频门、普通系统音乐/全集 ROI、官方同输入、长稳和三引擎视觉 parity 仍开放。详见[当前运行证据](runtime-evidence-current.md#e-2026-09-22-audio-shared-canonical-producer)。
+
 ## 2026-09-20 X-Ray effect-texture projection 与output MVP分权（L3 bounded / S4 directional visible）
 
 作者`g_EffectTextureProjectionMatrixInverse`现在由同一emitted output card的`S(2,2,1) * outputMVP.inverse`形成，使stock X-Ray在作者vertex末尾`*0.5`后恢复centered local；host不增加UV平移或第二次Y翻转，Cursor Ripple/Fluid仍由作者shader自己的`+0.5/Y flip`完成UV约定。`g_EffectTextureProjectionMatrix`保持该inverse的精确倒数，`g_EffectModelViewProjectionMatrix`则从同一个preflight raw output MVP独立编码target-pixel→layer-local，避免X-Ray倍率污染Shine/COPYBG。只有texture forward/inverse consumer要求可逆projection；model-only stage不再执行无关inverse或因其奇异扩大失败域，无projection consumer走identity，required singular仍fail closed。能力沿现役`prepared FrameInputContract → typed frame inputs → MaterialProgram/GraphExecutor → Metal → unique compositor`执行，无第二pointer/geometry/output owner。

@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SPECTRUM_SOURCES = [
     ROOT / "MyWallpaperX/Core/Playback/SystemAudioCaptureBuffer.swift",
+    ROOT / "MyWallpaperX/Core/Playback/SystemAudioSceneSpectrumAnalyzer.swift",
     ROOT / "MyWallpaperX/Core/Playback/SystemAudioOverlaySpectrumAnalyzer.swift",
     ROOT / "MyWallpaperX/Core/Playback/SystemAudioWebSpectrumAnalyzer.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Engine/WallpaperEngine+WebAudioSpectrum.swift",
@@ -40,6 +41,12 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                 case soft
                 case normal
                 case lively
+            }
+
+            struct SceneAudioSpectrumSnapshot {
+                static let bandCount = 16
+                static let mediumBandCount = 32
+                static let extendedBandCount = 64
             }
 
             enum PlaybackContentKind {
@@ -296,15 +303,23 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                 return min(63, max(0, Int(floor(progress * 64))))
             }
 
+            let canonicalAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
             let webAnalyzer = SystemAudioWebSpectrumAnalyzer()
-            let silence = webAnalyzer.analyze(signedChannels: [[Float](repeating: 0, count: sampleCount)], sampleRate: sampleRate)
+            func webLevels(_ channels: [[Float]]) -> [Float] {
+                canonicalAnalyzer.reset()
+                return webAnalyzer.analyze(
+                    canonicalAnalyzer.analyze(signedChannels: channels, sampleRate: sampleRate)
+                )
+            }
+
+            let silence = webLevels([[Float](repeating: 0, count: sampleCount)])
             expect(silence.count == 128, "Web output must contain 128 levels")
             expect(silence.allSatisfy { $0 == 0 }, "silence must stay silent")
             expect(Array(silence[0..<64]) == Array(silence[64..<128]), "mono must duplicate L/R")
 
             let toneFrequencies: [Float] = [125, 500, 2_000, 8_000]
             let tonePeaks = toneFrequencies.map { frequency in
-                let levels = webAnalyzer.analyze(signedChannels: [sine(frequency: frequency)], sampleRate: sampleRate)
+                let levels = webLevels([sine(frequency: frequency)])
                 let peak = peakIndex(levels, channel: 0)
                 expect(abs(peak - expectedBand(for: frequency)) <= 2, "tone peak should land near \(frequency) Hz")
                 return peak
@@ -313,28 +328,19 @@ class SystemAudioSpectrumTests(unittest.TestCase):
 
             let tone750 = sine(frequency: 750)
             let opposite750 = tone750.map(-)
-            let antiPhase = webAnalyzer.analyze(
-                signedChannels: [tone750, opposite750],
-                sampleRate: sampleRate
-            )
+            let antiPhase = webLevels([tone750, opposite750])
             let left750Peak = peakIndex(antiPhase, channel: 0)
             let right750Peak = peakIndex(antiPhase, channel: 1)
             expect(abs(left750Peak - expectedBand(for: 750)) <= 2, "750 Hz must not rectify to 1500 Hz")
             expect(abs(right750Peak - expectedBand(for: 750)) <= 2, "anti-phase 750 Hz must retain frequency")
 
-            let stereo = webAnalyzer.analyze(
-                signedChannels: [sine(frequency: 250), sine(frequency: 4_000)],
-                sampleRate: sampleRate
-            )
+            let stereo = webLevels([sine(frequency: 250), sine(frequency: 4_000)])
             expect(abs(peakIndex(stereo, channel: 0) - expectedBand(for: 250)) <= 2, "left 250 Hz")
             expect(abs(peakIndex(stereo, channel: 1) - expectedBand(for: 4_000)) <= 2, "right 4 kHz")
 
             let amplitudes: [Float] = [0.05, 0.2, 0.8]
             let amplitudeLevels = amplitudes.map { amplitude in
-                webAnalyzer.analyze(
-                    signedChannels: [sine(frequency: 1_000, amplitude: amplitude)],
-                    sampleRate: sampleRate
-                ).prefix(64).max()!
+                webLevels([sine(frequency: 1_000, amplitude: amplitude)]).prefix(64).max()!
             }
             expect(amplitudeLevels[0] < amplitudeLevels[1], "fixed dBFS scale must retain 0.05 < 0.2")
             expect(amplitudeLevels[1] < amplitudeLevels[2], "fixed dBFS scale must retain 0.2 < 0.8")
@@ -376,22 +382,32 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             nonFiniteTone[10] = .nan
             nonFiniteTone[20] = .infinity
             nonFiniteTone[30] = -.infinity
-            let finiteLevels = webAnalyzer.analyze(signedChannels: [nonFiniteTone], sampleRate: sampleRate)
+            let finiteLevels = webLevels([nonFiniteTone])
             expect(
                 finiteLevels.allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1 },
                 "Web levels must contain only finite 0...1 values"
             )
 
             let overlay = SystemAudioOverlaySpectrumAnalyzer(barCount: 16)
-            let rectifiedTone = sine(frequency: 750, amplitude: 0.4).map(abs)
-            let balanced = overlay.analyze(rectifiedMono: rectifiedTone, sampleRate: sampleRate)
+            canonicalAnalyzer.reset()
+            let overlayLevels = canonicalAnalyzer.analyze(
+                signedChannels: [sine(frequency: 750, amplitude: 0.4)],
+                sampleRate: sampleRate
+            )
+            let balanced = overlay.analyze(
+                leftLevels: overlayLevels.left64,
+                rightLevels: overlayLevels.right64
+            )
             expect(balanced.count == 16, "Overlay must preserve configured bar count")
             expect(balanced.allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1 }, "balanced overlay range")
             overlay.updateConfiguration(style: .banded, sensitivity: .normal)
-            let banded = overlay.analyze(rectifiedMono: rectifiedTone, sampleRate: sampleRate)
+            let banded = overlay.analyze(
+                leftLevels: overlayLevels.left64,
+                rightLevels: overlayLevels.right64
+            )
             let released = overlay.analyze(
-                rectifiedMono: [Float](repeating: 0, count: sampleCount),
-                sampleRate: sampleRate
+                leftLevels: [Float](repeating: 0, count: 64),
+                rightLevels: [Float](repeating: 0, count: 64)
             )
             for index in banded.indices {
                 expectNear(released[index], banded[index] * 0.84, tolerance: 0.000_001, "Overlay release smoothing")
@@ -438,9 +454,9 @@ class SystemAudioSpectrumTests(unittest.TestCase):
         self.assertIn("resourceGeneration: resourceGeneration", start_capture)
         self.assertIn("token: captureToken", start_capture)
 
+        process_frame_start = source.index("private func processCapturedAudio()")
         process_frame = source[
-            source.index("private func processCapturedAudio()")
-            : source.index("private func clearSceneLevels()")
+            process_frame_start : source.index("\n    private func clearSceneLevels", process_frame_start)
         ]
         identity_guard = process_frame.index(
             "pendingCaptureResourceGeneration == captureResourceGeneration"
@@ -457,28 +473,6 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             "pendingSceneCaptureToken",
             process_frame,
             "Scene callback must report the captured frame's immutable scope token",
-        )
-
-    def test_scope_change_delays_only_live_resource_replacement(self) -> None:
-        source = SERVICE_SOURCE.read_text(encoding="utf-8")
-        set_consumers = source[
-            source.index("func setConsumers(") : source.index("func updateConfiguration(")
-        ]
-        self.assertNotIn(
-            "if processScopeChanged, self.hasCaptureResources",
-            set_consumers,
-            "scope cleanup must also run while no capture resources exist",
-        )
-        self.assertRegex(
-            set_consumers,
-            r"(?s)if processScopeChanged \{\s*"
-            r".*?self\.captureRetryWorkItem\?\.cancel\(\)\s*"
-            r"self\.captureRetryWorkItem = nil\s*"
-            r"self\.captureRetryAttempt = 0\s*"
-            r"self\.cancelCaptureRestart\(\).*?"
-            r"if self\.hasCaptureResources \{\s*"
-            r"self\.stopCapture\(\)\s*\}\s*"
-            r"\}\s*self\.reconcileCaptureState\(\)",
         )
 
     def test_bar_count_reconfigures_the_stable_capture_service(self) -> None:

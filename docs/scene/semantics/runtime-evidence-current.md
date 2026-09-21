@@ -164,6 +164,22 @@ ignored本机证据`inventory.json / manifest.md` SHA-256=`2abcb724579ca635942ba
 
 **证据上限与开放项：**本批最高为`S4 deterministic-fixture-visible`：证明共享analyzer数值次序、右半持续更新和一个真实作者32/64-band可见consumer，不把Debug fixture冒充普通系统tap或真实音乐。尚未对120个声明样本逐一取得post-publication ROI，也未覆盖作者不同bar count/shape、三个默认隐藏consumer的开启场景、系统音乐左右声道、重新采集、暂停/锁屏/睡眠、多屏、设备热插拔或小时级长稳；项目对数边界、Hann、峰值聚合、响应和包络均为bounded平台选择，不是官方数值parity。缺少固定官方同输入对照，因此不是S5、完整音频兼容、性能完成或发布就绪。
 
+<a id="e-2026-09-22-audio-shared-canonical-producer"></a>
+
+### E-2026-09-22-AUDIO-SHARED-CANONICAL-PRODUCER — Video/Web/Scene 共用单一 PCM→频谱 producer
+
+**交接事实与修复边界：**本批以当前代码和最近音频提交史为准核对三种播放引擎。CoreAudio process tap、aggregate device、`SystemAudioCaptureBuffer` 本来就是单一采集/解码 owner；实际分叉发生在 `SystemAudioSpectrumService` 内部：旧实现同时持有 Scene 4096-FFT、Web 4096-FFT 和 Overlay 1024-FFT，三者各自定义窗口、频段、归一化和包络。现役 `SystemAudioSceneSpectrumAnalyzer` 现在是 Video/Web/Scene 共用的唯一 PCM→16/32/64×L/R canonical producer；它仍按每声道滚动窗、去均值、Hann、项目声明的 32 Hz…16 kHz 对数频段和有界快起慢落输出。`SystemAudioWebSpectrumAnalyzer` 与 `SystemAudioOverlaySpectrumAnalyzer` 已降为 typed projection：Web 只转发 canonical 64-band L/R，Overlay 只做 stereo 合并、有限柱数投影、显示风格和本地包络；两者不再接收 PCM、导入 Accelerate、创建 FFT setup 或成为第二 producer。没有新增 tap、provider、clock、registry 或 compositor。
+
+**生命周期与行为验证：**Scene endpoint 撤销时只清 Scene publication，不重置仍被 Web/Video 使用的 shared rolling window；tap 停止、采集失败、scope/资源代际切换仍通过同一 reset seam 丢弃旧窗口。2026-09-22 当前执行的 focused gates `test_system_audio_spectrum`、`test_system_audio_spectrum_recovery`（含 revoke→reenable）、`test_scene_audio_spectrum_input`、`test_scene_audio_capture_scope`、`test_scene_audio_demand`、`test_scene_audio_response`、`test_scene_particle_audio_response` 全部通过；其中包含 PCM layout/finite、左右声道 identity、tone ordering、silence、projection bar count/release、stale capture generation、scope reset、低频主导输入的上半轴非零与96帧长时更新。第一次 `script/run_checkpoint_build.sh` 在 Embed SteamService 的 .NET restore 阶段 SIGSEGV，未归因于本批 Swift；隔离重试后同一 checkpoint Debug build `BUILD SUCCEEDED`，日志中仍有批外既有 QuickJS C/Swift warnings，不把 warning 清零写成代码健康完成。`test_scene_cursor_audio_consumer` 本机历史执行超过30秒无输出且未得到可靠结果，本批保留未验证。
+
+**独立审查修正：**首轮只读审查发现 Scene demand 从 active route 撤销到 none 时，`sceneCaptureScopeEpoch` 的变化仍会被误当成全局 source-scope change，连带 teardown 仍被 Web/Video 使用的 tap。最终实现把 restart 条件收窄为真实 include/exclude process scope 变化，或 Scene 仍 active 时的 epoch 切换；仅 Scene endpoint revoke 且其他消费者/采集 scope 不变时保留 tap 与 canonical rolling window。`test_system_audio_spectrum_recovery` 新增 Web-active/Scene-revoke 反例，验证 capture stop 仍为0、start token仍为1。该 finding 已修正。
+
+**第二轮审查修正：**旧 Scene callback token 在 endpoint revoke 后仍可能携带旧 epoch；若 service 无条件比较 epoch，Web/Video 会在 guard 处整帧丢弃。最终 guard 在 `sceneEnabled == false` 时忽略 Scene epoch，但继续校验 capture resource generation 与 include/exclude process scope；Scene 重新启用或 active epoch 切换仍通过重启获得新 token。恢复 harness 的 revoked-frame 反例只确认旧 Scene token 能通过共享 processing-admission；该 fixture 未注入真实 PCM，因此不把它升级为 Web/Video analyzer 或 callback 输出证据。
+
+**最终独立复审：**未参与实现的只读审查者复核最终冻结 diff，检查唯一 tap/PCM/canonical producer、projection owner、Scene revoke/epoch/generation/re-enable 生命周期、左右声道与 failure radius、恢复 harness 及三份现役文档；结论为 **APPROVE / P0–P3 无发现**。审查者未编辑、构建、运行测试或产品、生成缓存、暂存或提交；该批准不提升下述真实音乐、三引擎 ROI、官方 parity、长稳、设备切换和 cursor audio 的证据等级。
+
+**证据上限：**本批是代码/行为/构建证据，尚未用普通系统音乐对当前源码取得 fresh Video/Web/Scene 三引擎逐样本原分辨率 ROI，也没有固定官方同输入、长稳、暂停/锁屏/睡眠、设备热插拔或三引擎实机 parity 证据。因此只把“三引擎采集与频谱 producer 已收敛为一个 owner”记为当前实现事实，不把 focused tests 或 Debug build升级为全集视觉兼容、官方一致性或发布就绪。
+
 <a id="e-2026-09-20-xray-effect-projection"></a>
 
 ### E-2026-09-20-XRAY-EFFECT-PROJECTION — effect-texture inverse与output MVP分权；真实X-Ray四象限轨迹达到有界S4

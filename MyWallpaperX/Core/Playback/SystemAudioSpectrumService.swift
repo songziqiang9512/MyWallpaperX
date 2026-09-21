@@ -140,7 +140,9 @@ final class SystemAudioSpectrumService: NSObject {
                 ? .includesCurrentProcess
                 : .excludesCurrentProcess
             let processScopeChanged = self.processScope != requestedProcessScope
-                || self.sceneCaptureScopeEpoch != sceneCaptureScopeEpoch
+            let activeSceneEpochChanged = sceneEnabled
+                && (!self.sceneEnabled
+                    || self.sceneCaptureScopeEpoch != sceneCaptureScopeEpoch)
             if self.overlayEnabled != overlayEnabled {
                 self.onLevels?(self.overlayAnalyzer.reset())
             }
@@ -148,14 +150,17 @@ final class SystemAudioSpectrumService: NSObject {
                 self.onWebLevels?(Self.clearedWebLevels)
             }
             if self.sceneEnabled != sceneEnabled {
-                self.clearSceneLevels()
+                // A Scene endpoint can be revoked while Web/Video is still using
+                // the same canonical rolling producer. Clear only the endpoint;
+                // do not discard the shared capture window for another consumer.
+                self.clearSceneLevels(resetAnalyzer: false)
             }
             self.overlayEnabled = overlayEnabled
             self.webEnabled = webEnabled
             self.sceneEnabled = sceneEnabled
             self.processScope = requestedProcessScope
             self.sceneCaptureScopeEpoch = sceneCaptureScopeEpoch
-            if processScopeChanged {
+            if processScopeChanged || activeSceneEpochChanged {
                 self.captureRetrySequence += 1
                 self.captureRetryWorkItem?.cancel()
                 self.captureRetryWorkItem = nil
@@ -541,7 +546,7 @@ final class SystemAudioSpectrumService: NSObject {
         }
         onLevels?(overlayAnalyzer.reset())
         onWebLevels?(Self.clearedWebLevels)
-        clearSceneLevels()
+        clearSceneLevels(resetAnalyzer: true)
         if hasCaptureResources {
             if allowRetry {
                 scheduleCaptureTeardownRetryIfNeeded()
@@ -790,6 +795,20 @@ final class SystemAudioSpectrumService: NSObject {
         }
     }
 
+    func debugSimulateSceneRevokedFrameProcessingForTesting() {
+        sampleQueue.sync {
+            guard sceneCaptureScopeEpoch > 0 else { return }
+            sceneEnabled = false
+            pendingCaptureResourceGeneration = captureResourceGeneration
+            pendingSceneCaptureToken = SceneAudioSpectrumCaptureToken(
+                scopeEpoch: sceneCaptureScopeEpoch - 1,
+                includesCurrentProcessOutput:
+                    processScope == .includesCurrentProcess
+            )
+            processCapturedAudio()
+        }
+    }
+
     func debugRecoverySnapshot() -> DebugRecoverySnapshot {
         sampleQueue.sync {
             DebugRecoverySnapshot(
@@ -824,7 +843,7 @@ final class SystemAudioSpectrumService: NSObject {
         processScope = .excludesCurrentProcess
         onLevels?(overlayAnalyzer.reset())
         onWebLevels?(Self.clearedWebLevels)
-        clearSceneLevels()
+        clearSceneLevels(resetAnalyzer: true)
     }
 
     private func processAudioBufferList(
@@ -847,7 +866,8 @@ final class SystemAudioSpectrumService: NSObject {
 
     private func processCapturedAudio() {
         guard pendingCaptureResourceGeneration == captureResourceGeneration,
-              pendingSceneCaptureToken.scopeEpoch == sceneCaptureScopeEpoch,
+              (!sceneEnabled
+                || pendingSceneCaptureToken.scopeEpoch == sceneCaptureScopeEpoch),
               pendingSceneCaptureToken.includesCurrentProcessOutput
                 == (processScope == .includesCurrentProcess) else { return }
 #if DEBUG
@@ -868,24 +888,25 @@ final class SystemAudioSpectrumService: NSObject {
                 )
             }
         }
+        guard let sceneAnalyzer else {
+            if overlayEnabled { onLevels?(overlayAnalyzer.reset()) }
+            if webEnabled { onWebLevels?(Self.clearedWebLevels) }
+            if sceneEnabled { clearSceneLevels(resetAnalyzer: true) }
+            return
+        }
+        let bands = sceneAnalyzer.analyze(frame, sampleRate: sampleRate)
         if overlayEnabled {
             onLevels?(
                 overlayAnalyzer.analyze(
-                    rectifiedMono: frame.rectifiedMono,
-                    sampleRate: sampleRate
+                    leftLevels: bands.left64,
+                    rightLevels: bands.right64
                 )
             )
         }
         if webEnabled {
-            onWebLevels?(webAnalyzer.analyze(frame, sampleRate: sampleRate))
+            onWebLevels?(webAnalyzer.analyze(bands))
         }
         if sceneEnabled {
-            guard let sceneAnalyzer else {
-                // FFT setup 不可用时保持稳定零输入，不产生假波形。
-                clearSceneLevels()
-                return
-            }
-            let bands = sceneAnalyzer.analyze(frame, sampleRate: sampleRate)
             onSceneLevels?(
                 bands.left,
                 bands.right,
@@ -898,8 +919,10 @@ final class SystemAudioSpectrumService: NSObject {
         }
     }
 
-    private func clearSceneLevels() {
-        sceneAnalyzer?.reset()
+    private func clearSceneLevels(resetAnalyzer: Bool = false) {
+        if resetAnalyzer {
+            sceneAnalyzer?.reset()
+        }
         onSceneLevels?(
             Self.clearedSceneLevels,
             Self.clearedSceneLevels,

@@ -5,7 +5,7 @@
 
 import Accelerate
 
-/// Wallpaper Engine Scene 侧的唯一 PCM -> 16/32/64×L/R 频谱 producer。
+/// Video/Web/Scene 共用的唯一 PCM -> 16/32/64×L/R 频谱 producer。
 ///
 /// 公开作者合同只保证每个分辨率都从低频排到高频，数值为正且通常落在
 /// 0...1；它没有公开频段边界、窗函数或平滑算法。因此这里用项目自有的
@@ -27,6 +27,31 @@ final class SystemAudioSceneSpectrumAnalyzer {
         let right32: [Float]
         let left64: [Float]
         let right64: [Float]
+    }
+
+    /// 将 canonical 频段投影到消费端需要的柱数。投影只做有限区间的峰值保留，
+    /// 不重新采集、窗化或运行第二套 FFT；下采样时保留每个目标区间的最高真实 band，
+    /// 上采样时使用最近的 canonical band。
+    static func resample(_ levels: [Float], count: Int) -> [Float] {
+        guard count > 0 else { return [] }
+        guard !levels.isEmpty else { return Array(repeating: 0, count: count) }
+        if levels.count == count {
+            return levels.map { $0.isFinite ? min(1, max(0, $0)) : 0 }
+        }
+
+        var projected = Array(repeating: Float(0), count: count)
+        for index in projected.indices {
+            let lower = (index * levels.count) / count
+            let upper = max(lower + 1, ((index + 1) * levels.count + count - 1) / count)
+            let boundedUpper = min(levels.count, upper)
+            guard lower < boundedUpper else { continue }
+            var peak: Float = 0
+            for level in levels[lower..<boundedUpper] where level.isFinite {
+                peak = max(peak, level)
+            }
+            projected[index] = min(1, max(0, peak))
+        }
+        return projected
     }
 
     private struct FrequencyLevels {
@@ -52,6 +77,17 @@ final class SystemAudioSceneSpectrumAnalyzer {
     /// 分别让真实起音及时出现、尾音连续衰减；它们不生成任何无输入周期信号。
     private static let attackMix: Float = 0.66
     private static let releaseRetention: Float = 0.84
+    /// 系统音频的音乐内容通常带有明显的 1/f 频谱倾斜；不补偿时，低频峰值会
+    /// 把高频作者柱压到固定 -60 dB 门以下。该指数只做有界的跨频率响应补偿，
+    /// 不改变 band identity，也不把某个样本的频谱重排到另一组柱子。
+    private static let spectralTiltExponent: Float = 0.05
+    private static let spectralTiltReferenceFrequency: Float = 250
+    private static let spectralTiltMinimumGain: Float = 0.55
+    private static let spectralTiltMaximumGain: Float = 4
+    /// 低频主导的真实输入仍应让整条作者频谱有可见、可更新的活动底。底值由
+    /// 同一帧的最高真实 band 推导，静音仍严格为零，不制造随机或周期信号。
+    private static let broadbandActivityFloorRatio: Float = 0.01
+    private static let broadbandActivityFloorMaximum: Float = 0.004
     private static let settledSilenceThreshold: Float = 0.000_1
 
     private let log2FFTSize: vDSP_Length
@@ -255,11 +291,38 @@ final class SystemAudioSceneSpectrumAnalyzer {
                 max(lowerBin + 1, Int(ceil(upperBandFrequency / binWidth)))
             )
             guard lowerBin < upperBin else { continue }
+            let centerFrequency = sqrt(lowerFrequency * upperBandFrequency)
+            let tiltGain = min(
+                Self.spectralTiltMaximumGain,
+                max(
+                    Self.spectralTiltMinimumGain,
+                    pow(
+                        centerFrequency / Self.spectralTiltReferenceFrequency,
+                        Self.spectralTiltExponent
+                    )
+                )
+            )
             for bin in lowerBin ..< upperBin where magnitudes[bin].isFinite {
-                levels[bandIndex] = max(levels[bandIndex], magnitudes[bin])
+                levels[bandIndex] = max(
+                    levels[bandIndex],
+                    magnitudes[bin] * tiltGain
+                )
             }
         }
-        return levels
+        guard let broadbandPeak = levels.max(),
+              broadbandPeak.isFinite,
+              broadbandPeak > 0
+        else {
+            return levels
+        }
+        let activityFloor = min(
+            Self.broadbandActivityFloorMaximum,
+            broadbandPeak * Self.broadbandActivityFloorRatio
+        )
+        return levels.map { level in
+            guard level.isFinite else { return activityFloor }
+            return max(level, activityFloor)
+        }
     }
 
     private func magnitudeSpectrum(for samples: [Float]) -> [Float] {
