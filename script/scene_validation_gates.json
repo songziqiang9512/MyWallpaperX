@@ -136,6 +136,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/**"
       ],
       "modules": [
+        "test_scene_cursor_audio_consumer",
         "test_scene_cursor_candidate_collision",
         "test_scene_dynamic_layer_visibility",
         "test_scene_dynamic_snapshot",
@@ -303,10 +304,12 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneSurfacePointerState.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+Pointer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+PointerEvents.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+AudioDemand.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+PointerEvents.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
       ],
       "modules": [
+        "test_scene_cursor_audio_consumer",
         "test_scene_cursor_capture_continuity",
         "test_scene_frame_vm_routing",
         "test_scene_surface_pointer_event_buffer"

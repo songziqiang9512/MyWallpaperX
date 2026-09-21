@@ -17,6 +17,7 @@ extension SceneDesktopWallpaperHost {
                 || context.propertyVectorScriptProgram.hasAudioConsumers
                 || context.sceneScriptScalarProgram.hasAudioConsumers
                 || context.sceneScriptStringProgram.hasAudioConsumers
+                || context.sceneScriptCursorProgram.hasAudioConsumers
         )
         SceneAudioSpectrumInbox.shared.setDemand(
             demandsSpectrum,
@@ -29,8 +30,8 @@ extension SceneDesktopWallpaperHost {
     ///
     /// 判据是「已进入统一执行目录的 backend 里是否有启用 audio 的 plan」，
     /// 而不是 project 的 `supportsaudioprocessing`——后者是作者在编辑器里勾的
-    /// 声明，45 样本中它为 true 的 12 个与真正带 audio 声明的样本互有出入，
-    /// 会让没有任何 consumer 的壁纸也去占用系统音频权限。
+    /// 声明；它与真正带 audio 声明的样本集合并不相等，按它采集会让没有任何
+    /// consumer 的壁纸也去占用系统音频权限。
     ///
     /// 当前 consumer 包括 stock Shake/Pulse 的 `AUDIOPROCESSING` 分支、
     /// 统一 Program 的 active audio host uniforms、surface 资源装载后确认

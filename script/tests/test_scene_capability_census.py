@@ -370,6 +370,204 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                 "statically-admitted": 3,
             },
         )
+        self.assertEqual(profile["cursor_event_exports"], [])
+        self.assertEqual(profile["cursor_event_unresolved_exports"], [])
+        self.assertEqual(
+            profile["cursor_audio_consumer_state"], "no-cursor-event"
+        )
+
+    def test_scenescript_cursor_audio_relation_ignores_non_code_mentions(self) -> None:
+        profile = scenescript_audio_registrations(r'''
+            const audio = engine.registerAudioBuffers(16);
+            // export function cursorMove() {}
+            const ignored = "export function cursorClick() {}";
+            const pattern = /export function cursorEnter\(/;
+            export function cursorDown() { return audio.left[0]; }
+            export async function cursorUp() { return audio.right[0]; }
+            export async function* cursorEnter() { yield audio.average[0]; }
+            export const cursorMove = () => audio.average[0];
+            const localClick = async () => audio.average[1];
+            export { localClick as cursorClick };
+            function localLeave() { return audio.average[2]; }
+            export { localLeave as cursorLeave };
+        ''')
+        self.assertIsNotNone(profile)
+        assert profile is not None
+        self.assertEqual(
+            profile["cursor_event_exports"],
+            [
+                "cursorClick", "cursorDown", "cursorEnter", "cursorLeave",
+                "cursorMove", "cursorUp",
+            ],
+        )
+        self.assertEqual(profile["cursor_event_unresolved_exports"], [])
+        self.assertEqual(
+            profile["cursor_audio_consumer_state"], "statically-admitted"
+        )
+
+        non_module = scenescript_audio_registrations(r'''
+            engine.registerAudioBuffers(16);
+            if (true) { export function cursorMove() {} }
+            const template = `${export function cursorClick() {}}`;
+            const text = "export function cursorDown() {}";
+        ''')
+        self.assertIsNotNone(non_module)
+        assert non_module is not None
+        self.assertEqual(non_module["cursor_event_exports"], [])
+        self.assertEqual(non_module["cursor_event_unresolved_exports"], [])
+        self.assertEqual(
+            non_module["cursor_audio_consumer_state"], "no-cursor-event"
+        )
+
+        unresolved = scenescript_audio_registrations('''
+            const audio = engine.registerAudioBuffers(dynamicResolution);
+            export function cursorMove() { return audio.average[0]; }
+        ''')
+        self.assertIsNotNone(unresolved)
+        assert unresolved is not None
+        self.assertEqual(
+            unresolved["cursor_audio_consumer_state"],
+            "audio-registration-unresolved",
+        )
+
+        unresolved_export = scenescript_audio_registrations('''
+            const audio = engine.registerAudioBuffers(16);
+            const localUp = resolveCursorHandler();
+            export { localUp as cursorUp };
+            export const cursorMove = resolveCursorHandler();
+            export const cursorClick = function () {}();
+            export const { cursorEnter } = dynamicHandlers;
+            export let cursorLeave = () => audio.average[0];
+            export function cursorDown() { return audio.left[0]; }
+            cursorDown = resolveCursorHandler();
+        ''')
+        self.assertIsNotNone(unresolved_export)
+        assert unresolved_export is not None
+        self.assertEqual(unresolved_export["cursor_event_exports"], [])
+        self.assertEqual(
+            unresolved_export["cursor_event_unresolved_exports"],
+            [
+                "cursorClick", "cursorDown", "cursorEnter", "cursorLeave",
+                "cursorMove", "cursorUp",
+            ],
+        )
+        self.assertEqual(
+            unresolved_export["cursor_audio_consumer_state"],
+            "cursor-export-unresolved",
+        )
+
+        unresolved_reexport = scenescript_audio_registrations('''
+            engine.registerAudioBuffers(16);
+            export { remote as cursorMove } from "./callbacks.js";
+            export * from "./more-callbacks.js";
+        ''')
+        self.assertIsNotNone(unresolved_reexport)
+        assert unresolved_reexport is not None
+        self.assertEqual(unresolved_reexport["cursor_event_exports"], [])
+        self.assertEqual(
+            unresolved_reexport["cursor_event_unresolved_exports"],
+            ["<wildcard-reexport>", "cursorMove"],
+        )
+        self.assertEqual(
+            unresolved_reexport["cursor_audio_consumer_state"],
+            "cursor-export-unresolved",
+        )
+
+        for write in (
+            "++cursorMove;",
+            "({x: cursorMove} = {x: null});",
+            "for (cursorMove of [null]) {}",
+        ):
+            with self.subTest(write=write):
+                changed_binding = scenescript_audio_registrations(f'''
+                    engine.registerAudioBuffers(16);
+                    export function cursorMove() {{}}
+                    {write}
+                ''')
+                self.assertIsNotNone(changed_binding)
+                assert changed_binding is not None
+                self.assertEqual(changed_binding["cursor_event_exports"], [])
+                self.assertEqual(
+                    changed_binding["cursor_event_unresolved_exports"],
+                    ["cursorMove"],
+                )
+
+        exported_class = scenescript_audio_registrations('''
+            engine.registerAudioBuffers(16);
+            export class cursorMove {}
+        ''')
+        self.assertIsNotNone(exported_class)
+        assert exported_class is not None
+        self.assertEqual(exported_class["cursor_event_exports"], [])
+        self.assertEqual(
+            exported_class["cursor_event_unresolved_exports"],
+            ["cursorMove"],
+        )
+
+        property_key_only = scenescript_audio_registrations('''
+            engine.registerAudioBuffers(16);
+            export const { cursorMove: handler } = dynamicHandlers;
+        ''')
+        self.assertIsNotNone(property_key_only)
+        assert property_key_only is not None
+        self.assertEqual(property_key_only["cursor_event_exports"], [])
+        self.assertEqual(property_key_only["cursor_event_unresolved_exports"], [])
+        self.assertEqual(
+            property_key_only["cursor_audio_consumer_state"],
+            "no-cursor-event",
+        )
+
+        destructured_cursor = scenescript_audio_registrations('''
+            engine.registerAudioBuffers(16);
+            export const { handler: cursorMove } = dynamicHandlers;
+        ''')
+        self.assertIsNotNone(destructured_cursor)
+        assert destructured_cursor is not None
+        self.assertEqual(destructured_cursor["cursor_event_exports"], [])
+        self.assertEqual(
+            destructured_cursor["cursor_event_unresolved_exports"],
+            ["cursorMove"],
+        )
+
+        named_async_expression = scenescript_audio_registrations('''
+            engine.registerAudioBuffers(16);
+            export const cursorDown = async function cursorDown() {};
+        ''')
+        self.assertIsNotNone(named_async_expression)
+        assert named_async_expression is not None
+        self.assertEqual(
+            named_async_expression["cursor_event_exports"], ["cursorDown"]
+        )
+        self.assertEqual(
+            named_async_expression["cursor_event_unresolved_exports"], []
+        )
+
+    def test_cursor_audio_family_summary_explains_family_split(self) -> None:
+        occurrence = {
+            "occurrence_id": "audio/fixture",
+            "family_key": "audio-declaration/scenescript-registration@fixture",
+            "revision_key": "revision",
+            "domain": "audio-declaration",
+            "kind": "scenescript-registration",
+            "location": {"sample_id": "0000000001"},
+            "effective_visibility": "visible",
+            "cursor_event_exports": ["cursorDown"],
+            "cursor_event_unresolved_exports": ["cursorMove"],
+            "cursor_audio_consumer_state": "cursor-export-unresolved",
+        }
+        row = census._family_rollup([occurrence], {"families": []})[0]
+        self.assertEqual(
+            row["feature_summary"]["cursor_event_exports"],
+            [["cursorDown"]],
+        )
+        self.assertEqual(
+            row["feature_summary"]["cursor_event_unresolved_exports"],
+            [["cursorMove"]],
+        )
+        self.assertEqual(
+            row["feature_summary"]["cursor_audio_consumer_state"],
+            ["cursor-export-unresolved"],
+        )
 
     def test_shader_combo_annotation_does_not_imply_material_activation(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-audio-shader-") as directory:

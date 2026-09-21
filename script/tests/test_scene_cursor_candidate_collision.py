@@ -58,6 +58,7 @@ enum Harness {
             descriptor: descriptor,
             scriptBindings: bindings,
             borrowedOwners: candidate.vectorProgram.cursorOwnerRegistrations,
+            claimedTargets: candidate.vectorProgram.inputTargets,
             rejectedLayerIDs: [],
             generation: 41
         )

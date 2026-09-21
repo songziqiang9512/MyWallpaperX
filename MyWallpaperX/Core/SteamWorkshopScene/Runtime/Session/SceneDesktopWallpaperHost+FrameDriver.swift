@@ -373,7 +373,8 @@ extension SceneDesktopWallpaperHost {
             cursorResult = launchContext.sceneScriptCursorProgram.dispatch(
                 batch: cursorBatch,
                 frame: sceneScriptFrame,
-                userPropertiesJSON: userPropertiesJSON
+                userPropertiesJSON: userPropertiesJSON,
+                audioSpectrum: audioSpectrum
             )
         }
         if cursorResult.inputBatchOverflowed {

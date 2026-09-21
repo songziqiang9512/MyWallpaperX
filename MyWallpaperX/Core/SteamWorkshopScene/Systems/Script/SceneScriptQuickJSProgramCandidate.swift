@@ -300,8 +300,8 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 domain: domain,
                 descriptor: authoredDescriptor,
                 scriptBindings: scriptBindings,
-                borrowedOwners:
-                    vectorConstruction.program.cursorOwnerRegistrations,
+                borrowedOwners: vectorConstruction.program.cursorOwnerRegistrations,
+                claimedTargets: vectorConstruction.program.inputTargets,
                 rejectedLayerIDs: rejectedCursorLayerIDs,
                 generation: generation,
                 budget: budget

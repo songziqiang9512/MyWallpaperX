@@ -8,11 +8,11 @@
 
 - 当前真实 Scene 根发现 **159** 个样本，**159/159** 的 project、PKGV 索引和入口 JSON 可解析。
 - tracked full-matrix baseline 当前覆盖 **45** 个历史成员，状态为 `pending-expansion`；本 census 新发现但未 join 运行证据的样本为 `1300076567, 1315486372, 1439846152, 1480826543, 1507413154, 1507593643, 1511889295, 1989767609, 1994794519, 2069136288, 2112262451, 2163522240, 2179185481, 2181251652, 2231088993, 2269193950, 2304304373, 2356604986, 2505351195, 2607203340, 2684431262, 2775915974, 2794098047, 2797913147, 2808874251, 2813231542, 2824109832, 2837223712, 2896873092, 2917306763, 2932631210, 2942486721, 2959875782, 2986218263, 3002649614, 3025969015, 3113287126, 3113554287, 3147346398, 3167210190, 3211615441, 3219398263, 3233141951, 3238423642, 3264246690, 3287715210, 3323988600, 3363252053, 3389974179, 3395392965, 3395777145, 3396722575, 3437487219, 3448845950, 3470948192, 3472940912, 3477054430, 3487629864, 3509243656, 3554161528, 3585875739, 3601964477, 3609108600, 3610154602, 3612199597, 3612795410, 3629927359, 3655958892, 3662790108, 3665307769, 3690859128, 3699213569, 3703104370, 3712499998, 3721456868, 3748311238, 3749463715, 3754630802, 3754639143, 3763323436, 3763428294, 3765904723, 3775355045, 3775373546, 3777761326, 3779026256, 3779904456, 3780119725, 3780391264, 3780940857, 3781307553, 3782740481, 3784012236, 3786185473, 3786641495, 3787355076, 3787382101, 3788066613, 3788467391, 3788645041, 3788698200, 3788734811, 3788897599, 3789316755, 3790631363, 3790726145, 3790806929, 3790956325, 3791905266, 3792249095, 3792400801, 3792817546, 3793328876, 3793978239`，是否曾单独运行不能由静态扫描判断。
-- 全量 authored census 共保存 **66244** 个 typed occurrence、**2535** 个公共结构 family、**1664** 个参数 profile 与 **11641** 个 JSON 字段 profile。
+- 全量 authored census 共保存 **66244** 个 typed occurrence、**2536** 个公共结构 family、**1664** 个参数 profile 与 **11641** 个 JSON 字段 profile。
 - 物理 corpus 共 **10538** 个 PKG entry / **10537** 个唯一路径，包体约 **5.604 GB**；tracked baseline 在单独的 milestone 扩容并建立运行期待前仍为 45，期间不得称为当前完整快照门。
 - package anomaly：样本 `3768724269` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 59/80，同字节；该包 87 entries / 86 unique paths）；重复entry继续保留在物理守恒中，不是漏扫。
 - 结构 fallback 记录为 **93**，另有 **6** 个 generic/unknown/unresolved family；两者都不是运行失败数。本 census 未 join 运行证据的样本，其第一 blocker 保持 `unknown`，不得从静态形态猜测。
-- 公共能力粗映射：**2528** 个 family 按声明形态映射到台账登记能力，**7** 个显式 unknown（`{"effect-declaration-unresolved-static": 1, "project-property-kind-empty": 1, "project-property-kind-unknown": 5}`）；映射只表达声明覆盖关系，不表示运行支持。
+- 公共能力粗映射：**2529** 个 family 按声明形态映射到台账登记能力，**7** 个显式 unknown（`{"effect-declaration-unresolved-static": 1, "project-property-kind-empty": 1, "project-property-kind-unknown": 5}`）；映射只表达声明覆盖关系，不表示运行支持。
 - 开发按“真实可见链第一断裂边覆盖的共享 family”排序；大类用于汇总，不允许把所有纹理、Effect 或粒子一次性做成巨型补丁。
 
 ## 2. 口径与权威边界
@@ -38,7 +38,7 @@
 | `render-target` | 478 | 7 | [Graph/Shader](render-graph-shader-coverage.md) |
 | `texture` | 11902 | 69 | [格式/资源](scene-format-and-render-graph.md) / [Graph/Shader](render-graph-shader-coverage.md) / [Provider](runtime-input-property-coverage.md) |
 | `particle` | 14244 | 645 | [粒子](particle-component-coverage.md) |
-| `audio-declaration` | 1428 | 28 | [音频声明](coverage-ledger.md) |
+| `audio-declaration` | 1428 | 29 | [音频声明](coverage-ledger.md) |
 | `dynamic-input` | 7733 | 339 | [属性/输入](runtime-input-property-coverage.md) |
 | `project-property` | 2960 | 34 | [属性/输入](runtime-input-property-coverage.md) |
 
@@ -59,15 +59,16 @@
 - payload-free 音频关系共 **1428** 个 occurrence / **120** 个样本；其中 editor `supportsaudioprocessing=true` 为 **79** 个样本，存在至少一种非 project 声明关系的样本为 **120** 个。
 - 标记有而没有非 project 声明关系：`无`；有声明关系而没有 editor 标记：`1553008362, 1636394814, 1994794519, 2069136288, 2112262451, 2269193950, 2473638329, 2505351195, 2607203340, 2775915974, 2797913147, 2802243144, 2824109832, 2896873092, 2942486721, 2959875782, 2998757800, 3025969015, 3088601835, 3167210190, 3323988600, 3395392965, 3699213569, 3703104370, 3738202317, 3750342273, 3750813609, 3757555836, 3763323436, 3766403294, 3767232084, 3769761761, 3770444459, 3781307553, 3786641495, 3787355076, 3788645041, 3790631363, 3790956325, 3791905266, 3793328876`。两者都不是运行支持集合，不能从静态相等或差集推导 capture demand。
 - 静态 consumer 意图为 **52** 个样本：`1937925563, 2131872317, 2134765860, 2241938645, 2419444134, 2684431262, 2794098047, 2813231542, 2884628849, 2902406982, 2932631210, 2938612768, 2974757317, 3002649614, 3211615441, 3233141951, 3238423642, 3264246690, 3299228616, 3363252053, 3395777145, 3396722575, 3448845950, 3477054430, 3554161528, 3585875739, 3601964477, 3610154602, 3612199597, 3612795410, 3655958892, 3662790108, 3665307769, 3747492842, 3749463715, 3754639143, 3765904723, 3767460992, 3768020435, 3768229922, 3768724269, 3769688830, 3777761326, 3779026256, 3780119725, 3780391264, 3787382101, 3788066613, 3788467391, 3789316755, 3790806929, 3792249095`。这里只接受精确源码数组形状、显式启用的 material/particle 响应或 proven-global 且分辨率有效的 SceneScript 调用；material active variant/host ABI 与所有运行 execution 尚未 join，因此本批 runtime-confirmed 仍为 **0**。
+- 其中同一 SceneScript owner 同时具有静态准入 AudioBuffers 与显式导出 cursor callback 的意图为 **1** 个样本：`3238423642`；这只登记实例化候选关系，不证明 hit、事件触发、snapshot refresh 或可见输出。
 - editor 标记有而静态意图无：`2067939514, 2917306763, 3113287126, 3113554287, 3122339805, 3147346398, 3287715210, 3290491250, 3470948192, 3487629864, 3509243656, 3609108600, 3690859128, 3712499998, 3721456868, 3743305891, 3748311238, 3754630802, 3763428294, 3765760121, 3769364482, 3779904456, 3782740481, 3788734811, 3788897599, 3792400801, 3792817546`；静态意图有而 editor 标记无：`无`。普通 App 运行基线必须覆盖这些差集与全部声明关系，不能只测标记集合。
 
 | 声明关系 | occurrence | 样本 | 静态状态分布 |
 |---|---:|---:|---|
-| `material-audio-response` | 84 | 25 | `{"activation": {"absent": 3, "disabled": 1, "enabled": 80}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
-| `material-host-spectrum` | 934 | 113 | `{"activation": {"disabled": 1, "enabled": 80, "not-authored": 853}, "runtime_admission": {"launch-envelope-unjoined": 934}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {"preprocessor-conditioned": 2554, "source-shape-exact": 52}}` |
-| `particle-audio-response` | 70 | 14 | `{"activation": {"disabled": 1, "enabled": 51, "missing-mode": 18}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
-| `project-support-enabled` | 79 | 79 | `{"activation": {}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
-| `scenescript-registration` | 261 | 50 | `{"activation": {}, "runtime_admission": {}, "script_admission": {"resolution-unresolved": 69, "statically-admitted": 192}, "script_resolution": {"16": 187, "32": 1, "64": 4, "dynamic-or-invalid": 69}, "script_scope": {"proven-global": 261}, "source_abi": {}}` |
+| `material-audio-response` | 84 | 25 | `{"activation": {"absent": 3, "disabled": 1, "enabled": 80}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
+| `material-host-spectrum` | 934 | 113 | `{"activation": {"disabled": 1, "enabled": 80, "not-authored": 853}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {"launch-envelope-unjoined": 934}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {"preprocessor-conditioned": 2554, "source-shape-exact": 52}}` |
+| `particle-audio-response` | 70 | 14 | `{"activation": {"disabled": 1, "enabled": 51, "missing-mode": 18}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
+| `project-support-enabled` | 79 | 79 | `{"activation": {}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
+| `scenescript-registration` | 261 | 50 | `{"activation": {}, "cursor_audio_consumer": {"no-cursor-event": 260, "statically-admitted": 1}, "cursor_events": {"cursorEnter+cursorLeave": 1}, "runtime_admission": {}, "script_admission": {"resolution-unresolved": 69, "statically-admitted": 192}, "script_resolution": {"16": 187, "32": 1, "64": 4, "dynamic-or-invalid": 69}, "script_scope": {"proven-global": 261}, "source_abi": {}}` |
 
 ## 4. 当前公共 family 影响面索引
 
@@ -164,7 +165,7 @@
 
 | capability | 台账 authority 行 | family | occurrence | 样本 |
 |---|---|---:|---:|---:|
-| `cap.audio.declarations` | [Audio declarations](coverage-ledger.md) | 44 | 1541 | 126 |
+| `cap.audio.declarations` | [Audio declarations](coverage-ledger.md) | 45 | 1541 | 126 |
 | `cap.camera.parallax` | [Camera Parallax](coverage-ledger.md) | 5 | 7 | 7 |
 | `cap.camera.shake` | [Scene Camera Shake](coverage-ledger.md) | 5 | 7 | 7 |
 | `cap.effect.executor` | [Bounded effect executors](coverage-ledger.md) | 13 | 3263 | 147 |

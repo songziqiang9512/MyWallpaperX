@@ -444,9 +444,23 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("scene-script-runtime", groups)
         self.assertIn("scene-script-cursor", groups)
         focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        self.assertIn("test_scene_cursor_audio_consumer", focused.command)
         self.assertIn("test_scene_cursor_capture_continuity", focused.command)
         self.assertIn("test_scene_frame_vm_routing", focused.command)
         self.assertIn("test_scene_surface_pointer_event_buffer", focused.command)
+
+    def test_cursor_audio_demand_change_selects_cursor_audio_contract(self) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/"
+                "SceneDesktopWallpaperHost+AudioDemand.swift"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("scene-script-cursor", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        self.assertIn("test_scene_cursor_audio_consumer", focused.command)
 
     def test_pointer_producer_change_selects_cursor_transaction_contract(self) -> None:
         gates, groups = verify.build_plan(

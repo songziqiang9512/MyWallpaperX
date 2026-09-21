@@ -312,6 +312,15 @@ def _dynamic_occurrences(
                         "scope_states": registration["scope_states"],
                         "admission_states": registration["admission_states"],
                     }
+                    if registration["cursor_audio_consumer_state"] != "no-cursor-event":
+                        audio_shape.update({
+                            "cursor_event_exports":
+                                registration["cursor_event_exports"],
+                            "cursor_event_unresolved_exports":
+                                registration["cursor_event_unresolved_exports"],
+                            "cursor_audio_consumer_state":
+                                registration["cursor_audio_consumer_state"],
+                        })
                     results.append({
                         "occurrence_id": occurrence_id(
                             "audio-declaration", audio_location
@@ -924,6 +933,8 @@ def _family_feature_summary(values: list[dict[str, Any]]) -> dict[str, Any]:
         "shader_stages", "has_audio_combo", "audio_constant_keys",
         "audio_parameter_keys", "resolution_states", "call_count", "activation_state",
         "scope_states", "admission_states", "statically_admitted_call_count",
+        "cursor_event_exports", "cursor_event_unresolved_exports",
+        "cursor_audio_consumer_state",
         "source_exact_resolutions", "source_exact_channels", "source_exact_stages",
         "source_abi_state_counts", "runtime_admission_state",
         "source_declares_audio_processing_combo",
@@ -976,6 +987,17 @@ def summarize_audio_declarations(
             str(item["runtime_admission_state"])
             for item in values if "runtime_admission_state" in item
         )
+        cursor_audio_consumer_states = Counter(
+            str(item["cursor_audio_consumer_state"])
+            for item in values
+            if "cursor_audio_consumer_state" in item
+        )
+        cursor_event_exports = Counter(
+            "+".join(str(value) for value in item["cursor_event_exports"])
+            for item in values
+            if isinstance(item.get("cursor_event_exports"), list)
+                and item["cursor_event_exports"]
+        )
         for item in values:
             scope_states.update(item.get("scope_state_counts", {}))
             admission_states.update(item.get("admission_state_counts", {}))
@@ -992,6 +1014,12 @@ def summarize_audio_declarations(
             "runtime_admission_state_counts": dict(sorted(
                 runtime_admission_states.items()
             )),
+            "cursor_audio_consumer_state_counts": dict(sorted(
+                cursor_audio_consumer_states.items()
+            )),
+            "cursor_event_export_counts": dict(sorted(
+                cursor_event_exports.items()
+            )),
         }
     support_samples = {
         str(item["location"]["sample_id"])
@@ -1007,6 +1035,12 @@ def summarize_audio_declarations(
         str(item["location"]["sample_id"])
         for item in audio if is_static_consumer_intent(item)
     }
+    cursor_audio_intent_samples = {
+        str(item["location"]["sample_id"])
+        for item in audio
+        if item.get("kind") == "scenescript-registration"
+            and item.get("cursor_audio_consumer_state") == "statically-admitted"
+    }
     return {
         "declaration_occurrence_count": len(audio),
         "declaration_sample_count": len({
@@ -1017,6 +1051,8 @@ def summarize_audio_declarations(
         "relationship_sample_ids": sorted(relationship_samples),
         "static_consumer_intent_sample_count": len(static_intent_samples),
         "static_consumer_intent_sample_ids": sorted(static_intent_samples),
+        "cursor_audio_intent_sample_count": len(cursor_audio_intent_samples),
+        "cursor_audio_intent_sample_ids": sorted(cursor_audio_intent_samples),
         "support_without_relationship": sorted(support_samples - relationship_samples),
         "relationship_without_support": sorted(relationship_samples - support_samples),
         "support_without_static_intent": sorted(support_samples - static_intent_samples),
@@ -2132,6 +2168,7 @@ def render_markdown(census: dict[str, Any]) -> str:
         f"- payload-free 音频关系共 **{audio['declaration_occurrence_count']}** 个 occurrence / **{audio['declaration_sample_count']}** 个样本；其中 editor `supportsaudioprocessing=true` 为 **{audio['project_support_sample_count']}** 个样本，存在至少一种非 project 声明关系的样本为 **{audio['relationship_sample_count']}** 个。",
         f"- 标记有而没有非 project 声明关系：`{', '.join(audio['support_without_relationship']) or '无'}`；有声明关系而没有 editor 标记：`{', '.join(audio['relationship_without_support']) or '无'}`。两者都不是运行支持集合，不能从静态相等或差集推导 capture demand。",
         f"- 静态 consumer 意图为 **{audio['static_consumer_intent_sample_count']}** 个样本：`{', '.join(audio['static_consumer_intent_sample_ids']) or '无'}`。这里只接受精确源码数组形状、显式启用的 material/particle 响应或 proven-global 且分辨率有效的 SceneScript 调用；material active variant/host ABI 与所有运行 execution 尚未 join，因此本批 runtime-confirmed 仍为 **{audio['runtime_confirmed_sample_count']}**。",
+        f"- 其中同一 SceneScript owner 同时具有静态准入 AudioBuffers 与显式导出 cursor callback 的意图为 **{audio['cursor_audio_intent_sample_count']}** 个样本：`{', '.join(audio['cursor_audio_intent_sample_ids']) or '无'}`；这只登记实例化候选关系，不证明 hit、事件触发、snapshot refresh 或可见输出。",
         f"- editor 标记有而静态意图无：`{', '.join(audio['support_without_static_intent']) or '无'}`；静态意图有而 editor 标记无：`{', '.join(audio['static_intent_without_support']) or '无'}`。普通 App 运行基线必须覆盖这些差集与全部声明关系，不能只测标记集合。",
         "",
         "| 声明关系 | occurrence | 样本 | 静态状态分布 |",
@@ -2145,6 +2182,9 @@ def render_markdown(census: dict[str, Any]) -> str:
             "script_admission": values["admission_state_counts"],
             "source_abi": values["source_abi_state_counts"],
             "runtime_admission": values["runtime_admission_state_counts"],
+            "cursor_audio_consumer":
+                values["cursor_audio_consumer_state_counts"],
+            "cursor_events": values["cursor_event_export_counts"],
         }
         lines.append(
             f"| `{kind}` | {values['occurrence_count']} | {values['sample_count']} | "

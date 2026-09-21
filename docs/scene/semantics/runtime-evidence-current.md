@@ -8,7 +8,7 @@
 
 > 状态：现役证据入口
 >
-> 最近专项核对：2026-09-21（当前HEAD签名Debug App的普通system tap、受控外部声源与120样本产品入口基线；三个作者属性门控的音频consumer已用typed启动override做默认/启用配对；余下41个默认no-demand声明关系已按官方启用合同和live census闭合为40个未作者激活的Shake/Pulse schema与1个缺mode的particle负例；跨4个已登记Debug可执行身份的78个作者可达publication保存日志先守恒为77项material/SceneScript非零consumer事件与1项particle component执行观测缺口，随后当前候选已对该particle-only样本补到实际component非零求值事件，但仍不是单一当前候选重跑78项；共享system-audio analyzer频段分布与长时右半更新、组合media+audio owner，以及`WEVector`环形频谱公共修复在四个真实样本中的consumer执行仍按各自身份保留）。各证据仍以自身日期与构建身份为准。
+> 最近专项核对：2026-09-21（当前HEAD签名Debug App的普通system tap、受控外部声源与120样本产品入口基线；三个作者属性门控的音频consumer已用typed启动override做默认/启用配对；余下41个默认no-demand声明关系已按官方启用合同和live census闭合为40个未作者激活的Shake/Pulse schema与1个缺mode的particle负例；跨4个已登记Debug可执行身份的78个作者可达publication保存日志先守恒为77项material/SceneScript非零consumer事件与1项particle component执行观测缺口，随后当前候选已对该particle-only样本补到实际component非零求值事件，但仍不是单一当前候选重跑78项；同一QuickJS owner组合cursor event与AudioBuffers的公共demand/同帧刷新缺口又在当前候选闭合，真实`3238423642:917`证明owner collision消除与非零audio publication，但轨迹没有命中该layer，故不冒充真实cursor callback；共享system-audio analyzer频段分布与长时右半更新、组合media+audio owner，以及`WEVector`环形频谱公共修复在四个真实样本中的consumer执行仍按各自身份保留）。各证据仍以自身日期与构建身份为准。
 >
 > 本次审计分支：`codex/engine-refactor-program`。本页只回答“哪条能力在什么代码/产品身份下取得过哪一级证据”，不决定开发顺序；唯一执行路线见[Scene兼容执行路线](../scene-compatibility-roadmap.md)。旧证据包不因此取得当前构建的有效性。
 >
@@ -21,6 +21,28 @@
 自本次核对起，`docs/scene/evidence/`只作为仓库忽略的本机证据缓存，不再由Git跟踪。最终运行载荷可先通过`script/promote_scene_evidence.py`提纯并用逐文件manifest固定，再在本文记录输入、App、report/manifest identity、SHA-256和有界结论；权威文档不得链接或依赖该本机目录，缓存缺失时也不能用摘要冒充当前HEAD的fresh复现。`/private/tmp`只承载运行现场、重试和含第三方作者资源的不可提交fixture；本文此前保留的临时路径只作为当时provenance，文件可能已按产物治理清理。
 
 ## 1. 当前证据快照
+
+<a id="e-2026-09-21-cursor-audio-owner-refresh"></a>
+
+### E-2026-09-21-CURSOR-AUDIO-OWNER-REFRESH — cursor callback owner加入唯一demand并在事件前读取同帧频谱
+
+**去重审计与目标合同：**本批先核对Q1.4现役记录、相关音频提交史与当前代码，确认系统tap、analyzer、daemon bridge、普通产品入口、AudioBuffers host API和粒子观测均已有现役实现；实际缺口是`SceneScriptCursorProgram`能实例化或借用带`registerAudioBuffers`的QuickJS owner，却不参与demand，而且cursor callback发生在media/vector刷新前。修正继续使用唯一`SystemAudioSpectrumService → SceneAudioSpectrumInbox → host frame snapshot → QuickJS owner`链：cursor program只暴露现有binding是否有audio registration，host把它加入既有demand聚合，并把同一冻结snapshot传给cursor dispatch；dispatch在事件前调用同一owner的`refreshAudio`，owner内generation门让后续vector/media阶段同代去重。刷新错误只撤销该owner本batch cursor输出，永久错误才禁用owner；peer、previous-current和最终compositor不受影响。
+
+真实回放还暴露一个相邻的**typed owner identity**问题：`3238423642:917`的visibility binding已经由vector program持有，同一source又被cursor standalone投影，和借来的scale owner形成伪collision。现役构造只按vector program已经声明的精确`SceneDynamicTarget`排除重复standalone projection，并且vector只借出实际导出cursor event的owner；没有解析source文本、样本/layer/path/hash分支或第二owner。不同typed target的真实双owner继续由既有collision门拒绝。实际编译Swift/C/QuickJS行为门覆盖standalone cursor-only demand、borrowed/standalone callback读取当前generation、vector后继同代去重、claimed visibility不重复构造，以及独立owner碰撞仍失败关闭。
+
+**静态全集与当前候选运行：**159样本只读census保持66,244 occurrence，新增cursor/audio交叉形状后为2,536 family，payload SHA-256=`e93e6f348c60e930f81bab6f10ca93aa972af4573f462eda1553e3c291a84385`，零守恒失败。保守lexer只找到一个同owner候选：`3238423642:917`，16-band AudioBuffers并显式导出`cursorEnter/cursorLeave`；这只证明候选关系。真实只读样本project/package SHA-256=`767b717e40b21b3ac32bf3c6d9a19564d3f0788e1f250cc02bcfceaff7267253 / 75d0d4dda0a0a31feccf347825573693ee3ae4603b2de3fcaf5d7d7e86bdd98b`。最终源码重新构建的Developer ID Debug App为`com.songziqiang.MyWallpaperX`、Team`H9QWU9XN8R`、CDHash=`89ec47c09c84da6ea171b4f9c6bde55f8aead398`，executable/debug-dylib/build-log SHA-256=`d8bc7fdff5dd53faf6f5a2420a1214613de77340b39f7afc7c14b8811a9fb5f1 / f00d37c40a186070d2a4d7aa591838f82a22e0937990583dda59142b613babd1 / 8abd1a24c82c01fcf5e6b5eb32d6819f7242fedb0e024160e9b78c16a8775327`且deep/strict验签通过。
+
+25秒direct-host确定性频谱+media-playing运行中，修复前日志在line 250精确记录`family=cursor ownerConstruction=failed identity=917 ... cursor owner collision`；最终日志不再含该失败，layer917的scale/visibility分别消费media generation 1，scale owner又在generation 2消费非零AudioBuffers peak=`0.472441226`。运行取得424 submitted / 423 completed / 0 failed / 0 drawable miss，stop时78个owner全部quiescent、0 failure。四点轨迹实际只命中layer2190并触发两次`cursorMove`，**未命中layer917，也没有其enter/leave事件**；因此真实运行只把证据提升到collision消除、owner存活和非零audio publication，不能替代行为门里的callback-current-generation断言。matrix最终仍因本批外既有`named target consumer 348 binding should succeed`失败，整次运行不是PASS；截图运动也混合整幅动态，不能据此宣称cursor/audio视觉因果或作者样式正确。
+
+最终report/app-log/runtime-evidence SHA-256=`a429c6df6438a83e6b73a71fc8e54d7b6ed77e5500e14025f5a8ea5997899dcb / 77f458d6ffc9a19276bac29597701676e2a57b9ca516321671ae9b53b6a2ba67 / f09ad595edf750e974737b4299286e2794074c6318b044699e4ebf386598bdcc`；ignored本机证据manifest SHA-256=`5ec95d164b8ca782471896bdaaf8dffb52b0dd04b19c729f2b6624f58193170b`、51,733,693 bytes，只含最终report/log/runtime JSON和原分辨率帧，不含App、Workshop package、runtime HOME/cache。修复前report/app-log SHA-256=`b55b2db9d1940c2089d3c8a7f111af201134fc886d83231583e6d8b5e33e62ce / aff2c6f815386053442d257dbff38478d033c8ad72b41c1639c58f20bb584044`，只以哈希和上述精确反例留档，未把405 MiB临时运行目录复制进长期缓存。本批最高为`S3 bounded owner activation/audio refresh wiring`；普通App/client/daemon路径、layer917真实hit/callback、频谱或cursor ROI、完整样本、长稳、多屏、固定官方同输入与parity均未验证。
+
+**审查修正后的静态证据边界：**首轮只读独立审查指出两项P2：family摘要不能解释cursor交叉状态导致的family拆分，旧export扫描也没有证明模块级且遗漏合法箭头函数／export-list alias。修正后occurrence与family摘要同时保留proven/unresolved exports及consumer state；保守lexer显式跟踪块、括号、方括号和模板表达式深度，只承认模块级、可证明函数绑定，动态initializer单列`cursor-export-unresolved`。新增direct/async function、const arrow、function alias、嵌套块、模板表达式和动态initializer正反门；重建全集仍为159 / 66,244 / 2,536且仅`3238423642:917`为proven cursor/audio候选。该工具修正发生在上述产品构建和运行之后，只收紧静态分类与可解释性，没有把旧运行证据冒充新的产品运行。
+
+第二轮只读审查再指出三项P2：generator/destructuring、mutable/reassigned binding与函数前缀表达式尚未保守分类；同generation门未让后继vector实际观察audio，删除去重仍会绿；AudioDemand单文件变更也未映射到该门。现役lexer只在export name可关联到未重写的模块级function/generator声明，或完整immutable function/arrow initializer时记proven；destructuring、mutable、动态／IIFE、re-export和wildcard均记unresolved。行为门让cursor以generation 2写入`0.75/0.8`，后继vector收到相同generation但`0.05/0.1`的不同payload并回读前值，且selector有AudioDemand精确路径反例。该修正仍只加强静态盘点与编译行为门，未重跑产品运行，证据上限不变。
+
+第三轮只读审查继续指出一项P2：prefix update、解构赋值、for-in/of target、class export、解构property key与named async function expression仍可假proven、漏项或错误归并。现役binding状态把非export-list嵌套同名引用保守降为unresolved，并覆盖prefix/postfix/compound write；class显式unresolved；object/array pattern只提取binding侧；async function declaration必须回溯到合法模块边界。新增的四组反例通过后，159样本数量、声明守恒和唯一proven候选均不变；这仍是payload-free静态候选分类，不升级运行结论。
+
+最终冻结diff SHA-256=`c4b51b7a1a0bddba1416b6a6a8bb41695266951e1864718be99c918c41686769`经同一独立只读审查者复核为 **APPROVE / P0–P3无遗留 finding**。主Agent最终执行census 26项、核心4模块与统一inner 33模块均通过，py_compile、JSON、census verify和diff-check通过；code-health仍只被批外既有ratchet/超行债务阻断。审查者确认共享inbox／QuickJS owner、事件前刷新、同代后继去重、精确typed target owner、真实collision fail-closed与局部失败域，且未编辑、构建、运行测试/产品、生成缓存、暂存或提交；批准不替代主Agent测试，也不提升S3上限。该lexer不是完整ECMAScript AST，未来corpus新语法仍须显式unresolved或由更强parser接管。
 
 <a id="e-2026-09-21-particle-audio-component-execution"></a>
 

@@ -22,6 +22,11 @@ SCRIPT_API_PATTERN = re.compile(
     r"currentMousePosition|previousMousePosition)\b"
 )
 
+SCENESCRIPT_CURSOR_EVENT_HOOKS = {
+    "cursorClick", "cursorDown", "cursorEnter", "cursorLeave", "cursorMove",
+    "cursorUp",
+}
+
 def value_kind(value: Any) -> str:
     if value is None:
         return "null"
@@ -157,6 +162,9 @@ def scenescript_audio_registrations(source: str) -> dict[str, Any] | None:
     """
 
     tokens = _javascript_tokens(source)
+    cursor_event_exports, unresolved_cursor_event_exports = (
+        _exported_cursor_event_hooks(tokens)
+    )
     resolutions: list[str] = []
     scopes: list[str] = []
     admissions: list[str] = []
@@ -183,6 +191,14 @@ def scenescript_audio_registrations(source: str) -> dict[str, Any] | None:
         index = (closing_index + 1) if closing_index is not None else open_index + 1
     if not resolutions:
         return None
+    if cursor_event_exports and "statically-admitted" in admissions:
+        cursor_audio_consumer_state = "statically-admitted"
+    elif cursor_event_exports:
+        cursor_audio_consumer_state = "audio-registration-unresolved"
+    elif unresolved_cursor_event_exports:
+        cursor_audio_consumer_state = "cursor-export-unresolved"
+    else:
+        cursor_audio_consumer_state = "no-cursor-event"
     return {
         "call_count": len(resolutions),
         "resolution_states": sorted(set(resolutions)),
@@ -192,6 +208,9 @@ def scenescript_audio_registrations(source: str) -> dict[str, Any] | None:
         "resolution_state_counts": dict(sorted(Counter(resolutions).items())),
         "scope_state_counts": dict(sorted(Counter(scopes).items())),
         "admission_state_counts": dict(sorted(Counter(admissions).items())),
+        "cursor_event_exports": cursor_event_exports,
+        "cursor_event_unresolved_exports": unresolved_cursor_event_exports,
+        "cursor_audio_consumer_state": cursor_audio_consumer_state,
     }
 
 
@@ -203,6 +222,426 @@ class _JavaScriptToken:
     end: int
     brace_depth: int
     paren_depth: int
+    bracket_depth: int
+    template_expression_depth: int
+
+
+def _exported_cursor_event_hooks(
+    tokens: list[_JavaScriptToken],
+) -> tuple[list[str], list[str]]:
+    """Return proven and unresolved module-namespace cursor callbacks."""
+
+    binding_states = _top_level_binding_states(tokens)
+    hooks: set[str] = set()
+    unresolved: set[str] = set()
+
+    def classify(local: str, exported: str) -> None:
+        if exported not in SCENESCRIPT_CURSOR_EVENT_HOOKS:
+            return
+        if binding_states.get(local) == "proven-function":
+            hooks.add(exported)
+        else:
+            unresolved.add(exported)
+
+    for index, token in enumerate(tokens):
+        if token.value != "export" or not _is_module_scope(token):
+            continue
+        cursor = index + 1
+        if cursor < len(tokens) and tokens[cursor].value == "default":
+            continue
+        if cursor < len(tokens) and tokens[cursor].value == "async":
+            cursor += 1
+        if cursor < len(tokens) and tokens[cursor].value == "function":
+            name_index = _function_declaration_name_index(tokens, cursor)
+            if name_index is not None:
+                classify(tokens[name_index].value, tokens[name_index].value)
+            else:
+                for candidate in tokens[cursor + 1:cursor + 4]:
+                    if candidate.value in SCENESCRIPT_CURSOR_EVENT_HOOKS:
+                        unresolved.add(candidate.value)
+            continue
+        if cursor < len(tokens) and tokens[cursor].value == "class":
+            name_index = _class_declaration_name_index(tokens, cursor)
+            if name_index is not None:
+                classify(tokens[name_index].value, tokens[name_index].value)
+            continue
+        if cursor < len(tokens) and tokens[cursor].value in {"const", "let", "var"}:
+            for declaration in _top_level_variable_declarations(tokens, cursor):
+                classify(declaration.name, declaration.name)
+            continue
+        if cursor < len(tokens) and tokens[cursor].value == "{":
+            closing = _matching_brace(tokens, cursor)
+            if closing is None:
+                continue
+            is_reexport = (
+                closing + 1 < len(tokens)
+                and tokens[closing + 1].value == "from"
+                and _is_module_scope(tokens[closing + 1])
+            )
+            for local, exported in _export_list_entries(tokens[cursor + 1:closing]):
+                classify("" if is_reexport else local, exported)
+            continue
+        if cursor < len(tokens) and tokens[cursor].value == "*":
+            unresolved.add("<wildcard-reexport>")
+    return sorted(hooks), sorted(unresolved - hooks)
+
+
+def _is_module_scope(token: _JavaScriptToken) -> bool:
+    return (
+        token.brace_depth == 0
+        and token.paren_depth == 0
+        and token.bracket_depth == 0
+        and token.template_expression_depth == 0
+    )
+
+
+@dataclass(frozen=True)
+class _JavaScriptBindingDeclaration:
+    name: str
+    name_index: int
+    initializer: tuple[_JavaScriptToken, ...]
+    immutable: bool
+
+
+def _top_level_binding_states(
+    tokens: list[_JavaScriptToken],
+) -> dict[str, str]:
+    states: dict[str, str] = {}
+    declaration_indices: dict[str, set[int]] = {}
+
+    def record(name: str, name_index: int, state: str) -> None:
+        declaration_indices.setdefault(name, set()).add(name_index)
+        states[name] = state if name not in states else "unresolved"
+
+    for index, token in enumerate(tokens):
+        if token.value == "function" and _is_module_scope(token):
+            name_index = _function_declaration_name_index(tokens, index)
+            if name_index is not None:
+                record(tokens[name_index].value, name_index, "proven-function")
+        if token.value == "class" and _is_module_scope(token):
+            name_index = _class_declaration_name_index(tokens, index)
+            if name_index is not None:
+                record(tokens[name_index].value, name_index, "unresolved")
+        if token.value not in {"const", "let", "var"} or not _is_module_scope(token):
+            continue
+        for declaration in _top_level_variable_declarations(tokens, index):
+            state = (
+                "proven-function"
+                if declaration.immutable
+                and _tokens_form_exact_function_value(declaration.initializer)
+                else "unresolved"
+            )
+            record(declaration.name, declaration.name_index, state)
+    for name, state in list(states.items()):
+        if state == "proven-function" and _binding_has_write(
+            tokens, name, declaration_indices[name]
+        ):
+            states[name] = "unresolved"
+    return states
+
+
+def _function_declaration_name_index(
+    tokens: list[_JavaScriptToken], function_index: int
+) -> int | None:
+    previous = tokens[function_index - 1].value if function_index else None
+    if previous not in {None, ";", "}", "export", "async", "default"}:
+        return None
+    if previous == "async":
+        before_async = (
+            tokens[function_index - 2].value if function_index >= 2 else None
+        )
+        if before_async not in {None, ";", "}", "export", "default"}:
+            return None
+    cursor = function_index + 1
+    if cursor < len(tokens) and tokens[cursor].value == "*":
+        cursor += 1
+    if cursor >= len(tokens) or (
+        tokens[cursor].kind != "identifier"
+        or not _is_module_scope(tokens[cursor])
+    ):
+        return None
+    open_index = cursor + 1
+    if open_index >= len(tokens) or (
+        tokens[open_index].value != "("
+        or not _is_module_scope(tokens[open_index])
+    ):
+        return None
+    closing = _matching_paren(tokens, open_index)
+    if closing is None or closing + 1 >= len(tokens):
+        return None
+    body_open = closing + 1
+    if tokens[body_open].value != "{" or not _is_module_scope(tokens[body_open]):
+        return None
+    return cursor if _matching_brace(tokens, body_open) is not None else None
+
+
+def _class_declaration_name_index(
+    tokens: list[_JavaScriptToken], class_index: int
+) -> int | None:
+    previous = tokens[class_index - 1].value if class_index else None
+    if previous not in {None, ";", "}", "export", "default"}:
+        return None
+    name_index = class_index + 1
+    if name_index >= len(tokens) or (
+        tokens[name_index].kind != "identifier"
+        or not _is_module_scope(tokens[name_index])
+    ):
+        return None
+    return name_index
+
+
+def _top_level_variable_declarations(
+    tokens: list[_JavaScriptToken], declaration_index: int
+) -> list[_JavaScriptBindingDeclaration]:
+    declarations: list[_JavaScriptBindingDeclaration] = []
+    immutable = tokens[declaration_index].value == "const"
+    cursor = declaration_index + 1
+    while cursor < len(tokens):
+        token = tokens[cursor]
+        if _is_module_scope(token) and token.value == ";":
+            break
+        names: list[tuple[str, int]] = []
+        binding_end = cursor
+        simple = _is_module_scope(token) and token.kind == "identifier"
+        if simple:
+            names.append((token.value, cursor))
+        elif _is_module_scope(token) and token.value in {"{", "["}:
+            closing = (
+                _matching_brace(tokens, cursor)
+                if token.value == "{" else _matching_bracket(tokens, cursor)
+            )
+            if closing is None:
+                break
+            names.extend(_binding_pattern_names(tokens, cursor, closing))
+            binding_end = closing
+        else:
+            break
+        equals_index = binding_end + 1
+        has_initializer = (
+            equals_index < len(tokens)
+            and _is_module_scope(tokens[equals_index])
+            and tokens[equals_index].value == "="
+        )
+        value_start = equals_index + 1 if has_initializer else equals_index
+        end = value_start
+        while end < len(tokens) and not (
+            _is_module_scope(tokens[end]) and tokens[end].value in {",", ";"}
+        ):
+            end += 1
+        initializer = tuple(tokens[value_start:end]) if has_initializer else ()
+        for name, name_index in names:
+            declarations.append(_JavaScriptBindingDeclaration(
+                name=name,
+                name_index=name_index,
+                initializer=initializer if simple else (),
+                immutable=immutable and simple,
+            ))
+        cursor = end + 1
+        if end >= len(tokens) or tokens[end].value == ";":
+            break
+    return declarations
+
+
+def _binding_pattern_names(
+    tokens: list[_JavaScriptToken], open_index: int, closing_index: int
+) -> list[tuple[str, int]]:
+    names: list[tuple[str, int]] = []
+    opening = tokens[open_index]
+    is_object = opening.value == "{"
+    direct_depth = (
+        opening.brace_depth + 1 if is_object else opening.bracket_depth + 1
+    )
+
+    def is_direct_comma(index: int) -> bool:
+        token = tokens[index]
+        return token.value == "," and (
+            token.brace_depth == direct_depth if is_object
+            else token.bracket_depth == direct_depth
+        )
+
+    def parse_binding(index: int) -> int:
+        if index >= closing_index:
+            return index
+        token = tokens[index]
+        if token.value == "...":
+            return parse_binding(index + 1)
+        if token.kind == "identifier":
+            names.append((token.value, index))
+            return index + 1
+        if token.value == "{":
+            nested_close = _matching_brace(tokens, index)
+        elif token.value == "[":
+            nested_close = _matching_bracket(tokens, index)
+        else:
+            return index + 1
+        if nested_close is None or nested_close > closing_index:
+            return closing_index
+        names.extend(_binding_pattern_names(tokens, index, nested_close))
+        return nested_close + 1
+
+    cursor = open_index + 1
+    while cursor < closing_index:
+        if is_direct_comma(cursor):
+            cursor += 1
+            continue
+        if is_object and tokens[cursor].value == "...":
+            cursor = parse_binding(cursor + 1)
+        elif is_object and tokens[cursor].value == "[":
+            key_close = _matching_bracket(tokens, cursor)
+            if key_close is None or key_close >= closing_index:
+                break
+            cursor = key_close + 1
+            if cursor < closing_index and tokens[cursor].value == ":":
+                cursor = parse_binding(cursor + 1)
+        elif is_object and tokens[cursor].kind == "identifier":
+            if cursor + 1 < closing_index and tokens[cursor + 1].value == ":":
+                cursor = parse_binding(cursor + 2)
+            else:
+                cursor = parse_binding(cursor)
+        else:
+            cursor = parse_binding(cursor)
+        while cursor < closing_index and not is_direct_comma(cursor):
+            cursor += 1
+    return names
+
+
+def _binding_has_write(
+    tokens: list[_JavaScriptToken],
+    name: str,
+    declaration_indices: set[int],
+) -> bool:
+    for index, token in enumerate(tokens):
+        if token.value != name or index in declaration_indices:
+            continue
+        if index > 0 and tokens[index - 1].value == ".":
+            continue
+        if _is_export_list_reference(tokens, index):
+            continue
+        if not _is_module_scope(token):
+            return True
+        preceding = [item.value for item in tokens[max(0, index - 2):index]]
+        if preceding[-2:] in (["+", "+"], ["-", "-"]):
+            return True
+        following = [item.value for item in tokens[index + 1:index + 4]]
+        if following and following[0] == "=":
+            return True
+        if following[:2] in (["+", "+"], ["-", "-"]):
+            return True
+        if "=" in following and following[0] in {
+            "+", "-", "*", "/", "%", "&", "|", "^", "?", "<", ">",
+        }:
+            return True
+    return False
+
+
+def _is_export_list_reference(
+    tokens: list[_JavaScriptToken], index: int
+) -> bool:
+    token = tokens[index]
+    if token.brace_depth <= 0 or token.template_expression_depth != 0:
+        return False
+    open_depth = token.brace_depth - 1
+    for cursor in range(index - 1, -1, -1):
+        candidate = tokens[cursor]
+        if candidate.value == "{" and candidate.brace_depth == open_depth:
+            return (
+                cursor > 0
+                and tokens[cursor - 1].value == "export"
+                and _is_module_scope(tokens[cursor - 1])
+            )
+        if candidate.value == "}" and candidate.brace_depth < token.brace_depth:
+            return False
+    return False
+
+
+def _tokens_form_exact_function_value(
+    tokens: tuple[_JavaScriptToken, ...],
+) -> bool:
+    if not tokens:
+        return False
+    values = list(tokens)
+    cursor = 1 if values[0].value == "async" else 0
+    if cursor >= len(values):
+        return False
+    if values[cursor].value == "function":
+        cursor += 1
+        if cursor < len(values) and values[cursor].value == "*":
+            cursor += 1
+        if cursor < len(values) and values[cursor].kind == "identifier":
+            cursor += 1
+        if cursor >= len(values) or values[cursor].value != "(":
+            return False
+        closing = _matching_paren(values, cursor)
+        if closing is None or closing + 1 >= len(values):
+            return False
+        body_open = closing + 1
+        if values[body_open].value != "{":
+            return False
+        return _matching_brace(values, body_open) == len(values) - 1
+    if values[cursor].kind == "identifier":
+        arrow = cursor + 1
+    elif values[cursor].value == "(":
+        closing = _matching_paren(values, cursor)
+        if closing is None:
+            return False
+        arrow = closing + 1
+    else:
+        return False
+    if arrow >= len(values) or values[arrow].value != "=>":
+        return False
+    body = arrow + 1
+    if body >= len(values):
+        return False
+    if values[body].value != "{":
+        return True
+    return _matching_brace(values, body) == len(values) - 1
+
+
+def _matching_bracket(
+    tokens: list[_JavaScriptToken] | tuple[_JavaScriptToken, ...],
+    open_index: int,
+) -> int | None:
+    depth = tokens[open_index].bracket_depth
+    for index in range(open_index + 1, len(tokens)):
+        token = tokens[index]
+        if token.value == "]" and token.bracket_depth == depth:
+            return index
+    return None
+
+
+def _matching_brace(
+    tokens: list[_JavaScriptToken], open_index: int
+) -> int | None:
+    depth = tokens[open_index].brace_depth
+    for index in range(open_index + 1, len(tokens)):
+        token = tokens[index]
+        if token.value == "}" and token.brace_depth == depth:
+            return index
+    return None
+
+
+def _export_list_entries(
+    tokens: list[_JavaScriptToken],
+) -> list[tuple[str, str]]:
+    entries: list[tuple[str, str]] = []
+    current: list[_JavaScriptToken] = []
+    for token in [*tokens, _JavaScriptToken(
+        "punctuation", ",", -1, -1, 1, 0, 0, 0
+    )]:
+        if token.value == "," and token.brace_depth == 1 \
+                and token.paren_depth == 0 and token.bracket_depth == 0:
+            values = [item.value for item in current]
+            if len(values) == 1 and current[0].kind == "identifier":
+                entries.append((values[0], values[0]))
+            elif len(values) == 3 and values[1] == "as" and (
+                current[0].kind == "identifier"
+                and current[2].kind == "identifier"
+            ):
+                entries.append((values[0], values[2]))
+            current = []
+        else:
+            current.append(token)
+    return entries
 
 
 def _javascript_tokens(source: str) -> list[_JavaScriptToken]:
@@ -211,10 +650,13 @@ def _javascript_tokens(source: str) -> list[_JavaScriptToken]:
     tokens: list[_JavaScriptToken] = []
     brace_depth = 0
     paren_depth = 0
+    bracket_depth = 0
+    template_expression_depth = 0
 
     def append(kind: str, value: str, start: int, end: int) -> None:
         tokens.append(_JavaScriptToken(
-            kind, value, start, end, brace_depth, paren_depth
+            kind, value, start, end, brace_depth, paren_depth,
+            bracket_depth, template_expression_depth,
         ))
 
     def skip_quoted(index: int, quote: str) -> tuple[int, str | None]:
@@ -266,6 +708,7 @@ def _javascript_tokens(source: str) -> list[_JavaScriptToken]:
         return index
 
     def scan_template(index: int) -> int:
+        nonlocal template_expression_depth
         index += 1
         while index < len(source):
             character = source[index]
@@ -276,13 +719,15 @@ def _javascript_tokens(source: str) -> list[_JavaScriptToken]:
             if character == "`":
                 return index + 1
             if character == "$" and following == "{":
+                template_expression_depth += 1
                 index = scan_code(index + 2, template_expression=True)
+                template_expression_depth -= 1
                 continue
             index += 1
         return index
 
     def scan_code(index: int, *, template_expression: bool = False) -> int:
-        nonlocal brace_depth, paren_depth
+        nonlocal brace_depth, paren_depth, bracket_depth
         expression_base_brace_depth = brace_depth
         while index < len(source):
             character = source[index]
@@ -334,6 +779,10 @@ def _javascript_tokens(source: str) -> list[_JavaScriptToken]:
                     index += 1
                 append("number", source[start:index], start, index)
                 continue
+            if source[index:index + 3] == "...":
+                append("punctuation", "...", index, index + 3)
+                index += 3
+                continue
             if character == "=" and following == ">":
                 append("punctuation", "=>", index, index + 2)
                 index += 2
@@ -349,6 +798,12 @@ def _javascript_tokens(source: str) -> list[_JavaScriptToken]:
                 paren_depth += 1
             elif character == ")":
                 paren_depth = max(0, paren_depth - 1)
+                append("punctuation", character, index, index + 1)
+            elif character == "[":
+                append("punctuation", character, index, index + 1)
+                bracket_depth += 1
+            elif character == "]":
+                bracket_depth = max(0, bracket_depth - 1)
                 append("punctuation", character, index, index + 1)
             else:
                 append("punctuation", character, index, index + 1)

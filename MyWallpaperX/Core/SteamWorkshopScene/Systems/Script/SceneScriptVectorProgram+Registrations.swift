@@ -81,6 +81,9 @@ extension SceneScriptVectorProgram {
 
     var cursorOwnerRegistrations: [SceneScriptCursorOwnerRegistration] {
         bindings.compactMap { binding in
+            guard !binding.owner.exportedCursorEvents.isEmpty else {
+                return nil
+            }
             let layerID: Int
             switch binding.definition.target {
             case let .layer(value, _), let .text(value, _):

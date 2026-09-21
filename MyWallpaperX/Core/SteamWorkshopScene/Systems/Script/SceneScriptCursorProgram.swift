@@ -118,7 +118,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     let ownerLayerIDs: Set<Int>
     var capturedOwnerLayerIDs: Set<Int> { Set(capturedHits.keys) }
     var ownerCount: Int { bindings.count }
-
+    var hasAudioConsumers: Bool { bindings.contains { $0.owner.hasAudioRegistration } }
 
     func edgeStateSnapshot() -> SceneScriptCursorEdgeState {
         .init(
@@ -173,6 +173,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         descriptor: SceneRenderDescriptor,
         scriptBindings: [SceneScriptBindingIR],
         borrowedOwners: [SceneScriptCursorOwnerRegistration] = [],
+        claimedTargets: Set<SceneDynamicTarget> = [],
         rejectedLayerIDs: Set<Int>,
         generation: UInt64,
         budget: SceneScriptScalarBudget = .default
@@ -180,7 +181,9 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         let standaloneCandidates = projectedStandaloneCandidates(
             descriptor: descriptor,
             scriptBindings: scriptBindings
-        ).filter { !rejectedLayerIDs.contains($0.identity.layerID) }
+        ).filter { !claimedTargets.contains(.layer(
+            layerID: $0.identity.layerID, field: .visibility
+        )) && !rejectedLayerIDs.contains($0.identity.layerID) }
         let borrowedBindings = projectedBorrowedBindings(
             descriptor: descriptor,
             borrowedOwners: borrowedOwners
@@ -322,6 +325,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         batch: SceneScriptCursorFrameBatch,
         frame: SceneScriptFrameInput,
         userPropertiesJSON: String,
+        audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptCursorFrameResult {
         defer {
@@ -349,6 +353,15 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             )
         }
         var failures: [Int: SceneScriptScalarRuntimeFailure] = [:]
+        for binding in bindings where binding.owner.hasAudioRegistration
+            && !disabledLayerIDs.contains(binding.layerID) {
+            guard case let .failure(failure) = binding.owner.refreshAudio(audioSpectrum) else { continue }
+            failures[binding.layerID] = failure
+            binding.owner.discardLayerMutations()
+            guard failure.permanentlyDisablesOwner else { continue }
+            disabledLayerIDs.insert(binding.layerID)
+            capturedHits.removeValue(forKey: binding.layerID)
+        }
         var materialFunctions: [(
             ownerLayerID: Int,
             mutation: SceneScriptMaterialFunctionMutation
@@ -393,7 +406,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             captureActive: Bool,
             currentHit: Bool
         ) {
-            guard binding.events.contains(kind),
+            guard failures[binding.layerID] == nil, binding.events.contains(kind),
                   !disabledLayerIDs.contains(binding.layerID) else { return }
             let event = SceneScriptCursorEventInput(
                 kind: kind,
@@ -474,14 +487,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 replacingSurfaceOf: frame,
                 with: sample.surface
             )
-            let admittedHits = sample.hits.filter {
-                ownerLayerIDs.contains($0.key)
-                    && !disabledLayerIDs.contains($0.key)
-            }
-            let admittedProjections = sample.ownerProjections.filter {
-                ownerLayerIDs.contains($0.key)
-                    && !disabledLayerIDs.contains($0.key)
-            }
+            let admittedHits = sample.hits.filter { ownerLayerIDs.contains($0.key)
+                && failures[$0.key] == nil && !disabledLayerIDs.contains($0.key) }
+            let admittedProjections = sample.ownerProjections.filter { ownerLayerIDs.contains($0.key)
+                && failures[$0.key] == nil && !disabledLayerIDs.contains($0.key) }
             let leaving = Set(previousHits.keys).subtracting(admittedHits.keys)
             let entering = Set(admittedHits.keys).subtracting(previousHits.keys)
             let pressed = sample.primaryButtonIsDown
@@ -491,7 +500,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             let moved = sample.pointerPosition != nil
                 && previousPointerPosition != nil
                 && sample.pointerPosition != previousPointerPosition
-            for binding in bindings where !disabledLayerIDs.contains(binding.layerID) {
+            for binding in bindings where failures[binding.layerID] == nil
+                && !disabledLayerIDs.contains(binding.layerID) {
                 if leaving.contains(binding.layerID),
                    let hit = previousHits[binding.layerID] {
                     emit(
