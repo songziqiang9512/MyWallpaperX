@@ -60,6 +60,130 @@ def load_audio_declaration_matrix(snapshot_path: Path) -> dict[str, Any]:
     }
 
 
+def reconcile_no_demand_declarations(
+    sample_ids: list[str],
+    audio_occurrences: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Classify declaration-only reasons behind a runtime no-demand set.
+
+    This is deliberately a factual join, not an acceptance result. It only
+    distinguishes authored activation from dormant shader schema or a missing
+    particle audio mode; runtime execution, visual output, and parity remain
+    separate evidence.
+    """
+    if (
+        not sample_ids
+        or any(
+            not isinstance(value, str)
+            or not value.isascii()
+            or not value.isdigit()
+            for value in sample_ids
+        )
+        or sample_ids != sorted(sample_ids)
+        or len(sample_ids) != len(set(sample_ids))
+    ):
+        raise ValueError(
+            "no-demand sample identities must be unique sorted ASCII digits"
+        )
+    if not isinstance(audio_occurrences, list) or any(
+        not isinstance(value, dict) for value in audio_occurrences
+    ):
+        raise ValueError("audio declarations must be a list of objects")
+
+    occurrence_ids: set[str] = set()
+    relations_by_sample: dict[str, list[dict[str, Any]]] = {
+        sample_id: [] for sample_id in sample_ids
+    }
+    for occurrence in audio_occurrences:
+        occurrence_id = occurrence.get("occurrence_id")
+        if not isinstance(occurrence_id, str) or not occurrence_id:
+            raise ValueError("audio declaration occurrence identity is missing")
+        if occurrence_id in occurrence_ids:
+            raise ValueError(
+                f"duplicate audio declaration occurrence identity: {occurrence_id}"
+            )
+        occurrence_ids.add(occurrence_id)
+        if occurrence.get("domain") != "audio-declaration":
+            raise ValueError("non-audio declaration entered no-demand reconciliation")
+        location = occurrence.get("location")
+        sample_id = location.get("sample_id") if isinstance(location, dict) else None
+        if sample_id not in relations_by_sample:
+            continue
+        kind = occurrence.get("kind")
+        if kind not in {"project-support-enabled", "project-support-invalid"}:
+            relations_by_sample[sample_id].append(occurrence)
+
+    categories: dict[str, list[str]] = {
+        "material-host-spectrum-not-authored": [],
+        "particle-audio-mode-missing": [],
+        "unresolved": [],
+    }
+
+    def is_preprocessor_only_material_schema(value: dict[str, Any]) -> bool:
+        abi_states = value.get("source_abi_state_counts")
+        return (
+            value.get("kind") == "material-host-spectrum"
+            and value.get("activation_state") == "not-authored"
+            and value.get("source_declares_audio_processing_combo") is True
+            and value.get("source_exact_resolutions") == []
+            and isinstance(abi_states, dict)
+            and set(abi_states) == {"preprocessor-conditioned"}
+            and type(abi_states["preprocessor-conditioned"]) is int
+            and abi_states["preprocessor-conditioned"] > 0
+        )
+
+    def is_missing_mode_particle_schema(value: dict[str, Any]) -> bool:
+        parameter_keys = value.get("audio_parameter_keys")
+        return (
+            value.get("kind") == "particle-audio-response"
+            and value.get("activation_state") == "missing-mode"
+            and isinstance(parameter_keys, list)
+            and bool(parameter_keys)
+            and all(
+                isinstance(key, str)
+                and key.casefold().startswith("audioprocessing")
+                for key in parameter_keys
+            )
+            and "audioprocessingmode" not in {
+                key.casefold() for key in parameter_keys
+            }
+        )
+
+    occurrence_counts = Counter()
+    for sample_id in sample_ids:
+        relations = relations_by_sample[sample_id]
+        if not relations:
+            raise ValueError(
+                f"no audio relationship declaration for sample: {sample_id}"
+            )
+        if all(is_preprocessor_only_material_schema(value) for value in relations):
+            category = "material-host-spectrum-not-authored"
+        elif all(is_missing_mode_particle_schema(value) for value in relations):
+            category = "particle-audio-mode-missing"
+        else:
+            category = "unresolved"
+        categories[category].append(sample_id)
+        occurrence_counts[category] += len(relations)
+
+    return {
+        "schema_version": 1,
+        "sample_count": len(sample_ids),
+        "categories": {
+            category: {
+                "sample_count": len(values),
+                "sample_ids": values,
+                "declaration_occurrence_count": occurrence_counts[category],
+            }
+            for category, values in categories.items()
+        },
+        "unresolved_sample_count": len(categories["unresolved"]),
+        "unresolved_sample_ids": categories["unresolved"],
+        "evidence_ceiling": "declaration-reconciliation-only",
+        "runtime_validated": False,
+        "visual_validated": False,
+    }
+
+
 def private_defaults_suite(sample_id: str) -> str:
     if not sample_id.isascii() or not sample_id.isdigit():
         raise ValueError("product-entry audio sample ID must contain ASCII digits")

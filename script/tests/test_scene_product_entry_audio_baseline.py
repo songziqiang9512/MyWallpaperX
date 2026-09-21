@@ -122,6 +122,152 @@ class SceneProductEntryAudioBaselineTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     baseline.load_audio_declaration_matrix(path)
 
+    def test_no_demand_reconciliation_keeps_dormant_schema_distinct(self) -> None:
+        occurrences = [
+            {
+                "occurrence_id": "project-123",
+                "domain": "audio-declaration",
+                "kind": "project-support-enabled",
+                "location": {"sample_id": "123"},
+            },
+            {
+                "occurrence_id": "material-123-a",
+                "domain": "audio-declaration",
+                "kind": "material-host-spectrum",
+                "location": {"sample_id": "123"},
+                "activation_state": "not-authored",
+                "source_declares_audio_processing_combo": True,
+                "source_abi_state_counts": {"preprocessor-conditioned": 2},
+                "source_exact_resolutions": [],
+            },
+            {
+                "occurrence_id": "material-123-b",
+                "domain": "audio-declaration",
+                "kind": "material-host-spectrum",
+                "location": {"sample_id": "123"},
+                "activation_state": "not-authored",
+                "source_declares_audio_processing_combo": True,
+                "source_abi_state_counts": {"preprocessor-conditioned": 2},
+                "source_exact_resolutions": [],
+            },
+            {
+                "occurrence_id": "particle-456",
+                "domain": "audio-declaration",
+                "kind": "particle-audio-response",
+                "location": {"sample_id": "456"},
+                "activation_state": "missing-mode",
+                "audio_parameter_keys": ["audioprocessingbounds"],
+            },
+            {
+                "occurrence_id": "material-789",
+                "domain": "audio-declaration",
+                "kind": "material-host-spectrum",
+                "location": {"sample_id": "789"},
+                "activation_state": "not-authored",
+                "source_declares_audio_processing_combo": True,
+                "source_abi_state_counts": {"preprocessor-conditioned": 2},
+                "source_exact_resolutions": [16],
+            },
+            {
+                "occurrence_id": "particle-999",
+                "domain": "audio-declaration",
+                "kind": "particle-audio-response",
+                "location": {"sample_id": "999"},
+                "activation_state": "missing-mode",
+                "audio_parameter_keys": "audioprocessingbounds",
+            },
+        ]
+        result = baseline.reconcile_no_demand_declarations(
+            ["123", "456", "789", "999"], occurrences
+        )
+
+        self.assertEqual(result["sample_count"], 4)
+        self.assertEqual(
+            result["categories"]["material-host-spectrum-not-authored"],
+            {
+                "sample_count": 1,
+                "sample_ids": ["123"],
+                "declaration_occurrence_count": 2,
+            },
+        )
+        self.assertEqual(
+            result["categories"]["particle-audio-mode-missing"]["sample_ids"],
+            ["456"],
+        )
+        self.assertEqual(result["unresolved_sample_ids"], ["789", "999"])
+        self.assertEqual(
+            result["evidence_ceiling"], "declaration-reconciliation-only"
+        )
+        self.assertFalse(result["runtime_validated"])
+        self.assertFalse(result["visual_validated"])
+
+    def test_no_demand_reconciliation_fails_closed_on_identity_drift(self) -> None:
+        valid = [{
+            "occurrence_id": "material-123",
+            "domain": "audio-declaration",
+            "kind": "material-host-spectrum",
+            "location": {"sample_id": "123"},
+            "activation_state": "not-authored",
+            "source_declares_audio_processing_combo": True,
+            "source_abi_state_counts": {"preprocessor-conditioned": 2},
+            "source_exact_resolutions": [],
+        }]
+        invalid_cases = (
+            (["456", "123"], valid),
+            (["123", "123"], valid),
+            (["sample-123"], valid),
+            (["456"], valid),
+            (["123"], valid + [dict(valid[0])]),
+            (["123"], [{**valid[0], "domain": "material"}]),
+        )
+        for sample_ids, occurrences in invalid_cases:
+            with self.subTest(sample_ids=sample_ids, occurrences=occurrences):
+                with self.assertRaises(ValueError):
+                    baseline.reconcile_no_demand_declarations(
+                        sample_ids, occurrences
+                    )
+
+    def test_no_demand_reconciliation_keeps_schema_drift_unresolved(self) -> None:
+        material = {
+            "occurrence_id": "material-123",
+            "domain": "audio-declaration",
+            "kind": "material-host-spectrum",
+            "location": {"sample_id": "123"},
+            "activation_state": "not-authored",
+            "source_declares_audio_processing_combo": True,
+            "source_abi_state_counts": {"preprocessor-conditioned": 2},
+            "source_exact_resolutions": [],
+        }
+        particle = {
+            "occurrence_id": "particle-123",
+            "domain": "audio-declaration",
+            "kind": "particle-audio-response",
+            "location": {"sample_id": "123"},
+            "activation_state": "missing-mode",
+            "audio_parameter_keys": ["audioprocessingbounds"],
+        }
+        variants = (
+            {key: value for key, value in material.items()
+             if key != "source_declares_audio_processing_combo"},
+            {**material, "source_declares_audio_processing_combo": False},
+            {key: value for key, value in material.items()
+             if key != "source_abi_state_counts"},
+            {**material, "source_abi_state_counts": {"dynamic-array": 2}},
+            {**material, "source_abi_state_counts": {
+                "preprocessor-conditioned": True,
+            }},
+            {**particle, "audio_parameter_keys": []},
+            {**particle, "audio_parameter_keys": ["unrelated"]},
+            {**particle, "audio_parameter_keys": ["audioprocessingmode"]},
+        )
+        for index, occurrence in enumerate(variants):
+            occurrence = {**occurrence, "occurrence_id": f"drift-{index}"}
+            with self.subTest(index=index):
+                result = baseline.reconcile_no_demand_declarations(
+                    ["123"], [occurrence]
+                )
+                self.assertEqual(result["unresolved_sample_ids"], ["123"])
+
     def test_product_command_uses_only_existing_product_entry(self) -> None:
         command = baseline.product_entry_command(
             runtime_binary=Path("/tmp/MyWallpaperX"),
