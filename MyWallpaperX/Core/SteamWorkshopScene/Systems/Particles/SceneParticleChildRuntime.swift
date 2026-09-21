@@ -21,6 +21,10 @@ final class SceneParticleChildRuntime {
         let systems: [SystemSnapshot]
         let nextSeed: UInt64
         let nextSystemID: UInt64
+        let observedAudioComponentsByTemplate:
+            [Int: Set<SceneParticleAudioComponentIdentity>]
+        let pendingAudioEvaluationObservations:
+            [SceneParticleChildAudioEvaluationObservation]
     }
 
     private struct TemplateSelectionKey: Hashable {
@@ -77,6 +81,10 @@ final class SceneParticleChildRuntime {
     private var instanceScratch: [Int: [SceneParticleGPUInstance]] = [:]
     private var nextSeed: UInt64 = 0
     private var nextSystemID: UInt64 = 1
+    private var observedAudioComponentsByTemplate:
+        [Int: Set<SceneParticleAudioComponentIdentity>] = [:]
+    private var pendingAudioEvaluationObservations:
+        [SceneParticleChildAudioEvaluationObservation] = []
 
     init(
         layerID: Int,
@@ -286,7 +294,9 @@ final class SceneParticleChildRuntime {
                 )
             },
             nextSeed: nextSeed,
-            nextSystemID: nextSystemID
+            nextSystemID: nextSystemID,
+            observedAudioComponentsByTemplate: observedAudioComponentsByTemplate,
+            pendingAudioEvaluationObservations: pendingAudioEvaluationObservations
         )
     }
 
@@ -308,12 +318,22 @@ final class SceneParticleChildRuntime {
         }
         nextSeed = snapshot.nextSeed
         nextSystemID = snapshot.nextSystemID
+        observedAudioComponentsByTemplate = snapshot.observedAudioComponentsByTemplate
+        pendingAudioEvaluationObservations = snapshot.pendingAudioEvaluationObservations
         instanceScratch.removeAll(keepingCapacity: true)
+    }
+
+    func consumeAudioEvaluationObservations()
+        -> [SceneParticleChildAudioEvaluationObservation] {
+        defer { pendingAudioEvaluationObservations.removeAll(keepingCapacity: true) }
+        return pendingAudioEvaluationObservations
     }
 
     func teardown() {
         systems.removeAll(keepingCapacity: false)
         instanceScratch.removeAll(keepingCapacity: false)
+        observedAudioComponentsByTemplate.removeAll(keepingCapacity: false)
+        pendingAudioEvaluationObservations.removeAll(keepingCapacity: false)
     }
 
     /// Advances depth-one systems against the root simulator and collects the per-system
@@ -335,6 +355,7 @@ final class SceneParticleChildRuntime {
         }
         var frames: [SceneParticleChildParentFrame] = []
         for index in systems.indices where systems[index].depth == 1 {
+            suppressObservedAudioComponents(systemAt: index)
             if let parentID = systems[index].parentParticleID,
                let parent = parentsByID[parentID]
             {
@@ -351,6 +372,7 @@ final class SceneParticleChildRuntime {
                 dynamicControlPointAngles: dynamicControlPointAngles,
                 audioInput: audioInput
             )
+            collectAudioEvaluationObservations(systemAt: index)
             let births = systems[index].simulator.consumeBirthEvents()
             let deaths = systems[index].simulator.consumeDeathEvents()
             updateWorldSpaceOrigins(systemAt: index, births: births, deaths: deaths)
@@ -396,6 +418,7 @@ final class SceneParticleChildRuntime {
             return parent.particles[parentID] == nil
         }
         for index in systems.indices where systems[index].depth == 2 {
+            suppressObservedAudioComponents(systemAt: index)
             if let scope = systems[index].spawnScopeID,
                let parentID = systems[index].parentParticleID,
                let parent = liveParents[scope],
@@ -414,6 +437,7 @@ final class SceneParticleChildRuntime {
                 dynamicControlPointAngles: dynamicControlPointAngles,
                 audioInput: audioInput
             )
+            collectAudioEvaluationObservations(systemAt: index)
             let births = systems[index].simulator.consumeBirthEvents()
             let deaths = systems[index].simulator.consumeDeathEvents()
             updateWorldSpaceOrigins(systemAt: index, births: births, deaths: deaths)
@@ -447,6 +471,32 @@ final class SceneParticleChildRuntime {
             retiredRenderSystems.append(system)
             return true
         }
+    }
+
+    private func collectAudioEvaluationObservations(systemAt index: Int) {
+        guard let template = templatesByIndex[systems[index].templateIndex] else {
+            return
+        }
+        let observations = systems[index].simulator.consumeAudioEvaluationObservations()
+        guard !observations.isEmpty else { return }
+        for observation in observations {
+            observedAudioComponentsByTemplate[template.index, default: []].insert(.init(
+                kind: observation.componentKind,
+                index: observation.componentIndex
+            ))
+            pendingAudioEvaluationObservations.append(.init(
+                particlePath: template.path,
+                evaluation: observation
+            ))
+        }
+    }
+
+    private func suppressObservedAudioComponents(systemAt index: Int) {
+        let templateIndex = systems[index].templateIndex
+        guard let observed = observedAudioComponentsByTemplate[templateIndex] else {
+            return
+        }
+        systems[index].simulator.suppressAudioEvaluationObservations(for: observed)
     }
 
     private func isCompleted(_ system: SceneParticleChildSystem, atDepth depth: Int) -> Bool {

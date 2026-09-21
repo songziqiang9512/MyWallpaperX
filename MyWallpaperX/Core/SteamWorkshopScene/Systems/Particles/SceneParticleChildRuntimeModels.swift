@@ -6,6 +6,11 @@ struct SceneParticleChildAdvanceResult {
     let limitationDetails: [String]
 }
 
+struct SceneParticleChildAudioEvaluationObservation {
+    let particlePath: String
+    let evaluation: SceneParticleAudioEvaluationObservation
+}
+
 struct SceneParticleChildSystem {
     let id: UInt64
     let templateIndex: Int

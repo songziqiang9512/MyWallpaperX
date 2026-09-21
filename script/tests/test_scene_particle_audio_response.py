@@ -58,7 +58,13 @@ enum Harness {
         let silence = SceneParticleAudioInput.silent
         let active = SceneParticleAudioInput(
             left: Array(repeating: 1, count: 16),
-            right: Array(repeating: 1, count: 16)
+            right: Array(repeating: 1, count: 16),
+            generation: 7
+        )
+        let publishedSilence = SceneParticleAudioInput(
+            left: Array(repeating: 0, count: 16),
+            right: Array(repeating: 0, count: 16),
+            generation: 7
         )
         let asymmetric = SceneParticleAudioInput(
             left: [0.5, 1] + Array(repeating: 0, count: 14),
@@ -68,6 +74,8 @@ enum Harness {
         let leftPlan = plan(mode: 1, bounds: .vector([0, 1]), exponent: 2)
         let rightPlan = plan(mode: 2, bounds: .vector([0, 1]), exponent: 2)
         let centerPlan = plan(mode: 3, bounds: .vector([0, 1]), exponent: 2)
+        let publishedSilenceEvaluation = centerPlan
+            .evaluateForExecutionObservation(publishedSilence)
 
         var silentEmitter = simulator(emitterJSON, seed: 1, step: 0.1)
         var activeEmitter = simulator(emitterJSON, seed: 1, step: 0.1)
@@ -90,6 +98,10 @@ enum Harness {
         var zeroPhaseActive = simulator(zeroPhaseInitializerJSON, seed: 7, step: 0.1)
         zeroPhaseSilent.advance(by: 0.1, audioInput: silence)
         zeroPhaseActive.advance(by: 0.1, audioInput: active)
+        var publishedSilenceInitializer = simulator(
+            repeatingTurbulentInitializerJSON, seed: 7, step: 0.1
+        )
+        publishedSilenceInitializer.advance(by: 1, audioInput: publishedSilence)
 
         var silentTurbulence = simulator(turbulenceJSON, seed: 9, step: 0.1)
         var activeTurbulence = simulator(turbulenceJSON, seed: 9, step: 0.1)
@@ -101,10 +113,28 @@ enum Harness {
         silentVortex.advance(by: 1, audioInput: silence)
         activeVortex.advance(by: 1, audioInput: active)
 
+        let emitterObservations = activeEmitter.consumeAudioEvaluationObservations()
+        let initializerObservations = activeInitializer.consumeAudioEvaluationObservations()
+        let turbulenceObservations = activeTurbulence.consumeAudioEvaluationObservations()
+        let vortexObservations = activeVortex.consumeAudioEvaluationObservations()
+        let rollbackEmitter = simulator(emitterJSON, seed: 13, step: 0.1)
+        let rollbackSnapshot = rollbackEmitter.frameSnapshot()
+        rollbackEmitter.advance(by: 0.1, audioInput: active)
+        let rejectedObservationCount = rollbackEmitter
+            .consumeAudioEvaluationObservations().count
+        rollbackEmitter.restoreFrame(rollbackSnapshot)
+        let observationsAfterRestore = rollbackEmitter
+            .consumeAudioEvaluationObservations().count
+        rollbackEmitter.advance(by: 0.1, audioInput: active)
+        let retryObservations = rollbackEmitter.consumeAudioEvaluationObservations()
+
         let payload: [String: Any] = [
             "leftResponse": leftPlan.evaluate(asymmetric),
             "rightResponse": rightPlan.evaluate(asymmetric),
             "centerResponse": centerPlan.evaluate(asymmetric),
+            "publishedSilenceResponse": publishedSilenceEvaluation.response,
+            "publishedSilenceSelectedNonZero": publishedSilenceEvaluation
+                .selectedNonZeroInputCount,
             "invalidPlans": invalidPlans(),
             "silentEmitterCount": silentEmitter.particles.count,
             "activeEmitterCount": activeEmitter.particles.count,
@@ -115,11 +145,23 @@ enum Harness {
             "initializerSilent": vector(silentInitializer.particles[0].velocity),
             "initializerActive": vector(activeInitializer.particles[0].velocity),
             "zeroPhaseStable": zeroPhaseSilent.particles == zeroPhaseActive.particles,
+            "publishedSilenceInitializerCount": publishedSilenceInitializer.particles.count,
+            "publishedSilenceObservationCount": publishedSilenceInitializer
+                .consumeAudioEvaluationObservations().count,
             "turbulenceSilent": vector(silentTurbulence.particles[0].velocity),
             "turbulenceActive": vector(activeTurbulence.particles[0].velocity),
             "vortexSilent": vector(silentVortex.particles[0].velocity),
             "vortexActive": vector(activeVortex.particles[0].velocity),
             "vortexDiagnostics": activeVortex.diagnostics.map(\.kind.rawValue).sorted(),
+            "audioObservations": [
+                emitterObservations,
+                initializerObservations,
+                turbulenceObservations,
+                vortexObservations,
+            ].flatMap { $0 }.map { observation($0) },
+            "rejectedObservationCount": rejectedObservationCount,
+            "observationsAfterRestore": observationsAfterRestore,
+            "retryObservations": retryObservations.map { observation($0) },
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -168,6 +210,20 @@ enum Harness {
         [value.x, value.y, value.z]
     }
 
+    private static func observation(
+        _ value: SceneParticleAudioEvaluationObservation
+    ) -> [String: Any] {
+        [
+            "kind": value.componentKind.rawValue,
+            "index": value.componentIndex,
+            "generation": value.generation,
+            "channel": value.channel,
+            "frequencyStart": value.frequencyStart,
+            "frequencyEnd": value.frequencyEnd,
+            "selectedNonZero": value.selectedNonZeroInputCount,
+        ]
+    }
+
     private static let emitterJSON = #"""
     {"material":"p.json","maxcount":100,
      "emitter":[{"name":"boxrandom","rate":60,"distancemax":0,"audioprocessingmode":3}],
@@ -189,6 +245,12 @@ enum Harness {
     private static let zeroPhaseInitializerJSON = turbulentInitializerJSON
         .replacingOccurrences(of: #""phasemin":0.7,"phasemax":0.7"#,
                               with: #""phasemin":0,"phasemax":0"#)
+    private static let repeatingTurbulentInitializerJSON = #"""
+    {"material":"p.json","maxcount":100,
+     "emitter":[{"name":"boxrandom","rate":60,"distancemax":0}],
+     "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"turbulentvelocityrandom","forward":"0 1 0","right":"1 0 0","phasemin":0.7,"phasemax":0.7,"scale":0.2,"speedmin":25,"speedmax":25,"audioprocessingmode":3}],
+     "renderer":[{"name":"sprite"}]}
+    """#
     private static let turbulenceJSON = #"""
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
@@ -237,6 +299,8 @@ class SceneParticleAudioResponseTests(unittest.TestCase):
         self.assertAlmostEqual(self.result["leftResponse"], 0.5625)
         self.assertEqual(self.result["rightResponse"], 0)
         self.assertAlmostEqual(self.result["centerResponse"], 0.140625)
+        self.assertEqual(self.result["publishedSilenceResponse"], 0)
+        self.assertEqual(self.result["publishedSilenceSelectedNonZero"], 0)
         self.assertEqual(self.result["invalidPlans"], [True] * 4)
 
     def test_emitter_is_silent_without_audio_and_partition_stable(self) -> None:
@@ -251,12 +315,39 @@ class SceneParticleAudioResponseTests(unittest.TestCase):
         self.assertNotEqual(self.result["initializerSilent"], self.result["initializerActive"])
         self.assertTrue(self.result["zeroPhaseStable"])
         self.assertNotEqual(self.result["turbulenceSilent"], self.result["turbulenceActive"])
+        self.assertEqual(self.result["publishedSilenceInitializerCount"], 60)
+        self.assertEqual(self.result["publishedSilenceObservationCount"], 0)
 
     def test_vortex_speed_tracks_audio_and_stops_on_silence(self) -> None:
         self.assertEqual(self.result["vortexSilent"], [0, 0, 0])
         self.assertEqual(self.result["vortexActive"], [0, 100, 0])
         self.assertIn("audioResponseBounded", self.result["vortexDiagnostics"])
         self.assertIn("vortexBounded", self.result["vortexDiagnostics"])
+
+    def test_non_silent_component_observations_are_typed_and_transactional(
+        self,
+    ) -> None:
+        observations = self.result["audioObservations"]
+        self.assertEqual([value["kind"] for value in observations], [
+            "emitter", "initializer", "operator", "operator",
+        ])
+        self.assertEqual([value["index"] for value in observations], [0, 1, 0, 0])
+        self.assertTrue(all(value["generation"] == 7 for value in observations))
+        self.assertTrue(all(value["channel"] == 3 for value in observations))
+        self.assertTrue(all(value["frequencyStart"] == 0 for value in observations))
+        self.assertTrue(all(value["frequencyEnd"] == 1 for value in observations))
+        self.assertTrue(all(value["selectedNonZero"] == 4 for value in observations))
+        self.assertEqual(self.result["rejectedObservationCount"], 1)
+        self.assertEqual(self.result["observationsAfterRestore"], 0)
+        self.assertEqual(self.result["retryObservations"], [{
+            "kind": "emitter",
+            "index": 0,
+            "generation": 7,
+            "channel": 3,
+            "frequencyStart": 0,
+            "frequencyEnd": 1,
+            "selectedNonZero": 4,
+        }])
 
 if __name__ == "__main__":
     unittest.main()

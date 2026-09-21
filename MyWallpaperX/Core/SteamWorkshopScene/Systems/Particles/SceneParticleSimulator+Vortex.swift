@@ -7,10 +7,10 @@ nonisolated extension SceneParticleSimulator {
     func applyVortex(
         plan: SceneParticleVortexPlan?,
         duration: Double,
-        audioResponsePlan: SceneParticleAudioResponsePlan?
+        audioScale: Double?
     ) {
         guard let plan else { return }
-        let audioScale = audioResponsePlan?.evaluate(audioInput) ?? 1
+        let audioScale = audioScale ?? 1
         let speedScale = definition.flags.disablesSpeedOverrides
             ? 1
             : overrideScalar(activeInstanceOverride?.speed)

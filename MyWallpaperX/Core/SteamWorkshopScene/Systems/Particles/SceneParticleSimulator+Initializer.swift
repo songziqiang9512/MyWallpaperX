@@ -150,9 +150,17 @@ extension SceneParticleSimulator {
                 guard let plan = executionPlan.vector else { break }
                 particle.angularVelocity += randomVector(plan)
             case .turbulentVelocity:
+                let audioFactor = executionPlan.turbulentVelocity?.audioResponsePlan.map {
+                    1 + evaluateAudioResponse(
+                        $0,
+                        componentKind: .initializer,
+                        componentIndex: initializerIndex
+                    )
+                }
                 particle.velocity += SceneParticleSimulationMath.turbulentVelocity(
                     executionPlan.turbulentVelocity, particle.position, simulationTime,
-                    &random, audioInput: audioInput
+                    &random, audioInput: audioInput,
+                    preparedAudioFactor: audioFactor
                 )
             case .positionOffset:
                 if let plan = executionPlan.positionOffset {

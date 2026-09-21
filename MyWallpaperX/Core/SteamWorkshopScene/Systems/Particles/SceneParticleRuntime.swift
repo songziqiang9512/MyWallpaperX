@@ -19,6 +19,8 @@ final class SceneParticleRuntime {
         }
 
         let layers: [LayerSnapshot]
+        let pendingAudioEvaluationObservations:
+            [SceneParticleRuntimeAudioEvaluationObservation]
     }
 
     private let device: MTLDevice
@@ -28,6 +30,8 @@ final class SceneParticleRuntime {
     /// template identities are prepared with the particle graph; frame-varying
     /// coordinates are still supplied by the host each advance.
     private(set) var pointerControlPointLayerIDs: Set<Int> = []
+    private var pendingAudioEvaluationObservations:
+        [SceneParticleRuntimeAudioEvaluationObservation] = []
 
     var activeLayerIDs: [Int] { layers.map(\.layerID) }
     var hasAudioConsumer: Bool {
@@ -300,6 +304,15 @@ final class SceneParticleRuntime {
                     dynamicInstanceOverride: instanceOverride,
                     audioInput: audioInput
                 )
+                pendingAudioEvaluationObservations.append(contentsOf:
+                    root.simulator.consumeAudioEvaluationObservations().map {
+                        SceneParticleRuntimeAudioEvaluationObservation(
+                            layerID: layerID,
+                            particlePath: layers[index].particlePath,
+                            evaluation: $0
+                        )
+                    }
+                )
                 births = root.simulator.consumeBirthEvents()
                 deaths = root.simulator.consumeDeathEvents()
                 parentParticles = root.simulator.particles
@@ -315,6 +328,15 @@ final class SceneParticleRuntime {
                     dynamicControlPoints: dynamicControlPoints,
                     dynamicControlPointAngles: controlPointAngles,
                     audioInput: audioInput
+                )
+                pendingAudioEvaluationObservations.append(contentsOf:
+                    childRuntime.consumeAudioEvaluationObservations().map {
+                        SceneParticleRuntimeAudioEvaluationObservation(
+                            layerID: layerID,
+                            particlePath: $0.particlePath,
+                            evaluation: $0.evaluation
+                        )
+                    }
                 )
                 batches.append(contentsOf: result.batches)
                 for path in result.bufferFailurePaths {
@@ -376,7 +398,7 @@ final class SceneParticleRuntime {
                 root: root,
                 child: layer.childRuntime?.frameSnapshot()
             )
-        })
+        }, pendingAudioEvaluationObservations: pendingAudioEvaluationObservations)
     }
 
     func restoreFrame(_ snapshot: FrameSnapshot) {
@@ -393,6 +415,13 @@ final class SceneParticleRuntime {
                 layers[index].childRuntime?.restoreFrame(childSnapshot)
             }
         }
+        pendingAudioEvaluationObservations = snapshot.pendingAudioEvaluationObservations
+    }
+
+    func consumeAudioEvaluationObservations()
+        -> [SceneParticleRuntimeAudioEvaluationObservation] {
+        defer { pendingAudioEvaluationObservations.removeAll(keepingCapacity: true) }
+        return pendingAudioEvaluationObservations
     }
 
     /// Ends this launch-scoped runtime atomically. Root and child systems are

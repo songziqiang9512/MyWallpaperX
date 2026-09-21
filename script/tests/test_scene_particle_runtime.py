@@ -1515,6 +1515,17 @@ enum Harness {
             rate: 0, operatorAudioProcessingMode: 1, instantaneous: 1, under: directory
         )
         try writeParticle(
+            "particles/audio-churn-root.json", material: "materials/shared.json",
+            lifetime: 1.0 / 60.0, rate: 60,
+            children: [[
+                "name": "particles/audio-churn-child.json", "type": "eventspawn",
+            ]], under: directory
+        )
+        try writeParticle(
+            "particles/audio-churn-child.json", material: "materials/shared.json",
+            rate: 0, operatorAudioProcessingMode: 1, instantaneous: 1, under: directory
+        )
+        try writeParticle(
             "particles/window-root.json", material: "materials/shared.json",
             rate: 0, instantaneous: 1,
             children: [[
@@ -1635,7 +1646,8 @@ enum Harness {
         )
         let activeAudioInput = SceneParticleAudioInput(
             left: Array(repeating: 1, count: SceneParticleAudioInput.bandCount),
-            right: Array(repeating: 1, count: SceneParticleAudioInput.bandCount)
+            right: Array(repeating: 1, count: SceneParticleAudioInput.bandCount),
+            generation: 7
         )
         for _ in 0..<2 {
             _ = activeAudioRuntime.advance(by: 1.0 / 60.0, audioInput: activeAudioInput)
@@ -1643,6 +1655,31 @@ enum Harness {
         let activeChildAudioInput = activeAudioRuntime.frameSnapshot().layers
             .compactMap { $0.child?.systems.first?.simulatorFrame.audioInput.left.first }
             .first ?? 0
+        let churnDescriptor = SceneRenderDescriptor(
+            layers: [layer(18, "particles/audio-churn-root.json")],
+            renderOrderLayerIDs: [18],
+            materialPasses: descriptor.materialPasses
+        )
+        let churnRuntime = SceneParticleRuntime(
+            descriptor: churnDescriptor,
+            cacheDirectory: directory,
+            device: device
+        )
+        _ = churnRuntime.advance(by: 1.0 / 60.0, audioInput: activeAudioInput)
+        let churnRollbackSnapshot = churnRuntime.frameSnapshot()
+        _ = churnRuntime.advance(by: 1.0 / 60.0, audioInput: activeAudioInput)
+        let rejectedChurnObservations = churnRuntime.consumeAudioEvaluationObservations()
+        churnRuntime.restoreFrame(churnRollbackSnapshot)
+        let churnObservationsAfterRestore = churnRuntime
+            .consumeAudioEvaluationObservations()
+        _ = churnRuntime.advance(by: 1.0 / 60.0, audioInput: activeAudioInput)
+        let retryChurnObservations = churnRuntime.consumeAudioEvaluationObservations()
+        var laterChurnObservationCount = 0
+        for _ in 0..<6 {
+            _ = churnRuntime.advance(by: 1.0 / 60.0, audioInput: activeAudioInput)
+            laterChurnObservationCount += churnRuntime
+                .consumeAudioEvaluationObservations().count
+        }
         var childCounts: [Int] = []
         var childPositions: [Float] = []
         var childSizes: [Float] = []
@@ -1725,6 +1762,11 @@ enum Harness {
             },
             "hasAudioConsumer": runtime.hasAudioConsumer,
             "activeChildAudioInput": activeChildAudioInput,
+            "rejectedChurnObservationCount": rejectedChurnObservations.count,
+            "churnObservationsAfterRestore": churnObservationsAfterRestore.count,
+            "retryChurnObservationCount": retryChurnObservations.count,
+            "retryChurnObservationPaths": retryChurnObservations.map(\.particlePath),
+            "laterChurnObservationCount": laterChurnObservationCount,
             "childScaleDetails": runtime.diagnostics.compactMap {
                 $0.kind == .simulationLimitation && $0.detail?.contains("childScaleBounded") == true
                     ? $0.detail : nil
@@ -3726,6 +3768,16 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         result = self.run_harness("eventfollow-synthetic")
         self.assertTrue(result["hasAudioConsumer"])
         self.assertEqual(result["activeChildAudioInput"], 1)
+
+    def test_child_audio_observation_is_transactional_and_template_sticky(self) -> None:
+        result = self.run_harness("eventfollow-synthetic")
+        self.assertEqual(result["rejectedChurnObservationCount"], 1)
+        self.assertEqual(result["churnObservationsAfterRestore"], 0)
+        self.assertEqual(result["retryChurnObservationCount"], 1)
+        self.assertEqual(result["retryChurnObservationPaths"], [
+            "particles/audio-churn-child.json",
+        ])
+        self.assertEqual(result["laterChurnObservationCount"], 0)
 
     def test_rate_only_event_children_stop_after_bounded_window(self) -> None:
         result = self.run_harness("eventfollow-synthetic")

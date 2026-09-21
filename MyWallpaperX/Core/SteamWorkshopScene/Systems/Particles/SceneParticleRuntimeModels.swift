@@ -56,6 +56,19 @@ struct SceneParticleDrawBatch {
     let usesPerspective: Bool
 }
 
+struct SceneParticleRuntimeAudioEvaluationObservation: Hashable, Sendable {
+    let layerID: Int
+    let particlePath: String
+    let evaluation: SceneParticleAudioEvaluationObservation
+}
+
+struct SceneParticleRuntimeAudioEvaluationIdentity: Hashable, Sendable {
+    let layerID: Int
+    let particlePath: String
+    let componentKind: SceneParticleAudioComponentKind
+    let componentIndex: Int
+}
+
 /// Immutable accounting for one live particle-runtime instance. This is an
 /// observation of the existing root/child owners, not a second lifecycle state.
 struct SceneParticleRuntimeLifecycleSnapshot: Equatable, Sendable {

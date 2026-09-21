@@ -131,15 +131,20 @@ nonisolated enum SceneParticleSimulationMath {
         _ position: SIMD3<Double>,
         _ time: Double,
         _ random: inout SceneParticleRandomGenerator,
-        audioInput: SceneParticleAudioInput = .silent
+        audioInput: SceneParticleAudioInput = .silent,
+        preparedAudioFactor: Double? = nil
     ) -> SIMD3<Double> {
         guard let value else { return .zero }
         let audioFactor: Double
         if value.audioResponseEnabled {
-            guard let plan = value.audioResponsePlan else {
-                return .zero
+            if let preparedAudioFactor {
+                audioFactor = preparedAudioFactor
+            } else {
+                guard let plan = value.audioResponsePlan else {
+                    return .zero
+                }
+                audioFactor = 1 + plan.evaluate(audioInput)
             }
-            audioFactor = 1 + plan.evaluate(audioInput)
         } else {
             audioFactor = 1
         }

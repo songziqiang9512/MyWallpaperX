@@ -23,6 +23,8 @@ final class SceneParticlePlaybackState {
     private(set) var stickyBatchLayerIDs: Set<Int> = []
     private var didTeardown = false
     private var frameTransaction: FrameTransaction?
+    private var reportedAudioEvaluationIdentities:
+        Set<SceneParticleRuntimeAudioEvaluationIdentity> = []
     var hasAudioConsumer: Bool { runtime.hasAudioConsumer }
     var lifecycleSnapshot: SceneParticleRuntimeLifecycleSnapshot {
         runtime.lifecycleSnapshot
@@ -70,7 +72,8 @@ final class SceneParticlePlaybackState {
             pointerLocalPositions: pointerLocalPositions,
             audioInput: SceneParticleAudioInput(
                 left: audioSpectrum.left,
-                right: audioSpectrum.right
+                right: audioSpectrum.right,
+                generation: audioSpectrum.generation
             )
         )
         stickyBatchLayerIDs.formUnion(batches.map(\.layerID))
@@ -89,7 +92,9 @@ final class SceneParticlePlaybackState {
     }
 
     func commitPreparedFrame() {
+        guard frameTransaction != nil else { return }
         frameTransaction = nil
+        publishCommittedAudioEvaluationObservations()
     }
 
     func discardPreparedFrame() {
@@ -98,6 +103,37 @@ final class SceneParticlePlaybackState {
         batches = frameTransaction.batches
         stickyBatchLayerIDs.formUnion(batches.map(\.layerID))
         self.frameTransaction = nil
+    }
+
+    private func publishCommittedAudioEvaluationObservations() {
+        for observation in runtime.consumeAudioEvaluationObservations() {
+            let evaluation = observation.evaluation
+            let identity = SceneParticleRuntimeAudioEvaluationIdentity(
+                layerID: observation.layerID,
+                particlePath: observation.particlePath,
+                componentKind: evaluation.componentKind,
+                componentIndex: evaluation.componentIndex
+            )
+            guard reportedAudioEvaluationIdentities.insert(identity).inserted else {
+                continue
+            }
+            let encodedPath = Data(observation.particlePath.utf8).base64EncodedString()
+            NSLog(
+                "MWX particle audio: consumer=particle-component layer=%d "
+                    + "pathBase64=%@ component=%@ index=%d generation=%llu "
+                    + "channel=%d frequencyStart=%d frequencyEnd=%d "
+                    + "selectedNonZero=%d route=generic-only",
+                observation.layerID,
+                encodedPath,
+                evaluation.componentKind.rawValue,
+                evaluation.componentIndex,
+                evaluation.generation,
+                evaluation.channel,
+                evaluation.frequencyStart,
+                evaluation.frequencyEnd,
+                evaluation.selectedNonZeroInputCount
+            )
+        }
     }
 
     /// Product playback drops overdue wall-clock debt instead of recursively making

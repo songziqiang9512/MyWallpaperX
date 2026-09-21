@@ -8,6 +8,8 @@ classification out of that already-large driver.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import math
 import re
@@ -57,6 +59,22 @@ _SCENESCRIPT_FIELD_OWNER_BY_KIND = {
     "particle": "Particle",
     "text": "Text",
 }
+_PARTICLE_AUDIO_CONSUMPTION_PREFIX = (
+    "MWX particle audio: consumer=particle-component "
+)
+_PARTICLE_AUDIO_CONSUMPTION_RE = re.compile(
+    re.escape(_PARTICLE_AUDIO_CONSUMPTION_PREFIX)
+    + r"layer=(?P<layer>-?\d+) "
+    + r"pathBase64=(?P<path_base64>[A-Za-z0-9+/]*={0,2}) "
+    + r"component=(?P<component>emitter|initializer|operator) "
+    + r"index=(?P<index>\d+) generation=(?P<generation>\d+) "
+    + r"channel=(?P<channel>[123]) "
+    + r"frequencyStart=(?P<frequency_start>\d+) "
+    + r"frequencyEnd=(?P<frequency_end>\d+) "
+    + r"selectedNonZero=(?P<selected_nonzero>\d+) "
+    + r"route=(?P<route>\S+)$",
+    re.MULTILINE,
+)
 
 
 def load_audio_declaration_matrix(snapshot_path: Path) -> dict[str, Any]:
@@ -231,10 +249,10 @@ def inventory_saved_audio_consumer_events(
 
     The caller owns report/app/log identity and must supply only samples whose
     capture publication was independently accepted. This join raises the
-    evidence ceiling only when the existing renderer or SceneScript owner logged
-    a non-silent consumer event. It deliberately does not infer particle audio
-    execution from scene-level demand, and it never upgrades an event to visual
-    response or official parity.
+    evidence ceiling only when the existing renderer, SceneScript owner, or a
+    committed particle component logged a non-silent consumer event. It never
+    infers particle audio execution from scene-level demand, and it never
+    upgrades an event to visual response or official parity.
     """
     if (
         not sample_ids
@@ -265,6 +283,7 @@ def inventory_saved_audio_consumer_events(
     material_side_profile_counts: Counter[str] = Counter()
     script_target_kind_counts: Counter[str] = Counter()
     script_target_type_counts: Counter[str] = Counter()
+    particle_component_kind_counts: Counter[str] = Counter()
 
     for sample_id in sample_ids:
         log_text = log_text_by_sample[sample_id]
@@ -404,29 +423,122 @@ def inventory_saved_audio_consumer_events(
             script_target_kind_counts[str(consumer["target_kind"])] += 1
             script_target_type_counts[str(consumer["value_type"])] += 1
 
+        particle_matches = list(_PARTICLE_AUDIO_CONSUMPTION_RE.finditer(log_text))
+        if log_text.count(_PARTICLE_AUDIO_CONSUMPTION_PREFIX) != len(
+            particle_matches
+        ):
+            raise ValueError(
+                f"malformed particle audio consumer event for sample: {sample_id}"
+            )
+        particle_consumers: dict[
+            tuple[int, str, str, int], dict[str, Any]
+        ] = {}
+        for match in particle_matches:
+            value = match.groupdict()
+            try:
+                path = base64.b64decode(
+                    value["path_base64"], validate=True
+                ).decode("utf-8")
+            except (binascii.Error, UnicodeDecodeError) as error:
+                raise ValueError(
+                    f"particle audio consumer path is invalid for sample: {sample_id}"
+                ) from error
+            channel = int(value["channel"])
+            frequency_start = int(value["frequency_start"])
+            frequency_end = int(value["frequency_end"])
+            selected_nonzero = int(value["selected_nonzero"])
+            generation = int(value["generation"])
+            selected_value_count = (
+                frequency_end - frequency_start + 1
+            ) * (2 if channel == 3 else 1)
+            if (
+                not path
+                or path != path.strip()
+                or any(ord(character) < 32 or ord(character) == 127 for character in path)
+                or value["route"] != "generic-only"
+                or generation <= 0
+                or not 0 <= frequency_start <= frequency_end < 16
+                or not 1 <= selected_nonzero <= selected_value_count
+            ):
+                raise ValueError(
+                    f"particle audio consumer identity is invalid for sample: {sample_id}"
+                )
+            identity = (
+                int(value["layer"]),
+                path,
+                value["component"],
+                int(value["index"]),
+            )
+            consumer = particle_consumers.get(identity)
+            configuration = {
+                "layer_id": identity[0],
+                "particle_path": identity[1],
+                "component_kind": identity[2],
+                "component_index": identity[3],
+                "channel": channel,
+                "frequency_start": frequency_start,
+                "frequency_end": frequency_end,
+            }
+            if consumer is None:
+                particle_consumers[identity] = {
+                    **configuration,
+                    "first_nonzero_generation": generation,
+                    "selected_nonzero_input_count": selected_nonzero,
+                }
+            else:
+                if any(consumer[key] != expected for key, expected in configuration.items()):
+                    raise ValueError(
+                        "particle audio consumer configuration changed for "
+                        f"sample: {sample_id}"
+                    )
+                consumer["first_nonzero_generation"] = min(
+                    int(consumer["first_nonzero_generation"]), generation
+                )
+                consumer["selected_nonzero_input_count"] = max(
+                    int(consumer["selected_nonzero_input_count"]), selected_nonzero
+                )
+        particle_rows = [
+            particle_consumers[key] for key in sorted(particle_consumers)
+        ]
+        for consumer in particle_rows:
+            particle_component_kind_counts[str(consumer["component_kind"])] += 1
+
         has_material = bool(material_rows)
         has_script = bool(script_rows)
-        if has_material and has_script:
+        has_particle = bool(particle_rows)
+        if has_material and has_script and has_particle:
+            event_class = "material-scenescript-and-particle-consumer-events"
+        elif has_material and has_particle:
+            event_class = "material-and-particle-consumer-events"
+        elif has_script and has_particle:
+            event_class = "scenescript-and-particle-consumer-events"
+        elif has_material and has_script:
             event_class = "material-and-scenescript-consumer-events"
         elif has_material:
             event_class = "material-consumer-events"
         elif has_script:
             event_class = "scenescript-consumer-events"
+        elif has_particle:
+            event_class = "particle-consumer-events"
         else:
             event_class = "no-consumer-event-in-saved-log"
         rows.append({
             "sample_id": sample_id,
             "event_class": event_class,
-            "consumer_event_executed": has_material or has_script,
+            "consumer_event_executed": has_material or has_script or has_particle,
             "material_uniform_consumers": material_rows,
             "material_resolutions": sorted(material_resolutions),
             "scenescript_consumers": script_rows,
             "scenescript_target_kinds": sorted({
                 str(value["target_kind"]) for value in script_rows
             }),
+            "particle_component_consumers": particle_rows,
+            "particle_component_kinds": sorted({
+                str(value["component_kind"]) for value in particle_rows
+            }),
             "evidence_ceiling": (
                 "S3-saved-log-consumer-event"
-                if has_material or has_script
+                if has_material or has_script or has_particle
                 else "S3-capture-publication-only"
             ),
             "visual_validated": False,
@@ -440,7 +552,7 @@ def inventory_saved_audio_consumer_events(
         str(row["sample_id"]) for row in rows if not row["consumer_event_executed"]
     ]
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "sample_count": len(sample_ids),
         "consumer_event_sample_count": len(consumer_event_sample_ids),
         "consumer_event_sample_ids": consumer_event_sample_ids,
@@ -476,9 +588,20 @@ def inventory_saved_audio_consumer_events(
         "scenescript_target_type_counts": dict(sorted(
             script_target_type_counts.items()
         )),
+        "particle_component_sample_count": sum(
+            bool(row["particle_component_consumers"]) for row in rows
+        ),
+        "particle_component_consumer_count": sum(
+            len(row["particle_component_consumers"]) for row in rows
+        ),
+        "particle_component_kind_counts": dict(sorted(
+            particle_component_kind_counts.items()
+        )),
         "samples": rows,
         "evidence_ceiling": "S3-saved-log-consumer-event-inventory",
-        "particle_component_execution_validated": False,
+        "particle_component_execution_validated": any(
+            row["particle_component_consumers"] for row in rows
+        ),
         "visual_validated": False,
     }
 

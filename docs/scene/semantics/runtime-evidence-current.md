@@ -8,7 +8,7 @@
 
 > 状态：现役证据入口
 >
-> 最近专项核对：2026-09-21（当前HEAD签名Debug App的普通system tap、受控外部声源与120样本产品入口基线；三个作者属性门控的音频consumer已用typed启动override做默认/启用配对；余下41个默认no-demand声明关系已按官方启用合同和live census闭合为40个未作者激活的Shake/Pulse schema与1个缺mode的particle负例；跨4个已登记Debug可执行身份的78个作者可达publication保存日志进一步守恒为77项material/SceneScript非零consumer事件与1项particle component执行观测缺口，这不是单一当前候选重跑；共享system-audio analyzer频段分布与长时右半更新、组合media+audio owner，以及`WEVector`环形频谱公共修复在四个真实样本中的consumer执行仍按各自身份保留）。各证据仍以自身日期与构建身份为准。
+> 最近专项核对：2026-09-21（当前HEAD签名Debug App的普通system tap、受控外部声源与120样本产品入口基线；三个作者属性门控的音频consumer已用typed启动override做默认/启用配对；余下41个默认no-demand声明关系已按官方启用合同和live census闭合为40个未作者激活的Shake/Pulse schema与1个缺mode的particle负例；跨4个已登记Debug可执行身份的78个作者可达publication保存日志先守恒为77项material/SceneScript非零consumer事件与1项particle component执行观测缺口，随后当前候选已对该particle-only样本补到实际component非零求值事件，但仍不是单一当前候选重跑78项；共享system-audio analyzer频段分布与长时右半更新、组合media+audio owner，以及`WEVector`环形频谱公共修复在四个真实样本中的consumer执行仍按各自身份保留）。各证据仍以自身日期与构建身份为准。
 >
 > 本次审计分支：`codex/engine-refactor-program`。本页只回答“哪条能力在什么代码/产品身份下取得过哪一级证据”，不决定开发顺序；唯一执行路线见[Scene兼容执行路线](../scene-compatibility-roadmap.md)。旧证据包不因此取得当前构建的有效性。
 >
@@ -21,6 +21,22 @@
 自本次核对起，`docs/scene/evidence/`只作为仓库忽略的本机证据缓存，不再由Git跟踪。最终运行载荷可先通过`script/promote_scene_evidence.py`提纯并用逐文件manifest固定，再在本文记录输入、App、report/manifest identity、SHA-256和有界结论；权威文档不得链接或依赖该本机目录，缓存缺失时也不能用摘要冒充当前HEAD的fresh复现。`/private/tmp`只承载运行现场、重试和含第三方作者资源的不可提交fixture；本文此前保留的临时路径只作为当时provenance，文件可能已按产物治理清理。
 
 ## 1. 当前证据快照
+
+<a id="e-2026-09-21-particle-audio-component-execution"></a>
+
+### E-2026-09-21-PARTICLE-AUDIO-COMPONENT-EXECUTION — 真实粒子组件在提交帧消费非零共享频谱
+
+**目标合同与公共链：**前一批把`2131872317`收敛为78个作者可达音频样本中唯一缺consumer事件的一项：两个enabled、dynamic的root Sphere Random emitter使用同一个particle audio response，material host均未作者启用且没有SceneScript registration。本批没有按样本或路径改变粒子算法，也没有新增tap、FFT、provider、simulator或compositor；`SystemAudioSpectrumService → SceneAudioSpectrumInbox → SceneParticleAudioInput → prepared SceneParticleAudioResponsePlan → SceneParticleSimulator`仍是唯一执行链。`SceneParticleAudioInput`只随既有16-band左右值携带共享snapshot generation；emitter、Turbulent Velocity Random、Turbulence和classic Vortex在各自**实际调用共享evaluator**的位置生成typed候选，只有generation非零且该component所选声道/频段含正值时才记录。事件identity为component kind/index，runtime再附加layer和particle path；不含原始频谱payload，不从场景级demand或声明反推执行。
+
+**提交、失败域与成本：**候选及一次性identity进入simulator/child/root现有frame snapshot；任一surface拒绝时随粒子timeline一起restore，重试仍可产生事件，全部surface提交后才由`SceneParticlePlaybackState.commitPreparedFrame()`消费并发布`route=generic-only`日志。无prepared transaction的孤立commit不发布；root/child同一layer/path/component/index在playback侧去重，系统退休前先收集child事件。root simulator用自身sticky identity，短寿命child则在child template owner保存同样可回滚的sticky集合，并在新child simulator advance前注入抑制，因此已报告component在**频段扫描／候选分配前**退出，不因child churn重复成本；已含全部template identity的存活child也在Set合并前直接返回。非零generation但选定频段全零时，响应值与positive count由同一次作者顺序遍历得到，不再为观测做第二次扫描；generation 0或已报告identity仍走原单次响应求值。失败只丢当前观测，不改变音频响应、粒子状态、previous-current或最终输出。保存日志把作者path无损编码为`pathBase64`，解析器沿既有纯函数扩展为schema 2，使用行尾锚定与strict Base64/UTF-8解码，严格拒绝坏layer/path/component/index/generation/channel/range/nonzero count、尾随伪字段、同identity配置漂移和非generic route；旧日志继续解析但不取得particle execution。
+
+**当前候选普通产品入口证据：**最终Developer ID Debug App为2.0.9 (277)、Team`H9QWU9XN8R`、CDHash=`6dac50ed57cf48bd83d8abb18aa870c2d75bbb56`，launcher/debug-dylib SHA-256=`0bf1b61021a8d1efa5a6b528b3d59af589bf6a9981a97f8e259bb2cccc7587f2 / 8947cff01d40ba32bb20e2c755343d400bc47ea78f470dfdb62b1d7941c35b0e`，运行前deep/strict verified。真实只读`2131872317`（project/package SHA-256=`792dc49ad05238c38a46e9cc75341fa1085219e2ce7c85d61ba6798b8a24cb8f / 807e92359a5651602a7f2a8abbd1d7cfa621d7fc604d60030ff0bfd596154d72`）在持续低音量外部Glass声源下，经普通App → client → daemon → requestLaunch产品入口运行25秒，取得唯一request/first-present、scope epoch 1、publication peak=`0.1500010192`、1056 rendered / 0 dropped / 0 fallback、`failures=[]`。generation 3的同一共享snapshot实际驱动layer `529`与`832`、path `particles/workshop/2110548715/presets/fireworks1.json`、emitter index 0，channel 3、频段`0...10`各有6个正值；严格inventory因此为1/1样本、2个emitter consumer、`particle_component_execution_validated=true`。frame 0为21/21 effect invocation、0 failure并完成GPU/publication/terminal compositor，frame 1保留next-frame；粒子层自身走particle draw batch而非material graph，不能把其他层graph事件伪装成粒子GPU节点。
+
+product-entry report/app-log/result SHA-256=`bfa92f1b8a543709c170b3c0cbb89f91b9ec341b4d9c7546863724f063c6f934 / 65f1936b417880c78481a1dd5415f0852f980dd5ecc8cd71ea390c2c52fb4f26 / 348f0526a2bc30ca66dd8df25c264f7c1d5a42fe1c60fd8b3c90a150a87bbcf7`；schema-2 consumer inventory SHA-256=`28f647d328d417c954f9b02d60b4671aef9acbf7a845d2457d6201694cbfbc7f`；ignored证据manifest SHA-256=`dbe46e612199fcef273d328cd56ef72d0b8f27b165eeae796244f4b75696d2e9`、promotion载荷11,549,631 bytes（inventory为另附2,246 bytes）。另一次15秒direct-host动态取证保存3024×1964 ready/after原帧，均非黑且`mean_delta=0.0022836 / changed_ratio=0.09388`，人工可见灯笼/粒子位置变化；但运行被现役旧matrix的utility/effect/graph expected count漂移判为NON-PASS，且没有静音配对，因此它只证明当前画面安全与动态存在，**不能证明变化由音频导致**。dynamic report SHA-256=`5ba2ac267f8b437a0f55105fe8122b4037103086abf016c89d02f57991a63f14`。
+
+**验证与上限：**particle audio、particle runtime和保存日志三个模块共55项通过（10项按既有平台门跳过），`git diff --check`通过，checkpoint Debug build与同源最终签名build均成功。统一inner选择的11个关联模块全通过；code-health只被批外既有ratchet/超800行债务及自动验证器未识别手动build wrapper挡住，没有据此放宽门。本批最高为`S3 current-candidate saved-log particle consumer executed`加不归因于音频的动态安全帧，不是particle count/trajectory与输入的因果门、其他initializer/operator真实执行、音频响应公式、长稳、78项同构建全集或固定官方同输入parity。按用户最新顺序，本批提交后先以专题文档、相关提交历史和实际启动App身份复核SteamKit远程列表／登录／搜索现象，已实现能力只补当前身份复验，不重复重写；其后才回到仍开放的音频时序项。
+
+**独立审查追溯：**首轮冻结diff `dcc2a90ef8416f697312da37ab521c5c8dba54c6f44989008c63489484433fed`被未参与实现的只读审查以 **CHANGES REQUIRED** 阻断：P2指出短寿命child在playback去重前仍重复频段扫描／候选分配，P2指出raw path与非行尾锚parser允许字段形注入，P3指出文档把实际验证模块数写错。修正child template事务sticky、Base64严格grammar及11模块口径后的第二轮冻结diff `2967e9d2c16f8582fc955ee88ca3ec60f6a0d3f01b519a9d1348158a936f3e1b`继续被两项成本finding阻断：未取得正值事件前response与positive count双重扫描，以及已抑制长寿命child仍逐帧重复Set合并。最终融合单遍求值、subset快返和非零generation全零频段／60粒子initializer哨兵后，冻结diff `07c739ab7a3afe1caa905b4d4b1005758fa9cb233e244336fa718f2dbd12d98c`经同一审查者完整复核为 **APPROVE / P0–P3无遗留 finding**。审查者确认数值累加顺序、snapshot/restore、all-surface commit、child retirement、Base64 parser、运行identity与文档上限，且全程未编辑、构建、运行测试/产品、生成缓存、暂存或提交；批准不替代主Agent验证，也不提升上述S3证据上限。
 
 <a id="e-2026-09-21-audio-author-reachable-consumer-inventory"></a>
 

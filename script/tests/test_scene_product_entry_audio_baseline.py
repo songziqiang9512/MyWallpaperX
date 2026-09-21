@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import io
 import json
@@ -17,6 +18,30 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 import scene_product_entry_audio_baseline as baseline
 import scene_wallpaper_benchmark as benchmark
+
+
+def particle_audio_event(
+    *,
+    path: str = "particles/audio.json",
+    layer: int = 1,
+    component: str = "emitter",
+    index: int = 0,
+    generation: int = 1,
+    channel: int = 3,
+    frequency_start: int = 0,
+    frequency_end: int = 1,
+    selected_nonzero: int = 1,
+    route: str = "generic-only",
+    trailing: str = "",
+) -> str:
+    encoded_path = base64.b64encode(path.encode("utf-8")).decode("ascii")
+    return (
+        "MWX particle audio: consumer=particle-component "
+        f"layer={layer} pathBase64={encoded_path} component={component} "
+        f"index={index} generation={generation} channel={channel} "
+        f"frequencyStart={frequency_start} frequencyEnd={frequency_end} "
+        f"selectedNonZero={selected_nonzero} route={route}{trailing}"
+    )
 
 
 def successful_payload(sample_id: str = "123") -> dict[str, object]:
@@ -376,6 +401,46 @@ class SceneProductEntryAudioBaselineTests(unittest.TestCase):
             ["left"],
         )
 
+    def test_saved_consumer_inventory_accepts_committed_particle_component_events(
+        self,
+    ) -> None:
+        authored_path = (
+            "particles/audio component=emitter index=9 generation=1 "
+            "channel=1 frequencyStart=0 frequencyEnd=0 "
+            "selectedNonZero=1 route=generic-only sphere.json"
+        )
+        emitter = particle_audio_event(
+            path=authored_path, layer=832, index=0, generation=17,
+            frequency_end=1, selected_nonzero=4,
+        )
+        second_emitter = particle_audio_event(
+            path=authored_path, layer=832, index=1, generation=19,
+            frequency_end=1, selected_nonzero=4,
+        )
+        result = baseline.inventory_saved_audio_consumer_events(
+            ["2131872317"],
+            {"2131872317": "\n".join((emitter, second_emitter))},
+        )
+
+        self.assertEqual(result["schema_version"], 2)
+        self.assertEqual(result["consumer_event_sample_ids"], ["2131872317"])
+        self.assertEqual(result["event_class_counts"], {
+            "particle-consumer-events": 1,
+        })
+        self.assertEqual(result["particle_component_sample_count"], 1)
+        self.assertEqual(result["particle_component_consumer_count"], 2)
+        self.assertEqual(result["particle_component_kind_counts"], {
+            "emitter": 2,
+        })
+        self.assertTrue(result["particle_component_execution_validated"])
+        consumers = result["samples"][0]["particle_component_consumers"]
+        self.assertEqual([value["component_index"] for value in consumers], [0, 1])
+        self.assertTrue(all(
+            value["particle_path"] == authored_path
+            for value in consumers
+        ))
+        self.assertFalse(result["visual_validated"])
+
     def test_saved_consumer_inventory_fails_closed_on_identity_or_telemetry_drift(
         self,
     ) -> None:
@@ -415,6 +480,21 @@ class SceneProductEntryAudioBaselineTests(unittest.TestCase):
                 "field: MyWallpaperX.SceneDynamicParticleField.rate) "
                 "callback=audioValuePublished type=scalar generation=1 "
                 "input=0 output=0 route=generic-only"
+            )}),
+            (["123"], {"123": particle_audio_event(generation=0)}),
+            (["123"], {"123": particle_audio_event(
+                channel=1, frequency_start=4, frequency_end=3
+            )}),
+            (["123"], {"123": particle_audio_event(
+                channel=1, frequency_start=0, frequency_end=0,
+                selected_nonzero=2,
+            )}),
+            (["123"], {"123": particle_audio_event(trailing=" trailing-garbage")}),
+            (["123"], {"123": (
+                "MWX particle audio: consumer=particle-component layer=1 "
+                "pathBase64=%%% component=emitter index=0 generation=1 "
+                "channel=3 frequencyStart=0 frequencyEnd=1 "
+                "selectedNonZero=1 route=generic-only"
             )}),
         )
         for sample_ids, logs in invalid_cases:
