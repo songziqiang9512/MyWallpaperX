@@ -4,6 +4,7 @@
 //
 
 import Combine
+import Darwin
 import Foundation
 
 // 下载任务单一权威：job/attempt/queue ordinal/state/receipt/提交阶段。
@@ -11,8 +12,8 @@ import Foundation
 // 合同：
 // - 同一 workshopItem 至多一个非终态任务（去重）；同任务重试递增 attempt。
 // - 状态迁移只经 reducer（纯函数），非法迁移被拒绝而非静默改写。
-// - 持久化：版本化 JSON、原子替换（.atomic）、不含任何凭据；损坏文件改名
-//   保留后以空状态继续；保存失败对外可见（不伪报已保存）。
+// - 持久化：版本化 JSON、原子替换（.atomic）、不含任何凭据；当前权威
+//   文件不可读时保留原字节并拒绝全部写入，不能以空状态覆盖未知任务。
 // - 账号隔离：任务携带 accountSteamId；出队/取消可按账号过滤，其它账号的
 //   任务不接管。
 // - 执行器在 Service；库内现有元数据指针是 ready 的唯一提交依据。
@@ -189,6 +190,12 @@ enum SteamDownloadJobReducer {
 
 @MainActor
 final class SteamDownloadJobStore: ObservableObject {
+    private enum PersistenceLoadResult {
+        case absent
+        case loaded
+        case rejected
+    }
+
     struct PersistedState: Codable {
         var version: Int
         var jobs: [SteamDownloadJob]
@@ -223,10 +230,13 @@ final class SteamDownloadJobStore: ObservableObject {
 
     @Published private(set) var jobs: [SteamDownloadJob] = []
     @Published private(set) var history: [SteamDownloadHistoryEntry] = []
-    /// 最近一次持久化是否成功；失败时 UI 可提示（不伪报已保存）。
+    /// 当前持久 owner 是否可写；加载或保存失败时 UI 可提示（不伪报已保存）。
     private(set) var lastSaveSucceeded = true
 
     private var ordinal = 0
+    /// An unreadable current file or selected predecessor is still authoritative.
+    /// Keep it in place and reject every mutation for this store lifetime.
+    private var persistenceMutationAllowed = true
     private let persistenceURL: URL
     /// Rollback boundary: the current owner never writes or quarantines an
     /// earlier schema filename. It may import the newest readable snapshot once
@@ -265,20 +275,22 @@ final class SteamDownloadJobStore: ObservableObject {
             at: self.persistenceURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        if FileManager.default.fileExists(atPath: self.persistenceURL.path) {
-            loadPersistedJobs(from: self.persistenceURL, quarantineOnFailure: true)
-        } else {
-            for legacyImportURL in legacyImportURLs {
-                guard FileManager.default.fileExists(atPath: legacyImportURL.path) else { continue }
-                if loadPersistedJobs(from: legacyImportURL, quarantineOnFailure: false) {
+        switch loadPersistedJobs(from: self.persistenceURL) {
+        case .loaded, .rejected:
+            break
+        case .absent:
+            legacySearch: for legacyImportURL in legacyImportURLs {
+                switch loadPersistedJobs(from: legacyImportURL) {
+                case .absent:
+                    continue
+                case .loaded:
                     // Import is copy-on-read. Persist only to the v5 sidecar and
                     // leave the old snapshot intact for whole-version rollback.
                     save(jobs, history: history)
+                    break legacySearch
+                case .rejected:
+                    break legacySearch
                 }
-                // The newest existing predecessor is authoritative even when
-                // corrupt. Falling through could replay stale intent from an
-                // older filename that its owner had already superseded.
-                break
             }
         }
     }
@@ -493,6 +505,10 @@ final class SteamDownloadJobStore: ObservableObject {
         _ candidate: [SteamDownloadJob],
         history candidateHistory: [SteamDownloadHistoryEntry]? = nil
     ) {
+        guard persistenceMutationAllowed else {
+            lastSaveSucceeded = false
+            return
+        }
         // Failed jobs are durable user-visible intent. They are retried only by an
         // explicit user action and retain their staging identity for bounded cleanup.
         let persisted = candidate.filter { $0.isActive || $0.state == .failed || $0.stagingPath != nil || $0.preparedCommit != nil }
@@ -514,16 +530,38 @@ final class SteamDownloadJobStore: ObservableObject {
         }
     }
 
-    @discardableResult
-    private func loadPersistedJobs(from sourceURL: URL, quarantineOnFailure: Bool) -> Bool {
-        guard let data = try? Data(contentsOf: sourceURL) else {
-            if quarantineOnFailure { quarantineCorruptedFile(at: sourceURL) }
-            return false
+    private func loadPersistedJobs(from sourceURL: URL) -> PersistenceLoadResult {
+        let descriptor = Darwin.open(
+            sourceURL.path,
+            O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK
+        )
+        guard descriptor >= 0 else {
+            if errno == ENOENT { return .absent }
+            rejectUnreadableAuthoritativeState()
+            return .rejected
+        }
+        var fileInfo = stat()
+        guard fstat(descriptor, &fileInfo) == 0,
+              (fileInfo.st_mode & S_IFMT) == S_IFREG,
+              fileInfo.st_nlink == 1 else {
+            _ = Darwin.close(descriptor)
+            rejectUnreadableAuthoritativeState()
+            return .rejected
+        }
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+        let data: Data
+        do {
+            data = try handle.readToEnd() ?? Data()
+            try handle.close()
+        } catch {
+            try? handle.close()
+            rejectUnreadableAuthoritativeState()
+            return .rejected
         }
         guard let state = try? JSONDecoder().decode(PersistedState.self, from: data),
               (1...Self.persistenceVersion).contains(state.version) else {
-            if quarantineOnFailure { quarantineCorruptedFile(at: sourceURL) }
-            return false
+            rejectUnreadableAuthoritativeState()
+            return .rejected
         }
         jobs = state.jobs
         let stamp = now()
@@ -594,7 +632,7 @@ final class SteamDownloadJobStore: ObservableObject {
         } else {
             lastSaveSucceeded = true
         }
-        return true
+        return .loaded
     }
 
     private func upsertingHistoryEntry(
@@ -650,12 +688,10 @@ final class SteamDownloadJobStore: ObservableObject {
             .prefix(Self.historyLimit))
     }
 
-    private func quarantineCorruptedFile(at sourceURL: URL) {
-        let backup = sourceURL.deletingLastPathComponent()
-            .appendingPathComponent("jobs.corrupted-\(Int(Date().timeIntervalSince1970)).json")
-        try? FileManager.default.moveItem(at: sourceURL, to: backup)
+    private func rejectUnreadableAuthoritativeState() {
         jobs = []
         history = []
-        lastSaveSucceeded = true
+        persistenceMutationAllowed = false
+        lastSaveSucceeded = false
     }
 }

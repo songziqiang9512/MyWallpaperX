@@ -85,6 +85,9 @@ class SteamDownloadExecutionTests(unittest.TestCase):
     def test_staging_persistence_failure_never_acknowledges_helper_writes(self):
         self.run_case('staging-save-failure')
 
+    def test_invalid_current_jobstore_entry_blocks_helper_start_without_replacement(self):
+        self.run_case('corrupt-current-jobstore')
+
     def test_helper_without_staging_ack_capability_never_starts_download(self):
         self.run_case('missing-staging-ack-capability')
 

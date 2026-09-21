@@ -279,10 +279,119 @@ import Foundation
             now: { clock }
         )
         precondition(rejected.jobs.isEmpty && rejected.history.isEmpty)
+        precondition(!rejected.lastSaveSucceeded,
+            "an unreadable authoritative predecessor must close the persistence write gate")
+        let rejectedEnqueue = rejected.enqueue(
+            workshopItemId: "401", title: "Must not persist", accountSteamId: "A")
+        precondition(!rejectedEnqueue.isNew && rejected.jobs.isEmpty,
+            "an unreadable authoritative predecessor must reject new intent")
         let preservedCorruptBytes = try Data(contentsOf: corruptLegacy)
         precondition(preservedCorruptBytes == corruptBytes)
         precondition(!FileManager.default.fileExists(atPath: corruptV5.path),
-            "an existing corrupt v4 must stop predecessor fallback instead of replaying v3/jobs.json")
+            "an existing corrupt v4 must stop fallback and must not be replaced by an empty v5")
+
+        let corruptCurrentRoot = base.appendingPathComponent(
+            "corrupt-current", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: corruptCurrentRoot, withIntermediateDirectories: true)
+        let corruptCurrent = corruptCurrentRoot.appendingPathComponent("jobs-v5.json")
+        let validPredecessor = corruptCurrentRoot.appendingPathComponent("jobs-v4.json")
+        try corruptBytes.write(to: corruptCurrent)
+        try legacyBytes.write(to: validPredecessor)
+        let currentRejected = SteamDownloadJobStore(
+            persistenceURL: corruptCurrent,
+            legacyImportURL: validPredecessor,
+            now: { clock }
+        )
+        precondition(currentRejected.jobs.isEmpty && currentRejected.history.isEmpty
+            && !currentRejected.lastSaveSucceeded,
+            "an unreadable current v5 must remain authoritative instead of importing v4")
+        let currentDirectoryBefore = try FileManager.default.contentsOfDirectory(
+            atPath: corruptCurrentRoot.path).sorted()
+        let currentRejectedEnqueue = currentRejected.enqueue(
+            workshopItemId: "402", title: "Must not overwrite", accountSteamId: "A")
+        precondition(!currentRejectedEnqueue.isNew && currentRejected.jobs.isEmpty)
+        let corruptCurrentBytesAfterMutation = try Data(contentsOf: corruptCurrent)
+        precondition(corruptCurrentBytesAfterMutation == corruptBytes,
+            "a rejected mutation must preserve the exact corrupt current bytes")
+        let currentDirectoryAfter = try FileManager.default.contentsOfDirectory(
+            atPath: corruptCurrentRoot.path).sorted()
+        precondition(currentDirectoryAfter == currentDirectoryBefore,
+            "fail-closed loading must not quarantine or create sidecar files")
+
+        let futureCurrent = corruptCurrentRoot.appendingPathComponent("future-jobs-v5.json")
+        let futureBytes = Data("{\"version\":6,\"jobs\":[],\"history\":[]}".utf8)
+        try futureBytes.write(to: futureCurrent)
+        let futureRejected = SteamDownloadJobStore(
+            persistenceURL: futureCurrent,
+            now: { clock }
+        )
+        precondition(!futureRejected.lastSaveSucceeded)
+        let futureRejectedEnqueue = futureRejected.enqueue(
+            workshopItemId: "403", title: "Future schema", accountSteamId: "A")
+        precondition(!futureRejectedEnqueue.isNew && futureRejected.jobs.isEmpty)
+        let futureBytesAfterMutation = try Data(contentsOf: futureCurrent)
+        precondition(futureBytesAfterMutation == futureBytes,
+            "a future schema must not be downgraded or overwritten")
+
+        let symlinkCurrentRoot = base.appendingPathComponent(
+            "symlink-current", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: symlinkCurrentRoot, withIntermediateDirectories: true)
+        let symlinkCurrent = symlinkCurrentRoot.appendingPathComponent("jobs-v5.json")
+        let danglingCurrentTarget = symlinkCurrentRoot.appendingPathComponent("missing-target.json")
+        let symlinkCurrentV4 = symlinkCurrentRoot.appendingPathComponent("jobs-v4.json")
+        try FileManager.default.createSymbolicLink(
+            at: symlinkCurrent, withDestinationURL: danglingCurrentTarget)
+        try legacyBytes.write(to: symlinkCurrentV4)
+        let symlinkCurrentRejected = SteamDownloadJobStore(
+            persistenceURL: symlinkCurrent,
+            legacyImportURL: symlinkCurrentV4,
+            now: { clock }
+        )
+        precondition(symlinkCurrentRejected.jobs.isEmpty
+            && !symlinkCurrentRejected.lastSaveSucceeded,
+            "a dangling current entry must reject instead of replaying valid v4 intent")
+        let symlinkCurrentEnqueue = symlinkCurrentRejected.enqueue(
+            workshopItemId: "404", title: "Dangling current", accountSteamId: "A")
+        precondition(!symlinkCurrentEnqueue.isNew && symlinkCurrentRejected.jobs.isEmpty)
+        precondition(!FileManager.default.fileExists(atPath: danglingCurrentTarget.path))
+        let preservedCurrentLink = try FileManager.default.destinationOfSymbolicLink(
+            atPath: symlinkCurrent.path)
+        precondition(preservedCurrentLink == danglingCurrentTarget.path,
+            "the current symlink entry must remain unchanged")
+        let symlinkCurrentV4Bytes = try Data(contentsOf: symlinkCurrentV4)
+        precondition(symlinkCurrentV4Bytes == legacyBytes,
+            "a current symlink must not consume or rewrite the v4 predecessor")
+
+        let symlinkPredecessorRoot = base.appendingPathComponent(
+            "symlink-predecessor", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: symlinkPredecessorRoot, withIntermediateDirectories: true)
+        let absentSymlinkV5 = symlinkPredecessorRoot.appendingPathComponent("jobs-v5.json")
+        let symlinkV4 = symlinkPredecessorRoot.appendingPathComponent("jobs-v4.json")
+        let danglingV4Target = symlinkPredecessorRoot.appendingPathComponent("missing-v4.json")
+        let validSymlinkV3 = symlinkPredecessorRoot.appendingPathComponent("jobs-v3.json")
+        try FileManager.default.createSymbolicLink(at: symlinkV4, withDestinationURL: danglingV4Target)
+        try v3Bytes.write(to: validSymlinkV3)
+        let symlinkPredecessorRejected = SteamDownloadJobStore(
+            persistenceURL: absentSymlinkV5,
+            legacyImportURL: symlinkV4,
+            olderLegacyImportURL: validSymlinkV3,
+            now: { clock }
+        )
+        precondition(symlinkPredecessorRejected.jobs.isEmpty
+            && !symlinkPredecessorRejected.lastSaveSucceeded)
+        let symlinkPredecessorEnqueue = symlinkPredecessorRejected.enqueue(
+            workshopItemId: "405", title: "Dangling predecessor", accountSteamId: "A")
+        precondition(!symlinkPredecessorEnqueue.isNew)
+        precondition(!FileManager.default.fileExists(atPath: absentSymlinkV5.path),
+            "a dangling selected predecessor must stop v3 fallback and v5 creation")
+        let preservedPredecessorLink = try FileManager.default.destinationOfSymbolicLink(
+            atPath: symlinkV4.path)
+        precondition(preservedPredecessorLink == danglingV4Target.path)
+        let validSymlinkV3Bytes = try Data(contentsOf: validSymlinkV3)
+        precondition(validSymlinkV3Bytes == v3Bytes)
 
         // Every v4 state loses device+inode-only cleanup/resume authority. Logical
         // intent and an already-prepared public commit survive according to their

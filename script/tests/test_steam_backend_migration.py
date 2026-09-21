@@ -121,12 +121,13 @@ class SteamBackendMigrationTests(unittest.TestCase):
         self.assertNotIn("URLSession", links)
         self.assertNotIn("WKWebView", links)
 
-    def test_job_schema_keeps_read_only_legacy_import_sidecar(self):
+    def test_job_schema_keeps_legacy_import_filenames_out_of_retirement_cleanup(self):
         store = (CORE / "SteamWorkshopJobStore.swift").read_text()
         self.assertIn('appendingPathComponent("jobs-v3.json")', store)
         self.assertIn('appendingPathComponent("jobs.json")', store)
-        self.assertIn("quarantineOnFailure: false", store)
         self.assertIn("save(jobs, history: history)", store)
+        # Corrupt-current and corrupt-predecessor semantics are exercised by the
+        # compiled JobStore fixture; this retirement scan only protects sources.
         self.assertNotIn("removeItem(at: legacyImportURL", store)
         self.assertNotIn("moveItem(at: legacyImportURL", store)
 

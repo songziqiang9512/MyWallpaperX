@@ -269,37 +269,27 @@ final class Transport: SteamServiceTransporting {
         transport.receipt = fixture["data"] as! [String: Any]
         let stagingRoot = base.appendingPathComponent("staging", isDirectory: true)
         let firstIdentity = try SteamWorkshopLibraryTransaction.stagingLeaseIdentity(
-            stagingURL: URL(fileURLWithPath: transport.receipt["stagingPath"] as! String),
-            stagingRoot: stagingRoot
-        )
-        transport.receipt["stagingDevice"] = String(firstIdentity.device); transport.receipt["stagingInode"] = String(firstIdentity.inode)
-        transport.receipt["stagingBirthSeconds"] = String(firstIdentity.birthSeconds!); transport.receipt["stagingBirthNanoseconds"] = String(firstIdentity.birthNanoseconds!)
+            stagingURL: URL(fileURLWithPath: transport.receipt["stagingPath"] as! String), stagingRoot: stagingRoot)
+        transport.receipt["stagingDevice"] = String(firstIdentity.device); transport.receipt["stagingInode"] = String(firstIdentity.inode); transport.receipt["stagingBirthSeconds"] = String(firstIdentity.birthSeconds!); transport.receipt["stagingBirthNanoseconds"] = String(firstIdentity.birthNanoseconds!)
         let secondURL = URL(fileURLWithPath: transport.receipt["secondStagingPath"] as! String)
         if FileManager.default.fileExists(atPath: secondURL.path) {
             let secondIdentity = try SteamWorkshopLibraryTransaction.stagingLeaseIdentity(stagingURL: secondURL, stagingRoot: stagingRoot)
-            transport.receipt["secondStagingDevice"] = String(secondIdentity.device); transport.receipt["secondStagingInode"] = String(secondIdentity.inode)
-            transport.receipt["secondStagingBirthSeconds"] = String(secondIdentity.birthSeconds!); transport.receipt["secondStagingBirthNanoseconds"] = String(secondIdentity.birthNanoseconds!)
+            transport.receipt["secondStagingDevice"] = String(secondIdentity.device); transport.receipt["secondStagingInode"] = String(secondIdentity.inode); transport.receipt["secondStagingBirthSeconds"] = String(secondIdentity.birthSeconds!); transport.receipt["secondStagingBirthNanoseconds"] = String(secondIdentity.birthNanoseconds!)
         }
         transport.jobStoreURL = base.appendingPathComponent("jobs.json")
+        let rejectedJobStoreTarget = base.appendingPathComponent("missing-jobstore-target.json")
+        if mode == "corrupt-current-jobstore" { try FileManager.default.createSymbolicLink(at: transport.jobStoreURL!, withDestinationURL: rejectedJobStoreTarget) }
         if mode == "missing-staging-ack-capability" { transport.advertisedStagingAcknowledgementCapability = nil }
         if mode == "old-staging-ack-capability" { transport.advertisedStagingAcknowledgementCapability = "download-staging-ack-v1" }
-        transport.requireStagingAcknowledgement = mode != "missing-staging-ack-capability"
-            && mode != "old-staging-ack-capability"
-        transport.failJobStoreBeforeAllocatedEvent = mode == "staging-save-failure"
-        transport.rejectStagingAcknowledgementWithIntegrity = mode == "staging-ack-timeout"
-        transport.allocatedEventHasWrongAccountEpoch = mode == "allocated-wrong-account-epoch"
-        transport.allocatedEventOmitsAccountEpoch = mode == "allocated-missing-account-epoch"
-        transport.allocatedEventHasWrongBirth = mode == "allocated-wrong-birth"
-        transport.terminalReceiptHasWrongBirth = mode == "terminal-wrong-birth"
-        transport.hold = mode == "cancel" || mode == "switch"
-            || mode == "concurrent-cancel" || mode == "concurrent-success"
-            || mode == "prebind-replacement" || mode == "legacy-v4-partial-retry"
-            || mode == "allocated-wrong-account-epoch"
-            || mode == "allocated-missing-account-epoch" || mode == "allocated-wrong-birth"
+        transport.requireStagingAcknowledgement = mode != "missing-staging-ack-capability" && mode != "old-staging-ack-capability"
+        transport.failJobStoreBeforeAllocatedEvent = mode == "staging-save-failure"; transport.rejectStagingAcknowledgementWithIntegrity = mode == "staging-ack-timeout"
+        transport.allocatedEventHasWrongAccountEpoch = mode == "allocated-wrong-account-epoch"; transport.allocatedEventOmitsAccountEpoch = mode == "allocated-missing-account-epoch"
+        transport.allocatedEventHasWrongBirth = mode == "allocated-wrong-birth"; transport.terminalReceiptHasWrongBirth = mode == "terminal-wrong-birth"
+        transport.hold = ["cancel", "switch", "concurrent-cancel", "concurrent-success",
+            "prebind-replacement", "legacy-v4-partial-retry", "allocated-wrong-account-epoch",
+            "allocated-missing-account-epoch", "allocated-wrong-birth"].contains(mode)
         transport.replaceStagingBeforeProgress = mode == "prebind-replacement"
-        transport.startErrorCode = ["network-failure", "missing-resume-fresh", "busy-retry", "abandon"].contains(mode) ? "network"
-            : mode == "manifest-mismatch" ? "integrity"
-            : mode == "disk-full" ? "diskFull" : nil
+        transport.startErrorCode = ["network-failure", "missing-resume-fresh", "busy-retry", "abandon"].contains(mode) ? "network" : mode == "manifest-mismatch" ? "integrity" : mode == "disk-full" ? "diskFull" : nil
         if mode == "legacy-v4-partial-retry" {
             let legacyURL = base.appendingPathComponent("jobs.json")
             let legacyStore = SteamDownloadJobStore(persistenceURL: legacyURL)
@@ -448,6 +438,16 @@ final class Transport: SteamServiceTransporting {
             return
         }
         service.downloadWorkshopItem(id: "123456", pageTitle: "test")
+        if mode == "corrupt-current-jobstore" {
+            let preservedJobStoreLink = try FileManager.default.destinationOfSymbolicLink(atPath: transport.jobStoreURL!.path)
+            let storeSiblings = try FileManager.default.contentsOfDirectory(at: base, includingPropertiesForKeys: nil)
+            precondition(!service.downloadJobStore.lastSaveSucceeded && service.downloadJobStore.jobs.isEmpty
+                && service.activeDownloadTasks.isEmpty && service.statusMessage == "下载任务无法保存，未开始下载。")
+            precondition(!transport.commands.contains { $0["command"] as? String == "startDownload" })
+            precondition(preservedJobStoreLink == rejectedJobStoreTarget.path && !FileManager.default.fileExists(atPath: rejectedJobStoreTarget.path)
+                && !storeSiblings.contains { $0.lastPathComponent.hasPrefix("jobs.corrupted-") })
+            await service.steamServiceClient.stop(shutdownTimeout: 0); print("EXECUTION PASS: \(mode)"); return
+        }
         if mode == "missing-staging-ack-capability" || mode == "old-staging-ack-capability" {
             for _ in 0..<100_000 where !service.activeDownloadTasks.isEmpty { await Task.yield() }
             precondition(service.activeDownloadTasks.isEmpty)
