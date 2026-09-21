@@ -105,7 +105,7 @@ extension SteamWorkshopService {
             // different account can never adopt the failed intent.
             let event: SteamDownloadJobEvent = failed.stagingPath != nil
                 && failed.stagingManifestId != nil
-                && failed.stagingLeaseIdentity != nil
+                && failed.stagingLeaseIdentity?.isComplete == true
                 ? .resumed : .started
             guard let retried = downloadJobStore.apply(event, toID: failed.id) else {
                 statusMessage = "下载重试任务无法保存，未开始下载。"
@@ -167,6 +167,11 @@ extension SteamWorkshopService {
                       let device = UInt64(deviceText),
                       let inodeText = frame.root["stagingInode"]?.stringValue,
                       let inode = UInt64(inodeText), inode > 0,
+                      let birthSecondsText = frame.root["stagingBirthSeconds"]?.stringValue,
+                      let birthSeconds = Int64(birthSecondsText), birthSeconds > 0,
+                      let birthNanosecondsText = frame.root["stagingBirthNanoseconds"]?.stringValue,
+                      let birthNanoseconds = Int64(birthNanosecondsText),
+                      (0..<1_000_000_000).contains(birthNanoseconds),
                       let stagingURL = SteamWorkshopStagedReceipt.validatedStagingURL(
                     path: path,
                     stagingRoot: self.steamDownloadStagingRootURL.path
@@ -174,7 +179,12 @@ extension SteamWorkshopService {
                     self.activeDownloadTasks[key]?.cancel()
                     return
                 }
-                let helperIdentity = SteamWorkshopStagingLeaseIdentity(device: device, inode: inode)
+                let helperIdentity = SteamWorkshopStagingLeaseIdentity(
+                    device: device,
+                    inode: inode,
+                    birthSeconds: birthSeconds,
+                    birthNanoseconds: birthNanoseconds
+                )
                 guard let localIdentity = try? SteamWorkshopLibraryTransaction.stagingLeaseIdentity(
                     stagingURL: stagingURL,
                     stagingRoot: self.steamDownloadStagingRootURL
@@ -270,7 +280,7 @@ extension SteamWorkshopService {
                     let persistedIdentityIsCurrent: Bool
                     if let path = resumePath,
                        resumeManifestId != nil,
-                       let expectedIdentity = resumeIdentity,
+                       let expectedIdentity = resumeIdentity, expectedIdentity.isComplete,
                        let stagingURL = SteamWorkshopStagedReceipt.validatedStagingURL(
                         path: path,
                         stagingRoot: staging.path
@@ -417,7 +427,8 @@ extension SteamWorkshopService {
     private func removeOwnedDownloadStaging(_ job: SteamDownloadJob) async throws {
         let stagingRoot = steamDownloadStagingRootURL
         guard let path = job.stagingPath,
-              let leaseIdentity = job.stagingLeaseIdentity else {
+              let leaseIdentity = job.stagingLeaseIdentity,
+              leaseIdentity.isComplete else {
             throw SteamWorkshopLibraryTransaction.Failure(
                 message: "下载暂存缺少稳定身份，拒绝按路径清理。"
             )

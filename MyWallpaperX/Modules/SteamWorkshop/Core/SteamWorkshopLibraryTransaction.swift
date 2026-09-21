@@ -170,10 +170,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             }
         }
         let after = try info(fd, regular: true)
-        try require(after.st_dev == before.st_dev && after.st_ino == before.st_ino
-            && after.st_size == before.st_size
-            && after.st_mtimespec.tv_sec == before.st_mtimespec.tv_sec
-            && after.st_mtimespec.tv_nsec == before.st_mtimespec.tv_nsec,
+        try require(samePinnedFileSnapshot(after, before),
             "下载记录在读取期间发生变化。")
         return data
     }
@@ -234,15 +231,43 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         return validPublicDirectoryName(parts[2], workshopId: workshopId)
     }
 
-    private static func directoryIdentity(_ value: stat) -> SteamWorkshopStagingLeaseIdentity {
-        SteamWorkshopStagingLeaseIdentity(
+    /// Every pathname mutation uses the same birth-qualified filesystem identity.
+    /// Filesystems that cannot supply a valid creation time fail closed instead of
+    /// silently degrading the comparison to device + inode.
+    static func validatedFilesystemIdentity(
+        _ value: stat
+    ) throws -> SteamWorkshopStagingLeaseIdentity {
+        let identity = SteamWorkshopStagingLeaseIdentity(
             device: UInt64(value.st_dev),
-            inode: UInt64(value.st_ino)
+            inode: UInt64(value.st_ino),
+            birthSeconds: Int64(value.st_birthtimespec.tv_sec),
+            birthNanoseconds: Int64(value.st_birthtimespec.tv_nsec)
         )
+        try require(identity.isComplete,
+                    "文件系统未提供完整创建身份，拒绝写入或删除。")
+        return identity
+    }
+
+    /// A read held on one already-open descriptor does not adopt a pathname.
+    /// Keep its snapshot check independent from mutation birth-time support so
+    /// an older volume cannot hide an existing ready record during a pure read.
+    static func samePinnedFileSnapshot(_ lhs: stat, _ rhs: stat) -> Bool {
+        lhs.st_dev == rhs.st_dev && lhs.st_ino == rhs.st_ino
+            && lhs.st_size == rhs.st_size
+            && lhs.st_mtimespec.tv_sec == rhs.st_mtimespec.tv_sec
+            && lhs.st_mtimespec.tv_nsec == rhs.st_mtimespec.tv_nsec
+    }
+
+    private static func sameFilesystemObject(_ lhs: stat, _ rhs: stat) -> Bool {
+        guard let left = try? validatedFilesystemIdentity(lhs),
+              let right = try? validatedFilesystemIdentity(rhs) else { return false }
+        return left == right
     }
 
     private static func sameDirectory(_ value: stat, as expected: SteamWorkshopStagingLeaseIdentity) -> Bool {
-        directoryIdentity(value) == expected
+        guard expected.isComplete,
+              let identity = try? validatedFilesystemIdentity(value) else { return false }
+        return identity == expected
     }
 
     private static func markerCommit(in root: FD) throws -> SteamWorkshopLibraryCommit {
@@ -302,12 +327,15 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         var named = stat()
         try require(fstatat(parent.value, name, &named, AT_SYMLINK_NOFOLLOW) == 0)
         try require((named.st_mode & S_IFMT) == S_IFDIR, "仅回收受管版本目录。")
+        guard (try? validatedFilesystemIdentity(named)) != nil else {
+            throw OwnedDirectoryChanged()
+        }
         if let expectedIdentity, !sameDirectory(named, as: expectedIdentity) {
             throw OwnedDirectoryChanged()
         }
         let opened = try directory(parent, name)
         let openedInfo = try info(opened, regular: false)
-        guard named.st_dev == openedInfo.st_dev && named.st_ino == openedInfo.st_ino else {
+        guard sameFilesystemObject(named, openedInfo) else {
             throw OwnedDirectoryChanged()
         }
         if let expectedIdentity, !sameDirectory(openedInfo, as: expectedIdentity) {
@@ -324,13 +352,44 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             var value = stat()
             try require(fstatat(opened.value, child, &value, AT_SYMLINK_NOFOLLOW) == 0)
             if (value.st_mode & S_IFMT) == S_IFDIR {
+                let childIdentity: SteamWorkshopStagingLeaseIdentity
+                do {
+                    childIdentity = try validatedFilesystemIdentity(value)
+                } catch {
+                    throw OwnedDirectoryChanged()
+                }
                 try removeOwnedTree(
                     parent: opened,
                     name: child,
-                    expectedIdentity: directoryIdentity(value),
+                    expectedIdentity: childIdentity,
                     honorTaskCancellation: honorTaskCancellation
                 )
+            } else if (value.st_mode & S_IFMT) == S_IFREG {
+                let file = try openFile(opened, child)
+                let openedFileInfo = try info(file, regular: true)
+                guard sameFilesystemObject(value, openedFileInfo) else {
+                    throw OwnedDirectoryChanged()
+                }
+                var currentFileInfo = stat()
+                guard fstatat(opened.value, child, &currentFileInfo, AT_SYMLINK_NOFOLLOW) == 0,
+                      (currentFileInfo.st_mode & S_IFMT) == S_IFREG,
+                      sameFilesystemObject(currentFileInfo, openedFileInfo) else {
+                    throw OwnedDirectoryChanged()
+                }
+                try require(unlinkat(opened.value, child, 0) == 0, "版本文件回收失败。")
             } else {
+                // Symlinks and other non-directory entries are never followed.
+                // They still need a complete birth-qualified pathname identity
+                // immediately before unlink so an owned cleanup cannot adopt a
+                // same-name replacement.
+                guard (try? validatedFilesystemIdentity(value)) != nil else {
+                    throw OwnedDirectoryChanged()
+                }
+                var currentEntryInfo = stat()
+                guard fstatat(opened.value, child, &currentEntryInfo, AT_SYMLINK_NOFOLLOW) == 0,
+                      sameFilesystemObject(currentEntryInfo, value) else {
+                    throw OwnedDirectoryChanged()
+                }
                 try require(unlinkat(opened.value, child, 0) == 0, "版本文件回收失败。")
             }
         }
@@ -338,7 +397,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         var current = stat()
         try require(fstatat(parent.value, name, &current, AT_SYMLINK_NOFOLLOW) == 0)
         guard (current.st_mode & S_IFMT) == S_IFDIR
-            && current.st_dev == openedInfo.st_dev && current.st_ino == openedInfo.st_ino else {
+            && sameFilesystemObject(current, openedInfo) else {
             throw OwnedDirectoryChanged()
         }
         try require(unlinkat(parent.value, name, AT_REMOVEDIR) == 0, "版本目录回收失败。")
@@ -446,8 +505,8 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         return url
     }
 
-    /// Capture the exact helper lease inode when its terminal receipt is accepted.
-    /// The persisted identity is later required by preparation and cleanup.
+    /// Capture the exact helper lease identity when its allocated event is accepted.
+    /// The persisted identity is later required by ack, preparation and cleanup.
     static func stagingLeaseIdentity(
         stagingURL: URL,
         stagingRoot: URL
@@ -467,9 +526,9 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         try require((named.st_mode & S_IFMT) == S_IFDIR, "下载暂存目录身份无效。")
         let opened = try directory(root, name)
         let openedInfo = try info(opened, regular: false)
-        try require(named.st_dev == openedInfo.st_dev && named.st_ino == openedInfo.st_ino,
+        try require(sameFilesystemObject(named, openedInfo),
                     "下载暂存目录在验收期间发生变化。")
-        return directoryIdentity(openedInfo)
+        return try validatedFilesystemIdentity(openedInfo)
     }
 
     /// Deletes only the exact receipt-bound helper staging inode. A missing old
@@ -479,6 +538,8 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         stagingRoot: URL,
         expectedIdentity: SteamWorkshopStagingLeaseIdentity
     ) throws {
+        try require(expectedIdentity.isComplete,
+                    "下载暂存缺少完整创建身份，拒绝按路径清理。")
         let configured = try configuredRoot(stagingRoot)
         guard let validated = SteamWorkshopStagedReceipt.validatedStagingURL(
             path: stagingURL.path,
@@ -502,7 +563,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
 
     static func prepare(receipt: SteamWorkshopStagedReceipt, attempt: Int,
                         libraryRoot: URL) throws -> SteamWorkshopLibraryCommit {
-        try require(receipt.version == 2 && receipt.stagingLeaseIdentity != nil,
+        try require(receipt.version == 2 && receipt.stagingLeaseIdentity?.isComplete == true,
                     "下载凭证缺少稳定的暂存目录身份。")
         return try prepareSource(
             sourceURL: receipt.stagingURL,
@@ -574,9 +635,12 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         let library = try absoluteDirectory(libraryRoot, create: true)
         try admitLibraryRetainedBytes(in: library, adding: verifiedBytes)
         let incoming = try directory(library, incomingName, create: true)
+        // Reject volumes without stable birth identity before creating an
+        // attempt-owned UUID. The child is still validated again after mkdir.
+        _ = try validatedFilesystemIdentity(try info(incoming, regular: false))
         let name = UUID().uuidString.lowercased()
         let version = try directory(incoming, name, create: true, exclusive: true)
-        let versionIdentity = directoryIdentity(try info(version, regular: false))
+        let versionIdentity = try validatedFilesystemIdentity(try info(version, regular: false))
         defer {
             // Cancellation stops the copy, but it must not cancel removal of the
             // exact descriptor-bound partial generation that this invocation owns.
@@ -815,6 +879,14 @@ nonisolated enum SteamWorkshopLibraryTransaction {
                 retainedIdentities.append(identity)
                 return
             }
+            let capturedIdentity: SteamWorkshopStagingLeaseIdentity
+            do {
+                capturedIdentity = try validatedFilesystemIdentity(value)
+            } catch {
+                await removalFailed(identity)
+                skippedEntries.append(entryLabel)
+                return
+            }
             guard await admitRemoval(identity) else {
                 retainedIdentities.append(identity)
                 return
@@ -824,7 +896,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
                 try removeOwnedTree(
                     parent: parent,
                     name: name,
-                    expectedIdentity: directoryIdentity(value),
+                    expectedIdentity: capturedIdentity,
                     expectedMarker: expectedMarker
                 )
             } catch is OwnedDirectoryChanged {
@@ -886,8 +958,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
                       (value.st_mode & S_IFMT) == S_IFDIR,
                       let root = try? directory(typeRoot, name),
                       let openedInfo = try? info(root, regular: false),
-                      openedInfo.st_dev == value.st_dev,
-                      openedInfo.st_ino == value.st_ino,
+                      sameFilesystemObject(openedInfo, value),
                       let marker = try? markerCommit(in: root),
                       marker.contentType == contentType,
                       marker.directoryName == name,

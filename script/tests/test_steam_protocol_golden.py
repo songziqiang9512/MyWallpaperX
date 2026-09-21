@@ -124,6 +124,27 @@ class SteamProtocolGoldenTests(unittest.TestCase):
                 self.assertIsInstance(steam_id, str)
                 self.assertRegex(steam_id, r"^[0-9*]+$")
 
+    def test_resume_request_binds_full_staging_identity(self) -> None:
+        frames = [
+            frame
+            for frame in self.requests
+            if frame["requestId"] == "req-dl-resume-birth-1"
+        ]
+        self.assertEqual(len(frames), 1)
+        payload = frames[0]["payload"]
+        required = {
+            "resumeStagingPath",
+            "resumeManifestId",
+            "resumeStagingDevice",
+            "resumeStagingInode",
+            "resumeStagingBirthSeconds",
+            "resumeStagingBirthNanoseconds",
+        }
+        self.assertTrue(required.issubset(payload))
+        for key in required - {"resumeStagingPath"}:
+            self.assertIsInstance(payload[key], str)
+            self.assertRegex(payload[key], r"^[0-9]+$")
+
     def test_negative_frames_self_describing(self) -> None:
         self.assertGreaterEqual(len(self.negatives), 5)
         for wrapper in self.negatives:

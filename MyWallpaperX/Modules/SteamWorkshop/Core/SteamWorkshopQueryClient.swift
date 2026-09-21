@@ -58,6 +58,22 @@ enum SteamWorkshopQuerySort: String {
 nonisolated struct SteamWorkshopStagingLeaseIdentity: Codable, Equatable, Sendable {
     let device: UInt64
     let inode: UInt64
+    /// Optional only while decoding a pre-birth-time jobs-v4 snapshot. Product
+    /// admission requires both fields before resume, acknowledgement or cleanup.
+    let birthSeconds: Int64?
+    let birthNanoseconds: Int64?
+
+    init(device: UInt64, inode: UInt64, birthSeconds: Int64, birthNanoseconds: Int64) {
+        self.device = device
+        self.inode = inode
+        self.birthSeconds = birthSeconds
+        self.birthNanoseconds = birthNanoseconds
+    }
+
+    var isComplete: Bool {
+        inode > 0 && (birthSeconds ?? 0) > 0
+            && (0..<1_000_000_000).contains(birthNanoseconds ?? -1)
+    }
 }
 
 /// helper 的下载完成凭证；只证明协议字段一致，不等于磁盘内容或入库成功。
@@ -72,7 +88,7 @@ nonisolated struct SteamWorkshopStagedReceipt: Equatable, Codable, Sendable {
     let manifestId: String
     let stagingURL: URL
     let verifiedBytes: Int
-    /// Optional only for decoding pre-v4 durable jobs. New receipts always bind
+    /// Optional only for decoding predecessor durable jobs. New receipts always bind
     /// the helper lease path to its exact filesystem identity.
     let stagingLeaseIdentity: SteamWorkshopStagingLeaseIdentity?
 
@@ -116,6 +132,11 @@ nonisolated struct SteamWorkshopStagedReceipt: Equatable, Codable, Sendable {
               let stagingDevice = UInt64(stagingDeviceText),
               let stagingInodeText = data["stagingInode"]?.stringValue,
               let stagingInode = UInt64(stagingInodeText), stagingInode > 0,
+              let stagingBirthSecondsText = data["stagingBirthSeconds"]?.stringValue,
+              let stagingBirthSeconds = Int64(stagingBirthSecondsText), stagingBirthSeconds > 0,
+              let stagingBirthNanosecondsText = data["stagingBirthNanoseconds"]?.stringValue,
+              let stagingBirthNanoseconds = Int64(stagingBirthNanosecondsText),
+              (0..<1_000_000_000).contains(stagingBirthNanoseconds),
               let total = data["totalBytes"]?.intValue, total > 0, total <= 8 * 1024 * 1024 * 1024,
               data["verifiedBytes"]?.intValue == total,
               let path = data["stagingPath"]?.stringValue,
@@ -131,7 +152,9 @@ nonisolated struct SteamWorkshopStagedReceipt: Equatable, Codable, Sendable {
         self.verifiedBytes = total
         self.stagingLeaseIdentity = SteamWorkshopStagingLeaseIdentity(
             device: stagingDevice,
-            inode: stagingInode
+            inode: stagingInode,
+            birthSeconds: stagingBirthSeconds,
+            birthNanoseconds: stagingBirthNanoseconds
         )
     }
 }
@@ -267,10 +290,17 @@ final class SteamWorkshopQueryClient {
         ].filter { $0 }.count
         guard resumeFieldCount == 0 || resumeFieldCount == 3 else { throw malformed }
         if let resumeStagingPath, let resumeManifestId, let resumeStagingLeaseIdentity {
+            guard resumeStagingLeaseIdentity.isComplete,
+                  let birthSeconds = resumeStagingLeaseIdentity.birthSeconds,
+                  let birthNanoseconds = resumeStagingLeaseIdentity.birthNanoseconds else {
+                throw malformed
+            }
             payload["resumeStagingPath"] = .string(resumeStagingPath)
             payload["resumeManifestId"] = .string(resumeManifestId)
             payload["resumeStagingDevice"] = .string(String(resumeStagingLeaseIdentity.device))
             payload["resumeStagingInode"] = .string(String(resumeStagingLeaseIdentity.inode))
+            payload["resumeStagingBirthSeconds"] = .string(String(birthSeconds))
+            payload["resumeStagingBirthNanoseconds"] = .string(String(birthNanoseconds))
         }
         // Keep the start request alive after the caller is cancelled. The helper's
         // original terminal is the physical-drain acknowledgement; the separate
@@ -312,6 +342,9 @@ final class SteamWorkshopQueryClient {
         manifestId: String,
         stagingLeaseIdentity: SteamWorkshopStagingLeaseIdentity
     ) async throws {
+        guard stagingLeaseIdentity.isComplete,
+              let birthSeconds = stagingLeaseIdentity.birthSeconds,
+              let birthNanoseconds = stagingLeaseIdentity.birthNanoseconds else { throw malformed }
         let frame = try await client.request(
             command: "acknowledgeDownloadStaging",
             jobId: jobId,
@@ -320,6 +353,8 @@ final class SteamWorkshopQueryClient {
                 "manifestId": .string(manifestId),
                 "stagingDevice": .string(String(stagingLeaseIdentity.device)),
                 "stagingInode": .string(String(stagingLeaseIdentity.inode)),
+                "stagingBirthSeconds": .string(String(birthSeconds)),
+                "stagingBirthNanoseconds": .string(String(birthNanoseconds)),
             ])
         )
         let data = try resultData(frame)

@@ -26,10 +26,11 @@ final class Transport: SteamServiceTransporting {
     var jobStoreURL: URL?
     var savedJobStoreURL: URL?
     var observedPersistedIdentityBeforeAcknowledgement = false
-    var advertiseStagingAcknowledgement = true
+    var advertisedStagingAcknowledgementCapability: String? = SteamServiceProtocol.stagingAcknowledgementCapability
     var rejectStagingAcknowledgementWithIntegrity = false
     var allocatedEventHasWrongAccountEpoch = false
     var allocatedEventOmitsAccountEpoch = false
+    var allocatedEventHasWrongBirth = false; var terminalReceiptHasWrongBirth = false
     var replaceStagingBeforeProgress = false
     var startErrorCode: String?
     private var didReplaceStaging = false
@@ -42,10 +43,14 @@ final class Transport: SteamServiceTransporting {
             data["stagingPath"] = receipt["secondStagingPath"]
             data["stagingDevice"] = receipt["secondStagingDevice"]
             data["stagingInode"] = receipt["secondStagingInode"]
+            data["stagingBirthSeconds"] = receipt["secondStagingBirthSeconds"]
+            data["stagingBirthNanoseconds"] = receipt["secondStagingBirthNanoseconds"]
         }
         data.removeValue(forKey: "secondStagingPath")
         data.removeValue(forKey: "secondStagingDevice")
         data.removeValue(forKey: "secondStagingInode")
+        data.removeValue(forKey: "secondStagingBirthSeconds")
+        data.removeValue(forKey: "secondStagingBirthNanoseconds")
         return data
     }
     func emit(_ frame: [String: Any]) { var bytes = try! JSONSerialization.data(withJSONObject: frame); bytes.append(10); onOutput?(bytes) }
@@ -53,9 +58,9 @@ final class Transport: SteamServiceTransporting {
         isRunning = true
         emit([
             "v": 1, "type": "ready", "protocol": 1, "helperVersion": "test",
-            "capabilities": advertiseStagingAcknowledgement
-                ? ["ping", "shutdown", SteamServiceProtocol.stagingAcknowledgementCapability]
-                : ["ping", "shutdown"],
+            "capabilities": advertisedStagingAcknowledgementCapability.map {
+                ["ping", "shutdown", $0]
+            } ?? ["ping", "shutdown"],
         ])
     }
     func send(_ data: Data) -> Bool {
@@ -90,11 +95,17 @@ final class Transport: SteamServiceTransporting {
                 "manifestId": responseData["manifestId"]!,
                 "stagingDevice": responseData["stagingDevice"]!,
                 "stagingInode": responseData["stagingInode"]!,
+                "stagingBirthSeconds": responseData["stagingBirthSeconds"]!,
+                "stagingBirthNanoseconds": responseData["stagingBirthNanoseconds"]!,
             ]
             if !allocatedEventOmitsAccountEpoch {
                 let accountEpoch = request["accountEpoch"] as! Int
                 progress["accountEpoch"] = allocatedEventHasWrongAccountEpoch
                     ? accountEpoch + 1 : accountEpoch
+            }
+            if allocatedEventHasWrongBirth {
+                progress["stagingBirthSeconds"] = String(Int64(
+                    responseData["stagingBirthSeconds"] as! String)! + 1)
             }
             emit(progress)
         }
@@ -121,6 +132,8 @@ final class Transport: SteamServiceTransporting {
             precondition(job["stagingManifestId"] as? String == payload["manifestId"] as? String)
             precondition(String(identity["device"] as! UInt64) == payload["stagingDevice"] as? String)
             precondition(String(identity["inode"] as! UInt64) == payload["stagingInode"] as? String)
+            precondition(String(identity["birthSeconds"] as! Int64) == payload["stagingBirthSeconds"] as? String)
+            precondition(String(identity["birthNanoseconds"] as! Int64) == payload["stagingBirthNanoseconds"] as? String)
             observedPersistedIdentityBeforeAcknowledgement = true
             emit(["v":1,"type":"result","ok":true,"requestId":request["requestId"]!,
                   "accountEpoch":request["accountEpoch"]!,
@@ -189,6 +202,10 @@ final class Transport: SteamServiceTransporting {
         }
         var data = receiptData(for: request)
         data["jobId"] = request["jobId"]
+        if terminalReceiptHasWrongBirth {
+            data["stagingBirthNanoseconds"] = String((Int64(
+                data["stagingBirthNanoseconds"] as! String)! + 1) % 1_000_000_000)
+        }
         emit(["v":1,"type":"result","ok":true,"requestId":request["requestId"]!,
               "accountEpoch":request["accountEpoch"]!,"data":data])
     }
@@ -250,23 +267,40 @@ final class Transport: SteamServiceTransporting {
         let transport = Transport()
         let fixture = try JSONSerialization.jsonObject(with: Data(contentsOf: base.appendingPathComponent("receipt.json"))) as! [String: Any]
         transport.receipt = fixture["data"] as! [String: Any]
+        let stagingRoot = base.appendingPathComponent("staging", isDirectory: true)
+        let firstIdentity = try SteamWorkshopLibraryTransaction.stagingLeaseIdentity(
+            stagingURL: URL(fileURLWithPath: transport.receipt["stagingPath"] as! String),
+            stagingRoot: stagingRoot
+        )
+        transport.receipt["stagingDevice"] = String(firstIdentity.device); transport.receipt["stagingInode"] = String(firstIdentity.inode)
+        transport.receipt["stagingBirthSeconds"] = String(firstIdentity.birthSeconds!); transport.receipt["stagingBirthNanoseconds"] = String(firstIdentity.birthNanoseconds!)
+        let secondURL = URL(fileURLWithPath: transport.receipt["secondStagingPath"] as! String)
+        if FileManager.default.fileExists(atPath: secondURL.path) {
+            let secondIdentity = try SteamWorkshopLibraryTransaction.stagingLeaseIdentity(stagingURL: secondURL, stagingRoot: stagingRoot)
+            transport.receipt["secondStagingDevice"] = String(secondIdentity.device); transport.receipt["secondStagingInode"] = String(secondIdentity.inode)
+            transport.receipt["secondStagingBirthSeconds"] = String(secondIdentity.birthSeconds!); transport.receipt["secondStagingBirthNanoseconds"] = String(secondIdentity.birthNanoseconds!)
+        }
         transport.jobStoreURL = base.appendingPathComponent("jobs.json")
-        transport.advertiseStagingAcknowledgement = mode != "missing-staging-ack-capability"
+        if mode == "missing-staging-ack-capability" { transport.advertisedStagingAcknowledgementCapability = nil }
+        if mode == "old-staging-ack-capability" { transport.advertisedStagingAcknowledgementCapability = "download-staging-ack-v1" }
         transport.requireStagingAcknowledgement = mode != "missing-staging-ack-capability"
+            && mode != "old-staging-ack-capability"
         transport.failJobStoreBeforeAllocatedEvent = mode == "staging-save-failure"
         transport.rejectStagingAcknowledgementWithIntegrity = mode == "staging-ack-timeout"
         transport.allocatedEventHasWrongAccountEpoch = mode == "allocated-wrong-account-epoch"
         transport.allocatedEventOmitsAccountEpoch = mode == "allocated-missing-account-epoch"
+        transport.allocatedEventHasWrongBirth = mode == "allocated-wrong-birth"
+        transport.terminalReceiptHasWrongBirth = mode == "terminal-wrong-birth"
         transport.hold = mode == "cancel" || mode == "switch"
             || mode == "concurrent-cancel" || mode == "concurrent-success"
-            || mode == "prebind-replacement" || mode == "legacy-partial-retry"
+            || mode == "prebind-replacement" || mode == "legacy-v4-partial-retry"
             || mode == "allocated-wrong-account-epoch"
-            || mode == "allocated-missing-account-epoch"
+            || mode == "allocated-missing-account-epoch" || mode == "allocated-wrong-birth"
         transport.replaceStagingBeforeProgress = mode == "prebind-replacement"
         transport.startErrorCode = ["network-failure", "missing-resume-fresh", "busy-retry", "abandon"].contains(mode) ? "network"
             : mode == "manifest-mismatch" ? "integrity"
             : mode == "disk-full" ? "diskFull" : nil
-        if mode == "legacy-partial-retry" {
+        if mode == "legacy-v4-partial-retry" {
             let legacyURL = base.appendingPathComponent("jobs.json")
             let legacyStore = SteamDownloadJobStore(persistenceURL: legacyURL)
             let legacyJob = legacyStore.enqueue(
@@ -288,9 +322,12 @@ final class Transport: SteamServiceTransporting {
             var persisted = try JSONSerialization.jsonObject(
                 with: Data(contentsOf: legacyURL)
             ) as! [String: Any]
-            persisted["version"] = 3
+            persisted["version"] = 4
             var jobs = persisted["jobs"] as! [[String: Any]]
-            jobs[0].removeValue(forKey: "stagingLeaseIdentity")
+            var oldIdentityObject = jobs[0]["stagingLeaseIdentity"] as! [String: Any]
+            oldIdentityObject.removeValue(forKey: "birthSeconds")
+            oldIdentityObject.removeValue(forKey: "birthNanoseconds")
+            jobs[0]["stagingLeaseIdentity"] = oldIdentityObject
             persisted["jobs"] = jobs
             try JSONSerialization.data(withJSONObject: persisted, options: [.sortedKeys])
                 .write(to: legacyURL, options: .atomic)
@@ -411,7 +448,7 @@ final class Transport: SteamServiceTransporting {
             return
         }
         service.downloadWorkshopItem(id: "123456", pageTitle: "test")
-        if mode == "missing-staging-ack-capability" {
+        if mode == "missing-staging-ack-capability" || mode == "old-staging-ack-capability" {
             for _ in 0..<100_000 where !service.activeDownloadTasks.isEmpty { await Task.yield() }
             precondition(service.activeDownloadTasks.isEmpty)
             precondition(!transport.commands.contains { $0["command"] as? String == "startDownload" },
@@ -464,13 +501,13 @@ final class Transport: SteamServiceTransporting {
             )
             transport.finishHeldCancellation(jobId: key)
         }
-        if mode == "allocated-wrong-account-epoch" || mode == "allocated-missing-account-epoch" {
+        if ["allocated-wrong-account-epoch", "allocated-missing-account-epoch", "allocated-wrong-birth"].contains(mode) {
             while !transport.commands.contains(where: {
                 $0["command"] as? String == "cancelDownload" && $0["jobId"] as? String == key
             }) { await Task.yield() }
             precondition(!transport.commands.contains {
                 $0["command"] as? String == "acknowledgeDownloadStaging"
-            }, "a stale or unscoped allocated event must never release helper writes")
+            }, "an unscoped or physically mismatched allocated event must never release helper writes")
             precondition(service.downloadJobStore.job(id: key.split(separator: "-").dropLast().joined(separator: "-"))?.stagingPath == nil)
             transport.finishHeldCancellation(jobId: key)
         }
@@ -522,7 +559,7 @@ final class Transport: SteamServiceTransporting {
             precondition(!service.activeDownloadTasks.isEmpty, "epoch change dropped the physical-drain waiter")
             transport.finishHeldSuccess()
         }
-        if mode == "prebind-replacement" || mode == "legacy-partial-retry" {
+        if mode == "prebind-replacement" || mode == "legacy-v4-partial-retry" {
             while !transport.commands.contains(where: {
                 $0["command"] as? String == "cancelDownload" && $0["jobId"] as? String == key
             }) { await Task.yield() }
@@ -612,10 +649,19 @@ final class Transport: SteamServiceTransporting {
                     && service.downloadJobStore.jobs.last?.stagingLeaseIdentity == nil,
                     "ack timeout must invalidate the helper-deleted recovery lease")
             }
-            if mode == "allocated-wrong-account-epoch" || mode == "allocated-missing-account-epoch" {
+            if mode == "allocated-wrong-account-epoch" || mode == "allocated-missing-account-epoch"
+                || mode == "allocated-wrong-birth" {
                 precondition(service.downloadJobStore.jobs.last?.state == .failed
                     && service.downloadJobStore.jobs.last?.stagingPath == nil,
                     "unscoped allocated events must not bind durable storage: \(String(describing: service.downloadJobStore.jobs.last))")
+            }
+            if mode == "terminal-wrong-birth" {
+                precondition(service.downloadJobStore.jobs.last?.state == .failed
+                    && service.downloadJobStore.jobs.last?.stagingLeaseIdentity?.isComplete == true,
+                    "terminal birth mismatch must fail without replacing the allocated identity")
+                precondition(FileManager.default.fileExists(
+                    atPath: transport.receipt["stagingPath"] as! String
+                ), "terminal mismatch must retain attributable staging for explicit recovery")
             }
             if mode == "prebind-replacement" {
                 let replacement = URL(
@@ -634,14 +680,16 @@ final class Transport: SteamServiceTransporting {
                     atPath: base.appendingPathComponent("original-prebind").path
                 ), "the original helper lease remains separately attributable")
             }
-            if mode == "legacy-partial-retry" {
+            if mode == "legacy-v4-partial-retry" {
                 let start = transport.commands.first { $0["command"] as? String == "startDownload" }!
                 let payload = start["payload"] as! [String: Any]
                 precondition(payload["resumeStagingPath"] == nil
                     && payload["resumeManifestId"] == nil
                     && payload["resumeStagingDevice"] == nil
-                    && payload["resumeStagingInode"] == nil,
-                    "identityless v3 partial must start a fresh helper lease")
+                    && payload["resumeStagingInode"] == nil
+                    && payload["resumeStagingBirthSeconds"] == nil
+                    && payload["resumeStagingBirthNanoseconds"] == nil,
+                    "device+inode-only v4 partial must start a fresh helper lease")
                 let replacement = URL(
                     fileURLWithPath: transport.receipt["stagingPath"] as! String,
                     isDirectory: true
@@ -690,8 +738,8 @@ final class Transport: SteamServiceTransporting {
             if mode == "missing-resume-fresh" {
                 try FileManager.default.removeItem(atPath: failure.stagingPath!)
                 transport.receipt["stagingPath"] = transport.receipt["secondStagingPath"]
-                transport.receipt["stagingDevice"] = transport.receipt["secondStagingDevice"]
-                transport.receipt["stagingInode"] = transport.receipt["secondStagingInode"]
+                transport.receipt["stagingDevice"] = transport.receipt["secondStagingDevice"]; transport.receipt["stagingInode"] = transport.receipt["secondStagingInode"]
+                transport.receipt["stagingBirthSeconds"] = transport.receipt["secondStagingBirthSeconds"]; transport.receipt["stagingBirthNanoseconds"] = transport.receipt["secondStagingBirthNanoseconds"]
             }
             transport.startErrorCode = nil
             if mode == "busy-retry" {
@@ -713,7 +761,9 @@ final class Transport: SteamServiceTransporting {
                 precondition(retryPayload?["resumeStagingPath"] == nil
                     && retryPayload?["resumeManifestId"] == nil
                     && retryPayload?["resumeStagingDevice"] == nil
-                    && retryPayload?["resumeStagingInode"] == nil,
+                    && retryPayload?["resumeStagingInode"] == nil
+                    && retryPayload?["resumeStagingBirthSeconds"] == nil
+                    && retryPayload?["resumeStagingBirthNanoseconds"] == nil,
                     "a missing persisted lease must restart fresh on the same explicit retry")
             } else {
                 precondition(retryPayload?["resumeStagingPath"] as? String == failure.stagingPath
@@ -721,7 +771,11 @@ final class Transport: SteamServiceTransporting {
                     && retryPayload?["resumeStagingDevice"] as? String
                         == failure.stagingLeaseIdentity.map { String($0.device) }
                     && retryPayload?["resumeStagingInode"] as? String
-                        == failure.stagingLeaseIdentity.map { String($0.inode) },
+                        == failure.stagingLeaseIdentity.map { String($0.inode) }
+                    && retryPayload?["resumeStagingBirthSeconds"] as? String
+                        == failure.stagingLeaseIdentity?.birthSeconds.map(String.init)
+                    && retryPayload?["resumeStagingBirthNanoseconds"] as? String
+                        == failure.stagingLeaseIdentity?.birthNanoseconds.map(String.init),
                     "explicit retry must send the complete descriptor-bound staging identity")
             }
             precondition(service.downloadJobStore.jobs.last?.state == .completed)

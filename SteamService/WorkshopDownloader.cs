@@ -36,7 +36,7 @@ internal sealed partial class SteamSession
     private const long MaxChunkBytes = 64L * 1024 * 1024;
     /// §5.3：CDN 失败有 backoff 与上限；每个 chunk 至多重试 3 次有界网络类失败。
     internal const int MaxChunkDownloadAttempts = 3;
-    internal const string StagingAcknowledgementCapability = "download-staging-ack-v1";
+    internal const string StagingAcknowledgementCapability = "download-staging-ack-v2";
     internal const int StagingAcknowledgementTimeoutSeconds = 30;
 
     /// SK4.2 依赖的会话处理器；EnsureSession 统一创建（SteamSession partial 共享）。
@@ -58,10 +58,14 @@ internal sealed partial class SteamSession
         public string? StagingManifestId;
         public string? StagingDevice;
         public string? StagingInode;
+        public string? StagingBirthSeconds;
+        public string? StagingBirthNanoseconds;
         public string? ResumeStagingPath;
         public ulong? ResumeManifestId;
         public int? ResumeStagingDevice;
         public ulong? ResumeStagingInode;
+        public long? ResumeStagingBirthSeconds;
+        public long? ResumeStagingBirthNanoseconds;
         public required ulong PublishedFileId;
         public required CancellationTokenSource Cancellation;
         public required AccountLease Account;
@@ -82,7 +86,9 @@ internal sealed partial class SteamSession
         string? resumeStagingPath = null,
         ulong? resumeManifestId = null,
         int? resumeStagingDevice = null,
-        ulong? resumeStagingInode = null)
+        ulong? resumeStagingInode = null,
+        long? resumeStagingBirthSeconds = null,
+        long? resumeStagingBirthNanoseconds = null)
     {
         ActiveDownload context;
         lock (gate)
@@ -115,6 +121,8 @@ internal sealed partial class SteamSession
                     ResumeManifestId = resumeManifestId,
                     ResumeStagingDevice = resumeStagingDevice,
                     ResumeStagingInode = resumeStagingInode,
+                    ResumeStagingBirthSeconds = resumeStagingBirthSeconds,
+                    ResumeStagingBirthNanoseconds = resumeStagingBirthNanoseconds,
                     PublishedFileId = publishedFileId,
                     Cancellation = new CancellationTokenSource(),
                     Account = lease,
@@ -185,7 +193,9 @@ internal sealed partial class SteamSession
                         stagingRoot,
                         context.ResumeStagingPath!,
                         context.ResumeStagingDevice!.Value,
-                        context.ResumeStagingInode!.Value)
+                        context.ResumeStagingInode!.Value,
+                        context.ResumeStagingBirthSeconds!.Value,
+                        context.ResumeStagingBirthNanoseconds!.Value)
                     : new WorkshopStagingLease(stagingRoot);
                 var staging = lease.Path;
                 PublishStagingIdentity(
@@ -193,7 +203,9 @@ internal sealed partial class SteamSession
                     staging,
                     stagingManifestId,
                     lease.Device.ToString(CultureInfo.InvariantCulture),
-                    lease.Inode.ToString(CultureInfo.InvariantCulture));
+                    lease.Inode.ToString(CultureInfo.InvariantCulture),
+                    lease.BirthSeconds.ToString(CultureInfo.InvariantCulture),
+                    lease.BirthNanoseconds.ToString(CultureInfo.InvariantCulture));
                 // Publish the exact helper-owned lease and stop before the first
                 // content node/write until the App confirms durable JobStore identity.
                 try
@@ -280,6 +292,8 @@ internal sealed partial class SteamSession
                     jobId, stagedComplete = true, workshopId = publishedFileId.ToString(),
                     manifestId = detail.hcontent_file.ToString(), stagingPath = staging,
                     stagingDevice = context.StagingDevice, stagingInode = context.StagingInode,
+                    stagingBirthSeconds = context.StagingBirthSeconds,
+                    stagingBirthNanoseconds = context.StagingBirthNanoseconds,
                     verifiedBytes, totalBytes = manifestTotalBytes, projectJsonPresent,
                 });
             }
@@ -320,6 +334,8 @@ internal sealed partial class SteamSession
         string manifestId,
         string stagingDevice,
         string stagingInode,
+        string stagingBirthSeconds,
+        string stagingBirthNanoseconds,
         long? requestedEpoch)
     {
         lock (downloadGate)
@@ -330,7 +346,9 @@ internal sealed partial class SteamSession
                 || context.StagingPath != stagingPath
                 || context.StagingManifestId != manifestId
                 || context.StagingDevice != stagingDevice
-                || context.StagingInode != stagingInode)
+                || context.StagingInode != stagingInode
+                || context.StagingBirthSeconds != stagingBirthSeconds
+                || context.StagingBirthNanoseconds != stagingBirthNanoseconds)
             {
                 return false;
             }
@@ -343,7 +361,9 @@ internal sealed partial class SteamSession
         string stagingPath,
         string manifestId,
         string stagingDevice,
-        string stagingInode)
+        string stagingInode,
+        string stagingBirthSeconds,
+        string stagingBirthNanoseconds)
     {
         lock (downloadGate)
         {
@@ -357,6 +377,8 @@ internal sealed partial class SteamSession
             context.StagingManifestId = manifestId;
             context.StagingDevice = stagingDevice;
             context.StagingInode = stagingInode;
+            context.StagingBirthSeconds = stagingBirthSeconds;
+            context.StagingBirthNanoseconds = stagingBirthNanoseconds;
         }
     }
 
@@ -475,6 +497,8 @@ internal sealed partial class SteamSession
             jobId = context.JobId, sequence = update.Sequence, stage = update.Stage,
             stagingPath = context.StagingPath, manifestId = context.StagingManifestId,
             stagingDevice = context.StagingDevice, stagingInode = context.StagingInode,
+            stagingBirthSeconds = context.StagingBirthSeconds,
+            stagingBirthNanoseconds = context.StagingBirthNanoseconds,
             totalBytes = update.TotalBytes, verifiedBytes = update.VerifiedBytes,
             totalChunks = update.TotalChunks, verifiedChunks = update.VerifiedChunks,
         });

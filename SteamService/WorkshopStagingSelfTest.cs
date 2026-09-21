@@ -34,21 +34,31 @@ internal static class WorkshopStagingSelfTest
             Reject("base symlink", () => { using var denied = new WorkshopStagingLease(alias); });
             Directory.CreateDirectory(Path.Combine(outside, "child"));
             Reject("ancestor symlink", () => { using var denied = new WorkshopStagingLease(Path.Combine(alias, "child")); });
+            Check("birth capability preflight rejects missing and out-of-range values",
+                !WorkshopStagingLease.HasCompleteBirthIdentity(0, 0)
+                && !WorkshopStagingLease.HasCompleteBirthIdentity(1, -1)
+                && !WorkshopStagingLease.HasCompleteBirthIdentity(1, 1_000_000_000)
+                && WorkshopStagingLease.HasCompleteBirthIdentity(1, 999_999_999));
 
             string resumePath;
             int resumeDevice;
             ulong resumeInode;
+            long resumeBirthSeconds;
+            long resumeBirthNanoseconds;
             using (var seed = new WorkshopStagingLease(fixture))
             {
                 resumePath = seed.Path;
                 resumeDevice = seed.Device;
                 resumeInode = seed.Inode;
+                resumeBirthSeconds = seed.BirthSeconds;
+                resumeBirthNanoseconds = seed.BirthNanoseconds;
                 seed.CreateFile("partial/data", 4);
                 using var handle = seed.OpenFile("partial/data", true);
                 RandomAccess.Write(handle, new byte[] { 7, 8, 9, 10 }, 0);
             }
             using (var resumed = WorkshopStagingLease.Resume(
-                fixture, resumePath, resumeDevice, resumeInode))
+                fixture, resumePath, resumeDevice, resumeInode,
+                resumeBirthSeconds, resumeBirthNanoseconds))
             {
                 Check("resume adopts exact file", resumed.ResumeFile("partial/data", 4));
                 using (var handle = resumed.OpenFile("partial/data", false))
@@ -76,17 +86,34 @@ internal static class WorkshopStagingSelfTest
             Reject("resume rejects outside path", () =>
             {
                 using var denied = WorkshopStagingLease.Resume(
-                    fixture, outside, resumeDevice, resumeInode);
+                    fixture, outside, resumeDevice, resumeInode,
+                    resumeBirthSeconds, resumeBirthNanoseconds);
             });
             Reject("resume rejects unmanaged child", () =>
             {
                 using var denied = WorkshopStagingLease.Resume(
-                    fixture, Path.Combine(fixture, "outside"), resumeDevice, resumeInode);
+                    fixture, Path.Combine(fixture, "outside"), resumeDevice, resumeInode,
+                    resumeBirthSeconds, resumeBirthNanoseconds);
             });
             Reject("resume rejects symlink base", () =>
             {
                 using var denied = WorkshopStagingLease.Resume(
-                    alias, Path.Combine(alias, Path.GetFileName(resumePath)), resumeDevice, resumeInode);
+                    alias, Path.Combine(alias, Path.GetFileName(resumePath)), resumeDevice, resumeInode,
+                    resumeBirthSeconds, resumeBirthNanoseconds);
+            });
+            Reject("resume rejects same device and inode with wrong birth identity", () =>
+            {
+                using var denied = WorkshopStagingLease.Resume(
+                    fixture, resumePath, resumeDevice, resumeInode,
+                    resumeBirthSeconds + 1, resumeBirthNanoseconds);
+            });
+            Reject("resume rejects same birth second with wrong birth nanoseconds", () =>
+            {
+                long wrongNanoseconds = resumeBirthNanoseconds == 999_999_999
+                    ? resumeBirthNanoseconds - 1 : resumeBirthNanoseconds + 1;
+                using var denied = WorkshopStagingLease.Resume(
+                    fixture, resumePath, resumeDevice, resumeInode,
+                    resumeBirthSeconds, wrongNanoseconds);
             });
             string originalResume = resumePath + ".original";
             Directory.Move(resumePath, originalResume);
@@ -96,7 +123,8 @@ internal static class WorkshopStagingSelfTest
             Reject("resume rejects same-name root replacement before file adoption", () =>
             {
                 using var denied = WorkshopStagingLease.Resume(
-                    fixture, resumePath, resumeDevice, resumeInode);
+                    fixture, resumePath, resumeDevice, resumeInode,
+                    resumeBirthSeconds, resumeBirthNanoseconds);
             });
             Check("resume replacement remains untouched",
                 File.ReadAllText(replacementSentinel) == "replacement"

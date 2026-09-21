@@ -162,35 +162,50 @@ internal sealed partial class SteamSession
             await Task.Yield();
             if (waiting.IsCompleted
                 || session.AcknowledgeDownloadStaging(
-                    context.JobId, "/private/tmp/job-ack", "123", "1", "2", 1))
+                    context.JobId, "/private/tmp/job-ack", "123", "1", "2", "10", "20", 1))
             {
                 return false;
             }
             await Task.Run(() => session.PublishStagingIdentity(
-                context, "/private/tmp/job-ack", "123", "1", "2")).ConfigureAwait(false);
+                context, "/private/tmp/job-ack", "123", "1", "2", "10", "20"))
+                .ConfigureAwait(false);
             if (session.AcknowledgeDownloadStaging(
                     context.JobId, context.StagingPath!, context.StagingManifestId!,
-                    context.StagingDevice!, "wrong", 1)
+                    context.StagingDevice!, "wrong", context.StagingBirthSeconds!,
+                    context.StagingBirthNanoseconds!, 1)
                 || session.AcknowledgeDownloadStaging(
                     context.JobId, context.StagingPath!, context.StagingManifestId!,
-                    context.StagingDevice!, context.StagingInode!, 2)
+                    context.StagingDevice!, context.StagingInode!, "wrong",
+                    context.StagingBirthNanoseconds!, 1)
+                || session.AcknowledgeDownloadStaging(
+                    context.JobId, context.StagingPath!, context.StagingManifestId!,
+                    context.StagingDevice!, context.StagingInode!, context.StagingBirthSeconds!,
+                    "21", 1)
+                || session.AcknowledgeDownloadStaging(
+                    context.JobId, context.StagingPath!, context.StagingManifestId!,
+                    context.StagingDevice!, context.StagingInode!, context.StagingBirthSeconds!,
+                    context.StagingBirthNanoseconds!, 2)
                 || waiting.IsCompleted)
             {
                 return false;
             }
             if (!session.AcknowledgeDownloadStaging(
                     context.JobId, context.StagingPath!, context.StagingManifestId!,
-                    context.StagingDevice!, context.StagingInode!, 1)) return false;
+                    context.StagingDevice!, context.StagingInode!, context.StagingBirthSeconds!,
+                    context.StagingBirthNanoseconds!, 1)) return false;
             await waiting.ConfigureAwait(false);
             if (session.AcknowledgeDownloadStaging(
                     context.JobId, context.StagingPath!, context.StagingManifestId!,
-                    context.StagingDevice!, context.StagingInode!, 1)) return false;
+                    context.StagingDevice!, context.StagingInode!, context.StagingBirthSeconds!,
+                    context.StagingBirthNanoseconds!, 1)) return false;
 
             var cancelled = new ActiveDownload
             {
                 JobId = "job-cancel", RequestId = "request-cancel", StagingRoot = "/unused",
                 StagingPath = "/private/tmp/job-cancel", StagingManifestId = "456",
-                StagingDevice = "3", StagingInode = "4", PublishedFileId = 1,
+                StagingDevice = "3", StagingInode = "4",
+                StagingBirthSeconds = "30", StagingBirthNanoseconds = "40",
+                PublishedFileId = 1,
                 Cancellation = new CancellationTokenSource(),
                 Account = session.CaptureAccountForTest(1), Source = source,
             };

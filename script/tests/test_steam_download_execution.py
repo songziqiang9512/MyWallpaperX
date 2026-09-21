@@ -88,6 +88,9 @@ class SteamDownloadExecutionTests(unittest.TestCase):
     def test_helper_without_staging_ack_capability_never_starts_download(self):
         self.run_case('missing-staging-ack-capability')
 
+    def test_v1_staging_ack_helper_is_not_half_compatible_with_birth_identity_client(self):
+        self.run_case('old-staging-ack-capability')
+
     def test_staging_ack_timeout_invalidates_helper_deleted_lease(self):
         self.run_case('staging-ack-timeout')
 
@@ -96,6 +99,12 @@ class SteamDownloadExecutionTests(unittest.TestCase):
 
     def test_allocated_event_rejects_missing_account_epoch(self):
         self.run_case('allocated-missing-account-epoch')
+
+    def test_allocated_event_rejects_same_device_inode_with_wrong_birth(self):
+        self.run_case('allocated-wrong-birth')
+
+    def test_terminal_receipt_cannot_replace_allocated_birth_identity(self):
+        self.run_case('terminal-wrong-birth')
 
     def test_cancel_sends_exact_job_and_does_not_publish(self):
         self.run_case('cancel')
@@ -124,8 +133,8 @@ class SteamDownloadExecutionTests(unittest.TestCase):
     def test_first_progress_rejects_same_name_replacement_before_binding(self):
         self.run_case('prebind-replacement')
 
-    def test_v3_identityless_partial_does_not_resume_or_adopt_replacement(self):
-        self.run_case('legacy-partial-retry')
+    def test_v4_device_inode_partial_does_not_resume_or_adopt_replacement(self):
+        self.run_case('legacy-v4-partial-retry')
 
     def test_cancel_one_of_two_active_jobs_does_not_retire_the_other(self):
         self.run_case('concurrent-cancel')

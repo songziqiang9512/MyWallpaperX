@@ -46,6 +46,19 @@ internal static class ProtocolSelfTest
         var maxDecode = ProtocolDecode.Parse(maxIdRequest);
         var maxId = maxDecode.Ok ? maxDecode.Root.GetProperty("payload").GetProperty("workshopId").GetString() : null;
         Check("uint64-max-id-roundtrip", maxId == "18446744073709551615", maxId ?? "null");
+        var resumeRequest = requests.Single(line => line.Contains("\"req-dl-resume-birth-1\""));
+        var resumeDecode = ProtocolDecode.Parse(resumeRequest);
+        var resumeFields = new[]
+        {
+            "resumeStagingPath", "resumeManifestId", "resumeStagingDevice", "resumeStagingInode",
+            "resumeStagingBirthSeconds", "resumeStagingBirthNanoseconds",
+        };
+        var resumePayload = resumeDecode.Ok
+            ? resumeDecode.Root.GetProperty("payload")
+            : default;
+        Check("resume-request-binds-full-staging-identity",
+            resumeDecode.Ok && resumeFields.All(name => resumePayload.TryGetProperty(name, out _)),
+            resumeDecode.Error ?? "missing full staging identity");
 
         // 4. 负向 golden 帧全部被拒且错误码正确。
         var negatives = ReadLines(Path.Combine(fixturesDir, "negative-frames.jsonl"));
@@ -153,7 +166,8 @@ internal static class ProtocolSelfTest
         Check("ready-shape",
             readyJson.Contains("\"type\":\"ready\"") && readyJson.Contains("\"protocol\":1")
             && readyJson.Contains("\"helperVersion\"")
-            && readyJson.Contains(SteamSession.StagingAcknowledgementCapability));
+            && readyJson.Contains(SteamSession.StagingAcknowledgementCapability)
+            && !readyJson.Contains("download-staging-ack-v1"));
         var pongJson = JsonSerializer.Serialize(ProtocolMessages.ResultOk("req-ping-1", new { pong = true }, 1));
         Check("pong-shape",
             pongJson.Contains("\"type\":\"result\"") && pongJson.Contains("\"requestId\":\"req-ping-1\"") && pongJson.Contains("\"ok\":true"));

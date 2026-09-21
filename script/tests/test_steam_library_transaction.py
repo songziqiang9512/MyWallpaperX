@@ -20,10 +20,38 @@ SOURCES = [ROOT / 'MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift',
              'SteamWorkshopDownloadProgress.swift')]]
 HARNESS = r'''
 import Foundation
+import Darwin
 @main struct Harness {
     @MainActor static func main() async throws {
         let base = URL(fileURLWithPath: CommandLine.arguments[1])
         let mode = CommandLine.arguments[2]
+        if mode == "identity-admission" {
+            var value = stat()
+            value.st_dev = 7
+            value.st_ino = 11
+            value.st_birthtimespec.tv_sec = 2_000_000_000
+            value.st_birthtimespec.tv_nsec = 999_999_999
+            let identity = try SteamWorkshopLibraryTransaction.validatedFilesystemIdentity(value)
+            precondition(identity.isComplete)
+            var pinnedReadBefore = value
+            pinnedReadBefore.st_size = 42
+            pinnedReadBefore.st_mtimespec.tv_sec = 100
+            var pinnedReadAfter = pinnedReadBefore
+            pinnedReadBefore.st_birthtimespec.tv_sec = 0
+            pinnedReadAfter.st_birthtimespec.tv_sec = 0
+            precondition(SteamWorkshopLibraryTransaction.samePinnedFileSnapshot(
+                pinnedReadAfter, pinnedReadBefore
+            ), "a pinned-FD read must not require mutation birth-time support")
+            for (seconds, nanoseconds) in [(0, 0), (1, -1), (1, 1_000_000_000)] {
+                var invalid = value
+                invalid.st_birthtimespec.tv_sec = seconds
+                invalid.st_birthtimespec.tv_nsec = nanoseconds
+                precondition((try? SteamWorkshopLibraryTransaction.validatedFilesystemIdentity(invalid)) == nil,
+                    "missing or out-of-range birth identity must fail closed")
+            }
+            print("IDENTITY ADMISSION")
+            return
+        }
         if mode == "capacity" {
             let gib = Int64(1024 * 1024 * 1024)
             let reserve = Int64(SteamWorkshopLibraryTransaction.diskSafetyReserveBytes)
@@ -69,7 +97,7 @@ import Foundation
             print("RESERVED SYMLINK ROOT")
             return
         }
-        if mode == "cleanup" || mode == "cleanup-replaced" {
+        if mode == "cleanup" || mode == "cleanup-replaced" || mode == "cleanup-wrong-birth" {
             let root = base.appendingPathComponent("staging", isDirectory: true)
             let target = root.appendingPathComponent("job-" + String(repeating: "c", count: 32), isDirectory: true)
             let identity = try SteamWorkshopLibraryTransaction.stagingLeaseIdentity(
@@ -86,7 +114,7 @@ import Foundation
                 let sentinel = try String(contentsOf: base.appendingPathComponent("outside/sentinel"), encoding: .utf8)
                 precondition(sentinel == "untouched")
                 print("CLEANED")
-            } else {
+            } else if mode == "cleanup-replaced" {
                 let original = base.appendingPathComponent("original-staging", isDirectory: true)
                 try FileManager.default.moveItem(at: target, to: original)
                 try FileManager.default.createDirectory(at: target, withIntermediateDirectories: false)
@@ -105,6 +133,22 @@ import Foundation
                     let sentinel = try String(contentsOf: base.appendingPathComponent("outside/sentinel"), encoding: .utf8)
                     precondition(sentinel == "untouched")
                     print("REJECTED REPLACEMENT")
+                }
+            } else {
+                let wrongBirth = SteamWorkshopStagingLeaseIdentity(
+                    device: identity.device,
+                    inode: identity.inode,
+                    birthSeconds: identity.birthSeconds! + 1,
+                    birthNanoseconds: identity.birthNanoseconds!
+                )
+                do {
+                    try SteamWorkshopLibraryTransaction.removeStagingLease(
+                        stagingURL: target, stagingRoot: root, expectedIdentity: wrongBirth
+                    )
+                    fatalError("same device/inode with wrong birth was cleaned")
+                } catch {
+                    precondition(FileManager.default.fileExists(atPath: target.path))
+                    print("REJECTED WRONG BIRTH")
                 }
             }
             return
@@ -221,7 +265,28 @@ import Foundation
             print("RECLAIMED INCOMING")
             return
         }
-        let frame = try SteamServiceFrameDecoder.decode(Data(contentsOf: base.appendingPathComponent("receipt.json"))).get()
+        var frame = try SteamServiceFrameDecoder.decode(
+            Data(contentsOf: base.appendingPathComponent("receipt.json"))
+        ).get()
+        let stagingRoot = base.appendingPathComponent("staging", isDirectory: true)
+        let stagingURL = URL(fileURLWithPath: frame.root["data"]!.objectValue!["stagingPath"]!.stringValue!)
+        let diskIdentity = try? SteamWorkshopLibraryTransaction.stagingLeaseIdentity(
+            stagingURL: stagingURL,
+            stagingRoot: stagingRoot
+        )
+        var receiptData = frame.root["data"]!.objectValue!
+        if let diskIdentity {
+            receiptData["stagingDevice"] = .string(String(diskIdentity.device))
+            receiptData["stagingInode"] = .string(String(diskIdentity.inode))
+            receiptData["stagingBirthSeconds"] = .string(String(
+                diskIdentity.birthSeconds! + (mode == "receipt-wrong-birth" ? 1 : 0)
+            ))
+            receiptData["stagingBirthNanoseconds"] = .string(String(diskIdentity.birthNanoseconds!))
+        } else {
+            receiptData["stagingBirthSeconds"] = .string("1")
+            receiptData["stagingBirthNanoseconds"] = .string("0")
+        }
+        frame.root["data"] = .object(receiptData)
         let library = base.appendingPathComponent("library")
         do {
             let receipt = try SteamWorkshopStagedReceipt(
@@ -360,7 +425,9 @@ import Foundation
         precondition(store.apply(.stagingAllocated(
             path: base.appendingPathComponent("outside").path,
             manifestId: "123",
-            leaseIdentity: SteamWorkshopStagingLeaseIdentity(device: 99, inode: 99)
+            leaseIdentity: SteamWorkshopStagingLeaseIdentity(
+                device: 99, inode: 99, birthSeconds: 99, birthNanoseconds: 99
+            )
         ), toID: job.id) == nil,
             "one attempt cannot adopt a second staging path")
         let allocated = SteamDownloadJobStore(persistenceURL: url)
@@ -556,6 +623,18 @@ class SteamLibraryTransactionTests(unittest.TestCase):
 
     def test_crash_before_publication_keeps_old_pointer(self):
         self.scenario(mode='prepare-only')
+
+    def test_prepare_rejects_same_device_inode_with_wrong_birth(self):
+        self.scenario(mode='receipt-wrong-birth', accepted=False)
+
+    def test_mutation_identity_rejects_missing_or_out_of_range_birth(self):
+        with tempfile.TemporaryDirectory(prefix='mwx-steam-identity-admission-', dir='/private/tmp') as temporary:
+            result = subprocess.run(
+                [str(self.binary), temporary, 'identity-admission'],
+                capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+            self.assertIn('IDENTITY ADMISSION', result.stdout)
 
     def test_cancel_before_copy(self):
         self.scenario(mode='cancel', accepted=False)
@@ -829,6 +908,20 @@ class SteamLibraryTransactionTests(unittest.TestCase):
             self.assertTrue(target.is_dir())
             self.assertEqual((target / 'sentinel').read_text(), 'replacement')
             self.assertEqual((outside / 'sentinel').read_text(), 'untouched')
+
+    def test_cleanup_rejects_same_device_inode_with_wrong_birth(self):
+        with tempfile.TemporaryDirectory(prefix='mwx-steam-staging-wrong-birth-', dir='/private/tmp') as temporary:
+            root = pathlib.Path(temporary)
+            target = root / 'staging' / ('job-' + 'c' * 32)
+            target.mkdir(parents=True)
+            (target / 'owned').write_text('original')
+            result = subprocess.run(
+                [str(self.binary), str(root), 'cleanup-wrong-birth'],
+                capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('REJECTED WRONG BIRTH', result.stdout)
+            self.assertEqual((target / 'owned').read_text(), 'original')
 
     def test_project_rejections(self):
         for project in [b'not json', b'{}', b'{"type":"application","file":"x"}',

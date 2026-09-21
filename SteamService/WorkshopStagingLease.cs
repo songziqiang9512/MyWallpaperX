@@ -19,6 +19,8 @@ internal sealed class WorkshopStagingLease : IDisposable
     internal string Path { get; }
     internal int Device => rootIdentity.Device;
     internal ulong Inode => rootIdentity.Inode;
+    internal long BirthSeconds => rootIdentity.BirthSeconds;
+    internal long BirthNanoseconds => rootIdentity.BirthNanoseconds;
 
     internal class Failure(string code, string message) : IOException(message)
     {
@@ -72,26 +74,43 @@ internal sealed class WorkshopStagingLease : IDisposable
         if (fstat(fd, out var value) != 0) throw new Rejected("staging identity unavailable");
         if ((value.Mode & 0xf000) != (directory ? 0x4000 : 0x8000) || (!directory && value.Links != 1))
             throw new Rejected("staging node is not an exclusive regular file/directory");
+        if (!HasCompleteBirthIdentity(value.BirthSeconds, value.BirthNanoseconds))
+            throw new Rejected("staging birth identity unavailable");
         return new(value.Device, value.Inode, value.BirthSeconds, value.BirthNanoseconds);
     }
+    internal static bool HasCompleteBirthIdentity(long seconds, long nanoseconds) =>
+        seconds > 0 && nanoseconds >= 0 && nanoseconds < 1_000_000_000;
     internal WorkshopStagingLease(string basePath) : this(basePath, existingPath: null) { }
     internal static WorkshopStagingLease Resume(
         string basePath,
         string existingPath,
         int expectedDevice,
-        ulong expectedInode) => new(basePath, existingPath, expectedDevice, expectedInode);
+        ulong expectedInode,
+        long expectedBirthSeconds,
+        long expectedBirthNanoseconds) => new(
+            basePath,
+            existingPath,
+            expectedDevice,
+            expectedInode,
+            expectedBirthSeconds,
+            expectedBirthNanoseconds);
 
     private WorkshopStagingLease(
         string basePath,
         string? existingPath,
         int? expectedDevice = null,
-        ulong? expectedInode = null)
+        ulong? expectedInode = null,
+        long? expectedBirthSeconds = null,
+        long? expectedBirthNanoseconds = null)
     {
         if (!OperatingSystem.IsMacOS() || RuntimeInformation.ProcessArchitecture != Architecture.Arm64)
             throw new PlatformNotSupportedException("staging requires macOS arm64");
         if (!System.IO.Path.IsPathFullyQualified(basePath)) throw new Rejected("staging base must be absolute");
         this.basePath = basePath;
         using var parent = OpenAbsoluteDirectory(basePath);
+        // Refuse an unsupported volume before an attempt-owned job-* child is
+        // created. The child descriptor is inspected again after creation.
+        _ = Inspect(parent, true);
         string selectedName;
         if (existingPath == null)
         {
@@ -114,8 +133,11 @@ internal sealed class WorkshopStagingLease : IDisposable
             rootIdentity = Inspect(root, true);
             if (existingPath != null
                 && (expectedDevice == null || expectedInode == null
+                    || expectedBirthSeconds == null || expectedBirthNanoseconds == null
                     || rootIdentity.Device != expectedDevice
-                    || rootIdentity.Inode != expectedInode))
+                    || rootIdentity.Inode != expectedInode
+                    || rootIdentity.BirthSeconds != expectedBirthSeconds
+                    || rootIdentity.BirthNanoseconds != expectedBirthNanoseconds))
             {
                 throw new Rejected("resume staging identity changed");
             }

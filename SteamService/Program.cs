@@ -176,9 +176,12 @@ internal static class Program
                     var manifestId = decode.PayloadString("manifestId");
                     var device = decode.PayloadString("stagingDevice");
                     var inode = decode.PayloadString("stagingInode");
+                    var birthSeconds = decode.PayloadString("stagingBirthSeconds");
+                    var birthNanoseconds = decode.PayloadString("stagingBirthNanoseconds");
                     if (string.IsNullOrEmpty(jobId) || string.IsNullOrEmpty(path)
                         || string.IsNullOrEmpty(manifestId) || string.IsNullOrEmpty(device)
-                        || string.IsNullOrEmpty(inode) || !Path.IsPathRooted(path))
+                        || string.IsNullOrEmpty(inode) || string.IsNullOrEmpty(birthSeconds)
+                        || string.IsNullOrEmpty(birthNanoseconds) || !Path.IsPathRooted(path))
                     {
                         writer.Send(ProtocolMessages.ResultError(requestId, "protocolMismatch",
                             "acknowledgeDownloadStaging requires the complete staging identity",
@@ -186,7 +189,8 @@ internal static class Program
                         break;
                     }
                     var acknowledged = steamSession.AcknowledgeDownloadStaging(
-                        jobId, path, manifestId, device, inode, decode.AccountEpoch);
+                        jobId, path, manifestId, device, inode, birthSeconds, birthNanoseconds,
+                        decode.AccountEpoch);
                     writer.Send(ProtocolMessages.ResultOk(
                         requestId, new { acknowledged }, 1, decode.AccountEpoch));
                     break;
@@ -298,13 +302,19 @@ internal static class Program
                 var resumeManifestText = decode.PayloadString("resumeManifestId");
                 var resumeDeviceText = decode.PayloadString("resumeStagingDevice");
                 var resumeInodeText = decode.PayloadString("resumeStagingInode");
+                var resumeBirthSecondsText = decode.PayloadString("resumeStagingBirthSeconds");
+                var resumeBirthNanosecondsText = decode.PayloadString("resumeStagingBirthNanoseconds");
                 ulong? resumeManifestId = null;
                 int? resumeStagingDevice = null;
                 ulong? resumeStagingInode = null;
+                long? resumeStagingBirthSeconds = null;
+                long? resumeStagingBirthNanoseconds = null;
                 var hasResumePath = !string.IsNullOrEmpty(resumeStagingPath);
                 var hasResumeManifest = !string.IsNullOrEmpty(resumeManifestText);
                 var hasResumeDevice = !string.IsNullOrEmpty(resumeDeviceText);
                 var hasResumeInode = !string.IsNullOrEmpty(resumeInodeText);
+                var hasResumeBirthSeconds = !string.IsNullOrEmpty(resumeBirthSecondsText);
+                var hasResumeBirthNanoseconds = !string.IsNullOrEmpty(resumeBirthNanosecondsText);
                 if (hasResumeManifest && ulong.TryParse(resumeManifestText, out var parsedManifest)
                     && parsedManifest > 0)
                 {
@@ -320,14 +330,29 @@ internal static class Program
                 {
                     resumeStagingInode = parsedInode;
                 }
+                if (hasResumeBirthSeconds && long.TryParse(resumeBirthSecondsText, out var parsedBirthSeconds)
+                    && parsedBirthSeconds > 0)
+                {
+                    resumeStagingBirthSeconds = parsedBirthSeconds;
+                }
+                if (hasResumeBirthNanoseconds
+                    && long.TryParse(resumeBirthNanosecondsText, out var parsedBirthNanoseconds)
+                    && parsedBirthNanoseconds is >= 0 and < 1_000_000_000)
+                {
+                    resumeStagingBirthNanoseconds = parsedBirthNanoseconds;
+                }
                 if (workshopId == null || !ulong.TryParse(workshopId, out var downloadId)
                     || string.IsNullOrEmpty(jobId) || string.IsNullOrEmpty(stagingRoot)
                     || hasResumePath != hasResumeManifest
                     || hasResumePath != hasResumeDevice
                     || hasResumePath != hasResumeInode
+                    || hasResumePath != hasResumeBirthSeconds
+                    || hasResumePath != hasResumeBirthNanoseconds
                     || hasResumeManifest && resumeManifestId == null
                     || hasResumeDevice && resumeStagingDevice == null
                     || hasResumeInode && resumeStagingInode == null
+                    || hasResumeBirthSeconds && resumeStagingBirthSeconds == null
+                    || hasResumeBirthNanoseconds && resumeStagingBirthNanoseconds == null
                     || hasResumePath && !Path.IsPathRooted(resumeStagingPath!))
                 {
                     // 异步命令不预占 requestId，但校验失败的 terminal 在此发送：
@@ -339,7 +364,8 @@ internal static class Program
                     return;
                 }
                 steamSession.BeginStartDownload(requestId, jobId, downloadId, stagingRoot, decode.AccountEpoch,
-                    resumeStagingPath, resumeManifestId, resumeStagingDevice, resumeStagingInode);
+                    resumeStagingPath, resumeManifestId, resumeStagingDevice, resumeStagingInode,
+                    resumeStagingBirthSeconds, resumeStagingBirthNanoseconds);
                 return;
             }
             case "cancelDownload":
