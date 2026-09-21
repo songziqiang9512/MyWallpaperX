@@ -401,6 +401,22 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             )
             expect(balanced.count == 16, "Overlay must preserve configured bar count")
             expect(balanced.allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1 }, "balanced overlay range")
+            let shapedInput = [Float](repeating: 0.2, count: 16)
+                + [Float](repeating: 0.5, count: 16)
+                + [Float](repeating: 0.8, count: 16)
+                + [Float](repeating: 0.35, count: 16)
+            let freshOverlay = SystemAudioOverlaySpectrumAnalyzer(barCount: 16)
+            let shaped = freshOverlay.analyze(
+                leftLevels: shapedInput,
+                rightLevels: shapedInput
+            )
+            expect(shaped[0] < shaped[4], "Overlay must retain a rising low-to-mid band")
+            expect(shaped[4] < shaped[8], "Overlay must retain the stronger upper band")
+            expect(shaped[12] < shaped[8], "Overlay must retain a falling right band")
+            expect(
+                shaped.max()! - shaped.min()! > 0.1,
+                "A fresh loud frame must not clip every bar to the same height"
+            )
             overlay.updateConfiguration(style: .banded, sensitivity: .normal)
             let banded = overlay.analyze(
                 leftLevels: overlayLevels.left64,

@@ -69,7 +69,10 @@ final class SystemAudioOverlaySpectrumAnalyzer {
         guard !levels.isEmpty else { return levels }
         let peakLevel = levels.max() ?? 0
         if peakLevel > adaptiveCeiling {
-            adaptiveCeiling = adaptiveCeiling * 0.80 + peakLevel * 0.20
+            // A lagging ceiling clips every stronger band to one on a loud
+            // frame, erasing the shape before the local envelope sees it.
+            // Follow new peaks immediately; only the release is adaptive.
+            adaptiveCeiling = peakLevel
         } else {
             adaptiveCeiling = max(0.02, adaptiveCeiling * 0.972)
         }

@@ -1304,3 +1304,5 @@ layer `467#effect#480` 的 cutout-vignette 直接以 `varying vec3 v_TexCoord - 
 6. 总表每行只允许一个本行摘要等级；若同一能力同时存在 IR、wired、executor 或 visible 子集，必须拆行或明确写成 bounded current + missing remainder，不能把不同专项的 `L`/`S` 拼成一个可比较等级。
 7. 每行至少要能追溯到专项表中的代码、测试和运行证据；只有 parser 或结构时不得写成执行支持。
 > **2026-09-22 策略门补记（Q1.4s）**：`systemAudioSpectrumEnabled` 现经 `WallpaperEngineCommand → PlaybackCommandMultiplexer` 广播到 Video/Web/Scene；Web/Scene 保留作者 demand，关闭时撤销共享 consumer 并由 Scene daemon 清除旧 inbox snapshot。该项已通过 57 项 focused gates 与隔离 Debug checkpoint build，其中包含 Inbox publication-gate 过渡行为门；少量全引擎接线检查仍是源码断言，仍不计人工 UI、三引擎同源实机电平、视觉 ROI、全集或官方 parity。
+>
+> **2026-09-22 Video overlay 强输入形态补记（Q1.4t）**：唯一 PCM analyzer 不变；Overlay typed projection 在新峰上升时立即更新 adaptive ceiling，避免旧 20% 追赶使全柱归一化夹到同高。确定性多频 PCM 的 16 根 Video projection 从旧 `16/16=0.6600` 同高恢复为 `0.3636…0.6340`，focused 38/38 PASS；这仅是投影行为，不是实际 Video UI/音乐可见证据，也不修复 `2241938645` 的 SceneScript 单柱或其他作者样本。
