@@ -1045,12 +1045,8 @@ final class AppKitSettingsContainerView: NSView {
         let clampedVolume = Int(max(0, min(100, round(volumeSlider.doubleValue))))
         volumeValueLabel.stringValue = "\(clampedVolume)%"
         dependency.actions.updateVolume(Double(clampedVolume))
-        // M0.2 闭环：音量滑杆跨越 0 边界时同步公共静音意图
-        // （0 → 公共静音；>0 且公共静音 → 解除），Scene/Video 双端跟随。
-        PlaybackMuteState.shared.setMuted(clampedVolume == 0)
-        PlaybackCommandMultiplexer.shared.dispatch(
-            .setMuted(clampedVolume == 0)
-        )
+        // 音量与静音是两个公共意图：滑杆只更新主音量，0 边界再同步静音。
+        PlaybackCommandMultiplexer.shared.dispatch(.setMuted(clampedVolume == 0))
     }
 
     @objc private func handleMuteToggle() {

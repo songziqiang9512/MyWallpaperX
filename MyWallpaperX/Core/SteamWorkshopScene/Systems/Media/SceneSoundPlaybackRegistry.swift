@@ -15,6 +15,7 @@ final class SceneSoundPlaybackRegistry {
         private var stopped = false
         private var wantsPlayback = false
         private var baseVolume: Double
+        private var masterVolume = 1.0
         private var isMuted = false
 
         init(binding: SceneSoundPlaybackProgram.Binding, epoch: UInt64) {
@@ -74,10 +75,17 @@ final class SceneSoundPlaybackRegistry {
             applyEffectiveVolume()
         }
 
+        func setMasterVolume(_ volume: Double) {
+            guard !stopped, volume.isFinite, (0 ... 1).contains(volume),
+                  masterVolume != volume else { return }
+            masterVolume = volume
+            applyEffectiveVolume()
+        }
+
         /// 静音门作用于最终增益：muted → 0，否则回到基础音量
         /// （作者音量或用户属性覆盖值）。
         private func applyEffectiveVolume() {
-            let effective = isMuted ? 0 : baseVolume
+            let effective = isMuted ? 0 : baseVolume * masterVolume
             let previous = player.volume
             player.volume = Float(effective)
             guard previous.bitPattern != player.volume.bitPattern else { return }
@@ -159,6 +167,7 @@ final class SceneSoundPlaybackRegistry {
     private let program: SceneSoundPlaybackProgram
     private var sources: [Int: Source] = [:]
     private var isMuted = false
+    private var masterVolume: Double = 1.0
 
     init(program: SceneSoundPlaybackProgram, epoch: UInt64) {
         self.program = program
@@ -175,6 +184,7 @@ final class SceneSoundPlaybackRegistry {
             if isMuted {
                 source.setMuted(true)
             }
+            source.setMasterVolume(masterVolume)
             sources[binding.layerID] = source
             source.start(paused: paused)
         }
@@ -217,6 +227,14 @@ final class SceneSoundPlaybackRegistry {
         guard isMuted != muted else { return }
         isMuted = muted
         sources.values.forEach { $0.setMuted(muted) }
+    }
+
+    /// Applies the cross-engine master gain after authored/user layer volume.
+    func setMasterVolume(_ volume: Double) {
+        guard volume.isFinite, (0 ... 1).contains(volume),
+              masterVolume != volume else { return }
+        masterVolume = volume
+        sources.values.forEach { $0.setMasterVolume(volume) }
     }
 
     func stop() {

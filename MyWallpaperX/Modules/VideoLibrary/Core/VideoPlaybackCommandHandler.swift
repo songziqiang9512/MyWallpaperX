@@ -18,6 +18,14 @@ final class VideoPlaybackCommandHandler: PlaybackEngineControlling {
         case .stop:
             WallpaperEngine.shared.stopPlayback()
             return true
+        case let .setVolume(volume):
+            let sanitized = volume.isFinite
+                ? min(max(volume, 0), 100)
+                : PlaybackVolumeState.shared.normalizedVolume * 100
+            let normalized = sanitized / 100
+            PlaybackVolumeState.shared.setNormalizedVolume(normalized)
+            WallpaperEngine.shared.setVolume(sanitized)
+            return true
         case let .setMuted(muted):
             PlaybackMuteState.shared.setMuted(muted)
             WallpaperManager.shared.setMuted(muted)

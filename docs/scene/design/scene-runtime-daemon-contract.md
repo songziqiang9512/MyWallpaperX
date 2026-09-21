@@ -49,6 +49,7 @@
 | `setDisplayConfiguration` | `{screens:[{id, frame, scale}]}` | 多屏拓扑重建 |
 | `setPerformanceProfile` | `{maxFPS}` | 60/30 档热切换（下一次排帧生效） |
 | `setMuted` | `{muted}` | 静音公共态（Scene Sound 层 0 增益） |
+| `setVolume` | `{volume}` (`0...1`, finite) | 公共主音量增益；与作者/用户 Sound 音量相乘 |
 | `pause` / `resume` | — | 播放暂停/恢复（时钟+视频+音效） |
 | `shutdown` | — | 有序退出（先释放表面再退进程） |
 

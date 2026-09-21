@@ -12,6 +12,7 @@ import Foundation
 final class Handler: PlaybackEngineControlling {
     let engineKind: PlaybackEngineKind
     var isPlaying: Bool
+    var volume: Float = 0
     init(_ kind: PlaybackEngineKind, playing: Bool) {
         engineKind = kind; isPlaying = playing
     }
@@ -19,6 +20,7 @@ final class Handler: PlaybackEngineControlling {
         switch command {
         case .pause: isPlaying = false; return true
         case .resume: isPlaying = true; return true
+        case let .setVolume(value): volume = value; return true
         default: return false
         }
     }
@@ -35,6 +37,29 @@ final class Handler: PlaybackEngineControlling {
         precondition(!mux.isAnyEnginePlaying)
         precondition(mux.dispatch(.resume, to: .video))
         precondition(mux.isAnyEnginePlaying && !scene.isPlaying)
+        let volumeOutcomes = mux.dispatch(.setVolume(37.5))
+        precondition(volumeOutcomes[.scene] == true && volumeOutcomes[.video] == true)
+        precondition(scene.volume == 37.5 && video.volume == 37.5)
+        PlaybackVolumeState.shared.setNormalizedVolume(0.75)
+        PlaybackVolumeState.shared.setNormalizedVolume(.nan)
+        precondition(abs(PlaybackVolumeState.shared.normalizedVolume - 0.75) < 0.0001)
+        PlaybackVolumeState.shared.setNormalizedVolume(.infinity)
+        precondition(abs(PlaybackVolumeState.shared.normalizedVolume - 0.75) < 0.0001)
+        let suiteName = "mwx-playback-mute-\(UUID().uuidString)"
+        let suite = UserDefaults(suiteName: suiteName)!
+        let persistedMute = PlaybackMuteState(defaults: suite)
+        persistedMute.setMuted(false)
+        precondition(!persistedMute.isMuted)
+        persistedMute.setMuted(true)
+        precondition(suite.bool(forKey: PlaybackMuteState.persistenceKey))
+        let restoredMute = PlaybackMuteState(defaults: suite)
+        precondition(restoredMute.isMuted)
+        restoredMute.setMuted(false)
+        precondition(!suite.bool(forKey: PlaybackMuteState.persistenceKey))
+        let legacyMute = PlaybackMuteState(defaults: UserDefaults())
+        legacyMute.migrateLegacyVolumeMuteIfNeeded(volume: 0)
+        precondition(legacyMute.isMuted)
+        suite.removePersistentDomain(forName: suiteName)
         mux.unregister(.video)
         precondition(!mux.isAnyEnginePlaying)
         precondition(!mux.dispatch(

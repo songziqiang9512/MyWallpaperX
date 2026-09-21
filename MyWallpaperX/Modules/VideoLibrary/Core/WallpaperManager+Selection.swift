@@ -219,7 +219,8 @@ extension WallpaperManager {
     }
 
     var isMuted: Bool {
-        settings.volume <= 0
+        // 兼容旧调用点，但公共静音权威是 PlaybackMuteState；不再从音量反推。
+        PlaybackMuteState.shared.isMuted
     }
 
     func selectCategory(_ category: Category) {

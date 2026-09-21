@@ -85,6 +85,18 @@ import Foundation
         if case .failure(.invalidPayload("setMuted")) = decode([
             "v": 1, "cmd": "setMuted", "muted": 1
         ]) { numericMuteRejected = true } else { numericMuteRejected = false }
+        let volumeValid: Bool
+        if case let .success(.setVolume(volume)) = decode([
+            "v": 1, "cmd": "setVolume", "volume": 0.375
+        ]) {
+            volumeValid = abs(Double(volume) - 0.375) < 0.0001
+        } else { volumeValid = false }
+        let volumeOutOfRangeRejected: Bool
+        if case .failure(.invalidPayload("setVolume")) = decode([
+            "v": 1, "cmd": "setVolume", "volume": 1.01
+        ]) { volumeOutOfRangeRejected = true } else {
+            volumeOutOfRangeRejected = false
+        }
         let cancelValid: Bool
         if case .success(.cancelLaunch(recordID: "fixture")) = decode([
             "v": 1, "cmd": "cancelLaunch", "recordID": "fixture"
@@ -187,6 +199,8 @@ import Foundation
             "zeroRevisionRejected": zeroRevisionRejected,
             "booleanVersionRejected": booleanVersionRejected,
             "numericMuteRejected": numericMuteRejected,
+            "volumeValid": volumeValid,
+            "volumeOutOfRangeRejected": volumeOutOfRangeRejected,
             "cancelValid": cancelValid,
             "displayValid": displayValid,
             "duplicateDisplayRejected": duplicateDisplayRejected,

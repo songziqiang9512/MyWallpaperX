@@ -59,7 +59,8 @@ extension WallpaperManager {
         )
         isPlaying = WallpaperEngine.shared.isPlaying()
         lastAppliedEnginePauseSettings = EnginePauseSettingsSnapshot(settings: settings)
-        WallpaperEngine.shared.setVolume(Float(settings.volume))
+        PlaybackVolumeState.shared.setNormalizedVolume(Float(settings.volume / 100))
+        PlaybackCommandMultiplexer.shared.dispatch(.setVolume(Float(settings.volume)))
         applySystemAudioSpectrumToEngine()
 
         if settings.autoSwitchEnabled && userInitiated {

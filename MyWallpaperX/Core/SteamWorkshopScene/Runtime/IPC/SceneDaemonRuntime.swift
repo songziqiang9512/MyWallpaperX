@@ -285,6 +285,9 @@ final class SceneDaemonRuntime {
             host.applyDisplayConfiguration(topology)
         case let .setPerformanceProfile(profile):
             host.applyPerformanceProfile(profile)
+        case let .setVolume(volume):
+            PlaybackVolumeState.shared.setNormalizedVolume(volume)
+            host.soundPlaybackRegistry?.setMasterVolume(Double(volume))
         case let .setMuted(muted):
             PlaybackMuteState.shared.setMuted(muted)
             host.soundPlaybackRegistry?.setMuted(muted)

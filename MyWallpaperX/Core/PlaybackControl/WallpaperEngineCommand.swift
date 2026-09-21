@@ -30,6 +30,8 @@ enum WallpaperEngineCommand: Equatable, Sendable {
     case cancelSceneLaunch(recordID: String)
     /// 性能预算档：60 = standard，30 = efficient。
     case setPerformanceProfile(maxFPS: Int)
+    /// 主音量百分比（0...100）。由各引擎把同一用户意图投影到自身播放层。
+    case setVolume(Float)
     case setMuted(Bool)
     case pause
     case resume
@@ -45,15 +47,47 @@ enum WallpaperEngineCommand: Equatable, Sendable {
 final class PlaybackMuteState {
     static let shared = PlaybackMuteState()
 
-    private(set) var isMuted = false
+    static let persistenceKey = "PlaybackMuteState"
+
+    private let defaults: UserDefaults
+    private(set) var isMuted: Bool
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        isMuted = defaults.object(forKey: Self.persistenceKey) as? Bool ?? false
+    }
 
     /// 写入静音意图；状态变化时广播，供各引擎与 UI 即时消费。
     func setMuted(_ muted: Bool) {
-        guard isMuted != muted else { return }
+        let didChange = isMuted != muted
         isMuted = muted
+        defaults.set(muted, forKey: Self.persistenceKey)
+        guard didChange else { return }
         NotificationCenter.default.post(
             name: .playbackMuteStateDidChange, object: nil
         )
+    }
+
+    /// 为升级自旧版本 `settings.volume == 0` 的用户提供一次性迁移。
+    /// 新版本之后，静音意图只由本对象持久化，不再从主音量反推。
+    func migrateLegacyVolumeMuteIfNeeded(volume: Double) {
+        guard defaults.object(forKey: Self.persistenceKey) == nil,
+              volume.isFinite else { return }
+        setMuted(volume <= 0)
+    }
+}
+
+/// 跨引擎主音量公共权威。值为 0...1 的归一化增益，避免 Video/Web
+/// 的百分比设置与 Scene 的 AVPlayer 音量在命令边界发生二次解释。
+final class PlaybackVolumeState {
+    static let shared = PlaybackVolumeState()
+
+    private(set) var normalizedVolume: Float = 0.5
+
+    func setNormalizedVolume(_ volume: Float) {
+        let clamped = volume.isFinite ? min(max(volume, 0), 1) : normalizedVolume
+        guard normalizedVolume.bitPattern != clamped.bitPattern else { return }
+        normalizedVolume = clamped
     }
 }
 

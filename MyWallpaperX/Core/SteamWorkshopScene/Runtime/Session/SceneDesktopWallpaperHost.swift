@@ -211,6 +211,9 @@ final class SceneDesktopWallpaperHost {
         if PlaybackMuteState.shared.isMuted {
             soundPlaybackRegistry.setMuted(true)
         }
+        soundPlaybackRegistry.setMasterVolume(
+            Double(PlaybackVolumeState.shared.normalizedVolume)
+        )
         soundPlaybackRegistry.start(
             paused: sceneClock.isPaused,
             userValues: context.liveState.userValues

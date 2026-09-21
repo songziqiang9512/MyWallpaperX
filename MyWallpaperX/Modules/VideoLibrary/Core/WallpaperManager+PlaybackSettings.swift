@@ -21,25 +21,33 @@ extension WallpaperManager {
 
     func updateVolume(_ volume: Double) {
         // 音量是播放态设置，既要写回 settings，也要同步到当前 engine。
-        let clampedVolume = min(max(volume, 0), 100)
+        let candidate = volume.isFinite ? volume : settings.volume
+        let clampedVolume = min(max(candidate, 0), 100)
         settings.volume = clampedVolume
         if clampedVolume > 0 {
             previousAudibleVolume = clampedVolume
         }
-        WallpaperEngine.shared.setVolume(Float(clampedVolume))
+        PlaybackVolumeState.shared.setNormalizedVolume(Float(clampedVolume / 100))
+        PlaybackCommandMultiplexer.shared.dispatch(.setVolume(Float(clampedVolume)))
     }
 
     func setMuted(_ muted: Bool) {
-        // 静音只是 volume 的一个派生态，恢复时优先回到最近一次可听音量。
+        // 静音是独立门，不把公共主音量改成 0；这样 Scene/Web/Video
+        // 都能保留同一个可听音量，解除静音只需重新投影该值。
         if muted {
             if settings.volume > 0 {
                 previousAudibleVolume = settings.volume
             }
-            updateVolume(0)
-        } else {
+        } else if settings.volume <= 0 {
             let restoredVolume = previousAudibleVolume > 0 ? previousAudibleVolume : 50
-            updateVolume(restoredVolume)
+            settings.volume = restoredVolume
         }
+        PlaybackVolumeState.shared.setNormalizedVolume(
+            Float(min(max(settings.volume, 0), 100) / 100)
+        )
+        PlaybackCommandMultiplexer.shared.dispatch(
+            .setVolume(Float(min(max(settings.volume, 0), 100)))
+        )
     }
 
     func applyEngineSettings(reloadWallpaper: Bool = false) {
@@ -64,7 +72,8 @@ extension WallpaperManager {
             idleTimeoutMinutes: settings.idleTimeoutMinutes
         )
         lastAppliedEnginePauseSettings = EnginePauseSettingsSnapshot(settings: settings)
-        WallpaperEngine.shared.setVolume(Float(settings.volume))
+        PlaybackVolumeState.shared.setNormalizedVolume(Float(settings.volume / 100))
+        PlaybackCommandMultiplexer.shared.dispatch(.setVolume(Float(settings.volume)))
         applySystemAudioSpectrumToEngine()
     }
 

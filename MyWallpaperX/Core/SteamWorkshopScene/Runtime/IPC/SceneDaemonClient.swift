@@ -154,6 +154,19 @@ final class SceneDaemonClient: PlaybackEngineControlling {
                 ])
             }
             return activeIntent != nil || pendingIntent != nil
+        case let .setVolume(volume):
+            let normalized = volume.isFinite
+                ? min(max(volume, 0), 100) / 100
+                : PlaybackVolumeState.shared.normalizedVolume
+            PlaybackVolumeState.shared.setNormalizedVolume(normalized)
+            if endpointReady {
+                send([
+                    "v": SceneDaemonProtocol.version,
+                    "cmd": "setVolume",
+                    "volume": normalized
+                ])
+            }
+            return activeIntent != nil || pendingIntent != nil
         case let .setMuted(muted):
             PlaybackMuteState.shared.setMuted(muted)
             if endpointReady {
@@ -415,6 +428,11 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             payload["recordID"] = recordID
         }
         send(payload)
+        send([
+            "v": SceneDaemonProtocol.version,
+            "cmd": "setVolume",
+            "volume": PlaybackVolumeState.shared.normalizedVolume
+        ])
         send([
             "v": SceneDaemonProtocol.version,
             "cmd": "setMuted",

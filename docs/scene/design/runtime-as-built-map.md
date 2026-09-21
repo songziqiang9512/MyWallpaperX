@@ -95,7 +95,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 13. **Puppet 单一 geometry owner**：`puppetAtlas` 仅是 mesh UV 采样源，普通 layer 由 `SceneGeometryProduct` 采样 atlas 或 graph-final 并写唯一 compositor。placement-exact named dependency 使用同一 GeometryProduct 在 authored-local 坐标栅格化到等比受限 target，并经现有 registry/publication/completion 发布；不存在通用 Puppet-as-flat-quad 回退。
 14. **launch 世代**：newer-wins 世代号 + 取消令牌 + per-generation worker 队列；新后台准备必须持世代令牌，否则旧场景任务污染新场景。
 15. **catalog 不可变、整体替换**：capability catalog 无增量失效；token 含 ownerID 不跨 catalog 碰撞。"改一处能力"= 重建 catalog，不是 patch。
-16. **控制面单一通道与 Host 归属**（M5.6）：普通产品 UI/系统生命周期/屏幕变化→Scene 只经 `WallpaperEngineCommand` + multiplexer 或 client 的 typed display command → `SceneDaemonClient` → newline JSON；client 只投影 requestID/recordID 匹配的 daemon 事件。产品 Host 只由 daemon runtime 的私有实例持有，禁止恢复全局 singleton、让普通 App 调用面引用 Host，或在 Host 内监听只存在于 App 进程的通知。属性持久化仍只有 App 的 SteamWorkshopService，运行属性仍只有 daemon Host liveState；热更新拒绝由 client 完整重载，不产生第二 property owner。静音意图在 `PlaybackMuteState`，菜单/设置仍读 video 派生态（M0.2 未完成单一状态闭环）；预算档运行权威在 daemon Host。暂停意图必须跨无活动 Scene/重连窗口保留，退出必须等 retiring transport 清空或完成有界强退。DEBUG direct Host 只准作为显式隔离证据入口。
+16. **控制面单一通道与 Host 归属**（M5.6）：普通产品 UI/系统生命周期/屏幕变化→Scene 只经 `WallpaperEngineCommand` + multiplexer 或 client 的 typed display command → `SceneDaemonClient` → newline JSON；client 只投影 requestID/recordID 匹配的 daemon 事件。产品 Host 只由 daemon runtime 的私有实例持有，禁止恢复全局 singleton、让普通 App 调用面引用 Host，或在 Host 内监听只存在于 App 进程的通知。属性持久化仍只有 App 的 SteamWorkshopService，运行属性仍只有 daemon Host liveState；热更新拒绝由 client 完整重载，不产生第二 property owner。静音与主音量意图分别在 `PlaybackMuteState`、`PlaybackVolumeState`，设置/菜单只发公共命令；预算档运行权威在 daemon Host。暂停意图必须跨无活动 Scene/重连窗口保留，退出必须等 retiring transport 清空或完成有界强退。DEBUG direct Host 只准作为显式隔离证据入口。
 17. **常开统计不升级为诊断树**（M1.1）：Release 可更新的只有 21 个 UInt64 槽和 launch 首次时间戳；Metal command 计数只在真实 bind/draw/fallback 分支递增。资源 gauge 只由 daemon 1Hz 覆盖，读取已有 owner 常数值，且不得为统计调用 lazy pipeline `resolve()`。`gpuAllocatedBytes` 是 Metal device 的进程总分配量，不得改名冒充 texture-only；`renderTargetPoolBytes` 是受跟踪有界池预算和，不含 CAMetalLayer drawable。窗口、percentile、完整 observation/evidence 仍是 DEBUG/主动诊断旁路。
 18. **跨进程音频只有一个producer和一个目标inbox**：主 App 的系统tap/FFT是唯一producer；产品目标是daemon-local `SceneAudioSpectrumInbox`，direct-host DEBUG目标与其互斥。daemon需求携本地scope epoch，client再用session generation、active transport/retirement、App route epoch与capture token拒绝stale callback；不得把两进程的singleton当共享内存，也不得用阻塞pipe、主线程闭包或无界队列保存30Hz历史。普通控制命令是顺序屏障，屏障两侧的音频/Video-Web频谱各自只保留最新待处理值；关闭只排空已接纳控制，不重放droppable帧。
 
@@ -114,7 +114,7 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 | 加 invalidation 触发（档位切换/重连/显示变化） | executor.reset() 推进 PreparedPass 命令世代但保留完整内容键 PSO；catalog/device 替换必须重建 executor | 旧命令被误接纳；错误跨 catalog/device 复用；重置后首帧重新编译 |
 | 加 per-frame 遥测/诊断 | 常开层只准定长整数更新（不变量 17）；完整 observation/evidence 仍服从 evidence 门三合一语义（不变量 12）+ sticky 行为 + Release 恒 false | Release 分配/字符串/遍历回归；窗口样式意外变化；统计触发 lazy pipeline 编译 |
 | 新 offscreen target 类型 | allocation cache key + pin 故事 + history-only 降级路径 | 在飞资源被逐出 → GPU target hazard |
-| 静音/预算档/命令层（M0.2/M0.7 已落地） | video previousAudibleVolume 恢复语义 + SceneSoundPlaybackRegistry 静音门 + `PlaybackMuteState`/`PlaybackPerformanceProfile` 权威 + daemon `setMuted`/`setPerformanceProfile`；性能档同时更新 cadence 与共享 texture decode 准入帽 | video 音量恢复错档；Scene 音效/帧率/缓存预算不受控；第二静音或预算权威 |
+| 音量/静音/预算档/命令层（M0.2/M0.7 已落地，音量跨引擎闭环） | `PlaybackVolumeState` + `PlaybackMuteState` 作为公共播放意图；Video/Web 经 `VideoPlaybackCommandHandler → WallpaperEngine`，Scene 经 daemon `setVolume`/`setMuted` → `SceneSoundPlaybackRegistry` 的 master/base 增益；性能档同时更新 cadence 与共享 texture decode 准入帽 | video 音量恢复错档；Scene 音效/帧率/缓存预算不受控；第二静音、音量或预算权威 |
 | 动 puppet atlas/composed | coverage ledger + UV 合同 | puppet 采样错位（近期迁移高发区） |
 | launch 加后台准备 | 世代令牌 + per-generation 队列 | 旧场景任务写进新场景表面 |
 | 退役一条 effect 执行旁路 | route state（observe→prefer→generic-only）+ fixture/golden 转行为合同 | 静默双执行或能力回退 |
@@ -143,4 +143,4 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 - 任何批次改变了 §2 的一行或 §3 的一条不变量，必须同批更新本图（与[工程计划](../engine-refactor-program.md)工位卡一起），否则地图作废。
 
 
-> M0.2 闭环补记（2026-09-14）：静音权威已闭环——全部 UI/热键/daemon 回放读取 `PlaybackMuteState`；video 派生 `isMuted` 仅存为内部实现；音量滑杆 0 边界经命令同步公共意图（AppKitSettingsView.handleVolumeChange）。热键读取点同样切换（WallpaperManager+PlaybackSettings muteToggle）。
+> M0.2 闭环补记（2026-09-22）：静音与主音量都沿 `WallpaperEngineCommand` 公共控制面；`PlaybackMuteState` 保存并持久化静音意图（旧版本 `settings.volume == 0` 仅在 key 缺失时迁移一次），`PlaybackVolumeState` 保存归一化主增益。UI/热键/Scene daemon 回放不再直接触碰具体播放 owner；Video/Web 由 `WallpaperEngine` 投影，Scene Sound 由 registry 将 master gain 与作者/用户 base volume 相乘。音量滑杆 0 边界仍同步静音意图，但真实设置窗口和三引擎同输入电平尚待实机验收。

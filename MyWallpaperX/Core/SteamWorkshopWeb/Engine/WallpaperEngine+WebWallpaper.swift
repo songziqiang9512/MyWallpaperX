@@ -168,7 +168,7 @@ extension WallpaperEngine {
     private func webWallpaperRuntimeState() -> WebWallpaperRuntimeState {
         WebWallpaperRuntimeState(
             paused: playbackPaused,
-            volume: currentVolumeNormalized,
+            volume: effectiveVolumeNormalized,
             playbackRate: targetPlaybackRate,
             spectrumLevels: currentWebSpectrumSnapshot()
         )

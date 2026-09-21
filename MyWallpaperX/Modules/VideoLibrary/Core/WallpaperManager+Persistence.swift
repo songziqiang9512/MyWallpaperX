@@ -450,6 +450,8 @@ extension WallpaperManager {
 
         settings = defaultSettings
         previousAudibleVolume = defaultSettings.volume
+        // 全新安装级重置也必须清除独立静音意图；默认音量恢复 50% 后不能继续静音。
+        PlaybackMuteState.shared.setMuted(false)
         tags = WallpaperManager.defaultTags
         wallpapers.removeAll()
         recentlyUsedWallpapers.removeAll()

@@ -69,6 +69,9 @@ public final class WallpaperEngine: NSObject {
     var reducedPerformanceMode = false
     var targetPlaybackRate: Float = 1.0
     var currentVolumeNormalized: Float = 0.5
+    var effectiveVolumeNormalized: Float {
+        PlaybackMuteState.shared.isMuted ? 0 : currentVolumeNormalized
+    }
     var currentVideoFillMode = VideoFillMode.aspectFill.rawValue
     var currentMultiDisplayEnabled = true
     var currentShouldLoopCurrentItem = false
@@ -326,14 +329,17 @@ public final class WallpaperEngine: NSObject {
     }
 
     public func setVolume(_ volume: Float) {
-        let normalizedVolume = min(max(volume, 0), 100) / 100
+        let fallback = currentVolumeNormalized * 100
+        let sanitized = volume.isFinite ? min(max(volume, 0), 100) : fallback
+        let normalizedVolume = sanitized / 100
         currentVolumeNormalized = normalizedVolume
+        let effectiveVolume = PlaybackMuteState.shared.isMuted ? 0 : normalizedVolume
 
         if currentPlaybackContentKind == .web {
-            dispatchWebRuntimeCommand(.setVolume(normalizedVolume))
+            dispatchWebRuntimeCommand(.setVolume(effectiveVolume))
         } else {
             for session in displaySessions.values where session.process.isRunning {
-                send(DaemonCommand(action: "setVolume", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: normalizedVolume, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
+                send(DaemonCommand(action: "setVolume", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: effectiveVolume, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
             }
         }
     }

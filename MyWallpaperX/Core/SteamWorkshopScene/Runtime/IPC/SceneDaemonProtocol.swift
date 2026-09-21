@@ -18,6 +18,8 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
     case cancelLaunch(recordID: String)
     case setDisplayConfiguration([SceneScreenTopology])
     case setPerformanceProfile(PlaybackPerformanceProfile)
+    /// Normalized master volume (0...1) applied after authored/user volume.
+    case setVolume(Float)
     case setMuted(Bool)
     case publishAudioSpectrum(SceneDaemonAudioSpectrumFrame)
     case pause
@@ -137,6 +139,12 @@ nonisolated enum SceneDaemonProtocol {
                 return .failure(.invalidPayload(action))
             }
             return .success(.setPerformanceProfile(profile))
+        case "setVolume":
+            guard let volume = finiteDouble(payload["volume"]),
+                  (0 ... 1).contains(volume) else {
+                return .failure(.invalidPayload(action))
+            }
+            return .success(.setVolume(Float(volume)))
         case "setMuted":
             guard let muted = boolean(payload["muted"]) else {
                 return .failure(.invalidPayload(action))

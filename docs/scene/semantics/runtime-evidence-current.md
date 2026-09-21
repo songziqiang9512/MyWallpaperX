@@ -192,6 +192,18 @@ ignored本机证据`inventory.json / manifest.md` SHA-256=`2abcb724579ca635942ba
 
 **失败与剩余边界：**首次Web手动命令使用不符合`com.songziqiang.MyWallpaperX.Debug.`前缀的suite名称，`SteamWorkshopService.isolatedDebugDefaultsSuiteName()`依设计在启动期precondition失败（SIGTRAP）；更正名称后Web运行正常，该错误属于取证命令而非Web/音频产品故障。Video实物目录当前为空；现有`--mwx-debug-play-workshop-id`仅触发`setAsWallpaper`，未提供本次验证所需的显式/受控`systemAudioSpectrumEnabled=true`，随后会按持久化设置调用`applySystemAudioSpectrumToEngine`，所以没有取得可归因的Video overlay普通路径结果；不能把Web/Scene结果外推Video、120个Scene声明关系或全部Web listener。Web启动早期tap generation 1可能反映当前用户设置残余，故只用作者demand后的generation 2归属Web。尚未执行安静/声源开关配对、固定同输入官方对照、Video真实内容与设置入口、长稳、重新采集、设备切换、暂停/锁屏/睡眠、全样本ROI。下一步先按正常设置/隔离内容取得Video需求→同一service→overlay→可见序列，再扩大各自影响集合；`WallpaperEngine.init`还存在首个service被立刻替换的冗余初始化，待独立职责批消融，不与本取证批混改。
 
+<a id="e-2026-09-22-audio-cross-engine-volume"></a>
+
+### E-2026-09-22-AUDIO-CROSS-ENGINE-VOLUME — 三引擎主音量/静音公共控制合同
+
+**首断点与实现身份：**前一版设置页的 `handleVolumeChange` 写入 `WallpaperManager.updateVolume → WallpaperEngine.setVolume`，只能直接影响当前 Video/Web 内容；Scene daemon 只有 `setMuted`，`SceneSoundPlaybackRegistry.Source` 只保存作者/用户 `baseVolume`，不存在公共主增益。因此静音恢复和音量滑块不能覆盖三种引擎。本批基于未提交实现基线 `4fbc11e5`，owned paths 为公共 `WallpaperEngineCommand`、`PlaybackMuteState` 的持久化/旧音量迁移、`WallpaperEngine` 的 Video/Web 会话接入、Video/Web command handler、Scene daemon protocol/client/runtime/host/registry、设置页/启动播种/全新安装级重置、`WallpaperManager.isMuted` 兼容投影、两个行为测试及本条证据文档；未改 PCM/tap/FFT、频谱 producer、作者条件或样本路由。
+
+**公共链与状态语义：**新增 `WallpaperEngineCommand.setVolume(Float)`，输入合同固定为百分比 `0...100`；`PlaybackVolumeState` 只保存归一化 `0...1`。`PlaybackMuteState` 只保存静音意图，持久化到 `UserDefaults` 的 `PlaybackMuteState` key；启动恢复该 key，只有 key 缺失时才把旧版本 `settings.volume == 0` 迁移为静音，`resetToFreshInstallState()` 明确清除该 key。设置主音量仍由 `WallpaperManager` 唯一拥有，UI 不再直接写具体引擎：`updateVolume/applyEngineSettings/setAsWallpaper` 写入公共状态并广播同一命令。Video/Web 由既有 `VideoPlaybackCommandHandler → WallpaperEngine` 投影，Web 继续在 WallpaperEngine 内进入 Web host，不新增 Web provider。Scene 由 `SceneDaemonClient` 转成 JSON `setVolume`（协议只接受 finite `0...1`）→`SceneDaemonRuntime`→`SceneSoundPlaybackRegistry.setMasterVolume`；每个 Source 的最终音量为 `muted ? 0 : baseVolume * masterVolume`，新 registry 激活时读取同一公共状态。Scene request replay 在既有 `loadScene` 后发送当前 `setVolume` 与 `setMuted`，daemon 运行时即使控制命令先于异步 registry 创建，也会以本地状态覆盖新 registry。
+
+**行为门与构建：**`test_playback_command_multiplexer`、`test_scene_daemon_protocol`、`test_scene_sound_playback_program` 共 **12/12 PASS**；广播门验证 Scene/Video 都收到 37.5%，协议门验证 0.375 正常、1.01 越界拒绝，现有 multiplexer harness 另覆盖持久化恢复和旧 `volume=0` 一次性迁移。最终隔离 `xcodebuild -project MyWallpaperX.xcodeproj -scheme MyWallpaperX -configuration Debug -derivedDataPath /private/tmp/mwx-audio-controls-final4.o8KAfe build CODE_SIGNING_ALLOWED=NO` 为 **BUILD SUCCEEDED**；日志仅有既有 SteamService CS8603 warning。独立只读复审需针对最终冻结 diff 确认 nested mute→volume 是有界恢复投影而非递归、持久化/迁移、load/reconnect 顺序、Web 路由和作者 Sound base 音量不被覆盖。
+
+**证据上限与未验证边界：**本批没有打开设置窗口手动拖动滑块/静音，也没有三引擎同一声源的真实前后电平、Scene AVPlayer 取样、Video/Web host 音量日志、原分辨率音频可见 ROI 或官方对照。因此只能记录为公共命令/IPC/registry 行为和编译证据，不能宣称设置 UI、实机三引擎、长稳或发布验收已完成。`systemAudioSpectrumEnabled` 仍未改成三引擎策略；canonical producer 的左右均衡与 `2241938645` 单柱、`2849382252`/`3789316755` demand、`2134765860` Audio Ring 仍由后续独立职责批处理，旧证据不能冒充本批结果。
+
 <a id="e-2026-09-20-xray-effect-projection"></a>
 
 ### E-2026-09-20-XRAY-EFFECT-PROJECTION — effect-texture inverse与output MVP分权；真实X-Ray四象限轨迹达到有界S4
