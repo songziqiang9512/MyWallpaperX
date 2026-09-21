@@ -2,6 +2,12 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
+## 2026-09-21 `3712499998` WEVector环形频谱首断点推进
+
+layer66「Circle Audio Visualization」的作者模块在global scope注册64-band AudioBuffers，并用`WEVector.angleVector2`和`new Vec3(Vec2)`计算63个dynamic bar的环形origin。旧QuickJS loader先以`SceneScript module is not allowlisted: WEVector`拒绝；同一module owner补齐后，真实运行又推进到`layer origin expects finite Vec3`，证明旧Vec3默认参数错误地把Vec2构造为NaN z。现役同一loader补`WEMath.deg2rad/rad2deg`、`WEVector.angleVector2/vectorAngle2`，同一value host按公开合同让`Vec3(Vec2)`与`Vec3(x,y)`补零z；没有样本分支、第二module/property/audio owner或第二compositor。
+
+最终签名Debug App CDHash=`464decdbd5f5ccb9414a19b63b0d62697c62d10a`。35秒普通程序化产品入口取得非零系统tap publication（peak`0.2793599069`）、2110 rendered / 0 dropped/fallback；日志确认layer66完成、64个owner侧layer/63个dynamic、`vectorFailures=0`及非零AudioBuffers event。确定性PCM direct运行1/1 PASS、1245/1244/0 frame，两张3024×1964原帧可见完整构图与洋红环形频谱。该结果关闭`WEVector unsupported`技术首断点，但频谱环幅度/方向/位置/样式、重复文字与装饰、普通UI选择和官方同输入仍未裁决，样本视觉 verdict保持fail。完整身份与证据上限见[E-2026-09-21-SCENESCRIPT-WEVECTOR-AUDIO-RING](runtime-evidence-current.md#e-2026-09-21-scenescript-wevector-audio-ring)。
+
 ## 2026-09-14 `3775355045 / 3775373546` 双视频 command generation 闭环
 
 两份作者项目都包含前景layer 22和隐藏dependency layer 21的等时长embedded MP4。启动脚本把两者seek到0并play；只有前景层接收ended callback，回调同时重启两层，并在两帧后再次同步seek。作者另每30帧比较两层currentTime，差值超过`0.08 s`才纠偏。修复前35秒运行在第一个循环边界后持续出现每30帧5条command，证明下层已经落后；首断点是AVPlayerItem迟到EOF在新seek/play之后仍调用`didReachEnd`，覆盖较新的typed命令，而非两张视频贴图、遮罩或graph参数不同。
@@ -287,7 +293,7 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 | 样本 | 当前截图裁决 |
 |---|---|
 | 3766387484 | 日期、星期、时钟恢复完整；不代表所有 effect parity |
-| 3712499998 | 日期/时钟恢复；仍有 WEVector unsupported，重复文字/装饰尚未全面裁决 |
+| 3712499998 | 日期/时钟与WEVector环形频谱执行首断点已恢复；受控原帧可见环形输出，但频谱幅度/方向/位置/样式、重复文字与装饰仍未全面裁决 |
 | 3437487219 | 日期和时间单行完整；cursor owner collision 未闭合 |
 | 3509243656 | 22 秒能离开开场；模拟 MAIN visibility producer 未执行，坐标 text 仍 undefined，不通过 |
 | 3470948192 | 22 秒能离开开场；仍有 NaN、文字碎片和异常背景，不通过 |

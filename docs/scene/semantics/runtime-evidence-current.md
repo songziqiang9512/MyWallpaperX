@@ -8,7 +8,7 @@
 
 > 状态：现役证据入口
 >
-> 最近专项核对：2026-09-21（当前HEAD签名Debug App的普通system tap、受控外部声源与120样本产品入口基线；两个作者属性门控的音频consumer已用typed启动override做默认/启用配对；共享system-audio analyzer频段分布与长时右半更新、组合media+audio owner仍按各自身份保留）。各证据仍以自身日期与构建身份为准。
+> 最近专项核对：2026-09-21（当前HEAD签名Debug App的普通system tap、受控外部声源与120样本产品入口基线；两个作者属性门控的音频consumer已用typed启动override做默认/启用配对；共享system-audio analyzer频段分布与长时右半更新、组合media+audio owner及`WEVector`环形频谱consumer仍按各自身份保留）。各证据仍以自身日期与构建身份为准。
 >
 > 本次审计分支：`codex/engine-refactor-program`。本页只回答“哪条能力在什么代码/产品身份下取得过哪一级证据”，不决定开发顺序；唯一执行路线见[Scene兼容执行路线](../scene-compatibility-roadmap.md)。旧证据包不因此取得当前构建的有效性。
 >
@@ -21,6 +21,20 @@
 自本次核对起，`docs/scene/evidence/`只作为仓库忽略的本机证据缓存，不再由Git跟踪。最终运行载荷可先通过`script/promote_scene_evidence.py`提纯并用逐文件manifest固定，再在本文记录输入、App、report/manifest identity、SHA-256和有界结论；权威文档不得链接或依赖该本机目录，缓存缺失时也不能用摘要冒充当前HEAD的fresh复现。`/private/tmp`只承载运行现场、重试和含第三方作者资源的不可提交fixture；本文此前保留的临时路径只作为当时provenance，文件可能已按产物治理清理。
 
 ## 1. 当前证据快照
+
+<a id="e-2026-09-21-scenescript-wevector-audio-ring"></a>
+
+### E-2026-09-21-SCENESCRIPT-WEVECTOR-AUDIO-RING — 同一QuickJS module owner恢复degree向量与Vec3(Vec2)频谱环
+
+**公开合同与递进首断点：**官方公开[`WEVector`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/WEVector.html)规定`angleVector2(angle)`以degree生成Vec2、`vectorAngle2(direction)`以degree返回方向角；[`WEMath`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/WEMath.html)公开`deg2rad/rad2deg`换算因子；[`Vec3`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/Vec3.html)规定从Vec2或两个Number构造时z为0。真实只读`3712499998`（project/package SHA-256=`0796600da9d7834280788bab0901287d84195c487d19dd0e2bf9d821260f5dc7 / fce16a912a896944989781a32d65ce8cb1ca100726f7492242bb62d2b44a020f`）的layer66「Circle Audio Visualization」默认可见，在global scope注册64-band AudioBuffers、创建63个dynamic bar，并以`new Vec3(WEVector.angleVector2(angle))`计算每条origin。修复前新行为门精确失败`WEMath degree and radian constants`和`SceneScript module is not allowlisted: WEVector`；首次只补module后，真实产品运行推进到`TypeError: layer origin expects finite Vec3`，定位出旧`constructor(x=0,y=x,z=x)`把单个Vec2对象默认y/z转换为NaN。这两层失败依次证明公共module与公开value-constructor才是首断点，不是AudioBuffers、动态层纹理或样本专用算法。
+
+**同一owner修正与失败域：**`SceneQuickJSModuleHost.c`继续作为唯一allowlisted C module loader：WEMath同module补`π/180`与`180/π`，WEVector在同loader内用finite参数、`cos/sin`、`atan2`和现有global Vec2 constructor返回host value；unknown module、错参数和非有限分量仍在owner内抛typed exception。`SceneQuickJSValueHost.c`只校正公开构造重载：无参为零、单Number复制xyz、两个Number补z=0、Vec2对象补z=0；保留三Number、string、Vec3 copy及既有本地`Vec3(Vec2,z)`扩展。没有读取module文件、第二loader、第二property/audio owner、帧内解析/编译、样本/layer/path分支或新增compositor。C行为门覆盖两个换算因子、0°/90°/180°/−90°轴向、零向量、135° round-trip、真实Vec2 identity、`Vec3(Vec2)`/`Vec3(x,y)`补零和两个非有限入口；坏owner失败不影响peer或previous-current。
+
+**普通产品入口与受控可见运行：**最终源码构建的Developer ID Debug App为`com.songziqiang.MyWallpaperX` 2.0.9 (277)、Team`H9QWU9XN8R`、CDHash`464decdbd5f5ccb9414a19b63b0d62697c62d10a`，launcher/debug dylib/build-log SHA-256=`cce47efd3d381c5e8402de344d1d85d6cc637ac1c6a3a3e7bb07aeda6b184b26 / 0b89bf0336ee2c17b05570601a9acc5a39b89199ac52ea4788c62c74c36babbe / f7a9bc3f5a7afb962b3acfab6a5b84cda534130f017986f269b61ae5f0a80c2e`，deep/strict签名有效。35秒普通程序化产品入口使用持续低音量`/usr/bin/afplay /System/Library/Sounds/Glass.aiff`外部输入，结果`capture-publication-observed`、唯一request/first-present、scope epoch 1、非零peak`0.2793599069`、2110 rendered / 0 dropped / 0 fallback、`failures=[]`；layer66完成Bool owner，frame0报告64个owner侧layer/63个dynamic且`vectorFailures=0`，generation2记录`audioBuffersUpdated silent=false`与`audioValuePublished`。外部声源生命周期另有本轮操作记录但没有随提升器载荷保存，所以只证明普通tap收到非零输入，不把每帧归因到单一音源。
+
+同一App另以确定性PCM经产品analyzer和shared inbox运行direct benchmark，严格**1/1 PASS / failures=[]**、1245 submitted / 1244 completed / 0 failed、63个dynamic layer有source publication并逐帧编码，ready/after运动changed ratio=`0.832788`。两张3024×1964原帧人工确认完整构图与洋红环形频谱存在，但并排复核只能确认环形元素持续存在，不能把背景运动或细小轮廓差异归因为正确幅度响应；因此这里只记`S4 ring-visible safety`，不写成幅度、频段分布或作者样式正确。普通产品入口report/app-log/result SHA-256=`9cb4fac006624d9c3e53830b9ed1e0dccc80f62ae30038c75ba48e10738316f3 / 5fd6912e0331893a3b0f80249510928d1248b0901aa57a881bd174e0fc7115ff / 47f70aa6f5c2495706212eac4fd32c7c3449b512dc4167fbc250b63066be306e`；direct report/ready/after SHA-256=`caa5c8e1aa7a5ebbd71dda7341a49873a7e1bed71220591a1a7f15f16ff395fc / a2817ac59e7bb526b98022f84f281652b63d1130e09146610cb7179264555d60 / a7caad0aa5c705d4b26645ff1a38ab663916fb6ad1f08756db8182dbf411fc22`。两组最小载荷保存在ignored本机缓存`docs/scene/evidence/2026-09-21-scenescript-wevector-final/`，manifest SHA-256=`d6716c5bb85ff0448adae50f13334e006c7e717c64fc9a10c952c6c08aa0d221`、17,550,209 bytes，不含App、Workshop package、runtime HOME/cache。
+
+**证据上限、审查与开放项：**当前最高为普通产品入口`S3 consumer event-executed`与受控`S4 ring-visible safety`。这关闭旧台账的`WEVector unsupported`技术首断点，但不把`3712499998`整样本判通过：重复文字/装饰仍未裁决，频谱ring的幅度、方向、位置、间距、bar scale响应和作者视觉仍缺独立序列/ROI oracle；普通UI卡片选择、小时级长稳、所有WEVector/Vec3 edge、固定官方同输入及官方parity也未验证。零向量角度返回0是项目有界选择，公开资料未给edge golden；超大finite角度、负零、getter副作用和Windows浮点细节继续保留。独立只读审查首轮阻断能力表把既有`WEColor.normalizeColor`误写为L0及“四象限”过度措辞，第二轮再阻断Generic VM总览漏列WEVector；修正后冻结diff `c78b11af15c0b11b6bcde84d6eae90db5ce93113af868f68cc9d3ab942bcd821`经同一审查者复核为 **APPROVE / P0–P3无遗留 finding**。审查确认唯一loader/value/audio/compositor链、异常失败域、两个非有限入口与证据分层，且未编辑、构建、运行、生成缓存、暂存或提交；批准不替代测试、产品运行或上述开放门。
 
 <a id="e-2026-09-21-audio-current-head-controlled-corpus"></a>
 

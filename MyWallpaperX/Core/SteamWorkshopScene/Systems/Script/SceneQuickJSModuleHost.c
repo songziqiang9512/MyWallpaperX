@@ -75,7 +75,117 @@ static int initialize_wemath_module(JSContext *context, JSModuleDef *module) {
     if (JS_IsException(mix)) {
         return -1;
     }
-    return JS_SetModuleExport(context, module, "mix", mix);
+    if (JS_SetModuleExport(context, module, "mix", mix) < 0) {
+        return -1;
+    }
+    const double pi = acos(-1.0);
+    if (JS_SetModuleExport(
+            context, module, "deg2rad", JS_NewFloat64(context, pi / 180)
+        ) < 0) {
+        return -1;
+    }
+    return JS_SetModuleExport(
+        context, module, "rad2deg", JS_NewFloat64(context, 180 / pi)
+    );
+}
+
+static JSValue wevector_new_vec2(
+    JSContext *context,
+    double x,
+    double y
+) {
+    JSValue global = JS_GetGlobalObject(context);
+    JSValue constructor = JS_GetPropertyStr(context, global, "Vec2");
+    JS_FreeValue(context, global);
+    if (!JS_IsFunction(context, constructor)) {
+        JS_FreeValue(context, constructor);
+        return JS_ThrowInternalError(context, "WEVector Vec2 host is unavailable");
+    }
+    JSValue arguments[2] = {
+        JS_NewFloat64(context, x),
+        JS_NewFloat64(context, y),
+    };
+    JSValue result = JS_CallConstructor(context, constructor, 2, arguments);
+    for (size_t index = 0; index < 2; ++index) {
+        JS_FreeValue(context, arguments[index]);
+    }
+    JS_FreeValue(context, constructor);
+    return result;
+}
+
+static JSValue wevector_angle_vector2(
+    JSContext *context,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv
+) {
+    (void)this_value;
+    double angle = 0;
+    if (argc != 1 || JS_ToFloat64(context, &angle, argv[0]) < 0 ||
+        !isfinite(angle)) {
+        return JS_ThrowTypeError(
+            context, "WEVector.angleVector2 expects one finite angle"
+        );
+    }
+    const double radians = angle * (acos(-1.0) / 180);
+    return wevector_new_vec2(context, cos(radians), sin(radians));
+}
+
+static bool wevector_read_vec2(
+    JSContext *context,
+    JSValueConst value,
+    double output[2]
+) {
+    if (!JS_IsObject(value)) {
+        return false;
+    }
+    static const char *names[] = {"x", "y"};
+    for (size_t index = 0; index < 2; ++index) {
+        JSValue component = JS_GetPropertyStr(context, value, names[index]);
+        const int converted = JS_ToFloat64(context, &output[index], component);
+        JS_FreeValue(context, component);
+        if (converted < 0 || !isfinite(output[index])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static JSValue wevector_vector_angle2(
+    JSContext *context,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv
+) {
+    (void)this_value;
+    double direction[2] = {0};
+    if (argc != 1 || !wevector_read_vec2(context, argv[0], direction)) {
+        return JS_ThrowTypeError(
+            context, "WEVector.vectorAngle2 expects one finite Vec2"
+        );
+    }
+    return JS_NewFloat64(
+        context, atan2(direction[1], direction[0]) * (180 / acos(-1.0))
+    );
+}
+
+static int initialize_wevector_module(JSContext *context, JSModuleDef *module) {
+    JSValue angle_vector = JS_NewCFunction(
+        context, wevector_angle_vector2, "angleVector2", 1
+    );
+    if (JS_IsException(angle_vector)) {
+        return -1;
+    }
+    if (JS_SetModuleExport(context, module, "angleVector2", angle_vector) < 0) {
+        return -1;
+    }
+    JSValue vector_angle = JS_NewCFunction(
+        context, wevector_vector_angle2, "vectorAngle2", 1
+    );
+    if (JS_IsException(vector_angle)) {
+        return -1;
+    }
+    return JS_SetModuleExport(context, module, "vectorAngle2", vector_angle);
 }
 
 static bool wecolor_read_vec3(
@@ -228,11 +338,17 @@ JSModuleDef *mwx_scene_quickjs_load_allowlisted_module(
         return NULL;
     }
     JSModuleInitFunc *initializer = NULL;
-    const char *exports[3] = {NULL, NULL, NULL};
+    const char *exports[5] = {NULL, NULL, NULL, NULL, NULL};
     if (strcmp(module_name, "WEMath") == 0) {
         initializer = initialize_wemath_module;
         exports[0] = "smoothStep";
         exports[1] = "mix";
+        exports[2] = "deg2rad";
+        exports[3] = "rad2deg";
+    } else if (strcmp(module_name, "WEVector") == 0) {
+        initializer = initialize_wevector_module;
+        exports[0] = "angleVector2";
+        exports[1] = "vectorAngle2";
     } else if (strcmp(module_name, "WEColor") == 0) {
         initializer = initialize_wecolor_module;
         exports[0] = "hsv2rgb";
@@ -249,7 +365,7 @@ JSModuleDef *mwx_scene_quickjs_load_allowlisted_module(
     if (module == NULL) {
         return NULL;
     }
-    for (size_t index = 0; index < 3 && exports[index] != NULL; ++index) {
+    for (size_t index = 0; index < 5 && exports[index] != NULL; ++index) {
         if (JS_AddModuleExport(context, module, exports[index]) < 0) {
             return NULL;
         }

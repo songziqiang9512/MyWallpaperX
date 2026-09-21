@@ -1379,6 +1379,80 @@ int main(void) {
         "WEMath.mix rejects non-finite input"
     );
 
+    MWXSceneQuickJSOwner *wemath_angles = mwx_scene_quickjs_owner_create(
+        domain,
+        "import * as WEMath from 'WEMath';\n"
+        "export function update(value) {\n"
+        "  const degrees = WEMath.deg2rad * 180;\n"
+        "  const radians = WEMath.rad2deg * Math.PI;\n"
+        "  return Math.abs(degrees - Math.PI) < 1e-12 &&\n"
+        "    Math.abs(radians - 180) < 1e-12 ? value + 1 : -1;\n"
+        "}",
+        strlen(
+            "import * as WEMath from 'WEMath';\n"
+            "export function update(value) {\n"
+            "  const degrees = WEMath.deg2rad * 180;\n"
+            "  const radians = WEMath.rad2deg * Math.PI;\n"
+            "  return Math.abs(degrees - Math.PI) < 1e-12 &&\n"
+            "    Math.abs(radians - 180) < 1e-12 ? value + 1 : -1;\n"
+            "}"
+        ),
+        57, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(wemath_angles != NULL, "WEMath angle constants compile", diagnostic);
+    failures += update(
+        wemath_angles, 57, 2, MWX_SCENE_QUICKJS_OK, 3,
+        "WEMath degree and radian constants"
+    );
+
+    const char *wevector_source =
+        "import * as WEVector from 'WEVector';\n"
+        "export function update(value) {\n"
+        "  const up = WEVector.angleVector2(90);\n"
+        "  const left = WEVector.angleVector2(180);\n"
+        "  const angle = WEVector.vectorAngle2(new Vec2(0, -1));\n"
+        "  const zero = WEVector.vectorAngle2(new Vec2(0, 0));\n"
+        "  const roundTrip = WEVector.vectorAngle2(WEVector.angleVector2(135));\n"
+        "  const lifted = new Vec3(WEVector.angleVector2(0));\n"
+        "  const numericPair = new Vec3(2, 3);\n"
+        "  return up instanceof Vec2 && Math.abs(up.x) < 1e-12 &&\n"
+        "    Math.abs(up.y - 1) < 1e-12 && Math.abs(left.x + 1) < 1e-12 &&\n"
+        "    Math.abs(left.y) < 1e-12 && angle === -90 && zero === 0 &&\n"
+        "    Math.abs(roundTrip - 135) < 1e-12 && lifted.x === 1 &&\n"
+        "    lifted.y === 0 && lifted.z === 0 && numericPair.x === 2 &&\n"
+        "    numericPair.y === 3 && numericPair.z === 0 ? value + 1 : -1;\n"
+        "}";
+    MWXSceneQuickJSOwner *wevector = mwx_scene_quickjs_owner_create(
+        domain, wevector_source, strlen(wevector_source),
+        58, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(wevector != NULL, "WEVector compile", diagnostic);
+    failures += update(
+        wevector, 58, 2, MWX_SCENE_QUICKJS_OK, 3,
+        "WEVector cardinal directions zero and 135 degree round trip"
+    );
+
+    const char *invalid_wevector_source =
+        "import * as WEVector from 'WEVector';\n"
+        "export function update(value) {\n"
+        "  let angleRejected = false;\n"
+        "  try { WEVector.angleVector2(Infinity); }\n"
+        "  catch (error) { angleRejected = error instanceof TypeError; }\n"
+        "  if (!angleRejected) return value;\n"
+        "  return WEVector.vectorAngle2({x:0,y:NaN}) + value;\n"
+        "}";
+    MWXSceneQuickJSOwner *invalid_wevector = mwx_scene_quickjs_owner_create(
+        domain, invalid_wevector_source, strlen(invalid_wevector_source),
+        59, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        invalid_wevector != NULL, "invalid WEVector compile", diagnostic
+    );
+    failures += update(
+        invalid_wevector, 59, 2, MWX_SCENE_QUICKJS_EXCEPTION, 2,
+        "WEVector rejects non-finite inputs"
+    );
+
     const char *scalar_user_source =
         "export function update(value) { return engine.userProperties.live; }";
     MWXSceneQuickJSOwner *scalar_user = mwx_scene_quickjs_owner_create(
@@ -4159,6 +4233,9 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(time_of_day);
     mwx_scene_quickjs_owner_destroy(invalid_wemath_mix);
     mwx_scene_quickjs_owner_destroy(wemath_mix);
+    mwx_scene_quickjs_owner_destroy(wemath_angles);
+    mwx_scene_quickjs_owner_destroy(wevector);
+    mwx_scene_quickjs_owner_destroy(invalid_wevector);
     mwx_scene_quickjs_owner_destroy(immutable_surface);
     mwx_scene_quickjs_owner_destroy(surface_input);
     mwx_scene_quickjs_owner_destroy(invalid_surface);
