@@ -170,6 +170,10 @@ internal sealed class ProtocolDecode
             ? number
             : null;
 
+    public bool HasPayloadField(string name) =>
+        Payload is { } p && p.ValueKind == JsonValueKind.Object
+            && p.TryGetProperty(name, out _);
+
     public string[] PayloadStringArray(string name) =>
         Payload is { } p && p.ValueKind == JsonValueKind.Object
             && p.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Array

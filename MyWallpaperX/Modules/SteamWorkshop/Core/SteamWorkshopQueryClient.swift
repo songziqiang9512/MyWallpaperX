@@ -159,8 +159,9 @@ nonisolated struct SteamWorkshopStagedReceipt: Equatable, Codable, Sendable {
     }
 }
 
-/// SK3.1：统一结构化查询消费 API。排序/筛选/分页合同见
-/// 计划 §4.1 与 SK0.1 能力表（页码分页、hasMore=received==pageSize、days 缺口）。
+/// SK3.1：统一结构化查询消费 API。排序/筛选/分页合同见计划 §4.1 与
+/// SK0.1 能力表；trendDays 是 1...365 的远端排名区间，并由
+/// query-trend-days-v1 能力门保护。
 @MainActor
 final class SteamWorkshopQueryClient {
     private let client: SteamServiceClient
@@ -176,7 +177,8 @@ final class SteamWorkshopQueryClient {
         page: Int,
         tags: [String] = [],
         tagGroups: [[String]] = [],
-        search: String? = nil
+        search: String? = nil,
+        trendDays: Int? = nil
     ) async throws -> SteamWorkshopQueryPage {
         var fields: [String: SteamServiceJSON] = [
             "sort": .string(sort.rawValue),
@@ -193,9 +195,17 @@ final class SteamWorkshopQueryClient {
         if let search, !search.isEmpty {
             fields["search"] = .string(search)
         }
+        if let trendDays {
+            guard sort == .trend, (1...365).contains(trendDays) else {
+                throw SteamServiceClient.RequestError.helperError(
+                    code: "unsupportedQuery", message: "trend days require trend sort and range 1...365")
+            }
+            fields["days"] = .int(trendDays)
+        }
         let frame = try await client.request(
             command: "queryBrowse",
-            payload: .object(fields)
+            payload: .object(fields),
+            requiredCapability: trendDays == nil ? nil : SteamServiceProtocol.trendDaysCapability
         )
         return try decodePage(from: frame, expectedPage: page)
     }
@@ -311,6 +321,7 @@ final class SteamWorkshopQueryClient {
                 jobId: jobId,
                 payload: .object(payload),
                 private: nil,
+                requiredCapability: SteamServiceProtocol.stagingAcknowledgementCapability,
                 timeout: nil,
                 awaitRemoteTerminalAcrossAccountEpochChanges: true
             )

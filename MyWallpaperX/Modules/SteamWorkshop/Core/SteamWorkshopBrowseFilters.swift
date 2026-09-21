@@ -169,15 +169,17 @@ enum SteamWorkshopTrendingWindow: String, CaseIterable, Identifiable {
         }
     }
 
-    nonisolated var daysValue: String {
+    /// Valve defines the trend window as a remote ranking interval, not a
+    /// publication-date cutoff. `nil` leaves the all-time/default ranking.
+    nonisolated var rankingDays: Int? {
         switch self {
-        case .today: return "1"
-        case .week: return "7"
-        case .month: return "30"
-        case .quarter: return "90"
-        case .halfYear: return "180"
-        case .year: return "365"
-        case .allTime: return "-1"
+        case .today: return 1
+        case .week: return 7
+        case .month: return 30
+        case .quarter: return 90
+        case .halfYear: return 180
+        case .year: return 365
+        case .allTime: return nil
         }
     }
 }

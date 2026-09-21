@@ -9,6 +9,7 @@ import Foundation
 enum SteamServiceProtocol {
     static let version = 1
     static let stagingAcknowledgementCapability = "download-staging-ack-v2"
+    static let trendDaysCapability = "query-trend-days-v1"
     static let maxFrameBytes = 1_048_576
     static let maxPendingRequests = 256
     static let requestTimeout: TimeInterval = 30

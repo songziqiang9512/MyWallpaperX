@@ -162,12 +162,20 @@ internal static class ProtocolSelfTest
 
         // 10. 出站帧形状：ready/pong/result/event。
         var readyJson = JsonSerializer.Serialize(ProtocolMessages.Ready(
-            1, ["ping", "shutdown", SteamSession.StagingAcknowledgementCapability]));
+            1, ["ping", "shutdown", SteamSession.StagingAcknowledgementCapability,
+                SteamSession.TrendDaysCapability]));
         Check("ready-shape",
             readyJson.Contains("\"type\":\"ready\"") && readyJson.Contains("\"protocol\":1")
             && readyJson.Contains("\"helperVersion\"")
             && readyJson.Contains(SteamSession.StagingAcknowledgementCapability)
+            && readyJson.Contains(SteamSession.TrendDaysCapability)
             && !readyJson.Contains("download-staging-ack-v1"));
+        var trendDecode = ProtocolDecode.Parse(
+            "{\"v\":1,\"type\":\"request\",\"requestId\":\"trend\",\"command\":\"queryBrowse\","
+            + "\"processEpoch\":1,\"accountEpoch\":0,\"payload\":{\"days\":7}}");
+        Check("payload-field-presence-distinguishes-malformed-values",
+            trendDecode.Ok && trendDecode.HasPayloadField("days") && trendDecode.PayloadUInt("days") == 7
+            && !trendDecode.HasPayloadField("missing"));
         var pongJson = JsonSerializer.Serialize(ProtocolMessages.ResultOk("req-ping-1", new { pong = true }, 1));
         Check("pong-shape",
             pongJson.Contains("\"type\":\"result\"") && pongJson.Contains("\"requestId\":\"req-ping-1\"") && pongJson.Contains("\"ok\":true"));

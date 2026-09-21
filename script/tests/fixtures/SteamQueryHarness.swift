@@ -6,15 +6,21 @@ final class QueryTransport: SteamServiceTransporting {
     var onError: ((String) -> Void)?
     var onTermination: ((Int32) -> Void)?
     var respond: ([String: Any]) -> [String: Any] = { _ in [:] }
+    var advertisedCapabilities = [SteamServiceProtocol.trendDaysCapability]
+    var sends = 0
+    var requests: [[String: Any]] = []
     func start() throws {
         isRunning = true
-        emit(["v": 1, "type": "ready", "protocol": 1, "helperVersion": "0.1.0"])
+        emit(["v": 1, "type": "ready", "protocol": 1, "helperVersion": "0.1.0",
+              "capabilities": advertisedCapabilities])
     }
     func emit(_ value: [String: Any]) {
         var data = try! JSONSerialization.data(withJSONObject: value); data.append(10); onOutput?(data)
     }
     func send(_ data: Data) -> Bool {
         let request = try! JSONSerialization.jsonObject(with: data) as! [String: Any]
+        sends += 1
+        requests.append(request)
         var result: [String: Any] = ["v": 1, "type": "result", "requestId": request["requestId"]!,
                                     "ok": true, "data": respond(request)]
         if let epoch = request["accountEpoch"] { result["accountEpoch"] = epoch }
@@ -31,13 +37,15 @@ final class QueryTransport: SteamServiceTransporting {
         let wire = QueryTransport()
         let client = SteamServiceClient(executablePath: "/fake", transportFactory: { _ in wire })
         let query = SteamWorkshopQueryClient(client: client)
-        func item(_ id: String, _ size: Int) -> [String: Any] {
-            ["publishedfileid": id, "creatorSteamId": "76561198000000000", "title": id,
+        func item(_ id: String, _ size: Int, created: Int? = nil) -> [String: Any] {
+            var value: [String: Any] = ["publishedfileid": id, "creatorSteamId": "76561198000000000", "title": id,
              "description": "detail-\(id)", "consumerAppid": 431960, "fileSize": size,
              "visibility": 0, "banned": false, "subscriptions": 12, "favorited": 3,
              "lifetimeSubscriptions": 20, "lifetimeFavorited": 4, "views": 50,
              "dependencyIds": ["20", "21"],
              "tags": ["1", "2", "3", "4", "5", "6", "7", "8", "Video"]]
+            if let created { value["timeCreated"] = created }
+            return value
         }
         func page(_ number: Int, _ items: [[String: Any]]) -> [String: Any] {
             ["page": number, "items": items, "total": 3, "hasMore": number < 3, "wrongAppDropped": 0]
@@ -115,12 +123,14 @@ final class QueryTransport: SteamServiceTransporting {
         var seenTagGroups: [[String]] = []
         var seenTags: [String] = []
         var seenSort = ""
+        var seenTrendDays: Int?
         wire.respond = { request in
             precondition(request["command"] as? String == "queryBrowse")
             let requestPayload = request["payload"] as! [String: Any]
             seenSort = requestPayload["sort"] as! String
             seenTags = requestPayload["tags"] as? [String] ?? []
             seenTagGroups = requestPayload["tagGroups"] as? [[String]] ?? []
+            seenTrendDays = requestPayload["days"] as? Int
             return payload
         }
         let facet = try await browse.fetch(page: 1, generation: browse.bumpGeneration())
@@ -130,6 +140,59 @@ final class QueryTransport: SteamServiceTransporting {
             && seenTagGroups[1] == ["Everyone"] && seenTagGroups[2] == ["3840 x 2160"],
             "facet groups: in-facet OR, cross-facet AND")
         precondition(facet.items.count == 1)
+        precondition(SteamWorkshopTrendingWindow.today.rankingDays == 1
+            && SteamWorkshopTrendingWindow.week.rankingDays == 7
+            && SteamWorkshopTrendingWindow.month.rankingDays == 30
+            && SteamWorkshopTrendingWindow.quarter.rankingDays == 90
+            && SteamWorkshopTrendingWindow.halfYear.rankingDays == 180
+            && SteamWorkshopTrendingWindow.year.rankingDays == 365
+            && SteamWorkshopTrendingWindow.allTime.rankingDays == nil,
+            "trend windows must map to the supported remote ranking interval")
+
+        // A trend window defines the remote ranking interval. It is not a
+        // publication-date filter: an older item returned by Steam must keep
+        // its server order and remain visible.
+        let trendKey = browse.makeKey(source: .featured, contentMode: .video,
+            filters: .none, search: "", window: .week)
+        browse.resetFor(key: trendKey)
+        payload = page(1, [item("22", 10, created: 1)])
+        let trend = try await browse.fetch(page: 1, generation: browse.bumpGeneration())
+        let trendProjection = Projection(browse)
+        trendProjection.source = .featured
+        trendProjection.trendingWindow = .week
+        precondition(trendProjection.steamKitStructuredPostProcess(trend.items)
+            .map(\.publishedFileId) == ["22"],
+            "trend days rank the remote result and cannot delete older publications")
+        precondition(seenTrendDays == 7 && trendKey.trendDays == 7,
+            "the frozen query key must carry the week ranking interval to the helper")
+
+        // Freeze capability negotiation at the actual browse business entry.
+        // An old helper may still serve all-time trend results, but a week
+        // window must fail before any request reaches its wire.
+        let oldWire = QueryTransport()
+        oldWire.advertisedCapabilities = []
+        oldWire.respond = { _ in page(1, [item("77", 10, created: 1)]) }
+        let oldClient = SteamServiceClient(executablePath: "/old-helper", transportFactory: { _ in oldWire })
+        let oldQuery = SteamWorkshopQueryClient(client: oldClient)
+        let oldBrowse = SteamKitBrowseStore(queryClient: oldQuery)
+        let allTimeKey = oldBrowse.makeKey(source: .featured, contentMode: .video,
+            filters: .none, search: "", window: .allTime)
+        oldBrowse.resetFor(key: allTimeKey)
+        let oldAllTime = try await oldBrowse.fetch(page: 1, generation: oldBrowse.bumpGeneration())
+        precondition(oldAllTime.items.map(\.publishedFileId) == ["77"] && oldWire.sends == 1,
+            "an old helper must remain compatible with an all-time trend query")
+        let allTimePayload = oldWire.requests.last?["payload"] as? [String: Any]
+        precondition(allTimePayload?["days"] == nil, "all-time must not send trend days")
+        let oldWeekKey = oldBrowse.makeKey(source: .featured, contentMode: .video,
+            filters: .none, search: "", window: .week)
+        oldBrowse.resetFor(key: oldWeekKey)
+        do {
+            _ = try await oldBrowse.fetch(page: 1, generation: oldBrowse.bumpGeneration())
+            fatalError("old helper accepted a windowed trend query")
+        } catch SteamServiceClient.RequestError.incompatibleProtocol {
+            precondition(oldWire.sends == 1,
+                "a missing trend capability must reject before the windowed wire send")
+        }
 
         let multi = SteamWorkshopBrowseFacetFilters(themes: [.anime, .nature],
             ageRating: .everyone, resolutions: [.uhd4k, .fhd])

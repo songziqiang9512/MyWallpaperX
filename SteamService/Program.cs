@@ -67,7 +67,8 @@ internal static class Program
     {
         steamSession.ProcessEpoch = 1;
         writer.Send(ProtocolMessages.Ready(
-            1, ["ping", "shutdown", SteamSession.StagingAcknowledgementCapability]));
+            1, ["ping", "shutdown", SteamSession.StagingAcknowledgementCapability,
+                SteamSession.TrendDaysCapability]));
 
         using var stdin = Console.OpenStandardInput();
         var reader = new FrameReader(stdin);
@@ -243,14 +244,25 @@ internal static class Program
                 return;
             }
             case "queryBrowse":
+            {
+                var trendDays = decode.PayloadUInt("days");
+                if (decode.HasPayloadField("days") && trendDays is null)
+                {
+                    if (!terminals.TryBegin(requestId)) return;
+                    writer.Send(ProtocolMessages.ResultError(
+                        requestId, "protocolMismatch", "queryBrowse payload.days must be an unsigned integer", 1));
+                    return;
+                }
                 steamSession.BeginQueryBrowse(
                     requestId,
                     decode.PayloadString("sort") ?? "trend",
                     decode.PayloadUInt("page") ?? 1,
                     decode.PayloadStringArray("tags"),
                     decode.PayloadString("search"),
+                    trendDays,
                     decode.PayloadStringArrayArray("tagGroups"));
                 return;
+            }
             case "queryDetails":
             {
                 var ids = decode.PayloadULongArray("ids");

@@ -28,7 +28,8 @@ class SteamQueryTests(unittest.TestCase):
  var source = SteamWorkshopSource.mySubscriptions
  var trendingWindow = SteamWorkshopTrendingWindow.allTime
  init(_ store: SteamKitBrowseStore) { steamKitBrowseStore = store }
-''' + projection.replace('private func steamKitPersonalPostProcess', 'func steamKitPersonalPostProcess') + '\n}\n' + store
+''' + projection.replace('private func steamKitStructuredPostProcess', 'func steamKitStructuredPostProcess')\
+    .replace('private func steamKitPersonalPostProcess', 'func steamKitPersonalPostProcess') + '\n}\n' + store
         with tempfile.TemporaryDirectory(prefix='mwx-steam-queries-') as folder:
             folder = pathlib.Path(folder)
             extracted = folder / 'ActualBrowseStore.swift'

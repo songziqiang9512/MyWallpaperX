@@ -12,11 +12,12 @@ namespace SteamService;
 // - 查询共享并发槽（MaxConcurrentQueries）；超出即排队，响应有界超时。
 // - Swift 侧以 queryGeneration+requestId 丢弃陈旧页；helper 不设查询取消命令，
 //   查询有界超时后必然出 terminal。
-// - 已知能力缺口（SK0.1 实测）：`days`（趋势时间窗）被服务端静默忽略，
-//   本类不发送该字段。分面筛选经 `taggroups` 开放（2026-09-16 实测：
+// - `days` 是 RankedByTrend 的排名区间，不改变 total，也不按发布时间
+//   过滤。分面筛选经 `taggroups` 开放（2026-09-16 实测：
 //   组内 OR、跨组 AND）；`filetype` 仍未实证，不开放。
 internal sealed partial class SteamSession
 {
+    internal const string TrendDaysCapability = "query-trend-days-v1";
     private const int MaxConcurrentQueries = 2;
     private const uint QueryPageSize = 30;
     private static readonly SemaphoreSlim QuerySlots = new(MaxConcurrentQueries, MaxConcurrentQueries);
@@ -35,12 +36,18 @@ internal sealed partial class SteamSession
     public void BeginQueryBrowse(
         string requestId, string sort, uint page,
         IReadOnlyList<string> requiredTags, string? searchText,
+        uint? trendDays,
         IReadOnlyList<IReadOnlyList<string>>? tagGroups = null)
     {
         // 输入校验前置：不合法排序不触发连接（typed unsupportedQuery）。
         if (!SortMap.TryGetValue(sort, out var queryType))
         {
             EmitQueryFailure(requestId, "unsupportedQuery", $"unknown sort: {sort}");
+            return;
+        }
+        if (!IsValidTrendDays(sort, trendDays))
+        {
+            EmitQueryFailure(requestId, "unsupportedQuery", "days require trend sort and range 1...365");
             return;
         }
         if (page == 0) page = 1;
@@ -82,6 +89,10 @@ internal sealed partial class SteamSession
             {
                 request.search_text = searchText;
             }
+            if (trendDays is { } days)
+            {
+                request.days = days;
+            }
             var response = await publishedFiles.QueryFiles(request)
                 .ToTask()
                 .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.QueryTimeoutSeconds), ct)
@@ -100,6 +111,9 @@ internal sealed partial class SteamSession
             };
         });
     }
+
+    private static bool IsValidTrendDays(string sort, uint? trendDays) =>
+        trendDays is null || (sort == "trend" && trendDays is >= 1 and <= 365);
 
     public void BeginQueryDetails(string requestId, IReadOnlyList<ulong> ids)
     {

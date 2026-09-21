@@ -12,9 +12,9 @@ import Foundation
 //   逆序/迟到响应按 generation 丢弃，已有页不清空。
 // - 同 key 刷新不闪回空白（保留旧页，轻量刷新状态）。
 // - 追加页失败保留已有页、冷却后滑动重试；三页以上按 ID 去重。
-// - 已知边界：`days` 时间窗服务端不支持（SK0.1 缺口）——时间窗在已加载项
-//   上按 timeCreated 后置过滤。分面筛选（类型/分级/分辨率/分类）已于
-//   2026-09-16 经 `taggroups` 实测开放：discovery 服务端执行（面内 OR、
+// - `days` 是 trend 排序的远端排名区间，不是发布时间过滤；由 QueryKey
+//   贯穿 Swift IPC 到 helper，不得按 timeCreated 删除已返回作品。分面筛选
+//   （类型/分级/分辨率/分类）已于 2026-09-16 经 `taggroups` 实测开放：discovery 服务端执行（面内 OR、
 //   跨面 AND），author/personal 由 steamKitApplyKeyTagFilters 客户端后筛。
 // - 详情批条目自带网格所需字段（标题/预览/标签/大小/更新时间），
 //   打开详情面板仍走既有按 ID 补全路径。
@@ -407,7 +407,6 @@ extension SteamWorkshopService {
         if steamKitBrowseStore.currentKey?.route == .personal {
             statusMessage += " 排序和筛选仅作用于已加载项目。"
         }
-        else if steamKitWindowCutoffInterval != nil { statusMessage += " 时间筛选仅作用于已加载项目。" }
         let errors = steamKitBrowseStore.partialErrors
         guard !errors.isEmpty else { return }
         let ids = errors.prefix(5).map(\.publishedFileId).joined(separator: "、")
@@ -424,7 +423,7 @@ extension SteamWorkshopService {
         case .author:
             return steamKitApplyKeyTagFilters(items, key: key)
         case .discovery:
-            return steamKitPostFilter(steamKitApplyKeyTagFilters(items, key: key))
+            return steamKitApplyKeyTagFilters(items, key: key)
         case .personal:
             return steamKitPersonalPostProcess(items)
         }
@@ -453,7 +452,7 @@ extension SteamWorkshopService {
     private func steamKitPersonalPostProcess(
         _ items: [SteamWorkshopQueryItem]
     ) -> [SteamWorkshopQueryItem] {
-        var result = steamKitPostFilter(items)
+        var result = items
         let key = steamKitBrowseStore.currentKey
         if let key {
             result = steamKitApplyKeyTagFilters(result, key: key)
@@ -475,30 +474,6 @@ extension SteamWorkshopService {
         return result
     }
 
-    /// 客户端后置过滤：趋势时间窗按 timeCreated（服务端 days 字段不可用）。
-    /// 只对支持时间段的来源生效——旧 route 的 days 仅 featured 应用，
-    /// 其余来源时间段选择器是禁用的，残留窗口值不得截断列表。
-    private func steamKitPostFilter(
-        _ items: [SteamWorkshopQueryItem]
-    ) -> [SteamWorkshopQueryItem] {
-        guard let cutoffInterval = steamKitWindowCutoffInterval else { return items }
-        return items.filter { ($0.timeCreated ?? 0) >= cutoffInterval }
-    }
-
-    private var steamKitWindowCutoffInterval: Int? {
-        guard source.supportsTimeRange else { return nil }
-        let day = 86_400.0
-        let now = Date().timeIntervalSince1970
-        switch trendingWindow {
-        case .today: return Int(now - day)
-        case .week: return Int(now - 7 * day)
-        case .month: return Int(now - 30 * day)
-        case .quarter: return Int(now - 91 * day)
-        case .halfYear: return Int(now - 182 * day)
-        case .year: return Int(now - 365 * day)
-        case .allTime: return nil
-        }
-    }
 }
 
 /// 查询条目 → 网格模型：新 route 条目自带网格所需字段；缺失的详情
@@ -675,7 +650,9 @@ final class SteamKitBrowseStore {
         /// 分面筛选组合参与键：任一面变化必然换键重置分页。
         let filters: SteamWorkshopBrowseFacetFilters
         let search: String
-        let trendingWindowRaw: String
+        /// RankedByTrend interval. This changes remote ordering only and must
+        /// never be interpreted as a local publication-date cutoff.
+        let trendDays: Int?
         /// SK3.3 个人来源：来源与个人排序参与键；discovery 键两者为 nil。
         let source: SteamWorkshopSource?
         let personalSortRaw: String?
@@ -717,9 +694,7 @@ final class SteamKitBrowseStore {
             contentTypeTags: contentMode.queryTags,
             filters: filters,
             search: search,
-            // 键与旧 route 的缓存键语义一致：不支持时间段的来源固定 "na"，
-            // 避免残留窗口值造成假性键变化。
-            trendingWindowRaw: source.supportsTimeRange ? window.rawValue : "na",
+            trendDays: source.supportsTimeRange ? window.rankingDays : nil,
             source: nil,
             personalSortRaw: nil,
             accountSteamID: nil
@@ -744,9 +719,7 @@ final class SteamKitBrowseStore {
             contentTypeTags: contentMode.queryTags,
             filters: filters,
             search: search,
-            // 个人来源不支持时间段（supportsTimeRange 仅 featured），与 makeKey
-            // 一致固定 "na"，避免残留窗口值造成假性键变化。
-            trendingWindowRaw: source.supportsTimeRange ? window.rawValue : "na",
+            trendDays: source.supportsTimeRange ? window.rankingDays : nil,
             source: source,
             personalSortRaw: personalSort.rawValue,
             accountSteamID: accountSteamID
@@ -764,7 +737,7 @@ final class SteamKitBrowseStore {
             contentTypeTags: contentMode.queryTags,
             filters: filters,
             search: "",
-            trendingWindowRaw: "na",
+            trendDays: nil,
             source: nil,
             personalSortRaw: nil,
             accountSteamID: nil
@@ -778,7 +751,7 @@ final class SteamKitBrowseStore {
             contentTypeTags: [],
             filters: .none,
             search: "",
-            trendingWindowRaw: "na",
+            trendDays: nil,
             source: nil,
             personalSortRaw: nil,
             accountSteamID: nil
@@ -853,7 +826,8 @@ final class SteamKitBrowseStore {
                 page: page,
                 tags: key.contentTypeTags.count == 1 ? key.contentTypeTags : [],
                 tagGroups: (key.contentTypeTags.count > 1 ? [key.contentTypeTags] : []) + key.filters.tagGroups,
-                search: key.search
+                search: key.search,
+                trendDays: key.trendDays
             )
         case .author(let creatorSteamID):
             result = try await queryClient.author(creatorSteamId: creatorSteamID, page: page)

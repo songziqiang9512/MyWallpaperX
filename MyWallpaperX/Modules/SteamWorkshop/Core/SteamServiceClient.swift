@@ -311,6 +311,7 @@ final class SteamServiceClient {
         attempt: Int? = nil,
         payload: SteamServiceJSON? = nil,
         private privatePayload: SteamServiceJSON? = nil,
+        requiredCapability: String? = nil,
         timeout: TimeInterval? = SteamServiceProtocol.requestTimeout,
         awaitRemoteTerminalAcrossAccountEpochChanges: Bool = false
     ) async throws -> SteamServiceFrame {
@@ -329,8 +330,8 @@ final class SteamServiceClient {
         guard case .ready(let identity) = state, let transport else {
             throw RequestError.notReady
         }
-        if command == "startDownload",
-           !identity.capabilities.contains(SteamServiceProtocol.stagingAcknowledgementCapability) {
+        if let requiredCapability,
+           !identity.capabilities.contains(requiredCapability) {
             throw RequestError.incompatibleProtocol
         }
         guard !accountScoped || capturedEpoch == accountEpoch else { throw RequestError.cancelled }

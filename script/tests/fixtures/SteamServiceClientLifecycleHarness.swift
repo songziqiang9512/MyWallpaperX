@@ -11,6 +11,10 @@ final class FakeSteamTransport: SteamServiceTransporting {
     var requests: [[String: Any]] = []
     var terminated = false
     var startThrows = false
+    var advertisedCapabilities = [
+        SteamServiceProtocol.stagingAcknowledgementCapability,
+        SteamServiceProtocol.trendDaysCapability,
+    ]
     var staleTermination: ((Int32) -> Void)?
     func start() throws {
         if startThrows {
@@ -21,7 +25,7 @@ final class FakeSteamTransport: SteamServiceTransporting {
         if readyOnStart {
             emit([
                 "v": 1, "type": "ready", "protocol": 1, "helperVersion": "0.1.0",
-                "capabilities": [SteamServiceProtocol.stagingAcknowledgementCapability],
+                "capabilities": advertisedCapabilities,
             ])
         }
     }
@@ -55,6 +59,18 @@ final class FakeSteamTransport: SteamServiceTransporting {
         let client = SteamServiceClient(executablePath: "/fake", transportFactory: { _ in first })
         let response = try await client.request(command: "queryBrowse")
         precondition(response.ok == true && first.sends == 1, "cold public request/synchronous reply")
+
+        let incompatible = FakeSteamTransport()
+        incompatible.advertisedCapabilities = []
+        let incompatibleClient = SteamServiceClient(
+            executablePath: "/fake", transportFactory: { _ in incompatible })
+        do {
+            _ = try await incompatibleClient.request(
+                command: "queryBrowse", requiredCapability: SteamServiceProtocol.trendDaysCapability)
+            fatalError("missing required capability accepted")
+        } catch SteamServiceClient.RequestError.incompatibleProtocol {
+            precondition(incompatible.sends == 0, "capability rejection must precede wire send")
+        }
 
         first.replyOnSend = false
         let pending = Task { try await client.request(command: "ping", timeout: nil) }

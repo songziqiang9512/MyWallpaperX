@@ -34,6 +34,12 @@ internal sealed partial class SteamSession
         using var partial = JsonDocument.Parse(JsonSerializer.Serialize(mapped.PartialErrors[0]));
         Check(partial.RootElement.GetProperty("publishedfileid").GetString() == "456");
         Check(SortMap["updated"] == 21);
+        Check(IsValidTrendDays("trend", null));
+        Check(IsValidTrendDays("trend", 1));
+        Check(IsValidTrendDays("trend", 365));
+        Check(!IsValidTrendDays("trend", 0));
+        Check(!IsValidTrendDays("trend", 366));
+        Check(!IsValidTrendDays("newest", 7));
         var named = MapItems([valid], new Dictionary<ulong, string> { [valid.creator] = "海岸作者" });
         using var namedItem = JsonDocument.Parse(JsonSerializer.Serialize(named.Items[0]));
         Check(namedItem.RootElement.GetProperty("creatorName").GetString() == "海岸作者");
