@@ -13,28 +13,52 @@ class SteamDownloadExecutionTests(unittest.TestCase):
         cls.build = tempfile.TemporaryDirectory(prefix='mwx-steam-execution-build-')
         folder = pathlib.Path(cls.build.name)
         source = (CORE / 'SteamWorkshopService+DownloadLibrarySync.swift').read_text()
-        def extract_function(signature):
-            start = source.index(signature)
-            opening = source.index('{', start)
+        def extract_function(contents, signature):
+            start = contents.index(signature)
+            opening = contents.index('{', start)
             depth = 0
-            for index in range(opening, len(source)):
-                if source[index] == '{':
+            for index in range(opening, len(contents)):
+                if contents[index] == '{':
                     depth += 1
-                elif source[index] == '}':
+                elif contents[index] == '}':
                     depth -= 1
                     if depth == 0:
-                        return source[start:index + 1]
+                        return contents[start:index + 1]
             raise AssertionError('unterminated Swift function: ' + signature)
         methods = []
-        for name in ('publishDownloadedVersion', 'managedDownloadSnapshots', 'loadManagedDownloadSnapshots'):
-            methods.append(extract_function('    func ' + name + '('))
-        migration = extract_function('    private func scheduleLegacyLibraryPublicationMigration(')
+        for name in (
+            'publishDownloadedVersion',
+            'managedDownloadSnapshots',
+            'loadManagedDownloadSnapshots',
+            'loadLegacyVideoDownloadSnapshot',
+        ):
+            methods.append(extract_function(source, '    func ' + name + '('))
+        methods.append(extract_function(
+            source, '    func downloadMetadataFileURL(forVideoURL videoURL:'
+        ))
+        migration = extract_function(source, '    private func scheduleLegacyLibraryPublicationMigration(')
         methods.append(migration.replace('    private func ', '    func ', 1))
+        selection = (CORE / 'SteamWorkshopService+DownloadSelection.swift').read_text()
+        for signature in (
+            '    func deleteDownload(itemID:',
+            '    private func deleteDownloads(',
+            '    private func deleteDownloadIfPossible(',
+            '    private func legacyDownloadSnapshot(',
+        ):
+            method = extract_function(selection, signature)
+            methods.append(method.replace('    private func ', '    func ', 1))
         publisher = folder / 'Publisher.swift'
-        publisher.write_text('import Foundation\nextension SteamWorkshopService {\n' + '\n'.join(methods) + '\n}')
+        publisher.write_text(
+            'import AppKit\nextension SteamWorkshopService {\n'
+            'func downloadMetadataIndexDirectoryURL() -> URL { '
+            'steamDownloadLibraryRootURL.appendingPathComponent('
+            '".mywallpaperx-steam-metadata", isDirectory: true) }\n'
+            + '\n'.join(methods) + '\n}'
+        )
         cls.binary = folder / 'execution'
         subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *map(str, SOURCES),
                         str(CORE / 'SteamWorkshopService+Downloads.swift'), str(publisher),
+                        str(ROOT / 'script/tests/fixtures/SteamReadyUpdateDeletionFixture.swift'),
                         str(ROOT / 'script/tests/fixtures/SteamDownloadExecutionHarness.swift'), '-o', str(cls.binary)],
                        check=True, timeout=120)
 
@@ -111,6 +135,33 @@ class SteamDownloadExecutionTests(unittest.TestCase):
 
     def test_cancel_sends_exact_job_and_does_not_publish(self):
         self.run_case('cancel')
+
+    def test_deleting_ready_item_cancels_active_update_before_tombstone(self):
+        self.run_case('ready-update-delete')
+
+    def test_delete_preserves_ready_pointer_when_update_cancellation_cannot_persist(self):
+        self.run_case('ready-update-delete-save-failure')
+
+    def test_delete_keeps_tombstone_when_cancelled_staging_cleanup_fails(self):
+        self.run_case('ready-update-delete-cleanup-failure')
+
+    def test_delete_tombstones_legacy_direct_ready_without_unlinking_content(self):
+        self.run_case('ready-update-delete-legacy')
+
+    def test_delete_finds_legacy_video_metadata_by_exported_basename(self):
+        self.run_case('ready-update-delete-legacy-video')
+
+    def test_numeric_legacy_video_alias_does_not_block_managed_index(self):
+        self.run_case('ready-update-delete-legacy-video-numeric-alias')
+
+    def test_commit_bearing_legacy_video_alias_fails_before_cancellation_or_tombstone(self):
+        self.run_case('ready-update-delete-legacy-video-commit-bearing-alias')
+
+    def test_delete_publish_failure_keeps_legacy_video_pointer_and_content(self):
+        self.run_case('ready-update-delete-legacy-video-publish-failure')
+
+    def test_delete_fails_closed_when_ready_metadata_is_corrupt(self):
+        self.run_case('ready-update-delete-metadata-failure')
 
     def test_switch_rejects_old_result(self):
         self.run_case('switch')

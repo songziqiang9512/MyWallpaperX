@@ -299,7 +299,7 @@ final class SteamWorkshopService: ObservableObject {
     let maximumConcurrentDownloads = 2
     var activeDownloadJobKeysByItemID: [String: String] = [:]
     var activeDownloadTasks: [String: Task<Void, Never>] = [:]
-    var cancelledDownloadJobKeys: Set<String> = []
+    var cancellationFeedbackByDownloadJobKey: [String: Bool] = [:]
     var reservedLibraryCopyBytesByJobKey: [String: Int64] = [:]
     let downloadProgressStore = SteamWorkshopDownloadProgressStore()
     let steamLibraryVersionLeaseRegistry = SteamWorkshopLibraryVersionLeaseRegistry()

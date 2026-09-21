@@ -983,10 +983,10 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         )
     }
 
-    /// Reads the single published ready index without following metadata links.
-    /// Invalid/unrelated direct children are ignored; page/view lifecycle is not
-    /// part of ready discovery.
-    static func publishedMetadata(libraryRoot: URL, requireComplete: Bool = false) throws -> [String: Data] {
+    static func publishedMetadata(libraryRoot: URL, requireComplete: Bool = false,
+                                  matchingItemID: String? = nil, matchingFilename: String? = nil) throws -> [String: Data] {
+        if let matchingFilename { try require(matchingFilename.utf8.count <= 255
+            && matchingFilename.hasSuffix(".json") && !matchingFilename.contains("/") && !matchingFilename.utf8.contains(0)) }
         let library: FD
         do {
             library = try absoluteDirectory(libraryRoot)
@@ -1004,9 +1004,9 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         var result: [String: Data] = [:]
         for name in try childNames(index, limit: 100_000) {
             try Task.checkCancellation()
-            guard name.hasSuffix(".json") else { continue }
+            guard name.hasSuffix(".json"), matchingFilename == nil || matchingFilename == name else { continue }
             let itemID = String(name.dropLast(5))
-            guard validID(itemID) else { continue }
+            guard (matchingFilename != nil || validID(itemID)), matchingItemID == nil || matchingItemID == itemID else { continue }
             do {
                 let file = try openFile(index, name)
                 result[itemID] = try readData(file, maximumBytes: 4 * 1024 * 1024)

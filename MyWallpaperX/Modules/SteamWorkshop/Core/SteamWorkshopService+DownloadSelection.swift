@@ -233,52 +233,73 @@ extension SteamWorkshopService {
     @discardableResult
     private func deleteDownloadIfPossible(itemID: String) -> Bool {
         guard let record = latestDownloadRecord(for: itemID) else { return false }
+        var readySnapshot: SteamWorkshopDownloadMetadataSnapshot?
         switch record.status {
         case .queued, .downloading:
             NSSound.beep()
             return false
-        case .ready, .failed:
-            break
+        case .ready:
+            do {
+                readySnapshot = try loadManagedDownloadSnapshots(
+                    requireComplete: true,
+                    matchingItemID: itemID,
+                    includeLegacy: true
+                )[itemID]
+                if readySnapshot == nil {
+                    readySnapshot = try loadLegacyVideoDownloadSnapshot(matching: record)
+                }
+            } catch {
+                statusMessage = "移除失败：下载记录无法安全读取；内容保持不变。"
+                return false
+            }
+            guard let snapshot = readySnapshot else {
+                statusMessage = "移除失败：旧版下载缺少可验证元数据；内容保持不变。"
+                return false
+            }
+            if snapshot.commit == nil, !legacyDownloadSnapshot(snapshot, matches: record) {
+                statusMessage = "移除失败：旧版下载身份不一致；内容保持不变。"
+                return false
+            }
+        case .failed:
+            if let account = steamAuth.steamId,
+               let job = downloadJobStore.failedJob(forWorkshopItemId: itemID, accountSteamId: account) {
+                discardFailedDownload(jobID: job.id)
+                guard downloadJobStore.job(id: job.id)?.state == .cancelled else { return false }
+            }
         }
 
-        let fileManager = FileManager.default
-        if case .failed = record.status,
-           let account = steamAuth.steamId,
-           let job = downloadJobStore.failedJob(forWorkshopItemId: itemID, accountSteamId: account) {
-            discardFailedDownload(jobID: job.id)
-            guard downloadJobStore.job(id: job.id)?.state == .cancelled else { return false }
-        }
-        if var snapshot = managedDownloadSnapshots()[itemID], var commit = snapshot.commit {
-            commit.removed = true
-            snapshot.commit = commit
+        if var snapshot = readySnapshot {
+            // A ready deletion fences any update durably before publishing its
+            // tombstone, then reuses the one physical helper cancellation owner.
+            if let activeJob = downloadJobStore.activeJob(forWorkshopItemId: itemID) {
+                guard downloadJobStore.cancel(id: activeJob.id) != nil else {
+                    statusMessage = "移除失败：下载任务取消状态无法保存，请重试。"
+                    return false
+                }
+                steamJobItemPayloads.removeValue(forKey: itemID)
+                cancelDownloadImmediately(itemID: itemID, showFeedback: false)
+                scheduleTerminalDownloadCleanup()
+            }
+            if var commit = snapshot.commit {
+                commit.removed = true
+                snapshot.commit = commit
+            } else {
+                snapshot.legacyRemoved = true
+            }
             do {
-                try SteamWorkshopLibraryTransaction.publish(metadata: JSONEncoder().encode(snapshot),
-                    itemID: itemID, libraryRoot: steamDownloadLibraryRootURL)
+                try SteamWorkshopLibraryTransaction.publish(
+                    metadata: JSONEncoder().encode(snapshot),
+                    itemID: itemID,
+                    libraryRoot: steamDownloadLibraryRootURL
+                )
             } catch {
                 statusMessage = "移除失败：\(error.localizedDescription)"
                 return false
             }
-            // Preserve immutable content until no playback owner can reference it. No live-file deletion.
-        } else if record.contentType == .video {
-            if let videoURL = record.exportedVideoURL ?? record.sourceVideoURL,
-               fileManager.fileExists(atPath: videoURL.path) {
-                try? fileManager.removeItem(at: videoURL)
-            }
-        } else if fileManager.fileExists(atPath: record.folderURL.path),
-                  record.folderURL.lastPathComponent == itemID,
-                  (record.folderURL.deletingLastPathComponent() == webLibraryRootURL
-                   || record.folderURL.deletingLastPathComponent() == sceneLibraryRootURL) {
-            try? fileManager.removeItem(at: record.folderURL)
-        }
-        if managedDownloadSnapshots()[itemID] == nil {
-            try? fileManager.removeItem(at: downloadMetadataFileURL(for: record))
+            // Managed and legacy direct content both remain until a playback-aware owner can reclaim them.
         }
 
         downloads.removeAll { $0.id == itemID }
-        // SK4.1：删除本地项时取消其排队任务（JobStore 真值）。
-        if let job = downloadJobStore.activeJob(forWorkshopItemId: itemID) {
-            downloadJobStore.cancel(id: job.id)
-        }
         if selectedDownloadID == itemID {
             selectedDownloadID = nil
         }
@@ -288,5 +309,22 @@ extension SteamWorkshopService {
         }
         syncDownloadsInspectorSelectionIfNeeded()
         return true
+    }
+
+    private func legacyDownloadSnapshot(
+        _ snapshot: SteamWorkshopDownloadMetadataSnapshot,
+        matches record: SteamWorkshopDownloadRecord
+    ) -> Bool {
+        guard snapshot.commit == nil, snapshot.item.id == record.id else { return false }
+        switch record.contentType {
+        case .video:
+            guard let snapshotURL = snapshot.exportedVideoURL,
+                  let recordURL = record.exportedVideoURL ?? record.sourceVideoURL else { return false }
+            return snapshotURL.standardizedFileURL == recordURL.standardizedFileURL
+        case .web, .scene:
+            return snapshot.legacyFolderURL?.standardizedFileURL == record.folderURL.standardizedFileURL
+        case .unknown:
+            return false
+        }
     }
 }

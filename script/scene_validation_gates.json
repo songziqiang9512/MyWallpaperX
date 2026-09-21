@@ -277,9 +277,15 @@
       "patterns": [
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamServiceProtocol.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamServiceClient.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopAPIModels.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryTransaction.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopQueryClient.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadLibrarySync.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadSelection.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Downloads.swift",
         "script/tests/fixtures/SteamDownloadExecutionHarness.swift",
+        "script/tests/fixtures/SteamReadyUpdateDeletionFixture.swift",
         "script/tests/fixtures/SteamServiceClientLifecycleHarness.swift"
       ],
       "modules": [

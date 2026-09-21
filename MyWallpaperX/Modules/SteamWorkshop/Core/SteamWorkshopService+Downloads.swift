@@ -212,7 +212,7 @@ extension SteamWorkshopService {
                         guard let self,
                               self.activeDownloadJobKeysByItemID[request.id] == key,
                               self.steamServiceClient.accountEpoch == epoch,
-                              !self.cancelledDownloadJobKeys.contains(key),
+                              self.cancellationFeedbackByDownloadJobKey[key] == nil,
                               let current = self.downloadJobStore.job(id: job.id),
                               current.isActive, current.attempt == job.attempt else { return }
                         do {
@@ -247,7 +247,7 @@ extension SteamWorkshopService {
             defer {
                 self.steamServiceClient.removeEventObserver(observer)
                 self.activeDownloadTasks[key] = nil
-                self.cancelledDownloadJobKeys.remove(key)
+                self.cancellationFeedbackByDownloadJobKey.removeValue(forKey: key)
                 self.reservedLibraryCopyBytesByJobKey[key] = nil
                 if self.activeDownloadJobKeysByItemID[request.id] == key {
                     self.activeDownloadJobKeysByItemID[request.id] = nil
@@ -376,7 +376,11 @@ extension SteamWorkshopService {
             } catch {
                 guard self.activeDownloadJobKeysByItemID[request.id] == key else { return }
                 var terminalError: Error = error
-                var cancelled = error is CancellationError || self.cancelledDownloadJobKeys.contains(key)
+                let cancellationShowsFeedback = self.cancellationFeedbackByDownloadJobKey[key] ?? true
+                let wasDurablyCancelled = self.downloadJobStore.job(id: job.id)?.state == .cancelled
+                var cancellationCleanupFailed = false
+                var cancelled = error is CancellationError
+                    || self.cancellationFeedbackByDownloadJobKey[key] != nil
                     || (error as? SteamServiceClient.RequestError) == .cancelled
                 let invalidRecovery: Bool = {
                     guard case let .helperError(code, _) = error as? SteamServiceClient.RequestError else {
@@ -393,10 +397,14 @@ extension SteamWorkshopService {
                             _ = self.downloadJobStore.apply(.recoveryInvalidated, toID: job.id)
                         }
                     } catch {
-                        cancelled = false
                         terminalError = SteamWorkshopLibraryTransaction.Failure(
                             message: "下载已停止，但暂存目录无法安全清理：\(error.localizedDescription)"
                         )
+                        if wasDurablyCancelled {
+                            cancellationCleanupFailed = true
+                        } else {
+                            cancelled = false
+                        }
                     }
                 }
                 let failureMessage = self.downloadFailureMessage(terminalError)
@@ -407,6 +415,9 @@ extension SteamWorkshopService {
                 if cancelled {
                     self.removeTransientRecord(id: request.id)
                     self.downloadProgressStore.clear(itemID: request.id, jobKey: key)
+                    if cancellationCleanupFailed {
+                        self.downloadError = failureMessage
+                    }
                 } else {
                     self.upsertTransientRecord(
                         id: request.id,
@@ -418,7 +429,11 @@ extension SteamWorkshopService {
                     self.downloadProgressStore.fail(itemID: request.id, jobKey: key, message: failureMessage)
                 }
                 self.reloadInstalledItems()
-                self.statusMessage = cancelled ? "已取消下载。" : failureMessage
+                if cancelled {
+                    if cancellationShowsFeedback { self.statusMessage = "已取消下载。" }
+                } else {
+                    self.statusMessage = failureMessage
+                }
             }
         }
         activeDownloadTasks[key] = task
@@ -572,7 +587,7 @@ extension SteamWorkshopService {
         }
         guard !keys.isEmpty else { return }
         for key in keys {
-            cancelledDownloadJobKeys.insert(key)
+            cancellationFeedbackByDownloadJobKey[key] = showFeedback
             activeDownloadTasks[key]?.cancel()
         }
         if showFeedback {

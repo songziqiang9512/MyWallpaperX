@@ -120,6 +120,10 @@ struct SteamWorkshopDownloadMetadataSnapshot: Codable {
     let previewRelativePath: String?
     let exportedVideoURL: URL?
     let legacyFolderURL: URL?
+    /// Legacy direct entries have no versioned commit. A durable tombstone
+    /// suppresses their scanner projection without unlinking content that an
+    /// existing playback owner may still reference.
+    var legacyRemoved: Bool? = nil
     var commit: SteamWorkshopLibraryCommit? = nil
 }
 

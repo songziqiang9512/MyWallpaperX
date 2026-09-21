@@ -1,5 +1,4 @@
 import Foundation
-
 struct SteamWorkshopBrowserItem: Codable { let id: String; let title: String; var fileSizeText: String? { nil } }
 struct SteamWorkshopPendingDownloadRequest { let id: String; let pageTitle: String?; let item: SteamWorkshopBrowserItem? }
 struct SteamWorkshopDownloadRecord {
@@ -11,7 +10,7 @@ struct SteamWorkshopDownloadRecord {
 // Data-only stand-ins isolate the real executor/publication methods from unrelated AppKit rendering.
 struct SteamWorkshopDownloadMetadataSnapshot: Codable {
     let fetchedAt: Date; let item: SteamWorkshopBrowserItem; let sourceVideoRelativePath: String?
-    let previewRelativePath: String?; let exportedVideoURL: URL?; let legacyFolderURL: URL?
+    let previewRelativePath: String?; let exportedVideoURL: URL?; let legacyFolderURL: URL?; var legacyRemoved: Bool? = nil
     var commit: SteamWorkshopLibraryCommit? = nil
 }
 @MainActor final class Auth { var steamId: String? = "76561198000000000"; var isOnline: Bool { steamId != nil } }
@@ -226,14 +225,14 @@ final class Transport: SteamServiceTransporting {
     var activeDownloadItemIDs: Set<String> = []
     var activeDownloadJobKeysByItemID: [String: String] = [:]
     var activeDownloadTasks: [String: Task<Void, Never>] = [:]
-    var cancelledDownloadJobKeys: Set<String> = []
+    var cancellationFeedbackByDownloadJobKey: [String: Bool] = [:]
     var reservedLibraryCopyBytesByJobKey: [String: Int64] = [:]
     var legacyLibraryPublicationMigrationTask: Task<Void, Never>?
     var statusMessage = ""; var downloadError: String?
     var isAuthenticating = false; var isLoginSheetPresented = false
     enum Phase { case credentials, awaitingGuardCode }; var authPhase = Phase.credentials
     var steamJobItemPayloads: [String: SteamWorkshopBrowserItem] = [:]
-    var downloads: [SteamWorkshopDownloadRecord] = []
+    var downloads: [SteamWorkshopDownloadRecord] = []; var selectedDownloadID: String?; var selectedDownloadIDs: Set<String> = []; var isDownloadsMultiSelectMode = false
     var reloads = 0
     init(base: URL, transport: Transport) {
         steamServiceClient = SteamServiceClient(executablePath: "/fake", transportFactory: { _ in transport })
@@ -285,7 +284,7 @@ final class Transport: SteamServiceTransporting {
         transport.failJobStoreBeforeAllocatedEvent = mode == "staging-save-failure"; transport.rejectStagingAcknowledgementWithIntegrity = mode == "staging-ack-timeout"
         transport.allocatedEventHasWrongAccountEpoch = mode == "allocated-wrong-account-epoch"; transport.allocatedEventOmitsAccountEpoch = mode == "allocated-missing-account-epoch"
         transport.allocatedEventHasWrongBirth = mode == "allocated-wrong-birth"; transport.terminalReceiptHasWrongBirth = mode == "terminal-wrong-birth"
-        transport.hold = ["cancel", "switch", "concurrent-cancel", "concurrent-success",
+        transport.hold = mode.hasPrefix("ready-update-delete") || ["cancel", "switch", "concurrent-cancel", "concurrent-success",
             "prebind-replacement", "legacy-v4-partial-retry", "allocated-wrong-account-epoch",
             "allocated-missing-account-epoch", "allocated-wrong-birth"].contains(mode)
         transport.replaceStagingBeforeProgress = mode == "prebind-replacement"
@@ -330,6 +329,7 @@ final class Transport: SteamServiceTransporting {
             try Data("replacement".utf8).write(to: oldURL.appendingPathComponent("sentinel"))
         }
         let service = SteamWorkshopService(base: base, transport: transport)
+        if try await service.runReadyUpdateDeletionFixtureIfNeeded(mode: mode, transport: transport) { return }
         if mode.hasPrefix("migration-") {
             let library = service.steamDownloadLibraryRootURL
             let legacyName = "11111111-1111-4111-8111-111111111111"

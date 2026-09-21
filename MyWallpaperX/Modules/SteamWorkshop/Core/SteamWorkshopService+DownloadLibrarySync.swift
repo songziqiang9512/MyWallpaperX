@@ -165,9 +165,15 @@ extension SteamWorkshopService {
         (try? loadManagedDownloadSnapshots(requireComplete: false)) ?? [:]
     }
 
-    func loadManagedDownloadSnapshots(requireComplete: Bool) throws -> [String: SteamWorkshopDownloadMetadataSnapshot] {
+    func loadManagedDownloadSnapshots(
+        requireComplete: Bool,
+        matchingItemID: String? = nil,
+        includeLegacy: Bool = false
+    ) throws -> [String: SteamWorkshopDownloadMetadataSnapshot] {
         let entries = try SteamWorkshopLibraryTransaction.publishedMetadata(
-            libraryRoot: steamDownloadLibraryRootURL, requireComplete: requireComplete
+            libraryRoot: steamDownloadLibraryRootURL,
+            requireComplete: requireComplete,
+            matchingItemID: matchingItemID
         )
         var result: [String: SteamWorkshopDownloadMetadataSnapshot] = [:]
         for (itemID, data) in entries {
@@ -175,7 +181,16 @@ extension SteamWorkshopService {
                 if requireComplete { throw SteamWorkshopLibraryTransaction.Failure(message: "下载索引不完整，已暂停版本回收。") }
                 continue
             }
-            guard let commit = snapshot.commit else { continue } // legacy metadata has no managed version
+            guard let commit = snapshot.commit else {
+                if includeLegacy || snapshot.legacyRemoved == true {
+                    guard snapshot.item.id == itemID else {
+                        if requireComplete { throw SteamWorkshopLibraryTransaction.Failure(message: "下载索引身份无效，已暂停版本回收。") }
+                        continue
+                    }
+                    result[itemID] = snapshot
+                }
+                continue
+            }
             guard commit.workshopId == snapshot.item.id,
                   itemID == commit.workshopId,
                   let content = try? SteamWorkshopLibraryTransaction.contentURL(for: commit, libraryRoot: steamDownloadLibraryRootURL),
@@ -186,6 +201,27 @@ extension SteamWorkshopService {
             result[commit.workshopId] = snapshot
         }
         return result
+    }
+
+    func loadLegacyVideoDownloadSnapshot(
+        matching record: SteamWorkshopDownloadRecord
+    ) throws -> SteamWorkshopDownloadMetadataSnapshot? {
+        guard record.contentType == .video,
+              let videoURL = record.exportedVideoURL ?? record.sourceVideoURL else { return nil }
+        let filename = downloadMetadataFileURL(forVideoURL: videoURL).lastPathComponent
+        let entries = try SteamWorkshopLibraryTransaction.publishedMetadata(
+            libraryRoot: steamDownloadLibraryRootURL,
+            requireComplete: true,
+            matchingFilename: filename
+        )
+        guard let data = entries[String(filename.dropLast(5))] else { return nil }
+        guard let snapshot = try? JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: data) else {
+            throw SteamWorkshopLibraryTransaction.Failure(message: "旧版视频下载索引不完整，拒绝移除。")
+        }
+        guard snapshot.commit == nil else {
+            throw SteamWorkshopLibraryTransaction.Failure(message: "旧版视频下载索引身份无效，拒绝移除。")
+        }
+        return snapshot
     }
 
     /// Upgrade the retired hidden v1 layout in the background. Copy and validation happen off the
