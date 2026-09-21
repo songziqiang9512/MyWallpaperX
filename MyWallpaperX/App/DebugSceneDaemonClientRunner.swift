@@ -20,6 +20,8 @@ enum DebugSceneDaemonClientRunner {
         "--mwx-debug-scene-properties-json"
     private static let stableDaemonClientFlag =
         "--mwx-debug-scene-daemon-stable"
+    private static let preserveAudioCaptureFlag =
+        "--mwx-debug-scene-preserve-audio-capture"
     private static let recordID = "debug-scene-daemon-client"
     private static let switchRecordID = "debug-scene-daemon-client-switch"
 
@@ -32,6 +34,9 @@ enum DebugSceneDaemonClientRunner {
     private static var didForceTerminate = false
     private static var didRequestSwitch = false
     private static var audioSpectrumDemand: SceneAudioSpectrumCaptureDemand?
+    private static var audioSpectrumDemandEvents: [
+        SceneAudioSpectrumCaptureDemand
+    ] = []
     private static var audioSpectrumPublications: [
         SceneDaemonAudioSpectrumPublication
     ] = []
@@ -178,8 +183,16 @@ enum DebugSceneDaemonClientRunner {
                         return
                     }
                     didRequestSwitch = true
-                    exerciseControlCommands()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    exerciseControlCommands(
+                        preservingAudioCapture:
+                            preservesAudioCaptureDuringSwitch
+                    )
+                    let switchDelay = preservesAudioCaptureDuringSwitch
+                        ? 2.0
+                        : 1.0
+                    DispatchQueue.main.asyncAfter(
+                        deadline: .now() + switchDelay
+                    ) {
                         let accepted = PlaybackCommandMultiplexer.shared.dispatch(
                             .loadScene(.init(
                                 rootURL: switchRootURL,
@@ -211,7 +224,7 @@ enum DebugSceneDaemonClientRunner {
                     return
                 }
                 didForceTerminate = true
-                exerciseControlCommands()
+                exerciseControlCommands(preservingAudioCapture: false)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                     let killed = SceneDaemonClient.shared
                         .debugForceTerminateDaemon()
@@ -240,6 +253,7 @@ enum DebugSceneDaemonClientRunner {
                 guard let demand = notification.object
                         as? SceneAudioSpectrumCaptureDemand else { return }
                 audioSpectrumDemand = demand
+                audioSpectrumDemandEvents.append(demand)
             }
         })
         observers.append(NotificationCenter.default.addObserver(
@@ -290,6 +304,8 @@ enum DebugSceneDaemonClientRunner {
             "recoveredAfterForcedTermination": recovered,
             "switchCompletedInSameDaemon": switchCompleted,
             "stableDaemonClientRequested": runsStableDaemonClient,
+            "preserveAudioCaptureDuringSwitch":
+                preservesAudioCaptureDuringSwitch,
             "sampleID": requestedSampleID,
             "startupPropertyOverrides": (
                 DebugScenePlaybackRunner.strictRequestedPropertyValues(
@@ -305,6 +321,14 @@ enum DebugSceneDaemonClientRunner {
                 ?? NSNull(),
             "audioSpectrumDemanded": observedDemand.requiresSpectrum,
             "audioSpectrumScopeEpoch": observedDemand.scopeEpoch,
+            "audioSpectrumDemandEvents": audioSpectrumDemandEvents.map {
+                [
+                    "requiresSpectrum": $0.requiresSpectrum,
+                    "includesCurrentProcessOutput":
+                        $0.includesCurrentProcessOutput,
+                    "scopeEpoch": $0.scopeEpoch
+                ] as [String: Any]
+            },
             "audioSpectrumPublicationCount": audioSpectrumPublications.count,
             "audioSpectrumPublicationPeaks": audioSpectrumPublications.map(\.peak),
             "failures": failures
@@ -370,6 +394,17 @@ enum DebugSceneDaemonClientRunner {
 
     private static var runsStableDaemonClient: Bool {
         ProcessInfo.processInfo.arguments.contains(stableDaemonClientFlag)
+    }
+
+    /// The general switch smoke deliberately exercises pause/resume, which
+    /// suspends the system tap by contract. Audio-demand continuity evidence
+    /// opts out of only those controls so an unexpected tap retirement cannot
+    /// be hidden by the runner itself.
+    private static var preservesAudioCaptureDuringSwitch: Bool {
+        switchRootURL != nil
+            && ProcessInfo.processInfo.arguments.contains(
+                preserveAudioCaptureFlag
+            )
     }
 
     private static var runsProductEntry: Bool {
@@ -454,7 +489,39 @@ enum DebugSceneDaemonClientRunner {
         )
     }
 
-    private static func exerciseControlCommands() {
+    private static func exerciseControlCommands(
+        preservingAudioCapture: Bool
+    ) {
+        DebugSceneDaemonSwitchControlPolicy.exercise(
+            preservingAudioCapture: preservingAudioCapture,
+            dispatchPropertyUpdate: dispatchRequestedPropertyUpdate,
+            dispatchPerformanceProfile: {
+                PlaybackCommandMultiplexer.shared.dispatch(
+                    .setPerformanceProfile(maxFPS: 30),
+                    to: .scene
+                )
+            },
+            dispatchAudioLifecycleControls: {
+                PlaybackCommandMultiplexer.shared.dispatch(
+                    .setMuted(true),
+                    to: .scene
+                )
+                PlaybackCommandMultiplexer.shared.dispatch(.pause, to: .scene)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    PlaybackCommandMultiplexer.shared.dispatch(
+                        .setMuted(false),
+                        to: .scene
+                    )
+                    PlaybackCommandMultiplexer.shared.dispatch(
+                        .resume,
+                        to: .scene
+                    )
+                }
+            }
+        )
+    }
+
+    private static func dispatchRequestedPropertyUpdate() {
         if let propertyKey = argumentValue(after: propertyKeyFlag),
            let propertyValue = debugPropertyValue {
             let propertyAccepted = PlaybackCommandMultiplexer.shared.dispatch(
@@ -470,16 +537,6 @@ enum DebugSceneDaemonClientRunner {
                 propertyKey,
                 propertyAccepted ? "true" : "false"
             )
-        }
-        PlaybackCommandMultiplexer.shared.dispatch(
-            .setPerformanceProfile(maxFPS: 30),
-            to: .scene
-        )
-        PlaybackCommandMultiplexer.shared.dispatch(.setMuted(true), to: .scene)
-        PlaybackCommandMultiplexer.shared.dispatch(.pause, to: .scene)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            PlaybackCommandMultiplexer.shared.dispatch(.setMuted(false), to: .scene)
-            PlaybackCommandMultiplexer.shared.dispatch(.resume, to: .scene)
         }
     }
 

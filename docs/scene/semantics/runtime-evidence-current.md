@@ -8,7 +8,7 @@
 
 > 状态：现役证据入口
 >
-> 最近专项核对：2026-09-21（当前HEAD签名Debug App的普通system tap、受控外部声源与120样本产品入口基线；三个作者属性门控的音频consumer已用typed启动override做默认/启用配对；余下41个默认no-demand声明关系已按官方启用合同和live census闭合为40个未作者激活的Shake/Pulse schema与1个缺mode的particle负例；跨4个已登记Debug可执行身份的78个作者可达publication保存日志先守恒为77项material/SceneScript非零consumer事件与1项particle component执行观测缺口，随后当前候选已对该particle-only样本补到实际component非零求值事件，但仍不是单一当前候选重跑78项；同一QuickJS owner组合cursor event与AudioBuffers的公共demand/同帧刷新缺口又在当前候选闭合，真实`3238423642:917`证明owner collision消除与非零audio publication，但轨迹没有命中该layer，故不冒充真实cursor callback；共享system-audio analyzer频段分布与长时右半更新、组合media+audio owner，以及`WEVector`环形频谱公共修复在四个真实样本中的consumer执行仍按各自身份保留）。各证据仍以自身日期与构建身份为准。
+> 最近专项核对：2026-09-21（当前HEAD签名Debug App的普通system tap、受控外部声源与120样本产品入口基线；三个作者属性门控的音频consumer已用typed启动override做默认/启用配对；余下41个默认no-demand声明关系已按官方启用合同和live census闭合为40个未作者激活的Shake/Pulse schema与1个缺mode的particle负例；跨4个已登记Debug可执行身份的78个作者可达publication保存日志先守恒为77项material/SceneScript非零consumer事件与1项particle component执行观测缺口，随后当前候选已对该particle-only样本补到实际component非零求值事件，但仍不是单一当前候选重跑78项；同一QuickJS owner组合cursor event与AudioBuffers的公共demand/同帧刷新缺口又在当前候选闭合，真实`3238423642:917`证明owner collision消除与非零audio publication，但轨迹没有命中该layer，故不冒充真实cursor callback；共享system-audio analyzer频段分布与长时右半更新、组合media+audio owner，以及`WEVector`环形频谱公共修复在四个真实样本中的consumer执行仍按各自身份保留；同daemon的`3780119725→2131872317`切换已证明已启动的generation 2跨真实particle-only场景保持单一true demand且不退休tap）。各证据仍以自身日期与构建身份为准。
 >
 > 本次审计分支：`codex/engine-refactor-program`。本页只回答“哪条能力在什么代码/产品身份下取得过哪一级证据”，不决定开发顺序；唯一执行路线见[Scene兼容执行路线](../scene-compatibility-roadmap.md)。旧证据包不因此取得当前构建的有效性。
 >
@@ -21,6 +21,20 @@
 自本次核对起，`docs/scene/evidence/`只作为仓库忽略的本机证据缓存，不再由Git跟踪。最终运行载荷可先通过`script/promote_scene_evidence.py`提纯并用逐文件manifest固定，再在本文记录输入、App、report/manifest identity、SHA-256和有界结论；权威文档不得链接或依赖该本机目录，缓存缺失时也不能用摘要冒充当前HEAD的fresh复现。`/private/tmp`只承载运行现场、重试和含第三方作者资源的不可提交fixture；本文此前保留的临时路径只作为当时provenance，文件可能已按产物治理清理。
 
 ## 1. 当前证据快照
+
+<a id="e-2026-09-21-audio-demand-switch-continuity"></a>
+
+### E-2026-09-21-AUDIO-DEMAND-SWITCH-CONTINUITY — surface rebuild未知期不再撤销旧音频需求
+
+**去重审计、根因与公共合同：**本批先读Q1.4现役队列、能力台账、运行证据和相关提交史，确认daemon采集桥、普通程序化产品入口、共享analyzer频段分布／右半长时更新、粒子consumer执行与cursor+audio owner均已有当前记录；没有重复改写这些能力。实际首断点是`SceneDesktopWallpaperHost.activate`在新surface尚未建立时固定传入`hasParticleAudioConsumer:false`：若旧场景已demand且新场景仅由粒子消费，会先清snapshot、推进scope epoch并退休App唯一tap，rebuild结束后再开启。现役`updateAudioSpectrumDemand`把该输入改为`Bool?`三态；material、vector/scalar/string/cursor SceneScript等prepared consumer仍可在rebuild前立即判定，只有“其他consumer为false且particle尚未知”才不写inbox，从而保留旧场景的完整demand和当前进程声源scope。surface成功后仍由同一helper提交实际particle结果；启动／切换与显示拓扑重建均通过同一demand-rebuild lifecycle seam，任一`rebuildSurfaces`失败都会调用`stop()`的完整teardown撤权。唯一链仍是`SystemAudioSpectrumService → SceneAudioSpectrumInbox → typed material/SceneScript/particle consumer`，没有样本／layer／path分支、第二owner或静默双执行。
+
+**行为门与证据runner：**删除了原先固化“rebuild前先传false”的源码形状期待；新的Swift harness直接编译生产`SceneDesktopWallpaperHost+AudioDemand.swift`，执行同一个demand-rebuild lifecycle seam，证明旧true→particle-only的unknown/true两阶段零更新、旧true→none只在resolved false时一次撤权、初始false→particle-only只在resolved true时一次开启、已知material+Sound可在unknown particle阶段开启并保留current-process scope，以及rebuild失败只调用一次stop并撤销旧demand。通用daemon switch runner原本会在首帧主动pause/mute，按合同令tap停止；DEBUG-only证据模式仍按原顺序发送请求的property update和性能档，只省略pause/mute，这一控制策略另由直接编译生产DEBUG policy的行为门执行。该模式只把切换固定延迟2秒，并不提供capture-ready保证；每次证据都必须由运行日志独立证明generation-before-switch。普通switch smoke、Release和产品分发均不改变。
+
+**最终构建与运行：**最终Developer ID Debug App为`com.songziqiang.MyWallpaperX` 2.0.9 (277)、Team`H9QWU9XN8R`，CDHash=`1ef4e6678fd08119ca5bc4c2078d6be8bac11237`，launcher/debug-dylib SHA-256=`f3b32a62f23e58612c22ca364f88444e4a9dc5ac8627be993e95a15469badea6 / cc8af730026059d7e09690290edfbd56a13ea9529d21a483d6f2bf358bab4619`，deep/strict验签与Debug build均通过。真实只读样本副本保持`3780119725` project/package SHA-256=`5aab4436376b20aa5e7a4c574769ba94b4acb6209ac40c1f20d273e58cf62546 / 712e522744c3122c91a6422217bd2707aa565e52496516ca06ed0acd88c56481`，真实particle-only author-reachable consumer `2131872317`保持`792dc49ad05238c38a46e9cc75341fa1085219e2ce7c85d61ba6798b8a24cb8f / 807e92359a5651602a7f2a8abbd1d7cfa621d7fc604d60030ff0bfd596154d72`。
+
+32秒隔离运行取得两个唯一request/first-present，均由daemon PID `24508`完成，`switchCompletedInSameDaemon=true`。typed demand事件只有一项`requiresSpectrum=true / includesCurrentProcessOutput=true / scopeEpoch=1`，没有false；App tap generation 2于`23:45:24.776`启动，切换命令于`23:45:25.701`发出，第二样本于`23:45:32.541`首帧，tap只在runner于`23:45:42.340`正常结束后停止。最终结果为706 rendered / 51 busy / 0 dropped / 0 fallback，`failures=[]`；一次publication只证明共享下游仍活动，不作固定声源或视觉因果结论。该运行与App/build/log载荷早于当前未提交的lifecycle seam与DEBUG control-policy；当前冻结源码追溯为tracked implementation diff `4f1b6cd8e3fbb1be27fc15decbac9d68d185ef02a4d13dd03b510c2df976470e`和新增policy blob `4769ec3f1598ab87f376ea76659cd912649ebd7a361078b1b7cb3cc252e03a49`，所以App identity不能冒充当前源码的fresh runtime。result/app-log/build-log/app-identity SHA-256=`6ba4c8ed91af3ec4c1fbe72abf741a09c2fd410d230a74340ed9e3607f449ec1 / 17e45387a75aec0703f27ade314dde32d641a27ff5995267cd3e1af0b3618aac / 56bc887b00551ea821227181fbe4dd44fe8e596a05cc5f556dbd6cd982a27616 / b0e7574a14434a9c57afdc1ff01a9032e4c34aa3abe94a3193e57ee7d8412e15`；ignored本机证据manifest SHA-256=`d6d292153ff4008eb7cae803d19495657428bdf7dd8b23dd7b3cb049af01dcc8`、412 KiB，不含App、Workshop package、runtime HOME/cache。
+
+**证据上限：**本批最高为`S3 DEBUG direct-client shared downstream demand/capture continuity`。它证明真实particle-only切换没有中间需求撤权、没有因切换退休已启动tap，并保持同daemon两次首帧；不等于普通UI／Steam卡片入口、粒子响应由音频导致的可见变化、其他audio→none／无Sound scope运行、真实rebuild failure、暂停／锁屏／睡眠／设备热插拔、长稳、全集或官方固定同输入parity。启动期generation 1→2是隔离进程中既有非Scene consumer到Scene route准入的scope epoch换代，发生在切换前且明确保留，不得删日志或伪装成切换连续性的一部分。
 
 <a id="e-2026-09-21-cursor-audio-owner-refresh"></a>
 

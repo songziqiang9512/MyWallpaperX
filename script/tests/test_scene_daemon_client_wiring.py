@@ -1,6 +1,9 @@
 """M5.4 product Scene control-plane wiring gates."""
 
 from pathlib import Path
+import shutil
+import subprocess
+import tempfile
 import unittest
 
 
@@ -158,6 +161,80 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
         self.assertIn("uniqueRequests.count >= 2 && uniquePIDs.count == 1", runner)
         switch_exit = runner.split("if switchRootURL != nil {", 1)[1]
         self.assertIn("NSApp.terminate(nil)", switch_exit)
+
+    @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
+    def test_audio_preserving_switch_keeps_non_audio_controls(self) -> None:
+        """Execute the production DEBUG switch-control policy."""
+        policy = (
+            ROOT
+            / "MyWallpaperX/App/DebugSceneDaemonSwitchControlPolicy.swift"
+        )
+        harness = r'''
+@main
+enum DebugSwitchControlPolicyHarness {
+    static func main() {
+        var preserved: [String] = []
+        DebugSceneDaemonSwitchControlPolicy.exercise(
+            preservingAudioCapture: true,
+            dispatchPropertyUpdate: { preserved.append("property") },
+            dispatchPerformanceProfile: { preserved.append("performance") },
+            dispatchAudioLifecycleControls: { preserved.append("audio") }
+        )
+        precondition(preserved == ["property", "performance"])
+
+        var ordinary: [String] = []
+        DebugSceneDaemonSwitchControlPolicy.exercise(
+            preservingAudioCapture: false,
+            dispatchPropertyUpdate: { ordinary.append("property") },
+            dispatchPerformanceProfile: { ordinary.append("performance") },
+            dispatchAudioLifecycleControls: { ordinary.append("audio") }
+        )
+        precondition(ordinary == ["property", "performance", "audio"])
+        print("debug-switch-control-policy-ok")
+    }
+}
+'''
+        with tempfile.TemporaryDirectory(
+            prefix="scene-debug-switch-control-policy-"
+        ) as temp:
+            temp_path = Path(temp)
+            harness_path = temp_path / "Harness.swift"
+            executable_path = temp_path / "Harness"
+            harness_path.write_text(harness, encoding="utf-8")
+            compile_result = subprocess.run(
+                [
+                    shutil.which("swiftc") or "swiftc",
+                    "-D",
+                    "DEBUG",
+                    str(policy),
+                    str(harness_path),
+                    "-o",
+                    str(executable_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(
+                compile_result.returncode,
+                0,
+                compile_result.stdout + compile_result.stderr,
+            )
+            run_result = subprocess.run(
+                [str(executable_path)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(
+                run_result.returncode,
+                0,
+                run_result.stdout + run_result.stderr,
+            )
+            self.assertEqual(
+                run_result.stdout.strip(),
+                "debug-switch-control-policy-ok",
+            )
 
     def test_pending_clear_requires_matching_record_identity(self) -> None:
         service = (

@@ -188,12 +188,16 @@ final class SceneDesktopWallpaperHost {
         sharedLayerAlphaRuntime = .init(
             program: context.sharedLayerAlphaProgram
         )
-        updateAudioSpectrumDemand(context, hasParticleAudioConsumer: false)
-        guard rebuildSurfaces(
-            resetClock: true,
-            teardownReason: teardownReason
+        guard rebuildSurfacesReconcilingAudioDemand(
+            context,
+            rebuild: {
+                rebuildSurfaces(
+                    resetClock: true,
+                    teardownReason: teardownReason
+                )
+            },
+            revokeLaunch: { stop() }
         ) else {
-            stop()
             throw SceneDesktopWallpaperHostLaunchError.noSurface
         }
         NSLog("MWX LAUNCH-STAGE: stage=activate-surfaces elapsedMs=%.0f", (CACurrentMediaTime() - activateStageStart) * 1000)
@@ -429,7 +433,12 @@ final class SceneDesktopWallpaperHost {
             Self.performanceLogger.info(
                 "Rebuilding Scene surfaces after screen topology change; old=\(self.screenTopology.count) new=\(topology.count)"
             )
-            _ = self.rebuildSurfaces()
+            guard let launchContext = self.launchContext else { return }
+            _ = self.rebuildSurfacesReconcilingAudioDemand(
+                launchContext,
+                rebuild: { self.rebuildSurfaces() },
+                revokeLaunch: { self.stop() }
+            )
         }
         screenReconciliationWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)

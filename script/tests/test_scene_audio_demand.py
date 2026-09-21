@@ -102,24 +102,242 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
             "consumer 真值决定需求，非空 Sound bindings 只扩大声源范围",
         )
 
-    def test_host_declares_demand_through_helper_before_rebuild(self) -> None:
-        host = HOST_SOURCE.read_text(encoding="utf-8")
-        activate = swift_body(
-            host,
-            "func activate(",
+    @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
+    def test_compiled_activation_demand_transitions_are_atomic(self) -> None:
+        """Run the production host demand helper through rebuild transitions."""
+        harness = r'''
+import Foundation
+
+struct SceneResolvedMaterialExecutionCapabilityCatalog {
+    let hasAudioSpectrumConsumer: Bool
+}
+
+struct StubScriptProgram {
+    let hasAudioConsumers: Bool
+}
+
+struct StubSoundProgram {
+    let bindings: [Int]
+}
+
+struct SceneDesktopWallpaperLaunchContext {
+    let resolvedMaterialExecutionCapabilities:
+        SceneResolvedMaterialExecutionCapabilityCatalog
+    let propertyVectorScriptProgram: StubScriptProgram
+    let sceneScriptScalarProgram: StubScriptProgram
+    let sceneScriptStringProgram: StubScriptProgram
+    let sceneScriptCursorProgram: StubScriptProgram
+    let soundPlaybackProgram: StubSoundProgram
+
+    init(
+        material: Bool = false,
+        script: Bool = false,
+        sound: Bool = false
+    ) {
+        resolvedMaterialExecutionCapabilities = .init(
+            hasAudioSpectrumConsumer: material
         )
-        demand_index = activate.index(
-            "updateAudioSpectrumDemand(context, hasParticleAudioConsumer: false)"
+        propertyVectorScriptProgram = .init(hasAudioConsumers: script)
+        sceneScriptScalarProgram = .init(hasAudioConsumers: false)
+        sceneScriptStringProgram = .init(hasAudioConsumers: false)
+        sceneScriptCursorProgram = .init(hasAudioConsumers: false)
+        soundPlaybackProgram = .init(bindings: sound ? [1] : [])
+    }
+}
+
+final class SceneAudioSpectrumInbox {
+    static let shared = SceneAudioSpectrumInbox()
+
+    struct Update: Equatable {
+        let demanded: Bool
+        let includesCurrentProcess: Bool
+    }
+
+    private(set) var current = Update(
+        demanded: false,
+        includesCurrentProcess: false
+    )
+    private(set) var updates: [Update] = []
+
+    func reset(demanded: Bool, includesCurrentProcess: Bool = false) {
+        current = Update(
+            demanded: demanded,
+            includesCurrentProcess: demanded && includesCurrentProcess
         )
-        rebuild_index = activate.index("guard rebuildSurfaces(")
-        self.assertNotIn("SceneAudioSpectrumInbox.shared.setDemand(", activate)
-        self.assertLess(
-            demand_index,
-            rebuild_index,
-            "launch 时必须在创建 surface 前经唯一 helper 声明需求",
+        updates = []
+    }
+
+    func setDemand(
+        _ demanded: Bool,
+        requiresCurrentProcessAudioCapture: Bool
+    ) {
+        let requested = Update(
+            demanded: demanded,
+            includesCurrentProcess:
+                demanded && requiresCurrentProcessAudioCapture
         )
-        self.assertIn("resetClock: true", activate[rebuild_index:])
-        self.assertIn("teardownReason: teardownReason", activate[rebuild_index:])
+        guard requested != current else { return }
+        current = requested
+        updates.append(requested)
+    }
+}
+
+final class SceneDesktopWallpaperHost {
+    var rebuildSucceeds = true
+    var resolvedParticleConsumer = false
+    private(set) var rebuildCalls = 0
+    private(set) var stopCalls = 0
+    var context: SceneDesktopWallpaperLaunchContext!
+
+    func rebuildSurfaces() -> Bool {
+        rebuildCalls += 1
+        guard rebuildSucceeds else { return false }
+        updateAudioSpectrumDemand(
+            context,
+            hasParticleAudioConsumer: resolvedParticleConsumer
+        )
+        return true
+    }
+
+    func stop() {
+        stopCalls += 1
+        SceneAudioSpectrumInbox.shared.setDemand(
+            false,
+            requiresCurrentProcessAudioCapture: false
+        )
+    }
+}
+
+@main
+enum AudioDemandTransitionHarness {
+    static func main() {
+        let host = SceneDesktopWallpaperHost()
+        let inbox = SceneAudioSpectrumInbox.shared
+        let particleOnly = SceneDesktopWallpaperLaunchContext()
+
+        inbox.reset(demanded: true)
+        host.context = particleOnly
+        host.resolvedParticleConsumer = true
+        precondition(host.rebuildSurfacesReconcilingAudioDemand(
+            particleOnly,
+            rebuild: host.rebuildSurfaces,
+            revokeLaunch: host.stop
+        ))
+        precondition(inbox.current.demanded)
+        precondition(inbox.updates.isEmpty)
+        precondition(host.rebuildCalls == 1)
+        precondition(host.stopCalls == 0)
+
+        inbox.reset(demanded: true)
+        let noConsumerHost = SceneDesktopWallpaperHost()
+        noConsumerHost.context = particleOnly
+        precondition(noConsumerHost.rebuildSurfacesReconcilingAudioDemand(
+            particleOnly,
+            rebuild: noConsumerHost.rebuildSurfaces,
+            revokeLaunch: noConsumerHost.stop
+        ))
+        precondition(!inbox.current.demanded)
+        precondition(inbox.updates == [.init(
+            demanded: false,
+            includesCurrentProcess: false
+        )])
+        precondition(noConsumerHost.rebuildCalls == 1)
+        precondition(noConsumerHost.stopCalls == 0)
+
+        inbox.reset(demanded: false)
+        let initialParticleHost = SceneDesktopWallpaperHost()
+        initialParticleHost.context = particleOnly
+        initialParticleHost.resolvedParticleConsumer = true
+        precondition(initialParticleHost.rebuildSurfacesReconcilingAudioDemand(
+            particleOnly,
+            rebuild: initialParticleHost.rebuildSurfaces,
+            revokeLaunch: initialParticleHost.stop
+        ))
+        precondition(inbox.current.demanded)
+        precondition(inbox.updates == [.init(
+            demanded: true,
+            includesCurrentProcess: false
+        )])
+
+        inbox.reset(demanded: false)
+        let materialAndSound = SceneDesktopWallpaperLaunchContext(
+            material: true,
+            sound: true
+        )
+        let knownConsumerHost = SceneDesktopWallpaperHost()
+        knownConsumerHost.context = materialAndSound
+        precondition(knownConsumerHost.rebuildSurfacesReconcilingAudioDemand(
+            materialAndSound,
+            rebuild: knownConsumerHost.rebuildSurfaces,
+            revokeLaunch: knownConsumerHost.stop
+        ))
+        precondition(inbox.current.demanded)
+        precondition(inbox.current.includesCurrentProcess)
+        precondition(inbox.updates == [.init(
+            demanded: true,
+            includesCurrentProcess: true
+        )])
+
+        inbox.reset(demanded: true, includesCurrentProcess: true)
+        let failedHost = SceneDesktopWallpaperHost()
+        failedHost.context = particleOnly
+        failedHost.rebuildSucceeds = false
+        precondition(!failedHost.rebuildSurfacesReconcilingAudioDemand(
+            particleOnly,
+            rebuild: failedHost.rebuildSurfaces,
+            revokeLaunch: failedHost.stop
+        ))
+        precondition(!inbox.current.demanded)
+        precondition(inbox.updates == [.init(
+            demanded: false,
+            includesCurrentProcess: false
+        )])
+        precondition(failedHost.rebuildCalls == 1)
+        precondition(failedHost.stopCalls == 1)
+
+        print("audio-demand-transition-ok")
+    }
+}
+'''
+        with tempfile.TemporaryDirectory(
+            prefix="scene-audio-demand-transition-"
+        ) as temp:
+            temp_path = Path(temp)
+            harness_path = temp_path / "AudioDemandTransitionHarness.swift"
+            executable_path = temp_path / "AudioDemandTransitionHarness"
+            harness_path.write_text(harness, encoding="utf-8")
+            compile_result = subprocess.run(
+                [
+                    shutil.which("swiftc") or "swiftc",
+                    str(DEMAND_SOURCE),
+                    str(harness_path),
+                    "-o",
+                    str(executable_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(
+                compile_result.returncode,
+                0,
+                compile_result.stdout + compile_result.stderr,
+            )
+            run_result = subprocess.run(
+                [str(executable_path)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(
+                run_result.returncode,
+                0,
+                run_result.stdout + run_result.stderr,
+            )
+            self.assertEqual(
+                run_result.stdout.strip(),
+                "audio-demand-transition-ok",
+            )
 
     def test_teardown_revokes_but_surface_reconciliation_preserves_demand(
         self,
