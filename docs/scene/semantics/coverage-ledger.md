@@ -1303,3 +1303,4 @@ layer `467#effect#480` 的 cutout-vignette 直接以 `varying vec3 v_TexCoord - 
 5. 开发开始顺序：先看[现役路线](../scene-compatibility-roadmap.md)的当前可见目标，再从本表和专题合同定位首断边；不得按本表行号或旧批次标签排队，也不得凭截图写视觉特判。
 6. 总表每行只允许一个本行摘要等级；若同一能力同时存在 IR、wired、executor 或 visible 子集，必须拆行或明确写成 bounded current + missing remainder，不能把不同专项的 `L`/`S` 拼成一个可比较等级。
 7. 每行至少要能追溯到专项表中的代码、测试和运行证据；只有 parser 或结构时不得写成执行支持。
+> **2026-09-22 策略门补记（Q1.4s）**：`systemAudioSpectrumEnabled` 现经 `WallpaperEngineCommand → PlaybackCommandMultiplexer` 广播到 Video/Web/Scene；Web/Scene 保留作者 demand，关闭时撤销共享 consumer 并由 Scene daemon 清除旧 inbox snapshot。该项已通过 57 项 focused gates 与隔离 Debug checkpoint build，其中包含 Inbox publication-gate 过渡行为门；少量全引擎接线检查仍是源码断言，仍不计人工 UI、三引擎同源实机电平、视觉 ROI、全集或官方 parity。

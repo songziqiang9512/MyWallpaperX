@@ -318,5 +318,11 @@ extension WallpaperManager {
             barCount: settings.systemAudioSpectrumBarCount,
             peakCapsEnabled: settings.systemAudioSpectrumPeakCapsEnabled
         )
+        // The detailed visual configuration remains owned by WallpaperEngine;
+        // the public policy bit is broadcast so Video/Web/Scene share one
+        // capture gate instead of letting Video alone interpret the switch.
+        PlaybackCommandMultiplexer.shared.dispatch(
+            .setSystemAudioSpectrumEnabled(settings.systemAudioSpectrumEnabled)
+        )
     }
 }

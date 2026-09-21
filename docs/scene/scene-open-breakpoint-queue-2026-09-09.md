@@ -169,6 +169,12 @@ P0 续跑状态（2026-09-18 08:xx 更新，事实覆盖至 `c60d26a9` 及其后
 
 下一批仍按现役队列处理 `systemAudioSpectrumEnabled` 的三引擎策略统一、canonical producer 的左右频段视觉均衡/2241938645 单柱首断点，以及 `2849382252`、`3789316755` 的作者条件 demand 与 `2134765860` Audio Ring 的脚本/属性首断点；不以本批音量闭环替代频谱开关或样本兼容结论。
 
+**Q1.4s 三引擎系统频谱策略门已统一（2026-09-22，本批，代码/测试/build 已闭合；真实 UI 与视觉全集仍未验证）：**当前开关原先只影响 Video overlay，Web listener 与 Scene daemon authored demand 可在设置关闭时继续保留 producer/旧快照。本批新增公共 `WallpaperEngineCommand.setSystemAudioSpectrumEnabled`，设置详细配置仍由 `WallpaperEngine` 唯一保存，随后通过 `PlaybackCommandMultiplexer` 广播同一个策略门；Video/Web 的 overlay、Web listener 和 Scene route 均要求该门为 true，Web/Scene 仍必须有各自作者 demand，不因开启开关而无条件采集。关闭时清空 Video/Web 当前 projection，撤销 App tap 的 Web/Scene consumer；Scene client 通过版本化 daemon `setSpectrumEnabled` 重放，daemon 侧拒绝后续旧 publication 并清空 `SceneAudioSpectrumInbox`，重连/replay恢复同一设置。没有新增 tap、FFT、provider、registry、clock、compositor 或样本分支，也未改变 canonical producer 的频段算法。
+
+本批 owned paths 为 `WallpaperEngineCommand`、Video handler/设置接入、`WallpaperEngine+SystemAudioSpectrum`、Web projection、Scene `SceneAudioSpectrum`/daemon protocol/client/runtime，以及三项既有 focused tests。`test_playback_command_multiplexer`、`test_scene_daemon_protocol`、`test_system_audio_spectrum`、`test_scene_audio_spectrum_input`、`test_scene_daemon_client_wiring`、`test_system_audio_spectrum_recovery` 共 **57/57 PASS**；其中 `test_scene_audio_spectrum_input` 新增可执行 publication-gate 过渡门，验证关闭时清零并拒绝旧帧、重新开启只恢复既有 demand，不制造新 demand；`test_system_audio_spectrum` 的全引擎门检查仍含少量源码接线断言，不能单独替代运行时 UI 取证。隔离 Debug checkpoint 命令为 `xcodebuild -project MyWallpaperX.xcodeproj -scheme MyWallpaperX -configuration Debug -derivedDataPath /private/tmp/mwx-spectrum-policy-checkpoint.RKZ7zp build CODE_SIGNING_ALLOWED=NO`，结果 **BUILD SUCCEEDED**，仅有既有 SteamService/Swift warnings；`git diff --check` PASS。当前证据只到公共策略/协议/Inbox/daemon gate 行为门和编译，不包含设置窗口手动开关、三引擎同源真实电平、Video overlay 实机 ROI、长稳、设备恢复或官方固定同输入。
+
+本批冻结 diff 待独立只读审查后提交；审查必须覆盖：详细配置与 coarse policy 是否只有一个 Video daemon 命令 owner、关闭/重连时 Scene 旧快照是否确实失效、Web/Scene 作者 demand 是否未被错误改成常开、Video 风格配置是否未被 bool 命令重置、测试与文档证据身份是否一致。提交后下一职责仍是 canonical producer 左右频段均衡与 `2241938645` 单柱首断点，再进入 `2849382252`、`3789316755`、`2134765860` 的作者条件/脚本首断点。
+
 ### Q1.5 — 指针/鼠标交互缺陷簇（2026-09-19 用户实机观察，P2 优先）
 
 用户实机反馈聚成一类：**指针坐标管线**（mouse → typed frame update → effect 消费）的方向/偏移缺陷。

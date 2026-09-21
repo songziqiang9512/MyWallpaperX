@@ -152,6 +152,7 @@ final class SceneDaemonRuntime {
     private var shouldPausePlayback = false
     private var isShuttingDown = false
     private var audioDemand = SceneAudioSpectrumCaptureDemand.none
+    private var systemAudioSpectrumPublicationGate = SceneAudioSpectrumPublicationGate()
     private var didReportNonSilentAudioPublication = false
 
     deinit {
@@ -291,7 +292,15 @@ final class SceneDaemonRuntime {
         case let .setMuted(muted):
             PlaybackMuteState.shared.setMuted(muted)
             host.soundPlaybackRegistry?.setMuted(muted)
+        case let .setSpectrumEnabled(enabled):
+            systemAudioSpectrumPublicationGate.setEnabled(enabled)
+            if !enabled {
+                SceneAudioSpectrumInbox.shared.clearSnapshot()
+            }
         case let .publishAudioSpectrum(frame):
+            guard systemAudioSpectrumPublicationGate.allowsPublication else {
+                return
+            }
             let accepted = SceneAudioSpectrumInbox.shared.publishSystemCapture(
                 left: frame.left,
                 right: frame.right,

@@ -69,6 +69,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var activeRecordID: String?
     var audioSpectrumDemand = SceneAudioSpectrumCaptureDemand.none
     var audioSpectrumDemandGeneration: UInt64?
+    var systemAudioSpectrumEnabled = false
 
     var activeIntent: ScenePlaybackLoadRequest?
     var pendingIntent: ScenePlaybackLoadRequest?
@@ -174,6 +175,16 @@ final class SceneDaemonClient: PlaybackEngineControlling {
                     "v": SceneDaemonProtocol.version,
                     "cmd": "setMuted",
                     "muted": muted
+                ])
+            }
+            return activeIntent != nil || pendingIntent != nil
+        case let .setSystemAudioSpectrumEnabled(enabled):
+            systemAudioSpectrumEnabled = enabled
+            if endpointReady {
+                send([
+                    "v": SceneDaemonProtocol.version,
+                    "cmd": "setSpectrumEnabled",
+                    "enabled": enabled
                 ])
             }
             return activeIntent != nil || pendingIntent != nil
@@ -437,6 +448,11 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             "v": SceneDaemonProtocol.version,
             "cmd": "setMuted",
             "muted": PlaybackMuteState.shared.isMuted
+        ])
+        send([
+            "v": SceneDaemonProtocol.version,
+            "cmd": "setSpectrumEnabled",
+            "enabled": systemAudioSpectrumEnabled
         ])
         sendSimpleCommand(isPaused ? "pause" : "resume")
     }

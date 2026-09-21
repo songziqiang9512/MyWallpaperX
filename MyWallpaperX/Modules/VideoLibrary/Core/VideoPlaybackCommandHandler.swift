@@ -30,6 +30,9 @@ final class VideoPlaybackCommandHandler: PlaybackEngineControlling {
             PlaybackMuteState.shared.setMuted(muted)
             WallpaperManager.shared.setMuted(muted)
             return true
+        case let .setSystemAudioSpectrumEnabled(enabled):
+            WallpaperEngine.shared.setSystemAudioSpectrumEnabled(enabled)
+            return true
         case .switchNext:
             WallpaperManager.shared.navigateWallpaperManually(
                 .next, userInitiated: true

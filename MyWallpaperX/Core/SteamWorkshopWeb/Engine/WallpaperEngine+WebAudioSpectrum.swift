@@ -20,6 +20,7 @@ extension WallpaperEngine {
     @discardableResult
     func dispatchWebAudioSpectrumIfNeeded(_ levels: [Float]) -> Bool {
         guard currentPlaybackContentKind == .web,
+              currentSystemAudioSpectrumEnabled,
               currentWebAudioSpectrumRequested,
               levels.count == Self.webSpectrumSampleCount else {
             return false

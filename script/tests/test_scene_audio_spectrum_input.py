@@ -44,6 +44,7 @@ enum Harness {
         var payload: [String: Any] = [:]
         payload["snapshot"] = snapshotChecks()
         payload["inbox"] = inboxChecks()
+        payload["publicationGate"] = publicationGateChecks()
         payload["analyzer"] = analyzerChecks()
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -228,6 +229,75 @@ enum Harness {
             "staleRetryRemainsPending": retryBeforeCommit.expiresStalePublication,
             "afterStaleDeadlineIsSilent": afterDeadline.isSilent,
             "staleRevocationGeneration": afterDeadline.generation,
+        ]
+    }
+
+    // MARK: - Public setting gate
+
+    static func publicationGateChecks() -> [String: Any] {
+        let inbox = SceneAudioSpectrumInbox()
+        let bandCount = SceneAudioSpectrumSnapshot.bandCount
+        let mediumBandCount = SceneAudioSpectrumSnapshot.mediumBandCount
+        let extendedBandCount = SceneAudioSpectrumSnapshot.extendedBandCount
+        let levels = Array(repeating: Float(0.4), count: bandCount)
+        let levels32 = Array(repeating: Float(0.5), count: mediumBandCount)
+        let levels64 = Array(repeating: Float(0.6), count: extendedBandCount)
+
+        func token(for demand: SceneAudioSpectrumCaptureDemand)
+            -> SceneAudioSpectrumCaptureToken {
+            SceneAudioSpectrumCaptureToken(
+                scopeEpoch: demand.scopeEpoch,
+                includesCurrentProcessOutput: demand.includesCurrentProcessOutput
+            )
+        }
+
+        func publishThroughGate(
+            _ gate: SceneAudioSpectrumPublicationGate,
+            token: SceneAudioSpectrumCaptureToken
+        ) -> Bool {
+            guard gate.allowsPublication else { return false }
+            return inbox.publishSystemCapture(
+                left: levels,
+                right: levels,
+                left32: levels32,
+                right32: levels32,
+                left64: levels64,
+                right64: levels64,
+                token: token
+            )
+        }
+
+        var gate = SceneAudioSpectrumPublicationGate()
+        let noDemandToken = token(for: inbox.captureDemand)
+        gate.setEnabled(true)
+        let enablingDoesNotCreateDemand = !publishThroughGate(
+            gate,
+            token: noDemandToken
+        ) && !inbox.captureDemand.requiresSpectrum
+
+        inbox.setDemand(true)
+        let demandedToken = token(for: inbox.captureDemand)
+        let firstAccepted = publishThroughGate(gate, token: demandedToken)
+        let beforeDisable = inbox.latest()
+
+        gate.setEnabled(false)
+        inbox.clearSnapshot()
+        let disabledRejected = !publishThroughGate(gate, token: demandedToken)
+        let afterDisable = inbox.latest()
+
+        gate.setEnabled(true)
+        let resumedAccepted = publishThroughGate(gate, token: demandedToken)
+        let afterResume = inbox.latest()
+
+        return [
+            "enablingDoesNotCreateDemand": enablingDoesNotCreateDemand,
+            "firstAccepted": firstAccepted,
+            "beforeDisableIsSilent": beforeDisable.isSilent,
+            "disabledRejected": disabledRejected,
+            "afterDisableIsSilent": afterDisable.isSilent,
+            "resumedAccepted": resumedAccepted,
+            "afterResumeIsSilent": afterResume.isSilent,
+            "demandRemainsAfterDisable": inbox.captureDemand.requiresSpectrum,
         ]
     }
 
@@ -707,6 +777,17 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
         self.assertEqual(inbox["afterResetGeneration"], 0)
         self.assertTrue(inbox["afterResetIsSilent"])
         self.assertTrue(inbox["afterResetDemandIsNone"])
+
+    def test_public_spectrum_gate_clears_and_resumes_existing_demand(self) -> None:
+        gate = self.result["publicationGate"]
+        self.assertTrue(gate["enablingDoesNotCreateDemand"])
+        self.assertTrue(gate["firstAccepted"])
+        self.assertFalse(gate["beforeDisableIsSilent"])
+        self.assertTrue(gate["disabledRejected"])
+        self.assertTrue(gate["afterDisableIsSilent"])
+        self.assertTrue(gate["resumedAccepted"])
+        self.assertFalse(gate["afterResumeIsSilent"])
+        self.assertTrue(gate["demandRemainsAfterDisable"])
 
     def test_stale_snapshot_fails_closed_instead_of_freezing(self) -> None:
         inbox = self.result["inbox"]

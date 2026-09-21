@@ -144,3 +144,4 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 
 
 > M0.2 闭环补记（2026-09-22）：静音与主音量都沿 `WallpaperEngineCommand` 公共控制面；`PlaybackMuteState` 保存并持久化静音意图（旧版本 `settings.volume == 0` 仅在 key 缺失时迁移一次），`PlaybackVolumeState` 保存归一化主增益。UI/热键/Scene daemon 回放不再直接触碰具体播放 owner；Video/Web 由 `WallpaperEngine` 投影，Scene Sound 由 registry 将 master gain 与作者/用户 base volume 相乘。音量滑杆 0 边界仍同步静音意图，但真实设置窗口和三引擎同输入电平尚待实机验收。
+> **Q1.4s 2026-09-22 补记**：系统频谱设置门是 coarse `WallpaperEngineCommand.setSystemAudioSpectrumEnabled`，由 multiplexer 广播；`WallpaperEngine` 仍是详细配置与 Video/Web projection 的唯一 owner，Scene client/runtime 仅持有并重放 bool policy。关闭时 App route 与 Web listener 不再请求 shared producer，daemon 清空本地 `SceneAudioSpectrumInbox` 并拒绝旧 publication；作者 demand 本身不被改写为常开。该门不引入第二 producer/provider/registry/compositor。

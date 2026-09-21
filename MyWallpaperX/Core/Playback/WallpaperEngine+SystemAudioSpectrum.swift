@@ -100,16 +100,26 @@ extension WallpaperEngine {
     }
 
     public func setSystemAudioSpectrumEnabled(_ enabled: Bool) {
-        configureSystemAudioSpectrum(
-            enabled: enabled,
-            style: .balanced,
-            sensitivity: .normal,
-            colorHex: currentSystemAudioSpectrumColorHex,
-            offsetX: currentSystemAudioSpectrumOffsetX,
-            offsetY: currentSystemAudioSpectrumOffsetY,
-            barCount: currentSystemAudioSpectrumBarCount,
-            peakCapsEnabled: currentSystemAudioSpectrumPeakCapsEnabled
+        currentSystemAudioSpectrumEnabled = enabled
+        currentSpectrumLevels = Array(
+            repeating: 0,
+            count: currentSystemAudioSpectrumBarCount
         )
+        lastSpectrumPushAt = 0
+        refreshSystemAudioSpectrumCapture()
+
+        if currentPlaybackContentKind == .web {
+            let clearedOrCurrent = enabled
+                ? (currentWebSpectrumSnapshot() ?? clearedWebSpectrumLevels())
+                : clearedWebSpectrumLevels()
+            lastWebSpectrumLevels = clearedOrCurrent
+            dispatchWebRuntimeCommand(.pushAudioSpectrum(clearedOrCurrent))
+        }
+
+        // Detailed daemon configuration is sent by
+        // `configureSystemAudioSpectrum`. This policy-only entry point must
+        // not send a second `setSpectrumEnabled` command for the same setting
+        // change; otherwise the settings path has two command owners.
     }
 
     public func configureSystemAudioSpectrum(
@@ -190,6 +200,7 @@ extension WallpaperEngine {
     func refreshSystemAudioSpectrumCapture() {
         let captureAllowed = !playbackPaused && !screenLocked && !systemSleeping && !displaysSleeping
         let webCaptureRequested = captureAllowed
+            && currentSystemAudioSpectrumEnabled
             && currentPlaybackContentKind == .web
             && currentWebAudioSpectrumRequested
 #if DEBUG
@@ -214,7 +225,7 @@ extension WallpaperEngine {
         // in the main App, so excluding the main process still naturally
         // includes sound emitted by the daemon process.
         let requestedRoute = SceneAudioSpectrumCaptureRoutingState.resolvedRoute(
-            captureAllowed: captureAllowed,
+            captureAllowed: captureAllowed && currentSystemAudioSpectrumEnabled,
             debugFixtureOwnsInbox: debugSceneFixtureOwnsInbox,
             localDemand: localSceneDemand,
             daemonDemand: remoteSceneDemand,
@@ -226,6 +237,7 @@ extension WallpaperEngine {
         let sceneCaptureRequested = requestedRoute != .none
         if !localSceneDemand.requiresSpectrum
             || !captureAllowed
+            || !currentSystemAudioSpectrumEnabled
             || debugSceneSilenceOwnsInbox {
             SceneAudioSpectrumInbox.shared.clearSnapshot()
         }

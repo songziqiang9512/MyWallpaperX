@@ -123,6 +123,23 @@ nonisolated struct SceneAudioSpectrumCaptureDemand: Equatable, Sendable {
     }
 }
 
+/// Runtime-wide publication policy for system-audio spectrum frames.
+///
+/// Author demand remains independent from this setting. The daemon keeps the
+/// demand so turning the setting back on can resume the existing consumer, but
+/// it must reject frames while the public setting is disabled.
+nonisolated struct SceneAudioSpectrumPublicationGate: Equatable, Sendable {
+    private(set) var enabled = false
+
+    mutating func setEnabled(_ enabled: Bool) {
+        self.enabled = enabled
+    }
+
+    var allowsPublication: Bool {
+        enabled
+    }
+}
+
 /// Immutable identity of the process set applied to one system-tap resource.
 /// It travels with captured bands so a retiring tap cannot publish into a newer
 /// requested scope, including a rapid exclude -> include -> exclude transition.

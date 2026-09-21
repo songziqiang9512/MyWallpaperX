@@ -21,6 +21,8 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
     /// Normalized master volume (0...1) applied after authored/user volume.
     case setVolume(Float)
     case setMuted(Bool)
+    /// Global system-spectrum policy gate. Author demand remains separate.
+    case setSpectrumEnabled(Bool)
     case publishAudioSpectrum(SceneDaemonAudioSpectrumFrame)
     case pause
     case resume
@@ -150,6 +152,11 @@ nonisolated enum SceneDaemonProtocol {
                 return .failure(.invalidPayload(action))
             }
             return .success(.setMuted(muted))
+        case "setSpectrumEnabled":
+            guard let enabled = boolean(payload["enabled"]) else {
+                return .failure(.invalidPayload(action))
+            }
+            return .success(.setSpectrumEnabled(enabled))
         case "publishAudioSpectrum":
             guard let left = spectrumLevels(
                     payload["left"],

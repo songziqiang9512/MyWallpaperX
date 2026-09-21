@@ -59,6 +59,7 @@ class SystemAudioSpectrumTests(unittest.TestCase):
 
             final class WallpaperEngine {
                 var currentPlaybackContentKind: PlaybackContentKind = .web
+                var currentSystemAudioSpectrumEnabled = true
                 var currentWebAudioSpectrumRequested = true
                 var lastWebSpectrumPushAt: CFTimeInterval = 0
                 var webSpectrumPushMinInterval: CFTimeInterval = 0
@@ -496,6 +497,22 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             r"systemAudioSpectrumService\.updateConfiguration\(\s*"
             r"style: style,\s*sensitivity: sensitivity,\s*"
             r"barCount: normalizedBarCount\s*\)",
+        )
+
+    def test_global_spectrum_policy_gates_all_capture_consumers(self) -> None:
+        engine = ENGINE_SOURCE.read_text(encoding="utf-8")
+        web = (ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Engine/WallpaperEngine+WebAudioSpectrum.swift").read_text(encoding="utf-8")
+        self.assertIn(
+            "captureAllowed && currentSystemAudioSpectrumEnabled",
+            engine,
+        )
+        self.assertIn(
+            "currentSystemAudioSpectrumEnabled,",
+            web,
+        )
+        self.assertIn(
+            "|| !currentSystemAudioSpectrumEnabled",
+            engine,
         )
 
 
