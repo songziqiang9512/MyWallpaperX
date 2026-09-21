@@ -20,10 +20,17 @@ nonisolated struct ScenePreparedDirectDrawOutputGeometry: Equatable {
     static func topAlignedHalfCanvas(
         normalizedPerspectivePoints points: [SIMD2<Float>]
     ) -> Self? {
+        // The stock square-to-quad authoring space is normalized, but its
+        // horizontal corners can overscan the carrier by a small amount. A
+        // border-crossing point is still the same linear perspective shape;
+        // rejecting it would silently fall back to the centered carrier and
+        // move the authored ray field. Keep horizontal admission bounded so
+        // this contract cannot become an arbitrary geometry escape hatch.
+        let normalizedHorizontalOverscan: ClosedRange<Float> = -0.01 ... 1.01
         guard points.count == 4,
               points.allSatisfy({ point in
                   point.x.isFinite && point.y.isFinite
-                      && (0 ... 1).contains(point.x)
+                      && normalizedHorizontalOverscan.contains(point.x)
                       && (0 ... 1).contains(point.y)
               }), let top = points.map(\.y).min(),
               (0 ... 0.5).contains(top) else {

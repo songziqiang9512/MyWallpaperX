@@ -99,13 +99,29 @@ enum Harness {
         ) == nil && ScenePreparedDirectDrawOutputGeometry
             .topAlignedHalfCanvas(normalizedPerspectivePoints: [
                 SIMD2<Float>(0, 0), SIMD2<Float>(1, 0),
-                SIMD2<Float>(1, 1), SIMD2<Float>(1.1, 1),
+                SIMD2<Float>(1, 1), SIMD2<Float>(1.2, 1),
+            ]) == nil
+        let borderOverscan = ScenePreparedDirectDrawOutputGeometry
+            .topAlignedHalfCanvas(normalizedPerspectivePoints: [
+                SIMD2<Float>(-0.00204, 0.22119),
+                SIMD2<Float>(0.60427, 0.21922),
+                SIMD2<Float>(0.80427, 0.76922),
+                SIMD2<Float>(0.20427, 0.76922),
+            ]) != nil
+        let excessiveOverscan = ScenePreparedDirectDrawOutputGeometry
+            .topAlignedHalfCanvas(normalizedPerspectivePoints: [
+                SIMD2<Float>(-0.02, 0.22119),
+                SIMD2<Float>(0.60427, 0.21922),
+                SIMD2<Float>(0.80427, 0.76922),
+                SIMD2<Float>(0.20427, 0.76922),
             ]) == nil
         let result: [String: Bool] = [
             "halfCanvasExtent": extent == SIMD2<Float>(1920, 1080),
             "topAlignmentPreservesExtent": preservesExtent,
             "authoredActiveTopMatchesOriginalCarrierTop": alignsActiveTop,
             "invalidRejected": invalid,
+            "borderOverscanAccepted": borderOverscan,
+            "excessiveOverscanRejected": excessiveOverscan,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: result,

@@ -818,6 +818,27 @@ matrix/report/app-log/runtime/ready/after SHA-256为`6b2cdd7438c604df71a420b17f5
 
 **边界：**这关闭当前 source-proven linear direct-draw 的 carrier 比例与顶部入射位置断点，不证明 Light Shafts 全部 combo/revision、mask/non-direct-draw、动态四点、Windows 逐像素 golden 或整样本人工 acceptance。文字左侧裁切、额外闪烁与 live 系统音频行为仍属后续 Q1；CPU/GPU frame p50 约 `31.600 / 7.275 ms`，稳定帧性能仍属 Q2。未运行 full corpus。
 
+<a id="e-2026-09-22-light-shafts-border-overscan"></a>
+### 2026-09-22 Light Shafts 线性直绘水平边界 overscan
+
+**首断点与公共修复：**静态 corpus 盘点得到 `lightshafts` 共 15 refs / 9 samples；其中当前 source-proven 的 linear direct-draw cohort 是 9 refs / 4 sample IDs，要求所有 launch variant exact `DIRECTDRAW=1 / RAYMODE=0`、四点 finite static、prepared vertex source 消费同一组点。真实 `3766387484:80` 的作者四点为 `(-0.00204,0.22119) / (0.60427,0.21922) / (0.80427,0.76922) / (0.20427,0.76922)`；旧 `0...1` 几何门把唯一的水平边界轻微越界判为非法，回退 centered carrier，隔离旧回放的 `normalizedTopInset=0` 复现了光束入口位置偏差。
+
+现役 `ScenePreparedDirectDrawOutputGeometry.topAlignedHalfCanvas` 只把水平 normalized x 的准入有界放宽到 `[-0.01,1.01]`，y 仍严格 `0...1`、顶部仍严格 `0...0.5`；四点、finite、静态、RAYMODE、prepared-source 和 half-canvas 比例门不变。该修复仍沿 `authored data → prepared geometry → typed frame target → Metal encode → unique compositor` 唯一链路，不按 sample/layer/path/hash 分派，也没有第二 geometry/provider/compositor owner。`-0.02` 水平越界反例保持拒绝。
+
+**当前签名构建与真实运行：**Debug Developer ID App `2.0.9 (277)`，bundle `com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `8528d3ccc9a131f3f7e97d08e52da97b918326f2`，executable SHA-256 `0d41666119f338ad2c05d9e5b8e94d40858365272e43b402cc8a0cd6ae324fb5`；`codesign --verify --deep --strict` 通过。构建目录 `/private/tmp/mwx-ray-build-final-tnbI78`，构建日志同目录 `build.log`，`** BUILD SUCCEEDED **`。
+
+以只读隔离副本运行真实 `3766387484`（源副本 `/private/tmp/mwx-ray-audit-n0k8hg/root`，matrix `/private/tmp/mwx-ray-audit-n0k8hg/matrix.json`），命令为：
+
+```text
+python3 script/scene_wallpaper_benchmark.py --app /private/tmp/mwx-ray-build-final-tnbI78/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX --sample-root /private/tmp/mwx-ray-audit-n0k8hg/root --matrix /private/tmp/mwx-ray-audit-n0k8hg/matrix.json --sample-id 3766387484 --output-dir /private/tmp/mwx-ray-audit-n0k8hg/out-final-S16goA --duration 10 --after-snapshot-delay 3 --periodic-snapshot-interval 2 --performance-warmup 0 --require-effect-stage-admission --require-effect-execution --require-graph-execution
+```
+
+定向层证据位于 `/private/tmp/mwx-ray-audit-n0k8hg/out-final-S16goA/results/3766387484/`：`scene-preview.log` 登记 `layer=80 ... normalizedTopInset=0.219220`；`app.log` 的 frame 0 与 next-frame 均登记 `layer=80 effect=0 ... outcome=succeeded gpuCompletion=completed publication=graph:allocation ... compositorConsumed=true`，没有 rejected node；`scene-runtime-evidence.json` 保留同一 publication/completion 身份。ready/after 原分辨率截图均非黑且序列有运动。report SHA-256 `774f4b5a19d867dd75a30175e95d804d90c321f10ea32188e49d5ca6ceaed62a`，app.log `d8a5d2364cf1f46c1de7249ff941b9013b6cf3006874b1071bbc623251726c04`，scene-preview.log `48268a15e4daa6face985d88fde57c3f2c5494827e4ad8974a9d5c88e6e09cae`，runtime evidence `13df2dd25d32bc842b83fbdbee60ea09547d5d1e88322db175f599ae43b178f2`，ready/after PNG `ab7554fef7edc418e65a8220f86352910f956e977a37a593d0c0ca722c2dba28 / 4d38e92248c8e2b27548270413de98c9eb4c730ce8a92e03314977dede6148e4`。
+
+benchmark report 整体仍为 **NON-PASS**，失败项全部是该隔离 matrix 对作者 effect/text 计数的过期期望（包括 `Light Shafts count mismatch`），不是 layer 80 的 admission、graph execution、GPU completion、publication 或 terminal compositor 失败；本条证据不能改写成整样本通过。
+
+**边界与下一项：**本批只关闭 source-proven linear/direct-draw authored horizontal border-overscan 首断点；不覆盖 `RAYMODE=1/2`、Corner/ordered、mask/non-direct-draw、动态四点、`3769761761` 的 Godrays/Shine 视觉样式、`1315486372` 的 Water Ripple、固定官方同输入或人工方向/中心/轮廓 ROI parity。下一批按 source-derived shape 继续盘点剩余 RAYMODE/mask/ordered forms；若静态或运行证据推翻该水平边界合同，应回滚该公共准入及对应测试。
+
 <a id="e-2026-09-14-whole-frame-shared-pair-residency"></a>
 ### 2026-09-14 同帧 shared-pair 驻留与 `3749463715` 唯一输出闭环
 
