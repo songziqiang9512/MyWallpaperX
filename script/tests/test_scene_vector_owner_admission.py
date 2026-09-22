@@ -116,6 +116,14 @@ class SceneVectorOwnerAdmissionTests(unittest.TestCase):
         self.assertEqual(self.value["retryAggregateVectorInstantiated"], 240)
         self.assertEqual(self.value["retryAggregateVectorRejected"], 20)
 
+    def test_local_preflight_failure_keeps_domain_and_constructs_peer(self) -> None:
+        self.assertTrue(self.value["localPreflightDomainCommitted"])
+        self.assertEqual(self.value["localPreflightVectorExpected"], 2)
+        self.assertEqual(self.value["localPreflightVectorInstantiated"], 1)
+        self.assertEqual(self.value["localPreflightVectorRejected"], 1)
+        self.assertEqual(self.value["localPreflightVectorFailureCodes"], ["invalid-source"])
+        self.assertEqual(self.value["localPreflightBoundaryChecks"], 9)
+
     def test_oversized_owner_source_rejects_whole_candidate_before_execution(
         self,
     ) -> None:

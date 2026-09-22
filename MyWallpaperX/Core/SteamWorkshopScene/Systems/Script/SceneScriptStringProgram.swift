@@ -30,6 +30,8 @@ nonisolated struct SceneScriptStringProgramConstruction: @unchecked Sendable {
     let requestedTargets: Set<SceneDynamicTarget>
     let instantiatedTargets: Set<SceneDynamicTarget>
     let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
+    // Property preflight failures do not poison the QuickJS domain.
+    var requiresDomainReconstruction: Bool = false
 
     var deferredTargets: Set<SceneDynamicTarget> {
         requestedTargets.subtracting(instantiatedTargets).subtracting(failures.keys)
@@ -148,25 +150,24 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             [SceneDynamicTarget: Set<SceneDynamicTarget>] = [:]
         var livePropertyInputTargets: Set<SceneDynamicTarget> = []
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
+        var requiresDomainReconstruction = false
         for candidate in candidates {
             let (_, binding, target, _, effects, properties) = candidate
             guard requestedTargets.contains(target) else { continue }
+            guard !binding.source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                failures[target] = .invalidSource
+                continue
+            }
             do {
                 guard let propertiesJSON =
                         SceneScriptPropertyInputCodec.scriptPropertiesJSON(
                             properties,
                             effectiveValues: [:]
                         ) else {
-                    throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                    failures[target] = .invalidArgument(
                         "SceneScript properties unavailable"
                     )
-                }
-                guard constructionWork?.consume() ?? true else {
-                    failures[target] = constructionWork?.failure
-                        ?? .budgetExceeded(
-                            "SceneScript candidate aggregate construction work exceeds 4096"
-                        )
-                    break
+                    continue
                 }
                 owners.append(try SceneScriptStringOwner(
                     domain: domain,
@@ -176,7 +177,8 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                     effectNames: effects,
                     hasCurrentAnimation: timelineTargets.contains(target),
                     generation: generation,
-                    budget: budget
+                    budget: budget,
+                    constructionWork: constructionWork
                 ))
                 propertyInputsByTarget[target] = properties
                 let inputTargets = SceneScriptPropertyInputCodec.liveConsumerTargets(
@@ -187,9 +189,11 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 livePropertyInputTargets.formUnion(inputTargets)
             } catch let failure as SceneScriptScalarRuntimeFailure {
                 failures[target] = failure
+                requiresDomainReconstruction = true
                 break
             } catch {
                 failures[target] = .invalidArgument(String(describing: error))
+                requiresDomainReconstruction = true
                 break
             }
         }
@@ -219,7 +223,8 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             program: program,
             requestedTargets: requestedTargets,
             instantiatedTargets: Set(program.definitions.map(\.target)),
-            failures: failures
+            failures: failures,
+            requiresDomainReconstruction: requiresDomainReconstruction
         )
     }
 

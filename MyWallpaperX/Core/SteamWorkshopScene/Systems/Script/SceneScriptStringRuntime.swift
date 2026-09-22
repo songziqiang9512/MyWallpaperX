@@ -40,7 +40,8 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         effectNames: [String?],
         hasCurrentAnimation: Bool = false,
         generation: UInt64,
-        budget: SceneScriptScalarBudget = .default
+        budget: SceneScriptScalarBudget = .default,
+        constructionWork: SceneScriptConstructionWorkBudget? = nil
     ) throws {
         guard !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               generation > 0 else {
@@ -51,6 +52,9 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         self.generation = generation
         self.budget = budget
         initialScriptPropertiesJSON = scriptPropertiesJSON
+        if let constructionWork, !constructionWork.consume() {
+            throw constructionWork.failure
+        }
         try domain.checkConstructionBoundary()
         var diagnostic = [CChar](repeating: 0, count: 512)
         var creationResult = MWX_SCENE_QUICKJS_INVALID_ARGUMENT

@@ -316,8 +316,11 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     failures: &vectorFailures,
                     rejected: &rejectedVectorTargets
                 )
-                // The next iteration reconstructs every surviving owner in a clean domain.
-                continue
+                if vectorConstruction.requiresDomainReconstruction {
+                    // A started owner may have mutated shared JS state; only
+                    // that case reconstructs every surviving owner in a clean domain.
+                    continue
+                }
             }
             guard vectorConstruction.deferredTargets.isEmpty else {
                 return unavailable(
@@ -469,7 +472,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     failures: &scalarFailures,
                     rejected: &rejectedScalarTargets
                 )
-                continue
+                if scalarConstruction.requiresDomainReconstruction { continue }
             }
             guard scalarConstruction.deferredTargets.isEmpty else {
                 return unavailable(
@@ -544,7 +547,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     failures: &stringFailures,
                     rejected: &rejectedStringTargets
                 )
-                continue
+                if stringConstruction.requiresDomainReconstruction { continue }
             }
             guard stringConstruction.deferredTargets.isEmpty else {
                 return unavailable(
@@ -621,7 +624,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     failures: &vectorFailures,
                     rejected: &rejectedVectorTargets
                 )
-                continue
+                if passConstruction.requiresDomainReconstruction { continue }
             }
             guard passConstruction.deferredTargets.isEmpty else {
                 return unavailable(

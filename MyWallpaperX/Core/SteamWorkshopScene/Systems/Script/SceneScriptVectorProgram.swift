@@ -163,7 +163,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             generation: generation,
             userPropertyDefinitions: userPropertyDefinitions
         )
-        let failures = program.instantiateCandidates(
+        let construction = program.instantiateCandidates(
             projection.uniqueCandidates.filter {
                 requestedTargets.contains($0.definition.target)
             },
@@ -176,7 +176,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             program: program,
             requestedTargets: requestedTargets,
             instantiatedTargets: instantiatedTargets,
-            failures: failures
+            failures: construction.failures,
+            requiresDomainReconstruction: construction.requiresDomainReconstruction
         )
     }
     @discardableResult
@@ -190,31 +191,39 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         let candidates = projection.uniqueCandidates.filter {
             requestedTargets.contains($0.definition.target)
         }
-        let failures = instantiateCandidates(
+        let construction = instantiateCandidates(
             candidates,
             budget: budget,
             constructionWork: constructionWork
         )
-        let failedTargets = Set(failures.keys)
+        let failedTargets = Set(construction.failures.keys)
         let instantiatedTargets = requestedTargets.subtracting(failedTargets)
             .intersection(Set(definitions.map(\.target)))
         return .init(
             requestedTargets: requestedTargets,
             instantiatedTargets: instantiatedTargets,
-            failures: failures
+            failures: construction.failures,
+            requiresDomainReconstruction: construction.requiresDomainReconstruction
         )
     }
     private func instantiateCandidates(
         _ candidates: [SceneScriptVectorCandidate],
         budget: SceneScriptScalarBudget,
         constructionWork: SceneScriptConstructionWorkBudget? = nil
-    ) -> [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] {
+    ) -> (
+        failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure],
+        requiresDomainReconstruction: Bool
+    ) {
         let existingTargets = Set(definitions.map(\.target))
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
+        var requiresDomainReconstruction = false
         guard let domain else {
-            return Dictionary(uniqueKeysWithValues: candidates.map {
-                ($0.definition.target, .invalidArgument("QuickJS domain unavailable"))
-            })
+            return (
+                Dictionary(uniqueKeysWithValues: candidates.map {
+                    ($0.definition.target, .invalidArgument("QuickJS domain unavailable"))
+                }),
+                false
+            )
         }
         for candidate in candidates
         where !existingTargets.contains(candidate.definition.target) {
@@ -224,17 +233,14 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 failures[target] = .invalidArgument(
                     "SceneScript owner layer identity unavailable"
                 )
-                break
+                continue
+            }
+            guard !candidate.source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                failures[target] = .invalidSource
+                continue
             }
             let owner: SceneScriptVectorOwner
             do {
-                guard constructionWork?.consume() ?? true else {
-                    failures[target] = constructionWork?.failure
-                        ?? .budgetExceeded(
-                            "SceneScript candidate aggregate construction work exceeds 4096"
-                        )
-                    break
-                }
                 owner = try SceneScriptVectorOwner(
                       domain: domain,
                       source: candidate.source,
@@ -252,13 +258,16 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                       effectVisibilityGetterSeed:
                         candidate.effectVisibilityGetterSeed,
                       generation: generation,
-                      budget: budget
+                      budget: budget,
+                      constructionWork: constructionWork
                 )
             } catch let failure as SceneScriptScalarRuntimeFailure {
                 failures[target] = failure
+                requiresDomainReconstruction = true
                 break
             } catch {
                 failures[target] = .invalidArgument(String(describing: error))
+                requiresDomainReconstruction = true
                 break
             }
             bindings.append(.init(
@@ -290,7 +299,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         } + bindings.indices.filter {
             bindings[$0].evaluatesAfterSharedProviders
         }
-        return failures
+        return (failures, requiresDomainReconstruction)
     }
     func evaluate(
         inputs: [SceneDynamicTarget: SceneDynamicValue],

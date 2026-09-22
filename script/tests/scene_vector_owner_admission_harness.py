@@ -192,6 +192,9 @@ enum Harness {
             invalidPrefixCount: 20,
             generation: 43
         )
+        let localPreflightCandidate = try localPreflightPeerCandidate(
+            generation: 45
+        )
         let hardAggregateCandidate = try aggregateBudgetCandidate(
             ownerCount: 4_097,
             generation: 41
@@ -348,6 +351,18 @@ enum Harness {
                 .constructionReport.instantiatedVectorTargets.count,
             "retryAggregateVectorRejected": retryAggregateCandidate
                 .constructionReport.vectorFailures.count,
+            "localPreflightDomainCommitted": localPreflightCandidate.candidate.domain != nil,
+            "localPreflightVectorExpected": localPreflightCandidate.candidate
+                .constructionReport.expectedVectorTargets.count,
+            "localPreflightVectorInstantiated": localPreflightCandidate.candidate
+                .constructionReport.instantiatedVectorTargets.count,
+            "localPreflightVectorRejected": localPreflightCandidate.candidate
+                .constructionReport.vectorFailures.count,
+            "localPreflightVectorFailureCodes": Array(Set(
+                localPreflightCandidate.candidate.constructionReport.vectorFailures
+                    .values.map(\.code)
+            )).sorted(),
+            "localPreflightBoundaryChecks": localPreflightCandidate.boundaryChecks,
             "hardAggregateDomainCommitted": hardAggregateCandidate.domain != nil,
             "hardAggregateFailures": hardAggregateCandidate.constructionReport
                 .vectorFailures.count,
@@ -712,6 +727,52 @@ enum Harness {
             generation: generation,
             budget: budget
         )
+    }
+
+    static func localPreflightPeerCandidate(
+        generation: UInt64
+    ) throws -> (
+        candidate: SceneScriptQuickJSProgramCandidate,
+        boundaryChecks: Int
+    ) {
+        let validSource = "export function update(value) { return value }"
+        let bindings = [
+            retryVisibilityBinding(objectIndex: 0, layerID: 2, source: ""),
+            retryVisibilityBinding(objectIndex: 1, layerID: 3, source: validSource),
+        ]
+        let descriptor = SceneRenderDescriptor(layers: [
+            .init(
+                id: 2, layerIndex: 0, name: "local-preflight-empty",
+                visible: true, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+                scaleHasScript: false, alpha: 1, effects: [],
+                contentKind: "image", sizeWH: [100, 100]
+            ),
+            .init(
+                id: 3, layerIndex: 1, name: "local-preflight-peer",
+                visible: true, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+                scaleHasScript: false, alpha: 1, effects: [],
+                contentKind: "image", sizeWH: [100, 100]
+            ),
+        ])
+        let projection = SceneScriptVectorProgram.project(
+            descriptor: descriptor,
+            scriptBindings: bindings
+        )
+        let sourceBytes = bindings.map(\.source.utf8.count)
+        let probe = BoundaryProbe()
+        let candidate = try familyCandidate(
+            descriptor: descriptor,
+            bindings: bindings,
+            projection: projection,
+            consumerTargets: [],
+            generation: generation,
+            budget: sourceBudget(
+                maximumOwnerBytes: sourceBytes.max()!,
+                maximumCandidateBytes: sourceBytes.reduce(0, +)
+            ),
+            cancellationCheck: { probe.check() }
+        )
+        return (candidate, probe.count)
     }
 
     static func retryVisibilityBinding(

@@ -46,7 +46,8 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         allowsStatefulLayerSideEffects: Bool = false,
         effectVisibilityGetterSeed: Bool? = nil,
         generation: UInt64,
-        budget: SceneScriptScalarBudget
+        budget: SceneScriptScalarBudget,
+        constructionWork: SceneScriptConstructionWorkBudget? = nil
     ) throws {
         guard !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               [.bool, .vector2, .vector3].contains(valueType),
@@ -59,6 +60,9 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         self.dynamicImagePathsByAuthoredIdentity =
             dynamicImagePathsByAuthoredIdentity
         self.allowsStatefulLayerSideEffects = allowsStatefulLayerSideEffects
+        if let constructionWork, !constructionWork.consume() {
+            throw constructionWork.failure
+        }
         try domain.checkConstructionBoundary()
         var diagnostic = [CChar](repeating: 0, count: 512)
         var creationResult = MWX_SCENE_QUICKJS_INVALID_ARGUMENT

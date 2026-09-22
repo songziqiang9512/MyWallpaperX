@@ -30,6 +30,8 @@ nonisolated struct SceneScriptScalarProgramConstruction: @unchecked Sendable {
     let requestedTargets: Set<SceneDynamicTarget>
     let instantiatedTargets: Set<SceneDynamicTarget>
     let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
+    // Property/descriptor preflight failures do not poison the QuickJS domain.
+    var requiresDomainReconstruction: Bool = false
 
     var deferredTargets: Set<SceneDynamicTarget> {
         requestedTargets.subtracting(instantiatedTargets).subtracting(failures.keys)
@@ -234,6 +236,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         var livePropertyInputTargets: Set<SceneDynamicTarget> = []
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         var valuePublishingTargets: Set<SceneDynamicTarget> = []
+        var requiresDomainReconstruction = false
         for (binding, target, authored, properties) in candidates {
             let layerID: Int
             switch target {
@@ -245,6 +248,15 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             }
             guard requestedTargets.contains(target),
                   let layer = descriptor.layers.first(where: { $0.id == layerID }) else {
+                if requestedTargets.contains(target) {
+                    failures[target] = .invalidArgument(
+                        "SceneScript owner layer identity unavailable"
+                    )
+                }
+                continue
+            }
+            guard !binding.source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                failures[target] = .invalidSource
                 continue
             }
             do {
@@ -256,14 +268,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     failures[target] = .invalidArgument(
                         "SceneScript properties unavailable"
                     )
-                    break
-                }
-                guard constructionWork?.consume() ?? true else {
-                    failures[target] = constructionWork?.failure
-                        ?? .budgetExceeded(
-                            "SceneScript candidate aggregate construction work exceeds 4096"
-                        )
-                    break
+                    continue
                 }
                 let owner = try SceneScriptScalarOwner(
                       domain: domain,
@@ -274,7 +279,8 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                       effectNames: layer.effects.map(\.name),
                       hasCurrentAnimation: timelineTargets.contains(target),
                       generation: generation,
-                      budget: budget
+                      budget: budget,
+                      constructionWork: constructionWork
                 )
                 owners.append(owner)
                 if !SceneScriptValueOwnership.isEventOnlyTimelineControl(
@@ -295,9 +301,11 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 )
             } catch let failure as SceneScriptScalarRuntimeFailure {
                 failures[target] = failure
+                requiresDomainReconstruction = true
                 break
             } catch {
                 failures[target] = .invalidArgument(String(describing: error))
+                requiresDomainReconstruction = true
                 break
             }
         }
@@ -326,7 +334,8 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             program: program,
             requestedTargets: requestedTargets,
             instantiatedTargets: Set(program.definitions.map(\.target)),
-            failures: failures
+            failures: failures,
+            requiresDomainReconstruction: requiresDomainReconstruction
         )
     }
 

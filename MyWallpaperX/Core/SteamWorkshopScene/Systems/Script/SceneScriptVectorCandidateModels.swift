@@ -163,6 +163,9 @@ nonisolated struct SceneScriptVectorPassCompilation: Sendable {
     let requestedTargets: Set<SceneDynamicTarget>
     let instantiatedTargets: Set<SceneDynamicTarget>
     let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
+    // Only an owner constructor/configuration failure can poison the shared
+    // QuickJS domain. Identity/layer preflight failures stay in this domain.
+    var requiresDomainReconstruction: Bool = false
 
     var failedTargets: Set<SceneDynamicTarget> { Set(failures.keys) }
     var deferredTargets: Set<SceneDynamicTarget> {
@@ -175,6 +178,8 @@ nonisolated struct SceneScriptVectorProgramConstruction: @unchecked Sendable {
     let requestedTargets: Set<SceneDynamicTarget>
     let instantiatedTargets: Set<SceneDynamicTarget>
     let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
+    // Only a started owner constructor can contaminate the shared domain.
+    var requiresDomainReconstruction: Bool = false
 
     var deferredTargets: Set<SceneDynamicTarget> {
         requestedTargets.subtracting(instantiatedTargets).subtracting(failures.keys)

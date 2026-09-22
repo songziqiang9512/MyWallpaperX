@@ -65,7 +65,7 @@ nonisolated struct SceneScriptCursorProgramConstruction: @unchecked Sendable {
     let failures: [Int: SceneScriptScalarRuntimeFailure]
     // Identity preflight rejection executes no failed JavaScript. Only an
     // attempted owner failure can contaminate the shared construction domain.
-    var requiresDomainReconstruction: Bool = true
+    var requiresDomainReconstruction: Bool = false
 
     var deferredLayerIDs: Set<Int> {
         requestedLayerIDs.subtracting(instantiatedLayerIDs).subtracting(failures.keys)
@@ -245,12 +245,9 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             let layerID = candidate.identity.layerID
             let owner: SceneScriptVectorOwner
             do {
-                guard constructionWork?.consume() ?? true else {
-                    failures[layerID] = constructionWork?.failure
-                        ?? .budgetExceeded(
-                            "SceneScript candidate aggregate construction work exceeds 4096"
-                        )
-                    break
+                guard !candidate.source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    failures[layerID] = .invalidSource
+                    continue
                 }
                 owner = try SceneScriptVectorOwner(
                     domain: domain,
@@ -258,7 +255,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     target: .layer(layerID: layerID, field: .visibility),
                     effectNames: [],
                     generation: generation,
-                    budget: budget
+                    budget: budget,
+                    constructionWork: constructionWork
                 )
             } catch let failure as SceneScriptScalarRuntimeFailure {
                 failures[layerID] = failure
