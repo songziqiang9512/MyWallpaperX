@@ -19,7 +19,9 @@
 
 当前用户仅有现成截图或视频，先登记可用参考与控制变量缺口。固定官方客户端同输入动态对照是 P4 关闭依赖；缺环境不阻塞公共实现，但不能记官方一致性通过。
 
-P0 续跑状态（2026-09-18 08:xx 更新，事实覆盖至 `c60d26a9` 及其后的文档清理批；历史过程记录查 git log 与运行证据页的 P03 证据包，不再在本块累积流水账）：
+P0 续跑状态（2026-09-22 更新，事实覆盖至 `8f4dc46d`；历史过程记录查 git log 与运行证据页的 P03 证据包，不再在本块累积流水账）：
+
+- **2026-09-22 SteamKit 安装身份批已收口**：current HEAD 的隔离 Debug 构建和 helper 直接匿名趋势查询均通过，但在 `env -u MWX_STEAM_HELPER_COMMAND` 的 bundled route 下，本机 `/Applications/MyWallpaperX.app` 仍为 2.0.8 (269)，`Contents/Resources/SteamService` 缺失，该安装 identity 会在 `executableMissing/notReady` 首断点停止。现役源码的 SteamKit 查询、helper locator、QR 入口和公开 staging→Video/Web/Scene owner 已由历史实现批覆盖，本批没有可安全归因的产品代码断点，未覆盖安装包；用户报告本身因当时没有冻结 bundle identity，不能由此单独归因。证据与命令见 [Steam 安装身份 manifest](evidence/2026-09-22-steam-installed-bundle-recheck/manifest.md) 和 [SteamKit 专项计划 §9.1](scene-steamkit-migration-plan.md#91-当前-helper-与产品-接缝观测-2026-09-21)。下一动作是用户授权后安装签名 2.0.9 (277) 候选，冻结普通 App child helper identity，再执行真实 QR／授权下载／三引擎播放门；不把匿名 helper 结果冒充账号或下载通过。
 
 - **现役 Goal（2026-09-18 用户授权设定）**：遵照现役 Scene 兼容执行路线，从 P0.3 收尾态持续推进——修复剩余 blocked 样本（现役唯一 `3792249095` terminal divergence；已于本批按 reference-uncontrolled 豁免，见开放项 2）与 `2959875782` 残留的 `1315#effect#1326` effect-local-passthrough 降级链、按 P0.4 依赖排序进入 P1 公共能力修复主循环、P2 逐样本剩余缺口、P3 参数与条件闭环；每批改动经独立子代理审查，保持唯一运行主链并持续消融相关冗余。遇到外部依赖记录阻塞并继续不依赖它的工作；只有真实满足整体完成条件才标记完成。提交已获用户授权（单职责分批、不推送）。
 
