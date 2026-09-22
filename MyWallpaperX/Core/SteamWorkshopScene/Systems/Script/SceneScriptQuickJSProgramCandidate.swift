@@ -154,7 +154,11 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
         plannedOwnerSources.append(contentsOf:
             SceneScriptCursorProgram.projectedStandaloneOwnerSources(
                 descriptor: authoredDescriptor,
-                scriptBindings: scriptBindings
+                scriptBindings: scriptBindings,
+                claimedTargets: Set(plannedVectorTargets.compactMap { target in
+                    guard case .layer(_, .visibility) = target else { return nil }
+                    return target
+                })
             )
         )
         plannedOwnerSources.append(contentsOf:

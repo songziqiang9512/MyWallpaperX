@@ -104,6 +104,11 @@ class SceneVectorOwnerAdmissionTests(unittest.TestCase):
     ) -> None:
         self.assertTrue(self.value["exactSourceBoundaryCommitted"])
 
+    def test_visibility_vector_and_cursor_alternatives_are_charged_once(self) -> None:
+        self.assertTrue(self.value["claimedCursorOverlapCommitted"])
+        self.assertEqual(self.value["claimedCursorOverlapVectorExpected"], 1)
+        self.assertEqual(self.value["claimedCursorOverlapCursorExpected"], 1)
+
     def test_oversized_owner_source_rejects_whole_candidate_before_execution(
         self,
     ) -> None:

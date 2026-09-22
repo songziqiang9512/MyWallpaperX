@@ -306,7 +306,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
 
     static func projectedStandaloneOwnerSources(
         descriptor: SceneRenderDescriptor,
-        scriptBindings: [SceneScriptBindingIR]
+        scriptBindings: [SceneScriptBindingIR],
+        claimedTargets: Set<SceneDynamicTarget> = []
     ) -> [String] {
         let candidates = projectedStandaloneCandidates(
             descriptor: descriptor,
@@ -317,7 +318,12 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             by: { $0.identity.layerID }
         ).mapValues(\.count)
         return candidates.compactMap { candidate in
-            counts[candidate.identity.layerID] == 1 ? candidate.source : nil
+            guard counts[candidate.identity.layerID] == 1,
+                  !claimedTargets.contains(.layer(
+                      layerID: candidate.identity.layerID,
+                      field: .visibility
+                  )) else { return nil }
+            return candidate.source
         }
     }
 

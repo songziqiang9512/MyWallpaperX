@@ -148,6 +148,45 @@ enum Harness {
             scriptBindings: [bindings[0], bindings[0]]
         )
         let aggregateCandidate = try aggregateBudgetCandidate()
+        let overlapSource = "export function cursorMove(event) { return; }"
+        let overlapDescriptor = SceneRenderDescriptor(layers: [.init(
+            id: 50,
+            layerIndex: 0,
+            name: "claimed-cursor-overlap",
+            visible: true,
+            originXYZ: [0, 0, 0],
+            scaleXYZ: [1, 1, 1],
+            scaleHasScript: false,
+            alpha: 1,
+            effects: [],
+            contentKind: "image",
+            sizeWH: [100, 100]
+        )])
+        let overlapBindings = [overlapVisibleBinding(source: overlapSource)]
+        let overlapProjection = SceneScriptVectorProgram.project(
+            descriptor: overlapDescriptor,
+            scriptBindings: overlapBindings
+        )
+        let overlapBudget = SceneScriptScalarBudget(
+            heapBytes: 2 * 1024 * 1024,
+            stackBytes: 512 * 1024,
+            interruptBudget: 100_000,
+            maximumOwnerSourceBytes: overlapSource.utf8.count,
+            maximumCandidateSourceBytes: overlapSource.utf8.count
+        )
+        let overlapCandidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: overlapDescriptor,
+            runtimeDescriptor: overlapDescriptor,
+            scriptBindings: overlapBindings,
+            vectorProjection: overlapProjection,
+            userPropertyDefinitions: [],
+            timelineTargets: [],
+            scalarExcludedTargets: [],
+            stringExcludedTargets: [],
+            admittedVectorPassTargets: [],
+            generation: 42,
+            budget: overlapBudget
+        )
         let hardAggregateCandidate = try aggregateBudgetCandidate(
             ownerCount: 4_097,
             generation: 41
@@ -280,6 +319,11 @@ enum Harness {
                 aggregateCandidate.constructionReport.vectorFailures
                     .values.map(\.code)
             )).sorted(),
+            "claimedCursorOverlapCommitted": overlapCandidate.domain != nil,
+            "claimedCursorOverlapVectorExpected": overlapCandidate
+                .constructionReport.expectedVectorTargets.count,
+            "claimedCursorOverlapCursorExpected": overlapCandidate
+                .constructionReport.expectedCursorLayerIDs.count,
             "hardAggregateDomainCommitted": hardAggregateCandidate.domain != nil,
             "hardAggregateFailures": hardAggregateCandidate.constructionReport
                 .vectorFailures.count,
@@ -375,6 +419,26 @@ enum Harness {
             properties: [:],
             authoredValue: .string("1 1"),
             valueType: .string,
+            wrapperKeys: ["script", "value"]
+        )
+    }
+
+    static func overlapVisibleBinding(source: String) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .object,
+                objectIndex: 0,
+                objectID: 50,
+                effectIndex: nil,
+                effectID: nil,
+                passIndex: nil,
+                passID: nil
+            ),
+            targetPath: [.key("objects"), .index(0), .key("visible")],
+            properties: [:],
+            authoredValue: .bool(true),
+            valueType: .boolean,
             wrapperKeys: ["script", "value"]
         )
     }
