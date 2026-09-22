@@ -205,6 +205,10 @@ P0 续跑状态（2026-09-22 更新，事实覆盖至 `8f4dc46d`；历史过程�
 
 **研究裁决（不作为算法验收）：**官方 Web 示例直接按 64 档绘柱，只把插值列为作者可选处理；SceneScript 教程用低频第 0 档驱动 beat 响应，并在具体绑定中按 `frametime` 平滑。两者均未要求公共 producer 使每根柱等幅、随机跳动或注入节拍；开源 [projectM](https://github.com/projectM-visualizer/projectm) README 同时列出 PCM、beat detection 与 FFT 能力，仅作第三方职责案例，不能反推 Wallpaper Engine 的 producer、bin 或 envelope。当前 Q1.4x 的 per-bin 单归属、算术均值、低频 gate/shelf、凸形 warp、对比与 release 同时变动，且没有同 PCM/时间轴证据；独立只读首审因此阻断把实验提交为修复。旧测试强制“纯低频要有右半轴合成活动底”不是官方合同，会复制无关柱；新的项目实验也不得反过来把“纯 bass 右半必须精确全零”或私有 `1.75` band identity 当官方标准。先用固定 PCM 的 bass、弱 bass、混合乐音、起音/静音序列验证真实频带与时间响应，再分别检查作者绑定与 ROI；若证据不支持，应回退本实验的全局 producer 变更。
 
+**Q1.4y 频谱低频映射与能量起音候选（2026-09-22，本批，代码已审查、视觉仍开放）：**在 Q1.4x 的未提交实验之上，唯一 `SystemAudioSceneSpectrumAnalyzer` 将会吞并左侧的 `1.75` 凸形 log warp 改为有界 `0.78` 凹形 warp；FFT bin 仍单归属 canonical 64-band，16/32/64 仍只做同一数组的连续块平均。每个声道从同一 rolling PCM 计算 RMS，以独立 bounded frame-wide gain/onset pulse 调节已有非零 band；不合成跨带活动底，fresh/reset 静音严格为零，空 band target 不注入 floor，已有 previous 值只按有界 release 衰减；attack/release 收紧到 `0.82/0.68`，减少软尾拖影。测试移除未公开私有 band index 与“纯 bass 必须填满右半轴”期待，新增固定四频 PCM 强度脉冲的重复 rise/fall 门。冻结基线 `9e98043c`，owned paths 为 analyzer 与两项频谱测试，代码/测试 diff SHA-256=`381e8880baf61fe7f0fc24f7a1b9bbdeee812b7bbe48517fa64d972123ef1588`；103 项定向测试 PASS，`git diff --check` PASS，`bash script/run_checkpoint_build.sh` **BUILD SUCCEEDED**（仅既有 SteamService/Swift 隔离兼容 warnings）。独立只读复审按该 SHA **APPROVE / P0–P3 无发现**，确认无第二 FFT/provider、reset/声道/采样率失效域清零、测试未把私有常数当合同。
+
+确定性四频强度脉冲的两个重复周期均有 `0.6796→0.2552` rise/fall、峰值范围 `0.6829`、活动 band 数随能量变化 `16` 档；这只证明 producer 对同一 PCM 能量序列有可重复的共同起落，不证明真实音乐节拍、作者柱条 ROI 或官方数值。当前仍未取得同一段真实 PCM/播放时间轴的 A/B、原分辨率连续截图/ROI、官方固定同输入对照、全集或长稳；因此 Q1.4x 保持开放，Q1.4y 也不计入视觉通过。提交后下一批按现役队列转入 Q1.5/Q1.6：先处理 `3769761761/3766387484/1315486372` 丁达尔光线和 `3554161528/3790726145/3792817546` 粒子/轨迹鼠标跟随，复用已关闭的公共 pointer/X-Ray/particle owner 证据，不能把已闭合门重复实现。
+
 ### Q1.5 — 指针/鼠标交互缺陷簇（2026-09-19 用户实机观察，P2 优先）
 
 用户实机反馈聚成一类：**指针坐标管线**（mouse → typed frame update → effect 消费）的方向/偏移缺陷。

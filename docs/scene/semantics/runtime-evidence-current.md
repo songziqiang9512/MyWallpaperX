@@ -2054,6 +2054,16 @@ v4 的 `3780119725` generation 1 include-current-process capture data peak `0.49
 
 **研究与审查限制：**官方 Web 示例直接按 64 档绘柱，只把插值列为作者可选处理；SceneScript 教程用低频第 0 档驱动 beat 响应，并在具体绑定中按 `frametime` 平滑。两者均未规定公共 producer 应让每根柱等幅、随机跳动或全局注入节拍。开源 [projectM](https://github.com/projectM-visualizer/projectm) README 同时列出 PCM、beat detection 与 FFT 能力，仅作第三方职责案例，不能反推 Wallpaper Engine 的 producer、bin 或 envelope。Q1.4x 的 per-bin 单归属/算术均值、低频 gate/shelf、凸形 warp、对比与 release 同时变化，固定输入与音乐时间轴缺失；独立只读首审阻断把实验视为修复。旧 bass-only 测试强制上半轴合成活动底没有官方依据，实验也不能把精确全零或私有 band index 提升为官方标准；修订后的行为门只锁频率顺序/有界输出，弱 bass、混合乐音、起音与节拍序列仍未覆盖，故代码继续保持未提交/open。
 
+<a id="e-2026-09-22-audio-rhythm-candidate"></a>
+
+### E-2026-09-22-AUDIO-RHYTHM-CANDIDATE — 低频映射与能量起音候选（代码已审查，视觉未闭合）
+
+本条对应 Q1.4y，基线为 `9e98043c`，owned paths 限于 `SystemAudioSceneSpectrumAnalyzer.swift`、`test_scene_audio_spectrum_input.py`、`test_system_audio_spectrum.py`。候选把会将低频 bin 聚到左侧的 `frequencyBandWarpExponent=1.75` 改为 `0.78`，FFT bin 仍单归属 canonical 64-band，16/32/64 仍从同一数组做连续块平均；去掉由最大 band 派生的跨带活动底。每个声道从同一 rolling PCM 计算 RMS，使用独立 bounded frame-wide gain/onset pulse 调节已有非零 band；fresh/reset 静音严格为零，空 band target 不注入 floor，已有 previous 值只按有界 release 衰减；reset、采样率切换和声道切换同步清理 rolling/window、energy 和 pulse；attack/release 为 `0.82/0.68`，用于缩短用户报告的软尾拖影。
+
+验证身份为 `git diff --binary HEAD` SHA-256=`381e8880baf61fe7f0fc24f7a1b9bbdeee812b7bbe48517fa64d972123ef1588`；`test_system_audio_spectrum`、`test_system_audio_spectrum_recovery`、`test_scene_audio_spectrum_input`、`test_scene_audio_response`、`test_scene_particle_audio_response`、`test_scene_audio_demand`、`test_scene_audio_capture_scope`、`test_document_role_index`、`test_scene_governance_contract` 合计 **103/103 PASS**，`git diff --check` PASS，`bash script/run_checkpoint_build.sh` **BUILD SUCCEEDED**（仅既有 SteamService/Swift 隔离兼容 warnings）。新增固定四频 PCM 强度序列的两个重复周期均记录 rise/fall `0.6796→0.2552`，峰值范围 `0.6829`，活动 band 数范围 `16`；该门只证明同一输入下 producer 的可重复能量起落，不证明音乐节拍或视觉 parity。
+
+独立只读复审者复算同一 diff SHA 并给出 **APPROVE / P0–P3 无发现**：仍只有一个 PCM→canonical64 producer，Web/Overlay 只做 projection/style；RMS/onset 按 L/R 独立且没有跨带 floor；静音、reset、声道/采样率边界与测试行为门未被放宽为私有常数。复审没有运行测试或构建；以上执行结果由主 Agent 提供并可复现。当前仍缺真实系统音乐同 PCM/同时间轴 A/B、producer 全64档序列与作者/SceneScript/最终原分辨率 ROI、官方固定同输入对照、全集、长稳和设备切换，因此本候选不关闭 Q1.4x，不计入视觉通过；提交后下一批转入队列 Q1.5/Q1.6 的光效与鼠标/轨迹样本，复用既有公共 owner 证据，不重复已闭合门。
+
 <a id="e-2026-09-22-scenescript-dynamic-layer-frame-values"></a>
 
 ### E-2026-09-22-SCENESCRIPT-DYNAMIC-LAYER-FRAME-VALUES — 动态图层逐帧 transform 不再被拓扑缓存冻结

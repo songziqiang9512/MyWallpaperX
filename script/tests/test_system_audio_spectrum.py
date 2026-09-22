@@ -299,11 +299,6 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                 return levels[start..<end].enumerated().max { $0.element < $1.element }!.offset
             }
 
-            func expectedBand(for frequency: Float) -> Int {
-                let progress = log(frequency / 32) / log(20_000 / 32)
-                return min(63, max(0, Int(floor(progress * 64))))
-            }
-
             let canonicalAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
             let webAnalyzer = SystemAudioWebSpectrumAnalyzer()
             func webLevels(_ channels: [[Float]]) -> [Float] {
@@ -322,22 +317,43 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             let tonePeaks = toneFrequencies.map { frequency in
                 let levels = webLevels([sine(frequency: frequency)])
                 let peak = peakIndex(levels, channel: 0)
-                expect(abs(peak - expectedBand(for: frequency)) <= 2, "tone peak should land near \(frequency) Hz")
                 return peak
             }
             expect(zip(tonePeaks, tonePeaks.dropFirst()).allSatisfy(<), "tone peak bins must increase with frequency")
+            expect(tonePeaks.first! >= 0 && tonePeaks.last! < 64, "tone peaks must stay within the 64-band axis")
+
+            let isolatedTone = webLevels([sine(frequency: 1_000)])
+            let isolatedLeft = Array(isolatedTone.prefix(64))
+            let isolatedPeak = isolatedLeft.max()!
+            let quietBandCount = isolatedLeft.filter { $0 < isolatedPeak * 0.25 }.count
+            expect(
+                quietBandCount >= 56,
+                "an isolated tone must not lift unrelated bars into a broadband floor"
+            )
+
+            let lowTonePeak = webLevels([sine(frequency: 125)]).prefix(64).max()!
+            let highTonePeak = webLevels([sine(frequency: 8_000)]).prefix(64).max()!
+            expect(
+                highTonePeak > lowTonePeak * 0.45,
+                "frequency compensation must keep the high end from collapsing"
+            )
 
             let tone750 = sine(frequency: 750)
             let opposite750 = tone750.map(-)
             let antiPhase = webLevels([tone750, opposite750])
             let left750Peak = peakIndex(antiPhase, channel: 0)
             let right750Peak = peakIndex(antiPhase, channel: 1)
-            expect(abs(left750Peak - expectedBand(for: 750)) <= 2, "750 Hz must not rectify to 1500 Hz")
-            expect(abs(right750Peak - expectedBand(for: 750)) <= 2, "anti-phase 750 Hz must retain frequency")
+            expect(left750Peak == right750Peak, "anti-phase 750 Hz must retain the same frequency identity")
+            expect(
+                left750Peak > tonePeaks[1] && left750Peak < tonePeaks[2],
+                "750 Hz must remain between 500 Hz and 2 kHz, not rectify to another band"
+            )
 
             let stereo = webLevels([sine(frequency: 250), sine(frequency: 4_000)])
-            expect(abs(peakIndex(stereo, channel: 0) - expectedBand(for: 250)) <= 2, "left 250 Hz")
-            expect(abs(peakIndex(stereo, channel: 1) - expectedBand(for: 4_000)) <= 2, "right 4 kHz")
+            expect(
+                peakIndex(stereo, channel: 0) < peakIndex(stereo, channel: 1),
+                "stereo channels must retain independent low-to-high frequency order"
+            )
 
             canonicalAnalyzer.reset()
             let canonicalAttack = canonicalAnalyzer.analyze(
@@ -399,6 +415,17 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                 canonicalRelease.left64.max()! > 0
                     && canonicalRelease.left64.max()! < canonicalAttack.left64.max()!,
                 "Producer release should remain visible while decaying"
+            )
+            var releaseTail = canonicalRelease.left64.max()!
+            for _ in 0..<3 {
+                releaseTail = canonicalAnalyzer.analyze(
+                    signedChannels: [[Float](repeating: 0, count: sampleCount)],
+                    sampleRate: sampleRate
+                ).left64.max()!
+            }
+            expect(
+                releaseTail < canonicalAttack.left64.max()! * 0.50,
+                "release should not leave a long wave-like tail"
             )
 
             let amplitudes: [Float] = [0.05, 0.2, 0.8]

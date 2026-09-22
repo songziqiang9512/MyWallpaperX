@@ -62,6 +62,7 @@ final class SystemAudioSceneSpectrumAnalyzer {
 
     private struct FrequencyLevels {
         let extended: [Float]
+        let rms: Float
     }
 
     private static let fftSize = 4096
@@ -73,25 +74,33 @@ final class SystemAudioSceneSpectrumAnalyzer {
     /// 沿用项目既有 Scene 响应下限：低于 -60 dBFS 的 tap 底噪稳定归零，以上保留
     /// 可见动态。它是 macOS producer 的平台适配，不冒充 Windows 私有增益常量。
     private static let minimumResponseDecibels: Float = -60
-    /// 复用项目频带频谱已有的 0.74 根压缩，把正常音乐的中段动态抬到作者 shader
-    /// 可见区间，同时保留上述 -60 dB 硬门和 0...1 上界。这里只改变幅度响应，
-    /// 不改变低频到高频的索引顺序，也不使用参考项目的频带表或常数组合。
-    private static let visualCompressionExponent: Float = 0.74
-    /// 复用项目已有系统频谱的快起/慢落包络。采集以约 30 Hz 发布，因此这两个系数
-    /// 分别让真实起音及时出现、尾音连续衰减；它们不生成任何无输入周期信号。
-    private static let attackMix: Float = 0.66
-    private static let releaseRetention: Float = 0.84
+    /// 使用大于 1 的对比响应压低底噪、保留真实峰值，避免把每个低能量 band
+    /// 变成同样高度的“软绵绵”底。它是项目独立的显示策略，不是官方未公开常数。
+    private static let visualCompressionExponent: Float = 1.60
+    /// 采集以约 30 Hz 发布。攻击保持接近一个发布周期，释放约 80 ms，避免旧值
+    /// 长时间拖尾成波浪；两者都只跟随真实输入，不生成无输入周期信号。
+    private static let attackMix: Float = 0.82
+    private static let releaseRetention: Float = 0.68
     /// 系统音频的音乐内容通常带有明显的 1/f 频谱倾斜；不补偿时，低频峰值会
-    /// 把高频作者柱压到固定 -60 dB 门以下。该指数只做有界的跨频率响应补偿，
-    /// 不改变 band identity，也不把某个样本的频谱重排到另一组柱子。
-    private static let spectralTiltExponent: Float = 0.05
+    /// 把高频作者柱压到固定 -60 dB 门以下。这里使用有界的跨频率响应补偿，
+    /// 让左右横轴在同一输入下有可见动态；它不改变 band identity，也不把某个
+    /// 样本的频谱重排到另一组柱子。具体指数仍是项目策略，不复制第三方实现常数。
+    private static let spectralTiltExponent: Float = 0.80
     private static let spectralTiltReferenceFrequency: Float = 250
-    private static let spectralTiltMinimumGain: Float = 0.55
+    /// 低频 shelf 在 32 Hz 处只保留约 0.2 的线性幅度，向 250 Hz 平滑回到
+    /// unity。它削弱系统 tap 中持续的次低音/设备底噪首档，但不会把真实 bass
+    /// 变成静音；强 bass 仍由同一 band 的峰值通过后续 dB 响应显示。
+    private static let spectralTiltMinimumGain: Float = 0.20
     private static let spectralTiltMaximumGain: Float = 4
-    /// 低频主导的真实输入仍应让整条作者频谱有可见、可更新的活动底。底值由
-    /// 同一帧的最高真实 band 推导，静音仍严格为零，不制造随机或周期信号。
-    private static let broadbandActivityFloorRatio: Float = 0.01
-    private static let broadbandActivityFloorMaximum: Float = 0.004
+    /// 普通等对数分段会在 32...100 Hz 反复生成窄空档。对 log 进度做轻微的
+    /// 凹形 warp，把低频 bin 分散到可表示的相邻 band，避免首柱吞掉整段 bass，
+    /// 同时保留单调的作者频率 identity；它不是按样本或柱子注入形状。
+    private static let frequencyBandWarpExponent: Float = 0.78
+    /// 系统 tap 在最低几个 FFT bin 上会带有设备/混音底噪。门限只在低频端
+    /// 启用，并随 band 中心频率平滑回到既有 -60 dB 响应；强真实 bass 仍会通过，
+    /// 而持续的小底噪不会把第一根柱子钉在非零高度。
+    private static let lowFrequencyGateEnd: Float = 250
+    private static let lowFrequencyGateDecibels: Float = -42
     private static let settledSilenceThreshold: Float = 0.000_1
 
     private let log2FFTSize: vDSP_Length
@@ -102,6 +111,10 @@ final class SystemAudioSceneSpectrumAnalyzer {
     private var cachedAmplitudeScale: Float = 0
     private var smoothedLeft64 = Array(repeating: Float(0), count: extendedBandCount)
     private var smoothedRight64 = Array(repeating: Float(0), count: extendedBandCount)
+    private var smoothedLeftEnergy: Float = 0
+    private var smoothedRightEnergy: Float = 0
+    private var leftOnsetPulse: Float = 0
+    private var rightOnsetPulse: Float = 0
 
     init?() {
         let log2Size = vDSP_Length(log2(Float(Self.fftSize)))
@@ -179,8 +192,20 @@ final class SystemAudioSceneSpectrumAnalyzer {
         // Apply the fast-attack/slow-release envelope exactly once to the 64-band
         // canonical producer. Lower resolutions are projections of that same
         // identity-preserving result, so they cannot acquire a second temporal tail.
-        smoothedLeft64 = Self.visualLevels(rawLeft.extended, previous: smoothedLeft64)
-        smoothedRight64 = Self.visualLevels(rawRight.extended, previous: smoothedRight64)
+        smoothedLeft64 = visualLevels(
+            rawLeft.extended,
+            previous: smoothedLeft64,
+            rms: rawLeft.rms,
+            previousEnergy: &smoothedLeftEnergy,
+            onsetPulse: &leftOnsetPulse
+        )
+        smoothedRight64 = visualLevels(
+            rawRight.extended,
+            previous: smoothedRight64,
+            rms: rawRight.rms,
+            previousEnergy: &smoothedRightEnergy,
+            onsetPulse: &rightOnsetPulse
+        )
         return Levels(
             left: Self.resample(smoothedLeft64, count: Self.bandCount),
             right: Self.resample(smoothedRight64, count: Self.bandCount),
@@ -231,9 +256,7 @@ final class SystemAudioSceneSpectrumAnalyzer {
         guard binWidth.isFinite, binWidth > 0,
               upperFrequency > Self.minimumFrequency
         else {
-            return FrequencyLevels(
-                extended: Self.zeroExtendedBands
-            )
+            return FrequencyLevels(extended: Self.zeroExtendedBands, rms: 0)
         }
         let extended = frequencyBands(
             magnitudes,
@@ -241,7 +264,15 @@ final class SystemAudioSceneSpectrumAnalyzer {
             upperFrequency: upperFrequency,
             binWidth: binWidth
         )
-        return FrequencyLevels(extended: extended)
+        let mean = samples.reduce(0, +) / Float(max(1, samples.count))
+        let squaredMean = samples.reduce(0) { partial, sample in
+            let centered = sample - mean
+            return partial + centered * centered
+        } / Float(max(1, samples.count))
+        return FrequencyLevels(
+            extended: extended,
+            rms: squaredMean.isFinite ? sqrt(max(0, squaredMean)) : 0
+        )
     }
 
     private func frequencyBands(
@@ -251,49 +282,77 @@ final class SystemAudioSceneSpectrumAnalyzer {
         binWidth: Float
     ) -> [Float] {
         let ratio = upperFrequency / Self.minimumFrequency
+        let firstBin = max(1, Int(floor(Self.minimumFrequency / binWidth)))
+        let endBin = min(magnitudes.count, Int(ceil(upperFrequency / binWidth)))
         var levels = Array(repeating: Float(0), count: count)
-        for bandIndex in levels.indices {
-            let lowerProgress = Float(bandIndex) / Float(count)
-            let upperProgress = Float(bandIndex + 1) / Float(count)
-            let lowerFrequency = Self.minimumFrequency * pow(ratio, lowerProgress)
-            let upperBandFrequency = Self.minimumFrequency * pow(ratio, upperProgress)
-            let lowerBin = max(1, Int(floor(lowerFrequency / binWidth)))
-            let upperBin = min(
-                magnitudes.count,
-                max(lowerBin + 1, Int(ceil(upperBandFrequency / binWidth)))
+        guard firstBin < endBin else { return levels }
+        var totals = Array(repeating: Float(0), count: count)
+        var counts = Array(repeating: 0, count: count)
+        // Assign every FFT bin to exactly one logarithmic band. Quantizing each
+        // band's independent floor/ceil bounds used to overlap low bins across
+        // adjacent bars, copying one peak into a soft wave. Empty low bands are
+        // valid when the FFT resolution cannot represent their narrow interval.
+        for bin in firstBin ..< endBin where magnitudes[bin].isFinite {
+            let frequency = (Float(bin) + 0.5) * binWidth
+            let progress = min(
+                1,
+                max(
+                    0,
+                    log(max(frequency, Self.minimumFrequency) / Self.minimumFrequency)
+                        / log(ratio)
+                )
             )
-            guard lowerBin < upperBin else { continue }
-            let centerFrequency = sqrt(lowerFrequency * upperBandFrequency)
+            let warpedProgress = pow(progress, Self.frequencyBandWarpExponent)
+            let bandIndex = min(
+                count - 1,
+                max(0, Int(floor(warpedProgress * Float(count))))
+            )
             let tiltGain = min(
                 Self.spectralTiltMaximumGain,
                 max(
                     Self.spectralTiltMinimumGain,
                     pow(
-                        centerFrequency / Self.spectralTiltReferenceFrequency,
+                        frequency / Self.spectralTiltReferenceFrequency,
                         Self.spectralTiltExponent
                     )
                 )
             )
-            for bin in lowerBin ..< upperBin where magnitudes[bin].isFinite {
-                levels[bandIndex] = max(
-                    levels[bandIndex],
-                    magnitudes[bin] * tiltGain
+            totals[bandIndex] += max(0, magnitudes[bin]) * tiltGain
+            counts[bandIndex] += 1
+        }
+        for bandIndex in levels.indices where counts[bandIndex] > 0 {
+            levels[bandIndex] = totals[bandIndex] / Float(counts[bandIndex])
+            let bandProgress = (Float(bandIndex) + 0.5) / Float(count)
+            let logProgress = pow(
+                min(1, max(0, bandProgress)),
+                1 / Self.frequencyBandWarpExponent
+            )
+            let centerFrequency = Self.minimumFrequency * pow(ratio, logProgress)
+            let gateDecibels: Float
+            if centerFrequency < Self.lowFrequencyGateEnd {
+                let gateProgress = min(
+                    1,
+                    max(
+                        0,
+                        log(centerFrequency / Self.minimumFrequency)
+                            / log(Self.lowFrequencyGateEnd / Self.minimumFrequency)
+                    )
                 )
+                gateDecibels = Self.lowFrequencyGateDecibels
+                    + gateProgress * (Self.minimumResponseDecibels - Self.lowFrequencyGateDecibels)
+            } else {
+                gateDecibels = Self.minimumResponseDecibels
+            }
+            let gateMagnitude = pow(10, gateDecibels / 20)
+            if levels[bandIndex] < gateMagnitude {
+                levels[bandIndex] = 0
             }
         }
-        guard let broadbandPeak = levels.max(),
-              broadbandPeak.isFinite,
-              broadbandPeak > 0
-        else {
-            return levels
-        }
-        let activityFloor = min(
-            Self.broadbandActivityFloorMaximum,
-            broadbandPeak * Self.broadbandActivityFloorRatio
-        )
+        // Do not synthesize a cross-band floor from the loudest band. A narrow-band
+        // source must leave unrelated bars quiet; otherwise the -60 dB response
+        // turns the floor into a visible, wave-like copy of the peak.
         return levels.map { level in
-            guard level.isFinite else { return activityFloor }
-            return max(level, activityFloor)
+            level.isFinite ? max(0, level) : 0
         }
     }
 
@@ -357,24 +416,60 @@ final class SystemAudioSceneSpectrumAnalyzer {
         return cachedWindow
     }
 
-    private static func visualLevels(
+    private static let sharedEnergyMix: Float = 0.18
+    private static let onsetPulseMix: Float = 0.10
+    private static let onsetPulseRetention: Float = 0.55
+
+    private func visualLevels(
         _ linearLevels: [Float],
-        previous: [Float]
+        previous: [Float],
+        rms: Float,
+        previousEnergy: inout Float,
+        onsetPulse: inout Float
     ) -> [Float] {
         guard !linearLevels.isEmpty,
               linearLevels.count == previous.count
         else {
             return Array(repeating: 0, count: previous.count)
         }
+        let energyTarget = Self.visualResponse(for: rms)
+        let energyBefore = previousEnergy
+        let energyEnvelope: Float
+        if energyTarget >= energyBefore {
+            energyEnvelope = energyBefore * (1 - Self.attackMix)
+                + energyTarget * Self.attackMix
+        } else {
+            energyEnvelope = max(
+                energyTarget,
+                energyBefore * Self.releaseRetention
+            )
+        }
+        let onset = min(
+            1,
+            max(0, energyTarget - energyBefore)
+                / max(0.08, energyBefore)
+        )
+        onsetPulse = max(onset, onsetPulse * Self.onsetPulseRetention)
+        previousEnergy = energyEnvelope
+        // Keep the frequency shape authoritative while letting a real frame-wide
+        // energy rise move active bars together. This is a bounded gain, not a
+        // synthesized cross-band floor: empty bands remain empty and silence stays
+        // exactly zero.
+        let sharedGain = min(
+            1.12,
+            1 - Self.sharedEnergyMix
+                + Self.sharedEnergyMix * energyEnvelope
+                + Self.onsetPulseMix * onsetPulse
+        )
         return zip(linearLevels, previous).map { linear, prior in
-            let target = visualResponse(for: linear)
+            let target = Self.visualResponse(for: linear) * sharedGain
             let next: Float
             if target >= prior {
-                next = prior * (1 - attackMix) + target * attackMix
+                next = prior * (1 - Self.attackMix) + target * Self.attackMix
             } else {
-                next = max(target, prior * releaseRetention)
+                next = max(target, prior * Self.releaseRetention)
             }
-            guard next.isFinite, next >= settledSilenceThreshold else { return 0 }
+            guard next.isFinite, next >= Self.settledSilenceThreshold else { return 0 }
             return min(1, max(0, next))
         }
     }
@@ -395,6 +490,10 @@ final class SystemAudioSceneSpectrumAnalyzer {
         rollingChannels.removeAll(keepingCapacity: true)
         smoothedLeft64 = Self.zeroExtendedBands
         smoothedRight64 = Self.zeroExtendedBands
+        smoothedLeftEnergy = 0
+        smoothedRightEnergy = 0
+        leftOnsetPulse = 0
+        rightOnsetPulse = 0
     }
 
     private static var zeroBands: [Float] {

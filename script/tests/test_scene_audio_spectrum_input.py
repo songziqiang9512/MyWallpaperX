@@ -513,6 +513,39 @@ enum Harness {
             previousContinuity = levels.left
         }
 
+        // A fixed spectral shape with a deterministic amplitude pulse is the
+        // smallest producer-side rhythm probe. It must rise and fall with the
+        // PCM envelope; this does not assert a private FFT constant or an
+        // official beat detector.
+        let rhythmAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
+        var rhythmPeaks: [Float] = []
+        var rhythmBandCounts: [Int] = []
+        let rhythmFrameCount = 1_600
+        for frame in 0 ..< 96 {
+            let pulse = 0.04 + 0.42 * (0.5 + 0.5 * sin(
+                Float(frame) * 2 * .pi / 24
+            ))
+            let input = (0 ..< rhythmFrameCount).map { index in
+                let sample = Float(frame * rhythmFrameCount + index)
+                return pulse * (
+                    0.42 * sin(2 * .pi * 110 * sample / sampleRate)
+                    + 0.28 * sin(2 * .pi * 440 * sample / sampleRate)
+                    + 0.18 * sin(2 * .pi * 2_200 * sample / sampleRate)
+                    + 0.12 * sin(2 * .pi * 8_000 * sample / sampleRate)
+                )
+            }
+            let levels = rhythmAnalyzer.analyze(
+                signedChannels: [input],
+                sampleRate: sampleRate
+            )
+            rhythmPeaks.append(levels.left64.max() ?? 0)
+            rhythmBandCounts.append(levels.left64.filter { $0 > 0.03 }.count)
+        }
+        let rhythmFirstRise = rhythmPeaks.dropFirst(24).prefix(12).max() ?? 0
+        let rhythmFirstFall = rhythmPeaks.dropFirst(36).prefix(12).min() ?? 0
+        let rhythmSecondRise = rhythmPeaks.dropFirst(48).prefix(12).max() ?? 0
+        let rhythmSecondFall = rhythmPeaks.dropFirst(60).prefix(12).min() ?? 0
+
         return [
             "available": true,
             "bandCount": bandCount,
@@ -524,6 +557,7 @@ enum Harness {
             "stereoRight": stereo.right,
             "stereoLeft64": stereo.left64,
             "stereoRight64": stereo.right64,
+            "bassOnlyPeak": bassOnly.left.max() ?? 0,
             "bassOnlyUpperNonZero": bassOnly.left.dropFirst(bandCount / 2)
                 .filter { $0 > 0 }.count,
             "bassOnlyUpperPeak": bassOnly.left.dropFirst(bandCount / 2).max() ?? 0,
@@ -559,6 +593,13 @@ enum Harness {
             "changedUpperBandCountLate": changedUpperBandsLate.count,
             "lateConsecutiveShapeChanges": lateConsecutiveShapeChanges,
             "continuityFirstBandPeak": continuityFirstBandPeak,
+            "rhythmFirstRise": rhythmFirstRise,
+            "rhythmFirstFall": rhythmFirstFall,
+            "rhythmSecondRise": rhythmSecondRise,
+            "rhythmSecondFall": rhythmSecondFall,
+            "rhythmPeakRange": (rhythmPeaks.max() ?? 0) - (rhythmPeaks.min() ?? 0),
+            "rhythmBandCountRange": (rhythmBandCounts.max() ?? 0)
+                - (rhythmBandCounts.min() ?? 0),
             "deterministic": repeated.left == stereo.left
                 && repeated.right == stereo.right
                 && repeated.left32 == stereo.left32
@@ -856,53 +897,34 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
 
     def test_tones_land_in_the_expected_low_to_high_bands(self) -> None:
         analyzer = self.result["analyzer"]
-        # 公开合同只要求低频到高频。Scene producer 以 32 Hz -> 16 kHz
-        # 的对数边界把常见音乐频率分布到整个横轴，16/32/64 档都从
-        # 同一 FFT 直接求值，不用会把能量压到左侧的 sqrt-like 私有映射。
-        self.assertEqual(
-            analyzer["stereoLeftPeakBand"],
-            6,
-            "440 Hz 必须落在对数划分下的第 6 段",
-        )
-        self.assertEqual(
-            analyzer["stereoRightPeakBand"],
-            13,
-            "5 kHz 必须落在更高频段，证明频段顺序由低到高",
-        )
-        self.assertEqual(analyzer["stereoLeft64PeakBand"], 27)
-        self.assertEqual(analyzer["stereoRight64PeakBand"], 52)
-        self.assertEqual(analyzer["stereoLeft32PeakBand"], 13)
-        self.assertEqual(analyzer["stereoRight32PeakBand"], 26)
-        self.assertLess(
-            analyzer["stereoLeftPeakBand"],
-            analyzer["stereoRightPeakBand"],
-        )
+        # 官方只给出低频到高频的顺序，不公开 440 Hz/5 kHz 的精确 band
+        # 边界；不能把当前 producer 的私有 warp 常数写成验收标准。
+        for resolution, low_key, high_key in (
+            (16, "stereoLeftPeakBand", "stereoRightPeakBand"),
+            (32, "stereoLeft32PeakBand", "stereoRight32PeakBand"),
+            (64, "stereoLeft64PeakBand", "stereoRight64PeakBand"),
+        ):
+            self.assertIn(analyzer[low_key], range(resolution))
+            self.assertIn(analyzer[high_key], range(resolution))
+            self.assertLess(
+                analyzer[low_key],
+                analyzer[high_key],
+                f"{resolution} 档必须保留 440 Hz 到 5 kHz 的频率顺序",
+            )
 
     def test_output_stays_positive_and_within_unit_range(self) -> None:
         self.assertTrue(self.result["analyzer"]["allWithinUnitRange"])
 
-    def test_bass_dominant_input_keeps_the_upper_axis_active(self) -> None:
+    def test_bass_dominant_input_keeps_unrelated_upper_bands_bounded(self) -> None:
         analyzer = self.result["analyzer"]
-        self.assertGreaterEqual(
-            analyzer["bassOnlyUpperNonZero"],
-            8,
-            "真实低频主导输入不能把右半频谱压成静态零值",
+        # 旧测试要求纯低频输入必须合成右半轴活动底；这会把一个真实
+        # 低频峰复制成多个无关柱。官方没有要求纯 bass 的上半轴全零，
+        # 因此这里只约束不能由其产生比主峰还高的人工上半轴。
+        self.assertGreater(analyzer["bassOnlyPeak"], 0)
+        self.assertLessEqual(
+            analyzer["bassOnlyUpperPeak"], analyzer["bassOnlyPeak"]
         )
-        self.assertGreater(
-            analyzer["bassOnlyUpperPeak"],
-            0,
-            "上半轴活动底必须来自同一帧的真实 broadband energy",
-        )
-        self.assertGreater(
-            analyzer["bassOnlyUpperPeak"],
-            analyzer["bassOnlyQuietUpperPeak"],
-            "活动底必须随输入能量变化，不能用常数或随机抖动伪造动态",
-        )
-        self.assertGreater(
-            analyzer["bassUpperChangesLate"],
-            0,
-            "长时低频主导输入下，上半轴也必须随真实能量持续更新",
-        )
+        self.assertLessEqual(analyzer["bassOnlyUpperNonZero"], 8)
 
     def test_scene_dynamic_range_separates_quiet_and_loud_bands(self) -> None:
         analyzer = self.result["analyzer"]
@@ -916,6 +938,29 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
             analyzer["quietPeak"],
             0.05,
             "普通弱音必须经过可视响应后仍能驱动作者波形，不能缩成不可见细线",
+        )
+
+    def test_fixed_spectral_shape_tracks_a_real_pcm_energy_pulse(self) -> None:
+        analyzer = self.result["analyzer"]
+        self.assertGreater(
+            analyzer["rhythmFirstRise"],
+            analyzer["rhythmFirstFall"] * 1.35,
+            "同一频谱形状的起音与回落必须在 producer 输出中保持可见节奏",
+        )
+        self.assertGreater(
+            analyzer["rhythmSecondRise"],
+            analyzer["rhythmSecondFall"] * 1.35,
+            "重复的 PCM 能量脉冲必须重复产生 rise/fall，而不是只在首帧跳动",
+        )
+        self.assertGreater(
+            analyzer["rhythmPeakRange"],
+            0.12,
+            "频谱柱的全局强弱必须对真实 PCM 能量有足够响应",
+        )
+        self.assertGreaterEqual(
+            analyzer["rhythmBandCountRange"],
+            1,
+            "能量脉冲不能被压成一条恒定高度的静态柱列",
         )
 
     def test_near_silent_input_remains_bounded_below_normal_audio(self) -> None:
@@ -985,7 +1030,7 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
         self.assertTrue(analyzer["sanitizedToneFinite"])
         self.assertEqual(
             analyzer["sanitizedTonePeakBand"],
-            6,
+            analyzer["stereoLeftPeakBand"],
             "个别非有限采样被置零后，主频段判定仍应成立",
         )
 
@@ -993,7 +1038,7 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
         analyzer = self.result["analyzer"]
         self.assertEqual(
             analyzer["biasedPeakBand"],
-            6,
+            analyzer["stereoLeftPeakBand"],
             "tap 直流偏置不得把主频从 440 Hz 推到第 0 柱",
         )
         self.assertAlmostEqual(
