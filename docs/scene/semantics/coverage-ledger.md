@@ -2,7 +2,9 @@
 
 ## 2026-09-22 Video/Web/Scene 统一音频 producer（S2 shared owner / focused behavior）
 
-`SystemAudioSpectrumService` 的 CoreAudio tap、aggregate device 与 PCM decoder 原本只有一个 owner，但三个消费方向各自持有 Scene 4096-FFT、Web 4096-FFT、Overlay 1024-FFT。当前唯一 canonical owner 是 `SystemAudioSceneSpectrumAnalyzer`，一次产生双声道 16/32/64 bands；Web/Video 与 Overlay 只做 typed projection，不再接收 PCM 或建立第二 FFT。Scene endpoint 撤销不清空仍工作的 shared rolling window；停止、失败和资源代际切换仍统一 reset。2026-09-22 当前执行的采集、恢复（含 revoke→reenable）、scope、demand、Scene/粒子与低频长时行为门共 7 组通过；第一次 checkpoint 的 Embed SteamService .NET restore 曾 SIGSEGV，隔离重试后 `script/run_checkpoint_build.sh` 为 `BUILD SUCCEEDED`。同一已提交签名构建追加普通外部系统声源复核：Scene `3754639143` 的条件场景到S3 capture publication，Web `923576681` 未用fixture到作者listener/typed dispatch和代表样本原分辨率可见变化；Video开启overlay的普通入口仍未验证。该台账不把两项代表样本外推全集、官方同输入、长稳或三引擎视觉 parity；revoked-frame 仅为 processing-admission 证据，cursor 音频门也仍开放。详见[公共producer](runtime-evidence-current.md#e-2026-09-22-audio-shared-canonical-producer)与[普通Scene/Web取证](runtime-evidence-current.md#e-2026-09-22-audio-ordinary-scene-web)。
+> 本段保留 Q1.4p 前序采集/consumer gate 的七组证据；本次 Q1.4v 投影与包络修正的当前门是六个模块合计 72/72，见下方统一包络证据。
+
+`SystemAudioSpectrumService` 的 CoreAudio tap、aggregate device 与 PCM decoder 只有一个 owner；现役 `SystemAudioSceneSpectrumAnalyzer` 先生成唯一双声道 64-band canonical snapshot，并在同一 owner 内执行一次幅度映射与每带快起慢落。16/32/64 及非标准柱数只对这组 canonical bands 做无状态、无重叠连续块平均；Web/Video/Scene 不再各自维护 FFT、邻域/全局混合或第二时间包络。Web/Video 与 Overlay 只做 typed projection，不再接收 PCM 或建立第二 FFT；Overlay 只保留静态 style/sensitivity 增益与噪声门。Scene endpoint 撤销不清空仍工作的 shared rolling window；停止、失败和资源代际切换仍统一 reset。2026-09-22 当前执行的采集、恢复（含 revoke→reenable）、scope、demand、Scene/粒子与低频长时行为门共 7 组通过；第一次 checkpoint 的 Embed SteamService .NET restore 曾 SIGSEGV，隔离重试后 `script/run_checkpoint_build.sh` 为 `BUILD SUCCEEDED`。同一已提交签名构建追加普通外部系统声源复核：Scene `3754639143` 的条件场景到S3 capture publication，Web `923576681` 未用fixture到作者listener/typed dispatch和代表样本原分辨率可见变化；Video开启overlay的普通入口仍未验证。该台账不把两项代表样本外推全集、官方同输入、长稳或三引擎视觉 parity；revoked-frame 仅为 processing-admission 证据，cursor 音频门也仍开放。详见[公共producer](runtime-evidence-current.md#e-2026-09-22-audio-shared-canonical-producer)、[统一包络与投影](runtime-evidence-current.md#e-2026-09-22-audio-spectrum-reference-envelope)与[普通Scene/Web取证](runtime-evidence-current.md#e-2026-09-22-audio-ordinary-scene-web)。
 
 ## 2026-09-22 三引擎主音量/静音公共控制（S2 command/IPC/registry behavior）
 
@@ -1305,4 +1307,5 @@ layer `467#effect#480` 的 cutout-vignette 直接以 `varying vec3 v_TexCoord - 
 7. 每行至少要能追溯到专项表中的代码、测试和运行证据；只有 parser 或结构时不得写成执行支持。
 > **2026-09-22 策略门补记（Q1.4s）**：`systemAudioSpectrumEnabled` 现经 `WallpaperEngineCommand → PlaybackCommandMultiplexer` 广播到 Video/Web/Scene；Web/Scene 保留作者 demand，关闭时撤销共享 consumer 并由 Scene daemon 清除旧 inbox snapshot。该项已通过 57 项 focused gates 与隔离 Debug checkpoint build，其中包含 Inbox publication-gate 过渡行为门；少量全引擎接线检查仍是源码断言，仍不计人工 UI、三引擎同源实机电平、视觉 ROI、全集或官方 parity。
 >
+> **历史前置说明（Q1.4t）**：下一条 Video overlay 强输入形态记录描述的是 adaptive ceiling 与旧 20% 追赶；该投影实现已由 Q1.4v 统一为无状态 typed projection，当前行为和证据以上方统一频谱条目为准。
 > **2026-09-22 Video overlay 强输入形态补记（Q1.4t）**：唯一 PCM analyzer 不变；Overlay typed projection 在新峰上升时立即更新 adaptive ceiling，避免旧 20% 追赶使全柱归一化夹到同高。确定性多频 PCM 的 16 根 Video projection 从旧 `16/16=0.6600` 同高恢复为 `0.3636…0.6340`，focused 38/38 PASS；这仅是投影行为，不是实际 Video UI/音乐可见证据，也不修复 `2241938645` 的 SceneScript 单柱或其他作者样本。

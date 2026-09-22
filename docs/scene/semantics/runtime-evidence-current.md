@@ -168,7 +168,9 @@ ignored本机证据`inventory.json / manifest.md` SHA-256=`2abcb724579ca635942ba
 
 ### E-2026-09-22-AUDIO-SHARED-CANONICAL-PRODUCER — Video/Web/Scene 共用单一 PCM→频谱 producer
 
-**交接事实与修复边界：**本批以当前代码和最近音频提交史为准核对三种播放引擎。CoreAudio process tap、aggregate device、`SystemAudioCaptureBuffer` 本来就是单一采集/解码 owner；实际分叉发生在 `SystemAudioSpectrumService` 内部：旧实现同时持有 Scene 4096-FFT、Web 4096-FFT 和 Overlay 1024-FFT，三者各自定义窗口、频段、归一化和包络。现役 `SystemAudioSceneSpectrumAnalyzer` 现在是 Video/Web/Scene 共用的唯一 PCM→16/32/64×L/R canonical producer；它仍按每声道滚动窗、去均值、Hann、项目声明的 32 Hz…16 kHz 对数频段和有界快起慢落输出。`SystemAudioWebSpectrumAnalyzer` 与 `SystemAudioOverlaySpectrumAnalyzer` 已降为 typed projection：Web 只转发 canonical 64-band L/R，Overlay 只做 stereo 合并、有限柱数投影、显示风格和本地包络；两者不再接收 PCM、导入 Accelerate、创建 FFT setup 或成为第二 producer。没有新增 tap、provider、clock、registry 或 compositor。
+> 本条保留 Q1.4p 前序采集/consumer gate 的七组证据；Q1.4v 当前投影与包络修正的六模块 72/72 门见 [E-2026-09-22-AUDIO-SPECTRUM-REFERENCE-ENVELOPE](#e-2026-09-22-audio-spectrum-reference-envelope)。
+
+**交接事实与修复边界：**本批以当前代码和最近音频提交史为准核对三种播放引擎。CoreAudio process tap、aggregate device、`SystemAudioCaptureBuffer` 本来就是单一采集/解码 owner；实际分叉发生在旧实现的消费侧：Scene/Web/Overlay 各自定义了 FFT、窗口、频段、归一化或二次包络。现役 `SystemAudioSceneSpectrumAnalyzer` 现在是 Video/Web/Scene 共用的唯一 PCM→stereo 64-band canonical producer；它仍按每声道滚动窗、去均值、Hann、项目声明的 32 Hz…16 kHz 对数频段和有界快起慢落输出。`SystemAudioWebSpectrumAnalyzer` 与 `SystemAudioOverlaySpectrumAnalyzer` 已降为 typed projection：16/32/64 和非标准柱数只做无重叠连续块平均，Overlay 只保留静态 style/sensitivity 增益与噪声门，Web 直接转发有限 canonical snapshot；两者不再接收 PCM、导入 Accelerate、创建 FFT setup 或成为第二 producer。没有新增 tap、provider、clock、registry 或 compositor。
 
 **生命周期与行为验证：**Scene endpoint 撤销时只清 Scene publication，不重置仍被 Web/Video 使用的 shared rolling window；tap 停止、采集失败、scope/资源代际切换仍通过同一 reset seam 丢弃旧窗口。2026-09-22 当前执行的 focused gates `test_system_audio_spectrum`、`test_system_audio_spectrum_recovery`（含 revoke→reenable）、`test_scene_audio_spectrum_input`、`test_scene_audio_capture_scope`、`test_scene_audio_demand`、`test_scene_audio_response`、`test_scene_particle_audio_response` 全部通过；其中包含 PCM layout/finite、左右声道 identity、tone ordering、silence、projection bar count/release、stale capture generation、scope reset、低频主导输入的上半轴非零与96帧长时更新。第一次 `script/run_checkpoint_build.sh` 在 Embed SteamService 的 .NET restore 阶段 SIGSEGV，未归因于本批 Swift；隔离重试后同一 checkpoint Debug build `BUILD SUCCEEDED`，日志中仍有批外既有 QuickJS C/Swift warnings，不把 warning 清零写成代码健康完成。`test_scene_cursor_audio_consumer` 本机历史执行超过30秒无输出且未得到可靠结果，本批保留未验证。
 
@@ -2010,9 +2012,21 @@ Scene 协议新增 `setSpectrumEnabled`，client 在 endpoint ready/replay 时�
 
 ### E-2026-09-22-AUDIO-OVERLAY-CEILING — 共享 producer 后 Video 投影强输入同高夹断
 
+> 本节是 Q1.4t 的历史前置证据；其 adaptive ceiling、frame-wide normalization、邻域混合与本地 envelope 已由 Q1.4v 的统一 64-band producer 和无状态 typed projection supersede。当前合同与结果见 [E-2026-09-22-AUDIO-SPECTRUM-REFERENCE-ENVELOPE](#e-2026-09-22-audio-spectrum-reference-envelope)。
+
 基线 `b2f1a61d`，本批 owned paths 限 `SystemAudioOverlaySpectrumAnalyzer.swift`、`test_system_audio_spectrum.py` 与现役队列/能力/证据记录。共享 PCM→16/32/64×L/R producer、Web/Scene 投影与作者需求不变；Video overlay 的 `styledLevels` 在新峰超过历史 ceiling 时仅按 0.20 比例追赶，然后按上界 `1` 裁剪每根归一化柱，导致强音首帧/上升沿多根不同幅度同高。隔离确定性多频探针编译生产 analyzer+overlay，输入 60…15,360 Hz 的有界 1/f 组合，canonical 16 档范围 `0.2695…0.8362`；批前 overlay 16/16 全为 `0.6600`，上升峰立即更新 ceiling 后为 `0.3636…0.6340`。这只证明 shape 不再被投影饱和吞掉，不要求所有柱相等，也不声称频谱与官方数值一致。
 
 行为门以直接的 64 档 typed 四段 `0.2/0.5/0.8/0.35` 同声道输入验证 fresh overlay 的低中上升、右侧回落与 `max-min>0.1`，旧实现会把整排夹成相同高度；既有发布、range、release、reset 断言继续。`python3 -m unittest script.tests.test_system_audio_spectrum script.tests.test_scene_audio_spectrum_input script.tests.test_system_audio_spectrum_recovery` **38/38 PASS**。构建、独立复审与最终提交身份见 Q1.4t；尚无普通 Video 设置入口、实际系统音乐、原分辨率前后 ROI、长稳/设备切换或官方同输入对照，不能把此项记为用户视觉问题最终关闭。
+
+<a id="e-2026-09-22-audio-spectrum-reference-envelope"></a>
+
+### E-2026-09-22-AUDIO-SPECTRUM-REFERENCE-ENVELOPE — 统一 producer 单次包络与无状态投影
+
+**研究边界与中性合同：**用户要求用参考项目行为而非猜测修正“软绵绵/波浪化”频谱。本批静态核对第三方 MirageWallpaper 固定 revision `443777e29a8046615db6275f80ff816a4bad444b`，只提炼可观察职责：唯一 stereo 64-band producer 负责窗化/FFT、连续频带聚合、一次幅度映射和每带快起慢落；消费 binder 只做 64→16/32/64 连续块平均；失联回静音而非冻结；消费端不叠加邻域/全局平均或第二时间包络。该 revision 是 clean-room 结构交叉检查，不是官方语义来源；未传播私有实现表达、公式、常数或资产，官方固定同输入对照仍未执行。
+
+**实现：**`SystemAudioSceneSpectrumAnalyzer` 现在只保留 canonical 64-band/L/R 的一次 `visualLevels` 包络；16/32 和任意柱数均通过无重叠、有界连续块平均得到，64 档保持 identity，左右声道不合并。`SystemAudioOverlaySpectrumAnalyzer` 删除 adaptive ceiling、frame-wide normalization、邻域/全局混合、floor lift 及 previous-frame envelope，仅保留静态 style/sensitivity 增益与噪声门；`WallpaperEngine+WebAudioSpectrum` 删除二次幂压缩与 rise/fall smoothing，节流期间暴露最新 typed snapshot，窗口解除时发布，静音或 active malformed 输入发布清零。
+
+**行为门与构建：**`test_system_audio_spectrum` 新增 64→28/48/96 projection sentinel、canonical release、overlay 无二次尾巴/邻柱独立、Web throttle/latest/silence/invalid 清除；与 `test_scene_audio_capture_scope`、`test_scene_audio_demand`、`test_scene_audio_response`、`test_scene_audio_spectrum_input`、`test_system_audio_spectrum_recovery` 合计 **72/72 PASS**，`git diff --check` 通过。`bash script/run_checkpoint_build.sh` 隔离 Debug **BUILD SUCCEEDED**，仅有既有 SteamService CS8603 与 UI deprecation warnings。该项没有真实系统音乐三引擎 ROI、全集样本、官方 FFT 数值/parity、小时级长稳或设备切换证据；capture service 自身失联回静音仍是后续 owner。
 
 <a id="e-2026-09-22-scenescript-dynamic-layer-frame-values"></a>
 

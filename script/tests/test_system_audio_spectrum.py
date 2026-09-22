@@ -339,6 +339,68 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             expect(abs(peakIndex(stereo, channel: 0) - expectedBand(for: 250)) <= 2, "left 250 Hz")
             expect(abs(peakIndex(stereo, channel: 1) - expectedBand(for: 4_000)) <= 2, "right 4 kHz")
 
+            canonicalAnalyzer.reset()
+            let canonicalAttack = canonicalAnalyzer.analyze(
+                signedChannels: [sine(frequency: 1_000, amplitude: 0.8)],
+                sampleRate: sampleRate
+            )
+            expect(
+                canonicalAttack.left.count == 16
+                    && canonicalAttack.left32.count == 32
+                    && canonicalAttack.left64.count == 64,
+                "Producer must expose 16/32/64 projections"
+            )
+            expect(
+                (canonicalAttack.left + canonicalAttack.left32 + canonicalAttack.left64)
+                    .allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1 },
+                "Producer projections must stay finite and within 0...1"
+            )
+            for index in 0..<16 {
+                let block = canonicalAttack.left64[(index * 4)..<(index * 4 + 4)]
+                let average = block.reduce(0, +) / 4
+                expectNear(
+                    canonicalAttack.left[index],
+                    average,
+                    tolerance: 0.000_001,
+                    "16-band projection must average its 64-band block"
+                )
+            }
+            for index in 0..<32 {
+                let block = canonicalAttack.left64[(index * 2)..<(index * 2 + 2)]
+                let average = block.reduce(0, +) / 2
+                expectNear(
+                    canonicalAttack.left32[index],
+                    average,
+                    tolerance: 0.000_001,
+                    "32-band projection must average its 64-band block"
+                )
+            }
+            let ramp = (0..<64).map { Float($0) / 63 }
+            let ramp28 = SystemAudioSceneSpectrumAnalyzer.resample(ramp, count: 28)
+            expect(ramp28.count == 28, "64→28 projection must preserve requested count")
+            expectNear(ramp28[0], 0.5 / 63, tolerance: 0.000_001, "64→28 first block")
+            expectNear(ramp28[1], 2.5 / 63, tolerance: 0.000_001, "64→28 second block")
+            expectNear(ramp28[27], 62 / 63, tolerance: 0.000_001, "64→28 final block")
+            let ramp48 = SystemAudioSceneSpectrumAnalyzer.resample(ramp, count: 48)
+            expect(ramp48.count == 48, "64→48 projection must preserve requested count")
+            expectNear(ramp48[0], 0, tolerance: 0.000_001, "64→48 first block")
+            expectNear(ramp48[2], 2.5 / 63, tolerance: 0.000_001, "64→48 split block")
+            expectNear(ramp48[47], 62.5 / 63, tolerance: 0.000_001, "64→48 final block")
+            let ramp96 = SystemAudioSceneSpectrumAnalyzer.resample(ramp, count: 96)
+            expect(ramp96.count == 96, "64→96 projection must preserve requested count")
+            expectNear(ramp96[0], 0, tolerance: 0.000_001, "64→96 first repeated block")
+            expectNear(ramp96[1], 0, tolerance: 0.000_001, "64→96 repeated block")
+            expectNear(ramp96[95], 1, tolerance: 0.000_001, "64→96 final repeated block")
+            let canonicalRelease = canonicalAnalyzer.analyze(
+                signedChannels: [[Float](repeating: 0, count: sampleCount)],
+                sampleRate: sampleRate
+            )
+            expect(
+                canonicalRelease.left64.max()! > 0
+                    && canonicalRelease.left64.max()! < canonicalAttack.left64.max()!,
+                "Producer release should remain visible while decaying"
+            )
+
             let amplitudes: [Float] = [0.05, 0.2, 0.8]
             let amplitudeLevels = amplitudes.map { amplitude in
                 webLevels([sine(frequency: 1_000, amplitude: amplitude)]).prefix(64).max()!
@@ -353,16 +415,174 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                 ),
                 "Web spectrum should dispatch when requested"
             )
-            let expectedCompatibilityPeak = pow(amplitudeLevels[2], 1.35) * 0.18
+            let expectedCompatibilityPeak = amplitudeLevels[2]
             expectNear(
                 compatibilityEngine.dispatchedWebLevels.max()!,
                 expectedCompatibilityPeak,
                 tolerance: 0.000_001,
-                "Web compatibility response"
+                "Web dispatch should preserve producer values"
             )
             expect(
-                compatibilityEngine.dispatchedWebLevels.allSatisfy { $0 >= 0 && $0 <= 0.18 },
-                "Web compatibility response must prevent overdriven sample visuals"
+                compatibilityEngine.dispatchedWebLevels.allSatisfy { $0 >= 0 && $0 <= 1 },
+                "Web dispatch must preserve finite 0...1 values"
+            )
+
+            let consecutiveWebEngine = WallpaperEngine()
+            let firstWebSnapshot = Array(repeating: Float(0.8), count: 128)
+            let secondWebSnapshot = Array(repeating: Float(0.2), count: 128)
+            expect(
+                consecutiveWebEngine.dispatchWebAudioSpectrumIfNeeded(firstWebSnapshot),
+                "First Web snapshot should dispatch"
+            )
+            expect(
+                consecutiveWebEngine.dispatchWebAudioSpectrumIfNeeded(secondWebSnapshot),
+                "Second Web snapshot should dispatch"
+            )
+            expectArrayNear(
+                consecutiveWebEngine.dispatchedWebLevels,
+                secondWebSnapshot,
+                tolerance: 0,
+                "Web dispatch must not add a second temporal tail"
+            )
+
+            let throttledWebEngine = WallpaperEngine()
+            throttledWebEngine.webSpectrumPushMinInterval = 10
+            throttledWebEngine.lastWebSpectrumPushAt = Double.greatestFiniteMagnitude
+            let pendingFirst = Array(repeating: Float(0.8), count: 128)
+            let pendingLatest = Array(repeating: Float(0.3), count: 128)
+            expect(
+                throttledWebEngine.dispatchWebAudioSpectrumIfNeeded(pendingFirst),
+                "Throttled first Web snapshot should be accepted"
+            )
+            expect(
+                throttledWebEngine.dispatchWebAudioSpectrumIfNeeded(pendingLatest),
+                "Throttled latest Web snapshot should be accepted"
+            )
+            expect(
+                throttledWebEngine.dispatchedWebLevels.isEmpty,
+                "Throttled snapshots must wait for the next publish window"
+            )
+            expectArrayNear(
+                throttledWebEngine.currentWebSpectrumSnapshot()!,
+                pendingLatest,
+                tolerance: 0,
+                "Web snapshot reads must expose pending latest values"
+            )
+            throttledWebEngine.lastWebSpectrumPushAt = -1
+            let pendingPublished = Array(repeating: Float(0.6), count: 128)
+            expect(
+                throttledWebEngine.dispatchWebAudioSpectrumIfNeeded(pendingPublished),
+                "Web snapshot should publish after throttle opens"
+            )
+            expectArrayNear(
+                throttledWebEngine.dispatchedWebLevels,
+                pendingPublished,
+                tolerance: 0,
+                "Throttle release must publish the latest pending value"
+            )
+
+            throttledWebEngine.lastWebSpectrumPushAt = Double.greatestFiniteMagnitude
+            let silenceSnapshot = [Float](repeating: 0, count: 128)
+            expect(
+                throttledWebEngine.dispatchWebAudioSpectrumIfNeeded(silenceSnapshot),
+                "Silence should be accepted while throttled"
+            )
+            expectArrayNear(
+                throttledWebEngine.dispatchedWebLevels,
+                silenceSnapshot,
+                tolerance: 0,
+                "Silence must bypass throttle and clear the running Web value"
+            )
+
+            let dispatchedBeforeInvalid = throttledWebEngine.dispatchedWebLevels
+            expect(
+                !throttledWebEngine.dispatchWebAudioSpectrumIfNeeded(
+                    [Float](repeating: 0.4, count: 127)
+                ),
+                "Wrong-count Web input must be rejected"
+            )
+            expect(
+                throttledWebEngine.currentWebSpectrumSnapshot()!.allSatisfy { $0 == 0 },
+                "Wrong-count Web input must clear the pending snapshot"
+            )
+            expectArrayNear(
+                throttledWebEngine.dispatchedWebLevels,
+                dispatchedBeforeInvalid,
+                tolerance: 0,
+                "Wrong-count Web input must not dispatch an error command"
+            )
+            var nonFiniteWebInput = [Float](repeating: 0.4, count: 128)
+            nonFiniteWebInput[7] = .nan
+            expect(
+                !throttledWebEngine.dispatchWebAudioSpectrumIfNeeded(nonFiniteWebInput),
+                "Non-finite Web input must be rejected"
+            )
+            expect(
+                throttledWebEngine.currentWebSpectrumSnapshot()!.allSatisfy { $0 == 0 },
+                "Non-finite Web input must clear the pending snapshot"
+            )
+
+            let malformedWebEngine = WallpaperEngine()
+            let malformedBaseline = Array(repeating: Float(0.7), count: 128)
+            expect(
+                malformedWebEngine.dispatchWebAudioSpectrumIfNeeded(malformedBaseline),
+                "Malformed-input lifecycle should start from a non-zero Web value"
+            )
+            expect(
+                !malformedWebEngine.dispatchWebAudioSpectrumIfNeeded(
+                    [Float](repeating: 0.2, count: 127)
+                ),
+                "Wrong-count input after non-zero Web output must be rejected"
+            )
+            expect(
+                malformedWebEngine.dispatchedWebLevels.allSatisfy { $0 == 0 },
+                "Wrong-count input must immediately publish Web silence"
+            )
+            expect(
+                malformedWebEngine.currentWebSpectrumSnapshot()!.allSatisfy { $0 == 0 },
+                "Wrong-count input must clear the visible Web snapshot"
+            )
+            expect(
+                malformedWebEngine.dispatchWebAudioSpectrumIfNeeded(malformedBaseline),
+                "Web output should recover after malformed input"
+            )
+            var malformedNaNInput = malformedBaseline
+            malformedNaNInput[3] = .nan
+            expect(
+                !malformedWebEngine.dispatchWebAudioSpectrumIfNeeded(malformedNaNInput),
+                "Non-finite input after non-zero Web output must be rejected"
+            )
+            expect(
+                malformedWebEngine.dispatchedWebLevels.allSatisfy { $0 == 0 },
+                "Non-finite input must immediately publish Web silence"
+            )
+            expect(
+                malformedWebEngine.currentWebSpectrumSnapshot()!.allSatisfy { $0 == 0 },
+                "Non-finite input must clear the visible Web snapshot"
+            )
+
+            let inactiveMalformedWebEngine = WallpaperEngine()
+            expect(
+                inactiveMalformedWebEngine.dispatchWebAudioSpectrumIfNeeded(malformedBaseline),
+                "Inactive-gate malformed test should start from a non-zero value"
+            )
+            let inactiveDispatchedBeforeMalformed = inactiveMalformedWebEngine.dispatchedWebLevels
+            inactiveMalformedWebEngine.currentSystemAudioSpectrumEnabled = false
+            expect(
+                !inactiveMalformedWebEngine.dispatchWebAudioSpectrumIfNeeded(
+                    [Float](repeating: 0.1, count: 127)
+                ),
+                "Inactive-gate malformed input must be rejected"
+            )
+            expectArrayNear(
+                inactiveMalformedWebEngine.dispatchedWebLevels,
+                inactiveDispatchedBeforeMalformed,
+                tolerance: 0,
+                "Inactive-gate malformed input must not dispatch"
+            )
+            expect(
+                inactiveMalformedWebEngine.currentWebSpectrumSnapshot()!.allSatisfy { $0 == 0 },
+                "Inactive-gate malformed input must clear local snapshot"
             )
 
             let stereoCompatibilityEngine = WallpaperEngine()
@@ -417,19 +637,37 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                 shaped.max()! - shaped.min()! > 0.1,
                 "A fresh loud frame must not clip every bar to the same height"
             )
+            _ = freshOverlay.reset()
+            let alternating = freshOverlay.analyze(
+                leftLevels: (0..<16).map { $0.isMultiple(of: 2) ? 0.8 : 0.02 },
+                rightLevels: (0..<16).map { $0.isMultiple(of: 2) ? 0.8 : 0.02 }
+            )
+            expect(
+                alternating.allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1 }
+                    && alternating[0] > alternating[1] * 3,
+                "Overlay must preserve independent neighboring bars"
+            )
             overlay.updateConfiguration(style: .banded, sensitivity: .normal)
             let banded = overlay.analyze(
                 leftLevels: overlayLevels.left64,
                 rightLevels: overlayLevels.right64
             )
-            let released = overlay.analyze(
+            let repeatedBanded = overlay.analyze(
+                leftLevels: overlayLevels.left64,
+                rightLevels: overlayLevels.right64
+            )
+            expectArrayNear(
+                repeatedBanded,
+                banded,
+                tolerance: 0,
+                "Overlay projection must not add a second temporal envelope"
+            )
+            let silentOverlay = overlay.analyze(
                 leftLevels: [Float](repeating: 0, count: 64),
                 rightLevels: [Float](repeating: 0, count: 64)
             )
-            for index in banded.indices {
-                expectNear(released[index], banded[index] * 0.84, tolerance: 0.000_001, "Overlay release smoothing")
-            }
-            expect(overlay.reset().allSatisfy { $0 == 0 }, "Overlay reset must clear smoothing")
+            expect(silentOverlay.allSatisfy { $0 == 0 }, "Overlay silence must clear immediately")
+            expect(overlay.reset().allSatisfy { $0 == 0 }, "Overlay reset must return silence")
 
             print("System audio spectrum tests passed")
             '''

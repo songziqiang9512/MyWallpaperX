@@ -8,10 +8,6 @@ import QuartzCore
 
 extension WallpaperEngine {
     private static let webSpectrumSampleCount = 128
-    private static let webSpectrumCompatibilityGain: Float = 0.18
-    private static let webSpectrumCompatibilityPower: Float = 1.35
-    private static let webSpectrumRiseBlend: Float = 0.58
-    private static let webSpectrumFallBlend: Float = 0.28
 
     func updateWebAudioSpectrumLevels(_ levels: [Float]) {
         _ = dispatchWebAudioSpectrumIfNeeded(levels)
@@ -19,25 +15,55 @@ extension WallpaperEngine {
 
     @discardableResult
     func dispatchWebAudioSpectrumIfNeeded(_ levels: [Float]) -> Bool {
+        guard levels.count == Self.webSpectrumSampleCount,
+              levels.allSatisfy(\.isFinite) else {
+            // A malformed capture must not leave either a pending value or the
+            // previously published snapshot visible to the next Web consumer.
+            lastWebSpectrumLevels = []
+            let activeWeb = currentPlaybackContentKind == .web
+                && currentSystemAudioSpectrumEnabled
+                && currentWebAudioSpectrumRequested
+            if activeWeb {
+                // Input rejection is reported with false, but an active Web
+                // consumer still needs an immediate typed silence publication
+                // so a prior non-zero frame cannot remain frozen on screen.
+                lastWebSpectrumPushAt = CACurrentMediaTime()
+                dispatchWebRuntimeCommand(
+                    .pushAudioSpectrum(clearedWebSpectrumLevels())
+                )
+            }
+            return false
+        }
         guard currentPlaybackContentKind == .web,
               currentSystemAudioSpectrumEnabled,
-              currentWebAudioSpectrumRequested,
-              levels.count == Self.webSpectrumSampleCount else {
+              currentWebAudioSpectrumRequested else {
             return false
         }
 
         let now = CACurrentMediaTime()
-        guard now - lastWebSpectrumPushAt >= webSpectrumPushMinInterval else { return true }
-        lastWebSpectrumPushAt = now
-
-        let compatibilityLevels = levels.map { level -> Float in
-            guard level.isFinite else { return 0 }
-            let clamped = min(max(level, 0), 1)
-            return pow(clamped, Self.webSpectrumCompatibilityPower)
-                * Self.webSpectrumCompatibilityGain
+        // The shared producer already performed the only nonlinear visual
+        // response and fast-attack/slow-release envelope. Web dispatch is a
+        // typed handoff, so it must not compress or smooth the same snapshot a
+        // second time and turn sharp transients into a long tail.
+        let outputLevels = levels.map { level -> Float in
+            return min(max(level, 0), 1)
         }
-        let smoothedLevels = smoothedWebSpectrumLevels(compatibilityLevels)
-        dispatchWebRuntimeCommand(.pushAudioSpectrum(smoothedLevels))
+        // Keep the latest valid snapshot in the same slot while throttled. The
+        // published command is intentionally separate in time, but readers must
+        // still observe the newest pending value rather than an older command.
+        lastWebSpectrumLevels = outputLevels
+        // Silence is a revocation boundary: clear a running Web animation
+        // immediately instead of allowing the throttle window to hold it.
+        if outputLevels.allSatisfy({ $0 == 0 }) {
+            lastWebSpectrumPushAt = now
+            dispatchWebRuntimeCommand(.pushAudioSpectrum(outputLevels))
+            return true
+        }
+        guard now - lastWebSpectrumPushAt >= webSpectrumPushMinInterval else {
+            return true
+        }
+        lastWebSpectrumPushAt = now
+        dispatchWebRuntimeCommand(.pushAudioSpectrum(outputLevels))
         return true
     }
 
@@ -53,17 +79,4 @@ extension WallpaperEngine {
         Array(repeating: 0, count: Self.webSpectrumSampleCount)
     }
 
-    private func smoothedWebSpectrumLevels(_ levels: [Float]) -> [Float] {
-        guard lastWebSpectrumLevels.count == levels.count else {
-            lastWebSpectrumLevels = levels
-            return levels
-        }
-
-        let nextLevels = zip(lastWebSpectrumLevels, levels).map { previous, incoming in
-            let blend = incoming >= previous ? Self.webSpectrumRiseBlend : Self.webSpectrumFallBlend
-            return previous + (incoming - previous) * blend
-        }
-        lastWebSpectrumLevels = nextLevels
-        return nextLevels
-    }
 }

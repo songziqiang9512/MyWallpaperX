@@ -12,9 +12,11 @@ import Accelerate
 /// 32 Hz...16 kHz 对数频段、Hann 窗、幅度响应和快起慢落包络，不把未公开的
 /// Windows 内部实现写成产品合同。
 ///
-/// 16/32/64 档都直接从同一次 FFT 求值；不从 64 档求平均，避免窄带能量在降采样时
-/// 被稀释。macOS 系统 tap 的回调块长不稳定，所以 producer 先聚合约 43.5 ms 滚动窗，
-/// 再做一次补零 FFT；采样率超出 FFT 容量时有界截断而不让整条音频链归零。
+/// 64 档是唯一的 canonical producer 输出；16/32 档只从这组已包络的 canonical
+/// bands 做确定性的连续块投影，不再各自维护一套时间 envelope。这样三种分辨率
+/// 共用同一个 canonical 频带身份和时间状态，不会因消费端邻域/全局混合而改变形状。
+/// macOS 系统 tap 的回调块长不稳定，所以 producer 先聚合约 43.5 ms 滚动窗，再做一次补零 FFT；
+/// 采样率超出 FFT 容量时有界截断而不让整条音频链归零。
 final class SystemAudioSceneSpectrumAnalyzer {
     static let bandCount = SceneAudioSpectrumSnapshot.bandCount
     static let mediumBandCount = SceneAudioSpectrumSnapshot.mediumBandCount
@@ -29,9 +31,9 @@ final class SystemAudioSceneSpectrumAnalyzer {
         let right64: [Float]
     }
 
-    /// 将 canonical 频段投影到消费端需要的柱数。投影只做有限区间的峰值保留，
-    /// 不重新采集、窗化或运行第二套 FFT；下采样时保留每个目标区间的最高真实 band，
-    /// 上采样时使用最近的 canonical band。
+    /// 将 canonical 频段投影到消费端需要的柱数。投影只做连续区间的有界平均，
+    /// 不重新采集、窗化或运行第二套 FFT；64 档 identity 保持每个真实 band，
+    /// 下采样时平均每个目标区间内的 canonical bands，上采样时重复其有界区间值。
     static func resample(_ levels: [Float], count: Int) -> [Float] {
         guard count > 0 else { return [] }
         guard !levels.isEmpty else { return Array(repeating: 0, count: count) }
@@ -42,21 +44,23 @@ final class SystemAudioSceneSpectrumAnalyzer {
         var projected = Array(repeating: Float(0), count: count)
         for index in projected.indices {
             let lower = (index * levels.count) / count
-            let upper = max(lower + 1, ((index + 1) * levels.count + count - 1) / count)
+            let upper = max(lower + 1, ((index + 1) * levels.count) / count)
+            let boundedLower = min(levels.count - 1, max(0, lower))
             let boundedUpper = min(levels.count, upper)
-            guard lower < boundedUpper else { continue }
-            var peak: Float = 0
-            for level in levels[lower..<boundedUpper] where level.isFinite {
-                peak = max(peak, level)
+            guard boundedLower < boundedUpper else { continue }
+            var total: Float = 0
+            var finiteCount = 0
+            for level in levels[boundedLower..<boundedUpper] where level.isFinite {
+                total += min(1, max(0, level))
+                finiteCount += 1
             }
-            projected[index] = min(1, max(0, peak))
+            guard finiteCount > 0 else { continue }
+            projected[index] = min(1, max(0, total / Float(finiteCount)))
         }
         return projected
     }
 
     private struct FrequencyLevels {
-        let base: [Float]
-        let medium: [Float]
         let extended: [Float]
     }
 
@@ -96,10 +100,6 @@ final class SystemAudioSceneSpectrumAnalyzer {
     private var rollingSampleRate: Float = 0
     private var cachedWindow: [Float] = []
     private var cachedAmplitudeScale: Float = 0
-    private var smoothedLeft = Array(repeating: Float(0), count: bandCount)
-    private var smoothedRight = Array(repeating: Float(0), count: bandCount)
-    private var smoothedLeft32 = Array(repeating: Float(0), count: mediumBandCount)
-    private var smoothedRight32 = Array(repeating: Float(0), count: mediumBandCount)
     private var smoothedLeft64 = Array(repeating: Float(0), count: extendedBandCount)
     private var smoothedRight64 = Array(repeating: Float(0), count: extendedBandCount)
 
@@ -176,29 +176,16 @@ final class SystemAudioSceneSpectrumAnalyzer {
         } else {
             rawRight = rawLeft
         }
-        smoothedLeft = Self.visualLevels(rawLeft.base, previous: smoothedLeft)
-        smoothedRight = Self.visualLevels(rawRight.base, previous: smoothedRight)
-        smoothedLeft32 = Self.visualLevels(
-            rawLeft.medium,
-            previous: smoothedLeft32
-        )
-        smoothedRight32 = Self.visualLevels(
-            rawRight.medium,
-            previous: smoothedRight32
-        )
-        smoothedLeft64 = Self.visualLevels(
-            rawLeft.extended,
-            previous: smoothedLeft64
-        )
-        smoothedRight64 = Self.visualLevels(
-            rawRight.extended,
-            previous: smoothedRight64
-        )
+        // Apply the fast-attack/slow-release envelope exactly once to the 64-band
+        // canonical producer. Lower resolutions are projections of that same
+        // identity-preserving result, so they cannot acquire a second temporal tail.
+        smoothedLeft64 = Self.visualLevels(rawLeft.extended, previous: smoothedLeft64)
+        smoothedRight64 = Self.visualLevels(rawRight.extended, previous: smoothedRight64)
         return Levels(
-            left: smoothedLeft,
-            right: smoothedRight,
-            left32: smoothedLeft32,
-            right32: smoothedRight32,
+            left: Self.resample(smoothedLeft64, count: Self.bandCount),
+            right: Self.resample(smoothedRight64, count: Self.bandCount),
+            left32: Self.resample(smoothedLeft64, count: Self.mediumBandCount),
+            right32: Self.resample(smoothedRight64, count: Self.mediumBandCount),
             left64: smoothedLeft64,
             right64: smoothedRight64
         )
@@ -245,31 +232,16 @@ final class SystemAudioSceneSpectrumAnalyzer {
               upperFrequency > Self.minimumFrequency
         else {
             return FrequencyLevels(
-                base: Self.zeroBands,
-                medium: Self.zeroMediumBands,
                 extended: Self.zeroExtendedBands
             )
         }
-        return FrequencyLevels(
-            base: frequencyBands(
-                magnitudes,
-                count: Self.bandCount,
-                upperFrequency: upperFrequency,
-                binWidth: binWidth
-            ),
-            medium: frequencyBands(
-                magnitudes,
-                count: Self.mediumBandCount,
-                upperFrequency: upperFrequency,
-                binWidth: binWidth
-            ),
-            extended: frequencyBands(
-                magnitudes,
-                count: Self.extendedBandCount,
-                upperFrequency: upperFrequency,
-                binWidth: binWidth
-            )
+        let extended = frequencyBands(
+            magnitudes,
+            count: Self.extendedBandCount,
+            upperFrequency: upperFrequency,
+            binWidth: binWidth
         )
+        return FrequencyLevels(extended: extended)
     }
 
     private func frequencyBands(
@@ -421,10 +393,6 @@ final class SystemAudioSceneSpectrumAnalyzer {
     private func resetRollingState() {
         rollingSampleRate = 0
         rollingChannels.removeAll(keepingCapacity: true)
-        smoothedLeft = Self.zeroBands
-        smoothedRight = Self.zeroBands
-        smoothedLeft32 = Self.zeroMediumBands
-        smoothedRight32 = Self.zeroMediumBands
         smoothedLeft64 = Self.zeroExtendedBands
         smoothedRight64 = Self.zeroExtendedBands
     }
