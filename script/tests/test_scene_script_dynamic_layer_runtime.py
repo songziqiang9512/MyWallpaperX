@@ -120,7 +120,18 @@ nonisolated struct SceneRenderDescriptor: Sendable {
             return .init(
                 id: mutation.layerID,
                 visible: mutation.visible,
-                originXYZ: nil, scaleXYZ: nil, anglesXYZ: nil,
+                originXYZ: [
+                    Float(mutation.origin.x), Float(mutation.origin.y),
+                    Float(mutation.origin.z),
+                ],
+                scaleXYZ: [
+                    Float(mutation.scale.x), Float(mutation.scale.y),
+                    Float(mutation.scale.z),
+                ],
+                anglesXYZ: [
+                    Float(mutation.angles.x), Float(mutation.angles.y),
+                    Float(mutation.angles.z),
+                ],
                 contentKind: "text", text: mutation.text,
                 textStyle: .init(fontPath: mutation.font)
             )
@@ -135,9 +146,18 @@ nonisolated struct SceneRenderDescriptor: Sendable {
             return .init(
                 id: mutation.layerID,
                 visible: mutation.visible,
-                originXYZ: nil,
-                scaleXYZ: nil,
-                anglesXYZ: nil,
+                originXYZ: [
+                    Float(mutation.origin.x), Float(mutation.origin.y),
+                    Float(mutation.origin.z),
+                ],
+                scaleXYZ: [
+                    Float(mutation.scale.x), Float(mutation.scale.y),
+                    Float(mutation.scale.z),
+                ],
+                anglesXYZ: [
+                    Float(mutation.angles.x), Float(mutation.angles.y),
+                    Float(mutation.angles.z),
+                ],
                 contentKind: "image",
                 text: nil,
                 textStyle: nil,
@@ -446,11 +466,18 @@ enum Harness {
         ])
         revisionRuntime.commit(dynamicTopologyPlan)
         let afterDynamicTopologyRevision = revisionRuntime.topologyRevision
+        // Warm the topology and value cache before the value-only update.
+        // Without this snapshot the old stale-cache implementation also passes.
+        let dynamicBeforeValueLayer = revisionRuntime.snapshot()
+            .dynamicLayers.first { $0.id == -7 }
         let dynamicValuePlan = revisionRuntime.preflightIsolatingOwners([
             mutation(-7, order: 1, origin: .init(3, 4, 5), scale: .init(2, 2, 2))
         ])
         revisionRuntime.commit(dynamicValuePlan)
         let afterDynamicValueRevision = revisionRuntime.topologyRevision
+        let dynamicValueLayer = revisionRuntime.snapshot().dynamicLayers.first {
+            $0.id == -7
+        }
         let initialDefinitionRevision = revisionRuntime.authoredDefinitionRevision
         let firstDefinitionPlan = revisionRuntime.preflightIsolatingOwners([
             mutation(
@@ -600,6 +627,10 @@ enum Harness {
             "topologyRevisionStartsAtZero": initialTopologyRevision == 0,
             "dynamicTopologyRevisionBumped": afterDynamicTopologyRevision > initialTopologyRevision,
             "dynamicValueKeepsTopologyRevision": afterDynamicValueRevision == afterDynamicTopologyRevision,
+            "dynamicBeforeValueOrigin": dynamicBeforeValueLayer?.originXYZ == [0, 0, 0],
+            "dynamicBeforeValueScale": dynamicBeforeValueLayer?.scaleXYZ == [1, 1, 1],
+            "dynamicValueOriginPublished": dynamicValueLayer?.originXYZ == [3, 4, 5],
+            "dynamicValueScalePublished": dynamicValueLayer?.scaleXYZ == [2, 2, 2],
             "authoredValueKeepsTopologyRevision": revisionRuntime.topologyRevision == afterDynamicTopologyRevision,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
@@ -736,6 +767,11 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["styleFailurePreservesCurrent"])
         self.assertTrue(self.result["topologyRevisionStartsAtZero"])
         self.assertTrue(self.result["dynamicTopologyRevisionBumped"])
+        self.assertTrue(self.result["dynamicValueKeepsTopologyRevision"])
+        self.assertTrue(self.result["dynamicBeforeValueOrigin"])
+        self.assertTrue(self.result["dynamicBeforeValueScale"])
+        self.assertTrue(self.result["dynamicValueOriginPublished"])
+        self.assertTrue(self.result["dynamicValueScalePublished"])
         self.assertTrue(self.result["authoredValueKeepsTopologyRevision"])
 
 

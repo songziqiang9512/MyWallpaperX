@@ -21,9 +21,11 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         [SceneDynamicTarget: SceneDynamicTargetDefinition] = [:]
     private var order: [Int]
     private var dynamicLayersByID: [Int: SceneRenderDescriptor.Layer] = [:]
+    private var dynamicLayerValueRevision: UInt64 = 0
     private var destroyedAuthoredLayerIDs: Set<Int> = []
     private var authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
     private var cachedSnapshotTopologyRevision: UInt64?
+    private var cachedSnapshotDynamicLayerValueRevision: UInt64?
     private var cachedDynamicLayers: [SceneRenderDescriptor.Layer] = []
     private var cachedDynamicMaterialColorTargetsByLayerID:
         [Int: SceneDynamicTarget] = [:]
@@ -56,7 +58,6 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
 
     func snapshot() -> SceneScriptLayerTopologySnapshot {
         if cachedSnapshotTopologyRevision != topologyRevision {
-            cachedDynamicLayers = order.compactMap { dynamicLayersByID[$0] }
             let colorTargets: [(Int, SceneDynamicTarget)] = dynamicLayersByID
                 .compactMap { layerID, layer in
                     guard let modelPath = layer.imagePath,
@@ -69,6 +70,14 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 uniqueKeysWithValues: colorTargets
             )
             cachedSnapshotTopologyRevision = topologyRevision
+            cachedSnapshotDynamicLayerValueRevision = nil
+        }
+        // Value-only upserts leave prepared topology stable but must publish
+        // the next frame's transforms. Keep quiescent snapshots cached; only
+        // an accepted dynamic mutation rebuilds the bounded layer records.
+        if cachedSnapshotDynamicLayerValueRevision != dynamicLayerValueRevision {
+            cachedDynamicLayers = order.compactMap { dynamicLayersByID[$0] }
+            cachedSnapshotDynamicLayerValueRevision = dynamicLayerValueRevision
         }
         return .init(
             topologyRevision: topologyRevision,
@@ -84,7 +93,11 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     func apply(
         _ mutations: [SceneScriptLayerMutation]
     ) -> Result<Void, SceneScriptScalarRuntimeFailure> {
-        apply(mutations, publishingTopologyRevision: true)
+        let result = apply(mutations, publishingTopologyRevision: true)
+        if case .success = result, mutations.contains(where: \.isDynamic) {
+            dynamicLayerValueRevision &+= 1
+        }
+        return result
     }
 
     private func apply(
@@ -496,6 +509,9 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         authoredDefinitionsByTarget = plan.authoredDefinitionsByTarget
         if plan.dynamicTopologyChanged {
             topologyRevision &+= 1
+        }
+        if plan.outcome.committedDynamicMutationCount > 0 {
+            dynamicLayerValueRevision &+= 1
         }
         if definitionsChanged {
             authoredDefinitionRevision &+= 1
