@@ -30,6 +30,20 @@ nonisolated struct SceneSurfacePointerState: Equatable, Sendable {
         sceneScriptPrimaryButtonIsDown = input.isPrimaryButtonDown
         return changed
     }
+
+    /// Marks the surface outside without inventing a button-up edge. AppKit
+    /// can deliver an exit/outside sample while a primary drag is still held;
+    /// the product and SceneScript views must retain the same button state
+    /// until the actual release sample arrives.
+    mutating func setOutside(primaryButtonIsDown: Bool) -> Bool {
+        let changed = isInside
+            || isPrimaryButtonDown != primaryButtonIsDown
+            || sceneScriptPrimaryButtonIsDown != primaryButtonIsDown
+        isInside = false
+        isPrimaryButtonDown = primaryButtonIsDown
+        sceneScriptPrimaryButtonIsDown = primaryButtonIsDown
+        return changed
+    }
 }
 
 nonisolated struct SceneSurfacePointerEvent: Equatable, Sendable {

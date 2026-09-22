@@ -81,6 +81,28 @@ enum Harness {
         overflowRestored.restore(rejectedOverflow)
         let overflowRejectedAgain = overflowRestored.drain()
 
+        var pointerState = SceneSurfacePointerState()
+        let pressedInsideChanged = pointerState.apply(.init(
+            current: SIMD2(0.25, -0.5), isInside: true,
+            isPrimaryButtonDown: true
+        ))
+        let outsideHeldChanged = pointerState.setOutside(
+            primaryButtonIsDown: true
+        )
+        let outsideHeld = [
+            pointerState.isInside,
+            pointerState.isPrimaryButtonDown,
+            pointerState.sceneScriptPrimaryButtonIsDown,
+        ]
+        let outsideReleasedChanged = pointerState.setOutside(
+            primaryButtonIsDown: false
+        )
+        let outsideReleased = [
+            pointerState.isInside,
+            pointerState.isPrimaryButtonDown,
+            pointerState.sceneScriptPrimaryButtonIsDown,
+        ]
+
         let result: [String: Any] = [
             "edgeInside": edgeSamples.map(\.isInside),
             "edgePosition": edgeSamples.map {
@@ -99,6 +121,11 @@ enum Harness {
             "restoredNotOverflowed": !restoredOrder.overflowed,
             "overflowRestoredRejectsAgain": overflowRejectedAgain.overflowed
                 && overflowRejectedAgain.events.isEmpty,
+            "pressedInsideChanged": pressedInsideChanged,
+            "outsideHeldChanged": outsideHeldChanged,
+            "outsideHeld": outsideHeld,
+            "outsideReleasedChanged": outsideReleasedChanged,
+            "outsideReleased": outsideReleased,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: result,
@@ -170,6 +197,11 @@ class SceneSurfacePointerEventBufferTests(unittest.TestCase):
             # the next drain must reject the whole batch again instead of
             # synthesizing a partial press/release sequence.
             self.assertTrue(payload["overflowRestoredRejectsAgain"])
+            self.assertTrue(payload["pressedInsideChanged"])
+            self.assertTrue(payload["outsideHeldChanged"])
+            self.assertEqual(payload["outsideHeld"], [False, True, True])
+            self.assertTrue(payload["outsideReleasedChanged"])
+            self.assertEqual(payload["outsideReleased"], [False, False, False])
 
 
 if __name__ == "__main__":

@@ -77,9 +77,9 @@ extension SceneMetalView {
         pointerState.sceneScriptCurrent = sample.normalizedPosition
         pointerState.sceneScriptPrimaryButtonIsDown = sample.primaryButtonIsDown
         guard sample.isInside else {
-            setPointerOutside()
-            pointerState.sceneScriptPrimaryButtonIsDown =
-                sample.primaryButtonIsDown
+            _ = pointerState.setOutside(
+                primaryButtonIsDown: sample.primaryButtonIsDown
+            )
             return
         }
         let normalized = SIMD2(
@@ -102,8 +102,9 @@ extension SceneMetalView {
     }
 
     private func setPointerOutside() {
-        pointerState.isInside = false
-        pointerState.isPrimaryButtonDown = false
+        _ = pointerState.setOutside(
+            primaryButtonIsDown: NSEvent.pressedMouseButtons & 1 != 0
+        )
         parallaxPointerSmoother.setTarget(.zero, timestamp: CACurrentMediaTime())
     }
 }

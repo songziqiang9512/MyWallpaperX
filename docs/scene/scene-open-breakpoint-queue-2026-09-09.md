@@ -235,6 +235,8 @@ P0 续跑状态（2026-09-22 更新，事实覆盖至 `8f4dc46d`；历史过程�
 
 **下一动作：**以该 census 为基线，先追踪一个公共 first-breakpoint（surface pointer snapshot → hit/projection → 六事件队列 → typed mutation/publication → compositor/next-frame），再处理 effect/particle consumer；不按样本、路径、hash 或截图分派，不把静态计数提升为运行通过，不重复已经闭合的 X-Ray inverse、CP1+ current-pointer 或音频 producer 门。
 
+**Q1.5 公共 pointer button-state seam（2026-09-22，本批实现，尚未关闭真实运行）：**`SceneSurfacePointerState` 新增 `setOutside(primaryButtonIsDown:)`，AppKit outside/exit 与带按键的 captured drag 不再把产品态强制清为 `false`；真实 release sample 才清除 primary button。SceneScript event snapshot 与产品 effect 共用这一 typed state，未新增事件总线、provider 或样本分支。`script.tests.test_scene_surface_pointer_event_buffer` 的新反例验证 inside-press → outside-held 保持 `[isInside=false, productButton=true, sceneScriptButton=true]`，outside-release 后三者一致归零；cursor continuity/frame routing/QuickJS 相关 19 项回归通过。该门只证明状态一致性和失败半径，不证明真实 AppKit 命中、拖动方向、视觉 ROI 或官方同输入；下一动作是用同一 public seam 复现 `3122339805` 与保护样本 `2163522240` 的 drag delta/scroll 方向，再决定是否需要投影或作者 transform owner 修复。
+
 ### Q1.6 — 光影/光线：共享light intensity publication与真实directional可见链（2026-09-20 当前态）
 
 只读159目录/158可解析包的light专项核对共得15个声明/6样本：9个spot、4个directional、2个point；未知项仍为缺`scene.pkg`的`3766415113`。旧代码只解析spot/directional，`3662790108`与`3287715210`的point声明在document入口即丢失；同时directional与spot各自`.prefix(4)`会让共享模型ABI实际接收超过公开四灯预算的集合。现役修复把Workshop `lpoint`和默认项目`point`别名保真进入document/descriptor，directional/point/spot按作者layer顺序共用总计4灯snapshot，并把point position/radius/color/intensity送入既有static-model Metal diffuse consumer；旧count夹带在ambient/material flags的打包也已撤除，三类计数统一为typed `uint4`。没有按样本/路径分派，也没有新增renderer、light registry或compositor。
