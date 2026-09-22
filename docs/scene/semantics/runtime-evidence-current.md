@@ -2028,6 +2028,18 @@ Scene 协议新增 `setSpectrumEnabled`，client 在 endpoint ready/replay 时�
 
 **行为门与构建：**`test_system_audio_spectrum` 新增 64→28/48/96 projection sentinel、canonical release、overlay 无二次尾巴/邻柱独立、Web throttle/latest/silence/invalid 清除；与 `test_scene_audio_capture_scope`、`test_scene_audio_demand`、`test_scene_audio_response`、`test_scene_audio_spectrum_input`、`test_system_audio_spectrum_recovery` 合计 **72/72 PASS**，`git diff --check` 通过。`bash script/run_checkpoint_build.sh` 隔离 Debug **BUILD SUCCEEDED**，仅有既有 SteamService CS8603 与 UI deprecation warnings。该项没有真实系统音乐三引擎 ROI、全集样本、官方 FFT 数值/parity、小时级长稳或设备切换证据；capture service 自身失联回静音仍是后续 owner。
 
+<a id="e-2026-09-22-audio-named-samples-product-entry-recheck"></a>
+
+### E-2026-09-22-AUDIO-NAMED-SAMPLES-PRODUCT-ENTRY-RECHECK — 213/378 真实入口复核
+
+本批是证据同步，不是新的公共音频实现。当前 HEAD 的 Developer ID Debug 候选包版本 `2.0.9 (277)`（Team `H9QWU9XN8R`、CDHash `18899e39287f7b9d526fa059e810aaa6b9554373`、`MyWallpaperX` executable SHA-256 `bf2f0af6b1a58105633bb46c76593d13ea54bd022bf09e59fe19fb010ef4fe44`）分别经普通 App→client→daemon→`requestLaunch` 运行 `2134765860` 与 `3789316755` 35 秒。真实命令、样本 package/project fingerprint、报告/日志 SHA-256 及隔离路径记录在本机忽略证据 manifest `docs/scene/evidence/2026-09-22-audio-named-samples-product-entry-recheck/manifest.md`（权威文档不依赖该缓存）。样本根保持只读，未使用 `--audio-spectrum-fixture`，因此该批仍是作者声明入口而非注入 producer 夹具。
+
+两项报告均为 `audio_demanded=true`、`capture-publication-observed`、`failures=[]`，且各有一次非零 publication：`2134765860` 为 762 rendered frames、最大 peak `0.0944732055068016`；`3789316755` 为 1,981 rendered frames、最大 peak `0.14065375924110413`。runner report 的证据上限均为 `S3-capture-publication`，`visual_validated=false`，没有原分辨率 ROI、连续可见变化或固定官方同输入对照，不能把“采集工作”升级为频谱柱视觉通过。
+
+`2134765860` 的当前候选 app.log 记录 frame 0 的 16/32-band L/R typed material uniform（state=silent）、frame 0/1 的 GraphExecutor/GPU completion 与 terminal compositor（Audio Ring 节点本身非terminal，Shake suffix 与 Visualizer32 有 terminal consumption），以及 frame 94 的非零 L/R generation；既有 saved-log consumer inventory（分析提交 `b8816ee8`，只作同类 owner 交叉佐证，不替代本次候选的 ROI/官方验收）也证明相同的 Audio Ring、Shake suffix、Simple Audio Bars 32-band consumer 关系。因此当前首断点不是 shared capture/producer 或 Audio Ring 公共算法，剩余是可见 ROI、连续变化、作者参数人工验收与官方 parity。`3789316755` 的 frame 0 首断点是 `MWX SceneScript VM ... layerID: 147 ... TypeError: cannot set property 'alignment' of null`：作者 `createLayer` 初始化循环超过既有 `MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS=64`，第 65 个可选创建返回 null 后被脚本解引用；粒子 layer 25 的 audio rate consumer 仍记录非零 `audioBuffersUpdated`。因此当前运行首断点属于公共 SceneScript dynamic-layer budget/作者空句柄处理边界，不是 FFT、采集或 `average[dataIndex+1]` 越界；后者仍只是静态潜在风险，尚未在 `init()` 成功前得到运行证据。既有 `test_scene_script_quickjs.py` 64-budget fixture 已锁定 overflow 返回 null 的 fail-soft 合同，不得未经官方合同把预算扩大为修复。
+
+`2849382252` 未运行：精确 fixture/身份不在当前声明快照，继续记为 unknown，不能计作通过或从分母移除。下一动作是补齐 exact corpus identity；只有在该身份和作者条件闭合后，才按同一产品入口重新判断 demand/首断点，再决定是否需要独立、窄职责的 SceneScript 修复。
+
 <a id="e-2026-09-22-scenescript-dynamic-layer-frame-values"></a>
 
 ### E-2026-09-22-SCENESCRIPT-DYNAMIC-LAYER-FRAME-VALUES — 动态图层逐帧 transform 不再被拓扑缓存冻结
