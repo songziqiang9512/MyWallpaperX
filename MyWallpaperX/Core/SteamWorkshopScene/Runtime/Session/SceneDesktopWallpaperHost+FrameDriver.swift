@@ -371,10 +371,10 @@ extension SceneDesktopWallpaperHost {
             cursorEdgeState = launchContext.sceneScriptCursorProgram
                 .edgeStateSnapshot()
             cursorResult = launchContext.sceneScriptCursorProgram.dispatch(
-                batch: cursorBatch,
-                frame: sceneScriptFrame,
+                batch: cursorBatch, frame: sceneScriptFrame,
                 userPropertiesJSON: userPropertiesJSON,
-                audioSpectrum: audioSpectrum
+                effectivePropertyValues: launchContext.liveState.effectiveValues,
+                propertyRevision: launchContext.liveState.revision, audioSpectrum: audioSpectrum
             )
         }
         if cursorResult.inputBatchOverflowed {

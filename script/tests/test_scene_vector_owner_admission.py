@@ -105,10 +105,108 @@ class SceneVectorOwnerAdmissionTests(unittest.TestCase):
     ) -> None:
         self.assertTrue(self.value["exactSourceBoundaryCommitted"])
 
-    def test_visibility_vector_and_cursor_alternatives_are_charged_once(self) -> None:
+    def test_visibility_cursor_callback_borrows_single_vector_owner(self) -> None:
         self.assertTrue(self.value["claimedCursorOverlapCommitted"])
+        self.assertEqual(self.value["claimedCursorOverlapStaticProjection"], 1)
         self.assertEqual(self.value["claimedCursorOverlapVectorExpected"], 1)
-        self.assertEqual(self.value["claimedCursorOverlapCursorExpected"], 1)
+        self.assertEqual(self.value["claimedCursorOverlapVectorInstantiated"], 1)
+        self.assertEqual(self.value["claimedCursorOverlapCursorExpected"], 0)
+        self.assertEqual(self.value["claimedCursorOverlapCursorOwnerCount"], 1)
+        self.assertFalse(self.value["claimedCursorOverlapCursorOwnsOwner"])
+
+    def test_mixed_frame_and_cursor_source_has_one_vector_owner_and_borrowed_input(
+        self,
+    ) -> None:
+        self.assertTrue(self.value["mixedCursorCommitted"])
+        self.assertEqual(self.value["mixedCursorStaticProjection"], 1)
+        self.assertEqual(self.value["mixedCursorVectorExpected"], 1)
+        self.assertEqual(self.value["mixedCursorVectorInstantiated"], 1)
+        self.assertEqual(self.value["mixedCursorCursorExpected"], 0)
+        self.assertEqual(self.value["mixedCursorOwnerCount"], 1)
+        self.assertTrue(self.value["mixedCursorBorrowed"])
+
+    def test_export_forms_dispatch_from_single_vector_owned_cursor(self) -> None:
+        self.assertEqual(self.value["constCursorVectorExpected"], 1)
+        self.assertEqual(self.value["constCursorExpected"], 0)
+        self.assertEqual(self.value["constCursorOwnerCount"], 1)
+        self.assertTrue(self.value["constCursorBorrowed"])
+        self.assertEqual(self.value["constCursorMoveFailures"], 0)
+        self.assertEqual(self.value["constCursorMoveX"], 47)
+        self.assertEqual(self.value["asyncCursorVectorExpected"], 1)
+        self.assertEqual(self.value["asyncCursorExpected"], 0)
+        self.assertEqual(self.value["asyncCursorMoveFailures"], 0)
+        self.assertEqual(self.value["asyncCursorMoveX"], 48)
+
+    def test_named_export_dispatches_and_unresolved_reexport_does_not(self) -> None:
+        self.assertEqual(self.value["namedCursorVectorExpected"], 1)
+        self.assertEqual(self.value["namedCursorExpected"], 0)
+        self.assertEqual(self.value["namedCursorMoveFailures"], 0)
+        self.assertEqual(self.value["namedCursorMoveX"], 49)
+        self.assertEqual(self.value["reexportCursorVectorExpected"], 1)
+        self.assertEqual(self.value["reexportCursorExpected"], 0)
+
+    def test_borrowed_cursor_receives_script_properties_before_first_event(self) -> None:
+        self.assertEqual(self.value["propertyCursorVectorOwners"], 1)
+        self.assertTrue(self.value["propertyCursorBorrowed"])
+        self.assertEqual(self.value["propertyCursorFirstFailures"], 0)
+        self.assertEqual(self.value["propertyCursorFirstX"], 3)
+        self.assertEqual(self.value["propertyCursorLiveFailures"], 0)
+        self.assertEqual(self.value["propertyCursorLiveX"], 5)
+
+    def test_non_cursor_exports_and_audio_registration_are_not_dropped(self) -> None:
+        self.assertEqual(self.value["mediaMixedVectorExpected"], 1)
+        self.assertEqual(self.value["mediaMixedCursorExpected"], 0)
+        self.assertEqual(self.value["destroyMixedVectorExpected"], 1)
+        self.assertEqual(self.value["destroyMixedCursorExpected"], 0)
+        self.assertEqual(self.value["audioMixedVectorExpected"], 1)
+        self.assertEqual(self.value["audioMixedCursorExpected"], 0)
+        self.assertEqual(self.value["nonFunctionVectorExpected"], 1)
+        self.assertEqual(self.value["nonFunctionCursorExpected"], 0)
+        self.assertEqual(self.value["regexLiteralVectorExpected"], 1)
+        self.assertEqual(self.value["regexLiteralCursorExpected"], 0)
+
+    def test_duplicate_standalone_candidates_preserve_vector_target(self) -> None:
+        self.assertEqual(self.value["duplicateCursorStaticProjection"], 0)
+        self.assertEqual(self.value["duplicateCursorDuplicates"], 1)
+        self.assertEqual(self.value["duplicateCursorVectorExpected"], 0)
+        self.assertEqual(self.value["duplicateCursorExpected"], 0)
+
+    def test_mixed_wrapper_duplicate_cannot_reenter_standalone_cursor(self) -> None:
+        self.assertEqual(self.value["mixedDuplicateTargets"], 1)
+        self.assertEqual(self.value["mixedDuplicateVectorExpected"], 0)
+        self.assertEqual(self.value["mixedDuplicateCursorExpected"], 0)
+        self.assertEqual(self.value["mixedDuplicateCursorOwners"], 0)
+
+    def test_disabled_media_visibility_cannot_reenter_standalone_cursor(self) -> None:
+        self.assertEqual(self.value["routedGenericMediaTargets"], 1)
+        self.assertEqual(self.value["routedGenericVectorOwners"], 1)
+        self.assertEqual(self.value["routedGenericCursorOwners"], 1)
+        self.assertEqual(self.value["routedDisabledMediaTargets"], 1)
+        self.assertEqual(self.value["routedDisabledVectorOwners"], 0)
+        self.assertEqual(self.value["routedDisabledCursorOwners"], 0)
+
+    def test_standalone_cursor_does_not_hide_vector_cursor_collision(self) -> None:
+        self.assertEqual(self.value["vectorCursorCollisionVectorExpected"], 2)
+        self.assertEqual(self.value["vectorCursorCollisionCursorExpected"], 1)
+
+    def test_effect_visibility_cursor_without_hit_identity_fails_locally(self) -> None:
+        self.assertEqual(self.value["effectCursorProjected"], 1)
+        self.assertEqual(self.value["effectCursorFailureCode"], "invalid-source")
+        self.assertEqual(self.value["effectCursorOwners"], 0)
+
+    def test_text_color_cursor_dispatches_on_its_typed_layer_identity(self) -> None:
+        self.assertEqual(self.value["textCursorProjected"], 1)
+        self.assertEqual(self.value["textCursorOwners"], 1)
+        self.assertEqual(self.value["textCursorDispatchFailures"], 0)
+        self.assertEqual(self.value["textCursorMutationX"], 68)
+
+    def test_unhittable_cursor_is_reported_without_rejecting_vector_owner(self) -> None:
+        self.assertEqual(self.value["unhitVectorOwners"], 1)
+        self.assertEqual(self.value["unhitCursorExpected"], 1)
+        self.assertEqual(self.value["unhitCursorFailure"], "invalid-argument")
+        self.assertEqual(self.value["unhitCursorOwners"], 0)
+        self.assertEqual(self.value["unhitMixedCursorFailure"], "invalid-argument")
+        self.assertTrue(self.value["unhitMixedVectorValue"])
 
     def test_retry_budget_charges_only_started_owners_after_early_failure(self) -> None:
         self.assertTrue(self.value["retryAggregateCommitted"])

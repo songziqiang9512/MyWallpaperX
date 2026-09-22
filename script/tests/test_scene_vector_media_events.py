@@ -439,6 +439,7 @@ enum Harness {
                         vectorProjection: allRouteProjection.excludingTargets(
                             excludedVectorTargets
                         ),
+                        routeExcludedTargets: excludedVectorTargets,
                         userPropertyDefinitions: [],
                         timelineTargets: [],
                         scalarExcludedTargets: [],

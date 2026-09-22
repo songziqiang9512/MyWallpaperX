@@ -969,6 +969,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_cursor(
     MWXSceneQuickJSCursorEventKind kind,
     const MWXSceneQuickJSCursorEvent *event,
     const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
     const char *user_properties_json,
     size_t user_properties_length,
     char *diagnostic,

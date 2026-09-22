@@ -54,4 +54,5 @@ nonisolated struct SceneScriptCursorOwnerRegistration: @unchecked Sendable {
     let layerID: Int
     let authoredOrder: Int
     let owner: SceneScriptVectorOwner
+    let scriptProperties: [String: SceneScriptPropertyInput]
 }

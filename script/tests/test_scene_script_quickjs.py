@@ -322,6 +322,7 @@ static int cursor_event(
     const char *properties = "{\"enabled\":true}";
     MWXSceneQuickJSResult actual = mwx_scene_quickjs_owner_dispatch_cursor(
         owner, generation, kind, &event, &frame,
+        "", 0,
         properties, strlen(properties),
         diagnostic, sizeof(diagnostic)
     );

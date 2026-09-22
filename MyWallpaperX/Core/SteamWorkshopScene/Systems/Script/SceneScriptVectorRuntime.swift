@@ -176,16 +176,23 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                 owner: created
             )
             if valueType == .bool {
+                // A callback without a cursor registration would be accepted
+                // by the VM but never dispatched. Effect visibility has no
+                // layer-hit registration; reject that owner locally.
+                if !exportedCursorEvents.isEmpty {
+                    switch target {
+                    case .layer, .text: break
+                    default: throw SceneScriptScalarRuntimeFailure.invalidSource
+                    }
+                }
                 let handlesDestroy = try SceneScriptOwnerExportBridge.contains(
                     "destroy", owner: created
                 )
                 let hasMediaHook = handlesMediaThumbnail || handlesMediaPlayback
                     || handlesMediaProperties || handlesMediaTimeline
-                // Cursor handlers are deliberately excluded: a cursor-bearing
-                // event-only owner would also be claimed by the standalone
-                // cursor program's borrow path and silently drop both. Such
-                // scripts stay rejected exactly as before this batch.
+                let hasCursorHook = !exportedCursorEvents.isEmpty
                 let hasEventHook = hasMediaHook || handlesUserProperties
+                    || hasCursorHook
                 if handlesInit || handlesUpdate {
                     guard !handlesDestroy,
                           (allowsStatefulLayerSideEffects || !hasMediaHook),
@@ -204,7 +211,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                     // handlers need the stateful mutation journal for layer
                     // writes. C's missing-update update path is a passthrough,
                     // so an occasional evaluation is harmless.
-                    guard hasEventHook, exportedCursorEvents.isEmpty,
+                    guard hasEventHook,
                           !handlesDestroy, !ownerHasAudioRegistration,
                           allowsStatefulLayerSideEffects else {
                         throw SceneScriptScalarRuntimeFailure.invalidSource
@@ -654,12 +661,19 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     func dispatchCursor(
         _ event: SceneScriptCursorEventInput,
         frame: SceneScriptFrameInput,
+        scriptPropertiesJSON: String,
         userPropertiesJSON: String,
         authoredLayerBaselines: [SceneScriptLayerMutation] = [],
         interruptBudget: UInt64? = nil
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
-        guard case let .layer(layerID, _) = target,
-              layerID == event.layerID else {
+        let cursorLayerID: Int
+        switch target {
+        case let .layer(layerID, _), let .text(layerID, _):
+            cursorLayerID = layerID
+        default:
+            return .failure(.invalidArgument("cursor owner identity mismatch"))
+        }
+        guard cursorLayerID == event.layerID else {
             return .failure(.invalidArgument("cursor owner identity mismatch"))
         }
         if let failure = configureCursorAuthoredLayerBaselines(
@@ -675,87 +689,9 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             ownerGeneration: generation,
             event: event,
             frame: frame,
+            scriptPropertiesJSON: scriptPropertiesJSON,
             userPropertiesJSON: userPropertiesJSON
         )
-    }
-
-    func clearCursorAuthoredLayerBaselines() {
-        mwx_scene_quickjs_owner_clear_authored_layer_baseline(handle)
-        mwx_scene_quickjs_owner_clear_authored_layer_mutation_baselines(handle)
-    }
-
-    private func configureCursorAuthoredLayerBaselines(
-        _ baselines: [SceneScriptLayerMutation]
-    ) -> SceneScriptScalarRuntimeFailure? {
-        clearCursorAuthoredLayerBaselines()
-        guard baselines.count <= 64 else {
-            return .mutationOverflow("cursor authored baseline budget exceeded")
-        }
-        for baseline in baselines {
-            guard baseline.kind == .upsert,
-                  !baseline.isDynamic,
-                  !baseline.fields.isEmpty,
-                  baseline.fields.isSubset(of: .authoredFields),
-                  baseline.origin.x.isFinite,
-                  baseline.origin.y.isFinite,
-                  baseline.origin.z.isFinite,
-                  baseline.scale.x.isFinite,
-                  baseline.scale.y.isFinite,
-                  baseline.scale.z.isFinite,
-                  baseline.angles.x.isFinite,
-                  baseline.angles.y.isFinite,
-                  baseline.angles.z.isFinite,
-                  baseline.text.utf8.count <= 4_096,
-                  !baseline.text.contains("\0"),
-                  baseline.font.utf8.count <= 1_024,
-                  !baseline.font.contains("\0") else {
-                clearCursorAuthoredLayerBaselines()
-                return .invalidArgument("invalid cursor authored layer baseline")
-            }
-            var origin = [
-                baseline.origin.x, baseline.origin.y, baseline.origin.z,
-            ]
-            var scale = [
-                baseline.scale.x, baseline.scale.y, baseline.scale.z,
-            ]
-            var angles = [
-                baseline.angles.x, baseline.angles.y, baseline.angles.z,
-            ]
-            var diagnostic = [CChar](repeating: 0, count: 512)
-            let raw = baseline.text.withCString { textPointer in
-                baseline.font.withCString { fontPointer in
-                    origin.withUnsafeMutableBufferPointer { originPointer in
-                        scale.withUnsafeMutableBufferPointer { scalePointer in
-                            angles.withUnsafeMutableBufferPointer { anglesPointer in
-                                mwx_scene_quickjs_owner_add_authored_layer_mutation_baseline(
-                                    handle,
-                                    generation,
-                                    Int64(baseline.layerID),
-                                    baseline.fields.rawValue,
-                                    originPointer.baseAddress,
-                                    scalePointer.baseAddress,
-                                    anglesPointer.baseAddress,
-                                    baseline.visible ? 1 : 0,
-                                    textPointer,
-                                    baseline.text.utf8.count,
-                                    fontPointer,
-                                    baseline.font.utf8.count,
-                                    baseline.alpha,
-                                    [baseline.color.x, baseline.color.y, baseline.color.z],
-                                    &diagnostic,
-                                    diagnostic.count
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            guard raw == MWX_SCENE_QUICKJS_OK else {
-                clearCursorAuthoredLayerBaselines()
-                return Self.failure(raw, diagnostic)
-            }
-        }
-        return nil
     }
 
     func invalidate() {

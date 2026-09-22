@@ -45,6 +45,7 @@ SWIFT_SOURCES = [
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerWorldTransformProjection.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerWorldTransformPublication.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptMediaEventBridge.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgramModels.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorHitAdmission.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime.swift",
@@ -61,7 +62,9 @@ SWIFT_SOURCES = [
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorProgram+Registrations.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptBooleanVisibilityValidation.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorRuntime.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorOwner+Cursor.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorOwner+PuppetBones.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptQuickJSProgramCandidateModels.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptQuickJSProgramCandidate.swift",
 ]
 

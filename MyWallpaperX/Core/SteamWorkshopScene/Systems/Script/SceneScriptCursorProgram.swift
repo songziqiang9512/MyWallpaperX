@@ -1,108 +1,5 @@
 import Foundation
 
-nonisolated struct SceneScriptCursorHit: Equatable, Sendable {
-    let layerID: Int
-    let worldPosition: SIMD3<Double>
-    let localPosition: SIMD3<Double>
-}
-
-nonisolated struct SceneScriptCursorFrameSample: Equatable, Sendable {
-    let hits: [Int: SceneScriptCursorHit]
-    let ownerProjections: [Int: SceneScriptCursorHit]
-    let pointerPosition: SIMD2<Float>?
-    let primaryButtonIsDown: Bool
-    let surface: SceneScriptSurfaceInput?
-
-    init(
-        hits: [Int: SceneScriptCursorHit],
-        ownerProjections: [Int: SceneScriptCursorHit]? = nil,
-        pointerPosition: SIMD2<Float>? = nil,
-        primaryButtonIsDown: Bool,
-        surface: SceneScriptSurfaceInput? = nil
-    ) {
-        self.hits = hits
-        self.ownerProjections = ownerProjections ?? hits
-        self.pointerPosition = pointerPosition
-        self.primaryButtonIsDown = primaryButtonIsDown
-        self.surface = surface
-    }
-}
-
-nonisolated struct SceneScriptCursorFrameBatch: Equatable, Sendable {
-    let samples: [SceneScriptCursorFrameSample]
-    let overflowed: Bool
-}
-
-nonisolated struct SceneScriptCursorFrameResult: Equatable, Sendable {
-    let failures: [Int: SceneScriptScalarRuntimeFailure]
-    let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
-    let animationMutations: [SceneTimelinePlaybackMutation]
-    let layerMutations: [SceneScriptLayerMutation]
-    let inputBatchOverflowed: Bool
-    let ownerEffects: [SceneScriptOwnerEffects]
-
-    init(
-        failures: [Int: SceneScriptScalarRuntimeFailure],
-        materialFunctionMutations: [SceneScriptMaterialFunctionMutation],
-        animationMutations: [SceneTimelinePlaybackMutation],
-        layerMutations: [SceneScriptLayerMutation],
-        inputBatchOverflowed: Bool,
-        ownerEffects: [SceneScriptOwnerEffects] = []
-    ) {
-        self.failures = failures
-        self.materialFunctionMutations = materialFunctionMutations
-        self.animationMutations = animationMutations
-        self.layerMutations = layerMutations
-        self.inputBatchOverflowed = inputBatchOverflowed
-        self.ownerEffects = ownerEffects
-    }
-}
-
-nonisolated struct SceneScriptCursorProgramConstruction: @unchecked Sendable {
-    let program: SceneScriptCursorProgram
-    let requestedLayerIDs: Set<Int>
-    let instantiatedLayerIDs: Set<Int>
-    let failures: [Int: SceneScriptScalarRuntimeFailure]
-    // Identity preflight rejection executes no failed JavaScript. Only an
-    // attempted owner failure can contaminate the shared construction domain.
-    var requiresDomainReconstruction: Bool = false
-
-    var deferredLayerIDs: Set<Int> {
-        requestedLayerIDs.subtracting(instantiatedLayerIDs).subtracting(failures.keys)
-    }
-}
-
-/// Frame-visible cursor edge state. Dispatch advances this state before the
-/// surface outcome is known; a deferred/dropped frame must restore it so the
-/// next successful frame still sees enter/leave, press/release and click
-/// edges for every event it re-dispatches.
-nonisolated struct SceneScriptCursorEdgeState: Sendable {
-    var previousHits: [Int: SceneScriptCursorHit]
-    var capturedHits: [Int: SceneScriptCursorHit]
-    var previousPointerPosition: SIMD2<Float>?
-    var previousPrimaryButtonIsDown: Bool
-
-    static let empty = SceneScriptCursorEdgeState(
-        previousHits: [:],
-        capturedHits: [:],
-        previousPointerPosition: nil,
-        previousPrimaryButtonIsDown: false
-    )
-}
-
-nonisolated struct SceneScriptCursorBinding: @unchecked Sendable {
-    let layerID: Int
-    let authoredOrder: Int
-    let owner: SceneScriptVectorOwner
-    let events: Set<SceneScriptCursorEventKind>
-    let ownsOwner: Bool
-}
-
-private nonisolated struct SceneScriptCursorAuthoredMutationKey: Hashable {
-    let ownerLayerID: Int
-    let targetLayerID: Int
-}
-
 /// Executes authored cursor callbacks against the shared scene VM. Hit
 /// testing remains a typed host responsibility; JavaScript receives immutable
 /// world/local positions and can only publish through existing mutation paths.
@@ -114,6 +11,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     private var previousPointerPosition: SIMD2<Float>?
     private var previousPrimaryButtonIsDown = false
     private var disabledLayerIDs: Set<Int> = []
+    private var scriptPropertiesJSONCache = SceneScriptPropertyInputJSONCache()
 
     let ownerLayerIDs: Set<Int>
     var capturedOwnerLayerIDs: Set<Int> { Set(capturedHits.keys) }
@@ -175,6 +73,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         borrowedOwners: [SceneScriptCursorOwnerRegistration] = [],
         claimedTargets: Set<SceneDynamicTarget> = [],
         rejectedLayerIDs: Set<Int>,
+        excludedStandaloneLayerIDs: Set<Int> = [],
         generation: UInt64,
         budget: SceneScriptScalarBudget = .default,
         constructionWork: SceneScriptConstructionWorkBudget? = nil
@@ -182,13 +81,30 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         let standaloneCandidates = projectedStandaloneCandidates(
             descriptor: descriptor,
             scriptBindings: scriptBindings
-        ).filter { !claimedTargets.contains(.layer(
+        ).filter { !excludedStandaloneLayerIDs.contains($0.identity.layerID)
+            && !claimedTargets.contains(.layer(
             layerID: $0.identity.layerID, field: .visibility
         )) && !rejectedLayerIDs.contains($0.identity.layerID) }
         let borrowedBindings = projectedBorrowedBindings(
             descriptor: descriptor,
             borrowedOwners: borrowedOwners
         ).filter { !rejectedLayerIDs.contains($0.layerID) }
+        // A vector owner may have real cursor exports but no safe layer hit
+        // geometry. Preserve its other callbacks; report the cursor route as
+        // a local failure instead of silently publishing an event-only owner
+        // that will never receive an event.
+        let unhitBorrowedLayerIDs = Set(borrowedOwners.compactMap {
+            registration -> Int? in
+            guard !rejectedLayerIDs.contains(registration.layerID) else {
+                return nil
+            }
+            guard let layer = descriptor.layers.first(where: {
+                $0.id == registration.layerID
+            }), SceneScriptCursorHitAdmission.accepts(layer) else {
+                return registration.layerID
+            }
+            return nil
+        })
         let borrowedCounts = Dictionary(
             grouping: borrowedBindings,
             by: \.layerID
@@ -210,7 +126,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         }.sorted { $0.identity.authoredOrder < $1.identity.authoredOrder }
         let requestedLayerIDs = Set(
             requestedCandidates.map { $0.identity.layerID }
-        ).union(collisionLayerIDs)
+        ).union(collisionLayerIDs).union(unhitBorrowedLayerIDs)
         guard let domain else {
             return failedConstruction(
                 requestedLayerIDs: requestedLayerIDs,
@@ -241,6 +157,11 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             uniqueKeysWithValues:
             collisionLayerIDs.map { ($0, collisionFailure) }
         )
+        for layerID in unhitBorrowedLayerIDs {
+            failures[layerID] = .invalidArgument(
+                "SceneScript cursor layer hit geometry unavailable"
+            )
+        }
         for candidate in requestedCandidates {
             let layerID = candidate.identity.layerID
             let owner: SceneScriptVectorOwner
@@ -268,7 +189,9 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 break
             }
             let events = exportedEvents(owner)
-            guard !events.isEmpty else {
+            // This path never evaluates frames or timers. A constructed
+            // owner that needs them would silently lose authored execution.
+            guard !events.isEmpty, !owner.requiresFrameEvaluation else {
                 failures[layerID] = .invalidSource
                 requiresDomainReconstruction = true
                 break
@@ -278,7 +201,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 authoredOrder: candidate.identity.authoredOrder,
                 owner: owner,
                 events: events,
-                ownsOwner: true
+                ownsOwner: true,
+                scriptProperties: [:]
             ))
             instantiatedLayerIDs.insert(layerID)
         }
@@ -294,7 +218,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
 
     static func projectedStandaloneLayerIDs(
         descriptor: SceneRenderDescriptor,
-        scriptBindings: [SceneScriptBindingIR]
+        scriptBindings: [SceneScriptBindingIR],
+        excludedLayerIDs: Set<Int> = []
     ) -> Set<Int> {
         let candidates = projectedStandaloneCandidates(
             descriptor: descriptor,
@@ -306,6 +231,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         ).mapValues(\.count)
         return Set(candidates.compactMap { candidate in
             counts[candidate.identity.layerID] == 1
+                && !excludedLayerIDs.contains(candidate.identity.layerID)
                 ? candidate.identity.layerID : nil
         })
     }
@@ -313,7 +239,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     static func projectedStandaloneOwnerSources(
         descriptor: SceneRenderDescriptor,
         scriptBindings: [SceneScriptBindingIR],
-        claimedTargets: Set<SceneDynamicTarget> = []
+        claimedTargets: Set<SceneDynamicTarget> = [],
+        excludedLayerIDs: Set<Int> = []
     ) -> [String] {
         let candidates = projectedStandaloneCandidates(
             descriptor: descriptor,
@@ -325,6 +252,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         ).mapValues(\.count)
         return candidates.compactMap { candidate in
             guard counts[candidate.identity.layerID] == 1,
+                  !excludedLayerIDs.contains(candidate.identity.layerID),
                   !claimedTargets.contains(.layer(
                       layerID: candidate.identity.layerID,
                       field: .visibility
@@ -337,6 +265,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         batch: SceneScriptCursorFrameBatch,
         frame: SceneScriptFrameInput,
         userPropertiesJSON: String,
+        effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
+        propertyRevision: UInt64? = nil,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptCursorFrameResult {
@@ -420,6 +350,19 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         ) {
             guard failures[binding.layerID] == nil, binding.events.contains(kind),
                   !disabledLayerIDs.contains(binding.layerID) else { return }
+            guard let propertiesJSON = scriptPropertiesJSONCache.value(
+                for: binding.owner.target,
+                inputs: binding.scriptProperties,
+                effectiveValues: effectivePropertyValues,
+                revision: propertyRevision
+            ) else {
+                discardCandidates(ownerLayerID: binding.layerID)
+                binding.owner.discardLayerMutations()
+                failures[binding.layerID] = .invalidArgument(
+                    "SceneScript cursor script properties unavailable"
+                )
+                return
+            }
             let event = SceneScriptCursorEventInput(
                 kind: kind,
                 layerID: binding.layerID,
@@ -428,6 +371,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             )
             switch binding.owner.dispatchCursor(
                 event, frame: callbackFrame,
+                scriptPropertiesJSON: propertiesJSON,
                 userPropertiesJSON: userPropertiesJSON,
                 authoredLayerBaselines: layers.compactMap { candidate in
                     guard candidate.ownerLayerID == binding.layerID,
@@ -751,7 +695,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 authoredOrder: registration.authoredOrder,
                 owner: registration.owner,
                 events: events,
-                ownsOwner: false
+                ownsOwner: false,
+                scriptProperties: registration.scriptProperties
             )
         }
     }
@@ -793,12 +738,6 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                   .key("objects"), .index(index), .key("visible"),
               ],
               ["image", "text", "composition"].contains(layer.contentKind),
-              // Image/text value callbacks belong to the vector owner. Keep
-              // the existing standalone composition route unchanged.
-              layer.contentKind == "composition" || binding.source.range(
-                  of: #"(?m)(?<![A-Za-z0-9_$])export\s+function\s+(?:init|update)\s*\("#,
-                  options: .regularExpression
-              ) == nil,
               SceneScriptCursorHitAdmission.accepts(layer) else { return nil }
         return .init(layerID: layerID, authoredOrder: index)
     }

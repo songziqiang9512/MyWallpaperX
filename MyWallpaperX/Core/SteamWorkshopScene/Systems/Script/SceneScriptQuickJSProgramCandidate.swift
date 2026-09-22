@@ -1,111 +1,5 @@
 import Foundation
 
-private nonisolated struct SceneScriptQuickJSCandidateBoundaryInterruption: Error {}
-
-private nonisolated final class SceneScriptQuickJSCandidateControl:
-    @unchecked Sendable {
-    private let cancellationCheck: @Sendable () throws -> Void
-    private var pendingCancellation: Error?
-
-    init(cancellationCheck: @escaping @Sendable () throws -> Void) {
-        self.cancellationCheck = cancellationCheck
-    }
-
-    func checkBoundary() throws {
-        if let pendingCancellation { throw pendingCancellation }
-        try cancellationCheck()
-    }
-
-    func checkOwnerBoundary() throws {
-        if pendingCancellation != nil {
-            throw SceneScriptQuickJSCandidateBoundaryInterruption()
-        }
-        do {
-            try cancellationCheck()
-        } catch {
-            if pendingCancellation == nil { pendingCancellation = error }
-            throw SceneScriptQuickJSCandidateBoundaryInterruption()
-        }
-    }
-}
-
-/// Tracks only owner constructors that actually start.  A failed owner can
-/// force a fresh domain, but the other families after that failure were never
-/// constructed and must not be charged as if they had run.
-nonisolated final class SceneScriptConstructionWorkBudget: @unchecked Sendable {
-    private let limit: Int
-    private let plannedOwnerUpperBound: Int
-    private(set) var consumed = 0
-    private(set) var exceeded = false
-
-    init(limit: Int, plannedOwnerUpperBound: Int) {
-        self.limit = limit
-        self.plannedOwnerUpperBound = plannedOwnerUpperBound
-    }
-
-    @discardableResult
-    func consume() -> Bool {
-        guard consumed < limit else {
-            exceeded = true
-            return false
-        }
-        consumed += 1
-        return true
-    }
-
-    var failure: SceneScriptScalarRuntimeFailure {
-        .budgetExceeded(
-            "SceneScript candidate aggregate construction work exceeds 4096 "
-                + "consumed=\(consumed) limit=\(limit) "
-                + "plannedOwnerUpperBound=\(plannedOwnerUpperBound)"
-        )
-    }
-}
-
-nonisolated struct SceneScriptQuickJSProgramConstructionReport: Sendable {
-    let expectedVectorTargets: Set<SceneDynamicTarget>
-    let instantiatedVectorTargets: Set<SceneDynamicTarget>
-    let vectorFailures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
-    let expectedScalarTargets: Set<SceneDynamicTarget>
-    let instantiatedScalarTargets: Set<SceneDynamicTarget>
-    let scalarFailures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
-    let expectedStringTargets: Set<SceneDynamicTarget>
-    let instantiatedStringTargets: Set<SceneDynamicTarget>
-    let stringFailures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
-    let expectedCursorLayerIDs: Set<Int>
-    let instantiatedCursorLayerIDs: Set<Int>
-    let cursorFailures: [Int: SceneScriptScalarRuntimeFailure]
-
-    var isComplete: Bool {
-        Self.isComplete(
-            expectedVectorTargets,
-            instantiatedVectorTargets,
-            Set(vectorFailures.keys)
-        ) && Self.isComplete(
-            expectedScalarTargets,
-            instantiatedScalarTargets,
-            Set(scalarFailures.keys)
-        ) && Self.isComplete(
-            expectedStringTargets,
-            instantiatedStringTargets,
-            Set(stringFailures.keys)
-        ) && Self.isComplete(
-            expectedCursorLayerIDs,
-            instantiatedCursorLayerIDs,
-            Set(cursorFailures.keys)
-        )
-    }
-
-    private static func isComplete<Identity: Hashable>(
-        _ expected: Set<Identity>,
-        _ instantiated: Set<Identity>,
-        _ failed: Set<Identity>
-    ) -> Bool {
-        instantiated.isDisjoint(with: failed)
-            && instantiated.union(failed) == expected
-    }
-}
-
 /// Builds every per-scene QuickJS owner family in a fresh candidate domain.
 /// Any evaluated module that does not become an owner rejects that whole
 /// domain; the failed identity is excluded before the complete family is
@@ -126,6 +20,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
         runtimeDescriptor: SceneRenderDescriptor,
         scriptBindings: [SceneScriptBindingIR],
         vectorProjection: SceneScriptVectorCandidateCatalog,
+        routeExcludedTargets: Set<SceneDynamicTarget> = [],
         userPropertyDefinitions: [SceneUserPropertyDefinition],
         timelineTargets: Set<SceneDynamicTarget>,
         scalarExcludedTargets: Set<SceneDynamicTarget>,
@@ -136,6 +31,14 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
         storageSession: SceneScriptLocalStorageSession? = nil,
         cancellationCheck: @escaping @Sendable () throws -> Void = {}
     ) throws -> Self {
+        let excludedStandaloneCursorLayerIDs = Set(
+            routeExcludedTargets.union(vectorProjection.duplicateTargets).compactMap {
+            target -> Int? in
+            guard case let .layer(layerID, .visibility) = target else {
+                return nil
+            }
+            return layerID
+        })
         let expectedVectorTargets = vectorProjection.nonPassTargets.union(
             admittedVectorPassTargets
         )
@@ -152,7 +55,8 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
         let projectedCursorLayerIDs =
             SceneScriptCursorProgram.projectedStandaloneLayerIDs(
                 descriptor: authoredDescriptor,
-                scriptBindings: scriptBindings
+                scriptBindings: scriptBindings,
+                excludedLayerIDs: excludedStandaloneCursorLayerIDs
             )
         let makeUnavailable: (SceneScriptScalarRuntimeFailure) -> Self = { failure in
             unavailable(
@@ -203,7 +107,8 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 claimedTargets: Set(plannedVectorTargets.compactMap { target in
                     guard case .layer(_, .visibility) = target else { return nil }
                     return target
-                })
+                }),
+                excludedLayerIDs: excludedStandaloneCursorLayerIDs
             )
         )
         plannedOwnerSources.append(contentsOf:
@@ -348,8 +253,17 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 descriptor: authoredDescriptor,
                 scriptBindings: scriptBindings,
                 borrowedOwners: vectorConstruction.program.cursorOwnerRegistrations,
-                claimedTargets: vectorConstruction.program.inputTargets,
+                // A planned vector visibility target has a single owner even
+                // when construction rejects it. Do not retry the same authored
+                // binding under a cursor owner after that rejection.
+                claimedTargets: vectorConstruction.program.inputTargets.union(
+                    plannedVectorTargets.filter { target in
+                        if case .layer(_, .visibility) = target { return true }
+                        return false
+                    }
+                ),
                 rejectedLayerIDs: rejectedCursorLayerIDs,
+                excludedStandaloneLayerIDs: excludedStandaloneCursorLayerIDs,
                 generation: generation,
                 budget: budget,
                 constructionWork: constructionWork

@@ -187,6 +187,383 @@ enum Harness {
             generation: 42,
             budget: overlapBudget
         )
+        let mixedSource = """
+        export function update(value) { return value; }
+        export function cursorMove(event) { return; }
+        """
+        let mixedBindings = [overlapVisibleBinding(source: mixedSource)]
+        let mixedProjection = SceneScriptVectorProgram.project(
+            descriptor: overlapDescriptor,
+            scriptBindings: mixedBindings
+        )
+        let mixedBudget = SceneScriptScalarBudget(
+            heapBytes: 2 * 1024 * 1024,
+            stackBytes: 512 * 1024,
+            interruptBudget: 100_000,
+            maximumOwnerSourceBytes: mixedSource.utf8.count,
+            maximumCandidateSourceBytes: mixedSource.utf8.count
+        )
+        let mixedCandidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: overlapDescriptor,
+            runtimeDescriptor: overlapDescriptor,
+            scriptBindings: mixedBindings,
+            vectorProjection: mixedProjection,
+            userPropertyDefinitions: [],
+            timelineTargets: [],
+            scalarExcludedTargets: [],
+            stringExcludedTargets: [],
+            admittedVectorPassTargets: [],
+            generation: 46,
+            budget: mixedBudget
+        )
+        let constSource = """
+        // export function update(value) { return value; }
+        const text = "export function destroy() {}";
+        export const cursorMove = (event) => {
+            thisLayer.origin = new Vec3(47, 0, 0);
+        }
+        """
+        let constCandidate = try cursorAdmissionCandidate(
+            descriptor: overlapDescriptor,
+            source: constSource,
+            generation: 47
+        )
+        let asyncSource = """
+        export async function cursorMove(event) {
+            thisLayer.origin = new Vec3(48, 0, 0);
+        }
+        """
+        let asyncCandidate = try cursorAdmissionCandidate(
+            descriptor: overlapDescriptor,
+            source: asyncSource,
+            generation: 48
+        )
+        let namedSource = """
+        function cursorMove(event) {
+            thisLayer.origin = new Vec3(49, 0, 0);
+        }
+        export { cursorMove };
+        """
+        let namedCandidate = try cursorAdmissionCandidate(
+            descriptor: overlapDescriptor,
+            source: namedSource,
+            generation: 49
+        )
+        let constDispatch = dispatchCursorMove(constCandidate, frame: frame)
+        let asyncDispatch = dispatchCursorMove(asyncCandidate, frame: frame)
+        let namedDispatch = dispatchCursorMove(namedCandidate, frame: frame)
+        let propertyCursorSource = """
+        export var scriptProperties = createScriptProperties();
+        export function cursorMove(event) {
+            thisLayer.origin = new Vec3(scriptProperties.step, 0, 0);
+        }
+        """
+        let propertyCursorBindings = [overlapVisiblePropertyBinding(
+            source: propertyCursorSource, userPropertyKey: "cursorStep"
+        )]
+        let propertyCursorProjection = SceneScriptVectorProgram.project(
+            descriptor: overlapDescriptor,
+            scriptBindings: propertyCursorBindings
+        )
+        let propertyCursorCandidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: overlapDescriptor,
+            runtimeDescriptor: overlapDescriptor,
+            scriptBindings: propertyCursorBindings,
+            vectorProjection: propertyCursorProjection,
+            userPropertyDefinitions: [],
+            timelineTargets: [],
+            scalarExcludedTargets: [],
+            stringExcludedTargets: [],
+            admittedVectorPassTargets: [],
+            generation: 61
+        )
+        let propertyFirst = dispatchCursorMove(
+            propertyCursorCandidate, frame: frame, propertyRevision: 1
+        )
+        let propertyLive = propertyCursorCandidate.cursorProgram.dispatch(
+            batch: .init(samples: [.init(
+                hits: [50: .init(layerID: 50,
+                    worldPosition: .init(1, 2, 0),
+                    localPosition: .init(0.75, 0.5, 0))],
+                pointerPosition: .init(0.75, 0.5),
+                primaryButtonIsDown: false
+            )], overflowed: false),
+            frame: frame, userPropertiesJSON: "{}",
+            effectivePropertyValues: ["cursorStep": .number(5)],
+            propertyRevision: 2
+        )
+        let reexportSource = "export { cursorMove } from \"other\";"
+        let reexportCandidate = try cursorAdmissionCandidate(
+            descriptor: overlapDescriptor,
+            source: reexportSource,
+            generation: 50
+        )
+        let mediaMixedSource = """
+        export function cursorMove(event) { return; }
+        export function mediaPlaybackChanged(event) { return; }
+        """
+        let mediaMixedCandidate = try cursorAdmissionCandidate(
+            descriptor: overlapDescriptor,
+            source: mediaMixedSource,
+            generation: 51
+        )
+        let destroyMixedSource = """
+        export function cursorMove(event) { return; }
+        export function destroy() { return; }
+        """
+        let destroyMixedCandidate = try cursorAdmissionCandidate(
+            descriptor: overlapDescriptor,
+            source: destroyMixedSource,
+            generation: 52
+        )
+        let audioMixedSource = """
+        export function cursorMove(event) {
+            if (false) { engine.registerAudioBuffers(); }
+        }
+        """
+        let audioMixedCandidate = try cursorAdmissionCandidate(
+            descriptor: overlapDescriptor,
+            source: audioMixedSource,
+            generation: 53
+        )
+        let nonFunctionCandidate = try cursorAdmissionCandidate(
+            descriptor: overlapDescriptor,
+            source: "export const cursorMove = 42",
+            generation: 56
+        )
+        let regexLiteralCandidate = try cursorAdmissionCandidate(
+            descriptor: overlapDescriptor,
+            source: "const pattern = /export function cursorMove\\(/;",
+            generation: 57
+        )
+        let duplicateBindings = [
+            overlapVisibleBinding(source: overlapSource),
+            overlapVisibleBinding(source: overlapSource),
+        ]
+        let duplicateCursorProjection = SceneScriptVectorProgram.project(
+            descriptor: overlapDescriptor,
+            scriptBindings: duplicateBindings
+        )
+        let duplicateCursorCandidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: overlapDescriptor,
+            runtimeDescriptor: overlapDescriptor,
+            scriptBindings: duplicateBindings,
+            vectorProjection: duplicateCursorProjection,
+            userPropertyDefinitions: [],
+            timelineTargets: [],
+            scalarExcludedTargets: [],
+            stringExcludedTargets: [],
+            admittedVectorPassTargets: [],
+            generation: 54
+        )
+        let mixedDuplicateBindings = [
+            overlapVisibleBinding(source: overlapSource),
+            overlapVisiblePropertyBinding(source: overlapSource),
+        ]
+        let mixedDuplicateProjection = SceneScriptVectorProgram.project(
+            descriptor: overlapDescriptor,
+            scriptBindings: mixedDuplicateBindings
+        )
+        let mixedDuplicateCandidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: overlapDescriptor,
+            runtimeDescriptor: overlapDescriptor,
+            scriptBindings: mixedDuplicateBindings,
+            vectorProjection: mixedDuplicateProjection,
+            userPropertyDefinitions: [],
+            timelineTargets: [],
+            scalarExcludedTargets: [],
+            stringExcludedTargets: [],
+            admittedVectorPassTargets: [],
+            generation: 58
+        )
+        let routedSource = """
+        export function update(value) { return value; }
+        export function mediaPlaybackChanged(event) { return; }
+        export function cursorMove(event) {
+            thisLayer.origin = new Vec3(59, 0, 0);
+        }
+        """
+        let routedBindings = [overlapVisibleBinding(source: routedSource)]
+        let routedProjection = SceneScriptVectorProgram.project(
+            descriptor: overlapDescriptor,
+            scriptBindings: routedBindings
+        )
+        let routedGeneric = try SceneScriptVectorMediaRouteCandidate.compile(
+            initialPassTargets: [], route: .genericOnly,
+            cancellationCheck: {},
+            builder: { _, excluded in
+                try routedCursorCandidate(
+                    descriptor: overlapDescriptor, bindings: routedBindings,
+                    projection: routedProjection, excluded: excluded,
+                    generation: 59
+                )
+            }
+        )!
+        let routedDisabled = try SceneScriptVectorMediaRouteCandidate.compile(
+            initialPassTargets: [], route: .disableGeneric,
+            cancellationCheck: {},
+            builder: { _, excluded in
+                try routedCursorCandidate(
+                    descriptor: overlapDescriptor, bindings: routedBindings,
+                    projection: routedProjection, excluded: excluded,
+                    generation: 60
+                )
+            }
+        )!
+        let vectorCursorCollisionSource = """
+        export function update(value) { return value; }
+        export function cursorMove(event) { return; }
+        """
+        let vectorCursorCollisionBindings = [
+            overlapVisibleBinding(source: overlapSource),
+            overlapOriginBinding(source: vectorCursorCollisionSource),
+        ]
+        let vectorCursorCollisionProjection = SceneScriptVectorProgram.project(
+            descriptor: overlapDescriptor,
+            scriptBindings: vectorCursorCollisionBindings
+        )
+        let vectorCursorCollisionCandidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: overlapDescriptor,
+            runtimeDescriptor: overlapDescriptor,
+            scriptBindings: vectorCursorCollisionBindings,
+            vectorProjection: vectorCursorCollisionProjection,
+            userPropertyDefinitions: [],
+            timelineTargets: [],
+            scalarExcludedTargets: [],
+            stringExcludedTargets: [],
+            admittedVectorPassTargets: [],
+            generation: 55
+        )
+        let effectCursorTarget = SceneDynamicTarget.effectVisibility(
+            layerID: 10, effectIndex: 0
+        )
+        let effectCursorBindings = [SceneScriptBindingIR(
+            source: overlapSource,
+            owner: .init(kind: .effect, objectIndex: 0, objectID: 10,
+                         effectIndex: 0, effectID: 100,
+                         passIndex: nil, passID: nil),
+            targetPath: [.key("objects"), .index(0), .key("effects"),
+                         .index(0), .key("visible")],
+            properties: [:], authoredValue: .bool(true),
+            valueType: .boolean, wrapperKeys: ["script", "value"]
+        )]
+        let effectCursorProjection = SceneScriptVectorProgram.project(
+            descriptor: descriptor, scriptBindings: effectCursorBindings
+        )
+        let effectCursorCandidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: descriptor, runtimeDescriptor: descriptor,
+            scriptBindings: effectCursorBindings,
+            vectorProjection: effectCursorProjection,
+            userPropertyDefinitions: [], timelineTargets: [],
+            scalarExcludedTargets: [], stringExcludedTargets: [],
+            admittedVectorPassTargets: [], generation: 62
+        )
+        let textCursorDescriptor = SceneRenderDescriptor(layers: [.init(
+            id: 70, layerIndex: 0, name: "text-cursor", visible: true,
+            originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+            colorRGB: [1, 1, 1], scaleHasScript: false, alpha: 1,
+            effects: [], contentKind: "text",
+            text: "authored", textStyle: .init(
+                fontPath: nil, colorRGB: [1, 1, 1], pointSize: 24
+            ), sizeWH: [100, 100]
+        )])
+        let textCursorSource = """
+        export function update(value) { return value; }
+        export function cursorMove(event) {
+            thisLayer.origin = new Vec3(68, 0, 0);
+        }
+        """
+        let textCursorBinding = SceneScriptBindingIR(
+            source: textCursorSource,
+            owner: .init(kind: .object, objectIndex: 0, objectID: 70,
+                         effectIndex: nil, effectID: nil,
+                         passIndex: nil, passID: nil),
+            targetPath: [.key("objects"), .index(0), .key("color")],
+            properties: [:], authoredValue: .string("1 1 1"),
+            valueType: .string, wrapperKeys: ["script", "value"]
+        )
+        let textCursorProjection = SceneScriptVectorProgram.project(
+            descriptor: textCursorDescriptor,
+            scriptBindings: [textCursorBinding],
+            admittedLayerColorConsumerIDs: [70]
+        )
+        let textCursorCandidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: textCursorDescriptor,
+            runtimeDescriptor: textCursorDescriptor,
+            scriptBindings: [textCursorBinding],
+            vectorProjection: textCursorProjection,
+            userPropertyDefinitions: [], timelineTargets: [],
+            scalarExcludedTargets: [], stringExcludedTargets: [],
+            admittedVectorPassTargets: [], generation: 63
+        )
+        let textCursorDispatch = textCursorCandidate.cursorProgram.dispatch(
+            batch: .init(samples: [
+                .init(hits: [70: .init(layerID: 70,
+                       worldPosition: .init(1, 2, 0),
+                       localPosition: .init(0.5, 0.5, 0))],
+                      pointerPosition: .zero, primaryButtonIsDown: false),
+                .init(hits: [70: .init(layerID: 70,
+                       worldPosition: .init(1, 2, 0),
+                       localPosition: .init(0.5, 0.5, 0))],
+                      pointerPosition: .init(0.5, 0.5),
+                      primaryButtonIsDown: false),
+            ], overflowed: false), frame: frame, userPropertiesJSON: "{}"
+        )
+        let unhitDescriptor = SceneRenderDescriptor(layers: [.init(
+            id: 80, layerIndex: 0, name: "unhit-visible", visible: true,
+            originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+            scaleHasScript: false, alpha: 1, effects: [],
+            contentKind: "container"
+        )])
+        let unhitBindings = [SceneScriptBindingIR(
+            source: overlapSource,
+            owner: .init(kind: .object, objectIndex: 0, objectID: 80,
+                         effectIndex: nil, effectID: nil,
+                         passIndex: nil, passID: nil),
+            targetPath: [.key("objects"), .index(0), .key("visible")],
+            properties: [:], authoredValue: .bool(true),
+            valueType: .boolean, wrapperKeys: ["script", "value"]
+        )]
+        let unhitProjection = SceneScriptVectorProgram.project(
+            descriptor: unhitDescriptor, scriptBindings: unhitBindings
+        )
+        let unhitCandidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: unhitDescriptor,
+            runtimeDescriptor: unhitDescriptor,
+            scriptBindings: unhitBindings,
+            vectorProjection: unhitProjection,
+            userPropertyDefinitions: [], timelineTargets: [],
+            scalarExcludedTargets: [], stringExcludedTargets: [],
+            admittedVectorPassTargets: [], generation: 64
+        )
+        let unhitMixedBindings = [SceneScriptBindingIR(
+            source: """
+            export function update(value) { return !value; }
+            export function cursorMove(event) { return; }
+            """,
+            owner: .init(kind: .object, objectIndex: 0, objectID: 80,
+                         effectIndex: nil, effectID: nil,
+                         passIndex: nil, passID: nil),
+            targetPath: [.key("objects"), .index(0), .key("visible")],
+            properties: [:], authoredValue: .bool(true),
+            valueType: .boolean, wrapperKeys: ["script", "value"]
+        )]
+        let unhitMixedProjection = SceneScriptVectorProgram.project(
+            descriptor: unhitDescriptor, scriptBindings: unhitMixedBindings
+        )
+        let unhitMixedCandidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: unhitDescriptor,
+            runtimeDescriptor: unhitDescriptor,
+            scriptBindings: unhitMixedBindings,
+            vectorProjection: unhitMixedProjection,
+            userPropertyDefinitions: [], timelineTargets: [],
+            scalarExcludedTargets: [], stringExcludedTargets: [],
+            admittedVectorPassTargets: [], generation: 65
+        )
+        let unhitMixedValue = unhitMixedCandidate.vectorProgram.evaluate(
+            inputs: [.layer(layerID: 80, field: .visibility): .bool(true)],
+            effectivePropertyValues: [:], frame: frame
+        )
         let retryAggregateCandidate = try retryAggregateBudgetCandidate(
             ownerCount: 260,
             invalidPrefixCount: 20,
@@ -340,10 +717,121 @@ enum Harness {
                     .values.map(\.code)
             )).sorted(),
             "claimedCursorOverlapCommitted": overlapCandidate.domain != nil,
+            "claimedCursorOverlapStaticProjection": overlapProjection.targets.count,
             "claimedCursorOverlapVectorExpected": overlapCandidate
                 .constructionReport.expectedVectorTargets.count,
+            "claimedCursorOverlapVectorInstantiated": overlapCandidate
+                .constructionReport.instantiatedVectorTargets.count,
             "claimedCursorOverlapCursorExpected": overlapCandidate
                 .constructionReport.expectedCursorLayerIDs.count,
+            "claimedCursorOverlapCursorOwnerCount": overlapCandidate
+                .cursorProgram.ownerCount,
+            "claimedCursorOverlapCursorOwnsOwner": overlapCandidate.cursorProgram
+                .bindings.first?.ownsOwner ?? false,
+            "mixedCursorCommitted": mixedCandidate.domain != nil,
+            "mixedCursorStaticProjection": mixedProjection.targets.count,
+            "mixedCursorVectorExpected": mixedCandidate.constructionReport
+                .expectedVectorTargets.count,
+            "mixedCursorVectorInstantiated": mixedCandidate.constructionReport
+                .instantiatedVectorTargets.count,
+            "mixedCursorCursorExpected": mixedCandidate.constructionReport
+                .expectedCursorLayerIDs.count,
+            "mixedCursorOwnerCount": mixedCandidate.cursorProgram.ownerCount,
+            "mixedCursorBorrowed": mixedCandidate.cursorProgram.bindings
+                .first?.ownsOwner == false,
+            "constCursorVectorExpected": constCandidate.constructionReport
+                .expectedVectorTargets.count,
+            "constCursorExpected": constCandidate.constructionReport
+                .expectedCursorLayerIDs.count,
+            "constCursorOwnerCount": constCandidate.cursorProgram.ownerCount,
+            "constCursorBorrowed": constCandidate.cursorProgram.bindings
+                .first?.ownsOwner == false,
+            "constCursorMoveX": cursorMutationX(constDispatch),
+            "constCursorMoveFailures": constDispatch.failures.count,
+            "asyncCursorVectorExpected": asyncCandidate.constructionReport
+                .expectedVectorTargets.count,
+            "asyncCursorExpected": asyncCandidate.constructionReport
+                .expectedCursorLayerIDs.count,
+            "asyncCursorMoveX": cursorMutationX(asyncDispatch),
+            "asyncCursorMoveFailures": asyncDispatch.failures.count,
+            "namedCursorVectorExpected": namedCandidate.constructionReport
+                .expectedVectorTargets.count,
+            "namedCursorExpected": namedCandidate.constructionReport
+                .expectedCursorLayerIDs.count,
+            "namedCursorMoveX": cursorMutationX(namedDispatch),
+            "namedCursorMoveFailures": namedDispatch.failures.count,
+            "propertyCursorVectorOwners": propertyCursorCandidate.vectorProgram.definitions.count,
+            "propertyCursorBorrowed": propertyCursorCandidate.cursorProgram.bindings
+                .first?.ownsOwner == false,
+            "propertyCursorFirstX": cursorMutationX(propertyFirst),
+            "propertyCursorFirstFailures": propertyFirst.failures.count,
+            "propertyCursorLiveX": cursorMutationX(propertyLive),
+            "propertyCursorLiveFailures": propertyLive.failures.count,
+            "reexportCursorVectorExpected": reexportCandidate.constructionReport
+                .expectedVectorTargets.count,
+            "reexportCursorExpected": reexportCandidate.constructionReport
+                .expectedCursorLayerIDs.count,
+            "mediaMixedVectorExpected": mediaMixedCandidate.constructionReport
+                .expectedVectorTargets.count,
+            "mediaMixedCursorExpected": mediaMixedCandidate.constructionReport
+                .expectedCursorLayerIDs.count,
+            "destroyMixedVectorExpected": destroyMixedCandidate.constructionReport
+                .expectedVectorTargets.count,
+            "destroyMixedCursorExpected": destroyMixedCandidate.constructionReport
+                .expectedCursorLayerIDs.count,
+            "audioMixedVectorExpected": audioMixedCandidate.constructionReport
+                .expectedVectorTargets.count,
+            "audioMixedCursorExpected": audioMixedCandidate.constructionReport
+                .expectedCursorLayerIDs.count,
+            "nonFunctionVectorExpected": nonFunctionCandidate.constructionReport
+                .expectedVectorTargets.count,
+            "nonFunctionCursorExpected": nonFunctionCandidate.constructionReport
+                .expectedCursorLayerIDs.count,
+            "regexLiteralVectorExpected": regexLiteralCandidate.constructionReport
+                .expectedVectorTargets.count,
+            "regexLiteralCursorExpected": regexLiteralCandidate.constructionReport
+                .expectedCursorLayerIDs.count,
+            "duplicateCursorVectorExpected": duplicateCursorCandidate
+                .constructionReport.expectedVectorTargets.count,
+            "duplicateCursorExpected": duplicateCursorCandidate
+                .constructionReport.expectedCursorLayerIDs.count,
+            "duplicateCursorStaticProjection": duplicateCursorProjection.targets.count,
+            "duplicateCursorDuplicates": duplicateCursorProjection.duplicateTargets.count,
+            "mixedDuplicateTargets": mixedDuplicateProjection.duplicateTargets.count,
+            "mixedDuplicateVectorExpected": mixedDuplicateCandidate.constructionReport
+                .expectedVectorTargets.count,
+            "mixedDuplicateCursorExpected": mixedDuplicateCandidate.constructionReport
+                .expectedCursorLayerIDs.count,
+            "mixedDuplicateCursorOwners": mixedDuplicateCandidate.cursorProgram.ownerCount,
+            "routedGenericMediaTargets": routedGeneric.mediaOwnerTargets.count,
+            "routedGenericVectorOwners": routedGeneric.programs.vectorProgram.definitions.count,
+            "routedGenericCursorOwners": routedGeneric.programs.cursorProgram.ownerCount,
+            "routedDisabledMediaTargets": routedDisabled.mediaOwnerTargets.count,
+            "routedDisabledVectorOwners": routedDisabled.programs.vectorProgram.definitions.count,
+            "routedDisabledCursorOwners": routedDisabled.programs.cursorProgram.ownerCount,
+            "vectorCursorCollisionVectorExpected": vectorCursorCollisionCandidate
+                .constructionReport.expectedVectorTargets.count,
+            "vectorCursorCollisionCursorExpected": vectorCursorCollisionCandidate
+                .constructionReport.expectedCursorLayerIDs.count,
+            "effectCursorProjected": effectCursorProjection.targets.count,
+            "effectCursorFailureCode": effectCursorCandidate.constructionReport
+                .vectorFailures[effectCursorTarget]?.code ?? "missing",
+            "effectCursorOwners": effectCursorCandidate.cursorProgram.ownerCount,
+            "textCursorProjected": textCursorProjection.targets.count,
+            "textCursorOwners": textCursorCandidate.cursorProgram.ownerCount,
+            "textCursorDispatchFailures": textCursorDispatch.failures.count,
+            "textCursorMutationX": cursorMutationX(textCursorDispatch),
+            "unhitVectorOwners": unhitCandidate.vectorProgram.definitions.count,
+            "unhitCursorExpected": unhitCandidate.constructionReport
+                .expectedCursorLayerIDs.count,
+            "unhitCursorFailure": unhitCandidate.constructionReport
+                .cursorFailures[80]?.code ?? "missing",
+            "unhitCursorOwners": unhitCandidate.cursorProgram.ownerCount,
+            "unhitMixedCursorFailure": unhitMixedCandidate.constructionReport
+                .cursorFailures[80]?.code ?? "missing",
+            "unhitMixedVectorValue": unhitMixedValue.values[
+                .layer(layerID: 80, field: .visibility)
+            ] == .bool(false),
             "retryAggregateCommitted": retryAggregateCandidate.domain != nil,
             "retryAggregateVectorExpected": retryAggregateCandidate
                 .constructionReport.expectedVectorTargets.count,
@@ -458,6 +946,127 @@ enum Harness {
             ],
             properties: [:],
             authoredValue: .string("1 1"),
+            valueType: .string,
+            wrapperKeys: ["script", "value"]
+        )
+    }
+
+    static func cursorAdmissionCandidate(
+        descriptor: SceneRenderDescriptor,
+        source: String,
+        generation: UInt64
+    ) throws -> SceneScriptQuickJSProgramCandidate {
+        let bindings = [overlapVisibleBinding(source: source)]
+        let projection = SceneScriptVectorProgram.project(
+            descriptor: descriptor,
+            scriptBindings: bindings
+        )
+        let budget = SceneScriptScalarBudget(
+            heapBytes: 2 * 1024 * 1024,
+            stackBytes: 512 * 1024,
+            interruptBudget: 100_000,
+            maximumOwnerSourceBytes: max(source.utf8.count, 1),
+            maximumCandidateSourceBytes: max(source.utf8.count, 1)
+        )
+        return try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: descriptor,
+            runtimeDescriptor: descriptor,
+            scriptBindings: bindings,
+            vectorProjection: projection,
+            userPropertyDefinitions: [],
+            timelineTargets: [],
+            scalarExcludedTargets: [],
+            stringExcludedTargets: [],
+            admittedVectorPassTargets: [],
+            generation: generation,
+            budget: budget
+        )
+    }
+
+    static func routedCursorCandidate(
+        descriptor: SceneRenderDescriptor,
+        bindings: [SceneScriptBindingIR],
+        projection: SceneScriptVectorCandidateCatalog,
+        excluded: Set<SceneDynamicTarget>,
+        generation: UInt64
+    ) throws -> SceneScriptQuickJSProgramCandidate {
+        try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: descriptor,
+            runtimeDescriptor: descriptor,
+            scriptBindings: bindings,
+            vectorProjection: projection.excludingTargets(excluded),
+            routeExcludedTargets: excluded,
+            userPropertyDefinitions: [],
+            timelineTargets: [],
+            scalarExcludedTargets: [],
+            stringExcludedTargets: [],
+            admittedVectorPassTargets: [],
+            generation: generation
+        )
+    }
+
+    static func overlapVisiblePropertyBinding(
+        source: String,
+        userPropertyKey: String? = nil
+    ) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .object, objectIndex: 0, objectID: 50,
+                effectIndex: nil, effectID: nil, passIndex: nil, passID: nil
+            ),
+            targetPath: [.key("objects"), .index(0), .key("visible")],
+            properties: ["step": userPropertyKey.map { key in .object([
+                "user": .string(key), "value": .number(3)
+            ]) } ?? .number(3)],
+            authoredValue: .bool(true),
+            valueType: .boolean,
+            wrapperKeys: ["script", "scriptproperties", "value"]
+        )
+    }
+
+    static func dispatchCursorMove(
+        _ candidate: SceneScriptQuickJSProgramCandidate,
+        frame: SceneScriptFrameInput,
+        propertyRevision: UInt64? = nil
+    ) -> SceneScriptCursorFrameResult {
+        let hit = SceneScriptCursorHit(
+            layerID: 50,
+            worldPosition: .init(1, 2, 0),
+            localPosition: .init(0.5, 0.5, 0)
+        )
+        return candidate.cursorProgram.dispatch(
+            batch: .init(samples: [
+                .init(hits: [50: hit], pointerPosition: .zero,
+                      primaryButtonIsDown: false),
+                .init(hits: [50: hit], pointerPosition: .init(0.5, 0.5),
+                      primaryButtonIsDown: false),
+            ], overflowed: false),
+            frame: frame,
+            userPropertiesJSON: "{}",
+            propertyRevision: propertyRevision
+        )
+    }
+
+    static func cursorMutationX(_ result: SceneScriptCursorFrameResult) -> Double {
+        result.layerMutations.first?.origin.x ?? -1
+    }
+
+    static func overlapOriginBinding(source: String) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .object,
+                objectIndex: 0,
+                objectID: 50,
+                effectIndex: nil,
+                effectID: nil,
+                passIndex: nil,
+                passID: nil
+            ),
+            targetPath: [.key("objects"), .index(0), .key("origin")],
+            properties: [:],
+            authoredValue: .string("0 0 0"),
             valueType: .string,
             wrapperKeys: ["script", "value"]
         )

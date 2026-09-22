@@ -87,7 +87,29 @@ enum Harness {
         let parallaxProgram = SceneScriptCursorProgram.compile(
             domain: try SceneScriptQuickJSDomain(), descriptor: parallaxDescriptor,
             scriptBindings: [standaloneBinding(layerID: 30, index: 2)], generation: 42)
+        let mixedStandaloneBindings = [standaloneBinding(
+            layerID: 30, index: 2, source: """
+            export function update(value) { return value; }
+            export function cursorEnter(event) { return; }
+            """
+        )]
+        let mixedStandaloneProjection = SceneScriptVectorProgram.project(
+            descriptor: descriptor, scriptBindings: mixedStandaloneBindings
+        )
+        let mixedStandaloneCandidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: descriptor, runtimeDescriptor: descriptor,
+            scriptBindings: mixedStandaloneBindings,
+            vectorProjection: mixedStandaloneProjection,
+            userPropertyDefinitions: [], timelineTargets: [],
+            scalarExcludedTargets: [], stringExcludedTargets: [],
+            admittedVectorPassTargets: [], generation: 43
+        )
         let payload: [String: Any] = [
+            "mixedStandaloneVectorTargets": mixedStandaloneProjection.targets.count,
+            "mixedStandaloneCursorFailure": mixedStandaloneCandidate
+                .constructionReport.cursorFailures[30]?.code ?? "missing",
+            "mixedStandaloneCursorOwners": mixedStandaloneCandidate
+                .cursorProgram.ownerCount,
             "enabledParallaxOwners": parallaxProgram.ownerCount,
             "domainCommitted": candidate.domain != nil,
             "preflightRequiresReconstruction": preflight.requiresDomainReconstruction,
@@ -143,10 +165,11 @@ enum Harness {
 
     static func standaloneBinding(
         layerID: Int,
-        index: Int
+        index: Int,
+        source: String = standaloneSource
     ) -> SceneScriptBindingIR {
         .init(
-            source: standaloneSource,
+            source: source,
             owner: .init(
                 kind: .object,
                 objectIndex: index,
@@ -304,6 +327,9 @@ class SceneCursorCandidateCollisionTests(unittest.TestCase):
         self.assertEqual(result["cursorOwners"], [30, 40, 50])
         self.assertEqual(result["cursorOwnerCount"], 3)
         self.assertEqual(result["dispatchFailures"], [])
+        self.assertEqual(result["mixedStandaloneVectorTargets"], 0)
+        self.assertEqual(result["mixedStandaloneCursorFailure"], "invalid-source")
+        self.assertEqual(result["mixedStandaloneCursorOwners"], 0)
 
 
 if __name__ == "__main__":

@@ -97,7 +97,8 @@ extension SceneScriptVectorProgram {
             return .init(
                 layerID: layerID,
                 authoredOrder: authoredOrder,
-                owner: binding.owner
+                owner: binding.owner,
+                scriptProperties: binding.properties
             )
         }
     }

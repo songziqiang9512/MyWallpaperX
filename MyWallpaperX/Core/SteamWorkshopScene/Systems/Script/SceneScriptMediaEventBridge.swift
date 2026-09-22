@@ -446,6 +446,7 @@ nonisolated enum SceneScriptMediaEventBridge {
         ownerGeneration: UInt64,
         event: SceneScriptCursorEventInput,
         frame: SceneScriptFrameInput,
+        scriptPropertiesJSON: String,
         userPropertiesJSON: String
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
         guard event.layerID >= 0,
@@ -471,18 +472,22 @@ nonisolated enum SceneScriptMediaEventBridge {
         case .up: MWX_SCENE_QUICKJS_CURSOR_UP
         case .click: MWX_SCENE_QUICKJS_CURSOR_CLICK
         }
-        let raw = userPropertiesJSON.withCString { userProperties in
-            mwx_scene_quickjs_owner_dispatch_cursor(
-                owner,
-                ownerGeneration,
-                kind,
-                &rawEvent,
-                &rawFrame,
-                userProperties,
-                userPropertiesJSON.utf8.count,
-                &diagnostic,
-                diagnostic.count
-            )
+        let raw = scriptPropertiesJSON.withCString { scriptProperties in
+            userPropertiesJSON.withCString { userProperties in
+                mwx_scene_quickjs_owner_dispatch_cursor(
+                    owner,
+                    ownerGeneration,
+                    kind,
+                    &rawEvent,
+                    &rawFrame,
+                    scriptProperties,
+                    scriptPropertiesJSON.utf8.count,
+                    userProperties,
+                    userPropertiesJSON.utf8.count,
+                    &diagnostic,
+                    diagnostic.count
+                )
+            }
         }
         guard raw == MWX_SCENE_QUICKJS_OK else {
             return .failure(failure(raw, diagnostic))

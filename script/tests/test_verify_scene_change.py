@@ -460,6 +460,53 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("test_scene_frame_vm_routing", focused.command)
         self.assertIn("test_scene_surface_pointer_event_buffer", focused.command)
 
+    def test_split_cursor_owner_sources_select_cursor_contract(self) -> None:
+        for path in (
+            "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/"
+            "SceneScriptCursorProgramModels.swift",
+            "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/"
+            "SceneScriptVectorOwner+Cursor.swift",
+        ):
+            with self.subTest(path=path):
+                gates, groups = verify.build_plan(
+                    [path],
+                    arguments(),
+                    self.registry,
+                )
+                self.assertIn("scene-script-cursor", groups)
+                focused = next(
+                    gate for gate in gates if gate.gate_id == "focused-tests"
+                )
+                self.assertIn(
+                    "test_scene_cursor_capture_continuity", focused.command
+                )
+
+    def test_launch_models_select_sync_and_daemon_launch_contracts(self) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/"
+                "SceneDesktopWallpaperLaunchModels.swift"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("scene-launch", groups)
+        self.assertIn("scene-daemon-runtime", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        self.assertIn("test_scene_sync_launch_generation", focused.command)
+        self.assertIn("test_scene_wallpaper_async_launch", focused.command)
+
+    def test_vector_owner_admission_harness_selects_consumers(self) -> None:
+        gates, groups = verify.build_plan(
+            ["script/tests/scene_vector_owner_admission_harness.py"],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("scene-harness-support", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        self.assertIn("test_scene_cursor_candidate_collision", focused.command)
+        self.assertIn("test_scene_vector_owner_admission", focused.command)
+
     def test_cursor_audio_demand_change_selects_cursor_audio_contract(self) -> None:
         gates, groups = verify.build_plan(
             [

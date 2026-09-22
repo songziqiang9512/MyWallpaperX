@@ -198,6 +198,7 @@
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift"
       ],
       "modules": [
@@ -217,6 +218,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/IPC/SceneDaemon*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Shutdown.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+SurfaceTeardown.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneFramePresentation.swift",
@@ -301,6 +303,8 @@
       "id": "scene-script-cursor",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgramModels.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorOwner+Cursor.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+SceneScriptCursorInteraction.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneSurfacePointerState.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+Pointer.swift",
@@ -868,6 +872,7 @@
       "id": "scene-harness-support",
       "patterns": [
         "script/tests/scene_dependency_binding_test_support.py",
+        "script/tests/scene_vector_owner_admission_harness.py",
         "script/tests/scene_vector_vm_test_support.py"
       ],
       "modules": [

@@ -100,7 +100,8 @@ import Foundation
         func cursor(_ kind: SceneScriptCursorEventKind) throws {
             _ = try owner.dispatchCursor(.init(kind: kind, layerID: 42,
                 worldPosition: .init(pointerX,0,0), localPosition: .zero),
-                frame: frame(), userPropertiesJSON: "{}").get()
+                frame: frame(), scriptPropertiesJSON: "",
+                userPropertiesJSON: "{}").get()
         }
         try cursor(.down)
         pointerX = 30

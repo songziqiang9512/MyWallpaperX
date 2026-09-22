@@ -273,6 +273,21 @@ targeted matrix仍严格**FAIL**，唯一失败为`animated output evidence belo
 
 **独立审查与限制：**未参与实现的 `/root/audit_fresh_domain_retry` 对 QuickJS C owner create/destroy、Swift 四 family loop、构造预算与 `3662790108` 首断点做只读审查，结论确认 fresh-domain 是必要的，反对同域 quarantine、scratch-domain 拼接和扩大 4096；审查未修改、构建、测试或提交。该审查建议的 cursor-only visibility admission 已登记为下一批，不能把本批的静态/自动门结果提升为作者事件、GPU/compositor、视觉 ROI 或官方 parity 证据。
 
+<a id="e-2026-09-22-scenescript-cursor-only-admission"></a>
+### E-2026-09-22-SCENESCRIPT-CURSOR-ONLY-ADMISSION — visibility 的单一 typed owner 与 QuickJS 实际导出准入
+
+**基线与变更：**`06b2aaca`。visibility 只能有一个 typed VM owner；删除以 `export function init/update` 源码写法分流的旧正则，cursor 只借用 QuickJS 实际导出 callback 的 vector owner。planned/failed、route-disabled、duplicate target 均不能经 standalone 二次准入；首次事件接入原有 revision 缓存的 scriptProperties。text.color 使用同层身份派发；effect.visibility 无注册时局部拒绝；无合法 hit 几何的 borrowed cursor 留 typed failure，mixed vector update 仍可执行；vector 未认领的 standalone 仅接纳构造时无需逐帧推进且没有已激活 timer 的 cursor-only 模块，混合 `update`/cursor 按真实 QuickJS 状态拒绝而非静默丢失 frame。未增加第二 event bus/provider/compositor。
+
+**失败边界：**无回调/destroy/预算/OOM 仍拒绝；同层不同 owner collision 仍局部失败。no-hit borrowed failure 只在 construction report 可查询，尚无普通播放 telemetry。standalone cursor 回调后才登记的 timer 仍无逐帧推进证据，构造期 timer guard 不构成 timer 能力闭合。pass/effectConstant cursor-only 无注册的既存路径尚待核对官方 event host 合同，不能声称支持。
+
+**验证：**`test_scene_cursor_candidate_collision` + `test_scene_vector_owner_admission` 31/31、media/capture/frame 相邻 22/22 PASS，覆盖 JS 四种导出、首次/更新属性、text mutation、no-hit mixed update、standalone update/timer 拒绝、route/duplicate/collision、4097/OOM/取消反例；文件拆分后 property/source-set/code-health 单元 44/44、frame/daemon/document 选择 56 项最终全绿。旧 standalone 期待与单 owner 合同相反，已改为借用，不放宽失败门。独立审查指出本批曾扩大超 800 行核心 owner，已把 launch 状态、cursor 数据、候选构造模型和 cursor baseline 桥拆入同职责文件；触达主文件现为 FrameDriver 799、Launch 770、CursorProgram 751、QuickJSProgramCandidate 777、VectorRuntime 776 行，未改 baseline。`check_code_health.py --check --base-ref HEAD` 的 owned paths 已无 ERROR，全仓仍因本批外既存 ratchet/超限项失败，不能称统一门通过。
+
+最终 Developer ID Debug build 与深度验签通过；App `/private/tmp/mwx-cursor-final2.3SLyct/Build/Products/Debug/MyWallpaperX.app`，Team `H9QWU9XN8R`，CDHash `72307308e7e19cb3b259c189f56ec983634df529`，executable SHA-256 `a08de429c36973150659e266a7e1418fc7d0433c610490995abeaa9a0f0812e2`。定向 tests/build 不替代完整受影响集合。
+
+**真实运行：**隔离只读副本 `3662790108`（project/package SHA-256 `516bf3721903ceb9ae25e5239274f789c1a5566c07f82c4d63dc0450ca65d1e9 / 06db4dc21ca78724f37e513776d0beb10ac587367897fab4051ead94dc1f3ec8`）、matrix SHA-256 `936116df13c529f2ba7c83b6f9edfc5e5851bce6f6fa702fadc0927f1c5c8102`；最终 App 以同参数运行，输出 `/private/tmp/mwx-cursor-runtime.kGPfst/output-single-owner-final3`。report SHA-256 `d15025835be135c355f71e6cdac8a6d2efbec17eb43abec7f7e888630ccd5395`（log `4d1ec7d56cc9abc2455fe7ad3fb527bce33b2850d408001a79386b341cda1f4b`）：最小 matrix 1/1 PASS，但 frame 0 `cursorOwners=0`、8 个目标同层 collision 仍在；其它层有 17 次 enter、7 次 leave，无 down/move/up/click，不证明目标冲突层通过。3024×1964 after 截图 SHA-256 `7b964e94e3157574bfabe850121a3e0b5005bb9e5c0ef649d9cd7ad0b90f8ae9`，仍停留在 solar-system 启动画面。该门无冲突层受控 cursor/light 动态断言；目标事件的 GPU/next-frame 结果、普通 App、官方同输入均未验证。`3692` 旧 world-transform failure 本次未重现，不当作关闭；下一步处理同层 collision 与事件 route。冻结 diff `c9497c04cc7160415b451fff518271a7922d8f73398ba8d2cddab97eb5d65c02` 经独立只读复审 **APPROVE**，无遗留 P0–P3；批准只覆盖本批 owner/admission/transaction，不提升上述运行证据上限。
+
+**下一断点：**本批完成最终复审后追同层多注册 collision 与 `cursorDown→cursorMove*→cursorUp` capture、inside、previous-current、typed mutation/publication、compositor/next-frame；`3692` world-transform 非有限与 point intensity 则作为分离的光照失败链登记。真实拖动方向与 oversized image scroll 属于不同合同，不能全局翻转 Y。
+
 <a id="e-2026-09-20-shared-light-intensity"></a>
 
 ### E-2026-09-20-SHARED-LIGHT-INTENSITY — user/SceneScript light intensity进入唯一typed snapshot与共享光照consumer；directional真实样本达到有界S4
