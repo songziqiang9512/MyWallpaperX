@@ -39,6 +39,10 @@ extension SceneMetalView {
             mouseNormalized: pointer.normalizedPosition,
             modelViewProjection: cameraFrame.orthographicViewProjection
         ) else { return nil }
+        let authoredWorld = SceneLayerCursorGeometry.authoredWorldPosition(
+            world,
+            sceneOrthoHeight: renderer.renderDescriptor.camera.orthoHeight
+        )
         let screenWidth = Double(frameContext.screenSize.width)
         let screenHeight = Double(frameContext.screenSize.height)
         let canvasWidth = Double(frameContext.canvasSize.width)
@@ -56,7 +60,9 @@ extension SceneMetalView {
             canvasSize: SIMD2(canvasWidth, canvasHeight),
             screenSize: SIMD2(screenWidth, screenHeight),
             cursorWorldPosition: SIMD3(
-                Double(world.x), Double(world.y), Double(world.z)
+                Double(authoredWorld.x),
+                Double(authoredWorld.y),
+                Double(authoredWorld.z)
             ),
             cursorScreenPosition: cursorScreen,
             cursorLeftDown: pointer.primaryButtonIsDown
@@ -230,10 +236,16 @@ extension SceneMetalView {
             guard world.x.isFinite, world.y.isFinite, world.z.isFinite else {
                 continue
             }
+            let authoredWorld = SceneLayerCursorGeometry.authoredWorldPosition(
+                world,
+                sceneOrthoHeight: renderer.renderDescriptor.camera.orthoHeight
+            )
             hits[ownerLayerID] = .init(
                 layerID: ownerLayerID,
                 worldPosition: SIMD3(
-                    Double(world.x), Double(world.y), Double(world.z)
+                    Double(authoredWorld.x),
+                    Double(authoredWorld.y),
+                    Double(authoredWorld.z)
                 ),
                 localPosition: SIMD3(
                     Double(local.x), Double(local.y), Double(local.z)

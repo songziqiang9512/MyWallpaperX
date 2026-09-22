@@ -1,6 +1,34 @@
 import simd
 
 enum SceneLayerCursorGeometry {
+    /// Converts the renderer's internal world frame to the absolute author
+    /// world frame exposed by SceneScript. Orthographic Scene authors use a
+    /// Y-up world coordinate, while the editor canvas/screen is top-left/Y-down
+    /// and the renderer keeps that canvas in a Y-down world by reflecting root
+    /// transforms around `orthoHeight`. CursorEvent.worldPosition is an author-space absolute
+    /// coordinate; publishing the internal value directly makes a drag script
+    /// such as `thisLayer.origin = event.worldPosition + offset` move in the
+    /// opposite vertical direction. Native-perspective scenes already use the
+    /// authored Y-up world and must remain unchanged.
+    static func authoredWorldPosition(
+        _ rendererWorldPosition: SIMD3<Float>,
+        sceneOrthoHeight: Float?
+    ) -> SIMD3<Float> {
+        guard rendererWorldPosition.x.isFinite,
+              rendererWorldPosition.y.isFinite,
+              rendererWorldPosition.z.isFinite,
+              let sceneOrthoHeight,
+              sceneOrthoHeight.isFinite,
+              sceneOrthoHeight > 0 else {
+            return rendererWorldPosition
+        }
+        return SIMD3(
+            rendererWorldPosition.x,
+            sceneOrthoHeight - rendererWorldPosition.y,
+            rendererWorldPosition.z
+        )
+    }
+
     static func layerUV(
         mouseNormalized: SIMD2<Float>,
         modelViewProjection: simd_float4x4

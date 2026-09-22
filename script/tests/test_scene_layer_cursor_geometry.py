@@ -34,6 +34,10 @@ enum Harness {
         return [value.x, value.y, value.z]
     }
 
+    static func floatTriple(_ value: SIMD3<Float>) -> [Float] {
+        [value.x, value.y, value.z]
+    }
+
     static func main() throws {
         let local = SIMD4<Float>(0.1, -0.2, 0, 1)
         let transformedMVP = SceneMatrix.translation(SIMD3(0.2, -0.1, 0))
@@ -102,6 +106,16 @@ enum Harness {
                 mouseNormalized: .zero,
                 modelViewProjection: SceneMatrix.identity()
             )),
+            "authoredOrthographicWorld": floatTriple(
+                SceneLayerCursorGeometry.authoredWorldPosition(
+                    SIMD3(4, 200, 7), sceneOrthoHeight: 1080
+                )
+            ),
+            "authoredPerspectiveWorld": floatTriple(
+                SceneLayerCursorGeometry.authoredWorldPosition(
+                    SIMD3(4, 200, 7), sceneOrthoHeight: nil
+                )
+            ),
             "transformedKnownPoint": pair(SceneLayerCursorGeometry.layerUV(
                 mouseNormalized: normalized,
                 modelViewProjection: transformedMVP
@@ -205,6 +219,16 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
 
     def test_identity_maps_surface_center_to_layer_center(self) -> None:
         self.assert_pair_almost_equal(self.result["identityCenter"], [0.5, 0.5])
+
+    def test_orthographic_cursor_world_is_converted_to_author_space(self) -> None:
+        self.assertEqual(
+            self.result["authoredOrthographicWorld"], [4.0, 880.0, 7.0]
+        )
+
+    def test_native_perspective_cursor_world_keeps_its_author_space(self) -> None:
+        self.assertEqual(
+            self.result["authoredPerspectiveWorld"], [4.0, 200.0, 7.0]
+        )
 
     def test_particle_pointer_uses_layer_local_plane_and_rejects_outside(self) -> None:
         self.assertEqual(len(self.result["particleLocalPosition"]), 3)
