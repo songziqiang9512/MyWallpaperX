@@ -114,7 +114,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         userPropertyDefinitions: [SceneUserPropertyDefinition],
         rejectedTargets: Set<SceneDynamicTarget>,
         generation: UInt64,
-        budget: SceneScriptScalarBudget = .default
+        budget: SceneScriptScalarBudget = .default,
+        constructionWork: SceneScriptConstructionWorkBudget? = nil
     ) -> SceneScriptVectorProgramConstruction {
         let requestedTargets = projection.nonPassTargets.subtracting(
             rejectedTargets
@@ -166,7 +167,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             projection.uniqueCandidates.filter {
                 requestedTargets.contains($0.definition.target)
             },
-            budget: budget
+            budget: budget,
+            constructionWork: constructionWork
         )
         let instantiatedTargets = Set(program.definitions.map(\.target))
             .intersection(requestedTargets)
@@ -181,13 +183,18 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     func instantiatePassOwners(
         projection: SceneScriptVectorCandidateCatalog,
         admittedTargets: Set<SceneDynamicTarget>,
-        budget: SceneScriptScalarBudget = .default
+        budget: SceneScriptScalarBudget = .default,
+        constructionWork: SceneScriptConstructionWorkBudget? = nil
     ) -> SceneScriptVectorPassCompilation {
         let requestedTargets = admittedTargets.intersection(projection.passTargets)
         let candidates = projection.uniqueCandidates.filter {
             requestedTargets.contains($0.definition.target)
         }
-        let failures = instantiateCandidates(candidates, budget: budget)
+        let failures = instantiateCandidates(
+            candidates,
+            budget: budget,
+            constructionWork: constructionWork
+        )
         let failedTargets = Set(failures.keys)
         let instantiatedTargets = requestedTargets.subtracting(failedTargets)
             .intersection(Set(definitions.map(\.target)))
@@ -199,7 +206,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     }
     private func instantiateCandidates(
         _ candidates: [SceneScriptVectorCandidate],
-        budget: SceneScriptScalarBudget
+        budget: SceneScriptScalarBudget,
+        constructionWork: SceneScriptConstructionWorkBudget? = nil
     ) -> [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] {
         let existingTargets = Set(definitions.map(\.target))
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
@@ -220,6 +228,13 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             }
             let owner: SceneScriptVectorOwner
             do {
+                guard constructionWork?.consume() ?? true else {
+                    failures[target] = constructionWork?.failure
+                        ?? .budgetExceeded(
+                            "SceneScript candidate aggregate construction work exceeds 4096"
+                        )
+                    break
+                }
                 owner = try SceneScriptVectorOwner(
                       domain: domain,
                       source: candidate.source,

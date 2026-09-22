@@ -29,6 +29,39 @@ private nonisolated final class SceneScriptQuickJSCandidateControl:
     }
 }
 
+/// Tracks only owner constructors that actually start.  A failed owner can
+/// force a fresh domain, but the other families after that failure were never
+/// constructed and must not be charged as if they had run.
+nonisolated final class SceneScriptConstructionWorkBudget: @unchecked Sendable {
+    private let limit: Int
+    private let plannedOwnerUpperBound: Int
+    private(set) var consumed = 0
+    private(set) var exceeded = false
+
+    init(limit: Int, plannedOwnerUpperBound: Int) {
+        self.limit = limit
+        self.plannedOwnerUpperBound = plannedOwnerUpperBound
+    }
+
+    @discardableResult
+    func consume() -> Bool {
+        guard consumed < limit else {
+            exceeded = true
+            return false
+        }
+        consumed += 1
+        return true
+    }
+
+    var failure: SceneScriptScalarRuntimeFailure {
+        .budgetExceeded(
+            "SceneScript candidate aggregate construction work exceeds 4096 "
+                + "consumed=\(consumed) limit=\(limit) "
+                + "plannedOwnerUpperBound=\(plannedOwnerUpperBound)"
+        )
+    }
+}
+
 nonisolated struct SceneScriptQuickJSProgramConstructionReport: Sendable {
     let expectedVectorTargets: Set<SceneDynamicTarget>
     let instantiatedVectorTargets: Set<SceneDynamicTarget>
@@ -140,14 +173,26 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 failure: failure
             )
         }
-        let expectedOwnerCount = expectedVectorTargets.count
-            + expectedScalarTargets.count + expectedStringTargets.count
-            + projectedCursorLayerIDs.count
         let aggregateConstructionWorkLimit = 4_096
-        try cancellationCheck()
         let plannedVectorTargets = vectorProjection.nonPassTargets.union(
             admittedVectorPassTargets.intersection(vectorProjection.passTargets)
         )
+        let claimedCursorLayerIDs = Set(plannedVectorTargets.compactMap {
+            target -> Int? in
+            guard case let .layer(layerID, .visibility) = target else {
+                return nil
+            }
+            return layerID
+        })
+        let expectedOwnerCount = expectedVectorTargets.count
+            + expectedScalarTargets.count + expectedStringTargets.count
+            + projectedCursorLayerIDs.subtracting(claimedCursorLayerIDs).count
+        try cancellationCheck()
+        guard expectedOwnerCount <= aggregateConstructionWorkLimit else {
+            return makeUnavailable(.budgetExceeded(
+                "SceneScript candidate aggregate construction work exceeds 4096"
+            ))
+        }
         var plannedOwnerSources = vectorProjection.uniqueCandidates.compactMap {
             plannedVectorTargets.contains($0.definition.target) ? $0.source : nil
         }
@@ -200,24 +245,15 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
         ] = [:]
         var cursorFailures: [Int: SceneScriptScalarRuntimeFailure] = [:]
         var expectedCursorLayerIDs: Set<Int> = []
-        var aggregateConstructionWork = 0
+        let constructionWork = SceneScriptConstructionWorkBudget(
+            limit: aggregateConstructionWorkLimit,
+            plannedOwnerUpperBound: expectedOwnerCount
+        )
         let control = SceneScriptQuickJSCandidateControl(
             cancellationCheck: cancellationCheck
         )
 
         for _ in 0...maximumAttempts {
-            let rejectedOwnerCount = rejectedVectorTargets.count
-                + rejectedScalarTargets.count + rejectedStringTargets.count
-                + rejectedCursorLayerIDs.count
-            let remainingOwnerCount = expectedOwnerCount - rejectedOwnerCount
-            guard remainingOwnerCount >= 0,
-                  remainingOwnerCount <= aggregateConstructionWorkLimit
-                    - aggregateConstructionWork else {
-                return makeUnavailable(.budgetExceeded(
-                    "SceneScript candidate aggregate construction work exceeds 4096"
-                ))
-            }
-            aggregateConstructionWork += remainingOwnerCount
             try control.checkBoundary()
             let domain: SceneScriptQuickJSDomain
             do {
@@ -237,9 +273,13 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     userPropertyDefinitions: userPropertyDefinitions,
                     rejectedTargets: rejectedVectorTargets,
                     generation: generation,
-                    budget: budget
+                    budget: budget,
+                    constructionWork: constructionWork
                 )
             try control.checkBoundary()
+            if constructionWork.exceeded {
+                return makeUnavailable(constructionWork.failure)
+            }
             if let failure = domainFatalFailure(vectorConstruction.failures) {
                 return makeUnavailable(failure)
             }
@@ -308,9 +348,13 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 claimedTargets: vectorConstruction.program.inputTargets,
                 rejectedLayerIDs: rejectedCursorLayerIDs,
                 generation: generation,
-                budget: budget
+                budget: budget,
+                constructionWork: constructionWork
             )
             try control.checkBoundary()
+            if constructionWork.exceeded {
+                return makeUnavailable(constructionWork.failure)
+            }
             if let failure = domainFatalFailure(cursorConstruction.failures) {
                 return makeUnavailable(failure)
             }
@@ -382,9 +426,13 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 excludedTargets: scalarExcludedTargets,
                 rejectedTargets: rejectedScalarTargets,
                 generation: generation,
-                budget: budget
+                budget: budget,
+                constructionWork: constructionWork
             )
             try control.checkBoundary()
+            if constructionWork.exceeded {
+                return makeUnavailable(constructionWork.failure)
+            }
             if let failure = domainFatalFailure(scalarConstruction.failures) {
                 return makeUnavailable(failure)
             }
@@ -453,9 +501,13 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 rejectedTargets: rejectedStringTargets,
                 userPropertyDefinitions: userPropertyDefinitions,
                 generation: generation,
-                budget: budget
+                budget: budget,
+                constructionWork: constructionWork
             )
             try control.checkBoundary()
+            if constructionWork.exceeded {
+                return makeUnavailable(constructionWork.failure)
+            }
             if let failure = domainFatalFailure(stringConstruction.failures) {
                 return makeUnavailable(failure)
             }
@@ -522,9 +574,13 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 .instantiatePassOwners(
                     projection: vectorProjection,
                     admittedTargets: requestedPassTargets,
-                    budget: budget
+                    budget: budget,
+                    constructionWork: constructionWork
                 )
             try control.checkBoundary()
+            if constructionWork.exceeded {
+                return makeUnavailable(constructionWork.failure)
+            }
             if let failure = domainFatalFailure(passConstruction.failures) {
                 return makeUnavailable(failure)
             }

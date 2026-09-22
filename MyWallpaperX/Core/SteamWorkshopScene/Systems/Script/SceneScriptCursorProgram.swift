@@ -176,7 +176,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         claimedTargets: Set<SceneDynamicTarget> = [],
         rejectedLayerIDs: Set<Int>,
         generation: UInt64,
-        budget: SceneScriptScalarBudget = .default
+        budget: SceneScriptScalarBudget = .default,
+        constructionWork: SceneScriptConstructionWorkBudget? = nil
     ) -> SceneScriptCursorProgramConstruction {
         let standaloneCandidates = projectedStandaloneCandidates(
             descriptor: descriptor,
@@ -244,6 +245,13 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             let layerID = candidate.identity.layerID
             let owner: SceneScriptVectorOwner
             do {
+                guard constructionWork?.consume() ?? true else {
+                    failures[layerID] = constructionWork?.failure
+                        ?? .budgetExceeded(
+                            "SceneScript candidate aggregate construction work exceeds 4096"
+                        )
+                    break
+                }
                 owner = try SceneScriptVectorOwner(
                     domain: domain,
                     source: candidate.source,

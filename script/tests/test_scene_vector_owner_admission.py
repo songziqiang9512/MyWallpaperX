@@ -98,6 +98,7 @@ class SceneVectorOwnerAdmissionTests(unittest.TestCase):
             self.value["hardAggregateFailureCodes"],
             ["budget-exceeded"],
         )
+        self.assertTrue(self.value["oversizedCancellationEscaped"])
 
     def test_source_budget_accepts_exact_per_owner_and_aggregate_boundaries(
         self,
@@ -108,6 +109,12 @@ class SceneVectorOwnerAdmissionTests(unittest.TestCase):
         self.assertTrue(self.value["claimedCursorOverlapCommitted"])
         self.assertEqual(self.value["claimedCursorOverlapVectorExpected"], 1)
         self.assertEqual(self.value["claimedCursorOverlapCursorExpected"], 1)
+
+    def test_retry_budget_charges_only_started_owners_after_early_failure(self) -> None:
+        self.assertTrue(self.value["retryAggregateCommitted"])
+        self.assertEqual(self.value["retryAggregateVectorExpected"], 260)
+        self.assertEqual(self.value["retryAggregateVectorInstantiated"], 240)
+        self.assertEqual(self.value["retryAggregateVectorRejected"], 20)
 
     def test_oversized_owner_source_rejects_whole_candidate_before_execution(
         self,

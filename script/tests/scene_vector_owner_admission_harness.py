@@ -187,10 +187,27 @@ enum Harness {
             generation: 42,
             budget: overlapBudget
         )
+        let retryAggregateCandidate = try retryAggregateBudgetCandidate(
+            ownerCount: 260,
+            invalidPrefixCount: 20,
+            generation: 43
+        )
         let hardAggregateCandidate = try aggregateBudgetCandidate(
             ownerCount: 4_097,
             generation: 41
         )
+        var oversizedCancellationEscaped = false
+        do {
+            _ = try aggregateBudgetCandidate(
+                ownerCount: 4_097,
+                generation: 44,
+                cancellationCheck: {
+                    throw CancellationProbe.Interruption.cancelled
+                }
+            )
+        } catch CancellationProbe.Interruption.cancelled {
+            oversizedCancellationEscaped = true
+        }
         let plannedFamilySources = [
             vectorFailedSource, cursorFailedSource, scalarFailedSource,
             stringFailedSource, claimedSource, passFailedSource,
@@ -324,6 +341,13 @@ enum Harness {
                 .constructionReport.expectedVectorTargets.count,
             "claimedCursorOverlapCursorExpected": overlapCandidate
                 .constructionReport.expectedCursorLayerIDs.count,
+            "retryAggregateCommitted": retryAggregateCandidate.domain != nil,
+            "retryAggregateVectorExpected": retryAggregateCandidate
+                .constructionReport.expectedVectorTargets.count,
+            "retryAggregateVectorInstantiated": retryAggregateCandidate
+                .constructionReport.instantiatedVectorTargets.count,
+            "retryAggregateVectorRejected": retryAggregateCandidate
+                .constructionReport.vectorFailures.count,
             "hardAggregateDomainCommitted": hardAggregateCandidate.domain != nil,
             "hardAggregateFailures": hardAggregateCandidate.constructionReport
                 .vectorFailures.count,
@@ -331,6 +355,7 @@ enum Harness {
                 hardAggregateCandidate.constructionReport.vectorFailures
                     .values.map(\.code)
             )).sorted(),
+            "oversizedCancellationEscaped": oversizedCancellationEscaped,
             "exactSourceBoundaryCommitted": exactSourceBoundaryCandidate.domain != nil,
             "ownerSourceRejected": ownerSourceRejectedCandidate.domain == nil,
             "ownerSourceFailureCodes": failureCodes(
@@ -633,6 +658,85 @@ enum Harness {
             generation: generation,
             budget: budget,
             cancellationCheck: cancellationCheck
+        )
+    }
+
+    static func retryAggregateBudgetCandidate(
+        ownerCount: Int,
+        invalidPrefixCount: Int,
+        generation: UInt64
+    ) throws -> SceneScriptQuickJSProgramCandidate {
+        let validSource = "export function update(value) { return value }"
+        var layers: [SceneRenderDescriptor.Layer] = []
+        var bindings: [SceneScriptBindingIR] = []
+        for index in 0..<ownerCount {
+            let source = index < invalidPrefixCount ? passFailedSource : validSource
+            let layerID = 1_000 + index
+            layers.append(.init(
+                id: layerID,
+                layerIndex: index,
+                name: "retry-\(index)",
+                visible: true,
+                originXYZ: [0, 0, 0],
+                scaleXYZ: [1, 1, 1],
+                scaleHasScript: false,
+                alpha: 1,
+                effects: [],
+                contentKind: "image",
+                sizeWH: [100, 100]
+            ))
+            bindings.append(retryVisibilityBinding(
+                objectIndex: index,
+                layerID: layerID,
+                source: source
+            ))
+        }
+        let descriptor = SceneRenderDescriptor(layers: layers)
+        let projection = SceneScriptVectorProgram.project(
+            descriptor: descriptor,
+            scriptBindings: bindings
+        )
+        let sourceBytes = bindings.map(\.source.utf8.count)
+        let budget = SceneScriptScalarBudget(
+            heapBytes: 8 * 1024 * 1024,
+            stackBytes: 512 * 1024,
+            interruptBudget: 100_000,
+            maximumOwnerSourceBytes: sourceBytes.max()!,
+            maximumCandidateSourceBytes: sourceBytes.reduce(0, +)
+        )
+        return try familyCandidate(
+            descriptor: descriptor,
+            bindings: bindings,
+            projection: projection,
+            consumerTargets: [],
+            generation: generation,
+            budget: budget
+        )
+    }
+
+    static func retryVisibilityBinding(
+        objectIndex: Int,
+        layerID: Int,
+        source: String
+    ) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .object,
+                objectIndex: objectIndex,
+                objectID: layerID,
+                effectIndex: nil,
+                effectID: nil,
+                passIndex: nil,
+                passID: nil
+            ),
+            targetPath: [
+                .key("objects"), .index(objectIndex), .key("visible")
+            ],
+            properties: [:],
+            authoredValue: .bool(true),
+            valueType: .boolean,
+            wrapperKeys: ["script", "value"]
         )
     }
 

@@ -200,7 +200,8 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         excludedTargets: Set<SceneDynamicTarget> = [],
         rejectedTargets: Set<SceneDynamicTarget>,
         generation: UInt64,
-        budget: SceneScriptScalarBudget = .default
+        budget: SceneScriptScalarBudget = .default,
+        constructionWork: SceneScriptConstructionWorkBudget? = nil
     ) -> SceneScriptScalarProgramConstruction {
         let candidates: [(
             SceneScriptBindingIR, SceneDynamicTarget, Double,
@@ -255,6 +256,13 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     failures[target] = .invalidArgument(
                         "SceneScript properties unavailable"
                     )
+                    break
+                }
+                guard constructionWork?.consume() ?? true else {
+                    failures[target] = constructionWork?.failure
+                        ?? .budgetExceeded(
+                            "SceneScript candidate aggregate construction work exceeds 4096"
+                        )
                     break
                 }
                 let owner = try SceneScriptScalarOwner(

@@ -122,7 +122,8 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         rejectedTargets: Set<SceneDynamicTarget>,
         userPropertyDefinitions: [SceneUserPropertyDefinition] = [],
         generation: UInt64,
-        budget: SceneScriptScalarBudget = .default
+        budget: SceneScriptScalarBudget = .default,
+        constructionWork: SceneScriptConstructionWorkBudget? = nil
     ) -> SceneScriptStringProgramConstruction {
         let candidates = scriptBindings.enumerated().compactMap {
             authoredOrdinal, binding -> (
@@ -159,6 +160,13 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                     throw SceneScriptScalarRuntimeFailure.invalidArgument(
                         "SceneScript properties unavailable"
                     )
+                }
+                guard constructionWork?.consume() ?? true else {
+                    failures[target] = constructionWork?.failure
+                        ?? .budgetExceeded(
+                            "SceneScript candidate aggregate construction work exceeds 4096"
+                        )
+                    break
                 }
                 owners.append(try SceneScriptStringOwner(
                     domain: domain,
