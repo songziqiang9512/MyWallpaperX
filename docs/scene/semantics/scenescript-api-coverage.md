@@ -331,7 +331,7 @@ existing inline source/binding IR
 | property input union | `Number | Boolean | String | Vec2 | Vec3 | Vec4 | Mat3 | Mat4` | Number/Boolean/String/Vec2/Vec3 `L3 bounded` | Vec2 pair以真实bounded prototype进入VM；真实206执行25项，真实379执行dynamic-image Bool owners | Vec4/matrix、Vec2完整schema/coercion |
 | property return union | v2.8声明返回`Number | Boolean | String | Vec2 | Vec3 | Vec4` | Number/Boolean/String/Vec2/Vec3 `L3 bounded` | Vec2只发布finite x/y；Bool effectful callback只有value与全部typed mutation共同preflight成功才提交 | Vec4、Vec2其余return/identity edge与官方对照 |
 | `AnimationEvent` | `name`, `frame` | `L0` | `N` | Timeline/puppet source、crossing 和 frame 数值测试 |
-| media/cursor DTO | 本文 Input/Media 表列出的 typed event object | media thumbnail presence+五色/playback/properties与五个cursor callback `L3 bounded`；其余`L0` | media DTO按typed generation派发；thumbnail五色及cursor world/local均使用独立不可变Vec3，owner generation、stale/conflict与异常隔离有C/Swift门及真实运行 | cursor hitBox/多按钮/完整坐标空间、status/timeline/其余properties字段与跨event排序 |
+| media/cursor DTO | 本文 Input/Media 表列出的 typed event object | media thumbnail presence+五色/playback/properties与六个cursor callback `L3 bounded`；其余`L0` | media DTO按typed generation派发；thumbnail五色及cursor world/local均使用独立不可变Vec3，owner generation、stale/conflict与异常隔离有C/Swift门及真实运行 | cursor hitBox/多按钮/完整坐标空间、status/timeline/其余properties字段与跨event排序 |
 
 ### 10.2 Vectors
 

@@ -8,11 +8,11 @@
 
 - 当前真实 Scene 根发现 **159** 个样本，**159/159** 的 project、PKGV 索引和入口 JSON 可解析。
 - tracked full-matrix baseline 当前覆盖 **45** 个历史成员，状态为 `pending-expansion`；本 census 新发现但未 join 运行证据的样本为 `1300076567, 1315486372, 1439846152, 1480826543, 1507413154, 1507593643, 1511889295, 1989767609, 1994794519, 2069136288, 2112262451, 2163522240, 2179185481, 2181251652, 2231088993, 2269193950, 2304304373, 2356604986, 2505351195, 2607203340, 2684431262, 2775915974, 2794098047, 2797913147, 2808874251, 2813231542, 2824109832, 2837223712, 2896873092, 2917306763, 2932631210, 2942486721, 2959875782, 2986218263, 3002649614, 3025969015, 3113287126, 3113554287, 3147346398, 3167210190, 3211615441, 3219398263, 3233141951, 3238423642, 3264246690, 3287715210, 3323988600, 3363252053, 3389974179, 3395392965, 3395777145, 3396722575, 3437487219, 3448845950, 3470948192, 3472940912, 3477054430, 3487629864, 3509243656, 3554161528, 3585875739, 3601964477, 3609108600, 3610154602, 3612199597, 3612795410, 3629927359, 3655958892, 3662790108, 3665307769, 3690859128, 3699213569, 3703104370, 3712499998, 3721456868, 3748311238, 3749463715, 3754630802, 3754639143, 3763323436, 3763428294, 3765904723, 3775355045, 3775373546, 3777761326, 3779026256, 3779904456, 3780119725, 3780391264, 3780940857, 3781307553, 3782740481, 3784012236, 3786185473, 3786641495, 3787355076, 3787382101, 3788066613, 3788467391, 3788645041, 3788698200, 3788734811, 3788897599, 3789316755, 3790631363, 3790726145, 3790806929, 3790956325, 3791905266, 3792249095, 3792400801, 3792817546, 3793328876, 3793978239`，是否曾单独运行不能由静态扫描判断。
-- 全量 authored census 共保存 **66244** 个 typed occurrence、**2536** 个公共结构 family、**1664** 个参数 profile 与 **11641** 个 JSON 字段 profile。
+- 全量 authored census 共保存 **66244** 个 typed occurrence、**2546** 个公共结构 family、**1664** 个参数 profile 与 **11641** 个 JSON 字段 profile。
 - 物理 corpus 共 **10538** 个 PKG entry / **10537** 个唯一路径，包体约 **5.604 GB**；tracked baseline 在单独的 milestone 扩容并建立运行期待前仍为 45，期间不得称为当前完整快照门。
 - package anomaly：样本 `3768724269` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 59/80，同字节；该包 87 entries / 86 unique paths）；重复entry继续保留在物理守恒中，不是漏扫。
 - 结构 fallback 记录为 **93**，另有 **6** 个 generic/unknown/unresolved family；两者都不是运行失败数。本 census 未 join 运行证据的样本，其第一 blocker 保持 `unknown`，不得从静态形态猜测。
-- 公共能力粗映射：**2529** 个 family 按声明形态映射到台账登记能力，**7** 个显式 unknown（`{"effect-declaration-unresolved-static": 1, "project-property-kind-empty": 1, "project-property-kind-unknown": 5}`）；映射只表达声明覆盖关系，不表示运行支持。
+- 公共能力粗映射：**2539** 个 family 按声明形态映射到台账登记能力，**7** 个显式 unknown（`{"effect-declaration-unresolved-static": 1, "project-property-kind-empty": 1, "project-property-kind-unknown": 5}`）；映射只表达声明覆盖关系，不表示运行支持。
 - 开发按“真实可见链第一断裂边覆盖的共享 family”排序；大类用于汇总，不允许把所有纹理、Effect 或粒子一次性做成巨型补丁。
 
 ## 2. 口径与权威边界
@@ -39,7 +39,7 @@
 | `texture` | 11902 | 69 | [格式/资源](scene-format-and-render-graph.md) / [Graph/Shader](render-graph-shader-coverage.md) / [Provider](runtime-input-property-coverage.md) |
 | `particle` | 14244 | 645 | [粒子](particle-component-coverage.md) |
 | `audio-declaration` | 1428 | 29 | [音频声明](coverage-ledger.md) |
-| `dynamic-input` | 7733 | 339 | [属性/输入](runtime-input-property-coverage.md) |
+| `dynamic-input` | 7733 | 349 | [属性/输入](runtime-input-property-coverage.md) |
 | `project-property` | 2960 | 34 | [属性/输入](runtime-input-property-coverage.md) |
 
 ### 3.1 纹理本体与使用点
@@ -180,7 +180,7 @@
 | `cap.property.user` | [User Properties](coverage-ledger.md) | 67 | 6743 | 159 |
 | `cap.resource.index` | [PKG/TEX/资源索引](coverage-ledger.md) | 40 | 8296 | 159 |
 | `cap.resource.texture-provider` | [Typed texture provider](coverage-ledger.md) | 42 | 8445 | 158 |
-| `cap.scenescript.binding-ir` | [SceneScript property binding IR](coverage-ledger.md) | 325 | 2856 | 90 |
+| `cap.scenescript.binding-ir` | [SceneScript property binding IR](coverage-ledger.md) | 335 | 2856 | 90 |
 | `cap.shader.source-contract` | [Shader source/include/annotation/declaration contract](coverage-ledger.md) | 296 | 2242 | 149 |
 | `cap.text.runtime` | [Text/Font runtime](coverage-ledger.md) | 178 | 995 | 78 |
 | `cap.timeline.runtime` | [Timeline runtime](coverage-ledger.md) | 19 | 309 | 43 |

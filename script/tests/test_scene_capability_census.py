@@ -26,6 +26,7 @@ from scene_capability_census_io import (
 from scene_capability_census_profiles import (
     family_key,
     scenescript_audio_registrations,
+    script_profile,
 )
 
 
@@ -48,6 +49,21 @@ def json_bytes(value: object) -> bytes:
 
 
 class SceneCapabilityCensusTests(unittest.TestCase):
+    def test_scenescript_cursor_hook_profile_requires_proven_export(self) -> None:
+        profile = script_profile(r'''
+            // export function cursorClick() {}
+            const ignored = "export function cursorEnter() {}";
+            function clickHandler() {}
+            export { clickHandler as cursorClick };
+            export function cursorDown() {}
+            export const cursorMove = event => event.worldPosition;
+            export const cursorLeave = dynamicHandler;
+        ''')
+        self.assertEqual(
+            profile["hooks"], ["cursorClick", "cursorDown", "cursorMove"]
+        )
+        self.assertEqual(profile["unresolved_cursor_hooks"], ["cursorLeave"])
+
     def test_family_key_ignores_concrete_revision_values(self) -> None:
         left = family_key("fixture", "binding", {
             "kind": "object",

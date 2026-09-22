@@ -15,7 +15,7 @@ from scene_capability_census_io import canonical_sha256
 SCRIPT_HOOK_PATTERN = re.compile(
     r"\b(?:export\s+)?(?:function\s+)?(init|update|applyUserProperties|"
     r"mediaPlaybackChanged|mediaPropertiesChanged|mediaThumbnailChanged|"
-    r"cursorDown|cursorUp|cursorMove|audioProcessing)\b"
+    r"audioProcessing)\b"
 )
 SCRIPT_API_PATTERN = re.compile(
     r"\b(engine|thisLayer|thisScene|shared|audioBuffer|media|cursor|pointer|"
@@ -124,7 +124,13 @@ def safe_value_shape(value: Any) -> dict[str, Any]:
 
 
 def script_profile(source: str) -> dict[str, Any]:
-    hooks = sorted(set(SCRIPT_HOOK_PATTERN.findall(source)))
+    # Cursor callbacks are module exports, not mere words in comments or strings.
+    # Reuse the existing conservative JS lexer rather than widening the legacy
+    # non-cursor hook regex and silently promoting an unresolved callback.
+    cursor_hooks, unresolved_cursor_hooks = _exported_cursor_event_hooks(
+        _javascript_tokens(source)
+    )
+    hooks = sorted(set(SCRIPT_HOOK_PATTERN.findall(source)) | set(cursor_hooks))
     apis = sorted(set(SCRIPT_API_PATTERN.findall(source)))
     features = []
     for token, name in (
@@ -144,6 +150,7 @@ def script_profile(source: str) -> dict[str, Any]:
         "byte_count": len(source.encode("utf-8")),
         "line_count": source.count("\n") + 1,
         "hooks": hooks,
+        "unresolved_cursor_hooks": unresolved_cursor_hooks,
         "api_families": apis,
         "features": sorted(features),
     }
