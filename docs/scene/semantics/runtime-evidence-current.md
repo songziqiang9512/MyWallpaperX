@@ -333,6 +333,19 @@ targeted matrix仍严格**FAIL**，唯一失败为`animated output evidence belo
 
 **未验证边界：**Solid 限制是否在官方客户端对非 Solid 层生效**未做固定同输入对照**（本条的"与文档一致/分歧"判读基于公开文档原文 + 语料分布，不是客户端实证）；depth-test 与工坊内嵌 instance-solid 是否都属官方 Solid 设置未从官方文档确认（按模型 `solidlayer` 标志推断）；`hitBox` 字段仍未伪造（既有登记）；无原分辨率 ROI、无人工视觉验收。**重估条件（双向）**：取得固定官方客户端同输入对照后，若证明限制确在非 Solid 层生效则重估现役准入；若证明非 Solid 层能收到 cursor 事件则现役行为被确认为正确。
 
+<a id="e-2026-09-23-varying-prefix-partition"></a>
+### E-2026-09-23-VARYING-PREFIX-PARTITION — 顶点分段初始化被前缀证明接受（样本仍因内容限制 FAIL）
+
+**基线与变更：**`fe523a6f` + 本批产品修复。`SceneAuthoredShaderVaryingPrefixLink.prove` 的 `vertexWider` 路径过去要求顶点**恰好一次**赋值（整值或等于片段声明前缀的 swizzle），因此 `v_TexCoord.xy = …`（属性纹理坐标）＋ `v_TexCoord.zw = …`（mask 分辨率缩放）这类**分段完整初始化**被拒（真实 workshop shader 即此形态）。现改为：顶点初始化的分量必须**覆盖片段实际读取的分量**——整值赋值等价于全部分量，分段按分量并集，仍要求 depth==1、无条件赋值、每分量只写一次、不得在 helper 中引用、main 不得 return；片段侧分量读取放宽为"落在发布宽度内"（裸引用仍按声明前缀改写；仅含 swizzle 读、既无整值引用也无字面声明前缀读的片段仍被拒，属既有保守门）。
+
+**验证：**行为门 `test_scene_authored_shader_frontend` 新增三例（该模块编译并运行真 authored-shader 前端并做 Metal 编译；`vertexWider` 证明本身经两条调用路径生效，normalizer 侧由 `test_scene_generic_shader_program_artifact` 的配对断言覆盖）：①正例——分段初始化 + 片段声明 `vec2` 且裸用与 `.zw` 读 → `diagnosticCodes=[]`、Metal 编译无错；②反例——顶点只写 `.xy` 而片段读 `.zw` → `stageLinkMismatch` 且无 Metal 源；③反例——写 `.zw` 被 `?:` 条件表达式包裹 → 同样 `stageLinkMismatch`（该路径的\"无条件赋值\"要求本批一并收紧：基线曾接受 braceless 条件写，现同时拒绝控制词与 `?`/`:`/`&&`/`||` 包裹的写）。模块 76 tests OK；同批 5 个 shader 模块（float_array_index / program_artifact / matrix_cast / scalar_vector_builtin / material_texture_transform）与既有 frontend 用例全绿。
+
+**真实复跑（签名 HEAD 构建 CDHash `fe3e2988fda981296e39fa2521fe8adee200bb68`；该次构建早于本批末尾的"无条件写"加固约 17 分钟——加固只收紧证明，不可能把已被拒绝的对变成可链接，故该次复跑结论对最终代码不变）：**该样本仍 FAIL（4 个失败 effect、两条 benchmark 失败码不变），app log 仍 `normalization("varyingUnsupported")`。**原因是内容而非实现**：该 effect 的 pass combos 实测为 `{"AUDIOPROCESSING": 3, "BLENDMODE": 31}`（无 `MASK`），故顶点 `#if MASK == 1` 的 `.zw` 初始化被预处理移除，而片元第 44 行**无条件**读 `v_TexCoord.zw` —— 作者 shader 在激活变体下读取未初始化分量。本证明（及旧规则）都拒绝这种读，属设计内 fail-closed；官方客户端在此处的取值**未经同输入对照确认**（该 mask 采样默认 `util/white`，若官方同样按任意 uv 采样则视觉等价，但这是待验证推断）。**恢复该 effect 需先决定未定义分量的语义（零填充 vs 保持未定义），属需要官方同输入对照的决定，本批不出结论。**
+
+**证据（本机忽略缓存）：**`docs/scene/evidence/v1/varying-prefix-partition-2026-09-23/2849382252/…/report.json`（SHA-256 `6efb0f44d46c86af…`）；前序 `declaration-whitespace-fix-2026-09-23/` 与基线 `v2-layout-first-run-2026-09-23/`。
+
+**边界：**只证明分段初始化的链接形态被接受且未越"不得读未初始化分量"；不证明该 shader 执行、不证明视觉、不改变任何样本 PASS 状态。
+
 <a id="e-2026-09-23-declaration-terminator-whitespace"></a>
 ### E-2026-09-23-DECLARATION-TERMINATOR-WHITESPACE — 声明行尾随空白不再被当作不支持的声明（产品修复，样本仍 FAIL）
 

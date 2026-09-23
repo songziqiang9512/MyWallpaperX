@@ -128,32 +128,10 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                   }
               }) else { return nil }
         let required = String("xyzw".prefix(fragmentWidth))
-        var depth = 0
-        var assignments = 0
-        for index in vertexMain {
-            let text = vertexTokens[index].text
-            if text == "{" { depth += 1 }
-            defer { if text == "}" { depth -= 1 } }
-            guard text == name else { continue }
-            guard !isLocalDeclaration(index, tokens: vertexTokens) else { return nil }
-            let assignment: Bool
-            if index + 1 < vertexMain.upperBound,
-               vertexTokens[index + 1].text == "=" {
-                assignment = true
-            } else if index + 3 < vertexMain.upperBound,
-                      vertexTokens[index + 1].text == ".",
-                      vertexTokens[index + 2].text == required,
-                      vertexTokens[index + 3].text == "=" {
-                assignment = true
-            } else {
-                return nil
-            }
-            guard assignment, depth == 1 else { return nil }
-            assignments += 1
-        }
-        guard assignments == 1 else { return nil }
+        let publishedComponents = Set("xyzw".prefix(vertexWidth))
 
         var whole: Set<SceneAuthoredShaderToken> = []
+        var readComponents: Set<Character> = []
         for body in fragmentFunctionBodies {
             for index in body where fragmentTokens[index].text == name {
                 guard !isLocalDeclaration(index, tokens: fragmentTokens) else { return nil }
@@ -164,8 +142,14 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                 guard !["=", "+=", "-=", "*=", "/=", "++", "--", "["].contains(next),
                       !["++", "--"].contains(previous) else { return nil }
                 if next == "." {
+                    // Any component read inside the published value is backed
+                    // by an initialized component; the declared prefix only
+                    // decides what a bare reference means.
                     guard index + 2 < body.upperBound,
-                          fragmentTokens[index + 2].text == required,
+                          fragmentTokens[index + 2].kind == .identifier,
+                          fragmentTokens[index + 2].text.allSatisfy({
+                              publishedComponents.contains(canonicalComponent($0))
+                          }),
                           previous != "return",
                           index + 3 >= body.upperBound || ![
                               "=", "+=", "-=", "*=", "/=", "++", "--", "[",
@@ -176,6 +160,9 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                               body: body,
                               functionNames: fragmentFunctionNames
                           ) else { return nil }
+                    readComponents.formUnion(
+                        fragmentTokens[index + 2].text.map(canonicalComponent)
+                    )
                 } else {
                     // GLSL vector initialization is a value copy, not an alias.
                     // Accept only the exact declared prefix shape; assignments
@@ -198,8 +185,59 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                         functionNames: fragmentFunctionNames
                     ) else { return nil }
                     whole.insert(fragmentTokens[index])
+                    readComponents.formUnion(required)
                 }
             }
+        }
+
+        // Vertex side: every component the fragment reads must be written
+        // exactly once, unconditionally, at main's top level.  A whole-value
+        // assignment covers the published width; authored shaders may instead
+        // partition it across component assignments (`v_TexCoord.xy = ...`
+        // then `v_TexCoord.zw = ...`), the same shape the fragment-wider proof
+        // accepts.  A declaration wider than the initialized set stays legal as
+        // long as no live fragment read reaches the uninitialized part.
+        var depth = 0
+        var assignments = 0
+        var initializedComponents: Set<Character> = []
+        for index in vertexMain {
+            let text = vertexTokens[index].text
+            if text == "{" { depth += 1 }
+            defer { if text == "}" { depth -= 1 } }
+            guard text == name else { continue }
+            guard !isLocalDeclaration(index, tokens: vertexTokens) else { return nil }
+            let assigned: Set<Character>
+            if index + 1 < vertexMain.upperBound,
+               vertexTokens[index + 1].text == "=" {
+                assigned = publishedComponents
+            } else if index + 3 < vertexMain.upperBound,
+                      vertexTokens[index + 1].text == ".",
+                      vertexTokens[index + 2].kind == .identifier,
+                      vertexTokens[index + 3].text == "=" {
+                let swizzle = vertexTokens[index + 2].text
+                guard !swizzle.isEmpty, swizzle.count <= 4 else { return nil }
+                let components = Set(swizzle.map(canonicalComponent))
+                guard components.count == swizzle.count,
+                      components.isSubset(of: publishedComponents) else { return nil }
+                assigned = components
+            } else {
+                return nil
+            }
+            guard depth == 1,
+                  isUnconditionalVertexAssignment(
+                      index,
+                      tokens: vertexTokens,
+                      body: vertexMain
+                  ),
+                  initializedComponents.isDisjoint(with: assigned) else {
+                return nil
+            }
+            initializedComponents.formUnion(assigned)
+            assignments += 1
+        }
+        guard assignments > 0,
+              readComponents.isSubset(of: initializedComponents) else {
+            return nil
         }
         guard !whole.isEmpty || fragmentFunctionBodies.contains(where: { body in
             body.indices.contains { index in
@@ -361,12 +399,18 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
         let controlWords: Set<String> = [
             "if", "else", "for", "while", "switch", "case", "default", "do",
         ]
+        // Conditional-expression and short-circuit operators keep the write
+        // conditional, so they revoke the proof exactly like a control word:
+        // `(a) ? (v = b) : c` and `(a) && (v = b)` do not always execute.
+        let conditionalOperators: Set<String> = ["?", ":", "&&", "||"]
         var cursor = index
         while cursor > body.lowerBound {
             cursor -= 1
             let text = tokens[cursor].text
             if [";", "{", "}"].contains(text) { return true }
-            if controlWords.contains(text) { return false }
+            if controlWords.contains(text) || conditionalOperators.contains(text) {
+                return false
+            }
         }
         return true
     }

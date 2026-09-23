@@ -423,6 +423,91 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertNotIn("((mwxInput.v_Coordinates).xy).xy", compact_explicit)
         self.assertIsNone(explicit.get("metalError"))
 
+    def test_component_partitioned_vertex_prefix_links_narrower_declaration(self):
+        """A vertex that initializes the published value in component pieces
+        still links a fragment declaring only the first half (a real workshop
+        shader); every live fragment read stays inside the published value."""
+        output = self.compile(
+            """
+            uniform mat4 g_ModelViewProjectionMatrix;
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            uniform vec4 g_Texture1Resolution;
+            varying vec4 v_TexCoord;
+            void main() {
+                gl_Position = mul(vec4(a_Position, 1.0), g_ModelViewProjectionMatrix);
+                v_TexCoord.xy = a_TexCoord;
+                v_TexCoord.zw = vec2(
+                    a_TexCoord.x * g_Texture1Resolution.z / g_Texture1Resolution.x,
+                    a_TexCoord.y * g_Texture1Resolution.w / g_Texture1Resolution.y
+                );
+            }
+            """,
+            """
+            uniform sampler2D g_Texture0;
+            uniform sampler2D g_Texture1;
+            varying vec2 v_TexCoord;
+            void main() {
+                vec4 scene = texture2D(g_Texture0, v_TexCoord);
+                float mask = texture2D(g_Texture1, v_TexCoord.zw).r;
+                gl_FragColor = vec4(scene.rgb * mask, scene.a);
+            }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIsNotNone(output.get("metalSource"))
+        self.assertIsNone(output.get("metalError"))
+
+        partial = self.compile(
+            """
+            uniform mat4 g_ModelViewProjectionMatrix;
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec4 v_TexCoord;
+            void main() {
+                gl_Position = mul(vec4(a_Position, 1.0), g_ModelViewProjectionMatrix);
+                v_TexCoord.xy = a_TexCoord;
+            }
+            """,
+            """
+            uniform sampler2D g_Texture0;
+            varying vec2 v_TexCoord;
+            void main() {
+                gl_FragColor = texture2D(g_Texture0, v_TexCoord)
+                    + v_TexCoord.zw.xyxy;
+            }
+            """,
+        )
+        # The frontend reports an unproven pair as a stage-link mismatch.
+        self.assertIn("stageLinkMismatch", partial["diagnosticCodes"])
+        self.assertIsNone(partial.get("metalSource"))
+
+        conditional_write = self.compile(
+            """
+            uniform mat4 g_ModelViewProjectionMatrix;
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec4 v_TexCoord;
+            void main() {
+                gl_Position = mul(vec4(a_Position, 1.0), g_ModelViewProjectionMatrix);
+                v_TexCoord.xy = a_TexCoord;
+                (a_TexCoord.x > 0.5) ? (v_TexCoord.zw = a_TexCoord) : a_TexCoord;
+            }
+            """,
+            """
+            uniform sampler2D g_Texture0;
+            varying vec2 v_TexCoord;
+            void main() {
+                gl_FragColor = texture2D(g_Texture0, v_TexCoord)
+                    + v_TexCoord.zw.xyxy;
+            }
+            """,
+        )
+        # A conditional-expression write does not define the component on every
+        # path, so the read stays rejected.
+        self.assertIn("stageLinkMismatch", conditional_write["diagnosticCodes"])
+        self.assertIsNone(conditional_write.get("metalSource"))
+
     def test_texture_channel_use_proves_direct_red_green_component_subsets(self):
         red_only = self.compile(
             VERTEX_SOURCE,
