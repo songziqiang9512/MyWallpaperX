@@ -73,6 +73,14 @@ enum Harness {
         let smoothingProfile = plan([
             "name": "rope", "uvsmoothing": true,
         ], maximumCount: 3)
+        // The frozen corpus's authored shape: subdivision 100 with maxcount 256
+        // (25,755 generated segments), which the raised bounds have to cover.
+        // World-space ropes (renderer flag bit0) stay refused on purpose: those
+        // authored shapes draw no instances while admitting the renderer would
+        // expand its child templates into visible content.
+        let authoredShape = plan([
+            "name": "rope", "subdivision": 100,
+        ], maximumCount: 256)
         let rejected = [
             plan(["name": "rope", "orientation": "upright"], maximumCount: 3),
             plan(["name": "rope", "axis": "0 0 1"], maximumCount: 3),
@@ -83,7 +91,8 @@ enum Harness {
             plan(["name": "rope", "segments": 2], maximumCount: 3),
             plan(["name": "rope", "subdivision": -1], maximumCount: 3),
             plan(["name": "rope", "subdivision": 1.5], maximumCount: 3),
-            plan(["name": "rope", "subdivision": 8], maximumCount: 3),
+            plan(["name": "rope", "subdivision": 101], maximumCount: 3),
+            plan(["name": "rope", "subdivision": 100], maximumCount: 512),
             plan(["name": "rope", "subdivision": 7], maximumCount: 513),
             plan(["name": "rope", "fadealpha": false], maximumCount: 3),
             plan(["name": "rope", "fadesize": false], maximumCount: 3),
@@ -123,6 +132,9 @@ enum Harness {
             "subdivisionProfileAccepted": subdivisionProfile != nil,
             "subdivisionCount": subdivisionProfile?.subdivisionCount ?? -1,
             "smoothingProfileAccepted": smoothingProfile != nil,
+            "authoredShapeAccepted": authoredShape != nil,
+            "authoredShapeSubdivision": authoredShape?.subdivisionCount ?? -1,
+            "authoredShapeSegments": authoredShape?.maximumGeneratedSegments ?? -1,
             "allUnsupportedRejected": rejected.allSatisfy { $0 == nil },
             "malformedFlagged": malformed.renderers.first?.hasMalformedFields == true,
             "malformedRejected": planFromDefinition(malformed) == nil,
@@ -357,6 +369,9 @@ class SceneParticleRopeTests(unittest.TestCase):
         self.assertTrue(profiles["subdivisionProfileAccepted"])
         self.assertEqual(profiles["subdivisionCount"], 3)
         self.assertTrue(profiles["smoothingProfileAccepted"])
+        self.assertTrue(profiles["authoredShapeAccepted"])
+        self.assertEqual(profiles["authoredShapeSubdivision"], 100)
+        self.assertEqual(profiles["authoredShapeSegments"], 25_755)
         self.assertTrue(profiles["allUnsupportedRejected"])
         self.assertTrue(profiles["malformedFlagged"])
         self.assertTrue(profiles["malformedRejected"])

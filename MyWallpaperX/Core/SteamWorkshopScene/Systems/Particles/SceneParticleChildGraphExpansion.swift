@@ -304,7 +304,8 @@ enum SceneParticleChildGraphExpansion {
         }
         let systemBudget = trigger == .staticChild ? 1 : maximum
         if let rope = render.rope,
-           systemBudget > 8_192 / max(rope.maximumGeneratedSegments, 1)
+           systemBudget > SceneParticleRopePlan.maximumGeneratedSegmentCount
+               / max(rope.maximumGeneratedSegments, 1)
         {
             return .rejected("\(path):ropeAggregateSegmentBudget")
         }

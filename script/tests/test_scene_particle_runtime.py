@@ -3647,6 +3647,9 @@ class SceneParticleRuntimeTests(unittest.TestCase):
 
     def test_rope_runtime_connects_live_particles_and_fails_closed(self) -> None:
         result = self.run_harness("rope-synthetic")
+        # Layer 44 stays refused: a world-space rope (renderer flag bit0) draws
+        # no instances in the authored corpus shapes while admitting the
+        # renderer would expand its child templates.
         self.assertEqual(result["activeLayerIDs"], [41, 45, 46, 48])
         self.assertGreaterEqual(result["instanceCount"], 2)
         self.assertTrue(result["bufferMatches"])
