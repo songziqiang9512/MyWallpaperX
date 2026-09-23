@@ -333,6 +333,33 @@ targeted matrix仍严格**FAIL**，唯一失败为`animated output evidence belo
 
 **未验证边界：**Solid 限制是否在官方客户端对非 Solid 层生效**未做固定同输入对照**（本条的"与文档一致/分歧"判读基于公开文档原文 + 语料分布，不是客户端实证）；depth-test 与工坊内嵌 instance-solid 是否都属官方 Solid 设置未从官方文档确认（按模型 `solidlayer` 标志推断）；`hitBox` 字段仍未伪造（既有登记）；无原分辨率 ROI、无人工视觉验收。**重估条件（双向）**：取得固定官方客户端同输入对照后，若证明限制确在非 Solid 层生效则重估现役准入；若证明非 Solid 层能收到 cursor 事件则现役行为被确认为正确。
 
+<a id="e-2026-09-23-v2-layout-first-run"></a>
+### E-2026-09-23-V2-LAYOUT-FIRST-RUN — 13 个 v2 布局样本的首次隔离运行（11 PASS / 2 FAIL）
+
+**基线与变更：**`1c5859e2` + 本批取证（无产品代码改动）。样本身份修复（`3ee8601b`）后，v2 安装布局的 13 个样本首次真正进入运行路径。执行身份＝本机 HEAD 的**签名 Debug 构建**（`Developer ID Application: Ziqiang Song (H9QWU9XN8R)`、Team `H9QWU9XN8R`、CDHash `2fcb0ab1d1ea44e1836df9053901f8b1ed368fcf`、executable SHA-256 `d93524ed49c75565849a6b5f715969e3316c2739f1ed6e46c48a6eb0a4aaf136`、bundle `com.songziqiang.MyWallpaperX` 2.0.9/277）；真实样本根只读，运行在 APFS 克隆的隔离根 `/private/tmp/mwx-v2run/Scene/<id>`（`cp -Rc`，13 个共 0.40 GB）；运行用临时矩阵（schema 1、13 条、仅 `id/title/project_sha256/package_sha256`，SHA-256 `c86ea953bdc06db5d179e2d8f72e1d0da3b9727ef19c2e21f2af713f37a4af92`）——跟踪矩阵未改动，其扩展仍要求全样本 PASS 报告。
+
+**取得（逐样本串行，report schema 2、mode `direct-host-scene-benchmark`）：**13/13 均完成启动与出帧，全部 `ready_non_black=true`、`after_non_black=true`、`failed_frames=0`；**11 PASS / 2 FAIL**：
+
+| 样本 | 结果 | report SHA-256（前 16） | 失败码（FAIL 样本） |
+|---|---|---|---|
+| `2524111047-28157b2b-…` | PASS | `ee45fe08346c6904…` | - |
+| `2811643059-b691f3ce-…` | PASS | `ad81b8eee2b02be8…` | - |
+| `2815826216-b4c7f15a-…` | PASS | `49767bdf315953a7…` | - |
+| `2834973884-6bf539fb-…` | PASS | `6dddbe4a553648a6…` | - |
+| `2849382252-2fd85034-…` | **FAIL** | `a5370221274e6a53…` | `effect execution CPU invocation failed`；`resolved material graph unexpected effect-local passthrough` |
+| `3357627941-d239fdcc-…` | **FAIL** | `292d78a422f843a3…` | 完整 5 条：`… GPU completion missing`、`… compositor consumption missing`、`… next-frame evidence missing`、`… exact backend evidence missing`（4 条属 `resolved_material_graph_execution.validation_failures`）＋ `utility capture execution below planned count`（`utility_capture_planned=1`、`succeeded=[]`） |
+| `3420215721-82379768-…` | PASS | `5d0ee60c5d485979…` | - |
+| `3782650329-d56d3d28-…` | PASS | `d27d0fa2c390c8a7…` | - |
+| `3801914000-0afee368-…` | PASS | `2c0f3be209290454…` | - |
+| `3801984224-7465b3d3-…` | PASS | `18f0661a70ccec39…` | - |
+| `3803087940-65fbf151-…` | PASS | `4aec464eba75cf9c…` | - |
+| `3803482159-d8652063-…` | PASS | `49b648594b266f07…` | - |
+| `3803576671-dfbf05e6-…` | PASS | `35dd083a473564af…` | - |
+
+规模事实（`runtime` 段）：`3420215721-…` 是最大者（41 layers / 56 effects、`startup_ready_ms=17641`），其余 1–18 layers；所有样本 `completed_frames` 与 `submitted_frames` 相差 ≤1、`drawable_missed=0`。证据包在本机忽略缓存 `docs/scene/evidence/v1/v2-layout-first-run-2026-09-23/` 下（每样本一个包，目录名为样本 id 的前 26 字符；包内为 `report.json` + `manifest.json` + `runtime_evidence.json`/`app_log.log`/`preview_log.log`/`ready_snapshot.png`/`after_snapshot.png` 五项证据文件，manifest 记 `retention_class=local-ignored-evidence-cache`）；运行矩阵的**逐字节副本** `matrix-v2.json` 同目录（SHA-256 `c86ea953bdc06db5d179e2d8f72e1d0da3b9727ef19c2e21f2af713f37a4af92`，与 13 份 report 内嵌 `matrix_sha256` 相同）。
+
+**边界（不得外推）：**这是**身份与结构运行证据**，不是视觉验收：没有原分辨率 ROI、没有逐项作者参数验收、没有官方客户端同输入对照，`flat_border_ratio`/`preview_visual` 只作 advisory；两个 FAIL 是**内容在当前身份下的公共首断点候选**（`2849382252-…`：effect 执行 CPU 调用 / 图内 effect-local passthrough；`3357627941-…`：accepted layer 的 GPU completion、compositor consumption、next-frame、exact backend 四项执行证据缺失，叠加该样本 `utility_capture_planned=1` 却零成功——其层 66 为 `unsupportedDependencies`、层 55 计划 capture 未成功），不是身份覆盖失败。**验收台账与归档未改变**：`scene_sample_debug_archive.json` 的 159 行无法并入 13 个新报告（其重建要求全 172 报告同批），故台账页面仍把这 13 个显示为 `not-run`；本条目是它们当前唯一的运行记录，合并条件＝全样本重跑（队列 (e)）。
+
 <a id="e-2026-09-23-authored-numeric-float-range"></a>
 ### E-2026-09-23-AUTHORED-NUMERIC-FLOAT-RANGE — 作者数值收窄的可达性与饱和门
 
