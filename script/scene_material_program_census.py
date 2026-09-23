@@ -139,6 +139,13 @@ extension SceneDocument {
     }
 }
 
+// Stand-in for the rendering-domain utility-layer plan the compiled slice
+// only compares against nil; it accepts any JSON value so an owned fixture
+// and a recorded descriptor both decode.
+struct SceneUtilityLayer: Decodable {
+    init(from decoder: Decoder) throws {}
+}
+
 struct SceneRenderDescriptor: Decodable {
     struct EffectDescriptor: Decodable {
         struct PassDescriptor: Decodable {
@@ -157,6 +164,33 @@ struct SceneRenderDescriptor: Decodable {
     struct Layer: Decodable {
         let id: Int
         let effects: [EffectDescriptor]
+        // The compiled authored-effect-planning slice reads these four members
+        // (`SceneAuthoredEffectRenderPlanner`). A recorded runtime descriptor
+        // always carries them; an owned fixture may keep only the minimum, so
+        // decode them tolerantly instead of failing the whole sample, and keep
+        // the utility-layer stand-in decode-anything because the slice only
+        // ever compares it against nil. A tolerant default that changes the
+        // planner's decision cannot pass silently: the harness byte-compares
+        // the recomputed plans against the recorded `authoredEffectRenderPlans`
+        // and fails that sample.
+        let parentID: Int?
+        let childLayerIDs: [Int]
+        let contentKind: String
+        let utilityLayer: SceneUtilityLayer?
+
+        private enum CodingKeys: String, CodingKey {
+            case id, effects, parentID, childLayerIDs, contentKind, utilityLayer
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(Int.self, forKey: .id)
+            effects = try container.decode([EffectDescriptor].self, forKey: .effects)
+            parentID = try container.decodeIfPresent(Int.self, forKey: .parentID)
+            childLayerIDs = try container.decodeIfPresent([Int].self, forKey: .childLayerIDs) ?? []
+            contentKind = try container.decodeIfPresent(String.self, forKey: .contentKind) ?? ""
+            utilityLayer = try container.decodeIfPresent(SceneUtilityLayer.self, forKey: .utilityLayer)
+        }
     }
 
     struct MaterialPassDescriptor: Decodable {
