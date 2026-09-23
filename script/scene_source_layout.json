@@ -61,6 +61,7 @@
           "SceneResolvedMaterialExecutionCapability+ProgramFirstStagesBackground.swift",
           "SceneResolvedMaterialExecutionCapability+Stages.swift",
           "SceneResolvedMaterialExecutionCapability.swift",
+          "SceneDirectBoolEffectVisibilityRouteAdmission.swift",
           "SceneResolvedMaterialExecutionCapabilityAdmission.swift",
           "SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",
