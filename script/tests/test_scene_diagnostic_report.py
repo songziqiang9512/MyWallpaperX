@@ -137,6 +137,34 @@ def report(*samples: dict[str, object]) -> dict[str, object]:
 
 
 class SceneDiagnosticReportTests(unittest.TestCase):
+    def test_preview_oracle_registry_follows_the_sample_identity_grammar(self) -> None:
+        """Both installed layouts are valid registry keys; other names fail closed."""
+        with tempfile.TemporaryDirectory(prefix="mwx-preview-oracle-") as directory:
+            root = Path(directory)
+            registry = root / "registry.json"
+            registry.write_text(json.dumps({
+                "uncontrolled": {
+                    "3792249095": {"reason_code": "time-dependent-content"},
+                    "3803482159-d8652063-b9f0-4a8a-8d37-7432dc242f3f": {
+                        "reason_code": "media-timeline"
+                    },
+                },
+            }), encoding="utf-8")
+            self.assertEqual(
+                diagnostic.load_preview_oracle_registry(registry),
+                {
+                    "3792249095": "time-dependent-content",
+                    "3803482159-d8652063-b9f0-4a8a-8d37-7432dc242f3f": "media-timeline",
+                },
+            )
+            registry.write_text(json.dumps({
+                "uncontrolled": {"not-a-sample": {"reason_code": "x"}},
+            }), encoding="utf-8")
+            with self.assertRaisesRegex(
+                diagnostic.DiagnosticReportError, "invalid sample id"
+            ):
+                diagnostic.load_preview_oracle_registry(registry)
+
     def test_process_crash_and_timeout_are_the_first_breakpoint(self) -> None:
         timeout = sample("timeout", timed_out=True, exit_code=-15)
         crash = sample("crash", exit_code=-11)

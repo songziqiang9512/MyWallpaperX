@@ -25,7 +25,7 @@ SCRIPT_DIRECTORY = SCRIPT_PATH.parent
 if str(SCRIPT_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
-from scene_capability_census_io import iter_numeric_sample_directories
+from scene_capability_census_io import iter_sample_directories
 from scene_diagnostic_report import (
     load_preview_oracle_registry,
     normalize_reports,
@@ -106,9 +106,9 @@ def build_archive(
     if not report_paths:
         raise ValueError("at least one benchmark report is required")
 
-    sample_ids = [item.name for item in iter_numeric_sample_directories(samples_root)]
+    sample_ids = [item.name for item in iter_sample_directories(samples_root)]
     if not sample_ids:
-        raise ValueError(f"no numeric samples found below {samples_root}")
+        raise ValueError(f"no samples found below {samples_root}")
 
     snapshot = _json(snapshot_path)
     static_rows = snapshot.get("samples")

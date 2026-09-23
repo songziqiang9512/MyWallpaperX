@@ -9,14 +9,21 @@ import json
 import os
 import re
 import shutil
+import sys
 from pathlib import Path
 from typing import Any
+
+
+SCRIPT_DIRECTORY = Path(__file__).resolve().parent
+if str(SCRIPT_DIRECTORY) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIRECTORY))
+
+from scene_capability_census_io import is_sample_directory_name
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE_ROOT = REPOSITORY_ROOT / "docs/scene/evidence"
 RUN_LABEL_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]*")
-SAMPLE_ID_PATTERN = re.compile(r"[0-9]+")
 DEFAULT_EVIDENCE_KEYS = (
     "app_log",
     "app_log_path",
@@ -93,7 +100,7 @@ def promotion_plan(
             sample_id = str(sample.get("id", ""))
             evidence = sample.get("evidence")
             if (
-                SAMPLE_ID_PATTERN.fullmatch(sample_id) is None
+                not is_sample_directory_name(sample_id)
                 or not isinstance(evidence, dict)
             ):
                 raise ValueError(f"report sample evidence is malformed: {report_path}")

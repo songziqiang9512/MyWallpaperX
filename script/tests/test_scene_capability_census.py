@@ -22,6 +22,9 @@ from scene_capability_census_io import (
     PkgArchive,
     ResolvedResource,
     ensure_outputs_outside_roots,
+    is_sample_directory_name,
+    iter_sample_directories,
+    validated_sample_id,
 )
 from scene_capability_census_profiles import (
     family_key,
@@ -1287,6 +1290,74 @@ class SceneCapabilityFamilyMapTests(unittest.TestCase):
             self.assertEqual(len(failures), 1)
             self.assertEqual(failures[0]["capability"], "cap.bad.one")
             self.assertEqual(failures[0]["code"], "family-map-anchor-missing")
+
+
+V2_LAYOUT_SAMPLE = "3782650329-d56d3d28-3f43-4796-bc3b-2bfe1a30452a"
+
+
+class SceneSampleIdentityTests(unittest.TestCase):
+    """A sample's identity is its library directory name in either installed layout."""
+
+    def test_identity_accepts_both_installed_layouts_and_rejects_other_names(self) -> None:
+        for accepted in (
+            "1300076567",
+            V2_LAYOUT_SAMPLE,
+            V2_LAYOUT_SAMPLE.upper(),
+        ):
+            self.assertTrue(is_sample_directory_name(accepted), accepted)
+        for rejected in (
+            "not-a-sample",
+            ".pending-0b1c2d3e-4f50-6071-8293-a4b5c6d7e8f9",
+            "0b1c2d3e-4f50-6071-8293-a4b5c6d7e8f9",
+            "2524111047-",
+            "2524111047-not-a-uuid",
+            "2524111047-28157b2b-2046-4f51-a12e-511483ea7bc",
+            "2524111047-28157b2b-2046-4f51-a12e-511483ea7bcc-extra",
+            "1300076567.txt",
+            "",
+        ):
+            self.assertFalse(is_sample_directory_name(rejected), rejected)
+
+    def test_identity_validation_accepts_a_sample_and_rejects_other_names(self) -> None:
+        self.assertEqual(
+            validated_sample_id(V2_LAYOUT_SAMPLE, context="fixture"),
+            V2_LAYOUT_SAMPLE,
+        )
+        self.assertEqual(
+            validated_sample_id("1300076567", context="fixture"), "1300076567"
+        )
+        with self.assertRaises(ValueError) as caught:
+            validated_sample_id("not-a-sample", context="verdict key")
+        self.assertIn("verdict key is not a sample id", str(caught.exception))
+
+    def test_discovery_sees_both_layouts_and_skips_non_samples(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-discovery-") as directory:
+            root = Path(directory)
+            for name in (
+                "1300076567",
+                V2_LAYOUT_SAMPLE,
+                "not-a-sample",
+                ".pending-0b1c2d3e-4f50-6071-8293-a4b5c6d7e8f9",
+            ):
+                (root / name).mkdir()
+            (root / "shortcut").symlink_to(root / "1300076567")
+            (root / "1300076568").write_text("file, not a directory", encoding="utf-8")
+            discovered = [item.name for item in iter_sample_directories(root)]
+            self.assertEqual(discovered, ["1300076567", V2_LAYOUT_SAMPLE])
+
+    def test_census_discovers_a_current_layout_sample_as_its_directory_name(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-census-v2-") as directory:
+            root = Path(directory)
+            samples, stock, matrix, ledger = SceneCapabilityCensusTests().make_fixture(root)
+            (samples / "0000000001").rename(samples / V2_LAYOUT_SAMPLE)
+            built = census.build_census(samples, stock, matrix, ledger)
+            self.assertEqual(built["summary"]["discovered_sample_count"], 1)
+            self.assertEqual(built["summary"]["parsed_sample_count"], 1)
+            self.assertEqual(built["summary"]["added_since_matrix"], [V2_LAYOUT_SAMPLE])
+            self.assertEqual(
+                [row["sample_id"] for row in built["samples"]], [V2_LAYOUT_SAMPLE]
+            )
+            self.assertTrue(built["validation"]["conservation"]["occurrences_balanced"])
 
 
 if __name__ == "__main__":

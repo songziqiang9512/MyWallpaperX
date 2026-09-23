@@ -8,24 +8,24 @@
 
 ## 1. 来源
 
-- 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（159 个 numeric sample）。
+- 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（172 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `be710559e57d0ba8bb6c73bbed9726c9973ee43712923f1490580f99bb358b41`（生成于 2026-09-17T23:32:06.080507+00:00）。
 - 归档运行身份：CDHash `918475e7b5ab8933c1d54c9a0b4caef9ff291521`、CDHash `a31bd68aa2e84050c26bb5aa1a8d8383b85c743a`、CDHash `29c3c09c573ec0803ce9ab44434578d1ae6fd3bf`、CDHash `d8e9aa707027fa62e4081cc10202aea9a8e76e7e`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
 - 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `2bf7c1d1992b9d215b5308e6e65a322013ee06fadb3c46d0cff04fc9c2b870c6`。
-- 本页生成于 2026-09-17T23:32:06.222652+00:00。
+- 本页生成于 2026-09-23T10:26:44.961388+00:00。
 
 ## 2. 汇总
 
 | 视觉裁决 | 样本数 |
 |---|---:|
-| `unreviewed` | 140 |
+| `unreviewed` | 153 |
 | `pass` | 0 |
 | `fail` | 19 |
 | `platform-unsupported` | 0 |
 
 | 官方对照状态 | 样本数 |
 |---|---:|
-| `unknown` | 159 |
+| `unknown` | 172 |
 | `not-run` | 0 |
 | `blocked` | 0 |
 | `compared` | 0 |
@@ -40,14 +40,15 @@
 | `scenescript` | SceneScript 异常 | 11 |
 | `terminal-output` | terminal compositor / 输出链 | 0 |
 | `visual-review` | 结构链完整，待视觉验收 | 128 |
-| `not-run` | 尚无隔离运行证据 | 0 |
+| `not-run` | 尚无隔离运行证据 | 13 |
 
 | 运行状态 | 样本数 |
 |---|---:|
 | `degraded-runtime` | 31 |
+| `not-run` | 13 |
 | `structural-chain-complete-visual-review` | 128 |
 
-作者参数：104 个样本声明了 schemecolor 之外的用户参数，共 2960 项，其中 814 项带 `condition`。参数进入播放链路的验收随各样本的视觉裁决一起记录，不单独计数。
+作者参数：115 个样本声明了 schemecolor 之外的用户参数，共 3178 项，其中 852 项带 `condition`。参数进入播放链路的验收随各样本的视觉裁决一起记录，不单独计数。
 
 ## 3. 逐样本
 
@@ -84,6 +85,7 @@
 | `2470144420` | 女孩独享的宁静傍晚 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2473638329` | Genshin Impact \| +18 / NSFW & SFW | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2505351195` | Nier Automata / +21 \| NSFW & SFW | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `2524111047-28157b2b-2046-4f51-a12e-511483ea7bcc` | Liu Meryl Wei wei（被举报下架-重发） | 5(0) bool 4 color 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2607203340` | Tomb Raider +18 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2684431262` | 麻匪 炫酷音频律动 Windows | 28(0) bool 4 color 12 slider 1 text 11 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2775915974` | R18*JK(escalator)エスカレーターJKさんX-ray | 4(0) bool 1 color 1 combo 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 鼠标纵向与顶部边界已修，顶部极限仍露灰边；整样本未通过 |
@@ -91,9 +93,13 @@
 | `2797913147` | 【R18】连体黑丝#4K#视差#可互动臀部#动态 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2802243144` | 冰公主-by Wlop 时间日期已修复 16:9 -music 订阅后点赞，养… | 14(0) bool 7 color 2 slider 5 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2808874251` | youer | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `2811643059-b691f3ce-1f06-4fb1-a649-7a580745245e` | 原神 | 4(0) bool 2 color 1 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2813231542` | 清新美女 R-18 | 9(0) bool 7 color 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `2815826216-b4c7f15a-3d9d-4bb3-9d9a-4d11d8f9f255` | 麻匪 约尔·福杰 间谍过家家 SPY×FAMILY | 34(13) bool 7 color 13 slider 2 text 11 textinput 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2824109832` | Yor Forger - NIXEU 4K | 16(7) bool 12 color 4 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `2834973884-6bf539fb-c3f1-4d74-bcac-f580ec398cfa` | 麻匪 wlop-鬼刀 重置版 | 22(0) bool 5 color 3 slider 3 text 11 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2837223712` | 李擎洲：阿狸[4K] | 2(0) bool 1 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `2849382252-2fd85034-2c5b-456f-8a50-47120ed5c52f` | 麻匪 死亡笔记  L·Lawliet | 16(0) bool 2 color 3 text 11 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `2884628849` | 麻匪 小姐姐 | 29(0) bool 4 color 4 combo 5 slider 4 text 12 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2896873092` | Genshin Impact: Thicc Girls Spread Coll… | 3(0) bool 2 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2902406982` | 麻匪 月半与鬼哭 所有元素自定义 | 173(103) bool 20 color 45 combo 8 scenetexture 2 slider 35 … | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
@@ -124,11 +130,13 @@
 | `3290491250` | frieren | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3299228616` | Lonely Cat: Audio visualizer , Clock , … | 64(60) bool 26 color 13 combo 13 slider 12 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3323988600` | Hentai Goddess of Victory Nikke ANIMATE… | 9(0) bool 4 color 1 slider 4 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `3357627941-d239fdcc-b7f8-48a9-b256-a1629d2824a6` | 麻匪 开门见喜 鼠标交互 自定义本地文件 Windows door 16:9 … | 30(1) bool 4 color 2 combo 1 scenetexture 2 slider 1 text 20 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3363252053` | 【Parallax视差】Hatsune Miku 初音未来 光与影——夜莺Ni… | 97(39) bool 28 color 15 combo 4 group 6 slider 33 text 8 te… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3389974179` | 落日与白皙的大腿 | 3(0) bool 2 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3395392965` | 请叫我帅锅-小姨定制 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3395777145` | 麻匪 光 音频识别 Media Player 16:9 16:10 21:9 | 74(26) bool 14 color 10 combo 5 scenetexture 1 slider 11 te… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3396722575` | 麻匪 NIXEU 黄泉 超多自定义模块 音频识别 Media Player 1… | 132(71) bool 22 color 17 combo 3 slider 47 text 40 textinpu… | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` |  |
+| `3420215721-82379768-1330-47a0-bd62-6c3b234f0edc` | 麻匪 圈 媒体识别交互壁纸 Circle Media Player | 87(21) bool 12 color 9 combo 3 scenetexture 1 slider 21 tex… | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3437487219` | 3D Earth - Close Orbit   [HDR10 Optimiz… | 15(2) bool 3 color 1 combo 2 group 3 slider 6 | `structural-chain-complete-visual-review` | - | `visual-review` | `fail` 2026-09-08 | 日期时间恢复，cursor owner collision 未闭合 |
 | `3448845950` | 麻匪 媒体音频标签【148项自定义】Media Player 16:9 16:… | 152(35) bool 22 color 17 combo 14 scenetexture 2 slider 20 … | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:effectConstant` | `scenescript` | `fail` 2026-09-08 | 黑屏已解除，脚本效果与整体布局未通过 |
 | `3470948192` | 水滴 三体 \| Droplet -SYKM | 37(0) bool 7 color 4 combo 2 group 7 slider 13 untyped 4 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-bad-return / target:layer:scale` | `scenescript` | `fail` 2026-09-08 | 开场/文字错位部分修复，仍有 NaN、文字碎片与异常背景 |
@@ -191,6 +199,7 @@
 | `3780391264` | Agnes Tachyon Umamusume Neon | 7(0) bool 6 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3780940857` | 枕澜 蒂法 电脑动态壁纸 最终幻想7 TIFA Final Fantasy V… | 仅 schemecolor | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |
 | `3781307553` | Look this | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `3782650329-d56d3d28-3f43-4796-bc3b-2bfe1a30452a` | 我们三 X-ray | 3(0) bool 1 color 1 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |
 | `3782740481` | WLOP Violet 紫 | 9(0) bool 2 color 2 slider 5 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3784012236` | >R-18< 蔚蓝档案 Blue_Archive\|06\|飛鳥馬 トキ 时 … | 4(2) bool 1 color 1 combo 1 slider 1 | `degraded-runtime` | `resource-load / BaseImageTextureStore / base-image-texture-load-incomplete / image-layer` | `texture-load` | `unreviewed` |  |
 | `3786185473` | ELF PARADISE～欢迎来到性夜♪色情精灵们的淫乱圣诞节特别篇～ \| … | 6(0) bool 2 color 1 combo 1 slider 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
@@ -214,3 +223,8 @@
 | `3792817546` | 小羊不吃草 (地雷系)#滕子京大王 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3793328876` | 大凤Taihou&白凤Hakuhou-HanAI | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3793978239` | 埃吉尔掰穴 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
+| `3801914000-0afee368-c4cc-411a-97ce-5d748485e2e3` | Ciri Sweat Wallpaper (The Witcher) | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3801984224-7465b3d3-8c2f-4c08-b386-a1b28da9d1c3` | 粉红护士 | 仅 schemecolor | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3803087940-65fbf151-e465-418b-a6ae-6becd2f06603` | 原神 少女黑丝玉足 X - ray NSFW 差分 | 4(0) bool 1 color 1 slider 2 | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3803482159-d8652063-b9f0-4a8a-8d37-7432dc242f3f` | Black Morpho | 6(0) bool 5 color 1 | `not-run` | - | `not-run` | `unreviewed` |  |
+| `3803576671-dfbf05e6-c649-47d3-8ed9-349dc7c10c6a` | NFFA画风 冰雪公主（可去防封马赛克+可去时钟） | 5(3) bool 3 color 1 slider 1 | `not-run` | - | `not-run` | `unreviewed` |  |

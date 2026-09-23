@@ -7,6 +7,7 @@ import hashlib
 import json
 import mmap
 import os
+import re
 import struct
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -18,6 +19,30 @@ DERIVED_SAMPLE_NAMES = {
     ".mywallpaperx-scene-interpretation.json",
     ".mywallpaperx-scene-preview-log.txt",
 }
+
+# A sample's identity is its library directory name.  The library has two
+# installed layouts: the legacy bare workshop id, and the current one written by
+# `SteamWorkshopLibraryTransaction` (`workshopId + "-" + UUID().uuidString`),
+# which its own parser (`managedPublicDirectoryWorkshopID`) accepts.  Discovery
+# that knew only the legacy layout silently dropped every current-layout sample
+# from the census, archive and acceptance denominators.
+_WORKSHOP_ID = r"[0-9]+"
+_V2_SUFFIX = (
+    r"-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+)
+SAMPLE_DIRECTORY_PATTERN = re.compile(f"{_WORKSHOP_ID}(?:{_V2_SUFFIX})?")
+
+
+def is_sample_directory_name(name: str) -> bool:
+    """Report whether ``name`` is a sample identity in either installed layout."""
+    return SAMPLE_DIRECTORY_PATTERN.fullmatch(name) is not None
+
+
+def validated_sample_id(sample_id: Any, *, context: str) -> str:
+    """Return ``sample_id`` unchanged, or raise when it is not a sample identity."""
+    if not isinstance(sample_id, str) or not is_sample_directory_name(sample_id):
+        raise ValueError(f"{context} is not a sample id: {sample_id!r}")
+    return sample_id
 
 
 def sha256_file(path: Path) -> str:
@@ -675,12 +700,14 @@ def _path_is_within(candidate: Path, root: Path) -> bool:
     return True
 
 
-def iter_numeric_sample_directories(root: Path) -> Iterator[Path]:
+def iter_sample_directories(root: Path) -> Iterator[Path]:
     yield from sorted(
         (
             item
             for item in root.iterdir()
-            if item.is_dir() and not item.is_symlink() and item.name.isdigit()
+            if item.is_dir()
+            and not item.is_symlink()
+            and is_sample_directory_name(item.name)
         ),
         key=lambda item: item.name,
     )

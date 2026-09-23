@@ -167,7 +167,7 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 
 其中 B1 的三个命中样本均有完整 GPU/compositor/next-frame 证据，可把该公共编译首断点标为结构闭合；B2 代表的 aggregate/provider publication 在 `2959875782` 仍成立，缺口已从 dependency binding 拆到 B9。B8 两例分别在 frame 12/10 后恢复同一 Program 和唯一 compositor，但严格观察门仍保留 FAIL。该段是当前版本后继证据，旧 2026-09-08 archive 与验收生成页不被覆盖；生成器刷新前必须同时注明时间差。
 
-当前代码集群已经提交为 `fdf430b7`、`82ef0133`、`1626ce42`、`14fe586c`、`50d2a2be`；本页记录的是这些提交构建出的 12 样本结构/执行复跑，不能把 `5/12` strict PASS 解释成视觉通过。视觉完成仍以 159 样本台账的 `0 pass / 19 fail / 140 unreviewed` 为准。
+当前代码集群已经提交为 `fdf430b7`、`82ef0133`、`1626ce42`、`14fe586c`、`50d2a2be`；本页记录的是这些提交构建出的 12 样本结构/执行复跑，不能把 `5/12` strict PASS 解释成视觉通过。视觉完成仍以样本验收台账为准（2026-09-23 重生成：172 行 = `0 pass / 19 fail / 153 unreviewed`，其中 13 个 v2 布局样本为 `not-run`）。
 
 ### 2026-09-10 B5 最终首断点
 
@@ -208,7 +208,7 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 
 以下内容保留 09-08 静态/隔离 probe 的原始时间边界；它不会覆盖上面的 09-09 handoff rerun。
 
-权威样本根是 `/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`。本次静态 census 发现 **159** 个 numeric sample，`159/159` 的 project、PKGV 和入口 JSON 可解析；sample-id manifest SHA-256 为 `dce37464a0d15c860e3bd8566784f227419d4b2f5e9f4e7f053e38139d760776`。对应的静态快照是 [`scene_capability_census_snapshot.json`](../../../script/scene_capability_census_snapshot.json)（SHA-256 `0346d55c384f90d4931984098e2fd5f01bba18849f952beac9049153747b8351`），摘要清单见[`全样本能力分类与修复台账`](scene-corpus-capability-inventory.md)。
+权威样本根是 `/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`。**本页凡写 “159 样本/159 个视觉裁决” 处均为 2026-09-23 之前的语料口径，不改写历史**；现役分母为 172（159 bare-id + 13 个 `<id>-<uuid>` v2 布局，见下）。静态 census 发现 **172** 个样本（2026-09-23 更正；159 个 bare-id + 13 个 `<id>-<uuid>` v2 布局），`172/172` 的 project、PKGV 和入口 JSON 可解析；sample-id manifest SHA-256 为 `a6fcc2cd1155c55bca04586b26ee64918507400c586e74fdd5ab51bbb8c2ada1`（此前 159 语料为 `dce37464…`）。对应的静态快照是 [`scene_capability_census_snapshot.json`](../../../script/scene_capability_census_snapshot.json)（SHA-256 `dc29647733e219f32f7e610b40c78a9c59053580249d209a641975c058d9294a`（2026-09-23 重生成）），摘要清单见[`全样本能力分类与修复台账`](scene-corpus-capability-inventory.md)。
 
 四个隔离分片使用同一签名 Developer ID Debug executable（bundle `com.songziqiang.MyWallpaperX`，version `2.0.9 (277)`，Team `H9QWU9XN8R`，CDHash `610ab437185c4104392b30227afbea3744129ea0`，executable SHA-256 `10951960b67fd3a635f96846886d0829fb3aa6de68c5c771913cc0109d22e247`）。每个样本从只读根复制到独立 runtime root，运行时长 7 秒；该 probe 使用 identity-only matrix，因此没有把历史视觉期待误当成成功条件。四份 report 的 SHA-256 分别为：
 
@@ -219,7 +219,7 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 | `mwx-v4-authored-sample-audit-part-3-of-4` | 40 | `f8fb14de3ae911c55e67f220a90d77b237ef0ba2c4e96ea1b053c0ea28c65075` |
 | `mwx-v4-authored-sample-audit-part-4-of-4` | 39 | `e10934d7e2d116d66a7b6d9a70bd28c8d116349a87ca05101ea8a69cc3831751` |
 
-机器可查询的合并档案是 [`scene_sample_debug_archive.json`](../../../script/scene_sample_debug_archive.json)（SHA-256 `49c14bc72faef8fd96cfb7a4e82a1903349cfc73ed14ed52aeb601b6f968a3cc`，生成于 2026-09-17T20:03:05Z，由 2026-09-17 05:41–09:08 的 159 个全量 report 重建，其中 83 个先前未覆盖样本已于 2026-09-18 00:14–01:52 在当前身份 CDHash `a31bd68a…` 下串行补齐且全部 PASS）。它覆盖 `159/159` 个样本，状态为 `128 structural-chain-complete-visual-review`、`31 degraded-runtime`、`0 blocked`。这些状态只描述运行安全和首断点，`structural-chain-complete-visual-review` 仍要求 authored preview/ROI 与 next-frame 视觉复核，不能写成“正确显示”。**该档案的执行身份为 75 个 report `918475e7…` + 84 个 `a31bd68a…`**（先前的 `6e870cf9…` 离群 report 已被当前身份 fresh 运行取代，`3754630802` 的身份分裂已闭合）；单样本结论仍以该样本自己的 report 身份为准，身份边界见[运行证据](runtime-evidence-current.md#e-2026-09-17-p03-fullset-baseline-and-split-identity)。首断点计数为：
+机器可查询的合并档案是 [`scene_sample_debug_archive.json`](../../../script/scene_sample_debug_archive.json)（SHA-256 `be710559e57d0ba8bb6c73bbed9726c9973ee43712923f1490580f99bb358b41`，生成于 2026-09-17T23:32:06.080507+00:00，由 2026-09-17 05:41–09:08 的 159 个全量 report 重建，其中 83 个先前未覆盖样本已于 2026-09-18 00:14–01:52 在当前身份 CDHash `a31bd68a…` 下串行补齐且全部 PASS）。它覆盖当时语料的 `159/159` 个样本（**2026-09-23 更正**：语料现有 172 个样本目录，13 个 v2 布局样本尚无归档行，且该归档的 `--report` 输入已随临时目录清理消失、本批不可重建，重建条件=全样本重跑），状态为 `128 structural-chain-complete-visual-review`、`31 degraded-runtime`、`0 blocked`。这些状态只描述运行安全和首断点，`structural-chain-complete-visual-review` 仍要求 authored preview/ROI 与 next-frame 视觉复核，不能写成“正确显示”。**该档案的执行身份实测为 72 个 `918475e7…` + 78 个 `a31bd68a…` + 7 个 `d8e9aa70…` + 2 个 `29c3c09c…`（共 159；2026-09-23 按归档 `appIdentities` 复核，先前 75/84 的记法无依据）**（先前的 `6e870cf9…` 离群 report 已被当前身份 fresh 运行取代，`3754630802` 的身份分裂已闭合）；单样本结论仍以该样本自己的 report 身份为准，身份边界见[运行证据](runtime-evidence-current.md#e-2026-09-17-p03-fullset-baseline-and-split-identity)。首断点计数为：
 
 - `resource-load:particle-layer-load-incomplete` 9；`resource-load:base-image-texture-load-incomplete` 3。
 - `script-execution:scene-script-exception-type-error` 7；`script-execution:scene-script-bad-return` 2；`script-execution:scene-script-exception-reference-error` 1；`script-execution:scene-script-exception-range-error` 1。

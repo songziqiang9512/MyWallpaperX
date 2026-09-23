@@ -32,7 +32,7 @@ from scene_capability_census_io import (
     decode_json,
     directory_manifest,
     ensure_outputs_outside_roots,
-    iter_numeric_sample_directories,
+    iter_sample_directories,
     normalize_path,
     package_category,
     parse_tex_summary,
@@ -1735,7 +1735,7 @@ def build_census(
         raise FileNotFoundError(samples_root)
     if not stock_root.is_dir():
         raise FileNotFoundError(stock_root)
-    samples = list(iter_numeric_sample_directories(samples_root))
+    samples = list(iter_sample_directories(samples_root))
     matrix = matrix_identity(matrix_path)
     matrix_ids = set(matrix.get("sample_ids", []))
     profiles = ParameterProfiles()

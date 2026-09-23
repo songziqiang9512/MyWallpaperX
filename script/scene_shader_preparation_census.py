@@ -30,6 +30,7 @@ SCRIPT_DIRECTORY = SCRIPT_PATH.parent
 if str(SCRIPT_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
+from scene_capability_census_io import is_sample_directory_name
 from scene_real_test_fixture_config import load_fixture_config
 from scene_swift_source_sets import (
     scene_swift_source_relpaths,
@@ -1243,24 +1244,24 @@ def validate_inputs(
         if not isinstance(entry, dict) or not isinstance(entry.get("id"), str):
             raise CensusError("matrix samples must have string ids")
         sample_id = entry["id"]
-        if not sample_id.isdigit() or sample_id in matrix_samples:
+        if not is_sample_directory_name(sample_id) or sample_id in matrix_samples:
             raise CensusError(f"matrix sample id is invalid or duplicated: {sample_id}")
         matrix_samples[sample_id] = entry
     sample_ids = sorted(
         path.name
         for path in sample_root.iterdir()
-        if path.is_dir() and path.name.isdigit()
+        if path.is_dir() and is_sample_directory_name(path.name)
     )
     runtime_ids = sorted(
         path.name
         for path in runtime_homes.iterdir()
-        if path.is_dir() and path.name.isdigit()
+        if path.is_dir() and is_sample_directory_name(path.name)
     )
     expected_ids = sorted(matrix_samples)
     if sample_ids != expected_ids:
-        raise CensusError("sample_root numeric directory set does not match matrix")
+        raise CensusError("sample_root directory set does not match matrix")
     if runtime_ids != expected_ids:
-        raise CensusError("runtime_homes numeric directory set does not match matrix")
+        raise CensusError("runtime_homes directory set does not match matrix")
 
     report_path = resolve_configured_path(fixture.get("report"), fixture_path, "report")
     report = load_json_object(report_path, "fixture report")

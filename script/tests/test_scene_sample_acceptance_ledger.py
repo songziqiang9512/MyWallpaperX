@@ -29,6 +29,9 @@ from scene_sample_acceptance_ledger import (  # noqa: E402
 )
 
 
+V2_LAYOUT_SAMPLE = "3782650329-d56d3d28-3f43-4796-bc3b-2bfe1a30452a"
+
+
 def _write(path: Path, value: object) -> Path:
     path.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
     return path
@@ -49,6 +52,13 @@ class SceneSampleAcceptanceLedgerTests(unittest.TestCase):
         (samples / "20").mkdir()
         (samples / "30").mkdir()
         (samples / "not-a-sample").mkdir()
+        (samples / V2_LAYOUT_SAMPLE).mkdir()
+        _write(samples / V2_LAYOUT_SAMPLE / "project.json", {
+            "title": "Current layout",
+            "general": {"properties": {
+                "schemecolor": {"type": "color", "value": "1 1 1"},
+            }},
+        })
         _write(samples / "10" / "project.json", {
             "title": "Ten | pipe",
             "general": {"properties": {
@@ -82,7 +92,8 @@ class SceneSampleAcceptanceLedgerTests(unittest.TestCase):
             ledger = build_ledger(samples, archive, verdicts)
 
         by_id = {row["id"]: row for row in ledger["samples"]}
-        self.assertEqual(sorted(by_id), ["10", "20", "30"])
+        self.assertEqual(sorted(by_id), ["10", "20", "30", V2_LAYOUT_SAMPLE])
+        self.assertEqual(by_id[V2_LAYOUT_SAMPLE]["authored"]["parseState"], "parsed")
         self.assertEqual(by_id["10"]["verdict"], "unreviewed")
         self.assertEqual(by_id["10"]["cluster"], "visual-review")
         self.assertEqual(by_id["10"]["authored"]["parameterCount"], 4)
@@ -96,7 +107,7 @@ class SceneSampleAcceptanceLedgerTests(unittest.TestCase):
         self.assertEqual(by_id["30"]["runtimeStatus"], "not-run")
         self.assertEqual(by_id["30"]["cluster"], "not-run")
         self.assertEqual(by_id["30"]["authored"]["parseState"], "missing-project")
-        self.assertEqual(ledger["summary"]["verdictCounts"], {"unreviewed": 2, "pass": 0, "fail": 1, "platform-unsupported": 0})
+        self.assertEqual(ledger["summary"]["verdictCounts"], {"unreviewed": 3, "pass": 0, "fail": 1, "platform-unsupported": 0})
         self.assertEqual(ledger["summary"]["samplesWithAuthoredParameters"], 1)
 
         markdown = render_markdown(ledger)
@@ -105,6 +116,28 @@ class SceneSampleAcceptanceLedgerTests(unittest.TestCase):
         self.assertIn("| `30` | 30 | `missing-project` | `not-run` | - | `not-run` | `unreviewed` |  |", markdown)
         self.assertIn("`fail` 2026-09-08", markdown)
         self.assertNotIn("| `pass` | 1 |", markdown)
+
+    def test_sample_identity_covers_both_installed_layouts(self) -> None:
+        """A current-layout verdict key is accepted; a non-sample key is not."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = self._corpus(root)
+            archive = _write(root / "archive.json", _archive([
+                {"id": V2_LAYOUT_SAMPLE, "runtime": {"status": "not-run", "firstBreakpoint": None}},
+            ]))
+            verdicts = _write(root / "verdicts.json", _verdicts({
+                V2_LAYOUT_SAMPLE: {"verdict": "fail", "reviewedOn": "2026-09-23", "note": "current layout"},
+            }))
+            ledger = build_ledger(samples, archive, verdicts)
+            by_id = {row["id"]: row for row in ledger["samples"]}
+            self.assertEqual(by_id[V2_LAYOUT_SAMPLE]["verdict"], "fail")
+            self.assertIn(f"| `{V2_LAYOUT_SAMPLE}` |", render_markdown(ledger))
+
+            junk = _write(root / "junk.json", _verdicts({
+                "not-a-sample": {"verdict": "fail", "reviewedOn": "2026-09-23"},
+            }))
+            with self.assertRaisesRegex(ValueError, "is not a sample id"):
+                build_ledger(samples, archive, junk)
 
     def test_cluster_mapping_follows_first_breakpoint_owner(self) -> None:
         self.assertEqual(cluster_for("degraded-runtime", {"stage": "resource-load", "owner": "ParticleRuntime"}), "particle-load")
@@ -160,7 +193,7 @@ class SceneSampleAcceptanceLedgerTests(unittest.TestCase):
                 sorted(summary["officialComparisonCounts"]),
                 ["blocked", "compared", "not-run", "unknown"],
             )
-            self.assertEqual(summary["officialComparisonCounts"]["unknown"], 3)
+            self.assertEqual(summary["officialComparisonCounts"]["unknown"], 4)
             self.assertEqual(summary["reviewedWithoutViewer"], 1)
             self.assertEqual(summary["reviewedWithoutEvidence"], 1)
 
@@ -206,11 +239,11 @@ class SceneSampleAcceptanceLedgerTests(unittest.TestCase):
             summary = annotated["summary"]
             self.assertEqual(summary["reviewedWithoutViewer"], 0)
             self.assertEqual(summary["reviewedWithoutEvidence"], 0)
-            self.assertEqual(summary["officialComparisonCounts"]["unknown"], 1)
+            self.assertEqual(summary["officialComparisonCounts"]["unknown"], 2)
             markdown = render_markdown(annotated)
             self.assertIn("官方对照状态", markdown)
             for expected_row in (
-                "| `unknown` | 1 |",
+                "| `unknown` | 2 |",
                 "| `not-run` | 1 |",
                 "| `blocked` | 0 |",
                 "| `compared` | 1 |",

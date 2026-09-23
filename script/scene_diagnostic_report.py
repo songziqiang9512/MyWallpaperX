@@ -18,6 +18,13 @@ from pathlib import Path
 from typing import Any
 
 
+SCRIPT_DIRECTORY = Path(__file__).resolve().parent
+if str(SCRIPT_DIRECTORY) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIRECTORY))
+
+from scene_capability_census_io import is_sample_directory_name
+
+
 SCHEMA_VERSION = 1
 CLAIM_BOUNDARY = "runtime-and-output-diagnostics-only-not-visual-correctness"
 
@@ -83,9 +90,9 @@ def load_preview_oracle_registry(
         )
     reasons: dict[str, str] = {}
     for sample_id, entry in sorted(uncontrolled.items()):
-        if not isinstance(sample_id, str) or not sample_id.isdigit():
+        if not isinstance(sample_id, str) or not is_sample_directory_name(sample_id):
             raise DiagnosticReportError(
-                "preview oracle registry has a non-numeric sample id: "
+                "preview oracle registry has an invalid sample id: "
                 + repr(sample_id)
             )
         if not isinstance(entry, dict) or not isinstance(

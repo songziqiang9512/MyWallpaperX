@@ -13,9 +13,17 @@ import binascii
 import json
 import math
 import re
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
+
+
+SCRIPT_DIRECTORY = Path(__file__).resolve().parent
+if str(SCRIPT_DIRECTORY) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIRECTORY))
+
+from scene_capability_census_io import is_sample_directory_name, validated_sample_id
 
 
 PRODUCT_ENTRY_AUDIO_MODE = "product-entry-audio-baseline"
@@ -92,8 +100,7 @@ def load_audio_declaration_matrix(snapshot_path: Path) -> dict[str, Any]:
         or not sample_ids
         or any(
             not isinstance(value, str)
-            or not value.isascii()
-            or not value.isdigit()
+            or not is_sample_directory_name(value)
             for value in sample_ids
         )
         or len(sample_ids) != len(set(sample_ids))
@@ -132,15 +139,14 @@ def reconcile_no_demand_declarations(
         not sample_ids
         or any(
             not isinstance(value, str)
-            or not value.isascii()
-            or not value.isdigit()
+            or not is_sample_directory_name(value)
             for value in sample_ids
         )
         or sample_ids != sorted(sample_ids)
         or len(sample_ids) != len(set(sample_ids))
     ):
         raise ValueError(
-            "no-demand sample identities must be unique sorted ASCII digits"
+            "no-demand sample identities must be unique sorted sample ids"
         )
     if not isinstance(audio_occurrences, list) or any(
         not isinstance(value, dict) for value in audio_occurrences
@@ -258,15 +264,14 @@ def inventory_saved_audio_consumer_events(
         not sample_ids
         or any(
             not isinstance(value, str)
-            or not value.isascii()
-            or not value.isdigit()
+            or not is_sample_directory_name(value)
             for value in sample_ids
         )
         or sample_ids != sorted(sample_ids)
         or len(sample_ids) != len(set(sample_ids))
     ):
         raise ValueError(
-            "audio consumer sample identities must be unique sorted ASCII digits"
+            "audio consumer sample identities must be unique sorted sample ids"
         )
     if not isinstance(log_text_by_sample, dict) or set(log_text_by_sample) != set(
         sample_ids
@@ -607,8 +612,7 @@ def inventory_saved_audio_consumer_events(
 
 
 def private_defaults_suite(sample_id: str) -> str:
-    if not sample_id.isascii() or not sample_id.isdigit():
-        raise ValueError("product-entry audio sample ID must contain ASCII digits")
+    validated_sample_id(sample_id, context="product-entry audio sample ID")
     return PRIVATE_DEFAULTS_PREFIX + sample_id
 
 

@@ -7,8 +7,16 @@ import argparse
 import hashlib
 import json
 import shutil
+import sys
 from pathlib import Path
 from typing import Any
+
+
+SCRIPT_DIRECTORY = Path(__file__).resolve().parent
+if str(SCRIPT_DIRECTORY) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIRECTORY))
+
+from scene_capability_census_io import is_sample_directory_name
 
 
 DERIVED_NAMES = {
@@ -68,7 +76,7 @@ def create_snapshot(args: argparse.Namespace) -> int:
     matrix_samples = []
     skipped = []
     for sample in sorted(source_root.iterdir(), key=lambda item: item.name):
-        if not sample.is_dir() or not sample.name.isdigit():
+        if not sample.is_dir() or not is_sample_directory_name(sample.name):
             continue
         project_path = sample / "project.json"
         if not project_path.is_file():

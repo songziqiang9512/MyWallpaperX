@@ -5,7 +5,7 @@ The ledger is the single reviewable answer to "which authored samples already
 display and play correctly, and what blocks the rest".  It joins three inputs
 over the read-only authored corpus:
 
-1. the sample root (numeric directories with ``project.json``) supplies the
+1. the sample root (sample directories with ``project.json``) supplies the
    sample identity, title and authored user-parameter shape;
 2. ``scene_sample_debug_archive.json`` supplies the last isolated runtime
    status and normalized first breakpoint per sample;
@@ -33,6 +33,15 @@ from typing import Any, Mapping
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+SCRIPT_DIRECTORY = Path(__file__).resolve().parent
+if str(SCRIPT_DIRECTORY) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIRECTORY))
+
+from scene_capability_census_io import (
+    is_sample_directory_name,
+    iter_sample_directories,
+)
+
 DEFAULT_SAMPLES_ROOT = Path.home() / "Movies/MyWallpaperX/创意工坊/Scene"
 DEFAULT_ARCHIVE = REPOSITORY_ROOT / "script/scene_sample_debug_archive.json"
 DEFAULT_VERDICTS = REPOSITORY_ROOT / "script/scene_sample_acceptance_verdicts.json"
@@ -89,17 +98,6 @@ def _json(path: Path) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise ValueError(f"JSON document is not an object: {path}")
     return value
-
-
-def iter_numeric_sample_directories(root: Path) -> list[Path]:
-    return sorted(
-        (
-            item
-            for item in root.iterdir()
-            if item.is_dir() and not item.is_symlink() and item.name.isdigit()
-        ),
-        key=lambda item: item.name,
-    )
 
 
 def authored_parameters(sample_dir: Path) -> dict[str, Any]:
@@ -185,8 +183,8 @@ def load_verdicts(path: Path) -> dict[str, dict[str, Any]]:
         raise ValueError("verdict overlay has no verdicts object")
     result: dict[str, dict[str, Any]] = {}
     for sample_id, entry in verdicts.items():
-        if not (isinstance(sample_id, str) and sample_id.isdigit()):
-            raise ValueError(f"verdict key is not a numeric sample id: {sample_id!r}")
+        if not (isinstance(sample_id, str) and is_sample_directory_name(sample_id)):
+            raise ValueError(f"verdict key is not a sample id: {sample_id!r}")
         if not isinstance(entry, Mapping):
             raise ValueError(f"verdict entry is not an object: {sample_id}")
         verdict = entry.get("verdict")
@@ -512,9 +510,9 @@ def build_ledger(
 ) -> dict[str, Any]:
     if not samples_root.is_dir():
         raise ValueError(f"samples root is not a directory: {samples_root}")
-    sample_dirs = iter_numeric_sample_directories(samples_root)
+    sample_dirs = list(iter_sample_directories(samples_root))
     if not sample_dirs:
-        raise ValueError(f"no numeric samples found below {samples_root}")
+        raise ValueError(f"no samples found below {samples_root}")
     sample_ids = [item.name for item in sample_dirs]
 
     archive = _json(archive_path)
@@ -656,7 +654,7 @@ def render_markdown(ledger: Mapping[str, Any]) -> str:
         "",
         "## 1. 来源",
         "",
-        f"- 样本根：`{source['samplesRoot']}`（{source['sampleCount']} 个 numeric sample）。",
+        f"- 样本根：`{source['samplesRoot']}`（{source['sampleCount']} 个 sample 目录）。",
         f"- 运行归档：`{Path(source['archive']['path']).name}` SHA-256 `{source['archive']['sha256']}`"
         f"（生成于 {source['archive']['generatedAtUtc']}）。",
         "- 归档运行身份："

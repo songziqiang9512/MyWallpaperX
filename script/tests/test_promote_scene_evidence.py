@@ -200,6 +200,22 @@ class PromoteSceneEvidenceTests(unittest.TestCase):
                     ):
                         promotion.promotion_plan([("malformed", report)])
 
+    def test_accepts_the_current_install_layout_sample_identity(self) -> None:
+        """A `<workshopId>-<uuid>` identity is a sample id, not a malformed one."""
+        sample_id = "3803482159-d8652063-b9f0-4a8a-8d37-7432dc242f3f"
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-evidence-promotion-"
+        ) as directory:
+            report = self.make_report(Path(directory))
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            payload["samples"][0]["id"] = sample_id
+            report.write_text(json.dumps(payload), encoding="utf-8")
+            planned, _ = promotion.promotion_plan([("current", report)])
+            self.assertEqual(planned[0]["label"], "current")
+            self.assertEqual(
+                [item["key"] for item in planned[0]["files"]][0], "app_log"
+            )
+
     def test_allows_absent_none_or_empty_pointer_trajectory_evidence(self) -> None:
         for value in ("absent", None, []):
             with self.subTest(value=value):
