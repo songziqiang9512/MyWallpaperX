@@ -29,6 +29,20 @@ nonisolated extension SceneRenderDescriptor {
 }
 
 nonisolated extension SceneRenderDescriptor.Layer {
+    /// A dynamic layer's descriptor transform has to fit the renderer's Float
+    /// ABI. A finite Double outside that range would reach the prepared
+    /// descriptor as `inf` and fail the shared layer snapshot for every
+    /// consumer; the unsafe unit is this layer, so it is rejected here.
+    private static func descriptorTransform(
+        _ value: SIMD3<Double>
+    ) -> [Float]? {
+        let narrowed = [value.x, value.y, value.z].map(Float.init)
+        guard narrowed.allSatisfy(\.isFinite) else { return nil }
+        return narrowed
+    }
+}
+
+nonisolated extension SceneRenderDescriptor.Layer {
     static func dynamicImage(
         _ mutation: SceneScriptLayerMutation,
         template: SceneScriptDynamicImageLayerTemplate
@@ -36,12 +50,11 @@ nonisolated extension SceneRenderDescriptor.Layer {
         guard mutation.isDynamic, mutation.kind == .upsert,
               mutation.assetPath?.caseInsensitiveCompare(template.modelPath)
                 == .orderedSame else { return nil }
-        let origin = [mutation.origin.x, mutation.origin.y, mutation.origin.z]
-            .map(Float.init)
-        let scale = [mutation.scale.x, mutation.scale.y, mutation.scale.z]
-            .map(Float.init)
-        let angles = [mutation.angles.x, mutation.angles.y, mutation.angles.z]
-            .map(Float.init)
+        guard let origin = Self.descriptorTransform(mutation.origin),
+              let scale = Self.descriptorTransform(mutation.scale),
+              let angles = Self.descriptorTransform(mutation.angles) else {
+            return nil
+        }
         let color = [mutation.color.x, mutation.color.y, mutation.color.z].map {
             Float(max(0, min($0, 1)))
         }
@@ -79,9 +92,11 @@ nonisolated extension SceneRenderDescriptor.Layer {
         let style = SceneTextDescriptor.parse([
             "font": mutation.font, "pointsize": mutation.pointSize, "color": color,
         ])
-        let origin = [mutation.origin.x, mutation.origin.y, mutation.origin.z].map(Float.init)
-        let scale = [mutation.scale.x, mutation.scale.y, mutation.scale.z].map(Float.init)
-        let angles = [mutation.angles.x, mutation.angles.y, mutation.angles.z].map(Float.init)
+        guard let origin = Self.descriptorTransform(mutation.origin),
+              let scale = Self.descriptorTransform(mutation.scale),
+              let angles = Self.descriptorTransform(mutation.angles) else {
+            return nil
+        }
         return SceneRenderDescriptor.Layer(
             id: mutation.layerID, layerIndex: mutation.orderIndex, name: nil,
             cameraPath: nil, contentKind: "text", imagePath: nil, particlePath: nil,
