@@ -203,6 +203,26 @@ struct SceneDependencyRenderPlan {
     let requiredProviderLayerIDs: Set<Int>
     let requiredGraphOutputProviderLayerIDs: Set<Int>
     let staticLayerSourcePassthroughBlockedLayerIDs: Set<Int>
+    /// The admission consults this projection's issues as the authority for a
+    /// composition consumer whose external provider was refused; this stub
+    /// fixture never refuses one, so the list stays empty.
+    let issues: [Issue] = []
+
+    enum IssueKind: String {
+        case dependencyMismatch
+        case missingProvider
+        case cyclicDependency
+        case unsupportedConsumer
+        case unsupportedVariant
+        case forwardUtilityProvider
+        case namedProviderRouteDisabled
+    }
+
+    struct Issue: Hashable {
+        let kind: IssueKind
+        let layerID: Int
+        let providerLayerID: Int?
+    }
 
     static func isMultiProviderUtilityCandidate(
         layer: SceneRenderDescriptor.Layer,
