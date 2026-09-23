@@ -217,10 +217,57 @@ enum Harness {
                 "pointRadius": object.pointLight?.radius as Any? ?? NSNull(),
             ] as [String: Any]
         }
+
+func jsonNumberIsSaturated() -> Bool {
+    let payload = "{\"origin\":[1e39,0,0]}".data(using: .utf8)!
+    guard let decoded = try? JSONSerialization.jsonObject(with: payload)
+        as? [String: Any],
+        let origin = decoded["origin"] as? [Any],
+        let first = origin.first else { return false }
+    return SceneDocumentLoader.floatValue(first)
+        == Float.greatestFiniteMagnitude
+}
+
         let payload: [String: Any] = [
             "objects": objects,
             "referenced": document.referencedResourcePaths,
             "fov": document.general.fovDegrees as Any? ?? NSNull(),
+            // JSON cannot carry inf/nan, so values that may saturate are
+            // asserted through predicates and counts while exact numbers stay
+            // for inputs that are finite in every variant.
+            "narrowedStringVectorCount": SceneDocumentLoader
+                .floatVector("1e39 0 0")?.count ?? -1,
+            "narrowedStringVectorFinite": (SceneDocumentLoader
+                .floatVector("1e39 0 0") ?? []).allSatisfy(\.isFinite),
+            "narrowedNumberVectorCount": SceneDocumentLoader
+                .floatVector([
+                    1e39 as Double, 0 as Double, 0 as Double,
+                ])?.count ?? -1,
+            "narrowedNumberVectorFinite": (SceneDocumentLoader
+                .floatVector([
+                    1e39 as Double, 0 as Double, 0 as Double,
+                ]) ?? []).allSatisfy(\.isFinite),
+            "narrowedStringSaturated": SceneDocumentLoader
+                .floatValue("1e39") == Float.greatestFiniteMagnitude,
+            "narrowedNumberSaturated": SceneDocumentLoader
+                .floatValue(1e39 as Double) == Float.greatestFiniteMagnitude,
+            "narrowedNegativeSaturated": SceneDocumentLoader
+                .floatValue(-1e39 as Double) == -Float.greatestFiniteMagnitude,
+            "narrowedWrappedValueSaturated": SceneDocumentLoader
+                .floatValue(["value": 1e39 as Double])
+                == Float.greatestFiniteMagnitude,
+            // The author path is JSON -> NSNumber, not a Swift literal.
+            "narrowedJSONNumberSaturated": jsonNumberIsSaturated(),
+            "narrowedInRangeVector": (SceneDocumentLoader
+                .floatVector("10 20 0") ?? []).map { Double($0) },
+            "narrowedInRangeScalar": SceneDocumentLoader
+                .floatValue("0.25").map { Double($0) } as Any? ?? NSNull(),
+            "narrowedRejectsNonNumericToken": SceneDocumentLoader
+                .floatVector("1 2 x") == nil,
+            "narrowedRejectsNonNumericScalar": SceneDocumentLoader
+                .floatValue("abc") == nil,
+            "narrowedNonFiniteIsInfinite": SceneDocumentLoader
+                .floatValue(Double.infinity)?.isInfinite ?? false,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -290,6 +337,29 @@ class SceneStaticModelDocumentTests(unittest.TestCase):
 
     def test_native_perspective_fov_is_retained(self) -> None:
         self.assertEqual(self.result["fov"], 50)
+
+    def test_authored_numbers_beyond_the_float_range_saturate(self) -> None:
+        # A finite Double outside the renderer's Float ABI used to become inf
+        # here, which then failed a shared consumer far away from the authored
+        # value (world transform, camera, script owner construction). The
+        # narrowing saturates so the authored magnitude ordering survives.
+        # The count assertions keep a rejecting implementation from passing.
+        self.assertEqual(self.result["narrowedStringVectorCount"], 3)
+        self.assertTrue(self.result["narrowedStringVectorFinite"])
+        self.assertEqual(self.result["narrowedNumberVectorCount"], 3)
+        self.assertTrue(self.result["narrowedNumberVectorFinite"])
+        self.assertTrue(self.result["narrowedStringSaturated"])
+        self.assertTrue(self.result["narrowedNumberSaturated"])
+        self.assertTrue(self.result["narrowedNegativeSaturated"])
+        self.assertTrue(self.result["narrowedWrappedValueSaturated"])
+        self.assertTrue(self.result["narrowedJSONNumberSaturated"])
+        # In-range numbers stay exact; malformed tokens stay rejected; and
+        # genuinely non-finite inputs keep their meaning.
+        self.assertEqual(self.result["narrowedInRangeVector"], [10, 20, 0])
+        self.assertEqual(self.result["narrowedInRangeScalar"], 0.25)
+        self.assertTrue(self.result["narrowedRejectsNonNumericToken"])
+        self.assertTrue(self.result["narrowedRejectsNonNumericScalar"])
+        self.assertTrue(self.result["narrowedNonFiniteIsInfinite"])
 
     def test_point_light_aliases_and_wrapped_fallbacks_are_retained(self) -> None:
         objects = {entry["id"]: entry for entry in self.result["objects"]}

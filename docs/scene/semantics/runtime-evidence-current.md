@@ -312,6 +312,26 @@ targeted matrix仍严格**FAIL**，唯一失败为`animated output evidence belo
 
 **未验证边界：**多步连续 move 未取得（现仪器 drag = press + 单次 move + release，`pointer_trajectory_normalized` 不能带按钮）；无原分辨率 ROI、无人工视觉验收、无官方同输入对照；`event.worldPosition` 与屏幕归一化坐标之间的换算未做独立核对（本条只依赖同一指针位置的几何自洽）。
 
+<a id="e-2026-09-23-authored-numeric-float-range"></a>
+### E-2026-09-23-AUTHORED-NUMERIC-FLOAT-RANGE — 作者数值收窄的可达性与饱和门
+
+**基线与变更：**`959b1521` + 本批。批 2/3 登记的三条批外同类 producer（①矩阵乘积溢出 / ②`SceneDocument+NumericParsing` 的 Float 收窄启动级半径 / ③Camera `fov` 收窄）先做**可达性判定**再决定是否落码。
+
+**可达性判定（全语料，2026-09-23）：**`docs/scene/evidence/v1/authored-numeric-range-2026-09-23/scan.py`（SHA-256 `46171971cf67c5a2b0a37a108f2a97f10602b0ba49bbc6af2fe83692b14da008`；输出 `scan-output.txt` SHA-256 `121760f2644f6e1c14fddbfff99fdd983670338eb51f73988df83c3c189df176`，本机忽略证据缓存，故哈希内联于此以便版本库内可核验）按 `floatVector` 的**接受形态**遍历 **171** 个样本（语料已从 159 增至 171）scene.json 的全部数值与全数值字符串（含 `"x y z"` 多分量）：
+- **超出 Float 范围者 0，但余量为零**：最大作者量级 **3.40282e38** 恰等于 `Float.greatestFiniteMagnitude`，位于 `1300076567/objects[3]/instanceoverride/controlpoint1`（粒子控制点，非世界变换字段）；`>1e19` 者 **1**（即该值）。
+- 世界变换相关字段逐字段上界：origin 4.3e4、size 3e4、radius 1e5、farz 1e4。
+- 结论：①与 ③ 在当前语料**不可由作者内容触发**；语料最大分量恰等于 `Float.greatestFiniteMagnitude`（粒子 `instanceoverride.controlpoint1`，走 `SceneParticleDefinitionParser` 的 NSNumber 路径、**不经 ② 的收窄点**），虽不足以证明 ② 可达，却足以否证"作者量级远低于 Float 上限"的假设，故 ② 采取**防御性**落码；② 自身输入面的实测上界为 origin 4.3e4 / size 3e4 / radius 1e5（灯光半径）/ farz 1e4。①仍只登记——乘积溢出需要祖先链多个因子之积越界，而世界变换字段上界 ≤4.3e4（差 30+ 个数量级），且**脚本计算值可进入同一乘积**（`SceneLayerDynamicWorldFrameResolver` 的逐字段门只约束单值、不约束乘积），该残余仍按队列 (c) 登记为未收敛、由 16 分量门在域级拦截。
+
+**变更（②的收窄点）：**`SceneDocumentLoader.floatValue`/`floatVector` 的各分支统一经 `saturatingFloat`：超出 Float 可表示范围的有限值饱和到 `±Float.greatestFiniteMagnitude`（不落 `inf`），真正非有限输入保持原义（JSON 亦无法携带）。该点服务作者 vector 字段与 `general.camera.fov`。
+
+**取舍登记（行为变化）：**饱和使既有 `isFinite` 消费者由"拒绝/触发失败"改为"接受 FLT_MAX"——例如 `SceneDocument+General` 的 cameraShake 标量（原 `guard value.isFinite` 会拒绝越界串）与 `SceneScriptLayerHandleBridge.validOrigin`（原先会因 inf origin 触发**启动级**拒绝）。这正是想要的局部 fail-soft（把启动级半径收敛为该字段），但**这两个消费者尚无独立测试**，且饱和与仓库另两处先例（`SceneDynamicLayerValues.lightIntensity` 的"设门+回退"、`SceneLayerDynamicWorldFrameResolver` 的"转换后非有限即拒"）语义不同，属第三种取舍。
+
+**验证：**行为门 `test_scene_static_model_document.test_authored_numbers_beyond_the_float_range_saturate`：以**计数**区分"饱和"与"拒绝"（`floatVector("1e39 0 0")` 与数组形态均为 3 个分量）、以谓词断言 `allSatisfy(\.isFinite)` 与 `== ±Float.greatestFiniteMagnitude`、以 `JSONSerialization` 往返断言**真实作者通路（NSNumber 桥接）**同样饱和、以 `{"value": 1e39}` 断言包裹形态、并有 in-range 精确（`[10,20,0]`/`0.25`）、非法 token 拒绝（`"1 2 x"`/`"abc"`）与非有限保持的反例。载荷用谓词而非数值以避开 JSON 无法编码 inf。反例实测：把 `saturatingFloat` 换回 `Float(value)` 时该测试以干净断言失败，恢复即通过。编译该文件的 **10** 个模块（`test_scene_static_model_document`/`test_scene_timeline_document`/`test_scene_timeline_runtime`/`test_scene_timeline_target_compiler`/`test_scene_text_row_limit`/`test_scene_camera_shake`/`test_scene_material_render_state`/`test_scene_script_binding_parser`/`test_scene_solid_layers`/`test_scene_asset_catalog_resource_view`）全绿（`test_scene_text_geometry` 自带 `SceneDocumentLoader` 桩、`test_scene_static_model_rendering` 无 swiftc，均不作为本文件的背书）；`bash script/run_checkpoint_build.sh` 为 BUILD SUCCEEDED。
+
+**独立审查与限制：**两轮只读独立复审（审查者未参与本批、未构建/运行）。首轮 `e59be875…` 判 **CHANGES REQUIRED**（记录/证据/测试层，产品码 `saturatingFloat` 判可接受）并抓出本批首版的实证错误：①我首版扫描脚本的字符串分支只匹配**单值**串，漏掉 `"x y z"` 多分量形态（`floatVector` 的主输入），使"超过 1e19 者 0"成为正则缺口的产物——审查者用自己的多分量遍历发现 `1300076567` 的粒子控制点恰等于 `Float.greatestFiniteMagnitude`；②我把 `cameraPath.fov` 算作本收窄点的消费者（实为 `SceneDocumentObject.number()` + `SceneMetalRenderer+Camera` 的 `map(Float.init)`，不经 `floatValue`）；③"该通路已由批 2/3 的门收敛"与同文件"乘积溢出仍未收敛"矛盾；④向量断言对"拒绝实现"空真通过；⑤未登记饱和会翻转既有 `isFinite` 消费者的取舍；⑥"12 个模块"实为 10 个（多算了自带桩的 `test_scene_text_geometry` 与无 swiftc 的 `test_scene_static_model_rendering`）。第二轮 `2d93a3f7…` 确认 F1（扫描本体）/F2/F4/F5/F6/F7 闭合，并给出三项归档/身份必改（引用被废弃的首版脚本哈希、队列残留的"②无值域门"句、证据缓存被 gitignore 的哈希可核验性）与一项精度措辞（零余量归因）。上述均已随本提交修正；第二轮按修订版脚本独立重跑，输出与 `scan-output.txt` 逐字节相同。
+
+**未验证边界：**扫描面为 scene.json 的全部数值与**全数值字符串**（判定"全数值"是保守近似：形如 `"1758177000"` 的纯数字 `name`/`id`/`dependencies` 会被计入，而 `"x y z"` 形态与资产路径 `<hex>` 的区分正依赖该规则）；脚本源码内的数值字面量、用户属性运行期注入与 pkg 内辅助 JSON（`SceneAssetCatalog` 另有约 171 个非 scene.json JSON 条目，最大 3840）不在本扫描内；`abs(NaN) > FLT` 恒假，故语料若出现 `NaN/Infinity` 字面量不会被本判据捕获（实测 0 个）；③的 `cameraPath.fov` 未加门、仍为候选；语料已从 159 增至 171，文档中仍以 159 为分母的能力表/快照需单独复核（本批未改那些数字）；无原分辨率 ROI、无人工视觉验收、无官方同输入对照。
+
 <a id="e-2026-09-23-scenescript-nonfinite-world-transform"></a>
 ### E-2026-09-23-SCENESCRIPT-NONFINITE-WORLD-TRANSFORM — 超出 Float 可表示范围的动态变换收敛为该层自身
 
