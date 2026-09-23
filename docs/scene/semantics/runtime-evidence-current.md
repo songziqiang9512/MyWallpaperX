@@ -299,6 +299,19 @@ targeted matrix仍严格**FAIL**，唯一失败为`animated output evidence belo
 
 **未验证边界：**无原分辨率 ROI、无人工视觉验收、无官方同输入对照；compositor/next-frame 腿**未取得**（本批只读到 `MWX PERF` 累计帧计数，非交互窗口切片，窗口内无切片证据）；`cursorMove` 的逐帧连续位移（只取到单步 drag 的一次 move 与释放）与多步连续移动下的 capture 稳定性未验；typed mutation → publication → compositor 链未在回调层归因（需 owner-update 关联或换到回调直接写 typed 属性的样本）。
 
+<a id="e-2026-09-23-scenescript-cursor-typed-drag"></a>
+### E-2026-09-23-SCENESCRIPT-CURSOR-TYPED-DRAG — 回调直接写 typed 属性的真实样本 drag 链
+
+**基线与变更：**`4bc37e84` + 本批取证（无产品代码改动）。前一条记录判定 `3662790108` 的 cursor owner 不在 down/move/up 里写 typed 属性，故 typed 腿换到只读样本 `3122339805` 的隔离副本（`cp -R` 自真实只读根，真实根未写入；cdhash `0f7669d031b785c5c27638de3eebd84998e26d98`）。其层 `207`（`Numbers Window`）与 `144`（`Eyes Window`）的 `.origin` 绑定导出 cursorDown/Move/Up，且 `cursorMove` 写 `thisLayer.origin = event.worldPosition.add(dragOffset)`、`cursorDown` 用 `thisLayer.origin.subtract(event.worldPosition)` 取偏移——即队列 Q1.5a 记录的模式；Q1.5a 原文记的 "object 167/180" 是 `objects` 数组下标（`objects[167].id=207`、`objects[180].id=144`），原记录正确。两层 `visible` 由 `applyUserProperties` 拥有且作者值为 false，命中之所以发生是命中准入**刻意**不看可见性（`SceneMetalView+SceneScriptCursorInteraction.swift:78-79` 明写 hidden transparent interaction owners remain hit-testable），因此本条测的是**交互盒几何**，不能推出该窗口被渲染或可见。
+
+**取得（受控 drag：hover = 探针盒中心 `(0.5551,0.4537)`、from-launch，drag 到 `(0.35,0.30)`）：**`207 cursorDown captureActive=0 currentHit=1 local≈(0.0001,-0.0001)` → **`207 cursorMove mutation=origin value=1079.470459,717.001953,0.000000`**（作者 typed `.origin` 写入；单步 drag 只产生一次 move 采样，故 1 条）→ 同采样 `207 cursorMove captureActive=1 currentHit=0 local=(-0.497067,-2.766666)`（命中几何尚未更新）→ 0.31 s 后 `207 cursorUp captureActive=1 currentHit=1 local≈(0.0001,-0.0001)`（**同一指针位置、盒已随指针移动**）。零 `event=cursor failure`。该链条即"typed mutation 经 publication 落到后续帧几何"：同一指针位置在突变采样内落在盒外、在后续帧回到盒心。
+
+**compositor：**序列运行帧级 `rendered=381 attempts=481 busy=100 dropped=0`，ready/hover/after 快照均非黑，`hover_to_after changed_ratio=0.058`。**但帧计数是自 launch 累计、不是交互窗口切片**，故本条只主张"持续出帧且无丢弃"，不主张窗口级 compositor 证据。该样本 report 唯一 FAIL 为 `drag interaction output did not preserve settled position`：其直接判据是 `hover_to_after` **整窗**像素变化率 0.058 越过 hold 路径默认门限 0.001（`scene_wallpaper_benchmark.py` 的 drag 分支），该采样不是层归属测量（两快照相距 0.2 s、其间还有指针移出与场景自带动画），故只记为"与日志突变相符"、**不作判别**。
+
+**独立审查与限制：**只读独立复审（审查者未参与本批、未构建/运行）对实质链条做结构与数值双重核实：脚本绑定与写值逐字符合；同 batch 内所有 sample 共享同一 `dynamicValues`/`renderer.renderDescriptor` 投影（`SceneMetalView+SceneScriptCursorInteraction.swift:116-140`），故 release 采样的 `local` 变化只能来自后续 batch；按层 207 的 size 343×30 与突变值复算，`local` 差残差 ≤1e-4 px、反推指针世界位置差 <2e-4 px，相机与指针变化均被排除，链条确由 typed mutation 落到后续帧几何解释；`.move`/`.up` 分支与 owner-effects 消费点（`SceneScriptCursorProgram.swift:384-414` → `SceneDesktopWallpaperHost+FrameDriver.swift:483-524` → 后续帧 `SceneLayerDynamicWorldFrameResolver.resolve`）一致。复审同时纠正了本条首版的三处表述：把 Q1.5a 的 167/180 误标为"与实际 id 不符"（实为 `objects` 数组下标、原记录正确）、FAIL 归因超出可归因范围（实为整窗像素门）、未提示两层作者 `visible:false` 且命中准入刻意忽略可见性（故不能据此推断渲染或可见）。冻结 diff `a3f13063712fcb543ba726a397a7250b89153ba9e86511ed25be1e2f059f3cdb` 的实质断言获其确认，上述记录项已随本提交修正。
+
+**未验证边界：**多步连续 move 未取得（现仪器 drag = press + 单次 move + release，`pointer_trajectory_normalized` 不能带按钮）；无原分辨率 ROI、无人工视觉验收、无官方同输入对照；`event.worldPosition` 与屏幕归一化坐标之间的换算未做独立核对（本条只依赖同一指针位置的几何自洽）。
+
 <a id="e-2026-09-23-scenescript-nonfinite-world-transform"></a>
 ### E-2026-09-23-SCENESCRIPT-NONFINITE-WORLD-TRANSFORM — 超出 Float 可表示范围的动态变换收敛为该层自身
 
