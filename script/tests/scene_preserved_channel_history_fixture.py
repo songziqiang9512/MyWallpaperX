@@ -736,6 +736,19 @@ private func compositionConsumerRejectionOutcomes() -> [String: String] {
     let external = 920
     let selfReference = 921
     let dependencyFree = 922
+    let routedBinding = 923
+    var routed = consumer(id: routedBinding, references: [reference(
+        consumerID: routedBinding, providerID: 194
+    )])
+    routed.namedBindings = routed.namedReferences.map { reference in
+        SceneDependencyRenderPlan.Binding(
+            consumerLayerID: reference.consumerLayerID,
+            providerLayerID: reference.providerLayerID,
+            slot: reference.slot,
+            blendMode: 0,
+            kind: .imageLayerBlend
+        )
+    }
     let descriptor = SceneRenderDescriptor(
         layers: [
             consumer(id: external, references: [reference(
@@ -745,6 +758,7 @@ private func compositionConsumerRejectionOutcomes() -> [String: String] {
                 consumerID: selfReference, providerID: selfReference
             )]),
             consumer(id: dependencyFree, references: []),
+            routed,
         ],
         materialPasses: [],
         effectDefinitions: []
@@ -754,6 +768,7 @@ private func compositionConsumerRejectionOutcomes() -> [String: String] {
         "external-refused": outcomes[external] ?? "missing",
         "self-reference": outcomes[selfReference] ?? "missing",
         "dependency-free": outcomes[dependencyFree] ?? "missing",
+        "routed-binding": outcomes[routedBinding] ?? "missing",
     ]
 }
 '''
