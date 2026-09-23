@@ -335,22 +335,13 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
             let layerReferences = dependencyPlan.references.filter {
                 $0.consumerLayerID == layerID
             }
-            // A composition consumer whose *external* provider this projection
-            // rejected has no executable route of its own (the utility plan
-            // records the same consumer as `unsupportedDependencies`), so
-            // admitting it would only leave the graph demanding execution
-            // evidence no route can produce. Two shapes stay outside this
-            // guard on purpose: a self reference (`provider == layer`), which
-            // the ownership compiler routes as `graph-internal`, and an
-            // ordinary image consumer, which keeps the designed per-effect
-            // fail-soft (only its unbound dependency stage degrades and the
-            // rest of the chain still executes).
-            if layer.utilityLayer?.kind == .composition,
-               dependencyPlan.issues.contains(where: {
-                   $0.layerID == layerID
-                       && $0.kind == .forwardUtilityProvider
-                       && $0.providerLayerID != layerID
-               }) {
+            // The dependency projection owns "this consumer has no executable
+            // route"; the admission only honours it (see the ownership
+            // compiler for the two shapes deliberately kept outside).
+            if SceneResolvedMaterialDependencyOwnershipCompiler
+                .refusedExternalProviderCompositionConsumer(
+                    layer: layer, layerID: layerID, plan: dependencyPlan
+                ) {
                 return .init(
                     layerID: layerID,
                     result: .failure(failure("dependency-provider-rejected"))

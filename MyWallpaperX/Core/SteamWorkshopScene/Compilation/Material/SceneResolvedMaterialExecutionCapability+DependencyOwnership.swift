@@ -47,6 +47,29 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Reference = SceneDependencyRenderPlan.Reference
 
+    /// The projection refused this consumer's *external* provider, so its
+    /// composition route cannot execute (the utility plan records the same
+    /// consumer as `unsupportedDependencies`). Admitting it anyway would only
+    /// leave the graph demanding execution evidence no route can produce, so
+    /// the projection is the single authority for the executable set too.
+    ///
+    /// Two shapes stay outside on purpose: a self reference (`provider ==
+    /// layer`), which this compiler routes as `graph-internal`, and an ordinary
+    /// image consumer, which keeps the designed per-effect fail-soft (only its
+    /// unbound dependency stage degrades and the rest of the chain executes).
+    static func refusedExternalProviderCompositionConsumer(
+        layer: SceneRenderDescriptor.Layer,
+        layerID: Int,
+        plan: SceneDependencyRenderPlan
+    ) -> Bool {
+        layer.utilityLayer?.kind == .composition
+            && plan.issues.contains {
+                $0.layerID == layerID
+                    && $0.kind == .forwardUtilityProvider
+                    && $0.providerLayerID != layerID
+            }
+    }
+
     static func structuralUtilityConsumerLayerIDs(
         in descriptor: SceneRenderDescriptor
     ) -> Set<Int> {
