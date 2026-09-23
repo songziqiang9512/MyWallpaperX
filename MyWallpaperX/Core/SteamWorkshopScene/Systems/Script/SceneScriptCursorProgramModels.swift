@@ -34,7 +34,7 @@ nonisolated struct SceneScriptCursorFrameBatch: Equatable, Sendable {
 }
 
 nonisolated struct SceneScriptCursorFrameResult: Equatable, Sendable {
-    let failures: [Int: SceneScriptScalarRuntimeFailure]
+    let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
@@ -42,7 +42,7 @@ nonisolated struct SceneScriptCursorFrameResult: Equatable, Sendable {
     let ownerEffects: [SceneScriptOwnerEffects]
 
     init(
-        failures: [Int: SceneScriptScalarRuntimeFailure],
+        failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure],
         materialFunctionMutations: [SceneScriptMaterialFunctionMutation],
         animationMutations: [SceneTimelinePlaybackMutation],
         layerMutations: [SceneScriptLayerMutation],
@@ -60,15 +60,15 @@ nonisolated struct SceneScriptCursorFrameResult: Equatable, Sendable {
 
 nonisolated struct SceneScriptCursorProgramConstruction: @unchecked Sendable {
     let program: SceneScriptCursorProgram
-    let requestedLayerIDs: Set<Int>
-    let instantiatedLayerIDs: Set<Int>
-    let failures: [Int: SceneScriptScalarRuntimeFailure]
+    let requestedTargets: Set<SceneDynamicTarget>
+    let instantiatedTargets: Set<SceneDynamicTarget>
+    let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
     // Identity preflight rejection executes no failed JavaScript. Only an
     // attempted owner failure can contaminate the shared construction domain.
     var requiresDomainReconstruction: Bool = false
 
-    var deferredLayerIDs: Set<Int> {
-        requestedLayerIDs.subtracting(instantiatedLayerIDs).subtracting(failures.keys)
+    var deferredTargets: Set<SceneDynamicTarget> {
+        requestedTargets.subtracting(instantiatedTargets).subtracting(failures.keys)
     }
 }
 
@@ -92,14 +92,22 @@ nonisolated struct SceneScriptCursorEdgeState: Sendable {
 
 nonisolated struct SceneScriptCursorBinding: @unchecked Sendable {
     let layerID: Int
-    let authoredOrder: Int
+    let authoredOrdinal: Int
     let owner: SceneScriptVectorOwner
     let events: Set<SceneScriptCursorEventKind>
     let ownsOwner: Bool
     let scriptProperties: [String: SceneScriptPropertyInput]
+    /// Authored initial value of the owner's own target. A borrowed owner is
+    /// initialized from here when a cursor callback reaches it before the
+    /// frame evaluation did. A standalone cursor-only owner has no value
+    /// route, so it carries no seed and is constructed fail-closed when it
+    /// would need one.
+    let ownerSeedValue: SceneDynamicValue?
+
+    var ownerTarget: SceneDynamicTarget { owner.target }
 }
 
 nonisolated struct SceneScriptCursorAuthoredMutationKey: Hashable {
-    let ownerLayerID: Int
+    let ownerTarget: SceneDynamicTarget
     let targetLayerID: Int
 }

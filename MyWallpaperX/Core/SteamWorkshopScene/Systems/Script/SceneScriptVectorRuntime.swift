@@ -19,6 +19,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     private let handlesInit: Bool
     private let handlesUpdate: Bool
     private var hasInitialized = false
+    private var pendingInitializationValue: SceneDynamicValue?
     private var lastAudioGeneration: UInt64?
 
     var allowsDynamicLayerSideEffects: Bool {
@@ -29,10 +30,23 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     /// Event-only owners (no `init`/`update`) run exclusively through their
     /// event dispatches. A C update call would pass through unchanged, but the
     /// scalar/string quiescence mirror skips owners with nothing to run; the
-    /// program-side skip relies on this flag.
+    /// program-side skip relies on this flag. A retained initialization value
+    /// keeps the owner evaluable until the evaluation published it.
     var requiresFrameEvaluation: Bool {
         handlesUpdate || (handlesInit && !hasInitialized)
+            || pendingInitializationValue != nil
             || mwx_scene_quickjs_owner_active_timer_count(handle) > 0
+    }
+
+    /// Authored `init` runs once, before any other authored callback. A route
+    /// that dispatches events ahead of the frame evaluation has to complete it
+    /// first, or the callback would read pre-`init` state.
+    var needsInitialization: Bool { handlesInit && !hasInitialized }
+
+    /// Takes the value an out-of-band `init` published, for the next `update`.
+    private func consumePendingInitializationValue() -> SceneDynamicValue? {
+        defer { pendingInitializationValue = nil }
+        return pendingInitializationValue
     }
 
     init(
@@ -261,7 +275,8 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         scriptPropertiesJSON: String,
         userPropertiesJSON: String,
         expectedGeneration: UInt64,
-        interruptBudget: UInt64?
+        interruptBudget: UInt64?,
+        retainsValueForNextUpdate: Bool = false
     ) -> Result<SceneScriptVectorEvaluation?, SceneScriptScalarRuntimeFailure> {
         guard input.valueType == valueType, input.isFinite else {
             return .failure(.invalidArgument("invalid typed initialization input"))
@@ -350,11 +365,17 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(failure)
         }
-        return validatedEvaluation(
+        let evaluation = validatedEvaluation(
             value: publishedValue,
             mutations: callbackMutations,
             layerID: layerID
-        ).map(Optional.some)
+        )
+        // A route that ran this `init` ahead of the frame evaluation (cursor)
+        // carries its value across, so the first `update` still receives it.
+        if retainsValueForNextUpdate, case let .success(value) = evaluation {
+            pendingInitializationValue = value.value
+        }
+        return evaluation.map(Optional.some)
     }
 
     func evaluate(
@@ -369,7 +390,9 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             return .failure(.invalidArgument("invalid typed vector input"))
         }
         guard expectedGeneration == generation else { return .failure(.staleOwner) }
-        let scriptInput = sceneScriptInput(input)
+        let scriptInput = sceneScriptInput(
+            consumePendingInitializationValue() ?? input
+        )
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         var frameInput = frame.quickJSValue
         var diagnostic = [CChar](repeating: 0, count: 512)

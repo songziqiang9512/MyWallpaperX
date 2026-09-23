@@ -52,7 +52,9 @@ nonisolated struct SceneScriptVectorBinding: @unchecked Sendable {
 
 nonisolated struct SceneScriptCursorOwnerRegistration: @unchecked Sendable {
     let layerID: Int
-    let authoredOrder: Int
+    let authoredOrdinal: Int
+    let target: SceneDynamicTarget
+    let seedValue: SceneDynamicValue
     let owner: SceneScriptVectorOwner
     let scriptProperties: [String: SceneScriptPropertyInput]
 }

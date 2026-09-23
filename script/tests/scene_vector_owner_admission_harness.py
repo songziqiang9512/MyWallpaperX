@@ -564,6 +564,108 @@ enum Harness {
             inputs: [.layer(layerID: 80, field: .visibility): .bool(true)],
             effectivePropertyValues: [:], frame: frame
         )
+        let initCursorDescriptor = SceneRenderDescriptor(layers: [.init(
+            id: 90, layerIndex: 0, name: "init-before-cursor", visible: true,
+            originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], scaleHasScript: true,
+            alpha: 1, effects: [], contentKind: "image", sizeWH: [100, 100]
+        )])
+        let initCursorSource = """
+        let initScale;
+        export function init(value) {
+            initScale = new Vec3(value.x + 10, value.y, value.z);
+            return initScale;
+        }
+        export function update(value) {
+            thisLayer.origin = new Vec3(value.x + 100, 0, 0);
+            return value;
+        }
+        export function cursorEnter(event) {
+            thisLayer.origin = new Vec3(initScale.x + 1, 0, 0);
+        }
+        """
+        let initCursorBindings = [scaleBinding(
+            layerID: 90, index: 0, source: initCursorSource
+        )]
+        let initCursorProjection = SceneScriptVectorProgram.project(
+            descriptor: initCursorDescriptor,
+            scriptBindings: initCursorBindings
+        )
+        let initCursorCandidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: initCursorDescriptor,
+            runtimeDescriptor: initCursorDescriptor,
+            scriptBindings: initCursorBindings,
+            vectorProjection: initCursorProjection,
+            userPropertyDefinitions: [], timelineTargets: [],
+            scalarExcludedTargets: [], stringExcludedTargets: [],
+            admittedVectorPassTargets: [], generation: 66
+        )
+        let initCursorHit = SceneScriptCursorHit(
+            layerID: 90, worldPosition: .init(1, 2, 0),
+            localPosition: .init(0.5, 0.5, 0)
+        )
+        let initCursorResult = initCursorCandidate.cursorProgram.dispatch(
+            batch: .init(samples: [
+                .init(hits: [90: initCursorHit], pointerPosition: .zero,
+                      primaryButtonIsDown: false),
+            ], overflowed: false),
+            frame: frame,
+            userPropertiesJSON: "{}"
+        )
+        let initCursorUpdate = initCursorCandidate.vectorProgram.evaluate(
+            inputs: [.layer(layerID: 90, field: .scale): .vector3(1, 1, 1)],
+            effectivePropertyValues: [:], frame: frame
+        )
+        // An `init`-only borrowed owner has no value hook of its own, so the
+        // frame evaluation must still run it once to publish the value its
+        // `init` produced; the cursor route alone cannot deliver it.
+        let initOnlyDescriptor = SceneRenderDescriptor(layers: [.init(
+            id: 91, layerIndex: 0, name: "init-only-cursor", visible: true,
+            originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], scaleHasScript: true,
+            alpha: 1, effects: [], contentKind: "image", sizeWH: [100, 100]
+        )])
+        let initOnlySource = """
+        export function init(value) {
+            return new Vec3(value.x + 10, value.y, value.z);
+        }
+        export function cursorEnter(event) { return; }
+        """
+        let initOnlyBindings = [scaleBinding(
+            layerID: 91, index: 0, source: initOnlySource
+        )]
+        let initOnlyProjection = SceneScriptVectorProgram.project(
+            descriptor: initOnlyDescriptor,
+            scriptBindings: initOnlyBindings
+        )
+        let initOnlyCandidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: initOnlyDescriptor,
+            runtimeDescriptor: initOnlyDescriptor,
+            scriptBindings: initOnlyBindings,
+            vectorProjection: initOnlyProjection,
+            userPropertyDefinitions: [], timelineTargets: [],
+            scalarExcludedTargets: [], stringExcludedTargets: [],
+            admittedVectorPassTargets: [], generation: 67
+        )
+        let initOnlyResult = initOnlyCandidate.cursorProgram.dispatch(
+            batch: .init(samples: [
+                .init(
+                    hits: [91: SceneScriptCursorHit(
+                        layerID: 91, worldPosition: .init(1, 2, 0),
+                        localPosition: .init(0.5, 0.5, 0)
+                    )],
+                    pointerPosition: .zero, primaryButtonIsDown: false
+                ),
+            ], overflowed: false),
+            frame: frame,
+            userPropertiesJSON: "{}"
+        )
+        let initOnlyUpdate = initOnlyCandidate.vectorProgram.evaluate(
+            inputs: [.layer(layerID: 91, field: .scale): .vector3(1, 1, 1)],
+            effectivePropertyValues: [:], frame: frame
+        )
+        let initOnlyAfterPublish = initOnlyCandidate.vectorProgram.evaluate(
+            inputs: [.layer(layerID: 91, field: .scale): .vector3(1, 1, 1)],
+            effectivePropertyValues: [:], frame: frame
+        )
         let retryAggregateCandidate = try retryAggregateBudgetCandidate(
             ownerCount: 260,
             invalidPrefixCount: 20,
@@ -688,7 +790,7 @@ enum Harness {
             "vectorFailureCodes": candidate.constructionReport.vectorFailures
                 .values.map(\.code).sorted(),
             "cursorExpected": candidate.constructionReport
-                .expectedCursorLayerIDs.count,
+                .expectedCursorTargets.count,
             "cursorRejected": candidate.constructionReport.cursorFailures.count,
             "scalarExpected": candidate.constructionReport.expectedScalarTargets.count,
             "scalarRejected": candidate.constructionReport.scalarFailures.count,
@@ -723,7 +825,7 @@ enum Harness {
             "claimedCursorOverlapVectorInstantiated": overlapCandidate
                 .constructionReport.instantiatedVectorTargets.count,
             "claimedCursorOverlapCursorExpected": overlapCandidate
-                .constructionReport.expectedCursorLayerIDs.count,
+                .constructionReport.expectedCursorTargets.count,
             "claimedCursorOverlapCursorOwnerCount": overlapCandidate
                 .cursorProgram.ownerCount,
             "claimedCursorOverlapCursorOwnsOwner": overlapCandidate.cursorProgram
@@ -735,14 +837,14 @@ enum Harness {
             "mixedCursorVectorInstantiated": mixedCandidate.constructionReport
                 .instantiatedVectorTargets.count,
             "mixedCursorCursorExpected": mixedCandidate.constructionReport
-                .expectedCursorLayerIDs.count,
+                .expectedCursorTargets.count,
             "mixedCursorOwnerCount": mixedCandidate.cursorProgram.ownerCount,
             "mixedCursorBorrowed": mixedCandidate.cursorProgram.bindings
                 .first?.ownsOwner == false,
             "constCursorVectorExpected": constCandidate.constructionReport
                 .expectedVectorTargets.count,
             "constCursorExpected": constCandidate.constructionReport
-                .expectedCursorLayerIDs.count,
+                .expectedCursorTargets.count,
             "constCursorOwnerCount": constCandidate.cursorProgram.ownerCount,
             "constCursorBorrowed": constCandidate.cursorProgram.bindings
                 .first?.ownsOwner == false,
@@ -751,13 +853,13 @@ enum Harness {
             "asyncCursorVectorExpected": asyncCandidate.constructionReport
                 .expectedVectorTargets.count,
             "asyncCursorExpected": asyncCandidate.constructionReport
-                .expectedCursorLayerIDs.count,
+                .expectedCursorTargets.count,
             "asyncCursorMoveX": cursorMutationX(asyncDispatch),
             "asyncCursorMoveFailures": asyncDispatch.failures.count,
             "namedCursorVectorExpected": namedCandidate.constructionReport
                 .expectedVectorTargets.count,
             "namedCursorExpected": namedCandidate.constructionReport
-                .expectedCursorLayerIDs.count,
+                .expectedCursorTargets.count,
             "namedCursorMoveX": cursorMutationX(namedDispatch),
             "namedCursorMoveFailures": namedDispatch.failures.count,
             "propertyCursorVectorOwners": propertyCursorCandidate.vectorProgram.definitions.count,
@@ -770,38 +872,38 @@ enum Harness {
             "reexportCursorVectorExpected": reexportCandidate.constructionReport
                 .expectedVectorTargets.count,
             "reexportCursorExpected": reexportCandidate.constructionReport
-                .expectedCursorLayerIDs.count,
+                .expectedCursorTargets.count,
             "mediaMixedVectorExpected": mediaMixedCandidate.constructionReport
                 .expectedVectorTargets.count,
             "mediaMixedCursorExpected": mediaMixedCandidate.constructionReport
-                .expectedCursorLayerIDs.count,
+                .expectedCursorTargets.count,
             "destroyMixedVectorExpected": destroyMixedCandidate.constructionReport
                 .expectedVectorTargets.count,
             "destroyMixedCursorExpected": destroyMixedCandidate.constructionReport
-                .expectedCursorLayerIDs.count,
+                .expectedCursorTargets.count,
             "audioMixedVectorExpected": audioMixedCandidate.constructionReport
                 .expectedVectorTargets.count,
             "audioMixedCursorExpected": audioMixedCandidate.constructionReport
-                .expectedCursorLayerIDs.count,
+                .expectedCursorTargets.count,
             "nonFunctionVectorExpected": nonFunctionCandidate.constructionReport
                 .expectedVectorTargets.count,
             "nonFunctionCursorExpected": nonFunctionCandidate.constructionReport
-                .expectedCursorLayerIDs.count,
+                .expectedCursorTargets.count,
             "regexLiteralVectorExpected": regexLiteralCandidate.constructionReport
                 .expectedVectorTargets.count,
             "regexLiteralCursorExpected": regexLiteralCandidate.constructionReport
-                .expectedCursorLayerIDs.count,
+                .expectedCursorTargets.count,
             "duplicateCursorVectorExpected": duplicateCursorCandidate
                 .constructionReport.expectedVectorTargets.count,
             "duplicateCursorExpected": duplicateCursorCandidate
-                .constructionReport.expectedCursorLayerIDs.count,
+                .constructionReport.expectedCursorTargets.count,
             "duplicateCursorStaticProjection": duplicateCursorProjection.targets.count,
             "duplicateCursorDuplicates": duplicateCursorProjection.duplicateTargets.count,
             "mixedDuplicateTargets": mixedDuplicateProjection.duplicateTargets.count,
             "mixedDuplicateVectorExpected": mixedDuplicateCandidate.constructionReport
                 .expectedVectorTargets.count,
             "mixedDuplicateCursorExpected": mixedDuplicateCandidate.constructionReport
-                .expectedCursorLayerIDs.count,
+                .expectedCursorTargets.count,
             "mixedDuplicateCursorOwners": mixedDuplicateCandidate.cursorProgram.ownerCount,
             "routedGenericMediaTargets": routedGeneric.mediaOwnerTargets.count,
             "routedGenericVectorOwners": routedGeneric.programs.vectorProgram.definitions.count,
@@ -812,7 +914,7 @@ enum Harness {
             "vectorCursorCollisionVectorExpected": vectorCursorCollisionCandidate
                 .constructionReport.expectedVectorTargets.count,
             "vectorCursorCollisionCursorExpected": vectorCursorCollisionCandidate
-                .constructionReport.expectedCursorLayerIDs.count,
+                .constructionReport.expectedCursorTargets.count,
             "effectCursorProjected": effectCursorProjection.targets.count,
             "effectCursorFailureCode": effectCursorCandidate.constructionReport
                 .vectorFailures[effectCursorTarget]?.code ?? "missing",
@@ -823,15 +925,40 @@ enum Harness {
             "textCursorMutationX": cursorMutationX(textCursorDispatch),
             "unhitVectorOwners": unhitCandidate.vectorProgram.definitions.count,
             "unhitCursorExpected": unhitCandidate.constructionReport
-                .expectedCursorLayerIDs.count,
+                .expectedCursorTargets.count,
             "unhitCursorFailure": unhitCandidate.constructionReport
-                .cursorFailures[80]?.code ?? "missing",
+                .cursorFailures[.layer(layerID: 80, field: .visibility)]?.code
+                    ?? "missing",
             "unhitCursorOwners": unhitCandidate.cursorProgram.ownerCount,
             "unhitMixedCursorFailure": unhitMixedCandidate.constructionReport
-                .cursorFailures[80]?.code ?? "missing",
+                .cursorFailures[.layer(layerID: 80, field: .visibility)]?.code
+                    ?? "missing",
             "unhitMixedVectorValue": unhitMixedValue.values[
                 .layer(layerID: 80, field: .visibility)
             ] == .bool(false),
+            "initCursorOwners": initCursorCandidate.cursorProgram.ownerCount,
+            "initCursorBorrowed": initCursorCandidate.cursorProgram.bindings
+                .first?.ownsOwner == false,
+            "initCursorFailures": initCursorResult.failures.count,
+            "initCursorMutationX": cursorMutationX(initCursorResult),
+            "initCursorUpdateFailures": initCursorUpdate.failures.count,
+            "initCursorUpdateOriginX": initCursorUpdate.layerMutations
+                .first?.origin.x ?? -1,
+            "initCursorPublishedX": vectorX(initCursorUpdate.values[
+                .layer(layerID: 90, field: .scale)
+            ]),
+            "initOnlyOwners": initOnlyCandidate.cursorProgram.ownerCount,
+            "initOnlyCursorFailures": initOnlyResult.failures.count,
+            "initOnlyUpdateFailures": initOnlyUpdate.failures.count,
+            "initOnlyPublished": initOnlyUpdate.values[
+                .layer(layerID: 91, field: .scale)
+            ] != nil,
+            "initOnlyPublishedX": vectorX(initOnlyUpdate.values[
+                .layer(layerID: 91, field: .scale)
+            ]),
+            "initOnlyAfterPublishPublished": initOnlyAfterPublish.values[
+                .layer(layerID: 91, field: .scale)
+            ] != nil,
             "retryAggregateCommitted": retryAggregateCandidate.domain != nil,
             "retryAggregateVectorExpected": retryAggregateCandidate
                 .constructionReport.expectedVectorTargets.count,
@@ -1050,6 +1177,35 @@ enum Harness {
 
     static func cursorMutationX(_ result: SceneScriptCursorFrameResult) -> Double {
         result.layerMutations.first?.origin.x ?? -1
+    }
+
+    static func vectorX(_ value: SceneDynamicValue?) -> Double {
+        guard case let .vector3(x, _, _)? = value else { return -1 }
+        return x
+    }
+
+    static func scaleBinding(
+        layerID: Int,
+        index: Int,
+        source: String
+    ) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .object,
+                objectIndex: index,
+                objectID: layerID,
+                effectIndex: nil,
+                effectID: nil,
+                passIndex: nil,
+                passID: nil
+            ),
+            targetPath: [.key("objects"), .index(index), .key("scale")],
+            properties: [:],
+            authoredValue: .string("1 1 1"),
+            valueType: .string,
+            wrapperKeys: ["script", "value"]
+        )
     }
 
     static func overlapOriginBinding(source: String) -> SceneScriptBindingIR {

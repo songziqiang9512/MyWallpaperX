@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Cursor candidate collisions must retain a typed layer identity."""
+"""Cursor owners use exact typed identity while sharing layer hit state."""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ enum Harness {
             scriptBindings: bindings,
             borrowedOwners: candidate.vectorProgram.cursorOwnerRegistrations,
             claimedTargets: candidate.vectorProgram.inputTargets,
-            rejectedLayerIDs: [],
+            rejectedTargets: [],
             generation: 41
         )
         let frame = SceneScriptFrameInput(
@@ -104,10 +104,96 @@ enum Harness {
             scalarExcludedTargets: [], stringExcludedTargets: [],
             admittedVectorPassTargets: [], generation: 43
         )
+        let duplicateRegistration = candidate.vectorProgram
+            .cursorOwnerRegistrations.first { $0.layerID == 40 }!
+        let duplicatePreflight = SceneScriptCursorProgram.compileCandidate(
+            domain: candidate.domain,
+            descriptor: descriptor,
+            scriptBindings: [],
+            borrowedOwners: [duplicateRegistration, duplicateRegistration],
+            rejectedTargets: [],
+            generation: 44
+        )
+        let peerDescriptor = SceneRenderDescriptor(layers: [
+            layer(id: 60, index: 0, name: "same-layer-peer-isolation"),
+        ])
+        let peerBindings = [
+            vectorBinding(
+                layerID: 60, index: 0, field: "scale",
+                source: successSource(x: 1)
+            ),
+            visibilityBinding(
+                layerID: 60, index: 0, source: failureSource
+            ),
+            vectorBinding(
+                layerID: 60, index: 0, field: "angles",
+                source: successSource(x: 2)
+            ),
+        ]
+        let peerProjection = SceneScriptVectorProgram.project(
+            descriptor: peerDescriptor, scriptBindings: peerBindings
+        )
+        let peerCandidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: peerDescriptor,
+            runtimeDescriptor: peerDescriptor,
+            scriptBindings: peerBindings,
+            vectorProjection: peerProjection,
+            userPropertyDefinitions: [], timelineTargets: [],
+            scalarExcludedTargets: [], stringExcludedTargets: [],
+            admittedVectorPassTargets: [], generation: 45
+        )
+        let peerResult = peerCandidate.cursorProgram.dispatch(
+            batch: .init(samples: [
+                .init(
+                    hits: [60: hit(layerID: 60)],
+                    pointerPosition: .zero,
+                    primaryButtonIsDown: false
+                ),
+                .init(
+                    hits: [60: hit(layerID: 60)],
+                    pointerPosition: .zero,
+                    primaryButtonIsDown: true
+                ),
+                .init(
+                    hits: [:],
+                    ownerProjections: [60: hit(layerID: 60)],
+                    pointerPosition: .init(0.5, 0),
+                    primaryButtonIsDown: true
+                ),
+                .init(
+                    hits: [:],
+                    ownerProjections: [60: hit(layerID: 60)],
+                    pointerPosition: .init(0.5, 0),
+                    primaryButtonIsDown: false
+                ),
+            ], overflowed: false),
+            frame: frame,
+            userPropertiesJSON: "{}"
+        )
+        let peerCapturedAfterRelease = peerCandidate.cursorProgram
+            .capturedOwnerLayerIDs.count
+        let peerNextFrame = peerCandidate.cursorProgram.dispatch(
+            batch: .init(samples: [
+                .init(
+                    hits: [60: hit(layerID: 60)],
+                    pointerPosition: .init(0.5, 0),
+                    primaryButtonIsDown: false
+                ),
+                .init(
+                    hits: [60: hit(layerID: 60)],
+                    pointerPosition: .init(0.5, 0),
+                    primaryButtonIsDown: true
+                ),
+            ], overflowed: false),
+            frame: frame,
+            userPropertiesJSON: "{}"
+        )
         let payload: [String: Any] = [
             "mixedStandaloneVectorTargets": mixedStandaloneProjection.targets.count,
             "mixedStandaloneCursorFailure": mixedStandaloneCandidate
-                .constructionReport.cursorFailures[30]?.code ?? "missing",
+                .constructionReport.cursorFailures[
+                    .layer(layerID: 30, field: .visibility)
+                ]?.code ?? "missing",
             "mixedStandaloneCursorOwners": mixedStandaloneCandidate
                 .cursorProgram.ownerCount,
             "enabledParallaxOwners": parallaxProgram.ownerCount,
@@ -115,20 +201,43 @@ enum Harness {
             "preflightRequiresReconstruction": preflight.requiresDomainReconstruction,
             "complete": report.isComplete,
             "vectorInstantiated": report.instantiatedVectorTargets.count,
-            "cursorExpected": report.expectedCursorLayerIDs.sorted(),
-            "cursorInstantiated": report.instantiatedCursorLayerIDs.sorted(),
-            "cursorFailures": report.cursorFailures.keys.sorted(),
-            "standaloneBorrowedCode": report.cursorFailures[10]?.code ?? "",
-            "standaloneBorrowedMessage": failureMessage(
-                report.cursorFailures[10]
-            ),
-            "borrowedBorrowedCode": report.cursorFailures[20]?.code ?? "",
-            "borrowedBorrowedMessage": failureMessage(
-                report.cursorFailures[20]
-            ),
+            "cursorExpected": report.expectedCursorTargets.count,
+            "cursorInstantiated": report.instantiatedCursorTargets.count,
+            "cursorFailures": report.cursorFailures.keys.map {
+                targetName($0)
+            }.sorted(),
             "cursorOwners": candidate.cursorProgram.ownerLayerIDs.sorted(),
             "cursorOwnerCount": candidate.cursorProgram.ownerCount,
-            "dispatchFailures": cursorResult.failures.keys.sorted(),
+            "dispatchFailures": cursorResult.failures.keys.map {
+                targetName($0)
+            }.sorted(),
+            "duplicateRequested": duplicatePreflight.requestedTargets.count,
+            "duplicateInstantiated": duplicatePreflight.instantiatedTargets.count,
+            "duplicateFailure": duplicatePreflight.failures[
+                .layer(layerID: 40, field: .origin)
+            ]?.code ?? "missing",
+            "duplicateRequiresReconstruction": duplicatePreflight
+                .requiresDomainReconstruction,
+            "peerOwners": peerCandidate.cursorProgram.ownerCount,
+            "peerVectorTargets": peerProjection.targets.count,
+            "peerVectorExpected": peerCandidate.constructionReport
+                .expectedVectorTargets.count,
+            "peerVectorFailures": peerCandidate.constructionReport
+                .vectorFailures.values.map(\.code).sorted(),
+            "peerCursorExpected": peerCandidate.constructionReport
+                .expectedCursorTargets.count,
+            "peerCursorFailures": peerCandidate.constructionReport
+                .cursorFailures.values.map(\.code).sorted(),
+            "peerFailureVisibility": peerResult.failures[
+                .layer(layerID: 60, field: .visibility)
+            ]?.code ?? "missing",
+            "peerMutationX": peerResult.layerMutations.map(\.origin.x),
+            "peerOwnerOrder": peerResult.ownerEffects.map {
+                targetName($0.ownerTarget)
+            },
+            "peerCapturedAfterRelease": peerCapturedAfterRelease,
+            "peerNextFrameFailures": peerNextFrame.failures.count,
+            "peerNextFrameMutationX": peerNextFrame.layerMutations.map(\.origin.x),
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -153,9 +262,9 @@ enum Harness {
             scaleHasScript: false,
             alpha: 1,
             effects: id == 30 ? [.init(name: "authored-effect")] : [],
-            contentKind: id == 30 || id == 50 ? "image" : "composition",
+            contentKind: [30, 50, 60].contains(id) ? "image" : "composition",
             sizeWH: [100, 100],
-            utilityLayer: id == 50 ? nil : .init(
+            utilityLayer: id == 50 || id == 60 ? nil : .init(
                 kind: .composition, copyBackground: false, passthrough: false
             ),
             parentID: id == 30 ? 10 : nil,
@@ -192,10 +301,11 @@ enum Harness {
     static func vectorBinding(
         layerID: Int,
         index: Int,
-        field: String
+        field: String,
+        source: String = borrowedSource
     ) -> SceneScriptBindingIR {
         .init(
-            source: borrowedSource,
+            source: source,
             owner: .init(
                 kind: .object,
                 objectIndex: index,
@@ -210,7 +320,8 @@ enum Harness {
             ],
             properties: [:],
             authoredValue: .string(
-                field == "scale" ? "1 1 1" : "0 0 0"
+                field == "scale" ? "1 1 1"
+                    : field == "angles" ? "0 -0 0" : "0 0 0"
             ),
             valueType: .string,
             wrapperKeys: ["script", "value"]
@@ -219,10 +330,11 @@ enum Harness {
 
     static func visibilityBinding(
         layerID: Int,
-        index: Int
+        index: Int,
+        source: String = borrowedSource
     ) -> SceneScriptBindingIR {
         .init(
-            source: borrowedSource,
+            source: source,
             owner: .init(
                 kind: .object,
                 objectIndex: index,
@@ -250,13 +362,26 @@ enum Harness {
         )
     }
 
-    static func failureMessage(
-        _ failure: SceneScriptScalarRuntimeFailure?
-    ) -> String {
-        guard case let .invalidArgument(message)? = failure else {
-            return "wrong-failure"
+    static func targetName(_ target: SceneDynamicTarget) -> String {
+        if case let .layer(layerID, field) = target {
+            return "\(layerID):\(field.rawValue)"
         }
-        return message
+        return String(describing: target)
+    }
+
+    static func successSource(x: Int) -> String {
+        """
+        export function cursorDown(event) {
+            thisLayer.origin = new Vec3(\(x), 0, 0);
+        }
+        export function cursorMove(event) {
+            thisLayer.origin = new Vec3(\(x + 2), 0, 0);
+        }
+        export function cursorUp(event) {
+            thisLayer.origin = new Vec3(\(x + 4), 0, 0);
+        }
+        export function update(value) { return value; }
+        """
     }
 
     static let standaloneSource = """
@@ -266,6 +391,11 @@ enum Harness {
     static let borrowedSource = """
     export function cursorEnter(event) {}
     export function update(value) { return value }
+    """
+
+    static let failureSource = """
+    export function cursorDown(event) { throw new Error("peer failure"); }
+    export function update(value) { return value; }
     """
 }
 '''
@@ -291,14 +421,14 @@ class SceneCursorCandidateCollisionTests(unittest.TestCase):
         result = json.loads(subprocess.run([str(self.binary)], check=True,
             capture_output=True, text=True).stdout)
         self.assertEqual(result["enabledParallaxOwners"], 1)
-        self.assertEqual(result["cursorOwners"], [30, 40, 50])
+        self.assertEqual(result["cursorOwners"], [10, 20, 30, 40, 50])
 
     def test_borrowed_child_owner_accepts_authored_transform_defaults(self):
         result = json.loads(subprocess.run([str(self.binary)], check=True,
             capture_output=True, text=True).stdout)
         self.assertIn(50, result["cursorOwners"])
 
-    def test_collisions_stay_local_parented_image_and_borrowed_visibility_survive(
+    def test_same_layer_different_targets_coexist_and_exact_duplicates_fail(
         self,
     ) -> None:
         result = json.loads(subprocess.run(
@@ -311,25 +441,33 @@ class SceneCursorCandidateCollisionTests(unittest.TestCase):
         self.assertFalse(result["preflightRequiresReconstruction"])
         self.assertTrue(result["complete"])
         self.assertEqual(result["vectorInstantiated"], 5)
-        self.assertEqual(result["cursorExpected"], [10, 20, 30])
-        self.assertEqual(result["cursorInstantiated"], [30])
-        self.assertEqual(result["cursorFailures"], [10, 20])
-        self.assertEqual(result["standaloneBorrowedCode"], "invalid-argument")
-        self.assertEqual(result["borrowedBorrowedCode"], "invalid-argument")
-        self.assertEqual(
-            result["standaloneBorrowedMessage"],
-            "SceneScript cursor owner collision",
-        )
-        self.assertEqual(
-            result["borrowedBorrowedMessage"],
-            "SceneScript cursor owner collision",
-        )
-        self.assertEqual(result["cursorOwners"], [30, 40, 50])
-        self.assertEqual(result["cursorOwnerCount"], 3)
+        self.assertEqual(result["cursorExpected"], 7)
+        self.assertEqual(result["cursorInstantiated"], 7)
+        self.assertEqual(result["cursorFailures"], [])
+        self.assertEqual(result["cursorOwners"], [10, 20, 30, 40, 50])
+        self.assertEqual(result["cursorOwnerCount"], 7)
         self.assertEqual(result["dispatchFailures"], [])
+        self.assertEqual(result["duplicateRequested"], 1)
+        self.assertEqual(result["duplicateInstantiated"], 0)
+        self.assertEqual(result["duplicateFailure"], "invalid-argument")
+        self.assertFalse(result["duplicateRequiresReconstruction"])
         self.assertEqual(result["mixedStandaloneVectorTargets"], 0)
         self.assertEqual(result["mixedStandaloneCursorFailure"], "invalid-source")
         self.assertEqual(result["mixedStandaloneCursorOwners"], 0)
+
+    def test_same_layer_peer_failure_keeps_authored_order_and_prior_mutations(
+        self,
+    ) -> None:
+        result = json.loads(subprocess.run(
+            [str(self.binary)], check=True, capture_output=True, text=True,
+        ).stdout)
+        self.assertEqual(result["peerOwners"], 3)
+        self.assertEqual(result["peerFailureVisibility"], "exception")
+        self.assertEqual(result["peerMutationX"], [5, 6])
+        self.assertEqual(result["peerOwnerOrder"], ["60:scale", "60:angles"])
+        self.assertEqual(result["peerCapturedAfterRelease"], 0)
+        self.assertEqual(result["peerNextFrameFailures"], 0)
+        self.assertEqual(result["peerNextFrameMutationX"], [1, 2])
 
 
 if __name__ == "__main__":

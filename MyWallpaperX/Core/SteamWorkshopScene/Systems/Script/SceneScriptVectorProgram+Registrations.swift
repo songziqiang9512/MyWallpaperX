@@ -91,12 +91,14 @@ extension SceneScriptVectorProgram {
             default:
                 return nil
             }
-            guard let authoredOrder = descriptor.layers.firstIndex(where: {
+            guard descriptor.layers.contains(where: {
                       $0.id == layerID
                   }) else { return nil }
             return .init(
                 layerID: layerID,
-                authoredOrder: authoredOrder,
+                authoredOrdinal: binding.authoredOrdinal,
+                target: binding.definition.target,
+                seedValue: binding.definition.authoredValue,
                 owner: binding.owner,
                 scriptProperties: binding.properties
             )

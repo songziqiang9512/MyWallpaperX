@@ -29,7 +29,10 @@ CURSOR_INTERACTION_SOURCE = (
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+SceneScriptCursorInteraction.swift"
 )
 SCALAR_RUNTIME_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarRuntime.swift"
-CURSOR_PROGRAM_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram.swift"
+CURSOR_PROGRAM_SOURCES = (
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram+Construction.swift",
+)
 CURSOR_HIT_ADMISSION_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorHitAdmission.swift"
 MEDIA_EVENT_BRIDGE_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptMediaEventBridge.swift"
 MEDIA_FRAME_COORDINATOR_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptMediaFrameCoordinator.swift"
@@ -467,7 +470,9 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         interaction = CURSOR_INTERACTION_SOURCE.read_text(encoding="utf-8")
         scalar_runtime = SCALAR_RUNTIME_SOURCE.read_text(encoding="utf-8")
-        cursor_program = CURSOR_PROGRAM_SOURCE.read_text(encoding="utf-8")
+        cursor_program = "\n".join(
+            path.read_text(encoding="utf-8") for path in CURSOR_PROGRAM_SOURCES
+        )
         cursor_hit_admission = CURSOR_HIT_ADMISSION_SOURCE.read_text(
             encoding="utf-8"
         )
@@ -519,7 +524,6 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         )
         self.assertIn("Self.mergingAuthoredMutation(", cursor_program)
         self.assertIn("authoredLayerBaselines:", cursor_program)
-        self.assertIn("discardCandidates(ownerLayerID:", cursor_program)
         self.assertIn("owner.exportedCursorEvents", cursor_program)
         self.assertIn('case .move: "cursorMove"', event_bridge)
         self.assertIn(

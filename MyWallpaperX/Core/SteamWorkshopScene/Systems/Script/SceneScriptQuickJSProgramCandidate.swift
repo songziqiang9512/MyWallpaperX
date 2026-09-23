@@ -52,8 +52,8 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
             scriptBindings: scriptBindings,
             excludedTargets: stringExcludedTargets
         )
-        let projectedCursorLayerIDs =
-            SceneScriptCursorProgram.projectedStandaloneLayerIDs(
+        let projectedCursorTargets =
+            SceneScriptCursorProgram.projectedStandaloneTargets(
                 descriptor: authoredDescriptor,
                 scriptBindings: scriptBindings,
                 excludedLayerIDs: excludedStandaloneCursorLayerIDs
@@ -70,7 +70,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 expectedVectorTargets: expectedVectorTargets,
                 expectedScalarTargets: expectedScalarTargets,
                 expectedStringTargets: expectedStringTargets,
-                expectedCursorLayerIDs: projectedCursorLayerIDs,
+                expectedCursorTargets: projectedCursorTargets,
                 admittedVectorPassTargets: admittedVectorPassTargets,
                 generation: generation,
                 budget: budget,
@@ -81,16 +81,14 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
         let plannedVectorTargets = vectorProjection.nonPassTargets.union(
             admittedVectorPassTargets.intersection(vectorProjection.passTargets)
         )
-        let claimedCursorLayerIDs = Set(plannedVectorTargets.compactMap {
-            target -> Int? in
-            guard case let .layer(layerID, .visibility) = target else {
-                return nil
-            }
-            return layerID
+        let claimedCursorTargets = Set(plannedVectorTargets.compactMap {
+            target -> SceneDynamicTarget? in
+            guard case .layer(_, .visibility) = target else { return nil }
+            return target
         })
         let expectedOwnerCount = expectedVectorTargets.count
             + expectedScalarTargets.count + expectedStringTargets.count
-            + projectedCursorLayerIDs.subtracting(claimedCursorLayerIDs).count
+            + projectedCursorTargets.subtracting(claimedCursorTargets).count
         try cancellationCheck()
         guard expectedOwnerCount <= aggregateConstructionWorkLimit else {
             return makeUnavailable(.budgetExceeded(
@@ -131,11 +129,11 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
         }
         let maximumAttempts = expectedVectorTargets.count
             + expectedScalarTargets.count + expectedStringTargets.count
-            + projectedCursorLayerIDs.count + 1
+            + projectedCursorTargets.count + 1
         var rejectedVectorTargets: Set<SceneDynamicTarget> = []
         var rejectedScalarTargets: Set<SceneDynamicTarget> = []
         var rejectedStringTargets: Set<SceneDynamicTarget> = []
-        var rejectedCursorLayerIDs: Set<Int> = []
+        var rejectedCursorTargets: Set<SceneDynamicTarget> = []
         var vectorFailures: [
             SceneDynamicTarget: SceneScriptScalarRuntimeFailure
         ] = [:]
@@ -148,8 +146,10 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
         var stringFailures: [
             SceneDynamicTarget: SceneScriptScalarRuntimeFailure
         ] = [:]
-        var cursorFailures: [Int: SceneScriptScalarRuntimeFailure] = [:]
-        var expectedCursorLayerIDs: Set<Int> = []
+        var cursorFailures: [
+            SceneDynamicTarget: SceneScriptScalarRuntimeFailure
+        ] = [:]
+        var expectedCursorTargets: Set<SceneDynamicTarget> = []
         let constructionWork = SceneScriptConstructionWorkBudget(
             limit: aggregateConstructionWorkLimit,
             plannedOwnerUpperBound: expectedOwnerCount
@@ -205,7 +205,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     expectedVectorTargets: expectedVectorTargets,
                     expectedScalarTargets: expectedScalarTargets,
                     expectedStringTargets: expectedStringTargets,
-                    expectedCursorLayerIDs: projectedCursorLayerIDs,
+                    expectedCursorTargets: projectedCursorTargets,
                     admittedVectorPassTargets: admittedVectorPassTargets,
                     generation: generation,
                     budget: budget,
@@ -239,7 +239,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     expectedVectorTargets: expectedVectorTargets,
                     expectedScalarTargets: expectedScalarTargets,
                     expectedStringTargets: expectedStringTargets,
-                    expectedCursorLayerIDs: projectedCursorLayerIDs,
+                    expectedCursorTargets: projectedCursorTargets,
                     admittedVectorPassTargets: admittedVectorPassTargets,
                     generation: generation,
                     budget: budget,
@@ -262,7 +262,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                         return false
                     }
                 ),
-                rejectedLayerIDs: rejectedCursorLayerIDs,
+                rejectedTargets: rejectedCursorTargets,
                 excludedStandaloneLayerIDs: excludedStandaloneCursorLayerIDs,
                 generation: generation,
                 budget: budget,
@@ -275,14 +275,14 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
             if let failure = domainFatalFailure(cursorConstruction.failures) {
                 return makeUnavailable(failure)
             }
-            expectedCursorLayerIDs.formUnion(
-                cursorConstruction.requestedLayerIDs
+            expectedCursorTargets.formUnion(
+                cursorConstruction.requestedTargets
             )
             guard valid(
-                cursorConstruction.requestedLayerIDs,
-                cursorConstruction.instantiatedLayerIDs,
+                cursorConstruction.requestedTargets,
+                cursorConstruction.instantiatedTargets,
                 cursorConstruction.failures,
-                cursorConstruction.deferredLayerIDs
+                cursorConstruction.deferredTargets
             ) else {
                 return unavailable(
                     authoredDescriptor: authoredDescriptor,
@@ -295,7 +295,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     expectedVectorTargets: expectedVectorTargets,
                     expectedScalarTargets: expectedScalarTargets,
                     expectedStringTargets: expectedStringTargets,
-                    expectedCursorLayerIDs: projectedCursorLayerIDs,
+                    expectedCursorTargets: projectedCursorTargets,
                     admittedVectorPassTargets: admittedVectorPassTargets,
                     generation: generation,
                     budget: budget,
@@ -309,11 +309,11 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     cursorConstruction.failures,
                     family: "cursor",
                     failures: &cursorFailures,
-                    rejected: &rejectedCursorLayerIDs
+                    rejected: &rejectedCursorTargets
                 )
                 if cursorConstruction.requiresDomainReconstruction { continue }
             }
-            guard cursorConstruction.deferredLayerIDs.isEmpty else {
+            guard cursorConstruction.deferredTargets.isEmpty else {
                 return unavailable(
                     authoredDescriptor: authoredDescriptor,
                     runtimeDescriptor: runtimeDescriptor,
@@ -325,7 +325,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     expectedVectorTargets: expectedVectorTargets,
                     expectedScalarTargets: expectedScalarTargets,
                     expectedStringTargets: expectedStringTargets,
-                    expectedCursorLayerIDs: projectedCursorLayerIDs,
+                    expectedCursorTargets: projectedCursorTargets,
                     admittedVectorPassTargets: admittedVectorPassTargets,
                     generation: generation,
                     budget: budget,
@@ -370,7 +370,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     expectedVectorTargets: expectedVectorTargets,
                     expectedScalarTargets: expectedScalarTargets,
                     expectedStringTargets: expectedStringTargets,
-                    expectedCursorLayerIDs: projectedCursorLayerIDs,
+                    expectedCursorTargets: projectedCursorTargets,
                     admittedVectorPassTargets: admittedVectorPassTargets,
                     generation: generation,
                     budget: budget,
@@ -400,7 +400,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     expectedVectorTargets: expectedVectorTargets,
                     expectedScalarTargets: expectedScalarTargets,
                     expectedStringTargets: expectedStringTargets,
-                    expectedCursorLayerIDs: projectedCursorLayerIDs,
+                    expectedCursorTargets: projectedCursorTargets,
                     admittedVectorPassTargets: admittedVectorPassTargets,
                     generation: generation,
                     budget: budget,
@@ -445,7 +445,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     expectedVectorTargets: expectedVectorTargets,
                     expectedScalarTargets: expectedScalarTargets,
                     expectedStringTargets: expectedStringTargets,
-                    expectedCursorLayerIDs: projectedCursorLayerIDs,
+                    expectedCursorTargets: projectedCursorTargets,
                     admittedVectorPassTargets: admittedVectorPassTargets,
                     generation: generation,
                     budget: budget,
@@ -475,7 +475,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     expectedVectorTargets: expectedVectorTargets,
                     expectedScalarTargets: expectedScalarTargets,
                     expectedStringTargets: expectedStringTargets,
-                    expectedCursorLayerIDs: projectedCursorLayerIDs,
+                    expectedCursorTargets: projectedCursorTargets,
                     admittedVectorPassTargets: admittedVectorPassTargets,
                     generation: generation,
                     budget: budget,
@@ -518,7 +518,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     expectedVectorTargets: expectedVectorTargets,
                     expectedScalarTargets: expectedScalarTargets,
                     expectedStringTargets: expectedStringTargets,
-                    expectedCursorLayerIDs: projectedCursorLayerIDs,
+                    expectedCursorTargets: projectedCursorTargets,
                     admittedVectorPassTargets: admittedVectorPassTargets,
                     generation: generation,
                     budget: budget,
@@ -552,7 +552,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     expectedVectorTargets: expectedVectorTargets,
                     expectedScalarTargets: expectedScalarTargets,
                     expectedStringTargets: expectedStringTargets,
-                    expectedCursorLayerIDs: projectedCursorLayerIDs,
+                    expectedCursorTargets: projectedCursorTargets,
                     admittedVectorPassTargets: admittedVectorPassTargets,
                     generation: generation,
                     budget: budget,
@@ -572,8 +572,8 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 expectedStringTargets: expectedStringTargets,
                 instantiatedStringTargets: stringConstruction.instantiatedTargets,
                 stringFailures: stringFailures,
-                expectedCursorLayerIDs: expectedCursorLayerIDs,
-                instantiatedCursorLayerIDs: cursorConstruction.instantiatedLayerIDs,
+                expectedCursorTargets: expectedCursorTargets,
+                instantiatedCursorTargets: cursorConstruction.instantiatedTargets,
                 cursorFailures: cursorFailures
             )
             guard report.isComplete else {
@@ -588,7 +588,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     expectedVectorTargets: expectedVectorTargets,
                     expectedScalarTargets: expectedScalarTargets,
                     expectedStringTargets: expectedStringTargets,
-                    expectedCursorLayerIDs: projectedCursorLayerIDs,
+                    expectedCursorTargets: projectedCursorTargets,
                     admittedVectorPassTargets: admittedVectorPassTargets,
                     generation: generation,
                     budget: budget,
@@ -633,7 +633,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
             expectedVectorTargets: expectedVectorTargets,
             expectedScalarTargets: expectedScalarTargets,
             expectedStringTargets: expectedStringTargets,
-            expectedCursorLayerIDs: projectedCursorLayerIDs,
+            expectedCursorTargets: projectedCursorTargets,
             admittedVectorPassTargets: admittedVectorPassTargets,
             generation: generation,
             budget: budget,
@@ -652,7 +652,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
         expectedVectorTargets: Set<SceneDynamicTarget>,
         expectedScalarTargets: Set<SceneDynamicTarget>,
         expectedStringTargets: Set<SceneDynamicTarget>,
-        expectedCursorLayerIDs: Set<Int>,
+        expectedCursorTargets: Set<SceneDynamicTarget>,
         admittedVectorPassTargets: Set<SceneDynamicTarget>,
         generation: UInt64,
         budget: SceneScriptScalarBudget,
@@ -680,7 +680,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
             expectedStringTargets.map { ($0, failure) }
         )
         let cursorFailures = Dictionary(uniqueKeysWithValues:
-            expectedCursorLayerIDs.map { ($0, failure) }
+            expectedCursorTargets.map { ($0, failure) }
         )
         let report = SceneScriptQuickJSProgramConstructionReport(
             expectedVectorTargets: expectedVectorTargets,
@@ -692,8 +692,8 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
             expectedStringTargets: expectedStringTargets,
             instantiatedStringTargets: [],
             stringFailures: stringFailures,
-            expectedCursorLayerIDs: expectedCursorLayerIDs,
-            instantiatedCursorLayerIDs: [],
+            expectedCursorTargets: expectedCursorTargets,
+            instantiatedCursorTargets: [],
             cursorFailures: cursorFailures
         )
         return .init(

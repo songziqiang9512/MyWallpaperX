@@ -70,9 +70,9 @@ nonisolated struct SceneScriptQuickJSProgramConstructionReport: Sendable {
     let expectedStringTargets: Set<SceneDynamicTarget>
     let instantiatedStringTargets: Set<SceneDynamicTarget>
     let stringFailures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
-    let expectedCursorLayerIDs: Set<Int>
-    let instantiatedCursorLayerIDs: Set<Int>
-    let cursorFailures: [Int: SceneScriptScalarRuntimeFailure]
+    let expectedCursorTargets: Set<SceneDynamicTarget>
+    let instantiatedCursorTargets: Set<SceneDynamicTarget>
+    let cursorFailures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
 
     var isComplete: Bool {
         Self.isComplete(
@@ -88,8 +88,8 @@ nonisolated struct SceneScriptQuickJSProgramConstructionReport: Sendable {
             instantiatedStringTargets,
             Set(stringFailures.keys)
         ) && Self.isComplete(
-            expectedCursorLayerIDs,
-            instantiatedCursorLayerIDs,
+            expectedCursorTargets,
+            instantiatedCursorTargets,
             Set(cursorFailures.keys)
         )
     }

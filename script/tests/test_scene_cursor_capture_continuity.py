@@ -253,7 +253,7 @@ enum Harness {
             "overflowMutations": overflow.layerMutations.count,
             "afterOverflowReleaseMutations": afterOverflowRelease.layerMutations.count,
             "capturedAfterOverflow": overflowProgram.capturedOwnerLayerIDs.count,
-            "failedOwners": failure.failures.keys.sorted(),
+            "failedOwners": failure.failures.keys.compactMap(layerID).sorted(),
             "failedOwnerOutputLeaked": failure.layerMutations.contains {
                 $0.layerID == 10
             },
@@ -265,8 +265,12 @@ enum Harness {
             "failureAnimationMutations": failure.animationMutations.count,
             "crossOwnerConflictPreserved": conflictFailure(conflict),
             "peerFailures": peerResult.failures.count,
-            "peerFailureCode": peerResult.failures[10]?.code ?? "",
-            "peerFailure": peerResult.failures[10].map(String.init(describing:)) ?? "",
+            "peerFailureCode": peerResult.failures[
+                .layer(layerID: 10, field: .visibility)
+            ]?.code ?? "",
+            "peerFailure": peerResult.failures[
+                .layer(layerID: 10, field: .visibility)
+            ].map(String.init(describing:)) ?? "",
             "crossPeerMutationCount": peerResult.layerMutations.count,
             "peerOwnerEffectsCount": peerResult.ownerEffects.count,
             "peerOwnerEffectsLayerCount": peerResult.ownerEffects.first?
@@ -288,12 +292,17 @@ enum Harness {
                 .layer(layerID: 20, field: .visibility)
             ] == .bool(false),
             "nextFrameProjectionFailures": verification.failures.count,
-            "nextFrameProjectionFailureCode": verification.failures[10]?.code ?? "",
-            "nextFrameProjectionFailure": verification.failures[10].map(
+            "nextFrameProjectionFailureCode": verification.failures[
+                .layer(layerID: 10, field: .visibility)
+            ]?.code ?? "",
+            "nextFrameProjectionFailure": verification.failures[
+                .layer(layerID: 10, field: .visibility)
+            ].map(
                 String.init(describing:)
             ) ?? "",
             "nextFrameProjectionMutationCount": verification.layerMutations.count,
-            "rollbackFailedOwners": rollback.failures.keys.sorted(),
+            "rollbackFailedOwners": rollback.failures.keys
+                .compactMap(layerID).sorted(),
             "rollbackLeakedMutations": rollback.layerMutations.count,
             "edgeRestoreFirstMutations": firstPressMutations,
             "edgeRestoreRedispatchMutations": restoredPressMutations,
@@ -398,6 +407,15 @@ enum Harness {
     static func vectorX(_ value: SceneDynamicValue?) -> Double {
         guard case let .vector3(x, _, _)? = value else { return -1 }
         return x
+    }
+
+    static func layerID(_ target: SceneDynamicTarget) -> Int? {
+        switch target {
+        case let .layer(layerID, _), let .text(layerID, _):
+            return layerID
+        default:
+            return nil
+        }
     }
 
     static let dragSource = """

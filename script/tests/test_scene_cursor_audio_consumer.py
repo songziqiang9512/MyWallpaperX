@@ -106,7 +106,8 @@ enum Harness {
             "cursorConstructionComplete":
                 candidate.constructionReport.isComplete,
             "cursorFailures":
-                candidate.constructionReport.cursorFailures.keys.sorted(),
+                candidate.constructionReport.cursorFailures.keys
+                    .map { String(describing: $0) }.sorted(),
             "borrowedRegistrationIDs": candidate.vectorProgram
                 .cursorOwnerRegistrations.map(\.layerID).sorted(),
             "cursorHasAudio": candidate.cursorProgram.hasAudioConsumers,

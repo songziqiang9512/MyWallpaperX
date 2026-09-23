@@ -360,7 +360,7 @@ extension SceneDesktopWallpaperHost {
         if let failure = sceneScriptLayerSnapshotFailure {
             cursorResult = .init(
                 failures: Dictionary(uniqueKeysWithValues:
-                    launchContext.sceneScriptCursorProgram.ownerLayerIDs.map {
+                    launchContext.sceneScriptCursorProgram.ownerTargets.map {
                         ($0, failure)
                     }
                 ),
@@ -382,10 +382,10 @@ extension SceneDesktopWallpaperHost {
                 "MWX SceneScript VM: event=cursor batch=rejected reason=event-budget fallback=previous-current"
             )
         }
-        for (layerID, failure) in cursorResult.failures {
+        for (target, failure) in cursorResult.failures {
             NSLog(
-                "MWX SceneScript VM: layerID=%d event=cursor failure=%@ code=%@ fallback=previous-current",
-                layerID,
+                "MWX SceneScript VM: target=%@ event=cursor failure=%@ code=%@ fallback=previous-current",
+                String(describing: target),
                 String(describing: failure),
                 failure.code
             )
