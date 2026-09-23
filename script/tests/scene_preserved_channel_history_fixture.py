@@ -673,4 +673,87 @@ private func prepare(
 private func expect(_ condition: @autoclosure () -> Bool, _ label: String) {
     guard condition() else { fatalError(label) }
 }
+
+/// Admission outcome per layer for an explicitly authored descriptor, so a
+/// gate can state which shapes the dependency projection refuses without
+/// authoring an effect graph.
+private func admissionOutcomeByLayerID(
+    _ descriptor: SceneRenderDescriptor
+) -> [Int: String] {
+    var outcomes: [Int: String] = [:]
+    for candidate in SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+        descriptor: descriptor,
+        authoredPlans: []
+    ) {
+        switch candidate.result {
+        case .success:
+            outcomes[candidate.layerID] = "accepted"
+        case let .failure(failure):
+            outcomes[candidate.layerID] = failure.code
+        }
+    }
+    return outcomes
+}
+
+/// The three composition-consumer shapes the dependency-rejection predicate
+/// must separate: an external dependency with no route at all is refused, a
+/// self reference (graph-internal) and a dependency-free utility are not.
+private func compositionConsumerRejectionOutcomes() -> [String: String] {
+    func consumer(
+        id: Int,
+        references: [SceneDependencyRenderPlan.Reference]
+    ) -> SceneRenderDescriptor.Layer {
+        var layer = SceneRenderDescriptor.Layer(
+            id: id,
+            effects: [.init(
+                id: "\(id)#effect#1",
+                file: "effects/utility/effect.json",
+                visible: true,
+                passes: [.init(passIndex: 0, combos: [:])]
+            )]
+        )
+        layer.contentKind = "composition"
+        layer.utilityLayer = SceneUtilityLayer(kind: .composition)
+        layer.namedReferences = references
+        layer.dependencyLayerIDs = references.map(\.providerLayerID)
+        return layer
+    }
+    func reference(
+        consumerID: Int,
+        providerID: Int
+    ) -> SceneDependencyRenderPlan.Reference {
+        .init(
+            consumerLayerID: consumerID,
+            providerLayerID: providerID,
+            slot: SceneEffectPassSlot(
+                effectID: "\(consumerID)#effect#1",
+                passIndex: 0,
+                slotIndex: 0
+            ),
+            variant: .primary
+        )
+    }
+    let external = 920
+    let selfReference = 921
+    let dependencyFree = 922
+    let descriptor = SceneRenderDescriptor(
+        layers: [
+            consumer(id: external, references: [reference(
+                consumerID: external, providerID: 194
+            )]),
+            consumer(id: selfReference, references: [reference(
+                consumerID: selfReference, providerID: selfReference
+            )]),
+            consumer(id: dependencyFree, references: []),
+        ],
+        materialPasses: [],
+        effectDefinitions: []
+    )
+    let outcomes = admissionOutcomeByLayerID(descriptor)
+    return [
+        "external-refused": outcomes[external] ?? "missing",
+        "self-reference": outcomes[selfReference] ?? "missing",
+        "dependency-free": outcomes[dependencyFree] ?? "missing",
+    ]
+}
 '''

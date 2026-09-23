@@ -231,6 +231,27 @@ private enum Harness {
             }
         }
 
+        // The dependency-rejection predicate must separate exactly these three
+        // composition-consumer shapes: an external dependency with no route at
+        // all is refused as `dependency-provider-rejected`, while a self
+        // reference (graph-internal) and a dependency-free utility are not
+        // refused by it (they may still be rejected downstream for other
+        // reasons).
+        for (shape, outcome) in compositionConsumerRejectionOutcomes() {
+            let present = outcome != "missing"
+            results[
+                "composition-consumer-\(shape)"
+            ] = shape == "external-refused"
+                ? outcome == "dependency-provider-rejected"
+                : present && outcome != "dependency-provider-rejected"
+            results["composition-consumer-\(shape)-outcome"] =
+                present
+                && (outcome == "accepted"
+                    || outcome == "dependency-provider-rejected"
+                    || outcome.hasPrefix("execution-route-")
+                    || outcome.hasPrefix("dependency-"))
+        }
+
         let payload: [String: Any] = [
             "metalAvailable": true,
             "results": results,
