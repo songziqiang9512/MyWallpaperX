@@ -1,3 +1,4 @@
+import Foundation
 import simd
 
 /// Resolves per-frame layer transforms from the shared dynamic snapshot.
@@ -71,6 +72,20 @@ nonisolated enum SceneLayerDynamicWorldFrameResolver {
               resolved.source != .authored,
               case let .vector3(x, y, z) = resolved.value,
               x.isFinite, y.isFinite, z.isFinite else { return nil }
-        return SIMD3(Float(x), Float(y), Float(z))
+        let value = SIMD3(Float(x), Float(y), Float(z))
+        guard value.x.isFinite, value.y.isFinite, value.z.isFinite else {
+            // A finite Double outside the Float range used to reach the world
+            // matrix as `inf`/`NaN` and failed the shared layer snapshot for
+            // every consumer of the frame. The unit that is unsafe is this
+            // layer's transform, so it keeps its authored value instead.
+#if DEBUG
+            NSLog(
+                "MWX DEBUG SCENE: phase=dynamic-transform-out-of-range layer=%d field=%@ value=%.9g,%.9g,%.9g fallback=authored",
+                layerID, field.rawValue, x, y, z
+            )
+#endif
+            return nil
+        }
+        return value
     }
 }

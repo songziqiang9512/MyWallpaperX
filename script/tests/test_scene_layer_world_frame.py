@@ -119,6 +119,68 @@ func dynamicResult() -> [String: [Double]] {
     })
 }
 
+func overRangeOriginResult(_ origin: Double) -> [String: [Double]] {
+    let layer = SceneRenderDescriptor.Layer(
+        id: 1, parentID: nil, originXYZ: [10, 20, 0], scaleXYZ: nil,
+        anglesXYZ: nil, parentAttachmentBindFrame: nil
+    )
+    let descriptor = SceneRenderDescriptor(
+        layers: [layer], camera: .init(orthoHeight: 1_000)
+    )
+    let target = SceneDynamicTarget.layer(layerID: 1, field: .origin)
+    let snapshot = SceneDynamicSnapshotResolver().resolve(
+        frameIndex: 1,
+        generation: 1,
+        definitions: [.init(
+            target: target, valueType: .vector3,
+            authoredValue: .vector3(10, 20, 0)
+        )],
+        sceneScriptValues: [target: .vector3(origin, 0, 0)]
+    ).snapshot
+    guard let projection = SceneScriptLayerWorldTransformProjection(
+        descriptor: descriptor, catalogSignature: "over-range"
+    ), let frame = projection.worldFrames(for: snapshot)[1] else {
+        fatalError("over-range projection failed")
+    }
+    return ["translation": [
+        Double(frame.columns.3.x), Double(frame.columns.3.y),
+    ]]
+}
+
+func mixedRangeTransformResult() -> [String: [Double]] {
+    let layer = SceneRenderDescriptor.Layer(
+        id: 1, parentID: nil, originXYZ: [10, 20, 0], scaleXYZ: [1, 1, 1],
+        anglesXYZ: nil, parentAttachmentBindFrame: nil
+    )
+    let descriptor = SceneRenderDescriptor(
+        layers: [layer], camera: .init(orthoHeight: 1_000)
+    )
+    let originTarget = SceneDynamicTarget.layer(layerID: 1, field: .origin)
+    let scaleTarget = SceneDynamicTarget.layer(layerID: 1, field: .scale)
+    let snapshot = SceneDynamicSnapshotResolver().resolve(
+        frameIndex: 1,
+        generation: 1,
+        definitions: [
+            .init(target: originTarget, valueType: .vector3,
+                  authoredValue: .vector3(10, 20, 0)),
+            .init(target: scaleTarget, valueType: .vector3,
+                  authoredValue: .vector3(1, 1, 1)),
+        ],
+        sceneScriptValues: [
+            originTarget: .vector3(4.67278316e38, 0, 0),
+            scaleTarget: .vector3(2, 2, 1),
+        ]
+    ).snapshot
+    guard let projection = SceneScriptLayerWorldTransformProjection(
+        descriptor: descriptor, catalogSignature: "mixed-range"
+    ), let frame = projection.worldFrames(for: snapshot)[1] else {
+        fatalError("mixed-range projection failed")
+    }
+    return ["translation": [
+        Double(frame.columns.3.x), Double(frame.columns.3.y),
+    ], "scale": [Double(frame.columns.0.x), Double(frame.columns.1.y)]]
+}
+
 func dynamicAttachmentResult() -> [String: [Double]] {
     let parent = SceneRenderDescriptor.Layer(
         id: 1, parentID: nil, originXYZ: [100, 50, 0], scaleXYZ: nil,
@@ -231,6 +293,9 @@ enum Harness {
             "projectionColumnMajor": projectionColumnMajorResult(),
             "projectionRejectsNonFinite": rejectsNonFiniteProjection(),
             "nativePerspective": nativePerspectiveResult(),
+            "inRangeOrigin": overRangeOriginResult(30),
+            "outOfRangeOrigin": overRangeOriginResult(4.67278316e38),
+            "mixedRange": mixedRangeTransformResult(),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -318,6 +383,24 @@ class SceneLayerWorldFrameTests(unittest.TestCase):
         self.assertEqual(len(matrix), 16)
         self.assertEqual(matrix[0:2], [1, 0])
         self.assertEqual(matrix[12:14], [110, 930])
+
+    def test_over_range_dynamic_transform_falls_back_to_authored(self) -> None:
+        # A finite Double the Float conversion cannot hold would otherwise turn
+        # this layer's world matrix into NaN and fail the shared snapshot for
+        # every consumer; the layer keeps its authored transform instead.
+        # In range the override is applied (y maps through orthoHeight); out of
+        # Float range the same layer keeps its authored transform.
+        self.assertEqual(self.result["inRangeOrigin"], {"translation": [30, 1000]})
+        self.assertEqual(
+            self.result["outOfRangeOrigin"], {"translation": [10, 980]}
+        )
+
+    def test_out_of_range_field_falls_back_alone_next_to_in_range_field(self) -> None:
+        # The unsafe unit is the field: the out-of-range origin keeps the
+        # authored value while the in-range scale next to it still applies.
+        mixed = self.result["mixedRange"]
+        self.assertEqual(mixed["translation"], [10, 980])
+        self.assertEqual(mixed["scale"], [2, 2])
 
     def test_scenescript_projection_rejects_nonfinite_world_frames(self) -> None:
         self.assertTrue(self.result["projectionRejectsNonFinite"])

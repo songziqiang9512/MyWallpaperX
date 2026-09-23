@@ -169,6 +169,14 @@ nonisolated extension SceneScriptQuickJSDomain {
             let values = SceneScriptLayerWorldTransformProjection
                 .columnMajorValues(worldFrame)
             guard values.count == 16, values.allSatisfy(\.isFinite) else {
+#if DEBUG
+                NSLog(
+                    "MWX DEBUG SCENE: phase=non-finite-world-transform layer=%d name=%@ values=%@",
+                    layer.id, layer.name ?? "",
+                    values.map { String(format: "%.6g", $0) }
+                        .joined(separator: ",")
+                )
+#endif
                 throw SceneScriptScalarRuntimeFailure.invalidArgument(
                     "SceneScript layer world transform is non-finite"
                 )
