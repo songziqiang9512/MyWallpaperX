@@ -312,6 +312,25 @@ targeted matrix仍严格**FAIL**，唯一失败为`animated output evidence belo
 
 **未验证边界：**多步连续 move 未取得（现仪器 drag = press + 单次 move + release，`pointer_trajectory_normalized` 不能带按钮）；无原分辨率 ROI、无人工视觉验收、无官方同输入对照；`event.worldPosition` 与屏幕归一化坐标之间的换算未做独立核对（本条只依赖同一指针位置的几何自洽）。
 
+<a id="e-2026-09-23-cursor-solid-host-contract"></a>
+### E-2026-09-23-CURSOR-SOLID-HOST-CONTRACT — cursor 的官方 Solid 合同、effect/pass 边界与语料分歧
+
+**基线与变更：**`56f465b4` + 本批（无产品代码改动，只合同核对与机器门）。官方 [Cursor Events](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/cursor.html) 原文（本批两次独立取回核对）：**"All mouse cursor events will only work on objects marked as Solid in the layer settings."**；六个回调为 cursorEnter/Leave/Move/Down/Up/Click，cursorClick 在 cursorDown 与 cursorUp 执行之后触发。该页对 effect/pass/`thisObject`/`hitBox` 无任何表述。
+
+**结论一（effect/pass 不成为 cursor owner＝与文档一致）：**effect 与 pass 不是 layer object、不可能标记 Solid。现役 `cursorOwnerRegistrations` 只放行 `.layer`/`.text` 目标，其余（`.effectConstant`/`.effectVisibility`/…）一律不注册，且 cursor binding 只有 standalone/borrowed 两个构造点——**不存在 effect/pass 目标进入 cursor owner 的通路**；它们留在自身的 pass/vector 值路线。
+
+**结论二（客户端特有取舍，已登记，非文档可推出）：**同一现象的另一半是 `SceneScriptVectorRuntime` 对 `valueType == .bool && !exportedCursorEvents.isEmpty` 且 target 非 `.layer`/`.text` 的 owner **整只本地拒绝**（`invalidSource`，连带丢弃其 `init`/value hook）。该行为由既有批次 `771d10e4` 引入、**不是**官方文档可推出的规定，也不是"不伪造 failure"的等价说法。语料实测该形态仅 **2** 处：`3211615441` 的 objects[22] `effects[3].visible`（仅 cursorClick）与 `effects[4].visible`（cursorDown/cursorUp）；两处写值（`effects[3]` 的 `cursorClick` 与 `effects[4]` 的 `init`）均与该效果 authored 的 `visible=false` 同值，故当前无观测到的视觉分歧（`effects[3]` 无 `init`，只有 `cursorClick` 写 `thisObject.visible`）。该取舍登记为未验证边界，退役/重估条件见下。
+
+**结论三（Solid 限制未被实施＝登记的分歧）：**现役命中准入是**几何 + 身份**判定（含 standalone 路径 `contentKind ∈ {image,text,composition}` 白名单），**不含** Solid 判定。按我方分类器复算全语料（`docs/scene/evidence/v1/cursor-solid-restriction-2026-09-23/scan.py` SHA-256 `0d7a287d…`，输出 `scan-output.txt` SHA-256 `90b96415…`；本机忽略证据缓存，哈希内联以便核验）：**465** 个 cursor-owning 层中 `models/util/solidlayer.json` 路径 **19**、模型 `solidlayer:true` 标志 **78**（两类共 **97** 为 solid）、模型标志 false **303**、无 image **65** —— 即**字面实施该限制会让 368 个作者 owner 静默失声**（独立审查者以全递归口径复核为 466 层 / 369 层；差异层是 `3211615441` 的 layer id 44——text 层、无 image，其 cursor 脚本只在 `effects[3]/[4]` 内，而本扫描只统计层的**直接** dict 子值，故 465/368 不含它、含 effects 子树口径为 466/369，两套数字由此完全对账）。会失声者包含**已受控观测到事件**的非 Solid 层：`3662790108#978`（`models/rset.json`，hover/click 受控取证）与 `#1481`（工坊 `3.json`，capture 链）；同批被我此前误举的 `3122339805#207/#144` 实为 `models/util/solidlayer.json`（plain-solid，任何读法都不会失声），`#527`（depth-test）与 `#2132`（工坊内嵌 `solid_instance_model_*`）按我方分类器也是 solid。**决定**＝维持几何+身份准入并登记该分歧。
+
+**分类事实修正：**`contentKind == "solid"` 的判定是**路径等于 `models/util/solidlayer.json` 或 命中 `solidModelPaths`**，而 `solidModelPaths` 来自 `SceneAssetCatalog` 读取模型 JSON 的 `solidlayer` 标志——该标志对**内置**（`MyWallpaperX/Resources/SceneStockAssets.bundle/assets/…`，如 `solidlayer_depthtest.json` 声明 `"solidlayer": true`）与**工坊内嵌**模型（如 `3662790108` 包内 `models/solid_instance_model_d8460aba.json`）**同样生效**；内置 `models/util/*` 本身不在工坊包内（实测样本 pkg 内 0 条 `solidlayer*` 条目）。
+
+**验证（机器门）：**`test_pass_owned_cursor_callback_never_becomes_a_cursor_owner` 用专用 pass 夹具（layer 10 `passes[0].constantshadervalues`）断言：`passTargets` 精确等于 `["10:mediaColor"]`（夹具自证走到 pass 路线）、该 pass 值 owner 数 1、cursor owner 0、cursor failure 0；并新增 **cursor-only pass 变体**（pass-owned 脚本只导出 cursorDown）断言其 cursor owner 0、cursor failure 0、vector failure 空。effect 侧由既有 `test_effect_visibility_cursor_without_hit_identity_fails_locally` 钉住（`effectCursorProjected=1`、`effectCursorFailureCode=invalid-source`、`effectCursorOwners=0`）。引用该 harness 的两模块（`test_scene_vector_owner_admission`、`test_verify_scene_change`）全绿。
+
+**独立审查与限制：**第二轮只读独立复审（审查者未参与本批、未构建/运行，自行读代码而非只读摘要）在冻结 diff `3673363c` 上共提 7 项（F1–F7），**唯一实质缺陷为 F5**：本批新增的 cursor-only pass 变体因 `"unclaimed"` 未在 descriptor 声明而**空真**（该断言在修复前无论绑定走哪条路线都成立）。已按审查给出的方案 ① 修正：变体 descriptor 声明该 constant、补 `admittedVectorPassTargets`，断言改为**实测值**（`passTargets == ["10:mediaColor","10:unclaimed"]`、该 pass 值 owner 1、cursor owner 0、cursor failure 0、vector failure 空），并新增 `passCursorOnlyPassTargets`/`passCursorOnlyVectorOwners` 载荷键。F1–F4、F6、F7 已闭合并随本提交修正，其中两条（审查优先级 P3）属本条的**记录精度**项——① 差异层的计数口径（差异层是 `3211615441` 的 layer id 44：text 层、无 image、cursor 脚本只在 `effects[3]/[4]` 内，本扫描只统计层的直接 dict 子值故 465/368 不含它，含 effects 子树为 466/369，两套数字由此对账）；② effect 两实例的写值形态（`effects[3]` 无 `init`、只有 `cursorClick` 写 `thisObject.visible`；`effects[4]` 的 `init` 与之一并，两处写值均与该效果 authored `false` 同值）。审查者逐条核实了四条实质主张——effect/pass 不存在进入 cursor owner 的通路、`771d10e4` 取舍的客户端特有性（非文档可推出）、Solid 分歧的语料分布（97/303/65）与 368 失声计数、机器门的非空真形态——未发现未解决阻断，修正后复审通过（APPROVE）。
+
+**未验证边界：**Solid 限制是否在官方客户端对非 Solid 层生效**未做固定同输入对照**（本条的"与文档一致/分歧"判读基于公开文档原文 + 语料分布，不是客户端实证）；depth-test 与工坊内嵌 instance-solid 是否都属官方 Solid 设置未从官方文档确认（按模型 `solidlayer` 标志推断）；`hitBox` 字段仍未伪造（既有登记）；无原分辨率 ROI、无人工视觉验收。**重估条件（双向）**：取得固定官方客户端同输入对照后，若证明限制确在非 Solid 层生效则重估现役准入；若证明非 Solid 层能收到 cursor 事件则现役行为被确认为正确。
+
 <a id="e-2026-09-23-authored-numeric-float-range"></a>
 ### E-2026-09-23-AUTHORED-NUMERIC-FLOAT-RANGE — 作者数值收窄的可达性与饱和门
 

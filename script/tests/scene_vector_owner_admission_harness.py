@@ -666,6 +666,78 @@ enum Harness {
             inputs: [.layer(layerID: 91, field: .scale): .vector3(1, 1, 1)],
             effectivePropertyValues: [:], frame: frame
         )
+        // Official contract (Cursor Events): "All mouse cursor events will
+        // only work on objects marked as Solid in the layer settings." An
+        // effect or pass is not a layer object, so a cursor callback exported
+        // by a pass-owned script must stay on the pass value route and never
+        // claim a cursor owner (and must not fabricate a cursor failure for a
+        // route it cannot have).
+        let passCursorSource = """
+        export function cursorEnter(event) { return; }
+        export function update(value) { return value; }
+        """
+        let passCursorOnlySource = """
+        export function cursorDown(event) { return; }
+        """
+        let passCursorDescriptor = SceneRenderDescriptor(layers: [.init(
+            id: 10, layerIndex: 0, name: "pass-cursor", visible: true,
+            originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], scaleHasScript: false,
+            alpha: 1,
+            effects: [.init(
+                name: "history",
+                effectID: 100,
+                passes: [.init(
+                    passIndex: 0,
+                    id: 200,
+                    constantShaderValues: [
+                        "mediaColor": .init(
+                            scriptSource: passCursorSource,
+                            components: [1, 1]
+                        ),
+                        "unclaimed": .init(
+                            scriptSource: passCursorOnlySource,
+                            components: [1, 1]
+                        ),
+                    ]
+                )]
+            )],
+            contentKind: "image", sizeWH: [100, 100]
+        )])
+        let passCursorBindings = [
+            passBinding(key: "mediaColor", source: passCursorSource),
+            passBinding(key: "unclaimed", source: passCursorOnlySource),
+        ]
+        let passCursorProjection = SceneScriptVectorProgram.project(
+            descriptor: passCursorDescriptor,
+            scriptBindings: passCursorBindings
+        )
+        let passCursorCandidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: passCursorDescriptor,
+            runtimeDescriptor: passCursorDescriptor,
+            scriptBindings: passCursorBindings,
+            vectorProjection: passCursorProjection,
+            userPropertyDefinitions: [], timelineTargets: [],
+            scalarExcludedTargets: [], stringExcludedTargets: [],
+            admittedVectorPassTargets: [.effectConstant(
+                layerID: 10, effectIndex: 0, passIndex: 0, name: "mediaColor"
+            )],
+            generation: 68
+        )
+        let passCursorOnlyCandidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: passCursorDescriptor,
+            runtimeDescriptor: passCursorDescriptor,
+            scriptBindings: [passCursorBindings[1]],
+            vectorProjection: SceneScriptVectorProgram.project(
+                descriptor: passCursorDescriptor,
+                scriptBindings: [passCursorBindings[1]]
+            ),
+            userPropertyDefinitions: [], timelineTargets: [],
+            scalarExcludedTargets: [], stringExcludedTargets: [],
+            admittedVectorPassTargets: [.effectConstant(
+                layerID: 10, effectIndex: 0, passIndex: 0, name: "unclaimed"
+            )],
+            generation: 69
+        )
         let retryAggregateCandidate = try retryAggregateBudgetCandidate(
             ownerCount: 260,
             invalidPrefixCount: 20,
@@ -959,6 +1031,25 @@ enum Harness {
             "initOnlyAfterPublishPublished": initOnlyAfterPublish.values[
                 .layer(layerID: 91, field: .scale)
             ] != nil,
+            "passCursorProjectedPassTargets": passCursorProjection
+                .passTargets.map(passTargetLabel).sorted(),
+            "passCursorOnlyPassTargets": SceneScriptVectorProgram.project(
+                descriptor: passCursorDescriptor,
+                scriptBindings: [passCursorBindings[1]]
+            ).passTargets.map(passTargetLabel).sorted(),
+            "passCursorOnlyOwners": passCursorOnlyCandidate.cursorProgram
+                .ownerCount,
+            "passCursorOnlyVectorOwners": passCursorOnlyCandidate
+                .vectorProgram.definitions.count,
+            "passCursorOnlyCursorFailures": passCursorOnlyCandidate
+                .constructionReport.cursorFailures.count,
+            "passCursorOnlyVectorFailures": passCursorOnlyCandidate
+                .constructionReport.vectorFailures.values.map(\.code).sorted(),
+            "passCursorOwners": passCursorCandidate.cursorProgram.ownerCount,
+            "passCursorFailures": passCursorCandidate.constructionReport
+                .cursorFailures.count,
+            "passCursorVectorOwners": passCursorCandidate.vectorProgram
+                .definitions.count,
             "retryAggregateCommitted": retryAggregateCandidate.domain != nil,
             "retryAggregateVectorExpected": retryAggregateCandidate
                 .constructionReport.expectedVectorTargets.count,
@@ -1047,6 +1138,13 @@ enum Harness {
             passIndex: 0,
             name: name
         )
+    }
+
+    static func passTargetLabel(_ target: SceneDynamicTarget) -> String {
+        if case let .effectConstant(layerID, _, _, name) = target {
+            return "\(layerID):\(name)"
+        }
+        return String(describing: target)
     }
 
     static func passBinding(key: String, source: String) -> SceneScriptBindingIR {

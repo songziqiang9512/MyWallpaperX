@@ -189,6 +189,29 @@ class SceneVectorOwnerAdmissionTests(unittest.TestCase):
         self.assertEqual(self.value["vectorCursorCollisionVectorExpected"], 2)
         self.assertEqual(self.value["vectorCursorCollisionCursorExpected"], 2)
 
+    def test_pass_owned_cursor_callback_never_becomes_a_cursor_owner(self) -> None:
+        # Official Cursor Events contract: cursor events only work on objects
+        # marked Solid; an effect or pass is not a layer object, so its cursor
+        # callback stays on the pass value route and never claims a cursor owner
+        # (nor fabricates a cursor failure for a route it cannot have).
+        self.assertEqual(
+            self.value["passCursorProjectedPassTargets"],
+            ["10:mediaColor", "10:unclaimed"],
+        )
+        self.assertEqual(self.value["passCursorOwners"], 0)
+        self.assertEqual(self.value["passCursorFailures"], 0)
+        self.assertEqual(self.value["passCursorVectorOwners"], 1)
+        # A pass-owned script that exports only cursor callbacks is admitted as
+        # a pass value owner (measured: one definition, no failure) and still
+        # never becomes a cursor owner.
+        self.assertEqual(
+            self.value["passCursorOnlyPassTargets"], ["10:unclaimed"]
+        )
+        self.assertEqual(self.value["passCursorOnlyVectorOwners"], 1)
+        self.assertEqual(self.value["passCursorOnlyOwners"], 0)
+        self.assertEqual(self.value["passCursorOnlyCursorFailures"], 0)
+        self.assertEqual(self.value["passCursorOnlyVectorFailures"], [])
+
     def test_effect_visibility_cursor_without_hit_identity_fails_locally(self) -> None:
         self.assertEqual(self.value["effectCursorProjected"], 1)
         self.assertEqual(self.value["effectCursorFailureCode"], "invalid-source")
