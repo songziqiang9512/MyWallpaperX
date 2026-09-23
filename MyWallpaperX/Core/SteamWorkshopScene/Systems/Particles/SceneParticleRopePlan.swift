@@ -5,17 +5,8 @@ import simd
 /// the public renderer behavior; malformed or unbounded profiles remain closed.
 nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
     static let maximumParticleCount = 512
-    // Authored corpus evidence: the frozen 159-sample corpus authors rope
-    // renderers up to subdivision 100 with maxcount 256 (25,755 generated
-    // segments) and a second shape at subdivision 16 with maxcount 500
-    // (8,483 segments), all with renderer flags 0. Both bounds therefore have
-    // to cover the authored range; 32,768 is the smallest power-of-two cap
-    // above it and the child-expansion aggregate budget uses the same
-    // constant. World-space ropes (renderer flag bit0) stay refused: the
-    // corpus shapes draw no instances at all while admitting the renderer
-    // would expand its child templates.
-    static let maximumSubdivisionCount = 100
-    static let maximumGeneratedSegmentCount = 32_768
+    static let maximumSubdivisionCount = 7
+    static let maximumGeneratedSegmentCount = 4_096
     static let minimumUVScale = 1.0 / 1_024.0
     static let maximumUVScale = 1_024.0
 
