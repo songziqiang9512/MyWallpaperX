@@ -47,27 +47,34 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Reference = SceneDependencyRenderPlan.Reference
 
-    /// The projection refused this consumer's *external* provider, so its
-    /// composition route cannot execute (the utility plan records the same
-    /// consumer as `unsupportedDependencies`). Admitting it anyway would only
-    /// leave the graph demanding execution evidence no route can produce, so
-    /// the projection is the single authority for the executable set too.
+    /// This composition consumer declares an *external* dependency but the
+    /// projection produced no executable route for it — no binding, no
+    /// aggregate, and no static-model binding — so its composition route
+    /// cannot execute (the utility plan records the same consumer as
+    /// `unsupportedDependencies`). Admitting it anyway would only leave the
+    /// graph demanding execution evidence no route can produce, so the
+    /// projection is the single authority for the executable set too. Keying on
+    /// "no route" rather than on one issue kind also covers the
+    /// missing/cyclic/secondary-variant refusals, which emit other kinds.
     ///
-    /// Two shapes stay outside on purpose: a self reference (`provider ==
-    /// layer`), which this compiler routes as `graph-internal`, and an ordinary
-    /// image consumer, which keeps the designed per-effect fail-soft (only its
-    /// unbound dependency stage degrades and the rest of the chain executes).
-    static func refusedExternalProviderCompositionConsumer(
+    /// Three shapes stay outside on purpose: a self reference (`provider ==
+    /// layer`), which this compiler routes as `graph-internal`; a static-model
+    /// bound consumer, whose provider arrives through its own binding map; and
+    /// an ordinary image consumer, which keeps the designed per-effect
+    /// fail-soft (only its unbound dependency stage degrades and the rest of
+    /// the chain still executes).
+    static func refusedCompositionConsumer(
         layer: SceneRenderDescriptor.Layer,
         layerID: Int,
+        layerReferences: [SceneDependencyRenderPlan.Reference],
         plan: SceneDependencyRenderPlan
     ) -> Bool {
-        layer.utilityLayer?.kind == .composition
-            && plan.issues.contains {
-                $0.layerID == layerID
-                    && $0.kind == .forwardUtilityProvider
-                    && $0.providerLayerID != layerID
-            }
+        guard layer.utilityLayer?.kind == .composition,
+              layerReferences.contains(where: { $0.providerLayerID != layerID })
+        else { return false }
+        return plan.bindingsByConsumerLayerID[layerID] == nil
+            && plan.multiProviderAggregatesByConsumerLayerID[layerID] == nil
+            && plan.staticModelBindingsByConsumerLayerID[layerID] == nil
     }
 
     static func structuralUtilityConsumerLayerIDs(

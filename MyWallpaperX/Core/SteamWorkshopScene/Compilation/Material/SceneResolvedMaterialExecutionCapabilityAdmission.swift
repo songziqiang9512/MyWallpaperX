@@ -339,8 +339,11 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
             // route"; the admission only honours it (see the ownership
             // compiler for the two shapes deliberately kept outside).
             if SceneResolvedMaterialDependencyOwnershipCompiler
-                .refusedExternalProviderCompositionConsumer(
-                    layer: layer, layerID: layerID, plan: dependencyPlan
+                .refusedCompositionConsumer(
+                    layer: layer,
+                    layerID: layerID,
+                    layerReferences: layerReferences,
+                    plan: dependencyPlan
                 ) {
                 return .init(
                     layerID: layerID,

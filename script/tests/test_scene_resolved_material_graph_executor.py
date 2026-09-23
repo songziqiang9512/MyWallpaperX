@@ -200,6 +200,12 @@ struct SceneDependencyRenderPlan {
     let bindingsByConsumerLayerID: [Int: Binding]
     let multiProviderAggregatesByConsumerLayerID:
         [Int: MultiProviderAggregate] = [:]
+    /// The admission excludes a static-model bound composition consumer before
+    /// it honours a missing binding; this harness never binds one, so the map
+    /// stays empty. The element type is local because the production
+    /// static-model binding does not compile in this source set.
+    struct StaticModelBinding: Hashable {}
+    let staticModelBindingsByConsumerLayerID: [Int: StaticModelBinding] = [:]
     let requiredProviderLayerIDs: Set<Int>
     let requiredGraphOutputProviderLayerIDs: Set<Int>
     let staticLayerSourcePassthroughBlockedLayerIDs: Set<Int>
