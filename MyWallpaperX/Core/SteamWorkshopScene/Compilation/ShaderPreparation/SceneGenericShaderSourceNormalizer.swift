@@ -49,7 +49,11 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         "vec2", "vec3", "vec4", "mat2", "mat3", "mat4",
     ])
     private static let declaration = try! NSRegularExpression(pattern:
-        #"^\s*(uniform|attribute|varying)\s+([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s*\[\s*([0-9]+)\s*\])?\s*;(?:\s*//.*)?$"#
+        // Trailing whitespace after the terminator is insignificant authored
+        // noise, not an unsupported declaration: a real workshop shader
+        // (`varying vec2 v_TexCoord; ` with no annotation) was rejected here
+        // and lost its effect to the shared-backend fallback.
+        #"^\s*(uniform|attribute|varying)\s+([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s*\[\s*([0-9]+)\s*\])?\s*;\s*(?://.*)?$"#
     )
 
     static func normalize(

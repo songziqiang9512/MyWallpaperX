@@ -333,6 +333,21 @@ targeted matrix仍严格**FAIL**，唯一失败为`animated output evidence belo
 
 **未验证边界：**Solid 限制是否在官方客户端对非 Solid 层生效**未做固定同输入对照**（本条的"与文档一致/分歧"判读基于公开文档原文 + 语料分布，不是客户端实证）；depth-test 与工坊内嵌 instance-solid 是否都属官方 Solid 设置未从官方文档确认（按模型 `solidlayer` 标志推断）；`hitBox` 字段仍未伪造（既有登记）；无原分辨率 ROI、无人工视觉验收。**重估条件（双向）**：取得固定官方客户端同输入对照后，若证明限制确在非 Solid 层生效则重估现役准入；若证明非 Solid 层能收到 cursor 事件则现役行为被确认为正确。
 
+<a id="e-2026-09-23-declaration-terminator-whitespace"></a>
+### E-2026-09-23-DECLARATION-TERMINATOR-WHITESPACE — 声明行尾随空白不再被当作不支持的声明（产品修复，样本仍 FAIL）
+
+**基线与变更：**`21ffcde9` + 本批产品修复。`SceneGenericShaderSourceNormalizer` 的声明正则要求分号后**紧跟**行尾或 `//` 注解，因此 `varying vec2 v_TexCoord; `（分号后仅一个空格、无注解）不匹配；`parse` 见该行去空白后以 `varying ` 开头即抛 `.declarationUnsupported`，整个 shader 落 `shared-backend-fallback`，3 个 effect 随之 `visual-failure-passthrough`，样本报 `effect execution CPU invocation failed` 与 `unexpected effect-local passthrough`。修复＝正则改为 `…\s*;\s*(?://.*)?$`（行尾空白属无意义作者噪声），对原本被接受的输入无行为变化（严格放宽）。
+
+**根因定位方式：**用与 Swift 正则同形的匹配逐行核对真实 shader（只读包内提取）：顶点 0 处、片元 1 处不匹配——`varying vec2 v_TexCoord; `（第 13 行）；修复后同一核对 0 处不匹配。
+
+**验证：**①行为门 `test_scene_generic_shader_float_array_index`（该模块编译并运行真 normalizer）新增两例：尾随空格声明必须被接受且该 varying 以 `layout(location = 0) in vec2 v_TexCoord;` 进入 linked 接口；缺分号的声明仍必须 `declarationUnsupported`——模块 6 tests `OK`；②真实复跑：签名 HEAD 构建（CDHash `07ad067e179f141e2d5a4646c26ec836121ac8e6`、Team `H9QWU9XN8R`）重跑该样本，app log 的归一化原因由 6×`normalization("declarationUnsupported")` 变为 6×`normalization("varyingUnsupported")`（解析已通过，失败前移到下一门）；③负向对照：同批另一 FAIL 样本 `3357627941` 复跑失败集**不变**（同 5 条、`failed_exact_effects=0`），说明修复只作用于该声明形态。
+
+**仍未闭合：**该样本**仍然 FAIL**——四个 effect 的 `failed_exact_effects` 与两条 benchmark 失败码与修复前逐条相同，因为下一门拒绝同一 shader：顶点声明 `varying vec4 v_TexCoord` 而片元声明 `varying vec2 v_TexCoord`，`SceneAuthoredShaderVaryingPrefixLink.prove(name:vertexWidth:fragmentWidth:vertexSource:fragmentSource:)` 未能证明该窄化前缀链接（返回 nil → `varyingUnsupported`）。该 shift 本身即本批的可判别证据（原因从解析期前移到链接期），已登记为队列 (i) ② 的下一机制；不得用"矩阵声明 expected passthrough"绕过。
+
+**证据（本机忽略缓存）：**`docs/scene/evidence/v1/declaration-whitespace-fix-2026-09-23/`：`2849382252/…/report.json`（修复后复跑，SHA-256 `4f284082eff9bf9a…`）与 `3357627941/…/report.json`（负向对照，SHA-256 `c61bea1e8e7a6afa…`）；修复前基线报告仍在 `docs/scene/evidence/v1/v2-layout-first-run-2026-09-23/`。
+
+**边界：**本批只证明该声明形态不再拒绝、且失败原因前移；不证明该 shader 最终执行、不证明视觉、不证明任何样本的视觉验收或官方 parity。`SceneGenericShaderSourceNormalizer.swift` 现 595 行（既有 review-limit 警告、未越 800 硬限）。
+
 <a id="e-2026-09-23-v2-layout-first-run"></a>
 ### E-2026-09-23-V2-LAYOUT-FIRST-RUN — 13 个 v2 布局样本的首次隔离运行（11 PASS / 2 FAIL）
 

@@ -184,6 +184,36 @@ void main() { gl_FragColor = vec4(mod(v_TexCoord.x, v_TexCoord.y)); }
             self.assertTrue(result["ok"], result)
             self.assertNotIn("mwxAuthored_mod", output.read_text(encoding="utf-8"))
 
+    def test_declaration_terminator_whitespace_is_insignificant(self) -> None:
+        """A terminator followed only by whitespace is valid authored input.
+
+        A real workshop fragment declared `varying vec2 v_TexCoord; ` (trailing
+        space, no annotation); rejecting it as `declarationUnsupported` sent
+        that effect to the shared-backend fallback.
+        """
+        result, output = self._normalize(
+            "uniform sampler2D g_Texture0;\n"
+            "varying vec2 v_TexCoord; \n"
+            "uniform float u_Value;\t\n"
+            "void main() { gl_FragColor = texSample2D(g_Texture0, v_TexCoord) * u_Value; }\n"
+        )
+        self.assertTrue(result["ok"], result)
+        # The declaration survives as the linked stage interface entry.
+        self.assertIn(
+            "layout(location = 0) in vec2 v_TexCoord;",
+            output.read_text(encoding="utf-8"),
+        )
+
+    def test_declaration_without_terminator_still_fails_closed(self) -> None:
+        result, _output = self._normalize(
+            "uniform sampler2D g_Texture0;\n"
+            "varying vec2 v_TexCoord;\n"
+            "uniform float u_Value\n"
+            "void main() { gl_FragColor = vec4(u_Value); }\n"
+        )
+        self.assertFalse(result["ok"], result)
+        self.assertEqual(result.get("failure"), "declarationUnsupported")
+
     def test_member_and_function_identifiers_fail_closed(self) -> None:
         result, output = self._normalize("""uniform float g_AudioSpectrum32Left[32];
 varying vec2 v_TexCoord;
