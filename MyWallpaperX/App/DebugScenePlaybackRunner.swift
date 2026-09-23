@@ -67,6 +67,7 @@ enum DebugScenePlaybackRunner {
         guard requestedPointerTrajectory == nil
                 || (!requestedPrimaryClick
                     && requestedDragPointer == nil
+                    && !requestedHoverPointerFromLaunch
                     && !requestedHoverPointerStationaryEntry) else {
             NSLog(
                 "MWX DEBUG SCENE: phase=precondition-failed reason=ambiguous-pointer-trajectory"
@@ -249,11 +250,22 @@ enum DebugScenePlaybackRunner {
                 }
                 return
             }
-            if requestedHoverPointer != nil {
+            if let hoverPointer = requestedHoverPointer {
                 // Freeze the synthetic pointer outside before surface creation so
                 // the first authored edge belongs to the declared benchmark step,
-                // not to the operator's current mouse location.
-                runtimeHost.setDebugPointerOverride(.init())
+                // not to the operator's current mouse location. The explicit
+                // from-launch opt-in keeps that edge but declares it as the
+                // requested point, which is the only way to reach an authored
+                // callback that depends on first-frame state.
+                runtimeHost.setDebugPointerOverride(
+                    requestedHoverPointerFromLaunch
+                        ? .init(
+                            current: hoverPointer,
+                            isInside: true,
+                            isPrimaryButtonDown: false
+                        )
+                        : .init()
+                )
             }
             let model = try runtimeHost.launch(
                 rootURL: rootURL,
@@ -466,91 +478,6 @@ enum DebugScenePlaybackRunner {
         }
     }
 
-    private static func schedulePointerSnapshots(
-        outputDirectory: URL,
-        hoverPointer: SIMD2<Float>,
-        stationaryEntry: Bool,
-        primaryClick: Bool,
-        dragPointer: SIMD2<Float>?,
-        pointerTrajectory: [SIMD2<Float>]?
-    ) {
-        var startDelay = 1.0
-        if let raw = ProcessInfo.processInfo.environment["MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND"],
-           let second = Double(raw), second.isFinite, (0..<60).contains(second) {
-            let current = Date().timeIntervalSince1970.truncatingRemainder(dividingBy: 60)
-            startDelay = (second - current + 60).truncatingRemainder(dividingBy: 60)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + startDelay) {
-            requestSnapshot(reason: "before", outputDirectory: outputDirectory)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                if stationaryEntry {
-                    holdPointer(at: hoverPointer)
-                    schedulePointerResultSnapshot(
-                        outputDirectory: outputDirectory,
-                        pointer: hoverPointer,
-                        primaryClick: primaryClick,
-                        dragPointer: dragPointer,
-                        pointerTrajectory: pointerTrajectory,
-                        after: 0.28
-                    )
-                } else {
-                    movePointer(to: hoverPointer)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                        holdPointer(at: hoverPointer)
-                        schedulePointerResultSnapshot(
-                            outputDirectory: outputDirectory,
-                            pointer: hoverPointer,
-                            primaryClick: primaryClick,
-                            dragPointer: dragPointer,
-                            pointerTrajectory: pointerTrajectory,
-                            after: 0.2
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private static func schedulePointerResultSnapshot(
-        outputDirectory: URL,
-        pointer: SIMD2<Float>,
-        primaryClick: Bool,
-        dragPointer: SIMD2<Float>?,
-        pointerTrajectory: [SIMD2<Float>]?,
-        after delay: TimeInterval
-    ) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            if let pointerTrajectory {
-                schedulePointerTrajectory(
-                    outputDirectory: outputDirectory,
-                    points: pointerTrajectory
-                )
-            } else if let dragPointer {
-                schedulePointerDrag(
-                    outputDirectory: outputDirectory,
-                    from: pointer,
-                    to: dragPointer
-                )
-            } else if primaryClick {
-                setPointer(at: pointer, primaryButtonIsDown: true, state: "press")
-                if requestedPrimaryClickSubframe {
-                    setPointer(at: pointer, primaryButtonIsDown: false, state: "release")
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
-                        capturePointerResult(outputDirectory: outputDirectory)
-                    }
-                } else {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
-                        setPointer(at: pointer, primaryButtonIsDown: false, state: "release")
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
-                            capturePointerResult(outputDirectory: outputDirectory)
-                        }
-                    }
-                }
-            } else {
-                capturePointerResult(outputDirectory: outputDirectory)
-            }
-        }
-    }
 
     static func requestSnapshot(reason: String, outputDirectory: URL) {
         guard let windowNumber = runtimeHost
@@ -698,7 +625,7 @@ enum DebugScenePlaybackRunner {
         )
     }
 
-    private static var requestedPrimaryClickSubframe: Bool {
+    static var requestedPrimaryClickSubframe: Bool {
         ProcessInfo.processInfo.arguments.contains(
             "--mwx-debug-scene-primary-click-subframe"
         )

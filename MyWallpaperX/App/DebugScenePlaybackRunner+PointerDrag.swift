@@ -58,6 +58,16 @@ extension DebugScenePlaybackRunner {
         }
     }
 
+    /// Places the synthetic pointer on the requested hover point before the
+    /// first frame instead of freezing it outside, so a controlled comparison
+    /// can reach an authored callback that depends on first-frame state.
+    /// Retire with the cursor calibration batch.
+    static var requestedHoverPointerFromLaunch: Bool {
+        ProcessInfo.processInfo.arguments.contains(
+            "--mwx-debug-scene-hover-pointer-from-launch"
+        )
+    }
+
     static var requestedPointerTrajectory: [SIMD2<Float>]? {
         guard let payload = argumentValue(
             after: "--mwx-debug-scene-pointer-trajectory-json"
@@ -210,5 +220,92 @@ extension DebugScenePlaybackRunner {
             }
         }
     }
+
+    static func schedulePointerSnapshots(
+        outputDirectory: URL,
+        hoverPointer: SIMD2<Float>,
+        stationaryEntry: Bool,
+        primaryClick: Bool,
+        dragPointer: SIMD2<Float>?,
+        pointerTrajectory: [SIMD2<Float>]?
+    ) {
+        var startDelay = 1.0
+        if let raw = ProcessInfo.processInfo.environment["MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND"],
+           let second = Double(raw), second.isFinite, (0..<60).contains(second) {
+            let current = Date().timeIntervalSince1970.truncatingRemainder(dividingBy: 60)
+            startDelay = (second - current + 60).truncatingRemainder(dividingBy: 60)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + startDelay) {
+            requestSnapshot(reason: "before", outputDirectory: outputDirectory)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                if stationaryEntry {
+                    holdPointer(at: hoverPointer)
+                    schedulePointerResultSnapshot(
+                        outputDirectory: outputDirectory,
+                        pointer: hoverPointer,
+                        primaryClick: primaryClick,
+                        dragPointer: dragPointer,
+                        pointerTrajectory: pointerTrajectory,
+                        after: 0.28
+                    )
+                } else {
+                    movePointer(to: hoverPointer)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                        holdPointer(at: hoverPointer)
+                        schedulePointerResultSnapshot(
+                            outputDirectory: outputDirectory,
+                            pointer: hoverPointer,
+                            primaryClick: primaryClick,
+                            dragPointer: dragPointer,
+                            pointerTrajectory: pointerTrajectory,
+                            after: 0.2
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    static func schedulePointerResultSnapshot(
+        outputDirectory: URL,
+        pointer: SIMD2<Float>,
+        primaryClick: Bool,
+        dragPointer: SIMD2<Float>?,
+        pointerTrajectory: [SIMD2<Float>]?,
+        after delay: TimeInterval
+    ) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            if let pointerTrajectory {
+                schedulePointerTrajectory(
+                    outputDirectory: outputDirectory,
+                    points: pointerTrajectory
+                )
+            } else if let dragPointer {
+                schedulePointerDrag(
+                    outputDirectory: outputDirectory,
+                    from: pointer,
+                    to: dragPointer
+                )
+            } else if primaryClick {
+                setPointer(at: pointer, primaryButtonIsDown: true, state: "press")
+                if requestedPrimaryClickSubframe {
+                    setPointer(at: pointer, primaryButtonIsDown: false, state: "release")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                        capturePointerResult(outputDirectory: outputDirectory)
+                    }
+                } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                        setPointer(at: pointer, primaryButtonIsDown: false, state: "release")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                            capturePointerResult(outputDirectory: outputDirectory)
+                        }
+                    }
+                }
+            } else {
+                capturePointerResult(outputDirectory: outputDirectory)
+            }
+        }
+    }
+
 }
 #endif

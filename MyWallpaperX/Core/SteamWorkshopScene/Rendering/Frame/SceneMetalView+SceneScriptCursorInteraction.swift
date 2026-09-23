@@ -2,6 +2,11 @@ import CoreGraphics
 import QuartzCore
 import simd
 
+#if DEBUG
+/// Owners already logged by the one-shot cursor-bounds calibration probe.
+private var sceneScriptCursorBoundsLoggedLayerIDs: Set<Int> = []
+#endif
+
 extension SceneMetalView {
     /// Publishes one immutable callback snapshot from the same surface camera
     /// and pointer state used by rendering. The host only calls this when a
@@ -180,6 +185,45 @@ extension SceneMetalView {
         }
     }
 
+#if DEBUG
+    /// One-shot calibration aid. The hit test unprojects the pointer's
+    /// normalized position through this layer's MVP and keeps it inside the
+    /// local half-extent box, so a layer's own hit rectangle is recovered by
+    /// projecting that box back to normalized coordinates. Logs each owner
+    /// once per process. Retire together with the `3692` diagnostics when the
+    /// cursor calibration and capture-chain items close.
+    private static func logCursorNormalizedBoundsIfNeeded(
+        layerID: Int,
+        modelViewProjection: simd_float4x4
+    ) {
+        guard !sceneScriptCursorBoundsLoggedLayerIDs.contains(layerID) else {
+            return
+        }
+        var minimum = SIMD2<Float>(0, 0)
+        var maximum = SIMD2<Float>(0, 0)
+        var isFirst = true
+        for x in [Float(-0.5), 0.5] {
+            for y in [Float(-0.5), 0.5] {
+                let clip = modelViewProjection * SIMD4(x, y, 0, 1)
+                guard clip.w.isFinite, abs(clip.w) > 1e-8 else { return }
+                let normalized = SIMD2(clip.x / clip.w, clip.y / clip.w)
+                guard normalized.x.isFinite, normalized.y.isFinite else {
+                    return
+                }
+                minimum = isFirst ? normalized : simd_min(minimum, normalized)
+                maximum = isFirst ? normalized : simd_max(maximum, normalized)
+                isFirst = false
+            }
+        }
+        guard !isFirst else { return }
+        sceneScriptCursorBoundsLoggedLayerIDs.insert(layerID)
+        NSLog(
+            "MWX DEBUG SCENE: phase=cursor-normalized-bounds layer=%d min=%.6f,%.6f max=%.6f,%.6f",
+            layerID, minimum.x, minimum.y, maximum.x, maximum.y
+        )
+    }
+#endif
+
     private func originInteractionProjections(
         _ ownerLayerIDs: Set<Int>,
         pointer: SceneSurfacePointerEvent,
@@ -222,6 +266,12 @@ extension SceneMetalView {
             )
             let modelViewProjection = cameraFrame.viewProjection(for: layer)
                 * model
+#if DEBUG
+            Self.logCursorNormalizedBoundsIfNeeded(
+                layerID: ownerLayerID,
+                modelViewProjection: modelViewProjection
+            )
+#endif
             guard let local = SceneLayerCursorGeometry.layerPoint(
                 mouseNormalized: pointer.normalizedPosition,
                 modelViewProjection: modelViewProjection

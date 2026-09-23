@@ -1268,6 +1268,7 @@ def load_matrix(path: Path) -> dict[str, Any]:
             raise ValueError(f"invalid Scene matrix sample: {path}")
         hover_pointer = hover_pointer_normalized(sample)
         stationary_entry = hover_pointer_stationary_entry(sample)
+        from_launch_hover = hover_pointer_from_launch(sample)
         primary_click = cursor_primary_click(sample)
         subframe_click = cursor_primary_click_subframe(sample)
         drag_pointer = cursor_drag_to_normalized(sample)
@@ -1277,6 +1278,10 @@ def load_matrix(path: Path) -> dict[str, Any]:
             raise ValueError(
                 "minimum_pointer_trajectory_changed_ratio requires "
                 "pointer_trajectory_normalized"
+            )
+        if from_launch_hover and hover_pointer is None:
+            raise ValueError(
+                "hover_pointer_from_launch requires hover_pointer_normalized"
             )
         if stationary_entry and hover_pointer is None:
             raise ValueError(
@@ -1420,6 +1425,13 @@ def hover_pointer_stationary_entry(sample: dict[str, Any]) -> bool:
     raw = sample.get("hover_pointer_stationary_entry", False)
     if type(raw) is not bool:
         raise ValueError("hover_pointer_stationary_entry must be a boolean")
+    return raw
+
+
+def hover_pointer_from_launch(sample: dict[str, Any]) -> bool:
+    raw = sample.get("hover_pointer_from_launch", False)
+    if type(raw) is not bool:
+        raise ValueError("hover_pointer_from_launch must be a boolean")
     return raw
 
 
@@ -7560,6 +7572,9 @@ def run_sample(
     if pointer_trajectory is not None:
         hover_pointer = pointer_trajectory[0]
     hover_pointer_stationary = hover_pointer_stationary_entry(sample)
+    from_launch_hover = hover_pointer_from_launch(sample)
+    if from_launch_hover and hover_pointer is None:
+        raise ValueError("hover_pointer_from_launch requires hover_pointer_normalized")
     primary_click = cursor_primary_click(sample)
     subframe_click = cursor_primary_click_subframe(sample)
     drag_pointer = cursor_drag_to_normalized(sample)
@@ -7577,6 +7592,8 @@ def run_sample(
         ])
         if hover_pointer_stationary:
             command.append("--mwx-debug-scene-hover-pointer-stationary-entry")
+        if from_launch_hover:
+            command.append("--mwx-debug-scene-hover-pointer-from-launch")
         if primary_click:
             command.append("--mwx-debug-scene-primary-click")
             if subframe_click:
@@ -8443,6 +8460,7 @@ def run_sample(
                 list(hover_pointer) if hover_pointer is not None else None
             ),
             "hover_pointer_stationary_entry": hover_pointer_stationary,
+            "hover_pointer_from_launch": from_launch_hover,
             "cursor_primary_click": primary_click,
             "cursor_primary_click_subframe": subframe_click,
             "cursor_drag_to_normalized": (

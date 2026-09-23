@@ -1253,6 +1253,64 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                         "hover_pointer_stationary_entry": value
                     })
 
+    def test_hover_pointer_from_launch_accepts_only_boolean(self) -> None:
+        self.assertFalse(benchmark.hover_pointer_from_launch({}))
+        self.assertTrue(benchmark.hover_pointer_from_launch({
+            "hover_pointer_from_launch": True
+        }))
+        for value in (0, 1, "true", None):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    benchmark.hover_pointer_from_launch({
+                        "hover_pointer_from_launch": value
+                    })
+
+    def test_hover_pointer_from_launch_needs_a_point_and_no_trajectory(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "matrix.json"
+            sample = {
+                "id": "1",
+                "hover_pointer_normalized": [0.5, -0.25],
+                "hover_pointer_from_launch": True,
+            }
+            path.write_text(
+                json.dumps({
+                    "schema_version": 1, "name": "fixture",
+                    "samples": [dict(sample)],
+                }),
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                benchmark.load_matrix(path)["samples"][0]["id"],
+                "1",
+            )
+            without_point = dict(sample)
+            del without_point["hover_pointer_normalized"]
+            path.write_text(
+                json.dumps({
+                    "schema_version": 1, "name": "fixture",
+                    "samples": [without_point],
+                }),
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                benchmark.load_matrix(path)
+            with_trajectory = dict(sample)
+            with_trajectory["pointer_trajectory_normalized"] = [
+                [-0.5, 0], [0.5, 0],
+            ]
+            path.write_text(
+                json.dumps({
+                    "schema_version": 1, "name": "fixture",
+                    "samples": [with_trajectory],
+                }),
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                benchmark.load_matrix(path)
+
     def test_cursor_primary_click_accepts_only_boolean(self) -> None:
         self.assertFalse(benchmark.cursor_primary_click({}))
         self.assertTrue(benchmark.cursor_primary_click({
@@ -1491,16 +1549,24 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             source,
         )
         prelaunch_outside = source.index(
-            "runtimeHost.setDebugPointerOverride(.init())"
+            "runtimeHost.setDebugPointerOverride("
         )
         launch = source.index(
             "let model = try runtimeHost.launch("
         )
         self.assertLess(prelaunch_outside, launch)
-        before = source.index('requestSnapshot(reason: "before"')
-        move_state = source.index("movePointer(to: hoverPointer)", before)
-        hold_state = source.index("holdPointer(at: hoverPointer)", move_state)
-        result = source.index("schedulePointerResultSnapshot(", hold_state)
+        # The pointer schedule lives in the pointer instrumentation file; the
+        # ordering it asserts is scoped to that file.
+        before = pointer_source.index('requestSnapshot(reason: "before"')
+        move_state = pointer_source.index(
+            "movePointer(to: hoverPointer)", before
+        )
+        hold_state = pointer_source.index(
+            "holdPointer(at: hoverPointer)", move_state
+        )
+        result = pointer_source.index(
+            "schedulePointerResultSnapshot(", hold_state
+        )
         self.assertLess(before, move_state)
         self.assertLess(move_state, hold_state)
         self.assertLess(hold_state, result)
@@ -1511,17 +1577,17 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertLess(outside, after)
         self.assertIn("state=move", pointer_source)
         self.assertIn('state: "hold"', pointer_source)
-        press = source.index('state: "press"', hold_state)
-        release = source.index('state: "release"', press)
+        press = pointer_source.index('state: "press"', result)
+        release = pointer_source.index('state: "release"', press)
         self.assertLess(press, release)
-        subframe_branch = source.index("if requestedPrimaryClickSubframe", press)
-        subframe_release = source.index(
-            'primaryButtonIsDown: false, state: "release"',
-            subframe_branch,
+        subframe_branch = pointer_source.index(
+            "if requestedPrimaryClickSubframe", press
         )
-        subframe_wait = source.index(
-            "DispatchQueue.main.asyncAfter",
-            subframe_release,
+        subframe_release = pointer_source.index(
+            'primaryButtonIsDown: false, state: "release"', subframe_branch
+        )
+        subframe_wait = pointer_source.index(
+            "DispatchQueue.main.asyncAfter", subframe_release
         )
         self.assertLess(subframe_release, subframe_wait)
 
