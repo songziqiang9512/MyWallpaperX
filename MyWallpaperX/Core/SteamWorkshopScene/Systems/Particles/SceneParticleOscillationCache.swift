@@ -88,14 +88,18 @@ nonisolated struct SceneParticleMovementPlan: Sendable {
 
     nonisolated init(
         _ value: SceneParticleOperator,
-        isWorldSpaceSystem: Bool,
         worldSpaceFrame: SceneParticleWorldSpaceFrame?
     ) {
         let authoredGravity = SceneParticleSimulationMath.vector(
             value.gravity,
             fallback: .zero
         )
-        gravity = (isWorldSpaceSystem || value.isWorldSpaceMovement)
+        // Only the movement operator's own world-space flag puts gravity in
+        // the world domain. A world-space *system* keeps its particles from
+        // following later system motion, but its authored gravity stays in the
+        // layer frame like the authored velocity, so re-projecting it here
+        // would shrink a scaled layer's gravity without changing its speed.
+        gravity = value.isWorldSpaceMovement
             ? worldSpaceFrame?.localParticleDirection(authoredGravity) ?? authoredGravity
             : authoredGravity
         drag = max(0, value.drag ?? 0)
@@ -160,7 +164,7 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
         switch value.kind {
         case .movement:
             movement = SceneParticleMovementPlan(
-                value, isWorldSpaceSystem: definition.flags.isWorldSpace,
+                value,
                 worldSpaceFrame: worldSpaceFrame
             )
             angularMovement = nil

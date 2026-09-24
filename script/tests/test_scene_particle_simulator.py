@@ -59,6 +59,38 @@ import simd
 enum Harness {
     static func main() throws {
         if CommandLine.arguments.count == 2,
+           CommandLine.arguments[1] == "snapshot-boundaries" {
+            try printJSON(snapshotBoundaryResults())
+        } else if CommandLine.arguments.count == 2,
+           CommandLine.arguments[1] == "duration-window" {
+            try printJSON(durationWindowResults())
+        } else if CommandLine.arguments.count == 3,
+           CommandLine.arguments[1] == "prewarm-budget" {
+            try printJSON(prewarmBudgetResults(startTime: CommandLine.arguments[2], source: deterministicJSON))
+        } else if CommandLine.arguments.count == 2,
+                  CommandLine.arguments[1] == "prewarm-periodic" {
+            try printJSON(prewarmBudgetResults(startTime: "1e308", source:
+                periodicJSON.replacingOccurrences(of: "0.5", with: "0.004166666666666667")
+            ))
+        } else if CommandLine.arguments.count == 2,
+                  CommandLine.arguments[1] == "prewarm-steps" {
+            var results: [String: Any] = [:]
+            for duration in [0.001, 0.025, 4.0, 1000.0] {
+                var root = try object(onePerFrameJSON)
+                root["starttime"] = duration
+                root["maxcount"] = 1000
+                root["initializer"] = [["name": "lifetimerandom", "min": 1000000, "max": 1000000]]
+                let definition = SceneParticleDefinitionParser().parse(root: root)
+                let simulation = SceneParticleSimulator(definition: definition, seed: 1)
+                results[String(duration)] = [
+                    "count": simulation.particles.count, "time": simulation.simulationTime
+                ]
+            }
+            try printJSON(results)
+        } else if CommandLine.arguments.count == 2,
+           CommandLine.arguments[1] == "emission-overflow" {
+            try printJSON(emissionOverflowResults())
+        } else if CommandLine.arguments.count == 2,
            CommandLine.arguments[1] == "position-around-control-point" {
             try printJSON(positionAroundControlPointResults())
         } else if CommandLine.arguments.count == 2,
@@ -70,6 +102,156 @@ enum Harness {
         } else {
             try printJSON(syntheticResults())
         }
+    }
+
+    private static func snapshotBoundaryResults() throws -> [String: Any] {
+        let source = #"""
+        {"material":"p.json","maxcount":1,
+         "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
+         "initializer":[{"name":"lifetimerandom","min":0.175,"max":0.175},
+                        {"name":"velocityrandom","min":"10 0 0","max":"10 0 0"}],
+         "operator":[{"name":"movement","drag":0,"gravity":"0 0 0"}],
+         "renderer":[{"name":"sprite"}]}
+        """#
+        let sim = SceneParticleSimulator(
+            definition: SceneParticleDefinitionParser().parse(root: try object(source)),
+            seed: 1, fixedTimeStep: 0.05,
+            stepSnapshotPolicy: SceneParticleStepSnapshotPolicy(interval: 0.1, maximumSnapshots: 4)
+        )
+        sim.advance(by: 0.05)
+        let partial = sim.consumeStepSnapshots()
+        let consumed = sim.consumeStepSnapshots()
+        let saved = sim.frameSnapshot()
+        sim.advance(by: 0.15)
+        let completed = sim.consumeStepSnapshots()
+        sim.restoreFrame(saved)
+        sim.advance(by: 0.15)
+        let replay = sim.consumeStepSnapshots()
+        return [
+            "partialDurations": partial.map(\.duration),
+            "partialX": partial.flatMap { $0.particles.map { $0.position.x } },
+            "consumedAgain": consumed.count,
+            "completedDurations": completed.map(\.duration),
+            "completedCounts": completed.map { $0.particles.count },
+            "completedX": completed.flatMap { $0.particles.map { $0.position.x } },
+            "replay": replay == completed,
+        ]
+    }
+
+    private static func durationWindowResults() throws -> [String: Any] {
+        var counts: [Int] = []
+        var partitionStable = true
+        for rate in [0.5, 1.0, 2.0] {
+            let override = SceneParticleDefinitionParser().parseInstanceOverride(["rate": rate])
+            for step in [0.1, 0.125, 0.25, 0.5] {
+                for delay in ["0", "0.075"] {
+                    let source = delayJSON(delay, rate: 100, duration: 0.25)
+                    let joined = simulator(source, override: override, seed: 37, step: step)
+                    let partitioned = simulator(source, override: override, seed: 37, step: step)
+                    joined.advance(by: 2)
+                    for _ in 0..<Int((2 / step).rounded()) { partitioned.advance(by: step) }
+                    counts.append(joined.particles.count)
+                    partitionStable = partitionStable && joined.particles == partitioned.particles
+                }
+            }
+        }
+        let shortBurst = simulator(delayJSON("0", rate: 0, instantaneous: 3, duration: 0.025),
+                                   seed: 1, step: 0.1)
+        shortBurst.advance(by: 1)
+        let replay = simulator(delayJSON("0", rate: 100, duration: 0.25), seed: 37, step: 0.1)
+        replay.advance(by: 0.2)
+        let saved = replay.frameSnapshot()
+        replay.advance(by: 0.8)
+        let completed = replay.particles
+        replay.restoreFrame(saved)
+        replay.advance(by: 0.8)
+        return ["counts": counts, "partitionStable": partitionStable,
+                "shortBurst": shortBurst.particles.count,
+                "replay": completed == replay.particles && completed.count == 25]
+    }
+
+    private static func prewarmBudgetResults(startTime: String, source: String) throws -> [String: Any] {
+        var root = try object(source)
+        root["starttime"] = startTime
+        let step = 1.0 / 60.0
+        let definition = SceneParticleDefinitionParser().parse(root: root)
+        let policy = SceneParticleStepSnapshotPolicy(interval: 0.5, maximumSnapshots: 68)
+        let warmed = SceneParticleSimulator(definition: definition, seed: 17,
+                                           fixedTimeStep: step, stepSnapshotPolicy: policy)
+        let requested = Double(startTime)!
+        let expectedTime = requested.isFinite ? min(max(requested, 0), 600) : 0
+        let reference = SceneParticleSimulator(
+            definition: SceneParticleDefinitionParser().parse(root: try object(source)),
+            seed: 17, fixedTimeStep: step, stepSnapshotPolicy: policy
+        )
+        for _ in 0..<Int((expectedTime / step).rounded()) {
+            reference.advance(by: step)
+            _ = reference.consumeBirthEvents()
+            _ = reference.consumeDeathEvents()
+        }
+        let clearedEvents = warmed.birthEvents.isEmpty && warmed.deathEvents.isEmpty
+        let sameState = warmed.particles == reference.particles
+            && warmed.simulationTime == reference.simulationTime
+        let warmedHistory = warmed.consumeStepSnapshots()
+        let sameHistory = warmedHistory == reference.consumeStepSnapshots()
+            && warmedHistory.count <= 68
+        warmed.advance(by: step)
+        reference.advance(by: step)
+        return [
+            "sameState": sameState,
+            "sameHistory": sameHistory,
+            "sameNextFrame": warmed.particles == reference.particles
+                && warmed.simulationTime == reference.simulationTime,
+            "clearedEvents": clearedEvents,
+            "time": warmed.simulationTime,
+            "diagnostics": warmed.diagnostics.map(\.kind.rawValue)
+        ]
+    }
+
+    private static func emissionOverflowResults() throws -> [String: Any] {
+        let source = #"""
+        {"material":"p.json","maxcount":4,
+         "emitter":[{"name":"boxrandom","rate":1e308,
+                     "distancemin":"0 0 0","distancemax":"0 0 0"}],
+         "initializer":[{"name":"lifetimerandom","min":1,"max":1}],
+         "renderer":[{"name":"sprite"}]}
+        """#
+        let simulation = simulator(source, seed: 1, step: 4)
+        simulation.advance(by: 4)
+        let snapshot = simulation.frameSnapshot()
+        simulation.advance(by: 4)
+        let second = simulation.frameSnapshot()
+        simulation.restoreFrame(snapshot)
+        simulation.advance(by: 4)
+        let replay = simulation.frameSnapshot()
+        let prewarmed = simulator(source.replacingOccurrences(
+            of: #""maxcount":4"#, with: #""maxcount":4,"starttime":1000"#
+        ), seed: 1, step: 1.0 / 60.0)
+        prewarmed.advance(by: 1.0 / 60.0)
+        let empty = simulator(source, seed: 1, step: 4, particleBudget: 0)
+        empty.advance(by: 8)
+        let limited = simulator(source.replacingOccurrences(
+            of: #""rate":1e308"#, with: #""rate":1e308,"flags":2"#
+        ), seed: 1, step: 4)
+        limited.advance(by: 8)
+        let retained = simulator(source.replacingOccurrences(
+            of: #""min":1,"max":1"#, with: #""min":100,"max":100"#
+        ), seed: 1, step: 4)
+        retained.advance(by: 8)
+        return [
+            "births": second.birthEvents.count,
+            "deaths": second.deathEvents.count,
+            "finiteRemainder": second.emitters.allSatisfy { $0.remainder.isFinite },
+            "replay": second.birthEvents == replay.birthEvents
+                && second.deathEvents == replay.deathEvents
+                && second.simulationTime == replay.simulationTime,
+            "prewarmContinues": prewarmed.particles.count == 4
+                && prewarmed.frameSnapshot().emitters.allSatisfy { $0.remainder.isFinite },
+            "zeroBudget": empty.birthEvents.isEmpty
+                && empty.frameSnapshot().emitters.allSatisfy { $0.remainder.isFinite },
+            "onePerFrame": limited.birthEvents.count,
+            "livingBudget": retained.particles.count == 4 && retained.birthEvents.count == 4
+        ]
     }
 
     private static func emitterPointerResults() throws -> [String: Any] {
@@ -259,6 +441,48 @@ enum Harness {
             ? #"{"name":"unsupported-position-around-baseline"}"#
             : #"{"name":"mapsequencearoundcontrolpoint",\#(fields)}"#
         return #"{"material":"p.json","maxcount":8,"controlpoint":[\#(point)],"emitter":[\#(emitter)],"initializer":[\#(initializer)],"renderer":[{"name":"sprite"}]}"#
+    }
+
+    private static func worldSpaceGravityResults() -> [String: Any] {
+        let rotation = simd_float4x4(
+            SIMD4<Float>(0, 1, 0, 0), SIMD4<Float>(-1, 0, 0, 0),
+            SIMD4<Float>(0, 0, 1, 0), SIMD4<Float>(0, 0, 0, 1))
+        let scale = simd_float4x4(diagonal: SIMD4<Float>(-2, 4, 1, 1))
+        let frame = rotation * scale
+        let flip = simd_float4x4(diagonal: SIMD4<Float>(1, -1, 1, 1))
+        func run(system: Bool, movement: Bool) -> [String: Any] {
+            let definition = SceneParticleDefinitionParser().parse(root: [
+                "material": "p.json", "maxcount": 1, "flags": system ? 1 : 0,
+                "emitter": [["name": "boxrandom", "instantaneous": 1,
+                    "distancemin": "0 0 0", "distancemax": "0 0 0"]],
+                "initializer": [["name": "lifetimerandom", "min": 10, "max": 10],
+                    ["name": "velocityrandom", "min": "8 4 0", "max": "8 4 0"]],
+                "operator": [["name": "movement", "flags": movement ? 1 : 0,
+                    "gravity": "0 -8 0", "drag": 0]],
+                "renderer": [["name": "sprite"]]])
+            let sim = SceneParticleSimulator(definition: definition, fixedTimeStep: 0.5,
+                worldSpaceFrame: SceneParticleWorldSpaceFrame(worldFrame: frame))
+            sim.advance(by: 0.5)
+            func authoredWorldVelocity() -> SIMD3<Float> {
+                let local = sim.particles[0].velocity
+                let world = flip * frame * flip * SIMD4(Float(local.x), Float(local.y), Float(local.z), 0)
+                return SIMD3(world.x, world.y, world.z)
+            }
+            let first = authoredWorldVelocity()
+            let saved = sim.frameSnapshot()
+            sim.advance(by: 0.5)
+            let second = authoredWorldVelocity()
+            let advanced = sim.particles
+            sim.restoreFrame(saved)
+            sim.advance(by: 0.5)
+            return ["first": [first.x, first.y, first.z],
+                    "forceDelta": [second.x - first.x, second.y - first.y, second.z - first.z],
+                    "replay": sim.particles == advanced]
+        }
+        return ["general": run(system: true, movement: false),
+                "movement": run(system: false, movement: true),
+                "both": run(system: true, movement: true),
+                "local": run(system: false, movement: false)]
     }
 
     private static func syntheticResults() throws -> [String: Any] {
@@ -1140,6 +1364,10 @@ enum Harness {
 
         var vortex = simulator(vortexJSON(), seed: 81, step: 1)
         vortex.advance(by: 1)
+        var zeroAxisVortex = simulator(vortexJSON(axis: "0 0 0"), seed: 81, step: 1)
+        zeroAxisVortex.advance(by: 1)
+        var signedZeroAxisVortex = simulator(vortexJSON(axis: "-0 0 -0"), seed: 81, step: 1)
+        signedZeroAxisVortex.advance(by: 1)
         var vortexPartitioned = simulator(vortexJSON(), seed: 81, step: 0.25)
         vortexPartitioned.advance(by: 0.5)
         vortexPartitioned.advance(by: 0.5)
@@ -1173,7 +1401,7 @@ enum Harness {
         overrideDeniedVortex.advance(by: 1)
         let invalidVortices = [
             vortexJSON(axis: "0 0"),
-            vortexJSON(axis: "0 0 0"),
+            vortexJSON(axis: "0 0 1e-15"),
             vortexJSON(distanceInner: "10", distanceOuter: "0"),
             vortexJSON(speedOuter: "null"),
             vortexJSON(flags: 2),
@@ -1384,6 +1612,7 @@ enum Harness {
                     && (1...2).contains($0.z)
             },
             "movementPosition": vector(movementPosition),
+            "worldGravity": worldSpaceGravityResults(),
             "worldMovementPosition": vector(worldMovement.particles[0].position),
             "worldMovementLocalVelocity": vector(worldMovement.particles[0].velocity),
             "fadeAlpha": movement.particles[0].alpha,
@@ -1695,6 +1924,9 @@ enum Harness {
             "movementBeforeTurbulencePosition":
                 vector(movementBeforeTurbulence.particles[0].position),
             "overflowTurbulenceVelocity": vector(overflowTurbulence.particles[0].velocity),
+            "zeroAxisVortexMatchesZ": zeroAxisVortex.particles == vortex.particles,
+            "signedZeroAxisVortexMatchesZ": signedZeroAxisVortex.particles == vortex.particles,
+            "zeroAxisVortexDiagnostics": zeroAxisVortex.diagnostics.map(\.kind.rawValue),
             "vortexVelocity": vector(vortex.particles[0].velocity),
             "vortexDiagnostics": vortex.diagnostics.map(\.kind.rawValue),
             "vortexPartitioned": vortex.particles == vortexPartitioned.particles,
@@ -2632,9 +2864,91 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         )
         return json.loads(result.stdout)
 
+    def test_worldspace_gravity_keeps_world_direction_and_birth_velocity(self) -> None:
+        value = self.results["worldGravity"]
+        # A world-space *system* keeps authored gravity and velocity in the
+        # layer frame, so its gravity behaves exactly like the local system;
+        # only the movement operator's own world-space flag re-projects them
+        # into the world domain.
+        self.assertEqual(value["general"]["forceDelta"], value["local"]["forceDelta"])
+        self.assertEqual(value["general"]["first"], value["local"]["first"])
+        self.assertEqual(value["movement"]["forceDelta"], [0, -4, 0], "movement")
+        self.assertEqual(value["movement"]["first"], [8, 0, 0])
+        self.assertEqual(value["both"]["forceDelta"], [0, -4, 0], "both")
+        self.assertEqual(value["both"]["first"], [8, 0, 0])
+        self.assertNotEqual(
+            value["general"]["forceDelta"], value["movement"]["forceDelta"]
+        )
+        for key in ("general", "movement", "both"):
+            self.assertTrue(value[key]["replay"], key)
+        # The local system keeps the authored world-referenced force as-is.
+        self.assertEqual(value["local"]["forceDelta"], [-16, 0, 0])
+
+    def test_snapshot_sampling_preserves_partial_intervals_death_and_rollback(self) -> None:
+        result = self.run_harness("snapshot-boundaries")
+        self.assertEqual(result["partialDurations"], [0.05])
+        self.assertEqual(result["partialX"], [0.5])
+        self.assertEqual(result["consumedAgain"], 0)
+        self.assertEqual(result["completedDurations"], [0.1, 0.05])
+        self.assertEqual(result["completedCounts"], [1, 0])
+        self.assertEqual(result["completedX"], [1.5])
+        self.assertTrue(result["replay"])
+
     def test_fixed_step_and_seed_are_deterministic(self) -> None:
         self.assertTrue(self.results["deterministic"])
         self.assertTrue(self.results["differentSeed"])
+
+    def test_overflowing_emission_preserves_bounded_counts_and_replay(self) -> None:
+        self.assertEqual(self.run_harness("emission-overflow"), {
+            "births": 8, "deaths": 8, "finiteRemainder": True,
+            "replay": True, "prewarmContinues": True, "zeroBudget": True,
+            "onePerFrame": 1, "livingBudget": True,
+        })
+
+    def test_duration_window_preserves_partial_steps(self) -> None:
+        self.assertEqual(self.run_harness("duration-window"), {
+            "counts": [25] * 24, "partitionStable": True,
+            "shortBurst": 3, "replay": True,
+        })
+
+    def test_prewarm_uses_fixed_steps_and_reports_dropped_time(self) -> None:
+        for value, diagnostic, duration in (
+            ("0", [], 0), ("-1", [], 0), ("1", [], 1), ("4", [], 4),
+            ("300", [], 300),
+            ("1000", ["prewarmBudgetExceeded"], 600),
+            ("1e308", ["prewarmBudgetExceeded"], 600),
+            ("inf", ["prewarmInvalidDuration"], 0),
+            ("nan", ["prewarmInvalidDuration"], 0),
+        ):
+            with self.subTest(startTime=value):
+                execution = subprocess.run(
+                    [str(self.binary), "prewarm-budget", value],
+                    capture_output=True, text=True, timeout=10,
+                )
+                self.assertEqual(execution.returncode, 0, execution.stderr[-2000:])
+                result = json.loads(execution.stdout)
+                self.assertTrue(result["sameState"])
+                self.assertTrue(result["sameHistory"])
+                self.assertTrue(result["sameNextFrame"])
+                self.assertTrue(result["clearedEvents"])
+                self.assertAlmostEqual(result["time"], duration + 1 / 60)
+                self.assertEqual(result["diagnostics"], ["emitterSpeedBounded"] + diagnostic)
+
+    def test_prewarm_periodic_windows_and_partial_step_are_bounded(self) -> None:
+        execution = subprocess.run(
+            [str(self.binary), "prewarm-periodic"],
+            check=True, capture_output=True, text=True, timeout=10,
+        )
+        result = json.loads(execution.stdout)
+        self.assertTrue(result["sameState"])
+        self.assertTrue(result["sameNextFrame"])
+        self.assertEqual(result["diagnostics"], ["periodicEmissionBounded", "prewarmBudgetExceeded"])
+        steps = self.run_harness("prewarm-steps")
+        for value, count, duration in (("0.001", 0, 0.001), ("0.025", 2, 0.025),
+                                       ("4.0", 240, 4), ("1000.0", 1000, 32000 / 60)):
+            with self.subTest(startTime=value):
+                self.assertEqual(steps[value]["count"], count)
+                self.assertAlmostEqual(steps[value]["time"], duration)
 
     def test_birth_events_are_ordered_deterministic_and_drained(self) -> None:
         self.assertEqual(self.results["birthEventIDs"], [0, 1, 2, 3, 4])
@@ -3000,7 +3314,6 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertIn("SceneParticleTurbulentVelocityPlan", initializer_plan_source)
         self.assertIn("let positionOffset: SceneParticlePositionOffsetPlan?", initializer_plan_source)
         self.assertIn("executionPlan.turbulentVelocity", initializer_plan_source)
-        self.assertIn("emissionAudioScale(for: spawnPlan)", simulator_source)
         self.assertIn("let directions = plan.directions", random_source)
         self.assertIn("let minimum = plan.sphereDistanceMinimum", random_source)
         self.assertIn("let minimum = plan.boxDistanceMinimum", random_source)
@@ -3020,7 +3333,6 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertNotIn("value.collisionPlanePlan", collision_source)
         self.assertNotIn("value.vortexPlan", vortex_source)
         self.assertNotIn("SceneParticleAudioResponsePlan(value.audioResponse)", vortex_source)
-        self.assertIn("audioResponsePlan:", vortex_source)
 
     def test_color_initializer_interpolates_between_authored_colors(self) -> None:
         self.assertTrue(self.results["colorUsesSingleInterpolation"])
@@ -3359,6 +3671,12 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertNotEqual(self.results["turbulenceBeforeMovementPosition"], [0, 0, 0])
         self.assertEqual(self.results["movementBeforeTurbulencePosition"], [0, 0, 0])
         self.assertEqual(self.results["overflowTurbulenceVelocity"], [0, 0, 0])
+
+    def test_classic_vortex_exact_zero_axis_uses_positive_z(self) -> None:
+        self.assertTrue(self.results["zeroAxisVortexMatchesZ"])
+        self.assertTrue(self.results["signedZeroAxisVortexMatchesZ"])
+        self.assertIn("vortexBounded", self.results["zeroAxisVortexDiagnostics"])
+        self.assertNotIn("vortexUnsupported", self.results["zeroAxisVortexDiagnostics"])
 
     def test_classic_vortex_executes_bounded_axis_distance_and_speed(self) -> None:
         self.assertEqual(self.results["vortexVelocity"], [0, 100, 0])
