@@ -10,7 +10,7 @@ typealias SceneParticleTextureSampling = SceneTextureSampling
 /// with red or amber. Adapt them here, at the particle consumer, so shared
 /// data-texture users (flow, phase, normal maps) keep native channels.
 enum SceneParticleColorTextureAdapter {
-    static func adapt(_ texture: MTLTexture, device: MTLDevice) -> MTLTexture {
+    static func adapt(_ texture: MTLTexture, device: MTLDevice) -> MTLTexture? {
         switch texture.pixelFormat {
         case .r8Unorm:
             return texture.makeTextureView(
@@ -21,9 +21,9 @@ enum SceneParticleColorTextureAdapter {
                 swizzle: MTLTextureSwizzleChannels(
                     red: .red, green: .red, blue: .red, alpha: .red
                 )
-            ) ?? texture
+            )
         case .rg8Unorm:
-            return expandLuminanceAlpha(texture, device: device) ?? texture
+            return expandLuminanceAlpha(texture, device: device)
         default:
             return texture
         }
@@ -47,30 +47,37 @@ enum SceneParticleColorTextureAdapter {
         for level in 0..<texture.mipmapLevelCount {
             let width = max(texture.width >> level, 1)
             let height = max(texture.height >> level, 1)
-            var source = [UInt8](repeating: 0, count: width * height * 2)
-            texture.getBytes(
-                &source,
-                bytesPerRow: width * 2,
-                from: MTLRegionMake2D(0, 0, width, height),
-                mipmapLevel: level
-            )
-            var expanded = [UInt8](repeating: 0, count: width * height * 4)
-            for index in 0..<(width * height) {
-                let luminance = UInt16(source[index * 2])
-                let alpha = UInt16(source[index * 2 + 1])
-                let premultiplied = UInt8((luminance * alpha + 127) / 255)
-                expanded[index * 4] = premultiplied
-                expanded[index * 4 + 1] = premultiplied
-                expanded[index * 4 + 2] = premultiplied
-                expanded[index * 4 + 3] = UInt8(alpha)
-            }
-            expanded.withUnsafeBytes { buffer in
-                output.replace(
-                    region: MTLRegionMake2D(0, 0, width, height),
-                    mipmapLevel: level,
-                    withBytes: buffer.baseAddress!,
-                    bytesPerRow: width * 4
+            // Bound CPU scratch independently of atlas height. The destination
+            // remains one texture with the authored mip chain.
+            let rowsPerChunk = min(height, max(1, (256 * 1_024) / (width * 6)))
+            var source = [UInt8](repeating: 0, count: width * rowsPerChunk * 2)
+            var expanded = [UInt8](repeating: 0, count: width * rowsPerChunk * 4)
+            for row in stride(from: 0, to: height, by: rowsPerChunk) {
+                let rows = min(rowsPerChunk, height - row)
+                let region = MTLRegionMake2D(0, row, width, rows)
+                texture.getBytes(
+                    &source,
+                    bytesPerRow: width * 2,
+                    from: region,
+                    mipmapLevel: level
                 )
+                for index in 0..<(width * rows) {
+                    let luminance = UInt16(source[index * 2])
+                    let alpha = UInt16(source[index * 2 + 1])
+                    let premultiplied = UInt8((luminance * alpha + 127) / 255)
+                    expanded[index * 4] = premultiplied
+                    expanded[index * 4 + 1] = premultiplied
+                    expanded[index * 4 + 2] = premultiplied
+                    expanded[index * 4 + 3] = UInt8(alpha)
+                }
+                expanded.withUnsafeBytes { buffer in
+                    output.replace(
+                        region: region,
+                        mipmapLevel: level,
+                        withBytes: buffer.baseAddress!,
+                        bytesPerRow: width * 4
+                    )
+                }
             }
         }
         return output

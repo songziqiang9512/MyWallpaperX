@@ -236,7 +236,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     }
 
     nonisolated func consumeStepSnapshots() -> [SceneParticleStepSnapshot] {
-        stepSnapshotRecorder?.consume() ?? []
+        stepSnapshotRecorder?.consume(particles: particles) ?? []
     }
 
     nonisolated func evaluateAudioResponse(
