@@ -3,22 +3,27 @@ import simd
 
 /// Bounded Rope Trail support for the shape shared by current stock and
 /// Workshop samples. Public renderer semantics define a per-particle path;
-/// subdivision, UV animation, size fading, and non-screen orientation remain
+/// UV animation, size fading, and non-screen orientation remain
 /// closed until their geometry and sampling contracts are implemented.
 nonisolated struct SceneParticleRopeTrailPlan: Equatable, Sendable {
     static let defaultSegmentCount = 4
-    static let maximumSegmentCount = 8
-    static let maximumLength: TimeInterval = 4
-    static let maximumParticleCount = 512
-    static let maximumSegmentInstanceCount = 4_096
+    static let maximumHistorySampleCount = 262_144
+    static let maximumSegmentInstanceCount = 65_536
 
     let length: TimeInterval
     let segmentCount: Int
+    let subdivision: Int
+    var renderSegmentCount: Int { segmentCount * (subdivision + 1) }
+    /// Upper bound for the drawable segments of one particle. The authored
+    /// segment/subdivision pair decides how densely the prepared history is
+    /// sampled; a curved path still needs enough drawable nodes so that the
+    /// polyline does not show its corners.
+    let maximumSegmentsPerParticle: Int
     let fadesAlpha: Bool
     var stepSnapshotPolicy: SceneParticleStepSnapshotPolicy? {
         SceneParticleStepSnapshotPolicy(
-            interval: length / TimeInterval(segmentCount * 4),
-            maximumSnapshots: segmentCount * 4 + 4
+            interval: length / TimeInterval(renderSegmentCount * 4),
+            maximumSnapshots: renderSegmentCount * 4 + 4
         )
     }
 
@@ -34,7 +39,6 @@ nonisolated struct SceneParticleRopeTrailPlan: Equatable, Sendable {
               renderer.rawFlags == 0,
               renderer.minimumLength == nil,
               renderer.maximumLength == nil,
-              renderer.subdivision == nil,
               renderer.uvScale == nil,
               renderer.smoothsUV == nil,
               renderer.scrollsUV == nil,
@@ -45,17 +49,33 @@ nonisolated struct SceneParticleRopeTrailPlan: Equatable, Sendable {
         }
         guard let length = renderer.length else { return nil }
         let segmentCount = renderer.segments ?? Self.defaultSegmentCount
+        guard let subdivision = Int(exactly: renderer.subdivision ?? 1),
+              subdivision >= 0,
+              subdivision < Self.maximumSegmentInstanceCount,
+              segmentCount > 0,
+              segmentCount <= Self.maximumSegmentInstanceCount / (subdivision + 1) else {
+            return nil
+        }
+        let renderSegmentCount = segmentCount * (subdivision + 1)
         guard length.isFinite,
               length > 0,
-              length <= Self.maximumLength,
-              (1...Self.maximumSegmentCount).contains(segmentCount),
-              (1...Self.maximumParticleCount).contains(maximumParticleCount),
+              segmentCount > 0,
+              renderSegmentCount <= (Self.maximumHistorySampleCount - 4) / 4,
+              length / TimeInterval(renderSegmentCount * 4) > 0,
+              maximumParticleCount > 0,
               maximumParticleCount
-                <= Self.maximumSegmentInstanceCount / segmentCount else {
+                <= Self.maximumHistorySampleCount / (renderSegmentCount * 4 + 4),
+              maximumParticleCount
+                <= Self.maximumSegmentInstanceCount / renderSegmentCount else {
             return nil
         }
         self.length = length
         self.segmentCount = segmentCount
+        self.subdivision = subdivision
+        maximumSegmentsPerParticle = min(
+            renderSegmentCount * 4 + 4,
+            max(renderSegmentCount, Self.maximumSegmentInstanceCount / maximumParticleCount)
+        )
         fadesAlpha = renderer.fadesAlpha == true
     }
 }
@@ -88,12 +108,13 @@ nonisolated struct SceneParticleRopeTrailParticle: Equatable, Sendable {
 nonisolated struct SceneParticleRopeTrailHistory {
     private struct TimedSample {
         var time: TimeInterval
-        var particle: SceneParticleRopeTrailParticle
+        var position: SIMD3<Float>
     }
 
     private struct Track {
         var committed: [TimedSample]
         var current: TimedSample
+        var appearance: SceneParticleRopeTrailParticle
     }
 
     private let plan: SceneParticleRopeTrailPlan
@@ -137,14 +158,15 @@ nonisolated struct SceneParticleRopeTrailHistory {
         }
 
         for particle in validParticles {
-            let sample = TimedSample(time: elapsed, particle: particle)
+            let sample = TimedSample(time: elapsed, position: particle.position)
             if var track = tracks[particle.id] {
                 commit(sample, to: &track)
                 track.current = sample
+                track.appearance = particle
                 prune(&track)
                 tracks[particle.id] = track
             } else {
-                tracks[particle.id] = Track(committed: [sample], current: sample)
+                tracks[particle.id] = Track(committed: [sample], current: sample, appearance: particle)
             }
         }
         return validParticles
@@ -168,7 +190,7 @@ nonisolated struct SceneParticleRopeTrailHistory {
               track.committed[1].time < cutoff {
             track.committed.removeFirst()
         }
-        let maximumSamples = plan.segmentCount * 4 + 4
+        let maximumSamples = plan.renderSegmentCount * 4 + 4
         if track.committed.count > maximumSamples {
             track.committed.removeFirst(track.committed.count - maximumSamples)
         }
@@ -190,19 +212,57 @@ nonisolated struct SceneParticleRopeTrailHistory {
         }
         guard let first = samples.first, samples.count >= 2 else { return [] }
 
+        // Refine the actual simulated path instead of inventing a curve that
+        // can overshoot it. Drawable nodes come from the prepared history
+        // samples so a curved path keeps its curvature; the authored
+        // segments/subdivision pair only decides how densely that history is
+        // sampled. Shared endpoint joins below keep coverage continuous.
         var nodes: [TimedSample] = [track.current]
-        for index in 1...plan.segmentCount {
-            let target = elapsed
-                - plan.length * TimeInterval(index) / TimeInterval(plan.segmentCount)
-            if target < first.time {
-                if let latest = nodes.last, first.time < latest.time {
-                    nodes.append(first)
-                }
-                break
-            }
-            guard let value = Self.interpolate(samples, at: target) else { break }
-            nodes.append(value)
+        let oldest = elapsed - plan.length
+        for sample in samples.dropLast().reversed() {
+            guard sample.time > oldest else { break }
+            guard let previous = nodes.last, sample.time < previous.time else { continue }
+            nodes.append(sample)
         }
+        if let last = nodes.last, last.time > oldest {
+            var upperSampleIndex = samples.count - 1
+            if let value = Self.interpolate(samples, at: oldest, upperIndex: &upperSampleIndex) {
+                nodes.append(value)
+            } else if first.time < last.time {
+                nodes.append(first)
+            }
+        }
+        // Keep one drawable segment budget for the whole layer.
+        let allowedNodes = plan.maximumSegmentsPerParticle + 1
+        if nodes.count > allowedNodes {
+            let stride = Int(
+                (Double(nodes.count - 1) / Double(max(allowedNodes - 1, 1))).rounded(.up)
+            )
+            var thinned: [TimedSample] = []
+            thinned.reserveCapacity(allowedNodes)
+            var index = 0
+            while index < nodes.count {
+                thinned.append(nodes[index])
+                index += max(stride, 1)
+            }
+            if let last = nodes.last, thinned.last?.time != last.time {
+                thinned[thinned.count - 1] = last
+            }
+            nodes = thinned
+        }
+        // Stationary intervals have no drawable length. Merge their endpoint
+        // before finding neighbours so resumed motion still has one join and
+        // one width/UV value at the shared position. Keep the newest sample.
+        var distinctNodes: [TimedSample] = []
+        distinctNodes.reserveCapacity(nodes.count)
+        for node in nodes {
+            if let previous = distinctNodes.last,
+               simd_distance(previous.position, node.position) <= 0.0001 {
+                continue
+            }
+            distinctNodes.append(node)
+        }
+        nodes = distinctNodes
         guard nodes.count >= 2 else { return [] }
 
         var result: [SceneParticleGPUInstance] = []
@@ -210,9 +270,12 @@ nonisolated struct SceneParticleRopeTrailHistory {
         for index in 0..<(nodes.count - 1) {
             let newer = nodes[index]
             let older = nodes[index + 1]
-            let displacement = newer.particle.position - older.particle.position
+            let displacement = newer.position - older.position
             let segmentLength = simd_length(displacement)
-            let size = (newer.particle.size + older.particle.size) * 0.5
+            // Path history must not turn a lifetime opacity/size animation
+            // into a second, unrequested fade along the ribbon. The current
+            // particle owns appearance; renderer fade is applied separately.
+            let size = track.appearance.size
             guard segmentLength.isFinite, segmentLength > 0.0001,
                   size.isFinite, size > 0.0001 else {
                 continue
@@ -230,8 +293,7 @@ nonisolated struct SceneParticleRopeTrailHistory {
             )
             let alphaFade = plan.fadesAlpha ? (newerU + olderU) * 0.5 : 1
             let alpha = min(max(
-                (newer.particle.alpha + older.particle.alpha) * 0.5
-                    * layerAlpha * alphaFade,
+                track.appearance.alpha * layerAlpha * alphaFade,
                 0
             ), 1)
             let frame = SceneParticleFrameTransform.identity.verticalTrailSlice(
@@ -239,11 +301,11 @@ nonisolated struct SceneParticleRopeTrailHistory {
                 headPosition: newerU
             )
             result.append(SceneParticleGPUInstance(
-                position: (newer.particle.position + older.particle.position) * 0.5,
+                position: (newer.position + older.position) * 0.5,
                 size: size,
                 rotation: .zero,
                 color: simd_max(
-                    (newer.particle.color + older.particle.color) * 0.5,
+                    track.appearance.color,
                     SIMD3(repeating: 0)
                 ),
                 alpha: alpha,
@@ -251,6 +313,13 @@ nonisolated struct SceneParticleRopeTrailHistory {
                 trailStretch: segmentLength / size,
                 trailUVRange: SIMD2(olderU, newerU),
                 usesTrailDisplacement: true,
+                trailHeadDirection: index > 0
+                    ? nodes[index - 1].position - newer.position
+                    : displacement,
+                trailTailDirection: index + 2 < nodes.count
+                    ? older.position - nodes[index + 2].position
+                    : displacement,
+                trailEndpointSizes: SIMD2(repeating: size),
                 currentFrame: frame
             ))
         }
@@ -259,7 +328,8 @@ nonisolated struct SceneParticleRopeTrailHistory {
 
     private static func interpolate(
         _ samples: [TimedSample],
-        at target: TimeInterval
+        at target: TimeInterval,
+        upperIndex: inout Int
     ) -> TimedSample? {
         guard let first = samples.first, let last = samples.last,
               target >= first.time else {
@@ -268,27 +338,19 @@ nonisolated struct SceneParticleRopeTrailHistory {
         if target >= last.time {
             return last
         }
-        for index in 1..<samples.count where samples[index].time >= target {
-            let lower = samples[index - 1]
-            let upper = samples[index]
-            let duration = upper.time - lower.time
-            let mix = duration > 0 ? Float((target - lower.time) / duration) : 0
-            return TimedSample(
-                time: target,
-                particle: SceneParticleRopeTrailParticle(
-                    id: upper.particle.id,
-                    position: lower.particle.position
-                        + (upper.particle.position - lower.particle.position) * mix,
-                    size: lower.particle.size
-                        + (upper.particle.size - lower.particle.size) * mix,
-                    color: lower.particle.color
-                        + (upper.particle.color - lower.particle.color) * mix,
-                    alpha: lower.particle.alpha
-                        + (upper.particle.alpha - lower.particle.alpha) * mix
-                )
-            )
+        // Targets move backward along the trail, so each history sample is
+        // visited at most once across all segments of this particle.
+        while upperIndex > 1, samples[upperIndex - 1].time >= target {
+            upperIndex -= 1
         }
-        return nil
+        let lower = samples[upperIndex - 1]
+        let upper = samples[upperIndex]
+        let duration = upper.time - lower.time
+        let mix = duration > 0 ? Float((target - lower.time) / duration) : 0
+        return TimedSample(
+            time: target,
+            position: lower.position + (upper.position - lower.position) * mix
+        )
     }
 
     private static func normalizedTrailPosition(

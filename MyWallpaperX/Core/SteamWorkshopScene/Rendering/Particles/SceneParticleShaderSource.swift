@@ -12,6 +12,8 @@ struct ParticleInstance {
     float4 frame1A;
     float4 frame1B;
     float4 velocityAndTrail;
+    float4 trailHeadJoin;
+    float4 trailTailJoin;
 };
 struct LayerUniforms {
     float4x4 viewProjection;
@@ -19,6 +21,7 @@ struct LayerUniforms {
     float4 basisRight;
     float4 basisUp;
     float2 viewportSize;
+    float2 particleSizeScale;
 };
 struct Varyings {
     float4 position [[position]];
@@ -41,6 +44,17 @@ float3 rotateXYZ(float3 value, float3 radians) {
                   s.z * value.x + c.z * value.y, value.z);
 }
 
+// Perspective direction differential at the actual endpoint. Extrapolating
+// by a complete segment can cross the eye plane although the segment itself
+// is visible, reversing the inferred tangent and pinching a valid join.
+float2 particlePixelDirection(float4 clipPosition, float3 worldDirection,
+                             constant LayerUniforms &uniforms) {
+    float4 delta = uniforms.viewProjection * float4(worldDirection, 0.0);
+    return (delta.xy * clipPosition.w - clipPosition.xy * delta.w)
+        / max(clipPosition.w * clipPosition.w, 0.00000001)
+        * max(uniforms.viewportSize, float2(1.0));
+}
+
 vertex Varyings sceneParticleVert(
     uint vertexID [[vertex_id]], uint instanceID [[instance_id]],
     constant QuadVertex *quad [[buffer(0)]],
@@ -50,8 +64,7 @@ vertex Varyings sceneParticleVert(
     ParticleInstance particle = instances[instanceID];
     float4 center = uniforms.layerModel * float4(particle.positionAndSize.xyz, 1.0);
     bool isTrail = particle.velocityAndTrail.w >= 0.0;
-    float2 layerScale = float2(length(uniforms.layerModel[0].xyz),
-                               length(uniforms.layerModel[1].xyz));
+    float2 layerScale = uniforms.particleSizeScale;
     float3 local = float3(0.0);
     float3 trailWorld = float3(0.0);
     float3 trailAcrossWorld = float3(0.0);
@@ -70,28 +83,38 @@ vertex Varyings sceneParticleVert(
             ? particle.velocityAndTrail.xyz
             : localDirection * particle.positionAndSize.w * particle.velocityAndTrail.w;
         trailWorld = (uniforms.layerModel * float4(localTrail, 0.0)).xyz;
-        float4 projectedStart = uniforms.viewProjection * center;
-        float4 projectedEnd = uniforms.viewProjection
-            * float4(center.xyz + trailWorld * 0.001, 1.0);
-        float2 velocity = projectedEnd.xy / max(abs(projectedEnd.w), 0.00001)
-            - projectedStart.xy / max(abs(projectedStart.w), 0.00001);
-        float2 pixelVelocity = velocity * max(uniforms.viewportSize, float2(1.0));
+        bool joined = particle.frame1B.w > 0.5;
+        float4 endpointJoin = quadVertex.position.x > 0.0
+            ? particle.trailHeadJoin : particle.trailTailJoin;
+        float4 anchor = joined
+            ? float4(center.xyz + trailWorld * quadVertex.position.x, 1.0) : center;
+        float4 projectedStart = uniforms.viewProjection * anchor;
+        float2 pixelVelocity = particlePixelDirection(projectedStart, trailWorld, uniforms);
         float speed = length(pixelVelocity);
         float2 trailDirection = speed > 0.00001
             ? pixelVelocity / speed : float2(1.0, 0.0);
         float2 perpendicular = float2(-trailDirection.y, trailDirection.x);
-        float4 projectedRight = uniforms.viewProjection
-            * float4(center.xyz + uniforms.basisRight.xyz, 1.0);
-        float4 projectedUp = uniforms.viewProjection
-            * float4(center.xyz + uniforms.basisUp.xyz, 1.0);
-        float2 rightPixel = (
-            projectedRight.xy / max(abs(projectedRight.w), 0.00001)
-                - projectedStart.xy / max(abs(projectedStart.w), 0.00001)
-        ) * uniforms.viewportSize;
-        float2 upPixel = (
-            projectedUp.xy / max(abs(projectedUp.w), 0.00001)
-                - projectedStart.xy / max(abs(projectedStart.w), 0.00001)
-        ) * uniforms.viewportSize;
+        if (joined) {
+            float3 adjacentWorld = (uniforms.layerModel
+                * float4(endpointJoin.xyz, 0.0)).xyz;
+            float2 adjacentPixels = particlePixelDirection(projectedStart, adjacentWorld, uniforms);
+            float adjacentSpeed = length(adjacentPixels);
+            float2 adjacentDirection = adjacentSpeed > 0.00001
+                ? adjacentPixels / adjacentSpeed : trailDirection;
+            float2 adjacentNormal = float2(-adjacentDirection.y, adjacentDirection.x);
+            float2 bisector = perpendicular + adjacentNormal;
+            float bisectorLength = length(bisector);
+            // Both segments compute the same bounded miter at their shared
+            // endpoint. A reversal pinches to zero instead of emitting spikes.
+            if (bisectorLength > 0.00001) {
+                float2 miter = bisector / bisectorLength;
+                perpendicular = miter / max(abs(dot(miter, perpendicular)), 0.25);
+            } else {
+                perpendicular = float2(0.0);
+            }
+        }
+        float2 rightPixel = particlePixelDirection(projectedStart, uniforms.basisRight.xyz, uniforms);
+        float2 upPixel = particlePixelDirection(projectedStart, uniforms.basisUp.xyz, uniforms);
         float determinant = rightPixel.x * upPixel.y - rightPixel.y * upPixel.x;
         float2 acrossCoefficients = perpendicular;
         if (abs(determinant) > 0.00001) {
@@ -106,7 +129,7 @@ vertex Varyings sceneParticleVert(
         trailAcrossWorld = (
             uniforms.basisRight.xyz * acrossCoefficients.x
                 + uniforms.basisUp.xyz * acrossCoefficients.y
-        ) * particle.positionAndSize.w * layerScale.x;
+        ) * (joined ? endpointJoin.w : particle.positionAndSize.w) * layerScale.x;
     } else {
         local = rotateXYZ(
             float3(

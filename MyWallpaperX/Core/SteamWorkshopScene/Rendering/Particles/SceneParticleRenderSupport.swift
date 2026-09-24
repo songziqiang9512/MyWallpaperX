@@ -74,12 +74,21 @@ nonisolated enum SceneParticleSpriteFrameSelector {
             return SceneParticleSpriteFrameSelection(currentIndex: 0, nextIndex: 0, mix: 0)
         }
 
-        let animationLifetime = mode == .randomFrame
-            ? stableUnit(particleID)
-            : (lifetime > 0 ? age / lifetime * sequenceMultiplier : 0)
-        var elapsed = animationLifetime.truncatingRemainder(dividingBy: 1)
-        if elapsed < 0 { elapsed += 1 }
-        elapsed *= total
+        let animationLifetime: Double
+        if mode == .randomFrame {
+            animationLifetime = Double(stableUnit(particleID))
+        } else {
+            guard age.isFinite, lifetime.isFinite, sequenceMultiplier.isFinite else { return nil }
+            // Float inputs can overflow in age/lifetime or multiplication even
+            // though their normalized phase is representable.
+            animationLifetime = lifetime > 0
+                ? Double(age) / Double(lifetime) * Double(sequenceMultiplier)
+                : 0
+        }
+        var phase = animationLifetime.truncatingRemainder(dividingBy: 1)
+        if phase < 0 { phase += 1 }
+        var elapsed = Float(phase * Double(total))
+        if elapsed >= total { elapsed = 0 }
 
         let allowsBlend = blendsFrames && mode == .sequence
         if hasPreparedTimeline, let frameEndTimes {
@@ -282,7 +291,7 @@ nonisolated struct SceneParticleFrameTransform: Equatable, Sendable {
     }
 }
 
-// Eight float4 values keep this layout identical to ParticleInstance in MSL.
+// Ten float4 values keep this layout identical to ParticleInstance in MSL.
 nonisolated struct SceneParticleGPUInstance: Sendable {
     var positionAndSize: SIMD4<Float>
     var rotationAndAlpha: SIMD4<Float>
@@ -292,6 +301,8 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
     var frame1A: SIMD4<Float>
     var frame1B: SIMD4<Float>
     var velocityAndTrail: SIMD4<Float>
+    var trailHeadJoin: SIMD4<Float>
+    var trailTailJoin: SIMD4<Float>
 
     nonisolated init(
         position: SIMD3<Float>,
@@ -303,12 +314,22 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
         trailStretch: Float? = nil,
         trailUVRange: SIMD2<Float>? = nil,
         usesTrailDisplacement: Bool = false,
+        trailHeadDirection: SIMD3<Float>? = nil,
+        trailTailDirection: SIMD3<Float>? = nil,
+        trailEndpointSizes: SIMD2<Float>? = nil,
         currentFrame: SceneParticleFrameTransform = .identity,
         nextFrame: SceneParticleFrameTransform? = nil,
         currentFrameAspect: Float = 1,
         nextFrameAspect: Float? = nil,
         frameMix: Float = 0
     ) {
+        let joinedTrail = usesTrailDisplacement && trailHeadDirection != nil
+            && trailTailDirection != nil && trailEndpointSizes != nil
+        let headDirection = trailHeadDirection ?? .zero
+        let tailDirection = trailTailDirection ?? .zero
+        let endpointSizes = trailEndpointSizes ?? .zero
+        trailHeadJoin = SIMD4(headDirection.x, headDirection.y, headDirection.z, endpointSizes.x * 0.5)
+        trailTailJoin = SIMD4(tailDirection.x, tailDirection.y, tailDirection.z, endpointSizes.y * 0.5)
         let following = nextFrame ?? currentFrame
         let currentAspect = Self.validAspect(currentFrameAspect) ? currentFrameAspect : 1
         let authoredNextAspect = nextFrameAspect ?? currentAspect
@@ -347,7 +368,7 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
             following.yAxis.x,
             following.yAxis.y,
             usesTrailDisplacement ? 1 : 0,
-            0
+            joinedTrail ? 1 : 0
         )
         velocityAndTrail = SIMD4(
             velocity.x,
@@ -368,15 +389,24 @@ nonisolated struct SceneParticleLayerUniforms: Sendable {
     var basisRight: SIMD4<Float>
     var basisUp: SIMD4<Float>
     var viewportSize: SIMD2<Float>
+    var particleSizeScale: SIMD2<Float>
 
     nonisolated init(
         viewProjection: simd_float4x4,
         layerModel: simd_float4x4,
         basis: SceneParticleOrientationBasis,
-        viewportSize: SIMD2<Float> = SIMD2(repeating: 1)
+        viewportSize: SIMD2<Float> = SIMD2(repeating: 1),
+        sizeIsWorldSpace: Bool = false
     ) {
         self.viewProjection = viewProjection
         self.layerModel = layerModel
+        // Positions/displacements remain in the static layer frame; size has
+        // its own coordinate responsibility. General world-space size is
+        // already in scene units and must not inherit the node scale again.
+        particleSizeScale = sizeIsWorldSpace ? SIMD2(repeating: 1) : SIMD2(
+            simd_length(SIMD3(layerModel.columns.0.x, layerModel.columns.0.y, layerModel.columns.0.z)),
+            simd_length(SIMD3(layerModel.columns.1.x, layerModel.columns.1.y, layerModel.columns.1.z))
+        )
         basisRight = SIMD4(basis.right.x, basis.right.y, basis.right.z, 0)
         basisUp = SIMD4(basis.up.x, basis.up.y, basis.up.z, 0)
         self.viewportSize = viewportSize.x.isFinite && viewportSize.y.isFinite

@@ -30,6 +30,15 @@ nonisolated struct SceneParticleWorldSpaceFrame: Equatable, Sendable {
         worldToLocalDirection = inverse
     }
 
+    /// Author particle coordinates are Y-up while the layer world frame uses
+    /// the scene's Y-down convention. Change basis on both sides of its inverse
+    /// so world forces keep their direction under rotated/mirrored layers.
+    nonisolated func localParticleDirection(_ direction: SIMD3<Double>) -> SIMD3<Double> {
+        let sceneDirection = SIMD3(direction.x, -direction.y, direction.z)
+        let local = worldToLocalDirection * sceneDirection
+        return SIMD3(local.x, -local.y, local.z)
+    }
+
     nonisolated func localDirection(_ worldDirection: SIMD3<Double>) -> SIMD3<Double> {
         worldToLocalDirection * worldDirection
     }

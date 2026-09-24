@@ -88,14 +88,15 @@ nonisolated struct SceneParticleMovementPlan: Sendable {
 
     nonisolated init(
         _ value: SceneParticleOperator,
+        isWorldSpaceSystem: Bool,
         worldSpaceFrame: SceneParticleWorldSpaceFrame?
     ) {
         let authoredGravity = SceneParticleSimulationMath.vector(
             value.gravity,
             fallback: .zero
         )
-        gravity = value.isWorldSpaceMovement
-            ? worldSpaceFrame?.localDirection(authoredGravity) ?? authoredGravity
+        gravity = (isWorldSpaceSystem || value.isWorldSpaceMovement)
+            ? worldSpaceFrame?.localParticleDirection(authoredGravity) ?? authoredGravity
             : authoredGravity
         drag = max(0, value.drag ?? 0)
     }
@@ -159,7 +160,8 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
         switch value.kind {
         case .movement:
             movement = SceneParticleMovementPlan(
-                value, worldSpaceFrame: worldSpaceFrame
+                value, isWorldSpaceSystem: definition.flags.isWorldSpace,
+                worldSpaceFrame: worldSpaceFrame
             )
             angularMovement = nil
         case .angularMovement:

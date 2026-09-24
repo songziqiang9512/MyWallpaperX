@@ -48,7 +48,8 @@ extension SceneMetalRenderer {
                 ),
                 layerModel: model,
                 basis: basis,
-                viewportSize: viewportSize
+                viewportSize: viewportSize,
+                sizeIsWorldSpace: batch.sizeIsWorldSpace
             )
             let didEncode: Bool
             if let refraction = batch.refraction {
