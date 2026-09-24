@@ -992,7 +992,7 @@ enum Harness {
                 textureRegistry: preparedExtentRegistry,
                 commandBuffer: commandBuffer
             ) == .invalid(
-                reasonCode: "named-provider-publication-identity-invalid"
+                reasonCode: "named-provider-publication-target-extent-invalid"
             )
         // The publication route fills its named target with a single
         // full-region blit, so a reservation whose target normalized below
@@ -1155,7 +1155,7 @@ enum Harness {
                 content: .data,
                 imagePipeline: SceneImageLayerPipeline()
             ) == .invalid(
-                reasonCode: "named-provider-publication-target-extent-invalid"
+                reasonCode: "named-provider-publication-content-mismatch"
             )
         let oversizedDataRejected =
             preparedExtentRuntime.publishGraphOutputIfRequired(
@@ -1168,7 +1168,7 @@ enum Harness {
                 imagePipeline: SceneImageLayerPipeline()
             ) == .invalid(
                     reasonCode:
-                        "named-provider-publication-target-extent-invalid"
+                        "named-provider-publication-content-mismatch"
                 )
 
         // Geometry providers reserve an authored-local target, but graph
@@ -1631,6 +1631,22 @@ enum Harness {
             commandBuffer: commandBuffer,
             content: .data
         ) == .published
+        // A second owner phase may ask the same provider to publish the same
+        // graph ticket after the first publication has already completed. It
+        // must reuse the typed reservation without requiring another blit.
+        let completedQueue = device.makeCommandQueue()!
+        let completedBuffer = completedQueue.makeCommandBuffer()!
+        completedBuffer.commit()
+        completedBuffer.waitUntilCompleted()
+        let repeatedPublicationReusesCompletedReservation = runtime
+            .publishGraphOutputIfRequired(
+                layerID: 400,
+                texture: output,
+                publicationRole: .namedProviderPrepass,
+                textureRegistry: registry,
+                commandBuffer: completedBuffer,
+                content: .data
+            ) == .published
         let readyInput: SceneDependencyEffectInput?
         switch runtime.resolvedMaterialEffectInputResolution(
             for: 401,
@@ -1882,6 +1898,8 @@ enum Harness {
             "failedPublicationLeftReservationUnpublished":
                 failedPublicationLeftReservationUnpublished,
             "published": published,
+            "repeatedPublicationReusesCompletedReservation":
+                repeatedPublicationReusesCompletedReservation,
             "publicationCount": registry.readyPublicationCount,
             "gpuCompleted": gpuCompleted,
             "copiedGraphOutputBytes": copiedGraphOutputBytes,
@@ -2011,6 +2029,7 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "wrongObjectRejected": True,
                     "failedPublicationLeftReservationUnpublished": True,
                     "published": True,
+                    "repeatedPublicationReusesCompletedReservation": True,
                     "publicationCount": 1,
                     "graphOutputTypedPublication": True,
                     "captureTypedPublication": True,

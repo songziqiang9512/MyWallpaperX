@@ -84,6 +84,13 @@ final class SceneDependencyFrameRuntime {
     private var reservationFrameEpoch: UInt64?
     var demandedGraphOutputProviderLayerIDs: Set<Int> = []
     var reservationsByProviderLayerID: [Int: EffectTargetReservation] = [:]
+    /// Defensive same-frame publication identity. The claim/ticket bridge
+    /// executes one graph per layer per frame, so a repeated
+    /// `publishGraphOutputIfRequired` for the same layer is either the same
+    /// ticket re-requested (reuse the completed publication, skip the second
+    /// full-texture blit) or identity drift (fail closed). The map is scoped
+    /// to the current frame epoch and is cleared with reservations.
+    private var publishedGraphOutputSourcesByLayerID: [Int: MTLTexture] = [:]
 #if DEBUG
     private var debugCaptureFault = SceneDependencyCaptureFault()
     var debugPreparedOutputInstallFailureRecorded = false
@@ -580,6 +587,40 @@ final class SceneDependencyFrameRuntime {
             publicationTelemetry.recordFailure(layerID: layerID)
             return .invalid(reasonCode: "named-provider-reservation-missing")
         }
+        let reference = SceneNamedTextureReference(
+            providerLayerID: layerID,
+            variant: .primary
+        )
+        if let priorSource = publishedGraphOutputSourcesByLayerID[layerID] {
+            guard let existing = textureRegistry
+                      .completeNamedLayerTargetResource(
+                          reference: reference,
+                          frameEpoch: frameEpoch
+                      ),
+                  existing.publication.texture === reservation.texture else {
+                publicationTelemetry.recordFailure(layerID: layerID)
+                return .invalid(
+                    reasonCode: "named-provider-publication-identity-invalid"
+                )
+            }
+            if priorSource !== texture {
+                let sameSourceExtent = reservation.sourceWidth == texture.width
+                    && reservation.sourceHeight == texture.height
+                publicationTelemetry.recordFailure(layerID: layerID)
+                return .invalid(
+                    reasonCode: sameSourceExtent
+                        ? "named-provider-publication-identity-invalid"
+                        : "named-provider-publication-target-extent-invalid"
+                )
+            }
+            guard existing.publication.candidate.content == content else {
+                publicationTelemetry.recordFailure(layerID: layerID)
+                return .invalid(
+                    reasonCode: "named-provider-publication-content-mismatch"
+                )
+            }
+            return .published
+        }
         if reservation.kind == .geometry {
             guard let geometryProduct else {
                 publicationTelemetry.recordFailure(layerID: layerID)
@@ -644,17 +685,13 @@ final class SceneDependencyFrameRuntime {
                 )
             }
             SceneGPUCensus.recordGraphOutputPublication(texture: reservation.texture)
-            let rasterizedReference = SceneNamedTextureReference(
-                providerLayerID: layerID,
-                variant: .primary
-            )
             guard textureRegistry.publishReservedNamedLayerTarget(
-                reference: rasterizedReference,
+                reference: reference,
                 frameEpoch: frameEpoch,
                 texture: reservation.texture,
                 content: content
             ), textureRegistry.completeNamedLayerTargetResource(
-                reference: rasterizedReference,
+                reference: reference,
                 frameEpoch: frameEpoch
             )?.publication.texture === reservation.texture else {
                 publicationTelemetry.recordFailure(layerID: layerID)
@@ -665,6 +702,7 @@ final class SceneDependencyFrameRuntime {
                 encoded: true,
                 on: commandBuffer
             )
+            publishedGraphOutputSourcesByLayerID[layerID] = texture
             return .published
         }
         guard reservation.frameEpoch == frameEpoch,
@@ -699,10 +737,6 @@ final class SceneDependencyFrameRuntime {
         )
         SceneGPUCensus.recordGraphOutputPublication(texture: texture)
         blit.endEncoding()
-        let reference = SceneNamedTextureReference(
-            providerLayerID: layerID,
-            variant: .primary
-        )
         guard textureRegistry.publishReservedNamedLayerTarget(
             reference: reference,
             frameEpoch: frameEpoch,
@@ -720,6 +754,7 @@ final class SceneDependencyFrameRuntime {
             encoded: true,
             on: commandBuffer
         )
+        publishedGraphOutputSourcesByLayerID[layerID] = texture
         return .published
     }
 
@@ -728,5 +763,6 @@ final class SceneDependencyFrameRuntime {
         reservationFrameEpoch = frameEpoch
         reservationsByProviderLayerID.removeAll(keepingCapacity: true)
         demandedGraphOutputProviderLayerIDs.removeAll(keepingCapacity: true)
+        publishedGraphOutputSourcesByLayerID.removeAll(keepingCapacity: true)
     }
 }
