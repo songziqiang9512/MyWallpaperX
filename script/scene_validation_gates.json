@@ -318,6 +318,7 @@
         "test_scene_cursor_audio_consumer",
         "test_scene_cursor_capture_continuity",
         "test_scene_frame_vm_routing",
+        "test_scene_pointer_parallax_exit",
         "test_scene_surface_pointer_event_buffer"
       ]
     },
@@ -400,11 +401,17 @@
         "test_scene_animated_material_asset",
         "test_scene_animated_material_visual_failure",
         "test_scene_asset_catalog_resource_view",
+        "test_scene_bc_texture_uploader",
         "test_scene_frame_texture_registry",
+        "test_scene_image_upload_completion",
         "test_scene_layer_source_publication",
         "test_scene_material_render_state",
         "test_scene_material_texture_transform",
+        "test_scene_raw_texture_uploader",
         "test_scene_sampler_default_purpose",
+        "test_scene_tex_parse_authority",
+        "test_scene_tex_cache_budget",
+        "test_scene_tex_decode_budget",
         "test_scene_stock_material_asset_publication"
       ]
     },

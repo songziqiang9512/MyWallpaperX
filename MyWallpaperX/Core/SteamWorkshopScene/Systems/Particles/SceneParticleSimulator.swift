@@ -393,12 +393,20 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     }
 
     private nonisolated func warmUp(duration: Double) {
-        guard duration > 0 else { return }
-        let count = min(max(Int(ceil(duration / fixedTimeStep)), 1), 240)
-        let stepDuration = duration / Double(count)
+        // Non-finite or unrepresentable requests must not reach Int conversion,
+        // and a long request must not be squeezed into a few huge steps: spend
+        // the budget one authored-sized fixed step at a time, drop the rest.
+        guard duration.isFinite, duration > 0 else { return }
+        let steps = (duration / fixedTimeStep).rounded(.up)
+        guard steps.isFinite else { return }
+        let count = min(max(Int(min(steps, 240)), 1), 240)
+        var remaining = duration
         for _ in 0..<count {
             for index in emitters.indices { emitters[index].beginFrame() }
-            step(by: stepDuration)
+            let slice = min(fixedTimeStep, remaining)
+            guard slice > 0 else { break }
+            step(by: slice)
+            remaining -= slice
         }
     }
 

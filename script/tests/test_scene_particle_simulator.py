@@ -261,6 +261,26 @@ enum Harness {
         return #"{"material":"p.json","maxcount":8,"controlpoint":[\#(point)],"emitter":[\#(emitter)],"initializer":[\#(initializer)],"renderer":[{"name":"sprite"}]}"#
     }
 
+    /// 非有限 / 超大 / 负数 starttime 必须被安全处理：不得触发 Int 转换 trap，
+    /// 也不得产生预热时间。
+    private static func prewarmGuardResults(_ source: String) -> [[String: Any]] {
+        ["1e308", "inf", "-inf", "nan", "-5", "0"].map { start in
+            var root = objectOrEmpty(source)
+            root["starttime"] = start
+            let definition = SceneParticleDefinitionParser().parse(root: root)
+            var value = SceneParticleSimulator(
+                definition: definition, seed: 1, fixedTimeStep: 0.1
+            )
+            value.advance(by: 0.1)
+            return ["start": start, "time": value.simulationTime,
+                    "count": value.particles.count]
+        }
+    }
+
+    private static func objectOrEmpty(_ source: String) -> [String: Any] {
+        (try? object(source)) ?? [:]
+    }
+
     private static func syntheticResults() throws -> [String: Any] {
         var first = simulator(deterministicJSON, seed: 41, step: 0.1)
         var partitioned = simulator(deterministicJSON, seed: 41, step: 0.1)
@@ -1171,9 +1191,11 @@ enum Harness {
             vortexJSON(systemFlags: 16), override: vortexOverride, seed: 81, step: 1
         )
         overrideDeniedVortex.advance(by: 1)
+        // 显式有限三分量 exact zero 的轴按 +Z 准备（台账 O16）；它不再是拒绝 case。
+        var zeroAxisVortex = simulator(vortexJSON(axis: "0 0 0"), seed: 81, step: 1)
+        zeroAxisVortex.advance(by: 1)
         let invalidVortices = [
             vortexJSON(axis: "0 0"),
-            vortexJSON(axis: "0 0 0"),
             vortexJSON(distanceInner: "10", distanceOuter: "0"),
             vortexJSON(speedOuter: "null"),
             vortexJSON(flags: 2),
@@ -1360,6 +1382,7 @@ enum Harness {
             "onePerFrameAuthorOffCount": onePerFrameAuthorOff.particles.count,
             "twoOnePerFrameEmittersCount": twoOnePerFrameEmitters.particles.count,
             "prewarmOnePerFrameCount": prewarmedOnePerFrame.particles.count,
+            "prewarmGuard": prewarmGuardResults(prewarmJSON),
             "sphereMinimumRadius": sphereRadii.min() ?? -1,
             "sphereMaximumRadius": sphereRadii.max() ?? -1,
             "boxInBounds": boxOffsets.allSatisfy {
@@ -1705,6 +1728,7 @@ enum Harness {
             "overriddenVortexVelocity": vector(overriddenVortex.particles[0].velocity),
             "overrideDeniedVortexVelocity": vector(overrideDeniedVortex.particles[0].velocity),
             "invalidVortexVelocities": invalidVortices.map { vector($0.particles[0].velocity) },
+            "zeroAxisVortexVelocity": vector(zeroAxisVortex.particles[0].velocity),
             "invalidVortexDiagnostics": invalidVortices.map {
                 $0.diagnostics.map(\.kind.rawValue).sorted()
             },
@@ -2648,6 +2672,15 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(self.results["deathEventsDrain"])
         self.assertEqual(self.results["deathParticles"], 0)
 
+    def test_warmup_guards_non_finite_and_unbounded_durations(self) -> None:
+        # 非有限或无法表示的 starttime 不得进入 Int 转换（否则进程 SIGTRAP），
+        # 也不得被"平分放大"成少数巨大步；两种情形都表现为没有预热时间。
+        cases = {row["start"]: row for row in self.results["prewarmGuard"]}
+        self.assertEqual(set(cases), {"1e308", "inf", "-inf", "nan", "-5", "0"})
+        for start in cases:
+            self.assertAlmostEqual(cases[start]["time"], 0.1, msg=start)
+        self.assertTrue(all(row["count"] >= 0 for row in cases.values()))
+
     def test_maximum_count_and_start_time_prewarm(self) -> None:
         self.assertEqual(self.results["maxCount"], 3)
         self.assertEqual(self.results["budgetCount"], 2)
@@ -3000,7 +3033,8 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertIn("SceneParticleTurbulentVelocityPlan", initializer_plan_source)
         self.assertIn("let positionOffset: SceneParticlePositionOffsetPlan?", initializer_plan_source)
         self.assertIn("executionPlan.turbulentVelocity", initializer_plan_source)
-        self.assertIn("emissionAudioScale(for: spawnPlan)", simulator_source)
+        # `emissionAudioScale` 的调用形状不再断言：AGENTS §4 禁止把源码文本/参数标签
+        # 当作通过条件，且该调用的 emitterIndex 归属由 spawn plan 自己表达。
         self.assertIn("let directions = plan.directions", random_source)
         self.assertIn("let minimum = plan.sphereDistanceMinimum", random_source)
         self.assertIn("let minimum = plan.boxDistanceMinimum", random_source)
@@ -3020,7 +3054,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertNotIn("value.collisionPlanePlan", collision_source)
         self.assertNotIn("value.vortexPlan", vortex_source)
         self.assertNotIn("SceneParticleAudioResponsePlan(value.audioResponse)", vortex_source)
-        self.assertIn("audioResponsePlan:", vortex_source)
+        # `audioResponsePlan:` 的字段标签同样是实现形状，迁移为上面的"不得内联构造"反向门。
 
     def test_color_initializer_interpolates_between_authored_colors(self) -> None:
         self.assertTrue(self.results["colorUsesSingleInterpolation"])
@@ -3378,9 +3412,11 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["overrideDeniedVortexVelocity"], [0, 100, 0])
 
     def test_classic_vortex_rejects_unknown_malformed_audio_and_unbounded_profiles(self) -> None:
-        self.assertEqual(self.results["invalidVortexVelocities"], [[0, 0, 0]] * 9)
+        self.assertEqual(self.results["invalidVortexVelocities"], [[0, 0, 0]] * 8)
         for diagnostics in self.results["invalidVortexDiagnostics"]:
             self.assertIn("vortexUnsupported", diagnostics)
+        # 显式有限三分量 exact zero 的轴按 +Z 准备（台账 O16），不再被拒绝。
+        self.assertEqual(self.results["zeroAxisVortexVelocity"], [0, 100, 0])
 
     def test_vortex_v2_remains_distinct_and_fail_closed(self) -> None:
         self.assertEqual(self.results["vortexV2Velocity"], [0, 0, 0])
