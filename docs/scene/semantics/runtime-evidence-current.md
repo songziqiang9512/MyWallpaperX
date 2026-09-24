@@ -24,6 +24,21 @@
 
 ## 1. 当前证据快照
 
+### E-2026-09-24-TRAIL-BEND-CALIBRATION — 用官方预览斜率变化率定标轨迹弯曲，两次修正确认错误并回退
+
+**筛查范围与坐标约定：**沿"作者粒子 JSON → 局部模拟 → 层世界帧 → 渲染模型 → 屏幕"逐段核对。用官方预览里已知位置的层反推渲染世界 Y 约定：频谱条作者 y=115、文字 y=471、日期 y=353 在 `preview.jpg` 分别落在屏幕 y≈960/860/900（画面下部），而代码的顶层 `origin.y = H - y` 推出的是画面顶部——**渲染世界是 Y-down**，因此 `SceneParticleCameraModel.particleLayerModel` 的 `scale(1,-1,1)` 是必需项，`SceneParticleMovementPlan` 对世界向下的重力做"世界→局部"重投影也是必需的。
+
+**定标判据（新增）：**同一粒子定义下，官方 `preview.jpg` 那条流星线的分段斜率由 dx/dy −1.080 变为 −0.944（200 px 内变化 **12.6%**）。用真实层帧把本地轨迹投影到屏幕后，当前实现得 −0.969 → −0.849（变化 **12.4%**），方向同为"向左下"。
+
+**两次失败修正（均已回退）：**
+1. `18c9a875` 让系统级 world-space 不再重投影重力 → 投影方向由"左下"（与官方一致）变为"左上"，**已用 `db52bad4` 回退**。
+2. 让世界空间速度只做尺度换算（÷|scale|）→ 屏幕斜率变化升到 43%（过弯），未提交。
+两轮都以同一投影判据否决，最终保留原实现。
+
+**验证与边界：**三样本隔离回放 `/private/tmp/mwx-scene-verify-final-20260924` **PASS**（3/3，failures 空），最低驱动 FPS 56.8（基线 58.0）。**未完成/未证明：**本轮没有官方动态对照，"弧度是否等于官方"只有静态预览的斜率比这一个判据；`test_scene_particle_definitions` 的既有失败与本轮无关。
+
+**事故与已知损失：**为撤销本轮自己的误删执行过 `git checkout -- SceneParticleSimulator.swift`，该命令同时丢弃了该文件**未提交**的其他批次改动。已恢复其中编译必需的一项（`consumeStepSnapshots` → `stepSnapshotRecorder.consume(particles:)`，否则 particle/world/boids 等模块无法编译）；**未恢复**音频响应与执行计划的签名整理（`emissionAudioScale(for: spawnPlan)`、`audioResponsePlan:` 等形状期望），因此 `test_scene_particle_simulator.test_operator_execution_plans_are_prepared_once` 当前失败。`/private/tmp/mwx-baseline-head`、`/private/tmp/mwx-baseline-review` 均为 HEAD 快照，无法取回原改动。构建通过、三样本回放 PASS，功能未见异常，但"operator 执行计划只准备一次"的原优化是否完整未经验证，需要所属批次重新实现核对。
+
 <a id="e-2026-09-21-audio-demand-switch-continuity"></a>
 
 ### E-2026-09-21-AUDIO-DEMAND-SWITCH-CONTINUITY — surface rebuild未知期不再撤销旧音频需求
