@@ -3016,6 +3016,8 @@ void mwx_scene_quickjs_owner_discard_layer_mutations(
     MWXSceneQuickJSOwner *owner
 ) {
     if (owner == NULL || owner->domain == NULL) return;
+    owner->effect_visibility_staged = false;
+    owner->effect_visibility_pending = false;
     finish_dynamic_layer_transaction(owner, false);
     clear_layer_mutation_buffers(owner);
     if (owner->puppet_bone_transaction_active)
@@ -3031,6 +3033,12 @@ void mwx_scene_quickjs_owner_commit_layer_mutations(
     MWXSceneQuickJSOwner *owner
 ) {
     if (owner == NULL || owner->domain == NULL) return;
+    if (owner->effect_visibility_pending) {
+        owner->effect_visibility_committed_visible =
+            owner->effect_visibility_pending_visible;
+    }
+    owner->effect_visibility_staged = false;
+    owner->effect_visibility_pending = false;
     finish_dynamic_layer_transaction(owner, true);
     clear_layer_mutation_buffers(owner);
     owner->puppet_bone_mutation_count = 0;

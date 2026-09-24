@@ -1612,6 +1612,20 @@ void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
     free(owner);
 }
 
+static void prepare_effect_visibility_output(
+    MWXSceneQuickJSOwner *owner, double *output
+) {
+    if (!owner->effect_visibility_configured) return;
+    if (owner->effect_visibility_staged) {
+        *output = owner->effect_visibility_staged_visible ? 1 : 0;
+        owner->effect_visibility_staged = false;
+    }
+    // Keep callback-visible state provisional until the existing frame
+    // transaction commits. A later callback or submission may still fail.
+    owner->effect_visibility_pending = true;
+    owner->effect_visibility_pending_visible = *output != 0;
+}
+
 static MWXSceneQuickJSResult initialize_primitive_callback(
     MWXSceneQuickJSOwner *owner,
     double input,
@@ -1641,6 +1655,9 @@ static MWXSceneQuickJSResult initialize_primitive_callback(
             user_properties_json, user_properties_length,
             output, diagnostic, diagnostic_capacity
         );
+        if (result == MWX_SCENE_QUICKJS_OK) {
+            prepare_effect_visibility_output(owner, output);
+        }
     }
     JS_FreeValue(owner->domain->context, init);
     if (result == MWX_SCENE_QUICKJS_OK) owner->initialized = true;
@@ -1893,10 +1910,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
     }
     if (!JS_IsFunction(domain->context, update)) {
         *output = input;
-        if (owner->effect_visibility_staged) {
-            *output = owner->effect_visibility_staged_visible ? 1 : 0;
-            owner->effect_visibility_staged = false;
-        }
+        prepare_effect_visibility_output(owner, output);
         return MWX_SCENE_QUICKJS_OK;
     }
     MWXSceneQuickJSResult result = call_primitive(
@@ -1913,13 +1927,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
         }
         return result;
     }
-    if (owner->effect_visibility_staged) {
-        // A `thisObject.visible` write on an effect-visibility owner is the
-        // frame's published value; consume it so it does not leak into later
-        // frames.
-        *output = owner->effect_visibility_staged_visible ? 1 : 0;
-        owner->effect_visibility_staged = false;
-    }
+    prepare_effect_visibility_output(owner, output);
     return result;
 }
 

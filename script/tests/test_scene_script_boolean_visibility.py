@@ -192,6 +192,74 @@ private func failureCode(
 @main
 enum Harness {
     static func main() throws {
+        // Exercise the real Swift Program -> C owner -> typed Boolean result
+        // -> frame finalizer chain, including a rejected submission retry.
+        let effectTarget = SceneDynamicTarget.effectVisibility(layerID: 7, effectIndex: 0)
+        func effectProgram(_ source: String) throws -> SceneScriptVectorProgram {
+            let effectBinding = SceneScriptBindingIR(
+                source: source,
+                owner: .init(kind: .effect, objectIndex: 0, objectID: 7,
+                    effectIndex: 0, effectID: 100, passIndex: nil, passID: nil),
+                targetPath: [.key("objects"), .index(0), .key("effects"),
+                    .index(0), .key("visible")],
+                properties: [:], authoredValue: .bool(true), valueType: .boolean,
+                wrapperKeys: ["script", "value"]
+            )
+            return SceneScriptVectorProgram.compile(
+                domain: try SceneScriptQuickJSDomain(),
+                descriptor: descriptor(effects: [
+                    .init(name: "transaction", effectID: 100, visible: true)
+                ]),
+                scriptBindings: [effectBinding], userPropertyDefinitions: [], generation: 91
+            )
+        }
+        func effectFrame(_ program: SceneScriptVectorProgram, input: Bool,
+                         time: Double) -> SceneScriptVectorFrameResult {
+            program.evaluate(inputs: [effectTarget: .bool(input)],
+                effectivePropertyValues: [:], frame: frame(runtime: time))
+        }
+        let effectToggle = try effectProgram("""
+            export function update(value) {
+                thisObject.visible = !thisObject.visible; return value;
+            }
+            """)
+        precondition(boolValue(effectFrame(effectToggle, input: true, time: 1), target: effectTarget) == false)
+        effectToggle.finalizeLayerMutations(committing: true)
+        precondition(boolValue(effectFrame(effectToggle, input: false, time: 2), target: effectTarget) == true)
+        effectToggle.finalizeLayerMutations(committing: false)
+        precondition(boolValue(effectFrame(effectToggle, input: false, time: 3), target: effectTarget) == true)
+        effectToggle.finalizeLayerMutations(committing: true, rejectedOwnerTargets: [effectTarget])
+        precondition(boolValue(effectFrame(effectToggle, input: false, time: 4), target: effectTarget) == true)
+        effectToggle.finalizeLayerMutations(committing: true)
+        precondition(boolValue(effectFrame(effectToggle, input: true, time: 5), target: effectTarget) == false)
+        effectToggle.finalizeLayerMutations(committing: true)
+
+        let effectRetry = try effectProgram("""
+            let first = true;
+            export function update(value) {
+                if (first) { first = false; thisObject.visible = false; return 'bad'; }
+                return thisObject.visible;
+            }
+            """)
+        let failedEffect = effectFrame(effectRetry, input: true, time: 1)
+        precondition(failedEffect.values[effectTarget] == nil)
+        precondition(failedEffect.failures[effectTarget]?.code == "bad-return")
+        effectRetry.finalizeLayerMutations(committing: true, rejectedOwnerTargets: [effectTarget])
+        precondition(boolValue(effectFrame(effectRetry, input: true, time: 2), target: effectTarget) == true)
+        effectRetry.finalizeLayerMutations(committing: true)
+
+        let effectInit = try effectProgram("""
+            export function init(value) { thisObject.visible = false; return value; }
+            export function applyUserProperties(properties) {
+                if (thisObject.visible !== false) throw new Error('lost init visibility');
+            }
+            export function update(value) { return thisObject.visible; }
+            """)
+        precondition(boolValue(effectFrame(effectInit, input: true, time: 1), target: effectTarget) == false)
+        effectInit.finalizeLayerMutations(committing: true)
+        precondition(boolValue(effectFrame(effectInit, input: false, time: 2), target: effectTarget) == false)
+        effectInit.finalizeLayerMutations(committing: true)
+
         let target = SceneDynamicTarget.layer(layerID: 7, field: .visibility)
         let source = "export function update(value) { return engine.runtime >= 1; }"
         let authoredBinding = binding(source: source)

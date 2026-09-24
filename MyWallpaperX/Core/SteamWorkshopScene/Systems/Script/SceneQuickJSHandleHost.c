@@ -345,7 +345,9 @@ static JSValue effect_visibility_getter(
         context,
         owner->effect_visibility_staged
             ? owner->effect_visibility_staged_visible
-            : owner->effect_visibility_seed_visible
+            : (owner->effect_visibility_pending
+                ? owner->effect_visibility_pending_visible
+                : owner->effect_visibility_committed_visible)
     );
 }
 
@@ -426,7 +428,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_effect_visibility_target
     owner->effect_visibility_configured = true;
     owner->effect_visibility_layer_id = layer_id;
     owner->effect_visibility_effect_index = (int32_t)effect_index;
-    owner->effect_visibility_seed_visible = seed_visible != 0;
+    owner->effect_visibility_committed_visible = seed_visible;
+    owner->effect_visibility_staged = false;
+    owner->effect_visibility_pending = false;
     return MWX_SCENE_QUICKJS_OK;
 }
 

@@ -2261,6 +2261,64 @@ int main(void) {
         "unstaged getter reads the false seed"
     );
     mwx_scene_quickjs_owner_destroy(seed_false_owner);
+
+    // Effect visibility participates in the same frame commit/discard as
+    // layer mutations, including callbacks that return a recoverable error.
+    const char *visibility_transaction_sources[] = {
+        "export function update(value) { thisObject.visible = !thisObject.visible; return value; }",
+        "let first=true; export function update(value) { if(first) { first=false; thisObject.visible=false; return 'bad'; } return thisObject.visible; }",
+        "export function mediaThumbnailChanged(event) { thisObject.visible = !thisObject.visible; }",
+        "let first=true; export function update(value) { if(first) { first=false; return false; } return thisObject.visible; }",
+    };
+    for (size_t test = 0; test < 4; ++test) {
+        const char *source = visibility_transaction_sources[test];
+        MWXSceneQuickJSResult visibility_creation = MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+        MWXSceneQuickJSOwner *visibility_owner =
+            mwx_scene_quickjs_owner_create_effectful_bool_with_budget(
+                domain, source, strlen(source), 149, 100000, &visibility_creation,
+                diagnostic, sizeof(diagnostic)
+            );
+        failures += check(visibility_owner != NULL, "visibility transaction compile", diagnostic);
+        if (visibility_owner == NULL) continue;
+        failures += configure_owner_layer(visibility_owner, 17, "visibility transaction identity");
+        failures += check(
+            mwx_scene_quickjs_owner_configure_effect_visibility_target(
+                visibility_owner, 17, 2, true, diagnostic, sizeof(diagnostic)
+            ) == MWX_SCENE_QUICKJS_OK, "visibility transaction configure", diagnostic
+        );
+        if (test == 1) {
+            failures += update_effectful_bool(visibility_owner, 149, 1,
+                MWX_SCENE_QUICKJS_BAD_RETURN, 0, "visibility failed write");
+            failures += update_effectful_bool(visibility_owner, 149, 1,
+                MWX_SCENE_QUICKJS_OK, 1, "visibility failed write discarded on retry");
+        } else {
+            if (test == 2) failures += media_thumbnail(visibility_owner, 149, 1,
+                MWX_SCENE_QUICKJS_OK, "visibility event toggles authored seed");
+            failures += update_effectful_bool(visibility_owner, 149, 1,
+                MWX_SCENE_QUICKJS_OK, 0, "visibility first candidate hidden");
+            mwx_scene_quickjs_owner_commit_layer_mutations(visibility_owner);
+            if (test == 2) failures += media_thumbnail(visibility_owner, 149, 1,
+                MWX_SCENE_QUICKJS_OK, "visibility event toggles committed value");
+            failures += update_effectful_bool(visibility_owner, 149, 0,
+                MWX_SCENE_QUICKJS_OK, test == 3 ? 0 : 1,
+                "visibility getter reads committed current");
+            if (test == 0) {
+                // Discard a successfully evaluated but unsubmitted frame.
+                mwx_scene_quickjs_owner_discard_layer_mutations(visibility_owner);
+                failures += update_effectful_bool(visibility_owner, 149, 0,
+                    MWX_SCENE_QUICKJS_OK, 1, "visibility frame discard restores committed current");
+            }
+            if (test == 2) {
+                mwx_scene_quickjs_owner_commit_layer_mutations(visibility_owner);
+                failures += media_thumbnail(visibility_owner, 149, 1,
+                    MWX_SCENE_QUICKJS_OK, "visibility unconsumed event write");
+                mwx_scene_quickjs_owner_discard_layer_mutations(visibility_owner);
+                failures += update_effectful_bool(visibility_owner, 149, 1,
+                    MWX_SCENE_QUICKJS_OK, 1, "visibility discard clears unconsumed event write");
+            }
+        }
+        mwx_scene_quickjs_owner_destroy(visibility_owner);
+    }
     failures += media_thumbnail(
         media_animation, 19, 1, MWX_SCENE_QUICKJS_OK,
         "media thumbnail present event"

@@ -324,10 +324,11 @@ struct MWXSceneQuickJSOwner {
     int32_t effect_visibility_effect_index;
     bool effect_visibility_staged;
     bool effect_visibility_staged_visible;
-    /// The binding's authored `visible` seed: the getter's read default
-    /// before any staged write. Distinct from the snapshot seed, which
-    /// carries the load-prepared state.
-    bool effect_visibility_seed_visible;
+    /// The getter reads staged writes, then this frame's candidate, then the
+    /// committed value (initialized from the authored, not prepared, seed).
+    bool effect_visibility_pending;
+    bool effect_visibility_pending_visible;
+    bool effect_visibility_committed_visible;
     uint32_t effect_count;
     char **effect_names;
     size_t audio_registration_count;
