@@ -27,6 +27,28 @@ struct SceneTexContainer {
         let mips: [Mip]
     }
 
+    static func maximum2DMipCount(width: Int, height: Int) -> Int {
+        guard width > 0, height > 0 else { return 0 }
+        return Int.bitWidth - max(width, height).leadingZeroBitCount
+    }
+
+    static func byteCount2D(width: Int, height: Int, bytesPerElement: Int) -> Int? {
+        guard width > 0, height > 0, bytesPerElement > 0 else { return nil }
+        let (rowBytes, rowOverflow) = width.multipliedReportingOverflow(by: bytesPerElement)
+        let (byteCount, sizeOverflow) = rowBytes.multipliedReportingOverflow(by: height)
+        return rowOverflow || sizeOverflow ? nil : byteCount
+    }
+
+    static func valid2DMipDimensions(_ dimensions: [(Int, Int)]) -> Bool {
+        guard let first = dimensions.first,
+              dimensions.count <= maximum2DMipCount(width: first.0, height: first.1)
+        else { return false }
+        return dimensions.enumerated().allSatisfy { level, size in
+            size.0 == max(1, first.0 >> level)
+                && size.1 == max(1, first.1 >> level)
+        }
+    }
+
     struct SpriteFrame {
         let imageIndex: Int
         let duration: Float
@@ -130,6 +152,7 @@ struct SceneTexContainerReader {
         case invalidHeader
         case invalidMipTable
         case invalidSpriteTable
+        case decodedDataBudgetExceeded
         case unsupportedCompression(UInt32)
         case decompressionFailed(expectedSize: Int, actualSize: Int)
 
@@ -141,6 +164,8 @@ struct SceneTexContainerReader {
                 return "无效的 TEX mip 数据表。"
             case .invalidSpriteTable:
                 return "无效的 TEX sprite 帧数据表。"
+            case .decodedDataBudgetExceeded:
+                return "TEX 解码数据总量超过预算。"
             case let .unsupportedCompression(code):
                 return "不支持的 TEX mip 压缩方式: \(code)。"
             case let .decompressionFailed(expectedSize, actualSize):
@@ -157,7 +182,10 @@ struct SceneTexContainerReader {
     static let maximumVolumeDimension = 256
     static let maximumVolumeVoxelCount = 16_777_216
 
-    func read(data: Data) throws -> SceneTexContainer {
+    func read(
+        data: Data,
+        maximumDecodedByteCount: Int = 1_024 * 1_024 * 1_024
+    ) throws -> SceneTexContainer {
         guard data.count >= 55,
               data.starts(with: Data("TEXV0005\0TEXI0001\0".utf8)) else {
             throw ReadError.invalidHeader
@@ -200,6 +228,9 @@ struct SceneTexContainerReader {
         }
 
         var offset = markerEnd + 1
+        guard data.count - offset >= 4 else {
+            throw ReadError.invalidMipTable
+        }
         let imageCount = Int(data.uint32LE(at: offset))
         offset += 4
         guard imageCount > 0, imageCount <= Self.maximumImageCount else {
@@ -237,6 +268,9 @@ struct SceneTexContainerReader {
         }
 
         var images: [SceneTexContainer.Image] = []
+        // Bound retained payloads across all images and levels before each
+        // copy/decompression, independently of optional cache admission.
+        var remainingDecodedBytes = max(0, maximumDecodedByteCount)
         images.reserveCapacity(imageCount)
         var imageSizes: [SIMD2<Float>] = []
         for _ in 0..<imageCount {
@@ -256,7 +290,8 @@ struct SceneTexContainerReader {
                     offset: &offset,
                     containerVersion: effectiveContainerVersion,
                     metadataEntryCount: mipMetadataEntryCount,
-                    volumeHeader: volumeHeader
+                    volumeHeader: volumeHeader,
+                    remainingDecodedBytes: &remainingDecodedBytes
                 )
                 if mipIndex == 0 {
                     imageSizes.append(SIMD2(Float(mip.width), Float(mip.height)))

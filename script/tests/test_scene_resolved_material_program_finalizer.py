@@ -817,6 +817,8 @@ private func template(
     secondReference: Template.TextureReference? = nil,
     secondCandidates: [Template.TextureCandidate]? = nil,
     comboValues: [String: Int] = [:],
+    inheritedInactiveCombos: Set<String> = [],
+    previousBlurredCompositeGenericOwnerEligible: Bool = false,
     uniformDeclarations: [Template.UniformDeclaration] = [],
     renderState: SceneMaterialRenderState = state(),
     textureSlotsOverride: [Template.TextureSlot?]? = nil,
@@ -846,6 +848,7 @@ private func template(
     return Template.validated(
         textureSlots: slots,
         combos: comboValues.map { .init(name: $0.key, value: $0.value) },
+        inheritedInactiveCombos: inheritedInactiveCombos,
         uniformDeclarations: uniformDeclarations,
         renderState: renderState,
         graphRole: .init(
@@ -855,6 +858,8 @@ private func template(
             bindings: graphBindingsOverride ?? (includePrimaryCandidate
                 ? [.init(slot: slot, texture: primaryGraphTextureRole)] : [])
         ),
+        previousBlurredCompositeGenericOwnerEligible:
+            previousBlurredCompositeGenericOwnerEligible,
         effectContext: effectContext,
         compatibilityTarget: compatibilityTarget,
         shaderContract: shader,
@@ -1441,6 +1446,54 @@ private func finalize(
             outputStorage: outputStorage
         )
     }
+}
+
+private func crossTemplateMaterialCacheTokens(_ device: MTLDevice) -> [String: String] {
+    let shader = contract(revision: "material-cache-identity")
+    let admitted = template(shader)
+    guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
+        template: admitted,
+        maximumVariantCount: 8
+    ), case .success = cache.precompileLaunchEnvelope(
+        implicitFramebufferIdentity: graphTexture()
+    ), case let .success(frame) = SceneResolvedMaterialFrameSnapshot.validated(
+        textureSnapshot: snapshot(device),
+        dynamicSnapshot: dynamicSnapshot(frameIndex: 1, source: nil),
+        frameInputs: frameInputs(frameIndex: 1)
+    ) else { return ["setup": "failed"] }
+    let cases: [(String, Template)] = [
+        ("equivalent", template(shader)),
+        ("combos", template(shader, comboValues: ["CACHE_TEST": 1])),
+        ("textures", template(shader, candidateCount: 2)),
+        ("graphRole", template(shader, effectInputGraphTextureRole: .framebuffer)),
+        ("renderState", template(shader, renderState: state(blending: "additive"))),
+        ("inactiveCombos", template(shader, inheritedInactiveCombos: ["CACHE_TEST"])),
+        ("ownerEligibility", template(shader, previousBlurredCompositeGenericOwnerEligible: true)),
+        ("shaderContent", template(contract(
+            revision: "material-cache-identity", arithmetic: true
+        ))),
+        ("sourceGraph", template(contract(
+            revision: "material-cache-identity", includeSourceGraph: false
+        ))),
+        ("equivalentAfterRejection", template(shader)),
+    ]
+    return Dictionary(uniqueKeysWithValues: cases.map { name, candidate in
+        let input = frame.finalizationInput(
+            template: candidate,
+            layerID: 9001,
+            renderSize: CGSize(width: 640, height: 360),
+            modelViewProjection: matrix_identity_float4x4,
+            layerModelMatrix: layerModelMatrix,
+            effectOutputModelViewProjection: effectOutputModelViewProjection,
+            effectTextureProjectionMatrixInverse: effectProjectionInverse,
+            implicitFramebufferIdentity: graphTexture()
+        )
+        switch cache.resolveSelection(input) {
+        case .success: return (name, "success")
+        case let .failure(failure):
+            return (name, "\(failure.phase.rawValue)/\(failure.code.rawValue)")
+        }
+    })
 }
 
 private func crossTemplateRuntimeLoopCacheToken(_ device: MTLDevice) -> String {
@@ -6170,6 +6223,7 @@ private enum Harness {
             "capturedMainInternalTerminal": capturedMainInternalTerminal,
             "admittedEffectIngress": admittedEffectIngress,
             "failures": failures,
+            "materialCrossTemplateCache": crossTemplateMaterialCacheTokens(device),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         FileHandle.standardOutput.write(data)
@@ -6735,6 +6789,20 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             {name: self.result["failures"][name] for name in expected},
             expected,
         )
+
+    def test_material_cache_rejects_different_templates(self) -> None:
+        self.assertEqual(self.result["materialCrossTemplateCache"], {
+            "equivalent": "success",
+            "combos": "invariant/variantSelectionTemplateIdentityInvariant",
+            "textures": "invariant/variantSelectionTemplateIdentityInvariant",
+            "graphRole": "invariant/variantSelectionTemplateIdentityInvariant",
+            "renderState": "invariant/variantSelectionTemplateIdentityInvariant",
+            "inactiveCombos": "invariant/variantSelectionTemplateIdentityInvariant",
+            "ownerEligibility": "invariant/variantSelectionTemplateIdentityInvariant",
+            "shaderContent": "invariant/variantSelectionTemplateIdentityInvariant",
+            "sourceGraph": "invariant/variantSelectionTemplateIdentityInvariant",
+            "equivalentAfterRejection": "success",
+        })
 
     def test_visual_passthrough_reasons_remain_bounded(self) -> None:
         finalizer_text = FINALIZER_SOURCE.read_text(encoding="utf-8")

@@ -549,7 +549,7 @@ private struct Harness {
             ),
             blurredSlot: fact?.blurredSlot,
             previousSlot: fact?.previousSlot,
-            unitColorUniform: fact?.unitColorUniform,
+            unitColorUniform: fact?.colorUniform,
             artifactKind: artifact(
                 authored: authored,
                 msl: msl,
@@ -586,7 +586,7 @@ private struct Harness {
                     blurredSlot: 3,
                     previousSlot: 5,
                     maskSlot: nil,
-                    unitColorUniform: "g_CompositeColor"
+                    colorUniform: "g_CompositeColor"
                 ),
             coordinateHelperMutationRejected:
                 SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(

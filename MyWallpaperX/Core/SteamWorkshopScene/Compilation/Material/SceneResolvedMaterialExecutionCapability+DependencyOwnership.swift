@@ -460,3 +460,212 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
         return [key]
     }
 }
+
+extension SceneResolvedMaterialExecutionCapabilityCatalog {
+    struct BindingDependency: Hashable {
+        let consumerLayerID: Int
+        let providerLayerID: Int
+        let slot: SceneEffectPassSlot
+    }
+
+    struct ResolvedExternalDependency: Hashable {
+        enum Origin: Hashable {
+            case terminalNamed
+            case exactMixedOptionalFallback
+        }
+
+        let materialKey: MaterialKey
+        let consumerLayerID: Int
+        let providerLayerID: Int
+        let slot: SceneEffectPassSlot
+        let origin: Origin
+
+        var bindingDependency: BindingDependency {
+            .init(
+                consumerLayerID: consumerLayerID,
+                providerLayerID: providerLayerID,
+                slot: slot
+            )
+        }
+    }
+
+    private struct ResolvedNamedCandidate {
+        let key: MaterialKey
+        let slot: Int
+        let reference: SceneNamedTextureReference
+        let origin: ResolvedExternalDependency.Origin
+    }
+
+    enum ResolvedExternalDependencyAnalysis {
+        case none
+        case exact([ResolvedExternalDependency])
+        case invalid
+    }
+
+    static func visualFailureExternalDependencies(
+        in stage: StageCapability,
+        binding: SceneDependencyRenderPlan.Binding
+    ) -> [BindingDependency] {
+        guard case let .visualFailurePassthrough(product, _) = stage,
+              let slots = SceneResolvedMaterialDependencyOwnership
+                .externalPrimary(binding)
+                .preEncodeVisualFailureSlots(in: product.graph) else {
+            return []
+        }
+        return slots.map {
+            BindingDependency(
+                consumerLayerID: binding.consumerLayerID,
+                providerLayerID: binding.providerLayerID,
+                slot: $0
+            )
+        }
+    }
+
+    static func resolvedExternalDependencies(
+        in stage: StageCapability
+    ) -> ResolvedExternalDependencyAnalysis {
+        guard case let .resolved(product, materials, _) = stage else {
+            return .none
+        }
+        var namedCandidates: [ResolvedNamedCandidate] = []
+        // `materials` is a dictionary keyed by material identity. Its
+        // iteration order is intentionally unspecified, while an aggregate
+        // dependency is an authored slot vector. Use the graph's authored
+        // effect/node order rather than lexical effect IDs at both collection
+        // and final-vector boundaries.
+        func authoredMaterialPrecedes(
+            _ lhs: MaterialCapability,
+            _ rhs: MaterialCapability
+        ) -> Bool {
+            let lhsEffectIndex = lhs.key.effect.effectIndex
+            let rhsEffectIndex = rhs.key.effect.effectIndex
+            if lhsEffectIndex != rhsEffectIndex {
+                return lhsEffectIndex < rhsEffectIndex
+            }
+            let lhsNodeOrder = product.graph.nodes.firstIndex {
+                $0.nodeIndex == lhs.key.nodeIndex && $0.effect == lhs.key.effect
+            } ?? Int.max
+            let rhsNodeOrder = product.graph.nodes.firstIndex {
+                $0.nodeIndex == rhs.key.nodeIndex && $0.effect == rhs.key.effect
+            } ?? Int.max
+            if lhsNodeOrder != rhsNodeOrder {
+                return lhsNodeOrder < rhsNodeOrder
+            }
+            if lhs.key.nodeIndex != rhs.key.nodeIndex {
+                return lhs.key.nodeIndex < rhs.key.nodeIndex
+            }
+            return lhs.key.effect.descriptorID < rhs.key.effect.descriptorID
+        }
+        for material in materials.values.sorted(by: authoredMaterialPrecedes) {
+            for slot in material.template.textureSlots.compactMap({ $0 }) {
+                let reference: SceneNamedTextureReference?
+                let origin: ResolvedExternalDependency.Origin?
+                if let selected = slot.candidates.last,
+                   case let .provider(.namedLayerTarget(value)) =
+                    selected.reference {
+                    reference = value
+                    origin = .terminalNamed
+                } else if material.variants
+                    .provesExactMixedNamedFallback(
+                        slot: slot.index
+                    ), slot.candidates.count == 2,
+                    case let .provider(.namedLayerTarget(value)) =
+                        slot.candidates[0].reference {
+                    // The highest-precedence optional input may be absent at a
+                    // concrete frame. The exact precompiled mixed-provider
+                    // envelope then selects this lower compositor color
+                    // publication, so dependency conservation must retain its
+                    // provider edge even though it is not the static last
+                    // candidate.
+                    reference = value
+                    origin = .exactMixedOptionalFallback
+                } else {
+                    reference = nil
+                    origin = nil
+                }
+                guard let reference, let origin else {
+                    continue
+                }
+                namedCandidates.append(.init(
+                    key: material.key,
+                    slot: slot.index,
+                    reference: reference,
+                    origin: origin
+                ))
+            }
+        }
+        guard !namedCandidates.isEmpty else { return .none }
+        guard let candidate = namedCandidates.first,
+              candidate.reference.variant == SceneNamedTextureReference.Variant.primary,
+              candidate.key.effect.layerID == product.graph.layerID,
+              namedCandidates.allSatisfy({ item in
+                  item.reference.variant == .primary
+                      && item.key.effect.layerID == product.graph.layerID
+              }) else { return .invalid }
+        var result: [ResolvedExternalDependency] = []
+        for item in namedCandidates {
+            let nodeMatches = product.graph.nodes.filter {
+                $0.nodeIndex == item.key.nodeIndex
+                    && $0.effect == item.key.effect
+            }
+            let effectMatches = product.graph.effects.filter {
+                $0.key == item.key.effect
+            }
+            guard nodeMatches.count == 1,
+                  effectMatches.count == 1,
+                  let passIndex = nodeMatches.first?.instancePassIndex else {
+                return .invalid
+            }
+            result.append(.init(
+                materialKey: item.key,
+                consumerLayerID: item.key.effect.layerID,
+                providerLayerID: item.reference.providerLayerID,
+                slot: .init(
+                    effectID: item.key.effect.descriptorID,
+                    passIndex: passIndex,
+                    slotIndex: item.slot
+                ),
+                origin: item.origin
+            ))
+        }
+        guard Set(result).count == result.count else { return .invalid }
+        let orderedResult = result.sorted {
+            let lhs = $0
+            let rhs = $1
+            // Effect index and graph node order are the authored authority;
+            // descriptor IDs are arbitrary labels and must never reorder the
+            // aggregate provider vector.
+            if lhs.materialKey.effect.effectIndex
+                != rhs.materialKey.effect.effectIndex {
+                return lhs.materialKey.effect.effectIndex
+                    < rhs.materialKey.effect.effectIndex
+            }
+            let lhsNodeOrder = product.graph.nodes.firstIndex {
+                $0.nodeIndex == lhs.materialKey.nodeIndex
+                    && $0.effect == lhs.materialKey.effect
+            } ?? Int.max
+            let rhsNodeOrder = product.graph.nodes.firstIndex {
+                $0.nodeIndex == rhs.materialKey.nodeIndex
+                    && $0.effect == rhs.materialKey.effect
+            } ?? Int.max
+            if lhsNodeOrder != rhsNodeOrder {
+                return lhsNodeOrder < rhsNodeOrder
+            }
+            if lhs.slot.passIndex != rhs.slot.passIndex {
+                return lhs.slot.passIndex < rhs.slot.passIndex
+            }
+            if lhs.slot.slotIndex != rhs.slot.slotIndex {
+                return lhs.slot.slotIndex < rhs.slot.slotIndex
+            }
+            if lhs.providerLayerID != rhs.providerLayerID {
+                return lhs.providerLayerID < rhs.providerLayerID
+            }
+            if lhs.materialKey.nodeIndex != rhs.materialKey.nodeIndex {
+                return lhs.materialKey.nodeIndex < rhs.materialKey.nodeIndex
+            }
+            return lhs.materialKey.effect.descriptorID
+                < rhs.materialKey.effect.descriptorID
+        }
+        return .exact(orderedResult)
+    }
+}

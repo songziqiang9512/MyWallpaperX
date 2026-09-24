@@ -112,6 +112,7 @@ private func launchGateVariant(
         readinessMask: base.readinessMask,
         textureFormats: base.textureFormats,
         preparedShader: base.preparedShader,
+        resolvedIntegerCombos: base.resolvedIntegerCombos,
         frontendProgram: frontend,
         routeDecision: base.routeDecision,
         runtimeLoopBounds: base.runtimeLoopBounds,
@@ -119,6 +120,9 @@ private func launchGateVariant(
         graphInputSourceSlotFacts: base.graphInputSourceSlotFacts,
         preservedAlphaRGBColorSlots: base.preservedAlphaRGBColorSlots,
         sourceProvenOpaqueColorSlots: [0],
+        premultipliedColorInputSlots: base.premultipliedColorInputSlots,
+        preservedChannelsProviderInputSlots:
+            base.preservedChannelsProviderInputSlots,
         associatedOverOverlaySlot: base.associatedOverOverlaySlot,
         conditionalGeneratedRGBInputContract:
             base.conditionalGeneratedRGBInputContract,

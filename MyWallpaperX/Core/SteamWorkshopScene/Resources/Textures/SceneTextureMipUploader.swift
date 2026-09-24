@@ -83,7 +83,7 @@ enum SceneTextureMipUploader {
         guard let first = images.first,
               (images.count > 1
                 || (first.width <= 4096 && first.height <= 4096)),
-              validDimensions(images.map { ($0.width, $0.height) }) else {
+              SceneTexContainer.valid2DMipDimensions(images.map { ($0.width, $0.height) }) else {
             return nil
         }
         // A parsed multi-level TEX is already the author's bounded sampling
@@ -91,6 +91,9 @@ enum SceneTextureMipUploader {
         // than the normalization limit used for loose/single-level images.
         // Dropping or resizing that level changes both source detail and the
         // graph's atlas extent; Metal allocation remains the device boundary.
+        guard SceneImageTextureUploader.supports2DExtent(width: first.width, height: first.height) else {
+            return .decodeFailed("embedded mip extent exceeds Metal 2D limits")
+        }
         let descriptor = descriptor(
             pixelFormat: .rgba8Unorm,
             width: first.width,
@@ -133,7 +136,7 @@ enum SceneTextureMipUploader {
     ) -> SceneTextureLoadOutcome? {
         guard purpose.preservesSourceChannels,
               maximumDimension > 0 else { return nil }
-        guard validDimensions(images.map { ($0.width, $0.height) }) else {
+        guard SceneTexContainer.valid2DMipDimensions(images.map { ($0.width, $0.height) }) else {
             return nil
         }
         let firstEligibleIndex: Int
@@ -155,6 +158,9 @@ enum SceneTextureMipUploader {
         }
         let selectedImages = Array(images[firstEligibleIndex...])
         guard let first = selectedImages.first else { return nil }
+        guard SceneImageTextureUploader.supports2DExtent(width: first.width, height: first.height) else {
+            return .decodeFailed("embedded data mip extent exceeds Metal 2D limits")
+        }
         let descriptor = descriptor(
             pixelFormat: .rgba8Unorm,
             width: first.width,
@@ -225,6 +231,11 @@ enum SceneTextureMipUploader {
             return .decodeFailed("TEX container has no mip data")
         }
         guard !isMP4(first.data) else { return .texContainsVideoPayload }
+        guard SceneTexContainer.valid2DMipDimensions(
+            container.mips.map { ($0.width, $0.height) }
+        ) else {
+            return .decodeFailed("TEX container has an invalid mip chain")
+        }
         let mips = croppedStaticRawMips(container: container, bytesPerPixel: 4)
         return uploadRaw(
             container: container,
@@ -246,8 +257,18 @@ enum SceneTextureMipUploader {
     ) -> SceneTextureLoadOutcome {
         let uploadMips = mips ?? container.mips
         guard let first = uploadMips.first,
-              validDimensions(uploadMips.map { ($0.width, $0.height) }) else {
+              SceneTexContainer.valid2DMipDimensions(uploadMips.map { ($0.width, $0.height) }) else {
             return .decodeFailed("TEX container has an invalid mip chain")
+        }
+        for mip in uploadMips {
+            guard let expected = SceneTexContainer.byteCount2D(
+                width: mip.width, height: mip.height, bytesPerElement: bytesPerPixel
+            ), mip.data.count == expected else {
+                return .decodeFailed("raw mip data does not match its stored pixel layout")
+            }
+        }
+        guard SceneImageTextureUploader.supports2DExtent(width: first.width, height: first.height) else {
+            return .decodeFailed("raw mip extent exceeds Metal 2D limits")
         }
         let textureDescriptor = descriptor(
             pixelFormat: pixelFormat,
@@ -260,11 +281,6 @@ enum SceneTextureMipUploader {
         }
         for (level, mip) in uploadMips.enumerated() {
             let bytesPerRow = mip.width * bytesPerPixel
-            let expected = bytesPerRow * mip.height
-            guard mip.data.count == expected else {
-                let label = premultiply ? "raw ARGB8888" : "raw"
-                return .decodeFailed("\(label) mip data size mismatch: \(mip.data.count) != \(expected)")
-            }
             let data = premultiply ? premultipliedRGBA(mip.data) : mip.data
             replace(texture: texture, level: level, width: mip.width, height: mip.height,
                     bytesPerRow: bytesPerRow, data: data)
@@ -290,13 +306,19 @@ enum SceneTextureMipUploader {
         guard dimensions.allSatisfy({ targetWidth, targetHeight, mip in
             targetWidth <= mip.width
                 && targetHeight <= mip.height
-                && mip.data.count == mip.width * mip.height * bytesPerPixel
+                && SceneTexContainer.byteCount2D(
+                    width: mip.width, height: mip.height, bytesPerElement: bytesPerPixel
+                ) == mip.data.count
         }), dimensions.contains(where: { targetWidth, targetHeight, mip in
             targetWidth != mip.width || targetHeight != mip.height
         }) else {
             return container.mips
         }
-        return dimensions.map { targetWidth, targetHeight, mip in
+        // Cropping padding can reach 1x1 before the stored chain does.
+        let levelCount = SceneTexContainer.maximum2DMipCount(
+            width: container.imageWidth, height: container.imageHeight
+        )
+        return dimensions.prefix(levelCount).map { targetWidth, targetHeight, mip in
             let sourceBytesPerRow = mip.width * bytesPerPixel
             let targetBytesPerRow = targetWidth * bytesPerPixel
             var cropped = Data(capacity: targetBytesPerRow * targetHeight)
@@ -341,13 +363,6 @@ enum SceneTextureMipUploader {
                 withBytes: buffer.baseAddress!,
                 bytesPerRow: bytesPerRow
             )
-        }
-    }
-
-    private static func validDimensions(_ dimensions: [(Int, Int)]) -> Bool {
-        guard let first = dimensions.first, first.0 > 0, first.1 > 0 else { return false }
-        return dimensions.enumerated().allSatisfy { level, size in
-            size.0 == max(1, first.0 >> level) && size.1 == max(1, first.1 >> level)
         }
     }
 

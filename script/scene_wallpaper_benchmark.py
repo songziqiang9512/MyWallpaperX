@@ -324,6 +324,12 @@ PARTICLE_STICKY_LOADED_RE = re.compile(
     r"^particle sticky loaded: (?P<loaded>\d+) / (?P<total>\d+)$",
     re.MULTILINE,
 )
+PARTICLE_CURRENT_NONEMPTY_RE = re.compile(
+    r"^particle current nonempty: layers=\[(?P<ids>\d+(?:, \d+)*)?\]$", re.MULTILINE,
+)
+PARTICLE_COMMITTED_NONEMPTY_RE = re.compile(
+    r"^particle committed nonempty: layers=\[(?P<ids>\d+(?:, \d+)*)?\]$", re.MULTILINE,
+)
 AUDIO_SCALED_VALUE_PROGRAM_RE = re.compile(
     r"^scene audio scaled value: schema=bounded-audio-scaled-value-v1 "
     r"bindings=(?P<bindings>\d+) "
@@ -2003,10 +2009,20 @@ def particle_runtime_metrics(preview_text: str) -> dict[str, Any]:
     skipped_transparent_match = PARTICLE_SKIPPED_TRANSPARENT_RE.search(preview_text)
     sticky_matches = list(PARTICLE_STICKY_LOADED_RE.finditer(preview_text))
     sticky_loaded_match = sticky_matches[-1] if sticky_matches else None
+    current_nonempty = list(PARTICLE_CURRENT_NONEMPTY_RE.finditer(preview_text))
+    committed_nonempty = list(PARTICLE_COMMITTED_NONEMPTY_RE.finditer(preview_text))
+
+    def layer_ids(matches: list[re.Match[str]]) -> list[int] | None:
+        if not matches:
+            return None
+        return [int(value) for value in (matches[-1].group("ids") or "").split(", ") if value]
+
     loaded = int(loaded_match.group("loaded")) if loaded_match else 0
     candidates = int(loaded_match.group("total")) if loaded_match else 0
     return {
         "has_load_evidence": loaded_match is not None,
+        "current_nonempty_layer_ids": layer_ids(current_nonempty),
+        "committed_nonempty_layer_ids": layer_ids(committed_nonempty),
         "has_initial_live_evidence": initial_live_match is not None,
         "has_visibility_evidence": all(
             match is not None
@@ -6697,11 +6713,37 @@ def solid_runtime_failures(
     return failures
 
 
+def startup_runtime_failures(
+    sample: dict[str, Any],
+    elapsed_ms: float | None,
+) -> list[str]:
+    if elapsed_ms is None:
+        return ["missing startup ready elapsed evidence"]
+    if not math.isfinite(elapsed_ms) or elapsed_ms < 0:
+        return ["invalid startup ready elapsed evidence"]
+    maximum = sample.get("maximum_startup_ready_ms")
+    if maximum is None:
+        return []
+    if type(maximum) not in (int, float) or not math.isfinite(maximum) or maximum <= 0:
+        return ["invalid startup ready budget"]
+    if elapsed_ms > maximum:
+        return ["startup ready elapsed exceeds maximum"]
+    return []
+
+
 def particle_runtime_failures(
     sample: dict[str, Any],
     metrics: dict[str, Any],
 ) -> list[str]:
     failures: list[str] = []
+    required_nonempty = sample.get("required_particle_committed_nonempty_layer_ids", [])
+    committed_nonempty = metrics.get("committed_nonempty_layer_ids")
+    if required_nonempty and committed_nonempty is None:
+        failures.append("particle committed nonempty evidence missing")
+    elif required_nonempty:
+        for layer_id in required_nonempty:
+            if layer_id not in committed_nonempty:
+                failures.append(f"particle layer {layer_id} should produce a committed nonempty batch")
     requires_load_evidence = (
         "minimum_particle_loaded" in sample
         or "expected_particle_candidates" in sample
@@ -7921,10 +7963,8 @@ def run_sample(
         failures.append("missing ready event")
     elif int(ready_match.group("surfaces")) < 1:
         failures.append("no Scene surface")
-    elif startup_ready_ms is None:
-        failures.append("missing startup ready elapsed evidence")
-    elif not math.isfinite(startup_ready_ms) or startup_ready_ms < 0:
-        failures.append("invalid startup ready elapsed evidence")
+    else:
+        failures.extend(startup_runtime_failures(sample, startup_ready_ms))
     failures.extend(performance_failures(performance))
     failures.extend(audio_scaled_value["failures"])
     if runtime_evidence_match is None:
@@ -8659,8 +8699,10 @@ def run_sample(
             "particle_skipped_hidden": particle_runtime["skipped_hidden"],
             "particle_skipped_transparent": particle_runtime["skipped_transparent"],
             "particle_loaded_layer_ids": particle_runtime["loaded_layer_ids"],
-        "particle_sticky_loaded": particle_runtime["sticky_loaded"],
-        "particle_sticky_total": particle_runtime["sticky_total"],
+            "particle_sticky_loaded": particle_runtime["sticky_loaded"],
+            "particle_sticky_total": particle_runtime["sticky_total"],
+            "particle_current_nonempty_layer_ids": particle_runtime["current_nonempty_layer_ids"],
+            "particle_committed_nonempty_layer_ids": particle_runtime["committed_nonempty_layer_ids"],
             "audio_scaled_value": audio_scaled_value,
             "camera_projection": camera_match.group("projection") if camera_match else None,
             "camera_parallax": camera_match.group("parallax") == "true" if camera_match else None,

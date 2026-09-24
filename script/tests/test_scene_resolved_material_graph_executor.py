@@ -4079,6 +4079,35 @@ private enum Harness {
                     maximumVariantsPerMaterial: 16
                 )
         }
+        let parallelDowngradeStageResult = downgradeAdmitted.map {
+            SceneResolvedMaterialExecutionCapabilityCatalog
+                .compileProgramFirstStages(
+                    $0,
+                    materialCatalog: catalog(
+                        for: downgradeSiblingGraph,
+                        namedProvidersByNode: [0: dependencyNamedReference]
+                    ),
+                    demandIssues: [],
+                    dynamicProducers: .empty,
+                    assetFormatFacts: [:],
+                    assetStates: [:],
+                    maximumVariantsPerMaterial: 16,
+                    maximumStageWorkers: 2
+                )
+        }
+        let parallelStagePreparationPreservesAuthoredResult = {
+            guard let serial = downgradeStageResult,
+                  let parallel = parallelDowngradeStageResult,
+                  case let .success(a) = serial,
+                  case let .success(b) = parallel else { return false }
+            return a.stages.map(\.subject) == b.stages.map(\.subject)
+                && a.stages.map(\.initiallyInactivePassthroughReasonCode)
+                    == b.stages.map(\.initiallyInactivePassthroughReasonCode)
+                && a.stages.map(\.visualFailureReasonCode)
+                    == b.stages.map(\.visualFailureReasonCode)
+                && Set(a.materials.keys) == Set(b.materials.keys)
+                && a.dependencyOwnership == b.dependencyOwnership
+        }()
         let downgradeWithActiveSiblingResolvesPassthrough = {
             guard let result = downgradeStageResult,
                   case let .success(compiled) = result,
@@ -8263,6 +8292,8 @@ private enum Harness {
                     && inactiveDependencyActivation.fallbackFree,
             "unproducedNamedSlotConsumerFailsClosed":
                 unproducedNamedSlotConsumerFailsClosed,
+            "parallelStagePreparationPreservesAuthoredResult":
+                parallelStagePreparationPreservesAuthoredResult,
             "downgradeWithActiveSiblingResolvesPassthrough":
                 downgradeWithActiveSiblingResolvesPassthrough,
             "mismatchedScriptStageFailsClosed":

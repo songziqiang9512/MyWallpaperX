@@ -506,10 +506,18 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         guard input.template.diagnosticProvenance.contractCanonicalSHA256
                 == template.diagnosticProvenance.contractCanonicalSHA256,
               input.template.diagnosticProvenance.nodeIndex == template.diagnosticProvenance.nodeIndex,
+              input.template.textureSlots == template.textureSlots,
+              input.template.combos == template.combos,
+              input.template.inheritedInactiveCombos == template.inheritedInactiveCombos,
               input.template.uniformDeclarations == template.uniformDeclarations,
+              input.template.renderState == template.renderState,
+              input.template.graphRole == template.graphRole,
+              input.template.previousBlurredCompositeGenericOwnerEligible
+                == template.previousBlurredCompositeGenericOwnerEligible,
               input.template.compatibilityTarget
                 == template.compatibilityTarget,
-              input.template.effectContext == template.effectContext else {
+              input.template.effectContext == template.effectContext,
+              input.template.shaderContract == template.shaderContract else {
             return .failure(Self.failure(
                 .variantSelectionTemplateIdentityInvariant,
                 phase: .invariant

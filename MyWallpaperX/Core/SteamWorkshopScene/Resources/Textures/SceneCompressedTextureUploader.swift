@@ -18,7 +18,8 @@ struct SceneCompressedTextureUploader {
         uploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
-        guard let firstMip = container.mips.first else {
+        guard let firstMip = container.mips.first,
+              firstMip.width > 0, firstMip.height > 0 else {
             return .decodeFailed("TEX container has no mip data")
         }
         // BC1/BC2/BC3 storage does not identify the consumer's channel
@@ -26,7 +27,7 @@ struct SceneCompressedTextureUploader {
         // only color consumers premultiply straight alpha before compositing.
         if let bcFormat = SceneBCTextureDecoder.Format(texFormat: container.format) {
             if container.imageCount == 1,
-               firstMip.width * firstMip.height <= maxDecodedPixelCount {
+               firstMip.width <= maxDecodedPixelCount / firstMip.height {
                 return uploadDecoded(
                     container: container,
                     format: bcFormat,
@@ -77,6 +78,16 @@ struct SceneCompressedTextureUploader {
         purpose: SceneTextureLoadPurpose,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
+        guard SceneTexContainer.valid2DMipDimensions(
+            container.mips.map { ($0.width, $0.height) }
+        ) else {
+            return .decodeFailed("TEX container has an invalid mip chain")
+        }
+        let levelCount = purpose.preservesSourceChannels
+            ? container.mips.count
+            : SceneTexContainer.maximum2DMipCount(
+                width: container.imageWidth, height: container.imageHeight
+            )
         let decoded = container.mips.enumerated().compactMap { level, mip in
             let imageWidth = purpose.preservesSourceChannels
                 ? mip.width
@@ -93,10 +104,15 @@ struct SceneCompressedTextureUploader {
                 format: format
             )
         }
+        // Validate every stored payload before dropping redundant cropped levels.
+        let selectedImages = decoded.prefix(levelCount)
         guard decoded.count == container.mips.count,
-              let first = decoded.first,
-              validMipDimensions(decoded.map { ($0.width, $0.height) }) else {
+              let first = selectedImages.first,
+              SceneTexContainer.valid2DMipDimensions(selectedImages.map { ($0.width, $0.height) }) else {
             return .decodeFailed("BC mip data does not match its stored block layout")
+        }
+        guard SceneImageTextureUploader.supports2DExtent(width: first.width, height: first.height) else {
+            return .decodeFailed("decoded BC mip extent exceeds Metal 2D limits")
         }
 
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
@@ -105,14 +121,14 @@ struct SceneCompressedTextureUploader {
             height: first.height,
             mipmapped: false
         )
-        descriptor.mipmapLevelCount = decoded.count
+        descriptor.mipmapLevelCount = selectedImages.count
         descriptor.usage = .shaderRead
         descriptor.storageMode = .shared
         guard let texture = device.makeTexture(descriptor: descriptor) else {
             return .textureAllocationFailed(width: first.width, height: first.height)
         }
 
-        for (level, image) in decoded.enumerated() {
+        for (level, image) in selectedImages.enumerated() {
             let rgba = purpose.preservesSourceChannels
                 ? image.rgba
                 : premultiplyStraightAlphaRGBA(image.rgba)
@@ -142,21 +158,25 @@ struct SceneCompressedTextureUploader {
         uploadCommandQueue: SceneTextureUploadCommandQueue,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
+        guard let region = normalizationRegion(container: container, mip: mip) else {
+            return .decodeFailed("multi-image BC sprite has no supported static first-frame region")
+        }
         let direct = uploadDirect(
-            mips: [mip],
+            mips: container.imageCount == 1 ? container.mips : [mip],
             pixelFormat: pixelFormat,
             device: device
         )
         guard case let .loaded(source) = direct else { return direct }
-        guard let region = normalizationRegion(container: container, mip: mip) else {
-            return .decodeFailed("multi-image BC sprite has no supported static first-frame region")
-        }
 
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .rgba8Unorm,
             width: region.width,
             height: region.height,
             mipmapped: false
+        )
+        descriptor.mipmapLevelCount = min(
+            source.mipmapLevelCount,
+            SceneTexContainer.maximum2DMipCount(width: region.width, height: region.height)
         )
         descriptor.usage = [.shaderRead, .shaderWrite]
         descriptor.storageMode = .private
@@ -173,13 +193,30 @@ struct SceneCompressedTextureUploader {
             backgroundColor: nil,
             conversionInfo: nil
         )
-        conversion.offset = MPSOffset(x: region.sourceX, y: region.sourceY, z: 0)
-        conversion.clipRect = MTLRegionMake2D(0, 0, region.width, region.height)
-        conversion.encode(
-            commandBuffer: commandBuffer,
-            sourceTexture: source,
-            destinationTexture: destination
-        )
+        // Each authored mip is an independent image, not a downsample of the
+        // converted base. Views expose that exact level to MPS without copies.
+        for level in 0..<destination.mipmapLevelCount {
+            guard let sourceLevel = source.makeTextureView(
+                pixelFormat: source.pixelFormat, textureType: .type2D,
+                levels: level..<(level + 1), slices: 0..<1
+            ), let destinationLevel = destination.makeTextureView(
+                pixelFormat: destination.pixelFormat, textureType: .type2D,
+                levels: level..<(level + 1), slices: 0..<1
+            ) else {
+                return .decodeFailed("GPU BC mip view creation failed at level \(level)")
+            }
+            conversion.offset = MPSOffset(
+                x: region.sourceX >> level, y: region.sourceY >> level, z: 0
+            )
+            conversion.clipRect = MTLRegionMake2D(
+                0, 0, destinationLevel.width, destinationLevel.height
+            )
+            conversion.encode(
+                commandBuffer: commandBuffer,
+                sourceTexture: sourceLevel,
+                destinationTexture: destinationLevel
+            )
+        }
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else {
@@ -192,6 +229,7 @@ struct SceneCompressedTextureUploader {
         container: SceneTexContainer,
         mip: SceneTexContainer.Mip
     ) -> NormalizationRegion? {
+        guard mip.width > 0, mip.height > 0 else { return nil }
         let crossesImages = container.spriteFrames.contains { $0.imageIndex != 0 }
         guard crossesImages else {
             let width = (1 ... mip.width).contains(container.imageWidth)
@@ -211,13 +249,14 @@ struct SceneCompressedTextureUploader {
               frame.yAxis.y > 0 else {
             return nil
         }
-        let sourceX = Int((frame.origin.x * Float(mip.width)).rounded())
-        let sourceY = Int((frame.origin.y * Float(mip.height)).rounded())
-        let width = Int((frame.xAxis.x * Float(mip.width)).rounded())
-        let height = Int((frame.yAxis.y * Float(mip.height)).rounded())
-        guard sourceX >= 0, sourceY >= 0, width > 0, height > 0,
-              sourceX + width <= mip.width,
-              sourceY + height <= mip.height else {
+        guard let sourceX = Int(exactly: (frame.origin.x * Float(mip.width)).rounded()),
+              let sourceY = Int(exactly: (frame.origin.y * Float(mip.height)).rounded()),
+              let width = Int(exactly: (frame.xAxis.x * Float(mip.width)).rounded()),
+              let height = Int(exactly: (frame.yAxis.y * Float(mip.height)).rounded()),
+              sourceX >= 0, sourceY >= 0, width > 0, height > 0,
+              width <= mip.width, height <= mip.height,
+              sourceX <= mip.width - width,
+              sourceY <= mip.height - height else {
             return nil
         }
         return NormalizationRegion(
@@ -236,22 +275,26 @@ struct SceneCompressedTextureUploader {
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
         guard let firstMip = mips.first,
-              validMipDimensions(mips.map { ($0.width, $0.height) }) else {
+              SceneTexContainer.valid2DMipDimensions(mips.map { ($0.width, $0.height) }) else {
             return .decodeFailed("TEX container has an invalid mip chain")
         }
         guard let bytesPerBlock = bytesPerBlock(for: pixelFormat) else {
             return .decodeFailed("unsupported Metal BC pixel format: \(pixelFormat.rawValue)")
+        }
+        guard SceneImageTextureUploader.supports2DExtent(width: firstMip.width, height: firstMip.height) else {
+            return .decodeFailed("BC mip extent exceeds Metal 2D limits")
         }
         if device.supportsBCTextureCompression == false {
             return .decodeFailed("BC upload requires Metal BC texture compression support")
         }
 
         for mip in mips {
-            let blocksWide = max(1, (mip.width + 3) / 4)
-            let blocksHigh = max(1, (mip.height + 3) / 4)
-            let expectedByteCount = blocksWide * bytesPerBlock * blocksHigh
-            guard mip.data.count == expectedByteCount else {
-                return .decodeFailed("BC mip data size mismatch: \(mip.data.count) != \(expectedByteCount)")
+            let blocksWide = (mip.width - 1) / 4 + 1
+            let blocksHigh = (mip.height - 1) / 4 + 1
+            guard let expectedByteCount = SceneTexContainer.byteCount2D(
+                width: blocksWide, height: blocksHigh, bytesPerElement: bytesPerBlock
+            ), mip.data.count == expectedByteCount else {
+                return .decodeFailed("BC mip data does not match its stored block layout")
             }
         }
 
@@ -269,7 +312,7 @@ struct SceneCompressedTextureUploader {
         }
 
         for (level, mip) in mips.enumerated() {
-            let bytesPerRow = max(1, (mip.width + 3) / 4) * bytesPerBlock
+            let bytesPerRow = ((mip.width - 1) / 4 + 1) * bytesPerBlock
             mip.data.withUnsafeBytes { rawBuffer in
                 texture.replace(
                     region: MTLRegionMake2D(0, 0, mip.width, mip.height),
@@ -280,14 +323,6 @@ struct SceneCompressedTextureUploader {
             }
         }
         return .loaded(texture)
-    }
-
-    private static func validMipDimensions(_ dimensions: [(Int, Int)]) -> Bool {
-        guard let first = dimensions.first, first.0 > 0, first.1 > 0 else { return false }
-        return dimensions.enumerated().allSatisfy { level, size in
-            size.0 == max(1, first.0 >> level)
-                && size.1 == max(1, first.1 >> level)
-        }
     }
 
     private static func premultiplyStraightAlphaRGBA(_ data: Data) -> Data {

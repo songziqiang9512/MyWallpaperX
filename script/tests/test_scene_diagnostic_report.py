@@ -254,6 +254,21 @@ class SceneDiagnosticReportTests(unittest.TestCase):
             observation["evidenceSummary"]["afterFlatBorderRatio"], 1.0
         )
 
+    def test_particle_admission_history_does_not_require_nonempty_batches(self) -> None:
+        runtime = {
+            "particle_candidates": 2,
+            "particle_sticky_loaded": 2,
+            "particle_committed_nonempty_layer_ids": [],
+        }
+        self.assertEqual(diagnostic._resource_events(runtime), [])
+        runtime["loaded_particle_layers"] = 0
+        self.assertEqual(diagnostic._resource_events(runtime), [])
+        runtime["particle_sticky_loaded"] = 1
+        self.assertEqual(
+            [event["reasonCode"] for event in diagnostic._resource_events(runtime)],
+            ["particle-layer-load-incomplete"],
+        )
+
     def test_each_drawable_family_reports_an_incomplete_load(self) -> None:
         missing = sample("missing-drawables")
         missing["runtime"].update({

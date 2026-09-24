@@ -111,9 +111,24 @@ final class SceneTextureLoader {
     }
 
     private struct TexResource {
-        let data: Data
         let container: SceneTexContainer?
         let parseError: String?
+
+        var decodedByteCost: Int? {
+            guard let container else { return 0 }
+            let (frameBytes, frameOverflow) = container.spriteFrames.count
+                .multipliedReportingOverflow(by: MemoryLayout<SceneTexContainer.SpriteFrame>.stride)
+            guard !frameOverflow else { return nil }
+            var total = frameBytes
+            for image in container.images {
+                for mip in image.mips {
+                    let (next, overflow) = total.addingReportingOverflow(mip.data.count)
+                    guard !overflow else { return nil }
+                    total = next
+                }
+            }
+            return total
+        }
     }
 
     private enum DirectImageResource {
@@ -128,7 +143,7 @@ final class SceneTextureLoader {
 
     private static let directImageExtensions: Set<String> = ["png", "jpg", "jpeg"]
     private static let texExtension = "tex"
-    private var textureOutcomes: [TextureKey: SceneTextureLoadOutcome] = [:]
+    private var textures: [TextureKey: MTLTexture] = [:]
     private var texResources: [SourceKey: TexResource] = [:]
     private var directImageResources: [SourceKey: DirectImageResource] = [:]
     private var texEmbeddedImageResources: [SourceKey: TexEmbeddedImageResource] = [:]
@@ -191,11 +206,11 @@ final class SceneTextureLoader {
             deviceRegistryID: device.registryID,
             purpose: purpose
         )
-        if let cached = textureOutcomes[key] {
+        if let cached = textures[key] {
             guard sourceKey(for: url) == source else {
                 return .decodeFailed("file changed while loading: \(url.lastPathComponent)")
             }
-            return cached
+            return .loaded(cached)
         }
         let ext = url.pathExtension.lowercased()
         let outcome: SceneTextureLoadOutcome
@@ -219,7 +234,10 @@ final class SceneTextureLoader {
         guard sourceKey(for: url) == source else {
             return .decodeFailed("file changed while loading: \(url.lastPathComponent)")
         }
-        textureOutcomes[key] = outcome
+        // Upload failures describe this attempt, not an immutable property of
+        // the source. Keep decoded resources reusable while allowing a later
+        // explicit load to recover from transient Metal allocation/GPU faults.
+        if case let .loaded(texture) = outcome { textures[key] = texture }
         return outcome
     }
 
@@ -291,43 +309,22 @@ final class SceneTextureLoader {
         guard let resource = texResource(from: url, source: source) else {
             return .decodeFailed("read failed: \(url.lastPathComponent)")
         }
-        let data = resource.data
-        if let container = resource.container {
-            if container.format == 0 {
-                return loadFormatZeroContainer(
-                    container,
-                    source: source,
-                    purpose: purpose,
-                    device: device
-                )
-            }
-            if let directUploadOutcome = makeDirectUploadTexture(
-                from: container,
-                purpose: purpose,
-                device: device
-            ) {
-                return directUploadOutcome
-            }
-        }
-        guard let embedded = Self.extractEmbeddedImageData(from: data) else {
-            if let container = resource.container {
-                return .unsupportedTexFormat(code: container.format)
-            }
+        guard let container = resource.container else {
             return .decodeFailed("TEX parse failed: \(resource.parseError ?? "unknown error")")
         }
-        guard let cgImage = cachedTexEmbeddedImages(
-            source: source,
-            payloads: [embedded]
-        )?.first else {
-            return .decodeFailed("embedded image decode failed")
+        if container.format == 0 {
+            return loadFormatZeroContainer(
+                container,
+                source: source,
+                purpose: purpose,
+                device: device
+            )
         }
-        return SceneImageTextureUploader.upload(
-            image: cgImage,
+        return makeDirectUploadTexture(
+            from: container,
             purpose: purpose,
-            maxDimension: Self.maxTextureDimension,
-            uploadCommandQueue: uploadCommandQueue,
             device: device
-        )
+        ) ?? .unsupportedTexFormat(code: container.format)
     }
 
     private func texResource(from url: URL, source: SourceKey) -> TexResource? {
@@ -338,18 +335,20 @@ final class SceneTextureLoader {
         let resource: TexResource
         do {
             resource = TexResource(
-                data: data,
                 container: try SceneTexContainerReader().read(data: data),
                 parseError: nil
             )
         } catch {
             resource = TexResource(
-                data: data,
                 container: nil,
                 parseError: error.localizedDescription
             )
         }
-        if decodeCacheLease.reserve(data.count) {
+        // The source file may be much smaller than its decompressed mips.
+        // Only parsed payloads remain resident; the original bytes are no
+        // longer needed once the container has been validated.
+        if let byteCost = resource.decodedByteCost,
+           decodeCacheLease.reserve(byteCost) {
             texResources[source] = resource
         }
         return resource
@@ -400,6 +399,13 @@ final class SceneTextureLoader {
             return .texContainsVideoPayload
         }
 
+        if container.containerVersion == .texb0003,
+           Self.isEmbeddedImagePayload(firstMip.data)
+            || [2, 13].contains(container.freeImageFormat),
+           !hasValidTexb3EmbeddedMipChain(container) {
+            return .decodeFailed("compiled TEX embedded mip metadata does not match its payload")
+        }
+
         if Self.isEmbeddedImagePayload(firstMip.data) {
             guard let images = cachedTexEmbeddedImages(
                 source: source,
@@ -434,7 +440,11 @@ final class SceneTextureLoader {
             )
         }
 
-        let expectedRawByteCount = firstMip.width * firstMip.height * 4
+        guard let expectedRawByteCount = SceneTexContainer.byteCount2D(
+            width: firstMip.width, height: firstMip.height, bytesPerElement: 4
+        ) else {
+            return .decodeFailed("raw ARGB8888 dimensions exceed addressable byte size")
+        }
         if firstMip.data.count == expectedRawByteCount {
             if purpose.preservesSourceChannels {
                 return SceneTextureMipUploader.uploadRaw(
@@ -451,6 +461,37 @@ final class SceneTextureLoader {
         }
 
         return .decodeFailed("raw ARGB8888 mip data size mismatch: \(firstMip.data.count) != \(expectedRawByteCount)")
+    }
+
+    func hasValidTexb3EmbeddedMipChain(_ container: SceneTexContainer) -> Bool {
+        guard SceneTexContainer.valid2DMipDimensions(
+            container.mips.map { ($0.width, $0.height) }
+        ) else { return false }
+        let expectedMagic: Data
+        switch container.freeImageFormat {
+        case 2:
+            expectedMagic = Data([0xFF, 0xD8, 0xFF])
+        case 13:
+            expectedMagic = Data([0x89, 0x50, 0x4E, 0x47])
+        default:
+            return false
+        }
+        return container.mips.allSatisfy { mip in
+            mip.data.starts(with: expectedMagic)
+                && embeddedImagePixelSize(mip.data)
+                    == CGSize(width: mip.width, height: mip.height)
+        }
+    }
+
+    func embeddedImagePixelSize(_ data: Data) -> CGSize? {
+        guard Self.isEmbeddedImagePayload(data),
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
+                as? [CFString: Any],
+              let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue,
+              let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue,
+              width > 0, height > 0 else { return nil }
+        return CGSize(width: width, height: height)
     }
 
     private func cachedTexEmbeddedImages(
@@ -483,43 +524,6 @@ final class SceneTextureLoader {
             by: image.height
         )
         return overflow ? Int.max : cost
-    }
-
-    // Returns the byte range of the first JPEG or PNG payload inside a .tex
-    // container. Two rules avoid false positives that arise when scanning a
-    // multi-megabyte compressed payload byte-by-byte:
-    //
-    //  1. Search only the first 256 bytes for the magic. Wallpaper Engine's
-    //     .tex container header (TEXV/TEXI/TEXB blocks + format/size fields)
-    //     is small; the embedded image's magic always lands inside this
-    //     window. Beyond that window any byte triple in compressed data is
-    //     just random — and `\xFF\xD8\xFF` happens often enough inside large
-    //     PNGs to make the loader misidentify them as JPEGs and try to decode
-    //     PNG data from the middle.
-    //  2. Hand the full tail (magic → file end) to CGImageSource and let it
-    //     find the JPEG EOI / PNG IEND itself. Byte-searching for EOI/IEND
-    //     is unsafe — both byte sequences regularly appear inside JPEG
-    //     entropy-coded segments and PNG zlib streams.
-    private static func extractEmbeddedImageData(from data: Data) -> Data? {
-        let jpegSOI = Data([0xFF, 0xD8, 0xFF])
-        let pngMagic = Data([0x89, 0x50, 0x4E, 0x47])
-        let searchEnd = min(256, data.count)
-        let searchRange = 0..<searchEnd
-
-        // PNG and JPEG can in principle coexist in the same header window
-        // (they don't in practice), so pick whichever magic appears earlier.
-        let pngLoc = data.range(of: pngMagic, in: searchRange)?.lowerBound
-        let jpgLoc = data.range(of: jpegSOI, in: searchRange)?.lowerBound
-
-        let chosen: Int?
-        switch (pngLoc, jpgLoc) {
-        case let (p?, j?): chosen = min(p, j)
-        case let (p?, nil): chosen = p
-        case let (nil, j?): chosen = j
-        case (nil, nil): chosen = nil
-        }
-        guard let start = chosen else { return nil }
-        return data.subdata(in: start..<data.count)
     }
 
     private func decodeEmbeddedImagePayload(

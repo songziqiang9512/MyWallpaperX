@@ -52,6 +52,19 @@ enum Harness {
             spriteFrame(originX: 0.5),
         ]
         let atlasAnimation = SceneSpriteAnimation(frames: atlasFrames)!
+        let invalidTimelines: [[Float]] = [
+            [.greatestFiniteMagnitude, .greatestFiniteMagnitude],
+            [16_777_216, 1],
+        ]
+        let invalidTimelinesRejected = invalidTimelines.map { durations in
+            SceneSpriteAnimation(frames: durations.map {
+                spriteFrame(originX: 0, duration: $0)
+            }) == nil
+        }
+        let defaultDurationAnimation = SceneSpriteAnimation(frames: [
+            spriteFrame(originX: 0, duration: 0),
+            spriteFrame(originX: 0.25, duration: 0),
+        ])!
         let nominalAnimation = SceneSpriteAnimation(
             frames: atlasFrames,
             textureSize: SIMD2(400, 200),
@@ -78,6 +91,30 @@ enum Harness {
         defer { try? FileManager.default.removeItem(at: temporary) }
         let textureURL = temporary.appendingPathComponent("atlas.tex")
         let sidecarURL = URL(fileURLWithPath: textureURL.path + "-json")
+        var invalidFrameCountsRejected: [Bool] = []
+        var invalidSidecarPlaybackPreserved: [Bool] = []
+        let atlasContainer = SceneTexContainer(
+            format: 0, flags: 4, textureWidth: 400, textureHeight: 200,
+            imageWidth: 400, imageHeight: 200, containerVersion: .texb0002,
+            freeImageFormat: -1, isVideoMp4: false,
+            images: [.init(mips: [.init(width: 400, height: 200, data: Data())])],
+            spriteFrames: atlasFrames
+        )
+        for count in [Double.greatestFiniteMagnitude, Double(Int.max), -1, 0, 3.5] {
+            let invalid: [String: Any] = [
+                "spritesheetsequences": [["frames": count, "width": 100, "height": 50]],
+            ]
+            try JSONSerialization.data(withJSONObject: invalid).write(to: sidecarURL)
+            invalidFrameCountsRejected.append(SceneSpriteAnimation.nominalFrameSize(
+                from: textureURL, expectedFrameCount: 3
+            ) == nil)
+            let fallback = SceneSpriteAnimation(container: atlasContainer, sourceURL: textureURL)
+            invalidSidecarPlaybackPreserved.append(
+                fallback?.aspectRatio(forFrameAt: 0) == 0.5
+                    && fallback?.transform(at: 1).origin.x == 0.25
+                    && fallback?.duration == 3
+            )
+        }
         let sidecar: [String: Any] = [
             "spritesheetsequences": [["frames": 3, "width": 100, "height": 50]],
         ]
@@ -155,6 +192,47 @@ enum Harness {
         ], sceneTime: 0)
         let variableAtOne = runtime.snapshots(sceneTime: 1)
         let sharedAtHalf = runtime.snapshots(sceneTime: 0.5)
+        let boundaryTimes = [Double(1).nextDown, 1, Double(1).nextUp,
+                             Double(3).nextDown, 3, Double(3).nextUp, -Double.ulpOfOne]
+        let boundaryAgreement = boundaryTimes.map { time in
+            let snapshot = runtime.snapshots(sceneTime: time)[11]!
+            let playback = runtime.playbackTimes(layerIDs: [11], sceneTime: time)[11]!
+            let sampled = SceneSpriteAnimation.frameIndex(
+                at: playback, duration: atlasAnimation.duration,
+                frameEndTimes: atlasAnimation.frameEndTimes
+            )
+            return snapshot.currentFrame == Double(sampled)
+                && snapshot.sharedCurrentFrame == Double(sampled)
+        }
+        var localBoundaryAgreement: [Bool] = []
+        for rate: Double in [-1, 1] {
+            let local = SceneTextureAnimationPlaybackRuntime()
+            _ = local.register(layerID: 1, sourceIdentity: "local", animation: atlasAnimation)
+            _ = local.apply([
+                .init(layerID: 1, action: .setFrame(0)),
+                .init(layerID: 1, action: .setRate(rate)),
+            ], sceneTime: 0)
+            for time in boundaryTimes {
+                let playback = local.playbackTimes(layerIDs: [1], sceneTime: time)[1]!
+                let rendered = SceneSpriteAnimation.frameIndex(
+                    at: playback, duration: atlasAnimation.duration,
+                    frameEndTimes: atlasAnimation.frameEndTimes
+                )
+                localBoundaryAgreement.append(
+                    local.snapshots(sceneTime: time)[1]!.currentFrame == Double(rendered)
+                )
+            }
+            _ = local.apply([.init(layerID: 1, action: .pause)], sceneTime: Double(1).nextDown)
+            let pausedPlayback = local.playbackTimes(layerIDs: [1], sceneTime: 20)[1]!
+            localBoundaryAgreement.append(
+                local.snapshots(sceneTime: 20)[1]!.currentFrame == Double(
+                    SceneSpriteAnimation.frameIndex(
+                        at: pausedPlayback, duration: atlasAnimation.duration,
+                        frameEndTimes: atlasAnimation.frameEndTimes
+                    )
+                )
+            )
+        }
         let setFrame = runtime.apply([
             .init(layerID: 10, action: .setFrame(1)),
         ], sceneTime: 0.5)
@@ -192,6 +270,14 @@ enum Harness {
 
         let payload: [String: Any] = [
             "parsedCount": parsed.count,
+            "invalidTimelinesRejected": invalidTimelinesRejected,
+            "zeroDurationPreserved": defaultDurationAnimation.duration.isFinite
+                && defaultDurationAnimation.frameEndTimes[1] > defaultDurationAnimation.frameEndTimes[0],
+            "boundaryAgreement": boundaryAgreement,
+            "localBoundaryAgreement": localBoundaryAgreement,
+            "boundaryFrames": boundaryTimes.map {
+                runtime.snapshots(sceneTime: $0)[11]!.currentFrame
+            },
             "host": parsed[0].host,
             "source": parsed[0].source,
             "keys": parsed[0].wrapperKeys,
@@ -212,6 +298,8 @@ enum Harness {
             "sidecarMismatchRejected": mismatchedSidecar == nil,
             "sidecarInvalidDimensionsRejected": invalidDimensionsRejected,
             "sidecarBooleanRejected": booleanRejected,
+            "sidecarInvalidFrameCountsRejected": invalidFrameCountsRejected,
+            "invalidSidecarPlaybackPreserved": invalidSidecarPlaybackPreserved,
             "registrationsAccepted": isSuccess(firstRegistration)
                 && isSuccess(secondRegistration)
                 && isSuccess(repeatedRegistration),
@@ -317,15 +405,20 @@ class SceneTextureAnimationScriptTests(unittest.TestCase):
                 raise AssertionError(compilation.stderr)
             result = subprocess.run(
                 [str(executable_path)],
-                check=True,
                 cwd=REPOSITORY_ROOT,
                 env=env,
                 capture_output=True,
                 text=True,
             )
 
+        self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["parsedCount"], 1)
+        self.assertEqual(payload["invalidTimelinesRejected"], [True, True])
+        self.assertTrue(payload["zeroDurationPreserved"])
+        self.assertEqual(payload["boundaryAgreement"], [True] * 7)
+        self.assertEqual(payload["localBoundaryAgreement"], [True] * 16)
+        self.assertEqual(payload["boundaryFrames"], [1, 1, 1, 0, 0, 0, 0])
         self.assertEqual(payload["host"], "visible")
         self.assertEqual(payload["source"], "self-authored-fixture")
         self.assertEqual(payload["keys"], ["script", "scriptproperties", "user", "value"])
@@ -344,6 +437,8 @@ class SceneTextureAnimationScriptTests(unittest.TestCase):
         self.assertTrue(payload["sidecarMismatchRejected"])
         self.assertTrue(payload["sidecarInvalidDimensionsRejected"])
         self.assertTrue(payload["sidecarBooleanRejected"])
+        self.assertEqual(payload["sidecarInvalidFrameCountsRejected"], [True] * 5)
+        self.assertEqual(payload["invalidSidecarPlaybackPreserved"], [True] * 5)
         self.assertTrue(payload["registrationsAccepted"])
         self.assertTrue(payload["conflictRejected"])
         self.assertTrue(payload["variableAccepted"])

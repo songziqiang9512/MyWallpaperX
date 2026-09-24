@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -98,6 +99,23 @@ private struct ScalarVectorBuiltInHarness {
     }
 
     static func main() throws {
+        if CommandLine.arguments.count > 1 {
+            let statement = CommandLine.arguments[1]
+            let source = fragment(statement, declarations: ["uniform vec2 g_Ratio;"])
+            let pair = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: vertex, fragment: source
+            )
+            let normalized = try SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: pair.vertex,
+                fragmentSource: pair.fragment,
+                maximumStageSourceBytes: 64 * 1_024
+            ).get()
+            FileHandle.standardOutput.write(try JSONEncoder().encode(Output(
+                checks: [:], normalizedVertex: normalized.vertex,
+                normalizedFragment: normalized.fragment
+            )))
+            return
+        }
         let literalFirst = canonical(
             "gl_FragColor = vec4(max(0, albedo.rgb), albedo.a);"
         )
@@ -297,14 +315,14 @@ private struct ScalarVectorBuiltInHarness {
                 "literalSecondPreserved": literalSecond.contains(
                     "max(albedo.rgb, 0)"
                 ) && !literalSecond.contains("vec3(0.0)"),
-                "minPreserved": minZero.contains(
-                    "min(0, albedo.rgb)"
+                "minBroadcast": minZero.contains(
+                    "min(vec3(0.0), albedo.rgb)"
                 ),
-                "floatZeroPreserved": floatZero.contains(
-                    "max(0.0, albedo.rgb)"
-                ) && !floatZero.contains("vec3(0.0)"),
-                "otherIntegerPreserved": otherInteger.contains(
-                    "max(1, albedo.rgb)"
+                "floatZeroBroadcast": floatZero.contains(
+                    "max(vec3(0.0), albedo.rgb)"
+                ),
+                "otherIntegerBroadcast": otherInteger.contains(
+                    "max(vec3(1.0), albedo.rgb)"
                 ),
                 "scalarFloatFirst": scalarFloatFirst.contains(
                     "max(1.0, g_Ratio.x / g_Ratio.y)"
@@ -321,9 +339,9 @@ private struct ScalarVectorBuiltInHarness {
                 "scalarFloatLiteralPreserved": scalarFloatLiteral.contains(
                     "max(1.0, g_Ratio.x)"
                 ) && !scalarFloatLiteral.contains("max(1.0.0, g_Ratio.x)"),
-                "scalarUnknownCallPreserved": scalarUnknownCall.contains(
-                    "max(1, abs(g_Ratio.x))"
-                ) && !scalarUnknownCall.contains("max(1.0, abs(g_Ratio.x))"),
+                "scalarAbsCall": scalarUnknownCall.contains(
+                    "max(1.0, abs(g_Ratio.x))"
+                ),
                 "scalarStepMin": scalarStepMin.contains(
                     "min(1.0, smoothstep(0, g_Ratio.x, g_Ratio.y) + step(g_Ratio.x, g_Ratio.y))"
                 ),
@@ -506,6 +524,67 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
                 text=True,
             )
         self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_literal_bounds_on_abs_results_link(self) -> None:
+        if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
+            self.skipTest("bundled glslang is unavailable")
+        statements = [
+            "gl_FragColor = vec4(max(1, abs(g_Ratio)), 0.0, 1.0);",
+            "gl_FragColor = vec4(min(0.5, abs(-g_Ratio)), 0.0, 1.0);",
+            "gl_FragColor = vec4(max(1, abs(g_Ratio.x)));",
+            "gl_FragColor = vec4(min(abs(g_Ratio.x), 2));",
+            "gl_FragColor = vec4(max(2, abs(abs(g_Ratio))), 0.0, 1.0);",
+            "int n = max(1, abs(-2)); gl_FragColor = vec4(float(n));",
+        ]
+        for statement in statements:
+            with self.subTest(statement=statement), tempfile.TemporaryDirectory() as directory:
+                output = json.loads(subprocess.check_output(
+                    [str(self.binary), statement], text=True,
+                ))
+                root = Path(directory)
+                vertex = root / "author.vert"
+                fragment = root / "author.frag"
+                vertex.write_text(output["normalizedVertex"], encoding="utf-8")
+                fragment.write_text(output["normalizedFragment"], encoding="utf-8")
+                linked = subprocess.run(
+                    [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                     "-l", str(vertex), str(fragment)],
+                    cwd=root, capture_output=True, text=True,
+                )
+                self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_octal_bounds_preserve_compiled_numeric_value(self) -> None:
+        for peer in ("abs(g_Ratio)", "abs(g_Ratio.x)"):
+            with self.subTest(peer=peer), tempfile.TemporaryDirectory() as directory:
+                suffix = ", 0.0, 1.0" if peer == "abs(g_Ratio)" else ""
+                statement = f"gl_FragColor = vec4(min(010, {peer}){suffix});"
+                output = json.loads(subprocess.check_output(
+                    [str(self.binary), statement], text=True,
+                ))
+                root = Path(directory)
+                fragment = root / "author.frag"
+                fragment.write_text(output["normalizedFragment"], encoding="utf-8")
+                linked = subprocess.run(
+                    [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                     str(fragment), "-o", str(root / "result.spv")],
+                    cwd=root, capture_output=True, text=True,
+                )
+                self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+                payload = (root / "result.spv").read_bytes()
+                words = struct.unpack(f"<{len(payload) // 4}I", payload)
+                float_types, constants = set(), []
+                offset = 5
+                while offset < len(words):
+                    count, opcode = words[offset] >> 16, words[offset] & 0xffff
+                    self.assertGreater(count, 0)
+                    operands = words[offset + 1:offset + count]
+                    if opcode == 22 and operands[1] == 32:  # OpTypeFloat
+                        float_types.add(operands[0])
+                    if opcode == 43 and operands[0] in float_types:  # OpConstant
+                        constants.append(struct.unpack("<f", struct.pack("<I", operands[2]))[0])
+                    offset += count
+                self.assertIn(8.0, constants)
+                self.assertNotIn(10.0, constants)
 
 
 if __name__ == "__main__":

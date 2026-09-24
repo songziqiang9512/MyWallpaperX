@@ -13,6 +13,7 @@ fileprivate struct SceneMultiImageSpriteFrameRegion {
 
 fileprivate struct SceneMultiImageSpriteLayout {
     let frames: [SceneMultiImageSpriteFrameRegion]
+    let frameEndTimes: [Float]
     let duration: Float
     let outputWidth: Int
     let outputHeight: Int
@@ -79,9 +80,17 @@ fileprivate struct SceneMultiImageSpriteLayout {
               }) else {
             return nil
         }
-        let totalDuration = regions.reduce(0) { $0 + $1.duration }
-        guard totalDuration.isFinite else { return nil }
+        var totalDuration: Float = 0
+        var ends: [Float] = []
+        ends.reserveCapacity(regions.count)
+        for frame in regions {
+            let next = totalDuration + frame.duration
+            guard next.isFinite, next > totalDuration else { return nil }
+            ends.append(next)
+            totalDuration = next
+        }
         frames = regions
+        frameEndTimes = ends
         duration = totalDuration
         outputWidth = first.width
         outputHeight = first.height
@@ -198,8 +207,9 @@ final class SceneMultiImageSpritePlayback: SceneSpriteTexturePlayback {
     let texture: MTLTexture
     private let textureSet: SceneMultiImageSpriteTextureSet
     private let frames: [SceneMultiImageSpriteFrameRegion]
+    private let frameEndTimes: [Float]
     private let duration: Float
-    private let device: MTLDevice
+    private let conversion: MPSImageConversion
     private let residentReservation: SceneMultiImageSpriteResidentBudget.Reservation
     private let submissionTracker = SceneSpriteFrameSubmissionTracker()
 
@@ -222,8 +232,16 @@ final class SceneMultiImageSpritePlayback: SceneSpriteTexturePlayback {
         self.texture = texture
         self.textureSet = textureSet
         frames = layout.frames
+        frameEndTimes = layout.frameEndTimes
         duration = layout.duration
-        self.device = device
+        conversion = MPSImageConversion(
+            device: device,
+            srcAlpha: .nonPremultiplied,
+            destAlpha: .premultiplied,
+            backgroundColor: nil,
+            conversionInfo: nil
+        )
+        conversion.clipRect = MTLRegionMake2D(0, 0, layout.outputWidth, layout.outputHeight)
         self.residentReservation = residentReservation
     }
 
@@ -238,15 +256,7 @@ final class SceneMultiImageSpritePlayback: SceneSpriteTexturePlayback {
         }
 
         let frame = frames[frameIndex]
-        let conversion = MPSImageConversion(
-            device: device,
-            srcAlpha: .nonPremultiplied,
-            destAlpha: .premultiplied,
-            backgroundColor: nil,
-            conversionInfo: nil
-        )
         conversion.offset = MPSOffset(x: frame.sourceX, y: frame.sourceY, z: 0)
-        conversion.clipRect = MTLRegionMake2D(0, 0, frame.width, frame.height)
         conversion.encode(
             commandBuffer: commandBuffer,
             sourceTexture: textureSet.textures[frame.imageIndex],
@@ -268,14 +278,9 @@ final class SceneMultiImageSpritePlayback: SceneSpriteTexturePlayback {
     }
 
     private func frameIndex(at elapsed: Float) -> Int {
-        guard frames.count > 1, duration > 0 else { return 0 }
-        var remaining = elapsed.truncatingRemainder(dividingBy: duration)
-        if remaining < 0 { remaining += duration }
-        for (index, frame) in frames.enumerated() {
-            if remaining < frame.duration { return index }
-            remaining -= frame.duration
-        }
-        return frames.count - 1
+        SceneSpriteAnimation.frameIndex(
+            at: elapsed, duration: duration, frameEndTimes: frameEndTimes
+        )
     }
 }
 

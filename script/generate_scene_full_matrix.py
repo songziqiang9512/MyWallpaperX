@@ -64,6 +64,7 @@ RUNTIME_EVIDENCE_METRICS = [
 ]
 
 PRESERVED_KEYS = [
+    "maximum_startup_ready_ms",
     "hover_pointer_normalized",
     "cursor_drag_to_normalized",
     "pointer_trajectory_normalized",
@@ -81,6 +82,7 @@ PRESERVED_KEYS = [
     "minimum_authored_parallax_layer_count",
     "minimum_live_changed_ratio",
     "minimum_particle_initial_live",
+    "required_particle_committed_nonempty_layer_ids",
     "required_effect_files",
     "required_effectively_hidden_layer_ids",
     "required_effectively_visible_layer_ids",
@@ -202,6 +204,7 @@ def validate_report_identity(
     old_matrix_path: Path,
     *,
     require_passed: bool,
+    allow_subset: bool = False,
 ) -> tuple[dict, dict]:
     if report.get("schema_version") != 2:
         raise ValueError("benchmark report schema must be 2")
@@ -223,7 +226,11 @@ def validate_report_identity(
         raise ValueError("benchmark report or matrix samples are malformed")
     report_by_id = _samples_by_id(report_samples, source="benchmark report")
     old_by_id = _samples_by_id(matrix_samples, source="tracked matrix")
-    if set(report_by_id) != set(old_by_id):
+    valid_ids = (
+        bool(report_by_id) and set(report_by_id).issubset(old_by_id)
+        if allow_subset else set(report_by_id) == set(old_by_id)
+    )
+    if not valid_ids:
         raise ValueError("benchmark report sample IDs differ from tracked matrix")
 
     for sample_id, result in report_by_id.items():
@@ -756,6 +763,51 @@ def scoped_r4_owner_authority_matrix(
     return matrix
 
 
+def retire_authored_effect_counters(
+    report: dict, old_matrix: dict, old_matrix_path: Path,
+) -> dict:
+    report_by_id, old_by_id = validate_report_identity(
+        report, old_matrix, old_matrix_path,
+        require_passed=False, allow_subset=True,
+    )
+    retired_keys = {
+        expectation.matrix_key for expectation in AUTHORED_EFFECT_RUNTIME_EXPECTATIONS
+    }
+    for sample_id, result in report_by_id.items():
+        old = old_by_id[sample_id]
+        allowed_failures = {
+            expectation.failure_message
+            for expectation in AUTHORED_EFFECT_RUNTIME_EXPECTATIONS
+            if expectation.matrix_key in old
+        }
+        failures = result.get("failures")
+        if not isinstance(failures, list) or any(
+            not isinstance(failure, str) or failure not in allowed_failures
+            for failure in failures
+        ) or result.get("passed") is not (not failures):
+            raise ValueError(f"sample {sample_id} has non-retired or invalid failures")
+        # Retirement preserves an established execution contract; it cannot
+        # baseline a newly missing layer or substitute a different backend.
+        graph_values = resolved_material_graph_execution_values(
+            result, old, require_evidence=True,
+        )
+        execution_values = effect_execution_values(result, old)
+        if not graph_values or not execution_values or any(
+            key not in old or old[key] != value
+            for key, value in {**graph_values, **execution_values}.items()
+        ):
+            raise ValueError(f"sample {sample_id} generic execution contract changed or missing")
+        records = result["runtime"]["effect_runtime_disposition"]["records"]
+        if any(record.get("kind") not in {"program", "inactive"} for record in records):
+            raise ValueError(f"sample {sample_id} still has non-Program effect owners")
+    matrix = copy.deepcopy(old_matrix)
+    for sample in matrix["samples"]:
+        if str(sample["id"]) in report_by_id:
+            for key in retired_keys:
+                sample.pop(key, None)
+    return matrix
+
+
 def capabilities(runtime):
     values = []
     for key, label in (
@@ -833,7 +885,14 @@ def matrix_sample(result, old):
         if expectation.optional_group
         and optional_group_is_active(expectation.optional_group, runtime, old)
     }
+    has_authored_counter_telemetry = any(
+        runtime.get(expectation.report_metric) is not None
+        for expectation in AUTHORED_EFFECT_RUNTIME_EXPECTATIONS
+        if expectation.comparison == "integer"
+    )
     for expectation in AUTHORED_EFFECT_RUNTIME_EXPECTATIONS:
+        if expectation.matrix_key not in old and not has_authored_counter_telemetry:
+            continue
         if (
             expectation.optional_group
             and expectation.optional_group not in optional_effect_groups
@@ -899,10 +958,11 @@ def parse_args() -> argparse.Namespace:
         choices=(
             "all",
             "r4-owner-authority",
+            "retire-authored-effect-counters",
         ),
         default="all",
         help=(
-            "refresh every public contract or the R4 owner-authority families"
+            "refresh contracts, or retire legacy counters after unchanged generic execution"
         ),
     )
     return parser.parse_args()
@@ -916,7 +976,9 @@ def main() -> None:
     report = json.loads(report_path.read_text())
     old_matrix_payload = json.loads(old_matrix_path.read_text())
     old_matrix = load_scene_matrix(old_matrix_path)
-    if args.scope == "r4-owner-authority":
+    if args.scope == "retire-authored-effect-counters":
+        matrix = retire_authored_effect_counters(report, old_matrix, old_matrix_path)
+    elif args.scope == "r4-owner-authority":
         matrix = scoped_r4_owner_authority_matrix(
             report,
             old_matrix,

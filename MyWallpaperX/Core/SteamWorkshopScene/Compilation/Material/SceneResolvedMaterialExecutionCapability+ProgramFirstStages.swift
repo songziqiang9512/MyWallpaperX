@@ -1,6 +1,46 @@
 import Foundation
 
 extension SceneResolvedMaterialExecutionCapabilityCatalog {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+    typealias MaterialKey = SceneResolvedMaterialRuntimeCatalog.Key
+    typealias Template = SceneResolvedMaterialTemplate
+    typealias ExactEffectSubject = SceneEffectExactRuntimeSubject
+
+    struct DynamicProducerCatalog {
+        typealias UserProperty = SceneDynamicUserPropertyProducer
+
+        let userProperties: Set<UserProperty>
+        private(set) var authoredFallbackTargets: Set<SceneDynamicTarget> = []
+        let timelineDefinitions: Set<SceneDynamicTargetDefinition>
+        private let legacyTimelineTargets: Set<SceneDynamicTarget>
+        let sceneScriptTargets: Set<SceneDynamicTarget>
+
+        var timelineTargets: Set<SceneDynamicTarget> {
+            timelineDefinitions.isEmpty
+                ? legacyTimelineTargets
+                : Set(timelineDefinitions.map(\.target))
+        }
+
+        init(
+            userProperties: Set<UserProperty>,
+            authoredFallbackTargets: Set<SceneDynamicTarget> = [],
+            timelineTargets: Set<SceneDynamicTarget> = [],
+            timelineDefinitions: Set<SceneDynamicTargetDefinition> = [],
+            sceneScriptTargets: Set<SceneDynamicTarget>
+        ) {
+            self.userProperties = userProperties
+            self.authoredFallbackTargets = authoredFallbackTargets
+            self.timelineDefinitions = timelineDefinitions
+            legacyTimelineTargets = timelineDefinitions.isEmpty
+                ? timelineTargets : []
+            self.sceneScriptTargets = sceneScriptTargets
+        }
+
+        static let empty = Self(
+            userProperties: [], timelineTargets: [], sceneScriptTargets: []
+        )
+    }
+
     /// Compiles every authored stage through the shared Program owner.
     static func compileProgramFirstStages(
         _ admitted: SceneResolvedMaterialAdmittedLayer,
@@ -9,42 +49,72 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         dynamicProducers: DynamicProducerCatalog,
         assetFormatFacts: [String: Int],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
-        maximumVariantsPerMaterial: Int
+        maximumVariantsPerMaterial: Int,
+        maximumStageWorkers: Int = 1
     ) -> Result<CompiledStages, Rejection> {
+        // Stage inputs are immutable and do not consume another stage's
+        // compiler result. Prepare independently, then fold in authored order
+        // so identity checks, the first failure and dependency ownership keep
+        // exactly one deterministic authority.
+        let workers = min(max(maximumStageWorkers, 1), admitted.products.count)
+        let resultLock = NSLock()
+        var programResults = Array<Result<CompiledStages, Rejection>?>(
+            repeating: nil, count: admitted.products.count
+        )
+        DispatchQueue.concurrentPerform(iterations: workers) { worker in
+            for index in stride(from: worker, to: admitted.products.count, by: workers) {
+                let product = admitted.products[index]
+                guard let effect = product.graph.effects.first,
+                      admitted.unavailableDependencyStageReasons[effect.key] == nil else {
+                    continue
+                }
+                let initiallyInactive = admitted.initiallyInactiveEffectKeys.contains(effect.key)
+                // The renderer captures the layer/main target exactly once into
+                // the pair member identified by baseCaptureIdentity. Every later
+                // effect consumes the preceding effect output already resident in
+                // that pair, so it must not be required to prove the original
+                // layer source route again.
+                let stageSourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute =
+                    effect.input == admitted.pairPlan.baseCaptureIdentity
+                        ? admitted.sourceRoute
+                        : .capturedLayerTexture
+                let singleStage = SceneResolvedMaterialAdmittedLayer(
+                    layerID: admitted.layerID,
+                    products: [product],
+                    pairPlan: admitted.pairPlan,
+                    dependencyOwnership: admitted.dependencyOwnership,
+                    unavailableDependencyStageReasons:
+                        admitted.unavailableDependencyStageReasons.filter {
+                            $0.key == effect.key
+                        },
+                    initiallyInactiveEffectKeys:
+                        initiallyInactive ? [effect.key] : [],
+                    sourceRoute: stageSourceRoute,
+                    isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
+                    isGraphOutputProvider: admitted.isGraphOutputProvider,
+                    requiresGraphOutputProvider:
+                        admitted.requiresGraphOutputProvider
+                )
+                let programResult = compileStages(
+                    singleStage,
+                    materialCatalog: materialCatalog,
+                    demandIssues: demandIssues,
+                    dynamicProducers: dynamicProducers,
+                    assetFormatFacts: assetFormatFacts,
+                    assetStates: assetStates,
+                    maximumVariantsPerMaterial: maximumVariantsPerMaterial
+                )
+                resultLock.withLock { programResults[index] = programResult }
+            }
+        }
         var stages: [StageCapability] = []
         var allMaterials: [MaterialKey: MaterialCapability] = [:]
-        for product in admitted.products {
+        for (index, product) in admitted.products.enumerated() {
             guard let effect = product.graph.effects.first else {
                 return .failure(rejection("stage-effect-identity-missing"))
             }
             let initiallyInactive = admitted.initiallyInactiveEffectKeys
                 .contains(effect.key)
-            // The renderer captures the layer/main target exactly once into
-            // the pair member identified by baseCaptureIdentity. Every later
-            // effect consumes the preceding effect output already resident in
-            // that pair, so it must not be required to prove the original
-            // layer source route again.
-            let stageSourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute =
-                effect.input == admitted.pairPlan.baseCaptureIdentity
-                    ? admitted.sourceRoute
-                    : .capturedLayerTexture
-            let singleStage = SceneResolvedMaterialAdmittedLayer(
-                layerID: admitted.layerID,
-                products: [product],
-                pairPlan: admitted.pairPlan,
-                dependencyOwnership: admitted.dependencyOwnership,
-                unavailableDependencyStageReasons:
-                    admitted.unavailableDependencyStageReasons.filter {
-                        $0.key == effect.key
-                    },
-                initiallyInactiveEffectKeys:
-                    initiallyInactive ? [effect.key] : [],
-                sourceRoute: stageSourceRoute,
-                isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
-                isGraphOutputProvider: admitted.isGraphOutputProvider,
-                requiresGraphOutputProvider:
-                    admitted.requiresGraphOutputProvider
-            )
             if let reasonCode =
                     admitted.unavailableDependencyStageReasons[effect.key] {
                 guard product.clearFunctions.functions.isEmpty,
@@ -64,15 +134,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 ))
                 continue
             }
-            let programResult = compileStages(
-                singleStage,
-                materialCatalog: materialCatalog,
-                demandIssues: demandIssues,
-                dynamicProducers: dynamicProducers,
-                assetFormatFacts: assetFormatFacts,
-                assetStates: assetStates,
-                maximumVariantsPerMaterial: maximumVariantsPerMaterial
-            )
+            guard let programResult = programResults[index] else {
+                return .failure(rejection("execution-stage-conservation"))
+            }
             switch programResult {
             case let .success(compiled):
                 guard compiled.stages.count == 1,
@@ -707,210 +771,4 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             && dependencies == expected
     }
 
-    private struct BindingDependency: Hashable {
-        let consumerLayerID: Int
-        let providerLayerID: Int
-        let slot: SceneEffectPassSlot
-    }
-
-    private struct ResolvedExternalDependency: Hashable {
-        enum Origin: Hashable {
-            case terminalNamed
-            case exactMixedOptionalFallback
-        }
-
-        let materialKey: MaterialKey
-        let consumerLayerID: Int
-        let providerLayerID: Int
-        let slot: SceneEffectPassSlot
-        let origin: Origin
-
-        var bindingDependency: BindingDependency {
-            .init(
-                consumerLayerID: consumerLayerID,
-                providerLayerID: providerLayerID,
-                slot: slot
-            )
-        }
-    }
-
-    private struct ResolvedNamedCandidate {
-        let key: MaterialKey
-        let slot: Int
-        let reference: SceneNamedTextureReference
-        let origin: ResolvedExternalDependency.Origin
-    }
-
-    private enum ResolvedExternalDependencyAnalysis {
-        case none
-        case exact([ResolvedExternalDependency])
-        case invalid
-    }
-
-    private static func visualFailureExternalDependencies(
-        in stage: StageCapability,
-        binding: SceneDependencyRenderPlan.Binding
-    ) -> [BindingDependency] {
-        guard case let .visualFailurePassthrough(product, _) = stage,
-              let slots = SceneResolvedMaterialDependencyOwnership
-                .externalPrimary(binding)
-                .preEncodeVisualFailureSlots(in: product.graph) else {
-            return []
-        }
-        return slots.map {
-            BindingDependency(
-                consumerLayerID: binding.consumerLayerID,
-                providerLayerID: binding.providerLayerID,
-                slot: $0
-            )
-        }
-    }
-
-    private static func resolvedExternalDependencies(
-        in stage: StageCapability
-    ) -> ResolvedExternalDependencyAnalysis {
-        guard case let .resolved(product, materials, _) = stage else {
-            return .none
-        }
-        var namedCandidates: [ResolvedNamedCandidate] = []
-        // `materials` is a dictionary keyed by material identity. Its
-        // iteration order is intentionally unspecified, while an aggregate
-        // dependency is an authored slot vector. Use the graph's authored
-        // effect/node order rather than lexical effect IDs at both collection
-        // and final-vector boundaries.
-        func authoredMaterialPrecedes(
-            _ lhs: MaterialCapability,
-            _ rhs: MaterialCapability
-        ) -> Bool {
-            let lhsEffectIndex = lhs.key.effect.effectIndex
-            let rhsEffectIndex = rhs.key.effect.effectIndex
-            if lhsEffectIndex != rhsEffectIndex {
-                return lhsEffectIndex < rhsEffectIndex
-            }
-            let lhsNodeOrder = product.graph.nodes.firstIndex {
-                $0.nodeIndex == lhs.key.nodeIndex && $0.effect == lhs.key.effect
-            } ?? Int.max
-            let rhsNodeOrder = product.graph.nodes.firstIndex {
-                $0.nodeIndex == rhs.key.nodeIndex && $0.effect == rhs.key.effect
-            } ?? Int.max
-            if lhsNodeOrder != rhsNodeOrder {
-                return lhsNodeOrder < rhsNodeOrder
-            }
-            if lhs.key.nodeIndex != rhs.key.nodeIndex {
-                return lhs.key.nodeIndex < rhs.key.nodeIndex
-            }
-            return lhs.key.effect.descriptorID < rhs.key.effect.descriptorID
-        }
-        for material in materials.values.sorted(by: authoredMaterialPrecedes) {
-            for slot in material.template.textureSlots.compactMap({ $0 }) {
-                let reference: SceneNamedTextureReference?
-                let origin: ResolvedExternalDependency.Origin?
-                if let selected = slot.candidates.last,
-                   case let .provider(.namedLayerTarget(value)) =
-                    selected.reference {
-                    reference = value
-                    origin = .terminalNamed
-                } else if material.variants
-                    .provesExactMixedNamedFallback(
-                        slot: slot.index
-                    ), slot.candidates.count == 2,
-                    case let .provider(.namedLayerTarget(value)) =
-                        slot.candidates[0].reference {
-                    // The highest-precedence optional input may be absent at a
-                    // concrete frame. The exact precompiled mixed-provider
-                    // envelope then selects this lower compositor color
-                    // publication, so dependency conservation must retain its
-                    // provider edge even though it is not the static last
-                    // candidate.
-                    reference = value
-                    origin = .exactMixedOptionalFallback
-                } else {
-                    reference = nil
-                    origin = nil
-                }
-                guard let reference, let origin else {
-                    continue
-                }
-                namedCandidates.append(.init(
-                    key: material.key,
-                    slot: slot.index,
-                    reference: reference,
-                    origin: origin
-                ))
-            }
-        }
-        guard !namedCandidates.isEmpty else { return .none }
-        guard let candidate = namedCandidates.first,
-              candidate.reference.variant == SceneNamedTextureReference.Variant.primary,
-              candidate.key.effect.layerID == product.graph.layerID,
-              namedCandidates.allSatisfy({ item in
-                  item.reference.variant == .primary
-                      && item.key.effect.layerID == product.graph.layerID
-              }) else { return .invalid }
-        var result: [ResolvedExternalDependency] = []
-        for item in namedCandidates {
-            let nodeMatches = product.graph.nodes.filter {
-                $0.nodeIndex == item.key.nodeIndex
-                    && $0.effect == item.key.effect
-            }
-            let effectMatches = product.graph.effects.filter {
-                $0.key == item.key.effect
-            }
-            guard nodeMatches.count == 1,
-                  effectMatches.count == 1,
-                  let passIndex = nodeMatches.first?.instancePassIndex else {
-                return .invalid
-            }
-            result.append(.init(
-                materialKey: item.key,
-                consumerLayerID: item.key.effect.layerID,
-                providerLayerID: item.reference.providerLayerID,
-                slot: .init(
-                    effectID: item.key.effect.descriptorID,
-                    passIndex: passIndex,
-                    slotIndex: item.slot
-                ),
-                origin: item.origin
-            ))
-        }
-        guard Set(result).count == result.count else { return .invalid }
-        let orderedResult = result.sorted {
-            let lhs = $0
-            let rhs = $1
-            // Effect index and graph node order are the authored authority;
-            // descriptor IDs are arbitrary labels and must never reorder the
-            // aggregate provider vector.
-            if lhs.materialKey.effect.effectIndex
-                != rhs.materialKey.effect.effectIndex {
-                return lhs.materialKey.effect.effectIndex
-                    < rhs.materialKey.effect.effectIndex
-            }
-            let lhsNodeOrder = product.graph.nodes.firstIndex {
-                $0.nodeIndex == lhs.materialKey.nodeIndex
-                    && $0.effect == lhs.materialKey.effect
-            } ?? Int.max
-            let rhsNodeOrder = product.graph.nodes.firstIndex {
-                $0.nodeIndex == rhs.materialKey.nodeIndex
-                    && $0.effect == rhs.materialKey.effect
-            } ?? Int.max
-            if lhsNodeOrder != rhsNodeOrder {
-                return lhsNodeOrder < rhsNodeOrder
-            }
-            if lhs.slot.passIndex != rhs.slot.passIndex {
-                return lhs.slot.passIndex < rhs.slot.passIndex
-            }
-            if lhs.slot.slotIndex != rhs.slot.slotIndex {
-                return lhs.slot.slotIndex < rhs.slot.slotIndex
-            }
-            if lhs.providerLayerID != rhs.providerLayerID {
-                return lhs.providerLayerID < rhs.providerLayerID
-            }
-            if lhs.materialKey.nodeIndex != rhs.materialKey.nodeIndex {
-                return lhs.materialKey.nodeIndex < rhs.materialKey.nodeIndex
-            }
-            return lhs.materialKey.effect.descriptorID
-                < rhs.materialKey.effect.descriptorID
-        }
-        return .exact(orderedResult)
-    }
 }

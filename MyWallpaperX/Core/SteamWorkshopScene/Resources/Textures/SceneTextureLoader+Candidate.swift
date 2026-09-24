@@ -319,32 +319,6 @@ extension SceneTextureLoader {
         return mapped
     }
 
-    private func hasValidTexb3EmbeddedMipChain(
-        _ container: SceneTexContainer
-    ) -> Bool {
-        guard let first = container.mips.first else {
-            return false
-        }
-        let expectedMagic: Data
-        switch container.freeImageFormat {
-        case 2:
-            expectedMagic = Data([0xFF, 0xD8, 0xFF])
-        case 13:
-            expectedMagic = Data([0x89, 0x50, 0x4E, 0x47])
-        default:
-            return false
-        }
-        return container.mips.enumerated().allSatisfy { level, mip in
-            let expectedWidth = max(1, first.width >> level)
-            let expectedHeight = max(1, first.height >> level)
-            return mip.width == expectedWidth
-                && mip.height == expectedHeight
-                && mip.data.starts(with: expectedMagic)
-                && embeddedImagePixelSize(mip.data)
-                    == CGSize(width: mip.width, height: mip.height)
-        }
-    }
-
     private func candidateOutputGeometry(
         texture: MTLTexture,
         container: SceneTexContainer,
@@ -412,26 +386,6 @@ extension SceneTextureLoader {
               image.width == first.width,
               image.height == first.height else { return false }
         return SceneImageTextureUploader.imageHasNoAlpha(image)
-    }
-
-    private func embeddedImagePixelSize(_ data: Data) -> CGSize? {
-        guard data.starts(with: Data([0x89, 0x50, 0x4E, 0x47]))
-                || data.starts(with: Data([0xFF, 0xD8, 0xFF])),
-              let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let properties = CGImageSourceCopyPropertiesAtIndex(
-                  source,
-                  0,
-                  nil
-              ) as? [CFString: Any],
-              let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?
-                  .intValue,
-              let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?
-                  .intValue,
-              width > 0,
-              height > 0 else {
-            return nil
-        }
-        return CGSize(width: width, height: height)
     }
 
     private func normalizedSize(

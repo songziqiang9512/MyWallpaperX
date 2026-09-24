@@ -193,7 +193,7 @@ Steam 账号、订阅与下载获取的具体迁移由 [Steam 获取专项](scen
 - **普查并入（2026-09-18）：**26 个直接断言 Swift 源码文本的测试文件（43,912 行，约 23% 测试量）迁为行为断言是 E1/E5 实现侧收缩的前置摩擦面，按触达族分批迁移，不一次性重写。精确删除候选（删除时同步 `scene_source_layout`／`scene_validation_gates`／`scene_swift_source_sets` 与引用测试）：`SceneGraphNodeScheduler.encode` 零调用链（含 `SceneGraphCommandRuntime`、`makeCommandRuntime`，约 150–200 行）；5 个仅 harness 引用文件共 139 行（`SceneDirectDrawLayerRenderer`／`SceneScriptLayerWorldTransformPublication`／`SceneEffectMaskSemantics`／`SceneAuthoredShaderPreparation+Support`／`SteamWorkshopSceneDownloadRecord+Scene`）；launch 期一次性报告器约 279 行。
 - **消融：**只删除证明已由独立行为门替代的重复内部断言／过期 fixture；安全和视觉反例保留。统一 source list 真值后撤销手写镜像；不得把选择器改成漏测来提速。
 - **缓存条件：**若引入 harness 编译缓存，key 必含源码、harness、flags、SDK、编译器、架构和依赖内容；损坏重编，不能复用旧测试二进制冒充当前源码。
-- **结构门：**19 个现有 code-health errors 分派到实际职责批次；只对已删除／迁移旧路径收缩 baseline，不抬高 800 上限。1536 行 Settings 按设置状态与动作消费者归责，先删耦合后拆 UI。
+- **结构门：**按用户 2026-09-24 的裁决，code-health 硬上限调整为 1000 行，review warning 仍为 400 行；已落入新上限或已删除路径的 legacy 条目退役。仍超过上限的文件及既有 locked allowance 增长继续由实际职责批次收敛，不据上限调整宣称全仓门禁通过。Settings 按设置状态与动作消费者归责，先删耦合后拆 UI。
 - **门：**`test_scene_swift_source_sets`、`test_verify_scene_change`、`test_scene_test_runner`、`test_check_code_health`；selected modules 与 old/new fixture 行为覆盖对照；记录冷／热测试时间。
 - **退出：**相同保护面更快、少 stub／少重复编译；行数下降但覆盖丢失不合格。产品 target 拆分后置，不能与大规模 owner 迁移同批。
 

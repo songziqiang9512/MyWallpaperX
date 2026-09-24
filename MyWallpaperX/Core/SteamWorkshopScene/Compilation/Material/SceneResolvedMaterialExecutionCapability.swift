@@ -3,46 +3,6 @@ import Foundation
 /// Launch-scoped capability catalog compiled from immutable graph-admission
 /// products. No secondary renderer route participates in capability ownership.
 final class SceneResolvedMaterialExecutionCapabilityCatalog {
-    typealias Graph = SceneAuthoredEffectRenderPlan
-    typealias MaterialKey = SceneResolvedMaterialRuntimeCatalog.Key
-    typealias Template = SceneResolvedMaterialTemplate
-    typealias ExactEffectSubject = SceneEffectExactRuntimeSubject
-
-    struct DynamicProducerCatalog {
-        typealias UserProperty = SceneDynamicUserPropertyProducer
-
-        let userProperties: Set<UserProperty>
-        private(set) var authoredFallbackTargets: Set<SceneDynamicTarget> = []
-        let timelineDefinitions: Set<SceneDynamicTargetDefinition>
-        private let legacyTimelineTargets: Set<SceneDynamicTarget>
-        let sceneScriptTargets: Set<SceneDynamicTarget>
-
-        var timelineTargets: Set<SceneDynamicTarget> {
-            timelineDefinitions.isEmpty
-                ? legacyTimelineTargets
-                : Set(timelineDefinitions.map(\.target))
-        }
-
-        init(
-            userProperties: Set<UserProperty>,
-            authoredFallbackTargets: Set<SceneDynamicTarget> = [],
-            timelineTargets: Set<SceneDynamicTarget> = [],
-            timelineDefinitions: Set<SceneDynamicTargetDefinition> = [],
-            sceneScriptTargets: Set<SceneDynamicTarget>
-        ) {
-            self.userProperties = userProperties
-            self.authoredFallbackTargets = authoredFallbackTargets
-            self.timelineDefinitions = timelineDefinitions
-            legacyTimelineTargets = timelineDefinitions.isEmpty
-                ? timelineTargets : []
-            self.sceneScriptTargets = sceneScriptTargets
-        }
-
-        static let empty = Self(
-            userProperties: [], timelineTargets: [], sceneScriptTargets: []
-        )
-    }
-
     struct Rejection: Error {
         struct ProgramFailureAttribution {
             enum SourceRouteFailure {
@@ -378,19 +338,35 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             repeating: nil,
             count: admissionCandidates.count
         )
-        DispatchQueue.concurrentPerform(iterations: admissionCandidates.count) { index in
-            let candidate = admissionCandidates[index]
-            guard case let .success(admitted) = candidate.result else { return }
-            let result = Self.compileProgramFirstStages(
-                admitted,
-                materialCatalog: materialCatalog,
-                demandIssues: demandIssues,
-                dynamicProducers: dynamicProducers,
-                assetFormatFacts: assetFormatFacts,
-                assetStates: assetStates,
-                maximumVariantsPerMaterial: maximumVariantsPerMaterial
-            )
-            preparationLock.withLock { preparations[index] = result }
+        let admittedIndices = admissionCandidates.indices.filter {
+            if case .success = admissionCandidates[$0].result { return true }
+            return false
+        }
+        // Share one bounded launch budget across layers and their stages.
+        // A single effect-heavy layer can use idle preparation capacity;
+        // nested preparation never multiplies the total worker budget.
+        let workerBudget = max(1, min(4, ProcessInfo.processInfo.activeProcessorCount))
+        let layerWorkers = min(workerBudget, admittedIndices.count)
+        DispatchQueue.concurrentPerform(iterations: layerWorkers) { worker in
+            let stageWorkers = workerBudget / layerWorkers
+                + (worker < workerBudget % layerWorkers ? 1 : 0)
+            for offset in stride(from: worker, to: admittedIndices.count, by: layerWorkers) {
+                let index = admittedIndices[offset]
+                guard case let .success(admitted) = admissionCandidates[index].result else {
+                    continue
+                }
+                let result = Self.compileProgramFirstStages(
+                    admitted,
+                    materialCatalog: materialCatalog,
+                    demandIssues: demandIssues,
+                    dynamicProducers: dynamicProducers,
+                    assetFormatFacts: assetFormatFacts,
+                    assetStates: assetStates,
+                    maximumVariantsPerMaterial: maximumVariantsPerMaterial,
+                    maximumStageWorkers: stageWorkers
+                )
+                preparationLock.withLock { preparations[index] = result }
+            }
         }
         for (index, candidate) in admissionCandidates.enumerated() {
             switch candidate.result {

@@ -337,15 +337,13 @@ def _resource_events(runtime: Mapping[str, Any]) -> list[dict[str, Any]]:
     for candidate_field, loaded_field, owner, reason, shape, sticky_field in specifications:
         candidates = _integer(runtime.get(candidate_field))
         loaded = _integer(runtime.get(loaded_field))
-        # The snapshot-instant loaded count undercounts bursty/short-lifetime
-        # particle systems whose particles may all be dead between frames; the
-        # sticky count (layers that produced a batch at ANY point in the run)
-        # is the "did the system ever execute" evidence, so it supersedes the
-        # instant count when present.
+        # Sticky admission can include layers dormant at the snapshot. Both
+        # counts include empty batches: neither proves particle production,
+        # GPU execution, or visibility.
         if sticky_field:
             sticky = _integer(runtime.get(sticky_field))
             if sticky is not None:
-                loaded = max(loaded, sticky)
+                loaded = max(loaded, sticky) if loaded is not None else sticky
         if candidates is None or candidates <= 0 or loaded is None:
             continue
         if loaded >= candidates:

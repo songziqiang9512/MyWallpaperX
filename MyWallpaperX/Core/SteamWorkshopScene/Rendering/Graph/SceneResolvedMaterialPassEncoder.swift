@@ -312,23 +312,27 @@ final class SceneResolvedMaterialPassEncoder {
             }) else {
             return false
         }
-        var occupied = Set<Int>()
+        // Program assembly admits fields in offset order. Check the gaps and
+        // payloads directly instead of building a hash-set entry for each byte.
+        var occupiedEnd = 0
         for (field, resolved) in zip(layout.fields, program.resolvedUniforms) {
-            let end = field.offset + field.storageByteSize
             guard resolved.field == field,
-                  field.offset >= 0,
+                  field.offset >= occupiedEnd,
                   field.offset.isMultiple(of: field.type.alignment),
-                  end <= layout.byteSize,
+                  field.offset <= layout.byteSize,
+                  field.storageByteSize <= layout.byteSize - field.offset,
                   resolved.encodedValue.count == field.storageByteSize,
-                  Data(program.uniformBytes[field.offset ..< end]) == resolved.encodedValue,
-                  (field.offset ..< end).allSatisfy({ !occupied.contains($0) }) else {
+                  program.uniformBytes[occupiedEnd ..< field.offset]
+                    .allSatisfy({ $0 == 0 }) else {
                 return false
             }
-            occupied.formUnion(field.offset ..< end)
+            let end = field.offset + field.storageByteSize
+            guard program.uniformBytes[field.offset ..< end]
+                == resolved.encodedValue else { return false }
+            occupiedEnd = end
         }
-        return program.uniformBytes.indices
-            .filter { !occupied.contains($0) }
-            .allSatisfy { program.uniformBytes[$0] == 0 }
+        return program.uniformBytes[occupiedEnd ..< layout.byteSize]
+            .allSatisfy { $0 == 0 }
     }
 
     private func validatedBindings(

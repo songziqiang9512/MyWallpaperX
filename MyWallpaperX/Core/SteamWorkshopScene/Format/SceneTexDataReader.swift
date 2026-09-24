@@ -90,8 +90,8 @@ extension SceneTexContainerReader {
                 imageIndex: imageIndex,
                 duration: duration,
                 origin: SIMD2(coordinates[0] / imageSize.x, coordinates[1] / imageSize.y),
-                xAxis: SIMD2(coordinates[2] / imageSize.x, coordinates[3] / imageSize.x),
-                yAxis: SIMD2(coordinates[4] / imageSize.y, coordinates[5] / imageSize.y)
+                xAxis: SIMD2(coordinates[2], coordinates[3]) / imageSize,
+                yAxis: SIMD2(coordinates[4], coordinates[5]) / imageSize
             ))
         }
         return frames
@@ -102,7 +102,8 @@ extension SceneTexContainerReader {
         offset: inout Int,
         containerVersion: SceneTexContainer.ContainerVersion,
         metadataEntryCount: Int,
-        volumeHeader: Bool
+        volumeHeader: Bool,
+        remainingDecodedBytes: inout Int
     ) throws -> SceneTexContainer.Mip {
         if containerVersion == .texb0004 {
             for _ in 0..<metadataEntryCount {
@@ -170,32 +171,41 @@ extension SceneTexContainerReader {
             throw ReadError.invalidMipTable
         }
 
-        let storedBytes = data.subdata(in: offset..<(offset + storedByteCount))
-        offset += storedByteCount
-
-        let mipData: Data
+        let outputByteCount: Int
         switch compressionCode {
         case 0:
-            mipData = storedBytes
+            outputByteCount = storedByteCount
         case 1:
             guard decodedByteCount > 0, decodedByteCount <= Self.maximumMipByteCount else {
                 throw ReadError.invalidMipTable
             }
-            mipData = try decompressLZ4Raw(storedBytes, expectedSize: decodedByteCount)
+            outputByteCount = decodedByteCount
         default:
             throw ReadError.unsupportedCompression(compressionCode)
         }
+        guard outputByteCount <= remainingDecodedBytes else {
+            throw ReadError.decodedDataBudgetExceeded
+        }
+        remainingDecodedBytes -= outputByteCount
+        let storedBytes = data.subdata(in: offset..<(offset + storedByteCount))
+        offset += storedByteCount
+        let mipData = compressionCode == 0
+            ? storedBytes
+            : try decompressLZ4Raw(storedBytes, expectedSize: decodedByteCount)
 
         return .init(width: width, height: height, depth: depth, data: mipData)
     }
 
     private func decompressLZ4Raw(_ compressed: Data, expectedSize: Int) throws -> Data {
-        var decoded = Data(count: expectedSize)
+        // The decoder returns the buffer size when output is truncated. One
+        // extra byte distinguishes an exact payload from an oversized block.
+        let capacity = expectedSize + 1
+        var decoded = Data(count: capacity)
         let actualSize = decoded.withUnsafeMutableBytes { destinationBuffer in
             compressed.withUnsafeBytes { sourceBuffer in
                 compression_decode_buffer(
                     destinationBuffer.bindMemory(to: UInt8.self).baseAddress!,
-                    expectedSize,
+                    capacity,
                     sourceBuffer.bindMemory(to: UInt8.self).baseAddress!,
                     compressed.count,
                     nil,
@@ -207,6 +217,7 @@ extension SceneTexContainerReader {
         guard actualSize == expectedSize else {
             throw ReadError.decompressionFailed(expectedSize: expectedSize, actualSize: actualSize)
         }
+        decoded.count = expectedSize
         return decoded
     }
 }

@@ -7,13 +7,8 @@ import Metal
 /// command queues are thread-safe; serial command-buffer order remains local
 /// to each synchronous upload while queue construction leaves the hot loop.
 nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
-    private enum State {
-        case ready(MTLCommandQueue)
-        case unavailable
-    }
-
     private let lock = NSLock()
-    private var states: [UInt64: State] = [:]
+    private var queues: [UInt64: MTLCommandQueue] = [:]
     private var creationAttempts = 0
 
     var creationAttemptCount: Int {
@@ -25,17 +20,13 @@ nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
     func commandQueue(for device: MTLDevice) -> MTLCommandQueue? {
         lock.lock()
         defer { lock.unlock() }
-        if let state = states[device.registryID] {
-            guard case let .ready(queue) = state else { return nil }
-            return queue
-        }
+        if let queue = queues[device.registryID] { return queue }
         creationAttempts += 1
-        guard let queue = device.makeCommandQueue() else {
-            states[device.registryID] = .unavailable
-            return nil
-        }
+        // Allocation failure is local to this request. Later resource loads
+        // must be able to recover without replacing the shared upload owner.
+        guard let queue = device.makeCommandQueue() else { return nil }
         queue.label = "MyWallpaperX Scene Resource Upload"
-        states[device.registryID] = .ready(queue)
+        queues[device.registryID] = queue
         return queue
     }
 }
@@ -68,9 +59,20 @@ nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
 }
 
 enum SceneImageTextureUploader {
+    // The supported macOS Metal GPU families allow at most 16384 per 2D axis.
+    // makeTexture can assert on an invalid descriptor instead of returning nil.
+    static func supports2DExtent(width: Int, height: Int) -> Bool {
+        (1...16_384).contains(width) && (1...16_384).contains(height)
+    }
+
     enum MipmapGeneration {
         case fullChain
         case baseLevelOnly
+    }
+
+    private enum UploadFailure: Error {
+        case allocation
+        case mipmapGeneration(String)
     }
 
     enum EncodedPreservedChannelsError: Error, Equatable {
@@ -89,6 +91,7 @@ enum SceneImageTextureUploader {
         case unsupportedPixelLayout
         case premultipliedPixelLayout
         case textureAllocationFailed(width: Int, height: Int)
+        case mipmapGenerationFailed(String)
     }
 
     static let encodedPreservedChannelsMaximumDimension = 256
@@ -177,20 +180,24 @@ enum SceneImageTextureUploader {
                 destinationHeight: outputHeight
             )
         }
-        guard let texture = makeTexture(
+        switch makeTexture(
             rgba: outputRGBA,
             width: outputWidth,
             height: outputHeight,
             mipmapGeneration: .fullChain,
             uploadCommandQueue: uploadCommandQueue,
             device: device
-        ) else {
+        ) {
+        case let .success(texture):
+            return .success(texture)
+        case .failure(.allocation):
             return .failure(.textureAllocationFailed(
                 width: outputWidth,
                 height: outputHeight
             ))
+        case let .failure(.mipmapGeneration(reason)):
+            return .failure(.mipmapGenerationFailed(reason))
         }
-        return .success(texture)
     }
 
     /// Resamples straight RGBA lanes independently. Core Graphics image
@@ -282,17 +289,21 @@ enum SceneImageTextureUploader {
             return .decodeFailed("CGImage RGBA rasterization failed (\(width)×\(height))")
         }
 
-        guard let texture = makeTexture(
+        switch makeTexture(
             rgba: rgba,
             width: width,
             height: height,
             mipmapGeneration: mipmapGeneration,
             uploadCommandQueue: uploadCommandQueue,
             device: device
-        ) else {
+        ) {
+        case let .success(texture):
+            return .loaded(texture)
+        case .failure(.allocation):
             return .textureAllocationFailed(width: width, height: height)
+        case let .failure(.mipmapGeneration(reason)):
+            return .decodeFailed("GPU mipmap generation failed: \(reason)")
         }
-        return .loaded(texture)
     }
 
     private static func exactPositiveInteger(_ value: Any?) -> Int? {
@@ -312,19 +323,18 @@ enum SceneImageTextureUploader {
         mipmapGeneration: MipmapGeneration,
         uploadCommandQueue: SceneTextureUploadCommandQueue,
         device: MTLDevice
-    ) -> MTLTexture? {
+    ) -> Result<MTLTexture, UploadFailure> {
         let (pixelCount, pixelCountOverflow) = width.multipliedReportingOverflow(
             by: height
         )
         let (byteCount, byteCountOverflow) = pixelCount.multipliedReportingOverflow(
             by: 4
         )
-        guard width > 0,
-              height > 0,
+        guard supports2DExtent(width: width, height: height),
               !pixelCountOverflow,
               !byteCountOverflow,
               rgba.count == byteCount else {
-            return nil
+            return .failure(.allocation)
         }
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .rgba8Unorm,
@@ -335,7 +345,7 @@ enum SceneImageTextureUploader {
         descriptor.usage = [.shaderRead, .renderTarget]
         descriptor.storageMode = .shared
         guard let texture = device.makeTexture(descriptor: descriptor) else {
-            return nil
+            return .failure(.allocation)
         }
         rgba.withUnsafeBytes { bytes in
             texture.replace(
@@ -345,22 +355,30 @@ enum SceneImageTextureUploader {
                 bytesPerRow: width * 4
             )
         }
-        guard mipmapGeneration == .fullChain else { return texture }
+        guard texture.mipmapLevelCount > 1 else { return .success(texture) }
         // Direct images have no compiled TEX mip-chain authority, so build a
         // complete chain for the shared min/mag/mip sampler. A decoded TEX
         // fallback passes `.baseLevelOnly` when the compiled container has one
         // level and must remain one level after bounded normalization.
-        guard let queue = uploadCommandQueue.commandQueue(for: device),
-              let commandBuffer = queue.makeCommandBuffer(),
-              let encoder = commandBuffer.makeBlitCommandEncoder()
-        else {
-            return texture
+        guard let queue = uploadCommandQueue.commandQueue(for: device) else {
+            return .failure(.mipmapGeneration("command queue unavailable"))
+        }
+        guard let commandBuffer = queue.makeCommandBuffer() else {
+            return .failure(.mipmapGeneration("command buffer unavailable"))
+        }
+        guard let encoder = commandBuffer.makeBlitCommandEncoder() else {
+            return .failure(.mipmapGeneration("blit encoder unavailable"))
         }
         encoder.generateMipmaps(for: texture)
         encoder.endEncoding()
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
-        return texture
+        guard commandBuffer.status == .completed else {
+            return .failure(.mipmapGeneration(
+                commandBuffer.error?.localizedDescription ?? "GPU completion failed"
+            ))
+        }
+        return .success(texture)
     }
 
     static func rgbaData(

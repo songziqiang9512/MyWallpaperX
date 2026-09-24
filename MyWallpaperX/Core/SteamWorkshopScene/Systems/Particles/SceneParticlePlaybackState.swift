@@ -16,11 +16,12 @@ final class SceneParticlePlaybackState {
     /// scan is needed to decide whether pointer projection is required.
     let pointerControlPointLayerIDs: Set<Int>
     private(set) var batches: [SceneParticleDrawBatch]
-    /// Union of layer IDs that produced a draw batch at ANY point in the run.
-    /// The snapshot-instant batch list undercounts bursty/short-lifetime
-    /// particle systems whose particles may all be dead between frames; this
-    /// sticky set is the "did the system ever execute" evidence.
+    /// Resource admission history. Empty batches are valid and do not prove
+    /// that a layer produced particles or reached the GPU.
     private(set) var stickyBatchLayerIDs: Set<Int> = []
+    /// Nonempty batches in committed host frames, retained across dormant
+    /// periods. This is producer evidence, not GPU completion or visibility.
+    private(set) var committedNonemptyBatchLayerIDs: Set<Int> = []
     private var didTeardown = false
     private var frameTransaction: FrameTransaction?
     private var reportedAudioEvaluationIdentities:
@@ -76,7 +77,9 @@ final class SceneParticlePlaybackState {
                 generation: audioSpectrum.generation
             )
         )
-        stickyBatchLayerIDs.formUnion(batches.map(\.layerID))
+        if frameTransaction == nil {
+            stickyBatchLayerIDs.formUnion(batches.map(\.layerID))
+        }
         return batches
     }
 
@@ -94,6 +97,12 @@ final class SceneParticlePlaybackState {
     func commitPreparedFrame() {
         guard frameTransaction != nil else { return }
         frameTransaction = nil
+        for batch in batches {
+            stickyBatchLayerIDs.insert(batch.layerID)
+            if !batch.instances.isEmpty {
+                committedNonemptyBatchLayerIDs.insert(batch.layerID)
+            }
+        }
         publishCommittedAudioEvaluationObservations()
     }
 
@@ -101,7 +110,6 @@ final class SceneParticlePlaybackState {
         guard let frameTransaction else { return }
         runtime.restoreFrame(frameTransaction.runtime)
         batches = frameTransaction.batches
-        stickyBatchLayerIDs.formUnion(batches.map(\.layerID))
         self.frameTransaction = nil
     }
 
@@ -212,7 +220,13 @@ final class SceneParticlePlaybackState {
             visibleLayerCount: renderableLayers.count
         ))
         lines.append(
-            "particle sticky loaded: \(stickyBatchLayerIDs.union(batches.map(\.layerID)).count) / \(renderableLayers.count)"
+            "particle sticky loaded: \(stickyBatchLayerIDs.count) / \(renderableLayers.count)"
+        )
+        lines.append(
+            "particle current nonempty: layers=\(Set(batches.filter { !$0.instances.isEmpty }.map(\.layerID)).sorted())"
+        )
+        lines.append(
+            "particle committed nonempty: layers=\(committedNonemptyBatchLayerIDs.sorted())"
         )
         lines.append(
             "particle refract loaded: \(Set(batches.filter { $0.refraction != nil }.map(\.layerID)).count)"

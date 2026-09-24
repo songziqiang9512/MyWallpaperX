@@ -191,6 +191,94 @@ def benchmark_report(
 
 
 class SceneMatrixContractTests(unittest.TestCase):
+    def test_full_refresh_preserves_startup_and_particle_execution_requirements(self) -> None:
+        requirements = {
+            "maximum_startup_ready_ms": 1200,
+            "required_particle_committed_nonempty_layer_ids": [7, 19],
+        }
+        old = {"id": "fixture", **requirements}
+        refreshed = matrix_generator.matrix_sample(synthetic_result(), old)
+        self.assertEqual({key: refreshed[key] for key in requirements}, requirements)
+        self.assertEqual(old, {"id": "fixture", **requirements})
+
+    def test_retire_counters_preserves_contracts_and_unobserved_samples(self) -> None:
+        result = synthetic_result()
+        result["runtime"]["resolved_material_graph_execution"] = resolved_material_graph_runtime([1])
+        result["runtime"]["effect_runtime_disposition"] = runtime_disposition_evidence()
+        result["runtime"]["effect_runtime_disposition"]["records"][0]["kind"] = "program"
+        result["runtime"]["effect_execution"] = effect_execution_evidence()
+        counter = AUTHORED_EFFECT_RUNTIME_EXPECTATIONS[0]
+        result["passed"] = False
+        result["failures"] = [counter.failure_message]
+        old_sample = {
+            "id": "fixture", **result["hashes"],
+            counter.matrix_key: 0,
+            "expected_effect_execution_schema": 1,
+            "expected_resolved_material_graph_succeeded_layer_ids": [1],
+            "minimum_loaded_ratio": 1.0,
+        }
+        old = {"schema_version": 1, "name": "fixture", "samples": [
+            old_sample, {**old_sample, "id": "unobserved"},
+        ]}
+        original = copy.deepcopy(old)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "matrix.json"
+            path.write_text(json.dumps(old))
+            report = benchmark_report(old, path, [result])
+            migrated = matrix_generator.retire_authored_effect_counters(report, old, path)
+            expected = copy.deepcopy(old)
+            del expected["samples"][0][counter.matrix_key]
+            self.assertEqual(migrated, expected)
+            self.assertEqual(old, original)
+            # A partial report remains forbidden for a normal full refresh.
+            with self.assertRaisesRegex(ValueError, "sample IDs"):
+                matrix_generator.validate_report_identity(
+                    report, old, path, require_passed=False,
+                )
+
+            mutations = {
+                "other failure": lambda r: r["samples"][0]["failures"].append("GPU failed"),
+                "stale matrix": lambda r: r.update(matrix_sha256="stale"),
+                "wrong content": lambda r: r["samples"][0]["hashes"].update(package_sha256="wrong"),
+                "empty report": lambda r: r.update(samples=[], summary={
+                    "passed": True, "sample_count": 0, "passed_count": 0,
+                }),
+                "missing completion": lambda r: r["samples"][0]["runtime"][
+                    "resolved_material_graph_execution"]["graph_observations"].update(
+                        successful_gpu_completed_layer_ids=[]),
+                "missing compositor": lambda r: r["samples"][0]["runtime"][
+                    "resolved_material_graph_execution"]["graph_observations"].update(
+                        compositor_consumed_layer_ids=[]),
+                "missing next frame": lambda r: r["samples"][0]["runtime"][
+                    "resolved_material_graph_execution"]["graph_observations"].update(
+                        next_frame_layer_ids=[]),
+                "different backend": lambda r: r["samples"][0]["runtime"][
+                    "resolved_material_graph_execution"]["exact_backend"].update(backend="other"),
+                "shrunken demand": lambda r: r["samples"][0]["runtime"].update(
+                    resolved_material_graph_execution=resolved_material_graph_runtime([])),
+                "missing effect execution": lambda r: r["samples"][0]["runtime"].pop("effect_execution"),
+                "legacy effect owner": lambda r: r["samples"][0]["runtime"][
+                    "effect_runtime_disposition"]["records"][0].update(kind="dedicated"),
+            }
+            for name, mutate in mutations.items():
+                with self.subTest(name=name):
+                    invalid = copy.deepcopy(report)
+                    mutate(invalid)
+                    with self.assertRaises(ValueError):
+                        matrix_generator.retire_authored_effect_counters(invalid, old, path)
+
+    def test_full_refresh_does_not_reintroduce_retired_empty_counters(self) -> None:
+        result = synthetic_result()
+        for expectation in AUTHORED_EFFECT_RUNTIME_EXPECTATIONS:
+            result["runtime"][expectation.report_metric] = (
+                None if expectation.comparison == "integer" else []
+            )
+        sample = matrix_generator.matrix_sample(result, {})
+        self.assertFalse(any(
+            expectation.matrix_key in sample
+            for expectation in AUTHORED_EFFECT_RUNTIME_EXPECTATIONS
+        ))
+
     def test_authored_effect_registry_has_unique_keys_and_metrics(self) -> None:
         matrix_keys = [
             expectation.matrix_key

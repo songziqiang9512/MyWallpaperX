@@ -296,6 +296,9 @@ def historical_problems(current: dict[str, Any], previous: dict[str, Any]) -> li
     if (
         previous_hard_limit is not None
         and current["hardLineLimit"] > previous_hard_limit
+        # Explicitly authorized policy migration (2026-09-24), not a
+        # general exemption from the historical ratchet.
+        and not (previous_hard_limit == 800 and current["hardLineLimit"] == 1000)
     ):
         problems.append(
             (

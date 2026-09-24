@@ -66,6 +66,23 @@ final class SceneSourceUpdateTransaction {
 enum Harness {
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noDevice }
+        if CommandLine.arguments.contains("--invalid-crop") {
+            let variant = CommandLine.arguments.last!
+            let origin: Float = variant == "width" ? 0
+                : variant == "sum" ? Float(Int.max / 2) : .greatestFiniteMagnitude
+            let frameWidth: Float = variant == "width" ? .greatestFiniteMagnitude
+                : variant == "sum" ? Float(Int.max / 2) : 4
+            let parsed = try SceneTexContainerReader().read(data: makeTwoImageTex(
+                firstFrameOrigin: origin, firstFrameWidth: frameWidth
+            ))
+            let outcome = SceneCompressedTextureUploader.upload(
+                container: parsed, pixelFormat: .bc1_rgba,
+                purpose: .premultipliedColor, device: device
+            )
+            if case .decodeFailed = outcome { print("rejected") }
+            else { print("unexpected-success") }
+            return
+        }
         let width = 4096
         let height = 4097
         let block = [UInt8](
@@ -105,6 +122,58 @@ enum Harness {
             device: device
         )
         var result: [String: Any] = [:]
+        func colorBlock(alpha: UInt8, color: UInt16) -> Data {
+            Data([alpha, alpha, 0, 0, 0, 0, 0, 0,
+                  UInt8(color & 255), UInt8(color >> 8), 0, 0, 0, 0, 0, 0])
+        }
+        let atlas = SceneTexContainer.Mip(width: 8, height: 8, data:
+            colorBlock(alpha: 128, color: 0xf800) + colorBlock(alpha: 64, color: 0x07e0)
+                + colorBlock(alpha: 192, color: 0x001f) + colorBlock(alpha: 255, color: 0xffe0)
+        )
+        let croppedFrame = SceneTexContainer.SpriteFrame(
+            imageIndex: 0, duration: 0.035, origin: SIMD2(3.0 / 8, 3.0 / 8),
+            xAxis: SIMD2(2.0 / 8, 0), yAxis: SIMD2(0, 2.0 / 8)
+        )
+        let croppedAtlas = try loaded(SceneCompressedTextureUploader.upload(
+            container: makeContainer(mip: atlas, frames: [croppedFrame, frame1]),
+            pixelFormat: .bc3_rgba, purpose: .premultipliedColor, device: device
+        ))
+        result["offsetCropSize"] = [croppedAtlas.width, croppedAtlas.height]
+        result["offsetCropPixels"] = try [(0, 0), (1, 0), (0, 1), (1, 1)].map { x, y in
+            try readFirstPixel(texture: croppedAtlas, x: x, y: y, device: device)
+        }
+        for imageSize in [4096, 3] {
+            let large = makeLargeMipmappedContainer(base: mip, imageSize: imageSize)
+            let outcome = SceneCompressedTextureUploader.upload(
+                container: large, pixelFormat: .bc3_rgba,
+                purpose: .premultipliedColor, device: device
+            )
+            let texture = try loaded(outcome)
+            result["large\(imageSize)Size"] = [texture.width, texture.height]
+            result["large\(imageSize)Mips"] = texture.mipmapLevelCount
+            result["large\(imageSize)Pixels"] = try (0..<texture.mipmapLevelCount).map {
+                try readFirstPixel(texture: texture, level: $0, device: device)
+            }
+        }
+        for imageSize in [4096, 3] {
+            let malformed = SceneCompressedTextureUploader.upload(
+                container: makeLargeMipmappedContainer(base: mip, imageSize: imageSize, corruptTail: true),
+                pixelFormat: .bc3_rgba, purpose: .premultipliedColor, device: device
+            )
+            if case .decodeFailed = malformed {
+                result["large\(imageSize)CorruptTailRejected"] = true
+            } else {
+                result["large\(imageSize)CorruptTailRejected"] = false
+            }
+        }
+        let complete = try loaded(SceneCompressedTextureUploader.upload(
+            container: makeLargeMipmappedContainer(base: mip, imageSize: 4096, fullChain: true),
+            pixelFormat: .bc3_rgba, purpose: .premultipliedColor, device: device
+        ))
+        result["largeCompleteMips"] = complete.mipmapLevelCount
+        result["largeCompleteLastPixel"] = try readFirstPixel(
+            texture: complete, level: complete.mipmapLevelCount - 1, device: device
+        )
         if case let .loaded(texture) = outcome {
             result["loaded"] = true
             result["width"] = texture.width
@@ -211,6 +280,37 @@ enum Harness {
         } else {
             result["crossImageAnimationAccepted"] = false
         }
+
+        let cropImage = SceneTexContainer.Image(mips: [.init(
+            width: 8, height: 4,
+            data: animated.images[0].mips[0].data + animated.images[1].mips[0].data
+        )])
+        let cropAnimation = makeAnimatedColorContainer(
+            images: [cropImage, cropImage],
+            frames: [
+                .init(imageIndex: 0, duration: 0.035, origin: SIMD2(0.5, 0),
+                      xAxis: SIMD2(0.5, 0), yAxis: SIMD2(0, 1)),
+                .init(imageIndex: 1, duration: 0.035, origin: .zero,
+                      xAxis: SIMD2(0.5, 0), yAxis: SIMD2(0, 1)),
+            ]
+        )
+        let cropLoader = SceneMultiImageSpriteTextureLoader()
+        let croppedPlayback = try playback(cropLoader.playback(
+            source: source, container: cropAnimation, device: device, sourceIsCurrent: { true }
+        ))
+        guard let cropQueue = device.makeCommandQueue() else { throw HarnessError.noDevice }
+        var cropPixels: [[UInt8]] = []
+        for time: Float in [0, 0.04, 0, 0.04] {
+            let buffer = cropQueue.makeCommandBuffer()!
+            let transaction = SceneSourceUpdateTransaction()
+            croppedPlayback.encode(playbackTime: time, commandBuffer: buffer, transaction: transaction)
+            buffer.commit()
+            transaction.commit()
+            buffer.waitUntilCompleted()
+            guard buffer.status == .completed else { throw HarnessError.load }
+            cropPixels.append(try readFirstPixel(texture: croppedPlayback.texture, device: device))
+        }
+        result["reusedConversionCropPixels"] = cropPixels
 
         let submissionTracker = SceneSpriteFrameSubmissionTracker()
         let firstSubmission = submissionTracker.begin(frameIndex: 0)
@@ -334,6 +434,15 @@ enum Harness {
             device: device
         )
         let defaultFrames = animated.spriteFrames
+        let invalidTimelineDurations: [[Float]] = [
+            [.greatestFiniteMagnitude, .greatestFiniteMagnitude], [16_777_216, 1],
+        ]
+        result["invalidTimelineRejected"] = invalidTimelineDurations.allSatisfy { durations in
+            rejectsAdmission(makeAnimatedColorContainer(frames: durations.enumerated().map { index, duration in
+                .init(imageIndex: index, duration: duration, origin: .zero,
+                      xAxis: SIMD2(1, 0), yAxis: SIMD2(0, 1))
+            }), device: device)
+        }
         let fractionalFrame = SceneTexContainer.SpriteFrame(
             imageIndex: 0,
             duration: 0.035,
@@ -497,6 +606,41 @@ enum Harness {
         )
     }
 
+    static func makeLargeMipmappedContainer(
+        base: SceneTexContainer.Mip, imageSize: Int,
+        corruptTail: Bool = false, fullChain: Bool = false
+    ) -> SceneTexContainer {
+        func repeatedBlock(size: Int, alpha: UInt8, color: UInt16) -> Data {
+            let block: [UInt8] = [
+                alpha, alpha, 0, 0, 0, 0, 0, 0,
+                UInt8(color & 255), UInt8(color >> 8), 0, 0, 0, 0, 0, 0
+            ]
+            let count = ((size + 3) / 4) * ((size + 3) / 4)
+            var data = Data(count: count * 16)
+            data.withUnsafeMutableBytes { bytes in
+                for index in 0..<count {
+                    bytes.baseAddress!.advanced(by: index * 16).copyMemory(from: block, byteCount: 16)
+                }
+            }
+            return data
+        }
+        let levelCount = fullChain ? 13 : 3
+        let lowerMips: [SceneTexContainer.Mip] = (1..<levelCount).map { level in
+            let size = max(1, base.width >> level)
+            let payload = corruptTail && level == levelCount - 1 ? Data()
+                : repeatedBlock(size: size, alpha: level == 1 ? 64 : 192,
+                                color: level == 1 ? 0x07e0 : 0x001f)
+            return .init(width: size, height: size, data: payload)
+        }
+        return SceneTexContainer(
+            format: 4, flags: 2,
+            textureWidth: base.width, textureHeight: base.height,
+            imageWidth: imageSize, imageHeight: imageSize,
+            containerVersion: .texb0002, freeImageFormat: -1, isVideoMp4: false,
+            images: [.init(mips: [base] + lowerMips)], spriteFrames: []
+        )
+    }
+
     static func makeMipmappedContainer() -> SceneTexContainer {
         let redBlock = Data([0x00, 0xF8, 0, 0, 0, 0, 0, 0])
         let greenBlock = Data([0xE0, 0x07, 0, 0, 0, 0, 0, 0])
@@ -612,14 +756,16 @@ enum Harness {
         return false
     }
 
-    static func makeTwoImageTex() -> Data {
+    static func makeTwoImageTex(
+        firstFrameOrigin: Float? = nil, firstFrameWidth: Float = 4
+    ) -> Data {
         var data = Data("TEXV0005\0TEXI0001\0".utf8)
         func append(_ value: UInt32) {
             var littleEndian = value.littleEndian
             withUnsafeBytes(of: &littleEndian) { data.append(contentsOf: $0) }
         }
         append(7)
-        append(0)
+        append(firstFrameOrigin == nil ? 0 : 4)
         append(4)
         append(4)
         append(4)
@@ -635,6 +781,17 @@ enum Harness {
             append(0)
             append(8)
             data.append(Data(repeating: marker, count: 8))
+        }
+        if let firstFrameOrigin {
+            data.append(Data("TEXS0002\0".utf8))
+            append(2)
+            for imageIndex: UInt32 in [0, 1] {
+                append(imageIndex)
+                append(Float(0.035).bitPattern)
+                for value: Float in [imageIndex == 0 ? firstFrameOrigin : 0, 0, firstFrameWidth, 0, 0, 4] {
+                    append(value.bitPattern)
+                }
+            }
         }
         return data
     }
@@ -687,6 +844,8 @@ enum Harness {
     static func readFirstPixel(
         texture: MTLTexture,
         level: Int = 0,
+        x: Int = 0,
+        y: Int = 0,
         device: MTLDevice
     ) throws -> [UInt8] {
         guard let queue = device.makeCommandQueue(),
@@ -697,7 +856,7 @@ enum Harness {
             from: texture,
             sourceSlice: 0,
             sourceLevel: level,
-            sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
+            sourceOrigin: MTLOrigin(x: x, y: y, z: 0),
             sourceSize: MTLSize(width: 1, height: 1, depth: 1),
             to: buffer,
             destinationOffset: 0,
@@ -718,6 +877,44 @@ enum Harness {
 
 
 class SceneBCTextureUploaderTests(unittest.TestCase):
+    def test_parsed_finite_out_of_range_sprite_origin_is_rejected_without_trapping(self) -> None:
+        for variant in ("origin", "width", "sum"):
+            with self.subTest(variant=variant):
+                execution = subprocess.run(
+                    [str(self._binary), "--invalid-crop", variant],
+                    capture_output=True, text=True, timeout=30
+                )
+                self.assertEqual(execution.returncode, 0, execution.stderr)
+                self.assertEqual(execution.stdout.strip(), "rejected")
+
+    def test_non_aligned_sprite_crop_reads_all_four_neighboring_bc_blocks(self) -> None:
+        self.assertEqual(self.result["offsetCropSize"], [2, 2])
+        self.assertEqual(self.result["offsetCropPixels"], [
+            [128, 0, 0, 128], [0, 64, 0, 64], [0, 0, 192, 192], [255, 255, 0, 255]
+        ])
+
+    def test_large_single_image_preserves_authored_mips_through_gpu_conversion(self) -> None:
+        self.assertEqual(self.result["large4096Size"], [4096, 4096])
+        self.assertEqual(self.result["large4096Mips"], 3)
+        for actual, expected in zip(self.result["large4096Pixels"], [
+            [128, 0, 0, 128], [0, 64, 0, 64], [0, 0, 192, 192]
+        ], strict=True):
+            for channel, value in zip(actual, expected, strict=True):
+                self.assertLessEqual(abs(channel - value), 1)
+
+    def test_large_gpu_crop_keeps_only_mips_supported_by_output_extent(self) -> None:
+        self.assertEqual(self.result["large3Size"], [3, 3])
+        self.assertEqual(self.result["large3Mips"], 2)
+        self.assertEqual(self.result["large3Pixels"], [[128, 0, 0, 128], [0, 64, 0, 64]])
+
+    def test_large_gpu_upload_rejects_corrupt_tail_even_when_cropped_out(self) -> None:
+        self.assertTrue(self.result["large4096CorruptTailRejected"])
+        self.assertTrue(self.result["large3CorruptTailRejected"])
+
+    def test_large_gpu_complete_chain_reaches_single_pixel(self) -> None:
+        self.assertEqual(self.result["largeCompleteMips"], 13)
+        self.assertEqual(self.result["largeCompleteLastPixel"], [0, 0, 192, 192])
+
     @classmethod
     def setUpClass(cls) -> None:
         if shutil.which("swiftc") is None:
@@ -727,6 +924,7 @@ class SceneBCTextureUploaderTests(unittest.TestCase):
         harness = tmp / "harness.swift"
         harness.write_text(HARNESS)
         binary = tmp / "harness"
+        cls._binary = binary
         compilation = subprocess.run(
             ["swiftc", *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)],
             capture_output=True,
@@ -768,6 +966,10 @@ class SceneBCTextureUploaderTests(unittest.TestCase):
         self.assertTrue(self.result["crossImageAnimationAccepted"])
         self.assertEqual(self.result["crossImageFrame0Pixel"], [128, 0, 0, 128])
         self.assertEqual(self.result["crossImageFrame1Pixel"], [0, 64, 0, 64])
+        self.assertEqual(self.result["reusedConversionCropPixels"], [
+            [0, 64, 0, 64], [128, 0, 0, 128],
+            [0, 64, 0, 64], [128, 0, 0, 128],
+        ])
 
     def test_failed_frame_submission_can_retry_without_overriding_newer_work(self) -> None:
         self.assertTrue(self.result["sameFrameSubmissionDeduplicated"])
@@ -785,6 +987,7 @@ class SceneBCTextureUploaderTests(unittest.TestCase):
         self.assertTrue(self.result["revisionChangeFailsWithoutConsumingBudget"])
 
     def test_bounded_admission_covers_supported_codecs_and_layout_limits(self) -> None:
+        self.assertTrue(self.result["invalidTimelineRejected"])
         self.assertTrue(self.result["bc1AnimationAccepted"])
         self.assertTrue(self.result["bc2AnimationAccepted"])
         for key in (

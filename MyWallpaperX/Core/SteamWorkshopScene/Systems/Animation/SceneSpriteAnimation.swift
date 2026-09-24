@@ -37,10 +37,15 @@ struct SceneSpriteAnimation {
         self.frames = frames
         frameDurations = frames.map { Self.effectiveDuration($0.duration) }
         var elapsed: Float = 0
-        frameEndTimes = frameDurations.map { value in
-            elapsed += value
-            return elapsed
+        var endTimes: [Float] = []
+        endTimes.reserveCapacity(frameDurations.count)
+        for value in frameDurations {
+            let next = elapsed + value
+            guard next.isFinite, next > elapsed else { return nil }
+            endTimes.append(next)
+            elapsed = next
         }
+        frameEndTimes = endTimes
         duration = elapsed
         frameAspectRatios = frames.map {
             Self.frameAspectRatio(
@@ -74,9 +79,13 @@ struct SceneSpriteAnimation {
 
     func transform(at elapsed: Float) -> SceneTextureUVTransform {
         guard texturePlayback == nil else { return .identity }
-        guard frames.count > 1, duration > 0 else {
-            return transform(for: frames[0])
-        }
+        return transform(for: frames[Self.frameIndex(
+            at: elapsed, duration: duration, frameEndTimes: frameEndTimes
+        )])
+    }
+
+    static func frameIndex(at elapsed: Float, duration: Float, frameEndTimes: [Float]) -> Int {
+        guard frameEndTimes.count > 1, duration > 0 else { return 0 }
         var remaining = elapsed.truncatingRemainder(dividingBy: duration)
         if remaining < 0 { remaining += duration }
         // `frameEndTimes` is prepared once from the authored atlas. Locate the
@@ -92,7 +101,7 @@ struct SceneSpriteAnimation {
                 lower = middle + 1
             }
         }
-        return transform(for: frames[min(lower, frames.count - 1)])
+        return min(lower, frameEndTimes.count - 1)
     }
 
     func encode(
@@ -130,8 +139,7 @@ struct SceneSpriteAnimation {
               sequences.count == 1,
               let sequence = sequences.first,
               let frameCount = finiteNumber(sequence["frames"]),
-              frameCount.rounded() == frameCount,
-              Int(frameCount) == expectedFrameCount,
+              Int(exactly: frameCount) == expectedFrameCount,
               let width = finiteNumber(sequence["width"]),
               let height = finiteNumber(sequence["height"]),
               width > 0, height > 0,

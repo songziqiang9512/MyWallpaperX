@@ -3178,6 +3178,40 @@ layer 157 "Tail": OK 1024x1024 puppet animation OK MDLV0023 mode=single-absolute
             ],
         )
 
+    def test_startup_budget_requires_valid_timing_and_rejects_slow_ready(self) -> None:
+        expected = {"maximum_startup_ready_ms": 5000}
+        self.assertEqual(benchmark.startup_runtime_failures(expected, 5000), [])
+        self.assertEqual(benchmark.startup_runtime_failures(expected, 5001),
+                         ["startup ready elapsed exceeds maximum"])
+        self.assertEqual(benchmark.startup_runtime_failures({}, 25000), [])
+        for invalid in (None, -1, float("nan"), float("inf")):
+            self.assertTrue(benchmark.startup_runtime_failures(expected, invalid))
+        for invalid in (0, -1, True, "fast", float("nan"), float("inf")):
+            self.assertEqual(benchmark.startup_runtime_failures(
+                {"maximum_startup_ready_ms": invalid}, 100), ["invalid startup ready budget"])
+
+    def test_particle_nonempty_evidence_is_separate_from_resource_loading(self) -> None:
+        legacy = benchmark.particle_runtime_metrics("particle loaded: 2 / 2\n")
+        self.assertIsNone(legacy["committed_nonempty_layer_ids"])
+        expectation = {"required_particle_committed_nonempty_layer_ids": [200]}
+        self.assertIn("particle committed nonempty evidence missing",
+                      benchmark.particle_runtime_failures(expectation, legacy))
+        preview = ("particle loaded: 2 / 2\nparticle sticky loaded: 2 / 2\n"
+                   "particle current nonempty: layers=[200]\n"
+                   "particle committed nonempty: layers=[]\n")
+        pending = benchmark.particle_runtime_metrics(preview)
+        self.assertEqual(pending["current_nonempty_layer_ids"], [200])
+        self.assertEqual(pending["committed_nonempty_layer_ids"], [])
+        self.assertIn("particle layer 200 should produce a committed nonempty batch",
+                      benchmark.particle_runtime_failures(expectation, pending))
+        dormant = benchmark.particle_runtime_metrics(preview +
+            "particle current nonempty: layers=[]\nparticle committed nonempty: layers=[200]\n")
+        self.assertEqual(dormant["current_nonempty_layer_ids"], [])
+        self.assertEqual(dormant["committed_nonempty_layer_ids"], [200])
+        self.assertEqual(benchmark.particle_runtime_failures(expectation, dormant), [])
+        self.assertTrue(benchmark.particle_runtime_failures(
+            {"required_particle_committed_nonempty_layer_ids": [201]}, dormant))
+
     def test_particle_runtime_fixture_metrics_and_optional_gates(self) -> None:
         preview_log = """Scene preview texture load report
 loaded: 20 / 24

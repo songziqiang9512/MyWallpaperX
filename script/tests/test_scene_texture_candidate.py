@@ -481,6 +481,18 @@ enum Harness {
         ).write(to: mappedTexb2MipURL)
 
         let loader = SceneTextureLoader()
+        let overflowingRawURL = directory.appendingPathComponent("overflowing-raw.tex")
+        try embeddedImageTex(
+            textureWidth: .max, textureHeight: .max,
+            imageWidth: 1, imageHeight: 1,
+            payload: Data(repeating: 0, count: 4)
+        ).write(to: overflowingRawURL)
+        let overflowingRawRejected: Bool
+        if case .decodeFailed = loader.load(from: overflowingRawURL, device: device) {
+            overflowingRawRejected = true
+        } else {
+            overflowingRawRejected = false
+        }
         let spriteTextureLoader = SceneMultiImageSpriteTextureLoader()
         let missingSourceKeyUnavailable = loader.sourceKey(for: missingURL) == nil
         let missingMetadataRejected: Bool
@@ -599,28 +611,28 @@ enum Harness {
             purpose: .normal,
             device: device
         ))
-        let malformedTexb3EmbeddedRejected = rejectedDimensions(
+        let malformedTexb3EmbeddedRejected = rejectedEmbeddedMetadata(
             loader.loadCandidate(
                 from: malformedTexb3EmbeddedURL,
                 purpose: .premultipliedColor,
                 device: device
             )
         )
-        let decodedMismatchTexb3Rejected = rejectedDimensions(
+        let decodedMismatchTexb3Rejected = rejectedEmbeddedMetadata(
             loader.loadCandidate(
                 from: decodedMismatchTexb3URL,
                 purpose: .premultipliedColor,
                 device: device
             )
         )
-        let lowerMipMismatchTexb3Rejected = rejectedUnpreservedMipChain(
+        let lowerMipMismatchTexb3Rejected = rejectedEmbeddedMetadata(
             loader.loadCandidate(
                 from: lowerMipMismatchTexb3URL,
                 purpose: .premultipliedColor,
                 device: device
             )
         )
-        let freeFormatMismatchTexb3Rejected = rejectedDimensions(
+        let freeFormatMismatchTexb3Rejected = rejectedEmbeddedMetadata(
             loader.loadCandidate(
                 from: freeFormatMismatchTexb3URL,
                 purpose: .premultipliedColor,
@@ -809,6 +821,30 @@ enum Harness {
             texture: baseCrossImageSprite.texture,
             device: device
         )
+        let boundaryURL = directory.appendingPathComponent("sprite-boundaries.tex")
+        try crossImageSpriteBC3Tex(frameCount: 64, frameDuration: 0.1).write(to: boundaryURL)
+        let boundarySprite = try baseLoaded(SceneBaseImageTextureLoad.load(
+            from: boundaryURL, usesPuppet: false, loader: loader,
+            spriteTextureLoader: spriteTextureLoader, device: device
+        ))
+        let boundaryAnimation = boundarySprite.animation!
+        var boundaryPixelsMatch = true
+        var boundaryCases: [(Float, Int)] = [(0, 0), (boundaryAnimation.duration, 0), (-0.001, 63)]
+        for index in 1..<64 {
+            let time = boundaryAnimation.frameEndTimes[index - 1]
+            boundaryCases += [(time.nextDown, index - 1), (time, index), (time.nextUp, index)]
+        }
+        for (time, index) in boundaryCases {
+            let buffer = commandQueue.makeCommandBuffer()!
+            let transaction = SceneSourceUpdateTransaction()
+            boundaryAnimation.encode(playbackTime: time, commandBuffer: buffer, transaction: transaction)
+            buffer.commit()
+            transaction.commit()
+            buffer.waitUntilCompleted()
+            let pixel = try readFirstPixel(texture: boundarySprite.texture, device: device)
+            let expected = index % 2 == 0 ? crossImageFrame0Pixel : crossImageFrame1Pixel
+            boundaryPixelsMatch = boundaryPixelsMatch && pixel == expected && buffer.status == .completed
+        }
         let crossImageTransform = crossImageAnimation.transform(at: 0.04)
         let basePuppetSpecialized = try baseLoaded(SceneBaseImageTextureLoad.load(
             from: croppedColorURL,
@@ -817,13 +853,19 @@ enum Harness {
             spriteTextureLoader: spriteTextureLoader,
             device: device
         ))
-        let baseUnparsedSpecialized = try baseLoaded(SceneBaseImageTextureLoad.load(
+        let baseUnparsedOutcome = SceneBaseImageTextureLoad.load(
             from: unparsedFallbackURL,
             usesPuppet: false,
             loader: loader,
             spriteTextureLoader: spriteTextureLoader,
             device: device
-        ))
+        )
+        let baseUnparsedRejected: Bool
+        if case .failed(.decodeFailed) = baseUnparsedOutcome {
+            baseUnparsedRejected = true
+        } else {
+            baseUnparsedRejected = false
+        }
         let baseCandidateFailureTerminal = baseRejectedDimensions(
             SceneBaseImageTextureLoad.load(
                 from: mismatchedPhysicalURL,
@@ -1205,6 +1247,7 @@ enum Harness {
 
         let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
         let result: [String: Any] = [
+            "overflowingRawRejected": overflowingRawRejected,
             "available": true,
             "identityIsCanonicalFile": filePath(first.identity)
                 == url.resolvingSymlinksInPath().standardizedFileURL.path,
@@ -1464,6 +1507,7 @@ enum Harness {
                     && crossImageTransform.origin == .zero
                     && crossImageTransform.xAxis == SIMD2(1, 0)
                     && crossImageTransform.yAxis == SIMD2(0, 1),
+            "boundaryPixelsMatch": boundaryPixelsMatch,
             "baseCrossImageFrame0Pixel": crossImageFrame0Pixel,
             "baseCrossImageFrame1Pixel": crossImageFrame1Pixel,
             "baseRotatedCrossImageSpriteFailsClosed":
@@ -1481,9 +1525,7 @@ enum Harness {
             "basePuppetSpecialized":
                 basePuppetSpecialized.candidate == nil
                     && basePuppetSpecialized.message.contains("puppet atlas"),
-            "baseUnparsedSpecialized":
-                baseUnparsedSpecialized.candidate == nil
-                    && baseUnparsedSpecialized.message.contains("unparsed TEX"),
+            "baseUnparsedRejected": baseUnparsedRejected,
             "baseCandidateFailureTerminal": baseCandidateFailureTerminal,
             "baseStoreReplacementClearsCandidate":
                 baseStoreReplacementClearsCandidate,
@@ -1590,14 +1632,14 @@ enum Harness {
         return message.contains("inconsistent physical/mapped dimensions")
     }
 
-    static func rejectedUnpreservedMipChain(
+    static func rejectedEmbeddedMetadata(
         _ outcome: SceneTextureCandidateLoadOutcome
     ) -> Bool {
         guard case .failed(.decodeFailed(let message)) = outcome else {
             return false
         }
         return message.contains(
-            "compiled TEX embedded mip chain could not be preserved"
+            "compiled TEX embedded mip metadata does not match its payload"
         )
     }
 
@@ -1625,7 +1667,7 @@ enum Harness {
         guard case .failed(.decodeFailed(let message)) = outcome else {
             return false
         }
-        return message.contains("requires parsed TEX metadata")
+        return message.contains("TEX parse failed")
     }
 
     static func rawR8Tex(
@@ -1683,7 +1725,9 @@ enum Harness {
     }
 
     static func crossImageSpriteBC3Tex(
-        rotatedSecondFrame: Bool = false
+        rotatedSecondFrame: Bool = false,
+        frameCount: Int = 2,
+        frameDuration: Float = 0.035
     ) -> Data {
         func block(
             alpha: UInt8,
@@ -1719,21 +1763,16 @@ enum Harness {
             data.append(payload)
         }
         data.append(Data("TEXS0002\0".utf8))
-        append(2, to: &data)
-        appendSpriteFrame(
-            imageIndex: 0,
-            duration: 0.035,
-            coordinates: [0, 0, 4, 0, 0, 4],
-            to: &data
-        )
-        appendSpriteFrame(
-            imageIndex: 1,
-            duration: 0.035,
-            coordinates: rotatedSecondFrame
-                ? [0, 0, 0, 4, 4, 0]
-                : [0, 0, 4, 0, 0, 4],
-            to: &data
-        )
+        append(UInt32(frameCount), to: &data)
+        for index in 0..<frameCount {
+            appendSpriteFrame(
+                imageIndex: UInt32(index % 2),
+                duration: frameDuration,
+                coordinates: rotatedSecondFrame && index == 1
+                    ? [0, 0, 0, 4, 4, 0] : [0, 0, 4, 0, 0, 4],
+                to: &data
+            )
+        }
         return data
     }
 
@@ -2139,6 +2178,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 text=True,
             )
         result = json.loads(completed.stdout)
+        self.assertTrue(result.pop("overflowingRawRejected"))
         if not result["available"]:
             self.skipTest("Metal is unavailable")
         self.assertEqual(
@@ -2162,7 +2202,8 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "baseSnapshotRejectsMismatchedPublication": True,
                 "baseStoreReplacementClearsCandidate": True,
                 "staticCandidatePublicationPreservesRevision": True,
-                "baseUnparsedSpecialized": True,
+                "baseUnparsedRejected": True,
+                "boundaryPixelsMatch": True,
                 "croppedColorMapped": [4, 4],
                 "croppedColorPhysical": [4, 4],
                 "croppedColorScale": [1, 1],

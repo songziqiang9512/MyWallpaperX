@@ -19,7 +19,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         stage: SceneShaderContract.StageKind
     ) -> String {
         rewriteScalarMinMaxIntegerLiterals(
-            rewriteZeroLowerBoundBroadcasts(
+            rewriteLiteralBoundBroadcasts(
                 rewriteScalarPowBroadcasts(
                     rewriteScalarMixBroadcasts(source, stage: stage),
                     stage: stage
@@ -166,11 +166,9 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         return result
     }
 
-    /// Stock authored shaders use `max(0, float-vector)` as an exact
-    /// component-wise nonnegative bound. Vulkan GLSL has no scalar-first
-    /// overload and will not promote the integer zero. Preserve that bounded
-    /// authored form without opening other implicit numeric conversions.
-    private static func rewriteZeroLowerBoundBroadcasts(
+    /// HLSL broadcasts scalar bounds to the vector operand of min/max.
+    /// Vulkan GLSL requires an explicit vector for the scalar-first form.
+    private static func rewriteLiteralBoundBroadcasts(
         _ source: String,
         stage: SceneShaderContract.StageKind
     ) -> String {
@@ -205,8 +203,9 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         }
         var replacements: [(start: Int, end: Int, text: String)] = []
         for index in unit.tokens.indices {
-            guard unit.tokens[index].text == "max",
-                  !unit.functions.contains(where: { $0.name == "max" }),
+            let name = unit.tokens[index].text
+            guard ["min", "max"].contains(name),
+                  !unit.functions.contains(where: { $0.name == name }),
                   index + 1 < unit.tokens.count,
                   unit.tokens[index + 1].text == "(",
                   let closing = matchingParenthesis(
@@ -220,11 +219,13 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
                   ), arguments.count == 2,
                   arguments[0].count == 1,
                   unit.tokens[arguments[0].lowerBound].kind == .number,
-                  unit.tokens[arguments[0].lowerBound].text == "0",
-                  let second = standaloneType(
-                      arguments[1], before: index,
+                  let bound = Float(unit.tokens[arguments[0].lowerBound].text),
+                  bound.isFinite,
+                  let second = componentExpression(
+                      arguments[1],
                       tokens: unit.tokens, unit: unit
-                  ), let vectorWidth = floatVectorWidth(second) else { continue }
+                  ), second.conversions.isEmpty,
+                  let vectorWidth = floatVectorWidth(second.type) else { continue }
             guard let start = tokenOffset(
                       arguments[0].lowerBound,
                       afterToken: false
@@ -233,7 +234,12 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
                       arguments[0].upperBound - 1,
                       afterToken: true
                   ) else { continue }
-            replacements.append((start, end, "vec\(vectorWidth)(0.0)"))
+            let literal = unit.tokens[arguments[0].lowerBound].text
+            // Preserve octal syntax: appending .0 changes 010 (8) to 10.
+            let floatingLiteral = Int(literal) == nil
+                || (literal.count > 1 && literal.first == "0")
+                ? literal : literal + ".0"
+            replacements.append((start, end, "vec\(vectorWidth)(\(floatingLiteral))"))
         }
         guard !replacements.isEmpty else { return normalized }
 
@@ -263,7 +269,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
     /// Wallpaper Engine's GLSL-like surface accepts an integer literal at a
     /// floating-point scalar `min`/`max` endpoint. Metal retains distinct
     /// integer and floating overloads, so the untyped literal makes the call
-    /// ambiguous. Promote only a single decimal integer literal whose peer is
+    /// ambiguous. Convert only a single integer literal whose peer is
     /// statically proven to be a scalar float expression. User overloads,
     /// integer domains, vectors, and unknown expressions remain untouched.
     private static func rewriteScalarMinMaxIntegerLiterals(
@@ -304,7 +310,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
             return lineStarts[token.line - 1] + token.column - 1
                 + (afterToken ? token.text.unicodeScalars.count : 0)
         }
-        var insertions: [Int] = []
+        var insertions: [(offset: Int, text: String)] = []
         for index in unit.tokens.indices {
             let name = unit.tokens[index].text
             guard ["min", "max"].contains(name),
@@ -341,24 +347,33 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
                       literalRange.lowerBound,
                       afterToken: true
                   ) else { continue }
-            insertions.append(end)
+            let literal = unit.tokens[literalRange.lowerBound].text
+            if literal.count > 1 && literal.first == "0" {
+                guard let start = tokenOffset(
+                    literalRange.lowerBound, afterToken: false
+                ) else { continue }
+                insertions.append((start, "float("))
+                insertions.append((end, ")"))
+            } else {
+                insertions.append((end, ".0"))
+            }
         }
         guard !insertions.isEmpty else { return normalized }
 
         var result = normalized
-        for offset in insertions.sorted(by: >) {
-            guard offset <= result.unicodeScalars.count else {
+        for insertion in insertions.sorted(by: { $0.offset > $1.offset }) {
+            guard insertion.offset <= result.unicodeScalars.count else {
                 return normalized
             }
             let scalarIndex = result.unicodeScalars.index(
                 result.unicodeScalars.startIndex,
-                offsetBy: offset
+                offsetBy: insertion.offset
             )
             guard let stringIndex = String.Index(
                 scalarIndex,
                 within: result
             ) else { return normalized }
-            result.insert(contentsOf: ".0", at: stringIndex)
+            result.insert(contentsOf: insertion.text, at: stringIndex)
         }
         return result
     }
@@ -508,7 +523,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
                 directlyNarrowable: false
             )
         }
-        if let builtIn = scalarFloatBuiltInExpression(
+        if let builtIn = floatBuiltInExpression(
             sourceRange,
             tokens: tokens,
             unit: unit
@@ -546,11 +561,9 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         )
     }
 
-    /// `step` and `smoothstep` return the scalar floating shape of their
-    /// scalar authored operands. Prove only that narrow built-in surface so a
-    /// surrounding `min`/`max` can select its floating overload. User
-    /// overloads and vector/unknown arguments remain untouched.
-    private static func scalarFloatBuiltInExpression(
+    /// Prove floating built-in result types from their operands, excluding
+    /// authored overloads. abs preserves shape; step/smoothstep here are scalar.
+    private static func floatBuiltInExpression(
         _ range: Range<Int>,
         tokens: [SceneAuthoredShaderToken],
         unit: SceneAuthoredShaderSyntaxUnit
@@ -560,6 +573,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         let name = tokens[range.lowerBound].text
         let expectedCount: Int
         switch name {
+        case "abs": expectedCount = 1
         case "step": expectedCount = 2
         case "smoothstep": expectedCount = 3
         default: return nil
@@ -577,6 +591,17 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
               ), ranges.count == expectedCount else { return nil }
         let arguments = ranges.compactMap {
             componentExpression($0, tokens: tokens, unit: unit)
+        }
+        if name == "abs", arguments.count == 1,
+           let argument = arguments.first,
+           argument.type == .float || floatVectorWidth(argument.type) != nil {
+            return .init(
+                range: range,
+                type: argument.type,
+                conversions: argument.conversions,
+                compound: true,
+                directlyNarrowable: false
+            )
         }
         guard arguments.count == ranges.count,
               arguments.allSatisfy({ [.float, .int].contains($0.type) }),

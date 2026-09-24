@@ -43,7 +43,7 @@ authored data → loss-preserving IR → prepared Program/graph/resources
 
 正确画面和布局优先于能力数量，首帧和稳定帧时间优先于诊断便利。验证规模服从失败半径：最近的可执行单元 → 定向纵向切片 → 隔离真实内容 → fixed/full、长稳和发布。全量 corpus、完整链接扫描、截图流水、详细 observation、性能诊断和官方对照都属于按风险启用的证据环，不是普通编码前置。
 
-性能结论必须区分首帧、CPU/pre-encode、GPU、提交/完成和 next-frame。消融一次只移除一种常驻成本，用相同输入和环境比较，至少重复三次；只有正确性、失败边界和性能同时没有退化，才保留优化。两次实验没有改变首断点或没有减少工作量，就换共享断点。
+性能结论必须区分首帧、CPU/pre-encode、GPU、提交/完成和 next-frame，并固定编译优化级别。当前隔离 runner 只在 `DEBUG` 编译条件下提供；性能验收用独立 DerivedData 的 `xcodebuild -project MyWallpaperX.xcodeproj -scheme MyWallpaperX -configuration Debug SWIFT_OPTIMIZATION_LEVEL=-O -derivedDataPath <isolated-path> build` 保留诊断入口和优化代码，普通 `-Onone` checkpoint 只验证调试构建。直接把 Release App 交给此 runner 不会执行诊断协议。启动可在样本矩阵指定 `maximum_startup_ready_ms`，并同时要求预期输出；不能用空输出通过耗时门。消融一次只移除一种常驻成本，用相同输入和环境比较，至少重复三次；只有正确性、失败边界和性能同时没有退化，才保留优化。两次实验没有改变首断点或没有减少工作量，就换共享断点。
 
 `observe-only`、`prefer-generic`、`generic-only` 和 `disable-generic` 只是有退出条件的迁移状态。不得静默双执行、永久保留 DEBUG 开关、永久依赖 fallback 或用 route 数、compile success、recognized、非黑画面、matrix PASS、单样本通过宣称兼容完成。
 

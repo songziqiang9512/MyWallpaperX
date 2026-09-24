@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "reviewLineLimit": 400,
-  "hardLineLimit": 800,
+  "hardLineLimit": 1000,
   "sourceRoots": [
     "MyWallpaperX",
     "WallpaperDaemonSources",
@@ -9,16 +9,8 @@
   ],
   "legacyFiles": {
     "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderColorTransferAnalyzer.swift": 1175,
-    "MyWallpaperX/Modules/OnlineLibrary/Toolbar/OnlineLibraryToolbarController.swift": 866,
-    "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserItem.swift": 840,
-    "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift": 884,
-    "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseFetching.swift": 873,
-    "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryRecords.swift": 837,
     "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem.swift": 1182,
-    "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSheet.swift": 1443,
-    "MyWallpaperX/Modules/VideoLibrary/Toolbar/VideoLibraryToolbarController.swift": 919,
     "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView.swift": 1077,
-    "MyWallpaperX/Modules/VideoLibrary/UI/AppKitSettingsView.swift": 1504,
     "MyWallpaperX/Shell/SidebarViews.swift": 1341
   }
 }

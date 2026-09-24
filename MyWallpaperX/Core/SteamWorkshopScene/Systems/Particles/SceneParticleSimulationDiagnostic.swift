@@ -1,6 +1,8 @@
 import Foundation
 
 nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendable {
+    case prewarmBudgetExceeded
+    case prewarmInvalidDuration
     case unsupportedEmitter
     case unsupportedInitializer
     case hsvColorBounded

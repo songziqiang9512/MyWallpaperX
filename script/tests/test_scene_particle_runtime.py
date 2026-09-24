@@ -342,6 +342,8 @@ enum Harness {
             try printJSON(syntheticChildPointerControlPoint())
         case "dynamic-control-point-angle-synthetic":
             try printJSON(syntheticDynamicControlPointAngle())
+        case "batch-evidence-synthetic":
+            try printJSON(syntheticBatchEvidence())
         case "lifecycle-synthetic":
             try printJSON(syntheticLifecycle())
         case "playback-delta-synthetic":
@@ -2282,6 +2284,7 @@ enum Harness {
             "bufferMatches": coarseBatch?.instanceBuffer.count
                 == coarseBatch?.instances.count,
             "usesPerspective": coarseBatch?.usesPerspective ?? false,
+            "sizeIsWorldSpace": coarseBatch?.sizeIsWorldSpace ?? false,
             "orientationScreen": coarseBatch?.orientation == .screen,
             "mixedRendererLoaded": coarseRuntime.activeLayerIDs.contains(34),
             "malformedRendererLoaded": coarseRuntime.activeLayerIDs.contains(35),
@@ -2927,6 +2930,56 @@ enum Harness {
             "hiddenMentioned": runtime.diagnostics.contains {
                 $0.layerID == 5 || $0.particlePath.contains("hidden-never-loaded")
             },
+        ]
+    }
+
+    private static func syntheticBatchEvidence() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-particle-evidence-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeParticle("particles/burst.json", material: "materials/shared.json",
+                          lifetime: 0.05, rate: 60, emitterDuration: 0.034, under: directory)
+        try writeParticle("particles/dormant.json", material: "materials/shared.json",
+                          rate: 0, under: directory)
+        let descriptor = SceneRenderDescriptor(
+            layers: [layer(200, "particles/burst.json"), layer(201, "particles/dormant.json")],
+            renderOrderLayerIDs: [200, 201],
+            materialPasses: [.init(materialPath: "materials/shared.json",
+                shaderPath: "genericparticle", texturePaths: ["shared.png"], blending: "additive")]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        guard let playback = SceneParticlePlaybackState(
+            descriptor: descriptor, cacheDirectory: directory, device: device
+        ) else { throw HarnessError.noParticlePipeline }
+        let initial = playback.loadReportLines(descriptor: descriptor)
+        playback.prepareFrame()
+        let rejected = playback.advance(by: 1.0 / 30.0)
+        let beforeCommit = playback.committedNonemptyBatchLayerIDs.sorted()
+        playback.discardPreparedFrame()
+        let discarded = playback.loadReportLines(descriptor: descriptor)
+        // A spurious commit cannot publish the rejected frame.
+        playback.commitPreparedFrame()
+        let afterDiscard = playback.committedNonemptyBatchLayerIDs.sorted()
+        playback.prepareFrame()
+        let retried = playback.advance(by: 1.0 / 30.0)
+        playback.commitPreparedFrame()
+        let committed = playback.committedNonemptyBatchLayerIDs.sorted()
+        for _ in 0..<20 {
+            playback.prepareFrame()
+            _ = playback.advance(by: 1.0 / 30.0)
+            playback.commitPreparedFrame()
+        }
+        return [
+            "initial": initial,
+            "rejectedCount": rejected.reduce(0) { $0 + $1.instances.count },
+            "retriedCount": retried.reduce(0) { $0 + $1.instances.count },
+            "beforeCommit": beforeCommit,
+            "afterDiscard": afterDiscard,
+            "discarded": discarded,
+            "committed": committed,
+            "dormant": playback.loadReportLines(descriptor: descriptor),
         ]
     }
 
@@ -3609,6 +3662,7 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             self.assertAlmostEqual(coarse_value, fine_value, places=5)
         self.assertTrue(result["bufferMatches"])
         self.assertTrue(result["usesPerspective"])
+        self.assertTrue(result["sizeIsWorldSpace"])
         self.assertTrue(result["orientationScreen"])
         self.assertFalse(result["mixedRendererLoaded"])
         self.assertFalse(result["malformedRendererLoaded"])
@@ -3763,6 +3817,21 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             "particles/invalid-inherit-death.json:eventColorOperatorOutsideFollowChild",
             "particles/invalid-inherit-follow.json:eventColorOperatorUnsupported",
         })
+
+    def test_nonempty_batch_evidence_requires_commit_and_survives_dormancy(self) -> None:
+        result = self.run_harness("batch-evidence-synthetic")
+        self.assertIn("particle loaded: 2 / 2", result["initial"])
+        self.assertIn("particle current nonempty: layers=[]", result["initial"])
+        self.assertIn("particle committed nonempty: layers=[]", result["initial"])
+        self.assertGreater(result["rejectedCount"], 0)
+        self.assertEqual(result["rejectedCount"], result["retriedCount"])
+        self.assertEqual(result["beforeCommit"], [])
+        self.assertEqual(result["afterDiscard"], [])
+        self.assertIn("particle current nonempty: layers=[]", result["discarded"])
+        self.assertEqual(result["committed"], [200])
+        self.assertIn("particle loaded: 2 / 2", result["dormant"])
+        self.assertIn("particle current nonempty: layers=[]", result["dormant"])
+        self.assertIn("particle committed nonempty: layers=[200]", result["dormant"])
 
     def test_child_audio_consumer_receives_the_shared_typed_input(self) -> None:
         result = self.run_harness("eventfollow-synthetic")

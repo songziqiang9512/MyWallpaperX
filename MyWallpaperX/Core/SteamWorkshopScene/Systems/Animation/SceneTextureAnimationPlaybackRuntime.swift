@@ -41,9 +41,16 @@ nonisolated final class SceneTextureAnimationPlaybackRuntime: @unchecked Sendabl
             return index == 0 ? 0 : frameEndTimes[index - 1]
         }
 
+        func samplingTime(_ value: Double) -> Float {
+            // Renderer playback is Float. Quantization can advance to the
+            // next frame, including rounding the last instant up to the loop end.
+            let time = Float(normalizedPlaybackTime(value))
+            return time < Float(duration) ? time : 0
+        }
+
         func frame(atPlaybackTime value: Double) -> Double {
             guard frameCount > 0, duration > 0 else { return 0 }
-            let time = normalizedPlaybackTime(value)
+            let time = Double(samplingTime(value))
             var lower = 0
             var upper = frameEndTimes.count
             while lower < upper {
@@ -144,7 +151,7 @@ nonisolated final class SceneTextureAnimationPlaybackRuntime: @unchecked Sendabl
                 at: sceneTime,
                 definition: definition
             ) ?? definition.normalizedPlaybackTime(sceneTime)
-            output[layerID] = Float(value)
+            output[layerID] = definition.samplingTime(value)
         }
     }
 

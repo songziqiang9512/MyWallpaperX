@@ -34,6 +34,14 @@ def baseline(
 
 
 class CodeHealthGateTests(unittest.TestCase):
+    def test_authorized_thousand_line_transition_keeps_future_ratchet(self) -> None:
+        self.assertEqual([], GATE.historical_problems(
+            baseline(hard_limit=1000), baseline(hard_limit=800),
+        ))
+        self.assertTrue(GATE.historical_problems(
+            baseline(hard_limit=1001), baseline(hard_limit=1000),
+        ))
+
     def test_current_tree_warns_between_review_and_hard_limits(self) -> None:
         errors, warnings = GATE.current_tree_findings(
             baseline(legacy_files={"MyWallpaperX/Legacy.swift": 900}),

@@ -64,6 +64,9 @@ nonisolated extension SceneParticleOperator {
         default:
             return nil
         }
+        // Classic authoring accepts an exact zero direction as positive Z.
+        // Keep nonzero admission and normalization in the existing profile.
+        if axis == .zero { return SIMD3(0, 0, 1) }
         let length = sqrt(axis.x * axis.x + axis.y * axis.y + axis.z * axis.z)
         guard length.isFinite, length > 1e-12 else { return nil }
         return axis / length
