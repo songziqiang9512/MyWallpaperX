@@ -377,7 +377,8 @@ final class SceneParticleRuntime {
                 instances: root.instances,
                 orientation: root.orientation,
                 orientationAxis: root.orientationAxis,
-                usesPerspective: root.usesPerspective
+                usesPerspective: root.usesPerspective,
+                sizeIsWorldSpace: root.definition.flags.isWorldSpace
             ))
             layers[index].rootRender = root
         }
@@ -595,10 +596,19 @@ final class SceneParticleRuntime {
                     )
                     return nil
                 }
-                texture = SceneParticleColorTextureAdapter.adapt(
+                guard let colorTexture = SceneParticleColorTextureAdapter.adapt(
                     loadedTexture,
                     device: device
-                )
+                ) else {
+                    addDiagnostic(
+                        kind: .textureLoadFailed,
+                        layerID: layer.id,
+                        path: path,
+                        detail: "particleColorTextureAdaptationFailed"
+                    )
+                    return nil
+                }
+                texture = colorTexture
                 let container = textureLoader.texContainer(from: textureURL)
                 spriteAnimation = container.flatMap {
                     SceneSpriteAnimation(container: $0, sourceURL: textureURL)

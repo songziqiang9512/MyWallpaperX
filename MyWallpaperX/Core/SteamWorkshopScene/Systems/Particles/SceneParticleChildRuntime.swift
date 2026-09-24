@@ -252,7 +252,8 @@ final class SceneParticleChildRuntime {
                 instances: instances,
                 orientation: template.orientation,
                 orientationAxis: template.orientationAxis,
-                usesPerspective: template.usesPerspective
+                usesPerspective: template.usesPerspective,
+                sizeIsWorldSpace: template.definition.flags.isWorldSpace
             ))
         }
         if censusDue {

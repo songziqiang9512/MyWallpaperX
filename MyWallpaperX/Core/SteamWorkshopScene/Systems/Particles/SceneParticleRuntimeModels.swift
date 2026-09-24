@@ -54,6 +54,7 @@ struct SceneParticleDrawBatch {
     let orientation: SceneParticleOrientation
     let orientationAxis: SIMD3<Float>?
     let usesPerspective: Bool
+    var sizeIsWorldSpace: Bool = false
 }
 
 struct SceneParticleRuntimeAudioEvaluationObservation: Hashable, Sendable {
