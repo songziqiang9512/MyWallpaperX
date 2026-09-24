@@ -228,12 +228,15 @@ enum SceneParticleChildTemplateSupport {
     )? {
         switch source {
         case let .file(url):
-            guard case let .loaded(texture) = textureLoader.load(from: url, device: device) else {
+            guard case let .loaded(texture) = textureLoader.load(from: url, device: device),
+                  let colorTexture = SceneParticleColorTextureAdapter.adapt(
+                    texture, device: device
+                  ) else {
                 return nil
             }
             let container = textureLoader.texContainer(from: url)
             return (
-                SceneParticleColorTextureAdapter.adapt(texture, device: device),
+                colorTexture,
                 container.flatMap {
                     SceneSpriteAnimation(container: $0, sourceURL: url)
                 },
