@@ -188,7 +188,7 @@ extension WallpaperManager {
 
     func shouldRunAutoSwitchTimer() -> Bool {
         // 只有“启用自动切换 + 有壁纸 + 处于可切换模式”时才启动 timer。
-        settings.autoSwitchEnabled && !wallpapers.isEmpty && currentWallpaper != nil && isSwitchingPlaybackMode()
+        settings.autoSwitchEnabled && !wallpapers.isEmpty && effectiveCurrentWallpaper != nil && isSwitchingPlaybackMode()
     }
 
     func shouldLoopCurrentItemInEngine() -> Bool {

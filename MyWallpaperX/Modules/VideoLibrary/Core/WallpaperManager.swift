@@ -82,6 +82,12 @@ class WallpaperManager: ObservableObject {
     @Published var recentlyUsedWallpapers: [VideoWallpaper] = []
     @Published var isPlaying: Bool = true
     @Published var activeWallpaperRuntime: ActiveWallpaperRuntime = .video
+    // E2a-3: requested 层选择（立即写，UI 高亮读 effectiveCurrentWallpaper）；
+    // committed currentWallpaper 延后到 daemon ready 提交——失败项真值不落地。
+    @Published var pendingWallpaper: VideoWallpaper? = nil
+    var effectiveCurrentWallpaper: VideoWallpaper? {
+        pendingWallpaper ?? currentWallpaper
+    }
     // E2a-1: requested 层的产品级意图纪元——唯一选择权威在每次切换入口
     // 递增；runtime adapter 以单调采纳作为执行事实镜像（只读注入，
     // 不改变任何提交点）。

@@ -316,6 +316,15 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
             }
             .store(in: &cancellables)
 
+        // E2a-3: requested 层选择变化同样驱动网格刷新（committed 延后提交）。
+        wallpaperManager.$pendingWallpaper
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.scheduleSyncSelectionFromManager()
+                self?.scheduleMultiSelectModeVisualRefresh()
+            }
+            .store(in: &cancellables)
+
         // 用户调整缩放时重新计算卡片尺寸。
         wallpaperManager.$gridZoomOffset
             .receive(on: DispatchQueue.main)
@@ -338,7 +347,7 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
     private func configure(item: AppKitWallpaperItem, for wallpaper: VideoWallpaper) {
         let isSelected = wallpaperManager.selectedWallpaperId == wallpaper.id
             || wallpaperManager.selectedWallpaperIds.contains(wallpaper.id)
-        let isPlaying = wallpaperManager.currentWallpaper?.path == wallpaper.path
+        let isPlaying = wallpaperManager.effectiveCurrentWallpaper?.path == wallpaper.path
         let isFavorite = wallpaper.isFavorite
         let multiSelect = wallpaperManager.isMultiSelectMode
 
@@ -661,7 +670,7 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
         if let single = wallpaperManager.selectedWallpaperId {
             selectedIDs.insert(single)
         }
-        let currentPlayingNormalizedPath = wallpaperManager.currentWallpaper.map { wallpaperManager.normalizedPath($0.path) }
+        let currentPlayingNormalizedPath = wallpaperManager.effectiveCurrentWallpaper.map { wallpaperManager.normalizedPath($0.path) }
         let isMultiSelect = wallpaperManager.isMultiSelectMode
         var fallbackReloadIndexPaths = Set<IndexPath>()
 

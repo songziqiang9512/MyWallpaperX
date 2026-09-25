@@ -161,7 +161,9 @@ extension WallpaperManager {
     func handlePlaybackFailure(forPath path: String) {
         guard activeWallpaperRuntime == .video else { return }
         let normalizedFailedPath = normalizedPath(path)
-        guard normalizedPath(currentWallpaper?.path ?? "") == normalizedFailedPath else {
+        // E2a-3: 失败项可能在 requested 层（committed 仍指旧项）——按
+        // effective 选择匹配，失败回退才能触发。
+        guard normalizedPath(effectiveCurrentWallpaper?.path ?? "") == normalizedFailedPath else {
             return
         }
 

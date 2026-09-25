@@ -21,6 +21,10 @@ public final class WallpaperEngine: NSObject {
     public static let shared = WallpaperEngine()
     public static let playbackFailedNotification = Notification.Name("WallpaperEnginePlaybackFailedNotification")
     public static let playbackEndedNotification = Notification.Name("WallpaperEnginePlaybackEndedNotification")
+    /// E2a-3: a play request reached ready on the daemon for the current
+    /// content path — the selection authority commits its deferred truth on
+    /// this signal.
+    public static let playbackReadyNotification = Notification.Name("WallpaperEnginePlaybackReadyNotification")
 
     // 一个 display 对应一个 daemon session；后面所有播放、暂停、换壁纸都围绕这个会话表展开。
     final class DisplayDaemonSession {

@@ -199,7 +199,7 @@ extension AppKitLibraryGridContainerView: NSCollectionViewDelegate {
             multiSelectMode: wallpaperManager.isMultiSelectMode
         )
         cardItem.applyPlayingState(
-            isPlaying: wallpaperManager.currentWallpaper?.path == wallpaper.path
+            isPlaying: wallpaperManager.effectiveCurrentWallpaper?.path == wallpaper.path
         )
     }
 

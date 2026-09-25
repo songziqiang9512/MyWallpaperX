@@ -100,6 +100,15 @@ extension WallpaperEngine {
                 lastFailureVideoPath = nil
                 lastFailureAt = 0
                 displayCrashCounts[session.displayID] = 0
+                // E2a-3: the committed selection may land now — the daemon
+                // confirmed this exact content is playing.
+                NotificationCenter.default.post(
+                    name: Self.playbackReadyNotification,
+                    object: self,
+                    userInfo: [
+                        "videoPath": event.videoPath ?? currentContentPath as Any
+                    ]
+                )
             }
         case "failed":
             handlePlaybackFailureEvent(event, for: session)

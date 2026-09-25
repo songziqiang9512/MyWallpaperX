@@ -303,6 +303,9 @@ extension WallpaperManager {
     func clearCurrentWallpaperReference() {
         // 当前壁纸引用只清快照，不立刻停引擎，停播由上层分支决定。
         currentWallpaper = nil
+        // E2a-3: requested 层一并撤销（web/scene/systemStill 切换入口经
+        // 此清引用，残留 pending 会让高亮谎报播放中）。
+        pendingWallpaper = nil
         persistCurrentWallpaperSnapshot()
     }
 
@@ -315,6 +318,8 @@ extension WallpaperManager {
     /// 的 `.stop`（video handler）与 Scene 的 `.stopped` 事件都汇聚
     /// 到这里，保证 stopped 状态只有这一个归属。
     func stopCurrentPlayback() {
+        // E2a-3: 停止同时撤销未提交的 requested 选择。
+        pendingWallpaper = nil
         clearCurrentWallpaperReference()
         stopAutoSwitchTimer()
         WallpaperEngine.shared.adoptIntentEpoch(beginPlaybackIntent())

@@ -20,6 +20,19 @@ extension WallpaperManager {
                 self?.handlePlaybackEnded(forPath: videoPath)
             }
             .store(in: &cancellables)
+
+        // E2a-3: daemon ready 提交延后的选择真值。
+        NotificationCenter.default.publisher(for: WallpaperEngine.playbackReadyNotification)
+            .sink { [weak self] notification in
+                guard let self,
+                      let videoPath = notification.userInfo?["videoPath"] as? String,
+                      let pending = self.pendingWallpaper,
+                      self.normalizedPath(pending.path) == self.normalizedPath(videoPath)
+                else { return }
+                self.currentWallpaper = pending
+                self.pendingWallpaper = nil
+            }
+            .store(in: &cancellables)
     }
 
     private func handleEnginePlaybackFailure(_ notification: Notification) {
@@ -30,6 +43,12 @@ extension WallpaperManager {
             return
         }
         guard let videoPath = notification.userInfo?["videoPath"] as? String else { return }
+        // E2a-3: 失败项不提交——committed 保持旧项。回退守卫按 effective
+        // 匹配（pending 仍在），回退触发后再撤销 requested 层。
         handlePlaybackFailure(forPath: videoPath)
+        if let pending = pendingWallpaper,
+           normalizedPath(pending.path) == normalizedPath(videoPath) {
+            pendingWallpaper = nil
+        }
     }
 }

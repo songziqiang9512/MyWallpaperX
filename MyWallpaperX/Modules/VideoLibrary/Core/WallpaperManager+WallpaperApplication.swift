@@ -27,8 +27,9 @@ extension WallpaperManager {
             enabled: recordHistory
         )
 
-        // 更新当前壁纸
-        currentWallpaper = wallpaper
+        // E2a-3: requested 层立即写（UI 高亮即时）；committed
+        // currentWallpaper 延后到 daemon ready 事件提交——失败项真值不落地。
+        pendingWallpaper = wallpaper
         activeWallpaperRuntime = .video
         NotificationCenter.default.post(
             name: .onlineDownloadsPlaybackPathDidChange,
@@ -188,7 +189,7 @@ extension WallpaperManager {
         generateStaticFrameIfNeeded(for: url) { [weak self] path in
             guard let self, let path else { return }
             // 确认用户当前壁纸未切走
-            guard self.currentWallpaper?.path == wallpaper.path,
+            guard self.effectiveCurrentWallpaper?.path == wallpaper.path,
                   self.settings.syncSystemWallpaper else { return }
             self.applySystemWallpaperSync(from: path)
         }
