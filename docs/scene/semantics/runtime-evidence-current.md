@@ -2337,3 +2337,11 @@ v4 的 `3780119725` generation 1 include-current-process capture data peak `0.49
 **结果：**rehydration 路径与 copy 节点路径**零命中**；4230 次命中全部来自 `VisualFailurePassthrough` 的 pair 成员拷贝（≈5.9/帧，与 census 的 6.0/帧吻合），成员在 `zero/one` 间交替。**归因：**D2b''（50672fda，2026-09-19——晚于 2026-09-16 冻结基线）使 239/657/1509 三层以激活直通执行（`activation-passthrough:script-gated-dependency-preproof-mismatch`），每帧每层为保留 previous-current 在 pair 的 ping-pong 成员间 blit（`inputMember != outputMember` 分支），3 层 × 2 成员 = 6 次/帧、35.5 MB/帧。前一日证据条目把该拷贝猜测为 history rehydration 属归因错误，本条更正。
 
 **裁决：**①拷贝**有消费者**（下一帧 pair 输入与合成器的 previous-current），不是 AS3"去掉无消费者拷贝"的对象；②消融候选更新为**成员别名发布**——同文件 `inputMember == outputMember` 分支已有免拷贝 `rewrappedForGraphIdentity` 先例，跨成员情形能否以输入成员纹理直接发布取决于 pair 池的成员互斥语义（下一阶段写入成员时是否假设独占），需独立设计核验后按 AS1 门 A/B；③E1c 前提失效的担忧解除：无 rehydration 拷贝、`reusesStaticPlan` 未受影响。
+
+<a id="e-2026-09-26-as3-alias-verdict"></a>
+
+### E-2026-09-26-AS3-ALIAS-VERDICT — 跨成员别名发布消融裁决：有证据不实施（渲染冒险 + 运行时条件成员调度）
+
+**核验（只读代码推导，零改动）：**主循环（SceneResolvedMaterialGraphExecutor.swift:315-332）每阶段要求 `pair.member == pairStep.inputMember` 且阶段渲染写入 `pairStep.outputMember` 纹理——成员 ping-pong 交替（k 阶段 m0→m1，则 k+1 阶段 m1→m0）。对激活直通阶段做跨成员别名发布（把输入成员纹理直接发布为输出身份资源）会使**下一阶段的采样输入与渲染写入落在同一张纹理**（Metal 标准渲染不可采样自身附件）——渲染冒险，不安全。保持成员不翻页则违反 `pair.member == pairStep.inputMember` 守卫（整层 invalidLease）。让直通步在计划期取同成员（走免拷贝 `rewrappedForGraphIdentity` 分支）不可行：激活直通是**运行时**状态（脚本门控逐帧可翻转，同一效果可 resolved/直通交替），静态成员调度无法预知；且 239/657/1509 的直通步（effect 1）均非链尾（后续阶段同帧仍写成员）。
+
+**裁决：**6 次/帧成员保留拷贝是 ping-pong 渲染纪律在运行时条件直通上的**机制固有成本**，AS3 对该项记"有证据不实施"；census 的 +1/+1/+1 与 6 拷贝为 D2b'' 能力的确定性代价，按回归保护口径作为新基线事实登记（非回退）。AS3 在本样本的可删对象仍为零（22 次 source capture 为"读取已累积合成"固有代价，09-16 裁决维持）；下一 AS3 动作回到身份矩阵补齐（30 FPS 档、双屏、Release 等价构建、含 blend/refraction/history 样本）后再选新样本。
