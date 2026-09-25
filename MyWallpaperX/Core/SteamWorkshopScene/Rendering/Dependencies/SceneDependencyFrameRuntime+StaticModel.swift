@@ -28,15 +28,7 @@ extension SceneDependencyFrameRuntime {
     }
 
     func requiresForwardCapture(for providerLayerID: Int) -> Bool {
-        plan.bindingsByConsumerLayerID.values.contains {
-            $0.providerLayerID == providerLayerID && $0.requiresForwardCapture
-        } || plan.multiProviderAggregatesByConsumerLayerID.values.flatMap {
-            $0.bindings
-        }.contains {
-            $0.providerLayerID == providerLayerID && $0.requiresForwardCapture
-        } || plan.staticModelBindingsByConsumerLayerID.values.contains {
-            $0.providerLayerID == providerLayerID && $0.requiresForwardCapture
-        }
+        forwardCaptureProviderLayerIDs.contains(providerLayerID)
     }
 
     static func staticModelCaptureExtent(
@@ -73,22 +65,15 @@ extension SceneDependencyFrameRuntime {
         for providerLayerID: Int,
         activeStaticModelConsumerLayerIDs: Set<Int>
     ) -> Bool {
-        if plan.bindingsByConsumerLayerID.values.contains(where: {
-            $0.providerLayerID == providerLayerID
-        }) {
+        if nonStaticModelProviderLayerIDs.contains(providerLayerID) {
             return true
         }
-        if plan.multiProviderAggregatesByConsumerLayerID.values.flatMap({
-            $0.bindings
-        }).contains(where: {
-            $0.providerLayerID == providerLayerID
-        }) {
-            return true
+        guard let consumerIDs = staticModelConsumerLayerIDsByProviderLayerID[
+            providerLayerID
+        ] else {
+            return false
         }
-        return plan.staticModelBindingsByConsumerLayerID.values.contains {
-            $0.providerLayerID == providerLayerID
-                && activeStaticModelConsumerLayerIDs.contains($0.consumerLayerID)
-        }
+        return !consumerIDs.isDisjoint(with: activeStaticModelConsumerLayerIDs)
     }
 
     func staticModelNamedAlbedo(

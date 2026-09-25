@@ -10,32 +10,30 @@ extension SceneDependencyRenderPlan {
             return nil
         }
         let available = Set(authoredLayerIDs)
-        let authoredIndex = Dictionary(uniqueKeysWithValues:
-            authoredLayerIDs.enumerated().map { ($0.element, $0.offset) }
-        )
-        let aggregateBindings = multiProviderAggregatesByConsumerLayerID.values
-            .flatMap(\.bindings)
+        // Both plan maps are keyed by consumer, so one consumer's complete
+        // binding vector is a direct lookup pair - never a values scan.
         func bindingsForConsumer(_ layerID: Int) -> [Binding] {
-            var result = bindingsByConsumerLayerID.values.filter {
-                $0.consumerLayerID == layerID
+            guard let aggregate = multiProviderAggregatesByConsumerLayerID[
+                layerID
+            ] else {
+                return bindingsByConsumerLayerID[layerID].map { [$0] } ?? []
             }
-            result.append(contentsOf: aggregateBindings.filter {
-                $0.consumerLayerID == layerID
-            })
-            return result
+            guard let singular = bindingsByConsumerLayerID[layerID] else {
+                return aggregate.bindings
+            }
+            return [singular] + aggregate.bindings
         }
         var indegree = Dictionary(uniqueKeysWithValues:
             authoredLayerIDs.map { ($0, 0) }
         )
         var successors: [Int: Set<Int>] = [:]
-        for binding in Array(bindingsByConsumerLayerID.values)
-            + aggregateBindings
-        where available.contains(binding.providerLayerID)
-            && available.contains(binding.consumerLayerID)
-            && binding.providerLayerID != binding.consumerLayerID
-            && requiredGraphOutputProviderLayerIDs.contains(
-                binding.providerLayerID
-            ) {
+        func admitEdge(_ binding: Binding) {
+            guard available.contains(binding.providerLayerID),
+                  available.contains(binding.consumerLayerID),
+                  binding.providerLayerID != binding.consumerLayerID,
+                  requiredGraphOutputProviderLayerIDs.contains(
+                      binding.providerLayerID
+                  ) else { return }
             // Only an effectful provider owns an earlier graph transaction.
             // A static forward provider is captured by the renderer prepass;
             // moving its consumer in this ledger would diverge from authored
@@ -46,14 +44,26 @@ extension SceneDependencyRenderPlan {
                 indegree[binding.consumerLayerID, default: 0] += 1
             }
         }
-        var remaining = available
-        var result: [Int] = []
-        result.reserveCapacity(authoredLayerIDs.count)
-        var forwardGraphProviders = Set((Array(bindingsByConsumerLayerID.values)
-            + aggregateBindings)
-            .filter(\.requiresForwardCapture)
-            .map(\.providerLayerID))
-            .intersection(requiredGraphOutputProviderLayerIDs)
+        for binding in bindingsByConsumerLayerID.values {
+            admitEdge(binding)
+        }
+        for aggregate in multiProviderAggregatesByConsumerLayerID.values {
+            for binding in aggregate.bindings {
+                admitEdge(binding)
+            }
+        }
+        var forwardGraphProviders = Set(
+            bindingsByConsumerLayerID.values.compactMap {
+                $0.requiresForwardCapture ? $0.providerLayerID : nil
+            }
+        )
+        for aggregate in multiProviderAggregatesByConsumerLayerID.values {
+            for binding in aggregate.bindings
+            where binding.requiresForwardCapture {
+                forwardGraphProviders.insert(binding.providerLayerID)
+            }
+        }
+        forwardGraphProviders.formIntersection(requiredGraphOutputProviderLayerIDs)
         var changed = true
         while changed {
             changed = false
@@ -68,14 +78,22 @@ extension SceneDependencyRenderPlan {
                 }
             }
         }
-        while let next = remaining.filter({ indegree[$0] == 0 }).min(by: {
-            let lhsForward = forwardGraphProviders.contains($0)
-            let rhsForward = forwardGraphProviders.contains($1)
-            if lhsForward != rhsForward { return lhsForward }
-            return authoredIndex[$0, default: .max]
-                < authoredIndex[$1, default: .max]
-        }) {
-            remaining.remove(next)
+        var emitted = Set<Int>()
+        var result: [Int] = []
+        result.reserveCapacity(authoredLayerIDs.count)
+        while emitted.count < available.count {
+            // Selection order of the previous `filter + min(by:)`: any
+            // forward-graph provider wins over a plain layer, then authored
+            // order decides.
+            let next = authoredLayerIDs.first {
+                !emitted.contains($0)
+                    && indegree[$0] == 0
+                    && forwardGraphProviders.contains($0)
+            } ?? authoredLayerIDs.first {
+                !emitted.contains($0) && indegree[$0] == 0
+            }
+            guard let next else { break }
+            emitted.insert(next)
             result.append(next)
             for successor in successors[next] ?? [] {
                 indegree[successor, default: 0] -= 1
@@ -97,50 +115,49 @@ extension SceneDependencyRenderPlan {
             return nil
         }
         let available = Set(authoredLayerIDs)
-        let authoredIndex = Dictionary(uniqueKeysWithValues:
-            authoredLayerIDs.enumerated().map { ($0.element, $0.offset) }
-        )
         // Aggregate consumers own several independently captured providers.
         // Keep these bindings in the same forward-preparation ledger as the
         // legacy one-provider route; otherwise a provider authored after its
         // consumer would never be published before the consumer executes.
-        let aggregateBindings = multiProviderAggregatesByConsumerLayerID.values
-            .flatMap(\.bindings)
         func bindingsForConsumer(_ layerID: Int) -> [Binding] {
-            var result = bindingsByConsumerLayerID.values.filter {
-                $0.consumerLayerID == layerID
+            guard let aggregate = multiProviderAggregatesByConsumerLayerID[
+                layerID
+            ] else {
+                return bindingsByConsumerLayerID[layerID].map { [$0] } ?? []
             }
-            result.append(contentsOf: aggregateBindings.filter {
-                $0.consumerLayerID == layerID
-            })
-            return result
+            guard let singular = bindingsByConsumerLayerID[layerID] else {
+                return aggregate.bindings
+            }
+            return [singular] + aggregate.bindings
         }
-        var providers = Set<Int>(bindingsByConsumerLayerID.values.compactMap {
-            binding in
-            guard binding.requiresForwardCapture,
-                  activeExecutionLayerIDs.contains(binding.consumerLayerID)
-            else { return nil }
-            return binding.providerLayerID
-        })
-        providers.formUnion(aggregateBindings.compactMap { binding in
-            guard binding.requiresForwardCapture,
-                  activeExecutionLayerIDs.contains(binding.consumerLayerID)
-            else { return nil }
-            return binding.providerLayerID
-        })
-        providers.formUnion(staticModelBindingsByConsumerLayerID.values.compactMap {
-            binding in
-            binding.requiresForwardCapture
-                && activeStaticModelConsumerLayerIDs.contains(binding.consumerLayerID)
-                ? binding.providerLayerID : nil
-        })
+        var providers = Set<Int>()
+        for binding in bindingsByConsumerLayerID.values
+        where binding.requiresForwardCapture
+            && activeExecutionLayerIDs.contains(binding.consumerLayerID) {
+            providers.insert(binding.providerLayerID)
+        }
+        for aggregate in multiProviderAggregatesByConsumerLayerID.values {
+            guard activeExecutionLayerIDs.contains(aggregate.consumerLayerID)
+            else { continue }
+            for binding in aggregate.bindings
+            where binding.requiresForwardCapture {
+                providers.insert(binding.providerLayerID)
+            }
+        }
+        for binding in staticModelBindingsByConsumerLayerID.values
+        where binding.requiresForwardCapture
+            && activeStaticModelConsumerLayerIDs.contains(
+                binding.consumerLayerID
+            ) {
+            providers.insert(binding.providerLayerID)
+        }
         var changed = true
         while changed {
             changed = false
             for providerLayerID in providers {
                 for upstream in bindingsForConsumer(providerLayerID) {
-                    changed = providers.insert(upstream.providerLayerID).inserted
-                        || changed
+                    changed = providers.insert(upstream.providerLayerID)
+                        .inserted || changed
                 }
             }
         }
@@ -158,14 +175,19 @@ extension SceneDependencyRenderPlan {
                 }
             }
         }
-        var remaining = providers
+        var emitted = Set<Int>()
         var result: [Int] = []
         result.reserveCapacity(providers.count)
-        while let next = remaining.filter({ indegree[$0] == 0 }).min(by: {
-            authoredIndex[$0, default: .max]
-                < authoredIndex[$1, default: .max]
-        }) {
-            remaining.remove(next)
+        while emitted.count < providers.count {
+            // Authored-order scan replaces `filter + min(by:)`: providers are
+            // a subset of the authored IDs, so the first ready candidate in
+            // authored order is exactly the minimum authored index.
+            guard let next = authoredLayerIDs.first(where: {
+                providers.contains($0)
+                    && !emitted.contains($0)
+                    && indegree[$0] == 0
+            }) else { break }
+            emitted.insert(next)
             result.append(next)
             for successor in successors[next] ?? [] {
                 indegree[successor, default: 0] -= 1

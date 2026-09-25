@@ -73,6 +73,15 @@ final class SceneDependencyFrameRuntime {
 
     let plan: SceneDependencyRenderPlan
     let targetPool: SceneNamedRenderTargetPool
+    /// Launch-invariant reverse indexes over the plan's consumer-keyed
+    /// binding maps. Provider-keyed seams (raw capture, forward-capture
+    /// queries) would otherwise rescan every binding map on each call; the
+    /// plan is immutable after construction, so these are built once here.
+    let providerBindingsByLayerID: [Int: [SceneDependencyRenderPlan.Binding]]
+    let nonStaticModelProviderLayerIDs: Set<Int>
+    let staticModelProviderLayerIDs: Set<Int>
+    let staticModelConsumerLayerIDsByProviderLayerID: [Int: Set<Int>]
+    let forwardCaptureProviderLayerIDs: Set<Int>
     private let captureTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-capture")
     private let namedGraphOutputPublicationTelemetry = SceneGPUCompletionTelemetry(
         phase: "named-graph-output-publication"
@@ -84,6 +93,20 @@ final class SceneDependencyFrameRuntime {
     private var reservationFrameEpoch: UInt64?
     var demandedGraphOutputProviderLayerIDs: Set<Int> = []
     var reservationsByProviderLayerID: [Int: EffectTargetReservation] = [:]
+    /// Ordinary frames repeat the same launch-invariant inputs to the pure
+    /// plan derivations below. Memoize the input identity so a steady frame
+    /// returns the cached result instead of rebuilding the fixed point.
+    private var forwardPreparationMemo: (
+        authoredLayerIDs: [Int],
+        activeExecutionLayerIDs: Set<Int>,
+        activeStaticModelConsumerLayerIDs: Set<Int>,
+        result: [Int]?
+    )?
+    private var executionLayerIDsMemo: (
+        visibleRootLayerIDs: Set<Int>,
+        availableExecutionLayerIDs: Set<Int>,
+        result: Set<Int>
+    )?
     /// Defensive same-frame publication identity. The claim/ticket bridge
     /// executes one graph per layer per frame, so a repeated
     /// `publishGraphOutputIfRequired` for the same layer is either the same
@@ -115,6 +138,41 @@ final class SceneDependencyFrameRuntime {
                 admittedResolvedMaterialReferences
         )
         self.targetPool = SceneNamedRenderTargetPool(device: device)
+        var providerBindings: [Int: [SceneDependencyRenderPlan.Binding]] = [:]
+        var nonStaticModelProviders = Set<Int>()
+        var forwardCaptureProviders = Set<Int>()
+        func admit(_ binding: SceneDependencyRenderPlan.Binding) {
+            providerBindings[binding.providerLayerID, default: []]
+                .append(binding)
+            nonStaticModelProviders.insert(binding.providerLayerID)
+            if binding.requiresForwardCapture {
+                forwardCaptureProviders.insert(binding.providerLayerID)
+            }
+        }
+        for binding in self.plan.bindingsByConsumerLayerID.values {
+            admit(binding)
+        }
+        for aggregate in self.plan.multiProviderAggregatesByConsumerLayerID
+            .values {
+            for binding in aggregate.bindings {
+                admit(binding)
+            }
+        }
+        var staticModelProviders = Set<Int>()
+        var staticModelConsumersByProvider: [Int: Set<Int>] = [:]
+        for binding in self.plan.staticModelBindingsByConsumerLayerID.values {
+            staticModelProviders.insert(binding.providerLayerID)
+            staticModelConsumersByProvider[binding.providerLayerID, default: []]
+                .insert(binding.consumerLayerID)
+            if binding.requiresForwardCapture {
+                forwardCaptureProviders.insert(binding.providerLayerID)
+            }
+        }
+        providerBindingsByLayerID = providerBindings
+        nonStaticModelProviderLayerIDs = nonStaticModelProviders
+        staticModelProviderLayerIDs = staticModelProviders
+        staticModelConsumerLayerIDsByProviderLayerID = staticModelConsumersByProvider
+        forwardCaptureProviderLayerIDs = forwardCaptureProviders
     }
 
     func requiresEffect(for consumerLayerID: Int) -> Bool {
@@ -145,10 +203,21 @@ final class SceneDependencyFrameRuntime {
         visibleRootLayerIDs: Set<Int>,
         availableExecutionLayerIDs: Set<Int>
     ) -> Set<Int> {
-        plan.resolvedMaterialExecutionLayerIDs(
+        if let memo = executionLayerIDsMemo,
+           memo.visibleRootLayerIDs == visibleRootLayerIDs,
+           memo.availableExecutionLayerIDs == availableExecutionLayerIDs {
+            return memo.result
+        }
+        let result = plan.resolvedMaterialExecutionLayerIDs(
             visibleRootLayerIDs: visibleRootLayerIDs,
             availableExecutionLayerIDs: availableExecutionLayerIDs
         )
+        executionLayerIDsMemo = (
+            visibleRootLayerIDs,
+            availableExecutionLayerIDs,
+            result
+        )
+        return result
     }
 
     func forwardDependencyPreparationOrder(
@@ -156,12 +225,26 @@ final class SceneDependencyFrameRuntime {
         activeExecutionLayerIDs: Set<Int>,
         activeStaticModelConsumerLayerIDs: Set<Int> = []
     ) -> [Int]? {
-        plan.forwardDependencyPreparationOrder(
+        if let memo = forwardPreparationMemo,
+           memo.authoredLayerIDs == authoredLayerIDs,
+           memo.activeExecutionLayerIDs == activeExecutionLayerIDs,
+           memo.activeStaticModelConsumerLayerIDs
+               == activeStaticModelConsumerLayerIDs {
+            return memo.result
+        }
+        let result = plan.forwardDependencyPreparationOrder(
             authoredLayerIDs: authoredLayerIDs,
             activeExecutionLayerIDs: activeExecutionLayerIDs,
             activeStaticModelConsumerLayerIDs:
                 activeStaticModelConsumerLayerIDs
         )
+        forwardPreparationMemo = (
+            authoredLayerIDs,
+            activeExecutionLayerIDs,
+            activeStaticModelConsumerLayerIDs,
+            result
+        )
+        return result
     }
 
     func blocksStaticLayerSourcePassthrough(for layerID: Int) -> Bool {
@@ -222,18 +305,14 @@ final class SceneDependencyFrameRuntime {
            ) != nil {
             return .published
         }
-        let providerBindings = plan.bindingsByConsumerLayerID.values.filter {
-            $0.providerLayerID == layer.id
-        } + plan.multiProviderAggregatesByConsumerLayerID.values.flatMap {
-            $0.bindings.filter { $0.providerLayerID == layer.id }
-        }
-        let staticModelBindings = plan.staticModelBindingsByConsumerLayerID.values
-            .filter { $0.providerLayerID == layer.id }
+        let providerBindings = providerBindingsByLayerID[layer.id] ?? []
+        let hasStaticModelBindings = staticModelProviderLayerIDs
+            .contains(layer.id)
         var captureFailureReason: String?
         let extent = captureExtentForProvider(
             layer: layer,
             providerBindings: providerBindings,
-            hasStaticModelBinding: !staticModelBindings.isEmpty,
+            hasStaticModelBinding: hasStaticModelBindings,
             reservation: reservation,
             frameEpoch: frameEpoch,
             sourceTexture: sourceTexture,
@@ -243,7 +322,6 @@ final class SceneDependencyFrameRuntime {
             failureReason: &captureFailureReason
         )
         let hasNormalBindings = !providerBindings.isEmpty
-        let hasStaticModelBindings = !staticModelBindings.isEmpty
         guard hasNormalBindings || hasStaticModelBindings else {
             captureTelemetry.recordFailure(layerID: layer.id)
             return .invalid(reasonCode: "named-provider-binding-missing")
@@ -448,7 +526,7 @@ final class SceneDependencyFrameRuntime {
                 return didEncode
             }
         case nil:
-            guard !staticModelBindings.isEmpty,
+            guard hasStaticModelBindings,
                   let sourceTexture,
                   let providerSource = Self.staticModelProviderSource(
                       layer: layer,

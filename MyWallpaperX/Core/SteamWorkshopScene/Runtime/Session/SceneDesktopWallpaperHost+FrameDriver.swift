@@ -249,8 +249,8 @@ extension SceneDesktopWallpaperHost {
         let previousSceneScriptValues = surfaces.values.first?.evaluationTransaction
             .previousValues(for: sceneScriptStatefulTargets)
             .filter { target, _ in
-                !launchContext.liveState.userValues.keys.contains(target)
-                    && !timelineValues.keys.contains(target)
+                launchContext.liveState.userValues[target] == nil
+                    && timelineValues[target] == nil
             } ?? [:]
         var commonSceneScriptValues = previousSceneScriptValues
         commonSceneScriptValues.merge(textScriptValues) { _, current in current }

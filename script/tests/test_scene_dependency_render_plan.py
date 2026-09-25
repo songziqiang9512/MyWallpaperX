@@ -3442,7 +3442,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             renderer,
         )
         self.assertIn(
-            "$0.requiresForwardCapture",
+            "forwardCaptureProviderLayerIDs.contains(providerLayerID)",
             static_model_dependency_runtime,
         )
 

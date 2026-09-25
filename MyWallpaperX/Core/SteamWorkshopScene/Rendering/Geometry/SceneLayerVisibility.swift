@@ -26,10 +26,46 @@ enum SceneLayerVisibility {
         layersByID: [Int: SceneRenderDescriptor.Layer],
         snapshot: SceneDynamicSnapshot
     ) -> Set<Int> {
-        return Set(descriptor.layers.compactMap { layer in
-            isEffectivelyVisible(layer, layersByID: layersByID, snapshot: snapshot)
-                ? layer.id : nil
-        })
+        // One pass with a shared per-call memo: every layer's authority is
+        // resolved at most once, and a resolved ancestor terminates the walk
+        // for all its descendants instead of re-walking the parent chain.
+        var visibilityByLayerID: [Int: Bool] = [:]
+        visibilityByLayerID.reserveCapacity(descriptor.layers.count)
+        var chain: [Int] = []
+        var result = Set<Int>()
+        result.reserveCapacity(descriptor.layers.count)
+        for layer in descriptor.layers {
+            chain.removeAll(keepingCapacity: true)
+            var chainVisible = true
+            var current: SceneRenderDescriptor.Layer? = layer
+            while let candidate = current {
+                if let cached = visibilityByLayerID[candidate.id] {
+                    chainVisible = cached
+                    break
+                }
+                guard hasCurrentSourceDisplayAuthority(
+                    for: candidate,
+                    snapshot: snapshot
+                ) else {
+                    visibilityByLayerID[candidate.id] = false
+                    chainVisible = false
+                    break
+                }
+                if chain.contains(candidate.id) {
+                    chainVisible = false
+                    break
+                }
+                chain.append(candidate.id)
+                current = candidate.parentID.flatMap { layersByID[$0] }
+            }
+            for layerID in chain {
+                visibilityByLayerID[layerID] = chainVisible
+            }
+            if chainVisible {
+                result.insert(layer.id)
+            }
+        }
+        return result
     }
 
     nonisolated static func reportLines(
