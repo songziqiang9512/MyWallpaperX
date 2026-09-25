@@ -22,7 +22,11 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
         rendererCount: Int,
         maximumParticleCount: Int
     ) {
-        let rawSubdivision = renderer.subdivision ?? 0
+        // WE rope default: subdivision 3 when authored absent (MirageWallpaper
+        // reference schema; `ropetrail` plans default to 1 and honor authored
+        // overrides in their own path). A zero subdivision would collapse the
+        // spline to straight segments.
+        let rawSubdivision = renderer.subdivision ?? 3
         let rawUVScale = renderer.uvScale ?? 1
         guard rendererCount == 1,
               renderer.kind == .rope,

@@ -2475,8 +2475,10 @@ enum Harness {
                 abs($0.0.frame0B.w - $0.1.frame0B.z) < 0.0001
             },
             "usesDisplacement": instances.allSatisfy { $0.frame1B.z == 1 },
-            "subdivisionDoublesSegments": subdivisionBatch?.instances.count
-                == instances.count * 2,
+            // WE rope default subdivision is 3 (4 sub-segments per node
+            // pair); the authored subdivision-1 fixture halves that density.
+            "subdivisionHalvesDefaultDensity": subdivisionBatch?.instances.count
+                == instances.count / 2,
             "scrollUVStart": scrollingBatch?.instances.first?.frame0B.z ?? -1,
             "scrollUVEnd": scrollingBatch?.instances.last?.frame0B.w ?? -1,
             "childRopeCount": childBatch?.instances.count ?? 0,
@@ -3711,7 +3713,7 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertTrue(result["uvEndsAtOne"])
         self.assertTrue(result["uvContinuous"])
         self.assertTrue(result["usesDisplacement"])
-        self.assertTrue(result["subdivisionDoublesSegments"])
+        self.assertTrue(result["subdivisionHalvesDefaultDensity"])
         self.assertAlmostEqual(result["scrollUVStart"], 0.5, places=5)
         self.assertAlmostEqual(result["scrollUVEnd"], 2.5, places=5)
         self.assertGreater(result["childRopeCount"], 0)

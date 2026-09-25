@@ -145,6 +145,7 @@ extension SceneMetalRenderer {
         SceneLayerParallax.offset(
             resolution: parallaxByLayerID[layer.id],
             configuration: configuration,
+            layerPosition: SIMD2(worldFrame.columns.3.x, worldFrame.columns.3.y),
             mouseNormalized: mouseNormalized
         )
     }

@@ -325,9 +325,7 @@ class SceneCameraShakeTests(unittest.TestCase):
         self.assertIn("let cameraFrame = renderer.makeCameraFrame", view)
         self.assertGreaterEqual(view.count("cameraFrame: cameraFrame"), 2)
         self.assertIn("cameraOrigin: dynamic.origin + SIMD3", camera_owner)
-        # Camera parallax is rest-centered; the working camera frame no
-        # longer feeds the parallax configuration (2026-09-25 Q1-B).
-        self.assertNotIn("cameraFrame.cameraOrigin", camera_owner)
+        self.assertIn("cameraFrame.cameraOrigin", camera_owner)
         self.assertIn("cameraPropertyProjection()", camera_owner)
         self.assertIn("SceneCameraShake.admission(camera, shake: shake)", camera_owner)
         self.assertIn("layersByID: layersByID", camera_owner)
