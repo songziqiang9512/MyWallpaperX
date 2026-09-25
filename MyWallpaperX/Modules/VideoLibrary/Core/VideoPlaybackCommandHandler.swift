@@ -36,10 +36,9 @@ final class VideoPlaybackCommandHandler: PlaybackEngineControlling {
             WallpaperEngine.shared.setSystemAudioSpectrumEnabled(enabled)
             return true
         case .switchNext:
-            WallpaperManager.shared.navigateWallpaperManually(
-                .next, userInitiated: true
-            )
-            return true
+            // E2a-5: 选择层意图由 UI 直接发给 WallpaperManager；引擎命令
+            // 处理端不再回手调用选择权威（依赖倒置修复）。
+            return false
         case .loadScene, .setProperty, .cancelSceneLaunch,
              .setPerformanceProfile:
             return false

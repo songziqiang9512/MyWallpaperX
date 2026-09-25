@@ -39,6 +39,9 @@ enum WallpaperEngineCommand: Equatable, Sendable {
     case pause
     case resume
     /// 选中层"下一张壁纸"；由当前选中权威消费，非引擎内部语义。
+    /// E2a-5: 选择层导航意图已由 UI 直接发给 WallpaperManager；命令通道
+    /// 不再消费该 case（保留枚举形状以稳定 IPC 合同，两个处理端均返回
+    /// false）。
     case switchNext
     /// 停止当前引擎播放（不退出 App）。
     case stop
