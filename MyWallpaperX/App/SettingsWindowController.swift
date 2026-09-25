@@ -67,7 +67,10 @@ private final class SettingsContentViewController: NSViewController {
             applyEngineSettings: { manager.applyEngineSettings(reloadWallpaper: $0) },
             applyPlaybackRateToEngine: { manager.applyPlaybackRateToEngine() },
             applySystemAudioSpectrumToEngine: { manager.applySystemAudioSpectrumToEngine() },
-            clearAllCaches: { manager.clearAllCaches() },
+            clearAllCaches: {
+                manager.clearAllCaches()
+                SteamWorkshopService.shared.clearAllCachedState()
+            },
             exportPersonalSettings: { try manager.exportPersonalSettings(to: $0) },
             importPersonalSettings: { try manager.importPersonalSettings(from: $0) },
             refreshAutoSwitchTimerIfNeeded: { manager.refreshAutoSwitchTimerIfNeeded() },
@@ -83,27 +86,12 @@ private final class SettingsContentViewController: NSViewController {
         )
     }()
 
-    private let settingsView = AppKitSettingsContainerView(
+    // E2d: 单一装配（lazy settingsView 复用同一 actions），Steam 缓存
+    // 清理由 App 动作层执行——Shared 视图不再直呼 Modules 单例。
+    private lazy var settingsView = AppKitSettingsContainerView(
         dependency: AppSettingsPanelDependency(
             settings: WallpaperManager.shared.settings,
-            actions: AppSettingsActions(
-                applyEngineSettings: { WallpaperManager.shared.applyEngineSettings(reloadWallpaper: $0) },
-                applyPlaybackRateToEngine: { WallpaperManager.shared.applyPlaybackRateToEngine() },
-                applySystemAudioSpectrumToEngine: { WallpaperManager.shared.applySystemAudioSpectrumToEngine() },
-                clearAllCaches: { WallpaperManager.shared.clearAllCaches() },
-                exportPersonalSettings: { try WallpaperManager.shared.exportPersonalSettings(to: $0) },
-                importPersonalSettings: { try WallpaperManager.shared.importPersonalSettings(from: $0) },
-                refreshAutoSwitchTimerIfNeeded: { WallpaperManager.shared.refreshAutoSwitchTimerIfNeeded() },
-                resetToFreshInstallState: { WallpaperManager.shared.resetToFreshInstallState() },
-                setLoopPlaybackEnabled: { WallpaperManager.shared.setLoopPlaybackEnabled($0) },
-                setRandomPlaybackEnabled: { WallpaperManager.shared.setRandomPlaybackEnabled($0) },
-                setSequentialPlaybackEnabled: { WallpaperManager.shared.setSequentialPlaybackEnabled($0) },
-                setSyncSystemWallpaperEnabled: { WallpaperManager.shared.setSyncSystemWallpaperEnabled($0) },
-                startAutoSwitchTimer: { WallpaperManager.shared.startAutoSwitchTimer() },
-                stopAutoSwitchTimer: { WallpaperManager.shared.stopAutoSwitchTimer() },
-                updateLoginItemStatus: { WallpaperManager.shared.updateLoginItemStatus() },
-                updateVolume: { WallpaperManager.shared.updateVolume($0) }
-            )
+            actions: settingsActions
         ),
         visibleSections: Set(AppSettingsSection.allCases),
         topContentInset: 24

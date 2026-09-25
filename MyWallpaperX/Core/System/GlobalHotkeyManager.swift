@@ -10,6 +10,9 @@ import Carbon
 final class GlobalHotkeyManager {
     static let shared = GlobalHotkeyManager()
 
+    /// E2d: 热键动作由 App 装配注入——Core 不再直呼 Modules 的选择权威。
+    var systemHotkeyActionHandler: (@MainActor (SystemHotkeyAction) -> Void)?
+
     private struct RegisteredHotkey {
         let id: UInt32
         let action: SystemHotkeyAction
@@ -67,7 +70,7 @@ final class GlobalHotkeyManager {
                 }
 
                 DispatchQueue.main.async {
-                    WallpaperManager.shared.performSystemHotkeyAction(action)
+                    GlobalHotkeyManager.shared.systemHotkeyActionHandler?(action)
                 }
                 return noErr
             },

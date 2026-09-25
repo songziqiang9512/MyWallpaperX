@@ -1262,7 +1262,6 @@ final class AppKitSettingsContainerView: NSView {
         presentAppAlert(alert, in: hostWindow) { [weak self] response in
             guard let self, response == .alertFirstButtonReturn else { return }
             self.dependency.actions.clearAllCaches()
-            SteamWorkshopService.shared.clearAllCachedState()
             let result = makeAppAlert(
                 title: "缓存已清空",
                 message: "下次浏览视频库、图片库或 Steam 创意工坊时会重新生成缓存。"
