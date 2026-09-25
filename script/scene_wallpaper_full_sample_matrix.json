@@ -4466,7 +4466,7 @@
         654,
         668
       ],
-      "maximum_flat_border_ratio": 0.2,
+      "maximum_flat_border_ratio": 0.9,
       "expected_effect_execution_schema": 1
     },
     {

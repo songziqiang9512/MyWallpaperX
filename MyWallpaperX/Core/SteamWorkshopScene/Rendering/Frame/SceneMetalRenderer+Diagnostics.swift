@@ -6,7 +6,10 @@ extension SceneMetalRenderer {
                 imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? [],
             admittedResolvedMaterialReferences:
                 imageCompositor.resolvedMaterialRuntime?
-                    .admittedResolvedMaterialReferences ?? []
+                    .admittedResolvedMaterialReferences ?? [],
+            propertyVisibilityOwnedLayerIDs:
+                imageCompositor.resolvedMaterialRuntime?
+                    .visibilityOwnedLayerIDs ?? []
         )
         let candidateCount = renderDescriptor.layers.filter {
             $0.contentKind == "spotLight"

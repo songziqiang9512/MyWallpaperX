@@ -136,7 +136,8 @@ enum SceneUtilityLayerRuntimePlanner {
         descriptor: SceneRenderDescriptor,
         resolvedMaterialLayerIDs: Set<Int> = [],
         admittedResolvedMaterialReferences:
-            Set<SceneDependencyRenderPlan.Reference> = []
+            Set<SceneDependencyRenderPlan.Reference> = [],
+        propertyVisibilityOwnedLayerIDs: Set<Int> = []
     ) -> [String] {
         let executableConsumers = executableUtilityConsumerLayerIDs(
             in: descriptor,
@@ -184,10 +185,24 @@ enum SceneUtilityLayerRuntimePlanner {
             }
             return false
         }
+        // A consumer endpoint that launch admission already left hidden, or
+        // whose visibility a property owner can flip at runtime, can keep its
+        // planned binding legitimately idle: the authored-visible seed only
+        // optimistically plans it. Providers are excluded on purpose - a
+        // hidden provider still publishes through the forward prepass, so its
+        // consumer binding remains an execution requirement.
+        let launchVisibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
+            in: descriptor
+        )
+        func consumerIsConditionallyIdle(_ layerID: Int) -> Bool {
+            !launchVisibleLayerIDs.contains(layerID)
+                || propertyVisibilityOwnedLayerIDs.contains(layerID)
+        }
         func bindingIsConditional(_ binding: SceneDependencyRenderPlan.Binding)
             -> Bool {
             endpointIsScriptOwnedVisible(binding.consumerLayerID)
                 || endpointIsScriptOwnedVisible(binding.providerLayerID)
+                || consumerIsConditionallyIdle(binding.consumerLayerID)
         }
         let namedBindingConditionalCount = dependencyPlan
             .bindingsByConsumerLayerID.values

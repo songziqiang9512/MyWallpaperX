@@ -313,6 +313,12 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     private let initiallyInactivePassthroughReasons: [String: Int]
     private let candidateCount: Int
     private let variantLimit: Int
+    /// Layers whose visibility a property/projected-value owner can change
+    /// at runtime; computed by launch admission and consumed by evidence
+    /// consumers that must treat hidden-endpoint bindings as conditional.
+    private let dynamicVisibleRootLayerIDs: Set<Int>
+
+    var visibilityOwnedLayerIDs: Set<Int> { dynamicVisibleRootLayerIDs }
 
     init(
         admissionCandidates: [
@@ -322,8 +328,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         dynamicProducers: DynamicProducerCatalog = .empty,
         assetFormatFacts: [String: Int] = [:],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
-        maximumVariantsPerMaterial: Int = 16
+        maximumVariantsPerMaterial: Int = 16,
+        dynamicVisibleRootLayerIDs: Set<Int> = []
     ) {
+        self.dynamicVisibleRootLayerIDs = dynamicVisibleRootLayerIDs
         let demandIssues = materialCatalog.resourceDemandIssues
         candidateCount = admissionCandidates.count
         variantLimit = maximumVariantsPerMaterial

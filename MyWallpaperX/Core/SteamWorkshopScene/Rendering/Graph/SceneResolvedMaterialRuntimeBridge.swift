@@ -215,6 +215,10 @@ final class SceneResolvedMaterialRuntimeBridge {
     private let catalog: SceneResolvedMaterialRuntimeCatalog
     private let orderedSystemProviderDemands: [SceneSystemProviderTextureIdentity]
     private let capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
+
+    var visibilityOwnedLayerIDs: Set<Int> {
+        capabilities.visibilityOwnedLayerIDs
+    }
     private let assetProvider: SceneMaterialAssetTextureCatalog.FrameProvider
     private let submissions: SceneResolvedMaterialSubmissionCoordinator
     let visibleExecutionRootLayerIDs: Set<Int>

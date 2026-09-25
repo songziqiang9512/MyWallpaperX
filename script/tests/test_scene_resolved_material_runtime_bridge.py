@@ -904,6 +904,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
     }
     var executionLayerIDs: Set<Int> { Set(capabilitiesByLayerID.keys) }
+    var visibilityOwnedLayerIDs: Set<Int> { [] }
     var admittedResolvedMaterialReferences:
         Set<SceneDependencyRenderPlan.Reference> { [] }
     var sceneBackgroundLayerIDs: Set<Int> {

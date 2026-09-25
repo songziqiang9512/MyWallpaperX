@@ -473,7 +473,9 @@ extension SceneDesktopWallpaperHost {
                     sceneScriptTargets: provisionalSceneScriptValueTargets
                 ),
                 assetFormatFacts: materialAssetCatalog.launchFormatFacts,
-                assetStates: materialAssetCatalog.launchStates
+                assetStates: materialAssetCatalog.launchStates,
+                dynamicVisibleRootLayerIDs:
+                    projectedLayerVisibilityRootLayerIDs
             )
         NSLog("MWX LAUNCH-STAGE: stage=capability-catalog elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
         let admittedVectorPassTargets =
