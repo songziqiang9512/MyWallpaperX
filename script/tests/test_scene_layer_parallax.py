@@ -41,19 +41,19 @@ enum Harness {
         ]
         let configuration = SceneLayerParallax.Configuration(
             enabled: true, amount: 0.1, mouseInfluence: 0.5,
-            orthoSize: SIMD2(1000, 500), cameraPosition: SIMD2(500, 250), worldYDown: true
+            orthoSize: SIMD2(1000, 500), worldYDown: true
         )
         let disabled = SceneLayerParallax.Configuration(
             enabled: false, amount: 1, mouseInfluence: 1,
-            orthoSize: SIMD2(1000, 500), cameraPosition: SIMD2(500, 250), worldYDown: true
+            orthoSize: SIMD2(1000, 500), worldYDown: true
         )
         let shiftedCamera = SceneLayerParallax.Configuration(
             enabled: true, amount: 0.1, mouseInfluence: 0,
-            orthoSize: SIMD2(1000, 500), cameraPosition: SIMD2(520, 240), worldYDown: true
+            orthoSize: SIMD2(1000, 500), worldYDown: true
         )
         let yUpWorld = SceneLayerParallax.Configuration(
             enabled: true, amount: 0.1, mouseInfluence: 0.5,
-            orthoSize: SIMD2(1000, 500), cameraPosition: SIMD2(500, 250), worldYDown: false
+            orthoSize: SIMD2(1000, 500), worldYDown: false
         )
         let center = SIMD2<Float>(500, 250)
         let depth = SceneLayerParallax.Resolution(sourceLayerID: 99, depth: SIMD2(2, 3))
@@ -83,32 +83,25 @@ enum Harness {
             "cycle": vector(SceneLayerParallax.resolve(layerID: 7, nodesByID: nodes)?.depth),
             "missing": SceneLayerParallax.resolve(layerID: 404, nodesByID: nodes) == nil,
             "disabled": vector(SceneLayerParallax.offset(
-                resolution: depth, configuration: disabled,
-                layerPosition: center, mouseNormalized: SIMD2(1, -1)
+                resolution: depth, configuration: disabled, mouseNormalized: SIMD2(1, -1)
             )),
             "zeroDepth": vector(SceneLayerParallax.offset(
-                resolution: zero, configuration: configuration,
-                layerPosition: center, mouseNormalized: SIMD2(1, -1)
+                resolution: zero, configuration: configuration, mouseNormalized: SIMD2(1, -1)
             )),
             "axes": vector(SceneLayerParallax.offset(
-                resolution: depth, configuration: configuration,
-                layerPosition: center, mouseNormalized: SIMD2(1, -1)
+                resolution: depth, configuration: configuration, mouseNormalized: SIMD2(1, -1)
             )),
             "yUpWorld": vector(SceneLayerParallax.offset(
-                resolution: depth, configuration: yUpWorld,
-                layerPosition: center, mouseNormalized: SIMD2(1, -1)
+                resolution: depth, configuration: yUpWorld, mouseNormalized: SIMD2(1, -1)
             )),
             "xOnly": vector(SceneLayerParallax.offset(
-                resolution: xOnly, configuration: configuration,
-                layerPosition: center, mouseNormalized: SIMD2(1, -1)
+                resolution: xOnly, configuration: configuration, mouseNormalized: SIMD2(1, -1)
             )),
             "position": vector(SceneLayerParallax.offset(
-                resolution: depth, configuration: configuration,
-                layerPosition: center + SIMD2(100, -50), mouseNormalized: .zero
+                resolution: depth, configuration: configuration, mouseNormalized: .zero
             )),
             "cameraPosition": vector(SceneLayerParallax.offset(
-                resolution: depth, configuration: shiftedCamera,
-                layerPosition: center, mouseNormalized: .zero
+                resolution: depth, configuration: shiftedCamera, mouseNormalized: .zero
             )),
             "smoothFirst": vector(smoothFirst),
             "smoothSecond": vector(smoothSecond),
@@ -168,13 +161,14 @@ class SceneLayerParallaxTests(unittest.TestCase):
         self.assertTrue(self.result["missing"])
         self.assertEqual(self.result["disabled"], [0, 0])
         self.assertEqual(self.result["zeroDepth"], [0, 0])
-        # NDC right/down -> render-world left/up. Rendering flips world Y,
-        # so the resulting screen displacement opposes both pointer axes.
+        # Rest-centered drift opposite the pointer (window parallax); no
+        # displacement at pointer center and none from the layer's authored
+        # position or the working camera origin.
         self.assertEqual(self.result["axes"], [-50, -37.5])
         self.assertEqual(self.result["yUpWorld"], [-50, 37.5])
         self.assertEqual(self.result["xOnly"], [-50, 0])
-        self.assertEqual(self.result["position"], [20, -15])
-        self.assertEqual(self.result["cameraPosition"], [-4, 3])
+        self.assertEqual(self.result["position"], [0, 0])
+        self.assertEqual(self.result["cameraPosition"], [0, 0])
 
     def test_pointer_delay_smoothing(self) -> None:
         self.assertEqual(self.result["smoothFirst"], [0.25, -0.25])

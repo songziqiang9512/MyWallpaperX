@@ -67,7 +67,7 @@ extension SceneMetalView {
             puppetAttachmentFrames: poseFrame.attachmentFrames
         )
         let parallax = renderer.parallaxConfiguration(
-            cameraFrame: camera, viewportSize: frame.screenSize,
+            viewportSize: frame.screenSize,
             dynamicValues: dynamicValues)
         for (layerID, pose) in poseFrame.posesByLayerID {
             guard let layer = renderer.layersByID[layerID] else { continue }

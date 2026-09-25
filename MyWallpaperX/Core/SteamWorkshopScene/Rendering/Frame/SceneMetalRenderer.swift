@@ -137,7 +137,7 @@ struct SceneMetalRenderer {
         let time = Float(frameContext.sceneTime)
         let parallaxMouseNormalized = frameContext.cameraParallaxPosition
         let parallaxConfiguration = parallaxConfiguration(
-            cameraFrame: cameraFrame,
+
             viewportSize: viewportSize,
             dynamicValues: frameContext.dynamicValues
         )

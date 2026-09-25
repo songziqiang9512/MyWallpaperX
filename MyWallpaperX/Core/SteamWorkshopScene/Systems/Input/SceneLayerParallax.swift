@@ -18,7 +18,6 @@ nonisolated enum SceneLayerParallax {
         let amount: Float
         let mouseInfluence: Float
         let orthoSize: SIMD2<Float>
-        let cameraPosition: SIMD2<Float>
         let worldYDown: Bool
     }
 
@@ -58,21 +57,27 @@ nonisolated enum SceneLayerParallax {
     nonisolated static func offset(
         resolution: Resolution?,
         configuration: Configuration,
-        layerPosition: SIMD2<Float>,
         mouseNormalized: SIMD2<Float>
     ) -> SIMD2<Float> {
         guard configuration.enabled, let resolution,
               configuration.orthoSize.x > 0, configuration.orthoSize.y > 0,
               resolution.depth != .zero else { return .zero }
         let halfSize = configuration.orthoSize * 0.5
-        // Surface/NDC Y points up; the 2D world-frame translations below
-        // point down. Convert at this consumer, not in the shared pointer.
+        // Camera parallax is a rest-centered effect: the authored layout is
+        // unchanged while the pointer sits at the center, and each layer
+        // drifts opposite the pointer scaled by depth and the scene amounts.
+        // The previous `(layerPosition - cameraPosition)` term displaced
+        // off-center layers even at rest and, through the script-driven
+        // dynamic camera origin, amplified pointer input into a ~120px sway
+        // on 3750813609 (measured 2026-09-25). Surface/NDC Y points up; the
+        // 2D world-frame translations below point down. Convert at this
+        // consumer, not in the shared pointer.
         let mouseInWorldAxes = SIMD2(
             mouseNormalized.x,
             configuration.worldYDown ? -mouseNormalized.y : mouseNormalized.y
         )
-        let mouseOffset = -mouseInWorldAxes * halfSize * configuration.mouseInfluence
-        let shift = (layerPosition - configuration.cameraPosition + mouseOffset)
+        let shift = -mouseInWorldAxes
+            * halfSize * configuration.mouseInfluence
             * resolution.depth * configuration.amount
         guard shift.x.isFinite, shift.y.isFinite else { return .zero }
         return shift

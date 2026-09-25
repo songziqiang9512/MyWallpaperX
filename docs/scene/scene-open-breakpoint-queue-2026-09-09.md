@@ -27,7 +27,7 @@
 - 验证：心形/拖尾受控指针回放视觉确认跟随；15 影响样本全复跑（10+1 遥测抖动 PASS + 3363252053 PASS + sentinel `3238423642` 四点轨迹夹具 PASS failures=[]）；`test_scene_particle_simulator` 55 用例（两处旧语义断言已迁移）+ particle_runtime/boids/refraction 全绿；独立审查 P1/P2 已闭环（测试迁移、覆盖声明更正、positionAround 登记）。
 - 余量：用户实机鼠标验收；Q1-B（同批样本的镜头问题）另修。
 
-**Q1-B 镜头视差幅度过大 + 垂直方向反转（2026-09-25 登记，P1）**
+**Q1-B 镜头视差幅度过大 + 垂直方向反转（2026-09-25 已修复，待用户实机验收）**
 
 - 症状：`3750813609`、`3363252053` 鼠标移动时内景晃动幅度过大；上下移动鼠标时镜头变化方向与鼠标相反。
 - 取证事实（2026-09-25）：
@@ -35,7 +35,10 @@
   - 现行公式 `SceneLayerParallax.offset`：`shift = (layerPos − cameraPos + mouseOffset) × depth × amount`，`mouseOffset = −mouseInWorldAxes × halfSize × influence`——含**层绝对位置的常量项**（与官方"层按 depth×镜头位移"行为不符，疑造成永久错位放大感知幅度）；负 depth 翻转方向；Y 经 `worldYDown` 取负后再乘负 depth，方向链未验。
   - 官方公开页只给 amount/delay/influence 语义，不公开公式与方向（source-index §1.3）；数值 parity 依赖 P4 固定同输入官方对照。
 - 修复方向：重审 offset 公式的常量项与符号链（先修可达子集：常量项去留、Y 符号在负 depth 下的正确性）；受控指针 A/B 定位幅度/方向的量化修正。
-- 关闭门：两样本方向与鼠标一致、幅度接近官方观感；保护样本 `2163522240`（竖长图拖拽方向正确）不回归；受控 A/B 证据；独立审查。
+- 已实施（2026-09-25）：实测定案——120px 反向伪影来自公式常量项 `(layerPos−cameraPos)`：cameraPosition 含动态相机原点，样本脚本读鼠标驱动相机 → 常量项被指针放大；鼠标项符号本来就对。修复=移除常量项与 cameraPosition 字段（Configuration/构造点/死参数清理），shift=−mouseInWorldAxes×halfSize×influence×depth×amount。
+- 验证：受控指针 A/B 摆动 120px→≤8px（3750813609）、3363252053 复测 (2,0)≈零漂移；fixed13 门禁与基线逐样本对比除已知项外零新增（2938612768 两项波动经无本批构建对照排除）；2163522240 非 parallax 样本且 fixed13 PASS；layer_parallax/camera_shake/particle_runtime 测试绿；独立审查（P1 证据补齐+P2 死参数清理均已闭环）。
+- 可见变化登记：全语料 36 个 parallax 样本 rest 态层回 authored 位；动态相机移动时视差层不再按 depth 缩放随动（两通道解耦，shake 仍经相机帧生效）。
+- 余量：用户实机验收方向/幅度观感；数值 parity 仍依赖 P4 官方固定同输入对照。
 
 **Q1-C 点击/拖动已闭合项的余量**：真实 AppKit 鼠标录屏验收、多步连续 move、compositor 窗口切片（仪器=from-launch 开关+命中盒探针；退役条件=Q1-C 收口）。**Q1-D previous-pointer 作者效果**：连续轨迹批已修正 current-only；previous 侧作者效果未验收。点击拖放本身用户已确认正确（2026-09-25）。
 

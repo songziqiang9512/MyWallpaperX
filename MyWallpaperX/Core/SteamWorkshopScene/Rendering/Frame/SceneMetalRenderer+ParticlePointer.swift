@@ -10,7 +10,7 @@ extension SceneMetalRenderer {
         guard frameContext.pointer.isInside, !demandedLayerIDs.isEmpty else { return [:] }
         let viewportSize = frameContext.screenSize
         let configuration = parallaxConfiguration(
-            cameraFrame: cameraFrame,
+
             viewportSize: viewportSize,
             dynamicValues: frameContext.dynamicValues
         )

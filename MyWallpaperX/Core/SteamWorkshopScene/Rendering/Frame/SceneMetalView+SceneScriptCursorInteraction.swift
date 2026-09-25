@@ -249,7 +249,7 @@ extension SceneMetalView {
             puppetAttachmentFrames: puppetAttachmentFrames
         )
         let parallax = renderer.parallaxConfiguration(
-            cameraFrame: cameraFrame,
+
             viewportSize: frameContext.screenSize,
             dynamicValues: dynamicValues
         )

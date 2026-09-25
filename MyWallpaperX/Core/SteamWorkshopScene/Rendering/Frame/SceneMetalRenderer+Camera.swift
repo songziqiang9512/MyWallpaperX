@@ -65,7 +65,6 @@ extension SceneMetalRenderer {
     }
 
     func parallaxConfiguration(
-        cameraFrame: SceneParticleCameraFrame,
         viewportSize: CGSize,
         dynamicValues: SceneDynamicSnapshot
     ) -> SceneLayerParallax.Configuration {
@@ -82,10 +81,6 @@ extension SceneMetalRenderer {
                 property.parallaxMouseInfluence
                     ?? camera.parallaxMouseInfluence,
             orthoSize: orthoSize,
-            cameraPosition: orthoSize * 0.5 + SIMD2(
-                cameraFrame.cameraOrigin.x,
-                cameraFrame.cameraOrigin.y
-            ),
             worldYDown: (camera.orthoHeight ?? 0) > 0
         )
     }
