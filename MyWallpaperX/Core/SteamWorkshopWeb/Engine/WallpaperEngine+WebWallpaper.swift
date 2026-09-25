@@ -144,12 +144,15 @@ extension WallpaperEngine {
         currentMultiDisplayEnabled = request.multiDisplayEnabled
         currentWebRecordID = request.recordID
         currentWebRequestID = request.id
-        if currentPlaybackContentKind == .video {
-            for displayID in Array(displaySessions.keys) {
-                terminateSession(for: displayID)
-            }
-            currentWallpaper = nil
-            currentContentPath = nil
+        // E2a-4: prepare-then-commit——video 会话与真值保留到 web `.ready`
+        // 才退场（retire）；web 失败时 video 仍在原处，旧可见输出保留。
+        // 旧实现在此处先行 terminate 全部 session 并清真值（stop-then-start
+        // 无回滚）。
+        pendingVideoRetirementOnWebReady = currentPlaybackContentKind == .video
+        if pendingVideoRetirementOnWebReady {
+            retainedVideoWallpaper = currentWallpaper
+            retainedVideoContentPath = currentContentPath
+            retainedVideoMultiDisplayEnabled = currentMultiDisplayEnabled
         }
 
         switch currentWebHostStrategy {
@@ -183,6 +186,18 @@ extension WallpaperEngine {
             guard currentWebRequestID == requestID else { return }
             lastFailureVideoPath = nil
             lastFailureAt = 0
+            // E2a-4: web 已就绪——现在退场被保留的 video runtime（提交点）。
+            if pendingVideoRetirementOnWebReady {
+                pendingVideoRetirementOnWebReady = false
+                for displayID in Array(displaySessions.keys) {
+                    terminateSession(for: displayID)
+                }
+                currentWallpaper = nil
+                currentContentPath = nil
+                retainedVideoWallpaper = nil
+                retainedVideoContentPath = nil
+                retainedVideoMultiDisplayEnabled = nil
+            }
         case let .audioSpectrumDemandChanged(active, requestID):
             guard currentWebRequestID == requestID else { return }
             setWebAudioSpectrumRequested(active)
@@ -195,9 +210,24 @@ extension WallpaperEngine {
             setWebAudioSpectrumRequested(false)
             lastFailureVideoPath = failedPath
             lastFailureAt = CACurrentMediaTime()
-            currentWallpaper = nil
-            currentContentPath = nil
-            currentPlaybackContentKind = nil
+            // E2a-4: web 准备失败——被保留的 video runtime 原样恢复，
+            // 旧可见输出不受影响；video 真值不清。
+            if pendingVideoRetirementOnWebReady {
+                pendingVideoRetirementOnWebReady = false
+                currentPlaybackContentKind = .video
+                currentWallpaper = retainedVideoWallpaper
+                currentContentPath = retainedVideoContentPath
+                if let retainedMultiDisplay = retainedVideoMultiDisplayEnabled {
+                    currentMultiDisplayEnabled = retainedMultiDisplay
+                }
+                retainedVideoWallpaper = nil
+                retainedVideoContentPath = nil
+                retainedVideoMultiDisplayEnabled = nil
+            } else {
+                currentWallpaper = nil
+                currentContentPath = nil
+                currentPlaybackContentKind = nil
+            }
             currentWebPropertiesJSON = nil
             currentWebRecordID = nil
             currentWebRequestID = nil

@@ -63,6 +63,14 @@ public final class WallpaperEngine: NSObject {
     var currentWebRequestID: UUID?
     var currentWebHostStrategy: WebWallpaperHostStrategy = .dedicatedHostPlaceholder
     var currentWebLaunchSource: WebWallpaperLaunchSource?
+    /// E2a-4: a web launch is preparing over a still-running video runtime —
+    /// the video sessions retire only on web `.ready`, and a web `.failed`
+    /// restores the video kind so the old visible output is retained.
+    var pendingVideoRetirementOnWebReady = false
+    /// E2a-4: video truth retained while a web launch prepares over it.
+    var retainedVideoWallpaper: VideoWallpaper?
+    var retainedVideoContentPath: String?
+    var retainedVideoMultiDisplayEnabled: Bool?
     var playbackIntentEpoch: UInt64 = 0
     lazy var dedicatedWebHostAdapter: WebWallpaperHostAdapter = DedicatedWebWallpaperHostPlaceholderAdapter()
     var displayIDs: [CGDirectDisplayID] = []
@@ -163,6 +171,7 @@ public final class WallpaperEngine: NSObject {
     ) {
         // 对外统一入口接收每个合法切换；交互去抖由调用层负责。
         beginPlaybackIntent()
+        pendingVideoRetirementOnWebReady = false
         applyWallpaper(
             wallpaper,
             multiDisplayEnabled: multiDisplayEnabled,
@@ -302,8 +311,20 @@ public final class WallpaperEngine: NSObject {
 
     public func stopPlayback() {
         beginPlaybackIntent()
+        // E2a-4: a staged web launch retains video sessions; stopping the
+        // web side must retire them too or they zombie (visible + audible).
+        let retirePendingVideo = pendingVideoRetirementOnWebReady
+        pendingVideoRetirementOnWebReady = false
+        retainedVideoWallpaper = nil
+        retainedVideoContentPath = nil
+        retainedVideoMultiDisplayEnabled = nil
         if currentPlaybackContentKind == .web {
             setWebAudioSpectrumRequested(false)
+            if retirePendingVideo {
+                for displayID in Array(displaySessions.keys) {
+                    terminateSession(for: displayID)
+                }
+            }
             dispatchWebRuntimeCommand(.stop)
         } else {
             for displayID in Array(displaySessions.keys) {
