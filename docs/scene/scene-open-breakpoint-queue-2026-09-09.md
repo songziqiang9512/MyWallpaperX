@@ -74,7 +74,7 @@
 | 尚未关闭的问题 | 下一步与关闭条件 |
 |---|---|
 | Scene Bloom enable/threshold 无完整 live consumer | 沿属性 producer→typed channel→全场 post consumer 闭合；否则登记边界 |
-| 全 corpus identity-only matrix 与人工视觉复核 | 按 P0/P4 维护；矩阵期望漂移用 `generate_scene_full_matrix.py` 正规流程（fixed13 sha pin 同步）；人工重看后才改 verdict |
+| 全 corpus identity-only matrix 与人工视觉复核 | **fixed13 已于 2026-09-25 全绿（13/13，观察模式）**：存量 8 样本漂移完成对账（succeeded/utility/text/sha/puppet 数值随能力演进更新；2902406982 层 410/414 处置从 unsupportedEffects 迁移为 capture=能力成长；puppet checker 正则跟上 cbd126d3 的 "puppet world geometry OK" 改名，数据与原期望完全吻合零矩阵改动；8 样本计数器按 retire 全有或全无合同全量退役）。矩阵期望漂移仍用 `generate_scene_full_matrix.py` 正规流程（fixed13 sha pin 已同步）；人工重看后才改 verdict |
 
 ### Q2 — 稳定帧性能
 

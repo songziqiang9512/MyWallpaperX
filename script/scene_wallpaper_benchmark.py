@@ -343,8 +343,11 @@ SOLID_LAYER_OK_RE = re.compile(
     r'^layer (?P<id>\d+) .*: OK procedural solid(?:\s|$)',
     re.MULTILINE,
 )
+# The world-space puppet batch (cbd126d3) renamed the line from
+# "puppet animation OK" to "puppet world geometry OK MDL<v>"; mode/ids/clips
+# kept their shape.
 PUPPET_ANIMATION_OK_RE = re.compile(
-    r'^layer (?P<id>\d+) .*?: .*puppet animation OK .*? '
+    r'^layer (?P<id>\d+) .*?: .*puppet world geometry OK \S+ '
     r'mode=(?P<mode>[a-z-]+) ids=(?P<ids>[\d,]+) clips=(?P<clips>\d+)(?:\s|$)',
     re.MULTILINE,
 )
