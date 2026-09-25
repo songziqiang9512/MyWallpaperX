@@ -35,7 +35,6 @@
           "SceneEffectAdmissionCatalog+ResolvedMaterial.swift",
           "SceneEffectAdmissionCatalog.swift",
           "SceneEffectDefinition.swift",
-          "SceneEffectMaskSemantics.swift",
           "SceneEffectRuntimeDispositionCatalog+Conservation.swift",
           "SceneEffectRuntimeDispositionCatalog.swift",
           "SceneEffectStageAdmission.swift",

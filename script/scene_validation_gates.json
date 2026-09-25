@@ -519,7 +519,6 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectAdmissionCatalog+ResolvedMaterial.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectAdmissionCatalog.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectDefinition.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectMaskSemantics.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectStageAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectStageAuthoredFallbackOwnerPartition.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
