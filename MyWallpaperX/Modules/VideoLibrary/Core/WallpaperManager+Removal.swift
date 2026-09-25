@@ -309,6 +309,8 @@ extension WallpaperManager {
     func clearCurrentWallpaperAndStopPlayback() {
         // 当前播放项消失时同时清引用和停播，避免引擎继续播放已删除的资源。
         clearCurrentWallpaperReference()
+        // E2a-1: 停止也是一次意图，推进产品纪元后注入（只读，提交点不变）。
+        WallpaperEngine.shared.adoptIntentEpoch(beginPlaybackIntent())
         WallpaperEngine.shared.stopPlayback()
     }
 

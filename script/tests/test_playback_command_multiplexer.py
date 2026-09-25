@@ -71,6 +71,25 @@ final class Handler: PlaybackEngineControlling {
             .setProperty([:], revision: 1, recordID: "fixture"),
             to: .scene
         ))
+        // E2a-1: product intent epoch — begin() strictly increases;
+        // adopted() is monotonic (stale product epochs ignored, newer win).
+        var counter = PlaybackIntentEpoch()
+        precondition(counter.value == 0 && counter.begin() == 1 && counter.begin() == 2)
+        precondition(PlaybackIntentEpoch.adopted(mirror: 2, product: 5) == 5)
+        precondition(PlaybackIntentEpoch.adopted(mirror: 9, product: 5) == 9)
+        precondition(PlaybackIntentEpoch.adopted(mirror: 4, product: 4) == 4)
+        var mirror: UInt64 = 0
+        mirror = PlaybackIntentEpoch.adopted(mirror: mirror, product: counter.begin())
+        mirror &+= 1
+        mirror &+= 1
+        precondition(mirror == 5)
+        mirror = PlaybackIntentEpoch.adopted(mirror: mirror, product: counter.begin())
+        precondition(mirror == 5, "stale product epoch must be ignored")
+        mirror = PlaybackIntentEpoch.adopted(mirror: mirror, product: counter.begin())
+        precondition(mirror == 5, "equal epoch is idempotent")
+        mirror = PlaybackIntentEpoch.adopted(mirror: mirror, product: counter.begin())
+        precondition(mirror == 6, "newer product epoch must win")
+        precondition(counter.value == 6)
         print("playback-dispatch-pass")
     }
 }
@@ -86,7 +105,7 @@ class PlaybackCommandMultiplexerTests(unittest.TestCase):
             binary = path / 'harness'
             result = subprocess.run(['xcrun', 'swiftc', '-parse-as-library',
                 str(PROPERTY),
-                *[str(SOURCES / name) for name in ['WallpaperEngineCommand.swift', 'PlaybackEngineControlling.swift', 'PlaybackCommandMultiplexer.swift']],
+                *[str(SOURCES / name) for name in ['WallpaperEngineCommand.swift', 'PlaybackEngineControlling.swift', 'PlaybackCommandMultiplexer.swift', 'PlaybackIntentEpoch.swift']],
                 str(harness), '-o', str(binary)], capture_output=True, text=True, timeout=60)
             self.assertEqual(result.returncode, 0, result.stderr)
             result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)

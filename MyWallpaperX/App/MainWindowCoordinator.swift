@@ -443,6 +443,8 @@ enum MainWindowCoordinator {
             wallpaperManager.clearCurrentWallpaperReference()
             wallpaperManager.activeWallpaperRuntime = .web
             wallpaperManager.stopAutoSwitchTimer()
+            // E2a-1: web 切换入口注入产品意图纪元（只读，提交点不变）。
+            WallpaperEngine.shared.adoptIntentEpoch(wallpaperManager.beginPlaybackIntent())
             WallpaperEngine.shared.setWebWallpaper(
                 entryURL: entryURL,
                 rootURL: rootURL,
@@ -472,6 +474,11 @@ enum MainWindowCoordinator {
                     request.resourceLifetime,
                     rootURL: request.rootURL,
                     recordID: request.recordID
+                )
+                // E2a-1: scene 切换入口注入产品意图纪元（只读，提交点
+                // 不变；adapter 内部 sessionGeneration 自成体系）。
+                WallpaperEngine.shared.adoptIntentEpoch(
+                    WallpaperManager.shared.beginPlaybackIntent()
                 )
                 let accepted = PlaybackCommandMultiplexer.shared.dispatch(
                     .loadScene(.init(
@@ -556,6 +563,10 @@ enum MainWindowCoordinator {
             wallpaperManager.activeWallpaperRuntime = .systemStill
             wallpaperManager.isPlaying = false
             wallpaperManager.stopAutoSwitchTimer()
+            // E2a-1: 静态图切换入口注入产品意图纪元（只读，提交点不变）。
+            WallpaperEngine.shared.adoptIntentEpoch(
+                wallpaperManager.beginPlaybackIntent()
+            )
             WallpaperEngine.shared.stopPlayback()
         }
         observerTokens.append(observer)

@@ -265,6 +265,18 @@ public final class WallpaperEngine: NSObject {
         playbackIntentEpoch &+= 1
     }
 
+    /// E2a-1 read-only injection: adopts the product-level intent epoch
+    /// published by the selection authority. Monotonic — internal restarts
+    /// (web host failover) keep their own increment; a stale product value
+    /// is ignored. The daemon recovery guard's equality comparison keeps
+    /// detecting any newer intent either way.
+    public func adoptIntentEpoch(_ product: UInt64) {
+        playbackIntentEpoch = PlaybackIntentEpoch.adopted(
+            mirror: playbackIntentEpoch,
+            product: product
+        )
+    }
+
     public func updateSettings(
         pauseWhenOtherAppFocused: Bool,
         pauseWhenOtherAppFullscreen: Bool,

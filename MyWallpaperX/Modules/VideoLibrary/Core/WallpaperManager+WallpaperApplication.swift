@@ -45,6 +45,9 @@ extension WallpaperManager {
         }
 
         // 实际播放逻辑：使用WallpaperEngine设置壁纸
+        // E2a-1: 切换入口先推进产品意图纪元并注入引擎（只读注入，
+        // 提交点不变）。
+        WallpaperEngine.shared.adoptIntentEpoch(beginPlaybackIntent())
         postWallpaperRuntimeWillSwitch(to: .video)
         WallpaperEngine.shared.setWallpaper(
             wallpaper,

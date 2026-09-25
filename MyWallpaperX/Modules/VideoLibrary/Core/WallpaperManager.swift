@@ -82,6 +82,16 @@ class WallpaperManager: ObservableObject {
     @Published var recentlyUsedWallpapers: [VideoWallpaper] = []
     @Published var isPlaying: Bool = true
     @Published var activeWallpaperRuntime: ActiveWallpaperRuntime = .video
+    // E2a-1: requested 层的产品级意图纪元——唯一选择权威在每次切换入口
+    // 递增；runtime adapter 以单调采纳作为执行事实镜像（只读注入，
+    // 不改变任何提交点）。
+    private var playbackIntentEpochCounter = PlaybackIntentEpoch()
+    var playbackIntentEpoch: UInt64 { playbackIntentEpochCounter.value }
+
+    @discardableResult
+    func beginPlaybackIntent() -> UInt64 {
+        playbackIntentEpochCounter.begin()
+    }
     
     // 标签管理
     @Published var tags: [String] = WallpaperManager.defaultTags
