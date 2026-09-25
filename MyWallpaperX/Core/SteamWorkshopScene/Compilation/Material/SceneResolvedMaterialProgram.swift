@@ -648,6 +648,7 @@ nonisolated struct SceneResolvedMaterialGraphInputSourceSlotFact: Hashable {
         case explicitMaterialAlias
         case implicitMissingAlias
         case dormantUnresolvedMaterialAlias
+        case sameLayerCompositeDefault
     }
 
     let slot: Int

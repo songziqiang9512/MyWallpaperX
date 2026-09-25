@@ -113,8 +113,16 @@ extension SceneResolvedMaterialVariantCache {
                         let sampler = variant.activeSamplers[slot] else {
                       return false
                   }
+                  // A source-fact slot is default-free, except the same-layer
+                  // composite default (`_rt_imageLayerComposite_<self>_{a,b}`)
+                  // which names the very ingress the fact classifies.
                   return sampler.mode == .regular
-                      && sampler.defaultTexture == nil
+                      && (sampler.defaultTexture == nil
+                          || (fact.provenance == .sameLayerCompositeDefault
+                              && isSameLayerCompositeDefault(
+                                  sampler.defaultTexture,
+                                  layerID: effect.key.layerID
+                              )))
               }) else { return nil }
         let activeBindings = node.bindings.filter { binding in
             guard let slot = binding.slot else { return false }
@@ -158,7 +166,11 @@ extension SceneResolvedMaterialVariantCache {
         }
         guard let sourceSampler = variant.activeSamplers[sourceSlot],
               sourceSampler.mode == .regular,
-              sourceSampler.defaultTexture == nil else { return nil }
+              sourceSampler.defaultTexture == nil
+                  || isSameLayerCompositeDefault(
+                      sourceSampler.defaultTexture,
+                      layerID: effect.key.layerID
+                  ) else { return nil }
         if let activeSourceBinding {
             guard activeSourceBinding.slot == sourceSlot,
                   activeSourceBinding.texture == effect.input,
@@ -176,9 +188,25 @@ extension SceneResolvedMaterialVariantCache {
                         identity: effect.input
                     ) else { return nil }
         } else {
-            guard node.bindings.isEmpty,
+            // Bindings on other slots are provenance for their own slots and
+            // are texture-vetted by the stage-level source guard above; the
+            // source slot itself must stay free of an authored binding. Its
+            // template entry must be empty, except the authored same-layer
+            // composite candidate form — that candidate names the very
+            // ingress the fact classifies.
+            guard node.bindings.allSatisfy({ $0.slot != sourceSlot }),
                   template.textureSlots.indices.contains(sourceSlot),
-                  template.textureSlots[sourceSlot] == nil else { return nil }
+                  template.textureSlots[sourceSlot] == nil
+                      || template.textureSlots[sourceSlot]?.candidates
+                          .allSatisfy({ candidate in
+                              guard case let .provider(.namedLayerTarget(
+                                  reference
+                              )) = candidate.reference else {
+                                  return false
+                              }
+                              return reference.providerLayerID
+                                  == effect.key.layerID
+                          }) == true else { return nil }
         }
         guard variant.frontendProgram.textureBindings.filter({
                   $0.slot == sourceSlot
@@ -260,6 +288,20 @@ extension SceneResolvedMaterialVariantCache {
             && identity.layerID == effect.layerID
             && identity.effect == effect
             && identity.name?.isEmpty == false
+    }
+
+    /// True when the default texture names the consuming layer's own
+    /// composite target (`_rt_imageLayerComposite_<self>_{a,b}`).
+    private func isSameLayerCompositeDefault(
+        _ defaultTexture: SceneResolvedMaterialShaderSchema.DefaultTexture?,
+        layerID: Int
+    ) -> Bool {
+        guard case let .internalTarget(name)? = defaultTexture,
+              let reference = SceneNamedTextureReference.parse(name),
+              reference.providerLayerID == layerID else {
+            return false
+        }
+        return true
     }
 
 }

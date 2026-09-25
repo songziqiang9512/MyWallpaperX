@@ -130,6 +130,25 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
                     sampler: sampler,
                     slot: slot
                 ) else {
+                    // The layer's own composite target
+                    // (`_rt_imageLayerComposite_<self>_{a,b}`) is published
+                    // by the graph executor from the pair base capture, so a
+                    // same-layer default resolves as that named target.
+                    if let selfComposite = SceneNamedTextureReference.parse(
+                        name
+                    ), selfComposite.providerLayerID == input.layerID {
+                        let providerReference = Template.TextureReference
+                            .provider(.namedLayerTarget(selfComposite))
+                        if let selection = try referenceSelection(
+                            providerReference,
+                            purpose: sampler.purpose(for: providerReference),
+                            provenance: .shaderDefault,
+                            input: input
+                        ) {
+                            result[slot] = selection
+                            continue
+                        }
+                    }
                     result[slot] = .internalDefault(name)
                     continue
                 }

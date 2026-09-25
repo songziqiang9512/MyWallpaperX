@@ -44,17 +44,19 @@
 ### Q0 — 兼容路线 P0 尾项
 
 - SteamKit 安装身份：等用户安装签名 2.0.9 (277) 候选后冻结 bundle identity，再跑真实 QR/授权下载/三引擎播放门（用户动作）。
-- 13 个 v2 布局样本：11 PASS / 2 FAIL——`2849382252`（效果首断点，见 Q3）、`3357627941`（层 55 见 Q3）。
+- 13 个 v2 布局样本：11 PASS / 2 FAIL——`2849382252`（效果首断点已修，见 Q3 crt_scan_line 落地）、`3357627941`（层 55 见 Q3）。
 - `2959875782` X-Ray：跨层 813 提供链已修复落地（outfit=4 验证门全过）。剩余：①同层 effectOutput 引用排除（方案已定稿未落码——落码前先扫语料该形态真实实例，XRPROBE 曾推翻同层归因）；②`.resolvedMaterial` 隐藏提供者 extent 分支的 Python 桩覆盖（审查 P2-1）。
 - benchmark 时间门控层误报（`2959875782` 层 1654 墙钟门控）：关闭门候选=oracle 登记或 next-frame 窗口语义，需设计审查。
 
 ### Q3 — 效果/依赖能力缺口
 
-- `crt_scan_line` 同层合成引用 `_rt_imageLayerComposite_<id>_{a,b}`（`2849382252` 层 205，效果整体 passthrough）——公共能力扩展，**2026-09-25 侦察完成，需三协调切片一次落地**：
-  ①ownership：`+DependencyOwnership.swift` 同层分支放宽 `$0.variant == .primary` 为 primary|secondary（已验证可改，但**不可单独落地**——单独改会把层 205 从 effect-local-passthrough 推进整层 `utility-source-program-unsupported` 能力拒绝，比现状更差）；
-  ②变体分类：`ShaderSchema+SamplerPurpose.graphInputSourceSlotFacts` 增加同层合成默认纹理的 provenance（`defaultTexture == .internalTarget("_rt_imageLayerComposite_<self>_{a,b}")` 且 `SceneNamedTextureReference.parse` 的 provider == effectContext.key.layerID）；`CapturedMainSourceConservation.variantRole` 的 `sourceSampler.defaultTexture == nil` 与 else 分支 bindings 守卫需同步放宽，使 `capturedMainTargetSourceSlot != nil`（现状分类为 internalFramebufferOnly → 计数 0 → :534 拒绝，已插桩证实）；
-  ③运行时选择：`TextureSelection` 对 `.internalTarget` 非场景背景默认目前落 `internalDefault(name)`——需对同层合成命名改走帧快照 named target 解析（执行器 graphInternal overlay 需同时发布 primary+secondary 两变体，基准纹理=base capture）。
-  验证门：2849382252 回放 crt_scan_line 从 passthrough 变真实 program 执行 + 2815826216 层 184（同形态第二实例）+ 既有 composition 样本无回归。
+- `crt_scan_line` 同层合成引用 `_rt_imageLayerComposite_<id>_{a,b}`（`2849382252` 层 205，效果整体 passthrough）——**2026-09-25 三切片已落地并过验证门**：
+  落地形态（与侦察设计差异：b 引用实际以**模板 provider candidate**（authored pass textures）进入，非 sampler 默认纹理；拒绝链比设计多两环——conservation 分析的 primary-only 守卫与 named-target 预留的 primary-only 守卫）：
+  ①ownership：同层分支接受 secondary，但仅限引用槽位无图绑定的合成形态（`previous` 绑定遮蔽形态保持原 fail-soft 合同，executor 测试场景守卫）；
+  ②分类：`graphInputSourceSlotFacts` 新增 `sameLayerCompositeDefault` provenance（认模板同层合成 candidate 与 sampler 默认两种形态）；`variantRole` 三处守卫按该形态放宽（facts 循环 defaultTexture、sourceSampler defaultTexture、else 分支 bindings 从 isEmpty 放宽为不占 sourceSlot + 模板槽位允许纯同层合成 candidate）；conservation 分析 `resolvedExternalDependencies` 放行同层 secondary（跨层 secondary 保持 invalid）；
+  ③运行时：执行器 graphInternal overlay 同时发布 primary+secondary（基准=pair base capture）；`reservedNamedLayerTarget` 带 `consumerLayerID` 放行同层 secondary（`isCompleteNamedLayerTarget` 相应接受两变体；registry 跨层发布路径保持 primary-only）；`TextureSelection` internalTarget 非场景背景默认对同层合成改走 named target 解析。
+  验证（2026-09-25）：2849382252 能力拒绝链全通、self-composite overlay 481 帧零 resource-invalid、噪声分量可见渲染（作者 Scan Line Intensity=0，扫描线本身 authored 关闭）；2815826216 同形态 476 帧 ✓；fixed13 与基线逐样本零差异；graph_executor/fbo_stage_activation/execution_capability 测试绿（含跨层 secondary 拒绝与 previous 遮蔽形态回归场景）。
+  余量：全语料其他 `_b` 引用形态样本的可见收益盘点（当前仅上述两实例登记）。
 - `sine_wave_circle` varyingUnsupported = 作者内容限制（激活变体下读未初始化分量）；恢复需先决定"未定义分量语义"（零填充 vs 未定义），属官方对照语义决定，不得猜测放宽。
 - `3357627941` 层 55 可见性脚本 `invalidSource`：已定位到 cursor route 守卫（`SceneScriptCursorProgram+Construction.swift:145-152` 的 `events.isEmpty`/`requiresFrameEvaluation`），未闭合；不得为通过放宽守卫。
 - `2938612768` execution contract not satisfied + passthrough 激活证据缺失（2026-09-25 新登记，未查）。

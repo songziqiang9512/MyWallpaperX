@@ -337,6 +337,22 @@ extension SceneResolvedMaterialShaderSchema {
                 provenance = .explicitMaterialAlias
             } else if implicit.contains(slot) {
                 provenance = .implicitMissingAlias
+            } else if sameLayerCompositeDefault(
+                sampler.defaultTexture,
+                inputIdentity: inputIdentity
+            ) || (template.textureSlots.indices.contains(slot)
+                && sameLayerCompositeCandidate(
+                    template.textureSlots[slot],
+                    inputIdentity: inputIdentity
+                )) {
+                // The layer's OWN composite target
+                // (`_rt_imageLayerComposite_<self>_{a,b}`) reaches the
+                // sampler either as a shader default or as an authored
+                // pass-binding candidate. Both name the named target the
+                // graph executor publishes from the pair base capture, so
+                // the slot consumes the same captured-main ingress the
+                // alias forms do.
+                provenance = .sameLayerCompositeDefault
             } else {
                 provenance = nil
             }
@@ -353,6 +369,12 @@ extension SceneResolvedMaterialShaderSchema {
                 case .dormantUnresolvedMaterialAlias:
                     selectionProvenance =
                         .dormantUnresolvedMaterialGraphInput
+                case .sameLayerCompositeDefault:
+                    // TextureSelection fills the slot from the sampler
+                    // default path before graph-input selection runs, so the
+                    // fact only carries classification; the named-target
+                    // selection itself is a shader default.
+                    selectionProvenance = .shaderDefault
                 }
                 facts[slot] = .init(
                     slot: slot,
@@ -442,5 +464,45 @@ extension SceneResolvedMaterialShaderSchema {
                   owner: context.key
               ) else { return false }
         return true
+    }
+
+    /// True when a sampler's default texture names the consuming layer's own
+    /// composite target. The reference must stay same-layer: a cross-layer
+    /// composite default has no graph-internal owner and is not a source
+    /// fact.
+    private nonisolated static func sameLayerCompositeDefault(
+        _ defaultTexture: DefaultTexture?,
+        inputIdentity: Graph.TextureIdentity
+    ) -> Bool {
+        guard case let .internalTarget(name)? = defaultTexture,
+              inputIdentity.effect == nil,
+              inputIdentity.name == nil,
+              let reference = SceneNamedTextureReference.parse(name),
+              reference.providerLayerID == inputIdentity.layerID else {
+            return false
+        }
+        return true
+    }
+
+    /// True when every authored candidate of the template slot is the
+    /// consuming layer's own composite named target (the authored pass
+    /// `textures: ["_rt_imageLayerComposite_<self>_{a,b}"]` form). Any other
+    /// candidate keeps the slot out of this classification.
+    private nonisolated static func sameLayerCompositeCandidate(
+        _ slot: Template.TextureSlot?,
+        inputIdentity: Graph.TextureIdentity
+    ) -> Bool {
+        guard inputIdentity.effect == nil,
+              inputIdentity.name == nil,
+              let slot, !slot.candidates.isEmpty else {
+            return false
+        }
+        return slot.candidates.allSatisfy { candidate in
+            guard case let .provider(.namedLayerTarget(reference)) =
+                candidate.reference else {
+                return false
+            }
+            return reference.providerLayerID == inputIdentity.layerID
+        }
     }
 }

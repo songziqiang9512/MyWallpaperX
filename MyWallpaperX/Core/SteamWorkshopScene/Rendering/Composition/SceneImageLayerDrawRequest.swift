@@ -206,7 +206,8 @@ struct SceneDependencyEffectInput {
             reference: namedReference,
             frameEpoch: frameEpoch,
             texture: texture,
-            content: content
+            content: content,
+            consumerLayerID: consumerLayerID
         )
     }
 

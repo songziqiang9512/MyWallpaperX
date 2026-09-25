@@ -240,10 +240,13 @@ final class SceneResolvedMaterialGraphExecutor {
                   ) else { return .failure(.captureRejected) }
             baseCommand = initialization
         }
-        // A same-layer primary composite reference is owned by the layer's
-        // own graph. The pair base capture holds exactly the layer's composite
+        // A same-layer composite reference is owned by the layer's own
+        // graph. The pair base capture holds exactly the layer's composite
         // content (whole texture, identity UV, renderable+readable lease), so
         // it is the publication payload for the layer's own named target.
+        // Both authored variants (`_a` primary and `_b` secondary, e.g.
+        // crt_scan_line's `_rt_imageLayerComposite_<id>_b` shader default)
+        // resolve to that same base capture.
         if case .graphInternal = capability.dependencyOwnership {
 #if DEBUG
             NSLog(
@@ -251,29 +254,35 @@ final class SceneResolvedMaterialGraphExecutor {
                 capability.layerID
             )
 #endif
-            let selfReference = SceneNamedTextureReference(
-                providerLayerID: capability.layerID,
-                variant: .primary
-            )
-            let resource = SceneFrameTextureResource.reservedNamedLayerTarget(
-                reference: selfReference,
-                frameEpoch: frame.textureRegistrySnapshot.frameEpoch,
-                texture: baseTarget
-            )
-#if DEBUG
-            if resource == nil {
-                NSLog(
-                    "MWX DEBUG SCENE: phase=self-composite-overlay layer=%d outcome=skipped reason=resource-invalid",
-                    capability.layerID
+            for variant in [
+                SceneNamedTextureReference.Variant.primary,
+                SceneNamedTextureReference.Variant.secondary,
+            ] {
+                let selfReference = SceneNamedTextureReference(
+                    providerLayerID: capability.layerID,
+                    variant: variant
                 )
-            }
+                let resource = SceneFrameTextureResource.reservedNamedLayerTarget(
+                    reference: selfReference,
+                    frameEpoch: frame.textureRegistrySnapshot.frameEpoch,
+                    texture: baseTarget,
+                    consumerLayerID: capability.layerID
+                )
+#if DEBUG
+                if resource == nil {
+                    NSLog(
+                        "MWX DEBUG SCENE: phase=self-composite-overlay layer=%d outcome=skipped reason=resource-invalid",
+                        capability.layerID
+                    )
+                }
 #endif
-            if let resource,
-               let overlaidSelfComposite = executionFrame.overlayingNamedLayerTarget(
-                   selfReference,
-                   resource: resource
-               ) {
-                executionFrame = overlaidSelfComposite
+                if let resource,
+                   let overlaidSelfComposite = executionFrame.overlayingNamedLayerTarget(
+                       selfReference,
+                       resource: resource
+                   ) {
+                    executionFrame = overlaidSelfComposite
+                }
             }
         }
         guard let captureGeneration = nextPairGeneration(),

@@ -193,12 +193,28 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
             return .externalPrimary(binding)
         }
 
-        // Same-layer primary references name the layer's own composite. The
+        // Same-layer composite references name the layer's own target. The
         // declared form (`dependencies == [self]`) keeps the historical
         // previous-shadow proof; authored texture slots without a declaration
         // are the same ownership: the layer's own base source publishes the
         // composite during graph execution, so no external provider binding
-        // may claim the reference.
+        // may claim the reference. The secondary (`_b`) variant qualifies
+        // only in the authored composite form — its slot must be free of a
+        // graph binding, because a `previous`-style binding at that slot is
+        // shadow provenance with its own fail-soft contract, not a
+        // composite-target consumer.
+        let secondaryCompositeOnly = effectiveReferences
+            .filter { $0.variant == .secondary }
+            .allSatisfy { reference in
+                (graph?.nodes ?? []).filter {
+                    $0.effect.descriptorID == reference.slot.effectID
+                        && $0.instancePassIndex == reference.slot.passIndex
+                }.allSatisfy { node in
+                    node.bindings.allSatisfy {
+                        $0.slot != reference.slot.slotIndex
+                    }
+                }
+            }
         guard layer.authoredDependencies.isEmpty,
               layer.dependencyLayerIDs.isEmpty
                   || layer.dependencyLayerIDs == [layer.id],
@@ -207,7 +223,8 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
               effectiveReferences.allSatisfy({
                   $0.consumerLayerID == layer.id
                       && $0.providerLayerID == layer.id
-                      && $0.variant == .primary
+                      && ($0.variant == .primary
+                          || ($0.variant == .secondary && secondaryCompositeOnly))
               }), let graph,
               graph.layerID == layer.id else {
             return nil
@@ -595,13 +612,27 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             }
         }
         guard !namedCandidates.isEmpty else { return .none }
-        guard let candidate = namedCandidates.first,
-              candidate.reference.variant == SceneNamedTextureReference.Variant.primary,
-              candidate.key.effect.layerID == product.graph.layerID,
-              namedCandidates.allSatisfy({ item in
-                  item.reference.variant == .primary
-                      && item.key.effect.layerID == product.graph.layerID
-              }) else { return .invalid }
+        // A same-layer secondary candidate is the authored composite form
+        // (`_rt_imageLayerComposite_<self>_b`): the layer's own graph
+        // publishes both variants from the pair base capture, so it carries
+        // the same conservation contract as the primary. Cross-layer
+        // secondary variants keep failing closed.
+        func admitsCandidate(_ item: ResolvedNamedCandidate) -> Bool {
+            guard item.key.effect.layerID == product.graph.layerID else {
+                return false
+            }
+            switch item.reference.variant {
+            case .primary:
+                return true
+            case .secondary:
+                return item.reference.providerLayerID == item.key.effect.layerID
+            case .unspecified:
+                return false
+            }
+        }
+        guard namedCandidates.allSatisfy(admitsCandidate) else {
+            return .invalid
+        }
         var result: [ResolvedExternalDependency] = []
         for item in namedCandidates {
             let nodeMatches = product.graph.nodes.filter {

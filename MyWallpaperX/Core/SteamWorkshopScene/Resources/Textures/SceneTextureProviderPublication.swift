@@ -266,10 +266,13 @@ nonisolated struct SceneFrameTextureResource {
         frameEpoch: UInt64,
         texture: MTLTexture,
         content: SceneTextureContent = .color(.resolved(.premultipliedAlpha)),
-        uvTransform: SceneTextureUVTransform = .identity
+        uvTransform: SceneTextureUVTransform = .identity,
+        consumerLayerID: Int? = nil
     ) -> Self? {
         guard frameEpoch > 0,
-              reference.variant == .primary,
+              reference.variant == .primary
+                  || (reference.variant == .secondary
+                      && consumerLayerID == reference.providerLayerID),
               texture.textureType == .type2D,
               texture.sampleCount == 1,
               texture.mipmapLevelCount == 1,
@@ -448,7 +451,8 @@ nonisolated struct SceneFrameTextureResource {
             return false
         }
         guard frameEpoch > 0,
-              reference.variant == .primary,
+              reference.variant == .primary
+                  || reference.variant == .secondary,
               // Registry storage generations are monotonic across every resource
               // publication; frame freshness is checked by the publication and
               // candidate epochs below, not by equating the two counters.
