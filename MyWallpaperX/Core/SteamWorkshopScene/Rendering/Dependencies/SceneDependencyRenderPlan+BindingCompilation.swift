@@ -517,21 +517,9 @@ extension SceneDependencyRenderPlan {
             ))
             return nil
         }
-        #if DEBUG
-        if layer.id == 1315, provider.id == 813 {
-            NSLog("MWX XG1: layer=1315 order[813]=%@ order[1315]=%@",
-                  order[813].map(String.init) ?? "nil",
-                  order[1315].map(String.init) ?? "nil")
-        }
-        #endif
         guard let providerOrder = order[provider.id],
               let consumerOrder = order[layer.id],
               providerOrder != consumerOrder else {
-            #if DEBUG
-            if layer.id == 1315, provider.id == 813 {
-                NSLog("MWX XG1: FAIL order lookup")
-            }
-            #endif
             issues.append(Issue(
                 kind: .forwardUtilityProvider,
                 layerID: layer.id,
@@ -625,37 +613,8 @@ extension SceneDependencyRenderPlan {
         let activeDepsOk = providerActiveDependencies.isEmpty
             || providerHasVisibleEffects
         let orderGate = providerOrder < consumerOrder || supportsForwardCapture
-        #if DEBUG
-        if layer.id == 1315, provider.id == 813 {
-            NSLog(
-                "MWX XGATE: kind=%@ contract=%@ kindSupported=%@ visibilityShape=%@ noChildren=%@ activeDepsOk=%@ orderGate=%@ pOrder=%@ cOrder=%@ fwdSource=%@ fwdGraph=%@",
-                String(describing: contract.kind),
-                String(describing: provider.id),
-                kindSupported ? "1" : "0",
-                visibilityShape ? "1" : "0",
-                noChildren ? "1" : "0",
-                activeDepsOk ? "1" : "0",
-                orderGate ? "1" : "0",
-                String(describing: providerOrder),
-                String(describing: consumerOrder),
-                supportsForwardCapture ? "1" : "0",
-                supportsForwardCapture ? "1" : "0"
-            )
-        }
-        #endif
         guard kindSupported, visibilityShape, noChildren, activeDepsOk,
               orderGate else {
-            #if DEBUG
-            NSLog(
-                "MWX XGATE: FAIL layer=%d provider=%d kindSupported=%@ visibilityShape=%@ noChildren=%@ activeDepsOk=%@ orderGate=%@",
-                layer.id, provider.id,
-                kindSupported ? "1" : "0",
-                visibilityShape ? "1" : "0",
-                noChildren ? "1" : "0",
-                activeDepsOk ? "1" : "0",
-                orderGate ? "1" : "0"
-            )
-            #endif
             issues.append(Issue(
                 kind: .forwardUtilityProvider,
                 layerID: layer.id,
