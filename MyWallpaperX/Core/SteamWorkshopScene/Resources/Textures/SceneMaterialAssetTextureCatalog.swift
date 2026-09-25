@@ -34,6 +34,10 @@ final class SceneMaterialAssetTextureCatalog {
             SceneAssetTextureIdentity: SceneTextureProviderState
         ]
         private let definitions: [SceneAssetTextureIdentity: AnimatedDefinition]
+        /// Deterministic animation resolution order. `definitions` is frozen
+        /// at launch, so the sorted key sequence is built once instead of
+        /// re-sorting with string comparators on every frame.
+        private let orderedAnimatedIdentities: [SceneAssetTextureIdentity]
         private var cursors: [SceneAssetTextureIdentity: Cursor] = [:]
         private var frameCursorBaseline: [SceneAssetTextureIdentity: Cursor]?
 
@@ -43,6 +47,8 @@ final class SceneMaterialAssetTextureCatalog {
         ) {
             self.staticStates = staticStates
             self.definitions = definitions
+            self.orderedAnimatedIdentities = definitions.keys
+                .sorted(by: SceneMaterialAssetTextureCatalog.less)
         }
 
         func states(sceneTime: TimeInterval) -> [
@@ -55,7 +61,7 @@ final class SceneMaterialAssetTextureCatalog {
             if frameCursorBaseline != nil { commitFrame() }
             frameCursorBaseline = cursors
             var result = staticStates
-            for identity in definitions.keys.sorted(by: SceneMaterialAssetTextureCatalog.less) {
+            for identity in orderedAnimatedIdentities {
                 guard let definition = definitions[identity] else { continue }
                 result[identity] = state(definition, sceneTime: sceneTime)
             }
