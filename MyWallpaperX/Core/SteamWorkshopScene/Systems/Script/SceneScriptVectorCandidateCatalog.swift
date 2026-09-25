@@ -508,10 +508,10 @@ nonisolated extension SceneScriptVectorProgram {
               binding.targetPath == [
                   .key("objects"), .index(objectIndex), .key("visible"),
               ],
-              ["image", "solid", "text", "container"].contains(
+              ["image", "solid", "text", "container", "composition"].contains(
                   layer.contentKind
               ),
-              case nil = layer.utilityLayer else { return nil }
+              Self.admitsUtilityLayerVisibility(layer) else { return nil }
         let validWrapper =
             (binding.wrapperKeys == ["script", "value"]
                 && binding.properties.isEmpty)
@@ -546,6 +546,22 @@ nonisolated extension SceneScriptVectorProgram {
             evaluatesAfterSharedProviders: false,
             dynamicMaterialModelPath: nil
         )
+    }
+
+    /// A utility layer's visibility participates in the static utility
+    /// planning that its consumption feeds, so those layers stay outside
+    /// scripted visibility. A bare composelayer without dependency metadata
+    /// is just the standard authored container (corpus: 2974757317/3264246690/
+    /// 3357627941/3448845950 script its `visible`); excluding it orphaned the
+    /// binding into the event-only cursor lane, whose frame-free contract
+    /// rejects frame-evaluating owners (`invalidSource`).
+    private static func admitsUtilityLayerVisibility(
+        _ layer: SceneRenderDescriptor.Layer
+    ) -> Bool {
+        guard let utilityLayer = layer.utilityLayer else { return true }
+        return utilityLayer.kind == .composition
+            && layer.dependencyLayerIDs.isEmpty
+            && layer.authoredDependencies.isEmpty
     }
 
     /// This is deliberately narrower than general Vec3 execution. It does not

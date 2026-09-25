@@ -215,6 +215,13 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
     ) -> [Binding] { [] }
 }
 
+nonisolated struct SceneUtilityLayer: Sendable {
+    enum Kind: Sendable { case composition, project, fullscreen }
+    let kind: Kind
+    let copyBackground: Bool
+    let passthrough: Bool
+}
+
 nonisolated struct SceneRenderDescriptor: Sendable {
     enum SceneShaderUserValueKind: Sendable { case null, string }
 
@@ -265,7 +272,7 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         var effectFiles: [String] = []
         var dependencyLayerIDs: [Int] = []
         var authoredDependencies: [Int] = []
-        var utilityLayer: Int? = nil
+        var utilityLayer: SceneUtilityLayer? = nil
         var text: String? = nil
         var textStyle: TextStyle? = nil
 

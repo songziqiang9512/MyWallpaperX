@@ -188,6 +188,13 @@ struct SceneParticleInstanceOverride: Equatable, Sendable {
     let controlPointAngles: [Int: SceneParticleBoundValue]
 }
 
+struct SceneUtilityLayer {
+    enum Kind { case composition, project, fullscreen }
+    let kind: Kind
+    let copyBackground: Bool
+    let passthrough: Bool
+}
+
 struct SceneRenderDescriptor {
     enum SceneShaderUserValueKind { case null, string }
     struct Camera { var orthoHeight: Float? = nil }
@@ -304,7 +311,7 @@ struct SceneRenderDescriptor {
         var effectFiles: [String] = []
         var dependencyLayerIDs: [Int] = []
         var authoredDependencies: [Int] = []
-        var utilityLayer: Int? = nil
+        var utilityLayer: SceneUtilityLayer? = nil
         var staticModelPath: String? = nil
         var attachmentName: String? = nil
         var parentAttachmentBindFrame: [Float]? = nil

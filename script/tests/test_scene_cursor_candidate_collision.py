@@ -440,7 +440,12 @@ class SceneCursorCandidateCollisionTests(unittest.TestCase):
         self.assertTrue(result["domainCommitted"])
         self.assertFalse(result["preflightRequiresReconstruction"])
         self.assertTrue(result["complete"])
-        self.assertEqual(result["vectorInstantiated"], 5)
+        # Utility composition layers without dependency metadata now own
+        # their scripted visibility in the vector lane (the standalone cursor
+        # route orphaned frame-evaluating scripts — 3357627941 layer 55);
+        # their cursor exports ride the borrowed-owner channel, so the total
+        # cursor count is unchanged.
+        self.assertEqual(result["vectorInstantiated"], 7)
         self.assertEqual(result["cursorExpected"], 7)
         self.assertEqual(result["cursorInstantiated"], 7)
         self.assertEqual(result["cursorFailures"], [])
@@ -451,9 +456,13 @@ class SceneCursorCandidateCollisionTests(unittest.TestCase):
         self.assertEqual(result["duplicateInstantiated"], 0)
         self.assertEqual(result["duplicateFailure"], "invalid-argument")
         self.assertFalse(result["duplicateRequiresReconstruction"])
-        self.assertEqual(result["mixedStandaloneVectorTargets"], 0)
-        self.assertEqual(result["mixedStandaloneCursorFailure"], "invalid-source")
-        self.assertEqual(result["mixedStandaloneCursorOwners"], 0)
+        # A frame-evaluating visibility script on a utility composition layer
+        # now owns in the vector lane instead of failing the event-only
+        # cursor guard (the 3357627941 layer 55 shape); its cursor exports
+        # ride the borrowed channel.
+        self.assertEqual(result["mixedStandaloneVectorTargets"], 1)
+        self.assertEqual(result["mixedStandaloneCursorFailure"], "missing")
+        self.assertEqual(result["mixedStandaloneCursorOwners"], 1)
 
     def test_same_layer_peer_failure_keeps_authored_order_and_prior_mutations(
         self,
