@@ -536,6 +536,14 @@ enum MainWindowCoordinator {
                     message = "已取消 Scene 壁纸准备，当前壁纸保持不变"
                 case .failed:
                     message = "Scene 壁纸准备失败，当前壁纸保持不变"
+                case .stopped:
+                    // E2a-2: 用户请求的停止——选择权威回收真值。防御性
+                    // 守卫：若切换已把 runtime 指向别处，本回收迟到则跳过。
+                    // epoch stamp 由 stopCurrentPlayback 单点负责。
+                    message = "Scene 壁纸已停止"
+                    if wallpaperManager.activeWallpaperRuntime == .scene {
+                        wallpaperManager.stopCurrentPlayback()
+                    }
                 }
                 SteamWorkshopService.shared.statusMessage = message
             }

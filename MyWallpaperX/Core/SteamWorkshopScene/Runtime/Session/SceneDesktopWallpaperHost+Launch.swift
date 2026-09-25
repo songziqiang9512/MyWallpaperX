@@ -727,7 +727,7 @@ extension SceneDesktopWallpaperHost {
         case .preparingResources: hubPhase = .preparingResources
         case .preparingSurfaces: hubPhase = .preparingSurfaces
         case .launched: hubPhase = .launched
-        case .cancelled, .failed: hubPhase = nil
+        case .cancelled, .failed, .stopped: hubPhase = nil
         }
         guard let hubPhase else { return }
         ScenePerformanceCounterHub.shared.recordLaunchPhase(

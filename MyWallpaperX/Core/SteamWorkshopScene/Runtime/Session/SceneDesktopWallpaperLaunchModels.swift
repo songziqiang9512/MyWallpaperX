@@ -10,6 +10,10 @@ nonisolated struct SceneWallpaperLaunchState: Equatable, Sendable {
         case launched
         case cancelled
         case failed
+        /// E2a-2: a user-requested `.stop` completed. Emitted only from the
+        /// command path — switching away from Scene stays silent so the
+        /// incoming runtime's commit is never raced by a stale recycle.
+        case stopped
     }
 
     let requestID: UUID
@@ -22,7 +26,7 @@ nonisolated struct SceneWallpaperLaunchState: Equatable, Sendable {
         case .accepted, .preparingModel, .preparingPrograms,
              .preparingResources, .preparingSurfaces:
             true
-        case .launched, .cancelled, .failed:
+        case .launched, .cancelled, .failed, .stopped:
             false
         }
     }

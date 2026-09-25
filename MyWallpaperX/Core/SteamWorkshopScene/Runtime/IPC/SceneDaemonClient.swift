@@ -201,7 +201,9 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             if endpointReady { sendSimpleCommand("resume") }
             return hasPlaybackIntent
         case .stop:
-            stop()
+            // E2a-2: user-requested stop reports completion so the
+            // selection authority recycles its truth.
+            stop(postsLaunchState: true)
             return true
         case .switchNext:
             return false
@@ -268,6 +270,16 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     }
 
     func stop() {
+        stop(postsLaunchState: false)
+    }
+
+    /// E2a-2: the `.stop` command path reports completion so the selection
+    /// authority can recycle its truth. Runtime-switch observers call the
+    /// plain `stop()` and stay silent — an incoming runtime's commit must
+    /// not race a stale recycle.
+    func stop(postsLaunchState: Bool) {
+        let stoppedRequestID = activeRequestID ?? pendingRequestID
+        let stoppedRecordID = activeRecordID ?? pendingIntent?.recordID
         restartWorkItem?.cancel()
         restartWorkItem = nil
         handshakeWorkItem?.cancel()
@@ -286,6 +298,19 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         revokeAudioSpectrumDemand(generation: sessionGeneration)
         latestFrameStats = nil
         restartBackoff.reset()
+        if postsLaunchState, let stoppedRequestID {
+            // Posted before transport teardown so the recycle lands even if
+            // the daemon outlives the notification consumer's run loop turn.
+            NotificationCenter.default.post(
+                name: .sceneWallpaperLaunchStateDidChange,
+                object: SceneWallpaperLaunchState(
+                    requestID: stoppedRequestID,
+                    recordID: stoppedRecordID,
+                    phase: .stopped,
+                    message: "Scene 壁纸已停止"
+                )
+            )
+        }
         guard let transport else { return }
         let generation = sessionGeneration
         if !resourceLifetimes.isEmpty {

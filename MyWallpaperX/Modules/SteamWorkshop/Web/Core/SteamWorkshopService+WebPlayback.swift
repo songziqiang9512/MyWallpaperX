@@ -131,7 +131,7 @@ extension SteamWorkshopService {
                       let state = notification.object
                         as? SceneWallpaperLaunchState else { return }
                 switch state.phase {
-                case .launched, .failed, .cancelled:
+                case .launched, .failed, .cancelled, .stopped:
                     guard let recordID = state.recordID else { return }
                     self.clearLaunchPending(matching: recordID)
                 case .accepted, .preparingModel, .preparingPrograms,

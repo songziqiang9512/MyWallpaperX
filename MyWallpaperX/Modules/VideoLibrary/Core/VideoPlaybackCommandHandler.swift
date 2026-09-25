@@ -16,7 +16,9 @@ final class VideoPlaybackCommandHandler: PlaybackEngineControlling {
             WallpaperEngine.shared.resumeAllPlayers()
             return true
         case .stop:
-            WallpaperEngine.shared.stopPlayback()
+            // E2a-2: stop 回收选择权威真值（引用/定时器/播放态/纪元），
+            // 不再裸停引擎——stopped 状态归 Manager 单点归属。
+            WallpaperManager.shared.stopCurrentPlayback()
             return true
         case let .setVolume(volume):
             let sanitized = volume.isFinite

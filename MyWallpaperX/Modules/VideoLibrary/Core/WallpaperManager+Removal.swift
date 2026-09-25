@@ -307,11 +307,19 @@ extension WallpaperManager {
     }
 
     func clearCurrentWallpaperAndStopPlayback() {
-        // 当前播放项消失时同时清引用和停播，避免引擎继续播放已删除的资源。
+        stopCurrentPlayback()
+    }
+
+    /// E2a-2: 用户请求的停止入口——选择权威回收真值（引用清空、
+    /// 定时切换停止、播放态复位）后停播并推进产品意图纪元。命令通道
+    /// 的 `.stop`（video handler）与 Scene 的 `.stopped` 事件都汇聚
+    /// 到这里，保证 stopped 状态只有这一个归属。
+    func stopCurrentPlayback() {
         clearCurrentWallpaperReference()
-        // E2a-1: 停止也是一次意图，推进产品纪元后注入（只读，提交点不变）。
+        stopAutoSwitchTimer()
         WallpaperEngine.shared.adoptIntentEpoch(beginPlaybackIntent())
         WallpaperEngine.shared.stopPlayback()
+        isPlaying = false
     }
 
     func removalRecord(for wallpaper: VideoWallpaper) -> RemovalRecord {
