@@ -1491,8 +1491,12 @@ private struct SceneShaderVariantEnvironmentHarness {
 
 class SceneShaderVariantEnvironmentTests(unittest.TestCase):
     def test_product_target_opt_in_is_carried_by_one_program_candidate(self):
+        # The generic program space moved from RenderGraph/MaterialProgram to
+        # Compilation/Material. The dx11 opt-in stays confined to the two
+        # concrete candidate owners; the shared variant passthrough must keep
+        # forwarding `template.compatibilityTarget` instead of hard-coding it.
         material_program_root = (
-            SCENE_ROOT / "RenderGraph/MaterialProgram"
+            SCENE_ROOT / "Compilation/Material"
         )
         target_token = "compatibilityTarget: .windowsDX11ShaderModel4"
         target_owners = []
@@ -1500,8 +1504,11 @@ class SceneShaderVariantEnvironmentTests(unittest.TestCase):
             if target_token in source_path.read_text(encoding="utf-8"):
                 target_owners.append(source_path.name)
         self.assertEqual(
-            target_owners,
-            [],
+            sorted(target_owners),
+            sorted([
+                "SceneBaseMaterialColorModulationCompiler.swift",
+                "SceneResolvedMaterialRuntimeCatalog.swift",
+            ]),
         )
         runtime_catalog_source = (
             REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift"
