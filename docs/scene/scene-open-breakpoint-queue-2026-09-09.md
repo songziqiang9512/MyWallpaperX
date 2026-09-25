@@ -14,7 +14,7 @@
 
 ### Q1 — 鼠标/指针交互簇（用户 2026-09-25 重排为最高优先）
 
-**Q1-A 粒子控制点鼠标跟随缺失（2026-09-25 定案，P1，可开工）**
+**Q1-A 粒子控制点鼠标跟随缺失（2026-09-25 已修复，待用户实机验收）**
 
 - 症状：`3792817546` 作者心形应跟随鼠标、`3790726145` 应有鼠标拖尾，均不动；同类"鼠标跟随"效果广泛缺失（census：CP0 `flags=1` 形态 **26 定义/14 样本**）。
 - 取证事实（2026-09-25，全部已核实）：
@@ -23,7 +23,9 @@
   - 官方文档示例用 CP1+ Lock-to-pointer（source-index 2026-08-01 复核），但官方 patch note 证实控制点可 "follow the cursor"，且用户实机观察证实 CP0-flags-1 样本在官方客户端跟随鼠标——旧 census "CP0 按合同无效" 结论被推翻。
 - 根因定性：官方语义 = **CP0 `flags` bit0 时系统原点跟随鼠标**（发射与默认 CP 消费随动）；引擎设计把 CP0 固定为原点、指针输入只给 CP1+。
 - 修复方向：①`hasBoundedPointerInput` 放行 id 0（其余约束不变）；②operator/initializer/emitter 省略 `controlpoint` 时默认 0；③CP0 指针输入驱动系统原点（含 attract 消费与发射）。
-- 关闭门：两样本受控指针回放（`--mwx-debug-scene-hover-pointer-from-launch` 仪器现成）看到心形/拖尾跟随；26 定义影响面全语料复跑无回归；既有 CP1+ sentinel `3238423642:984` 四点轨迹不变；独立审查。
+- 已实施（2026-09-25）：三处编辑（两谓词 `(1...7)`→`(0...7)`；emitter 省略源默认指针驱动 CP0，范围与 demand 收集的 sphere/box 锁定；identities 同步默认）。**影响面复核口径：28 定义/15 样本**（复扫 172 语料根，旧 census 26/14 已过期）。positionAround 路径经既有 `controlPoint ?? 0` 默认同批扩展（无样本实证，登记）。
+- 验证：心形/拖尾受控指针回放视觉确认跟随；15 影响样本全复跑（10+1 遥测抖动 PASS + 3363252053 PASS + sentinel `3238423642` 四点轨迹夹具 PASS failures=[]）；`test_scene_particle_simulator` 55 用例（两处旧语义断言已迁移）+ particle_runtime/boids/refraction 全绿；独立审查 P1/P2 已闭环（测试迁移、覆盖声明更正、positionAround 登记）。
+- 余量：用户实机鼠标验收；Q1-B（同批样本的镜头问题）另修。
 
 **Q1-B 镜头视差幅度过大 + 垂直方向反转（2026-09-25 登记，P1）**
 

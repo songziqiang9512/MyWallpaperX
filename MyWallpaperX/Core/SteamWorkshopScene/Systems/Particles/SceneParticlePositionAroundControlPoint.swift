@@ -113,7 +113,7 @@ extension SceneParticleInitializer {
 
 extension SceneParticleControlPoint {
     nonisolated var hasBoundedPositionAroundPointerInput: Bool {
-        guard rawFlags == 1, let id, (1 ... 7).contains(id), angles == nil,
+        guard rawFlags == 1, let id, (0 ... 7).contains(id), angles == nil,
               parentControlPoint == nil else { return false }
         switch offset {
         case nil:

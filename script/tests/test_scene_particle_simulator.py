@@ -73,8 +73,8 @@ enum Harness {
     }
 
     private static func emitterPointerResults() throws -> [String: Any] {
-        // CP0 remains the particle-system origin. An omitted emitter source
-        // must not turn a serialized flags=1 CP0 into a pointer consumer.
+        // CP0 *is* the particle-system origin: with the pointer flag it
+        // follows the cursor, so an omitted emitter source resolves to 0.
         let originJSON = #"""
         {"material":"p.json","maxcount":8,"starttime":1,
          "controlpoint":[{"id":0,"flags":1,"offset":"0 0 0"}],
@@ -3299,11 +3299,11 @@ class SceneParticleSimulatorTests(unittest.TestCase):
 
     def test_emitter_pointer_control_point_follows_cursor_shapes(self) -> None:
         result = self.run_harness("emitter-pointer")
-        # CP0 stays the particle-system origin even when raw flags serialize
-        # as 1; an omitted emitter source is not a pointer declaration.
-        self.assertEqual(result["originIdentities"], [])
+        # CP0 with the pointer flag drives the system origin: an omitted
+        # emitter source resolves to it and spawns at the pointer frame.
+        self.assertEqual(result["originIdentities"], [0])
         for position in result["originInjectedPositions"]:
-            for value, wanted in zip(position, [0, 0, 0]):
+            for value, wanted in zip(position, [5, 6, 0]):
                 self.assertAlmostEqual(value, wanted)
         # Shuriken-cursor shape: explicit emitter reference to pointer CP1.
         self.assertEqual(result["shurikenIdentities"], [1])
@@ -3451,7 +3451,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
                 "childSystemsIgnored",
                 "controlPointForceUnsupported",
                 "dynamicOverrideIgnored",
-                "pointerControlPointUnsupported",
+                "pointerControlPointBounded",
                 "vortexUnsupported",
             ],
         )
