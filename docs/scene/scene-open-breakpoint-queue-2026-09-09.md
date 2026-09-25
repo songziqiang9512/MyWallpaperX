@@ -51,7 +51,11 @@
 
 ### Q3 — 效果/依赖能力缺口
 
-- `crt_scan_line` 同层合成引用 `_rt_imageLayerComposite_<id>_{a,b}` 无 binding 合同（`2849382252` 层 205，效果整体 passthrough）——公共能力扩展（依赖/绑定编译器侧），独立批次。
+- `crt_scan_line` 同层合成引用 `_rt_imageLayerComposite_<id>_{a,b}`（`2849382252` 层 205，效果整体 passthrough）——公共能力扩展，**2026-09-25 侦察完成，需三协调切片一次落地**：
+  ①ownership：`+DependencyOwnership.swift` 同层分支放宽 `$0.variant == .primary` 为 primary|secondary（已验证可改，但**不可单独落地**——单独改会把层 205 从 effect-local-passthrough 推进整层 `utility-source-program-unsupported` 能力拒绝，比现状更差）；
+  ②变体分类：`ShaderSchema+SamplerPurpose.graphInputSourceSlotFacts` 增加同层合成默认纹理的 provenance（`defaultTexture == .internalTarget("_rt_imageLayerComposite_<self>_{a,b}")` 且 `SceneNamedTextureReference.parse` 的 provider == effectContext.key.layerID）；`CapturedMainSourceConservation.variantRole` 的 `sourceSampler.defaultTexture == nil` 与 else 分支 bindings 守卫需同步放宽，使 `capturedMainTargetSourceSlot != nil`（现状分类为 internalFramebufferOnly → 计数 0 → :534 拒绝，已插桩证实）；
+  ③运行时选择：`TextureSelection` 对 `.internalTarget` 非场景背景默认目前落 `internalDefault(name)`——需对同层合成命名改走帧快照 named target 解析（执行器 graphInternal overlay 需同时发布 primary+secondary 两变体，基准纹理=base capture）。
+  验证门：2849382252 回放 crt_scan_line 从 passthrough 变真实 program 执行 + 2815826216 层 184（同形态第二实例）+ 既有 composition 样本无回归。
 - `sine_wave_circle` varyingUnsupported = 作者内容限制（激活变体下读未初始化分量）；恢复需先决定"未定义分量语义"（零填充 vs 未定义），属官方对照语义决定，不得猜测放宽。
 - `3357627941` 层 55 可见性脚本 `invalidSource`：已定位到 cursor route 守卫（`SceneScriptCursorProgram+Construction.swift:145-152` 的 `events.isEmpty`/`requiresFrameEvaluation`），未闭合；不得为通过放宽守卫。
 - `2938612768` execution contract not satisfied + passthrough 激活证据缺失（2026-09-25 新登记，未查）。
