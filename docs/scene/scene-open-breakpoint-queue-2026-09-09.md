@@ -27,18 +27,17 @@
 - 验证：心形/拖尾受控指针回放视觉确认跟随；15 影响样本全复跑（10+1 遥测抖动 PASS + 3363252053 PASS + sentinel `3238423642` 四点轨迹夹具 PASS failures=[]）；`test_scene_particle_simulator` 55 用例（两处旧语义断言已迁移）+ particle_runtime/boids/refraction 全绿；独立审查 P1/P2 已闭环（测试迁移、覆盖声明更正、positionAround 登记）。
 - 余量：用户实机鼠标验收；Q1-B（同批样本的镜头问题）另修。
 
-**Q1-B 镜头视差幅度过大 + 垂直方向反转（2026-09-25 已修复，待用户实机验收）**
+**Q1-B 镜头视差幅度过大 + 垂直方向反转（未解决挂起，用户裁决 2026-09-25）**
 
 - 症状：`3750813609`、`3363252053` 鼠标移动时内景晃动幅度过大；上下移动鼠标时镜头变化方向与鼠标相反。
-- 取证事实（2026-09-25）：
-  - `3750813609`：ortho 3840×2160、amount=0.1、mouseinfluence=0.15、delay=2.0，层 parallaxDepth 为 **-2/-1/0（负深度为主）**；`3363252053` 类似且 parallax 属性门控（27 层带 depth）。
-  - 现行公式 `SceneLayerParallax.offset`：`shift = (layerPos − cameraPos + mouseOffset) × depth × amount`，`mouseOffset = −mouseInWorldAxes × halfSize × influence`——含**层绝对位置的常量项**（与官方"层按 depth×镜头位移"行为不符，疑造成永久错位放大感知幅度）；负 depth 翻转方向；Y 经 `worldYDown` 取负后再乘负 depth，方向链未验。
-  - 官方公开页只给 amount/delay/influence 语义，不公开公式与方向（source-index §1.3）；数值 parity 依赖 P4 固定同输入官方对照。
-- 修复方向：重审 offset 公式的常量项与符号链（先修可达子集：常量项去留、Y 符号在负 depth 下的正确性）；受控指针 A/B 定位幅度/方向的量化修正。
-- 已实施（2026-09-25）：实测定案——120px 反向伪影来自公式常量项 `(layerPos−cameraPos)`：cameraPosition 含动态相机原点，样本脚本读鼠标驱动相机 → 常量项被指针放大；鼠标项符号本来就对。修复=移除常量项与 cameraPosition 字段（Configuration/构造点/死参数清理），shift=−mouseInWorldAxes×halfSize×influence×depth×amount。
-- 验证：受控指针 A/B 摆动 120px→≤8px（3750813609）、3363252053 复测 (2,0)≈零漂移；fixed13 门禁与基线逐样本对比除已知项外零新增（2938612768 两项波动经无本批构建对照排除）；2163522240 非 parallax 样本且 fixed13 PASS；layer_parallax/camera_shake/particle_runtime 测试绿；独立审查（P1 证据补齐+P2 死参数清理均已闭环）。
-- 可见变化登记：全语料 36 个 parallax 样本 rest 态层回 authored 位；动态相机移动时视差层不再按 depth 缩放随动（两通道解耦，shake 仍经相机帧生效）。
-- 余量：用户实机验收方向/幅度观感；数值 parity 仍依赖 P4 官方固定同输入对照。
+- 状态：三轮修复（常量项移除→Mirage 完整移植→垂直轴符号+收敛语义）均未通过用户实机验收；用户裁决挂起，后续有机会再解决。已验证的子缺陷修复保留在提交链中，但整体问题按未解决登记。
+- 取证事实（插桩实测，2026-09-25）：
+  - `3750813609`：ortho 3840×2160、amount=0.1、mouseinfluence=0.15、delay=2.0，层 parallaxDepth 为 **-2/-1/0（负深度为主）**；`3363252053` 类似且 parallax 属性门控。运行时插桩确认 amount/influence/ortho/depth 逐值与作者数据一致，公式量级正确（全程 ~50px@3024 屏）。
+  - 已修子缺陷①（方向，591cf1d8 移植丢鼠标空间转换）：平滑指针为 y-up NDC、世界为 y-down，垂直轴反向、水平跟随 → 斜向剪切。修复 = 指针项 `(−NDC.x, +NDC.y)×halfSize×influence`，与 Mirage `Scaling(1,-1)×(0.5−m)×ortho×inf` 在两侧相反的轴约定下代数恒等（Mirage：GLFW y-down 鼠标入 y-up 世界；本仓：AppKit y-up NDC 入 y-down 世界）。
+  - 已修子缺陷②（动态）：桌面宿主每帧轮询鼠标位置调 `setTarget`，未变化轮询重置延迟累加 → 永不收敛。修复 = setTarget 对未变化值早退（事件语义；早退不更新 lastInputTimestamp，避免静止后下次移动瞬跳）。
+  - 余留疑点：用户实测仍判无效，说明官方行为的判定输入不止这两个子缺陷（候选：常量项 layout 感知、多显示器 NDC、脚本驱动相机交互、样本差异——未验证）。
+- 验证记录：指针 down/up 受控 A/B——高分稳定块 18/15 个 dy=+25px（跟随鼠标下移）；fixed13 与基线零新增；layer_parallax/camera_shake 测试绿。
+- 重启条件：后续有官方同输入对照（P4）或用户愿意再验收时，从"余留疑点"清单继续。`g_ParallaxPosition` shader uniform 缺 0.5 中心化+influence 缩放——全语料零消费，随本项延后。
 
 **Q1-C 点击/拖动已闭合项的余量**：真实 AppKit 鼠标录屏验收、多步连续 move、compositor 窗口切片（仪器=from-launch 开关+命中盒探针；退役条件=Q1-C 收口）。**Q1-D previous-pointer 作者效果**：连续轨迹批已修正 current-only；previous 侧作者效果未验收。点击拖放本身用户已确认正确（2026-09-25）。
 

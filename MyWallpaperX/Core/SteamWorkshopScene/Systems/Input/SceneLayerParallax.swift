@@ -65,17 +65,21 @@ nonisolated enum SceneLayerParallax {
               configuration.orthoSize.x > 0, configuration.orthoSize.y > 0,
               resolution.depth != .zero else { return .zero }
         let halfSize = configuration.orthoSize * 0.5
-        // Ported from the MirageWallpaper reference formula (user-directed
-        // 2026-09-25): the working camera sits at the scene's rest center, so
-        // each layer keeps a constant depth-scaled spread
-        // `(layerPosition - cameraPosition) * depth * amount` at pointer
-        // rest, and the pointer adds a drift of
-        // `-normalized * halfSize * influence` in world axes — no extra Y
-        // flip: the negated-NDC pair reproduces Mirage's
-        // `Scaling(1,-1) * (0.5 - mousePos) * ortho * influence` in the
-        // y-down world frame.
-        let shift = (layerPosition - configuration.cameraPosition
-            - mouseNormalized * halfSize * configuration.mouseInfluence)
+        // Pointer drift in world axes. The smoothed pointer is Y-up NDC
+        // (AppKit local) while the orthographic world is Y-down, so the Y
+        // component flips when entering world space: the pair
+        // `(-NDC.x, +NDC.y) * halfSize * influence` is algebraically equal
+        // to MirageWallpaper's `Scaling(1,-1) * (0.5 - mousePos) * ortho *
+        // influence` under the two projects' opposing axis conventions
+        // (GLFW Y-down mouse into a Y-up world vs AppKit Y-up NDC into a
+        // Y-down world). With authored negative parallaxDepth a layer then
+        // follows the pointer on BOTH axes; the previous port dropped this
+        // mouse-space conversion and inverted the vertical axis.
+        let pointerDrift = SIMD2(
+            -mouseNormalized.x,
+            mouseNormalized.y
+        ) * halfSize * configuration.mouseInfluence
+        let shift = (layerPosition - configuration.cameraPosition + pointerDrift)
             * resolution.depth * configuration.amount
         guard shift.x.isFinite, shift.y.isFinite else { return .zero }
         return shift
@@ -122,6 +126,13 @@ nonisolated struct SceneParallaxPointerSmoother: Sendable {
     }
 
     nonisolated mutating func setTarget(_ value: SIMD2<Float>, timestamp: Double) {
+        // Reference semantics are event-driven: unchanged polls must not touch
+        // the smoother state (not even the input timestamp, or the next real
+        // move would subtract only one frame of stillness and snap instead of
+        // ramping), or the smoothed position chases the target forever and
+        // never settles `delay` after the pointer stops — the desktop host
+        // polls the global mouse location every frame.
+        guard value != target else { return }
         if let lastInputTimestamp, timestamp.isFinite {
             delayedTime = max(0, delayedTime - max(0, timestamp - lastInputTimestamp))
         }

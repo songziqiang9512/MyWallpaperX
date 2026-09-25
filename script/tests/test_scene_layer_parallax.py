@@ -73,6 +73,13 @@ enum Harness {
         smoother.restore(rollbackState)
         let zeroDelay = smoother.advance(delta: 0.01, delay: 0)
 
+        var eventSmoother = SceneParallaxPointerSmoother()
+        eventSmoother.setTarget(SIMD2(1, -1), timestamp: 0)
+        _ = eventSmoother.advance(delta: 0.25, delay: 1)
+        _ = eventSmoother.advance(delta: 0.25, delay: 1)
+        eventSmoother.setTarget(SIMD2(1, -1), timestamp: 0.9)
+        let smoothUnchangedPoll = eventSmoother.advance(delta: 0.25, delay: 1)
+
         let result: [String: Any] = [
             "root": vector(SceneLayerParallax.resolve(layerID: 1, nodesByID: nodes)?.depth),
             "inherited": vector(SceneLayerParallax.resolve(layerID: 3, nodesByID: nodes)?.depth),
@@ -112,6 +119,7 @@ enum Harness {
             )),
             "smoothFirst": vector(smoothFirst),
             "smoothSecond": vector(smoothSecond),
+            "smoothUnchangedPoll": vector(smoothUnchangedPoll),
             "smoothAfterInput": vector(smoothAfterInput),
             "smoothAdvanced": vector(smoothAdvanced),
             "smoothRestored": vector(smoothRestored),
@@ -168,13 +176,14 @@ class SceneLayerParallaxTests(unittest.TestCase):
         self.assertTrue(self.result["missing"])
         self.assertEqual(self.result["disabled"], [0, 0])
         self.assertEqual(self.result["zeroDepth"], [0, 0])
-        # Mirage-ported formula: constant depth spread from the working
-        # camera center plus a pointer drift of -normalized * halfSize *
-        # influence in world axes (no Y flip). Mouse (1,-1) -> drift
-        # (-250,+125), depth (2,3), amount 0.1 => (-50, 37.5); the drift
-        # direction no longer depends on the world Y convention.
-        self.assertEqual(self.result["axes"], [-50, 37.5])
-        self.assertEqual(self.result["yUpWorld"], [-50, 37.5])
+        # Constant depth spread from the working camera center plus a pointer
+        # drift of (-x, +y) * halfSize * influence in world axes: the smoothed
+        # pointer is Y-up NDC while the world is Y-down, so the drift's Y
+        # component flips on entry (user-verified official semantics: negative
+        # authored depth follows the pointer on both axes). Mouse (1,-1) ->
+        # drift (-250,-125), depth (2,3), amount 0.1 => (-50, -37.5).
+        self.assertEqual(self.result["axes"], [-50, -37.5])
+        self.assertEqual(self.result["yUpWorld"], [-50, -37.5])
         self.assertEqual(self.result["xOnly"], [-50, 0])
         self.assertEqual(self.result["position"], [20, -15])
         self.assertEqual(self.result["cameraPosition"], [-4, 3])
@@ -182,6 +191,11 @@ class SceneLayerParallaxTests(unittest.TestCase):
     def test_pointer_delay_smoothing(self) -> None:
         self.assertEqual(self.result["smoothFirst"], [0.25, -0.25])
         self.assertEqual(self.result["smoothSecond"], [0.625, -0.625])
+        # An unchanged poll (desktop host repeats the same mouse location
+        # every frame) must not reset the delay accumulator: the ramp keeps
+        # converging (t=0.75 -> 0.625 + 0.375*0.75 = 0.90625) instead of
+        # restarting (which would yield 0.71875).
+        self.assertEqual(self.result["smoothUnchangedPoll"], [0.90625, -0.90625])
         self.assertEqual(self.result["smoothAfterInput"], [0.21875, -0.21875])
         self.assertEqual(self.result["smoothRestored"], [0.21875, -0.21875])
         self.assertEqual(self.result["zeroDelay"], [-1, 1])
