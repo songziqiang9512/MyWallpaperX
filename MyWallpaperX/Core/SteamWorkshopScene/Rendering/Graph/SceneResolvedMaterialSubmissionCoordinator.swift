@@ -323,7 +323,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             emit(emission)
             return .rejected(reasonCode: reasonCode)
         }
-        guard let preparedTargets = pool.preparePersistentGraphTargets(
+        guard let preparedTargets = pool.preparePreflightedPersistentGraphTargets(
             framePlans: targetAllocations
         ) else {
             performanceTelemetry?.endStage("admit-target-pool")

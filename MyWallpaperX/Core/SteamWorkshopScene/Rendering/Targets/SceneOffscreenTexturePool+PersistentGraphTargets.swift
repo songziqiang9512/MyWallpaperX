@@ -339,6 +339,28 @@ extension SceneOffscreenTexturePool {
               preflightPersistentGraphTargets(framePlans) == .ready else {
             return nil
         }
+        return allocatePreparedPersistentGraphTargets(framePlans)
+    }
+
+    /// Same-thread fast path for callers that just received `.ready` from
+    /// `preflightPersistentGraphTargets` for this exact array. The preflight
+    /// materializes a full residency snapshot; re-running it inside prepare
+    /// only re-derived facts the caller had already proven, while
+    /// `ensureSharedPairs` moves pending shared pairs into residents and can
+    /// only relax the budget side of that check.
+    func preparePreflightedPersistentGraphTargets(
+        framePlans: [ScenePersistentGraphTargetFramePlan]
+    ) -> [ScenePreparedPersistentGraphTargets]? {
+        guard let requiredSharedPairKeys = requiredSharedPairKeys(for: framePlans),
+              ensureSharedPairs(requiredSharedPairKeys) else {
+            return nil
+        }
+        return allocatePreparedPersistentGraphTargets(framePlans)
+    }
+
+    private func allocatePreparedPersistentGraphTargets(
+        _ framePlans: [ScenePersistentGraphTargetFramePlan]
+    ) -> [ScenePreparedPersistentGraphTargets]? {
         let contexts = framePlans.compactMap(\.orderingContext)
         return ScenePersistentGraphTargetAllocator(
             device: device, cache: allocationCache

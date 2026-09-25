@@ -970,6 +970,11 @@ final class SceneOffscreenTexturePool {
         let values = framePlans.compactMap(factory)
         return values.count == framePlans.count ? values : nil
     }
+    func preparePreflightedPersistentGraphTargets(
+        framePlans: [ScenePersistentGraphTargetFramePlan]
+    ) -> [ScenePreparedPersistentGraphTargets]? {
+        preparePersistentGraphTargets(framePlans: framePlans)
+    }
     func commitAndPinPersistentGraphTargets(
         _ targets: [ScenePreparedPersistentGraphTargets],
         historyTokensByTarget: [[ScenePreparedPersistentGraphTargets.EffectKey:
