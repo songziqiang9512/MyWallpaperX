@@ -21,10 +21,8 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetFormat.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetTable.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphRenderTargetTable+Mapped.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphCommandRuntime.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphNodeScheduler.swift",
 ]
 
 
@@ -96,179 +94,6 @@ enum Harness {
         case .failure(let reason):
             return reason.rawValue
         }
-    }
-
-    static func scheduledBytes(
-        device: MTLDevice,
-        queue: MTLCommandQueue,
-        commandKind: TargetPlan.CommandKind
-    ) throws -> [UInt8] {
-        let effect = Graph.EffectKey(
-            layerID: 44,
-            effectIndex: 0,
-            descriptorID: "44#effect#0"
-        )
-        let input = identity(.layerSource, layerID: 44)
-        let output = identity(.effectOutput, layerID: 44, effect: effect)
-        let first = identity(.framebuffer, layerID: 44, effect: effect, name: "first")
-        let second = identity(.framebuffer, layerID: 44, effect: effect, name: "second")
-        let plan = TargetPlan.testingPlan(
-            layerID: 44,
-            input: input,
-            output: output,
-            inputExtent: .init(width: 2, height: 2),
-            logicalTargets: [
-                logicalTarget(
-                    first, width: 2, height: 2,
-                    firstWrite: 0, lastWrite: commandKind == .swap ? 1 : 0,
-                    firstRead: 1, lastRead: 1
-                ),
-                logicalTarget(
-                    second, width: 2, height: 2,
-                    firstWrite: 1, lastWrite: 1, firstRead: 1, lastRead: 2,
-                    historySeed: commandKind == .swap
-                ),
-            ],
-            commands: [
-                .init(nodeIndex: 1, kind: commandKind, source: first, target: second),
-            ]
-        )
-        guard case .success(let table) = TargetTable.make(
-            plan: plan,
-            device: device,
-            byteBudget: 128
-        ), let upload = device.makeBuffer(length: 16, options: .storageModeShared),
-        let readback = device.makeBuffer(length: 16, options: .storageModeShared),
-        let commandBuffer = queue.makeCommandBuffer(),
-        let uploadEncoder = commandBuffer.makeBlitCommandEncoder() else {
-            fatalError("scheduler setup failed")
-        }
-        let pattern = Array(0..<16).map { UInt8($0 * 7) }
-        pattern.withUnsafeBytes { bytes in
-            memcpy(upload.contents(), bytes.baseAddress!, bytes.count)
-        }
-        uploadEncoder.copy(
-            from: upload,
-            sourceOffset: 0,
-            sourceBytesPerRow: 8,
-            sourceBytesPerImage: 16,
-            sourceSize: .init(width: 2, height: 2, depth: 1),
-            to: table.inputTexture,
-            destinationSlice: 0,
-            destinationLevel: 0,
-            destinationOrigin: .init(x: 0, y: 0, z: 0)
-        )
-        uploadEncoder.endEncoding()
-
-        let graph = Graph(
-            layerID: 44,
-            effects: [
-                .init(
-                    key: effect,
-                    definitionPath: "effects/test/effect.json",
-                    input: input,
-                    output: output,
-                    nodeIndices: [0, 1, 2]
-                ),
-            ],
-            renderTargets: [],
-            nodes: [
-                .init(
-                    nodeIndex: 0, effect: effect, definitionPassIndex: 0,
-                    materialOrdinal: 0, instancePassIndex: 0, kind: .material,
-                    materialPath: "materials/first.json", materialPassID: "first#0",
-                    target: first, bindings: [], commandSource: nil, commandTarget: nil,
-                    compose: nil, conditions: nil
-                ),
-                .init(
-                    nodeIndex: 1, effect: effect, definitionPassIndex: 1,
-                    materialOrdinal: nil, instancePassIndex: nil,
-                    kind: commandKind == .copy ? .copy : .swap,
-                    materialPath: nil, materialPassID: nil, target: nil, bindings: [],
-                    commandSource: first, commandTarget: second,
-                    compose: nil, conditions: nil
-                ),
-                .init(
-                    nodeIndex: 2, effect: effect, definitionPassIndex: 2,
-                    materialOrdinal: 1, instancePassIndex: 1, kind: .material,
-                    materialPath: "materials/second.json", materialPassID: "second#0",
-                    target: output,
-                    bindings: [
-                        .init(
-                            slot: 0, authoredName: "second", texture: second,
-                            conditions: nil
-                        ),
-                    ],
-                    commandSource: nil, commandTarget: nil,
-                    compose: nil, conditions: nil
-                ),
-            ],
-            finalOutput: output,
-            blockers: []
-        )
-        let scheduled = SceneGraphNodeScheduler.encode(
-            graph: graph,
-            targets: table,
-            commandBuffer: commandBuffer
-        ) { node, textures in
-            let sourceIdentity: Graph.TextureIdentity
-            let targetIdentity: Graph.TextureIdentity
-            switch node.materialOrdinal {
-            case 0:
-                sourceIdentity = input
-                targetIdentity = first
-            case 1:
-                sourceIdentity = second
-                targetIdentity = output
-            default:
-                return false
-            }
-            guard let source = textures.texture(for: sourceIdentity),
-                  let target = textures.texture(for: targetIdentity),
-                  let encoder = commandBuffer.makeBlitCommandEncoder() else {
-                return false
-            }
-            encoder.copy(
-                from: source,
-                sourceSlice: 0,
-                sourceLevel: 0,
-                sourceOrigin: .init(x: 0, y: 0, z: 0),
-                sourceSize: .init(width: 2, height: 2, depth: 1),
-                to: target,
-                destinationSlice: 0,
-                destinationLevel: 0,
-                destinationOrigin: .init(x: 0, y: 0, z: 0)
-            )
-            encoder.endEncoding()
-            return true
-        }
-        guard case .success = scheduled,
-              let readbackEncoder = commandBuffer.makeBlitCommandEncoder() else {
-            fatalError("scheduler encoding failed")
-        }
-        readbackEncoder.copy(
-            from: table.outputTexture,
-            sourceSlice: 0,
-            sourceLevel: 0,
-            sourceOrigin: .init(x: 0, y: 0, z: 0),
-            sourceSize: .init(width: 2, height: 2, depth: 1),
-            to: readback,
-            destinationOffset: 0,
-            destinationBytesPerRow: 8,
-            destinationBytesPerImage: 16
-        )
-        readbackEncoder.endEncoding()
-        commandBuffer.commit()
-        commandBuffer.waitUntilCompleted()
-        guard commandBuffer.status == .completed else {
-            fatalError("scheduler command buffer failed")
-        }
-        return Array(
-            UnsafeBufferPointer(
-                start: readback.contents().assumingMemoryBound(to: UInt8.self),
-                count: 16
-            )
-        )
     }
 
     static func main() throws {
@@ -509,167 +334,6 @@ enum Harness {
             descriptorID: "10#effect#3"
         )
         let unknown = identity(.framebuffer, effect: otherEffect, name: "quarterA")
-        let copyPlan = TargetPlan.testingPlan(
-            layerID: plan.layerID,
-            input: input,
-            output: output,
-            inputExtent: .init(width: 2, height: 2),
-            logicalTargets: [
-                logicalTarget(
-                    quarterA, width: 2, height: 2,
-                    firstWrite: 0, lastWrite: 0, firstRead: 2, lastRead: 2
-                ),
-                logicalTarget(
-                    quarterB, width: 2, height: 2,
-                    firstWrite: 1, lastWrite: 2, firstRead: nil, lastRead: nil
-                ),
-            ],
-            commands: [
-                .init(nodeIndex: 2, kind: .copy, source: quarterA, target: quarterB),
-            ]
-        )
-        guard case .success(let copyTable) = TargetTable.make(
-            plan: copyPlan,
-            device: device,
-            byteBudget: 128
-        ), var copyRuntime = copyTable.makeCommandRuntime(),
-        let queue = device.makeCommandQueue(),
-        let upload = device.makeBuffer(length: 16, options: .storageModeShared),
-        let readback = device.makeBuffer(length: 16, options: .storageModeShared),
-        let copyCommandBuffer = queue.makeCommandBuffer(),
-        let uploadEncoder = copyCommandBuffer.makeBlitCommandEncoder(),
-        let copySource = copyRuntime.texture(for: quarterA),
-        let copyTarget = copyRuntime.texture(for: quarterB) else {
-            fatalError("command runtime setup failed")
-        }
-        let pattern = Array(0..<16).map(UInt8.init)
-        pattern.withUnsafeBytes { bytes in
-            memcpy(upload.contents(), bytes.baseAddress!, bytes.count)
-        }
-        uploadEncoder.copy(
-            from: upload,
-            sourceOffset: 0,
-            sourceBytesPerRow: 8,
-            sourceBytesPerImage: 16,
-            sourceSize: .init(width: 2, height: 2, depth: 1),
-            to: copySource,
-            destinationSlice: 0,
-            destinationLevel: 0,
-            destinationOrigin: .init(x: 0, y: 0, z: 0)
-        )
-        uploadEncoder.endEncoding()
-        let wrongOrderFailure: String
-        switch copyRuntime.encodeCommand(at: 99, commandBuffer: copyCommandBuffer) {
-        case .success:
-            wrongOrderFailure = "success"
-        case .failure(let reason):
-            wrongOrderFailure = reason.rawValue
-        }
-        let copyResult = copyRuntime.encodeCommand(
-            at: 2,
-            commandBuffer: copyCommandBuffer
-        )
-        guard case .success = copyResult,
-              let readbackEncoder = copyCommandBuffer.makeBlitCommandEncoder() else {
-            fatalError("copy command failed")
-        }
-        readbackEncoder.copy(
-            from: copyTarget,
-            sourceSlice: 0,
-            sourceLevel: 0,
-            sourceOrigin: .init(x: 0, y: 0, z: 0),
-            sourceSize: .init(width: 2, height: 2, depth: 1),
-            to: readback,
-            destinationOffset: 0,
-            destinationBytesPerRow: 8,
-            destinationBytesPerImage: 16
-        )
-        readbackEncoder.endEncoding()
-        copyCommandBuffer.commit()
-        copyCommandBuffer.waitUntilCompleted()
-        let copiedBytes = Array(
-            UnsafeBufferPointer(
-                start: readback.contents().assumingMemoryBound(to: UInt8.self),
-                count: 16
-            )
-        )
-
-        let swapPlan = TargetPlan.testingPlan(
-            layerID: copyPlan.layerID,
-            input: copyPlan.input,
-            output: copyPlan.output,
-            inputExtent: copyPlan.inputExtent,
-            logicalTargets: copyPlan.logicalTargets,
-            commands: [
-                .init(nodeIndex: 3, kind: .swap, source: quarterA, target: quarterB),
-            ]
-        )
-        guard case .success(let swapTable) = TargetTable.make(
-            plan: swapPlan,
-            device: device,
-            byteBudget: 128
-        ), var swapRuntime = swapTable.makeCommandRuntime(),
-        let swapSourceBefore = swapRuntime.texture(for: quarterA),
-        let swapTargetBefore = swapRuntime.texture(for: quarterB),
-        let swapCommandBuffer = queue.makeCommandBuffer() else {
-            fatalError("swap command setup failed")
-        }
-        let swapResult = swapRuntime.encodeCommand(
-            at: 3,
-            commandBuffer: swapCommandBuffer
-        )
-        guard case .success = swapResult else {
-            fatalError("swap command failed")
-        }
-        let swapBindingsExchanged =
-            swapRuntime.texture(for: quarterA) === swapTargetBefore
-                && swapRuntime.texture(for: quarterB) === swapSourceBefore
-
-        let incompatiblePlan = TargetPlan.testingPlan(
-            layerID: copyPlan.layerID,
-            input: copyPlan.input,
-            output: copyPlan.output,
-            inputExtent: copyPlan.inputExtent,
-            logicalTargets: [
-                copyPlan.logicalTargets[0],
-                logicalTarget(
-                    quarterB, width: 2, height: 2,
-                    format: .rgba8888,
-                    firstWrite: 1, lastWrite: 2, firstRead: nil, lastRead: nil
-                ),
-            ],
-            commands: copyPlan.commands
-        )
-        guard case .success(let incompatibleTable) = TargetTable.make(
-            plan: incompatiblePlan,
-            device: device,
-            byteBudget: 128
-        ), var incompatibleRuntime = incompatibleTable.makeCommandRuntime(),
-        let incompatibleCommandBuffer = queue.makeCommandBuffer() else {
-            fatalError("incompatible command setup failed")
-        }
-        let incompatibleFailure: String
-        switch incompatibleRuntime.encodeCommand(
-            at: 2,
-            commandBuffer: incompatibleCommandBuffer
-        ) {
-        case .success:
-            incompatibleFailure = "success"
-        case .failure(let reason):
-            incompatibleFailure = reason.rawValue
-        }
-        let scheduledCopyBytes = try scheduledBytes(
-            device: device,
-            queue: queue,
-            commandKind: .copy
-        )
-        let scheduledSwapBytes = try scheduledBytes(
-            device: device,
-            queue: queue,
-            commandKind: .swap
-        )
-        let scheduledPattern = Array(0..<16).map { UInt8($0 * 7) }
-
         let duplicatePlan = TargetPlan.testingPlan(
             layerID: plan.layerID,
             input: input,
@@ -763,15 +427,14 @@ enum Harness {
                     && $0.usage.contains(.renderTarget)
                     && $0.usage.contains(.shaderRead)
             },
-            "copyBytesMatch": copiedBytes == pattern,
-            "copyRuntimeComplete": copyRuntime.isComplete
-                && copyRuntime.remainingCommandCount == 0,
-            "wrongOrderFailure": wrongOrderFailure,
-            "swapBindingsExchanged": swapBindingsExchanged,
-            "swapRuntimeComplete": swapRuntime.isComplete,
-            "incompatibleCommandFailure": incompatibleFailure,
-            "scheduledCopyMatches": scheduledCopyBytes == scheduledPattern,
-            "scheduledSwapMatches": scheduledSwapBytes == scheduledPattern,
+
+
+
+
+
+
+
+
             "budgetFailure": failure(TargetTable.make(
                 plan: plan, device: device, byteBudget: exactBudget - 1
             )),
@@ -893,21 +556,6 @@ class SceneGraphRenderTargetTableTests(unittest.TestCase):
         self.assertTrue(self.result["r8PixelFormat"])
         self.assertTrue(self.result["r8ClearMetadataPreserved"])
         self.assertEqual(self.result["r8BudgetFailure"], "byteBudgetExceeded")
-
-    def test_copy_blits_bytes_and_swap_exchanges_logical_bindings(self) -> None:
-        self.assertTrue(self.result["copyBytesMatch"])
-        self.assertTrue(self.result["copyRuntimeComplete"])
-        self.assertEqual(self.result["wrongOrderFailure"], "commandOrderMismatch")
-        self.assertTrue(self.result["swapBindingsExchanged"])
-        self.assertTrue(self.result["swapRuntimeComplete"])
-        self.assertEqual(
-            self.result["incompatibleCommandFailure"],
-            "incompatibleTextures",
-        )
-
-    def test_scheduler_interleaves_materials_with_copy_and_swap_on_gpu(self) -> None:
-        self.assertTrue(self.result["scheduledCopyMatches"])
-        self.assertTrue(self.result["scheduledSwapMatches"])
 
     def test_refuses_the_whole_allocation_before_exceeding_budget(self) -> None:
         self.assertEqual(self.result["budgetFailure"], "byteBudgetExceeded")

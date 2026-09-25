@@ -91,11 +91,6 @@ DEPENDENCY_FRAME_RUNTIME_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyFrameRuntime.swift"
 )
-GRAPH_COMMAND_RUNTIME_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphCommandRuntime.swift"
-)
-
 HARNESS = r'''
 import Foundation
 import Metal
@@ -804,7 +799,6 @@ class SceneGPUCensusTests(unittest.TestCase):
         offscreen = OFFSCREEN_EFFECT_ENCODER_SOURCE.read_text(encoding="utf-8")
         snapshot = FRAMEBUFFER_SNAPSHOT_SOURCE.read_text(encoding="utf-8")
         dependency = DEPENDENCY_FRAME_RUNTIME_SOURCE.read_text(encoding="utf-8")
-        command_runtime = GRAPH_COMMAND_RUNTIME_SOURCE.read_text(encoding="utf-8")
 
         self.assertEqual(
             main_pass.count("SceneGPUCensus.recordMainPassRender("), 1
@@ -844,9 +838,6 @@ class SceneGPUCensusTests(unittest.TestCase):
         # must publish exactly once when selected.
         self.assertEqual(
             dependency.count("SceneGPUCensus.recordGraphOutputPublication("), 2
-        )
-        self.assertEqual(
-            command_runtime.count("SceneGPUCensus.recordTextureCopy("), 1
         )
         census = GPU_CENSUS_SOURCE.read_text(encoding="utf-8")
         hub = COUNTER_HUB_SOURCE.read_text(encoding="utf-8")

@@ -67,10 +67,6 @@ struct SceneGraphRenderTargetTable {
         texturesByIdentity[identity]
     }
 
-    func makeCommandRuntime() -> SceneGraphCommandRuntime? {
-        SceneGraphCommandRuntime(plan: plan, texturesByIdentity: texturesByIdentity)
-    }
-
     static func make(
         plan: SceneGraphRenderTargetPlan,
         device: MTLDevice,

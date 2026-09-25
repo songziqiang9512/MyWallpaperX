@@ -451,11 +451,9 @@
       },
       "Targets": {
         "file_globs": [
-          "SceneGraphCommandRuntime.swift",
           "SceneGraphExecutionState+Identity.swift",
           "SceneGraphExecutionState+Validation.swift",
           "SceneGraphExecutionState.swift",
-          "SceneGraphNodeScheduler.swift",
           "SceneGraphRenderTargetFormat.swift",
           "SceneGraphRenderTargetLease+Publication.swift",
           "SceneGraphRenderTargetLease.swift",
