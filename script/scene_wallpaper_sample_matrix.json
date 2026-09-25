@@ -2,7 +2,7 @@
   "schema_version": 2,
   "name": "scene-runtime-fixed13-2026-07-26",
   "base_matrix": "scene_wallpaper_full_sample_matrix.json",
-  "base_matrix_sha256": "3f071f894dae46ef97c71e622d661d3b199542bffe67223682ece97d1298c762",
+  "base_matrix_sha256": "9748ff079a24f65fca503b1961741178655a1c02735d28bf7de893f4e1bcbbbe",
   "sample_ids": [
     "2131872317",
     "2802243144",
@@ -97,15 +97,28 @@
       "remove": [
         "expected_authored_effect_graph_authored_shader_count",
         "expected_authored_effect_graph_blend_count",
+        "expected_authored_effect_graph_clipping_mask_count",
         "expected_authored_effect_graph_color_key_count",
         "expected_authored_effect_graph_film_grain_count",
         "expected_authored_effect_graph_foliage_sway_count",
+        "expected_authored_effect_graph_godrays_count",
+        "expected_authored_effect_graph_iris_inline_suffix_count",
         "expected_authored_effect_graph_light_shafts_count",
+        "expected_authored_effect_graph_opacity_count",
         "expected_authored_effect_graph_procedural_noise_count",
+        "expected_authored_effect_graph_pulse_count",
+        "expected_authored_effect_graph_scroll_count",
+        "expected_authored_effect_graph_shake_count",
+        "expected_authored_effect_graph_tint_count",
         "expected_authored_effect_graph_transform_count",
         "expected_authored_effect_graph_transform_static_fallback_count",
         "expected_authored_effect_graph_transform_static_fallback_diagnostics",
-        "expected_authored_effect_graph_water_ripple_count"
+        "expected_authored_effect_graph_water_caustics_count",
+        "expected_authored_effect_graph_water_flow_count",
+        "expected_authored_effect_graph_water_ripple_count",
+        "expected_authored_effect_graph_water_waves_count",
+        "expected_authored_effect_graph_workshop_audio_bars_count",
+        "expected_authored_effect_graph_workshop_shadow_count"
       ]
     },
     "2998757800": {

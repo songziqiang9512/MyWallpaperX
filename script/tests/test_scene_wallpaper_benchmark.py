@@ -7132,10 +7132,14 @@ utility layer 763: skippedHidden kind=composition
         self.assertEqual(mixed["passthrough"]["complete_layer_ids"], [68])
         self.assertEqual(mixed["validation_failures"], [])
 
+        # An activation passthrough whose program identity carries a reason
+        # outside the product's prepareActivationPassthrough whitelist stays
+        # malformed; the whitelisted reasons themselves (D2b'' added the
+        # script-gated preproof downgrade) are valid evidence.
         wrong_reason = benchmark.resolved_material_graph_execution_metrics(
             preview_text,
             passthrough_log(
-                "effect-activation-visibility-disabled",
+                "effect-activation-unwhitelisted-reason",
                 compositor_consumed=True,
             ),
             effect_execution=effect_execution,

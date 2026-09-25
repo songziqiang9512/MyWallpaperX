@@ -384,6 +384,24 @@ UTILITY_LAYER_RE = re.compile(
 UTILITY_CAPTURE_EXECUTION_RE = re.compile(
     r"phase=utility-capture layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
 )
+# Activation-passthrough program identities the runtime may legally emit for
+# a statically admitted-passthrough stage. Mirrors the product whitelist in
+# prepareActivationPassthrough (ProgramFirstStages / VisualFailurePassthrough):
+# D2b'' added the script-gated preproof downgrade reason for dependency
+# consumers (2938612768 layers 239/657/1509).
+ACTIVATION_PASSTHROUGH_PROGRAM_REASONS = frozenset({
+    "effect-activation-visibility-disabled",
+    "effect-activation-pointer-provider-unavailable",
+    "effect-activation-scalar-below-minimum",
+    "initially-inactive-property-stage-passthrough",
+    "script-gated-dependency-preproof-mismatch",
+})
+
+ACTIVATION_PASSTHROUGH_PROGRAM_IDENTITIES = frozenset({
+    "activation-passthrough:" + reason
+    for reason in ACTIVATION_PASSTHROUGH_PROGRAM_REASONS
+})
+
 AUTHORED_EFFECT_GRAPH_OPACITY_COUNT_RE = re.compile(
     r"^authoredEffectGraphOpacityCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -3268,10 +3286,8 @@ def resolved_material_graph_passthrough_metrics(
             continue
         if (
             observation.get("activation_passthrough") is not True
-            or observation.get("program_identity") != (
-                "activation-passthrough:"
-                "initially-inactive-property-stage-passthrough"
-            )
+            or observation.get("program_identity")
+            not in ACTIVATION_PASSTHROUGH_PROGRAM_IDENTITIES
         ):
             malformed_subjects.add(subject)
             continue
