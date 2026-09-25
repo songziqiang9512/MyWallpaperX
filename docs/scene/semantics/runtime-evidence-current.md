@@ -2327,3 +2327,13 @@ v4 的 `3780119725` generation 1 include-current-process capture data peak `0.49
 **拷贝归因（代码级）：**authored copy 节点计数为 0（`effect_graph_copy_node_count=0`），拷贝命令由执行器生成——`SceneResolvedMaterialGraphExecutor+Validation.swift:235-262` 的 history **rehydration** 逐帧拷贝（state 重建时把旧 token 内容复制进新分配）。E1c 当年的前提"本样本 22 个 resolved-material 层都没有 history closure、provisionalTails 100% 为空"已不再成立：09-16 → HEAD 的能力演进使部分层获得 history closure，`reusesStaticPlan` 快速路径对它们不可达，每帧产生恰好 6 次 rehydration 拷贝。具体由哪个提交引入未归因（候选：能力扩展批使更多带 feedback/history 的效果进入执行），属下一单职责切片。
 
 **裁决：**①AS1 回归保护判定=CPU 无回退（改善）、present 改善、GPU p50 门内；②新出现的 6 次/帧整纹理 blit 拷贝登记为 AS3 首个可证伪候选（"去掉无消费者的 snapshot/copy"——需先证明这些 rehydration 拷贝有无消费者与更廉价的 history 保持方式），并复核 E1c 结论的适用边界（历史 closure 出现后 `executionSignatures` 跳过逻辑是否仍安全——当年合同由 harness 守住，但前提漂移需重验）；③AS3 的"无对象"裁决随之更新：路由已稳定（matrix 绿），22 次 source capture 与 6 次 rehydration 拷贝构成 AS3 候选面。工作区产物：`/private/tmp/mwx-derived-as1r`（-O 隔离构建）、`/private/tmp/mwx-as1r-{1,2,3}`（三次运行报告）。
+
+<a id="e-2026-09-26-as3-copy-attribution"></a>
+
+### E-2026-09-26-AS3-COPY-ATTRIBUTION — 6 次/帧拷贝归因：D2b'' 激活直通的 ping-pong 成员保留拷贝，非 rehydration
+
+**方法：**对 `prepareCopy` 全部三个调用点（Executor+Preparation copy 节点、+Validation history rehydration、+VisualFailurePassthrough 直通 pair）加环境变量门控插桩（`MWX_DEBUG_REHY`），12 s no-obs 回放 2938612768，随后插桩全数移除（工作区零 diff，干净 `-O` 构建复验 BUILD SUCCEEDED）。
+
+**结果：**rehydration 路径与 copy 节点路径**零命中**；4230 次命中全部来自 `VisualFailurePassthrough` 的 pair 成员拷贝（≈5.9/帧，与 census 的 6.0/帧吻合），成员在 `zero/one` 间交替。**归因：**D2b''（50672fda，2026-09-19——晚于 2026-09-16 冻结基线）使 239/657/1509 三层以激活直通执行（`activation-passthrough:script-gated-dependency-preproof-mismatch`），每帧每层为保留 previous-current 在 pair 的 ping-pong 成员间 blit（`inputMember != outputMember` 分支），3 层 × 2 成员 = 6 次/帧、35.5 MB/帧。前一日证据条目把该拷贝猜测为 history rehydration 属归因错误，本条更正。
+
+**裁决：**①拷贝**有消费者**（下一帧 pair 输入与合成器的 previous-current），不是 AS3"去掉无消费者拷贝"的对象；②消融候选更新为**成员别名发布**——同文件 `inputMember == outputMember` 分支已有免拷贝 `rewrappedForGraphIdentity` 先例，跨成员情形能否以输入成员纹理直接发布取决于 pair 池的成员互斥语义（下一阶段写入成员时是否假设独占），需独立设计核验后按 AS1 门 A/B；③E1c 前提失效的担忧解除：无 rehydration 拷贝、`reusesStaticPlan` 未受影响。
