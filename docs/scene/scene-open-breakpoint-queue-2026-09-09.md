@@ -63,7 +63,7 @@
 
 ### Q4 — 登记边界/暂缓
 
-- **3750813609 时钟文字黑白混合（用户报告 2026-09-26）——根因定位（2026-09-26）**：隔离 A/B（隔离副本禁用 clouds）证明**白色来自 clouds 特效**（禁用后时钟区域亮像素 41%→0%，数字变灰暗）；combine 编译忠实已排除。**最终定位：clouds 材质 authored graph 零绑定**（evidence nodes[4] bindings=[]——effect.json 的 pass 无 textures 数组，g_Texture1 默认 util/clouds_256 只是 shader 注解）。我们的合同"默认纹理是 source metadata、never a runtime fallback"（SamplerPurpose.swift:246 注释）使该 noise 采样器无纹理可采——但效果仍然显示白色，说明运行时对缺失槽绑定了某种回退纹理（可能纯白或纯灰 noise）。参考的 clouds 覆盖来自真实 clouds_256 噪声纹理（pkg 不随样本分发，官方由引擎 stock 资产供给）。**修复方向**：为 registry 已登记的 stock noise 纹理（clouds_256/noise/perlin/uniform）提供程序化合成（如 value-noise 256×256），覆盖率对齐参考语义——采样器缺省时不再依赖偶然回退。待实现。
+- **3750813609 时钟文字黑白混合（用户报告 2026-09-26）——根因定位（2026-09-26）**：隔离 A/B（隔离副本禁用 clouds）证明**白色来自 clouds 特效**（禁用后时钟区域亮像素 41%→0%，数字变灰暗）；combine 编译忠实已排除。**最终定位：clouds 材质 authored graph 零绑定**（evidence nodes[4] bindings=[]——effect.json 的 pass 无 textures 数组，g_Texture1 默认 util/clouds_256 只是 shader 注解）。我们的合同"默认纹理是 source metadata、never a runtime fallback"（SamplerPurpose.swift:246 注释）使该 noise 采样器无纹理可采——但效果仍然显示白色，说明运行时对缺失槽绑定了某种回退纹理（可能纯白或纯灰 noise）。参考的 clouds 覆盖来自真实 clouds_256 噪声纹理（pkg 不随样本分发，官方由引擎 stock 资产供给）。**修复方向**：为 registry 已登记的 stock noise 纹理提供程序化合成——**已实现（33d4e7df）**：`SceneStockNoiseTextureStore` 确定性 256×256 R8 合成（clouds/perlin=可平铺多倍频 value noise、voronoi=环绕距离场、uniform=白噪声；managed 存储+GPU mipmap，private 存储上传触发 AGX 崩溃已修）；`beginTextureFrame` 以 .system 身份发布；`selectDefaults` 资产缺失且属 registry noise 清单时回退（pkg 资产恒优先）。验证：3750813609 零崩溃、观察模式双样本 PASS（succeeded 集不变）、结构门绿。**登记**：合成噪声与官方 clouds_256 密度差未对照，按官方样本校准留后续。
 ### Q4 — 登记边界/暂缓
 
 - `2986218263` rope trail：三处放宽全部 A/B 证据回退（flag bit0 造成 `3665307769` 红烟回归；预算放宽可见收益为零）。前置=世界空间 rope 支持设计（登记 Ⅰ/Ⅱ/Ⅲ 假设）；rope 批须同批补"粒子加载完整性"PASS 门（0/1 仍 PASS 的测量缺口）。
