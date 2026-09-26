@@ -237,8 +237,6 @@ final class OnlineLibraryService: ObservableObject {
     /// OL-04：最近下载完成的 item ID，供 Toast「设为壁纸」按钮使用
     @Published var lastDownloadedItemID: Int? = nil
     @Published private(set) var inspectedDownloadedItemID: Int? = nil
-    /// 下载中途点「设为壁纸」时保留原始请求身份，下载完成后仅允许最新意图播放（OL-06）
-    private let autoplayRequests = OnlineVideoAutoplayRequests()
 
     var selectedDownloadedItemIDForInspector: Int? {
         inspectedDownloadedItemID
@@ -281,18 +279,15 @@ final class OnlineLibraryService: ObservableObject {
         startDownload(item: item)
     }
 
-    /// 下载后设为壁纸：下载完成后发通知给 Shell 层（MainWindowCoordinator）中转，
-    /// 由视频库静默导入并立即播放。在线库自身不依赖视频库模块，保持模块间零耦合。
-    /// 通知名 onlineVideoReadyToPlay 定义在 Shell/ContentViewSupport.swift。
+    /// 设为壁纸：文件已在本地时立即播放（OL-05 直接用户意图）；未下载时
+    /// 仅下载——用户裁决（2026-09-26）：下载完成后不自动切换播放，
+    /// 下载只是下载，用户稍后再点一次即播放。通知名
+    /// onlineVideoReadyToPlay 定义在 Shell/ContentViewSupport.swift。
     func downloadAndSet(item: OnlineLibraryVideoItem) {
-        // OL-05：文件已在本地，直接发通知，无需重新下载
         if downloadedIDs.contains(item.id) {
             postReadyToPlay(id: item.id, autoplayToken: ImportedVideoAutoplayGate.shared.claim())
             return
         }
-        autoplayRequests.request(for: item.id)
-        // OL-06：正在下载中时只替换请求身份，原任务完成后使用最新身份继续。
-        guard !downloadingIDs.contains(item.id) else { return }
         startDownload(item: item)
     }
 
@@ -322,17 +317,11 @@ final class OnlineLibraryService: ObservableObject {
                 downloadingIDs.remove(item.id)
                 downloadProgressByID[item.id] = nil
                 downloadedIDs.insert(item.id)
-                if let autoplayToken = autoplayRequests.complete(for: item.id) {
-                    ImportedVideoPlaybackRequest(localURL: local, autoplayToken: autoplayToken)
-                        .post(name: .onlineVideoReadyToPlay)
-                } else {
-                    lastDownloadedItemID = item.id
-                    downloadSuccessMessage = "已保存到 \"影片/MyWallpaperX/在线图库\""
-                }
+                lastDownloadedItemID = item.id
+                downloadSuccessMessage = "已保存到 \"影片/MyWallpaperX/在线图库\""
             } catch {
                 downloadingIDs.remove(item.id)
                 downloadProgressByID[item.id] = nil
-                autoplayRequests.cancel(for: item.id)
                 downloadError = error.localizedDescription
             }
         }
