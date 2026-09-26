@@ -27,7 +27,7 @@ final class SceneBloomPostProcess {
     private var blurPipeline: MTLRenderPipelineState?
     private var combinePipeline: MTLRenderPipelineState?
     private var pipelineFailureLogged = false
-    private var cachedTexturesBySize: [SIMD2<Int>: (mip1: MTLTexture, mip2: MTLTexture, combine: MTLTexture)] = [:]
+    private var cachedTexturesBySize: [SIMD2<Int>: (mip1: MTLTexture, mip2: MTLTexture)] = [:]
 
     init() {}
 
@@ -48,12 +48,22 @@ final class SceneBloomPostProcess {
             }
             return false
         }
-        func descriptor(_ fragment: MTLFunction) -> MTLRenderPipelineDescriptor {
+        func descriptor(
+            _ fragment: MTLFunction, additive: Bool = false
+        ) -> MTLRenderPipelineDescriptor {
             let descriptor = MTLRenderPipelineDescriptor()
             descriptor.vertexFunction = vertex
             descriptor.fragmentFunction = fragment
             descriptor.colorAttachments[0].pixelFormat = Self.pixelFormat
-            descriptor.colorAttachments[0].isBlendingEnabled = false
+            descriptor.colorAttachments[0].isBlendingEnabled = additive
+            if additive {
+                descriptor.colorAttachments[0].rgbBlendOperation = .add
+                descriptor.colorAttachments[0].sourceRGBBlendFactor = .one
+                descriptor.colorAttachments[0].destinationRGBBlendFactor = .one
+                descriptor.colorAttachments[0].alphaBlendOperation = .add
+                descriptor.colorAttachments[0].sourceAlphaBlendFactor = .one
+                descriptor.colorAttachments[0].destinationAlphaBlendFactor = .one
+            }
             return descriptor
         }
         do {
@@ -64,7 +74,7 @@ final class SceneBloomPostProcess {
                 descriptor: descriptor(blur)
             )
             combinePipeline = try device.makeRenderPipelineState(
-                descriptor: descriptor(combine)
+                descriptor: descriptor(combine, additive: true)
             )
         } catch {
             if !pipelineFailureLogged {
@@ -82,7 +92,7 @@ final class SceneBloomPostProcess {
     private func intermediateTargets(
         on device: MTLDevice,
         matching source: MTLTexture
-    ) -> (mip1: MTLTexture, mip2: MTLTexture, combine: MTLTexture)? {
+    ) -> (mip1: MTLTexture, mip2: MTLTexture)? {
         let key = SIMD2(Int(source.width), Int(source.height))
         if let cached = cachedTexturesBySize[key] {
             return cached
@@ -105,8 +115,7 @@ final class SceneBloomPostProcess {
             max(1, quarter.x / 4), max(1, quarter.y / 4)
         )
         guard let mip1 = makeTexture(width: quarter.x, height: quarter.y),
-              let mip2 = makeTexture(width: sixteenth.x, height: sixteenth.y),
-              let combine = makeTexture(width: source.width, height: source.height)
+              let mip2 = makeTexture(width: sixteenth.x, height: sixteenth.y)
         else {
             if !pipelineFailureLogged {
                 pipelineFailureLogged = true
@@ -114,22 +123,24 @@ final class SceneBloomPostProcess {
             }
             return nil
         }
-        let entry = (mip1: mip1, mip2: mip2, combine: combine)
+        let entry = (mip1: mip1, mip2: mip2)
         cachedTexturesBySize = [key: entry]
         return entry
     }
 
     private struct BrightUniforms {
-        var texelSize: SIMD2<Float>
         var strength: Float
         var threshold: Float
         var tint: SIMD3<Float>
     }
 
     private struct BlurUniforms {
-        var texelSize: SIMD2<Float>
         var direction: SIMD2<Float>
+        var stepUV: SIMD2<Float>
     }
+
+    /// Fixed reference tap step (g_TexelSize 1080p compile-time constant ×8).
+    private static let blurStep = SIMD2<Float>(Float(8.0 / 1920.0), Float(8.0 / 1080.0))
 
     private func encodeQuad(
         _ pipeline: MTLRenderPipelineState,
@@ -179,10 +190,6 @@ final class SceneBloomPostProcess {
         else { return false }
 
         var brightUniforms = BrightUniforms(
-            texelSize: SIMD2(
-                Float(1.0 / Float(source.width)),
-                Float(1.0 / Float(source.height))
-            ),
             strength: configuration.strength,
             threshold: configuration.threshold,
             tint: configuration.tint
@@ -195,11 +202,8 @@ final class SceneBloomPostProcess {
         }
 
         var blurVertical = BlurUniforms(
-            texelSize: SIMD2(
-                Float(1.0 / Float(targets.mip1.width)),
-                Float(1.0 / Float(targets.mip1.height))
-            ),
-            direction: SIMD2(0, 1)
+            direction: SIMD2(0, 1),
+            stepUV: Self.blurStep
         )
         encodeQuad(blur, target: targets.mip2, commandBuffer: commandBuffer) { encoder in
             encoder.setFragmentTexture(targets.mip1, index: 0)
@@ -209,11 +213,8 @@ final class SceneBloomPostProcess {
         }
 
         var blurHorizontal = BlurUniforms(
-            texelSize: SIMD2(
-                Float(1.0 / Float(targets.mip2.width)),
-                Float(1.0 / Float(targets.mip2.height))
-            ),
-            direction: SIMD2(1, 0)
+            direction: SIMD2(1, 0),
+            stepUV: Self.blurStep
         )
         encodeQuad(blur, target: targets.mip1, commandBuffer: commandBuffer) { encoder in
             encoder.setFragmentTexture(targets.mip2, index: 0)
@@ -222,26 +223,20 @@ final class SceneBloomPostProcess {
             )
         }
 
-        encodeQuad(combine, target: targets.combine, commandBuffer: commandBuffer) { encoder in
-            encoder.setFragmentTexture(source, index: 0)
-            encoder.setFragmentTexture(targets.mip1, index: 1)
-        }
-
-        guard let blit = commandBuffer.makeBlitCommandEncoder() else {
+        // Additive pass straight onto the completed composite (load + RGB
+        // add): no full-res combine texture, no blit — half the bandwidth of
+        // the combine-and-copy shape.
+        let descriptor = MTLRenderPassDescriptor()
+        descriptor.colorAttachments[0].texture = source
+        descriptor.colorAttachments[0].loadAction = .load
+        descriptor.colorAttachments[0].storeAction = .store
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else {
             return false
         }
-        blit.copy(
-            from: targets.combine, sourceSlice: 0, sourceLevel: 0,
-            sourceOrigin: MTLOrigin(x: 0, y: 0, z: 0),
-            sourceSize: MTLSize(
-                width: targets.combine.width,
-                height: targets.combine.height,
-                depth: 1
-            ),
-            to: source, destinationSlice: 0, destinationLevel: 0,
-            destinationOrigin: MTLOrigin(x: 0, y: 0, z: 0)
-        )
-        blit.endEncoding()
+        encoder.setRenderPipelineState(combine)
+        encoder.setFragmentTexture(targets.mip1, index: 0)
+        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        encoder.endEncoding()
         return true
     }
 }

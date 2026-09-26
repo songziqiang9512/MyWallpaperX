@@ -11,15 +11,14 @@ struct SceneBloomVaryings {
 };
 
 struct SceneBloomBrightUniforms {
-    float2 texelSize;
     float strength;
     float threshold;
     float3 tint;
 };
 
 struct SceneBloomBlurUniforms {
-    float2 texelSize;
     float2 direction;
+    float2 stepUV;
 };
 
 constant static float sceneBloomBlurWeights[13] = {
@@ -50,7 +49,8 @@ fragment float4 sceneBloomBrightFragment(
         mag_filter::linear, min_filter::linear,
         address::clamp_to_edge, coord::normalized
     );
-    float2 texel = uniforms.texelSize;
+    // Fixed reference offsets (g_TexelSize compile-time 1080p constant).
+    float2 texel = float2(1.0 / 1920.0, 1.0 / 1080.0);
     float3 albedo =
         source.sample(bilinearSampler, input.texcoord + float2(-texel.x, -texel.y)).rgb
         + source.sample(bilinearSampler, input.texcoord + float2(texel.x, texel.y)).rgb
@@ -77,8 +77,11 @@ fragment float4 sceneBloomBlurFragment(
         mag_filter::linear, min_filter::linear,
         address::clamp_to_edge, coord::normalized
     );
-    // The reference spreads taps 8 texels apart at the working resolution.
-    float2 step = uniforms.direction * uniforms.texelSize * 8.0;
+    // The reference engine never sets g_TexelSize at runtime; it falls back
+    // to the compile-time 1080p constant, so the tap step is a fixed screen
+    // fraction (8/1920, 8/1080) — a dense gaussian on the chain targets,
+    // not a sparse comb. Reproduce exactly that geometry.
+    float2 step = uniforms.direction * uniforms.stepUV;
     float3 albedo = 0.0;
     for (int index = 0; index < 13; index++) {
         float2 offset = step * float(index - 6);
@@ -90,14 +93,14 @@ fragment float4 sceneBloomBlurFragment(
 
 fragment float4 sceneBloomCombineFragment(
     SceneBloomVaryings input [[stage_in]],
-    texture2d<float> source [[texture(0)]],
-    texture2d<float> bloom [[texture(1)]]
+    texture2d<float> bloom [[texture(0)]]
 ) {
     constexpr sampler bilinearSampler(
         mag_filter::linear, min_filter::linear,
         address::clamp_to_edge, coord::normalized
     );
-    float3 albedo = source.sample(bilinearSampler, input.texcoord).rgb;
-    albedo += bloom.sample(bilinearSampler, input.texcoord).rgb;
-    return float4(albedo, 1.0);
+    // Additive contribution only: the pass renders onto the completed
+    // composite with RGB blend += so the base never round-trips through an
+    // extra full-resolution texture.
+    return float4(bloom.sample(bilinearSampler, input.texcoord).rgb, 0.0);
 }
