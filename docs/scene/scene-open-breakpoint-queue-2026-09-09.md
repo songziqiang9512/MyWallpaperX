@@ -73,7 +73,7 @@
 
 | 尚未关闭的问题 | 下一步与关闭条件 |
 |---|---|
-| Scene Bloom enable/threshold 无完整 live consumer | 沿属性 producer→typed channel→全场 post consumer 闭合；否则登记边界 |
+| Scene Bloom enable/threshold 无完整 live consumer（**取证升级 2026-09-26**：语料 172/172 全部 author bloom 键（编辑器默认写入，bloom:true 未必代表视觉显著）；仓库侧仅有 SceneDynamicSceneField 枚举脚手架——authored 键解析、属性通道、post consumer 三段全缺。Mirage 参考有完整实现锚点：`__bloom` post-process（SceneCompiler.cpp:6880-6967，`pp->enabled = g.bloom` 门控，_rt_bloom_mip1/mip2/combine 三目标，HDR 分支 mip 尺寸不同，effect cam 上保留 alpha）。实现=E3 性质的全场 post pass（bright-pass+模糊+合成），需独立设计批） | 按 Mirage 锚点走三段闭合（解析→通道→post pass）；或按 E8 前登记能力边界（默认 bloom:true 的普遍性使边界登记的风险=全体样本缺一个光晕后处理） |
 | 全 corpus identity-only matrix 与人工视觉复核 | **fixed13 已于 2026-09-25 全绿（13/13，观察模式）**：存量 8 样本漂移完成对账（succeeded/utility/text/sha/puppet 数值随能力演进更新；2902406982 层 410/414 处置从 unsupportedEffects 迁移为 capture=能力成长；puppet checker 正则跟上 cbd126d3 的 "puppet world geometry OK" 改名，数据与原期望完全吻合零矩阵改动；8 样本计数器按 retire 全有或全无合同全量退役）。矩阵期望漂移仍用 `generate_scene_full_matrix.py` 正规流程（fixed13 sha pin 已同步）；人工重看后才改 verdict |
 
 ### Q2 — 稳定帧性能
