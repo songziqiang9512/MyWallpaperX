@@ -35,9 +35,9 @@ vertex SceneBloomVaryings sceneBloomVertex(uint vertexID [[vertex_id]]) {
     float2 p = float2(x, y);
     SceneBloomVaryings result;
     result.position = float4(p, 0.0, 1.0);
-    // Metal texture coordinates are Y-up while the quad's Y grows upward in
-    // NDC; v maps directly.
-    result.texcoord = (p + 1.0) * 0.5;
+    // Metal texture V grows downward while NDC Y grows upward — flip V so
+    // the top-left of the screen samples the top-left of the source.
+    result.texcoord = float2((p.x + 1.0) * 0.5, (1.0 - p.y) * 0.5);
     return result;
 }
 
