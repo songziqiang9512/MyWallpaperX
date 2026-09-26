@@ -46,6 +46,23 @@ extension SceneMetalRenderer {
             where mediaThumbnail.providerStates[identity] == nil {
             textureRegistry.set(.unavailable, for: .system(identity))
         }
+        // Stock noise substitute: shader-declared sampler defaults that name a
+        // registered stock noise the sample does not ship get a deterministic
+        // system texture (user-directed 2026-09-26; clock render fidelity).
+        for demand in SceneStockNoiseTextureStore.demands {
+            if let publication = stockNoiseTextureStore.publication(
+                for: demand,
+                device: device
+            ) {
+                textureRegistry.set(
+                    publication,
+                    for: .system(SceneSystemProviderTextureIdentity(
+                        name: demand.name,
+                        purpose: demand.purpose
+                    ))
+                )
+            }
+        }
         for (identity, status) in imageCompositor
             .resolvedMaterialSystemProviderBlocks(mediaThumbnail) {
             textureRegistry.set(status, for: .system(identity))

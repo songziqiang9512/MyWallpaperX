@@ -496,6 +496,7 @@
         "file_globs": [
           "SceneDynamicImageTextureProvider.swift",
           "SceneMediaThumbnailTextureStore.swift",
+          "SceneStockNoiseTextureStore.swift",
           "SceneVideoProviderLifecycleState.swift",
           "SceneVideoTextureSource.swift",
           "SceneVideoTextureSourceRegistry.swift"

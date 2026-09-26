@@ -5,6 +5,17 @@ nonisolated enum SceneStockTextureSemanticRegistry {
         path.value == "util/white"
     }
 
+    /// Stock noise paths the runtime can synthesize deterministically when
+    /// the sample ships no such asset (user-directed 2026-09-26).
+    static let noiseTexturePaths: [String] = [
+        "pattern/voronoi",
+        "pattern/voronoi_local",
+        "util/clouds_256",
+        "util/noise",
+        "util/perlin_256",
+        "util/uniform_256",
+    ]
+
     static func purpose(
         for path: SceneVFSAssetPath
     ) -> SceneTextureLoadPurpose? {

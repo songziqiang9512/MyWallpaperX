@@ -123,6 +123,21 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
                     input: input
                 ) {
                     result[slot] = selection
+                } else if SceneStockTextureSemanticRegistry.noiseTexturePaths
+                    .contains(path.value) {
+                    // A registered stock noise asset the sample does not ship
+                    // resolves as the deterministic system substitute; a pkg
+                    // asset always wins above (user-directed 2026-09-26).
+                    let stockReference = Template.TextureReference
+                        .provider(.system(path.value))
+                    if let selection = try referenceSelection(
+                        stockReference,
+                        purpose: .noise,
+                        provenance: .shaderDefault,
+                        input: input
+                    ) {
+                        result[slot] = selection
+                    }
                 }
             case let .internalTarget(name):
                 guard let reference = Resolver.sceneBackgroundDefault(
