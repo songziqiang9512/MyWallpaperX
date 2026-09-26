@@ -126,7 +126,14 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
             / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("func applySystemPlaybackPausedState(", playback)
-        self.assertIn("to: .scene", playback)
+        # E2b: the cross-runtime scene dispatch moved from the engine to the
+        # App control layer — the engine reports via notification instead.
+        app_control = (
+            ROOT / "MyWallpaperX/App/MyWallpaperXApplication.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("playbackSystemPauseDidChangeNotification", playback)
+        self.assertIn("playbackSystemPauseDidChangeNotification", app_control)
+        self.assertIn("to: .scene", app_control)
         self.assertIn("applySystemPlaybackPausedState(true)", interruptions)
         self.assertIn("applySystemPlaybackPausedState(true)", system_state)
         self.assertIn("applySystemPlaybackPausedState(false)", system_state)

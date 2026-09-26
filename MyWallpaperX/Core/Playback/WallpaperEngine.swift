@@ -25,6 +25,10 @@ public final class WallpaperEngine: NSObject {
     /// content path — the selection authority commits its deferred truth on
     /// this signal.
     public static let playbackReadyNotification = Notification.Name("WallpaperEnginePlaybackReadyNotification")
+    /// E2b: the system pause evaluation produced a new state; the control
+    /// layer owns cross-runtime dispatch (the engine no longer dispatches
+    /// into the command mux itself).
+    public static let playbackSystemPauseDidChangeNotification = Notification.Name("WallpaperEnginePlaybackSystemPauseDidChangeNotification")
 
     // 一个 display 对应一个 daemon session；后面所有播放、暂停、换壁纸都围绕这个会话表展开。
     final class DisplayDaemonSession {

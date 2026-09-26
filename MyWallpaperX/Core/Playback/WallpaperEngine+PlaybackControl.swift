@@ -12,9 +12,12 @@ extension WallpaperEngine {
         } else {
             resumeAllPlayers()
         }
-        PlaybackCommandMultiplexer.shared.dispatch(
-            paused ? .pause : .resume,
-            to: .scene
+        // E2b: 系统暂停评估结果以通知上报——跨 runtime 命令下发归控制层
+        // （引擎不再自发 mux 命令，owner 兼 handler 倒置移除）。
+        NotificationCenter.default.post(
+            name: WallpaperEngine.playbackSystemPauseDidChangeNotification,
+            object: self,
+            userInfo: ["paused": paused]
         )
     }
 

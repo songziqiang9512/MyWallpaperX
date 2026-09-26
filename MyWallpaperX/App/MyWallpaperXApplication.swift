@@ -38,6 +38,20 @@ enum MyWallpaperXApplication {
         }
         // E2c 站点 3: web host 的网络桥接白名单由 App 解析（Host 层不再
         // 直呼 SteamWorkshopService 单例）。
+        // E2b: 系统暂停评估结果的跨 runtime 下发归控制层——引擎只上报。
+        NotificationCenter.default.addObserver(
+            forName: WallpaperEngine.playbackSystemPauseDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let paused = notification.userInfo?["paused"] as? Bool else {
+                return
+            }
+            PlaybackCommandMultiplexer.shared.dispatch(
+                paused ? .pause : .resume,
+                to: .scene
+            )
+        }
         if let adapter = WallpaperEngine.shared.dedicatedWebHostAdapter
             as? DedicatedWebWallpaperHostPlaceholderAdapter {
             adapter.allowedNetworkBridgeHostsResolver = { recordID in

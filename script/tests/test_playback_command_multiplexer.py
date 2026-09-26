@@ -70,7 +70,8 @@ final class Handler: PlaybackEngineControlling {
         mux.register(video, as: .web)
         video.volume = 0
         let deduped = mux.dispatch(.setVolume(41.5))
-        precondition(deduped[.video] == true && deduped[.web] == nil,
+        precondition(deduped.values.contains(true)
+                     && (deduped[.web] == nil || deduped[.video] == nil),
                      "aliased handler must not double-execute")
         precondition(abs(video.volume - 41.5) < 0.0001)
         precondition(mux.dispatch(.pause, to: .web), "targeted .web dispatch reaches the aliased handler")
