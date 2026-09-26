@@ -24,6 +24,7 @@ struct SceneRenderDescriptor: Codable {
         let up: [Float]
         let orthoWidth: Float?
         let orthoHeight: Float?
+        var bloom: SceneBloomConfiguration = .disabled
         var fovDegrees: Float? = nil
         var perspectiveOverrideFOVDegrees: Float? = nil
         let nearZ: Float
@@ -317,6 +318,16 @@ struct SceneRenderDescriptorBuilder {
             up: cam.up,
             orthoWidth: gen.orthoWidth,
             orthoHeight: gen.orthoHeight,
+            bloom: SceneBloomConfiguration(
+                enabled: gen.bloomEnabled,
+                strength: gen.bloomStrength,
+                threshold: gen.bloomThreshold,
+                tint: SIMD3(
+                    gen.bloomTint.count == 3 ? gen.bloomTint[0] : 1,
+                    gen.bloomTint.count == 3 ? gen.bloomTint[1] : 1,
+                    gen.bloomTint.count == 3 ? gen.bloomTint[2] : 1
+                )
+            ),
             fovDegrees: gen.fovDegrees,
             perspectiveOverrideFOVDegrees:
                 gen.perspectiveOverrideFOVDegrees,

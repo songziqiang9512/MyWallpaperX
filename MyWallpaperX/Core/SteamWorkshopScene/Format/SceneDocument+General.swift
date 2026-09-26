@@ -35,6 +35,10 @@ extension SceneDocument {
         let cameraParallaxDelay: Float
         let cameraParallaxMouseInfluence: Float
         let cameraShake: CameraShakeDescriptor
+        let bloomEnabled: Bool
+        let bloomStrength: Float
+        let bloomThreshold: Float
+        let bloomTint: [Float]
     }
 }
 
@@ -94,7 +98,11 @@ extension SceneDocumentLoader {
                 speed: cameraShakeScalar(
                     root, key: "camerashakespeed", missingDefault: 3
                 )
-            )
+            ),
+            bloomEnabled: visibleValue(root?["bloom"]) ?? false,
+            bloomStrength: root?["bloomstrength"].flatMap(Self.floatValue) ?? 1,
+            bloomThreshold: root?["bloomthreshold"].flatMap(Self.floatValue) ?? 0.65,
+            bloomTint: floatVector(root?["bloomtint"]) ?? [1, 1, 1]
         )
     }
 

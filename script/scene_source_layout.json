@@ -308,6 +308,7 @@
           "SceneLayerColorBlendPipeline.swift",
           "SceneLayerSourcePassthroughPlan.swift",
           "SceneMainPassEncoder.swift",
+          "SceneBloomPostProcess.swift",
           "SceneOffscreenEffectRenderer+Capture.swift",
           "SceneResolvedMaterialGraphComposition.swift",
           "SceneUtilityLayer.swift",
