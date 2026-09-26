@@ -73,12 +73,6 @@ enum Harness {
         smoother.restore(rollbackState)
         let zeroDelay = smoother.advance(delta: 0.01, delay: 0)
 
-        var eventSmoother = SceneParallaxPointerSmoother()
-        eventSmoother.setTarget(SIMD2(1, -1), timestamp: 0)
-        _ = eventSmoother.advance(delta: 0.25, delay: 1)
-        _ = eventSmoother.advance(delta: 0.25, delay: 1)
-        eventSmoother.setTarget(SIMD2(1, -1), timestamp: 0.9)
-        let smoothUnchangedPoll = eventSmoother.advance(delta: 0.25, delay: 1)
 
         let result: [String: Any] = [
             "root": vector(SceneLayerParallax.resolve(layerID: 1, nodesByID: nodes)?.depth),
@@ -119,7 +113,6 @@ enum Harness {
             )),
             "smoothFirst": vector(smoothFirst),
             "smoothSecond": vector(smoothSecond),
-            "smoothUnchangedPoll": vector(smoothUnchangedPoll),
             "smoothAfterInput": vector(smoothAfterInput),
             "smoothAdvanced": vector(smoothAdvanced),
             "smoothRestored": vector(smoothRestored),
@@ -191,11 +184,6 @@ class SceneLayerParallaxTests(unittest.TestCase):
     def test_pointer_delay_smoothing(self) -> None:
         self.assertEqual(self.result["smoothFirst"], [0.25, -0.25])
         self.assertEqual(self.result["smoothSecond"], [0.625, -0.625])
-        # An unchanged poll (desktop host repeats the same mouse location
-        # every frame) must not reset the delay accumulator: the ramp keeps
-        # converging (t=0.75 -> 0.625 + 0.375*0.75 = 0.90625) instead of
-        # restarting (which would yield 0.71875).
-        self.assertEqual(self.result["smoothUnchangedPoll"], [0.90625, -0.90625])
         self.assertEqual(self.result["smoothAfterInput"], [0.21875, -0.21875])
         self.assertEqual(self.result["smoothRestored"], [0.21875, -0.21875])
         self.assertEqual(self.result["zeroDelay"], [-1, 1])

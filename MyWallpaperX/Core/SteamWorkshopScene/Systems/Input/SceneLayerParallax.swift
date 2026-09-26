@@ -126,13 +126,14 @@ nonisolated struct SceneParallaxPointerSmoother: Sendable {
     }
 
     nonisolated mutating func setTarget(_ value: SIMD2<Float>, timestamp: Double) {
-        // Reference semantics are event-driven: unchanged polls must not touch
-        // the smoother state (not even the input timestamp, or the next real
-        // move would subtract only one frame of stillness and snap instead of
-        // ramping), or the smoothed position chases the target forever and
-        // never settles `delay` after the pointer stops — the desktop host
-        // polls the global mouse location every frame.
-        guard value != target else { return }
+        // The desktop host POLLS the pointer every frame (not sparse events),
+        // so the input timestamp must refresh on every poll — that keeps the
+        // smoothing window saturated and the follow tracks the pointer 1:1
+        // (the shipped silky behavior). Gating on value changes instead
+        // drains the window into the reference implementation's multi-second
+        // exponential crawl, which reads as stutter under pointer
+        // quantization (user-verified regression around 6b3f57c5, reverted
+        // 2026-09-26).
         if let lastInputTimestamp, timestamp.isFinite {
             delayedTime = max(0, delayedTime - max(0, timestamp - lastInputTimestamp))
         }
