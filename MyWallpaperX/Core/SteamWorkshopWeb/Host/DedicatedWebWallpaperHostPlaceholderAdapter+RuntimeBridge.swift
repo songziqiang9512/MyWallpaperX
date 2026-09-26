@@ -543,12 +543,10 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     private func allowedNetworkBridgeHosts() -> Set<String> {
-        guard let recordID = currentRequest?.recordID,
-              let record = SteamWorkshopService.shared.latestDownloadRecord(for: recordID),
-              let descriptor = SteamWorkshopService.shared.resolvedWebProjectDescriptor(for: record) else {
+        guard let recordID = currentRequest?.recordID else {
             return []
         }
-        return Set(descriptor.staticContentSummary.externalDependencyHosts.compactMap(Self.normalizedNetworkBridgeHost))
+        return allowedNetworkBridgeHostsResolver?(recordID) ?? []
     }
 
     private static func allowsNetworkBridgeURL(_ url: URL, allowedHosts: Set<String>) -> Bool {
@@ -561,7 +559,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         return resolvesToPublicNetworkAddresses(host: host)
     }
 
-    private static func normalizedNetworkBridgeHost(_ rawHost: String?) -> String? {
+    static func normalizedNetworkBridgeHost(_ rawHost: String?) -> String? {
         guard let rawHost else { return nil }
         let host = rawHost.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard host.isEmpty == false else { return nil }

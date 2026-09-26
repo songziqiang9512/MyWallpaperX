@@ -36,6 +36,19 @@ enum MyWallpaperXApplication {
         GlobalHotkeyManager.shared.systemHotkeyActionHandler = { action in
             WallpaperManager.shared.performSystemHotkeyAction(action)
         }
+        // E2c 站点 3: web host 的网络桥接白名单由 App 解析（Host 层不再
+        // 直呼 SteamWorkshopService 单例）。
+        if let adapter = WallpaperEngine.shared.dedicatedWebHostAdapter
+            as? DedicatedWebWallpaperHostPlaceholderAdapter {
+            adapter.allowedNetworkBridgeHostsResolver = { recordID in
+                guard let record = SteamWorkshopService.shared.latestDownloadRecord(for: recordID),
+                      let descriptor = SteamWorkshopService.shared.resolvedWebProjectDescriptor(for: record) else {
+                    return []
+                }
+                return Set(descriptor.staticContentSummary.externalDependencyHosts
+                    .compactMap(DedicatedWebWallpaperHostPlaceholderAdapter.normalizedNetworkBridgeHost))
+            }
+        }
         // M0.2：公共静音权威从自身持久化值恢复；仅对旧版本 volume=0 做一次迁移。
         PlaybackMuteState.shared.migrateLegacyVolumeMuteIfNeeded(
             volume: WallpaperManager.shared.settings.volume

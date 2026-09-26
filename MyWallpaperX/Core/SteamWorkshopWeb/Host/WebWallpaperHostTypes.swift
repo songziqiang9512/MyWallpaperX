@@ -155,6 +155,11 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
         case failed
     }
 
+    /// E2c 站点 3: App 装配注入的下载记录解析器（返回外部依赖 host 白
+    /// 名单）——Host 层不再直呼 Modules 的 SteamWorkshopService 单例。
+    /// 注入前维持空名单（保守拒绝网络桥接）。
+    var allowedNetworkBridgeHostsResolver: ((_ recordID: String) -> Set<String>)?
+
     final class HostWindow: NSWindow {
         override var canBecomeKey: Bool {
             #if DEBUG
