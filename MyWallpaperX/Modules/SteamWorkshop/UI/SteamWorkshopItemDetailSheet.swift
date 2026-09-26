@@ -634,7 +634,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     @objc private func stopCurrentWallpaper() {
         guard isCurrentWallpaper, let record = latestDownloadRecord else { rebuild(); return }
         // Web currently shares the Video command handler and WallpaperEngine owner.
-        let consumed = PlaybackCommandMultiplexer.shared.dispatch(.stop, to: record.contentType == .scene ? .scene : .video)
+        let consumed = PlaybackCommandMultiplexer.shared.dispatch(.stop, to: record.contentType == .scene ? .scene : (record.contentType == .web ? .web : .video))
         if !consumed { subscriptionHint = "停止播放未完成，请重试。" }
         rebuild()
     }

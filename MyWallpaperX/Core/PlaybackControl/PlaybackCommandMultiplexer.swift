@@ -1,6 +1,6 @@
 /// 壁纸引擎命令多路分发器：持有各引擎处理端，支持定向与广播。
 /// UI/设置/状态栏只与本类型交互（程序文档 M0.1）；注册点在
-/// UI 控制面装配处（当前为 StatusBarController）。
+/// App 装配（MyWallpaperXApplication）。
 final class PlaybackCommandMultiplexer {
     static let shared = PlaybackCommandMultiplexer()
 
@@ -8,6 +8,13 @@ final class PlaybackCommandMultiplexer {
 
     func register(_ handler: PlaybackEngineControlling) {
         handlers[handler.engineKind] = handler
+    }
+
+    /// E2c: 同一 handler 可另名注册到别的 kind——web 与 video 共享
+    /// WallpaperEngine 执行端（引擎方法按 currentPlaybackContentKind
+    /// 内部路由），定向 `to: .web` 因此可达。
+    func register(_ handler: PlaybackEngineControlling, as kind: PlaybackEngineKind) {
+        handlers[kind] = handler
     }
 
     func unregister(_ kind: PlaybackEngineKind) {
@@ -18,11 +25,15 @@ final class PlaybackCommandMultiplexer {
         handlers[kind]
     }
 
-    /// 广播到全部已注册引擎；返回各引擎是否真实消费。
+    /// 广播到全部已注册引擎；返回各引擎是否真实消费。同一 handler
+    /// 实例以多 kind 注册时只执行一次（引擎内部按活跃 kind 路由，
+    /// 重复执行会双倍生效）。
     @discardableResult
     func dispatch(_ command: WallpaperEngineCommand) -> [PlaybackEngineKind: Bool] {
         var outcomes: [PlaybackEngineKind: Bool] = [:]
-        for (kind, handler) in handlers {
+        var executed = Set<ObjectIdentifier>()
+        for (kind, handler) in handlers
+        where executed.insert(ObjectIdentifier(handler)).inserted {
             outcomes[kind] = handler.handle(command)
         }
         return outcomes

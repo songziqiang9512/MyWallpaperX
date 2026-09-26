@@ -65,6 +65,18 @@ final class Handler: PlaybackEngineControlling {
         legacyMute.migrateLegacyVolumeMuteIfNeeded(volume: 0)
         precondition(legacyMute.isMuted)
         suite.removePersistentDomain(forName: suiteName)
+        // E2c: alias registration — the same handler under .web executes
+        // exactly once per broadcast (identity dedup).
+        mux.register(video, as: .web)
+        video.volume = 0
+        let deduped = mux.dispatch(.setVolume(41.5))
+        precondition(deduped[.video] == true && deduped[.web] == nil,
+                     "aliased handler must not double-execute")
+        precondition(abs(video.volume - 41.5) < 0.0001)
+        precondition(mux.dispatch(.pause, to: .web), "targeted .web dispatch reaches the aliased handler")
+        precondition(!video.isPlaying)
+        mux.unregister(.web)
+        video.volume = 0
         mux.unregister(.video)
         precondition(!mux.isAnyEnginePlaying)
         precondition(!mux.dispatch(
