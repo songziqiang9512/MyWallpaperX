@@ -63,7 +63,7 @@
 
 ### Q4 — 登记边界/暂缓
 
-- **3750813609 时钟文字黑白混合（用户报告 2026-09-26，取证中）**：官方/参考为纯白。语义定案：时钟层 = 黑字（color 0,0,0，alpha 0.7）+ blur 特效 combine pass（COMPOSITE=3 cutout + BLURALPHA=0 + compositecolor "1 1 1"）——输出 = 白色模糊 rgb × 原文字 alpha 形状（原黑 rgb 被丢弃），再叠 clouds 着色（colorstart 0.91/0.96/1→colorend 0.77/0.82/0.87，threshold 0，feather 0.56，SHADING=0）。**已核实**：我们的 combine 编译 Metal 逐行忠实（cutout 分支与 `blurred.w = albedoOld.w` 均在，参考 common_composite.h 语义一致）。**剩余候选（未定位）**：①clouds 特效（effect=1，358#effect#391/392）的云影着色对比度差异；②特效链输出到合成的 premultiply 边界。**下一步**：隔离 A/B——临时禁用该层 clouds（效果可见性覆盖）二分定位；或提取 clouds 编译产物对比参考 shader。
+- **3750813609 时钟文字黑白混合（用户报告 2026-09-26）——根因定位（2026-09-26）**：隔离 A/B（隔离副本禁用 clouds）证明**白色来自 clouds 特效**（禁用后时钟区域亮像素 41%→0%，数字变灰暗）；combine 编译忠实已排除。**最终定位：clouds 材质 authored graph 零绑定**（evidence nodes[4] bindings=[]——effect.json 的 pass 无 textures 数组，g_Texture1 默认 util/clouds_256 只是 shader 注解）。我们的合同"默认纹理是 source metadata、never a runtime fallback"（SamplerPurpose.swift:246 注释）使该 noise 采样器无纹理可采——但效果仍然显示白色，说明运行时对缺失槽绑定了某种回退纹理（可能纯白或纯灰 noise）。参考的 clouds 覆盖来自真实 clouds_256 噪声纹理（pkg 不随样本分发，官方由引擎 stock 资产供给）。**修复方向**：为 registry 已登记的 stock noise 纹理（clouds_256/noise/perlin/uniform）提供程序化合成（如 value-noise 256×256），覆盖率对齐参考语义——采样器缺省时不再依赖偶然回退。待实现。
 ### Q4 — 登记边界/暂缓
 
 - `2986218263` rope trail：三处放宽全部 A/B 证据回退（flag bit0 造成 `3665307769` 红烟回归；预算放宽可见收益为零）。前置=世界空间 rope 支持设计（登记 Ⅰ/Ⅱ/Ⅲ 假设）；rope 批须同批补"粒子加载完整性"PASS 门（0/1 仍 PASS 的测量缺口）。
