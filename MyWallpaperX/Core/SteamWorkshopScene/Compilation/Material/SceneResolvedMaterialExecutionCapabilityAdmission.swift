@@ -56,12 +56,20 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
 nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
     static func targets(
         in descriptor: SceneRenderDescriptor,
-        candidates: Set<SceneDynamicTarget>
+        candidates: Set<SceneDynamicTarget>,
+        hasScriptLayerAccess: Bool = false
     ) -> Set<SceneDynamicTarget> {
         let descriptorGroups = Dictionary(grouping: descriptor.layers, by: \.id)
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+        // SceneScript can resolve a layer by a computed name or index. Prepare
+        // supported roots without guessing JavaScript source reachability;
+        // their committed visibility still gates actual frame execution.
+        let reachable = hasScriptLayerAccess
+            ? candidates.union(descriptor.layers.map {
+                SceneDynamicTarget.layer(layerID: $0.id, field: .visibility)
+            }) : candidates
         var admitted = Set<SceneDynamicTarget>()
-        for target in candidates {
+        for target in reachable {
             guard case let .layer(layerID, .visibility) = target,
                   let layers = descriptorGroups[layerID],
                   layers.count == 1,
@@ -142,8 +150,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 in: descriptor,
                 candidates: dynamicLayerVisibilityOwnerTargets
             )
-        // A typed property or projected value-only VM owner makes this layer a
-        // safe launch-time execution root, not a visible compositor root. The
+        // Typed visibility owners and script-addressable roots prepare a
+        // launch-time execution candidate, not a visible compositor root. The
         // committed frame snapshot still decides whether its graph and
         // dependency closure run.
         let executableVisibleRootLayerIDs = visibleLayerIDs.union(

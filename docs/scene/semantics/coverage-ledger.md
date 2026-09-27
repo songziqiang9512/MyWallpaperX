@@ -1,8 +1,12 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-27 脚本可访问根与隐藏文字准备
+
+含作者脚本时，既有准入器准备受支持的可寻址普通根，frame visibility仍决定是否执行；文字初始纹理与动态登记取消可见性过滤，隐藏文字也可在事件后直接合成。3211615441点击后的28及跟随文字44取得GPU/合成/下一帧链，点击与三点移动两项执行门通过；三点着色标记质心与输入偏差约2.4～2.6px。增加启动准备成本，未作性能结论；指针条件性activation passthrough、隐藏utility/hierarchy、disabled effect激活及完整交互/视觉仍分开验收。见[运行证据](runtime-evidence-current.md#e-2026-09-27-script-visible-roots)。
+
 ## 2026-09-27 跨图层特效显隐事务
 
-getEffect按名称/索引访问、getEffectCount与name/visible沿既有layer handle、mutation、cursor baseline和typed snapshot执行；重复cursor merge已删除。当前候选真实3211615441点击切换中央图片成功，但新显示层28的效果仍source passthrough，整样本benchmark NON-PASS。只闭合接口与有界切图结果，保留隐藏层特效激活、完整交互和跟随位置；不宣称完整IEffect支持。正反例、签名身份与失败现场见[运行证据](runtime-evidence-current.md#e-2026-09-27-cross-layer-effect-visibility)。
+getEffect按名称/索引访问、getEffectCount与name/visible沿既有layer handle、mutation、cursor baseline和typed snapshot执行；重复cursor merge已删除。该批真实3211615441点击切换中央图片成功，当时层28仍source passthrough且benchmark NON-PASS；上方准备期后继已消除该缺口，完整交互和视觉仍开放。此接口批只闭合事务与有界切图结果；不宣称完整IEffect支持。正反例、签名身份与失败现场见[运行证据](runtime-evidence-current.md#e-2026-09-27-cross-layer-effect-visibility)。
 
 ## 2026-09-27 条件显隐与cursor共同输入（S3）
 

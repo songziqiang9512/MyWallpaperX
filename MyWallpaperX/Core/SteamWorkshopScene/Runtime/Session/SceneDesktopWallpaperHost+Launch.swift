@@ -409,8 +409,13 @@ extension SceneDesktopWallpaperHost {
         let provisionalSceneScriptValueTargets = propertyVectorScriptTargets
             .union(sceneScriptScalarTargets)
             .union(sceneScriptStringTargets)
-        let dynamicLayerVisibilityOwnerTargets = propertyVectorScriptTargets
-            .union(propertyLayerVisibilityTargets)
+        let dynamicLayerVisibilityOwnerTargets =
+            SceneDynamicLayerVisibilityRouteAdmission.targets(
+                in: runtimeInput.renderDescriptor,
+                candidates: propertyVectorScriptTargets
+                    .union(propertyLayerVisibilityTargets),
+                hasScriptLayerAccess: !model.sceneDocument.scriptBindings.isEmpty
+            )
         let projectedLayerVisibilityRootLayerIDs = Set(
             dynamicLayerVisibilityOwnerTargets.compactMap { target -> Int? in
                 guard case let .layer(layerID, .visibility) = target else {

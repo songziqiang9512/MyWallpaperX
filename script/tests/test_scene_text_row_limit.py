@@ -14,6 +14,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 TEXT_TEXTURE_LOADER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextTextureLoader.swift"
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "Rendering/Composition/SceneBloomPostProcess.swift",
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
     SOURCE_ROOT / "Format/SceneDocument.swift",
     SOURCE_ROOT / "Format/SceneDocument+General.swift",
@@ -53,6 +54,7 @@ SWIFT_SOURCES = [
 SCENE_FIXTURE = {
     "version": 3,
     "objects": [
+        {"id": 130, "name": "hidden-script-target", "text": "Hidden", "font": "systemfont_arial", "pointsize": 12, "size": "500 100", "visible": False},
         {
             "id": 10,
             "name": "wrap baseline",
@@ -223,6 +225,8 @@ import CoreGraphics
 import Foundation
 import Metal
 
+enum SceneGraphRenderTargetPlan { enum TextureFormat { case rgba16f, rgbaBackbuffer } }
+
 struct SceneParticleInstanceOverride: Codable {}
 
 struct SceneParticleDefinitionParser {
@@ -374,7 +378,7 @@ enum Harness {
             device: device
         )
         let layers = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
-        let ids = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]
+        let ids = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130]
         var style: [String: Any] = [:]
         var ink: [String: Any] = [:]
         var sameContentDynamicInk: [String: Any] = [:]
@@ -492,6 +496,8 @@ enum Harness {
                 "narrow": timelineNarrow.map { inkStatistics($0.texture) } ?? [:],
                 "wide": timelineWide.map { inkStatistics($0.texture) } ?? [:],
             ],
+            "hiddenStillHidden": !SceneLayerVisibility.visibleLayerIDs(in: descriptor).contains(130),
+            "hiddenPrepared": loaded.textures[130] != nil,
             "messages": loaded.messages,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -685,6 +691,10 @@ class SceneTextRowLimitTests(unittest.TestCase):
         self.assertGreater(len(limited["rowRanges"]), 1)
         self.assertLessEqual(limited["maxX"], 100)
         self.assertGreater(unlimited["maxX"], 100)
+
+    def test_hidden_text_has_prepared_source_without_becoming_visible(self):
+        self.assertTrue(self.result["hiddenPrepared"])
+        self.assertTrue(self.result["hiddenStillHidden"])
 
     def test_padded_authored_outer_frame_still_rasterizes_visible_text(self) -> None:
         padded = self.result["ink"]["90"]

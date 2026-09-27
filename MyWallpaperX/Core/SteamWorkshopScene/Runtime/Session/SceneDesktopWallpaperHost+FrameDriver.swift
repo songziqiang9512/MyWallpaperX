@@ -808,10 +808,14 @@ extension SceneDesktopWallpaperHost {
             snapshot: snapshot
         )
         let records = descriptor.layers.compactMap { layer -> String? in
-            guard let resolved = snapshot[
-                .layer(layerID: layer.id, field: .visibility)
-            ], case let .bool(value) = resolved.value else { return nil }
-            return "layer=\(layer.id) source=\(resolved.source.rawValue)"
+            let resolved = snapshot[.layer(layerID: layer.id, field: .visibility)]
+            let value: Bool
+            if let resolved, case let .bool(current) = resolved.value {
+                value = current
+            } else {
+                value = layer.visible ?? true
+            }
+            return "layer=\(layer.id) source=\(resolved?.source.rawValue ?? "authored")"
                 + " value=\(value)"
                 + " effective=\(visibleLayerIDs.contains(layer.id))"
         }

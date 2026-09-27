@@ -140,6 +140,7 @@
         "test_scene_cursor_audio_consumer",
         "test_scene_cursor_candidate_collision",
         "test_scene_dynamic_layer_visibility",
+        "test_scene_script_visible_roots",
         "test_scene_dynamic_snapshot",
         "test_scene_frame_vm_routing",
         "test_scene_property_vector_script",
@@ -480,6 +481,7 @@
       "modules": [
         "test_scene_background_material_provider",
         "test_scene_dynamic_layer_visibility",
+        "test_scene_script_visible_roots",
         "test_scene_layer_source_passthrough_coverage",
         "test_scene_resolved_material_runtime_bridge",
         "test_scene_frame_rejection_fault",

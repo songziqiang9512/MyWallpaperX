@@ -24,6 +24,18 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-27-script-visible-roots"></a>
+
+### E-2026-09-27-SCRIPT-VISIBLE-ROOTS — 跨层显示的特效准备与隐藏文字资源贯通
+
+**首断点与改动：**3211615441点击显示层28后，launch只收集图层自身的typed visibility owner，因此其他脚本可寻址的隐藏层被execution-route-layer-hidden排除。现有SceneDynamicLayerVisibilityRouteAdmission在含作者scriptBindings时保守收集受支持普通根，再共用原过滤与graph/dependency准备；无脚本保留原typed候选。没有JavaScript源码可达性猜测或样本分派，每帧仍由committed visibility控制执行。实际后继还发现44 heart是默认隐藏的文字🖱️，两个文字入口的visible/dependency过滤导致其根本没有源纹理；删除这两处过滤，让作者text在加载时准备并登记，复用原generation、snapshot和compositor。DEBUG主动证据也补齐无动态definition的authored显隐，避免已准备但隐藏的497/633被误计为应执行。
+
+**身份与运行：**基线`89d4fade`，代码/测试冻结SHA-256 `b73ecc9c3ba06f43ae9d5970eb3acbd47143b775a3c81b490f3493a5de2115dc`；优化签名Debug `2.0.9(277)`，Team `H9QWU9XN8R`，CDHash `3d475405532d7b2cef604c367a0c8416d9011573`，executable SHA-256 `35feb6bd1dc911cc42a4fec82b701b76b911ad0a678b339799834cb0667448bc`。原包只读隔离副本、静音12秒、一次左侧点击，最终native-text执行门1/1 PASS；28与44均有GPU completed、terminal compositor消费及next-frame，497/633保持dormant。中央图仍能切换，原degraded-layer-source-passthrough及44 layer-source-not-ready消失。**不称全程无fallback**：28的5/6特效仍有pointer-provider-unavailable条件性activation passthrough，未将它冒充完整效果激活。
+
+**跟随后继：**同一签名App、同原包静音，三点[-0.75,0.4]→[-0.6,0.1]→[-0.8,-0.3]连续移动，无点击；native-pointer执行门1/1 PASS。查看trajectory原图，左侧红色鼠标标记随指针移动。3024×1964输出按归一化指针计算预期中心，局部±60px窗口内R>80且R>3G、R>3B的着色glyph质心偏差分别2.645、2.544、2.407px；测量是作者shake/pulse/tint效果后的着色质心，不是几何中心精确相等证明，也不代表普通AppKit、多屏/不同缩放或官方视觉一致。当前三点未见明显位置偏移，保留用户最终验收。
+
+**验证、成本和余量：**root/visibility/生产VM共8项通过；真实Metal文字门15项含隐藏文字纹理已存在而静态仍隐藏，generation门10项通过。旧文字harness缺Bloom/GraphTarget依赖导致首跑setup失败，同步支持后通过；删除52行过时源码形状断言，以行为与native链取代。build3通过、运行前后签名验证通过、独立冻结审查APPROVE；code-health仍4个既有非Scene行数失败。有脚本时准备更多graph，所有合法作者text（含无脚本隐藏文字）也增加启动raster/纹理/登记成本，本批没有性能改善或成本不变结论。隐藏utility/hierarchy、原始disabled effect后续启用、连续双向切图和完整样本外观继续开放。证据标签`2026-09-27-script-visible-roots`保存两次中间FAIL、两个最终PASS、指针测量、日志/截图及冻结diff。
+
 <a id="e-2026-09-27-cross-layer-effect-visibility"></a>
 
 ### E-2026-09-27-CROSS-LAYER-EFFECT-VISIBILITY — 跨层特效显隐事务恢复点击切图，隐藏层效果仍开放

@@ -32,20 +32,12 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         initialRenderSizes: [Int: [Float]] = [:],
         dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:]
     ) {
-        let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
-        // A hidden text layer named as another layer's authored dependency
-        // still publishes its rasterized composite as a named-target
-        // source; keep it in the store so its layer-source publication and
-        // render size exist for the capture path.
-        let dependencySourceIDs = Set(
-            descriptor.layers.flatMap { $0.dependencyLayerIDs }
-        )
+        // Authored hidden text can be shown by a later script/property event.
+        // Prepare its source once; frame visibility owns actual composition.
         let layers = descriptor.layers.filter {
             $0.contentKind == "text"
                 && $0.text != nil
                 && $0.textStyle != nil
-                && (visibleIDs.contains($0.id)
-                    || dependencySourceIDs.contains($0.id))
         }
         self.cacheDirectory = cacheDirectory
         self.device = device

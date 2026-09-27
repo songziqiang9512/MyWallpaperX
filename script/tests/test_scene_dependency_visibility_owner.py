@@ -376,58 +376,6 @@ class SceneDependencyVisibilityOwnerTests(unittest.TestCase):
             self.value["tokenFailureMessage"],
         )
 
-    def test_typed_visibility_owner_reaches_program_admission_and_frame_gate(
-        self,
-    ) -> None:
-        root = Path(__file__).resolve().parents[2]
-        launch = (
-            root
-            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session"
-            / "SceneDesktopWallpaperHost+Launch.swift"
-        ).read_text()
-        admission = (
-            root
-            / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material"
-            / "SceneResolvedMaterialExecutionCapabilityAdmission.swift"
-        ).read_text()
-        preflight = (
-            root
-            / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame"
-            / "SceneResolvedMaterialFramePreflight.swift"
-        ).read_text()
-        self.assertIn(
-            "let dynamicLayerVisibilityOwnerTargets = propertyVectorScriptTargets\n"
-            "            .union(propertyLayerVisibilityTargets)",
-            launch,
-        )
-        self.assertIn(
-            "dynamicLayerVisibilityOwnerTargets:\n"
-            "                    dynamicLayerVisibilityOwnerTargets",
-            launch,
-        )
-        self.assertIn(
-            "case let .layer(layerID, .visibility) = target",
-            admission,
-        )
-        self.assertIn(
-            '["image", "solid", "text"].contains(layer.contentKind)',
-            admission,
-        )
-        self.assertIn('layer.contentKind == "composition"', admission)
-        self.assertIn("visibleLayerIDs.contains(layerID)", admission)
-        self.assertIn("layer.utilityLayer?.kind == .composition", admission)
-        self.assertIn(
-            "resolvedMaterialExecutionLayerIDs(",
-            preflight,
-        )
-        self.assertIn(
-            "!activeExecutionLayerIDs.contains(layer.id)",
-            preflight,
-        )
-        self.assertIn(
-            "imageTextures.isLayerSourcePending(binding.providerLayerID)",
-            preflight,
-        )
 
 
 if __name__ == "__main__":
