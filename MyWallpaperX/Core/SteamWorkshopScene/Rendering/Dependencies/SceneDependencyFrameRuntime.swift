@@ -137,7 +137,9 @@ final class SceneDependencyFrameRuntime {
             admittedResolvedMaterialReferences:
                 admittedResolvedMaterialReferences
         )
-        self.targetPool = SceneNamedRenderTargetPool(device: device)
+        self.targetPool = SceneNamedRenderTargetPool(
+            device: device, pixelFormat: descriptor.colorTargetFormat.metalPixelFormat
+        )
         var providerBindings: [Int: [SceneDependencyRenderPlan.Binding]] = [:]
         var nonStaticModelProviders = Set<Int>()
         var forwardCaptureProviders = Set<Int>()
@@ -730,7 +732,7 @@ final class SceneDependencyFrameRuntime {
             // makes are guaranteed upstream here: installPreparedGraphOutputs
             // enforces pool/output format and usage equality for demanded
             // providers, and the single image pipeline construction site
-            // defaults to the pool's bgra8Unorm.
+            // uses the pool's prepared scene color format.
             guard content.isColorContent,
                   let imagePipeline,
                   let normalized,

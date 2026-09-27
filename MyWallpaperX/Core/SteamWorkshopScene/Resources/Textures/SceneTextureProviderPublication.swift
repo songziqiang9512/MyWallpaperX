@@ -279,7 +279,8 @@ nonisolated struct SceneFrameTextureResource {
               texture.usage.contains(.renderTarget),
               texture.usage.contains(.shaderRead),
               texture.pixelFormat == .bgra8Unorm
-                || texture.pixelFormat == .rgba8Unorm else { return nil }
+                || texture.pixelFormat == .rgba8Unorm
+                || texture.pixelFormat == .rgba16Float else { return nil }
         let size = CGSize(width: texture.width, height: texture.height)
         let candidate = SceneTextureCandidate(
             texture: texture,
@@ -323,7 +324,8 @@ nonisolated struct SceneFrameTextureResource {
               texture.usage.contains(.renderTarget),
               texture.usage.contains(.shaderRead),
               texture.pixelFormat == .bgra8Unorm
-                || texture.pixelFormat == .rgba8Unorm else { return nil }
+                || texture.pixelFormat == .rgba8Unorm
+                || texture.pixelFormat == .rgba16Float else { return nil }
         let size = CGSize(width: texture.width, height: texture.height)
         let candidate = SceneTextureCandidate(
             texture: texture,
@@ -397,7 +399,7 @@ nonisolated struct SceneFrameTextureResource {
              .color(.resolved(.independentAlphaSignal)):
             let format = publication.candidate.pixelFormat
             return publication.candidate.purpose == .premultipliedColor
-                && (format == .bgra8Unorm || format == .rgba8Unorm)
+                && (format == .bgra8Unorm || format == .rgba8Unorm || format == .rgba16Float)
                 && publication.candidate.authoredFormat == nil
                 && identityUVScale(expectedPurpose: .premultipliedColor)
         case .scalarRedUnorm:
@@ -428,7 +430,7 @@ nonisolated struct SceneFrameTextureResource {
             let format = publication.candidate.pixelFormat
             return (request.kind == .framebuffer || request.kind == .effectOutput)
                 && publication.candidate.purpose == .preservedChannels
-                && (format == .rgba8Unorm || format == .bgra8Unorm)
+                && (format == .rgba8Unorm || format == .bgra8Unorm || format == .rgba16Float)
                 && publication.candidate.authoredFormat == nil
                 && identityUVScale(expectedPurpose: .preservedChannels)
         case .color(.resolved(.straightAlpha)), .color(.unresolved):
@@ -479,7 +481,8 @@ nonisolated struct SceneFrameTextureResource {
               publication.candidate.texture.usage.contains(.renderTarget),
               publication.candidate.texture.usage.contains(.shaderRead),
               publication.candidate.pixelFormat == .bgra8Unorm
-                || publication.candidate.pixelFormat == .rgba8Unorm,
+                || publication.candidate.pixelFormat == .rgba8Unorm
+                || publication.candidate.pixelFormat == .rgba16Float,
               let scale = publication.candidate.axisAlignedMappedUVScale(
                 expectedPurpose: expectedPurpose
               ),
@@ -519,7 +522,8 @@ nonisolated struct SceneFrameTextureResource {
               publication.candidate.texture.usage.contains(.renderTarget),
               publication.candidate.texture.usage.contains(.shaderRead),
               publication.candidate.pixelFormat == .bgra8Unorm
-                || publication.candidate.pixelFormat == .rgba8Unorm else {
+                || publication.candidate.pixelFormat == .rgba8Unorm
+                || publication.candidate.pixelFormat == .rgba16Float else {
             return false
         }
         return identityUVScale(expectedPurpose: .premultipliedColor)

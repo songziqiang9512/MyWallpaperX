@@ -151,7 +151,10 @@ class SceneMetalView: NSView {
         )
         let layer = CAMetalLayer()
         layer.device = renderer.device
-        layer.pixelFormat = .bgra8Unorm
+        layer.pixelFormat = imageLayerPipeline.pixelFormat
+        // Keep authored display-referred values and SDR presentation. Float
+        // storage preserves precision; it does not opt the display into EDR.
+        layer.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
         layer.framebufferOnly = !renderDescriptor.requiresReadableFramebuffer(
             resolvedMaterialLayerIDs: resolvedMaterialRuntime.executionLayerIDs,
             sceneBackgroundLayerIDs: resolvedMaterialRuntime.sceneBackgroundLayerIDs,
@@ -168,7 +171,9 @@ class SceneMetalView: NSView {
         layer.contentsScale = initialScale
         layer.drawableSize = CGSize(width: frame.width * initialScale, height: frame.height * initialScale)
         metalLayer = layer
-        offscreenTexturePool = SceneOffscreenTexturePool(device: metalDevice)
+        offscreenTexturePool = SceneOffscreenTexturePool(
+            device: metalDevice, pixelFormat: imageLayerPipeline.pixelFormat
+        )
         parallaxPointerSmoother = SceneParallaxPointerSmoother()
         super.init(frame: frame)
         self.layer = layer

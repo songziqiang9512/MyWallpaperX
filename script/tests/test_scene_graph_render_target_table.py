@@ -383,7 +383,21 @@ enum Harness {
             ]
         )
 
+        let floatPlan = TargetPlan.testingPlan(
+            layerID: 10, input: input, output: output,
+            inputExtent: .init(width: 9, height: 7), backbufferFormat: .rgba16f,
+            logicalTargets: [logicalTarget(
+                quarterA, width: 2, height: 1, format: .rgba8888,
+                firstWrite: 0, lastWrite: 0, firstRead: nil, lastRead: nil
+            )]
+        )
+        let floatTable = try! TargetTable.make(plan: floatPlan, device: device, byteBudget: 1016).get()
         let result: [String: Any] = [
+            "floatResidentBytes": floatTable.residentByteCost,
+            "floatPairFormat": floatTable.inputTexture.pixelFormat == .rgba16Float
+                && floatTable.outputTexture.pixelFormat == .rgba16Float,
+            "explicitByteFormat": floatTable.texture(for: quarterA)?.pixelFormat == .rgba8Unorm,
+            "floatBudgetFailure": failure(TargetTable.make(plan: floatPlan, device: device, byteBudget: 1015)),
             "metalUnavailable": false,
             "residentCount": table.residentTextureCount,
             "residentBytes": table.residentByteCost,
@@ -501,6 +515,12 @@ class SceneGraphRenderTargetTableTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_float_pair_preserves_explicit_byte_target_and_budget(self) -> None:
+        self.assertEqual(self.result["floatResidentBytes"], 1016)
+        self.assertTrue(self.result["floatPairFormat"])
+        self.assertTrue(self.result["explicitByteFormat"])
+        self.assertEqual(self.result["floatBudgetFailure"], "byteBudgetExceeded")
 
     def test_allocates_every_logical_identity_without_aliasing(self) -> None:
         self.assertEqual(self.result["residentCount"], 4)

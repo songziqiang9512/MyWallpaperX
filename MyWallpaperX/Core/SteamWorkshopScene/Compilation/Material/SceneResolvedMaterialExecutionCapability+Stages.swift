@@ -286,7 +286,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         assetFormatFacts: [String: Int],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
         systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:],
-        maximumVariantsPerMaterial: Int
+        maximumVariantsPerMaterial: Int,
+        backbufferFormat: SceneGraphRenderTargetPlan.TextureFormat = .rgbaBackbuffer
     ) -> Result<CompiledStages, Rejection> {
         guard (1 ... 256).contains(maximumVariantsPerMaterial) else {
             return .failure(rejection("material-variant-envelope-capacity"))
@@ -309,7 +310,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 systemProviderStates: systemProviderStates,
                 existingKeys: Set(allMaterials.keys),
                 sourceRoute: admitted.sourceRoute,
-                maximumVariantsPerMaterial: maximumVariantsPerMaterial
+                maximumVariantsPerMaterial: maximumVariantsPerMaterial,
+                backbufferFormat: backbufferFormat
             ) {
             case .failure(let failure):
                 return .failure(failure)
@@ -354,7 +356,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:],
         existingKeys: Set<MaterialKey>,
         sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
-        maximumVariantsPerMaterial: Int
+        maximumVariantsPerMaterial: Int,
+        backbufferFormat: SceneGraphRenderTargetPlan.TextureFormat = .rgbaBackbuffer
     ) -> Result<[MaterialKey: MaterialCapability], Rejection> {
         guard let effect = product.graph.effects.first else {
             return .failure(rejection("material-template-unsupported"))
@@ -403,7 +406,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 for: node,
                 in: product.graph,
                 preservedRGBADataTargets: preservedRGBADataTargets,
-                graphTextureContentFacts: graphTextureContentFacts
+                graphTextureContentFacts: graphTextureContentFacts,
+                backbufferFormat: backbufferFormat
             ) else { return .failure(rejection("material-target-storage-unproven")) }
             let resolvedAttachment: (
                 storage: SceneResolvedMaterialAttachmentKind,
@@ -711,7 +715,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             case .rg88: result[target.texture] = .rg88
             case .r16f: result[target.texture] = .r16f
             case .rg1616f: result[target.texture] = .rg1616f
-            case .rgbaBackbuffer, .rgba8888: break
+            case .rgbaBackbuffer, .rgba8888, .rgba16f: break
             }
         }
         return result
@@ -721,7 +725,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         for node: Graph.Node,
         in graph: Graph,
         preservedRGBADataTargets: Set<Graph.TextureIdentity>,
-        graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent]
+        graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent],
+        backbufferFormat: SceneGraphRenderTargetPlan.TextureFormat
     ) -> (
         storage: SceneResolvedMaterialAttachmentKind,
         format: SceneGraphRenderTargetPlan.TextureFormat
@@ -738,16 +743,17 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                binding.conditions == nil,
                binding.texture.kind == .framebuffer,
                graphTextureContentFacts[binding.texture] == .data {
-                return (.preservedRGBAUnorm, .rgbaBackbuffer)
+                return (.preservedRGBAUnorm, backbufferFormat)
             }
-            return (.color, .rgbaBackbuffer)
+            return (.color, backbufferFormat)
         case .framebuffer:
             let declarations = graph.renderTargets.filter { $0.texture == target }
             guard declarations.count == 1,
                   let descriptor = SceneGraphRenderTargetPlan.targetDescriptor(
                       declarations[0],
                       inputWidth: 1,
-                      inputHeight: 1
+                      inputHeight: 1,
+                      backbufferFormat: backbufferFormat
                   ) else { return nil }
             switch descriptor.format {
             case .r8:
@@ -758,7 +764,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 return (.scalarRedFloat16, .r16f)
             case .rg1616f:
                 return (.redGreenFloat16, .rg1616f)
-            case .rgbaBackbuffer, .rgba8888:
+            case .rgbaBackbuffer, .rgba8888, .rgba16f:
                 return (
                     preservedRGBADataTargets.contains(target)
                         ? .preservedRGBAUnorm : .color,

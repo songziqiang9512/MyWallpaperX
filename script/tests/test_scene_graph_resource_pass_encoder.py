@@ -54,6 +54,7 @@ struct SceneImageLayerPipeline {
         Vertex(position: .init( 0.5,  0.5), texcoord: .init(1, 0)),
     ]
 
+    let pixelFormat: MTLPixelFormat
     let state: MTLRenderPipelineState
 
     func bind(encoder: MTLRenderCommandEncoder) {
@@ -178,7 +179,7 @@ private func pixels(_ texture: MTLTexture) -> [UInt8] {
 }
 
 private func halfPixels(_ texture: MTLTexture) -> [UInt16] {
-    let componentCount = texture.pixelFormat == .rg16Float ? 2 : 1
+    let componentCount = texture.pixelFormat == .rgba16Float ? 4 : (texture.pixelFormat == .rg16Float ? 2 : 1)
     var result = [UInt16](
         repeating: 0,
         count: texture.width * texture.height * componentCount
@@ -192,7 +193,7 @@ private func halfPixels(_ texture: MTLTexture) -> [UInt16] {
     return result
 }
 
-private func capturePipeline(_ device: MTLDevice) -> SceneImageLayerPipeline {
+private func capturePipeline(_ device: MTLDevice, format: MTLPixelFormat = .bgra8Unorm) -> SceneImageLayerPipeline {
     let source = """
     #include <metal_stdlib>
     using namespace metal;
@@ -223,8 +224,8 @@ private func capturePipeline(_ device: MTLDevice) -> SceneImageLayerPipeline {
     let descriptor = MTLRenderPipelineDescriptor()
     descriptor.vertexFunction = library.makeFunction(name: "captureVertex")
     descriptor.fragmentFunction = library.makeFunction(name: "captureFragment")
-    descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
-    return .init(state: try! device.makeRenderPipelineState(
+    descriptor.colorAttachments[0].pixelFormat = format
+    return .init(pixelFormat: format, state: try! device.makeRenderPipelineState(
         descriptor: descriptor
     ))
 }
@@ -689,7 +690,27 @@ private enum Harness {
             ) == nil
         }
 
+        let floatTarget = target(device: device, format: .rgba16Float)
+        let floatPipeline = capturePipeline(device, format: .rgba16Float)
+        let floatCapture = encoder.prepareSourceCapture(
+            source: captureSource, target: floatTarget,
+            uniforms: .init(color: .init(0.1001, 0.5001, 0.9001, 1)), pipeline: floatPipeline
+        )
+        var floatCaptureCompleted = false
+        if let floatCapture, let command = queue.makeCommandBuffer() {
+            floatCaptureCompleted = completed(command, encoded: encoder.encode(floatCapture, commandBuffer: command))
+        }
+        let floatPixels = halfPixels(floatTarget).map { Float(Float16(bitPattern: $0)) }
+        let floatCapturePreservesFraction = abs(floatPixels[0] - 0.1001) < 0.0001
+            && abs(floatPixels[1] - 0.5001) < 0.0003
+            && abs(floatPixels[2] - 0.9001) < 0.0003 && floatPixels[3] == 1
+        let mismatchedCapturePipelineRejected = encoder.prepareSourceCapture(
+            source: captureSource, target: floatTarget, uniforms: .neutral(), pipeline: sourcePipeline
+        ) == nil
         let results: [String: Bool] = [
+            "floatCaptureCompleted": floatCaptureCompleted,
+            "floatCapturePreservesFraction": floatCapturePreservesFraction,
+            "mismatchedCapturePipelineRejected": mismatchedCapturePipelineRejected,
             "metalAvailable": true,
             "sourceCapturePrepared": preparedCapture?.kind == .sourceCapture,
             "sourceCapturePrepareHasNoSideEffect":

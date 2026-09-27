@@ -250,7 +250,7 @@ extension SceneOffscreenTexturePool {
         plansMemoIdentity: SceneOffscreenTexturePool.PersistentPlansMemoIdentity? = nil
     ) -> Result<ScenePersistentGraphTargetFramePlan,
         ScenePersistentGraphTargetPlanningFailure> {
-        guard pixelFormat == .bgra8Unorm else {
+        guard pixelFormat == .bgra8Unorm || pixelFormat == .rgba16Float else {
             return .failure(.unsupportedPixelFormat)
         }
         let prepared: (

@@ -10,6 +10,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         case rg1616f
         case rgbaBackbuffer
         case rgba8888
+        case rgba16f
     }
 
     enum UVAddressMode: String, Equatable {
@@ -82,6 +83,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
     let output: Graph.TextureIdentity
     let inputRole: SceneAuthoredEffectInputRole
     let inputExtent: PixelExtent
+    let backbufferFormat: TextureFormat
     let logicalTargets: [LogicalTarget]
     let commands: [Command]
 
@@ -91,6 +93,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         output: Graph.TextureIdentity,
         inputRole: SceneAuthoredEffectInputRole = .layerSource,
         inputExtent: PixelExtent,
+        backbufferFormat: TextureFormat = .rgbaBackbuffer,
         logicalTargets: [LogicalTarget],
         commands: [Command] = []
     ) {
@@ -99,6 +102,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         self.output = output
         self.inputRole = inputRole
         self.inputExtent = inputExtent
+        self.backbufferFormat = backbufferFormat
         self.logicalTargets = logicalTargets
         self.commands = commands
     }
@@ -110,6 +114,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         output: Graph.TextureIdentity,
         inputRole: SceneAuthoredEffectInputRole = .layerSource,
         inputExtent: PixelExtent,
+        backbufferFormat: TextureFormat = .rgbaBackbuffer,
         logicalTargets: [LogicalTarget],
         commands: [Command] = []
     ) -> Self {
@@ -119,6 +124,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             output: output,
             inputRole: inputRole,
             inputExtent: inputExtent,
+            backbufferFormat: backbufferFormat,
             logicalTargets: logicalTargets,
             commands: commands
         )
@@ -135,10 +141,12 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         inputRole: SceneAuthoredEffectInputRole,
         inputWidth: Int,
         inputHeight: Int,
-        materialFunctionTargets: Set<Graph.TextureIdentity>
+        materialFunctionTargets: Set<Graph.TextureIdentity>,
+        backbufferFormat: TextureFormat = .rgbaBackbuffer
     ) -> Int {
         var hasher = Hasher()
         hasher.combine(inputRole)
+        hasher.combine(backbufferFormat)
         hasher.combine(inputWidth)
         hasher.combine(inputHeight)
         var elementXor = 0
@@ -154,14 +162,16 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         inputRole: SceneAuthoredEffectInputRole,
         inputWidth: Int,
         inputHeight: Int,
-        materialFunctionTargets: Set<Graph.TextureIdentity> = []
+        materialFunctionTargets: Set<Graph.TextureIdentity> = [],
+        backbufferFormat: TextureFormat = .rgbaBackbuffer
     ) -> Result<Self, Failure> {
         makeValidated(
             graph: graph,
             inputRole: inputRole,
             inputWidth: inputWidth,
             inputHeight: inputHeight,
-            materialFunctionTargets: materialFunctionTargets
+            materialFunctionTargets: materialFunctionTargets,
+            backbufferFormat: backbufferFormat
         )
     }
 
@@ -170,8 +180,12 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         inputRole: SceneAuthoredEffectInputRole,
         inputWidth: Int,
         inputHeight: Int,
-        materialFunctionTargets: Set<Graph.TextureIdentity>
+        materialFunctionTargets: Set<Graph.TextureIdentity>,
+        backbufferFormat: TextureFormat
     ) -> Result<Self, Failure> {
+        guard backbufferFormat == .rgbaBackbuffer || backbufferFormat == .rgba16f else {
+            return .failure(.unsupportedTargetDescriptor)
+        }
         guard inputWidth > 0, inputHeight > 0 else {
             return .failure(.invalidInputExtent)
         }
@@ -214,13 +228,14 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             guard let descriptor = targetDescriptor(
                 target,
                 inputWidth: inputWidth,
-                inputHeight: inputHeight
+                inputHeight: inputHeight,
+                backbufferFormat: backbufferFormat
             ) else {
                 return .failure(.unsupportedTargetDescriptor)
             }
             descriptors[target.texture] = descriptor
         }
-        guard authoredSwapDescriptorsAreCompatible(in: graph) else {
+        guard authoredSwapDescriptorsAreCompatible(in: graph, backbufferFormat: backbufferFormat) else {
             return .failure(.unsupportedTargetDescriptor)
         }
         let feedbackHistory = boundedFeedbackHistoryProfile(
@@ -424,6 +439,7 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             output: effect.output,
             inputRole: inputRole,
             inputExtent: PixelExtent(width: inputWidth, height: inputHeight),
+            backbufferFormat: backbufferFormat,
             logicalTargets: targets,
             commands: commands
         ))

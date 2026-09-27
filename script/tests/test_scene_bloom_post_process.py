@@ -85,6 +85,25 @@ import Metal
     results["positive"] = render(400, 240, strength: 1, threshold: 0.3)
     results["reuseZero"] = render(400, 240, strength: 0, threshold: 0, phase: 13)
     results["reusePositive"] = render(400, 240, strength: 1, threshold: 0.3, phase: 13)
+    let floatBloom = SceneBloomPostProcess(pixelFormat: .rgba16Float)
+    let fd = MTLTextureDescriptor.texture2DDescriptor(
+      pixelFormat: .rgba16Float, width: 32, height: 16, mipmapped: false)
+    fd.usage = [.shaderRead, .renderTarget]
+    fd.storageMode = .shared
+    let ft = device.makeTexture(descriptor: fd)!
+    var fp = [Float16](repeating: 0.5001, count: 32 * 16 * 4)
+    for i in stride(from: 3, to: fp.count, by: 4) { fp[i] = 1 }
+    fp.withUnsafeBytes { ft.replace(region: MTLRegionMake2D(0, 0, 32, 16),
+      mipmapLevel: 0, withBytes: $0.baseAddress!, bytesPerRow: 32 * 8) }
+    let fc = queue.makeCommandBuffer()!
+    let encoded = floatBloom.encode(configuration: .init(enabled: true,
+      strength: 1, threshold: 0.3, tint: SIMD3(1, 1, 1)), source: ft, commandBuffer: fc)
+    fc.commit(); fc.waitUntilCompleted()
+    var fr = [Float16](repeating: 0, count: fp.count)
+    fr.withUnsafeMutableBytes { ft.getBytes($0.baseAddress!, bytesPerRow: 32 * 8,
+      from: MTLRegionMake2D(0, 0, 32, 16), mipmapLevel: 0) }
+    results["floatBloom"] = encoded && fc.status == .completed
+      && fr[0] > fp[0] && fr[3] == 1 && fr.allSatisfy { $0.isFinite }
     print(String(data: try JSONSerialization.data(withJSONObject: results), encoding: .utf8)!)
   }
 }
@@ -119,6 +138,7 @@ class SceneBloomPostProcessTests(unittest.TestCase):
                     self.assertEqual(values["changedAlpha"], 0)
 
     def test_positive_bloom_and_reuse_add_light_without_changing_alpha(self):
+        self.assertTrue(self.result["floatBloom"])
         for name in ["positive", "reusePositive"]:
             self.assertTrue(self.result[name]["encoded"])
             self.assertGreater(self.result[name]["changedRGB"], 0)

@@ -257,10 +257,11 @@ def _decode_png_rows_cached(
             elif kind == b"IEND":
                 break
         channels = {0: 1, 2: 3, 4: 2, 6: 4}.get(color_type)
-        if not width or not height or bit_depth != 8 or interlace != 0 or channels is None:
+        if not width or not height or bit_depth not in (8, 16) or interlace != 0 or channels is None:
             return None
         decoded = zlib.decompress(compressed)
-        stride = width * channels
+        bytes_per_pixel = channels * (bit_depth // 8)
+        stride = width * bytes_per_pixel
         previous = bytearray(stride)
         cursor = 0
         rows: list[bytes] = []
@@ -270,9 +271,9 @@ def _decode_png_rows_cached(
             cursor += stride + 1
             row = bytearray(stride)
             for index, value in enumerate(source):
-                left = row[index - channels] if index >= channels else 0
+                left = row[index - bytes_per_pixel] if index >= bytes_per_pixel else 0
                 up = previous[index]
-                upper_left = previous[index - channels] if index >= channels else 0
+                upper_left = previous[index - bytes_per_pixel] if index >= bytes_per_pixel else 0
                 if filter_type == 0:
                     predictor = 0
                 elif filter_type == 1:
@@ -286,7 +287,10 @@ def _decode_png_rows_cached(
                 else:
                     return None
                 row[index] = (value + predictor) & 0xFF
-            rows.append(bytes(row))
+            # Existing visibility/motion metrics use an 8-bit view. Keep the
+            # original 16-bit PNG intact for precision measurements. PNG
+            # filters operate on bytes with the full pixel stride.
+            rows.append(bytes(row if bit_depth == 8 else row[::2]))
             previous = row
     except (IndexError, OSError, struct.error, ValueError, zlib.error):
         return None

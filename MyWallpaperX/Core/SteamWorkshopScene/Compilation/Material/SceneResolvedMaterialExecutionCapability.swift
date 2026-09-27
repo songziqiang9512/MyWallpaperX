@@ -324,7 +324,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
         systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:],
         maximumVariantsPerMaterial: Int = 16,
-        dynamicVisibleRootLayerIDs: Set<Int> = []
+        dynamicVisibleRootLayerIDs: Set<Int> = [],
+        backbufferFormat: SceneGraphRenderTargetPlan.TextureFormat = .rgbaBackbuffer
     ) {
         self.dynamicVisibleRootLayerIDs = dynamicVisibleRootLayerIDs
         let demandIssues = materialCatalog.resourceDemandIssues
@@ -367,7 +368,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     assetStates: assetStates,
                     systemProviderStates: systemProviderStates,
                     maximumVariantsPerMaterial: maximumVariantsPerMaterial,
-                    maximumStageWorkers: stageWorkers
+                    maximumStageWorkers: stageWorkers,
+                    backbufferFormat: backbufferFormat
                 )
                 preparationLock.withLock { preparations[index] = result }
             }

@@ -39,7 +39,8 @@ extension SceneResolvedMaterialGraphExecutor {
                 inputWidth: lease.table.plan.inputExtent.width,
                 inputHeight: lease.table.plan.inputExtent.height,
                 materialFunctionTargets:
-                    materialFunctionTargetsByEffect[step.effect] ?? []
+                    materialFunctionTargetsByEffect[step.effect] ?? [],
+                backbufferFormat: lease.table.plan.backbufferFormat
             )
             let expectedMatchesStoredPlan: Bool
             if lease.table.makeInputsDigest == currentInputsDigest {
@@ -51,7 +52,8 @@ extension SceneResolvedMaterialGraphExecutor {
                     inputWidth: lease.table.plan.inputExtent.width,
                     inputHeight: lease.table.plan.inputExtent.height,
                     materialFunctionTargets:
-                        materialFunctionTargetsByEffect[step.effect] ?? []
+                        materialFunctionTargetsByEffect[step.effect] ?? [],
+                    backbufferFormat: lease.table.plan.backbufferFormat
                 )
                 switch targetPlanResult {
                 case let .success(expected):

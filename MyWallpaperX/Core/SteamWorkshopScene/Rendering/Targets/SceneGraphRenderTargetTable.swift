@@ -134,8 +134,8 @@ struct SceneGraphRenderTargetTable {
               specifications.count == 2,
               plan.input != plan.output,
               inputTexture !== outputTexture,
-              validBorrowedTexture(inputTexture, extent: plan.inputExtent),
-              validBorrowedTexture(outputTexture, extent: plan.inputExtent),
+              validBorrowedTexture(inputTexture, extent: plan.inputExtent, format: plan.backbufferFormat),
+              validBorrowedTexture(outputTexture, extent: plan.inputExtent, format: plan.backbufferFormat),
               inputTexture.device.registryID == outputTexture.device.registryID else {
             return .failure(.borrowedTextureInvalid)
         }
@@ -177,7 +177,7 @@ struct SceneGraphRenderTargetTable {
         var specifications = [Specification(
             identity: plan.input,
             extent: plan.inputExtent,
-            format: .rgbaBackbuffer,
+            format: plan.backbufferFormat,
             role: "input"
         )]
         specifications.reserveCapacity(plan.logicalTargets.count + 2)
@@ -196,7 +196,7 @@ struct SceneGraphRenderTargetTable {
         specifications.append(Specification(
             identity: plan.output,
             extent: plan.inputExtent,
-            format: .rgbaBackbuffer,
+            format: plan.backbufferFormat,
             role: "output"
         ))
 
@@ -245,10 +245,11 @@ struct SceneGraphRenderTargetTable {
 
     private static func validBorrowedTexture(
         _ texture: MTLTexture,
-        extent: SceneGraphRenderTargetPlan.PixelExtent
+        extent: SceneGraphRenderTargetPlan.PixelExtent,
+        format: SceneGraphRenderTargetPlan.TextureFormat
     ) -> Bool {
         texture.textureType == .type2D
-            && texture.pixelFormat == .bgra8Unorm
+            && texture.pixelFormat == format.metalPixelFormat
             && texture.width == extent.width
             && texture.height == extent.height
             && texture.mipmapLevelCount == 1

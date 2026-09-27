@@ -30,9 +30,10 @@ nonisolated final class SceneDebugFrameCapture {
 
         let width = texture.width
         let height = texture.height
-        let rowBytes = width * 4
+        let isFloat = texture.pixelFormat == .rgba16Float
+        let rowBytes = width * (isFloat ? 8 : 4)
         let byteCount = rowBytes * height
-        guard texture.pixelFormat == .bgra8Unorm,
+        guard texture.pixelFormat == .bgra8Unorm || isFloat,
               let buffer = texture.device.makeBuffer(length: byteCount, options: .storageModeShared),
               let encoder = commandBuffer.makeBlitCommandEncoder() else {
             Self.reportFailure(reason: request.reason, stage: "metal-readback-setup")
@@ -64,6 +65,7 @@ nonisolated final class SceneDebugFrameCapture {
                 width: width,
                 height: height,
                 rowBytes: rowBytes,
+                isFloat: isFloat,
                 request: request
             )
         }
@@ -74,21 +76,38 @@ nonisolated final class SceneDebugFrameCapture {
         width: Int,
         height: Int,
         rowBytes: Int,
+        isFloat: Bool,
         request: Request
     ) {
-        let pixels = Data(bytes: buffer.contents(), count: rowBytes * height)
+        let pixels: Data
+        if isFloat {
+            // PNG stores normalized integer channels. Keep 16-bit precision for
+            // SDR diagnostics rather than rebuilding 8-bit bands in readback.
+            // Extended values are clipped for this preview; this is not an HDR
+            // image export or a measurement of WindowServer presentation.
+            let source = buffer.contents().bindMemory(to: UInt16.self, capacity: width * height * 4)
+            var words = [UInt16](repeating: 0, count: width * height * 4)
+            for index in words.indices {
+                let value = Float(Float16(bitPattern: source[index]))
+                let normalized = value.isFinite ? min(1, max(0, value)) : 0
+                words[index] = UInt16((normalized * 65_535).rounded())
+            }
+            pixels = words.withUnsafeBytes { Data($0) }
+        } else {
+            pixels = Data(bytes: buffer.contents(), count: rowBytes * height)
+        }
+        let bitmapInfo: CGBitmapInfo = isFloat
+            ? [.byteOrder16Little, CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue)]
+            : [.byteOrder32Little, CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue)]
         guard let provider = CGDataProvider(data: pixels as CFData),
               let source = CGImage(
                 width: width,
                 height: height,
-                bitsPerComponent: 8,
-                bitsPerPixel: 32,
+                bitsPerComponent: isFloat ? 16 : 8,
+                bitsPerPixel: isFloat ? 64 : 32,
                 bytesPerRow: rowBytes,
                 space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: [
-                    .byteOrder32Little,
-                    CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue)
-                ],
+                bitmapInfo: bitmapInfo,
                 provider: provider,
                 decode: nil,
                 shouldInterpolate: false,

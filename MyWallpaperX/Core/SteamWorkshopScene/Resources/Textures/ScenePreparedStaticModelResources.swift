@@ -46,7 +46,9 @@ struct ScenePreparedStaticModelResources {
     ) throws -> ScenePreparedStaticModelResources {
         let layers = descriptor.layers.filter { $0.staticModelPath != nil }
         guard !layers.isEmpty,
-              let pipeline = SceneStaticModelPipeline(device: device) else {
+              let pipeline = SceneStaticModelPipeline(
+                  device: device, colorPixelFormat: descriptor.colorTargetFormat.metalPixelFormat
+              ) else {
             return .empty
         }
 

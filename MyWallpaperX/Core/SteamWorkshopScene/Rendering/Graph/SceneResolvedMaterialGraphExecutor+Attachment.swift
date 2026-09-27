@@ -15,6 +15,8 @@ extension SceneResolvedMaterialGraphExecutor {
              (.rg1616f, .rg1616f),
              (.rgbaBackbuffer, .rgbaBackbuffer),
              (.rgba8888, .rgba8888),
+             (.rgba16f, .rgba16f),
+             (.rgba16f, nil),
              (.rgbaBackbuffer, nil):
             true
         default:

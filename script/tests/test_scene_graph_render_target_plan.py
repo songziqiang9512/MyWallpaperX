@@ -819,7 +819,18 @@ enum Harness {
             output: output
         )
 
+        let floatPlan = try! SceneGraphRenderTargetPlan.make(
+            graph: standard, inputRole: .layerSource, inputWidth: 1920, inputHeight: 1080,
+            backbufferFormat: .rgba16f
+        ).get()
+        let explicitBytePlan = try! SceneGraphRenderTargetPlan.make(
+            graph: rgba8888, inputRole: .layerSource, inputWidth: 1920, inputHeight: 1080,
+            backbufferFormat: .rgba16f
+        ).get()
         let result: [String: Any] = [
+            "floatBackbufferTargets": targetSummary(floatPlan),
+            "floatMatchesDeclarations": floatPlan.matchesSourceDeclarations(in: standard),
+            "explicitByteTargetsWithFloatBackbuffer": targetSummary(explicitBytePlan),
             "standardInput": standardPlan.input.kind.rawValue,
             "standardOutput": standardPlan.output.kind.rawValue,
             "standardInputExtent": [
@@ -992,6 +1003,13 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_backbuffer_precision_is_resolved_without_rewriting_explicit_targets(self) -> None:
+        self.assertTrue(self.result["floatMatchesDeclarations"])
+        self.assertTrue(all(target["format"] == "rgba16f"
+                            for target in self.result["floatBackbufferTargets"]))
+        self.assertTrue(all(target["format"] == "rgba8888"
+                            for target in self.result["explicitByteTargetsWithFloatBackbuffer"]))
 
     def test_standard_blur_targets_preserve_extent_and_lifetime(self) -> None:
         self.assertEqual(self.result["standardInput"], "layerSource")

@@ -676,7 +676,7 @@ extension SceneResolvedMaterialGraphExecutor {
         case .rg88: return .redGreenUnorm
         case .r16f: return .scalarRedFloat16
         case .rg1616f: return .redGreenFloat16
-        case .rgbaBackbuffer:
+        case .rgbaBackbuffer, .rgba16f:
             return .color(.resolved(
                 capability.graphFramebufferColorRepresentations[identity]
                     ?? representation

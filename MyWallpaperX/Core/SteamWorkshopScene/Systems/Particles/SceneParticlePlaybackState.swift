@@ -40,7 +40,9 @@ final class SceneParticlePlaybackState {
         layerImage: SceneParticleLayerImageEmitterCompilation = .empty,
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
     ) {
-        guard let pipeline = SceneParticleMetalPipeline(device: device) else { return nil }
+        guard let pipeline = SceneParticleMetalPipeline(
+            device: device, pixelFormat: descriptor.colorTargetFormat.metalPixelFormat
+        ) else { return nil }
         self.pipeline = pipeline
         let runtime = SceneParticleRuntime(
             descriptor: descriptor,

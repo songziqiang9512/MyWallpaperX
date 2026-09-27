@@ -29,11 +29,11 @@ final class SceneBloomPostProcess {
     private var pipelineFailureLogged = false
     private var cachedTexturesBySize: [SIMD2<Int>: (mip1: MTLTexture, mip2: MTLTexture)] = [:]
 
-    init() {}
+    private let pixelFormat: MTLPixelFormat
 
-    /// Raster pixel format of every intermediate target; the chain assumes
-    /// the drawable is 8-bit UNorm like the rest of the compositor.
-    private static let pixelFormat = MTLPixelFormat.bgra8Unorm
+    init(pixelFormat: MTLPixelFormat = .bgra8Unorm) {
+        self.pixelFormat = pixelFormat
+    }
 
     private func makePipelines(on device: MTLDevice) -> Bool {
         guard brightPipeline == nil else { return true }
@@ -54,7 +54,7 @@ final class SceneBloomPostProcess {
             let descriptor = MTLRenderPipelineDescriptor()
             descriptor.vertexFunction = vertex
             descriptor.fragmentFunction = fragment
-            descriptor.colorAttachments[0].pixelFormat = Self.pixelFormat
+            descriptor.colorAttachments[0].pixelFormat = pixelFormat
             descriptor.colorAttachments[0].isBlendingEnabled = additive
             if additive {
                 descriptor.colorAttachments[0].rgbBlendOperation = .add
@@ -99,7 +99,7 @@ final class SceneBloomPostProcess {
         }
         func makeTexture(width: Int, height: Int) -> MTLTexture? {
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-                pixelFormat: Self.pixelFormat,
+                pixelFormat: pixelFormat,
                 width: max(1, width),
                 height: max(1, height),
                 mipmapped: false
@@ -172,7 +172,7 @@ final class SceneBloomPostProcess {
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
         guard configuration.enabled,
-              source.pixelFormat == Self.pixelFormat,
+              source.pixelFormat == pixelFormat,
               self.device == nil || self.device === source.device else {
             return false
         }

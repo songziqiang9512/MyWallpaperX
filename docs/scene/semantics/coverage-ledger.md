@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-27 继承作者 HDR 的颜色目标精度
+
+SceneRenderDescriptor在准备期按general.hdr统一选择RGBA16Float或既有BGRA8，并贯通graph/source/pair、图片/粒子/模型/光照管线、依赖发布、Bloom和最终CAMetalLayer；显式rgba8888及R/RG data格式不变。预算按实际4/8Bpp计算，snapshot默认保持像素容量而浮点上限翻倍，显式预算保持。沿同一publication、generation和compositor执行，无第二输出链。两原包及隔离渐变实际执行，3287715210终端16位读回有超过256级颜色；这是场景精度恢复，不代表完整HDR tone mapping、EDR、官方parity或用户细条纹视觉验收。详细身份、正反门及剩余边界见[颜色精度证据](runtime-evidence-current.md#e-2026-09-27-scene-color-precision)。
+
 ## 2026-09-27 粒子七标量脚本与最终上传边界
 
 root `instanceoverride.alpha/size/lifetime/rate/speed/count/brightness` 共用既有 scalar QuickJS owner、精确字段 projection 和 typed snapshot；逐字段清除 script 标记，非空 user、animation 及 duplicate target 仍拒绝。`2419444134` 的 count/size 漏执行已修复，固定静音画面恢复可见白点；完整视觉验收仍开放。出生乘法和 child 后置缩放可能使有限 Double 超出 Float，分别在既有 simulator 出生边界和最终 instance buffer 上传边界局部拒绝，GPU 完成诊断取实际上传数量。见[运行证据](runtime-evidence-current.md#e-2026-09-27-particle-scalar-scripts)。未扩展 color/vector、child 独立脚本、冲突源或存量粒子追溯更新。

@@ -12,6 +12,7 @@ final class SceneNamedRenderTargetPool {
     }
 
     private let device: MTLDevice
+    private let pixelFormat: MTLPixelFormat
     private let maxDimension: Int
     private let byteBudget: Int
     private var entriesByProviderLayerID: [Int: Entry] = [:]
@@ -24,10 +25,12 @@ final class SceneNamedRenderTargetPool {
 
     init(
         device: MTLDevice,
+        pixelFormat: MTLPixelFormat = .bgra8Unorm,
         maxDimension: Int = SceneNamedRenderTargetPool.maximumDimension,
         byteBudget: Int = SceneNamedRenderTargetPool.defaultByteBudget
     ) {
         self.device = device
+        self.pixelFormat = pixelFormat
         self.maxDimension = min(max(maxDimension, 1), Self.maximumDimension)
         self.byteBudget = min(max(byteBudget, 0), Self.defaultByteBudget)
     }
@@ -50,7 +53,7 @@ final class SceneNamedRenderTargetPool {
             return existing?.texture
         }
 
-        let byteCost = extent.width * extent.height * 4
+        let byteCost = extent.width * extent.height * (pixelFormat == .rgba16Float ? 8 : 4)
         let costWithoutExisting = residentByteCost - (existing?.byteCost ?? 0)
         guard costWithoutExisting <= byteBudget,
               byteCost <= byteBudget - costWithoutExisting,
@@ -89,7 +92,7 @@ final class SceneNamedRenderTargetPool {
         height: Int
     ) -> MTLTexture? {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .bgra8Unorm,
+            pixelFormat: pixelFormat,
             width: width,
             height: height,
             mipmapped: false

@@ -32,6 +32,8 @@ nonisolated enum SceneResolvedMaterialAttachmentStorage {
              (.rg16Float, .redGreenFloat16),
              (.rgba8Unorm, .data),
              (.bgra8Unorm, .data),
+             (.rgba16Float, .data),
+             (.rgba16Float, .color(.resolved)),
              (.bgra8Unorm, .color(.resolved)),
              (.rgba8Unorm, .color(.resolved)):
             formatMatchesContent = true

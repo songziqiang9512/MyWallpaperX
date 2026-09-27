@@ -49,6 +49,39 @@ enum Harness {
             width: 1_304, height: 4, value: 192
         )
 
+        capture.request(reason: "float", outputDirectory: outputDirectory)
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba16Float, width: 1024, height: 1, mipmapped: false)
+        descriptor.storageMode = .shared
+        descriptor.usage = [.shaderRead]
+        let texture = device.makeTexture(descriptor: descriptor)!
+        var gradient = [UInt16](repeating: 0, count: 1024 * 4)
+        for x in 0..<1024 {
+            let value = Float16(Float(x) / 1023).bitPattern
+            gradient[x * 4] = value; gradient[x * 4 + 1] = value
+            gradient[x * 4 + 2] = value; gradient[x * 4 + 3] = Float16(1).bitPattern
+        }
+        gradient.withUnsafeBytes {
+            texture.replace(region: MTLRegionMake2D(0, 0, 1024, 1), mipmapLevel: 0,
+                            withBytes: $0.baseAddress!, bytesPerRow: 1024 * 8)
+        }
+        let command = queue.makeCommandBuffer()!
+        capture.encodeIfRequested(texture: texture, commandBuffer: command)
+        command.commit(); command.waitUntilCompleted()
+        guard command.status == .completed else { throw HarnessError.commandFailed }
+        let floatURL = outputDirectory.appendingPathComponent("scene-float-window.png")
+        guard let representation = NSBitmapImageRep(data: try Data(contentsOf: floatURL)),
+              representation.bitsPerSample == 16,
+              representation.pixelsWide == 1024 else { throw HarnessError.missingCapture("float precision") }
+        var distinct = Set<Int>()
+        for x in 0..<1024 {
+            var components = [Int](repeating: 0, count: 4)
+            representation.getPixel(&components, atX: x, y: 0)
+            distinct.insert(components[0])
+            guard components[3] == 65535 else { throw HarnessError.missingCapture("float alpha") }
+        }
+        guard distinct.count == 1024 else { throw HarnessError.missingCapture("quantized float gradient") }
+
         for (name, expectedSize) in [
             ("scene-ready-window.png", NSSize(width: 4, height: 4)),
             ("scene-after-window.png", NSSize(width: 1_304, height: 4)),

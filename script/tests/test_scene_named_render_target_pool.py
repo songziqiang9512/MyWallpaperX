@@ -57,12 +57,19 @@ enum Harness {
         let overBudget = budgetPool.texture(for: 32, width: 1, height: 1)
         let costAfterBudgetRefusal = budgetPool.residentByteCost
 
+        let floatPool = SceneNamedRenderTargetPool(
+            device: device, pixelFormat: .rgba16Float, byteBudget: 512
+        )
+        let floatTexture = floatPool.texture(for: 50, width: 8, height: 8)
+        let floatOverflow = floatPool.texture(for: 51, width: 1, height: 1)
         let invalidPool = SceneNamedRenderTargetPool(device: device)
         let negativeProvider = invalidPool.texture(for: -1, width: 8, height: 8)
         let zeroWidth = invalidPool.texture(for: 40, width: 0, height: 8)
         let negativeHeight = invalidPool.texture(for: 41, width: 8, height: -1)
 
         let result: [String: Any] = [
+            "floatFormatAndBudget": floatTexture?.pixelFormat == .rgba16Float
+                && floatPool.residentByteCost == 512 && floatOverflow == nil,
             "defaultMaximumDimension": SceneNamedRenderTargetPool.maximumDimension,
             "defaultByteBudget": SceneNamedRenderTargetPool.defaultByteBudget,
             "sameProviderReused": first === repeated,
@@ -139,6 +146,7 @@ class SceneNamedRenderTargetPoolTests(unittest.TestCase):
         cls.temporary_directory.cleanup()
 
     def test_defaults_and_metal_contract_are_bounded(self) -> None:
+        self.assertTrue(self.result["floatFormatAndBudget"])
         self.assertEqual(self.result["defaultMaximumDimension"], 2_048)
         self.assertEqual(self.result["defaultByteBudget"], 64 * 1_024 * 1_024)
         self.assertTrue(self.result["usesBGRA8Unorm"])

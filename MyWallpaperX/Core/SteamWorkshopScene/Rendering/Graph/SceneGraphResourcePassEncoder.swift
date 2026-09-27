@@ -251,7 +251,7 @@ final class SceneGraphResourcePassEncoder {
     private func validTarget(_ texture: MTLTexture) -> Bool {
         let supportedFormats: Set<MTLPixelFormat> = [
             .bgra8Unorm, .r8Unorm, .rg8Unorm, .r16Float, .rg16Float,
-            .rgba8Unorm,
+            .rgba8Unorm, .rgba16Float,
         ]
         return texture.device.registryID == device.registryID
             && texture.textureType == .type2D
@@ -270,7 +270,7 @@ final class SceneGraphResourcePassEncoder {
         pipeline: SceneImageLayerPipeline
     ) -> Bool {
         validTarget(target)
-            && target.pixelFormat == .bgra8Unorm
+            && target.pixelFormat == pipeline.pixelFormat
             && source.device.registryID == device.registryID
             && pipeline.state.device.registryID == device.registryID
             && source.textureType == .type2D

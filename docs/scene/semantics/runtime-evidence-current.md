@@ -24,6 +24,28 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-27-scene-color-precision"></a>
+
+### E-2026-09-27-SCENE-COLOR-PRECISION — 作者 HDR 颜色精度贯通终端
+
+**实现与合同：**用户确认3287715210的“渐变循环”归零后移动细条纹停止或改善；前序固定相位探针已经排除只换中间target的方案。本批沿现役SceneRenderDescriptor在准备期选择场景颜色格式：general.hdr=true使用RGBA16Float，false保持BGRA8；继承场景格式的graph、source/pair、颜色管线、粒子/模型、命名依赖、Bloom、framebuffer snapshot与CAMetalLayer使用同一选择。作者显式rgba8888、R/RG整数及浮点data附件保持各自格式；publication的identity、generation、epoch、purpose和alpha合同不放宽。没有第二compositor、逐帧格式推导/编译、样本分支、渐变关闭或抖动补偿。浮点存储不等于系统EDR：颜色仍按display-referred sRGB输出，未启用EDR，也未实现完整作者HDR Bloom/tone mapping。
+
+**预算与诊断：**RGBA16F按8Bpp记账，graph/offscreen/named预算仍为现役硬上限；framebuffer snapshot默认预算按相同像素容量从64MiB变为浮点128MiB，显式传入byteBudget不翻倍。主动截图把float读回为16位PNG（0…1之外裁剪，仅SDR诊断，不是HDR导出）；普通播放不执行转换。共享benchmark读取器补齐16位PNG过滤stride，visibility/motion仍取8位视图，不用该视图评判精度。
+
+**运行与失败保留：**Debug -O构建和签名检查通过。App CDHash `e966e214da0af67f80f65095c3dd5ab4bb5ac14c`、exe SHA `60051e6f846bf153b272b6c764d500e72be650880dab52210fd29aee0a3653e0`。首次候选遗漏graph publication旧8位guard而在frame0拒绝，已补齐格式合同；随后gradient-fixed-run有正常GPU/compositor输出但旧benchmark不识别16PNG，保留原FAIL报告。修正读取器后的fresh gradient-final-run为PASS，不能改写失败报告。
+
+| 内容 / 各10秒 | submitted / completed / failed / presented | 结果 |
+|---|---|---|
+| 原包3768724269 | 349 / 348 / 0 / 347 | PASS；仍为8位SDR输出 |
+| 原包3287715210 | 294 / 293 / 0 / 286 | PASS；16位PNG读回 |
+| 仅作者gradient535，Bloom关闭 | 301 / 300 / 0 / 293 | PASS；作者循环仍开启 |
+
+两原包及隔离gradient有graph GPU completed、publication、terminal compositor consumed和next-frame；原包after已查看，人物、光束与音频条仍可见。328原包3024×1964终端图第height/8行RGB分别607/506/442种值，9043个通道值不在8位格点；376同位置仍是8位PNG。这证明精度没有在最终drawable前丢失，不证明WindowServer/物理屏幕或肉眼细条纹已经消失。原包report SHA `4dfb2e47757d247f9338da9e464928a6a71489b7a71b1312ef80d41aa72ccf88`，gradient report SHA `f9e07ff6eccf4009c63cf61a1b90f8523add7c9e106dfad6f0b44bf0978a98d6`。
+
+**验证与边界：**target plan/table、publication、resource pass、16位capture与Bloom六模块34门通过；capability/named/resident budget13门通过；追加float named预算与Bloom7门通过；PNG9门通过。runtime input与粒子折射11门通过；graph executor测试替身缺新pixelFormat导致一次编译失败，补齐后1门通过。反例包括1016B浮点target需求在1015B预算拒绝、BGRA pipeline写入F16拒绝、stale publication generation与scene-background epoch拒绝；capture实际Metal梯度保留1024个灰度值。全仓code-health仍有本批外四文件长度失败。证据缓存标签`2026-09-27-scene-color-precision`，manifest SHA `782f8f2dffae4d4e13e53a1051e81581368b292778f4e875416ebfcffad49880`，补充测试/读回manifest SHA `6cc490546716124dc8d16eb2593422274a1c7a54f872371c362650468e7f831b`。未运行全语料、长稳、HDR tone mapping或官方像素对照；截图期间存在停顿，不能据此报性能提升。条纹、光束范围和眼周时序继续等待用户实际播放确认。
+
+**最终交付身份：**独立审查批准产品/测试冻结diff `ef076e4674f1e5f78bc8ad2b1c4414cb52024b76cffe9005129f5e25063a3ad2`，追加shim/注释/文档后窄审批准 `d23359e663fa88cc5c6c29bfc2f73f334c026bf6ad4e5d391df67fb2aa4c70f6`；文档角色13门通过。仅注释与缩进收尾后再Debug -O构建、深度签名验证，最终App CDHash `da84ce56c715aed7764d828f101240a64a0b6007`、exe SHA `769a126469418f6b0c84a3509a79b5d010e553e5bf1b8b4912a8575f94e5a377`。两个原包各10秒重新PASS：3768724269提交/完成/失败/呈现362/361/0/360，3287715210为360/359/0/358，目标graph GPU/publication/compositor/next-frame仍成立。最终report SHA `7f828d5a1ff2349b43b8750bfc90ae4a7a0cf1e89e64490731df62f354e079a7`，缓存标签`2026-09-27-scene-color-precision-final` manifest SHA `67ea27f7a74702e4c50c23b61b01767e0543535538d77b99dba248b3d50f1cbb`。最终App已启动供用户复测（启动时PID78852）；保留候选App/DerivedData及两次失败现场，真实样本和保存属性未改。已请用户恢复“渐变循环”原非零值后判断条纹；本记录不预写人工结论。
+
 <a id="e-2026-09-27-gradient-stripe-isolation"></a>
 
 ### E-2026-09-27-GRADIENT-STRIPE-ISOLATION — 全屏移动细条纹的渐变循环归因

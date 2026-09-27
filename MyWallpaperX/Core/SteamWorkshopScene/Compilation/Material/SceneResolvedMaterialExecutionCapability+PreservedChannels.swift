@@ -558,7 +558,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 return material.variants.provesScalarRedConsumer(slot: slot)
             case .rg88, .rg1616f:
                 return material.variants.provesRedGreenConsumer(slot: slot)
-            case .rgbaBackbuffer, .rgba8888:
+            case .rgbaBackbuffer, .rgba8888, .rgba16f:
                 return false
             }
         }
@@ -607,7 +607,7 @@ private struct PreservedChannelTarget {
         case .rg1616f:
             expectedStorage = .redGreenFloat16
             reasonCode = "rg1616f-red-green-graph-unproven"
-        case .rgbaBackbuffer, .rgba8888:
+        case .rgbaBackbuffer, .rgba8888, .rgba16f:
             return nil
         }
         self.declaration = declaration

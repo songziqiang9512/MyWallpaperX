@@ -51,7 +51,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
         systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:],
         maximumVariantsPerMaterial: Int,
-        maximumStageWorkers: Int = 1
+        maximumStageWorkers: Int = 1,
+        backbufferFormat: SceneGraphRenderTargetPlan.TextureFormat = .rgbaBackbuffer
     ) -> Result<CompiledStages, Rejection> {
         // Stage inputs are immutable and do not consume another stage's
         // compiler result. Prepare independently, then fold in authored order
@@ -104,7 +105,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     assetFormatFacts: assetFormatFacts,
                     assetStates: assetStates,
                     systemProviderStates: systemProviderStates,
-                    maximumVariantsPerMaterial: maximumVariantsPerMaterial
+                    maximumVariantsPerMaterial: maximumVariantsPerMaterial,
+                    backbufferFormat: backbufferFormat
                 )
                 resultLock.withLock { programResults[index] = programResult }
             }

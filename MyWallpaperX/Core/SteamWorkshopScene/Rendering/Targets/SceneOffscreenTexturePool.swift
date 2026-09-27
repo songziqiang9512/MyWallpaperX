@@ -42,6 +42,10 @@ final class SceneOffscreenTexturePool {
 
     let device: MTLDevice
     let pixelFormat: MTLPixelFormat
+
+    var backbufferFormat: SceneGraphRenderTargetPlan.TextureFormat {
+        pixelFormat == .rgba16Float ? .rgba16f : .rgbaBackbuffer
+    }
     typealias AllocationCache = SceneOffscreenTextureAllocationCache
     typealias CacheKey = AllocationCache.Key
     typealias Allocation = AllocationCache.Allocation
@@ -256,7 +260,8 @@ final class SceneOffscreenTexturePool {
                 inputRole: inputRole,
                 inputWidth: size.width,
                 inputHeight: size.height,
-                materialFunctionTargets: targets
+                materialFunctionTargets: targets,
+                backbufferFormat: backbufferFormat
             )
             let plan: SceneGraphRenderTargetPlan
             switch planResult {
@@ -267,7 +272,8 @@ final class SceneOffscreenTexturePool {
                 inputRole: inputRole,
                 inputWidth: size.width,
                 inputHeight: size.height,
-                materialFunctionTargets: targets
+                materialFunctionTargets: targets,
+                backbufferFormat: backbufferFormat
             ))
             guard graph.effects.first?.key == pairStep.effect else {
                 return .failure(.graphTargetIdentityMismatch)
@@ -295,7 +301,7 @@ final class SceneOffscreenTexturePool {
     func byteCost(width: Int, height: Int, textureCount: Int) -> Int? {
         let (pixels, pixelOverflow) = width.multipliedReportingOverflow(by: height)
         guard !pixelOverflow else { return nil }
-        let (bytes, byteOverflow) = pixels.multipliedReportingOverflow(by: 4)
+        let (bytes, byteOverflow) = pixels.multipliedReportingOverflow(by: backbufferFormat.logicalBytesPerPixel)
         guard !byteOverflow else { return nil }
         let (total, totalOverflow) = bytes.multipliedReportingOverflow(by: textureCount)
         return totalOverflow ? nil : total

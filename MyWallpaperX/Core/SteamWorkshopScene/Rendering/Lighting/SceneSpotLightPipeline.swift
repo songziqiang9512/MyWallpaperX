@@ -81,7 +81,7 @@ final class SceneSpotLightPipeline {
     ]
 
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
-        guard pixelFormat == .bgra8Unorm,
+        guard pixelFormat == .bgra8Unorm || pixelFormat == .rgba16Float,
               let library = try? device.makeLibrary(
                   source: sceneSpotLightShaderSource,
                   options: MTLCompileOptions()

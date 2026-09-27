@@ -49,14 +49,14 @@ final class SceneImageEffectPipelineRepository {
     private let spotLightSlot: ScenePipelineSlot<SceneSpotLightPipeline>
     private let directDrawSlot: ScenePipelineSlot<SceneImageLayerPipeline>
 
-    init(device: MTLDevice) {
+    init(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
         self.device = device
         layerColorBlendStateSlot = .init {
-            SceneLayerColorBlendPipelineState(device: device)
+            SceneLayerColorBlendPipelineState(device: device, pixelFormat: pixelFormat)
         }
-        spotLightSlot = .init { SceneSpotLightPipeline(device: device) }
+        spotLightSlot = .init { SceneSpotLightPipeline(device: device, pixelFormat: pixelFormat) }
         directDrawSlot = .init {
-            SceneImageLayerPipeline(device: device, blendMode: .alphaWeightedAdditive)
+            SceneImageLayerPipeline(device: device, pixelFormat: pixelFormat, blendMode: .alphaWeightedAdditive)
         }
     }
 

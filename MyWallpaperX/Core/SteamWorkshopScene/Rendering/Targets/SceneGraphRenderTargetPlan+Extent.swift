@@ -16,13 +16,14 @@ nonisolated extension SceneGraphRenderTargetPlan {
     nonisolated static func targetDescriptor(
         _ target: Graph.RenderTarget,
         inputWidth: Int,
-        inputHeight: Int
+        inputHeight: Int,
+        backbufferFormat: TextureFormat = .rgbaBackbuffer
     ) -> TargetDescriptor? {
         guard let extent = pixelExtent(
             target.extent,
             inputWidth: inputWidth,
             inputHeight: inputHeight
-        ), let format = textureFormat(target.format),
+        ), let authoredFormat = textureFormat(target.format),
               let addressMode = uvAddressMode(target.uvs),
               target.conditions == nil else {
             return nil
@@ -36,7 +37,7 @@ nonisolated extension SceneGraphRenderTargetPlan {
         }
         return TargetDescriptor(
             extent: extent,
-            format: format,
+            format: authoredFormat == .rgbaBackbuffer ? backbufferFormat : authoredFormat,
             addressMode: addressMode,
             isUnique: target.declaredUnique,
             initialClear: initialClear
@@ -47,11 +48,13 @@ nonisolated extension SceneGraphRenderTargetPlan {
     /// a 1x1 launch probe cannot collapse distinct scale declarations to the
     /// same clamped pixel extent and grant a later-invalid swap capability.
     nonisolated static func authoredSwapDescriptorsAreCompatible(
-        in graph: Graph
+        in graph: Graph,
+        backbufferFormat: TextureFormat = .rgbaBackbuffer
     ) -> Bool {
         authoredCommandDescriptorsAreCompatible(
             in: graph,
-            includeCopy: false
+            includeCopy: false,
+            backbufferFormat: backbufferFormat
         )
     }
 
@@ -59,17 +62,20 @@ nonisolated extension SceneGraphRenderTargetPlan {
     /// different authored extent expressions collapse to 1x1. Runtime copy
     /// storage requires the same extent and format at every real size.
     nonisolated static func authoredCommandStorageDescriptorsAreCompatible(
-        in graph: Graph
+        in graph: Graph,
+        backbufferFormat: TextureFormat = .rgbaBackbuffer
     ) -> Bool {
         authoredCommandDescriptorsAreCompatible(
             in: graph,
-            includeCopy: true
+            includeCopy: true,
+            backbufferFormat: backbufferFormat
         )
     }
 
     private nonisolated static func authoredCommandDescriptorsAreCompatible(
         in graph: Graph,
-        includeCopy: Bool
+        includeCopy: Bool,
+        backbufferFormat: TextureFormat
     ) -> Bool {
         let declarations = Dictionary(grouping: graph.renderTargets, by: \.texture)
         for node in graph.nodes where node.kind == .swap
@@ -88,12 +94,14 @@ nonisolated extension SceneGraphRenderTargetPlan {
                   let sourceDescriptor = targetDescriptor(
                       sourceDeclaration,
                       inputWidth: 1,
-                      inputHeight: 1
+                      inputHeight: 1,
+                      backbufferFormat: backbufferFormat
                   ),
                   let targetDescriptor = targetDescriptor(
                       targetDeclaration,
                       inputWidth: 1,
-                      inputHeight: 1
+                      inputHeight: 1,
+                      backbufferFormat: backbufferFormat
                   ),
                   sourceDescriptor.format == targetDescriptor.format else {
                 return false
@@ -181,7 +189,8 @@ nonisolated extension SceneGraphRenderTargetPlan {
                   let descriptor = Self.targetDescriptor(
                       declaration,
                       inputWidth: inputExtent.width,
-                      inputHeight: inputExtent.height
+                      inputHeight: inputExtent.height,
+                      backbufferFormat: backbufferFormat
                   ) else {
                 return false
             }

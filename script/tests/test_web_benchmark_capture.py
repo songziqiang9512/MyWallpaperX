@@ -72,6 +72,35 @@ class WebBenchmarkCaptureTests(unittest.TestCase):
             self.assertFalse(capture.png_has_non_black_pixel(black))
             self.assertTrue(capture.png_has_non_black_pixel(visible))
 
+    def test_16_bit_png_filters_and_visibility_use_full_pixel_stride(self) -> None:
+        def chunk(kind, payload):
+            body = kind + payload
+            return struct.pack(">I", len(payload)) + body + struct.pack(">I", binascii.crc32(body))
+        with tempfile.TemporaryDirectory(prefix="mwx-capture-16bit-") as directory:
+            for filter_type in range(5):
+                path = Path(directory) / f"filter-{filter_type}.png"
+                raw = struct.pack(">8H", 0, 0, 0, 65535, 0, 8192, 16384, 65535)
+                previous = bytes(len(raw))
+                rows = []
+                for row in (raw, raw):
+                    filtered = bytearray()
+                    for i, value in enumerate(row):
+                        left = row[i - 8] if i >= 8 else 0
+                        up = previous[i]
+                        upper_left = previous[i - 8] if i >= 8 else 0
+                        predictor = (0, left, up, (left + up) // 2,
+                                     capture._paeth(left, up, upper_left))[filter_type]
+                        filtered.append((value - predictor) & 255)
+                    rows.append(bytes([filter_type]) + filtered)
+                    previous = row
+                header = struct.pack(">IIBBBBB", 2, 2, 16, 6, 0, 0, 0)
+                path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header)
+                                 + chunk(b"IDAT", zlib.compress(b"".join(rows))) + chunk(b"IEND", b""))
+                self.assertTrue(capture.png_has_non_black_pixel(path))
+                self.assertEqual(capture.png_rgb_pixels(path),
+                                 (2, 2, [bytes([0, 0, 0, 0, 32, 64])] * 2))
+                self.assertEqual(capture.png_motion_metrics(path, path)["mean_delta"], 0)
+
     def test_png_flat_border_ratio_detects_uniform_frame(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-capture-border-") as directory:
             flat = Path(directory) / "flat.png"

@@ -644,6 +644,7 @@ struct SceneLayerFragmentUniforms {
 }
 
 struct SceneImageLayerPipeline {
+    let pixelFormat: MTLPixelFormat = .bgra8Unorm
     private struct Vertex {
         let position: SIMD2<Float>
         let texcoord: SIMD2<Float>

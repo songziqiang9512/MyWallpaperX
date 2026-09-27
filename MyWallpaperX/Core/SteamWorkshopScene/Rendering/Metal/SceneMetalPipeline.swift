@@ -31,6 +31,7 @@ struct SceneLayerFragmentUniforms {
 }
 
 struct SceneImageLayerPipeline {
+    let pixelFormat: MTLPixelFormat
     let state: MTLRenderPipelineState
 
     // Unit quad centered at origin, +Y up. The vertex MVP scales/translates it
@@ -75,6 +76,7 @@ struct SceneImageLayerPipeline {
 
         guard let state = try? device.makeRenderPipelineState(descriptor: descriptor) else { return nil }
         self.state = state
+        self.pixelFormat = pixelFormat
     }
 
     // Sets pipeline state + vertex quad buffer once per encoder. Call drawLayer

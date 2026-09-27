@@ -141,11 +141,12 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
               Set(effects).count == effects.count,
               plans.allSatisfy({
                   $0.layerID == first.layerID && $0.inputExtent == first.inputExtent
+                    && $0.backbufferFormat == first.backbufferFormat
               }) else { return .failure(.invalidGraph) }
 
         let pairDescriptor = Descriptor(
             extent: first.inputExtent,
-            format: .rgbaBackbuffer,
+            format: first.backbufferFormat,
             addressMode: .clampToEdge
         )
         var slots = [

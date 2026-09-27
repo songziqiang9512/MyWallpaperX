@@ -42,6 +42,10 @@ struct SceneRenderDescriptor: Codable {
     let camera: CameraDescriptor
     var lighting: LightingDescriptor? = nil
     var hdrEnabled: Bool = false
+
+    var colorTargetFormat: SceneGraphRenderTargetPlan.TextureFormat {
+        hdrEnabled ? .rgba16f : .rgbaBackbuffer
+    }
     var layers: [Layer]
     let rootLayerIDs: [Int]
     let renderOrderLayerIDs: [Int]

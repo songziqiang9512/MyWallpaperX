@@ -169,7 +169,7 @@ extension SceneGraphRenderTargetLease {
         let texture = member == .zero ? zeroTexture : oneTexture
         let descriptor = State.ResourceDescriptor(
             extent: table.plan.inputExtent,
-            format: .rgbaBackbuffer,
+            format: table.plan.backbufferFormat,
             addressMode: .clampToEdge,
             isUnique: false,
             initialClear: nil
@@ -257,9 +257,11 @@ extension SceneGraphRenderTargetLease {
         case (.rg1616f, .redGreenFloat16):
             return true
         case (.rgbaBackbuffer, .data),
+             (.rgba16f, .data),
              (.rgba8888, .data):
             return true
         case (.rgbaBackbuffer, .color(.resolved(let representation))),
+             (.rgba16f, .color(.resolved(let representation))),
              (.rgba8888, .color(.resolved(let representation))):
             return representation != .straightAlpha
         default:

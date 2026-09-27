@@ -479,13 +479,15 @@ final class ScenePreparedDeviceResourcesTask {
             let prepared = Result {
                 try checkCancellation()
                 guard let imageLayerPipeline = SceneImageLayerPipeline(
-                    device: device
+                    device: device,
+                    pixelFormat: descriptor.colorTargetFormat.metalPixelFormat
                 ) else {
                     throw SceneDesktopWallpaperHostLaunchError
                         .requiredImagePipelineUnavailable
                 }
                 let pipelineRepository = SceneImageEffectPipelineRepository(
-                    device: device
+                    device: device,
+                    pixelFormat: descriptor.colorTargetFormat.metalPixelFormat
                 )
                 if descriptor.layers.contains(where: { $0.contentKind == "quad" }) {
                     // This is a required fixed compositor state, like the

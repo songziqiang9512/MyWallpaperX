@@ -450,6 +450,7 @@ private enum Harness {
         let r16Lease = makeLease(device, format: .r16f)
         let rg16Lease = makeLease(device, format: .rg1616f)
         let rgbaDataLease = makeLease(device, format: .rgba8888)
+        let floatLease = makeLease(device, format: .rgba16f)
         let repeatLease = makeLease(device, addressMode: .repeatWrap)
         let r8RepeatLease = makeLease(
             device,
@@ -742,6 +743,29 @@ private enum Harness {
                 && backbufferDataCandidate.content == .data
                 && backbufferDataCandidate.pixelFormat == .bgra8Unorm
                 && backbufferDataCandidate.authoredFormat == nil
+        let floatPhysical = floatLease.allocation.resources[first]!.versioned(18)
+        let floatColor = require(floatLease.graphResource(
+            for: first, versionedResource: floatPhysical,
+            storedContent: .color(.resolved(.premultipliedAlpha))
+        ))
+        let floatData = require(floatLease.graphResource(
+            for: first, versionedResource: floatPhysical, storedContent: .data
+        ))
+        let floatPublicationContract = floatColor.isCompleteGraphResource
+            && floatData.isCompleteGraphResource
+            && floatColor.publication.candidate.pixelFormat == .rgba16Float
+            && floatData.publication.candidate.purpose == .preservedChannels
+        let floatTexture = floatColor.publication.candidate.texture
+        let floatBackground = SceneFrameTextureResource.sameFrameSceneBackground(
+            consumerLayerID: layerID, frameEpoch: 19, texture: floatTexture
+        )!
+        let floatBackgroundContract = floatBackground.isCompleteSceneBackground(
+            consumerLayerID: layerID, frameEpoch: 19
+        ) && !floatBackground.isCompleteSceneBackground(
+            consumerLayerID: layerID, frameEpoch: 20
+        ) && !SceneFrameTextureResource(
+            publication: floatColor.publication, resourceGeneration: 19
+        ).isCompleteGraphResource
         let repeatPhysical = repeatLease.allocation.resources[first]!.versioned(15)
         let repeatResource = require(repeatLease.graphResource(
             for: first,
@@ -879,6 +903,8 @@ private enum Harness {
             "r16Publication": channelPublicationContracts["r16"] ?? false,
                 "rg16Publication": channelPublicationContracts["rg16"] ?? false,
                 "rgbaDataPublication": rgbaDataPublicationContract,
+                "floatPublication": floatPublicationContract,
+                "floatBackgroundAndStaleRejection": floatBackgroundContract,
                 "backbufferDataPublication": backbufferDataPublicationContract,
             "r8ScalarCannotRewrapAsLayerSource":
                 r8ScalarCannotRewrapAsLayerSource,
