@@ -98,7 +98,9 @@ nonisolated struct SceneParticleMovementPlan: Sendable {
         gravity = (isWorldSpaceSystem || value.isWorldSpaceMovement)
             ? worldSpaceFrame?.localParticleDirection(authoredGravity) ?? authoredGravity
             : authoredGravity
-        drag = max(0, value.drag ?? 0)
+        let authoredDrag = value.drag ?? 0
+        // Negative drag is authored acceleration; non-finite input has no effect.
+        drag = authoredDrag.isFinite ? authoredDrag : 0
     }
 }
 
@@ -110,7 +112,9 @@ nonisolated struct SceneParticleAngularMovementPlan: Sendable {
 
     nonisolated init(_ value: SceneParticleOperator) {
         force = SceneParticleSimulationMath.vector(value.force, fallback: .zero)
-        drag = max(0, value.drag ?? 0)
+        let authoredDrag = value.drag ?? 0
+        // Negative drag is authored acceleration; non-finite input has no effect.
+        drag = authoredDrag.isFinite ? authoredDrag : 0
     }
 }
 

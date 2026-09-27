@@ -5,6 +5,7 @@ enum SceneParticleRefractionTextureLoader {
     struct Loaded {
         let color: MTLTexture
         let colorAnimation: SceneSpriteAnimation?
+        let staticSpriteAspect: Float
         let colorUVScale: SIMD2<Float>
         let colorSampling: SceneParticleTextureSampling
         let binding: SceneParticleRefractionBinding
@@ -17,6 +18,7 @@ enum SceneParticleRefractionTextureLoader {
         device: MTLDevice
     ) -> Loaded? {
         guard case let .file(colorURL) = colorSource,
+              let colorIdentity = textureLoader.sourceKey(for: colorURL),
               let colorContainer = textureLoader.texContainer(from: colorURL),
               [UInt32(0), 4, 8].contains(colorContainer.format),
               case let .loaded(color) = textureLoader.load(
@@ -32,12 +34,14 @@ enum SceneParticleRefractionTextureLoader {
         let normalUsesParticleFrames: Bool
         let normalUVScale: SIMD2<Float>
         let normalSampling: SceneParticleTextureSampling
+        let normalFormat: SceneShaderTextureFormat?
+        var normalIdentity: (url: URL, key: SceneTextureLoader.SourceKey)?
         switch declaration.normalTextureSource {
         case nil:
-            guard let flatNormal = makeFlatNormalTexture(device: device) else {
-                return nil
-            }
-            normal = flatNormal
+            // No authored normal means exactly zero displacement. Reuse the
+            // albedo as an unobserved binding; the shader skips normal sampling.
+            normal = color
+            normalFormat = nil
             normalCandidate = nil
             normalUsesParticleFrames = false
             normalUVScale = SIMD2(repeating: 1)
@@ -45,29 +49,20 @@ enum SceneParticleRefractionTextureLoader {
         case .some(.builtIn):
             return nil
         case let .some(.file(normalURL)):
-            guard let normalContainer = textureLoader.texContainer(from: normalURL),
-                  [UInt32(0), 4].contains(normalContainer.format) else {
+            guard let sourceIdentity = textureLoader.sourceKey(for: normalURL),
+                  let normalContainer = textureLoader.texContainer(from: normalURL),
+                  let format = SceneShaderTextureFormat(rawValue: normalContainer.format),
+                  format == .rgba8888 || format == .dxt5 else {
                 return nil
             }
+            normalIdentity = (normalURL, sourceIdentity)
+            normalFormat = format
             normalSampling = SceneParticleTextureSampling(
                 texFlags: normalContainer.flags
             )
-            let sameSource = colorURL.standardizedFileURL
-                == normalURL.standardizedFileURL
-            if sameSource {
-                // Both semantic roles preserve the source channels, so an authored
-                // same-file binding can reuse only an exact physical upload. An
-                // opaque color may be safely rasterized or downscaled for albedo,
-                // but that transformed texture must never stand in for normal data.
-                guard let firstMip = colorContainer.mips.first,
-                      color.width == firstMip.width,
-                      color.height == firstMip.height,
-                      color.mipmapLevelCount == colorContainer.mips.count else {
-                    return nil
-                }
-                normal = color
-                normalCandidate = nil
-            } else if normalContainer.imageCount == 1,
+            // Normal data keeps its own load purpose even for a shared file:
+            // straight color may normalize bit depth or gray channels.
+            if normalContainer.imageCount == 1,
                       !normalContainer.isAnimated,
                       normalContainer.spriteFrames.isEmpty,
                       !normalSampling.usesClampBorderFallback {
@@ -123,44 +118,27 @@ enum SceneParticleRefractionTextureLoader {
                 colorEncoding: colorEncoding,
                 normalUsesParticleFrames: normalUsesParticleFrames,
                 normalUVScale: normalUVScale,
-                normalSampling: normalSampling
+                normalSampling: normalSampling,
+                normalFormat: normalFormat
             )
+        }
+        guard textureLoader.sourceKey(for: colorURL) == colorIdentity else { return nil }
+        if let normalIdentity {
+            guard textureLoader.sourceKey(for: normalIdentity.url) == normalIdentity.key else {
+                return nil
+            }
         }
         return Loaded(
             color: color,
             colorAnimation: colorFrames.isEmpty
                 ? nil : SceneSpriteAnimation(container: colorContainer, sourceURL: colorURL),
+            staticSpriteAspect: colorFrames.isEmpty
+                && colorContainer.imageWidth > 0 && colorContainer.imageHeight > 0
+                ? Float(colorContainer.imageWidth) / Float(colorContainer.imageHeight) : 1,
             colorUVScale: uvScale(for: colorContainer, usesFrames: !colorFrames.isEmpty),
             colorSampling: SceneParticleTextureSampling(texFlags: colorContainer.flags),
             binding: binding
         )
-    }
-
-    /// The author contract permits REFRACT without a normal map. The flat
-    /// tangent-space normal keeps displacement neutral while the existing
-    /// albedo/coverage and framebuffer composition path remains authoritative.
-    private static func makeFlatNormalTexture(device: MTLDevice) -> MTLTexture? {
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .rgba8Unorm,
-            width: 1,
-            height: 1,
-            mipmapped: false
-        )
-        descriptor.usage = .shaderRead
-        guard let texture = device.makeTexture(descriptor: descriptor) else {
-            return nil
-        }
-        let flatNormal: [UInt8] = [255, 128, 255, 128]
-        flatNormal.withUnsafeBytes { bytes in
-            guard let address = bytes.baseAddress else { return }
-            texture.replace(
-                region: MTLRegionMake2D(0, 0, 1, 1),
-                mipmapLevel: 0,
-                withBytes: address,
-                bytesPerRow: 4
-            )
-        }
-        return texture
     }
 
     private static func compatible(

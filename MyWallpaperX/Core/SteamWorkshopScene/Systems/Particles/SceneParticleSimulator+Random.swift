@@ -77,22 +77,31 @@ extension SceneParticleSimulator {
         _ plan: SceneParticleEmitterSpawnPlan
     ) -> SIMD3<Double> {
         let directions = plan.directions
-        var unit = SIMD3<Double>.zero
-        var foundDirection = false
-        for _ in 0..<8 {
-            unit = SIMD3(random.value(-1, 1), random.value(-1, 1), random.value(-1, 1))
-            for component in 0..<3 where abs(directions[component]) <= 1e-6 {
-                unit[component] = 0
-            }
-            let length = SceneParticleSimulationMath.length(unit)
-            if length > 1e-6, length <= 1 {
-                unit /= length
-                foundDirection = true
-                break
-            }
+        // Direct sampling has bounded work and no retry-exhaustion axis.
+        // Keep the existing active-axis threshold and radial distribution.
+        let mask = plan.sphereAxisMask
+        let dimensions = max(mask.nonzeroBitCount, 1)
+        let unit: SIMD3<Double>
+        switch mask {
+        case 7:
+            let z = random.value(-1, 1)
+            let angle = random.unit() * (2 * .pi)
+            let radial = sqrt(max(0, 1 - z * z))
+            unit = SIMD3(radial * cos(angle), radial * sin(angle), z)
+        case 3, 5, 6:
+            let angle = random.unit() * (2 * .pi)
+            let first = cos(angle), second = sin(angle)
+            if mask == 3 { unit = SIMD3(first, second, 0) }
+            else if mask == 5 { unit = SIMD3(first, 0, second) }
+            else { unit = SIMD3(0, first, second) }
+        case 1, 2, 4:
+            let direction = random.unit() < 0.5 ? -1.0 : 1.0
+            if mask == 1 { unit = SIMD3(direction, 0, 0) }
+            else if mask == 2 { unit = SIMD3(0, direction, 0) }
+            else { unit = SIMD3(0, 0, direction) }
+        default:
+            unit = .zero
         }
-        if !foundDirection { unit = SIMD3(1, 0, 0) }
-        let dimensions = max((0..<3).filter { abs(directions[$0]) > 1e-6 }.count, 1)
         let minimum = plan.sphereDistanceMinimum
         let maximum = plan.sphereDistanceMaximum
         let radius = pow(

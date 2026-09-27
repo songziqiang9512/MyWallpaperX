@@ -1,52 +1,45 @@
 import Foundation
 
-/// Keeps scripted particle fields fail-soft without authorizing unknown nested
-/// targets. A structurally admitted rate owner renders its authored value until
-/// the generic scalar VM publishes a newer value. Other scripted fields retain
-/// that authored value instead of suppressing the whole particle layer.
+/// An admitted scalar owner starts from its authored value until the shared VM
+/// publishes a newer value. Only that exact field loses its script marker;
+/// unadmitted siblings retain their authored fallback and diagnostics.
 nonisolated enum SceneScriptParticleProjection {
     static func apply(
-        admittedRateLayerIDs: Set<Int>,
+        admittedTargets: Set<SceneDynamicTarget>,
         to descriptor: SceneRenderDescriptor
     ) -> SceneRenderDescriptor {
         var result = descriptor
         result.layers = descriptor.layers.map { source in
             var layer = source
             guard layer.contentKind == "particle",
-                  admittedRateLayerIDs.contains(layer.id),
-                  let override = layer.particleInstanceOverride else {
-                return layer
+                  let value = layer.particleInstanceOverride else { return layer }
+            func admitted(
+                _ bound: SceneParticleBoundValue?, _ field: SceneDynamicParticleField
+            ) -> SceneParticleBoundValue? {
+                guard admittedTargets.contains(.particle(layerID: layer.id, field: field))
+                else { return bound }
+                return bound.map {
+                    SceneParticleBoundValue(
+                        value: $0.value, userPropertyKey: $0.userPropertyKey,
+                        hasScript: false, hasAnimation: $0.hasAnimation
+                    )
+                }
             }
-            layer.particleInstanceOverride = override.admittingGenericRateScript()
+            layer.particleInstanceOverride = .init(
+                id: value.id,
+                alpha: admitted(value.alpha, .alpha),
+                size: admitted(value.size, .size),
+                lifetime: admitted(value.lifetime, .lifetime),
+                rate: admitted(value.rate, .rate),
+                speed: admitted(value.speed, .speed),
+                count: admitted(value.count, .count),
+                brightness: admitted(value.brightness, .brightness),
+                color: value.color, normalizedColor: value.normalizedColor,
+                controlPoints: value.controlPoints,
+                controlPointAngles: value.controlPointAngles
+            )
             return layer
         }
         return result
-    }
-}
-
-private nonisolated extension SceneParticleInstanceOverride {
-    func admittingGenericRateScript() -> Self {
-        let admittedRate = rate.map {
-            SceneParticleBoundValue(
-                value: $0.value,
-                userPropertyKey: $0.userPropertyKey,
-                hasScript: false,
-                hasAnimation: $0.hasAnimation
-            )
-        }
-        return Self(
-            id: id,
-            alpha: alpha,
-            size: size,
-            lifetime: lifetime,
-            rate: admittedRate,
-            speed: speed,
-            count: count,
-            brightness: brightness,
-            color: color,
-            normalizedColor: normalizedColor,
-            controlPoints: controlPoints,
-            controlPointAngles: controlPointAngles
-        )
     }
 }

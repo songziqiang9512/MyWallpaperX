@@ -12,6 +12,10 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneParticleFixedGeometryHarness.swift",
+    SOURCE_ROOT / "Systems/Input/SceneCameraProjection.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticleCameraFrame.swift",
+
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
@@ -38,6 +42,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePeriodicEmission.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleStepSnapshotRecorder.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopeTrailPlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRopePlan.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalInstanceBuffer.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRefractionBinding.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleShaderSource.swift",
@@ -68,6 +73,25 @@ enum SceneTextureLoadPurpose: Hashable {
 
     var requiresVolumeTexture: Bool {
         self == .lookupTable
+    }
+}
+
+struct SceneRenderDescriptor {
+    struct Layer {
+        let utilityLayer: Bool?
+        let usesPerspective: Bool?
+    }
+
+    struct CameraDescriptor {
+        let eye: [Float]
+        let center: [Float]
+        let up: [Float]
+        let orthoWidth: Float?
+        let orthoHeight: Float?
+        let fovDegrees: Float?
+        let perspectiveOverrideFOVDegrees: Float?
+        let nearZ: Float
+        let farZ: Float
     }
 }
 
@@ -167,6 +191,7 @@ enum Harness {
             "instanceStride": MemoryLayout<SceneParticleGPUInstance>.stride,
             "instanceAlignment": MemoryLayout<SceneParticleGPUInstance>.alignment,
             "instanceOffsets": instanceOffsets(),
+            "fixedGeometry": try SceneParticleFixedGeometryHarness.run(),
             "uniformStride": MemoryLayout<SceneParticleLayerUniforms>.stride,
             "uniformOffsets": uniformOffsets(),
             "sequence": selection(sequence),
@@ -218,11 +243,31 @@ enum Harness {
             "depthAndOverbrightPixel": depthAndOverbrightPixel(),
             "depthTargetLease": depthTargetLeaseContract(),
             "metalDraw": renderSmokeTest(),
+            "uprightGeometry": uprightGeometryContract(),
             "spriteAspectBounds": spriteBounds(
                 currentAspect: 2, nextAspect: 2, frameMix: 0
             ),
             "blendedSpriteAspectBounds": spriteBounds(
                 currentAspect: 0.5, nextAspect: 2, frameMix: 0.5
+            ),
+            "squareSpriteBounds": spriteBounds(currentAspect: 1, nextAspect: 1, frameMix: 0),
+            "clockwiseSpriteMarkers": spriteBounds(currentAspect: 0.25, nextAspect: 0.25,
+                frameMix: 0, rotation: SIMD3(0, 0, Float.pi / 2), marked: true),
+            "counterclockwiseSpriteMarkers": spriteBounds(currentAspect: 0.25, nextAspect: 0.25,
+                frameMix: 0, rotation: SIMD3(0, 0, -Float.pi / 2), marked: true),
+            "mixedAxisSpriteMarkers": spriteBounds(currentAspect: 0.25, nextAspect: 0.25,
+                frameMix: 0, rotation: SIMD3(0.2, -0.4, 0.7), marked: true),
+            "orientedSpriteMarkers": spriteBounds(currentAspect: 0.25, nextAspect: 0.25,
+                frameMix: 0, rotation: SIMD3(0, 0, Float.pi / 2), marked: true,
+                basis: .init(right: SIMD3(0, 1, 0), up: SIMD3(-1, 0, 0))),
+            "tallSpriteBounds": spriteBounds(currentAspect: 0.25, nextAspect: 0.25, frameMix: 0),
+            "rotatedTallSpriteBounds": spriteBounds(
+                currentAspect: 0.25, nextAspect: 0.25, frameMix: 0,
+                rotation: SIMD3(0, 0, Float.pi / 2)
+            ),
+            "scaledTallSpriteBounds": spriteBounds(
+                currentAspect: 0.25, nextAspect: 0.25, frameMix: 0,
+                layerModel: SceneMatrix.scale(SIMD3(-2, 0.5, 1))
             ),
             "cullContract": cullContract(),
             "horizontalTrailBounds": trailBounds(velocity: SIMD3(1, 0, 0)),
@@ -245,12 +290,17 @@ enum Harness {
             ),
             "ropeTrailRender": ropeTrailRenderContract(),
             "ropeTrailJoins": ropeTrailJoinContract(),
+            "ropeJoins": ropeTrailJoinContract(connectParticles: true),
             "ropeTrailTransform": ropeTrailTransformContract(),
             "ropeTrailAspect": ropeTrailAspectContract(),
             "instanceBufferSlots": instanceBufferSlotTest(),
             "instanceBufferPendingCancellation": instanceBufferPendingCancellationTest(),
             "colorContract": colorContractTest(),
+            "straightInterpolation": straightInterpolationTest(),
+            "sequenceEndPixels": sequenceEndPixels(),
             "refractionContract": refractionContractTest(),
+            "refractionBasisCases": refractionBasisCases(),
+            "refractionTrailBasisCases": refractionTrailBasisCases(),
             "texSampling": [
                 "default": sampling(.directImageFallback),
                 "flags0": sampling(SceneParticleTextureSampling(texFlags: 0)),
@@ -301,6 +351,11 @@ enum Harness {
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.basisUp),
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.viewportSize),
             MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.particleSizeScale),
+            MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.viewRight),
+            MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.viewUp),
+            MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.spriteRight),
+            MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.spriteUp),
+            MemoryLayout<SceneParticleLayerUniforms>.offset(of: \.spriteForward),
         ].compactMap { $0 }
     }
 
@@ -742,7 +797,7 @@ enum Harness {
         ]
     }
 
-    private static func ropeTrailJoinContract() -> [[String: Any]] {
+    private static func ropeTrailJoinContract(connectParticles: Bool = false) -> [[String: Any]] {
         guard let device = MTLCreateSystemDefaultDevice(),
               let pipeline = SceneParticleMetalPipeline(device: device),
               let queue = device.makeCommandQueue() else { return [] }
@@ -754,13 +809,17 @@ enum Harness {
         var white: [UInt8] = [255, 255, 255, 255]
         input.replace(region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
                       withBytes: &white, bytesPerRow: 4)
-        let transforms = [SceneMatrix.identity(), SceneMatrix.scale(SIMD3(-1.2, 0.8, 1)),
+        var transforms = [SceneMatrix.identity(), SceneMatrix.scale(SIMD3(-1.2, 0.8, 1)),
                           SceneMatrix.rotationZ(0.37) * SceneMatrix.scale(SIMD3(0.8, 1.2, 1)),
                           SceneMatrix.identity(), SceneMatrix.identity()]
+        if connectParticles { transforms += [SceneMatrix.identity(), SceneMatrix.identity()] }
         return transforms.enumerated().map { transformIndex, model in
             let repeated = transformIndex == 3
             let perspective = transformIndex == 4
-            let points: [SIMD3<Float>] = perspective
+            let tapered = transformIndex == 5
+            let points: [SIMD3<Float>] = tapered
+                ? [SIMD3(-0.7, 0, 0), .zero, SIMD3(0.7, 0, 0)]
+                : perspective
                 ? [SIMD3(0, 0, -5), SIMD3(0.5, 0, -1), SIMD3(0.6, 0, -0.8)]
                 : repeated
                     ? [SIMD3(-0.5, 0, 0), .zero, .zero, SIMD3(0, 0.5, 0)]
@@ -781,6 +840,23 @@ enum Harness {
                 values = history.advance(by: i == 0 ? 0 : 0.5,
                     particles: [.init(id: 1, position: point, size: i == 1 ? 0.5 : 0.3,
                                       color: SIMD3(repeating: 1), alpha: 0.5)], layerAlpha: 1)
+            }
+            if connectParticles {
+                let ropeDefinition = SceneParticleDefinitionParser().parse(root: [
+                    "maxcount": points.count, "material": "materials/particle.json",
+                    "renderer": [["name": "rope", "subdivision": transformIndex == 6 ? 3 : 0]]])
+                let rope = SceneParticleRopePlan(renderer: ropeDefinition.renderers[0],
+                    rendererCount: 1, maximumParticleCount: points.count)!
+                let particles = points.enumerated().map { i, point in
+                    let size: Double = tapered ? [0.2, 0.6, 0][i] : (repeated && i == 2 ? 0.8 : 0.3)
+                    return SceneParticleState(id: UInt64(i),
+                        position: SIMD3(Double(point.x), Double(point.y), Double(point.z)),
+                        velocity: .zero, color: SIMD3(repeating: 1), alpha: 0.5,
+                        size: size, rotation: .zero, angularVelocity: .zero,
+                        age: 0, lifetime: 1, initialColor: SIMD3(repeating: 1),
+                        initialAlpha: 0.5, initialSize: size)
+                }
+                values = rope.instances(particles: particles, layerAlpha: 1)
             }
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(
                 pixelFormat: .bgra8Unorm, width: 256, height: 256, mipmapped: false)
@@ -817,7 +893,10 @@ enum Harness {
             return ["completed": true, "transform": transformIndex,
                     "maximumAlpha": Int(alphas.max() ?? 0),
                     "visiblePixels": alphas.filter { $0 > 0 }.count,
-                    "jointCovered": jointCovered]
+                    "jointCovered": jointCovered,
+                    "columnWidths": [44, 96, 128, 160, 214].map { x in
+                        (0..<256).filter { y in pixels[(y * 256 + x) * 4 + 3] > 0 }.count
+                    }]
         }
     }
 
@@ -1289,7 +1368,9 @@ enum Harness {
         layerModel: simd_float4x4 = SceneMatrix.identity(),
         rope: Bool = false,
         sizeIsWorldSpace: Bool = false,
-        particleSize: Float = 0.2
+        particleSize: Float = 0.2,
+        viewProjection: simd_float4x4 = SceneMatrix.identity(),
+        basis: SceneParticleOrientationBasis = .init(right: SIMD3(1, 0, 0), up: SIMD3(0, 1, 0))
     ) -> [String: Int] {
         let size = 256
         guard let device = MTLCreateSystemDefaultDevice(),
@@ -1333,12 +1414,9 @@ enum Harness {
             texture: input,
             instances: instances,
             uniforms: SceneParticleLayerUniforms(
-                viewProjection: SceneMatrix.identity(),
+                viewProjection: viewProjection,
                 layerModel: layerModel,
-                basis: SceneParticleOrientation.screen.basis(
-                    cameraRight: SIMD3(1, 0, 0), cameraUp: SIMD3(0, 1, 0),
-                    cameraForward: SIMD3(0, 0, -1)
-                ), viewportSize: SIMD2(256, 256), sizeIsWorldSpace: sizeIsWorldSpace
+                basis: basis, viewportSize: SIMD2(256, 256), sizeIsWorldSpace: sizeIsWorldSpace
             ),
             renderState: particleState(.translucent),
             colorSampling: .directImageFallback,
@@ -1371,18 +1449,107 @@ enum Harness {
         ]
     }
 
+
+    private static func uprightGeometryContract() -> [String: Any] {
+        func camera(_ roll: Float, canvas: Bool = false, eye: [Float] = [0, 0, 3], authoredUp: [Float]? = nil) -> SceneParticleCameraFrame {
+            let angle = roll * .pi / 180
+            return SceneParticleCameraFrame(camera: .init(
+                eye: eye, center: [0, 0, 0], up: authoredUp ?? [-sin(angle), cos(angle), 0],
+                orthoWidth: canvas ? 2 : nil, orthoHeight: canvas ? 2 : nil,
+                fovDegrees: 50, perspectiveOverrideFOVDegrees: 50,
+                nearZ: 0.01, farZ: 100), viewportSize: CGSize(width: 256, height: 256))
+        }
+        let model = SceneParticleCameraFrame.particleLayerModel(
+            worldFrame: SceneMatrix.identity(), parallaxOffset: .zero)
+        let rotated = SceneParticleCameraFrame.particleLayerModel(
+            worldFrame: SceneMatrix.rotationZ(.pi / 2), parallaxOffset: .zero)
+        let scaled = SceneParticleCameraFrame.particleLayerModel(
+            worldFrame: SceneMatrix.rotationZ(.pi / 2) * SceneMatrix.scale(SIMD3(2, 3, 1)),
+            parallaxOffset: .zero)
+        let mirrored = SceneParticleCameraFrame.particleLayerModel(
+            worldFrame: SceneMatrix.scale(SIMD3(1, -2, 1)), parallaxOffset: .zero)
+        let zero = SceneMatrix.scale(SIMD3<Float>(1, 0, 1))
+        var rows: [String: Any] = [:]
+        func row(_ frame: SceneParticleCameraFrame, _ orientation: SceneParticleOrientation,
+                 _ model: simd_float4x4, projection: simd_float4x4 = SceneMatrix.identity(),
+                 expectedBasis: SceneParticleOrientationBasis = .init(right: SIMD3(1, 0, 0), up: SIMD3(0, -1, 0))) -> [String: Any] {
+            let basis = frame.basis(for: orientation, layerModel: model)
+            return ["right": vector(basis.right), "up": vector(basis.up),
+                "pixels": spriteBounds(currentAspect: 0.5, nextAspect: 0.5, frameMix: 0,
+                    marked: true, viewProjection: projection, basis: basis),
+                "expectedPixels": spriteBounds(currentAspect: 0.5, nextAspect: 0.5, frameMix: 0,
+                    marked: true, viewProjection: projection, basis: expectedBasis)]
+        }
+        for roll: Float in [0, 89, 90, 91, 180] {
+            let frame = camera(roll)
+            rows["roll\(Int(roll))"] = row(frame, .worldUpright, model)
+            rows["localRoll\(Int(roll))"] = row(frame, .upright, model)
+            rows["projectedRoll\(Int(roll))"] = row(frame, .worldUpright, model,
+                projection: frame.perspectiveViewProjection)
+        }
+        let frame = camera(0)
+        let rotatedExpected = SceneParticleOrientationBasis(right: SIMD3(0, 1, 0), up: SIMD3(1, 0, 0))
+        rows["localRotated"] = row(frame, .upright, rotated, expectedBasis: rotatedExpected)
+        rows["localScaled"] = row(frame, .upright, scaled, expectedBasis: rotatedExpected)
+        rows["worldRotated"] = row(frame, .worldUpright, rotated)
+        rows["localMirrored"] = row(frame, .upright, mirrored,
+            expectedBasis: .init(right: SIMD3(-1, 0, 0), up: SIMD3(0, 1, 0)))
+        rows["zeroAxis"] = row(frame, .upright, zero)
+        let tilted = camera(0, eye: [0, 2, 3])
+        rows["tilted"] = row(tilted, .worldUpright, model,
+            projection: tilted.perspectiveViewProjection)
+        let canvas = camera(0, canvas: true)
+        rows["canvas"] = row(canvas, .upright, model, projection: canvas.perspectiveViewProjection * SceneMatrix.translation(SIMD3(1, 1, 0)))
+        let pole = SceneParticleOrientation.upright.basis(cameraRight: SIMD3(1, 1, 0),
+            cameraUp: SIMD3(0, 0, 1), cameraForward: SIMD3(0, -1, 0))
+        let degenerate = SceneParticleOrientation.upright.basis(cameraRight: SIMD3(0, 1, 0),
+            cameraUp: SIMD3(0, 0, 1), cameraForward: SIMD3(0, -1, 0))
+        let fixedAxis = SIMD3<Float>(0, 1, 0)
+        var fixedSame = true
+        for orientation: SceneParticleOrientation in [.fixed, .worldFixed] {
+            let vectors = orientation.fixedBasisVectors(axis: fixedAxis, layerModel: rotated)
+            let legacy = frame.basis(for: orientation, fixedRight: vectors.right, fixedUp: vectors.up)
+            let current = frame.basis(for: orientation, layerModel: rotated, orientationAxis: fixedAxis)
+            fixedSame = fixedSame && legacy.right == current.right && legacy.up == current.up
+        }
+        var trails: [String: [String: Int]] = [:]
+        for roll: Float in [0, 89, 90, 91, 180] {
+            let rolled = camera(roll)
+            trails["roll\(Int(roll))"] = trailBounds(velocity: SIMD3(1, 0, 0),
+                viewProjection: rolled.perspectiveViewProjection,
+                basis: rolled.basis(for: .upright, layerModel: model))
+        }
+        trails["tilted"] = trailBounds(velocity: SIMD3(1, 0, 0),
+            viewProjection: tilted.perspectiveViewProjection,
+            basis: tilted.basis(for: .upright, layerModel: model))
+        let poleFrame = camera(0, eye: [0, 3, 0], authoredUp: [0, 0, 1])
+        trails["pole"] = trailBounds(velocity: SIMD3(1, 0, 0),
+            viewProjection: poleFrame.perspectiveViewProjection,
+            basis: poleFrame.basis(for: .upright, layerModel: model))
+        return ["rows": rows, "trails": trails, "poleRight": vector(pole.right), "poleUp": vector(pole.up),
+            "degenerateRight": vector(degenerate.right), "degenerateUp": vector(degenerate.up),
+            "fixedDirectionsUnchanged": fixedSame,
+            "screenUnchanged": frame.basis(for: .screen) == frame.basis(for: .screen, layerModel: rotated),
+            "screenRolledUp": vector(camera(90).basis(for: .screen).up)]
+    }
+
     private static func spriteBounds(
         currentAspect: Float,
         nextAspect: Float,
-        frameMix: Float
+        frameMix: Float,
+        rotation: SIMD3<Float> = .zero,
+        layerModel: simd_float4x4 = SceneMatrix.identity(),
+        marked: Bool = false,
+        viewProjection: simd_float4x4 = SceneMatrix.identity(),
+        basis: SceneParticleOrientationBasis = .init(right: SIMD3(1, 0, 0), up: SIMD3(0, 1, 0))
     ) -> [String: Int] {
-        let size = 64
+        let size = 256
         guard let device = MTLCreateSystemDefaultDevice(),
               let pipeline = SceneParticleMetalPipeline(device: device),
               let queue = device.makeCommandQueue(),
               let command = queue.makeCommandBuffer() else { return [:] }
         let inputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false
+            pixelFormat: .rgba8Unorm, width: 2, height: 1, mipmapped: false
         )
         inputDescriptor.usage = .shaderRead
         let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
@@ -1392,17 +1559,17 @@ enum Harness {
         outputDescriptor.storageMode = .shared
         guard let input = device.makeTexture(descriptor: inputDescriptor),
               let output = device.makeTexture(descriptor: outputDescriptor) else { return [:] }
-        var white = [UInt8](repeating: 255, count: 4)
+        var white: [UInt8] = marked ? [255, 0, 0, 255, 0, 255, 0, 255] : [UInt8](repeating: 255, count: 8)
         input.replace(
-            region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
-            withBytes: &white, bytesPerRow: 4
+            region: MTLRegionMake2D(0, 0, 2, 1), mipmapLevel: 0,
+            withBytes: &white, bytesPerRow: 8
         )
         let instances = SceneParticleMetalInstanceBuffer()
         guard instances.update(device: device, instances: [
             SceneParticleGPUInstance(
-                position: .zero,
-                size: 0.4,
-                rotation: .zero,
+                position: SIMD3(0.125, -0.25, 0.5),
+                size: 0.5,
+                rotation: rotation,
                 color: SIMD3(repeating: 1),
                 alpha: 1,
                 currentFrameAspect: currentAspect,
@@ -1420,15 +1587,12 @@ enum Harness {
             texture: input,
             instances: instances,
             uniforms: SceneParticleLayerUniforms(
-                viewProjection: SceneMatrix.identity(),
-                layerModel: SceneMatrix.identity(),
-                basis: SceneParticleOrientation.screen.basis(
-                    cameraRight: SIMD3(1, 0, 0), cameraUp: SIMD3(0, 1, 0),
-                    cameraForward: SIMD3(0, 0, -1)
-                )
+                viewProjection: viewProjection,
+                layerModel: layerModel,
+                basis: basis
             ),
             renderState: particleState(.translucent),
-            colorSampling: .directImageFallback,
+            colorSampling: marked ? SceneParticleTextureSampling(texFlags: 3) : .directImageFallback,
             encoder: encoder
         )
         encoder.endEncoding()
@@ -1443,10 +1607,88 @@ enum Harness {
         let visible = (0..<(size * size)).filter { pixels[$0 * 4 + 3] > 0 }
         let xs = visible.map { $0 % size }
         let ys = visible.map { $0 / size }
+        let red = visible.filter { pixels[$0 * 4 + 2] > 200 && pixels[$0 * 4 + 1] < 30 }
+        let green = visible.filter { pixels[$0 * 4 + 1] > 200 && pixels[$0 * 4 + 2] < 30 }
+        func center(_ points: [Int], x: Bool) -> Int {
+            guard !points.isEmpty else { return -1 }
+            return Int((Double(points.reduce(0) { $0 + (x ? $1 % size : $1 / size) }) / Double(points.count) * 1000).rounded())
+        }
         return [
+            "redX1000": center(red, x: true), "redY1000": center(red, x: false),
+            "greenX1000": center(green, x: true), "greenY1000": center(green, x: false),
             "width": (xs.max() ?? -1) - (xs.min() ?? 0) + 1,
             "height": (ys.max() ?? -1) - (ys.min() ?? 0) + 1,
+            "centerX2": (xs.max() ?? -1) + (xs.min() ?? 0),
+            "centerY2": (ys.max() ?? -1) + (ys.min() ?? 0),
         ]
+    }
+
+    private static func sequenceEndPixels() -> [[String: Any]] {
+        guard let device = MTLCreateSystemDefaultDevice() else { return [] }
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: 2, height: 1, mipmapped: false)
+        descriptor.usage = .shaderRead; descriptor.storageMode = .shared
+        guard let texture = device.makeTexture(descriptor: descriptor) else { return [] }
+        var pixels: [UInt8] = [255,0,0,255, 0,0,255,255]
+        texture.replace(region: MTLRegionMake2D(0,0,2,1), mipmapLevel: 0,
+                        withBytes: &pixels, bytesPerRow: 8)
+        func frame(_ index: Int) -> SceneParticleFrameTransform {
+            .init(origin: SIMD2(index == 0 ? 0.25 : 0.75,0.5), xAxis: .zero, yAxis: .zero)
+        }
+        var rows: [[String: Any]] = []
+        for prepared in [false, true] {
+            for blend in [false, true] {
+                for age: Float in [0.25, 0.5, 0.75, 0.999, 1, 1.25] {
+                    let selected = SceneParticleSpriteFrameSelector.select(
+                        mode: .sequence, frameDurations: [1,1],
+                        frameEndTimes: prepared ? [1,2] : nil,
+                        totalDuration: prepared ? 2 : nil,
+                        age: age, lifetime: 1, particleID: 1, blendsFrames: blend)!
+                    let observed = centerPixel(texture: texture,
+                        currentFrame: frame(selected.currentIndex),
+                        nextFrame: frame(selected.nextIndex), frameMix: selected.mix)
+                    rows.append(["prepared":prepared,"blend":blend,"age":age,"bgra":observed])
+                }
+            }
+        }
+        return rows
+    }
+
+    private static func straightInterpolationTest() -> [[String: Any]] {
+        guard let device = MTLCreateSystemDefaultDevice() else { return [] }
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: 2, height: 1, mipmapped: false)
+        descriptor.usage = .shaderRead; descriptor.storageMode = .shared
+        guard let texture = device.makeTexture(descriptor: descriptor) else { return [] }
+        var pixels: [UInt8] = [255,0,0,0, 0,0,255,255]
+        texture.replace(region: MTLRegionMake2D(0,0,2,1), mipmapLevel: 0,
+                        withBytes: &pixels, bytesPerRow: 8)
+        func frame(_ u: Float) -> SceneParticleFrameTransform {
+            .init(origin: SIMD2(u,0.5), xAxis: .zero, yAxis: .zero)
+        }
+        var rows: [[String: Any]] = []
+        for additive in [false, true] {
+            for alpha: Float in [0.4, 1] {
+                for background: Float in [0, 0.125] {
+                    for overbright: Float in [0.5, 1] {
+                        for mix: Float in [0, 0.25, 0.5, 0.75, 1] {
+                            for spatial in [false, true] {
+                                let observed = centerPixel(texture: texture,
+                                    currentFrame: frame(spatial ? 0.25 + mix * 0.5 : 0.25),
+                                    nextFrame: spatial ? nil : frame(0.75),
+                                    frameMix: spatial ? 0 : mix, particleAlpha: alpha,
+                                    blendMode: additive ? .additive : .translucent,
+                                    background: background, overbright: overbright)
+                                rows.append(["additive": additive, "alpha": alpha,
+                                    "background": background, "overbright": overbright,
+                                    "mix": mix, "spatial": spatial, "bgra": observed])
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return rows
     }
 
     private static func colorContractTest() -> [String: Any] {
@@ -1463,7 +1705,7 @@ enum Harness {
             withBytes: &gray, bytesPerRow: 2
         )
         let rawR8 = centerPixel(texture: r8)
-        guard let adaptedR8Texture = SceneParticleColorTextureAdapter.adapt(r8, device: device) else {
+        guard let adaptedR8Texture = SceneParticleColorTextureAdapter.adapt(r8) else {
             return [:]
         }
         let adaptedR8 = centerPixel(texture: adaptedR8Texture)
@@ -1488,32 +1730,134 @@ enum Harness {
             region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 1,
             withBytes: &secondMip, bytesPerRow: 2
         )
-        guard let adaptedRG = SceneParticleColorTextureAdapter.adapt(rg, device: device) else {
+        guard let adaptedRG = SceneParticleColorTextureAdapter.adapt(rg) else {
             return [:]
         }
-        var expanded = [UInt8](repeating: 0, count: 4)
-        var expandedSecondMip = [UInt8](repeating: 0, count: 4)
-        if adaptedRG.pixelFormat == .rgba8Unorm {
-            adaptedRG.getBytes(
-                &expanded,
-                bytesPerRow: adaptedRG.width * 4,
-                from: MTLRegionMake2D(0, 0, 1, 1),
-                mipmapLevel: 0
-            )
-            adaptedRG.getBytes(
-                &expandedSecondMip,
-                bytesPerRow: 4,
-                from: MTLRegionMake2D(0, 0, 1, 1),
-                mipmapLevel: 1
-            )
-        }
+        guard let secondMipView = adaptedRG.makeTextureView(
+            pixelFormat: adaptedRG.pixelFormat, textureType: .type2D,
+            levels: 1..<2, slices: 0..<1) else { return [:] }
         return [
-            "rawR8": rawR8,
-            "adaptedR8": adaptedR8,
-            "rgExpandedFormatIsRGBA": adaptedRG.pixelFormat == .rgba8Unorm,
-            "rgExpandedMipCount": adaptedRG.mipmapLevelCount,
-            "rgExpandedPixel": expanded.map(Int.init),
-            "rgExpandedSecondMip": expandedSecondMip.map(Int.init),
+            "rawR8": rawR8, "adaptedR8": adaptedR8,
+            "rgMipCount": adaptedRG.mipmapLevelCount,
+            "rgPixel": centerPixel(texture: adaptedRG),
+            "rgSecondMip": centerPixel(texture: secondMipView),
+        ]
+    }
+
+    private static func refractionBasis(
+        rotation: SIMD3<Float> = .zero,
+        basis: SceneParticleOrientationBasis = .init(right: SIMD3(1,0,0), up: SIMD3(0,1,0)),
+        viewBasis: SceneParticleOrientationBasis = .init(right: SIMD3(1,0,0), up: SIMD3(0,1,0)),
+        particleSize: Float = 2,
+        aspect: Float = 1,
+        model: simd_float4x4 = SceneMatrix.identity(),
+        projection: simd_float4x4 = SceneMatrix.identity(),
+        position: SIMD3<Float> = SIMD3(0,0,0.5),
+        trailVelocity: SIMD3<Float>? = nil,
+        joinDirection: SIMD3<Float>? = nil
+    ) -> [Float] {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let queue = device.makeCommandQueue(),
+              let command = queue.makeCommandBuffer() else { return [] }
+        let source = sceneParticleShaderSource + """
+        fragment float4 readRefractionBasis(Varyings in [[stage_in]]) {
+            return float4(in.screenTangentX, in.screenTangentY);
+        }
+        """
+        guard let library = try? device.makeLibrary(source: source, options: nil) else { return [] }
+        let descriptor = MTLRenderPipelineDescriptor()
+        descriptor.vertexFunction = library.makeFunction(name: "sceneParticleVert")
+        descriptor.fragmentFunction = library.makeFunction(name: "readRefractionBasis")
+        descriptor.colorAttachments[0].pixelFormat = .rgba32Float
+        guard let pipeline = try? device.makeRenderPipelineState(descriptor: descriptor) else { return [] }
+        let td = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba32Float,
+            width: 32, height: 32, mipmapped: false)
+        td.usage = .renderTarget; td.storageMode = .shared
+        guard let target = device.makeTexture(descriptor: td) else { return [] }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = target
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(99,99,99,99)
+        pass.colorAttachments[0].storeAction = .store
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [] }
+        encoder.setRenderPipelineState(pipeline)
+        var quad: [SIMD4<Float>] = [SIMD4(-0.5,-0.5,0,1), SIMD4(0.5,-0.5,1,1),
+                                  SIMD4(-0.5,0.5,0,0), SIMD4(0.5,0.5,1,0)]
+        var instance = SceneParticleGPUInstance(position: position, size: particleSize,
+            rotation: rotation, color: SIMD3(repeating: 1), alpha: 1,
+            velocity: trailVelocity ?? .zero,
+            trailStretch: trailVelocity == nil ? nil : 2,
+            usesTrailDisplacement: trailVelocity != nil,
+            trailHeadDirection: joinDirection, trailTailDirection: joinDirection,
+            trailEndpointSizes: joinDirection == nil ? nil : SIMD2(repeating: particleSize),
+            currentFrameAspect: aspect)
+        var uniforms = SceneParticleLayerUniforms(viewProjection: projection, layerModel: model,
+            basis: basis, viewportSize: SIMD2(32,32), viewBasis: viewBasis)
+        encoder.setVertexBytes(&quad, length: quad.count * 16, index: 0)
+        encoder.setVertexBytes(&instance, length: MemoryLayout<SceneParticleGPUInstance>.stride, index: 1)
+        encoder.setVertexBytes(&uniforms, length: MemoryLayout<SceneParticleLayerUniforms>.stride, index: 2)
+        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+        encoder.endEncoding(); command.commit(); command.waitUntilCompleted()
+        guard command.status == .completed else { return [] }
+        var pixels = [Float](repeating: 0, count: 32 * 32 * 4)
+        target.getBytes(&pixels, bytesPerRow: 32 * 16, from: MTLRegionMake2D(0,0,32,32), mipmapLevel: 0)
+        // Tangents are constant per Sprite. Select a covered pixel, allowing
+        // the camera/depth cases to move the card without coupling the oracle
+        // to a particular raster sample.
+        for index in stride(from: 0, to: pixels.count, by: 4) where pixels[index] != 99 {
+            return Array(pixels[index..<index+4])
+        }
+        return [99,99,99,99]
+    }
+
+    private static func refractionBasisCases() -> [[Float]] {
+        let tilted = SceneParticleOrientationBasis(
+            right: SIMD3(sqrt(0.5),0,-sqrt(0.5)), up: SIMD3(0,1,0))
+        let turned = SceneParticleOrientationBasis(right: SIMD3(0,1,0), up: SIMD3(-1,0,0))
+        let mixed = SIMD3<Float>(0.2,-0.4,0.7)
+        let camera = SceneParticleCameraFrame(camera: .init(
+            eye: [3,2,5], center: [0,0,0], up: [0,1,0],
+            orthoWidth: nil, orthoHeight: nil, fovDegrees: 50,
+            perspectiveOverrideFOVDegrees: nil, nearZ: 0.01, farZ: 100),
+            viewportSize: CGSize(width: 512,height: 384))
+        let canvas = SceneParticleCameraFrame(camera: .init(
+            eye: [0,0,0], center: [0,0,-1], up: [0,1,0],
+            orthoWidth: 1920, orthoHeight: 1080, fovDegrees: nil,
+            perspectiveOverrideFOVDegrees: 50, nearZ: 0.01, farZ: 10000),
+            viewportSize: CGSize(width: 512,height: 384))
+        let cameraBasis = camera.basis(for: .screen)
+        return [
+            refractionBasis(),
+            refractionBasis(rotation: SIMD3(0,0,Float.pi/2)),
+            refractionBasis(rotation: SIMD3(0,0,-Float.pi/2)),
+            refractionBasis(rotation: mixed),
+            refractionBasis(rotation: SIMD3(Float.pi/4,0,0), basis: tilted),
+            refractionBasis(rotation: SIMD3(Float.pi/4,0,0), basis: tilted, viewBasis: tilted),
+            refractionBasis(rotation: mixed, viewBasis: tilted),
+            refractionBasis(rotation: mixed, basis: turned),
+            refractionBasis(rotation: mixed, particleSize: 3, aspect: 0.25,
+                model: SceneMatrix.scale(SIMD3(2,3,1))),
+            refractionBasis(rotation: mixed, projection: SceneMatrix.perspectiveRHMetal(
+                fovYRadians: 1, aspect: 1.5, near: 0.01, far: 100), position: SIMD3(0,0,-5)),
+            refractionBasis(rotation: mixed, projection: SceneMatrix.perspectiveRHMetal(
+                fovYRadians: 1, aspect: 1.5, near: 0.01, far: 100), position: SIMD3(1,0,-8)),
+            refractionBasis(rotation: mixed, basis: cameraBasis, viewBasis: cameraBasis,
+                projection: camera.perspectiveViewProjection, position: .zero),
+            refractionBasis(rotation: mixed, basis: canvas.basis(for: .screen),
+                viewBasis: canvas.basis(for: .screen), particleSize: 200,
+                projection: canvas.perspectiveViewProjection, position: SIMD3(960,540,0)),
+        ]
+    }
+
+    private static func refractionTrailBasisCases() -> [[Float]] {
+        [
+            refractionBasis(trailVelocity: SIMD3(1,0,0)),
+            refractionBasis(model: SceneMatrix.scale(SIMD3(-1,2,1)), trailVelocity: SIMD3(1,0,0)),
+            refractionBasis(trailVelocity: SIMD3(1,0,0), joinDirection: SIMD3(0,1,0)),
+            refractionBasis(trailVelocity: .zero),
+            refractionBasis(particleSize: 0, trailVelocity: SIMD3(1,0,0)),
+            refractionBasis(trailVelocity: SIMD3(1,0,0), joinDirection: SIMD3(-1,0,0)),
+            refractionBasis(particleSize: 0.0000001, trailVelocity: SIMD3(1,0,0)),
         ]
     }
 
@@ -1583,6 +1927,20 @@ enum Harness {
         return [
             "neutral": neutral,
             "shifted": shifted,
+            "maskedOut": refractedCenter(normalX: 255, amount: 0.25, normalMask: 0),
+            "halfMask": refractedCenter(normalX: 255, amount: 0.25, normalMask: 128),
+            "halfAlpha": refractedCenter(normalX: 255, amount: 0.25, particleAlpha: 0.5),
+            "halfMaskHalfAlpha": refractedCenter(normalX: 255, amount: 0.25,
+                normalMask: 128, particleAlpha: 0.5),
+            "zeroAlpha": refractedCenter(normalX: 255, amount: 0.25, particleAlpha: 0),
+            "halfAlbedo": refractedCenter(normalX: 255, amount: 0.25, albedoAlpha: 128),
+            "rotatedShiftedX": refractedCenter(normalX: 255, amount: 0.25,
+                rotation: SIMD3(0, 0, Float.pi / 2)),
+            "reverseRotatedShiftedX": refractedCenter(normalX: 255, amount: 0.25,
+                rotation: SIMD3(0, 0, -Float.pi / 2)),
+            "tallShiftedX": refractedCenter(normalX: 255, amount: 0.25, spriteAspect: 0.25),
+            "squareShiftedY": refractedCenter(normalX: 128, normalY: 255, amount: 0.1),
+            "tallShiftedY": refractedCenter(normalX: 128, normalY: 255, amount: 0.1, spriteAspect: 0.25),
             "trailNeutral": trailNeutral,
             "trailAlong": trailAlong,
             "trailAcross": trailAcross,
@@ -1606,7 +1964,12 @@ enum Harness {
         trailVelocity: SIMD3<Float>? = nil,
         trailStretch: Float = 2,
         trailUVRange: SIMD2<Float>? = nil,
-        usesTrailDisplacement: Bool = false
+        usesTrailDisplacement: Bool = false,
+        spriteAspect: Float = 1,
+        rotation: SIMD3<Float> = .zero,
+        normalMask: UInt8 = 255,
+        particleAlpha: Float = 1,
+        albedoAlpha: UInt8 = 255
     ) -> [Int] {
         let size = 8
         guard let device = MTLCreateSystemDefaultDevice(),
@@ -1640,8 +2003,8 @@ enum Harness {
             region: MTLRegionMake2D(0, 0, size, size), mipmapLevel: 0,
             withBytes: &background, bytesPerRow: size * 4
         )
-        var white: [UInt8] = [255, 255, 255, 255]
-        var packedNormal: [UInt8] = [0, normalY, 0, normalX]
+        var white: [UInt8] = [255, 255, 255, albedoAlpha]
+        var packedNormal: [UInt8] = [normalMask, normalY, 0, normalX]
         color.replace(
             region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
             withBytes: &white, bytesPerRow: 4
@@ -1657,13 +2020,14 @@ enum Harness {
         let instance = SceneParticleGPUInstance(
             position: .zero,
             size: 2,
-            rotation: .zero,
+            rotation: rotation,
             color: SIMD3(repeating: 1),
-            alpha: 1,
+            alpha: particleAlpha,
             velocity: trailVelocity ?? .zero,
             trailStretch: trailVelocity == nil ? nil : trailStretch,
             trailUVRange: trailUVRange,
-            usesTrailDisplacement: usesTrailDisplacement
+            usesTrailDisplacement: usesTrailDisplacement,
+            currentFrameAspect: spriteAspect
         )
         guard instances.update(device: device, instances: [instance]) else { return [] }
         let pass = MTLRenderPassDescriptor()
@@ -1680,7 +2044,8 @@ enum Harness {
                 colorEncoding: .rgba,
                 normalUsesParticleFrames: false,
                 normalUVScale: SIMD2(repeating: 1),
-                normalSampling: .directImageFallback
+                normalSampling: .directImageFallback,
+                normalFormat: .rgba8888
             ),
             background: captured,
             instances: instances,
@@ -1942,7 +2307,14 @@ enum Harness {
     private static func centerPixel(
         texture: MTLTexture,
         cullMode: SceneParticlePipelineCullMode = .none,
-        reversesWinding: Bool = false
+        reversesWinding: Bool = false,
+        currentFrame: SceneParticleFrameTransform = .identity,
+        nextFrame: SceneParticleFrameTransform? = nil,
+        frameMix: Float = 0,
+        particleAlpha: Float = 1,
+        blendMode: SceneParticlePipelineBlendMode = .translucent,
+        background: Float = 0,
+        overbright: Float = 1
     ) -> [Int] {
         let size = 8
         guard let device = MTLCreateSystemDefaultDevice(),
@@ -1958,12 +2330,13 @@ enum Harness {
         let instances = SceneParticleMetalInstanceBuffer()
         guard instances.update(device: device, instances: [SceneParticleGPUInstance(
             position: .zero, size: 2, rotation: .zero,
-            color: SIMD3(repeating: 1), alpha: 1
+            color: SIMD3(repeating: 1), alpha: particleAlpha,
+            currentFrame: currentFrame, nextFrame: nextFrame, frameMix: frameMix
         )]) else { return [] }
         let pass = MTLRenderPassDescriptor()
         pass.colorAttachments[0].texture = output
         pass.colorAttachments[0].loadAction = .clear
-        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(Double(background), Double(background), Double(background), 0)
         pass.colorAttachments[0].storeAction = .store
         guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [] }
         pipeline.draw(
@@ -1977,7 +2350,7 @@ enum Harness {
                     up: SIMD3(0, 1, 0)
                 )
             ),
-            renderState: particleState(.translucent, cullMode: cullMode),
+            renderState: SceneParticlePipelineRenderState(blendMode: blendMode, cullMode: cullMode, overbright: overbright),
             colorSampling: .directImageFallback,
             encoder: encoder
         )
@@ -2005,7 +2378,7 @@ enum Harness {
         let completion = DispatchSemaphore(value: 0)
         command.addCompletedHandler { _ in completion.signal() }
         command.commit()
-        return completion.wait(timeout: .now() + 5) == .success
+        return completion.wait(timeout: .now() + 5) == .success && command.status == .completed
     }
 }
 '''
@@ -2036,18 +2409,63 @@ class SceneParticleRenderingTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
 
+    def test_sprite_rotation_matches_authored_basis_sign_and_mixed_axis_order(self) -> None:
+        # Public stock ComputeParticleTangents through the existing production
+        # normalizer + glslang/SPIRV-Cross was read back on Metal. Positive Z
+        # turns the right vector toward -Y; (.2,-.4,.7) produces basis right
+        # (.754306,-.631376,-.179960), up (.534191,.749596,-.390826).
+        clockwise = self.result["clockwiseSpriteMarkers"]
+        counterclockwise = self.result["counterclockwiseSpriteMarkers"]
+        for value in [clockwise, counterclockwise]:
+            self.assertEqual([value["width"], value["height"]], [128, 32])
+            self.assertEqual([value["centerX2"], value["centerY2"]], [287, 319])
+            self.assertAlmostEqual(value["redX1000"], value["greenX1000"], delta=1000)
+        self.assertLess(clockwise["redY1000"], clockwise["greenY1000"])
+        self.assertGreater(counterclockwise["redY1000"], counterclockwise["greenY1000"])
+        mixed = self.result["mixedAxisSpriteMarkers"]
+        self.assertAlmostEqual(mixed["width"], 32 * .754306 + 128 * .534191, delta=2)
+        self.assertAlmostEqual(mixed["height"], 32 * .631376 + 128 * .749596, delta=2)
+        self.assertAlmostEqual(mixed["greenX1000"] - mixed["redX1000"], 16 * .754306 * 1000, delta=1000)
+        self.assertAlmostEqual(mixed["greenY1000"] - mixed["redY1000"], 16 * .631376 * 1000, delta=1000)
+        self.assertEqual([mixed["centerX2"], mixed["centerY2"]], [287, 319])
+        oriented = self.result["orientedSpriteMarkers"]
+        self.assertEqual([oriented["width"], oriented["height"]], [32, 128])
+        self.assertLess(oriented["redX1000"], oriented["greenX1000"])
+        self.assertAlmostEqual(oriented["redY1000"], oriented["greenY1000"], delta=1000)
+        refract = self.result["refractionContract"]
+        self.assertEqual(refract["rotatedShiftedX"], [100, 90, 40, 255])
+        self.assertEqual(refract["reverseRotatedShiftedX"], [100, 50, 40, 255])
+
+    def test_fixed_sprite_geometry_preserves_full_model_transform(self) -> None:
+        results = self.result["fixedGeometry"]
+        if not results:
+            self.skipTest("Metal vertex readback is unavailable")
+        oracle = json.loads((REPOSITORY_ROOT / "script/tests/fixtures/scene_particle_fixed_geometry.json").read_text())
+        self.assertEqual(len(results), len(oracle["cases"]))
+        for actual, expected in zip(results, oracle["cases"]):
+            with self.subTest(mode=expected["mode"], case=expected["name"]):
+                self.assertEqual((actual["name"], actual["mode"]), (expected["name"], expected["mode"]))
+                # Full vertex positions cover reflection, shear, signed depth,
+                # arbitrary fixed axes, translation, and singular transforms.
+                # Existing world-size/world-fixed/screen/upright modes and
+                # normalized refraction direction are explicit controls.
+                for field in ["positions", "tangents"]:
+                    for av, ev in zip(actual[field], expected[field]):
+                        for a, e in zip(av, ev):
+                            self.assertAlmostEqual(a, e, delta=0.00002)
+
     def test_cpu_and_msl_instance_layouts_match(self) -> None:
         self.assertEqual(self.result["instanceStride"], 160)
         self.assertEqual(self.result["instanceAlignment"], 16)
         self.assertEqual(self.result["instanceOffsets"], [0, 16, 32, 48, 64, 80, 96, 112, 128, 144])
-        self.assertEqual(self.result["uniformStride"], 176)
-        self.assertEqual(self.result["uniformOffsets"], [0, 64, 128, 144, 160, 168])
+        self.assertEqual(self.result["uniformStride"], 256)
+        self.assertEqual(self.result["uniformOffsets"], [0, 64, 128, 144, 160, 168, 176, 192, 208, 224, 240])
 
     def test_lifetime_sprite_selection_and_frame_blending(self) -> None:
         self.assertEqual(self.result["sequence"]["current"], 2)
         self.assertTrue(self.result["finiteExtremesAreSafe"])
         self.assertTrue(self.result["invalidPhasesRejected"])
-        self.assertEqual(self.result["sequence"]["next"], 0)
+        self.assertEqual(self.result["sequence"]["next"], 2)
         self.assertAlmostEqual(self.result["sequence"]["mix"], 0.5, places=6)
         self.assertEqual(self.result["preparedTimeline"], self.result["sequence"])
         self.assertEqual(self.result["noBlend"], {"current": 2, "next": 2, "mix": 0})
@@ -2057,13 +2475,25 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertTrue(self.result["modeSequence"])
         self.assertTrue(self.result["modeRandom"])
 
+    def test_sequence_last_frame_holds_until_cycle_boundary_on_gpu(self) -> None:
+        rows = self.result["sequenceEndPixels"]
+        self.assertEqual(len(rows), 24)
+        for row in rows:
+            with self.subTest(prepared=row["prepared"], blend=row["blend"], age=row["age"]):
+                phase = row["age"] % 1
+                blue = 1 if phase >= 0.5 else (phase * 2 if row["blend"] else 0)
+                expected = [255 * blue, 0, 255 * (1 - blue), 255]
+                self.assertEqual(len(row["bgra"]), 4)
+                for actual, wanted in zip(row["bgra"], expected):
+                    self.assertAlmostEqual(actual, wanted, delta=2)
+
     def test_orientation_bases_are_authored_and_orthonormal(self) -> None:
         self.assertTrue(self.result["orientationDefault"])
         self.assertEqual(self.result["trailFrame"], [0, 1, 0, -1, 1, 0])
         self.assertEqual(self.result["screenRight"], [1, 0, 0])
         self.assertEqual(self.result["screenUp"], [0, 1, 0])
         self.assertEqual(self.result["uprightRight"], [1, 0, 0])
-        self.assertEqual(self.result["uprightUp"], [0, 1, 0])
+        self.assertEqual(self.result["uprightUp"], [0, -1, 0])
         self.assertEqual(self.result["fixedRight"], [0, 1, 0])
         self.assertEqual(self.result["fixedUp"], [0, 0, 1])
         self.assertNotEqual(self.result["localFixedRight"], self.result["worldFixedRight"])
@@ -2117,6 +2547,26 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertGreater(blended["width"], blended["height"] * 1.1)
         self.assertLess(blended["width"], blended["height"] * 1.4)
 
+    def test_sprite_size_is_width_based_and_center_does_not_move(self) -> None:
+        square = self.result["squareSpriteBounds"]
+        wide = self.result["spriteAspectBounds"]
+        tall = self.result["tallSpriteBounds"]
+        rotated = self.result["rotatedTallSpriteBounds"]
+        scaled = self.result["scaledTallSpriteBounds"]
+        blended = self.result["blendedSpriteAspectBounds"]
+        self.assertTrue(square, "Metal GPU readback is required")
+        self.assertEqual([square["width"], square["height"]], [32, 32])
+        self.assertEqual([wide["width"], wide["height"]], [32, 16])
+        self.assertEqual([tall["width"], tall["height"]], [32, 128])
+        self.assertEqual([rotated["width"], rotated["height"]], [128, 32])
+        self.assertEqual([scaled["width"], scaled["height"]], [64, 64])
+        self.assertEqual(blended["width"], 32)
+        self.assertAlmostEqual(blended["height"], 32 / 1.25, delta=1)
+        for value in [wide, tall, rotated, blended]:
+            self.assertEqual(value["centerX2"], square["centerX2"])
+            self.assertEqual(value["centerY2"], square["centerY2"])
+        self.assertEqual([scaled["centerX2"], scaled["centerY2"]], [191, 287])
+
     def test_normal_cull_maps_to_back_faces_and_nocull_remains_two_sided(self) -> None:
         contract = self.result["cullContract"]
         if not contract.get("frontBackCull"):
@@ -2124,6 +2574,48 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertGreater(contract["frontBackCull"][3], 240)
         self.assertEqual(contract["reversedBackCull"], [0, 0, 0, 0])
         self.assertGreater(contract["reversedNoCull"][3], 240)
+
+    def test_upright_preserves_system_or_world_axis_under_camera_roll(self) -> None:
+        contract = self.result["uprightGeometry"]
+        rows = contract["rows"]
+        for name, row in rows.items():
+            with self.subTest(name=name):
+                self.assertEqual(row["pixels"], row["expectedPixels"])
+                self.assertGreater(row["pixels"]["width"], 0)
+                self.assertGreater(row["pixels"]["height"], 0)
+        for roll in [0, 89, 90, 91, 180]:
+            for prefix in ["roll", "localRoll", "projectedRoll"]:
+                self.assertEqual(rows[f"{prefix}{roll}"]["right"], [1, 0, 0])
+                self.assertEqual(rows[f"{prefix}{roll}"]["up"], [0, -1, 0])
+        for name in ["localRotated", "localScaled"]:
+            for actual, expected in zip(rows[name]["up"], [1, 0, 0]):
+                self.assertAlmostEqual(actual, expected, places=5)
+        self.assertEqual(rows["worldRotated"]["up"], [0, -1, 0])
+        self.assertEqual(rows["localMirrored"]["up"], [0, 1, 0])
+        self.assertTrue(contract["fixedDirectionsUnchanged"])
+        self.assertTrue(contract["screenUnchanged"])
+        self.assertAlmostEqual(contract["screenRolledUp"][0], 1, places=5)
+
+    def test_upright_sprite_trail_renders_under_roll_and_tilt(self) -> None:
+        trails = self.result["uprightGeometry"]["trails"]
+        for name, metrics in trails.items():
+            with self.subTest(name=name):
+                if name == "pole":
+                    # The vertical card is viewed exactly edge-on; GPU completes
+                    # and retains the clear target, without invented thickness.
+                    self.assertEqual(metrics, {"width": 0, "height": 0})
+                else:
+                    self.assertGreater(metrics["width"], 0)
+                    self.assertGreater(metrics["height"], 0)
+                    self.assertLess(metrics["width"], 256)
+                    self.assertLess(metrics["height"], 256)
+
+    def test_upright_parallel_view_fallback_keeps_authoritative_axis(self) -> None:
+        contract = self.result["uprightGeometry"]
+        for prefix in ["pole", "degenerate"]:
+            self.assertEqual(contract[f"{prefix}Right"], [1, 0, 0])
+            self.assertEqual(contract[f"{prefix}Up"], [0, -1, 0])
+        self.assertEqual(contract["rows"]["zeroAxis"]["up"], [0, -1, 0])
 
     def test_sprite_trails_align_and_stretch_along_velocity(self) -> None:
         horizontal = self.result["horizontalTrailBounds"]
@@ -2155,6 +2647,22 @@ class SceneParticleRenderingTests(unittest.TestCase):
                 self.assertTrue(result["jointCovered"])
                 self.assertGreater(result["visiblePixels"], 1000)
                 self.assertLessEqual(result["maximumAlpha"], 129)
+
+    def test_rope_particle_joins_have_no_gap_or_double_alpha(self) -> None:
+        results = self.result["ropeJoins"]
+        self.assertEqual(len(results), 7)
+        for result in results:
+            with self.subTest(transform=result.get("transform")):
+                self.assertTrue(result["completed"])
+                self.assertTrue(result["jointCovered"])
+                self.assertGreater(result["visiblePixels"], 1000)
+                self.assertLessEqual(result["maximumAlpha"], 129)
+        taper = results[5]["columnWidths"]
+        self.assertLess(taper[0], taper[1])
+        self.assertLess(taper[1], taper[2])
+        self.assertGreater(taper[2], taper[3])
+        self.assertGreater(taper[3], taper[4])
+        self.assertLessEqual(taper[4], 2)
 
     def test_rope_trail_history_draws_a_multisegment_fading_path(self) -> None:
         contract = self.result["ropeTrailRender"]
@@ -2202,16 +2710,29 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertEqual(raw[0], 0)
         self.assertEqual(raw[1], 0)
         self.assertGreater(raw[2], 150)
-        # 适配后 swizzle rrrr:灰白(B==G==R)且保持预乘白合同。
+        # R8 straight white/alpha becomes premultiplied white at the fragment boundary.
         self.assertGreater(adapted[0], 150)
         self.assertEqual(adapted[0], adapted[1])
         self.assertEqual(adapted[1], adapted[2])
         self.assertEqual(adapted[2], adapted[3])
-        # RG88 luminance+alpha 展开为预乘 RGBA:255*128/255=128,alpha=128。
-        self.assertTrue(contract["rgExpandedFormatIsRGBA"])
-        self.assertEqual(contract["rgExpandedMipCount"], 2)
-        self.assertEqual(contract["rgExpandedPixel"], [128, 128, 128, 128])
-        self.assertEqual(contract["rgExpandedSecondMip"], [16, 16, 16, 64])
+        self.assertEqual(contract["rgMipCount"], 2)
+        self.assertEqual(contract["rgPixel"], [128, 128, 128, 128])
+        self.assertEqual(contract["rgSecondMip"], [16, 16, 16, 64])
+
+    def test_straight_color_filtering_precedes_texture_coverage(self) -> None:
+        rows = self.result["straightInterpolation"]
+        self.assertEqual(len(rows), 160)
+        for row in rows:
+            with self.subTest(**{k: v for k, v in row.items() if k != "bgra"}):
+                t, a = row["mix"], row["alpha"]
+                coverage = t * a
+                background = row["background"] * (1 if row["additive"] else 1 - coverage)
+                gain = coverage * row["overbright"]
+                expected = [(t * gain + background) * 255, background * 255,
+                            ((1 - t) * gain + background) * 255, coverage * 255]
+                self.assertEqual(len(row["bgra"]), 4)
+                for observed, value in zip(row["bgra"], expected):
+                    self.assertAlmostEqual(observed, min(255, value), delta=2)
 
     def test_in_flight_instance_slots_are_not_reused_until_completion(self) -> None:
         slots = self.result["instanceBufferSlots"]
@@ -2242,36 +2763,22 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertTrue(slots["cancelAfterCompletionRejected"])
         self.assertTrue(slots["reusedAfterCompletion"])
 
-    def test_particle_submission_uses_shared_cancel_and_commit_boundary(self) -> None:
-        instance_source = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalInstanceBuffer.swift"
-        ).read_text(encoding="utf-8")
-        pipeline_source = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalPipeline.swift"
-        ).read_text(encoding="utf-8")
-        particle_renderer_source = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Particles.swift"
-        ).read_text(encoding="utf-8")
-        renderer_source = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("func cancelUncommittedSubmission(", instance_source)
-        self.assertIn("func armSubmission(on commandBuffer: MTLCommandBuffer)", instance_source)
-        self.assertIn("commandBuffer.status == .notEnqueued", instance_source)
-        self.assertIn("armedSubmissionCommandBuffers", instance_source)
-        self.assertIn("func draw(\n", pipeline_source)
-        self.assertIn(") -> Bool", pipeline_source)
-        self.assertIn("let didEncode: Bool", particle_renderer_source)
-        self.assertIn("if didEncode", particle_renderer_source)
-        self.assertIn("if encoded { clearsDepth = false }", particle_renderer_source)
-        self.assertIn("cancelPending()", particle_renderer_source)
-        self.assertIn("cancelUncommittedSubmission", renderer_source)
-        self.assertIn("if !didCommitParticleSubmission", renderer_source)
-        self.assertIn("commandBuffer.status == .notEnqueued", renderer_source)
-        commit_index = renderer_source.index("commandBuffer.commit()")
-        armed_index = renderer_source.index("didCommitParticleSubmission = true")
-        self.assertLess(commit_index, armed_index)
+    def test_refraction_mask_and_particle_alpha_attenuate_displacement(self) -> None:
+        value = self.result["refractionContract"]
+        # The 8x8 framebuffer has a 20/texel blue gradient. Full displacement
+        # is two texels (amount 0.25 screen UV). Mask changes the sampled location; particle alpha
+        # changes both location and compositing coverage. Albedo alpha only
+        # changes coverage. These are independent authored channels.
+        expected = {
+            "maskedOut": 100, "halfMask": 120, "halfAlpha": 110,
+            "halfMaskHalfAlpha": 105, "zeroAlpha": 100, "halfAlbedo": 120,
+        }
+        for name, blue in expected.items():
+            with self.subTest(name=name):
+                self.assertEqual(len(value[name]), 4)
+                self.assertLessEqual(abs(value[name][0] - blue), 1)
+                self.assertLessEqual(abs(value[name][1] - 70), 1)
+                self.assertEqual(value[name][2:], [40, 255])
 
     def test_refraction_samples_the_preceding_framebuffer_with_bounded_snapshot(self) -> None:
         contract = self.result["refractionContract"]
@@ -2296,31 +2803,63 @@ class SceneParticleRenderingTests(unittest.TestCase):
         across = contract["trailAcross"]
         if not neutral or not along or not across:
             self.skipTest("Metal refraction draw is unavailable")
-        # For a trail moving right, texture +Y follows the path and samples
-        # farther right in the blue X gradient. Texture +X is -perpendicular,
-        # crossing the trail downward in the green Y gradient.
-        self.assertGreater(along[0], neutral[0] + 15)
+        # Public REFRACT packing combines both particle axes against each
+        # view axis. For rightward trail geometry, +normalY samples left;
+        # +normalX samples down. It is not the UV-to-position Jacobian.
+        self.assertLess(along[0], neutral[0] - 15)
         self.assertLessEqual(abs(along[1] - neutral[1]), 2)
         self.assertGreater(across[1], neutral[1] + 8)
         self.assertLessEqual(abs(across[0] - neutral[0]), 2)
 
-    def test_rope_trail_refraction_uses_displacement_per_uv_span(self) -> None:
-        contract = self.result["refractionContract"]
-        neutral = contract["magnitudeNeutral"]
-        short_stretch = contract["fullSpanShortStretch"]
-        long_stretch = contract["fullSpanLongStretch"]
-        half_span = contract["halfSpanLongStretch"]
-        if not neutral or not short_stretch or not long_stretch or not half_span:
-            self.skipTest("Metal refraction draw is unavailable")
-        short_delta = short_stretch[0] - neutral[0]
-        long_delta = long_stretch[0] - neutral[0]
-        half_delta = half_span[0] - neutral[0]
-        self.assertGreater(short_delta, 3)
-        self.assertLessEqual(abs(long_delta - short_delta), 2)
-        self.assertGreater(half_delta, short_delta * 1.7)
-        self.assertLess(half_delta, short_delta * 2.3)
-        for shifted in (short_stretch, long_stretch, half_span):
-            self.assertLessEqual(abs(shifted[1] - neutral[1]), 2)
+    def test_sprite_refraction_amount_is_independent_of_texture_aspect(self) -> None:
+        value = self.result["refractionContract"]
+        self.assertTrue(value["tallShiftedX"])
+        self.assertEqual(value["tallShiftedX"], value["shifted"])
+        self.assertEqual(value["squareShiftedY"], value["tallShiftedY"])
+        self.assertGreater(value["squareShiftedY"][1], value["neutral"][1])
+
+    def test_rope_trail_refraction_amount_is_independent_of_uv_span_and_stretch(self) -> None:
+        value = self.result["refractionContract"]
+        self.assertTrue(value["fullSpanShortStretch"])
+        self.assertLess(value["fullSpanShortStretch"][0], value["magnitudeNeutral"][0] - 15)
+        self.assertEqual(value["fullSpanShortStretch"], value["fullSpanLongStretch"])
+        self.assertEqual(value["fullSpanShortStretch"], value["halfSpanLongStretch"])
+
+    def test_refraction_basis_matches_public_shader_direction_contract(self) -> None:
+        # RGBA32Float oracle from public ComputeParticleTangents and
+        # ComputeScreenRefractionTangents through the production compiler.
+        expected = [
+            [1,0,0,1], [0,1,-1,0], [0,-1,1,0],
+            [.75430655,.53419143,-.63137633,.74959618],
+            [.70710677,-.5,0,.70710677], [1,0,0,.70710677],
+            [.66062647,.65408611,-.63137633,.74959618],
+            [.63137633,-.74959624,.75430655,.53419149],
+        ]
+        actual = self.result["refractionBasisCases"]
+        self.assertEqual(len(actual), 13)
+        # Size, aspect, anisotropic layer scale, position and projection depth
+        # do not set Sprite REFRACT strength. A tilted native camera supplies
+        # its own view basis, independent of the fixed particle orientation.
+        expected += [expected[3]] * 5
+        for index, (observed, reference) in enumerate(zip(actual, expected)):
+            with self.subTest(index=index):
+                self.assertEqual(len(observed), 4)
+                for component, target in zip(observed, reference):
+                    self.assertAlmostEqual(component, target, delta=0.00001)
+
+    def test_trail_refraction_directions_remain_bounded_at_joins_and_collapses(self) -> None:
+        values = self.result["refractionTrailBasisCases"]
+        self.assertEqual(len(values), 7)
+        for value in values[:3]:
+            self.assertEqual(len(value), 4)
+            self.assertTrue(all(-1.00001 <= component <= 1.00001 for component in value))
+        for actual, expected in zip(values[:2], [[0,1,-1,0],[0,-1,1,0]]):
+            for component, target in zip(actual, expected):
+                self.assertAlmostEqual(component, target, delta=0.00001)
+        # Completed zero-area geometry leaves the clear target untouched.
+        # Failure to compile/encode/complete returns [] instead of this marker.
+        for value in values[3:]:
+            self.assertEqual(value, [99,99,99,99])
 
     def test_tex_flags_select_filter_and_address_modes_without_cross_talk(self) -> None:
         values = self.result["texSampling"]

@@ -23,6 +23,7 @@ struct SceneParticleChildTemplate {
     let refraction: SceneParticleRefractionBinding?
     let renderState: SceneParticlePipelineRenderState
     let spriteAnimation: SceneSpriteAnimation?
+    let staticSpriteAspect: Float
     let orientation: SceneParticleOrientation
     let orientationAxis: SIMD3<Float>?
     let usesPerspective: Bool
@@ -227,7 +228,7 @@ enum SceneParticleChildGraphExpansion {
                 "\(path):childScaleBounded:scale=\(transform.scale.x),\(transform.scale.y),\(transform.scale.z)"
             )
         }
-        let instanceOverride: SceneParticleInstanceOverride?
+        let controlPointOverride: SceneParticleInstanceOverride?
         switch SceneParticleChildTemplateSupport.rawParentControlPointOverride(
             childDefinition: asset.definition,
             rootDefinition: rootDefinition,
@@ -235,16 +236,32 @@ enum SceneParticleChildGraphExpansion {
             allowsCopy: depth == 1 && trigger == .staticChild
         ) {
         case .disabled:
-            instanceOverride = nil
+            controlPointOverride = nil
         case let .ignoredUnused(count):
-            instanceOverride = nil
+            controlPointOverride = nil
             performance.append("\(path):unusedParentControlPointMappings:mappings=\(count)")
         case let .supported(value, count):
-            instanceOverride = value
+            controlPointOverride = value
             performance.append("\(path):rawParentControlPointCopyBounded:mappings=\(count)")
         case let .unsupported(detail):
             return .rejected("\(path):\(detail)")
         }
+        // Layer modifiers belong to the whole child tree. Control points retain
+        // their separate, explicitly admitted parent-to-child mapping.
+        let instanceOverride = SceneParticleInstanceOverride(
+            id: rootInstanceOverride?.id,
+            alpha: rootInstanceOverride?.alpha,
+            size: rootInstanceOverride?.size,
+            lifetime: rootInstanceOverride?.lifetime,
+            rate: rootInstanceOverride?.rate,
+            speed: rootInstanceOverride?.speed,
+            count: rootInstanceOverride?.count,
+            brightness: rootInstanceOverride?.brightness,
+            color: rootInstanceOverride?.color,
+            normalizedColor: rootInstanceOverride?.normalizedColor,
+            controlPoints: controlPointOverride?.controlPoints ?? [:],
+            controlPointAngles: controlPointOverride?.controlPointAngles ?? [:]
+        )
         let needsStaticFrame = asset.definition.flags.isWorldSpace
             || asset.definition.operators.contains(where: \.isWorldSpaceMovement)
         guard !needsStaticFrame || worldSpaceFrame != nil else {
@@ -255,6 +272,7 @@ enum SceneParticleChildGraphExpansion {
         }
         let texture: MTLTexture
         let animation: SceneSpriteAnimation?
+        let staticSpriteAspect: Float
         let colorUVScale: SIMD2<Float>
         let colorSampling: SceneParticleTextureSampling
         let refraction: SceneParticleRefractionBinding?
@@ -269,6 +287,7 @@ enum SceneParticleChildGraphExpansion {
             }
             texture = loaded.color
             animation = loaded.colorAnimation
+            staticSpriteAspect = loaded.staticSpriteAspect
             colorUVScale = loaded.colorUVScale
             colorSampling = loaded.colorSampling
             refraction = loaded.binding
@@ -283,8 +302,9 @@ enum SceneParticleChildGraphExpansion {
             }
             texture = loaded.texture
             animation = loaded.animation
+            staticSpriteAspect = loaded.staticAspect
             colorSampling = loaded.sampling
-            colorUVScale = SIMD2(repeating: 1)
+            colorUVScale = loaded.uvScale
             refraction = nil
         }
         let maximum = child.maximumCount ?? 512
@@ -292,13 +312,7 @@ enum SceneParticleChildGraphExpansion {
             return .rejected("\(path):invalidSystemLimit")
         }
         let authoredMaximum = min(max(asset.definition.maximumCount ?? 1, 0), 20000)
-        let particleBudget = min(authoredMaximum, SceneParticleChildRuntime.maximumParticlesPerSystem)
-        if particleBudget < authoredMaximum {
-            let instantaneous = asset.definition.emitters.map { $0.instantaneousCount ?? 0 }.max() ?? 0
-            performance.append(
-                "\(path):particleBudget:max=\(authoredMaximum):instantaneous=\(instantaneous):effective=\(particleBudget)"
-            )
-        }
+        let particleBudget = authoredMaximum
         if animation != nil, render.rope != nil {
             return .rejected("\(path):ropeAnimatedTextureUnsupported")
         }
@@ -323,6 +337,7 @@ enum SceneParticleChildGraphExpansion {
                 refraction: refraction,
                 renderState: renderState,
                 spriteAnimation: animation,
+                staticSpriteAspect: staticSpriteAspect,
                 orientation: SceneParticleOrientation(
                     authoredValue: render.renderer.orientation,
                     isWorldSpace: render.renderer.isWorldSpace
@@ -348,15 +363,17 @@ enum SceneParticleChildGraphExpansion {
 extension SceneParticleChildTemplate {
     func simulator(
         seed: UInt64,
-        emissionDeadline: Double? = nil,
+        dynamicInstanceValues: SceneDynamicParticleValues? = nil,
+        maximumEmissionDuration: Double? = nil,
         eventColorContext: SceneParticleEventColorContext = .unavailable
     ) -> SceneParticleSimulator {
         SceneParticleSimulator(
             definition: definition,
             instanceOverride: instanceOverride,
+            initialDynamicInstanceOverride: instanceOverride?.resolving(dynamicInstanceValues),
             seed: seed,
             particleBudget: particleBudget,
-            emissionDeadline: emissionDeadline,
+            maximumEmissionDuration: maximumEmissionDuration,
             worldSpaceFrame: worldSpaceFrame,
             eventColorContext: eventColorContext
         )
@@ -369,6 +386,7 @@ extension SceneParticleChildTemplate {
     ) -> SceneParticleGPUInstance {
         let frames = SceneParticleRuntime.spriteFrames(
             animation: spriteAnimation,
+            staticAspect: staticSpriteAspect,
             definition: definition,
             particleID: particle.id,
             age: Float(particle.age),

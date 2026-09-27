@@ -31,9 +31,7 @@ nonisolated enum SceneResolvedMaterialDirectDrawGeometryCompiler {
               !snapshot.variants.isEmpty,
               snapshot.variants.allSatisfy({ variant in
                   variant.resolvedIntegerCombos["DIRECTDRAW"] == 1
-                      && variant.resolvedIntegerCombos["RAYMODE"].map {
-                          (0 ... 2).contains($0)
-                      } == true
+                      && (0...2).contains(variant.resolvedIntegerCombos["RAYMODE"] ?? -1)
                       && provesPerspectiveQuad(
                           variant,
                           pointKeys: pointKeys
@@ -42,7 +40,14 @@ nonisolated enum SceneResolvedMaterialDirectDrawGeometryCompiler {
               let points = staticPoints(in: material.template) else {
             return nil
         }
-        return .topAlignedHalfCanvas(normalizedPerspectivePoints: points)
+        guard let aligned = Contract.topAlignedHalfCanvas(
+            normalizedPerspectivePoints: points
+        ) else { return nil }
+        // Preserve candidate identity for layer-level ambiguity checks.
+        // The existing top-inset policy is only established for linear rays.
+        return snapshot.variants.allSatisfy {
+            $0.resolvedIntegerCombos["RAYMODE"] == 0
+        } ? aligned : .centeredHalfCanvas
     }
 
     private static func staticPoints(

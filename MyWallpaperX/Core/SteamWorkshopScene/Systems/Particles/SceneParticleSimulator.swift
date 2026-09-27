@@ -9,6 +9,7 @@ import Foundation
 nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     struct FrameSnapshot {
         let particles: [SceneParticleState]
+        let diagnostics: [SceneParticleSimulationDiagnostic]
         let transientRenderBirths: [SceneParticleState]
         let birthEvents: [SceneParticleState]
         let deathEvents: [SceneParticleState]
@@ -31,7 +32,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
     let fixedTimeStep: Double
     let maximumParticleCount: Int
-    let diagnostics: [SceneParticleSimulationDiagnostic]
+    private(set) var diagnostics: [SceneParticleSimulationDiagnostic]
     var particles: [SceneParticleState] = []
     /// Birth-state samples whose complete authored lifetime fell inside the
     /// current display callback. They remain lifecycle-dead and event-visible;
@@ -43,7 +44,16 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     let definition: SceneParticleDefinition
     let instanceOverride: SceneParticleInstanceOverride?
     var activeInstanceOverride: SceneParticleInstanceOverride?
-    private let emissionDeadline: Double?
+    private let maximumEmissionDuration: Double?
+    /// Read completion from the same emitter state that schedules births.
+    /// This also survives frame rollback without a second child deadline.
+    var hasFinishedEmission: Bool {
+        for index in emitters.indices where !emitters[index].hasFinishedEmission(
+            plan: emitterSpawnPlans[index], maximumEmissionDuration: maximumEmissionDuration
+        ) { return false }
+        return true
+    }
+
     private let layerImageEmissionMap: SceneParticleLayerImageEmissionMap?
     private let worldSpaceFrame: SceneParticleWorldSpaceFrame?
     private let hasWorldSpaceMovement: Bool
@@ -106,7 +116,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         seed: UInt64 = 0,
         fixedTimeStep: Double = 1.0 / 60.0,
         particleBudget: Int? = nil,
-        emissionDeadline: Double? = nil,
+        prewarmStepBudget: Int = 240,
+        maximumEmissionDuration: Double? = nil,
         layerImageEmissionMap: SceneParticleLayerImageEmissionMap? = nil,
         worldSpaceFrame: SceneParticleWorldSpaceFrame? = nil,
         stepSnapshotPolicy: SceneParticleStepSnapshotPolicy? = nil,
@@ -115,7 +126,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         self.definition = definition
         self.instanceOverride = instanceOverride
         self.activeInstanceOverride = initialDynamicInstanceOverride ?? instanceOverride
-        self.emissionDeadline = emissionDeadline
+        self.maximumEmissionDuration = maximumEmissionDuration
         self.layerImageEmissionMap = layerImageEmissionMap
         self.worldSpaceFrame = worldSpaceFrame
         self.eventColorContext = eventColorContext
@@ -173,7 +184,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             SceneParticleEmitterState(seed: seed, emitterIndex: $0)
         }
         random = SceneParticleRandomGenerator(state: seed)
-        warmUp(duration: max(0, definition.startTime ?? 0))
+        warmUp(duration: definition.startTime ?? 0, stepBudget: prewarmStepBudget,
+               historyCapacity: stepSnapshotPolicy?.maximumSnapshots ?? 0)
         birthEvents.removeAll(keepingCapacity: true)
         deathEvents.removeAll(keepingCapacity: true)
     }
@@ -303,6 +315,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     nonisolated func frameSnapshot() -> FrameSnapshot {
         FrameSnapshot(
             particles: particles,
+            diagnostics: diagnostics,
             transientRenderBirths: transientRenderBirths,
             birthEvents: birthEvents,
             deathEvents: deathEvents,
@@ -326,6 +339,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
     nonisolated func restoreFrame(_ snapshot: FrameSnapshot) {
         particles = snapshot.particles
+        diagnostics = snapshot.diagnostics
         transientRenderBirths = snapshot.transientRenderBirths
         birthEvents = snapshot.birthEvents
         deathEvents = snapshot.deathEvents
@@ -392,25 +406,71 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         eventColorContext = .follow(color)
     }
 
-    private nonisolated func warmUp(duration: Double) {
-        // Non-finite or unrepresentable requests must not reach Int conversion,
-        // and a long request must not be squeezed into a few huge steps: spend
-        // the budget one authored-sized fixed step at a time, drop the rest.
-        guard duration.isFinite, duration > 0 else { return }
-        let steps = (duration / fixedTimeStep).rounded(.up)
-        guard steps.isFinite else { return }
-        let count = min(max(Int(min(steps, 240)), 1), 240)
+    private nonisolated func warmUp(duration: Double, stepBudget: Int, historyCapacity: Int) {
+        guard duration != 0 else { return }
+        let requestedSteps = (duration / fixedTimeStep).rounded(.up)
+        guard duration.isFinite, duration > 0, requestedSteps.isFinite,
+              requestedSteps < Double(Int.max) else {
+            diagnostics.append(.init(kind: .prewarmInvalidDuration, componentName: nil))
+            return
+        }
+        // Preserve the existing 240-step envelope for frame-created children.
+        // Only root preparation requests more. The extension is deterministic,
+        // capped at 3,600 steps and four million weighted work units; this is a
+        // project admission policy, not a wall-clock or official fidelity bound.
+        var limit = min(max(stepBudget, 0), 240)
+        if stepBudget > 240, requestedSteps > 240 {
+            let capacity = Double(maximumParticleCount)
+            let initializerCost = definition.initializers.reduce(0.0) { cost, value in
+                cost + 32 + Double(value.boundedPositionOffset?.octaves ?? 0) * 24
+            }
+            let operatorCost = definition.operators.reduce(0.0) { cost, value in
+                if case .boids = value.kind { return cost + 32 + capacity }
+                return cost + 32
+            }
+            // A retained RopeTrail snapshot can convert and shift the bounded
+            // history on every step. Account for it without dropping that history.
+            let historyCost = Double(historyCapacity)
+            let workPerStep = max(1, Double(definition.emitters.count)
+                + Double(definition.operators.count)
+                + capacity * (32 + initializerCost + operatorCost + historyCost))
+            let extraSteps = Int(min(3_360, (4_000_000 / workPerStep).rounded(.down)))
+            limit = min(stepBudget, 240 + extraSteps)
+        }
+        let count = min(Int(requestedSteps), limit)
         var remaining = duration
         for _ in 0..<count {
             for index in emitters.indices { emitters[index].beginFrame() }
             let slice = min(fixedTimeStep, remaining)
             guard slice > 0 else { break }
             step(by: slice)
+            // These events have never been replayed to children after warmup.
+            // Drain per step so a long, short-lived emitter cannot retain its
+            // entire prehistory. The bounded trail recorder remains intact.
+            birthEvents.removeAll(keepingCapacity: true)
+            deathEvents.removeAll(keepingCapacity: true)
             remaining -= slice
+        }
+        if Int(requestedSteps) > limit {
+            diagnostics.append(.init(
+                kind: .prewarmBudgetExceeded,
+                componentName: "requested=\(duration),simulated=\(simulationTime),steps=\(count)"
+            ))
         }
     }
 
-    private nonisolated func step(by duration: Double) {
+    private nonisolated func step(by frameDuration: Double) {
+        // Rate scales the entire simulation step once. Keep the wall-time step
+        // budget unchanged instead of multiplying integration work by the rate.
+        let duration = frameDuration * max(0, overrideScalar(activeInstanceOverride?.rate))
+        guard duration != 0 else { return }
+        guard duration.isFinite, Float(simulationTime + duration).isFinite else {
+            let diagnostic = SceneParticleSimulationDiagnostic(
+                kind: .invalidSimulationTime, componentName: "rate"
+            )
+            if !diagnostics.contains(diagnostic) { diagnostics.append(diagnostic) }
+            return
+        }
         for index in definition.emitters.indices { emit(index: index, duration: duration) }
         normalizedLives.removeAll(keepingCapacity: true)
         normalizedLives.reserveCapacity(particles.count)
@@ -472,9 +532,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         ) else { return }
         if spawnPlan.usesRandomPeriodicEmission,
            activeInstanceOverride?.rate != nil || activeInstanceOverride?.count != nil { return }
-        let rateScale = max(0, overrideScalar(activeInstanceOverride?.rate))
         guard let activeDuration = emitters[index].scheduledActiveDuration(
-            plan: spawnPlan, stepDuration: duration, rateScale: rateScale
+            plan: spawnPlan, stepDuration: duration,
+            maximumEmissionDuration: maximumEmissionDuration
         ) else { return }
 
         var count = 0
@@ -482,18 +542,23 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             count = max(0, spawnPlan.instantaneousCount ?? 0)
             emitters[index].emittedInstantaneous = true
         } else {
-            // Event-child rate emission ends at the bounded window; bursts already fired.
-            if let deadline = emissionDeadline, simulationTime + 1e-12 >= deadline { return }
             let authoredRate = spawnPlan.rate ?? 5
             let countScale = definition.flags.disablesCountOverrides
                 ? 1
                 : max(0, overrideScalar(activeInstanceOverride?.count))
             let scaledRate = (authoredRate.isFinite ? authoredRate : 0)
-                * countScale * rateScale * audioScale
+                * countScale * audioScale
             let rate = scaledRate.isFinite ? max(0, scaledRate) : 0
-            emitters[index].remainder += rate * activeDuration
-            let integral = floor(emitters[index].remainder + 1e-12)
-            emitters[index].remainder -= integral
+            let accumulated = emitters[index].remainder + rate * activeDuration
+            guard accumulated.isFinite else {
+                let diagnostic = SceneParticleSimulationDiagnostic(
+                    kind: .invalidEmitterState, componentName: "emission:\(index)"
+                )
+                if !diagnostics.contains(diagnostic) { diagnostics.append(diagnostic) }
+                return
+            }
+            let integral = floor(accumulated + 1e-12)
+            emitters[index].remainder = max(0, accumulated - integral)
             count = Int(min(integral, Double(maximumParticleCount)))
             count = emitters[index].boundedRateEmissionCount(
                 count, limitsToOnePerFrame: spawnPlan.limitsToOnePerFrame
@@ -552,7 +617,43 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         particle.initialColor = particle.color
         particle.initialAlpha = particle.alpha
         particle.initialSize = particle.size
-        return particle.lifetime > 0 ? particle : nil
+        return particle.lifetime > 0 && acceptsBirthResult(particle) ? particle : nil
+    }
+
+    /// Validate the multiplied birth state before retaining it or narrowing to
+    /// the Float GPU ABI. A bad new particle must not poison existing peers.
+    private nonisolated func acceptsBirthResult(_ particle: SceneParticleState) -> Bool {
+        func finite(_ value: SIMD3<Double>) -> Bool {
+            Float(value.x).isFinite && Float(value.y).isFinite && Float(value.z).isFinite
+        }
+        if Float(particle.lifetime).isFinite && Float(particle.size).isFinite
+            && Float(particle.alpha).isFinite && finite(particle.color)
+            && finite(particle.position) && finite(particle.velocity)
+            && finite(particle.rotation) && finite(particle.angularVelocity) {
+            return true
+        }
+        let diagnostic = SceneParticleSimulationDiagnostic(
+            kind: .invalidEmitterState, componentName: "particle-initialization"
+        )
+        if !diagnostics.contains(diagnostic) { diagnostics.append(diagnostic) }
+        return false
+    }
+
+    /// Reject only this particle's unsafe operator result, before either half
+    /// of the integration is committed or narrowed to the GPU's Float ABI.
+    private nonisolated func acceptsMotionResult(
+        _ velocity: SIMD3<Double>, _ position: SIMD3<Double>, component: String
+    ) -> Bool {
+        if Float(velocity.x).isFinite && Float(velocity.y).isFinite
+            && Float(velocity.z).isFinite && Float(position.x).isFinite
+            && Float(position.y).isFinite && Float(position.z).isFinite {
+            return true
+        }
+        let diagnostic = SceneParticleSimulationDiagnostic(
+            kind: .invalidOperatorState, componentName: component
+        )
+        if !diagnostics.contains(diagnostic) { diagnostics.append(diagnostic) }
+        return false
     }
 
     private nonisolated func apply(
@@ -568,8 +669,13 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             }
             for index in particles.indices {
                 let acceleration = plan.gravity - particles[index].velocity * plan.drag
-                particles[index].velocity += acceleration * duration
-                particles[index].position += particles[index].velocity * duration
+                let velocity = particles[index].velocity + acceleration * duration
+                let position = particles[index].position + velocity * duration
+                guard acceptsMotionResult(velocity, position, component: "movement") else {
+                    continue
+                }
+                particles[index].velocity = velocity
+                particles[index].position = position
             }
         case .angularMovement:
             guard let plan = operatorExecutionPlans[operatorIndex].angularMovement else {
@@ -577,8 +683,13 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             }
             for index in particles.indices {
                 let acceleration = plan.force - particles[index].angularVelocity * plan.drag
-                particles[index].angularVelocity += acceleration * duration
-                particles[index].rotation += particles[index].angularVelocity * duration
+                let velocity = particles[index].angularVelocity + acceleration * duration
+                let position = particles[index].rotation + velocity * duration
+                guard acceptsMotionResult(velocity, position, component: "angularmovement") else {
+                    continue
+                }
+                particles[index].angularVelocity = velocity
+                particles[index].rotation = position
             }
         case .alphaFade:
             let executionPlan = operatorExecutionPlans[operatorIndex]

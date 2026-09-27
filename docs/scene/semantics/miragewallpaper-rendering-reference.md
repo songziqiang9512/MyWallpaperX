@@ -6,7 +6,7 @@
 >
 > 基础静态审查快照：`laobamac/MirageWallpaper`，revision `8893b25b3fb4abdd63d72e9fe31bdd59e765208a`（tag `v1.0.3`，2026-08-07）；正文既有行号只属于该快照
 >
-> 最近固定复核快照：本地 checkout revision `443777e29a8046615db6275f80ff816a4bad444b`。2026-08-15 只读远端查询显示 `origin/main` 已前进到 `899e6820a36d7e7b243b603c299f8a0b4c181775`；因此本文不代表 Mirage 最新实现，也不得把移动的远端 HEAD 静默套用到本文结论
+> 全文历史固定复核快照（2026-09-27 粒子/光线局部复核另见 §11.5，固定到 `f5049582e3e334cac6b177bbbccb39736190750a`）：本地 checkout revision `443777e29a8046615db6275f80ff816a4bad444b`。2026-08-15 只读远端查询显示 `origin/main` 已前进到 `899e6820a36d7e7b243b603c299f8a0b4c181775`；因此本文不代表 Mirage 最新实现，也不得把移动的远端 HEAD 静默套用到本文结论
 >
 > 运行边界：上述 revision 均只做静态源码审查；未构建、未运行、未与 Wallpaper Engine 做像素或时序 golden 对照
 >
@@ -417,11 +417,59 @@ Mirage 使用 FreeType/fontconfig 解析字体，按 face+pixel size 维护 atla
 
 视频 decode、播放时钟与 GPU texture 是分开的：播放 state 保存 playing/rate/seek sequence；decoder 按 PTS 产出；texture registry 只给本图仍 active 的 slot 更新；同一稳定 RGBA target 被材质持续引用。硬件路径失败可回退 CPU NV12，而不是替换材质资源身份。
 
-### 11.5 粒子与 rope
+### 11.5 粒子与光线逐项对照（2026-09-27）
 
-Mirage 将 particle general、emitter、initializer、operator、renderer、child system 和 control point 分层。普通发射路径显式关闭粒子容器排序；rope/trail 则按 spawn sequence 组织连接顺序。粒子 material 仍经过普通 sampler/blend/depth/camera/binder；audio response 在 emit/simulation 前可见。
+本节单独固定到本地开源 checkout `f5049582e3e334cac6b177bbbccb39736190750a`，其余章节未整体重证。参考是独立实现线索，不是官方正确画面的判据；本轮未构建运行 Mirage。下表检查定义、默认值和实际 consumer，明确保留尚未逐字段核实的部分，不把组件名称相同视为实现等价。
 
-需谨慎：`SceneCompiler.cpp:1548-1555` 当前把 emitter `sort` 固定为 false，不能据此证明所有透明粒子的官方排序；动态粒子 z-sort、camera-depth sort 与 OIT 均未在本轮确认。
+参考入口均相对 `SceneRenderer/Sources/SceneRenderer/`：`Kernel/Json.cpp`、`Wallpaper/Schema/ParticleLayerSpec.cpp/.cppm`、`Wallpaper/Compiler/ParticleCompiler.cpp`、`Domain/Particles/ParticleSystem.cpp`、`ParticleEmitter.cpp`、`WallpaperParticleGeometry.cpp`。我方入口为 `SceneParticleDefinitionParser`、`SceneParticleInitializerExecutionPlan`、`SceneParticleOperatorExecutionPlan`、`SceneParticleSimulator`、`SceneParticleRuntime`、`SceneParticleRenderSupport` 和唯一 compositor。
+
+| 定义 / 默认输入 | Mirage 实际 consumer / 行为 | MyWallpaperX consumer / 差异 | 可区分输入 / 下一门 |
+|---|---|---|---|
+| 数值标量转三维向量 | `Json.cpp` 固定数组只写 X，Y/Z 为零；vector string 走另一解析分支 | `SimulationMath.vector` 广播 XYZ | scalar `0.6` 与三个单轴向量；旧标量官方轴合同仍 unknown，不能据此改成 X 或 Z |
+| General `maxcount/starttime/flags` | Schema 默认 `1/0`；System 预热最多 240 步但覆盖完整 starttime | authored capacity + 既有预算；固定步长预热，已修 15 秒被截为 4 秒 | 比较同总时长出生数/相位；不同步长不是官方等价证据 |
+| `boxrandom` | Emitter 消费 origin、distances、directions、CP、speed、rate/instantaneous/duration | SpawnPlan → shared birth state；已有 centered box 与方向/速度准入 | 零/单轴/反向范围、带 CP 旋转的径向速度；完整默认与分布待逐字段公式对照 |
+| `sphererandom` | sphere 半径、方向、sign、CP 与 speed 进入出生状态 | `randomSphereOffset` 直接按有效维度采样，已消除拒绝采样固定 X 回退 | 8 种轴子集、YZ shell、径向速度；官方 RNG/分布仍未证明 |
+| `lifetimerandom` | 默认 `0...1`，exponent 随机值 → lifetime | 同默认，scalar plan → particle lifetime | 零寿命、exponent、子系统 death 顺序；随机序列不作等价声明 |
+| `sizerandom` | 默认 `0...20` → size；几何又使用 half size | 同默认；Runtime 发布 `size * 0.5` 后几何按宽度/aspect 消费 | 自制 100/200/400 卡已实测；[同状态GPU消融](runtime-evidence-current.md#e-2026-09-27-lightshaft-geometry-ablation)中×2将内部亮峰移出顶部，单改角度轴无此结果；用户确认中部也应有渐变，不能用峰值出屏当验收。倍率仍待作者单位判别，不增加裁根算法。两项目都有 half size 不证明官方单位正确 |
+| `alpharandom` | 默认 `0.05...1` → initial alpha | 同默认 → initialAlpha/current alpha | 重叠 alpha operators 的最终片元，而非只看创建值 |
+| `colorrandom` | 默认黑至白，单一随机数插值 RGB；此分支不消费 exponent | RandomColor plan 另有 exponent 输入，创建后存 initialColor | 固定端点、非灰端点/exponent；通道相关性与色域需独立核实 |
+| `velocityrandom` | 缺省 XY `-32...32`、Z0；加到出生速度 | 缺省全零，加到出生速度 | 只写 max 的单向速度；默认值差异已定位，本轮无新官方默认值证明 |
+| `rotationrandom` | 缺省 Z `0...2π`；显式 numeric scalar 经 X-only 路径 | 同缺省 Z；显式 scalar 广播 XYZ | scalar/明确 XYZ/单轴三组；直接影响光束缩短、倾斜与宽根 |
+| `angularvelocityrandom` | 缺省 Z `-5...5`；scalar 同上 | 同缺省；scalar 广播 XYZ | 固定角速度 + 有/无 Angular Movement |
+| `turbulentvelocityrandom` | compiler 闭包保存自己的 curl-noise 游走位置，消费 scale/time/offset/speed/basis | 自有 prepared turbulence plan → initializer velocity | 两者噪声/状态演进不同，不能当公式来源；待固定输入、时间和方向的轨迹对照 |
+| `movement` | drag/gravity 更新速度；System 在所有 operators 后无条件积分位置 | authored-order Movement 自身积分；本批修 finite negative drag 被截零 | 无 Movement、Movement 前/后 force、多 Movement；保留官方“需要 Movement”的合同，精确顺序仍待判别 |
+| `angularmovement` | 更新角速度；System 在 operators 后无条件积分角度 | 只有 Angular Movement 积分；本批同样修 signed drag | 无组件静止、负/零/正 drag、Float 溢出原子拒绝 |
+| `sizechange` | normalized life 的 start/end 插值，含 instance size factor | scalar change plan → current size | 与 General size 叠加是否重复、倒置时间/缺字段；本轮不宣称等价 |
+| `alphachange` | normalized life 插值 → current alpha multiplier | scalar change plan → current alpha multiplier | 两个 change 的顺序、start=end 与 fade 组合 |
+| `alphafade` | 默认 in/out 均 .5；`if/else if` 重叠时只走一边 | 两个独立 if，重叠区相乘 | in=.8、out=.2 与普通不重叠对照；重叠合同 unknown |
+| `colorchange` | 三通道 normalized life 插值 → color multiplier | color change plan → current color | 非白 initial color + 两个 change，逐通道核实 |
+| `oscillatealpha` | age seconds；frequencymax=0 时用 min；随机 phase 上界额外加 2π | ScalarOscillationPlan 保留 authored max；phase 范围不作同样扩展 | 两种寿命、显式零频率、固定 phase；不能因名字一致认定同相位 |
+| `oscillatesize` | 同上，scale 默认 .8...1.2 | 同 scale 默认，复用自有 oscillator | 尺寸峰谷时间与 instance size 组合 |
+| `oscillateposition` | 各轴缓存 frequency/scale/phase，按导数 × dt 累加位移 | PositionOscillationPlan/cache → Simulator position | mask 阈值、scalar scale、phase、不同 dt；公式/时间语义未闭合 |
+| `turbulence` | compiler 选择 phase/speed，自有 curl-noise 加速度 | 自有 TurbulencePlan/Simulator | 相同位置/时间/多个粒子的相关性；两者近似不能互证官方噪声 |
+| `vortex` | CP frame、offset/axis、内外速度作用；非法 CP 会取模；自有径向公式 | bounded Vortex plan/Simulator，保留 CP/profile 准入边界 | 轴上零半径、环内外、CP 旋转、world-space；不能移植取模 identity |
+| `controlpointattract` | CP frame→距阈值内 constant radial acceleration | bounded ControlPointForce→Simulator；已有 lifetime blend 与 strict identity | 恰好中心/阈值、负力、pointer/world-space；falloff 与完整空间合同待验 |
+| Sprite / SpriteTrail | Schema length .05、maxlength10；geometry + common material | RenderSupport/ShaderSource；我方省略 trail length 走既有 bounded 合同 | 单位速度、不同尺寸/长宽比、固定/屏幕/up 基底；不能用缺省值覆盖既有作者合同 |
+| Rope / RopeTrail | Schema subdivision3（ropeTrail1）、segments4；geometry 按连接序列 | prepared renderer/topology → 同一 GPU pipeline；已有 shared join/有限 subdivision | 折角、重复点、birth/death、多个 child、pointer 连续轨迹；本轮未全字段重证 |
+| Child / CP / overrides | child maxcount20、probability1、origin0/scale1/angles0；CP index 有取模行为；override color 覆盖并平方 | shared ChildRuntime/Expansion + typed instance override；多处 strict bounded admission | child 非均匀 scale/angles、eventfollow、CP identity、color 乘法；不得退回宽松身份或覆盖作者颜色 |
+| 材质 / atlas / texture / blend / refraction | geometry 继续走材质 sampler、blend、depth、camera binder | 现有粒子纹理/ShaderSource/unique compositor；宽度/aspect、BC3、normal/R-mask 已有专项门 | 最终像素与背景变形；本轮没有对所有 shader permutation 宣称闭合 |
+
+本轮材质合同补充：公开 stock `genericparticle.frag` 在 `ConvertTexture0Format` 后做两帧混合，再与颜色相乘；其注释明确保留透明帧RGB参与插值的旧加色行为。`common_fragment.h` 将R8解释为白色alpha、RG88解释为亮度alpha。MyWallpaperX现让普通粒子的root/child纹理、generated fallback和片元统一到该顺序：R8/RG88用同格式Metal swizzle view，过滤/混合后乘alpha并交给既有premultiplied compositor；无需CPU逐mip展开或按样本补偿。160组生产GPU反例与自制App渐变卡见[运行证据](runtime-evidence-current.md#e-2026-09-27-particle-straight-interpolation)。该改动不裁定size单位/标量角度，1315486372的光束原图alpha全满，亮根形状仍待单独闭合；也不把本轮结果外推为Mirage或官方全部材质等价。
+
+参考 compiler 的两个 emitter、八个 initializer、十二个 operator 分支已逐项列出。此计数不含 renderer/child，不能与我方 parser 名称总数相除当覆盖率。我方另有 HSV、color list、position offset/around CP、event inheritance、boids、cap velocity、remap、reduce movement、collision plane、layer-image 等 bounded 路径；整体替换为 Mirage 会丢失这些行为。详细字段的严格边界仍由[粒子专项表](particle-component-coverage.md)负责。
+
+**三种“光线”必须分别定位。** `1315486372` 的光线是带不对称 RGB 的粒子卡片，走上述尺寸/轴/基底/纹理链；authored Light Shafts effect 走 shader/material graph；`lspot` 等 light object 走 light snapshot 或 bounded spotlight projection。不能通过重写 light object 修复粒子纹理几何。
+
+| Light 定义 / 字段 | Mirage `f5049582` 最终消费者 | 我方当前对应 / 缺省与边界 | 判别门 |
+|---|---|---|---|
+| Point/Spot/Directional，origin/angles/color/intensity/radius | LightLayerSpec → SceneLight → SceneUniformBinder → 自有 LightingV1，最多四灯 | 三类 Definition → SceneLightSnapshot，最多四灯；material producers 消费 | 单灯/四灯/溢出、父变换、可见性、动态强度与受光像素 |
+| innercone/outercone/exponent | cone/exponent uniform 有 shader 计算 | Snapshot 携带 cone cosine；bounded SpotLightPlan 另消费 exponent | 普通 material 光照与独立锥形投影公式不能混为同一实现 |
+| castshadow | Desc/uniform 有接线；正交 image LightingV1 抑制整灯；shadowAtlas 请求被清空 | 本轮未重证我方完整 shadow producer/消费者 | 需要真实 shadow target + 遮挡物接收像素；字段存在不足以证明支持 |
+| castvolumetrics / volumetricsexponent / density | castvolumetrics 保存在 Desc；volumetricsexponent 只见 schema；未见完整计算；`_rt_volumetrics` 特殊纹理名被清空 | SpotLightDefinition/Plan/Runtime/Pipeline 有严格 bounded 2D 锥形投影，要求 solid、timeline 与有限参数等；不是通用体积散射 | 单锥/多锥、depth/遮挡、角度与密度；不得用 Mirage 作为完整体积光参考答案 |
+| attenuation / mindistance / lightsourcesize / cascadedistance0/1/2 | schema→Desc，未找到实际渲染消费者 | 本轮未完成全部对应字段追踪，维持未验证 | 逐字段消融必须改变其目标 ROI 才能认定加载后有效 |
+| scale/parent/parallax/dependencies/visibility 与 metadata | 通用 node/属性链；不是所有 metadata 都应影响像素 | shared layer frame/typed state；bounded spotlight 对 parent/dependencies 等有准入限制 | 先核实最终 world frame，再测相应光型；不凭解析成功扩张能力 |
+
+重写顺序按共享首错点：①解析单位/标量轴和缺省值 → ②出生空间/基底/几何 → ③operator 顺序与时钟 → ④材质/光照资源及合成。已确定且有判别输入的职责可整体替换；unknown 留在对照门，不用随机拉伸、裁根或样本分支掩盖。负 drag 的产品结果与证据见[运行索引](runtime-evidence-current.md#e-2026-09-27-signed-drag)；亮根问题继续由原[诊断入口](runtime-evidence-current.md#e-2026-09-27-lightshaft-root)持有。
 
 ### 11.6 linked layer、隐藏 source 与 visibility
 

@@ -224,28 +224,58 @@ enum SceneParticleChildTemplateSupport {
     ) -> (
         texture: MTLTexture,
         animation: SceneSpriteAnimation?,
-        sampling: SceneParticleTextureSampling
+        sampling: SceneParticleTextureSampling,
+        uvScale: SIMD2<Float>,
+        staticAspect: Float
     )? {
         switch source {
         case let .file(url):
-            guard case let .loaded(texture) = textureLoader.load(from: url, device: device),
-                  let colorTexture = SceneParticleColorTextureAdapter.adapt(
-                    texture, device: device
-                  ) else {
-                return nil
-            }
+            guard let sourceIdentity = textureLoader.sourceKey(for: url) else { return nil }
             let container = textureLoader.texContainer(from: url)
+            let animation = container.flatMap {
+                SceneSpriteAnimation(container: $0, sourceURL: url)
+            }
+            var uvScale = SIMD2<Float>(repeating: 1)
+            var staticAspect: Float = 1
+            let texture: MTLTexture
+            // Preserve the existing first-frame fallback for an unplayable
+            // atlas. Static files use the loader's validated output geometry:
+            // raw uploads can be cropped while embedded images retain padding.
+            if container == nil || (container?.spriteFrames.isEmpty == true
+                && container?.imageCount == 1 && container?.isAnimated == false) {
+                guard case let .loaded(candidate) = textureLoader.loadCandidate(
+                    from: url, purpose: .straightAlbedo, device: device
+                ) else { return nil }
+                texture = candidate.texture
+                uvScale = SIMD2(
+                    Float(candidate.mappedSize.width / candidate.physicalSize.width),
+                    Float(candidate.mappedSize.height / candidate.physicalSize.height)
+                )
+                // Keep the authored ratio even if the upload was normalized to
+                // the device budget and its integer dimensions were rounded.
+                staticAspect = container.map {
+                    Float($0.imageWidth) / Float($0.imageHeight)
+                } ?? Float(candidate.mappedSize.width / candidate.mappedSize.height)
+            } else {
+                guard case let .loaded(value) = textureLoader.load(
+                    from: url, purpose: .straightAlbedo, device: device
+                )
+                else { return nil }
+                texture = value
+            }
+            guard let colorTexture = SceneParticleColorTextureAdapter.adapt(
+                texture
+            ), textureLoader.sourceKey(for: url) == sourceIdentity else { return nil }
             return (
-                colorTexture,
-                container.flatMap {
-                    SceneSpriteAnimation(container: $0, sourceURL: url)
-                },
+                colorTexture, animation,
                 container.map { SceneParticleTextureSampling(texFlags: $0.flags) }
-                    ?? .directImageFallback
+                    ?? .directImageFallback,
+                uvScale, staticAspect
             )
         case let .builtIn(key):
             guard let texture = builtInTextureRegistry.texture(for: key) else { return nil }
-            return (texture, nil, .directImageFallback)
+            return (texture, nil, .directImageFallback, SIMD2(repeating: 1),
+                    Float(texture.width) / Float(texture.height))
         }
     }
 }

@@ -48,14 +48,16 @@ final class SceneParticleMetalInstanceBuffer: @unchecked Sendable {
                 return false
             }
             currentSlotIndex = slotIndex
-            let length = instances.count * MemoryLayout<SceneParticleGPUInstance>.stride
-            instances.withUnsafeBufferPointer { values in
-                guard let source = values.baseAddress else { return }
-                slots[slotIndex].buffer.contents().copyMemory(
-                    from: source,
-                    byteCount: length
-                )
+            let destination = slots[slotIndex].buffer.contents()
+                .bindMemory(to: SceneParticleGPUInstance.self, capacity: instances.count)
+            currentCount = 0
+            // Keep authored order and safe peers when a post-simulation transform
+            // overflows. Draw count must describe only the records actually uploaded.
+            for instance in instances where instance.isFinite {
+                destination[currentCount] = instance
+                currentCount += 1
             }
+            if currentCount == 0 { currentSlotIndex = nil }
             return true
         }
     }

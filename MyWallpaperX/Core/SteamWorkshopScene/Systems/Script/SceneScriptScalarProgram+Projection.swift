@@ -106,23 +106,23 @@ nonisolated extension SceneScriptScalarProgram {
             }
             if binding.targetPath == [
                 .key("objects"), .index(objectIndex),
-                .key("instanceoverride"), .key("rate"),
+                .key("instanceoverride"), .key(binding.targetKey),
             ] {
-                guard binding.targetKey == "rate",
-                      SceneScriptDynamicProviderHostContract.supports(
-                          keys: binding.wrapperKeys ?? [],
-                          host: .particleRate
+                guard SceneScriptDynamicProviderHostContract.supports(
+                          keys: binding.wrapperKeys ?? [], host: .particleScalar
                       ),
                       layer.contentKind == "particle",
                       let override = layer.particleInstanceOverride,
-                      let rate = override.rate,
-                      rate.hasScript,
-                      rate.userPropertyKey == nil,
-                      !rate.hasAnimation,
-                      rate.value?.scalarValue?.bitPattern == authored.bitPattern else {
+                      let (field, value) = particleScalarBinding(
+                          named: binding.targetKey, override: override
+                      ),
+                      value.hasScript,
+                      value.userPropertyKey == nil,
+                      !value.hasAnimation,
+                      value.value?.scalarValue?.bitPattern == authored.bitPattern else {
                     return nil
                 }
-                return .particle(layerID: layerID, field: .rate)
+                return .particle(layerID: layerID, field: field)
             }
             if binding.targetPath == [
                 .key("objects"), .index(objectIndex), .key("intensity"),
@@ -229,4 +229,23 @@ nonisolated extension SceneScriptScalarProgram {
             .key("constantshadervalues"), .key(name),
         ]
     }
+    private static func particleScalarBinding(
+        named name: String, override value: SceneParticleInstanceOverride
+    ) -> (SceneDynamicParticleField, SceneParticleBoundValue)? {
+        let field: SceneDynamicParticleField
+        let bound: SceneParticleBoundValue?
+        switch name {
+        case "alpha": (field, bound) = (.alpha, value.alpha)
+        case "size": (field, bound) = (.size, value.size)
+        case "lifetime": (field, bound) = (.lifetime, value.lifetime)
+        case "rate": (field, bound) = (.rate, value.rate)
+        case "speed": (field, bound) = (.speed, value.speed)
+        case "count": (field, bound) = (.count, value.count)
+        case "brightness": (field, bound) = (.brightness, value.brightness)
+        default: return nil
+        }
+        return bound.map { (field, $0) }
+    }
+
+
 }

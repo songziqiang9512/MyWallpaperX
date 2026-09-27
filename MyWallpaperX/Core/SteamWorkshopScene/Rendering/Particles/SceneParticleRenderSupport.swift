@@ -105,7 +105,7 @@ nonisolated enum SceneParticleSpriteFrameSelector {
             let index = min(lower, frameDurations.count - 1)
             let frameStart = index == 0 ? 0 : frameEndTimes[index - 1]
             let duration = max(frameEndTimes[index] - frameStart, Float.leastNonzeroMagnitude)
-            let next = (index + 1) % frameDurations.count
+            let next = min(index + 1, frameDurations.count - 1)
             let blend = allowsBlend ? min(max((elapsed - frameStart) / duration, 0), 1) : 0
             return SceneParticleSpriteFrameSelection(
                 currentIndex: index,
@@ -116,7 +116,7 @@ nonisolated enum SceneParticleSpriteFrameSelector {
         for index in frameDurations.indices {
             let duration = effectiveDuration(frameDurations[index])
             if elapsed < duration || index == frameDurations.index(before: frameDurations.endIndex) {
-                let next = (index + 1) % frameDurations.count
+                let next = min(index + 1, frameDurations.count - 1)
                 let blend = allowsBlend ? min(max(elapsed / duration, 0), 1) : 0
                 return SceneParticleSpriteFrameSelection(
                     currentIndex: index,
@@ -176,7 +176,7 @@ nonisolated enum SceneParticleOrientation: Equatable, Sendable {
         cameraRight: SIMD3<Float>,
         cameraUp: SIMD3<Float>,
         cameraForward: SIMD3<Float>,
-        worldUp: SIMD3<Float> = SIMD3(0, 1, 0),
+        worldUp: SIMD3<Float> = SIMD3(0, -1, 0),
         fixedRight: SIMD3<Float> = SIMD3(1, 0, 0),
         fixedUp: SIMD3<Float> = SIMD3(0, 1, 0)
     ) -> SceneParticleOrientationBasis {
@@ -189,12 +189,24 @@ nonisolated enum SceneParticleOrientation: Equatable, Sendable {
         case .upright, .worldUpright:
             let up = SceneParticleOrientationBasis.normalized(
                 worldUp,
-                fallback: SIMD3(0, 1, 0)
+                fallback: SIMD3(0, -1, 0)
             )
-            let horizontal = simd_cross(cameraForward, up)
-            let aligned = simd_dot(horizontal, cameraRight) < 0 ? -horizontal : horizontal
-            let right = simd_length_squared(aligned) > 1e-8 ? aligned : cameraRight
-            return SceneParticleOrientationBasis.orthonormalized(right: right, up: up)
+            // With the particle texture-up convention, this handedness keeps
+            // cross(right, up) facing forward. Camera roll must not select the
+            // sign: doing so mirrors the card when roll crosses 90 degrees.
+            var right = simd_cross(up, cameraForward)
+            if !simd_length_squared(right).isFinite || simd_length_squared(right) <= 1e-8 {
+                right = cameraRight - up * simd_dot(cameraRight, up)
+                if !simd_length_squared(right).isFinite || simd_length_squared(right) <= 1e-8 {
+                    let reference: SIMD3<Float> = abs(up.x) < 0.9
+                        ? SIMD3(1, 0, 0) : SIMD3(0, 0, 1)
+                    right = reference - up * simd_dot(reference, up)
+                }
+            }
+            return SceneParticleOrientationBasis(
+                right: SceneParticleOrientationBasis.normalized(right, fallback: SIMD3(1, 0, 0)),
+                up: up
+            )
         case .fixed, .worldFixed:
             return SceneParticleOrientationBasis.orthonormalized(
                 right: fixedRight,
@@ -206,7 +218,7 @@ nonisolated enum SceneParticleOrientation: Equatable, Sendable {
     nonisolated func fixedBasisVectors(
         axis rawAxis: SIMD3<Float>,
         layerModel: simd_float4x4
-    ) -> (right: SIMD3<Float>, up: SIMD3<Float>) {
+    ) -> (right: SIMD3<Float>, up: SIMD3<Float>, forward: SIMD3<Float>) {
         let axisLength = simd_length_squared(rawAxis)
         let normal = axisLength.isFinite && axisLength > 1e-8
             ? rawAxis / sqrt(axisLength)
@@ -226,9 +238,11 @@ nonisolated enum SceneParticleOrientation: Equatable, Sendable {
             : layerModel
         let transformedRight = basisModel * SIMD4(localRight.x, localRight.y, localRight.z, 0)
         let transformedUp = basisModel * SIMD4(localUp.x, localUp.y, localUp.z, 0)
+        let transformedForward = basisModel * SIMD4(normal.x, normal.y, normal.z, 0)
         return (
             SIMD3(transformedRight.x, transformedRight.y, transformedRight.z),
-            SIMD3(transformedUp.x, transformedUp.y, transformedUp.z)
+            SIMD3(transformedUp.x, transformedUp.y, transformedUp.z),
+            SIMD3(transformedForward.x, transformedForward.y, transformedForward.z)
         )
     }
 }
@@ -236,6 +250,9 @@ nonisolated enum SceneParticleOrientation: Equatable, Sendable {
 nonisolated struct SceneParticleOrientationBasis: Equatable, Sendable {
     let right: SIMD3<Float>
     let up: SIMD3<Float>
+    // Fixed local Sprite geometry keeps the full model linear transform.
+    // Direction/refraction axes retain their separate normalized contract.
+    var fixedGeometry: simd_float3x3? = nil
 
     fileprivate static func orthonormalized(
         right rawRight: SIMD3<Float>,
@@ -304,6 +321,17 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
     var trailHeadJoin: SIMD4<Float>
     var trailTailJoin: SIMD4<Float>
 
+    /// Validate after child transforms and Float narrowing, at the upload boundary.
+    var isFinite: Bool {
+        func finite(_ value: SIMD4<Float>) -> Bool {
+            value.x.isFinite && value.y.isFinite && value.z.isFinite && value.w.isFinite
+        }
+        return finite(positionAndSize) && finite(rotationAndAlpha)
+            && finite(colorAndFrameMix) && finite(frame0A) && finite(frame0B)
+            && finite(frame1A) && finite(frame1B) && finite(velocityAndTrail)
+            && finite(trailHeadJoin) && finite(trailTailJoin)
+    }
+
     nonisolated init(
         position: SIMD3<Float>,
         size: Float,
@@ -334,11 +362,11 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
         let currentAspect = Self.validAspect(currentFrameAspect) ? currentFrameAspect : 1
         let authoredNextAspect = nextFrameAspect ?? currentAspect
         let followingAspect = Self.validAspect(authoredNextAspect) ? authoredNextAspect : currentAspect
-        // Wallpaper Engine's generic particle vertex stream publishes half of
-        // the authored particle size. Its stock vertex shader then expands the
-        // quad around the center with `(uv - 0.5)`. Keep the authored value in
-        // the simulator for operators/collision, and apply this geometry-only
-        // conversion at the final GPU record boundary.
+        // Retain the current half-size upload convention, also used by Mirage.
+        // The public stock shader expands the published width around the center
+        // with `(uv - 0.5)`; it does not establish the authored-to-published size
+        // multiplier. That absolute conversion still needs an official golden.
+        // Operators/collision continue to use the unmodified authored size.
         positionAndSize = SIMD4(position.x, position.y, position.z, size * 0.5)
         rotationAndAlpha = SIMD4(rotation.x, rotation.y, rotation.z, alpha)
         colorAndFrameMix = SIMD4(color.x, color.y, color.z, min(max(frameMix, 0), 1))
@@ -390,13 +418,21 @@ nonisolated struct SceneParticleLayerUniforms: Sendable {
     var basisUp: SIMD4<Float>
     var viewportSize: SIMD2<Float>
     var particleSizeScale: SIMD2<Float>
+    var viewRight: SIMD4<Float>
+    var viewUp: SIMD4<Float>
+    var spriteRight: SIMD4<Float>
+    var spriteUp: SIMD4<Float>
+    var spriteForward: SIMD4<Float>
 
     nonisolated init(
         viewProjection: simd_float4x4,
         layerModel: simd_float4x4,
         basis: SceneParticleOrientationBasis,
         viewportSize: SIMD2<Float> = SIMD2(repeating: 1),
-        sizeIsWorldSpace: Bool = false
+        sizeIsWorldSpace: Bool = false,
+        viewBasis: SceneParticleOrientationBasis = .init(
+            right: SIMD3(1, 0, 0), up: SIMD3(0, 1, 0)
+        )
     ) {
         self.viewProjection = viewProjection
         self.layerModel = layerModel
@@ -409,6 +445,23 @@ nonisolated struct SceneParticleLayerUniforms: Sendable {
         )
         basisRight = SIMD4(basis.right.x, basis.right.y, basis.right.z, 0)
         basisUp = SIMD4(basis.up.x, basis.up.y, basis.up.z, 0)
+        viewRight = SIMD4(viewBasis.right.x, viewBasis.right.y, viewBasis.right.z, 0)
+        viewUp = SIMD4(viewBasis.up.x, viewBasis.up.y, viewBasis.up.z, 0)
+        let geometry: simd_float3x3
+        if !sizeIsWorldSpace, let fixedGeometry = basis.fixedGeometry {
+            // Preserve shear, reflection, and zero columns. Reconstructing
+            // these from axis lengths or cross products changes the card.
+            geometry = fixedGeometry
+        } else {
+            geometry = simd_float3x3(
+                basis.right * particleSizeScale.x,
+                basis.up * particleSizeScale.y,
+                simd_normalize(simd_cross(basis.right, basis.up))
+            )
+        }
+        spriteRight = SIMD4(geometry.columns.0, 0)
+        spriteUp = SIMD4(geometry.columns.1, 0)
+        spriteForward = SIMD4(geometry.columns.2, 0)
         self.viewportSize = viewportSize.x.isFinite && viewportSize.y.isFinite
             && viewportSize.x > 0 && viewportSize.y > 0
             ? viewportSize : SIMD2(repeating: 1)

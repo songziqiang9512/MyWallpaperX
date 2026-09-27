@@ -26,6 +26,7 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
     let origin: SIMD3<Double>
     let directions: SIMD3<Double>
     let sign: SIMD3<Double>
+    let sphereAxisMask: UInt8
     let sphereDistanceMinimum: Double
     let sphereDistanceMaximum: Double
     let boxDistanceMinimum: SIMD3<Double>
@@ -43,12 +44,22 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
     let audioResponseEnabled: Bool
     let audioResponsePlan: SceneParticleAudioResponsePlan?
 
+    /// Duration is measured after the initial delay. Event children may bound
+    /// an otherwise continuous emitter without shortening authored durations.
+    nonisolated func durationLimit(fallback: Double?) -> Double? {
+        if let duration, duration > 0 { return duration }
+        return fallback
+    }
+
     nonisolated init(_ value: SceneParticleEmitter) {
         origin = SceneParticleSimulationMath.vector(value.origin, fallback: .zero)
         directions = SceneParticleSimulationMath.vector(
             value.directions, fallback: SIMD3(1, 1, 0)
         )
         sign = SceneParticleSimulationMath.vector(value.sign, fallback: .zero)
+        sphereAxisMask = (abs(directions.x) > 1e-6 ? 1 : 0)
+            | (abs(directions.y) > 1e-6 ? 2 : 0)
+            | (abs(directions.z) > 1e-6 ? 4 : 0)
 
         let sphereMinimum = max(
             0,
@@ -116,20 +127,44 @@ nonisolated struct SceneParticleEmitterState: Sendable {
         return 1
     }
 
+    nonisolated func hasFinishedEmission(
+        plan: SceneParticleEmitterSpawnPlan,
+        maximumEmissionDuration: Double?
+    ) -> Bool {
+        // Unsupported schedules already emit a local diagnostic and cannot
+        // become executable later. Do not reserve child capacity forever.
+        if case .unsupported = plan.initialDelayAdmission { return true }
+        if case .unsupported = plan.periodicEmissionAdmission { return true }
+        // A delayed burst remains pending even while the system is empty.
+        if (plan.instantaneousCount ?? 0) > 0 && !emittedInstantaneous { return false }
+        guard (plan.rate ?? 5) > 0 else { return true }
+        guard let limit = plan.durationLimit(fallback: maximumEmissionDuration) else {
+            return false
+        }
+        return elapsed >= limit
+    }
+
     nonisolated mutating func scheduledActiveDuration(
         plan: SceneParticleEmitterSpawnPlan,
         stepDuration: Double,
-        rateScale: Double
+        maximumEmissionDuration: Double? = nil
     ) -> Double? {
         let scheduled = activeDurationAfterInitialDelay(
             admission: plan.initialDelayAdmission, stepDuration: stepDuration
         )
         guard scheduled > 0 else { return nil }
-        elapsed += scheduled * rateScale
-        if let limit = plan.duration,
-           limit > 0, elapsed > limit + 1e-12 { return nil }
+        // Integrate the overlap, including a partial final step. Initial delay,
+        // duration and periodic windows all consume the same simulation time.
+        let available: Double
+        if let limit = plan.durationLimit(fallback: maximumEmissionDuration) {
+            available = min(scheduled, max(limit - elapsed, 0))
+        } else {
+            available = scheduled
+        }
+        elapsed += scheduled
+        guard available > 0 else { return nil }
         let active = periodicActiveDuration(
-            admission: plan.periodicEmissionAdmission, stepDuration: scheduled
+            admission: plan.periodicEmissionAdmission, stepDuration: available
         )
         return active > 0 ? active : nil
     }

@@ -11,6 +11,7 @@ struct SceneParticleRefractionBinding {
         let usesParticleFrames: Bool
         let uvScale: SIMD2<Float>
         let sampling: SceneParticleTextureSampling
+        let authoredFormat: SceneShaderTextureFormat?
     }
 
     private enum NormalSource {
@@ -19,7 +20,8 @@ struct SceneParticleRefractionBinding {
             texture: MTLTexture,
             usesParticleFrames: Bool,
             uvScale: SIMD2<Float>,
-            sampling: SceneParticleTextureSampling
+            sampling: SceneParticleTextureSampling,
+            authoredFormat: SceneShaderTextureFormat?
         )
     }
 
@@ -35,13 +37,15 @@ struct SceneParticleRefractionBinding {
         colorEncoding: ColorEncoding,
         normalUsesParticleFrames: Bool,
         normalUVScale: SIMD2<Float>,
-        normalSampling: SceneParticleTextureSampling
+        normalSampling: SceneParticleTextureSampling,
+        normalFormat: SceneShaderTextureFormat?
     ) {
         normalSource = .baseV1(
             texture: normalTexture,
             usesParticleFrames: normalUsesParticleFrames,
             uvScale: normalUVScale,
-            sampling: normalSampling
+            sampling: normalSampling,
+            authoredFormat: normalFormat
         )
         self.amount = amount
         self.overbright = overbright
@@ -67,12 +71,20 @@ struct SceneParticleRefractionBinding {
         switch normalSource {
         case .staticCandidate(let candidate):
             return Self.resolve(candidate)
-        case let .baseV1(texture, usesParticleFrames, uvScale, sampling):
+        case let .baseV1(texture, usesParticleFrames, uvScale, sampling, authoredFormat):
+            guard authoredFormat == nil || authoredFormat == .rgba8888
+                || authoredFormat == .dxt5 else { return nil }
+            if let authoredFormat {
+                guard texture.pixelFormat == .rgba8Unorm
+                    || (texture.pixelFormat == .bc3_rgba && authoredFormat == .dxt5)
+                    else { return nil }
+            }
             return NormalArguments(
                 texture: texture,
                 usesParticleFrames: usesParticleFrames,
                 uvScale: uvScale,
-                sampling: sampling
+                sampling: sampling,
+                authoredFormat: authoredFormat
             )
         }
     }
@@ -87,10 +99,12 @@ struct SceneParticleRefractionBinding {
     private static func resolve(
         _ candidate: SceneTextureCandidate
     ) -> NormalArguments? {
-        guard let uvScale = candidate.axisAlignedMappedUVScale(
+        guard let authoredFormat = candidate.authoredFormat,
+              authoredFormat == .rgba8888 || authoredFormat == .dxt5,
+              let uvScale = candidate.axisAlignedMappedUVScale(
             expectedPurpose: .normal
         ), candidate.pixelFormat == .rgba8Unorm
-            || candidate.pixelFormat == .bc3_rgba,
+            || (candidate.pixelFormat == .bc3_rgba && authoredFormat == .dxt5),
               candidate.texture.textureType == .type2D,
               candidate.texture.sampleCount == 1,
               candidate.texture.usage.contains(.shaderRead),
@@ -101,7 +115,8 @@ struct SceneParticleRefractionBinding {
             texture: candidate.texture,
             usesParticleFrames: false,
             uvScale: uvScale,
-            sampling: candidate.sampling
+            sampling: candidate.sampling,
+            authoredFormat: authoredFormat
         )
     }
 }

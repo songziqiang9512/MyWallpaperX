@@ -46,13 +46,13 @@ final class SceneParticleBuiltInTextureRegistry {
                         x: normalizedX,
                         y: normalizedY
                     )
-                // 粒子混合管线用 sourceRGB = .one，纹理需自带预乘 alpha，
-                // 因此 RGB 与 alpha 同值即预乘后的白色。
+                // Straight white mask; coverage is applied after sampling so
+                // file-backed and generated textures share one color contract.
                 let component = UInt8((alpha * 255).rounded())
                 let offset = (y * size.width + x) * 4
-                pixels[offset] = component
-                pixels[offset + 1] = component
-                pixels[offset + 2] = component
+                pixels[offset] = 255
+                pixels[offset + 1] = 255
+                pixels[offset + 2] = 255
                 pixels[offset + 3] = component
             }
         }

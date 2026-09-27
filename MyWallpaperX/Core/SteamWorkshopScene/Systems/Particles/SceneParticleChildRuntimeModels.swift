@@ -17,7 +17,6 @@ struct SceneParticleChildSystem {
     let depth: Int
     let spawnScopeID: UInt64?
     let parentParticleID: UInt64?
-    let emissionCompletionTime: Double?
     let isWorldSpace: Bool
     var origin: SIMD3<Double>
     var particleOrigins: [UInt64: SIMD3<Double>]

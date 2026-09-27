@@ -270,6 +270,10 @@ enum Harness {
     static func main() throws {
         guard CommandLine.arguments.count >= 2 else { throw HarnessError.missingMode }
         switch CommandLine.arguments[1] {
+        case "delayed-children":
+            try printJSON(delayedChildren())
+        case "delayed-child-edges":
+            try printJSON(delayedChildren(edges: true))
         case "real":
             guard CommandLine.arguments.count == 4 else { throw HarnessError.missingPath }
             try printJSON(realSample(
@@ -334,6 +338,10 @@ enum Harness {
             try printJSON(syntheticRope())
         case "dynamic-control-point-synthetic":
             try printJSON(syntheticDynamicControlPoint())
+        case "child-float-safety":
+            try printJSON(syntheticChildFloatSafety())
+        case "child-instance-override-synthetic":
+            try printJSON(syntheticChildInstanceOverride())
         case "dynamic-instance-override-synthetic":
             try printJSON(syntheticDynamicInstanceOverride())
         case "velocity-defaults-synthetic":
@@ -354,6 +362,10 @@ enum Harness {
             try printJSON(syntheticSubframeLifetime())
         case "subframe-child-lifecycle-synthetic":
             try printJSON(syntheticSubframeChildLifecycle())
+        case "sprite-geometry-synthetic":
+            try printJSON(syntheticSpriteGeometry())
+        case "child-capacity-synthetic":
+            try printJSON(syntheticChildCapacity())
         case "synthetic":
             try printJSON(synthetic())
         default:
@@ -397,6 +409,103 @@ enum Harness {
             "minimumOnly": velocity(minimum: [0, -100, 0], maximum: nil),
             "omitted": velocity(minimum: nil, maximum: nil),
         ]
+    }
+
+
+    private static func syntheticChildCapacity() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-child-capacity-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        func particle(_ name: String, maximum: Int, burst: Int, lifetime: Double = 10,
+                      rate: Double = 0, startTime: Double = 0, children: [[String: Any]] = []) throws {
+            try writeJSON([
+                "material": "materials/shared.json", "maxcount": maximum, "starttime": startTime,
+                "emitter": [["name": "sphererandom", "rate": rate,
+                    "instantaneous": burst, "distancemin": 0, "distancemax": 0]],
+                "initializer": [["name": "lifetimerandom", "min": lifetime, "max": lifetime],
+                    ["name": "sizerandom", "min": 4, "max": 4]],
+                "renderer": [["name": "sprite"]], "children": children,
+            ], to: directory.appendingPathComponent("particles/\(name).json"))
+        }
+        func child(_ name: String, _ trigger: String = "static") -> [String: Any] {
+            ["name": "particles/\(name).json", "type": trigger]
+        }
+        try particle("dense", maximum: 20000, burst: 8500)
+        try particle("warm", maximum: 20000, burst: 8500, startTime: 0.1)
+        try particle("prewarm", maximum: 1, burst: 0, children: [child("warm")])
+        try particle("large", maximum: 20000, burst: 20000)
+        try particle("small", maximum: 5536, burst: 5536)
+        try particle("short", maximum: 20000, burst: 8500, lifetime: 1.0 / 60.0)
+        try particle("single", maximum: 1, burst: 0, children: [child("dense")])
+        try particle("static", maximum: 1, burst: 0,
+                     children: Array(repeating: child("large"), count: 65) + [child("small")])
+        for trigger in ["eventspawn", "eventdeath", "eventfollow"] {
+            try particle(trigger, maximum: 4, burst: 4,
+                         lifetime: trigger == "eventdeath" ? 1.0 / 60.0 : 10,
+                         children: [child("large", trigger)])
+        }
+        try particle("head", maximum: 4, burst: 4, children: [child("large", "eventspawn")])
+        try particle("nested", maximum: 1, burst: 0,
+                     children: [child("head"), child("large"), child("large"), child("large")])
+        try particle("recycle", maximum: 16, burst: 4, rate: 60,
+                     children: [child("short", "eventspawn")])
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let pass = SceneRenderDescriptor.MaterialPassDescriptor(
+            materialPath: "materials/shared.json", shaderPath: "genericparticle",
+            texturePaths: ["shared.png"], blending: "additive")
+        func runtime(_ name: String) -> SceneParticleRuntime {
+            SceneParticleRuntime(descriptor: SceneRenderDescriptor(
+                layers: [layer(970, "particles/\(name).json")], renderOrderLayerIDs: [970],
+                materialPasses: [pass]), cacheDirectory: directory, device: device)
+        }
+        func count(_ batches: [SceneParticleDrawBatch], path: String) -> Int {
+            batches.filter { $0.particlePath == "particles/\(path).json" }
+                .reduce(0) { $0 + $1.instances.count }
+        }
+        var output: [String: Any] = [:]
+        for name in ["single", "prewarm", "static", "eventspawn", "eventdeath", "eventfollow", "nested"] {
+            let value = runtime(name)
+            var peak = 0
+            for _ in 0..<4 {
+                let batches = value.advance(by: 1.0 / 60.0)
+                if name == "static" { output["smallPeer"] = count(batches, path: "small") }
+                peak = max(peak, count(batches, path: name == "single" ? "dense" : (name == "prewarm" ? "warm" : "large"))
+                    + (name == "static" ? count(batches, path: "small") : 0))
+            }
+            output[name] = peak
+            output[name + "Diagnostics"] = value.diagnostics.compactMap {
+                $0.kind == .simulationLimitation ? $0.detail : nil
+            }
+            let systems = value.frameSnapshot().layers.first?.child?.systems ?? []
+            output[name + "Capacity"] = [1, 2].map { depth in
+                systems.filter { $0.depth == depth }.reduce(0) { $0 + $1.simulator.maximumParticleCount }
+            }
+        }
+        let retry = runtime("recycle")
+        _ = retry.advance(by: 1.0 / 60.0)
+        let before = retry.frameSnapshot()
+        var firstCounts: [Int] = []
+        var allocations: [[Int]] = []
+        for _ in 0..<5 {
+            firstCounts.append(count(retry.advance(by: 1.0 / 60.0), path: "short"))
+            let systems = retry.frameSnapshot().layers.first!.child!.systems
+            allocations.append([systems.count, systems.reduce(0) { $0 + $1.simulator.maximumParticleCount }])
+        }
+        output["recycleAllocations"] = allocations
+        let firstState = retry.frameSnapshot().layers.first!.child!
+        let firstIDs = firstState.systems.map(\.id)
+        retry.restoreFrame(before)
+        var replayCounts: [Int] = []
+        for _ in 0..<5 { replayCounts.append(count(retry.advance(by: 1.0 / 60.0), path: "short")) }
+        let replayState = retry.frameSnapshot().layers.first!.child!
+        output["identityReplay"] = firstIDs == replayState.systems.map(\.id)
+            && firstState.nextSeed == replayState.nextSeed
+            && firstState.nextSystemID == replayState.nextSystemID
+        output["recycle"] = firstCounts
+        output["replay"] = replayCounts
+        return output
     }
 
     private static func playbackDeltaBounds() -> [String: Double] {
@@ -1973,11 +2082,95 @@ enum Harness {
         ]
     }
 
+    private static func delayedChildren(edges: Bool = false) throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("mwx-child-delay-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        let device = MTLCreateSystemDefaultDevice()!
+        func make(_ trigger: String, continuous: Bool = false, duration: Double? = nil,
+                  nested: Bool = false, warm: Double = 0, multiple: Bool = false,
+                  delay: Any = 0.2, rate: Double = 60) throws -> SceneParticleRuntime {
+            try writeParticle("particles/child.json", material: "materials/shared.json",
+                lifetime: 0.1, startTime: warm, rate: continuous ? rate : 0,
+                emitterDuration: duration, instantaneous: continuous ? nil : 1, under: directory)
+            let url = directory.appendingPathComponent("particles/child.json")
+            var json = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+            var emitters = json["emitter"] as! [[String: Any]]
+            emitters[0]["delay"] = delay
+            emitters[0]["origin"] = "30 0 0"
+            if multiple { var early = emitters[0]; early["delay"] = 0; early["origin"] = "-30 0 0"; emitters.insert(early, at: 0) }
+            json["emitter"] = emitters
+            try writeJSON(json, to: url)
+            let child: [String: Any] = ["name":"particles/child.json", "type":trigger]
+            if nested {
+                try writeParticle("particles/middle.json", material: "materials/shared.json",
+                    lifetime: 0.05, rate: 0, instantaneous: 1, children: [child], under: directory)
+            }
+            try writeParticle("particles/root.json", material: "materials/shared.json",
+                lifetime: trigger == "eventdeath" ? 0.05 : 1, rate: 0, instantaneous: 1,
+                children: nested ? [["name":"particles/middle.json","type":"static"]] : [child], under: directory)
+            return SceneParticleRuntime(descriptor: .init(layers: [layer(91,"particles/root.json",particleRate:1)],
+                renderOrderLayerIDs:[91],materialPasses:[.init(materialPath:"materials/shared.json",
+                    shaderPath:"genericparticle",texturePaths:["shared.png"],blending:"additive")]),
+                cacheDirectory: directory,device:device)
+        }
+        func run(_ runtime: SceneParticleRuntime, pause: Bool = false) -> [String: Any] {
+            let target=SceneDynamicTarget.particle(layerID:91,field:.rate)
+            let zero=SceneDynamicSnapshotResolver().resolve(frameIndex:1,generation:1,
+                definitions:[.init(target:target,valueType:.scalar,authoredValue:.scalar(1))],
+                userValues:[target:.scalar(0)]).snapshot
+            if pause { for _ in 0..<60 { _=runtime.advance(by:1.0/60,dynamicValues:zero) } }
+            var nonempty:[Int]=[];var counts:[Int]=[];var states:[Int]=[];var retryEqual=true
+            for step in 1...180 {
+                let before=runtime.frameSnapshot()
+                let batches=runtime.advance(by:1.0/60)
+                let count=batches.filter{$0.particlePath=="particles/child.json"}.reduce(0){$0+$1.instances.count}
+                do {
+                    let expected=batches.filter{$0.particlePath=="particles/child.json"}.flatMap(\.instances).map{vector($0.positionAndSize)+vector($0.rotationAndAlpha)}
+                    let expectedState=runtime.frameSnapshot().layers.first?.child
+                    runtime.restoreFrame(before)
+                    let replay=runtime.advance(by:1.0/60).filter{$0.particlePath=="particles/child.json"}.flatMap(\.instances).map{vector($0.positionAndSize)+vector($0.rotationAndAlpha)}
+                    let replayState=runtime.frameSnapshot().layers.first?.child
+                    retryEqual = retryEqual && expected == replay
+                        && expectedState?.systems.map(\.id) == replayState?.systems.map(\.id)
+                        && expectedState?.nextSystemID == replayState?.nextSystemID
+                        && expectedState?.nextSeed == replayState?.nextSeed
+                }
+                if count>0 { nonempty.append(step) };counts.append(count)
+                states.append(runtime.frameSnapshot().layers.first?.child?.systems.count ?? 0)
+            }
+            return ["nonemptyFrames":nonempty,"counts":counts,"systems":states,"retryEqual":retryEqual]
+        }
+        if edges {
+            return ["negativeDelay":run(try make("static",delay: -1)),
+                    "excessiveDelay":run(try make("eventspawn",delay: 3601)),
+                    "malformedDelay":run(try make("static",delay: "invalid")),
+                    "invalidFinite":run(try make("static",continuous:true,duration:0.1,delay: -1)),
+                    "safePeer":run(try make("static",multiple:true,delay: -1)),
+                    "tinyBurst":run(try make("static",duration:1e-13,delay:0)),
+                    "tinyDelayedBurst":run(try make("static",duration:1e-13)),
+                    "tinyDelayedRate":run(try make("static",continuous:true,duration:1e-13,rate:1e14))]
+        }
+        return ["staticBurst":run(try make("static")),
+                "staticFinite":run(try make("static",continuous:true,duration:0.1)),
+                "spawnBurst":run(try make("eventspawn")),
+                "deathBurst":run(try make("eventdeath")),
+                "followBurst":run(try make("eventfollow")),
+                "spawnFinite":run(try make("eventspawn",continuous:true,duration:0.1)),
+                "spawnLongFinite":run(try make("eventspawn",continuous:true,duration:0.4)),
+                "spawnFallback":run(try make("eventspawn",continuous:true)),
+                "nestedBurst":run(try make("eventspawn",nested:true)),
+                "multipleBurst":run(try make("static",multiple:true)),
+                "prewarmBurst":run(try make("static",warm:0.25)),
+                "pausedBurst":run(try make("static"),pause:true)]
+    }
+
     private static func realContinuousProfiles(cachePath: String) throws -> [String: Any] {
         let root = URL(fileURLWithPath: cachePath, isDirectory: true)
         let parser = SceneParticleDefinitionParser()
         var supported: [String: Bool] = [:]
-        var completion: [String: String] = [:]
+        var completed: [String: Bool] = [:]
         var rates: [String: Double] = [:]
         var instantaneous: [String: Int] = [:]
         for name in ["Flare_Flame", "Flare_Smoke", "Flare_Sparks"] {
@@ -1985,14 +2178,15 @@ enum Harness {
                 data: Data(contentsOf: root.appendingPathComponent("\(name).json"))
             )
             supported[name] = SceneParticleChildLifecycle.supportsEmitterProfile(definition)
-            completion[name] = SceneParticleChildLifecycle.emissionCompletionTime(definition)
-                .map { String($0) } ?? "infinite"
+            let simulator = SceneParticleSimulator(definition: definition, seed: 17)
+            simulator.advance(by: 3)
+            completed[name] = simulator.hasFinishedEmission
             rates[name] = definition.emitters.first?.rate ?? -1
             instantaneous[name] = definition.emitters.first?.instantaneousCount ?? 0
         }
         return [
             "supported": supported,
-            "completion": completion,
+            "completed": completed,
             "rates": rates,
             "instantaneous": instantaneous,
         ]
@@ -2577,6 +2771,171 @@ enum Harness {
         ]
     }
 
+
+
+    private static func syntheticChildFloatSafety() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-child-float-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        try writeParticle("particles/child.json", material: "materials/shared.json",
+            rate: 60, under: directory)
+        try writeParticle("particles/root.json", material: "materials/shared.json",
+            flags: 248, rate: 60, children: [["name": "particles/child.json",
+                "type": "static", "scale": "1024 1024 1"]], under: directory)
+        let runtime = SceneParticleRuntime(descriptor: .init(
+            layers: [layer(91, "particles/root.json", particleSize: 1)],
+            renderOrderLayerIDs: [91], materialPasses: [.init(
+                materialPath: "materials/shared.json", shaderPath: "genericparticle",
+                texturePaths: ["shared.png"], blending: "additive")]),
+            cacheDirectory: directory, device: device)
+        let target = SceneDynamicTarget.particle(layerID: 91, field: .size)
+        let dynamic = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+            definitions: [.init(target: target, valueType: .scalar, authoredValue: .scalar(1))],
+            userValues: [target: .scalar(1e35)]).snapshot
+        _ = runtime.advance(by: 1.0 / 60)
+        let batches = runtime.advance(by: 1.0 / 60, dynamicValues: dynamic)
+        let child = batches.first { $0.particlePath == "particles/child.json" }!
+        let unsafeCount = child.instances.filter { !$0.positionAndSize.w.isFinite }.count
+        let rootCount = batches.first { $0.particlePath == "particles/root.json" }!.instanceBuffer.count
+        let safeCount = child.instanceBuffer.count
+        let uploaded = child.instanceBuffer.buffer!.contents()
+            .bindMemory(to: SceneParticleGPUInstance.self, capacity: safeCount)
+        let finite = (0..<safeCount).allSatisfy { uploaded[$0].positionAndSize.w.isFinite }
+        let next = runtime.advance(by: 1.0 / 60)
+        let recovered = next.first { $0.particlePath == "particles/child.json" }!.instanceBuffer.count
+        // Exercise every final ABI lane, with valid peers on either side.
+        let peer = SceneParticleGPUInstance(position: .zero, size: 8, rotation: .zero,
+            color: SIMD3(repeating: 1), alpha: 1)
+        let buffer = SceneParticleMetalInstanceBuffer()
+        var following = peer; following.positionAndSize.x = 7
+        var rejected = 0
+        for lane in 0..<40 {
+            var invalid = peer
+            withUnsafeMutableBytes(of: &invalid) { bytes in
+                bytes.bindMemory(to: Float.self)[lane] = lane % 2 == 0 ? .infinity : .nan
+            }
+            _ = buffer.update(device: device, instances: [peer, invalid, following])
+            let records = buffer.buffer!.contents()
+                .bindMemory(to: SceneParticleGPUInstance.self, capacity: 3)
+            if buffer.count == 2 && records[0].positionAndSize.x == 0
+                && records[1].positionAndSize.x == 7 { rejected += 1 }
+        }
+        var invalid = peer; invalid.positionAndSize.x = .infinity
+        _ = buffer.update(device: device, instances: [invalid])
+        let emptyDraw = buffer.currentDrawState() == nil
+        _ = buffer.update(device: device, instances: [peer])
+        return ["unsafeAssembled": unsafeCount, "uploadedCount": safeCount,
+            "uploadedFinite": finite, "rootCount": rootCount, "recoveredCount": recovered,
+            "rejectedLanes": rejected, "emptyDraw": emptyDraw, "recoveredBuffer": buffer.count]
+    }
+
+    private static func syntheticChildInstanceOverride() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-child-modifiers-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let alpha = SceneDynamicTarget.particle(layerID: 91, field: .alpha)
+        let size = SceneDynamicTarget.particle(layerID: 91, field: .size)
+        let count = SceneDynamicTarget.particle(layerID: 91, field: .count)
+        let rate = SceneDynamicTarget.particle(layerID: 91, field: .rate)
+        let lifetime = SceneDynamicTarget.particle(layerID: 91, field: .lifetime)
+        let speed = SceneDynamicTarget.particle(layerID: 91, field: .speed)
+        let brightness = SceneDynamicTarget.particle(layerID: 91, field: .brightness)
+        let color = SceneDynamicTarget.particle(layerID: 91, field: .normalizedColor)
+        let values: [SceneDynamicTarget: SceneDynamicValue] = [alpha: .scalar(0.25),
+            size: .scalar(3), count: .scalar(2), rate: .scalar(0.5), lifetime: .scalar(2),
+            speed: .scalar(3), brightness: .scalar(0.5), color: .vector3(0.5, 1, 0.25)]
+        let definitions = values.keys.map { target in
+            SceneDynamicTargetDefinition(target: target,
+                valueType: target == color ? .vector3 : .scalar,
+                authoredValue: target == color ? .vector3(1, 1, 1) : .scalar(1))
+        }
+        let dynamic = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+            definitions: definitions, userValues: values).snapshot
+        func child(_ path: String, _ trigger: String = "static") -> [String: Any] {
+            ["name": "particles/\(path).json", "type": trigger]
+        }
+        func make(_ trigger: String = "static", flags: Int = 0, warm: Bool = false,
+                  nested: Bool = false, container: Bool = false, continuous: Bool = false,
+                  initial: SceneDynamicSnapshot = .empty(frameIndex: 0)) throws -> SceneParticleRuntime {
+            try writeParticle("particles/child.json", material: "materials/shared.json",
+                flags: flags, velocityX: 2, lifetime: 10, startTime: warm ? 0.1 : 0,
+                rate: continuous ? 60 : 0, instantaneous: continuous ? 0 : 2, under: directory)
+            if nested {
+                try writeParticle("particles/middle.json", material: "materials/shared.json",
+                    lifetime: trigger == "eventdeath" ? 1.0 / 60 : 10,
+                    rate: 0, instantaneous: 1, children: [child("child", trigger)], under: directory)
+            }
+            try writeParticle("particles/root.json", material: "materials/shared.json",
+                flags: 248, lifetime: trigger == "eventdeath" ? 1.0 / 60 : 10,
+                rate: 0, instantaneous: 1,
+                children: [child(nested ? "middle" : "child", nested ? "static" : trigger)], under: directory)
+            if container {
+                let url = directory.appendingPathComponent("particles/root.json")
+                var json = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+                json["renderer"] = []; json["emitter"] = []; json["initializer"] = []
+                try writeJSON(json, to: url)
+            }
+            return SceneParticleRuntime(descriptor: .init(layers: [layer(91, "particles/root.json",
+                particleAlpha: 0.4, particleSize: 2, particleLifetime: 1.5, particleRate: 1,
+                particleCount: 1, particleNormalizedColor: SIMD3(1, 0.5, 1))],
+                renderOrderLayerIDs: [91], materialPasses: [.init(
+                    materialPath: "materials/shared.json", shaderPath: "genericparticle",
+                    texturePaths: ["shared.png"], blending: "additive")]),
+                cacheDirectory: directory, device: device, initialDynamicValues: initial)
+        }
+        func observe(_ runtime: SceneParticleRuntime, _ batches: [SceneParticleDrawBatch]) -> [String: Any] {
+            let instances = batches.filter { $0.particlePath == "particles/child.json" }.flatMap(\.instances)
+            let systems = runtime.frameSnapshot().layers.first?.child?.systems ?? []
+            let system = systems.last
+            let particle = system?.simulator.particles.first
+            let item = instances.first
+            return ["count": instances.count, "alpha": item?.rotationAndAlpha.w ?? -1,
+                "size": item?.positionAndSize.w ?? -1,
+                "color": item.map { [$0.colorAndFrameMix.x, $0.colorAndFrameMix.y, $0.colorAndFrameMix.z] } ?? [],
+                "lifetime": particle?.lifetime ?? -1, "velocity": particle?.velocity.x ?? -1,
+                "simulationTime": system?.simulator.simulationTime ?? -1]
+        }
+        var result: [String: Any] = [:]
+        for (name, flags) in [("static", 0), ("disabled", 248)] {
+            let runtime = try make(flags: flags)
+            result[name] = observe(runtime, runtime.advance(by: 0.1))
+            let replay = try make(flags: flags)
+            let saved = replay.frameSnapshot()
+            let batches = replay.advance(by: 0.1, dynamicValues: dynamic)
+            let output = observe(replay, batches)
+            result[name + "Dynamic"] = output
+            replay.restoreFrame(saved)
+            let retry = observe(replay, replay.advance(by: 0.1, dynamicValues: dynamic))
+            result[name + "RetryEqual"] = NSDictionary(dictionary: output).isEqual(to: retry)
+            replay.restoreFrame(saved)
+            result[name + "Fallback"] = observe(replay, replay.advance(by: 0.1))
+        }
+        for flags in [0, 248] {
+            let continuous = try make(flags: flags, continuous: true)
+            result["continuous" + String(flags)] = observe(continuous,
+                continuous.advance(by: 0.1, dynamicValues: dynamic))
+        }
+        let warm = try make(warm: true, initial: dynamic)
+        result["prewarm"] = observe(warm, warm.advance(by: 0, dynamicValues: dynamic))
+        let container = try make(container: true)
+        result["container"] = observe(container, container.advance(by: 0.1, dynamicValues: dynamic))
+        for trigger in ["eventspawn", "eventdeath", "eventfollow"] {
+            for nested in [false, true] {
+                let runtime = try make(trigger, warm: true, nested: nested)
+                var batches: [SceneParticleDrawBatch] = []
+                for _ in 0..<6 { batches = runtime.advance(by: 1.0 / 60, dynamicValues: dynamic) }
+                result[trigger + (nested ? "Nested" : "")] = observe(runtime, batches)
+            }
+        }
+        return result
+    }
+
     private static func syntheticDynamicInstanceOverride() throws -> [String: Any] {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
             "mwx-particle-dynamic-override-\(UUID().uuidString)", isDirectory: true
@@ -2643,6 +3002,117 @@ enum Harness {
                 [$0.colorAndFrameMix.x, $0.colorAndFrameMix.y, $0.colorAndFrameMix.z]
             } ?? [],
         ]
+    }
+
+    private static func syntheticSpriteGeometry() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-sprite-geometry-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        func texture(_ name: String, embedded: Bool, atlas: Bool = false) throws {
+            var rgba = [UInt8](repeating: 0, count: 8 * 8 * 4)
+            for y in 0..<8 { for x in 0..<2 { for c in 0..<4 { rgba[(y * 8 + x) * 4 + c] = 255 } } }
+            var payload = Data(rgba)
+            if embedded {
+                let encoded = NSMutableData()
+                guard let provider = CGDataProvider(data: payload as CFData),
+                      let image = CGImage(width: 8, height: 8, bitsPerComponent: 8, bitsPerPixel: 32,
+                          bytesPerRow: 32, space: CGColorSpaceCreateDeviceRGB(),
+                          bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                          provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent),
+                      let destination = CGImageDestinationCreateWithData(encoded, "public.png" as CFString, 1, nil)
+                else { throw HarnessError.imageWrite }
+                CGImageDestinationAddImage(destination, image, nil)
+                guard CGImageDestinationFinalize(destination) else { throw HarnessError.imageWrite }
+                payload = encoded as Data
+            }
+            var data = Data("TEXV0005\0TEXI0001\0".utf8)
+            for value: UInt32 in [0, atlas ? 7 : 3, 8, 8, 2, 8, 0] { appendUInt32(value, to: &data) }
+            data.append(Data((embedded ? "TEXB0003\0" : "TEXB0002\0").utf8))
+            appendUInt32(1, to: &data)
+            if embedded { appendUInt32(13, to: &data) }
+            for value: UInt32 in [1, 8, 8, 0, 0, UInt32(payload.count)] { appendUInt32(value, to: &data) }
+            data.append(payload)
+            if atlas {
+                data.append(Data("TEXS0002\0".utf8)); appendUInt32(1, to: &data)
+                appendUInt32(0, to: &data); appendFloat32(1, to: &data)
+                for value: Float in [0, 0, 2, 0, 0, 8] { appendFloat32(value, to: &data) }
+            }
+            let url = directory.appendingPathComponent("materials/\(name).tex")
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try data.write(to: url)
+        }
+        try texture("raw", embedded: false)
+        try texture("embedded", embedded: true)
+        try texture("atlas", embedded: false, atlas: true)
+        let names = ["raw", "embedded", "atlas", "refract"]
+        var layers: [SceneRenderDescriptor.Layer] = []
+        var materials: [SceneRenderDescriptor.MaterialPassDescriptor] = []
+        for (index, name) in names.enumerated() {
+            let material = "materials/\(name).json"
+            try writeParticle("particles/\(name).json", material: material,
+                instantaneous: 1, children: name == "raw" ? [[
+                    "name": "particles/child.json", "type": "static"
+                ], ["name": "particles/child-refract.json", "type": "static"]] : [], under: directory)
+            layers.append(layer(index + 1, "particles/\(name).json"))
+            materials.append(.init(materialPath: material, shaderPath: "genericparticle",
+                texturePaths: ["materials/\(name == "refract" ? "raw" : name).tex"],
+                blending: "translucent", combos: name == "refract" ? ["REFRACT": 1] : [:]))
+        }
+        try writeParticle("particles/child.json", material: "materials/embedded.json",
+            instantaneous: 1, under: directory)
+        try writeParticle("particles/child-refract.json", material: "materials/refract.json",
+            instantaneous: 1, under: directory)
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let runtime = SceneParticleRuntime(descriptor: .init(layers: layers,
+            renderOrderLayerIDs: [1, 2, 3, 4], materialPasses: materials),
+            cacheDirectory: directory, device: device)
+        let batches = runtime.advance(by: 1.0 / 60.0)
+        var result: [String: Any] = [:]
+        for batch in batches {
+            guard let instance = batch.instances.first else { continue }
+            let name = URL(fileURLWithPath: batch.particlePath).deletingPathExtension().lastPathComponent
+            result[name] = [
+                "aspect": [instance.frame0B.z, instance.frame0B.w],
+                "uvScale": [batch.colorUVScale.x, batch.colorUVScale.y],
+                "textureSize": [batch.texture.width, batch.texture.height],
+                "pixels": spriteBatchBounds(batch, device: device)
+            ]
+        }
+        result["active"] = runtime.activeLayerIDs
+        return result
+    }
+
+    private static func spriteBatchBounds(_ batch: SceneParticleDrawBatch, device: MTLDevice) -> [Int] {
+        let size = 64
+        guard let pipeline = SceneParticleMetalPipeline(device: device),
+              let command = device.makeCommandQueue()?.makeCommandBuffer() else { return [] }
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm, width: size, height: size, mipmapped: false)
+        descriptor.usage = .renderTarget; descriptor.storageMode = .shared
+        guard let output = device.makeTexture(descriptor: descriptor) else { return [] }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = output
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        pass.colorAttachments[0].storeAction = .store
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [] }
+        pipeline.draw(texture: batch.texture, instances: batch.instanceBuffer,
+            uniforms: SceneParticleLayerUniforms(viewProjection: simd_float4x4(diagonal: SIMD4(1.0 / 32, 1.0 / 32, 1, 1)),
+                layerModel: matrix_identity_float4x4, basis: .init(right: SIMD3(1, 0, 0), up: SIMD3(0, 1, 0))),
+            renderState: batch.renderState, colorUVScale: batch.colorUVScale,
+            colorSampling: batch.colorSampling, encoder: encoder)
+        encoder.endEncoding()
+        guard batch.instanceBuffer.markSubmitted(on: command) else { return [] }
+        command.commit(); command.waitUntilCompleted()
+        guard command.status == .completed else { return [] }
+        var bytes = [UInt8](repeating: 0, count: size * size * 4)
+        output.getBytes(&bytes, bytesPerRow: size * 4, from: MTLRegionMake2D(0, 0, size, size), mipmapLevel: 0)
+        let lit = (0..<(size * size)).filter { bytes[$0 * 4 + 3] > 127 }
+        let xs = lit.map { $0 % size }, ys = lit.map { $0 / size }
+        return [(xs.max() ?? -1) - (xs.min() ?? 0) + 1,
+                (ys.max() ?? -1) - (ys.min() ?? 0) + 1,
+                (xs.max() ?? -1) + (xs.min() ?? 0), (ys.max() ?? -1) + (ys.min() ?? 0)]
     }
 
     private static func synthetic() throws -> [String: Any] {
@@ -3384,6 +3854,21 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertEqual(result["playbackLoadedLine"], "particle loaded: 1 / 1")
         self.assertEqual(result["missingBatchLoadedLine"], "particle loaded: 0 / 1")
 
+    def test_static_sprite_geometry_uses_mapped_color_extent_in_root_and_child(self) -> None:
+        result = self.run_harness("sprite-geometry-synthetic")
+        self.assertEqual(result["active"], [1, 2, 3, 4])
+        for name in ["raw", "embedded", "atlas", "refract", "child", "child-refract"]:
+            with self.subTest(name=name):
+                self.assertEqual(result[name]["aspect"], [0.25, 0.25])
+                self.assertEqual(result[name]["pixels"], [4, 16, 63, 63])
+        self.assertEqual(result["raw"]["textureSize"], [8, 8])
+        self.assertEqual(result["raw"]["uvScale"], [0.25, 1])
+        self.assertEqual(result["atlas"]["textureSize"], [8, 8])
+        self.assertEqual(result["atlas"]["uvScale"], [1, 1])
+        for name in ["embedded", "refract", "child", "child-refract"]:
+            self.assertEqual(result[name]["textureSize"], [8, 8])
+            self.assertEqual(result[name]["uvScale"], [0.25, 1])
+
     def test_synthetic_rejects_unsupported_roots_and_keeps_diagnostics(self) -> None:
         result = self.run_harness("synthetic")
         self.assertEqual(
@@ -3639,6 +4124,55 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             [[11, 21, 31], [-4, 7, 8], [3, 4, 5]],
         )
 
+    def test_child_scaled_float_overflow_keeps_safe_peer_and_recovers(self) -> None:
+        result = self.run_harness("child-float-safety")
+        self.assertGreater(result["unsafeAssembled"], 0)
+        self.assertEqual(result["uploadedCount"], 1)
+        self.assertTrue(result["uploadedFinite"])
+        self.assertEqual(result["rootCount"], 2)
+        self.assertEqual(result["recoveredCount"], 2)
+        self.assertEqual(result["rejectedLanes"], 40)
+        self.assertTrue(result["emptyDraw"])
+        self.assertEqual(result["recoveredBuffer"], 1)
+
+    def test_child_tree_inherits_layer_modifiers_with_flags_prewarm_and_rollback(self) -> None:
+        result = self.run_harness("child-instance-override-synthetic")
+        for name in ("static", "staticFallback"):
+            self.assertEqual(result[name]["count"], 2)
+            self.assertAlmostEqual(result[name]["alpha"], 0.4)
+            self.assertAlmostEqual(result[name]["size"], 8)
+            self.assertEqual(result[name]["color"], [1, 0.25, 1])
+            self.assertAlmostEqual(result[name]["lifetime"], 15)
+        for name in ("disabled", "disabledFallback"):
+            self.assertAlmostEqual(result[name]["size"], 4)
+            self.assertEqual(result[name]["color"], [1, 1, 1])
+            self.assertAlmostEqual(result[name]["lifetime"], 10)
+        for name in ("staticDynamic", "prewarm", "container", "eventspawn", "eventfollow",
+                     "eventdeath", "eventspawnNested", "eventfollowNested", "eventdeathNested"):
+            with self.subTest(name=name):
+                self.assertGreater(result[name]["count"], 0)
+                self.assertAlmostEqual(result[name]["alpha"], 0.25)
+                self.assertAlmostEqual(result[name]["size"], 12)
+                self.assertEqual(result[name]["color"], [0.125, 0.5, 0.03125])
+                self.assertAlmostEqual(result[name]["lifetime"], 20)
+                self.assertAlmostEqual(result[name]["velocity"], 6)
+        self.assertEqual(result["staticDynamic"]["count"], 2)
+        self.assertEqual(result["continuous0"]["count"], 6)
+        self.assertEqual(result["continuous248"]["count"], 3)
+        self.assertAlmostEqual(result["staticDynamic"]["simulationTime"], 0.05)
+        self.assertAlmostEqual(result["prewarm"]["simulationTime"], 0.05)
+        for name in ("eventspawn", "eventfollow", "eventspawnNested", "eventfollowNested"):
+            self.assertAlmostEqual(result[name]["simulationTime"], 0.05 + 5 / 120)
+        self.assertAlmostEqual(result["eventdeath"]["simulationTime"], 0.05 + 4 / 120)
+        self.assertAlmostEqual(result["eventdeathNested"]["simulationTime"], 0.05 + 2 / 120)
+        self.assertEqual(result["disabledDynamic"]["count"], 2)
+        self.assertAlmostEqual(result["disabledDynamic"]["alpha"], 0.25)
+        self.assertAlmostEqual(result["disabledDynamic"]["size"], 4)
+        self.assertAlmostEqual(result["disabledDynamic"]["velocity"], 2)
+        self.assertEqual(result["disabledDynamic"]["color"], [0.5, 0.5, 0.5])
+        self.assertTrue(result["staticRetryEqual"])
+        self.assertTrue(result["disabledRetryEqual"])
+
     def test_runtime_consumes_dynamic_instance_override_then_restores_authored_values(self) -> None:
         result = self.run_harness("dynamic-instance-override-synthetic")
         self.assertEqual(result["zeroCount"], 0)
@@ -3781,6 +4315,31 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         })
         self.assertEqual(result["diagnosticKinds"], [])
 
+    def test_child_bursts_preserve_authored_density_with_bounded_depth_capacity(self) -> None:
+        result = self.run_harness("child-capacity-synthetic")
+        self.assertEqual(result["single"], 8500)
+        self.assertEqual(result["prewarm"], 8500)
+        self.assertEqual(result["smallPeer"], 5536)
+        self.assertTrue(result["identityReplay"])
+        self.assertEqual(result["static"], 65536)
+        self.assertEqual(result["staticCapacity"], [65536, 0])
+        for trigger in ["eventspawn", "eventdeath", "eventfollow"]:
+            self.assertEqual(result[trigger], 60000, trigger)
+            self.assertEqual(result[trigger + "Capacity"], [60000, 0], trigger)
+        self.assertEqual(result["nested"], 120000)
+        self.assertEqual(result["nestedCapacity"], [60004, 60000])
+        for name in ["static", "eventspawn", "eventdeath", "eventfollow"]:
+            self.assertIn("aggregateSystemBudget:systems=64:particleCapacity=65536",
+                          result[name + "Diagnostics"], name)
+        self.assertIn("nestedAggregateSystemBudget:depth=2:systems=64:particleCapacity=65536",
+                      result["nestedDiagnostics"])
+        for systems, capacity in result["recycleAllocations"]:
+            self.assertLessEqual(systems, 64)
+            self.assertLessEqual(capacity, 65536)
+        self.assertEqual(result["recycle"], result["replay"])
+        self.assertGreater(max(result["recycle"]), 8500)
+        self.assertGreater(result["recycle"][-1], 0)
+
     def test_continuous_children_follow_finish_and_obey_aggregate_budget(self) -> None:
         result = self.run_harness("eventfollow-synthetic")
         self.assertEqual(result["childCounts"], [0, 1, 2, 0, 0, 0])
@@ -3918,6 +4477,41 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertNotIn(85705, result["activeLayerIDs"])
         self.assertEqual(result["staticRejections"], 0)
 
+    def test_delayed_child_emitters_survive_until_their_actual_emission_finishes(self) -> None:
+        results = self.run_harness("delayed-children")
+        for name, value in results.items():
+            with self.subTest(profile=name):
+                self.assertTrue(value["nonemptyFrames"], "delayed child never reached a draw batch")
+                self.assertTrue(value["retryEqual"])
+                self.assertEqual(value["systems"][-1], 0)
+                if name not in ("multipleBurst", "prewarmBurst"):
+                    self.assertGreaterEqual(value["nonemptyFrames"][0], 13)
+                    self.assertLessEqual(value["nonemptyFrames"][0], 18)
+                if name.startswith("static") or name == "pausedBurst":
+                    self.assertEqual(value["systems"][5], 1)
+        self.assertGreaterEqual(results["spawnLongFinite"]["nonemptyFrames"][-1], 40)
+        self.assertEqual(results["staticBurst"]["nonemptyFrames"][0], 13)
+        self.assertEqual(results["multipleBurst"]["nonemptyFrames"][0], 1)
+        self.assertIn(13, results["multipleBurst"]["nonemptyFrames"])
+        self.assertEqual(results["prewarmBurst"]["nonemptyFrames"][0], 1)
+        self.assertEqual(results["pausedBurst"]["nonemptyFrames"], results["staticBurst"]["nonemptyFrames"])
+
+    def test_child_emission_invalid_delay_and_tiny_duration_retire_safely(self) -> None:
+        results = self.run_harness("delayed-child-edges")
+        for name, value in results.items():
+            with self.subTest(profile=name):
+                self.assertTrue(value["retryEqual"], "replaying retirement must restore systems and allocator identity")
+                self.assertEqual(value["systems"][-1], 0)
+                if name in ("negativeDelay", "excessiveDelay", "malformedDelay", "invalidFinite"):
+                    self.assertFalse(value["nonemptyFrames"])
+                else:
+                    self.assertTrue(value["nonemptyFrames"])
+        self.assertEqual(results["safePeer"]["nonemptyFrames"][0], 1)
+        self.assertEqual(results["tinyBurst"]["nonemptyFrames"][0], 1)
+        self.assertEqual(results["tinyDelayedBurst"]["nonemptyFrames"][0], 13)
+        self.assertEqual(results["tinyDelayedRate"]["nonemptyFrames"][0], 13)
+        self.assertEqual(max(results["tinyDelayedRate"]["counts"]), 10)
+
     def test_real_flare_children_enter_continuous_emitter_profile(self) -> None:
         if not FLARE_PARTICLE_CACHE.is_dir():
             self.skipTest("isolated 2998757800 particle cache is unavailable")
@@ -3927,7 +4521,7 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             "Flare_Smoke": True,
             "Flare_Sparks": True,
         })
-        self.assertEqual(set(result["completion"].values()), {"infinite"})
+        self.assertEqual(set(result["completed"].values()), {False})
         self.assertEqual(result["rates"]["Flare_Sparks"], 10)
         self.assertEqual(result["instantaneous"]["Flare_Sparks"], 1)
 
@@ -3966,7 +4560,7 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             str(EVENTDEATH_SAMPLE_CACHE),
         )
         self.assertGreater(result["firstHitFrame"], 0)
-        self.assertEqual(result["hitInstanceCount"], 1_024)
+        self.assertEqual(result["hitInstanceCount"], 8_500)
         self.assertGreater(result["hitMaximumAlpha"], 0)
         self.assertGreater(result["hitMaximumSize"], 0)
         self.assertGreater(result["hitMaximumTrailStretch"], 1)
@@ -3975,11 +4569,6 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertGreater(result["renderedPixelHeight"], 100)
         self.assertTrue(result["hitUsesTrail"])
         self.assertFalse(result["layer529ChildUnsupported"])
-        self.assertIn(
-            "particles/workshop/2110548715/presets/fireworks1hit.json:particleBudget:"
-            "max=20000:instantaneous=8500:effective=1024",
-            result["layer529SimulationDetails"],
-        )
 
     def test_real_3768229922_loads_strict_refraction_without_duplicate_upload(self) -> None:
         if not REFRACTION_SAMPLE_EVIDENCE.is_file() or not REFRACTION_SAMPLE_CACHE.is_dir():

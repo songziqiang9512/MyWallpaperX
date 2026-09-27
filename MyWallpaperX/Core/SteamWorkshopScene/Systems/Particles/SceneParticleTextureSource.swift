@@ -3,84 +3,27 @@ import Metal
 
 typealias SceneParticleTextureSampling = SceneTextureSampling
 
-/// The particle fragment shader multiplies the sampled texel straight into the
-/// premultiplied blend chain, so every color texture must satisfy RGB == color * A.
-/// Authored/stock TEX may arrive as R8 (grayscale mask) or RG88 (luminance +
-/// alpha); sampling those natively yields (r,0,0,1)/(r,g,0,1) and floods layers
-/// with red or amber. Adapt them here, at the particle consumer, so shared
-/// data-texture users (flow, phase, normal maps) keep native channels.
+/// Interpret color formats as straight RGBA before filtering and sprite-frame
+/// interpolation. Views preserve native storage and authored mips; data texture
+/// consumers keep their original channels. The fragment applies coverage once.
 enum SceneParticleColorTextureAdapter {
-    static func adapt(_ texture: MTLTexture, device: MTLDevice) -> MTLTexture? {
+    static func adapt(_ texture: MTLTexture) -> MTLTexture? {
+        let channels: MTLTextureSwizzleChannels
         switch texture.pixelFormat {
         case .r8Unorm:
-            return texture.makeTextureView(
-                pixelFormat: .r8Unorm,
-                textureType: .type2D,
-                levels: 0..<texture.mipmapLevelCount,
-                slices: 0..<1,
-                swizzle: MTLTextureSwizzleChannels(
-                    red: .red, green: .red, blue: .red, alpha: .red
-                )
-            )
+            channels = .init(red: .one, green: .one, blue: .one, alpha: .red)
         case .rg8Unorm:
-            return expandLuminanceAlpha(texture, device: device)
+            channels = .init(red: .red, green: .red, blue: .red, alpha: .green)
         default:
             return texture
         }
-    }
-
-    private static func expandLuminanceAlpha(
-        _ texture: MTLTexture,
-        device: MTLDevice
-    ) -> MTLTexture? {
-        guard texture.storageMode == .shared else { return nil }
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .rgba8Unorm,
-            width: texture.width,
-            height: texture.height,
-            mipmapped: texture.mipmapLevelCount > 1
+        return texture.makeTextureView(
+            pixelFormat: texture.pixelFormat,
+            textureType: .type2D,
+            levels: 0..<texture.mipmapLevelCount,
+            slices: 0..<1,
+            swizzle: channels
         )
-        descriptor.mipmapLevelCount = texture.mipmapLevelCount
-        descriptor.usage = .shaderRead
-        descriptor.storageMode = .shared
-        guard let output = device.makeTexture(descriptor: descriptor) else { return nil }
-        for level in 0..<texture.mipmapLevelCount {
-            let width = max(texture.width >> level, 1)
-            let height = max(texture.height >> level, 1)
-            // Bound CPU scratch independently of atlas height. The destination
-            // remains one texture with the authored mip chain.
-            let rowsPerChunk = min(height, max(1, (256 * 1_024) / (width * 6)))
-            var source = [UInt8](repeating: 0, count: width * rowsPerChunk * 2)
-            var expanded = [UInt8](repeating: 0, count: width * rowsPerChunk * 4)
-            for row in stride(from: 0, to: height, by: rowsPerChunk) {
-                let rows = min(rowsPerChunk, height - row)
-                let region = MTLRegionMake2D(0, row, width, rows)
-                texture.getBytes(
-                    &source,
-                    bytesPerRow: width * 2,
-                    from: region,
-                    mipmapLevel: level
-                )
-                for index in 0..<(width * rows) {
-                    let luminance = UInt16(source[index * 2])
-                    let alpha = UInt16(source[index * 2 + 1])
-                    let premultiplied = UInt8((luminance * alpha + 127) / 255)
-                    expanded[index * 4] = premultiplied
-                    expanded[index * 4 + 1] = premultiplied
-                    expanded[index * 4 + 2] = premultiplied
-                    expanded[index * 4 + 3] = UInt8(alpha)
-                }
-                expanded.withUnsafeBytes { buffer in
-                    output.replace(
-                        region: region,
-                        mipmapLevel: level,
-                        withBytes: buffer.baseAddress!,
-                        bytesPerRow: width * 4
-                    )
-                }
-            }
-        }
-        return output
     }
 }
 

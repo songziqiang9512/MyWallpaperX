@@ -229,7 +229,8 @@ struct SceneParticleMetalPipeline {
             binding.overbright,
             Float(binding.colorEncoding.rawValue),
             (normal.usesParticleFrames ? 1 : 0)
-                + (renderState.blendMode == .additive ? 2 : 0)
+                + (normal.authoredFormat == .dxt5 ? 2 : 0)
+                + (normal.authoredFormat == nil ? 4 : 0)
         )
         var scales = SIMD4<Float>(
             colorUVScale.x,

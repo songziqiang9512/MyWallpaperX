@@ -142,14 +142,8 @@ struct SceneRuntimeModelBuilder {
             admittedTargets: projectedScalarTargets,
             to: mediaProjectedDescriptor
         )
-        let admittedParticleRateLayerIDs = Set(
-            projectedScalarTargets.compactMap { target -> Int? in
-                guard case let .particle(layerID, .rate) = target else { return nil }
-                return layerID
-            }
-        )
         let particleProjectedDescriptor = SceneScriptParticleProjection.apply(
-            admittedRateLayerIDs: admittedParticleRateLayerIDs,
+            admittedTargets: projectedScalarTargets,
             to: scalarProjectedDescriptor
         )
         // A failed optional scale producer keeps the resolved authored current.

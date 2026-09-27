@@ -85,22 +85,41 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
         guard generatedCount <= maximumGeneratedSegments else { return [] }
 
         let safeLayerAlpha = min(max(layerAlpha, 0), 1)
-        var result: [SceneParticleGPUInstance] = []
-        result.reserveCapacity(generatedCount)
+        // Build one shared chain across particle boundaries. Independent quads
+        // cannot agree on the width or bisector at a curved ribbon's joints.
+        var samples: [(value: Sample, uv: Float)] = []
+        samples.reserveCapacity(generatedCount + 1)
         for index in 0..<(nodes.count - 1) {
-            for subdivision in 0...subdivisionCount {
-                let tailT = Double(subdivision) / Double(subdivisionCount + 1)
-                let headT = Double(subdivision + 1) / Double(subdivisionCount + 1)
-                let tail = sample(nodes: nodes, index: index, t: tailT)
-                let head = sample(nodes: nodes, index: index, t: headT)
-                let tailUV = Self.mix(nodeUVs[index], nodeUVs[index + 1], Float(tailT))
-                let headUV = Self.mix(nodeUVs[index], nodeUVs[index + 1], Float(headT))
-                if let instance = Self.instance(
-                    tail: tail, head: head, tailUV: tailUV, headUV: headUV,
-                    layerAlpha: safeLayerAlpha
-                ) {
-                    result.append(instance)
+            let first = index == 0 ? 0 : 1
+            for subdivision in first...(subdivisionCount + 1) {
+                let t = Double(subdivision) / Double(subdivisionCount + 1)
+                let value = sample(nodes: nodes, index: index, t: t)
+                let uv = Self.mix(nodeUVs[index], nodeUVs[index + 1], Float(t))
+                // A stationary span owns one vertex. Keep the first appearance
+                // so both surviving neighbours use the same width and UV.
+                if let previous = samples.last,
+                   simd_distance(previous.value.position, value.position) <= 0.0001 {
+                    continue
                 }
+                samples.append((value, uv))
+            }
+        }
+        guard samples.count >= 2 else { return [] }
+        var result: [SceneParticleGPUInstance] = []
+        result.reserveCapacity(samples.count - 1)
+        for index in 0..<(samples.count - 1) {
+            let tail = samples[index]
+            let head = samples[index + 1]
+            let displacement = head.value.position - tail.value.position
+            if let instance = Self.instance(
+                tail: tail.value, head: head.value, tailUV: tail.uv, headUV: head.uv,
+                headDirection: index + 2 < samples.count
+                    ? samples[index + 2].value.position - head.value.position : displacement,
+                tailDirection: index > 0
+                    ? tail.value.position - samples[index - 1].value.position : displacement,
+                layerAlpha: safeLayerAlpha
+            ) {
+                result.append(instance)
             }
         }
         return result
@@ -156,6 +175,8 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
         head: Sample,
         tailUV: Float,
         headUV: Float,
+        headDirection: SIMD3<Double>,
+        tailDirection: SIMD3<Double>,
         layerAlpha: Float
     ) -> SceneParticleGPUInstance? {
         let displacement = floatValue(head.position - tail.position)
@@ -163,7 +184,16 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
         let size = Float((tail.size + head.size) * 0.5)
         guard segmentLength.isFinite, segmentLength > 0.0001,
               size.isFinite, size > 0.0001,
-              tailUV.isFinite, headUV.isFinite else { return nil }
+              tailUV.isFinite, headUV.isFinite,
+              Float(head.size).isFinite, Float(tail.size).isFinite else { return nil }
+        // An adjacent span can exceed Float range and be discarded while this
+        // span remains drawable. Treat that end as open, never publish infinity.
+        let headVector = floatValue(headDirection)
+        let tailVector = floatValue(tailDirection)
+        let safeHead = headVector.x.isFinite && headVector.y.isFinite && headVector.z.isFinite
+            ? headVector : displacement
+        let safeTail = tailVector.x.isFinite && tailVector.y.isFinite && tailVector.z.isFinite
+            ? tailVector : displacement
         let frame = SceneParticleFrameTransform.identity.verticalTrailSlice(
             tailPosition: tailUV, headPosition: headUV
         )
@@ -177,6 +207,9 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
             trailStretch: segmentLength / size,
             trailUVRange: SIMD2(tailUV, headUV),
             usesTrailDisplacement: true,
+            trailHeadDirection: safeHead,
+            trailTailDirection: safeTail,
+            trailEndpointSizes: SIMD2(Float(head.size), Float(tail.size)),
             currentFrame: frame
         )
     }

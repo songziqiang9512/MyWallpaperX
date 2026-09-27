@@ -189,7 +189,8 @@ final class SceneParticleRuntime {
                 builtInTextureRegistry: builtInTextureRegistry,
                 device: device,
                 worldSpaceFrame: worldSpaceFrame,
-                rootInstanceOverride: layer.particleInstanceOverride
+                rootInstanceOverride: layer.particleInstanceOverride,
+                initialDynamicInstanceValues: initialDynamicValues.particleInstanceValues(layerID: layer.id)
             )
             for detail in childRuntime.unsupportedDetails {
                 addDiagnostic(
@@ -286,6 +287,7 @@ final class SceneParticleRuntime {
             let controlPointAngles = dynamicValues.particleControlPointAngles(
                 layerID: layerID
             )
+            let dynamicOverride = dynamicValues.particleInstanceValues(layerID: layerID)
             if let root = layers[index].rootRender {
                 var rootControlPoints = dynamicControlPoints
                 let pointerValues = root.definition.pointerControlPointValues(
@@ -293,7 +295,6 @@ final class SceneParticleRuntime {
                     identities: root.pointerControlPointIdentities
                 )
                 rootControlPoints.merge(pointerValues) { _, pointer in pointer }
-                let dynamicOverride = dynamicValues.particleInstanceValues(layerID: layerID)
                 let instanceOverride = root.simulator.instanceOverride?.resolving(
                     dynamicOverride
                 )
@@ -324,6 +325,7 @@ final class SceneParticleRuntime {
                     spawnEvents: births,
                     deathEvents: deaths,
                     parentParticles: parentParticles,
+                    dynamicInstanceValues: dynamicOverride,
                     pointerLocalPosition: pointerLocalPositions[layerID],
                     dynamicControlPoints: dynamicControlPoints,
                     dynamicControlPointAngles: controlPointAngles,
@@ -462,6 +464,7 @@ final class SceneParticleRuntime {
         for particle in particles {
             let frames = Self.spriteFrames(
                 animation: root.spriteAnimation,
+                staticAspect: root.staticSpriteAspect,
                 definition: root.definition,
                 particleID: particle.id,
                 age: Float(particle.age),
@@ -560,6 +563,7 @@ final class SceneParticleRuntime {
         guard let textureSource = asset.textureSource else { return nil }
         let texture: MTLTexture
         let spriteAnimation: SceneSpriteAnimation?
+        let staticSpriteAspect: Float
         let colorUVScale: SIMD2<Float>
         let colorSampling: SceneParticleTextureSampling
         let refraction: SceneParticleRefractionBinding?
@@ -580,57 +584,28 @@ final class SceneParticleRuntime {
             }
             texture = loaded.color
             spriteAnimation = loaded.colorAnimation
+            staticSpriteAspect = loaded.staticSpriteAspect
             colorUVScale = loaded.colorUVScale
             colorSampling = loaded.colorSampling
             refraction = loaded.binding
         } else {
-            switch textureSource {
-            case let .file(textureURL):
-                let outcome = textureLoader.load(from: textureURL, device: device)
-                guard case let .loaded(loadedTexture) = outcome else {
-                    addDiagnostic(
-                        kind: .textureLoadFailed,
-                        layerID: layer.id,
-                        path: path,
-                        detail: Self.textureFailureDescription(outcome)
-                    )
-                    return nil
-                }
-                guard let colorTexture = SceneParticleColorTextureAdapter.adapt(
-                    loadedTexture,
-                    device: device
-                ) else {
-                    addDiagnostic(
-                        kind: .textureLoadFailed,
-                        layerID: layer.id,
-                        path: path,
-                        detail: "particleColorTextureAdaptationFailed"
-                    )
-                    return nil
-                }
-                texture = colorTexture
-                let container = textureLoader.texContainer(from: textureURL)
-                spriteAnimation = container.flatMap {
-                    SceneSpriteAnimation(container: $0, sourceURL: textureURL)
-                }
-                colorSampling = container.map {
-                    SceneParticleTextureSampling(texFlags: $0.flags)
-                } ?? .directImageFallback
-            case let .builtIn(key):
-                guard let loadedTexture = builtInTextureRegistry.texture(for: key) else {
-                    addDiagnostic(
-                        kind: .textureLoadFailed,
-                        layerID: layer.id,
-                        path: path,
-                        detail: "builtInTextureAllocationFailed:\(key.rawValue)"
-                    )
-                    return nil
-                }
-                texture = loadedTexture
-                spriteAnimation = nil
-                colorSampling = .directImageFallback
+            guard let loaded = SceneParticleChildTemplateSupport.loadTexture(
+                textureSource,
+                textureLoader: textureLoader,
+                builtInTextureRegistry: builtInTextureRegistry,
+                device: device
+            ) else {
+                addDiagnostic(
+                    kind: .textureLoadFailed, layerID: layer.id, path: path,
+                    detail: "particleColorTexturePreparationFailed"
+                )
+                return nil
             }
-            colorUVScale = SIMD2(repeating: 1)
+            texture = loaded.texture
+            spriteAnimation = loaded.animation
+            staticSpriteAspect = loaded.staticAspect
+            colorSampling = loaded.sampling
+            colorUVScale = loaded.uvScale
             refraction = nil
         }
         guard supportsPathRendererTexture(
@@ -649,6 +624,7 @@ final class SceneParticleRuntime {
             instanceOverride: layer.particleInstanceOverride,
             initialDynamicInstanceOverride: initialInstanceOverride,
             seed: UInt64(bitPattern: Int64(layer.id)),
+            prewarmStepBudget: 3_600,
             layerImageEmissionMap: layerImageMap,
             worldSpaceFrame: worldSpaceFrame,
             stepSnapshotPolicy: render.ropeTrail?.stepSnapshotPolicy
@@ -664,6 +640,7 @@ final class SceneParticleRuntime {
             refraction: refraction,
             renderState: renderState,
             spriteAnimation: spriteAnimation,
+            staticSpriteAspect: staticSpriteAspect,
             orientation: SceneParticleOrientation(
                 authoredValue: render.renderer.orientation,
                 isWorldSpace: render.renderer.isWorldSpace

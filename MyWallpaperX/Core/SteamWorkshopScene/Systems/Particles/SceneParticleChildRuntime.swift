@@ -10,7 +10,6 @@ final class SceneParticleChildRuntime {
             let depth: Int
             let spawnScopeID: UInt64?
             let parentParticleID: UInt64?
-            let emissionCompletionTime: Double?
             let isWorldSpace: Bool
             let origin: SIMD3<Double>
             let particleOrigins: [UInt64: SIMD3<Double>]
@@ -33,10 +32,10 @@ final class SceneParticleChildRuntime {
         let parentAssetPath: String?
     }
 
-    // Child systems run on the CPU fallback; cap burst spikes while retaining authored
-    // distribution. Each depth keeps its own aggregate budget so nested trails cannot
-    // starve depth-one children and vice versa.
-    static let maximumParticlesPerSystem = 1024
+    // Reserve each admitted system's authored capacity in full. Each depth keeps
+    // the previous total envelope without truncating every burst to 1024 particles.
+    // The systems themselves own reservations, including frame rollback and retirement.
+    private static let maximumParticlesPerDepth = 65_536
     private static let maximumSystemsPerDepth = 64
 
     let unsupportedDetails: [String]
@@ -95,7 +94,8 @@ final class SceneParticleChildRuntime {
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry,
         device: MTLDevice,
         worldSpaceFrame: SceneParticleWorldSpaceFrame?,
-        rootInstanceOverride: SceneParticleInstanceOverride?
+        rootInstanceOverride: SceneParticleInstanceOverride?,
+        initialDynamicInstanceValues: SceneDynamicParticleValues? = nil
     ) {
         self.layerID = layerID
         self.layerAlpha = layerAlpha
@@ -137,26 +137,29 @@ final class SceneParticleChildRuntime {
         nestedParentPaths = Set(templates.compactMap(\.parentAssetPath))
         var performance = expansion.performanceDetails
         let staticTemplates = templates.filter { $0.trigger == .staticChild }
-        if staticTemplates.count > Self.maximumSystemsPerDepth {
-            performance.append(Self.budgetDetail(depth: 1))
-        }
-        for (offset, template) in staticTemplates.prefix(Self.maximumSystemsPerDepth).enumerated() {
+        var staticCapacity = Self.maximumParticlesPerDepth
+        for (offset, template) in staticTemplates.enumerated() {
+            guard systems.count < Self.maximumSystemsPerDepth,
+                  template.particleBudget <= staticCapacity else {
+                let detail = Self.budgetDetail(depth: template.depth)
+                if !performance.contains(detail) { performance.append(detail) }
+                continue
+            }
+            staticCapacity -= template.particleBudget
             systems.append(SceneParticleChildSystem(
                 id: nextSystemID,
                 templateIndex: template.index,
                 depth: template.depth,
                 spawnScopeID: nil,
                 parentParticleID: nil,
-                emissionCompletionTime: SceneParticleChildLifecycle.emissionCompletionTime(
-                    template.definition
-                ),
                 isWorldSpace: template.definition.flags.isWorldSpace,
                 origin: template.transform.origin,
                 particleOrigins: [:],
                 simulator: template.simulator(
                     seed: UInt64(bitPattern: Int64(layerID))
                         ^ UInt64(template.index &+ 1) &* 0xBF58_476D_1CE4_E5B9
-                        ^ UInt64(offset)
+                        ^ UInt64(offset),
+                    dynamicInstanceValues: initialDynamicInstanceValues
                 )
             ))
             nextSystemID &+= 1
@@ -169,6 +172,7 @@ final class SceneParticleChildRuntime {
         spawnEvents: [SceneParticleState],
         deathEvents: [SceneParticleState],
         parentParticles: [SceneParticleState],
+        dynamicInstanceValues: SceneDynamicParticleValues? = nil,
         pointerLocalPosition: SIMD3<Double>? = nil,
         dynamicControlPoints: [Int: SIMD3<Double>] = [:],
         dynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
@@ -179,6 +183,7 @@ final class SceneParticleChildRuntime {
         let parentFrames = advanceDepthOne(
             by: frameDelta,
             rootParticles: parentParticles,
+            dynamicInstanceValues: dynamicInstanceValues,
             pointerLocalPosition: pointerLocalPosition,
             dynamicControlPoints: dynamicControlPoints,
             dynamicControlPointAngles: dynamicControlPointAngles,
@@ -187,19 +192,20 @@ final class SceneParticleChildRuntime {
         retireCompletedSystems(depth: 1, into: &retiredRenderSystems)
         spawn(
             from: spawnEvents, trigger: .spawn, depth: 1, parentPath: nil,
-            scopeID: nil, parentOrigin: .zero, limitations: &limitations
+            scopeID: nil, parentOrigin: .zero, dynamicInstanceValues: dynamicInstanceValues, limitations: &limitations
         )
         spawn(
             from: deathEvents, trigger: .death, depth: 1, parentPath: nil,
-            scopeID: nil, parentOrigin: .zero, limitations: &limitations
+            scopeID: nil, parentOrigin: .zero, dynamicInstanceValues: dynamicInstanceValues, limitations: &limitations
         )
         reconcileFollowers(
             parentParticles, depth: 1, parentPath: nil,
-            scopeID: nil, parentOrigin: .zero, limitations: &limitations
+            scopeID: nil, parentOrigin: .zero, dynamicInstanceValues: dynamicInstanceValues, limitations: &limitations
         )
         advanceDepthTwo(
             by: frameDelta,
             parentFrames: parentFrames,
+            dynamicInstanceValues: dynamicInstanceValues,
             pointerLocalPosition: pointerLocalPosition,
             dynamicControlPoints: dynamicControlPoints,
             dynamicControlPointAngles: dynamicControlPointAngles,
@@ -286,7 +292,6 @@ final class SceneParticleChildRuntime {
                     depth: $0.depth,
                     spawnScopeID: $0.spawnScopeID,
                     parentParticleID: $0.parentParticleID,
-                    emissionCompletionTime: $0.emissionCompletionTime,
                     isWorldSpace: $0.isWorldSpace,
                     origin: $0.origin,
                     particleOrigins: $0.particleOrigins,
@@ -310,7 +315,6 @@ final class SceneParticleChildRuntime {
                 depth: $0.depth,
                 spawnScopeID: $0.spawnScopeID,
                 parentParticleID: $0.parentParticleID,
-                emissionCompletionTime: $0.emissionCompletionTime,
                 isWorldSpace: $0.isWorldSpace,
                 origin: $0.origin,
                 particleOrigins: $0.particleOrigins,
@@ -342,6 +346,7 @@ final class SceneParticleChildRuntime {
     private func advanceDepthOne(
         by frameDelta: TimeInterval,
         rootParticles: [SceneParticleState],
+        dynamicInstanceValues: SceneDynamicParticleValues?,
         pointerLocalPosition: SIMD3<Double>?,
         dynamicControlPoints: [Int: SIMD3<Double>],
         dynamicControlPointAngles: [Int: SIMD3<Double>],
@@ -371,6 +376,9 @@ final class SceneParticleChildRuntime {
                     dynamicControlPoints: dynamicControlPoints
                 ),
                 dynamicControlPointAngles: dynamicControlPointAngles,
+                dynamicInstanceOverride: systems[index].simulator.instanceOverride?.resolving(
+                    dynamicInstanceValues
+                ),
                 audioInput: audioInput
             )
             collectAudioEvaluationObservations(systemAt: index)
@@ -394,6 +402,7 @@ final class SceneParticleChildRuntime {
     private func advanceDepthTwo(
         by frameDelta: TimeInterval,
         parentFrames: [SceneParticleChildParentFrame],
+        dynamicInstanceValues: SceneDynamicParticleValues?,
         pointerLocalPosition: SIMD3<Double>?,
         dynamicControlPoints: [Int: SIMD3<Double>],
         dynamicControlPointAngles: [Int: SIMD3<Double>],
@@ -436,6 +445,9 @@ final class SceneParticleChildRuntime {
                     dynamicControlPoints: dynamicControlPoints
                 ),
                 dynamicControlPointAngles: dynamicControlPointAngles,
+                dynamicInstanceOverride: systems[index].simulator.instanceOverride?.resolving(
+                    dynamicInstanceValues
+                ),
                 audioInput: audioInput
             )
             collectAudioEvaluationObservations(systemAt: index)
@@ -450,15 +462,18 @@ final class SceneParticleChildRuntime {
         for frame in parentFrames {
             spawn(
                 from: frame.births, trigger: .spawn, depth: 2, parentPath: frame.path,
-                scopeID: frame.systemID, parentOrigin: frame.origin, limitations: &limitations
+                scopeID: frame.systemID, parentOrigin: frame.origin,
+                dynamicInstanceValues: dynamicInstanceValues, limitations: &limitations
             )
             spawn(
                 from: frame.deaths, trigger: .death, depth: 2, parentPath: frame.path,
-                scopeID: frame.systemID, parentOrigin: frame.origin, limitations: &limitations
+                scopeID: frame.systemID, parentOrigin: frame.origin,
+                dynamicInstanceValues: dynamicInstanceValues, limitations: &limitations
             )
             reconcileFollowers(
                 frame.particles, depth: 2, parentPath: frame.path,
-                scopeID: frame.systemID, parentOrigin: frame.origin, limitations: &limitations
+                scopeID: frame.systemID, parentOrigin: frame.origin,
+                dynamicInstanceValues: dynamicInstanceValues, limitations: &limitations
             )
         }
     }
@@ -504,9 +519,7 @@ final class SceneParticleChildRuntime {
         system.depth == depth
             && system.parentParticleID == nil
             && system.simulator.simulationTime > 0
-            && system.emissionCompletionTime != nil
-            && system.simulator.simulationTime + 1e-12
-                >= (system.emissionCompletionTime ?? .infinity)
+            && system.simulator.hasFinishedEmission
             && system.simulator.particles.isEmpty
     }
 
@@ -552,6 +565,7 @@ final class SceneParticleChildRuntime {
         parentPath: String?,
         scopeID: UInt64?,
         parentOrigin: SIMD3<Double>,
+        dynamicInstanceValues: SceneDynamicParticleValues?,
         limitations: inout Set<String>
     ) {
         guard !events.isEmpty else { return }
@@ -565,14 +579,15 @@ final class SceneParticleChildRuntime {
         for system in systems where system.spawnScopeID == scopeID {
             activeCounts[system.templateIndex, default: 0] += 1
         }
-        var activeDepthCount = depthSystemCount(depth)
+        var allocation = depthAllocation(depth)
         for event in events {
             for template in selectedTemplates {
                 let activeCount = activeCounts[template.index, default: 0]
                 guard activeCount < template.maximumSystemCount,
                       SceneParticleChildLifecycle.accepts(event: event, template: template, scopeID: scopeID)
                 else { continue }
-                guard activeDepthCount < Self.maximumSystemsPerDepth else {
+                guard allocation.systems < Self.maximumSystemsPerDepth,
+                      template.particleBudget <= Self.maximumParticlesPerDepth - allocation.particles else {
                     limitations.insert(Self.budgetDetail(depth: depth))
                     continue
                 }
@@ -581,10 +596,12 @@ final class SceneParticleChildRuntime {
                     scopeID: scopeID,
                     parentParticleID: nil,
                     origin: parentOrigin + event.position,
-                    parentParticle: event
+                    parentParticle: event,
+                    dynamicInstanceValues: dynamicInstanceValues
                 )
                 activeCounts[template.index] = activeCount + 1
-                activeDepthCount += 1
+                allocation.systems += 1
+                allocation.particles += template.particleBudget
             }
         }
     }
@@ -595,6 +612,7 @@ final class SceneParticleChildRuntime {
         parentPath: String?,
         scopeID: UInt64?,
         parentOrigin: SIMD3<Double>,
+        dynamicInstanceValues: SceneDynamicParticleValues?,
         limitations: inout Set<String>
     ) {
         guard !parents.isEmpty else { return }
@@ -602,7 +620,7 @@ final class SceneParticleChildRuntime {
             trigger: .follow, depth: depth, parentAssetPath: parentPath
         )
         guard let selectedTemplates = templatesBySelection[selectionKey] else { return }
-        var activeDepthCount = depthSystemCount(depth)
+        var allocation = depthAllocation(depth)
         for template in selectedTemplates {
             var followedIDs = Set(systems.lazy.compactMap { system in
                 system.templateIndex == template.index && system.spawnScopeID == scopeID
@@ -613,7 +631,8 @@ final class SceneParticleChildRuntime {
                       followedIDs.count < template.maximumSystemCount,
                       SceneParticleChildLifecycle.accepts(event: parent, template: template, scopeID: scopeID)
                 else { continue }
-                guard activeDepthCount < Self.maximumSystemsPerDepth else {
+                guard allocation.systems < Self.maximumSystemsPerDepth,
+                      template.particleBudget <= Self.maximumParticlesPerDepth - allocation.particles else {
                     limitations.insert(Self.budgetDetail(depth: depth))
                     continue
                 }
@@ -623,9 +642,11 @@ final class SceneParticleChildRuntime {
                     scopeID: scopeID,
                     parentParticleID: parent.id,
                     origin: parentOrigin + parent.position,
-                    parentParticle: parent
+                    parentParticle: parent,
+                    dynamicInstanceValues: dynamicInstanceValues
                 )
-                activeDepthCount += 1
+                allocation.systems += 1
+                allocation.particles += template.particleBudget
             }
         }
     }
@@ -635,7 +656,8 @@ final class SceneParticleChildRuntime {
         scopeID: UInt64?,
         parentParticleID: UInt64?,
         origin: SIMD3<Double>,
-        parentParticle: SceneParticleState
+        parentParticle: SceneParticleState,
+        dynamicInstanceValues: SceneDynamicParticleValues?
     ) {
         let seed = UInt64(bitPattern: Int64(layerID))
             ^ parentParticle.id &* 0x9E37_79B9_7F4A_7C15
@@ -643,22 +665,20 @@ final class SceneParticleChildRuntime {
             ^ (scopeID ?? 0) &* 0x94D0_49BB_1331_11EB
             ^ nextSeed
         nextSeed &+= 1
-        let completion = template.trigger == .follow
-            ? SceneParticleChildLifecycle.emissionCompletionTime(template.definition)
-            : SceneParticleChildLifecycle.eventEmissionWindow(template.definition)
         systems.append(SceneParticleChildSystem(
             id: nextSystemID,
             templateIndex: template.index,
             depth: template.depth,
             spawnScopeID: scopeID,
             parentParticleID: parentParticleID,
-            emissionCompletionTime: completion,
             isWorldSpace: template.definition.flags.isWorldSpace,
             origin: origin,
             particleOrigins: [:],
             simulator: template.simulator(
                 seed: seed,
-                emissionDeadline: template.trigger == .follow ? nil : completion,
+                dynamicInstanceValues: dynamicInstanceValues,
+                maximumEmissionDuration: template.trigger == .follow ? nil
+                    : SceneParticleChildLifecycle.maximumParticleLifetime(template.definition),
                 eventColorContext: template.eventColorContext(for: parentParticle)
             )
         ))
@@ -679,13 +699,20 @@ final class SceneParticleChildRuntime {
         }
     }
 
-    private func depthSystemCount(_ depth: Int) -> Int { systems.lazy.filter { $0.depth == depth }.count }
+    private func depthAllocation(_ depth: Int) -> (systems: Int, particles: Int) {
+        var allocation = (systems: 0, particles: 0)
+        for system in systems where system.depth == depth {
+            allocation.systems += 1
+            allocation.particles += system.simulator.maximumParticleCount
+        }
+        return allocation
+    }
 
     private static func budgetDetail(depth: Int) -> String {
         depth <= 1
             ? "aggregateSystemBudget:systems=\(maximumSystemsPerDepth):particleCapacity="
-            + "\(maximumSystemsPerDepth * maximumParticlesPerSystem)"
+            + "\(maximumParticlesPerDepth)"
             : "nestedAggregateSystemBudget:depth=2:systems=\(maximumSystemsPerDepth)"
-            + ":particleCapacity=\(maximumSystemsPerDepth * maximumParticlesPerSystem)"
+            + ":particleCapacity=\(maximumParticlesPerDepth)"
     }
 }

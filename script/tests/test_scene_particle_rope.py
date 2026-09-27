@@ -116,6 +116,7 @@ enum Harness {
         return [
             "basicAccepted": basic != nil,
             "basicLimit": basic?.particleLimit ?? -1,
+            "defaultSubdivision": basic?.subdivisionCount ?? -1,
             "explicitDefaultsAccepted": explicitDefaults != nil,
             "budgetBoundary": explicitDefaults?.particleLimit ?? -1,
             "uvProfileAccepted": uvProfile != nil,
@@ -131,7 +132,7 @@ enum Harness {
     }
 
     private static func topologyContract() -> [String: Any] {
-        let value = plan(["name": "rope"], maximumCount: 3)!
+        let value = plan(["name": "rope", "subdivision": 0], maximumCount: 3)!
         let instances = value.instances(
             particles: [
                 particle(id: 2, position: SIMD3(20, 10, 0), size: 6, alpha: 0.25),
@@ -170,7 +171,7 @@ enum Harness {
                 layerAlpha: 1
             )
         let scrolling = plan([
-            "name": "rope", "uvscale": 2,
+            "name": "rope", "subdivision": 0, "uvscale": 2,
             "uvscrolling": true, "uvsmoothing": true,
         ], maximumCount: 3)!.instances(
             particles: [
@@ -182,7 +183,7 @@ enum Harness {
             simulationTime: 2.25
         )
         let smoothed = plan([
-            "name": "rope", "uvsmoothing": true,
+            "name": "rope", "subdivision": 0, "uvsmoothing": true,
         ], maximumCount: 3)!.instances(
             particles: [
                 particle(id: 0, position: SIMD3(0, 0, 0), age: 0.8),
@@ -192,7 +193,7 @@ enum Harness {
             layerAlpha: 1
         )
         let smoothingFallback = plan([
-            "name": "rope", "uvsmoothing": true,
+            "name": "rope", "subdivision": 0, "uvsmoothing": true,
         ], maximumCount: 3)!.instances(
             particles: [
                 particle(id: 0, position: SIMD3(0, 0, 0), age: 0.8, lifetime: 1),
@@ -350,6 +351,7 @@ class SceneParticleRopeTests(unittest.TestCase):
         profiles = self.result["profiles"]
         self.assertTrue(profiles["basicAccepted"])
         self.assertEqual(profiles["basicLimit"], 3)
+        self.assertEqual(profiles["defaultSubdivision"], 3)
         self.assertTrue(profiles["explicitDefaultsAccepted"])
         self.assertEqual(profiles["budgetBoundary"], 512)
         self.assertTrue(profiles["uvProfileAccepted"])

@@ -211,6 +211,25 @@ enum Harness {
             loader: loader,
             device: device
         )
+        let normalCopyURL = directory.appendingPathComponent("normal-copy.tex")
+        try Data(contentsOf: opaqueURL).write(to: normalCopyURL)
+        let separateFile = try refraction(colorURL: opaqueURL, normalURL: normalCopyURL,
+            amount: 0.25, loader: loader, device: device)
+        let sameFilePixels = try draw(device: device, refraction: sameFile,
+            particleAlpha: 1, blendMode: .translucent, gradientBackground: true)
+        let separateFilePixels = try draw(device: device, refraction: separateFile,
+            particleAlpha: 1, blendMode: .translucent, gradientBackground: true)
+        let sixteenURL = directory.appendingPathComponent("sixteen.tex")
+        try makeTex(format: 0, textureWidth: 2, textureHeight: 2, imageWidth: 2, imageHeight: 2,
+            payload: try makeOpaquePNG(width: 2, height: 2, straight16: true)).write(to: sixteenURL)
+        let sixteenColor = SceneParticleRefractionTextureLoader.load(
+            colorSource: .file(sixteenURL),
+            declaration: SceneParticleRefractionDeclaration(normalTextureSource: nil,
+                amount: 0.25, overbright: 1), textureLoader: loader, device: device)
+        let sixteenNormal = SceneParticleRefractionTextureLoader.load(
+            colorSource: .file(sixteenURL),
+            declaration: SceneParticleRefractionDeclaration(normalTextureSource: .file(sixteenURL),
+                amount: 0.25, overbright: 1), textureLoader: loader, device: device)
         let oversizedSameSourceURL = directory.appendingPathComponent(
             "oversized-same-source.tex"
         )
@@ -254,7 +273,6 @@ enum Harness {
         ) == nil
         let dxt5nNormal = try normalArguments(dxt5n.binding)
         let paddedNormal = try normalArguments(padded.binding)
-        let sameFileNormal = try normalArguments(sameFile.binding)
         let clampBorderNormal = try normalArguments(clampBorder.binding)
         let flatDefaultNormal = try normalArguments(flatDefault.binding)
         let wrongPurposeRejected = SceneParticleRefractionBinding(
@@ -319,8 +337,54 @@ enum Harness {
             colorEncoding: .rgba
         ) == nil
 
+        let directNormal = try normalArguments(directDXT5n.binding)
+        let unknownFormatRejected = SceneParticleRefractionBinding(
+            normalCandidate: candidate(texture: dxt5nNormal.texture, purpose: .normal, authoredFormat: nil),
+            amount: 1, overbright: 1, colorEncoding: .rgba) == nil
+        let unsupportedFormatRejected = SceneParticleRefractionBinding(
+            normalCandidate: candidate(texture: dxt5nNormal.texture, purpose: .normal, authoredFormat: .rg88),
+            amount: 1, overbright: 1, colorEncoding: .rgba) == nil
+        let mismatchedFormatRejected = SceneParticleRefractionBinding(
+            normalCandidate: candidate(texture: directNormal.texture, purpose: .normal, authoredFormat: .rgba8888),
+            amount: 1, overbright: 1, colorEncoding: .rgba) == nil
+        let sameFileDXT5n = try refraction(colorURL: dxt5nURL, normalURL: dxt5nURL,
+            amount: 0.75, loader: loader, device: device)
+        var sourceFormatPixels: [String: [Int]] = [:]
+        for (name, url) in [("rgba", rgbaURL), ("cpuBC3", dxt5nURL), ("nativeBC3", directDXT5nURL)] {
+            let value = try refraction(colorURL: opaqueURL, normalURL: url, amount: 0.75,
+                loader: loader, device: device)
+            sourceFormatPixels[name] = try draw(device: device, refraction: value,
+                particleAlpha: 1, blendMode: .translucent, gradientBackground: true)
+        }
+        let coloredURL = directory.appendingPathComponent("colored-albedo.tex")
+        try makeRawTex(pixel: [64,192,128,128]).write(to: coloredURL)
+        let rg88URL = directory.appendingPathComponent("rg88-albedo.tex")
+        try makeTex(format: 8, payload: Data((0..<16).flatMap { _ in [UInt8(128),128] })).write(to: rg88URL)
+        var absentPixels: [String: [[Int]]] = [:]
+        for (name, url) in [("white",opaqueURL), ("colored",coloredURL), ("rg88",rg88URL)] {
+            for (modeName, mode) in [("translucent",SceneParticlePipelineBlendMode.translucent),
+                                     ("additive",SceneParticlePipelineBlendMode.additive)] {
+                absentPixels[name + modeName] = try [Float(-1),0,1].map { amount in
+                    let value = try refraction(colorURL: url, normalURL: nil, amount: amount,
+                        loader: loader, device: device)
+                    return try draw(device: device, refraction: value, particleAlpha: 0.5,
+                        blendMode: mode, gradientBackground: true)
+                }
+            }
+        }
+        let explicitNeutral = try refraction(colorURL: opaqueURL, normalURL: neutralURL,
+            amount: 1, loader: loader, device: device)
+        let absentStrong = try refraction(colorURL: opaqueURL, normalURL: nil,
+            amount: 1, loader: loader, device: device)
         let result: [String: Any] = [
             "available": true,
+            "sourceFormatPixels": sourceFormatPixels,
+            "absentPixels": absentPixels,
+            "explicitNeutral": try draw(device: device, refraction: explicitNeutral,
+                particleAlpha: 1, blendMode: .translucent, gradientBackground: true),
+            "absentStrong": try draw(device: device, refraction: absentStrong,
+                particleAlpha: 1, blendMode: .translucent, gradientBackground: true),
+
             "decodedDXT5n": decoded.map(Int.init),
             "loadedDXT5nNormal": readPixel(
                 dxt5nNormal.texture
@@ -389,20 +453,20 @@ enum Harness {
                 ],
                 "multiImageLegacy":
                     !directDXT5n.binding.usesStaticNormalCandidate,
-                "sameFileLegacy":
-                    !sameFile.binding.usesStaticNormalCandidate,
-                "sameFileSharesUpload":
-                    sameFile.color === sameFileNormal.texture,
-                "flatDefaultPixel": readPixel(
-                    flatDefaultNormal.texture
-                ).map(Int.init),
-                "flatDefaultSize": [
-                    flatDefaultNormal.texture.width,
-                    flatDefaultNormal.texture.height,
-                ],
-                "flatDefaultLinearClamp":
-                    flatDefaultNormal.sampling == .linearClamp,
-                "flatDefaultUsesFrames": flatDefaultNormal.usesParticleFrames,
+                "sameFilePixels": sameFilePixels,
+                "separateFilePixels": separateFilePixels,
+                "sixteenColorAccepted": sixteenColor != nil,
+                "sixteenNormalRejected": sixteenNormal == nil,
+                "decodedBC3IsRGBA": dxt5nNormal.texture.pixelFormat == .rgba8Unorm,
+                "directBC3IsNative": directNormal.texture.pixelFormat == .bc3_rgba,
+                "decodedBC3Format": dxt5nNormal.authoredFormat?.rawValue ?? 999,
+                "nativeBC3Format": directNormal.authoredFormat?.rawValue ?? 999,
+                "sameFileBC3Format": try normalArguments(sameFileDXT5n.binding).authoredFormat?.rawValue ?? 999,
+                "rgbaFormat": try normalArguments(rgba.binding).authoredFormat?.rawValue ?? 999,
+                "absentFormat": flatDefaultNormal.authoredFormat == nil,
+                "unknownFormatRejected": unknownFormatRejected,
+                "unsupportedFormatRejected": unsupportedFormatRejected,
+                "mismatchedFormatRejected": mismatchedFormatRejected,
                 "oversizedSameSourceRejected": oversizedSameSourceRejected,
                 "clampBorderLegacy":
                     !clampBorder.binding.usesStaticNormalCandidate
@@ -661,18 +725,20 @@ enum Harness {
         )
     }
 
-    private static func makeOpaquePNG(width: Int, height: Int) throws -> Data {
-        let pixels = Data(repeating: 255, count: width * height * 4)
+    private static func makeOpaquePNG(width: Int, height: Int, straight16: Bool = false) throws -> Data {
+        let pixels = straight16
+            ? Data((0 ..< width * height).flatMap { _ in [UInt8](arrayLiteral: 255,255,18,52,171,205,128,1) })
+            : Data(repeating: 255, count: width * height * 4)
         guard let provider = CGDataProvider(data: pixels as CFData),
               let image = CGImage(
                   width: width,
                   height: height,
-                  bitsPerComponent: 8,
-                  bitsPerPixel: 32,
-                  bytesPerRow: width * 4,
+                  bitsPerComponent: straight16 ? 16 : 8,
+                  bitsPerPixel: straight16 ? 64 : 32,
+                  bytesPerRow: width * (straight16 ? 8 : 4),
                   space: CGColorSpaceCreateDeviceRGB(),
                   bitmapInfo: CGBitmapInfo(
-                      rawValue: CGImageAlphaInfo.noneSkipLast.rawValue
+                      rawValue: straight16 ? CGImageAlphaInfo.last.rawValue | CGBitmapInfo.byteOrder16Big.rawValue : CGImageAlphaInfo.noneSkipLast.rawValue
                   ),
                   provider: provider,
                   decode: nil,
@@ -733,7 +799,8 @@ enum Harness {
     private static func candidate(
         texture: MTLTexture,
         purpose: SceneTextureLoadPurpose,
-        sampling: SceneTextureSampling = .linearClamp
+        sampling: SceneTextureSampling = .linearClamp,
+        authoredFormat: SceneShaderTextureFormat? = .rgba8888
     ) -> SceneTextureCandidate {
         let size = CGSize(width: texture.width, height: texture.height)
         let content: SceneTextureContent
@@ -754,7 +821,8 @@ enum Harness {
             physicalSize: size,
             mappedSize: size,
             uvTransform: .identity,
-            sampling: sampling
+            sampling: sampling,
+            authoredFormat: authoredFormat
         )
     }
 
@@ -831,23 +899,13 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
         if not self.result["available"]:
             self.skipTest("Metal is unavailable")
 
-    def test_dxt5n_and_byte_equivalent_rgba_normal_displace_equally(self) -> None:
+    def test_normal_storage_preserves_channels_and_source_format_decoding(self) -> None:
         self.require_metal()
         self.assertEqual(self.result["decodedDXT5n"], [255, 130, 0, 64])
         self.assertEqual(self.result["loadedDXT5nNormal"], [255, 130, 0, 64])
         pixels = self.result["normalPixels"]
-        self.assertLessEqual(
-            max(abs(left - right) for left, right in zip(
-                pixels["dxt5n"], pixels["rgba"]
-            )),
-            2,
-        )
-        self.assertLessEqual(
-            max(abs(left - right) for left, right in zip(
-                pixels["dxt5nDirect"], pixels["rgba"]
-            )),
-            2,
-        )
+        self.assertLessEqual(max(abs(a - b) for a, b in zip(
+            pixels["dxt5n"], pixels["dxt5nDirect"])), 2)
         self.assertGreater(
             max(abs(left - right) for left, right in zip(
                 pixels["rgba"], pixels["swapped"]
@@ -883,12 +941,20 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
         self.assertTrue(routes["paddedStaticCandidate"], routes)
         self.assertEqual(routes["paddedUVScale"], [0.5, 1])
         self.assertTrue(routes["multiImageLegacy"], routes)
-        self.assertTrue(routes["sameFileLegacy"], routes)
-        self.assertTrue(routes["sameFileSharesUpload"], routes)
-        self.assertEqual(routes["flatDefaultPixel"], [255, 128, 255, 128])
-        self.assertEqual(routes["flatDefaultSize"], [1, 1])
-        self.assertTrue(routes["flatDefaultLinearClamp"], routes)
-        self.assertFalse(routes["flatDefaultUsesFrames"], routes)
+        self.assertEqual(routes["sameFilePixels"], routes["separateFilePixels"])
+        self.assertTrue(any(routes["sameFilePixels"][:3]))
+        self.assertTrue(routes["sixteenColorAccepted"], routes)
+        self.assertTrue(routes["sixteenNormalRejected"], routes)
+        self.assertTrue(routes["decodedBC3IsRGBA"], routes)
+        self.assertTrue(routes["directBC3IsNative"], routes)
+        self.assertEqual(routes["decodedBC3Format"], 4)
+        self.assertEqual(routes["nativeBC3Format"], 4)
+        self.assertEqual(routes["sameFileBC3Format"], 4)
+        self.assertEqual(routes["rgbaFormat"], 0)
+        self.assertTrue(routes["absentFormat"])
+        self.assertTrue(routes["unknownFormatRejected"])
+        self.assertTrue(routes["unsupportedFormatRejected"])
+        self.assertTrue(routes["mismatchedFormatRejected"])
         self.assertTrue(routes["oversizedSameSourceRejected"], routes)
         self.assertTrue(routes["clampBorderLegacy"], routes)
         self.assertTrue(routes["invalidMappedRejected"], routes)
@@ -896,6 +962,28 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
         self.assertTrue(routes["clampBorderCandidateRejected"], routes)
         self.assertTrue(routes["wrongUsageRejected"], routes)
         self.assertTrue(routes["wrongTypeRejected"], routes)
+
+    def test_bc3_bias_uses_authored_format_after_cpu_or_native_upload(self) -> None:
+        self.require_metal()
+        values = self.result["sourceFormatPixels"]
+        # With A=64/255, RGBA X=2*A-1 while BC3 X=2*A-.965.
+        # The 32px background changes by 5 blue units/pixel, amount=.75.
+        for key, bias in [("rgba", 1), ("cpuBC3", .965), ("nativeBC3", .965)]:
+            expected_blue = 100 + (2 * 64 / 255 - bias) * .75 * 32 * 5
+            self.assertAlmostEqual(values[key][0], expected_blue, delta=1)
+        self.assertGreater(values["cpuBC3"][0], values["rgba"][0] + 2)
+        self.assertAlmostEqual(values["cpuBC3"][1], values["rgba"][1], delta=1)
+
+    def test_absent_normal_has_exact_zero_displacement_for_any_amount(self) -> None:
+        self.require_metal()
+        self.assertEqual(len(self.result["absentPixels"]), 6)
+        for name, pixels in self.result["absentPixels"].items():
+            with self.subTest(name=name):
+                self.assertEqual(pixels[0], pixels[1])
+                self.assertEqual(pixels[2], pixels[1])
+                self.assertGreater(pixels[1][3], 0)
+        self.assertEqual(self.result["absentStrong"], [100,78,40,255])
+        self.assertNotEqual(self.result["explicitNeutral"], self.result["absentStrong"])
 
     def test_refraction_composite_coverage_is_applied_once(self) -> None:
         self.require_metal()
@@ -917,6 +1005,122 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
                 pixel, expected
             )), 2)
             self.assertLess(expected_error, double_error)
+
+
+# The loader double changes source identity exactly between metadata and upload.
+# Only I/O is doubled; the production refraction preparation and binding execute.
+IDENTITY_HARNESS = r'''
+import Foundation
+import Metal
+import simd
+
+typealias SceneParticleTextureSampling = SceneTextureSampling
+enum SceneTextureLoadPurpose { case normal, straightAlbedo }
+enum SceneParticleTextureSource { case file(URL), builtIn(String) }
+struct SceneParticleRefractionDeclaration {
+    let normalTextureSource: SceneParticleTextureSource?
+    let amount: Float = 1
+    let overbright: Float = 1
+}
+struct SceneTexContainer {
+    struct SpriteFrame {
+        let imageIndex: Int; let duration: Float
+        let origin: SIMD2<Float>; let xAxis: SIMD2<Float>; let yAxis: SIMD2<Float>
+    }
+    struct Mip { let width = 4; let height = 4 }
+    let format: UInt32
+    let flags: UInt32
+    let imageCount = 1; let isAnimated = false
+    let spriteFrames: [SpriteFrame] = []; let mips = [Mip()]
+    let imageWidth = 4; let imageHeight = 4; let textureWidth = 4; let textureHeight = 4
+}
+struct SceneSpriteAnimation { init(container: SceneTexContainer, sourceURL: URL) {} }
+struct SceneTextureCandidate {
+    let texture: MTLTexture
+    let authoredFormat: SceneShaderTextureFormat?
+    let sampling = SceneTextureSampling.linearClamp
+    var pixelFormat: MTLPixelFormat { texture.pixelFormat }
+    func axisAlignedMappedUVScale(expectedPurpose: SceneTextureLoadPurpose) -> SIMD2<Float>? { SIMD2(1,1) }
+}
+final class SceneTextureLoader {
+    struct SourceKey: Equatable { let revision: Int }
+    enum Outcome { case loaded(MTLTexture) }
+    enum CandidateOutcome { case loaded(SceneTextureCandidate) }
+    let texture: MTLTexture
+    let mode: String
+    var revision: [String: Int] = [:]
+    var changed = false
+    init(device: MTLDevice, mode: String) {
+        self.mode = mode
+        let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
+            width: 4, height: 4, mipmapped: false)
+        d.usage = .shaderRead
+        texture = device.makeTexture(descriptor: d)!
+    }
+    func sourceKey(for url: URL) -> SourceKey? { .init(revision: revision[url.path, default: 0]) }
+    func texContainer(from url: URL) -> SceneTexContainer? {
+        .init(format: revision[url.path, default: 0] == 0 ? 0 : 4,
+              flags: mode == "normal-base" ? 8 : 0)
+    }
+    func changeIfNeeded(_ url: URL, candidate: Bool) {
+        guard !changed else { return }
+        let change = (mode == "color" || mode == "same-file") && url.lastPathComponent == "color.tex"
+            || mode == "normal-base" && url.lastPathComponent == "normal.tex"
+            || mode == "normal-candidate" && candidate
+        if change { revision[url.path, default: 0] += 1; changed = true }
+    }
+    func load(from url: URL, purpose: SceneTextureLoadPurpose, device: MTLDevice) -> Outcome {
+        changeIfNeeded(url, candidate: false); return .loaded(texture)
+    }
+    func loadCandidate(from url: URL, purpose: SceneTextureLoadPurpose, device: MTLDevice) -> CandidateOutcome {
+        changeIfNeeded(url, candidate: true)
+        return .loaded(.init(texture: texture,
+            authoredFormat: revision[url.path, default: 0] == 0 ? .rgba8888 : .dxt5))
+    }
+}
+@main enum Main {
+    static func main() throws {
+        guard let device = MTLCreateSystemDefaultDevice() else { fatalError("Metal unavailable") }
+        let color = URL(fileURLWithPath: "/fixture/color.tex")
+        let normal = URL(fileURLWithPath: "/fixture/normal.tex")
+        var result: [String: [Bool]] = [:]
+        for mode in ["stable", "color", "same-file", "normal-base", "normal-candidate"] {
+            let loader = SceneTextureLoader(device: device, mode: mode)
+            let declaration = SceneParticleRefractionDeclaration(
+                normalTextureSource: mode == "color" ? nil : .file(mode == "same-file" ? color : normal))
+            func prepare() -> Bool {
+                SceneParticleRefractionTextureLoader.load(colorSource: .file(color),
+                    declaration: declaration, textureLoader: loader, device: device) != nil
+            }
+            result[mode] = [prepare(), prepare()]
+        }
+        let data = try JSONSerialization.data(withJSONObject: result, options: .sortedKeys)
+        print(String(decoding: data, as: UTF8.self))
+    }
+}
+'''
+
+class SceneParticleRefractionIdentityTests(unittest.TestCase):
+    def test_metadata_upload_identity_drift_is_rejected_and_retry_recovers(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-refraction-identity-") as directory:
+            root = Path(directory)
+            harness = root / "harness.swift"
+            harness.write_text(IDENTITY_HARNESS)
+            binary = root / "harness"
+            sources = [
+                SCENE_ROOT / "Resources/Textures/SceneTextureSampling.swift",
+                SCENE_ROOT / "Systems/Particles/SceneParticleRefractionBinding.swift",
+                SCENE_ROOT / "Systems/Particles/SceneParticleRefractionTextureLoader.swift",
+            ]
+            result = subprocess.run(["swiftc", *map(str, sources), str(harness), "-o", str(binary)],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            result = subprocess.run([str(binary)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            values = json.loads(result.stdout)
+            self.assertEqual(values["stable"], [True, True])
+            for key in ["color", "same-file", "normal-base", "normal-candidate"]:
+                self.assertEqual(values[key], [False, True], key)
 
 
 if __name__ == "__main__":

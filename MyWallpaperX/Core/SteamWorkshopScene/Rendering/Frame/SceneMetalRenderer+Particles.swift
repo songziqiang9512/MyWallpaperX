@@ -37,10 +37,10 @@ extension SceneMetalRenderer {
         }
         var clearsDepth = usesDepth
         for batch in batches {
-            let basis = particleBasis(
-                for: batch,
+            let basis = cameraFrame.basis(
+                for: batch.orientation,
                 layerModel: model,
-                cameraFrame: cameraFrame
+                orientationAxis: batch.orientationAxis ?? SIMD3<Float>(0, 0, 1)
             )
             let uniforms = SceneParticleLayerUniforms(
                 viewProjection: cameraFrame.viewProjection(
@@ -49,7 +49,8 @@ extension SceneMetalRenderer {
                 layerModel: model,
                 basis: basis,
                 viewportSize: viewportSize,
-                sizeIsWorldSpace: batch.sizeIsWorldSpace
+                sizeIsWorldSpace: batch.sizeIsWorldSpace,
+                viewBasis: cameraFrame.basis(for: .screen)
             )
             let didEncode: Bool
             if let refraction = batch.refraction {
@@ -96,7 +97,7 @@ extension SceneMetalRenderer {
             if didEncode {
                 performanceObservations?.append(SceneParticlePerformanceObservation(
                     layerID: batch.layerID,
-                    instanceCount: batch.instances.count,
+                    instanceCount: batch.instanceBuffer.count,
                     isRefraction: batch.refraction != nil
                 ))
                 // Reserve the slot for this command only after the pipeline

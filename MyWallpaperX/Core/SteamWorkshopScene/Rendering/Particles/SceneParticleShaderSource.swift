@@ -22,6 +22,11 @@ struct LayerUniforms {
     float4 basisUp;
     float2 viewportSize;
     float2 particleSizeScale;
+    float4 viewRight;
+    float4 viewUp;
+    float4 spriteRight;
+    float4 spriteUp;
+    float4 spriteForward;
 };
 struct Varyings {
     float4 position [[position]];
@@ -34,14 +39,16 @@ struct Varyings {
     float frameBlend;
 };
 
-float3 rotateXYZ(float3 value, float3 radians) {
-    float3 c = cos(radians), s = sin(radians);
+float3 rotateParticle(float3 value, float3 radians) {
+    // Match the authored particle basis: clockwise Z, then X, then Y.
+    // This is local particle rotation, before orientation and layer scaling.
+    float3 c = cos(radians), s = -sin(radians);
+    value = float3(c.z * value.x - s.z * value.y,
+                   s.z * value.x + c.z * value.y, value.z);
     value = float3(value.x, c.x * value.y - s.x * value.z,
                    s.x * value.y + c.x * value.z);
-    value = float3(c.y * value.x + s.y * value.z, value.y,
+    return float3(c.y * value.x + s.y * value.z, value.y,
                    -s.y * value.x + c.y * value.z);
-    return float3(c.z * value.x - s.z * value.y,
-                  s.z * value.x + c.z * value.y, value.z);
 }
 
 // Perspective direction differential at the actual endpoint. Extrapolating
@@ -68,6 +75,7 @@ vertex Varyings sceneParticleVert(
     float3 local = float3(0.0);
     float3 trailWorld = float3(0.0);
     float3 trailAcrossWorld = float3(0.0);
+    // Sprite size is width-based; frame aspects remain W/H through blending.
     float spriteAspect = max(mix(
         particle.frame0B.z,
         particle.frame0B.w,
@@ -131,10 +139,10 @@ vertex Varyings sceneParticleVert(
                 + uniforms.basisUp.xyz * acrossCoefficients.y
         ) * (joined ? endpointJoin.w : particle.positionAndSize.w) * layerScale.x;
     } else {
-        local = rotateXYZ(
+        local = rotateParticle(
             float3(
-                quadVertex.position.x * particle.positionAndSize.w * spriteAspect,
-                quadVertex.position.y * particle.positionAndSize.w,
+                quadVertex.position.x * particle.positionAndSize.w,
+                quadVertex.position.y * particle.positionAndSize.w / spriteAspect,
                 0.0
             ),
             particle.rotationAndAlpha.xyz);
@@ -143,9 +151,9 @@ vertex Varyings sceneParticleVert(
     float3 offset = isTrail
         ? trailWorld * quadVertex.position.x
             + trailAcrossWorld * quadVertex.position.y
-        : uniforms.basisRight.xyz * local.x * layerScale.x
-            + uniforms.basisUp.xyz * local.y * layerScale.y
-            + normal * local.z;
+        : uniforms.spriteRight.xyz * local.x
+            + uniforms.spriteUp.xyz * local.y
+            + uniforms.spriteForward.xyz * local.z;
     Varyings out;
     out.position = uniforms.viewProjection * float4(center.xyz + offset, 1.0);
     out.baseUV = isTrail
@@ -164,33 +172,30 @@ vertex Varyings sceneParticleVert(
     float3 tangentWorldX;
     float3 tangentWorldY;
     if (isTrail) {
-        float trailUVSpan = max(abs(particle.frame0B.w - particle.frame0B.z), 0.00001);
         tangentWorldX = -trailAcrossWorld;
-        tangentWorldY = trailWorld / trailUVSpan;
+        tangentWorldY = trailWorld;
     } else {
-        float3 tangentLocalX = rotateXYZ(
-            float3(particle.positionAndSize.w * spriteAspect, 0.0, 0.0),
+        float3 tangentLocalX = rotateParticle(
+            float3(1.0, 0.0, 0.0),
             particle.rotationAndAlpha.xyz);
-        float3 tangentLocalY = rotateXYZ(
-            float3(0.0, particle.positionAndSize.w, 0.0),
+        float3 tangentLocalY = rotateParticle(
+            float3(0.0, 1.0, 0.0),
             particle.rotationAndAlpha.xyz);
-        tangentWorldX = uniforms.basisRight.xyz * tangentLocalX.x * layerScale.x
-                      + uniforms.basisUp.xyz * tangentLocalX.y * layerScale.y;
-        tangentWorldY = uniforms.basisRight.xyz * tangentLocalY.x * layerScale.x
-                      + uniforms.basisUp.xyz * tangentLocalY.y * layerScale.y;
+        tangentWorldX = uniforms.basisRight.xyz * tangentLocalX.x
+                      + uniforms.basisUp.xyz * tangentLocalX.y + normal * tangentLocalX.z;
+        tangentWorldY = uniforms.basisRight.xyz * tangentLocalY.x
+                      + uniforms.basisUp.xyz * tangentLocalY.y + normal * tangentLocalY.z;
     }
-    float4 centerClip = uniforms.viewProjection * center;
-    float4 tangentClipX = uniforms.viewProjection
-        * float4(center.xyz + tangentWorldX, 1.0);
-    float4 tangentClipY = uniforms.viewProjection
-        * float4(center.xyz + tangentWorldY, 1.0);
-    float2 centerNDC = centerClip.xy / max(abs(centerClip.w), 0.00001);
-    float2 tangentNDCX = tangentClipX.xy / max(abs(tangentClipX.w), 0.00001);
-    float2 tangentNDCY = tangentClipY.xy / max(abs(tangentClipY.w), 0.00001);
-    float2 screenTangentX = (tangentNDCX - centerNDC) * float2(0.5, -0.5);
-    float2 screenTangentY = (tangentNDCY - centerNDC) * float2(0.5, -0.5);
-    out.screenTangentX = screenTangentX;
-    out.screenTangentY = screenTangentY;
+    // Refraction is an amount in screen UVs, independent of card dimensions,
+    // projection depth and atlas/trail UV span. Preserve the authored packing:
+    // each normal component combines both particle axes against one view axis.
+    // A zero-length axis contributes no offset instead of producing NaNs.
+    tangentWorldX /= max(length(tangentWorldX), 0.00001);
+    tangentWorldY /= max(length(tangentWorldY), 0.00001);
+    out.screenTangentX = float2(dot(tangentWorldX, uniforms.viewRight.xyz),
+                               dot(tangentWorldY, uniforms.viewRight.xyz));
+    out.screenTangentY = float2(dot(tangentWorldX, uniforms.viewUp.xyz),
+                               dot(tangentWorldY, uniforms.viewUp.xyz));
     return out;
 }
 
@@ -201,8 +206,11 @@ fragment float4 sceneParticleFrag(
     constant float4 &parameters [[buffer(0)]]) {
     float4 first = texture.sample(colorSampler, in.uv0 * parameters.xy);
     float4 second = texture.sample(colorSampler, in.uv1 * parameters.xy);
-    float4 result = mix(first, second, in.frameBlend) * in.tint;
-    result.rgb *= parameters.z;
+    float4 texel = mix(first, second, in.frameBlend);
+    float4 result = texel * in.tint;
+    // in.tint already includes particle alpha. Apply texture coverage only
+    // after filtering/interpolation, retaining authored RGB at zero alpha.
+    result.rgb *= texel.a * parameters.z;
     return result;
 }
 
@@ -223,17 +231,24 @@ fragment float4 sceneParticleRefractFrag(
         albedo = float4(albedo.r, albedo.r, albedo.r, albedo.g);
     }
 
-    bool normalUsesFrames = fmod(parameters.w, 2.0) > 0.5;
-    float2 normalUV0 = normalUsesFrames ? in.uv0 : in.baseUV * uvScales.zw;
-    float2 normalUV1 = normalUsesFrames ? in.uv1 : normalUV0;
-    float4 normalFirst = normalTexture.sample(normalSampler, normalUV0);
-    float4 normalSecond = normalTexture.sample(normalSampler, normalUV1);
-    float4 packedNormal = mix(normalFirst, normalSecond, in.frameBlend);
-    float2 normalXY = float2(packedNormal.a, packedNormal.g) * 2.0 - 1.0;
     float2 backgroundUV = in.position.xy
         / float2(backgroundTexture.get_width(), backgroundTexture.get_height());
-    backgroundUV += (in.screenTangentX * normalXY.x
-        + in.screenTangentY * normalXY.y) * parameters.x;
+    uint normalFlags = uint(parameters.w);
+    if ((normalFlags & 4u) == 0u) {
+        bool normalUsesFrames = (normalFlags & 1u) != 0u;
+        float2 normalUV0 = normalUsesFrames ? in.uv0 : in.baseUV * uvScales.zw;
+        float2 normalUV1 = normalUsesFrames ? in.uv1 : normalUV0;
+        float4 normalFirst = normalTexture.sample(normalSampler, normalUV0);
+        float4 normalSecond = normalTexture.sample(normalSampler, normalUV1);
+        float4 packedNormal = mix(normalFirst, normalSecond, in.frameBlend);
+        // Shader decoding follows the TEX source format even when a BC3
+        // upload was decompressed to RGBA. R is the independent normal mask.
+        float2 normalXY = float2(packedNormal.a, packedNormal.g) * 2.0
+            - float2((normalFlags & 2u) != 0u ? 0.965 : 1.0, 1.0);
+        float refractionWeight = packedNormal.r * in.tint.a;
+        backgroundUV += (in.screenTangentX * normalXY.x
+            + in.screenTangentY * normalXY.y) * parameters.x * refractionWeight;
+    }
     float3 background = backgroundTexture.sample(backgroundSampler, backgroundUV).rgb;
 
     float coverage = saturate(albedo.a * in.tint.a);

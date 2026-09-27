@@ -37,6 +37,7 @@ extension SceneParticleRuntime {
 
     static func spriteFrames(
         animation: SceneSpriteAnimation?,
+        staticAspect: Float,
         definition: SceneParticleDefinition,
         particleID: UInt64,
         age: Float,
@@ -60,7 +61,7 @@ extension SceneParticleRuntime {
                 particleID: particleID,
                 blendsFrames: !definition.flags.disablesFrameBlending
               ) else {
-            return (.identity, nil, 1, 1, 0)
+            return (.identity, nil, staticAspect, staticAspect, 0)
         }
         return (
             frameTransform(animation.frames[selection.currentIndex]),

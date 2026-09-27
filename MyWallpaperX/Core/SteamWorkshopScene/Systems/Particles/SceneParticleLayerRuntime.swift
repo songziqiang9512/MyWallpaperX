@@ -16,6 +16,7 @@ struct SceneParticleRootRenderRuntime {
     let refraction: SceneParticleRefractionBinding?
     let renderState: SceneParticlePipelineRenderState
     let spriteAnimation: SceneSpriteAnimation?
+    let staticSpriteAspect: Float
     let orientation: SceneParticleOrientation
     let orientationAxis: SIMD3<Float>?
     let usesPerspective: Bool

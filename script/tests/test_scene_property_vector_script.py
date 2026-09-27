@@ -1069,6 +1069,88 @@ enum Harness {
             frame: frame,
             audioSpectrum: audioSnapshot
         )
+        let particleScalarFields: [(String, SceneDynamicParticleField)] = [
+            ("alpha", .alpha), ("size", .size), ("lifetime", .lifetime),
+            ("rate", .rate), ("speed", .speed), ("count", .count),
+            ("brightness", .brightness),
+        ]
+        let scalarBound = SceneParticleBoundValue(
+            value: .scalar(2), userPropertyKey: nil,
+            hasScript: true, hasAnimation: false
+        )
+        var scalarParticleDescriptor = descriptor
+        scalarParticleDescriptor.layers[3].particleInstanceOverride = .init(
+            id: nil, alpha: scalarBound, size: scalarBound, lifetime: scalarBound,
+            rate: scalarBound, speed: scalarBound, count: scalarBound,
+            brightness: scalarBound, color: nil, normalizedColor: nil,
+            controlPoints: [:], controlPointAngles: [:]
+        )
+        var scalarWrappers: [String: Any] = [:]
+        for (name, _) in particleScalarFields {
+            scalarWrappers[name] = [
+                "value": 2,
+                "script": "export function update(value) { if (value < 0) return Infinity; return value * \(name == "count" ? 250 : 2); }",
+            ]
+        }
+        let parsedParticleScalars = SceneScriptBindingIRParser.parse(document: [
+            "objects": [["id": 10], ["id": 42], ["id": 77],
+                ["id": 139, "instanceoverride": scalarWrappers]],
+        ])
+        let particleScalars = SceneScriptScalarProgram.compile(
+            domain: domain, descriptor: scalarParticleDescriptor,
+            scriptBindings: parsedParticleScalars.bindings, generation: 193
+        )
+        let particleScalarInputs = Dictionary(uniqueKeysWithValues:
+            particleScalarFields.map {
+                (SceneDynamicTarget.particle(layerID: 139, field: $0.1), SceneDynamicValue.scalar(2))
+            })
+        let particleScalarResult = particleScalars.evaluate(
+            inputs: particleScalarInputs, frame: frame
+        )
+        let particleScalarValues = Dictionary(uniqueKeysWithValues:
+            particleScalarFields.map {
+                ($0.0, scalar(particleScalarResult.values[.particle(layerID: 139, field: $0.1)]))
+            })
+        var particleBadInputs = particleScalarInputs
+        particleBadInputs[.particle(layerID: 139, field: .size)] = .scalar(-2)
+        let particleBadResult = particleScalars.evaluate(inputs: particleBadInputs, frame: frame)
+        let particleRecoveredResult = particleScalars.evaluate(
+            inputs: particleScalarInputs, frame: frame
+        )
+        let particleTargets = SceneScriptScalarProgram.projectedTargets(
+            descriptor: scalarParticleDescriptor, scriptBindings: parsedParticleScalars.bindings
+        )
+        scalarParticleDescriptor.layers[3].visible = false
+        let particleProjected = SceneScriptParticleProjection.apply(
+            admittedTargets: particleTargets, to: scalarParticleDescriptor
+        ).layers[3]
+        let particleProjectedValues = particleProjected.particleInstanceOverride!
+        let allParticleMarkersCleared = [
+            particleProjectedValues.alpha, particleProjectedValues.size,
+            particleProjectedValues.lifetime, particleProjectedValues.rate,
+            particleProjectedValues.speed, particleProjectedValues.count,
+            particleProjectedValues.brightness,
+        ].allSatisfy { $0?.hasScript == false }
+        let partialParticle = SceneScriptParticleProjection.apply(
+            admittedTargets: [.particle(layerID: 139, field: .count)],
+            to: scalarParticleDescriptor
+        ).layers[3].particleInstanceOverride!
+        let duplicatedParticleTargets = SceneScriptScalarProgram.projectedTargets(
+            descriptor: scalarParticleDescriptor,
+            scriptBindings: parsedParticleScalars.bindings + [parsedParticleScalars.bindings[0]]
+        )
+        var conflictingScalarWrappers = scalarWrappers
+        conflictingScalarWrappers["count"] = ["script": "export function update(v){return v;}",
+            "user": "density", "value": 2]
+        conflictingScalarWrappers["size"] = ["script": "export function update(v){return v;}",
+            "animation": [:], "value": 2]
+        let parsedParticleConflicts = SceneScriptBindingIRParser.parse(document: [
+            "objects": [["id": 10], ["id": 42], ["id": 77],
+                ["id": 139, "instanceoverride": conflictingScalarWrappers]],
+        ])
+        let conflictingParticleTargets = SceneScriptScalarProgram.projectedTargets(
+            descriptor: scalarParticleDescriptor, scriptBindings: parsedParticleConflicts.bindings
+        )
         let particleAudioTarget = SceneDynamicTarget.particle(
             layerID: 139, field: .rate
         )
@@ -1140,10 +1222,10 @@ enum Harness {
             generation: 192
         )
         let admittedParticleDescriptor = SceneScriptParticleProjection.apply(
-            admittedRateLayerIDs: [139], to: descriptor
+            admittedTargets: [.particle(layerID: 139, field: .rate)], to: descriptor
         )
         let staticParticleDescriptor = SceneScriptParticleProjection.apply(
-            admittedRateLayerIDs: [], to: descriptor
+            admittedTargets: [], to: descriptor
         )
         let admittedParticle = admittedParticleDescriptor.layers[3]
         let staticParticle = staticParticleDescriptor.layers[3]
@@ -1988,6 +2070,20 @@ enum Harness {
                 .layer(layerID: 10, field: .scale)
             ]),
             "audioScaleFailures": audioScaleResult.failures.count,
+            "particleScalarBadValues": particleBadResult.values.count,
+            "particleScalarBadFailures": particleBadResult.failures.count,
+            "particleScalarBadSizeAbsent": particleBadResult.values[.particle(layerID: 139, field: .size)] == nil,
+            "particleScalarRecovered": particleRecoveredResult.values.count,
+            "particleScalarMarkersCleared": allParticleMarkersCleared,
+            "particleScalarHiddenPreserved": particleProjected.visible == false,
+            "particleScalarPartialExact": partialParticle.count?.hasScript == false
+                && partialParticle.size?.hasScript == true,
+            "particleScalarDuplicateCount": duplicatedParticleTargets.count,
+            "particleScalarConflictCount": conflictingParticleTargets.count,
+            "particleScalarParsed": parsedParticleScalars.bindings.count,
+            "particleScalarBindings": particleScalars.bindings.count,
+            "particleScalarValues": particleScalarValues,
+            "particleScalarFailures": particleScalarResult.failures.count,
             "particleAudioBindings": particleAudioProgram.bindings.count,
             "particleAudioDemand": particleAudioProgram.hasAudioConsumers,
             "particleAudioValue": scalar(
@@ -2859,6 +2955,28 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertTrue(value["audioScaleDemand"])
         self.assertEqual(value["audioScaleValue"], [2.25, 2.25, 2.25])
         self.assertEqual(value["audioScaleFailures"], 0)
+
+    def test_all_particle_scalar_scripts_parse_and_publish_typed_values(self) -> None:
+        value = self.result()
+        self.assertEqual(value["particleScalarParsed"], 7)
+        self.assertEqual(value["particleScalarBindings"], 7)
+        self.assertEqual(value["particleScalarFailures"], 0)
+        self.assertEqual(value["particleScalarValues"], {
+            "alpha": 4, "size": 4, "lifetime": 4, "rate": 4,
+            "speed": 4, "count": 500, "brightness": 4,
+        })
+
+    def test_particle_scalar_admission_is_field_exact_and_failure_local(self) -> None:
+        value = self.result()
+        self.assertEqual(value["particleScalarBadValues"], 6)
+        self.assertEqual(value["particleScalarBadFailures"], 1)
+        self.assertTrue(value["particleScalarBadSizeAbsent"])
+        self.assertEqual(value["particleScalarRecovered"], 7)
+        self.assertTrue(value["particleScalarMarkersCleared"])
+        self.assertTrue(value["particleScalarHiddenPreserved"])
+        self.assertTrue(value["particleScalarPartialExact"])
+        self.assertEqual(value["particleScalarDuplicateCount"], 6)
+        self.assertEqual(value["particleScalarConflictCount"], 5)
 
     def test_audio_buffers_update_generic_particle_rate_owner(self) -> None:
         value = self.result()

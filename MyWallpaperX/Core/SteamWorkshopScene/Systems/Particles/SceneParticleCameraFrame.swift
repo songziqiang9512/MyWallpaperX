@@ -238,17 +238,38 @@ struct SceneParticleCameraFrame: Sendable {
     func basis(
         for orientation: SceneParticleOrientation,
         fixedRight: SIMD3<Float> = SIMD3(1, 0, 0),
-        fixedUp: SIMD3<Float> = SIMD3(0, -1, 0)
+        fixedUp: SIMD3<Float> = SIMD3(0, -1, 0),
+        layerModel: simd_float4x4? = nil,
+        orientationAxis: SIMD3<Float> = SIMD3(0, 0, 1)
     ) -> SceneParticleOrientationBasis {
         let visualUp = -cameraUp
-        return orientation.basis(
+        let uprightUp: SIMD3<Float>
+        if orientation == .upright, let layerModel {
+            // The particle layer model already converts authored Y to the
+            // renderer convention. Keep this system axis independent of roll.
+            uprightUp = SIMD3(layerModel.columns.1.x,
+                              layerModel.columns.1.y, layerModel.columns.1.z)
+        } else {
+            uprightUp = SIMD3(0, -1, 0)
+        }
+        let fixed: (right: SIMD3<Float>, up: SIMD3<Float>, forward: SIMD3<Float>)
+        if orientation.isFixed, let layerModel {
+            fixed = orientation.fixedBasisVectors(axis: orientationAxis, layerModel: layerModel)
+        } else {
+            fixed = (fixedRight, fixedUp, simd_cross(fixedRight, fixedUp))
+        }
+        var basis = orientation.basis(
             cameraRight: cameraRight,
             cameraUp: visualUp,
             cameraForward: cameraForward,
-            worldUp: visualUp,
-            fixedRight: fixedRight,
-            fixedUp: fixedUp
+            worldUp: uprightUp,
+            fixedRight: fixed.right,
+            fixedUp: fixed.up
         )
+        if orientation == .fixed, layerModel != nil {
+            basis.fixedGeometry = simd_float3x3(fixed.right, fixed.up, fixed.forward)
+        }
+        return basis
     }
 
     static func particleLayerModel(

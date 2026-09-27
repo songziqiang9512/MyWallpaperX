@@ -16,6 +16,9 @@ nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendab
     case eventColorInitializerBounded
     case eventColorInitializerUnsupported
     case unsupportedOperator
+    case invalidEmitterState
+    case invalidSimulationTime
+    case invalidOperatorState
     case eventColorOperatorBounded
     case eventColorOperatorUnsupported
     case boidsBounded

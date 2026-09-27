@@ -58,7 +58,17 @@ import simd
 @main
 enum Harness {
     static func main() throws {
-        if CommandLine.arguments.count == 2,
+        if CommandLine.arguments.dropFirst().first == "birth-scalar-safety" {
+            try printJSON(birthScalarSafetyResults())
+        } else if CommandLine.arguments.count == 2, CommandLine.arguments[1] == "simulation-rate" {
+            try printJSON(simulationRateResults())
+        } else if CommandLine.arguments.count == 2, CommandLine.arguments[1] == "signed-drag" {
+            try printJSON(signedDragResults())
+        } else if CommandLine.arguments.dropFirst().first == "signed-drag-safety" {
+            try printJSON(signedDragSafetyResults())
+        } else if CommandLine.arguments.count == 2, CommandLine.arguments[1] == "sphere-sampling" {
+            try printJSON(sphereSamplingResults())
+        } else if CommandLine.arguments.count == 2,
            CommandLine.arguments[1] == "position-around-control-point" {
             try printJSON(positionAroundControlPointResults())
         } else if CommandLine.arguments.count == 2,
@@ -70,6 +80,348 @@ enum Harness {
         } else {
             try printJSON(syntheticResults())
         }
+    }
+
+
+    private static func birthScalarSafetyResults() throws -> [String: Any] {
+        let parser = SceneParticleDefinitionParser()
+        let definition = try parser.parse(data: JSONSerialization.data(withJSONObject: [
+            "maxcount": 100,
+            "emitter": [["name": "sphererandom", "rate": 60, "distancemax": 0]],
+            "initializer": [
+                ["name": "lifetimerandom", "min": 20, "max": 20],
+                ["name": "sizerandom", "min": 20, "max": 20],
+                ["name": "velocityrandom", "min": "20 0 0", "max": "20 0 0"],
+                ["name": "colorrandom", "min": "510 510 510", "max": "510 510 510"],
+            ],
+            "operator": [], "renderer": [["name": "sprite"]],
+        ]))
+        var rows: [[String: Any]] = []
+        for field in ["size", "lifetime", "speed", "alpha", "brightness"] {
+            for multiplier in [1e100, Double(Float.greatestFiniteMagnitude)] {
+                var simulator = SceneParticleSimulator(definition: definition, seed: 4)
+                simulator.advance(by: 1.0 / 60.0)
+                let peer = simulator.particles
+                simulator.advance(by: 1.0 / 60.0,
+                    dynamicInstanceOverride: parser.parseInstanceOverride([field: multiplier]))
+                let unsafeCount = simulator.particles.count
+                let peerPreserved = simulator.particles.first?.id == peer.first?.id
+                simulator.advance(by: 1.0 / 60.0,
+                    dynamicInstanceOverride: parser.parseInstanceOverride([field: 1]))
+                rows.append(["field": field, "multiplier": multiplier,
+                    "unsafeCount": unsafeCount, "recoveredCount": simulator.particles.count,
+                    "peerPreserved": peerPreserved,
+                    "diagnosticCount": simulator.diagnostics.filter {
+                        $0.kind == .invalidEmitterState
+                    }.count,
+                    "finite": simulator.particles.allSatisfy {
+                        Float($0.size).isFinite && Float($0.lifetime).isFinite
+                            && Float($0.alpha).isFinite && Float($0.velocity.x).isFinite
+                            && Float($0.color.x).isFinite
+                    }])
+            }
+        }
+        return ["rows": rows]
+    }
+
+    private static func simulationRateResults() throws -> [String: Any] {
+        let parser = SceneParticleDefinitionParser()
+        func modifier(_ rate: Double) -> SceneParticleInstanceOverride? {
+            parser.parseInstanceOverride(["rate": rate])
+        }
+        func definition(delay: Double = 0, duration: Double = 0, startTime: Double = 0,
+                        burst: Bool = true, lifetime: Double = 2) -> SceneParticleDefinition {
+            parser.parse(root: ["material": "p.json", "maxcount": 100, "starttime": startTime,
+                "emitter": [["name": "boxrandom", "rate": burst ? 0 : 20,
+                    "instantaneous": burst ? 1 : 0, "distancemin": 0, "distancemax": 0,
+                    "delay": delay, "duration": duration]],
+                "initializer": [["name": "lifetimerandom", "min": lifetime, "max": lifetime],
+                    ["name": "velocityrandom", "min": "2 0 0", "max": "2 0 0"]],
+                "operator": [["name": "movement", "gravity": "0 -4 0", "drag": 0],
+                    ["name": "alphafade", "fadeintime": 0.5, "fadeouttime": 0.8]],
+                "renderer": [["name": "sprite"]]])
+        }
+        func signature(_ simulation: SceneParticleSimulator) -> [Double] {
+            [simulation.simulationTime] + simulation.particles.flatMap {
+                [Double($0.id), $0.age, $0.position.x, $0.position.y, $0.velocity.y, $0.alpha]
+            }
+        }
+        var rows: [[String: Any]] = []
+        for rate in [0.25, 0.5, 1, 2, 4] {
+            let def = definition()
+            let actual = SceneParticleSimulator(definition: def, instanceOverride: modifier(rate), fixedTimeStep: 0.1)
+            let reference = SceneParticleSimulator(definition: def, fixedTimeStep: 0.1 * rate)
+            actual.advance(by: 0.3)
+            reference.advance(by: 0.3 * rate)
+            rows.append(["rate": rate, "actual": signature(actual), "reference": signature(reference)])
+        }
+        let live = SceneParticleSimulator(definition: definition(), fixedTimeStep: 0.1)
+        live.advance(by: 0.2)
+        let beforePause = signature(live)
+        live.advance(by: 10, dynamicInstanceOverride: modifier(0))
+        let afterPause = signature(live)
+        let pausedBirths = live.consumeBirthEvents().count
+        live.advance(by: 0.2, dynamicInstanceOverride: modifier(0.5))
+        let half = signature(live)
+        let saved = live.frameSnapshot()
+        live.advance(by: 0.2, dynamicInstanceOverride: modifier(2))
+        let fast = signature(live)
+        live.restoreFrame(saved)
+        live.advance(by: 0.2, dynamicInstanceOverride: modifier(2))
+        let retry = signature(live)
+        live.advance(by: 0.1)
+        let fallback = signature(live)
+        let frozenStart = SceneParticleSimulator(definition: definition(startTime: 1),
+            instanceOverride: modifier(0), fixedTimeStep: 0.1)
+        frozenStart.advance(by: 0.1)
+        let warm = SceneParticleSimulator(definition: definition(startTime: 0.3),
+            instanceOverride: modifier(0.5), fixedTimeStep: 0.1)
+        let equivalent = SceneParticleSimulator(definition: definition(),
+            instanceOverride: modifier(0.5), fixedTimeStep: 0.1)
+        equivalent.advance(by: 0.3)
+        let delayed = SceneParticleSimulator(definition: definition(delay: 0.15, duration: 0.2, burst: false),
+            instanceOverride: modifier(2), fixedTimeStep: 0.1)
+        delayed.advance(by: 0.1)
+        let delayCount = delayed.particles.count
+        delayed.advance(by: 0.1)
+        let clippedCount = delayed.particles.count
+        delayed.advance(by: 1)
+        let totalBirths = delayed.consumeBirthEvents().count
+        let dying = SceneParticleSimulator(definition: definition(lifetime: 0.4),
+            instanceOverride: modifier(2), fixedTimeStep: 0.1)
+        dying.advance(by: 0.1)
+        let firstDeathCount = dying.consumeDeathEvents().count
+        dying.advance(by: 0.1)
+        let secondDeathCount = dying.consumeDeathEvents().count
+        let overflow = SceneParticleSimulator(definition: definition(), fixedTimeStep: 2)
+        overflow.advance(by: 2, dynamicInstanceOverride: modifier(Double.greatestFiniteMagnitude))
+        let finiteStepOverflow = SceneParticleSimulator(definition: definition(), fixedTimeStep: 1.0 / 60)
+        finiteStepOverflow.advance(by: 1.0 / 60, dynamicInstanceOverride: modifier(Double.greatestFiniteMagnitude))
+        finiteStepOverflow.advance(by: 1.0 / 60, dynamicInstanceOverride: modifier(Double.greatestFiniteMagnitude))
+        let rejectedTime = finiteStepOverflow.simulationTime
+        finiteStepOverflow.advance(by: 1.0 / 60)
+        let emitterOverflowDefinition = parser.parse(root: ["material": "p.json", "maxcount": 20,
+            "emitter": [["name": "boxrandom", "rate": 1e308, "distancemin": 0, "distancemax": 0],
+                ["name": "boxrandom", "rate": 0, "instantaneous": 1, "distancemin": 0, "distancemax": 0]],
+            "initializer": [["name": "lifetimerandom", "min": 100, "max": 100]],
+            "renderer": [["name": "sprite"]]])
+        let emission = SceneParticleSimulator(definition: emitterOverflowDefinition, fixedTimeStep: 1.0 / 60)
+        let emissionSaved = emission.frameSnapshot()
+        for _ in 0..<2 { emission.advance(by: 1.0 / 60, dynamicInstanceOverride: modifier(120)) }
+        let peerCount = emission.particles.count
+        let emissionFailure = signature(emission)
+        let emitterDiagnostics = emission.diagnostics.map { $0.kind.rawValue }
+        let finiteRemainders = emission.frameSnapshot().emitters.allSatisfy { $0.remainder.isFinite }
+        emission.restoreFrame(emissionSaved)
+        for _ in 0..<2 { emission.advance(by: 1.0 / 60, dynamicInstanceOverride: modifier(120)) }
+        let emissionRetry = signature(emission)
+        emission.advance(by: 1.0 / 60)
+        let boundaryDefinition = parser.parse(root: ["material": "p.json", "maxcount": 20,
+            "emitter": [["name": "boxrandom", "rate": 9.999999999999 / 0.1,
+                "distancemin": 0, "distancemax": 0]],
+            "initializer": [["name": "lifetimerandom", "min": 100, "max": 100]],
+            "renderer": [["name": "sprite"]]])
+        let boundary = SceneParticleSimulator(definition: boundaryDefinition, fixedTimeStep: 0.1)
+        boundary.advance(by: 0.1)
+        boundary.advance(by: 0.1, dynamicInstanceOverride: parser.parseInstanceOverride(["count": 0]))
+        return ["rows": rows, "beforePause": beforePause, "afterPause": afterPause,
+            "pausedBirths": pausedBirths, "half": half, "fast": fast, "retry": retry,
+            "fallback": fallback, "frozenStartCount": frozenStart.particles.count,
+            "frozenStartTime": frozenStart.simulationTime, "warm": signature(warm),
+            "equivalentWarm": signature(equivalent), "delayCount": delayCount,
+            "clippedCount": clippedCount, "totalBirths": totalBirths,
+            "firstDeathCount": firstDeathCount, "secondDeathCount": secondDeathCount,
+            "overflowTime": overflow.simulationTime, "overflowCount": overflow.particles.count,
+            "overflowDiagnostics": overflow.diagnostics.map { $0.kind.rawValue },
+            "finiteStepRejectedTime": rejectedTime,
+            "finiteStepRecoveryTime": finiteStepOverflow.simulationTime,
+            "finiteStepDiagnosticCount": finiteStepOverflow.diagnostics.filter { $0.kind == .invalidSimulationTime }.count,
+            "emissionPeerCount": peerCount, "emissionFiniteRemainders": finiteRemainders,
+            "emissionDiagnostics": emitterDiagnostics, "emissionFailure": emissionFailure,
+            "emissionRetry": emissionRetry, "emissionRecoveryCount": emission.particles.count,
+            "roundedEmissionCount": boundary.particles.count,
+            "roundedRemainder": boundary.frameSnapshot().emitters[0].remainder]
+    }
+
+    private static func signedDragResults() throws -> [String: Any] {
+        func run(_ drag: Any, angular: Bool = false, enabled: Bool = true) throws -> SceneParticleState {
+            let root: [String: Any] = [
+                "material": "p.json", "maxcount": 1,
+                "emitter": [["name": "sphererandom", "instantaneous": 1, "rate": 0,
+                    "directions": "0 0 0", "distancemax": 0]],
+                "initializer": [["name": "lifetimerandom", "min": 10, "max": 10],
+                    ["name": angular ? "angularvelocityrandom" : "velocityrandom",
+                     "min": "0 0 1", "max": "0 0 1"]],
+                "operator": enabled ? [["name": angular ? "angularmovement" : "movement",
+                    "drag": drag]] : [], "renderer": [["name": "sprite"]]
+            ]
+            let definition = try SceneParticleDefinitionParser().parse(root: root)
+            let simulation = SceneParticleSimulator(definition: definition, seed: 1, fixedTimeStep: 0.25)
+            simulation.advance(by: 0.5)
+            return simulation.particles[0]
+        }
+        var rows: [[String: Any]] = []
+        for angular in [false, true] {
+            for drag in [-2.0, 0.0, 2.0] {
+                let p = try run(drag, angular: angular)
+                rows.append(["angular": angular, "drag": drag,
+                    "velocity": angular ? p.angularVelocity.z : p.velocity.z,
+                    "position": angular ? p.rotation.z : p.position.z])
+            }
+        }
+        let invalid = try ["nan", "inf", "-inf"].flatMap { value in
+            try [run(value), run(value, angular: true)]
+        }
+        let inert = try run(-2, enabled: false)
+        let inertAngular = try run(-2, angular: true, enabled: false)
+        return ["rows": rows,
+            "nonFiniteDragKeepsFiniteState": invalid.allSatisfy {
+                $0.position.z.isFinite && $0.velocity.z.isFinite
+                    && $0.rotation.z.isFinite && $0.angularVelocity.z.isFinite
+            }, "missingOperatorsKeepPosition": inert.position == .zero && inertAngular.rotation == .zero]
+    }
+
+    private static func signedDragSafetyResults() throws -> [String: Any] {
+        var rows: [[String: Any]] = []
+        for angular in [false, true] {
+            for drag in [-Double.greatestFiniteMagnitude, -1e39, -1000] {
+                let root: [String: Any] = [
+                    "material": "p.json", "maxcount": 2,
+                    "emitter": [["name": "boxrandom", "instantaneous": 2, "rate": 0,
+                        "distancemin": "0 0 0", "distancemax": "0 0 0"]],
+                    "initializer": [["name": "lifetimerandom", "min": 100, "max": 100]],
+                    "operator": [["name": angular ? "angularmovement" : "movement", "drag": drag],
+                        ["name": "alphachange", "startvalue": 0.5, "endvalue": 0.5]],
+                    "renderer": [["name": "sprite"]]]
+                let definition = try SceneParticleDefinitionParser().parse(root: root)
+                let simulation = SceneParticleSimulator(definition: definition, seed: 1, fixedTimeStep: 0.25)
+                simulation.advance(by: 0.25)
+                if angular { simulation.particles[0].angularVelocity = SIMD3(0, 0, 2) }
+                else { simulation.particles[0].velocity = SIMD3(0, 0, 2) }
+                let original = simulation.frameSnapshot()
+                var rejected = false
+                var atomic = true
+                var finite = true
+                for _ in 0..<24 {
+                    let before = simulation.particles[0]
+                    simulation.advance(by: 0.25)
+                    let after = simulation.particles[0]
+                    finite = finite && [after.velocity, after.position, after.angularVelocity, after.rotation]
+                        .allSatisfy { Float($0.x).isFinite && Float($0.y).isFinite && Float($0.z).isFinite }
+                    let oldVelocity = angular ? before.angularVelocity : before.velocity
+                    let newVelocity = angular ? after.angularVelocity : after.velocity
+                    if oldVelocity == newVelocity {
+                        rejected = true
+                        atomic = atomic && (angular ? before.rotation == after.rotation : before.position == after.position)
+                    }
+                }
+                let expected = simulation.particles
+                let count = simulation.diagnostics.filter { $0.kind == .invalidOperatorState }.count
+                let peer = simulation.particles[1]
+                let siblingSafe = peer.position == .zero && peer.rotation == .zero && peer.age > 6
+                let downstream = simulation.particles.allSatisfy { abs($0.alpha - 0.5) < 1e-12 }
+                simulation.restoreFrame(original)
+                let restoredDiagnostics = !simulation.diagnostics.contains { $0.kind == .invalidOperatorState }
+                for _ in 0..<24 { simulation.advance(by: 0.25) }
+                let replay = zip(expected, simulation.particles).allSatisfy {
+                    $0.position == $1.position && $0.velocity == $1.velocity
+                        && $0.rotation == $1.rotation && $0.angularVelocity == $1.angularVelocity && $0.age == $1.age
+                }
+                rows.append(["angular": angular, "drag": drag, "finite": finite,
+                    "rejected": rejected, "atomic": atomic, "diagnosticCount": count,
+                    "siblingSafe": siblingSafe, "downstream": downstream,
+                    "restoredDiagnostics": restoredDiagnostics, "replay": replay])
+            }
+        }
+        var positionOnly: [Bool] = []
+        for angular in [false, true] {
+            let root: [String: Any] = ["material": "p.json", "maxcount": 1,
+                "emitter": [["name": "boxrandom", "instantaneous": 1, "rate": 0]],
+                "initializer": [["name": "lifetimerandom", "min": 100, "max": 100]],
+                "operator": [["name": angular ? "angularmovement" : "movement", "drag": 0]],
+                "renderer": [["name": "sprite"]]]
+            let definition = try SceneParticleDefinitionParser().parse(root: root)
+            let simulation = SceneParticleSimulator(definition: definition, seed: 1, fixedTimeStep: 0.25)
+            simulation.advance(by: 0.25)
+            let limit = Double(Float.greatestFiniteMagnitude)
+            if angular {
+                simulation.particles[0].rotation = SIMD3(0, 0, limit * 0.999)
+                simulation.particles[0].angularVelocity = SIMD3(0, 0, limit * 0.1)
+            } else {
+                simulation.particles[0].position = SIMD3(0, 0, limit * 0.999)
+                simulation.particles[0].velocity = SIMD3(0, 0, limit * 0.1)
+            }
+            let before = simulation.particles[0]
+            simulation.advance(by: 0.25)
+            let after = simulation.particles[0]
+            positionOnly.append(before.position == after.position && before.velocity == after.velocity
+                && before.rotation == after.rotation && before.angularVelocity == after.angularVelocity
+                && simulation.diagnostics.contains { $0.kind == .invalidOperatorState })
+        }
+        return ["rows": rows, "positionOnly": positionOnly]
+    }
+
+    private static func sphereSamplingResults() throws -> [String: Any] {
+        func make(_ directions: SIMD3<Double>, count: Int = 20_000,
+                  seed: UInt64 = 52, minimum: Double = 10,
+                  maximum: Double = 10, sign: String = "0 0 0",
+                  speed: Double = 0, rate: Double = 0, instantaneous: Int? = nil) throws -> SceneParticleSimulator {
+            let root: [String: Any] = [
+                "material": "p.json", "maxcount": count,
+                "emitter": [["name": "sphererandom", "instantaneous": instantaneous ?? count, "rate": rate,
+                    "origin": "0 0 0", "directions": "\(directions.x) \(directions.y) \(directions.z)",
+                    "sign": sign, "distancemin": minimum, "distancemax": maximum,
+                    "speedmin": speed, "speedmax": speed]],
+                "initializer": [["name": "lifetimerandom", "min": 10, "max": 10]],
+                "renderer": [["name": "sprite"]]
+            ]
+            let data = try JSONSerialization.data(withJSONObject: root)
+            let definition = try SceneParticleDefinitionParser().parse(data: data)
+            let simulation = SceneParticleSimulator(definition: definition, seed: seed)
+            simulation.advance(by: 1.0 / 60)
+            return simulation
+        }
+        var rows: [[String: Any]] = []
+        for mask in 0...7 {
+            let directions = SIMD3<Double>(mask & 1 == 0 ? 0 : 1,
+                mask & 2 == 0 ? 0 : 1, mask & 4 == 0 ? 0 : 1)
+            let simulation = try make(directions)
+            var mean = SIMD3<Double>.zero, second = SIMD3<Double>.zero
+            var minRadius = Double.infinity, maxRadius = 0.0, axisAtoms = 0
+            for particle in simulation.particles {
+                let v = particle.position / 10
+                let radius = simd_length(v)
+                minRadius = min(minRadius, radius); maxRadius = max(maxRadius, radius)
+                mean += v; second += v * v
+                if (0..<3).filter({ v[$0] != 0 }).count == 1 { axisAtoms += 1 }
+            }
+            let n = Double(simulation.particles.count)
+            rows.append(["mask": mask, "count": simulation.particles.count,
+                "minimumRadius": minRadius, "maximumRadius": maxRadius,
+                "mean": [mean.x/n, mean.y/n, mean.z/n],
+                "secondMoment": [second.x/n, second.y/n, second.z/n], "axisAtoms": axisAtoms])
+        }
+        let counterexample = try make(SIMD3(0, 1, 1), count: 1, seed: 262085)
+        let velocity = try make(SIMD3(0, 1, 1), count: 1, seed: 262085, speed: 7)
+        let volume = try make(SIMD3(1, 1, 1), minimum: 2, maximum: 4)
+        let volumeFactors = volume.particles.map { (pow(simd_length($0.position), 3) - 8) / 56 }
+        let signed = try make(SIMD3(2, 0, 3), count: 128, sign: "-1 0 1")
+        let replay = try make(SIMD3(1, 1, 1), count: 20, rate: 60, instantaneous: 1)
+        let snapshot = replay.frameSnapshot()
+        replay.advance(by: 0.1); let expected = replay.particles
+        replay.restoreFrame(snapshot); replay.advance(by: 0.1)
+        let again = try make(SIMD3(0, 1, 1), count: 1, seed: 262085)
+        return ["rows": rows, "counterexampleRadius": simd_length(counterexample.particles[0].position),
+            "counterexampleSpeed": simd_length(velocity.particles[0].velocity),
+            "counterexampleRadialSpeed": simd_length(velocity.particles[0].velocity - velocity.particles[0].position * 0.7),
+            "volumeFactorMean": volumeFactors.reduce(0,+) / Double(volumeFactors.count),
+            "volumeFactorMin": volumeFactors.min()!, "volumeFactorMax": volumeFactors.max()!,
+            "signedShell": signed.particles.allSatisfy {
+                $0.position.x <= 0 && $0.position.z >= 0 && $0.position.y == 0
+                && abs(simd_length($0.position / SIMD3(2, 1, 3)) - 10) < 1e-9
+            },
+            "deterministic": counterexample.particles == again.particles,
+            "rollback": replay.particles == expected && expected.count > 1]
     }
 
     private static func emitterPointerResults() throws -> [String: Any] {
@@ -275,6 +627,100 @@ enum Harness {
             return ["start": start, "time": value.simulationTime,
                     "count": value.particles.count]
         }
+    }
+
+    private static func extendedPrewarmResults() -> [String: Any] {
+        var source: [String: Any] = [
+            "material": "p.json", "maxcount": 15, "starttime": 15.0,
+            "emitter": [["name": "boxrandom", "rate": 0.3]],
+            "initializer": [["name": "lifetimerandom", "min": 8, "max": 20],
+                            ["name": "velocityrandom", "min": "-20 0 0", "max": "-5 10 0"]],
+            "operator": [["name": "movement", "gravity": "0 0 0"]],
+            "renderer": [["name": "sprite"]]
+        ]
+        func make(_ root: [String: Any], budget: Int = 3_600,
+                  step: Double = 1.0 / 60.0) -> SceneParticleSimulator {
+            SceneParticleSimulator(
+                definition: SceneParticleDefinitionParser().parse(root: root), seed: 52,
+                fixedTimeStep: step, prewarmStepBudget: budget,
+                stepSnapshotPolicy: .init(interval: 0.1, maximumSnapshots: 5)
+            )
+        }
+        let warm = make(source)
+        let child = make(source, budget: 240)
+        let initialCount = warm.particles.count
+        let warmTime = warm.simulationTime
+        let drained = warm.birthEvents.isEmpty && warm.deathEvents.isEmpty
+        let history = warm.consumeStepSnapshots()
+        source.removeValue(forKey: "starttime")
+        let played = make(source)
+        for _ in 0..<900 { played.advance(by: 1.0 / 60.0) }
+        func equivalent(_ a: SceneParticleSimulator, _ b: SceneParticleSimulator) -> Bool {
+            let aa = a.frameSnapshot(), bb = b.frameSnapshot()
+            return aa.particles.count == bb.particles.count
+                && zip(aa.particles, bb.particles).allSatisfy { a, b in
+                    a.id == b.id && abs(a.age - b.age) < 1e-10
+                        && simd_length(a.position - b.position) < 1e-9
+                        && a.velocity == b.velocity && a.lifetime == b.lifetime
+                }
+                && aa.random.state == bb.random.state
+                && aa.nextParticleID == bb.nextParticleID
+                && abs(aa.simulationTime - bb.simulationTime) < 1e-10
+        }
+        let initialEquivalent = equivalent(warm, played)
+        for _ in 0..<90 { warm.advance(by: 1.0 / 60.0); played.advance(by: 1.0 / 60.0) }
+        let nextEquivalent = equivalent(warm, played)
+        var fractional = source; fractional["starttime"] = 15.005
+        var empty = source; empty["maxcount"] = 0; empty["starttime"] = 60.0
+        let exactLimit = make(empty, budget: Int.max)
+        empty["starttime"] = 60.01
+        let overLimit = make(empty, budget: Int.max)
+        var expensive = source; expensive["starttime"] = 60.0; expensive["maxcount"] = 20_000
+        expensive["emitter"] = [] as [[String: Any]]
+        let highCapacity = make(expensive)
+        expensive["maxcount"] = 15
+        expensive["operator"] = Array(repeating: ["name": "movement"], count: 1_000)
+        let manyOperators = make(expensive)
+        var flock = source; flock["starttime"] = 60.0; flock["maxcount"] = 64
+        flock["emitter"] = [] as [[String: Any]]
+        let linear = make(flock)
+        flock["operator"] = [["name": "boids", "neighborthreshold": 100,
+                              "alignmentfactor": 1, "cohesionfactor": 1, "separationfactor": 0]]
+        let quadratic = make(flock)
+        var invalid = source; invalid["starttime"] = 1e308
+        let huge = make(invalid)
+        invalid["starttime"] = 1.0
+        let tinyStep = make(invalid, step: Double.leastNonzeroMagnitude)
+        var churn = source; churn["starttime"] = 15.0
+        churn["emitter"] = [["name": "boxrandom", "rate": 600]]
+        churn["initializer"] = [["name": "lifetimerandom", "min": 0.001, "max": 0.001]]
+        let shortLived = make(churn)
+        let churnDrained = shortLived.birthEvents.isEmpty && shortLived.deathEvents.isEmpty
+        shortLived.advance(by: 1.0 / 60.0)
+        return [
+            "time": warmTime, "count": initialCount,
+            "initialEquivalent": initialEquivalent, "nextEquivalent": nextEquivalent,
+            "drained": drained, "historyCount": history.count,
+            "historyNonempty": history.contains { !$0.particles.isEmpty },
+            "fractionalTime": make(fractional).simulationTime,
+            "childTime": child.simulationTime,
+            "childLimited": child.diagnostics.contains { $0.kind == .prewarmBudgetExceeded },
+            "exactTime": exactLimit.simulationTime,
+            "exactLimited": exactLimit.diagnostics.contains { $0.kind == .prewarmBudgetExceeded },
+            "overTime": overLimit.simulationTime,
+            "overLimited": overLimit.diagnostics.contains { $0.kind == .prewarmBudgetExceeded },
+            "capacityTime": highCapacity.simulationTime,
+            "operatorTime": manyOperators.simulationTime,
+            "linearTime": linear.simulationTime,
+            "quadraticTime": quadratic.simulationTime,
+            "hugeTime": huge.simulationTime,
+            "hugeInvalid": huge.diagnostics.contains { $0.kind == .prewarmInvalidDuration },
+            "tinyStepTime": tinyStep.simulationTime,
+            "tinyStepInvalid": tinyStep.diagnostics.contains { $0.kind == .prewarmInvalidDuration },
+            "churnDrained": churnDrained,
+            "churnNextBirths": shortLived.birthEvents.count,
+            "churnNextDeaths": shortLived.deathEvents.count
+        ]
     }
 
     private static func objectOrEmpty(_ source: String) -> [String: Any] {
@@ -1383,6 +1829,7 @@ enum Harness {
             "twoOnePerFrameEmittersCount": twoOnePerFrameEmitters.particles.count,
             "prewarmOnePerFrameCount": prewarmedOnePerFrame.particles.count,
             "prewarmGuard": prewarmGuardResults(prewarmJSON),
+            "extendedPrewarm": extendedPrewarmResults(),
             "sphereMinimumRadius": sphereRadii.min() ?? -1,
             "sphereMaximumRadius": sphereRadii.max() ?? -1,
             "boxInBounds": boxOffsets.allSatisfy {
@@ -2656,6 +3103,102 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         )
         return json.loads(result.stdout)
 
+    def test_simulation_rate_scales_one_time_domain_and_preserves_pause_and_rollback(self) -> None:
+        result = self.run_harness("simulation-rate")
+        for row in result["rows"]:
+            with self.subTest(rate=row["rate"]):
+                self.assertEqual(len(row["actual"]), len(row["reference"]))
+                for actual, expected in zip(row["actual"], row["reference"]):
+                    self.assertAlmostEqual(actual, expected)
+        self.assertEqual(result["beforePause"], result["afterPause"])
+        self.assertAlmostEqual(result["half"][0], 0.3)
+        self.assertAlmostEqual(result["fast"][0], 0.7)
+        self.assertEqual(result["fast"], result["retry"])
+        self.assertAlmostEqual(result["fallback"][0], 0.8)
+        self.assertEqual(result["frozenStartCount"], 0)
+        self.assertEqual(result["frozenStartTime"], 0)
+        self.assertEqual(len(result["warm"]), len(result["equivalentWarm"]))
+        for actual, expected in zip(result["warm"], result["equivalentWarm"]):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(result["delayCount"], 1)
+        self.assertEqual(result["clippedCount"], 4)
+        self.assertEqual(result["totalBirths"], 4)
+        self.assertEqual(result["firstDeathCount"], 0)
+        self.assertEqual(result["secondDeathCount"], 1)
+        self.assertEqual(result["overflowTime"], 0)
+        self.assertEqual(result["overflowCount"], 0)
+        self.assertIn("invalidSimulationTime", result["overflowDiagnostics"])
+        self.assertEqual(result["finiteStepRejectedTime"], 0)
+        self.assertAlmostEqual(result["finiteStepRecoveryTime"], 1 / 60)
+        self.assertEqual(result["finiteStepDiagnosticCount"], 1)
+        self.assertEqual(result["emissionPeerCount"], 1)
+        self.assertTrue(result["emissionFiniteRemainders"])
+        self.assertEqual(result["emissionDiagnostics"].count("invalidEmitterState"), 1)
+        self.assertEqual(result["emissionFailure"], result["emissionRetry"])
+        self.assertEqual(result["emissionRecoveryCount"], 20)
+        self.assertEqual(result["roundedEmissionCount"], 10)
+        self.assertEqual(result["roundedRemainder"], 0)
+
+    def test_signed_drag_accelerates_or_slows_linear_and_angular_motion(self) -> None:
+        result = self.run_harness("signed-drag")
+        expected = {-2: (2.25, 0.9375), 0: (1, 0.5), 2: (0.25, 0.1875)}
+        self.assertEqual(len(result["rows"]), 6)
+        for row in result["rows"]:
+            with self.subTest(angular=row["angular"], drag=row["drag"]):
+                velocity, position = expected[row["drag"]]
+                self.assertAlmostEqual(row["velocity"], velocity, places=12)
+                self.assertAlmostEqual(row["position"], position, places=12)
+        self.assertTrue(result["nonFiniteDragKeepsFiniteState"])
+        self.assertTrue(result["missingOperatorsKeepPosition"])
+
+    def test_signed_drag_rejects_only_unsafe_motion_results(self) -> None:
+        result = self.run_harness("signed-drag-safety")
+        self.assertEqual(result["positionOnly"], [True, True])
+        self.assertEqual(len(result["rows"]), 6)
+        for row in result["rows"]:
+            with self.subTest(angular=row["angular"], drag=row["drag"]):
+                for field in ["finite", "rejected", "atomic", "siblingSafe", "downstream",
+                              "restoredDiagnostics", "replay"]:
+                    self.assertTrue(row[field], field)
+                self.assertEqual(row["diagnosticCount"], 1)
+
+    def test_sphere_sampling_preserves_shell_axes_and_has_no_axis_pileup(self) -> None:
+        result = self.run_harness("sphere-sampling")
+        self.assertAlmostEqual(result["counterexampleRadius"], 10, places=9)
+        self.assertAlmostEqual(result["counterexampleSpeed"], 7, places=9)
+        self.assertAlmostEqual(result["counterexampleRadialSpeed"], 0, places=9)
+        for row in result["rows"]:
+            mask = row["mask"]
+            dimensions = mask.bit_count()
+            with self.subTest(mask=mask):
+                self.assertEqual(row["count"], 20_000)
+                self.assertAlmostEqual(row["minimumRadius"], 1 if dimensions else 0, places=9)
+                self.assertAlmostEqual(row["maximumRadius"], 1 if dimensions else 0, places=9)
+                if dimensions > 1:
+                    self.assertEqual(row["axisAtoms"], 0)
+                for axis in range(3):
+                    self.assertAlmostEqual(row["mean"][axis], 0, delta=0.025)
+                    expected = 1 / dimensions if mask & (1 << axis) else 0
+                    self.assertAlmostEqual(row["secondMoment"][axis], expected, delta=0.025)
+        self.assertGreaterEqual(result["volumeFactorMin"], 0)
+        self.assertLessEqual(result["volumeFactorMax"], 1)
+        self.assertAlmostEqual(result["volumeFactorMean"], 0.5, delta=0.015)
+        self.assertTrue(result["signedShell"])
+        self.assertTrue(result["deterministic"])
+        self.assertTrue(result["rollback"])
+
+    def test_scalar_birth_overflow_rejects_only_new_particle_and_recovers(self) -> None:
+        result = self.run_harness("birth-scalar-safety")
+        for row in result["rows"]:
+            with self.subTest(field=row["field"], multiplier=row["multiplier"]):
+                # Alpha starts at one: Float.max remains finite and is valid.
+                rejected = row["field"] != "alpha" or row["multiplier"] > 1e50
+                self.assertEqual(row["unsafeCount"], 1 if rejected else 2)
+                self.assertEqual(row["recoveredCount"], 2 if rejected else 3)
+                self.assertEqual(row["diagnosticCount"], 1 if rejected else 0)
+                self.assertTrue(row["peerPreserved"])
+                self.assertTrue(row["finite"])
+
     def test_fixed_step_and_seed_are_deterministic(self) -> None:
         self.assertTrue(self.results["deterministic"])
         self.assertTrue(self.results["differentSeed"])
@@ -2680,6 +3223,37 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         for start in cases:
             self.assertAlmostEqual(cases[start]["time"], 0.1, msg=start)
         self.assertTrue(all(row["count"] >= 0 for row in cases.values()))
+
+    def test_root_prewarm_matches_fifteen_seconds_of_fixed_step_playback(self) -> None:
+        value = self.results["extendedPrewarm"]
+        self.assertAlmostEqual(value["time"], 15)
+        self.assertEqual(value["count"], 4)
+        self.assertTrue(value["initialEquivalent"])
+        self.assertTrue(value["nextEquivalent"])
+        self.assertAlmostEqual(value["fractionalTime"], 15.005)
+        self.assertTrue(value["drained"])
+        self.assertEqual(value["historyCount"], 5)
+        self.assertTrue(value["historyNonempty"])
+
+    def test_prewarm_extension_is_bounded_and_not_given_to_frame_children(self) -> None:
+        value = self.results["extendedPrewarm"]
+        self.assertAlmostEqual(value["childTime"], 4)
+        self.assertTrue(value["childLimited"])
+        self.assertAlmostEqual(value["exactTime"], 60)
+        self.assertFalse(value["exactLimited"])
+        self.assertAlmostEqual(value["overTime"], 60)
+        self.assertTrue(value["overLimited"])
+        self.assertGreaterEqual(value["capacityTime"], 4 - 1e-9)
+        self.assertLess(value["capacityTime"], 5)
+        self.assertLess(value["operatorTime"], 5)
+        self.assertLess(value["quadraticTime"], value["linearTime"])
+        self.assertEqual(value["hugeTime"], 0)
+        self.assertTrue(value["hugeInvalid"])
+        self.assertEqual(value["tinyStepTime"], 0)
+        self.assertTrue(value["tinyStepInvalid"])
+        self.assertTrue(value["churnDrained"])
+        self.assertGreater(value["churnNextBirths"], 0)
+        self.assertGreater(value["churnNextDeaths"], 0)
 
     def test_maximum_count_and_start_time_prewarm(self) -> None:
         self.assertEqual(self.results["maxCount"], 3)

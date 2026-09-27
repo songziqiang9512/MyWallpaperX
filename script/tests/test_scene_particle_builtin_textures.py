@@ -97,7 +97,7 @@ enum Harness {
                 "deterministic": pixels == comparisonPixels,
                 "checksum": checksum(pixels),
                 "edgeTransparent": edgeIsTransparent(pixels, width: first.width, height: first.height),
-                "premultiplied": pixelsArePremultiplied(pixels),
+                "straightWhite": pixelsAreStraightWhite(pixels),
                 "nonzeroAlphaCount": alphaValues.filter { $0 > 0 }.count,
                 "highAlphaCount": alphaValues.filter { $0 >= 220 }.count,
                 "nonGrayPixelCount": nonGrayPixelCount(pixels),
@@ -135,12 +135,11 @@ enum Harness {
         return Array(pixels[offset..<(offset + 4)])
     }
 
-    private static func pixelsArePremultiplied(_ pixels: [UInt8]) -> Bool {
+    private static func pixelsAreStraightWhite(_ pixels: [UInt8]) -> Bool {
         for offset in stride(from: 0, to: pixels.count, by: 4) {
-            let alpha = pixels[offset + 3]
-            if pixels[offset] > alpha
-                || pixels[offset + 1] > alpha
-                || pixels[offset + 2] > alpha {
+            if pixels[offset] != 255
+                || pixels[offset + 1] != 255
+                || pixels[offset + 2] != 255 {
                 return false
             }
         }
@@ -238,7 +237,7 @@ class SceneParticleBuiltInTextureTests(unittest.TestCase):
                 self.assertTrue(summary["cached"])
                 self.assertTrue(summary["deterministic"])
                 self.assertTrue(summary["edgeTransparent"])
-                self.assertTrue(summary["premultiplied"])
+                self.assertTrue(summary["straightWhite"])
                 self.assertTrue(summary["hasSoftPixels"])
                 self.assertGreater(summary["nonzeroAlphaCount"], 0)
                 self.assertGreater(summary["maxAlpha"], 0)

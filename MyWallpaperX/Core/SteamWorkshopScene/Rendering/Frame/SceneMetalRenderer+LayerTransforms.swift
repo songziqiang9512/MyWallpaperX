@@ -150,22 +150,4 @@ extension SceneMetalRenderer {
         )
     }
 
-    func particleBasis(
-        for batch: SceneParticleDrawBatch,
-        layerModel: simd_float4x4,
-        cameraFrame: SceneParticleCameraFrame
-    ) -> SceneParticleOrientationBasis {
-        guard batch.orientation.isFixed else {
-            return cameraFrame.basis(for: batch.orientation)
-        }
-        let vectors = batch.orientation.fixedBasisVectors(
-            axis: batch.orientationAxis ?? SIMD3<Float>(0, 0, 1),
-            layerModel: layerModel
-        )
-        return cameraFrame.basis(
-            for: batch.orientation,
-            fixedRight: vectors.right,
-            fixedUp: vectors.up
-        )
-    }
 }

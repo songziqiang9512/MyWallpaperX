@@ -19,35 +19,10 @@ nonisolated enum SceneParticleChildLifecycle {
         }
     }
 
-    nonisolated static func emissionCompletionTime(
-        _ definition: SceneParticleDefinition
-    ) -> Double? {
-        var completionTime = 0.0
-        for emitter in definition.emitters {
-            let rate = emitter.rate ?? 5
-            guard rate.isFinite, rate > 0 else { continue }
-            guard let duration = emitter.duration,
-                  duration.isFinite,
-                  duration > 0 else { return nil }
-            completionTime = max(completionTime, duration)
-        }
-        return completionTime
-    }
-
-    /// Event-triggered (spawn/death) child systems must not emit forever: authored
-    /// rate-only children like rain splashes or flare sparks describe one bounded
-    /// burst per event, and an unbounded emitter would accumulate systems until the
-    /// depth budget saturates the frame to white. Without a Windows golden for the
-    /// exact window, bound rate emission by the child's own maximum particle
-    /// lifetime (so rate x lifetime keeps its authored burst size); emitters with
-    /// an authored duration keep it.
-    nonisolated static func eventEmissionWindow(
-        _ definition: SceneParticleDefinition
-    ) -> Double {
-        if let completion = emissionCompletionTime(definition) { return completion }
-        return maximumParticleLifetime(definition)
-    }
-
+    /// Existing event policy: rate-only emitters run for at most the child's
+    /// maximum particle lifetime, measured after each emitter's initial delay.
+    /// Explicit authored durations are kept by the simulator. This fallback
+    /// remains a project policy pending an official event-window golden.
     nonisolated static func maximumParticleLifetime(
         _ definition: SceneParticleDefinition
     ) -> Double {
