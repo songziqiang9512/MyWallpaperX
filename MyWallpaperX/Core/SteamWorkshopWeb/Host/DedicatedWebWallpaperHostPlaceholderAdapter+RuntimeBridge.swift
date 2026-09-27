@@ -349,6 +349,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     func applyPausedState(_ paused: Bool, to webView: WKWebView) {
+        webView.setAllMediaPlaybackSuspended(paused, completionHandler: nil)
         let pausedLiteral = paused ? "true" : "false"
         webView.evaluateJavaScript(
             "window.__myWallpaperSetPaused(\(pausedLiteral));",

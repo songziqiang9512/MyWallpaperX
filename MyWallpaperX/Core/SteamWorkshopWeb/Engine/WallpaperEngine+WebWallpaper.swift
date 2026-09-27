@@ -126,7 +126,6 @@ extension WallpaperEngine {
             currentWebRecordID = nil
             currentWebRequestID = nil
             currentWebLaunchSource = nil
-            setPlaybackPausedState(false)
         }
         currentWebHostStrategy = strategy
         NSLog("WallpaperEngine: switched Web host strategy to %@", strategy.rawValue)
@@ -137,9 +136,7 @@ extension WallpaperEngine {
         if currentPlaybackContentKind == .web {
             setWebAudioSpectrumRequested(false)
         }
-        if ProcessInfo.processInfo.isLowPowerModeEnabled {
-            setPlaybackPausedState(true)
-        }
+        PlaybackPolicyController.shared.refresh()
         let runtimeState = webWallpaperRuntimeState()
         currentMultiDisplayEnabled = request.multiDisplayEnabled
         currentWebRecordID = request.recordID
@@ -259,10 +256,6 @@ extension WallpaperEngine {
         currentMultiDisplayEnabled = true
         // 当前 daemon Web host 已降级为诊断 harness。
         // 先继续沿用它承接 Web 路由和排障，但不要再把它当成最终宿主设计。
-        pauseWhenOtherAppFocused = false
-        pauseWhenOtherAppFullscreen = false
-        pauseWhenUnplugged = false
-        pauseWhenIdle = false
 
         scanDisplays()
         let targetDisplayIDs = displayIDs
@@ -281,7 +274,7 @@ extension WallpaperEngine {
             terminateSession(for: displayID)
         }
 
-        requestPlaybackStateEvaluation(immediate: true)
+        PlaybackPolicyController.shared.refresh()
     }
 
     private func mergedWebPropertiesJSON(baseJSON: String?, deltaJSON: String?) -> String {

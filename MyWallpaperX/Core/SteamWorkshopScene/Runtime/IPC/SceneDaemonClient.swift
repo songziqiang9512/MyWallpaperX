@@ -188,18 +188,14 @@ final class SceneDaemonClient: PlaybackEngineControlling {
                 ])
             }
             return activeIntent != nil || pendingIntent != nil
-        case .pause:
+        case let .setPlaybackPaused(paused):
             let hasPlaybackIntent = activeIntent != nil || pendingIntent != nil
-            guard !isPaused else { return hasPlaybackIntent }
-            isPaused = true
-            if endpointReady { sendSimpleCommand("pause") }
+            guard isPaused != paused else { return hasPlaybackIntent }
+            isPaused = paused
+            if endpointReady { sendSimpleCommand(paused ? "pause" : "resume") }
             return hasPlaybackIntent
-        case .resume:
-            let hasPlaybackIntent = activeIntent != nil || pendingIntent != nil
-            guard isPaused else { return hasPlaybackIntent }
-            isPaused = false
-            if endpointReady { sendSimpleCommand("resume") }
-            return hasPlaybackIntent
+        case .pause, .resume:
+            return false // User intent is resolved by the multiplexer.
         case .stop:
             // E2a-2: user-requested stop reports completion so the
             // selection authority recycles its truth.

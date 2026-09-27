@@ -51,7 +51,7 @@ extension WallpaperManager {
     }
 
     func applyEngineSettings(reloadWallpaper: Bool = false) {
-        // 只有引擎真正关心的播放策略才通过这里下发，避免 UI 选项污染播放链路。
+        PlaybackPolicyController.shared.updateSettings(settings)
         if reloadWallpaper {
             if activeWallpaperRuntime == .web {
                 WallpaperEngine.shared.updateWebDisplayConfiguration(
@@ -63,15 +63,7 @@ extension WallpaperManager {
             }
         }
 
-        // 引擎只需要暂停策略和音量这类播放态配置，别把 UI 选择状态塞进这里。
-        WallpaperEngine.shared.updateSettings(
-            pauseWhenOtherAppFocused: settings.pauseWhenOtherAppFocused,
-            pauseWhenOtherAppFullscreen: settings.pauseWhenOtherAppFullscreen,
-            pauseWhenUnplugged: settings.pauseWhenUnplugged,
-            pauseWhenIdle: settings.pauseWhenIdle,
-            idleTimeoutMinutes: settings.idleTimeoutMinutes
-        )
-        lastAppliedEnginePauseSettings = EnginePauseSettingsSnapshot(settings: settings)
+        // 音量和频谱投影到各运行时，不改变共享暂停意图。
         PlaybackVolumeState.shared.setNormalizedVolume(Float(settings.volume / 100))
         PlaybackCommandMultiplexer.shared.dispatch(.setVolume(Float(settings.volume)))
         applySystemAudioSpectrumToEngine()

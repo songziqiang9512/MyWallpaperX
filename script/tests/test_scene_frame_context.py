@@ -924,55 +924,6 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("runtime = max(timing.sceneTime, 0)", scalar_runtime)
         self.assertNotIn("SceneTimeOfDayEffectScript", launch)
 
-    def test_host_pause_state_controls_clock_and_frame_driver(self) -> None:
-        host = HOST_SOURCE.read_text(encoding="utf-8")
-        video_providers = HOST_VIDEO_PROVIDERS_SOURCE.read_text(encoding="utf-8")
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("var isPlaybackActive: Bool", host)
-        playback_active = swift_body(host, "var isPlaybackActive: Bool")
-        self.assertIn("launchContext != nil", playback_active)
-        self.assertIn("sceneClock.isPaused", playback_active)
-
-        pause_control = swift_body(
-            video_providers, "func setPlaybackPaused(_ paused: Bool)"
-        )
-        self.assertIn("sceneClock.pause(hostTime:", pause_control)
-        self.assertIn("sceneClock.resume(hostTime:", pause_control)
-        self.assertIn("frameTimer?.invalidate()", pause_control)
-        self.assertIn("frameTimer = nil", pause_control)
-        self.assertIn("startFrameDriver()", pause_control)
-
-        start_driver = swift_body(frame_driver, "func startFrameDriver()")
-        paused_guard_positions = [
-            start_driver.find(candidate)
-            for candidate in (
-                "guard !sceneClock.isPaused",
-                "if sceneClock.isPaused",
-            )
-            if candidate in start_driver
-        ]
-        self.assertTrue(
-            paused_guard_positions,
-            "startFrameDriver must reject a paused Scene before scheduling",
-        )
-        self.assertLess(
-            min(paused_guard_positions),
-            start_driver.index("let initialDeadline"),
-        )
-        self.assertIn("scheduleFrameDriver(", start_driver)
-        arm_driver = swift_body(frame_driver, "private func armFrameDriver(")
-        self.assertIn("Timer(timeInterval: delay, repeats: false)", arm_driver)
-
-        rebuild = swift_body(
-            host, "private func rebuildSurfaces("
-        )
-        self.assertIn("startFrameDriver()", rebuild)
-        self.assertNotIn("setPlaybackPaused(false)", rebuild)
-        self.assertNotIn("sceneClock.resume(hostTime:", rebuild)
-        self.assertIn("let remainsPaused = sceneClock.isPaused", rebuild)
-        self.assertIn("if remainsPaused {", rebuild)
-        self.assertIn("sceneClock.pause(hostTime: hostTime)", rebuild)
-
     def test_busy_history_frame_retries_before_advancing_scene_clock(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         render = swift_body(frame_driver, "private func renderFrame()")
@@ -1053,24 +1004,6 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertLess(snapshot, render_loop)
         self.assertLess(render_loop, barrier)
         self.assertLess(restore, frame_driver.index("restoreSceneScriptPointerEvents", restore))
-
-    def test_product_playback_control_keeps_scene_state_in_daemon_client(self) -> None:
-        playback_control = PLAYBACK_CONTROL_SOURCE.read_text(encoding="utf-8")
-        engine = WALLPAPER_ENGINE_SOURCE.read_text(encoding="utf-8")
-        client = SCENE_DAEMON_CLIENT_SOURCE.read_text(encoding="utf-8")
-        combined = engine + playback_control
-        self.assertIn("var isPlaybackPaused: Bool", combined)
-        paused_getter = swift_body(combined, "var isPlaybackPaused: Bool")
-        self.assertIn("playbackPaused", paused_getter)
-        self.assertNotIn("SceneDesktopWallpaperHost", combined)
-        self.assertIn("case .pause:", client)
-        self.assertIn('sendSimpleCommand("pause")', client)
-        self.assertIn("case .resume:", client)
-        self.assertIn('sendSimpleCommand("resume")', client)
-        is_playing = swift_body(client, "var isPlaying: Bool")
-        self.assertIn("activeIntent", is_playing)
-        self.assertIn("transport?.isRunning", is_playing)
-        self.assertIn("!isPaused", is_playing)
 
     def test_debug_pause_resume_probe_uses_formal_playback_owner(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")

@@ -70,12 +70,7 @@ extension WallpaperEngine {
                         currentWallpaper,
                         multiDisplayEnabled: self.currentMultiDisplayEnabled,
                         videoFillMode: self.currentVideoFillMode,
-                        shouldLoopCurrentItem: self.currentShouldLoopCurrentItem,
-                        pauseWhenOtherAppFocused: self.pauseWhenOtherAppFocused,
-                        pauseWhenOtherAppFullscreen: self.pauseWhenOtherAppFullscreen,
-                        pauseWhenUnplugged: self.pauseWhenUnplugged,
-                        pauseWhenIdle: self.pauseWhenIdle,
-                        idleTimeoutMinutes: self.idleTimeoutMinutes
+                        shouldLoopCurrentItem: self.currentShouldLoopCurrentItem
                     )
                 }
 
@@ -170,6 +165,7 @@ extension WallpaperEngine {
             ),
             to: session
         )
+        sendPlaybackPaused(PlaybackCommandMultiplexer.shared.isPlaybackPaused, to: session)
     }
 
     func sendPlayWebCommand(
@@ -203,5 +199,6 @@ extension WallpaperEngine {
             ),
             to: session
         )
+        sendPlaybackPaused(PlaybackCommandMultiplexer.shared.isPlaybackPaused, to: session)
     }
 }

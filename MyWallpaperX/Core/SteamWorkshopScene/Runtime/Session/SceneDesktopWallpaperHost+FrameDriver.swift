@@ -49,12 +49,14 @@ extension SceneDesktopWallpaperHost {
             )
         }
 #endif
-        guard !sceneClock.isPaused else { return }
+        // A newly loaded or rebuilt paused surface still needs its frozen first
+        // frame. scheduleFrameDriver keeps the repeating driver stopped.
         let initialDeadline = CACurrentMediaTime()
         let attempt = renderFrame()
         scheduleFrameDriver(
             after: attempt,
-            scheduledDeadline: initialDeadline
+            scheduledDeadline: initialDeadline,
+            pausedRetryUntil: sceneClock.isPaused ? initialDeadline + 1 : nil
         )
 #if DEBUG
         if Self.usesDebugEvidenceWindow {
@@ -67,15 +69,20 @@ extension SceneDesktopWallpaperHost {
     }
     private func scheduleFrameDriver(
         after attempt: SceneFrameDriverAttempt,
-        scheduledDeadline: CFTimeInterval
+        scheduledDeadline: CFTimeInterval,
+        pausedRetryUntil: CFTimeInterval? = nil
     ) {
-        guard launchContext != nil, !sceneClock.isPaused else {
+        let now = CACurrentMediaTime()
+        // A paused first frame may briefly wait for a drawable or an in-flight
+        // GPU transaction. Reuse this driver with a bounded admission deadline.
+        let retryPausedFrame = (attempt == .busy || attempt == .dropped)
+            && pausedRetryUntil.map { now < $0 } == true
+        guard launchContext != nil, !sceneClock.isPaused || retryPausedFrame else {
             frameTimer?.invalidate()
             frameTimer = nil
             frameDriverDeadline = nil
             return
         }
-        let now = CACurrentMediaTime()
         let nextDeadline: CFTimeInterval
         switch attempt {
         case .rendered:
@@ -106,9 +113,9 @@ extension SceneDesktopWallpaperHost {
             frameDriverDeadline = nil
             return
         }
-        armFrameDriver(at: nextDeadline)
+        armFrameDriver(at: nextDeadline, pausedRetryUntil: pausedRetryUntil)
     }
-    private func armFrameDriver(at deadline: CFTimeInterval) {
+    private func armFrameDriver(at deadline: CFTimeInterval, pausedRetryUntil: CFTimeInterval?) {
         frameTimer?.invalidate()
         frameDriverDeadline = deadline
         let delay = max(0.000_001, deadline - CACurrentMediaTime())
@@ -118,13 +125,17 @@ extension SceneDesktopWallpaperHost {
             let attempt = self.renderFrame()
             self.scheduleFrameDriver(
                 after: attempt,
-                scheduledDeadline: deadline
+                scheduledDeadline: deadline,
+                pausedRetryUntil: pausedRetryUntil
             )
         }
         RunLoop.main.add(timer, forMode: .common)
         frameTimer = timer
     }
     private func renderFrame() -> SceneFrameDriverAttempt {
+        // Preparing the paused first frame can admit new media providers. They
+        // must inherit the pause even when the scene clock was already frozen.
+        defer { if sceneClock.isPaused { setPlaybackPaused(true) } }
         // Always-on counters: bypass-only recording, no control flow change.
         ScenePerformanceCounterHub.shared.bump(.frameAttempts)
         let hubCPUFrameStart = ProcessInfo.processInfo.systemUptime

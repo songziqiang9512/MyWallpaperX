@@ -2,9 +2,9 @@
 
 > 状态：Web 当前状态唯一入口
 >
-> 源码复核：2026-08-11
+> 源码复核：2026-08-11；共享暂停链路复核：2026-09-28
 >
-> 证据边界：本页已核对当前源码所有权与文档合同，但本次文档收口没有构建 App、启动 Web runtime 或重跑样本矩阵。2026-07 的签名 App、固定/完整矩阵和外部样本结果均为历史运行基线，不代表当前 HEAD 已重新验证。
+> 证据边界：2026-09-28 共享暂停批已完成 Debug 构建、实际 WKWebView 暂停测试与隔离 Scene 子进程验证；没有重跑 Web 样本矩阵。其余 2026-08 源码复核与 2026-07 运行基线不能替代当前 HEAD 的发布验证。
 
 本页回答 Web 当前生产路径由谁拥有、哪些结论只有源码证据、哪些发布项仍未闭合。长期语言、进程与性能边界统一由[技术栈与架构路线边界](../architecture/technology-stack-boundaries.md)规定；测试证据口径由[Web 壁纸运行能力评测标准](web-wallpaper-benchmark-standard.md)规定。
 
@@ -13,7 +13,8 @@
 | 系统 | 当前所有者 | 当前边界 |
 |---|---|---|
 | 项目解释 | `SteamWorkshopService` 的 Web Core | 原始 `project.json` 是声明源；构建 descriptor、runtime model、playback context 与诊断，不覆盖作者文件 |
-| 播放协调 | `WallpaperEngine` | 保存当前 Web request/content/property 状态，处理暂停、恢复、属性、音频需求、显示器与 runtime 切换 |
+| 播放协调 | `WallpaperEngine` | 保存当前 Web request/content/property 状态，执行共享暂停结果，处理属性、音频需求、显示器与 runtime 切换 |
+| 暂停策略 | `PlaybackPolicyController` → `PlaybackCommandMultiplexer` | 四个节能开关与锁屏/休眠统一控制 Video/Web/Scene；手动暂停独立保留，Web 不再额外按低电量模式暂停。归属与验证边界见 [E2b](../scene/engine-refactor-program.md#e2--收敛控制意图与公共依赖) |
 | 生产宿主 | `DedicatedWebWallpaperHostPlaceholderAdapter` | 当前默认 `.dedicatedHostPlaceholder` 策略；负责每显示器 WKWebView surface、生命周期、输入、属性、音频和本地资源桥接 |
 | daemon Web 路径 | `WallpaperDaemon` Web extensions | 只作为 `.daemonDiagnosticsHarness` 排障路径；不是默认生产 Web 宿主，也不是后续扩展两套宿主的理由 |
 | 本地资源 | `WebWallpaperLocalSchemeHandler` 等 | 受控读取项目根、MIME/响应转换和兼容资源映射；不能扩大为任意文件访问 |
@@ -36,7 +37,7 @@ project.json / Workshop directory
 ## 2. 稳定实现合同
 
 - 原始 `project.json`、目录和资源布局保持只读；本地 descriptor/cache 是派生执行数据，不反向改写样本。
-- Web 与视频、Scene 的产品状态分离，但共享高层播放切换、显示器、系统中断和音频采集合同。
+- Web 与视频、Scene 的产品状态分离，但共享高层播放切换、显示器、系统中断和音频采集合同。显式暂停由 WebKit 原生媒体门与所有 frame 的页面调度门执行，冻结 RAF、定时器、CSS/Web Animations；恢复保留作者自行暂停的动画。调度门不接管 Web Worker 等独立执行域，不承诺冻结任意后台计算。
 - 每个播放 request 使用显式 identity；旧 navigation、旧 surface、旧 property replay 和旧异步回调不得修改新 request。
 - Web 项目通过受控本地 scheme 和明确的资源根加载，不以任意 `file://` 权限换取兼容。
 - Wallpaper Engine property、audio、media、pause、input 等桥接按声明和需求启用；存在 handler 或路由不等于用户可见行为已经通过。
@@ -51,6 +52,7 @@ project.json / Workshop directory
 | 默认生产宿主与 daemon harness 已分流 | `WallpaperEngine.currentWebHostStrategy` 与 launch switch | 可称“当前代码所有权明确”，不证明发布环境切换无回归 |
 | 本地资源、属性、输入、音频与生命周期实现存在 | 当前 Core/Host 源码 | 只能证明对应路径存在，用户可见兼容仍以运行门为准 |
 | 2026-07 固定、完整和外部样本结果 | [统一历史索引](../history/README.md)中的 dated roadmap 与 baseline | 只作为历史比较基线，不代表当前 HEAD PASS |
+| 共享暂停执行 | `test_playback_policy`、`test_playback_policy_delivery`，以及 `test_web_playback_pause` 中真实 WKWebView + 完整生产兼容脚本/原生媒体门 | 已验证设置持久化与组合、暂停/恢复、iframe、媒体不能自行重启、作者暂停保留；物理电源/锁屏/多显示器与任意远程网页仍未验收 |
 | 当前 HEAD 发布级 Web 闭环 | 本批未运行 | **未验证**，不得写成已完成 |
 
 新的“当前 PASS”、样本数量、得分、coverage、Team ID、CDHash 或报告路径只能在同一源码/构建身份完成正式门后写回本页；被替代的历史数字收入统一 history，不复制到 README 或长期技术规范。

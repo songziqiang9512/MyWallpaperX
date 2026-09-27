@@ -160,27 +160,27 @@ enum DebugWebPlaybackRunner {
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
                 NSLog("MWX DEBUG SYSTEM STATE: action=system-sleep")
-                WallpaperEngine.shared.handleWillSleep()
+                PlaybackPolicyController.shared.setInterruption(.systemSleep, active: true)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 4.4) {
                 NSLog("MWX DEBUG SYSTEM STATE: action=display-sleep")
-                WallpaperEngine.shared.handleScreensDidSleep()
+                PlaybackPolicyController.shared.setInterruption(.displaySleep, active: true)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
                 NSLog("MWX DEBUG SYSTEM STATE: action=system-wake")
-                WallpaperEngine.shared.handleDidWake()
+                PlaybackPolicyController.shared.setInterruption(.systemSleep, active: false)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 5.8) {
                 NSLog("MWX DEBUG SYSTEM STATE: action=display-wake")
-                WallpaperEngine.shared.handleScreensDidWake()
+                PlaybackPolicyController.shared.setInterruption(.displaySleep, active: false)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 7.8) {
                 NSLog("MWX DEBUG SYSTEM STATE: action=screen-lock")
-                WallpaperEngine.shared.handleScreenLocked()
+                PlaybackPolicyController.shared.setInterruption(.screenLock, active: true)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 8.8) {
                 NSLog("MWX DEBUG SYSTEM STATE: action=screen-unlock")
-                WallpaperEngine.shared.handleScreenUnlocked()
+                PlaybackPolicyController.shared.setInterruption(.screenLock, active: false)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 10.8) {
                 NSLog("MWX DEBUG SYSTEM STATE: action=stop")

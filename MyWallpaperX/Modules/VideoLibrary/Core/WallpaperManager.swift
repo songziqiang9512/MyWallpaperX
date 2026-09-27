@@ -19,22 +19,6 @@ class WallpaperManager: ObservableObject {
 
     static let recentWallpapersLimit: Int = 25
     static let defaultTags: [String] = ["自然景观", "科技未来", "游戏CG", "卡通动漫"]
-    struct EnginePauseSettingsSnapshot: Equatable {
-        let pauseWhenOtherAppFocused: Bool
-        let pauseWhenOtherAppFullscreen: Bool
-        let pauseWhenUnplugged: Bool
-        let pauseWhenIdle: Bool
-        let idleTimeoutMinutes: Int
-
-        init(settings: WallpaperSettings) {
-            pauseWhenOtherAppFocused = settings.pauseWhenOtherAppFocused
-            pauseWhenOtherAppFullscreen = settings.pauseWhenOtherAppFullscreen
-            pauseWhenUnplugged = settings.pauseWhenUnplugged
-            pauseWhenIdle = settings.pauseWhenIdle
-            idleTimeoutMinutes = settings.idleTimeoutMinutes
-        }
-    }
-
     struct HotkeySettingsSnapshot: Equatable {
         let systemHotkeysEnabled: Bool
         let previousWallpaperHotkey: FunctionKeyShortcut
@@ -154,7 +138,6 @@ class WallpaperManager: ObservableObject {
     let importPreparationStateLock = NSLock()
     var importPreparationWorkItem: DispatchWorkItem?
     var importPreparationGeneration: UInt64 = 0
-    var lastAppliedEnginePauseSettings: EnginePauseSettingsSnapshot?
     var lastAppliedHotkeySettings: HotkeySettingsSnapshot?
     
     // 默认设置
@@ -215,7 +198,6 @@ class WallpaperManager: ObservableObject {
         refreshAutoSwitchTimerIfNeeded()
         restorePlaybackState()
         restorePersistedSystemAudioSpectrumIfNeeded()
-        lastAppliedEnginePauseSettings = EnginePauseSettingsSnapshot(settings: settings)
         
         // 后台扫描缺失的视频元数据（时长、分辨率等）
         scanForMissingMetadata()

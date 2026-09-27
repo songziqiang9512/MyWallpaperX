@@ -110,40 +110,6 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
         self.assertIn("NSWorkspace.shared.notificationCenter.addObserver", host)
         self.assertIn("NSWorkspace.shared.notificationCenter.removeObserver", host)
 
-    def test_system_and_hotkey_controls_include_scene_daemon(self) -> None:
-        playback = (
-            ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine+PlaybackControl.swift"
-        ).read_text(encoding="utf-8")
-        system_state = (
-            ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine+SystemState.swift"
-        ).read_text(encoding="utf-8")
-        interruptions = (
-            ROOT
-            / "MyWallpaperX/Core/Playback/WallpaperEngine+SystemAudioLifecycle.swift"
-        ).read_text(encoding="utf-8")
-        hotkeys = (
-            ROOT
-            / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift"
-        ).read_text(encoding="utf-8")
-        self.assertIn("func applySystemPlaybackPausedState(", playback)
-        # E2b: the cross-runtime scene dispatch moved from the engine to the
-        # App control layer — the engine reports via notification instead.
-        app_control = (
-            ROOT / "MyWallpaperX/App/MyWallpaperXApplication.swift"
-        ).read_text(encoding="utf-8")
-        self.assertIn("playbackSystemPauseDidChangeNotification", playback)
-        self.assertIn("playbackSystemPauseDidChangeNotification", app_control)
-        self.assertIn("to: .scene", app_control)
-        self.assertIn("applySystemPlaybackPausedState(true)", interruptions)
-        self.assertIn("applySystemPlaybackPausedState(true)", system_state)
-        self.assertIn("applySystemPlaybackPausedState(false)", system_state)
-        self.assertIn("PlaybackCommandMultiplexer.shared.dispatch(command)", hotkeys)
-        self.assertIn(
-            ".setMuted(!PlaybackMuteState.shared.isMuted)",
-            hotkeys,
-        )
-        self.assertNotIn("WallpaperEngine.shared.togglePlayback()", hotkeys)
-
     def test_debug_switch_runner_exercises_same_daemon_and_app_exit(self) -> None:
         runner = (
             ROOT / "MyWallpaperX/App/DebugSceneDaemonClientRunner.swift"

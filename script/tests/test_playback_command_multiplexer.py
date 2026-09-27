@@ -14,14 +14,14 @@ final class Handler: PlaybackEngineControlling {
     var isPlaying: Bool
     var volume: Float = 0
     var spectrumEnabled = false
+    var volumeCommands = 0
     init(_ kind: PlaybackEngineKind, playing: Bool) {
         engineKind = kind; isPlaying = playing
     }
     func handle(_ command: WallpaperEngineCommand) -> Bool {
         switch command {
-        case .pause: isPlaying = false; return true
-        case .resume: isPlaying = true; return true
-        case let .setVolume(value): volume = value; return true
+        case let .setPlaybackPaused(paused): isPlaying = !paused; return true
+        case let .setVolume(value): volume = value; volumeCommands += 1; return true
         case let .setSystemAudioSpectrumEnabled(value): spectrumEnabled = value; return true
         default: return false
         }
@@ -38,7 +38,7 @@ final class Handler: PlaybackEngineControlling {
         precondition(mux.dispatch(.pause).values.allSatisfy { $0 })
         precondition(!mux.isAnyEnginePlaying)
         precondition(mux.dispatch(.resume, to: .video))
-        precondition(mux.isAnyEnginePlaying && !scene.isPlaying)
+        precondition(mux.isAnyEnginePlaying && scene.isPlaying)
         let volumeOutcomes = mux.dispatch(.setVolume(37.5))
         precondition(volumeOutcomes[.scene] == true && volumeOutcomes[.video] == true)
         precondition(scene.volume == 37.5 && video.volume == 37.5)
@@ -69,9 +69,10 @@ final class Handler: PlaybackEngineControlling {
         // exactly once per broadcast (identity dedup).
         mux.register(video, as: .web)
         video.volume = 0
+        let previousVolumeCommands = video.volumeCommands
         let deduped = mux.dispatch(.setVolume(41.5))
-        precondition(deduped.values.contains(true)
-                     && (deduped[.web] == nil || deduped[.video] == nil),
+        precondition(deduped[.web] == true && deduped[.video] == true)
+        precondition(video.volumeCommands == previousVolumeCommands + 1,
                      "aliased handler must not double-execute")
         precondition(abs(video.volume - 41.5) < 0.0001)
         precondition(mux.dispatch(.pause, to: .web), "targeted .web dispatch reaches the aliased handler")

@@ -13,16 +13,17 @@ extension SceneDesktopWallpaperHost {
         }
 #endif
         if paused {
-            guard !sceneClock.isPaused else { return }
-            sceneClock.pause(hostTime: hostTime)
+            if !sceneClock.isPaused {
+                sceneClock.pause(hostTime: hostTime)
+                frameTimer?.invalidate()
+                frameTimer = nil
+                frameDriverDeadline = nil
+            }
             videoTextureSourceRegistry?.pause(
                 sceneTime: sceneClock.currentSceneTime(hostTime: hostTime),
                 hostTime: hostTime
             )
             soundPlaybackRegistry?.pause()
-            frameTimer?.invalidate()
-            frameTimer = nil
-            frameDriverDeadline = nil
         } else {
             guard sceneClock.isPaused else { return }
             sceneClock.resume(hostTime: hostTime)

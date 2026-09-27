@@ -580,6 +580,7 @@ let webCompatibilityScriptHostBridge = #"""
   };
   window.__myWallpaperSetPaused = function(isPaused, options) {
     const paused = !!isPaused;
+    window.__myWallpaperSetPagePaused?.(paused);
     const replayOptions = options || {};
     const shouldNotifyPage =
       !(replayOptions.initialReplay === true && paused === false && window.__myWallpaperLastNotifiedPaused !== true);

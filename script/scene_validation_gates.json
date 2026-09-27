@@ -176,6 +176,17 @@
       ]
     },
     {
+      "id": "web-playback-policy",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/WebWallpaperPlaybackScript.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+*.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+RuntimeBridge.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+Surface.swift",
+        "script/tests/test_web_playback_pause.py"
+      ],
+      "modules": ["test_web_playback_pause", "test_playback_policy_delivery"]
+    },
+    {
       "id": "playback-command-control",
       "patterns": [
         "MyWallpaperX/Core/PlaybackControl/**",
@@ -259,8 +270,11 @@
         "MyWallpaperX/Core/Playback/WallpaperEngine+DaemonEvents.swift",
         "MyWallpaperX/Core/Playback/WallpaperEngine+DaemonSessionLifecycle.swift",
         "MyWallpaperX/Core/Playback/WallpaperEngine+PlaybackControl.swift",
-        "MyWallpaperX/Core/Playback/WallpaperEngine+SystemAudioLifecycle.swift",
-        "MyWallpaperX/Core/Playback/WallpaperEngine+SystemState.swift",
+        "MyWallpaperX/Core/PlaybackControl/PlaybackPolicyController.swift",
+        "MyWallpaperX/Core/PlaybackControl/PlaybackCommandMultiplexer.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Persistence.swift",
+        "script/tests/test_playback_policy.py",
+        "script/tests/test_playback_policy_delivery.py",
         "MyWallpaperX/Core/SteamWorkshopWeb/Engine/WallpaperEngine+WebWallpaper.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift",
@@ -275,6 +289,8 @@
         "test_daemon_process_transport",
         "test_debug_scene_product_entry_policy",
         "test_playback_command_multiplexer",
+        "test_playback_policy",
+        "test_playback_policy_delivery",
         "test_scene_daemon_client_wiring",
         "test_scene_daemon_protocol"
       ]

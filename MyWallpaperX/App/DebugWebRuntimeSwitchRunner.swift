@@ -141,17 +141,18 @@ enum DebugWebRuntimeSwitchRunner {
     }
 
     private static func setVideo(_ url: URL, title: String, on engine: WallpaperEngine) {
+        var settings = WallpaperSettings()
+        settings.pauseWhenOtherAppFocused = false
+        settings.pauseWhenOtherAppFullscreen = false
+        settings.pauseWhenUnplugged = false
+        settings.pauseWhenIdle = false
+        PlaybackPolicyController.shared.updateSettings(settings)
         postWallpaperRuntimeWillSwitch(to: .video)
         engine.setWallpaper(
             VideoWallpaper(title: title, path: url.path),
             multiDisplayEnabled: false,
             videoFillMode: VideoFillMode.aspectFill.ipcValue,
-            shouldLoopCurrentItem: true,
-            pauseWhenOtherAppFocused: false,
-            pauseWhenOtherAppFullscreen: false,
-            pauseWhenUnplugged: false,
-            pauseWhenIdle: false,
-            idleTimeoutMinutes: 10
+            shouldLoopCurrentItem: true
         )
     }
 

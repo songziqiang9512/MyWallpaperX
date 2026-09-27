@@ -26,5 +26,4 @@ let webCompatibilityScriptDOMLifecyclePointer = #"""
       hostLogger.post('pointer.contextmenu', `button=${event.button} buttons=${event.buttons}`);
     }, true);
   });
-  window.wallpaperEngine_paused = false;
 """#

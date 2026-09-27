@@ -4,10 +4,20 @@
 final class PlaybackCommandMultiplexer {
     static let shared = PlaybackCommandMultiplexer()
 
+    private(set) var isUserPaused = false
+    private(set) var isSystemPaused = false
+    var isPlaybackPaused: Bool { isUserPaused || isSystemPaused }
+
+    func setSystemPaused(_ paused: Bool) {
+        let previous = isPlaybackPaused
+        isSystemPaused = paused
+        if previous != isPlaybackPaused { dispatch(.setPlaybackPaused(isPlaybackPaused)) }
+    }
+
     private var handlers: [PlaybackEngineKind: PlaybackEngineControlling] = [:]
 
     func register(_ handler: PlaybackEngineControlling) {
-        handlers[handler.engineKind] = handler
+        register(handler, as: handler.engineKind)
     }
 
     /// E2c: 同一 handler 可另名注册到别的 kind——web 与 video 共享
@@ -15,6 +25,7 @@ final class PlaybackCommandMultiplexer {
     /// 内部路由），定向 `to: .web` 因此可达。
     func register(_ handler: PlaybackEngineControlling, as kind: PlaybackEngineKind) {
         handlers[kind] = handler
+        _ = handler.handle(.setPlaybackPaused(isPlaybackPaused))
     }
 
     func unregister(_ kind: PlaybackEngineKind) {
@@ -30,11 +41,21 @@ final class PlaybackCommandMultiplexer {
     /// 重复执行会双倍生效）。
     @discardableResult
     func dispatch(_ command: WallpaperEngineCommand) -> [PlaybackEngineKind: Bool] {
+        let effective: WallpaperEngineCommand
+        switch command {
+        case .pause, .resume:
+            isUserPaused = command == .pause
+            effective = .setPlaybackPaused(isPlaybackPaused)
+        default:
+            effective = command
+        }
         var outcomes: [PlaybackEngineKind: Bool] = [:]
-        var executed = Set<ObjectIdentifier>()
-        for (kind, handler) in handlers
-        where executed.insert(ObjectIdentifier(handler)).inserted {
-            outcomes[kind] = handler.handle(command)
+        var executed: [ObjectIdentifier: Bool] = [:]
+        for (kind, handler) in handlers {
+            let identity = ObjectIdentifier(handler)
+            let result = executed[identity] ?? handler.handle(effective)
+            executed[identity] = result
+            outcomes[kind] = result
         }
         return outcomes
     }
@@ -44,7 +65,9 @@ final class PlaybackCommandMultiplexer {
     func dispatch(
         _ command: WallpaperEngineCommand, to kind: PlaybackEngineKind
     ) -> Bool {
-        handler(for: kind)?.handle(command) ?? false
+        // Pause/resume is a global user intent even when initiated by one engine's UI.
+        if command == .pause || command == .resume { return dispatch(command)[kind] ?? false }
+        return handler(for: kind)?.handle(command) ?? false
     }
 
     /// 是否存在任一引擎报告"正在播放"。用于全局播放/暂停切换的

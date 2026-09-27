@@ -243,26 +243,12 @@ extension WallpaperManager {
                 previousAudibleVolume = loadedSettings.volume
             }
         }
+        PlaybackPolicyController.shared.updateSettings(settings)
     }
 
     func saveSettings() {
-        // 设置保存后只在暂停策略变化时推动引擎重新评估，避免无关字段连锁重建。
         saveCodableValue(settings, forKey: settingsKey)
-
-        // 仅在暂停策略相关配置变化时同步到引擎，避免无关设置触发重复状态评估。
-        let currentSnapshot = EnginePauseSettingsSnapshot(settings: settings)
-        guard lastAppliedEnginePauseSettings != currentSnapshot else { return }
-        lastAppliedEnginePauseSettings = currentSnapshot
-
-        if !wallpapers.isEmpty {
-            WallpaperEngine.shared.updateSettings(
-                pauseWhenOtherAppFocused: currentSnapshot.pauseWhenOtherAppFocused,
-                pauseWhenOtherAppFullscreen: currentSnapshot.pauseWhenOtherAppFullscreen,
-                pauseWhenUnplugged: currentSnapshot.pauseWhenUnplugged,
-                pauseWhenIdle: currentSnapshot.pauseWhenIdle,
-                idleTimeoutMinutes: currentSnapshot.idleTimeoutMinutes
-            )
-        }
+        PlaybackPolicyController.shared.updateSettings(settings)
     }
 
     func loadCurrentWallpaper() {

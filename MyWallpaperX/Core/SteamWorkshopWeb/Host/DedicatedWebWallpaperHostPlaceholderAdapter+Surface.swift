@@ -42,6 +42,11 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         controller.add(self, name: "wallpaperHostRandomFile")
         controller.add(self, name: "wallpaperHostInteractiveRegions")
         controller.add(self, name: "wallpaperHostNetworkRequest")
+        controller.addUserScript(WKUserScript(
+            source: webWallpaperPlaybackScript.replacingOccurrences(
+                of: "__MWX_INITIAL_PAUSED__", with: paused ? "true" : "false"),
+            injectionTime: .atDocumentStart, forMainFrameOnly: false
+        ))
         controller.addUserScript(
             WKUserScript(
                 source: Self.webCompatibilityScript(
@@ -99,6 +104,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         configuration.websiteDataStore = websiteDataStore(for: request, screenID: screenID)
         configuration.setURLSchemeHandler(schemeHandler, forURLScheme: WebWallpaperHostSupport.localScheme)
         let webView = WKWebView(frame: contentView.bounds, configuration: configuration)
+        webView.setAllMediaPlaybackSuspended(paused, completionHandler: nil)
         webView.autoresizingMask = [.width, .height]
         webView.navigationDelegate = self
         webView.setValue(false, forKey: "drawsBackground")

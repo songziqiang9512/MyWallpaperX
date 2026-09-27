@@ -198,7 +198,7 @@ extension WallpaperEngine {
     }
 
     func refreshSystemAudioSpectrumCapture() {
-        let captureAllowed = !playbackPaused && !screenLocked && !systemSleeping && !displaysSleeping
+        let captureAllowed = !PlaybackCommandMultiplexer.shared.isPlaybackPaused
         let webCaptureRequested = captureAllowed
             && currentSystemAudioSpectrumEnabled
             && currentPlaybackContentKind == .web

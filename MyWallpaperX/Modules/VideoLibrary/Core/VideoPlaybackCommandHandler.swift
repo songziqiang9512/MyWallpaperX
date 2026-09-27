@@ -9,12 +9,11 @@ final class VideoPlaybackCommandHandler: PlaybackEngineControlling {
     @discardableResult
     func handle(_ command: WallpaperEngineCommand) -> Bool {
         switch command {
-        case .pause:
-            WallpaperEngine.shared.pauseAllPlayers()
+        case let .setPlaybackPaused(paused):
+            WallpaperEngine.shared.applyPlaybackPaused(paused)
             return true
-        case .resume:
-            WallpaperEngine.shared.resumeAllPlayers()
-            return true
+        case .pause, .resume:
+            return false // User intent is resolved by the multiplexer.
         case .stop:
             // E2a-2: stop 回收选择权威真值（引用/定时器/播放态/纪元），
             // 不再裸停引擎——stopped 状态归 Manager 单点归属。

@@ -1,98 +1,38 @@
-//
-//  WallpaperEngine+PlaybackControl.swift
-//  MyWallpaperX
-//
-
 import Foundation
+import AppKit
 
 extension WallpaperEngine {
-    func applySystemPlaybackPausedState(_ paused: Bool) {
-        if paused {
-            pauseAllPlayers()
-        } else {
-            resumeAllPlayers()
-        }
-        // E2b: 系统暂停评估结果以通知上报——跨 runtime 命令下发归控制层
-        // （引擎不再自发 mux 命令，owner 兼 handler 倒置移除）。
-        NotificationCenter.default.post(
-            name: WallpaperEngine.playbackSystemPauseDidChangeNotification,
-            object: self,
-            userInfo: ["paused": paused]
-        )
-    }
-
-    func setPlaybackPausedState(_ paused: Bool) {
+    /// Runtime projection only. Manual intent and system policy live in the shared control plane.
+    func applyPlaybackPaused(_ paused: Bool) {
+        guard playbackPaused != paused else { return }
         playbackPaused = paused
+        if currentPlaybackContentKind == .web,
+           currentWebHostStrategy == .dedicatedHostPlaceholder {
+            dispatchWebRuntimeCommand(paused ? .pause : .resume(playbackRate: targetPlaybackRate))
+        }
+        // A preparing Web surface may still retain the previous video sessions.
+        // Every live surface obeys the same result throughout the transition.
+        for session in displaySessions.values where session.process.isRunning {
+            sendPlaybackPaused(paused, to: session)
+        }
         refreshSystemAudioSpectrumCapture()
     }
 
-    public func pauseAllPlayers() {
-        assert(Thread.isMainThread, "pauseAllPlayers must be called on main thread")
-        if playbackPaused { return }
-
-        if currentPlaybackContentKind == .web {
-            dispatchWebRuntimeCommand(.pause)
-        } else {
-            for session in displaySessions.values where session.process.isRunning {
-                send(
-                    DaemonCommand(
-                        action: "pause",
-                        videoPath: nil,
-                        framePath: nil,
-                        webRootPath: nil,
-                        propertiesJSON: nil,
-                        fillMode: nil,
-                        shouldLoopCurrentItem: nil,
-                        volume: nil,
-                        playbackRate: nil,
-                        spectrumEnabled: nil,
-                        spectrumLevels: nil,
-                        spectrumBarCount: nil,
-                        spectrumColorHex: nil,
-                        spectrumOffsetX: nil,
-                        spectrumOffsetY: nil,
-                        spectrumPeakCapsEnabled: nil,
-                        requestID: nil
-                    ),
-                    to: session
-                )
-            }
-        }
-        setPlaybackPausedState(true)
+    /// Also sent after every play request, so a new/restarted helper cannot miss
+    /// a policy transition that happened before it existed.
+    func sendPlaybackPaused(_ paused: Bool, to session: DisplayDaemonSession) {
+        send(DaemonCommand(action: paused ? "pause" : "resume", videoPath: nil,
+            framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: nil,
+            shouldLoopCurrentItem: nil, volume: nil, playbackRate: targetPlaybackRate,
+            spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil,
+            spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil,
+            spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
     }
 
-    public func resumeAllPlayers() {
-        assert(Thread.isMainThread, "resumeAllPlayers must be called on main thread")
-        if !playbackPaused { return }
-
-        if currentPlaybackContentKind == .web {
-            dispatchWebRuntimeCommand(.resume(playbackRate: targetPlaybackRate))
-        } else {
-            for session in displaySessions.values where session.process.isRunning {
-                send(
-                    DaemonCommand(
-                        action: "resume",
-                        videoPath: nil,
-                        framePath: nil,
-                        webRootPath: nil,
-                        propertiesJSON: nil,
-                        fillMode: nil,
-                        shouldLoopCurrentItem: nil,
-                        volume: nil,
-                        playbackRate: targetPlaybackRate,
-                        spectrumEnabled: nil,
-                        spectrumLevels: nil,
-                        spectrumBarCount: nil,
-                        spectrumColorHex: nil,
-                        spectrumOffsetX: nil,
-                        spectrumOffsetY: nil,
-                        spectrumPeakCapsEnabled: nil,
-                        requestID: nil
-                    ),
-                    to: session
-                )
-            }
-        }
-        setPlaybackPausedState(false)
+    @objc func handleScreenParametersChanged() {
+        scanDisplays()
+        guard let currentWallpaper else { return }
+        applyWallpaper(currentWallpaper, multiDisplayEnabled: currentMultiDisplayEnabled,
+            videoFillMode: currentVideoFillMode, shouldLoopCurrentItem: currentShouldLoopCurrentItem)
     }
 }

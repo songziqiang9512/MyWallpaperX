@@ -25,10 +25,6 @@ public final class WallpaperEngine: NSObject {
     /// content path — the selection authority commits its deferred truth on
     /// this signal.
     public static let playbackReadyNotification = Notification.Name("WallpaperEnginePlaybackReadyNotification")
-    /// E2b: the system pause evaluation produced a new state; the control
-    /// layer owns cross-runtime dispatch (the engine no longer dispatches
-    /// into the command mux itself).
-    public static let playbackSystemPauseDidChangeNotification = Notification.Name("WallpaperEnginePlaybackSystemPauseDidChangeNotification")
 
     // 一个 display 对应一个 daemon session；后面所有播放、暂停、换壁纸都围绕这个会话表展开。
     final class DisplayDaemonSession {
@@ -78,11 +74,8 @@ public final class WallpaperEngine: NSObject {
     var playbackIntentEpoch: UInt64 = 0
     lazy var dedicatedWebHostAdapter: WebWallpaperHostAdapter = DedicatedWebWallpaperHostPlaceholderAdapter()
     var displayIDs: [CGDirectDisplayID] = []
-    var screenLocked = false
-    var visibilityReductionActive = false
     var playbackPaused = false
     var isPlaybackPaused: Bool { playbackPaused }
-    var reducedPerformanceMode = false
     var targetPlaybackRate: Float = 1.0
     var currentVolumeNormalized: Float = 0.5
     var effectiveVolumeNormalized: Float {
@@ -112,32 +105,10 @@ public final class WallpaperEngine: NSObject {
         SceneAudioSpectrumRoutedFrame
     >()
 
-    var pauseWhenOtherAppFocused = true
-    var pauseWhenOtherAppFullscreen = true
-    var pauseWhenUnplugged = false
-    var pauseWhenIdle = false
-    var idleMonitorTimer: DispatchSourceTimer?
-    var idleMonitorReady = false  // 定时器触发过至少一次才允许评估 idle 状态，防止开启开关瞬间误暂停
-    var idleTimeoutMinutes = 10
-
-    var systemSleeping = false
-    var displaysSleeping = false
-    var activeSystemInterruptions: Set<PlaybackSystemInterruption> = []
     var lastFailureVideoPath: String?
     var lastFailureAt: TimeInterval = 0
     var lastEndedVideoPath: String?
     var lastEndedAt: TimeInterval = 0
-    var suppressFullscreenPauseUntil: TimeInterval = 0
-    var pendingPlaybackStateRefreshWorkItem: DispatchWorkItem?
-    var pendingPlaybackStateRefreshDeadline: CFTimeInterval?
-    var lastPlaybackStateEvaluationAt: CFTimeInterval = 0
-    let playbackStateEvaluationMinInterval: TimeInterval = 0.10
-    var powerStateFallbackTimer: DispatchSourceTimer?
-    var lastObservedOnBattery: Bool?
-    var lastObservedLowPowerMode: Bool?
-    var lastFullscreenSpaceState: Bool?
-    var lastFullscreenSpaceStateAt: CFTimeInterval = 0
-    let fullscreenSpaceStateCacheTTL: TimeInterval = 0.25
     static let defaultSpectrumBarCount = 28
     let spectrumPushMinInterval: CFTimeInterval = 1.0 / 30.0
     let webSpectrumPushMinInterval: CFTimeInterval = 1.0 / 30.0
@@ -146,7 +117,6 @@ public final class WallpaperEngine: NSObject {
         currentSpectrumLevels = Array(repeating: 0, count: WallpaperEngine.defaultSpectrumBarCount)
         systemAudioSpectrumService = SystemAudioSpectrumService(barCount: WallpaperEngine.defaultSpectrumBarCount)
         super.init()
-        lastObservedLowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
         dedicatedWebHostAdapter.eventHandler = { [weak self] event in
             if Thread.isMainThread {
                 self?.handleWebHostEvent(event)
@@ -158,7 +128,8 @@ public final class WallpaperEngine: NSObject {
         }
         systemAudioSpectrumService = makeSystemAudioSpectrumService(barCount: WallpaperEngine.defaultSpectrumBarCount)
         observeSceneAudioSpectrumDemand()
-        setupNotifications()
+        NotificationCenter.default.addObserver(self, selector: #selector(handleScreenParametersChanged),
+            name: NSApplication.didChangeScreenParametersNotification, object: nil)
         scanDisplays()
     }
 
@@ -166,12 +137,7 @@ public final class WallpaperEngine: NSObject {
         _ wallpaper: VideoWallpaper,
         multiDisplayEnabled: Bool,
         videoFillMode: String,
-        shouldLoopCurrentItem: Bool,
-        pauseWhenOtherAppFocused: Bool,
-        pauseWhenOtherAppFullscreen: Bool,
-        pauseWhenUnplugged: Bool,
-        pauseWhenIdle: Bool,
-        idleTimeoutMinutes: Int
+        shouldLoopCurrentItem: Bool
     ) {
         // 对外统一入口接收每个合法切换；交互去抖由调用层负责。
         beginPlaybackIntent()
@@ -180,12 +146,7 @@ public final class WallpaperEngine: NSObject {
             wallpaper,
             multiDisplayEnabled: multiDisplayEnabled,
             videoFillMode: videoFillMode,
-            shouldLoopCurrentItem: shouldLoopCurrentItem,
-            pauseWhenOtherAppFocused: pauseWhenOtherAppFocused,
-            pauseWhenOtherAppFullscreen: pauseWhenOtherAppFullscreen,
-            pauseWhenUnplugged: pauseWhenUnplugged,
-            pauseWhenIdle: pauseWhenIdle,
-            idleTimeoutMinutes: idleTimeoutMinutes
+            shouldLoopCurrentItem: shouldLoopCurrentItem
         )
     }
 
@@ -193,12 +154,7 @@ public final class WallpaperEngine: NSObject {
         _ wallpaper: VideoWallpaper,
         multiDisplayEnabled: Bool,
         videoFillMode: String,
-        shouldLoopCurrentItem: Bool,
-        pauseWhenOtherAppFocused: Bool,
-        pauseWhenOtherAppFullscreen: Bool,
-        pauseWhenUnplugged: Bool,
-        pauseWhenIdle: Bool,
-        idleTimeoutMinutes: Int
+        shouldLoopCurrentItem: Bool
     ) {
         let previousNormalizedPath = currentWallpaper.map { normalizedPath($0.path) }
         let incomingNormalizedPath = normalizedPath(wallpaper.path)
@@ -214,7 +170,6 @@ public final class WallpaperEngine: NSObject {
             currentWebLaunchSource = nil
             currentWebRecordID = nil
             currentWebRequestID = nil
-            setPlaybackPausedState(false)
         }
 
         // 先更新内存态，再决定是否复用现有 daemon session 或下发新的 play 命令。
@@ -224,13 +179,6 @@ public final class WallpaperEngine: NSObject {
         currentVideoFillMode = videoFillMode
         currentMultiDisplayEnabled = multiDisplayEnabled
         currentShouldLoopCurrentItem = shouldLoopCurrentItem
-        self.pauseWhenOtherAppFocused = pauseWhenOtherAppFocused
-        self.pauseWhenOtherAppFullscreen = pauseWhenOtherAppFullscreen
-        self.pauseWhenUnplugged = pauseWhenUnplugged
-        self.pauseWhenIdle = pauseWhenIdle
-        self.idleTimeoutMinutes = idleTimeoutMinutes
-        refreshPowerStateFallbackMonitoring()
-        refreshIdleMonitoring()
 
         scanDisplays()
         let targetDisplayIDs = multiDisplayEnabled ? displayIDs : [displayIDs.first].compactMap { $0 }
@@ -251,7 +199,7 @@ public final class WallpaperEngine: NSObject {
             && isConfigurationUnchanged
             && noObsoleteDisplaySessions
             && targetSessionsReady {
-            requestPlaybackStateEvaluation(immediate: true)
+            PlaybackPolicyController.shared.refresh()
             return
         }
 
@@ -271,7 +219,7 @@ public final class WallpaperEngine: NSObject {
             terminateSession(for: displayID)
         }
 
-        requestPlaybackStateEvaluation(immediate: true)
+        PlaybackPolicyController.shared.refresh()
     }
 
     private func normalizedPath(_ path: String) -> String {
@@ -292,25 +240,6 @@ public final class WallpaperEngine: NSObject {
             mirror: playbackIntentEpoch,
             product: product
         )
-    }
-
-    public func updateSettings(
-        pauseWhenOtherAppFocused: Bool,
-        pauseWhenOtherAppFullscreen: Bool,
-        pauseWhenUnplugged: Bool,
-        pauseWhenIdle: Bool,
-        idleTimeoutMinutes: Int
-    ) {
-        // 这里只更新暂停策略和闲置阈值，避免把设置层的其它变更混进引擎热路径。
-        self.pauseWhenOtherAppFocused = pauseWhenOtherAppFocused
-        self.pauseWhenOtherAppFullscreen = pauseWhenOtherAppFullscreen
-        self.pauseWhenUnplugged = pauseWhenUnplugged
-        self.pauseWhenIdle = pauseWhenIdle
-        self.idleTimeoutMinutes = idleTimeoutMinutes
-        refreshPowerStateFallbackMonitoring()
-        refreshIdleMonitoring()
-
-        requestPlaybackStateEvaluation(immediate: true)
     }
 
     public func stopPlayback() {
@@ -345,14 +274,6 @@ public final class WallpaperEngine: NSObject {
     }
 
     public func cleanup() {
-        // 退出或重建时必须清掉定时器和挂起评估，否则旧状态会继续回写。
-        powerStateFallbackTimer?.cancel()
-        powerStateFallbackTimer = nil
-        idleMonitorTimer?.cancel()
-        idleMonitorTimer = nil
-        pendingPlaybackStateRefreshWorkItem?.cancel()
-        pendingPlaybackStateRefreshWorkItem = nil
-        pendingPlaybackStateRefreshDeadline = nil
         stopPlayback()
         systemAudioSpectrumService.setConsumers(overlayEnabled: false, webEnabled: false)
         NotificationCenter.default.removeObserver(self)
@@ -430,16 +351,12 @@ public final class WallpaperEngine: NSObject {
     }
 
     public func togglePlayback() {
-        if playbackPaused {
-            resumeAllPlayers()
-        } else {
-            pauseAllPlayers()
-        }
+        PlaybackCommandMultiplexer.shared.dispatch(playbackPaused ? .resume : .pause)
     }
 
     public func refreshPlaybackState() {
         // 状态评估只走统一入口，避免 UI / 系统通知各自直接改 pause 状态。
-        requestPlaybackStateEvaluation(immediate: true)
+        PlaybackPolicyController.shared.refresh()
     }
 
     public func getCurrentWallpaper() -> VideoWallpaper? {

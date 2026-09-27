@@ -95,13 +95,14 @@ enum DebugSceneDaemonClientRunner {
                 withIntermediateDirectories: true
             )
             NSApp.activate(ignoringOtherApps: true)
-            WallpaperEngine.shared.updateSettings(
-                pauseWhenOtherAppFocused: false,
-                pauseWhenOtherAppFullscreen: false,
-                pauseWhenUnplugged: false,
-                pauseWhenIdle: false,
-                idleTimeoutMinutes: 10
-            )
+            PlaybackPolicyController.shared.updateSettings({
+                var settings = WallpaperSettings()
+                settings.pauseWhenOtherAppFocused = false
+                settings.pauseWhenOtherAppFullscreen = false
+                settings.pauseWhenUnplugged = false
+                settings.pauseWhenIdle = false
+                return settings
+            }())
         }
         installObservers()
         let issued: Bool

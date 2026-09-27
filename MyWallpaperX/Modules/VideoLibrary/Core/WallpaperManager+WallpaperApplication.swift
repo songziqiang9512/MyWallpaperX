@@ -54,15 +54,9 @@ extension WallpaperManager {
             wallpaper,
             multiDisplayEnabled: settings.multiDisplayEnabled,
             videoFillMode: settings.videoFillMode.ipcValue,
-            shouldLoopCurrentItem: shouldLoopCurrentItemInEngine(),
-            pauseWhenOtherAppFocused: settings.pauseWhenOtherAppFocused,
-            pauseWhenOtherAppFullscreen: settings.pauseWhenOtherAppFullscreen,
-            pauseWhenUnplugged: settings.pauseWhenUnplugged,
-            pauseWhenIdle: settings.pauseWhenIdle,
-            idleTimeoutMinutes: settings.idleTimeoutMinutes
+            shouldLoopCurrentItem: shouldLoopCurrentItemInEngine()
         )
         isPlaying = WallpaperEngine.shared.isPlaying()
-        lastAppliedEnginePauseSettings = EnginePauseSettingsSnapshot(settings: settings)
         PlaybackVolumeState.shared.setNormalizedVolume(Float(settings.volume / 100))
         PlaybackCommandMultiplexer.shared.dispatch(.setVolume(Float(settings.volume)))
         applySystemAudioSpectrumToEngine()
