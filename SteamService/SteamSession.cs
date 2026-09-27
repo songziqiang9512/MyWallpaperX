@@ -276,140 +276,98 @@ internal sealed partial class SteamSession : IAsyncDisposable
 
     // ---- 命令入口（业务 dispatch 调用；异步命令的 terminal 由本类发送） ----
 
-    public void BeginLoginPassword(string requestId, string username, string password, string? attemptId = null)
-    {
-        var (book, context) = BeginAttempt(requestId, "password", attemptId);
-        var cancellation = context.Cancellation;
-        _ = Task.Run(async () =>
+    public void BeginLoginPassword(string requestId, string username, string password, string? attemptId = null) =>
+        BeginLogin(requestId, attemptId, new AuthSessionDetails
         {
-            try
+            Username = username, Password = password, IsPersistentSession = true,
+            DeviceFriendlyName = "MyWallpaperX SteamService",
+        });
+
+    public void BeginLoginQR(string requestId, string? attemptId = null) => BeginLogin(requestId, attemptId, null);
+
+    private void BeginLogin(string requestId, string? attemptId, AuthSessionDetails? credentials)
+    {
+        var (book, context) = BeginAttempt(requestId, credentials == null ? "qr" : "password", attemptId);
+        _ = RunAuthentication(context, async ct =>
+        {
+            EmitAuthState(book, requestId, "connecting");
+            await EnsureConnectedAsync(ct).ConfigureAwait(false);
+            SteamClient authClient;
+            lock (gate)
             {
-                EmitAuthState(book, requestId, "connecting");
-                await EnsureConnectedAsync(cancellation.Token).ConfigureAwait(false);
-                var authenticator = new AttemptAuthenticator(
+                ct.ThrowIfCancellationRequested();
+                if (!attemptBook.CanEmit(book.AttemptId)) throw new OperationCanceledException(ct);
+                authClient = client!;
+            }
+            AuthSession session;
+            if (credentials != null)
+            {
+                context.Authenticator = new AttemptAuthenticator(
                     (state, email, incorrect) => EmitAuthState(book, requestId, state,
                         emailDomain: email, previousCodeWasIncorrect: incorrect),
-                    () => attemptBook.CanEmit(book.AttemptId));
-                context.Authenticator = authenticator;
+                    () => !ct.IsCancellationRequested && attemptBook.CanEmit(book.AttemptId));
+                credentials.Authenticator = context.Authenticator;
                 EmitAuthState(book, requestId, "authenticating");
-                SteamClient authClient;
-                lock (gate)
+                session = await authClient.Authentication.BeginAuthSessionViaCredentialsAsync(credentials)
+                    .WaitAsync(ct).ConfigureAwait(false);
+            }
+            else
+            {
+                var qr = await authClient.Authentication.BeginAuthSessionViaQRAsync(new AuthSessionDetails
                 {
-                    cancellation.Token.ThrowIfCancellationRequested();
-                    if (!attemptBook.CanEmit(book.AttemptId)) throw new OperationCanceledException(cancellation.Token);
-                    authClient = client!;
-                }
-                var session = await authClient.Authentication
-                    .BeginAuthSessionViaCredentialsAsync(new AuthSessionDetails
-                    {
-                        Username = username,
-                        Password = password,
-                        IsPersistentSession = true,
-                        Authenticator = authenticator,
-                        DeviceFriendlyName = "MyWallpaperX SteamService",
-                    })
-                    .WaitAsync(TimeSpan.FromMinutes(5), cancellation.Token)
-                    .ConfigureAwait(false);
-                var pollResult = await PollWithGuardRetryAsync(session, authenticator, cancellation.Token)
-                    .ConfigureAwait(false);
-                if (!attemptBook.CanEmit(book.AttemptId))
-                {
-                    // 迟到验证码成功：不登录、不写令牌；请求侧仅补发 cancelled 终态。
-                    FinishCancelled(book, requestId);
-                    return;
-                }
-                await LogOnWithTokenAsync(book, pollResult.AccountName, pollResult.RefreshToken, cancellation.Token)
-                    .ConfigureAwait(false);
-                FinishSuccess(book, requestId, pollResult.AccountName, pollResult.RefreshToken,
-                    pollResult.AccessToken, pollResult.NewGuardData);
+                    IsPersistentSession = true, DeviceFriendlyName = "MyWallpaperX SteamService",
+                }).WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.RequestTimeoutSeconds), ct).ConfigureAwait(false);
+                qr.ChallengeURLChanged = () => EmitAuthState(book, requestId, "qrChallenge", challengeUrl: qr.ChallengeURL);
+                EmitAuthState(book, requestId, "qrChallenge", challengeUrl: qr.ChallengeURL);
+                session = qr;
             }
-            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
-            {
-                FinishCancelled(book, requestId);
-            }
-            catch (Exception error)
-            {
-                FinishFailed(book, requestId, ClassifyAuthError(error), ProtocolRedactor.Redact(error.Message));
-            }
-        }, CancellationToken.None);
-    }
-
-    public void BeginLoginQR(string requestId, string? attemptId = null)
-    {
-        var (book, context) = BeginAttempt(requestId, "qr", attemptId);
-        var cancellation = context.Cancellation;
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                EmitAuthState(book, requestId, "connecting");
-                await EnsureConnectedAsync(cancellation.Token).ConfigureAwait(false);
-                SteamClient authClient;
-                lock (gate)
-                {
-                    cancellation.Token.ThrowIfCancellationRequested();
-                    if (!attemptBook.CanEmit(book.AttemptId)) throw new OperationCanceledException(cancellation.Token);
-                    authClient = client!;
-                }
-                var session = await authClient.Authentication
-                    .BeginAuthSessionViaQRAsync(new AuthSessionDetails
-                    {
-                        IsPersistentSession = true,
-                        DeviceFriendlyName = "MyWallpaperX SteamService",
-                    })
-                    .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.RequestTimeoutSeconds), cancellation.Token)
-                    .ConfigureAwait(false);
-                session.ChallengeURLChanged = () =>
-                    EmitAuthState(book, requestId, "qrChallenge", challengeUrl: session.ChallengeURL);
-                EmitAuthState(book, requestId, "qrChallenge", challengeUrl: session.ChallengeURL);
-                var pollResult = await session.PollingWaitForResultAsync(cancellation.Token).ConfigureAwait(false);
-                if (!attemptBook.CanEmit(book.AttemptId))
-                {
-                    // 迟到扫码成功：不登录、不写令牌；请求侧仅补发 cancelled 终态。
-                    FinishCancelled(book, requestId);
-                    return;
-                }
-                await LogOnWithTokenAsync(book, pollResult.AccountName, pollResult.RefreshToken, cancellation.Token)
-                    .ConfigureAwait(false);
-                FinishSuccess(book, requestId, pollResult.AccountName, pollResult.RefreshToken,
-                    pollResult.AccessToken, pollResult.NewGuardData);
-            }
-            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
-            {
-                FinishCancelled(book, requestId);
-            }
-            catch (Exception error)
-            {
-                FinishFailed(book, requestId, ClassifyAuthError(error), ProtocolRedactor.Redact(error.Message));
-            }
-        }, CancellationToken.None);
+            var result = session is CredentialsAuthSession passwordSession
+                ? await PollWithGuardRetryAsync(passwordSession, context.Authenticator!, ct).ConfigureAwait(false)
+                : await session.PollingWaitForResultAsync(ct).ConfigureAwait(false);
+            await LogOnWithTokenAsync(book, result.AccountName, result.RefreshToken, ct).ConfigureAwait(false);
+            FinishSuccess(book, requestId, result.AccountName, result.RefreshToken, result.AccessToken, result.NewGuardData);
+        });
     }
 
     public void BeginRestore(string requestId, string restoredToken, string? accountNameHint, string? attemptId = null)
     {
         var (book, context) = BeginAttempt(requestId, "restore", attemptId);
-        var cancellation = context.Cancellation;
-        _ = Task.Run(async () =>
+        _ = RunAuthentication(context, async ct =>
         {
-            try
-            {
-                EmitAuthState(book, requestId, "connecting");
-                await EnsureConnectedAsync(cancellation.Token).ConfigureAwait(false);
-                await LogOnWithTokenAsync(book, accountNameHint ?? "", restoredToken, cancellation.Token)
-                    .ConfigureAwait(false);
-                FinishSuccess(book, requestId, accountNameHint ?? "", restoredToken,
-                    resultAccessToken: null, newGuardData: null);
-            }
-            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
-            {
-                FinishCancelled(book, requestId);
-            }
-            catch (Exception error)
-            {
-                FinishFailed(book, requestId, ClassifyAuthError(error), ProtocolRedactor.Redact(error.Message));
-            }
-        }, CancellationToken.None);
+            EmitAuthState(book, requestId, "connecting");
+            await LogOnWithTokenAsync(book, accountNameHint ?? "", restoredToken, ct).ConfigureAwait(false);
+            FinishSuccess(book, requestId, accountNameHint ?? "", restoredToken, null, null);
+        });
     }
+
+    // All authentication entry points share one deadline and one terminal/cleanup
+    // path. Guard/QR polling is included, not just the initial session request.
+    private Task RunAuthentication(AuthAttemptContext context, Func<CancellationToken, Task> authenticate,
+        TimeSpan? timeout = null) => Task.Run(async () =>
+    {
+        using var cancellation = context.Cancellation;
+        var book = context.Book;
+        using var registration = cancellation.Token.Register(() => context.Authenticator?.Cancel());
+        cancellation.CancelAfter(timeout ?? TimeSpan.FromMinutes(5));
+        try { await authenticate(cancellation.Token).ConfigureAwait(false); }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            lock (gate)
+            {
+                if (attemptBook.CanEmit(book.AttemptId))
+                    FinishFailed(book, book.RequestId, "network", "Steam 认证等待超时，请重新登录。");
+                else FinishCancelled(book, book.RequestId);
+            }
+        }
+        catch (Exception error)
+        {
+            FinishFailed(book, book.RequestId, ClassifyAuthError(error), ProtocolRedactor.Redact(error.Message));
+        }
+        finally { context.Authenticator?.Cancel(); }
+    }, CancellationToken.None);
+
+    internal Task RunAuthenticationForTest(string requestId, Func<CancellationToken, Task> authenticate, TimeSpan timeout) =>
+        RunAuthentication(BeginAttempt(requestId, "test", requestId).Context, authenticate, timeout);
 
     /// 提交验证码：仅当前活动 attempt 接受；无活动/已死 attempt 返回 false。
     public bool SubmitChallenge(string authAttemptId, string code)
@@ -587,20 +545,14 @@ internal sealed partial class SteamSession : IAsyncDisposable
         : name[..2] + "***";
 
     // 失败分型：默认 network（§3.3 网络失败不删令牌）；仅明确拒绝才 authExpired。
-    private static string ClassifyAuthError(Exception error)
+    internal static string ClassifyAuthError(Exception error) => error switch
     {
-        var message = error.Message;
-        if (message.Contains("InvalidPassword", StringComparison.OrdinalIgnoreCase))
-        {
-            return "accessDenied";
-        }
-        // 令牌被服务端明确拒绝（过期/撤销/无效/账号不存在）。
-        if (message.Contains("token logon rejected", StringComparison.OrdinalIgnoreCase))
-        {
-            return "authExpired";
-        }
-        return "network";
-    }
+        SteamRequestFailure failure => failure.Code,
+        AuthenticationException { Result: EResult.InvalidPassword or EResult.AccessDenied or EResult.InsufficientPrivilege } => "accessDenied",
+        AuthenticationException { Result: EResult.Expired or EResult.Revoked or EResult.AccountNotFound or EResult.NotLoggedOn } => "authExpired",
+        AuthenticationException { Result: EResult.RateLimitExceeded or EResult.LimitExceeded } => "rateLimited",
+        _ => "network",
+    };
 
     private static async Task<AuthPollResult> PollWithGuardRetryAsync(
         CredentialsAuthSession session, AttemptAuthenticator authenticator, CancellationToken ct)
@@ -778,9 +730,9 @@ internal sealed partial class SteamSession : IAsyncDisposable
                 if (result.Result is EResult.InvalidPassword or EResult.Expired or EResult.Revoked
                     or EResult.AccountNotFound)
                 {
-                    throw new IOException($"token logon rejected: {result.Result}");
+                    throw new SteamRequestFailure("authExpired", $"Steam token rejected ({result.Result})");
                 }
-                throw new IOException($"token logon failed: {result.Result}");
+                throw new AuthenticationException("Steam token logon failed", result.Result);
             }
             lock (gate)
             {

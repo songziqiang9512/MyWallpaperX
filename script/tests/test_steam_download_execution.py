@@ -145,6 +145,12 @@ class SteamDownloadExecutionTests(unittest.TestCase):
     def test_v1_staging_ack_helper_is_not_half_compatible_with_birth_identity_client(self):
         self.run_case('old-staging-ack-capability')
 
+    def test_old_helper_without_cdn_recovery_never_starts_download(self):
+        self.run_case('missing-cdn-capability')
+
+    def test_cdn_denial_reaches_card_and_history_without_publishing_or_allocating(self):
+        self.run_case('cdn-forbidden')
+
     def test_staging_ack_timeout_invalidates_helper_deleted_lease(self):
         self.run_case('staging-ack-timeout')
 

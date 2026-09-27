@@ -26,12 +26,14 @@ final class Transport: SteamServiceTransporting {
     var savedJobStoreURL: URL?
     var observedPersistedIdentityBeforeAcknowledgement = false
     var advertisedStagingAcknowledgementCapability: String? = SteamServiceProtocol.stagingAcknowledgementCapability
+    var advertisesCdnDownloadCapability = true
     var rejectStagingAcknowledgementWithIntegrity = false
     var allocatedEventHasWrongAccountEpoch = false
     var allocatedEventOmitsAccountEpoch = false
     var allocatedEventHasWrongBirth = false; var terminalReceiptHasWrongBirth = false
     var replaceStagingBeforeProgress = false
     var startErrorCode: String?
+    var preAllocationFailure: String?
     private var didReplaceStaging = false
     private var heldStartRequests: [String: [String: Any]] = [:]
     private func receiptData(for request: [String: Any]) -> [String: Any] {
@@ -57,9 +59,9 @@ final class Transport: SteamServiceTransporting {
         isRunning = true
         emit([
             "v": 1, "type": "ready", "protocol": 1, "helperVersion": "test",
-            "capabilities": advertisedStagingAcknowledgementCapability.map {
+            "capabilities": (advertisedStagingAcknowledgementCapability.map {
                 ["ping", "shutdown", $0]
-            } ?? ["ping", "shutdown"],
+            } ?? ["ping", "shutdown"]) + (advertisesCdnDownloadCapability ? [SteamServiceProtocol.cdnDownloadCapability] : []),
         ])
     }
     func send(_ data: Data) -> Bool {
@@ -67,6 +69,12 @@ final class Transport: SteamServiceTransporting {
         commands.append(request)
         let command = request["command"] as! String
         let responseData = receiptData(for: request)
+        if command == "startDownload", let preAllocationFailure {
+            emit(["v": 1, "type": "result", "ok": false, "requestId": request["requestId"]!,
+                  "accountEpoch": request["accountEpoch"]!,
+                  "error": ["code": "accessDenied", "message": preAllocationFailure]])
+            return true
+        }
         if command == "startDownload" {
             if failJobStoreBeforeAllocatedEvent {
                 let original = jobStoreURL!.appendingPathExtension("before-allocation")
@@ -280,6 +288,10 @@ final class Transport: SteamServiceTransporting {
         if mode == "corrupt-current-jobstore" { try FileManager.default.createSymbolicLink(at: transport.jobStoreURL!, withDestinationURL: rejectedJobStoreTarget) }
         if mode == "missing-staging-ack-capability" { transport.advertisedStagingAcknowledgementCapability = nil }
         if mode == "old-staging-ack-capability" { transport.advertisedStagingAcknowledgementCapability = "download-staging-ack-v1" }
+        if mode == "missing-cdn-capability" { transport.advertisesCdnDownloadCapability = false }
+        if mode == "cdn-forbidden" {
+            transport.preAllocationFailure = "下载清单失败（HTTP 403，节点 a.example，已尝试 2 次）。Steam 内容节点拒绝访问；请检查账号授权及代理设置后重试。"
+        }
         transport.requireStagingAcknowledgement = mode != "missing-staging-ack-capability" && mode != "old-staging-ack-capability"
         transport.failJobStoreBeforeAllocatedEvent = mode == "staging-save-failure"; transport.rejectStagingAcknowledgementWithIntegrity = mode == "staging-ack-timeout"
         transport.allocatedEventHasWrongAccountEpoch = mode == "allocated-wrong-account-epoch"; transport.allocatedEventOmitsAccountEpoch = mode == "allocated-missing-account-epoch"
@@ -448,7 +460,7 @@ final class Transport: SteamServiceTransporting {
                 && !storeSiblings.contains { $0.lastPathComponent.hasPrefix("jobs.corrupted-") })
             await service.steamServiceClient.stop(shutdownTimeout: 0); print("EXECUTION PASS: \(mode)"); return
         }
-        if mode == "missing-staging-ack-capability" || mode == "old-staging-ack-capability" {
+        if mode == "missing-staging-ack-capability" || mode == "old-staging-ack-capability" || mode == "missing-cdn-capability" {
             for _ in 0..<100_000 where !service.activeDownloadTasks.isEmpty { await Task.yield() }
             precondition(service.activeDownloadTasks.isEmpty)
             precondition(!transport.commands.contains { $0["command"] as? String == "startDownload" },
@@ -620,6 +632,16 @@ final class Transport: SteamServiceTransporting {
             let oldMarker = try String(contentsOf: marker, encoding: .utf8)
             precondition(oldMarker == "OLD READY POINTER")
             precondition(service.downloadJobStore.jobs.last?.state != .completed)
+            if mode == "cdn-forbidden" {
+                let job = service.downloadJobStore.jobs.last!
+                precondition(job.state == .failed && job.stagingPath == nil)
+                precondition(job.failureMessage == transport.preAllocationFailure && service.downloadError == job.failureMessage)
+                guard case let .failed(message)? = service.downloads.first?.status else { fatalError("missing failed card") }
+                precondition(message == job.failureMessage)
+                let reloaded = SteamDownloadJobStore(persistenceURL: base.appendingPathComponent("jobs.json"))
+                precondition(reloaded.history.first?.failureMessage == job.failureMessage)
+                precondition(!transport.commands.contains { $0["command"] as? String == "acknowledgeDownloadStaging" })
+            }
             if mode == "cancel" {
                 while !transport.commands.contains(where: { $0["command"] as? String == "cancelDownload" }) { await Task.yield() }
                 precondition(transport.commands.contains { $0["command"] as? String == "cancelDownload" && $0["jobId"] as? String == key })

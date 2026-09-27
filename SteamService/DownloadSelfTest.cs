@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
 using SteamKit2;
@@ -26,6 +27,22 @@ internal static class DownloadSelfTest
         Check(SteamSession.ClassifyDownloadError(SteamRequestFailure.FromResult(EResult.AccessDenied)) == "accessDenied");
         Check(SteamSession.ClassifyDownloadError(SteamRequestFailure.FromResult(EResult.RateLimitExceeded)) == "rateLimited");
         Check(SteamSession.ClassifyDownloadError(new InvalidDataException("anything")) == "integrity");
+        foreach (var (status, code, retry) in new[] {
+            (HttpStatusCode.Forbidden, "accessDenied", false),
+            (HttpStatusCode.Unauthorized, "authExpired", false),
+            (HttpStatusCode.TooManyRequests, "rateLimited", true),
+            (HttpStatusCode.ServiceUnavailable, "network", true),
+            (HttpStatusCode.NotFound, "unsupportedContent", false),
+            (HttpStatusCode.NotImplemented, "network", false),
+            (HttpStatusCode.RequestTimeout, "network", true),
+        })
+        {
+            using var response = new HttpResponseMessage(status);
+            var error = new SteamKitWebRequestException("HTTP failure", response);
+            Check(SteamSession.ClassifyDownloadError(error) == code);
+            Check(SteamSession.IsRetryableChunkFetch(error, CancellationToken.None) == retry);
+        }
+        Check(SteamSession.ClassifyDownloadError(SteamRequestFailure.FromResult(EResult.Expired)) == "authExpired");
         Check(TestPhysicalDrain().GetAwaiter().GetResult());
         long gib = 1024L * 1024 * 1024;
         Check(SteamSession.CanReserveDiskBytes(gib, 6 * gib,
@@ -74,6 +91,7 @@ internal static class DownloadSelfTest
         }
         catch (OperationCanceledException) { Check(stream.ReadCalls == 1); }
         for (int i = 0; i < 100; i++) Check(SteamSession.TestDownloadTerminalRace());
+        count += CdnTransferSelfTest.RunAsync().GetAwaiter().GetResult();
         Console.WriteLine($"download progress/errors/cancellation: {count}/{count} PASS (offline)");
         return 0;
     }

@@ -14,6 +14,7 @@ final class FakeSteamTransport: SteamServiceTransporting {
     var advertisedCapabilities = [
         SteamServiceProtocol.stagingAcknowledgementCapability,
         SteamServiceProtocol.trendDaysCapability,
+        SteamServiceProtocol.cdnDownloadCapability,
     ]
     var staleTermination: ((Int32) -> Void)?
     func start() throws {
@@ -111,11 +112,29 @@ final class FakeSteamTransport: SteamServiceTransporting {
         old.staleTermination?(9)
         precondition(restarting.currentIdentity != nil, "old termination cannot tear down new session")
         await restarting.stop(shutdownTimeout: 0)
+        try await explicitStartDuringBackoff()
         try await publicCrashRestartLifecycle()
         try await authenticationLifecycle()
         try await accountRouteLifecycle()
         try await stagedReceiptLifecycle()
         print("Steam client lifecycle: cold start, synchronous reply, cancellation, frame limit, timeout teardown, crash restart, stale callback PASS")
+    }
+
+    @MainActor static func explicitStartDuringBackoff() async throws {
+        var transports: [FakeSteamTransport] = []
+        let client = SteamServiceClient(executablePath: "/fake", transportFactory: { _ in
+            let transport = FakeSteamTransport()
+            transports.append(transport)
+            return transport
+        })
+        _ = try await client.start()
+        transports[0].isRunning = false
+        transports[0].onTermination?(1)
+        _ = try await client.start()
+        try await Task.sleep(nanoseconds: 150_000_000)
+        precondition(transports.count == 2 && client.currentIdentity != nil,
+                     "an explicit start must consume the scheduled restart")
+        await client.stop(shutdownTimeout: 0)
     }
 
     @MainActor static func helperLocationLifecycle() throws {

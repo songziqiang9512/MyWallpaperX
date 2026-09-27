@@ -68,7 +68,7 @@ internal static class Program
         steamSession.ProcessEpoch = 1;
         writer.Send(ProtocolMessages.Ready(
             1, ["ping", "shutdown", SteamSession.StagingAcknowledgementCapability,
-                SteamSession.TrendDaysCapability]));
+                SteamSession.TrendDaysCapability, WorkshopCdnTransfer.Capability]));
 
         using var stdin = Console.OpenStandardInput();
         var reader = new FrameReader(stdin);

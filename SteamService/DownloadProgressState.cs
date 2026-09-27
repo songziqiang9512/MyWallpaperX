@@ -48,6 +48,7 @@ internal sealed class SteamRequestFailure(string code, string message) : Excepti
     {
         EResult.RateLimitExceeded or EResult.LimitExceeded => "rateLimited",
         EResult.AccessDenied or EResult.InsufficientPrivilege => "accessDenied",
+        EResult.Expired or EResult.NotLoggedOn or EResult.InvalidPassword => "authExpired",
         EResult.Timeout or EResult.NoConnection or EResult.ServiceUnavailable or EResult.Busy => "network",
         _ => "unsupportedContent",
     }, $"Steam request failed ({result})");

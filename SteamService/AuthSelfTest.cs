@@ -1,4 +1,6 @@
+using SteamKit2;
 using SteamKit2.Authentication;
+using System.Text.Json;
 
 namespace SteamService;
 
@@ -123,6 +125,44 @@ internal static class AuthSelfTest
         Check("cancel-after-success-retires-exact-account", account.CancelAuthentication("test-3") && !account.IsLoggedIn);
         account.ConnectionLostForTest(sourceC);
 
+        Check("text-cannot-invalidate-token", SteamSession.ClassifyAuthError(new IOException("InvalidPassword; token logon rejected")) == "network");
+        foreach (var (result, code) in new[] { (EResult.InvalidPassword, "accessDenied"),
+            (EResult.Expired, "authExpired"), (EResult.Revoked, "authExpired"),
+            (EResult.RateLimitExceeded, "rateLimited"), (EResult.ServiceUnavailable, "network") })
+            Check("typed-auth-" + result, SteamSession.ClassifyAuthError(new AuthenticationException("test", result)) == code);
+        Check("rejected-restored-token", SteamSession.ClassifyAuthError(new SteamRequestFailure("authExpired", "test")) == "authExpired");
+
+        // Exercise the common production authentication runner without credentials or sockets.
+        var timeoutFrames = CaptureAuth(async owner =>
+            await owner.RunAuthenticationForTest("deadline", ct => Task.Delay(Timeout.Infinite, ct), TimeSpan.FromMilliseconds(20)));
+        Check("auth-deadline-one-terminal", timeoutFrames.Length == 1
+            && timeoutFrames[0].GetProperty("error").GetProperty("code").GetString() == "network");
+        var cancelFrames = CaptureAuth(async owner =>
+        {
+            var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var work = owner.RunAuthenticationForTest("cancel", async ct =>
+            { entered.SetResult(); await Task.Delay(Timeout.Infinite, ct); }, TimeSpan.FromSeconds(5));
+            await entered.Task;
+            owner.CancelAuthentication("cancel");
+            await work;
+        });
+        Check("explicit-cancel-one-terminal", cancelFrames.Length == 1
+            && cancelFrames[0].GetProperty("error").GetProperty("code").GetString() == "cancelled");
+        bool successorAlive = false;
+        var staleFrames = CaptureAuth(async owner =>
+        {
+            var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var work = owner.RunAuthenticationForTest("old", async _ =>
+            { await release.Task; throw new IOException("late failure"); }, TimeSpan.FromSeconds(5));
+            owner.BeginAuthenticationForTest("new", "new");
+            release.SetResult();
+            await work;
+            successorAlive = owner.TestActiveAttemptId == "new";
+            owner.CancelAuthentication("new");
+        });
+        Check("late-auth-failure-cannot-retire-successor", successorAlive && staleFrames.Length == 2
+            && staleFrames.All(f => f.GetProperty("error").GetProperty("code").GetString() == "cancelled"));
+
         Console.Out.WriteLine(System.Text.Json.JsonSerializer.Serialize(new
         {
             suite = "selftest-auth",
@@ -131,6 +171,23 @@ internal static class AuthSelfTest
             detail = $"{passed}/{total} passed",
         }));
         return passed == total ? 0 : 1;
+    }
+
+    private static JsonElement[] CaptureAuth(Func<SteamSession, Task> scenario)
+    {
+        using var output = new StringWriter();
+        var original = Console.Out;
+        Console.SetOut(output);
+        try
+        {
+            var owner = new SteamSession(new ProtocolWriter(), new TerminalTracker());
+            scenario(owner).WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+            if (owner.TestActiveAttemptId != null) throw new Exception("authentication context leaked");
+            owner.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+        finally { Console.SetOut(original); }
+        return output.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => { using var json = JsonDocument.Parse(line); return json.RootElement.Clone(); }).ToArray();
     }
 }
 

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net.Http;
+using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
@@ -34,7 +35,7 @@ internal sealed partial class SteamSession
     private const int MaxStagedFiles = 200_000;
     /// Steam CDN 实际 chunk ≤1 MiB；这是恶意/异常 manifest 的 OOM 围栏（§3 硬拒绝最小 unsafe unit）。
     private const long MaxChunkBytes = 64L * 1024 * 1024;
-    /// §5.3：CDN 失败有 backoff 与上限；每个 chunk 至多重试 3 次有界网络类失败。
+    /// Manifest/chunk 各至多 3 次传输尝试，另允许一次 403 鉴权回放。
     internal const int MaxChunkDownloadAttempts = 3;
     internal const string StagingAcknowledgementCapability = "download-staging-ack-v2";
     internal const int StagingAcknowledgementTimeoutSeconds = 30;
@@ -124,7 +125,7 @@ internal sealed partial class SteamSession
                     ResumeStagingBirthSeconds = resumeStagingBirthSeconds,
                     ResumeStagingBirthNanoseconds = resumeStagingBirthNanoseconds,
                     PublishedFileId = publishedFileId,
-                    Cancellation = new CancellationTokenSource(),
+                    Cancellation = CancellationTokenSource.CreateLinkedTokenSource(lease.Disconnected),
                     Account = lease,
                     Source = client!,
                 };
@@ -141,7 +142,7 @@ internal sealed partial class SteamSession
                 lock (gate) ValidateAccountLocked(context.Account);
                 cancellation.Token.ThrowIfCancellationRequested();
 
-                var detail = await GetDetailsInternalAsync(context.Source, publishedFileId, cancellation.Token)
+                var detail = await GetDetailsInternalAsync(context, publishedFileId, cancellation.Token)
                     .ConfigureAwait(false);
                 if (detail.result != (uint)EResult.OK)
                 {
@@ -162,23 +163,24 @@ internal sealed partial class SteamSession
                     throw new SteamRequestFailure("integrity", "staging manifest changed");
                 }
 
-                var depotId = await GetWorkshopDepotIdInternalAsync(context.Source, cancellation.Token).ConfigureAwait(false);
-                var depotKey = await GetDepotDecryptionKeyInternalAsync(context.Source, depotId, cancellation.Token)
+                var depotId = await GetWorkshopDepotIdInternalAsync(context, cancellation.Token).ConfigureAwait(false);
+                var depotKey = await GetDepotDecryptionKeyInternalAsync(context, depotId, cancellation.Token)
                     .ConfigureAwait(false);
-                var requestCode = await GetManifestRequestCodeInternalAsync(context.Source, depotId, detail.hcontent_file, cancellation.Token)
+                var requestCode = await GetManifestRequestCodeInternalAsync(context, depotId, detail.hcontent_file, cancellation.Token)
                     .ConfigureAwait(false);
-                var server = await GetContentServerInternalAsync(context.Source, cancellation.Token).ConfigureAwait(false);
+                using var cdnTransfer = await CreateCdnTransferAsync(context, depotId, cancellation.Token).ConfigureAwait(false);
 
                 EmitDownloadProgress(context, "manifest");
-                DepotManifest manifest;
-                using (var manifestCdnClient = new SteamKit2.CDN.Client(context.Source))
+                var manifest = await cdnTransfer.FetchAsync("manifest", async (server, token) =>
                 {
-                    manifest = await AwaitPhysicalOperation(
-                        manifestCdnClient.DownloadManifestAsync(depotId, detail.hcontent_file, requestCode, server, depotKey),
+                    using var manifestCdnClient = new SteamKit2.CDN.Client(context.Source);
+                    return await AwaitPhysicalOperation(
+                        SendForAccount(context.Account, () => manifestCdnClient.DownloadManifestAsync(
+                            depotId, detail.hcontent_file, requestCode, server, depotKey, cdnAuthToken: token), cancellation.Token),
                         manifestCdnClient.Dispose,
                         TimeSpan.FromSeconds(ProtocolLimits.ManifestTimeoutSeconds), cancellation.Token)
                         .ConfigureAwait(false);
-                }
+                }, cancellation.Token).ConfigureAwait(false);
 
                 var files = manifest.Files ?? throw new InvalidDataException("manifest has no file list.");
                 var admitted = WorkshopManifestValidation.Validate(files,
@@ -272,7 +274,7 @@ internal sealed partial class SteamSession
                 }
 
                 var verifiedBytes = await DownloadChunksAsync(
-                    context, lease, depotId, depotKey, server, work, totalChunks, cancellation.Token)
+                    context, lease, depotId, depotKey, cdnTransfer, work, totalChunks, cancellation.Token)
                     .ConfigureAwait(false);
 
                 // §5.4：取消请求后不得再以成功收口（staged 未提交，取消优先）。
@@ -511,6 +513,12 @@ internal sealed partial class SteamSession
         WorkshopManifestValidation.Rejected => "unsupportedContent",
         InvalidDataException => "integrity",
         UnauthorizedAccessException => "accessDenied",
+        HttpRequestException { StatusCode: HttpStatusCode.Unauthorized } => "authExpired",
+        HttpRequestException { StatusCode: HttpStatusCode.Forbidden } => "accessDenied",
+        HttpRequestException { StatusCode: HttpStatusCode.TooManyRequests } => "rateLimited",
+        HttpRequestException { StatusCode: >= HttpStatusCode.BadRequest and < HttpStatusCode.InternalServerError }
+            http when http.StatusCode != HttpStatusCode.RequestTimeout => "unsupportedContent",
+        HttpRequestException or SocketException => "network",
         TimeoutException or OperationCanceledException or IOException => "network",
         _ => "unsupportedContent",
     };
@@ -520,13 +528,13 @@ internal sealed partial class SteamSession
 // ---- 会话原语与 chunk 下载/校验（partial 续） ----
 internal sealed partial class SteamSession
 {
-    private async Task<PublishedFileDetails> GetDetailsInternalAsync(SteamClient source, ulong publishedFileId, CancellationToken ct)
+    private async Task<PublishedFileDetails> GetDetailsInternalAsync(ActiveDownload context, ulong publishedFileId, CancellationToken ct)
     {
         var request = new CPublishedFile_GetDetails_Request { appid = ProtocolLimits.AppId };
         request.publishedfileids.Add(publishedFileId);
         ct.ThrowIfCancellationRequested();
-        var response = await source.GetHandler<SteamUnifiedMessages>()!.CreateService<PublishedFile>().GetDetails(request)
-            .ToTask()
+        var response = await SendForAccount(context.Account,
+                () => context.Source.GetHandler<SteamUnifiedMessages>()!.CreateService<PublishedFile>().GetDetails(request).ToTask(), ct)
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
         if (response.Result != EResult.OK) throw SteamRequestFailure.FromResult(response.Result);
@@ -534,18 +542,18 @@ internal sealed partial class SteamSession
             ?? throw new SteamRequestFailure("unsupportedContent", "GetDetails returned no entry.");
     }
 
-    private async Task<uint> GetWorkshopDepotIdInternalAsync(SteamClient source, CancellationToken ct)
+    private async Task<uint> GetWorkshopDepotIdInternalAsync(ActiveDownload context, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        var tokens = await source.GetHandler<SteamApps>()!.PICSGetAccessTokens([ProtocolLimits.AppId], [])
-            .ToTask()
+        var tokens = await SendForAccount(context.Account,
+                () => context.Source.GetHandler<SteamApps>()!.PICSGetAccessTokens([ProtocolLimits.AppId], []).ToTask(), ct)
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
         var request = new SteamApps.PICSRequest(ProtocolLimits.AppId);
         if (tokens.AppTokens.TryGetValue(ProtocolLimits.AppId, out var token)) request.AccessToken = token;
         ct.ThrowIfCancellationRequested();
-        var response = await source.GetHandler<SteamApps>()!.PICSGetProductInfo([request], [])
-            .ToTask()
+        var response = await SendForAccount(context.Account,
+                () => context.Source.GetHandler<SteamApps>()!.PICSGetProductInfo([request], []).ToTask(), ct)
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
         var info = response.Results?.Select(r => r.Apps)
@@ -555,11 +563,11 @@ internal sealed partial class SteamSession
         return depot != 0 ? depot : throw new IOException("workshopdepot missing.");
     }
 
-    private async Task<byte[]> GetDepotDecryptionKeyInternalAsync(SteamClient source, uint depotId, CancellationToken ct)
+    private async Task<byte[]> GetDepotDecryptionKeyInternalAsync(ActiveDownload context, uint depotId, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        var result = await source.GetHandler<SteamApps>()!.GetDepotDecryptionKey(depotId, ProtocolLimits.AppId)
-            .ToTask()
+        var result = await SendForAccount(context.Account,
+                () => context.Source.GetHandler<SteamApps>()!.GetDepotDecryptionKey(depotId, ProtocolLimits.AppId).ToTask(), ct)
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
         if (result.Result != EResult.OK)
@@ -569,30 +577,32 @@ internal sealed partial class SteamSession
         return result.DepotKey;
     }
 
-    private async Task<ulong> GetManifestRequestCodeInternalAsync(SteamClient source, uint depotId, ulong manifestId, CancellationToken ct)
+    private async Task<ulong> GetManifestRequestCodeInternalAsync(ActiveDownload context, uint depotId, ulong manifestId, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        var code = await source.GetHandler<SteamContent>()!.GetManifestRequestCode(depotId, ProtocolLimits.AppId, manifestId, "public")
+        var code = await SendForAccount(context.Account,
+                () => context.Source.GetHandler<SteamContent>()!.GetManifestRequestCode(depotId, ProtocolLimits.AppId, manifestId, "public"), ct)
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
         return code != 0 ? code : throw new SteamRequestFailure("accessDenied", "manifest request code unavailable.");
     }
 
-    private async Task<Server> GetContentServerInternalAsync(SteamClient source, CancellationToken ct)
+    private async Task<WorkshopCdnTransfer> CreateCdnTransferAsync(ActiveDownload context, uint depotId, CancellationToken ct)
     {
-        ct.ThrowIfCancellationRequested();
-        var servers = await source.GetHandler<SteamContent>()!.GetServersForSteamPipe()
+        var servers = await SendForAccount(context.Account,
+                () => context.Source.GetHandler<SteamContent>()!.GetServersForSteamPipe(), ct)
             .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), ct)
             .ConfigureAwait(false);
-        var eligible = servers
-            .Where(s => !string.IsNullOrWhiteSpace(s.Host)
-                && (s.AllowedAppIds.Length == 0 || s.AllowedAppIds.Contains(ProtocolLimits.AppId))
-                && (s.Type == "CDN" || s.Type == "SteamCache"))
-            .OrderBy(s => s.WeightedLoad)
-            .ToList();
-        return eligible.Count > 0
-            ? eligible[0]
-            : throw new IOException("no eligible content server.");
+        ct.ThrowIfCancellationRequested();
+        lock (gate) ValidateAccountLocked(context.Account);
+        return new WorkshopCdnTransfer(servers, async (server, token) =>
+        {
+            var auth = await SendForAccount(context.Account,
+                    () => context.Source.GetHandler<SteamContent>()!.GetCDNAuthToken(ProtocolLimits.AppId, depotId, server.Host!), token)
+                .WaitAsync(TimeSpan.FromSeconds(ProtocolLimits.DetailsTimeoutSeconds), token).ConfigureAwait(false);
+            if (auth.Result != EResult.OK) throw SteamRequestFailure.FromResult(auth.Result);
+            return (auth.Token, auth.Expiration);
+        }, () => { lock (gate) ValidateAccountLocked(context.Account); });
     }
 
     private async Task<long> DownloadChunksAsync(
@@ -600,17 +610,39 @@ internal sealed partial class SteamSession
         WorkshopStagingLease lease,
         uint depotId,
         byte[] depotKey,
-        Server server,
+        WorkshopCdnTransfer cdnTransfer,
         ConcurrentQueue<(DepotManifest.FileData File, DepotManifest.ChunkData Chunk, string RelativePath)> work,
         int totalChunks,
         CancellationToken ct)
     {
-        var workers = Enumerable.Range(0, Math.Min(DownloadWorkersPerJob, Math.Max(1, totalChunks)))
-            .Select(_ => Task.Run(() => ChunkWorkerAsync(
-                context, lease, depotId, depotKey, server, work, ct)))
-            .ToArray();
-        await Task.WhenAll(workers).ConfigureAwait(false);
+        await RunChunkWorkersAsync(Math.Min(DownloadWorkersPerJob, Math.Max(1, totalChunks)),
+            workerToken => ChunkWorkerAsync(context, lease, depotId, depotKey, cdnTransfer, work, workerToken), ct)
+            .ConfigureAwait(false);
         return context.Progress.VerifiedBytes;
+    }
+
+    internal static async Task RunChunkWorkersAsync(int count, Func<CancellationToken, Task> worker, CancellationToken ct)
+    {
+        using var group = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        Exception? firstFailure = null;
+        var tasks = Enumerable.Range(0, count).Select(_ => Task.Run(async () =>
+        {
+            try { await worker(group.Token).ConfigureAwait(false); }
+            catch (Exception error)
+            {
+                if (Interlocked.CompareExchange(ref firstFailure, error, null) == null) group.Cancel();
+                throw;
+            }
+        })).ToArray();
+        try { await Task.WhenAll(tasks).ConfigureAwait(false); }
+        catch
+        {
+            // Stop sibling workers promptly but drain every physical operation;
+            // their induced cancellations must not disguise the original failure.
+            ct.ThrowIfCancellationRequested();
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(firstFailure!).Throw();
+            throw;
+        }
     }
 
     private async Task ChunkWorkerAsync(
@@ -618,15 +650,11 @@ internal sealed partial class SteamSession
         WorkshopStagingLease lease,
         uint depotId,
         byte[] depotKey,
-        Server server,
+        WorkshopCdnTransfer cdnTransfer,
         ConcurrentQueue<(DepotManifest.FileData File, DepotManifest.ChunkData Chunk, string RelativePath)> work,
         CancellationToken ct)
     {
-        using var workerClient = new SteamKit2.CDN.Client(context.Source);
-        // §5.3：CDN 失败有 backoff 与上限。超时/传输取消已由 AwaitPhysicalOperation
-        // 释放当前 CDN 连接，因此 worker 持有可替换的当前客户端；重试上限
-        // MaxChunkDownloadAttempts，权限/完整性类失败不重试（§5.3 不无限换服务器）。
-        SteamKit2.CDN.Client client = workerClient;
+        var client = new SteamKit2.CDN.Client(context.Source);
         try
         {
             while (work.TryDequeue(out var item))
@@ -636,26 +664,23 @@ internal sealed partial class SteamSession
                 {
                     ct.ThrowIfCancellationRequested();
                     var buffer = new byte[item.Chunk.UncompressedLength];
-                    int written;
-                    for (int attempt = 1; ; attempt++)
+                    int written = await cdnTransfer.FetchAsync("chunk", async (server, token) =>
                     {
                         try
                         {
-                            written = await AwaitPhysicalOperation(
-                                client.DownloadDepotChunkAsync(depotId, item.Chunk, server, buffer, depotKey),
+                            return await AwaitPhysicalOperation(
+                                SendForAccount(context.Account, () => client.DownloadDepotChunkAsync(
+                                    depotId, item.Chunk, server, buffer, depotKey, cdnAuthToken: token), ct),
                                 client.Dispose,
                                 TimeSpan.FromSeconds(ProtocolLimits.ChunkTimeoutSeconds), ct).ConfigureAwait(false);
-                            break;
                         }
-                        catch (Exception error) when (attempt < MaxChunkDownloadAttempts
-                            && IsRetryableChunkFetch(error, ct))
+                        catch
                         {
-                            var previous = client;
+                            client.Dispose();
                             client = new SteamKit2.CDN.Client(context.Source);
-                            if (!ReferenceEquals(previous, workerClient)) previous.Dispose();
-                            await Task.Delay(ChunkRetryBackoffDelay(attempt), ct).ConfigureAwait(false);
+                            throw;
                         }
-                    }
+                    }, ct).ConfigureAwait(false);
                     if (written != (int)item.Chunk.UncompressedLength)
                     {
                         throw new InvalidDataException($"short chunk read: {written}/{item.Chunk.UncompressedLength}");
@@ -680,7 +705,7 @@ internal sealed partial class SteamSession
         }
         finally
         {
-            if (!ReferenceEquals(client, workerClient)) client.Dispose();
+            client.Dispose();
         }
     }
 
@@ -693,6 +718,8 @@ internal sealed partial class SteamSession
         {
             SteamRequestFailure failure => failure.Code is "network" or "rateLimited",
             WorkshopStagingLease.Failure or InvalidDataException => false,
+            HttpRequestException { StatusCode: { } status } => status == HttpStatusCode.RequestTimeout
+                || status == HttpStatusCode.TooManyRequests || (int)status is 500 or 502 or 503 or 504,
             TimeoutException or OperationCanceledException or IOException
                 or HttpRequestException or SocketException => true,
             _ => false,

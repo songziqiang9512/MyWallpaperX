@@ -228,6 +228,8 @@ final class SteamServiceClient {
             throw RequestError.notReady
         }
 
+        restartWorkItem?.cancel()
+        restartWorkItem = nil
         isStopping = false
         sessionGeneration += 1
         let generation = sessionGeneration
@@ -239,12 +241,6 @@ final class SteamServiceClient {
             MainActor.assumeIsolated {
                 guard self?.sessionGeneration == generation else { return }
                 self?.handleOutput(data)
-            }
-        }
-        transport.onError = { [weak self] text in
-            MainActor.assumeIsolated {
-                // stderr 仅诊断；协议面不消费。
-                _ = self
             }
         }
         transport.onTermination = { [weak self] status in
@@ -332,6 +328,10 @@ final class SteamServiceClient {
         }
         if let requiredCapability,
            !identity.capabilities.contains(requiredCapability) {
+            throw RequestError.incompatibleProtocol
+        }
+        if command == "startDownload",
+           !identity.capabilities.contains(SteamServiceProtocol.cdnDownloadCapability) {
             throw RequestError.incompatibleProtocol
         }
         guard !accountScoped || capturedEpoch == accountEpoch else { throw RequestError.cancelled }
@@ -551,7 +551,6 @@ final class SteamServiceClient {
         let workItem = DispatchWorkItem { [weak self] in
             MainActor.assumeIsolated {
                 guard let self, !self.isStopping else { return }
-                self.state = .idle
                 Task { @MainActor in
                     _ = try? await self.start()
                 }
