@@ -161,6 +161,7 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
                 + sceneScriptFallbackDefinitions
                 + sceneScriptScalarProgram.definitions
                 + sceneScriptStringProgram.definitions
+                + runtimeInput.scriptEffectVisibilityDefinitions
         )
         self.sceneScriptStatefulTargets = Set(
             propertyVectorScriptProgram.bindings.map(\.definition.target)

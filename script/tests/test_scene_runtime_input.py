@@ -80,7 +80,10 @@ HARNESS = r'''
 import Foundation
 
 struct SceneRenderDescriptor: Codable, Equatable {
+    struct Effect: Codable, Equatable { let visible: Bool? }
+    struct Layer: Codable, Equatable { let id: Int; let effects: [Effect] }
     let entryPath: String
+    var layers: [Layer] = []
 }
 
 struct SceneAuthoredEffectRenderPlan: Codable, Equatable {
@@ -91,17 +94,13 @@ enum SceneAuthoredEffectRenderPlanner {
     nonisolated(unsafe) static var receivedStartupInactiveTargets: Set<
         SceneDynamicTarget
     > = []
-    nonisolated(unsafe) static var receivedScriptOwnedTargets: Set<
-        SceneDynamicTarget
-    > = []
 
     static func plans(
         for descriptor: SceneRenderDescriptor,
         startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = [],
-        scriptOwnedEffectVisibilityTargets: Set<SceneDynamicTarget> = []
+        shaderContracts: [SceneShaderContract] = []
     ) -> [SceneAuthoredEffectRenderPlan] {
         receivedStartupInactiveTargets = startupInactiveEffectVisibilityTargets
-        receivedScriptOwnedTargets = scriptOwnedEffectVisibilityTargets
         return [SceneAuthoredEffectRenderPlan(layerID: descriptor.entryPath.count)]
     }
 }
@@ -207,7 +206,7 @@ enum Harness {
                 scriptOwnedVisibilityTarget, sentinelScriptTarget,
             ]
         )
-        let payload: [String: Any] = [
+        var payload: [String: Any] = [
             "entryPath": input.renderDescriptor.entryPath,
             "authoredPlanCount": input.authoredEffectRenderPlans.count,
             "programRetained": input.propertyBindingProgram == program,
@@ -220,12 +219,9 @@ enum Harness {
                         visibilityTarget, sentinelUserTarget,
                         scriptOwnedVisibilityTarget, sentinelScriptTarget,
                     ],
-            "plannerReceivesUnunionedStartupTargets":
+            "plannerReceivesUnifiedStartupTargets":
                 SceneAuthoredEffectRenderPlanner.receivedStartupInactiveTargets
-                    == [visibilityTarget],
-            "plannerReceivesScriptOwnedTargets":
-                SceneAuthoredEffectRenderPlanner.receivedScriptOwnedTargets
-                    == [scriptOwnedVisibilityTarget],
+                    == [visibilityTarget, scriptOwnedVisibilityTarget],
             "valuesRetained": input.effectivePropertyValues == effectiveValues,
             "contractsRetained": input.shaderContracts == shaderContracts,
             "hostBuiltinContract": shaderContracts.count == 1
@@ -233,6 +229,21 @@ enum Harness {
                 && shaderContracts[0].stages.isEmpty
                 && shaderContracts[0].diagnostics.isEmpty,
         ]
+        let d = SceneRenderDescriptor(entryPath: "scene.json", layers: [
+            .init(id: 81, effects: [.init(visible: false), .init(visible: true)]),
+            .init(id: 82, effects: [.init(visible: nil)])
+        ])
+        let accessible = SceneRuntimeInput(renderDescriptor: d, propertyBindingProgram: program, effectivePropertyValues: [:], shaderContracts: [], hasScriptLayerAccess: true)
+        let plain = SceneRuntimeInput(renderDescriptor: d, propertyBindingProgram: program, effectivePropertyValues: [:], shaderContracts: [])
+        let dormant = SceneDynamicTarget.effectVisibility(layerID: 81, effectIndex: 0)
+        let active = SceneDynamicTarget.effectVisibility(layerID: 81, effectIndex: 1)
+        let inherited = SceneDynamicTarget.effectVisibility(layerID: 82, effectIndex: 0)
+        let initial = SceneDynamicSnapshotResolver().resolve(frameIndex: 0, generation: 1, definitions: accessible.scriptEffectVisibilityDefinitions).snapshot
+        let toggled = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 2, definitions: accessible.scriptEffectVisibilityDefinitions, sceneScriptValues: [dormant: .bool(true), active: .bool(false)]).snapshot
+        payload["crossLayerTargets"] = accessible.scriptOwnedEffectVisibilityTargets == [dormant, active, inherited]
+        payload["authorSeeds"] = initial[dormant]?.value == .bool(false) && initial[active]?.value == .bool(true) && initial[inherited]?.value == .bool(true)
+        payload["toggleValues"] = toggled[dormant]?.value == .bool(true) && toggled[active]?.value == .bool(false)
+        payload["plainNoScriptTargets"] = plain.scriptOwnedEffectVisibilityTargets.isEmpty && plain.scriptEffectVisibilityDefinitions.isEmpty
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
@@ -268,14 +279,17 @@ class SceneRuntimeInputTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
 
+    def test_cross_layer_effect_candidates_keep_authored_seeds(self):
+        for key in ["crossLayerTargets", "authorSeeds", "toggleValues", "plainNoScriptTargets"]:
+            self.assertTrue(self.result[key], key)
+
     def test_runtime_input_retains_complete_in_memory_contract(self) -> None:
         self.assertEqual(self.result["entryPath"], "scene.json")
         self.assertEqual(self.result["authoredPlanCount"], 1)
         self.assertTrue(self.result["programRetained"])
         self.assertTrue(self.result["directVisibilityTargetRetained"])
         self.assertTrue(self.result["startupVisibilityTargetRetained"])
-        self.assertTrue(self.result["plannerReceivesUnunionedStartupTargets"])
-        self.assertTrue(self.result["plannerReceivesScriptOwnedTargets"])
+        self.assertTrue(self.result["plannerReceivesUnifiedStartupTargets"])
         self.assertTrue(self.result["valuesRetained"])
         self.assertTrue(self.result["contractsRetained"])
         self.assertTrue(self.result["hostBuiltinContract"])

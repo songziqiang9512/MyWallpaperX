@@ -14,6 +14,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    SOURCE_ROOT / "Compilation/Graph/SceneGraphConditionAdmission.swift",
+    SOURCE_ROOT / "Compilation/Graph/SceneGraphAdmissionCompiler.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectDefinition.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",
@@ -283,10 +285,18 @@ MALFORMED = {
 HARNESS = r'''
 import Foundation
 
+// Schema extraction is covered by test_scene_graph_condition_schema_evidence;
+// this fixture uses explicit authored combos and needs no implicit zero proof.
+struct SceneShaderContract {}
+enum SceneGraphConditionSchemaEvidenceCompiler {
+    static func compile(descriptor: SceneRenderDescriptor, authoredPlans: [SceneAuthoredEffectRenderPlan], shaderContracts: [SceneShaderContract]) -> [SceneAuthoredEffectRenderPlan.EffectKey: SceneGraphConditionSchemaEvidence] { [:] }
+}
+
 struct SceneRenderDescriptor {
     struct EffectDescriptor {
         struct PassDescriptor {
             let passIndex: Int
+            let combos: [String: Int] = ["ENABLED": 1]
         }
 
         let id: String
@@ -309,6 +319,7 @@ struct SceneRenderDescriptor {
     struct MaterialPassDescriptor {
         let id: String
         let materialPath: String
+        let combos: [String: Int] = ["ENABLED": 1]
         let passIndex: Int
     }
 
@@ -412,7 +423,7 @@ enum Harness {
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let names = [
-            "blur", "motion", "safe-command-fbo", "unsafe-copy-fbo",
+            "blur", "motion", "safe-command-fbo", "conditional-safe-fbo", "unsafe-copy-fbo",
             "raw-compose", "composed-extent",
             "fluid", "compose", "compose-false", "compose-string",
             "semantic-swap", "incompatible-extent", "incompatible-format",
@@ -519,6 +530,14 @@ enum Harness {
                 ),
                 effect("copy-suffix", "effects/compose-false/effect.json", passCount: 1),
             ]),
+            .init(id: 105, effects: [
+                effect("kept-prefix", "effects/compose-false/effect.json", passCount: 1),
+                effect("unavailable", "effects/not-present/effect.json", passCount: 1, visible: false),
+                effect("kept-suffix", "effects/compose-false/effect.json", passCount: 1),
+            ]),
+            .init(id: 106, effects: [
+                effect("conditional", "effects/conditional-safe-fbo/effect.json", passCount: 3, visible: false),
+            ]),
         ]
         let plans = SceneAuthoredEffectRenderPlanner.plans(for: .init(
             layers: layers,
@@ -529,6 +548,8 @@ enum Harness {
             .effectVisibility(layerID: 101, effectIndex: 1),
             .effectVisibility(layerID: 103, effectIndex: 1),
             .effectVisibility(layerID: 104, effectIndex: 1),
+            .effectVisibility(layerID: 105, effectIndex: 1),
+            .effectVisibility(layerID: 106, effectIndex: 0),
         ])
         let byLayer = Dictionary(uniqueKeysWithValues: plans.map { ($0.layerID, $0) })
         let blur = byLayer[10]!
@@ -589,7 +610,13 @@ enum Harness {
         case .failure: semanticStateAccepted = false
         }
 
+        let missingInactive = byLayer[105]!
         let result: [String: Any] = [
+            "conditionalInactiveKept": byLayer[106]?.effects.count == 1,
+            "missingInactiveKeptEffects": missingInactive.effects.map { $0.key.effectIndex },
+            "missingInactiveBlockers": missingInactive.blockers.count,
+            "missingInactiveChain": missingInactive.effects[1].input == missingInactive.effects[0].output,
+
             "blurKinds": blur.nodes.map { $0.kind.rawValue },
             "blurOrdinals": blur.nodes.map { $0.materialOrdinal ?? -1 },
             "blurTargets": blur.nodes.map { textureKey($0.target) },
@@ -716,6 +743,10 @@ class SceneEffectRenderGraphTests(unittest.TestCase):
             "blur": BLUR,
             "motion": MOTION,
             "safe-command-fbo": SAFE_COMMAND_FBO,
+            "conditional-safe-fbo": {
+                **SAFE_COMMAND_FBO,
+                "passes": [{**SAFE_COMMAND_FBO["passes"][0], "conditions": [{"ENABLED": 1}]}, *SAFE_COMMAND_FBO["passes"][1:]],
+            },
             "unsafe-copy-fbo": UNSAFE_COPY_FBO,
             "fluid": FLUID,
             "compose": COMPOSE,
@@ -755,6 +786,14 @@ class SceneEffectRenderGraphTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_inactive_condition_is_resolved_before_visibility_safety(self) -> None:
+        self.assertTrue(self.result["conditionalInactiveKept"])
+
+    def test_unavailable_inactive_effect_preserves_active_siblings(self) -> None:
+        self.assertEqual(self.result["missingInactiveKeptEffects"], [0, 2])
+        self.assertEqual(self.result["missingInactiveBlockers"], 0)
+        self.assertTrue(self.result["missingInactiveChain"])
 
     def test_blur_previous_is_fixed_chain_input_and_targets_follow_authored_order(self) -> None:
         self.assertTrue(self.result["blurStructural"])

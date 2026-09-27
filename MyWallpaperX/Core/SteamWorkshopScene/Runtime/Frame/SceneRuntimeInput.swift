@@ -10,31 +10,39 @@ struct SceneRuntimeInput: Codable {
     let effectivePropertyValues: [String: SceneUserPropertyValue]
     let shaderContracts: [SceneShaderContract]
 
+    var scriptEffectVisibilityDefinitions: [SceneDynamicTargetDefinition] {
+        renderDescriptor.layers.flatMap { layer in
+            layer.effects.enumerated().compactMap { index, effect in
+                let target = SceneDynamicTarget.effectVisibility(layerID: layer.id, effectIndex: index)
+                guard scriptOwnedEffectVisibilityTargets.contains(target) else { return nil }
+                return .init(target: target, valueType: .bool, authoredValue: .bool(effect.visible ?? true))
+            }
+        }
+    }
+
     init(
         renderDescriptor: SceneRenderDescriptor,
         propertyBindingProgram: ScenePropertyBindingProgram,
         effectivePropertyValues: [String: SceneUserPropertyValue],
         shaderContracts: [SceneShaderContract],
-        scriptOwnedEffectVisibilityTargets: Set<SceneDynamicTarget> = []
+        scriptOwnedEffectVisibilityTargets: Set<SceneDynamicTarget> = [],
+        hasScriptLayerAccess: Bool = false
     ) {
         self.renderDescriptor = renderDescriptor
+        // Cross-layer handles accept computed names and indices. Their writes
+        // use the same typed effect visibility channel as an inline owner.
+        let scriptOwnedEffectVisibilityTargets = scriptOwnedEffectVisibilityTargets
+            .union(hasScriptLayerAccess ? Set(renderDescriptor.layers.flatMap { layer in
+                layer.effects.indices.map {
+                    SceneDynamicTarget.effectVisibility(layerID: layer.id, effectIndex: $0)
+                }
+            }) : [])
         directBoolEffectVisibilityTargets =
             propertyBindingProgram.directBoolEffectVisibilityTargets
         self.scriptOwnedEffectVisibilityTargets =
             scriptOwnedEffectVisibilityTargets
-        // Script-owned effect visibility (the batch-B producer channel)
-        // joins the user-property direct-bool targets as startup-inactive
-        // candidates for the admission and admission catalog only (the raw
-        // union keeps the admission catalog's subset validation sound).
-        // The planner receives BOTH sets after the route admission's
-        // structural filter, matching the pre-batch baseline where the
-        // user-property set was route-filtered before planning: the
-        // planner's property-inactive candidate path has no structural
-        // prechecks, so an unfiltered candidate on a dependency-consumer,
-        // dependency-provider, or passthrough-blocked layer would enter
-        // the plan there and later lose the layer's resolved execution.
-        // The planner's script-gated path keeps its authored prechecks as
-        // defense in depth, not as a route-admission equivalent.
+        // Visibility producers share one preparation path; only the frame value
+        // decides whether a prepared stage executes.
         startupInactiveEffectVisibilityTargets =
             propertyBindingProgram
                 .effectLocalDirectBoolEffectVisibilityTargets
@@ -45,16 +53,10 @@ struct SceneRuntimeInput: Codable {
                 SceneDirectBoolEffectVisibilityRouteAdmission
                 .startupInactiveTargets(
                     in: renderDescriptor,
-                    candidates: propertyBindingProgram
-                        .effectLocalDirectBoolEffectVisibilityTargets
-                ),
-            scriptOwnedEffectVisibilityTargets:
-                SceneDirectBoolEffectVisibilityRouteAdmission
-                .startupInactiveTargets(
-                    in: renderDescriptor,
-                    candidates: scriptOwnedEffectVisibilityTargets,
+                    candidates: startupInactiveEffectVisibilityTargets,
                     scriptOwnedCandidates: scriptOwnedEffectVisibilityTargets
-                )
+                ),
+            shaderContracts: shaderContracts
         )
         self.propertyBindingProgram = propertyBindingProgram
         self.effectivePropertyValues = effectivePropertyValues

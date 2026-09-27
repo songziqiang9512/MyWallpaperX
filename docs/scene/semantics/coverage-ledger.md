@@ -1,8 +1,12 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-27 显隐准备收敛
+
+属性与脚本共用 inactive effect 准备，删除脚本 planner 绕行；条件归一化后沿原单 pass/safe-FBO 边界检查，缺失关闭效果不拖累正常 sibling。跨层寻址的 effect 接入既有 typed 状态与作者初始值；3211615441 一次点击实际交换两侧 ray 的开关，取得 GPU/合成/下一帧证据。连续双向交互与整体视觉仍开放。见[运行证据](runtime-evidence-current.md#e-2026-09-27-unified-effect-visibility)。
+
 ## 2026-09-27 脚本可访问根与隐藏文字准备
 
-含作者脚本时，既有准入器准备受支持的可寻址普通根，frame visibility仍决定是否执行；文字初始纹理与动态登记取消可见性过滤，隐藏文字也可在事件后直接合成。3211615441点击后的28及跟随文字44取得GPU/合成/下一帧链，点击与三点移动两项执行门通过；三点着色标记质心与输入偏差约2.4～2.6px。增加启动准备成本，未作性能结论；指针条件性activation passthrough、隐藏utility/hierarchy、disabled effect激活及完整交互/视觉仍分开验收。见[运行证据](runtime-evidence-current.md#e-2026-09-27-script-visible-roots)。
+含作者脚本时，既有准入器准备受支持的可寻址普通根，frame visibility仍决定是否执行；文字初始纹理与动态登记取消可见性过滤，隐藏文字也可在事件后直接合成。3211615441点击后的28及跟随文字44取得GPU/合成/下一帧链，点击与三点移动两项执行门通过；三点着色标记质心与输入偏差约2.4～2.6px。增加启动准备成本，未作性能结论；指针条件性activation passthrough、隐藏utility/hierarchy、disabled effect激活由上方收敛批取得一次切换证据，完整交互/视觉仍分开验收。见[运行证据](runtime-evidence-current.md#e-2026-09-27-script-visible-roots)。
 
 ## 2026-09-27 跨图层特效显隐事务
 

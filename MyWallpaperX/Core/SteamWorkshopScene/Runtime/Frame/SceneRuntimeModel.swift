@@ -209,7 +209,8 @@ struct SceneRuntimeModelBuilder {
                 overrides: propertyOverrides
             ),
             shaderContracts: assetCatalog.shaderContracts,
-            scriptOwnedEffectVisibilityTargets: scriptOwnedEffectVisibilityTargets
+            scriptOwnedEffectVisibilityTargets: scriptOwnedEffectVisibilityTargets,
+            hasScriptLayerAccess: !sceneDocument.scriptBindings.isEmpty
         )
 
         return SceneRuntimeModel(

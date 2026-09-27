@@ -10,6 +10,13 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
         scriptOwnedCandidates: Set<SceneDynamicTarget> = []
     ) -> Set<SceneDynamicTarget> {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+            .union(SceneDynamicLayerVisibilityRouteAdmission.layerIDs(
+                in: descriptor,
+                candidates: Set(scriptOwnedCandidates.compactMap { target in
+                    guard case let .effectVisibility(layerID, _) = target else { return nil }
+                    return SceneDynamicTarget.layer(layerID: layerID, field: .visibility)
+                })
+            ))
         let structuralUtilityConsumerLayerIDs =
             SceneResolvedMaterialDependencyOwnershipCompiler
                 .structuralUtilityConsumerLayerIDs(in: descriptor)

@@ -24,6 +24,18 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-27-unified-effect-visibility"></a>
+
+### E-2026-09-27-UNIFIED-EFFECT-VISIBILITY — 合并显隐准备并接通跨层光效开关
+
+**改动：**删除 planner 的 scriptGatedIndices 专用分支、重复根检查及 RuntimeInput 的两次路线筛选，属性和脚本显隐统一准备。含脚本时保守登记可寻址 effect 的 typed target 与作者初始值，继续复用既有 mutation/snapshot/activation；未增加状态 owner。未启用的缺失定义局部剔除并重接前后 effect。准备检查先调用既有 graph condition admission，再检查原有单 pass/safe-FBO 开关边界，防止恒真条件被 raw blocker 错误淘汰。隐式条件 proof 仍来自原 shader-schema compiler。产品代码相对本批基线净增 0 行；没有新测试工具。
+
+**验证：**27 项 focused tests 通过（render graph、runtime input、cross-layer effect VM、graph admission、condition schema），包括缺失 inactive definition 不影响 active siblings 和显式 ENABLED=1 的条件 FBO 正例。优化 Debug 构建通过，聚焦只读复核无剩余阻断。code-health 仍为既有 4 个非 Scene 文件超预算失败，本批未修改这些文件。
+
+**真实执行：**原包 3211615441 隔离回放 loaded=1.000、benchmark PASS。指针进入后 layer43/effect2 执行作者 shader；点击在 frame114 将其切为 visibility-disabled，同时 layer41/effect2 从初始 disabled 切为同一作者 shader，均 GPU completed、compositorConsumed=true，frame115 next-frame 保持。中央图片切换可见。指针离开后仍会触发 pointer-provider-unavailable passthrough，保留该边界。
+
+**身份与范围：**基线 0f616f2b，产品与测试 diff SHA256 `cc336601fa1606159530c85d1028751aae3c71af4122451b6a74448a7f6d73d7`；最终 Debug -O 可执行 SHA256 `7363670af9f19d8da300607063a13309a01529ac4087aaf5206c8b264e47a4ee`，CDHash `0fece342ca9ddf88cdc4b3ffef49d9ad5afe490e`，Team H9QWU9XN8R。仅证明一次真实点击及相应 effect 激活链；连续双向点击、其他 style 条件、完整观感和官方对照仍未验收。不扩张多 pass compose、history/unique/clear FBO 开关能力，也不作性能结论。临时构建根保留用于后续同身份复测。
+
 <a id="e-2026-09-27-script-visible-roots"></a>
 
 ### E-2026-09-27-SCRIPT-VISIBLE-ROOTS — 跨层显示的特效准备与隐藏文字资源贯通

@@ -6,7 +6,7 @@ enum SceneAuthoredEffectRenderPlanner {
     nonisolated static func plans(
         for descriptor: SceneRenderDescriptor,
         startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = [],
-        scriptOwnedEffectVisibilityTargets: Set<SceneDynamicTarget> = []
+        shaderContracts: [SceneShaderContract] = []
     ) -> [SceneAuthoredEffectRenderPlan] {
         let definitions = Dictionary(
             grouping: descriptor.effectDefinitions,
@@ -20,7 +20,7 @@ enum SceneAuthoredEffectRenderPlanner {
             let visibleIndices = Set(layer.effects.enumerated().compactMap {
                 $0.element.visible != false ? $0.offset : nil
             })
-            let propertyInactiveCandidates = Set(
+            let inactiveCandidates = Set(
                 layer.effects.enumerated().compactMap { effectIndex, effect in
                     let target = SceneDynamicTarget.effectVisibility(
                         layerID: layer.id,
@@ -31,34 +31,7 @@ enum SceneAuthoredEffectRenderPlanner {
                         ? effectIndex : nil
                 }
             )
-            // Script-owned effect visibility (the batch-B producer channel):
-            // the authored value is only the seed a visibility script may
-            // override per frame. These effects are included as
-            // activation-gated executable stages.
-            let scriptGatedIndices: Set<Int> = Set(
-                layer.effects.enumerated().compactMap { effectIndex, effect in
-                    let target = SceneDynamicTarget.effectVisibility(
-                        layerID: layer.id,
-                        effectIndex: effectIndex
-                    )
-                    // Defense-in-depth authored prechecks: the route
-                    // admission (with the D2b script-lane carve-out) already
-                    // filtered the incoming set, so these repeat only the
-                    // NON-waived checks (root, ordinary content kind, no
-                    // children, no utility) and deliberately omit the
-                    // dependency checks the carve-out waives.
-                    guard layer.parentID == nil,
-                          layer.childLayerIDs.isEmpty,
-                          ["image", "solid", "text"].contains(layer.contentKind),
-                          layer.utilityLayer == nil else { return nil }
-                    return effect.visible == false
-                            && scriptOwnedEffectVisibilityTargets.contains(target)
-                        ? effectIndex : nil
-                }
-            )
-            let tentativeIndices = visibleIndices.union(
-                propertyInactiveCandidates
-            ).union(scriptGatedIndices)
+            let tentativeIndices = visibleIndices.union(inactiveCandidates)
             guard !tentativeIndices.isEmpty else { return nil }
             let tentative = plan(
                 for: layer,
@@ -66,20 +39,32 @@ enum SceneAuthoredEffectRenderPlanner {
                 definitions: definitions,
                 materials: materials
             )
-            let safePropertyInactiveIndices: Set<Int> = Set(
+            let needsConditionEvidence = tentative.blockers.contains {
+                inactiveCandidates.contains($0.effect.effectIndex)
+                    && $0.reason == .unsupportedCondition
+            }
+            let conditionEvidence = !needsConditionEvidence ? [:]
+                : SceneGraphConditionSchemaEvidenceCompiler.compile(
+                    descriptor: descriptor, authoredPlans: [tentative],
+                    shaderContracts: shaderContracts
+                )
+            let safeInactiveIndices: Set<Int> = Set(
                 tentative.effects.compactMap { effect -> Int? in
-                    guard propertyInactiveCandidates.contains(
+                    guard inactiveCandidates.contains(
                         effect.key.effectIndex
                     ), effectLocalPassthroughIsSafe(
                         effect,
-                        in: tentative
+                        in: tentative,
+                        descriptor: descriptor,
+                        functions: definitions[normalizedPath(effect.definitionPath)]?.first?.functions,
+                        schemaEvidence: conditionEvidence[effect.key] ?? .unavailable
                     ) else { return nil }
                     return effect.key.effectIndex
                 }
             )
             let selectedIndices = visibleIndices.union(
-                safePropertyInactiveIndices
-            ).union(scriptGatedIndices)
+                safeInactiveIndices
+            )
             guard !selectedIndices.isEmpty else { return nil }
             return selectedIndices == tentativeIndices
                 ? tentative
@@ -423,26 +408,29 @@ enum SceneAuthoredEffectRenderPlanner {
     /// follows the existing relaunch path.
     nonisolated private static func effectLocalPassthroughIsSafe(
         _ effect: Plan.Effect,
-        in graph: Plan
+        in graph: Plan,
+        descriptor: SceneRenderDescriptor,
+        functions: SceneJSONValue?,
+        schemaEvidence: SceneGraphConditionSchemaEvidence
     ) -> Bool {
-        let nodesByIndex = Dictionary(grouping: graph.nodes, by: \.nodeIndex)
-        var nodes: [Plan.Node] = []
-        for nodeIndex in effect.nodeIndices {
-            guard let matches = nodesByIndex[nodeIndex], matches.count == 1,
-                  let node = matches.first,
-                  node.effect == effect.key else { return false }
-            nodes.append(node)
-        }
-        let stage = Plan(
+        let rawStage = Plan(
             layerID: graph.layerID,
             effects: [effect],
             renderTargets: graph.renderTargets.filter {
                 $0.texture.effect == effect.key
             },
-            nodes: nodes,
+            nodes: graph.nodes.filter { $0.effect == effect.key },
             finalOutput: effect.output,
             blockers: graph.blockers.filter { $0.effect == effect.key }
         )
+        // Apply the same authored condition semantics as ordinary effects
+        // before checking whether the prepared stage supports visibility.
+        guard case let .success(product) = SceneGraphAdmissionCompiler.compile(
+            graph: rawStage, descriptor: descriptor, functions: functions,
+            schemaEvidence: schemaEvidence
+        ), product.clearFunctions.functions.isEmpty else { return false }
+        let stage = product.graph
+        guard let effect = stage.effects.first else { return false }
         if !stage.renderTargets.isEmpty {
             return SceneEffectLocalPreviousCurrentTopology
                 .acceptsFramebufferGraph(stage, effect: effect)
