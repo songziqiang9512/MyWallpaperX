@@ -24,6 +24,31 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-27-gradient-stripe-isolation"></a>
+
+### E-2026-09-27-GRADIENT-STRIPE-ISOLATION — 全屏移动细条纹的渐变循环归因
+
+**用户确认与范围：**3287715210 的最新描述是“全屏从左到右，很淡很淡”，不是只在眼周或单条风轨迹附近。用户随后把“渐变循环”临时调为0，反馈“停止移动或明显改善”。本批沿已启动的 b3159a95 App 做隔离消融，没有修改产品、真实样本或用户保存属性；这支持优先追踪渐变循环的动态输出，尚不证明颜色精度是最终根因，也不关闭条纹问题。
+
+**作者定义：**背景layer16的gradient_color effect535/pass536按横向UV生成颜色渐变，进行随时间变化的色相旋转，再以opacity=0.08、BLENDMODE=31加到背景；Amount=1.5、Oscillate=0。effect中的HueSpeed.value虽然为0，但绑定属性newproperty（标签“渐变循环”）的project默认值是0.05，运行时必须采用该默认属性。作者general.hdr=true、camera parallax/shake=false；各隔离包显式关闭Bloom并保留原背景纹理及其brightness=0.9。
+
+**原生隔离证据：**App CDHash `e55361665627ff0176f5f31bdce16c1181228be1`、exe SHA `f468faa7a32bd234e9ce83823b12bc73d02e4acd0b6c857d5c30f9f1fdac5ff5`，各次运行前后签名校验通过。background保留layer16全部效果，gradient只保留effect535，no-gradient只去掉effect535，frozen-gradient保留effect535但project默认速度改为0；quad只保留470，wind只保留449并清黑背景。各包矩阵固定project/package SHA；除wind为14秒外均10秒，连续截图间隔2秒。四组背景与quad均通过admission/execution/graph门，目标layer有GPU completion、publication、terminal compositor consume和next-frame；所有组Bloom runtime count=0。
+
+| 隔离组 | submitted / completed / failed / presented | 总门与观察 |
+|---|---|---|
+| background | 352 / 352 / 0 / 351 | PASS；背景两侧帧间差分有贯穿全高的竖向带 |
+| gradient | 350 / 349 / 0 / 348 | PASS；仅此效果即可产生几乎整列一致的时间变化 |
+| no-gradient | 351 / 350 / 0 / 349 | PASS；主要剩人物附近的作者形变，背景竖向带在差分图中基本消失 |
+| frozen-gradient | 349 / 349 / 0 / 348 | PASS；四张3024×1964序列图逐像素一致，RGB最大差0 |
+| quad | 360 / 359 / 0 / 358 | PASS；非零输出限于眼周，序列联合范围x1386…1847、y340…604 |
+| wind | 542 / 541 / 0 / 540 | FAIL保留：`non-black window evidence missing`；实际有灰度0…8/255的横向/斜向长纹，粒子提交/完成有效，不能把太暗误报成无输出或兼容通过 |
+
+**可见分析边界：**前三组各取前两张series作绝对RGB差分，放大显示0…10/255区间；它是诊断图，不是壁纸原貌。全高左侧x0…399 ROI的平均绝对变化分别4.264、4.177、0.070/255，右侧x2700…3023分别3.769、3.722、0.038/255。各次未锁动态相位，这些数字只支持来源消融，不作为修复改善率、色阶严重度或移动方向的测量；方向由用户实测提供。冻结速度负例四张图SHA均为 `2de2d13908f8673fb62075233e69282ba1698d49384db0696863ab982891c4b3`。Bloom、眼周光束和风粒子不是本次复现竖向变化的必要条件，不据此排除它们在其他设置下的问题。
+
+**首断点候选与下一门：**生成MSL仍使用float完成作者渐变、HSV变换及加色，未发现离散列算法；当前SceneGraphRenderTargetFormat把rgbaBackbuffer解析为bgra8Unorm，effect-output及共享source/终端lease均沿8位颜色target，尚无RGBA16F颜色target。授权参考Mirage的SceneCompiler把general.hdr传给继承场景格式的render target；这是第三方结构证据，未运行参考App，也不证明本项目改成浮点即可消除最终屏幕色阶。下一门在同一作者输入/固定相位下区分中间8位舍入、最终drawable/截图量化与作者色相分段；若浮点对照证实改善，再沿现有target plan、预算、pipeline与publication完整修正格式传播。不能只改一个Metal格式、任意抖动补偿或关闭作者渐变。
+
+**留存：**本机标签`2026-09-27-gradient-stripe-isolation`保存六组报告/矩阵/日志、差分图、像素统计及执行摘要，manifest SHA `77666c266c630531365ea0a9b249b8f74650eee28e5aa856f0355d9c6cad700d`；原始截图及隔离包保留于`/private/tmp/mwx-stripe-contributors-clu62jjy`供下一精度实验使用，不重复复制作者资源。background/gradient/no-gradient/frozen报告SHA依次为 `2daff34ee5860597761c80cedb8fa2e947cfaea4210c1aa1c938b66517f193f5`、`1d17fdf1c479c088552af55a59c7e34401bd33cc09850ea8489d4c1ad9199cf3`、`3271f5048bbd8ee3557ec9c20878ff96ea6b0eba11d4f909bd47c5f66c51ba06`、`b02590b4e21dad57142d3d9e1a7ddab1044aee99521acacd9fbf56efd2d44a3f`。本批无代码修复、重构、性能或官方parity结论；用户正在测试的App保持运行。
+
 <a id="e-2026-09-27-parallax-shader-input"></a>
 
 ### E-2026-09-27-PARALLAX-SHADER-INPUT — 背景深度输入的影响系数和纵轴
