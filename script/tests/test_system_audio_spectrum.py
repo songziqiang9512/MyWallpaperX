@@ -385,6 +385,24 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                 expect(dead.isEmpty, "PCM sweep must reach every band at \(rate) Hz; dead=\(dead)")
             }
 
+            // Equal-amplitude narrow tones must not be diluted simply because
+            // the treble bands span more FFT bins. These frequencies share the
+            // same bounded tilt gain, isolating aggregation from frequency gain.
+            for rate: Float in [44_100, 48_000, 96_000] {
+                let analyzer = SystemAudioSceneSpectrumAnalyzer()!
+                var peaks: [Float] = []
+                for frequency: Float in [2_000, 4_000, 8_000, 12_000, 15_000] {
+                    analyzer.reset()
+                    let pcm = (0..<4096).map { index in
+                        Float(0.02) * sin(2 * .pi * frequency * Float(index) / rate)
+                    }
+                    let bands = analyzer.analyze(signedChannels: [pcm], sampleRate: rate)
+                    peaks.append(bands.left64.max()!)
+                }
+                expect(peaks.min()! > peaks.max()! * 0.85,
+                    "wide treble bands must preserve equal-amplitude narrow tones at \(rate) Hz")
+            }
+
             let audibleBass = webLevels([sine(frequency: 55, amplitude: 0.2)])
             expect(audibleBass[2..<5].contains { $0 > 0.001 },
                 "audible low bass must reach low-band consumers above the shared noise floor")

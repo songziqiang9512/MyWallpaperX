@@ -92,7 +92,7 @@ final class SystemAudioSceneSpectrumAnalyzer {
     /// 变成静音；强 bass 仍由同一 band 的峰值通过后续 dB 响应显示。
     private static let spectralTiltMinimumGain: Float = 0.20
     private static let spectralTiltMaximumGain: Float = 4
-    /// 项目频带轴的凹形 warp 保留既有低到高频分布；窄档通过连续谱积分
+    /// 项目频带轴的凹形 warp 保留既有低到高频分布；窄档通过连续插值端点
     /// 共享相邻 FFT 支撑，不再要求每档恰好包含一个离散 FFT 中心。
     private static let frequencyBandWarpExponent: Float = 0.78
     private static let settledSilenceThreshold: Float = 0.000_1
@@ -292,11 +292,15 @@ final class SystemAudioSceneSpectrumAnalyzer {
             weighted[bin] = magnitudes[bin].isFinite
                 ? max(0, magnitudes[bin]) * tiltGain : 0
         }
-        // Integrate the piecewise-linear FFT magnitude over each authored band.
-        // Narrow bands share nearby FFT support instead of becoming permanent
-        // holes; wide bands retain a bandwidth-normalized average. This does not
-        // increase FFT resolution or synthesize a floor from unrelated bands.
+        // Peak response avoids diluting a narrow-band signal in wider treble
+        // bands. Interpolated endpoints retain continuous support for bands
+        // narrower than one FFT bin, without inventing a cross-band floor.
         let lastBin = Float(weighted.count - 1)
+        func amplitude(at position: Float) -> Float {
+            let bin = min(weighted.count - 2, Int(position))
+            return weighted[bin] + (weighted[bin + 1] - weighted[bin])
+                * (position - Float(bin))
+        }
         for bandIndex in levels.indices {
             let lowerFrequency = Self.minimumFrequency * pow(
                 ratio, pow(Float(bandIndex) / Float(count),
@@ -308,22 +312,13 @@ final class SystemAudioSceneSpectrumAnalyzer {
             let bandUpper = upperBandFrequency / binWidth
             let lower = min(lastBin, max(1, bandLower))
             let upper = min(lastBin, max(1, bandUpper))
-            var position = lower
-            // Constant endpoint extension keeps the original band width even
-            // when it crosses the first/last representable positive FFT bin.
-            var integral = weighted[1] * max(0, min(bandUpper, 1) - bandLower)
-                + weighted[weighted.count - 1] * max(0, bandUpper - max(bandLower, lastBin))
-            while position < upper {
-                let bin = min(weighted.count - 2, Int(position))
-                let end = min(upper, Float(bin + 1))
-                let slope = weighted[bin + 1] - weighted[bin]
-                let startValue = weighted[bin] + slope * (position - Float(bin))
-                let endValue = weighted[bin] + slope * (end - Float(bin))
-                integral += (startValue + endValue) * 0.5 * (end - position)
-                position = end
+            var peak = max(amplitude(at: lower), amplitude(at: upper))
+            let firstCenter = Int(lower.rounded(.up))
+            let lastCenter = Int(upper.rounded(.down))
+            if firstCenter <= lastCenter {
+                for bin in firstCenter...lastCenter { peak = max(peak, weighted[bin]) }
             }
-            levels[bandIndex] = bandUpper > bandLower
-                ? integral / (bandUpper - bandLower) : weighted[Int(lower)]
+            levels[bandIndex] = peak
 
         }
         // Do not synthesize a cross-band floor from the loudest band. A narrow-band

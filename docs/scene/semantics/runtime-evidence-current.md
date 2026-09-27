@@ -3817,3 +3817,22 @@ v4 的 `3780119725` generation 1 include-current-process capture data peak `0.49
 隔离优化Debug构建成功，App2.10.0(279)，executable SHA-256 `63c85be6dd7d7a5f6cd56fbe8b785878f455cc5c6472500e89777efb007e2625`，CDHash `27ec986c1f5a32da047dbe5abdb65b9324d78abb`。真实2131872317原包隔离副本10秒静音回放PASS、particle9/9；30条child census中最大202粒子、bufferFailures全为0，1375有200粒子/2batch记录且进入committed-nonempty。submitted/completed/failed/presented为286/285/0/284。终端after截图已查看，画面及灯笼可见；截图时刻不覆盖完整烟花爆发，不能用它证明烟花颜色/形态或官方parity。现役执行链的回归证据不等于性能提升，未进行耗时A/B。
 
 本机缓存`docs/scene/evidence/2026-09-28-child-builder-retirement/`保留报告、原尺寸截图、矩阵、执行/构建/测试日志、产品patch、审查和SHA manifest。跳过的历史实包测试未以本次单样本替代为全通过；旧rope世界空间与其他视觉开放项均保持原状态。
+
+
+<a id="e-2026-09-28-audio-band-peaks"></a>
+
+### E-2026-09-28-AUDIO-BAND-PEAKS — 消除宽高频档对窄带幅度的稀释
+
+基线ddcbb818。等幅0.02单音的稳态输出，旧1kHz峰0.3482、15kHz仅0.0673；原分段线性幅度积分再除带宽，把更宽高频档内的集中信号摊薄。现唯一SystemAudioSceneSpectrumAnalyzer以每档两个插值端点及内部FFT中心的最大值取代带宽平均；分段线性谱的最大值就在这些位置。窄档仍共享邻近FFT支撑，首末端点延拓、DC排除、频率轴/tilt/响应阈值/平滑保持，16/32仍由同一64档投影，无新gain、floor、状态或第二FFT。产品净减5行。候选2/4/8/12/15kHz同幅输出约0.522，宽度导致的下降消除，低频shelf与音乐本身差异不据此关闭。
+
+这是用户活跃度目标下的项目显示策略，不冒充官方算法。[官方AudioBuffers](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html)只规定左右/平均数组、低到高频及通常幅值范围，没有给出频带内聚合公式。峰值策略同时改变共享Web/Overlay响应，可能提升偶发尖峰及部分宽带噪声；指定弱噪声门通过不代表真实设备噪声普遍不受影响。
+
+47项定向测试通过：system audio4、scope8、input34、recovery1。新增44.1/48/96kHz等幅高频不被带宽稀释门，在旧生产源码上稳定失败、候选通过；现有8...192kHz全档扫频、连续性、静音/DC、弱噪声、左右/窄带隔离、释放与投影反例保留。code-health通过、221条存量warning；独立审查APPROVE绑定两文件patch SHA-256 `762f893d867e8fc99ff5dc64dba384a73562061cfdf21f0bae9975b4a4f0d88f`。隔离优化Debug构建成功，已核对实际编译analyzer。
+
+同前批两首作者包音乐（2131872317 Kerusu - Remembrance、3780119725 Two Versions of Me），各20秒起30秒/48kHz双声道Float PCM，直接调用生产Swift analyzer；丢弃首秒后按最高16档×帧统计输出>0.1比例，分别14.2%→27.4%、77.7%→95.1%。第二首最高四分之一平均幅度0.194→0.317；第一首仍只有0.044→0.086，说明源内容差异仍大，不应强制全柱同高。候选输出>0.95比例分别约0.013%/0%。精确数组、输入指纹与测量脚本留存，作者音源不入仓。
+
+真实系统tap A/B：同第二首30秒WAV（SHA-256 `7e3aba7b34fc7b55077ad0e0179dd802a8007d12761d1655fd3e104b2d8e1e64`），各原包ready日志后外部afplay重新开始；3211615441、3789316755分别15秒，无频谱fixture、无作者属性override。四次benchmark均PASS，实际CoreAudio→inbox非零，截图中音圈/条形可见；378的高频侧与321的部分条形响应增加。声源启播由日志轮询对齐而非锁帧，系统tap也不是独占声源，因此这些图片仅作运行与方向性对照，精确数值改善依据上面的同PCM离线门。未通过截图宣称全柱活跃、官方形态、普通App IPC入口或性能完成。
+
+App均2.10.0(279)：修前SHA `63c85be6dd7d7a5f6cd56fbe8b785878f455cc5c6472500e89777efb007e2625`；修后SHA `7373f20e537d6e1bd41e227ca87f17ca9ea8a331bb60852d96f8950d2e92fcf7`、CDHash `dfdd485e3b1fb1b1e6d14d007881d0881825f264`。两样本修前submitted/completed/failed/presented为580/579/0/578、554/553/0/550；修后580/579/0/578、528/527/0/524。次数差异不能作性能结论；未跑长稳/真实噪声或三引擎普通入口视觉门。
+
+本机缓存`docs/scene/evidence/2026-09-28-audio-band-peaks/`保留四次报告、ready/after及每次series-0002原尺寸截图、精确PCM输出数组/指纹、探针/测量/回放脚本、构建/测试/反例日志、审查与SHA manifest，归档预算80MiB。用户全柱活跃度验收仍在原队列；临时音源、样本副本及运行目录在归档核验后清理。
