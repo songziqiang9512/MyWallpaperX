@@ -139,24 +139,14 @@ enum SceneTextureMipUploader {
         guard SceneTexContainer.valid2DMipDimensions(images.map { ($0.width, $0.height) }) else {
             return nil
         }
-        let firstEligibleIndex: Int
-        if let first = images.first,
-           first.width <= maximumDimension,
-           first.height <= maximumDimension {
-            firstEligibleIndex = 0
-        } else if purpose == .straightAlbedo,
-                  let index = images.firstIndex(where: {
-                      $0.width <= maximumDimension
-                          && $0.height <= maximumDimension
-                  }) {
-            // A complete authored mip is already a channel-preserving,
-            // filtered representation. Starting the resident chain there
-            // avoids an unsafe premultiplied resize of straight-alpha albedo.
-            firstEligibleIndex = index
-        } else {
-            return nil
-        }
-        let selectedImages = Array(images[firstEligibleIndex...])
+        // Compiled mip chains already define the author's sampling product.
+        // Match color uploads: retain all authored levels, including padded
+        // bases above the loose-image normalization limit.
+        guard let source = images.first,
+              (purpose == .straightAlbedo && images.count > 1)
+                || (source.width <= maximumDimension && source.height <= maximumDimension)
+        else { return nil }
+        let selectedImages = images
         guard let first = selectedImages.first else { return nil }
         guard SceneImageTextureUploader.supports2DExtent(width: first.width, height: first.height) else {
             return .decodeFailed("embedded data mip extent exceeds Metal 2D limits")

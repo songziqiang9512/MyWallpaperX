@@ -504,6 +504,7 @@ final class SceneDesktopWallpaperHost {
                 effectAdmissionCatalog: launchContext.effectAdmissionCatalog,
                 baseMaterialProviderBindings:
                     launchContext.baseMaterialProviderBindings,
+                stockNoiseTextures: launchContext.stockNoiseTextures,
                 staticModelResources:
                     launchContext.preparedDeviceResources.staticModels,
                 instantiatedSceneScriptTargets: Set(

@@ -2,72 +2,87 @@ import CoreGraphics
 import Foundation
 import Metal
 
-/// Deterministic stock noise textures for shader-declared sampler defaults
-/// (user-directed 2026-09-26). Wallpaper Engine ships engine assets like
-/// `util/clouds_256` that samples never carry in their pkg; without a
-/// deterministic substitute those samplers sampled an unbound slot (the
-/// 3750813609 clock rendered black-and-white instead of pure white). Each
-/// registered stock noise name maps to one per-device R8 texture generated
-/// from a fixed seed; shipped pkg assets always win over this substitute.
-nonisolated final class SceneStockNoiseTextureStore: @unchecked Sendable {
-    nonisolated struct Demand: Hashable, Sendable {
-        let name: String
-        let purpose: SceneTextureLoadPurpose
-        let content: SceneTextureContent
-    }
+/// Immutable, scene/device-scoped stock-noise preparation. The launch worker
+/// generates only demanded substitutes; surfaces share the completed textures
+/// and normal frames only publish these frozen states. Failures remain local
+/// and may be retried by a new preparation, never by the frame loop.
+nonisolated struct SceneStockNoiseTextureStore {
+    let deviceRegistryID: UInt64?
+    let states: [SceneSystemProviderTextureIdentity: SceneTextureProviderState]
 
-    private let lock = NSLock()
-    private var texturesByDemand: [Demand: MTLTexture] = [:]
+    static let empty = Self(deviceRegistryID: nil, states: [:])
     private static let side = 256
 
-    nonisolated static let demands: [Demand] = SceneStockTextureSemanticRegistry
-        .noiseTexturePaths.map { path in
-            Demand(name: path, purpose: .noise, content: .data)
-        }
-
-    nonisolated func texture(
-        for demand: Demand,
-        device: MTLDevice
-    ) -> MTLTexture? {
-        lock.lock()
-        if let cached = texturesByDemand[demand],
-            cached.device.registryID == device.registryID {
-            lock.unlock()
-            return cached
-        }
-        lock.unlock()
-        guard let texture = Self.makeTexture(
-            name: demand.name,
-            device: device
-        ) else { return nil }
-        lock.lock()
-        texturesByDemand[demand] = texture
-        lock.unlock()
-        return texture
+    private init(
+        deviceRegistryID: UInt64?,
+        states: [SceneSystemProviderTextureIdentity: SceneTextureProviderState]
+    ) {
+        self.deviceRegistryID = deviceRegistryID
+        self.states = states
     }
 
-    /// Complete publication for the frame registry; mirrors the media
-    /// thumbnail store's candidate shape (identity UV, linear clamp).
-    nonisolated func publication(
-        for demand: Demand,
-        device: MTLDevice
-    ) -> SceneTextureProviderPublication? {
-        guard let texture = texture(for: demand, device: device) else {
-            return nil
+    init(
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
+        systemDemands: Set<SceneSystemProviderTextureIdentity> = [],
+        device: MTLDevice,
+        uploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
+        cancellationCheck: () throws -> Void = {}
+    ) throws {
+        try cancellationCheck()
+        // Asset catalog absence is authoritative. Present, pending, invalid,
+        // and unknown assets cannot request a synthetic substitute.
+        let demands = SceneStockTextureSemanticRegistry.noiseTexturePaths.compactMap { name in
+            let identity = SceneSystemProviderTextureIdentity(name: name, purpose: .noise)
+            let asset = SceneAssetTextureIdentity(virtualPath: name, purpose: .noise)!
+            if systemDemands.contains(identity) { return identity }
+            guard case .absent? = assetStates[asset] else { return nil }
+            return identity
         }
-        let identity = SceneSystemProviderTextureIdentity(
-            name: demand.name,
-            purpose: demand.purpose
-        )
+        var states = Dictionary(uniqueKeysWithValues: demands.map {
+            ($0, SceneTextureProviderState.unavailable)
+        })
+        var textures: [(SceneSystemProviderTextureIdentity, MTLTexture)] = []
+        for demand in demands {
+            try cancellationCheck()
+            if let texture = Self.makeTexture(name: demand.name, device: device) {
+                textures.append((demand, texture))
+            }
+        }
+        try cancellationCheck()
+        if !textures.isEmpty,
+           let queue = uploadCommandQueue.commandQueue(for: device),
+           let command = queue.makeCommandBuffer(),
+           let blit = command.makeBlitCommandEncoder() {
+            // One bounded upload batch, one completion barrier, using the
+            // same upload queue owner as other Scene static resources.
+            for (_, texture) in textures { blit.generateMipmaps(for: texture) }
+            blit.endEncoding()
+            command.commit()
+            command.waitUntilCompleted()
+            try cancellationCheck()
+            if command.status == .completed, command.error == nil {
+                for (identity, texture) in textures {
+                    states[identity] = .ready(Self.publication(texture, identity: identity))
+                }
+            }
+        }
+        try cancellationCheck()
+        self.init(deviceRegistryID: device.registryID, states: states)
+    }
+
+    private static func publication(
+        _ texture: MTLTexture,
+        identity: SceneSystemProviderTextureIdentity
+    ) -> SceneTextureProviderPublication {
         let size = CGSize(width: texture.width, height: texture.height)
         return SceneTextureProviderPublication(
             requestIdentity: .system(identity),
             candidate: SceneTextureCandidate(
                 texture: texture,
-                identity: .builtIn(name: demand.name),
+                identity: .builtIn(name: identity.name),
                 generation: .immutable(revision: 1),
-                purpose: demand.purpose,
-                content: demand.content,
+                purpose: .noise,
+                content: .data,
                 physicalSize: size,
                 mappedSize: size,
                 uvTransform: .identity,
@@ -94,10 +109,7 @@ nonisolated final class SceneStockNoiseTextureStore: @unchecked Sendable {
         // replace(region:) requires CPU-visible storage; private textures
         // reject the upload (AGX driver crash observed 2026-09-26).
         descriptor.storageMode = .managed
-        guard let texture = device.makeTexture(descriptor: descriptor),
-            let commandQueue = device.makeCommandQueue(),
-            let commandBuffer = commandQueue.makeCommandBuffer()
-        else { return nil }
+        guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
 
         var pixels = [UInt8](repeating: 0, count: side * side)
         let seed = Self.seed(for: name)
@@ -122,12 +134,6 @@ nonisolated final class SceneStockNoiseTextureStore: @unchecked Sendable {
                 bytesPerRow: side
             )
         }
-        if let blit = commandBuffer.makeBlitCommandEncoder() {
-            blit.generateMipmaps(for: texture)
-            blit.endEncoding()
-            commandBuffer.commit()
-            commandBuffer.waitUntilCompleted()
-        }
         return texture
     }
 
@@ -142,8 +148,10 @@ nonisolated final class SceneStockNoiseTextureStore: @unchecked Sendable {
 
     private static func next(_ seed: inout UInt64) -> Float {
         seed = seed &* 6364136223846793005 &+ 1442695040888963407
-        let bits = UInt32(truncatingIfNeeded: seed >> 33)
-        return Float(bits) / Float(UInt32.max)
+        // Float represents these 24 bits exactly. Match the divisor to the
+        // retained width so values cover [0, 1), including the upper half.
+        let bits = UInt32(truncatingIfNeeded: seed >> 40)
+        return Float(bits) / 16_777_216
     }
 
     /// Tileable multi-octave value noise. Stock noise must wrap at the
@@ -257,10 +265,8 @@ nonisolated final class SceneStockNoiseTextureStore: @unchecked Sendable {
         seed: UInt64
     ) {
         var state = seed
-        let side = Self.side
         for index in pixels.indices {
             pixels[index] = UInt8(next(&state) * 255)
         }
-        _ = side
     }
 }

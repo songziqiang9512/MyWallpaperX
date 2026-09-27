@@ -31,6 +31,9 @@ extension SceneMetalRenderer {
         _ mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot,
         _ frameContext: SceneFrameContext
     ) {
+        let systemProviderStates = mediaThumbnail.providerStates.merging(
+            stockNoiseTextures.states, uniquingKeysWith: { _, prepared in prepared }
+        )
         textureRegistry.beginFrame(
             frameIndex: frameContext.frameIndex,
             layerSources: imageTextures.textures,
@@ -40,31 +43,14 @@ extension SceneMetalRenderer {
             ),
             userPropertyTextures: userPropertyTextures,
             userPropertyStates: userPropertyStates,
-            systemProviderStates: mediaThumbnail.providerStates
+            systemProviderStates: systemProviderStates
         )
         for identity in baseMaterialProviderBindings.orderedSystemProviderDemands
-            where mediaThumbnail.providerStates[identity] == nil {
+            where systemProviderStates[identity] == nil {
             textureRegistry.set(.unavailable, for: .system(identity))
         }
-        // Stock noise substitute: shader-declared sampler defaults that name a
-        // registered stock noise the sample does not ship get a deterministic
-        // system texture (user-directed 2026-09-26; clock render fidelity).
-        for demand in SceneStockNoiseTextureStore.demands {
-            if let publication = stockNoiseTextureStore.publication(
-                for: demand,
-                device: device
-            ) {
-                textureRegistry.set(
-                    publication,
-                    for: .system(SceneSystemProviderTextureIdentity(
-                        name: demand.name,
-                        purpose: demand.purpose
-                    ))
-                )
-            }
-        }
         for (identity, status) in imageCompositor
-            .resolvedMaterialSystemProviderBlocks(mediaThumbnail) {
+            .resolvedMaterialSystemProviderBlocks(systemProviderStates) {
             textureRegistry.set(status, for: .system(identity))
         }
         imageCompositor.beginResolvedMaterialFrame(

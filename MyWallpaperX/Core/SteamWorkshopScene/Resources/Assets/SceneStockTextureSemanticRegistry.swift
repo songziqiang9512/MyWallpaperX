@@ -16,6 +16,13 @@ nonisolated enum SceneStockTextureSemanticRegistry {
         "util/uniform_256",
     ]
 
+    static func canSubstituteNoise(
+        _ path: SceneVFSAssetPath,
+        purpose: SceneTextureLoadPurpose?
+    ) -> Bool {
+        purpose == .noise && noiseTexturePaths.contains(path.value)
+    }
+
     static func purpose(
         for path: SceneVFSAssetPath
     ) -> SceneTextureLoadPurpose? {

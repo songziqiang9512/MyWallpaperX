@@ -5,6 +5,8 @@ extension SceneDesktopWallpaperLaunchContext {
         resolvedMaterialCatalog.reportLines
             + resolvedMaterialExecutionCapabilities.reportLines
             + materialAssetCatalog.reportLines + [
+            "resolved material stock noise: prepared=\(stockNoiseTextures.states.count)"
+                + " ready=\(stockNoiseReadyCount) lifecycle=launch-immutable",
             "scene script VM: schema=quickjs-ng-typed-v2"
                 + " bindings=\(sceneScriptScalarProgram.bindings.count)"
                 + " vectorBindings=\(propertyVectorScriptProgram.bindings.count)"
@@ -60,6 +62,13 @@ extension SceneDesktopWallpaperLaunchContext {
         sceneScriptScalarProgram.definitions.count
             + propertyVectorScriptProgram.definitions.count
             + sceneScriptStringProgram.definitions.count
+    }
+
+    private var stockNoiseReadyCount: Int {
+        stockNoiseTextures.states.values.reduce(0) { count, state in
+            if case .ready = state { return count + 1 }
+            return count
+        }
     }
 
     private var propertyVectorPassTargets: Set<SceneDynamicTarget> {

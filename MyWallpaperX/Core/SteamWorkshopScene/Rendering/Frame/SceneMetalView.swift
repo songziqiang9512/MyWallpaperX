@@ -97,6 +97,7 @@ class SceneMetalView: NSView {
     init?(
         renderDescriptor: SceneRenderDescriptor, effectAdmissionCatalog: SceneEffectAdmissionCatalog,
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
+        stockNoiseTextures: SceneStockNoiseTextureStore = .empty,
         staticModelResources: ScenePreparedStaticModelResources = .empty,
         instantiatedSceneScriptTargets: Set<SceneDynamicTarget> = [],
         scriptSourceEvidence: [SceneScriptSourceEvidenceIR] = [],
@@ -120,6 +121,7 @@ class SceneMetalView: NSView {
             renderDescriptor: renderDescriptor,
             effectAdmissionCatalog: effectAdmissionCatalog,
             baseMaterialProviderBindings: baseMaterialProviderBindings,
+            stockNoiseTextures: stockNoiseTextures,
             staticModelResources: staticModelResources,
             instantiatedSceneScriptTargets: instantiatedSceneScriptTargets,
             scriptSourceEvidence: scriptSourceEvidence,

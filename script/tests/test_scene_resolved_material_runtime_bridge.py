@@ -488,6 +488,7 @@ struct SceneGraphExecutionState {
 }
 
 enum SceneTextureLoadPurpose: Hashable {
+    case noise
     case premultipliedColor
     case preservedChannels
 }
@@ -3981,36 +3982,31 @@ enum Harness {
                 assets: .init(states: [:]),
                 device: device
             )
-            let missing = bridge.systemProviderBlocks(for: .init(
-                providerStates: [
+            let missing = bridge.systemProviderBlocks(for: [
                     colorIdentity: .absent,
                     preservedIdentity: .absent,
                 ]
-            ))
-            let initialPending = bridge.systemProviderBlocks(for: .init(
-                providerStates: [
+            )
+            let initialPending = bridge.systemProviderBlocks(for: [
                     colorIdentity: .pending,
                     preservedIdentity: .pending,
                 ]
-            ))
-            let unrelatedPending = bridge.systemProviderBlocks(for: .init(
-                providerStates: [.init(
+            )
+            let unrelatedPending = bridge.systemProviderBlocks(for: [.init(
                     name: "$other",
                     purpose: .preservedChannels
                 ): .pending]
-            ))
-            let fullyReady = bridge.systemProviderBlocks(for: .init(
-                providerStates: [
+            )
+            let fullyReady = bridge.systemProviderBlocks(for: [
                     colorIdentity: .ready(publication),
                     preservedIdentity: .ready(preservedPublication),
                 ]
-            ))
-            let onlyColorReady = bridge.systemProviderBlocks(for: .init(
-                providerStates: [
+            )
+            let onlyColorReady = bridge.systemProviderBlocks(for: [
                     colorIdentity: .ready(publication),
                     preservedIdentity: .unavailable,
                 ]
-            ))
+            )
             let missingIsAbsent: Bool
             if case .absent? = missing[colorIdentity],
                case .absent? = missing[preservedIdentity] {
@@ -4036,6 +4032,19 @@ enum Harness {
             results["systemProviderPurposesRemainPerConsumer"] =
                 Set(onlyColorReady.keys) == [preservedIdentity]
                     && Set(missing.keys) == [colorIdentity, preservedIdentity]
+            let noiseIdentity = SceneSystemProviderTextureIdentity(name: "util/noise", purpose: .noise)
+            let mixedBridge = SceneResolvedMaterialRuntimeBridge(
+                catalog: .init(userPropertyDemands: [], systemProviderDemands: [colorIdentity, noiseIdentity]),
+                capabilities: makeCapabilities(layerIDs: []), assets: .init(states: [:]), device: device)
+            let noisePublication = SceneTextureProviderPublication(
+                requestIdentity: .system(noiseIdentity),
+                candidate: .init(texture: otherTexture, identity: .file("stock-noise"), purpose: .noise),
+                contentGeneration: 1)
+            let combined: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [
+                colorIdentity: .pending, noiseIdentity: .ready(noisePublication)]
+            results["systemProviderPreparedNoiseNotOverwrittenByMissingMedia"] =
+                Set(mixedBridge.systemProviderBlocks(for: combined).keys) == [colorIdentity]
+
         }
 
         do {
@@ -5628,6 +5637,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "systemProviderInitialPreparationIsPurposeQualifiedPending",
                 "systemProviderUnknownIdentityRemainsUnavailable",
                 "systemProviderPurposesRemainPerConsumer",
+            "systemProviderPreparedNoiseNotOverwrittenByMissingMedia",
                 "uninstalledDispositionEvidenceIsNotInvoked",
                 "bridgeProjectsOnlyInstalledDispositionEvidence",
                 "executionEvidenceOverridesFallbackFamily",

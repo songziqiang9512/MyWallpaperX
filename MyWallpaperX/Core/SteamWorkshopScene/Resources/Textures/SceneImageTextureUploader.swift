@@ -210,51 +210,47 @@ enum SceneImageTextureUploader {
         destinationWidth: Int,
         destinationHeight: Int
     ) -> Data {
+        source.withUnsafeBytes { raw in
+            let bytes = raw.bindMemory(to: UInt8.self)
+            return resampledRGBA(sourceWidth: sourceWidth, sourceHeight: sourceHeight,
+                destinationWidth: destinationWidth, destinationHeight: destinationHeight) { x, y in
+                let offset = (y * sourceWidth + x) * 4
+                return SIMD4(Double(bytes[offset]), Double(bytes[offset + 1]),
+                             Double(bytes[offset + 2]), Double(bytes[offset + 3]))
+            }
+        }
+    }
+
+    /// Filter source lanes directly into the bounded output. The reader can
+    /// normalize a packed image without allocating a full-size RGBA copy.
+    private static func resampledRGBA(
+        sourceWidth: Int, sourceHeight: Int,
+        destinationWidth: Int, destinationHeight: Int,
+        pixel: (Int, Int) -> SIMD4<Double>
+    ) -> Data {
         var destination = Data(count: destinationWidth * destinationHeight * 4)
-        destination.withUnsafeMutableBytes { destinationRaw in
-            source.withUnsafeBytes { sourceRaw in
-                guard let output = destinationRaw.bindMemory(to: UInt8.self).baseAddress,
-                      let input = sourceRaw.bindMemory(to: UInt8.self).baseAddress else {
-                    return
-                }
-                let xRatio = Double(sourceWidth) / Double(destinationWidth)
-                let yRatio = Double(sourceHeight) / Double(destinationHeight)
-                for destinationY in 0 ..< destinationHeight {
-                    let sourceY = max(
-                        0,
-                        min(
-                            Double(sourceHeight - 1),
-                            (Double(destinationY) + 0.5) * yRatio - 0.5
-                        )
-                    )
-                    let y0 = Int(sourceY.rounded(.down))
-                    let y1 = min(y0 + 1, sourceHeight - 1)
-                    let yWeight = sourceY - Double(y0)
-                    for destinationX in 0 ..< destinationWidth {
-                        let sourceX = max(
-                            0,
-                            min(
-                                Double(sourceWidth - 1),
-                                (Double(destinationX) + 0.5) * xRatio - 0.5
-                            )
-                        )
-                        let x0 = Int(sourceX.rounded(.down))
-                        let x1 = min(x0 + 1, sourceWidth - 1)
-                        let xWeight = sourceX - Double(x0)
-                        let destinationOffset = (
-                            destinationY * destinationWidth + destinationX
-                        ) * 4
-                        for component in 0 ..< 4 {
-                            let topLeft = Double(input[(y0 * sourceWidth + x0) * 4 + component])
-                            let topRight = Double(input[(y0 * sourceWidth + x1) * 4 + component])
-                            let bottomLeft = Double(input[(y1 * sourceWidth + x0) * 4 + component])
-                            let bottomRight = Double(input[(y1 * sourceWidth + x1) * 4 + component])
-                            let top = topLeft + (topRight - topLeft) * xWeight
-                            let bottom = bottomLeft + (bottomRight - bottomLeft) * xWeight
-                            output[destinationOffset + component] = UInt8(
-                                max(0, min(255, (top + (bottom - top) * yWeight).rounded()))
-                            )
-                        }
+        destination.withUnsafeMutableBytes { raw in
+            let output = raw.bindMemory(to: UInt8.self)
+            let xRatio = Double(sourceWidth) / Double(destinationWidth)
+            let yRatio = Double(sourceHeight) / Double(destinationHeight)
+            let exact = sourceWidth == destinationWidth && sourceHeight == destinationHeight
+            for y in 0..<destinationHeight {
+                let sy = max(0, min(Double(sourceHeight - 1), (Double(y) + 0.5) * yRatio - 0.5))
+                let y0 = Int(sy), y1 = min(y0 + 1, sourceHeight - 1)
+                for x in 0..<destinationWidth {
+                    let value: SIMD4<Double>
+                    if exact {
+                        value = pixel(x, y)
+                    } else {
+                        let sx = max(0, min(Double(sourceWidth - 1), (Double(x) + 0.5) * xRatio - 0.5))
+                        let x0 = Int(sx), x1 = min(x0 + 1, sourceWidth - 1)
+                        let topLeft = pixel(x0, y0), bottomLeft = pixel(x0, y1)
+                        let top = topLeft + (pixel(x1, y0) - topLeft) * (sx - Double(x0))
+                        let bottom = bottomLeft + (pixel(x1, y1) - bottomLeft) * (sx - Double(x0))
+                        value = top + (bottom - top) * (sy - Double(y0))
+                    }
+                    for c in 0..<4 {
+                        output[(y * destinationWidth + x) * 4 + c] = UInt8(clamping: Int(value[c].rounded()))
                     }
                 }
             }
@@ -398,18 +394,16 @@ enum SceneImageTextureUploader {
                     height: height
                 )
             }
-            // Straight/data consumers cannot safely reconstruct source
-            // channels from a premultiplied representation: RGB at alpha zero
-            // is already irrecoverable and fractional alpha loses precision.
-            // Raster fallback also creates that representation. Refuse either
-            // case instead of silently rewriting data.
-            guard width == image.width,
-                  height == image.height,
-                  let source = sourceRGBA(image),
-                  !source.premultiplied else {
-                return nil
-            }
-            return source.data
+            let needsResize = width != image.width || height != image.height
+            guard !needsResize || (purpose == .straightAlbedo
+                && width > 0 && height > 0 && width <= image.width && height <= image.height),
+                image.alphaInfo != .premultipliedFirst,
+                image.alphaInfo != .premultipliedLast else { return nil }
+            // Packed source channels are read directly into the output. This
+            // preserves transparent RGB without an unpremultiply fallback or a
+            // full-size intermediate allocation when a large image is reduced.
+            return sourceRGBA(image, width: width, height: height,
+                              colorConversion: purpose == .straightAlbedo)?.data
         }
         return rasterizedRGBA(
             image,
@@ -430,96 +424,65 @@ enum SceneImageTextureUploader {
     }
 
     private static func sourceRGBA(
-        _ image: CGImage
+        _ image: CGImage, width: Int? = nil, height: Int? = nil,
+        colorConversion: Bool = false
     ) -> (data: Data, premultiplied: Bool)? {
-        guard image.bitsPerComponent == 8,
-              image.bitsPerPixel == 32,
-              image.bytesPerRow >= image.width * 4,
-              image.colorSpace?.model == .rgb,
-              image.pixelFormatInfo == .packed,
-              image.decode == nil,
-              !image.bitmapInfo.contains(.floatComponents),
-              let providerData = image.dataProvider?.data else {
-            return nil
-        }
-        let alphaInfo = image.alphaInfo
-        let supportedAlpha: Set<CGImageAlphaInfo> = [
-            .last, .premultipliedLast, .first, .premultipliedFirst,
-            .noneSkipLast, .noneSkipFirst,
-        ]
-        guard supportedAlpha.contains(alphaInfo) else { return nil }
-
-        let source = providerData as Data
-        guard source.count >= image.bytesPerRow * image.height else { return nil }
+        let rgb = image.colorSpace?.model == .rgb
+        let gray = image.colorSpace?.model == .monochrome
+        let bits = image.bitsPerComponent
+        let channels = rgb ? 4 : 2
+        let bytesPerPixel = channels * (bits / 8)
+        let outputWidth = width ?? image.width, outputHeight = height ?? image.height
+        let rowBytes = image.width.multipliedReportingOverflow(by: bytesPerPixel)
+        let sourceBytes = image.bytesPerRow.multipliedReportingOverflow(by: image.height)
+        let outputPixels = outputWidth.multipliedReportingOverflow(by: outputHeight)
+        guard image.width > 0, image.height > 0, outputWidth > 0, outputHeight > 0,
+              !rowBytes.overflow, !sourceBytes.overflow, !outputPixels.overflow,
+              !outputPixels.partialValue.multipliedReportingOverflow(by: 4).overflow,
+              (rgb && bits == 8 || colorConversion && (rgb || gray) && (bits == 8 || bits == 16)),
+              image.bitsPerPixel == channels * bits,
+              image.bytesPerRow >= rowBytes.partialValue,
+              image.pixelFormatInfo == .packed, image.decode == nil,
+              !image.bitmapInfo.contains(.floatComponents) else { return nil }
+        let alpha = image.alphaInfo
+        let first = alpha == .first || alpha == .premultipliedFirst || alpha == .noneSkipFirst
+        let last = alpha == .last || alpha == .premultipliedLast || alpha == .noneSkipLast
+        guard first || last else { return nil }
         let order = image.bitmapInfo.rawValue & CGBitmapInfo.byteOrderMask.rawValue
-        let littleEndian: Bool
+        let little: Bool
         switch order {
-        case CGBitmapInfo.byteOrderDefault.rawValue,
-             CGBitmapInfo.byteOrder32Big.rawValue:
-            littleEndian = false
-        case CGBitmapInfo.byteOrder32Little.rawValue:
-            littleEndian = true
-        default:
-            return nil
+        case CGBitmapInfo.byteOrderDefault.rawValue:
+            little = false
+        case CGBitmapInfo.byteOrder32Big.rawValue where bits == 8 && rgb,
+             CGBitmapInfo.byteOrder16Big.rawValue where bits == 16 || gray:
+            little = false
+        case CGBitmapInfo.byteOrder32Little.rawValue where bits == 8 && rgb,
+             CGBitmapInfo.byteOrder16Little.rawValue where bits == 16 || gray:
+            little = true
+        default: return nil
         }
-        guard image.bitmapInfo.rawValue == alphaInfo.rawValue | order else {
-            return nil
-        }
-        var output = Data(count: image.width * image.height * 4)
-        output.withUnsafeMutableBytes { outputRaw in
-            source.withUnsafeBytes { sourceRaw in
-                guard let destination = outputRaw.bindMemory(to: UInt8.self).baseAddress,
-                      let bytes = sourceRaw.bindMemory(to: UInt8.self).baseAddress else {
-                    return
+        guard image.bitmapInfo.rawValue == alpha.rawValue | order,
+              let provider = image.dataProvider?.data,
+              CFDataGetLength(provider) >= sourceBytes.partialValue,
+              let bytes = CFDataGetBytePtr(provider) else { return nil }
+        let data = withExtendedLifetime(provider) {
+            resampledRGBA(sourceWidth: image.width, sourceHeight: image.height,
+                          destinationWidth: outputWidth, destinationHeight: outputHeight) { x, y in
+                let pixel = bytes + y * image.bytesPerRow + x * bytesPerPixel
+                func channel(_ index: Int) -> Double {
+                    if bits == 8 { return Double(pixel[little ? channels - 1 - index : index]) }
+                    let a = UInt16(pixel[index * 2]), b = UInt16(pixel[index * 2 + 1])
+                    return Double(little ? a | (b << 8) : (a << 8) | b) / 257
                 }
-                for row in 0 ..< image.height {
-                    for column in 0 ..< image.width {
-                        let sourceOffset = row * image.bytesPerRow + column * 4
-                        let destinationOffset = (row * image.width + column) * 4
-                        let pixel = rgba(
-                            bytes: bytes + sourceOffset,
-                            alphaInfo: alphaInfo,
-                            littleEndian: littleEndian
-                        )
-                        destination[destinationOffset] = pixel.0
-                        destination[destinationOffset + 1] = pixel.1
-                        destination[destinationOffset + 2] = pixel.2
-                        destination[destinationOffset + 3] = pixel.3
-                    }
-                }
+                let colorIndex = first ? 1 : 0
+                let alphaValue = alpha == .noneSkipFirst || alpha == .noneSkipLast
+                    ? 255 : channel(first ? 0 : channels - 1)
+                let red = channel(colorIndex)
+                return SIMD4(red, gray ? red : channel(colorIndex + 1),
+                             gray ? red : channel(colorIndex + 2), alphaValue)
             }
         }
-        return (
-            output,
-            alphaInfo == .premultipliedLast || alphaInfo == .premultipliedFirst
-        )
-    }
-
-    private static func rgba(
-        bytes: UnsafePointer<UInt8>,
-        alphaInfo: CGImageAlphaInfo,
-        littleEndian: Bool
-    ) -> (UInt8, UInt8, UInt8, UInt8) {
-        switch (alphaInfo, littleEndian) {
-        case (.last, false), (.premultipliedLast, false):
-            return (bytes[0], bytes[1], bytes[2], bytes[3])
-        case (.last, true), (.premultipliedLast, true):
-            return (bytes[3], bytes[2], bytes[1], bytes[0])
-        case (.first, false), (.premultipliedFirst, false):
-            return (bytes[1], bytes[2], bytes[3], bytes[0])
-        case (.first, true), (.premultipliedFirst, true):
-            return (bytes[2], bytes[1], bytes[0], bytes[3])
-        case (.noneSkipLast, false):
-            return (bytes[0], bytes[1], bytes[2], 255)
-        case (.noneSkipLast, true):
-            return (bytes[3], bytes[2], bytes[1], 255)
-        case (.noneSkipFirst, false):
-            return (bytes[1], bytes[2], bytes[3], 255)
-        case (.noneSkipFirst, true):
-            return (bytes[2], bytes[1], bytes[0], 255)
-        default:
-            return (0, 0, 0, 0)
-        }
+        return (data, alpha == .premultipliedLast || alpha == .premultipliedFirst)
     }
 
     private static func rasterizedRGBA(

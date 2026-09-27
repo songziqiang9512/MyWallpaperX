@@ -10,7 +10,7 @@ struct SceneMetalRenderer {
     // E2/Q1T: scene-level bloom post process (authored general.bloom).
     // Class instance so the enclosing struct stays value-semantics.
     let bloomPostProcess = SceneBloomPostProcess()
-    let stockNoiseTextureStore = SceneStockNoiseTextureStore()
+    let stockNoiseTextures: SceneStockNoiseTextureStore
     let pipelineRepository: SceneImageEffectPipelineRepository
     let visibleLayerIDs: Set<Int>
     let authoredLayers: [SceneRenderDescriptor.Layer]

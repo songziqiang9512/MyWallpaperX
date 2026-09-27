@@ -507,6 +507,80 @@ private func productChain(
     ]
 }
 
+private func stockDefaultLifecycle(device: MTLDevice) throws -> [String: Bool] {
+    let path = SceneVFSAssetPath("util/clouds_256")!
+    let identity = SceneAssetTextureIdentity(path: path, purpose: .noise)
+    let explicit = SceneAssetTextureIdentity(path: overridePath, purpose: .noise)
+    let provider = SceneSystemProviderTextureIdentity(name: path.value, purpose: .noise)
+    let shader = contract(default: path.value)
+    let value = template(shader)
+    let active = sampler(shader)!
+    let assets: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [
+        identity: .absent, explicit: .absent,
+    ]
+    let store = try SceneStockNoiseTextureStore(assetStates: assets, device: device)
+    guard case let .ready(publication)? = store.states[provider] else { return ["prepared": false] }
+    func admission(_ state: SceneAssetTextureLaunchState?,
+                   providers: [SceneSystemProviderTextureIdentity: SceneTextureProviderState])
+        -> SceneResolvedMaterialVariantCache? {
+        var states = assets
+        states[identity] = state
+        guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
+            template: value, maximumVariantCount: 8
+        ), case .success = cache.precompileLaunchEnvelope(
+            implicitFramebufferIdentity: nil, assetStates: states,
+            systemProviderStates: providers
+        ) else { return nil }
+        return cache
+    }
+    let prepared = admission(.absent, providers: store.states)
+    let frame = prepared.flatMap { finalize(value, cache: $0, entries: [
+        .asset(identity): .absent, .asset(explicit): .absent,
+        .system(provider): .ready(.init(publication: publication, resourceGeneration: 1)),
+    ]) }
+    let usesSystem: Bool
+    if case let .success(program)? = frame {
+        usesSystem = program.textureSlots[0]?.registryIdentity == .system(provider)
+    } else { usesSystem = false }
+    let projection = SceneResolvedMaterialTextureResolver.launchReadinessProjection(
+        template: value, samplers: [0: active], implicitFramebufferIdentity: nil,
+        assetStates: assets, systemProviderStates: store.states
+    )
+    let required: Bool
+    if case let .success(mask) = projection { required = mask.requiredMask == 1 }
+    else { required = false }
+    let formats = SceneResolvedMaterialTextureResolver.launchTextureFormatProfiles(
+        template: value, samplers: [0: active], readinessMask: 1, formatSlots: [0],
+        graphTextureFormatFacts: [:], assetFormatFacts: [identity.reportToken: 8],
+        assetStates: assets, systemProviderStates: store.states
+    )
+    let formatMatches: Bool
+    if case let .success(profiles) = formats {
+        formatMatches = profiles.count == 1 && profiles[0][0] == publication.candidate.authoredFormat
+    } else { formatMatches = false }
+    let selectedAsset = try SceneResolvedMaterialTextureResolver.launchDefaultReference(
+        sampler: active, slot: 0, assetStates: [identity: .ready(.data)],
+        systemProviderStates: store.states
+    )
+    let assetWins: Bool
+    if case let .selected(reference, purpose) = selectedAsset {
+        assetWins = reference == .asset(path) && purpose == .noise
+    } else { assetWins = false }
+    return [
+        "prepared": true, "launchAndFrameAgree": prepared != nil && usesSystem,
+        "readiness": required, "formatUsesSelectedProvider": formatMatches,
+        "assetWins": assetWins,
+        "pendingRejects": admission(.pending, providers: store.states) == nil,
+        "unavailableRejects": admission(.unavailable, providers: store.states) == nil,
+        "unknownRejects": admission(nil, providers: store.states) == nil,
+        "missingProviderRejects": admission(.absent, providers: [:]) == nil,
+        "failedProviderRejects": admission(.absent, providers: [provider: .unavailable]) == nil,
+        "wrongPublicationRejects": admission(.absent, providers: [provider: .ready(
+            publication.publication(for: .system(.init(name: "util/noise", purpose: .noise)))
+        )]) == nil,
+    ]
+}
+
 @main
 private enum Main {
     static func main() throws {
@@ -602,6 +676,7 @@ private enum Main {
             path: preservedDefault, purpose: .preservedChannels
         ))
         let results: [String: Any] = [
+            "stockDefaultLifecycle": try stockDefaultLifecycle(device: device),
             "metalAvailable": true,
             "positive": [
                 "reference": preservedExact.reference == .asset(overridePath),
@@ -704,7 +779,8 @@ class SceneSamplerDefaultPurposeTests(unittest.TestCase):
         compilation = subprocess.run(
             [
                 "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
-                str(support), *(str(path) for path in SWIFT_SOURCES), str(harness),
+                str(support), *(str(path) for path in SWIFT_SOURCES),
+                str(SCENE_ROOT / "Resources/Providers/SceneStockNoiseTextureStore.swift"), str(harness),
                 "-framework", "Metal", "-framework", "CoreGraphics",
                 "-framework", "ImageIO", "-module-cache-path",
                 str(root / "module-cache"), "-o", str(binary),
@@ -728,6 +804,10 @@ class SceneSamplerDefaultPurposeTests(unittest.TestCase):
         cls.result = json.loads(completed.stdout)
         if not cls.result["metalAvailable"]:
             raise unittest.SkipTest("Metal is unavailable")
+
+    def test_stock_default_launch_and_frame_share_prepared_publication(self) -> None:
+        facts = self.result["stockDefaultLifecycle"]
+        self.assertTrue(all(facts.values()), facts)
 
     @classmethod
     def tearDownClass(cls) -> None:

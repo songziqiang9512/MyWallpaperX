@@ -117,6 +117,42 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         return .none
     }
 
+    /// One default selection for launch readiness, format and color contracts.
+    /// Only exact asset absence reaches the same registered-noise substitution
+    /// used by frame selection; publication completion remains authoritative.
+    static func launchDefaultReference(
+        sampler: SceneResolvedMaterialShaderSchema.Sampler,
+        slot: Int,
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
+        systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState]
+    ) throws -> LaunchAuthoredReference {
+        guard case let .asset(path)? = sampler.defaultTexture else { return .none }
+        let reference = Template.TextureReference.asset(path)
+        let purpose = sampler.purpose(for: reference)
+        switch try launchAssetState(
+            reference, sampler: sampler, assetStates: assetStates, slot: slot
+        ) {
+        case .ready: return .selected(reference, purpose: purpose)
+        case .absent:
+            guard SceneStockTextureSemanticRegistry.canSubstituteNoise(
+                path, purpose: purpose
+            ) else { return .none }
+            let identity = SceneSystemProviderTextureIdentity(name: path.value, purpose: .noise)
+            guard case let .ready(publication)? = systemProviderStates[identity],
+                  publication.requestIdentity == .system(identity),
+                  publication.isComplete, publication.generationIsCurrent,
+                  publication.candidate.purpose == .noise,
+                  publication.candidate.content == .data else {
+                throw launchSelectionFailure(.textureBindingInvalid, slot: slot)
+            }
+            return .selected(.provider(.system(path.value)), purpose: .noise)
+        case .effectLocalUnavailable(.animatedFrameMetadataInvalid):
+            throw launchSelectionFailure(.animatedFrameMetadataInvalid, slot: slot)
+        case .pending, .unavailable:
+            throw launchSelectionFailure(.textureBindingInvalid, slot: slot)
+        }
+    }
+
     static func launchAssetState(
         _ reference: Template.TextureReference,
         sampler: SceneResolvedMaterialShaderSchema.Sampler,

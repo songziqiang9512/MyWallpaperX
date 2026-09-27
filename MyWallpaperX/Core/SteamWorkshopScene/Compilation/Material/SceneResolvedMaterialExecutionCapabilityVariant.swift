@@ -237,7 +237,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         outputIsRGBA8Unorm: Bool = false,
         graphTextureFormatFacts: [Graph.TextureIdentity: SceneShaderTextureFormat] = [:],
         graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent] = [:],
-        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:]
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
+        systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:]
     ) -> Result<[UInt8], LaunchEnvelopeFailure> {
         lock.lock()
         defer { lock.unlock() }
@@ -305,6 +306,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     template: template, samplers: samplers,
                     implicitFramebufferIdentity: implicitFramebufferIdentity,
                     assetStates: assetStates,
+                    systemProviderStates: systemProviderStates,
                     graphInputSourceSlotFacts: graphInputFacts
                 ) {
                 case let .success(value): projection = value
@@ -328,7 +330,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                         formatSlots: textureFormatSlots,
                         graphTextureFormatFacts: graphTextureFormatFacts,
                         assetFormatFacts: assetFormatFacts,
-                        assetStates: assetStates
+                        assetStates: assetStates,
+                        systemProviderStates: systemProviderStates
                     ) {
                 case let .success(value): profiles = value
                 case let .failure(failure):
@@ -408,6 +411,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     template: template, samplers: variant.activeSamplers,
                     implicitFramebufferIdentity: implicitFramebufferIdentity,
                     assetStates: assetStates,
+                    systemProviderStates: systemProviderStates,
                     graphInputSourceSlotFacts:
                         variant.graphInputSourceSlotFacts
                 ) {
@@ -426,7 +430,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                             outputStorage: outputStorage,
                             implicitFramebufferIdentity: implicitFramebufferIdentity,
                             graphTextureContentFacts: graphTextureContentFacts,
-                            assetStates: assetStates
+                            assetStates: assetStates,
+                            systemProviderStates: systemProviderStates
                         ) {
                         // A readiness combo cannot make an unconditionally
                         // sampled slot executable when its optional asset is

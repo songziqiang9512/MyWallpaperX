@@ -14,7 +14,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         outputStorage: SceneResolvedMaterialProgram.OutputStorage,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent] = [:],
-        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
+        systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:]
     ) -> Failure? {
         for variant in variants {
             for binding in variant.frontendProgram.textureBindings
@@ -69,7 +70,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     graphTextureContentFacts: graphTextureContentFacts,
                     preservedChannelsProviderSlots:
                         variant.preservedChannelsProviderInputSlots,
-                    assetStates: assetStates
+                    assetStates: assetStates,
+                    systemProviderStates: systemProviderStates
                 ) {
                 case .unknownInternalGraph:
                     return failure(
@@ -126,7 +128,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     graphTextureContentFacts: graphTextureContentFacts,
                     preservedChannelsProviderSlots:
                         variant.preservedChannelsProviderInputSlots,
-                    assetStates: assetStates
+                    assetStates: assetStates,
+                    systemProviderStates: systemProviderStates
                 ) {
                 case .unknownInternalGraph:
                     if !preservedChannelOutput, case .straightAlphaUNorm =
@@ -233,7 +236,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent],
         preservedChannelsProviderSlots: Set<Int>,
-        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
+        systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:]
     ) -> LaunchColorProfiles {
         var profiles = [Array<LaunchColorFact?>(repeating: nil, count: 8)]
         for binding in variant.frontendProgram.textureBindings {
@@ -251,7 +255,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
                 graphInputSourceSlotFacts:
                     variant.graphInputSourceSlotFacts,
-                assetStates: assetStates
+                assetStates: assetStates,
+                systemProviderStates: systemProviderStates
             ) {
             case let .selected(value, purpose):
                 reference = value
@@ -261,8 +266,11 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             }
             if case let .provider(provider) = reference {
                 switch provider {
-                case .system:
-                    return .unknownInternalGraph
+                case let .system(name):
+                    guard let purpose = resolvedPurpose,
+                          case .ready? = systemProviderStates[
+                              .init(name: name, purpose: purpose)
+                          ] else { return .unknownInternalGraph }
                 case .namedLayerTarget, .sceneBackground:
                     break
                 }
@@ -284,7 +292,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 graphTextureContentFacts: graphTextureContentFacts,
                 preservedChannelsProviderSlots:
                     preservedChannelsProviderSlots,
-                assetStates: assetStates
+                assetStates: assetStates,
+                systemProviderStates: systemProviderStates
             ) else { return .invalid }
             for profile in profiles {
                 guard profile[binding.slot] == nil else { return .invalid }
@@ -313,7 +322,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         graphInputSourceSlotFacts: [
             Int: SceneResolvedMaterialGraphInputSourceSlotFact
         ],
-        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
+        systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:]
     ) -> LaunchReference {
         let ready = readinessMask & (UInt8(1) << UInt8(slot)) != 0
         if ready {
@@ -350,27 +360,19 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 purpose: sampler.purpose(for: reference)
             )
         }
-        if defaultAllowed, case let .asset(path)? = sampler.defaultTexture {
-            let reference = Template.TextureReference.asset(path)
+        if defaultAllowed {
             do {
-                switch try launchAssetState(
-                    reference,
-                    sampler: sampler,
+                switch try launchDefaultReference(
+                    sampler: sampler, slot: slot,
                     assetStates: assetStates,
-                    slot: slot
+                    systemProviderStates: systemProviderStates
                 ) {
-                case .ready:
-                    return .selected(
-                        reference,
-                        purpose: sampler.purpose(for: reference)
-                    )
-                case .absent: break
-                case .effectLocalUnavailable: return .invalid
-                case .pending, .unavailable: return .invalid
+                case let .selected(reference, purpose):
+                    return .selected(reference, purpose: purpose)
+                case .none: break
+                case .deferred: return .deferred
                 }
-            } catch {
-                return .invalid
-            }
+            } catch { return .invalid }
         }
         if let fact = graphInputSourceSlotFacts[slot],
            fact.inputIdentity == implicitFramebufferIdentity {
@@ -393,7 +395,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent],
         preservedChannelsProviderSlots: Set<Int>,
-        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
+        systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:]
     ) -> LaunchColorFact? {
         if case let .graph(identity) = reference {
             if identity != implicitFramebufferIdentity {
@@ -428,8 +431,17 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     isFramebufferInput: true,
                     content: .color(.resolved(.premultipliedAlpha))
                 )
-            case .system:
-                return nil
+            case let .system(name):
+                guard let purpose = resolvedPurpose ?? sampler.purpose(for: reference),
+                      case let .ready(publication)? = systemProviderStates[
+                          .init(name: name, purpose: purpose)
+                      ], publication.requestIdentity == .system(.init(name: name, purpose: purpose)),
+                      publication.isComplete, publication.generationIsCurrent,
+                      publication.candidate.purpose == purpose else { return nil }
+                return .init(
+                    isGraphReference: false, isFramebufferInput: false,
+                    content: publication.candidate.content
+                )
             }
         }
         guard let purpose = resolvedPurpose

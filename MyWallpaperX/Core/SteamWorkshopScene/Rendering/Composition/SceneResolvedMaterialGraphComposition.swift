@@ -644,11 +644,11 @@ extension SceneImageLayerCompositor {
     }
 
     func resolvedMaterialSystemProviderBlocks(
-        _ snapshot: SceneMediaThumbnailTextureStore.Snapshot
+        _ states: [SceneSystemProviderTextureIdentity: SceneTextureProviderState]
     ) -> [
         SceneSystemProviderTextureIdentity: SceneFrameTextureRegistry.ProviderStatus
     ] {
-        resolvedMaterialRuntime?.systemProviderBlocks(for: snapshot) ?? [:]
+        resolvedMaterialRuntime?.systemProviderBlocks(for: states) ?? [:]
     }
 
     func beginResolvedMaterialFrame(

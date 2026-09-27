@@ -123,8 +123,9 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
                     input: input
                 ) {
                     result[slot] = selection
-                } else if SceneStockTextureSemanticRegistry.noiseTexturePaths
-                    .contains(path.value) {
+                } else if SceneStockTextureSemanticRegistry.canSubstituteNoise(
+                    path, purpose: sampler.purpose(for: reference)
+                ) {
                     // A registered stock noise asset the sample does not ship
                     // resolves as the deterministic system substitute; a pkg
                     // asset always wins above (user-directed 2026-09-26).

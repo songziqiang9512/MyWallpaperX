@@ -49,6 +49,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         dynamicProducers: DynamicProducerCatalog,
         assetFormatFacts: [String: Int],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
+        systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:],
         maximumVariantsPerMaterial: Int,
         maximumStageWorkers: Int = 1
     ) -> Result<CompiledStages, Rejection> {
@@ -102,6 +103,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     dynamicProducers: dynamicProducers,
                     assetFormatFacts: assetFormatFacts,
                     assetStates: assetStates,
+                    systemProviderStates: systemProviderStates,
                     maximumVariantsPerMaterial: maximumVariantsPerMaterial
                 )
                 resultLock.withLock { programResults[index] = programResult }

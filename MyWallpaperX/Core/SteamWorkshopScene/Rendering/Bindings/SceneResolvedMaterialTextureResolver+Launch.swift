@@ -62,6 +62,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
+        systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:],
         graphInputSourceSlotFacts: [
             Int: SceneResolvedMaterialGraphInputSourceSlotFact
         ] = [:]
@@ -136,26 +137,12 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 }
                 if reachesFallback, let sampler {
                     switch sampler.defaultTexture {
-                    case let .asset(path) where sampler.readinessCombo == nil:
-                        let reference = Template.TextureReference.asset(path)
-                        switch try launchAssetState(
-                            reference,
-                            sampler: sampler,
+                    case .asset where sampler.readinessCombo == nil:
+                        if case .selected = try launchDefaultReference(
+                            sampler: sampler, slot: index,
                             assetStates: assetStates,
-                            slot: index
-                        ) {
-                        case .ready: required |= bit
-                        case .absent: break
-                        case .effectLocalUnavailable(
-                            .animatedFrameMetadataInvalid
-                        ):
-                            throw launchFailure(
-                                .animatedFrameMetadataInvalid,
-                                slot: index
-                            )
-                        case .pending, .unavailable:
-                            throw launchFailure(.textureBindingInvalid, slot: index)
-                        }
+                            systemProviderStates: systemProviderStates
+                        ) { required |= bit }
                     case .internalTarget where sceneBackgroundDefault(
                         template: template,
                         sampler: sampler,
@@ -260,7 +247,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             Graph.TextureIdentity: SceneShaderTextureFormat
         ],
         assetFormatFacts: [String: Int],
-        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
+        systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:]
     ) -> Result<[[SceneShaderTextureFormat?]], Failure> {
         guard template.textureSlots.count == 8,
               formatSlots.allSatisfy((0 ..< 8).contains)
@@ -313,14 +301,33 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 case .none:
                     if let sampler {
                         switch sampler.defaultTexture {
-                        case let .asset(path) where sampler.readinessCombo == nil:
-                            possible.formUnion(formats(
-                                for: .asset(path),
-                                resolvedPurpose: nil,
-                                sampler: sampler,
-                                graphTextureFormatFacts: graphTextureFormatFacts,
-                                assetFormatFacts: assetFormatFacts
-                            ))
+                        case .asset where sampler.readinessCombo == nil:
+                            do {
+                                if case let .selected(reference, purpose) = try launchDefaultReference(
+                                    sampler: sampler, slot: slot,
+                                    assetStates: assetStates,
+                                    systemProviderStates: systemProviderStates
+                                ) {
+                                    if case let .provider(.system(name)) = reference,
+                                       let purpose,
+                                       case let .ready(publication)? = systemProviderStates[
+                                           .init(name: name, purpose: purpose)
+                                       ] {
+                                        possible.insert(publication.candidate.authoredFormat)
+                                    } else {
+                                        possible.formUnion(formats(
+                                            for: reference, resolvedPurpose: purpose,
+                                            sampler: sampler,
+                                            graphTextureFormatFacts: graphTextureFormatFacts,
+                                            assetFormatFacts: assetFormatFacts
+                                        ))
+                                    }
+                                }
+                            } catch let failure as Failure {
+                                return .failure(failure)
+                            } catch {
+                                return .failure(launchFailure(.identityInvariant, phase: .invariant))
+                            }
                         case .internalTarget where sampler.readinessCombo == nil:
                             possible.insert(nil)
                         case .asset, .internalTarget, nil:

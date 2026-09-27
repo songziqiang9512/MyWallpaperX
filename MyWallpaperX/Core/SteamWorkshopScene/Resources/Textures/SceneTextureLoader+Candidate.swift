@@ -301,10 +301,13 @@ extension SceneTextureLoader {
         if firstMipSize == headerPhysical {
             guard embeddedSize == nil
                     || embeddedSize == headerPhysical
-                    || (purpose == .premultipliedColor && embeddedSize == mapped) else {
+                    || ((purpose == .premultipliedColor || purpose == .straightAlbedo)
+                        && embeddedSize == mapped) else {
                 return nil
             }
-            return headerPhysical
+            // Legacy embedded color may already contain only mapped pixels.
+            // Straight sampling uses that decoded physical extent directly.
+            return purpose == .straightAlbedo && embeddedSize == mapped ? mapped : headerPhysical
         }
         guard container.format == 0,
               container.containerVersion == .texb0003,
@@ -333,25 +336,15 @@ extension SceneTextureLoader {
         if output == sourcePhysicalSize {
             return (sourcePhysicalSize, sourceMapped)
         }
-        let sourceProvenOpaqueEmbeddedImage = container.format == 0
-            && container.containerVersion == .texb0003
-            && [2, 13].contains(container.freeImageFormat)
+        let sourceMappedEmbeddedImage = container.format == 0
             && sourcePhysicalSize == sourceMapped
-            && hasValidTexb3EmbeddedMipChain(container)
-            && firstEmbeddedImageIsOpaque(container)
-        let channelPreservingStraightMip = purpose == .straightAlbedo
-            && container.format == 0
-            && container.containerVersion == .texb0003
-            && [2, 13].contains(container.freeImageFormat)
-            && sourcePhysicalSize == sourceMapped
-            && hasValidTexb3EmbeddedMipChain(container)
-            && container.mips.dropFirst().contains(where: {
-                output == CGSize(width: $0.width, height: $0.height)
-            })
+            && ((container.containerVersion == .texb0003
+                && [2, 13].contains(container.freeImageFormat)
+                && hasValidTexb3EmbeddedMipChain(container))
+                || (container.containerVersion == .texb0002
+                    && container.mips.first.map { embeddedImagePixelSize($0.data) == sourceMapped } == true))
         let mayNormalizeMappedColor = purpose == .premultipliedColor
-            || (purpose == .straightAlbedo
-                && (sourceProvenOpaqueEmbeddedImage
-                    || channelPreservingStraightMip))
+            || (purpose == .straightAlbedo && sourceMappedEmbeddedImage)
         guard mayNormalizeMappedColor else {
             return nil
         }
@@ -360,32 +353,17 @@ extension SceneTextureLoader {
             maxDimension: Self.maxTextureDimension
         )
         guard output == sourceMapped
-                || output == normalizedMapped
-                || channelPreservingStraightMip else {
+                || output == normalizedMapped else {
             return nil
         }
         // Color uploads may crop authored padding or proportionally normalize
-        // the mapped image to the loader budget. A source-proven opaque JPEG
-        // or RGB PNG resize and a complete authored lower mip are safe
-        // straight-albedo sources without authored padding. Padded
+        // the mapped image to the loader budget. The successful straight
+        // uploader has preserved each source channel during bounded resizing
+        // without an intermediate premultiplied image. Padded
         // straight/data roles still require the exact physical extent.
         // In every accepted case the resulting texture contains only mapped
         // pixels, so its consumer UV is identity.
         return (output, output)
-    }
-
-    private func firstEmbeddedImageIsOpaque(
-        _ container: SceneTexContainer
-    ) -> Bool {
-        guard let first = container.mips.first,
-              let source = CGImageSourceCreateWithData(
-                  first.data as CFData,
-                  nil
-              ),
-              let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
-              image.width == first.width,
-              image.height == first.height else { return false }
-        return SceneImageTextureUploader.imageHasNoAlpha(image)
     }
 
     private func normalizedSize(

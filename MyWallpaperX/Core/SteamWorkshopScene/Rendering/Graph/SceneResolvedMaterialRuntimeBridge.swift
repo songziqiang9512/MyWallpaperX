@@ -307,7 +307,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
 
     func systemProviderBlocks(
-        for snapshot: SceneMediaThumbnailTextureStore.Snapshot
+        for states: [SceneSystemProviderTextureIdentity: SceneTextureProviderState]
     ) -> [
         SceneSystemProviderTextureIdentity: SceneFrameTextureRegistry.ProviderStatus
     ] {
@@ -315,7 +315,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             SceneSystemProviderTextureIdentity: SceneFrameTextureRegistry.ProviderStatus
         ] = [:]
         for identity in orderedSystemProviderDemands {
-            guard let state = snapshot.providerStates[identity] else {
+            guard let state = states[identity] else {
                 blocks[identity] = .unavailable
                 continue
             }

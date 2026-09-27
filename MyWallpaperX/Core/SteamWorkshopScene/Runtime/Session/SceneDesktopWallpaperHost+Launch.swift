@@ -9,6 +9,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let resolvedMaterialExecutionCapabilities:
         SceneResolvedMaterialExecutionCapabilityCatalog
     let materialAssetCatalog: SceneMaterialAssetTextureCatalog
+    let stockNoiseTextures: SceneStockNoiseTextureStore
     let preparedDeviceResources: ScenePreparedDeviceResources
     let preparedFirstSurfaceRuntime: ScenePreparedFirstSurfaceRuntime
     let timelineProgram: SceneTimelineProgram
@@ -461,6 +462,20 @@ extension SceneDesktopWallpaperHost {
             device: device
         )
         NSLog("MWX LAUNCH-STAGE: stage=catalog-decode elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
+        let baseMaterialProviderBindings = SceneBaseMaterialProviderBindingCompiler.compile(
+                descriptor: runtimeInput.renderDescriptor,
+                materialInstancesByLayerID:
+                    model.sceneDocument.materialInstancesByLayerID,
+                scriptBindings: model.sceneDocument.scriptBindings
+            )
+        let stockNoiseTextures = try SceneStockNoiseTextureStore(
+            assetStates: materialAssetCatalog.launchStates,
+            systemDemands: resolvedMaterialCatalog.systemProviderDemands
+                .union(baseMaterialProviderBindings.orderedSystemProviderDemands),
+            device: device,
+            uploadCommandQueue: textureUploadCommandQueue,
+            cancellationCheck: { try cancellation?.check() }
+        )
         let provisionalMaterialExecutionCapabilities =
             SceneResolvedMaterialExecutionCapabilityCatalog(
                 admissionCandidates: resolvedMaterialAdmissionCandidates,
@@ -474,6 +489,7 @@ extension SceneDesktopWallpaperHost {
                 ),
                 assetFormatFacts: materialAssetCatalog.launchFormatFacts,
                 assetStates: materialAssetCatalog.launchStates,
+                systemProviderStates: stockNoiseTextures.states,
                 dynamicVisibleRootLayerIDs:
                     projectedLayerVisibilityRootLayerIDs
             )
@@ -623,12 +639,6 @@ extension SceneDesktopWallpaperHost {
                 SceneScriptLayerMutationBridge.layerID(for: $0.target)
             }
         )
-        let baseMaterialProviderBindings = SceneBaseMaterialProviderBindingCompiler.compile(
-                descriptor: runtimeInput.renderDescriptor,
-                materialInstancesByLayerID:
-                    model.sceneDocument.materialInstancesByLayerID,
-                scriptBindings: model.sceneDocument.scriptBindings
-            )
         let soundPlaybackProgram = SceneSoundPlaybackProgram.compile(
             document: model.sceneDocument,
             resourceView: model.resourceView
@@ -661,6 +671,7 @@ extension SceneDesktopWallpaperHost {
             resolvedMaterialExecutionCapabilities:
                 resolvedMaterialExecutionCapabilities,
             materialAssetCatalog: materialAssetCatalog,
+            stockNoiseTextures: stockNoiseTextures,
             preparedDeviceResources: preparedDeviceResources,
             preparedFirstSurfaceRuntime: preparedFirstSurfaceRuntime,
             timelineProgram: timelineProgram,

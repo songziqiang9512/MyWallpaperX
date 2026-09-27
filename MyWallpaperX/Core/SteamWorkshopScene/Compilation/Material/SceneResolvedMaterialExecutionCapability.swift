@@ -328,6 +328,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         dynamicProducers: DynamicProducerCatalog = .empty,
         assetFormatFacts: [String: Int] = [:],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
+        systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:],
         maximumVariantsPerMaterial: Int = 16,
         dynamicVisibleRootLayerIDs: Set<Int> = []
     ) {
@@ -370,6 +371,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     dynamicProducers: dynamicProducers,
                     assetFormatFacts: assetFormatFacts,
                     assetStates: assetStates,
+                    systemProviderStates: systemProviderStates,
                     maximumVariantsPerMaterial: maximumVariantsPerMaterial,
                     maximumStageWorkers: stageWorkers
                 )

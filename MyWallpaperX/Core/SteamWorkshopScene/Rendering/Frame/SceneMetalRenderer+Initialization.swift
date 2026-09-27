@@ -8,6 +8,7 @@ extension SceneMetalRenderer {
         renderDescriptor: SceneRenderDescriptor,
         effectAdmissionCatalog: SceneEffectAdmissionCatalog,
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
+        stockNoiseTextures: SceneStockNoiseTextureStore = .empty,
         staticModelResources: ScenePreparedStaticModelResources = .empty,
         instantiatedSceneScriptTargets: Set<SceneDynamicTarget> = [],
         scriptSourceEvidence: [SceneScriptSourceEvidenceIR] = [],
@@ -15,6 +16,8 @@ extension SceneMetalRenderer {
         resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge? = nil
     ) {
         let device = pipelineRepository.device
+        guard stockNoiseTextures.deviceRegistryID == nil
+            || stockNoiseTextures.deviceRegistryID == device.registryID else { return nil }
         guard let commandQueue = device.makeCommandQueue() else {
             return nil
         }
@@ -22,6 +25,7 @@ extension SceneMetalRenderer {
         self.commandQueue = commandQueue
         self.renderDescriptor = renderDescriptor
         self.baseMaterialProviderBindings = baseMaterialProviderBindings
+        self.stockNoiseTextures = stockNoiseTextures
         self.staticModelResources = staticModelResources
         self.pipelineRepository = pipelineRepository
         self.imageCompositor = SceneImageLayerCompositor(

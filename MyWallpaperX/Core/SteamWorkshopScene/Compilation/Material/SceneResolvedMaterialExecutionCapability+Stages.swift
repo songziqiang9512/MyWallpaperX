@@ -285,6 +285,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         dynamicProducers: DynamicProducerCatalog,
         assetFormatFacts: [String: Int],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
+        systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:],
         maximumVariantsPerMaterial: Int
     ) -> Result<CompiledStages, Rejection> {
         guard (1 ... 256).contains(maximumVariantsPerMaterial) else {
@@ -305,6 +306,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 dynamicProducers: dynamicProducers,
                 assetFormatFacts: assetFormatFacts,
                 assetStates: assetStates,
+                systemProviderStates: systemProviderStates,
                 existingKeys: Set(allMaterials.keys),
                 sourceRoute: admitted.sourceRoute,
                 maximumVariantsPerMaterial: maximumVariantsPerMaterial
@@ -349,6 +351,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         dynamicProducers: DynamicProducerCatalog,
         assetFormatFacts: [String: Int],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
+        systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:],
         existingKeys: Set<MaterialKey>,
         sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
         maximumVariantsPerMaterial: Int
@@ -416,7 +419,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 assetFormatFacts: assetFormatFacts,
                 graphTextureFormatFacts: graphTextureFormatFacts,
                 graphTextureContentFacts: graphTextureContentFacts,
-                assetStates: assetStates
+                assetStates: assetStates,
+                systemProviderStates: systemProviderStates
             ) {
             case let .success(resolution):
                 resolvedAttachment = resolution.attachment
@@ -578,7 +582,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         assetFormatFacts: [String: Int],
         graphTextureFormatFacts: [Graph.TextureIdentity: SceneShaderTextureFormat],
         graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent],
-        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
+        assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
+        systemProviderStates: [SceneSystemProviderTextureIdentity: SceneTextureProviderState] = [:]
     ) -> Result<(
         attachment: (
             storage: SceneResolvedMaterialAttachmentKind,
@@ -610,7 +615,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                         && attachment.format == .rgba8888,
                 graphTextureFormatFacts: graphTextureFormatFacts,
                 graphTextureContentFacts: graphTextureContentFacts,
-                assetStates: assetStates
+                assetStates: assetStates,
+                systemProviderStates: systemProviderStates
             ) {
             case .success: return .success(variants)
             case let .failure(failure): return .failure(failure)

@@ -216,7 +216,7 @@ enum Harness {
         let transparentStraightAlbedoPNGURL = directory.appendingPathComponent(
             "transparent-straight-albedo-png.tex"
         )
-        let mipNormalizedStraightAlbedoPNGURL = directory.appendingPathComponent(
+        let authoredStraightAlbedoMipsPNGURL = directory.appendingPathComponent(
             "mip-normalized-straight-albedo-png.tex"
         )
         let paddedStraightAlbedoJPEGURL = directory.appendingPathComponent(
@@ -445,7 +445,7 @@ enum Harness {
             additionalMips: [
                 (4096, 1, try pngData(width: 4096, height: 1)),
             ]
-        ).write(to: mipNormalizedStraightAlbedoPNGURL)
+        ).write(to: authoredStraightAlbedoMipsPNGURL)
         try embeddedImageTex(
             textureWidth: 8192,
             textureHeight: 4,
@@ -654,26 +654,40 @@ enum Harness {
             purpose: .straightAlbedo,
             device: device
         ))
-        let transparentStraightAlbedoPNGRejected: Bool
-        switch loader.loadCandidate(
+        let transparentStraightAlbedoPNG = try candidate(loader.loadCandidate(
             from: transparentStraightAlbedoPNGURL,
             purpose: .straightAlbedo,
             device: device
-        ) {
-        case .loaded:
-            transparentStraightAlbedoPNGRejected = false
-        case .failed:
-            transparentStraightAlbedoPNGRejected = true
-        }
-        let mipNormalizedStraightAlbedoPNG = try candidate(
+        ))
+        let transparentStraightAlbedoPixel = try readFirstPixel(
+            texture: transparentStraightAlbedoPNG.texture, device: device
+        )
+        let directTransparentURL = directory.appendingPathComponent("transparent-large.png")
+        try pngData(width: 4097, height: 2).write(to: directTransparentURL)
+        let directTransparent = try candidate(loader.loadCandidate(
+            from: directTransparentURL, purpose: .straightAlbedo, device: device
+        ))
+        let legacyMappedStraight = try candidate(loader.loadCandidate(
+            from: mappedEmbeddedURL, purpose: .straightAlbedo, device: device))
+        let normalizedLegacyStraight = try candidate(loader.loadCandidate(
+            from: normalizedColorURL, purpose: .straightAlbedo, device: device))
+        let paddedMipsURL = directory.appendingPathComponent("padded-straight-mips.tex")
+        try embeddedImageTex(textureWidth: 8192, textureHeight: 8,
+            imageWidth: 4096, imageHeight: 8, payload: try pngData(width: 8192, height: 8),
+            containerVersion: "TEXB0003", freeImageFormat: 13, mipWidth: 8192, mipHeight: 8,
+            additionalMips: [(4096, 4, try pngData(width: 4096, height: 4))]).write(to: paddedMipsURL)
+        let paddedStraightMips = try candidate(loader.loadCandidate(
+            from: paddedMipsURL, purpose: .straightAlbedo, device: device))
+        let straightResize = try straightResizeProbe(device: device)
+        let authoredStraightAlbedoMipsPNG = try candidate(
             loader.loadCandidate(
-                from: mipNormalizedStraightAlbedoPNGURL,
+                from: authoredStraightAlbedoMipsPNGURL,
                 purpose: .straightAlbedo,
                 device: device
             )
         )
-        let mipNormalizedStraightAlbedoPixel = try readFirstPixel(
-            texture: mipNormalizedStraightAlbedoPNG.texture,
+        let authoredStraightAlbedoMipsPixel = try readFirstPixel(
+            texture: authoredStraightAlbedoMipsPNG.texture,
             device: device
         )
         let paddedStraightAlbedoJPEGRejected = rejectedDimensions(
@@ -1437,19 +1451,43 @@ enum Harness {
                 ) == SIMD2(repeating: 1)
                     && normalizedStraightAlbedoPNG.texture.width == 4096
                     && normalizedStraightAlbedoPNG.texture.height == 1,
-            "transparentStraightAlbedoPNGRejected":
-                transparentStraightAlbedoPNGRejected,
-            "mipNormalizedStraightAlbedoPNG":
-                mipNormalizedStraightAlbedoPNG.axisAlignedMappedUVScale(
+            "transparentStraightAlbedoPNG":
+                transparentStraightAlbedoPNG.axisAlignedMappedUVScale(
+                    expectedPurpose: .straightAlbedo
+                ) == SIMD2<Float>(repeating: 1)
+                    && transparentStraightAlbedoPNG.texture.width == 4096
+                    && transparentStraightAlbedoPNG.texture.height == 1
+                    && transparentStraightAlbedoPNG.texture.mipmapLevelCount == 1,
+            "transparentStraightAlbedoPixel": transparentStraightAlbedoPixel,
+            "directTransparentPNG": directTransparent.texture.width == 4096
+                && directTransparent.texture.height == 1
+                && directTransparent.texture.mipmapLevelCount == 13
+                && directTransparent.axisAlignedMappedUVScale(
+                    expectedPurpose: .straightAlbedo) == SIMD2<Float>(repeating: 1),
+            "directTransparentPixel": try readFirstPixel(
+                texture: directTransparent.texture, device: device),
+            "normalizedLegacyStraight": normalizedLegacyStraight.texture.width == 4096
+                && normalizedLegacyStraight.texture.height == 1
+                && normalizedLegacyStraight.axisAlignedMappedUVScale(
+                    expectedPurpose: .straightAlbedo) == SIMD2<Float>(repeating: 1),
+            "paddedStraightMips": paddedStraightMips.texture.width == 8192
+                && paddedStraightMips.texture.height == 8 && paddedStraightMips.texture.mipmapLevelCount == 2
+                && paddedStraightMips.axisAlignedMappedUVScale(
+                    expectedPurpose: .straightAlbedo) == SIMD2<Float>(0.5, 1),
+            "legacyMappedStraight": legacyMappedStraight.axisAlignedMappedUVScale(
+                expectedPurpose: .straightAlbedo) == SIMD2<Float>(repeating: 1),
+            "straightResize": straightResize,
+            "authoredStraightAlbedoMipsPNG":
+                authoredStraightAlbedoMipsPNG.axisAlignedMappedUVScale(
                     expectedPurpose: .straightAlbedo
                 ) == SIMD2(repeating: 1)
-                    && mipNormalizedStraightAlbedoPNG.texture.width == 4096
-                    && mipNormalizedStraightAlbedoPNG.texture.height == 1
-                    && mipNormalizedStraightAlbedoPNG.texture.mipmapLevelCount == 1
-                    && mipNormalizedStraightAlbedoPNG.content
+                    && authoredStraightAlbedoMipsPNG.texture.width == 8192
+                    && authoredStraightAlbedoMipsPNG.texture.height == 2
+                    && authoredStraightAlbedoMipsPNG.texture.mipmapLevelCount == 2
+                    && authoredStraightAlbedoMipsPNG.content
                         == .color(.resolved(.straightAlpha)),
-            "mipNormalizedStraightAlbedoPixel":
-                mipNormalizedStraightAlbedoPixel,
+            "authoredStraightAlbedoMipsPixel":
+                authoredStraightAlbedoMipsPixel,
             "paddedStraightAlbedoJPEGRejected":
                 paddedStraightAlbedoJPEGRejected,
             "mislabeledTexb4StraightAlbedoPNGRejected":
@@ -1874,6 +1912,104 @@ enum Harness {
         return data
     }
 
+    // A transparent texel's RGB must survive interpolation. These values
+    // distinguish straight lane filtering from filtering premultiplied RGB.
+    static func straightResizeProbe(device: MTLDevice) throws -> [String: Any] {
+        func image(_ pixels: [UInt8], _ width: Int, _ height: Int,
+                   alpha: CGImageAlphaInfo = .last) throws -> CGImage {
+            guard let provider = CGDataProvider(data: Data(pixels) as CFData),
+                  let image = CGImage(width: width, height: height,
+                    bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
+                    space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGBitmapInfo(rawValue: alpha.rawValue),
+                    provider: provider, decode: nil, shouldInterpolate: false,
+                    intent: .defaultIntent) else { throw HarnessError.imageCreationFailed }
+            return image
+        }
+        let colors: [UInt8] = [255,0,0,0, 0,0,255,255]
+        let horizontal = try image(colors, 2, 1)
+        let vertical = try image(colors, 1, 2)
+        let nonInteger = try image([255,0,0,0, 0,0,255,255, 0,255,0,0], 3, 1)
+        let zeroAlpha = try image([17,91,203,0, 17,91,203,0], 2, 1)
+        let premultiplied = try image(colors, 2, 1, alpha: .premultipliedLast)
+        func scaled(_ image: CGImage, width: Int = 1) -> [Int] {
+            SceneImageTextureUploader.rgbaData(image: image, width: width, height: 1,
+                purpose: .straightAlbedo)?.map(Int.init) ?? []
+        }
+        let encoded = try encodeImage(horizontal, type: "public.png" as CFString)
+        guard let source = CGImageSourceCreateWithData(encoded as CFData, nil),
+              let decoded = CGImageSourceCreateImageAtIndex(source, 0, nil),
+              case let .loaded(texture) = SceneImageTextureUploader.upload(
+                image: decoded, purpose: .straightAlbedo, maxDimension: 1,
+                device: device) else { throw HarnessError.loadFailed }
+        // A source beyond the previous full-RGBA scratch limit is now
+        // sampled directly into the one-pixel output.
+        let oversized = try image([UInt8](repeating: 127, count: 4097 * 4096 * 4),
+                                  4097, 4096)
+        let rows: [UInt8] = [0,0,255,0, 255,0,0,255, 9,9,9,9,
+                              0,255,0,128, 255,255,255,64, 9,9,9,9]
+        func strided(_ bytes: [UInt8], decode: UnsafePointer<CGFloat>? = nil,
+                     order: CGBitmapInfo = .byteOrder32Little) -> CGImage? {
+            CGImage(width: 2, height: 2, bitsPerComponent: 8, bitsPerPixel: 32,
+                bytesPerRow: 12, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.first.rawValue | order.rawValue),
+                provider: CGDataProvider(data: Data(bytes) as CFData)!, decode: decode,
+                shouldInterpolate: false, intent: .defaultIntent)
+        }
+        let stridedImage = strided(rows)!
+        let truncated = strided(Array(rows.dropLast()))
+        let invalidOrder = strided(rows, order: .byteOrder16Big)
+        let invalidDecode = [CGFloat](repeating: 1, count: 8).withUnsafeBufferPointer {
+            strided(rows, decode: $0.baseAddress)
+        }
+        func converted(_ bits: Int, gray: Bool, little: Bool) throws -> [Int] {
+            let values: [UInt16] = gray ? [200,0,64,255] : [255,0,0,0,0,0,255,255]
+            var bytes: [UInt8] = []
+            for (index, value) in values.enumerated() {
+                if bits == 8 { bytes.append(UInt8(value)) }
+                else {
+                    let word: UInt16 = gray ? value * 257 : [65535,0x1234,0,0,0,0,0xABCD,0x8001][index]
+                    bytes += little ? [UInt8(word & 255),UInt8(word >> 8)]
+                        : [UInt8(word >> 8),UInt8(word & 255)]
+                }
+            }
+            let order: CGBitmapInfo = bits == 16
+                ? (little ? .byteOrder16Little : .byteOrder16Big) : .byteOrderDefault
+            let space = gray ? CGColorSpaceCreateDeviceGray() : CGColorSpaceCreateDeviceRGB()
+            let provider = CGDataProvider(data: Data(bytes) as CFData)!
+            let value = CGImage(width: 2, height: 1, bitsPerComponent: bits,
+                bitsPerPixel: (gray ? 2 : 4) * bits, bytesPerRow: bytes.count,
+                space: space, bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue | order.rawValue),
+                provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)!
+            let raw = scaled(value)
+            let png = try encodeImage(value, type: "public.png" as CFString)
+            let source = CGImageSourceCreateWithData(png as CFData, nil)!
+            let decoded = CGImageSourceCreateImageAtIndex(source, 0, nil)!
+            return raw + scaled(decoded)
+        }
+        return [
+            "stridedFirst": SceneImageTextureUploader.rgbaData(image: stridedImage,
+                width: 2, height: 2, purpose: .straightAlbedo)?.map(Int.init) ?? [],
+            "stridedResize": scaled(stridedImage),
+            "truncatedRejected": truncated.map { scaled($0).isEmpty } ?? true,
+            "decodeRejected": invalidDecode.map { scaled($0).isEmpty } ?? true,
+            "bitmapRejected": invalidOrder.map { scaled($0).isEmpty } ?? true,
+            "gray8": try converted(8, gray: true, little: false),
+            "gray16": try converted(16, gray: true, little: false),
+            "rgba16Big": try converted(16, gray: false, little: false),
+            "rgba16Little": try converted(16, gray: false, little: true),
+            "horizontal": scaled(horizontal),
+            "vertical": scaled(vertical),
+            "nonInteger": scaled(nonInteger, width: 2),
+            "zeroAlpha": scaled(zeroAlpha),
+            "premultipliedRejected": scaled(premultiplied).isEmpty,
+            "dataResizeRejected": SceneImageTextureUploader.rgbaData(
+                image: horizontal, width: 1, height: 1, purpose: .normal) == nil,
+            "largeSourcePreserved": scaled(oversized) == [127,127,127,127],
+            "directPNG": try readFirstPixel(texture: texture, device: device),
+        ]
+    }
+
     static func pngData(width: Int, height: Int) throws -> Data {
         try encodedImageData(
             width: width,
@@ -2251,8 +2387,8 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "normalizedStraightAlbedoPNGIdentity": True,
                 "paddedStraightAlbedoJPEGRejected": True,
                 "mislabeledTexb4StraightAlbedoPNGRejected": True,
-                "mipNormalizedStraightAlbedoPNG": True,
-                "mipNormalizedStraightAlbedoPixel": [127, 127, 127, 127],
+                "authoredStraightAlbedoMipsPNG": True,
+                "authoredStraightAlbedoMipsPixel": [127, 127, 127, 127],
                 "normalizedColorMapped": [4096, 1],
                 "normalizedColorPhysical": [4096, 1],
                 "normalizedColorPreservesCompiledBaseLevel": True,
@@ -2285,7 +2421,32 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "textureChangedAfterRewrite": True,
                 "textureChangedAfterAtomicReplace": True,
                 "textureChangedWithRestoredSizeAndMTime": True,
-                "transparentStraightAlbedoPNGRejected": True,
+                "transparentStraightAlbedoPNG": True,
+                "transparentStraightAlbedoPixel": [127, 127, 127, 127],
+                "directTransparentPNG": True,
+                "directTransparentPixel": [127, 127, 127, 127],
+                "normalizedLegacyStraight": True,
+                "paddedStraightMips": True,
+                "legacyMappedStraight": True,
+                "straightResize": {
+                    "stridedFirst": [255,0,0,0, 0,0,255,255, 0,255,0,128, 255,255,255,64],
+                    "stridedResize": [128,128,128,112],
+                    "truncatedRejected": True,
+                    "decodeRejected": True,
+                    "bitmapRejected": True,
+                    "gray8": [132,132,132,128] * 2,
+                    "gray16": [132,132,132,128] * 2,
+                    "rgba16Big": [128,9,86,64] * 2,
+                    "rgba16Little": [128,9,86,64] * 2,
+                    "horizontal": [128, 0, 128, 128],
+                    "vertical": [128, 0, 128, 128],
+                    "nonInteger": [191, 0, 64, 64, 0, 191, 64, 64],
+                    "zeroAlpha": [17, 91, 203, 0],
+                    "premultipliedRejected": True,
+                    "dataResizeRejected": True,
+                    "largeSourcePreserved": True,
+                    "directPNG": [128, 0, 128, 128],
+                },
                 "atomicReplaceMetadataPreconditions": True,
                 "clampBorderBaseSampleRejected": True,
                 "clampBorderBaseLoadRejected": True,
