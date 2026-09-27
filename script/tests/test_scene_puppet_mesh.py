@@ -75,7 +75,7 @@ enum Harness {
                             "sceneFrame": attachment.sceneBindFrameColumnMajor.map(Double.init),
                         ] as [String: Any]
                     }
-                    if (path as NSString).lastPathComponent == "attachments.mdl" {
+                    if (path as NSString).lastPathComponent == "attachments.mdl" || (path as NSString).lastPathComponent == "legacy-attachments.mdl" {
                         var boneWorlds = Array(
                             repeating: matrix_identity_float4x4,
                             count: 2
@@ -153,9 +153,11 @@ def matrix(tx: float = 0, ty: float = 0) -> list[float]:
 def build_attachment_mdl(
     attachment_bone: int = 1,
     duplicate_name: bool = False,
+    magic: bytes = b"MDLV0023",
+    skeleton_marker: bytes = b"MDLS0004",
 ) -> bytes:
-    body = bytearray(build_mdl(include_mdls=False))
-    mdls = bytearray(b"MDLS0004\x00" + b"\x00" * 4 + struct.pack("<I", 2))
+    body = bytearray(build_mdl(magic=magic, include_mdls=False))
+    mdls = bytearray(skeleton_marker + b"\x00" + b"\x00" * 4 + struct.pack("<I", 2))
     for parent, transform in [
         (-1, matrix(-100, -50)),
         (0, matrix(20, 30)),
@@ -232,9 +234,26 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
             "after-mdls.mdl": b"MDLV0023\x00" + b"\x00" * 8 + b"MDLS"
             + build_mdl()[9:],
             "attachments.mdl": build_attachment_mdl(),
+            "legacy-attachments.mdl": build_attachment_mdl(
+                magic=b"MDLV0017", skeleton_marker=b"MDLS0002"),
+            "legacy-wrong-skeleton.mdl": build_attachment_mdl(magic=b"MDLV0017"),
+            "modern-wrong-skeleton.mdl": build_attachment_mdl(skeleton_marker=b"MDLS0002"),
+            "legacy-bad-bone.mdl": build_attachment_mdl(
+                magic=b"MDLV0017", skeleton_marker=b"MDLS0002", attachment_bone=9),
+            "legacy-duplicate.mdl": build_attachment_mdl(
+                magic=b"MDLV0017", skeleton_marker=b"MDLS0002", duplicate_name=True),
             "bad-attachment-bone.mdl": build_attachment_mdl(attachment_bone=9),
             "duplicate-attachment.mdl": build_attachment_mdl(duplicate_name=True),
         }
+        legacy = cls.fixtures["legacy-attachments.mdl"]
+        cls.fixtures["legacy-truncated.mdl"] = legacy[:-1]
+        nonfinite = bytearray(legacy)
+        # Last attachment matrix translation is an authored numeric payload.
+        struct.pack_into("<f", nonfinite, len(nonfinite) - 16, float("nan"))
+        cls.fixtures["legacy-nonfinite.mdl"] = bytes(nonfinite)
+        bad_bounds = bytearray(legacy)
+        struct.pack_into("<I", bad_bounds, bad_bounds.index(b"MDLS0002\0") + 9, len(legacy))
+        cls.fixtures["legacy-bad-bounds.mdl"] = bytes(bad_bounds)
         for name, blob in cls.fixtures.items():
             (tmp / name).write_bytes(blob)
         paths = [str(tmp / name) for name in cls.fixtures]
@@ -353,6 +372,30 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         dynamic = self.results["attachments.mdl"]["dynamicAttachments"]
         self.assertEqual(dynamic["hand"], [55.0, -87.0])
         self.assertEqual(dynamic["orb"], [0.0, 0.0])
+
+    def test_legacy_attachments_preserve_bind_and_animated_frames(self):
+        legacy = self.results["legacy-attachments.mdl"]
+        modern = self.results["attachments.mdl"]
+        self.assertNotIn("attachmentError", legacy)
+        self.assertEqual(legacy["attachments"], modern["attachments"])
+        self.assertEqual(legacy["dynamicAttachments"], modern["dynamicAttachments"])
+        self.assertEqual(legacy["attachments"][0]["sceneFrame"][12:15], [-75, 13, 0])
+        self.assertEqual(legacy["dynamicAttachments"]["hand"], [55, -87])
+
+    def test_attachment_container_and_skeleton_versions_must_match(self):
+        for name in ("legacy-wrong-skeleton.mdl", "modern-wrong-skeleton.mdl"):
+            with self.subTest(name=name):
+                self.assertIn("requires", self.results[name]["attachmentError"])
+
+    def test_legacy_attachment_integrity_rejections(self):
+        self.assertIn("references missing bone 9", self.results["legacy-bad-bone.mdl"]["attachmentError"])
+        self.assertIn("duplicate", self.results["legacy-duplicate.mdl"]["attachmentError"])
+
+    def test_legacy_invalid_bounds_and_nonfinite_matrix_fail_closed(self):
+        for name in ("legacy-truncated.mdl", "legacy-nonfinite.mdl", "legacy-bad-bounds.mdl"):
+            with self.subTest(name=name):
+                self.assertNotIn("attachments", self.results[name])
+                self.assertIn("invalid", self.results[name]["attachmentError"])
 
     def test_attachment_with_missing_bone_fails_closed(self):
         entry = self.results["bad-attachment-bone.mdl"]

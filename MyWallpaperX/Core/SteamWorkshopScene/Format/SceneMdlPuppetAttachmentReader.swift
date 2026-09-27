@@ -35,13 +35,13 @@ enum SceneMdlPuppetAttachmentReadError: Error, CustomStringConvertible, Equatabl
         case .unsupportedMagic(let magic):
             return "unsupported attachment mdl magic \(magic)"
         case .skeletonBlockMissing:
-            return "MDAT requires a preceding MDLS0004 block"
+            return "MDAT requires a preceding version-matched skeleton block"
         case .invalidSkeletonBounds:
-            return "invalid MDLS0004 bounds"
+            return "invalid attachment skeleton bounds"
         case .invalidBoneCount(let count):
-            return "invalid MDLS0004 bone count \(count)"
+            return "invalid attachment skeleton bone count \(count)"
         case .invalidBoneRecord(let index):
-            return "invalid MDLS0004 bone record \(index)"
+            return "invalid attachment skeleton bone record \(index)"
         case .invalidBoneParent(let boneIndex, let parentIndex):
             return "invalid parent \(parentIndex) for bone \(boneIndex)"
         case .invalidMatrix(let record):
@@ -60,11 +60,10 @@ enum SceneMdlPuppetAttachmentReadError: Error, CustomStringConvertible, Equatabl
     }
 }
 
-// Restricted reader for the MDLS0004 bind skeleton and MDAT0001 attachment
-// blocks verified for the MDLV0023 container contract. This does not interpret
-// weights, constraints, or MDLA animation data.
+// MDLV0017/MDLS0002 and MDLV0023/MDLS0004 share the bind-bone and
+// MDAT0001 attachment records. Only these verified version pairs are admitted;
+// weights, constraints and MDLA animation data remain owned by their readers.
 enum SceneMdlPuppetAttachmentReader {
-    private static let mdlMagic = "MDLV0023"
     private static let markerSize = 9
     private static let matrixByteCount = 64
     private static let maxBoneCount = 4_096
@@ -79,10 +78,14 @@ enum SceneMdlPuppetAttachmentReader {
             return []
         }
         let magic = String(decoding: data.prefix(8), as: UTF8.self)
-        guard magic == mdlMagic else {
+        let skeletonMarker: String
+        switch magic {
+        case "MDLV0017": skeletonMarker = "MDLS0002"
+        case "MDLV0023": skeletonMarker = "MDLS0004"
+        default:
             throw SceneMdlPuppetAttachmentReadError.unsupportedMagic(magic)
         }
-        guard let skeletonOffset = occurrence(of: "MDLS0004", in: data),
+        guard let skeletonOffset = occurrence(of: skeletonMarker, in: data),
               skeletonOffset < attachmentOffset else {
             throw SceneMdlPuppetAttachmentReadError.skeletonBlockMissing
         }
