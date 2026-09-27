@@ -25,8 +25,8 @@ import Foundation
 import Metal
 import simd
 
-final class SceneSpotLightPipeline { init?(device: MTLDevice) {} }
-final class SceneLayerColorBlendPipelineState { init?(device: MTLDevice) {} }
+final class SceneSpotLightPipeline { init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {} }
+final class SceneLayerColorBlendPipelineState { init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {} }
 struct SceneRenderDescriptor { struct Layer { let id = 7; var alpha: Float = 1 } }
 struct SceneResolvedMaterialFrameTargetPlan {}
 struct SceneEffectExecutionFrameTrace {}
