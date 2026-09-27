@@ -905,14 +905,14 @@ bool mwx_scene_quickjs_assign_script_properties(
     return success;
 }
 
-static bool read_vec3(JSContext *context, JSValueConst value, double output[3]) {
+static bool read_vector(JSContext *context, JSValueConst value, double *output, uint32_t dimensions) {
     if (JS_IsString(value)) {
         const char *text = JS_ToCString(context, value);
         if (text == NULL) return false;
         char *cursor = (char *)text;
         while (isspace((unsigned char)*cursor) || *cursor == '(' || *cursor == '[' || *cursor == '{') cursor++;
         bool valid = true;
-        for (size_t index = 0; index < 3; ++index) {
+        for (size_t index = 0; index < dimensions; ++index) {
             char *end = NULL;
             output[index] = strtod(cursor, &end);
             if (end == cursor || !isfinite(output[index])) { valid = false; break; }
@@ -930,13 +930,11 @@ static bool read_vec3(JSContext *context, JSValueConst value, double output[3]) 
         if (JS_ToFloat64(context, &scalar, value) < 0 || !isfinite(scalar)) {
             return false;
         }
-        output[0] = scalar;
-        output[1] = scalar;
-        output[2] = scalar;
+        for (size_t index = 0; index < dimensions; ++index) output[index] = scalar;
         return true;
     }
     static const char *names[] = {"x", "y", "z"};
-    for (size_t index = 0; index < 3; index += 1) {
+    for (size_t index = 0; index < dimensions; index += 1) {
         JSValue component = JS_GetPropertyStr(context, value, names[index]);
         int conversion = JS_ToFloat64(context, &output[index], component);
         JS_FreeValue(context, component);
@@ -947,7 +945,7 @@ static bool read_vec3(JSContext *context, JSValueConst value, double output[3]) 
     return true;
 }
 
-static const char *vec3_return_shape(
+static const char *vector_return_shape(
     JSContext *context,
     JSValueConst value
 ) {
@@ -961,16 +959,17 @@ static const char *vec3_return_shape(
     return "other";
 }
 
-static MWXSceneQuickJSResult call_vec3(
+static MWXSceneQuickJSResult call_vector(
     MWXSceneQuickJSOwner *owner,
     JSValueConst function,
-    const double input[3],
+    const double *input,
+    uint32_t dimensions,
     const MWXSceneQuickJSFrameInput *frame,
     const char *script_properties_json,
     size_t script_properties_length,
     const char *user_properties_json,
     size_t user_properties_length,
-    double output[3],
+    double *output,
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
@@ -1028,15 +1027,16 @@ static MWXSceneQuickJSResult call_vec3(
             )
         );
     }
-    JSValue vector_arguments[3] = {
-        JS_NewFloat64(domain->context, input[0]),
-        JS_NewFloat64(domain->context, input[1]),
-        JS_NewFloat64(domain->context, input[2]),
-    };
+    JSValue vector_arguments[3];
+    for (size_t index = 0; index < dimensions; ++index) {
+        vector_arguments[index] = JS_NewFloat64(domain->context, input[index]);
+    }
     JSValue argument = JS_CallConstructor(
-        domain->context, domain->vec3_constructor, 3, vector_arguments
+        domain->context,
+        dimensions == 2 ? domain->vec2_constructor : domain->vec3_constructor,
+        (int)dimensions, vector_arguments
     );
-    for (size_t index = 0; index < 3; ++index) {
+    for (size_t index = 0; index < dimensions; ++index) {
         JS_FreeValue(domain->context, vector_arguments[index]);
     }
     JSValue callback_argument = JS_DupValue(domain->context, argument);
@@ -1080,23 +1080,23 @@ static MWXSceneQuickJSResult call_vec3(
         return discard_layer_mutations_after_failure(owner, result_code);
     }
     JSValueConst value = JS_IsUndefined(result) ? argument : result;
-    bool valid = read_vec3(domain->context, value, output);
+    bool valid = read_vector(domain->context, value, output, dimensions);
     if (!valid && owner->authored_layer_mutation_count > 0) {
-        memcpy(output, input, sizeof(double) * 3);
+        memcpy(output, input, sizeof(double) * dimensions);
         valid = true;
     }
     // Only retain a static shape label beyond the lifetime of the JS values.
     // A temporary string may have no remaining owner after the releases below.
     const char *return_shape = valid
-        ? NULL : vec3_return_shape(domain->context, value);
+        ? NULL : vector_return_shape(domain->context, value);
     JS_FreeValue(domain->context, argument);
     JS_FreeValue(domain->context, result);
     if (!valid) {
         char message[128];
         snprintf(
             message, sizeof(message),
-            "callback returned invalid Vec3 value (returned %s)",
-            return_shape
+            "callback returned invalid Vec%u value (returned %s)",
+            dimensions, return_shape
         );
         write_diagnostic(diagnostic, diagnostic_capacity, message);
         return discard_layer_mutations_after_failure(
@@ -1678,19 +1678,20 @@ static MWXSceneQuickJSResult initialize_primitive_callback(
     return result;
 }
 
-static MWXSceneQuickJSResult initialize_vec3_callback(
+static MWXSceneQuickJSResult initialize_vector_callback(
     MWXSceneQuickJSOwner *owner,
-    const double input[3],
+    const double *input,
+    uint32_t dimensions,
     const MWXSceneQuickJSFrameInput *frame,
     const char *script_properties_json,
     size_t script_properties_length,
     const char *user_properties_json,
     size_t user_properties_length,
-    double output[3],
+    double *output,
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
-    memcpy(output, input, sizeof(double) * 3);
+    memcpy(output, input, sizeof(double) * dimensions);
     if (mwx_scene_quickjs_owner_is_initialized(owner)) return MWX_SCENE_QUICKJS_OK;
     JSValue init = JS_UNDEFINED;
     if (!get_function(owner, "init", &init, diagnostic, diagnostic_capacity)) {
@@ -1706,8 +1707,8 @@ static MWXSceneQuickJSResult initialize_vec3_callback(
                              "SceneScript initialization checkpoint allocation failed");
             return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
         }
-        result = call_vec3(
-            owner, init, input, frame,
+        result = call_vector(
+            owner, init, input, dimensions, frame,
             script_properties_json, script_properties_length,
             user_properties_json, user_properties_length,
             output, diagnostic, diagnostic_capacity
@@ -1789,16 +1790,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_primitive_with_properti
     return MWX_SCENE_QUICKJS_OK;
 }
 
-MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_vec3(
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_vector(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
-    const double input[3],
+    const double *input,
+    uint32_t dimensions,
     const MWXSceneQuickJSFrameInput *frame,
     const char *script_properties_json,
     size_t script_properties_length,
     const char *user_properties_json,
     size_t user_properties_length,
-    double output[3],
+    double *output,
     uint32_t *did_initialize,
     char *diagnostic,
     size_t diagnostic_capacity
@@ -1806,15 +1808,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_vec3(
     clear_diagnostic(diagnostic, diagnostic_capacity);
     if (owner == NULL || owner->value_only || input == NULL || frame == NULL ||
         output == NULL || did_initialize == NULL ||
-        !isfinite(input[0]) || !isfinite(input[1]) || !isfinite(input[2]) ||
+        (dimensions != 2 && dimensions != 3) ||
+        !isfinite(input[0]) || !isfinite(input[1]) ||
+        (dimensions == 3 && !isfinite(input[2])) ||
         !isfinite(frame->time_of_day) || frame->time_of_day < 0 ||
         frame->time_of_day > 1 || !isfinite(frame->frame_time) ||
         frame->frame_time < 0 || !isfinite(frame->runtime) || frame->runtime < 0) {
         write_diagnostic(diagnostic, diagnostic_capacity,
-                         "invalid SceneScript Vec3 initialization argument");
+                         "invalid SceneScript vector initialization argument");
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
-    memcpy(output, input, sizeof(double) * 3);
+    memcpy(output, input, sizeof(double) * dimensions);
     *did_initialize = 0;
     if (owner->generation != expected_generation) {
         write_diagnostic(diagnostic, diagnostic_capacity,
@@ -1842,8 +1846,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_vec3(
         owner->disabled = true;
         return timer_result;
     }
-    MWXSceneQuickJSResult result = initialize_vec3_callback(
-        owner, input, frame,
+    MWXSceneQuickJSResult result = initialize_vector_callback(
+        owner, input, dimensions, frame,
         script_properties_json, script_properties_length,
         user_properties_json, user_properties_length,
         output, diagnostic, diagnostic_capacity
@@ -2222,27 +2226,30 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_string(
     return result;
 }
 
-MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vec3(
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vector(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
-    const double input[3],
+    const double *input,
+    uint32_t dimensions,
     const MWXSceneQuickJSFrameInput *frame,
     const char *script_properties_json,
     size_t script_properties_length,
     const char *user_properties_json,
     size_t user_properties_length,
-    double output[3],
+    double *output,
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
     clear_diagnostic(diagnostic, diagnostic_capacity);
     if (owner == NULL || owner->value_only || input == NULL ||
         frame == NULL || output == NULL ||
-        !isfinite(input[0]) || !isfinite(input[1]) || !isfinite(input[2]) ||
+        (dimensions != 2 && dimensions != 3) ||
+        !isfinite(input[0]) || !isfinite(input[1]) ||
+        (dimensions == 3 && !isfinite(input[2])) ||
         !isfinite(frame->time_of_day) || frame->time_of_day < 0 ||
         frame->time_of_day > 1 || !isfinite(frame->frame_time) ||
         frame->frame_time < 0 || !isfinite(frame->runtime) || frame->runtime < 0) {
-        write_diagnostic(diagnostic, diagnostic_capacity, "invalid SceneScript Vec3 update argument");
+        write_diagnostic(diagnostic, diagnostic_capacity, "invalid SceneScript vector update argument");
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
     if (owner->generation != expected_generation) {
@@ -2269,10 +2276,11 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vec3(
         owner->disabled = true;
         return timer_result;
     }
-    double current[3] = {input[0], input[1], input[2]};
+    double current[3] = {0};
+    memcpy(current, input, sizeof(double) * dimensions);
     if (!mwx_scene_quickjs_owner_is_initialized(owner)) {
-        MWXSceneQuickJSResult result = initialize_vec3_callback(
-            owner, current, frame,
+        MWXSceneQuickJSResult result = initialize_vector_callback(
+            owner, current, dimensions, frame,
             script_properties_json, script_properties_length,
             user_properties_json, user_properties_length,
             current, diagnostic, diagnostic_capacity
@@ -2290,11 +2298,11 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vec3(
         return MWX_SCENE_QUICKJS_EXCEPTION;
     }
     if (!JS_IsFunction(domain->context, update)) {
-        memcpy(output, current, sizeof(current));
+        memcpy(output, current, sizeof(double) * dimensions);
         return MWX_SCENE_QUICKJS_OK;
     }
-    MWXSceneQuickJSResult result = call_vec3(
-        owner, update, current, frame,
+    MWXSceneQuickJSResult result = call_vector(
+        owner, update, current, dimensions, frame,
         script_properties_json, script_properties_length,
         user_properties_json, user_properties_length,
         output, diagnostic, diagnostic_capacity

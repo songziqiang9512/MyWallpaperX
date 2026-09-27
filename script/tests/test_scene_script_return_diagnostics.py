@@ -13,15 +13,78 @@ HARNESS = r'''
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 static int check(int ok, const char *label, const char *diagnostic) {
     if (!ok) fprintf(stderr, "%s: %s\n", label, diagnostic);
     return !ok;
 }
 
+static int vector_dimensions(int mode) {
+    char message[512] = {0}; int failures = 0;
+    MWXSceneQuickJSDomain *d = mwx_scene_quickjs_domain_create(
+        8*1024*1024,512*1024,100000,message,sizeof(message));
+    if (!d) return check(0,"dimension domain",message);
+    const char *sources[] = {
+        "let n=0; export function init(v){if(!(v instanceof Vec2)||'z' in v||++n!==1)throw Error('input type or repeated init');return new Vec2(3,5);} export function update(v){if(!(v instanceof Vec2))throw Error('update type');return v.add(new Vec2(1,2));}",
+        "export function init(v){if(!(v instanceof Vec2))throw Error('init type');return new Vec2(v.y,v.x);}",
+        "export function update(v){return 4;}",
+        "export function update(v){return '3 5';}",
+        "export function update(v){return engine.runtime===1 ? {x:4} : v;}",
+        "export function update(v){return engine.runtime===1 ? new Vec2(1,NaN) : v;}",
+        "export function update(v){return engine.runtime===1 ? new Vec2(1,2) : v;}",
+        "export function update(v){throw Error('must not enter callback');}",
+        "export function update(v){throw Error('must not enter callback');}",
+        "export function update(v){throw Error('must not enter callback');}",
+    };
+    int variant = mode - 7; const char *source = sources[variant];
+    MWXSceneQuickJSOwner *o = mwx_scene_quickjs_owner_create(d,source,strlen(source),1,message,sizeof(message));
+    if (!o) return check(0,"dimension owner",message);
+    uint32_t dimensions = variant == 6 ? 3 : 2;
+    // Exact allocations let ASan detect an accidental third input read/output write.
+    double *input=malloc(sizeof(double)*dimensions), *output=malloc(sizeof(double)*dimensions);
+    for (uint32_t i=0;i<dimensions;++i) { input[i]=7+i;output[i]=-99; }
+    MWXSceneQuickJSFrameInput f={.time_of_day=.25,.frame_time=.016,.runtime=1};
+    uint32_t initialized=0;
+    MWXSceneQuickJSResult result;
+    if (variant == 7) {
+        const uint32_t invalid[]={0,1,4,UINT32_MAX};
+        for (size_t i=0;i<4;++i) {
+            result=mwx_scene_quickjs_owner_initialize_vector(o,1,input,invalid[i],&f,"",0,"{}",2,output,&initialized,message,sizeof(message));
+            failures+=check(result==MWX_SCENE_QUICKJS_INVALID_ARGUMENT && output[0]==-99 && output[1]==-99,"invalid init dimensions",message);
+            result=mwx_scene_quickjs_owner_update_vector(o,1,input,invalid[i],&f,"",0,"{}",2,output,message,sizeof(message));
+            failures+=check(result==MWX_SCENE_QUICKJS_INVALID_ARGUMENT && output[0]==-99 && output[1]==-99,"invalid update dimensions",message);
+        }
+    } else {
+        if (variant==9) input[1]=INFINITY;
+        if (variant==1) result=mwx_scene_quickjs_owner_initialize_vector(o,1,input,dimensions,&f,"",0,"{}",2,output,&initialized,message,sizeof(message));
+        else result=mwx_scene_quickjs_owner_update_vector(o,variant==8?2:1,input,dimensions,&f,"",0,"{}",2,output,message,sizeof(message));
+        MWXSceneQuickJSResult expected=variant>=4&&variant<=6?MWX_SCENE_QUICKJS_BAD_RETURN:variant==8?MWX_SCENE_QUICKJS_STALE_OWNER:variant==9?MWX_SCENE_QUICKJS_INVALID_ARGUMENT:MWX_SCENE_QUICKJS_OK;
+        failures+=check(result==expected,"typed vector outcome",message);
+        if (variant<=3) {
+            double x[]={4,8,4,3},y[]={7,7,4,5};
+            failures+=check(output[0]==x[variant]&&output[1]==y[variant],"typed vector result",message);
+        }
+        if (variant==0) {
+            mwx_scene_quickjs_owner_commit_layer_mutations(o);
+            result=mwx_scene_quickjs_owner_update_vector(o,1,input,2,&f,"",0,"{}",2,output,message,sizeof(message));
+            failures+=check(result==MWX_SCENE_QUICKJS_OK&&output[0]==8&&output[1]==10,"init committed once",message);
+        }
+        if (variant==1) failures+=check(initialized==1,"out of band init",message);
+        if (variant>=4&&variant<=6) {
+            f.runtime=2;
+            result=mwx_scene_quickjs_owner_update_vector(o,1,input,dimensions,&f,"",0,"{}",2,output,message,sizeof(message));
+            failures+=check(result==MWX_SCENE_QUICKJS_OK&&output[0]==7&&output[1]==8&&(dimensions==2||output[2]==9),"typed return recovery",message);
+        }
+    }
+    free(input);free(output);mwx_scene_quickjs_owner_destroy(o);mwx_scene_quickjs_domain_destroy(d);
+    return failures?1:0;
+}
+
 int main(int argc, char **argv) {
     if (argc != 2) return 2;
     int mode = atoi(argv[1]), failures = 0;
+    if (mode >= 7 && mode <= 16) return vector_dimensions(mode);
     char diagnostic[512] = {0};
     MWXSceneQuickJSDomain *domain = mwx_scene_quickjs_domain_create(
         8*1024*1024, 512*1024, 100000, diagnostic, sizeof(diagnostic));
@@ -56,10 +119,10 @@ int main(int argc, char **argv) {
         MWXSceneQuickJSFrameInput frame = {.time_of_day=.25, .frame_time=.016, .runtime=1};
         MWXSceneQuickJSResult result;
         if (mode == 3) {
-            result = mwx_scene_quickjs_owner_initialize_vec3(owner,1,input,&frame,
+            result = mwx_scene_quickjs_owner_initialize_vector(owner,1,input, 3,&frame,
                 "",0,"{}",2,output,&initialized,message,capacity);
         } else {
-            result = mwx_scene_quickjs_owner_update_vec3(owner,1,input,&frame,
+            result = mwx_scene_quickjs_owner_update_vector(owner,1,input, 3,&frame,
                 "",0,"{}",2,output,message,capacity);
         }
         failures += check(result == (mode == 5 ? MWX_SCENE_QUICKJS_OK : MWX_SCENE_QUICKJS_BAD_RETURN),
@@ -76,17 +139,17 @@ int main(int argc, char **argv) {
         // Failed data leaves the owner retryable and an independent owner usable.
         frame.runtime = 2;
         if (mode == 3) {
-            result = mwx_scene_quickjs_owner_initialize_vec3(owner,1,input,&frame,
+            result = mwx_scene_quickjs_owner_initialize_vector(owner,1,input, 3,&frame,
                 "",0,"{}",2,output,&initialized,diagnostic,sizeof(diagnostic));
         } else {
-            result = mwx_scene_quickjs_owner_update_vec3(owner,1,input,&frame,
+            result = mwx_scene_quickjs_owner_update_vector(owner,1,input, 3,&frame,
                 "",0,"{}",2,output,diagnostic,sizeof(diagnostic));
         }
         failures += check(result==MWX_SCENE_QUICKJS_OK,"next frame recovery",diagnostic);
         failures += check(output[0]==(mode==5 ? 2 : 7) && output[1]==(mode==5 ? 2 : 8)
             && output[2]==(mode==5 ? 3 : 9),"recovered vector",diagnostic);
         mwx_scene_quickjs_owner_commit_layer_mutations(owner);
-        result=mwx_scene_quickjs_owner_update_vec3(peer,1,input,&frame,"",0,"{}",2,
+        result=mwx_scene_quickjs_owner_update_vector(peer,1,input, 3,&frame,"",0,"{}",2,
             output,diagnostic,sizeof(diagnostic));
         failures += check(result==MWX_SCENE_QUICKJS_OK && output[0]==4 && output[1]==5 && output[2]==6,
                           "independent peer",diagnostic);
@@ -135,3 +198,14 @@ class SceneScriptReturnDiagnosticTests(unittest.TestCase):
     def test_zero_tiny_and_full_diagnostic_buffers(self): self.run_case(4)
     def test_valid_vector_string_keeps_its_value(self): self.run_case(5)
     def test_other_invalid_return_keeps_shape_diagnostic(self): self.run_case(6)
+
+    def test_vec2_input_init_update_and_commit(self): self.run_case(7)
+    def test_vec2_out_of_band_initialization(self): self.run_case(8)
+    def test_vec2_scalar_broadcast(self): self.run_case(9)
+    def test_vec2_string_return(self): self.run_case(10)
+    def test_vec2_missing_component_is_local_and_retryable(self): self.run_case(11)
+    def test_vec2_nonfinite_return_is_local_and_retryable(self): self.run_case(12)
+    def test_vec3_still_requires_third_component(self): self.run_case(13)
+    def test_invalid_dimensions_do_not_access_or_write_buffers(self): self.run_case(14)
+    def test_vector_stale_generation_rejected(self): self.run_case(15)
+    def test_vec2_nonfinite_input_rejected(self): self.run_case(16)

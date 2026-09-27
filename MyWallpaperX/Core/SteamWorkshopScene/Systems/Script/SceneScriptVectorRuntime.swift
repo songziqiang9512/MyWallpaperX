@@ -305,18 +305,18 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         case .vector2, .vector3:
             let source: [Double]
             switch scriptInput {
-            case let .vector2(x, y): source = [x, y, 0]
+            case let .vector2(x, y): source = [x, y]
             case let .vector3(x, y, z): source = [x, y, z]
             default: preconditionFailure("typed initialization input changed")
             }
-            var output = [Double](repeating: 0, count: 3)
+            var output = [Double](repeating: 0, count: source.count)
             result = source.withUnsafeBufferPointer { sourceBuffer in
                 output.withUnsafeMutableBufferPointer { outputBuffer in
                     scriptPropertiesJSON.withCString { properties in
                         userPropertiesJSON.withCString { userProperties in
-                            mwx_scene_quickjs_owner_initialize_vec3(
+                            mwx_scene_quickjs_owner_initialize_vector(
                                 handle, expectedGeneration, sourceBuffer.baseAddress,
-                                &frameInput,
+                                UInt32(source.count), &frameInput,
                                 properties, scriptPropertiesJSON.utf8.count,
                                 userProperties, userPropertiesJSON.utf8.count,
                                 outputBuffer.baseAddress, &didInitialize,
@@ -328,7 +328,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             }
             guard output.allSatisfy(\.isFinite) else {
                 discardLayerMutations()
-                return .failure(.badReturn("invalid initialized Vec3 output"))
+                return .failure(.badReturn("invalid initialized vector output"))
             }
             publishedValue = runtimeValue(
                 valueType == .vector2
@@ -422,18 +422,18 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         case .vector2, .vector3:
             let source: [Double]
             switch scriptInput {
-            case let .vector2(x, y): source = [x, y, 0]
+            case let .vector2(x, y): source = [x, y]
             case let .vector3(x, y, z): source = [x, y, z]
             default: preconditionFailure("typed vector input changed")
             }
-            var output = [Double](repeating: 0, count: 3)
+            var output = [Double](repeating: 0, count: source.count)
             result = source.withUnsafeBufferPointer { sourceBuffer in
                 output.withUnsafeMutableBufferPointer { outputBuffer in
                     scriptPropertiesJSON.withCString { properties in
                         userPropertiesJSON.withCString { userProperties in
-                            mwx_scene_quickjs_owner_update_vec3(
+                            mwx_scene_quickjs_owner_update_vector(
                                 handle, expectedGeneration, sourceBuffer.baseAddress,
-                                &frameInput,
+                                UInt32(source.count), &frameInput,
                                 properties, scriptPropertiesJSON.utf8.count,
                                 userProperties, userPropertiesJSON.utf8.count,
                                 outputBuffer.baseAddress,
@@ -445,7 +445,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             }
             guard output.allSatisfy(\.isFinite) else {
                 discardLayerMutations()
-                return .failure(.badReturn("non-finite Vec3 output"))
+                return .failure(.badReturn("non-finite vector output"))
             }
             publishedValue = runtimeValue(
                 valueType == .vector2

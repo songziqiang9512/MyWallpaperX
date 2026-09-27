@@ -817,16 +817,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_effectful_bool_with_propert
     size_t diagnostic_capacity
 );
 
-MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vec3(
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vector(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
-    const double input[3],
+    const double *input,
+    uint32_t dimensions,
     const MWXSceneQuickJSFrameInput *frame,
     const char *script_properties_json,
     size_t script_properties_length,
     const char *user_properties_json,
     size_t user_properties_length,
-    double output[3],
+    double *output,
     char *diagnostic,
     size_t diagnostic_capacity
 );
@@ -847,16 +848,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_primitive_with_properti
     size_t diagnostic_capacity
 );
 
-MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_vec3(
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_vector(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
-    const double input[3],
+    const double *input,
+    uint32_t dimensions,
     const MWXSceneQuickJSFrameInput *frame,
     const char *script_properties_json,
     size_t script_properties_length,
     const char *user_properties_json,
     size_t user_properties_length,
-    double output[3],
+    double *output,
     uint32_t *did_initialize,
     char *diagnostic,
     size_t diagnostic_capacity

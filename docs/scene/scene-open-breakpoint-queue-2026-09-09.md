@@ -76,7 +76,7 @@
 
 ### Q3 — 效果/依赖能力缺口
 
-- **特效参数脚本类型合同**：向量参数已由[同owner cursor批](semantics/runtime-evidence-current.md#e-2026-09-28-effect-parameter-cursor)接通事件。下一门：标量参数尚无同等cursor借用；二维参数的显式`new Vec2(...)`返回在现有Vec3入口被BAD_RETURN，需按typed维数修正输入/返回校验，保留非有限/错误维数反例。当前修改传入value再返回可执行，不应作为最终作者限制。
+- **特效参数脚本类型合同**：向量参数已由[同owner cursor批](semantics/runtime-evidence-current.md#e-2026-09-28-effect-parameter-cursor)接通事件。[维度桥接后继](semantics/runtime-evidence-current.md#e-2026-09-28-vector-dimensions)已修复二维输入误构造Vec3及显式new Vec2返回BAD_RETURN，保留缺分量/非有限/非法维数反例，自有App的初始化和鼠标参数变化通过。下一门：标量参数尚无同等cursor借用；Boolean effect自身显隐需把事件staged值接入既有typed事务；完整类型转换仍需作者合同和真实内容对照。
 
 - **Combo特效显隐热调**：[共享Boolean条件批](semantics/runtime-evidence-current.md#e-2026-09-28-combo-boolean-visibility)已复用现有条件域/准备/帧快照，三组自有原图→红→绿→原图切换及`2932631210`、`3238423642`原包属性更新通过，同runtime/GPU/终端/下一帧成立。18样本309处仅为声明影响面。[混合目标准备](semantics/runtime-evidence-current.md#e-2026-09-28-mixed-visibility-preparation)已在自有普通根层闭合effect/Bloom/伴随层同key由关闭开启及关闭切换；[隐藏所属层准备](semantics/runtime-evidence-current.md#e-2026-09-28-hidden-layer-effect-preparation)已闭合自有普通根层由隐藏同时开启effect/Bloom、反向隐藏；[脚本Combo布局批](semantics/runtime-evidence-current.md#e-2026-09-28-script-combo-layout)已闭合3211615441的style双向热切；下一门为更多真实条件组合及跨层依赖/隐藏层级；`3211615441`的整体条件特效与用户视觉仍保持QV验收，不从两原包通过推定全部兼容。
 

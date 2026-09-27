@@ -178,8 +178,8 @@ class SceneScriptTimerIdentityExhaustionTests(unittest.TestCase):
             MWXSceneQuickJSTimerFrameSnapshot *before=mwx_scene_quickjs_owner_timer_snapshot(o);
             const double input[3]={0};double output[3]={0};
             MWXSceneQuickJSFrameInput f={.runtime=1,.frame_time=.016};
-            MWXSceneQuickJSResult result=mwx_scene_quickjs_owner_update_vec3(
-                o,1,input,&f,"",0,"{}",2,output,diagnostic,sizeof(diagnostic));
+            MWXSceneQuickJSResult result=mwx_scene_quickjs_owner_update_vector(
+                o,1,input, 3,&f,"",0,"{}",2,output,diagnostic,sizeof(diagnostic));
             int failed=result!=MWX_SCENE_QUICKJS_OK || output[0]!=1 ||
                 mwx_scene_quickjs_owner_active_timer_count(o)!=0;
             if(failed)fprintf(stderr,"result=%d rejected=%.0f active=%u %s\n",
@@ -187,7 +187,7 @@ class SceneScriptTimerIdentityExhaustionTests(unittest.TestCase):
             mwx_scene_quickjs_owner_timer_restore(o,before);
             mwx_scene_quickjs_owner_timer_snapshot_destroy(before,o);
             f.runtime=2;output[0]=0;
-            result=mwx_scene_quickjs_owner_update_vec3(o,1,input,&f,"",0,"{}",2,output,diagnostic,sizeof(diagnostic));
+            result=mwx_scene_quickjs_owner_update_vector(o,1,input, 3,&f,"",0,"{}",2,output,diagnostic,sizeof(diagnostic));
             failed |= result!=MWX_SCENE_QUICKJS_OK || output[0]!=1 ||
                 mwx_scene_quickjs_owner_active_timer_count(o)!=0;
             mwx_scene_quickjs_owner_destroy(o);mwx_scene_quickjs_domain_destroy(d);

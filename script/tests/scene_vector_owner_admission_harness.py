@@ -675,10 +675,10 @@ enum Harness {
         let passCursorSource = """
         let phase = 0;
         let initializations = 0;
-        export function init(value) { initializations++; return value; }
+        export function init(value) { if (!(value instanceof Vec2)) throw Error("wrong parameter type"); initializations++; return new Vec2(value.x, value.y); }
         export function cursorDown(event) { phase = 2; }
         export function cursorUp(event) { phase = 3; }
-        export function update(value) { value.x = phase; value.y = initializations; return value; }
+        export function update(value) { return new Vec2(phase, initializations); }
         """
         let passCursorOnlySource = """
         export function cursorDown(event) { return; }

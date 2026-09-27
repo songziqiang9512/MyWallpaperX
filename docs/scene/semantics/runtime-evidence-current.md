@@ -6,6 +6,18 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-vector-dimensions"></a>
+
+### E-2026-09-28-VECTOR-DIMENSIONS — 二维脚本输入与返回沿同一typed向量桥接
+
+**合同与实现：**[公开Vec2合同](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/Vec2.html)定义xy两分量。旧Swift桥给vector2补z=0，再调用三维init/update入口，导致脚本实际收到Vec3、显式new Vec2返回缺z而BAD_RETURN。现有C入口改为initialize/update_vector，携带已验证的2/3维数；同一构造/读取/复制流程使用对应维数，Swift按typed值分配实际长度，旧API及全部调用已替换，没有平行wrapper。保留既有标量广播、字符串/对象读取策略和mutation fallback，三维仍要求有限z；不是完整官方返回强制转换兼容结论。
+
+**身份与专项A/B：**基线8ed267b6，最终7文件冻结SHA-256 `e02b182fb1aeaad7041063e38b9f642bc2840ac09d1e8f44c25012c246b30626`，优化签名Debug 2.10.0(279)，executable SHA-256 `fd4e4a913ba215a1ee7aed6f7fc3f1e8e97b8ad3ff83f3b4681464af853f1515`，CDHash `95e4961fcde7a99ca432d12a9a2956a74f1561f2`。两份自有vec2 shader参数场景各6秒：鼠标事件场景基线一直红，新版严格红[255,0,0]→绿[0,255,0]→黄[255,255,0]；init-only场景基线错误红，新版ready/after均绿色。最终通用矩阵2/2与专项ROI均PASS，两者同runtime有publication、GPU完成、terminal compositor与next-frame，无脚本错误；runtime分别`89317c8e-6735-426a-8972-e55faae537b2`、`504158ed-11d2-4481-8196-b12bd56ea1a9`，GPU失败均0。基线通用矩阵1/2，其中init-only误色仍被粗粒度门通过，不能把旧PASS当正确颜色。
+
+**真实回归：**同App、3211615441原包只读隔离副本、固定PCM、8秒、原左侧子帧点击，benchmark1/1 PASS。runtime `e5b90cc7-5244-4f5d-99f8-6d78c6b45f74`，原cursorClick执行，已有graph终端/下一帧链保留，提交/完成/失败/呈现164/163/0/162。既有层44 effect3/4 Boolean脚本invalidSource仍在，不把此项回归当新交互能力；此样本用于三维/混合脚本兼容回归，二维正证来自自有场景。
+
+**验证和边界：**32项Swift真实owner测试通过，包含正确Vec2输入、显式new Vec2 init/update及同VM cursor序列；26项C/ASan/定时器门通过，新增精确双元素malloc边界、out-of-band init、标量/字符串返回、缺y和NaN局部拒绝/恢复、三维缺z拒绝、非法0/1/4/UINT_MAX维数不读写、stale generation与非有限输入拒绝。ASan覆盖现役C host和QuickJS。优化Debug构建、code-health（221既有warnings）及独立冻结审查APPROVE。产品净增10行；owner、timer checkpoint、pending/commit/discard与typed发布沿用原链。未跑full corpus、官方同输入视觉对照或性能验收；标量cursor、Solid命中和Boolean effect事件输出保持开放。忽略证据缓存`2026-09-28-vector-dimensions`保存基线/最终/真实报告、原图、测量、日志及冻结补丁。
+
 <a id="e-2026-09-28-effect-parameter-cursor"></a>
 
 ### E-2026-09-28-EFFECT-PARAMETER-CURSOR — 特效向量参数共享所属层鼠标事件

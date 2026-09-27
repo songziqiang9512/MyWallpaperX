@@ -1,8 +1,12 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-28 二维/三维脚本参数统一桥接
+
+现有初始化/更新C入口统一携带typed维数，二维输入创建Vec2并只读写xy，三维仍创建Vec3并要求有限xyz；不再给二维补z后调用三维API。显式new Vec2返回、init-only及借用cursor后的更新已取得自有App最终像素/合成/下一帧证据；32项Swift owner门及26项C/ASan/定时器门通过。旧_vec3入口及全部调用同步替换，没有第二VM或平行wrapper。见[运行证据](runtime-evidence-current.md#e-2026-09-28-vector-dimensions)。关闭上一批二维类型缺口；标量cursor、Boolean effect自身显隐和Solid语义仍开放，完整官方类型转换/parity未声明。
+
 ## 2026-09-28 特效向量参数复用鼠标事件
 
-已准入的effectConstant Vec2/Vec3参数owner在创建后借用所属layer的既有cursor路径，派发复用统一layer identity核验；cursor与update共享原VM和事务，不新增实例、事件队列或renderer，产品净减少3行。自有App命中红→绿→蓝、未命中逐像素不变，3211615441原包点击回归通过；最终32项owner门与16项事务门通过。见[运行证据](runtime-evidence-current.md#e-2026-09-28-effect-parameter-cursor)。范围仅为现有向量参数路由；标量cursor、Boolean effect自身显隐、Solid完整语义及独立new Vec2返回合同仍开放，不能据此关闭321整样本。
+已准入的effectConstant Vec2/Vec3参数owner在创建后借用所属layer的既有cursor路径，派发复用统一layer identity核验；cursor与update共享原VM和事务，不新增实例、事件队列或renderer，产品净减少3行。自有App命中红→绿→蓝、未命中逐像素不变，3211615441原包点击回归通过；最终32项owner门与16项事务门通过。见[运行证据](runtime-evidence-current.md#e-2026-09-28-effect-parameter-cursor)。范围仅为现有向量参数路由；独立new Vec2返回缺口已由上方维度桥接后继修复；标量cursor、Boolean effect自身显隐及Solid完整语义仍开放，不能据此关闭321整样本。
 
 ## 2026-09-28 旧 CPU effect 音频路径退役
 
