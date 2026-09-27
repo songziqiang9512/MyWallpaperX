@@ -24,6 +24,16 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-27-audio-capture-native-replay"></a>
+
+### E-2026-09-27-AUDIO-CAPTURE-NATIVE-REPLAY — 连续采集修复接入原包画面验证
+
+**改动与身份：**基线`74e65829`。原DEBUG PCM夹具直接调用analyzer，无法验证上一批采集交接；现复用同一个生产`SystemAudioSpectrumService`的DEBUG注入入口，以128帧小块（每1600帧末块64帧）和受控采样时钟经过连续buffer、节流、worker、频谱发布及shared inbox。静音也输入零PCM，不再只清空inbox。移除夹具独立analyzer和静音旁路，不改变普通产品增益、频率轴或作者输入。设备创建由已有DEBUG recovery模式抑制。本批签名优化Debug App为`2.0.9 (277)`、Team`H9QWU9XN8R`、CDHash`7b09c3a9caa83962a86c59d65fc81dfb56f65a12`、可执行SHA-256`8265d8b8a54179c399ef3b4943f6b434f4df8f720956049ac67e4ac239721c8d`；两组运行前后签名验证通过。
+
+**运行：**只读原包的隔离副本`3789316755`与`3211615441`，分别PCM/静音12秒、每2秒截图，两个模式均2/2通过已登记执行门。日志明确`source=capture-service`；两样本同一PCM每秒抽样的left16峰值由0增长并在约0.099…0.396间变化，静音12次抽样均为零。每个样本/模式均有graph publication、GPU completion、terminal compositor消费及next-frame；PCM两样本graph成功事务分别12/56，静音仍为12/56，均无graph GPU失败。实际检查series-0003画面：`3789316755`底部柱条在PCM下可见、静音下收回；`3211615441`两侧条形随PCM伸出、静音收回，环线仍极淡，不能记为音频环达标。
+
+**验证与边界：**166项定向测试通过（system audio recovery、Scene benchmark及media event），最终Debug构建与严格签名检查通过；code-health仍为4个既有非Scene行数失败。本批闭合的是“诊断PCM→实际采集处理→作者效果→最终画面”的有界回归，仍绕过真实CoreAudio设备与普通主App→daemon IPC，不是实际音乐、同runtime切换、全柱活跃度、官方视觉等价或性能验收。用户原样本/属性未修改，运行后无遗留MyWallpaperX进程。本机忽略证据标签`2026-09-27-audio-capture-native-replay`保存报告、日志、截图和冻结diff；最新候选App保留用于后续测试。
+
 <a id="e-2026-09-27-audio-contiguous-capture"></a>
 
 ### E-2026-09-27-AUDIO-CONTIGUOUS-CAPTURE — 频谱节流不再截断输入波形

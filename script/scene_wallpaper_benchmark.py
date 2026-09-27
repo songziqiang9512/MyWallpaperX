@@ -8946,7 +8946,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--audio-spectrum-fixture",
         action="store_true",
-        help="publish deterministic PCM through the product Scene analyzer and shared inbox",
+        help="publish deterministic PCM through the product capture service, Scene analyzer and shared inbox",
     )
     parser.add_argument(
         "--audio-spectrum-silence-fixture",

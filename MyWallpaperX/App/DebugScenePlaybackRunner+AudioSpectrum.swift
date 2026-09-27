@@ -1,5 +1,6 @@
 #if DEBUG
 import Foundation
+import AudioToolbox
 
 private enum DebugSceneAudioSpectrumFixtureState {
     nonisolated static let queue = DispatchQueue(
@@ -8,7 +9,19 @@ private enum DebugSceneAudioSpectrumFixtureState {
     nonisolated static let observationQueue = DispatchQueue(
         label: "com.songziqiang.MyWallpaperX.debug-scene-audio-observation"
     )
-    static let analyzer = SystemAudioSceneSpectrumAnalyzer()
+    static let captureService: SystemAudioSpectrumService = {
+        let service = SystemAudioSpectrumService(barCount: 16)
+        service.debugEnableRecoveryTesting() // Suppress real device creation only.
+        service.onSceneLevels = { left, right, left32, right32, left64, right64, _ in
+            SceneAudioSpectrumInbox.shared.publish(left: left, right: right,
+                left32: left32, right32: right32, left64: left64, right64: right64)
+        }
+        service.setConsumers(overlayEnabled: false, webEnabled: false, sceneEnabled: true)
+        return service
+    }()
+    nonisolated static let isSilence = ProcessInfo.processInfo.arguments.contains(
+        "--mwx-debug-scene-audio-silence-fixture"
+    )
     nonisolated static let sampleRate: Float = 48_000
     nonisolated static let publicationRate: Float = 30
     nonisolated static let samplesPerFrame = Int(sampleRate / publicationRate)
@@ -94,15 +107,12 @@ extension DebugScenePlaybackRunner {
 
     static func scheduleRequestedAudioSpectrumFixture() {
         let arguments = ProcessInfo.processInfo.arguments
-        if arguments.contains("--mwx-debug-scene-audio-silence-fixture") {
-            SceneAudioSpectrumInbox.shared.clearSnapshot()
-            NSLog("MWX DEBUG SCENE AUDIO: mode=silence")
+        let silence = DebugSceneAudioSpectrumFixtureState.isSilence
+        guard silence || arguments.contains("--mwx-debug-scene-audio-spectrum-fixture") else {
             return
         }
-        guard arguments.contains("--mwx-debug-scene-audio-spectrum-fixture") else {
-            return
-        }
-        NSLog("MWX DEBUG SCENE AUDIO: mode=pcm")
+        NSLog("MWX DEBUG SCENE AUDIO: mode=%@ source=capture-service callbackFrames=128",
+              silence ? "silence" : "pcm")
         scheduleAudioSpectrumFixtureFrame(
             0,
             previousLeft: nil,
@@ -124,25 +134,38 @@ extension DebugScenePlaybackRunner {
         DebugSceneAudioSpectrumFixtureState.queue.asyncAfter(
             deadline: DispatchTime(uptimeNanoseconds: targetUptime)
         ) {
-            guard let analyzer = DebugSceneAudioSpectrumFixtureState.analyzer else {
-                SceneAudioSpectrumInbox.shared.clearSnapshot()
-                return
+            let state = DebugSceneAudioSpectrumFixtureState.self
+            let left = fixturePCM(frame: frame, channelPhase: 0)
+            let right = fixturePCM(frame: frame, channelPhase: 0.19)
+            let format = AudioStreamBasicDescription(
+                mSampleRate: Double(state.sampleRate), mFormatID: kAudioFormatLinearPCM,
+                mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked
+                    | kAudioFormatFlagIsNonInterleaved,
+                mBytesPerPacket: 4, mFramesPerPacket: 1, mBytesPerFrame: 4,
+                mChannelsPerFrame: 2, mBitsPerChannel: 32, mReserved: 0
+            )
+            let buffers = AudioBufferList.allocate(maximumBuffers: 2)
+            defer { buffers.unsafeMutablePointer.deallocate() }
+            buffers.count = 2
+            left.withUnsafeBufferPointer { l in
+                right.withUnsafeBufferPointer { r in
+                    for offset in stride(from: 0, to: left.count, by: 128) {
+                        let count = min(128, left.count - offset)
+                        buffers[0] = AudioBuffer(mNumberChannels: 1,
+                            mDataByteSize: UInt32(count * 4),
+                            mData: UnsafeMutableRawPointer(mutating: l.baseAddress! + offset))
+                        buffers[1] = AudioBuffer(mNumberChannels: 1,
+                            mDataByteSize: UInt32(count * 4),
+                            mData: UnsafeMutableRawPointer(mutating: r.baseAddress! + offset))
+                        state.captureService.debugProcessPCMForTesting(
+                            buffers.unsafePointer, format: format,
+                            now: 1 + Double(frame * state.samplesPerFrame + offset + count)
+                                / Double(state.sampleRate)
+                        )
+                    }
+                }
             }
-            let levels = analyzer.analyze(
-                signedChannels: [
-                    fixturePCM(frame: frame, channelPhase: 0),
-                    fixturePCM(frame: frame, channelPhase: 0.19),
-                ],
-                sampleRate: DebugSceneAudioSpectrumFixtureState.sampleRate
-            )
-            SceneAudioSpectrumInbox.shared.publish(
-                left: levels.left,
-                right: levels.right,
-                left32: levels.left32,
-                right32: levels.right32,
-                left64: levels.left64,
-                right64: levels.right64
-            )
+            let levels = SceneAudioSpectrumInbox.shared.latest()
             if frame.isMultiple(of: 30) {
                 let upperHalfStart = levels.left.count / 2
                 let shapeDelta = meanAbsoluteDelta(
@@ -194,7 +217,7 @@ extension DebugScenePlaybackRunner {
     }
 
     /// 确定性 PCM 只负责提供可复现的宽频输入；它不直接构造频谱。隔离样本因此会
-    /// 经过与系统音频相同的滚动窗、FFT、对数频带、响应与包络，再由
+    /// 经过实际采集服务的小块回调、连续PCM交接、FFT、频带、响应与包络，再由
     /// shared inbox 交给作者 shader。两个宽频能量团以不同连续相位缓慢穿过频段，
     /// 让验证能区分“真实形态变化”和“冻结频谱只被 Scroll 平移”；所有变化仍来自
     /// PCM，零输入模式保持严格静止。
@@ -203,6 +226,7 @@ extension DebugScenePlaybackRunner {
         channelPhase: Float
     ) -> [Float] {
         let state = DebugSceneAudioSpectrumFixtureState.self
+        if state.isSilence { return Array(repeating: 0, count: state.samplesPerFrame) }
         let startSample = frame * state.samplesPerFrame
         let elapsed = Float(frame) / state.publicationRate
         let overallEnvelope = 0.68
