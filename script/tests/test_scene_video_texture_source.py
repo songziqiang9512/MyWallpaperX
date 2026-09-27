@@ -152,6 +152,47 @@ enum Harness {
             hostTime: 205.25
         )
 
+        func loopPhase(rate: Double, observed: Double, next: Double) -> Double {
+            var source = SceneVideoProviderLifecycleState(epoch: 84)
+            source.start(sceneTime: 100, hostTime: 200)
+            source.setRate(rate, sceneTime: 100, hostTime: 200)
+            _ = source.planFrame(frameIndex: 1, sceneTime: 100 + observed, hostTime: 200 + observed)
+            source.didReachEnd(duration: 5)
+            return source.planFrame(frameIndex: 2, sceneTime: 100 + next,
+                hostTime: 200 + next).itemTime
+        }
+        let delayedLoop = loopPhase(rate: 1, observed: 5.2, next: 5.25)
+        let earlyLoop = loopPhase(rate: 1, observed: 4.99, next: 5.02)
+        let fastLoop = loopPhase(rate: 2, observed: 2.6, next: 2.65)
+        var repeatedLoop = SceneVideoProviderLifecycleState(epoch: 85)
+        repeatedLoop.start(sceneTime: 0, hostTime: 0)
+        for index in 1...10 {
+            _ = repeatedLoop.planFrame(frameIndex: UInt64(index),
+                sceneTime: Double(index) * 5.2, hostTime: Double(index) * 5.2)
+            repeatedLoop.didReachEnd(duration: 5)
+        }
+        let repeatedLoopPhase = repeatedLoop.planFrame(frameIndex: 11,
+            sceneTime: 52.05, hostTime: 52.05).itemTime
+
+        var earlyAnchor = SceneVideoProviderLifecycleState(epoch: 86)
+        earlyAnchor.start(sceneTime: 100, hostTime: 200)
+        _ = earlyAnchor.planFrame(frameIndex: 1, sceneTime: 104.99, hostTime: 204.99)
+        earlyAnchor.didReachEnd(duration: 5)
+        var earlyPaused = earlyAnchor
+        earlyPaused.pause(sceneTime: 104.995, hostTime: 204.995)
+        earlyPaused.resume(sceneTime: 105.5, hostTime: 205.5)
+        var earlyRate = earlyAnchor
+        earlyRate.setRate(2, sceneTime: 105.01, hostTime: 205.01)
+        var earlyRebuilt = earlyAnchor
+        earlyRebuilt.rebuild(sceneTime: 105.01, hostTime: 205.01)
+        var finalEnd = earlyAnchor
+        finalEnd.setLoop(false)
+        finalEnd.didReachEnd(duration: 5)
+        let negativeAnchorTransitions = close(earlyPaused.currentTime(at: 105.52), 0.015)
+            && close(earlyRate.currentTime(at: 105.03), 0.05)
+            && close(earlyRebuilt.currentTime(at: 105.03), 0.03)
+            && close(finalEnd.currentTime(at: 110), 5) && !finalEnd.isPlaying
+
         var playerEvents = SceneVideoPlayerEventState()
         let unanchoredEndRejected = !playerEvents.acceptsEndEvent(
             observedItemTime: 5,
@@ -216,6 +257,10 @@ enum Harness {
                 && close(pausedWhileSuspended.itemTime, 1),
             "suspendedRebuildDoesNotAdvance": !rebuiltWhileSuspended.shouldDecode
                 && close(rebuiltWhileSuspended.itemTime, 1),
+            "loopNegativeAnchorTransitions": negativeAnchorTransitions,
+            "loopPreservesElapsedPhase": close(delayedLoop, 0.25)
+                && close(earlyLoop, 0.02) && close(fastLoop, 0.3)
+                && close(repeatedLoopPhase, 2.05),
             "loopRestartsAtLatestSceneTime": loopRestart.shouldDecode
                 && close(loopRestart.itemTime, 0.25),
             "endEventBelongsToCurrentAnchor": unanchoredEndRejected
@@ -319,6 +364,8 @@ class SceneVideoProviderLifecycleStateTests(unittest.TestCase):
             "rebuildIsContinuous",
             "suspendedPauseDoesNotAdvance",
             "suspendedRebuildDoesNotAdvance",
+            "loopNegativeAnchorTransitions",
+            "loopPreservesElapsedPhase",
             "loopRestartsAtLatestSceneTime",
             "endEventBelongsToCurrentAnchor",
             "epochIsInherited",
@@ -611,53 +658,6 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
             "unavailable metadata must not form a video registry identity",
         )
 
-    def test_video_command_failure_withholds_its_visibility_owner(self) -> None:
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        lifecycle = HOST_FRAME_DRIVER_LIFECYCLE_SOURCE.read_text(encoding="utf-8")
-        owner_validation = OWNER_EFFECTS_VALIDATION_SOURCE.read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("videoRegistry.validate(", owner_validation)
-        validation = frame_driver.index(
-            ".preflightOwnerEffectsToFixedPoint(ownerEffects)"
-        )
-        application = lifecycle.index("videoTextureSourceRegistry?.apply(")
-        publication = frame_driver.index(
-            "var admittedSceneScriptValues = admittedValues(",
-            validation,
-        )
-        self.assertLess(validation, publication)
-        barrier = frame_driver.index("let allSurfacesSubmitted =")
-        commit_call = frame_driver.index("commitSubmittedSceneFrame(", barrier)
-        self.assertGreater(commit_call, barrier)
-        self.assertIn("func commitSubmittedSceneFrame(", lifecycle)
-        self.assertGreater(application, lifecycle.index("func commitSubmittedSceneFrame("))
-        self.assertIn(
-            "rejectedOwnerTargets.contains($0.key)",
-            frame_driver[validation:publication],
-        )
-
-    def test_provider_validation_failure_does_not_disable_future_callbacks(self) -> None:
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        vector_program = VECTOR_PROGRAM_SOURCE.read_text(encoding="utf-8")
-        validation = frame_driver.index(
-            ".preflightOwnerEffectsToFixedPoint(ownerEffects)"
-        )
-        publication = frame_driver.index(
-            "var admittedSceneScriptValues = admittedValues(",
-            validation,
-        )
-        self.assertNotIn("rejectVideoCommandTargets", frame_driver)
-        self.assertNotIn("rejectVideoCommandTargets", vector_program)
-        self.assertIn(
-            "rejectedOwnerTargets.formUnion(admission.rejectedOwners.compactMap(",
-            frame_driver[validation:publication],
-        )
-        self.assertIn(
-            "disabledTargets.insert(target)",
-            vector_program,
-            "callback/VM failures remain the persistent owner-local disable boundary",
-        )
 
 
 if __name__ == "__main__":

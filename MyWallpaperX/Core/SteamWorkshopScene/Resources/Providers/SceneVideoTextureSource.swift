@@ -7,7 +7,8 @@ final class SceneVideoTextureSource {
         let texture: MTLTexture
         let content: SceneTextureContent
         let contentGeneration: UInt64
-        let itemTime: TimeInterval
+        let requestedItemTime: TimeInterval
+        let decodedItemTime: TimeInterval?
         let epoch: UInt64
         let layerID: Int
 
@@ -49,6 +50,7 @@ final class SceneVideoTextureSource {
     private var pendingFrameIndex: UInt64?
     private struct FramePreparationSnapshot {
         let lifecycle: SceneVideoProviderLifecycleState
+        let endedGeneration: UInt64
         let hasStarted: Bool
         let needsPlayerAnchor: Bool
         let playerEventState: SceneVideoPlayerEventState
@@ -183,6 +185,7 @@ final class SceneVideoTextureSource {
         guard player.currentItem != nil else { return nil }
         pendingPreparationSnapshot = .init(
             lifecycle: lifecycle,
+            endedGeneration: endedGeneration,
             hasStarted: hasStarted,
             needsPlayerAnchor: needsPlayerAnchor,
             playerEventState: playerEventState,
@@ -207,6 +210,11 @@ final class SceneVideoTextureSource {
         // AVPlayer publishes a buffer.
         pendingFrameIndex = timing.frameIndex
         guard plan.shouldDecode else { return lastFrame }
+        // An EOF may arrive after preparation but before a rejected frame is
+        // retried. Its old Scene time can precede the new loop's zero point.
+        // Keep the previous texture until that point instead of scheduling
+        // item zero against an earlier host time and shifting playback ahead.
+        guard plan.itemTime >= 0 else { return lastFrame }
         guard item.status == .readyToPlay else {
             markPlayerAnchorRequired()
             return lastFrame
@@ -257,7 +265,9 @@ final class SceneVideoTextureSource {
             texture: texture,
             content: resolvedColorContent(for: pixelBuffer),
             contentGeneration: contentGeneration,
-            itemTime: plan.itemTime,
+            requestedItemTime: CMTimeGetSeconds(itemTime),
+            decodedItemTime: itemTimeForDisplay.isNumeric
+                ? CMTimeGetSeconds(itemTimeForDisplay) : nil,
             epoch: plan.epoch,
             layerID: layerID
         )
@@ -286,6 +296,14 @@ final class SceneVideoTextureSource {
             return
         }
         lastFrame = pendingFrame
+        if capturesLifecycleObservations {
+            NSLog(
+                "MWX video frame: schema=video-frame-v1 layer=%d epoch=%llu frame=%llu generation=%llu requested=%.9f decoded=%@",
+                layerID, pendingFrame.epoch, frameIndex, pendingFrame.contentGeneration,
+                pendingFrame.requestedItemTime,
+                pendingFrame.decodedItemTime.map { String(format: "%.9f", $0) } ?? "unavailable"
+            )
+        }
     }
 
     func discardPreparedFrame() {
@@ -296,8 +314,13 @@ final class SceneVideoTextureSource {
         pendingPreparationSnapshot = nil
         lifecycle.discardPlannedFrame(frameIndex: frameIndex)
         if let preparation {
-            lifecycle = preparation.lifecycle
-            hasStarted = preparation.hasStarted
+            // A confirmed backend EOF is not an unsubmitted frame mutation.
+            // Keep its exact loop phase or stopped state across frame rejection;
+            // content generation and lastFrame still advance only on commit.
+            if endedGeneration == preparation.endedGeneration {
+                lifecycle = preparation.lifecycle
+                hasStarted = preparation.hasStarted
+            }
             needsPlayerAnchor = preparation.needsPlayerAnchor
             playerEventState = preparation.playerEventState
             currentCVMetalTexture = preparation.currentCVMetalTexture
@@ -356,12 +379,14 @@ final class SceneVideoTextureSource {
         }
         switch command.action {
         case .play:
+            guard !lifecycle.isPlaying else { return }
             lifecycle.resume(
                 sceneTime: timing.sceneTime,
                 hostTime: timing.hostTime
             )
             markPlayerAnchorRequired()
         case .pause:
+            guard lifecycle.isPlaying else { return }
             lifecycle.pause(
                 sceneTime: timing.sceneTime,
                 hostTime: timing.hostTime
@@ -386,6 +411,7 @@ final class SceneVideoTextureSource {
             )
             markPlayerAnchorRequired()
         case let .setRate(value):
+            guard value != lifecycle.rate else { return }
             lifecycle.setRate(
                 value,
                 sceneTime: timing.sceneTime,

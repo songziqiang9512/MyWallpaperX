@@ -222,8 +222,12 @@ nonisolated struct SceneVideoProviderLifecycleState {
     nonisolated mutating func didReachEnd(duration: TimeInterval) {
         guard !isStopped, duration.isFinite, duration > 0 else { return }
         if loop {
-            heldItemTime = 0
-            anchorItemTime = 0
+            // EOF is an asynchronous backend observation, not a new clock
+            // origin. Carry the elapsed phase across the duration boundary.
+            // A last observation just before EOF can produce a small negative
+            // anchor; the next scene tick then crosses zero at the right time.
+            heldItemTime = currentTime(at: lastObservedSceneTime) - duration
+            anchorItemTime = heldItemTime
             anchorSceneTime = lastObservedSceneTime
         } else {
             heldItemTime = duration
