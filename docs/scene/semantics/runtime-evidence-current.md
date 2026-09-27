@@ -3852,3 +3852,17 @@ App均2.10.0(279)：修前SHA `63c85be6dd7d7a5f6cd56fbe8b785878f455cc5c6472500e8
 **真实原包：**固定PCM输入各10秒，`2932631210`的`newproperty7:2→1`与`3238423642`的`audioresponsivecircle:1→4`均PASS，属性accepted、window不变，GPU失败0（分别286/286/0/284、284/283/0/281）。前者runtime`004ee91f-3e90-45c9-bbc7-110ee549da9c`的层106两效果在frame117交换active/passthrough、118下一帧终端消费。后者runtime`d326ebaf-2d7b-4e38-a1ae-86875b8781e1`的同key同时控制effect与三层visible，选择4全false；层1142退出后不应继续要求该effect执行，保留最终场景GPU/呈现。已查看两份after及后者ready原图；不从截图宣称音圈幅度、完整视觉或性能改善。`3211615441`其余style尚未本批重跑。
 
 **归档与余门：**本机忽略缓存`docs/scene/evidence/2026-09-28-combo-boolean-visibility/`保留5次有效运行的报告/log/ready/after原图、夹具源码、ROI/执行摘录、旧实现反例、测试/构建、审查及SHA清单；不归档真实pkg和staged App。受控门证明shared条件执行/准备可用，不关闭18样本全部组合、任意Bool/数值condition、混合目标初始隐藏、依赖/hierarchy与完整HDR；相机/Puppet仍需实际内容门。临时运行与样本副本归档核验后按精确目录清理。
+
+
+<a id="e-2026-09-28-mixed-visibility-preparation"></a>
+### 2026-09-28 — 混合布尔目标的effect准备去除重复限制
+
+**根因/改动：**基线`0d0922ba`虽能编译混合Combo Boolean，`liveEffectVisibilityTargets`仍要求同key全部siblings为effectVisibility，导致无关Bloom/层visible消费者使关闭的effect不能准备。删除该按key分组与额外限制，改为每个通过Program结构、Bool/fallback、condition域和rebuild-key检查的effect各自提供准备需求。只改现有Program查询，产品5增15删（净−10）；原route的dependency/provider、utility、parent/child及可见层限制不动。LiveState继续检查全key所有consumer激活/非unavailable、全目标成功求值，再原子交换值/revision。准备候选不等于可热提交。
+
+**测试/审查：**property_binding_program、property_live_update_state、runtime_input合计52项通过；新增真实Swift混合effect/Bloom/layer组的正常提交、非法选项，以及逐个consumer缺席/暂时不可用保持旧值/revision反例。结构重复、fallback非Bool、rebuild-key保持拒绝；手构造Bool/scalar同key可以准备effect，不代表类型转换/热提交通过。优化Debug构建与code health通过（221既有warnings）。独立只读审查APPROVE冻结3文件diff SHA256`9821794e18055da1eb1bc68131d14317ec280ee7a90d17a2f3fbb03413b82d89`。
+
+**同输入完整App A/B：**同一组自有package，选项base/red/green同时驱动两普通根层颜色effect、general.bloom和第二个蓝色solid层visible；三次分别base→red、red→green、green→base，每次6秒。基线3/3均因`live property update rejected` NON-PASS，截图的中心/marker/halo均不变；候选3/3 PASS且accepted=true，三次runtime/window均未更换。中心RGB依次白→红、红→绿、绿→白；伴随marker黑→蓝、蓝→黑、黑保持；几何边缘外8px的Bloom ROI平均R=0→27.5、27.5→0、0保持。已查看第一组完整after原图并读取全部12张原图ROI，不能只用route PASS判可见。改变的graph在热调后有publication/GPU completed与next-frame；第2/3组有热调后的terminal compositor next-frame事件；第1组末端是未变化的disabled passthrough，其terminal事件只在初始帧/下一帧记录（后续去重），改变的前级在115/116帧完成，最终after红色+蓝标记+halo像素补充最终输出证据，不伪报逐帧末端事件。三次候选submitted/completed/failed/presented为119/118/0/117、110/110/0/108、111/110/0/109。
+
+**身份/范围：**两构建均2.10.0(279)。基线executable SHA256`030ad88f20efdd0cf53ae72e91e5abefc56b92aff9eafba8d3e343e0e74814b4`、CDHash`8f8081cba71e065baabaefd94d9392e654afa676`；候选SHA256`d86e09a9abfafe8a2939963a94967034e2c0be9e0f15ccbe5fcf82996ce35b0b`、CDHash`66e0638d346800bcd65b4550322e11f7607fc3f2`。自有输入只作公共primitive验证，不进入产品分派。未重跑18样本全部条件；效果所属层初始隐藏、dependency/hierarchy、真实Workshop混合组合、性能和官方parity仍开放，不放宽其他gate来获得热调。
+
+**归档：**`docs/scene/evidence/2026-09-28-mixed-visibility-preparation/`本机忽略缓存保留六次报告、log、ready/after原图、自有夹具生成器、ROI脚本/结果、构建/测试/审查和SHA清单，预算40MiB。归档核验后只清理本批before/after运行目录和samples副本，保留现役DerivedData复用。

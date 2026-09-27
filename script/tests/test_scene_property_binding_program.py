@@ -1118,6 +1118,8 @@ enum Harness {
             "booleanConditionBad": conditionBad.userValues.isEmpty && !conditionBad.diagnostics.isEmpty,
             "booleanConditionRoundTrip": conditionRoundTrip.evaluate(effectiveValues: ["mode": .string("one")]).userValues == conditionOne.userValues,
             "conditionalEffectPreparation": conditionEffectOnly.program.liveEffectVisibilityTargets.count == 2,
+            "mixedConditionalEffectPreparation": conditionalBooleans.program.liveEffectVisibilityTargets
+                == conditionEffectOnly.program.liveEffectVisibilityTargets,
             "conditionalCount": conditional.program.instructions.count,
             "conditionalCodes": codes(conditional.diagnostics),
             "conditionalLayerCount": conditionalLayer.program.instructions.count,
@@ -1256,9 +1258,8 @@ enum Harness {
                     == Set([xRayVisibilityTarget, sharedVisibilityTarget]),
             "mixedVisibilityStartupTargetsEmpty":
                 mixedVisibilityKeyProgram.directBoolEffectVisibilityTargets.isEmpty,
-            "mixedVisibilityEffectLocalTargetsEmpty":
-                mixedVisibilityKeyProgram
-                    .liveEffectVisibilityTargets.isEmpty,
+            "mixedVisibilityPreparesEffect":
+                mixedVisibilityKeyProgram.liveEffectVisibilityTargets == [xRayVisibilityTarget],
             "rebuildVisibilityStartupTargetsEmpty":
                 rebuildVisibilityProgram.directBoolEffectVisibilityTargets.isEmpty,
             "rebuildVisibilityEffectLocalTargetsEmpty":
@@ -1644,7 +1645,8 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
 
     def test_combo_boolean_targets_share_domains_and_atomic_evaluation(self) -> None:
         for key in ["booleanConditionsAdmitted", "booleanConditionOne", "booleanConditionBase",
-                    "booleanConditionBad", "booleanConditionRoundTrip", "conditionalEffectPreparation"]:
+                    "booleanConditionBad", "booleanConditionRoundTrip", "conditionalEffectPreparation",
+                    "mixedConditionalEffectPreparation"]:
             self.assertTrue(self.result[key], key)
 
     def test_mixed_property_key_retains_rebuild_requirement(self) -> None:
@@ -1886,7 +1888,7 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
         self.assertTrue(self.result["sharedVisibilityStartupTargetsEmpty"])
         self.assertTrue(self.result["sharedVisibilityEffectLocalTargets"])
         self.assertTrue(self.result["mixedVisibilityStartupTargetsEmpty"])
-        self.assertTrue(self.result["mixedVisibilityEffectLocalTargetsEmpty"])
+        self.assertTrue(self.result["mixedVisibilityPreparesEffect"])
         self.assertTrue(self.result["rebuildVisibilityStartupTargetsEmpty"])
         self.assertTrue(self.result["rebuildVisibilityEffectLocalTargetsEmpty"])
         self.assertTrue(self.result["duplicateVisibilityEffectLocalTargetsEmpty"])

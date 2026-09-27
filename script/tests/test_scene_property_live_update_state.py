@@ -276,6 +276,36 @@ enum Harness {
             from: beforeMixedVisibility
         )
 
+        let mixedTargets: [SceneDynamicTarget] = [xrayVisibility, .scene(.bloomEnabled), layoutOne]
+        let mixedCombo = ScenePropertyBindingProgram(
+            definitions: mixedTargets.map { .init(target: $0, valueType: .bool, authoredValue: .bool(false)) },
+            instructions: mixedTargets.map { .init(propertyKey: "mix", path: .init(components: []),
+                target: $0, valueType: .bool, condition: .string("on")) },
+            conditionalValueDomainsByPropertyKey: ["mix": ["off", "on"]])
+        let allMixedTargets = Set(mixedTargets)
+        var mixedComboState = ScenePropertyLiveUpdateState(program: mixedCombo,
+            effectiveValues: ["mix": .string("off")], activeConsumerTargets: allMixedTargets)
+        let mixedComboAccepted = mixedComboState.apply(.string("on"), forPropertyKey: "mix")
+            && mixedComboState.userValues.values.allSatisfy { $0 == .bool(true) }
+            && mixedComboState.revision == 1
+        let beforeMixedInvalid = mixedComboState
+        let mixedInvalidAtomic = !mixedComboState.apply(.string("unknown"), forPropertyKey: "mix")
+            && unchanged(mixedComboState, from: beforeMixedInvalid)
+        var mixedUnavailableAtomic = true
+        for target in mixedTargets {
+            var missing = ScenePropertyLiveUpdateState(program: mixedCombo,
+                effectiveValues: ["mix": .string("off")],
+                activeConsumerTargets: allMixedTargets.subtracting([target]))
+            let before = missing
+            mixedUnavailableAtomic = mixedUnavailableAtomic
+                && !missing.apply(.string("on"), forPropertyKey: "mix") && unchanged(missing, from: before)
+            var temporarilyUnavailable = mixedComboState
+            mixedUnavailableAtomic = mixedUnavailableAtomic
+                && !temporarilyUnavailable.apply(.string("off"), forPropertyKey: "mix",
+                    unavailableConsumerTargets: [target])
+                && unchanged(temporarilyUnavailable, from: mixedComboState)
+        }
+
         let conditionalLayoutProgram = ScenePropertyBindingProgram(
             definitions: [
                 .init(target: layoutOne, valueType: .bool, authoredValue: .bool(true)),
@@ -659,6 +689,9 @@ enum Harness {
             "genericVisibilityWasAtomic": genericVisibilityWasAtomic,
             "xrayVisibilityAccepted": xrayVisibilityAccepted,
             "xrayVisibilityUpdated": xrayVisibilityUpdated,
+            "mixedComboAccepted": mixedComboAccepted,
+            "mixedInvalidAtomic": mixedInvalidAtomic,
+            "mixedUnavailableAtomic": mixedUnavailableAtomic,
             "mixedVisibilityRejected": mixedVisibilityRejected,
             "mixedVisibilityWasAtomic": mixedVisibilityWasAtomic,
             "conditionalLayoutInitial": conditionalLayoutInitial,
@@ -857,6 +890,11 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
     def test_mixed_visibility_key_rejects_if_any_consumer_is_inactive(self) -> None:
         self.assertTrue(self.result["mixedVisibilityRejected"])
         self.assertTrue(self.result["mixedVisibilityWasAtomic"])
+
+    def test_mixed_effect_scene_layer_group_requires_every_consumer(self) -> None:
+        self.assertTrue(self.result["mixedComboAccepted"])
+        self.assertTrue(self.result["mixedInvalidAtomic"])
+        self.assertTrue(self.result["mixedUnavailableAtomic"])
 
     def test_conditional_layout_cohort_and_base_selection_are_atomic(self) -> None:
         self.assertTrue(self.result["conditionalLayoutInitial"])
