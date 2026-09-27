@@ -19,10 +19,6 @@ jobs:
     name: Select and run repository gates
     runs-on: macos-26
 
-    env:
-      CLANG_MODULE_CACHE_PATH: ${{ runner.temp }}/mwx-clang-module-cache
-      SWIFT_MODULECACHE_PATH: ${{ runner.temp }}/mwx-swift-module-cache
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,6 +41,8 @@ jobs:
           EVENT_BEFORE: ${{ github.event.before }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
+          echo "CLANG_MODULE_CACHE_PATH=$RUNNER_TEMP/mwx-clang-module-cache" >> "$GITHUB_ENV"
+          echo "SWIFT_MODULECACHE_PATH=$RUNNER_TEMP/mwx-swift-module-cache" >> "$GITHUB_ENV"
           BASE_REF="$EVENT_BEFORE"
           if [ "$EVENT_NAME" = "pull_request" ]; then
             BASE_REF="$PR_BASE_SHA"
