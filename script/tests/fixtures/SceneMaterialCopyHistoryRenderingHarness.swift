@@ -760,7 +760,7 @@ private func completeCoordinatorFrame(
     commandBuffer.waitUntilCompleted()
     let completed = commandBuffer.status == .completed && commandBuffer.error == nil
     coordinator.completeCommandBuffer(
-        identity: ObjectIdentifier(commandBuffer),
+        identity: ObjectIdentifier(commandBuffer), observationID: coordinator.commandBufferRecords[ObjectIdentifier(commandBuffer)]?.observationID ?? 0,
         status: completed ? .completed : .failed
     )
     return .init(

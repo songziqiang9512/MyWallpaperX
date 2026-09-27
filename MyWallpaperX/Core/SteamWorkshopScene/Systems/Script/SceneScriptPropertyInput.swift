@@ -282,6 +282,16 @@ nonisolated struct SceneScriptAppliedUserPropertyState: Sendable {
         )
     }
 
+    mutating func restore(
+        _ state: Self,
+        for targets: Set<SceneDynamicTarget>
+    ) {
+        for target in targets {
+            valuesByTarget[target] = state.valuesByTarget[target]
+            revisionsByTarget[target] = state.revisionsByTarget[target]
+        }
+    }
+
     mutating func record(
         _ values: [String: SceneUserPropertyValue],
         revision: UInt64?,

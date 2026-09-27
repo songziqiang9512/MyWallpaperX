@@ -456,6 +456,15 @@ enum Harness {
         let futureEnvelopePreserved = try Data(contentsOf: storedFile)
             == futureEnvelope
         let payload: [String: Any] = [
+            "admission": try [
+                "comments": stringAdmission("'use strict'; /* export function update(v) { return v; } */", frame: frame),
+                "helper": stringAdmission("globalThis.admitted = (globalThis.admitted || 0) + 1; export function unused() { throw new Error('must stay asleep'); }", frame: frame),
+                "destroy": stringAdmission("globalThis.admitted = (globalThis.admitted || 0) + 1; export function destroy() { globalThis.admitted += 10; }", frame: frame),
+                "timer": stringAdmission("globalThis.admitted = 1; engine.setTimeout(() => { globalThis.admitted += 2; }, 0);", frame: frame),
+                "invalid": stringAdmission("export function broken( {", frame: frame),
+                "throwing": stringAdmission("throw new Error('real module failure');", frame: frame),
+                "initOnly": stringAdmission("export function init(v) { return 'initialized'; }", frame: frame),
+            ],
             "bindings": program.bindings.count,
             "warmedFailures": warmed.failures.count,
             "warmedResolution": warmedResolution,
@@ -500,6 +509,65 @@ enum Harness {
             options: [.sortedKeys]
         )
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    static func stringAdmission(_ source: String, frame: SceneScriptFrameInput) throws -> [String: Any] {
+        let descriptor = SceneRenderDescriptor(layers: [.init(
+            id: 77, layerIndex: 0, name: "unseen module", visible: true,
+            originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], anglesXYZ: [0, 0, 0],
+            colorRGB: nil, alpha: 1, effects: [], contentKind: "text",
+            textScript: .init(source: source), text: "authored",
+            textStyle: .init(fontPath: nil, colorRGB: [1, 1, 1], pointSize: 32)
+        )])
+        let domain = try SceneScriptQuickJSDomain()
+        try domain.configureLayerCatalog(descriptor)
+        let work = SceneScriptConstructionWorkBudget(limit: 1, plannedOwnerUpperBound: 1)
+        let candidate = SceneScriptStringProgram.compileCandidate(
+            domain: domain, descriptor: descriptor,
+            scriptBindings: [binding(source: source)], rejectedTargets: [],
+            generation: 1, constructionWork: work
+        )
+        let target = SceneDynamicTarget.text(layerID: 77, field: .content)
+        let program = candidate.program
+        let first = program.evaluate(inputs: [target: .string("first-current")], frame: frame)
+        program.finalizeLayerMutations(committing: true)
+        let second = program.evaluate(inputs: [target: .string("second-current")], frame: frame)
+        program.finalizeLayerMutations(committing: true)
+        // Observe evaluated module/timer/teardown effects from a peer in the
+        // same real VM. No source-text or internal-symbol assertions.
+        let witness = try SceneScriptStringOwner(
+            domain: domain,
+            source: "export function update(v) { return String(globalThis.admitted || 0); }",
+            target: target, effectNames: [], generation: 1
+        )
+        let beforeTeardown = try witness.evaluate(
+            input: "", frame: frame, userPropertiesJSON: "{}", expectedGeneration: 1
+        ).get().value
+        witness.commitLayerMutations()
+        let teardown = program.teardown(frame: frame, userPropertiesJSON: "{}")
+        let repeated = program.teardown(frame: frame, userPropertiesJSON: "{}")
+        let afterTeardown = try witness.evaluate(
+            input: "", frame: frame, userPropertiesJSON: "{}", expectedGeneration: 1
+        ).get().value
+        witness.commitLayerMutations()
+        func string(_ value: SceneDynamicValue) -> String {
+            if case let .string(value) = value { return value }
+            return "wrong-type"
+        }
+        return [
+            "instantiated": candidate.instantiatedTargets.count,
+            "failures": candidate.failures.values.map(\.code),
+            "reconstruct": candidate.requiresDomainReconstruction,
+            "work": work.consumed,
+            "firstPublished": first.values[target] != nil,
+            "secondPublished": second.values[target] != nil,
+            "frameFailures": first.failures.count + second.failures.count,
+            "beforeTeardown": string(beforeTeardown),
+            "afterTeardown": string(afterTeardown),
+            "destroyCallbacks": teardown.filter(\.destroyCallbackInvoked).count,
+            "repeatedDestroyCallbacks": repeated.filter(\.destroyCallbackInvoked).count,
+            "teardownFailures": (teardown + repeated).compactMap(\.failure).count,
+        ]
     }
 
     static func binding(source: String) -> SceneScriptBindingIR {
@@ -693,6 +761,40 @@ class SceneScriptStringLifecycleTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temp_dir.cleanup()
+
+    def test_valid_modules_without_frame_callbacks_remain_admitted_and_quiescent(self) -> None:
+        value = json.loads(subprocess.run(
+            [str(self.binary)], check=True, capture_output=True, text=True,
+        ).stdout)["admission"]
+        for name in ("comments", "helper", "destroy"):
+            with self.subTest(name=name):
+                result = value[name]
+                self.assertEqual(result["instantiated"], 1)
+                self.assertEqual(result["failures"], [])
+                self.assertFalse(result["reconstruct"])
+                self.assertEqual(result["work"], 1)
+                self.assertEqual(result["frameFailures"], 0)
+                self.assertFalse(result["secondPublished"])
+                self.assertEqual(result["teardownFailures"], 0)
+                self.assertEqual(result["repeatedDestroyCallbacks"], 0)
+        for name in ("comments", "helper", "destroy"):
+            self.assertFalse(value[name]["firstPublished"])
+        self.assertEqual(value["helper"]["beforeTeardown"], "1")
+        self.assertEqual(value["destroy"]["beforeTeardown"], "1")
+        self.assertEqual(value["destroy"]["afterTeardown"], "11")
+        self.assertEqual(value["destroy"]["destroyCallbacks"], 1)
+
+    def test_real_errors_and_unclosed_init_only_admission_still_reject(self) -> None:
+        value = json.loads(subprocess.run(
+            [str(self.binary)], check=True, capture_output=True, text=True,
+        ).stdout)["admission"]
+        for name, code in (("invalid", "compile-error"), ("throwing", "exception"),
+                           ("timer", "exception"), ("initOnly", "invalid-source")):
+            with self.subTest(name=name):
+                self.assertEqual(value[name]["instantiated"], 0)
+                self.assertEqual(value[name]["failures"], [code])
+                self.assertTrue(value[name]["reconstruct"])
+                self.assertFalse(value[name]["firstPublished"])
 
     def test_warmed_failure_and_disabled_frame_use_new_lower_current(self) -> None:
         result = json.loads(

@@ -128,10 +128,16 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
             handlesUserProperties = try SceneScriptOwnerExportBridge.contains(
                 "applyUserProperties", owner: created
             )
-            guard updateAvailable == 1 || handlesUserProperties
-                    || handlesMediaThumbnail || handlesMediaPlayback
-                    || handlesMediaProperties || handlesMediaTimeline else {
-                throw SceneScriptScalarRuntimeFailure.invalidSource
+            if !handlesUpdate && !handlesUserProperties
+                    && !handlesMediaThumbnail && !handlesMediaPlayback
+                    && !handlesMediaProperties && !handlesMediaTimeline {
+                // A valid module may have no frame callbacks. Keep its owner
+                // for timers/teardown without forcing a fresh scene domain.
+                // Init-only admission still needs transactional initialization
+                // and remains closed until owner/frame rollback is supported.
+                if try SceneScriptOwnerExportBridge.contains("init", owner: created) {
+                    throw SceneScriptScalarRuntimeFailure.invalidSource
+                }
             }
         } catch {
             mwx_scene_quickjs_owner_destroy(created)
@@ -440,7 +446,7 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
     }
 
     func commitStorage() -> Result<Void, SceneScriptScalarRuntimeFailure> {
-        let result = domain.commitStorage(owner: handle)
+        let result = domain.commitStorage(owner: handle, target: target)
         if case .failure = result {
             SceneScriptLayerMutationBridge.discard(owner: handle)
         }

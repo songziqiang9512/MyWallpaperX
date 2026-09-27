@@ -81,13 +81,26 @@ nonisolated struct SceneScriptCursorEdgeState: Sendable {
     var capturedHits: [Int: SceneScriptCursorHit]
     var previousPointerPosition: SIMD2<Float>?
     var previousPrimaryButtonIsDown: Bool
+    var pendingEvents: [SceneScriptCursorPendingEvent]
 
     static let empty = SceneScriptCursorEdgeState(
         previousHits: [:],
         capturedHits: [:],
         previousPointerPosition: nil,
-        previousPrimaryButtonIsDown: false
+        previousPrimaryButtonIsDown: false,
+        pendingEvents: []
     )
+}
+
+/// Resolved physical input awaiting this target's publication. Retaining the
+/// event preserves a down/up pair even when the latest pointer is stationary.
+nonisolated struct SceneScriptCursorPendingEvent: Sendable {
+    let ownerTarget: SceneDynamicTarget
+    let kind: SceneScriptCursorEventKind
+    let hit: SceneScriptCursorHit
+    let surface: SceneScriptSurfaceInput?
+    let captureActive: Bool
+    let currentHit: Bool
 }
 
 nonisolated struct SceneScriptCursorBinding: @unchecked Sendable {

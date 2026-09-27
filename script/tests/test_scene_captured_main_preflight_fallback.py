@@ -210,7 +210,7 @@ def augmented_harness(source: str) -> str:
             buffer.commit()
             buffer.waitUntilCompleted()
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(buffer),
+                identity: ObjectIdentifier(buffer), observationID: coordinator.commandBufferRecords[ObjectIdentifier(buffer)]?.observationID ?? 0,
                 status: buffer.status == .completed && buffer.error == nil
                     ? .completed : .failed
             )

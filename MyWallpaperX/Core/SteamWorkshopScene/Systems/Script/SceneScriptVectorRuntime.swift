@@ -18,8 +18,8 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     private let allowsStatefulLayerSideEffects: Bool
     private let handlesInit: Bool
     private let handlesUpdate: Bool
-    private var hasInitialized = false
     private var pendingInitializationValue: SceneDynamicValue?
+    private var initializationValueConsumed = false
     private var lastAudioGeneration: UInt64?
 
     var allowsDynamicLayerSideEffects: Bool {
@@ -33,19 +33,20 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     /// program-side skip relies on this flag. A retained initialization value
     /// keeps the owner evaluable until the evaluation published it.
     var requiresFrameEvaluation: Bool {
-        handlesUpdate || (handlesInit && !hasInitialized)
-            || pendingInitializationValue != nil
+        handlesUpdate || needsInitialization
+            || (pendingInitializationValue != nil && !initializationValueConsumed)
             || mwx_scene_quickjs_owner_active_timer_count(handle) > 0
     }
 
     /// Authored `init` runs once, before any other authored callback. A route
     /// that dispatches events ahead of the frame evaluation has to complete it
     /// first, or the callback would read pre-`init` state.
-    var needsInitialization: Bool { handlesInit && !hasInitialized }
+    var needsInitialization: Bool { handlesInit && !mwx_scene_quickjs_owner_is_initialized(handle) }
 
     /// Takes the value an out-of-band `init` published, for the next `update`.
     private func consumePendingInitializationValue() -> SceneDynamicValue? {
-        defer { pendingInitializationValue = nil }
+        guard !initializationValueConsumed, let pendingInitializationValue else { return nil }
+        initializationValueConsumed = true
         return pendingInitializationValue
     }
 
@@ -219,14 +220,12 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                         throw SceneScriptScalarRuntimeFailure.invalidSource
                     }
                 } else {
-                    // Event-only owner: constructed only when a property/media
-                    // dispatch will drive it, it never runs per-frame (the
-                    // program skips it via requiresFrameEvaluation), and its
-                    // handlers need the stateful mutation journal for layer
-                    // writes. C's missing-update update path is a passthrough,
-                    // so an occasional evaluation is harmless.
+                    // Event callbacks share the stateful mutation journal and
+                    // current audio snapshot. Registration does not require a
+                    // per-frame update; idle owners keep the existing event/
+                    // timer scheduling and borrowed cursor ownership.
                     guard hasEventHook,
-                          !handlesDestroy, !ownerHasAudioRegistration,
+                          !handlesDestroy,
                           allowsStatefulLayerSideEffects else {
                         throw SceneScriptScalarRuntimeFailure.invalidSource
                     }
@@ -328,7 +327,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                 }
             }
             guard output.allSatisfy(\.isFinite) else {
-                SceneScriptLayerMutationBridge.discard(owner: handle)
+                discardLayerMutations()
                 return .failure(.badReturn("invalid initialized Vec3 output"))
             }
             publishedValue = runtimeValue(
@@ -347,13 +346,12 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             result = MWX_SCENE_QUICKJS_OK
         }
         guard result == MWX_SCENE_QUICKJS_OK else {
-            SceneScriptLayerMutationBridge.discard(owner: handle)
+            discardLayerMutations()
             return .failure(Self.failure(result, diagnostic))
         }
         guard didInitialize != 0 else { return .success(nil) }
-        hasInitialized = true
         guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
-            SceneScriptLayerMutationBridge.discard(owner: handle)
+            discardLayerMutations()
             return .failure(.invalidArgument("effect handle layer identity unavailable"))
         }
         let callbackMutations: SceneScriptMediaEventMutations
@@ -362,7 +360,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         ) {
         case let .success(value): callbackMutations = value
         case let .failure(failure):
-            SceneScriptLayerMutationBridge.discard(owner: handle)
+            discardLayerMutations()
             return .failure(failure)
         }
         let evaluation = validatedEvaluation(
@@ -446,7 +444,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                 }
             }
             guard output.allSatisfy(\.isFinite) else {
-                SceneScriptLayerMutationBridge.discard(owner: handle)
+                discardLayerMutations()
                 return .failure(.badReturn("non-finite Vec3 output"))
             }
             publishedValue = runtimeValue(
@@ -458,11 +456,11 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             return .failure(.invalidArgument("invalid typed SceneScript input"))
         }
         guard result == MWX_SCENE_QUICKJS_OK else {
-            SceneScriptLayerMutationBridge.discard(owner: handle)
+            discardLayerMutations()
             return .failure(Self.failure(result, diagnostic))
         }
         guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
-            SceneScriptLayerMutationBridge.discard(owner: handle)
+            discardLayerMutations()
             return .failure(.invalidArgument("effect handle layer identity unavailable"))
         }
         let callbackMutations: SceneScriptMediaEventMutations
@@ -471,7 +469,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         ) {
         case let .success(value): callbackMutations = value
         case let .failure(failure):
-            SceneScriptLayerMutationBridge.discard(owner: handle)
+            discardLayerMutations()
             return .failure(failure)
         }
         return validatedEvaluation(
@@ -491,7 +489,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         if valueType == .bool {
             guard mutations.materialFunctions.isEmpty,
                   mutations.animations.isEmpty else {
-                SceneScriptLayerMutationBridge.discard(owner: handle)
+                discardLayerMutations()
                 return .failure(.invalidArgument(
                     "Boolean value owner produced out-of-cohort mutations"
                 ))
@@ -504,7 +502,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                 resolvedValue = resolved.value
                 publishedLayerMutations = resolved.mutations
             case let .failure(failure):
-                SceneScriptLayerMutationBridge.discard(owner: handle)
+                discardLayerMutations()
                 return .failure(failure)
             }
         } else {
@@ -515,7 +513,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         switch SceneScriptPuppetBoneMutationBridge.mutations(owner: handle) {
         case let .success(value): puppetBoneMutations = value
         case let .failure(failure):
-            SceneScriptLayerMutationBridge.discard(owner: handle)
+            discardLayerMutations()
             return .failure(failure)
         }
         return .success(.init(
@@ -724,16 +722,24 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
 
     func commitLayerMutations() {
         SceneScriptLayerMutationBridge.commit(owner: handle)
+        if initializationValueConsumed { pendingInitializationValue = nil }
+        initializationValueConsumed = false
     }
 
     func discardLayerMutations() {
         SceneScriptLayerMutationBridge.discard(owner: handle)
+        // Keep a previously committed cursor value until its consumption is
+        // accepted. A rejected first init has no committed value to retain.
+        if !mwx_scene_quickjs_owner_is_initialized(handle) {
+            pendingInitializationValue = nil
+        }
+        initializationValueConsumed = false
     }
 
     func commitStorage() -> Result<Void, SceneScriptScalarRuntimeFailure> {
-        let result = domain.commitStorage(owner: handle)
+        let result = domain.commitStorage(owner: handle, target: target)
         if case .failure = result {
-            SceneScriptLayerMutationBridge.discard(owner: handle)
+            discardLayerMutations()
         }
         return result
     }

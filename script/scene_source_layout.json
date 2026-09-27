@@ -751,7 +751,6 @@
           "SceneScriptOwnerLifecycleBridge.swift",
           "SceneScriptParticleProjection.swift",
           "SceneScriptPropertyInput.swift",
-          "SceneScriptQuickJSDomain+FrameTransaction.swift",
           "SceneScriptQuickJSProgramCandidate.swift",
           "SceneScriptQuickJSProgramCandidateModels.swift",
           "SceneScriptScalarDisplayProjection.swift",

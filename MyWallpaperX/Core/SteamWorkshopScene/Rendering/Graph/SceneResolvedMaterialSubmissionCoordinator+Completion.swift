@@ -2,6 +2,41 @@ import Foundation
 import Metal
 
 extension SceneResolvedMaterialSubmissionCoordinator {
+    /// Seal transfers ledgers to pendingSubmissions, but does not enqueue the
+    /// buffer. A failed sibling surface can cancel that precise pending suffix
+    /// without waiting for a completion that will never occur.
+    func cancelUnsubmittedFrame(on commandBuffer: MTLCommandBuffer) {
+        lock.lock()
+        guard commandBuffer.status == .notEnqueued else {
+            lock.unlock()
+            return
+        }
+        let bufferID = ObjectIdentifier(commandBuffer)
+        guard let index = pendingSubmissions.firstIndex(where: {
+            $0.commandBufferIdentities.contains(bufferID)
+        }) else {
+            lock.unlock()
+            return // No graph ledgers in a successfully sealed empty frame.
+        }
+        guard index == pendingSubmissions.count - 1,
+              activeTransactions.isEmpty,
+              pendingSubmissions[index].commandBufferIdentities == [bufferID],
+              commandBufferRecords[bufferID]?.buffer === commandBuffer else {
+            lock.unlock()
+            return // Never release a different or already dependent candidate.
+        }
+        let cancelled = pendingSubmissions.removeLast()
+        var emission = Emission()
+        for identity in cancelled.ledgerIDs.reversed() {
+            emission.append(terminalizeLedgerLocked(identity, as: .cancelled))
+        }
+        releasePins(cancelled.retiredHistoryPins)
+        restoreScheduledTailsLocked()
+        pruneCommandBufferRecordsLocked()
+        lock.unlock()
+        emit(emission)
+    }
+
     func deferPreparedFrame() -> Bool {
         var emission = Emission()
         lock.lock()
@@ -45,10 +80,14 @@ extension SceneResolvedMaterialSubmissionCoordinator {
 
     func completeCommandBuffer(
         identity: ObjectIdentifier,
+        observationID: UInt64,
         status: SceneGraphExecutionGPUCompletionStatus
     ) {
         lock.lock()
-        guard var record = commandBufferRecords[identity] else {
+        // Both addresses and Metal wrapper instances can outlive/reuse a
+        // registration. Only that registration may resolve its ledger.
+        guard var record = commandBufferRecords[identity],
+              record.observationID == observationID else {
             lock.unlock()
             return
         }

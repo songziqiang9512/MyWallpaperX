@@ -314,7 +314,7 @@ static MWXSceneQuickJSLayerRecord *record_for_handle(
 
 static bool mark_dirty(MWXSceneQuickJSOwner *owner, MWXSceneQuickJSLayerRecord *record) {
     if (!record->dirty || record->dirty_owner_identity != owner->identity) {
-        if (owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS) {
+        if (owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS) {
             return false;
         }
         owner->layer_mutation_count += 1;
@@ -398,7 +398,7 @@ static bool journal_dynamic_layer_value(
     if (created_layer_slot_for_owner(owner, layer_index)) return true;
     if (value_baseline_for_layer(owner, layer_index) != NULL) return true;
     if (owner->dynamic_layer_value_baseline_count >=
-        MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS) return false;
+        MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS) return false;
     MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[layer_index];
     MWXSceneQuickJSDynamicLayerValueBaseline *baseline =
         &owner->dynamic_layer_value_baselines[
@@ -827,15 +827,28 @@ static JSValue make_vec2(
     return result;
 }
 
-static bool read_vec3(JSContext *context, JSValueConst value, double output[3]) {
+static bool read_vec3(
+    JSContext *context, JSValueConst value, double output[3],
+    bool *numeric_nonfinite
+) {
     static const char *names[3] = {"x", "y", "z"};
+    if (numeric_nonfinite != NULL) *numeric_nonfinite = false;
     for (size_t index = 0; index < 3; ++index) {
         JSValue component = JS_GetPropertyStr(context, value, names[index]);
-        const bool valid = !JS_IsException(component) &&
-            JS_ToFloat64(context, &output[index], component) >= 0 &&
-            isfinite(output[index]);
+        const bool converted = !JS_IsException(component) &&
+            JS_ToFloat64(context, &output[index], component) >= 0;
+        const bool reject_assignment = converted &&
+            !isfinite(output[index]) && JS_IsNumber(component) &&
+            numeric_nonfinite != NULL;
         JS_FreeValue(context, component);
-        if (!valid) return false;
+        if (!converted) return false;
+        if (reject_assignment) {
+            // Read remaining components: malformed values and getter errors
+            // must still fail the callback, even after a numeric NaN/Infinity.
+            *numeric_nonfinite = true;
+        } else if (!isfinite(output[index])) {
+            return false;
+        }
     }
     return true;
 }
@@ -1209,8 +1222,10 @@ static JSValue layer_set(
     switch ((enum LayerProperty)magic) {
     case LAYER_ORIGIN: {
         double value[3];
-        if (!read_vec3(context, argv[0], value))
+        bool numeric_nonfinite;
+        if (!read_vec3(context, argv[0], value, &numeric_nonfinite))
             return JS_ThrowTypeError(context, "layer origin expects finite Vec3");
+        if (numeric_nonfinite) return JS_UNDEFINED;
         if (authored_target) {
             MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
                 authored_mutation_for_layer(owner, record_index);
@@ -1240,8 +1255,10 @@ static JSValue layer_set(
     }
     case LAYER_SCALE: {
         double value[3];
-        if (!read_vec3(context, argv[0], value))
+        bool numeric_nonfinite;
+        if (!read_vec3(context, argv[0], value, &numeric_nonfinite))
             return JS_ThrowTypeError(context, "layer scale expects finite Vec3");
+        if (numeric_nonfinite) return JS_UNDEFINED;
         if (authored_target) {
             MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
                 authored_mutation_for_layer(owner, record_index);
@@ -1271,8 +1288,10 @@ static JSValue layer_set(
     }
     case LAYER_ANGLES: {
         double value[3];
-        if (!read_vec3(context, argv[0], value))
+        bool numeric_nonfinite;
+        if (!read_vec3(context, argv[0], value, &numeric_nonfinite))
             return JS_ThrowTypeError(context, "layer angles expects finite Vec3");
+        if (numeric_nonfinite) return JS_UNDEFINED;
         if (authored_target) {
             MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
                 authored_mutation_for_layer(owner, record_index);
@@ -1371,7 +1390,7 @@ static JSValue layer_set(
     }
     case LAYER_COLOR: {
         double value[3];
-        if (!read_vec3(context, argv[0], value) ||
+        if (!read_vec3(context, argv[0], value, NULL) ||
             value[0] < 0 || value[0] > 1 || value[1] < 0 || value[1] > 1 ||
             value[2] < 0 || value[2] > 1)
             return JS_ThrowRangeError(
@@ -2572,7 +2591,7 @@ static bool read_optional_vec3(
             memcpy(output, fallback, sizeof(double) * 3);
         return true;
     }
-    const bool valid = JS_IsObject(value) && read_vec3(context, value, output);
+    const bool valid = JS_IsObject(value) && read_vec3(context, value, output, NULL);
     JS_FreeValue(context, value);
     return valid;
 }
@@ -2601,7 +2620,7 @@ static bool read_optional_color(
         valid = text != NULL && parse_color(text, output);
         if (text != NULL) JS_FreeCString(context, text);
     } else if (JS_IsObject(value)) {
-        valid = read_vec3(context, value, output);
+        valid = read_vec3(context, value, output, NULL);
     }
     JS_FreeValue(context, value);
     return valid;
@@ -2651,16 +2670,16 @@ static JSValue create_layer(
         return JS_ThrowTypeError(
             context, "createLayer expects one configuration or asset path"
         );
-    size_t owned = 0, scene_dynamic = 0;
+    size_t scene_dynamic = 0;
     for (uint32_t i = 0; i < domain->layer_count; ++i)
         if (domain->layers[i].dynamic && !domain->layers[i].destroyed) {
             scene_dynamic += 1;
-            if (domain->layers[i].owner_identity == owner->identity) owned += 1;
         }
-    if (owned >= MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS ||
-        scene_dynamic >= MWX_SCENE_QUICKJS_MAX_SCENE_DYNAMIC_LAYERS ||
+    // Creation is bounded by the shared scene capacity; the callback journal
+    // independently limits the number of distinct records it can publish.
+    if (scene_dynamic >= MWX_SCENE_QUICKJS_MAX_SCENE_DYNAMIC_LAYERS ||
         domain->layer_count >= MWX_SCENE_QUICKJS_MAX_LAYERS ||
-        owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS)
+        owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS)
         return JS_NULL;
     if (!ensure_dynamic_layer_transaction(owner))
         return JS_ThrowInternalError(context, "dynamic layer transaction unavailable");
@@ -3016,6 +3035,12 @@ void mwx_scene_quickjs_owner_discard_layer_mutations(
     MWXSceneQuickJSOwner *owner
 ) {
     if (owner == NULL || owner->domain == NULL) return;
+    owner->initialization_pending = false;
+    if (owner->initialization_timers != NULL) {
+        mwx_scene_quickjs_owner_timer_restore(owner, owner->initialization_timers);
+        mwx_scene_quickjs_owner_timer_snapshot_destroy(owner->initialization_timers, owner);
+        owner->initialization_timers = NULL;
+    }
     owner->effect_visibility_staged = false;
     owner->effect_visibility_pending = false;
     finish_dynamic_layer_transaction(owner, false);
@@ -3033,6 +3058,12 @@ void mwx_scene_quickjs_owner_commit_layer_mutations(
     MWXSceneQuickJSOwner *owner
 ) {
     if (owner == NULL || owner->domain == NULL) return;
+    if (owner->initialization_pending) owner->initialized = true;
+    owner->initialization_pending = false;
+    if (owner->initialization_timers != NULL) {
+        mwx_scene_quickjs_owner_timer_snapshot_destroy(owner->initialization_timers, owner);
+        owner->initialization_timers = NULL;
+    }
     if (owner->effect_visibility_pending) {
         owner->effect_visibility_committed_visible =
             owner->effect_visibility_pending_visible;
@@ -3659,7 +3690,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         memchr(text, '\0', text_length) != NULL ||
         memchr(font, '\0', font_length) != NULL ||
         owner->authored_layer_mutation_baseline_count >=
-            MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS) {
+            MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic, diagnostic_capacity,
             "invalid authored layer mutation baseline"

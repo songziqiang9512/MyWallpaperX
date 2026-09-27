@@ -172,7 +172,11 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         if let current = commandBufferRecords[identity] {
             return current.buffer === commandBuffer
         }
+        guard nextCommandBufferObservationID < UInt64.max else { return false }
+        nextCommandBufferObservationID += 1
+        let observationID = nextCommandBufferObservationID
         commandBufferRecords[identity] = .init(
+            observationID: observationID,
             buffer: commandBuffer,
             terminalStatus: nil
         )
@@ -180,8 +184,10 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             let status: SceneGraphExecutionGPUCompletionStatus =
                 buffer.status == .completed && buffer.error == nil
                     ? .completed : .failed
+            // Metal may invoke this block while an unsubmitted buffer is
+            // being destroyed. Carry only the immutable registration identity.
             Task { @MainActor [self] in
-                self.completeCommandBuffer(identity: identity, status: status)
+                self.completeCommandBuffer(identity: identity, observationID: observationID, status: status)
             }
         }
         return true
@@ -467,6 +473,24 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     func sealFrame(on commandBuffer: MTLCommandBuffer) -> Bool {
         var emission = Emission()
         lock.lock()
+#if DEBUG
+        if frameIsActive, let frameIndex = debugRejectFrameOnce,
+           frame?.frameIndex == frameIndex,
+           commandBuffer.status == .notEnqueued {
+            debugRejectFrameOnce = nil
+            debugFrameRecoveryProbe = (frameIndex, "retry")
+            frameFailures += 1
+            emission = failActiveFrameLocked(reason: "debug-evidence-frame-seal-rejected")
+            lock.unlock()
+            emit(emission)
+            logSink("MWX DEBUG SCENE: phase=frame-seal-fault state=rejected frame=\(frameIndex) submitted=false")
+            return false
+        }
+#endif
+#if DEBUG
+        let recordsDebugRecovery = debugFrameRecoveryProbe?.frameIndex == frame?.frameIndex
+            && debugFrameRecoveryProbe != nil
+#endif
         guard frameIsActive, terminalFailureReason == nil,
               frameFailure == nil, frameFailures == 0,
               !frameRequiresDrop else {
@@ -492,6 +516,9 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         guard !activeTransactions.isEmpty else {
             frameSealed = true
             lock.unlock()
+#if DEBUG
+            if recordsDebugRecovery { debugObserveRejectedFrameRecovery(on: commandBuffer) }
+#endif
             return true
         }
         let commandBufferIdentity = ObjectIdentifier(commandBuffer)
@@ -544,6 +571,27 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         activeTransactions.removeAll(keepingCapacity: true)
         frameSealed = true
         lock.unlock()
+#if DEBUG
+        if recordsDebugRecovery { debugObserveRejectedFrameRecovery(on: commandBuffer) }
+#endif
         return true
     }
+#if DEBUG
+    private func debugObserveRejectedFrameRecovery(on commandBuffer: MTLCommandBuffer) {
+        lock.lock()
+        guard frameIsActive, frameSealed,
+              let probe = debugFrameRecoveryProbe,
+              frame?.frameIndex == probe.frameIndex else {
+            lock.unlock()
+            return
+        }
+        debugFrameRecoveryProbe = probe.phase == "retry" && probe.frameIndex < UInt64.max
+            ? (probe.frameIndex + 1, "next-frame") : nil
+        lock.unlock()
+        logSink("MWX DEBUG SCENE: phase=frame-seal-fault state=\(probe.phase)-sealed frame=\(probe.frameIndex)")
+        commandBuffer.addCompletedHandler { [logSink] buffer in
+            logSink("MWX DEBUG SCENE: phase=frame-seal-fault state=\(probe.phase)-completed frame=\(probe.frameIndex) gpu=\(buffer.status == .completed ? "completed" : "failed")")
+        }
+    }
+#endif
 }

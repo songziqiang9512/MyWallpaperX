@@ -663,6 +663,10 @@ extension SceneImageLayerCompositor {
         )
     }
 
+    func cancelUnsubmittedResolvedMaterialFrame(on commandBuffer: MTLCommandBuffer) {
+        resolvedMaterialRuntime?.cancelUnsubmittedFrame(on: commandBuffer)
+    }
+
     func endResolvedMaterialFrame(on commandBuffer: MTLCommandBuffer) -> Bool {
         defer { resolvedMaterialRuntime?.endFrame() }
         return resolvedMaterialRuntime?.sealFrame(on: commandBuffer) ?? true

@@ -385,15 +385,15 @@ enum Harness {
         let budgetEffects = [
             SceneScriptOwnerEffects(
                 ownerTarget: budgetOwnerA,
-                layerMutations: [mutation(
-                    -1, kind: .destroy, ownerTarget: budgetOwnerA
-                )]
+                layerMutations: (1...128).map {
+                    mutation(-$0, kind: .destroy, ownerTarget: budgetOwnerA)
+                }
             ),
             SceneScriptOwnerEffects(
                 ownerTarget: budgetOwnerB,
-                layerMutations: [mutation(
-                    -257, order: 1, ownerTarget: budgetOwnerB
-                )]
+                layerMutations: (257...384).map {
+                    mutation(-$0, order: $0 - 256, ownerTarget: budgetOwnerB)
+                }
             ),
             SceneScriptOwnerEffects(
                 ownerTarget: budgetOwnerC,
@@ -594,10 +594,8 @@ enum Harness {
                 fixedPoint.admission.admittedEffects.map(\.ownerTarget)
                     == [budgetOwnerC],
             "fixedPointPreservesFullTopology":
-                afterFixedPoint.dynamicLayers.count == 256
-                    && !afterFixedPoint.dynamicLayers.contains {
-                        $0.id == -257
-                    },
+                afterFixedPoint.dynamicLayers.map(\.id).sorted()
+                    == Array(-256 ... -1),
             "fixedPointCommitsDisjointC": afterFixedPoint.authoredLayerValues[
                 .layer(layerID: 10, field: .angles)
             ] == .vector3(9, 8, 7),

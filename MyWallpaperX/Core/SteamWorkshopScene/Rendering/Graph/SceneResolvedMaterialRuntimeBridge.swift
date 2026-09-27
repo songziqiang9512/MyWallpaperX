@@ -538,6 +538,10 @@ final class SceneResolvedMaterialRuntimeBridge {
         submissions.sealFrame(on: commandBuffer)
     }
 
+    func cancelUnsubmittedFrame(on commandBuffer: MTLCommandBuffer) {
+        submissions.cancelUnsubmittedFrame(on: commandBuffer)
+    }
+
     @discardableResult
     func endFrame() -> [String] {
         submissions.endFrame()

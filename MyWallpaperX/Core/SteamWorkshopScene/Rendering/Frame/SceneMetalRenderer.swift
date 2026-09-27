@@ -73,7 +73,7 @@ struct SceneMetalRenderer {
             )
         }
         var particleSubmissionCommandBuffer: MTLCommandBuffer? = nil
-        var didCommitParticleSubmission = false
+        var didTransferFrameOwnership = false
         guard !imageCompositor.shouldDeferResolvedMaterialFrame else {
             return .deferred(reasonCode: "resolved-material-frame-in-flight")
         }
@@ -86,12 +86,14 @@ struct SceneMetalRenderer {
         let sourceUpdateTransaction = SceneSourceUpdateTransaction()
         // Unsubmitted source and registry state roll back together.
         defer {
-            sourceUpdateTransaction.cancel()
-            if !didCommitParticleSubmission { discardUnsubmittedFrameResources() }
+            if !didTransferFrameOwnership {
+                sourceUpdateTransaction.cancel()
+                discardUnsubmittedFrameResources()
+            }
         }
         // Submitted candidates remain provisional until the host barrier.
         var frameDepthLeases: [SceneParticleDepthTargetLease] = []
-        defer { frameDepthLeases.forEach { $0.cancel() } }
+        defer { if !didTransferFrameOwnership { frameDepthLeases.forEach { $0.cancel() } } }
         var staticModelDepthLease: SceneParticleDepthTargetLease?
         var staticModelDepthWasCleared = false
         var staticModelDepthPlan = SceneStaticModelDepthPlan()
@@ -223,7 +225,7 @@ struct SceneMetalRenderer {
             performanceTelemetry == nil ? nil : []
         performanceTelemetry?.endStage("prepass-particles")
         defer {
-            if !didCommitParticleSubmission {
+            if !didTransferFrameOwnership {
                 if let commandBuffer = particleSubmissionCommandBuffer,
                    commandBuffer.status == .notEnqueued {
                     // A command accepted by Metal owns every marked slot until its
@@ -903,26 +905,35 @@ struct SceneMetalRenderer {
             commandBuffer: commandBuffer
         )
 #endif
-        onDrawableWillPresent?(drawable)
-        commandBuffer.present(drawable)
-        if let effectExecutionTrace {
-            effectExecutionTelemetry.observeSharedCommandBuffer(
-                for: effectExecutionTrace,
-                on: commandBuffer
-            )
-        }
-        if let particlePerformanceObservations {
-            performanceTelemetry?.recordParticleSubmission(
-                particlePerformanceObservations,
-                on: commandBuffer
-            )
-        }
-        performanceTelemetry?.recordSubmitted(on: commandBuffer)
-        sourceUpdateTransaction.arm(on: commandBuffer)
-        frameDepthLeases.forEach { $0.arm(on: commandBuffer) }
-        commandBuffer.commit()
-        didCommitParticleSubmission = true
-        sourceUpdateTransaction.didSubmit()
+        let preparedFrame = PreparedFrame(commandBuffer: commandBuffer, submit: {
+            onDrawableWillPresent?(drawable)
+            commandBuffer.present(drawable)
+            if let effectExecutionTrace {
+                effectExecutionTelemetry.observeSharedCommandBuffer(
+                    for: effectExecutionTrace, on: commandBuffer
+                )
+            }
+            if let particlePerformanceObservations {
+                performanceTelemetry?.recordParticleSubmission(
+                    particlePerformanceObservations, on: commandBuffer
+                )
+            }
+            performanceTelemetry?.recordSubmitted(on: commandBuffer)
+            sourceUpdateTransaction.arm(on: commandBuffer)
+            frameDepthLeases.forEach { $0.arm(on: commandBuffer) }
+            commandBuffer.commit()
+            sourceUpdateTransaction.didSubmit()
+        }, cancel: {
+            imageCompositor.cancelUnsubmittedResolvedMaterialFrame(on: commandBuffer)
+            sourceUpdateTransaction.cancel()
+            frameDepthLeases.forEach { $0.cancel() }
+            particleBatches.forEach {
+                _ = $0.instanceBuffer.cancelUncommittedSubmission(on: commandBuffer)
+                _ = $0.instanceBuffer.cancelPending()
+            }
+            discardUnsubmittedFrameResources()
+        })
+        didTransferFrameOwnership = true
         performanceTelemetry?.endStage("compositor-seal")
         hubStage(.compositorSealMicros, hubCompositorSealStart)
         if let cpuStart {
@@ -930,6 +941,6 @@ struct SceneMetalRenderer {
                 duration: ProcessInfo.processInfo.systemUptime - cpuStart
             )
         }
-        return .submitted
+        return .prepared(preparedFrame)
     }
 }

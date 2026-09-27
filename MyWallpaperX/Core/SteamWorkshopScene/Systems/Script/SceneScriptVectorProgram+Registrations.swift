@@ -32,9 +32,6 @@ extension SceneScriptVectorProgram {
     var hasAudioConsumers: Bool {
         bindings.contains(where: { $0.owner.hasAudioRegistration })
     }
-    var requiresSharedFrameTransaction: Bool {
-        bindings.contains(where: \.requiresStatefulOwner)
-    }
     var livePropertyInputTargets: Set<SceneDynamicTarget> {
         bindings.reduce(into: Set<SceneDynamicTarget>()) {
             $0.formUnion($1.livePropertyInputTargets)

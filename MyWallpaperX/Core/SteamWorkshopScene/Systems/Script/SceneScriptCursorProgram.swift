@@ -12,12 +12,21 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     private var previousPrimaryButtonIsDown = false
     private var disabledTargets: Set<SceneDynamicTarget> = []
     private var scriptPropertiesJSONCache = SceneScriptPropertyInputJSONCache()
+    private var pendingEvents: [SceneScriptCursorPendingEvent] = []
+    private var candidateEvents: [SceneScriptCursorPendingEvent] = []
+    private var candidateFailures: Set<SceneDynamicTarget> = []
+    private var hasCandidateDispatch = false
+    // A normal 512-sample input batch can expand to several callbacks per
+    // owner. Leave room for that burst and bound retained retry work as well.
+    private static let maximumEventsPerOwner = 4096
+    private static let maximumPendingEvents = 16_384
 
     let ownerLayerIDs: Set<Int>
     let ownerTargets: Set<SceneDynamicTarget>
     /// Layer hit state is shared, owner state is per target: several typed
     /// owners can live on one layer, so layer lookup must not scan them all.
     private let bindingsByLayer: [Int: [SceneScriptCursorBinding]]
+    private let bindingsByTarget: [SceneDynamicTarget: SceneScriptCursorBinding]
     var capturedOwnerLayerIDs: Set<Int> { Set(capturedHits.keys) }
     var ownerCount: Int { bindings.count }
     var hasAudioConsumers: Bool { bindings.contains { $0.owner.hasAudioRegistration } }
@@ -27,7 +36,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             previousHits: previousHits,
             capturedHits: capturedHits,
             previousPointerPosition: previousPointerPosition,
-            previousPrimaryButtonIsDown: previousPrimaryButtonIsDown
+            previousPrimaryButtonIsDown: previousPrimaryButtonIsDown,
+            pendingEvents: pendingEvents
         )
     }
 
@@ -36,6 +46,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         capturedHits = state.capturedHits
         previousPointerPosition = state.previousPointerPosition
         previousPrimaryButtonIsDown = state.previousPrimaryButtonIsDown
+        pendingEvents = state.pendingEvents
+        clearCandidateEvents()
     }
 
     func timerFrameStateSnapshot() -> SceneScriptProgramTimerFrameState { .init(snapshots: bindings.map { $0.owner.timerFrameSnapshot() }) }
@@ -50,6 +62,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         self.ownerLayerIDs = Set(bindings.map(\.layerID))
         self.ownerTargets = Set(bindings.map(\.ownerTarget))
         self.bindingsByLayer = Dictionary(grouping: bindings, by: \.layerID)
+        self.bindingsByTarget = Dictionary(uniqueKeysWithValues: bindings.map { ($0.ownerTarget, $0) })
         self.generation = generation
     }
 
@@ -62,12 +75,18 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptCursorFrameResult {
+        hasCandidateDispatch = true
+        candidateFailures.removeAll(keepingCapacity: true)
+        candidateEvents = pendingEvents.filter { !disabledTargets.contains($0.ownerTarget) }
         defer {
             bindings.forEach {
                 $0.owner.clearCursorAuthoredLayerBaselines()
             }
         }
         if batch.overflowed {
+            // Rebase incomplete raw input, but preserve older complete events.
+            // None were attempted here, so this dispatch confirms nothing.
+            clearCandidateEvents()
             if let latest = batch.samples.last {
                 synchronize(
                     hits: latest.hits,
@@ -89,8 +108,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         func hasActiveBinding(layerID: Int) -> Bool {
             (bindingsByLayer[layerID] ?? []).contains { binding in
-                failures[binding.ownerTarget] == nil
-                    && !disabledTargets.contains(binding.ownerTarget)
+                !disabledTargets.contains(binding.ownerTarget)
             }
         }
         func removeCaptureIfOrphaned(layerID: Int) {
@@ -331,6 +349,35 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 removeCaptureIfOrphaned(layerID: binding.layerID)
             }
         }
+        var eventCounts = candidateEvents.reduce(into: [SceneDynamicTarget: Int]()) {
+            $0[$1.ownerTarget, default: 0] += 1
+        }
+        func record(
+            _ kind: SceneScriptCursorEventKind,
+            binding: SceneScriptCursorBinding,
+            hit: SceneScriptCursorHit,
+            callbackFrame: SceneScriptFrameInput,
+            captureActive: Bool,
+            currentHit: Bool
+        ) {
+            let target = binding.ownerTarget
+            guard binding.events.contains(kind), !disabledTargets.contains(target) else { return }
+            guard eventCounts[target, default: 0] < Self.maximumEventsPerOwner,
+                  candidateEvents.count < Self.maximumPendingEvents else {
+                failures[target] = .mutationOverflow("SceneScript cursor pending event budget exceeded")
+                disabledTargets.insert(target)
+                binding.owner.invalidate()
+                candidateEvents.removeAll { $0.ownerTarget == target }
+                binding.owner.discardLayerMutations()
+                removeCaptureIfOrphaned(layerID: binding.layerID)
+                return
+            }
+            candidateEvents.append(.init(ownerTarget: target, kind: kind, hit: hit,
+                surface: callbackFrame.surface, captureActive: captureActive, currentHit: currentHit))
+            eventCounts[target, default: 0] += 1
+        }
+        // Recognize the entire input batch before executing callbacks. A
+        // recoverable enter/down failure must not erase later up/click edges.
         for sample in batch.samples {
             let callbackFrame = SceneScriptFrameInput(
                 replacingSurfaceOf: frame,
@@ -351,11 +398,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             let moved = sample.pointerPosition != nil
                 && previousPointerPosition != nil
                 && sample.pointerPosition != previousPointerPosition
-            for binding in bindings where failures[binding.ownerTarget] == nil
-                && !disabledTargets.contains(binding.ownerTarget) {
+            for binding in bindings where !disabledTargets.contains(binding.ownerTarget) {
                 if leaving.contains(binding.layerID),
                    let hit = previousHits[binding.layerID] {
-                    emit(
+                    record(
                         .leave, binding: binding, hit: hit,
                         callbackFrame: callbackFrame,
                         captureActive: capturedHits[binding.layerID] != nil,
@@ -364,7 +410,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 }
                 if entering.contains(binding.layerID),
                    let hit = admittedHits[binding.layerID] {
-                    emit(
+                    record(
                         .enter, binding: binding, hit: hit,
                         callbackFrame: callbackFrame,
                         captureActive: capturedHits[binding.layerID] != nil,
@@ -372,7 +418,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     )
                 }
                 if pressed, let hit = admittedHits[binding.layerID] {
-                    emit(
+                    record(
                         .down, binding: binding, hit: hit,
                         callbackFrame: callbackFrame,
                         captureActive: false, currentHit: true
@@ -386,7 +432,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     ? admittedProjections[binding.layerID]
                     : admittedHits[binding.layerID]
                 if moved, let hit = moveHit {
-                    emit(
+                    record(
                         .move, binding: binding, hit: hit,
                         callbackFrame: callbackFrame,
                         captureActive: captured,
@@ -399,14 +445,14 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 if released, let captured = capturedHits[binding.layerID] {
                     let releaseHit = admittedProjections[binding.layerID]
                         ?? captured
-                    emit(
+                    record(
                         .up, binding: binding, hit: releaseHit,
                         callbackFrame: callbackFrame,
                         captureActive: true,
                         currentHit: admittedHits[binding.layerID] != nil
                     )
                     if admittedHits[binding.layerID] != nil {
-                        emit(
+                        record(
                             .click, binding: binding, hit: releaseHit,
                             callbackFrame: callbackFrame,
                             captureActive: true, currentHit: true
@@ -420,6 +466,12 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             previousHits = admittedHits.filter {
                 hasActiveBinding(layerID: $0.key)
             }
+        }
+        for event in candidateEvents {
+            guard let binding = bindingsByTarget[event.ownerTarget] else { continue }
+            emit(event.kind, binding: binding, hit: event.hit,
+                callbackFrame: .init(replacingSurfaceOf: frame, with: event.surface),
+                captureActive: event.captureActive, currentHit: event.currentHit)
         }
         for binding in bindings where !disabledTargets.contains(binding.ownerTarget) {
             if case let .failure(failure) = binding.owner.commitStorage() {
@@ -439,6 +491,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         for binding in bindings where failures[binding.ownerTarget] != nil {
             binding.owner.discardStorage()
         }
+        candidateFailures = Set(failures.keys)
         let ownerEffects = bindings.compactMap { binding in
             let effects = SceneScriptOwnerEffects(
                 ownerTarget: binding.owner.target,
@@ -521,6 +574,17 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         committing: Bool,
         rejectedOwnerTargets: Set<SceneDynamicTarget> = []
     ) {
+        if committing && hasCandidateDispatch {
+            let rejected = rejectedOwnerTargets.union(candidateFailures)
+            pendingEvents = candidateEvents.filter {
+                rejected.contains($0.ownerTarget) && !disabledTargets.contains($0.ownerTarget)
+            }
+        } else {
+            pendingEvents.removeAll { disabledTargets.contains($0.ownerTarget) }
+        }
+        clearCandidateEvents()
+        // Event confirmation covers borrowed owners too. Their C transaction
+        // is still finalized exactly once by the vector program below the Host.
         bindings.forEach { binding in
             guard binding.ownsOwner else { return }
             let target = binding.owner.target
@@ -533,12 +597,20 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         }
     }
 
+    private func clearCandidateEvents() {
+        candidateEvents.removeAll(keepingCapacity: true)
+        candidateFailures.removeAll(keepingCapacity: true)
+        hasCandidateDispatch = false
+    }
+
     func invalidate() {
         bindings.filter(\.ownsOwner).forEach { $0.owner.invalidate() }
         previousHits = [:]
         capturedHits = [:]
         previousPointerPosition = nil
         previousPrimaryButtonIsDown = false
+        pendingEvents.removeAll(keepingCapacity: true)
+        clearCandidateEvents()
     }
 
     func teardown(
@@ -556,6 +628,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         capturedHits = [:]
         previousPointerPosition = nil
         previousPrimaryButtonIsDown = false
+        pendingEvents.removeAll(keepingCapacity: true)
+        clearCandidateEvents()
         return outcomes
     }
 

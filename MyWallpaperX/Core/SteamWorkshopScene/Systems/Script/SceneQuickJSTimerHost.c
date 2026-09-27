@@ -98,8 +98,12 @@ static JSValue register_timer(
     if (slot == NULL) {
         return JS_ThrowRangeError(context, "SceneScript timer budget exceeded");
     }
+    // Cancellation closures can outlive a rejected frame in the JS heap.
+    // Never recycle their identities, including beyond JS's exact index range.
+    if (owner->next_timer_identity >= UINT64_C(9007199254740991)) {
+        return JS_ThrowRangeError(context, "SceneScript timer identity budget exceeded");
+    }
     owner->next_timer_identity += 1;
-    if (owner->next_timer_identity == 0) owner->next_timer_identity = 1;
     slot->identity = owner->next_timer_identity;
     slot->remaining_seconds = milliseconds / 1000.0;
     slot->interval_seconds = milliseconds / 1000.0;
@@ -279,7 +283,6 @@ MWXSceneQuickJSTimerFrameSnapshot *mwx_scene_quickjs_owner_timer_snapshot(
     }
     MWXSceneQuickJSTimerFrameSnapshot *snapshot = calloc(1, sizeof(*snapshot));
     if (snapshot == NULL) return NULL;
-    snapshot->next_timer_identity = owner->next_timer_identity;
     snapshot->timer_runtime = owner->timer_runtime;
     snapshot->timer_runtime_initialized = owner->timer_runtime_initialized;
     for (size_t index = 0; index < MWX_SCENE_QUICKJS_MAX_TIMERS; ++index) {
@@ -312,7 +315,8 @@ bool mwx_scene_quickjs_owner_timer_restore(
             owner->timers[index].callback = JS_UNDEFINED;
         }
     }
-    owner->next_timer_identity = snapshot->next_timer_identity;
+    // Restore scheduled work, but retain the owner's lifetime issuance counter:
+    // closures from discarded work must not cancel a subsequently issued timer.
     owner->timer_runtime = snapshot->timer_runtime;
     owner->timer_runtime_initialized = snapshot->timer_runtime_initialized;
     return true;

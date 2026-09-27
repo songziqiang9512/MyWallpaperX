@@ -30,11 +30,12 @@ extension SceneDesktopWallpaperHost {
 
     func restoreSceneScriptProgramFrameState(
         _ context: SceneDesktopWallpaperLaunchContext,
-        _ state: SceneScriptProgramFrameStates
+        _ state: SceneScriptProgramFrameStates,
+        rejectedOwnerTargets: Set<SceneDynamicTarget>? = nil
     ) {
-        context.sceneScriptScalarProgram.restoreFrameState(state.scalar)
-        context.sceneScriptStringProgram.restoreFrameState(state.string)
-        context.propertyVectorScriptProgram.restoreFrameState(state.vector)
+        context.sceneScriptScalarProgram.restoreFrameState(state.scalar, rejectedOwnerTargets: rejectedOwnerTargets)
+        context.sceneScriptStringProgram.restoreFrameState(state.string, rejectedOwnerTargets: rejectedOwnerTargets)
+        context.propertyVectorScriptProgram.restoreFrameState(state.vector, rejectedOwnerTargets: rejectedOwnerTargets)
     }
 
     func sceneScriptProgramTimerFrameState(
@@ -178,8 +179,6 @@ extension SceneDesktopWallpaperHost {
         )
         finalizeSceneScriptLayerSnapshot(context)
         context.sceneScriptStorageSession?.commitFrameTransaction()
-        context.propertyVectorScriptProgram.domain?
-            .commitSharedFrameTransaction()
     }
 
     func teardownSceneScriptOwners(
@@ -192,8 +191,6 @@ extension SceneDesktopWallpaperHost {
         discardSceneScriptLayerMutations(context)
         discardSceneScriptLayerSnapshot(context)
         context.sceneScriptStorageSession?.discardFrameTransaction()
-        _ = context.propertyVectorScriptProgram.domain?
-            .discardSharedFrameTransaction()
         let hostTime = CACurrentMediaTime()
 #if DEBUG
         let wallDate = Self.debugWallDateOverride ?? Date()

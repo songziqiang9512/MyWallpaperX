@@ -267,10 +267,9 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
     private let domain: SceneScriptQuickJSDomain
     private let budget: SceneScriptScalarBudget
     private var lastAudioGeneration: UInt64?
-    private var hasInitialized = false
 
     var requiresFrameEvaluation: Bool {
-        handlesUpdate || (handlesInit && !hasInitialized)
+        handlesUpdate || (handlesInit && !mwx_scene_quickjs_owner_is_initialized(handle))
             || mwx_scene_quickjs_owner_active_timer_count(handle) > 0
     }
 
@@ -454,7 +453,6 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
                 diagnostic: Self.diagnostic(diagnostic)
             ))
         }
-        hasInitialized = true
         guard didInitialize != 0 else { return .success(nil) }
         guard Self.accepts(output, for: target),
               let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
@@ -534,7 +532,6 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
                 diagnostic: Self.diagnostic(diagnostic)
             ))
         }
-        hasInitialized = true
         if !handlesUpdate {
             switch boundScalarValue() {
             case let .success(value):
@@ -773,7 +770,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
     }
 
     func commitStorage() -> Result<Void, SceneScriptScalarRuntimeFailure> {
-        let result = domain.commitStorage(owner: handle)
+        let result = domain.commitStorage(owner: handle, target: target)
         if case .failure = result {
             SceneScriptLayerMutationBridge.discard(owner: handle)
         }

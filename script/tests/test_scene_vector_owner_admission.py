@@ -43,7 +43,7 @@ class SceneVectorOwnerAdmissionTests(unittest.TestCase):
 
     def test_only_material_consumers_construct_pass_owners(self) -> None:
         value = self.value
-        self.assertEqual(value["projected"], 6)
+        self.assertEqual(value["projected"], 7)
         self.assertEqual(value["consumers"], 4)
         self.assertEqual(value["definitions"], 2)
         self.assertEqual(value["claimedValue"], [2, 2])
@@ -51,18 +51,20 @@ class SceneVectorOwnerAdmissionTests(unittest.TestCase):
         self.assertFalse(value["unclaimedPublished"])
         self.assertFalse(value["failedPublished"])
 
-    def test_every_failed_family_rebuilds_in_a_fresh_domain(self) -> None:
+    def test_failed_owners_rebuild_in_a_fresh_domain(self) -> None:
         value = self.value
         self.assertTrue(value["domainCommitted"])
-        self.assertEqual(value["vectorExpected"], 5)
+        self.assertEqual(value["vectorExpected"], 6)
         self.assertEqual(value["vectorInstantiated"], 2)
-        self.assertEqual(value["vectorRejected"], 3)
+        self.assertEqual(value["vectorRejected"], 4)
         self.assertEqual(
             value["vectorFailureCodes"],
-            ["exception", "exception", "exception"],
+            ["exception", "exception", "exception", "exception"],
         )
-        self.assertEqual(value["cursorExpected"], 1)
-        self.assertEqual(value["cursorRejected"], 1)
+        self.assertEqual(value["cursorExpected"], 0)
+        self.assertEqual(value["cursorRejected"], 0)
+        self.assertTrue(value["compositionVisibilityRejectedByVector"])
+        self.assertFalse(value["compositionVisibilityHasStandaloneCursor"])
         self.assertEqual(value["scalarExpected"], 1)
         self.assertEqual(value["scalarRejected"], 1)
         self.assertEqual(value["stringExpected"], 1)

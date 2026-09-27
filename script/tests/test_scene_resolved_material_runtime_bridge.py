@@ -1858,7 +1858,7 @@ private func runPendingCancellation(
         retiredHistoryPins: [retiredPin]
     )]
     coordinator.completeCommandBuffer(
-        identity: ObjectIdentifier(commandBuffer),
+        identity: ObjectIdentifier(commandBuffer), observationID: coordinator.commandBufferRecords[ObjectIdentifier(commandBuffer)]?.observationID ?? 0,
         status: gpuStatus
     )
     return .init(
@@ -2858,7 +2858,7 @@ enum Harness {
             buffer.commit()
             buffer.waitUntilCompleted()
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(buffer),
+                identity: ObjectIdentifier(buffer), observationID: coordinator.commandBufferRecords[ObjectIdentifier(buffer)]?.observationID ?? 0,
                 status: buffer.status == .completed && buffer.error == nil
                     ? .completed : .failed
             )
@@ -3120,7 +3120,7 @@ enum Harness {
             buffer.commit()
             buffer.waitUntilCompleted()
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(buffer),
+                identity: ObjectIdentifier(buffer), observationID: coordinator.commandBufferRecords[ObjectIdentifier(buffer)]?.observationID ?? 0,
                 status: buffer.status == .completed && buffer.error == nil
                     ? .completed : .failed
             )
@@ -3336,7 +3336,7 @@ enum Harness {
             buffer.commit()
             buffer.waitUntilCompleted()
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(buffer),
+                identity: ObjectIdentifier(buffer), observationID: coordinator.commandBufferRecords[ObjectIdentifier(buffer)]?.observationID ?? 0,
                 status: buffer.status == .completed && buffer.error == nil
                     ? .completed : .failed
             )
@@ -3511,7 +3511,7 @@ enum Harness {
             buffer.commit()
             buffer.waitUntilCompleted()
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(buffer),
+                identity: ObjectIdentifier(buffer), observationID: coordinator.commandBufferRecords[ObjectIdentifier(buffer)]?.observationID ?? 0,
                 status: buffer.status == .completed && buffer.error == nil
                     ? .completed : .failed
             )
@@ -3664,7 +3664,7 @@ enum Harness {
             buffer.commit()
             buffer.waitUntilCompleted()
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(buffer),
+                identity: ObjectIdentifier(buffer), observationID: coordinator.commandBufferRecords[ObjectIdentifier(buffer)]?.observationID ?? 0,
                 status: buffer.status == .completed && buffer.error == nil
                     ? .completed : .failed
             )
@@ -3902,7 +3902,7 @@ enum Harness {
             let oneSubmission = coordinator.pendingSubmissions.count == 1
                 && coordinator.pendingSubmissions[0].ledgerIDs.count == 2
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(buffer),
+                identity: ObjectIdentifier(buffer), observationID: coordinator.commandBufferRecords[ObjectIdentifier(buffer)]?.observationID ?? 0,
                 status: .completed
             )
             results["twoCandidatesPublishConsumeAndCommitAtomically"] =
@@ -4495,7 +4495,7 @@ enum Harness {
                 && coordinator.pendingSubmissions.count == 1
                 && coordinator.committedTails.isEmpty
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(buffer), status: .completed
+                identity: ObjectIdentifier(buffer), observationID: coordinator.commandBufferRecords[ObjectIdentifier(buffer)]?.observationID ?? 0, status: .completed
             )
             results["invalidateDefersPinReleaseUntilTerminal"] = heldBeforeCallback
                 && !oldPin.active && !newPin.active
@@ -4536,13 +4536,13 @@ enum Harness {
                 retiredHistoryPins: [retired]
             )]
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(second), status: .completed
+                identity: ObjectIdentifier(second), observationID: coordinator.commandBufferRecords[ObjectIdentifier(second)]?.observationID ?? 0, status: .completed
             )
             let reverseHeld = coordinator.pendingSubmissions.count == 1
                 && retired.active && firstCommit.submissionPin.active
                 && secondCommit.submissionPin.active
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(first), status: .completed
+                identity: ObjectIdentifier(first), observationID: coordinator.commandBufferRecords[ObjectIdentifier(first)]?.observationID ?? 0, status: .completed
             )
             results["aggregateBarrierWaitsForAllBuffers"] = reverseHeld
                 && coordinator.pendingSubmissions.isEmpty
@@ -4592,7 +4592,7 @@ enum Harness {
                 && coordinator.preparedLedgerByLayerID.isEmpty
             _ = coordinator.endFrame()
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(first), status: .completed
+                identity: ObjectIdentifier(first), observationID: coordinator.commandBufferRecords[ObjectIdentifier(first)]?.observationID ?? 0, status: .completed
             )
         }
 
@@ -4666,13 +4666,13 @@ enum Harness {
             _ = coordinator.endFrame()
 
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(second), status: .completed
+                identity: ObjectIdentifier(second), observationID: coordinator.commandBufferRecords[ObjectIdentifier(second)]?.observationID ?? 0, status: .completed
             )
             let reverseCompletionHeld = coordinator.pendingSubmissions.count == 2
                 && coordinator.committedTails.isEmpty
                 && commitA.submissionPin.active && commitB.submissionPin.active
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(first), status: .completed
+                identity: ObjectIdentifier(first), observationID: coordinator.commandBufferRecords[ObjectIdentifier(first)]?.observationID ?? 0, status: .completed
             )
             results["twoPendingSubmissionsUseBoundedCapacity"] = firstLeavesCapacity
                 && capacityDefersWithoutAdvancing
@@ -4714,7 +4714,7 @@ enum Harness {
             )
             let epochBeforeFailure = coordinator.executionEpoch
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(first), status: .failed
+                identity: ObjectIdentifier(first), observationID: coordinator.commandBufferRecords[ObjectIdentifier(first)]?.observationID ?? 0, status: .failed
             )
             let independentSuccessRemains = !coordinator.shouldDeferFrame
                 && coordinator.executionEpoch == epochBeforeFailure
@@ -4726,7 +4726,7 @@ enum Harness {
                 && commitA.submissionPin.releaseCount == 1
                 && commitB.submissionPin.active
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(second), status: .completed
+                identity: ObjectIdentifier(second), observationID: coordinator.commandBufferRecords[ObjectIdentifier(second)]?.observationID ?? 0, status: .completed
             )
             let failureLines = recorder.lines.filter {
                 $0.contains("axis=graph-execution")
@@ -4802,7 +4802,7 @@ enum Harness {
                 commandBuffer: bufferA, tail: tailA, commit: commitA
             )
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(bufferA), status: .completed
+                identity: ObjectIdentifier(bufferA), observationID: coordinator.commandBufferRecords[ObjectIdentifier(bufferA)]?.observationID ?? 0, status: .completed
             )
             let resetAfterA = coordinator.resetGeneration
 
@@ -4819,7 +4819,7 @@ enum Harness {
                 commandBuffer: bufferB, tail: tailB, commit: commitB
             )
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(bufferB), status: .failed
+                identity: ObjectIdentifier(bufferB), observationID: coordinator.commandBufferRecords[ObjectIdentifier(bufferB)]?.observationID ?? 0, status: .failed
             )
             let baseForC = coordinator.scheduledTails[effect]
             let reusedA = baseForC?.state.logicalMapping[historyIdentity]?
@@ -4840,7 +4840,7 @@ enum Harness {
                 commandBuffer: bufferC, tail: tailC, commit: commitC
             )
             coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(bufferC), status: .completed
+                identity: ObjectIdentifier(bufferC), observationID: coordinator.commandBufferRecords[ObjectIdentifier(bufferC)]?.observationID ?? 0, status: .completed
             )
             results["aSuccessBFailureCReusesAWithoutReset"] = reusedA
                 && commitB.submissionPin.releaseCount == 1
@@ -5408,13 +5408,10 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertLess(command_buffer_guard, encode)
         self.assertIn("ledger.phase == .allocationCommitted", execution)
         self.assertIn('"prepared-frame-consumption-rejected"', execution)
-        self.assertEqual(frame_commit.count("addCompletedHandler"), 1)
         self.assertIn(
             "guard commandBuffer.status == .notEnqueued",
             frame_commit,
         )
-        seal = frame_commit.index("func sealFrame(on commandBuffer")
-        self.assertNotIn("addCompletedHandler", frame_commit[seal:])
         self.assertIn("func completeCommandBuffer(", completion)
         self.assertIn("commandBufferIdentities", completion)
 

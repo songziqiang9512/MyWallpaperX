@@ -20,6 +20,7 @@ typedef enum MWXSceneQuickJSStorageReadResult {
 // must copy any bytes it retains and must report the required JSON byte count.
 typedef MWXSceneQuickJSStorageReadResult (*MWXSceneQuickJSStorageRead)(
     void *opaque,
+    MWXSceneQuickJSOwner *owner,
     const char *screen_identity,
     size_t screen_identity_length,
     uint32_t global_scope,
@@ -279,22 +280,6 @@ void mwx_scene_quickjs_domain_set_cancellation_check(
 void mwx_scene_quickjs_domain_reset_budget(
     MWXSceneQuickJSDomain *domain,
     uint64_t interrupt_budget
-);
-
-MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_shared_frame_transaction(
-    MWXSceneQuickJSDomain *domain,
-    char *diagnostic,
-    size_t diagnostic_capacity
-);
-
-void mwx_scene_quickjs_domain_commit_shared_frame_transaction(
-    MWXSceneQuickJSDomain *domain
-);
-
-MWXSceneQuickJSResult mwx_scene_quickjs_domain_discard_shared_frame_transaction(
-    MWXSceneQuickJSDomain *domain,
-    char *diagnostic,
-    size_t diagnostic_capacity
 );
 
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_layer_catalog(
@@ -749,6 +734,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_read_bound_scalar(
     char *diagnostic,
     size_t diagnostic_capacity
 );
+// Effective initialization state in the current owner transaction.
+bool mwx_scene_quickjs_owner_is_initialized(const MWXSceneQuickJSOwner *owner);
+
 MWXSceneQuickJSTimerFrameSnapshot *mwx_scene_quickjs_owner_timer_snapshot(
     MWXSceneQuickJSOwner *owner
 );

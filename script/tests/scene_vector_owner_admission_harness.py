@@ -861,6 +861,10 @@ enum Harness {
             "vectorRejected": candidate.constructionReport.vectorFailures.count,
             "vectorFailureCodes": candidate.constructionReport.vectorFailures
                 .values.map(\.code).sorted(),
+            "compositionVisibilityRejectedByVector": candidate.constructionReport
+                .vectorFailures[.layer(layerID: 20, field: .visibility)]?.code == "exception",
+            "compositionVisibilityHasStandaloneCursor": candidate.constructionReport
+                .expectedCursorTargets.contains(.layer(layerID: 20, field: .visibility)),
             "cursorExpected": candidate.constructionReport
                 .expectedCursorTargets.count,
             "cursorRejected": candidate.constructionReport.cursorFailures.count,

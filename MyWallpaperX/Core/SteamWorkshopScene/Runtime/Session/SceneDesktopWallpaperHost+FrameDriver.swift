@@ -284,11 +284,6 @@ extension SceneDesktopWallpaperHost {
             surface: sceneScriptSurfaceInput
         )
         launchContext.sceneScriptStorageSession?.beginFrameTransaction()
-        let sharedFrameTransactionFailure =
-            launchContext.propertyVectorScriptProgram.requiresSharedFrameTransaction
-            ? launchContext.propertyVectorScriptProgram.domain?
-                .beginSharedFrameTransaction()
-            : nil
         let sceneScriptVideoSnapshots = videoTextureSourceRegistry?
             .sceneScriptSnapshots(sceneTime: timing.sceneTime) ?? [:]
         let sceneScriptTextureAnimationSnapshots =
@@ -303,9 +298,6 @@ extension SceneDesktopWallpaperHost {
             : .empty
         let sceneScriptLayerSnapshotFailure: SceneScriptScalarRuntimeFailure?
         do {
-            if let sharedFrameTransactionFailure {
-                throw sharedFrameTransactionFailure
-            }
             try launchContext.propertyVectorScriptProgram.domain?.publishLayerSnapshot(
                     preliminaryForSceneScript,
                     descriptor: launchContext.runtimeInput.renderDescriptor,
@@ -508,8 +500,19 @@ extension SceneDesktopWallpaperHost {
 #endif
         var runtimeValidationFailures:
             [SceneScriptOwnerEffectsRuntimeFailure] = []
+        // A later callback can fail after this owner has already produced
+        // cursor effects. Reject the whole owner result before admission.
+        let executionFailedOwners = Set(cursorResult.failures.keys)
+            .union(sceneScriptVectorResult.failures.keys)
+            .union(sceneScriptStringResult.failures.keys)
+            .union(sceneScriptResult.failures.keys)
         let fixedPoint = launchContext.sceneScriptDynamicLayerRuntime
-            .preflightOwnerEffectsToFixedPoint(ownerEffects) { admitted in
+            .preflightOwnerEffectsToFixedPoint(
+                ownerEffects, excludingOwners: executionFailedOwners,
+                rejectingDependents: {
+                    launchContext.sceneScriptStorageSession?.resolveRejectedOwners($0) ?? $0
+                }
+            ) { admitted in
                 let failures = SceneScriptOwnerEffectsRuntimeValidation
                     .failures(
                         for: admitted,
@@ -693,6 +696,21 @@ extension SceneDesktopWallpaperHost {
             )
             frameOutcomes.append(frameOutcome)
 #if DEBUG
+            if Self.usesDebugEvidenceWindow,
+               timing.frameIndex <= 2,
+               case let .prepared(candidate) = frameOutcome {
+                candidate.observeCompletion(frameIndex: timing.frameIndex, surfaceID: displayID)
+            }
+            if Self.usesDebugEvidenceWindow,
+               debugRejectPreparedFrameOnce == timing.frameIndex,
+               frameOutcomes.count == surfaces.count {
+                debugRejectPreparedFrameOnce = nil
+                if case let .prepared(candidate) = frameOutcome { candidate.cancel() }
+                frameOutcomes[frameOutcomes.count - 1] = .dropped(
+                    reasonCode: "debug-evidence-prepared-surface-rejected"
+                )
+                NSLog("MWX DEBUG SCENE: phase=surface-submission state=rejected frame=%llu surface=%u totalSurfaces=%d", timing.frameIndex, displayID, surfaces.count)
+            }
             if Self.usesDebugEvidenceWindow {
                 SceneFramePerformanceTelemetry.debugEvidence.recordMainFrame(
                     duration: ProcessInfo.processInfo.systemUptime - mainFrameStart
@@ -700,8 +718,11 @@ extension SceneDesktopWallpaperHost {
             }
 #endif
         }
-        let allSurfacesSubmitted = frameOutcomes.count == surfaces.count
-            && frameOutcomes.allSatisfy(\.isSubmitted)
+        // Every surface is sealed before any Metal buffer is submitted. A
+        // preparation failure cancels all candidates before host rollback.
+        let allSurfacesSubmitted = SceneMetalRenderer.submitPreparedFrames(
+            &frameOutcomes, expectedCount: surfaces.count
+        )
         guard allSurfacesSubmitted else {
             // A deferred/dropped surface must not consume a frame index or move the host-time anchor.
             sceneClock.restore(clockState)
@@ -723,10 +744,7 @@ extension SceneDesktopWallpaperHost {
                     .restoreEdgeState(cursorEdgeState)
             }
             restoreSceneScriptProgramFrameState(launchContext, sceneScriptProgramFrameState)
-            restoreSceneScriptProgramTimerFrameState(launchContext, sceneScriptProgramTimerFrameState)
             launchContext.sceneScriptStorageSession?.discardFrameTransaction()
-            _ = launchContext.propertyVectorScriptProgram.domain?
-                .discardSharedFrameTransaction()
             surfaces.values.forEach {
                 $0.metalView.discardPreparedParticleFrame()
                 $0.metalView.puppetPlaybackStates.values.forEach { $0.discardBoneFrame() }
@@ -738,6 +756,16 @@ extension SceneDesktopWallpaperHost {
             surfaces.values.forEach { $0.metalView.discardPreparedVideoFrames() }
             surfaces.values.forEach { $0.metalView.discardPreparedDynamicTextUpdate() }
             discardSceneScriptFrameOutcome(launchContext)
+            // Owner-local init rollback precedes the authoritative frame
+            // timer restore. Restoring retains callbacks; release snapshots.
+            restoreSceneScriptProgramTimerFrameState(launchContext, sceneScriptProgramTimerFrameState)
+            discardSceneScriptProgramTimerFrameState(launchContext, sceneScriptProgramTimerFrameState)
+#if DEBUG
+            if Self.usesDebugEvidenceWindow {
+                NSLog("MWX DEBUG SCENE: phase=host-frame-outcome state=discarded frame=%llu submittedSurfaces=%d totalSurfaces=%d",
+                      timing.frameIndex, frameOutcomes.filter(\.isSubmitted).count, surfaces.count)
+            }
+#endif
             return frameOutcomes.contains(where: { $0.isDeferred })
                 ? .busy : .dropped
         }
@@ -750,6 +778,10 @@ extension SceneDesktopWallpaperHost {
         surfaces.values.forEach { $0.metalView.commitPreparedMediaThumbnailUpdate() }
         surfaces.values.forEach { $0.metalView.commitPreparedVideoFrames() }
         surfaces.values.forEach { $0.metalView.commitPreparedDynamicTextUpdate() }
+        restoreSceneScriptProgramFrameState(
+            launchContext, sceneScriptProgramFrameState,
+            rejectedOwnerTargets: rejectedOwnerTargets
+        )
         commitSubmittedSceneFrame(
             launchContext,
             pendingSurfaceEvaluations: pendingSurfaceEvaluations,

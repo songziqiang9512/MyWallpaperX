@@ -191,6 +191,7 @@ static JSValue storage_get(
         ? owner->storage_screen_identity : "";
     MWXSceneQuickJSStorageReadResult result = owner->domain->storage_read(
         owner->domain->storage_opaque,
+        owner,
         screen,
         strlen(screen),
         is_global ? 1 : 0,
@@ -217,6 +218,7 @@ static JSValue storage_get(
     const size_t expected_length = json_length;
     result = owner->domain->storage_read(
         owner->domain->storage_opaque,
+        owner,
         screen,
         strlen(screen),
         is_global ? 1 : 0,

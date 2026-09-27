@@ -347,15 +347,40 @@ enum Harness {
             userPropertyDefinitions: [],
             generation: 7
         )
+        let eventAudioDomain = try SceneScriptQuickJSDomain()
+        try eventAudioDomain.configureLayerCatalog(descriptor())
         let eventOnlyAudioProgram = SceneScriptVectorProgram.compile(
-            domain: try SceneScriptQuickJSDomain(),
+            domain: eventAudioDomain,
             descriptor: descriptor(),
             scriptBindings: [binding(source: """
                 const spectrum = engine.registerAudioBuffers(64);
-                export function mediaPlaybackChanged() {}
+                let callbacks = 0;
+                export function mediaPlaybackChanged() {
+                    thisLayer.origin = new Vec3(spectrum.left[0], spectrum.right[0], ++callbacks);
+                }
                 """)],
             userPropertyDefinitions: [],
             generation: 14
+        )
+        let eventAudio = eventOnlyAudioProgram.evaluate(
+            inputs: [target: .bool(true)], effectivePropertyValues: [:],
+            frame: frame(runtime: 1), mediaPlaybackEvent: .init(state: 1, generation: 1),
+            audioSpectrum: .init(left: Array(repeating: 0, count: 16),
+                right: Array(repeating: 0, count: 16),
+                left64: [0.4] + Array(repeating: 0, count: 63),
+                right64: [0.7] + Array(repeating: 0, count: 63), generation: 1)
+        )
+        eventOnlyAudioProgram.finalizeLayerMutations(committing: true)
+        let eventSilent = eventOnlyAudioProgram.evaluate(
+            inputs: [target: .bool(true)], effectivePropertyValues: [:],
+            frame: frame(runtime: 2), mediaPlaybackEvent: .init(state: 2, generation: 2),
+            audioSpectrum: .init(left: Array(repeating: 0, count: 16),
+                right: Array(repeating: 0, count: 16), generation: 2)
+        )
+        eventOnlyAudioProgram.finalizeLayerMutations(committing: true)
+        let eventQuiet = eventOnlyAudioProgram.evaluate(
+            inputs: [target: .bool(true)], effectivePropertyValues: [:],
+            frame: frame(runtime: 3), mediaPlaybackEvent: .init(state: 2, generation: 2)
         )
         let destroyProgram = SceneScriptVectorProgram.compile(
             domain: try SceneScriptQuickJSDomain(),
@@ -642,7 +667,7 @@ enum Harness {
         let dynamicCreated = dynamic.layerMutations.filter {
             $0.isDynamic && $0.assetPath != nil
         }
-        let sharedTransactionDomain = try SceneScriptQuickJSDomain()
+        let sharedHeapDomain = try SceneScriptQuickJSDomain()
         let failedStyleProgram = SceneScriptVectorProgram.compile(
             domain: try SceneScriptQuickJSDomain(), descriptor: dynamicImageDescriptor(),
             scriptBindings: [binding(source: """
@@ -657,8 +682,8 @@ enum Harness {
         )
         let failedStyle = failedStyleProgram.evaluate(inputs: [target: .bool(true)],
             effectivePropertyValues: [:], frame: frame(runtime: 2))
-        let sharedTransactionProgram = SceneScriptVectorProgram.compile(
-            domain: sharedTransactionDomain,
+        let sharedHeapProgram = SceneScriptVectorProgram.compile(
+            domain: sharedHeapDomain,
             descriptor: descriptor(),
             scriptBindings: [binding(source: """
                 export function update(value) {
@@ -669,22 +694,17 @@ enum Harness {
             userPropertyDefinitions: [],
             generation: 12
         )
-        let sharedTransactionBeginFailure =
-            sharedTransactionDomain.beginSharedFrameTransaction()
-        let sharedTransactionFirst = sharedTransactionProgram.evaluate(
+        let sharedHeapFirst = sharedHeapProgram.evaluate(
             inputs: [target: .bool(false)], effectivePropertyValues: [:],
             frame: frame(runtime: 3)
         )
-        let sharedTransactionDiscardFailure =
-            sharedTransactionDomain.discardSharedFrameTransaction()
-        let sharedTransactionRetryBeginFailure =
-            sharedTransactionDomain.beginSharedFrameTransaction()
-        let sharedTransactionRetry = sharedTransactionProgram.evaluate(
+        sharedHeapProgram.finalizeLayerMutations(committing: false)
+        let sharedHeapRetry = sharedHeapProgram.evaluate(
             inputs: [target: .bool(false)], effectivePropertyValues: [:],
             frame: frame(runtime: 3)
         )
-        sharedTransactionDomain.commitSharedFrameTransaction()
-        let sharedTransactionCommitted = sharedTransactionProgram.evaluate(
+        sharedHeapProgram.finalizeLayerMutations(committing: true)
+        let sharedHeapCommitted = sharedHeapProgram.evaluate(
             inputs: [target: .bool(false)], effectivePropertyValues: [:],
             frame: frame(runtime: 4)
         )
@@ -715,6 +735,12 @@ enum Harness {
             "audioDefinitions": audioProgram.definitions.count,
             "eventOnlyAudioDefinitions":
                 eventOnlyAudioProgram.definitions.count,
+            "eventAudioX": eventAudio.layerMutations.first?.origin.x ?? -1,
+            "eventAudioY": eventAudio.layerMutations.first?.origin.y ?? -1,
+            "eventSilentX": eventSilent.layerMutations.first?.origin.x ?? -1,
+            "eventCallbackCount": eventSilent.layerMutations.first?.origin.z ?? -1,
+            "eventAudioFailures": eventAudio.failures.count + eventSilent.failures.count + eventQuiet.failures.count,
+            "eventQuiet": eventQuiet.values.isEmpty && eventQuiet.layerMutations.isEmpty,
             "destroyDefinitions": destroyProgram.definitions.count,
             "parentedProjected": parented.targets.count,
             "userWrappedProjected": userWrapped.targets.count,
@@ -776,20 +802,12 @@ enum Harness {
                 .ownerTarget == target,
             "dynamicOwnerEffectsLayerCount": dynamic.ownerEffects.first?
                 .layerMutations.count ?? -1,
-            "sharedTransactionRequired":
-                sharedTransactionProgram.requiresSharedFrameTransaction,
-            "sharedTransactionBeginCode":
-                sharedTransactionBeginFailure?.code as Any,
-            "sharedTransactionFirst":
-                boolValue(sharedTransactionFirst, target: target) as Any,
-            "sharedTransactionDiscardCode":
-                sharedTransactionDiscardFailure?.code as Any,
-            "sharedTransactionRetryBeginCode":
-                sharedTransactionRetryBeginFailure?.code as Any,
-            "sharedTransactionRetry":
-                boolValue(sharedTransactionRetry, target: target) as Any,
-            "sharedTransactionCommitted":
-                boolValue(sharedTransactionCommitted, target: target) as Any,
+            "sharedHeapFirst":
+                boolValue(sharedHeapFirst, target: target) as Any,
+            "sharedHeapRetry":
+                boolValue(sharedHeapRetry, target: target) as Any,
+            "sharedHeapCommitted":
+                boolValue(sharedHeapCommitted, target: target) as Any,
             "dynamicModelPaths": dynamic.layerMutations.compactMap(\.assetPath),
             "dynamicPeerMutation": dynamic.layerMutations.contains {
                 $0.layerID == 8 && $0.fields == [.scale, .visibility, .text, .alpha, .color]
@@ -896,14 +914,10 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
         self.assertEqual(self.value["boneTranslation"], 12)
         self.assertEqual(self.value["boneCursorOwners"], 1)
 
-    def test_shared_state_rolls_back_with_the_frame(self) -> None:
-        self.assertTrue(self.value["sharedTransactionRequired"])
-        self.assertIsNone(self.value["sharedTransactionBeginCode"])
-        self.assertTrue(self.value["sharedTransactionFirst"])
-        self.assertIsNone(self.value["sharedTransactionDiscardCode"])
-        self.assertIsNone(self.value["sharedTransactionRetryBeginCode"])
-        self.assertTrue(self.value["sharedTransactionRetry"])
-        self.assertFalse(self.value["sharedTransactionCommitted"])
+    def test_shared_heap_persists_when_typed_frame_is_discarded(self) -> None:
+        self.assertTrue(self.value["sharedHeapFirst"])
+        self.assertFalse(self.value["sharedHeapRetry"])
+        self.assertFalse(self.value["sharedHeapCommitted"])
 
     def test_effectful_boolean_owner_publishes_prepared_dynamic_image_layers(self) -> None:
         self.assertEqual(self.value["authoredStyleAlpha"], 0.25)
@@ -931,12 +945,20 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
             ],
         )
 
+    def test_event_only_media_owner_reads_audio_and_quiesces_without_new_events(self) -> None:
+        self.assertEqual(self.value["eventOnlyAudioDefinitions"], 1)
+        self.assertEqual(self.value["eventAudioFailures"], 0)
+        self.assertAlmostEqual(self.value["eventAudioX"], 0.4)
+        self.assertAlmostEqual(self.value["eventAudioY"], 0.7)
+        self.assertEqual(self.value["eventSilentX"], 0)
+        self.assertEqual(self.value["eventCallbackCount"], 2)
+        self.assertTrue(self.value["eventQuiet"])
+
     def test_value_only_host_allows_read_only_scene_lookup_only(self) -> None:
         self.assertEqual(self.value["hiddenSharedCode"], "exception")
         self.assertIsNone(self.value["hiddenHandleCode"])
         self.assertEqual(self.value["timerCode"], "exception")
         self.assertEqual(self.value["audioDefinitions"], 1)
-        self.assertEqual(self.value["eventOnlyAudioDefinitions"], 0)
         self.assertEqual(self.value["destroyDefinitions"], 0)
         self.assertFalse(self.value["teardownDestroyInvoked"])
         self.assertTrue(self.value["teardownQuiescent"])

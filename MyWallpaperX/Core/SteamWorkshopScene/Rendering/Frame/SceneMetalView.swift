@@ -595,7 +595,8 @@ class SceneMetalView: NSView {
         let presentationRegistration = firstFramePresentationRegistration
         let onDrawableWillPresent: ((CAMetalDrawable) -> Void)?
         if presentationRegistration != nil || performanceTelemetry != nil {
-            onDrawableWillPresent = { [presentationStreamID] drawable in
+            onDrawableWillPresent = { [weak self, presentationStreamID] drawable in
+                self?.firstFramePresentationRegistration = nil
                 _ = presentationRegistration?(drawable)
                 performanceTelemetry?.recordWillPresent(
                     drawable,
@@ -657,8 +658,7 @@ class SceneMetalView: NSView {
             onDrawableWillPresent: onDrawableWillPresent,
             to: drawable
         )
-        if outcome.isSubmitted {
-            firstFramePresentationRegistration = nil
+        if outcome.isPrepared {
             // Dynamic text is asynchronous; stage its next request for the
             // host's all-surface submission barrier.
             pendingDynamicTextUpdate = (

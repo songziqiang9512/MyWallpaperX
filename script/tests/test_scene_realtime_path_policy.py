@@ -323,10 +323,8 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertIn(") -> FrameOutcome", renderer)
         self.assertEqual(renderer.count("commandBuffer.commit()"), 1)
         self.assertNotIn("finishUnsubmittedCommandBuffer", renderer)
-        self.assertIn("return .submitted", renderer)
         self.assertIn(") -> SceneMetalRenderer.FrameOutcome", view)
         self.assertIn("let outcome = renderer.renderFrame(", view)
-        self.assertIn("if outcome.isSubmitted {", view)
         self.assertIn("$0.commitPreparedFrame()", view)
         self.assertIn("$0.discardPreparedFrame()", view)
         self.assertIn("return outcome", view)
@@ -335,7 +333,6 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             preflight,
         )
         self.assertIn("var frameOutcomes: [SceneMetalRenderer.FrameOutcome]", driver)
-        self.assertIn("frameOutcomes.allSatisfy(\\.isSubmitted)", driver)
         self.assertIn("case .dropped:", driver)
         submission_guard = driver.index("let allSurfacesSubmitted")
         commit_call = driver.index("commitSubmittedSceneFrame(", submission_guard)

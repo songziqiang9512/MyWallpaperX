@@ -30,6 +30,7 @@ static int check(int condition, const char *label, const char *diagnostic) {
 
 static MWXSceneQuickJSStorageReadResult storage_read(
     void *opaque,
+    MWXSceneQuickJSOwner *owner,
     const char *screen_identity,
     size_t screen_identity_length,
     uint32_t global_scope,
@@ -39,6 +40,7 @@ static MWXSceneQuickJSStorageReadResult storage_read(
     size_t json_capacity,
     size_t *json_length
 ) {
+    if (owner == NULL) return MWX_SCENE_QUICKJS_STORAGE_READ_ERROR;
     int *reads = opaque;
     *reads += 1;
     if (key_length == 4 && memcmp(key, "fail", 4) == 0) {
@@ -1611,6 +1613,25 @@ int main(void) {
         MWX_SCENE_QUICKJS_OK, vec3_input,
         "Vec3 no-op layer mutation preserves typed input"
     );
+
+    const char *nonfinite_angles_returns[] = {
+        "'LEON'", "new Vec3(NaN,0,0)"
+    };
+    for (size_t index = 0; index < 2; ++index) {
+        char source[256];
+        snprintf(source, sizeof(source),
+            "export function update(v){thisLayer.angles=new Vec3(NaN,0,0);return %s;}",
+            nonfinite_angles_returns[index]);
+        MWXSceneQuickJSOwner *invalid_angles = mwx_scene_quickjs_owner_create(
+            domain, source, strlen(source), 823, diagnostic, sizeof(diagnostic));
+        failures += configure_owner_layer(invalid_angles, 42, "invalid angles target");
+        failures += update_vec3(invalid_angles, 823, vec3_input, "", "{}",
+            MWX_SCENE_QUICKJS_BAD_RETURN, NULL,
+            "rejected angles cannot authorize an invalid typed return");
+        failures += check(mwx_scene_quickjs_owner_layer_mutation_count(invalid_angles) == 0,
+            "rejected angles creates no passthrough mutation", diagnostic);
+        mwx_scene_quickjs_owner_destroy(invalid_angles);
+    }
 
     const char *vec3_invalid_return_source =
         "export function update(value) { return [value.x, value.y, value.z]; }";
@@ -3232,7 +3253,9 @@ int main(void) {
         "if(saved.id!==created.id)throw new Error('dynamic enumeration tail');"
         "thisScene.destroyLayer(created);"
         "let stale=false;try{saved.id;}catch(error){stale=true;}"
-        "if(!stale)throw new Error('destroyed handle survived');return value;}";
+        "if(!stale)throw new Error('destroyed handle survived');"
+        "stale=false;try{saved.scale=new Vec3(NaN);}catch(error){stale=true;}"
+        "if(!stale)throw new Error('stale NaN write survived');return value;}";
     MWXSceneQuickJSOwner *destroyed_enumerated = mwx_scene_quickjs_owner_create(
         domain, destroyed_enumerated_source, strlen(destroyed_enumerated_source),
         53, diagnostic, sizeof(diagnostic)
@@ -3254,11 +3277,15 @@ int main(void) {
         "export function update(value){const layer=thisScene.enumerateLayers()[1];"
         "let rejected=false;try{layer.text='intrusion';}catch(error){rejected=true;}"
         "if(!rejected)throw new Error('foreign dynamic write');"
+        "rejected=false;try{layer.scale=new Vec3(NaN);}catch(error){rejected=true;}"
+        "if(!rejected)throw new Error('foreign NaN write survived');"
         "return layer.text==='tick'?1:0;}",
         strlen(
             "export function update(value){const layer=thisScene.enumerateLayers()[1];"
             "let rejected=false;try{layer.text='intrusion';}catch(error){rejected=true;}"
             "if(!rejected)throw new Error('foreign dynamic write');"
+        "rejected=false;try{layer.scale=new Vec3(NaN);}catch(error){rejected=true;}"
+        "if(!rejected)throw new Error('foreign NaN write survived');"
             "return layer.text==='tick'?1:0;}"
         ),
         41, diagnostic, sizeof(diagnostic)
@@ -3641,7 +3668,11 @@ int main(void) {
 
     const char *nonfinite_authored_source =
         "export function update(value){const layer=thisScene.getLayerByID(17);"
-        "layer.text='pending';layer.scale=new Vec3(1,NaN,1);return value;}";
+        "layer.text='pending';layer.scale=new Vec3(4,5,6);"
+        "layer.scale=new Vec3(1,NaN,1);"
+        "if(layer.scale.y!==5)throw new Error('valid candidate lost');"
+        "layer.origin=new Vec3(Infinity,2,3);"
+        "layer.angles=new Vec3(1,2,-Infinity);return value;}";
     MWXSceneQuickJSOwner *nonfinite_authored = mwx_scene_quickjs_owner_create(
         domain, nonfinite_authored_source, strlen(nonfinite_authored_source),
         60, diagnostic, sizeof(diagnostic)
@@ -3653,17 +3684,138 @@ int main(void) {
         nonfinite_authored, 42, "nonfinite authored owner identity"
     );
     failures += update(
-        nonfinite_authored, 60, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
-        "nonfinite authored transform rolls back callback"
+        nonfinite_authored, 60, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "nonfinite authored transform rejects only its assignment"
     );
     failures += check(
-        mwx_scene_quickjs_owner_layer_mutation_count(nonfinite_authored) == 0,
-        "nonfinite authored transform leaves no staged mutation", diagnostic
+        mwx_scene_quickjs_owner_layer_mutation_count(nonfinite_authored) == 1,
+        "valid authored changes survive invalid transform", diagnostic
     );
+    MWXSceneQuickJSLayerMutation finite_authored = {0};
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_at(nonfinite_authored, 0,
+            &finite_authored, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK
+            && finite_authored.fields == (MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT
+                | MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE)
+            && finite_authored.scale[0] == 4 && finite_authored.scale[1] == 5
+            && finite_authored.scale[2] == 6,
+        "only finite authored payload crosses C bridge", diagnostic
+    );
+    mwx_scene_quickjs_owner_discard_layer_mutations(nonfinite_authored);
     failures += update(
         authored_observer, 57, 1, MWX_SCENE_QUICKJS_OK, 1,
         "invalid authored mutations leave shared record unchanged"
     );
+
+    MWXSceneQuickJSDomain *finite_domain = mwx_scene_quickjs_domain_create(
+        2 * 1024 * 1024, 512 * 1024, 100000, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(finite_domain != NULL, "finite transform domain", diagnostic);
+    failures += configure_layers(finite_domain);
+    const char *finite_source =
+        "let layer;export function update(v){"
+        "if(v===1){layer=thisScene.createLayer({text:'base'});return v;}"
+        "if(v===2){for(let p of ['origin','scale','angles']){"
+        "layer[p]={x:'2',y:3,z:4};"
+        "for(let a of ['x','y','z'])for(let bad of [NaN,Infinity,-Infinity]){"
+        "let next=new Vec3(90,91,92);next[a]=bad;layer[p]=next;"
+        "let got=layer[p];if(got.x!==2||got.y!==3||got.z!==4)"
+        "throw new Error('assignment not atomic');}}layer.text='next';return v;}"
+        "if(v===3){if(layer.text!=='base'||layer.origin.x!==0||"
+        "layer.scale.y!==1||layer.angles.z!==0)throw new Error('discard leak');"
+        "return v;}"
+        "if(v===7){let seen='';layer.scale={"
+        "get x(){seen+='x';return NaN;},get y(){seen+='y';return Infinity;},"
+        "get z(){seen+='z';return -Infinity;}};"
+        "if(seen!=='xyz')throw new Error('getter skipped');return v;}"
+        "if(v===8){layer.origin=new Vec3(NaN);"
+        "if(layer.text!=='next'||layer.origin.x!==2||layer.scale.y!==3||"
+        "layer.angles.z!==4)throw new Error('commit lost');return v;}"
+        "return v;}";
+    MWXSceneQuickJSOwner *finite_owner = mwx_scene_quickjs_owner_create(
+        finite_domain, finite_source, strlen(finite_source), 820,
+        diagnostic, sizeof(diagnostic)
+    );
+    failures += check(finite_owner != NULL, "finite transform owner", diagnostic);
+    failures += configure_owner_layer(finite_owner, 17, "finite transform target");
+    failures += update(finite_owner, 820, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "finite layer seed");
+    mwx_scene_quickjs_owner_commit_layer_mutations(finite_owner);
+    failures += update(finite_owner, 820, 2, MWX_SCENE_QUICKJS_OK, 2,
+        "all transform axes reject numeric nonfinite without losing valid siblings");
+    MWXSceneQuickJSLayerMutation finite_dynamic = {0};
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(finite_owner) == 1
+            && mwx_scene_quickjs_owner_layer_mutation_at(finite_owner, 0,
+                &finite_dynamic, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK
+            && finite_dynamic.origin[0] == 2 && finite_dynamic.origin[1] == 3
+            && finite_dynamic.origin[2] == 4 && finite_dynamic.scale[0] == 2
+            && finite_dynamic.scale[1] == 3 && finite_dynamic.scale[2] == 4
+            && finite_dynamic.angles[0] == 2 && finite_dynamic.angles[1] == 3
+            && finite_dynamic.angles[2] == 4,
+        "only complete finite dynamic transforms publish", diagnostic
+    );
+    mwx_scene_quickjs_owner_discard_layer_mutations(finite_owner);
+    failures += update(finite_owner, 820, 3, MWX_SCENE_QUICKJS_OK, 3,
+        "outer discard still restores complete previous current");
+    failures += update(finite_owner, 820, 7, MWX_SCENE_QUICKJS_OK, 7,
+        "invalid-only assignment preserves current");
+    failures += check(mwx_scene_quickjs_owner_layer_mutation_count(finite_owner) == 0,
+        "invalid-only assignment consumes no mutation", diagnostic);
+    failures += update(finite_owner, 820, 2, MWX_SCENE_QUICKJS_OK, 2,
+        "finite candidates can retry after discard");
+    mwx_scene_quickjs_owner_commit_layer_mutations(finite_owner);
+    failures += update(finite_owner, 820, 8, MWX_SCENE_QUICKJS_OK, 8,
+        "later invalid transform preserves committed finite state");
+    failures += check(mwx_scene_quickjs_owner_layer_mutation_count(finite_owner) == 0,
+        "invalid assignment after commit consumes no mutation", diagnostic);
+    mwx_scene_quickjs_owner_destroy(finite_owner);
+    mwx_scene_quickjs_domain_destroy(finite_domain);
+
+    // A hard callback failure disables its owner. Use fresh owners and read
+    // committed authored state through an independent observer after each one.
+    const char *invalid_transform_cases[] = {
+        "layer.scale={x:NaN,get y(){throw new Error('late getter');},z:1};",
+        "layer.scale={x:NaN,y:undefined,z:1};",
+        "layer.scale={x:NaN,y:Symbol('bad'),z:1};",
+        "layer.scale={x:NaN,y:'bad',z:1};",
+        "layer.scale={x:1,z:1};",
+        "layer.origin=new Vec3(NaN);throw new Error('explicit error');",
+        "layer.color=new Vec3(NaN);",
+        "thisScene.createLayer({text:'bad',scale:new Vec3(NaN)});"
+    };
+    for (size_t invalid_case = 0; invalid_case <
+            sizeof(invalid_transform_cases) / sizeof(invalid_transform_cases[0]);
+            ++invalid_case) {
+        MWXSceneQuickJSDomain *rejection_domain = mwx_scene_quickjs_domain_create(
+            2 * 1024 * 1024, 512 * 1024, 100000, diagnostic, sizeof(diagnostic));
+        failures += configure_layers(rejection_domain);
+        char rejection_source[1024];
+        snprintf(rejection_source, sizeof(rejection_source),
+            "export function update(v){const layer=thisLayer;layer.text='leak';%sreturn v;}",
+            invalid_transform_cases[invalid_case]);
+        MWXSceneQuickJSOwner *rejection_owner = mwx_scene_quickjs_owner_create(
+            rejection_domain, rejection_source, strlen(rejection_source), 821,
+            diagnostic, sizeof(diagnostic));
+        failures += configure_owner_layer(rejection_owner, 17, "hard rejection target");
+        failures += update(rejection_owner, 821, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+            invalid_transform_cases[invalid_case]);
+        failures += check(mwx_scene_quickjs_owner_layer_mutation_count(rejection_owner) == 0,
+            "hard rejection discards valid prefix", diagnostic);
+        const char *observer_source =
+            "export function update(v){if(thisLayer.text!==''||thisLayer.scale.y!==1)"
+            "throw new Error('failed owner leaked');return v;}";
+        MWXSceneQuickJSOwner *rejection_observer = mwx_scene_quickjs_owner_create(
+            rejection_domain, observer_source, strlen(observer_source), 822,
+            diagnostic, sizeof(diagnostic));
+        failures += configure_owner_layer(rejection_observer, 17, "hard rejection observer");
+        failures += update(rejection_observer, 822, 1, MWX_SCENE_QUICKJS_OK, 1,
+            "hard rejection preserves independent current state");
+        mwx_scene_quickjs_owner_destroy(rejection_observer);
+        mwx_scene_quickjs_owner_destroy(rejection_owner);
+        mwx_scene_quickjs_domain_destroy(rejection_domain);
+    }
+
 
     MWXSceneQuickJSOwner *static_visible = mwx_scene_quickjs_owner_create(
         domain,
@@ -3721,16 +3873,74 @@ int main(void) {
     failures += check(dynamic_budget != NULL, "dynamic budget compile", diagnostic);
     failures += configure_owner_layer(dynamic_budget, 17, "dynamic budget identity");
     failures += update(
-        dynamic_budget, 42, 1, MWX_SCENE_QUICKJS_OK, 64,
-        "dynamic layer budget returns optional absence"
+        dynamic_budget, 42, 1, MWX_SCENE_QUICKJS_OK, 65,
+        "dynamic layer creation crosses former owner cap"
     );
     failures += check(
-        mwx_scene_quickjs_owner_layer_mutation_count(dynamic_budget) == 64,
-        "dynamic layer budget remains bounded", diagnostic
+        mwx_scene_quickjs_owner_layer_mutation_count(dynamic_budget) == 65,
+        "every admitted dynamic layer has a mutation", diagnostic
     );
     // Discarding the bounded batch also exercises the provisional-create
-    // tombstones and keeps later fixtures independent of these 64 records.
+    // tombstones and keeps later fixtures independent of these 65 records.
     mwx_scene_quickjs_owner_discard_layer_mutations(dynamic_budget);
+
+    // One owner may consume the existing scene-wide capacity. A second owner
+    // cannot bypass it, and every admitted value still participates in rollback.
+    MWXSceneQuickJSDomain *capacity_domain = mwx_scene_quickjs_domain_create(
+        2 * 1024 * 1024, 512 * 1024, 100000, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(capacity_domain != NULL, "capacity domain", diagnostic);
+    failures += configure_layers(capacity_domain);
+    const char *capacity_source =
+        "let layers=[];export function update(v){"
+        "if(v===1){for(let i=0;i<257;i++){"
+        "let x=thisScene.createLayer({text:'x',name:'wide'+i});"
+        "if(x)layers.push(x);}return layers.length;}"
+        "if(v===2){for(let x of layers)x.scale=new Vec3(2);return layers.length;}"
+        "if(v===3){for(let x of layers)if(x.scale.x!==1)throw new Error('leak');"
+        "return layers.length;}"
+        "if(v===4){for(let i=0;i<128;i++)thisScene.destroyLayer(layers[i]);return 128;}"
+        "return v;}";
+    MWXSceneQuickJSOwner *capacity_owner = mwx_scene_quickjs_owner_create(
+        capacity_domain, capacity_source, strlen(capacity_source),
+        800, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(capacity_owner != NULL, "capacity owner", diagnostic);
+    failures += configure_owner_layer(capacity_owner, 17, "capacity target");
+    failures += update(capacity_owner, 800, 1, MWX_SCENE_QUICKJS_OK, 256,
+        "single owner can fill scene capacity and excess returns null");
+    failures += check(mwx_scene_quickjs_owner_layer_mutation_count(capacity_owner) == 256,
+        "all creations publish", diagnostic);
+    mwx_scene_quickjs_owner_commit_layer_mutations(capacity_owner);
+    const char *competitor_source =
+        "export function update(v){let n=0;for(let i=0;i<v;i++)"
+        "if(thisScene.createLayer({text:'other'}))n++;return n;}";
+    MWXSceneQuickJSOwner *competitor = mwx_scene_quickjs_owner_create(
+        capacity_domain, competitor_source, strlen(competitor_source),
+        801, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(competitor != NULL, "competing owner", diagnostic);
+    failures += configure_owner_layer(competitor, 42, "competing target");
+    failures += update(competitor, 801, 1, MWX_SCENE_QUICKJS_OK, 0,
+        "scene capacity applies across owners");
+    failures += update(capacity_owner, 800, 2, MWX_SCENE_QUICKJS_OK, 256,
+        "full-capacity values stage");
+    failures += check(mwx_scene_quickjs_owner_layer_mutation_count(capacity_owner) == 256,
+        "full-capacity values publish", diagnostic);
+    mwx_scene_quickjs_owner_discard_layer_mutations(capacity_owner);
+    failures += update(capacity_owner, 800, 3, MWX_SCENE_QUICKJS_OK, 256,
+        "discard restores every value above old owner cap");
+    failures += update(capacity_owner, 800, 4, MWX_SCENE_QUICKJS_OK, 128,
+        "destroy releases scene capacity");
+    mwx_scene_quickjs_owner_commit_layer_mutations(capacity_owner);
+    failures += update(competitor, 801, 129, MWX_SCENE_QUICKJS_OK, 128,
+        "released capacity reusable but still bounded");
+    mwx_scene_quickjs_owner_discard_layer_mutations(competitor);
+    failures += update(competitor, 801, 129, MWX_SCENE_QUICKJS_OK, 128,
+        "discarded creations release capacity for retry");
+    mwx_scene_quickjs_owner_destroy(competitor);
+    mwx_scene_quickjs_owner_destroy(capacity_owner);
+    mwx_scene_quickjs_domain_destroy(capacity_domain);
 
     const char *dynamic_rollback_source =
         "let layer;"

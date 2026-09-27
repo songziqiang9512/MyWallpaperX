@@ -81,6 +81,9 @@ final class SceneDesktopWallpaperHost {
             .sceneTextureDecodeCacheByteBudget
     )
 #if DEBUG
+    var debugRejectPreparedFrameOnce: UInt64? = ProcessInfo.processInfo.environment[
+        "MWX_SCENE_DEBUG_REJECT_PREPARED_FRAME_ONCE"
+    ].flatMap(UInt64.init)
     var debugPointerOverride: SceneSurfacePointerInput?
     var debugSurfaceReferenceFrames: [CGDirectDisplayID: NSRect] = [:]
     var debugDropDynamicValuesFrameIndex: UInt64?
@@ -496,8 +499,25 @@ final class SceneDesktopWallpaperHost {
 
         var created = false
         var wroteLog = false
-        for screen in screens {
-            guard let screenID = Self.screenID(for: screen) else { continue }
+        var surfaceScreens = screens.compactMap { screen in
+            Self.screenID(for: screen).map { (screen, $0) }
+        }
+#if DEBUG
+        // Bounded evidence-only surfaces use actual independent views, drawables,
+        // graph runtimes and resource pools on the available physical screen.
+        if Self.usesDebugEvidenceWindow,
+           let requested = ProcessInfo.processInfo.environment[
+               "MWX_SCENE_DEBUG_SURFACE_COUNT"
+           ].flatMap(Int.init), (2...4).contains(requested),
+           let first = surfaceScreens.first {
+            while surfaceScreens.count < requested {
+                let identity = CGDirectDisplayID.max - UInt32(surfaceScreens.count)
+                guard !surfaceScreens.contains(where: { $0.1 == identity }) else { break }
+                surfaceScreens.append((first.0, identity))
+            }
+        }
+#endif
+        for (screen, screenID) in surfaceScreens {
             let frame = screen.frame
             guard let metalView = SceneMetalView(
                 renderDescriptor: launchContext.runtimeInput.renderDescriptor,

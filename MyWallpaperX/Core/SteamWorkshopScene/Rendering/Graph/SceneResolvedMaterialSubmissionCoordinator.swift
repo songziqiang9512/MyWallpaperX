@@ -78,6 +78,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     }
 
     struct CommandBufferRecord {
+        let observationID: UInt64
         let buffer: MTLCommandBuffer
         var terminalStatus: SceneGraphExecutionGPUCompletionStatus?
     }
@@ -126,6 +127,8 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     var commandBufferRecords: [ObjectIdentifier: CommandBufferRecord] = [:]
     var nextTransactionID: UInt64 = 0
     var nextSubmissionID: UInt64 = 0
+    // Never reset: a cancelled buffer's callback may arrive after reuse.
+    var nextCommandBufferObservationID: UInt64 = 0
     var executionEpoch: UInt64 = 1
     var effectGeneration: UInt64 = 1
     var resetGeneration: UInt64 = 1
@@ -137,6 +140,17 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     var frameDeferred = 0
     var lastReportSignature: String?
     var lastLocalFallbackSignature: String?
+#if DEBUG
+    // Evidence-only, surface-scoped and consumed before returning failure so
+    // retrying the same host frame index cannot inject indefinitely.
+    var debugRejectFrameOnce: UInt64? = {
+        guard ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-evidence-dir"),
+              let raw = ProcessInfo.processInfo.environment["MWX_SCENE_DEBUG_REJECT_FRAME_ONCE"],
+              let frameIndex = UInt64(raw) else { return nil }
+        return frameIndex
+    }()
+    var debugFrameRecoveryProbe: (frameIndex: UInt64, phase: String)?
+#endif
 
     init(
         device: MTLDevice,

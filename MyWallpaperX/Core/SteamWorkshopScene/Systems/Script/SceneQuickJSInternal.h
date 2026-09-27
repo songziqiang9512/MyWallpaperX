@@ -13,7 +13,6 @@
 #define MWX_SCENE_QUICKJS_MAX_EFFECT_NAME 256
 #define MWX_SCENE_QUICKJS_MAX_LAYERS 4096
 #define MWX_SCENE_QUICKJS_MAX_LAYER_NAME 256
-#define MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS 64
 #define MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS 256
 #define MWX_SCENE_QUICKJS_MAX_SCENE_DYNAMIC_LAYERS 256
 #define MWX_SCENE_QUICKJS_MAX_LAYER_TEXT 4096
@@ -24,7 +23,6 @@
 #define MWX_SCENE_QUICKJS_MAX_JOBS_PER_CALLBACK 64
 #define MWX_SCENE_QUICKJS_MAX_UNHANDLED_REJECTIONS 16
 #define MWX_SCENE_QUICKJS_MAX_OWNER_SOURCE_BYTES (256u * 1024u)
-#define MWX_SCENE_QUICKJS_MAX_SHARED_SNAPSHOT_BYTES (2u * 1024u * 1024u)
 #define MWX_SCENE_QUICKJS_MAX_VIDEO_COMMANDS 64
 #define MWX_SCENE_QUICKJS_MAX_TEXTURE_ANIMATION_COMMANDS 64
 #define MWX_SCENE_QUICKJS_MAX_VIDEO_ENDED_CALLBACKS 16
@@ -171,7 +169,6 @@ typedef struct MWXSceneQuickJSTimerRecord {
 } MWXSceneQuickJSTimerRecord;
 
 struct MWXSceneQuickJSTimerFrameSnapshot {
-    uint64_t next_timer_identity;
     double timer_runtime;
     bool timer_runtime_initialized;
     MWXSceneQuickJSTimerRecord timers[MWX_SCENE_QUICKJS_MAX_TIMERS];
@@ -229,9 +226,6 @@ struct MWXSceneQuickJSDomain {
     JSValue active_scene;
     JSValue active_object;
     JSValue shared_value;
-    uint8_t *shared_frame_snapshot;
-    size_t shared_frame_snapshot_size;
-    bool shared_frame_transaction_active;
     JSValue user_properties_snapshot;
     char *user_properties_json;
     size_t user_properties_json_length;
@@ -290,6 +284,8 @@ struct MWXSceneQuickJSOwner {
     uint64_t identity;
     uint64_t generation;
     bool initialized;
+    bool initialization_pending;
+    MWXSceneQuickJSTimerFrameSnapshot *initialization_timers;
     bool disabled;
     bool value_only;
     bool effectful_boolean;
@@ -358,7 +354,7 @@ struct MWXSceneQuickJSOwner {
     uint32_t dynamic_layer_created_indices[MWX_SCENE_QUICKJS_MAX_LAYERS];
     size_t dynamic_layer_value_baseline_count;
     MWXSceneQuickJSDynamicLayerValueBaseline dynamic_layer_value_baselines[
-        MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS
+        MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS
     ];
     size_t storage_mutation_count;
     size_t storage_mutation_bytes;

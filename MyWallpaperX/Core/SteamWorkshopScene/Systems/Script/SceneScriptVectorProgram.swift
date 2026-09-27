@@ -387,6 +387,38 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                !binding.owner.requiresFrameEvaluation {
                 continue
             }
+            // Every callback in this evaluation observes the same current audio
+            // generation, including init and applyUserProperties.
+            if binding.owner.hasAudioRegistration {
+                switch binding.owner.refreshAudio(audioSpectrum) {
+                case .success:
+                    if audioSpectrum.generation > 0, !audioSpectrum.isSilent,
+                       reportedAudioTargets.insert(target).inserted {
+                        let peak = [
+                            audioSpectrum.left.max() ?? 0,
+                            audioSpectrum.right.max() ?? 0,
+                            audioSpectrum.left32.max() ?? 0,
+                            audioSpectrum.right32.max() ?? 0,
+                            audioSpectrum.left64.max() ?? 0,
+                            audioSpectrum.right64.max() ?? 0,
+                        ].max() ?? 0
+                        NSLog(
+                            "MWX SceneScript VM: target=%@ event=audioBuffersUpdated generation=%llu silent=%@ peak=%.9g route=generic-only",
+                            String(describing: target),
+                            audioSpectrum.generation,
+                            audioSpectrum.isSilent ? "true" : "false",
+                            peak
+                        )
+                    }
+                case let .failure(failure):
+                    failures[target] = failure
+                    if failure.permanentlyDisablesOwner {
+                        disabledTargets.insert(target)
+                    }
+                    binding.owner.discardLayerMutations()
+                    continue
+                }
+            }
             var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
             var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
             var callbackLayerMutations: [SceneScriptLayerMutation] = []
@@ -478,36 +510,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 disabledTargets.insert(target)
                 binding.owner.discardLayerMutations()
                 continue
-            }
-            if binding.owner.hasAudioRegistration {
-                switch binding.owner.refreshAudio(audioSpectrum) {
-                case .success:
-                    if audioSpectrum.generation > 0, !audioSpectrum.isSilent,
-                       reportedAudioTargets.insert(target).inserted {
-                        let peak = [
-                            audioSpectrum.left.max() ?? 0,
-                            audioSpectrum.right.max() ?? 0,
-                            audioSpectrum.left32.max() ?? 0,
-                            audioSpectrum.right32.max() ?? 0,
-                            audioSpectrum.left64.max() ?? 0,
-                            audioSpectrum.right64.max() ?? 0,
-                        ].max() ?? 0
-                        NSLog(
-                            "MWX SceneScript VM: target=%@ event=audioBuffersUpdated generation=%llu silent=%@ peak=%.9g route=generic-only",
-                            String(describing: target),
-                            audioSpectrum.generation,
-                            audioSpectrum.isSilent ? "true" : "false",
-                            peak
-                        )
-                    }
-                case let .failure(failure):
-                    failures[target] = failure
-                    if failure.permanentlyDisablesOwner {
-                        disabledTargets.insert(target)
-                    }
-                    binding.owner.discardLayerMutations()
-                    continue
-                }
             }
             if let pendingPlaybackEvent {
                 switch binding.owner.dispatchMediaPlayback(
@@ -853,7 +855,22 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         .init(observedMediaThumbnailEvent: observedMediaThumbnailEvent.snapshot(), observedMediaPlaybackEvent: observedMediaPlaybackEvent.snapshot(), observedMediaPropertiesEvent: observedMediaPropertiesEvent.snapshot(), observedMediaTimelineEvent: observedMediaTimelineEvent.snapshot(), consumedMediaThumbnailGenerations: consumedMediaThumbnailGenerations, consumedMediaPlaybackGenerations: consumedMediaPlaybackGenerations, consumedMediaPropertiesGenerations: consumedMediaPropertiesGenerations, consumedMediaTimelineGenerations: consumedMediaTimelineGenerations, appliedUserProperties: appliedUserProperties)
     }
 
-    func restoreFrameState(_ state: SceneScriptProgramFrameState) {
+    func restoreFrameState(
+        _ state: SceneScriptProgramFrameState,
+        rejectedOwnerTargets: Set<SceneDynamicTarget>? = nil
+    ) {
+        if let rejectedOwnerTargets {
+            // Keep the observed input watermark and accepted peers. Only the
+            // rejected target's acknowledgement belongs to the failed result.
+            for target in rejectedOwnerTargets {
+                consumedMediaThumbnailGenerations[target] = state.consumedMediaThumbnailGenerations[target]
+                consumedMediaPlaybackGenerations[target] = state.consumedMediaPlaybackGenerations[target]
+                consumedMediaPropertiesGenerations[target] = state.consumedMediaPropertiesGenerations[target]
+                consumedMediaTimelineGenerations[target] = state.consumedMediaTimelineGenerations[target]
+            }
+            appliedUserProperties.restore(state.appliedUserProperties, for: rejectedOwnerTargets)
+            return
+        }
         observedMediaThumbnailEvent.restore(state.observedMediaThumbnailEvent); observedMediaPlaybackEvent.restore(state.observedMediaPlaybackEvent); observedMediaPropertiesEvent.restore(state.observedMediaPropertiesEvent); observedMediaTimelineEvent.restore(state.observedMediaTimelineEvent); consumedMediaThumbnailGenerations = state.consumedMediaThumbnailGenerations; consumedMediaPlaybackGenerations = state.consumedMediaPlaybackGenerations; consumedMediaPropertiesGenerations = state.consumedMediaPropertiesGenerations; consumedMediaTimelineGenerations = state.consumedMediaTimelineGenerations; appliedUserProperties = state.appliedUserProperties
     }
 

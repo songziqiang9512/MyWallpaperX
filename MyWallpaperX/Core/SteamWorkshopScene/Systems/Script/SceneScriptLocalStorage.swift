@@ -153,6 +153,32 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
     private var frameTransactionBase: Envelope?
     private var frameTransactionCandidate: Envelope?
 
+    private enum Scope: Hashable {
+        case global
+        case screen(String?)
+    }
+    private struct Batch {
+        let owner: UInt
+        let mutations: [SceneScriptStorageMutation]
+    }
+    // Borrowed VM handles are used only as frame-local tokens, never dereferenced.
+    // Targets remain the product's existing owner identities.
+    private var frameTargets: [UInt: SceneDynamicTarget] = [:]
+    private var frameBatches: [Batch] = []
+    private var frameWriters: [Scope: [String: UInt]] = [:]
+    private var frameClears: [Scope: UInt] = [:]
+    private var frameReaders: [UInt: Set<UInt>] = [:]
+    private var frameReadOwners: Set<UInt> = []
+    private var frameRejected: Set<UInt> = []
+    private var frameJournalBytes = 0
+    private var frameMutationCount = 0
+    private var frameDependencyCount = 0
+    private var frameReplayMutations = 0
+    private static let maximumFrameOwners = 4096
+    private static let maximumFrameMutations = 4096
+    private static let maximumFrameDependencies = 16_384
+    private static let maximumReplayMutations = 16_384
+
     init(recordID: String, rootDirectory: URL? = nil) {
         let root = rootDirectory ?? Self.defaultRootDirectory()
         let digest = SHA256.hash(data: Data(recordID.utf8)).map {
@@ -164,12 +190,31 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
     func read(
         screenIdentity: String?,
         globalScope: Bool,
-        key: String
+        key: String,
+        owner: UInt? = nil
     ) -> Result<String?, SceneScriptScalarRuntimeFailure> {
         lock.lock()
         defer { lock.unlock() }
         do {
             let current = try frameTransactionCandidate ?? loadIfNeeded()
+            if frameTransactionCandidate != nil, let owner {
+                let scope: Scope = globalScope ? .global : .screen(screenIdentity)
+                if let writer = frameWriters[scope]?[key] ?? frameClears[scope],
+                   writer != owner, frameReaders[writer]?.contains(owner) != true {
+                    guard frameDependencyCount < Self.maximumFrameDependencies else {
+                        // JS may catch a read error. Budget refusal still owns
+                        // the whole candidate result, even if no value escaped.
+                        frameReadOwners.insert(owner)
+                        frameRejected.insert(owner)
+                        throw SceneScriptScalarRuntimeFailure.budgetExceeded(
+                            "localStorage frame read dependency budget exceeded"
+                        )
+                    }
+                    frameReaders[writer, default: []].insert(owner)
+                    frameReadOwners.insert(owner)
+                    frameDependencyCount += 1
+                }
+            }
             if globalScope { return .success(current.global[key]) }
             guard let screenIdentity else { return .success(nil) }
             return .success(current.screens[screenIdentity]?[key])
@@ -180,35 +225,148 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
         }
     }
 
-    func apply(_ mutations: [SceneScriptStorageMutation]) throws {
-        guard !mutations.isEmpty else { return }
+    func apply(
+        _ mutations: [SceneScriptStorageMutation],
+        owner: UInt? = nil,
+        target: SceneDynamicTarget? = nil
+    ) throws {
         lock.lock()
         defer { lock.unlock() }
-        let current = try frameTransactionCandidate ?? loadIfNeeded()
-        var candidate = current
-        for mutation in mutations {
-            if mutation.globalScope {
-                try Self.apply(mutation, to: &candidate.global)
-            } else {
-                guard let screenIdentity = mutation.screenIdentity,
-                      !screenIdentity.isEmpty else {
-                    throw SceneScriptScalarRuntimeFailure.invalidArgument(
-                        "screen localStorage identity is unavailable"
-                    )
-                }
-                var scope = candidate.screens[screenIdentity] ?? [:]
-                try Self.apply(mutation, to: &scope)
-                candidate.screens[screenIdentity] = scope.isEmpty ? nil : scope
+        let inFrame = frameTransactionCandidate != nil
+        if inFrame, mutations.isEmpty, let owner,
+           frameTargets[owner] == nil, !frameReadOwners.contains(owner) {
+            return
+        }
+        if inFrame {
+            guard let owner, let target else {
+                throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                    "localStorage frame mutation requires an owner"
+                )
+            }
+            if let previous = frameTargets[owner], previous != target {
+                frameRejected.insert(owner)
+                throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                    "localStorage frame owner identity changed"
+                )
+            }
+            guard frameTargets[owner] != nil || frameTargets.count < Self.maximumFrameOwners else {
+                throw SceneScriptScalarRuntimeFailure.budgetExceeded(
+                    "localStorage frame owner budget exceeded"
+                )
+            }
+            // Read-only owners also need an identity for dependency rejection.
+            frameTargets[owner] = target
+        }
+        guard !mutations.isEmpty else { return }
+        let bytes = mutations.reduce(0) {
+            $0 + 32 + ($1.key?.utf8.count ?? 0) + ($1.json?.utf8.count ?? 0)
+                + ($1.screenIdentity?.utf8.count ?? 0)
+        }
+        if inFrame {
+            guard frameMutationCount + mutations.count <= Self.maximumFrameMutations,
+                  frameJournalBytes + bytes <= Self.maximumStoredFileBytes else {
+                throw SceneScriptScalarRuntimeFailure.budgetExceeded(
+                    "localStorage frame operation journal budget exceeded"
+                )
             }
         }
-        guard candidate != current else { return }
-        try Self.validate(candidate)
-        if frameTransactionCandidate != nil {
+        let current = try frameTransactionCandidate ?? loadIfNeeded()
+        var candidate = current
+        try Self.apply(mutations, to: &candidate)
+        try Self.validate(candidate, validatingValues: false)
+        if inFrame, let owner {
             frameTransactionCandidate = candidate
-        } else {
+            frameBatches.append(.init(owner: owner, mutations: mutations))
+            frameMutationCount += mutations.count
+            frameJournalBytes += bytes
+            for mutation in mutations {
+                let scope: Scope = mutation.globalScope ? .global : .screen(mutation.screenIdentity)
+                if mutation.kind == .clear {
+                    frameWriters[scope] = nil
+                    frameClears[scope] = owner
+                } else if let key = mutation.key {
+                    frameWriters[scope, default: [:]][key] = owner
+                }
+            }
+        } else if candidate != current {
             loadState = .loaded(candidate)
             PersistenceCoordinator.shared.schedule(candidate, for: fileURL)
         }
+    }
+
+    /// Rebuild from the committed base, retaining authored execution order and
+    /// original callback batch boundaries. Removing a deletion can make a later
+    /// writer exceed quota; reject that whole owner and its readers, then retry.
+    func resolveRejectedOwners(_ targets: Set<SceneDynamicTarget>) -> Set<SceneDynamicTarget> {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let base = frameTransactionBase else { return targets }
+        if frameReplayMutations > Self.maximumReplayMutations {
+            frameTransactionCandidate = base
+            return targets.union(frameTargets.values)
+        }
+        var rejected = frameRejected.union(frameTargets.compactMap {
+            targets.contains($0.value) ? $0.key : nil
+        })
+        guard !rejected.isEmpty else { return targets }
+        func propagate() {
+            var pending = Array(rejected)
+            while let writer = pending.popLast() {
+                for reader in frameReaders[writer] ?? [] {
+                    if rejected.insert(reader).inserted {
+                        pending.append(reader)
+                        if let target = frameTargets[reader] {
+                            NSLog("MWX SceneScript VM: localStorage owner=%@ callback=rejected reason=read-dependency fallback=previous-current", String(describing: target))
+                        }
+                    }
+                }
+            }
+        }
+        while true {
+            propagate()
+            var candidate = base
+            var failed = false
+            for batch in frameBatches where !rejected.contains(batch.owner) {
+                frameReplayMutations += batch.mutations.count
+                guard frameReplayMutations <= Self.maximumReplayMutations else {
+                    // The unsafe unit is this storage transaction's participants.
+                    // Unrelated Scene owners remain eligible for the frame.
+                    frameRejected.formUnion(frameTargets.keys)
+                    rejected.formUnion(frameRejected)
+                    NSLog("MWX SceneScript VM: localStorage callback=rejected reason=replay-budget owners=%d fallback=previous-current", frameTargets.count)
+                    candidate = base
+                    break
+                }
+                do {
+                    try Self.apply(batch.mutations, to: &candidate, validatingValues: false)
+                    try Self.validate(candidate, validatingValues: false)
+                } catch {
+                    rejected.insert(batch.owner)
+                    NSLog("MWX SceneScript VM: localStorage owner=%@ callback=rejected reason=replay-quota fallback=previous-current", String(describing: frameTargets[batch.owner]))
+                    failed = true
+                    break
+                }
+            }
+            if failed { continue }
+            frameTransactionCandidate = candidate
+            return targets.union(rejected.compactMap { frameTargets[$0] })
+        }
+    }
+
+    private func clearFrameTransaction() {
+        frameTransactionBase = nil
+        frameTransactionCandidate = nil
+        frameTargets.removeAll(keepingCapacity: true)
+        frameBatches.removeAll(keepingCapacity: true)
+        frameWriters.removeAll(keepingCapacity: true)
+        frameClears.removeAll(keepingCapacity: true)
+        frameReaders.removeAll(keepingCapacity: true)
+        frameReadOwners.removeAll(keepingCapacity: true)
+        frameRejected.removeAll(keepingCapacity: true)
+        frameJournalBytes = 0
+        frameMutationCount = 0
+        frameDependencyCount = 0
+        frameReplayMutations = 0
     }
 
     func beginFrameTransaction() -> Bool {
@@ -226,8 +384,7 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
         defer { lock.unlock() }
         guard let candidate = frameTransactionCandidate else { return }
         let changed = candidate != frameTransactionBase
-        frameTransactionBase = nil
-        frameTransactionCandidate = nil
+        clearFrameTransaction()
         guard changed else { return }
         loadState = .loaded(candidate)
         PersistenceCoordinator.shared.schedule(candidate, for: fileURL)
@@ -235,8 +392,7 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
 
     func discardFrameTransaction() {
         lock.lock()
-        frameTransactionBase = nil
-        frameTransactionCandidate = nil
+        clearFrameTransaction()
         lock.unlock()
     }
 
@@ -298,8 +454,30 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
     }
 
     private static func apply(
+        _ mutations: [SceneScriptStorageMutation],
+        to candidate: inout Envelope,
+        validatingValues: Bool = true
+    ) throws {
+        for mutation in mutations {
+            if mutation.globalScope {
+                try apply(mutation, to: &candidate.global, validatingValues: validatingValues)
+            } else {
+                guard let screen = mutation.screenIdentity, !screen.isEmpty else {
+                    throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                        "screen localStorage identity is unavailable"
+                    )
+                }
+                var scope = candidate.screens[screen] ?? [:]
+                try apply(mutation, to: &scope, validatingValues: validatingValues)
+                candidate.screens[screen] = scope.isEmpty ? nil : scope
+            }
+        }
+    }
+
+    private static func apply(
         _ mutation: SceneScriptStorageMutation,
-        to scope: inout [String: String]
+        to scope: inout [String: String],
+        validatingValues: Bool
     ) throws {
         switch mutation.kind {
         case .clear:
@@ -314,7 +492,7 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
         case .set:
             guard let key = mutation.key, let json = mutation.json,
                   key.utf8.count <= 256, json.utf8.count <= 65_536,
-                  Self.validJSON(json) else {
+                  (!validatingValues || Self.validJSON(json)) else {
                 throw SceneScriptScalarRuntimeFailure.invalidArgument(
                     "localStorage set contains an invalid key or JSON value"
                 )
@@ -323,7 +501,10 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
         }
     }
 
-    private static func validate(_ envelope: Envelope) throws {
+    private static func validate(
+        _ envelope: Envelope,
+        validatingValues: Bool = true
+    ) throws {
         guard envelope.screens.count <= maximumScreenScopes,
               envelope.screens.keys.allSatisfy({
                   !$0.isEmpty && $0.utf8.count <= 256
@@ -346,7 +527,7 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
                   scope.allSatisfy({
                       $0.key.utf8.count <= 256
                           && $0.value.utf8.count <= 65_536
-                          && validJSON($0.value)
+                          && (!validatingValues || validJSON($0.value))
                   }) else {
                 throw SceneScriptScalarRuntimeFailure.budgetExceeded(
                     "localStorage scope exceeds its byte budget"
@@ -399,6 +580,7 @@ private nonisolated func sceneScriptStorageString(
 
 private nonisolated func sceneScriptLocalStorageRead(
     _ opaque: UnsafeMutableRawPointer?,
+    _ owner: OpaquePointer?,
     _ screenPointer: UnsafePointer<CChar>?,
     _ screenLength: Int,
     _ globalScope: UInt32,
@@ -408,7 +590,7 @@ private nonisolated func sceneScriptLocalStorageRead(
     _ jsonCapacity: Int,
     _ jsonLength: UnsafeMutablePointer<Int>?
 ) -> MWXSceneQuickJSStorageReadResult {
-    guard let opaque, let jsonLength,
+    guard let opaque, let owner, let jsonLength,
           globalScope <= 1,
           let key = sceneScriptStorageString(keyPointer, keyLength),
           let screen = sceneScriptStorageString(screenPointer, screenLength) else {
@@ -419,7 +601,8 @@ private nonisolated func sceneScriptLocalStorageRead(
     switch session.read(
         screenIdentity: screen.isEmpty ? nil : screen,
         globalScope: globalScope != 0,
-        key: key
+        key: key,
+        owner: UInt(bitPattern: owner)
     ) {
     case .failure:
         jsonLength.pointee = 0
@@ -530,7 +713,8 @@ extension SceneScriptQuickJSDomain {
     }
 
     func commitStorage(
-        owner: OpaquePointer
+        owner: OpaquePointer,
+        target: SceneDynamicTarget
     ) -> Result<Void, SceneScriptScalarRuntimeFailure> {
         defer { mwx_scene_quickjs_owner_discard_storage_transaction(owner) }
         guard let storageSession else { return .success(()) }
@@ -538,7 +722,7 @@ extension SceneScriptQuickJSDomain {
         case let .failure(failure): return .failure(failure)
         case let .success(mutations):
             do {
-                try storageSession.apply(mutations)
+                try storageSession.apply(mutations, owner: UInt(bitPattern: owner), target: target)
                 return .success(())
             } catch let failure as SceneScriptScalarRuntimeFailure {
                 return .failure(failure)

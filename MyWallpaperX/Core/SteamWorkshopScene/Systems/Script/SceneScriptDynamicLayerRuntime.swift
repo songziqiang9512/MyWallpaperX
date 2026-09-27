@@ -468,10 +468,13 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     /// until command rejection and layer admission reach the same fixed point.
     func preflightOwnerEffectsToFixedPoint(
         _ effects: [SceneScriptOwnerEffects],
+        excludingOwners: Set<SceneDynamicTarget> = [],
+        rejectingDependents: (Set<SceneDynamicTarget>) -> Set<SceneDynamicTarget> = { $0 },
         rejectingExternally: ([SceneScriptOwnerEffects])
             -> Set<SceneDynamicTarget>
     ) -> SceneScriptOwnerEffectsFixedPointAdmission {
-        var externallyRejected = Set<SceneDynamicTarget>()
+        var externallyRejected = excludingOwners
+        var dependencySeedFailures: [SceneScriptLayerMutationOwnerFailure] = []
         while true {
             let candidates = effects.filter {
                 !externallyRejected.contains($0.ownerTarget)
@@ -484,13 +487,27 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 admission.admittedEffects
             ).intersection(admittedOwners)
             newlyRejected.subtract(externallyRejected)
-            guard !newlyRejected.isEmpty else {
-                return .init(
-                    admission: admission,
-                    externallyRejectedOwners: externallyRejected
-                )
+            if !newlyRejected.isEmpty {
+                externallyRejected.formUnion(newlyRejected)
+                continue
             }
-            externallyRejected.formUnion(newlyRejected)
+            // First settle command/layer validation. A storage reader can have
+            // only a typed value, so dependency rejection must not intersect
+            // the list of owners that emitted layer/command effects.
+            let rejected = externallyRejected.union(admission.rejectedOwners.compactMap(\.ownerTarget))
+            let expanded = rejectingDependents(rejected).union(rejected)
+            guard !expanded.subtracting(rejected).isEmpty else {
+                return .init(admission: .init(
+                    admittedEffects: admission.admittedEffects,
+                    rejectedOwners: dependencySeedFailures + admission.rejectedOwners,
+                    layerPlan: admission.layerPlan
+                ), externallyRejectedOwners: externallyRejected)
+            }
+            // Once the settled plan rejects an owner, its readers cannot reuse
+            // the value it produced. Keep that decision while closing further
+            // dependency and quota failures; independent admitted peers survive.
+            dependencySeedFailures.append(contentsOf: admission.rejectedOwners)
+            externallyRejected.formUnion(expanded)
         }
     }
 

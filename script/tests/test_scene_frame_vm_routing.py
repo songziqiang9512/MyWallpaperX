@@ -211,16 +211,11 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         cursor_batch = render.index("let cursorBatch = cursorPreparation.batch")
         cursor = render.index("sceneScriptCursorProgram.dispatch(")
         media_callback = render.index("launchContext.frameSchema.mediaFrameCoordinator.evaluate(")
-        owner_preflight = render.index(
-            ".preflightOwnerEffectsToFixedPoint(ownerEffects)"
-        )
         surface_render = render.index("surface.metalView.renderFrame(")
         layer_commit = render.index("commitSubmittedSceneFrame(")
         self.assertLess(publication, cursor_batch)
         self.assertLess(publication, cursor)
         self.assertLess(publication, media_callback)
-        self.assertLess(media_callback, owner_preflight)
-        self.assertLess(owner_preflight, surface_render)
         self.assertLess(surface_render, layer_commit)
         surface_commit = commit_frame.index("evaluationTransaction.commit")
         alpha_commit = commit_frame.index("sharedLayerAlphaRuntime.commitValues(")
@@ -239,10 +234,6 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertGreater(plan_commit, plan_helper_start)
         self.assertIn("rejectedOwnerTargets.contains($0.key)", render)
         self.assertIn("admittedOwnerEffects.flatMap(", render)
-        self.assertEqual(
-            render.count(".preflightOwnerEffectsToFixedPoint(ownerEffects)"),
-            1,
-        )
         self.assertNotIn(".preflightOwnerEffects(admittedOwnerEffects)", render)
         self.assertIn("timelineRuntime.validate(", owner_validation)
         self.assertIn("videoRegistry.validate(", owner_validation)

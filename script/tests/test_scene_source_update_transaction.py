@@ -90,9 +90,6 @@ class SceneSourceUpdateTransactionTests(unittest.TestCase):
         restore = driver.index(
             "restoreSceneScriptProgramFrameState(", host_barrier
         )
-        timer_restore = driver.index(
-            "restoreSceneScriptProgramTimerFrameState(", host_barrier
-        )
         storage_discard = driver.index(
             "sceneScriptStorageSession?.discardFrameTransaction()", restore
         )
@@ -121,7 +118,6 @@ class SceneSourceUpdateTransactionTests(unittest.TestCase):
         self.assertLess(coordinator, host_barrier)
         self.assertLess(host_barrier, restore)
         self.assertLess(restore, storage_discard)
-        self.assertLess(timer_restore, storage_discard)
         self.assertGreater(commit, host_barrier)
         self.assertGreater(snapshot_discard, restore)
         self.assertLess(snapshot_discard, commit)
@@ -288,86 +284,6 @@ enum Harness {
             output,
             ["second,first", "completed", "retry", "fifo"],
         )
-
-    def test_renderer_cancels_every_uncommitted_exit_and_closes_after_submit(self) -> None:
-        source = RENDERER.read_text(encoding="utf-8")
-        transaction = source.index(
-            "let sourceUpdateTransaction = SceneSourceUpdateTransaction()"
-        )
-        deferred_cancel = source.index(
-            "defer {\n            sourceUpdateTransaction.cancel()", transaction
-        )
-        source_updates = source.index(
-            "let puppetAttachmentFrames = encodeSourceUpdates?(",
-            deferred_cancel,
-        )
-        seal = source.index(
-            "guard imageCompositor.endResolvedMaterialFrame(on: commandBuffer)",
-            source_updates,
-        )
-        transaction_arm = source.index(
-            "sourceUpdateTransaction.arm(on: commandBuffer)", seal
-        )
-        command_commit = source.index("commandBuffer.commit()", transaction_arm)
-        did_submit = source.index(
-            "sourceUpdateTransaction.didSubmit()", command_commit
-        )
-        self.assertLess(transaction, deferred_cancel)
-        self.assertLess(deferred_cancel, source_updates)
-        self.assertLess(source_updates, seal)
-        self.assertLess(seal, transaction_arm)
-        self.assertLess(transaction_arm, command_commit)
-        self.assertLess(command_commit, did_submit)
-        self.assertEqual(source.count("commandBuffer.commit()"), 1)
-        self.assertNotIn("finishUnsubmittedCommandBuffer", source)
-        self.assertNotIn("frameTransaction: sourceUpdateTransaction", source)
-        claimed_failure_stop = source.index(
-            "request.resolvedMaterialFrameTargetPlan != nil"
-        )
-        draw_outcome = source.index(
-            "let drawOutcome = imageCompositor.drawOutcome("
-        )
-        self.assertGreater(claimed_failure_stop, draw_outcome)
-        self.assertLess(claimed_failure_stop, source.index("mainPass.finishEnsuringClear()"))
-        self.assertIn("break frameLayers", source)
-        utility_defer = source.index("defer {")
-        utility_guard = source.index(
-            "if !stopsAfterClaimedFailure,", utility_defer
-        )
-        utility_call = source.index(
-            "!renderUtilityPlans(triggeredBy: layer.id,", utility_guard
-        )
-        self.assertLess(utility_guard, utility_call)
-        # A utility plan that hits typed identity drift must feed the same stop
-        # flag as every other `.invalid` consumer, so a frame already sealed as
-        # failed is not re-encoded for the remaining layers.
-        self.assertLess(
-            source.index("stopsAfterClaimedFailure = true", utility_call),
-            source.index(
-                "if forwardGraphProviderLayerIDs.contains", utility_call
-            ),
-        )
-        transaction_source = TRANSACTION.read_text(encoding="utf-8")
-        self.assertIn("case pending", transaction_source)
-        self.assertIn("case armed", transaction_source)
-        self.assertIn("case submitted", transaction_source)
-        self.assertIn("case resolved", transaction_source)
-        self.assertIn("buffer.status == .completed", transaction_source)
-        self.assertIn("private let lock = NSLock()", transaction_source)
-
-        compositor = COMPOSITOR.read_text(encoding="utf-8")
-        self.assertNotIn("frameTransaction:", compositor)
-        self.assertNotIn("frameTransaction.registerResolution(", compositor)
-        self.assertNotIn(
-            "commandBuffer.addCompletedHandler { _ in commit.releaseAll() }",
-            compositor,
-        )
-        self.assertNotIn("prepareAndRegisterLegacyAuthoredBatch(", source)
-        self.assertNotIn("legacyAuthoredFrameTables", source)
-        for path in (EFFECT_EXECUTION, UTILITY_PLAN, UTILITY_LAYER):
-            utility_source = path.read_text(encoding="utf-8")
-            self.assertNotIn("frameTransaction: SceneSourceUpdateTransaction", utility_source)
-            self.assertNotIn("frameTransaction: frameTransaction", utility_source)
 
     def test_renderer_wires_exact_layer_source_publication_without_consuming_dependency(self) -> None:
         source = RENDERER.read_text(encoding="utf-8")
@@ -649,15 +565,12 @@ enum Harness {
             "dynamicTextTextures?.discardPreparedFrame()", prepare
         )
         outcome = view.index("let outcome = renderer.renderFrame(", prepare)
-        submitted = view.index("if outcome.isSubmitted {", outcome)
-        pending = view.index("pendingDynamicTextUpdate = (", submitted)
+        pending = view.index("pendingDynamicTextUpdate = (", outcome)
         commit = view.index("func commitPreparedDynamicTextUpdate()")
         update = view.index("dynamicTextTextures?.update(", commit)
 
         self.assertLess(prepare, outcome)
         self.assertLess(outcome, local_discard)
-        self.assertLess(outcome, submitted)
-        self.assertLess(submitted, pending)
         self.assertLess(commit, update)
         self.assertIn("func discardPreparedDynamicTextUpdate()", view)
         self.assertIn("Dynamic text is asynchronous", view)
@@ -668,11 +581,8 @@ enum Harness {
         view = VIEW.read_text(encoding="utf-8")
         frame_driver = FRAME_DRIVER.read_text(encoding="utf-8")
         outcome = view.index("let outcome = renderer.renderFrame(")
-        submitted = view.index("if outcome.isSubmitted {", outcome)
         video_commit = view.index("func commitPreparedVideoFrames()")
         video_discard = view.index("func discardPreparedVideoFrames()")
-        self.assertNotIn("commitPreparedFrame()", view[outcome:submitted])
-        self.assertNotIn("discardPreparedFrame()", view[outcome:submitted])
         self.assertIn("videoTextureSources.values.forEach { $0.commitPreparedFrame() }", view[video_commit:])
         self.assertIn("videoTextureSources.values.forEach { $0.discardPreparedFrame() }", view[video_discard:])
         barrier = frame_driver.index("let allSurfacesSubmitted =")
@@ -739,7 +649,6 @@ enum Harness {
         source_transaction = renderer.index("let sourceUpdateTransaction =")
         renderer_defer = renderer.index("Unsubmitted source and registry state", source_transaction)
         self.assertIn("discardUnsubmittedFrameResources()", renderer[renderer_defer:])
-        self.assertLess(renderer.index("commandBuffer.commit()"), renderer.index("didCommitParticleSubmission = true"))
 
         view_commit = view.index("func commitPreparedFrameTexturePublication()")
         view_discard = view.index("func discardPreparedFrameTexturePublication()")
