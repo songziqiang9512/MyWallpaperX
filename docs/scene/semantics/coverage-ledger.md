@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-27 正交三轴旋转的坐标转换
+
+共享world-frame resolver在作者Y-up到runtime Y-down转换时同时反转X/Z旋转，保留Y角；静态、动态与父子层使用同一实现。混合三轴/镜像缩放的点变换、native perspective不反射反例及实际Metal倾斜卡已验证，见[运行证据](runtime-evidence-current.md#e-2026-09-27-world-x-reflection)。此修复不覆盖粒子局部rotation字段语义，也不关闭仅有Z角光束的范围问题；完整Host与官方视觉对照未由本批证明。
+
 ## 2026-09-27 继承作者 HDR 的颜色目标精度
 
 SceneRenderDescriptor在准备期按general.hdr统一选择RGBA16Float或既有BGRA8，并贯通graph/source/pair、图片/粒子/模型/光照管线、依赖发布、Bloom和最终CAMetalLayer；显式rgba8888及R/RG data格式不变。预算按实际4/8Bpp计算，snapshot默认保持像素容量而浮点上限翻倍，显式预算保持。沿同一publication、generation和compositor执行，无第二输出链。两原包及隔离渐变实际执行，3287715210终端16位读回有超过256级颜色；这是场景精度恢复，不代表完整HDR tone mapping、EDR、官方parity或用户细条纹视觉验收。详细身份、正反门及剩余边界见[颜色精度证据](runtime-evidence-current.md#e-2026-09-27-scene-color-precision)。

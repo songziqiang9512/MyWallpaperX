@@ -277,10 +277,63 @@ func nativePerspectiveResult() -> [String: [Double]] {
     })
 }
 
+
+// Compare a complete hierarchy in author space with its converted runtime
+// points. The oracle reflects world points, rather than editing Euler angles.
+func reflectedHierarchyResult(dynamic: Bool, orthoHeight: Float?) -> Double {
+    let parent = SceneRenderDescriptor.Layer(
+        id: 1, parentID: nil, originXYZ: [100, 50, 7],
+        scaleXYZ: [2, -1.5, 0.75], anglesXYZ: [0.4, -0.3, 0.6],
+        parentAttachmentBindFrame: nil
+    )
+    let child = SceneRenderDescriptor.Layer(
+        id: 2, parentID: 1, originXYZ: [10, 20, 9],
+        scaleXYZ: [0.8, 1.2, -1], anglesXYZ: [-0.7, 0.2, -0.1],
+        parentAttachmentBindFrame: nil
+    )
+    let descriptor = SceneRenderDescriptor(layers: [parent, child],
+        camera: .init(orthoHeight: orthoHeight))
+    let byID = [1: parent, 2: child]
+    let staticFrames = SceneLayerWorldFrameResolver.compute(descriptor: descriptor, byID: byID)
+    let angles = SIMD3<Float>(-0.25, 0.55, -0.45)
+    let target = SceneDynamicTarget.layer(layerID: 1, field: .angles)
+    let snapshot = SceneDynamicSnapshotResolver().resolve(
+        frameIndex: 3, generation: 1,
+        definitions: [.init(target: target, valueType: .vector3,
+            authoredValue: .vector3(0.4, -0.3, 0.6))],
+        timelineValues: dynamic ? [target: .vector3(Double(angles.x), Double(angles.y), Double(angles.z))] : [:]
+    ).snapshot
+    let frames = SceneLayerDynamicWorldFrameResolver.resolve(
+        descriptor: descriptor, byID: byID, snapshot: snapshot, staticFrames: staticFrames)
+    func authored(_ layer: SceneRenderDescriptor.Layer, angles: SIMD3<Float>? = nil) -> simd_float4x4 {
+        SceneMatrix.translation(SIMD3(layer.originXYZ!, fill: 0))
+            * SceneMatrix.eulerXYZ(angles ?? SIMD3(layer.anglesXYZ!, fill: 0))
+            * SceneMatrix.scale(SIMD3(layer.scaleXYZ!, fill: 1))
+    }
+    let parentAuthor = authored(parent, angles: dynamic ? angles : nil)
+    let authoredFrames = [1: parentAuthor, 2: parentAuthor * authored(child)]
+    var maxError: Float = 0
+    for id in [1, 2] {
+        for point in [SIMD4<Float>(0,0,0,1), SIMD4(4,7,11,1), SIMD4(-3,5,-2,1)] {
+            var local = point
+            var expected = authoredFrames[id]! * point
+            if let height = orthoHeight {
+                local.y = -local.y
+                expected.y = height - expected.y
+            }
+            maxError = max(maxError, simd_distance(frames[id]! * local, expected))
+        }
+    }
+    return Double(maxError)
+}
+
 @main
 enum Harness {
     static func main() throws {
         let result: [String: Any] = [
+            "reflectedStatic": reflectedHierarchyResult(dynamic: false, orthoHeight: 1000),
+            "reflectedDynamic": reflectedHierarchyResult(dynamic: true, orthoHeight: 1000),
+            "unreflectedDynamic": reflectedHierarchyResult(dynamic: true, orthoHeight: nil),
             "plain": result(attachment: nil),
             "attached": result(attachment: attachmentFrame(x: 30, y: 40)),
             "scaledParent": result(
@@ -339,6 +392,13 @@ class SceneLayerWorldFrameTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_mixed_axis_hierarchy_preserves_points_under_y_basis_conversion(self) -> None:
+        self.assertLess(self.result["reflectedStatic"], 0.0002)
+        self.assertLess(self.result["reflectedDynamic"], 0.0002)
+
+    def test_native_3d_dynamic_hierarchy_does_not_reflect_axes(self) -> None:
+        self.assertLess(self.result["unreflectedDynamic"], 0.0002)
 
     def test_attachment_frame_is_between_parent_and_child_local_frame(self) -> None:
         self.assertEqual(self.result["plain"]["2"], [110, 930])

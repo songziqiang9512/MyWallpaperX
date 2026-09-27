@@ -51,6 +51,9 @@ nonisolated enum SceneLayerWorldFrameResolver {
                 } else {
                     origin.y = -origin.y
                 }
+                // Reflect the complete rotation basis through Y (F * R * F).
+                // Both X and Z change handedness; Y retains its authored sign.
+                angles.x = -angles.x
                 angles.z = -angles.z
             }
             return SceneMatrix.translation(origin)

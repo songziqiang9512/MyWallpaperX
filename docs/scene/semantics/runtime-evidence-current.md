@@ -24,6 +24,16 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-27-world-x-reflection"></a>
+
+### E-2026-09-27-WORLD-X-REFLECTION — 正交作者空间的三轴变换一致性
+
+追查独立光束placement时发现共享world resolver将作者Y-up映射到runtime Y-down，仅反转Z角，遗漏X角。既有基变换合同要求完整旋转满足`F * R * F`（F为Y反射）；因此X/Z应同时反向，Y保持。现只在`SceneLayerWorldFrameResolver`的现有正交分支补充X反向，静态、Timeline/SceneScript和父子层继续共用该owner；native perspective无反射分支保持。未新增matcher、坐标owner或样本特判。
+
+**正反证据：**自有混合XYZ、非等比/镜像scale及带Z偏移的两级层次，直接比较“作者空间点完整变换后反射”与“生产resolver变换后的runtime点”。旧实现静态最大点误差43.11877 world units；修后静态与动态角度覆盖均小于0.0002。独立native perspective动态层次同样通过不反射反例，既有attachment、越Float边界局部回退和普通Z旋转门保留。实际生产image Metal pipeline的倾斜父子层标记旧bbox为`[135,120,166,141]`，作者空间反射oracle为`[165,94,187,126]`，修后相等；command buffer完成后读回。原GPU fixture深度范围±1会裁掉新增倾斜卡，已改±1000后先确认旧实现失败，再修产品。此门为隔离GPU几何输出，不是完整Host/publication/next-frame或官方对照。
+
+**验证与边界：**world-frame与direct-draw geometry共17项通过；补齐前一HDR批遗留的composition测试stub构造参数后，4项真实GPU合成门通过。inner选择器的10个模块中9个通过，runtime-bridge模块15/16通过；唯一失败是旧源码文本断言硬编码RGBA8返回表达，前一HDR批已改为继承backbuffer格式，本批不改产品来满足旧文本。独立临时DerivedData的Debug checkpoint构建成功。code-health仍有4项既有非Scene文件行数失败，未放宽预算。3768724269的quad100仅有Z角，本批不解释或关闭其范围/亮根反馈；其他光束、眼周渐隐、条纹与音频反馈保持原验收状态。正在供用户测试的App仍为d62960a1版本，本批未替换运行App，真实样本及属性未修改。产品+测试diff、前后门与构建结果保存在本机忽略缓存`2026-09-27-world-x-reflection`；没有性能、全集或官方parity结论。
+
 <a id="e-2026-09-27-direct-quad-coverage-probe"></a>
 
 ### E-2026-09-27-DIRECT-QUAD-COVERAGE-PROBE — 四点网格候选的定量筛选

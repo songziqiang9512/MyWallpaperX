@@ -21,6 +21,16 @@ struct SceneTextureUVTransform {
     let origin: SIMD2<Float>, xAxis: SIMD2<Float>, yAxis: SIMD2<Float>
     static let identity = Self(origin:.zero,xAxis:SIMD2(1,0),yAxis:SIMD2(0,1))
 }
+struct SceneRenderDescriptor {
+    struct Camera { let orthoHeight: Float? }
+    struct Layer {
+        let id: Int, parentID: Int?
+        var attachmentName: String? = nil
+        let originXYZ: [Float]?, scaleXYZ: [Float]?, anglesXYZ: [Float]?
+        var parentAttachmentBindFrame: [Float]? = nil
+    }
+    let layers: [Layer], camera: Camera
+}
 @main enum Harness {
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice(),
@@ -58,7 +68,7 @@ struct SceneTextureUVTransform {
         let normalSize = SceneCaptureGeometryResolver.projectedPixelSize(
             layerMVP:projection * model(SIMD2(400,200))!, viewportSize:CGSize(width:400,height:200))!
         result["normalPixelSize"] = [Int(normalSize.width),Int(normalSize.height)]
-        func render(canvas: SIMD2<Float>, shape: Int) -> [Int] {
+        func render(canvas: SIMD2<Float>, shape: Int, world: simd_float4x4 = matrix_identity_float4x4) -> [Int] {
             let width=Int(canvas.x), height=Int(canvas.y), n=128
             var rgba=[UInt8](repeating:0,count:n*n*4)
             for y in 0..<n { for x in 0..<n {
@@ -82,12 +92,12 @@ struct SceneTextureUVTransform {
             pass.colorAttachments[0].loadAction = .clear; pass.colorAttachments[0].storeAction = .store
             pass.colorAttachments[0].clearColor=MTLClearColorMake(0,0,0,0)
             let cb=queue.makeCommandBuffer()!, encoder=cb.makeRenderCommandEncoder(descriptor:pass)!
-            let projection=SceneMatrix.ortho(left:-canvas.x/2,right:canvas.x/2,bottom:-canvas.y/2,top:canvas.y/2,near:-1,far:1)
+            let projection=SceneMatrix.ortho(left:-canvas.x/2,right:canvas.x/2,bottom:-canvas.y/2,top:canvas.y/2,near:-1000,far:1000)
             let uniforms=SceneLayerFragmentUniforms(time:0,alpha:1,dependencyBlendMode:0,usesDependencyBlend:0,
                 cursorUV:.zero,sourceSampling:SIMD2(2,0),tint:SIMD4(repeating:1),
                 textureFrame0:SIMD4(0,0,1,0),textureFrame1:SIMD4(0,1,0,0))
             pipeline.bind(encoder:encoder)
-            pipeline.drawLayer(texture:src,mvp:projection * model(canvas)!,uniforms:uniforms,encoder:encoder)
+            pipeline.drawLayer(texture:src,mvp:projection * model(canvas, world)!,uniforms:uniforms,encoder:encoder)
             encoder.endEncoding(); cb.commit(); cb.waitUntilCompleted()
             precondition(cb.status == .completed && cb.error == nil)
             var pixels=[UInt8](repeating:0,count:width*height*4)
@@ -101,6 +111,22 @@ struct SceneTextureUVTransform {
         }
         result["cornerMarker"]=render(canvas:SIMD2(400,200),shape:1)
         result["linearMarker"]=render(canvas:SIMD2(400,200),shape:2)
+        let tilted = SceneRenderDescriptor.Layer(id:1,parentID:nil,
+            originXYZ:[0,200,0],scaleXYZ:[0.6,0.6,0.6],anglesXYZ:[0.7,0.4,0.5])
+        let child = SceneRenderDescriptor.Layer(id:2,parentID:1,
+            originXYZ:[10,15,20],scaleXYZ:[1,1,1],anglesXYZ:[-0.2,0.3,0.1])
+        let resolved = SceneLayerWorldFrameResolver.compute(layers:[tilted,child],
+            byID:[1:tilted,2:child],sceneOrthoHeight:200)[2]!
+        func authored(_ layer: SceneRenderDescriptor.Layer) -> simd_float4x4 {
+            SceneMatrix.translation(SIMD3(layer.originXYZ!,fill:0))
+                * SceneMatrix.eulerXYZ(SIMD3(layer.anglesXYZ!,fill:0))
+                * SceneMatrix.scale(SIMD3(layer.scaleXYZ!,fill:1))
+        }
+        let reflection = SceneMatrix.scale(SIMD3<Float>(1,-1,1))
+        let expected = SceneMatrix.translation(SIMD3<Float>(0,200,0))
+            * reflection * authored(tilted) * authored(child) * reflection
+        result["tiltedHierarchyActual"] = render(canvas:SIMD2(400,200),shape:1,world:resolved)
+        result["tiltedHierarchyExpected"] = render(canvas:SIMD2(400,200),shape:1,world:expected)
         print(String(data:try JSONSerialization.data(withJSONObject:result),encoding:.utf8)!)
     }
 }
@@ -112,6 +138,8 @@ class SceneDirectDrawOutputGeometryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='mwx-square-gpu-') as directory:
             p=Path(directory); (p/'Main.swift').write_text(HARNESS)
             sources=['Rendering/Geometry/SceneMatrix.swift','Rendering/Geometry/SceneDirectDrawOutputGeometry.swift',
+                     'Rendering/Geometry/SceneLayerWorldFrameResolver.swift',
+                     'Systems/Puppet/ScenePuppetAttachmentFrameSnapshot.swift',
                      'Rendering/Metal/SceneMetalPipeline.swift','Diagnostics/ScenePerformanceCounterHub.swift',
                      'Rendering/Geometry/SceneCaptureGeometry.swift','Rendering/Composition/SceneUtilityLayer.swift']
             commands=[['xcrun','-sdk','macosx','metal','-c',str(SCENE/'Rendering/Composition/SceneImageLayer.metal'),'-o',str(p/'image.air')],
@@ -122,6 +150,9 @@ class SceneDirectDrawOutputGeometryTests(unittest.TestCase):
                 if run.returncode: raise RuntimeError(run.stderr)
             run=subprocess.run([str(p/'run')],capture_output=True,text=True,check=True,timeout=30)
             cls.result=json.loads(run.stdout)
+
+    def test_tilted_parent_child_card_matches_reflected_authored_world(self):
+        self.assertEqual(self.result['tiltedHierarchyActual'], self.result['tiltedHierarchyExpected'])
 
     def test_circle_keeps_equal_units_and_height_based_diameter(self):
         for name,w,h in [('wide',400,200),('square',200,200),('portrait',200,400)]:
