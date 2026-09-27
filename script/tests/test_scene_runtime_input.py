@@ -112,13 +112,16 @@ enum SceneDirectBoolEffectVisibilityRouteAdmission {
     // planner, the sentinel survives into the recorded planner arguments
     // and the harness assertions fail.
     nonisolated(unsafe) static var structurallyRejectedLayerID = 999
+    nonisolated(unsafe) static var receivedLayerTargets: Set<SceneDynamicTarget> = []
 
     static func startupInactiveTargets(
         in descriptor: SceneRenderDescriptor,
         candidates: Set<SceneDynamicTarget>,
+        dynamicLayerVisibilityOwnerTargets: Set<SceneDynamicTarget> = [],
         scriptOwnedCandidates: Set<SceneDynamicTarget> = []
     ) -> Set<SceneDynamicTarget> {
         _ = descriptor
+        receivedLayerTargets = dynamicLayerVisibilityOwnerTargets
         func admissible(_ target: SceneDynamicTarget) -> Bool {
             guard case let .effectVisibility(layerID, _) = target else {
                 return true
@@ -134,6 +137,7 @@ enum SceneDirectBoolEffectVisibilityRouteAdmission {
 enum Harness {
     static func main() throws {
         let target = SceneDynamicTarget.layer(layerID: 42, field: .alpha)
+        let layerVisibilityTarget = SceneDynamicTarget.layer(layerID: 42, field: .visibility)
         let visibilityTarget = SceneDynamicTarget.effectVisibility(
             layerID: 42,
             effectIndex: 0
@@ -160,6 +164,7 @@ enum Harness {
         ])
         let program = ScenePropertyBindingProgram(
             definitions: [
+                .init(target: layerVisibilityTarget, valueType: .bool, authoredValue: .bool(false)),
                 .init(target: target, valueType: .scalar, authoredValue: .scalar(0.25)),
                 .init(
                     target: visibilityTarget,
@@ -173,6 +178,7 @@ enum Harness {
                 ),
             ],
             instructions: [
+                .init(propertyKey: "layerVisible", path: path, target: layerVisibilityTarget, valueType: .bool),
                 .init(propertyKey: "opacity", path: path, target: target, valueType: .scalar),
                 .init(
                     propertyKey: "visible",
@@ -207,6 +213,7 @@ enum Harness {
             ]
         )
         var payload: [String: Any] = [
+            "layerVisibilityCandidatesForwarded": SceneDirectBoolEffectVisibilityRouteAdmission.receivedLayerTargets == [layerVisibilityTarget],
             "entryPath": input.renderDescriptor.entryPath,
             "authoredPlanCount": input.authoredEffectRenderPlans.count,
             "programRetained": input.propertyBindingProgram == program,
@@ -290,6 +297,7 @@ class SceneRuntimeInputTests(unittest.TestCase):
         self.assertTrue(self.result["directVisibilityTargetRetained"])
         self.assertTrue(self.result["startupVisibilityTargetRetained"])
         self.assertTrue(self.result["plannerReceivesUnifiedStartupTargets"])
+        self.assertTrue(self.result["layerVisibilityCandidatesForwarded"])
         self.assertTrue(self.result["valuesRetained"])
         self.assertTrue(self.result["contractsRetained"])
         self.assertTrue(self.result["hostBuiltinContract"])

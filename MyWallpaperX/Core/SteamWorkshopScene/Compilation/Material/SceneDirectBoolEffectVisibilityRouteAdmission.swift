@@ -1,21 +1,24 @@
 import Foundation
 
-/// Narrows validated direct-bool effect visibility to ordinary, visible root
+/// Narrows validated Boolean effect visibility to ordinary, prepared root
 /// layers. Cross-layer providers/consumers and utility or hierarchy-owned
 /// output keep their existing route for both active and startup-inactive work.
 nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
     static func startupInactiveTargets(
         in descriptor: SceneRenderDescriptor,
         candidates: Set<SceneDynamicTarget>,
+        dynamicLayerVisibilityOwnerTargets: Set<SceneDynamicTarget> = [],
         scriptOwnedCandidates: Set<SceneDynamicTarget> = []
     ) -> Set<SceneDynamicTarget> {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
             .union(SceneDynamicLayerVisibilityRouteAdmission.layerIDs(
                 in: descriptor,
-                candidates: Set(scriptOwnedCandidates.compactMap { target in
-                    guard case let .effectVisibility(layerID, _) = target else { return nil }
-                    return SceneDynamicTarget.layer(layerID: layerID, field: .visibility)
-                })
+                candidates: dynamicLayerVisibilityOwnerTargets.union(
+                    scriptOwnedCandidates.compactMap { target in
+                        guard case let .effectVisibility(layerID, _) = target else { return nil }
+                        return SceneDynamicTarget.layer(layerID: layerID, field: .visibility)
+                    }
+                )
             ))
         let structuralUtilityConsumerLayerIDs =
             SceneResolvedMaterialDependencyOwnershipCompiler

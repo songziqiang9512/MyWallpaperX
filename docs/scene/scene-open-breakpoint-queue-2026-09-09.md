@@ -76,7 +76,7 @@
 
 ### Q3 — 效果/依赖能力缺口
 
-- **Combo特效显隐热调**：[共享Boolean条件批](semantics/runtime-evidence-current.md#e-2026-09-28-combo-boolean-visibility)已复用现有条件域/准备/帧快照，三组自有原图→红→绿→原图切换及`2932631210`、`3238423642`原包属性更新通过，同runtime/GPU/终端/下一帧成立。18样本309处仅为声明影响面。[混合目标准备](semantics/runtime-evidence-current.md#e-2026-09-28-mixed-visibility-preparation)已在自有普通根层闭合effect/Bloom/伴随层同key由关闭开启及关闭切换；下一门为其他style、效果所属层初始隐藏及跨层依赖组合；`3211615441`的整体条件特效与用户视觉仍保持QV验收，不从两原包通过推定全部兼容。
+- **Combo特效显隐热调**：[共享Boolean条件批](semantics/runtime-evidence-current.md#e-2026-09-28-combo-boolean-visibility)已复用现有条件域/准备/帧快照，三组自有原图→红→绿→原图切换及`2932631210`、`3238423642`原包属性更新通过，同runtime/GPU/终端/下一帧成立。18样本309处仅为声明影响面。[混合目标准备](semantics/runtime-evidence-current.md#e-2026-09-28-mixed-visibility-preparation)已在自有普通根层闭合effect/Bloom/伴随层同key由关闭开启及关闭切换；[隐藏所属层准备](semantics/runtime-evidence-current.md#e-2026-09-28-hidden-layer-effect-preparation)已闭合自有普通根层由隐藏同时开启effect/Bloom、反向隐藏；下一门为真实样本其他style及跨层依赖/隐藏层级组合；`3211615441`的整体条件特效与用户视觉仍保持QV验收，不从两原包通过推定全部兼容。
 
 - `crt_scan_line` 同层合成引用 `_rt_imageLayerComposite_<id>_{a,b}`（`2849382252` 层 205，效果整体 passthrough）——**2026-09-25 三切片已落地并过验证门**：
   落地形态（与侦察设计差异：b 引用实际以**模板 provider candidate**（authored pass textures）进入，非 sampler 默认纹理；拒绝链比设计多两环——conservation 分析的 primary-only 守卫与 named-target 预留的 primary-only 守卫）：

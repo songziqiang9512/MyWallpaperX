@@ -54,6 +54,8 @@ struct SceneRuntimeInput: Codable {
                 .startupInactiveTargets(
                     in: renderDescriptor,
                     candidates: startupInactiveEffectVisibilityTargets,
+                    dynamicLayerVisibilityOwnerTargets:
+                        propertyBindingProgram.liveLayerVisibilityTargets,
                     scriptOwnedCandidates: scriptOwnedEffectVisibilityTargets
                 ),
             shaderContracts: shaderContracts

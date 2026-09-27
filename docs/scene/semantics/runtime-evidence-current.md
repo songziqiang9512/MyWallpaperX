@@ -3866,3 +3866,17 @@ App均2.10.0(279)：修前SHA `63c85be6dd7d7a5f6cd56fbe8b785878f455cc5c6472500e8
 **身份/范围：**两构建均2.10.0(279)。基线executable SHA256`030ad88f20efdd0cf53ae72e91e5abefc56b92aff9eafba8d3e343e0e74814b4`、CDHash`8f8081cba71e065baabaefd94d9392e654afa676`；候选SHA256`d86e09a9abfafe8a2939963a94967034e2c0be9e0f15ccbe5fcf82996ce35b0b`、CDHash`66e0638d346800bcd65b4550322e11f7607fc3f2`。自有输入只作公共primitive验证，不进入产品分派。未重跑18样本全部条件；效果所属层初始隐藏、dependency/hierarchy、真实Workshop混合组合、性能和官方parity仍开放，不放宽其他gate来获得热调。
 
 **归档：**`docs/scene/evidence/2026-09-28-mixed-visibility-preparation/`本机忽略缓存保留六次报告、log、ready/after原图、自有夹具生成器、ROI脚本/结果、构建/测试/审查和SHA清单，预算40MiB。归档核验后只清理本批before/after运行目录和samples副本，保留现役DerivedData复用。
+
+
+<a id="e-2026-09-28-hidden-layer-effect-preparation"></a>
+### 2026-09-28 — 初始隐藏根层的关闭特效准备补齐
+
+**根因/改动：**基线`68d3c4d7`的launch capability已消费动态层visible owner，较早的RuntimeInput effect规划却只纳入静态可见层和脚本层。属性控制的普通根层及其effect同时初始关闭时，effect未准备，整key热调被consumer门拒绝。RuntimeInput现传入既有`liveLayerVisibilityTargets`，经同一DynamicLayerVisibilityRouteAdmission筛选后用于启动effect规划；不混入`scriptOwnedCandidates`，因此不取得脚本dependency豁免。沿用全部provider/consumer、utility、parent/child限制与全consumer原子提交，author/frame visibility未改，effectful层也不进入effectless base-image懒加载。无新增运行时owner或普通帧工作。
+
+**验证：**最终RuntimeInput 6项、GraphExecutor 1个集成门、LiveState 16项通过。新增实际route验证隐藏普通根可准备、无owner/依赖/子层/utility仍拒绝；GraphExecutor同时执行原有GPU与失败反例。初次测试的旧directBool metadata断言受夹具共用key影响，改独立layerVisible后通过；另一初次编译遇到源文件格式编辑，固定diff重跑通过，原日志保留。优化Debug build及code health通过（221既有warnings）。独立只读审查APPROVE四文件diff SHA256`ccc22d122119c8e3c29905450fd24e74102a687cec57a15f56fe67d15b05ee8b`。
+
+**实际画面A/B：**自有普通根层同一mode控制层visible、红/绿effect、Bloom及蓝标记，三次分别base隐藏→red显示、red显示→green隐藏、green隐藏→red显示，各6秒。基线第一/三组仅因`live property update rejected`失败，第二组通过；候选3/3 PASS且accepted=true，window和runtime各自不变。查看第一组完整after原图并读取全部12张原图ROI：第一/三组中心黑→红、标记黑→蓝、边缘外8px的halo R均0→27.5；第二组均反向归零。第一/三组热调后各有4条graph事件，包含GPU completed、publication、terminal compositor及next-frame；第二组隐藏后无后续graph事件，最终截图确认隐藏，不能要求已隐藏graph继续出版。候选submitted/completed/failed/presented分别115/114/0/113、110/110/0/109、110/110/0/109。最初夹具无常驻参考点，合法全黑帧触发benchmark非黑门；最终同输入A/B加入ROI外灰色参考点，该初试不计入结果。
+
+**身份/边界：**两App均2.10.0(279)。基线SHA256`d86e09a9abfafe8a2939963a94967034e2c0be9e0f15ccbe5fcf82996ce35b0b`、CDHash`66e0638d346800bcd65b4550322e11f7607fc3f2`；候选SHA256`00bcf12f3c3fcc3ffcce2ede01ac35e9fb824f5283730be61099beca811e13f5`、CDHash`085d351a97ada3955f0a00675598d5847a02432e`。仅闭合普通根层自有公共primitive，未重跑全部真实Combo style；跨层依赖、隐藏hierarchy、官方视觉一致性和性能仍待对应证据。下一步转向真实style组合首断点，不新增样本分支。
+
+**归档：**`docs/scene/evidence/2026-09-28-hidden-layer-effect-preparation/`为本机忽略缓存，保留前后报告/log/原图、生成器与作者输入摘要、ROI/事件检查、构建/测试/审查及SHA清单；核验后清理本批隔离运行和样本副本，复用现役DerivedData。

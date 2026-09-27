@@ -78,6 +78,7 @@ struct SceneRenderDescriptor {
         var potentialNamedReferences: [SceneDependencyRenderPlan.Reference] = []
         var namedBindings: [SceneDependencyRenderPlan.Binding] = []
         var potentialNamedBindings: [SceneDependencyRenderPlan.Binding] = []
+        var visible: Bool = true
     }
 
     struct MaterialPassDescriptor {
@@ -114,7 +115,7 @@ enum SceneUtilityLayerSourceRoute {
 
 enum SceneLayerVisibility {
     static func visibleLayerIDs(in descriptor: SceneRenderDescriptor) -> Set<Int> {
-        Set(descriptor.layers.map(\.id))
+        Set(descriptor.layers.filter(\.visible).map(\.id))
     }
 }
 
@@ -3591,6 +3592,31 @@ private enum Harness {
             return
         }
         let source = makeSource(device)
+        // Preparation follows the layer's existing dynamic owner without
+        // making the layer visible or granting script dependency privileges.
+        let dormantTarget = SceneDynamicTarget.effectVisibility(layerID: 77, effectIndex: 0)
+        let dormantLayerTarget = SceneDynamicTarget.layer(layerID: 77, field: .visibility)
+        var dormantLayer = SceneRenderDescriptor.Layer(id: 77, effects: [
+            .init(id: "dormant", file: "effects/probe/effect.json", visible: false, passes: [])
+        ], visible: false)
+        func dormantTargets(_ layer: SceneRenderDescriptor.Layer, owners: Set<SceneDynamicTarget>) -> Set<SceneDynamicTarget> {
+            SceneDirectBoolEffectVisibilityRouteAdmission.startupInactiveTargets(
+                in: .init(layers: [layer], materialPasses: [], effectDefinitions: []),
+                candidates: [dormantTarget],
+                dynamicLayerVisibilityOwnerTargets: owners
+            )
+        }
+        let dormantPrepared = dormantTargets(dormantLayer, owners: [dormantLayerTarget]) == [dormantTarget]
+        let unownedDormantRejected = dormantTargets(dormantLayer, owners: []).isEmpty
+        let authoredVisibilityPreserved = !dormantLayer.visible
+        dormantLayer.dependencyLayerIDs = [88]
+        let dependencyDormantRejected = dormantTargets(dormantLayer, owners: [dormantLayerTarget]).isEmpty
+        dormantLayer.dependencyLayerIDs = []
+        dormantLayer.parentID = 88
+        let childDormantRejected = dormantTargets(dormantLayer, owners: [dormantLayerTarget]).isEmpty
+        dormantLayer.parentID = nil
+        dormantLayer.utilityLayer = .init(kind: .fullscreen)
+        let utilityDormantRejected = dormantTargets(dormantLayer, owners: [dormantLayerTarget]).isEmpty
         let sourcePipeline = makeSourcePipeline(device)
         let activationGraph = graph(
             targets: [],
@@ -8267,6 +8293,12 @@ private enum Harness {
         )
 
         let results: [String: Bool] = [
+            "dormantLayerEffectPrepared": dormantPrepared,
+            "unownedDormantLayerStillRejected": unownedDormantRejected,
+            "preparationPreservesAuthoredVisibility": authoredVisibilityPreserved,
+            "dormantDependencyStillRejected": dependencyDormantRejected,
+            "dormantChildStillRejected": childDormantRejected,
+            "dormantUtilityStillRejected": utilityDormantRejected,
             "activationPolicyAttachedToResolvedStage":
                 activationPolicyAttached,
             "inactiveActivationPublishesPreviousCurrent":
