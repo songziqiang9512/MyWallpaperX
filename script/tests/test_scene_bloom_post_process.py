@@ -287,7 +287,9 @@ class SceneBloomPostProcessTests(unittest.TestCase):
         for name, values in self.result.items():
             if name.endswith(("Zero", "Threshold", "Disabled")):
                 with self.subTest(case=name):
-                    self.assertEqual(values["encoded"], not name.endswith("Disabled"))
+                    self.assertEqual(values["encoded"], name.endswith("Threshold"))
+                    if name.endswith(("Zero", "Disabled")):
+                        self.assertEqual(values["encoderAttempts"], 0)
                     self.assertEqual(values["changedRGB"], 0)
                     self.assertEqual(values["changedAlpha"], 0)
 

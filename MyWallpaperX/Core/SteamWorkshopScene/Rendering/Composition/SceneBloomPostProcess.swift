@@ -191,7 +191,9 @@ final class SceneBloomPostProcess {
         source: MTLTexture,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
-        guard configuration.enabled,
+        // Zero strength contributes no RGB and combine preserves source alpha.
+        // Skip before allocating intermediates; live nonzero values reuse this owner.
+        guard configuration.enabled, configuration.strength != 0,
               source.pixelFormat == pixelFormat,
               source.device === device,
               let targets = intermediateTargets(on: device, matching: source)

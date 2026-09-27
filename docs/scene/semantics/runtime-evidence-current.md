@@ -3770,3 +3770,14 @@ v4 的 `3780119725` generation 1 include-current-process capture data peak `0.49
 隔离worktree优化Debug构建成功。App 2.10.0(279)，executable SHA-256 `9c41e18a963a29818cdec7ebb34f1a5ddb8e0558839ec7154fa7a41efa800204`，CDHash `9515a9dc2ffe8424b28667896d66ac5e1f0eb65f`。真实3211615441原包隔离副本固定PCM10秒回放PASS、纹理加载1.0，音圈689/697包含在8个成功graph layer中；executor claimed/encoded=64/64、failure/local fallback=0，62个graph observation全部terminal/transaction成功。submitted/completed/failed/presented=284/283/0/282；已查看终端after原尺寸截图，双侧细音圈与条形仍可见。该截图及计数仅作删除后的现役链回归，不是官方形态、完整属性或全柱活跃度验收，也不把零调用删除宣称为播放性能提升。
 
 报告、原尺寸ready/after截图、执行/构建/测试日志、冻结patch、矩阵与审查身份保存在本机缓存`docs/scene/evidence/2026-09-28-audio-legacy-retirement/`，verification-manifest登记归档SHA。真实音乐全柱均衡、普通入口用户视觉验收与未覆盖样本仍在原队列中。
+
+
+<a id="e-2026-09-28-bloom-zero-strength"></a>
+
+### E-2026-09-28-BLOOM-ZERO-STRENGTH — 精确零贡献免编码
+
+基线c4872fd5。原Bloom即使strength=0仍申请中间targets并执行bright/两次blur/combine；该配置的有限正常输入只贡献零RGB，combine保持原alpha。现同一encode入口在targets前对精确零值返回跳过，不使用epsilon、不推断HDR阈值、不改变准备态或缓存；恢复非零仍完整执行。唯一产品调用者不依赖encode返回值提交帧。shader及作者参数不变。
+
+冻结patch SHA-256 `024a10caf4c05732d3ce93c4fc588cc27813822e39fa947bc7794052ac6643ed`，独立只读审查APPROVE。5项真实Metal门通过：零强度RGB/alpha逐像素保持且encoderAttempts=0，三种尺寸、reuse与live On→Zero→OnAgain覆盖；非零、RGBA16F及已有pipeline/encoder故障门保留。inner计划仅scene-bloom，所选模块和code-health已独立执行通过。隔离优化Debug构建成功，App 2.10.0(279)，executable SHA-256 `69a9349e4195f30161a607f3a920f544fa7a38c3103a387ca6f7fc9a549594a3`，CDHash `6a01a4d97b157a5edfab1c4da0554c1340c7bf81`。
+
+真实3287715210零强度与3750813609非零强度原包隔离副本各8秒静音回放均PASS、纹理加载1.0；submitted/completed/failed/presented分别166/166/0/164、166/165/0/164。已查看两份终端after截图，未关闭眼周光束/条纹/时钟黑白等已有视觉边界。没有三轮同输入性能A/B，不声称FPS/耗时提升；仅证明零分支不提交四个Bloom pass，等价像素证据来自受控GPU门。缓存`docs/scene/evidence/2026-09-28-bloom-zero-strength/`保留报告、原尺寸截图、构建/测试/审查与SHA manifest；两原尺寸样本使用40MiB归档上限。

@@ -6,7 +6,7 @@
 
 ## 2026-09-28 Bloom 直接属性实时控制
 
-`general.bloom/bloomstrength/bloomthreshold/bloomtint` 的 direct Bool/Slider/Color 绑定现沿既有 compiler、live state、typed snapshot进入最终Bloom；初始关闭但可开启的场景在加载时准备pipeline，并以同一准备结果声明drawable可读。未新增property/renderer状态路径。63项定向门、完整App开关A/B、无截图Metal validation及真实3750813609正常回放通过，见[运行证据](runtime-evidence-current.md#e-2026-09-28-bloom-live-properties)。条件绑定、HDR专用参数、参数官方视觉对照及用户光束/条纹反馈仍开放。
+`general.bloom/bloomstrength/bloomthreshold/bloomtint` 的 direct Bool/Slider/Color 绑定现沿既有 compiler、live state、typed snapshot进入最终Bloom；初始关闭但可开启的场景在加载时准备pipeline，并以同一准备结果声明drawable可读。未新增property/renderer状态路径。63项定向门、完整App开关A/B、无截图Metal validation及真实3750813609正常回放通过，见[运行证据](runtime-evidence-current.md#e-2026-09-28-bloom-live-properties)。条件绑定、HDR专用参数、参数官方视觉对照及用户光束/条纹反馈仍开放。 零强度后继在同一encode入口精确跳过四pass及新中间纹理分配，保留非零实时恢复；[GPU/原包回归](runtime-evidence-current.md#e-2026-09-28-bloom-zero-strength)。
 
 ## 2026-09-28 Bloom 完整准备与失败保源
 
