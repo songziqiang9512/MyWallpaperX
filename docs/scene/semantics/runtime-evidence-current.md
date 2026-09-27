@@ -405,6 +405,18 @@
 
 最新截图仍缺官方目标头发斜光，不能把这项公共默认修正认作完整根因。Windows同输入几何/像素对照未运行；静态研究未覆盖尺寸单位、旧Sprite角度、stock资源选择或最终合成。证据仍在`2026-09-28-ray-pass-projection`。后继尺寸诊断见下。
 
+<a id="e-2026-09-28-integrated-playback"></a>
+
+### E-2026-09-28-INTEGRATED-PLAYBACK — 准备计划复用与统一暂停策略整合回归
+
+前批Scene候选构建基于62b8a18a，未包含随后合入的b5942622统一暂停策略。本批在干净隔离worktree对整合提交2643ad7b完成优化Debug构建，不含主工作区并行发布改动；没有修改产品代码。App 2.0.9(277)，Team H9QWU9XN8R，executable SHA-256 `c23fb24b0a8ab176e15d8927f5989243fbc2fa5daa0df175e4b5f5ac6252b2f4`、CDHash `5172f8a214c71fa66bc084055a017eabedb28999`，各次staged App运行前后签名身份一致。playback policy、delivery、Web pause及multiplexer四模块共6项通过；其中真实WebKit、Scene生产方法/传输替身与源码接线检查的证据等级不同，不合称完整产品入口测试。
+
+2959875782与3211615441未改写原包隔离静音12秒回放，ready后2秒暂停、停留2秒再恢复，最终报告2/2 PASS。两者暂停/恢复探针均accepted=true：同一surface保留，暂停timer inactive，恢复active，退出surface降为0。测量窗submitted/completed/failed/presented分别229/228/0/226、380/379/0/377；utility520及689/697捕获成功。graph成功事务224/62，其中Program178/56，其余为activation passthrough；terminal compositor、next-frame成立，GPU失败与graph validation失败均0。恢复后截图已留存；不将这些计数当帧率改善、完整特效激活或官方视觉验收。
+
+同一App另跑35秒direct-client daemon控制：multiplexer发出pause/resume，daemon实际host日志依次显示requested=paused/timer=active与requested=resumed/timer=inactive；2959875782→3211615441两个request在同一PID92574各完成first-present，switchCompletedInSameDaemon=true、failures=[]，结束stats rendered1099、dropped0、busy63。客户端及daemon退出，无残留。本项不是Steam产品入口、系统自动暂停条件、音频活跃度或多显示器验收；未触发forced termination，不宣称崩溃恢复已验证。
+
+首轮误用系统Python，两个样本播放后在rmtree(onexc=...)清理阶段报TypeError、未生成报告，记为工具运行失败；改用Python3.12完整重跑后取得上述最终PASS，不从失败轮补造报告。证据缓存`2026-09-28-integrated-playback`保存最终报告、暂停截图、daemon结果、测试/构建日志及首轮失败日志，并以integration-manifest固定文件身份。长期Goal继续，光束等未闭合视觉反馈状态不变。
+
 <a id="e-2026-09-28-prepared-dependency-plan-reuse"></a>
 
 ### E-2026-09-28-PREPARED-DEPENDENCY-PLAN-REUSE — utility与drawable消费同一准备计划
