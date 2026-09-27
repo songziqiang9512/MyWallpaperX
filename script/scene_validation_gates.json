@@ -342,12 +342,15 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+PointerEvents.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+AudioDemand.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+PointerEvents.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+FrameDriverCursor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+SurfaceTeardown.swift"
       ],
       "modules": [
         "test_scene_cursor_audio_consumer",
         "test_scene_cursor_capture_continuity",
         "test_scene_cursor_owner_transaction",
+        "test_scene_cursor_surface_routing",
         "test_scene_cross_layer_effect_visibility",
         "test_scene_frame_vm_routing",
         "test_scene_pointer_parallax_exit",
@@ -922,6 +925,7 @@
         "test_scene_cursor_candidate_collision",
         "test_scene_cursor_capture_continuity",
         "test_scene_cursor_owner_transaction",
+        "test_scene_cursor_surface_routing",
         "test_scene_cross_layer_effect_visibility",
         "test_scene_dependency_visibility_owner",
         "test_scene_resolved_material_graph_executor",

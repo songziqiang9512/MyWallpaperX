@@ -27,6 +27,9 @@ extension SceneDesktopWallpaperHost {
             surface.window.close()
         }
         surfaces.removeAll()
+        // A display ID can be reused by a new view. Cancel input tied to the
+        // removed surfaces even when the Scene VM survives reconstruction.
+        launchContext?.sceneScriptCursorProgram.restoreEdgeState(.empty)
 #if DEBUG
         debugSurfaceReferenceFrames.removeAll(keepingCapacity: false)
         if shouldLogSurfaceTeardown {

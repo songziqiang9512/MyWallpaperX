@@ -3690,3 +3690,16 @@ v4 的 `3780119725` generation 1 include-current-process capture data peak `0.49
 同一App 2.0.9(277)，executable SHA-256 `83939e13c248741a66054bc6eea06b1ce5c2134942c5e9c3ed5c522a52faa956`、CDHash `51f32328873c0e113d6862779dcf597ae5ed55da`。两份真实原包的隔离副本各回放8秒、固定静音：2986218263为0/1，唯一失败为`particle loading incomplete`；3769761761为5/5，五层当前及committed均nonempty，benchmark继续PASS。对同一实际日志调用HEAD旧判定和新判定，前者两者均无粒子失败，后者只拒绝0/1；此处是同日志判定反例，未声称另跑一轮旧App。证据缓存`docs/scene/evidence/2026-09-28-particle-loading-completeness/`，15个文件SHA由verification-manifest记录。
 
 仅证明加载缺口可被默认验收检出，不证明粒子最终可见、非空或视觉正确，也不消除2986218263世界空间rope问题或3769761761缺斜光问题。当前最后一次加载状态为门槛，未扩展为全播放时段逐帧完整性检查；指定layer的历史OK语义保持原状。
+
+
+<a id="e-2026-09-28-cursor-surface-routing"></a>
+
+### E-2026-09-28-CURSOR-SURFACE-ROUTING — 子帧鼠标边沿沿同一 Host 路径跨 surface 保留
+
+旧多surface分支drain每个窗口的完整队列却只分发末态，还丢弃overflow及surface DTO。现在native/debug ingress向各窗口投影时共享同一时间戳；Host按物理事件顺序重放，单/多surface共用一次sample投影，任一队列overflow或合并组数超过512整批拒绝。最终当前状态保留，完全相同输入不重复投影。capture固定按下窗口至release，跨窗口同NDC也触发leave/enter；离开事件使用该物理事件在旧窗口的实时DTO，旧窗口已消失才退回原edge保存的上一DTO。display ID复用不等于surface生命周期：现有teardown不论clearContext都取消旧edge/capture/pending。没有新registry、clock owner或compositor，事件排序时间戳不作为simulation time。
+
+基线74986802，最终代码/测试patch SHA-256 `4f60fc4706bc146039ff9cf2641c646702a2792b5c339f27d3cb5d03fe346c90`。独立审查首轮指出leave混用新屏DTO及同display重建继承旧capture，两项修正后V2 APPROVE。新module已登记到cursor/harness测试组，FrameDriverCursor及SurfaceTeardown也映射到cursor组；原文件他人release组改动保持未暂存。Host实际函数加真实QuickJS新8门、既有owner/capture/routing共36门通过，几何11门及未再改动的raw buffer/AppKit pointer ingress两门通过。Host测试的view投影是替身；重建反例为现有reset API行为加teardown静态接线，不冒充完整Host重建实测。迁移并删除对应旧单surface形状断言，另移除一条早已过期的mergingAuthoredMutation符号期待。首次测试harness重用同名局部变量导致编译失败，改为只复用helper后通过。全仓code-health仍为三个既有非Scene行数超限，不宣称总门PASS。
+
+最终优化Debug来自隔离worktree的同一产品patch。一次构建误从主工作区发起，立即中断且未用于验收；之后在隔离worktree完整重建成功并校验diff身份。最终App 2.0.9(277)，executable SHA-256 `330d8744b209c96228d3dbefb6c93dc560590203b22b0f8f0c934e69d44cad96`，CDHash `617fe1d8b527640b62aa7f4c08c2d4b8a9b9a7b4`。自有cursor-owner冲突fixture同输入分别运行单surface与同物理屏双surface，各8秒固定静音。子帧press/release后红owner只执行一次click到world(300,230)，绿owner被拒一次后下一帧重试到(800,490)；hover及after标记最大误差0.2241px以内，像素计数均超过30000。frame 0/1/2完成日志分别覆盖一/两个surface；测量窗单窗submitted/completed/failed/presented=166/166/0/165，双窗332/330/0/164。fixture为直接层绘制，无graph publication需求，不虚构graph输出证据。
+
+两轮通用benchmark均因持久点击位移不满足hover离开复位判据而保留FAIL；双窗另有presentation stream=1与surface=2不符的FAIL。独立事件/ROI/GPU门通过不能替代这些判据。缓存`docs/scene/evidence/2026-09-28-cursor-surface-routing/`包含最终single/multi和首轮intermediate-single（非最终产品身份）原始报告；verification含专项判据、测试、最终构建及冻结patch，37个文件SHA由verification-manifest记录。真实双显示器及原生鼠标跨屏、真实窗口重建中途拖动、任意JS heap副作用回滚、官方parity与性能改进均未由本批证明。

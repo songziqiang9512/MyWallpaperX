@@ -10,6 +10,9 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     private var capturedHits: [Int: SceneScriptCursorHit] = [:]
     private var previousPointerPosition: SIMD2<Float>?
     private var previousPrimaryButtonIsDown = false
+    private var capturedSurfaceID: UInt32?
+    private var previousSurfaceID: UInt32?
+    private var previousSurface: SceneScriptSurfaceInput?
     private var disabledTargets: Set<SceneDynamicTarget> = []
     private var scriptPropertiesJSONCache = SceneScriptPropertyInputJSONCache()
     private var pendingEvents: [SceneScriptCursorPendingEvent] = []
@@ -37,7 +40,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             capturedHits: capturedHits,
             previousPointerPosition: previousPointerPosition,
             previousPrimaryButtonIsDown: previousPrimaryButtonIsDown,
-            pendingEvents: pendingEvents
+            pendingEvents: pendingEvents,
+            capturedSurfaceID: capturedSurfaceID,
+            previousSurfaceID: previousSurfaceID,
+            previousSurface: previousSurface
         )
     }
 
@@ -47,6 +53,9 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         previousPointerPosition = state.previousPointerPosition
         previousPrimaryButtonIsDown = state.previousPrimaryButtonIsDown
         pendingEvents = state.pendingEvents
+        capturedSurfaceID = state.capturedSurfaceID
+        previousSurfaceID = state.previousSurfaceID
+        previousSurface = state.previousSurface
         clearCandidateEvents()
     }
 
@@ -91,7 +100,9 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 synchronize(
                     hits: latest.hits,
                     pointerPosition: latest.pointerPosition,
-                    primaryButtonIsDown: latest.primaryButtonIsDown
+                    primaryButtonIsDown: latest.primaryButtonIsDown,
+                    surfaceID: latest.surfaceID,
+                    surface: latest.surface
                 )
             } else {
                 synchronize(
@@ -377,6 +388,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         // Recognize the entire input batch before executing callbacks. A
         // recoverable enter/down failure must not erase later up/click edges.
         for sample in batch.samples {
+            if let capturedSurfaceID, sample.surfaceID != capturedSurfaceID {
+                capturedHits = [:]
+                self.capturedSurfaceID = nil
+            }
             let callbackFrame = SceneScriptFrameInput(
                 replacingSurfaceOf: frame,
                 with: sample.surface
@@ -387,21 +402,27 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             let admittedProjections = sample.ownerProjections.filter {
                 ownerLayerIDs.contains($0.key) && hasActiveBinding(layerID: $0.key)
             }
-            let leaving = Set(previousHits.keys).subtracting(admittedHits.keys)
-            let entering = Set(admittedHits.keys).subtracting(previousHits.keys)
+            let changedSurface = sample.surfaceID != previousSurfaceID
+            let leaving = changedSurface ? Set(previousHits.keys)
+                : Set(previousHits.keys).subtracting(admittedHits.keys)
+            let entering = changedSurface ? Set(admittedHits.keys)
+                : Set(admittedHits.keys).subtracting(previousHits.keys)
             let pressed = sample.primaryButtonIsDown
                 && !previousPrimaryButtonIsDown
             let released = !sample.primaryButtonIsDown
                 && previousPrimaryButtonIsDown
             let moved = sample.pointerPosition != nil
                 && previousPointerPosition != nil
-                && sample.pointerPosition != previousPointerPosition
+                && (sample.pointerPosition != previousPointerPosition || changedSurface)
             for binding in bindings where !disabledTargets.contains(binding.ownerTarget) {
                 if leaving.contains(binding.layerID),
                    let hit = previousHits[binding.layerID] {
                     record(
                         .leave, binding: binding, hit: hit,
-                        callbackFrame: callbackFrame,
+                        callbackFrame: changedSurface ? .init(
+                            replacingSurfaceOf: frame,
+                            with: sample.leavingSurface ?? previousSurface
+                        ) : callbackFrame,
                         captureActive: capturedHits[binding.layerID] != nil,
                         currentHit: false
                     )
@@ -458,7 +479,11 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     }
                 }
             }
+            if pressed, !capturedHits.isEmpty { capturedSurfaceID = sample.surfaceID }
             if released { capturedHits = [:] }
+            if capturedHits.isEmpty { capturedSurfaceID = nil }
+            previousSurfaceID = sample.surfaceID
+            previousSurface = sample.surface
             previousPointerPosition = sample.pointerPosition
             previousPrimaryButtonIsDown = sample.primaryButtonIsDown
             previousHits = admittedHits.filter {
@@ -525,7 +550,9 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     private func synchronize(
         hits: [Int: SceneScriptCursorHit],
         pointerPosition: SIMD2<Float>?,
-        primaryButtonIsDown: Bool
+        primaryButtonIsDown: Bool,
+        surfaceID: UInt32? = nil,
+        surface: SceneScriptSurfaceInput? = nil
     ) {
         previousHits = hits.filter { entry in
             ownerLayerIDs.contains(entry.key)
@@ -536,6 +563,9 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         previousPointerPosition = pointerPosition
         previousPrimaryButtonIsDown = primaryButtonIsDown
         capturedHits = [:]
+        capturedSurfaceID = nil
+        previousSurfaceID = surfaceID
+        previousSurface = surface
     }
 
     func finalizeLayerMutations(
@@ -575,6 +605,9 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         bindings.filter(\.ownsOwner).forEach { $0.owner.invalidate() }
         previousHits = [:]
         capturedHits = [:]
+        capturedSurfaceID = nil
+        previousSurfaceID = nil
+        previousSurface = nil
         previousPointerPosition = nil
         previousPrimaryButtonIsDown = false
         pendingEvents.removeAll(keepingCapacity: true)
@@ -594,6 +627,9 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         }
         previousHits = [:]
         capturedHits = [:]
+        capturedSurfaceID = nil
+        previousSurfaceID = nil
+        previousSurface = nil
         previousPointerPosition = nil
         previousPrimaryButtonIsDown = false
         pendingEvents.removeAll(keepingCapacity: true)

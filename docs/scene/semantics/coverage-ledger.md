@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-28 单/多 surface 光标事件共用分发
+
+Host按同一次输入的共享顺序重放有界事件，移除多surface的latest-only分支与重复投影入口；拖动固定按下窗口，换窗leave使用旧窗口坐标，重建时沿现有teardown取消旧输入。边沿与surface DTO沿原事务快照恢复，任一队列溢出拒绝整批，局部owner重试仍保留原事件。真实Swift/QuickJS及几何门通过，同物理屏单/双独立surface的子帧点击、owner冲突重试和终端ROI取得正证，详见[运行证据](runtime-evidence-current.md#e-2026-09-28-cursor-surface-routing)。真实双显示器、原生鼠标跨屏及拖动中途实际窗口重建尚未验收；重建边界目前由reset行为门和静态接线证明。
+
 ## 2026-09-28 String init-only 准入（S4 isolated Host）
 
 文字owner移除旧的init-only拒绝，沿C已有pending/committed状态决定唤醒：未完成则执行，提交后无timer即休眠，撤回后可重试。无新的初始化状态、文字缓存或VM路径，产品净删6行。生产Swift/C的准入、BAD_RETURN、撤回重试及timer门通过；签名App同输入A/B恢复初始化文字，正常与首帧提交前拒绝两条路径都保持文字、执行一次timer，storage两键各为1。详见[运行证据](runtime-evidence-current.md#e-2026-09-28-string-init-only)。只关闭这条准入缺口，不承诺JS heap副作用回滚、完整初始化事务、实际Workshop影响面或官方parity。

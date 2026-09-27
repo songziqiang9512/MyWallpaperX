@@ -12,19 +12,25 @@ nonisolated struct SceneScriptCursorFrameSample: Equatable, Sendable {
     let pointerPosition: SIMD2<Float>?
     let primaryButtonIsDown: Bool
     let surface: SceneScriptSurfaceInput?
+    let surfaceID: UInt32?
+    let leavingSurface: SceneScriptSurfaceInput?
 
     init(
         hits: [Int: SceneScriptCursorHit],
         ownerProjections: [Int: SceneScriptCursorHit]? = nil,
         pointerPosition: SIMD2<Float>? = nil,
         primaryButtonIsDown: Bool,
-        surface: SceneScriptSurfaceInput? = nil
+        surface: SceneScriptSurfaceInput? = nil,
+        surfaceID: UInt32? = nil,
+        leavingSurface: SceneScriptSurfaceInput? = nil
     ) {
         self.hits = hits
         self.ownerProjections = ownerProjections ?? hits
         self.pointerPosition = pointerPosition
         self.primaryButtonIsDown = primaryButtonIsDown
         self.surface = surface
+        self.surfaceID = surfaceID
+        self.leavingSurface = leavingSurface
     }
 }
 
@@ -82,6 +88,9 @@ nonisolated struct SceneScriptCursorEdgeState: Sendable {
     var previousPointerPosition: SIMD2<Float>?
     var previousPrimaryButtonIsDown: Bool
     var pendingEvents: [SceneScriptCursorPendingEvent]
+    var capturedSurfaceID: UInt32? = nil
+    var previousSurfaceID: UInt32? = nil
+    var previousSurface: SceneScriptSurfaceInput? = nil
 
     static let empty = SceneScriptCursorEdgeState(
         previousHits: [:],

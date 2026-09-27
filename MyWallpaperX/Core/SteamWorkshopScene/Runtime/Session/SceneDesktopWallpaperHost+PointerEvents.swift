@@ -1,11 +1,13 @@
 import AppKit
+import QuartzCore
 
 extension SceneDesktopWallpaperHost {
     func updateMouseLocations() {
 #if DEBUG
         if let debugPointerOverride {
+            let timestamp = CACurrentMediaTime()
             surfaces.values.forEach {
-                $0.metalView.applyPointerInput(debugPointerOverride)
+                $0.metalView.applyPointerInput(debugPointerOverride, timestamp: timestamp)
             }
             return
         }
@@ -66,10 +68,12 @@ extension SceneDesktopWallpaperHost {
         }
         let publish = { [weak self] in
             guard let self else { return }
+            let timestamp = CACurrentMediaTime()
             for surface in surfaces.values {
                 surface.metalView.recordSceneScriptPointerEvent(
                     screenPoint: screenPoint,
-                    primaryButtonIsDown: primaryButtonIsDown
+                    primaryButtonIsDown: primaryButtonIsDown,
+                    timestamp: timestamp
                 )
             }
         }

@@ -238,11 +238,6 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("timelineRuntime.validate(", owner_validation)
         self.assertIn("videoRegistry.validate(", owner_validation)
         self.assertNotIn(".applyIsolatingOwners(layerMutations)", render)
-        self.assertIn("if layerSnapshotFailure != nil", frame_driver_cursor)
-        self.assertIn(
-            "cursorBatch = .init(samples: [], overflowed: false)",
-            frame_driver_cursor,
-        )
         self.assertEqual(render.count("if let failure = sceneScriptLayerSnapshotFailure"), 3)
         self.assertNotIn("publishLayerSnapshot", vector)
         self.assertNotIn("layerSnapshot:", vector)
@@ -448,7 +443,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
             )
             self.assertIn("observedMediaEvents?.", source)
 
-    def test_cursor_exports_gate_the_single_surface_dispatch_route(self) -> None:
+    def test_cursor_exports_gate_dispatch_and_transaction_restore(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
         frame_driver = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         surface_teardown = SURFACE_TEARDOWN_SOURCE.read_text(encoding="utf-8")
@@ -477,12 +472,8 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertEqual(pointer_events.count("NSEvent.removeMonitor("), 2)
         self.assertIn("guard debugPointerOverride == nil", pointer_events)
         self.assertIn("recordSceneScriptPointerEvent(", pointer_events)
-        self.assertIn("else if surfaces.count == 1,", frame_driver_cursor)
-        self.assertIn("let (displayID, surface) = surfaces.first", frame_driver_cursor)
-        self.assertIn("sceneScriptCursorFrameBatch(", frame_driver_cursor)
         self.assertIn("capturedOwnerLayerIDs:", frame_driver_cursor)
         self.assertIn("drainSceneScriptPointerEvents()", frame_driver_cursor)
-        self.assertIn("drainedEvents: drained", frame_driver_cursor)
         # A deferred/dropped frame must re-insert drained pointer events and
         # restore the pre-dispatch cursor edge state instead of consuming
         # press/release/click edges for a frame that was never displayed.
@@ -502,7 +493,6 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("with: sample.surface", cursor_program)
         self.assertIn("pointerPosition: pointer.normalizedPosition", interaction)
         self.assertIn("ownerProjections: projections", interaction)
-        self.assertIn("? ownerLayerIDs : captureCandidates", interaction)
         self.assertIn("originInteractionProjections(", interaction)
         self.assertIn(
             "sample.pointerPosition != previousPointerPosition",
@@ -513,7 +503,6 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
             "? admittedProjections[binding.layerID]",
             cursor_program,
         )
-        self.assertIn("Self.mergingAuthoredMutation(", cursor_program)
         self.assertIn("authoredLayerBaselines:", cursor_program)
         self.assertIn("owner.exportedCursorEvents", cursor_program)
         self.assertIn('case .move: "cursorMove"', event_bridge)

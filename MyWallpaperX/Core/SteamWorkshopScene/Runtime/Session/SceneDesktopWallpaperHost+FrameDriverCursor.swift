@@ -20,46 +20,83 @@ extension SceneDesktopWallpaperHost {
         puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot,
         layerSnapshotFailure: SceneScriptScalarRuntimeFailure?
     ) -> SceneScriptCursorBatchPreparation {
-        let cursorBatch: SceneScriptCursorFrameBatch
+        guard layerSnapshotFailure == nil else {
+            return .init(batch: .init(samples: [], overflowed: false), drainedPointerBatches: [:])
+        }
+        let program = launchContext.sceneScriptCursorProgram
+        let edge = program.edgeStateSnapshot()
+        let displayIDs = surfaces.keys.sorted()
         var drainedPointerBatches: [CGDirectDisplayID: SceneSurfacePointerEventBatch] = [:]
-        if layerSnapshotFailure != nil {
-            cursorBatch = .init(samples: [], overflowed: false)
-        } else if surfaces.count == 1,
-                  let (displayID, surface) = surfaces.first {
-            let drained = surface.metalView.drainSceneScriptPointerEvents()
+        var groups: [Double: [CGDirectDisplayID: SceneSurfacePointerEvent]] = [:]
+        var current: [CGDirectDisplayID: SceneSurfacePointerEvent] = [:]
+        var overflowed = false
+        for displayID in displayIDs {
+            guard let view = surfaces[displayID]?.metalView else { continue }
+            let drained = view.drainSceneScriptPointerEvents()
             drainedPointerBatches[displayID] = drained
-            cursorBatch = surface.metalView.sceneScriptCursorFrameBatch(
-                ownerLayerIDs: launchContext.sceneScriptCursorProgram.ownerLayerIDs,
-                capturedOwnerLayerIDs:
-                    launchContext.sceneScriptCursorProgram.capturedOwnerLayerIDs,
-                timing: timing,
-                dynamicValues: preliminaryForSceneScript,
-                puppetAttachmentFrames: puppetAttachmentFrames,
-                drainedEvents: drained
-            )
-        } else {
-            var cursorHits: [Int: SceneScriptCursorHit] = [:]
-            for (displayID, surface) in surfaces {
-                drainedPointerBatches[displayID] =
-                    surface.metalView.drainSceneScriptPointerEvents()
-                cursorHits.merge(surface.metalView.sceneScriptCursorHits(
-                    ownerLayerIDs: launchContext.sceneScriptCursorProgram.ownerLayerIDs,
-                    timing: timing,
-                    dynamicValues: preliminaryForSceneScript
-                )) { existing, _ in existing }
+            overflowed = overflowed || drained.overflowed
+            for event in drained.events {
+                groups[event.timestamp, default: [:]][displayID] = event
             }
-            cursorBatch = .init(
-                samples: [.init(
-                    hits: cursorHits,
-                    primaryButtonIsDown: surfaces.values.contains {
-                        $0.metalView.pointerState.isPrimaryButtonDown
-                    }
-                )],
-                overflowed: false
+            let pointer = view.pointerState
+            current[displayID] = .init(
+                normalizedPosition: pointer.sceneScriptCurrent,
+                isInside: pointer.isInside,
+                primaryButtonIsDown: pointer.sceneScriptPrimaryButtonIsDown
             )
         }
+        overflowed = overflowed || groups.count > SceneSurfacePointerEventBuffer.maximumEventCount
+        // A native event is projected once per surface at ingress with the same
+        // timestamp. Replay one ordered physical stream, including its final
+        // state. Any lost surface queue rejects the whole physical batch.
+        let ordered = (overflowed ? [] : groups.keys.sorted().compactMap { groups[$0] }) + [current]
+        var capturedSurfaceID = edge.capturedSurfaceID
+        var captureCandidates = Set(edge.capturedHits.keys)
+        var previousSurfaceID = edge.previousSurfaceID
+        var wasDown = edge.previousPrimaryButtonIsDown
+        var samples: [SceneScriptCursorFrameSample] = []
+        var previousInput: SceneSurfacePointerEvent?
+        for group in ordered {
+            let displayID = capturedSurfaceID.flatMap { group[$0] != nil ? $0 : nil }
+                ?? displayIDs.first { group[$0]?.isInside == true }
+                ?? previousSurfaceID.flatMap { group[$0] != nil ? $0 : nil }
+                ?? displayIDs.first { group[$0] != nil }
+            guard let displayID, let pointer = group[displayID],
+                  let view = surfaces[displayID]?.metalView else { continue }
+            var input = pointer
+            input.timestamp = 0
+            if previousInput == input && previousSurfaceID == displayID { continue }
+            previousInput = input
+            let leavingSurface = previousSurfaceID.flatMap { previousID -> SceneScriptSurfaceInput? in
+                guard previousID != displayID, let previousPointer = group[previousID],
+                      let previousView = surfaces[previousID]?.metalView else { return nil }
+                return previousView.sceneScriptSurfaceInput(
+                    pointer: previousPointer, timing: timing,
+                    dynamicValues: preliminaryForSceneScript
+                )
+            }
+            let sample = view.sceneScriptCursorFrameSample(
+                pointer: pointer, surfaceID: displayID,
+                leavingSurface: leavingSurface,
+                ownerLayerIDs: program.ownerLayerIDs,
+                capturedOwnerLayerIDs: captureCandidates,
+                timing: timing,
+                dynamicValues: preliminaryForSceneScript,
+                puppetAttachmentFrames: puppetAttachmentFrames
+            )
+            samples.append(sample)
+            if pointer.primaryButtonIsDown && !wasDown && !sample.hits.isEmpty {
+                capturedSurfaceID = displayID
+                captureCandidates = Set(sample.hits.keys)
+            } else if !pointer.primaryButtonIsDown {
+                capturedSurfaceID = nil
+                captureCandidates = []
+            }
+            wasDown = pointer.primaryButtonIsDown
+            previousSurfaceID = displayID
+        }
         return .init(
-            batch: cursorBatch,
+            batch: .init(samples: samples, overflowed: overflowed),
             drainedPointerBatches: drainedPointerBatches
         )
     }

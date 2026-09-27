@@ -33,10 +33,9 @@ extension SceneMetalView {
         updatePointer(windowPoint)
     }
 
-    func applyPointerInput(_ input: SceneSurfacePointerInput) {
-        if pointerState.apply(input) {
-            appendSceneScriptPointerEvent()
-        }
+    func applyPointerInput(_ input: SceneSurfacePointerInput, timestamp: Double = CACurrentMediaTime()) {
+        _ = pointerState.apply(input)
+        appendSceneScriptPointerEvent(timestamp: timestamp)
         let parallaxTarget = input.isInside ? input.current : .zero
         parallaxPointerSmoother.setTarget(
             parallaxTarget,
@@ -46,7 +45,8 @@ extension SceneMetalView {
 
     func recordSceneScriptPointerEvent(
         screenPoint: CGPoint,
-        primaryButtonIsDown: Bool
+        primaryButtonIsDown: Bool,
+        timestamp: Double = CACurrentMediaTime()
     ) {
         guard let window else { return }
         let windowPoint = window.convertPoint(fromScreen: screenPoint)
@@ -54,7 +54,7 @@ extension SceneMetalView {
             windowPoint,
             primaryButtonIsDown: primaryButtonIsDown
         )
-        appendSceneScriptPointerEvent()
+        appendSceneScriptPointerEvent(timestamp: timestamp)
     }
 
     func drainSceneScriptPointerEvents() -> SceneSurfacePointerEventBatch {
@@ -93,11 +93,12 @@ extension SceneMetalView {
         parallaxPointerSmoother.setTarget(normalized, timestamp: CACurrentMediaTime())
     }
 
-    private func appendSceneScriptPointerEvent() {
+    private func appendSceneScriptPointerEvent(timestamp: Double) {
         sceneScriptPointerEvents.append(.init(
             normalizedPosition: pointerState.sceneScriptCurrent,
             isInside: pointerState.isInside,
-            primaryButtonIsDown: pointerState.sceneScriptPrimaryButtonIsDown
+            primaryButtonIsDown: pointerState.sceneScriptPrimaryButtonIsDown,
+            timestamp: timestamp
         ))
     }
 

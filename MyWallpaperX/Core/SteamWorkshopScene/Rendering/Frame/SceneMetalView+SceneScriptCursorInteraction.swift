@@ -26,7 +26,7 @@ extension SceneMetalView {
         )
     }
 
-    private func sceneScriptSurfaceInput(
+    func sceneScriptSurfaceInput(
         pointer: SceneSurfacePointerEvent,
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot
@@ -74,104 +74,36 @@ extension SceneMetalView {
         )
     }
 
-    /// Uses the same cover camera, authored world frames and quad inverse as
-    /// rendering. Hidden transparent interaction owners remain hit-testable;
-    /// visibility is intentionally not consulted here.
-    func sceneScriptCursorHits(
-        ownerLayerIDs: Set<Int>,
-        timing: SceneFrameTiming,
-        dynamicValues: SceneDynamicSnapshot
-    ) -> [Int: SceneScriptCursorHit] {
-        originInteractionHits(
-            ownerLayerIDs,
-            pointer: .init(
-                normalizedPosition: pointerState.current,
-                isInside: pointerState.isInside,
-                primaryButtonIsDown: pointerState.isPrimaryButtonDown
-            ),
-            timing: timing,
-            dynamicValues: dynamicValues
-        )
-    }
-
-    func sceneScriptCursorFrameBatch(
+    func sceneScriptCursorFrameSample(
+        pointer: SceneSurfacePointerEvent,
+        surfaceID: UInt32,
+        leavingSurface: SceneScriptSurfaceInput?,
         ownerLayerIDs: Set<Int>,
         capturedOwnerLayerIDs: Set<Int>,
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
-        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty,
-        drainedEvents: SceneSurfacePointerEventBatch
-    ) -> SceneScriptCursorFrameBatch {
-        let current = SceneSurfacePointerEvent(
-            normalizedPosition: pointerState.sceneScriptCurrent,
-            isInside: pointerState.isInside,
-            primaryButtonIsDown: pointerState.sceneScriptPrimaryButtonIsDown
+        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot
+    ) -> SceneScriptCursorFrameSample {
+        let projections = originInteractionProjections(
+            pointer.isInside ? ownerLayerIDs : capturedOwnerLayerIDs,
+            pointer: pointer,
+            timing: timing,
+            dynamicValues: dynamicValues,
+            puppetAttachmentFrames: puppetAttachmentFrames
         )
-        var events = drainedEvents.events
-        if events.last != current { events.append(current) }
-        if events.isEmpty { events = [current] }
-        var captureCandidates = capturedOwnerLayerIDs
-        var samples: [SceneScriptCursorFrameSample] = []
-        samples.reserveCapacity(events.count)
-        for pointer in events {
-            let projectedOwnerLayerIDs = pointer.isInside
-                ? ownerLayerIDs : captureCandidates
-            let projections = originInteractionProjections(
-                projectedOwnerLayerIDs,
-                pointer: pointer,
-                timing: timing,
-                dynamicValues: dynamicValues,
-                puppetAttachmentFrames: puppetAttachmentFrames
-            )
-            let hits = originInteractionHits(
-                projections,
-                pointerIsInside: pointer.isInside
-            )
-            samples.append(.init(
-                hits: hits,
-                ownerProjections: projections,
-                pointerPosition: pointer.normalizedPosition,
-                primaryButtonIsDown: pointer.primaryButtonIsDown,
-                surface: sceneScriptSurfaceInput(
-                    pointer: pointer,
-                    timing: timing,
-                    dynamicValues: dynamicValues
-                )
-            ))
-            if pointer.primaryButtonIsDown {
-                captureCandidates.formUnion(hits.keys)
-            } else {
-                captureCandidates = []
-            }
-        }
         return .init(
-            samples: samples,
-            overflowed: drainedEvents.overflowed
+            hits: originInteractionHits(projections, pointerIsInside: pointer.isInside),
+            ownerProjections: projections,
+            pointerPosition: pointer.normalizedPosition,
+            primaryButtonIsDown: pointer.primaryButtonIsDown,
+            surface: sceneScriptSurfaceInput(pointer: pointer, timing: timing, dynamicValues: dynamicValues),
+            surfaceID: surfaceID,
+            leavingSurface: leavingSurface
         )
     }
 
     func restoreSceneScriptPointerEvents(_ batch: SceneSurfacePointerEventBatch) {
         sceneScriptPointerEvents.restore(batch)
-    }
-
-    private func originInteractionHits(
-        _ ownerLayerIDs: Set<Int>,
-        pointer: SceneSurfacePointerEvent,
-        timing: SceneFrameTiming,
-        dynamicValues: SceneDynamicSnapshot,
-        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty
-    ) -> [Int: SceneScriptCursorHit] {
-        guard pointer.isInside else { return [:] }
-        return originInteractionHits(
-            originInteractionProjections(
-                ownerLayerIDs,
-                pointer: pointer,
-                timing: timing,
-                dynamicValues: dynamicValues,
-                puppetAttachmentFrames: puppetAttachmentFrames
-            ),
-            pointerIsInside: pointer.isInside
-        )
     }
 
     private func originInteractionHits(
