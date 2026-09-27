@@ -161,6 +161,10 @@
 
 2026-08-02 复核 [Operator](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html) 页的 Cap velocity 与 Operator blending：公开页明确 Cap velocity 为每个粒子设置 speed upper limit，blending 的四个时间点均使用单粒子 lifetime 的 normalized `0...1`，但没有公开 clamp/blend 的逐帧数值公式、私有 JSON 名称、flags、默认值或与 General speed override 的组合顺序。官方客户端静态审查 [windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) 只确认 `capvelocity` 的 `maxspeed` / `blendinstart` / `blendinend` wire，changelog 只确认该 operator 在 revision 4096 加入；随包三份合法声明均显式填写有限正 `maxspeed` 与完整 blend-in pair，未提供 blend-out 正例。项目的“按 blend weight 移除超额速度比例”、`1,000,000` 预算、全局窗口顺序和 speed override 组合均是公开边界内的 bounded clean-room 合同，不是官方内部算法或 Windows trajectory truth。
 
+<a id="sprite-trail-defaults-20260928"></a>
+
+2026-09-28 用户授权有界研究`trail-defaults-20260928`：固定官方客户端2.8.42、`wallpaper64.exe` SHA `40e2ce021e9352324fadb3b8f72b8ba2a7ee95b71cc571d5b9f84be75cd993b0`，Ghidra12.1.2/Java21.0.12。`official-client-static-observation`只支持Sprite Trail缺省字段独立归一化为length=0.05、minlength=0、maxlength=10及显式有效数值覆盖；不支持缺省1/1。公开[Renderer](https://docs.wallpaperengine.io/en/scene/particles/component/renderer.html)提供速度相关伸长和显式三项1的orientation-only语义，未公开默认数值。研究者与实现者隔离，中性交接独立审查通过，原始材料清理；没有复制私有实现表达。零速度几何、绝对单位、null/畸形输入、Windows像素以及目标斜光归因均未由静态合同证明。实施及验收边界见[运行证据](runtime-evidence-current.md#e-2026-09-28-trail-defaults)。
+
 ### 1.6 Timeline
 
 - https://docs.wallpaperengine.io/en/scene/timeline/introduction.html

@@ -41,6 +41,22 @@ enum Harness {
             minimumLength: nil,
             maximumLength: nil
         )!
+        let lengthOnly = SceneParticleTrailRenderPlan(
+            length: 0.007, minimumLength: nil, maximumLength: nil
+        )!
+        let explicitDefaults = SceneParticleTrailRenderPlan(
+            length: 0.007, minimumLength: 0, maximumLength: 10
+        )!
+        let orientationOnly = SceneParticleTrailRenderPlan(
+            length: 0.007, minimumLength: 1, maximumLength: 1
+        )!
+        let minimumOnly = SceneParticleTrailRenderPlan(
+            length: nil, minimumLength: 0.25, maximumLength: nil
+        )!
+        let maximumOnly = SceneParticleTrailRenderPlan(
+            length: nil, minimumLength: nil, maximumLength: 4
+        )!
+        let speeds: [Double] = [0, 100, 200, 400, 10_000]
 
         let invalidPlans: [SceneParticleTrailRenderPlan?] = [
             SceneParticleTrailRenderPlan(length: .nan, minimumLength: nil, maximumLength: nil),
@@ -65,6 +81,12 @@ enum Harness {
             "threeDimensional": bounded.stretch(for: SIMD3(1, 2, 2)),
             "largeAuthoredMaximum": largeAuthoredRange.stretch(for: SIMD3(1_000, 0, 0)),
             "zeroSpeed": defaults.stretch(for: .zero),
+            "defaults": speeds.map { defaults.stretch(for: SIMD3($0, 0, 0)) },
+            "lengthOnly": speeds.map { lengthOnly.stretch(for: SIMD3($0, 0, 0)) },
+            "explicitDefaults": speeds.map { explicitDefaults.stretch(for: SIMD3($0, 0, 0)) },
+            "orientationOnly": speeds.map { orientationOnly.stretch(for: SIMD3($0, 0, 0)) },
+            "minimumOnly": [minimumOnly.stretch(for: .zero), minimumOnly.stretch(for: SIMD3(100, 0, 0))],
+            "maximumOnly": [maximumOnly.stretch(for: .zero), maximumOnly.stretch(for: SIMD3(100, 0, 0))],
             "nonFiniteSpeed": bounded.stretch(for: SIMD3(.nan, 0, 0)),
             "invalidCount": invalidPlans.compactMap { $0 }.count,
         ]
@@ -116,8 +138,21 @@ class SceneParticleTrailRenderPlanTests(unittest.TestCase):
 
     def test_large_authored_range_and_omitted_defaults_are_bounded(self) -> None:
         self.assertEqual(self.result["largeAuthoredMaximum"], 400)
-        self.assertEqual(self.result["zeroSpeed"], 1)
+        self.assertEqual(self.result["zeroSpeed"], 0)
         self.assertEqual(self.result["nonFiniteSpeed"], 2)
+
+    def test_missing_bounds_preserve_speed_dependent_stretch(self) -> None:
+        self.assertEqual(self.result["defaults"], [0, 5, 10, 10, 10])
+        self.assertEqual(self.result["lengthOnly"], self.result["explicitDefaults"])
+        for actual, expected in zip(self.result["lengthOnly"], [0, 0.7, 1.4, 2.8, 10]):
+            self.assertAlmostEqual(actual, expected, places=6)
+
+    def test_explicit_equal_bounds_remain_orientation_only(self) -> None:
+        self.assertEqual(self.result["orientationOnly"], [1, 1, 1, 1, 1])
+
+    def test_independent_bound_overrides_preserve_other_defaults(self) -> None:
+        self.assertEqual(self.result["minimumOnly"], [0.25, 5])
+        self.assertEqual(self.result["maximumOnly"], [0, 4])
 
     def test_invalid_authored_values_fail_closed(self) -> None:
         self.assertEqual(self.result["invalidCount"], 0)

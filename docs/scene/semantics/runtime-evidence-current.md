@@ -377,7 +377,7 @@
 
 ### E-2026-09-28-RAY-SOURCE-DIAGNOSIS — 固定斜光目标并排除背景效果整体丢失
 
-**本批是诊断，无产品修改。**用户明确确认3769761761原目录的「截屏2026-07-28 01.53.16.png」中头发上方左向右下斜光为目标。截图SHA `4053c867ea4ecca49f5ebed665340f29164d3be14811b20dbd6872847658f8d1`，3024×1964；用户随后明确该图来自官方原版客户端实际播放，作为官方外观验收目标；具体客户端版本、属性、相位和viewport策略未固定，因此仍不作同条件逐像素golden。Mirage只提供第三方诊断对照，不能覆盖此官方目标。作者192×192/50帧预览也可见上方斜光，但分辨率不足以裁定坐标/尺寸数值。
+**本批是诊断，无产品修改。**用户明确确认3769761761原目录的「截屏2026-07-28 01.53.16.png」中头发上方左向右下斜光为目标。截图SHA `4053c867ea4ecca49f5ebed665340f29164d3be14811b20dbd6872847658f8d1`，3024×1964；用户随后明确该图来自官方原版客户端实际播放，作为官方外观验收目标；用户确认与当前目录内容相同且未调整光效属性；具体客户端版本、相位和viewport策略未固定，因此仍不作同条件逐像素golden。Mirage只提供第三方诊断对照，不能覆盖此官方目标。作者192×192/50帧预览也可见上方斜光，但分辨率不足以裁定坐标/尺寸数值。
 
 沿用94e40a27对应App（exe SHA `92d8ef1b04a639482051bd09a3ea327031cc271f9aa17f4fc99d1456aa4e201c`，CDHash `9512d5dfb917ed6c34586854a011b8af6d9a114c`），完整原包36秒、每3秒取图，执行PASS，submitted/completed/failed/presented=1778/1777/0/1776；所采序列没有目标头发区域的斜光，不能把上一批局部旋转修正当作整项解决。
 
@@ -387,7 +387,23 @@
 
 随后用临时只读捕获钩子取得粒子156实际纹理及第一非空draw的uniform/instance buffer，原包8秒回放PASS。纹理来自stock light_shafts_0.tex，RG8、256×512、aspect=0.5、UV scale=(1,1)、无动画；读取纹理的GPU blit已完成，亮部来自G通道alpha，R恒为255。两个实例上传size=481.132/459.212（当前半尺寸约定），位置、Z旋转和alpha分别吻合约5.0167/0.0167秒的运动、角速度和淡入状态。直接重放捕获buffer和生产vertex数学，GPU完成后得到亮部UV=(0.57617,0.15918)在3024×1964 viewport中的几何投影约(744.61,1327.76)/(623.91,1317.14)，确在脸颊/下巴区域；这些点不是终端合成图的最亮像素或质心，不含过滤/裁剪/背景合成的峰值变化。此证据排除本次draw中贴图完全未加载、粒子运动/角运动/淡入整体未执行，未证明绝对尺寸和目标斜光来源正确。
 
-同版本Mirage对原包及仅背景17＋粒子156各运行10秒、5秒截图，两图也未出现目标头发上方斜光；这是特定相位的第三方缺口，不能反推官方目标错误，亦未覆盖其全周期。下一门转为背景Shine/GodRays各pass实际输入、输出及最终合成的逐步贡献，排查某步虽然执行却消费错误数据或丢失结果；保持粒子绝对尺寸问题开放，不再无依据翻转坐标或放大。用户提出的“少执行某一步”仍是待检假设。新增证据缓存`2026-09-28-particle-projection`保存实际buffer、纹理、GPU投影工具、临时patch、两版本App身份及参考运行；独立只读审查未发现阻断问题；捕获钩子已撤除并重新构建普通App（exe SHA `d369fc38540d1832d1dd52ccc0a4505d64937b7624dc16dcf339df24ffedfedc`，CDHash `f164526a16649e875fb7c91e78886e45de76c3f6`），原包8秒回放PASS。原隔离证据仍在`2026-09-28-ray-source-diagnosis`。光效OPEN，无产品算法改动，真实样本根只读。
+同版本Mirage对原包及仅背景17＋粒子156各运行10秒、5秒截图，两图也未出现目标头发上方斜光；这是特定相位的第三方缺口，不能反推官方目标错误，亦未覆盖其全周期。后继首次pass捕获集已完成下述传递核对；粒子绝对尺寸问题仍开放，不再无依据翻转坐标或放大。新增证据缓存`2026-09-28-particle-projection`保存实际buffer、纹理、GPU投影工具、临时patch、两版本App身份及参考运行；独立只读审查未发现阻断问题；捕获钩子已撤除并重新构建普通App（exe SHA `d369fc38540d1832d1dd52ccc0a4505d64937b7624dc16dcf339df24ffedfedc`，CDHash `f164526a16649e875fb7c91e78886e45de76c3f6`），原包8秒回放PASS。原隔离证据仍在`2026-09-28-ray-source-diagnosis`。光效OPEN，无产品算法改动，真实样本根只读。
+
+首次pass捕获集覆盖Shine/GodRays各自的downsample、cast、两次blur、combine共10个pass。探针在pass结束后于同一command buffer插入blit，GPU完成才落盘；8条内部输入与上游输出SHA完全一致，两combine相对背景均有非零贡献。目标上方斜光在所捕获cast/blur中已缺失。本批没有共同frame标记，不声称10个捕获来自同一显示帧，也不证明uniform、shader数学或全周期正确。原包8秒执行PASS；探针App SHA `00bad544edc48bf083d0c820c98583a4c62eb0a82c9bbb2b1fb80515de433c8c`，CDHash `b03781ef62781c69de6dc71bf9196f2d2a09197f`。独立只读审查接受传递结论，临时钩子已逐字撤除并重新构建。
+
+另外三组Ember429/436/442实际引用stock halo_2，child引用halo，不能仅按名称排除。隔离父＋子、仅父、仅子、显式最大拉伸10、HDR及alpha放大到1六次回放均PASS；所采画面仍未恢复目标头发斜光，放大alpha只显出左缘/颈部附近局部亮团。所有改动只在隔离副本，未采用为产品补偿。这些是当前实现的诊断排除，不证明官方Ember贡献。证据缓存`2026-09-28-ray-pass-projection`保存实际pass读回、传递摘要、截图、报告与实验脚本。完整目标仍OPEN；后继只修已证实的共享Trail默认值差异，见下一条。
+
+<a id="e-2026-09-28-trail-defaults"></a>
+
+### E-2026-09-28-TRAIL-DEFAULTS — 修正省略边界导致拖尾锁长
+
+用户授权独立代理使用本机Ghidra进行有界静态研究。研究卡`trail-defaults-20260928`仅问Sprite Trail三个字段的缺省与独立覆盖；固定客户端身份和结论见[来源索引](source-index.md#sprite-trail-defaults-20260928)。研究上下文`/root/official_particle_research`不写产品；交接SHA `0b1119824fdf56f78fb8981e8c4684fcb947d8e6c3e9f178960cac79fb728cf4`由`/root/noise_review`审查accepted。实现上下文`/root`与研究上下文隔离，声明`did-not-receive-raw-static-output`；只消费已审中性合同。研究原始工程/日志由研究者按精确路径清理，无保留Ghidra进程。
+
+现有`SceneParticleTrailRenderPlan`的默认length=1、min/max=1/1让省略边界的作者输入始终stretch=1。现在仅替换为独立默认0.05、0、10，保留显式覆盖与原有有限非负/有序区间校验；无新owner、算法或样本分支。公开合同的三项显式1仍为定长朝向控制。parser既有null→nil兼容继续使用同一默认，明确属于项目策略，不声称官方null行为已证实。
+
+7项plan行为测试和39项实际Metal测试通过；GPU新增省略与显式默认等价、100/200/400速度递增轮廓、显式1/1不随速度改变的反例。Debug优化构建通过。inner的focused-tests通过，code-health仍因三个既有非Scene文件行数超限失败，未将总门标PASS。签名App SHA `8762e266dc3b86dc31ba532072b8d06654c8f459e3b0647d563342bf0b9a987d`，CDHash `aad05cf0936d7e9c836831ac2d6b7477f709d47d`；3769761761隔离原包8秒回放PASS，五粒子层含429/436/442均current/committed nonempty，测量窗submitted/completed/failed/presented=173/172/0/171。粒子直接提交终端绘制，不虚构graph publication；背景仍通过既有graph完成/消费/下一帧门。
+
+最新截图仍缺官方目标头发斜光，不能把这项公共默认修正认作完整根因。Windows同输入几何/像素对照未运行；静态研究未覆盖尺寸单位、旧Sprite角度、stock资源选择或最终合成。后继优先核对旧Sprite贴图光束的作者尺寸到实际几何合同，避免继续试改作者参数。证据仍在`2026-09-28-ray-pass-projection`。
 
 <a id="e-2026-09-28-local-particle-transform"></a>
 

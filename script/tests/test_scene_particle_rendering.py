@@ -16,6 +16,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "script/tests/fixtures/SceneParticleFixedGeometryHarness.swift",
     SOURCE_ROOT / "Systems/Input/SceneCameraProjection.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleCameraFrame.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticleTrailRenderPlan.swift",
 
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
@@ -272,6 +273,7 @@ enum Harness {
             ),
             "cullContract": cullContract(),
             "horizontalTrailBounds": trailBounds(velocity: SIMD3(1, 0, 0)),
+            "defaultTrailBounds": defaultTrailBounds(),
             "localScaledWidth": trailBounds(velocity: SIMD3(1, 0, 0),
                 layerModel: SceneMatrix.scale(SIMD3(10, 10, 1)), rope: true),
             "worldScaledWidth": trailBounds(velocity: SIMD3(1, 0, 0),
@@ -1364,12 +1366,27 @@ enum Harness {
         ]
     }
 
+    private static func defaultTrailBounds() -> [String: [[String: Int]]] {
+        let plans = [
+            "omitted": SceneParticleTrailRenderPlan(length: 0.007, minimumLength: nil, maximumLength: nil)!,
+            "explicit": SceneParticleTrailRenderPlan(length: 0.007, minimumLength: 0, maximumLength: 10)!,
+            "fixed": SceneParticleTrailRenderPlan(length: 0.007, minimumLength: 1, maximumLength: 1)!
+        ]
+        return plans.mapValues { plan in
+            [100.0, 200.0, 400.0].map { speed in
+                trailBounds(velocity: SIMD3(Float(speed), 0, 0),
+                            stretch: plan.stretch(for: SIMD3(speed, 0, 0)))
+            }
+        }
+    }
+
     private static func trailBounds(
         velocity: SIMD3<Float>,
         layerModel: simd_float4x4 = SceneMatrix.identity(),
         rope: Bool = false,
         sizeIsWorldSpace: Bool = false,
         particleSize: Float = 0.2,
+        stretch: Float = 4,
         viewProjection: simd_float4x4 = SceneMatrix.identity(),
         basis: SceneParticleOrientationBasis = .init(right: SIMD3(1, 0, 0), up: SIMD3(0, 1, 0))
     ) -> [String: Int] {
@@ -1398,7 +1415,7 @@ enum Harness {
         let values = [SceneParticleGPUInstance(
             position: .zero, size: particleSize, rotation: .zero,
             color: SIMD3(repeating: 1), alpha: 1,
-            velocity: rope ? velocity * 0.12 : velocity, trailStretch: 4,
+            velocity: rope ? velocity * 0.12 : velocity, trailStretch: stretch,
             usesTrailDisplacement: rope,
             trailHeadDirection: rope ? velocity * 0.12 : nil,
             trailTailDirection: rope ? velocity * 0.12 : nil,
@@ -2650,6 +2667,16 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertGreater(horizontal["width"], horizontal["height"] * 2.5)
         self.assertGreater(vertical["height"], vertical["width"] * 2.5)
         self.assertGreater(rotated["height"], rotated["width"] * 2.5)
+
+    def test_omitted_trail_bounds_change_actual_gpu_extent_with_speed(self) -> None:
+        bounds = self.result["defaultTrailBounds"]
+        self.assertEqual(bounds["omitted"], bounds["explicit"])
+        widths = [item["width"] for item in bounds["omitted"]]
+        self.assertGreater(widths[1], widths[0] + 3)
+        self.assertGreater(widths[2], widths[1] + 3)
+        self.assertEqual(len({item["height"] for item in bounds["omitted"]}), 1)
+        self.assertEqual(len({item["width"] for item in bounds["fixed"]}), 1)
+        self.assertGreater(bounds["fixed"][0]["width"], 0)
 
     def test_general_worldspace_size_is_independent_of_layer_scale(self) -> None:
         baseline = self.result["worldIdentityWidth"]
