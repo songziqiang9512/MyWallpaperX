@@ -188,7 +188,18 @@ enum Harness {
                 ]],
             ]
         ).bindings.allSatisfy(\.target.isUnsupported)
+        let exactCombo = SceneUserPropertyDocumentResolver().resolve(
+            root: ["general": ["bloom": ["user": ["name": "mode", "condition": "01"], "value": true]],
+                   "objects": [["id": 50, "effects": [["file": "effects/test/effect.json",
+                     "visible": ["user": ["name": "mode", "condition": "01"], "value": true]]]]]],
+            effectiveValues: ["mode": .string("1")])
+        let exactGeneral = exactCombo.root["general"] as! [String: Any]
+        let exactObjects = exactCombo.root["objects"] as! [[String: Any]]
+        let exactEffects = exactObjects[0]["effects"] as! [[String: Any]]
+        let exactBooleanConditions = (exactGeneral["bloom"] as! [String: Any])["value"] as? Bool == false
+            && (exactEffects[0]["visible"] as! [String: Any])["value"] as? Bool == false
         return [
+            "exactBooleanConditions": exactBooleanConditions,
             "definitionCount": catalog.definitions.count,
             "definitionKinds": kinds,
             "firstDefinition": catalog.definitions.first?.key ?? "",
@@ -326,6 +337,7 @@ enum Harness {
         case .camera: "camera"
         case .text: "text"
         case .particle: "particle"
+        case .scene: "scene"
         case .soundVolume: "soundVolume"
         case .shaderValue: "shaderValue"
         case .materialShaderValue: "materialShaderValue"
@@ -443,6 +455,7 @@ class SceneUserPropertyTests(unittest.TestCase):
         self.assertTrue(result["unknownOverrideIgnored"])
         self.assertTrue(result["invalidComboOverrideUsesDefault"])
         self.assertEqual(result["bindingCount"], 17)
+        self.assertTrue(result["exactBooleanConditions"])
         self.assertEqual(result["conditionalBindingCount"], 3)
         self.assertEqual(result["unsupportedBindingCount"], 3)
         self.assertEqual(result["resolvedBindingCount"], 15)

@@ -19,7 +19,10 @@ extension ScenePropertyBindingCompiler {
                     .combo
                 )
             default:
-                break
+                if binding.target.acceptsConditionalBoolean,
+                   let mapped = map(binding.target), mapped.valueType == .bool {
+                    return (mapped.target, .bool, .combo)
+                }
             }
         }
         switch binding.target {

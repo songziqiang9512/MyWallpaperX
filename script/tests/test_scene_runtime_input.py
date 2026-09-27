@@ -315,10 +315,6 @@ class SceneRuntimeInputTests(unittest.TestCase):
         # load-prepared descriptor so effect-visibility snapshot seeds read
         # the prepared state, not the binding seed.
         self.assertIn("preparedDescriptor: runtimeDescriptor", source)
-        self.assertIn(
-            ".effectLocalDirectBoolEffectVisibilityTargets",
-            runtime_input,
-        )
 
     def test_production_playback_passes_the_original_project_root(self) -> None:
         playback = PLAYBACK_SOURCE.read_text(encoding="utf-8")

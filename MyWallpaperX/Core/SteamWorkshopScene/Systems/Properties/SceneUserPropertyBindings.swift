@@ -63,7 +63,9 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
             return true
         case let .camera(field):
             return field == "cameraparallax" || field == "camerashake"
-        case .scene, .layerAlpha, .layerScale, .layerColor, .lightIntensity, .text,
+        case let .scene(field):
+            return field == "bloom"
+        case .layerAlpha, .layerScale, .layerColor, .lightIntensity, .text,
              .particle, .soundVolume, .shaderValue, .materialShaderValue,
              .scriptProperty, .unsupported:
             return false

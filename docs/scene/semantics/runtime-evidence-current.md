@@ -3836,3 +3836,19 @@ v4 的 `3780119725` generation 1 include-current-process capture data peak `0.49
 App均2.10.0(279)：修前SHA `63c85be6dd7d7a5f6cd56fbe8b785878f455cc5c6472500e89777efb007e2625`；修后SHA `7373f20e537d6e1bd41e227ca87f17ca9ea8a331bb60852d96f8950d2e92fcf7`、CDHash `dfdd485e3b1fb1b1e6d14d007881d0881825f264`。两样本修前submitted/completed/failed/presented为580/579/0/578、554/553/0/550；修后580/579/0/578、528/527/0/524。次数差异不能作性能结论；未跑长稳/真实噪声或三引擎普通入口视觉门。
 
 本机缓存`docs/scene/evidence/2026-09-28-audio-band-peaks/`保留四次报告、ready/after及每次series-0002原尺寸截图、精确PCM输出数组/指纹、探针/测量/回放脚本、构建/测试/反例日志、审查与SHA manifest，归档预算80MiB。用户全柱活跃度验收仍在原队列；临时音源、样本副本及运行目录在归档核验后清理。
+
+
+<a id="e-2026-09-28-combo-boolean-visibility"></a>
+### 2026-09-28 — Combo Boolean 条件准入与特效准备共用现役链
+
+**首断点与实现：**基线`ee90e5ee`的条件编译只认layerVisibility，effect、camera、Puppet及Scene Boolean虽然有现役typed consumer，仍被编译器拒绝。将原条件域核验推广到已映射Boolean target，以typed target替代layer ID去重；string Combo仍核验唯一property、完整options/default、condition归属、fallback与默认选择一致。未知运行选项撤销整个key条件组，不新增求值器。`liveEffectVisibilityTargets`替代旧direct-only候选名称，effect-only条件组复用原startup-inactive preparation；live state继续要求所有siblings consumer可用。未放宽dependency/hierarchy的路由限制，也未给mixed-target组新增强制准备。加载resolver对string/string采用exact比较，纠正`"01"`和`"1"`在加载与热调间不一致。5个产品文件净−1行。
+
+**来源和影响面：**[官方Combo文档](https://docs.wallpaperengine.io/en/scene/userproperties/combo.html)提供选项/关联对象的公共语义，[官方更新](https://store.steampowered.com/news/posts/?appids=431960&enddate=1572014005&feed=steam_community_announcements)明确图像特效显隐支持Combo绑定；本批没有官方私有研究。只读遍历本机真实根的188份可解析包入口（不是重建canonical corpus分母）找到18个不同目录ID、309处effect条件绑定，Bloom条件0处。此数是authored声明，非兼容通过数。Bloom/相机/Puppet的推广按现有typed bool消费者验证，不能外推其所有作者组合或官方parity。
+
+**验证：**7模块75项测试全部通过，无skip：property_binding_program、runtime_input、user_properties、bloom_post_process、property_live_update_state、property_live_routing、dynamic_layer_visibility。新Combo多Boolean反例以旧产品源码编译运行，`booleanConditionsAdmitted`断言失败；候选通过。覆盖base选项全false、one多目标同选、非法选项整组不发布、序列化往返、effect准备、字符串exact，既有重复目标/default/fallback及consumer不齐保持原门。Bloom真实Metal条件开→关有/无像素贡献，关闭0encoder；相机/Puppet本批仅typed求值，不作App视觉验收。优化Debug构建成功，code health通过（221既有warnings）。独立只读审查APPROVE，产品/测试diff SHA256 `27bf8df1ad1e554122b60ef1b4c3961391d82c26868481402a287578e69dc874`。移除被替换候选名的源码字符串断言，保留行为门。
+
+**App与自有正反门：**App2.10.0(279)，executable SHA256 `030ad88f20efdd0cf53ae72e91e5abefc56b92aff9eafba8d3e343e0e74814b4`，CDHash`8f8081cba71e065baabaefd94d9392e654afa676`。自有红/绿乘色effect使用同层两条件及base无效果选项，三份隔离夹具各6秒，3/3 PASS；同runtime/window不重建，属性accepted=true。中心20×20px平均RGB分别`255,255,255→255,0,0`、`255,0,0→0,255,0`、`0,255,0→255,255,255`；已查看红色完整截图，并对六原图做ROI读取。每次effect在切换后取得GPU completed、publication、terminal compositor及next-frame；三次统计submitted/completed/failed/presented分别113/113/0/112、111/110/0/109、110/110/0/109。最初夹具误用非`effect.json`结尾的定义路径，导致missingDefinition；其报告作为fixture-error保留，不作修前像素对照。旧产品失败证据使用上述实际Swift反例。
+
+**真实原包：**固定PCM输入各10秒，`2932631210`的`newproperty7:2→1`与`3238423642`的`audioresponsivecircle:1→4`均PASS，属性accepted、window不变，GPU失败0（分别286/286/0/284、284/283/0/281）。前者runtime`004ee91f-3e90-45c9-bbc7-110ee549da9c`的层106两效果在frame117交换active/passthrough、118下一帧终端消费。后者runtime`d326ebaf-2d7b-4e38-a1ae-86875b8781e1`的同key同时控制effect与三层visible，选择4全false；层1142退出后不应继续要求该effect执行，保留最终场景GPU/呈现。已查看两份after及后者ready原图；不从截图宣称音圈幅度、完整视觉或性能改善。`3211615441`其余style尚未本批重跑。
+
+**归档与余门：**本机忽略缓存`docs/scene/evidence/2026-09-28-combo-boolean-visibility/`保留5次有效运行的报告/log/ready/after原图、夹具源码、ROI/执行摘录、旧实现反例、测试/构建、审查及SHA清单；不归档真实pkg和staged App。受控门证明shared条件执行/准备可用，不关闭18样本全部组合、任意Bool/数值condition、混合目标初始隐藏、依赖/hierarchy与完整HDR；相机/Puppet仍需实际内容门。临时运行与样本副本归档核验后按精确目录清理。

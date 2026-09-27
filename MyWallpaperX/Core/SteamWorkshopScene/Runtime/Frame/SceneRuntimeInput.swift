@@ -45,7 +45,7 @@ struct SceneRuntimeInput: Codable {
         // decides whether a prepared stage executes.
         startupInactiveEffectVisibilityTargets =
             propertyBindingProgram
-                .effectLocalDirectBoolEffectVisibilityTargets
+                .liveEffectVisibilityTargets
                 .union(scriptOwnedEffectVisibilityTargets)
         authoredEffectRenderPlans = SceneAuthoredEffectRenderPlanner.plans(
             for: renderDescriptor,

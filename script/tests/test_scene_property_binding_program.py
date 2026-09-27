@@ -129,6 +129,31 @@ enum Harness {
             )], diagnostics: []),
             catalog: catalog
         )
+        let conditionalBooleanTargets: [SceneUserPropertyBindingTarget] = [
+            .effectVisibility(layerID: 400, effectIndex: 0, effectPath: nil),
+            .effectVisibility(layerID: 400, effectIndex: 1, effectPath: nil),
+            .scene(field: "bloom"), .camera(field: "cameraparallax"),
+            .puppetAnimationVisibility(layerID: 401, animationLayerID: 2),
+        ]
+        let conditionalBooleans = compiler.compile(
+            report: .init(bindings: conditionalBooleanTargets.enumerated().map { i, target in
+                binding("mode", .bool(false), 400 + i, target,
+                        condition: .string(i == 1 ? "two" : "one"))
+            }, diagnostics: []),
+            catalog: .init(definitions: [comboProperty(
+                "mode", defaultValue: "base", options: ["base", "one", "two"])]))
+        let conditionOne = conditionalBooleans.program.evaluate(effectiveValues: ["mode": .string("one")])
+        let conditionBase = conditionalBooleans.program.evaluate(effectiveValues: ["mode": .string("base")])
+        let conditionBad = conditionalBooleans.program.evaluate(effectiveValues: ["mode": .string("unknown")])
+        let conditionRoundTrip = try JSONDecoder().decode(ScenePropertyBindingProgram.self,
+            from: JSONEncoder().encode(conditionalBooleans.program))
+        let conditionEffectOnly = compiler.compile(
+            report: .init(bindings: conditionalBooleanTargets.prefix(2).enumerated().map { i, target in
+                binding("mode", .bool(false), 400 + i, target,
+                        condition: .string(i == 1 ? "two" : "one"))
+            }, diagnostics: []),
+            catalog: .init(definitions: [comboProperty(
+                "mode", defaultValue: "base", options: ["base", "one", "two"])]))
         let conditionalLayerTargets = [
             SceneDynamicTarget.layer(layerID: 41, field: .visibility),
             SceneDynamicTarget.layer(layerID: 42, field: .visibility),
@@ -1083,6 +1108,16 @@ enum Harness {
             "invalidAuthoredCodes": codes(invalidAuthored.diagnostics),
             "invalidCatalogCounts": [invalidCatalog.program.instructions.count, invalidCatalog.program.definitions.count, invalidCatalog.program.definitions.filter { $0.valueType == .scalar }.count],
             "invalidCatalogCodes": codes(invalidCatalog.diagnostics),
+            "booleanConditionsAdmitted": conditionalBooleans.diagnostics.isEmpty
+                && conditionalBooleans.program.instructions.count == 5
+                && conditionalBooleans.program.rebuildRequiredPropertyKeys.isEmpty,
+            "booleanConditionOne": conditionOne.userValues.count == 5
+                && conditionOne.userValues.values.filter { $0 == .bool(true) }.count == 4,
+            "booleanConditionBase": conditionBase.userValues.count == 5
+                && conditionBase.userValues.values.allSatisfy { $0 == .bool(false) },
+            "booleanConditionBad": conditionBad.userValues.isEmpty && !conditionBad.diagnostics.isEmpty,
+            "booleanConditionRoundTrip": conditionRoundTrip.evaluate(effectiveValues: ["mode": .string("one")]).userValues == conditionOne.userValues,
+            "conditionalEffectPreparation": conditionEffectOnly.program.liveEffectVisibilityTargets.count == 2,
             "conditionalCount": conditional.program.instructions.count,
             "conditionalCodes": codes(conditional.diagnostics),
             "conditionalLayerCount": conditionalLayer.program.instructions.count,
@@ -1217,24 +1252,24 @@ enum Harness {
                 sharedVisibilityProgram.directBoolEffectVisibilityTargets.isEmpty,
             "sharedVisibilityEffectLocalTargets":
                 sharedVisibilityProgram
-                    .effectLocalDirectBoolEffectVisibilityTargets
+                    .liveEffectVisibilityTargets
                     == Set([xRayVisibilityTarget, sharedVisibilityTarget]),
             "mixedVisibilityStartupTargetsEmpty":
                 mixedVisibilityKeyProgram.directBoolEffectVisibilityTargets.isEmpty,
             "mixedVisibilityEffectLocalTargetsEmpty":
                 mixedVisibilityKeyProgram
-                    .effectLocalDirectBoolEffectVisibilityTargets.isEmpty,
+                    .liveEffectVisibilityTargets.isEmpty,
             "rebuildVisibilityStartupTargetsEmpty":
                 rebuildVisibilityProgram.directBoolEffectVisibilityTargets.isEmpty,
             "rebuildVisibilityEffectLocalTargetsEmpty":
                 rebuildVisibilityProgram
-                    .effectLocalDirectBoolEffectVisibilityTargets.isEmpty,
+                    .liveEffectVisibilityTargets.isEmpty,
             "duplicateVisibilityEffectLocalTargetsEmpty":
                 duplicateVisibilityProgram
-                    .effectLocalDirectBoolEffectVisibilityTargets.isEmpty,
+                    .liveEffectVisibilityTargets.isEmpty,
             "invalidAuthoredVisibilityEffectLocalTargetsEmpty":
                 invalidAuthoredVisibilityProgram
-                    .effectLocalDirectBoolEffectVisibilityTargets.isEmpty,
+                    .liveEffectVisibilityTargets.isEmpty,
             "unsupportedOpacityCount": unsupportedOpacityTargets.program.instructions.count,
             "unsupportedOpacityCodes": codes(unsupportedOpacityTargets.diagnostics),
             "unsupportedOpacityRebuild": unsupportedOpacityTargets.program.rebuildRequiredPropertyKeys,
@@ -1606,6 +1641,11 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
             ["unsupportedTarget", "malformedInputBinding", "missingPropertyDefinition"],
         )
         self.assertNotIn("SceneUserPropertyResolver", PROGRAM_SOURCE.read_text(encoding="utf-8"))
+
+    def test_combo_boolean_targets_share_domains_and_atomic_evaluation(self) -> None:
+        for key in ["booleanConditionsAdmitted", "booleanConditionOne", "booleanConditionBase",
+                    "booleanConditionBad", "booleanConditionRoundTrip", "conditionalEffectPreparation"]:
+            self.assertTrue(self.result[key], key)
 
     def test_mixed_property_key_retains_rebuild_requirement(self) -> None:
         self.assertEqual(self.result["mixedKeyCount"], 1)

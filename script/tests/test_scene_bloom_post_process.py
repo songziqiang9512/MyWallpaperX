@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 import unittest
 
-from test_scene_property_binding_program import SWIFT_SOURCES
+from script.tests.test_scene_property_binding_program import SWIFT_SOURCES
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition'
@@ -194,6 +194,22 @@ import Metal
       && resolved(invalid).tint == SIMD3<Float>(1, 1, 1)
     var overflow = on; overflow["strength"] = .number(Double.greatestFiniteMagnitude)
     results["floatOverflowFallsBack"] = resolved(overflow).strength == 1
+    let comboRoot: [String: Any] = ["general": [
+      "bloom": ["user": ["name": "mode", "condition": "glow"], "value": false]]]
+    let comboCatalog = SceneUserPropertyDefinitionParser().parse(projectRoot: ["general": ["properties": [
+      "mode": ["type": "combo", "value": "plain", "options": [
+        ["label": "plain", "value": "plain"], ["label": "glow", "value": "glow"]]]]]])
+    let combo = ScenePropertyBindingCompiler().compile(
+      report: SceneUserPropertyBindingParser().parse(root: comboRoot), catalog: comboCatalog)
+    results["comboAdmitted"] = combo.diagnostics.isEmpty && combo.program.instructions.count == 1
+    for mode in ["plain", "glow", "plain"] {
+      let evaluation = combo.program.evaluate(effectiveValues: ["mode": .string(mode)])
+      let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 3, generation: 1,
+        definitions: combo.program.definitions, userValues: evaluation.userValues).snapshot
+      let config = SceneBloomConfiguration(enabled: false, strength: 1, threshold: 0.3,
+        tint: SIMD3(1, 1, 1)).resolving(snapshot)
+      results["combo" + mode] = render(400, 240, strength: 0, threshold: 1, configuration: config)
+    }
     results["prepareOnce"] = preparedCount == 3 && MWXPipelineAttempts() == 3
     for index in 1...3 {
       MWXArmPipelineFault(device, UInt(index))
@@ -244,6 +260,7 @@ class SceneBloomPostProcessTests(unittest.TestCase):
                  "-o", str(folder / "default.metallib")],
                 ["swiftc", "-import-objc-header", str(folder / "Fault.h"),
                  str(folder / "fault.o"), *map(str, SWIFT_SOURCES),
+                 str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift"),
                  str(SCENE / "SceneBloomPostProcess.swift"),
                  str(folder / "Main.swift"), "-o", str(folder / "run")],
             ]
@@ -282,6 +299,12 @@ class SceneBloomPostProcessTests(unittest.TestCase):
                 self.assertTrue(recovered["encoded"])
                 self.assertGreater(recovered["changedRGB"], 0)
                 self.assertEqual(recovered["changedAlpha"], 0)
+
+    def test_combo_condition_controls_gpu_bloom(self):
+        self.assertTrue(self.result["comboAdmitted"])
+        self.assertGreater(self.result["comboglow"]["changedRGB"], 0)
+        self.assertEqual(self.result["comboplain"]["changedRGB"], 0)
+        self.assertEqual(self.result["comboplain"]["encoderAttempts"], 0)
 
     def test_zero_contribution_and_disabled_are_pixel_identical(self):
         for name, values in self.result.items():

@@ -76,6 +76,8 @@
 
 ### Q3 — 效果/依赖能力缺口
 
+- **Combo特效显隐热调**：[共享Boolean条件批](semantics/runtime-evidence-current.md#e-2026-09-28-combo-boolean-visibility)已复用现有条件域/准备/帧快照，三组自有原图→红→绿→原图切换及`2932631210`、`3238423642`原包属性更新通过，同runtime/GPU/终端/下一帧成立。18样本309处仅为声明影响面。下一门为其他style、混合目标初始隐藏及跨层依赖组合；`3211615441`的整体条件特效与用户视觉仍保持QV验收，不从两原包通过推定全部兼容。
+
 - `crt_scan_line` 同层合成引用 `_rt_imageLayerComposite_<id>_{a,b}`（`2849382252` 层 205，效果整体 passthrough）——**2026-09-25 三切片已落地并过验证门**：
   落地形态（与侦察设计差异：b 引用实际以**模板 provider candidate**（authored pass textures）进入，非 sampler 默认纹理；拒绝链比设计多两环——conservation 分析的 primary-only 守卫与 named-target 预留的 primary-only 守卫）：
   ①ownership：同层分支接受 secondary，但仅限引用槽位无图绑定的合成形态（`previous` 绑定遮蔽形态保持原 fail-soft 合同，executor 测试场景守卫）；
@@ -102,7 +104,7 @@
 
 | 尚未关闭的问题 | 下一步与关闭条件 |
 |---|---|
-| Scene Bloom 完整HDR链与视觉对照 | 静态及direct属性热调已沿唯一compositor执行；[热调批](semantics/runtime-evidence-current.md#e-2026-09-28-bloom-live-properties)闭合binding→snapshot→post、初始禁用后开启及drawable可读用途，保留上一批失败保源。仍缺完整HDR scatter/knee/上采样及条件绑定语义；RGBA16F目标不等于完整HDR Bloom。下一门取得作者HDR参数的受控可观察输入，不用本批关闭条纹或光束问题。 |
+| Scene Bloom 完整HDR链与视觉对照 | 静态及direct属性热调已沿唯一compositor执行；[热调批](semantics/runtime-evidence-current.md#e-2026-09-28-bloom-live-properties)闭合binding→snapshot→post、初始禁用后开启及drawable可读用途，保留上一批失败保源。Combo条件开关已接入共享Boolean求值并经真实Metal验证；仍缺完整HDR scatter/knee/上采样及其他条件类型，RGBA16F目标不等于完整HDR Bloom。下一门取得作者HDR参数的受控可观察输入，不用本批关闭条纹或光束问题。 |
 | 全 corpus identity-only matrix 与人工视觉复核 | **fixed13 已于 2026-09-25 全绿（13/13，观察模式）**：存量 8 样本漂移完成对账（succeeded/utility/text/sha/puppet 数值随能力演进更新；2902406982 层 410/414 处置从 unsupportedEffects 迁移为 capture=能力成长；puppet checker 正则跟上 cbd126d3 的 "puppet world geometry OK" 改名，数据与原期望完全吻合零矩阵改动；8 样本计数器按 retire 全有或全无合同全量退役）。矩阵期望漂移仍用 `generate_scene_full_matrix.py` 正规流程（fixed13 sha pin 已同步）；人工重看后才改 verdict |
 
 ### Q2 — 稳定帧性能

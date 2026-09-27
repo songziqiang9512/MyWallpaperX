@@ -4,9 +4,15 @@
 
 已删除没有产品调用者的SceneAudioResponse及SceneAudioResponseAdmission，共281行产品代码；专属数值测试、旧源码形状断言和失效清单登记同步退役。现役effect继续由MaterialProgram消费共享audio snapshot，脚本及粒子保留各自已有消费者，没有新公式/owner。154项定向测试、隔离构建和3211615441固定PCM回放通过，见[运行证据](runtime-evidence-current.md#e-2026-09-28-audio-legacy-retirement)。只关闭无调用残留，不表示频谱均衡偏好、官方幅度或整样本视觉完成。下文历史Pulse迁移段落中的旧准入器仅描述当时状态。
 
+## 2026-09-28 Combo Boolean 条件共用执行链
+
+原有Combo条件域与typed Boolean求值现扩展到特效显隐、Bloom开关、相机开关和Puppet动画显隐；保持options/default/fallback核验、typed target去重、非法选项整key不发布。加载期字符串比较与帧求值统一为exact，避免`"01"`与`"1"`错配。effect-only条件组通过既有启动准备候选保留初始关闭的效果；混合目标、依赖、层级及consumer不齐仍受原路由和原子热调门约束，不保证任意组合免重建。产品代码净减少1行，未新增property或renderer owner。
+
+75项行为/邻接测试、真实Metal Bloom、完整App三组原图/红/绿切换及两个原包热调通过；18样本309处只是声明影响面，不能计为全部运行支持。相机/Puppet条件本批只有typed求值证据；`3211615441`全部style、隐藏层/依赖组合和官方视觉仍待验收。见[运行证据](runtime-evidence-current.md#e-2026-09-28-combo-boolean-visibility)。
+
 ## 2026-09-28 Bloom 直接属性实时控制
 
-`general.bloom/bloomstrength/bloomthreshold/bloomtint` 的 direct Bool/Slider/Color 绑定现沿既有 compiler、live state、typed snapshot进入最终Bloom；初始关闭但可开启的场景在加载时准备pipeline，并以同一准备结果声明drawable可读。未新增property/renderer状态路径。63项定向门、完整App开关A/B、无截图Metal validation及真实3750813609正常回放通过，见[运行证据](runtime-evidence-current.md#e-2026-09-28-bloom-live-properties)。条件绑定、HDR专用参数、参数官方视觉对照及用户光束/条纹反馈仍开放。 零强度后继在同一encode入口精确跳过四pass及新中间纹理分配，保留非零实时恢复；[GPU/原包回归](runtime-evidence-current.md#e-2026-09-28-bloom-zero-strength)。
+`general.bloom/bloomstrength/bloomthreshold/bloomtint` 的 direct Bool/Slider/Color 绑定现沿既有 compiler、live state、typed snapshot进入最终Bloom；初始关闭但可开启的场景在加载时准备pipeline，并以同一准备结果声明drawable可读。未新增property/renderer状态路径。63项定向门、完整App开关A/B、无截图Metal validation及真实3750813609正常回放通过，见[运行证据](runtime-evidence-current.md#e-2026-09-28-bloom-live-properties)。Combo条件开关已由上方共享Boolean批补齐typed/GPU消费；其他条件类型、HDR专用参数、参数官方视觉对照及用户光束/条纹反馈仍开放。 零强度后继在同一encode入口精确跳过四pass及新中间纹理分配，保留非零实时恢复；[GPU/原包回归](runtime-evidence-current.md#e-2026-09-28-bloom-zero-strength)。
 
 ## 2026-09-28 Bloom 完整准备与失败保源
 

@@ -25,9 +25,9 @@ nonisolated struct ScenePropertyBindingInstruction: Codable, Equatable {
 nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
     let definitions: [SceneDynamicTargetDefinition]
     let instructions: [ScenePropertyBindingInstruction]
-    /// Full authored Combo domains for admitted conditional layer groups.
+    /// Full authored Combo domains for admitted conditional Boolean groups.
     /// Keeping unused options is necessary because an option may intentionally
-    /// hide every conditional layer in the group.
+    /// disable every conditional target in the group.
     let conditionalValueDomainsByPropertyKey: [String: [String]]
     let rebuildRequiredPropertyKeys: [String]
 
@@ -151,7 +151,7 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
                     diagnostics.append(.runtime(
                         code: .invalidRuntimeValue,
                         instruction: instruction,
-                        message: "Combo 图层选择必须命中声明域并原子解析完整图层组。"
+                        message: "Combo 选择必须命中声明域并原子解析完整 Boolean 目标组。"
                     ))
                 }
                 continue
@@ -190,11 +190,10 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
         })
     }
 
-    /// Exact direct-bool effect targets that may transfer an already-active
-    /// stage candidate to the shared Program route. One property may fan out
-    /// to multiple visibility targets, but it may not mix target kinds or
-    /// value types; launch route admission further limits lifecycle ownership.
-    nonisolated var effectLocalDirectBoolEffectVisibilityTargets:
+    /// Direct and validated Combo effect visibility share the same preparation
+    /// candidates. Resource/route admission and live-state sibling readiness
+    /// still decide whether the whole property can commit without rebuilding.
+    nonisolated var liveEffectVisibilityTargets:
         Set<SceneDynamicTarget> {
         let validation = ScenePropertyBindingProgramValidator().validate(self)
         guard validation.diagnostics.isEmpty else { return [] }
@@ -211,7 +210,8 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
             guard !siblings.isEmpty,
                   siblings.allSatisfy({ sibling in
                       guard sibling.valueType == .bool,
-                            sibling.condition == nil,
+                            sibling.condition == nil
+                                || conditionalValueDomainsByPropertyKey[sibling.propertyKey] != nil,
                             case .effectVisibility = sibling.target else {
                           return false
                       }
@@ -392,23 +392,22 @@ nonisolated struct ScenePropertyBindingCompiler {
         let sortedBindings = report.bindings.sorted(by: Self.bindingOrder)
         let bindingsByPropertyKey = Dictionary(
             grouping: sortedBindings.filter {
-                if case .layerVisibility = $0.target { return true }
-                return false
+                $0.target.acceptsConditionalBoolean
             },
             by: \.reference.key
         )
-        let conditionalLayerVisibilityDomains = Dictionary(
+        let conditionalBooleanDomains = Dictionary(
             uniqueKeysWithValues: bindingsByPropertyKey.compactMap {
                 propertyKey, bindings -> (String, [String])? in
-                guard let domain = Self.conditionalLayerVisibilityDomain(
+                guard let domain = Self.conditionalBooleanDomain(
                     bindings: bindings,
                     definitions: propertiesByKey[propertyKey] ?? []
                 ) else { return nil }
                 return (propertyKey, domain)
             }
         )
-        let admittedConditionalLayerVisibilityKeys = Set(
-            conditionalLayerVisibilityDomains.keys
+        let admittedConditionalBooleanKeys = Set(
+            conditionalBooleanDomains.keys
         )
         var targetBindings: [SceneDynamicTarget: [SceneUserPropertyBinding]] = [:]
         for binding in sortedBindings {
@@ -442,21 +441,16 @@ nonisolated struct ScenePropertyBindingCompiler {
                 continue
             }
 
-            let admitsConditionalVisibility: Bool
-            if case .layerVisibility = binding.target {
-                admitsConditionalVisibility = admittedConditionalLayerVisibilityKeys
-                    .contains(binding.reference.key)
-            } else {
-                admitsConditionalVisibility = false
-            }
+            let admitsConditionalBoolean = binding.target.acceptsConditionalBoolean
+                && admittedConditionalBooleanKeys.contains(binding.reference.key)
             var isValid = true
-            if binding.reference.isConditional, !admitsConditionalVisibility {
+            if binding.reference.isConditional, !admitsConditionalBoolean {
                 isValid = false
                 diagnostics.append(Self.compileDiagnostic(
                     code: .conditionalBinding,
                     binding: binding,
                     target: mapped.target,
-                    message: "conditional binding 未形成完整的 Combo 图层选择组。"
+                    message: "conditional binding 未形成有效的 Combo Boolean 选择组。"
                 ))
             }
             switch propertyDefinitions.count {
@@ -491,7 +485,7 @@ nonisolated struct ScenePropertyBindingCompiler {
                 }
                 if let defaultValue = property.defaultValue {
                     let defaultValidation = binding.reference.isConditional
-                        && admitsConditionalVisibility
+                        && admitsConditionalBoolean
                         ? Self.validateConditionalValue(
                             defaultValue,
                             condition: binding.reference.condition,
@@ -595,7 +589,7 @@ nonisolated struct ScenePropertyBindingCompiler {
                 definitions: definitions,
                 instructions: instructions,
                 conditionalValueDomainsByPropertyKey:
-                    conditionalLayerVisibilityDomains,
+                    conditionalBooleanDomains,
                 rebuildRequiredPropertyKeys: rebuildRequiredKeys.sorted()
             ),
             diagnostics: diagnostics
@@ -669,7 +663,7 @@ nonisolated struct ScenePropertyBindingCompiler {
         }
     }
 
-    private nonisolated static func conditionalLayerVisibilityDomain(
+    private nonisolated static func conditionalBooleanDomain(
         bindings: [SceneUserPropertyBinding],
         definitions: [SceneUserPropertyDefinition]
     ) -> [String]? {
@@ -690,11 +684,12 @@ nonisolated struct ScenePropertyBindingCompiler {
               optionValueSet.count == optionValues.count,
               optionValueSet.contains(defaultValue) else { return nil }
 
-        var layerIDs = Set<Int>()
+        var targets = Set<SceneDynamicTarget>()
         for binding in bindings {
-            guard case let .layerVisibility(layerID) = binding.target,
-                  layerID >= 0,
-                  layerIDs.insert(layerID).inserted,
+            guard binding.target.acceptsConditionalBoolean,
+                  let mapped = map(binding, propertyKind: .combo),
+                  mapped.valueType == .bool,
+                  targets.insert(mapped.target).inserted,
                   case let .string(condition)? = binding.reference.condition,
                   optionValueSet.contains(condition),
                   case let .bool(fallback)? = binding.fallbackValue,
