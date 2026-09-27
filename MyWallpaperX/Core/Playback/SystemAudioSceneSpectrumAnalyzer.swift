@@ -92,15 +92,9 @@ final class SystemAudioSceneSpectrumAnalyzer {
     /// 变成静音；强 bass 仍由同一 band 的峰值通过后续 dB 响应显示。
     private static let spectralTiltMinimumGain: Float = 0.20
     private static let spectralTiltMaximumGain: Float = 4
-    /// 普通等对数分段会在 32...100 Hz 反复生成窄空档。对 log 进度做轻微的
-    /// 凹形 warp，把低频 bin 分散到可表示的相邻 band，避免首柱吞掉整段 bass，
-    /// 同时保留单调的作者频率 identity；它不是按样本或柱子注入形状。
+    /// 项目频带轴的凹形 warp 保留既有低到高频分布；窄档通过连续谱积分
+    /// 共享相邻 FFT 支撑，不再要求每档恰好包含一个离散 FFT 中心。
     private static let frequencyBandWarpExponent: Float = 0.78
-    /// 系统 tap 在最低几个 FFT bin 上会带有设备/混音底噪。门限只在低频端
-    /// 启用，并随 band 中心频率平滑回到既有 -60 dB 响应；强真实 bass 仍会通过，
-    /// 而持续的小底噪不会把第一根柱子钉在非零高度。
-    private static let lowFrequencyGateEnd: Float = 250
-    private static let lowFrequencyGateDecibels: Float = -42
     private static let settledSilenceThreshold: Float = 0.000_1
 
     private let log2FFTSize: vDSP_Length
@@ -282,71 +276,54 @@ final class SystemAudioSceneSpectrumAnalyzer {
         binWidth: Float
     ) -> [Float] {
         let ratio = upperFrequency / Self.minimumFrequency
-        let firstBin = max(1, Int(floor(Self.minimumFrequency / binWidth)))
-        let endBin = min(magnitudes.count, Int(ceil(upperFrequency / binWidth)))
         var levels = Array(repeating: Float(0), count: count)
-        guard firstBin < endBin else { return levels }
-        var totals = Array(repeating: Float(0), count: count)
-        var counts = Array(repeating: 0, count: count)
-        // Assign every FFT bin to exactly one logarithmic band. Quantizing each
-        // band's independent floor/ceil bounds used to overlap low bins across
-        // adjacent bars, copying one peak into a soft wave. Empty low bands are
-        // valid when the FFT resolution cannot represent their narrow interval.
-        for bin in firstBin ..< endBin where magnitudes[bin].isFinite {
-            let frequency = (Float(bin) + 0.5) * binWidth
-            let progress = min(
-                1,
-                max(
-                    0,
-                    log(max(frequency, Self.minimumFrequency) / Self.minimumFrequency)
-                        / log(ratio)
-                )
-            )
-            let warpedProgress = pow(progress, Self.frequencyBandWarpExponent)
-            let bandIndex = min(
-                count - 1,
-                max(0, Int(floor(warpedProgress * Float(count))))
-            )
+        guard magnitudes.count > 1, count > 0 else { return levels }
+        var weighted = magnitudes
+        weighted[0] = 0 // Packed real FFT DC/Nyquist is not a positive-frequency bin.
+        for bin in 1..<weighted.count {
+            let frequency = Float(bin) * binWidth
             let tiltGain = min(
                 Self.spectralTiltMaximumGain,
-                max(
-                    Self.spectralTiltMinimumGain,
-                    pow(
-                        frequency / Self.spectralTiltReferenceFrequency,
-                        Self.spectralTiltExponent
-                    )
-                )
+                max(Self.spectralTiltMinimumGain,
+                    pow(frequency / Self.spectralTiltReferenceFrequency,
+                        Self.spectralTiltExponent))
             )
-            totals[bandIndex] += max(0, magnitudes[bin]) * tiltGain
-            counts[bandIndex] += 1
+            weighted[bin] = magnitudes[bin].isFinite
+                ? max(0, magnitudes[bin]) * tiltGain : 0
         }
-        for bandIndex in levels.indices where counts[bandIndex] > 0 {
-            levels[bandIndex] = totals[bandIndex] / Float(counts[bandIndex])
-            let bandProgress = (Float(bandIndex) + 0.5) / Float(count)
-            let logProgress = pow(
-                min(1, max(0, bandProgress)),
-                1 / Self.frequencyBandWarpExponent
-            )
-            let centerFrequency = Self.minimumFrequency * pow(ratio, logProgress)
-            let gateDecibels: Float
-            if centerFrequency < Self.lowFrequencyGateEnd {
-                let gateProgress = min(
-                    1,
-                    max(
-                        0,
-                        log(centerFrequency / Self.minimumFrequency)
-                            / log(Self.lowFrequencyGateEnd / Self.minimumFrequency)
-                    )
-                )
-                gateDecibels = Self.lowFrequencyGateDecibels
-                    + gateProgress * (Self.minimumResponseDecibels - Self.lowFrequencyGateDecibels)
-            } else {
-                gateDecibels = Self.minimumResponseDecibels
+        // Integrate the piecewise-linear FFT magnitude over each authored band.
+        // Narrow bands share nearby FFT support instead of becoming permanent
+        // holes; wide bands retain a bandwidth-normalized average. This does not
+        // increase FFT resolution or synthesize a floor from unrelated bands.
+        let lastBin = Float(weighted.count - 1)
+        for bandIndex in levels.indices {
+            let lowerFrequency = Self.minimumFrequency * pow(
+                ratio, pow(Float(bandIndex) / Float(count),
+                           1 / Self.frequencyBandWarpExponent))
+            let upperBandFrequency = Self.minimumFrequency * pow(
+                ratio, pow(Float(bandIndex + 1) / Float(count),
+                           1 / Self.frequencyBandWarpExponent))
+            let bandLower = lowerFrequency / binWidth
+            let bandUpper = upperBandFrequency / binWidth
+            let lower = min(lastBin, max(1, bandLower))
+            let upper = min(lastBin, max(1, bandUpper))
+            var position = lower
+            // Constant endpoint extension keeps the original band width even
+            // when it crosses the first/last representable positive FFT bin.
+            var integral = weighted[1] * max(0, min(bandUpper, 1) - bandLower)
+                + weighted[weighted.count - 1] * max(0, bandUpper - max(bandLower, lastBin))
+            while position < upper {
+                let bin = min(weighted.count - 2, Int(position))
+                let end = min(upper, Float(bin + 1))
+                let slope = weighted[bin + 1] - weighted[bin]
+                let startValue = weighted[bin] + slope * (position - Float(bin))
+                let endValue = weighted[bin] + slope * (end - Float(bin))
+                integral += (startValue + endValue) * 0.5 * (end - position)
+                position = end
             }
-            let gateMagnitude = pow(10, gateDecibels / 20)
-            if levels[bandIndex] < gateMagnitude {
-                levels[bandIndex] = 0
-            }
+            levels[bandIndex] = bandUpper > bandLower
+                ? integral / (bandUpper - bandLower) : weighted[Int(lower)]
+
         }
         // Do not synthesize a cross-band floor from the loudest band. A narrow-band
         // source must leave unrelated bars quiet; otherwise the -60 dB response

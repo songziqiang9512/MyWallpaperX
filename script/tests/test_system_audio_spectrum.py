@@ -322,6 +322,75 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             expect(zip(tonePeaks, tonePeaks.dropFirst()).allSatisfy(<), "tone peak bins must increase with frequency")
             expect(tonePeaks.first! >= 0 && tonePeaks.last! < 64, "tone peaks must stay within the 64-band axis")
 
+            // A continuous frequency sweep must be able to excite every band.
+            // Narrow log bands may share FFT support; they must not be permanently
+            // dead just because no discrete FFT center is assigned to that band.
+            for rate: Float in [8_000, 44_100, 48_000, 96_000, 192_000] {
+                let sweepAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
+                var maxima = [Float](repeating: 0, count: 64)
+                var frequency: Float = 32
+                while frequency <= min(16_000, rate * 0.5) {
+                    let pcm = (0..<4096).map { index in
+                        Float(0.8) * sin(2 * .pi * frequency * Float(index) / rate)
+                    }
+                    sweepAnalyzer.reset()
+                    let levels = sweepAnalyzer.analyze(signedChannels: [pcm], sampleRate: rate)
+                    maxima = zip(maxima, levels.left64).map(max)
+                    frequency *= 1.04
+                }
+                let dead = maxima.indices.filter { maxima[$0] < 0.01 }
+                expect(dead.isEmpty, "PCM sweep must reach every band at \(rate) Hz; dead=\(dead)")
+            }
+
+            let audibleBass = webLevels([sine(frequency: 55, amplitude: 0.2)])
+            expect(audibleBass[2..<5].contains { $0 > 0.001 },
+                "audible low bass must reach low-band consumers above the shared noise floor")
+            let belowFloor = webLevels([sine(frequency: 55, amplitude: 0.000_1)])
+            expect(belowFloor.allSatisfy { $0 == 0 }, "sub-floor bass must not light silent bars")
+            for frequency: Float in [32, 55, 120, 249, 251] {
+                let peaks = [Float(0.02), 0.2, 0.8].map { amplitude in
+                    webLevels([sine(frequency: frequency, amplitude: amplitude)]).prefix(64).max()!
+                }
+                expect(peaks[0] < peaks[1] && peaks[1] < peaks[2],
+                    "low-band amplitude response must remain monotonic at \(frequency) Hz")
+            }
+            let noiseAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
+            var noiseSeed: UInt32 = 17
+            for _ in 0..<24 {
+                let noise: [Float] = (0..<400).map { _ in
+                    noiseSeed = noiseSeed &* 1_664_525 &+ 1_013_904_223
+                    return (Float(noiseSeed >> 8) / Float(0x00ff_ffff) * 2 - 1) * 0.000_5
+                }
+                let levels = noiseAnalyzer.analyze(signedChannels: [noise], sampleRate: sampleRate)
+                expect(levels.left64.allSatisfy { $0 == 0 },
+                    "bounded low-level broadband noise must stay below the common response floor")
+            }
+            let dc = webLevels([[Float](repeating: 0.7, count: sampleCount)])
+            expect(dc.allSatisfy { $0 == 0 }, "constant DC must not excite positive-frequency bands")
+            let zeroPCM = [Float](repeating: 0, count: sampleCount)
+            let leftOnly = webLevels([sine(frequency: 55), zeroPCM])
+            let rightOnly = webLevels([zeroPCM, sine(frequency: 55)])
+            expect(leftOnly.prefix(64).max()! > 0 && leftOnly.suffix(64).allSatisfy { $0 == 0 },
+                "low-frequency response must not leak left into right")
+            expect(rightOnly.suffix(64).max()! > 0 && rightOnly.prefix(64).allSatisfy { $0 == 0 },
+                "low-frequency response must not leak right into left")
+            for frequency: Float in [31.9, 32, 32.1, 35.1, 35.2, 46.8, 46.9, 15_999, 16_000] {
+                let levels = webLevels([sine(frequency: frequency)])
+                expect(levels.prefix(64).max()! > 0.01,
+                    "band and FFT endpoints must retain audible tone response at \(frequency)")
+            }
+            var previousLowBands: [Float]? = nil
+            for step in 0...160 {
+                let frequency = Float(32) + Float(step) * 0.4
+                let levels = Array(webLevels([sine(frequency: frequency)]).prefix(16))
+                expect(levels.max()! > 0.01, "low-frequency sweep cannot fall into a sampling hole")
+                if let previousLowBands {
+                    let change = zip(levels, previousLowBands).map { abs($0 - $1) }.max()!
+                    expect(change < 0.08, "adjacent tones must interpolate continuously")
+                }
+                previousLowBands = levels
+            }
+
             let isolatedTone = webLevels([sine(frequency: 1_000)])
             let isolatedLeft = Array(isolatedTone.prefix(64))
             let isolatedPeak = isolatedLeft.max()!
@@ -713,10 +782,10 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             completed = subprocess.run(
                 [str(binary_path)],
                 cwd=ROOT,
-                check=True,
                 capture_output=True,
                 text=True,
             )
+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
             self.assertIn("tests passed", completed.stdout)
 
     def test_scene_frames_preserve_capture_generation_and_scope(self) -> None:
