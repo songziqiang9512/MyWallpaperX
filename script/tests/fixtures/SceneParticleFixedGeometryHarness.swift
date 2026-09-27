@@ -23,8 +23,13 @@ enum SceneParticleFixedGeometryHarness {
   let camera=SceneParticleCameraFrame(camera:.init(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:640,orthoHeight:480,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.1,farZ:1000),viewportSize:CGSize(width:640,height:480))
   var quad:[SIMD4<Float>]=[SIMD4(-0.5,-0.5,0,1),SIMD4(0.5,-0.5,1,1),SIMD4(-0.5,0.5,0,0),SIMD4(0.5,0.5,1,0)]
   var results:[[String:Any]]=[];var buffers:[MTLBuffer]=[]
-  let modes: [(String, SceneParticleOrientation, Bool)] = [("fixed", .fixed, false), ("fixedWorldSize", .fixed, true), ("worldFixed", .worldFixed, false), ("worldFixedWorldSize", .worldFixed, true), ("screen", .screen, false), ("upright", .upright, false)]
-  let draws = modes.flatMap { mode in cases.enumerated().map { (index: $0.offset, c: $0.element, mode: mode) } }
+  let modes: [(String, SceneParticleOrientation, Bool)] = [("fixed", .fixed, false), ("fixedWorldSize", .fixed, true), ("worldFixed", .worldFixed, false), ("worldFixedWorldSize", .worldFixed, true), ("worldScreen", .worldScreen, false), ("upright", .upright, false), ("localScreen", .screen, false), ("localScreenWorldSize", .screen, true)]
+  var draws = modes.flatMap { mode in cases.enumerated().map { (index: $0.offset, c: $0.element, mode: mode) } }
+  let singular = Case(name: "parallelXY", scale: [1,1,1], axis: [0,0,1],
+      rotation: [0.2,-0.4,0.7], columns: [[0,1,0],[0,1,0],[0,0,1]])
+  for mode in modes where mode.1 == .screen {
+   draws.append((index: cases.count, c: singular, mode: mode))
+  }
   for draw in draws {
    let c = draw.c
    var model=matrix_identity_float4x4;for j in 0..<3 {model[j]=SIMD4(c.columns[j][0],c.columns[j][1],c.columns[j][2],0)};model.columns.3=SIMD4(0.1,0.2,0.3,1)

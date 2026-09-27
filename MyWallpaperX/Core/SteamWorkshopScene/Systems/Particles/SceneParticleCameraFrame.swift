@@ -266,8 +266,26 @@ struct SceneParticleCameraFrame: Sendable {
             fixedRight: fixed.right,
             fixedUp: fixed.up
         )
+        if orientation == .screen, let layerModel {
+            // Billboard axes are formed in the particle system's local frame.
+            // Carry its transform through to the card, just as for its center.
+            // Undo the authored Y conversion before applying that model.
+            let linear = simd_float3x3(
+                SIMD3(layerModel.columns.0.x, layerModel.columns.0.y, layerModel.columns.0.z),
+                -SIMD3(layerModel.columns.1.x, layerModel.columns.1.y, layerModel.columns.1.z),
+                SIMD3(layerModel.columns.2.x, layerModel.columns.2.y, layerModel.columns.2.z)
+            )
+            let geometry = linear * simd_float3x3(
+                basis.right, basis.up, simd_cross(basis.right, basis.up)
+            )
+            basis = SceneParticleOrientation.fixed.basis(
+                cameraRight: cameraRight, cameraUp: visualUp, cameraForward: cameraForward,
+                fixedRight: geometry.columns.0, fixedUp: geometry.columns.1
+            )
+            basis.localGeometry = geometry
+        }
         if orientation == .fixed, layerModel != nil {
-            basis.fixedGeometry = simd_float3x3(fixed.right, fixed.up, fixed.forward)
+            basis.localGeometry = simd_float3x3(fixed.right, fixed.up, fixed.forward)
         }
         return basis
     }

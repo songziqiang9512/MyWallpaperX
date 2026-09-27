@@ -2691,7 +2691,7 @@
     },
     {
       "name": "identity",
-      "mode": "screen",
+      "mode": "worldScreen",
       "positions": [
         [
           -0.6214022636413574,
@@ -2747,7 +2747,7 @@
     },
     {
       "name": "uniform3",
-      "mode": "screen",
+      "mode": "worldScreen",
       "positions": [
         [
           -2.064206600189209,
@@ -2803,7 +2803,7 @@
     },
     {
       "name": "axisY",
-      "mode": "screen",
+      "mode": "worldScreen",
       "positions": [
         [
           -1.2999999523162842,
@@ -2859,7 +2859,7 @@
     },
     {
       "name": "axisYrotated",
-      "mode": "screen",
+      "mode": "worldScreen",
       "positions": [
         [
           -1.3428044319152832,
@@ -2915,7 +2915,7 @@
     },
     {
       "name": "oblique",
-      "mode": "screen",
+      "mode": "worldScreen",
       "positions": [
         [
           -1.3428044319152832,
@@ -2971,7 +2971,7 @@
     },
     {
       "name": "flipY",
-      "mode": "screen",
+      "mode": "worldScreen",
       "positions": [
         [
           -0.6214022636413574,
@@ -3027,7 +3027,7 @@
     },
     {
       "name": "mirrorScale",
-      "mode": "screen",
+      "mode": "worldScreen",
       "positions": [
         [
           -2.542804479598999,
@@ -3083,7 +3083,7 @@
     },
     {
       "name": "zeroScale",
-      "mode": "screen",
+      "mode": "worldScreen",
       "positions": [
         [
           0.10000000149011612,
@@ -3139,7 +3139,7 @@
     },
     {
       "name": "rotatedScale",
-      "mode": "screen",
+      "mode": "worldScreen",
       "positions": [
         [
           -1.3428044319152832,
@@ -3195,7 +3195,7 @@
     },
     {
       "name": "parentShear",
-      "mode": "screen",
+      "mode": "worldScreen",
       "positions": [
         [
           -1.7839248180389404,
@@ -3251,7 +3251,7 @@
     },
     {
       "name": "zero",
-      "mode": "screen",
+      "mode": "worldScreen",
       "positions": [
         [
           0.10000000149011612,
@@ -3307,7 +3307,7 @@
     },
     {
       "name": "rankOne",
-      "mode": "screen",
+      "mode": "worldScreen",
       "positions": [
         [
           0.20000000298023224,

@@ -143,6 +143,11 @@ struct SceneLayerDisplayScriptOwnership: Codable {
 }
 
 struct SceneRenderDescriptor: Codable {
+    struct ColorTargetFormat {
+        let metalPixelFormat: MTLPixelFormat = .bgra8Unorm
+    }
+    var colorTargetFormat: ColorTargetFormat { .init() }
+
     struct Layer: Codable {
         let id: Int
         let name: String?

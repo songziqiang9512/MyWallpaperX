@@ -250,9 +250,9 @@ nonisolated enum SceneParticleOrientation: Equatable, Sendable {
 nonisolated struct SceneParticleOrientationBasis: Equatable, Sendable {
     let right: SIMD3<Float>
     let up: SIMD3<Float>
-    // Fixed local Sprite geometry keeps the full model linear transform.
+    // Local Sprite geometry keeps the full model linear transform.
     // Direction/refraction axes retain their separate normalized contract.
-    var fixedGeometry: simd_float3x3? = nil
+    var localGeometry: simd_float3x3? = nil
 
     fileprivate static func orthonormalized(
         right rawRight: SIMD3<Float>,
@@ -448,10 +448,10 @@ nonisolated struct SceneParticleLayerUniforms: Sendable {
         viewRight = SIMD4(viewBasis.right.x, viewBasis.right.y, viewBasis.right.z, 0)
         viewUp = SIMD4(viewBasis.up.x, viewBasis.up.y, viewBasis.up.z, 0)
         let geometry: simd_float3x3
-        if !sizeIsWorldSpace, let fixedGeometry = basis.fixedGeometry {
+        if !sizeIsWorldSpace, let localGeometry = basis.localGeometry {
             // Preserve shear, reflection, and zero columns. Reconstructing
             // these from axis lengths or cross products changes the card.
-            geometry = fixedGeometry
+            geometry = localGeometry
         } else {
             geometry = simd_float3x3(
                 basis.right * particleSizeScale.x,

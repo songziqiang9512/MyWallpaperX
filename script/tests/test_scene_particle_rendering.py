@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 import tempfile
 import unittest
@@ -1492,6 +1493,17 @@ enum Harness {
         rows["localRotated"] = row(frame, .upright, rotated, expectedBasis: rotatedExpected)
         rows["localScaled"] = row(frame, .upright, scaled, expectedBasis: rotatedExpected)
         rows["worldRotated"] = row(frame, .worldUpright, rotated)
+        rows["screenRotated"] = row(frame, .screen, rotated, expectedBasis: rotatedExpected)
+        rows["screenWorldRotated"] = row(frame, .worldScreen, rotated)
+        rows["screenScaled"] = row(frame, .screen, scaled,
+            expectedBasis: .init(right: SIMD3(0, 1, 0), up: SIMD3(1, 0, 0),
+                localGeometry: simd_float3x3(SIMD3(0, 2, 0), SIMD3(3, 0, 0), SIMD3(0, 0, -1))))
+        let tilt = SceneParticleCameraFrame.particleLayerModel(
+            worldFrame: SceneMatrix.rotationX(.pi / 3), parallaxOffset: .zero)
+        rows["screenTilted"] = row(frame, .screen, tilt,
+            expectedBasis: .init(right: SIMD3(1, 0, 0), up: SIMD3(0, -0.5, -sqrt(0.75)),
+                localGeometry: simd_float3x3(SIMD3(1, 0, 0), SIMD3(0, -0.5, -sqrt(0.75)),
+                    SIMD3(0, sqrt(0.75), -0.5))))
         rows["localMirrored"] = row(frame, .upright, mirrored,
             expectedBasis: .init(right: SIMD3(-1, 0, 0), up: SIMD3(0, 1, 0)))
         rows["zeroAxis"] = row(frame, .upright, zero)
@@ -1529,7 +1541,6 @@ enum Harness {
         return ["rows": rows, "trails": trails, "poleRight": vector(pole.right), "poleUp": vector(pole.up),
             "degenerateRight": vector(degenerate.right), "degenerateUp": vector(degenerate.up),
             "fixedDirectionsUnchanged": fixedSame,
-            "screenUnchanged": frame.basis(for: .screen) == frame.basis(for: .screen, layerModel: rotated),
             "screenRolledUp": vector(camera(90).basis(for: .screen).up)]
     }
 
@@ -2437,7 +2448,7 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertEqual(refract["reverseRotatedShiftedX"], [100, 50, 40, 255])
 
     def test_fixed_sprite_geometry_preserves_full_model_transform(self) -> None:
-        results = self.result["fixedGeometry"]
+        results = [r for r in self.result["fixedGeometry"] if not r["mode"].startswith("localScreen")]
         if not results:
             self.skipTest("Metal vertex readback is unavailable")
         oracle = json.loads((REPOSITORY_ROOT / "script/tests/fixtures/scene_particle_fixed_geometry.json").read_text())
@@ -2447,12 +2458,22 @@ class SceneParticleRenderingTests(unittest.TestCase):
                 self.assertEqual((actual["name"], actual["mode"]), (expected["name"], expected["mode"]))
                 # Full vertex positions cover reflection, shear, signed depth,
                 # arbitrary fixed axes, translation, and singular transforms.
-                # Existing world-size/world-fixed/screen/upright modes and
+                # Existing world-size/world-fixed/world-screen/upright modes and
                 # normalized refraction direction are explicit controls.
                 for field in ["positions", "tangents"]:
                     for av, ev in zip(actual[field], expected[field]):
                         for a, e in zip(av, ev):
                             self.assertAlmostEqual(a, e, delta=0.00002)
+
+    def test_local_screen_singular_geometry_keeps_gpu_outputs_finite(self) -> None:
+        results = [r for r in self.result["fixedGeometry"] if r["mode"].startswith("localScreen")]
+        self.assertEqual(len(results), 26)
+        for row in results:
+            with self.subTest(mode=row["mode"], case=row["name"]):
+                for field in ["positions", "tangents"]:
+                    self.assertTrue(all(math.isfinite(v) for values in row[field] for v in values))
+        collapsed = next(r for r in results if r["mode"] == "localScreen" and r["name"] == "parallelXY")
+        self.assertTrue(all(abs(p[0] - 0.1) < 0.00002 for p in collapsed["positions"]))
 
     def test_cpu_and_msl_instance_layouts_match(self) -> None:
         self.assertEqual(self.result["instanceStride"], 160)
@@ -2593,7 +2614,12 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertEqual(rows["worldRotated"]["up"], [0, -1, 0])
         self.assertEqual(rows["localMirrored"]["up"], [0, 1, 0])
         self.assertTrue(contract["fixedDirectionsUnchanged"])
-        self.assertTrue(contract["screenUnchanged"])
+        for actual, expected in zip(rows["screenRotated"]["up"], [1, 0, 0]):
+            self.assertAlmostEqual(actual, expected, places=5)
+        self.assertEqual(rows["screenWorldRotated"]["up"], [0, -1, 0])
+        self.assertGreater(rows["screenRotated"]["pixels"]["width"],
+                           rows["screenRotated"]["pixels"]["height"])
+        self.assertAlmostEqual(rows["screenTilted"]["up"][1], -0.5, places=5)
         self.assertAlmostEqual(contract["screenRolledUp"][0], 1, places=5)
 
     def test_upright_sprite_trail_renders_under_roll_and_tilt(self) -> None:

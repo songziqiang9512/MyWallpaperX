@@ -373,6 +373,22 @@
 用户明确：本轮未提及的问题可按非严重或已部分解决搁置；必要时可询问新构建实际效果，并允许为消除臃肿/冗余/绕行而重写完整职责。执行顺序及下一关闭门仅由[当前队列](../scene-open-breakpoint-queue-2026-09-09.md#qv-visual-repairs)维护。本条不新增产品修复、不改写已有技术证据或生成全集人工 pass。
 
 
+<a id="e-2026-09-28-local-particle-transform"></a>
+
+### E-2026-09-28-LOCAL-PARTICLE-TRANSFORM — 两样本光束定义对照与局部卡片变换修正
+
+用户补充3769761761完全缺少预期左向右下放射光，与3768724269范围/根部问题一并追踪。作者3769761761粒子156为旧式light_shafts_0：origin=(172.34,257.01)、Z角−1.36341（−78.12°）、size=850～1000、rate=0.2、lifetime=8～20、starttime=10；背景17另有Shine257和GodRays477，后者center=(0.5,0.5)、length=0.47、intensity=1.01。3768724269粒子54同属旧式Sprite光束，Z角1.37362（+78.70°）、scale=1.85725、size=350～750；右侧白光另属quad100，不是同一个producer。作者输入摘要已归档。
+
+在隔离副本中固定单粒子、白色、size300、零随机旋转/运动、黑背景、居中，只改变层Z角0/90°。旧本项目两个角度的亮区包围框均157×395；候选0°保持157×395，90°变为395×157。Mirage 1.1.4/build468对应157×396和392×158（HEIC读回，不作逐像素parity），X60°还保留倾斜压缩。参考可执行SHA `60a75d7066e665ee9b9146289dbfaa4185c68e7a567d44cec968d73366cf028f`，独立CLI scene-ready/first-frame/snapshot成功；仅第三方可观察行为，不是官方golden。此前以非scene.pkg文件名运行导致错误入口的失败日志另存，不计成功。
+
+首断点是local screen卡片只取相机方向及层轴长度，丢失了实际层旋转/剪切；中心却使用完整模型。修正在原CameraFrame中让局部卡片继承层线性变换，复用既有完整几何槽并将fixedGeometry更名localGeometry；worldScreen不变。方向/refraction/world-size仍通过已有正交化处理，完整几何独立保留镜像、剪切和零列。初次审查指出共线轴会产生NaN，已补退化修正及GPU反例，最终针对性静态复核通过。无样本分支、无新增光束算法、无作者参数改写。
+
+最终签名Debug `-O` exe SHA `92d8ef1b04a639482051bd09a3ea327031cc271f9aa17f4fc99d1456aa4e201c`、CDHash `9512d5dfb917ed6c34586854a011b8af6d9a114c`。同身份受控90°及两份完整原包12秒回放PASS；原包3769761761 SHA `1c85fb80ef5c466ce6c3b9ec130b3013b6b76b93461b42c0c78f862952b463a0`，3768724269 SHA `354f56910695e87ad3adcea5c7577dcb85a6c5d19b0c27a825123eaf1851733c`。粒子156/54均current与committed nonempty，终端截图可见光照方向/覆盖变化；两原包submitted/completed/failed/presented分别420/419/0/418、422/421/0/420。既有graph完整执行门通过（背景17等与quad100含completion/合成消费/next-frame），粒子走直接终端绘制，没有另造graph publication证据。
+
+14项camera与38项GPU测试通过；GPU新增localScreen两种size模式各13例，含zero/rank-one/parallelXY/shear/mirror，断言实际vertex/tangents有限且原始坍缩几何不被撑开。particle组16模块中15直接通过，runtime模块先因旧测试stub缺colorTargetFormat编译失败，补齐测试接口后37项通过、10项因既有真实缓存不可用跳过；未改产品颜色格式。Debug构建通过。code-health仍为四项既有非Scene文件超限失败，不作为本批通过；工作区Steam下载并发改动不归本批所有。
+
+quad100实测四点、scale、intensity等uniform与作者值一致；scalar旋转的轴仍未裁定。本批关闭局部卡片变换遗漏，未关闭3769761761完整左向右下观感、背景GodRays/Shine贡献、3768724269右侧quad范围/根部、跨样本或官方视觉验收。证据缓存`2026-09-28-local-particle-transform`保存受控/原包前后图、日志/报告/身份、输入摘要、测试、产品patch与manifest；真实样本根只读。
+
 <a id="e-2026-09-28-rope-trail-texture"></a>
 
 ### E-2026-09-28-ROPE-TRAIL-TEXTURE — 完整纹理覆盖恢复拖尾旋转感
