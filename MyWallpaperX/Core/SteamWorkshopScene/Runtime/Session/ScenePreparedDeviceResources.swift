@@ -487,6 +487,15 @@ final class ScenePreparedDeviceResourcesTask {
                 let pipelineRepository = SceneImageEffectPipelineRepository(
                     device: device
                 )
+                if descriptor.layers.contains(where: { $0.contentKind == "quad" }) {
+                    // This is a required fixed compositor state, like the
+                    // image state above. Never launch a partially prepared
+                    // renderer that could strand a quad/provider transaction.
+                    guard pipelineRepository.prepareDirectDraw() else {
+                        throw SceneDesktopWallpaperHostLaunchError
+                            .requiredImagePipelineUnavailable
+                    }
+                }
                 if descriptor.layers.contains(where: {
                     ($0.colorBlendMode ?? 0) != 0
                 }) {

@@ -121,6 +121,10 @@ projection绑定实际emitted effect card：fullscreen走canonical output geomet
 
 现役sequence选帧在最后一帧内保持末帧，周期边界再按原phase规则回到首帧；prepared与非prepared路径一致，randomframe和禁用混帧保持原行为。两色图集24组合经生产selector/Metal像素读回，37项rendering通过，真实3088601835/2304304373原包完成前后16秒执行回归。该修复不关闭雪雾过曝：14.14秒白区修前/后仍约14.25%，详见[末帧证据](runtime-evidence-current.md#e-2026-09-27-particle-sequence-end)。
 
+## 2026-09-27 独立光束最终加光合成（S4 bounded visible）
+
+独立 direct-draw quad 的终端合成统一使用现有 `SceneImageLayerPipeline.additive`（RGB ONE/ONE，alpha ONE/ONE_MINUS_SRC_ALPHA），普通图片与 effect 内部 material state 保持原职责。管线在 launch 按 quad 需求准备、逐帧只读，准备失败沿必需图像合成资源错误拒绝本次启动；旧普通图片管线参数链已删除，没有 source-over fallback、第二 compositor 或样本分支。真实角向/径向/线性三个原包均完成 GPU/publication/compositor/next-frame；3768724269 右上由暗色条带恢复可见亮束。作者渐变、几何范围、粒子光束、3287715210细条纹及官方一致性不据此关闭。详见[当前运行证据](runtime-evidence-current.md#e-2026-09-27-direct-draw-additive)。
+
 ## 2026-09-14 prepared direct-draw output geometry（S4 bounded visible）
 
 transparent direct draw 的 placement 现在也是 generation 准备的类型化产品。`FrameInputContract` 区分 layer card、capture geometry 和 authored-canvas direct draw；通用 `SceneDirectDraw*` 保持 source-less stock carrier 的 half-canvas extent。只有所有 launch variant 都以 exact `DIRECTDRAW=1 / RAYMODE=0`、同一组 static finite 四点和 prepared vertex source 证明 linear perspective active-content 边界时，合同才携带归一化顶部 inset；其他 combo、动态值、歧义或未证明 source 保持居中。frame preflight 只求一次 output MVP，target sizing、effect projection 和唯一 compositor 复用同一值。旧 effect 命名的 `SceneLightShaftsLayerRenderer / SceneLightShaftsQuadGeometry` 已删除，没有新增 renderer、预算、fallback、样本分支或第二 output owner。

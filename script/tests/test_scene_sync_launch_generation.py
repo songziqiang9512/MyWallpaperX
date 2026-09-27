@@ -27,6 +27,8 @@ final class SceneDesktopWallpaperHost {
     let textureDecodeCacheBudget = SceneTextureDecodeCacheBudget()
     static var observed: [UInt64] = []
     static var failNext = false
+    var activeContext: Int?
+    var activations: [Int] = []
     static func recordLaunchPhase(_ phase: Phase) {}
     static func prepareLaunch(rootURL: URL,
         propertyOverrides: [String: SceneUserPropertyValue],
@@ -37,9 +39,12 @@ final class SceneDesktopWallpaperHost {
     ) throws -> (context: Int, model: SceneRuntimeModel) {
         observed.append(sceneScriptGeneration)
         if failNext { failNext = false; throw Expected.preparation }
-        return (0, SceneRuntimeModel())
+        return (Int(sceneScriptGeneration), SceneRuntimeModel())
     }
-    func activate(_ context: Int) throws {}
+    func activate(_ context: Int) throws {
+        activeContext = context
+        activations.append(context)
+    }
 '''
         tail = r'''
 }
@@ -48,9 +53,13 @@ final class SceneDesktopWallpaperHost {
         let host = SceneDesktopWallpaperHost()
         let root = URL(fileURLWithPath: "/unused")
         try host.launch(rootURL: root)
+        precondition(host.activeContext == 1)
         SceneDesktopWallpaperHost.failNext = true
         do { try host.launch(rootURL: root) } catch Expected.preparation {}
+        precondition(host.activeContext == 1 && host.activations == [1],
+                     "Preparation failure must not replace the active context")
         try host.launch(rootURL: root)
+        precondition(host.activeContext == 3 && host.activations == [1, 3])
         print(String(data: try JSONEncoder().encode(SceneDesktopWallpaperHost.observed), encoding: .utf8)!)
     }
 }

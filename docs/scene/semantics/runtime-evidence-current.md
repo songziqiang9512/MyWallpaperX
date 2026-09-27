@@ -24,6 +24,31 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-27-direct-draw-additive"></a>
+
+### E-2026-09-27-DIRECT-DRAW-ADDITIVE — 独立光束终端不再压暗背景
+
+**首断点与来源：**3768724269 的独立 quad100 使用角向 Light Shafts、作者启用 iridescent 渐变。stock DIRECTDRAW shader 输出光照颜色与覆盖 alpha，内部 material pass 之后，旧终端误用普通图片 source-over，使无光颜色通道也按 alpha 压暗底图。移除该 quad 的隔离对照使右上暗条带减弱，但背景仍有彩虹，不能把全部红蓝颜色判成错误。公开[Light Shafts 文档](https://docs.wallpaperengine.io/en/scene/effects/effect/lightshafts.html)说明独立资产和渐变彩光，不给精确 blend 公式；授权参考 Mirage 的独立 quad 最终 blending=additive 只作第三方状态职责参考，不作为官方像素等价证明。
+
+**实现与退役：**沿现有 pipeline repository 在含 quad 的 launch 准备现有 `SceneImageLayerPipeline` additive state（RGB ONE/ONE；alpha ONE/ONE_MINUS_SRC_ALPHA）；普通帧只读该 state，并交给原唯一 compositor。删除 `SceneMetalRenderer → drawQuadLayer → drawResolvedDirectDrawQuad` 的旧普通图片管线参数；不留 source-over fallback，不改作者颜色、生成 shader、quad 几何或普通图片混合。新增固定 PSO 与普通必需图片 PSO 同属准备边界，缺失就拒绝新 launch，避免半就绪 graph/provider 进入 frame；这不是作者 shader/pass 的逐层 fail-soft，也未新增每帧跳层或依赖传播路径。
+
+**可执行反例：**新增生产 quad 入口、repository、image pipeline/Metal shader 的真实 GPU 像素门，graph 输出与容器是测试替身。背景 RGBA=[102,128,153,255]、光照=[51,0,26,128] 时，旧路由读回约[102,64,102,255]，新路由为[153,128,179,255]；alpha=0.5 得[128,128,166,255]，零光保持背景，普通图片仍 source-over，缺准备不回退。原生产路由红测2项失败，最终该模块3项通过。repository与同步 launch boundary 门另2项通过；后者执行生产同步入口，证明准备失败不调用 activate、既有 context 不变，但不是实际旧会话 GPU 连续播放证明。其余 output geometry、screen anchor、frame rejection、surface submission、realtime policy、async launch 和 runtime bridge 定向模块通过；部分存量门是结构检查，不提升为像素证据。
+
+**实际故障启动：**临时把该 slot factory 置 nil 并构建，仅用于隔离实验。含 quad 的原包在 ready/frame 前报 `requiredImagePipelineUnavailable`，benchmark 按正常播放标准为预期 FAIL；同一故障 App 去掉唯一 quad100 的隔离包为 PASS。故障日志是空会话启动，旧会话保留由生产 activate 顺序静态核对和上述 boundary 门支持。最终 factory 已恢复，无故障注入或 preflight skip 残留。
+
+**最终运行身份：**基线 App exe SHA `2e7a19c4eefb6464e9b7922d63f212875f03cd3b9ae51d2a1d1ec8d3749561f9`；候选 Debug -O 构建成功、deep/strict 签名通过，CDHash `de3614ad4e977388c2420505c52e1f23d5eacff3`，exe SHA `b28525535f8224410242020a8196955b22f6168677773ff8ed84bf41dc2f54f1`。输入是三份原始 project/PKG 的只读隔离副本；固定 PCM，各10秒，同时启用 effect-stage admission、effect execution、graph execution 三门，全部 PASS/loaded1/failures=[]。
+
+| 原包样本 / 目标 quad | submitted / completed / failed / presented | frame0→1 publication | 实际输出 |
+|---|---|---|---|
+| 3768724269 / 100 角向 | 322 / 321 / 0 / 320 | 13→28 | GPU completed、compositorConsumed；右上亮束可见 |
+| 3287715210 / 470 径向 | 333 / 332 / 0 / 331 | 9→20 | GPU completed、compositorConsumed；人物、眼部光束与音频条仍可见 |
+| 3747492842 / 168 线性 | 322 / 321 / 0 / 320 | 17→34 | GPU completed、compositorConsumed；顶部光束与人物组合仍可见 |
+
+3768724269 原 project/PKG SHA 分别为 `9aeeb5675e9df7796fcc577c16ee8f00f59c8fcfb554cc5322f7c15d508e06d2` / `354f56910695e87ad3adcea5c7577dcb85a6c5d19b0c27a825123eaf1851733c`。已查看三张最终完整截图和376基线对照；候选右上可见浅亮放射束，旧版该处呈暗蓝色条带。前后镜头与动态相位未锁定，因此截图只给方向性证据，精确混合由受控 GPU 像素门证明。其余样本是执行及可见冒烟，不能据此关闭细条纹、整体光束形状/覆盖范围、音频各频段活跃度或官方 parity；粒子光束未受此改动覆盖。
+
+**保存与边界：**本机证据标签 `2026-09-27-direct-draw-additive` 保存四组正常/对照报告、故障报告与日志、原尺度截图/序列及红绿门，不收作者包或资源。最终 report SHA `c26b939b01046e5f35e66647208319b69aa15bbc0fa264e68570f61afae964df`，补充 manifest SHA `1797d5ccf11d152399c54d0dbdeeab21956f197fbe2766ef20563fa89df08379`。全仓 code-health 仍是既有四文件长度阻断（AppKitSteamWorkshopBrowserItem、AppKitLibraryGridView、SteamWorkshopLibraryTransaction、AppKitSettingsView）；没有全量、长稳、性能或发布结论。用户在该候选 App 复测后确认“暗色异常已改善，光束仍需调整”；因此只记录暗色混合异常改善，光束形状与覆盖范围保持开放。
+
+
 <a id="e-2026-09-27-puppet-legacy-attachments"></a>
 
 ### E-2026-09-27-PUPPET-LEGACY-ATTACHMENTS — 旧版模型附着点恢复小提琴粒子位置

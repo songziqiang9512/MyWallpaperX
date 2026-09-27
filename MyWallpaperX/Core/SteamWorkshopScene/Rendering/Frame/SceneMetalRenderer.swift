@@ -805,7 +805,6 @@ struct SceneMetalRenderer {
                 if !drawQuadLayer(
                     layer: layer,
                     resolvedFramePlan: resolvedMaterialFrameTargetPlans[layer.id],
-                    imagePipeline: imagePipeline,
                     frameContext: frameContext,
                     mainPass: mainPass,
                     executionTrace: effectExecutionTrace

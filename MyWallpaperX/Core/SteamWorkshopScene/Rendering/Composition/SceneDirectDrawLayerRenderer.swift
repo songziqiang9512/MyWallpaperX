@@ -2,7 +2,6 @@ extension SceneMetalRenderer {
     func drawQuadLayer(
         layer: SceneRenderDescriptor.Layer,
         resolvedFramePlan: SceneResolvedMaterialFrameTargetPlan?,
-        imagePipeline: SceneImageLayerPipeline?,
         frameContext: SceneFrameContext,
         mainPass: SceneMainPassEncoder,
         executionTrace: SceneEffectExecutionFrameTrace?
@@ -11,7 +10,6 @@ extension SceneMetalRenderer {
             return drawResolvedDirectDrawQuad(
                 layer: layer,
                 framePlan: resolvedFramePlan,
-                imagePipeline: imagePipeline,
                 frameContext: frameContext,
                 mainPass: mainPass,
                 executionTrace: executionTrace
@@ -24,12 +22,11 @@ extension SceneMetalRenderer {
     func drawResolvedDirectDrawQuad(
         layer: SceneRenderDescriptor.Layer,
         framePlan: SceneResolvedMaterialFrameTargetPlan,
-        imagePipeline: SceneImageLayerPipeline?,
         frameContext: SceneFrameContext,
         mainPass: SceneMainPassEncoder,
         executionTrace: SceneEffectExecutionFrameTrace?
     ) -> Bool {
-        guard let imagePipeline else {
+        guard let imagePipeline = pipelineRepository.directDraw else {
             return false
         }
         return imageCompositor.drawResolvedDirectDrawQuad(

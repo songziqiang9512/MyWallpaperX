@@ -56,6 +56,11 @@ final class SceneLayerColorBlendPipelineState {
     }
 }
 
+struct SceneImageLayerPipeline {
+    enum BlendMode { case additive }
+    init?(device: MTLDevice, blendMode: BlendMode) {}
+}
+
 @main
 enum Harness {
     // The dedicated blur/color-key slots were retired with the dedicated
