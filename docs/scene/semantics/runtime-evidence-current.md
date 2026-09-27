@@ -403,7 +403,17 @@
 
 7项plan行为测试和39项实际Metal测试通过；GPU新增省略与显式默认等价、100/200/400速度递增轮廓、显式1/1不随速度改变的反例。Debug优化构建通过。inner的focused-tests通过，code-health仍因三个既有非Scene文件行数超限失败，未将总门标PASS。签名App SHA `8762e266dc3b86dc31ba532072b8d06654c8f459e3b0647d563342bf0b9a987d`，CDHash `aad05cf0936d7e9c836831ac2d6b7477f709d47d`；3769761761隔离原包8秒回放PASS，五粒子层含429/436/442均current/committed nonempty，测量窗submitted/completed/failed/presented=173/172/0/171。粒子直接提交终端绘制，不虚构graph publication；背景仍通过既有graph完成/消费/下一帧门。
 
-最新截图仍缺官方目标头发斜光，不能把这项公共默认修正认作完整根因。Windows同输入几何/像素对照未运行；静态研究未覆盖尺寸单位、旧Sprite角度、stock资源选择或最终合成。后继优先核对旧Sprite贴图光束的作者尺寸到实际几何合同，避免继续试改作者参数。证据仍在`2026-09-28-ray-pass-projection`。
+最新截图仍缺官方目标头发斜光，不能把这项公共默认修正认作完整根因。Windows同输入几何/像素对照未运行；静态研究未覆盖尺寸单位、旧Sprite角度、stock资源选择或最终合成。证据仍在`2026-09-28-ray-pass-projection`。后继尺寸诊断见下。
+
+<a id="e-2026-09-28-sprite-size-diagnosis"></a>
+
+### E-2026-09-28-SPRITE-SIZE-DIAGNOSIS — 不采纳整体尺寸补偿
+
+沿用上一条签名App身份，在3769761761三个隔离完整包中只将粒子156的sizerandom min/max乘1/2/4，各8秒执行PASS；current/committed粒子层均含156，GPU失败为0。两倍/四倍扩大脸部及右侧黄色泛光，所采终端画面仍未恢复目标头发上方斜光。该消融排除“仅把当前尺寸放大即可恢复目标”的直接修复方案，不裁定官方尺寸单位或全部相位。本批未改产品或真实样本。
+
+另只核对文件身份：仓库、实际App及本机官方客户端的`assets/materials/particle/light/light_shafts_0.tex`均129604字节、SHA `b3bd05c33be0407487cf03d0a16c1b74c47535475c292cc5e0fc75b19e244691`；未提取、复制或解释官方资产内容。结合此前GPU读回，仅支持这张stock纹理已加载且文件身份一致，不证明所有stock资源、解码/采样或几何正确。
+
+独立研究卡`sprite-size-unit-20260928`核对公开文档与固定客户端标签后结论unknown：作者size绝对全宽/半径单位未被说明，中间是否减半不能单独决定最终可见宽度。没有启动新反编译或进入私有几何数学。中性交接SHA `e9ba064977715d651ad3e277b24af391aa5b493c4f50fd11bfd6892a0de34060`经独立审查accepted，研究原始目录已清理；无新产品数值合同。官方尺寸需自有不透明方形＋独立场景标尺的黑盒测量，尚未运行。证据缓存`2026-09-28-sprite-size-diagnosis`保存三次报告/截图/身份与待执行测量协议。停止尺寸倍率试错；共享光束线下一步处理1315486372等的legacy scalar旋转归一化；本样本156为显式vec3，此转向不是其缺光根因判断，尺寸及本样本最终目标继续OPEN。
 
 <a id="e-2026-09-28-local-particle-transform"></a>
 
