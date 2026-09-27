@@ -29,7 +29,8 @@ extension SteamWorkshopService {
         let numericAlias = mode.hasSuffix("numeric-alias")
         let commitBearingAlias = mode.hasSuffix("commit-bearing-alias")
         let publishFailure = mode.hasSuffix("publish-failure")
-        let legacy = mode.hasSuffix("legacy") || legacyVideo
+        let localOnly = mode.hasSuffix("local-only")
+        let legacy = mode.hasSuffix("legacy") || legacyVideo || localOnly
         let versionName = "11111111-1111-4111-8111-111111111111"
         let content = legacyVideo
             ? steamDownloadLibraryRootURL.appendingPathComponent(
@@ -98,6 +99,32 @@ extension SteamWorkshopService {
             id: "123456", title: "old ready", sizeText: "1 KB", status: .ready
         )
         downloads = [ready]
+        if localOnly {
+            try FileManager.default.removeItem(at: downloadMetadataIndexDirectoryURL())
+            // Missing index means no per-item pointer; it must still block whole-library GC.
+            do { _ = try loadManagedDownloadSnapshots(requireComplete: true)
+                fatalError("missing full index admitted reclamation") } catch {}
+            deleteDownload(itemID: ready.id)
+            while removingDownloadIDs.contains(ready.id) { await Task.yield() }
+            precondition(!FileManager.default.fileExists(atPath: content.path), statusMessage)
+            precondition(downloads.isEmpty)
+            await steamServiceClient.stop(shutdownTimeout: 0)
+            print("EXECUTION PASS: \(mode)")
+            return
+        }
+        var playbackLease: PlaybackResourceLifetime?
+        if mode.hasSuffix("scene") {
+            SteamReadyUpdateDeletionFixtureState.contentType = .scene
+            SceneDaemonClient.shared.recordID = ready.id
+            playbackLease = steamLibraryVersionLeaseRegistry.acquire(commit)
+            Task { @MainActor in
+                while !SceneDaemonClient.shared.stopped { await Task.yield() }
+                precondition(FileManager.default.fileExists(atPath: content.path))
+                precondition(!self.steamLibraryVersionLeaseRegistry.protectedStorageIdentities().isEmpty)
+                playbackLease = nil
+                SceneDaemonClient.shared.completion?()
+            }
+        }
         downloadWorkshopItem(id: "123456", pageTitle: "update")
         while !transport.commands.contains(where: { $0["command"] as? String == "startDownload" }) {
             await Task.yield()
@@ -239,6 +266,7 @@ extension SteamWorkshopService {
                 "helper terminal must retire the exact staging lease")
         }
         await steamServiceClient.stop(shutdownTimeout: 0)
+        withExtendedLifetime(playbackLease) {}
         print("EXECUTION PASS: \(mode)")
     }
 

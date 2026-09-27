@@ -232,14 +232,18 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Shutdown.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+SurfaceTeardown.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneFramePresentation.swift",
-        "script/tests/test_scene_daemon_protocol.py"
+        "script/tests/test_scene_daemon_protocol.py",
+        "script/tests/test_steam_playback_lifetime.py",
+        "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+ScenePlayback.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryReclamation.swift"
       ],
       "modules": [
         "test_scene_audio_capture_scope",
         "test_scene_audio_spectrum_input",
         "test_scene_daemon_client_wiring",
         "test_scene_daemon_protocol",
-        "test_scene_wallpaper_async_launch"
+        "test_scene_wallpaper_async_launch",
+        "test_steam_playback_lifetime"
       ]
     },
     {

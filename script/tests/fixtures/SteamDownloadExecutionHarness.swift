@@ -220,6 +220,16 @@ final class Transport: SteamServiceTransporting {
     func terminate() { isRunning = false }
     func scheduleForcedTermination(after delay: TimeInterval) {}
 }
+@MainActor final class SceneDaemonClient {
+    static let shared = SceneDaemonClient()
+    var recordID: String?
+    var stopped = false
+    var completion: (() -> Void)?
+    func hasIntent(for id: String) -> Bool { recordID == id }
+    func shutdown(postsLaunchState: Bool = false, completion: (() -> Void)? = nil) {
+        stopped = true; self.completion = completion
+    }
+}
 @MainActor final class WallpaperManager { static let shared = WallpaperManager(); func stopCurrentPlayback() {} }
 @MainActor final class SteamWorkshopService {
     var removingDownloadIDs: Set<String> = []

@@ -2,6 +2,9 @@ import Foundation
 
 extension SteamWorkshopService {
     func libraryVersionLifetime(for record: SteamWorkshopDownloadRecord) throws -> PlaybackResourceLifetime? {
+        guard !removingDownloadIDs.contains(record.id) else {
+            throw SteamWorkshopLibraryTransaction.Failure(message: "此壁纸正在删除，无法开始播放。")
+        }
         // Lease the concrete model paths rather than re-reading the latest ready
         // pointer. A card may still carry the previous version while an update is
         // publishing, and dependency-backed Web consumes both version trees.

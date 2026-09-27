@@ -89,7 +89,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     private var isPaused = false
     private var runtimeSwitchObserver: NSObjectProtocol?
     private var screenParametersObserver: NSObjectProtocol?
-    var shutdownCompletions: [() -> Void] = []
+    var shutdownCompletions: [(generations: Set<UInt64>, completion: () -> Void)] = []
     var displayConfiguration = SceneScreenTopology.capture()
 
     var isPlaying: Bool {
@@ -261,11 +261,11 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         return true
     }
 
-    func shutdown(completion: (() -> Void)? = nil) {
+    func shutdown(postsLaunchState: Bool = false, completion: (() -> Void)? = nil) {
+        stop(postsLaunchState: postsLaunchState)
         if let completion {
-            shutdownCompletions.append(completion)
+            shutdownCompletions.append((Set(retiringTransports.keys), completion))
         }
-        stop()
         finishShutdownIfPossible()
     }
 
@@ -279,6 +279,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     /// not race a stale recycle.
     func stop(postsLaunchState: Bool) {
         let stoppedRequestID = activeRequestID ?? pendingRequestID
+            ?? (activeIntent != nil || pendingIntent != nil ? UUID() : nil)
         let stoppedRecordID = activeRecordID ?? pendingIntent?.recordID
         restartWorkItem?.cancel()
         restartWorkItem = nil

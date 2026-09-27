@@ -247,3 +247,9 @@ class SteamDownloadExecutionTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+    def test_delete_local_only_content_without_index(self):
+        self.run_case('ready-update-delete-local-only')
+
+    def test_delete_scene_waits_for_consumer_release(self):
+        self.run_case('ready-update-delete-scene')

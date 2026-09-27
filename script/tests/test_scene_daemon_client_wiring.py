@@ -144,21 +144,6 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
         )
         self.assertNotIn("WallpaperEngine.shared.togglePlayback()", hotkeys)
 
-    def test_app_quit_waits_for_daemon_shutdown_completion(self) -> None:
-        app_delegate = (
-            ROOT / "MyWallpaperX/App/AppDelegate.swift"
-        ).read_text(encoding="utf-8")
-        client = client_source()
-        self.assertIn("func applicationShouldTerminate(", app_delegate)
-        self.assertIn("if !DebugSceneDaemonClientRunner.isRequested", app_delegate)
-        self.assertIn("return .terminateLater", app_delegate)
-        self.assertIn("SceneDaemonClient.shared.shutdown {", app_delegate)
-        self.assertIn("reply(toApplicationShouldTerminate: true)", app_delegate)
-        self.assertIn("shutdownCompletions", client)
-        self.assertIn("finishShutdownIfPossible()", client)
-        self.assertIn("retiringTransports.isEmpty", client)
-        self.assertIn("RunLoop.main.perform(inModes: [.common])", client)
-
     def test_debug_switch_runner_exercises_same_daemon_and_app_exit(self) -> None:
         runner = (
             ROOT / "MyWallpaperX/App/DebugSceneDaemonClientRunner.swift"

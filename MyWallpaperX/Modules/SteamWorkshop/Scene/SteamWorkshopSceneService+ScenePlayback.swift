@@ -9,11 +9,19 @@ struct SteamWorkshopScenePlaybackRequest {
 }
 
 extension SteamWorkshopService {
-    func requestSceneRender(
-        _ record: SteamWorkshopDownloadRecord,
-        resourceLifetime: PlaybackResourceLifetime? = nil
-    ) {
+    func requestSceneRender(_ record: SteamWorkshopDownloadRecord) {
         guard record.contentType == .scene else { return }
+
+        // Every load, including texture-property reloads, owns the concrete files
+        // until the daemon releases them. Callers cannot bypass lease admission.
+        let resourceLifetime: PlaybackResourceLifetime?
+        do {
+            resourceLifetime = try libraryVersionLifetime(for: record)
+        } catch {
+            clearLaunchPending(matching: record.id)
+            downloadError = error.localizedDescription
+            return
+        }
 
         let propertyOverrides = scenePropertyOverrides(for: record)
         withResolvedSceneTexturePropertyReferences(for: record) { references in

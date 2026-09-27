@@ -271,24 +271,33 @@ extension SteamWorkshopService {
             steamJobItemPayloads.removeValue(forKey: itemID)
             cancelDownloadImmediately(itemID: itemID, showFeedback: false)
         }
-        if isRecordCurrentlyPlaying(record) { WallpaperManager.shared.stopCurrentPlayback() }
+        if record.contentType == .scene, SceneDaemonClient.shared.hasIntent(for: record.id) {
+            await withCheckedContinuation { continuation in
+                SceneDaemonClient.shared.shutdown(postsLaunchState: true) { continuation.resume() }
+            }
+        } else if isRecordCurrentlyPlaying(record) {
+            WallpaperManager.shared.stopCurrentPlayback()
+        }
         let library = steamDownloadLibraryRootURL
         let target = record.contentType == .video && readySnapshot?.commit == nil
             ? (record.exportedVideoURL ?? record.sourceVideoURL ?? record.folderURL) : record.folderURL
         let identity = readySnapshot?.commit.flatMap(SteamWorkshopLibraryTransaction.storageIdentity(for:))
         if let identity {
-            var admitted = false
-            for _ in 0..<100 {
-                if steamLibraryVersionLeaseRegistry.beginReclamation(identity) { admitted = true; break }
-                try? await Task.sleep(nanoseconds: 50_000_000)
-            }
-            guard admitted else {
+            guard steamLibraryVersionLeaseRegistry.beginReclamation(identity) else {
                 statusMessage = "删除失败：壁纸资源尚未释放，请停止播放后重试。"
                 return false
             }
         }
         var tombstonePublished = false
         do {
+            // Consumers have stopped and admission is fenced. Settle any old
+            // publication before writing the deletion pointer; cleanup stays in GC.
+            try SteamWorkshopLibraryTransaction.recoverPublications(
+                libraryRoot: library, matchingItemID: itemID)
+            guard try loadManagedDownloadSnapshots(requireComplete: true, matchingItemID: itemID,
+                includeLegacy: true)[itemID]?.commit == readySnapshot?.commit else {
+                throw SteamWorkshopLibraryTransaction.Failure(message: "下载版本已变化，请刷新后重试删除。")
+            }
             if var snapshot = readySnapshot {
                 if var commit = snapshot.commit {
                     commit.removed = true

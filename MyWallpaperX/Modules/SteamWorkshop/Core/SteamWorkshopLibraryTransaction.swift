@@ -30,6 +30,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
     static let incomingName = ".mywallpaperx-steam-incoming"
     static let metadataName = ".mywallpaperx-steam-metadata"
     static let ownershipMarkerName = ".mywallpaperx-steam-version.json"
+    static let retiredPrefix = ".retired-"
     static let maxBytes = 8 * 1024 * 1024 * 1024
     static let maximumRetainedBytesBeforeAdmissions = 16 * 1024 * 1024 * 1024
     static let diskSafetyReserveBytes = 256 * 1024 * 1024
@@ -896,7 +897,8 @@ nonisolated enum SteamWorkshopLibraryTransaction {
                       sameFilesystemObject(openedInfo, value),
                       let marker = try? markerCommit(in: root),
                       marker.contentType == contentType,
-                      marker.directoryName == name,
+                      (marker.directoryName == name
+                        || (marker.version == 2 && retiredPrefix + marker.directoryName == name)),
                       let identity = storageIdentity(for: marker) else {
                     continue // Public user content is not an error and is never adopted.
                 }
@@ -933,7 +935,9 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         do {
             index = try directory(library, metadataName)
         } catch {
-            if errno == ENOENT && !requireComplete { return [:] }
+            // A targeted lookup in a local-only library has no metadata. Whole-index
+            // GC still requires an existing, readable index before reclaiming anything.
+            if errno == ENOENT && (!requireComplete || matchingItemID != nil || matchingFilename != nil) { return [:] }
             throw error
         }
         var result: [String: Data] = [:]

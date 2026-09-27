@@ -89,6 +89,9 @@ extension SteamWorkshopService {
 
     func publishDownloadedVersion(_ request: SteamWorkshopPendingDownloadRequest,
         commit prepared: SteamWorkshopLibraryCommit, libraryRoot: URL) throws {
+        guard !removingDownloadIDs.contains(request.id) else {
+            throw SteamWorkshopLibraryTransaction.Failure(message: "此壁纸正在删除，已停止入库。")
+        }
         let commit = try SteamWorkshopLibraryTransaction.canonicalCommit(prepared)
         let content = try SteamWorkshopLibraryTransaction.contentURL(for: commit, libraryRoot: libraryRoot)
         let previousIdentity = SteamWorkshopLibraryTransaction.storageIdentity(containing: content, libraryRoot: libraryRoot)
@@ -98,22 +101,22 @@ extension SteamWorkshopService {
                 throw SteamWorkshopLibraryTransaction.Failure(message: "此壁纸仍被播放器或视频库引用，请解除引用后重试更新。")
             }
         }
-        do {
-            let item = request.item ?? browserItemForDownload(id: request.id)
-                ?? Self.itemByMergingAuthorMetadata(into: nil, id: request.id, title: request.pageTitle,
-                    author: "未知作者", authorProfileURL: nil, authorWorkshopURL: nil)
-            var snapshot = SteamWorkshopDownloadMetadataSnapshot(fetchedAt: commit.committedAt, item: item,
-                sourceVideoRelativePath: commit.contentType == "video" ? commit.entryPath : nil,
-                previewRelativePath: nil,
-                exportedVideoURL: commit.contentType == "video" ? commit.entryPath.map { content.appendingPathComponent($0) } : nil,
-                legacyFolderURL: content)
-            snapshot.commit = commit
-            try SteamWorkshopLibraryTransaction.publishCanonical(prepared,
-                metadata: JSONEncoder().encode(snapshot), libraryRoot: libraryRoot)
-        } catch {
+        defer {
+            // Publication only relocates the previous version; GC must be able to
+            // acquire its own removal reservation after this synchronous handoff.
             if let previousIdentity { steamLibraryVersionLeaseRegistry.reclamationFailed(previousIdentity) }
-            throw error
         }
+        let item = request.item ?? browserItemForDownload(id: request.id)
+            ?? Self.itemByMergingAuthorMetadata(into: nil, id: request.id, title: request.pageTitle,
+                author: "未知作者", authorProfileURL: nil, authorWorkshopURL: nil)
+        var snapshot = SteamWorkshopDownloadMetadataSnapshot(fetchedAt: commit.committedAt, item: item,
+            sourceVideoRelativePath: commit.contentType == "video" ? commit.entryPath : nil,
+            previewRelativePath: nil,
+            exportedVideoURL: commit.contentType == "video" ? commit.entryPath.map { content.appendingPathComponent($0) } : nil,
+            legacyFolderURL: content)
+        snapshot.commit = commit
+        try SteamWorkshopLibraryTransaction.publishCanonical(prepared,
+            metadata: JSONEncoder().encode(snapshot), libraryRoot: libraryRoot)
     }
 
     /// Single current pointer lives in the existing metadata index. Managed version directories are

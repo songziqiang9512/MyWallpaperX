@@ -54,6 +54,11 @@ extension SteamWorkshopService {
             return
         }
 
+        if record.contentType == .scene {
+            requestSceneRender(record)
+            return
+        }
+
         // The immutable version remains readable until the concrete consumer
         // (Scene, Web, or the Video import pipeline) releases this token.
         let resourceLifetime: PlaybackResourceLifetime?
@@ -62,11 +67,6 @@ extension SteamWorkshopService {
         } catch {
             clearLaunchPending(matching: record.id)
             downloadError = error.localizedDescription
-            return
-        }
-
-        if record.contentType == .scene {
-            requestSceneRender(record, resourceLifetime: resourceLifetime)
             return
         }
 

@@ -73,9 +73,29 @@ import Darwin
             let intent = Intent(prepared: second, current: next, metadata: nextData,
                 previousMetadata: firstIndex, previous: canonical)
             try JSONEncoder().encode(intent).write(to: journal.appendingPathComponent("123456.json"))
-            if mode == "recover-after" || mode == "recover-indexed" || mode == "recover-enriched" {
+            if ["recover-after", "recover-indexed", "recover-enriched", "recover-retired-marker", "recover-retired-directory", "recover-deleted"].contains(mode) {
                 try nextData.write(to: preparedURL.appendingPathComponent(T.ownershipMarkerName))
                 precondition(renamex_np(preparedURL.path, target.path, UInt32(RENAME_SWAP)) == 0)
+            }
+            if mode == "recover-deleted" {
+                struct Metadata: Encodable { let commit: SteamWorkshopLibraryCommit }
+                var removed = next; removed.removed = true
+                try T.publish(metadata: JSONEncoder().encode(Metadata(commit: removed)), itemID: "123456", libraryRoot: library)
+                try T.removeContent(at: target, itemID: "123456", libraryRoot: library, expectedCommit: next)
+                try T.recoverPublications(libraryRoot: library)
+                precondition(!FileManager.default.fileExists(atPath: target.path), "recovery resurrected deleted content")
+                let third = try prepare("third")
+                try T.publishCanonical(third, metadata: data(T.canonicalCommit(third)), libraryRoot: library)
+                print("PASS: " + mode)
+                return
+            }
+            if mode.hasPrefix("recover-retired") {
+                try T.publish(metadata: nextData, itemID: "123456", libraryRoot: library)
+                try data(first).write(to: preparedURL.appendingPathComponent(T.ownershipMarkerName))
+                if mode == "recover-retired-directory" {
+                    let retiredURL = target.deletingLastPathComponent().appendingPathComponent(T.retiredPrefix + first.directoryName)
+                    precondition(renamex_np(preparedURL.path, retiredURL.path, UInt32(RENAME_EXCL)) == 0)
+                }
             }
             if mode == "recover-indexed" { try T.publish(metadata: nextData, itemID: "123456", libraryRoot: library) }
             if mode == "recover-enriched" {
@@ -101,6 +121,34 @@ import Darwin
             precondition(T.storageIdentity(for: next) != T.storageIdentity(for: canonical))
             let payload = try String(contentsOf: target.appendingPathComponent("index.html"), encoding: .utf8)
             precondition(payload == "second")
+            let retiredURL = target.deletingLastPathComponent().appendingPathComponent(T.retiredPrefix + first.directoryName)
+            precondition(FileManager.default.fileExists(atPath: retiredURL.appendingPathComponent("index.html").path),
+                "publication must leave old payload to GC")
+            let visible = try FileManager.default.contentsOfDirectory(at: target.deletingLastPathComponent(),
+                includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
+            precondition(visible.map(\.lastPathComponent) == ["123456"], "only the clean ID should be visible")
+            if mode == "cleanup-delete-redownload" {
+                // Recursive deletion fails, but publication/recovery and the next
+                // user mutation must not depend on that cleanup succeeding.
+                try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: retiredURL.path)
+                do {
+                    _ = try await T.reclaimVersions(libraryRoot: library,
+                        retaining: [T.storageIdentity(for: next)!], minimumAge: 0)
+                    fatalError("read-only old payload should fail reclamation")
+                } catch {}
+                var removed = next; removed.removed = true
+                try T.publish(metadata: data(removed), itemID: "123456", libraryRoot: library)
+                try T.removeContent(at: target, itemID: "123456", libraryRoot: library, expectedCommit: next)
+                try T.recoverPublications(libraryRoot: library)
+                let third = try prepare("third")
+                let thirdCurrent = try T.canonicalCommit(third)
+                try T.publishCanonical(third, metadata: data(thirdCurrent), libraryRoot: library)
+                try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: retiredURL.path)
+                let gc = try await T.reclaimVersions(libraryRoot: library,
+                    retaining: [T.storageIdentity(for: thirdCurrent)!], minimumAge: 0)
+                precondition(gc.removedStorageIdentities.contains(T.storageIdentity(for: first)!))
+                precondition(T.isAvailable(thirdCurrent, libraryRoot: library))
+            }
             if mode == "delete" {
                 do { try T.removeContent(at: target, itemID: "123456", libraryRoot: library, expectedCommit: canonical)
                     fatalError("stale identity deleted current content") } catch {}
@@ -142,3 +190,9 @@ class SteamLibraryPublicationTests(unittest.TestCase):
     def test_cleanup_recovery_preserves_refreshed_metadata(self): self.run_case('recover-enriched')
     def test_unknown_numeric_directory_is_preserved(self): self.run_case('foreign')
     def test_delete_requires_current_identity_and_removes_files(self): self.run_case('delete')
+
+    def test_recovery_after_old_marker_rewrite(self): self.run_case('recover-retired-marker')
+    def test_recovery_after_old_generation_rename(self): self.run_case('recover-retired-directory')
+    def test_failed_background_cleanup_does_not_block_delete_or_redownload(self): self.run_case('cleanup-delete-redownload')
+
+    def test_legacy_cleanup_journal_respects_later_deletion(self): self.run_case('recover-deleted')

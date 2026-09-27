@@ -340,12 +340,13 @@ extension SceneDaemonClient {
     }
 
     func finishShutdownIfPossible() {
-        guard transport == nil, retiringTransports.isEmpty,
-              !shutdownCompletions.isEmpty else { return }
-        let completions = shutdownCompletions
-        shutdownCompletions.removeAll(keepingCapacity: true)
+        // A later playback request must not keep an earlier shutdown waiting.
+        let generations = Set(retiringTransports.keys)
+        let completions = shutdownCompletions.filter { $0.generations.isDisjoint(with: generations) }
+        shutdownCompletions.removeAll { $0.generations.isDisjoint(with: generations) }
+        guard !completions.isEmpty else { return }
         RunLoop.main.perform(inModes: [.common]) {
-            completions.forEach { $0() }
+            completions.forEach { $0.completion() }
         }
     }
 

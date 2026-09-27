@@ -140,11 +140,14 @@ extension SteamWorkshopLibraryTransaction {
             matchingItemID: current.workshopId)[current.workshopId]
         let indexedCommit = indexed.flatMap { try? JSONDecoder().decode(MetadataPointer.self, from: $0).commit }
         let committed = indexed == intent.metadata || indexedCommit == current
-        try require(indexed == intent.previousMetadata || committed,
+        var deletedCommit = indexedCommit
+        deletedCommit?.removed = false
+        let deleted = indexedCommit?.removed == true && deletedCommit == current
+        try require(indexed == intent.previousMetadata || committed || deleted,
                     "下载索引已变化，拒绝覆盖其他入库事务。")
         let installed = try? markerCommit(in: directory(type, current.directoryName))
         try require(!committed || installed == current)
-        if installed != current {
+        if !deleted && installed != current {
             try require(installed == intent.previous, "目标 ID 目录已变化，拒绝覆盖本地内容。")
             let candidate = try directory(type, intent.prepared.directoryName)
             let marker = try markerCommit(in: candidate)
@@ -158,7 +161,7 @@ extension SteamWorkshopLibraryTransaction {
         // A crash between directory exchange and metadata publication is replayed from
         // this exact intent before the next local scan; no directory alone becomes ready.
         do {
-            if !committed {
+            if !committed && !deleted {
                 try publish(metadata: intent.metadata, itemID: current.workshopId, libraryRoot: libraryRoot)
             }
         } catch {
@@ -175,11 +178,29 @@ extension SteamWorkshopLibraryTransaction {
             }
             throw error
         }
-        if let previous = intent.previous,
-           let backup = try? directory(type, intent.prepared.directoryName),
-           (try? markerCommit(in: backup)) == previous {
-            do { try removeOwnedTree(parent: type, name: intent.prepared.directoryName, expectedMarker: previous) }
-            catch { return } // Published; keep the journal so cleanup can be retried.
+        if let previous = intent.previous {
+            // Retire the old generation under a hidden spelling, without deleting
+            // its payload on the caller's actor. The existing version GC owns cleanup.
+            try require(previous.version == 3)
+            guard let generation = previous.generation else { throw Failure(message: "旧版本缺少代际身份。") }
+            let retired = SteamWorkshopLibraryCommit(version: 2, workshopId: previous.workshopId,
+                jobId: previous.jobId, attempt: previous.attempt,
+                directoryName: previous.workshopId + "-" + generation,
+                manifestId: previous.manifestId, contentDigest: previous.contentDigest,
+                contentType: previous.contentType, entryPath: previous.entryPath,
+                committedAt: previous.committedAt)
+            var backupInfo = stat()
+            if fstatat(type.value, intent.prepared.directoryName, &backupInfo, AT_SYMLINK_NOFOLLOW) == 0 {
+                let backup = try directory(type, intent.prepared.directoryName)
+                let marker = try markerCommit(in: backup)
+                try require(marker == previous || marker == retired)
+                if marker != retired {
+                    try atomicWrite(try JSONEncoder().encode(retired), name: ownershipMarkerName, in: backup)
+                }
+                try require(renameatx_np(type.value, intent.prepared.directoryName, type.value,
+                    retiredPrefix + retired.directoryName, UInt32(RENAME_EXCL)) == 0)
+                try require(fsync(type.value) == 0)
+            } else { try require(errno == ENOENT) }
         }
         if let journal = try? directory(library, publicationsName) {
             _ = unlinkat(journal.value, current.workshopId + ".json", 0)
@@ -187,10 +208,12 @@ extension SteamWorkshopLibraryTransaction {
         }
     }
 
-    static func recoverPublications(libraryRoot: URL, retaining identities: Set<String> = []) throws {
+    static func recoverPublications(libraryRoot: URL, retaining identities: Set<String> = [],
+                                    matchingItemID: String? = nil) throws {
         guard let library = try? absoluteDirectory(libraryRoot),
               let journal = try? directory(library, publicationsName) else { return }
-        for name in try childNames(journal) where name.hasSuffix(".json") {
+        for name in try childNames(journal) where name.hasSuffix(".json")
+            && (matchingItemID == nil || name == matchingItemID! + ".json") {
             let data = try readData(openFile(journal, name), maximumBytes: 12 * 1024 * 1024)
             let intent = try JSONDecoder().decode(Publication.self, from: data)
             try require(name == intent.current.workshopId + ".json")
