@@ -8,9 +8,6 @@
     "script/tests/fixtures"
   ],
   "legacyFiles": {
-    "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderColorTransferAnalyzer.swift": 1175,
-    "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem.swift": 1182,
-    "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView.swift": 1077,
     "MyWallpaperX/Shell/SidebarViews.swift": 1341
   }
 }

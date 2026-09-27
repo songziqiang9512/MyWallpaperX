@@ -27,7 +27,7 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
     private var lastAppliedSnapshotIDs: [String] = []
     private var pendingSnapshotIDs: [String] = []
     private var isSnapshotApplyScheduled = false
-    private var boxSelectionState: BoxSelectionState?
+    var boxSelectionState: BoxSelectionState?
     private var isMultiSelectModeVisualUpdateScheduled = false
     private var pendingThumbnailReloadPaths = Set<String>()
     private var isThumbnailReloadScheduled = false
@@ -560,7 +560,7 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
         collectionView.reloadItems(at: Set(visible))
     }
 
-    private func reloadVisibleItems(forIDs ids: Set<String>) {
+    func reloadVisibleItems(forIDs ids: Set<String>) {
         // 按 ID 刷新是最稳的路径，适合收藏、标签或播放态变化。
         guard !ids.isEmpty else { return }
         let visibleIndexPaths = Set(collectionView.indexPathsForVisibleItems())
@@ -579,7 +579,7 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
         collectionView.reloadItems(at: indexPaths)
     }
 
-    private func reloadVisibleItems(forNormalizedPaths paths: Set<String>) {
+    func reloadVisibleItems(forNormalizedPaths paths: Set<String>) {
         // 路径级刷新用于缩略图与缓存变化，适合后台生成完成后的补刷。
         guard !paths.isEmpty else { return }
         let visibleIndexPaths = Set(collectionView.indexPathsForVisibleItems())
@@ -991,101 +991,5 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
         reloadVisibleItems(forIDs: recoveredIDs)
     }
 
-    private func handleBackgroundClick() {
-        guard !wallpaperManager.isMultiSelectMode else { return }
-        wallpaperManager.clearSingleSelectionIfNeeded()
-        collectionView.selectionIndexPaths = []
-    }
-
-    private func handlePrimaryClick(at indexPath: IndexPath) -> Bool {
-        guard indexPath.item >= 0, indexPath.item < orderedIDs.count else { return true }
-
-        if !wallpaperManager.isMultiSelectMode {
-            // 单选态下点击已选中的卡片：呼出详情面板并吞掉事件，
-            // 不让系统把 selection 反向切换掉。
-            if wallpaperManager.selectedWallpaperId == orderedIDs[indexPath.item] {
-                wallpaperManager.presentInspectorForSelectedWallpaper()
-                return true
-            }
-            return false
-        }
-
-        // 多选态下点击空白卡片区域的行为是切换选中，不是播放。
-        let id = orderedIDs[indexPath.item]
-        var selectedIDs = wallpaperManager.selectedWallpaperIds
-        if selectedIDs.contains(id) {
-            selectedIDs.remove(id)
-        } else {
-            selectedIDs.insert(id)
-        }
-        wallpaperManager.replaceMultiSelection(with: selectedIDs)
-        return true
-    }
-
-    private func beginBoxSelection(at indexPath: IndexPath?) -> Bool {
-        guard wallpaperManager.isMultiSelectMode else { return false }
-        let initialIDs = wallpaperManager.selectedWallpaperIds
-        let mode: BoxSelectionState.Mode
-        if let indexPath,
-           indexPath.item >= 0,
-           indexPath.item < orderedIDs.count {
-            let wallpaperID = orderedIDs[indexPath.item]
-            mode = initialIDs.contains(wallpaperID) ? .deselect : .select
-        } else {
-            mode = .select
-        }
-        boxSelectionState = BoxSelectionState(mode: mode, initialIDs: initialIDs)
-        return true
-    }
-
-    private func updateBoxSelection(in rect: NSRect) {
-        guard let state = boxSelectionState else { return }
-        let touchedIDs = wallpaperIDs(intersecting: rect)
-        let selectedIDs = state.resolve(touching: touchedIDs)
-        guard selectedIDs != wallpaperManager.selectedWallpaperIds else { return }
-        wallpaperManager.replaceMultiSelection(with: selectedIDs)
-    }
-
-    private func endBoxSelection() {
-        boxSelectionState = nil
-    }
-
-    private func updateCardPressState(at indexPath: IndexPath, isPressed: Bool) {
-        // 卡片按压只改变 item 的局部视觉态，不反向改 selection。
-        guard indexPath.item >= 0, indexPath.item < orderedIDs.count else { return }
-        guard let item = collectionView.item(at: indexPath) as? AppKitWallpaperItem else { return }
-        item.applyPressedState(isPressed)
-    }
-
-    private func wallpaperIDs(intersecting rect: NSRect) -> Set<String> {
-        guard !orderedIDs.isEmpty else { return [] }
-        let normalizedRect = rect.standardized
-        let queryRect: NSRect
-        if normalizedRect.width < 1 && normalizedRect.height < 1 {
-            queryRect = NSRect(x: normalizedRect.origin.x, y: normalizedRect.origin.y, width: 1, height: 1)
-        } else {
-            queryRect = normalizedRect
-        }
-
-        var ids = Set<String>()
-        if let attributes = collectionView.collectionViewLayout?.layoutAttributesForElements(in: queryRect) {
-            for attribute in attributes where attribute.representedElementCategory == .item {
-                guard let indexPath = attribute.indexPath else { continue }
-                let itemIndex = indexPath.item
-                guard itemIndex >= 0, itemIndex < orderedIDs.count else { continue }
-                ids.insert(orderedIDs[itemIndex])
-            }
-        }
-
-        if ids.isEmpty {
-            let centerPoint = NSPoint(x: queryRect.midX, y: queryRect.midY)
-            if let indexPath = collectionView.indexPathForItem(at: centerPoint),
-               indexPath.item >= 0,
-               indexPath.item < orderedIDs.count {
-                ids.insert(orderedIDs[indexPath.item])
-            }
-        }
-        return ids
-    }
 
 }
