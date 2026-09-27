@@ -1,294 +1,829 @@
-<!DOCTYPE html>
-<html lang="zh-Hans">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="AppleTitle" content="MyWallpaperX 帮助">
-    <title>MyWallpaperX 帮助</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-
-<!-- Header -->
-<div class="help-header">
-    <img class="app-icon" src="icon.png" alt="MyWallpaperX">
-    <h1>MyWallpaperX</h1>
-    <div class="subtitle">遵循 macOS 26 原生设计规范，以简洁优雅的界面风格，<br>为 Mac 带来沉浸式动态视频壁纸体验。</div>
-    <div class="version-badge">版本 1.0 &nbsp;·&nbsp; 仅支持 macOS</div>
-</div>
-
-<!-- Navigation -->
-<nav class="toc">
-    <a href="#features">功能特色</a>
-    <a href="#getting-started">快速上手</a>
-    <a href="#shortcuts">快捷键</a>
-    <a href="#playback">播放控制</a>
-    <a href="#library">壁纸库</a>
-    <a href="#display">显示设置</a>
-    <a href="#performance">性能省电</a>
-    <a href="#faq">常见问题</a>
-    <a href="#tech">技术实现</a>
+<!doctype html>
+<html lang="zh-Hans"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="AppleTitle" content="MyWallpaperX 帮助"><meta name="description" content="搜索帮助: Video, Web, Scene, Steam Workshop"><title>MyWallpaperX 帮助</title><link rel="stylesheet" href="../styles.css"><script src="../help.js" defer></script></head>
+<body id="top"><a class="skip" href="#main">跳转到正文</a><div class="layout">
+<aside class="sidebar">
+<a class="brand" href="#top"><img src="icon.png" alt="" width="38" height="38"><span>MyWallpaperX<small>使用手册</small></span></a>
+<div>
+<nav aria-label="帮助目录">
+<span class="nav-group">开始使用</span><a href="#start">快速上手</a><a href="#video">Video 视频壁纸</a><a href="#web">Web 网页壁纸</a><a href="#scene">Scene 实时场景</a><span class="nav-group">操作指南</span><a href="#toolbars">各模块工具栏</a><a href="#search-tips">工坊搜索技巧</a><a href="#workshop">下载与订阅</a><a href="#library">素材管理</a><a href="#playback">播放与节能</a><a href="#shortcuts">快捷键速查</a><span class="nav-group">遇到问题</span><a href="#login">登录问题</a><a href="#downloads">下载报错</a><a href="#faq">其他常见问题</a>
 </nav>
-
-<div class="content">
-
-<!-- 功能特色 -->
-<div id="features" class="section">
-    <div class="section-header">
-        <span class="icon">✦</span>
-        <h2>功能特色</h2>
-    </div>
-    <div class="feature-grid">
-        <div class="feature-card">
-            <span class="feature-icon">🎬</span>
-            <h3>视频壁纸播放</h3>
-            <p>将任意本地视频文件设为桌面壁纸，支持循环、顺序与随机切换。</p>
-        </div>
-        <div class="feature-card">
-            <span class="feature-icon">📚</span>
-            <h3>壁纸库管理</h3>
-            <p>导入、整理、收藏、标签分类，所有壁纸一目了然，随时快速定位。</p>
-        </div>
-        <div class="feature-card">
-            <span class="feature-icon">⚡</span>
-            <h3>自动切换</h3>
-            <p>按设定时间间隔自动轮播，支持秒、分、小时三种时间单位。</p>
-        </div>
-        <div class="feature-card">
-            <span class="feature-icon">🖥</span>
-            <h3>多屏适配</h3>
-            <p>在所有已连接显示器上同步播放壁纸，适配多种分辨率。</p>
-        </div>
-        <div class="feature-card">
-            <span class="feature-icon">🔋</span>
-            <h3>智能省电</h3>
-            <p>未连接电源、闲置或其他应用全屏时，自动暂停播放节省电量。</p>
-        </div>
-        <div class="feature-card">
-            <span class="feature-icon">⌨️</span>
-            <h3>全局快捷键</h3>
-            <p>支持 F1–F12 系统快捷键绑定，无需打开主界面即可控制播放。</p>
-        </div>
-        <div class="feature-card">
-            <span class="feature-icon">🔇</span>
-            <h3>音量控制</h3>
-            <p>独立调整壁纸音量或一键静音，不影响系统其他音频输出。</p>
-        </div>
-        <div class="feature-card">
-            <span class="feature-icon">📤</span>
-            <h3>配置备份</h3>
-            <p>一键导出全部壁纸配置、标签与收藏，换机后快速恢复。</p>
-        </div>
-        <div class="feature-card">
-            <span class="feature-icon">🔍</span>
-            <h3>快速检索</h3>
-            <p>实时搜索壁纸文件名，结合标签、收藏侧边栏，毫秒级定位目标壁纸。</p>
-        </div>
-    </div>
 </div>
+<div class="sidebar-bottom"><p>离线阅读 · 随时查阅</p><a class="language" href="../en.lproj/index.html" lang="en" hreflang="en">English ↗</a></div>
+</aside>
 
-<!-- 快速上手 -->
-<div id="getting-started" class="section">
-    <div class="section-header">
-        <span class="icon">🚀</span>
-        <h2>快速上手</h2>
-    </div>
-    <div class="section-body">
-        <p><strong>第一步：导入视频</strong><br>
-        点击工具栏「导入」按钮，或按 <span class="key">⌘</span><span class="key">O</span>，选择本地视频文件（支持 MP4、MOV、M4V 等格式）导入壁纸库。支持批量选择多个文件。</p>
+<main id="main" tabindex="-1">
+<div class="topbar"><span>桌面，也可以有自己的节奏。</span><label class="search" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6" stroke-width="1.7"/><path d="m15 15 5 5" stroke-width="1.7"/></svg><input id="help-search" type="search" placeholder="搜索帮助，例如“暂停”" aria-label="搜索帮助" autocomplete="off"></label></div>
+<header class="hero">
+<div class="eyebrow">MYWALLPAPERX · 使用指南</div><h1>让桌面，<br><span>有自己的风景。</span></h1><p class="hero-description">认识 Video、Web 与 Scene。<br>从第一张壁纸，到每个按钮、快捷键和报错。</p><div class="gallery"><a class="preview" href="#video"><div class="art video" aria-hidden="true"><span class="window-dots"><i></i><i></i><i></i></span><svg viewBox="0 0 300 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><circle cx="219" cy="64" r="26" fill="#f4dfad"/><path d="M0 139 Q70 100 143 149 T300 127 V220 H0Z" fill="#7e9fb9"/><path d="M0 183 Q88 118 185 179 T300 159 V220 H0Z" fill="#506f8f"/><path d="M0 210 Q100 167 193 202 T300 190 V220 H0Z" fill="#2d4b68"/></svg><span class="play" aria-hidden="true">▶ ━━━━━</span></div><div class="preview-label"><strong>Video ↗</strong><span>循环影像</span></div></a><a class="preview" href="#web"><div class="art web" aria-hidden="true"><span class="window-dots"><i></i><i></i><i></i></span><span class="clock" aria-hidden="true">09:41<small>A MOMENT OF CALM</small></span></div><div class="preview-label"><strong>Web ↗</strong><span>网页与交互</span></div></a><a class="preview" href="#scene"><div class="art scene" aria-hidden="true"><span class="window-dots"><i></i><i></i><i></i></span><svg viewBox="0 0 300 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><circle cx="185" cy="70" r="38" fill="#e7e8bc"/><path d="M0 171 L71 59 129 142 175 96 265 170 300 145 V220 H0Z" fill="#7ba796"/><path d="M0 214 L44 143 84 168 154 109 231 184 300 127 V220 H0Z" fill="#457e70"/><path d="M0 220 L0 193 75 175 127 220 204 165 300 207 V220Z" fill="#2b5c52"/><g fill="#fff6d5"><circle cx="56" cy="81" r="2"/><circle cx="123" cy="53" r="2"/><circle cx="227" cy="107" r="2"/><circle cx="245" cy="47" r="1.5"/></g></svg><span class="layers" aria-hidden="true">◇ ◇ ◇</span></div><div class="preview-label"><strong>Scene ↗</strong><span>图层与实时效果</span></div></a></div><div class="quick-links"><a href="#toolbars"><span>按钮怎么用</span><b aria-hidden="true">↗</b></a><a href="#search-tips"><span>按 ID 查壁纸</span><b aria-hidden="true">↗</b></a><a href="#downloads"><span>解决下载失败</span><b aria-hidden="true">↗</b></a></div>
+</header>
+<div class="search-status" id="search-status" hidden><span id="search-message" role="status" aria-live="polite"></span><button id="clear-search" type="button">显示全部章节</button></div>
+<section class="guide-section" id="start">
+<div class="section-heading"><h2>从一张喜欢的壁纸开始</h2><span class="tag">快速上手</span></div>
+<p class="lead">本地视频、网页作品、实时场景，都可以成为桌面。先选内容，再按自己的习惯调整播放。</p>
+<ol class="steps"><li><h3>找到内容</h3><p>本地视频从「我的视频」导入；Web 与 Scene 作品从「创意工坊」浏览和下载。</p></li><li><h3>设为壁纸</h3><p>在对应素材列表中选中作品，使用「设为当前壁纸」。工坊作品需要先完成下载。</p></li><li><h3>调整到舒服</h3><p>用音量和暂停控制桌面；Web、Scene 可在详情的「属性调节」中查看作者提供的选项。</p></li></ol>
+</section>
 
-        <p><strong>第二步：设为壁纸</strong><br>
-        在壁纸库中单击选中一张视频，双击卡片或按 <span class="key">↩</span> 回车键，即可立即将其设为桌面壁纸。</p>
+<section class="guide-section" id="video">
+<div class="section-heading"><h2>Video · 让影像留在桌面</h2><span class="tag">视频壁纸</span></div>
+<p class="lead">适合风景、动画片段和循环影像。画面来自视频文件，使用方式最直接。</p>
+<div class="two-column"><div><h3>可以做什么</h3><ul><li>在「我的视频」导入本地视频，使用收藏、标签和最近使用整理素材。</li><li>在播放设置中选择循环、顺序或随机播放，按需要设置自动切换。</li><li>调整播放速率；通过「视频填充模式」选择完整显示或铺满屏幕。</li></ul></div><div><h3>用得更舒服</h3><ul><li>优先选择与屏幕比例接近的视频。铺满可能裁切边缘，完整显示可能留有黑边。</li><li>挑选首尾衔接自然的短片，循环时更连贯。</li><li>MP4、MOV 等容器里的编码也要能被 macOS 解码；不能播放时先用系统播放器检查文件。</li></ul></div></div>
+<aside class="tip">
+<strong>视频设置与作者属性的区别</strong>视频使用应用的音量、速率和播放模式，没有 Web、Scene 那样的作者自定义属性面板。播放速率、视频填充也不是三种引擎的通用设置。
+</aside>
 
-        <p><strong>第三步：调整播放设置</strong><br>
-        点击工具栏右侧偏好设置图标，或按 <span class="key">⌘</span><span class="key">,</span>，在「播放」分区调整循环、随机、自动切换等选项。</p>
+</section>
 
-        <p><strong>第四步：常驻菜单栏</strong><br>
-        关闭主窗口后，MyWallpaperX 将继续在菜单栏托盘运行。点击托盘图标可快速控制播放、切换壁纸或重新打开主界面。</p>
+<section class="guide-section" id="web">
+<div class="section-heading"><h2>Web · 把网页变成桌面</h2><span class="tag web">网页壁纸</span></div>
+<p class="lead">时钟、信息面板、网页动画与交互画面。内容由网页及其资源组成，具体表现取决于作者的设计。</p>
+<div class="two-column"><div><h3>可以做什么</h3><ul><li>在创意工坊选择 Web 类型，下载完成后从「已下载」播放。</li><li>打开详情中的「属性调节」，修改作者开放的颜色、文字、开关或其他选项。</li><li>支持的作品可以响应鼠标或音频；只有作品本身提供这些行为时才会生效。</li></ul></div><div><h3>使用技巧</h3><ul><li>先按默认属性播放，再逐项修改，方便判断某个选项的作用。</li><li>天气、在线图片等远程内容可能需要网络；下载完成不代表全部内容都能离线运行。</li><li>遇到空白或缺少内容，查看详情中的「播放诊断」，核对入口、资源及依赖提示。</li></ul></div></div>
+<aside class="tip">
+<strong>保留完整项目</strong>Web 壁纸通常不只是一个 HTML 文件。不要从下载目录里单独搬走网页、图片或脚本；依赖其他作品的预设也需要对应基础内容。不同作品的兼容情况可能不同。
+</aside>
 
-        <div class="note-box">
-            <strong>提示：</strong>首次启动时，系统可能弹出权限请求，这是壁纸引擎正常工作所必需的，请点击「好」授权。
-        </div>
-    </div>
+</section>
+
+<section class="guide-section" id="scene">
+<div class="section-heading"><h2>Scene · 让场景实时生长</h2><span class="tag scene">实时场景</span></div>
+<p class="lead">场景由图层、材质和动画实时组合，不是一段预先录好的视频。支持的作品可以呈现景深层次、粒子、动态文字及响应效果。</p>
+<div class="two-column"><div><h3>可以做什么</h3><ul><li>在创意工坊选择 Scene 类型，下载后设为桌面。</li><li>在「属性调节」中更改作者开放的颜色、开关、数值、文字或图片选项。</li><li>使用统一的播放、暂停和音量控制，按需开启节能策略。</li></ul></div><div><h3>使用技巧</h3><ul><li>想降低运行开销，可在设置中选择「最高帧率（Scene 引擎）」的 30 档；60 档提供更高的帧率上限。</li><li>先测试默认效果，再调整特效相关属性；复杂作品的流畅程度也取决于内容本身。</li><li>画面缺层、效果异常时，查看「播放诊断」，保留作品链接和现象以便反馈。</li></ul></div></div>
+<aside class="tip">
+<strong>兼容程度因作品而异</strong>Scene 兼容仍在持续完善。下载成功不等于每种特效、脚本或交互都能完整呈现，也不保证与 Wallpaper Engine 的画面完全一致。没有显示的属性，不一定是应用遗漏，也可能是作者未开放。
+</aside>
+
+</section>
+
+<section class="guide-section" id="toolbars">
+<div class="section-heading"><h2>工具栏，每个按钮都用明白</h2><span class="tag">按模块查找</span></div>
+<p>先看侧边栏选中了哪个模块，再对照下面的按钮。相似图标在不同列表的操作对象不同；按钮灰色时，通常需要先选中可操作的素材。将鼠标停在图标上也能看到提示。</p>
+<details>
+
+<summary>
+我的视频
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">按钮 / 入口</th><th scope="col">点击后可以做什么</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">圆圈加号 · 导入</th><td data-label="点击后可以做什么">打开文件选择器，添加本地视频。进入多选后，这个位置变成「全选」。</td>
+</tr>
+
+<tr>
+<th scope="row">圆圈勾选 · 选择</th><td data-label="点击后可以做什么">进入／退出多选，用于批量收藏、标签或移除。</td>
+</tr>
+
+<tr>
+<th scope="row">左右箭头 · 上一张／下一张</th><td data-label="点击后可以做什么">切换正在使用的视频壁纸；不是列表翻页按钮。</td>
+</tr>
+
+<tr>
+<th scope="row">垃圾桶 · 删除</th><td data-label="点击后可以做什么">在「我的视频」移除库记录与派生缓存，保留源视频；在收藏、最近使用或标签中，只移除当前分类的引用。</td>
+</tr>
+
+<tr>
+<th scope="row">爱心 · 收藏</th><td data-label="点击后可以做什么">把选中视频加入「特别喜爱」，再次点击取消收藏。</td>
+</tr>
+
+<tr>
+<th scope="row">标签 · 编辑标签</th><td data-label="点击后可以做什么">为选中视频选择标签；没有标签时，先新建标签。</td>
+</tr>
+
+<tr>
+<th scope="row">排序／缩略图 ±／搜索</th><td data-label="点击后可以做什么">排序菜单选择排序字段及升降序；放大镜 ± 调整卡片大小；搜索筛选当前视频列表。</td>
+</tr>
+
+</tbody>
+
+</table>
+</div></div>
+</details>
+
+<details>
+
+<summary>
+我的图片
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">按钮 / 入口</th><th scope="col">点击后可以做什么</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">圆圈加号 · 导入</th><td data-label="点击后可以做什么">选择本地图片；多选时变成「全选／取消全选」。</td>
+</tr>
+
+<tr>
+<th scope="row">选择／垃圾桶</th><td data-label="点击后可以做什么">选择用于批量操作；删除从图片列表移除记录，保留原图。在标签内删除只移出该标签。</td>
+</tr>
+
+<tr>
+<th scope="row">标签</th><td data-label="点击后可以做什么">给选中图片设置标签；没有可用标签时，在侧边栏右键新建图片标签。</td>
+</tr>
+
+<tr>
+<th scope="row">排序／缩略图 ±／搜索</th><td data-label="点击后可以做什么">调整当前图片列表的顺序、卡片尺寸或搜索条件，不改变原图尺寸。</td>
+</tr>
+
+</tbody>
+
+</table>
+</div></div>
+</details>
+
+<details>
+
+<summary>
+Pixabay · 浏览
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">按钮 / 入口</th><th scope="col">点击后可以做什么</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">设置 · API Key</th><td data-label="点击后可以做什么">打开菜单，可更改 API Key，或清空密钥并返回登录界面。这里的密钥与 Steam 登录无关。</td>
+</tr>
+
+<tr>
+<th scope="row">环形箭头 · 刷新</th><td data-label="点击后可以做什么">重新请求当前素材列表。</td>
+</tr>
+
+<tr>
+<th scope="row">分类／排序</th><td data-label="点击后可以做什么">选定素材分类与在线结果排序方式。</td>
+</tr>
+
+<tr>
+<th scope="row">缩略图 ±／搜索</th><td data-label="点击后可以做什么">改变素材卡片大小，或输入关键词搜索 Pixabay 素材。</td>
+</tr>
+
+</tbody>
+
+</table>
+</div></div>
+</details>
+
+<details>
+
+<summary>
+Pixabay · 已下载
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">按钮 / 入口</th><th scope="col">点击后可以做什么</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">选择／垃圾桶</th><td data-label="点击后可以做什么">选择一个或多个下载项；删除会移除本地下载文件，请留意确认提示。</td>
+</tr>
+
+<tr>
+<th scope="row">查看文件</th><td data-label="点击后可以做什么">在访达中定位选中下载项的本地文件。</td>
+</tr>
+
+<tr>
+<th scope="row">排序／缩略图 ±／搜索</th><td data-label="点击后可以做什么">管理已经下载的列表，不会重新搜索 Pixabay 在线素材。</td>
+</tr>
+
+</tbody>
+
+</table>
+</div></div>
+</details>
+
+<details>
+
+<summary>
+创意工坊 · 浏览与个人列表
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">按钮 / 入口</th><th scope="col">点击后可以做什么</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">Steam 账号</th><td data-label="点击后可以做什么">未登录时打开登录面板；已登录时查看账号、切换账号或退出登录。</td>
+</tr>
+
+<tr>
+<th scope="row">向下箭头 · 下载任务</th><td data-label="点击后可以做什么">打开任务面板，查看队列、进度、失败提示与重试入口。</td>
+</tr>
+
+<tr>
+<th scope="row">浏览来源／个人列表</th><td data-label="点击后可以做什么">总榜可选最热门、最新发布、最多订阅、最后更新；个人页可切换「我的订阅／我的收藏」。</td>
+</tr>
+
+<tr>
+<th scope="row">时间段／排序</th><td data-label="点击后可以做什么">最热门榜单可选热度统计时间段，并非作品发布日期范围。个人列表按菜单中的名称、大小、订阅时间或更新时间排序。</td>
+</tr>
+
+<tr>
+<th scope="row">圆形筛选图标</th><td data-label="点击后可以做什么">打开类型、分级、分辨率等筛选；同一类中的多项可任选其一匹配，不同类的条件需要同时满足。</td>
+</tr>
+
+<tr>
+<th scope="row">缩略图 ±／搜索</th><td data-label="点击后可以做什么">调整卡片大小；关键词查主题，<code>ID=作品编号</code> 精确查找作品。详见<a href="#search-tips">搜索技巧</a>。</td>
+</tr>
+
+<tr>
+<th scope="row">返回箭头 · 返回总榜</th><td data-label="点击后可以做什么">从作品详情点作者名字进入作者工坊后，用此按钮返回总榜。作者页的搜索用于筛选该作者作品。</td>
+</tr>
+
+</tbody>
+
+</table>
+</div></div>
+</details>
+
+<details>
+
+<summary>
+创意工坊 · 已下载
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">按钮 / 入口</th><th scope="col">点击后可以做什么</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">Steam 账号／下载任务</th><td data-label="点击后可以做什么">与浏览页共用账号和任务面板；失败任务到下载面板查看并重试。</td>
+</tr>
+
+<tr>
+<th scope="row">选择／垃圾桶</th><td data-label="点击后可以做什么">进入多选后批量选择；删除下载内容会同步删除对应本地文件。活动任务请在任务面板处理。</td>
+</tr>
+
+<tr>
+<th scope="row">筛选</th><td data-label="点击后可以做什么">查看全部、Video、Web、Scene，或只看「缺少依赖」的作品。</td>
+</tr>
+
+<tr>
+<th scope="row">排序</th><td data-label="点击后可以做什么">按更新时间、名称或大小排序，可选择升序或降序。</td>
+</tr>
+
+<tr>
+<th scope="row">缩略图 ±／搜索</th><td data-label="点击后可以做什么">调整卡片尺寸；按标题、描述、标签、作者或 ID 筛选本地下载项，不会发起新下载。</td>
+</tr>
+
+</tbody>
+
+</table>
+</div></div>
+</details>
+
+<aside class="tip">
+<strong>详情里的按钮也值得认识</strong>Web、Scene 的「属性调节」打开作者提供的选项；「播放诊断」查看加载和运行提示；点击作者名字进入作者工坊。取消订阅只改 Steam 订阅状态，不删除本地文件、不停止当前播放。窗口顶部工具栏会随模块切换，不会同时显示所有按钮。
+</aside>
+<p>屏幕顶部的 MyWallpaperX 菜单栏图标还可打开主界面、导入视频、切换壁纸、播放／暂停、静音、打开设置和退出应用。</p>
+</section>
+
+<section class="guide-section" id="search-tips">
+<div class="section-heading"><h2>有 ID，就能直达作品</h2><span class="tag">工坊搜索技巧</span></div>
+<p>知道作品编号时，不必反复翻页。回到创意工坊总榜，在工具栏的 Steam 搜索框中输入以下任一种形式；作者页请先点「返回总榜」。</p><div class="search-demo"><span>精确查找作品</span><code>ID=1234567890</code><small>示例编号 · 请换成目标作品的真实 ID</small></div><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">输入方式</th><th scope="col">例子</th><th scope="col">使用提示</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">关键词</th><td data-label="例子"><code>星空</code>、<code>landscape</code></td><td data-label="使用提示">搜索主题；结合 Video／Web／Scene 与分辨率筛选缩小范围。</td>
+</tr>
+
+<tr>
+<th scope="row">ID=编号</th><td data-label="例子"><code>ID=1234567890</code></td><td data-label="使用提示">ID 大小写均可；等号两侧不要加空格。</td>
+</tr>
+
+<tr>
+<th scope="row">纯数字</th><td data-label="例子"><code>1234567890</code></td><td data-label="使用提示">至少 6 位数字时识别为作品 ID，不是普通关键词。</td>
+</tr>
+
+<tr>
+<th scope="row">完整作品链接</th><td data-label="例子"><code>https://steamcommunity.com/sharedfiles/filedetails/?id=1234567890</code></td><td data-label="使用提示">从链接中的 id= 提取作品编号。</td>
+</tr>
+
+</tbody>
+
+</table>
 </div>
+<aside class="tip">
+<strong>作品 ID ≠ 账号 SteamID</strong>这里要填工坊作品详情链接中的编号。精确查找不保证作品仍公开或可下载。普通搜索没结果时，先清空关键词并减少筛选条件；「已下载」搜索只筛选本地内容，也支持 ID 形式，不会自动从 Steam 获取作品。
+</aside>
 
-<!-- 快捷键 -->
-<div id="shortcuts" class="section">
-    <div class="section-header">
-        <span class="icon">⌨</span>
-        <h2>键盘快捷键</h2>
-    </div>
-    <table class="shortcut-table">
-        <thead>
-            <tr>
-                <th style="width:55%">操作</th>
-                <th>快捷键</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr><td class="shortcut-group" colspan="2">壁纸控制</td></tr>
-            <tr><td class="action">将选中壁纸设为桌面</td><td class="keys"><span class="key">↩</span></td></tr>
-            <tr><td class="action">切换下一张壁纸</td><td class="keys"><span class="key">⌘</span> <span class="key">→</span></td></tr>
-            <tr><td class="action">切换上一张壁纸</td><td class="keys"><span class="key">⌘</span> <span class="key">←</span></td></tr>
-            <tr><td class="shortcut-group" colspan="2">文件操作</td></tr>
-            <tr><td class="action">导入视频</td><td class="keys"><span class="key">⌘</span> <span class="key">O</span></td></tr>
-            <tr><td class="action">删除选中壁纸（无确认弹窗）</td><td class="keys"><span class="key">⌘</span> <span class="key">⌫</span></td></tr>
-            <tr><td class="action">在访达中定位文件</td><td class="keys"><span class="key">⌘</span> <span class="key">R</span></td></tr>
-            <tr><td class="action">查看壁纸详细信息</td><td class="keys"><span class="key">⌘</span> <span class="key">I</span></td></tr>
-            <tr><td class="shortcut-group" colspan="2">整理与标注</td></tr>
-            <tr><td class="action">收藏 / 取消收藏</td><td class="keys"><span class="key">⌘</span> <span class="key">D</span></td></tr>
-            <tr><td class="action">添加标签</td><td class="keys"><span class="key">⌘</span> <span class="key">T</span></td></tr>
-            <tr><td class="shortcut-group" colspan="2">选择操作</td></tr>
-            <tr><td class="action">进入 / 退出多选模式</td><td class="keys"><span class="key">⌘</span> <span class="key">E</span></td></tr>
-            <tr><td class="action">全选（多选模式下）</td><td class="keys"><span class="key">⌘</span> <span class="key">A</span></td></tr>
-            <tr><td class="action">方向键导航卡片</td><td class="keys"><span class="key">↑</span> <span class="key">↓</span> <span class="key">←</span> <span class="key">→</span></td></tr>
-            <tr><td class="shortcut-group" colspan="2">视图</td></tr>
-            <tr><td class="action">放大缩略图（减少列数）</td><td class="keys"><span class="key">⌘</span> <span class="key">−</span></td></tr>
-            <tr><td class="action">缩小缩略图（增加列数）</td><td class="keys"><span class="key">⌘</span> <span class="key">+</span></td></tr>
-            <tr><td class="shortcut-group" colspan="2">应用</td></tr>
-            <tr><td class="action">打开主界面</td><td class="keys"><span class="key">⌘</span> <span class="key">N</span></td></tr>
-            <tr><td class="action">偏好设置</td><td class="keys"><span class="key">⌘</span> <span class="key">,</span></td></tr>
-            <tr><td class="action">退出应用</td><td class="keys"><span class="key">⌘</span> <span class="key">Q</span></td></tr>
-        </tbody>
-    </table>
+</section>
+
+<section class="guide-section" id="workshop">
+<div class="section-heading"><h2>创意工坊与下载</h2><span class="tag">发现与管理</span></div>
+<p class="lead">通过 Steam 账号浏览作品、管理订阅和获取壁纸。Video、Web、Scene 的下载入口在同一个模块中。</p>
+<div class="flow" aria-label="下载步骤"><span>登录 Steam</span><b aria-hidden="true">→</b><span>搜索与筛选</span><b aria-hidden="true">→</b><span>下载作品</span><b aria-hidden="true">→</b><span>在已下载中播放</span></div>
+<div class="two-column"><div><h3>找到合适的作品</h3><ul><li>使用工具栏的 Steam 账号入口登录，按提示完成二维码或账号验证。</li><li>先筛选内容类型，再搜索主题；「我的订阅」用于查看账号的订阅作品。</li><li>详情中可以查看作品信息，并通过作者入口继续发现作品。</li></ul></div><div><h3>读懂下载任务</h3><ul><li>工具栏下载按钮显示队列、进度和失败原因。</li><li>失败项目可点「重试」。先处理提示中的网络、登录或磁盘问题，再重试。</li><li>「全部清除」只清理已完成、失败和取消记录，不打断活动任务，也不删除已下载文件。</li></ul></div></div>
+<aside class="tip">
+<strong>清除记录、删除文件、取消订阅是三件事</strong>在创意工坊「已下载」列表删除作品，会删除对应的本地内容；取消订阅不会删除本地文件。只想整理任务历史，请用下载面板的「全部清除」。
+</aside>
+<h3 class="subheading">下载任务面板里的操作</h3><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">按钮</th><th scope="col">作用</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">每行的 ×</th><td data-label="作用">对可取消的排队／下载任务，取消该任务；对失败或历史记录，清除对应记录。保存阶段等不可取消的状态可能禁用此按钮。</td>
+</tr>
+
+<tr>
+<th scope="row">重试</th><td data-label="作用">只在失败项显示。先处理失败原因，并确认仍登录该任务所属的 Steam 账号，再点击重新下载。</td>
+</tr>
+
+<tr>
+<th scope="row">全部清除</th><td data-label="作用">只清已完成、失败与取消记录；保留排队、下载、保存等活动任务，也不删除已下载文件。</td>
+</tr>
+
+<tr>
+<th scope="row">失败文字</th><td data-label="作用">把鼠标停在失败提示上，可查看较长的完整报错，再到下方排查章节对照。</td>
+</tr>
+
+</tbody>
+
+</table>
 </div>
+</section>
 
-<!-- 播放控制 -->
-<div id="playback" class="section">
-    <div class="section-header">
-        <span class="icon">▶</span>
-        <h2>播放控制</h2>
-    </div>
-    <div class="section-body">
-        <p><strong>循环播放</strong>：开启后，单张壁纸播放结束后从头重播，不自动切换到下一张。</p>
-        <p><strong>顺序播放</strong>：按壁纸库排列顺序依次切换，播放到最后一张后回到第一张。</p>
-        <p><strong>随机播放</strong>：每次切换时从壁纸库中随机选择下一张，尽量不重复。</p>
-        <p><strong>自动切换</strong>：按设定的时间间隔自动切换壁纸，间隔时间支持秒、分钟或小时单位。</p>
-        <p><strong>播放速率</strong>：在偏好设置中开启后，可将视频播放速率调整为 0.25× 至 2.0×，步长 0.25。</p>
-        <p><strong>音量控制</strong>：独立调整壁纸视频的音量（0–100%），静音开关不影响其他应用的系统音量。</p>
-        <div class="note-box">
-            <strong>注意：</strong>开启「自动切换」后，当前视频将循环播放直至计时器到期再切换下一张。关闭后，视频播完会自然过渡到下一张（取决于顺序/随机设置）。
-        </div>
-    </div>
+<section class="guide-section" id="library">
+<div class="section-heading"><h2>让素材各归其位</h2><span class="tag">素材管理</span></div>
+<div class="module-list"><div><h3>我的视频</h3><p>管理自己导入的视频。「特别喜爱」收集常用作品，「最近使用」找回刚用过的壁纸，标签适合按氛围或用途分类。</p></div><div><h3>我的图片</h3><p>静态图片有独立的素材列表和标签。想要安静的桌面时，可以直接使用图片壁纸，无需动态播放。</p></div><div><h3>Pixabay 浏览</h3><p>在线发现素材，通过该模块的「已下载」管理下载内容。若提示需要 API Key，使用工具栏的密钥设置入口完成配置。</p></div><div><h3>工坊已下载</h3><p>集中管理已获取的 Video、Web、Scene。文件被外部移动或删除后，原条目可能不可用；通过原作品重新下载比只搬回部分文件更稳妥。</p></div></div>
+<aside class="tip">
+<strong>先选模块，再操作</strong>导入、搜索、筛选和删除的对象取决于当前所在列表。「文件 → 导入」用于当前支持导入的素材模块，不是通用的 Web 或 Scene 文件导入口。
+</aside>
+
+</section>
+
+<section class="guide-section" id="playback">
+<div class="section-heading"><h2>播放、声音与节能</h2><span class="tag">统一控制</span></div>
+<p class="lead">Video、Web、Scene 共用播放／暂停、音量与静音，以及以下四项节能策略。你不用为每个引擎分别设置。</p>
+<div class="table-wrap">
+<table>
+<caption>设置 → 节能与暂停</caption>
+<thead>
+
+<tr>
+<th scope="col">开关</th><th scope="col">什么时候暂停</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">其他应用焦点时暂停</th><td data-label="什么时候暂停">切换到其他普通应用工作时。MyWallpaperX 自身和访达不算“其他应用”。</td>
+</tr>
+
+<tr>
+<th scope="row">其他应用全屏时暂停</th><td data-label="什么时候暂停">当前进入其他应用占据的全屏空间时。</td>
+</tr>
+
+<tr>
+<th scope="row">未连接电源时暂停播放</th><td data-label="什么时候暂停">电脑使用电池供电时。</td>
+</tr>
+
+<tr>
+<th scope="row">电脑不活跃时暂停播放</th><td data-label="什么时候暂停">无操作达到所选的不活跃时间后；可在该开关下调整等待时长。</td>
+</tr>
+
+</tbody>
+
+</table>
 </div>
+<div class="two-column"><div><h3>暂停后怎样恢复</h3><p>只要仍有一项已启用的暂停条件成立，壁纸就会保持暂停。条件解除后才能自动继续；你手动暂停的壁纸仍需手动恢复。</p></div><div><h3>声音与音频响应</h3><p>音量控制壁纸自身的声音，不会凭空给无声作品添加音轨。跟随系统声音变化的效果，还需要作品支持、对应设置及 macOS 权限。</p></div></div>
+<aside class="tip">
+<strong>先从简单的节能组合开始</strong>经常全屏工作，可先打开“其他应用全屏时暂停”；笔记本再按需要开启电池暂停。Scene 的 30／60 帧率档位只影响 Scene，不会更改视频原始帧率。
+</aside>
 
-<!-- 壁纸库管理 -->
-<div id="library" class="section">
-    <div class="section-header">
-        <span class="icon">📁</span>
-        <h2>壁纸库管理</h2>
-    </div>
-    <div class="section-body">
-        <p><strong>导入视频</strong>：支持拖放文件到主窗口，或通过菜单「文件 → 导入视频」（<span class="key">⌘O</span>）批量导入。</p>
-        <p><strong>收藏</strong>：选中壁纸后按 <span class="key">⌘D</span>，收藏的壁纸可在侧边栏「收藏」分类中快速访问。</p>
-        <p><strong>标签</strong>：按 <span class="key">⌘T</span> 为壁纸添加自定义标签，在侧边栏按标签筛选浏览。</p>
-        <p><strong>多选删除</strong>：按 <span class="key">⌘E</span> 进入多选模式，框选或逐一点击多张壁纸，再按 <span class="key">⌘⌫</span> 批量删除。删除操作仅移除库中的引用，<strong>不会删除原始视频文件</strong>。</p>
-        <p><strong>最近使用</strong>：侧边栏「最近使用」自动记录最近播放的 25 张壁纸，方便快速回切。</p>
-        <p><strong>排序</strong>：工具栏「排序」按钮支持按名称、导入时间、最近播放时间等排序，每个分类独立保存排序状态。</p>
-        <p><strong>配置备份</strong>：在「偏好设置 → 导出个人设置」中导出为 JSON 文件，换机后通过「导入个人设置」恢复。</p>
-    </div>
+</section>
+
+<section class="guide-section" id="shortcuts">
+<div class="section-heading"><h2>快捷键，连同生效条件</h2><span class="tag">完整速查</span></div>
+<p>⌘ 是 Command，⌥ 是 Option，⌫ 是 Delete。以下是应用菜单中的快捷键；当前模块不支持、未选中合适素材或焦点在输入框时，操作可能不可用或交给文字编辑。以菜单是否可用为准。</p><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">按键</th><th scope="col">操作</th><th scope="col">生效位置与说明</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row"><kbd>⌘ O</kbd></th><td data-label="操作">导入</td><td data-label="生效位置与说明">在支持导入的本地视频／图片模块打开文件选择器。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ N</kbd></th><td data-label="操作">新建标签</td><td data-label="生效位置与说明">在当前支持标签的模块中新建标签。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ F</kbd></th><td data-label="操作">搜索</td><td data-label="生效位置与说明">把焦点移到当前模块的搜索框。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ E</kbd></th><td data-label="操作">进入／退出多选</td><td data-label="生效位置与说明">用于支持选择模式的素材列表。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ A</kbd></th><td data-label="操作">全选</td><td data-label="生效位置与说明">输入框内全选文字；支持的列表中全选素材。工坊已下载先进入多选。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ ⌫</kbd></th><td data-label="操作">删除选中</td><td data-label="生效位置与说明">遵循当前模块的删除规则；本地导入与在线下载的文件处理不同。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ + / ⌘ −</kbd></th><td data-label="操作">放大／缩小缩略图</td><td data-label="生效位置与说明">改变卡片大小，不改变壁纸缩放。加号键在部分键盘上需要 Shift。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>Return ↵</kbd></th><td data-label="操作">设为当前壁纸</td><td data-label="生效位置与说明">适用于支持该命令的已就绪素材；工坊网格按当前条目的主操作处理，可能打开详情或下载依赖。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ → / ⌘ ←</kbd></th><td data-label="操作">下一张／上一张</td><td data-label="生效位置与说明">调用视频壁纸切换；不是网页历史前进后退。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ D</kbd></th><td data-label="操作">收藏／取消收藏</td><td data-label="生效位置与说明">对支持收藏的当前选中项操作。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ T</kbd></th><td data-label="操作">添加标签</td><td data-label="生效位置与说明">给支持标签的当前选中项设置标签。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ I</kbd></th><td data-label="操作">查看信息</td><td data-label="生效位置与说明">打开支持信息查看的选中项详情。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>Space</kbd></th><td data-label="操作">预览</td><td data-label="生效位置与说明">打开支持预览的选中素材；不是全局播放／暂停键。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ R</kbd></th><td data-label="操作">查看文件</td><td data-label="生效位置与说明">在访达中定位支持此操作的本地素材；不是刷新列表。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ X / C / V</kbd></th><td data-label="操作">剪切／拷贝／粘贴</td><td data-label="生效位置与说明">用于支持这些操作的文字编辑区域。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ ,</kbd></th><td data-label="操作">偏好设置</td><td data-label="生效位置与说明">打开应用设置。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ M / ⌘ W</kbd></th><td data-label="操作">最小化／关闭窗口</td><td data-label="生效位置与说明">关闭主窗口与退出应用不同。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ H / ⌥ ⌘ H</kbd></th><td data-label="操作">隐藏应用／隐藏其他</td><td data-label="生效位置与说明">隐藏 MyWallpaperX，或隐藏其他应用。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ Q</kbd></th><td data-label="操作">退出</td><td data-label="生效位置与说明">退出 MyWallpaperX。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ ?</kbd></th><td data-label="操作">帮助</td><td data-label="生效位置与说明">打开此帮助文档；通常按 ⌘ Shift / 输入。</td>
+</tr>
+
+</tbody>
+
+</table>
+</div><h3 class="subheading">工坊网格与弹窗中的按键</h3><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">按键</th><th scope="col">作用</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row"><kbd>↑ ↓ ← →</kbd></th><td data-label="作用">在工坊网格中移动键盘焦点；在支持的预览窗口中切换项目。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>Shift F5</kbd></th><td data-label="作用">工坊浏览网格中，为当前键盘焦点作品打开右键菜单。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>Esc</kbd></th><td data-label="作用">按当前界面退出／关闭：登录面板取消认证，预览窗口关闭预览；本页搜索框清空查询。</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>Return</kbd></th><td data-label="作用">登录密码页提交登录；验证码页提交验证码。输入框焦点优先，不会顺便设置壁纸。</td>
+</tr>
+
+</tbody>
+
+</table>
 </div>
+<aside class="tip">
+<strong>全局快捷键要先设置</strong>在设置中打开「响应系统快捷键」，给上一张、下一张、播放／暂停、静音分别选一个 F1–F12 功能键。默认未启用，也没有默认分配。它们可以在其他应用获得焦点时使用；上一张／下一张用于视频切换，播放／暂停与静音调控当前动态引擎。若无反应，检查是否启用、是否选了「无」、是否与其他快捷键冲突。
+</aside>
 
-<!-- 显示设置 -->
-<div id="display" class="section">
-    <div class="section-header">
-        <span class="icon">🖥</span>
-        <h2>显示设置</h2>
-    </div>
-    <div class="section-body">
-        <p><strong>缩略图大小</strong>：使用工具栏缩放按钮或快捷键 <span class="key">⌘−</span> / <span class="key">⌘+</span> 调整网格列数（2–6 列），偏好自动保存并在下次启动时恢复。</p>
-        <p><strong>视频填充模式</strong>：</p>
-        <p>• <strong>适应（Fit）</strong>：保持视频原始比例，两侧可能出现留白。<br>
-           • <strong>填充（Fill）</strong>：裁剪视频以完全覆盖桌面，不留边框。</p>
-        <p><strong>多屏适配</strong>：在偏好设置中开启「多屏适配」后，所有已连接显示器将同步播放同一壁纸。</p>
-        <p><strong>同步系统壁纸</strong>：开启后，每次切换壁纸时自动将视频当前帧同步为系统静态壁纸，方便截图或锁屏显示。</p>
-    </div>
-</div>
+</section>
 
-<!-- 性能与电源 -->
-<div id="performance" class="section">
-    <div class="section-header">
-        <span class="icon">🔋</span>
-        <h2>性能与电源管理</h2>
-    </div>
-    <div class="section-body">
-        <p><strong>其他应用获得焦点时暂停</strong>：当前台有其他应用运行时暂停壁纸播放，释放 GPU 资源。</p>
-        <p><strong>其他应用全屏时暂停</strong>：检测到游戏、视频等全屏应用时自动暂停，避免后台占用帧率。</p>
-        <p><strong>未连接电源时暂停</strong>：使用电池供电时自动暂停播放，延长续航时间。</p>
-        <p><strong>电脑不活跃时暂停</strong>：系统闲置超过设定时间（默认 10 分钟）后暂停播放，恢复活动后自动继续。</p>
-        <div class="note-box">
-            <strong>建议：</strong>在 MacBook 上建议开启「未连接电源时暂停」，可显著降低电池消耗。台式机用户可关闭所有暂停选项以获得连续播放体验。
-        </div>
-    </div>
-</div>
+<section class="guide-section" id="login">
+<div class="section-heading"><h2>登录遇到问题，按提示处理</h2><span class="tag">Steam 登录</span></div>
+<p>从工具栏 Steam 账号入口开始。二维码登录使用 Steam 手机应用扫码并确认；账号密码登录可能继续要求手机批准、手机令牌或邮箱验证码。请按面板当前提示操作。</p>
+<aside class="tip">
+<strong>“记住登录”保存的是会话</strong>按需要勾选「记住登录」。忘记勾选时，下次重新登录不一定是故障；若明确提示「本次登录未能保存」，则是保存失败。不要在反馈中提供密码、验证码、二维码或登录令牌。
+</aside>
 
-<!-- 常见问题 -->
-<div id="faq" class="section">
-    <div class="section-header">
-        <span class="icon">❓</span>
-        <h2>常见问题</h2>
-    </div>
-    <div class="faq-item">
-        <h3>为什么壁纸播放后系统风扇转速上升？</h3>
-        <p>视频解码会占用 GPU/CPU 资源，高分辨率视频尤为明显。建议使用 H.264 或 HEVC 编码的视频，并开启「其他应用全屏时暂停」减少不必要的后台渲染。</p>
-    </div>
-    <div class="faq-item">
-        <h3>删除壁纸后，原始视频文件还在吗？</h3>
-        <p>在。MyWallpaperX 的删除操作仅从壁纸库中移除引用记录及缩略图缓存，不会删除磁盘上的原始视频文件。</p>
-    </div>
-    <div class="faq-item">
-        <h3>支持哪些视频格式？</h3>
-        <p>支持 macOS AVFoundation 框架能解码的所有格式，包括 MP4（H.264/HEVC）、MOV、M4V 等。不支持需要第三方解码器的格式（如 MKV、AVI 含特殊编码）。</p>
-    </div>
-    <div class="faq-item">
-        <h3>如何让壁纸开机自动播放？</h3>
-        <p>在「偏好设置 → 系统 → 开机自启动」中开启即可。MyWallpaperX 会在登录时自动启动并恢复上次的壁纸设置。</p>
-    </div>
-    <div class="faq-item">
-        <h3>缩略图显示空白或加载缓慢怎么办？</h3>
-        <p>缩略图首次加载需要生成缓存，请耐心等待。若长时间空白，可在「偏好设置 → 清空缓存」中重置缩略图缓存，再重新打开主界面触发重建。</p>
-    </div>
-    <div class="faq-item">
-        <h3>更换 Mac 后如何迁移壁纸库？</h3>
-        <p>在旧 Mac 上通过「偏好设置 → 导出个人设置」导出 JSON 配置文件，将配置文件与视频文件一同复制到新 Mac，再通过「导入个人设置」恢复。注意视频文件路径需与导出时保持一致。</p>
-    </div>
-</div>
+<details>
 
-</div><!-- /content -->
+<summary>
+二维码扫不出／等待扫码确认
+</summary>
+<div class="answer"><p>用 Steam 手机应用扫描。点击二维码或「放大二维码」看大图；旧码不可用时点刷新，扫描新码。切换登录方式会取消旧的验证流程。</p></div>
+</details>
 
-<!-- 技术实现 -->
-<div class="content">
-<div id="tech" class="section">
-    <div class="section-header">
-        <span class="icon">⚙</span>
-        <h2>技术实现</h2>
-    </div>
-    <div class="section-body">
-        <p><strong>原生 macOS 架构</strong><br>
-        MyWallpaperX 完全采用 Apple 原生技术栈构建——SwiftUI 负责声明式界面层，AppKit 处理高性能网格渲染与键盘交互，两者通过精确的状态同步机制无缝协同，避免了混合框架常见的性能损耗与渲染抖动。</p>
+<details>
 
-        <p><strong>双进程壁纸引擎</strong><br>
-        壁纸播放由独立的 XPC Daemon 进程（WallpaperDaemon）承载，与主进程完全隔离。主进程崩溃不影响壁纸继续播放；Daemon 崩溃会自动重启并恢复播放状态。两者通过自定义 XPC 协议通信，延迟控制在毫秒级以内。</p>
+<summary>
+请在 Steam 手机应用中确认本次登录
+</summary>
+<div class="answer"><p>扫码或密码通过后，还可能需要手机端确认。保持登录面板打开，去 Steam 手机应用批准此次登录；关闭面板或按 Esc 会取消本次认证。</p></div>
+</details>
 
-        <p><strong>AVFoundation 硬件解码</strong><br>
-        视频播放层基于 AVFoundation + AVSampleBufferDisplayLayer，全程走 Apple Silicon / Intel 硬件解码通道（VideoToolbox），CPU 占用极低。4K HEVC 视频在 M 系列芯片上解码功耗不足 1W，对日常使用几乎无感知。</p>
+<details>
 
-        <p><strong>高性能缩略图管道</strong><br>
-        缩略图采用多级缓存架构：内存 LRU 缓存（最多 360 张）+ 磁盘持久化缓存。首次生成通过 AVAssetImageGenerator 异步提取关键帧，后续加载直接命中内存缓存，网格滚动帧率稳定在 60fps。</p>
+<summary>
+上一枚验证码被拒绝，请重新输入
+</summary>
+<div class="answer"><p>核对当前要求的是手机令牌还是邮箱验证码。输入当前这一次登录对应的新验证码；旧码、输错或用错来源都可能被拒绝。邮箱验证还要核对提示的邮箱域名。</p></div>
+</details>
 
-        <p><strong>精准的状态管理</strong><br>
-        核心数据层基于 Combine + @Published 构建响应式状态树，所有 UI 变更由单一数据源驱动，彻底消除多处状态不一致问题。删除、收藏、标签、选中态等操作均在主线程原子提交，保证界面与数据的强一致性。</p>
+<details>
 
-        <p><strong>智能系统感知</strong><br>
-        通过 IOKit 实时监听电源状态、NSWorkspace 订阅屏幕睡眠与应用全屏事件、系统空闲计时器三路信号融合，在毫秒级内响应系统状态变化，自动暂停或恢复播放，兼顾流畅体验与电池续航。</p>
-    </div>
-</div>
-</div>
+<summary>
+登录未完成 · InvalidPassword / accessDenied
+</summary>
+<div class="answer"><p>Steam 拒绝了凭据或访问请求。使用 Steam 登录账号名与密码，不要把个人资料昵称当账号名；也可能与账号权限有关。先核对登录信息，再在 Steam 官方客户端确认账号状态。</p></div>
+</details>
 
-<div class="help-footer">
-    <p>MyWallpaperX &nbsp;·&nbsp; 版本 1.0 &nbsp;·&nbsp; 仅支持 macOS</p>
-    <p style="margin-top: 8px; font-size: 13px;">有任何建议或反馈，欢迎来信 &nbsp;<a href="mailto:719897632@qq.com?subject=MyWallpaperX%20反馈" style="color: var(--accent); text-decoration: none; font-weight: 500;">719897632@qq.com</a></p>
-</div>
+<details>
 
-</body>
-</html>
+<summary>
+authExpired / Steam token rejected
+</summary>
+<div class="answer"><p>保存的会话已过期、撤销或被 Steam 拒绝。用工具栏账号菜单重新登录；切换账号时确认正在登录的是需要使用的账号。</p></div>
+</details>
+
+<details>
+
+<summary>
+Steam 认证等待超时／服务响应超时／network
+</summary>
+<div class="answer"><p>认证没有及时完成；可能是网络、代理、Steam 服务或手机确认等待超时。确认手机端是否已批准，检查连接后重新登录。单凭超时不能断定密码错误。</p></div>
+</details>
+
+<details>
+
+<summary>
+rateLimited / RateLimitExceeded
+</summary>
+<div class="answer"><p>Steam 暂时限制请求。等待一段时间再尝试，避免连续刷新二维码或反复提交密码。</p></div>
+</details>
+
+<details>
+
+<summary>
+已登录，但本次登录未能保存
+</summary>
+<div class="answer"><p>此次会话已经登录成功，但保存登录状态失败，下次可能需要重登。它与「未勾选记住登录」不同；如果重复出现，保留完整提示和应用版本用于反馈，不必先删除整个钥匙串。</p></div>
+</details>
+
+<details>
+
+<summary>
+Steam 服务组件不可用／版本不兼容／连接已中断
+</summary>
+<div class="answer"><p>组件不可用或协议不兼容通常需要更新或重新安装完整 App；不要混用不同构建里的组件。连接中断可先重开 App 再试；持续发生时同时记录运行中的 App 版本和来源。</p></div>
+</details>
+
+</section>
+
+<section class="guide-section" id="downloads">
+<div class="section-heading"><h2>下载失败，先读懂这一行</h2><span class="tag">原因与处理</span></div>
+<p>先打开工具栏「下载任务」，看失败发生在哪一步：下载清单、获取 CDN 授权、下载数据块，还是保存本地文件。同一个错误数字，出现在不同阶段时需要检查的地方不同。</p><div class="error-example"><span>报错可能长这样 · 格式示例</span><samp>下载清单失败（HTTP 503，节点 &lt;服务器&gt;，已尝试 &lt;次数&gt; 次）。请检查网络及代理设置，稍后重试。</samp></div>
+<details>
+
+<summary>
+HTTP 503 / 500 / 502 / 504 · network
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>可能的原因</h3><p>服务、内容节点或中间网络链路暂时不可用。浏览成功不代表下载节点也能连通；503 本身不能证明是 App 版本或 SteamKit 缺陷。</p></div><div><h3>接下来这样做</h3><p>稍后重试；检查当前代理是否覆盖 App 的下载连接，或换一条可用网络比较。多个作品同时失败时，保留节点、时间与完整提示。</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+HTTP 401 · authExpired
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>可能的原因</h3><p>当前下载授权或登录会话失效。</p></div><div><h3>接下来这样做</h3><p>工具栏账号菜单重新登录，再对失败任务点「重试」。</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+HTTP 403 · accessDenied／未提供有效的 CDN 授权
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>可能的原因</h3><p>节点拒绝访问，可能与账号对内容的访问权限、CDN 授权或代理有关；不等于一律密码错误。</p></div><div><h3>接下来这样做</h3><p>检查账号是否有访问该作品所需的权限，确认网络和代理设置；重新登录后重试。若提示 staging access denied，则应检查本地目录权限。</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+HTTP 429 · rateLimited
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>可能的原因</h3><p>Steam 限制了请求频率。</p></div><div><h3>接下来这样做</h3><p>等待后再试，避免连续重复创建任务。应用已对部分临时错误做有限次数的自动重试。</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+HTTP 404 · unsupportedContent／item has no content manifest
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>可能的原因</h3><p>节点没有提供对应内容，或作品没有可下载清单；作品更新、不可访问或不属于 Wallpaper Engine 也可能导致内容不可用。</p></div><div><h3>接下来这样做</h3><p>重新打开作品，确认链接和访问权限后再试。作品已删除、非目标类型或没有有效内容时，重复点击下载无法解决。</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+diskFull · 磁盘空间不足
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>可能的原因</h3><p>下载暂存或最终保存所在磁盘空间不足。</p></div><div><h3>接下来这样做</h3><p>释放相应磁盘空间再重试；提示「下载暂存已保留」时，可在原任务重试。保存前仍需要足够的工作空间，不要只看压缩包标称大小。</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+integrity · 内容校验失败／staging identity changed
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>可能的原因</h3><p>下载内容校验、文件长度或目录身份不一致；也可能是下载中途移动或改写了暂存文件。应用会停止这次不安全的保存。</p></div><div><h3>接下来这样做</h3><p>停止外部移动或编辑相关目录后重试；反复出现时保留完整报错和作品 ID。不要手工改校验文件来跳过检查。</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+manifest requires a nonempty root project.json／manifest path…
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>可能的原因</h3><p>内容结构缺失，或清单路径、大小等不满足安全要求；这类失败并非一般网络重试就能解决。</p></div><div><h3>接下来这样做</h3><p>确认是完整的 Wallpaper Engine 作品。保留原始错误用于反馈，不要自行拼凑文件夹后当作已下载内容。</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+服务响应超时／连接已中断／helperUnavailable / protocolMismatch
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>可能的原因</h3><p>可能是辅助服务没有启动、退出、版本不匹配或请求没有完成；不能仅凭这类提示判断为 Steam 服务器故障。</p></div><div><h3>接下来这样做</h3><p>连接中断先重开 App；组件不可用／版本不兼容则更新或重装完整 App。反馈时说明是否有多个版本的 App 同时存在。</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+下载已停止，但暂存目录无法安全清理／暂存清理失败
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>可能的原因</h3><p>任务已停止或内容状态已保存，但临时文件清理失败；不是让你手动删除整个壁纸目录。</p></div><div><h3>接下来这样做</h3><p>先看任务与「已下载」的实际状态。保留提示，检查目录权限或外部文件操作；持续失败再反馈。</p></div></div></div>
+</details>
+
+<aside class="tip">
+<strong>进度到 100% 也要等“已完成”</strong>传输后还有校验和保存。排队、连接中或保存中不一定持续显示速度；失败后处理原因再点重试。「全部清除」只清任务历史，保留活动任务和下载文件。
+</aside>
+<p>如果下载已完成但 Web／Scene 缺少依赖，去「已下载」的「缺少依赖」筛选或作品详情查看基础作品提示。这是内容依赖问题，与 HTTP 下载失败不同。反馈请附：应用版本与运行位置、作品链接／ID、时间、完整错误、单个还是全部作品失败，以及网络／代理是否开启。</p>
+</section>
+
+<section class="guide-section" id="faq">
+<div class="section-heading"><h2>遇到问题，从这里检查</h2><span class="tag">常见问题</span></div>
+<details>
+
+<summary>
+壁纸突然不动了，是程序卡住了吗？
+</summary>
+<p>先检查是否手动暂停，再看节能开关是否因焦点、全屏、电池或不活跃而触发。Scene 也受这些开关控制；它并不是只有在访达或 MyWallpaperX 获得焦点时才允许播放。</p>
+</details>
+
+<details>
+
+<summary>
+为什么 Web 壁纸空白，或时钟之外的内容不显示？
+</summary>
+<p>确认下载完整，查看播放诊断中的入口和依赖提示。需要联网的天气、图片或其他服务，在离线或远端不可用时可能缺失。只给一个 HTML 文件并不等于完整壁纸项目。</p>
+</details>
+
+<details>
+
+<summary>
+Scene 能播放，但与工坊预览不一样？
+</summary>
+<p>先恢复自己改过的作者属性或对照默认值，查看诊断提示。部分特效、脚本和交互可能尚未完整兼容。反馈时附上作品链接、异常位置、应用版本和截图，便于区分内容设置与兼容问题。</p>
+</details>
+
+<details>
+
+<summary>
+下载失败，出现 503 怎么处理？
+</summary>
+<p>到<a href="#downloads">下载故障排查</a>查看 HTTP 503、401、403、429、磁盘和校验错误的区别；登录异常可查<a href="#login">登录排查</a>。保留完整提示，单凭数字无法确认根因。</p>
+</details>
+
+<details>
+
+<summary>
+清空下载任务后，壁纸为什么还在？
+</summary>
+<p>任务历史与本地内容分开管理。「全部清除」不删除文件；需要移除工坊壁纸时，在工坊「已下载」列表中删除。取消订阅同样不会自动删除本地文件。</p>
+</details>
+
+<details>
+
+<summary>
+如何检查更新或反馈问题？
+</summary>
+<p>从 MyWallpaperX 菜单选择「检查更新…」；「关于 MyWallpaperX」可查看应用信息。反馈请说明壁纸类型、复现步骤、作品链接或本地文件格式，附上错误提示。不要提供 Steam 密码或验证码。</p>
+</details>
+
+</section>
+
+<footer>
+<span>MyWallpaperX 使用手册 · 内容随应用更新</span><a href="#top">回到顶部 ↑</a>
+</footer>
+
+</main>
+</div></body></html>

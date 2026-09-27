@@ -1,201 +1,829 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="AppleTitle" content="MyWallpaperX Help">
-    <title>MyWallpaperX Help</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-
-<div class="help-header">
-    <img class="app-icon" src="icon.png" alt="MyWallpaperX">
-    <h1>MyWallpaperX</h1>
-    <div class="subtitle">Built on native macOS technologies, delivering an elegant and immersive<br>dynamic video wallpaper experience for your Mac.</div>
-    <div class="version-badge">Version 1.0 &nbsp;·&nbsp; macOS only</div>
-</div>
-
-<nav class="toc">
-    <a href="#features">Features</a>
-    <a href="#getting-started">Getting Started</a>
-    <a href="#shortcuts">Shortcuts</a>
-    <a href="#playback">Playback</a>
-    <a href="#library">Library</a>
-    <a href="#display">Display</a>
-    <a href="#performance">Performance</a>
-    <a href="#faq">FAQ</a>
-    <a href="#tech">Technology</a>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="AppleTitle" content="MyWallpaperX Help"><meta name="description" content="Search help: Video, Web, Scene, Steam Workshop"><title>MyWallpaperX Help</title><link rel="stylesheet" href="../styles.css"><script src="../help.js" defer></script></head>
+<body id="top"><a class="skip" href="#main">Skip to content</a><div class="layout">
+<aside class="sidebar">
+<a class="brand" href="#top"><img src="icon.png" alt="" width="38" height="38"><span>MyWallpaperX<small>DESKTOP GUIDE</small></span></a>
+<div>
+<nav aria-label="Help contents">
+<span class="nav-group">GET STARTED</span><a href="#start">Getting started</a><a href="#video">Video wallpapers</a><a href="#web">Web wallpapers</a><a href="#scene">Scene wallpapers</a><span class="nav-group">HOW TO</span><a href="#toolbars">Module toolbars</a><a href="#search-tips">Workshop search tips</a><a href="#workshop">Downloads & subscriptions</a><a href="#library">Your libraries</a><a href="#playback">Playback & energy</a><a href="#shortcuts">Keyboard shortcuts</a><span class="nav-group">TROUBLESHOOTING</span><a href="#login">Sign-in help</a><a href="#downloads">Download errors</a><a href="#faq">More questions</a>
 </nav>
-
-<div class="content">
-
-<div id="features" class="section">
-    <div class="section-header"><span class="icon">✦</span><h2>Features</h2></div>
-    <div class="feature-grid">
-        <div class="feature-card"><span class="feature-icon">🎬</span><h3>Video Wallpapers</h3><p>Set any local video as your desktop wallpaper with loop, sequential, or shuffle playback.</p></div>
-        <div class="feature-card"><span class="feature-icon">📚</span><h3>Library Management</h3><p>Import, organize, favorite, and tag wallpapers — find anything at a glance.</p></div>
-        <div class="feature-card"><span class="feature-icon">⚡</span><h3>Auto Switch</h3><p>Automatically cycle wallpapers on a timer — seconds, minutes, or hours.</p></div>
-        <div class="feature-card"><span class="feature-icon">🖥</span><h3>Multi-Display</h3><p>Sync playback across all connected displays at any resolution.</p></div>
-        <div class="feature-card"><span class="feature-icon">🔋</span><h3>Smart Power Saving</h3><p>Automatically pauses on battery, idle, or when another app goes fullscreen.</p></div>
-        <div class="feature-card"><span class="feature-icon">⌨️</span><h3>Global Shortcuts</h3><p>Bind F1–F12 keys to control playback without opening the main window.</p></div>
-        <div class="feature-card"><span class="feature-icon">🔇</span><h3>Volume Control</h3><p>Adjust wallpaper volume independently or mute without affecting system audio.</p></div>
-        <div class="feature-card"><span class="feature-icon">📤</span><h3>Backup &amp; Restore</h3><p>Export your entire configuration and restore it in seconds on a new Mac.</p></div>
-        <div class="feature-card"><span class="feature-icon">🔍</span><h3>Instant Search</h3><p>Real-time filename search combined with tag and favorites filters for instant access.</p></div>
-    </div>
 </div>
+<div class="sidebar-bottom"><p>Available offline · Always nearby</p><a class="language" href="../zh-Hans.lproj/index.html" lang="zh-Hans" hreflang="zh-Hans">简体中文 ↗</a></div>
+</aside>
 
-<div id="getting-started" class="section">
-    <div class="section-header"><span class="icon">🚀</span><h2>Getting Started</h2></div>
-    <div class="section-body">
-        <p><strong>Step 1: Import Videos</strong><br>Click Import in the toolbar or press <span class="key">⌘</span><span class="key">O</span>. Supports MP4, MOV, M4V and any AVFoundation-decodable format. Batch import supported.</p>
-        <p><strong>Step 2: Set as Wallpaper</strong><br>Select a wallpaper, then double-click the card or press <span class="key">↩</span> to set it as your desktop wallpaper immediately.</p>
-        <p><strong>Step 3: Configure Playback</strong><br>Click the preferences icon or press <span class="key">⌘</span><span class="key">,</span> to adjust loop, shuffle, auto-switch, and more.</p>
-        <p><strong>Step 4: Lives in the Menu Bar</strong><br>After closing the main window, MyWallpaperX keeps running in the menu bar. Click the icon to control playback or reopen the window.</p>
-        <div class="note-box"><strong>Note:</strong> On first launch, macOS may prompt for permission requests required by the wallpaper engine. Please approve them.</div>
-    </div>
+<main id="main" tabindex="-1">
+<div class="topbar"><span>A desktop at your own pace.</span><label class="search" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6" stroke-width="1.7"/><path d="m15 15 5 5" stroke-width="1.7"/></svg><input id="help-search" type="search" placeholder="Search help, e.g. “pause”" aria-label="Search help" autocomplete="off"></label></div>
+<header class="hero">
+<div class="eyebrow">MYWALLPAPERX · THE DESKTOP GUIDE</div><h1>A little more life.<br><span>On your desktop.</span></h1><p class="hero-description">Meet Video, Web and Scene.<br>From your first wallpaper to every control, shortcut and error.</p><div class="gallery"><a class="preview" href="#video"><div class="art video" aria-hidden="true"><span class="window-dots"><i></i><i></i><i></i></span><svg viewBox="0 0 300 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><circle cx="219" cy="64" r="26" fill="#f4dfad"/><path d="M0 139 Q70 100 143 149 T300 127 V220 H0Z" fill="#7e9fb9"/><path d="M0 183 Q88 118 185 179 T300 159 V220 H0Z" fill="#506f8f"/><path d="M0 210 Q100 167 193 202 T300 190 V220 H0Z" fill="#2d4b68"/></svg><span class="play" aria-hidden="true">▶ ━━━━━</span></div><div class="preview-label"><strong>Video ↗</strong><span>Moving pictures</span></div></a><a class="preview" href="#web"><div class="art web" aria-hidden="true"><span class="window-dots"><i></i><i></i><i></i></span><span class="clock" aria-hidden="true">09:41<small>A MOMENT OF CALM</small></span></div><div class="preview-label"><strong>Web ↗</strong><span>Pages & interaction</span></div></a><a class="preview" href="#scene"><div class="art scene" aria-hidden="true"><span class="window-dots"><i></i><i></i><i></i></span><svg viewBox="0 0 300 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><circle cx="185" cy="70" r="38" fill="#e7e8bc"/><path d="M0 171 L71 59 129 142 175 96 265 170 300 145 V220 H0Z" fill="#7ba796"/><path d="M0 214 L44 143 84 168 154 109 231 184 300 127 V220 H0Z" fill="#457e70"/><path d="M0 220 L0 193 75 175 127 220 204 165 300 207 V220Z" fill="#2b5c52"/><g fill="#fff6d5"><circle cx="56" cy="81" r="2"/><circle cx="123" cy="53" r="2"/><circle cx="227" cy="107" r="2"/><circle cx="245" cy="47" r="1.5"/></g></svg><span class="layers" aria-hidden="true">◇ ◇ ◇</span></div><div class="preview-label"><strong>Scene ↗</strong><span>Layers & live effects</span></div></a></div><div class="quick-links"><a href="#toolbars"><span>Find a control</span><b aria-hidden="true">↗</b></a><a href="#search-tips"><span>Find an item by ID</span><b aria-hidden="true">↗</b></a><a href="#downloads"><span>Fix a download</span><b aria-hidden="true">↗</b></a></div>
+</header>
+<div class="search-status" id="search-status" hidden><span id="search-message" role="status" aria-live="polite"></span><button id="clear-search" type="button">Show all chapters</button></div>
+<section class="guide-section" id="start">
+<div class="section-heading"><h2>Start with a wallpaper you love</h2><span class="tag">GET STARTED</span></div>
+<p class="lead">A local video, a web project or a real-time scene can become your desktop. Choose your content, then make playback fit your day.</p>
+<ol class="steps"><li><h3>Find something</h3><p>Import local videos in My Videos. Browse the Workshop for Web and Scene projects.</p></li><li><h3>Apply it</h3><p>Select an item in its library and choose Set as Current Wallpaper. Workshop items must finish downloading first.</p></li><li><h3>Make it yours</h3><p>Adjust volume and pause playback. For Web and Scene, open Properties in the item details to see the author’s options.</p></li></ol>
+</section>
+
+<section class="guide-section" id="video">
+<div class="section-heading"><h2>Video · A moving picture</h2><span class="tag">VIDEO WALLPAPERS</span></div>
+<p class="lead">Landscapes, animation clips and seamless loops. A video file supplies the picture, making this the most direct way to get started.</p>
+<div class="two-column"><div><h3>What you can do</h3><ul><li>Import local files in My Videos, then organize them with favorites, tags and recently used items.</li><li>Choose loop, sequential or random playback in settings, with automatic switching when needed.</li><li>Adjust playback speed and choose whether the video fits inside or fills the display.</li></ul></div><div><h3>Make it work well</h3><ul><li>Match the video’s proportions to your display. Fill can crop the edges; Fit can leave empty borders.</li><li>Pick clips with a natural transition between the last and first frames for a smoother loop.</li><li>The codec inside an MP4 or MOV must also be supported by macOS. Try the file in a system video player if it will not play.</li></ul></div></div>
+<aside class="tip">
+<strong>Playback settings, rather than author properties</strong>Videos use the app’s volume, speed and playback mode settings. They do not have the author-defined property panels found in Web and Scene projects. Video speed and fill mode are specific to video.
+</aside>
+
+</section>
+
+<section class="guide-section" id="web">
+<div class="section-heading"><h2>Web · A desktop with a live view</h2><span class="tag web">WEB WALLPAPERS</span></div>
+<p class="lead">Clocks, information displays, web animations and interactive layouts. Each project combines a web page with its resources; the author decides what it does.</p>
+<div class="two-column"><div><h3>What you can do</h3><ul><li>Filter Workshop content by Web, download a project, then play it from Downloaded.</li><li>Open Properties in the item details to change the colors, text, switches and other options the author exposes.</li><li>Supported projects can respond to the pointer or audio, when the author has included those behaviors.</li></ul></div><div><h3>Useful habits</h3><ul><li>Start with the default properties, then change one setting at a time.</li><li>Weather, remote images and other online content may need a connection, even after the project has downloaded.</li><li>For a blank or incomplete page, open Playback Diagnostics in the details and check the entry point, resources and dependencies.</li></ul></div></div>
+<aside class="tip">
+<strong>Keep the whole project together</strong>A Web wallpaper is usually more than one HTML file. Do not move individual pages, images or scripts out of its folder. Presets that depend on another project need that base content too. Compatibility varies between projects.
+</aside>
+
+</section>
+
+<section class="guide-section" id="scene">
+<div class="section-heading"><h2>Scene · A world built in real time</h2><span class="tag scene">REAL-TIME SCENES</span></div>
+<p class="lead">Layers, materials and animation are composed as the wallpaper runs. Supported projects can include depth, particles, dynamic text and reactive effects instead of a prerecorded video.</p>
+<div class="two-column"><div><h3>What you can do</h3><ul><li>Filter Workshop content by Scene, download an item and apply it to the desktop.</li><li>Use Properties to change author-provided colors, switches, values, text or image options.</li><li>Control playback, pause and volume through the shared controls, with energy-saving policies when needed.</li></ul></div><div><h3>Useful habits</h3><ul><li>Choose 30 under Maximum Frame Rate (Scene Engine) to reduce the runtime budget; 60 allows a higher frame-rate ceiling.</li><li>Try the default appearance before adjusting effects. Performance also depends on the complexity of the project.</li><li>For missing layers or unexpected effects, check Playback Diagnostics and keep the item link when reporting the issue.</li></ul></div></div>
+<aside class="tip">
+<strong>Compatibility is project-specific</strong>Scene compatibility is still being developed. A completed download does not guarantee every effect, script or interaction, or an exact match with Wallpaper Engine. An absent property may simply mean the author did not expose it.
+</aside>
+
+</section>
+
+<section class="guide-section" id="toolbars">
+<div class="section-heading"><h2>Know your toolbar</h2><span class="tag">By module</span></div>
+<p>Check the selected sidebar module before using a toolbar. Similar icons act on different lists; a disabled button usually needs a supported selection. Hover over an icon to read its tooltip.</p>
+<details>
+
+<summary>
+My videos
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Control</th><th scope="col">What it does</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">Circled plus · Import</th><td data-label="What it does">Choose local video files. In selection mode this control becomes Select all.</td>
+</tr>
+
+<tr>
+<th scope="row">Circled check · Select</th><td data-label="What it does">Enter or leave selection mode for batch favorites, tags or removal.</td>
+</tr>
+
+<tr>
+<th scope="row">Left / right arrows</th><td data-label="What it does">Switch the playing video wallpaper; these are not page controls.</td>
+</tr>
+
+<tr>
+<th scope="row">Trash · Delete</th><td data-label="What it does">In My videos, remove library records and generated caches while keeping source videos. In favorites, recents or a tag, remove only that reference.</td>
+</tr>
+
+<tr>
+<th scope="row">Heart · Favorite</th><td data-label="What it does">Add selected videos to favorites, or remove their favorite status.</td>
+</tr>
+
+<tr>
+<th scope="row">Tag · Edit tags</th><td data-label="What it does">Assign tags to selected videos. Create a tag first if none exist.</td>
+</tr>
+
+<tr>
+<th scope="row">Sort / thumbnail ± / Search</th><td data-label="What it does">Choose a sort field and direction, resize cards, or search the current video list.</td>
+</tr>
+
+</tbody>
+
+</table>
+</div></div>
+</details>
+
+<details>
+
+<summary>
+My images
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Control</th><th scope="col">What it does</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">Circled plus · Import</th><td data-label="What it does">Choose local images. In selection mode this becomes Select all / Deselect all.</td>
+</tr>
+
+<tr>
+<th scope="row">Select / Trash</th><td data-label="What it does">Select multiple images. Delete removes library records, keeping original files; in a tag it removes only the tag association.</td>
+</tr>
+
+<tr>
+<th scope="row">Tag</th><td data-label="What it does">Assign tags to selected images. Right-click the sidebar to create an image tag if needed.</td>
+</tr>
+
+<tr>
+<th scope="row">Sort / thumbnail ± / Search</th><td data-label="What it does">Change the image list order, card size or search query. Original image dimensions stay the same.</td>
+</tr>
+
+</tbody>
+
+</table>
+</div></div>
+</details>
+
+<details>
+
+<summary>
+Pixabay · Browse
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Control</th><th scope="col">What it does</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">Settings · API Key</th><td data-label="What it does">Change the API key, or clear it and return to the sign-in screen. This key is separate from Steam login.</td>
+</tr>
+
+<tr>
+<th scope="row">Circular arrow · Refresh</th><td data-label="What it does">Fetch the current online list again.</td>
+</tr>
+
+<tr>
+<th scope="row">Category / Sort</th><td data-label="What it does">Choose a category and the ordering of online results.</td>
+</tr>
+
+<tr>
+<th scope="row">Thumbnail ± / Search</th><td data-label="What it does">Resize cards or search Pixabay by keyword.</td>
+</tr>
+
+</tbody>
+
+</table>
+</div></div>
+</details>
+
+<details>
+
+<summary>
+Pixabay · Downloads
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Control</th><th scope="col">What it does</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">Select / Trash</th><td data-label="What it does">Select one or more downloads. Deletion removes downloaded files; read the confirmation carefully.</td>
+</tr>
+
+<tr>
+<th scope="row">Reveal in Finder</th><td data-label="What it does">Locate the selected downloaded file in Finder.</td>
+</tr>
+
+<tr>
+<th scope="row">Sort / thumbnail ± / Search</th><td data-label="What it does">Organize the downloaded list; this does not search Pixabay online.</td>
+</tr>
+
+</tbody>
+
+</table>
+</div></div>
+</details>
+
+<details>
+
+<summary>
+Workshop · Browse and personal lists
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Control</th><th scope="col">What it does</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">Steam account</th><td data-label="What it does">Open sign-in when offline, or view the account, switch accounts and sign out when online.</td>
+</tr>
+
+<tr>
+<th scope="row">Down arrow · Download tasks</th><td data-label="What it does">Open the queue, progress, failure messages and retry controls.</td>
+</tr>
+
+<tr>
+<th scope="row">Source / Personal list</th><td data-label="What it does">Browse Most popular, Newest, Most subscribed or Last updated; personal lists switch between subscriptions and favorites.</td>
+</tr>
+
+<tr>
+<th scope="row">Time window / Sort</th><td data-label="What it does">Choose the popularity ranking period, not a publication-date filter. Personal lists offer name, size, subscription date or last update ordering.</td>
+</tr>
+
+<tr>
+<th scope="row">Circled filter icon</th><td data-label="What it does">Filter by type, age rating, resolution and other available facets. Options within a facet are alternatives; different facets are combined.</td>
+</tr>
+
+<tr>
+<th scope="row">Thumbnail ± / Search</th><td data-label="What it does">Resize cards. Use keywords for themes, or <code>ID=item number</code> for a direct lookup. See <a href="#search-tips">search tips</a>.</td>
+</tr>
+
+<tr>
+<th scope="row">Back arrow · Return to browse</th><td data-label="What it does">After opening an author’s workshop from their name in details, return to the main feed here. Search on an author page filters that author’s works.</td>
+</tr>
+
+</tbody>
+
+</table>
+</div></div>
+</details>
+
+<details>
+
+<summary>
+Workshop · Downloads
+</summary>
+<div class="answer"><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Control</th><th scope="col">What it does</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">Steam account / Download tasks</th><td data-label="What it does">Use the same account and queue as Browse. Open the task panel to inspect and retry failures.</td>
+</tr>
+
+<tr>
+<th scope="row">Select / Trash</th><td data-label="What it does">Enter multi-select for batch actions. Deleting downloaded content also deletes its local files. Manage active tasks in the task panel.</td>
+</tr>
+
+<tr>
+<th scope="row">Filter</th><td data-label="What it does">Show all, Video, Web, Scene, or items with missing dependencies.</td>
+</tr>
+
+<tr>
+<th scope="row">Sort</th><td data-label="What it does">Order by update time, name or size, in ascending or descending order.</td>
+</tr>
+
+<tr>
+<th scope="row">Thumbnail ± / Search</th><td data-label="What it does">Resize cards; filter local downloads by title, description, tags, author or ID. Searching does not start a download.</td>
+</tr>
+
+</tbody>
+
+</table>
+</div></div>
+</details>
+
+<aside class="tip">
+<strong>Inside item details</strong>Properties for Web and Scene opens the author’s controls; Playback diagnostics shows loading and runtime information. An author’s name opens their workshop. Unsubscribing changes the Steam subscription without deleting local files or stopping current playback. Toolbars change with the module; not every button is shown at once.
+</aside>
+<p>The MyWallpaperX menu bar icon also opens the main window, imports videos, switches wallpapers, controls play/pause and mute, opens settings and quits.</p>
+</section>
+
+<section class="guide-section" id="search-tips">
+<div class="section-heading"><h2>An ID takes you straight there</h2><span class="tag">Workshop search</span></div>
+<p>If you know an item ID, skip paging through results. Return to the main Workshop feed and enter any of these forms in the Steam search field. Leave an author page using the back button first.</p><div class="search-demo"><span>Find one specific item</span><code>ID=1234567890</code><small>Example only · replace with a real item ID</small></div><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Input</th><th scope="col">Example</th><th scope="col">Tip</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">Keywords</th><td data-label="Example"><code>stars</code>, <code>landscape</code></td><td data-label="Tip">Search a theme, then narrow by Video / Web / Scene and resolution.</td>
+</tr>
+
+<tr>
+<th scope="row">ID=number</th><td data-label="Example"><code>ID=1234567890</code></td><td data-label="Tip">ID is case-insensitive. Do not put spaces around the equals sign.</td>
+</tr>
+
+<tr>
+<th scope="row">Digits only</th><td data-label="Example"><code>1234567890</code></td><td data-label="Tip">At least 6 digits are interpreted as an item ID, not a keyword.</td>
+</tr>
+
+<tr>
+<th scope="row">Full item link</th><td data-label="Example"><code>https://steamcommunity.com/sharedfiles/filedetails/?id=1234567890</code></td><td data-label="Tip">The item number is extracted from id= in the URL.</td>
+</tr>
+
+</tbody>
+
+</table>
 </div>
+<aside class="tip">
+<strong>Item ID ≠ account SteamID</strong>Use the number from the Workshop item’s detail link. A direct lookup does not guarantee public access or a download. For empty keyword results, clear the query and reduce filters. Search in Downloads only filters local content; it accepts ID forms but does not fetch items from Steam.
+</aside>
 
-<div id="shortcuts" class="section">
-    <div class="section-header"><span class="icon">⌨</span><h2>Keyboard Shortcuts</h2></div>
-    <table class="shortcut-table">
-        <thead><tr><th style="width:55%">Action</th><th>Shortcut</th></tr></thead>
-        <tbody>
-            <tr><td class="shortcut-group" colspan="2">Wallpaper Control</td></tr>
-            <tr><td class="action">Set selected as desktop</td><td class="keys"><span class="key">↩</span></td></tr>
-            <tr><td class="action">Next wallpaper</td><td class="keys"><span class="key">⌘</span> <span class="key">→</span></td></tr>
-            <tr><td class="action">Previous wallpaper</td><td class="keys"><span class="key">⌘</span> <span class="key">←</span></td></tr>
-            <tr><td class="shortcut-group" colspan="2">File</td></tr>
-            <tr><td class="action">Import videos</td><td class="keys"><span class="key">⌘</span> <span class="key">O</span></td></tr>
-            <tr><td class="action">Delete selected (no confirmation)</td><td class="keys"><span class="key">⌘</span> <span class="key">⌫</span></td></tr>
-            <tr><td class="action">Reveal in Finder</td><td class="keys"><span class="key">⌘</span> <span class="key">R</span></td></tr>
-            <tr><td class="action">Get info</td><td class="keys"><span class="key">⌘</span> <span class="key">I</span></td></tr>
-            <tr><td class="shortcut-group" colspan="2">Organize</td></tr>
-            <tr><td class="action">Favorite / Unfavorite</td><td class="keys"><span class="key">⌘</span> <span class="key">D</span></td></tr>
-            <tr><td class="action">Add tag</td><td class="keys"><span class="key">⌘</span> <span class="key">T</span></td></tr>
-            <tr><td class="shortcut-group" colspan="2">Selection</td></tr>
-            <tr><td class="action">Enter / Exit multi-select</td><td class="keys"><span class="key">⌘</span> <span class="key">E</span></td></tr>
-            <tr><td class="action">Select all (multi-select)</td><td class="keys"><span class="key">⌘</span> <span class="key">A</span></td></tr>
-            <tr><td class="action">Navigate cards</td><td class="keys"><span class="key">↑</span> <span class="key">↓</span> <span class="key">←</span> <span class="key">→</span></td></tr>
-            <tr><td class="shortcut-group" colspan="2">View</td></tr>
-            <tr><td class="action">Larger thumbnails</td><td class="keys"><span class="key">⌘</span> <span class="key">−</span></td></tr>
-            <tr><td class="action">Smaller thumbnails</td><td class="keys"><span class="key">⌘</span> <span class="key">+</span></td></tr>
-            <tr><td class="shortcut-group" colspan="2">App</td></tr>
-            <tr><td class="action">Open main window</td><td class="keys"><span class="key">⌘</span> <span class="key">N</span></td></tr>
-            <tr><td class="action">Preferences</td><td class="keys"><span class="key">⌘</span> <span class="key">,</span></td></tr>
-            <tr><td class="action">Quit</td><td class="keys"><span class="key">⌘</span> <span class="key">Q</span></td></tr>
-        </tbody>
-    </table>
+</section>
+
+<section class="guide-section" id="workshop">
+<div class="section-heading"><h2>Workshop &amp; downloads</h2><span class="tag">DISCOVER &amp; MANAGE</span></div>
+<p class="lead">Use your Steam account to browse projects, manage subscriptions and download wallpapers. Video, Web and Scene share this workflow.</p>
+<div class="flow" aria-label="Download steps"><span>Sign in to Steam</span><b aria-hidden="true">→</b><span>Search &amp; filter</span><b aria-hidden="true">→</b><span>Download</span><b aria-hidden="true">→</b><span>Play from Downloaded</span></div>
+<div class="two-column"><div><h3>Find the right project</h3><ul><li>Open the Steam account control in the toolbar and follow the QR or account verification prompts.</li><li>Choose a content type before searching a theme. My Subscriptions shows the account’s subscribed items.</li><li>Open an item’s details to learn more or explore its author’s work.</li></ul></div><div><h3>Understand the queue</h3><ul><li>The toolbar’s download button shows queued tasks, progress and failure messages.</li><li>Failed items have a Retry button. Address any connection, sign-in or storage issue before retrying.</li><li>Clear All removes completed, failed and cancelled history. It leaves active tasks running and keeps downloaded files.</li></ul></div></div>
+<aside class="tip">
+<strong>History, files and subscriptions are separate</strong>Deleting an item from Workshop → Downloaded removes its corresponding local content. Unsubscribing keeps local files. To tidy task history only, use Clear All in the download panel.
+</aside>
+<h3 class="subheading">Controls inside Download tasks</h3><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Control</th><th scope="col">Action</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">× on a row</th><td data-label="Action">Cancel a cancellable queued or downloading task, or remove a failed/history record. This button can be disabled during non-cancellable stages such as saving.</td>
+</tr>
+
+<tr>
+<th scope="row">Retry</th><td data-label="Action">Shown for failures. Resolve the cause and make sure you are still signed into the task’s Steam account before downloading again.</td>
+</tr>
+
+<tr>
+<th scope="row">Clear all</th><td data-label="Action">Remove completed, failed and cancelled records. Keep active queued, downloading or saving tasks and downloaded files.</td>
+</tr>
+
+<tr>
+<th scope="row">Failure text</th><td data-label="Action">Hover over the failure message to read a longer error, then match it against the troubleshooting section below.</td>
+</tr>
+
+</tbody>
+
+</table>
 </div>
+</section>
 
-<div id="playback" class="section">
-    <div class="section-header"><span class="icon">▶</span><h2>Playback Control</h2></div>
-    <div class="section-body">
-        <p><strong>Loop</strong>: The current wallpaper replays from the beginning after finishing, without switching.</p>
-        <p><strong>Sequential</strong>: Wallpapers play in library order, wrapping back to the first after the last.</p>
-        <p><strong>Shuffle</strong>: Each switch picks a random wallpaper, avoiding repeats until all have played.</p>
-        <p><strong>Auto Switch</strong>: Switches on a set interval. Supports seconds, minutes, or hours.</p>
-        <p><strong>Playback Speed</strong>: Adjust from 0.25× to 2.0× in 0.25 steps (enable in Preferences).</p>
-        <p><strong>Volume</strong>: Set wallpaper audio volume (0–100%) independently from system volume.</p>
-        <div class="note-box"><strong>Note:</strong> With Auto Switch enabled, the current video loops until the timer expires, then switches. With it disabled, the video naturally transitions to the next one.</div>
-    </div>
+<section class="guide-section" id="library">
+<div class="section-heading"><h2>A place for every collection</h2><span class="tag">YOUR LIBRARIES</span></div>
+<div class="module-list"><div><h3>My Videos</h3><p>Manage imported videos. Favorites keeps everyday choices close, Recently Used brings back previous wallpapers, and tags organize by mood or purpose.</p></div><div><h3>My Images</h3><p>Still images have their own library and tags. Apply an image directly when you want a quiet desktop without animated playback.</p></div><div><h3>Pixabay</h3><p>Discover online content and manage it in this module’s Downloaded list. If an API key is requested, configure it through the key control in the toolbar.</p></div><div><h3>Workshop downloads</h3><p>Manage downloaded Video, Web and Scene items together. Moving or deleting files outside the app can make a project unavailable; download it again rather than restoring only part of its resources.</p></div></div>
+<aside class="tip">
+<strong>Select a library before taking an action</strong>Import, search, filter and delete act on the current module. File → Import works in libraries that support importing; it is not a universal importer for Web or Scene files.
+</aside>
+
+</section>
+
+<section class="guide-section" id="playback">
+<div class="section-heading"><h2>Playback, sound &amp; energy</h2><span class="tag">SHARED CONTROLS</span></div>
+<p class="lead">Video, Web and Scene share play/pause, volume and mute, along with these four energy-saving policies. Set them once for all three engines.</p>
+<div class="table-wrap">
+<table>
+<caption>Settings → Energy Saving &amp; Pause</caption>
+<thead>
+
+<tr>
+<th scope="col">Setting</th><th scope="col">When playback pauses</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row">Pause when another app has focus</th><td data-label="When playback pauses">When you work in another regular app. MyWallpaperX and Finder are excluded.</td>
+</tr>
+
+<tr>
+<th scope="row">Pause when another app is full screen</th><td data-label="When playback pauses">When the active space is occupied by another full-screen app.</td>
+</tr>
+
+<tr>
+<th scope="row">Pause on battery power</th><td data-label="When playback pauses">When the Mac is running on its battery.</td>
+</tr>
+
+<tr>
+<th scope="row">Pause when inactive</th><td data-label="When playback pauses">After the selected period without activity. Adjust the timeout below the switch.</td>
+</tr>
+
+</tbody>
+
+</table>
 </div>
+<div class="two-column"><div><h3>Resuming playback</h3><p>Playback stays paused while any enabled condition is still true. It can resume automatically once those conditions clear. A wallpaper you paused manually still needs to be resumed manually.</p></div><div><h3>Sound and audio response</h3><p>Volume controls the wallpaper’s own sound; it cannot add an audio track to a silent project. System-audio reactions also require a compatible wallpaper, the relevant setting and macOS permissions.</p></div></div>
+<aside class="tip">
+<strong>Start with a simple energy-saving setup</strong>If you often work full screen, enable full-screen pause first. On a laptop, add battery pause as needed. The Scene 30/60 setting only affects Scene; it does not change the original frame rate of videos.
+</aside>
 
-<div id="library" class="section">
-    <div class="section-header"><span class="icon">📁</span><h2>Library Management</h2></div>
-    <div class="section-body">
-        <p><strong>Import</strong>: Drag files onto the main window, or use File → Import Videos (<span class="key">⌘O</span>). Batch import supported.</p>
-        <p><strong>Favorites</strong>: Press <span class="key">⌘D</span> to favorite a wallpaper. Access favorites in the sidebar.</p>
-        <p><strong>Tags</strong>: Press <span class="key">⌘T</span> to add custom tags. Filter by tag in the sidebar.</p>
-        <p><strong>Bulk Delete</strong>: Press <span class="key">⌘E</span> for multi-select, then <span class="key">⌘⌫</span> to delete. Only removes library references — <strong>original video files are never deleted</strong>.</p>
-        <p><strong>Recents</strong>: The sidebar auto-tracks the last 25 played wallpapers for quick access.</p>
-        <p><strong>Sort</strong>: Sort by name, import date, or last played — each category remembers its own sort order.</p>
-        <p><strong>Backup</strong>: Export your configuration as JSON via Preferences → Export. Restore it on a new Mac via Import.</p>
-    </div>
+</section>
+
+<section class="guide-section" id="shortcuts">
+<div class="section-heading"><h2>Shortcuts, with their context</h2><span class="tag">Quick reference</span></div>
+<p>⌘ means Command, ⌥ Option, and ⌫ Delete. These shortcuts come from the app menus. Availability depends on the module, selection and text-field focus; use the menu’s enabled state as a guide.</p><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Keys</th><th scope="col">Action</th><th scope="col">Where and how</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row"><kbd>⌘ O</kbd></th><td data-label="Action">Import</td><td data-label="Where and how">Open a file picker in a supported local video or image module.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ N</kbd></th><td data-label="Action">New tag</td><td data-label="Where and how">Create a tag in a module that supports tags.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ F</kbd></th><td data-label="Action">Search</td><td data-label="Where and how">Focus the search field for the current module.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ E</kbd></th><td data-label="Action">Toggle selection mode</td><td data-label="Where and how">Use in lists that support multiple selection.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ A</kbd></th><td data-label="Action">Select all</td><td data-label="Where and how">Select text in a text field, or items in a supported list. Enter selection mode first in Workshop Downloads.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ ⌫</kbd></th><td data-label="Action">Delete selected</td><td data-label="Where and how">Follow the current module’s deletion rules; imported originals and online downloads are treated differently.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ + / ⌘ −</kbd></th><td data-label="Action">Larger / smaller thumbnails</td><td data-label="Where and how">Resize cards, not the wallpaper. Typing + may require Shift on your keyboard.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>Return ↵</kbd></th><td data-label="Action">Set as wallpaper</td><td data-label="Where and how">For ready items that support this command. Workshop grids use the item’s primary action, which may open details or fetch a dependency.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ → / ⌘ ←</kbd></th><td data-label="Action">Next / previous wallpaper</td><td data-label="Where and how">Switch video wallpapers, not browser history.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ D</kbd></th><td data-label="Action">Toggle favorite</td><td data-label="Where and how">Act on the current selection where favorites are supported.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ T</kbd></th><td data-label="Action">Add tag</td><td data-label="Where and how">Assign tags to the current selection where supported.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ I</kbd></th><td data-label="Action">Show info</td><td data-label="Where and how">Open information for a supported selected item.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>Space</kbd></th><td data-label="Action">Preview</td><td data-label="Where and how">Preview a supported selected item. This is not a global play/pause key.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ R</kbd></th><td data-label="Action">Reveal file</td><td data-label="Where and how">Locate supported local content in Finder. This is not Refresh.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ X / C / V</kbd></th><td data-label="Action">Cut / copy / paste</td><td data-label="Where and how">Use in text fields that support these editing actions.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ ,</kbd></th><td data-label="Action">Settings</td><td data-label="Where and how">Open application settings.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ M / ⌘ W</kbd></th><td data-label="Action">Minimize / close window</td><td data-label="Where and how">Closing the main window is separate from quitting the app.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ H / ⌥ ⌘ H</kbd></th><td data-label="Action">Hide app / hide others</td><td data-label="Where and how">Hide MyWallpaperX, or hide other applications.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ Q</kbd></th><td data-label="Action">Quit</td><td data-label="Where and how">Quit MyWallpaperX.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>⌘ ?</kbd></th><td data-label="Action">Help</td><td data-label="Where and how">Open this help book; commonly entered as ⌘ Shift /.</td>
+</tr>
+
+</tbody>
+
+</table>
+</div><h3 class="subheading">Keys in Workshop grids and dialogs</h3><div class="table-wrap">
+<table>
+
+<thead>
+
+<tr>
+<th scope="col">Keys</th><th scope="col">Action</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+<th scope="row"><kbd>↑ ↓ ← →</kbd></th><td data-label="Action">Move keyboard focus in Workshop grids, or switch items in supported preview windows.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>Shift F5</kbd></th><td data-label="Action">Open the context menu for the keyboard-focused item in the Workshop browser grid.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>Esc</kbd></th><td data-label="Action">Context-dependent: cancel authentication in sign-in, close a preview, or clear this help page’s search.</td>
+</tr>
+
+<tr>
+<th scope="row"><kbd>Return</kbd></th><td data-label="Action">Submit credentials on the password page or a code on the verification page. Input focus takes precedence over wallpaper actions.</td>
+</tr>
+
+</tbody>
+
+</table>
 </div>
+<aside class="tip">
+<strong>Configure global shortcuts first</strong>Enable system hotkeys in settings and assign F1–F12 keys to Previous, Next, Play/pause and Mute. They are off and unassigned by default. They work while another app has focus: Previous/Next switches videos; Play/pause and Mute control the active dynamic engine. If a key does nothing, check that it is enabled, assigned and not conflicting with another shortcut.
+</aside>
 
-<div id="display" class="section">
-    <div class="section-header"><span class="icon">🖥</span><h2>Display Settings</h2></div>
-    <div class="section-body">
-        <p><strong>Thumbnail Size</strong>: Use toolbar zoom buttons or <span class="key">⌘−</span> / <span class="key">⌘+</span> to adjust grid columns (2–6). Preference is saved automatically.</p>
-        <p><strong>Fill Mode</strong>:<br>
-        • <strong>Fit</strong>: Preserves aspect ratio; letterboxing may appear.<br>
-        • <strong>Fill</strong>: Crops video to fully cover the desktop with no borders.</p>
-        <p><strong>Multi-Display</strong>: Enable in Preferences to sync wallpaper across all connected displays.</p>
-        <p><strong>Sync System Wallpaper</strong>: Auto-updates the macOS static wallpaper to the current video frame on each switch.</p>
-    </div>
-</div>
+</section>
 
-<div id="performance" class="section">
-    <div class="section-header"><span class="icon">🔋</span><h2>Performance &amp; Power</h2></div>
-    <div class="section-body">
-        <p><strong>Pause when another app is active</strong>: Pauses playback when another app is in the foreground, freeing GPU resources.</p>
-        <p><strong>Pause when another app is fullscreen</strong>: Auto-pauses for games, videos, and other fullscreen apps to avoid background rendering overhead.</p>
-        <p><strong>Pause on battery</strong>: Auto-pauses when unplugged to extend battery life.</p>
-        <p><strong>Pause when idle</strong>: Pauses after system idle for a set duration (default: 10 min), resuming on activity.</p>
-        <div class="note-box"><strong>Tip:</strong> On MacBook, enabling "Pause on battery" significantly reduces power consumption. Desktop users can disable all pause options for continuous playback.</div>
-    </div>
-</div>
+<section class="guide-section" id="login">
+<div class="section-heading"><h2>Sign-in, one prompt at a time</h2><span class="tag">Steam sign-in</span></div>
+<p>Start at the Steam account control. QR sign-in needs scanning and approval in the Steam mobile app. Password sign-in may then require mobile approval, an authenticator code or an email code. Follow the current prompt.</p>
+<aside class="tip">
+<strong>Remembering a sign-in</strong>Enable Remember me if desired. Being asked to sign in next time is not necessarily a failure if it was unchecked. An explicit “session could not be saved” message does indicate a save failure. Keep passwords, codes, QR images and session tokens out of reports.
+</aside>
 
-<div id="faq" class="section">
-    <div class="section-header"><span class="icon">❓</span><h2>FAQ</h2></div>
-    <div class="faq-item">
-        <h3>Why does the fan spin up after setting a wallpaper?</h3>
-        <p>Video decoding uses GPU/CPU resources, especially at high resolutions. Use H.264 or HEVC-encoded videos and enable "Pause when another app is fullscreen" to reduce background rendering.</p>
-    </div>
-    <div class="faq-item">
-        <h3>Are original video files deleted when I remove a wallpaper?</h3>
-        <p>No. Removing a wallpaper only deletes its library reference and thumbnail cache. Original files on disk are never touched.</p>
-    </div>
-    <div class="faq-item">
-        <h3>What video formats are supported?</h3>
-        <p>Any format decodable by macOS AVFoundation, including MP4 (H.264/HEVC), MOV, and M4V. Formats requiring third-party decoders (e.g. MKV with unusual codecs) are not supported.</p>
-    </div>
-    <div class="faq-item">
-        <h3>How do I make wallpapers play automatically at login?</h3>
-        <p>Enable "Launch at Login" in Preferences → System. MyWallpaperX will start automatically and restore your last wallpaper state.</p>
-    </div>
-    <div class="faq-item">
-        <h3>Thumbnails are blank or loading slowly. What should I do?</h3>
-        <p>Thumbnails are generated on first load. If they stay blank, go to Preferences → Clear Cache to reset the thumbnail cache, then reopen the main window to trigger a rebuild.</p>
-    </div>
-    <div class="faq-item">
-        <h3>How do I migrate my library to a new Mac?</h3>
-        <p>On your old Mac, go to Preferences → Export Settings to save a JSON file. Copy both the config file and video files to your new Mac, then use Import Settings to restore. Video file paths must match.</p>
-    </div>
-</div>
+<details>
 
-</div><!-- /content -->
+<summary>
+QR code will not scan / waiting for approval
+</summary>
+<div class="answer"><p>Scan with the Steam mobile app. Click the code or the enlarge button for a larger view. Refresh an unusable code and scan the new one. Switching sign-in methods cancels the previous attempt.</p></div>
+</details>
 
-<div class="content">
-<div id="tech" class="section">
-    <div class="section-header"><span class="icon">⚙</span><h2>Technology</h2></div>
-    <div class="section-body">
-        <p><strong>Native macOS Architecture</strong><br>
-        Built entirely on Apple's native stack — SwiftUI for the declarative UI layer, AppKit for high-performance grid rendering and keyboard interaction. The two communicate through a precise state-sync mechanism, eliminating the rendering jitter common in hybrid frameworks.</p>
+<details>
 
-        <p><strong>Dual-Process Wallpaper Engine</strong><br>
-        Playback runs in a dedicated XPC Daemon process (WallpaperDaemon), fully isolated from the main app. A main process crash won't interrupt your wallpaper; a daemon crash auto-restarts and restores playback state. The two communicate via a custom XPC protocol with sub-millisecond latency.</p>
+<summary>
+Confirm this sign-in in the Steam mobile app
+</summary>
+<div class="answer"><p>A scanned code or accepted password may still require mobile approval. Leave the sign-in panel open and approve in Steam. Closing it or pressing Esc cancels authentication.</p></div>
+</details>
 
-        <p><strong>AVFoundation Hardware Decoding</strong><br>
-        The video layer is built on AVFoundation + AVSampleBufferDisplayLayer, routing all decoding through Apple Silicon / Intel hardware (VideoToolbox). CPU usage is minimal — 4K HEVC on an M-series chip draws under 1W, virtually imperceptible in daily use.</p>
+<details>
 
-        <p><strong>High-Performance Thumbnail Pipeline</strong><br>
-        Thumbnails use a multi-tier cache: in-memory LRU cache (up to 360 entries) + persistent disk cache. First-time generation asynchronously extracts keyframes via AVAssetImageGenerator; subsequent loads hit memory instantly, keeping the grid scrolling at a steady 60 fps.</p>
+<summary>
+Previous verification code was rejected
+</summary>
+<div class="answer"><p>Check whether Steam requests an authenticator code or an email code. Enter a fresh code for this attempt; old codes, typos or the wrong source can be rejected. For email, check the displayed email domain.</p></div>
+</details>
 
-        <p><strong>Reactive State Management</strong><br>
-        The data layer is built on Combine + @Published, forming a reactive state tree where all UI changes are driven by a single source of truth. Delete, favorite, tag, and selection operations are atomically committed on the main thread, guaranteeing strong consistency between UI and data.</p>
+<details>
 
-        <p><strong>Intelligent System Awareness</strong><br>
-        Three signal sources — IOKit power state monitoring, NSWorkspace screen sleep and fullscreen event subscriptions, and a system idle timer — are fused to respond to system state changes in milliseconds, automatically pausing or resuming playback while balancing experience and battery life.</p>
-    </div>
-</div>
-</div>
+<summary>
+Sign-in failed · InvalidPassword / accessDenied
+</summary>
+<div class="answer"><p>Steam rejected credentials or access. Use the Steam login account name and password, not the profile display name. Account permissions may also be involved. Check credentials and account status in the official Steam client.</p></div>
+</details>
 
-<div class="help-footer">
-    <p>MyWallpaperX &nbsp;·&nbsp; Version 1.0 &nbsp;·&nbsp; macOS only</p>
-    <p style="margin-top: 8px; font-size: 13px;">Suggestions and feedback welcome &nbsp;<a href="mailto:719897632@qq.com?subject=MyWallpaperX%20Feedback" style="color: var(--accent); text-decoration: none; font-weight: 500;">719897632@qq.com</a></p>
-</div>
+<details>
 
-</body>
-</html>
+<summary>
+authExpired / Steam token rejected
+</summary>
+<div class="answer"><p>The saved session expired, was revoked or was rejected. Sign in again from the account menu, using the intended account.</p></div>
+</details>
+
+<details>
+
+<summary>
+Authentication timeout / service timeout / network
+</summary>
+<div class="answer"><p>Authentication did not complete in time. Connectivity, a proxy, Steam availability or delayed mobile approval may be involved. Check approval and connectivity, then retry. A timeout alone does not prove a wrong password.</p></div>
+</details>
+
+<details>
+
+<summary>
+rateLimited / RateLimitExceeded
+</summary>
+<div class="answer"><p>Steam is temporarily limiting requests. Wait before retrying instead of repeatedly refreshing codes or submitting credentials.</p></div>
+</details>
+
+<details>
+
+<summary>
+Signed in, but the session could not be saved
+</summary>
+<div class="answer"><p>The current session is usable, but saving it failed and you may need to sign in next time. This differs from leaving Remember me off. If repeated, report the message and app version; do not start by deleting your keychain.</p></div>
+</details>
+
+<details>
+
+<summary>
+Steam service unavailable / incompatible version / connection lost
+</summary>
+<div class="answer"><p>An unavailable or incompatible component usually requires updating or reinstalling the complete app; do not mix components from different builds. For a lost connection, restart and retry, then report the running version and source if it persists.</p></div>
+</details>
+
+</section>
+
+<section class="guide-section" id="downloads">
+<div class="section-heading"><h2>Make sense of a failed download</h2><span class="tag">Causes & next steps</span></div>
+<p>Open Download tasks and identify the failing stage: manifest download, CDN authorization, data chunks or saving local files. The same error number can call for different checks at different stages.</p><div class="error-example"><span>A message may look like this · format example</span><samp>Manifest download failed (HTTP 503, node &lt;server&gt;, attempted &lt;count&gt; times). Check your network and proxy settings and try again later.</samp></div>
+<details>
+
+<summary>
+HTTP 503 / 500 / 502 / 504 · network
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Possible cause</h3><p>A service, content node or intermediate connection is temporarily unavailable. Browsing may work while downloads fail; 503 alone does not identify an app-version or SteamKit defect.</p></div><div><h3>What to do next</h3><p>Retry later. Check whether your proxy covers the app’s download connections, or compare on another network. If multiple items fail, keep the node, time and full message.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+HTTP 401 · authExpired
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Possible cause</h3><p>Download authorization or the sign-in session is no longer valid.</p></div><div><h3>What to do next</h3><p>Sign in again from the account menu, then retry the failed task.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+HTTP 403 · accessDenied / missing CDN authorization
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Possible cause</h3><p>Access was denied. Content permissions, CDN authorization or a proxy may be involved; it does not always mean a wrong password.</p></div><div><h3>What to do next</h3><p>Check content access, networking and proxy settings. Sign in again and retry. A staging access-denied message instead points to local folder permissions.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+HTTP 429 · rateLimited
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Possible cause</h3><p>Steam has limited the request rate.</p></div><div><h3>What to do next</h3><p>Wait before retrying and avoid repeatedly creating tasks. The app already makes a bounded number of retries for some temporary failures.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+HTTP 404 · unsupportedContent / item has no content manifest
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Possible cause</h3><p>The node lacks the content, or the item has no downloadable manifest. Updated, inaccessible or non-Wallpaper Engine content can also be unavailable.</p></div><div><h3>What to do next</h3><p>Reopen the item and verify the link and access. Repeated downloads cannot fix a deleted, unsupported or empty item.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+diskFull · Insufficient disk space
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Possible cause</h3><p>The staging or destination disk does not have enough space.</p></div><div><h3>What to do next</h3><p>Free space on the relevant disk and retry the original task. If the message says partial data was retained, keep it for retry. Allow working space beyond the advertised archive size.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+integrity · Validation failed / staging identity changed
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Possible cause</h3><p>Content checks, file lengths or directory identity no longer agree; moving or editing staging data can cause this. The app stops the unsafe save.</p></div><div><h3>What to do next</h3><p>Stop external changes to the affected folders, then retry. If repeated, report the full message and item ID. Do not edit validation data to bypass checks.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+manifest requires a nonempty root project.json / manifest path…
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Possible cause</h3><p>Required content is missing, or manifest paths or sizes fail safety checks. A network retry alone may not resolve it.</p></div><div><h3>What to do next</h3><p>Verify the item is a complete Wallpaper Engine project. Report the exact error instead of assembling a folder and treating it as a completed download.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+Service timeout / connection lost / helperUnavailable / protocolMismatch
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Possible cause</h3><p>The helper may not have started, may have exited, may be incompatible, or may not have completed a request. These messages alone do not establish a Steam outage.</p></div><div><h3>What to do next</h3><p>Restart for a lost connection. Update or reinstall the complete app for unavailable or incompatible components. Mention any other installed app versions when reporting.</p></div></div></div>
+</details>
+
+<details>
+
+<summary>
+Download stopped but staging cleanup failed
+</summary>
+<div class="answer"><div class="diagnosis"><div><h3>Possible cause</h3><p>The task stopped or content state was saved, but temporary-file cleanup failed. This is not a request to delete the wallpaper library.</p></div><div><h3>What to do next</h3><p>Check the task and downloaded content state first. Keep the message and check permissions or external file operations; report persistent failures.</p></div></div></div>
+</details>
+
+<aside class="tip">
+<strong>Wait for Completed, even at 100%</strong>Transfer is followed by validation and saving. Queued, connecting or saving tasks may not show a continuous speed. Resolve the cause before Retry. Clear all removes finished task history while keeping active tasks and downloaded files.
+</aside>
+<p>If a completed Web or Scene item is missing a dependency, use the Missing dependencies filter or its details to inspect the required base item. This differs from an HTTP transfer failure. Reports should include app version and running location, item link/ID, time, full error, whether one or all items fail, and network/proxy use.</p>
+</section>
+
+<section class="guide-section" id="faq">
+<div class="section-heading"><h2>When something needs a check</h2><span class="tag">TROUBLESHOOTING</span></div>
+<details>
+
+<summary>
+The wallpaper stopped moving. Has the app frozen?
+</summary>
+<p>Check manual pause first, then the focus, full-screen, battery and inactivity policies. Scene follows these switches too; it does not require Finder or MyWallpaperX to stay focused in order to play.</p>
+</details>
+
+<details>
+
+<summary>
+Why is a Web wallpaper blank or missing some content?
+</summary>
+<p>Make sure the download is complete and check Playback Diagnostics for entry-point or dependency messages. Weather, remote images and other services may be unavailable offline. A lone HTML file may not contain the entire project.</p>
+</details>
+
+<details>
+
+<summary>
+A Scene plays, but looks different from the Workshop preview.
+</summary>
+<p>Check your property changes against the author’s defaults and read the diagnostics. Some effects, scripts and interactions may not yet be fully compatible. Include the item link, app version, a screenshot and the affected part of the picture in your report.</p>
+</details>
+
+<details>
+
+<summary>
+A download failed with a 503 error. What should I do?
+</summary>
+<p>A 503 usually indicates that a service in the request path is temporarily unavailable, but the number alone does not identify the cause. Keep the error message, check your account state, connection and free space, then retry later. If multiple items keep failing, report the full error, time and app version.</p>
+</details>
+
+<details>
+
+<summary>
+Why is a wallpaper still present after clearing the queue?
+</summary>
+<p>Task history and local content are managed separately. Clear All keeps downloaded files. Remove a Workshop wallpaper from its Downloaded list to delete local content; unsubscribing also keeps those files.</p>
+</details>
+
+<details>
+
+<summary>
+How do I check for updates or report an issue?
+</summary>
+<p>Choose Check for Updates… in the MyWallpaperX menu. About MyWallpaperX shows app information. Include the wallpaper type, steps to reproduce, item link or local file format, and the error message. Never include your Steam password or verification codes.</p>
+</details>
+
+</section>
+
+<footer>
+<span>MyWallpaperX guide · Updated with the app</span><a href="#top">Back to top ↑</a>
+</footer>
+
+</main>
+</div></body></html>
