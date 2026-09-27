@@ -61,37 +61,14 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
         pairStep: SceneLayerFullFramePairPlan.EffectStep?
     ) -> SceneResolvedMaterialStageActivationPolicy? {
-        // Launch diagnostics for the script-owned visibility admission: the
-        // sceneScript lane is new, and a silent nil here reads downstream as
-        // a permanently dead effect.
-        let sceneScriptVisibilityOwned =
-            dynamicProducers.sceneScriptTargets.contains(
-                SceneDynamicTarget.effectVisibility(
-                    layerID: product.graph.layerID,
-                    effectIndex: product.graph.effects.first?.key.effectIndex
-                        ?? -1
-                )
-            )
-        func recordNilPolicy(_ reason: String) {
-            if sceneScriptVisibilityOwned {
-                NSLog(
-                    "MWX stage activation policy: layer=%d effect=%d producer=sceneScript reason=%@",
-                    product.graph.layerID,
-                    product.graph.effects.first?.key.effectIndex ?? -1,
-                    reason as NSString
-                )
-            }
-        }
         guard dependencyOwnership.preEncodeVisualFailureSlots(
                   in: product.graph
               ) != nil else {
-            recordNilPolicy("pre-encode-visual-failure-slots-unavailable")
             return nil
         }
         guard product.graph.effects.count == 1,
               let effect = product.graph.effects.first,
               product.clearFunctions.functions.isEmpty else {
-            recordNilPolicy("effect-shape-unsupported")
             return nil
         }
         let visibilityTarget = SceneDynamicTarget.effectVisibility(
@@ -101,9 +78,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         let visibilityProducers = dynamicProducers.userProperties.filter {
             $0.target == visibilityTarget
         }
-        // Script-owned effect visibility (the batch-B producer channel)
-        // publishes through the sceneScript lane with no user-property key;
-        // the snapshot value is the per-frame authority.
+        // Both producers publish into the same per-frame visibility value.
         let sceneScriptOwned =
             dynamicProducers.sceneScriptTargets.contains(visibilityTarget)
         let resolvedVisibilityTarget: SceneDynamicTarget? =
@@ -129,7 +104,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 )
             } == true
         guard pairLeaf || framebufferVisibility else {
-            recordNilPolicy("activation-topology-unsupported")
             return nil
         }
         let pointerScalarMinimum = pairLeaf && materials.count == 1
@@ -142,15 +116,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             ) : nil
         let requiresPointer = pointerScalarMinimum != nil
         guard resolvedVisibilityTarget != nil || requiresPointer else {
-            recordNilPolicy("no-visibility-producer")
             return nil
-        }
-        if sceneScriptVisibilityOwned, resolvedVisibilityTarget != nil {
-            NSLog(
-                "MWX stage activation policy: layer=%d effect=%d producer=sceneScript result=constructed",
-                product.graph.layerID,
-                effect.key.effectIndex
-            )
         }
         return .init(
             effectVisibilityTarget: resolvedVisibilityTarget,

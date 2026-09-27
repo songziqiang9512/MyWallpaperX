@@ -36,6 +36,8 @@
 
 **身份与范围：**基线 0f616f2b，产品与测试 diff SHA256 `cc336601fa1606159530c85d1028751aae3c71af4122451b6a74448a7f6d73d7`；最终 Debug -O 可执行 SHA256 `7363670af9f19d8da300607063a13309a01529ac4087aaf5206c8b264e47a4ee`，CDHash `0fece342ca9ddf88cdc4b3ffef49d9ad5afe490e`，Team H9QWU9XN8R。仅证明一次真实点击及相应 effect 激活链；连续双向点击、其他 style 条件、完整观感和官方对照仍未验收。不扩张多 pass compose、history/unique/clear FBO 开关能力，也不作性能结论。临时构建根保留用于后续同身份复测。
 
+**连续交互后继（产品 473ae635、同上 App 身份）：**取消 synthetic pointer 参数，沿原生 AppKit 鼠标输入在同一隔离窗口播放150秒。慢速左点切换/右点切回已由实际窗口截图确认；随后三轮快速往返六次 cursorClick 对应 frame6487/6507/6534/6559/6584/6609，28/30 两层的 committed visibility 成对交替，最终恢复初始图片，运行记录无非零 failure。Benchmark PASS；详细 graph 事件按 identity 去重，因此 GPU/合成/next-frame证据只引用该身份的首次执行，不声称每次点击均有独立 GPU 事件。默认style的有界连续双向交互已验证，其他style、首个焦点点击行为及完整视觉仍开放。临时显隐策略日志和重复target查询已退役，产品净删34行；所有activation判断不变。
+
 <a id="e-2026-09-27-script-visible-roots"></a>
 
 ### E-2026-09-27-SCRIPT-VISIBLE-ROOTS — 跨层显示的特效准备与隐藏文字资源贯通
