@@ -258,9 +258,13 @@ enum Harness {
             thisLayer.origin = new Vec3(scriptProperties.step, 0, 0);
         }
         """
-        let propertyCursorBindings = [overlapVisiblePropertyBinding(
-            source: propertyCursorSource, userPropertyKey: "cursorStep"
-        )]
+        let propertyCursorBindings = SceneScriptBindingIRParser.parse(document: [
+            "objects": [["id": 50, "visible": [
+                "script": propertyCursorSource, "value": true,
+                "user": ["name": "layout", "condition": "one"],
+                "scriptproperties": ["step": ["user": "cursorStep", "value": 3]],
+            ]]],
+        ]).bindings
         let propertyCursorProjection = SceneScriptVectorProgram.project(
             descriptor: overlapDescriptor,
             scriptBindings: propertyCursorBindings
@@ -938,6 +942,12 @@ enum Harness {
                 .expectedCursorTargets.count,
             "namedCursorMoveX": cursorMutationX(namedDispatch),
             "namedCursorMoveFailures": namedDispatch.failures.count,
+            "propertyCursorInputAccepted": propertyCursorProjection.consumesUserProperty(
+                key: "layout", target: .layer(layerID: 50, field: .visibility), valueType: .bool),
+            "propertyCursorWrongInputAccepted": propertyCursorProjection.consumesUserProperty(
+                key: "other", target: .layer(layerID: 50, field: .visibility), valueType: .bool),
+            "propertyCursorWrongTypeAccepted": propertyCursorProjection.consumesUserProperty(
+                key: "layout", target: .layer(layerID: 50, field: .visibility), valueType: .scalar),
             "propertyCursorVectorOwners": propertyCursorCandidate.vectorProgram.definitions.count,
             "propertyCursorBorrowed": propertyCursorCandidate.cursorProgram.bindings
                 .first?.ownsOwner == false,

@@ -13,6 +13,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 DOCUMENT_SOURCES = [
+    SOURCE_ROOT / "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
     SOURCE_ROOT / "Format/SceneDocument.swift",
     SOURCE_ROOT / "Format/SceneDocument+General.swift",
@@ -34,6 +35,7 @@ DOCUMENT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayer.swift",
 ]
 LAYER_SOURCES = [
+    SOURCE_ROOT / "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "Format/SceneDirectionalLightDefinition.swift",
@@ -442,6 +444,7 @@ struct BindingPayload: Encodable {
     let authoredValue: SceneJSONValue?
     let valueType: String
     let wrapperKeys: [String]
+    let userPropertyKey: String?
 
     init(_ binding: SceneScriptBindingIR) {
         source = binding.source
@@ -463,6 +466,7 @@ struct BindingPayload: Encodable {
         authoredValue = binding.authoredValue
         valueType = binding.valueType.rawValue
         wrapperKeys = binding.wrapperKeys ?? []
+        userPropertyKey = binding.userPropertyKey
     }
 }
 
@@ -905,6 +909,37 @@ class SceneScriptBindingParserTests(unittest.TestCase):
         self.assertEqual(len(result["bindings"]), 1)
         self.assertEqual(result["bindings"][0]["targetKey"], "visible")
         self.assertEqual(result["bindings"][0]["wrapperKeys"], ["script", "user", "value"])
+
+    def test_conditional_visibility_preserves_script_and_property_inputs(self) -> None:
+        def wrapper(user, value=True):
+            return {"script": RAW_SOURCE, "user": user, "value": value,
+                    "scriptproperties": {"enabled": {"user": "tips", "value": False}}}
+
+        fixture = {"objects": [
+            {"id": 71, "image": "models/user/example.json", "visible": wrapper(
+                {"name": "layout", "condition": "alternate"})},
+            {"id": 72, "image": "models/user/example.json", "visible": wrapper(
+                {"name": "layout", "condition": ["invalid"]})},
+            {"id": 73, "image": "models/user/example.json", "visible": wrapper(
+                {"name": "layout", "condition": "alternate", "extra": True})},
+            {"id": 74, "image": "models/user/example.json", "alpha": wrapper(
+                {"name": "layout", "condition": "alternate"}, 0.5)},
+        ]}
+        path = Path(self.temporary_directory.name) / "conditional-visibility.json"
+        path.write_text(json.dumps(fixture), encoding="utf-8")
+        result = json.loads(subprocess.run(
+            [str(self.generic_binary), str(path)], check=True,
+            capture_output=True, text=True,
+        ).stdout)
+        self.assertEqual(len(result["bindings"]), 1)
+        binding = result["bindings"][0]
+        self.assertEqual(binding["objectID"], 71)
+        self.assertEqual(binding["userPropertyKey"], "layout")
+        self.assertEqual(binding["source"], RAW_SOURCE)
+        self.assertEqual(binding["authoredValue"], True)
+        self.assertEqual(binding["properties"], {
+            "enabled": {"user": "tips", "value": False},
+        })
 
     def test_document_ir_preserves_all_verified_target_shapes(self) -> None:
         bindings = self.generic["bindings"]

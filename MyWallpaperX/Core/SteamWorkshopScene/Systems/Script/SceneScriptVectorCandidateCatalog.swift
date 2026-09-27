@@ -544,7 +544,8 @@ nonisolated extension SceneScriptVectorProgram {
             dynamicImageReferences: dynamicImageReferences,
             requiresStatefulOwner: true,
             evaluatesAfterSharedProviders: false,
-            dynamicMaterialModelPath: nil
+            dynamicMaterialModelPath: nil,
+            userPropertyInputKey: binding.userPropertyKey
         )
     }
 

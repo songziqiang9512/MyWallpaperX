@@ -148,6 +148,25 @@ enum Harness {
                 "layout", defaultValue: "one", options: ["one", "two"]
             )])
         )
+        let mixedConditionalConsumers = compiler.compile(
+            report: .init(bindings: [
+                binding("layout", .bool(true), 41, .layerVisibility(layerID: 41),
+                        condition: .string("one")),
+                binding("layout", .bool(false), 42, .layerVisibility(layerID: 42),
+                        condition: .string("two")),
+                binding("layout", .bool(true), 41,
+                        .scriptProperty(layerID: 41, path: ["visible", "style"]),
+                        condition: .string("one")),
+                binding("layout", .number(1), 43, .layerAlpha(layerID: 43),
+                        condition: .string("one")),
+            ], diagnostics: []),
+            catalog: .init(definitions: [comboProperty(
+                "layout", defaultValue: "one", options: ["one", "two"]
+            )])
+        )
+        let mixedConditionalValues = mixedConditionalConsumers.program.evaluate(
+            effectiveValues: ["layout": .string("two")]
+        )
         let conditionalLayerEvaluation = conditionalLayer.program.evaluate(
             effectiveValues: ["layout": .string("two")]
         )
@@ -1067,6 +1086,13 @@ enum Harness {
             "conditionalCount": conditional.program.instructions.count,
             "conditionalCodes": codes(conditional.diagnostics),
             "conditionalLayerCount": conditionalLayer.program.instructions.count,
+            "mixedConditionalTargets": mixedConditionalConsumers.program.instructions
+                .map(\.target) == conditionalLayer.program.instructions.map(\.target),
+            "mixedConditionalValues": conditionalLayerTargets.map {
+                String(describing: mixedConditionalValues.userValues[$0]!)
+            },
+            "mixedConditionalHasScalarInstruction": mixedConditionalConsumers.program.instructions
+                .contains { $0.target == .layer(layerID: 43, field: .alpha) },
             "conditionalLayerTargets": conditionalLayer.program.liveLayerVisibilityTargets
                 == Set(conditionalLayerTargets),
             "conditionalLayerCodes": codes(conditionalLayer.diagnostics),
@@ -1521,6 +1547,11 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
                 "missingPropertyDefault",
             ],
         )
+
+    def test_script_input_does_not_disable_conditional_layer_group(self) -> None:
+        self.assertTrue(self.result["mixedConditionalTargets"])
+        self.assertEqual(self.result["mixedConditionalValues"], ["bool(false)", "bool(true)"])
+        self.assertFalse(self.result["mixedConditionalHasScalarInstruction"])
 
     def test_conditional_and_duplicate_targets_fail_closed(self) -> None:
         self.assertEqual(self.result["conditionalCount"], 0)

@@ -48,7 +48,32 @@ nonisolated enum SceneScriptDynamicProviderHostContract {
     static func supports(_ wrapper: [String: Any], host: HostKind) -> Bool {
         let keys = wrapper.keys.sorted()
         guard supports(keys: keys, host: host) else { return false }
+        if host == .objectVisibility,
+           let user = wrapper["user"].flatMap(SceneJSONValue.init(jsonObject:)),
+           let value = wrapper["value"].flatMap(SceneJSONValue.init(jsonObject:)),
+           value.boolValue != nil,
+           conditionalReference(user) != nil {
+            return true
+        }
         return !keys.contains("user") || wrapper["user"] is NSNull
             || (host.acceptsStringOuterUser && wrapper["user"] is String)
+    }
+
+    /// The same conditional reference shape is used by an outer visibility
+    /// input and by a script property. Parsing it here keeps the format reader
+    /// independent of the runtime property compiler.
+    static func conditionalReference(
+        _ value: SceneJSONValue
+    ) -> (key: String, condition: SceneJSONValue)? {
+        guard case let .object(reference) = value,
+              reference.keys.sorted() == ["condition", "name"],
+              case let .string(key)? = reference["name"],
+              !key.isEmpty, key != "__proto__", key.utf8.count <= 256,
+              let condition = reference["condition"] else { return nil }
+        switch condition {
+        case .bool, .string: return (key, condition)
+        case let .number(number) where number.isFinite: return (key, condition)
+        default: return nil
+        }
     }
 }

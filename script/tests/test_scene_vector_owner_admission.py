@@ -148,6 +148,9 @@ class SceneVectorOwnerAdmissionTests(unittest.TestCase):
         self.assertEqual(self.value["reexportCursorExpected"], 0)
 
     def test_borrowed_cursor_receives_script_properties_before_first_event(self) -> None:
+        self.assertTrue(self.value["propertyCursorInputAccepted"])
+        self.assertFalse(self.value["propertyCursorWrongInputAccepted"])
+        self.assertFalse(self.value["propertyCursorWrongTypeAccepted"])
         self.assertEqual(self.value["propertyCursorVectorOwners"], 1)
         self.assertTrue(self.value["propertyCursorBorrowed"])
         self.assertEqual(self.value["propertyCursorFirstFailures"], 0)

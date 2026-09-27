@@ -24,6 +24,16 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-27-conditional-cursor-binding"></a>
+
+### E-2026-09-27-CONDITIONAL-CURSOR-BINDING — 条件显隐脚本恢复加载，点击后继接口仍缺失
+
+**首断点与修复：**`3211615441` 的左右点击层使用 `visible={script,user:{name:"style",condition:"0"},scriptproperties,value:true}`。原 parser 将条件引用误判为互斥输入，丢弃两份脚本；现复用可见性 host 合同保留该形态及属性 key，脚本候选将其声明为已有低优先级属性输入。条件引用形态校验与脚本 property 共用一处。随后实际启动暴露条件组被同 key 的 `scriptproperties.style` 污染：property compiler 保留 definition 却拒绝全部 style instructions。现只用 layerVisibility 构造条件组，并只向此类 target 授予条件域；其他目标继续局部拒绝，Host 冲突检查保持。没有样本分支或第二属性/事件 owner。
+
+**执行身份与结果：**基线 `edae5cc4` 加本批冻结 diff，签名优化 Debug App `2.0.9(277)`，Team `H9QWU9XN8R`，CDHash `ea2f151e5561c3d8d56c0ff467cca60e89db2748`，executable SHA-256 `68316470b82db225246717256755dd92ac0ce979c64e6390ec781b49a5093954`。原包隔离副本、静音、12秒与2秒间隔截图，指针 `[-0.75,0.4]` 后一次点击；原先缺失的43/41 cursor owner恢复，43实际执行cursorEnter。已执行图形链有publication、GPU completion、terminal compositor及next-frame，协议 benchmark 1/1 PASS；但43的cursorClick仍在跨层 `getEffect('ray')` 抛 `TypeError: not a function`，修改按现有事务回滚。实际检查hover截图中央图未切换。因此只记加载/输入链S3恢复，**点击切图仍未闭合**；跟随位置也不由本批判定。
+
+**验证与边界：**parser13项、property/vector/admission84项通过，最终补充原始条件wrapper→candidate输入身份→borrowed cursor实时属性测试32项通过（与84项重叠）；关联frame/media/property门63项通过。新增parser反例在HEAD旧实现失败。四个外围standalone套件因既有Bloom/GraphTarget stub缺失无法编译，替换为HEAD产品源码后同样4项setup失败；code-health仍为4个既有非Scene行数失败。最终Debug构建与严格签名校验通过。保留两次中间启动失败及诊断、最终报告/日志/截图、测试与冻结diff于本机证据标签 `2026-09-27-conditional-cursor-binding`。临时冲突日志已移除。下一门是跨图层effect handle/visible的通用事务能力及真实切图，不将协议PASS或单样本外推官方一致性、性能或全交互完成。
+
 <a id="e-2026-09-27-audio-real-music"></a>
 
 ### E-2026-09-27-AUDIO-REAL-MUSIC — 真实system tap的音圈可见，普通IPC收到非零频谱

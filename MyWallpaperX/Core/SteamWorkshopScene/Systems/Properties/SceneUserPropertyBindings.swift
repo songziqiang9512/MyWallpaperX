@@ -151,15 +151,13 @@ nonisolated enum SceneScriptUserPropertyInputContract {
             return .init(
                 userPropertyKey: key, fallback: fallback, condition: nil
             )
-        case let .object(reference):
-            guard reference.keys.sorted() == ["condition", "name"],
-                  case let .string(key)? = reference["name"],
-                  validName(key),
-                  let conditionValue = reference["condition"],
-                  let condition = userPropertyValue(conditionValue),
+        case .object:
+            guard let reference = SceneScriptDynamicProviderHostContract
+                    .conditionalReference(user),
+                  let condition = userPropertyValue(reference.condition),
                   case .bool = fallback else { return nil }
             return .init(
-                userPropertyKey: key,
+                userPropertyKey: reference.key,
                 fallback: fallback,
                 condition: condition
             )

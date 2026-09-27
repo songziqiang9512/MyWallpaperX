@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-27 条件显隐与cursor共同输入（S3）
+
+可见性脚本支持同wrapper的条件user引用；保留属性身份并沿原低优先级输入→唯一脚本owner执行。条件图层组不再因同key脚本参数失效，非法非visibility目标不能借用该组。实际3211615441左右owner恢复，cursorEnter执行；点击仍因跨层getEffect缺失而回滚，切图及跟随位置未闭合。测试、构建及失败边界见[运行证据](runtime-evidence-current.md#e-2026-09-27-conditional-cursor-binding)。
+
 ## 2026-09-27 共享音频连续采集窗
 
 系统tap的每个有效PCM回调进入同一有界历史，30Hz节流只限制完整频谱窗交接与分析；不再把跳采的小块当连续波形拼接。实际service/capture/Accelerate链的不同块长、worker忙、环形回绕、格式切换与撤销回归通过，见[运行证据](runtime-evidence-current.md#e-2026-09-27-audio-contiguous-capture)。Scene/Web/Video共用原producer，频带与显示响应策略未改；[真实音乐后继](runtime-evidence-current.md#e-2026-09-27-audio-real-music)已补到两个原包在真实tap下的环/柱可见，以及普通App→daemon非零频谱传递。全柱活跃度、形态达标与用户验收仍开放。

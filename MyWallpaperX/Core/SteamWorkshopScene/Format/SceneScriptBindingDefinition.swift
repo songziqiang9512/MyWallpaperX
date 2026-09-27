@@ -380,7 +380,9 @@ nonisolated enum SceneScriptBindingIRParser {
         let directBooleanVisibilityOwner = owner.kind == .object
             && path.last == .key("visible")
             && path.count == 3
-            && wrapper["user"] is String
+            && SceneScriptDynamicProviderHostContract.supports(
+                wrapper, host: .objectVisibility
+            )
             && SceneJSONValue(jsonObject: wrapper["value"] as Any)?.boolValue != nil
         let directPassPropertyOwner: Bool
         if owner.kind == .pass,
@@ -427,7 +429,10 @@ nonisolated enum SceneScriptBindingIRParser {
             authoredValue: authoredValue,
             valueType: .init(authoredValue: authoredValue),
             wrapperKeys: wrapper.keys.sorted(),
-            userPropertyKey: wrapper["user"] as? String
+            userPropertyKey: (wrapper["user"] as? String)
+                ?? wrapper["user"].flatMap(SceneJSONValue.init(jsonObject:))
+                    .flatMap { SceneScriptDynamicProviderHostContract
+                        .conditionalReference($0)?.key }
         ))
     }
 

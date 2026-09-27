@@ -391,7 +391,10 @@ nonisolated struct ScenePropertyBindingCompiler {
         let propertiesByKey = Dictionary(grouping: catalog.definitions, by: \.key)
         let sortedBindings = report.bindings.sorted(by: Self.bindingOrder)
         let bindingsByPropertyKey = Dictionary(
-            grouping: sortedBindings,
+            grouping: sortedBindings.filter {
+                if case .layerVisibility = $0.target { return true }
+                return false
+            },
             by: \.reference.key
         )
         let conditionalLayerVisibilityDomains = Dictionary(
@@ -439,11 +442,15 @@ nonisolated struct ScenePropertyBindingCompiler {
                 continue
             }
 
+            let admitsConditionalVisibility: Bool
+            if case .layerVisibility = binding.target {
+                admitsConditionalVisibility = admittedConditionalLayerVisibilityKeys
+                    .contains(binding.reference.key)
+            } else {
+                admitsConditionalVisibility = false
+            }
             var isValid = true
-            if binding.reference.isConditional,
-               !admittedConditionalLayerVisibilityKeys.contains(
-                   binding.reference.key
-               ) {
+            if binding.reference.isConditional, !admitsConditionalVisibility {
                 isValid = false
                 diagnostics.append(Self.compileDiagnostic(
                     code: .conditionalBinding,
@@ -484,9 +491,7 @@ nonisolated struct ScenePropertyBindingCompiler {
                 }
                 if let defaultValue = property.defaultValue {
                     let defaultValidation = binding.reference.isConditional
-                        && admittedConditionalLayerVisibilityKeys.contains(
-                            binding.reference.key
-                        )
+                        && admitsConditionalVisibility
                         ? Self.validateConditionalValue(
                             defaultValue,
                             condition: binding.reference.condition,
