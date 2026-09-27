@@ -11,7 +11,7 @@ struct SceneQuadVertex {
 
 enum SceneLayerBlendMode {
     case sourceOver
-    case additive
+    case alphaWeightedAdditive
 }
 
 // Per-layer uniform packed for setFragmentBytes. Layout matches MSL struct
@@ -52,18 +52,24 @@ struct SceneImageLayerPipeline {
         library injectedLibrary: MTLLibrary? = nil
     ) {
         guard let library = injectedLibrary ?? device.makeDefaultLibrary(),
-              let vertFn = library.makeFunction(name: "sceneImageLayerVert"),
-              let fragFn = library.makeFunction(name: "sceneImageLayerFrag") else { return nil }
+              let vertFn = library.makeFunction(name: "sceneImageLayerVert") else { return nil }
+        let constants = MTLFunctionConstantValues()
+        var weightsSourceAlpha = blendMode == .alphaWeightedAdditive
+        constants.setConstantValue(&weightsSourceAlpha, type: .bool, index: 0)
+        guard let fragFn = try? library.makeFunction(
+            name: "sceneImageLayerFrag", constantValues: constants
+        ) else { return nil }
 
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.vertexFunction = vertFn
         descriptor.fragmentFunction = fragFn
         descriptor.colorAttachments[0].pixelFormat = pixelFormat
-        // Premultiplied source-over: data was uploaded via CGContext with
-        // premultipliedLast, so rgb is already alpha-scaled.
+        // Ordinary images are premultiplied. Direct-draw effects additionally
+        // weight their emitted RGB by authored coverage in the fragment, before
+        // layer opacity; both therefore use ONE for source RGB here.
         descriptor.colorAttachments[0].isBlendingEnabled = true
         descriptor.colorAttachments[0].sourceRGBBlendFactor = .one
-        descriptor.colorAttachments[0].destinationRGBBlendFactor = blendMode == .additive ? .one : .oneMinusSourceAlpha
+        descriptor.colorAttachments[0].destinationRGBBlendFactor = blendMode == .alphaWeightedAdditive ? .one : .oneMinusSourceAlpha
         descriptor.colorAttachments[0].sourceAlphaBlendFactor = .one
         descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
 

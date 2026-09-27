@@ -16,6 +16,7 @@ SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
+    SOURCE_ROOT / "Rendering/Composition/SceneBloomPostProcess.swift",
     SOURCE_ROOT / "Format/SceneDocument.swift",
     SOURCE_ROOT / "Format/SceneDocument+General.swift",
     SOURCE_ROOT / "Format/SceneDocument+ShaderValue.swift",

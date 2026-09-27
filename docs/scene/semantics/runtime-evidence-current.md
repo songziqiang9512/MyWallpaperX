@@ -24,6 +24,21 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-27-direct-draw-coverage"></a>
+
+### E-2026-09-27-DIRECT-DRAW-COVERAGE — 独立光效恢复源透明度衰减
+
+**首断点与修正：**用户报告3287715210眼周白粉色光过强、渐隐渐现不明显。逐项核对授权参考Mirage的`PipelineShared.cppm`与`LayerEffectStack.cpp`：最终Additive RGB因子是SRC_ALPHA/ONE，先前加光批只对齐模式名称、实际使用ONE/ONE，漏掉源coverage。现役唯一image fragment以prepare-time function constant对独立quad先执行RGB×source alpha，再乘一次layer alpha，最终ONE/ONE相加；旧`.additive`枚举入口替换为`.alphaWeightedAdditive`，无第二compositor、无逐帧编译、无样本分支。普通图片显式关闭该specialization，既有source-over不变。作者intensity/speed/noise均未调整，没有任意压暗系数。
+
+**范围与反例：**受控生产Metal管线中，背景RGB=(102,128,153)、源RGBA=(51,0,26,128)，旧输出(153,128,179)→新(128,128,166)；再施加layer alpha=0.5得到(115,128,160)，没有把layer alpha平方。带非零RGB但alpha=0不再发光；alpha=1保留完整亮部，下一帧一致、准备复用和缺失准备行为通过。原实现新增2项失败，候选direct-draw/geometry共7项通过。普通图片、screen anchor、text pivot、solid layer与Bloom门共26项通过；solid测试修复既有漏列SceneBloomConfiguration生产依赖。graph producer在受控门中为shim，不能替代下方原包执行。
+
+**Bloom排查：**原328包实际camera为enabled=true、strength=0、threshold=1。生产Bloom Swift+Metal在237×149、3024×1964、3×2纹理上运行，零强度/阈值1与禁用均逐像素不变；正强度有正向光晕、alpha不变，复用后零强度亦无残留。零强度条件明确检查encode成功及GPU完成。这只排除该受控输入下的Bloom颜色贡献，不能排除用户细条纹、其他实际属性或effect内Bloom路径；原反馈仍OPEN。
+
+**最终原包身份：**Debug -O build与深度签名校验通过，App CDHash `a11f520c86b9bc9d94779a21d7f7ff1fd7afb4ab`，exe SHA `d9a4c8ec7e20b637e6b37e5c57105f2665b3283c66bd106fbca35798e672f103`。三个未修改原包各20秒、固定PCM、admission/execution/graph门PASS；report SHA `e0725d36b01a50177938f5d14934c32f0ea2f40c420975ceac1d78b3c2cc211e`。采样窗submitted/completed/failed/presented分别为3768724269=890/889/0/888、3287715210=911/910/0/909、3747492842=890/889/0/888；quad100/470/168均有frame0→1 GPU completed、publication13→28/9→20/17→34、compositorConsumed=true。眼周after与第6张序列的放射亮部随时间不同，未锁相位的观察不作量化改善或渐隐验收。App已启动供用户复测。证据标签`2026-09-27-direct-draw-coverage`，补充manifest SHA `f87ba6e2cb1f16ab7a4191b3ddc27ac0a1a80c969b96f03ad2d580578b1b77c9`；保存原包执行与眼周序列，不保存作者包。全仓code-health仍有既有四文件长度失败，文档角色13项通过；无性能、长稳或发布结论。
+
+**证据边界：**此次对齐的是RGB源coverage权重。项目终端alpha仍为AsL+Ad(1−AsL)，参考alpha使用SRC_ALPHA/ONE，透明target并不等价；不据不透明桌面宣称完整blend或官方parity。渐隐渐现仍沿作者fx随时间更新，没有新增呼吸动画；实际视觉是否合适待用户复测。3768724269尺寸/位置和3287715210细条纹继续登记队列。
+
+
 <a id="e-2026-09-27-direct-draw-square"></a>
 
 ### E-2026-09-27-DIRECT-DRAW-SQUARE — 光束等边单位与旧顶部补偿退役

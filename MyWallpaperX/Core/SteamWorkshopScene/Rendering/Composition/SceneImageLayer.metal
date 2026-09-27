@@ -1,6 +1,8 @@
 #include <metal_stdlib>
 using namespace metal;
 
+constant bool weightsSourceAlpha [[function_constant(0)]];
+
 // Fixed product shader for the sole image/source compositor. The Swift mirror
 // is SceneLayerFragmentUniforms in SceneMetalPipeline.swift.
 struct SceneImageLayerQuadVertex {
@@ -109,5 +111,10 @@ fragment float4 sceneImageLayerFrag(
         }
     }
 
+    // Keep layer opacity linear: source coverage belongs to the authored
+    // effect output, while uniforms.alpha belongs to the final layer.
+    if (is_function_constant_defined(weightsSourceAlpha) && weightsSourceAlpha) {
+        color.rgb *= color.a;
+    }
     return color * uniforms.tint * uniforms.alpha;
 }

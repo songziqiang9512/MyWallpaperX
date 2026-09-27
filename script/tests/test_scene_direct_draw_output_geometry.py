@@ -24,7 +24,7 @@ struct SceneTextureUVTransform {
 @main enum Harness {
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice(),
-              let pipeline = SceneImageLayerPipeline(device: device, blendMode: .additive),
+              let pipeline = SceneImageLayerPipeline(device: device, blendMode: .alphaWeightedAdditive),
               let queue = device.makeCommandQueue() else { fatalError("Metal unavailable") }
         var result: [String: Any] = [:]
         func model(_ canvas: SIMD2<Float>, _ world: simd_float4x4 = matrix_identity_float4x4,

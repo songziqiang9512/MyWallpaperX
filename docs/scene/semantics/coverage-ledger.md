@@ -123,7 +123,7 @@ projection绑定实际emitted effect card：fullscreen走canonical output geomet
 
 ## 2026-09-27 独立光束最终加光合成（S4 bounded visible）
 
-独立 direct-draw quad 的终端合成统一使用现有 `SceneImageLayerPipeline.additive`（RGB ONE/ONE，alpha ONE/ONE_MINUS_SRC_ALPHA），普通图片与 effect 内部 material state 保持原职责。管线在 launch 按 quad 需求准备、逐帧只读，准备失败沿必需图像合成资源错误拒绝本次启动；旧普通图片管线参数链已删除，没有 source-over fallback、第二 compositor 或样本分支。真实角向/径向/线性三个原包均完成 GPU/publication/compositor/next-frame；3768724269 右上由暗色条带恢复可见亮束。作者渐变、几何范围、粒子光束、3287715210细条纹及官方一致性不据此关闭。详见[当前运行证据](runtime-evidence-current.md#e-2026-09-27-direct-draw-additive)。
+独立 direct-draw quad 的终端合成使用同一 `SceneImageLayerPipeline.alphaWeightedAdditive`：prepared fragment先按源alpha衰减RGB，再乘一次图层透明度，固定RGB blend为ONE/ONE。先前只做ONE/ONE漏掉源coverage，已随用户眼周过亮反馈纠正；alpha附件仍为ONE/ONE_MINUS_SRC_ALPHA，不声称与参考透明target的alpha等价。普通图片与effect内部material state保持原职责。管线在 launch 按 quad 需求准备、逐帧只读，准备失败沿必需图像合成资源错误拒绝本次启动；旧普通图片管线参数链已删除，没有 source-over fallback、第二 compositor 或样本分支。真实角向/径向/线性三个原包均完成 GPU/publication/compositor/next-frame；3768724269 右上由暗色条带恢复可见亮束。作者渐变、几何范围、粒子光束、3287715210细条纹及官方一致性不据此关闭。详见[源coverage修正](runtime-evidence-current.md#e-2026-09-27-direct-draw-coverage)与[此前加光证据](runtime-evidence-current.md#e-2026-09-27-direct-draw-additive)。
 
 ## 2026-09-27 direct-draw 等边载体与旧补偿退役
 

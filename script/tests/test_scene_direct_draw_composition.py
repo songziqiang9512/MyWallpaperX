@@ -116,7 +116,10 @@ struct SceneMetalRenderer {
         }
         let result: [String: Any] = ["unprepared":unprepared,"reused":reused,
             "light":draw([51,0,26,128]), "faded":draw([51,0,26,128],alpha:0.5),
-            "transparent":draw([0,0,0,0]), "missing":draw([51,0,26,128],prepared:false),
+            "transparent":draw([0,0,0,0]),
+            "zeroCoverage":draw([51,0,26,0]),
+            "quarterCoverage":draw([51,0,26,64]),
+            "fullCoverage":draw([51,0,26,255]), "missing":draw([51,0,26,128],prepared:false),
             "unplanned":draw([51,0,26,128],prepared:false,hasPlan:false),
             "ordinary":draw([51,0,26,128],ordinaryImage:true),
             "nextFrame":draw([51,0,26,128])]
@@ -157,10 +160,16 @@ class DirectDrawCompositionTests(unittest.TestCase):
 
     def test_emitted_light_preserves_background_channels(self):
         self.assertTrue(self.result["light"]["drawn"])
-        self.pixels("light", [153,128,179,255])
-        self.pixels("faded", [128,128,166,255])
+        self.pixels("light", [128,128,166,255])
+        self.pixels("faded", [115,128,160,255])
         self.pixels("transparent", [102,128,153,255])
         self.assertEqual(self.result["light"], self.result["nextFrame"])
+
+    def test_authored_coverage_attenuates_light_before_layer_opacity(self):
+        self.pixels("zeroCoverage", [102,128,153,255])
+        self.pixels("quarterCoverage", [115,128,160,255])
+        self.pixels("fullCoverage", [153,128,179,255])
+        self.pixels("faded", [115,128,160,255])
 
     def test_missing_preparation_does_not_fall_back_to_cover_blending(self):
         self.assertTrue(self.result["unprepared"])

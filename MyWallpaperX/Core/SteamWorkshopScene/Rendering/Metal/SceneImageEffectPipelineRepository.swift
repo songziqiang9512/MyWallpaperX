@@ -56,7 +56,7 @@ final class SceneImageEffectPipelineRepository {
         }
         spotLightSlot = .init { SceneSpotLightPipeline(device: device) }
         directDrawSlot = .init {
-            SceneImageLayerPipeline(device: device, blendMode: .additive)
+            SceneImageLayerPipeline(device: device, blendMode: .alphaWeightedAdditive)
         }
     }
 
