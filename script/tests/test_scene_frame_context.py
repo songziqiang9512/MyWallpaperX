@@ -108,6 +108,35 @@ DEBUG_PAUSE_RESUME_RUNNER_SOURCE = (
 HARNESS = r'''
 import Foundation
 
+// UI/GPU surfaces only; camera selection and frame/input projection below
+// compile the production implementations.
+struct SceneGraphExecutionResetReason {}
+struct FrameTestCompositor {
+    var shouldDeferResolvedMaterialFrame = false
+    func invalidateResolvedMaterialRuntime(reason: SceneGraphExecutionResetReason) {}
+}
+struct FrameTestPool { func reset() {} }
+struct FrameTestCamera {
+    var orthoWidth: Float? = 1920
+    var orthoHeight: Float? = 1080
+    var parallaxEnabled = true
+    var parallaxMouseInfluence: Float = 0.5
+}
+struct FrameTestDescriptor { var camera = FrameTestCamera() }
+struct FrameTestRenderer {
+    var imageCompositor = FrameTestCompositor()
+    var renderDescriptor = FrameTestDescriptor()
+}
+struct FrameTestMetalLayer { var drawableSize = CGSize(width: 3024, height: 1964) }
+struct SceneMetalView {
+    var renderer = FrameTestRenderer()
+    var metalLayer = FrameTestMetalLayer()
+    var offscreenTexturePool = FrameTestPool()
+    var pointerState = SceneSurfacePointerState(
+        current: .zero, previous: .zero, isInside: true, isPrimaryButtonDown: false
+    )
+}
+
 @main
 enum Harness {
     static func main() throws {
@@ -156,11 +185,54 @@ enum Harness {
                 isPrimaryButtonDown: false
             ),
             cameraParallaxPosition: SIMD2(0.1, 0.2),
+            cameraParallaxMouseInfluence: 0.5,
             materialFunctionMutations: [
                 .init(layerID: 17, effectIndex: 2, functionName: "clearHistory")
             ],
             audioSpectrum: .silent
         )
+        func makeInput(_ snapshot: SceneDynamicSnapshot, authoredEnabled: Bool = true) -> SIMD2<Float> {
+            var view = SceneMetalView()
+            view.renderer.renderDescriptor.camera.parallaxEnabled = authoredEnabled
+            let frame = view.makeFrameContext(
+                timing: second, dynamicValues: snapshot,
+                parallax: SIMD2(0.8, -0.4), audioSpectrum: .silent
+            )
+            return SceneAuthoredShaderFrameInputs(frameContext: frame).parallaxPositionNDC
+        }
+        func snapshot(enabled: Bool, influence: Double) -> SceneDynamicSnapshot {
+            SceneDynamicSnapshotResolver().resolve(
+                frameIndex: second.frameIndex, generation: 4,
+                definitions: [
+                    .init(target: .camera(.parallaxEnabled), valueType: .bool, authoredValue: .bool(true)),
+                    .init(target: .camera(.parallaxMouseInfluence), valueType: .scalar, authoredValue: .scalar(0.5))
+                ],
+                sceneScriptValues: [
+                    .camera(.parallaxEnabled): .bool(enabled),
+                    .camera(.parallaxMouseInfluence): .scalar(influence)
+                ]
+            ).snapshot
+        }
+        let cameraSelection = [
+            makeInput(context.dynamicValues),
+            makeInput(snapshot(enabled: true, influence: 0.25)),
+            makeInput(snapshot(enabled: false, influence: 2)),
+            makeInput(context.dynamicValues, authoredEnabled: false),
+            makeInput(snapshot(enabled: true, influence: 0.25), authoredEnabled: false),
+        ]
+        let shaderInputs = SceneAuthoredShaderFrameInputs(frameContext: context)
+        let parallaxVariants = [Float(0), 1, 2, -1].map { influence in
+            SceneAuthoredShaderFrameInputs(frameContext: SceneFrameContext(
+                timing: second,
+                dynamicValues: context.dynamicValues,
+                canvasSize: context.canvasSize,
+                screenSize: context.screenSize,
+                pointer: context.pointer,
+                cameraParallaxPosition: context.cameraParallaxPosition,
+                cameraParallaxMouseInfluence: influence,
+                audioSpectrum: .silent
+            )).parallaxPositionNDC
+        }
         var pointerState = SceneSurfacePointerState(
             current: SIMD2(0.25, 0.5),
             previous: SIMD2(-0.75, 0.5),
@@ -175,6 +247,11 @@ enum Harness {
             isPrimaryButtonDown: true
         ))
         let payload: [String: Any] = [
+            "cameraSelection": cameraSelection.map { [$0.x, $0.y] },
+            "shaderParallax": [shaderInputs.parallaxPositionNDC.x, shaderInputs.parallaxPositionNDC.y],
+            "shaderPointer": [shaderInputs.pointerCurrentNDC.x, shaderInputs.pointerCurrentNDC.y],
+            "layerParallax": [context.cameraParallaxPosition.x, context.cameraParallaxPosition.y],
+            "parallaxVariants": parallaxVariants.map { [$0.x, $0.y] },
             "first": timing(first),
             "second": timing(second),
             "failedAttempt": timing(failedAttempt),
@@ -342,6 +419,10 @@ class SceneFrameContextTests(unittest.TestCase):
                 str(AUDIO_SOURCE),
                 str(POINTER_SOURCE),
                 str(SOURCE),
+                str(VIEW_FRAME_CONTEXT_SOURCE),
+                str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot+Camera.swift"),
+                str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneAuthoredShaderFrameInputs.swift"),
+                str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneAuthoredShaderFrameInputs+FrameContext.swift"),
                 str(harness),
                 "-o",
                 str(binary),
@@ -359,6 +440,22 @@ class SceneFrameContextTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_production_camera_input_selects_dynamic_override_and_disabled_center(self) -> None:
+        expected = [[0.4, -0.2], [0.2, -0.1], [0, 0], [0, 0], [0.2, -0.1]]
+        for actual, target in zip(self.result["cameraSelection"], expected):
+            for component, value in zip(actual, target):
+                self.assertAlmostEqual(component, value)
+
+    def test_shader_parallax_weights_mouse_without_changing_layer_or_pointer_input(self) -> None:
+        for actual, expected in zip(self.result["shaderParallax"], [0.05, 0.1]):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(self.result["shaderPointer"], [0.5, -0.25])
+        for actual, expected in zip(self.result["layerParallax"], [0.1, 0.2]):
+            self.assertAlmostEqual(actual, expected)
+        for actual, expected in zip(self.result["parallaxVariants"], [[0, 0], [0.1, 0.2], [0.2, 0.4], [-0.1, -0.2]]):
+            for component, target in zip(actual, expected):
+                self.assertAlmostEqual(component, target)
 
     def test_clock_is_monotonic_and_uses_one_wall_date_per_frame(self) -> None:
         self.assertEqual(self.result["first"], {

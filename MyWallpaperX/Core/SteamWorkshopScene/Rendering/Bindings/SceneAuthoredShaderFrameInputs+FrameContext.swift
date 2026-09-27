@@ -19,6 +19,7 @@ extension SceneAuthoredShaderFrameInputs {
         pointerPreviousNDC = frameContext.pointerPrevious
         pointerPrimaryButtonDown = frameContext.pointer.isPrimaryButtonDown
         parallaxPositionNDC = frameContext.cameraParallaxPosition
+            * frameContext.cameraParallaxMouseInfluence
         let spectrum = frameContext.audioSpectrum
         audioSpectrum = .init(
             left16: spectrum.left,

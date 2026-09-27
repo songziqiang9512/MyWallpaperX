@@ -1190,7 +1190,7 @@ private func readyStatus(
     ))
 }
 
-private func uniformInputs() -> SceneAuthoredShaderUniformInputs {
+private func uniformInputs(parallax: SIMD2<Float> = SIMD2(0.5, -0.25)) -> SceneAuthoredShaderUniformInputs {
     .init(
         frameIndex: 1,
         renderSize: CGSize(width: 640, height: 360),
@@ -1205,7 +1205,7 @@ private func uniformInputs() -> SceneAuthoredShaderUniformInputs {
         frameTime: 1 / 60,
         pointerCurrentNDC: SIMD2(0.25, -0.5),
         pointerPreviousNDC: SIMD2.zero,
-        parallaxPositionNDC: SIMD2(0.5, -0.25),
+        parallaxPositionNDC: parallax,
         texturePhysicalSizes: [0: CGSize(width: 2, height: 2)]
     )
 }
@@ -5487,7 +5487,20 @@ private enum Harness {
         }!
         let parallaxPositionEncoded =
             float(programA.uniformBytes, at: parallaxField.offset) == 0.75
-            && float(programA.uniformBytes, at: parallaxField.offset + 4) == 0.625
+            && float(programA.uniformBytes, at: parallaxField.offset + 4) == 0.375
+
+        let parallaxRangePreserved = [SIMD2<Float>.zero, SIMD2(2, -2)].allSatisfy { value in
+            guard let bytes = SceneResolvedMaterialUniformEncoder.encodeHost(
+                .parallaxPosition, type: .float2,
+                inputs: uniformInputs(parallax: value), slots: []
+            ) else { return false }
+            return float(bytes, at: 0) == 0.5 + value.x * 0.5
+                && float(bytes, at: 4) == 0.5 + value.y * 0.5
+        }
+        let invalidParallaxRejected = SceneResolvedMaterialUniformEncoder.encodeHost(
+            .parallaxPosition, type: .float2,
+            inputs: uniformInputs(parallax: SIMD2(.nan, 0)), slots: []
+        ) == nil
 
         let failures: [String: String] = [
             "nonFramebufferDoesNotInject": failureToken(finalize(
@@ -5947,6 +5960,8 @@ private enum Harness {
                     effectModelViewProjectionEncoded,
                 "effectProjectionEncoded": forwardProjectionEncoded,
                 "parallaxPositionEncoded": parallaxPositionEncoded,
+                "parallaxRangePreserved": parallaxRangePreserved,
+                "invalidParallaxRejected": invalidParallaxRejected,
                 "shaderUniformDefault": tintDefaultCorrect,
                 "hostIgnoresShaderDefault": hostDefaultIgnored,
                 "explicitUniformOverridesDefault": explicitOverrideCorrect,

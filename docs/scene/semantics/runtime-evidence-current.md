@@ -24,6 +24,22 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-27-parallax-shader-input"></a>
+
+### E-2026-09-27-PARALLAX-SHADER-INPUT — 背景深度输入的影响系数和纵轴
+
+**首断点与目标：**继续3768724269“人物动而光源像固定”的反馈。前批只证明quad100的层视差有实际输出，不能据此排除背景输入错误。本批发现`g_ParallaxPosition`复用普通pointer的top-left UV编码，并且未乘相机mouseInfluence；作者声明0.5时背景收到全幅输入，纵轴也与参考的Y-up视差输入相反。[官方视差文档](https://docs.wallpaperengine.io/en/scene/parallax/introduction.html)规定mouse influence控制鼠标影响，[shader变量文档](https://docs.wallpaperengine.io/en/scene/shader/variables.html)把该变量定义为normalized parallax offset；精确归一化公式来自授权第三方Mirage的`SceneUniformBinder.cpp`，不是官方golden。作者层关系与交叉开关仍见[前批定义](#e-2026-09-27-light-parallax-diagnosis)。
+
+**实现与边界：**沿现有FrameContext保存一次当前authored/dynamic camera influence；shader frame input乘此系数，最终按`0.5 + 0.5 * Y-up NDC * influence`编码。层视差保留未缩放的平滑指针，由原owner应用影响系数，避免二次相乘；普通pointer uniform不变。移除parallax对普通pointer编码的误用，不新增光源跟随、样本分支、时钟或特效补偿。禁用parallax时输入中心，动态开关/影响系数覆盖作者默认；不夹取作者放大的归一化偏移，非有限值仍拒绝编码。
+
+**定向验证：**frame context38、layer parallax2、material finalizer28，共68项通过。生产`makeFrameContext`与typed动态投影编译执行，验证authored/dynamic选择、动态重新启用、关闭中心、0/1/2/-1影响系数、普通pointer和层输入不被改写；最终uniform字节验证Y-up、中心、超单位范围和NaN拒绝。Debug -O构建通过，新App CDHash `e55361665627ff0176f5f31bdce16c1181228be1`，exe SHA `f468faa7a32bd234e9ce83823b12bc73d02e4acd0b6c857d5c30f9f1fdac5ff5`，benchmark前后深度签名通过。
+
+**原生输出对照：**仅在隔离包保留背景17的depthparallax19，禁用shake、delay=0，mouseInfluence=0.5，保留原图与深度图。新App指针为(-.75,0)/(.75,0)/(0,.75)/(0,-.75)；旧App使用按目标公式预变换的(-.375,0)/(.375,0)/(0,-.375)/(0,.375)。两次admission/execution/graph均PASS，layer17有GPU completed、publication、terminal compositor和next-frame；四张3024×1964输出逐像素相同（RGB RMSE=0、不同像素=0），且新版左右两次画面确实不同。这证明输入变换到达实际输出，不证明参考或官方整景parity。新/旧report SHA分别`cbdf3b26af38421e6d9ca26907853058f7e35e7007313378ad0943e8dd9c7c27` / `6a8a5de5ebaef128802b00db75c03d7363862cb71e6649bb710c8da71ceb4e77`。
+
+**整景与留存：**3768724269和3287715210未修改原包各10秒执行门PASS；report SHA `751a2dab92b95643f8dd48743ce6efb184bcfb2181a9b55e5ab69f984c4b1337`，submitted/completed/failed/presented分别362/361/0/360与343/342/0/341。背景17及光束100、背景16及光束470均GPU completed、compositor consumed和next-frame；完整376截图已查看，不能用静态截图判断晃动协调性。原包证据保存本机标签`2026-09-27-parallax-shader-input`，附隔离report、矩阵、输出差异与图像SHA（supplemental manifest SHA `3dd734a1b5d5744704e2eb2d700399976028ae707ada628077876b521e46358c`）；隔离原始图保留`/private/tmp/mwx-parallax-uniform-g3g4fi62`，不重复复制近百MB图集。文档角色13项通过。无性能、长稳、发布或整体官方parity结论。
+
+**未关闭项：**376的完整脱层观感、共同shake、粒子视差、范围与亮根位置仍需复测；328的眼周发光与细条纹也不因本批关闭。328原作者camera parallax/shake均false，眼周quad470无parent/depth，背景另有iris-follow-cursor，不能把该样本的局部眼睛变形误称为同一相机问题。前置particle-only隔离观察到左侧金色长束，右侧彩色放射对应quad100；particle诊断因无material graph而被错误要求graph门，总FAIL保留，不作粒子兼容通过结论。
+
 <a id="e-2026-09-27-light-parallax-diagnosis"></a>
 
 ### E-2026-09-27-LIGHT-PARALLAX-DIAGNOSIS — 作者独立光束与背景深度视差分离核对

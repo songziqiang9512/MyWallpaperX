@@ -34,6 +34,8 @@ extension SceneMetalView {
             screenSize: screenSize,
             pointer: pointerState,
             cameraParallaxPosition: parallaxEnabled ? parallax : .zero,
+            cameraParallaxMouseInfluence:
+                property.parallaxMouseInfluence ?? camera.parallaxMouseInfluence,
             materialFunctionMutations: materialFunctionMutations,
             audioSpectrum: audioSpectrum
         )

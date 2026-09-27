@@ -85,7 +85,13 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
                 as: type
             )
         case .parallaxPosition:
-            return encodePointer(inputs.parallaxPositionNDC, type: type)
+            guard type == .float2 else { return nil }
+            // Parallax uses centered Y-up coordinates with mouse influence
+            // already applied. Pointer uniforms instead use top-left UV.
+            return encodeComponents([
+                Double(inputs.parallaxPositionNDC.x * 0.5 + 0.5),
+                Double(inputs.parallaxPositionNDC.y * 0.5 + 0.5),
+            ], as: type)
         case .screen:
             guard type == .float3, valid(inputs.screenSize) else { return nil }
             let width = Double(inputs.screenSize.width)

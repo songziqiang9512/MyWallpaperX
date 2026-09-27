@@ -27,6 +27,7 @@ nonisolated struct SceneFrameContext: Equatable, Sendable {
     let screenSize: CGSize
     let pointer: SceneSurfacePointerState
     let cameraParallaxPosition: SIMD2<Float>
+    let cameraParallaxMouseInfluence: Float
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     /// host-shared 频谱输入。无消费者或采集不可用时为稳定零输入。
     let audioSpectrum: SceneAudioSpectrumSnapshot
@@ -38,6 +39,7 @@ nonisolated struct SceneFrameContext: Equatable, Sendable {
         screenSize: CGSize,
         pointer: SceneSurfacePointerState,
         cameraParallaxPosition: SIMD2<Float>,
+        cameraParallaxMouseInfluence: Float = 1,
         materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = [],
         audioSpectrum: SceneAudioSpectrumSnapshot
     ) {
@@ -47,6 +49,7 @@ nonisolated struct SceneFrameContext: Equatable, Sendable {
         self.screenSize = screenSize
         self.pointer = pointer
         self.cameraParallaxPosition = cameraParallaxPosition
+        self.cameraParallaxMouseInfluence = cameraParallaxMouseInfluence
         self.materialFunctionMutations = materialFunctionMutations
         self.audioSpectrum = audioSpectrum
     }
