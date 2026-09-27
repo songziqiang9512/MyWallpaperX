@@ -129,6 +129,7 @@ def validate_bundle(app: Path) -> None:
         if not path.is_file():
             raise RuntimeError(f"Required bundled executable is missing: {relative}")
 
+    validate_resource_hygiene(app)
     validate_steam_helper(app / "Contents/Resources/SteamService")
 
     mach_o_count = 0
@@ -176,6 +177,18 @@ def validate_bundle(app: Path) -> None:
         f"{mach_o_count - third_party_count} owned files are arm64-only; "
         f"{third_party_count} third-party files include arm64"
     )
+
+
+def validate_resource_hygiene(app: Path) -> None:
+    resources = app / "Contents/Resources"
+    for path in resources.rglob("*"):
+        if (path.name == ".mimosa" or path.suffix in (".source", ".pdb")
+                or (path.name.startswith("sess_") and path.suffix == ".json")):
+            raise RuntimeError(f"Development residue in App resources: {path.relative_to(app)}")
+    # The Help bundle is the single owner; synced root folders duplicate it.
+    for name in ("en", "zh-Hans", "README.md"):
+        if (resources / name).exists():
+            raise RuntimeError(f"Unexpected root resource: {name}")
 
 
 def validate_steam_helper(helper: Path) -> None:

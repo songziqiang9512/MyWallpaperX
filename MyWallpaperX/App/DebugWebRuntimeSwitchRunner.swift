@@ -37,8 +37,8 @@ enum DebugWebRuntimeSwitchRunner {
                 logPreconditionFailure("isolated-root-required")
                 return
             }
-            guard let video1URL = bundledVideoURL(named: "Video1"),
-                  let video2URL = bundledVideoURL(named: "Video2") else {
+            guard let video1URL = bundledVideoURL(named: "Video2"),
+                  let video2URL = bundledVideoURL(named: "Video3") else {
                 logPreconditionFailure("bundled-videos-missing")
                 return
             }

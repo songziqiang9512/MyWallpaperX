@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 1 ]]; then
-  echo "Usage: $0 <marketing-version>" >&2
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+  echo "Usage: $0 <marketing-version> [published-build-version]" >&2
   exit 64
 fi
 
@@ -10,34 +10,22 @@ MARKETING_VERSION="$1"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-if [[ -n "$(git status --porcelain)" ]]; then
-  echo "Working tree must be clean before preparing a release version." >&2
-  exit 1
-fi
-
-if git remote get-url origin >/dev/null 2>&1; then
-  git fetch --force --tags origin
-fi
-
-if git rev-parse --verify origin/main >/dev/null 2>&1; then
-  python3 script/check_code_health.py --check --base-ref origin/main
-else
-  python3 script/check_code_health.py --check
-fi
-
-if git rev-parse -q --verify "refs/tags/build-${MARKETING_VERSION}" >/dev/null; then
-  echo "Release tag build-${MARKETING_VERSION} already exists; choose a newer version." >&2
-  exit 1
-fi
-
-BUILD_VERSION="$(( $(git rev-list --count HEAD) + 1 ))"
-
+# Notes are reviewed together with the version change. This command only
+# prepares files; staging, committing, pushing and publishing remain explicit.
+git diff --exit-code -- MyWallpaperX.xcodeproj/project.pbxproj
+git diff --cached --exit-code -- MyWallpaperX.xcodeproj/project.pbxproj
+python3 script/validate_release_notes.py "$MARKETING_VERSION" --check-tags
+BUILD_VERSION="$(python3 - "${2:-0}" <<'PYTHON'
+from pathlib import Path
+import sys
+from script.release_version import PROJECT, project_version
+published = sys.argv[1]
+if not published.isascii() or not published.isdecimal():
+    raise SystemExit("Published build version must be numeric")
+_, current = project_version(Path(PROJECT).read_text())
+print(max(current, int(published)) + 1)
+PYTHON
+)"
 script/update_project_version.sh "$MARKETING_VERSION" "$BUILD_VERSION"
-git add MyWallpaperX.xcodeproj/project.pbxproj
-
-if git diff --cached --quiet; then
-  echo "Project version already matches ${MARKETING_VERSION} (${BUILD_VERSION})."
-  exit 0
-fi
-
-git commit -m "Bump version to ${MARKETING_VERSION} (${BUILD_VERSION})"
+printf 'Prepared version %s (%s). Review and commit the project and docs/releases/%s.md together.\n' \
+  "$MARKETING_VERSION" "$BUILD_VERSION" "$MARKETING_VERSION"

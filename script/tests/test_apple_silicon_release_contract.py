@@ -20,6 +20,21 @@ def load_validator():
 
 
 class AppleSiliconReleaseContractTests(unittest.TestCase):
+    def test_bundle_rejects_development_residue_but_keeps_licenses(self):
+        validator = load_validator()
+        with tempfile.TemporaryDirectory() as temporary:
+            app = Path(temporary)
+            resources = app / "Contents/Resources"
+            resources.mkdir(parents=True)
+            (resources / "LICENSE").write_text("license")
+            validator.validate_resource_hygiene(app)
+            for name in ("session.source", "sess_abc.json", "SteamService.pdb", "README.md"):
+                path = resources / name
+                path.write_text("fixture")
+                with self.assertRaises(RuntimeError):
+                    validator.validate_resource_hygiene(app)
+                path.unlink()
+
     def test_helper_is_required_self_contained_and_embedded_by_xcode(self):
         validator = load_validator()
         self.assertIn(Path("Contents/Resources/SteamService/SteamService"), validator.REQUIRED_BUNDLE_EXECUTABLES)

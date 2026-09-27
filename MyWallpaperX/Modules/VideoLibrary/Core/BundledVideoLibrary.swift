@@ -8,11 +8,8 @@ import Foundation
 
 enum BundledVideoLibrary {
     static let expectedFileNames = [
-        "Video1.mp4",
         "Video2.mp4",
-        "Video3.mp4",
-        "Video4.mp4",
-        "Video5.mp4"
+        "Video3.mp4"
     ]
 
     private static let preparedDirectoryURL: URL? = {

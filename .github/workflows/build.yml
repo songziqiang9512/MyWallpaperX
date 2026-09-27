@@ -2,15 +2,32 @@ name: Release MyWallpaperX
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 已提交版本号（必须有 docs/releases/<version>.md）
+        required: true
+        type: string
+      source_sha:
+        description: Agent 校验的待发布提交 SHA
+        required: true
+        type: string
 
 permissions:
   contents: write
+
+concurrency:
+  group: mywallpaperx-release
+  cancel-in-progress: false
 
 jobs:
   build:
     name: Build macOS app
     if: github.ref == 'refs/heads/main'
     runs-on: macos-26
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: bash
 
     env:
       APP_NAME: MyWallpaperX
@@ -20,7 +37,6 @@ jobs:
       DERIVED_DATA_PATH: build/DerivedData
       DIST_DIR: dist
       KEYCHAIN_PATH: build/signing.keychain-db
-      IS_RELEASE_BUILD: "true"
 
     steps:
       - name: Checkout
@@ -28,15 +44,43 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Select SteamService SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.401"
-
       - name: Select repository Python
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+
+      - name: Resolve build version
+        run: bash script/resolve_version.sh --release >> "$GITHUB_ENV"
+
+      - name: Validate version and authored release notes
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          EXPECTED_SHA: ${{ inputs.source_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$EXPECTED_SHA" != "$GITHUB_SHA" ]; then
+            echo "::error::main changed after preparation; refusing to publish a different commit."
+            exit 1
+          fi
+          if [ "$REQUESTED_VERSION" != "$MARKETING_VERSION" ]; then
+            echo "::error::Requested version must match the committed project version ($MARKETING_VERSION)."
+            exit 1
+          fi
+          python3 script/validate_release_notes.py "$REQUESTED_VERSION" --check-project --check-tags
+          gh release download update-feed --pattern appcast.xml --dir "$RUNNER_TEMP/previous-feed"
+          python3 script/release_version.py --previous-appcast "$RUNNER_TEMP/previous-feed/appcast.xml"
+          if gh release view "build-$MARKETING_VERSION" >/dev/null 2>&1; then
+            echo "::error::Release or draft already exists; inspect it before retrying."
+            exit 1
+          fi
+          mkdir -p "$DIST_DIR"
+          cp "docs/releases/$MARKETING_VERSION.md" "$DIST_DIR/release-notes.md"
+          echo "PACKAGE_NAME=${APP_NAME}-${MARKETING_VERSION}-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: Select SteamService SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.401"
 
       - name: Run tests and check Swift file health
         env:
@@ -50,29 +94,6 @@ jobs:
             BASE_REF="$(git rev-list --max-parents=0 HEAD | head -n 1)"
           fi
           python3 script/check_code_health.py --check --base-ref "${BASE_REF}" --format github
-
-      - name: Resolve build version
-        run: |
-          SHORT_SHA="${GITHUB_SHA::7}"
-          if [ "${IS_RELEASE_BUILD}" = "true" ]; then
-            eval "$("$GITHUB_WORKSPACE/script/resolve_version.sh" --release)"
-            git fetch --force --tags origin
-            if git rev-parse -q --verify "refs/tags/build-${MARKETING_VERSION}" >/dev/null; then
-              echo "::error::Release tag build-${MARKETING_VERSION} already exists. Bump the project version in a release PR before pushing main."
-              exit 1
-            fi
-          else
-            eval "$("$GITHUB_WORKSPACE/script/resolve_version.sh")"
-          fi
-          PACKAGE_NAME="${APP_NAME}-${MARKETING_VERSION}-${SHORT_SHA}"
-
-          {
-            echo "MARKETING_VERSION=${MARKETING_VERSION}"
-            echo "BUILD_VERSION=${BUILD_VERSION}"
-            echo "PACKAGE_NAME=${PACKAGE_NAME}"
-          } >> "$GITHUB_ENV"
-
-          echo "Building ${APP_NAME} ${MARKETING_VERSION} (${BUILD_VERSION})"
 
       - name: Show Xcode environment
         run: |
@@ -154,7 +175,8 @@ jobs:
           APP_PATH="$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION/$APP_NAME.app"
           python3 script/validate_apple_silicon_release.py \
             --project "$PROJECT_PATH" \
-            --app "$APP_PATH"
+            --app "$APP_PATH" --skip-codesign
+          python3 script/release_version.py --app "$APP_PATH"
 
       - name: Sign app
         env:
@@ -162,27 +184,22 @@ jobs:
         run: |
           APP_PATH="$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION/$APP_NAME.app"
 
-          /bin/bash script/sign-steam-helper.sh "$APP_PATH/Contents/Helpers/SteamService" "$DEVELOPER_ID_APPLICATION"
+          /bin/bash script/sign-steam-helper.sh "$APP_PATH/Contents/Resources/SteamService" "$DEVELOPER_ID_APPLICATION"
 
-          HELPER_PATH="$APP_PATH/Contents/Helpers/${APP_NAME}WallpaperDaemon"
-          if [ -x "$HELPER_PATH" ]; then
-            codesign \
-              --force \
-              --timestamp \
-              --options runtime \
-              --sign "$DEVELOPER_ID_APPLICATION" \
-              "$HELPER_PATH"
-          fi
+          for helper in "${APP_NAME}WallpaperDaemon" glslang spirv-cross; do
+            codesign --force --timestamp --options runtime \
+              --sign "$DEVELOPER_ID_APPLICATION" "$APP_PATH/Contents/Helpers/$helper"
+          done
 
-          while IFS= read -r bundle_path; do
-            codesign \
-              --force \
-              --timestamp \
-              --deep \
-              --options runtime \
-              --sign "$DEVELOPER_ID_APPLICATION" \
-              "$bundle_path"
-          done < <(find "$APP_PATH" -mindepth 1 -type d \( -name '*.app' -o -name '*.framework' \) | awk '{ print length, $0 }' | sort -rn | cut -d' ' -f2-)
+          # Sign Sparkle inside-out; Downloader must retain its sandbox entitlement.
+          SPARKLE_FRAMEWORK="$APP_PATH/Contents/Frameworks/Sparkle.framework"
+          SPARKLE_VERSION_DIR="$SPARKLE_FRAMEWORK/Versions/B"
+          for nested in XPCServices/Installer.xpc XPCServices/Downloader.xpc Autoupdate Updater.app; do
+            codesign --force --timestamp --options runtime --preserve-metadata=entitlements \
+              --sign "$DEVELOPER_ID_APPLICATION" "$SPARKLE_VERSION_DIR/$nested"
+          done
+          codesign --force --timestamp --options runtime \
+            --sign "$DEVELOPER_ID_APPLICATION" "$SPARKLE_FRAMEWORK"
 
           codesign \
             --force \
@@ -246,7 +263,7 @@ jobs:
 
           rm -rf "$DMG_ROOT" "$DMG_PATH"
           mkdir -p "$DMG_ROOT"
-          cp -R "$APP_PATH" "$DMG_ROOT/"
+          ditto "$APP_PATH" "$DMG_ROOT/$APP_NAME.app"
           ln -s /Applications "$DMG_ROOT/Applications"
 
           hdiutil create \
@@ -296,58 +313,10 @@ jobs:
 
           xcrun stapler staple "$DMG_PATH"
           xcrun stapler validate "$DMG_PATH"
-
-      - name: Upload build package
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.PACKAGE_NAME }}
-          path: ${{ env.DIST_DIR }}/*.dmg
-          if-no-files-found: error
-
-      - name: Generate release notes
-        if: env.IS_RELEASE_BUILD == 'true'
-        run: |
-          PREVIOUS_TAG="$(git tag --list 'build-*' --sort=-v:refname | head -n 1)"
-          NOTES_FILE="$DIST_DIR/release-notes.md"
-
-          {
-            echo "Automated build for ${GITHUB_SHA}."
-            echo
-            echo "Version: ${MARKETING_VERSION} (${BUILD_VERSION})"
-            echo
-            echo "Changes:"
-            if [ -n "$PREVIOUS_TAG" ]; then
-              git log "${PREVIOUS_TAG}..HEAD" --pretty='- %s (%h)'
-            else
-              git log --pretty='- %s (%h)' -n 20
-            fi
-          } > "$NOTES_FILE"
-
-      - name: Publish GitHub prerelease
-        if: env.IS_RELEASE_BUILD == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG_NAME="build-${MARKETING_VERSION}"
-          RELEASE_TITLE="${APP_NAME} ${MARKETING_VERSION}"
-
-          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            gh release upload "$TAG_NAME" "$DIST_DIR/$PACKAGE_NAME.dmg" --clobber
-            gh release edit "$TAG_NAME" \
-              --title "$RELEASE_TITLE" \
-              --notes-file "$DIST_DIR/release-notes.md" \
-              --prerelease
-          else
-            gh release create "$TAG_NAME" \
-              "$DIST_DIR/$PACKAGE_NAME.dmg" \
-              --title "$RELEASE_TITLE" \
-              --notes-file "$DIST_DIR/release-notes.md" \
-              --prerelease \
-              --target "$GITHUB_SHA"
-          fi
+          codesign --verify --strict "$DMG_PATH"
+          spctl --assess --type open --context context:primary-signature --verbose=4 "$DMG_PATH"
 
       - name: Generate signed Sparkle appcast
-        if: env.IS_RELEASE_BUILD == 'true'
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
@@ -376,9 +345,43 @@ jobs:
                 --link "https://github.com/${GITHUB_REPOSITORY}" \
                 -o "$DIST_DIR/appcast.xml" \
                 "$FEED_DIR"
+          python3 script/release_version.py --appcast "$DIST_DIR/appcast.xml"
+
+      - name: Archive release artifacts
+        run: |
+          (cd "$DIST_DIR" && shasum -a 256 "$PACKAGE_NAME.dmg" > "$PACKAGE_NAME.dmg.sha256")
+          DSYM_PATH="$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION/$APP_NAME.app.dSYM"
+          ditto -c -k --keepParent "$DSYM_PATH" "$DIST_DIR/$PACKAGE_NAME.dSYM.zip"
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: |
+            ${{ env.DIST_DIR }}/*.dmg
+            ${{ env.DIST_DIR }}/*.sha256
+            ${{ env.DIST_DIR }}/*.dSYM.zip
+            ${{ env.DIST_DIR }}/appcast.xml
+            ${{ env.DIST_DIR }}/release-notes.md
+          if-no-files-found: error
+
+      - name: Publish stable GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG_NAME="build-${MARKETING_VERSION}"
+          # Upload everything to a draft before making the release public.
+          gh release create "$TAG_NAME" \
+            "$DIST_DIR/$PACKAGE_NAME.dmg" \
+            "$DIST_DIR/$PACKAGE_NAME.dmg.sha256" \
+            "$DIST_DIR/$PACKAGE_NAME.dSYM.zip" \
+            "$DIST_DIR/appcast.xml" \
+            --title "${APP_NAME} ${MARKETING_VERSION}" \
+            --notes-file "$DIST_DIR/release-notes.md" \
+            --draft --target "$GITHUB_SHA"
+          gh release edit "$TAG_NAME" --draft=false --prerelease=false --latest
 
       - name: Publish Sparkle update feed
-        if: env.IS_RELEASE_BUILD == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -390,7 +393,7 @@ jobs:
               "$DIST_DIR/appcast.xml" \
               --title "MyWallpaperX Update Feed" \
               --notes "Machine-readable Sparkle update feed." \
-              --prerelease \
+              --prerelease --latest=false \
               --target "$GITHUB_SHA"
           fi
 

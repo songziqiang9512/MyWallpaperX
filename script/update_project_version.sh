@@ -18,6 +18,10 @@ import sys
 
 marketing_version = sys.argv[1]
 build_version = sys.argv[2]
+if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", marketing_version):
+    raise SystemExit("Marketing version must be numeric x.y.z")
+if not re.fullmatch(r"[1-9][0-9]*", build_version):
+    raise SystemExit("Build version must be a positive integer")
 project_file = Path("MyWallpaperX.xcodeproj/project.pbxproj")
 text = project_file.read_text()
 

@@ -113,7 +113,7 @@ def state(
 def passing_lines() -> list[str]:
     video1 = state(
         kind="video",
-        path="Video1.mp4",
+        path="Video2.mp4",
         playing=True,
         sessions=[session(VIDEO1_PID)],
         video1_alive=[VIDEO1_PID],
@@ -131,7 +131,7 @@ def passing_lines() -> list[str]:
     )
     requested = state(
         kind="video",
-        path="Video2.mp4",
+        path="Video3.mp4",
         playing=True,
         sessions=[session(VIDEO2_PID)],
         video1_pids=[VIDEO1_PID],
@@ -146,7 +146,7 @@ def passing_lines() -> list[str]:
     stale_filtered["staleFailureInjected"] = True
     recovered = state(
         kind="video",
-        path="Video2.mp4",
+        path="Video3.mp4",
         playing=True,
         sessions=[session(RECOVERED_PID, accepted=1, ready=1)],
         recovered_alive=[RECOVERED_PID],
@@ -189,7 +189,7 @@ def passing_lines() -> list[str]:
             state(
                 crash_count=2,
                 kind="video",
-                path="Video2.mp4",
+                path="Video3.mp4",
                 recovered_pids=[RECOVERED_PID],
                 stale_failure_injected=True,
                 stale_handler_captured=True,
@@ -223,12 +223,12 @@ class WebRuntimeSwitchBenchmarkTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="mwx-runtime-switch-videos-") as directory:
             resources = Path(directory)
             with zipfile.ZipFile(resources / "Videos.zip", "w") as archive:
-                for index in range(1, 6):
+                for index in (2, 3):
                     archive.writestr(f"Video{index}.mp4", b"video")
             validate_bundled_video_archive(resources)
 
             with zipfile.ZipFile(resources / "Videos.zip", "w") as archive:
-                archive.writestr("Video1.mp4", b"video")
+                archive.writestr("Video2.mp4", b"video")
             with self.assertRaisesRegex(ValueError, "entries are invalid"):
                 validate_bundled_video_archive(resources)
 
@@ -372,7 +372,7 @@ class WebRuntimeSwitchBenchmarkTests(unittest.TestCase):
 
     def test_rejects_delayed_post_stop_revival(self) -> None:
         def mutate(payload: dict) -> None:
-            payload.update(kind="video", path="Video2.mp4", playing=True)
+            payload.update(kind="video", path="Video3.mp4", playing=True)
             payload["sessions"] = [session(404, accepted=1, ready=1)]
             payload["recoveredAlive"] = [404]
 

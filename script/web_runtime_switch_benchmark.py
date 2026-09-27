@@ -53,7 +53,7 @@ EXPECTED_CHECKPOINTS = [
     "stopped",
     "post-stop",
 ]
-BUNDLED_VIDEO_FILES = {f"Video{index}.mp4" for index in range(1, 6)}
+BUNDLED_VIDEO_FILES = {"Video2.mp4", "Video3.mp4"}
 
 
 def validate_bundled_video_archive(resources: Path) -> None:
@@ -366,7 +366,7 @@ def score_log(
 
     video1 = states.get("video1-requested")
     video1_session = (
-        validate_video_state(video1, "Video1.mp4", switch_failures, "Video1")
+        validate_video_state(video1, "Video2.mp4", switch_failures, "Video1")
         if video1
         else None
     )
@@ -387,7 +387,7 @@ def score_log(
     video2_requested = states.get("video2-requested")
     requested_session = (
         validate_video_state(
-            video2_requested, "Video2.mp4", switch_failures, "Video2 requested"
+            video2_requested, "Video3.mp4", switch_failures, "Video2 requested"
         )
         if video2_requested
         else None
@@ -397,7 +397,7 @@ def score_log(
 
     stable = states.get("video2-stable")
     stable_session = (
-        validate_video_state(stable, "Video2.mp4", switch_failures, "Video2 stable")
+        validate_video_state(stable, "Video3.mp4", switch_failures, "Video2 stable")
         if stable
         else None
     )
@@ -437,7 +437,7 @@ def score_log(
             ownership_failures.append("stale Video1 output reached the current Video2 session")
         if (
             stale_filtered.get("kind") != "video"
-            or stale_filtered.get("path") != "Video2.mp4"
+            or stale_filtered.get("path") != "Video3.mp4"
             or not web_state_is_zero(stale_filtered)
         ):
             ownership_failures.append("stale reader check did not preserve Video2 ownership")
@@ -445,7 +445,7 @@ def score_log(
     recovered = states.get("video2-recovered")
     recovered_session = (
         validate_video_state(
-            recovered, "Video2.mp4", ownership_failures, "Video2 recovered"
+            recovered, "Video3.mp4", ownership_failures, "Video2 recovered"
         )
         if recovered
         else None
@@ -481,7 +481,7 @@ def score_log(
     recovery_pending = states.get("recovery-pending")
     if recovery_pending is not None and (
         recovery_pending.get("kind") != "video"
-        or recovery_pending.get("path") != "Video2.mp4"
+        or recovery_pending.get("path") != "Video3.mp4"
         or recovery_pending.get("playing") is not False
         or recovery_pending.get("sessions") != []
         or recovery_pending.get("recoveredAlive") != []

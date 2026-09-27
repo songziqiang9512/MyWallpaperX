@@ -31,7 +31,7 @@
 - [AppKit 迁移](architecture/appkit-migration.md)：当前 SwiftUI 残留和迁移门。
 - [Web 专题入口](web/README.md)：Web 当前状态、稳定合同和历史导航。
 - [Web 现役状态](web/current-state.md)：当前 Web runtime 事实和待验收项。
-- [发布签名](release/release-signing.md)：Developer ID、hardened runtime、notarization 与发布流程。
+- [Agent 自动发布与签名](release/release-signing.md)：一句话发布、正式更新日志、Developer ID、notarization 与发布结果核验。
 
 ## 文档治理
 

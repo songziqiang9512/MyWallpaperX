@@ -60,6 +60,23 @@
   },
   "path_groups": [
     {
+      "id": "release-preparation",
+      "patterns": [
+        ".github/workflows/build.yml",
+        "script/prepare_release_version.sh",
+        "script/resolve_version.sh",
+        "script/update_project_version.sh",
+        "script/validate_release_notes.py",
+        "script/publish_release.py",
+        "script/release_version.py",
+        "script/copy-scene-stock-assets.sh",
+        "MyWallpaperX/Resources/SceneStockAssets.bundle/**",
+        "docs/releases/**",
+        "docs/release/**"
+      ],
+      "modules": ["test_validate_release_notes", "test_publish_release", "test_release_version", "test_stock_asset_packaging", "test_apple_silicon_release_contract"]
+    },
+    {
       "id": "format",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Format/**",

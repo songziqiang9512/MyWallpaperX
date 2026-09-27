@@ -29,23 +29,24 @@ enum Harness {
         let firstArchive = URL(fileURLWithPath: CommandLine.arguments[1])
         let secondArchive = URL(fileURLWithPath: CommandLine.arguments[2])
         let destination = URL(fileURLWithPath: CommandLine.arguments[3], isDirectory: true)
-        let expected = ["Video1.mp4", "Video2.mp4"]
+        let oldExpected = (1...5).map { "Video\($0).mp4" }
+        let expected = BundledVideoLibrary.expectedFileNames
 
         let first = try BundledVideoLibrary.prepare(
             archiveURL: firstArchive,
             destinationDirectoryURL: destination,
-            expectedFileNames: expected
+            expectedFileNames: oldExpected
         )
         let firstInode = inode(first)
         let firstContent = try String(
-            contentsOf: first.appendingPathComponent("Video1.mp4"),
+            contentsOf: first.appendingPathComponent("Video2.mp4"),
             encoding: .utf8
         )
 
         let reused = try BundledVideoLibrary.prepare(
             archiveURL: firstArchive,
             destinationDirectoryURL: destination,
-            expectedFileNames: expected
+            expectedFileNames: oldExpected
         )
         let reusedInode = inode(reused)
 
@@ -55,7 +56,7 @@ enum Harness {
             expectedFileNames: expected
         )
         let updatedContent = try String(
-            contentsOf: updated.appendingPathComponent("Video1.mp4"),
+            contentsOf: updated.appendingPathComponent("Video2.mp4"),
             encoding: .utf8
         )
         let files = try FileManager.default.contentsOfDirectory(
@@ -89,7 +90,7 @@ class BundledVideoLibraryTests(unittest.TestCase):
         with zipfile.ZipFile(ARCHIVE_PATH) as archive:
             self.assertEqual(
                 archive.namelist(),
-                [f"Video{index}.mp4" for index in range(1, 6)],
+                ["Video2.mp4", "Video3.mp4"],
             )
             self.assertIsNone(archive.testzip())
             for name in archive.namelist():
@@ -101,8 +102,8 @@ class BundledVideoLibraryTests(unittest.TestCase):
             root = Path(directory)
             first_archive = root / "first.zip"
             second_archive = root / "second.zip"
-            self.write_fixture_archive(first_archive, "version-one")
-            self.write_fixture_archive(second_archive, "version-two")
+            self.write_fixture_archive(first_archive, "version-one", range(1, 6))
+            self.write_fixture_archive(second_archive, "version-two", (2, 3))
             harness = root / "Harness.swift"
             harness.write_text(HARNESS_SOURCE, encoding="utf-8")
             executable = root / "BundledVideoLibraryHarness"
@@ -137,13 +138,13 @@ class BundledVideoLibraryTests(unittest.TestCase):
             self.assertEqual(result["firstContent"], "version-one")
             self.assertTrue(result["reusedDirectory"])
             self.assertEqual(result["updatedContent"], "version-two")
-            self.assertEqual(result["files"], ["Video1.mp4", "Video2.mp4"])
+            self.assertEqual(result["files"], ["Video2.mp4", "Video3.mp4"])
 
     @staticmethod
-    def write_fixture_archive(path: Path, video1_content: str) -> None:
+    def write_fixture_archive(path: Path, content: str, indices) -> None:
         with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-            archive.writestr("Video1.mp4", video1_content)
-            archive.writestr("Video2.mp4", "stable")
+            for index in indices:
+                archive.writestr(f"Video{index}.mp4", content)
 
 
 if __name__ == "__main__":

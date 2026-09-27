@@ -33,5 +33,5 @@
 - 门禁服从实际失败半径：inner → checkpoint → integration → milestone。模块必须显式选择；`--scope scene` 不等于全量，full/fixed/签名/发布只在风险确实跨越时运行。
 - 产品代码测试断言行为（输入、输出、事件、反例），不得把源码文本、内部符号名或实现形状作为通过条件；存量按所属卡迁移，不为通过形状门新增同类断言。
 - Swift 产品改动在 checkpoint 再 Debug build；GPU/VM/资源/生命周期/可见变化使用隔离代表内容；可见结论必须有实际执行身份、completion、publication、terminal compositor、next-frame 及相称 ROI/事件证据。
-- 一个批次交付一个可见或可执行结果。提交只包含一个职责批次，信息写明问题、根因、实际结果和验证；禁止宽泛暂存。
+- 一个批次交付一个可见或可执行结果。提交只包含一个职责批次，信息写明问题、根因、实际结果和验证；禁止宽泛暂存。用户明确要求发布时，按[Agent 自动发布流程](docs/release/release-signing.md)完成日志撰写、版本提交、推送、构建、公开 Release 与结果核验，不把这些操作交给用户手工完成。
 - `.codex` 是可重建工作区，不是源码或知识库；`docs/scene/evidence/` 是仓库忽略的本机证据缓存。正式工具进 `script/`，测试进 `script/tests/`，一次性文件进 `/private/tmp`。最终报告明确实际改动、验证结果、跳过/未验证边界、工作区和提交状态。

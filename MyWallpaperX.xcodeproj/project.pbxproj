@@ -51,6 +51,8 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				Core/SteamWorkshopScene/Systems/Script/QuickJSNG/README.md,
+				Resources/SceneStockAssets.bundle,
 				Resources/SceneShaderCompilerTools/glslang,
 				Resources/SceneShaderCompilerTools/spirv-cross,
 				Modules/OnlineLibrary/AGENTS.md,
@@ -151,6 +153,18 @@
 /* End PBXGroup section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		A40000022F810003005688A8 /* Embed stock runtime assets */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ();
+			name = "Embed stock runtime assets";
+			outputPaths = ("$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Resources/SceneStockAssets.bundle",);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "/bin/bash \"$SRCROOT/script/copy-scene-stock-assets.sh\" \"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/SceneStockAssets.bundle\"\n";
+		};
 		A40000012F810003005688A8 /* Embed SteamService */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -175,6 +189,7 @@
 				98CED6372F6AF877005688A8 /* Resources */,
 				A10000322F6B0001005688A8 /* CopyFiles */,
 				A40000012F810003005688A8 /* Embed SteamService */,
+				A40000022F810003005688A8 /* Embed stock runtime assets */,
 			);
 			buildRules = (
 			);
@@ -182,7 +197,6 @@
 			);
 			fileSystemSynchronizedGroups = (
 				98CED63B2F6AF877005688A8 /* MyWallpaperX */,
-				98E9DA272F786FCC00C96FC7 /* MyWallpaperXHelp */,
 			);
 			name = MyWallpaperX;
 			packageProductDependencies = (
@@ -428,6 +442,7 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
+				EXCLUDED_SOURCE_FILE_NAMES = "$(inherited) .mimosa *.source sess_*.json";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MyWallpaperX/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
@@ -474,6 +489,7 @@
 				ENABLE_APP_SANDBOX = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
+				EXCLUDED_SOURCE_FILE_NAMES = "$(inherited) .mimosa *.source sess_*.json";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MyWallpaperX/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
