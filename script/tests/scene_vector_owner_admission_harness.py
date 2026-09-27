@@ -670,15 +670,15 @@ enum Harness {
             inputs: [.layer(layerID: 91, field: .scale): .vector3(1, 1, 1)],
             effectivePropertyValues: [:], frame: frame
         )
-        // Official contract (Cursor Events): "All mouse cursor events will
-        // only work on objects marked as Solid in the layer settings." An
-        // effect or pass is not a layer object, so a cursor callback exported
-        // by a pass-owned script must stay on the pass value route and never
-        // claim a cursor owner (and must not fabricate a cursor failure for a
-        // route it cannot have).
+        // Effect parameter callbacks share the owning layer's hit identity
+        // and the same VM instance used by the parameter update.
         let passCursorSource = """
-        export function cursorEnter(event) { return; }
-        export function update(value) { return value; }
+        let phase = 0;
+        let initializations = 0;
+        export function init(value) { initializations++; return value; }
+        export function cursorDown(event) { phase = 2; }
+        export function cursorUp(event) { phase = 3; }
+        export function update(value) { value.x = phase; value.y = initializations; return value; }
         """
         let passCursorOnlySource = """
         export function cursorDown(event) { return; }
@@ -742,6 +742,38 @@ enum Harness {
             )],
             generation: 69
         )
+        let passCursorTarget = SceneDynamicTarget.effectConstant(
+            layerID: 10, effectIndex: 0, passIndex: 0, name: "mediaColor"
+        )
+        let passHit = SceneScriptCursorHit(
+            layerID: 10, worldPosition: .init(20, 30, 0),
+            localPosition: .init(20, 30, 0)
+        )
+        var passEventFailures: [String] = []
+        func passFrame(hit: Bool, down: Bool) -> [Double] {
+            let events = passCursorCandidate.cursorProgram.dispatch(
+                batch: .init(samples: [.init(
+                    hits: hit ? [10: passHit] : [:],
+                    pointerPosition: .init(0.2, 0.3),
+                    primaryButtonIsDown: down
+                )], overflowed: false), frame: frame, userPropertiesJSON: "{}"
+            )
+            let values = passCursorCandidate.vectorProgram.evaluate(
+                inputs: [passCursorTarget: .vector2(0, 0)],
+                effectivePropertyValues: [:], frame: frame
+            )
+            passEventFailures += (Array(events.failures.values) + Array(values.failures.values)).map { String(describing: $0) }
+            passCursorCandidate.cursorProgram.finalizeLayerMutations(committing: true)
+            passCursorCandidate.vectorProgram.finalizeLayerMutations(committing: true)
+            return vector2(values.values[passCursorTarget])
+        }
+        let passSequence = [
+            passFrame(hit: false, down: false),
+            passFrame(hit: false, down: true),
+            passFrame(hit: false, down: false),
+            passFrame(hit: true, down: true),
+            passFrame(hit: true, down: false),
+        ]
         let retryAggregateCandidate = try retryAggregateBudgetCandidate(
             ownerCount: 260,
             invalidPrefixCount: 20,
@@ -1059,6 +1091,10 @@ enum Harness {
                 .constructionReport.cursorFailures.count,
             "passCursorOnlyVectorFailures": passCursorOnlyCandidate
                 .constructionReport.vectorFailures.values.map(\.code).sorted(),
+            "passCursorSequence": passSequence,
+            "passCursorEventFailures": passEventFailures,
+            "passCursorBorrowed": passCursorCandidate.cursorProgram.bindings
+                .allSatisfy { !$0.ownsOwner },
             "passCursorOwners": passCursorCandidate.cursorProgram.ownerCount,
             "passCursorFailures": passCursorCandidate.constructionReport
                 .cursorFailures.count,

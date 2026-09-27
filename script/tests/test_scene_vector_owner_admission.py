@@ -194,26 +194,19 @@ class SceneVectorOwnerAdmissionTests(unittest.TestCase):
         self.assertEqual(self.value["vectorCursorCollisionVectorExpected"], 2)
         self.assertEqual(self.value["vectorCursorCollisionCursorExpected"], 2)
 
-    def test_pass_owned_cursor_callback_never_becomes_a_cursor_owner(self) -> None:
-        # Official Cursor Events contract: cursor events only work on objects
-        # marked Solid; an effect or pass is not a layer object, so its cursor
-        # callback stays on the pass value route and never claims a cursor owner
-        # (nor fabricates a cursor failure for a route it cannot have).
-        self.assertEqual(
-            self.value["passCursorProjectedPassTargets"],
-            ["10:mediaColor", "10:unclaimed"],
-        )
-        self.assertEqual(self.value["passCursorOwners"], 0)
-        self.assertEqual(self.value["passCursorFailures"], 0)
+    def test_effect_parameter_cursor_shares_layer_hit_and_value_owner(self) -> None:
+        self.assertEqual(self.value["passCursorProjectedPassTargets"],
+                         ["10:mediaColor", "10:unclaimed"])
+        self.assertEqual(self.value["passCursorOwners"], 1)
         self.assertEqual(self.value["passCursorVectorOwners"], 1)
-        # A pass-owned script that exports only cursor callbacks is admitted as
-        # a pass value owner (measured: one definition, no failure) and still
-        # never becomes a cursor owner.
-        self.assertEqual(
-            self.value["passCursorOnlyPassTargets"], ["10:unclaimed"]
-        )
+        self.assertTrue(self.value["passCursorBorrowed"])
+        self.assertEqual(self.value["passCursorFailures"], 0)
+        self.assertEqual(self.value["passCursorEventFailures"], [])
+        self.assertEqual(self.value["passCursorSequence"],
+                         [[0, 1], [0, 1], [0, 1], [2, 1], [3, 1]])
+        self.assertEqual(self.value["passCursorOnlyPassTargets"], ["10:unclaimed"])
         self.assertEqual(self.value["passCursorOnlyVectorOwners"], 1)
-        self.assertEqual(self.value["passCursorOnlyOwners"], 0)
+        self.assertEqual(self.value["passCursorOnlyOwners"], 1)
         self.assertEqual(self.value["passCursorOnlyCursorFailures"], 0)
         self.assertEqual(self.value["passCursorOnlyVectorFailures"], [])
 

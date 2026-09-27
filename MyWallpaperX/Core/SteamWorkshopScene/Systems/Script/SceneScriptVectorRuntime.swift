@@ -687,14 +687,8 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         authoredLayerBaselines: [SceneScriptLayerMutation] = [],
         interruptBudget: UInt64? = nil
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
-        let cursorLayerID: Int
-        switch target {
-        case let .layer(layerID, _), let .text(layerID, _):
-            cursorLayerID = layerID
-        default:
-            return .failure(.invalidArgument("cursor owner identity mismatch"))
-        }
-        guard cursorLayerID == event.layerID else {
+        guard SceneScriptLayerMutationBridge.layerID(for: target)
+                == event.layerID else {
             return .failure(.invalidArgument("cursor owner identity mismatch"))
         }
         if let failure = configureCursorAuthoredLayerBaselines(

@@ -248,92 +248,6 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     )
                 )
             }
-            let cursorConstruction = SceneScriptCursorProgram.compileCandidate(
-                domain: domain,
-                descriptor: authoredDescriptor,
-                scriptBindings: scriptBindings,
-                borrowedOwners: vectorConstruction.program.cursorOwnerRegistrations,
-                // A planned vector visibility target has a single owner even
-                // when construction rejects it. Do not retry the same authored
-                // binding under a cursor owner after that rejection.
-                claimedTargets: vectorConstruction.program.inputTargets.union(
-                    plannedVectorTargets.filter { target in
-                        if case .layer(_, .visibility) = target { return true }
-                        return false
-                    }
-                ),
-                rejectedTargets: rejectedCursorTargets,
-                excludedStandaloneLayerIDs: excludedStandaloneCursorLayerIDs,
-                generation: generation,
-                budget: budget,
-                constructionWork: constructionWork
-            )
-            try control.checkBoundary()
-            if constructionWork.exceeded {
-                return makeUnavailable(constructionWork.failure)
-            }
-            if let failure = domainFatalFailure(cursorConstruction.failures) {
-                return makeUnavailable(failure)
-            }
-            expectedCursorTargets.formUnion(
-                cursorConstruction.requestedTargets
-            )
-            guard valid(
-                cursorConstruction.requestedTargets,
-                cursorConstruction.instantiatedTargets,
-                cursorConstruction.failures,
-                cursorConstruction.deferredTargets
-            ) else {
-                return unavailable(
-                    authoredDescriptor: authoredDescriptor,
-                    runtimeDescriptor: runtimeDescriptor,
-                    scriptBindings: scriptBindings,
-                    vectorProjection: vectorProjection,
-                    userPropertyDefinitions: userPropertyDefinitions,
-                    timelineTargets: timelineTargets,
-                    stringExcludedTargets: stringExcludedTargets,
-                    expectedVectorTargets: expectedVectorTargets,
-                    expectedScalarTargets: expectedScalarTargets,
-                    expectedStringTargets: expectedStringTargets,
-                    expectedCursorTargets: projectedCursorTargets,
-                    admittedVectorPassTargets: admittedVectorPassTargets,
-                    generation: generation,
-                    budget: budget,
-                    failure: .invalidArgument(
-                        "SceneScript cursor candidate ownership mismatch"
-                    )
-                )
-            }
-            if !cursorConstruction.failures.isEmpty {
-                record(
-                    cursorConstruction.failures,
-                    family: "cursor",
-                    failures: &cursorFailures,
-                    rejected: &rejectedCursorTargets
-                )
-                if cursorConstruction.requiresDomainReconstruction { continue }
-            }
-            guard cursorConstruction.deferredTargets.isEmpty else {
-                return unavailable(
-                    authoredDescriptor: authoredDescriptor,
-                    runtimeDescriptor: runtimeDescriptor,
-                    scriptBindings: scriptBindings,
-                    vectorProjection: vectorProjection,
-                    userPropertyDefinitions: userPropertyDefinitions,
-                    timelineTargets: timelineTargets,
-                    stringExcludedTargets: stringExcludedTargets,
-                    expectedVectorTargets: expectedVectorTargets,
-                    expectedScalarTargets: expectedScalarTargets,
-                    expectedStringTargets: expectedStringTargets,
-                    expectedCursorTargets: projectedCursorTargets,
-                    admittedVectorPassTargets: admittedVectorPassTargets,
-                    generation: generation,
-                    budget: budget,
-                    failure: .invalidArgument(
-                        "SceneScript cursor candidate deferred without failure"
-                    )
-                )
-            }
             let scalarConstruction = SceneScriptScalarProgram.compileCandidate(
                 domain: domain,
                 descriptor: authoredDescriptor,
@@ -558,6 +472,94 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     budget: budget,
                     failure: .invalidArgument(
                         "SceneScript vector pass deferred without failure"
+                    )
+                )
+            }
+            // Borrow callbacks only after every value owner (including pass
+            // parameters) exists, so events and updates share one VM instance.
+            let cursorConstruction = SceneScriptCursorProgram.compileCandidate(
+                domain: domain,
+                descriptor: authoredDescriptor,
+                scriptBindings: scriptBindings,
+                borrowedOwners: vectorConstruction.program.cursorOwnerRegistrations,
+                // A planned vector visibility target has a single owner even
+                // when construction rejects it. Do not retry the same authored
+                // binding under a cursor owner after that rejection.
+                claimedTargets: vectorConstruction.program.inputTargets.union(
+                    plannedVectorTargets.filter { target in
+                        if case .layer(_, .visibility) = target { return true }
+                        return false
+                    }
+                ),
+                rejectedTargets: rejectedCursorTargets,
+                excludedStandaloneLayerIDs: excludedStandaloneCursorLayerIDs,
+                generation: generation,
+                budget: budget,
+                constructionWork: constructionWork
+            )
+            try control.checkBoundary()
+            if constructionWork.exceeded {
+                return makeUnavailable(constructionWork.failure)
+            }
+            if let failure = domainFatalFailure(cursorConstruction.failures) {
+                return makeUnavailable(failure)
+            }
+            expectedCursorTargets.formUnion(
+                cursorConstruction.requestedTargets
+            )
+            guard valid(
+                cursorConstruction.requestedTargets,
+                cursorConstruction.instantiatedTargets,
+                cursorConstruction.failures,
+                cursorConstruction.deferredTargets
+            ) else {
+                return unavailable(
+                    authoredDescriptor: authoredDescriptor,
+                    runtimeDescriptor: runtimeDescriptor,
+                    scriptBindings: scriptBindings,
+                    vectorProjection: vectorProjection,
+                    userPropertyDefinitions: userPropertyDefinitions,
+                    timelineTargets: timelineTargets,
+                    stringExcludedTargets: stringExcludedTargets,
+                    expectedVectorTargets: expectedVectorTargets,
+                    expectedScalarTargets: expectedScalarTargets,
+                    expectedStringTargets: expectedStringTargets,
+                    expectedCursorTargets: projectedCursorTargets,
+                    admittedVectorPassTargets: admittedVectorPassTargets,
+                    generation: generation,
+                    budget: budget,
+                    failure: .invalidArgument(
+                        "SceneScript cursor candidate ownership mismatch"
+                    )
+                )
+            }
+            if !cursorConstruction.failures.isEmpty {
+                record(
+                    cursorConstruction.failures,
+                    family: "cursor",
+                    failures: &cursorFailures,
+                    rejected: &rejectedCursorTargets
+                )
+                if cursorConstruction.requiresDomainReconstruction { continue }
+            }
+            guard cursorConstruction.deferredTargets.isEmpty else {
+                return unavailable(
+                    authoredDescriptor: authoredDescriptor,
+                    runtimeDescriptor: runtimeDescriptor,
+                    scriptBindings: scriptBindings,
+                    vectorProjection: vectorProjection,
+                    userPropertyDefinitions: userPropertyDefinitions,
+                    timelineTargets: timelineTargets,
+                    stringExcludedTargets: stringExcludedTargets,
+                    expectedVectorTargets: expectedVectorTargets,
+                    expectedScalarTargets: expectedScalarTargets,
+                    expectedStringTargets: expectedStringTargets,
+                    expectedCursorTargets: projectedCursorTargets,
+                    admittedVectorPassTargets: admittedVectorPassTargets,
+                    generation: generation,
+                    budget: budget,
+                    failure: .invalidArgument(
+                        "SceneScript cursor candidate deferred without failure"
                     )
                 )
             }

@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-28 特效向量参数复用鼠标事件
+
+已准入的effectConstant Vec2/Vec3参数owner在创建后借用所属layer的既有cursor路径，派发复用统一layer identity核验；cursor与update共享原VM和事务，不新增实例、事件队列或renderer，产品净减少3行。自有App命中红→绿→蓝、未命中逐像素不变，3211615441原包点击回归通过；最终32项owner门与16项事务门通过。见[运行证据](runtime-evidence-current.md#e-2026-09-28-effect-parameter-cursor)。范围仅为现有向量参数路由；标量cursor、Boolean effect自身显隐、Solid完整语义及独立new Vec2返回合同仍开放，不能据此关闭321整样本。
+
 ## 2026-09-28 旧 CPU effect 音频路径退役
 
 已删除没有产品调用者的SceneAudioResponse及SceneAudioResponseAdmission，共281行产品代码；专属数值测试、旧源码形状断言和失效清单登记同步退役。现役effect继续由MaterialProgram消费共享audio snapshot，脚本及粒子保留各自已有消费者，没有新公式/owner。154项定向测试、隔离构建和3211615441固定PCM回放通过，见[运行证据](runtime-evidence-current.md#e-2026-09-28-audio-legacy-retirement)。只关闭无调用残留，不表示频谱均衡偏好、官方幅度或整样本视觉完成。下文历史Pulse迁移段落中的旧准入器仅描述当时状态。

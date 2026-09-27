@@ -6,6 +6,18 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-effect-parameter-cursor"></a>
+
+### E-2026-09-28-EFFECT-PARAMETER-CURSOR — 特效向量参数共享所属层鼠标事件
+
+**合同和实现：**[官方流体教程](https://docs.wallpaperengine.io/en/scene/effects/effect/advancedfluidsimulation.html#emitting-a-fluid-when-mouse-is-clicked)明确展示特效参数中的cursorDown/Up，旧测试把“只有Solid对象响应”推导成“effect/pass绝不能注册”不成立。[cursor合同](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/cursor.html)仍要求所属对象Solid。本批只处理既有向量参数owner：registration保留所属layer identity，原cursor构建块移到pass实例化之后，dispatch删除重复的layer/text白名单并调用现有layerID查询，继续严格匹配事件layerID。保持原consumer准入、预算、局部失败/污染重建、唯一VM及cursor确认/vector提交；产品净减少3行。
+
+**身份与自有正反例：**基线3d0a99ad，最终5文件冻结SHA-256 `7acd86769b21fe6592a4036efc360f5848d8c0b89dbeac54db66ff05f3d78f0f`。优化签名Debug 2.10.0(279)，executable SHA-256 `faeddfc04900e63a69c312c97202eb01760e849b37dd8ad492c0149790e1634f`，CDHash `3d8e69b36ed8bfd4f72bf4c35f7dad0998f14bc4`。自有solid:true色卡两份同内容、不同鼠标输入，各6秒；基线均红，中间版本出现cursor owner identity mismatch，最终hit中心ROI严格为[255,0,0]→[0,255,0]→[0,0,255]，miss三张完整图逐像素相同。两者都有同runtime graph publication、GPU completed、terminal compositor消费与next-frame，无cursor错误。最终通用benchmark仍**1/2**：miss被“hover必须变化”门判失败，原report保留；专项未命中不变判据通过，不能写成全矩阵PASS。
+
+**真实回归：**3211615441原project/package只读隔离副本，固定PCM、8秒、左侧一次子帧点击，benchmark 1/1 PASS。同runtime `a9157c07-564d-40b6-b68c-10389731a260` 中43/495执行cursorClick，28及44有terminal/completion/next-frame，提交/完成/失败/呈现164/163/0/162。层44 effect3/4仍invalidSource，本批未改其Boolean自身显隐路径；这只是构建重排后的既有点击链回归，不是该样本新效果已恢复。
+
+**验证与开放边界：**最终owner admission 32项通过，另16项owner-event/cursor事务门在同产品身份通过；最初测试定位到registration时序和dispatch遗漏，后续fixture补真实finalize顺序。`new Vec2`测试另暴露既有vector2复用Vec3入口而拒绝二维返回（BAD_RETURN）；本批改为修改传入值后返回以隔离cursor验证，未改变Vec2产品合同。优化Debug构建、code-health（221既有warnings）和独立冻结审查APPROVE。标量参数cursor、effect Bool thisObject.visible的staged→typed事务，以及Solid字段贯通命中仍开放；自有fixture显式solid:true，不证明非Solid边界正确。未跑full corpus、官方同输入对照或性能验收。忽略缓存`2026-09-28-effect-parameter-cursor`保存三版自有报告、真实回归、原图/日志、专项测量、失败诊断与冻结diff。
+
 > 状态：现役证据入口
 >
 > 最近专项核对：2026-09-22（新增 `systemAudioSpectrumEnabled` 三引擎共享策略门与 Scene daemon 旧快照清除协议；57 项 focused gates 与隔离 Debug checkpoint build 通过，其中少量全引擎接线检查是源码结构断言，不能等同运行时 UI/视觉证明；真实设置 UI、三引擎同源电平和视觉全集仍未验证）。前一轮当前HEAD签名Debug App的普通system tap、受控外部声源与120样本产品入口基线：三个作者属性门控的音频consumer已用typed启动override做默认/启用配对；余下41个默认no-demand声明关系已按官方启用合同和live census闭合为40个未作者激活的Shake/Pulse schema与1个缺mode的particle负例；跨4个已登记Debug可执行身份的78个作者可达publication保存日志先守恒为77项material/SceneScript非零consumer事件与1项particle component执行观测缺口，随后当前候选已对该particle-only样本补到实际component非零求值事件，但仍不是单一当前候选重跑78项；同一QuickJS owner组合cursor event与AudioBuffers的公共demand/同帧刷新缺口又在当前候选闭合，真实`3238423642:917`证明owner collision消除与非零audio publication，但轨迹没有命中该layer，故不冒充真实cursor callback；共享system-audio analyzer频段分布与长时右半更新、组合media+audio owner，以及`WEVector`环形频谱公共修复在四个真实样本中的consumer执行仍按各自身份保留；同daemon的`3780119725→2131872317`切换已证明已启动的generation 2跨真实particle-only场景保持单一true demand且不退休tap。各证据仍以自身日期与构建身份为准。
