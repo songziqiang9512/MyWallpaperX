@@ -45,7 +45,13 @@
 
 **可见分析边界：**前三组各取前两张series作绝对RGB差分，放大显示0…10/255区间；它是诊断图，不是壁纸原貌。全高左侧x0…399 ROI的平均绝对变化分别4.264、4.177、0.070/255，右侧x2700…3023分别3.769、3.722、0.038/255。各次未锁动态相位，这些数字只支持来源消融，不作为修复改善率、色阶严重度或移动方向的测量；方向由用户实测提供。冻结速度负例四张图SHA均为 `2de2d13908f8673fb62075233e69282ba1698d49384db0696863ab982891c4b3`。Bloom、眼周光束和风粒子不是本次复现竖向变化的必要条件，不据此排除它们在其他设置下的问题。
 
-**首断点候选与下一门：**生成MSL仍使用float完成作者渐变、HSV变换及加色，未发现离散列算法；当前SceneGraphRenderTargetFormat把rgbaBackbuffer解析为bgra8Unorm，effect-output及共享source/终端lease均沿8位颜色target，尚无RGBA16F颜色target。授权参考Mirage的SceneCompiler把general.hdr传给继承场景格式的render target；这是第三方结构证据，未运行参考App，也不证明本项目改成浮点即可消除最终屏幕色阶。下一门在同一作者输入/固定相位下区分中间8位舍入、最终drawable/截图量化与作者色相分段；若浮点对照证实改善，再沿现有target plan、预算、pipeline与publication完整修正格式传播。不能只改一个Metal格式、任意抖动补偿或关闭作者渐变。
+**首断点候选：**生成MSL仍使用float完成作者渐变、HSV变换及加色，未发现离散列算法；当前SceneGraphRenderTargetFormat把rgbaBackbuffer解析为bgra8Unorm，effect-output及共享source/终端lease均沿8位颜色target，尚无RGBA16F颜色target；SceneMetalView的CAMetalLayer也固定bgra8Unorm。授权参考Mirage的SceneCompiler把general.hdr传给继承场景格式的render target；这是第三方结构证据，未运行参考App，也不证明本项目改成浮点即可消除最终屏幕色阶。
+
+**固定相位GPU反例（后续18bd5506工作树）：**直接编译上一组运行保存的作者fragment MSL，绑定同一作者参数，在4/6/8秒分别写入RGBA8、RGBA16F、RGBA32F的2048×8中间贴图，再线性采样到3024×8 RGBA32F及RGBA8输出。输入是自建不透明常色(80,100,120)/255和白mask；另以直接在3024×8执行作者fragment的RGBA32F输出作数值参照，所有command buffer完成。它是独立Metal探针，不是产品完整帧、真实背景、WindowServer或显示器验证，数值参照也不是官方golden。
+
+以4秒为例，相对数值参照的RGB RMS误差（单位1/255）在最终8位量化前为RGBA8中间=0.23192、RGBA16F中间=0.03705、RGBA32F中间=0.000069；写入最终RGBA8后分别为0.23499、0.23776、0.23496，后两时刻结论相同。所有最终8位输出都有相邻列1/255阶梯；RGBA32F中间与最终输出的组合则保留平滑渐变。**这否定“仅把中间target换成16F就足以修掉条纹”的方案**，不能从中间误差降低宣称用户画面改善；RGBA16F末级结果在本探针也没有比RGBA8更小的数值RMS。探针只证明最终量化会重建阶梯，不证明原场景所有条纹都是同一原因。
+
+下一门沿现有主链统一检查作者场景颜色格式的prepare-time传播，包括graph target plan/字节预算、source与终端pair、pipeline/publication、主画布和CAMetalLayer；区分颜色target与显式data/scalar target，不通过全局替换格式破坏后者的存储合同。候选必须有固定相位的端到端高精度输出及真实原包复测，截图自身的8位量化不能代替高精度readback；不只改一处Metal格式、不任意抖动补偿、不关闭作者渐变。探针本机标签`2026-09-27-gradient-precision-probe`的manifest SHA `b9a8e2db0be1bf186c99bdc61cd4e34600a56630a4cdc386249945f9b286ed8b`；保存Swift探针、GPU日志、统计、曲线与身份，作者MSL及原始浮点载荷留在`/var/folders/bc/7nx1zgj5485gnl1y8vb9qs0h0000gn/T/mwx-gradient-precision-d7pfi7nu`。没有产品代码修改。
 
 **留存：**本机标签`2026-09-27-gradient-stripe-isolation`保存六组报告/矩阵/日志、差分图、像素统计及执行摘要，manifest SHA `77666c266c630531365ea0a9b249b8f74650eee28e5aa856f0355d9c6cad700d`；原始截图及隔离包保留于`/private/tmp/mwx-stripe-contributors-clu62jjy`供下一精度实验使用，不重复复制作者资源。background/gradient/no-gradient/frozen报告SHA依次为 `2daff34ee5860597761c80cedb8fa2e947cfaea4210c1aa1c938b66517f193f5`、`1d17fdf1c479c088552af55a59c7e34401bd33cc09850ea8489d4c1ad9199cf3`、`3271f5048bbd8ee3557ec9c20878ff96ea6b0eba11d4f909bd47c5f66c51ba06`、`b02590b4e21dad57142d3d9e1a7ddab1044aee99521acacd9fbf56efd2d44a3f`。本批无代码修复、重构、性能或官方parity结论；用户正在测试的App保持运行。
 
