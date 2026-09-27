@@ -24,6 +24,16 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-27-direct-quad-coverage-probe"></a>
+
+### E-2026-09-27-DIRECT-QUAD-COVERAGE-PROBE — 四点网格候选的定量筛选
+
+继续3768724269范围/根部反馈。授权第三方Mirage用作者四点建立实际网格，当前产品以完整方形承载同一个四点透视shader；这只是候选差异。对既有生成Metal的vertex/fragment进行独立GPU探针：方形UV与作者四点UV两套顶点，位置均由同一UV和正交矩阵生成；使用quad100的点集/角向参数、768² RGBA32Float、恒白gradient，所有command buffer完成后读回。六档恒定noise（0.35…0.8）没有超过1e−6 RGB的额外覆盖，最大两网格差3.62e−5。
+
+进一步用仓库noise.png（256²、非sRGB、linear/repeat）替代恒定值，固定0/4/10/20秒：原始RGB额外覆盖像素2964/2971/3363/3114，额外最大RGB为0.00655/0.00187/0.00574/0.00544；按当前终端RGB×alpha计算，两图超过1/255差异像素仅0/1/0/0（总589824）。因此四点裁剪确有少量边缘差异，但该受控证据不足以把明显范围/根部偏差归因于完整方形；本批不重建几何owner、不调整作者尺寸或位置。后续应核对作者变换到实际material uniform的对应和粒子光束发射/贴图，而非反复改载体系数。
+
+**边界：**这是独立GPU候选筛选，不是产品Host或官方/参考App回放；noise.png不冒充产品TEX的精确解码，恒白gradient、无世界placement、无真实runtime uniform捕获，不能排除全部网格/纹理/投影组合。另复核粒子54的旧scalar rotation仍广播XYZ，而Mirage填X；公开initializer文档没有给出旧字段轴映射，延续既有未决项，不据参考差异擅改。已运行App仍为d62960a1交付版本，用户真实样本及属性未修改。自有probe、结果、来源SHA保存在本机缓存标签`2026-09-27-direct-quad-coverage`，manifest SHA `826ca1492bac704b412878dad23cc8e359ae0f6197a4aa63729c92a41aff9e73`；生成作者MSL仅留隔离临时目录，不进Git。没有产品改动，无构建/性能/完整视觉验收声明。
+
 <a id="e-2026-09-27-scene-color-precision"></a>
 
 ### E-2026-09-27-SCENE-COLOR-PRECISION — 作者 HDR 颜色精度贯通终端
