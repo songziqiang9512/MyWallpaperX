@@ -527,6 +527,8 @@ final class SceneDesktopWallpaperHost {
                 stockNoiseTextures: launchContext.stockNoiseTextures,
                 staticModelResources:
                     launchContext.preparedDeviceResources.staticModels,
+                hasDynamicBloom: launchContext.runtimeInput.propertyBindingProgram
+                    .instructions.contains { $0.target == .scene(.bloomEnabled) },
                 instantiatedSceneScriptTargets: Set(
                     launchContext.sceneScriptScalarProgram.definitions.map(
                         \.target

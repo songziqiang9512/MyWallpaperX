@@ -102,7 +102,7 @@
 
 | 尚未关闭的问题 | 下一步与关闭条件 |
 |---|---|
-| Scene Bloom 动态参数与完整HDR链 | 静态Bloom已沿唯一compositor执行，颜色目标已恢复作者RGBA16F；[完整准备/失败保源批](semantics/runtime-evidence-current.md#e-2026-09-28-bloom-failure-atomicity)移除帧内编译，真实GPU验证中间pass失败不污染原画面，零/非零Bloom原包正常回放通过。仍缺用户属性热调的binding→typed snapshot→post consumer，以及完整HDR scatter/knee/上采样语义；当前16F目标不等于完整HDR Bloom。下一门按作者绑定或可观察HDR差异取得受控输入，不用本次故障修正关闭条纹或光束问题。 |
+| Scene Bloom 完整HDR链与视觉对照 | 静态及direct属性热调已沿唯一compositor执行；[热调批](semantics/runtime-evidence-current.md#e-2026-09-28-bloom-live-properties)闭合binding→snapshot→post、初始禁用后开启及drawable可读用途，保留上一批失败保源。仍缺完整HDR scatter/knee/上采样及条件绑定语义；RGBA16F目标不等于完整HDR Bloom。下一门取得作者HDR参数的受控可观察输入，不用本批关闭条纹或光束问题。 |
 | 全 corpus identity-only matrix 与人工视觉复核 | **fixed13 已于 2026-09-25 全绿（13/13，观察模式）**：存量 8 样本漂移完成对账（succeeded/utility/text/sha/puppet 数值随能力演进更新；2902406982 层 410/414 处置从 unsupportedEffects 迁移为 capture=能力成长；puppet checker 正则跟上 cbd126d3 的 "puppet world geometry OK" 改名，数据与原期望完全吻合零矩阵改动；8 样本计数器按 retire 全有或全无合同全量退役）。矩阵期望漂移仍用 `generate_scene_full_matrix.py` 正规流程（fixed13 sha pin 已同步）；人工重看后才改 verdict |
 
 ### Q2 — 稳定帧性能

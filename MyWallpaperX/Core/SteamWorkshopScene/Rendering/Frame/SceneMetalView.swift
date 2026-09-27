@@ -99,6 +99,7 @@ class SceneMetalView: NSView {
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
         stockNoiseTextures: SceneStockNoiseTextureStore = .empty,
         staticModelResources: ScenePreparedStaticModelResources = .empty,
+        hasDynamicBloom: Bool = false,
         instantiatedSceneScriptTargets: Set<SceneDynamicTarget> = [],
         scriptSourceEvidence: [SceneScriptSourceEvidenceIR] = [],
         pipelineRepository: SceneImageEffectPipelineRepository,
@@ -123,6 +124,7 @@ class SceneMetalView: NSView {
             baseMaterialProviderBindings: baseMaterialProviderBindings,
             stockNoiseTextures: stockNoiseTextures,
             staticModelResources: staticModelResources,
+            hasDynamicBloom: hasDynamicBloom,
             instantiatedSceneScriptTargets: instantiatedSceneScriptTargets,
             scriptSourceEvidence: scriptSourceEvidence,
             pipelineRepository: pipelineRepository, resolvedMaterialRuntime: resolvedMaterialRuntime
@@ -155,7 +157,8 @@ class SceneMetalView: NSView {
         // Keep authored display-referred values and SDR presentation. Float
         // storage preserves precision; it does not opt the display into EDR.
         layer.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
-        layer.framebufferOnly = !renderDescriptor.requiresReadableFramebuffer(
+        layer.framebufferOnly = renderer.bloomPostProcess == nil
+            && !renderDescriptor.requiresReadableFramebuffer(
             sceneBackgroundLayerIDs: resolvedMaterialRuntime.sceneBackgroundLayerIDs,
             utilityCaptureLayerIDs: renderer.utilityCaptureLayerIDs,
             dependencyPlan: renderer.dependencyRuntime.plan

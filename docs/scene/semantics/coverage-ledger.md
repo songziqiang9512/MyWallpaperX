@@ -1,8 +1,12 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-28 Bloom 直接属性实时控制
+
+`general.bloom/bloomstrength/bloomthreshold/bloomtint` 的 direct Bool/Slider/Color 绑定现沿既有 compiler、live state、typed snapshot进入最终Bloom；初始关闭但可开启的场景在加载时准备pipeline，并以同一准备结果声明drawable可读。未新增property/renderer状态路径。63项定向门、完整App开关A/B、无截图Metal validation及真实3750813609正常回放通过，见[运行证据](runtime-evidence-current.md#e-2026-09-28-bloom-live-properties)。条件绑定、HDR专用参数、参数官方视觉对照及用户光束/条纹反馈仍开放。
+
 ## 2026-09-28 Bloom 完整准备与失败保源
 
-启用的Bloom在renderer创建阶段完整准备不可变pipeline，禁用或准备失败保持可选缺席；删除逐帧编译及部分准备状态。任一中间encoder失败立即停止，保持已合成source，下一次完整覆盖缓存后恢复。真实Metal四处encoder/三处pipeline失败反例、正常格式/尺寸/复用门及两份真实原包正常回放通过，见[运行证据](runtime-evidence-current.md#e-2026-09-28-bloom-failure-atomicity)。只闭合同步准备/encoder创建失败，不关闭异步GPU恢复、光效观感、完整HDR或属性热调。
+启用的Bloom在renderer创建阶段完整准备不可变pipeline，静态禁用且无开启绑定，或准备失败时保持可选缺席；删除逐帧编译及部分准备状态。任一中间encoder失败立即停止，保持已合成source，下一次完整覆盖缓存后恢复。真实Metal四处encoder/三处pipeline失败反例、正常格式/尺寸/复用门及两份真实原包正常回放通过，见[运行证据](runtime-evidence-current.md#e-2026-09-28-bloom-failure-atomicity)。只闭合同步准备/encoder创建失败，不关闭异步GPU恢复、光效观感、完整HDR；直接属性热调见上方后继批。
 
 ## 2026-09-28 CursorEvent 局部像素单位（S4 isolated Host）
 

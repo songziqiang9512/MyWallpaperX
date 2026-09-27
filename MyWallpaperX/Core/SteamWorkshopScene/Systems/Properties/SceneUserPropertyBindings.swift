@@ -36,6 +36,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
     case layerColor(layerID: Int)
     case lightIntensity(layerID: Int)
     case effectVisibility(layerID: Int, effectIndex: Int, effectPath: String?)
+    case scene(field: String)
     case camera(field: String)
     case text(layerID: Int, field: TextField)
     case particle(layerID: Int, field: ParticleField)
@@ -62,7 +63,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
             return true
         case let .camera(field):
             return field == "cameraparallax" || field == "camerashake"
-        case .layerAlpha, .layerScale, .layerColor, .lightIntensity, .text,
+        case .scene, .layerAlpha, .layerScale, .layerColor, .lightIntensity, .text,
              .particle, .soundVolume, .shaderValue, .materialShaderValue,
              .scriptProperty, .unsupported:
             return false
@@ -251,6 +252,12 @@ nonisolated struct SceneUserPropertyBindingParser {
         for components: [SceneUserPropertyPathComponent],
         root: [String: Any]
     ) -> SceneUserPropertyBindingTarget {
+        if components.count == 2,
+           Self.key(components[0]) == "general",
+           let field = Self.key(components[1]),
+           ["bloom", "bloomstrength", "bloomthreshold", "bloomtint"].contains(field) {
+            return .scene(field: field)
+        }
         if components.count == 2,
            Self.key(components[0]) == "general",
            let field = Self.key(components[1]),

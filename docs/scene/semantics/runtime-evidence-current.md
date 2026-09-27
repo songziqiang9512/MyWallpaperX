@@ -3742,3 +3742,18 @@ v4 的 `3780119725` generation 1 include-current-process capture data peak `0.49
 新增scene-bloom门禁组把Swift/Metal及现有GPU模块关联，登记增量另经APPROVE；选择器59测试通过。inner计划已核对且无unmapped-change；未运行其广泛渲染/daemon模块全集。隔离worktree优化Debug构建成功，App 2.0.9(277)，executable SHA-256 `bb2c156d39712633856094e7f7be2416381cb53542caa2c7689b0e152876b221`，CDHash `dfc3478993cd4110b6799fd17cae2b94f32ca756`。真实原包隔离副本各8秒固定静音：3287715210作者HDR=true、bloomstrength=0/threshold=1，为零贡献反例；3750813609作者HDR=false、strength=1/threshold约0.6，为非零正常链。两者benchmark均PASS、纹理加载1.0，前者粒子2/2，submitted/completed/failed/presented分别164/163/0/162和166/165/0/164；实际ready/after截图保留。全场Bloom直接写compositor source，无独立graph publication；本批的失败保源与恢复强证据来自独立真实GPU像素门，不把全景非黑或报告PASS当完整视觉验收。
 
 证据缓存`docs/scene/evidence/2026-09-28-bloom-failure-atomicity/`保存两份正常报告、原尺寸截图、GPU修前/后统计、测试/构建/审查与冻结patch。首次合并归档为36040853字节，超过默认32MiB，按这两份确定内容使用40MiB有界归档；verification-manifest记录文件SHA。异步GPU错误仍由现有frame completion处理，未做故障恢复声明；用户条纹、眼周光强、3750813609时钟黑白、完整HDR scatter/knee链与Bloom属性热调均不由本批关闭。pipeline准备失败在本renderer生命周期内保持该可选效果不可用，重建时才重试；不是无限帧内编译重试。
+
+
+<a id="e-2026-09-28-bloom-live-properties"></a>
+
+### E-2026-09-28-BLOOM-LIVE-PROPERTIES — Bloom 直接属性到合成输出
+
+首断点：general下Bloom用户绑定被parser标为unsupported，compiler无映射，最终compositor固定读取加载值。现在直接Bool开关、Slider强度/阈值、Color tint沿既有property compiler→active live consumer→typed snapshot进入BloomConfiguration；非法值沿原producer拒绝，不能表示为Float时保持descriptor fallback。conditional继续局部拒绝。初始关闭且存在准入enabled绑定时，在renderer创建阶段准备pipeline；SceneMetalView按prepared Bloom与原读取需求共同决定framebufferOnly，静态禁用且无开启绑定不准备。没有第二套property、clock、renderer或每帧编译；原shader算法未改。
+
+基线6ef6b699，冻结产品/测试patch SHA-256 `eb89a5a74dbd536f1ba6c25ba2aa8feb77f4784c8acd73575e852f81eaadd489`。独立只读审查发现drawable用途遗漏，修正后APPROVE。63项定向测试通过：5项真实Metal（含authored parser/compiler/snapshot到GPU的on/off/strength=0/threshold=1/tint=0/on-again、非法与Float溢出回退以及上一批故障门）、29项property program、14项solid、15项text。solid harness同时补齐此前漏列的unused target-format shell与本批snapshot依赖。code-health通过；inner计划已查看，未执行其跨职责广泛模块全集。
+
+隔离优化Debug构建通过，App 2.0.9(277)，executable SHA-256 `dd82b424ddc75c1a68e7f9570483cf843e6c5c632ab4baa4ed41c4031baa28b7`，CDHash `297a5cc913b9f04452da922a3542b9c5cc128fb0`。自建纯source-over白色solid/黑底、无其他framebuffer读取需求，两份fixture分别false→true、true→false，在2秒通过Host更新；修改前均live update rejected、画面零变化，修改后均accepted、同window/surface、benchmark PASS。3024×1964终端ready/after像素对照：开启光晕像素0→82968，关闭82968→0，两次变化均82968像素；初始白块保留。submitted/completed/failed/presented分别164/164/0/163、166/165/0/164。Bloom直接写唯一compositor，无独立graph publication。
+
+额外两次不带evidence-dir/截图的实际App运行，MTL_DEBUG_LAYER=1日志确认Metal API Validation Enabled，实时更新accepted、同窗口、exit0并正常停止；没有依赖DEBUG截图强制framebuffer可读。该模式不启用每帧performance telemetry，因此其零计数不作为GPU completion证据；completion与可见输出由上面的截图回放和GPU门承担。真实3750813609原包隔离副本8秒静音回归PASS、纹理加载1.0，submitted/completed/failed/presented=166/165/0/164。样本视觉完整性不由该PASS推定。
+
+本机证据缓存`docs/scene/evidence/2026-09-28-bloom-live-properties/`保留before/after/real报告及原尺寸截图、fixture、无截图日志、像素统计、构建/门禁/审查身份与45文件SHA manifest。完整HDR scatter/knee链、conditional绑定、官方参数视觉golden、用户眼周光强/光束/条纹反馈未关闭；UI支持分支经完整构建，实际属性面板手工交互未单独测试。可选pipeline准备失败仍保持该renderer生命周期内Bloom缺席，重建时重试。

@@ -242,6 +242,10 @@ extension SceneDesktopWallpaperHost {
         )
         return descriptor.layers.reduce(
             into: effectTargets
+                .union(propertyBindingProgram.instructions.compactMap {
+                    guard case .scene = $0.target else { return nil }
+                    return $0.target
+                })
                 .union(cameraTargets)
                 .union(lightTargets)
                 .union(layerVisibilityTargets)

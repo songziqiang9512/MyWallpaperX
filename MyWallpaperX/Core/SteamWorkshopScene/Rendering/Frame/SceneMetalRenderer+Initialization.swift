@@ -10,6 +10,7 @@ extension SceneMetalRenderer {
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
         stockNoiseTextures: SceneStockNoiseTextureStore = .empty,
         staticModelResources: ScenePreparedStaticModelResources = .empty,
+        hasDynamicBloom: Bool = false,
         instantiatedSceneScriptTargets: Set<SceneDynamicTarget> = [],
         scriptSourceEvidence: [SceneScriptSourceEvidenceIR] = [],
         pipelineRepository: SceneImageEffectPipelineRepository,
@@ -24,7 +25,7 @@ extension SceneMetalRenderer {
         self.device = device
         self.commandQueue = commandQueue
         self.renderDescriptor = renderDescriptor
-        self.bloomPostProcess = renderDescriptor.camera.bloom.enabled
+        self.bloomPostProcess = (renderDescriptor.camera.bloom.enabled || hasDynamicBloom)
             ? SceneBloomPostProcess(
                 device: device,
                 pixelFormat: renderDescriptor.colorTargetFormat.metalPixelFormat

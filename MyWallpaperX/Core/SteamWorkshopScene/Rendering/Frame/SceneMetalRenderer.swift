@@ -857,7 +857,9 @@ struct SceneMetalRenderer {
         // Bloom chain over the completed composite; readback then observes
         // the bloomed frame. Fail-soft by contract.
         bloomPostProcess?.encode(
-            configuration: renderDescriptor.camera.bloom,
+            configuration: renderDescriptor.camera.bloom.resolving(
+                frameContext.dynamicValues
+            ),
             source: drawable.texture,
             commandBuffer: commandBuffer
         )

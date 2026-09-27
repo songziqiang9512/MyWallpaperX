@@ -304,6 +304,8 @@ extension SteamWorkshopService {
             return renderDescriptor.layers.contains {
                 $0.id == layerID && $0.authoredLightIntensity != nil
             }
+        case .scene:
+            return ScenePropertyBindingCompiler.map(target) != nil
         case let .camera(field):
             let normalizedField = field.localizedLowercase
             if [

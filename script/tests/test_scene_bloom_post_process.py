@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+from test_scene_property_binding_program import SWIFT_SOURCES
+
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition'
 FAULT_HEADER = r'''
@@ -72,7 +74,8 @@ import Metal
     let bloom = SceneBloomPostProcess(device: device)!
     let preparedCount = MWXPipelineAttempts()
     func render(
-      _ w: Int, _ h: Int, strength: Float, threshold: Float, enabled: Bool = true, phase: Int = 0, failEncoder: Int = 0
+      _ w: Int, _ h: Int, strength: Float, threshold: Float, enabled: Bool = true, phase: Int = 0, failEncoder: Int = 0,
+      configuration: SceneBloomConfiguration? = nil
     ) -> [String: Any] {
       var bytes = [UInt8](repeating: 0, count: w * h * 4)
       for y in 0..<h {
@@ -98,7 +101,7 @@ import Metal
       let cb = queue.makeCommandBuffer()!
       MWXArmEncoderFault(cb, UInt(failEncoder))
       let encoded = bloom.encode(
-        configuration: .init(
+        configuration: configuration ?? .init(
           enabled: enabled, strength: strength, threshold: threshold, tint: SIMD3(1, 1, 1)),
         source: source, commandBuffer: cb)
       cb.commit()
@@ -147,6 +150,50 @@ import Metal
       results["recovery\(index)"] = render(400, 240, strength: 1, threshold: 0.3,
         phase: index + 37)
     }
+    func property(_ key: String, _ kind: SceneUserPropertyKind,
+                  _ value: SceneUserPropertyValue) -> SceneUserPropertyDefinition {
+      .init(key: key, title: key, kind: kind, runtimeType: kind.rawValue,
+        order: 0, index: nil, minimumValue: nil, maximumValue: nil,
+        stepValue: nil, allowsFractionalValues: true, fractionalPrecision: nil,
+        displayCondition: nil, defaultValue: value, options: [])
+    }
+    let report = SceneUserPropertyBindingParser().parse(root: ["general": [
+      "bloom": ["user": "enabled", "value": false],
+      "bloomstrength": ["user": "strength", "value": 0.5],
+      "bloomthreshold": ["user": "threshold", "value": 0.3],
+      "bloomtint": ["user": "tint", "value": "1 1 1"],
+    ]])
+    let compilation = ScenePropertyBindingCompiler().compile(report: report,
+      catalog: .init(definitions: [property("enabled", .bool, .bool(false)),
+        property("strength", .slider, .number(0.5)),
+        property("threshold", .slider, .number(0.3)),
+        property("tint", .color, .string("1 1 1"))]))
+    results["bindingAdmitted"] = report.diagnostics.isEmpty
+      && compilation.program.instructions.count == 4
+      && compilation.program.rebuildRequiredPropertyKeys.isEmpty
+    func resolved(_ values: [String: SceneUserPropertyValue]) -> SceneBloomConfiguration {
+      let evaluation = compilation.program.evaluate(effectiveValues: values)
+      let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 2, generation: 1,
+        definitions: compilation.program.definitions, userValues: evaluation.userValues).snapshot
+      return SceneBloomConfiguration.disabled.resolving(snapshot)
+    }
+    let on: [String: SceneUserPropertyValue] = ["enabled": .bool(true),
+      "strength": .number(0.5), "threshold": .number(0.3), "tint": .string("1 1 1")]
+    var off = on; off["enabled"] = .bool(false)
+    var zero = on; zero["strength"] = .number(0)
+    var threshold = on; threshold["threshold"] = .number(1)
+    var tint = on; tint["tint"] = .string("0 0 0")
+    for (name, values) in [("On", on), ("Off", off), ("Zero", zero),
+                            ("Threshold", threshold), ("Tint", tint), ("OnAgain", on)] {
+      results["dynamic" + name] = render(400, 240, strength: 0, threshold: 1,
+        enabled: false, configuration: resolved(values))
+    }
+    var invalid = on; invalid["strength"] = .number(.infinity)
+    invalid["tint"] = .string("1 NaN 0")
+    results["invalidFallsBack"] = resolved(invalid).strength == 0.5
+      && resolved(invalid).tint == SIMD3<Float>(1, 1, 1)
+    var overflow = on; overflow["strength"] = .number(Double.greatestFiniteMagnitude)
+    results["floatOverflowFallsBack"] = resolved(overflow).strength == 1
     results["prepareOnce"] = preparedCount == 3 && MWXPipelineAttempts() == 3
     for index in 1...3 {
       MWXArmPipelineFault(device, UInt(index))
@@ -196,7 +243,8 @@ class SceneBloomPostProcessTests(unittest.TestCase):
                 ["xcrun", "-sdk", "macosx", "metallib", str(folder / "bloom.air"),
                  "-o", str(folder / "default.metallib")],
                 ["swiftc", "-import-objc-header", str(folder / "Fault.h"),
-                 str(folder / "fault.o"), str(SCENE / "SceneBloomPostProcess.swift"),
+                 str(folder / "fault.o"), *map(str, SWIFT_SOURCES),
+                 str(SCENE / "SceneBloomPostProcess.swift"),
                  str(folder / "Main.swift"), "-o", str(folder / "run")],
             ]
             for command in commands:
@@ -204,6 +252,17 @@ class SceneBloomPostProcessTests(unittest.TestCase):
             result = subprocess.run([str(folder / "run")], capture_output=True,
                                     text=True, check=True, timeout=30)
             cls.result = json.loads(result.stdout)
+
+    def test_authored_bindings_reach_gpu_and_change_on_the_next_frame(self):
+        self.assertTrue(self.result["bindingAdmitted"])
+        self.assertTrue(self.result["invalidFallsBack"])
+        self.assertTrue(self.result["floatOverflowFallsBack"])
+        for suffix in ("On", "OnAgain"):
+            self.assertGreater(self.result["dynamic" + suffix]["changedRGB"], 0)
+        for suffix in ("Off", "Zero", "Threshold", "Tint"):
+            self.assertEqual(self.result["dynamic" + suffix]["changedRGB"], 0)
+        for suffix in ("On", "Off", "Zero", "Threshold", "Tint", "OnAgain"):
+            self.assertEqual(self.result["dynamic" + suffix]["changedAlpha"], 0)
 
     def test_pipeline_preparation_is_complete_or_unavailable_and_never_repeated_per_frame(self):
         self.assertTrue(self.result["prepareOnce"])

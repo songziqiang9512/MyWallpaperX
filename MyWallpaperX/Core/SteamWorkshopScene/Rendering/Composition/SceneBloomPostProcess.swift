@@ -9,6 +9,33 @@ nonisolated struct SceneBloomConfiguration: Codable, Equatable, Sendable {
     let threshold: Float
     let tint: SIMD3<Float>
 
+    /// Read the current frame through the existing typed property snapshot.
+    /// Absent or non-representable values retain the authored configuration.
+    nonisolated func resolving(_ snapshot: SceneDynamicSnapshot) -> Self {
+        func scalar(_ field: SceneDynamicSceneField, fallback: Float) -> Float {
+            guard case let .scalar(value)? = snapshot[.scene(field)]?.value,
+                  Float(value).isFinite else { return fallback }
+            return Float(value)
+        }
+        var resolvedEnabled = enabled
+        if case let .bool(value)? = snapshot[.scene(.bloomEnabled)]?.value {
+            resolvedEnabled = value
+        }
+        var resolvedTint = tint
+        if case let .vector3(x, y, z)? = snapshot[.scene(.bloomTint)]?.value {
+            let value = SIMD3<Float>(Float(x), Float(y), Float(z))
+            if value.x.isFinite && value.y.isFinite && value.z.isFinite {
+                resolvedTint = value
+            }
+        }
+        return Self(
+            enabled: resolvedEnabled,
+            strength: scalar(.bloomStrength, fallback: strength),
+            threshold: scalar(.bloomThreshold, fallback: threshold),
+            tint: resolvedTint
+        )
+    }
+
     nonisolated static let disabled = SceneBloomConfiguration(
         enabled: false, strength: 1, threshold: 0.65, tint: SIMD3(1, 1, 1)
     )

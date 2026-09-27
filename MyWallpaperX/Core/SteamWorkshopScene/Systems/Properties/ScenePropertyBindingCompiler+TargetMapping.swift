@@ -120,6 +120,14 @@ extension ScenePropertyBindingCompiler {
                 (.particle(layerID: layerID, field: .normalizedColor), .vector3, .color)
             case .color: nil
             }
+        case let .scene(field):
+            switch field {
+            case "bloom": (.scene(.bloomEnabled), .bool, .bool)
+            case "bloomstrength": (.scene(.bloomStrength), .scalar, .slider)
+            case "bloomthreshold": (.scene(.bloomThreshold), .scalar, .slider)
+            case "bloomtint": (.scene(.bloomTint), .vector3, .color)
+            default: nil
+            }
         case let .camera(field):
             switch field.localizedLowercase {
             case "cameraparallax": cameraBoolean(.parallaxEnabled)

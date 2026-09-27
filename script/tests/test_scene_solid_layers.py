@@ -17,6 +17,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
     SOURCE_ROOT / "Rendering/Composition/SceneBloomPostProcess.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Format/SceneDocument.swift",
     SOURCE_ROOT / "Format/SceneDocument+General.swift",
     SOURCE_ROOT / "Format/SceneDocument+ShaderValue.swift",
@@ -159,6 +160,8 @@ SCENE_FIXTURE = {
 
 
 HARNESS_SOURCE = r'''
+// Unused target-format shell; this harness exercises solid parsing and textures.
+enum SceneGraphRenderTargetPlan { enum TextureFormat { case rgba16f, rgbaBackbuffer } }
 import Foundation
 import Metal
 
