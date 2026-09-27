@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-28 Rope Trail 完整纹理覆盖
+
+年轻拖尾的UV按实际保留路径跨度归一化，完整保留纹理两端和中部；原保留时长、轨迹几何、粒子运动与fadealpha不变。3788467391隔离候选获用户“转动效果明显多了”的反馈，完整原包16秒执行通过；不等同官方数值或完整视觉验收。见[运行证据](runtime-evidence-current.md#e-2026-09-28-rope-trail-texture)。
+
 ## 2026-09-27 显隐准备收敛
 
 属性与脚本共用 inactive effect 准备，删除脚本 planner 绕行；条件归一化后沿原单 pass/safe-FBO 边界检查，缺失关闭效果不拖累正常 sibling。跨层寻址的 effect 接入既有 typed 状态与作者初始值；3211615441 一次点击实际交换两侧 ray 的开关，取得 GPU/合成/下一帧证据。同身份原生鼠标慢速往返和三轮快速往返已取得切图/成对显隐证据；默认style有界交互通过，其他style与整体视觉仍开放。已删除该阶段临时诊断及重复查询。见[运行证据](runtime-evidence-current.md#e-2026-09-27-unified-effect-visibility)。

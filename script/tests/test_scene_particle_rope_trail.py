@@ -49,6 +49,8 @@ enum Harness {
             "largeHistory": largeHistoryContract(),
             "subdivision": subdivisionContract(),
             "appearance": appearanceContract(),
+            "growingTexture": growingTextureContract(),
+            "pausedTexture": pausedTextureContract(),
         ]
         let data = try JSONSerialization.data(
             withJSONObject: result,
@@ -237,6 +239,55 @@ enum Harness {
                 },
             "explicitEmptyRendererRejected": !explicitEmptyRenderer.rendererWasImplicit
                 && explicitEmptyRenderer.renderers.isEmpty,
+        ]
+    }
+
+    private static func growingTextureContract() -> [[String: Any]] {
+        let profile = plan([
+            "name": "ropetrail", "length": 4, "segments": 4, "subdivision": 0,
+        ], maximumCount: 1)!
+        var history = SceneParticleRopeTrailHistory(plan: profile)
+        var rows: [[String: Any]] = []
+        for step in 0...24 {
+            let time = Float(step) / 4
+            let output = history.advance(by: step == 0 ? 0 : 0.25,
+                particles: [particle(id: 1, x: cos(time), y: sin(time))], layerAlpha: 1)
+            guard step == 1 || step == 4 || step == 16 || step == 24 else { continue }
+            // A texture's two end caps and center must remain present while
+            // the path grows, then slides through its bounded history window.
+            let ranges = output.map { SIMD2($0.frame0B.z, $0.frame0B.w) }
+            rows.append([
+                "tail": ranges.map(\.x).min() ?? -1,
+                "head": ranges.map(\.y).max() ?? -1,
+                "continuous": zip(ranges, ranges.dropFirst()).allSatisfy {
+                    abs($0.x - $1.y) < 0.00001
+                },
+                "centerCovered": ranges.contains { $0.x <= 0.5 && $0.y >= 0.5 },
+            ])
+        }
+        return rows
+    }
+
+    private static func pausedTextureContract() -> [String: Any] {
+        let profile = plan([
+            "name": "ropetrail", "length": 4, "segments": 4,
+            "subdivision": 0, "fadealpha": true,
+        ], maximumCount: 1)!
+        var history = SceneParticleRopeTrailHistory(plan: profile)
+        var rows: [[SceneParticleGPUInstance]] = []
+        for (step, x) in [Float(0), 0, 1, 1, 2].enumerated() {
+            rows.append(history.advance(by: step == 0 ? 0 : 0.25,
+                particles: [particle(id: 1, x: x)], layerAlpha: 1))
+        }
+        return [
+            "stationaryEmpty": rows[0].isEmpty && rows[1].isEmpty,
+            "youngAlpha": rows[2].first?.rotationAndAlpha.w ?? -1,
+            "validSpans": rows.dropFirst(2).allSatisfy { output in
+                let ranges = output.map { SIMD2($0.frame0B.z, $0.frame0B.w) }
+                return ranges.map(\.x).min() == 0 && ranges.map(\.y).max() == 1
+                    && ranges.allSatisfy { $0.x.isFinite && $0.y.isFinite && $0.x < $0.y }
+                    && zip(ranges, ranges.dropFirst()).allSatisfy { abs($0.x - $1.y) < 0.00001 }
+            },
         ]
     }
 
@@ -691,6 +742,20 @@ class SceneParticleRopeTrailTests(unittest.TestCase):
     def test_current_particle_appearance_applies_to_the_complete_trail(self) -> None:
         for key, value in self.result["appearance"].items():
             self.assertTrue(value, key)
+
+    def test_texture_covers_growing_and_mature_curved_trails(self) -> None:
+        self.assertEqual(len(self.result["growingTexture"]), 4)
+        for row in self.result["growingTexture"]:
+            self.assertAlmostEqual(row["tail"], 0, places=6)
+            self.assertAlmostEqual(row["head"], 1, places=6)
+            self.assertTrue(row["continuous"])
+            self.assertTrue(row["centerCovered"])
+
+    def test_texture_survives_stop_resume_without_changing_age_fade(self) -> None:
+        value = self.result["pausedTexture"]
+        self.assertTrue(value["stationaryEmpty"])
+        self.assertTrue(value["validSpans"])
+        self.assertAlmostEqual(value["youngAlpha"], 0.96875, places=6)
 
     def test_subdivision_refines_authored_curvature_and_shares_endpoints(self) -> None:
         value = self.result["subdivision"]

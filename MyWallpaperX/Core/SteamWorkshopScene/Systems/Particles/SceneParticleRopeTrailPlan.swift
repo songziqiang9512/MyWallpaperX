@@ -264,6 +264,9 @@ nonisolated struct SceneParticleRopeTrailHistory {
         }
         nodes = distinctNodes
         guard nodes.count >= 2 else { return [] }
+        // Stretch the texture across the available path, including a growing
+        // trail. The retention window can exceed the particle's entire life.
+        let textureDuration = track.current.time - nodes[nodes.count - 1].time
 
         var result: [SceneParticleGPUInstance] = []
         result.reserveCapacity(nodes.count - 1)
@@ -284,14 +287,18 @@ nonisolated struct SceneParticleRopeTrailHistory {
             let newerU = Self.normalizedTrailPosition(
                 sampleTime: newer.time,
                 elapsed: elapsed,
-                length: plan.length
+                length: textureDuration
             )
             let olderU = Self.normalizedTrailPosition(
                 sampleTime: older.time,
                 elapsed: elapsed,
-                length: plan.length
+                length: textureDuration
             )
-            let alphaFade = plan.fadesAlpha ? (newerU + olderU) * 0.5 : 1
+            let alphaFade = plan.fadesAlpha ? Self.normalizedTrailPosition(
+                sampleTime: (newer.time + older.time) * 0.5,
+                elapsed: elapsed,
+                length: plan.length
+            ) : 1
             let alpha = min(max(
                 track.appearance.alpha * layerAlpha * alphaFade,
                 0

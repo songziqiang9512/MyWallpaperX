@@ -373,6 +373,20 @@
 用户明确：本轮未提及的问题可按非严重或已部分解决搁置；必要时可询问新构建实际效果，并允许为消除臃肿/冗余/绕行而重写完整职责。执行顺序及下一关闭门仅由[当前队列](../scene-open-breakpoint-queue-2026-09-09.md#qv-visual-repairs)维护。本条不新增产品修复、不改写已有技术证据或生成全集人工 pass。
 
 
+<a id="e-2026-09-28-rope-trail-texture"></a>
+
+### E-2026-09-28-ROPE-TRAIL-TEXTURE — 完整纹理覆盖恢复拖尾旋转感
+
+用户当前复测仍缺少明显旋转，并进一步指出像固定路径上的线条生长/消失。作者层218以movement、classic vortex和ropetrail组合生成绕轴路径；instance lifetime=0.1使寿命120～240缩为12～24模拟秒，ropetrail length=30。官方[Renderer/Rope Trail](https://docs.wallpaperengine.io/en/scene/particles/component/renderer.html#rope-trail-renderer)明确沿每个粒子的运动路径画线，并非整张背景刚体旋转。公开文档未提供UV数值公式；Mirage的几何侧按实际历史sample_count组织轨迹仅作结构参考。
+
+HEAD `919f16b2`上的旧实现始终以30秒保留窗口计算UV，年轻粒子只能采到纹理一部分，尾端及中部可能完全缺失。受控弧形路径length=4，在0.25/1秒旧实现分别只覆盖[0.9375,1]/[0.75,1]，纹理中点不在轨迹上；新实现均覆盖[0,1]且接缝连续。产品在原history owner中按实际可用轨迹时间跨度铺完整纹理，不增加路径或样本分支；fadealpha独立保留原时间窗口，年轻轨迹反例仍为0.96875，避免顺带改成0.5。轨迹保留窗口、几何、力、方向、速度和作者参数不变，产品净增7行。
+
+隔离复制并重打包仅含17/218两层，runtime visible IDs验证为[17,218]；初次仅放外部scene.json仍加载原包五层的运行不计入隔离对照。旧版exe SHA `8600db4f2ace9254c778c8da25c8eb272f8e2200c0b1985161820bad7b16d138`；UV候选SHA `aee49ede01d47e3494fa4f407420b8d59154047e4ed210986386467c3106caf6`、CDHash `20b71c63742dacef9184664fe3f6df05edbcaa74`，各12秒。候选运行后用户明确反馈“转动效果明显多了”。该反馈归属于隔离候选；后续保留fadealpha的收窄不影响本样本未启用fadealpha的行为。
+
+最终签名Debug `-O` exe SHA `047c5f0bc06d828ea7fc45a605f2d129bacf0e262c6113cdd0562a5b2d361620`，CDHash `5442737d9b3f776d802efc7b1b726ac3403a11dc`。完整原包复制16秒回放PASS，project/pkg SHA保持 `cb7a3f9829e2e80bc550419e390964afcba49753a5ce8da89aeefb733a330cfb` / `88ce5dac8b7470d67b6e8c956408816f4d966c465cc0fe6cb2afa14a848b644a`；visible IDs=[17,257,218,28,20]。粒子218 current/committed nonempty；直接终端绘制的surface帧0/1/2均GPU完成，最终截图可见紫色弧线及完整人物；20/28/257的graph completion、compositor消费、next-frame门通过。粒子无独立graph publication，不将图层graph证据挪作粒子发布证明。采样窗submitted/completed/failed/presented=634/633/0/632；不作性能结论。
+
+8项RopeTrail行为测试、Debug构建与独立只读最终diff复核通过。证据标签`2026-09-28-rope-trail-texture`保留前后测试、构建、运行身份、报告/日志/原图与最终产品测试patch。当前结论为UV缺口修正及用户确认旋转感明显改善；官方精确方向/速度/形态、完整预热与跨样本视觉尚未由本批关闭。真实样本根只读。
+
 <a id="e-2026-09-27-vortex-motion-diagnosis"></a>
 
 ### E-2026-09-27-VORTEX-MOTION-DIAGNOSIS — 已加载且模拟位置持续转动，视觉验收仍开放
