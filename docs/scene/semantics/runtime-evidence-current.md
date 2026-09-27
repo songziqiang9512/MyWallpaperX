@@ -3781,3 +3781,26 @@ v4 的 `3780119725` generation 1 include-current-process capture data peak `0.49
 冻结patch SHA-256 `024a10caf4c05732d3ce93c4fc588cc27813822e39fa947bc7794052ac6643ed`，独立只读审查APPROVE。5项真实Metal门通过：零强度RGB/alpha逐像素保持且encoderAttempts=0，三种尺寸、reuse与live On→Zero→OnAgain覆盖；非零、RGBA16F及已有pipeline/encoder故障门保留。inner计划仅scene-bloom，所选模块和code-health已独立执行通过。隔离优化Debug构建成功，App 2.10.0(279)，executable SHA-256 `69a9349e4195f30161a607f3a920f544fa7a38c3103a387ca6f7fc9a549594a3`，CDHash `6a01a4d97b157a5edfab1c4da0554c1340c7bf81`。
 
 真实3287715210零强度与3750813609非零强度原包隔离副本各8秒静音回放均PASS、纹理加载1.0；submitted/completed/failed/presented分别166/166/0/164、166/165/0/164。已查看两份终端after截图，未关闭眼周光束/条纹/时钟黑白等已有视觉边界。没有三轮同输入性能A/B，不声称FPS/耗时提升；仅证明零分支不提交四个Bloom pass，等价像素证据来自受控GPU门。缓存`docs/scene/evidence/2026-09-28-bloom-zero-strength/`保留报告、原尺寸截图、构建/测试/审查与SHA manifest；两原尺寸样本使用40MiB归档上限。
+
+
+<a id="e-2026-09-28-rope-breakpoint-isolation"></a>
+
+### E-2026-09-28-ROPE-BREAKPOINT-ISOLATION — 鼠标拖尾分层断点，产品未放宽
+
+基线94b24fb5，产品代码未改。2986218263作者输入为system flags=7、rope renderer flags=1/subdivision=100/maxcount=256、pointer CP0、sphere rate=32/lifetime=1，并在instance colorn绑定返回颜色脚本。原包已有0/1及dynamicSystemTransform证据。本批将其粒子与材质参数放入自有1280×720灰底场景，把颜色脚本替换为无副作用常量返回；不加载原背景、不修改真实样本。所有组使用同一签名App 2.10.0(279)、8秒静音和四个离散鼠标位置，改变的作者参数仅用于区分原因，绝非产品修复或官方对照。
+
+| Fixture尾号 | 相对上一基础组的输入变化 | 实际首断点/结果 |
+|---|---|---|
+| 200 | 原空间/renderer/细分，常量颜色脚本 | worldSpaceUnsupported:dynamicSystemTransform，粒子0/1 |
+| 201 | 去掉颜色脚本 | ropeRendererUnsupported，粒子0/1 |
+| 202 | 在201上renderer flags=0 | ropeRendererUnsupported，粒子0/1 |
+| 203 | 在202上subdivision=3 | 粒子1/1，但pointerControlPointUnsupported；四张轨迹截图均无亮像素 |
+| 204 | 在203上system flags=0 | pointerControlPointBounded；鼠标移动后线带可见 |
+| 205 | 在203上system flags=1 | pointerControlPointUnsupported；四张轨迹截图均无亮像素 |
+| 206 | 在203上system flags=4 | pointerControlPointUnsupported；四张轨迹截图均无亮像素 |
+
+终端Metal截图中，204后三个位置的RGB最大通道>80像素数分别43982/34731/52786，已目视末张线带；其余六组对应计数全部0。7组均有四次pointer输入事件，GPU失败0、完成164...166帧；204完成165帧/呈现164帧。benchmark仅204通过，其余按预期保留加载不完整或hover无响应失败，不把诊断负例记成整体PASS。预览中的committed-nonempty为空是准备时快照，本批不将它提升为全时段绘制统计。上述证据只证明局部对照能显示及各门的遮蔽关系，不证明原profile形态、世界位置、连续轨迹质量或官方parity。
+
+静态核对：SceneParticleWorldSpacePlan+Descriptor把hasInlineScript整体判作变换动态；不能简单按colorn/origin脚本host分类放行，因为本层、祖先或其他owner脚本可能改写变换。SceneParticleWorldSpaceFrame只有准备时方向逆矩阵，不能作为动态世界位置存储。RopePlan当前仅接受renderer flags=0、subdivision≤7及4096生成段；原参数最坏255×101=25755段。ControlPointForce的emitter pointer demand独立排除world/perspective。独立只读审查确认这些边界，不建议继续逐门放宽。
+
+本项暂缓：恢复时先在唯一typed-frame/particle链中明确指针世界点→发射→存量粒子位置→最终模型的职责，使用出生后父层移动/旋转与跨层脚本改写的反例；之后再以renderer world和有界细分分别验收。颜色脚本执行、原包画面、未知动态组合仍开放。本批未构建或运行全套测试，复用已验证的优化Debug二进制SHA-256 `69a9349e4195f30161a607f3a920f544fa7a38c3103a387ca6f7fc9a549594a3`、CDHash `6a01a4d97b157a5edfab1c4da0554c1340c7bf81`。报告、49张原尺寸截图、生成输入、专项断言、审查与SHA manifest保存在本机缓存`docs/scene/evidence/2026-09-28-rope-breakpoint-isolation/`；不复制官方研究材料。
