@@ -148,13 +148,26 @@ nonisolated struct SceneParticleDefinitionParser {
         )
         return SceneParticleInitializer(
             id: Self.integer(root["id"]), kind: kind,
-            minimum: Self.numericValue(root["min"]),
-            maximum: Self.numericValue(root["max"]),
+            minimum: Self.initializerBound(root["min"], kind: kind),
+            maximum: Self.initializerBound(root["max"], kind: kind),
             exponent: Self.number(root["exponent"]),
             hsvColor: kind == .hsvColor ? .init(root: root) : nil,
             turbulentVelocity: turbulence, positionOffset: positionOffset, colors: colors,
             hasMalformedColorList: hasMalformedColorList
         )
+    }
+
+    private nonisolated static func initializerBound(
+        _ rawValue: Any?, kind: SceneParticleInitializerKind
+    ) -> SceneParticleNumericValue? {
+        let value = numericValue(rawValue)
+        guard kind == .rotation, case let .scalar(angle) = value,
+              angle.isFinite else { return value }
+        // Legacy numeric rotation is a planar angle; vector text starts at X.
+        // Resolve this before generic scalar decoding loses the source type.
+        if rawValue is NSNumber { return .vector([0, 0, angle]) }
+        if rawValue is String { return .vector([angle, 0, 0]) }
+        return value
     }
 
     private nonisolated static func unsupportedPositionOffsetFieldNames(

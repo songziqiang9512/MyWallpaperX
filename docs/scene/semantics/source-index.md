@@ -165,6 +165,10 @@
 
 2026-09-28 用户授权有界研究`trail-defaults-20260928`：固定官方客户端2.8.42、`wallpaper64.exe` SHA `40e2ce021e9352324fadb3b8f72b8ba2a7ee95b71cc571d5b9f84be75cd993b0`，Ghidra12.1.2/Java21.0.12。`official-client-static-observation`只支持Sprite Trail缺省字段独立归一化为length=0.05、minlength=0、maxlength=10及显式有效数值覆盖；不支持缺省1/1。公开[Renderer](https://docs.wallpaperengine.io/en/scene/particles/component/renderer.html)提供速度相关伸长和显式三项1的orientation-only语义，未公开默认数值。研究者与实现者隔离，中性交接独立审查通过，原始材料清理；没有复制私有实现表达。零速度几何、绝对单位、null/畸形输入、Windows像素以及目标斜光归因均未由静态合同证明。实施及验收边界见[运行证据](runtime-evidence-current.md#e-2026-09-28-trail-defaults)。
 
+<a id="rotation-scalar-20260928"></a>
+
+2026-09-28 有界研究`legacy-rotation-scalar-20260928`复核同一2.8.42客户端（wallpaper64.exe SHA `40e2ce021e9352324fadb3b8f72b8ba2a7ee95b71cc571d5b9f84be75cd993b0`，Ghidra12.1.2/Java21.0.12）。经独立净化审查的`official-client-static-observation`支持：`rotationrandom`的min/max有限JSON number各自归一化为Z-only；单token有符号十进制字符串为X-only；三token字符串保留XYZ。数值与文本不能先合并再广播。只证明版本有界字段归一化，不涉及Euler、随机或几何公式；`angularvelocityrandom`、数组、wrapper、缺省/畸形、扩展文本语法与Windows像素结果仍未证明。研究与实现隔离、raw已清理；现状见[实际执行](runtime-evidence-current.md#e-2026-09-28-rotation-source-types)。
+
 ### 1.6 Timeline
 
 - https://docs.wallpaperengine.io/en/scene/timeline/introduction.html

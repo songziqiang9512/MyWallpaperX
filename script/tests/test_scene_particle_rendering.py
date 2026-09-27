@@ -273,6 +273,11 @@ enum Harness {
             ),
             "cullContract": cullContract(),
             "horizontalTrailBounds": trailBounds(velocity: SIMD3(1, 0, 0)),
+            "numericRotationBounds": authoredRotationBounds(0.3),
+            "textRotationBounds": authoredRotationBounds("0.3"),
+            "explicitZRotationBounds": authoredRotationBounds("0 0 0.3"),
+            "explicitXRotationBounds": authoredRotationBounds("0.3 0 0"),
+            "broadcastRotationBounds": authoredRotationBounds("0.3 0.3 0.3"),
             "defaultTrailBounds": defaultTrailBounds(),
             "localScaledWidth": trailBounds(velocity: SIMD3(1, 0, 0),
                 layerModel: SceneMatrix.scale(SIMD3(10, 10, 1)), rope: true),
@@ -1364,6 +1369,17 @@ enum Harness {
             )),
             "varianceRatio": majorVariance / max(minorVariance, 0.0001),
         ]
+    }
+
+    private static func authoredRotationBounds(_ value: Any) -> [String: Int] {
+        let data = try! JSONSerialization.data(withJSONObject: [
+            "initializer": [["name": "rotationrandom", "min": value, "max": value]]
+        ])
+        let definition = try! SceneParticleDefinitionParser().parse(data: data)
+        let angles = definition.initializers[0].minimum!.vectorValue!
+        return spriteBounds(currentAspect: 0.25, nextAspect: 0.25, frameMix: 0,
+                            rotation: SIMD3(Float(angles[0]), Float(angles[1]), Float(angles[2])),
+                            marked: true)
     }
 
     private static func defaultTrailBounds() -> [String: [[String: Int]]] {
@@ -2667,6 +2683,15 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertGreater(horizontal["width"], horizontal["height"] * 2.5)
         self.assertGreater(vertical["height"], vertical["width"] * 2.5)
         self.assertGreater(rotated["height"], rotated["width"] * 2.5)
+
+    def test_numeric_and_text_rotation_reach_distinct_gpu_geometry(self) -> None:
+        numeric = self.result["numericRotationBounds"]
+        text = self.result["textRotationBounds"]
+        self.assertGreater(numeric["width"], 0)
+        self.assertEqual(numeric, self.result["explicitZRotationBounds"])
+        self.assertEqual(text, self.result["explicitXRotationBounds"])
+        self.assertNotEqual(numeric, text)
+        self.assertNotEqual(numeric, self.result["broadcastRotationBounds"])
 
     def test_omitted_trail_bounds_change_actual_gpu_extent_with_speed(self) -> None:
         bounds = self.result["defaultTrailBounds"]

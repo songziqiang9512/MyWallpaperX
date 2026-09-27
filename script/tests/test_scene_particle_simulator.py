@@ -58,7 +58,9 @@ import simd
 @main
 enum Harness {
     static func main() throws {
-        if CommandLine.arguments.dropFirst().first == "birth-scalar-safety" {
+        if CommandLine.arguments.dropFirst().first == "rotation-source-types" {
+            try printJSON(rotationSourceTypeResults())
+        } else if CommandLine.arguments.dropFirst().first == "birth-scalar-safety" {
             try printJSON(birthScalarSafetyResults())
         } else if CommandLine.arguments.count == 2, CommandLine.arguments[1] == "simulation-rate" {
             try printJSON(simulationRateResults())
@@ -80,6 +82,37 @@ enum Harness {
         } else {
             try printJSON(syntheticResults())
         }
+    }
+
+    private static func rotationSourceTypeResults() throws -> [String: Any] {
+        func run(_ minimum: Any, _ maximum: Any, kind: String = "rotationrandom") throws -> [Double] {
+            let root: [String: Any] = [
+                "maxcount": 1,
+                "emitter": [["name": "sphererandom", "instantaneous": 1, "rate": 0, "distancemax": 0]],
+                "initializer": [["name": "lifetimerandom", "min": 10, "max": 10],
+                                ["name": kind, "min": minimum, "max": maximum]],
+                "renderer": [["name": "sprite"]]
+            ]
+            let data = try JSONSerialization.data(withJSONObject: root)
+            let definition = try SceneParticleDefinitionParser().parse(data: data)
+            let simulation = SceneParticleSimulator(definition: definition, seed: 5)
+            simulation.advance(by: 1.0 / 60)
+            let particle = simulation.particles[0]
+            let value = kind == "velocityrandom" ? particle.velocity : particle.rotation
+            return [value.x, value.y, value.z]
+        }
+        return [
+            "number": try run(0.3, 0.3),
+            "negative": try run(-0.25, -0.25),
+            "zero": try run(0, 0),
+            "string": try run("0.3", "0.3"),
+            "explicitZ": try run("0 0 0.3", "0 0 0.3"),
+            "explicitX": try run("0.3 0 0", "0.3 0 0"),
+            "explicitXYZ": try run("0.3 0.3 0.3", "0.3 0.3 0.3"),
+            "mixed": try run(0.3, "0 0 0.3"),
+            "range": try run(-0.4, -0.3),
+            "velocityControl": try run(0.3, 0.3, kind: "velocityrandom")
+        ]
     }
 
 
@@ -3186,6 +3219,21 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(result["signedShell"])
         self.assertTrue(result["deterministic"])
         self.assertTrue(result["rollback"])
+
+    def test_rotation_preserves_numeric_and_text_axis_semantics(self) -> None:
+        result = self.run_harness("rotation-source-types")
+        self.assertEqual(result["number"], [0, 0, 0.3])
+        self.assertEqual(result["negative"], [0, 0, -0.25])
+        self.assertEqual(result["zero"], [0, 0, 0])
+        self.assertEqual(result["number"], result["explicitZ"])
+        self.assertEqual(result["mixed"], result["explicitZ"])
+        self.assertEqual(result["string"], [0.3, 0, 0])
+        self.assertEqual(result["string"], result["explicitX"])
+        self.assertEqual(result["explicitXYZ"], [0.3, 0.3, 0.3])
+        self.assertEqual(result["range"][:2], [0, 0])
+        self.assertGreaterEqual(result["range"][2], -0.4)
+        self.assertLessEqual(result["range"][2], -0.3)
+        self.assertEqual(result["velocityControl"], [0.3, 0.3, 0.3])
 
     def test_scalar_birth_overflow_rejects_only_new_particle_and_recovers(self) -> None:
         result = self.run_harness("birth-scalar-safety")

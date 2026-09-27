@@ -405,6 +405,20 @@
 
 最新截图仍缺官方目标头发斜光，不能把这项公共默认修正认作完整根因。Windows同输入几何/像素对照未运行；静态研究未覆盖尺寸单位、旧Sprite角度、stock资源选择或最终合成。证据仍在`2026-09-28-ray-pass-projection`。后继尺寸诊断见下。
 
+<a id="e-2026-09-28-rotation-source-types"></a>
+
+### E-2026-09-28-ROTATION-SOURCE-TYPES — 保留旧式初始旋转输入类型
+
+首断点是parser把JSON number与单值文本合并为同一scalar，随后通用vector计划广播XYZ。研究卡`legacy-rotation-scalar-20260928`裁定的版本有界合同见[来源索引](source-index.md#rotation-scalar-20260928)。独立研究者不写产品，交接SHA `36224e0103afdcbf22f804f252e1022c544baaa034de874eeb9344b752b1359f`经`/root/noise_review`净化审查accepted；实现上下文`/root`声明`did-not-receive-raw-static-output`，raw已由研究者清理。
+
+修正在既有initializer min/max解析入口按原始类型独立归一化，仅rotationrandom有限number→Z-only、单标量文本→X-only；vec3不改。root/child共用，不改通用numericValue、角速度、随机、Euler、shader或frame owner。数组/wrapper/畸形与缺省沿旧路径；较宽文本语法仍按项目解析策略，不提升为官方合同。
+
+本轮只读扫描188个scene.pkg，无解析错误；12个目录中24个非零旧scalar字段，均为JSON number rotationrandom，没有scalar角速度命中。1315486372的lightshafts.json及3768724269的light_shafts_1.json均min=-0.4/max=-0.3。188只是本轮包扫描范围，不替换旧172验收分母。修正前对两个完整隔离包分别使用scalar/显式X/显式Z共6次8秒回放，全PASS且几何方向不同，不把候选图当官方真值。3768724269诊断重打包统一折叠了两条字节完全相同的font entry，三个变体一致；最终原包回放未重打包。
+
+69项定义/模拟测试与40项实际Metal测试通过，覆盖正负/零、混合两端、number与显式Z等价、文本与显式X等价、异轴/XYZ反例及非rotation速度对照。主工作区首次完整构建遇并发播放重构语法错误，未改他人文件；独立worktree基于a55156ce＋冻结patch完成Debug优化构建。code-health仍为三个既有非Scene行数超限，未宣称总门通过。最终App SHA `d056008ef042b31a2c17b8d430fec94d1bb938a8fdaed09a4bca34345cbbcc90`，CDHash `bba68d4d19ec43772499867c6c535fa471459b3c`；两个未改写原包8秒回放PASS，1315486372粒子52/117与3768724269粒子54/63/64/72均current/committed nonempty，submitted/completed/failed/presented分别174/173/0/172和173/172/0/171。粒子直接提交终端，背景/独立光束走既有graph完成/消费/下一帧门；不虚构粒子graph publication。
+
+此批关闭rotationrandom数值/文本被错误合并并广播三轴的共享缺陷，未关闭两样本完整光束范围/根部/渐隐观感、角速度scalar、Windows同输入几何golden或3769761761缺失斜光（其156本来是显式vec3）。证据缓存`2026-09-28-rotation-source-types`保存输入普查、变体脚本/报告/图、最终原包执行、构建/测试和已审交接。按用户最新方向，以上剩余光照项可带着证据暂挂，后续自主转向跨样本收益更高的公共实现或减重事项。
+
 <a id="e-2026-09-28-sprite-size-diagnosis"></a>
 
 ### E-2026-09-28-SPRITE-SIZE-DIAGNOSIS — 不采纳整体尺寸补偿
