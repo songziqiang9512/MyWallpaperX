@@ -181,7 +181,7 @@ continue
 
 现有 target pool、resource generation、frame reservation、publication、command-buffer completion、rollback、epoch invalidation 和唯一 terminal compositor owner 是应保留的底座。产品帧只保存提交/消费所需的轻量状态；完整 terminal observation、graph hash 和逐节点证据只在主动诊断或 benchmark 模式构造。快速出效果不等于放弃 GPU 事务安全，也不允许把证据系统变成提交成功的第二授权者。
 
-需要改变的是 admission 粒度：Program/graph 可以按 effect 或依赖子图准备和提交，不能要求一层中所有 authored effect 都先形成完整 capability conservation 才允许任何可见结果。
+需要改变的是 admission 粒度：Program/graph 可以按 effect 或依赖子图准备和提交，不能要求一层中所有 authored effect 都先形成完整 capability conservation 才允许任何可见结果。 SceneScript 的 layer `origin/scale/angles` setter 在身份/权限检查及完整三分量读取成功后，若收到数值型 NaN/Infinity，只拒绝这一次完整属性赋值、不产生 mutation，保留此前合法暂存值及回调其他操作。缺字段、转换/getter 异常、显式抛错、非法 typed return、identity 或预算失败仍服从原事务；颜色与创建初值不扩入此策略。这是项目的最小视觉失败范围，不宣称官方对非有限值的未公开行为。
 
 ### 3.4 通用执行不等于单体 renderer
 
@@ -417,7 +417,7 @@ Puppet、2D lighting/HDR、3D、RGB、offline bake、color/multi-display/device 
 | composition／fullscreen／utility | 准备作者子树、输出几何、捕获需求、依赖与触发顺序 | 只执行有效计划与 live transform／visibility | GraphProduct／既有 utility producer 在规定层序产生输入或写主 target；scene postprocess 只在存在已准备命令时执行 | 无支持的 utility 局部降级；不得新增独立 capture/compositor 补路径 |
 | 相机／parallax／灯光／深度 | 准备作者设置、引用与消费者索引；depth target 用现有 pool | 同帧动态相机、parent/world、灯光颜色等求值；按 surface 投影 | 作为 geometry／material 输入；光不是默认全屏纹理；阴影／HDR 等只有已有可执行合同才进 graph | 改值更新参数，改变 target 格式／尺寸才失效资源；未支持 pass 不虚构画面 |
 | user property／Timeline | 装载时形成 typed schema、binding、冲突裁决与 timeline lanes | property revision／scene time 在既定阶段投影；值优先级由目标声明，不靠调用覆盖顺序 | 作为 uniform、transform、visibility、text、media、particle 等 consumer 的值 | value-only 不 relaunch；resource/variant/topology 变化走相应失效域；没有 consumer 就显式不支持 |
-| SceneScript／timer／事件／localStorage | 准备编译／模块链接和 host handles，激活时接管 VM 线程；生命周期回调在合法 owner 与对象可用阶段执行 | 输入 snapshot→依协议顺序回调→typed mutation→局部 owner admission→frame commit；timer/event 恰一次 | 不直接画图；修改现有产品状态、资源请求与命令 | exception/timeout/OOM 按现役最小失败合同；未提交 mutation 可撤，已外发副作用不可假装回滚 |
+| SceneScript／timer／事件／localStorage | 准备编译／模块链接和 host handles，激活时接管 VM 线程；生命周期回调在合法 owner 与对象可用阶段执行 | 输入 snapshot→依协议顺序回调→typed mutation→局部 owner admission→frame commit；timer/event 的消费在提交后确认，拒绝可重试回调 | 不直接画图；修改现有产品状态、资源请求与命令 | exception/timeout/OOM 按现役最小失败合同；未提交 typed mutation 可撤。shared、模块变量、闭包与 retained 对象属于同一非事务 JS heap；失败不撤销已执行的 heap 写入，重试可重复副作用。Host 不序列化或替换 shared 来伪造回滚，读取 shared 的 peer 不享有 localStorage 式依赖撤回；值和 handle 仍须通过既有 typed/generation/预算门 |
 | 鼠标／音频频谱／系统媒体 | 有真实消费者时由现有 input/audio/media owner 订阅；准备 typed binding | 帧边界冻结可用输入；屏幕坐标经 canonical camera/world；音频与媒体使用来源时间／generation | 作为 VM、shader、particle、text 等输入；不是第二 clock 或独立 renderer | pause/失焦/设备变化/退场按需求撤订阅；缺输入用已声明默认值，不伪造资源 |
 | sound 层／音量 | 准备 sound binding；激活后现有 sound registry 接管音源，继承 pause/mute | authored 声音命令、属性与共享时钟控制播放 | **不进入视觉 compositor**；与同场景状态事务及生命周期同步的音频输出 | 缺失／不可解码只影响音源；切换／停止撤 observer、音频需求与播放实例 |
 | capture／HUD／诊断 | 仅明确请求时在当前执行链上安装 observer／readback | 消费实际执行结果；详细采集有界 | compositor terminal 的旁路，不能成为普通提交前置 | 结束即撤 observer、释放 readback；诊断耗时不混入普通性能结论 |
@@ -435,7 +435,7 @@ Puppet、2D lighting/HDR、3D、RGB、offline bake、color/multi-display/device 
 | 5 | admission 后提交为待执行状态，准备最终 pose／world／visibility／相机／灯光 | final pose 驱动 skinning、attachment 和子层；需 VM 前置的 pose 与此结果不能互换；回调后 world 在约定下一 snapshot 可见 |
 | 6 | 物化 provider 采样与模拟结果、确定 live extent、租赁 target、填 Program 参数 | 无变化复用；异步 text/video/resource 只采用已就绪版本。CPU 可先准备，GPU producer 在其 consumer 之前 encode |
 | 7 | 依赖 producer／effect graph／层合成／必要 scene postprocess 按计划编码 | 先完成 producer，后消费同帧输入；背景读取遵守准确的层序；每个 active 输出只消费一次 |
-| 8 | seal、present 注册、commandBuffer submit、host frame commit | 区分成功提交与实际出屏；部分 surface 提交后不能用全局 CPU rollback 声称原子视觉撤回 |
+| 8 | 全 surface encode/seal → 提交前屏障 → present/commandBuffer submit → host frame commit | 任一准备失败先逆序取消全部未提交候选；所有候选 buffer identity 唯一且未 enqueue 才进入同步提交段。已提交后的 GPU 异步失败不能用全局 CPU rollback 声称原子视觉撤回 |
 | 9 | GPU completion、publication terminal、资源租约回收；presented 通知 | 发布与完成沿同一 identity；出屏时间只来自实际 presented；失败只能影响真实依赖与后继 |
 
 同一 commandBuffer 中安全有序的 producer→consumer 不要求 CPU 等 GPU completion；跨 commandBuffer／跨队列必须有明确同步与版本许可。persistent history 不能因为物理纹理还在就视作已发布当前结果。
@@ -492,6 +492,6 @@ identity、generation、phase、线程与寿命：
 
 ### 8.6 当前差距与迁移入口
 
-上述阶段已有部分实现，但不能据此宣称整体完成。基点源码显示：activation 仍会停止旧 provider 并替换 context 后重建 surfaces；FrameDriver 存在 all-surface 提交与 CPU rollback；frame admission 仍构造多层请求／候选；统一命令还携带 Scene 专属类型；复杂对象和跨产品 publication 有明确未支持项。
+上述阶段已有部分实现，但不能据此宣称整体完成。基点源码显示：activation 仍会停止旧 provider 并替换 context 后重建 surfaces；FrameDriver 已在全 surface 编码封口后统一提交，准备失败取消未提交候选后恢复 CPU 状态；已提交后的异步 GPU 失败仍不能全局视觉撤回；frame admission 仍构造多层请求／候选；统一命令还携带 Scene 专属类型；复杂对象和跨产品 publication 有明确未支持项。
 
-因此候选激活不丢旧可见输出、跨屏部分提交、帧存储收敛分别进入重构档案的 E2／E4／E1；shader 语义收敛进入 E5。每次触达先判断是否偏离本节，按最短纵向结果纠正。偏差不能因旧测试通过就永久合法，也不能为了立即符合表格而进行无测量的整引擎重写。
+因此候选激活不丢旧可见输出、异步 GPU 失败后的跨屏恢复及真实多显示器呈现、帧存储收敛分别进入重构档案的 E2／E4／E1；shader 语义收敛进入 E5。每次触达先判断是否偏离本节，按最短纵向结果纠正。偏差不能因旧测试通过就永久合法，也不能为了立即符合表格而进行无测量的整引擎重写。

@@ -4,7 +4,7 @@
 
 > 2026-09-25 精简重排（用户授权）：只保留开放项与其参考事实；已关闭项的过程流水一律退役，历史证据查 [运行证据](semantics/runtime-evidence-current.md) 与 git log。文件名日期仅保留链接身份。
 > 本文是[兼容路线](scene-compatibility-roadmap.md)的短队列，不建立第二套阶段；工程性能工作按[重构计划](engine-refactor-program.md)执行。
-> 用户优先级（2026-09-25）：鼠标/指针交互最高；音频频谱节奏感与流星/trail 样式**搁置**后续再修。
+> 用户优先级（2026-09-27 最新实测）：优先本页 QV 中仍被点名的音频显示、漩涡、光束、细条纹、粒子位置和交互问题。音频频谱节奏感恢复推进；3088601835 及本轮未提及的旧问题允许搁置，不推定全部修复。最新用户观察与构建关联见[实测登记](semantics/runtime-evidence-current.md#e-2026-09-27-user-retest-priorities)。
 
 ## 1. 当前证据边界
 
@@ -12,7 +12,30 @@
 
 ## 2. 现役执行顺序
 
-### Q1 — 鼠标/指针交互簇（用户 2026-09-25 重排为最高优先）
+### QV — 最新实测驱动的可见修复（2026-09-27）
+
+下表区分用户观察、已核实局部修复和待验证原因。按公共首断点推进：先查音频条/音频环的加载与脚本执行，再查共享频谱分布；随后处理漩涡、光束/合成、粒子锚点、细条纹及交互剩余断点。样本只用于取证，不进入产品算法分派。用户正在测试的 App 保持运行，自动诊断使用隔离内容。
+
+| 当前问题 | 首查职责与下一验收门 |
+|---|---|
+| `3789316755` 音频条不出现 | [动态层预算批](semantics/runtime-evidence-current.md#e-2026-09-27-dynamic-layer-capacity)删除额外owner64限制；[变换局部拒绝批](semantics/runtime-evidence-current.md#e-2026-09-27-transform-nonfinite-local)又将数值NaN/Inf的失败缩到单次变换赋值，原包已在固定PCM下恢复柱条、静音收回且新进程重启再次响应，73动态层连续完成publication/encode/GPU。整owner消失断点有界闭合；末档作者无效采样保留安全旧值，不补假频谱、不改柱数。当前剩余门：普通入口真实音乐和用户复测、同runtime切换；形状/幅度/全柱活跃度并入共享音频视觉项，不能把恢复出现当作整体通过。 |
+| `3211615441` 音频环缺失、点击切换中央图片功能、鼠标跟随位置疑似错误 | [连续频带批](semantics/runtime-evidence-current.md#e-2026-09-27-audio-continuous-bands)纠正首查对象：音圈来自689/697的test_shader，六组Simple_Audio_Bars为另一路条形显示。共享频谱已消除永久空档、降低低频专用门，原包固定PCM后段出现细环，前段仍弱；仅部分恢复，不关闭显示达标。下一门为真实音乐强度/完整形态与用户复测；点击由cursorClick改visible，heart由cursorWorldPosition驱动，切图与跟随仍需独立实际执行及坐标证据，不以VM无异常替代。 |
+| 跨样本音频柱形状、大小和幅度不佳；中段活跃、两端弱 | 用户明确要求所有柱子都有相近的活跃程度。恢复 Q1.4 音频线；[连续频带批](semantics/runtime-evidence-current.md#e-2026-09-27-audio-continuous-bands)已消除离散分档的永久空档并移除较强低频门，五采样率扫频可激活每档，仍未达到全柱活跃度验收。继续用固定PCM/实际音乐核对剩余幅度、平滑和作者布局，比较最终条形与环形画面。该偏好不是官方行为证明，也不等同把所有柱高强制设为相同；避免无依据叠加 gain/warp 或破坏静音。交付同声源 A/B 后请用户确认活跃度是否达标。 |
+| `3788467391` 背景漩涡不旋转，形态/算法可能错误 | 已核对 Circular Particles 的 classic vortex + ropetrail，以及独立音圈shader；继续定位用户所指区域，核对公开官方定义及可用开源参考。零轴在当前源码已转+Z，不能重复当作缺失；旧台账的 particle load incomplete 仅为线索。关闭门：持续旋转、中心/方向/速度和形态均有作者输入与实际画面依据；不能用整张背景旋转掩盖缺失算法。 |
+| `1315486372`、`3769761761`、`3768724269` 光效仍不完整；`3768724269` 右上固定区域有不断变化的暗红蓝渐变 | 粒子贴图光束与 shader 光束分别追踪。既有预热、TEX 长宽比、三轴旋转和径向锚点局部修复不等于完整光效；1315486372 顶部光线和中部渐隐渐显都必须保留，size 单位/旧 scalar 角度仍待区分。新增右上渐变需逐层定位产生阶段，混合/捕获/坐标均是候选，未认定合成根因。参考[亮根诊断](semantics/runtime-evidence-current.md#e-2026-09-27-lightshaft-root)、[同状态几何消融](semantics/runtime-evidence-current.md#e-2026-09-27-lightshaft-geometry-ablation)和[锚点修复](semantics/runtime-evidence-current.md#e-2026-09-27-radial-carrier-anchor)。关闭门：完整光束范围、根部轮廓、渐变和该右上区域连续画面符合预期。 |
+| `3287715210` 极淡的竖向条纹仍从左向右移动 | 原包 HDR=true、bloomstrength=0，候选为 Light Shafts quad470、Long wind trail449 与后处理；根因未定。原始尺度连续帧及局部对比增强只用来定位，不因普通截图难看清而关闭。依次隔离光束、风轨迹与后处理，确认首个产生条纹的阶段，最后在原图连续播放验收并保留正常光效。 |
+| `3113287126` 红色粒子位置错误 | [旧版附着点批](semantics/runtime-evidence-current.md#e-2026-09-27-puppet-legacy-attachments)已修正MDLV0017被attachment reader拒绝的问题，恢复parent500的三个作者锚点；原包12秒前后对照中红橙粒子由裙摆/腿部附近回到小提琴与持弓手区域。明显位移首断点已修正，保留用户复测具体发散形态与锚定效果；鼠标/视差变体、长稳与完整粒子组件未验收。 |
+
+**本轮可搁置：**
+
+| 问题 | 当前处理与保留边界 |
+|---|---|
+| `3088601835` 雪雾过曝 | 用户最新实测认为已较为正常，并指出官方原版也有一定过曝；降为可搁置，不再优先追查亮度，也不登记为受控官方 parity。保留[子系统参数修复](semantics/runtime-evidence-current.md#e-2026-09-27-child-instance-modifiers)、[退场实验](semantics/runtime-evidence-current.md#e-2026-09-27-snow-fog-retirement)与[目标 alpha 排除](semantics/runtime-evidence-current.md#e-2026-09-27-snow-fog-target-alpha)证据。 |
+| 本轮未提及的旧问题 | 按用户明确指示视为非严重或部分解决，可搁置：包括 `3028090166` 光束、`2419444134` 白点、`3113554287` 顿挫、`2304304373` 雾气、烟花/洋红与一般拖尾样式。既有局部修复及未关闭边界留在[运行证据](semantics/runtime-evidence-current.md)，不以本次沉默生成 pass。下方旧 Q1/Q0/Q3 等作为存量余项，除非阻塞本表公共修复或用户重新点名，不抢占本表。 |
+
+实现允许在完整职责范围内简化或重写；优先删除重复状态推导、绕行适配与无收益补偿，不能为每个样本再套一层专用分支。需要用户视觉判断时先准备能直接测试的构建/对照和具体问题，再询问效果是否达标。
+
+### Q1 — 鼠标/指针交互簇（保留既有闭合与挂起边界）
 
 **Q1-A 粒子控制点鼠标跟随缺失（2026-09-25 已修复，待用户实机验收）**
 
@@ -63,13 +86,13 @@
 
 ### Q4 — 登记边界/暂缓
 
-- **3750813609 时钟文字黑白混合（用户报告 2026-09-26）——根因定位（2026-09-26）**：隔离 A/B（隔离副本禁用 clouds）证明**白色来自 clouds 特效**（禁用后时钟区域亮像素 41%→0%，数字变灰暗）；combine 编译忠实已排除。**最终定位：clouds 材质 authored graph 零绑定**（evidence nodes[4] bindings=[]——effect.json 的 pass 无 textures 数组，g_Texture1 默认 util/clouds_256 只是 shader 注解）。我们的合同"默认纹理是 source metadata、never a runtime fallback"（SamplerPurpose.swift:246 注释）使该 noise 采样器无纹理可采——但效果仍然显示白色，说明运行时对缺失槽绑定了某种回退纹理（可能纯白或纯灰 noise）。参考的 clouds 覆盖来自真实 clouds_256 噪声纹理（pkg 不随样本分发，官方由引擎 stock 资产供给）。**修复方向**：为 registry 已登记的 stock noise 纹理提供程序化合成——**已实现（33d4e7df）**：`SceneStockNoiseTextureStore` 确定性 256×256 R8 合成（clouds/perlin=可平铺多倍频 value noise、voronoi=环绕距离场、uniform=白噪声；managed 存储+GPU mipmap，private 存储上传触发 AGX 崩溃已修）；`beginTextureFrame` 以 .system 身份发布；`selectDefaults` 资产缺失且属 registry noise 清单时回退（pkg 资产恒优先）。验证：3750813609 零崩溃、观察模式双样本 PASS（succeeded 集不变）、结构门绿。**登记**：合成噪声与官方 clouds_256 密度差未对照，按官方样本校准留后续。
-### Q4 — 登记边界/暂缓
-
+- **3750813609 时钟文字黑白混合（用户报告 2026-09-26）——保持视觉待验收**：历史隔离 A/B 禁用 clouds 后时钟亮像素 41%→0%，说明亮色来自该特效；此前把 authored pass `bindings=[]` 等同运行时缺纹理的归因不充分，shader 默认纹理还经 metadata/resource demand 进入唯一资产链。当前签名 Debug App 的真实回放确认材质资产 `6 ready / 0 absent`、stock 合成 `prepared=0`，包内已含 clouds_256，不能把程序化噪声修复当作时钟视觉修复。通用资源缺口已推进：`33d4e7df` 引入的六种 stock 替代，其随机半量程与 mipmap 失败仍发布已修正，后继又改为 launch 按需不可变准备，移除逐帧生成/失败重试，修正 media-only provider block 覆盖准备态，并补齐 launch/readiness/format/color 与帧内选择不一致导致的默认纹理准入缺口。见[当前能力](semantics/coverage-ledger.md#2026-09-26-stock-noise-按需启动准备与上传完成s3)及[对应运行证据](semantics/runtime-evidence-current.md#e-2026-09-26-stock-noise-preparation)。**剩余**：真实时钟 ROI 与作者预期的画面复核；缺失资产时合成 noise 与官方 stock 的密度/语义等价仍未证明。
 - `2986218263` rope trail：三处放宽全部 A/B 证据回退（flag bit0 造成 `3665307769` 红烟回归；预算放宽可见收益为零）。前置=世界空间 rope 支持设计（登记 Ⅰ/Ⅱ/Ⅲ 假设）；rope 批须同批补"粒子加载完整性"PASS 门（0/1 仍 PASS 的测量缺口）。
-- `3662790108` 动态 point 光：aggregate construction-work 4096/4096 真实累积耗尽（owner 失败污染域后重建 surviving owners），未闭合。
-- 音频频谱节奏感（Q1.4x 线）：**用户 2026-09-25 搁置**。恢复时下步=冻结可重放 PCM+时间轴 A/B（Q1.4y 候选已审查；勿再无依据 gain/warp 试探）。音频线其余状态见运行证据页 Q1.4 各条。
-- 流星/trail 样式：**搁置**，等用户指认样本与时刻。
+- `3662790108` 动态 point 光：**2026-09-26 当前事实已刷新，视觉仍未闭合**。旧 4096/4096 耗尽在本批修前基线已不再复现；本批修复三条仅注释 String module 的误拒绝，构造失败 3→0、teardown owner 920→923，避免其触发 fresh-domain 重建。23 个 graph layer 合同继续通过，但修前/修后截图都仍为低亮说明画面，尚无 point 光/天体 ROI 正证。当前帧仍见 visibility 859/860 bad-return、alpha 1459 properties unavailable。见[当前运行证据](semantics/runtime-evidence-current.md#e-2026-09-26-string-module-admission)。
+- **event-only Boolean audio owner 准入回归：2026-09-26 已修复**。合法事件 owner 沿 vector+borrowed 保留唯一音频 demand，并在 init/property/media callback 前刷新当前 generation；无事件继续休眠。cursor/property/media 的真实 Swift/C 行为门通过，隔离 App PCM 点击位移 615.5 px、静音对照 0 px、离开复位；静音通用 benchmark 的位移不足 FAIL 原样保留，仅独立负例 ROI 门通过。详见[对应运行证据](semantics/runtime-evidence-current.md#e-2026-09-26-event-audio-admission)，不外推真实内容、graph publication 或性能。
+- **初始化事务卡：继续开放，String init-only 仍拒绝**。2026-09-26 已统一 C pending/committed 初始化状态、移除 Scalar/Vector Swift 副本、保留被拒消费的已提交 cursor 值，并让 init timer 基线随 owner 撤销；六类 BAD_RETURN 可重试，Host 整帧 timer snapshot 补释放。9 组 Owner API 反例及正常 App init→timer 可见链通过，见[对应证据](semantics/runtime-evidence-current.md#e-2026-09-26-initialization-transaction)。2026-09-27 又闭合 target 事件确认：Scalar/String/Vector 的四类媒体 generation 与属性值/revision 在后置拒绝时局部恢复；cursor 先成功而 update 后失败的整 owner 效果也会被排除。隔离签名 App 的属性冲突证明 Host owner 拒绝→重试→可见提交，已接受 peer 不重放，见[对应证据](semantics/runtime-evidence-current.md#e-2026-09-27-owner-event-transaction)。2026-09-27 localStorage 后继又闭合现有 session 内的有序 owner 批次撤回、同帧读取依赖传递和 quota 重验；真实 Host 持续 layer 冲突中，失败写者/只读消费者的值与存储不发布，独立 peer 显示并保存，见[对应证据](semantics/runtime-evidence-current.md#e-2026-09-27-storage-owner-transaction)。同日 cursor 后继以现有 Program 的有界 target 事件记录闭合 single-surface 局部拒绝后的完整 click 重试，已接受 peer 不重复，整帧 snapshot 与原 pointer batch 恢复不重份，见[对应证据](semantics/runtime-evidence-current.md#e-2026-09-27-cursor-owner-transaction)。shared 后继撤除每帧全图序列化及替换根的伪回滚，函数/对象身份沿真实 JS heap 保留；typed 拒绝仍可保留 heap 写入，读取者没有 localStorage 式依赖撤回，重试可重复非事务副作用。这是明确产品失败边界，不是 shared 回滚完成，见[对应证据](semantics/runtime-evidence-current.md#e-2026-09-27-shared-identity)。同日修复 Vec3 非法临时字符串诊断的释放后读取：7 项 ASan 门与真实 App BAD_RETURN→恢复/独立 peer 可见链通过，见[对应证据](semantics/runtime-evidence-current.md#e-2026-09-27-return-diagnostic)。timer 后继修复 snapshot 回退身份计数导致的旧取消闭包误删新任务；7 项 VM 门与签名 App 同输入 A/B 证明 init 撤回后新 timer 正常触发，见[对应证据](semantics/runtime-evidence-current.md#e-2026-09-27-timer-identity)。后继已通过 single-surface 实际提交前拒帧：自有双 pass/FBO graph 在 frame 0/1 拒绝后，init/property 或 timer 重跑，typed seed 与 storage 保持事务边界，同帧及下一帧 GPU 完成、最终 ROI 有正证，见[对应证据](semantics/runtime-evidence-current.md#e-2026-09-27-frame-rejection)。多 surface 后继已把所有编码封口放到提交前屏障，并以单调 completion 注册代次隔离旧取消结果；同物理屏两个独立 surface 的 init/timer 拒帧与重试通过专项门，真实双屏呈现不作通过结论，见[对应证据](semantics/runtime-evidence-current.md#e-2026-09-27-multisurface-submission)。**下一门**：多 surface cursor 的完整边沿（现路径仍 latest-only），以及其他事件/资源家族与异步 GPU 失败的事务集成、真实多显示器呈现；String init-only 需另行验证完整初始化合同。不以本批局部状态修复宣称整张卡闭合。
+- 音频频谱节奏感（Q1.4x 线）：**用户 2026-09-27 最新实测恢复推进**，具体缺失、形状/幅度与全柱活跃度验收统一见 QV；沿用固定 PCM+时间轴 A/B，不以旧 Q1.4y 候选的审查代替当前画面验收。
+- 一般鼠标拖尾/流星样式按最新反馈可搁置；本轮明确点名的 `3211615441` 跟随位置仍在 QV 推进。
 - `3747492842` 额外闪烁：需固定 phase 动态对照。
 
 ### Q1T — 作者参数、视觉验收与 tracked matrix

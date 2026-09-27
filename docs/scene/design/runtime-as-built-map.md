@@ -41,7 +41,10 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 | 权威 | 持有者 | 存活期 | 替换方式 |
 |---|---|---|---|
 | identity/作者顺序 | launchContext.renderDescriptor + catalog | 单次 launch | 场景切换整体替换 |
-| frame clock/typed channels | daemon Host 的 sceneClock + FrameDriver 状态机 | daemon launch 期 | 暂停/恢复 |
+| frame clock/typed channels | daemon Host 的 sceneClock + FrameDriver 状态机；各 Script Program 持有 target 事件确认 | daemon launch 期 | Host 合并执行失败、稳定 admission 拒绝与同帧 storage 读取依赖；成功帧仅恢复被拒 target 确认，整帧拒绝恢复原帧快照 |
+| cursor 观察 / 事件确认 | 现有 `SceneScriptCursorProgram` 的物理 hit/capture 与有界 target 事件记录 | scene launch / 未确认事件到接纳或 owner 失效 | 先识别后执行，原事件输入与当前时钟组合；全 surface 成功后按最终 target 结果确认，整帧失败恢复旧事件 snapshot 并重放原 pointer batch；不回滚 JS heap |
+| localStorage | 既有 `SceneScriptLocalStorageSession` 的唯一 frame candidate + 串行 writer | wallpaper launch / frame 内有界 journal | 按原 owner 批次撤回并传播同帧读依赖、重验 quota；全 surface submitted 后提交，失败帧 discard；不恢复 JS retained 值或对象别名 |
+| SceneScript shared / 模块 heap | 单一 QuickJS scene domain 的真实 JS 对象 | VM domain lifetime，作者可显式替换 shared 根 | Host 不做每帧 shared 序列化或恢复根；typed 拒绝保留 heap 写入/别名/函数。共享读者可见失败写者留下的值，不据此放宽 typed、handle 或执行预算 |
 | property/state | liveState.effectiveValues + revision | launch 期，值变 revision++ | value-only 帧路径消费 |
 | audio capture / typed spectrum | 主 App `SystemAudioSpectrumService`持有tap/FFT；daemon `SceneAudioSpectrumInbox`持有当前 Scene demand/snapshot；client只做generation-bound投影 | App进程期 / daemon launch scope | demand/route epoch换代、daemon generation替换；切换rebuild未知期保留旧demand，成功后提交精确particle结果、失败完整撤权；控制屏障分段的高频帧latest-only |
 | resource/provider registry | SceneFrameTextureRegistry（per surface view） | per view | 每帧 beginFrame 重发布 |
@@ -69,20 +72,21 @@ daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetal
 | source-less direct-draw 放置几何 | SceneResolvedMaterialDirectDrawGeometryCompiler 从不可变 Program 事实编译 | ScenePreparedDirectDrawOutputGeometry（capability 持有） | capability 生命周期 | program-variant；renderer 消费 typed 放置结果，不按 effect 名称选择算法 |
 | uniform 参数来源/静态值 | Program finalizer `prepareUniformBindings` 在 variant 准备时决定；静态声明失败在 launch envelope 拒绝对应 owner | compiled variant 的 preparedUniformBindings | variant 生命周期 | program-variant；帧内只物化 live value/resource 并校验 layout identity |
 | 基础纹理 | PreparedBaseImageResources 后台预解码；deferred 按需 worker（per 世代队列）；loose PNG/JPEG 与内嵌 TEX mip/payload 在每个 SceneTextureLoader 内按完整 SourceKey 复用 ImageIO CGImage 解码，Metal texture 仍按 source/device/purpose 分离；daemon Host 按性能档持有共享 `SceneTextureDecodeCacheBudget`（standard 1GB / efficient 512MB），统计 TEX 源数据与解码 CGImage，超限只跳过中间缓存 | imageTextures store（per view）+ loader directImageResources/texEmbeddedImageResources；预算 lease 聚合一次 launch 的 material/base/deferred/user-property loader | view/场景期；loader 释放时归还预算；热降档从下次准入生效，不驱逐既有纹理 | resource-generation / geometry-extent；文件 size/mtime/device/inode/ctime 任一变化即换 SourceKey；profile 只改准入帽，不新增失效域 |
-| 纹理上传 command queue | launch 创建一个 `SceneTextureUploadCommandQueue`，按 device registryID 懒建并负缓存 queue；注入 material/base/deferred/static-model/particle/user-property/media-thumbnail 资源消费者 | launchContext 持有的共享 upload queue；renderer 另有 per-surface frame queue | scene/device 生命周期；跨 surface 共享 | device/scene 整体替换；不参与 value-only/resource-generation 帧失效 |
+| 纹理上传 command queue | launch 创建一个 `SceneTextureUploadCommandQueue`，按 device registryID 缓存成功创建的 queue，创建失败允许后续请求重试；注入 material/base/deferred/static-model/particle/user-property/media-thumbnail/stock-noise 资源消费者 | launchContext 持有的共享 upload queue；renderer 另有 per-surface frame queue | scene/device 生命周期；跨 surface 共享 | device/scene 整体替换；不参与 value-only/resource-generation 帧失效 |
 | 材质资产纹理 | MaterialAssetTextureCatalog launch 内联同步解码 | catalog | 场景期 | resource-generation |
+| stock noise 替代纹理 | launch worker 在 capability catalog 前按 asset absent / 显式 system demand 生成；已有 upload queue 单批 mipmap，完成成功才交给统一默认选择及帧消费 | 不可变 SceneStockNoiseTextureStore，由 launchContext 持有并跨 surface 共享；普通帧只消费 states | scene/device 生命周期；失败 unavailable 不逐帧重试 | 新 launch preparation；不同 device 拒绝复用 |
 | 视频帧 | AVPlayer 解码线程 + CVMetalTextureCache 零拷贝 | per-source pending → 三段栅栏 | 帧期 | resource-generation（每帧 generation++） |
 | 动态文字/媒体缩略图 | 专用异步队列，签名/generation 去重 | pending 状态机 → 三段栅栏 | 帧期 | resource-generation |
 | graph render target | 每个 surface 的 offscreen allocation cache（自动预算为设备建议工作集 `/16`、192 MiB floor、1.5 GiB cap；显式注入优先；submissionPin/historyPin + history rehydrate） | lease/table（per layer plan） | 跨帧（history）或帧内 | geometry-extent / topology；当前没有跨 surface 的进程级聚合 cap |
 | 性能 counter / 资源 gauge | frame/Metal 命令点定长累加；daemon 1Hz 读取 surface 的 offscreen、named、depth、framebuffer owner 值与 device allocation | `ScenePerformanceCounterHub` 21 槽；App client 仅最新快照 | daemon 进程期；无 history/percentile | 不参与五类产品失效；场景切换后累计 counter 延续、当前 gauge 覆盖 |
 | 帧 values | FrameDriver 每帧双 resolve 动态快照 | frameContext（值传递，字典 CoW） | 帧期 | value-only |
-| 完成态/history | SubmissionCoordinator pending → committedTails（finalTails 非空时阻塞下帧） | coordinator（per surface） | GPU 终结前 | topology/回滚 |
+| 完成态/history | SubmissionCoordinator pending → committedTails（finalTails 非空时阻塞下帧；completion 校验单调注册 observationID） | coordinator（per surface） | GPU 终结前 | topology/回滚 |
 
 ## 3. 不变量清单（违反即出隐蔽 bug）
 
 1. **一帧一 command buffer**：本帧所有 ledger 共享同一 buffer；sealFrame 要求 `commandBuffer.status == .notEnqueued`。新增提前 enqueue/第二个 encode buffer → seal 拒帧、pin 泄漏。
 2. **ledger 相位机**：`prepared→allocationCommitted→encoded→outputConsumed→sealed`；claim/ticket/output 各只消费一次。新资源路径必须产生相位迁移，否则双消费/泄漏。
-3. **全 surface 提交栅栏**：任一 surface deferred/dropped → 整帧回滚，回滚必须恢复全部先取状态（clock、timeline observation、parallax、pointer、cursor edge、program/timer frame state、8 组 provider discard）。加状态必须 commit/discard 两处同加。
+3. **全 surface 提交栅栏**：Renderer 返回持有 drawable/buffer/source/depth/particle 的 `PreparedFrame`；Host 收齐后校验全部未 enqueue 且 buffer identity 唯一，再同步提交。任一 surface deferred/dropped 先逆序取消候选，精确释放 sealed 未提交 graph ledger/pins 并恢复 scheduled tails，再恢复 clock、timeline observation、parallax、pointer、cursor edge、program/timer 与 provider 状态。首帧 presentation 注册只在真正提交时消费；已提交后的异步 GPU 失败不承诺全局视觉回滚。加状态必须 commit/discard 两处同加。
 4. **provider 三段栅栏**：每类动态资源（video/media thumbnail/dynamic text/sprite/material asset/frame texture publication/particle/puppet bone）prepare→commit/discard 成对；commit 只在全 surface 提交后统一执行。漏 discard = deferred 帧后漂移；漏 commit = 永不更新。
 5. **in-flight 门**：最大提交数 2 且要求所有 pending 的 finalTails 已终结 → history 图实际单帧 in-flight；acceptance 翻转 100% 经过 completeCommandBuffer。pool 预算/history 保留/in-flight 容量三者联动。
 6. **digest = variant memo 键**：registry snapshot 的 SelectionDigest 只含 fact 层（布尔化 generation），跨视频帧稳定；是变体选择的 memo 键。M3.1 已改为随 entries 写入增量折叠；beginFrame/discard 清空并重置 digest；snapshot 仍遍历 entries 建 lookup 字典。本机有等值 harness，但尚未纳入正式回归入口。往 fact 加逐帧变化字段 = memo 永远 miss。

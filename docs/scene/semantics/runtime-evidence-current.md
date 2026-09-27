@@ -24,6 +24,901 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-27-puppet-legacy-attachments"></a>
+
+### E-2026-09-27-PUPPET-LEGACY-ATTACHMENTS — 旧版模型附着点恢复小提琴粒子位置
+
+**首断点与实现：**用户反馈3113287126红色粒子应固定在小提琴处。原包五个粒子绑定parent500的Sparkle/Trinity/Embers；人物模型是MDLV0017/MDLS0002/MDAT0001，现役rig/animation已支持，但attachment reader只接受MDLV0023/MDLS0004，使load端和pose端都以空attachment降级。现有reader新增0017→0002版本配对，保留同形bone/MDAT记录、边界、计数、父骨、骨号、重名和有限矩阵检查；0023→0004不变，其他版本仍不准入。沿同一bind/current-pose snapshot → world resolver → particle model → Metal/compositor链消费，没有样本偏移或新owner。marker搜索与try?局部降级仍为既有边界，不声明任意MDL完整校验。
+
+**输入与投影证据：**原project SHA `499cf1efbfc28451bafcdbcd44a42bf89c5a8018dbc662b87e4fe94cd9fa1701`，PKG SHA `12a661eb356bec032de75aadf00d9929418ef1a3c28785f213df4f1aacee5b50`。生产Swift reader对隔离原模型读出Sparkle骨13、Trinity/Embers骨44；Embers model bind平移(209.29649,467.29953,0)，Scene bind为(209.29649,-467.29953,0)，此前均缺失。合成旧/新版同值fixture验证bind与手工骨骼world矩阵的生产pose projection等价；该单元门不是MDLA播放器执行。交叉版本、非法骨号、重名、截断、NaN矩阵和错误骨骼块边界均拒绝。旧实现新增三门失败；最终3模块46项执行，44通过、2项可选旧真实资产门跳过。
+
+**运行与可见结果：**基线为音频批App CDHash `f747adb647f16eff8fb4d34bd1130ae9b75185be`；候选Debug -O App CDHash `f9363cbd8e101d974d1bad8ddb7732ca1cceb253`，exe SHA `2e7a19c4eefb6464e9b7922d63f212875f03cd3b9ae51d2a1d1ec8d3749561f9`，build及deep/strict签名通过。相同未改PKG、固定PCM、各12秒隔离运行，两个窗口均为434 submitted /433 completed /0 failed /431 presented；parent500 graph成功，五个particle layer均committed nonempty，frame0/1/2有surface GPU completion及next-frame。已检查原尺度完整after和末段序列：基线红橙点出现在裙摆/腿部附近，候选粒子围绕小提琴与持弓手区域产生，并在人物动画变化后保持该区域。该结果证明旧版附着点缺失造成的明显位移已修正，粒子具体发散范围、密度、其他组件限制及官方逐像素一致性仍未验收，不关闭整样本。未做鼠标/视差变体、长稳、性能或普通daemon入口验收。
+
+**交付边界：**本机证据标签`2026-09-27-puppet-legacy-attachments`保留输入/构建身份、reader输出、测试红绿、日志和前后序列；不收作者PKG/模型。全仓code-health仍被四个本批未改文件的长度门阻断（AppKitSteamWorkshopBrowserItem、AppKitLibraryGridView、SteamWorkshopLibraryTransaction、AppKitSettingsView），不能称全仓检查通过。工作区累计改动按用户要求在本批结束后按能力族提交，既有审查不重复执行。
+
+<a id="e-2026-09-27-audio-continuous-bands"></a>
+
+### E-2026-09-27-AUDIO-CONTINUOUS-BANDS — 消除频谱永久空档并降低重复低频门，原包音圈恢复部分可见
+
+**归因更正：**3211615441 的音圈是 layer689/697 的 `workshop/2844906964/test_shader`，不是六组 Simple_Audio_Bars（后者是另一路条形显示）。两层默认受 audioresponse=true 启用；作者 shader 累加64档中索引2..<5，底值0.1经Suppression=5后恰为0.02，最终颜色又乘 `max(frequency-0.02,0)`。基线已编译、收到非零音频数组并完成GPU/terminal，但这几个低档没有足够信号，最终无环。仅在隔离PKG副本把该shader的getFrequency返回值改为0.2后，左右蓝紫椭圆清楚可见；这是下游可绘制性消融，未作为产品修复或官方目标幅度。
+
+**公共实现：**共享 `SystemAudioSceneSpectrumAnalyzer` 原按每FFT中心独占一个warped-log频带，低档会永久空缺；真实Swift扫频红例在44.1kHz得dead `[1,2,4,5,6,8,9,11,13,16]`。现在按真实bin中心 `bin × sampleRate / 4096` 先应用既有tilt，再对同一幅值谱做分段线性积分、按每档原带宽平均；首末正频点之外采用常值延拓，窄档共享相邻FFT支撑而非增加物理分辨率。仅修映射的中间App仍未让本段PCM音圈出现，后继又删除专用低频−42…−60dB门，只保留统一−60dB响应与既有包络。后者是降低有效低频门限的项目策略变化，可能放行原先被压掉的低幅bass或设备底噪，不是行为等价重构。warp、tilt参数、16/32投影、声道及唯一producer owner不变，无全频活动底、第二FFT或样本分支；产品文件净减少23行。公开[AudioBuffers合同](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html)只规定分辨率、低到高频及音量范围，本批不声明官方频段/窗口/门限公式等价。
+
+**验证及身份：**产品/测试增量SHA `c4ef509d64970471ec2011d4d984abcd90a2c1958332dce54fdad9e90905974c`。3个定向模块39项通过（system audio spectrum、Scene spectrum input、capture recovery；含存量源码接线检查，不全称行为测试）。真实Swift门包括8/44.1/48/96/192kHz全64档可激活、32Hz及FFT中心附近/16k端点、DC/静音、0.0001 bass、24块确定性低幅宽带噪声、单左/右及反相、窄带至少56档保持低活动、低频幅度单调、16/32投影、attack/release、reset/格式切换与Web/overlay消费。相邻频率连续性使用fresh-reset tone，不是时间连续性或设备底噪证明；只有映射的快照在最终连续性门仍红，删除强门后绿。未跑全量视觉、普通Web/Video UI或真实tap噪声验收。最终Debug `-O` build及deep/strict签名通过，App CDHash `f747adb647f16eff8fb4d34bd1130ae9b75185be`，exe SHA `8079cd7e8b67bbfa14ab40bd2403656f802d0487490d2be44c859adfc0ef7b46`；基线为上一批 `493ef16c…`，中间映射候选为 `fae8592b9b014dd02136f94443eddf9eced223d4`，中间App已由最终增量构建替换，仅保留其报告与源码快照。
+
+**实际运行与可见上限：**原321包 project/package SHA `fa32f9b98518b1142e0ad851e2403cb4c17c76657b939821a89502342ae717d3` / `8b96444f17198470fb36a6eb42dc3a9856c502dd301c68501872cd43754967ea`。基线、常量消融、中间映射、最终PCM、最终静音及3789316755回归均使用隔离内容，各12秒。原包两音圈各阶段始终有graph GPU completion、terminal consumption与next-frame；最终PCM采样窗448/447/0/446、静音467/466/0/465（submitted/completed/failed/presented）。已查看完整原图：最终PCM后段出现细蓝紫左右环，前段仍淡到不可见；静音序列无环。探索整图蓝色谓词 `B>G+25 && B>R+20 && B>75`，after及5张序列：基线与中间映射全0，最终PCM为0/0/177/0/29/19361，静音全0；常量消融after为258759。谓词是观察后选取，不能作独立环分割、亮度目标或官方像素门。证据只到原包低频响应部分恢复的S4，不关闭“音圈显示达标”。
+
+3789316755 在同一最终App继续显示并变化，73动态层frame1/2 publication/encode/GPU完成；采样窗430/429/0/428。沿用上一批探索ROI和柱色谓词，after及序列为40730/39443/56923/10562/8895/39985，证明未重新出现整排消失，不证明各柱活跃度均衡。
+
+**剩余：**321环的实际音乐强度/完整形态与用户验收、点击切图/鼠标坐标仍开放；跨样本全柱活跃度未闭合。降低低频门后的真实设备噪声、普通App→daemon入口和长时表现未验证。证据标签 `2026-09-27-audio-continuous-bands` 保留差分、输入/构建身份、反例、原图与运行报告，不收作者PKG；未暂存、提交、推送。
+
+
+<a id="e-2026-09-27-transform-nonfinite-local"></a>
+
+### E-2026-09-27-TRANSFORM-NONFINITE-LOCAL — 原包音频条恢复，数值非有限变换只拒绝单次赋值
+
+**首断点及合同：**动态层预算批之后，3789316755 原包末柱相邻采样仍越过64档 AudioBuffers，得到 NaN scale；旧 setter 抛错使整个 owner 撤回，所有柱都消失。官方 [AudioBuffers](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html) 只定义注册分辨率及低频到高频数组，[ILayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ILayer.html) 定义 Vec3 变换，未声明非有限赋值的失败范围。本批采用项目最小失败策略：共用 C Vec3 reader 区分实际 JS Number 的 NaN/±Infinity与格式/转换异常；origin/scale/angles 完整读取三分量、通过身份权限后，前者只拒绝一次完整属性写入，保留同 callback 先前合法暂存值且不生成 journal/dirty/angles passthrough 标记。后续 getter 抛错、undefined/非法字符串/Symbol、显式 throw、无效 typed return、stale/跨 owner 和预算失败保持原事务；color/createLayer 初值继续严格拒绝。无作者包、频谱长度、柱数量或特定样本产品分支修改；不宣称官方 NaN parity。
+
+**实现与验证：**产品/测试增量 SHA-256 `a168b8e31ea42c88a5c6b740587edd07feff804c4711acbe30935b03d4883f97`。真实 C/QuickJS 红绿反例覆盖 authored/dynamic target、三属性×三轴×三种非有限数、完整属性原子拒绝、有限字符串兼容、三 getter 全部执行、合法前后缀及 commit/discard、纯无效写零 mutation、错误 angles return 仍 BAD_RETURN、stale/跨 owner NaN 写仍抛错、严格颜色/创建初值。六个定向模块34项通过，补充最终上述真实 VM 门再次通过；存量模块含源码接线检查，不能将34项全部称为产品行为测试。inner 自动路由给出更宽模块集合，本批按单 setter 失败半径选这六组，未宣称全路由/full suite。Debug `SWIFT_OPTIMIZATION_LEVEL=-O` build、deep/strict 签名通过；App CDHash `493ef16c0d8342ee006dbdb60b1eb8e206681c4d`，可执行 SHA `1c8a64ab3e986b8ec2f175b5ea52cfc1099c94800a743f9be06041632d34ccac`。
+
+**原包运行：**只读原 project/package SHA 与上一预算批相同（`a3015058db3ea3afe4d0f5995164e8c4b9871cc9d81959f759cd7400e45cd873` / `eecb8dad05911c8e5737a7faa34dc787480ded4fb6bc976bb0e67ad79f4da723`）；隔离副本三次独立进程各12秒，依次固定PCM、静音、重启PCM。三次 layer147 callback completed，无日志中的 VM failure；frame1及frame2均73动态 descriptor/visible/sourcePublications/encoded、GPU completed且error=none。既有graph层21/50/57 completion、terminal consumption和next-frame成功；动态柱另走其原有绘制链。采样窗 submitted/completed/failed/presented 分别为428/427/0/426、420/420/0/418、428/427/0/426，未据此宣称性能达标。
+
+已查看有声和静音完整3024×1964截图。沿用上批探索ROI `[1850,1760,3024,1964]`，柱色谓词 `180≤R≤245,145≤G≤220,B≥245,25≤R−G≤45`：PCM after与五张序列为39991/38732/55671/10775/8741/39298像素，静音六张全0，重启PCM为38732/38732/55671/11636/8927/39298。结合有声画面底部紫色柱及连续形态变化，原包“整排不出现”达到本条件下S4；这是探索出现/变化证据，不是官方画面、独立柱计数或固定同相位像素parity。末档作者无效计算仍保留安全旧值，本批没有为该柱伪造频谱响应。
+
+**剩余及交付边界：**实际音乐/普通App→daemon入口、同进程切换、跨样本全柱活跃度/形状/幅度及用户新构建复测仍开放；新进程重启不等于同runtime切换。最小数值保护已闭合这个整owner消失断点，不关闭音频视觉整体。证据标签 `2026-09-27-transform-nonfinite-local` 保存三份报告、签名、测试、补丁及最终原图，不保存作者PKG；本批未暂存、提交或推送。
+
+
+<a id="e-2026-09-27-dynamic-layer-capacity"></a>
+
+### E-2026-09-27-DYNAMIC-LAYER-CAPACITY — 删除重复 owner64 限制，原包后继非有限值错误仍开放
+
+**问题与实现：**3789316755 作者 barAmount=74，原构建在创建第65个动态层时返回null，随后alignment赋值抛错，frame0没有动态层提交。现役C scene总动态预算与Swift接收端本来均为256，独立owner64限制把合法规模提前截断。本批删除该额外限制；创建仍受scene256、catalog4096和callback mutation256约束，动态值撤回journal与authored baseline检查对齐已有mutation256，不新增执行owner或改写作者脚本。该256是项目资源预算，不冒充官方数值限制。产品/测试增量SHA-256 `aca63dc9d8e4a29dcce58ed83621a2ea81d2716c05382614e871afad6ca49041`。
+
+**验证：**真实C/QuickJS新增单owner256创建/257拒绝、跨owner共享容量、256个值discard恢复、销毁释放及discard后重试；旧实现红、新实现绿。6个定向模块通过（QuickJS、dynamic runtime、owner budget、layer snapshot atomicity、initialization transaction、shared identity）。独立审查提示后，把现有Swift固定点反例扩大为：已满256时A暂删128、B借容量创建128、A被外部门后置拒绝；最终B也被拒绝，保留原256个identity，独立C owner的合法变更继续提交，生产Swift行为门通过。这不是一条C+Swift合体的交错回放；不声称C API单独在任意pending/discard交错中始终≤256。当前ABI中baseline record为136字节，数组扩大增加每owner固定C host内存26112字节；QuickJS测试的2MiB限制不覆盖这部分，不作总内存或性能完成结论。
+
+**真实App四组对照：**原包project SHA `a3015058db3ea3afe4d0f5995164e8c4b9871cc9d81959f759cd7400e45cd873`、package SHA `eecb8dad05911c8e5737a7faa34dc787480ded4fb6bc976bb0e67ad79f4da723`。同一PCM fixture，各12秒，真实根只读。旧App CDHash `72e505af6b4dca3a67a683ea335db8edb4bbb231`；新Debug `-O` App CDHash `211ff544de75c5a6704bb526785eb0f03d755e2f`、exe SHA `163cea8bbf8c912df41189a8c24ea9c2464ee43f84eb10f8c0ee828768f9b6e7`，build及深度签名通过。
+
+| 输入 | 旧App | 新App |
+|---|---|---|
+| 原始74柱脚本 | init中null.alignment异常，0动态提交 | 越过创建限制；update中scale含非有限值，0动态提交，原包仍无柱 |
+| 仅隔离副本给末档相邻采样加索引边界，仍74柱 | 同样null.alignment异常 | 74条mutation，其中73个动态层；frame1/2 sourcePublications/encoded均73，GPU completed且error=none；最终原分辨率截图底部出现紫色柱条并随PCM变化 |
+
+隔离改动仅将一次相邻采样索引限制到63，其他JSON语义与全部其余PKG entry保持一致。原始末柱i=73时采样位置为63.135…，相邻索引64越界产生undefined，后续得到NaN；该对照确认它是创建门后的实际失败来源。未改变产品AudioBuffers长度、NaN拒绝或owner事务语义，未把修改作者脚本作为兼容修复。四份benchmark虽均返回PASS，只证明所选加载/执行门，不表示原包音频视觉通过。
+
+已查看新App原包和隔离副本的完整after截图。后验探索ROI `[1850,1760,3024,1964]` 中紫色柱色像素，旧App两组及新App原包均为0；新App隔离组after为39991，五张后续帧为38732/46803/8598/7951/34911。ROI是观察后选取，只作有界出现/变化证据，不是预登记parity门或柱数检测。隔离组采样窗429/428/0/427（submitted/completed/failed/presented）；3个既有graph层completion/compositor/next-frame继续，动态层另有自己的publication/encode/completion证据，独立named/visible graph publication数组为空。直接Debug Host回放未重跑普通App→daemon入口、用户实时声源、最大容量GPU或官方对照。
+
+**剩余：**本批闭合重复owner64截断及超过64动态层的受控绘制链，未关闭3789316755。后继[变换局部拒绝批](#e-2026-09-27-transform-nonfinite-local)已恢复原包受控有声显示，仍保留实际音乐、活跃度和用户复测门。证据标签`2026-09-27-dynamic-layer-capacity`保留差分、输入差异说明、签名报告、日志和原图，不收作者PKG。本批未暂存/提交/推送。
+
+
+<a id="e-2026-09-27-user-retest-priorities"></a>
+
+### E-2026-09-27-USER-RETEST-PRIORITIES — 用户最新实测反馈，非自动回放结论
+
+来源为用户在本会话启动 App 后的人工观察。已启动 App 路径为 `/private/tmp/mwx-video-native-loop-8s0o46ti/EOFDerivedData/Build/Products/Debug/MyWallpaperX.app`，启动时 PID 35093，可执行 SHA-256 `b2f4492aa2c7dd9e256747820c86bad0530596cbff28114fdedbb8aea7d9cec9`，深度签名校验通过；这是不含后续临时雾气插桩的构建。尚未将每个观察逐项绑定到内容 hash、属性、声源、时间轴或截图，故记录人工反馈，不冒充受控复现或官方同输入对照。
+
+| 用户反馈 | 证据边界 |
+|---|---|
+| 3088601835 过曝已较为正常；官方原版也有一些过曝，但没有此前那么严重 | 用户认为目前可搁置；不等于全条件消除或官方 parity。 |
+| 3789316755 音频条不出现 | 可见缺失；加载、门控、脚本、音频输入和绘制原因尚待区分。 |
+| 3788467391 背景漩涡不旋转，怀疑算法也不对 | 不旋转是观察；算法错误是候选，需要对照作者声明和官方公开定义。 |
+| 1315486372 / 3769761761 / 3768724269 光效仍不完整；3768724269 右上固定区域有持续变化的暗红蓝渐变 | 保留三个样本未通过的人工判断；右上异常是否由合成导致未定。 |
+| 3287715210 移动竖条纹仍在，非常难看清 | 不能以截图不明显或先前短时回放通过关闭。 |
+| 3113287126 红色粒子位置不对，应固定在人物小提琴位置 | 提供了明确空间锚点，当前变换首断点未确认。 |
+| 3211615441 音频环缺失；原应支持点击切换中央图片；鼠标跟随位置疑似不对，怀疑脚本问题 | 环、点击切图、跟随各自验收；点击当前行为待复现，不能将三项直接归为同一脚本根因。 |
+| 多个样本音频条形状、大小、幅度不佳，中段活跃而两端较弱；希望所有柱子同样活跃 | 明确视觉偏好及跨样本问题。均衡活跃不自动等于同高柱或官方频谱合同；后续用固定声源最终画面 A/B 请用户判断。 |
+
+本轮只读分流已核对真实包中的作者声明及当前生产源码，未启动新自动回放：
+
+- `3789316755` 的 bar 层147通过 visibility 脚本注册64档音频、动态创建其他柱层并在 update 改 scale/origin。因此下一门是脚本与动态层的完整提交，不是静态图片加载。脚本有相邻频段插值，须按实际 barAmount 验证末端索引，旧 RangeError 仍不能直接当新运行结论。
+- `3211615441` 的六组 Simple_Audio_Bars 是独立条形显示，音圈实际由689/697两层 `workshop/2844906964/test_shader` 产生，后继[连续频带批](#e-2026-09-27-audio-continuous-bands)已纠正归因并取得原包部分可见。图片切换由 cursorClick 写其他层 visible，heart 跟随直接返回 cursorWorldPosition；三条消费链分别验收。
+- `3788467391` 的 Circular Particles 层218声明 classic vortex（inner/outer distance=0/7000，speed=0/-500，axis=0向量）和 ropetrail，预热300秒。当前源码已把零轴处理为+Z，不能重复以“零轴拒绝”为根因。官方[Operator/Vortex](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html#vortex)说明围绕轴旋转、内外距离与速度，但没有在该页给出积分公式；本项目当前实现为切向加速度，轨迹等价待测。另有独立音圈shader，最终仍需实际画面区分用户所指漩涡区域。
+- `3113287126` 的三组 Ember small（767/781/793）与另外两组魔法粒子均 parent=500，该父层有 animationlayers；应追踪父层/动画变换到粒子绘制，不能把局部 origin 当世界位置或手调屏幕偏移。
+- 本轮分流时的旧共享 producer 逐 FFT bin 单归属到64档 warped log 区间；现役实现已由[连续频带后继](#e-2026-09-27-audio-continuous-bands)替换。以下复算只保留当时线索。按现有4096点/32–16000Hz/warp=0.78公式复算，44.1kHz有10档、48kHz有11档没有分配到bin，集中于低频；这是静态离散覆盖线索，不是当前音乐的实际柱活动测量，也不证明两端弱全部由此造成。官方[AudioBuffers](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/AudioBuffers.html)规定数组分辨率及低频到高频的次序；均衡活跃策略须与这些消费身份和静音行为一起验证。
+
+以上四个作者 scene.json 字节SHA-256依次为 `590c6383694e3efa04ba9deacb67dabbae035a6b1895d7e9a1fa4a556094f375`、`b8bd93c41e22617306eeb026af4d7cbc262e0fd5961a4d5ba63debbc27746a52`、`dfc0b6fc1f248bd53f03484ccd2c3207753ada3e4ddaf58473cf4e1254d69370`、`23f8eef28289b339216e67dce5ade63ee5c271d7062e30f8c92b0dfd70f9214d`。PKG 以只读 mmap 读取，未提取/写回作者资源。此静态分流不增加执行或视觉兼容等级。
+
+用户明确：本轮未提及的问题可按非严重或已部分解决搁置；必要时可询问新构建实际效果，并允许为消除臃肿/冗余/绕行而重写完整职责。执行顺序及下一关闭门仅由[当前队列](../scene-open-breakpoint-queue-2026-09-09.md#qv--最新实测驱动的可见修复2026-09-27)维护。本条不新增产品修复、不改写已有技术证据或生成全集人工 pass。
+
+
+<a id="e-2026-09-27-snow-fog-target-alpha"></a>
+
+### E-2026-09-27-SNOW-FOG-TARGET-ALPHA — 同帧绘制前后读回排除目标alpha候选
+
+独立只读核对未发现snowstormfog的完整vector、随机RGB、默认rotation、alpha fade或child中心变换的新遗漏。Mirage additive目标alpha与本项目不同，但这是参考差异，不能直接改产品。为确认该差异是否影响本次泛白，临时在现有`renderParticleBatches`中对frame700/750的两个子雾batch，经`withReadableTarget`和既有`SceneDebugFrameCapture`分别读回绘制前/后BGRA8目标；插桩由显式环境变量启用，构建后两份产品源码已逐字恢复至批前，未留下开关或新增owner。
+
+隔离原包3088601835运行20秒，诊断App CDHash `0360f745b457ea04a0732818ed98e0e229396b04`、exe SHA `25bf99267c5872b88db269b694775daa8cfe8b604ef55e9a8a535c38e298e57b`；插桩patch SHA `6a6125816a3de2e6ddcf6e5ec5d73c41b4486af86ab04b784965320c8cbc7dbb`。8张3024×1964读回图的alpha最小/最大均255，没有非不透明像素。frame750中534子雾单次绘制使白区从0.0012%升至6.9864%，513子雾单次绘制从4.4934%升至11.0501%；两次分别改变4299602/5275408个RGB像素。每个before/after属于同一frame与同一command buffer中的有序blit，不是跨回放图像相减；PNG落盘日志的时间包含异步编码/写盘耗时，不用作绘制时间。层间仍有其他作者绘制，不能直接相加两组白区差。
+
+本次观测位置在雾气绘制前已是alpha=1，现役ONE/ONE_MINUS_SRC_ALPHA与参考SRC_ALPHA/ONE写入BGRA8时均保持1，故两者的目标alpha差异不能解释这些位置的RGB泛白。可确认亮度已由当前子雾draw增加；尚未确认空间覆盖、运动/尺寸或贴图解释哪项偏离作者目标，不推导所有透明目标均等价。9个graph层completion、compositor消费和next-frame均有证据，采样窗656/654/0/651，独立named/visible publication为空；插桩读取会扰动调度，不作性能结论。Debug `-O` build、深度签名校验与运行门通过；本批没有产品修复或新视觉兼容结论。证据标签`2026-09-27-snow-fog-target-alpha`保留临时patch、构建身份、原图与统计，原样本只读，未暂存/提交/推送。
+
+<a id="e-2026-09-27-snow-fog-retirement"></a>
+
+### E-2026-09-27-SNOW-FOG-RETIREMENT — 高亮形成后随子雾退场消退，未见持续残留
+
+**诊断，不是修复：**使用已保留App（CDHash `72e505af6b4dca3a67a683ea335db8edb4bbb231`，exe SHA `b2f4492aa2c7dd9e256747820c86bad0530596cbff28114fdedbb8aea7d9cec9`），隔离回放3088601835。原包20秒；子雾emitter仅增加`duration=3`和去除child对照各20秒；短组未经历原14秒高亮，故补仅增加`duration=12`与无child对照各32秒。每组118个包entry逐项复核：finite只改snowstormfog的duration；无child只移除snowstorm对应引用，其余entry逐字相同。原project/package身份沿用[贡献消融](#e-2026-09-27-snow-fog-contributor-ablation)；未改产品、原样本或材质颜色/alpha/尺寸/blend。
+
+**先形成，再退场：**原包约14.138秒白区14.292%；长finite约14.140秒白区14.244%，已实际出现同类大片高亮。App的child census随后记录layer513在17.782秒、534在25.611秒首次归零，此后到结束均systems/particles/batches=0。计时相对ready，按实际census，不以`(12+5)/0.71`推算替代；截图会影响墙钟和模拟推进关系。
+
+|相近时段|长finite白区|无child对照白区|
+|---|---:|---:|
+|约14.14秒|14.244%|1.669%|
+|约26.14秒|1.726%|1.763%|
+|约30.14秒|1.678%|1.693%|
+
+白区为全图RGB每通道≥250。26–31秒六对截图最大差0.0663个百分点、平均RGB各通道最大差0.1454/255；均为非锁相观察，不作逐像素等价。14秒及30秒完整原图已查看：右下大片白雾消退，背景和其他雪粒继续变化。两长组性能采样窗均1065/1064/0/1063（submitted/completed/failed/presented），9个graph层GPU completion、terminal compositor和next-frame均有证据，失败数组为空；独立named/visible publication数组为空，不外推额外publication。退场后的连续Metal截图与后续帧执行共同支持画面继续更新，不把退场当帧一次保留draw视为持续残留。
+
+**有界结论：**本次32秒窗口未观察到这片高亮在child消亡后持续留存，结果支持当前存活雾粒子的叠加是主要来源。尚不能排除低于测量分辨率的残留、其他条件下的history问题或更长时问题，也没有证明作者预期外观。继续沿当前雾粒子的空间覆盖、运动相位和纹理/材质解释找偏差；不据此修改全局清屏，不把duration限制或删除雾气作为修复。五组执行门均通过，只证明本次诊断链执行；无新build、官方对照或性能结论。本机忽略证据标签`2026-09-27-snow-fog-retirement`保留输入差分清单、命令、日志、统计和代表原图，排除作者payload。用户主App保持运行，未暂存/提交/推送。
+
+<a id="e-2026-09-27-video-looper-screening"></a>
+
+### E-2026-09-27-VIDEO-LOOPER-SCREENING — 实际4K否决原生循环器接入
+
+**范围与身份：**独立AVFoundation/CoreVideo→Metal纹理导入探针，未修改产品。只读复制3113554287原包后，用生产TEX reader提取day视频：package SHA `c9eb779fa4c3e92e007b2b8b3bcfa4a742902763371fe488c6e8d894f78f42df`，MP4 SHA `5f111eba183a5c7a65662066058ded12d6e517620bdea84bc3f03caa49174cd8`，H.264 3840×2160、30fps、600帧、20秒；macOS 27.0 build26A428/SDK27.0。最终探针源码SHA `ae72588ed3e93ff27a3505209c3231e210799a8f227c7e88817223129afdfcdd`，执行文件SHA `f4f0af4f6c5ae185c9bd7ea79bc0b8cb97cbbfca91d675bbe3a2df2af767bb30`。
+
+**同探针对照：**三种模式顺序各跑65秒、主线程约60Hz取帧、相同BGRA输出和纹理导入。single在EOF后按同一Scene时间相位重新anchor；原生AVPlayerLooper分别按Scene相位和output的host-time映射请求。后者每个replica独立output，固定item/output对并在copy后复查身份；弱键身份表记录0→1→2→0，确实跨第三次循环复用首item，没有把地址复用当作身份。
+
+|模式|三次循环前后新内容导入间隔（ms）|输出次数|最大poll间隔（ms）|请求与Scene相位最大差（ms）|
+|---|---|---|---|---|
+|单播放器/Scene相位|126.38 / 128.75 / 127.76|1943|51.75|0.0111|
+|原生循环器/Scene相位|123.04 / 319.79 / 583.32|1886|24.49|0.0112|
+|原生循环器/host映射|126.56 / 125.83 / 125.47|1932|25.58|617.10|
+
+三组均3次循环、无非边界PTS倒退、无同item重复PTS、missing output与copy中换item均0。原生两组最多3个replica/output；Scene请求的最大请求/实际decoded相位差429.26ms，host映射则逐轮偏离统一Scene时间。先前V1原生两组也出现相同趋势，但没有同探针single及poll调度记录，正式裁决采用V2。上述间隔取循环前最后一次与循环后第一次成功导入的单调时间差，包含正常帧间隔；不是纯decoder延迟，也不是最终present间隔。
+
+**裁决与边界：**本次条件下原生循环器未提供足以替换单播放器的收益，保持现有产品；不扩展队列/时间补偿。公开[AVPlayerLooper接口](https://developer.apple.com/documentation/avfoundation/avplayerlooper)及本机公开SDK头文件也未承诺gapless，模板output不会自动复制。探针只筛选解码输出/时序，没有运行GPU command buffer、publication、terminal compositor、最终呈现或作者pause/seek/rate命令，不能称样本顿挫已修、性能完成或所有循环器配置均无效。本机忽略标签`2026-09-27-video-looper-screening`保留探针、原始数据、分析与身份，排除作者payload；没有新App构建，用户主App保持运行。下一批返回雪雾合成首断点；3113554287循环间隙仍OPEN。
+
+<a id="e-2026-09-27-video-eof-discard"></a>
+
+### E-2026-09-27-VIDEO-EOF-DISCARD — 帧撤回保留已确认 EOF；撤回双槽实验
+
+**已交付修正：**单 `AVPlayer` 的 EOF 回调可能发生在 `prepareFrame` 与 `discardPreparedFrame` 之间。旧撤回恢复了 EOF 前的 lifecycle，却没有回滚已经确认的 endedGeneration，导致循环相位丢失或非循环播放被错误恢复。现有 preparation snapshot 仅增加 endedGeneration 基线；若期间确认了 EOF，撤回保留 live lifecycle/hasStarted 的准确状态，其余纹理与准备状态仍撤回并要求重锚定。没有 EOF 的普通撤回保持原行为，contentGeneration/lastFrame 仍只在 commit 推进。旧 frameIndex 重试若处于新循环零点之前（负相位），继续保留 previous-current，等待有效 Scene 时间，避免把被夹到0的 item time 锚在过去 host time。本批没有保留队列、第二时钟或事件 journal，lifecycle 文件与批前相同。
+
+**真实红／绿证据：**同一最终harness编译修前/修后生产source、真实AVPlayer/Metal和2秒自有片。约1.93秒prepare，真实跨EOF后discard，重试前立即关loop。修前循环在Scene2.286965秒返回time2，非循环错误恢复playing；两分支重试后都再触发EOF，总数2。修后循环Scene2.288684秒对应time0.288684，后继16次新内容、请求相位最大误差0.959584ms；非循环保持停止于2秒，两分支EOF总数均为1，discard均未推进lastFrame generation。同frameIndex重试和之后连续generation有断言，未用取模掩盖整轮丢失。仅保留EOF状态但没有负相位guard的中间版本曾恢复0/1条后继内容，该失败也留存。12项视频检查通过（含既有源码形状门），另3个source-update/publication/registry模块通过；首次未启动prepare直接跨EOF仅静态核对，不冒充独立运行反例。
+
+**真实4K回放及身份：**最终Debug `-O` build和deep/strict签名验证通过；CDHash=`72e505af6b4dca3a67a683ea335db8edb4bbb231`，exe SHA256=`b2f4492aa2c7dd9e256747820c86bad0530596cbff28114fdedbb8aea7d9cec9`。`3113554287` project/PKG与前条一致，45秒严格effect/graph门PASS，35秒截图避开20/40秒循环点。layer81有1338次新内容，generation连续、非循环倒退0；两次循环新内容日志间隔114/133ms。窗口submitted/completed/failed/presented=1951/1951/0/1949；组合层69有GPU completion、terminal compositor消费与next-frame，graph validation failures为空，独立named/visible publication为空。查看after原图确认构图保留。报告SHA256=`8f1cebfa9ce13f39412f445a7e29036bbea04dc94ac820e45f6925893efabd5d`。这验证修正进入最终App，不证明实际样本触发过注入的拒帧竞态，也不证明循环已无缝或用户顿挫已关闭。
+
+**被否决的优化实验：**固定两个item/output的AVQueuePlayer候选在320p短片4次循环曾达到34.76/35.21/35.86/37.33ms新内容间隔，但真实4K同样本、同35秒截图条件下，候选首轮129/430ms、复跑122/426ms；中间串行运行批前单播放器为114/113ms。候选CDHash=`f8f8bc567d38ba7ff2e6d765c0d103af5e2edbda`，exe=`7a45b45f3e3e845bc13f638ba688cf6fa3c50a2d47678eede286d12188393cd0`；baseline身份为前条`444e…`。三次严格图门均PASS仍不支持交付优化，因此候选产品/专用测试完整恢复至批前，仅保留上述独立EOF修正。不能从重复第二轮慢断言具体解码器根因。原型的通知抑制门证明terminal结算，不证明旧闭包确实执行后被拒绝；seek completion=false没有实际证据。后续循环方案先用实际4K资源筛选，再验证作者命令与连续最终呈现，不能仅由小视频的间隔选择实现。
+
+**保留与边界：**本机忽略证据标签`2026-09-27-video-eof-discard`保存最终及三次对照报告/截图、修前/修后JSON、撤回候选源码patch、最终patch与校验清单，排除作者payload。主动诊断窗口不满足稳态条件，不据此作整体性能结论；用户顿挫和最终逐内容present连续性仍OPEN。code-health仍为4处既存非Scene文件超限。用户主App未重启，真实样本根只读，未暂存/提交/推送。
+
+<a id="e-2026-09-27-video-loop-phase"></a>
+
+### E-2026-09-27-VIDEO-LOOP-PHASE — EOF 保留 Scene 时钟相位
+
+**根因及实现：**循环 EOF 是异步后端通知，旧 lifecycle 每次将 item anchor 重置为0，并把最近一次 Scene 观察时间当作新起点，丢失边界前后的时间差。现有 `SceneVideoProviderLifecycleState.didReachEnd` 改为当前 elapsed time 减 duration，保留该差值；最近观察早于 EOF 时允许小幅负 anchor，下一 Scene tick 自然跨越零点。只改变两处赋值，没有引入第二时钟、播放器队列或样本分支；非循环结束保持原行为。
+
+**反例与实际播放器：**旧实现的晚到/早到 EOF 相位反例先失败；新实现覆盖2倍速、10轮迟到回调、早到边界后的 pause/resume、改速、rebuild 和关闭循环。最终11项视频检查通过，其中含既有源码形状门，不等于11项实机测试。真实AVPlayer同一个2秒自有短片分别用修前/修后 lifecycle 连续4次EOF，最终同一harness对照为249/250条新内容记录，请求相位最大误差22.800ms/0.996ms；运行实际duration timescale=1000，修后落在1ms量化刻度内。`phase-comparison-final.json`记录前后源文件、harness、可执行文件SHA256及实测timescale。先前探索轮31.685/0.997ms保留为探索数据，不混作最终同身份结果。输出30fps栅格断言限定连续重复play区间；seek/reanchor后AVPlayer展示时间不保证仍在同一绝对栅格，不能以此误判实际输出。
+
+**产品身份与回放：**Debug `-O` build、deep/strict签名验证通过；CDHash=`444e46896c11cc6b59a5229087053517e0cc78bc`，exe SHA256=`49db35e71cb5d5f23de23f5734aa808ff2d4006368162cc9eaa416ad37039a45`。`3113554287` 隔离副本project/PKG身份与前条一致，45秒严格effect/graph门PASS；layer81有1330次新内容提交，generation连续、非循环倒退0。两个20秒EOF之间恰为20.000秒，但循环前后新内容日志仍相隔114/211ms（各7个Scene frameIndex，后者与40秒截图重叠）。报告SHA256=`40c9c7d4439db2a6807af3e8082e8a05f630c63fa6ec5361fdfc346790580ab3`。
+
+**合成证据及上限：**窗口submitted/completed/failed/presented=2251/2250/0/2249；组合层69具GPU completion、terminal compositor消费与next-frame，graph validation failures为空，独立named/visible publication数组为空。查看after截图确认人物、背景和时间构图保留，未得到逐帧最终像素或官方同相位对照。此批关闭循环相位漂移，**不关闭循环取帧等待或用户顿挫反馈**；诊断窗口不满足稳态条件，不作性能改善结论。
+
+**后继与保留：**2项原生队列的独立320p原型可连续回绕，4次新帧间隔34–37ms，但使用host-time映射，尚未进入Scene产品；须验证SceneClock、拒帧回滚、异步seek/回收的generation及停止/改loop/重建后过期回调，再决定队列实现，不能由小原型直接推导4K最终合成效果。本机忽略证据标签`2026-09-27-video-loop-phase`保留报告/截图、最终相位对照、测试/build日志及精确patch，不保留作者payload。code-health仍有4处既存非Scene文件超限，未扩大预算。用户主App未重启，未暂存/提交/推送。
+
+<a id="e-2026-09-27-video-display-time"></a>
+
+### E-2026-09-27-VIDEO-DISPLAY-TIME — 真实视频输出时间与循环间隔
+
+**实现及合同：**旧 `Frame.itemTime` 保存计划时间，无法证明实际视频帧连续。现有 `SceneVideoTextureSource.Frame` 明确区分实际传给AVPlayer输出的 bounded `requestedItemTime` 与同次pixel buffer返回的 `decodedItemTime`（Apple `itemTimeForDisplay`，非numeric保留nil，不用请求值补齐）。只有既有主动诊断开关开启、prepared frame经提交屏障且`didPublish`成功，才记录layer/epoch/frameIndex/contentGeneration/两个时间；没有新buffer、discard、重复commit不生成新内容记录。普通播放没有新增逐帧日志；原时钟、anchor、取帧及合成策略未改变。[Apple输出接口](https://developer.apple.com/documentation/avfoundation/avplayeritemvideooutput/copypixelbuffer(foritemtime:itemtimefordisplay:))返回适合该请求时间展示的图像；此时间是输出展示时间，不等于屏幕实际present时刻，也不保证与容器bitstream PTS逐项相同。
+
+**行为门及身份：**真实AVPlayer/Metal的既有命令门加入30fps自有视频的输出时间栅格、请求与输出存在差异断言；10项视频检查通过（其中旧模块包含源码形状门，不等于10项真实播放器证明）。Debug `-O` build及deep/strict签名验证通过。App CDHash=`88fae0a895538c817c7cc8f0b5e3fb44972a60a2`，exe SHA256=`31ba46f4a0015e2eedde1a6c8d49a5ee9bc0be1c736949c2c46ddcee39ed3835`。共同project SHA256=`122a1cb10916f32d54322f521bebb61bcb38de03c80fd0c788968e3c5a3071f0`，PKG=`c9eb779fa4c3e92e007b2b8b3bcfa4a742902763371fe488c6e8d894f78f42df`。生产TEX reader从隔离副本提取day视频，ffprobe确认H.264、3840×2160、30/1fps、600帧、20秒。
+
+**两次实际回放：**同一最终App分别40/45秒，严格effect/graph单样本门均PASS。当前作者选择day层81；分别1188/1337次新内容提交，contentGeneration连续、重复输出时间0、非循环倒退0。唯一的三次倒退均伴随20秒accepted EOF和请求时间回绕，新视频帧提交日志间隔为130/115/175ms，对应8/7/5个scene frameIndex间隔；第三次与40秒after截图重叠，不能把175ms完全归因于循环。普通前进区间另有少量66…115ms输出步进，包含启动和采集扰动，不作无诊断播放性能结论。
+
+**合成证据与上限：**性能窗口submitted/completed/failed/presented为1950/1950/0/1948和2251/2251/0/2250；组合层69的图证据有GPU completion、terminal compositor消费及next-frame，graph validation failures为空，独立named/visible publication数组为空。查看完整after截图确认构图保留。新日志证明视频新内容通过CPU提交屏障，不证明每条内容均在同一frameIndex最终present；没有新内容日志也不等于整场景停止呈现。未采集每一帧最终像素、未做官方同相位或无诊断性能基线，用户“抽搐顿挫”仍OPEN。
+
+**下一门及保留：**重复play/pause幂等修复之后，这两次运行没有看到无故解码倒退；后继优先处理可重复的循环衔接，再以连续最终画面和实际视频输出时间联合验证，不能通过修改计划时间或掩盖停帧计数关闭问题。本机忽略证据标签`2026-09-27-video-display-time`保留两组报告/截图、解析脚本、输出统计、片源元数据、测试/构建日志及精确patch，排除作者视频payload。用户主App未重启，真实样本根只读，未暂存/提交/推送；未宣称视觉修复、全量、长稳、多surface或发布完成。
+
+
+<a id="e-2026-09-27-particle-scalar-scripts"></a>
+
+### E-2026-09-27-PARTICLE-SCALAR-SCRIPTS — 七标量脚本与白点密度恢复
+
+**根因及实现：**`2419444134` layer731 的 count/rate/size 都有作者音频脚本，旧 parser/projection 只接入 rate。固定静音时 count 应为 `0.09000000357627869 × 250 = 22.500000894`，旧链只消费0.09。现在 root `alpha/size/lifetime/rate/speed/count/brightness` 通过同一 scalar QuickJS owner、exact field projection、typed snapshot 和现有模拟/合成链；逐字段移除已准入的script标记，非空user、animation、duplicate target和未准入兄弟字段保持隔离。没有按sample/layer选择视觉算法，也没有新owner或全局密度补偿。
+
+**数值边界：**有限Double脚本值仍可能在出生乘法或child后置缩放时超出Float。现有simulator拒绝不安全出生；现有instance buffer在完整组装后按原序只上传40个Float lane全部有限的实例，绘制及完成诊断均取实际上传数量。真实child runtime反例使用初始size8、脚本倍率1e35、合法scale1024：出生有限，缩放后Inf；修前安全/无效两条都上传，修后只保留安全peer，下一次正常倍率继续生成。全无效帧和后续恢复、40lane逐个Inf/NaN及有效记录保序有实际Metal buffer读回。此门不证明任意layerModel在GPU内的极端算术均安全。
+
+**构建与输入身份：**最终签名Debug `-O` App的CDHash=`2c7ef8d8cd9275915782c4b193c2b7b1f3bad072`，exe SHA256=`6e79925b0efeab425e51b8a590ed3e1ff1c0502b6a78b4896f5a093d668b9a6d`；修前App为末帧修复版本CDHash=`b2a225b965f062e5d924dfbe6f30d60d85eae2df`。共同project SHA256=`d148f2f828f5430accbf4a7e978ca1c9eb99c1883c23dc4f58ec4d3903eca9b8`，原PKG=`8cd3bedce05cd4dcf404a7d452657330ec25d0fcd4d7cf83762c44b95bc99440`。异常恢复副本只把size脚本改为前239次update返回1e100、之后返回初值，PKG=`5835c312f608ec4bc3afb8c7f2505b23c12aa07c9e20635a67f8e71aaecccb02`。真实样本根只读；用户主App未重启。
+
+**实际运行：**旧App静音对照、最终App静音/固定PCM/异常恢复分别隔离16秒，均通过要求effect admission/execution及graph execution的单样本门，粒子4/4。scalar binding从1增至3，app.log记录size/rate/count完成及静音count22.5000009；report的通用scalar completion数组为空，不能把它当作粒子回调记录。全场submitted/completed/failed/presented依次为418/418/0/417、411/410/0/409、391/390/0/389、420/419/0/418；独立采集的粒子性能行时间可略晚于全场行，二者不混用。named graph publication为92/104，visible graph publication数组为空；graph validation failures为空，terminal compositor及next-frame继续完成。layer731性能窗口的completedInstances/completedFrames均值从12518/418≈29.95增至1027500/411=2500（作者maxcount），这是平均绘制记录数，不是可见白点数。
+
+**可见结果：**完整修前/修后静音截图及异常恢复ready/after截图已查看，修后背景白点明显恢复；异常ready白点缺席但主体/其他图层保持，恢复后再次出现白点。固定归一化ROI `x=.02… .23,y=.08… .68`，统计RGB均值相对半径3 Gaussian局部背景高于12、RGB通道差低于45且均值高于65的像素：修前0、最终静音596、最终PCM567、异常ready0/after37。阈值只描述同样本图像差异，不是粒子计数或官方好坏阈值；后恢复粒子年龄与正常组不同，数量不作同相位对比。`2419444134`漏执行缺口已修，完整数量/分布/遮挡、Vortex缺字段及官方动态外观仍OPEN。
+
+**验证与保留：**核心三模块97项通过；相邻runtime/rendering/dynamic/property六模块134项，10个既有真实内容依赖门跳过，其余通过；保序加强后child定向门再通过。Debug build成功。code-health仍有四项批前非Scene文件超限，本批未修改这些文件或放宽预算。本机忽略证据标签`2026-09-27-particle-scalar-scripts`保留报告、截图、红/绿测试日志和精确批次patch；未跑全集、长稳、多surface、性能验收或官方同相位对照。未暂存、提交或推送。
+
+
+<a id="e-2026-09-27-child-offset-scale-diagnosis"></a>
+
+### E-2026-09-27-CHILD-OFFSET-SCALE-DIAGNOSIS — 静态子雾偏移对父缩放敏感，合同仍待定
+
+**实际对照：**2304304373的snowstorm根43/408/421分别使用scale `(0.960,1.771,1)`、`(0.478,0.841,1)`、`(0.488,0.751,1)`，共享child origin=`0 650 0`。同一末帧修复App（CDHash `b2a225b965f062e5d924dfbe6f30d60d85eae2df`、exe SHA256 `f14a6b02cc35e361dd1a1b9efa2e495e7297c948f1f07fa14cb0aa34ec02537f`）隔离回放三组各16秒：原包；按Mirage规则将各child Y偏移预除父scale，分别变为367.024280068/772.889417360/865.512649800；去除三根共用的child。补偿组仅复制三份root preset并修改child origin及相应引用，未改其他粒子参数；生产代码及真实样本根均未改。当前root/child随机seed不使用preset路径，复制定义未引入额外seed来源，实际运行时间仍非锁相。
+
+**身份与执行：**共同project SHA256 `35f8305234beabaf22fe8139c6a9b67129ba27bbb6151a4236c0dd921d4b9853`；原PKG `4866d028349dd40f631c9b22a2e80491ab61a1a8598cfba000dd1dd04c1d1793`，补偿包`625ba8877f8523417719c9785c9328beb497293dd73d14f5a606aaedae15878b`，去child包`d645a9f7ef6756b6bf095d626f23222576b7c2c078d484ad01098f557e875ac7`。三组effect/graph门通过、particle均10/10、graph validation失败为空；采样窗口submitted/completed/failed/presented分别409/409/0/407、409/408/0/404、416/416/0/414。GPU完成、terminal compositor与next-frame有证据；named/visible独立graph publication数组为空，不声称额外publication。未重建App，用户主App未重启。
+
+**画面与结论：**三组约10.36秒及14.19秒完整截图已查看；补偿改变了雾经过的位置，不能由“看起来少一些”推导正确性。在固定归一化前景ROI `(x=.30… .80,y=.25… .60)`，约10.36秒平均RGB分别为`71.52/95.64/121.85`、`69.92/93.74/119.44`、`65.11/88.15/112.56`；约14.19秒补偿组反而高于原包。这里只报告图像差异，不设好坏阈值，也不把异相位差值当纯child亮度贡献。230的用户视觉缺陷仍OPEN。
+
+**不采纳未经证明的补偿：**[公开Children文档](https://docs.wallpaperengine.io/en/scene/particles/component/children.html)说明Offset/Angles/Scale用途，没有规定父scale对Offset的作用或矩阵顺序。native的`system.origin + childScale × particle.position`再经过统一层模型，静态child origin只相加一次、父模型只乘一次；没有找到字面上的重复缩放。Mirage主动预除父scale是第三方差异候选，不能直接改成官方合同。保留“父缩放是否应影响child offset待定”，需要可区分这两种预测的外部可观察结果；不重复同样的亮度试调。308根无scale，不能用此候选解释其后段泛白。
+
+**后续边界与保留：**现有事件child非零origin准入限制是另一项明确能力缺口，但本次按已有origin参数索引核查九个候选样本的粒子JSON，没有发现非零event origin声明，不将其冒认为这两张雾图根因。本机忽略证据标签`2026-09-27-child-offset-scale-diagnosis`保留三组报告、完整截图、输入变更及测量数据；能力等级未提升，未做官方视觉对照、长稳、全集或性能验收，未暂存/提交/推送。
+
+<a id="e-2026-09-27-snow-fog-contributor-ablation"></a>
+
+### E-2026-09-27-SNOW-FOG-CONTRIBUTOR-ABLATION — 后段泛白主要跟随 snowstorm 子雾气
+
+**本批是贡献归因，不是视觉修复：**使用上一批末帧修复后的同一App，CDHash `b2a225b965f062e5d924dfbe6f30d60d85eae2df`、exe SHA256 `f14a6b02cc35e361dd1a1b9efa2e495e7297c948f1f07fa14cb0aa34ec02537f`，对3088601835四份隔离输入各播放16秒。原包、只隐藏Fog2层598/606、只去除共享snowstorm定义中的snowstormfog child、同时去除两者；其他作者字段和资源保持。真实根只读，产品代码未改、未重新构建、未重启用户主App。
+
+**输入身份：**共同project SHA256 `03d5774aa09b83608be59c0034cc70614dc898ca037430a30cef700356702e4a`；原PKG `c6197157f8d85a3ddc056860ba7b58f3a5f555ac48ba4339a94b05f491baf80b`，no-fog2 `19ecd2f76c12e02a7e17453b0ee873d84e80e592056e28bc493660dcfd757ff1`，no-snowchild `4450e6af013ae12495cb3f8ce0c283a23e6df59004628850b4df12521ddab25d`，no-both `49f72436f6a8dba4ecf943ab9f8369574f9c269339c3503e517475b325caad6f`。改包仅用于诊断，不是产品绕过方案。
+
+| 隔离输入 | 约14.14秒白区 | 约15.14秒白区 | 采样窗口submitted/completed/failed/presented | 已加载粒子层 |
+|---|---:|---:|---|---|
+| 原包 | 14.253% | 14.106% | 424/423/0/422 | 19/19 |
+| no-fog2 | 13.889% | 13.199% | 425/424/0/423 | 17/17 |
+| no-snowchild | 1.671% | 1.783% | 426/425/0/423 | 19/19 |
+| no-both | 1.348% | 1.283% | 427/426/0/425 | 17/17 |
+
+白区沿用整幅Metal读回RGB三通道均≥250；时间以各自ready日志为零，精确时刻保存在逐帧观测。四组14秒完整截图已查看。effect准入/执行、graph执行门均通过，九个graph层均成功，GPU完成、终端合成及next-frame可确认；named/visible独立graph publication数组为空，不外推额外publication。各组未锁相，不能把表格差值视为逐像素线性贡献或官方正确亮度；但去除child的两组一致大幅减小后段白区，足以把下一次根因调查收窄到该子系统，Fog2不是本次主要贡献。
+
+**仍需纠正的边界：**308的HDR与Bloom均关闭，snowstorm根534/513没有缩放，child作者origin为`0 650 0`；此前30秒诊断未见粒子数量无限增加。当前随机颜色插值与Mirage公开实现一致，普通粒子RGB/alpha乘法未发现足以支持再次乘alpha的偏差。尚不能确定是子雾气空间覆盖、运动相位、纹理语义或背景合成错误，不能通过删雾、全局调暗或样本专用补偿关闭问题。2304304373另有非均匀缩放的snowstorm根，需单独验证父缩放是否应影响child偏移；这只是参考实现差异候选，不能用它解释无缩放的308。
+
+**保留与验证范围：**本机忽略证据标签`2026-09-27-snow-fog-contributor-ablation`保存四组运行报告、App/输入身份、原尺寸截图、测量脚本和逐帧白区数据。本批不提升粒子能力等级；未做官方对照、长稳或全集验收，未暂存、提交或推送。
+
+<a id="e-2026-09-27-particle-sequence-end"></a>
+
+### E-2026-09-27-PARTICLE-SEQUENCE-END — 粒子序列末帧保持，不提前混回首帧
+
+**合同与两行修复：**随公开stock源码的`genericparticle.vert`先对normalized lifetime取`frac`，`common_particles.h::ComputeSpriteFrame`再将next限制在末帧；旧native selector两条路径却用取模next，在末帧内混回首帧。现有prepared timeline与兼容非prepared路径都改为`min(index+1,count-1)`，精确周期边界仍由原有phase归一化回到首帧。不改非均匀duration、随机帧、shader、纹理alpha、混合因子或粒子生命周期，不增加算法层或样本分派。
+
+**生产行为与GPU反例：**两帧红/蓝不透明图集，实际selector→现役Metal pipeline→完成后BGRA读回，覆盖prepared/非prepared、混帧开关及age/lifetime `.25/.5/.75/.999/1/1.25`共24种组合。旧实现在末帧中后段混入红色，4个GPU子例失败；另一个旧next=0测试期待同批纠正，共5失败。修后37项rendering测试全通过，runtime 36项为26通过/10个旧隔离fixture缺失跳过。该证据证明末帧颜色保持与周期重启，不外推任意图集或官方完整动画parity。产品/测试增量patch SHA256 `07486ef4f78fd9c58dbfa8aa4acf4387225d206abe4729c9a1fbb63b5d4e8708`。
+
+**真实smoke2边界：**当前stock TEX SHA256 `e229403df34bb2345b1064864fb0ef50b42e7c4be3104220ec370fdeccfff79f`经生产texture loader、颜色view及GPU读回，64帧各duration=.015625。按生产解析的首/末UV在128×128 texel中心比较，首/末平均alpha=.456017/.453474；旧末帧中点50%混回首帧与保持末帧相比，`RGB×texture alpha`带符号平均差=.0010412，最大绝对局部差=.223572。未乘粒子颜色/alpha、未经背景和终端合成，不能把该数当屏幕亮度或过曝归因。实际fog的普通RGB乘法与公开straight shader加SRC_ALPHA方程相符，没有再乘一次alpha去白的依据；Mirage目标alpha方程差异另待实际消费者证明。
+
+**最终App与真实回归：**独立DerivedData Debug `-O` build成功，CDHash `b2a225b965f062e5d924dfbe6f30d60d85eae2df`，exe SHA256 `f14a6b02cc35e361dd1a1b9efa2e495e7297c948f1f07fa14cb0aa34ec02537f`；两原包前后各16秒，输入hash一致，签名前后验证通过，effect/graph门均PASS、loaded ratio=1、graph validation失败为空。最终3088601835采样窗口425/424/0/422 submitted/completed/failed/presented，9层graph、72次terminal成功；2304304373为409/408/0/407、4层graph、14次terminal成功。GPU完成、compositor消费及next-frame成立；named/visible独立graph publication数组为空，不声称额外publication。
+
+**用户问题仍OPEN：**完整截图已查看，3088601835在ready后14.140秒全图RGB均≥250的比例修前14.253%、修后14.256%；15秒附近修前14.110%、修后14.022%。这不是锁相或官方golden，但明确未见大面积泛白被本修复消除。2304304373仍需连续透明叠加验收，不能用加载成功关闭。后继[四组消融](#e-2026-09-27-snow-fog-contributor-ablation)已定位主要贡献为snowstorm child；root/child几何及合成根因仍待验证，不以全局alpha、曝光或替代纹理补偿。
+
+**现场和工作区：**第一次benchmark输出目录误撞源码before快照，尚未启动App即拒绝；换独立`before-run`后成功。首次诊断harness包含已退役child函数，编译失败；改用当前runtime test harness后GPU读回成功，失败不冒充产品错误。code-health仍为4项非Scene既有错误，未放宽。用户主App PID99571未重启；本机忽略证据标签`2026-09-27-particle-sequence-end`保存源码冻结、红绿日志、输入/App身份、图集probe、原尺寸截图及独立审查。未暂存/提交/推送，未做全集、长稳或官方对照。
+
+<a id="e-2026-09-27-radial-carrier-anchor"></a>
+
+### E-2026-09-27-RADIAL-CARRIER-ANCHOR — 径向/角向光束保留作者中心，收回额外顶部平移
+
+**首断点与改动：**此前把linear的顶部inset扩大到radial/corner，只证明共用UV逆变换，不能证明相同世界锚点。现在同一prepared geometry compiler保留source/static-points/范围检查及RAYMODE 0…2候选身份；只有候选的所有variant均为linear才沿用top inset，其余返回既有centered几何。多个合格material仍判歧义居中，不会因过滤radial而把linear误成唯一候选。普通帧、shader颜色、half-canvas尺寸及作者输入不变，无新renderer、matcher或compositor。
+
+**目标与未决尺寸：**公开[Light Shafts](https://docs.wallpaperengine.io/en/scene/effects/effect/lightshafts.html)区分linear/radial/corner并允许四角编辑，没有规定本项目的half-canvas或top-inset公式。Mirage开源revision `f5049582e3e334cac6b177bbbccb39736190750a`的direct-draw按ortho height正方形和作者点生成顶点，无该额外中心平移；这是第三方差异检查，不能据此声称官方尺寸。本批仅撤回未证明的radial/corner锚点扩展；half-canvas与Mirage高度正方形差异、linear策略的完整官方定标仍开放。
+
+**可归因证据：**基线App exe SHA256 `06ec4932ae88c4de16ffeb60fcfe3bfcd5ab49b8265affa8b8d38bb029af22bd`对3768903841作三组12秒隔离回放：原包、仅去quad162、仅抵消旧额外origin位移。后两组都明显削弱下半屏洋红覆盖，保留中心组仍执行该层。原包SHA256 `c72eb00706f7d0293404c95d2877f5a60b45e1228cf4e2efe31e7fd0a1921f76`；两诊断包分别`a343670f4327fb02520ff38bc0bc2ecd3a9226e5208489db3d1e2c6a38357d31`、`79da70df9d6ee44c36cd59adcbcc8a5a2b51ca64ce3c8a9a399a02b66c8991d0`。此前生产矩阵计算显示旧inset使中心上移约650窗口像素。诊断只改隔离副本，最终产品回放使用原包；截图未锁定烟花相位，不能当逐像素golden。
+
+**行为门与复核反例：**实际生产geometry compiler、lexer及矩阵参与Swift测试，仅以容器shim提供prepared输入。先证明旧实现radial/corner/mixed variant中心错误；初轮审查再发现linear+radial/corner/mixed-material被过滤后误平移，补测红灯并修复。最终包括这些负例、linear+普通非DIRECTDRAW后处理正例、动态/未ready/未证source/未知mode与多个linear的安全边界。geometry 2项行为测试加既有capability 5项检查共7通过；后5项含源码结构断言，不冒充7项GPU测试。最终产品与测试增量patch SHA256 `8d81df639f1e2b0e832751d1f2a28ff474d5ece9e9ca4d7ba225b520d087e608`。
+
+**最终App与原样本回归：**独立DerivedData，Debug `SWIFT_OPTIMIZATION_LEVEL=-O` build成功，签名前后验证通过。CDHash `33d6a59e725a5c5837057a115923c467d2817636`，exe SHA256 `ef3931ab807344b0649ef52c6d791eaeaf4aab7e7e69447fdf43c8cb98714e7d`。四样本loaded ratio均1、effect准入/执行与graph门通过、graph validation失败均为空；以下数字是性能采样窗口和诊断观测，不是整段总帧：
+
+| 原样本 / 时长 | submitted/completed/failed/presented | 成功graph层 / terminal观测 | 几何及可见边界 |
+|---|---|---|---|
+| 3768903841 / 12秒 | 317/316/0/315 | 13 / 28 | quad162 inset .25→0；完整截图中大片洋红覆盖明显退去，烟花与蓝光仍在，整体颜色/尺寸parity未定 |
+| 3287715210 / 8秒 | 114/113/0/112 | 3 / 16 | quad470 inset .18829→0；未据静态截图关闭移动栅格 |
+| 3768724269 / 8秒 | 103/102/0/101 | 3 / 24 | quad100 inset .06238→0；角向与粒子光束整体形态仍待验收 |
+| 3747492842 / 8秒 | 97/96/0/95 | 7 / 24 | linear inset .19475保持；顶部光束仍可见 |
+
+四组前后完整截图均已查看，GPU完成、terminal compositor消费及next-frame由graph证据确认。named/visible graph独立publication数组均为空，不声称额外provider publication。原始尺寸截图及逐秒序列已保留，但未做官方同时间对照、连续视频判定、长稳或全集验收。项目整体code-health有4个非Scene既有错误，本批未扩大或放宽；25项文档治理检查通过。用户主App PID99571未重启，仍为此前内存中的旧构建，不能称为使用此次最终代码。真实根只读、没有暂存/提交/推送。本机忽略证据标签`2026-09-27-radial-carrier-anchor`保存红绿反例、冻结源码增量、运行身份、完整截图和独立复核记录。
+
+<a id="e-2026-09-27-child-delayed-emission"></a>
+
+### E-2026-09-27-CHILD-DELAYED-EMISSION — 延迟粒子等待发射，完成状态归回现有 emitter
+
+**首断点与简化：**旧child独立估算`emissionCompletionTime`没有包含initial delay；纯burst可能在第一步、有限duration可能在第一次发射前被退休。event的全系统绝对deadline又会吃掉等待时间。现在删除独立完成时间字段及两个推算函数，复用已有emitter的delay/elapsed/instantaneous状态：所有emitter完成且粒子清空才退休。static、spawn/death、depth-two和预热共用此链；follow仍按父粒子存在性结束。没有第二时钟或按样本分派。
+
+**合同边界：**公开[Emitter](https://docs.wallpaperengine.io/en/scene/particles/component/emitter.html)定义delay后开始发射与有限duration；[Children](https://docs.wallpaperengine.io/en/scene/particles/component/children.html)定义四类触发。事件rate-only仍使用child最大粒子寿命的项目fallback，现在逐emitter从自己的delay之后计时，并优先保留每个显式正duration。混合emitter不再被其他emitter的全局截止时间截短；该fallback并非官方窗口parity。非法delay继续零发射并保留原诊断，在完成判断中局部结束该emitter，不阻止安全peer。合法极短正duration不再被绝对epsilon跳过。
+
+**行为反例：**正常延迟在旧产品实现上先失败；初轮独立审查再找到非法delay永久占用容量、极短duration留下pending burst，两者均以生产Swift runtime复现8项子断言失败。失败日志另有空数组后续索引的测试`IndexError`，不是产品崩溃。最终simulator/runtime共97项，87通过、10个旧隔离fixture缺失跳过；包括12种正常延迟组合、8种边界profile、明确duration .4不受lifetime .1截短，以及每一帧snapshot→advance→restore→retry的draw数据、系统ID和分配器种子/ID一致性，覆盖退休帧。产品和测试冻结patch SHA256 `ca0edcb560943657c39c5748451697ef65914e4e4f4cca4f99ff12c6a9979476`。
+
+**最终App可见正例：**独立DerivedData的Debug `SWIFT_OPTIMIZATION_LEVEL=-O` build成功；App CDHash `7e817ef0e77c009a29cb0883d86c657e80904e72`，exe SHA256 `06ec4932ae88c4de16ffeb60fcfe3bfcd5ab49b8265affa8b8d38bb029af22bd`，运行前后签名验证通过。项目自有particle-only PKG SHA256 `c0222818825338ea3a23ed73ab2344a135c3a6028c786567f5ad8570dca13a19`：static红色burst delay=3，eventspawn绿色finite delay=6/duration=1.5，粒子寿命1.2。12秒播放22张Metal终端截图，ready后1.118秒无色块、3.138–4.071秒左红、6.895–8.432秒右绿、8.997秒后消失且后续多帧不再出现；全图颜色掩码的左右区域及终态零残留断言通过，完整截图已查看。上述时间是截图时刻，非精确出生时刻。性能窗口289/289/0/288 submitted/completed/failed/presented；粒子直达唯一surface，无独立graph publication可声称。这是S4项目自有延迟生命周期结果，不是Workshop视觉兼容。
+
+该fixture没有image layer，初轮将image loaded-ratio要求设为1而报0/0失败；保留失败证据。最终只将这项不适用门设为0，粒子1/1加载、GPU完成和独立像素时序门仍单独验证；不以这个matrix PASS替代像素证明。`app-before`因旧App路径当时被Xcode清理而未启动，不能声称实际App前后对照；旧实现失败证据来自生产runtime。`app-interim`属于审查修正前构建，最终结论只使用上述最终身份。
+
+**真实回归与剩余缺陷：**同一最终App隔离原包3088601835播放16秒，particle 19/19，9层graph的72次terminal观测成功，GPU completion、compositor消费和next-frame成立；424/423/0/421 submitted/completed/failed/presented，graph validation无失败。named/visible graph publication列表为空，不伪称存在独立publication。完整截图已查看；ready后10.322秒全图白区2.55%，14.142秒14.05%、15.137秒14.59%，过曝仍OPEN，不视为该样本修复。阈值沿用RGB三通道均≥250，非官方golden。此前实际TEX读取还确认smoke2的64帧frame axes均为128×128，未发现裁剪帧尺寸不一致；仍需查作者变换与合成，而不是调暗生成替代纹理。
+
+**构建环境事件：**本批首次复用旧DerivedData并重定向输出时，Xcode清理了旧App目录；主App PID99571一直运行，原路径随后恢复完整中间候选App并通过严格签名验证。最终构建改用独立DerivedData；没有重启主App，因此原进程不能称为运行最终代码。最终App另行保留供后续启动。全局code-health仍有4项非Scene既有错误，文件逐字节等于HEAD；未以本批通过掩盖。真实样本根只读，未暂存/提交/推送。本机忽略缓存标签`2026-09-27-child-delayed-emission`保存冻结增量、红绿反例、构建/运行身份、完整截图、像素检查源码和审查记录；没有全量、长稳或Windows parity结论。
+
+
+<a id="e-2026-09-27-snow-fog-resource-diagnosis"></a>
+
+### E-2026-09-27-SNOW-FOG-RESOURCE-DIAGNOSIS — 真实烟雾图集与有限粒子数量，过曝仍待合成对照
+
+**本批性质：**诊断，不改产品代码、不重建App。沿上一最终构建的3088601835 descriptor与原PKG提取出的particle/material输入，运行当前生产粒子runtime、资源加载、颜色适配及Metal纹理读回。真实样本根只读；保持用户App运行，不重播或切换其壁纸。该standalone harness的根变换是identity，未执行完整App compositor，不能把它当成新的全场景截图或官方视觉验收。
+
+**资源首断点：**`SceneParticleAssetGraphLoader`先选本地/resourceView/stock资源，最后才使用生成纹理。原包没有覆盖`particle/smoke/smoke2`；显式接入当前App同源stock bundle后，两snowstorm child使用1024×1024的RG8纹理。生产颜色view经GPU读取为灰度RGB+独立alpha，command完成；平均RGB=0.92084564、alpha=0.45808510，最大alpha=0.98823529。库内与最终App内`smoke2.tex`均为2134029字节，SHA256同为`e229403df34bb2345b1064864fb0ef50b42e7c4be3104220ec370fdeccfff79f`。旁车声明64个128×128帧。生成替代的smoke2峰值约0.045与这份图集不是同一输入；因此调整替代纹理不会改变本场景在资源可用时的结果。图集均值不等于任一屏幕ROI的贡献，也不证明图集本身错误。
+
+**数量和参数：**以1/60秒输入推进1800步，每秒观察一次；同一作者参数及种子下，layer534在10–30秒有6–10个child粒子，layer513有8–10个。每个系统始终只有一个static child实例；材质均additive、overbright=1。观察到最大单粒子alpha分别0.10872089与0.06614294，未出现随时间无限增长的存活粒子数。这仅排除本次30秒确定性粒子模拟中的无限累积，不能排除完整App target/history残留、长时问题或其他效果。alpha总和不具有空间重叠信息，不能作为屏幕过曝度量。
+
+**核对与下一门：**公开[General](https://docs.wallpaperengine.io/en/scene/particles/component/general.html)与[Alpha fade](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html#alpha-fade)分别定义预热和相对寿命渐变；本次没有据这些摘要推定默认数值或完整官方轨迹。第三方Mirage的参数/geometry/alpha职责仅作差异检查，不据此改动倍数或复制实现。当前尚无充分证据证明绝对尺寸、alpha或混合公式应如何改变，故不凭白区面积降低这些值。下一门对实际图集选帧、作者根/子变换与背景合成做可归因对照；此前约14秒全图白区14.26%的缺陷继续OPEN。
+
+**执行身份与保留：**原PKG SHA256 `c6197157f8d85a3ddc056860ba7b58f3a5f555ac48ba4339a94b05f491baf80b`；standalone探针SHA256 `ba843e43dce8f2e4dc0c84e17dbc15b16f4ed539afa878dd46fcb85837c73639`。harness源码、逐文件生产源码hash、隔离提取清单、GPU结果和60组逐秒子系统观测保存在本机忽略缓存`docs/scene/evidence/2026-09-27-snow-fog-resource-diagnosis/`。App仍为上批CDHash `94d20d443b101a9400a621a177fef172882f6d3b`，本批无新App视觉结论。未暂存/提交/推送。
+
+<a id="e-2026-09-27-particle-simulation-rate"></a>
+
+### E-2026-09-27-PARTICLE-SIMULATION-RATE — 粒子倍率共用模拟时间，发射数值边界局部拒绝
+
+**合同与实现：**[公开IParticleSystemInstance](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystemInstance.html)将rate定义为simulation rate。旧实现只在emitter缩放时间和发射率，粒子age、移动及operator仍用wall dt。现在现有step入口仅计算一次缩放dt，发射、simulationTime、age、operator、死亡和预热共用它，去掉emitter重复倍率；count继续控制发射强度。rate为0/负值时暂停，不积欠模拟时间。duration尾段按剩余有效时间发射，避免整步越界时丢失尾段。没有新增clock、属性owner、样本分支或compositor。
+
+**数值安全与反例：**初轮独立审查发现有限Double dt仍可在连续发射乘法溢出，隔离生产Swift探针实际触发Int转换fatal，退出码-5；保留失败源码/日志，未以静态推测代替复现。最终在step变更状态前拒绝非有限或不能表示为有限Float的累计时间；连续emitter仅拒绝非有限发射累积量，保留原remainder并让其他emitter继续，emitter时间已推进，不声称完整事务回滚。合法整数出生量受系统容量约束，浮点取整后的分数余量夹至非负，避免极小负余量进入下步。诊断去重。此门不等于所有operator输入的全面数值安全。
+
+**行为与构建：**simulator/runtime共95项，85通过、10项旧隔离fixture缺失跳过。覆盖0.25/0.5/1/2/4倍共享时间、位置/重力/alpha、暂停/恢复、预热、delay/duration尾段、死亡、child参数及snapshot restore/retry；同时覆盖Double最大值、有限时间下发射乘法溢出、普通值恢复与极小负余量。新共享时间断言在旧产品实现上先失败。最终Debug `SWIFT_OPTIMIZATION_LEVEL=-O` build成功。全局code-health仍有4项非Scene既有错误，对应文件与HEAD逐字节相同，不能报全局通过。
+
+**最终运行身份：**App CDHash `94d20d443b101a9400a621a177fef172882f6d3b`，exe SHA256 `c50c61b8624d38bb2e0be235b1f2ee36fb19fe03c85831fcc86061e404f950fe`。原包隔离副本各播放16秒，输入前后身份一致；3088601835 project/PKG SHA256分别为`03d5774aa09b83608be59c0034cc70614dc898ca037430a30cef700356702e4a` / `c6197157f8d85a3ddc056860ba7b58f3a5f555ac48ba4339a94b05f491baf80b`，3290491250分别为`9cd2f6580c3bd30df94336c2a74a00938c65c0ee13792b9028b902a90be5f6a5` / `8bd66b5521a2437fcad478f2db15ce1daedbefbfa18c8890b315e25e337ccefa`。后者layer49的真实脚本rate callback输出0.1并沿generic-only执行；截图中人物、背景与星点可见，静态图不证明运动轨迹等价。
+
+| 最终原包运行 | 粒子加载 | submitted/completed/failed/presented | graph终端结果 |
+|---|---:|---|---|
+| 3088601835 | 19/19 | 424/423/0/422 | 9层、72次terminal成功，GPU完成、compositor与next-frame成立 |
+| 3290491250 | 1/1 | 462/461/0/460 | 6次terminal成功，GPU完成、compositor与next-frame成立 |
+
+无graph validation failure。named/visible publication不能由terminal成功推定；本轮对粒子输出的结论依据终端surface截图及后续帧。p99呈现间隔分别141.666/83.333ms，仅为当前运行观测，不作性能改善声明。
+
+**视觉缺陷仍OPEN：**已查看308的完整最终截图，距ready约10.314秒全图RGB各通道≥250的白区为2.86%，14.139秒又达到14.26%；右下仍有大面积发白。前一child参数修复14.117秒为14.22%，不能据此声称本批修复过曝。不同截图时相不是官方锁相golden，16秒也不是长稳验证。下一步继续定位子雾气形状/尺寸、alpha与叠加；不做样本亮度补偿。
+
+**剩余边界：**固定wall-step频率不变，rate缩放Euler dt而非增加子步数；动态倍率按现有step取样，不保证任意倍率下积分轨迹相同。Random periodic与rate/count组合仍不支持。child事件发射窗口仍按authored策略，initial-delay相关提前退休在[后继生命周期批](#e-2026-09-27-child-delayed-emission)修复，事件setcolor层调色叠乘仍OPEN。本批不提升官方parity等级。真实样本根只读，未暂存/提交/推送；本机忽略缓存`docs/scene/evidence/2026-09-27-particle-simulation-rate/`保存修前失败、审查反例、冻结增量、测试、最终构建与运行身份、截图/时刻、指标及审查记录。
+
+<a id="e-2026-09-27-child-instance-modifiers"></a>
+
+### E-2026-09-27-CHILD-INSTANCE-MODIFIERS — 子雾气继承层参数，原样本泛白收敛
+
+**首断点与修复：**真实3088601835含19个粒子层且Bloom=false。雪暴534/513各自附带snowstormfog子系统；所属层alpha为0.55000001/0.36000001，但child template原来只接收有限CP override，scalar/color全部遗漏。共享child graph现保留层modifiers并单独保留原CP mapping；同一层typed dynamic values沿现有runtime传到static、spawn/death/follow、depth-two和初始/事件预热，各system独立执行General禁用flags。无样本dispatch、颜色补偿、独立参数owner或compositor改动。
+
+**来源与限制：**[官方General](https://docs.wallpaperengine.io/en/scene/particles/component/general.html)定义层override的逐system禁用门，[公开IParticleSystemInstance](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystemInstance.html)定义参数倍率。MirageWallpaper `f5049582e3e334cac6b177bbbccb39736190750a` 的child tree共享层instance state作为第三方职责参照，不作为官方parity。本批当时的rate实现仅缩放emitter时间/发射率，未满足全系统simulation rate（后继修复见[共享模拟时间证据](#e-2026-09-27-particle-simulation-rate)）；child事件窗口/完成时间仍按authored定义。事件setcolor initializer继承已调色parent后再乘层调色，follow operator直接覆盖parent.color，两者的官方预期尚未核验。独立生产Swift探针已观察到有色层eventspawn/death的RGB为[0.015625,0.25,0.0009765625]，eventfollow为[0.125,0.5,0.03125]；这是当前行为证据，不作为官方期望写入回归断言。本批只闭合参数遗漏；不追溯重算存量粒子、扩展child独立binding或修改这些时间/颜色算法。
+
+**行为门：**相同新增测试在修前3个产品文件上失败（child alpha 1，目标0.4）；修后粒子runtime模块34项=24通过+10旧隔离fixture缺失跳过，覆盖static/dynamic scalar、normalized color、各system flags、连续发射count、初始/事件预热、child-only container、三种事件及depth-two、frame restore/retry和static fallback。瞬发count仍不乘层count，rate不改变system simulationTime是明确的旧边界。Debug `SWIFT_OPTIMIZATION_LEVEL=-O` build成功；初轮测试误把instantaneous count与simulationTime当作本批已修的目标而失败，修正scope后通过，失败日志保留。代码健康全局仍FAIL，4项非Scene既有错误，未修饰为通过。
+
+**隔离消融与可见结果：**原project SHA256 `03d5774aa09b83608be59c0034cc70614dc898ca037430a30cef700356702e4a`，原PKG `c6197157f8d85a3ddc056860ba7b58f3a5f555ac48ba4339a94b05f491baf80b`。修前禁用全部粒子消除大片白；只禁用独立Fog2层598/606没有消除；只移除snowstorm的child、保留雪花及其他层则消除。最终修后恢复逐字节原包，不移除任何效果。前后截图为同一3024×1964视窗；ready截图距phase=ready分别1.217/1.214秒，after均10.308秒，不冒充严格1.000/10.000秒模拟时相。阈值为每个RGB通道≥250；右下ROI为x≥70%、y≥50%，在修前观察时选定。
+
+| 输入/实现 | 约1秒全图白区 | 约10秒全图白区 | 约10秒右下白区 |
+|---|---:|---:|---:|
+| 原包/修前 | 2.96% | 16.62% | 90.89% |
+| 禁用全部粒子/修前 | 0.61% | 0.68% | 0.59% |
+| 禁用独立Fog2/修前 | 1.90% | 16.40% | 89.97% |
+| 仅禁用雪暴child/修前 | 1.64% | 1.55% | 3.31% |
+| 原包/修后 | 1.90% | 3.08% | 11.78% |
+
+完整前后画面已查看：约10秒右下头发与背景重新可辨，雪花/雾气保留；但修后14.117秒白区仍回升至14.22%，该偏亮帧也已查看。逐秒采样白区峰值修前21.32%、修后14.22%；并非整段过曝已消除。逐秒白区有起伏，不支持“严格单调跨帧累积”的结论。16秒短窗不等于长稳或官方密度/颜色正确。前后19/19粒子加载，修后child census仍有非零粒子与batch；提交/完成/失败/呈现分别425/424/0/422与421/420/0/418。9个graph layer均有GPU完成、terminal compositor和next-frame，72/72观测terminal成功，无graph failure；本场景named/visible graph publication列表为空，不能伪称存在publication。粒子经同一终端surface输出，最终Metal截图与后续帧支持上述可见改善。前后p99呈现间隔141.666/150ms，不作性能改善声明。
+
+**身份与回归：**修前CDHash `dc48367ff74804ac275415997e23ae7904b034c4`、exe SHA256 `10177c6a833294c826893dfcbe4d01c75b5f72df44154c71f2dc1f93e29433ea`；修后CDHash `ccadb6a9c71d871b7be7da29b91bd6abee59ecb8`、exe SHA256 `e1eff6d37929cda0f8742b0450cb49c22ea1aa5de41744799fd905ea35ecf310`。同一新App隔离播放2304304373、2131872317各12秒，matrix均PASS、粒子10/10与9/9，完整图已检查；没有这两样本的本批前后同相位对照，230横向雾叠加问题保持OPEN。真实样本根只读，工作区未暂存/提交/推送。本机忽略缓存`docs/scene/evidence/2026-09-27-child-instance-modifiers/`保存增量diff、输入身份、消融操作、测试/运行日志、截图时刻、ROI和独立审查；总批次冻结身份见audit。
+
+<a id="e-2026-09-27-firework-magenta-geometry"></a>
+
+### E-2026-09-27-FIREWORK-MAGENTA-GEOMETRY — 洋红缺陷的既有证据与径向中心位移
+
+**用户缺陷仍OPEN：**用户指出3768903841运行图中的大面积洋红/粉紫色错误。已打开最新Debug App供用户自行切换样本，本轮不运行benchmark、不重建或替换其App/daemon。此次只读输入/历史证据并执行独立CPU几何诊断，产品没有修改。
+
+**已排除的狭义归因：**同一project/PKG SHA256的较早`visual-effects-rope/baseline` App（CDHash `4f33455871b474baf9f883a51c1dbaf6bdee2dd2`，exe SHA256 `e7adcb0124b314122daa350730fef7587352ad5cd9b769444cd17aabbf38fff2`）完整截图同样存在大片洋红。故其存在早于普通粒子straight插值批；两次未锁相，不能证明颜色幅度完全不受后续修改影响。当前五个大型烟花195/198/199/200/201均是同资源的图片动画，普通粒子是蓝白星点，不能把图片烟花当作新粒子shader的验证。
+
+**首个具体几何疑点：**独立quad162的径向Light Shafts采用DIRECTDRAW1/RAYMODE1，origin(2027.68384,-322.18829)、scale(5.95112,2.65980,2.65980)、Z角.09099；四点围成UV中央.25…75矩形，start色(.5098,.4471,.5804)、end色(.6039,.1765,.6039)，exponent0、intensity1.16。颜色参数本就包含紫红，但不能据此将大片铺色判定正确。当时`SceneResolvedMaterialDirectDrawGeometryCompiler`把linear/radial/corner都套入top-aligned规则，以min(point.y)=.25额外平移carrier；该规则此前从linear扩展到radial，只证明共享vertex表达式和可执行性，没有证明径向作者中心应随UV留白移动。
+
+**生产数学执行：**用实际作者常量、现有world-frame的Y转换及生产`SceneMatrix`/`SceneDirectDrawOutputGeometry`/prepared contract计算，当前径向中心的Y-down世界坐标为(1962.430,1767.013)，投到3024×1964 cover窗口为(1550.580,1606.673)，位于画面内。仅取消额外inset、保持作者origin/angles/scale和half-canvas后，中心为(2027.684,2482.188)，窗口(1609.912,2256.953)，位于画面下方。额外平移将中心向上移动约650.28窗口像素、向左59.33像素；这改变空间覆盖，不能归类为单纯颜色选择。诊断读取真实生产几何函数，但不是GPU层消融或官方像素对照。
+
+**后继：**[径向锚点修复](#e-2026-09-27-radial-carrier-anchor)已完成原包App回归并收回radial/corner额外平移；整体颜色parity仍开放。以下保留本诊断当时的纠正门：在不修改颜色与shader公式的情况下，用相同时间/参数对照当前与保留作者中心的径向输出，再检查linear/corner反例，裁定并收缩现有几何补偿职责。当前证据足以优先检查carrier位移，尚不能宣称它是全部洋红的唯一原因；不得直接删紫色、调饱和度或按样本覆盖颜色。此前RAYMODE matrix PASS只作加载/执行证据，不作形状/颜色验收。生产源码哈希、原作者GLSL/材质快照、前后App及输入身份和projection.json保存在本机忽略缓存`docs/scene/evidence/2026-09-27-firework-magenta-geometry/`；原样本只读，工作区未暂存/提交/推送。
+
+<a id="e-2026-09-27-particle-straight-interpolation"></a>
+
+### E-2026-09-27-PARTICLE-STRAIGHT-INTERPOLATION — 普通粒子保留透明RGB后插值与合成
+
+**合同与修复：**公开stock `genericparticle.frag` / `common_fragment.h`先按RGBA、R8白色alpha、RG88亮度alpha转换并采样/跨帧混合，再消费alpha；注释明确保留透明帧RGB参与旧加色行为。旧普通root/child在加载端预乘，透明RGB提前丢失，改变空间滤波与帧插值。现统一请求`.straightAlbedo`，generated fallback保留白RGB+原alpha，R8/RG88用111r/rrrg同格式Metal view保留全部mip；fragment在mix之后乘一次纹理alpha，继续用既有含particle alpha的tint和premultiplied compositor。删除RG88 CPU展开与同文件normal复用捷径，不增加样本分支。八个产品文件相对本批开始快照净减少129行；这不是性能测量。
+
+**共享加载边界：**为避免切换straight导致既有合法纹理丢失，8/16位RGB和灰度alpha只在颜色用途转换；直接读取已解码源通道写入目标，省去完整源RGBA中间副本。4097×4096透明图可缩小，替代上一批为该中间副本设置的64MiB限制；不代表总解码/上传内存无上限。straight多级embedded mip保留作者完整链，8192×8/mapped4096×8不再因选低一级mip造成几何拒绝；mapped-only legacy TEXB2保留合法UV。data用途不转换位深/灰度、不缩放，premultiplied透明源仍拒绝。折射normal即使与color同文件也按`.normal`独立准入；16位embedded PNG作为color成功、同文件normal拒绝，8位同文件与独立副本实际折射像素一致。REFRACT shader未修改。
+
+**生产验证：**普通shader新增160组实际completed GPU读回（空间/两帧插值×五个mix×两alpha×两blend×两背景×两overbright），修前128组失败，修后全部满足2字节容差。RG88全mip及private storage view经真实GPU采样验证；22种generated保持确定性；静态root/child、raw/padded、atlas、REFRACT卡片位置门保持。通道缩放覆盖透明RGB、零alpha、16位大小端非对称字值、真实PNG往返、灰度、行padding/首末行/alpha-first以及decode/bitmap/provider非法输入的CGImage或uploader准入拒绝。核心74项=64通过+10旧隔离fixture缺失skip；共享加载/normal回归初轮55项有1项过时的同文件复用断言失败，更换为用途/像素反例后该6项模块通过，其余49项初轮通过；最终candidate+Rope5项通过。中间测试构造错误、编译期间源码变化和失败断言日志保留，不算通过。Debug `SWIFT_OPTIMIZATION_LEVEL=-O` build成功。
+
+**真实App前后：**同一全自制990027006 PKG `22e24b54f8d1293104754bf7d6721535ee59bb4e3ea87ee271400189aea9daff`，四卡含RGBA加色root、RGBA透明child、R8控制与RG88加色，输入透明红→不透明蓝及透明白亮度→不透明黑亮度。3024×1964截图中心RGB如下；四个5×5 ROI与合同期望最大误差不超过2字节。
+
+| 卡片 | 修前中心RGB | 修后中心RGB |
+|---|---|---|
+| RGBA root | 32,32,159 | 96,32,96 |
+| RGBA child | 26,26,77 | 51,26,51 |
+| R8控制 | 159,159,159 | 159,159,159 |
+| RG88 | 32,32,32（与背景相同） | 96,96,96 |
+
+前后均4/4加载、110提交/110完成/0失败/109呈现，每层110 completed batches。各自ready与后续截图字节相同，符合静止卡；已查看完整输出。此纯粒子场景graph publication为空是N/A，真实GPU完成、terminal窗口像素与后续呈现负责可见结论。matrix前后均PASS但只覆盖加载/运行；像素对照才区分错误与修复。
+
+**执行身份与真实回归：**修前CDHash `1ffdd360975b9ccfae6f67d826f0798cf68429fc`、exe SHA256 `08ec0b21a25ee5ea868380f468969020cf900f6527f2612595eba57da9def57c`；修后CDHash `64b8f6489e5bedd31a636844a2abb15d95034d62`、exe SHA256 `e87b1299394d86e47f061f48525f7d1ee6e867a751f2656e753d8a255bc0608b`，benchmark运行前后验签一致。原样隔离2131872317、1315486372、3768903841各12秒matrix通过，particle分别9/9、2/2、5/5；提交/完成/失败/呈现为404/403/0/402、423/422/0/421、422/421/0/420。131光束与376烟花完整截图已检查，烟花在该截帧实际可见；用户随后指出3768903841中大面积洋红/粉紫色错误，该视觉缺陷保持OPEN。当前matrix未检验颜色正确性，不能把PASS当作此样本视觉通过；尚无本批前后同相位对照，未确定颜色错误是本批引入还是既有合成偏差。
+
+**保留缺口：**1315486372光束原RGBA纹理alpha全255，本批不修其不对称亮根；用户要求顶部入射同时保留中部渐隐渐显，size单位、scalar angle与空间轮廓仍待判别，不增加裁根补偿。鼠标轨迹/官方烟花外观没有本批专项实播验收；没有色彩空间、全格式、全样本、性能或Windows parity结论。全局code-health仍FAIL：4项非Scene既有错误，文件逐一与HEAD字节相同。17个owned路径未暂存/提交/推送。本机忽略缓存`docs/scene/evidence/2026-09-27-particle-straight-interpolation/`保存增量快照、输入、测试/运行日志、完整图及ROI，冻结身份与独立审查见该目录audit。
+
+<a id="e-2026-09-27-straight-albedo-resize"></a>
+
+### E-2026-09-27-STRAIGHT-ALBEDO-RESIZE — 透明大图恢复加载且保留颜色通道
+
+> 后续：[普通粒子straight插值批](#e-2026-09-27-particle-straight-interpolation)已替换源RGBA中间副本及其64MiB限制，并完成普通粒子混合顺序迁移；本节保留当时实现、身份与证据。
+
+**断点与实现：**在普通粒子透明度顺序核对中发现，直接切换其纹理purpose会额外拒绝现有透明大图。因此本批先修共享straight uploader的实际缺口，没有切换普通粒子材质或修改光束几何。`SceneImageTextureUploader.rgbaData`仅为`.straightAlbedo`的缩小复用已有四通道独立双线性函数；alpha为零的RGB也保留，不经过CG预乘。新增分支在`sourceRGBA`复制前要求Metal合法源轴、正输出、逐轴不放大及源像素≤4096²，通过除法检查预算；这只限制新增完整源RGBA暂存≤64MiB，不是总解码/加载内存上限。原opaque与原尺寸路径保持原行为，数据用途不准缩放，已预乘/未知布局仍拒绝。Candidate只对已成功straight上传、合法TEXB3 encoded、源physical等于mapped的归一化放宽透明源，删除重复opacity解码；padding、损坏mip、非法几何与source identity边界保留。两产品文件合计净减5行，无新算法、owner或普通帧工作。
+
+**定向执行：**新增测试在改产品前因透明candidate无法加载失败；修后candidate门通过，横/纵双色2→1为RGBA(128,0,128,128)，3→2非整数采样为(191,0,64,64)/(0,191,64,64)，零alpha颜色(17,91,203,0)保留。normal缩放、已预乘输入、超过源预算的4097×4096均拒绝。4097×2透明PNG分别经直接文件与TEXB3加载为4096×1、像素(127,127,127,127)；直接图片生成13级mip，单级TEX保持1级，已有authored lower-mip/padding/malformed反例仍通过。共享原始纹理、sampler用途、折射GPU、用户属性纹理、静态模型、上传completion、decode预算及noise回归共57项PASS。Debug `SWIFT_OPTIMIZATION_LEVEL=-O` build成功；不是性能验证。
+
+**实际App前后：**全自制990027005包含8×2控制卡与4097×1024透明PNG卡，两者同RGBA(255,64,0,128)、白背景、REFRACT但无normal（零位移），走现有framebuffer capture和最终合成。修前只加载/显示1/2；修后2/2，日志确认大图上传4096×1023。3024×1964最终截图中，控制卡前后bounds均(312,891)…(1038,1072)、中心RGB(255,159,127)；大卡从缺失恢复到(1985,891)…(2711,1072)，同中心RGB及132314个命中像素。已查看前后完整图；两次均110提交/110完成/0失败/109呈现，ready与后续截图保留。纯粒子场景不产生graph output publication，其字段为空为N/A；GPU完成、framebuffer capture、terminal窗口像素及后续呈现证明这组可见结果。两个matrix分别声明修前1与修后2粒子，PASS只用于各自预登记状态，不把修前PASS当正确渲染。最初一次benchmark把sample-root多传一层Scene导致路径错误，原失败日志保留，未产生视觉结论。
+
+**身份：**修前App CDHash `7d14f5a02c107194e6e871f866c2b4aa228cabba`、exe SHA256 `04bc68e4d8a608af2fa42f8e830f9ab082a37bf091d3158cda95189660d68942`；修后CDHash `1ffdd360975b9ccfae6f67d826f0798cf68429fc`、exe SHA256 `08ec0b21a25ee5ea868380f468969020cf900f6527f2612595eba57da9def57c`，benchmark前后签名检查通过。输入PKG SHA256 `7d733adfeae7c6e5805a5c1073ec89a0e34019e55255e87ff49c54cd34d24060`相同；before/after report SHA256分别为`7cdd8c0130d742b8881f1d294681a35906caff65877d86c7d5b7c9097241cff5` / `cf6f88956b3234277bcdf17ccc8fd99698620be83cde9039f7266087d5535d84`。
+
+**真实回归与未闭合门：**隔离3768229922的2/2折射粒子加载，173提交/172完成/0失败/171呈现；完整matrix仍FAIL：utility named consumers实际9/预期0，graph succeeded缺少预期205（该次脚本将205隐藏，dynamic visibility标为dormant accepted）。保留未修改的matrix与失败报告，未作修前同输入对照，不能宣称本批新增或修复这两项差异，也不能计为整样本通过。全局code-health仍有4项非Scene错误，对应文件逐一与HEAD字节相同；不是本批引入，整体门仍FAIL。模型/属性消费者只有专项测试，未作它们的实际App画面回放。没有官方缩放核/色彩空间parity、全集或性能结论；普通粒子跨透明边缘/帧混合顺序仍待迁移，1315486372亮根未修。五个owned路径未暂存、提交、推送。本机证据缓存`docs/scene/evidence/2026-09-27-straight-albedo-resize/`保留快照、前后图、日志、输入与冻结审查；原真实样本只读。
+
+<a id="e-2026-09-27-lightshaft-geometry-ablation"></a>
+
+### E-2026-09-27-LIGHTSHAFT-GEOMETRY-ABLATION — 同状态区分尺寸与标量轴候选
+
+**问题与执行：**承接用户确认的1315486372中部亮根，以及“不要把算法复杂化”的要求，本批只在隔离诊断中改变GPU输入，不添加产品分支或渐隐/裁根算法。使用最新生产parser/simulator（含Sphere与signed-drag修复）和生产Metal pipeline，固定原始layer52作者定义、seed52、15秒预热、1/60秒步长、1920×1080正交画布投到960×540、layer scale2/2/1、原RGB纹理、additive/overbright.5。本批源码集合哈希在本机缓存；它是独立GPU回放，不是新App或与先前App锁步。六组分别为current XYZ/current half-size、只用已有rotation.x放X、只用同值放Z、零旋转、current XYZ且发布宽高×2、Z且宽高×2。X/Z只是冻结既有随机状态后的轴消融，不模拟另一parser或Mirage的随机数消耗。
+
+**验证：**每组0到34秒每2秒取18帧，共108个command buffer实际completed；每组77条粒子观察，逐条证明出生记录及已记录的id/age/lifetime/size/alpha/position/rotation/velocity字段相同；未导出完整FrameSnapshot。GPU回读四角与纹理亮峰；所有变体四角平均中心差小于.001像素，double相对中心的两倍位移最大误差.00027466像素。74个可见亮峰7×7 ROI满足纹理peak×alpha×overbright亮度下限，允许3字节舍入误差；加色重叠下它不是粒子独占归因。
+
+| 变体 | alpha≥.5且峰值在屏内的观察数 | 峰值在10% inset区域的观察数 |
+|---|---:|---:|
+| current XYZ | 15 | 11 |
+| X-only | 15 | 11 |
+| Z-only | 15 | 11 |
+| 零旋转 | 15 | 10 |
+| current XYZ / 尺寸×2 | 1 | 0 |
+| Z-only / 尺寸×2 | 0 | 0 |
+
+这些是同一粒子跨时间的重复观察，不是77个独立粒子，也不是全集统计。具体16秒id7、size220.161、alpha1，current亮峰为(522.729,122.564)；X/Z/zero的y依次121.735/114.665/111.179，仍在内部；尺寸×2后为(515.958,-4.943)，越过上边。已直接查看该时刻current与double的完整GPU输出，后者光线从顶部进入。此前亮根包的旧Sphere随机流/id6不能与本次id7拼接为同一轨迹。
+
+**用户澄清与淡入淡出：**用户进一步确认“主要从顶部进入，但中间其他区域也有渐隐渐显的光效”。因此内部峰值的存在/数量不是失败指标，尺寸×2也不是接受方案。补充保持同一simulator轨迹、只绘制id7的九个生命周期阶段：alpha从约.016/.212/.507升至1，再降到约.500/.199/.039；实际峰值红通道从2/21/49升至97或98，再降到49/19/4，与当前alpha×纹理峰值×.5的误差小于3字节。九个GPU命令全部完成，确认此轨迹的透明度变化实际到达像素，而不是CPU-only渐变；这是原fadein=.1及当前缺省fadeout=.5的执行证据，不证明官方缺省/视觉时序，也未覆盖所有内部光效。完整数值与图像在fade-results.json，不能用9点采样宣称帧间完全连续。
+
+**结论与边界：**该冻结轨迹下，单改角度轴仍保留内部亮端；尺寸倍率影响其是否越过屏幕边界，但用户要求保留中部柔和渐变，因此不能以“移出屏幕”取代形状正确。下一门核实既有`size * .5`作者单位及亮端空间轮廓，并保持作者淡入淡出，不增加裁根、软边、亮度补偿或按位置选择算法。此实验不能证明×2就是官方正确倍率，也不能外推所有seed/粒子/样本。实际产品未改，未作App组合/graph publication/性能/官方parity声明；公开initializer页与Mirage的共同half-size仍不足以裁定作者单位。三份owned文档未暂存/提交/推送；缓存`docs/scene/evidence/2026-09-27-lightshaft-geometry-ablation/`保留六组108图及九点fade图、源码身份和ROI结果，独立审查与文档门另存audit。
+
+<a id="e-2026-09-27-signed-drag"></a>
+
+### E-2026-09-27-SIGNED-DRAG — 开源逐项对照与运动负阻力
+
+**合同与范围：**用户要求逐项对照本地 Mirage 的光线/粒子定义并考虑成组重写。新[参考对照表](miragewallpaper-rendering-reference.md#115-粒子与光线逐项对照2026-09-27)固定其开源 revision `f5049582e3e334cac6b177bbbccb39736190750a`，按实际消费者、缺省行为和判别输入列出两 emitter、八 initializer、十二 operator，并区分贴图粒子光束、shader effect 与 light object；未运行 Mirage，不将其标量轴/无条件积分或未闭合 volumetrics 作为官方合同。[官方 Operators 文档](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html)明确线性和角运动允许负 drag 加速，并要求对应运动组件。既有两种 plan 将 drag 强制 `max(0, value)`，与该合同冲突。
+
+**产品修复：**Movement/AngularMovement 现保留有限 signed drag；非有限输入在 prepare 回退零，不增加每帧解析。Simulator 先算候选速度和位置/角度，二者均可转换为有限 Float 才同时提交；否则仅拒绝该粒子当前算子，安全 peer/后续算子继续。失败去重为 `invalidOperatorState`，随既有 frame snapshot 恢复。该诊断当前仅 Simulator 内可读；普通帧 runtime 没有新增外显管线。没有任意限制合法负 drag，没有新模拟器、注册表或样本分支。
+
+**生产行为证据：**固定 dt=.25、速度1、两步、drag=-2/0/+2：线性和角运动修前负阻力与零相同，速度1/位移.5；修后分别得到速度2.25/1/.25、位移.9375/.5/.1875。无运动组件保持位置/角度不变。两运动类别各覆盖极大有限负值、Double有限但Float超限、多步指数放大，共6组24步，保持前态原子性、Float有限、安全peer/下游alpha继续、诊断去重及snapshot重放；另有两组速度仍有限而位置/角度单独越Float上界反例。输入NaN/Inf同样保持有限。测试操作真实生产Swift，不以源码结构作为结果。
+
+**实际App画面：**全自制990027003三行方块，同初始X/速度30，负/零/正drag=-.2/0/+.2，长寿命、无预热。修前红/绿X质心均534，蓝463；修后同屏红640、绿527、蓝460（3024×1964），即负阻力从与零重合变为领先113像素、正阻力落后67像素。已查看最终截图；两次启动未锁同一绝对相位，仅比较各自同屏相对运动，不以跨运行质心差当精确时间公式。修前100提交/100完成/0失败/99呈现，修后101/100/0/99，均3/3加载且三层提交非空。初版matrix错误要求starttime0的ready时已有3粒，修前报告因此FAIL；输入PKG和画面有效，失败报告与原matrix保留。纠正门为loaded3及实际非空提交/像素后新版PASS。纯粒子graph字段0/false为N/A，不冒充graph publication，最终呈现/像素和批次完成负责可见结论。
+
+**实际执行身份与回归：**修前复用Sphere批Debug `-O` CDHash `de4bd28981e28185fd8ec7fc2a0e0e0ed1c627be`。修后同配置构建、严格验签成功，CDHash `7d14f5a02c107194e6e871f866c2b4aa228cabba`、executable SHA256 `04bc68e4d8a608af2fa42f8e830f9ab082a37bf091d3158cda95189660d68942`，无debug dylib，各运行前后验签一致。原始隔离2131872317与1315486372各12秒、PCM夹具，9/9及2/2粒子层加载；整景计数分别406/405/0/404、406/406/0/405，terminal compositor与next-frame均true。没有把原音频烟花短窗无burst认定为修复。
+
+**普查与证据上限：**只读扫描真实根内173个PKG（不是173个样本）、446份包内particle JSON，0个negative movement/angular drag，扫描错误0；不覆盖loose文件、未显式声明的stock默认或实际激活率。因此负drag是明确公开能力缺口，但不是1315486372中部亮根的已知原因。形状/位置优先事项仍是size单位、scalar角度、基底和材质资源，不因本批关闭。Simulator/runtime/rendering 128项=118通过+10旧隔离fixture缺失skip；补充position-only反例后其所属测试重新通过。Debug构建/严格验签通过；全局code-health仍4个非Scene既存行数错误，均与HEAD字节相等，门仍FAIL。未做full matrix、官方像素/时序parity、长稳或性能基线。八个owned文件未暂存/提交/推送；本机忽略缓存 `docs/scene/evidence/2026-09-27-signed-drag/` 固定源码增量、对照索引、生产与App证据。
+
+<a id="e-2026-09-27-sphere-emitter"></a>
+
+### E-2026-09-27-SPHERE-EMITTER — 修复球形发射的固定轴回退
+
+**合同与根因：**[官方Emitter文档](https://docs.wallpaperengine.io/en/scene/particles/component/emitter.html)规定Sphere范围、Directions各轴倍率和Distance Min/Max。生产`randomSphereOffset`最多8次在单位球内拒绝采样，失败后硬置`(1,0,0)`；当Directions为`(0,1,1)`、固定非零半径时，乘倍率后归零，连带`makeParticle`的径向初速度消失；三维有效轴则人为集中在正X。固定有效轴为1、固定半径的反例不依赖非均匀倍率如何解释欧氏距离。Mirage仅作为用户授权的第三方职责参考，没有把它的RNG作为目标合同。
+
+**实现：**既有SpawnPlan准备active-axis bitmask，保持当前`abs(direction)>1e-6`阈值；原Simulator按3D均匀z+方位角、2D平面角、1D正负号直接生成方向，0D保持原点。取消拒绝循环与固定轴回退，没有新owner、registry或sample分支。既有径向体积采样、Directions绝对倍率、Sign、CP/实例变换及准入保持；每颗最多2个方向随机数，所有后续随机数消费和同seed轨迹会改变，不能声称官方随机序列等价。阈值与官方径向分布仍未核验。
+
+**生产反例与行为门：**seed262085、YZ固定半径10在旧生产Swift上确实输出半径0、speed7变成0，新代码输出半径10、速度7，速度与径向误差2.22e-16。8种轴子集各20,000粒覆盖零轴、单轴、三种平面和3D；旧3D有47个固定轴点，新3D与所有2D无固定轴点。固定半径、均值/二阶矩、正负Sign与非均匀倍率、2到4半径的体积CDF变换后取值范围与均值、同seed及含后续出生的snapshot恢复检查都通过；没有完整经验CDF或分位点验证。新断言运行旧生产二进制明确FAIL（0不等于10），新版通过。概率统计只界定本项目的无轴偏置策略，不证明官方分布或所有seed全集。
+
+**实际App位置反例：**全自制`990027002`两粒子工程，layer262085作为项目seed，YZ固定半径150、速度0、绿色方块；原点红色小标记独立保留。修前两者在3024×1964截图中的质心均(1511.5,981.5)，修后绿色移至(1511.5,912.5)、红色不变；按给定输入/当前PRNG/投影预测间距69.211像素，实测69.0，误差0.211。直接查看前后最终截图。两版本各5秒均2/2层加载，layer262085各111/111 frames/batches/instances完成；整景测量窗修前111提交/111完成/0失败/109呈现，修后111/110/0/109。material graph字段0/false在纯粒子工程不适用，不冒充graph publication；真实最终像素、批次完成和连续呈现共同证明该位置修复。report SHA256修前`d7a4247f5210d36a98ec23d4d586a7b7cb36bc25184643dd851f251952ed7c07`、修后`fc3801717c268fe1ac21fb0a66cd3d035ffade970f32e38867d7125c0fdc6f8d`。
+
+**构建身份与原始回归：**修前使用上一批签名Debug `-O` CDHash`1c35ce0e8bafa1607e9a2f1b6763d62595d761e7`；修后同配置构建与严格验签成功，CDHash`de4bd28981e28185fd8ec7fc2a0e0e0ed1c627be`、主可执行SHA256`8f67d8571464a08b204bd43786bb2ffc39ec7519767b7250f7683aeb5f12fde3`（无debug dylib）。两个App运行前后签名身份一致。原始隔离`2131872317`与`1315486372`各12秒、2秒周期取图，2/2 PASS；分别measurement379/378/0/377及399/399/0/397，9/9与2/2粒子层加载，terminal compositor、next-frame均true、GPU失败0。报告SHA256`87a603f1397ee752ef787a593bf482650e7e9cfa6a988f5da793a3ee973b62c4`。夜市沿用PCM夹具，原始audio烟花短窗无burst仍按既有积分证据保留，不能据此认为完整烟花修复；本批也不解释光束中部亮根。
+
+**门禁与边界：**Simulator/runtime/rendering合计126项，116通过、10项因旧隔离真实样本fixture路径不可用而skip；新增生产分布门与现有GPU rendering门已执行。Debug优化构建、严格验签、diff检查通过；code-health仍4项批外非Scene行数错误，均逐文件与HEAD字节相等，门仍FAIL。诊断工具的初版snapshot方法名错误、probe输出与before目录同名导致两次构建前置失败；像素检查首次误将加色重叠的黄色中心排除，已改为独立R/G通道并复测，不归因产品。官方绝对size/legacy scalar旋转、完整光照/烟花外观、full matrix、官方RNG与性能基线仍开放。六个owned文件，未暂存/提交/推送；本机忽略缓存`docs/scene/evidence/2026-09-27-sphere-emitter/`保存源码快照、GPU/App身份、输入与图像。
+
+<a id="e-2026-09-27-lightshaft-root"></a>
+
+### E-2026-09-27-LIGHTSHAFT-ROOT — 中部亮根复现与尺寸/旋转判别夹具
+
+**结论及归因上限：**用户描述后续出现、靠近中部、两端宽窄不一且根部突兀的光线。用户已确认样本`1315486372`；其layer52的原始隔离App与独立生产模拟器/Metal回放均出现该类形态；已对应用户描述的样本与症状类型，但未锁定用户观察的同一粒子/时刻，也没有宣称修复。128×512原始TEX（SHA256 `3649aac18d74a7a67d4f3fb05b79d36846d21fc0a6f61f24bf5563afff867b21`）所有alpha为255，additive材质以RGB承载两个不对称长条，亮而宽的圆端位于上部；亮度峰值在x85/row94，首尾RGB黑。当前screen正交几何为仿射四边形，未发现几何本身制造锥形、重复半尺寸或错误追加绘制顺序的证据。原作者bloom关闭。以上不能证明现有尺寸/角度解释正确。
+
+**出生到像素：**使用原始作者定义、seed52、15秒预热、1/60秒步进和生产parser/simulator/CameraFrame/uniform/instance/Metal pipeline，独立35秒回放原始layer模型与贴图。8.333秒出生的id6 size168.5在10秒时alpha1，纹理亮峰经实际生产vertex读回落在960×540目标的(289.8,162.8)，真实渲染像素中对应亮端；另有更小/更大的粒子分别在内部或越过上边缘。16个可见峰值ROI检查通过。诊断vertex只修改入口返回和额外buffer写出，保留位置算法；独立回放不是完整App、未与App锁定随机/时间相位，不能把其particle ID归入App截图。加色叠加下ROI亮度下限只证明峰值附近确有输出，不证明每颗粒子独占该亮像素。
+
+**真实App及身份：**使用上一固定几何批的签名Debug `-O`（无debug dylib），CDHash `1c35ce0e8bafa1607e9a2f1b6763d62595d761e7`，executable SHA256 `ce11690874b18e3ab0ee30e43dc5121d12f7f7cf73e73543476f8fec6675f8ee`，前后验签一致。原始1315486372隔离副本35秒、2秒周期截图，2/2粒子层加载；layer52的1649帧/batches与6261 instances全部完成，整景measurement1649提交/1649完成/0失败/187呈现。terminal compositor消费与next-frame成立，graph terminal成功2次；report SHA256 `79aaaeacf2bf3cec43b3d73bcb7e7b4d89a179c69fea82182b46657a384f9d13`。提交数不等于呈现数，未作性能结论。
+
+**可复用官方对照输入：**全自制9卡工程含size100/200/400的单位层彩色方块，及size140的零角、scalar0.6、X/Y/Z单轴0.6、XYZ0.6四色长条，均瞬时单粒、静止长寿命、黑底无bloom；没有复制Workshop资产。当前App实际5秒9/9层加载、初始9粒，173提交/173完成/0失败/172呈现，9层各173batches/instances完成；报告SHA256 `78b962a5bb32a13188b85f46aa1c7a23a597b39c8c0897745dd8d20ea9c38dd1`。3024×1964实际窗口中方块宽91/182/364像素，按cover投影换算50.04/100.08/200.16场景单位，即当前宽度约为作者值×0.5004。图中scalar与XYZ姿态肉眼相符，未做scalar精确像素断言。纯粒子夹具没有material graph：graph terminal/next-frame/consume字段为0/false，不冒充graph成功，其连续呈现只由GPU批次、呈现计数和截图负责。首轮错误要求image loaded ratio=1导致matrix FAIL；修正为particle loaded/initial live各9后重跑PASS，失败报告保留为夹具配置问题。
+
+**目标合同与下一门：**[官方initializer文档](https://docs.wallpaperengine.io/en/scene/particles/component/initializer.html)描述随机size/rotation范围，没有给出此处需要的作者size→发布宽度倍率或旧标量三轴映射；公开stock仅定义发布宽度如何展开，用户指定Mirage的半尺寸习惯亦非官方证明。当前仅更正RenderSupport中把半尺寸说成已确认Wallpaper Engine合同的注释，保留行为。owner仍是既有instance size上传与initializer角度解析，无新增fallback；在固定官方版本、1920×1080 viewport运行同一自制工程，以方块边界和标量对各轴卡片的几何对应判定，取得结果后统一修正并退休这两项未知。未取得官方运行结果前不通过样本分支、裁掉根部或强制拉长修图。
+
+**验证及保留范围：**本批产品增量仅注释，前后去除注释的源码逐字相等；不为注释重复构建，实际运行身份明确复用上批App。文档门与独立只读审查另保存在冻结缓存。本机忽略缓存`docs/scene/evidence/2026-09-27-lightshaft-root/`保留回放源码/输入、实际GPU读回/PNG、报告和自制工程。未完成官方parity、光照最终形状验收、full matrix或性能基线；未暂存、提交或推送。
+
+<a id="e-2026-09-27-particle-fixed-geometry"></a>
+
+### E-2026-09-27-PARTICLE-FIXED-GEOMETRY — 固定朝向 Sprite 保留模型三轴
+
+**目标与实际修复：**local `fixed && !sizeIsWorldSpace` Sprite 原先把模型变换后的平面正交化，再错误套用模型 X/Y 列长度，旋转出的 Z 分量完全不缩放。现有 CameraFrame 的 fixed 轴解析保留 `M×right/up/forward` 三列，既有 LayerUniforms 携带几何三列，真实 vertex 对旋转后的局部点直接线性组合；中心仍按 w=1 单独变换。反射、剪切、奇异模型的零列不重建成单位轴。原方向/refraction 基、Trail/Rope、worldFixed、general world-size 与 screen/upright 路由没有扩大职责。CPU/MSL ABI 为256字节，通过真实 vertex 读回验证。
+
+**来源与可执行反例：**用户指定 Mirage 的公开 `SceneCompiler.cpp` 仍写入 identity orientation 常量，不能作为完整相机/axis生产语义。本批采用仓库公开 stock `common_particles.h` 的 `ComputeParticleTangents/ComputeParticlePosition`，经现有 normalizer、glslang、SPIRV-Cross、Metal实际执行给定三轴/模型；与真实 CameraFrame→uniform→生产 vertex 输出对照。仅诊断改造 vertex 返回形式和输出 buffer，不替换位置/切线算法。12组包含 identity、等比3倍、axisY、斜轴、Y翻转、镜像、旋转模型、父级非正交模型、单轴零/全零/rank-one。旧代码仅identity通过，其余11组失败；最大分量误差4.0178275。修复后最大误差9.54e-7；60组worldFixed/world-size/screen/upright控制最大变化1.19e-7；72组折射切线读回完全不变。这证明给定项目局部轴与模型的几何一致性，不能独立证明官方axis解析或camera uniform来源。`comparison.html`只将GPU四角以诊断投影绘制，不是官方画面截图。
+
+**真实App：**签名Debug `-O`，CDHash `1c35ce0e8bafa1607e9a2f1b6763d62595d761e7`，主可执行SHA256 `ce11690874b18e3ab0ee30e43dc5121d12f7f7cf73e73543476f8fec6675f8ee`（无debug dylib）。只在隔离1315486372副本把layer52设为scale2/3/5、Z角25、fixed轴1/1/1、显式XYZ粒子角及一个静止长寿命粒子，保留原材质和其它层；这不是原作者默认画面。8秒中52层165/165 frames、batches、instances完成，整景165提交/165完成/0失败/163呈现。原始副本回归52层161/161 frames、batches及717/717 instances，整景161/161/0/159。两组均终端compositor消费、next-frame与0 GPU失败，签名前后身份相同；人工看过受控最终截图。对应报告SHA256为`249304662bc341eea5e681d84c6fc22b7ad7b59dd7cf4c72d4daca67f8d02350`、`b1e3f0a9a2167a05a86ae06df80876c1ccc3c0d9d730d20b550515ab4334e91c`。精确位置证据由GPU反例负责；该App截图没有单层ROI或官方同相位golden，不据此认定光束外形/绝对位置正确。
+
+**验证与边界：**rendering/rope/camera-frame/refraction-pixels共59项通过；新几何门在修复前真实产品Swift/MSL上11组失败、修复后全部通过。签名Debug构建成功。首次checkpoint误写不存在的camera_projection测试模块，其他45项已执行；改正模块后完整59项通过。code-health仍有4项已存在、字节等于HEAD的非Scene行数超限，本批没有引入，门本身仍为FAIL。尚未完成原始screen光束legacy scalar角映射、完整相机/world模式、原始烟花最终轮廓/位置、Windows parity、full matrix或性能基线。九个owned文件，未提交、未推送；本机忽略缓存`docs/scene/evidence/2026-09-27-particle-fixed-geometry/`保存冻结源码、给定输入、原始GPU读回、实际运行身份与截图。
+
+<a id="e-2026-09-27-child-capacity"></a>
+
+### E-2026-09-27-CHILD-CAPACITY — 保留烟花爆发数量与活跃容量预算
+
+**根因与实现：**child模板在prepare时无条件将作者maxcount压至1024，`fireworks1hit`的8500 instantaneous因此最多出生1024。现模板保留作者容量（沿用simulator最多20,000），`SceneParticleChildRuntime`按作者顺序为每个新system完整预留；每depth仍最多64个活跃systems、65,536活跃simulator容量，容量不足在构造/预热/seed推进前局部拒绝整个新system并诊断。static在拒绝大声明后继续扫描后续可容纳声明；spawn/death/follow与depth2同政策。容量直接由既有systems推导，退休释放、snapshot恢复，无第二registry。Mirage的authored instance capacity与实例回收仅作用户授权的第三方结构参考；本项目的数值预算不是官方合同。
+
+**行为正反门：**同一生产parser/runtime/simulator/Metal实例装配harness，批前single与prewarm均1024、三event均4096、后续小peer为0；批后8500 burst和prewarm各8500，三event各60,000（3×20,000，第四个完整拒绝），static跨过65个大声明后仍接纳第66个5536小peer，总容量65,536。depth1=60,004时depth2仍可接纳60,000，证明深度预算独立。短寿命系统最后可见与新系统共存，连续装配数量25,500→8500→8500→8500→8500；每步活跃容量/系统数守界，rollback/retry输出、system IDs、nextSeed和nextSystemID一致；容量拒绝诊断有断言。runtime/simulator/rendering/rope/camera五模块通过，随后增强诊断与逐步容量断言的定向门再次通过。普通Debug与Debug `SWIFT_OPTIMIZATION_LEVEL=-O`构建、严格验签通过。全仓code-health仍有4项HEAD原有非Scene文件行数错误，逐文件字节等同HEAD，未修改或豁免这些门。
+
+**实际烟花：**沿用前一诊断批的隔离作者audio-mode-off副本，只有共享root emitter mode3→0，真实源不变；18秒/2秒after/1秒周期。普通Debug report为`4633e9678dec972f876e01a7665845b3100b58782afef8bd80963ca6105b7677`；529/832分别1,668,508与1,756,369实例全部GPU完成。实看series-0009为密集圆团与外围火星。优化Debug report SHA-256 `cd66fd9742ad5673733118eb17cb9d538ff32b76c1655956c2a26caa5f52fec2`，CDHash `d58943ff4a77a0227ee4333d59c5c4deeca6863f`、executable `010ada5886e9b6f959d84176e956aeee29ddb1618a4520b3c2efa698ab5548cb`（优化构建直接链接主可执行文件，无独立debug dylib）；两层各739/739 frames，1335/1335与1346/1346 batches，3,575,030/3,575,030与3,767,630/3,767,630 instances，0失败、无容量拒绝。整景measurement740/740/0/738提交/完成/失败/present，既有6个material graph的42条terminal success、compositor/next-frame持续成立；不冒充粒子独立provider publication。周期截图有密集展开/消散，整景未锁相，不作精确轮廓或位置golden。
+
+**原始配置回归：**同优化App对原始`2131872317`和`1315486372`各12秒/2秒after/1秒周期，2/2 PASS；report SHA-256 `6768f237a44b5e3a4c25591b826a18b615281e44dcf61608cf1b3f7d796b033b`。夜市measurement421/420/0/419，layer1375全部647batches/24,665instances/29refraction batches完成；光束441/441/0/439，layer52全部441batches/1692instances完成；terminal与next-frame持续，无容量诊断。529/832原始音频短窗仍没有非空提交，符合上一证据的未闭合边界。
+
+**成本与上限：**普通未优化Debug短窗约30.7 driver FPS、CPU p95=50.008ms，优化Debug为约53.8、CPU/GPU p95=6.923/9.588ms；均含每秒截图，优化轮开始阶段与harness编译重叠，没有三个同身份基线，不作性能提升、稳态或长稳结论。65,536只限定每root每depth活跃simulator预留，retired render births、frame snapshot、scratch和GPU槽另有生命周期，不能据此声称总字节峰值。完整预留在密集并发时会比旧小容量system更早拒绝后续系统；拒绝保持局部且可观测，不承诺恢复全场景任意规模。原始作者音频触发、完整烟花形状/位置、child预热基础成本、全场景资源压力、Windows parity及Release/full matrix仍开放。本批两产品文件、一测试及三文档，未提交、未推送；载荷为本机忽略缓存`docs/scene/evidence/2026-09-27-child-capacity/`。
+
+<a id="e-2026-09-27-firework-emission"></a>
+
+### E-2026-09-27-FIREWORK-EMISSION — 非零音频不等于达到一粒的发射量
+
+**定位与范围：**本批仅诊断并更正队列，无产品/测试源码修改。`2131872317`的529/832共享`fireworks1.json`：rate=1、instantaneous=0、audio mode=3；实例count×rate分别为0.4692/0.4818。当前项目响应先按所选频段及channel count求值再做默认平方，是项目近似，不是已验证官方公式。非零consumer事件只能证明输入被消费，不能证明累计发射量达到1粒。来源为作者数据与生产代码执行；未研究官方私有实现，未改变音频响应策略或恢复挂起的节奏任务。
+
+**受控生产执行：**编译真实parser、audio response、simulator、system spectrum analyzer与Debug PCM夹具方法；30Hz PCM输入、1/60模拟步进。PCM response最大0.03303652；18秒两层累计量0.07043584/0.07232734，120秒0.48622943/0.49928674，均零birth且余量保留。全频段满响应分别2.1333/2.1秒首发，18秒各8粒；静音均零。24组层/时间/输入检查中，累计量与birth+余量最大误差4.41e-12，birth=death+live守恒。这是受控积分证据，不等同异步App的逐帧音频积分，也不覆盖子系统/GPU。
+
+**同App实际消融：**原始副本与仅将共享root emitter的`audioprocessingmode`从3改0的隔离副本，各18秒、2秒after、1秒周期；逐PKG entry与JSON核对只有该字段改变，两组仍启用同一PCM夹具。原始529/832子系统始终为空、无非空粒子performance行；mode-off后死亡子系统实际生成，两层分别1306/1306与1312/1312 batches、417919/417919与438610/438610 instances完成，各724/724 frames、0失败。probability=0的distortion child按作者声明不生成，不能计为漏加载。人工检查mode-off series-0005看到橙色放射爆点，series-0009看到散开火星；原始同序号没有对应橙色烟花。整景未锁相、其他粒子仍运行，该对照证明触发后可见，不证明正确爆炸轮廓、绝对位置、密度或逐层像素归因。
+
+**身份与输出：**沿用上一upright批Debug App，HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d`加保留dirty；CDHash `bcd6a59ffd917f3eb6a635f065edd6b4d0526697`，executable SHA-256 `62d56243daa9b0da8885bc58a49600f44ed7c6377e95e7736fa6abad3f17716f`，debug dylib `8c960ea1aac5dfd464587aee0a186900ec78cf2490d9afa45dfa4639012b15fe`。两份报告均PASS且运行前后验签；report SHA-256依次为`5d47dc38ce464c513661bfc68ccc5636f72723253b62bf0a3d237d350629559a`、`065277b5ef5e8b595c58cfeb7e239d13c97651054f712de3d8fa8cc9f5ac96f2`。measurement提交/完成/失败/present为726/725/0/724与725/724/0/723；每组既有6个material graph都有42条terminal success及compositor/next-frame证据，这些graph层不冒充529/832的独立provider publication。真实样本根未改，runner的App/HOME副本已清理。
+
+**结论上限与后续：**当前证据排除“这个18秒非零输入窗口足以证明丢birth”的推断；不证明官方音频灵敏度正确，也未修复原始作者烟花。继续处理已登记的8500 burst受每子系统1024限制的密度缺口，并核对基本形状/位置；必须在有界总资源预算下验证收益，不能简单抬高所有子系统上限。无性能、Windows parity、Release或full matrix结论。本机忽略缓存`docs/scene/evidence/2026-09-27-firework-emission/`；本批只更新两份文档，未提交、未推送。
+
+<a id="e-2026-09-27-particle-upright"></a>
+
+### E-2026-09-27-PARTICLE-UPRIGHT — 系统/世界竖轴与相机 roll 分离
+
+**合同与首断点：**[官方renderer说明](https://docs.wallpaperengine.io/en/scene/particles/component/renderer.html)区分Screen与Upright，并由Worldspace决定orientation是否独立于粒子系统。旧CameraFrame将worldUp设为-cameraUp，导致Upright随相机roll/tilt退化为Screen；且在固定up后，旧按cameraRight点积选择right符号的逻辑会在roll90度附近镜像。现local Upright取已含Y转换的最终layerModel第二列，world Upright取固定负Y纹理竖轴；非退化right固定为cross(up,forward)。平行时将cameraRight投影到垂直up平面，再以确定性备用轴处理完全退化，up保持权威。fixed原axis/model逻辑收敛到同一CameraFrame入口，移除Renderer包装；screen与REFRACT独立screen view basis不变。负Y符号和pole处理是现有产品坐标约定与项目策略，不冒充官方数值合同。Mirage当前identity orientation常量没有提供完整相机行为golden。
+
+**实际GPU几何：**22组Sprite从真实CameraFrame到生产uniform/Metal像素读回，对照明确指定的期望轴：world/local roll0/89/90/91/180、native projection五组、local旋转/非均匀缩放/镜像/零列、world独立于layer旋转、倾斜native与canvas透视。旧16组不符合期望，候选22组全符合；例如local父层Z90度，旧卡片32×64且左右红绿，现64×32且上下红绿。测量仅由layerModel决定orientation来源，几何draw model固定identity以隔离本批，不证明整层位置/尺寸全链等价。before adapter只适配新增参数并复用旧fixed选择，非fixed仍执行旧worldUp=-cameraUp。平行与完全退化轴有确定/正交CPU门；fixed非默认axis/worldFixed和screen回归保持。补7组SpriteTrail实际GPU：5种roll与tilt有限非空，正对竖轴时卡片侧向零面积、GPU完成后目标保持clear，不承诺官方退化或完整Trail几何。
+
+**验证与身份：**rendering/runtime/rope/camera-frame/refraction-pixels共90项运行，10项既有条件跳过，其余通过；Debug build与严格验签通过。HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d` 加前批dirty；4产品Swift+rendering test增量diff SHA-256 `dbb0d051df9b3f00857a2944e65cd841a03e9608ac347611d38734eca69ed47b`。CDHash `bcd6a59ffd917f3eb6a635f065edd6b4d0526697`；executable `62d56243daa9b0da8885bc58a49600f44ed7c6377e95e7736fa6abad3f17716f`，debug dylib `8c960ea1aac5dfd464587aee0a186900ec78cf2490d9afa45dfa4639012b15fe`。
+
+**语料与真实执行：**现有172样本census中10样本含显式renderer orientation，定向读取14声明发现3个Upright样本（1511889295、2998757800、3780119725）；只证明声明。隔离1315486372、1511889295、3780119725各12秒/2秒after/1秒周期，3/3运行门PASS，report SHA-256 `87266d547b0390062b04fa3054b2da5147ec99f5c0edac91d6c82d9fc994f814`。measurement依次445/444/0/443、452/452/0/451、147/146/0/146提交/完成/失败/present；Upright SpriteTrail层1511889295:31的452/452batches与10292/10292instances完成，publication、terminal与后续周期截图持续输出。3780119725仍只加载43/44粒子root，578因dynamicSystemTransform拒绝；还有部分child/Remap/预热预算缺口，不能把matrix PASS当完整加载。雨景虽包含worldUpright child声明，本批没有独立child orientation ROI归因。已查看两新增样本series-0005；未锁整景相位，不宣称完整形状parity或本批真实整景改善。
+
+**剩余：**legacy scalar旋转轴、完整world/fixed/dynamic-parent来源语义、Trail方向/连续鼠标样式、绝对size、烟花发射与密度仍开放。未恢复挂起的镜头视差或音频节奏任务；无Windows pixel golden、性能完成、Release/full matrix结论。本机忽略缓存 `docs/scene/evidence/2026-09-27-particle-upright/`；未提交、未推送。
+
+<a id="e-2026-09-27-particle-normal-format"></a>
+
+### E-2026-09-27-PARTICLE-NORMAL-FORMAT — 法线原始格式与无 normal 零位移
+
+**首断点与修复：**公开 stock `DecompressNormalWithMask` 对 authored RGBA(0) 的 A/G 解码减 `(1,1)`，对 BC3(4) 减 `(0.965,1)`；物理 `.rgba8Unorm` 可能是 CPU 展开的 BC3，不能据此选择公式。准备阶段现保留 typed authored format，candidate/legacy/same-file 共用 shader 格式位；显式 normal 仍只准 0/4，拒绝缺格式、不支持格式与物理格式矛盾。公开 `NORMALMAP=0` 不产生偏移，现移除 1×1 近似 flat normal 分配，无 normal 分支不采样 normal、严格零位移。albedo RG88、两种 blend、mask 与 coverage 保持原合同。source key 在 metadata/upload 前后守恒，避免颜色或法线来自不同文件版本。
+
+**GPU 对照与反例：**公开 decode/无 normal offset 片段经生产 normalizer、App glslang/SPIRV-Cross 到实际 Metal，8组 float 读回完成。32像素背景蓝色梯度、amount=.75、A=64/255 时，RGBA 预期B=40.2353，BC3预期44.4353：旧 CPU/native BC3 均40，候选均44；RGBA仍40，误差均<1字节。无 normal、amount=1、满alpha旧B=101，候选严格B=100；显式8-bit neutral仍B=101，不能与缺省混同。另6组白色/彩色/RG88 × translucent/additive，amount=-1/0/1输出相等；部分低alpha门旧实现也通过，不将其列为旧失败反例。same-file仅证明upload复用和格式传递，不冒充专门pixel golden。真实产品loader/binding配确定性I/O double的颜色、同文件、normal-base、normal-candidate四种版本变化门，旧均错误接受首轮，候选均拒绝首轮且稳定重试恢复；这是受控identity事件验证，不是实际文件并发写入复现。
+
+**验证与执行身份：**rendering/runtime/rope/camera-frame/refraction-pixels共87项通过、10项既有跳过；删除runtime测试中的1×1占位贴图尺寸断言，保留root/child实际几何像素边界门。Debug build及严格验签通过。HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d` 加前批dirty；本批4产品Swift+3测试增量diff SHA-256 `7b0d468fe1cad708c56cb0a9edd9f68b71e79bab6d036f49e1e99c61f63c3ee8`。CDHash `2efbe999be000793143191eb75135832bc447116`；executable `e174c3ad0fdea8970c7e67721884f31c4f45329bdbc38fd3e0545554f3254de6`，debug dylib `bae324f52bcede2e626191a9aa95b5fe0aece689b30133c6549bae534cf0cb45`。
+
+**真实输出：**隔离`1315486372`与`2131872317`各12秒/2秒after/1秒周期，2/2 PASS且前后签名检查通过；report SHA-256 `deb1b2fee101c72ab8c2f54948e78c8dbd9baae2b0b210e4f7098875d4ffe636`。光束measurement452提交/452完成/0失败/451present；夜市409/408/0/407，layer1375的634/634batches、24258/24258instances、27/27refraction batches完成。terminal及后续周期截图持续输出，实看series-0005可见光束和蓝色烟花；整景相位未锁定，不能把截图差异当成本批格式偏置的可见ROI证明。
+
+**上限与后续：**本条取代前条basis中BC3偏置与flat量化两项开放缺口。world/fixed/dynamic parent/camera基底来源、Trail/Rope方向生成、legacy scalar旋转轴、绝对size、烟花发射与密度仍开放；不声明完整光照/烟花/鼠标拖尾、Windows parity、性能、Release或full matrix。载荷在本机忽略缓存 `docs/scene/evidence/2026-09-27-particle-normal-format/`；未提交、未推送。
+
+<a id="e-2026-09-27-particle-refraction-basis"></a>
+
+### E-2026-09-27-PARTICLE-REFRACTION-BASIS — 折射方向与几何尺寸分离
+
+**首断点与修复：**native 先把 Sprite 尺寸/纹理比例或 Trail UV span 乘入切线，再取中心与端点的投影差，导致相同 amount 随粒子几何和透视深度变化，Y/交叉项也与公开 stock 的点积排列不同。现有 windows-dx11-sm4 profile 明确 HLSL；`ComputeScreenRefractionTangents` 归一化 right/up，按 `(right·viewRight, up·viewRight)` 与 `(right·viewUp, up·viewUp)` 组成两个法线分量的权重。本批替换该计算：Sprite 用完整 XYZ 旋转后的单位轴和现有 orientation basis；独立 view basis 从同一 `SceneParticleCameraFrame.basis(.screen)` 进入 typed uniform，包含既有 `-cameraUp`，不拿固定粒子的 orientation 代替相机。保留前批 mask × particle alpha。Trail/Rope 仍采用现有 across/miter 与位移方向，仅归一化并移除 UV span 长度权重；零长度轴避免 NaN。
+
+**GPU 对照：**从仓库公开 stock 抽取两个函数，经生产 normalizer 与 App compiler helpers 实际生成、运行 Metal；8组显式 rotation/orientation/view 输入覆盖0、Z±π/2、混合XYZ、倾斜orientation、独立倾斜view与旋转orientation。候选实际 `sceneParticleVert` 的RGBA32Float读回最大误差`1.1920928955078125e-7`。再加尺寸/长宽比/非均匀layer scale、两种位置/透视深度、真实native倾斜camera frame、真实画布透视frame共5组，均保持同一Sprite局部折射量；旧产品13组全部与reference不符。旧ABI缺独立view字段，baseline harness仅移除该参数及offset观察，产品shader/uniform保留修前快照。另7个Trail用例覆盖直段、镜像/非均匀变换、弯接头、零长度、零宽、反转接头与极小宽度；有效片元权重有限且有界，4个退化用例在GPU完成后保持clear目标。
+
+**实际 fragment 像素：**8×8渐变背景、amount=.25时未旋转+normalX由B=120修为140（屏幕UV偏移.25，即2像素）；+Z90由G=80修为90。amount=.1的+normalY，方形/高条旧G=66/54，现同为78。直线Trail旧整段/半段UV的B=108/116，现均为60，符合公开点积packing的方向而非几何UV Jacobian。mask、粒子alpha与albedo alpha反例同步保留。rendering/runtime/rope/camera-frame/refraction-pixels共84项通过、10项既有跳过；4个文档/源布局模块、Debug build、严格验签通过。uniform ABI由176扩到208字节，有实际GPU消费与字段offset门。
+
+**真实执行身份：**HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d` 加前批dirty；本批三产品Swift+rendering test增量diff SHA-256 `093c6dd38b55c995ff43facfe8b134ef22a1d78426396e42a91ca5f8b752cb26`。CDHash `afeb609232078df83d51df242b3dd7c2e89da144`，executable `d2abfb39c32ee6d653ed30bd5e364d05502aaedba24327f96c06ec8499580416`，debug dylib `5b1661aa6d13dae67bbff7c141a3c0d7f4cf7c35953aa40ced3bff0151f6f50b`。隔离`1315486372`、`2131872317`各12秒/2秒after/1秒周期回放2/2 PASS；report SHA-256 `cf9c42a581b2f2773b6345f87c2546eab33430ec65d81a20f9a930613253bb38`。光束measurement442提交/441完成/0失败/440present，layer52全部442batches/1683instances完成；夜市416/415/0/414，layer1375全部637batches/24517instances/28refraction batches完成，terminal与后续截图持续输出。周期截图可见烟花，但两轮整景阶段未锁定，不以该截图差异外推效果整体改善。
+
+**上限与剩余：**显式基底输入的数学映射已与公开shader执行对齐；全部author world/fixed/dynamic parent/camera的基底来源语义仍需独立对照。Trail/Rope的屏幕miter方向生成不是公开eyeDirection×velocity helper的完整等价，也不承诺位置/透视/非均匀缩放下方向不变；ε以下方向有项目保护衰减。BC3的0.035偏置与authored-format身份、缺省flat normal量化残余、legacy scalar轴、绝对size、烟花密度继续开放。不声明完整光照/烟花/拖尾、Windows parity、性能、Release或full matrix。载荷在本机忽略缓存 `docs/scene/evidence/2026-09-27-particle-refraction-basis/`；未提交、未推送。
+
+<a id="e-2026-09-27-particle-refraction-mask"></a>
+
+### E-2026-09-27-PARTICLE-REFRACTION-MASK — 折射遮罩与粒子淡出衰减
+
+**首断点与修复：**公开 stock `DecompressNormalWithMask` 对当前准入的 RGBA/BC3 使用原 R 作为 mask，`genericparticle.frag` 将偏移乘以该 mask 与粒子 alpha。native fragment 原来只用 A/G 方向，忽略两个衰减量，遮罩为零仍扭曲背景，粒子淡出只有颜色混合变化。现在在共享粒子 REFRACT fragment 消费 `packedNormal.r × in.tint.a`；albedo alpha 仍只参与最终 coverage。loader、provider、snapshot、rotation、tangent、世界/层变换和模拟均未改。
+
+**独立像素证据：**抽取现有公开 stock 的 normal decode 与 offset 片段，经生产 normalizer、签名 App 内 glslang/SPIRV-Cross 编译到 Metal，6 个输入实际 GPU completion 后读回；为隔离 mask/alpha，将 reference tangent 固定为与 native 当前用例相同，不声明 tangent 公式等价。8×8 背景蓝色梯度每像素20，原中心B=100、满偏移B=120：zero mask修前120→修后100；half mask120→110；half particle alpha110→105；half mask+half alpha110→103；zero alpha保持100；half albedo alpha保持110。原产品实际触发4个失败反例，候选与reference位移及coverage合成误差≤1字节。rendering/runtime/rope为65项通过、10项既有跳过；独立refraction pixels的3项GPU/raw/native-BC/candidate/same-file/coverage门通过；4个文档/源布局模块通过。Debug build与严格验签通过。
+
+**运行身份：**HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d` 加保留前批dirty；本批产品与rendering test增量diff SHA-256 `9ec64c608958659f0c2a90ef59352ccf148c6653a4778c0bff5f043353796aa0`。CDHash `c665b64b5eadf6727f59373169f431d6a3769a7a`；executable `cf00051cfae1e472979d920c970e56de5a35aedd079250fcb4a269c3d90ccab8`，debug dylib `eb5ff4c6dd533b51ca68f50507790df0c5223df91d8a2d5f3f649efa235cb09f`。隔离`1315486372`、`2131872317`各12秒/2秒after/1秒周期，2/2 PASS，前后签名检查通过；report SHA-256 `a5ccd3fb64be5add8a2994c85014ad37aa7412fd7ccd35b714a421f46db8cafd`。夜市measurement为417提交/416完成/0失败/415present，layer1375的635/635batches、24074/24074instances、26/26refraction batches完成；terminal compositor与后续截图持续输出。light样本measurement445/444/0/443。实际烟花截图可见，但未锁定两轮整景阶段，故只作真实路径执行与连续输出证据，不作mask ROI或完整烟花形状的对照。
+
+**仍开放：**独立审查诊断发现native tangent的尺寸/UV span/投影端点算法与stock normalized direction/view basis不同，Sprite切线还丢弃local Z；本批未补Z以固化尚未核准的幅度公式。BC3解码还有X的0.035偏置，需保留authored format而非按最终MTLPixelFormat猜测；缺省8-bit flat normal仅近似中性。上述偏差与legacy scalar轴、绝对size、复杂世界/层/相机变换继续开放，不能由本批推导完整REFRACT、光照、烟花、鼠标拖尾、Windows parity、性能或Release完成。载荷在本机忽略缓存 `docs/scene/evidence/2026-09-27-particle-refraction-mask/`；未提交、未推送。
+
+<a id="e-2026-09-27-particle-rotation"></a>
+
+### E-2026-09-27-PARTICLE-ROTATION — 明确三轴 Sprite 旋转对齐现有作者 shader 路径
+
+**首断点与实施：**现有粒子 Metal helper 按正角 X→Y→Z 旋转；公开 stock `common_particles.h` 的 ComputeParticleTangents 经项目既有 normalizer→glslang→SPIRV-Cross→Metal 后，对相同明确 vec3 给出不同符号与顺序。以 Z=+π/2 为例，reference right=(0,-1,0)，旧粒子 right=(0,1,0)。现在只在 Sprite 共用局部旋转 helper 改为负角 Z→X→Y，顶点与 REFRACT tangent 同时消费；orientation、layer/world、CP、size/2、scalar initializer、Rope/Trail 算法均未改。
+
+**参考判别与来源边界：**抽取仓库已有公开 stock 函数，保持表达，使用生产 Swift normalizer 和签名 App 的 compiler helpers，实际生成并执行 Metal。6×2 RGBA32Float 读回 right/up；identity、X/Y/Z各+π/2、(π/4,π/3,0)、(.2,-.4,.7) 共六组，修后与 reference 的36个分量最大误差0，修前单轴符号与混合轴均不同。两路在同一 command buffer 完成后读回，不从源码外形推断通过。stock 原字节 SHA-256 `a8a73e28ea5e72c7628d032a11e5f223a996f89fbe9e8318d71b483f0e5078be`，归档另区分换行标准化文本 hash。本证据证明现有公开作者 shader 路径与 native Sprite 的局部计算对齐，不等同固定 Windows 客户端结果。
+
+**产品 GPU 门：**非方形红/绿方向卡片检测+π/2时红上绿下，-π/2反向；旧产品实际失败，修后通过。混合角(.2,-.4,.7)包围盒110×108→92×116，中心保持(143.5,159.5)像素，方向标记位移符合上述 reference basis。非 identity orientation basis 下方位正确；实际 drawRefraction 的+π/2法线偏移读回由[100,60,40,255]改为[100,80,40,255]，反向角互换。rendering/runtime/rope三模块64项（10项既有环境跳过）通过；Debug build与严格验签成功。code-health仍为4项既有非Scene文件长度错误，未改其预算。
+
+**真实执行身份与连续输出：**HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d` 加保留前批dirty；本批单产品Swift+rendering test增量diff SHA-256 `50b6afee04281ff548e1d422c7c4d1df3a192c5a73b4c4df52cdd48d4c2fa2c2`。CDHash `f7eef0c37ae223b842ea07a4301dce69b387490d`，executable `e920f6ca7b7ca938ed519e8ed598609d1f9b9ada8eedf3f4364633ea3b35cb5b`，debug dylib `ac437a8c1645bc3a6a9b76593daa8101382e08ef12496fc0f87744f48bf1146f`。隔离`1315486372`与`2131872317`各12秒、2秒after、1秒周期，报告2/2 PASS，前后验签成功；report SHA-256 `8e8b3d36fd711c140671dff11908d5f41a97718442be5527a3988266a50bcb31`。光束样本 measurement 为452提交/452完成/0失败/451present，layer52完成452batches/1710instances；夜市为416/415/0/414，后续逐粒子记录含layer1375的600/600batches、23688/23688instances、26/26refraction batches。publication无失败、terminal compositor与后续截图持续输出。真实光束方向随修正变化；两次整景状态未锁定，不以全图差异证明最终方向或烟花整体正确。
+
+**明确保留的缺口：**`1315486372`及stock `light_shafts_1`使用scalar min/max，当前仍广播XYZ。stock同预设的两个副本、其他显式Z向量与官方initializer文档都不足以裁定legacy scalar轴；Mirage固定revision填X也不是官方合同，所以本批没有擅自改成Z。该问题需官方公开序列化说明或合法同输入可观察转换/运行证据。未验证绝对size单位、复杂camera/perspective/parent组合、完整光照/烟花、Windows parity、Release、full/fixed matrix或性能。原始载荷位于本机忽略缓存 `docs/scene/evidence/2026-09-27-particle-rotation/`。
+
+<a id="e-2026-09-27-particle-geometry"></a>
+
+### E-2026-09-27-PARTICLE-GEOMETRY — Sprite 宽度基准、静态长宽比与 padded UV
+
+**问题与结果：**`1315486372` 的静态 128×512 光束已加载，但旧 fallback 把 W/H 设成 1；atlas 虽带 W/H，GPU 却把 size 当高度再扩宽。现 preparation 为 root/child 保存静态逻辑 W/H，保留既有 size→GPU size/2 转换，旋转与层变换前 GPU 以发布值为宽度、高度=发布值/(W/H)，中心与旋转沿原链路；折射切线同步。真实 ready 画面左上由局部亮斑变为纵向延伸光束，后续帧持续可见。它只关闭比例与采样造成的形状/偏移，不代表完整丁达尔或光照 parity。
+
+**来源与职责：**按用户要求对照本地 MirageWallpaper `f5049582e3e334cac6b177bbbccb39736190750a` 的粒子几何、编译与纹理尺寸处理定位差异；该第三方实现不是官方规范，未复制其算法表达。宽度与 H/W 的直接合同来自仓库已有公开 stock `genericparticle.vert` / `common_particles.h`，最终逻辑独立落在现有 preparation→GPU instance→唯一 compositor。普通 root 复用现有 child texture helper，静态 TEX 使用 validated candidate 的 texture/physical/mapped extent，并以起止 sourceKey 拒绝文件代际漂移。逻辑比例保留作者原值；raw 裁剪、embedded padding 各配正确 UVScale。REFRACT 使用 color 几何而非 normal。Sprite Trail/Rope 几何未修改，但共享 padded UV 修正可以改变其纹理采样。无法播放的 atlas 维持既有 fallback。
+
+**判别门：**项目自有 2×8 内容放入 8×8 TEX；修前 raw/refraction 输出 4×4，embedded root/child 只剩 1×4 且中心偏左；修后 raw、embedded、单帧 atlas、REFRACT color 与 child/child-refraction 全部输出 4×16，中心一致。直接 Metal 几何门锁定固定宽度 32：方形 32×32、横向 32×16、纵向 32×128、90° 旋转 128×32、镜像非等比层缩放 64×64；frame blend 输出 32×26。实际 drawRefraction 门中纵向比例变化不改变 X displacement，Y displacement 随切线伸长为原来 4 倍。Runtime 的普通 draw 只证明 REFRACT color 准备和几何，折射合成由独立 rendering 门证明。root/child 准备、rendering 与 Rope 模块 63 项（10 项既有环境跳过）通过；修正 atlas fixture 的 animation flag 后 runtime 32 项再次通过。Debug build 与严格验签成功；code-health 仍为 4 个既有非 Scene 文件长度错误。
+
+**实际执行身份：**HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d` 加保留前批 dirty；CDHash `5611fff5175180ce3d7563269ed75eacf0177e18`，executable SHA-256 `42cd66bcd6bca2eb86101e898746997b012e1e324f1ee385ccffc275468cfab2`，debug dylib `47d06f4afe053d7ddf29298f2d95721af0821ae1e7931143048e1608529809d1`。隔离两样本各 12 秒、2 秒 after 与 1 秒周期截图，report SHA-256 `87f3cbb60c489ea68ec6d1f0674b47b720f5d1350a91e0d3140000b0ecf03c1b`，前后验签成功，2/2 PASS。`1315486372` GPU 446 提交/446 完成/0 失败/444 present；layer52 的 446 batches、1685 instances 全完成。`2131872317` measurement snapshot 为 419/418/0/417，随后逐粒子统计全部提交完成；layer1375 为 644/644 batches、24648/24648 instances、28/28 refraction batches。既有 compositor publication 无失败，最终窗口及连续截图都有输出。Night Market 的蓝色烟花仍为较淡点群，本批不能据此宣布烟花形态正确。
+
+**比较边界与下一门：**修前真实图复用上一预热批次最终 App 与报告的已冻结同样本证据；两个 ready 没有锁定完整 scene 状态，所以不把整图差异独占归因。精确尺寸/中心反例由同输入新旧生产源码的 GPU harness 给出；本批未重新证明既有作者 size→GPU size/2 的绝对单位合同。旧标量 rotation、layer/world transform、trim pivot、复杂 atlas、shader Light Shafts/spotlight、强度遮罩与 Windows 同输入 golden 仍未闭合；没有 fixed/full matrix、Release 或性能完成结论。原始载荷存本机忽略缓存 `docs/scene/evidence/2026-09-27-particle-geometry/`。
+
+<a id="e-2026-09-27-particle-prewarm"></a>
+
+### E-2026-09-27-PARTICLE-PREWARM — 光束根系统恢复预算内作者预热
+
+**结果与合同：**官方 General Start Time 定义创建时预模拟作者秒数。合法 authored corpus `1315486372` 的 layer52 光束声明 starttime15、maxcount15、rate0.3，旧 Simulator 默认60Hz最多240步，初始只得到1颗。现 root preparation 可在确定性工作预算内完成900步，真实初始4颗；仍走原 simulator/Metal/唯一 compositor，不按样本或 layer 选算法。静态128×512 TEX确实加载；alpha/overbright链未发现重复预乘证据。光束仍呈较散亮斑，静态 aspect 与旧 scalar rotation 语义只是候选，不在本批修改或宣称修复。
+
+**实施边界：**原240步基础额度保持；只有root构造点显式申请3600，新增额度最多400万项目加权单位，按有效capacity、组件、octave、Boids平方及history容量估计。它不是CPU时限、整场景预算或旧基础成本关闭。child仍默认240且无延伸预算扫描；其Simulator有截断diagnostic，现外层尚未桥接到App报告。非有限/不可转换时长跳过，超额执行安全固定步前缀并在root报告请求/实际时长/步数。出生/死亡预热事件每步排空，保留RopeTrail有界历史。
+
+**行为与构建：**simulator/runtime/rope-trail三模块94项（10项既有环境跳过）通过；随后只让短预热/child绕过新增成本估计，最终simulator57项再次通过，签名Debug build成功。门覆盖15秒与900次固定步及后续90步状态等价、15.005尾段、零容量60秒绝对边界、超一步、大容量/多算子/Boids、1e308、极小fixed step、事件排空与下一帧正常事件、5份保留轨迹历史。全仓code-health仍为4个既有非Scene文件长度错误，未改其预算。
+
+**实际运行身份与结果：**HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d` 加保留前批dirty；本批两个Swift与一个测试增量diff SHA-256 `c079bd632de4f117d798b23af0b25c3cc3bbc1414f12453f2aa565ed31ba73ee`。最终CDHash `02818f242bf474a6db6fa58f13a92ba98f9dd69d`、executable SHA-256 `4b04a366f55a450c5af60c2ee5db9845d33db67baa199aca16cfe474aa14e015`，运行前后验签成功。同一隔离样本、12秒、2秒after、1秒周期取图，前后各1/1 PASS；修前光束初始1、修后4，fog初始均3。修后测量窗GPU446提交/446完成/0失败，layer52完成446batches/1690instances，后续周期截图持续有输出。ready截图中亮斑可见增强，但采样时刻未锁定同一完整scene状态，整图差不能独占归因或冒充Windows golden。修后report SHA-256 `c6b29f832af66d81f6f74be3c6ccc9ed5b5647cd3971dc01c45950f37163350d`。
+
+**边界与下一门：**只关闭root开场预热截短；未关闭光束几何/遮罩/强度、shader Light Shafts、spotlight/radial shaft、烟花全链、child联合预热或官方parity。未跑full/fixed matrix、Release、优化性能或长稳；单次Debug启动时长不作性能结论。本机原始证据存忽略缓存 `docs/scene/evidence/2026-09-27-particle-prewarm/`，正式能力与未闭合预算见粒子G03/X09。
+
+<a id="e-2026-09-27-rope-shared-endpoints"></a>
+
+### E-2026-09-27-ROPE-SHARED-ENDPOINTS — 真实画面排查与 Rope 接缝修复
+
+**用户目标与普查入口：**按2026-09-27用户重排，当前优先实际光束、粒子烟花和鼠标拖尾的最终呈现。查现役172样本的 `scene-corpus-capability-inventory.md` / `scene_capability_census_snapshot.json`，再读取目标作者定义并在隔离副本运行；不重写人工视觉 verdict，不把全量静态普查当作全部加载/显示正确。
+
+**修前五样本诊断：**同一Developer ID Debug App 2.0.9 (277)，CDHash `4f33455871b474baf9f883a51c1dbaf6bdee2dd2`、executable SHA-256 `e7adcb0124b314122daa350730fef7587352ad5cd9b769444cd17aabbf38fff2`。每样本18秒，3024×1964窗口原帧，周期采集。以下矩阵是身份/基本运行检查，没有登记所有特效的目标ROI，5/5 PASS不等于视觉兼容：
+
+| 样本 | 作者路径与实际观察 | GPU submitted / completed / failed |
+|---|---|---|
+| 1315486372 | 光束是layer52的128×512粒子贴图，含烟雾共2/2粒子加载；水波位置与光束质感未闭合 | 456 / 455 / 0 |
+| 3747492842 | layer168 Light Shafts走generic resolved material；11/11图片、1/1粒子。另有layer173 speed scalar脚本调用 `value.add` 的TypeError，不自动归因光束 | 246 / 245 / 0 |
+| 3768903841 | 16/16图片、5/5星点粒子；主要烟花来自图片动画，另有spotlight/radial shaft，不能作为粒子烟花正例 | 448 / 447 / 0 |
+| 2131872317 | 9/9粒子加载；529/832 emitter已实际消费generation2非零共享音频，但18秒内未见非空提交；1375另一烟花有粒子 | 510 / 509 / 0 |
+| 3790726145 | 1/1粒子加载；四点离散指针跳转可见细线拖尾，不能替代连续真实移动质量验收 | 466 / 466 / 0 |
+
+末帧计数差为窗口在途，不计GPU失败。夜市的当前近似音频映射为所选22值均值平方，再乘有效发射率 `.4692/.4818`；输入非零不保证累计够一颗。现日志未记录完整response积分，所以不把“18秒无首发”定性为产品发射故障。子烟花burst8500被每系统1024预算截断是独立的后段密度限制，不能解释父级0。下一门是可重放输入的有效发射量→父级出生/死亡→子系统→粒子GPU/可见ROI，未经负载验证不直接放开预算。
+
+额外 `3747492842 lightbeam=false→true` direct-host 热调明确FAIL：`live property update rejected`，保持原始结果。普通App的client收到拒绝后有requestLaunch回退，本轮未走该入口，故不能据此声称普通用户无法启用光束。两次粒子命令前置失败分别为from-launch缺指定pointer、以及pointer与trajectory同时指定；保留失败日志，不记为App渲染缺陷。
+
+**产品首断点与修复：**`SceneParticleRopePlan` 原来给每段独立矩形和两端平均宽度，没有消费已存在的端点miter管线。现在先建立跨粒子区间的有界细分链，共享节点位置、端点尺寸与邻接方向；重复位置保留首份外观/UV，零宽端点收尖，邻段Float溢出按开口处理。仍由现有ParticleGPUInstance/Metal pipeline/唯一compositor输出。原512粒子、4096段与renderer准入不扩大；模拟、UV相位和颜色/alpha分段平均未变。
+
+**实际Metal像素反例：**相同白色半透明纹理及生产RopePlan→instance buffer→生产shader，7组包含90°弯角、镜像/缩放、旋转/非均匀缩放、重复点且不同尺寸、透视深度差、宽度收尖与跨粒子细分。修前5组转角覆盖失败且重叠alpha达到191；修后7组覆盖均通过、最大alpha均128。收尖五个截面宽度修前 `[26,26,20,20,20]`，修后 `[14,30,38,24,2]`。每次readback前实际commandBuffer completed；PNG、完整结果与可打开的对照HTML均保留。最高为有界GPU局部几何可见证明，不是实际壁纸或官方golden。
+
+**最终App与真实样本：**HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d` 加保留的前序脏批次；本批三代码/测试文件差分 SHA-256 `095a22f2700ffe9e7b23189e6670ba57a9c8357711c440e6f1940469fd7c63dc`。签名Debug build成功；最终CDHash `d9b0ac8bd2e312ffedbcb4eb12140ec0d59e52c8`、executable/debug-dylib SHA-256 `59fc0e6d017384d3f39add0e9793a0efa54330bcab9b5476bcb89acfc72a9d95` / `cd5a77912c1f0274937a1c96bc4af9604a982867b32add3fb406f595edf3e4ff`，运行前后验签成功。隔离 `3790726145`、`3233141951` 18秒回放2/2 PASS，粒子分别1/1、6/6加载，GPU为505/504/0、292/291/0；前者layer19真实完成96个batch、1904 instances，退出指针后末态为空不抹除此前提交。图片与周期后续帧保留。它们证明有界当前样本加载/提交和安全画面，未冻结完整模拟/相位，不能把修前后整图差归因于接缝改善；连续真实鼠标路径、所有材质、颜色/alpha插值、自交和官方parity仍开放。
+
+**验证与债务：**rendering、rope、rope_trail、particle_runtime、surface_submission五模块通过；最终Float guard后又重跑前两模块共29项通过。旧rope测试在默认subdivision改为3后仍断言2段，直接编译修前快照证实是存量漂移；线段fixture改为显式0并单独验证默认3。删除一个只检查已退役提交变量名的源码形状测试，真实Metal slot取消/完成/复用及Host surface barrier门保留。code-health仅四个批外既有文件超限，未放宽预算。无暂存、提交或推送。多surface cursor未完成草案独立隔离、已恢复此前源码，不作为本批成果。
+
+**证据载荷：**忽略的本机缓存 `docs/scene/evidence/2026-09-27-visual-effects-rope/` 保存修前诊断、失败日志、最终回放、GPU前后原图、构建/测试、before/after代码及逐文件清单；manifest SHA-256 `b6f80fa24b0783082f22745b087c408206e714c87b7f0a62c1c10a856e33553b`，214文件/774,074,611 bytes。报告 SHA-256：baseline `4fd558cd1220954873de8425814aed09681c0e0ee2baca90e07c5c7752b770f5`，热调FAIL `98623a3a240fcd202f6f3a4a5e5e0158c11c324ccf7ff7c1aec181ad91abd313`，粒子诊断 `15e72ffa5ef35e0dd980f8d5c5b27ed4ba65ef14ec0a7716688d73800c603df4`，最终真实回放 `021a27ae1ee38b00b19074388ae94f6f7ac1ca63f97526f4d4a8bd2701ee0a30`。缓存不含运行App、Workshop包或HOME，缺失时按输入身份重放，不以摘要代替实际结果。
+
+<a id="e-2026-09-27-multisurface-submission"></a>
+
+### E-2026-09-27-MULTISURFACE-SUBMISSION — 全 surface 提交前屏障与 completion 注册代次
+
+**问题与产品修复：**原 Renderer 在每个 surface 的 renderFrame 中直接 commit，Host 收齐结果后才决定是否回滚 CPU；后一个 surface 准备失败时，前一个可能已出画面。现在同一 Renderer 只返回持有 drawable/buffer、source transaction、depth lease、particle reservations 与取消动作的 `PreparedFrame`。Host 同步收齐全部候选，验证数量、未 enqueue 状态及底层 buffer identity 唯一，再进入不再做 admission 的提交段。任一准备失败先逆序取消全部候选，再恢复原 Host typed/clock/storage/provider 状态。graph coordinator 按精确未提交 buffer 撤销 sealed pending 末项、终结其 ledger/pins、恢复 scheduled tails、清理 buffer record；已提交祖先不被撤回。首帧 presentation 注册、source/depth arm、提交 telemetry 只在真正 submit 时推进。非法已 enqueue 候选不能伪装为可撤回，异步 GPU 失败仍沿原失败链处理。
+
+**实际回放发现的 completion 身份缺陷：**第一轮取消使 Metal 调用未提交 buffer 的完成回调；旧实现只把对象地址和状态投递到后续 MainActor Task，日志表现为重试 buffer 已完成，而重试 transaction 被旧 failed 结果终结。对象地址/实例复用是代码支持的根因解释，日志没有直接记录地址。第二轮尝试强持 callback 的 buffer，实际出现 `swift_unknownObjectRelease` / Task closure destructor 的 SIGTRAP；两个原始崩溃报告、失败日志和匹配当时冻结 SHA 的重建产品快照均保留。最终方案在**现有 coordinator** 的每个 command-buffer record 中保存单调 `observationID`，首次注册在既有锁内发行，取消/prune/invalidate 不回退；重复 observe 幂等、编号耗尽只拒绝新注册。回调跨 Task 只传地址键、注册编号和已读取状态；completion 匹配编号后才能改 terminal/pending/pins，不再延长 Metal 回调参数寿命。没有新增资源 registry 或第二提交 owner。
+
+**最终真实 Host 判据：**使用自有两 material pass、一个实际 273×273 rgba8888 FBO；在同一物理 screen 创建两个独立 window/view/drawable/graph runtime/pool，仍走同一产品 Host。DEBUG evidence 下限定 2…4 个诊断 surface，单次故障在最后一个 surface 已封口后触发。init 的 frame 0 与 timer 的 frame 1 各有两条 prepared、两条 `cancelled submitted=false`，Host `submittedSurfaces=0 totalSurfaces=2`；之后同编号重试及下一帧两 surface 均 GPU completed，成功 graph 带两个 material nodes、publication 和 compositor consumption。取消尝试没有 GPU completed 或 presentation 注册。最终五侧均无 crash、graph failure 或 GPU failure；每个隔离 HOME 的 `inits/properties/fires` 都为 1，普通 JS heap 的重跑计数不回滚。
+
+| 最终回放 | 捕获窗口绿色 ready → after world x | GPU 提交/完成/失败 |
+|---|---|---|
+| 单 surface control | 299.7963 → 599.6741 | 110/110/0 |
+| 双 surface init control | 299.7963 → 599.6741 | 222/220/0 |
+| 双 surface init 拒帧 0 | 299.7963 → 799.8371 | 220/220/0 |
+| 双 surface timer control | 699.7556 → 699.7556 | 220/218/0 |
+| 双 surface timer 拒帧 1 | 799.8371 → 799.8371 | 222/220/0 |
+
+每张原图 3024×1964，红/绿标记各 74529 像素；独立红色 x=299.7963，最大 world ROI 误差 0.326 < 预登记 1 unit。双 surface 每侧两个独立 graph runtime 均有成功 publication/compositor/completion，frame 0…2 按 surface 分别记录；退出的 VM owners/quiescent=2/2、failures/timers/jobs/mutations=0。尾帧未完成计数是采样窗口内在途值，不算 GPU 失败。
+
+**通用 benchmark 与专项门分开：**单 surface control strict PASS。四个双 surface 的原通用报告全部保持 FAIL，唯一剩余原因是 `performance presentation stream count does not match surfaces`：两个窗口重叠在同一物理屏，实际只记录一个可见 presentation stream。专项门仅接受这一明确条件，拒绝任何 graph/GPU failure、崩溃、未释放 surface 或 ROI/storage 偏差。两 GPU 输出和捕获窗口的 ROI 不等于两个物理显示器都已呈现；本批不作双显示器同步、双屏可见 ROI 或性能结论。
+
+**验证：**最终 checkpoint 选择 44 模块，分轮覆盖。初轮 41 个非文档模块中 39 通过；两个旧门锁定 Renderer 即时 submitted/defer 文本以及早已替换的 timer restore 顺序，删去失效形状断言，以真实 Metal 屏障行为门和 Host 回放补证，相关 27 tests 重跑通过。最终注册代次改动的五模块（含 captured preflight 与真实 material copy/history GPU）全部通过，强化 surface 门再通过；最终三文档门独立记录。新门覆盖零提交、双 buffer GPU 写入、逆序/重复/析构取消、同 candidate 和同 buffer 别名拒绝、depth/source 16 轮回收、取消保留已提交祖先、旧注册回调隔离、重注册/失效/计数上限。coordinator pin release/history 的定向门使用既有 shim，证明状态算法与释放调用；真实 copy/history GPU 是额外回归，不把它升级为双 surface history 故障验收。最终 Debug build 通过；4 项批外 code-health 错误不放宽。
+
+**执行身份：**HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d`，本批产品增量 SHA-256 `62607f55adf40023d494ad5909cbf55e09b94b8c436c8aa90ab7b051f05be7d6`。最终 App 2.0.9 (277)，CDHash `06f11320b3e1e198fb5f2f7be1aad9eb2d3a54ee`，executable SHA-256 `f31e54b137c586008a3a2d55c76fdf61b557625a98c5d98f1e0d125263b6d720`，debug dylib SHA-256 `60e79f622ff87b68a19a35f6efe7d4fff431f65c859255514e6a9308c721f504`；五次运行同 App，运行前后签名验证。每组 control/fault 的 project/package hash 一致，输入沿用前一拒帧条目的自有 init/timer fixture。全部输入、源码增量、三轮报告、崩溃现场、原图、存储、命令与专项校验保存在本机忽略缓存 `docs/scene/evidence/2026-09-27-multisurface-submission/`。
+
+**边界与下一门：**关闭准备失败导致部分 surface 提交及旧取消回调误归属当前注册的缺口。尚未验证真实双显示器呈现同步、所有资源/事件家族、异步 GPU 失败后的全局恢复、双 surface history 故障与长稳。cursor 多 surface 完整边沿仍 latest-only，String init-only 仍拒绝，初始化事务卡保持开放。
+
+<a id="e-2026-09-27-frame-rejection"></a>
+
+### E-2026-09-27-FRAME-REJECTION — 实际提交前拒帧、同帧重试与下一帧完成
+
+**本批结果：**增加可重复的 DEBUG 故障与完成探针，首次将前述 init/property/timer/storage/typed 状态修复放进实际 single-surface Host 拒帧链验证；不宣称本批发现或修复了新的 Release 渲染缺陷。`MWX_SCENE_DEBUG_REJECT_FRAME_ONCE` 接受 UInt64 帧号（含首帧 0），且必须有 evidence-dir 参数；现有 surface coordinator 在 `sealFrame`、command buffer 尚未 enqueue 时消费一次请求，调用既有 `failActiveFrameLocked` 返回拒绝。Renderer 的现有取消/defer 与 Host `allSurfacesSubmitted` 失败分支真实执行。随后只为同编号重试及 frameIndex+1 各登记一次 seal/completion 诊断；日志在锁外，handler 仅捕获不可变 probe 和 logSink，不持有 coordinator/ledger。普通帧不新增日志或额外锁操作，Release 编译排除这条注入/探针路径。
+
+**真实输入与判据：**最终四次运行使用同一签名 App、自有 GLSL 恒等采样 shader、两次 material pass 与一个实际 273×273 rgba8888 FBO，沿现有通用 Program/graph/compositor 执行。`9900000110` 首帧 init 写 localStorage、创建 1500ms timer，property callback 另写 storage；失败尝试留下的普通 JS heap 计数用于辨认实际重跑，storage 必须回到事务基线，重试 init 必须再次看到 authored x=200。`9900000111` 的零延迟 timer 在初始化已提交后的 frame 1 触发，拒帧后 timer callback 重跑；init/property 不应重跑。每次独立 HOME 中 `inits/properties/fires` 最终都必须为 1；ordinary heap 可重复副作用仍是明确产品边界。
+
+| 最终运行 | 故障 | 绿色 ready → after world x | 独立红色 x | GPU 提交/完成/失败 |
+|---|---|---|---|---|
+| init control | 无 | 299.7963 → 599.6741 | 299.7963 | 111/110/0（末帧在途） |
+| init rejected | frame 0 | 299.7963 → 799.8371 | 299.7963 | 110/110/0 |
+| timer control | 无 | 699.7556 → 699.7556 | 299.7963 | 110/110/0 |
+| timer rejected | frame 1 | 799.8371 → 799.8371 | 299.7963 | 110/110/0 |
+
+每张 3024×1964 原图中每标记 74529 像素，最大 world ROI 误差 0.326 < 预登记 1 unit。拒帧两侧 Host 日志均为 `submittedSurfaces=0 totalSurfaces=1`；失败 graph 记录没有 finalOutput/publication/GPU completion，后续成功记录有两 material nodes、publication、`compositorConsumed=true` 和 `gpuCompletion=completed`。故障专用探针另外确认同帧 0/1 重试以及紧接的 1/2 帧各自 GPU completed，避免通用 graph 去重日志受异步 completion 顺序影响而漏记。四侧 teardown owners/quiescent/failures=2/2/0，timer/job/mutation=0。两个 control 的通用 benchmark PASS；两个故障运行保留原始 FAIL（注入的 executor/observation failure），不改矩阵或 checker 隐藏失败，专项拒帧/恢复/ROI/storage 验收四侧通过。
+
+**验证与过程证据：**6 项新真实 Metal 门覆盖零号帧、同帧重试恰一次、下一帧完成、缺少 evidence 参数、非法/缺失/其他帧请求，以及 Release 忽略开关。checkpoint 选中 25 模块：新门、21 个补充模块和 3 个文档门。补充回归中旧 runtime-bridge 门曾按源码统计 handler 总数并禁止 seal 后出现 handler，因此新增诊断触发失败；删除这两项文本断言共 3 行，由新行为门验证受控 completion，既有 16 项 bridge 门重跑通过，其余选中模块通过。4 项范围外 code-health 超限未放宽。初版 fixture 的 nested 材质路径不符合包内根引用，graphBlocked 失败原样保留；修正自有 fixture 后才取得正证。早期只有 retry 探针的运行也独立保留，不替代最终含 next-frame 探针的四次运行。
+
+**执行身份：**HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d`，三产品文件本批 before→after SHA-256 `0327df2bf37fb786b8a45865e78f3daa9476ecf9b1db9b33ad6c672c5f517b73`；最终 Debug build 通过。App 2.0.9 (277)，CDHash `f172a64a158538ddd2c71bd66cfd6f2285c3cf4d`、executable SHA-256 `85c4df0bb3607f1d101dadfb37ec8f68be02be0196c9637e8435e55d5b68ae10`、debug dylib SHA-256 `eff9d3a57da3c39be1970bb74d7c0a16a91e4f85d73ca7b76be6f66bbbaaba55`；源/运行前后签名均验证。每组 control/fault 的 project/package SHA 完全一致，分别为 init `276acec150dc622874215933b4ba9bf3764a3515f3d1f7d5a8fbbcf0e0dff24d` / `9bb47f98a78fa3cf0f696e6f045c81d39b07c51d3181e62b7a6b949a9b144df8`，timer `2d329087e65dd47521ac965f0bc491fdef4e90b79331f2a4b13f3ed0dc8ea018` / `97688591dbf271d944512b200af0a92654cdccf7ac7cd3d566746a961abb7095`。完整身份、源码快照、所有原始失败、四次运行的 ready/after 原图、持久化副本及专项验证保存于本机忽略缓存 `docs/scene/evidence/2026-09-27-frame-rejection/`。
+
+**边界与下一门：**当前只证明 single-surface 提交前同步拒绝；不证明已提交 command buffer 的异步 GPU 失败回滚、多 surface 部分提交、粒子/video/puppet/dynamic-text/跨帧 history 全部资源家族、cursor/media/Scalar/String 所有事件通道、长期泄漏或官方 parity。String init-only 仍关闭，普通 heap 不回滚。初始化事务卡保持开放，下一步转向多 surface 提交边界及尚未覆盖的事件/资源通道。
+
+<a id="e-2026-09-27-timer-identity"></a>
+
+### E-2026-09-27-TIMER-IDENTITY — 撤回后 timer 取消能力不再误命中新任务
+
+**断点与修复：**初始化局部撤回和 Host 整帧撤回共用的 `timer_restore` 曾恢复 `next_timer_identity`，但 JS heap 中逃逸的取消闭包不会撤回。重试重用相同编号后，旧闭包误删新 timer。现在 snapshot 只保留调度记录和运行时钟，owner 生命周期内的发行计数不回退；原有 timer 的 identity 原样恢复，其合法取消闭包仍有效。新 timer 在 `9007199254740991`（JS 精确 index 上限）之后拒绝发行，不再回绕到 1，创建取消闭包失败也不回收编号。无新增 owner、普通帧序列化或额外资源 registry。
+
+**真实 VM 行为：**修前 6 项 Swift/C 门中 4 项失败：init 局部撤回、整帧 snapshot 恢复与嵌套恢复均出现新 timer 被旧闭包取消；额外 C 上限反例也失败。修后新门 7/7 通过，覆盖 timeout/interval 重试、已有 timer 的合法取消、当前取消幂等，以及 C 内部预置发行计数后的最后合法编号、下一次 RangeError、原闭包仍可取消、恢复旧 snapshot 不能解除耗尽。后者只是把不可实际迭代 2^53 次的前置计数置近上限，断言实际作者 callback 行为；没有源码文本断言。既有初始化事务门 9/9 及 QuickJS 跨 owner 取消拒绝门同时保留。整帧恢复测试调用真实 owner API，不是实际 Host 提交失败注入。
+
+**签名 App 同输入 A/B：**隔离自建 `9900000108` 的绿色 origin owner 首次 init 创建 timeout 并保留取消闭包，然后返回 BAD_RETURN；下一次 init 新建 1500ms timeout、调用旧闭包，timer 触发后输出 x=800。修前/修后各记录 1 次 BAD_RETURN，初始均 x≈200；修前 after 仍为 199.7149，修后为 799.8371。独立红色 peer 在两侧始终 x=299.7963。3024×1964 原图中每标记 74529 像素，最大 world ROI 误差 0.286 < 预登记 1 unit。两侧 GPU submitted/completed/failed 均为 110/110/0，teardown owners/quiescent/failures=2/2/0、timer/job/mutation=0。通用 benchmark 两侧均 PASS，不能区分此缺陷；专项 A/B 位置判据确认变化。修后 after PNG SHA-256 `169ae7af9c6e43aa0709fa3654d579c8fa65d3ed2f269a78165d578e4660602d`。solid fixture 无 graph；这里只证明真实 init 拒绝→重试 timer→typed origin→Metal completion→唯一 compositor 后续帧。
+
+**执行身份：**HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d`，两产品文件本批 before→after SHA-256 `07745d82b43cf4f1d9fd5cfedb390199ab6f8277f58d4d61f0bf83251dd60653`。两侧 Debug build 与签名验证通过，App 2.0.9 (277)；修前 CDHash `36321f288af5176a160e7cc31c33dae82d277a63`、executable `6eb163414893f05b0e0ffb3d67ae7c1e4d38900777027746f3cf37c4b550e662`、debug dylib `dfaf32ee8ff924431805c1746e624dd6d845a14a266dc6b28c74f336675c03b5`；修后 CDHash `2ffce65ad1ac1e455aeddc16eefc8495d51182f9`、executable `6d3600b2aa5259324a2fa20b94c21b86ed0d8231722075587e6509207ca6e7e4`、debug dylib `1408090e7ddf6f45a54a3e81fbf79300c553ccf8b28950c0cafcc7865e4fc5ee`。相同 project/package SHA-256 `ffd90eec68b95c4730382ff90192d329648eb57869d121599fc08cd4c25dbd5e` / `c1113b515afa64de18551b56375dd45f55a52fcc5b01ee342ab447780779c80e`。现役 checkpoint 选择的 36 模块分 inner/补充/文档执行；四项既有范围外 code-health 超限不放宽，未暂存、提交或推送。
+
+**边界：**timer capability 结论限于当前 owner 生命周期；owner identity 本身的极大计数/JS Number 精度是独立未验证边界。JS 普通 heap/闭包副作用仍不回滚，恢复 timer 后重试 callback 可再次产生这些副作用。尚未闭合实际 Host 全帧拒绝时的事件/storage/typed/resource 联动、多 surface 部分已提交或 cursor 完整边沿、String init-only、daemon IPC、长稳与官方 parity。本机忽略缓存 `docs/scene/evidence/2026-09-27-timer-identity/` 保存修前失败、源码快照、签名构建、A/B 原图及判据。
+
+<a id="e-2026-09-27-return-diagnostic"></a>
+
+### E-2026-09-27-RETURN-DIAGNOSTIC — 非法临时 Vec3 字符串安全诊断与恢复
+
+**断点与修复：**`call_vec3` 在释放 callback 的 result/argument 后仍通过借用的 value 调用 `JS_ToCString` 并回显坏字符串。常量字符串可被模块保留，既有常量 fixture 未暴露问题；运行时拼接的字符串会触发悬空引用。当前只保存释放前取得的静态 shape label，移除释放后转换及 raw 字符串回显，继续报告 `(returned string)` / `(returned object)`。BAD_RETURN、下一帧重试、现有 layer-mutation input passthrough 与 VM 预算均不变，不引入值副本或新 owner。相邻 scalar/string/exception 格式化路径的静态审查未发现同类释放后读取，不据此宣称整个 VM 无内存问题。
+
+**同输入 ASan 对照：**新增 `test_scene_script_return_diagnostics` 用 `-O1 -g -fsanitize=address -fno-omit-frame-pointer` 编译全部生产 host C 和 QuickJS C；7 项中修前 5 项失败，init、长 ASCII/Unicode 动态字符串明确报告 `heap-use-after-free`，短字符串在 VM 字符串释放链崩溃；正常向量字符串与对象 shape 反例原本通过。修后 7/7 通过，另既有 QuickJS 模块 2/2 通过。门覆盖显式 init 与 update 坏值→合法 Vec3 恢复、独立 peer、正常动态向量字符串、对象 shape，以及容量 0/1/8/512 的诊断 buffer 前后 canary 与终止符；ASan leak 检查关闭，不声称泄漏验证。测试未附 layer mutation，避免旧 passthrough 掩盖 BAD_RETURN。
+
+**实际 Host：**隔离自建 `9900000107` 的绿色 origin owner 在前 2 秒返回动态 Unicode 坏字符串，之后返回 `(800,490,0)`；红色 peer 独立返回 `(300,230,0)`。签名 Debug App 记录 118 次 BAD_RETURN 后绿色 callback 成功，红色从首帧成功且画面保持。两张 3024×1964 原图中绿色 world x 从 199.7149 到 799.8371，红色 x 保持 299.7963；每标记 74529 像素，最大 ROI 误差 0.286 < 预登记 1 unit。after PNG SHA-256 `169ae7af9c6e43aa0709fa3654d579c8fa65d3ed2f269a78165d578e4660602d`；GPU submitted/completed/failed=111/110/0（末帧在途），teardown owners/quiescent/failures=2/2/0、timer/job/mutation=0。通用 benchmark 与专项恢复/ROI 门均通过。solid fixture 无 graph；实际 typed callback→layer 值→Metal completion→唯一 compositor→后续帧是有界 S4，修前崩溃只在隔离 ASan VM 执行，不虚构修前 App 运行。
+
+**身份：**HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d`，唯一产品文件 SceneQuickJS.c 本批 before→after SHA-256 `0a73540b7eac5a3352a782b1c2cff2abaab827f594de4a4b68639a7b224c5ffe`。签名 Debug App 2.0.9 (277)，CDHash `4b42d251ea0aae059daff7d6b02005fb0436b7e7`；executable SHA-256 `86f76090c10be297170adf039b41e4ea21fcd0147dde2c3533905c341ada237e`，debug dylib SHA-256 `102ccf572d52fa80748e5b2b423d92ee0db1bb09b5d96f06a73f6346a9a625b5`，Debug build 及源/运行前后签名验证通过。project/package SHA-256 `bb64d096234504818dc630345ab48dc2c7bc8ab6bf6a4c17f3b033dd94d0ade1` / `2d6cb4c6095bb047b7ce74566e57d249918451851dc1c8b91f6259f6c8a1cbd0`。四项既有范围外 code-health 超限保持，未放宽预算；无暂存、提交或推送。
+
+**边界：**不证明任意对象 getter/coercion 的执行合同、VM 全面内存安全、实际整帧 Host/GPU 故障恢复、普通 daemon IPC、长稳或官方 parity。String init-only 与多 surface cursor 继续开放。本机忽略缓存 `docs/scene/evidence/2026-09-27-return-diagnostic/` 保存修前 ASan 原始堆栈、修后测试、源码快照、构建身份、运行图与专项判据。
+
+<a id="e-2026-09-27-shared-identity"></a>
+
+### E-2026-09-27-SHARED-IDENTITY — 撤除 shared 伪回滚，保留函数与对象身份
+
+**合同和产品：**官方 [Shared](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/Shared.html) 定义普通空对象用于跨脚本共享，[SceneScript Reference](https://docs.wallpaperengine.io/en/scene/scenescript/reference.html) 声明 ECMAScript 2018；它们不承诺 Host 拒帧时回滚 JS heap。本产品据此明确非事务边界：shared、模块变量、闭包与 retained 对象仍由唯一 QuickJS domain 持有，typed 拒绝不撤销已执行的 heap 写入，peer 可见失败 writer 留下的值，重试可重复副作用；不具备 localStorage 式共享读取依赖撤回。作者仍可显式替换 shared 根，旧别名遵守普通赋值语义。这是 `MyWallpaperX-strategy`，不是官方失败语义 parity。
+
+移除 C 的整帧 `JS_WriteObject` / `JS_ReadObject` shared 克隆及状态、三个 C API、Swift 包装文件、Host begin/commit/discard 调用和 VectorProgram 的宽泛开关。普通帧不再扫描整个 shared 图，不会因其中的函数/getter 拒绝整域，也不会在失败时替换根并分裂 retained alias；2 MiB 序列化阈值随机制退役，原 VM heap/stack/interrupt 预算保持。typed layer、storage、timer、事件及资源命令仍由各现有 journal/Host barrier 决定；没有新代理对象、VM、状态树或输出 owner。
+
+**修前反例与行为门：**真实 Swift/QuickJS probe 在写入函数或 getter 后，次帧 begin 均得到 exception；一次 root discard 后保留的 root/child 与新 shared 的 equality 从 1/1 变为 0/0，旧 child 写入 9 而新根读到 1。新增 9 项真实 VM 门通过：根/嵌套别名、跨脚本函数闭包、Map/Set/typed array/Date/cycle/symbol/prototype/accessor、作者显式替换根、BAD_RETURN 后 peer 读取、初始化重试、异常熔断、value-only guard、generation/domain 隔离以及经 shared 调用的 timeout/OOM。shared 中保存的 thisLayer 在跨 owner 写入时被拒且不生成 journal，同 owner 下一 callback 可继续写入并生成一条候选，保持原 persistent/owner-target 合同；这不证明任意 handle 的完整安全性。混合执行的 shared=17、storage=19、layer 候选在 discard 后分别为保留 17、缺失、0 条候选，证明撤回边界独立。既有 Boolean Program 行为门改为真实 typed finalizer，验证 heap 计数不会被该 barrier 重置。
+
+早期新 fixture 将普通 vector 的 stateful=false 误作 value-only，又在写 layer 后把无效 Vec3 返回误作必然 BAD_RETURN（现有 C 此时采用 input passthrough）；前者改用真实 value-only Boolean，后者使用无 layer write 的 BAD_RETURN，layer 撤回由独立 alias/mixed 门验证。补测一度把 thisLayer 的合法跨 callback 持续使用误当 stale，核对 owner-target/persistent 合同后改为同 owner 正例与跨 owner 拒绝配对。原失败日志保留，不计为本批产品回归。38 个定向回归模块及 3 个文档模块均通过。
+
+**实际修前/修后：**同一自建 `9900000106`，project/package SHA-256 `7a0b74991dcac27987627ecaaf82e1cf3ce6b9a0a1fd7aecef1eaa83d5a0c368` / `750be1549531852a1efb9e841eb550c36337f4363b262a644cbb525c6e1f9604`，两个 effectful Boolean visibility owners 确实触发旧 shared snapshot 开关。writer 在 shared 保存函数和对象，reader 保留对象别名；时钟越过 1 秒后应通过函数将两标记移至 x=800。旧 App 出现 428 次 shared-domain exception，两标记停在 x=300；新 App 0 次，两标记到 x=800。两次运行的 ready/after 原图均为 3024×1964，每标记 74529 像素，world 最大误差 0.225 < 预登记 1 unit，后续截图保持。新图 SHA-256 `46fd8b2c0b1d46b8f82a21024ab946e2fcd06191e80a00b3aa15c0687773f4ab`，GPU submitted/completed/failed=110/110/0，teardown owners/quiescent/failures=2/2/0、timer/job/mutation=0。solid fixture 没有 graph；typed layer admission→实际 Metal completion→唯一 compositor→后续帧的可见位置构成本批 S4，别名/discard 只到 VM API S3。
+
+首个 origin-only 探针没有触发旧 snapshot 开关，保留为非决定性试验；不当作缺陷修前对照。通用 benchmark 对有效旧/新运行都返回 PASS，不能发现脚本冻结；本结论只依赖预登记函数/位置专项门和完整错误日志，不借用非黑/加载比证明正确性。
+
+**身份与边界：**HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d`，8 个产品路径本批 before→after SHA-256 `2ebdca721c5065de9fc65464068e8680a83edd00fbba0e1dec987b5d911051a5`。两次签名 Debug build 均通过。旧/新 CDHash `39a2e8c5d378743dd879ac45b209a674fae13759` / `117d70a2187bae0c6803623fda55bdb93a378061`；新 executable SHA-256 `0f4379f86b6fa0133f6878ce9439cdc122425faa5ef9870ad175496a97bf31e6`，debug dylib SHA-256 `a3ffe20ade03ab59f23c40c4dd2a0fa44fbdbcb27b97f8e57d20d58ad31fcf9a`，源 App 和运行前后签名核验通过。代码健康门仍有四项此前存在的范围外超限，未调整预算。未验证真实整帧 Host/GPU 故障注入、普通 daemon IPC、任意 retained host handle、长期内存/性能或官方 parity；String init-only 与多 surface cursor 仍开放。不宣称 shared 回滚或 owner 任意副作用隔离。现有工作区改动保留，未暂存、提交或推送；忽略的本机缓存 `docs/scene/evidence/2026-09-27-shared-identity/` 保存源快照、对照图、完整日志、专项 ROI 与审查身份。
+
+
+<a id="e-2026-09-27-cursor-owner-transaction"></a>
+
+### E-2026-09-27-CURSOR-OWNER-TRANSACTION — 被拒 target 保留完整事件，已接受 peer 不重放
+
+**产品与预算：**原 CursorProgram 的物理 hit/capture/button 继续只观察一次；从完整输入批次按 sample→binding→callback 顺序记录 target、事件 kind、world/local 坐标、surface 输入及 capture/current-hit 标记，再调用 VM。前帧未确认事件排在新事件之前，回调读取原事件输入与本次 frame 时钟/属性/音频。Host 原 finalizer 在全 surface submitted 后按最终 target 拒绝集合确认，事件确认覆盖 borrowed bindings，C owner 仍只由原所属 Program finalize。edge snapshot 加入旧 pending 记录，整帧失败恢复旧 journal、清除本次候选，由既有 raw pointer batch restore 重建新事件；不会保留新增 journal 后又重放同一 raw batch。raw overflow 只同步物理观察，不抹掉此前完整未确认事件。
+
+每 target 4096、整个 Program 16384 条记录限制新鲜批次与拒绝积压；预算超限撤销整个 target 序列并调用现有 owner.invalidate，使借用 vector owner 同步失效，独立 peer 保持。永久失败与退出清理记录，旧 edge snapshot 不会复活熔断 owner。普通已确认事件不跨帧保留，没有新 VM、输入 producer 或输出 owner。
+
+**冻结身份：**HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d` 上两个产品文件本批 before→after 增量 SHA-256 `8fdecac9d09085b7a8b23c0f9f05433a69031326a32ca052078d96ace8ea5683`。签名 Debug App 2.0.9 (277)，CDHash `a790159c9b0013b054ae6ac17920949efbed79d5`，executable SHA-256 `50ffb6d47e31df8103712ddd091937399c9a23a244604ba8a8c30a046af59479`，构建 debug dylib SHA-256 `ff2e3b40264f0e5300ea0b29e0f20aa5e6c91de5aed4196e4a0dbe6b89959e72`；Debug build 和运行前后签名验证通过。此前脏批次保持，未暂存、提交或推送。
+
+**行为门：**新增 11 组真实 Swift/QuickJS 测试通过；修前两个生产文件快照只适配缺少的 pending snapshot 观察字段，同一 harness 得到 9 项行为失败。门覆盖同层不同 target、完整 down/up/click 后置拒绝、init BAD_RETURN 后全序列重试、仅 up 的 capture、旧 pending + 新输入整帧撤回不重复、event local/world 与 input world/screen/button 保存且 runtime 使用新帧 3、raw overflow 保留旧完整事件、borrowed cursor→update BAD_RETURN、永久熔断、失效/退出清理。510 个 raw samples 展开 511 callbacks 通过；4097 clicks 的超长 API 反例触发 owner 预算并拒绝 borrowed update，独立 peer 保留；另 65 个各 192 samples 的合法批次持续拒绝，在第 65 批触发同一 4096 记录上限并清空不安全序列。后者证明积压路径，前者不冒充真实 Host raw buffer 输入。首次测试将 `false` 错当作 Vec3 BAD_RETURN，改为无效对象 `{}` 后通过，原 fixture 错误保留，不计产品失败。首轮 checkpoint 的唯一失败为该旧版新增 fixture，其余模块通过；最终新增门单独重跑通过。代码健康门仍为四项此前存在的范围外超限，预算未放宽。
+
+**实际单 surface Host：**自建 `9900000105`，project/package SHA-256=`83cfbcae5d052b2e54ba05e88baf7f0b75e3d5513ddad3e12af4e5653776807d` / `9d377f224d6b32ab57e9d9dabb5fe30b8ffb7843f4392787da6f20c137ee35df`。按下与释放在同一时间片注入，layer10/20 的 cursorClick 首次分别候选写 origin x=300/700，并向 layer50 写冲突 alpha；绿色 layer20 恰好被拒一次。16 ms 后只重试 layer20，候选 x=800 获准发布。全日志红/绿 click 调用次数=1/2，体现独立 peer 确认与被拒 owner 重试；JS 计数器没有回滚，因此这是提交重试证据，不是 exactly-once 回调。
+
+三张 3024×1964 原图中，before 绿色 world 中心 `(639.8167,360.1833)`；hover/after 红绿中心分别 `(299.7963,230.2240)` / `(799.8371,490.1426)`，两者各 74529 像素，距预期最大误差 0.225，小于预登记 1 world unit 门。hover/after PNG SHA 相同，为 `32ac2c18da757c4ea6d4cad132d109e6ab56511f5fb832937e294a2e5c2e257a`，证明下一帧恢复后保持。GPU 统计 submitted/completed/failed=111/110/0（末帧在途），teardown owners/quiescent/failures=2/2/0，timers/jobs/mutations=0。
+
+**严格 NON-PASS 与边界：**通用 benchmark 返回 `hover interaction output evidence below minimum`：本 fixture 点击位移是持久状态，鼠标离开后 hover→after 像素变化为 0，不满足该通用往返门；报告未修改，只有预登记的事件/ROI 专项门通过。证据只到受控 direct Host 的 single-surface 点击拒绝→重试→compositor→后续帧 S4。solid fixture 无 graph；不证明普通 daemon IPC、真实 Workshop 全集、双屏完整边沿、实际整帧 GPU/Host 故障恢复、性能、长稳或官方 parity。shared 对象/别名、跨帧 retained 值和任意 heap 不回滚，重试可重复非事务副作用；多 surface 仍是旧 latest-only 聚合，String init-only 继续关闭。输入、完整失败报告、ROI、门禁与审查保存于忽略的本机缓存 `docs/scene/evidence/2026-09-27-cursor-owner-transaction/`。
+
+<a id="e-2026-09-27-storage-owner-transaction"></a>
+
+### E-2026-09-27-STORAGE-OWNER-TRANSACTION — 有序存储批次撤回与同帧消费者拒绝
+
+**产品行为：**C storage read callback 带入现有 owner handle，Swift 只将其作为帧内借用 token 映射到既有 target。原 session 记录 set/delete/clear 批次及 scope/key 读来源，包括同值覆盖、空 clear、缺失 get/delete 和只发布 typed 值的读者。Host 先收敛 layer/runtime admission，再撤回稳定拒绝来源及传递读者；从原帧基线按原批次顺序重放并在每批末重验 quota，失败继续扩展闭包。被撤销删除者释放的容量不会被后续写者错误占用；runtime 先移除占位者时仍保留旧 layer conflict 恢复行为。没有新增 storage/registry/compositor，最终候选仍由原 submission barrier 和串行 atomic writer 提交。
+
+**预算与边界：**每帧最多 4096 个 storage 参与 owner、4096 条 journal 操作、3 MiB journal、16384 条去重依赖边及跨所有 fixedpoint 调用累计 16384 次重放操作。依赖预算错误先登记帧内拒绝，JS try/catch 后正常返回也不能发布；重放超限保留原基线并撤回本帧 storage 参与者，独立非 storage owner 不受影响。帧结束清空元数据。没有 storage 接触的空提交不建身份映射；正常已验证候选和拒绝重放不再反复解析已验证的全部 JSON。此实现没有性能收益量测。
+
+**产品身份：**HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d` 上 8 个产品文件的 before→after 增量 SHA-256 `416442f57f3ac57dd060163bade6f39f8577153f1ec1d5bc37c6b0fea1d09546`，保留此前未提交批次。签名 Debug App 2.0.9 (277)，CDHash `56b0e5fbbb035bbf719d16df15aa2cab9b28ff50`，executable SHA-256 `91bcaa1df245269297198bc48ba1d190091e7a06dac3cca09b10c5d5b9d170e5`，debug dylib SHA-256 `0217abc40ecdf1ccc8a0fae9cd0d9709d405f6bc6b74cd7c2a1e16636e24c56f`；最终 Debug build、运行前后签名验证通过。
+
+**行为门与门禁：**新增真实 Swift/QuickJS 13 组行为测试覆盖顺序覆盖/空 clear、同 owner 多批、传递及 typed-only 读者、screen/global 隔离、删除撤回后的 quota、原批末容量、局部/整帧撤回、身份错误、journal/依赖/replay 预算、跨 fixedpoint 调用累计上限、JS 捕获预算错误，以及 runtime 恢复早于稳定 storage 拒绝的顺序。修前快照仅适配新增签名保留原生产语义，同一 harness 得到 9 项断言失败及 2 项旧实现未产生预算结果的 KeyError；候选 13/13 通过。首轮 37 个 checkpoint 模块中 8 个因验证期间源文件更新被编译器拒绝；最终版本重跑这 8 个（其中 storage 独立运行）全部通过，其余 29 个已通过。早期新增 harness 的字段名/可选类型编译错误单独保留，不计产品反例。代码健康门仍为四项此前存在的批外超限，未调整预算。
+
+**实际 Host 与磁盘结果：**自建 `9900000104` 的 project/package SHA-256 为 `a5d57a4a5206f2b99022fd24a9e4968ed70c1dabec9ad5436aea1de6b5b936a4` / `7bf392e295189cb14873ec4c063d2287be8ee34a64ea6a4fd0fd0709ba9b7615`。四个 origin owner 中，layer20 每帧写 `tainted=5` 并与先行 layer10 写同一 target alpha 冲突；layer30 只读该值产生候选 world x=500；layer40 独立写 `safe=8`。frame0 admission 记录 admitted=1/rejected=1/external=2，全运行 428 条 layer30 read-dependency 拒绝。ready/after 原图均为 3024×1964，红/绿/蓝 ROI 分别 74529/74529/74256 像素，world 中心 `(299.7963,230.2240)`、`(199.7149,490.1426)`、`(799.8371,360.1833)`，距预期最大误差 0.286，小于预登记 1 world unit 门。绿色保持原 x=200，未泄漏 x=500；两阶段 PNG SHA-256 均为 `6679a07787101e864d11e396a8381e9434afeea1a413c8bd10e72391f31765af`。最终隔离 HOME 的 version1 文件仅含 global `safe: "8"`、screens空，`tainted` 缺失，文件 SHA-256 `b16ced2e8f0d561ae1208454733e5daa9bf2ce57223984f97d3c428cb8c33a4b`。GPU submitted/completed/failed=205/204/0（末帧在途），teardown owners/quiescent/failures=4/4/0，timers/jobs/mutations=0。
+
+**证据上限：**受控 direct Host 的同帧拒绝→typed 过滤→唯一 compositor→后续帧及隔离磁盘结果到 S4，磁盘重启只由 standalone session 门支持。solid fixture 无 graph pass；不证明 daemon IPC、真实 Workshop 全集、双屏、Release、长稳、GPU completion 后撤销、故障注入整帧恢复、磁盘故障或官方 parity。跨帧 JS retained 值、shared 嵌套对象/别名与任意 heap 仍不由此 journal 回滚；single-surface cursor 确认见上方后继证据；String init-only 继续关闭。日志、输入、ROI、测试与冻结身份保存在忽略的本机缓存 `docs/scene/evidence/2026-09-27-storage-owner-transaction/`。
+
+<a id="e-2026-09-27-owner-event-transaction"></a>
+
+### E-2026-09-27-OWNER-EVENT-TRANSACTION — 被拒 owner 的事件确认重试，已接受 peer 保持
+
+**实现与范围：**Host 汇总 cursor/Scalar/String/Vector 执行 failure targets，在既有 fixed-point admission 中先排除这些 owner，防止 cursor 已返回效果逃过后续 update 的 BAD_RETURN。admission/runtime validation 与执行失败共用拒绝集合，驱动 typed 值过滤、layer finalize 和事件确认恢复。成功提交路径用原 Program frame snapshot，只恢复被拒 target 的四类媒体 consumed generation 和 applied-property 值/revision；不倒退 observed-event 水位或已接受 peer。整帧提交失败仍恢复整份原快照。
+
+**身份与行为门：**HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d` 上 7 个产品文件的本批增量 SHA-256 `0dac55bfd97d3786f068ab167ed1669f7dab8d8976239c2ecfe81efc77591488`，前批未提交改动保持。新增真实 Swift/QuickJS 5 组测试覆盖 Scalar/String/Vector、同层不同 target、四类媒体与属性 revision、首次和后续拒绝、stale generation、局部再整帧撤销、cursor 成功后 update BAD_RETURN 与独立 peer。修前快照通过仅适配新增调用签名（局部恢复 no-op、无 initial exclusion）的同一 harness，产生 17 个行为断言失败；候选全部通过。早期 harness 的参数/descriptor 错误独立保留，不计产品反例。两项旧视频命令源码形状测试及本次触及的 preflight 字符串位置断言退役，以行为门和真实 Host 回放验证此接缝；其余旧形状检查未在本批扩张。
+
+**实际运行：**隔离自建 `9900000103`，两个 authored origin owner 在首次 applyUserProperties 向同一蓝色 layer 写不同 alpha；frame 0 admitted=1/rejected=1，绿色 owner 被局部拒绝恰好一次。下一帧属性重试令绿色 world x=600，已接受红色 peer 保持 x=300。ready/after 两张 3024×1964 PNG 的红/绿 ROI 各 74,529 像素，反投影中心分别为 `(299.7963,230.2240)` / `(599.6741,490.1426)`，与预期 `(300,230)` / `(600,490)` 最大误差 0.326 world unit；未重试将停在 x=400，peer 重复则到 x=400。两阶段稳定且图像 SHA 一致。日志、ROI 与 typed harness 共同支持实际 Host 后置拒绝与后续 compositor 消费，不以 benchmark PASS 单独判定。
+
+签名 Debug App 2.0.9 (277)，CDHash `df65c21d173ebf1e777f19c9f4802e9c4e4fb7f2`，debug dylib SHA-256 `4d71e318b1075d28ad2efa88d31d150db12991930d0281873482cb0d20a77901`；运行前后签名验证通过。统计窗口 submitted/completed/failed=`202/201/0`（末帧在途），teardown owners/quiescent/failures=`2/2/0`，timers/jobs/mutations=0。37 个选定 checkpoint 模块全部通过，Debug build 成功；代码健康门仍有四处此前存在的范围外文件超限，未调整预算。全部报告、日志、自建输入、测试和冻结身份保留于忽略的本机缓存 `docs/scene/evidence/2026-09-27-owner-event-transaction/`。
+
+**证据上限：**属性事件的实际 Host 路径到 S4；四类媒体及 cursor→update 失败为 S3 typed/VM 门。solid fixture 无 graph pass，不证明 graph publication、真实 Workshop 全集、daemon IPC、双屏、Release、长稳或性能。整帧拒绝本批仅 API 门，不冒充实际 GPU/Host 故障注入；媒体只承诺当前 latest-state 重试，不是历史事件队列。localStorage 同帧 owner-local 撤回已由上方后继批次闭合；shared 嵌套别名与任意 JS heap 仍开放；single-surface cursor 确认见上方后继证据；String init-only 未开放。
+
+<a id="e-2026-09-26-initialization-transaction"></a>
+
+### E-2026-09-26-INITIALIZATION-TRANSACTION — 初始化完成状态、待消费值和 timer 随现有 owner transaction 提交
+
+**实现与职责：**C `initialized` 只记录已提交完成，`initialization_pending` 提供同帧有效状态；Scalar/Vector 调度直接读 C，不再各存 Swift `hasInitialized`。原 layer commit 推进状态，discard 清 pending。六条 primitive/Vec3/String 的显式 init 与 update 内首次 init 失败分支使用同一 BAD_RETURN 重试策略，其他异常/预算/OOM 熔断不被恢复。真实 init callback 前保存一次已有 timer snapshot，直到当前 owner transaction 提交才释放，局部拒绝先恢复再释放；不在每次 callback begin 重拍基线。Host 整帧丢弃先撤销 owner，再恢复并销毁原帧 timer snapshots，补齐原 restore 后未 destroy 的路径。
+
+Vector 借给 cursor 的初始化值采用候选消费标记：读取后可休眠，commit 才确认清除；discard 对已提交 init 保留待消费值，对未提交 init 清除。因而“帧 A cursor 初始化已提交但 vector 未消费 → 帧 B 消费后被拒 → 帧 C 重试”不会永久丢失值。没有第二套 VM、frame transaction 或产品输出 owner。timer checkpoint 仅在未提交初始化期间存在；普通已初始化帧不新增该分配。
+
+**冻结产品身份：**HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d` 上 7 个产品文件，按本批 before 快照生成的增量 SHA-256 `60ae3d55217a117300b3a783c93517ac560eff6d2a8ed725613c3ecc79fa8178`。前批 stock/String/event-audio 改动完整保留。最终 Developer ID Debug App 2.0.9 (277)、Team `H9QWU9XN8R`，CDHash `cab1c5ee68426697b59e6341d47d3199f48e5077`，executable/debug dylib SHA-256 `82355343da7f9dbb294d64654d28d636c9290ead261e2f88868d089ddc909f01` / `4d088bac10e36a17092e3516b3858f783cca4332d485e119facd8f5e3c430b89`。最终 Debug build 和运行前后签名检查通过。
+
+**行为与反例：**新增 `test_scene_script_initialization_transaction` 9 项直接编译生产 Swift/C Owner API，覆盖六种 BAD_RETURN→成功重试、Bool 坏返回、Scalar/Vector/String 撤销后重试、成功提交后休眠、已提交 cursor 值的跨帧消费 11→拒绝→11→提交→普通输入 300、未提交 cursor 值不得泄漏、候选消费后休眠、init timer 数量 1→局部拒绝 0→重试 1→整帧恢复 0→提交 1，以及 stale generation/exception/timeout/OOM。初版 5 组在旧产品上产生 9 个失败断言；更早几轮 harness 编译/参数错误不计产品反例。checkpoint 27 模块中 26 通过，既有 `test_init_only_borrowed_owner_still_publishes_its_value` 捕获候选消费后被重复唤醒的新增回归；修正调度条件后，初始化事务、vector owner admission、cursor audio 三模块重新全通过，原测试期待未改。验证选择器 59 项通过。code-health 仍为四项批外既有大文件超限，预算未放宽。
+
+上述拒绝测试实际执行 Owner API 的 commit/discard 与 timer snapshot 恢复，不等于真实 Host admission 拒绝、整帧提交失败注入或 snapshot 泄漏量测。Host 修复的证明是控制流审查加最终构建；普通成功路径另有下述 App 执行。
+
+**正常可见链：**自建 `9900000102` 含一个 composition Boolean init owner 和一个 solid marker，init 写 peer origin x=545，并注册 3000 毫秒一次性 timer 将 x 写为 800；无 update。最终 project/package SHA-256 `39fc3fd04a78857b990d5658b19369e49d400d6e94e3c4fd371f1719947813d7` / `fca3ca731c9355c0c273ae41a710a061dee58fff004a6b44dc7d4bd59905aab7`。12 秒隔离回放、after delay 6 秒，benchmark PASS / failures=[]，frame 0 admittedOwners=1 / rejectedOwners=0。3024×1964 Metal ready/after 图的标记中心 x=1252.5→1948.0，y 均 981.5；位移 695.5 px，对应 255/720×1964=695.5833 px，误差 <2 px，绿色面积比 <1.01。GPU 测量窗口 240 submitted / 240 completed / 0 failed；teardown owners=1 / quiescent=1 / failures=0 / timers=0。这证明正常初始化和 timer 的 typed mutation 到持续可见输出，不证明拒帧恢复的可见结果；没有 graph pass，因此不冒充 graph publication。
+
+**失败与缓存：**前两轮自建输入将 timer 的毫秒参数写为 1/3，回调在 ready 截图前已执行；通用 benchmark 虽 PASS，第二轮 ROI 位移 0 未通过预登记时序门。原报告、输入和 ROI FAIL 保留；修正的是 fixture 单位而非产品算法或判据。忽略的本机缓存 `docs/scene/evidence/2026-09-26-initialization-transaction/` 保存三轮报告/截图/日志、自建输入、before 快照、测试、构建和 ROI 证据；report manifest SHA-256 `836a0ce9e7e7814030ce2ee3b1741ee7e32b816529da8d0036fd822e7f593b6f`。
+
+**未闭合与下一门：**String init-only 仍拒绝。本批不回滚模块局部变量、闭包或 JS 对象别名；init 重试可能重复其非事务副作用。后继已闭合 target 事件确认和 localStorage 同帧 owner 撤回，见本页 2026-09-27 两批证据；shared 仍只有 domain 整帧快照，嵌套别名与任意 retained 值不能随局部拒绝恢复。single-surface cursor 确认已由本页后继闭合；下一步须继续闭合 shared 及完整 Host 整帧拒绝反例，再决定 init-only 准入；不新增另一套 property/shared state。未验证真实 Workshop 初始化拒绝、真实双屏、Release、长稳、性能或官方 parity，整张初始化事务卡仍开放。
+
+<a id="e-2026-09-26-event-audio-admission"></a>
+
+### E-2026-09-26-EVENT-AUDIO-ADMISSION — 事件 owner 允许音频并在回调前刷新
+
+**根因与实现：**无依赖 composition visibility 迁入 vector+borrowed cursor 后，event-only Bool 的 `!ownerHasAudioRegistration` 守卫使合法音频 owner 消失。仅移除该否决条件，保留 event hook、stateful journal、destroy 和 value-only 边界。审查同时发现 vector 的音频刷新晚于 init/applyUserProperties；现把已有 refresh 整块移到静默帧 guard 之后、所有回调之前。同一 QuickJS owner 的 generation 去重、事件 watermark、borrowed cursor 和唯一 shared audio demand 不变。
+
+**身份：**HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d` 上两产品文件 `SceneScriptVectorRuntime.swift` / `SceneScriptVectorProgram.swift` 的未提交增量，产品 diff SHA-256 `2cbb7ddfb876bd8cc2a89666b5e8240c78ac0fc5356149d3aa9d19e69fa8a9b7`；前批 stock/String 改动保留并包含在 App 中。Developer ID Debug App 2.0.9 (277)、Team `H9QWU9XN8R`，CDHash `f2032e48ebb7086023fa7aceecca511d20ec8a0e`；executable/debug dylib SHA-256 为 `cf053b25fc28d4ce2484f818000e0149b6fc2bbd4982219d8182ccb27bbd531a` / `484e2d82a564127e49f02b8c80b692cb3425945fc8750b8519f055f135784259`。构建成功，benchmark 前后签名验证均通过。
+
+**行为门：**最终 cursor/audio 模块 6 项、Boolean visibility 模块 15 项通过，直接执行生产 Swift/C QuickJS：迁移 owner 与真实 standalone control 均保留当前音频；16 档 property-only 与 init+property 回调先读取当代快照；64 档 media-only 回调读取左右声道、下一事件读零频谱；同代重复刷新不覆盖已发布数据，无新事件不执行。cursor 异常撤销该 owner 本次输出且 peer 继续；这不等同整帧 Host rollback 或任意 JS heap 回滚。媒体 fixture 用递增回调计数和频谱一起写入，避免未回送 Host layer snapshot 时零值写入被既有 no-op elision 省略；不修改产品省略逻辑、不宣称该 harness 已验证 next-frame Host snapshot。新 cursor 行为门在旧产品上先出现 6 项失败，修复后通过。checkpoint 所选 22 模块中先 21 通过、1 项旧的“音频事件 owner 必须拒绝”预期失败；该模块改为上述行为门并单独重跑 15 项通过，故最终 22 个所选模块各有通过记录，并非一次全绿执行。code-health 仍仅四个批外既有大文件超限，未放宽预算。
+
+**可见正反例：**自建最小内容 `9900000101` 包含 composition 音频 cursor owner 与普通 solid 标记，作者脚本取 16 档最大值更新 peer origin；使用现役 parse→typed mutation→Metal→唯一 compositor。两轮同一 project/package SHA-256 为 `7e0ee9290ee6f9f831b11d6ce2bb0312eaa646f57b94d4f750ae1deb42d0efce` / `429599fbce4a016ecc519d2293c173870241a1813175544c485762297c892b24`，12 秒、after delay 6 秒、固定中心 pointer 与 primary click；仅 PCM/静音 fixture 输入不同。
+
+| 条件 | typed callback 与原分辨率 ROI | GPU submitted / completed / failed | 判定 |
+| --- | --- | --- | --- |
+| PCM | cursorDown 发布 peer origin x=545.568342，cursorLeave 回到 320；标记中心 x=638.5→1254.0→638.5 | 225 / 225 / 0 | 通用 benchmark PASS；ROI 位移 615.5 px、复位误差 0 |
+| 静音 | 同样 Down/Leave 回调，标记中心始终 638.5 | 240 / 239 / 0 | 独立负例 ROI PASS；通用 benchmark 保留 FAIL `hover interaction output evidence below minimum` |
+
+ROI 门要求颜色掩码超过 10,000 像素、PCM 位移 >20 px、静音和复位误差 ≤1 px、三个阶段面积比 <1.01；实际标记约 190,000 像素，持续输出与回调日志共同支持有界可见消费。两轮 teardown 均 owners=1 / quiescent=1 / failures=0。静音最后一帧可能在途；此处不是性能比较。初版 fixture 仅读 left[0]，PCM 在该档为零而无位移，该失败也保留，未归因产品。最终改为作者脚本取已有 16 档最大值，无产品样本分支。
+
+**缓存与上限：**提纯到忽略的本机 `docs/scene/evidence/2026-09-26-event-audio-admission/`，report manifest SHA-256 `02266ddb8803af98249dbf2911932da3a93314458ce203d419d0d3a5308b245b`；保留三轮报告/日志/截图、自建输入、ROI 程序、构建和测试记录。普通 solid fixture 没有 graph pass，不能冒充 graph publication/精确 graph identity 证据。未验证真实 Workshop 音频事件画面、普通系统声源、真实双屏、Release、长稳、全集、性能或官方 parity。下一切片是既有初始化事务卡，String init-only 仍拒绝。
+
+<a id="e-2026-09-26-string-module-admission"></a>
+
+### E-2026-09-26-STRING-MODULE-ADMISSION — 有效无帧回调模块不再误触发域重建
+
+**问题与实现：**旧 String owner 在模块成功执行后仍要求存在 update/property/media callback，把真实 `3662790108` 的 1921/1893/1691 三条仅注释脚本判为 invalid-source，并分别触发 fresh-domain 重建。现役准入允许无 init/update/property/media callback 的有效 module 留在同一 domain；现有调度负责静默帧休眠与 teardown，不按源码文字或样本 identity 匹配。语法错误、模块异常、OOM/source/construction budget 边界及污染域重建不变。init-only 仍拒绝，未宣称其初始化事务已支持。
+
+**身份：**HEAD `6237233829a5044cba8e8905023a3be3bce7ab1d` 上的未提交增量，仅改一个产品文件 `SceneScriptStringRuntime.swift`。产品 diff SHA-256 `1b17b1e4393d876beec1e67c43c8a0f499205a0ceabcf8016e62e5e4ca51af01`；前批 stock 资源改动同时存在且保持。签名 Debug App 的基线/候选 CDHash 为 `e9a88c72107d3bd09fc098f86338835083e280fb` / `e2d19589be9ecb9bcb1378286baf6d8c66fe6115`，候选 debug dylib SHA-256 `67651cbd45d14a2331dc99b27a062c3b775e3d363af9a67414e20e14e8bb976b`。精确文件、App、输入和差分身份保存在忽略的本机缓存 `docs/scene/evidence/2026-09-26-string-module-admission/`。
+
+**验证：**新 String 生命周期行为测试先在旧实现失败，修复后 3 项通过；真实 Swift/C VM 覆盖注释、非调度 helper export、累计顶层计数、无新值的连续静默帧、destroy 一次、语法/模块异常拒绝、现有 top-level timer 限制、init-only 未开放边界，原 property/media/timer/previous-current 用例仍通过。String compileCandidate 的 `requiresDomainReconstruction=false` 与 consumed=1 是局部构造证据；真实 App 的构造失败消失与 owner 守恒是整候选证据。两条既有 vector owner 计数预期同步 composition visibility→vector+borrowed 归属，并新增 exact target 归属断言。checkpoint 22 模块中 **21 通过、1 失败**：`test_scene_cursor_audio_consumer` 两项失败暴露既有 event-only Boolean 音频注册拒绝；其 fixture 无 String 绑定，相关产品文件不在本批 diff。该实质缺口在本批保留，随后由[事件音频批次](#e-2026-09-26-event-audio-admission)修复。Debug build 成功；code-health 仍为四个既有批外大文件超限，未抬高预算。故本次不宣称 checkpoint 全绿。
+
+**真实回放：**修前/修后均使用同一只读样本与隔离 runtime，20 秒、after delay 12 秒、要求 graph execution；project SHA-256 `516bf3721903ceb9ae25e5239274f789c1a5566c07f82c4d63dc0450ca65d1e9`，package SHA-256 `06db4dc21ca78724f37e513776d0beb10ac587367897fab4051ead94dc1f3ec8`，属性 `newproperty1=false/newproperty48=true`。这是身份锁定的诊断 selection，并非 full/fixed matrix。
+
+| 项目 | 修前基线 | 修后候选 |
+| --- | --- | --- |
+| String owner 构造失败 | 三条 invalid-source | 0 |
+| teardown owners / quiescent / failure | 920 / 920 / 0 | 923 / 923 / 0 |
+| loaded ratio / 诊断 selection | 1.0 / PASS | 1.0 / PASS |
+| exact graph completed + compositor + next-frame layer | 23 | 同一 23 |
+| 测量窗口 submitted / completed / failed | 89 / 88 / 0 | 82 / 81 / 0 |
+
+**边界与后继：**旧 4096 耗尽在本次基线已消失，不归因本批。两次 after 截图已查看，均为低亮说明画面；没有 point 光/天体 ROI 正证。帧内仍有 visibility 859/860 的 bad-return 与 alpha 1459 properties unavailable，诊断 PASS 不代表完整兼容。此次短时 Debug 运行与测试编译有重叠，帧数字仅记录 completion 安全，不作性能比较。event-only Boolean audio 准入已由[后继批次](#e-2026-09-26-event-audio-admission)修复；下一步闭合 owner-local 与 host-wide 初始化事务；不把仅扩 timer snapshot 当作完成，也不承诺任意 JS heap rollback。
+
+<a id="e-2026-09-26-stock-noise-preparation"></a>
+
+### E-2026-09-26-STOCK-NOISE-PREPARATION — 按需启动准备与默认纹理准入一致性
+
+**合同与实现：**在唯一 launch 资源链、capability catalog 之前按 exact asset `.absent` / 显式 system demand 创建不可变 `SceneStockNoiseTextureStore`。共享已有 upload queue，一次 preparation 最多六张纹理、一个 mipmap command buffer、一次完成等待；取消不交出部分结果，失败冻结 unavailable，只有新 preparation 可恢复。各 surface 消费同一 states，逐帧不生成、不上传、不等待。启动 readiness/format/color 共用默认选择，只有 exact、complete、current、noise/data 的已完成 publication 才能替代已登记的缺失 noise；frame 使用同一替代资格，资产 ready/pending/unavailable/unknown 都不能冒用替代。统一 media+stock 状态也用于材质 provider block，避免后置 media-only 缺失判断覆盖 noise ready。
+
+**代码身份：**基线 `6237233829a5044cba8e8905023a3be3bce7ab1d` 上未提交候选；19 个 Scene 产品文件的 `git diff --binary -- <产品路径清单>` SHA-256 为 `e4d1920a2826f33e1237137793ff1202ca6b7a9640c080bfd696d73def4c4578`，文件清单与逐文件 SHA 存于本机证据的 `candidate-identity.json`。真实运行是 arm64/macOS 27.0、签名 Debug App（Team `H9QWU9XN8R`）；正常包 CDHash `0f642d2a7ede34ca67ca74802bd5e3aba140f258`，executable SHA-256 `501f38d6603ee7c4955e9e605b3af2416174b109900480b3ea525e6f335cbc8e`。两包相同 `MyWallpaperX.debug.dylib` SHA-256 `18940373579db43794dbf584aea3c2a3103466b68aaf59c026165ec724f20eb3`。受控缺失包只从隔离 App 移除 `SceneStockAssets.bundle/assets/materials/util/clouds_256.tex` 和 `.png`，保留 helper 原签名并按原 Developer ID 重签外层；其 CDHash `d8e52fe02447d5b3987cb5346048f4ee10356441`、executable SHA-256 `60be82eb14d570d2425292bee52eef91d440c232bb7b37d154e4491e1677941c`。真实样本目录未修改。
+
+**行为门：**`test_scene_stock_noise_texture_store` 与 `test_scene_sampler_default_purpose` 共 10 项通过：实际 Swift/Metal 九级 mip 读回、固定像素、三种完成失败注入、需求筛选、两种取消时机、两个实际 frame registry 各连续 120 帧复用 publication atom且无额外分配/提交/等待；launch→finalize 选择一致、所选 provider 格式来源、asset 优先以及 pending/unavailable/unknown/失败/错身份拒绝。两个 registry 不等于真实双屏，单GPU也不构成跨GPU实测。`test_scene_resolved_material_program_finalizer` + `test_scene_resolved_material_runtime_bridge` 共44项通过；stock asset publication + 文档角色/governance/source-set共37项通过，部分存量门是源码结构断言。异步launch与同步generation原有18项通过。签名 Debug build成功；一次构建被时间戳服务不可用打断后原命令重试成功。code-health仍仅四个既有跨模块长度错误，不调整基线。
+
+**真实执行：**同一 `3750813609`，16秒回放、6秒 after snapshot delay，开启 graph execution要求。样本 project SHA-256 `f02f742a134c9307cdf6240abb0f9592934dd0493af9be5be58163687f5dfbef`，pkg SHA-256 `14bfb5cc00053d190c01a78d8aebc828fd08824f9d5ab4aac3499702fdd464fd`。
+
+| 条件 | 资源准备 | 实际链路 |
+| --- | --- | --- |
+| 正常完整资源包 | asset `ready=6 absent=0`；noise `prepared=0 ready=0` | PASS；layer 57/358 均有 GPU completed、publication、terminal compositor消费、next-frame；executor 362 claimed/encoded/GPU、0 failure/local fallback |
+| 受控缺失clouds包 | asset `ready=5 absent=1`；noise `prepared=1 ready=1` | PASS；同两layer完整链路成立；executor 606 claimed/encoded/GPU、0 failure/local fallback |
+
+两次测量窗口均480 submitted、479 completed、0 failed；最后一帧仍可能在途，不能把短时 Debug数据用于性能比较。已查看两次最终画面：山谷背景和时钟保持可见，合成分支改变了时钟亮暗分布；没有同时间官方ROI对照，不宣称视觉等价或原时钟问题完成。
+
+**反例与归因：**最初 deep ad-hoc重签隔离App破坏helper产品团队签名，触发 `helperSignatureInvalid`，不计有效consumer证明。随后正确签名缺失包暴露真实代码缺口：旧launch默认asset absence直接落空，layer358因 `material-variant-envelope-texture-binding` 被拒；该失败是本批统一launch默认选择的修前反例，保留FAIL记录。前期报告与截图缓存 `2026-09-26-stock-noise-preparation`，最终缓存 `2026-09-26-stock-noise-preparation-final`，均位于忽略的本机 evidence目录。最终正常/缺失报告SHA-256为 `27774bca25e58d6f65f92d01a318a3272d8a3f71ad5e42a1fc8269dd3b70d167` / `1d490ec599eb6a27662fa82f48e06b094f100462b3a45400fb79f325e547525a`；提纯manifest SHA-256 `ed454eebb795a18abcf3ec0885ef0c99ef60f69d5e5ce6712c397a9cd931948b`。
+
+**上限：**本批为 `S3` 通用资源/准入链执行证明，附有可见输出佐证；合成算法仍是项目近似，官方stock密度/语义、真实多屏/跨GPU、全集矩阵、Release和稳态性能均未验证。真实正常包已有stock资产，不能再把其时钟视觉问题归因于本批合成纹理缺失。
+
+<a id="e-2026-09-26-stock-noise-range-and-upload"></a>
+
+### E-2026-09-26-STOCK-NOISE-RANGE-AND-UPLOAD — 固定噪声全量程与失败不发布
+
+**身份与范围：**基线 `6237233829a5044cba8e8905023a3be3bce7ab1d`；候选只修改 `SceneStockNoiseTextureStore.swift` 的随机数归一化与 mipmap 完成守卫，产品文件 SHA-256 `398bc23b47588b06fa4483774fa3b948828583d3c8fa72ebc41b92634f1e7044`。测试文件 `script/tests/test_scene_stock_noise_texture_store.py` SHA-256 `0c4c607192298bf5c3582e3fd5b535420aa62f9cbcd9ce4368783864e1106b3c`，运行于本机 arm64 / macOS 27.0 的真实 Metal 设备。基线源码由 `git show HEAD:<path>` 写入隔离临时文件，使用完全相同的 harness 编译执行；没有更换工作区源码、写真实样本或启动主 App。
+
+**修前/修后可执行反例：**原生成器保留 31 bit 后除以 `UInt32.max`，所有随机输入只能到约 0.5；候选保留 Float 可精确表示的 24 bit 并除以 `2^24`，覆盖 `[0,1)`。`util/uniform_256` 的 R8 像素均值 `63.1126 → 126.7218`、最大值 `127 → 254`，值≥128的比例 `0 → 49.672%`；`util/noise` 均值 `63.2543 → 127.0071`、上半区 `0 → 49.802%`；clouds 均值 `71.0536 → 142.6085`、perlin `65.9313 → 132.3627`。这证明半量程缺陷消失，不把均值升高定义为官方视觉正确。
+
+六个已登记纹理均完成九级 mip 的 GPU blit 读回，所有级的均值与 base 偏差小于 5；两次独立 store 生成相同像素，同一 store 重复请求复用同一 publication atom。`nextFrameStable` 字段只表示第二次 GPU 读回相同，不表示运行过 Scene frame driver 或 compositor。三种进程内 NSProxy 注入分别令 mip encoder 为 nil、真实 GPU 完成后查询 status 为 error、真实 GPU 完成后查询 error 非 nil：基线三种均错误发布，候选三种均不发布，随后同 store / 同 device 成功重试均恢复。注入没有制造真实 GPU 故障，也不证明驱动故障恢复。四项新增行为测试通过；相邻 `test_scene_image_upload_completion`、`test_scene_stock_material_asset_publication` 与 `test_verify_scene_change` 三模块全通过，隔离 `script/run_checkpoint_build.sh` 为 `BUILD SUCCEEDED`（Debug，未签名，DerivedData 已由 wrapper 清理）。`git diff --check` 通过。聚合 code-health 仍被四个既有文件长度超限阻断（SteamWorkshopBrowserItem、LibraryGridView、SteamWorkshopLibraryTransaction、SettingsView），均不在本批改动范围，不调整其基线。
+
+**证据保存：**基线/候选 JSON SHA-256 分别为 `c589d721f8d52fa6597870cbe5675451779266a353e66e65a0b0ce13edd37241` / `bdd02b6e8bda6b5f485b2827f3eeac981aee5a0754027169262448686586654f`。本机紧凑缓存为 `docs/scene/evidence/2026-09-26-stock-noise-range-upload/`。上述候选文件及测试 hash 是前批冻结身份，已被后继 preparation 改动取代，不能与当前文件直接等同；后继测试可由 `python3.12 -B -m unittest script.tests.test_scene_stock_noise_texture_store -v` 重跑。
+
+**证据上限与余量：**本批为 `S3 isolated texture producer`；包内资产优先级和 system provider 接线未变。真实 Scene compositor / ROI、官方 stock 密度与数值、固定/全集矩阵、性能和最低设备未复测，不能承接旧构建的视觉结论。此前逐帧入口首次生成/失败重试现已由[后继 preparation 批次](#e-2026-09-26-stock-noise-preparation)消除；本条仅保留数值修复时的历史身份。
+
+
 ### E-2026-09-24-TRAIL-BEND-CALIBRATION — 用官方预览斜率变化率定标轨迹弯曲，两次修正确认错误并回退
 
 **筛查范围与坐标约定：**沿"作者粒子 JSON → 局部模拟 → 层世界帧 → 渲染模型 → 屏幕"逐段核对。用官方预览里已知位置的层反推渲染世界 Y 约定：频谱条作者 y=115、文字 y=471、日期 y=353 在 `preview.jpg` 分别落在屏幕 y≈960/860/900（画面下部），而代码的顶层 `origin.y = H - y` 推出的是画面顶部——**渲染世界是 Y-down**，因此 `SceneParticleCameraModel.particleLayerModel` 的 `scale(1,-1,1)` 是必需项，`SceneParticleMovementPlan` 对世界向下的重力做"世界→局部"重投影也是必需的。
@@ -1085,7 +1980,7 @@ matrix/report/app-log/runtime/ready/after SHA-256为`6b2cdd7438c604df71a420b17f5
 
 **结论：transparent direct draw 的承载几何现在与 uniform、projection source 一样先形成类型化合同；`3747492842:168` 保持原 half-canvas 比例，只把 source-proven 的静态有效区对齐到顶部。** 真实 package 中 layer 168 是无 imported `size` 的 `quad`，origin 为 `1913.38232,1080`、uniform scale 为 `2.03036`；作者四点上边约为 `0.57282,0.19584 / 0.38640,0.19475`，下边约为 `0.21953,0.83065 / 0.76299,0.83838`。旧 `SceneLightShaftsQuadGeometry` 的 half-canvas extent 与 stock direct-draw preset 的约 2 倍 layer scale相符，问题是 carrier 始终居中，静态透视有效区的上边因此落在画面内部。把 carrier 改成完整作者画布的中间实验虽然让光束碰到顶边，却使整体面积明显放大；维护者已否决该结果，本节不把它当正证。
 
-**现役合同与删除项：**`FrameInputContract.EmittedOutputGeometrySource` 在 generation 按 source route 固定为 `layerCard / captureGeometry / authoredCanvasDirectDraw`。本节 2026-09-14 的 linear 证据使用 exact `DIRECTDRAW=1 / RAYMODE=0`；现役后继合同已扩展为同一 vertex source 可证明的 `RAYMODE=0/1/2`，统一要求四个 material value 是同一组 finite static vec2，且 prepared vertex source 确实以这些 active uniform 构造 `inverse(squareToQuad(...))`，然后生成 `canvasExtentScale=0.5 / normalizedContentTopInset=min(point.y)`；动态、歧义、超出支持 ray mode 或 source 未证明的形态保持 `centeredHalfCanvas`。四点仍作为原样 Program uniform 进入作者 shader，carrier 尺寸不变，只施加已准备的局部内容锚点。frame preflight 只求一次 output MVP 并写入 `SceneResolvedMaterialFrameTargetPlan`，target sizing、effect texture projection 与最终 compositor 共同消费；draw 阶段不再重算。旧 `SceneLightShaftsQuadGeometry.swift` 和 `SceneLightShaftsLayerRenderer.swift` 已删除，由不持有效果像素逻辑的 `SceneDirectDraw*` 通用桥接接管。没有新增预算、fallback、effect/sample/layer/path/hash 分派或第二输出 owner。
+**现役合同与删除项：**`FrameInputContract.EmittedOutputGeometrySource` 在 generation 按 source route 固定为 `layerCard / captureGeometry / authoredCanvasDirectDraw`。本节 2026-09-14 的 linear 证据使用 exact `DIRECTDRAW=1 / RAYMODE=0`；后继曾扩展到同一 vertex source 可证明的 `RAYMODE=0/1/2`；2026-09-27已收回radial/corner顶部平移（见[修正证据](#e-2026-09-27-radial-carrier-anchor)）。现役仅全linear候选携带顶部inset，0/1/2仍参与候选歧义检查，统一要求四个 material value 是同一组 finite static vec2，且 prepared vertex source 确实以这些 active uniform 构造 `inverse(squareToQuad(...))`，仅全linear且唯一的候选生成 `canvasExtentScale=0.5 / normalizedContentTopInset=min(point.y)`，其余居中；动态、歧义、超出支持 ray mode 或 source 未证明的形态保持 `centeredHalfCanvas`。四点仍作为原样 Program uniform 进入作者 shader，carrier 尺寸不变，只施加已准备的局部内容锚点。frame preflight 只求一次 output MVP 并写入 `SceneResolvedMaterialFrameTargetPlan`，target sizing、effect texture projection 与最终 compositor 共同消费；draw 阶段不再重算。旧 `SceneLightShaftsQuadGeometry.swift` 和 `SceneLightShaftsLayerRenderer.swift` 已删除，由不持有效果像素逻辑的 `SceneDirectDraw*` 通用桥接接管。没有新增预算、fallback、effect/sample/layer/path/hash 分派或第二输出 owner。
 
 **正反门与产品身份：**direct-draw geometry 门验证 half-canvas extent、world/parallax/matrix 顺序、非法 extent 拒绝、四点数量/范围拒绝，以及真实 `scale=2.03036 / topInset=0.19475` 下“尺寸不变、有效区上移”；capability 门验证三种 prepared geometry source、combo/source/static 正反条件、每帧只解析一次 output MVP 及 compositor 复用。direct geometry、capability、capture geometry、effect execution telemetry、utility layers、source update transaction、runtime bridge、Program derivation/finalizer 与 material copy/history 共 10 个 selected focused 模块通过。额外运行的 `test_scene_resolved_material_graph_executor` 当前仍有 12 项 visual-failure passthrough 布尔合同失败；这些 case 不含 direct-draw geometry，本批不修改该独立失败路径，也不把该模块计为通过。签名 Debug build 成功。App 2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `b056e87330fefcf4795748bef6166bd683e3e100`，executable SHA-256 `c61acb4bb7ebcc3af5a194a23c6a4658171bb8739cb85edfa6427c3b6e1ce8e0`，签名前后验证均为 true。
 
@@ -1116,6 +2011,8 @@ benchmark report 整体仍为 **NON-PASS**，失败项全部是该隔离 matrix 
 
 <a id="e-2026-09-22-light-shafts-raymode-geometry"></a>
 ### 2026-09-22 Light Shafts RAYMODE 0/1/2 共同直绘几何
+
+> 后继纠正：该批加载/执行证据不证明共同世界锚点。2026-09-27已撤回radial/corner top-inset扩展；下述“关闭placement”的历史结论失效，当前事实见[径向锚点修复](#e-2026-09-27-radial-carrier-anchor)。
 
 **合同与改动：**现役作者 `lightshafts.vert` 对 `RAYMODE=0` directional、`1` radial、`2` corner 共用同一 `inverse(squareToQuad(point0, point1, point2, point3))` prepared vertex source；差异只在 fragment 的 `fxCoord` 形态。`SceneResolvedMaterialDirectDrawGeometryCompiler` 因而把原先只准入 `RAYMODE=0` 的条件收敛为 `DIRECTDRAW=1` 且 RAYMODE 属于 `0...2`，仍要求所有 launch variant 一致、四点 declaration 唯一且 static/finite、prepared source exact 证明、以及 `ScenePreparedDirectDrawOutputGeometry` 的水平 `[-0.01,1.01]` / 垂直 `0...1` / top `0...0.5` 边界。没有新增 radial/corner renderer、sample/layer matcher、第二 provider 或 compositor owner；不满足点集/源证明的样本继续 centered fail-soft。
 
@@ -2345,3 +3242,21 @@ v4 的 `3780119725` generation 1 include-current-process capture data peak `0.49
 **核验（只读代码推导，零改动）：**主循环（SceneResolvedMaterialGraphExecutor.swift:315-332）每阶段要求 `pair.member == pairStep.inputMember` 且阶段渲染写入 `pairStep.outputMember` 纹理——成员 ping-pong 交替（k 阶段 m0→m1，则 k+1 阶段 m1→m0）。对激活直通阶段做跨成员别名发布（把输入成员纹理直接发布为输出身份资源）会使**下一阶段的采样输入与渲染写入落在同一张纹理**（Metal 标准渲染不可采样自身附件）——渲染冒险，不安全。保持成员不翻页则违反 `pair.member == pairStep.inputMember` 守卫（整层 invalidLease）。让直通步在计划期取同成员（走免拷贝 `rewrappedForGraphIdentity` 分支）不可行：激活直通是**运行时**状态（脚本门控逐帧可翻转，同一效果可 resolved/直通交替），静态成员调度无法预知；且 239/657/1509 的直通步（effect 1）均非链尾（后续阶段同帧仍写成员）。
 
 **裁决：**6 次/帧成员保留拷贝是 ping-pong 渲染纪律在运行时条件直通上的**机制固有成本**，AS3 对该项记"有证据不实施"；census 的 +1/+1/+1 与 6 拷贝为 D2b'' 能力的确定性代价，按回归保护口径作为新基线事实登记（非回退）。AS3 在本样本的可删对象仍为零（22 次 source capture 为"读取已累积合成"固有代价，09-16 裁决维持）；下一 AS3 动作回到身份矩阵补齐（30 FPS 档、双屏、Release 等价构建、含 blend/refraction/history 样本）后再选新样本。
+
+
+<a id="e-2026-09-27-eight-visual-reports"></a>
+### E-2026-09-27-EIGHT-VISUAL-REPORTS — 用户实际播放反馈与静态输入核对
+
+- **范围**：用户在最新已启动 App 中报告八个样本的光束、白点数量、移动栅格、动画顿挫、雾状叠加和随时间过曝。症状及下一关闭门统一保留在[QV 队列](../scene-open-breakpoint-queue-2026-09-09.md#qv-真实画面首断点用户-2026-09-27-重排)，本项不将用户观察写成已受控复现或已修复。
+- **本次执行**：只读真实样本根，用现有 `scene_capability_census_io.PkgArchive` 读取八个原包的 scene.json 和直接引用的 image/particle JSON；每包及 scene.json 的 SHA256、对象/特效声明保存在本机忽略缓存 `docs/scene/evidence/2026-09-27-eight-visual-reports/inventory.json`。只将诊断副本写入隔离临时目录；没有切换、停止或重建用户当前 App，没有修改原样本。
+- **可确认的静态事实**：新增三个光照样本都含粒子光束，并分别混用 godrays 或独立 Light Shafts；2419444134 layer731 的 count/rate/size 有脚本，不能在未检查其输出时把低密度解释为 emitter 丢失；3113554287 作者脚本每次 update 可能调用视频 play/pause 和显隐，尚无重复 seek 的运行证明；3287715210 同时含径向光束和风轨迹，其 HDR=true、bloomstrength=0；3088601835 的原包 Bloom=false，19个粒子层，单凭过曝不能认定是 Bloom 或 framebuffer 残留。
+- **验证上限**：这是作者输入及用户反馈的取证登记，无新 GPU/VM/App 执行、publication/completion/terminal compositor 或 next-frame 证据；第1秒/第10秒截图尚未采集。不得以既有 matrix PASS 覆盖这八项视觉失败报告。没有产品修复、视觉兼容或官方 parity 结论。
+
+
+<a id="e-2026-09-27-video-command-idempotence"></a>
+### E-2026-09-27-VIDEO-COMMAND-IDEMPOTENCE — 重复视频命令不再暂停播放器
+
+- **首断点与实现**：3113554287 作者 update 每帧对四层发送 play/pause；现有 lifecycle 的 resume/pause 已幂等，但 `SceneVideoTextureSource.apply` 仍无条件调用含 `player.pause()` 的 `markPlayerAnchorRequired`。现在只增加三个当前状态守卫：已播放的 play、已暂停的 pause、相同 rate 不失效 anchor。首次准备、真实暂停/恢复、seek、实际 rate 变化、EOF、backend rate=0、host 恢复及拒帧重试仍沿原 owner，未新增状态、时钟或样本分派。
+- **可执行反例**：真实 AVPlayer + Metal、生产 provider/lifecycle，以自有 H.264 测试片驱动。修前从 rate=1 发出重复 play 或 setRate(1) 均立即变0；修后均保持1。新增行为门覆盖计划时间推进、暂停保持、恢复、seek、真实变速2、非法rate、错误layer，以及首次prepare前play、模拟后端暂停后的恢复、discard后同frameIndex重试。外围 publication/command/timing 值封装使用 standalone shim，播放器、解码、纹理和生命周期没有替身。计划时间 `Frame.itemTime` 不等于解码 `itemTimeForDisplay`；时间单调断言不证明实际解码连续。
+- **代表样本链**：隔离同一 project SHA `122a1cb10916f32d54322f521bebb61bcb38de03c80fd0c788968e3c5a3071f0`、package SHA `c9eb779fa4c3e92e007b2b8b3bcfa4a742902763371fe488c6e8d894f78f42df`，修前/修后各12秒，临时 identity/loaded 门均1/1 PASS，并非完整兼容matrix。每次记录10张1秒间隔截图，确认完整构图和运动；四条视频命令分别提交671/661次。唯一组合层69的graph在frame0/next-frame GPU completed、publication、terminal compositor consumed；性能窗分别422/422/0/420与415/415/0/413（submitted/completed/failed/presented）。样本实际瞬时顿挫仍待连续解码/呈现取证，不用这些计数或截图关闭它。
+- **门与边界**：Debug `-O` build成功；新增真实播放器行为门通过，旧video模块9项通过（其中包含源码形状门，不等于9项真实播放器证明）。全局code-health仍FAIL：4个非Scene报错文件均逐字等于HEAD，非本批新增。前后presentation p99为108.333/125.0ms，受周期截图影响且未做重复性能基线，不作性能改善结论。证据与App精确身份保存在本机忽略缓存 `docs/scene/evidence/2026-09-27-video-command-idempotence/`；无全量、长稳、官方parity或release结论。
