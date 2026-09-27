@@ -9,7 +9,7 @@ struct SceneMetalRenderer {
     let imageCompositor: SceneImageLayerCompositor
     // E2/Q1T: scene-level bloom post process (authored general.bloom).
     // Class instance so the enclosing struct stays value-semantics.
-    let bloomPostProcess: SceneBloomPostProcess
+    let bloomPostProcess: SceneBloomPostProcess?
     let stockNoiseTextures: SceneStockNoiseTextureStore
     let pipelineRepository: SceneImageEffectPipelineRepository
     let visibleLayerIDs: Set<Int>
@@ -856,13 +856,11 @@ struct SceneMetalRenderer {
         mainPass.finishEnsuringClear()
         // Bloom chain over the completed composite; readback then observes
         // the bloomed frame. Fail-soft by contract.
-        if renderDescriptor.camera.bloom.enabled {
-            bloomPostProcess.encode(
-                configuration: renderDescriptor.camera.bloom,
-                source: drawable.texture,
-                commandBuffer: commandBuffer
-            )
-        }
+        bloomPostProcess?.encode(
+            configuration: renderDescriptor.camera.bloom,
+            source: drawable.texture,
+            commandBuffer: commandBuffer
+        )
         encodeFrameReadback?(drawable.texture, commandBuffer)
         guard imageCompositor.endResolvedMaterialFrame(on: commandBuffer) else {
             return .dropped(reasonCode: "resolved-material-frame-seal-rejected")

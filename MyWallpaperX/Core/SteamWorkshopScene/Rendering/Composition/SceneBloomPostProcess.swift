@@ -17,36 +17,32 @@ nonisolated struct SceneBloomConfiguration: Codable, Equatable, Sendable {
 /// Encodes the bloom chain over a completed scene composite: bright-pass
 /// downsample to quarter resolution, separable 13-tap gaussian blur (8-texel
 /// spread, reference weights), then an additive full-resolution combine
-/// blitted back into the source. All shaders are fixed product code in
+/// added directly to the source. All shaders are fixed product code in
 /// `SceneBloomPostProcess.metal`; authored constants ride per-pass buffers.
 /// Any pipeline or texture failure skips the chain silently — bloom is an
 /// enhancement layer, never a frame-fatal effect.
 final class SceneBloomPostProcess {
-    private var device: MTLDevice?
-    private var brightPipeline: MTLRenderPipelineState?
-    private var blurPipeline: MTLRenderPipelineState?
-    private var combinePipeline: MTLRenderPipelineState?
-    private var pipelineFailureLogged = false
+    private let device: MTLDevice
+    private let brightPipeline: MTLRenderPipelineState
+    private let blurPipeline: MTLRenderPipelineState
+    private let combinePipeline: MTLRenderPipelineState
+    private var textureFailureLogged = false
     private var cachedTexturesBySize: [SIMD2<Int>: (mip1: MTLTexture, mip2: MTLTexture)] = [:]
 
     private let pixelFormat: MTLPixelFormat
 
-    init(pixelFormat: MTLPixelFormat = .bgra8Unorm) {
+    /// Prepare the complete pipeline set once at renderer creation. A partial
+    /// set is never published and cannot trigger compiler work during encode.
+    init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {
+        self.device = device
         self.pixelFormat = pixelFormat
-    }
-
-    private func makePipelines(on device: MTLDevice) -> Bool {
-        guard brightPipeline == nil else { return true }
         guard let library = device.makeDefaultLibrary(),
               let vertex = library.makeFunction(name: "sceneBloomVertex"),
               let bright = library.makeFunction(name: "sceneBloomBrightFragment"),
               let blur = library.makeFunction(name: "sceneBloomBlurFragment"),
               let combine = library.makeFunction(name: "sceneBloomCombineFragment") else {
-            if !pipelineFailureLogged {
-                pipelineFailureLogged = true
-                NSLog("MWX Scene bloom: default library functions unavailable")
-            }
-            return false
+            NSLog("MWX Scene bloom: default library functions unavailable")
+            return nil
         }
         func descriptor(
             _ fragment: MTLFunction, additive: Bool = false
@@ -77,16 +73,12 @@ final class SceneBloomPostProcess {
                 descriptor: descriptor(combine, additive: true)
             )
         } catch {
-            if !pipelineFailureLogged {
-                pipelineFailureLogged = true
-                NSLog(
-                    "MWX Scene bloom: pipeline state rejected: %@",
-                    String(describing: error)
-                )
-            }
-            return false
+            NSLog(
+                "MWX Scene bloom: pipeline state rejected: %@",
+                String(describing: error)
+            )
+            return nil
         }
-        return true
     }
 
     private func intermediateTargets(
@@ -117,8 +109,8 @@ final class SceneBloomPostProcess {
         guard let mip1 = makeTexture(width: quarter.x, height: quarter.y),
               let mip2 = makeTexture(width: sixteenth.x, height: sixteenth.y)
         else {
-            if !pipelineFailureLogged {
-                pipelineFailureLogged = true
+            if !textureFailureLogged {
+                textureFailureLogged = true
                 NSLog("MWX Scene bloom: intermediate texture allocation failed")
             }
             return nil
@@ -147,24 +139,25 @@ final class SceneBloomPostProcess {
         target: MTLTexture,
         commandBuffer: MTLCommandBuffer,
         bind: (MTLRenderCommandEncoder) -> Void
-    ) {
+    ) -> Bool {
         let descriptor = MTLRenderPassDescriptor()
         descriptor.colorAttachments[0].texture = target
         descriptor.colorAttachments[0].loadAction = .dontCare
         descriptor.colorAttachments[0].storeAction = .store
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else {
-            return
+            return false
         }
         encoder.setRenderPipelineState(pipeline)
         encoder.setTriangleFillMode(.fill)
         bind(encoder)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         encoder.endEncoding()
+        return true
     }
 
-    /// Runs the chain over `source` (the completed scene composite) and blits
-    /// the combined result back into it. Returns false when the chain was
-    /// skipped (never frame-fatal).
+    /// Add bloom only after every intermediate pass has encoded. An encoder
+    /// failure leaves the completed source unchanged; cached intermediates
+    /// are overwritten on the next attempt before they can be consumed.
     @discardableResult
     func encode(
         configuration: SceneBloomConfiguration,
@@ -173,20 +166,8 @@ final class SceneBloomPostProcess {
     ) -> Bool {
         guard configuration.enabled,
               source.pixelFormat == pixelFormat,
-              self.device == nil || self.device === source.device else {
-            return false
-        }
-        self.device = source.device
-        guard makePipelines(on: source.device),
-              let pipelines = (
-                bright: brightPipeline,
-                blur: blurPipeline,
-                combine: combinePipeline
-            ) as (bright: MTLRenderPipelineState?, blur: MTLRenderPipelineState?, combine: MTLRenderPipelineState?)?,
-              let bright = pipelines.bright,
-              let blur = pipelines.blur,
-              let combine = pipelines.combine,
-              let targets = intermediateTargets(on: source.device, matching: source)
+              source.device === device,
+              let targets = intermediateTargets(on: device, matching: source)
         else { return false }
 
         var brightUniforms = BrightUniforms(
@@ -194,34 +175,34 @@ final class SceneBloomPostProcess {
             threshold: configuration.threshold,
             tint: configuration.tint
         )
-        encodeQuad(bright, target: targets.mip1, commandBuffer: commandBuffer) { encoder in
+        guard encodeQuad(brightPipeline, target: targets.mip1, commandBuffer: commandBuffer, bind: { encoder in
             encoder.setFragmentTexture(source, index: 0)
             encoder.setFragmentBytes(
                 &brightUniforms, length: MemoryLayout<BrightUniforms>.stride, index: 0
             )
-        }
+        }) else { return false }
 
         var blurVertical = BlurUniforms(
             direction: SIMD2(0, 1),
             stepUV: Self.blurStep
         )
-        encodeQuad(blur, target: targets.mip2, commandBuffer: commandBuffer) { encoder in
+        guard encodeQuad(blurPipeline, target: targets.mip2, commandBuffer: commandBuffer, bind: { encoder in
             encoder.setFragmentTexture(targets.mip1, index: 0)
             encoder.setFragmentBytes(
                 &blurVertical, length: MemoryLayout<BlurUniforms>.stride, index: 0
             )
-        }
+        }) else { return false }
 
         var blurHorizontal = BlurUniforms(
             direction: SIMD2(1, 0),
             stepUV: Self.blurStep
         )
-        encodeQuad(blur, target: targets.mip1, commandBuffer: commandBuffer) { encoder in
+        guard encodeQuad(blurPipeline, target: targets.mip1, commandBuffer: commandBuffer, bind: { encoder in
             encoder.setFragmentTexture(targets.mip2, index: 0)
             encoder.setFragmentBytes(
                 &blurHorizontal, length: MemoryLayout<BlurUniforms>.stride, index: 0
             )
-        }
+        }) else { return false }
 
         // Additive pass straight onto the completed composite (load + RGB
         // add): no full-res combine texture, no blit — half the bandwidth of
@@ -233,7 +214,7 @@ final class SceneBloomPostProcess {
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else {
             return false
         }
-        encoder.setRenderPipelineState(combine)
+        encoder.setRenderPipelineState(combinePipeline)
         encoder.setFragmentTexture(targets.mip1, index: 0)
         encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
         encoder.endEncoding()

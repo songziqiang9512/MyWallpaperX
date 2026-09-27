@@ -8,6 +8,57 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition'
+FAULT_HEADER = r'''
+#import <Metal/Metal.h>
+void MWXArmEncoderFault(id<MTLCommandBuffer> buffer, NSUInteger index);
+NSUInteger MWXEncoderAttempts(void);
+void MWXArmPipelineFault(id<MTLDevice> device, NSUInteger index);
+NSUInteger MWXPipelineAttempts(void);
+'''
+FAULT_SOURCE = r'''
+#import "Fault.h"
+#import <objc/runtime.h>
+static id faultBuffer;
+static NSUInteger faultIndex, attempts;
+static IMP original;
+static id faultEncoder(id receiver, SEL selector, id descriptor) {
+    if (receiver == faultBuffer && ++attempts == faultIndex) return nil;
+    return ((id (*)(id, SEL, id))original)(receiver, selector, descriptor);
+}
+void MWXArmEncoderFault(id<MTLCommandBuffer> buffer, NSUInteger index) {
+    if (!original) {
+        Method method = class_getInstanceMethod(object_getClass(buffer),
+            @selector(renderCommandEncoderWithDescriptor:));
+        original = method_setImplementation(method, (IMP)faultEncoder);
+    }
+    faultBuffer = buffer;
+    faultIndex = index;
+    attempts = 0;
+}
+NSUInteger MWXEncoderAttempts(void) { return attempts; }
+static id faultDevice;
+static NSUInteger pipelineIndex, pipelineAttempts;
+static IMP pipelineOriginal;
+static id faultPipeline(id receiver, SEL selector, id descriptor, NSError **error) {
+    if (receiver == faultDevice && ++pipelineAttempts == pipelineIndex) {
+        if (error) *error = [NSError errorWithDomain:@"BloomFixture" code:1 userInfo:nil];
+        return nil;
+    }
+    return ((id (*)(id, SEL, id, NSError **))pipelineOriginal)(receiver, selector, descriptor, error);
+}
+void MWXArmPipelineFault(id<MTLDevice> device, NSUInteger index) {
+    if (!pipelineOriginal) {
+        Method method = class_getInstanceMethod(object_getClass(device),
+            @selector(newRenderPipelineStateWithDescriptor:error:));
+        pipelineOriginal = method_setImplementation(method, (IMP)faultPipeline);
+    }
+    faultDevice = device;
+    pipelineIndex = index;
+    pipelineAttempts = 0;
+}
+NSUInteger MWXPipelineAttempts(void) { return pipelineAttempts; }
+
+'''
 HARNESS = r'''
 import Foundation
 import Metal
@@ -17,9 +68,11 @@ import Metal
     guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
       fatalError("Metal unavailable")
     }
-    let bloom = SceneBloomPostProcess()
+    MWXArmPipelineFault(device, 0)
+    let bloom = SceneBloomPostProcess(device: device)!
+    let preparedCount = MWXPipelineAttempts()
     func render(
-      _ w: Int, _ h: Int, strength: Float, threshold: Float, enabled: Bool = true, phase: Int = 0
+      _ w: Int, _ h: Int, strength: Float, threshold: Float, enabled: Bool = true, phase: Int = 0, failEncoder: Int = 0
     ) -> [String: Any] {
       var bytes = [UInt8](repeating: 0, count: w * h * 4)
       for y in 0..<h {
@@ -43,6 +96,7 @@ import Metal
           bytesPerRow: w * 4)
       }
       let cb = queue.makeCommandBuffer()!
+      MWXArmEncoderFault(cb, UInt(failEncoder))
       let encoded = bloom.encode(
         configuration: .init(
           enabled: enabled, strength: strength, threshold: threshold, tint: SIMD3(1, 1, 1)),
@@ -73,6 +127,7 @@ import Metal
       }
       return [
         "encoded": encoded, "changedRGB": changed, "changedAlpha": alphaChanges,
+        "encoderAttempts": MWXEncoderAttempts(),
         "darkened": darkened, "maxDelta": maxDelta,
       ]
     }
@@ -85,7 +140,23 @@ import Metal
     results["positive"] = render(400, 240, strength: 1, threshold: 0.3)
     results["reuseZero"] = render(400, 240, strength: 0, threshold: 0, phase: 13)
     results["reusePositive"] = render(400, 240, strength: 1, threshold: 0.3, phase: 13)
-    let floatBloom = SceneBloomPostProcess(pixelFormat: .rgba16Float)
+    for index in 1...4 {
+      _ = render(400, 240, strength: 1, threshold: 0.3, phase: index)
+      results["fault\(index)"] = render(400, 240, strength: 1, threshold: 0.3,
+        phase: index + 37, failEncoder: index)
+      results["recovery\(index)"] = render(400, 240, strength: 1, threshold: 0.3,
+        phase: index + 37)
+    }
+    results["prepareOnce"] = preparedCount == 3 && MWXPipelineAttempts() == 3
+    for index in 1...3 {
+      MWXArmPipelineFault(device, UInt(index))
+      let rejected = SceneBloomPostProcess(device: device)
+      results["pipelineFailure\(index)"] = rejected == nil && MWXPipelineAttempts() == index
+      MWXArmPipelineFault(device, 0)
+      results["pipelineRecovery\(index)"] = SceneBloomPostProcess(device: device) != nil
+        && MWXPipelineAttempts() == 3
+    }
+    let floatBloom = SceneBloomPostProcess(device: device, pixelFormat: .rgba16Float)!
     let fd = MTLTextureDescriptor.texture2DDescriptor(
       pixelFormat: .rgba16Float, width: 32, height: 16, mipmapped: false)
     fd.usage = [.shaderRead, .renderTarget]
@@ -115,12 +186,17 @@ class SceneBloomPostProcessTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="mwx-bloom-gpu-") as directory:
             folder = Path(directory)
             (folder / "Main.swift").write_text(HARNESS)
+            (folder / "Fault.h").write_text(FAULT_HEADER)
+            (folder / "Fault.m").write_text(FAULT_SOURCE)
             commands = [
+                ["xcrun", "clang", "-fobjc-arc", "-c", str(folder / "Fault.m"),
+                 "-o", str(folder / "fault.o")],
                 ["xcrun", "-sdk", "macosx", "metal", "-c",
                  str(SCENE / "SceneBloomPostProcess.metal"), "-o", str(folder / "bloom.air")],
                 ["xcrun", "-sdk", "macosx", "metallib", str(folder / "bloom.air"),
                  "-o", str(folder / "default.metallib")],
-                ["swiftc", str(SCENE / "SceneBloomPostProcess.swift"),
+                ["swiftc", "-import-objc-header", str(folder / "Fault.h"),
+                 str(folder / "fault.o"), str(SCENE / "SceneBloomPostProcess.swift"),
                  str(folder / "Main.swift"), "-o", str(folder / "run")],
             ]
             for command in commands:
@@ -128,6 +204,25 @@ class SceneBloomPostProcessTests(unittest.TestCase):
             result = subprocess.run([str(folder / "run")], capture_output=True,
                                     text=True, check=True, timeout=30)
             cls.result = json.loads(result.stdout)
+
+    def test_pipeline_preparation_is_complete_or_unavailable_and_never_repeated_per_frame(self):
+        self.assertTrue(self.result["prepareOnce"])
+        for index in range(1, 4):
+            self.assertTrue(self.result[f"pipelineFailure{index}"])
+            self.assertTrue(self.result[f"pipelineRecovery{index}"])
+
+    def test_each_failed_pass_preserves_source_and_stops_the_chain(self):
+        for index in range(1, 5):
+            with self.subTest(pass_index=index):
+                failed = self.result[f"fault{index}"]
+                self.assertFalse(failed["encoded"])
+                self.assertEqual(failed["encoderAttempts"], index)
+                self.assertEqual(failed["changedRGB"], 0)
+                self.assertEqual(failed["changedAlpha"], 0)
+                recovered = self.result[f"recovery{index}"]
+                self.assertTrue(recovered["encoded"])
+                self.assertGreater(recovered["changedRGB"], 0)
+                self.assertEqual(recovered["changedAlpha"], 0)
 
     def test_zero_contribution_and_disabled_are_pixel_identical(self):
         for name, values in self.result.items():

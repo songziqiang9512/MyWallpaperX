@@ -3729,3 +3729,16 @@ v4 的 `3780119725` generation 1 include-current-process capture data peak `0.49
 同内容与输入的自有三组fixture各A/B回放8秒固定静音：作者size320×180，plain scale1；transformed与outside-drag scale(1.5,0.75)、Scene文件角度30弧度（不是SceneScript角度属性）。cursorUp将local/2加(200,200)写入独立绿色标记。修前依次传(0.173218,0.2)、(−0.056290,0.446810)、(−0.245823,3.045405)；修后为(215.429740,126.000001)、(141.987318,170.425860)、(81.336746,638.172884)。相机cover与逆旋转/缩放的独立数学oracle误差小于0.005；修后hover/after终端标记最大误差0.220 world像素，保持到后续截图。越界case在currentHit=0/captureActive=1时仍恰好执行一次cursorUp，Y638大于作者height180而未截断。三轮修后submitted/completed/failed均164/164/0；直接层绘制无graph publication需求，不虚构graph证据。
 
 两组click的通用benchmark修前后均因50px标记低于hover运动阈值保持FAIL；drag修前因延迟spring-after快照晚于停止而FAIL，修后该通用门PASS。用于本结论的hover/after及事件在两侧均完整，专项门通过不覆盖上述通用失败。缓存`docs/scene/evidence/2026-09-28-cursor-local-pixels/`保留原报告、截图、日志、自有fixture、构建与测试、独立审查决定、冻结patch和验证脚本，verification-manifest记录SHA。真实Workshop的交互组合、文字/padding和puppet hitBox、透视及多屏、官方Y原点/完整坐标parity尚未取得新实测；世界坐标、surface pointer、事件重试与渲染几何不由本批改写。
+
+
+<a id="e-2026-09-28-bloom-failure-atomicity"></a>
+
+### E-2026-09-28-BLOOM-FAILURE-ATOMICITY — Bloom 完整准备与中断保源
+
+首断点为encodeQuad创建encoder失败后只返回自身，外层仍执行后继blur/combine并报告成功，可能消费前次临时纹理或未完成的亮部结果。另有逐帧makePipelines把bright非空误当完整准备的旧路径。现在Bloom启用时在renderer创建阶段通过failable initializer完整准备三条不可变pipeline；任一失败不发布对象，禁用时不准备。逐帧只使用已有pipeline与尺寸缓存，各中间pass返回明确成功值，首个失败立即停止，只有最后combine能写入已完成source。下一次尝试完整覆盖两张中间纹理后再合成。移除逐帧编译和多层可选tuple，三个产品文件净减少19行；shader、阈值、强度和模糊算法未改。
+
+基线2c72a68a，产品/测试patch SHA-256 `98613ee0b25793466f0a1ae324cfba7b3c2418ef337991a11faca576acdab52c`，独立只读审查APPROVE。真实Metal测试在独立进程以ObjC方法替换仅注入指定buffer/device的nil返回，不增加产品故障开关。旧代码在第1/2/3个encoder失败时仍尝试4pass、返回true，并分别改变85120/83665/58067个RGB字节；修后四处失败均返回false、attempt数恰为失败序号，source所有RGB/alpha逐像素不变。每处失败后的下一轮正常编码恢复发光；三处pipeline创建失败均返回nil，新建对象可恢复，所有渲染调用未再次创建pipeline。RGBA16F、BGRA8、零贡献/禁用、三种尺寸及复用覆盖在4项GPU门内；17项正常输出统计与旧版一致，统计相等不冒充跨版本逐像素golden。
+
+新增scene-bloom门禁组把Swift/Metal及现有GPU模块关联，登记增量另经APPROVE；选择器59测试通过。inner计划已核对且无unmapped-change；未运行其广泛渲染/daemon模块全集。隔离worktree优化Debug构建成功，App 2.0.9(277)，executable SHA-256 `bb2c156d39712633856094e7f7be2416381cb53542caa2c7689b0e152876b221`，CDHash `dfc3478993cd4110b6799fd17cae2b94f32ca756`。真实原包隔离副本各8秒固定静音：3287715210作者HDR=true、bloomstrength=0/threshold=1，为零贡献反例；3750813609作者HDR=false、strength=1/threshold约0.6，为非零正常链。两者benchmark均PASS、纹理加载1.0，前者粒子2/2，submitted/completed/failed/presented分别164/163/0/162和166/165/0/164；实际ready/after截图保留。全场Bloom直接写compositor source，无独立graph publication；本批的失败保源与恢复强证据来自独立真实GPU像素门，不把全景非黑或报告PASS当完整视觉验收。
+
+证据缓存`docs/scene/evidence/2026-09-28-bloom-failure-atomicity/`保存两份正常报告、原尺寸截图、GPU修前/后统计、测试/构建/审查与冻结patch。首次合并归档为36040853字节，超过默认32MiB，按这两份确定内容使用40MiB有界归档；verification-manifest记录文件SHA。异步GPU错误仍由现有frame completion处理，未做故障恢复声明；用户条纹、眼周光强、3750813609时钟黑白、完整HDR scatter/knee链与Bloom属性热调均不由本批关闭。pipeline准备失败在本renderer生命周期内保持该可选效果不可用，重建时才重试；不是无限帧内编译重试。

@@ -471,6 +471,16 @@
       ]
     },
     {
+      "id": "scene-bloom",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneBloomPostProcess.*",
+        "script/tests/test_scene_bloom_post_process.py"
+      ],
+      "modules": [
+        "test_scene_bloom_post_process"
+      ]
+    },
+    {
       "id": "rendering",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/**",

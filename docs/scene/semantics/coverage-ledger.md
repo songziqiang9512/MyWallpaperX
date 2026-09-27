@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-28 Bloom 完整准备与失败保源
+
+启用的Bloom在renderer创建阶段完整准备不可变pipeline，禁用或准备失败保持可选缺席；删除逐帧编译及部分准备状态。任一中间encoder失败立即停止，保持已合成source，下一次完整覆盖缓存后恢复。真实Metal四处encoder/三处pipeline失败反例、正常格式/尺寸/复用门及两份真实原包正常回放通过，见[运行证据](runtime-evidence-current.md#e-2026-09-28-bloom-failure-atomicity)。只闭合同步准备/encoder创建失败，不关闭异步GPU恢复、光效观感、完整HDR或属性热调。
+
 ## 2026-09-28 CursorEvent 局部像素单位（S4 isolated Host）
 
 脚本出口按既有完整逆矩阵及thisLayer.size同源尺寸输出未缩放局部像素；命中仍按unit quad，捕获拖动保留越界值。32项定向门、隔离构建及三组实际App同输入A/B通过专项判据，终端标记最大误差0.220px，见[运行证据](runtime-evidence-current.md#e-2026-09-28-cursor-local-pixels)。闭合原归一化单位缺口；Y原点沿当前author Y-up推断，官方坐标对照、文字/puppet等完整语义仍开放。

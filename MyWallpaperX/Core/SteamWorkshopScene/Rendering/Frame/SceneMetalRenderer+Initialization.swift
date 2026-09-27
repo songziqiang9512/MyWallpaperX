@@ -24,9 +24,11 @@ extension SceneMetalRenderer {
         self.device = device
         self.commandQueue = commandQueue
         self.renderDescriptor = renderDescriptor
-        self.bloomPostProcess = SceneBloomPostProcess(
-            pixelFormat: renderDescriptor.colorTargetFormat.metalPixelFormat
-        )
+        self.bloomPostProcess = renderDescriptor.camera.bloom.enabled
+            ? SceneBloomPostProcess(
+                device: device,
+                pixelFormat: renderDescriptor.colorTargetFormat.metalPixelFormat
+            ) : nil
         self.baseMaterialProviderBindings = baseMaterialProviderBindings
         self.stockNoiseTextures = stockNoiseTextures
         self.staticModelResources = staticModelResources
