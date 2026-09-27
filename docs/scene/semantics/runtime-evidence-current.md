@@ -100,7 +100,7 @@
 |---|---|
 | 3088601835 过曝已较为正常；官方原版也有一些过曝，但没有此前那么严重 | 用户认为目前可搁置；不等于全条件消除或官方 parity。 |
 | 3789316755 音频条不出现 | 可见缺失；加载、门控、脚本、音频输入和绘制原因尚待区分。 |
-| 3788467391 背景漩涡不旋转，怀疑算法也不对 | 不旋转是观察；算法错误是候选，需要对照作者声明和官方公开定义。 |
+| 3788467391 背景漩涡不旋转，怀疑算法也不对 | 用户后续明确官方目标是“明显绕中心持续转动”；算法错误仍是候选。当前构建的加载及模拟运动已由[定向诊断](#e-2026-09-27-vortex-motion-diagnosis)核实，最终视觉问题保持开放。 |
 | 1315486372 / 3769761761 / 3768724269 光效仍不完整；3768724269 右上固定区域有持续变化的暗红蓝渐变 | 保留三个样本未通过的人工判断；右上异常是否由合成导致未定。 |
 | 3287715210 移动竖条纹仍在，非常难看清 | 不能以截图不明显或先前短时回放通过关闭。 |
 | 3113287126 红色粒子位置不对，应固定在人物小提琴位置 | 提供了明确空间锚点，当前变换首断点未确认。 |
@@ -119,6 +119,22 @@
 
 用户明确：本轮未提及的问题可按非严重或已部分解决搁置；必要时可询问新构建实际效果，并允许为消除臃肿/冗余/绕行而重写完整职责。执行顺序及下一关闭门仅由[当前队列](../scene-open-breakpoint-queue-2026-09-09.md#qv--最新实测驱动的可见修复2026-09-27)维护。本条不新增产品修复、不改写已有技术证据或生成全集人工 pass。
 
+
+<a id="e-2026-09-27-vortex-motion-diagnosis"></a>
+
+### E-2026-09-27-VORTEX-MOTION-DIAGNOSIS — 已加载且模拟位置持续转动，视觉验收仍开放
+
+**诊断，不是产品修复。**用户明确3788467391的官方目标为“明显绕中心持续转动”。HEAD `b1644b35`下复用最新签名Debug `-O` App（CDHash `f9363cbd8e101d974d1bad8ddb7732ca1cceb253`，exe SHA `2e7a19c4eefb6464e9b7922d63f212875f03cd3b9ae51d2a1d1ec8d3749561f9`），隔离原包12秒、固定PCM、每2秒Metal截图。project SHA `cb7a3f9829e2e80bc550419e390964afcba49753a5ce8da89aeefb733a330cfb`，package SHA `88ce5dac8b7470d67b6e8c956408816f4d966c465cc0fe6cb2afa14a848b644a`；真实根只读。
+
+层218 Circular Particles的32×128贴图、additive材质、classic vortex和ropetrail均加载；current/committed nonempty含218。作者零轴已按+Z执行；其inner/outer distance=0/7000、speed=0/-500、movement drag=5，instance speed=2.5、rate=2，rope length=30、segments=16、subdivision=0。作者starttime=300被现役工作预算限为249步/8.3模拟秒，未满足完整预热，保留这一偏差。日志中的6800初始live值是轨迹段实例数，不能当粒子数。
+
+独立Swift测量直接编译现役生产模拟器与解析器，使用同一作者定义/override、seed218、1/60固定步及生产预热/快照预算，运行36墙钟秒。对每秒前32个存活粒子按相同ID配对，33个存在共同ID的区间中位角位移均约−3.41026度/墙钟秒；瞬时速度折算约−2.04617度/模拟秒，两者不相等源于movement先积分位置、vortex随后改速度，不能把瞬时速度直接当位置位移。此测量证明模拟器持续推进，不是App内逐粒子遥测或官方数值golden。本样本无父变换/旋转/负scale，当前屏幕映射为局部(x,−y)，该本地负角位移呈顺时针；尚不能据此确定目标方向。
+
+原分辨率after与后续Metal图可见紫色弧线并有变化；长轨迹的大部分历史位置保留，整体图像相关不能可靠分离头部运动、出生/消亡及透明度变化。采样窗submitted/completed/failed/presented=456/455/0/454；20/28/257三个graph层执行门通过，具有completion/compositor/next-frame证据。粒子走现有直接compositor绘制；独立named/visible graph publication数组为空，不补称额外publication。benchmark的1/1 PASS只代表本次执行门，不关闭用户视觉问题或证明性能。
+
+作者preview.gif为192×192、50帧/2秒，仅作方向性外观参考；右上ROI的短间隔旋转相关出现相反符号，独立只读核对也不能可靠判向。Mirage开源实现的负叉积与当前正叉积不同，但第三方算法差异不等于官方真值，故本批未改符号、速度或拖尾时长。官方[Operator/Vortex](https://docs.wallpaperengine.io/en/scene/particles/component/operator.html#vortex)与[Renderer/Rope Trail](https://docs.wallpaperengine.io/en/scene/particles/component/renderer.html#rope-trail-renderer)只支持围绕轴旋转及沿路径绘制等公开合同，未给出此处数值公式；[IParticleSystemInstance](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystemInstance.html)明确speed作用于初速度和forces，不因Mirage该处未乘speed就删除现有乘数。
+
+证据标签`2026-09-27-vortex-motion-diagnosis`保留报告、日志、代表原图、Swift测量与探索性相关结果，不保存作者PKG/定义/GIF。下一门是当前App人工复测及轨迹到最终像素的运动呈现；当前无产品/测试变更、无新构建或官方同输入对照。最新App已重新打开供测试。
 
 <a id="e-2026-09-27-snow-fog-target-alpha"></a>
 
