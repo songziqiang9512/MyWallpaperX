@@ -3677,3 +3677,16 @@ v4 的 `3780119725` generation 1 include-current-process capture data peak `0.49
 - **可执行反例**：真实 AVPlayer + Metal、生产 provider/lifecycle，以自有 H.264 测试片驱动。修前从 rate=1 发出重复 play 或 setRate(1) 均立即变0；修后均保持1。新增行为门覆盖计划时间推进、暂停保持、恢复、seek、真实变速2、非法rate、错误layer，以及首次prepare前play、模拟后端暂停后的恢复、discard后同frameIndex重试。外围 publication/command/timing 值封装使用 standalone shim，播放器、解码、纹理和生命周期没有替身。计划时间 `Frame.itemTime` 不等于解码 `itemTimeForDisplay`；时间单调断言不证明实际解码连续。
 - **代表样本链**：隔离同一 project SHA `122a1cb10916f32d54322f521bebb61bcb38de03c80fd0c788968e3c5a3071f0`、package SHA `c9eb779fa4c3e92e007b2b8b3bcfa4a742902763371fe488c6e8d894f78f42df`，修前/修后各12秒，临时 identity/loaded 门均1/1 PASS，并非完整兼容matrix。每次记录10张1秒间隔截图，确认完整构图和运动；四条视频命令分别提交671/661次。唯一组合层69的graph在frame0/next-frame GPU completed、publication、terminal compositor consumed；性能窗分别422/422/0/420与415/415/0/413（submitted/completed/failed/presented）。样本实际瞬时顿挫仍待连续解码/呈现取证，不用这些计数或截图关闭它。
 - **门与边界**：Debug `-O` build成功；新增真实播放器行为门通过，旧video模块9项通过（其中包含源码形状门，不等于9项真实播放器证明）。全局code-health仍FAIL：4个非Scene报错文件均逐字等于HEAD，非本批新增。前后presentation p99为108.333/125.0ms，受周期截图影响且未做重复性能基线，不作性能改善结论。证据与App精确身份保存在本机忽略缓存 `docs/scene/evidence/2026-09-27-video-command-idempotence/`；无全量、长稳、官方parity或release结论。
+
+
+<a id="e-2026-09-28-particle-loading-completeness"></a>
+
+### E-2026-09-28-PARTICLE-LOADING-COMPLETENESS — 未加载粒子不再被默认验收忽略
+
+现有benchmark仅在矩阵手写minimum/候选数/指定层时要求粒子加载证据，导致真实样本0/1仍可PASS。现在在同一`particle_runtime_failures`内无条件要求报告，并拒绝当前loaded<candidates；minimum=0不能绕过。沿原报告最后一条当前数量判断，不用sticky历史成功覆盖当前失败；候选口径排除隐藏和静态alpha=0层。成功加载但当前没有活粒子仍可通过，committed nonempty继续是独立门。未增加owner、样本分支或普通播放开销，判定实现净删3行。
+
+基线62d2b93d；代码/测试patch SHA-256 `e5b084bd7c246b4929264a1c5943a1e9e3e12bee640fe9e40b1ac206e53a1d5f`。151项benchmark测试通过，新增9组输入覆盖缺报告、pipeline unavailable、部分加载、0/0、休眠、隐藏/透明以及旧成功/当前失败/恢复；独立只读审查APPROVE。未修改Swift/Metal，因此复用上一批已构建签名App，不重复构建或全仓验证。
+
+同一App 2.0.9(277)，executable SHA-256 `83939e13c248741a66054bc6eea06b1ce5c2134942c5e9c3ed5c522a52faa956`、CDHash `51f32328873c0e113d6862779dcf597ae5ed55da`。两份真实原包的隔离副本各回放8秒、固定静音：2986218263为0/1，唯一失败为`particle loading incomplete`；3769761761为5/5，五层当前及committed均nonempty，benchmark继续PASS。对同一实际日志调用HEAD旧判定和新判定，前者两者均无粒子失败，后者只拒绝0/1；此处是同日志判定反例，未声称另跑一轮旧App。证据缓存`docs/scene/evidence/2026-09-28-particle-loading-completeness/`，15个文件SHA由verification-manifest记录。
+
+仅证明加载缺口可被默认验收检出，不证明粒子最终可见、非空或视觉正确，也不消除2986218263世界空间rope问题或3769761761缺斜光问题。当前最后一次加载状态为门槛，未扩展为全播放时段逐帧完整性检查；指定layer的历史OK语义保持原状。

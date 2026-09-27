@@ -3212,6 +3212,29 @@ layer 157 "Tail": OK 1024x1024 puppet world geometry OK MDLV0023 mode=single-abs
         self.assertTrue(benchmark.particle_runtime_failures(
             {"required_particle_committed_nonempty_layer_ids": [201]}, dormant))
 
+    def test_particle_completeness_requires_current_load_evidence_without_sample_overrides(self) -> None:
+        cases = [
+            ("", ["particle load evidence missing"]),
+            ("particle runtime: pipeline unavailable\n", ["particle load evidence missing"]),
+            ("particle loaded: 0 / 1\n", ["particle loading incomplete"]),
+            ("particle loaded: 3 / 4\n", ["particle loading incomplete"]),
+            ("particle loaded: 0 / 0\n", []),
+            ("particle loaded: 1 / 1\nparticle initial live: 0\n"
+             "particle committed nonempty: layers=[]\n", []),
+            ("particle authored: 2\nparticle visible: 1\n"
+             "particle skipped hidden: 1\nparticle skipped transparent: 1\n"
+             "particle loaded: 0 / 0\n", []),
+            ("particle loaded: 1 / 1\nparticle loaded: 0 / 1\n"
+             "particle sticky loaded: 1 / 1\n", ["particle loading incomplete"]),
+            ("particle loaded: 0 / 1\nparticle loaded: 1 / 1\n", []),
+        ]
+        for preview, expected in cases:
+            with self.subTest(preview=preview):
+                metrics = benchmark.particle_runtime_metrics(preview)
+                self.assertEqual(benchmark.particle_runtime_failures({}, metrics), expected)
+                self.assertEqual(benchmark.particle_runtime_failures(
+                    {"minimum_particle_loaded": 0}, metrics), expected)
+
     def test_particle_runtime_fixture_metrics_and_optional_gates(self) -> None:
         preview_log = """Scene preview texture load report
 loaded: 20 / 24
@@ -3253,7 +3276,7 @@ particle skipped transparent: 1
                 "expected_particle_refract_loaded": 2,
                 "required_particle_loaded_layer_ids": [200, 201],
             }, metrics),
-            [],
+            ["particle loading incomplete"],
         )
         self.assertEqual(
             benchmark.particle_runtime_failures({
@@ -3267,6 +3290,7 @@ particle skipped transparent: 1
                 "required_particle_loaded_layer_ids": [202],
             }, metrics),
             [
+                "particle loading incomplete",
                 "particle loaded count below minimum",
                 "particle candidate count mismatch",
                 "particle initial live count below minimum",

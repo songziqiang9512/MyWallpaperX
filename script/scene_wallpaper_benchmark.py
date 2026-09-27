@@ -6763,14 +6763,11 @@ def particle_runtime_failures(
         for layer_id in required_nonempty:
             if layer_id not in committed_nonempty:
                 failures.append(f"particle layer {layer_id} should produce a committed nonempty batch")
-    requires_load_evidence = (
-        "minimum_particle_loaded" in sample
-        or "expected_particle_candidates" in sample
-        or bool(sample.get("required_particle_loaded_layer_ids"))
-    )
-    if requires_load_evidence and not metrics["has_load_evidence"]:
+    if not metrics["has_load_evidence"]:
         failures.append("particle load evidence missing")
     else:
+        if metrics["loaded"] < metrics["candidates"]:
+            failures.append("particle loading incomplete")
         if metrics["loaded"] < int(sample.get("minimum_particle_loaded", 0)):
             failures.append("particle loaded count below minimum")
         expected_candidates = sample.get("expected_particle_candidates")
