@@ -24,6 +24,21 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-27-light-parallax-diagnosis"></a>
+
+### E-2026-09-27-LIGHT-PARALLAX-DIAGNOSIS — 作者独立光束与背景深度视差分离核对
+
+**用户与作者定义：**3768724269最新反馈为“光束范围过大或根部太靠画面内部”，并指出鼠标/镜头晃动时人物移动而光源像固定。原包SHA `354f56910695e87ad3adcea5c7577dcb85a6c5d19b0c27a825123eaf1851733c`：背景layer17自有depthparallax effect（id19，visible=true，depth texture=`147342002_p0_depth`，scale1/1、sensitivity1、center0.3）；quad100和particle54均无parent，声明parallaxDepth分别0.88/0.88和0.79/0.79。正确目标是背景局部深度变形与光束各自的层视差共存，并共同接受场景相机变换，不能把独立光束强行粘到背景纹理形变。
+
+**参考差异：**Mirage的`SceneUniformBinder.cpp`按层/祖先depth应用鼠标偏移，最终输出使用世界节点；`GenDirectDrawQuadMesh`使用height等边尺寸、以中心为原点，作者旋转/缩放继续执行。但当前`ImageLayerSpec.cppm`的ShapeObject没有parallaxDepth字段，FromJson与ParseShapeObj转换也未传递它；这属于第三方实现遗漏，不能据此把作者非零quad视差定义为固定。只是静态源码结论，未运行Mirage。另原作者把标为“Camera shake”的`camerashake`属性绑定到general.cameraparallax，把标为“Parallax”的`parallax`属性绑定到general.camerashake；背景depthparallax本身始终visible。因此开关名不能替代实际生效目标，未核对用户当时保存的开关值。
+
+**受控原生执行：**使用69e45168对应App（CDHash `a11f520c86b9bc9d94779a21d7f7ff1fd7afb4ab`，exe SHA `d9a4c8ec7e20b637e6b37e5c57105f2665b3283c66bd106fbca35798e672f103`），只在隔离包保留quad100，冻结rayspeed=0、禁用shake、清黑背景、parallax enabled=true/delay=0；两包仅parallaxDepth为0.88或0。指针依次(-.75,0)、(.75,0)、(0,.75)、(0,-.75)。3024×1964输出上，非零depth横向位移(-115,0)px、纵向(0,-65)px，与作者参数经当前cover投影推导的(-115.221,0)/(0,-64.812)相符。移位对齐RGB RMSE由8.216/7.388降至0.089/0.086；depth0两组像素完全一致。由此证明当前quad鼠标视差通路实际有效，不是仅接线；不能推导用户原场景观感已正确。
+
+两包quad100均有GPU completed、publication、terminal compositor和next-frame。enabled report SHA `473e080306bd40270f37786ea0297b737c244a919dffcb8b1bd3c6e3f21180c1`，disabled report SHA `6e2e7d178ab734c0206694c09b70b0eb2ea41445ebfd13ef0becdab375d0caa4`。总benchmark结果保留FAIL：隔离后无image source，旧minimum_loaded_ratio=1导致两包loaded=0的门失败；零depth负例还触发默认hover必须变化门。这些失败不改写为PASS，定向结论仅据实际输出、坐标预测与完整执行事件。
+
+**后续门：**本批没有产品算法修改。尺寸/亮根范围、粒子54视差和普通场景共同shake的可见结果仍待验证；原图视差“脱离感”不能仅凭此宣布正常。两次诊断与位移数据保存为本机标签`2026-09-27-light-parallax-diagnosis`，没有修改真实样本或用户属性。下一步优先分离quad与粒子造成的范围过大，再追查四点coverage与发射空间，不加任意位置/尺寸补偿。
+
+
 <a id="e-2026-09-27-direct-draw-coverage"></a>
 
 ### E-2026-09-27-DIRECT-DRAW-COVERAGE — 独立光效恢复源透明度衰减
