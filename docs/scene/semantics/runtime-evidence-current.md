@@ -24,6 +24,20 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-27-audio-real-music"></a>
+
+### E-2026-09-27-AUDIO-REAL-MUSIC — 真实system tap的音圈可见，普通IPC收到非零频谱
+
+**身份与输入：**基线`276ec883`，本批只更新证据，不修改音频响应或产品代码。使用上一批同一签名候选（CDHash`7b09c3a9caa83962a86c59d65fc81dfb56f65a12`，exe SHA-256`8265d8b8a54179c399ef3b4943f6b434f4df8f720956049ac67e4ac239721c8d`）。合法只读原包的两个音乐条目提取到隔离目录：`2131872317`的`Kerusu - Remembrance`与`3780119725`的`Two Versions of Me`，各取20秒起30秒、48kHz双声道PCM进行生产Swift analyzer离线测量；后者20秒起110秒WAV由外部`afplay`播放，WAV SHA-256`f855d00e7bcf0b650329d3b4c6a0367797e0e999e82697299da72fde01817ef0`。所有原样本与属性不变；音源文件不提交。
+
+**归因收敛：**当前频率轴把64档的索引2..<5放在约34.43…40.54Hz，参考项目分配不同，但差异本身不能证明本项目应照搬。真实音乐离线稳态29秒里，作者音圈乘数`sum(meanLR[2..<5])/5`两段分别均值0.1131/0.0734、峰值0.4045/0.1583；说明这些档位并非在实际音乐里普遍无信号。无需新增gain或修改作者Suppression即可继续验证。合成测试音下弱环不能单独作为全局增益不足的依据；不同歌曲的高频内容差别仍明显，未宣称全柱活跃度均衡。
+
+**真实设备到画面：**无PCM/静音fixture，direct-host原包`3211615441`和`3789316755`各15秒，均2/2执行门通过；日志实际启动48kHz双声道、exclude-current-process的CoreAudio采集并得到非零输入。前者runtime`77806b96-c66c-40ec-a3f3-9420b5ab0690`、后者`f9463c22-55cd-42ea-8db2-ba32b73d1e51`，graph成功事务56/12，均有publication、GPU completed、terminal compositor及next-frame且0 GPU失败。已查看series-0002完整原图：前者两侧蓝紫音圈清楚可见，后者底部柱条可见；这提高“音圈实际出现”的证据，不替代形状、范围与用户验收。此direct-host画面并非IPC画面证据。
+
+**普通产品入口：**另起隔离真实SteamWorkshopService→主App→Scene daemon播放同两包，不使用音频fixture或属性override，各15秒。二者均`capture-publication-observed`，scopeEpoch=1，非零publication峰值0.654820/0.630196，实际renderedFrames=547/802；报告明确上限S3、visualValidated=false。321日志另有689/697的64档左右uniform非零消费。该门只闭合当前候选的真实设备与跨进程非零传递，不外推普通入口的音圈视觉、同runtime切换、长时噪声/性能、全柱活跃度或官方parity。
+
+**后续与留存：**保留用户对音圈形态/强度及全柱活跃度的验收；下一可自主检查项为321的点击切图/跟随，避免继续用合成弱低频反复抬gain。证据标签`2026-09-27-audio-real-music`保存输入指纹、离线探针/输出、两种运行报告、日志和截图，不保留提取音乐与样本副本；播放进程已退出。本批未改Swift/Metal，沿用精确候选构建，不重复构建；文档角色门验证。
+
 <a id="e-2026-09-27-audio-capture-native-replay"></a>
 
 ### E-2026-09-27-AUDIO-CAPTURE-NATIVE-REPLAY — 连续采集修复接入原包画面验证
