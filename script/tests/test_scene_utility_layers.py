@@ -340,16 +340,8 @@ class SceneUtilityLayerTests(unittest.TestCase):
             + "\n"
             + DEPENDENCY_GEOMETRY_SOURCE.read_text(encoding="utf-8")
         )
-        self.assertIn(
-            "let binding = dependencyPlan.bindingsByConsumerLayerID[layer.id]",
-            runtime_plan,
-        )
-        self.assertIn("let isAggregate = dependencyPlan", runtime_plan)
-        self.assertIn("(isAggregate || isLegacyExecutable)", runtime_plan)
-        self.assertIn(
-            "executableUtilityConsumerLayerIDs.contains(layer.id)",
-            runtime_plan,
-        )
+        # Capture admission and prepared-input consumption are exercised by
+        # test_scene_dependency_render_plan's production Swift harness.
         self.assertIn(
             "executableUtilityConsumerLayerIDs: Set<Int>",
             dependency_runtime,

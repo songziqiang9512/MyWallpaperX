@@ -405,6 +405,20 @@
 
 最新截图仍缺官方目标头发斜光，不能把这项公共默认修正认作完整根因。Windows同输入几何/像素对照未运行；静态研究未覆盖尺寸单位、旧Sprite角度、stock资源选择或最终合成。证据仍在`2026-09-28-ray-pass-projection`。后继尺寸诊断见下。
 
+<a id="e-2026-09-28-prepared-dependency-plan-reuse"></a>
+
+### E-2026-09-28-PREPARED-DEPENDENCY-PLAN-REUSE — utility与drawable消费同一准备计划
+
+E1后继沿renderer初始化确认：`SceneDependencyFrameRuntime`已建立执行计划，utility捕获又构造一份，`requiresReadableFramebuffer`在drawable配置前再构造一至两份。这些副本还使用不同visible根集合；runtime包含准备的可见执行根，而副本只读取descriptor可见集合，不能视为严格同义计算。XRay验证键只影响现有passthrough豁免，不宣称它必然改变utility disposition。
+
+现役renderer把自己的`dependencyRuntime.plan`直接交给utility planner；drawable只消费该plan和renderer已得到的utility capture集合，保留background、REFRACT及作者可见混合层条件。旧的framebuffer重准入接口被删除。utility仍保留作者可见性、resolvedMaterial准入、source route和计划自身的单/多输入完整性条件，隐藏准备根不因此获得直接capture。`reportLines`也在单次调用内共享一份计划；供LiveConsumers等准备前调用者使用的convenience入口保留独立准备语义，不冒称renderer执行身份。三个产品文件净删32行，无新增cache、wrapper或状态owner。
+
+生产Swift行为门新增同descriptor的restricted/expanded根对照：只有扩大的有效根使visible graph provider进入计划，utility和framebuffer随传入计划切换；同一已准备依赖下隐藏utility仍skippedHidden。另覆盖缺binding、未准入material、空prepared集合、background、REFRACT和混合层，替换四条相关源码形状断言。准备结果差异是本批有意纠正的owner分歧，不写成所有输入严格等价。
+
+八个定向模块通过（dependency plan、utility、graph publication、visible graph plan、script roots、dynamic visibility、surface submission、background material provider），独立审查接受冻结增量`369616d3db84dd2d0e1b90117e5d3ebe295261d06cd52dcfd17b7d1c3845dd9f`。独立worktree基于62b8a18a完成优化Debug构建；App SHA `a429bb43ca1e706c8fb395b62354c79c18bae5185e4baedcd71cb7a777896dda`、CDHash `7b014758247130e98626581bc991d26a2285a780`。全仓code-health仍受三个既有非Scene行数超限阻断，未记总门通过。
+
+两个未改写原包的隔离静音8秒回放均PASS。2959875782的utility520完成capture，named binding134/520成功；3211615441的utility689/697完成capture，均无utility/binding失败。两样本submitted/completed/failed/presented分别111/110/0/109、166/165/0/164，graph观察分别200/108个成功事务（其中Program为160/88），终端消费及next-frame成立、GPU失败0。已查看完整终端截图。此为默认状态执行回归，未重测点击、音频活跃度、所有隐藏层激活或官方视觉一致性；没有A/B启动测量，不推断实际提速或普通帧性能。证据缓存`2026-09-28-prepared-dependency-plan-reuse`。
+
 <a id="e-2026-09-28-dependency-reference-index"></a>
 
 ### E-2026-09-28-DEPENDENCY-REFERENCE-INDEX — 依赖准备阶段消除重复全图扫描

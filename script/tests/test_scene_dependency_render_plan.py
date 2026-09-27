@@ -914,6 +914,7 @@ enum Harness {
         )
         let result: [String: Any] = [
             "utilitySelection": utilitySelection(),
+            "preparedUtility": preparedUtilityResults(),
             "parsedVariants": parsed,
             "invalidReference": SceneNamedTextureReference.parse("_rt_imageLayerComposite_bad_a") == nil,
             "referenceCount": plan.references.count,
@@ -1647,6 +1648,80 @@ enum Harness {
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    static func preparedUtilityResults() -> [String: Any] {
+        func descriptor(hidden: Bool = false, graphProvider: Bool = false) -> SceneRenderDescriptor {
+            let consumer = SceneRenderDescriptor.Layer(
+                id: 950, contentKind: "composition",
+                utilityLayer: .init(kind: .composition), dependencyLayerIDs: [951, 952],
+                childLayerIDs: [], visible: !hidden,
+                effects: [951, 952].map { provider in
+                    let path = "_rt_imageLayerComposite_\(provider)_a"
+                    return .init(id: "prepared-\(provider)", file: "effects/unseen/program/effect.json",
+                        visible: true, passes: [.init(passIndex: 0, texturePaths: [path],
+                            textureSlots: [nil, path], combos: ["BLENDMODE": 0], constantShaderValues: [:])])
+                }
+            )
+            let firstProvider = graphProvider ? SceneRenderDescriptor.Layer(
+                id: 951, contentKind: "image", utilityLayer: nil, dependencyLayerIDs: [],
+                childLayerIDs: [], visible: true,
+                effects: [.init(id: "provider-effect", file: "effects/unseen/tint.json", visible: true, passes: [])]
+            ) : layer(951, visible: false)
+            return .init(layers: [firstProvider, layer(952, visible: false), consumer],
+                renderOrderLayerIDs: [951, 952, 950])
+        }
+        let input = descriptor()
+        let prepared = SceneDependencyRenderPlan(descriptor: input, visibleLayerIDs: [950],
+            executableUtilityConsumerLayerIDs: [950])
+        let emptyDescriptor = SceneRenderDescriptor(layers: [], renderOrderLayerIDs: [])
+        let emptyPlan = SceneDependencyRenderPlan(descriptor: emptyDescriptor, visibleLayerIDs: [])
+        func disposition(_ descriptor: SceneRenderDescriptor, _ plan: SceneDependencyRenderPlan,
+                         resolved: Set<Int> = [950]) -> String {
+            SceneUtilityLayerRuntimePlanner.plans(in: descriptor, dependencyPlan: plan,
+                resolvedMaterialLayerIDs: resolved)[950]!.disposition.rawValue
+        }
+        let selected = SceneUtilityLayerRuntimePlanner.plans(in: input, dependencyPlan: prepared,
+            resolvedMaterialLayerIDs: [950])
+        let captures = Set(selected.values.filter(\.shouldCapture).map(\.layerID))
+        func readable(_ descriptor: SceneRenderDescriptor = emptyDescriptor,
+                      background: Set<Int> = [], capture: Set<Int> = [],
+                      plan: SceneDependencyRenderPlan = emptyPlan) -> Bool {
+            descriptor.requiresReadableFramebuffer(sceneBackgroundLayerIDs: background,
+                utilityCaptureLayerIDs: capture, dependencyPlan: plan)
+        }
+        let expandedInput = descriptor(graphProvider: true)
+        let restrictedPlan = SceneDependencyRenderPlan(descriptor: expandedInput,
+            visibleLayerIDs: [950], executableUtilityConsumerLayerIDs: [950])
+        let expandedPlan = SceneDependencyRenderPlan(descriptor: expandedInput,
+            visibleLayerIDs: [950, 951], executableUtilityConsumerLayerIDs: [950])
+        var blend = layer(953)
+        blend.colorBlendMode = 5
+        var refract = emptyDescriptor
+        refract.materialPasses = [.init(combos: ["REFRACT": 1], materialPath: "self-owned", passIndex: 0,
+            texturePaths: [], textureSlots: [], userTextureInputs: [])]
+        return [
+            "restrictedRoots": disposition(expandedInput, restrictedPlan),
+            "expandedRoots": disposition(expandedInput, expandedPlan),
+            "hiddenExpandedRoots": disposition(descriptor(hidden: true, graphProvider: true), expandedPlan),
+            "restrictedFramebuffer": readable(expandedInput, plan: restrictedPlan),
+            "expandedFramebuffer": readable(expandedInput, plan: expandedPlan),
+            "capture": disposition(input, prepared),
+            "missingBinding": disposition(input, emptyPlan),
+            "unadmitted": disposition(input, prepared, resolved: []),
+            // A dependency-prepared hidden layer remains absent from direct capture.
+            "hidden": disposition(descriptor(hidden: true), prepared),
+            "convenience": SceneUtilityLayerRuntimePlanner.plans(in: input,
+                resolvedMaterialLayerIDs: [950])[950]!.disposition.rawValue,
+            "captures": captures.sorted(),
+            "framebufferEmpty": readable(),
+            "framebufferPreparedProvider": readable(input, plan: prepared),
+            "framebufferNoPreparedProvider": readable(input),
+            "framebufferCapture": readable(capture: captures),
+            "framebufferBackground": readable(background: [1]),
+            "framebufferRefraction": readable(refract),
+            "framebufferBlend": readable(.init(layers: [blend], renderOrderLayerIDs: [953])),
+        ]
     }
 
     static func utilitySelection() -> [Int] {
@@ -2882,6 +2957,28 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_utility_capture_consumes_prepared_binding_and_keeps_visibility_gate(self) -> None:
+        result = self.result["preparedUtility"]
+        self.assertEqual(result["capture"], "capture")
+        self.assertEqual(result["convenience"], "capture")
+        self.assertEqual(result["missingBinding"], "unsupportedDependencies")
+        self.assertEqual(result["unadmitted"], "unsupportedDependencies")
+        self.assertEqual(result["hidden"], "skippedHidden")
+        self.assertEqual(result["captures"], [950])
+        self.assertEqual(result["restrictedRoots"], "unsupportedDependencies")
+        self.assertEqual(result["expandedRoots"], "capture")
+        self.assertEqual(result["hiddenExpandedRoots"], "skippedHidden")
+        self.assertFalse(result["restrictedFramebuffer"])
+        self.assertTrue(result["expandedFramebuffer"])
+
+    def test_framebuffer_consumes_prepared_requirements_without_re_admission(self) -> None:
+        result = self.result["preparedUtility"]
+        self.assertFalse(result["framebufferEmpty"])
+        self.assertFalse(result["framebufferNoPreparedProvider"])
+        for key in ("framebufferPreparedProvider", "framebufferCapture", "framebufferBackground",
+                    "framebufferRefraction", "framebufferBlend"):
+            self.assertTrue(result[key], key)
 
     def test_utility_selection_preserves_single_and_multiple_dependencies(self) -> None:
         # Hidden, unadmitted, child-owning, non-composition and inactive-effect

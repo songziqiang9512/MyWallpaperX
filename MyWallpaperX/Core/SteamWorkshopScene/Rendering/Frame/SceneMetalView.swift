@@ -156,10 +156,9 @@ class SceneMetalView: NSView {
         // storage preserves precision; it does not opt the display into EDR.
         layer.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
         layer.framebufferOnly = !renderDescriptor.requiresReadableFramebuffer(
-            resolvedMaterialLayerIDs: resolvedMaterialRuntime.executionLayerIDs,
             sceneBackgroundLayerIDs: resolvedMaterialRuntime.sceneBackgroundLayerIDs,
-            admittedResolvedMaterialReferences:
-                resolvedMaterialRuntime.admittedResolvedMaterialReferences
+            utilityCaptureLayerIDs: renderer.utilityCaptureLayerIDs,
+            dependencyPlan: renderer.dependencyRuntime.plan
         )
         #if DEBUG
             debugFrameCapture.configure(layer)

@@ -26,33 +26,28 @@ enum SceneUtilityLayerRuntimePlanner {
         admittedResolvedMaterialReferences:
             Set<SceneDependencyRenderPlan.Reference> = []
     ) -> [Int: SceneUtilityLayerRuntimePlan] {
-        plans(
-            in: descriptor,
+        let dependencyPlan = SceneDependencyRenderPlan(
+            descriptor: descriptor,
+            visibleLayerIDs: SceneLayerVisibility.visibleLayerIDs(in: descriptor),
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs(
                 in: descriptor,
                 resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
             ),
-            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs,
-            admittedResolvedMaterialReferences:
-                admittedResolvedMaterialReferences
+            admittedResolvedMaterialReferences: admittedResolvedMaterialReferences
+        )
+        return plans(
+            in: descriptor,
+            dependencyPlan: dependencyPlan,
+            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
         )
     }
 
     static func plans(
         in descriptor: SceneRenderDescriptor,
-        executableUtilityConsumerLayerIDs: Set<Int>,
-        resolvedMaterialLayerIDs: Set<Int> = [],
-        admittedResolvedMaterialReferences:
-            Set<SceneDependencyRenderPlan.Reference> = []
+        dependencyPlan: SceneDependencyRenderPlan,
+        resolvedMaterialLayerIDs: Set<Int>
     ) -> [Int: SceneUtilityLayerRuntimePlan] {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
-        let dependencyPlan = SceneDependencyRenderPlan(
-            descriptor: descriptor,
-            visibleLayerIDs: visibleLayerIDs,
-            executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
-            admittedResolvedMaterialReferences:
-                admittedResolvedMaterialReferences
-        )
         let namedTargetLayerIDs = Set(descriptor.layers.flatMap(\.dependencyLayerIDs))
         return Dictionary(uniqueKeysWithValues: descriptor.layers.compactMap { layer in
             guard let utility = layer.utilityLayer else { return nil }
@@ -69,7 +64,7 @@ enum SceneUtilityLayerRuntimePlanner {
                 let isAggregate = dependencyPlan
                     .multiProviderAggregatesByConsumerLayerID[layer.id] != nil
                 let isLegacyExecutable = binding != nil
-                    && executableUtilityConsumerLayerIDs.contains(layer.id)
+                    && dependencyPlan.executableUtilityConsumerLayerIDs.contains(layer.id)
                 // A dependency-bearing utility captures only with an exact
                 // aggregate owner or the legacy single-provider binding. A
                 // missing binding is not evidence that an effect was safely
@@ -145,22 +140,19 @@ enum SceneUtilityLayerRuntimePlanner {
             in: descriptor,
             resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
         )
-        let plans = plans(
-            in: descriptor,
-            executableUtilityConsumerLayerIDs: executableConsumers,
-            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs,
-            admittedResolvedMaterialReferences:
-                admittedResolvedMaterialReferences
-        )
-        let ordered = descriptor.layers.compactMap { plans[$0.id] }
-        let dependencyEdges = descriptor.layers.flatMap(\.dependencyLayerIDs).count
         let dependencyPlan = SceneDependencyRenderPlan(
             descriptor: descriptor,
             visibleLayerIDs: SceneLayerVisibility.visibleLayerIDs(in: descriptor),
             executableUtilityConsumerLayerIDs: executableConsumers,
-            admittedResolvedMaterialReferences:
-                admittedResolvedMaterialReferences
+            admittedResolvedMaterialReferences: admittedResolvedMaterialReferences
         )
+        let plans = plans(
+            in: descriptor,
+            dependencyPlan: dependencyPlan,
+            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
+        )
+        let ordered = descriptor.layers.compactMap { plans[$0.id] }
+        let dependencyEdges = descriptor.layers.flatMap(\.dependencyLayerIDs).count
         // These diagnostics describe utility/effect consumers only. Static
         // model material inputs share the named target runtime, but are not
         // utility layers and may be dynamically inactive for the entire run.
@@ -265,29 +257,14 @@ enum SceneUtilityLayerRuntimePlanner {
 
 extension SceneRenderDescriptor {
     func requiresReadableFramebuffer(
-        resolvedMaterialLayerIDs: Set<Int> = [],
-        sceneBackgroundLayerIDs: Set<Int> = [],
-        admittedResolvedMaterialReferences:
-            Set<SceneDependencyRenderPlan.Reference> = []
+        sceneBackgroundLayerIDs: Set<Int>,
+        utilityCaptureLayerIDs: Set<Int>,
+        dependencyPlan: SceneDependencyRenderPlan
     ) -> Bool {
-        if !sceneBackgroundLayerIDs.isEmpty {
+        if !sceneBackgroundLayerIDs.isEmpty || !utilityCaptureLayerIDs.isEmpty {
             return true
         }
         if materialPasses.contains(where: { $0.combos["REFRACT"] == 1 }) {
-            return true
-        }
-        let executableConsumers = SceneUtilityLayerRuntimePlanner
-            .executableUtilityConsumerLayerIDs(
-                in: self,
-                resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
-            )
-        if SceneUtilityLayerRuntimePlanner.plans(
-            in: self,
-            executableUtilityConsumerLayerIDs: executableConsumers,
-            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs,
-            admittedResolvedMaterialReferences:
-                admittedResolvedMaterialReferences
-        ).values.contains(where: \.shouldCapture) {
             return true
         }
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: self)
@@ -300,12 +277,6 @@ extension SceneRenderDescriptor {
         }) {
             return true
         }
-        return !SceneDependencyRenderPlan(
-            descriptor: self,
-            visibleLayerIDs: visibleLayerIDs,
-            executableUtilityConsumerLayerIDs: executableConsumers,
-            admittedResolvedMaterialReferences:
-                admittedResolvedMaterialReferences
-        ).requiredProviderLayerIDs.isEmpty
+        return !dependencyPlan.requiredProviderLayerIDs.isEmpty
     }
 }
