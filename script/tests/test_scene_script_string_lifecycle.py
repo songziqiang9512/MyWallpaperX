@@ -163,6 +163,8 @@ struct SceneRenderDescriptor {
     }
 
     struct EffectDescriptor {
+        let visible: Bool? = nil
+        var id: String { String(effectID ?? 0) }
         let name: String?
         let effectID: Int?
         let passes: [PassDescriptor]
@@ -463,7 +465,7 @@ enum Harness {
                 "timer": stringAdmission("globalThis.admitted = 1; engine.setTimeout(() => { globalThis.admitted += 2; }, 0);", frame: frame),
                 "invalid": stringAdmission("export function broken( {", frame: frame),
                 "throwing": stringAdmission("throw new Error('real module failure');", frame: frame),
-                "initOnly": stringAdmission("export function init(v) { return 'initialized'; }", frame: frame),
+                "initOnly": stringAdmission("export function init(v) { globalThis.admitted = (globalThis.admitted || 0) + 1; return 'initialized:'+v; }", frame: frame),
             ],
             "bindings": program.bindings.count,
             "warmedFailures": warmed.failures.count,
@@ -560,6 +562,7 @@ enum Harness {
             "reconstruct": candidate.requiresDomainReconstruction,
             "work": work.consumed,
             "firstPublished": first.values[target] != nil,
+            "firstValue": first.values[target].map(string) ?? "missing",
             "secondPublished": second.values[target] != nil,
             "frameFailures": first.failures.count + second.failures.count,
             "beforeTeardown": string(beforeTeardown),
@@ -784,17 +787,29 @@ class SceneScriptStringLifecycleTests(unittest.TestCase):
         self.assertEqual(value["destroy"]["afterTeardown"], "11")
         self.assertEqual(value["destroy"]["destroyCallbacks"], 1)
 
-    def test_real_errors_and_unclosed_init_only_admission_still_reject(self) -> None:
+    def test_real_module_errors_still_reject(self) -> None:
         value = json.loads(subprocess.run(
             [str(self.binary)], check=True, capture_output=True, text=True,
         ).stdout)["admission"]
         for name, code in (("invalid", "compile-error"), ("throwing", "exception"),
-                           ("timer", "exception"), ("initOnly", "invalid-source")):
+                           ("timer", "exception")):
             with self.subTest(name=name):
                 self.assertEqual(value[name]["instantiated"], 0)
                 self.assertEqual(value[name]["failures"], [code])
                 self.assertTrue(value[name]["reconstruct"])
                 self.assertFalse(value[name]["firstPublished"])
+
+    def test_init_only_publishes_once_and_becomes_quiescent(self) -> None:
+        value = json.loads(subprocess.run(
+            [str(self.binary)], check=True, capture_output=True, text=True,
+        ).stdout)["admission"]["initOnly"]
+        self.assertEqual(value["instantiated"], 1)
+        self.assertEqual(value["failures"], [])
+        self.assertFalse(value["reconstruct"])
+        self.assertEqual(value["firstValue"], "initialized:first-current")
+        self.assertFalse(value["secondPublished"])
+        self.assertEqual(value["beforeTeardown"], "1")
+        self.assertEqual(value["frameFailures"], 0)
 
     def test_warmed_failure_and_disabled_frame_use_new_lower_current(self) -> None:
         result = json.loads(

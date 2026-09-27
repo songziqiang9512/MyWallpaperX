@@ -405,6 +405,20 @@
 
 最新截图仍缺官方目标头发斜光，不能把这项公共默认修正认作完整根因。Windows同输入几何/像素对照未运行；静态研究未覆盖尺寸单位、旧Sprite角度、stock资源选择或最终合成。证据仍在`2026-09-28-ray-pass-projection`。后继尺寸诊断见下。
 
+<a id="e-2026-09-28-string-init-only"></a>
+
+### E-2026-09-28-STRING-INIT-ONLY — 文字初始化沿现有事务执行并休眠
+
+按2026-09-28核对的[官方init合同](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/init.html)（official-public-contract），初始化可修改属性，无需同模块声明update。旧String owner仍以“尚无初始化回滚”为由拒绝纯init模块；C pending/committed初始化、timer撤回和Host stateful snapshot此前已经具备。现在仅移除该准入guard，以真实init出口事实和现有C状态决定requiresFrameEvaluation，保持update、事件及timer原有调度。无新状态owner或文字缓存，产品一个文件净删6行。
+
+基线f0878ae2，最终代码/测试patch SHA-256 `9445582db81e234b63bb41528c030cda946ce0f700e8aedd62bc9e6c20d7a925`。String lifecycle 4项、初始化事务10项、owner事件与timer identity共12项通过。新准入测试在旧产品实际失败（instantiated=0），保留comments/helper/destroy休眠与真实module错误拒绝；String显式/隐式BAD_RETURN和局部撤回改为init-only输入，新增timer撤回后的重新计时/单次触发/休眠门。前两次harness缺visible/id测试桩，补齐后才取得有效旧实现反例；首版timer测试只跳runtime而保持1/60 frameTime，未到期的失败是测试输入错误，改为对应simulationFrameTime后通过。没有修改timer算法。独立审查通过产品方向；全仓code-health仍为三个既有非Scene行数超限，不宣称总门通过。
+
+干净隔离worktree加同一产品patch完成优化Debug构建，App 2.0.9(277)，Team H9QWU9XN8R，executable SHA-256 `83939e13c248741a66054bc6eea06b1ce5c2134942c5e9c3ed5c522a52faa956`、CDHash `51f32328873c0e113d6862779dcf597ae5ed55da`。自建双文字+solid输入project SHA `23f363e3596d4adb31703d6bf319346ff0836d2ecb2f2c6d231a03b70147d106`、package SHA `918fb074579bd054f2146d97d07bfb3f4b1ad8ea231d7533b65c26e01b795a26`，修前/修后/首帧拒绝三次输入逐值相同，均隔离静音10秒、6秒后截图，签名身份前后验证通过。
+
+修前App `c23fb24b…` 两文字owner invalid-source，截图保持AUTHORED、绿块world x=200。修后普通与首帧提交前拒绝两条路径均显示INIT READY/TIMER READY并持续保留，ready/after上半文字区域逐像素相同；绿块由init设为x=400，3000ms timer后x=800，原分辨率质心最大误差0.834px（预设≤2px）。两次独立HOME持久化均为initializations=1、fires=1。故障日志明确frame0 prepared→cancelled submitted=false→rejected→frame0重试completed→frame1 completed。文字层10/20有dynamic-text-published，最终截图确认compositor消费；此fixture无graph pass，不虚构graph publication。修后普通/拒帧测量窗submitted/completed/failed/presented分别212/212/0/211、210/210/0/209。
+
+三个通用benchmark均PASS，但修前的PASS不能证明初始化正确；本批结论来自owner拒绝记录、具体文字、ROI、存储及提交事件的专项对照。证据缓存`2026-09-28-string-init-only`保存输入、三次回放、失败测试、最终测试/构建及verification。只关闭String init-only准入；不回滚任意JS heap/闭包/shared副作用，不承诺callback exactly-once，未盘点实际Workshop受益数量、未验证多屏、长稳、性能或官方客户端视觉parity，初始化事务卡其余边界保持开放。
+
 <a id="e-2026-09-28-integrated-playback"></a>
 
 ### E-2026-09-28-INTEGRATED-PLAYBACK — 准备计划复用与统一暂停策略整合回归

@@ -21,6 +21,7 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
     let handlesMediaPlayback: Bool
     let handlesMediaProperties: Bool
     let handlesMediaTimeline: Bool
+    private let handlesInit: Bool
     private let handlesUpdate: Bool
     private let handle: OpaquePointer
     private let domain: SceneScriptQuickJSDomain
@@ -29,7 +30,8 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
     private var lastAudioGeneration: UInt64?
 
     var requiresFrameEvaluation: Bool {
-        handlesUpdate || mwx_scene_quickjs_owner_active_timer_count(handle) > 0
+        handlesUpdate || (handlesInit && !mwx_scene_quickjs_owner_is_initialized(handle))
+            || mwx_scene_quickjs_owner_active_timer_count(handle) > 0
     }
 
     init(
@@ -84,6 +86,7 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         var handlesMediaProperties = false
         var handlesMediaTimeline = false
         var handlesUserProperties = false
+        var handlesInit = false
         var handlesUpdate = false
         do {
             try SceneScriptLayerMutationBridge.configure(owner: created, target: target)
@@ -105,6 +108,7 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
                 throw Self.failure(updateResult, diagnostic)
             }
             handlesUpdate = updateAvailable == 1
+            handlesInit = try SceneScriptOwnerExportBridge.contains("init", owner: created)
             try SceneScriptEffectHandleBridge.configure(
                 owner: created,
                 effectNames: effectNames
@@ -128,17 +132,6 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
             handlesUserProperties = try SceneScriptOwnerExportBridge.contains(
                 "applyUserProperties", owner: created
             )
-            if !handlesUpdate && !handlesUserProperties
-                    && !handlesMediaThumbnail && !handlesMediaPlayback
-                    && !handlesMediaProperties && !handlesMediaTimeline {
-                // A valid module may have no frame callbacks. Keep its owner
-                // for timers/teardown without forcing a fresh scene domain.
-                // Init-only admission still needs transactional initialization
-                // and remains closed until owner/frame rollback is supported.
-                if try SceneScriptOwnerExportBridge.contains("init", owner: created) {
-                    throw SceneScriptScalarRuntimeFailure.invalidSource
-                }
-            }
         } catch {
             mwx_scene_quickjs_owner_destroy(created)
             throw error
@@ -150,6 +143,7 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         self.handlesMediaPlayback = handlesMediaPlayback
         self.handlesMediaProperties = handlesMediaProperties
         self.handlesMediaTimeline = handlesMediaTimeline
+        self.handlesInit = handlesInit
         self.handlesUpdate = handlesUpdate
     }
 

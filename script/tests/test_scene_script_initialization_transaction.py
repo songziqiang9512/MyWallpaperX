@@ -67,7 +67,7 @@ import Foundation
             payload["vector"+suffix] = [vec(0), vec(2)]
             v.commitLayerMutations()
             let string = try SceneScriptStringOwner(domain: d,
-                source: "export function init(v) { if (engine.runtime < 1) return {}; return 'ready'; } export function update(v) { return v; }",
+                source: "export function init(v) { if (engine.runtime < 1) return {}; return 'ready'; }",
                 target: .text(layerID: 1, field: .content), effectNames: [], generation: 1)
             func text(_ t: Double) -> String {
                 if explicit { return value(string.initializeIfNeeded(input: "authored", frame: frame(t),
@@ -134,7 +134,7 @@ import Foundation
         payload["scalarLocalValues"] = [scalarFirst, scalarRetry]
         payload["scalarQuiet"] = !scalarInit.requiresFrameEvaluation
         let textInit = try SceneScriptStringOwner(domain: d,
-            source: "export function init(v) { thisLayer.origin = new Vec3(11,0,0); return v+'!'; } export function update(v) { return v; }",
+            source: "export function init(v) { thisLayer.origin = new Vec3(11,0,0); return v+'!'; }",
             target: .text(layerID: 1, field: .content), effectNames: [], generation: 1)
         let stringFirst = try textInit.initializeIfNeeded(input: "A", frame: frame(1),
             userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil).get()
@@ -146,7 +146,30 @@ import Foundation
             userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil).get()
         payload["stringLocalValues"] = [stringFirst?.value == .string("A!"),
             stringRetry?.value == .string("B!"), stringSettled == nil,
-            stringRetry?.layerMutations.count == 1]
+            stringRetry?.layerMutations.count == 1, !textInit.requiresFrameEvaluation]
+        let stringTimer = try SceneScriptStringOwner(domain: d,
+            source: "export function init(v) { engine.setTimeout(() => { thisLayer.origin = new Vec3(31,0,0); }, 1000); return v+'!'; }",
+            target: .text(layerID: 1, field: .content), effectNames: [], generation: 1)
+        func timerText(_ input: String, _ time: Double, _ delta: Double = 0) throws -> SceneScriptStringEvaluation {
+            let currentFrame = SceneScriptFrameInput(timing: .init(
+                wallDate: Date(timeIntervalSince1970: 0),
+                simulationFrameTime: delta, sceneTime: time))
+            return try stringTimer.evaluate(input: input, frame: currentFrame,
+                userPropertiesJSON: "{}", expectedGeneration: 1).get()
+        }
+        let timerInit = try timerText("A", 0)
+        stringTimer.discardLayerMutations()
+        let stringNeedsRetry = stringTimer.requiresFrameEvaluation
+        let timerRetry = try timerText("B", 2, 2)
+        stringTimer.commitLayerMutations()
+        let timerWaiting = try timerText("B!", 2.5, 0.5)
+        stringTimer.commitLayerMutations()
+        let timerFired = try timerText("B!", 3.1, 0.6)
+        stringTimer.commitLayerMutations()
+        payload["stringTimerRetry"] = [timerInit.value == .string("A!"),
+            stringNeedsRetry, timerRetry.value == .string("B!"),
+            timerWaiting.layerMutations.isEmpty, timerFired.layerMutations.count == 1,
+            timerFired.value == .string("B!"), !stringTimer.requiresFrameEvaluation]
         let transient = try vector(d, "export function init(v) { return new Vec3(v.x+10,0,0); }")
         _ = try transient.initializeIfNeeded(input: .vector3(1,0,0), frame: frame(1),
             scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1,
@@ -214,7 +237,9 @@ class SceneScriptInitializationTransactionTests(unittest.TestCase):
     def test_scalar_and_string_share_initialization_commit_boundary(self):
         self.assertEqual(self.value["scalarLocalValues"], [0.1, 0.2])
         self.assertTrue(self.value["scalarQuiet"])
-        self.assertEqual(self.value["stringLocalValues"], [True] * 4)
+        self.assertEqual(self.value["stringLocalValues"], [True] * 5)
+    def test_string_init_only_timer_is_replaced_on_rejection_and_then_quiesces(self):
+        self.assertEqual(self.value["stringTimerRetry"], [True] * 7)
     def test_uncommitted_cursor_value_cannot_leak_into_retry(self):
         self.assertEqual(self.value["uncommittedCursorValue"], 12)
     def test_effectful_boolean_bad_return_retries(self):

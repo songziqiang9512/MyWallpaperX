@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-28 String init-only 准入（S4 isolated Host）
+
+文字owner移除旧的init-only拒绝，沿C已有pending/committed状态决定唤醒：未完成则执行，提交后无timer即休眠，撤回后可重试。无新的初始化状态、文字缓存或VM路径，产品净删6行。生产Swift/C的准入、BAD_RETURN、撤回重试及timer门通过；签名App同输入A/B恢复初始化文字，正常与首帧提交前拒绝两条路径都保持文字、执行一次timer，storage两键各为1。详见[运行证据](runtime-evidence-current.md#e-2026-09-28-string-init-only)。只关闭这条准入缺口，不承诺JS heap副作用回滚、完整初始化事务、实际Workshop影响面或官方parity。
+
 ## 2026-09-28 局部粒子卡片继承图层变换
 
 局部screen Sprite的中心与卡片几何均继承层线性变换，复用原完整几何槽；worldScreen保持世界/相机方向。方向与折射使用既有正交化，剪切、镜像、零列仍原样保留在几何中。0/90°受控光束由固定竖直修正为跟随横转；38项GPU测试含两种size的退化矩阵反例。3769761761/3768724269共用这一通用路径，但背景GodRays/Shine与独立quad的完整视觉仍开放。见[运行证据](runtime-evidence-current.md#e-2026-09-28-local-particle-transform)。
@@ -65,31 +69,31 @@ Renderer 全部编码封口后由既有 Host 统一提交；准备失败逆序�
 
 撤除每帧 shared 全图序列化、根替换及所有 C/Swift/Host 事务接口。shared 函数、闭包和 retained 对象保持唯一 scene-domain JS 身份，作者显式替换根仍保留正常赋值语义；失败后 heap 写入可被 peer 读取，重试可重复副作用。typed layer、storage、timer、事件和资源命令仍经过原 journal/barrier，不把 shared 当作具有依赖撤回的 localStorage。此失败边界是产品策略，公开合同未承诺 heap rollback。
 
-9 项真实 Swift/QuickJS 门通过。相同自建内容的签名 App 修前出现 428 次 shared-domain exception、两标记停在 x=300；修后 0 次、两标记到 x=800 并保持，ROI 最大误差 0.225、GPU 110/110/0。通用 benchmark 对两版均 PASS，专项函数/位置门才证明修复，详见[运行证据](runtime-evidence-current.md#e-2026-09-27-shared-identity)。未量测性能，未验证实际整帧拒绝事务集成、任意 retained host handle 或官方 parity；String init-only 与多 surface 边沿继续开放。
+9 项真实 Swift/QuickJS 门通过。相同自建内容的签名 App 修前出现 428 次 shared-domain exception、两标记停在 x=300；修后 0 次、两标记到 x=800 并保持，ROI 最大误差 0.225、GPU 110/110/0。通用 benchmark 对两版均 PASS，专项函数/位置门才证明修复，详见[运行证据](runtime-evidence-current.md#e-2026-09-27-shared-identity)。未量测性能，未验证实际整帧拒绝事务集成、任意 retained host handle 或官方 parity；多 surface 边沿继续开放；String init-only 准入见上方2026-09-28后继。
 
 ## 2026-09-27 cursor 事件按 target 确认与重试（S3 transaction / S4 isolated Host）
 
 现有 CursorProgram 先从完整物理输入批次识别不可变事件，再执行回调。事件保存 target、kind、原 world/local/surface 输入和顺序；最终提交只确认被接受 target，被拒者下一帧先重试，独立 peer 不重复。同层不同 target 和 borrowed vector owner 均覆盖。整帧 edge snapshot 同时保存待确认事件，恢复旧记录后由原 pointer buffer 重建新输入，避免重复；新的 raw overflow 不抹掉较早的完整事件。每 target 4096、总计 16384 条记录约束新鲜输入和持续积压，超额经原 C owner invalidate 统一熔断 cursor/vector，保留独立 peer。510 个 raw samples 展开 511 次 callback 的正常突发门通过。
 
-真实 Swift/QuickJS 11 组门覆盖局部/整帧拒绝、原 event/input 坐标与当前时钟、完整按下/释放、仅 up、borrowed update 失败、熔断、连续 65 批合法输入积压及退出清理。隔离签名 App 的同一 subframe click 中，绿色 owner 因 layer 冲突被拒一次，下一帧重试到 world x=800；红色 peer 只执行一次，保持 x=300，两阶段 ROI 最大误差 0.225。通用 benchmark 因点击后的持久位移不随 hover 离开复位而保持 NON-PASS，独立事件/ROI 门通过，见[对应证据](runtime-evidence-current.md#e-2026-09-27-cursor-owner-transaction)。本批不恢复 JS 模块计数器或 shared/retained 别名，不承诺 callback exactly-once；多 surface 原有 latest-only 合并和实际整帧故障仍开放，String init-only 继续关闭。
+真实 Swift/QuickJS 11 组门覆盖局部/整帧拒绝、原 event/input 坐标与当前时钟、完整按下/释放、仅 up、borrowed update 失败、熔断、连续 65 批合法输入积压及退出清理。隔离签名 App 的同一 subframe click 中，绿色 owner 因 layer 冲突被拒一次，下一帧重试到 world x=800；红色 peer 只执行一次，保持 x=300，两阶段 ROI 最大误差 0.225。通用 benchmark 因点击后的持久位移不随 hover 离开复位而保持 NON-PASS，独立事件/ROI 门通过，见[对应证据](runtime-evidence-current.md#e-2026-09-27-cursor-owner-transaction)。本批不恢复 JS 模块计数器或 shared/retained 别名，不承诺 callback exactly-once；多 surface 原有 latest-only 合并和实际整帧故障仍开放，String init-only 准入见上方2026-09-28后继。
 
 ## 2026-09-27 localStorage owner 操作撤回与读取依赖（S3 transaction / S4 isolated Host）
 
 现有 storage session 保留本帧有序 owner 批次、scope/key 最后写入者及实际读取依赖；同值 set、空 clear、缺失 get/delete 也保留来源。Host 先收敛 layer/runtime admission，再按拒绝 owner 撤回全部批次、传递排除读者并按原批末边界重验 quota；失败来源一旦成为稳定拒绝种子不再被后续重算挽救，独立 peer 保持。typed-only 读者同样被排除，最后候选仍沿现有全 surface submission barrier 和单一异步 writer 提交。帧 journal、依赖边及重放工作均有界，预算错误即使被 JS 捕获也不能放行该读者；不新增 state owner。
 
-隔离签名 Debug App 持续制造 layer 写冲突：失败写者与其只读消费者撤回，绿色标记保持 world x=200，独立红/蓝标记保持 x=300/800；两阶段 ROI 最大误差 0.286 world unit。实际隔离 HOME 仅持久化 `safe=8`，拒绝的 `tainted` 缺失；GPU submitted/completed/failed=205/204/0。真实 Swift/C 行为门与最终冻结身份见[运行证据](runtime-evidence-current.md#e-2026-09-27-storage-owner-transaction)。**余量**：shared/retained heap 的非事务边界已由上方后继批次明确，实际整帧 typed 事务故障仍开放；single-surface cursor 边沿确认见上方后继批次；String init-only 仍关闭，不据此宣称完整事务或官方 parity。
+隔离签名 Debug App 持续制造 layer 写冲突：失败写者与其只读消费者撤回，绿色标记保持 world x=200，独立红/蓝标记保持 x=300/800；两阶段 ROI 最大误差 0.286 world unit。实际隔离 HOME 仅持久化 `safe=8`，拒绝的 `tainted` 缺失；GPU submitted/completed/failed=205/204/0。真实 Swift/C 行为门与最终冻结身份见[运行证据](runtime-evidence-current.md#e-2026-09-27-storage-owner-transaction)。**余量**：shared/retained heap 的非事务边界已由上方后继批次明确，实际整帧 typed 事务故障仍开放；single-surface cursor 边沿确认见上方后继批次；String init-only 准入见上方2026-09-28后继，不据此宣称完整事务或官方 parity。
 
 ## 2026-09-27 后置 owner 拒绝与事件确认（S3 typed / S4 isolated Host）
 
 Host 现在把 cursor、Scalar、String、Vector 的求值失败一并送入既有 fixed-point admission，排除该 owner 较早回调留下的全部候选效果。成功提交帧内，被拒 target 的四类媒体消费 generation 与 user-property 值/revision 从原帧快照恢复；已接受 peer 的确认和 Program 的 observed-event 水位保持。整帧拒绝仍恢复完整原快照，没有第二套事件队列或 owner。
 
-真实 Swift/QuickJS 行为门覆盖三类 Program、同层不同 target、首次/后续事件重试、stale 输入、局部后整帧拒绝，以及 cursor 成功后 update BAD_RETURN。隔离签名 Debug App 的作者属性冲突只拒绝绿色 owner 一次；其通知重试使 world x 达到 600，接受的红色 peer 保持 x=300，两次原分辨率 ROI 均在 1 world unit 内。详见[运行证据](runtime-evidence-current.md#e-2026-09-27-owner-event-transaction)。**余量**：localStorage 写入来源及同帧读取依赖已由上方后继批次闭合；shared 任意对象/别名与 JS heap 不由本批撤回；single-surface cursor 确认见上方后继证据；String init-only 仍关闭。媒体仍是 latest-state 重试，不承诺历史事件逐个无损重放。
+真实 Swift/QuickJS 行为门覆盖三类 Program、同层不同 target、首次/后续事件重试、stale 输入、局部后整帧拒绝，以及 cursor 成功后 update BAD_RETURN。隔离签名 Debug App 的作者属性冲突只拒绝绿色 owner 一次；其通知重试使 world x 达到 600，接受的红色 peer 保持 x=300，两次原分辨率 ROI 均在 1 world unit 内。详见[运行证据](runtime-evidence-current.md#e-2026-09-27-owner-event-transaction)。**余量**：localStorage 写入来源及同帧读取依赖已由上方后继批次闭合；shared 任意对象/别名与 JS heap 不由本批撤回；single-surface cursor 确认见上方后继证据；String init-only 准入见上方2026-09-28后继。媒体仍是 latest-state 重试，不承诺历史事件逐个无损重放。
 
 ## 2026-09-26 初始化状态与待消费值提交边界（S3 rollback / S4 normal fixture）
 
 Scalar/Vector 的 Swift 初始化标记已撤除，C owner 的有效状态由 committed 与 pending 共同决定，并沿既有 layer transaction 提交/撤销。六条显式/隐式初始化路径的 BAD_RETURN 可重试；异常、timeout、OOM 保持永久熔断。首次未提交 init 的 timer 基线随 owner-local rejection 恢复并释放，Host 拒帧在 owner 撤销之后恢复和释放整帧 snapshot。cursor 交出的 typed 初始化值只在消费被提交后清除，既保留跨帧重试，也允许候选消费后的休眠。
 
-9 组真实 Swift/C Owner API 门覆盖状态、值、timer、代际和熔断；签名 Debug App 的正常 init→timer→唯一 compositor 自建内容从 x=545 移至 800，对应原分辨率 ROI 位移 695.5 px。本批当时未实测 Host admission 拒绝，后继的 target 事件确认/Host owner 拒绝证据见上；snapshot 泄漏量测和完整副作用回滚仍未验证。**String init-only 仍关闭**：localStorage 同帧 owner-local 撤回见上方后继证据；shared 与 JS heap 的非事务边界见上方后继批次；single-surface cursor 确认见上方后继证据，不能将本批状态修复视作整张初始化事务卡完成。详见[运行证据](runtime-evidence-current.md#e-2026-09-26-initialization-transaction)。
+9 组真实 Swift/C Owner API 门覆盖状态、值、timer、代际和熔断；签名 Debug App 的正常 init→timer→唯一 compositor 自建内容从 x=545 移至 800，对应原分辨率 ROI 位移 695.5 px。本批当时未实测 Host admission 拒绝，后继的 target 事件确认/Host owner 拒绝证据见上；snapshot 泄漏量测和完整副作用回滚仍未验证。**String init-only 准入见上方2026-09-28后继**：localStorage 同帧 owner-local 撤回见上方后继证据；shared 与 JS heap 的非事务边界见上方后继批次；single-surface cursor 确认见上方后继证据，不能将本批状态修复视作整张初始化事务卡完成。详见[运行证据](runtime-evidence-current.md#e-2026-09-26-initialization-transaction)。
 
 ## 2026-09-26 event-only Boolean 音频准入与回调快照（S4 isolated fixture）
 
@@ -97,9 +101,9 @@ Scalar/Vector 的 Swift 初始化标记已撤除，C owner 的有效状态由 co
 
 ## 2026-09-26 无帧回调 String module 准入（S3 owner lifecycle）
 
-有效 String module 不再因为没有 `update`、property/media 回调而被误判为 invalid-source：只含注释、普通 helper export 或仅含 `destroy` 的模块保留在同一 QuickJS domain，静默帧不发布新值，teardown 仍恰好一次。通过真实 export 查询保留尚未闭合的 init-only 拒绝边界；没有源码文本分类、样本专用分支或预算放宽。真实 `3662790108` 的三条注释模块构造失败从 3 降到 0，quiescent teardown owner 从 920 增至 923；23 个 graph layer 的 GPU/compositor/next-frame 合同继续成立。两次截图均为低亮说明画面，**不证明动态 point 光、太阳系画面、性能或官方 parity 修复**。见[对应运行证据](runtime-evidence-current.md#e-2026-09-26-string-module-admission)。
+有效 String module 不再因为没有 `update`、property/media 回调而被误判为 invalid-source：只含注释、普通 helper export 或仅含 `destroy` 的模块保留在同一 QuickJS domain，静默帧不发布新值，teardown 仍恰好一次。该批通过真实 export 查询保留的 init-only 拒绝边界已由上方2026-09-28后继移除；没有源码文本分类、样本专用分支或预算放宽。真实 `3662790108` 的三条注释模块构造失败从 3 降到 0，quiescent teardown owner 从 920 增至 923；23 个 graph layer 的 GPU/compositor/next-frame 合同继续成立。两次截图均为低亮说明画面，**不证明动态 point 光、太阳系画面、性能或官方 parity 修复**。见[对应运行证据](runtime-evidence-current.md#e-2026-09-26-string-module-admission)。
 
-余量：纯 init-only 仍拒绝；后继已修复[初始化完成状态、typed 值和 timer 的提交边界](runtime-evidence-current.md#e-2026-09-26-initialization-transaction)，localStorage 同帧撤回见本页后继证据，shared 与完整 Host 整帧拒绝回放仍开放。此次 checkpoint 复现的 event-only Boolean 音频准入及回调刷新顺序缺口，已由[后继批次](runtime-evidence-current.md#e-2026-09-26-event-audio-admission)闭合；初始化事务仍单独开放。
+纯 init-only 准入见上方2026-09-28后继；此前已修复[初始化完成状态、typed 值和 timer 的提交边界](runtime-evidence-current.md#e-2026-09-26-initialization-transaction)，localStorage 同帧撤回见本页后继证据，shared 的非事务heap边界与单surface Host整帧拒绝已有上方后继证据，多屏及异步GPU失败仍开放。此次 checkpoint 复现的 event-only Boolean 音频准入及回调刷新顺序缺口，已由[后继批次](runtime-evidence-current.md#e-2026-09-26-event-audio-admission)闭合；初始化事务仍单独开放。
 
 ## 2026-09-26 stock noise 按需启动准备与上传完成（S3）
 
