@@ -157,6 +157,8 @@ static void free_effect_handle(void *opaque) {
     free(opaque);
 }
 
+static bool define_effect_visible(MWXSceneQuickJSOwner *, JSValue, uint32_t, uint32_t);
+
 static JSValue get_effect(
     JSContext *context,
     JSValueConst this_value,
@@ -219,6 +221,10 @@ static JSValue get_effect(
         ) < 0) {
         JS_FreeValue(context, effect);
         return JS_EXCEPTION;
+    }
+    if (owner->target_layer_configured &&
+        !define_effect_visible(owner, effect, owner->target_layer_index, (uint32_t)index)) {
+        JS_FreeValue(context, effect); return JS_EXCEPTION;
     }
     const char *effect_name = owner->effect_names[index];
     if (effect_name != NULL &&
@@ -841,4 +847,157 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown(
         destroy_callback_invoked, &destroy_callback_threw,
         diagnostic, diagnostic_capacity
     );
+}
+
+// Effect access uses the same authored layer identity and mutation journal.
+// Handles retain the originating owner identity; another owner cannot borrow them.
+typedef struct MWXSceneQuickJSLayerEffectHandle {
+    MWXSceneQuickJSDomain *domain;
+    uint64_t owner_identity;
+    uint32_t layer_index;
+    uint32_t effect_index;
+} MWXSceneQuickJSLayerEffectHandle;
+
+static MWXSceneQuickJSLayerRecord *effect_layer_record(MWXSceneQuickJSLayerEffectHandle *h) {
+    if (h == NULL || h->domain == NULL || !h->domain->callback_active ||
+        h->domain->active_owner == NULL ||
+        h->domain->active_owner->identity != h->owner_identity ||
+        h->layer_index >= h->domain->authored_layer_count) return NULL;
+    MWXSceneQuickJSLayerRecord *r = &h->domain->layers[h->layer_index];
+    return r->configured && !r->destroyed ? r : NULL;
+}
+
+static JSValue layer_effect_visible(JSContext *ctx, JSValueConst this_value,
+    int argc, JSValueConst *argv, int write, void *opaque) {
+    (void)this_value;
+    MWXSceneQuickJSLayerEffectHandle *h = opaque;
+    MWXSceneQuickJSLayerRecord *r = effect_layer_record(h);
+    if (r == NULL || h->effect_index >= r->effect_count)
+        return JS_ThrowTypeError(ctx, "effect handle is stale");
+    MWXSceneQuickJSOwner *owner = h->domain->active_owner;
+    MWXSceneQuickJSAuthoredLayerMutationRecord *m =
+        mwx_scene_quickjs_authored_mutation_for_layer(owner, h->layer_index);
+    if (write) {
+        if (owner->value_only || argc != 1 || !JS_IsBool(argv[0]))
+            return JS_ThrowTypeError(ctx, "effect visibility expects an effectful Boolean write");
+        if (m == NULL) m = mwx_scene_quickjs_stage_authored_mutation(owner, h->layer_index);
+        if (m == NULL) return JS_ThrowInternalError(ctx, "effect mutation budget exceeded");
+        if (m->effect_visible == NULL) {
+            m->effect_visible = malloc(r->effect_count);
+            if (m->effect_visible == NULL) return JS_ThrowInternalError(ctx, "effect mutation allocation failed");
+            memset(m->effect_visible, 2, r->effect_count);
+        }
+        m->effect_visible[h->effect_index] = JS_ToBool(ctx, argv[0]) > 0;
+        m->fields |= MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_EFFECT_VISIBILITY;
+        return JS_UNDEFINED;
+    }
+    MWXSceneQuickJSAuthoredLayerMutationRecord *b =
+        mwx_scene_quickjs_authored_mutation_baseline_for_layer(owner, h->layer_index);
+    uint8_t value = m != NULL && m->effect_visible != NULL ? m->effect_visible[h->effect_index] : 2;
+    if (value == 2 && b != NULL && b->effect_visible != NULL) value = b->effect_visible[h->effect_index];
+    if (value == 2) value = r->effect_visible[h->effect_index];
+    return JS_NewBool(ctx, value != 0);
+}
+
+static JSValue effect_closure(JSContext *ctx, JSCClosure *callback,
+    const char *name, int argc, int magic, MWXSceneQuickJSLayerEffectHandle identity) {
+    MWXSceneQuickJSLayerEffectHandle *h = malloc(sizeof(*h));
+    if (h == NULL) return JS_EXCEPTION;
+    *h = identity;
+    return JS_NewCClosure(ctx, callback, name, free_effect_handle, argc, magic, h);
+}
+
+static bool define_effect_visible(MWXSceneQuickJSOwner *owner, JSValue effect,
+    uint32_t layer_index, uint32_t effect_index) {
+    JSContext *ctx = owner->domain->context;
+    MWXSceneQuickJSLayerEffectHandle id = { owner->domain, owner->identity, layer_index, effect_index };
+    JSValue get = effect_closure(ctx, layer_effect_visible, "get visible", 0, 0, id);
+    JSValue set = effect_closure(ctx, layer_effect_visible, "set visible", 1, 1, id);
+    JSAtom atom = JS_NewAtom(ctx, "visible");
+    if (JS_IsException(get) || JS_IsException(set) || atom == JS_ATOM_NULL) {
+        JS_FreeValue(ctx, get); JS_FreeValue(ctx, set); JS_FreeAtom(ctx, atom); return false;
+    }
+    int result = JS_DefinePropertyGetSet(ctx, effect, atom, get, set, JS_PROP_ENUMERABLE);
+    JS_FreeAtom(ctx, atom);
+    return result >= 0;
+}
+
+static JSValue layer_get_effect(JSContext *ctx, JSValueConst this_value,
+    int argc, JSValueConst *argv, int count_only, void *opaque) {
+    (void)this_value;
+    MWXSceneQuickJSLayerEffectHandle *h = opaque;
+    MWXSceneQuickJSLayerRecord *r = effect_layer_record(h);
+    if (r == NULL) return JS_ThrowTypeError(ctx, "layer effect handle is stale");
+    if (count_only) return JS_NewUint32(ctx, r->effect_count);
+    int64_t index = -1;
+    if (argc == 1 && JS_IsString(argv[0])) {
+        size_t length = 0;
+        const char *name = JS_ToCStringLen(ctx, &length, argv[0]);
+        if (name == NULL) return JS_EXCEPTION;
+        for (uint32_t i = 0; i < r->effect_count; ++i) {
+            if (r->effect_names[i] != NULL && strlen(r->effect_names[i]) == length &&
+                memcmp(r->effect_names[i], name, length) == 0) { index = i; break; }
+        }
+        JS_FreeCString(ctx, name);
+    } else if (argc == 1 && JS_IsNumber(argv[0])) {
+        double number;
+        if (JS_ToFloat64(ctx, &number, argv[0]) < 0) return JS_EXCEPTION;
+        if (isfinite(number) && number >= 0 && number <= UINT32_MAX && floor(number) == number)
+            index = (int64_t)number;
+    }
+    if (index < 0 || index >= r->effect_count)
+        return JS_ThrowRangeError(ctx, "getEffect target does not exist");
+    JSValue effect = JS_NewObject(ctx);
+    if (JS_IsException(effect)) return effect;
+    if (!define_effect_visible(h->domain->active_owner, effect, h->layer_index, (uint32_t)index) ||
+        JS_DefinePropertyValueStr(ctx, effect, "name",
+            JS_NewString(ctx, r->effect_names[index] == NULL ? "" : r->effect_names[index]),
+            JS_PROP_ENUMERABLE) < 0) {
+        JS_FreeValue(ctx, effect); return JS_EXCEPTION;
+    }
+    return effect;
+}
+
+bool mwx_scene_quickjs_define_layer_effect_access(MWXSceneQuickJSOwner *owner,
+    JSValue layer, uint32_t layer_index) {
+    JSContext *ctx = owner->domain->context;
+    MWXSceneQuickJSLayerEffectHandle id = { owner->domain, owner->identity, layer_index, 0 };
+    const char *names[] = { "getEffect", "getEffectCount" };
+    for (int i = 0; i < 2; ++i) {
+        JSValue fn = effect_closure(ctx, layer_get_effect, names[i], i == 0 ? 1 : 0, i, id);
+        if (JS_IsException(fn) || JS_DefinePropertyValueStr(ctx, layer, names[i], fn, JS_PROP_ENUMERABLE) < 0)
+            return false;
+    }
+    return true;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_layer_effects(
+    MWXSceneQuickJSDomain *domain, uint32_t layer_index, uint32_t count,
+    const char *const *names, const uint8_t *visible) {
+    if (domain == NULL || domain->callback_active || domain->layer_snapshot_generation != 0 ||
+        layer_index >= domain->authored_layer_count || count > MWX_SCENE_QUICKJS_MAX_EFFECTS ||
+        (count > 0 && (names == NULL || visible == NULL))) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    uint64_t total = count;
+    for (uint32_t i = 0; i < domain->authored_layer_count; ++i) total += domain->layers[i].effect_count;
+    if (total > 16384) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    MWXSceneQuickJSLayerRecord *r = &domain->layers[layer_index];
+    if (!r->configured || r->effect_names != NULL) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    for (uint32_t i = 0; i < count; ++i)
+        if (visible[i] > 1 || (names[i] != NULL && strlen(names[i]) > 256))
+            return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    if (count == 0) return MWX_SCENE_QUICKJS_OK;
+    char **copies = calloc(count, sizeof(*copies));
+    uint8_t *values = malloc(count);
+    if (copies == NULL || values == NULL) { free(copies); free(values); return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED; }
+    for (uint32_t i = 0; i < count; ++i) {
+        if (names[i] == NULL) continue;
+        copies[i] = strdup(names[i]);
+        if (copies[i] == NULL) {
+            for (uint32_t j = 0; j < i; ++j) free(copies[j]);
+            free(copies); free(values); return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+        }
+    }
+    memcpy(values, visible, count);
+    r->effect_names = copies; r->effect_visible = values; r->effect_count = count;
+    return MWX_SCENE_QUICKJS_OK;
 }

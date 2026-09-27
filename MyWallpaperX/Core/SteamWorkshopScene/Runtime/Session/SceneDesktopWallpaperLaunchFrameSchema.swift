@@ -98,9 +98,10 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
             into: Set<Int>()
         ) { result, definition in
             switch definition.target {
-            case let .layer(layerID, _), let .text(layerID, _):
+            case let .layer(layerID, _), let .text(layerID, _),
+                 let .effectVisibility(layerID, _):
                 result.insert(layerID)
-            case .scene, .camera, .effectVisibility, .effectConstant,
+            case .scene, .camera, .effectConstant,
                  .materialConstant, .particle, .scriptInstanceProperty:
                 break
             }

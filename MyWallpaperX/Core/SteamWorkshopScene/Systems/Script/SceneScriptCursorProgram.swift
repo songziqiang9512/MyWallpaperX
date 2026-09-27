@@ -195,9 +195,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     targetLayerID: mutation.layerID
                 )
                 if let index = authoredMutationIndices[key] {
-                    layers[index].mutation = Self.mergingAuthoredMutation(
-                        layers[index].mutation, with: mutation
-                    )
+                    layers[index].mutation = layers[index].mutation.merging(with: mutation)
                 } else {
                     authoredMutationIndices[key] = layers.count
                     layers.append((ownerTarget, mutation))
@@ -521,36 +519,6 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             layerMutations: layers.map { $0.mutation },
             inputBatchOverflowed: false,
             ownerEffects: ownerEffects
-        )
-    }
-
-    private static func mergingAuthoredMutation(
-        _ previous: SceneScriptLayerMutation,
-        with current: SceneScriptLayerMutation
-    ) -> SceneScriptLayerMutation {
-        .init(
-            kind: current.kind,
-            isDynamic: false,
-            fields: previous.fields.union(current.fields),
-            layerID: current.layerID,
-            orderIndex: current.orderIndex,
-            visible: current.fields.contains(.visibility)
-                ? current.visible : previous.visible,
-            alpha: current.alpha,
-            origin: current.fields.contains(.origin)
-                ? current.origin : previous.origin,
-            scale: current.fields.contains(.scale)
-                ? current.scale : previous.scale,
-            angles: current.fields.contains(.angles)
-                ? current.angles : previous.angles,
-            color: current.color,
-            pointSize: current.pointSize,
-            text: current.fields.contains(.text)
-                ? current.text : previous.text,
-            font: current.fields.contains(.font)
-                ? current.font : previous.font,
-            assetPath: current.assetPath,
-            ownerTarget: current.ownerTarget ?? previous.ownerTarget
         )
     }
 

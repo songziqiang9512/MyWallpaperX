@@ -136,6 +136,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/**"
       ],
       "modules": [
+        "test_scene_cross_layer_effect_visibility",
         "test_scene_cursor_audio_consumer",
         "test_scene_cursor_candidate_collision",
         "test_scene_dynamic_layer_visibility",
@@ -326,6 +327,7 @@
         "test_scene_cursor_audio_consumer",
         "test_scene_cursor_capture_continuity",
         "test_scene_cursor_owner_transaction",
+        "test_scene_cross_layer_effect_visibility",
         "test_scene_frame_vm_routing",
         "test_scene_pointer_parallax_exit",
         "test_scene_surface_pointer_event_buffer"
@@ -898,6 +900,7 @@
         "test_scene_cursor_candidate_collision",
         "test_scene_cursor_capture_continuity",
         "test_scene_cursor_owner_transaction",
+        "test_scene_cross_layer_effect_visibility",
         "test_scene_dependency_visibility_owner",
         "test_scene_resolved_material_graph_executor",
         "test_scene_resolved_material_runtime_bridge",

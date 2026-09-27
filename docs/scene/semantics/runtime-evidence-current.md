@@ -24,6 +24,18 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-27-cross-layer-effect-visibility"></a>
+
+### E-2026-09-27-CROSS-LAYER-EFFECT-VISIBILITY — 跨层特效显隐事务恢复点击切图，隐藏层效果仍开放
+
+**合同与修复：**按[公开IEffect属性合同](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEffect.html)与作者脚本，准备期保存每层有序effect名称/初始显隐；图层handle支持按名称或索引getEffect、getEffectCount与effect.name/visible。显隐写入复用既有authored layer mutation、cursor baseline、typed dynamic snapshot和发布/撤回；没有第二effect store或compositor。cursor事件原有重复merge删除，复用同一mutation合并。跨owner旧handle、非法索引/类型与destroyed snapshot拒绝；自身Boolean owner销毁时不再把已失效的effect字段带入destroy DTO。此次不扩展跨层getMaterial/executeMaterialFunction，也不等于完整IEffect实现。
+
+**实际运行：**基线`b8a4d174`，代码/测试冻结diff SHA-256 `09e6effbd3bb87bea8ba6dea7543e24f1fd94add69e688ff1a15a7a768ecd438`。签名优化Debug `2.0.9(277)`，Team `H9QWU9XN8R`，CDHash `b4d047eeac28e5221e2e13b0207d1bc052db1885`，executable SHA-256 `91e8b7f8e184265a2cfc94b0dcd71f4553706866e9853a2bee0dcb62fc518fd2`。3211615441原包隔离副本，静音12秒、2秒截图、指针[-0.75,0.4]后一次点击；最终回放43/495执行cursorClick，无原getEffect异常，frame114层28显示、层30隐藏，逐张查看before/hover原图确认中央图片由倒向第一图切到正向第二图，时钟325也出现。已执行的7层graph仍有publication、GPU completion、terminal compositor与next-frame，GPU失败0；该证据不代表层28特效执行。
+
+**明确失败与下一门：**最终benchmark **0/1、NON-PASS**，唯一报告失败`effect execution degraded layer source passthrough`。层28加载时的部分特效为layer-hidden/inactive，点击显示后仍仅合成source；其完整特效准备/激活为下批首断点。切换中央图片的有界可见结果已取得，但完整点击效果、双向连续切换、鼠标跟随位置、普通主App入口及官方同输入视觉仍未验收，不能关闭321整行。
+
+**验证和收尾：**真实Swift/C新增3项测试覆盖名称/索引、重复名首项、跨callback合并、effect写入后两次字体替换/读回、typed preflight→commit→下一帧、discard、非法操作、跨owner及destroyed handle。既有cursor/snapshot组合15项、关联39项、admission32项分别通过（存在重叠，不合计）；dynamic-layer runtime与此前3项组合共15项中当时唯一失败是新增测试误用受限跨层destroy，纠正为自身Boolean owner及实际destroyed snapshot后最终3项通过。独立审查发现font替换误释放effect数组，修复后组合反例与最终审查APPROVE。最终build4及运行前后签名验证通过；code-health仍4个既有非Scene行数失败。忽略证据目录`2026-09-27-cross-layer-effect-visibility`保留中间失败、两次原包回放、日志/截图和冻结diff；未做full corpus、性能或官方parity结论。
+
 <a id="e-2026-09-27-conditional-cursor-binding"></a>
 
 ### E-2026-09-27-CONDITIONAL-CURSOR-BINDING — 条件显隐脚本恢复加载，点击后继接口仍缺失

@@ -64,6 +64,10 @@ static int configure_record(
     record->visible = true;
     record->alpha = 1;
     record->point_size = 32;
+    record->effect_count = 2;
+    record->effect_visible = malloc(2);
+    if (record->effect_visible == NULL) return 0;
+    record->effect_visible[0] = 0; record->effect_visible[1] = 1;
     record->name = duplicate_string("layer");
     record->text = duplicate_string(text);
     record->font = duplicate_string("font");
@@ -135,6 +139,11 @@ int main(void) {
     failures += check(result == MWX_SCENE_QUICKJS_OK, "stage first", diagnostic);
     result = stage_fields(&domain, 1, 3, 0.75, "new-b", diagnostic);
     failures += check(result == MWX_SCENE_QUICKJS_OK, "stage second", diagnostic);
+    uint8_t effects[2] = {1, 0};
+    failures += check(mwx_scene_quickjs_domain_update_layer_effects(&domain, 0, 2, effects) == MWX_SCENE_QUICKJS_OK, "stage effects", diagnostic);
+    uint8_t invalid_effects[2] = {0, 2};
+    failures += check(mwx_scene_quickjs_domain_update_layer_effects(&domain, 0, 2, invalid_effects) == MWX_SCENE_QUICKJS_INVALID_ARGUMENT, "reject invalid effect snapshot", diagnostic);
+    failures += check(domain.layers[0].effect_visible[0] == 0, "effects unchanged before commit", diagnostic);
     double committed_origin[3] = {9, 8, 7};
     result = mwx_scene_quickjs_domain_set_layer_origin(
         &domain, 0, committed_origin, diagnostic, sizeof(diagnostic)
@@ -144,6 +153,7 @@ int main(void) {
         &domain, diagnostic, sizeof(diagnostic)
     );
     failures += check(result == MWX_SCENE_QUICKJS_OK, "commit", diagnostic);
+    failures += check(domain.layers[0].effect_visible[0] == 1 && domain.layers[0].effect_visible[1] == 0, "effects committed", diagnostic);
     failures += check(domain.layer_snapshot_generation == 8, "committed generation", diagnostic);
     failures += check(strcmp(domain.layers[0].text, "new-a") == 0, "committed first text", diagnostic);
     failures += check_number(domain.layers[0].scale[0], 2, "committed first scale");
@@ -159,6 +169,7 @@ int main(void) {
         "rollback committed snapshot",
         diagnostic
     );
+    failures += check(domain.layers[0].effect_visible[0] == 0 && domain.layers[0].effect_visible[1] == 1, "effects rolled back", diagnostic);
     failures += check(domain.layer_snapshot_generation == 7, "rolled back generation", diagnostic);
     failures += check(strcmp(domain.layers[0].text, "old-a") == 0, "rolled back first text", diagnostic);
     failures += check_number(domain.layers[0].scale[0], 1, "rolled back first scale");
@@ -280,6 +291,7 @@ int main(void) {
         free(domain.layers[index].name);
         free(domain.layers[index].text);
         free(domain.layers[index].font);
+        free(domain.layers[index].effect_visible);
     }
     free(domain.layers);
     return failures == 0 ? 0 : 1;

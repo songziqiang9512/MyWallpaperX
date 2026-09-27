@@ -41,8 +41,9 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         static let font = Self(rawValue: 1 << 5)
         static let alpha = Self(rawValue: 1 << 6)
         static let color = Self(rawValue: 1 << 7)
+        static let effectVisibility = Self(rawValue: 1 << 8)
         static let authoredFields: Self = [
-            .origin, .scale, .angles, .visibility, .text, .font, .alpha, .color,
+            .origin, .scale, .angles, .visibility, .text, .font, .alpha, .color, .effectVisibility,
         ]
     }
     let kind: Kind
@@ -61,6 +62,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     let font: String
     let assetPath: String?
     let ownerTarget: SceneDynamicTarget?
+    var effectVisibilities: [Int: Bool] = [:]
 }
 
 nonisolated enum SceneDynamicValueType: Sendable { case bool, string, vector3, scalar }
@@ -88,6 +90,7 @@ nonisolated enum SceneDynamicTextField: Hashable, Sendable { case content, font,
 nonisolated enum SceneDynamicTarget: Hashable, Sendable {
     case layer(layerID: Int, field: SceneDynamicLayerField)
     case text(layerID: Int, field: SceneDynamicTextField)
+    case effectVisibility(layerID: Int, effectIndex: Int)
 }
 nonisolated struct SceneScriptOwnerEffects: Sendable {
     let ownerTarget: SceneDynamicTarget
@@ -100,7 +103,9 @@ nonisolated struct SceneDynamicTargetDefinition: Sendable {
 }
 
 nonisolated struct SceneRenderDescriptor: Sendable {
+    struct Effect: Sendable { var visible: Bool? }
     struct Layer: Sendable {
+        var effects: [Effect] = []
         var alpha: Double? = nil
         struct TextStyle: Sendable { let fontPath: String?; var colorRGB: [Float]? = nil }
         let id: Int

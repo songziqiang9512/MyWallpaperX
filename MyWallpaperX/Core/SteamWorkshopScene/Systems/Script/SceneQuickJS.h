@@ -82,9 +82,12 @@ typedef enum MWXSceneQuickJSLayerMutationField {
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT = 1u << 5,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA = 1u << 6,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR = 1u << 7,
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_EFFECT_VISIBILITY = 1u << 8,
 } MWXSceneQuickJSLayerMutationField;
 
 typedef struct MWXSceneQuickJSLayerMutation {
+    uint32_t effect_count;
+    const uint8_t *effect_visible; /* 0/1 writes, 2 untouched */
     uint32_t kind;
     uint32_t dynamic;
     uint32_t fields;
@@ -632,6 +635,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     size_t font_length,
     double alpha,
     const double color[3],
+    uint32_t effect_count, const uint8_t *effect_visible,
     char *diagnostic,
     size_t diagnostic_capacity
 );
@@ -1008,5 +1012,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_animation_command_at(
 );
 
 void mwx_scene_quickjs_owner_invalidate(MWXSceneQuickJSOwner *owner);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_layer_effects(
+    MWXSceneQuickJSDomain *, uint32_t, uint32_t, const char *const *, const uint8_t *);
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_effects(
+    MWXSceneQuickJSDomain *, uint32_t, uint32_t, const uint8_t *);
 
 #endif

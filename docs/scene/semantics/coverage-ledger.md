@@ -1,8 +1,12 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-27 跨图层特效显隐事务
+
+getEffect按名称/索引访问、getEffectCount与name/visible沿既有layer handle、mutation、cursor baseline和typed snapshot执行；重复cursor merge已删除。当前候选真实3211615441点击切换中央图片成功，但新显示层28的效果仍source passthrough，整样本benchmark NON-PASS。只闭合接口与有界切图结果，保留隐藏层特效激活、完整交互和跟随位置；不宣称完整IEffect支持。正反例、签名身份与失败现场见[运行证据](runtime-evidence-current.md#e-2026-09-27-cross-layer-effect-visibility)。
+
 ## 2026-09-27 条件显隐与cursor共同输入（S3）
 
-可见性脚本支持同wrapper的条件user引用；保留属性身份并沿原低优先级输入→唯一脚本owner执行。条件图层组不再因同key脚本参数失效，非法非visibility目标不能借用该组。实际3211615441左右owner恢复，cursorEnter执行；点击仍因跨层getEffect缺失而回滚，切图及跟随位置未闭合。测试、构建及失败边界见[运行证据](runtime-evidence-current.md#e-2026-09-27-conditional-cursor-binding)。
+可见性脚本支持同wrapper的条件user引用；保留属性身份并沿原低优先级输入→唯一脚本owner执行。条件图层组不再因同key脚本参数失效，非法非visibility目标不能借用该组。实际3211615441左右owner恢复，cursorEnter执行；后继跨层特效批已恢复有界点击切图，完整效果及跟随位置仍开放。测试、构建及失败边界见[运行证据](runtime-evidence-current.md#e-2026-09-27-conditional-cursor-binding)。
 
 ## 2026-09-27 共享音频连续采集窗
 

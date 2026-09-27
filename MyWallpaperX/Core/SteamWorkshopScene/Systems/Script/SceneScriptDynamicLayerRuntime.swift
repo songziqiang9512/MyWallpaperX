@@ -240,6 +240,21 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                         definitions: &candidateDefinitions
                     )
                 }
+                guard mutation.fields.contains(.effectVisibility) == !mutation.effectVisibilities.isEmpty else {
+                    return .failure(.invalidArgument("invalid effect visibility mutation fields"))
+                }
+                for (effectIndex, visible) in mutation.effectVisibilities {
+                    guard authoredLayer.effects.indices.contains(effectIndex) else {
+                        return .failure(.invalidArgument("effect visibility index outside layer"))
+                    }
+                    let target = SceneDynamicTarget.effectVisibility(layerID: mutation.layerID, effectIndex: effectIndex)
+                    guard authoredTargets.insert(target).inserted else {
+                        return .failure(.invalidArgument("conflicting effect visibility mutation"))
+                    }
+                    candidateAuthoredValues[target] = .bool(visible)
+                    Self.ensureDefinition(for: target, layer: authoredLayer,
+                        order: &candidateDefinitionOrder, definitions: &candidateDefinitions)
+                }
                 if mutation.fields.contains(.text) {
                     guard authoredLayer.contentKind == "text",
                           authoredLayer.text != nil,
@@ -605,7 +620,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
 
     private static func layerID(for target: SceneDynamicTarget) -> Int? {
         switch target {
-        case let .layer(layerID, _), let .text(layerID, _):
+        case let .layer(layerID, _), let .text(layerID, _), let .effectVisibility(layerID, _):
             layerID
         default:
             nil
@@ -664,6 +679,9 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 .text(layerID: mutation.layerID, field: .font),
                 .string(mutation.font)
             ))
+        }
+        values += mutation.effectVisibilities.sorted { $0.key < $1.key }.map {
+            (.effectVisibility(layerID: mutation.layerID, effectIndex: $0.key), .bool($0.value))
         }
         return values
     }
@@ -726,6 +744,9 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         layer: SceneRenderDescriptor.Layer
     ) -> SceneDynamicTargetDefinition? {
         switch target {
+        case let .effectVisibility(layerID, effectIndex)
+            where layerID == layer.id && layer.effects.indices.contains(effectIndex):
+            .init(target: target, valueType: .bool, authoredValue: .bool(layer.effects[effectIndex].visible ?? true))
         case let .layer(layerID, .alpha) where layerID == layer.id:
             .init(target: target, valueType: .scalar, authoredValue: .scalar(layer.alpha ?? 1))
         case let .layer(layerID, .color) where layerID == layer.id:

@@ -58,6 +58,9 @@ typedef struct MWXSceneQuickJSLayerRecord {
     char *text;
     char *font;
     char *asset_path;
+    uint32_t effect_count;
+    char **effect_names;
+    uint8_t *effect_visible;
     double authored_origin[3];
     double current_origin[3];
     double size[2];
@@ -99,6 +102,7 @@ typedef struct MWXSceneQuickJSLayerRecord {
 typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     char *text;
     char *font;
+    uint8_t *effect_visible;
     bool text_replaced;
     bool font_replaced;
     double current_origin[3];
@@ -131,6 +135,7 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
 } MWXSceneQuickJSStagedLayerSnapshot;
 
 typedef struct MWXSceneQuickJSAuthoredLayerMutationRecord {
+    uint8_t *effect_visible; /* 2 means untouched */
     uint32_t layer_index;
     uint32_t fields;
     bool destroyed;
@@ -538,5 +543,10 @@ bool mwx_scene_quickjs_assign_script_properties(
     const char *json,
     size_t length
 );
+
+MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mutation(MWXSceneQuickJSOwner *, uint32_t);
+MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_authored_mutation_for_layer(MWXSceneQuickJSOwner *, uint32_t);
+MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_authored_mutation_baseline_for_layer(MWXSceneQuickJSOwner *, uint32_t);
+bool mwx_scene_quickjs_define_layer_effect_access(MWXSceneQuickJSOwner *, JSValue, uint32_t);
 
 #endif

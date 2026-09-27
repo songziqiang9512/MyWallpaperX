@@ -37,6 +37,19 @@ nonisolated extension SceneScriptQuickJSDomain {
                 }
                 continue
             }
+            if !layer.effects.isEmpty {
+                let values: [UInt8] = layer.effects.enumerated().map { effectIndex, effect in
+                    if case let .bool(visible)? = snapshot[.effectVisibility(layerID: layer.id, effectIndex: effectIndex)]?.value {
+                        return visible ? 1 : 0
+                    }
+                    return (effect.visible ?? true) ? 1 : 0
+                }
+                let result = values.withUnsafeBufferPointer {
+                    mwx_scene_quickjs_domain_update_layer_effects(handle, UInt32(index), UInt32(values.count), $0.baseAddress)
+                }
+                guard result == MWX_SCENE_QUICKJS_OK else { throw layerSnapshotFailure(result, diagnostic: diagnostic) }
+            }
+
             let scale = layerVector3(
                 layerID: layer.id, field: .scale,
                 authored: layer.scaleXYZ, fallback: [1, 1, 1],

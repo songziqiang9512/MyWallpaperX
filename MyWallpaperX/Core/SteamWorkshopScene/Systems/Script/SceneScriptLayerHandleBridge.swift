@@ -245,8 +245,10 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         static let font = Self(rawValue: UInt32(
             MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT.rawValue
         ))
+        static let effectVisibility = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_EFFECT_VISIBILITY.rawValue))
+
         static let authoredFields: Self = [
-            .origin, .scale, .angles, .visibility, .text, .font, .alpha, .color,
+            .origin, .scale, .angles, .visibility, .text, .font, .alpha, .color, .effectVisibility,
         ]
         static let alpha = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA.rawValue))
         static let color = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR.rawValue))
@@ -268,6 +270,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     let font: String
     let assetPath: String?
     let ownerTarget: SceneDynamicTarget?
+    let effectVisibilities: [Int: Bool]
 
     init(
         kind: Kind,
@@ -285,7 +288,8 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         text: String,
         font: String,
         assetPath: String?,
-        ownerTarget: SceneDynamicTarget? = nil
+        ownerTarget: SceneDynamicTarget? = nil,
+        effectVisibilities: [Int: Bool] = [:]
     ) {
         self.kind = kind
         self.isDynamic = isDynamic
@@ -303,6 +307,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         self.font = font
         self.assetPath = assetPath
         self.ownerTarget = ownerTarget
+        self.effectVisibilities = effectVisibilities
     }
 
     func owned(by target: SceneDynamicTarget) -> Self {
@@ -311,7 +316,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             layerID: layerID, orderIndex: orderIndex, visible: visible,
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
-            assetPath: assetPath, ownerTarget: target
+            assetPath: assetPath, ownerTarget: target, effectVisibilities: effectVisibilities
         )
     }
 
@@ -321,7 +326,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             layerID: layerID, orderIndex: orderIndex, visible: visible,
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
-            assetPath: resolved, ownerTarget: ownerTarget
+            assetPath: resolved, ownerTarget: ownerTarget, effectVisibilities: effectVisibilities
         )
     }
 
@@ -331,7 +336,8 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             layerID: layerID, orderIndex: orderIndex, visible: visible,
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
-            assetPath: assetPath, ownerTarget: ownerTarget
+            assetPath: assetPath, ownerTarget: ownerTarget,
+            effectVisibilities: selected.contains(.effectVisibility) ? effectVisibilities : [:]
         )
     }
 
@@ -353,7 +359,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         return output
     }
 
-    private func merging(with newer: Self) -> Self {
+    func merging(with newer: Self) -> Self {
         guard kind != .destroy, kind == .upsert, newer.kind == .upsert,
               !isDynamic, !newer.isDynamic else {
             return kind == .destroy ? self : newer
@@ -375,7 +381,8 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             text: newer.fields.contains(.text) ? newer.text : text,
             font: newer.fields.contains(.font) ? newer.font : font,
             assetPath: newer.assetPath ?? assetPath,
-            ownerTarget: newer.ownerTarget ?? ownerTarget
+            ownerTarget: newer.ownerTarget ?? ownerTarget,
+            effectVisibilities: effectVisibilities.merging(newer.effectVisibilities) { _, new in new }
         )
     }
 }
@@ -566,6 +573,17 @@ nonisolated enum SceneScriptLayerMutationBridge {
                     "layer mutation kind/dynamic/fields ABI mismatch"
                 ))
             }
+            guard raw.effect_count <= 1024,
+                  (raw.effect_count > 0) == fields.contains(.effectVisibility),
+                  raw.effect_count == 0 || raw.effect_visible != nil else {
+                return .failure(.invalidArgument("invalid effect visibility mutation ABI"))
+            }
+            var effectVisibilities: [Int: Bool] = [:]
+            for effectIndex in 0..<Int(raw.effect_count) {
+                let value = raw.effect_visible![effectIndex]
+                guard value <= 2 else { return .failure(.invalidArgument("invalid effect visibility value")) }
+                if value < 2 { effectVisibilities[effectIndex] = value != 0 }
+            }
             let text = String(cString: textPointer)
             let font = String(cString: fontPointer)
             let assetPath = String(cString: assetPathPointer)
@@ -590,7 +608,7 @@ nonisolated enum SceneScriptLayerMutationBridge {
                 pointSize: raw.point_size,
                 text: text, font: font,
                 assetPath: assetPath.nilIfEmpty,
-                ownerTarget: ownerTarget
+                ownerTarget: ownerTarget, effectVisibilities: effectVisibilities
             ))
         }
         return .success(output)
@@ -622,9 +640,10 @@ nonisolated extension SceneScriptQuickJSDomain {
             let angles = layer.anglesXYZ ?? [0, 0, 0]
             let size = layer.sizeWH ?? [0, 0]
             let attachment = layer.parentAttachmentBindFrame ?? []
+            let effectIdentity = layer.effects.map { [$0.id, $0.name ?? ""] }
             let textMutable = layer.contentKind == "text"
                 && layer.text != nil && layer.textStyle != nil
-            return "\(index):\(layer.id):\(layer.parentID.map(String.init) ?? "root"):\(layer.name ?? ""):\(origin):\(scale):\(angles):size=\(size):attachment=\(attachment):text=\(textMutable)"
+            return "\(index):\(layer.id):\(layer.parentID.map(String.init) ?? "root"):\(layer.name ?? ""):\(origin):\(scale):\(angles):size=\(size):attachment=\(attachment):text=\(textMutable):effects=\(effectIdentity)"
         }.joined(separator: "|")
         return "camera=\(camera)|\(layers)"
     }
@@ -653,6 +672,8 @@ nonisolated extension SceneScriptQuickJSDomain {
                     } ?? true
                     && (layer.name?.utf8.count ?? 0) <= 256
                     && !(layer.name?.contains("\0") ?? false)
+                    && layer.effects.count <= 1024
+                    && layer.effects.allSatisfy { ($0.name?.utf8.count ?? 0) <= 256 && !($0.name?.contains("\0") ?? false) }
                     && validOrigin
                     && validSize
               }) else {
@@ -718,6 +739,24 @@ nonisolated extension SceneScriptQuickJSDomain {
                 throw SceneScriptScalarRuntimeFailure.invalidArgument(
                     Self.layerDiagnostic(diagnostic)
                 )
+            }
+            let effectNames: [UnsafeMutablePointer<CChar>?] = layer.effects.map { effect in
+                effect.name.map { name in name.withCString { strdup($0) } } ?? nil
+            }
+            defer { effectNames.forEach { free($0) } }
+            guard zip(layer.effects, effectNames).allSatisfy({ $0.0.name == nil || $0.1 != nil }) else {
+                throw SceneScriptScalarRuntimeFailure.memoryExceeded("effect catalog names")
+            }
+            let effectPointers: [UnsafePointer<CChar>?] = effectNames.map { pointer in pointer.map { UnsafePointer($0) } }
+            let effectValues: [UInt8] = layer.effects.map { ($0.visible ?? true) ? 1 : 0 }
+            let effectsResult = effectPointers.withUnsafeBufferPointer { names in
+                effectValues.withUnsafeBufferPointer { values in
+                    mwx_scene_quickjs_domain_configure_layer_effects(handle, UInt32(index),
+                        UInt32(layer.effects.count), names.baseAddress, values.baseAddress)
+                }
+            }
+            guard effectsResult == MWX_SCENE_QUICKJS_OK else {
+                throw layerSnapshotFailure(effectsResult, diagnostic: diagnostic)
             }
             let capabilityResult =
                 mwx_scene_quickjs_domain_set_layer_mutation_capabilities(

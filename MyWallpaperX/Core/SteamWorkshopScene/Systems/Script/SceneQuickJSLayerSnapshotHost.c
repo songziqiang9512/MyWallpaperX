@@ -21,6 +21,7 @@ static void clear_snapshot(
     for (uint32_t index = 0; index < layer_count; ++index) {
         free((*snapshot)[index].text);
         free((*snapshot)[index].font);
+        free((*snapshot)[index].effect_visible);
     }
     free(*snapshot);
     *snapshot = NULL;
@@ -95,6 +96,14 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
                sizeof(pending[index].angles));
         memcpy(pending[index].color, record->color,
                sizeof(pending[index].color));
+        if (record->effect_count > 0) {
+            pending[index].effect_visible = malloc(record->effect_count);
+            if (pending[index].effect_visible == NULL) {
+                clear_snapshot(&pending, domain->authored_layer_count);
+                return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+            }
+            memcpy(pending[index].effect_visible, record->effect_visible, record->effect_count);
+        }
         pending[index].visible = record->visible;
         pending[index].destroyed = record->destroyed;
         pending[index].alpha = record->alpha;
@@ -430,6 +439,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
         MWXSceneQuickJSStagedLayerSnapshot *staged =
             &domain->pending_layer_snapshot[index];
+        uint8_t *previous_effect_visible = record->effect_visible;
+        record->effect_visible = staged->effect_visible;
+        staged->effect_visible = previous_effect_visible;
         double previous_current_origin[3];
         double previous_world_transform[16];
         double previous_scale[3];
@@ -585,6 +597,9 @@ bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
         MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
         MWXSceneQuickJSStagedLayerSnapshot *saved =
             &domain->rollback_layer_snapshot[index];
+        free(record->effect_visible);
+        record->effect_visible = saved->effect_visible;
+        saved->effect_visible = NULL;
         if (saved->text_replaced) {
             free(record->text);
             record->text = saved->text;
@@ -642,4 +657,18 @@ void mwx_scene_quickjs_domain_finalize_layer_snapshot(
     MWXSceneQuickJSDomain *domain
 ) {
     clear_rollback_snapshot(domain);
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_effects(
+    MWXSceneQuickJSDomain *domain, uint32_t layer_index,
+    uint32_t count, const uint8_t *visible
+) {
+    if (domain == NULL || domain->callback_active || domain->pending_layer_snapshot == NULL ||
+        layer_index >= domain->authored_layer_count ||
+        count != domain->layers[layer_index].effect_count || (count > 0 && visible == NULL))
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    for (uint32_t i = 0; i < count; ++i)
+        if (visible[i] > 1) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    if (count > 0) memcpy(domain->pending_layer_snapshot[layer_index].effect_visible, visible, count);
+    return MWX_SCENE_QUICKJS_OK;
 }

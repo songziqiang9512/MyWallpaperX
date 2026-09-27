@@ -43,6 +43,12 @@ extension SceneScriptVectorOwner {
             var angles = [
                 baseline.angles.x, baseline.angles.y, baseline.angles.z,
             ]
+            guard baseline.effectVisibilities.keys.allSatisfy({ (0..<1024).contains($0) }) else {
+                clearCursorAuthoredLayerBaselines()
+                return .invalidArgument("invalid effect visibility baseline")
+            }
+            var effectValues = [UInt8](repeating: 2, count: (baseline.effectVisibilities.keys.max() ?? -1) + 1)
+            for (index, visible) in baseline.effectVisibilities { effectValues[index] = visible ? 1 : 0 }
             var diagnostic = [CChar](repeating: 0, count: 512)
             let raw = baseline.text.withCString { textPointer in
                 baseline.font.withCString { fontPointer in
@@ -64,6 +70,7 @@ extension SceneScriptVectorOwner {
                                     baseline.font.utf8.count,
                                     baseline.alpha,
                                     [baseline.color.x, baseline.color.y, baseline.color.z],
+                                    UInt32(effectValues.count), effectValues,
                                     &diagnostic,
                                     diagnostic.count
                                 )
