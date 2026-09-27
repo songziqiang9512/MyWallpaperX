@@ -1,286 +1,145 @@
 #!/usr/bin/env python3
+"""Production carrier transforms and real Metal spatial coverage.
 
-from __future__ import annotations
-
+Synthetic fixed textures isolate geometry from animation/noise and shader
+four-point mapping; original authored effects are covered by App replays.
+"""
 import json
-import shutil
+from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[2]
-SCENE_ROOT = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-SOURCES = [
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePreparedDirectDrawOutputGeometry.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneDirectDrawOutputGeometry.swift",
-]
-
-
+SCENE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene'
 HARNESS = r'''
 import Foundation
+import CoreGraphics
+import Metal
 import simd
-
-@main
-enum Harness {
-    static func close(_ lhs: SIMD4<Float>, _ rhs: SIMD4<Float>) -> Bool {
-        simd_distance(lhs, rhs) < 0.001
-    }
-
-    static func main() throws {
-        let centered = ScenePreparedDirectDrawOutputGeometry.centeredHalfCanvas
-        let aligned = ScenePreparedDirectDrawOutputGeometry
-            .topAlignedHalfCanvas(normalizedPerspectivePoints: [
-                SIMD2<Float>(0.57282, 0.19584),
-                SIMD2<Float>(0.38640, 0.19475),
-                SIMD2<Float>(0.21953, 0.83065),
-                SIMD2<Float>(0.76299, 0.83838),
-            ])!
-        let extent = SceneDirectDrawOutputGeometry.baseExtent(
-            canvasSize: SIMD2<Float>(3840, 2160),
-            contract: aligned
-        )
-        let world = SceneMatrix.translation(SIMD3<Float>(100, 200, 0))
-            * SceneMatrix.rotationZ(.pi / 2)
-            * SceneMatrix.scale(SIMD3<Float>(2, 3, 1))
-        let centeredModel = SceneDirectDrawOutputGeometry.modelMatrix(
-            worldFrame: world,
-            parallaxOffset: SIMD2<Float>(5, -7),
-            canvasSize: SIMD2<Float>(3840, 2160),
-            contract: centered
-        )
-        let alignedModel = SceneDirectDrawOutputGeometry.modelMatrix(
-            worldFrame: world,
-            parallaxOffset: SIMD2<Float>(5, -7),
-            canvasSize: SIMD2<Float>(3840, 2160),
-            contract: aligned
-        )
-        let preservesExtent = centeredModel.flatMap { centeredMatrix in
-            alignedModel.map { alignedMatrix in
-            let centeredWidth = centeredMatrix * SIMD4<Float>(0.5, 0, 0, 1)
-                - centeredMatrix * SIMD4<Float>(-0.5, 0, 0, 1)
-            let alignedWidth = alignedMatrix * SIMD4<Float>(0.5, 0, 0, 1)
-                - alignedMatrix * SIMD4<Float>(-0.5, 0, 0, 1)
-            let centeredHeight = centeredMatrix * SIMD4<Float>(0, 0.5, 0, 1)
-                - centeredMatrix * SIMD4<Float>(0, -0.5, 0, 1)
-            let alignedHeight = alignedMatrix * SIMD4<Float>(0, 0.5, 0, 1)
-                - alignedMatrix * SIMD4<Float>(0, -0.5, 0, 1)
-            return close(centeredWidth, alignedWidth)
-                && close(centeredHeight, alignedHeight)
-            }
-        } ?? false
-        let alignsActiveTop = centeredModel.flatMap { centeredMatrix in
-            alignedModel.map { alignedMatrix in
-            let originalCarrierTop = centeredMatrix
-                * SIMD4<Float>(0, 0.5, 0, 1)
-            let authoredActiveTop = alignedMatrix
-                * SIMD4<Float>(0, 0.5 - aligned.normalizedContentTopInset, 0, 1)
-            return close(originalCarrierTop, authoredActiveTop)
-            }
-        } ?? false
-        let invalid = SceneDirectDrawOutputGeometry.baseExtent(
-            canvasSize: SIMD2<Float>(.nan, 2160),
-            contract: aligned
-        ) == nil && SceneDirectDrawOutputGeometry.modelMatrix(
-            worldFrame: SceneMatrix.identity(),
-            parallaxOffset: .zero,
-            canvasSize: SIMD2<Float>(0, 2160),
-            contract: aligned
-        ) == nil && SceneDirectDrawOutputGeometry.modelMatrix(
-            worldFrame: SceneMatrix.identity(),
-            parallaxOffset: .zero,
-            canvasSize: SIMD2<Float>(3840, 2160),
-            contract: .init(
-                canvasExtentScale: 0.5,
-                normalizedContentTopInset: 0.75
-            )
-        ) == nil && ScenePreparedDirectDrawOutputGeometry
-            .topAlignedHalfCanvas(normalizedPerspectivePoints: [
-                SIMD2<Float>(0, 0), SIMD2<Float>(1, 0),
-                SIMD2<Float>(1, 1), SIMD2<Float>(1.2, 1),
-            ]) == nil
-        let borderOverscan = ScenePreparedDirectDrawOutputGeometry
-            .topAlignedHalfCanvas(normalizedPerspectivePoints: [
-                SIMD2<Float>(-0.00204, 0.22119),
-                SIMD2<Float>(0.60427, 0.21922),
-                SIMD2<Float>(0.80427, 0.76922),
-                SIMD2<Float>(0.20427, 0.76922),
-            ]) != nil
-        let excessiveOverscan = ScenePreparedDirectDrawOutputGeometry
-            .topAlignedHalfCanvas(normalizedPerspectivePoints: [
-                SIMD2<Float>(-0.02, 0.22119),
-                SIMD2<Float>(0.60427, 0.21922),
-                SIMD2<Float>(0.80427, 0.76922),
-                SIMD2<Float>(0.20427, 0.76922),
-            ]) == nil
-        let result: [String: Bool] = [
-            "halfCanvasExtent": extent == SIMD2<Float>(1920, 1080),
-            "topAlignmentPreservesExtent": preservesExtent,
-            "authoredActiveTopMatchesOriginalCarrierTop": alignsActiveTop,
-            "invalidRejected": invalid,
-            "borderOverscanAccepted": borderOverscan,
-            "excessiveOverscanRejected": excessiveOverscan,
-        ]
-        let data = try JSONSerialization.data(
-            withJSONObject: result,
-            options: [.sortedKeys]
-        )
-        print(String(decoding: data, as: UTF8.self))
-    }
-}
-'''
-
-
-COMPILER_HARNESS = r'''
-import Foundation
-import simd
-
-// Standalone catalog input shims; lexer, geometry compiler and matrix execution
-// below are production code. Full catalog preparation is exercised by App runs.
-struct SceneResolvedMaterialTemplate {
-    struct Scalar { let componentBitPatterns: [UInt64] }
-    enum Value { case staticExact(Scalar), dynamic }
-    struct Declaration { let name: String; let value: Value }
-    let uniformDeclarations: [Declaration]
-}
-struct SceneResolvedMaterialCompiledVariant {
-    struct Uniform { let name: String; let materialKeys: [String] }
-    struct Source { let source: String }
-    struct Prepared { let vertex: Source }
-    let resolvedIntegerCombos: [String: Int]
-    let activeUniforms: [String: Uniform]
-    let preparedShader: Prepared
-}
-enum SceneResolvedMaterialExecutionCapabilityCatalog {
-    typealias MaterialKey = Int
-    struct Variants {
-        let allEntriesReady: Bool
-        let variants: [SceneResolvedMaterialCompiledVariant]
-        func launchEnvelopeCapabilitySnapshot() -> Self { self }
-    }
-    struct MaterialCapability {
-        let template: SceneResolvedMaterialTemplate
-        let variants: Variants
-    }
+struct SceneTextureUVTransform {
+    let origin: SIMD2<Float>, xAxis: SIMD2<Float>, yAxis: SIMD2<Float>
+    static let identity = Self(origin:.zero,xAxis:SIMD2(1,0),yAxis:SIMD2(0,1))
 }
 @main enum Harness {
     static func main() throws {
-        typealias Catalog = SceneResolvedMaterialExecutionCapabilityCatalog
-        func prepared(_ modes: [Int], dynamic: Bool = false, ready: Bool = true,
-                      source: String = "inverse(squareToQuad(p0,p1,p2,p3))", direct: Int = 1
-        ) -> Catalog.MaterialCapability {
-            let points: [[Double]] = [[0.75,0.25],[0.75,0.75],[0.25,0.75],[0.25,0.25]]
-            let declarations = points.enumerated().map { index, point in
-                SceneResolvedMaterialTemplate.Declaration(name:"point\(index)",
-                    value: dynamic ? .dynamic : .staticExact(.init(componentBitPatterns:point.map(\.bitPattern))))
-            }
-            let uniforms = Dictionary(uniqueKeysWithValues:(0..<4).map { index in
-                ("p\(index)",SceneResolvedMaterialCompiledVariant.Uniform(name:"p\(index)",materialKeys:["point\(index)"]))
-            })
-            return .init(template:.init(uniformDeclarations:declarations), variants:.init(allEntriesReady:ready,
-                variants:modes.map { mode in .init(resolvedIntegerCombos:["DIRECTDRAW":direct,"RAYMODE":mode],
-                    activeUniforms:uniforms,preparedShader:.init(vertex:.init(source:source))) }))
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneImageLayerPipeline(device: device, blendMode: .additive),
+              let queue = device.makeCommandQueue() else { fatalError("Metal unavailable") }
+        var result: [String: Any] = [:]
+        func model(_ canvas: SIMD2<Float>, _ world: simd_float4x4 = matrix_identity_float4x4,
+                   _ parallax: SIMD2<Float> = .zero) -> simd_float4x4? {
+            SceneDirectDrawOutputGeometry.modelMatrix(worldFrame: world,
+                parallaxOffset: parallax, canvasSize: canvas)
         }
-        func compile(_ material: Catalog.MaterialCapability) -> ScenePreparedDirectDrawOutputGeometry {
-            SceneResolvedMaterialDirectDrawGeometryCompiler.compile(materials:[0:material])
+        let parent = SceneMatrix.translation(SIMD3<Float>(51,72,3)) * SceneMatrix.rotationZ(0.3)
+        let local = SceneMatrix.translation(SIMD3<Float>(-11,13,0)) * SceneMatrix.rotationZ(-0.5)
+            * SceneMatrix.scale(SIMD3<Float>(2,3,1))
+        let world = parent * local
+        let actual = model(SIMD2(400,200), world, SIMD2(7,-9))!
+        var transformed = true
+        for point in [SIMD4<Float>(0,0,0,1), SIMD4(0.25,0.125,0,1), SIMD4(-0.5,0.5,0,1)] {
+            // Independent expected local point in authored height units. No
+            // shader-dependent top translation may move the authored origin.
+            let expected = world * SIMD4(point.x*200, -point.y*200, point.z, 1)
+                + SIMD4<Float>(7,-9,0,0)
+            transformed = transformed && simd_distance(actual * point, expected) < 0.001
         }
-        let world=SceneMatrix.translation(SIMD3<Float>(231,417,9))
-            * SceneMatrix.rotationZ(0.37) * SceneMatrix.scale(SIMD3<Float>(3,2,1))
-        let offset=SIMD2<Float>(11,-7)
-        func center(_ geometry: ScenePreparedDirectDrawOutputGeometry) -> [Float] {
-            let matrix=SceneDirectDrawOutputGeometry.modelMatrix(worldFrame:world,parallaxOffset:offset,
-                canvasSize:SIMD2<Float>(3840,2160),contract:geometry)!
-            let value=matrix * SIMD4<Float>(0,0,0,1);return [value.x,value.y,value.z]
+        result["authoredTransform"] = transformed
+        var invalid = world; invalid.columns.2.z = .infinity
+        result["invalidRejected"] = model(SIMD2(.nan,200)) == nil
+            && model(SIMD2(400,0)) == nil && model(SIMD2(-1,200)) == nil
+            && model(SIMD2(400,200),invalid) == nil
+            && model(SIMD2(400,200),world,SIMD2(.nan,0)) == nil
+        let projection = SceneMatrix.ortho(left:-200,right:200,bottom:-100,top:100,near:-1,far:1)
+        let hugeModel = model(SIMD2(400,200),SceneMatrix.scale(SIMD3(1,5e16,1)))!
+        result["oversizedRejected"] = SceneCaptureGeometryResolver.projectedPixelSize(
+            layerMVP:projection * hugeModel, viewportSize:CGSize(width:400,height:200)) == nil
+        let normalSize = SceneCaptureGeometryResolver.projectedPixelSize(
+            layerMVP:projection * model(SIMD2(400,200))!, viewportSize:CGSize(width:400,height:200))!
+        result["normalPixelSize"] = [Int(normalSize.width),Int(normalSize.height)]
+        func render(canvas: SIMD2<Float>, shape: Int) -> [Int] {
+            let width=Int(canvas.x), height=Int(canvas.y), n=128
+            var rgba=[UInt8](repeating:0,count:n*n*4)
+            for y in 0..<n { for x in 0..<n {
+                let u=(Float(x)+0.5)/Float(n), v=(Float(y)+0.5)/Float(n)
+                let active: Bool
+                switch shape {
+                case 0: active = simd_length(SIMD2(u-0.5,v-0.5)) < 0.2
+                case 1: active = u > 0.1 && u < 0.3 && v > 0.1 && v < 0.3
+                default: active = u > 0.4 && u < 0.6 && v > 0.2 && v < 0.8
+                }
+                if active { for c in 0..<4 { rgba[(y*n+x)*4+c]=255 } }
+            } }
+            let srcDesc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:n,height:n,mipmapped:false)
+            srcDesc.storageMode = .shared
+            let src=device.makeTexture(descriptor:srcDesc)!
+            rgba.withUnsafeBytes { src.replace(region:MTLRegionMake2D(0,0,n,n),mipmapLevel:0,withBytes:$0.baseAddress!,bytesPerRow:n*4) }
+            let dstDesc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm,width:width,height:height,mipmapped:false)
+            dstDesc.usage = [.renderTarget]; dstDesc.storageMode = .shared
+            let dst=device.makeTexture(descriptor:dstDesc)!
+            let pass=MTLRenderPassDescriptor(); pass.colorAttachments[0].texture=dst
+            pass.colorAttachments[0].loadAction = .clear; pass.colorAttachments[0].storeAction = .store
+            pass.colorAttachments[0].clearColor=MTLClearColorMake(0,0,0,0)
+            let cb=queue.makeCommandBuffer()!, encoder=cb.makeRenderCommandEncoder(descriptor:pass)!
+            let projection=SceneMatrix.ortho(left:-canvas.x/2,right:canvas.x/2,bottom:-canvas.y/2,top:canvas.y/2,near:-1,far:1)
+            let uniforms=SceneLayerFragmentUniforms(time:0,alpha:1,dependencyBlendMode:0,usesDependencyBlend:0,
+                cursorUV:.zero,sourceSampling:SIMD2(2,0),tint:SIMD4(repeating:1),
+                textureFrame0:SIMD4(0,0,1,0),textureFrame1:SIMD4(0,1,0,0))
+            pipeline.bind(encoder:encoder)
+            pipeline.drawLayer(texture:src,mvp:projection * model(canvas)!,uniforms:uniforms,encoder:encoder)
+            encoder.endEncoding(); cb.commit(); cb.waitUntilCompleted()
+            precondition(cb.status == .completed && cb.error == nil)
+            var pixels=[UInt8](repeating:0,count:width*height*4)
+            pixels.withUnsafeMutableBytes { dst.getBytes($0.baseAddress!,bytesPerRow:width*4,from:MTLRegionMake2D(0,0,width,height),mipmapLevel:0) }
+            var xs=[Int](), ys=[Int]()
+            for y in 0..<height { for x in 0..<width where pixels[(y*width+x)*4] > 127 { xs.append(x);ys.append(y) } }
+            return [xs.min()!,ys.min()!,xs.max()!+1,ys.max()!+1]
         }
-        let centered=ScenePreparedDirectDrawOutputGeometry.centeredHalfCanvas
-        let result:[String:Any] = [
-            "radialCenter":center(compile(prepared([1]))),
-            "cornerCenter":center(compile(prepared([2]))),
-            "mixedCenter":center(compile(prepared([0,1]))),
-            "linearInset":compile(prepared([0])).normalizedContentTopInset,
-            "dynamicCentered":compile(prepared([0],dynamic:true)) == centered,
-            "notReadyCentered":compile(prepared([0],ready:false)) == centered,
-            "unprovenCentered":compile(prepared([0],source:"unrelated(p0,p1,p2,p3)")) == centered,
-            "nonDirectCentered":compile(prepared([0],direct:0)) == centered,
-            "unknownCentered":compile(prepared([9])) == centered,
-            "linearRadialMaterialsCentered":SceneResolvedMaterialDirectDrawGeometryCompiler.compile(materials:[0:prepared([0]),1:prepared([1])]) == centered,
-            "linearCornerMaterialsCentered":SceneResolvedMaterialDirectDrawGeometryCompiler.compile(materials:[0:prepared([0]),1:prepared([2])]) == centered,
-            "linearMixedMaterialsCentered":SceneResolvedMaterialDirectDrawGeometryCompiler.compile(materials:[0:prepared([0]),1:prepared([0,1])]) == centered,
-            "linearWithNonDirectInset":SceneResolvedMaterialDirectDrawGeometryCompiler.compile(materials:[0:prepared([0]),1:prepared([0],direct:0)]).normalizedContentTopInset,
-            "multipleMaterialsCentered":SceneResolvedMaterialDirectDrawGeometryCompiler.compile(materials:[0:prepared([0]),1:prepared([0])]) == centered
-        ]
-        print(String(decoding:try JSONSerialization.data(withJSONObject:result,options:[.sortedKeys]),as:UTF8.self))
+        for (name,canvas) in [("wide",SIMD2<Float>(400,200)),("square",SIMD2<Float>(200,200)),("portrait",SIMD2<Float>(200,400))] {
+            result[name]=render(canvas:canvas,shape:0)
+        }
+        result["cornerMarker"]=render(canvas:SIMD2(400,200),shape:1)
+        result["linearMarker"]=render(canvas:SIMD2(400,200),shape:2)
+        print(String(data:try JSONSerialization.data(withJSONObject:result),encoding:.utf8)!)
     }
 }
 '''
 
-
 class SceneDirectDrawOutputGeometryTests(unittest.TestCase):
-    def test_radial_and_corner_keep_authored_center_while_linear_retains_alignment(self) -> None:
-        if shutil.which("swiftc") is None:
-            self.skipTest("swiftc is unavailable")
-        extra = [SCENE_ROOT / "Compilation/ShaderContract/SceneShaderSourceGraph.swift",
-                 SCENE_ROOT / "Compilation/ShaderContract/SceneShaderContract.swift",
-                 SCENE_ROOT / "Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
-                 SCENE_ROOT / "Format/SceneJSONValue.swift",
-                 SCENE_ROOT / "Compilation/ShaderFrontend/SceneAuthoredShaderFrontendModel.swift",
-                 SCENE_ROOT / "Compilation/ShaderFrontend/SceneAuthoredShaderLexer.swift",
-                 SCENE_ROOT / "Compilation/Material/SceneResolvedMaterialDirectDrawGeometryCompiler.swift"]
-        with tempfile.TemporaryDirectory(prefix="scene-direct-draw-compiler-") as directory:
-            temporary = Path(directory)
-            harness = temporary / "Harness.swift"
-            harness.write_text(COMPILER_HARNESS, encoding="utf-8")
-            binary = temporary / "probe"
-            built = subprocess.run(["swiftc", "-parse-as-library", *(str(p) for p in SOURCES + extra),
-                                    str(harness), "-o", str(binary)], capture_output=True, text=True)
-            self.assertEqual(built.returncode, 0, built.stderr)
-            output = subprocess.run([str(binary)], check=True, capture_output=True, text=True)
-        result = json.loads(output.stdout)
-        for name in ("radialCenter", "cornerCenter", "mixedCenter"):
-            with self.subTest(profile=name):
-                for actual, expected in zip(result[name], [242, 410, 9]):
-                    self.assertAlmostEqual(actual, expected, places=3)
-        self.assertAlmostEqual(result["linearInset"], 0.25)
-        self.assertAlmostEqual(result["linearWithNonDirectInset"], 0.25)
-        for name, value in result.items():
-            if name.endswith("Centered"):
-                with self.subTest(boundary=name):
-                    self.assertTrue(value, name)
+    @classmethod
+    def setUpClass(cls):
+        with tempfile.TemporaryDirectory(prefix='mwx-square-gpu-') as directory:
+            p=Path(directory); (p/'Main.swift').write_text(HARNESS)
+            sources=['Rendering/Geometry/SceneMatrix.swift','Rendering/Geometry/SceneDirectDrawOutputGeometry.swift',
+                     'Rendering/Metal/SceneMetalPipeline.swift','Diagnostics/ScenePerformanceCounterHub.swift',
+                     'Rendering/Geometry/SceneCaptureGeometry.swift','Rendering/Composition/SceneUtilityLayer.swift']
+            commands=[['xcrun','-sdk','macosx','metal','-c',str(SCENE/'Rendering/Composition/SceneImageLayer.metal'),'-o',str(p/'image.air')],
+                      ['xcrun','-sdk','macosx','metallib',str(p/'image.air'),'-o',str(p/'default.metallib')],
+                      ['swiftc',*[str(SCENE/s) for s in sources],str(p/'Main.swift'),'-o',str(p/'run')]]
+            for command in commands:
+                run=subprocess.run(command,capture_output=True,text=True,timeout=120)
+                if run.returncode: raise RuntimeError(run.stderr)
+            run=subprocess.run([str(p/'run')],capture_output=True,text=True,check=True,timeout=30)
+            cls.result=json.loads(run.stdout)
 
-    def test_prepared_top_alignment_preserves_half_canvas_scale(self) -> None:
-        if shutil.which("swiftc") is None:
-            self.skipTest("swiftc is unavailable")
-        with tempfile.TemporaryDirectory(
-            prefix="scene-direct-draw-output-geometry-"
-        ) as directory:
-            temporary = Path(directory)
-            harness = temporary / "Harness.swift"
-            binary = temporary / "scene-direct-draw-output-geometry"
-            harness.write_text(HARNESS, encoding="utf-8")
-            compilation = subprocess.run(
-                [
-                    "swiftc",
-                    "-parse-as-library",
-                    *(str(path) for path in SOURCES),
-                    str(harness),
-                    "-o",
-                    str(binary),
-                ],
-                capture_output=True,
-                text=True,
-            )
-            self.assertEqual(compilation.returncode, 0, compilation.stderr)
-            completed = subprocess.run(
-                [str(binary)],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-        result = json.loads(completed.stdout)
-        self.assertTrue(all(result.values()), result)
+    def test_circle_keeps_equal_units_and_height_based_diameter(self):
+        for name,w,h in [('wide',400,200),('square',200,200),('portrait',200,400)]:
+            x0,y0,x1,y1=self.result[name]
+            self.assertAlmostEqual(x1-x0,y1-y0,delta=1)
+            self.assertAlmostEqual(x1-x0,0.4*h,delta=3)
+            self.assertAlmostEqual((x0+x1)/2,w/2,delta=1)
+            self.assertAlmostEqual((y0+y1)/2,h/2,delta=1)
 
+    def test_fixed_content_has_no_top_compensation(self):
+        for name,expected in [('cornerMarker',[120,140,160,180]),('linearMarker',[180,40,220,160])]:
+            for value,target in zip(self.result[name],expected):
+                self.assertAlmostEqual(value,target,delta=2,msg=name)
 
-if __name__ == "__main__":
-    unittest.main()
+    def test_authored_transforms_and_invalid_inputs(self):
+        self.assertTrue(self.result['authoredTransform'])
+        self.assertTrue(self.result['invalidRejected'])
+        self.assertTrue(self.result['oversizedRejected'])
+        self.assertEqual(self.result['normalPixelSize'],[200,200])
+
+if __name__ == '__main__': unittest.main()

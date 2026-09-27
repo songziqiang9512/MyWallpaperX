@@ -116,7 +116,6 @@ extension SceneMetalRenderer {
 
     func directDrawOutputModelMatrix(
         for layer: SceneRenderDescriptor.Layer,
-        contract: SceneDirectDrawOutputGeometry.Contract,
         worldFramesByLayerID: [Int: simd_float4x4],
         parallaxMouseNormalized: SIMD2<Float>,
         configuration: SceneLayerParallax.Configuration
@@ -131,8 +130,7 @@ extension SceneMetalRenderer {
         return SceneDirectDrawOutputGeometry.modelMatrix(
             worldFrame: world,
             parallaxOffset: parallax,
-            canvasSize: configuration.orthoSize,
-            contract: contract
+            canvasSize: configuration.orthoSize
         )
     }
 

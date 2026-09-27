@@ -183,9 +183,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         enum EmittedOutputGeometrySource: Equatable {
             case layerCard
             case captureGeometry
-            case authoredCanvasDirectDraw(
-                ScenePreparedDirectDrawOutputGeometry
-            )
+            case authoredCanvasDirectDraw
         }
 
         enum EffectTextureProjectionSource: Equatable {
@@ -242,11 +240,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             case .capturedMainTargetTexture:
                 .captureGeometry
             case .transparentDirectDraw:
-                .authoredCanvasDirectDraw(
-                    SceneResolvedMaterialDirectDrawGeometryCompiler.compile(
-                        materials: materials
-                    )
-                )
+                .authoredCanvasDirectDraw
             }
             frameInputContract = .init(
                 effectTextureProjectionSource: .emittedOutputGeometry,
@@ -771,20 +765,14 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
         result += capabilitiesByLayerID.keys.sorted().compactMap { layerID in
             guard let capability = capabilitiesByLayerID[layerID],
-                  case let .authoredCanvasDirectDraw(geometry) = capability
+                  case .authoredCanvasDirectDraw = capability
                     .frameInputContract.emittedOutputGeometrySource else {
                 return nil
             }
             return "resolved material output geometry:"
-                + " schema=prepared-direct-draw-geometry-v1"
+                + " schema=direct-draw-geometry-v2"
                 + " layer=\(layerID)"
-                + " canvasExtentScale="
-                + String(format: "%.6f", geometry.canvasExtentScale)
-                + " normalizedTopInset="
-                + String(
-                    format: "%.6f",
-                    geometry.normalizedContentTopInset
-                )
+                + " extent=authored-canvas-height-square anchor=authored-origin"
         }
         result += capabilitiesByLayerID.keys.sorted().compactMap { layerID in
             guard let requirement = capabilitiesByLayerID[layerID]?

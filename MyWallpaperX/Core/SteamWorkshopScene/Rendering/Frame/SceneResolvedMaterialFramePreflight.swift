@@ -395,11 +395,10 @@ extension SceneMetalRenderer {
                 desiredSize = geometry.pixelSize
             case .transparentDirectDraw:
                 guard layer.contentKind == "quad",
-                      case let .authoredCanvasDirectDraw(geometryContract) =
+                      case .authoredCanvasDirectDraw =
                         claim.frameInputContract.emittedOutputGeometrySource,
                       let model = directDrawOutputModelMatrix(
                           for: layer,
-                          contract: geometryContract,
                           worldFramesByLayerID: worldFramesByLayerID,
                           parallaxMouseNormalized:
                               frameContext.cameraParallaxPosition,

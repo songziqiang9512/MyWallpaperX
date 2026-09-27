@@ -125,11 +125,11 @@ projection绑定实际emitted effect card：fullscreen走canonical output geomet
 
 独立 direct-draw quad 的终端合成统一使用现有 `SceneImageLayerPipeline.additive`（RGB ONE/ONE，alpha ONE/ONE_MINUS_SRC_ALPHA），普通图片与 effect 内部 material state 保持原职责。管线在 launch 按 quad 需求准备、逐帧只读，准备失败沿必需图像合成资源错误拒绝本次启动；旧普通图片管线参数链已删除，没有 source-over fallback、第二 compositor 或样本分支。真实角向/径向/线性三个原包均完成 GPU/publication/compositor/next-frame；3768724269 右上由暗色条带恢复可见亮束。作者渐变、几何范围、粒子光束、3287715210细条纹及官方一致性不据此关闭。详见[当前运行证据](runtime-evidence-current.md#e-2026-09-27-direct-draw-additive)。
 
-## 2026-09-14 prepared direct-draw output geometry（S4 bounded visible）
+## 2026-09-27 direct-draw 等边载体与旧补偿退役
 
-transparent direct draw 的 placement 现在也是 generation 准备的类型化产品。`FrameInputContract` 区分 layer card、capture geometry 和 authored-canvas direct draw；通用 `SceneDirectDraw*` 保持 source-less stock carrier 的 half-canvas extent。只有所有 launch variant 都以 exact `DIRECTDRAW=1 / RAYMODE=0`、同一组 static finite 四点和 prepared vertex source 证明 linear perspective active-content 边界时，合同才携带归一化顶部 inset；其他 combo、动态值、歧义或未证明 source 保持居中。frame preflight 只求一次 output MVP，target sizing、effect projection 和唯一 compositor 复用同一值。旧 effect 命名的 `SceneLightShaftsLayerRenderer / SceneLightShaftsQuadGeometry` 已删除，没有新增 renderer、预算、fallback、样本分支或第二 output owner。
+独立 quad 的两个归一化轴统一使用 authored canvas height 作为世界尺寸，作者 origin、parent、rotation、scale 与现有 parallax 决定位置；不再把画布宽高比额外乘入光束形状。`FrameInputContract.authoredCanvasDirectDraw` 仅标识几何种类，preflight 仍只求一次 output MVP，供 target sizing、effect projection 和唯一 compositor 共用。旧 half-canvas/inset 合同、按 RAYMODE/四点阈值/vertex 文本匹配顶部位移的 compiler 及其旧预期门已删除，没有兼容双路径。极端有限缩放导致不可表示的像素尺寸在现有尺寸 resolver 拒绝，资源预算未放宽。
 
-`3747492842:168` 的 full-canvas 中间实验让光束明显放大，按维护者观察否决；现役 half-canvas + source-proven `topInset=0.19475` 保留旧宽度，只把入口从中段移到顶边。fresh 25 秒定向 matrix PASS，546/545/0 frame，12/12 active effect 准入 Program，7/7 required graph layer取得 GPU/compositor/next-frame；layer 186 启动 pending 的局部 fallback 恢复后仍留 1 项 graph diagnostic，因此不把该 PASS 外推成 graph contract 全绿。原分辨率 ready/after 和 12 帧序列与作者随包截图提供同方向的视觉证据。完整身份、hash、focused 门和边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-14-prepared-direct-draw-output-geometry)。
+在3840×2160画布上，载体由1920×1080变为2160×2160；这是单位和绝对高度一起修正，不能只称横向压缩。参考 Mirage 的高度等边载体与用户拉伸反馈支持该方向；现役全square RTT仍不同于参考四点mesh的coverage，超出0…1的点/退化或非凸边界待完善。受控像素、作者变换组合与三原包执行见[当前证据](runtime-evidence-current.md#e-2026-09-27-direct-draw-square)。旧[半画布实验](runtime-evidence-current.md#e-2026-09-14-prepared-direct-draw-output-geometry)保留历史追溯，不再定义现役几何；完整光效与官方一致性仍待验收。
 
 ## 2026-09-13 作者 media event 面板与同 provider 候选（S4 bounded visible）
 

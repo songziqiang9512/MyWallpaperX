@@ -66,10 +66,15 @@ enum SceneCaptureGeometryResolver {
         let maxX = points.map(\.x).max() ?? 0
         let minY = points.map(\.y).min() ?? 0
         let maxY = points.map(\.y).max() ?? 0
-        return CGSize(
-            width: max(1, ceil(CGFloat(maxX - minX) * viewportSize.width)),
-            height: max(1, ceil(CGFloat(maxY - minY) * viewportSize.height))
-        )
+        let width = max(1, ceil(CGFloat(maxX - minX) * viewportSize.width))
+        let height = max(1, ceil(CGFloat(maxY - minY) * viewportSize.height))
+        // Finite projected corners can still produce an overflowing pixel
+        // extent. Request construction converts these values to Int before
+        // the existing texture budget is applied; reject before that cast.
+        guard Int(exactly: width) != nil, Int(exactly: height) != nil else {
+            return nil
+        }
+        return CGSize(width: width, height: height)
     }
 
     nonisolated static func resolve(

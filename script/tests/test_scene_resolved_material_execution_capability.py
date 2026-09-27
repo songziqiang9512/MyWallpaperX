@@ -119,9 +119,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         direct_draw = (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDirectDrawLayerRenderer.swift"
         ).read_text(encoding="utf-8")
-        geometry_compiler = (
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialDirectDrawGeometryCompiler.swift"
-        ).read_text(encoding="utf-8")
 
         self.assertIn("struct FrameInputContract: Equatable", capability)
         self.assertIn("case emittedOutputGeometry", capability)
@@ -134,13 +131,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("let frameInputContract: FrameInputContract", capability)
         self.assertIn("stages.contains(", capability)
         self.assertIn(
-            "SceneResolvedMaterialDirectDrawGeometryCompiler.compile(",
-            capability,
-        )
-        self.assertIn("schema=prepared-direct-draw-geometry-v1", capability)
-        self.assertIn("declarations.count == 1", geometry_compiler)
-        self.assertIn("case let .staticExact(value)", geometry_compiler)
-        self.assertIn(
             "let resolvedIntegerCombos: [String: Int]",
             compiled,
         )
@@ -148,13 +138,6 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             "resolvedIntegerCombos: resolvedIntegerCombos",
             compilation,
         )
-        for forbidden_dispatch in (
-            "layerID ==",
-            "sampleID",
-            "shaderPath ==",
-            "canonicalSHA256 ==",
-        ):
-            self.assertNotIn(forbidden_dispatch, geometry_compiler)
         self.assertNotIn(
             "extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability",
             stages,

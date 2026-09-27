@@ -24,6 +24,31 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-27-direct-draw-square"></a>
+
+### E-2026-09-27-DIRECT-DRAW-SQUARE — 光束等边单位与旧顶部补偿退役
+
+**目标与依据：**用户在加光混合批后确认3768724269“光束被拉伸，形状不自然”，并明确允许更多参考 Mirage 的效果定义。当前旧载体=`canvasSize*0.5`，给归一化纹理额外施加画布宽高比；参考项目独立quad使用ortho height等边载体，由作者四点定义网格形状。此次统一单位为(h,h)，沿原world matrix和shader四点透视执行。3840×2160时旧1920×1080→新2160×2160，宽+12.5%、高+100%；不把绝对尺寸变化藏在“仅修比例”表述中。参考实现不是官方golden，完整四点mesh仍未接通。
+
+**职责收缩：**删除`ScenePreparedDirectDrawOutputGeometry`和`SceneResolvedMaterialDirectDrawGeometryCompiler`两份产品文件，撤掉half-canvas、RAYMODE/inverse(squareToQuad)文本匹配、归一化点阈值和top-inset补偿；原frame contract仅保留无参数geometry marker。模型矩阵为parallax×authored world×Scale(h,-h,1)，同一preflight outputMVP服务target sizing、effect projection与terminal compositor。旧compiler专属测试退役，几何门改成生产算法及Metal像素行为，source-layout/gates同步删项，没有第二路径或样本分支。
+
+**受控证据：**固定128²合成纹理通过生产image shader/pipeline和新geometry绘制，宽400×200时圆标记由82×40像素变82×82；方200×200由40×40变82×82；竖200×400由40×82变162×162，中心保持画布中心。理论直径为0.4h，离散纹理/采样容差3像素。corner/linear标记检验固定内容无额外顶部平移；parent×local、非零origin、旋转、作者非等比scale和parallax按独立点公式对照。该门使用自有纹理和Y-up正交投影，不冒充stock ray生成shader、生产相机上下方向或锁时原包A/B。旧生产geometry仅做签名适配后3门失败，候选3门通过。
+
+**尺寸安全：**审查发现有限矩阵仍可能生成超Int范围的像素尺寸。生产新geometry→projectedPixelSize以world scale.y=5e16、400×200画布/viewport复现约1e19高度；旧resolver仍返回尺寸，新增反例失败。现有resolver在Int转换前用exact conversion拒绝不可表示尺寸，正常200×200仍通过；不抬高任何纹理/资源预算。拒绝沿既有preflight错误处理，未宣称真实极端场景中其他层的连续播放。几何与capture共15项通过，相邻runtime bridge、screen anchor、graph visual failure、direct-draw composition四模块通过；结构性门不能冒充GPU生命周期。
+
+**最终原包运行：**Debug -O build成功，签名在benchmark前后验证通过；App CDHash `9b4df5b973cc30ee9eac7b76fb8c216aa28d0ec8`，exe SHA `3e0ecac8c65d14c584786929017c628a60750d549cd31f498067be83743ed18e`。相同未修改输入与上批加光App为基线，每个原包10秒、固定PCM、admission/execution/graph三门全部PASS，report SHA `5a53d9159fab877b7442c9e85c0c2dd8cbca8106bff54a13b39a85860d73c565`。
+
+| 原包 / quad | submitted / completed / failed / presented | 实际graph extent | frame0→1 publication |
+|---|---|---|---|
+| 3768724269 / 100 | 325 / 325 / 0 / 324 | 2048×2048 | 13→28 |
+| 3287715210 / 470 | 332 / 331 / 0 / 330 | 786×786 | 9→20 |
+| 3747492842 / 168 | 321 / 320 / 0 / 319 | 2048×2048 | 17→34 |
+
+三个目标quad均有GPU completed及compositorConsumed=true、next-frame；target仍在既有预算内。已查看最终身份的三张完整after：376右侧放射范围扩展，328眼部放射更趋等边，374顶部入射光仍存在；这些是未锁动态相位的方向性观察，不单凭截图证明完整形状或绝对范围正确。新App已运行供用户测试；该身份下用户确认3768724269“拉伸改善，但尺寸或位置仍不对”。另报告3287715210眼周发光过强、渐隐渐现缺失或不明显并提供截图；截图显示右眼白粉色放射亮部集中，时序结论来自用户播放观察。这两项均保持OPEN，不能用几何与执行门PASS替代。
+
+**保存与限制：**本机证据标签`2026-09-27-direct-draw-square`保存两身份报告/日志/截图、候选序列和GPU红绿证据，不收作者包。补充manifest SHA `b614a8a5e5e47595b29de3ecac5095e97bc4c4e9d1cf2dd32d5942ff7ea6f65a`。目录布局/ratchet共6门通过，全文档门发现两处旧queue anchor已在owned文档修正并定向链接复查通过，document role13门通过；全仓code-health仍有既有四文件长度失败，无长稳/性能/发布结论。全square RTT与参考四点mesh存在coverage差别，特别是四点越界、退化、非凸及投影分母边界；本批不据此关闭完整光束、粒子贴图光束或官方parity。3287715210细条纹另按用户最新提示优先追踪近期Bloom提交，不因截图不可见而关闭。
+
+
 <a id="e-2026-09-27-direct-draw-additive"></a>
 
 ### E-2026-09-27-DIRECT-DRAW-ADDITIVE — 独立光束终端不再压暗背景
@@ -142,7 +167,7 @@
 
 以上四个作者 scene.json 字节SHA-256依次为 `590c6383694e3efa04ba9deacb67dabbae035a6b1895d7e9a1fa4a556094f375`、`b8bd93c41e22617306eeb026af4d7cbc262e0fd5961a4d5ba63debbc27746a52`、`dfc0b6fc1f248bd53f03484ccd2c3207753ada3e4ddaf58473cf4e1254d69370`、`23f8eef28289b339216e67dce5ade63ee5c271d7062e30f8c92b0dfd70f9214d`。PKG 以只读 mmap 读取，未提取/写回作者资源。此静态分流不增加执行或视觉兼容等级。
 
-用户明确：本轮未提及的问题可按非严重或已部分解决搁置；必要时可询问新构建实际效果，并允许为消除臃肿/冗余/绕行而重写完整职责。执行顺序及下一关闭门仅由[当前队列](../scene-open-breakpoint-queue-2026-09-09.md#qv--最新实测驱动的可见修复2026-09-27)维护。本条不新增产品修复、不改写已有技术证据或生成全集人工 pass。
+用户明确：本轮未提及的问题可按非严重或已部分解决搁置；必要时可询问新构建实际效果，并允许为消除臃肿/冗余/绕行而重写完整职责。执行顺序及下一关闭门仅由[当前队列](../scene-open-breakpoint-queue-2026-09-09.md#qv-visual-repairs)维护。本条不新增产品修复、不改写已有技术证据或生成全集人工 pass。
 
 
 <a id="e-2026-09-27-vortex-motion-diagnosis"></a>
@@ -3288,7 +3313,7 @@ v4 的 `3780119725` generation 1 include-current-process capture data peak `0.49
 <a id="e-2026-09-27-eight-visual-reports"></a>
 ### E-2026-09-27-EIGHT-VISUAL-REPORTS — 用户实际播放反馈与静态输入核对
 
-- **范围**：用户在最新已启动 App 中报告八个样本的光束、白点数量、移动栅格、动画顿挫、雾状叠加和随时间过曝。症状及下一关闭门统一保留在[QV 队列](../scene-open-breakpoint-queue-2026-09-09.md#qv-真实画面首断点用户-2026-09-27-重排)，本项不将用户观察写成已受控复现或已修复。
+- **范围**：用户在最新已启动 App 中报告八个样本的光束、白点数量、移动栅格、动画顿挫、雾状叠加和随时间过曝。症状及下一关闭门统一保留在[QV 队列](../scene-open-breakpoint-queue-2026-09-09.md#qv-visual-repairs)，本项不将用户观察写成已受控复现或已修复。
 - **本次执行**：只读真实样本根，用现有 `scene_capability_census_io.PkgArchive` 读取八个原包的 scene.json 和直接引用的 image/particle JSON；每包及 scene.json 的 SHA256、对象/特效声明保存在本机忽略缓存 `docs/scene/evidence/2026-09-27-eight-visual-reports/inventory.json`。只将诊断副本写入隔离临时目录；没有切换、停止或重建用户当前 App，没有修改原样本。
 - **可确认的静态事实**：新增三个光照样本都含粒子光束，并分别混用 godrays 或独立 Light Shafts；2419444134 layer731 的 count/rate/size 有脚本，不能在未检查其输出时把低密度解释为 emitter 丢失；3113554287 作者脚本每次 update 可能调用视频 play/pause 和显隐，尚无重复 seek 的运行证明；3287715210 同时含径向光束和风轨迹，其 HDR=true、bloomstrength=0；3088601835 的原包 Bloom=false，19个粒子层，单凭过曝不能认定是 Bloom 或 framebuffer 残留。
 - **验证上限**：这是作者输入及用户反馈的取证登记，无新 GPU/VM/App 执行、publication/completion/terminal compositor 或 next-frame 证据；第1秒/第10秒截图尚未采集。不得以既有 matrix PASS 覆盖这八项视觉失败报告。没有产品修复、视觉兼容或官方 parity 结论。

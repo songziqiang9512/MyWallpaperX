@@ -539,11 +539,9 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectStageAuthoredFallbackOwnerPartition.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePreparedDirectDrawOutputGeometry.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialAlphaAttenuationEligibility.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialColorBlendEligibility.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialCompiledVariant.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialDirectDrawGeometryCompiler.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialEffectIngress.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Diagnostics.swift",
@@ -620,7 +618,6 @@
       ],
       "modules": [
         "test_scene_effect_render_graph",
-        "test_scene_resolved_material_direct_draw_geometry_compiler",
         "test_scene_resolved_material_graph_executor"
       ]
     },
@@ -751,8 +748,6 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialStageActivation.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePreparedDirectDrawOutputGeometry.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialDirectDrawGeometryCompiler.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+DynamicUniformRejection.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
@@ -779,7 +774,6 @@
         "test_scene_preserved_channel_ordered_feedback",
         "test_scene_independent_signal_feedback",
         "test_scene_animated_material_visual_failure",
-        "test_scene_resolved_material_direct_draw_geometry_compiler",
         "test_scene_resolved_material_execution_capability",
         "test_scene_resolved_material_fbo_stage_activation",
         "test_scene_resolved_material_stage_activation",
