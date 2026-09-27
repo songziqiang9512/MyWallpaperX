@@ -198,8 +198,21 @@ enum Harness {
         let exactEffects = exactObjects[0]["effects"] as! [[String: Any]]
         let exactBooleanConditions = (exactGeneral["bloom"] as! [String: Any])["value"] as? Bool == false
             && (exactEffects[0]["visible"] as! [String: Any])["value"] as? Bool == false
+        let conditionalScriptRoot = try jsonObject(#"""
+        {"objects":[{"id":10,"origin":{"value":"0 0 0","script":"export function update(v) { return v; }","scriptproperties":{
+          "selected":{"user":{"name":"mode","condition":"01"},"value":true},
+          "raw":{"user":"mode","value":"1"}
+        }}}]}
+        """#)
+        let scriptResolution = SceneUserPropertyDocumentResolver().resolve(root: conditionalScriptRoot, effectiveValues: ["mode": .string("1")])
+        let scriptObject = (scriptResolution.root["objects"] as! [[String: Any]])[0]
+        let scriptInputs = (scriptObject["origin"] as! [String: Any])["scriptproperties"] as! [String: Any]
+        let scriptConditionsResolved = wrapperValue(scriptInputs, key: "selected") as? Bool == false
+            && wrapperValue(scriptInputs, key: "raw") as? String == "1"
+            && scriptResolution.bindingReport.diagnostics.isEmpty
         return [
             "exactBooleanConditions": exactBooleanConditions,
+            "scriptConditionsResolved": scriptConditionsResolved,
             "definitionCount": catalog.definitions.count,
             "definitionKinds": kinds,
             "firstDefinition": catalog.definitions.first?.key ?? "",
@@ -456,6 +469,7 @@ class SceneUserPropertyTests(unittest.TestCase):
         self.assertTrue(result["invalidComboOverrideUsesDefault"])
         self.assertEqual(result["bindingCount"], 17)
         self.assertTrue(result["exactBooleanConditions"])
+        self.assertTrue(result["scriptConditionsResolved"])
         self.assertEqual(result["conditionalBindingCount"], 3)
         self.assertEqual(result["unsupportedBindingCount"], 3)
         self.assertEqual(result["resolvedBindingCount"], 15)

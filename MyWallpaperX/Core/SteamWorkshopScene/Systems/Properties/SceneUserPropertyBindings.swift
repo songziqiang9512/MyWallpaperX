@@ -59,7 +59,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
 
     nonisolated var acceptsConditionalBoolean: Bool {
         switch self {
-        case .layerVisibility, .puppetAnimationVisibility, .effectVisibility:
+        case .layerVisibility, .puppetAnimationVisibility, .effectVisibility, .scriptProperty:
             return true
         case let .camera(field):
             return field == "cameraparallax" || field == "camerashake"
@@ -67,7 +67,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
             return field == "bloom"
         case .layerAlpha, .layerScale, .layerColor, .lightIntensity, .text,
              .particle, .soundVolume, .shaderValue, .materialShaderValue,
-             .scriptProperty, .unsupported:
+             .unsupported:
             return false
         }
     }

@@ -12,6 +12,10 @@ extension ScenePropertyBindingCompiler {
         if binding.reference.isConditional,
            propertyKind == .combo {
             switch binding.target {
+            case let .scriptProperty(layerID, path)
+                where layerID >= 0 && !path.isEmpty:
+                guard case .bool? = binding.fallbackValue else { return nil }
+                return (.scriptInstanceProperty(layerID: layerID, path: path), .bool, .combo)
             case let .layerVisibility(layerID) where layerID >= 0:
                 return (
                     .layer(layerID: layerID, field: .visibility),

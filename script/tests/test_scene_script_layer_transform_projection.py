@@ -19,6 +19,7 @@ REMOVED_SUPPRESSION_SOURCE = (
     SCENE / "Properties/SceneScriptedLayerTransformProjection.swift"
 )
 SOURCES = [
+    SCENE / "Format/SceneJSONValue.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
@@ -72,22 +73,6 @@ nonisolated struct SceneDynamicTargetDefinition: Sendable {
     let target: SceneDynamicTarget
     let valueType: SceneDynamicValueType
     let authoredValue: SceneDynamicValue
-}
-
-nonisolated enum SceneJSONValue: Sendable {
-    case bool(Bool)
-    case number(Double)
-    case string(String)
-
-    var stringValue: String? {
-        guard case let .string(value) = self else { return nil }
-        return value
-    }
-
-    var boolValue: Bool? {
-        guard case let .bool(value) = self else { return nil }
-        return value
-    }
 }
 
 nonisolated enum SceneScriptBindingValueType: Sendable {
@@ -150,6 +135,8 @@ nonisolated enum SceneScriptPropertyInputCodec {
             return .init()
         case let .number(number):
             return number.isFinite ? .init() : nil
+        default:
+            return nil
         }
     }
 
@@ -389,6 +376,20 @@ enum Harness {
             scriptBindings: [binding(key: "color", value: "0.25 0.5 0.75")],
             admittedLayerColorConsumerIDs: [101]
         )
+        func visibilityBinding(_ authored: Bool, layerID: Int = 101) -> SceneScriptBindingIR {
+            .init(source: "export function update(value) { return value; }",
+                owner: .init(kind: .object, objectIndex: 0, objectID: layerID,
+                    effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
+                targetPath: [.key("objects"), .index(0), .key("visible")],
+                properties: [:], authoredValue: .bool(authored), valueType: .boolean,
+                wrapperKeys: ["script", "value"])
+        }
+        let overriddenHidden = SceneScriptVectorProgram.project(descriptor: hiddenColorDescriptor,
+            scriptBindings: [visibilityBinding(true)])
+        let overriddenVisible = SceneScriptVectorProgram.project(descriptor: descriptor,
+            scriptBindings: [visibilityBinding(false)])
+        let wrongVisibilityOwner = SceneScriptVectorProgram.project(descriptor: hiddenColorDescriptor,
+            scriptBindings: [visibilityBinding(true, layerID: 999)])
         var effectColorDescriptor = colorDescriptor
         effectColorDescriptor.layers[0].effects = [.init(
             id: "effect", name: "effect", effectID: 1, visible: true,
@@ -428,6 +429,10 @@ enum Harness {
             .layer(layerID: 101, field: .angles),
         ]
         let payload: [String: Any] = [
+            "visibilityOverridesKeepOwners": overriddenHidden.candidates.first?.definition.authoredValue == .bool(true)
+                && overriddenVisible.candidates.first?.definition.authoredValue == .bool(false),
+            "wrongVisibilityOwnerRejected": wrongVisibilityOwner.candidates.isEmpty,
+
             "familyTargetsComplete": family.targets == expectedTargets,
             "angleDefinition": family.definitions.contains {
                 $0.target == .layer(layerID: 101, field: .angles)
@@ -498,6 +503,10 @@ class SceneScriptLayerTransformProjectionTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_visibility_override_preserves_script_owner_and_seed(self) -> None:
+        self.assertTrue(self.result["visibilityOverridesKeepOwners"])
+        self.assertTrue(self.result["wrongVisibilityOwnerRejected"])
 
     def test_full_authored_transform_family_is_projected(self) -> None:
         self.assertTrue(self.result["familyTargetsComplete"])

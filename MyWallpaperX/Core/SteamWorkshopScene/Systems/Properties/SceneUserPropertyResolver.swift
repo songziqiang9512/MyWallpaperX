@@ -72,12 +72,7 @@ nonisolated struct SceneUserPropertyDocumentResolver {
             }
             if let condition = reference.condition {
                 guard target.acceptsConditionalBoolean else { return result }
-                if case let .string(value) = effectiveValue,
-                   case let .string(conditionValue) = condition {
-                    result["value"] = value == conditionValue
-                } else {
-                    result["value"] = effectiveValue.matches(condition)
-                }
+                result["value"] = effectiveValue.matches(condition)
             } else {
                 result["value"] = effectiveValue.foundationValue
             }

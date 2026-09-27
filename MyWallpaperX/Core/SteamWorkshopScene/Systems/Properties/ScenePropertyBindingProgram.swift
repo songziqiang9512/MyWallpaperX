@@ -382,7 +382,7 @@ nonisolated struct ScenePropertyBindingCompiler {
         let sortedBindings = report.bindings.sorted(by: Self.bindingOrder)
         let bindingsByPropertyKey = Dictionary(
             grouping: sortedBindings.filter {
-                $0.target.acceptsConditionalBoolean
+                $0.reference.isConditional && $0.target.acceptsConditionalBoolean
             },
             by: \.reference.key
         )
@@ -682,8 +682,7 @@ nonisolated struct ScenePropertyBindingCompiler {
                   targets.insert(mapped.target).inserted,
                   case let .string(condition)? = binding.reference.condition,
                   optionValueSet.contains(condition),
-                  case let .bool(fallback)? = binding.fallbackValue,
-                  fallback == (condition == defaultValue) else {
+                  case .bool? = binding.fallbackValue else {
                 return nil
             }
         }

@@ -245,7 +245,7 @@ enum Harness {
         let cohortBaseEvaluation = cohortConditionalLayer.program.evaluate(
             effectiveValues: ["outfit": .string("base")]
         )
-        let invalidCohortFallback = compiler.compile(
+        let staleCohortFallback = compiler.compile(
             report: .init(bindings: [
                 binding(
                     "outfit", .bool(true), 48, .layerVisibility(layerID: 48),
@@ -256,6 +256,17 @@ enum Harness {
                 "outfit", defaultValue: "base", options: ["base", "one"]
             )])
         )
+        let scriptBool = SceneDynamicTarget.scriptInstanceProperty(layerID: 49, path: ["visible", "selected"])
+        let scriptRaw = SceneDynamicTarget.scriptInstanceProperty(layerID: 49, path: ["visible", "raw"])
+        let scriptConditions = compiler.compile(report: .init(bindings: [
+            binding("layout", .bool(true), 49, .scriptProperty(layerID: 49, path: ["visible", "selected"]), condition: .string("01")),
+            binding("layout", .string("1"), 49, .scriptProperty(layerID: 49, path: ["visible", "raw"])),
+        ], diagnostics: []), catalog: .init(definitions: [comboProperty("layout", defaultValue: "1", options: ["1", "01"])]))
+        let scriptSelected = scriptConditions.program.evaluate(effectiveValues: ["layout": .string("1")])
+        let scriptOther = scriptConditions.program.evaluate(effectiveValues: ["layout": .string("01")])
+        let scriptMalformed = compiler.compile(report: .init(bindings: [
+            binding("layout", .number(1), 49, .scriptProperty(layerID: 49, path: ["visible", "selected"]), condition: .string("01")),
+        ], diagnostics: []), catalog: .init(definitions: [comboProperty("layout", defaultValue: "1", options: ["1", "01"])]))
         let duplicate = compiler.compile(
             report: .init(bindings: [
                 binding("opacity", .number(0.2), 50, .layerAlpha(layerID: 50), pathSuffix: "a"),
@@ -1123,8 +1134,8 @@ enum Harness {
             "conditionalCount": conditional.program.instructions.count,
             "conditionalCodes": codes(conditional.diagnostics),
             "conditionalLayerCount": conditionalLayer.program.instructions.count,
-            "mixedConditionalTargets": mixedConditionalConsumers.program.instructions
-                .map(\.target) == conditionalLayer.program.instructions.map(\.target),
+            "mixedConditionalTargets": Set(mixedConditionalConsumers.program.instructions.map(\.target))
+                == Set(conditionalLayerTargets + [.scriptInstanceProperty(layerID: 41, path: ["visible", "style"])]),
             "mixedConditionalValues": conditionalLayerTargets.map {
                 String(describing: mixedConditionalValues.userValues[$0]!)
             },
@@ -1168,10 +1179,20 @@ enum Harness {
             "cohortConditionalRuntimeCodes":
                 codes(cohortConditionalEvaluation.diagnostics),
             "cohortBaseRuntimeCodes": codes(cohortBaseEvaluation.diagnostics),
-            "invalidCohortFallbackCount":
-                invalidCohortFallback.program.instructions.count,
-            "invalidCohortFallbackRebuild":
-                invalidCohortFallback.program.rebuildRequiredPropertyKeys,
+            "staleFallbackDoesNotOverrideSelection": staleCohortFallback.program.evaluate(effectiveValues: ["outfit": .string("base")]).userValues[.layer(layerID: 48, field: .visibility)] == .bool(false)
+                && staleCohortFallback.program.definitions.first?.authoredValue == .bool(true),
+            "conditionalScriptInputs": scriptConditions.diagnostics.isEmpty
+                && scriptConditions.program.rebuildRequiredPropertyKeys.isEmpty
+                && scriptSelected.userValues[scriptBool] == .bool(false)
+                && scriptSelected.userValues[scriptRaw] == .string("1")
+                && scriptOther.userValues[scriptBool] == .bool(true)
+                && scriptOther.userValues[scriptRaw] == .string("01"),
+            "conditionalScriptMalformedRejected": scriptMalformed.program.instructions.isEmpty && scriptMalformed.program.rebuildRequiredPropertyKeys == ["layout"],
+            "conditionalStringExact": !SceneUserPropertyValue.string("01").matches(.string("1")),
+            "staleCohortFallbackCount":
+                staleCohortFallback.program.instructions.count,
+            "staleCohortFallbackRebuild":
+                staleCohortFallback.program.rebuildRequiredPropertyKeys,
             "duplicateCount": duplicate.program.instructions.count,
             "duplicateCodes": codes(duplicate.diagnostics),
             "rejectedCount": rejected.program.instructions.count,
@@ -1628,8 +1649,9 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
         self.assertEqual(self.result["cohortConditionalCodes"], [])
         self.assertEqual(self.result["cohortConditionalRuntimeCodes"], [])
         self.assertEqual(self.result["cohortBaseRuntimeCodes"], [])
-        self.assertEqual(self.result["invalidCohortFallbackCount"], 0)
-        self.assertEqual(self.result["invalidCohortFallbackRebuild"], ["outfit"])
+        self.assertEqual(self.result["staleCohortFallbackCount"], 1)
+        self.assertEqual(self.result["staleCohortFallbackRebuild"], [])
+        self.assertTrue(self.result["staleFallbackDoesNotOverrideSelection"])
 
     def test_missing_invalid_and_unsupported_inputs_are_diagnostic(self) -> None:
         self.assertEqual(self.result["rejectedCount"], 0)
@@ -1646,7 +1668,7 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
     def test_combo_boolean_targets_share_domains_and_atomic_evaluation(self) -> None:
         for key in ["booleanConditionsAdmitted", "booleanConditionOne", "booleanConditionBase",
                     "booleanConditionBad", "booleanConditionRoundTrip", "conditionalEffectPreparation",
-                    "mixedConditionalEffectPreparation"]:
+                    "mixedConditionalEffectPreparation", "conditionalScriptInputs", "conditionalScriptMalformedRejected", "conditionalStringExact"]:
             self.assertTrue(self.result[key], key)
 
     def test_mixed_property_key_retains_rebuild_requirement(self) -> None:

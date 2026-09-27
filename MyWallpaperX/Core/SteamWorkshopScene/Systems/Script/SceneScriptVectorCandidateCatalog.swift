@@ -504,7 +504,6 @@ nonisolated extension SceneScriptVectorProgram {
             ) ?? []
         guard layer.id == layerID,
               layer.layerIndex == objectIndex,
-              layer.visible == authored,
               binding.targetPath == [
                   .key("objects"), .index(objectIndex), .key("visible"),
               ],

@@ -52,7 +52,10 @@ nonisolated enum SceneUserPropertyValue: Codable, Equatable, Hashable {
     }
 
     nonisolated func matches(_ other: SceneUserPropertyValue) -> Bool {
-        comparisonToken == other.comparisonToken
+        if case let .string(value) = self, case let .string(condition) = other {
+            return value == condition
+        }
+        return comparisonToken == other.comparisonToken
     }
 
     nonisolated static func parse(_ rawValue: Any?) -> SceneUserPropertyValue? {

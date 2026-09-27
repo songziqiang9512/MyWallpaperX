@@ -3880,3 +3880,19 @@ App均2.10.0(279)：修前SHA `63c85be6dd7d7a5f6cd56fbe8b785878f455cc5c6472500e8
 **身份/边界：**两App均2.10.0(279)。基线SHA256`d86e09a9abfafe8a2939963a94967034e2c0be9e0f15ccbe5fcf82996ce35b0b`、CDHash`66e0638d346800bcd65b4550322e11f7607fc3f2`；候选SHA256`00bcf12f3c3fcc3ffcce2ede01ac35e9fb824f5283730be61099beca811e13f5`、CDHash`085d351a97ada3955f0a00675598d5847a02432e`。仅闭合普通根层自有公共primitive，未重跑全部真实Combo style；跨层依赖、隐藏hierarchy、官方视觉一致性和性能仍待对应证据。下一步转向真实style组合首断点，不新增样本分支。
 
 **归档：**`docs/scene/evidence/2026-09-28-hidden-layer-effect-preparation/`为本机忽略缓存，保留前后报告/log/原图、生成器与作者输入摘要、ROI/事件检查、构建/测试/审查及SHA清单；核验后清理本批隔离运行和样本副本，复用现役DerivedData。
+
+
+<a id="e-2026-09-28-script-combo-layout"></a>
+### 2026-09-28 — 条件脚本输入与启动覆盖的布局热切
+
+**首断点/实现：**基线`9edddf84`真实3211615441的style两个方向都拒绝。该key有9个layer visibility及5个scriptproperties Boolean目标；脚本输入codec已支持条件Bool，但属性compiler不准入。现接通原scriptInstanceProperty通道，Bool fallback/layer/path继续核验，条件域只收集conditional bindings，同key原始字符串脚本参数另行参与全consumer事务。删除“保存备用值必须等于project默认选项计算值”的额外限制：有效选项按condition计算，备用值仍保留给缺输入情形；options唯一性/default/condition域、重复target、类型与原子提交未放宽。`matches`统一string/string exact，删掉加载resolver重复比较，使脚本与typed/load都区分"01"和"1"。公开[Combo文档](https://docs.wallpaperengine.io/en/scene/userproperties/combo.html)说明与SceneScript结合；本批具体优先级依据现有DocumentResolver/ScriptPropertyInput执行语义与作者输入，不宣称已取得官方同输入对照。
+
+第一候选0→1通过、从1启动→0仍拒绝。后续定位到visibilityProjection要求已覆盖的`layer.visible`等于脚本保存authored seed：启动override使41/43合法owner被漏掉，vectorBindings10→8、cursorOwners4→2。删除这一条值相等检查；object kind/Boolean/objectID/objectIndex/layerIndex/完整path/wrapper/utility仍核验，definition保留保存seed，current值沿现有typed user snapshot与VM决定。6个产品文件合计13增13删，无新增owner、样本分支或普通帧准备。
+
+**测试/审查：**最终53项通过：binding_program30、user_properties1、live_update_state16、layer_transform_projection6。覆盖条件脚本Bool+同key原始string、exact 01/1、非Bool拒绝、stale备用值保留但有效选择优先、非法选择与缺consumer原子拒绝、启动值双向变化仍保留owner及错误ownerID拒绝。projection旧桩缺新HostContract需要的JSON解析，改用生产SceneJSONValue；初次旧预期和旧桩失败保留，最终各受影响模块重新通过。优化Debug构建与code health通过（221既有warnings）。独立只读复审APPROVE最终9文件diff SHA256`ca2817d84ade67461497910806e4d950cb1f3c4746537f71d0ff4c478abf492d`。
+
+**真实App：**只读原包隔离副本，10秒固定PCM，每个构建都跑style0→1和从1启动→0。基线2次拒绝；中间候选仅反向拒绝；最终2次均PASS/accepted=true且各自window/runtime不变。最终构建两方向均准备14个style instructions；反向cursorOwners恢复41/43/495/662。已查看最终两张after原图：中央与双列布局互换，反向中央布局的双侧音圈和条形仍可见。全图ready/after RGB平均绝对差约100只作变化辅助证据，非官方视觉量度。热调后正向356/364/495/497、反向24/26/30/41/43均有terminal compositor消费、GPU completed/publication与next-frame。最终submitted/completed/failed/presented分别285/284/0/283、284/283/0/282。两方向runtime分别`a0847f62-d5cf-425a-9884-b50a5c6cff10`、`40c4b3ce-3a86-40b5-a4cf-d1730a30b762`。
+
+**身份/余量：**基线SHA256`00bcf12f3c3fcc3ffcce2ede01ac35e9fb824f5283730be61099beca811e13f5`；最终2.10.0(279) SHA256`033380c8667b0e0630092b681e8ab21b43e5caa397feb06ca42bae0a96f35754`、CDHash`02287b8853e304e2d0c4108df6f81345124fa38e`。所有6次均有同样两处旧失败：layer44 effect3 shineheart仅cursorClick、effect4 spin_click为cursorDown/cursorUp/init，ownerConstruction invalidSource；下一批从effect owner的cursor合同继续，不视为本批回归，也不因layout PASS关闭完整点击/跟随或整样本。未跑所有条件、连续往返长稳、官方同输入/性能门，真实样本仍需用户完整视觉验收。
+
+**归档：**`docs/scene/evidence/2026-09-28-script-combo-layout/`本机忽略缓存保留基线、中间失败和最终六份报告/log/原图、原包身份矩阵、ROI/事件解析器、构建/测试/审查与SHA清单，预算80MiB。核验后清理六个隔离运行目录和样本副本，保留复用DerivedData。

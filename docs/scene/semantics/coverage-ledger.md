@@ -6,7 +6,7 @@
 
 ## 2026-09-28 Combo Boolean 条件共用执行链
 
-原有Combo条件域与typed Boolean求值现扩展到特效显隐、Bloom开关、相机开关和Puppet动画显隐；保持options/default/fallback核验、typed target去重、非法选项整key不发布。加载期字符串比较与帧求值统一为exact，避免`"01"`与`"1"`错配。条件effect通过既有启动准备候选保留初始关闭的效果；[混合目标准备后继](runtime-evidence-current.md#e-2026-09-28-mixed-visibility-preparation)删除同key必须effect-only的额外限制，同选项可控制effect/Bloom/伴随层。[隐藏所属层准备](runtime-evidence-current.md#e-2026-09-28-hidden-layer-effect-preparation)随后把既有动态层显隐候选传入效果规划，普通根层初始隐藏时的关闭效果也可预备；三组自有完整App显示/隐藏切换通过。依赖、层级及consumer不齐仍受原路由和原子热调门约束，不保证任意组合免重建。产品代码净减少1行，未新增property或renderer owner。
+原有Combo条件域与typed Boolean求值现扩展到特效显隐、Bloom开关、相机开关和Puppet动画显隐；保持options/default/Bool fallback类型核验、typed target去重、非法选项整key不发布。加载期字符串比较与帧求值统一为exact，避免`"01"`与`"1"`错配。条件effect通过既有启动准备候选保留初始关闭的效果；[混合目标准备后继](runtime-evidence-current.md#e-2026-09-28-mixed-visibility-preparation)删除同key必须effect-only的额外限制，同选项可控制effect/Bloom/伴随层。[隐藏所属层准备](runtime-evidence-current.md#e-2026-09-28-hidden-layer-effect-preparation)随后把既有动态层显隐候选传入效果规划，普通根层初始隐藏时的关闭效果也可预备；三组自有完整App显示/隐藏切换通过。[脚本Combo布局批](runtime-evidence-current.md#e-2026-09-28-script-combo-layout)接通条件脚本Bool入参，按有效选项求值并保留备用值；删除启动覆盖值与保存seed相等的误检查，3211615441原包style双向切换通过。依赖、层级及consumer不齐仍受原路由和原子热调门约束，不保证任意组合免重建。产品代码净减少1行，未新增property或renderer owner。
 
 75项行为/邻接测试、真实Metal Bloom、完整App三组原图/红/绿切换及两个原包热调通过；18样本309处只是声明影响面，不能计为全部运行支持。相机/Puppet条件本批只有typed求值证据；`3211615441`全部style、隐藏层/依赖组合和官方视觉仍待验收。见[运行证据](runtime-evidence-current.md#e-2026-09-28-combo-boolean-visibility)。
 
