@@ -23,6 +23,7 @@ final class SystemAudioSpectrumService: NSObject {
     private static let captureResourceTeardownRetryDelay: TimeInterval = 0.25
     private let processingGate = DispatchSemaphore(value: 1)
     private let captureBuffer = SystemAudioCaptureBuffer(maximumFrameCount: 4096)
+    private let continuousCaptureBuffer = SystemAudioCaptureBuffer(maximumFrameCount: 4096)
     private var overlayAnalyzer: SystemAudioOverlaySpectrumAnalyzer
     private let webAnalyzer = SystemAudioWebSpectrumAnalyzer()
     private let sceneAnalyzer = SystemAudioSceneSpectrumAnalyzer()
@@ -315,7 +316,8 @@ final class SystemAudioSpectrumService: NSObject {
                 self?.processAudioBufferList(
                     inInputData,
                     resourceGeneration: resourceGeneration,
-                    token: captureToken
+                    token: captureToken,
+                    now: ProcessInfo.processInfo.systemUptime
                 )
             }
             guard ioStatus == noErr, let createdIOProcID else {
@@ -692,6 +694,7 @@ final class SystemAudioSpectrumService: NSObject {
     private func resetCaptureCallbackState() {
         tapStreamFormat = AudioStreamBasicDescription()
         captureBuffer.reset()
+        continuousCaptureBuffer.reset()
         lastProcessedAt = 0
         captureCallbackStateNeedsReset = false
 #if DEBUG
@@ -809,6 +812,31 @@ final class SystemAudioSpectrumService: NSObject {
         }
     }
 
+    /// Runs the real capture handoff with deterministic callback time. The
+    /// recovery test seam disables device creation; no system tap is opened.
+    func debugProcessPCMForTesting(
+        _ input: UnsafePointer<AudioBufferList>,
+        format: AudioStreamBasicDescription,
+        now: TimeInterval,
+        workerBusy: Bool = false
+    ) {
+        let identity = sampleQueue.sync { () -> (Int, SceneAudioSpectrumCaptureToken) in
+            precondition(debugRecoveryTestingEnabled)
+            tapStreamFormat = format
+            return (captureResourceGeneration, .init(
+                scopeEpoch: sceneCaptureScopeEpoch,
+                includesCurrentProcessOutput: processScope == .includesCurrentProcess
+            ))
+        }
+        if workerBusy { processingGate.wait() }
+        processAudioBufferList(input, resourceGeneration: identity.0,
+            token: identity.1, now: now)
+        if workerBusy { processingGate.signal() }
+        // Wait until the single pending immutable snapshot has been consumed.
+        processingGate.wait()
+        processingGate.signal()
+    }
+
     func debugRecoverySnapshot() -> DebugRecoverySnapshot {
         sampleQueue.sync {
             DebugRecoverySnapshot(
@@ -849,16 +877,22 @@ final class SystemAudioSpectrumService: NSObject {
     private func processAudioBufferList(
         _ inputData: UnsafePointer<AudioBufferList>,
         resourceGeneration: Int,
-        token: SceneAudioSpectrumCaptureToken
+        token: SceneAudioSpectrumCaptureToken,
+        now: TimeInterval
     ) {
-        let now = ProcessInfo.processInfo.systemUptime
-        guard now - lastProcessedAt >= processingMinInterval else { return }
-        lastProcessedAt = now
+        // The callback keeps a contiguous bounded PCM history even while the
+        // worker is busy. Only the immutable snapshot/FFT publication is throttled.
+        guard continuousCaptureBuffer.append(inputData, streamDescription: tapStreamFormat),
+              now - lastProcessedAt >= processingMinInterval else { return }
         guard processingGate.wait(timeout: .now()) == .success else { return }
-        guard captureBuffer.capture(inputData, streamDescription: tapStreamFormat) else {
+        let windowCount = SystemAudioSceneSpectrumAnalyzer.analysisWindowCount(
+            sampleRate: Float(tapStreamFormat.mSampleRate)
+        )
+        guard continuousCaptureBuffer.copyLatestFrames(windowCount, to: captureBuffer) else {
             processingGate.signal()
             return
         }
+        lastProcessedAt = now
         pendingCaptureResourceGeneration = resourceGeneration
         pendingSceneCaptureToken = token
         processingSource.add(data: 1)

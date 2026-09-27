@@ -39,21 +39,10 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                 case normal
             }
 
-            struct SystemAudioCapturedFrame {
-                let signedChannels: [[Float]]
-                let rectifiedMono: [Float]
-            }
-
-            final class SystemAudioCaptureBuffer {
-                init(maximumFrameCount: Int) {}
-                var decodedFrame: SystemAudioCapturedFrame? { nil }
-                func capture(
-                    _ inputData: UnsafePointer<AudioBufferList>,
-                    streamDescription: AudioStreamBasicDescription
-                ) -> Bool {
-                    false
-                }
-                func reset() {}
+            struct SceneAudioSpectrumSnapshot {
+                static let bandCount = 16
+                static let mediumBandCount = 32
+                static let extendedBandCount = 64
             }
 
             final class SystemAudioOverlaySpectrumAnalyzer {
@@ -69,26 +58,6 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
             final class SystemAudioWebSpectrumAnalyzer {
                 static let outputLevelCount = 128
                 func analyze(_ levels: SystemAudioSceneSpectrumAnalyzer.Levels) -> [Float] { [] }
-            }
-
-            final class SystemAudioSceneSpectrumAnalyzer {
-                struct Levels {
-                    let left: [Float] = []
-                    let right: [Float] = []
-                    let left32: [Float] = []
-                    let right32: [Float] = []
-                    let left64: [Float] = []
-                    let right64: [Float] = []
-                }
-
-                static let bandCount = 16
-                static let mediumBandCount = 32
-                static let extendedBandCount = 64
-                init?() {}
-                func reset() {}
-                func analyze(_ frame: SystemAudioCapturedFrame, sampleRate: Float) -> Levels {
-                    Levels()
-                }
             }
 
             final class SystemAudioCaptureConfigurationMonitor {
@@ -142,6 +111,53 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
             }
 
             #if DEBUG
+            // Actual service callback handoff and Accelerate analyzer, with
+            // only device creation suppressed. Every published spectrum must
+            // describe the latest contiguous PCM, regardless of callback size.
+            for chunkSize in [128, 512, 1024, 8192] {
+                let stream = SystemAudioSpectrumService(barCount: 16)
+                stream.debugEnableRecoveryTesting()
+                stream.setConsumers(overlayEnabled:false,webEnabled:false,sceneEnabled:true)
+                _ = stream.debugRecoverySnapshot()
+                var published: [[Float]] = []
+                stream.onSceneLevels = { _,_,_,_,left,right,_ in published.append(left + right) }
+                let reference = SystemAudioSceneSpectrumAnalyzer()!
+                let rate: Float = 48_000
+                let windowCount = Int(rate / 44_100 * 1920)
+                let total = chunkSize * (chunkSize == 8192 ? 40 : 600)
+                var maxError: Float = 0
+                var lateError: Float = 0
+                let pcm = (0..<total).map { index in
+                    Float(0.5) * sin(2 * Float.pi * 733 * Float(index) / rate)
+                }
+                let format = AudioStreamBasicDescription(mSampleRate:Double(rate),
+                    mFormatID:kAudioFormatLinearPCM,mFormatFlags:kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,
+                    mBytesPerPacket:4,mFramesPerPacket:1,mBytesPerFrame:4,mChannelsPerFrame:1,mBitsPerChannel:32,mReserved:0)
+                for start in stride(from:0,to:total,by:chunkSize) {
+                    var block = Array(pcm[start..<(start+chunkSize)])
+                    let before = published.count
+                    block.withUnsafeMutableBufferPointer { pointer in
+                        var list = AudioBufferList(mNumberBuffers:1,mBuffers:AudioBuffer(
+                            mNumberChannels:1,mDataByteSize:UInt32(chunkSize*4),mData:pointer.baseAddress))
+                        stream.debugProcessPCMForTesting(&list,format:format,
+                            now:1+Double(start+chunkSize)/Double(rate),
+                            workerBusy:(start/chunkSize)%5 == 3)
+                    }
+                    if published.count > before {
+                        expect(start+chunkSize >= windowCount,"partial windows must not be published")
+                        expect((start/chunkSize)%5 != 3,"busy worker must not receive a snapshot")
+                        let latest = Array(pcm[(start+chunkSize-windowCount)..<(start+chunkSize)])
+                        let expected = reference.analyze(signedChannels:[latest],sampleRate:rate)
+                        let error = zip(published.last!,expected.left64+expected.right64).map { abs($0-$1) }.max()!
+                        maxError = max(maxError,error)
+                        if published.count > 12 { lateError = max(lateError,error) }
+                    }
+                }
+                print("continuity chunk=\(chunkSize) publications=\(published.count) max=\(maxError) settled=\(lateError)")
+                expect(published.count > 12,"stream must publish several complete windows")
+                expect(maxError < 0.00001,"callback \(chunkSize) must preserve contiguous PCM spectrum; error=\(maxError), settled=\(lateError)")
+            }
+
             let service = SystemAudioSpectrumService(barCount: 16)
             service.debugEnableRecoveryTesting()
 
@@ -591,6 +607,8 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                     "-D",
                     "DEBUG",
                     str(SERVICE_SOURCE),
+                    str(ROOT / "MyWallpaperX/Core/Playback/SystemAudioCaptureBuffer.swift"),
+                    str(ROOT / "MyWallpaperX/Core/Playback/SystemAudioSceneSpectrumAnalyzer.swift"),
                     str(harness_path),
                     "-o",
                     str(binary_path),
@@ -622,6 +640,8 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                 [
                     swiftc,
                     str(SERVICE_SOURCE),
+                    str(ROOT / "MyWallpaperX/Core/Playback/SystemAudioCaptureBuffer.swift"),
+                    str(ROOT / "MyWallpaperX/Core/Playback/SystemAudioSceneSpectrumAnalyzer.swift"),
                     str(harness_path),
                     "-o",
                     str(release_binary_path),

@@ -132,7 +132,7 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                         mDataByteSize: UInt32(pointer.count * MemoryLayout<Float>.stride),
                         mData: pointer.baseAddress
                     )
-                    return capture.capture(
+                    return capture.append(
                         list.unsafePointer,
                         streamDescription: format(
                             flags: kAudioFormatFlagIsFloat,
@@ -168,7 +168,7 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                             mDataByteSize: UInt32(rightPointer.count * MemoryLayout<Float>.stride),
                             mData: rightPointer.baseAddress
                         )
-                        return capture.capture(
+                        return capture.append(
                             list.unsafePointer,
                             streamDescription: format(
                                 flags: kAudioFormatFlagIsFloat,
@@ -195,7 +195,7 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                         mDataByteSize: UInt32(pointer.count * MemoryLayout<Int16>.stride),
                         mData: pointer.baseAddress
                     )
-                    return capture.capture(
+                    return capture.append(
                         list.unsafePointer,
                         streamDescription: format(
                             flags: kAudioFormatFlagIsSignedInteger,
@@ -221,7 +221,7 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                         mDataByteSize: UInt32(pointer.count * MemoryLayout<Int32>.stride),
                         mData: pointer.baseAddress
                     )
-                    return capture.capture(
+                    return capture.append(
                         list.unsafePointer,
                         streamDescription: format(
                             flags: kAudioFormatFlagIsSignedInteger,
@@ -287,6 +287,49 @@ class SystemAudioSpectrumTests(unittest.TestCase):
 
             let sampleRate: Float = 48_000
             let sampleCount = 4096
+            // Bounded ring copy preserves exact chronological PCM and makes
+            // a worker snapshot independent of subsequent callback writes.
+            let history = SystemAudioCaptureBuffer(maximumFrameCount:8)
+            let windowCopy = SystemAudioCaptureBuffer(maximumFrameCount:8)
+            func appendPlanar(_ start: Int, _ count: Int, rate: Double = 48_000) -> Bool {
+                var left = (start..<(start+count)).map { Int16($0*100) }
+                var right = left.map { -$0 }
+                let list = AudioBufferList.allocate(maximumBuffers:2)
+                defer { list.unsafeMutablePointer.deallocate() }
+                list.count = 2
+                var description = format(flags:kAudioFormatFlagIsSignedInteger,bits:16,channelCount:2,interleaved:false)
+                description.mSampleRate = rate
+                return left.withUnsafeMutableBufferPointer { l in
+                    right.withUnsafeMutableBufferPointer { r in
+                        list[0] = AudioBuffer(mNumberChannels:1,mDataByteSize:UInt32(count*2),mData:l.baseAddress)
+                        list[1] = AudioBuffer(mNumberChannels:1,mDataByteSize:UInt32(count*2),mData:r.baseAddress)
+                        return history.append(list.unsafePointer,streamDescription:description)
+                    }
+                }
+            }
+            expect(appendPlanar(1,3),"first callback accepted")
+            expect(!history.copyLatestFrames(5,to:windowCopy),"incomplete window refused")
+            expect(appendPlanar(4,4),"second callback accepted")
+            expect(history.copyLatestFrames(5,to:windowCopy),"complete window copied")
+            let saved = windowCopy.decodedFrame!.signedChannels
+            expect(saved[0] == (3...7).map { Float($0*100)/32768 },"copy has exact latest samples")
+            expect(saved[1] == saved[0].map { -$0 },"planar stereo stays aligned")
+            expect(appendPlanar(8,6),"wrapped callback accepted")
+            expect(windowCopy.decodedFrame!.signedChannels == saved,"pending snapshot immutable")
+            expect(history.copyLatestFrames(8,to:windowCopy),"wrapped window copied")
+            expect(windowCopy.decodedFrame!.signedChannels[0] == (6...13).map { Float($0*100)/32768 },"ring reads chronologically")
+            expect(appendPlanar(14,20),"oversized callback keeps bounded tail")
+            expect(history.copyLatestFrames(8,to:windowCopy),"oversized tail copied")
+            expect(windowCopy.decodedFrame!.signedChannels[0] == (26...33).map { Float($0*100)/32768 },"oversized tail is newest contiguous PCM")
+            expect(appendPlanar(40,3,rate:44_100),"format switch accepted")
+            expect(!history.copyLatestFrames(5,to:windowCopy),"format switch discards old-rate history")
+            expect(appendPlanar(43,2,rate:44_100),"new-rate suffix accepted")
+            expect(history.copyLatestFrames(5,to:windowCopy),"new-rate window complete")
+            expect(windowCopy.decodedFrame!.signedChannels[0] == (40...44).map { Float($0*100)/32768 },"new rate contains no old samples")
+            history.reset()
+            expect(!history.copyLatestFrames(1,to:windowCopy),"teardown clears incomplete history")
+            expect(!windowCopy.copyLatestFrames(1,to:windowCopy),"self-copy refused")
+
             func sine(frequency: Float, amplitude: Float = 0.8, phase: Float = 0) -> [Float] {
                 (0..<sampleCount).map { index in
                     amplitude * sin(2 * .pi * frequency * Float(index) / sampleRate + phase)

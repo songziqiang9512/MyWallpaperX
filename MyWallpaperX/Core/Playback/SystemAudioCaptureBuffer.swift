@@ -36,6 +36,7 @@ final class SystemAudioCaptureBuffer {
     private var frameStrides: [Int]
     private var capturedBufferCount = 0
     private var capturedFrameCount = 0
+    private var writeFrameIndex = 0
     private var streamDescription = AudioStreamBasicDescription()
 
     init(
@@ -65,60 +66,100 @@ final class SystemAudioCaptureBuffer {
         storage.forEach { $0.deallocate() }
     }
 
-    func capture(
+    /// Callback-owned bounded PCM history. All input blocks enter this ring;
+    /// throttling analysis must never splice non-adjacent blocks together.
+    func append(
         _ bufferListPointer: UnsafePointer<AudioBufferList>,
         streamDescription: AudioStreamBasicDescription
     ) -> Bool {
-        invalidate()
-
-        guard let sampleFormat = Self.sampleFormat(for: streamDescription) else { return false }
+        guard let sampleFormat = Self.sampleFormat(for: streamDescription) else {
+            invalidate()
+            return false
+        }
         let buffers = UnsafeMutableAudioBufferListPointer(
             UnsafeMutablePointer(mutating: bufferListPointer)
         )
-        guard !buffers.isEmpty, buffers.count <= maximumBufferCount else { return false }
-
-        var nextFrameCount = maximumFrameCount
-        var nextStrides = Array(repeating: 0, count: buffers.count)
+        guard !buffers.isEmpty, buffers.count <= maximumBufferCount else {
+            invalidate()
+            return false
+        }
+        var inputFrameCount = Int.max
+        var sameLayout = capturedBufferCount == buffers.count
+            && self.streamDescription.mSampleRate == streamDescription.mSampleRate
+            && self.streamDescription.mFormatFlags == streamDescription.mFormatFlags
+            && self.streamDescription.mBitsPerChannel == streamDescription.mBitsPerChannel
         for index in buffers.indices {
             let buffer = buffers[index]
             let channelCount = max(1, Int(buffer.mNumberChannels))
-            let minimumStride = channelCount * sampleFormat.byteCount
-            let frameStride = max(minimumStride, Int(streamDescription.mBytesPerFrame))
-            guard buffer.mData != nil, frameStride <= maximumBytesPerBuffer else { return false }
-
-            let availableFrames = Int(buffer.mDataByteSize) / frameStride
-            guard availableFrames > 0 else { return false }
-            nextFrameCount = min(nextFrameCount, availableFrames)
-            nextStrides[index] = frameStride
+            let stride = max(channelCount * sampleFormat.byteCount,
+                             Int(streamDescription.mBytesPerFrame))
+            guard buffer.mData != nil,
+                  stride <= maximumBytesPerBuffer / maximumFrameCount,
+                  Int(buffer.mDataByteSize) / stride > 0 else {
+                invalidate()
+                return false
+            }
+            inputFrameCount = min(inputFrameCount, Int(buffer.mDataByteSize) / stride)
+            sameLayout = sameLayout && frameStrides[index] == stride
+                && channelCounts[index] == channelCount
         }
-        guard nextFrameCount > 0 else { return false }
-
+        if !sameLayout { invalidate() }
+        let count = min(maximumFrameCount, inputFrameCount)
+        let firstCount = min(count, maximumFrameCount - writeFrameIndex)
         for index in buffers.indices {
             let buffer = buffers[index]
-            guard let source = buffer.mData else {
-                invalidate()
-                return false
-            }
-
-            let frameStride = nextStrides[index]
-            let byteCount = nextFrameCount * frameStride
-            guard byteCount <= maximumBytesPerBuffer else {
-                invalidate()
-                return false
-            }
-            let sourceOffset = Int(buffer.mDataByteSize) - byteCount
-            storage[index].copyMemory(
-                from: source.advanced(by: sourceOffset),
-                byteCount: byteCount
+            let channels = max(1, Int(buffer.mNumberChannels))
+            let stride = max(channels * sampleFormat.byteCount,
+                             Int(streamDescription.mBytesPerFrame))
+            // A large callback retains its newest complete, channel-aligned tail.
+            let source = buffer.mData!.advanced(by: (inputFrameCount - count) * stride)
+            storage[index].advanced(by: writeFrameIndex * stride).copyMemory(
+                from: source, byteCount: firstCount * stride
             )
-            byteCounts[index] = byteCount
-            channelCounts[index] = max(1, Int(buffer.mNumberChannels))
-            frameStrides[index] = frameStride
+            if firstCount < count {
+                storage[index].copyMemory(from: source.advanced(by: firstCount * stride),
+                    byteCount: (count - firstCount) * stride)
+            }
+            frameStrides[index] = stride
+            channelCounts[index] = channels
+            byteCounts[index] = maximumFrameCount * stride
         }
-
+        writeFrameIndex = (writeFrameIndex + count) % maximumFrameCount
+        capturedFrameCount = min(maximumFrameCount, capturedFrameCount + count)
         capturedBufferCount = buffers.count
-        capturedFrameCount = nextFrameCount
         self.streamDescription = streamDescription
+        return true
+    }
+
+    /// Copy a complete analysis window into the existing worker-owned snapshot.
+    /// Caller holds the handoff gate for destination; source remains callback-owned.
+    func copyLatestFrames(_ count: Int, to destination: SystemAudioCaptureBuffer) -> Bool {
+        guard destination !== self, count > 0, capturedFrameCount >= count,
+              count <= destination.maximumFrameCount,
+              capturedBufferCount <= destination.maximumBufferCount else { return false }
+        for index in 0..<capturedBufferCount {
+            guard frameStrides[index] * count <= destination.maximumBytesPerBuffer else { return false }
+        }
+        let start = (writeFrameIndex - count + maximumFrameCount) % maximumFrameCount
+        let firstCount = min(count, maximumFrameCount - start)
+        for index in 0..<capturedBufferCount {
+            let stride = frameStrides[index]
+            destination.storage[index].copyMemory(
+                from: storage[index].advanced(by: start * stride), byteCount: firstCount * stride
+            )
+            if firstCount < count {
+                destination.storage[index].advanced(by: firstCount * stride).copyMemory(
+                    from: storage[index], byteCount: (count - firstCount) * stride
+                )
+            }
+            destination.frameStrides[index] = stride
+            destination.channelCounts[index] = channelCounts[index]
+            destination.byteCounts[index] = count * stride
+        }
+        destination.capturedBufferCount = capturedBufferCount
+        destination.capturedFrameCount = count
+        destination.writeFrameIndex = count % destination.maximumFrameCount
+        destination.streamDescription = streamDescription
         return true
     }
 
@@ -176,7 +217,9 @@ final class SystemAudioCaptureBuffer {
         frameIndex: Int,
         channelIndex: Int
     ) -> Float {
-        let offset = frameIndex * frameStrides[bufferIndex] + channelIndex * format.byteCount
+        let physicalFrame = (writeFrameIndex - capturedFrameCount + maximumFrameCount + frameIndex)
+            % maximumFrameCount
+        let offset = physicalFrame * frameStrides[bufferIndex] + channelIndex * format.byteCount
         guard offset + format.byteCount <= byteCounts[bufferIndex] else { return 0 }
 
         let value: Float
@@ -196,6 +239,7 @@ final class SystemAudioCaptureBuffer {
     private func invalidate() {
         capturedBufferCount = 0
         capturedFrameCount = 0
+        writeFrameIndex = 0
     }
 
     private static func sampleFormat(

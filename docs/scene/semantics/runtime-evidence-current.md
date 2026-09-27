@@ -24,6 +24,18 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-27-audio-contiguous-capture"></a>
+
+### E-2026-09-27-AUDIO-CONTIGUOUS-CAPTURE — 频谱节流不再截断输入波形
+
+**首断点：**共享系统音频服务原先在读取PCM之前按30Hz丢弃callback，`SystemAudioSceneSpectrumAnalyzer`再把残留小块拼成滚动窗；这些块在原音频中并不相邻，等价于对波形剪切后重新采样，影响频谱和启动响应。以真实service callback/handoff及Accelerate analyzer运行48kHz、733Hz正弦，128帧回调下旧输出对连续PCM oracle最大误差0.98662823，超过12次发布后的稳定段仍为0.95922244（0…1频谱单位）。不是仅靠源码推断或UI柱形猜测。
+
+**修复：**现有capture buffer改为预分配、callback独占的4096帧有界环形历史，每个有效回调都追加；30Hz及worker gate只限制完整分析窗复制和FFT发布。既有worker buffer继续在gate内独占，源环与待处理快照分离，worker忙时仍记录连续PCM；完整窗按analyzer唯一的windowCount计算，进入原分析器时完整替换其滚动内容，不重复拼接重叠窗。格式切换/非法输入/teardown撤销对应历史，旧resource/scope token在解码前的拒绝保持。移除已无生产调用的单块capture入口及callback中的临时stride数组，没有第二FFT、输入producer或频谱增益策略。新增固定原始历史上界1MiB（8 buffers×4096 frames×32 bytes），未作实时CPU/硬件性能验收。
+
+**验证：**service测试改用真实capture/analyzer，只有设备创建和非目标UI消费者为stub；DEBUG注入使用真实callback与DispatchSource处理，控制时钟并模拟worker占用。128/512/1024/8192帧块，含每五块一次worker忙，所有发布与同一最近连续PCM窗的oracle各档误差小于1e−5，首个完整窗前不发布。生产buffer另验证Int16平面双声道精确样本顺序、回绕、超大块新尾、快照独立、格式切换与reset；既有Float/整数/交错解码、全频扫频、静音、频带投影、单声道/声道隔离、Web/Overlay、采集scope/recovery与Scene输入门通过。三个音频模块39项、scope8项、最终音频与选择器64项通过（重叠不相加）；关联治理模块通过。验证映射补登记capture buffer并纳入recovery门。最终独立Debug checkpoint构建成功；code-health仍为4个既有非Scene行数错误。
+
+**边界：**这是共享PCM输入与频谱发布的有界修复，不证明用户真实设备回调、普通App→daemon→GPU最终柱形或所有柱子的活跃度已达标；本批不调整频率轴、gain、包络或作者脚本。未主动停止或替换用户App；收尾进程检查未见MyWallpaperX主进程。真实样本与属性未修改。输入注入反例、前后测试、构建结果和冻结diff保存在本机忽略证据标签`2026-09-27-audio-contiguous-capture`；后续实际音乐/可见复测仍开放。
+
 <a id="e-2026-09-27-world-x-reflection"></a>
 
 ### E-2026-09-27-WORLD-X-REFLECTION — 正交作者空间的三轴变换一致性

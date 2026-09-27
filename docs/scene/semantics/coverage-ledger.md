@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-27 共享音频连续采集窗
+
+系统tap的每个有效PCM回调进入同一有界历史，30Hz节流只限制完整频谱窗交接与分析；不再把跳采的小块当连续波形拼接。实际service/capture/Accelerate链的不同块长、worker忙、环形回绕、格式切换与撤销回归通过，见[运行证据](runtime-evidence-current.md#e-2026-09-27-audio-contiguous-capture)。Scene/Web/Video共用原producer，频带与显示响应策略未改；真实设备、最终柱形及全柱活跃度未由本批验收。
+
 ## 2026-09-27 正交三轴旋转的坐标转换
 
 共享world-frame resolver在作者Y-up到runtime Y-down转换时同时反转X/Z旋转，保留Y角；静态、动态与父子层使用同一实现。混合三轴/镜像缩放的点变换、native perspective不反射反例及实际Metal倾斜卡已验证，见[运行证据](runtime-evidence-current.md#e-2026-09-27-world-x-reflection)。此修复不覆盖粒子局部rotation字段语义，也不关闭仅有Z角光束的范围问题；完整Host与官方视觉对照未由本批证明。

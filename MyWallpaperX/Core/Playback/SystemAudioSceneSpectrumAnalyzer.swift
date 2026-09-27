@@ -150,7 +150,7 @@ final class SystemAudioSceneSpectrumAnalyzer {
         }
 
         let channelInputs = Array(signedChannels.prefix(2))
-        let windowCount = analysisWindowCount(sampleRate: sampleRate)
+        let windowCount = Self.analysisWindowCount(sampleRate: sampleRate)
         guard windowCount > 1 else {
             resetRollingState()
             return Self.zeroLevels
@@ -210,9 +210,10 @@ final class SystemAudioSceneSpectrumAnalyzer {
         )
     }
 
-    private func analysisWindowCount(sampleRate: Float) -> Int {
+    static func analysisWindowCount(sampleRate: Float) -> Int {
+        guard sampleRate.isFinite, sampleRate > 0 else { return 0 }
         let rateScale = max(1, sampleRate / Self.referenceSampleRate)
-        return min(Self.fftSize, Int(rateScale * Self.analysisWindowFrameCount))
+        return Int(min(Float(Self.fftSize), rateScale * Self.analysisWindowFrameCount))
     }
 
     private func prepareRollingState(channelCount: Int, sampleRate: Float) {
