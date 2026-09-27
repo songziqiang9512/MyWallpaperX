@@ -118,7 +118,6 @@ import Foundation
         self.assertIn("service.downloadJobStore.$jobs", ui)
         self.assertIn("service.downloadJobStore.$history", ui)
         self.assertIn("service.downloadProgressStore.addObserver", ui)
-        self.assertIn("private let progressBar = SteamWorkshopGlassBarView()", ui)
         self.assertIn("progressBar.setAccessibilityRole(.progressIndicator)", ui)
         self.assertIn('progressBar.setAccessibilityLabel("下载进度：\\(summary.title)")', ui)
         self.assertIn("owner: self", ui)

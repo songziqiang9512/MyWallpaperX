@@ -213,25 +213,23 @@ extension SteamWorkshopService {
     }
 
     private func deleteDownloads(itemIDs: [String]) {
-        let uniqueIDs = Array(Set(itemIDs))
-        guard !uniqueIDs.isEmpty else { return }
-        var deletedTitles: [String] = []
-        for itemID in uniqueIDs {
-            let title = latestDownloadRecord(for: itemID)?.title
-            if deleteDownloadIfPossible(itemID: itemID), let title {
-                deletedTitles.append(title)
+        let ids = Set(itemIDs).subtracting(removingDownloadIDs)
+        guard !ids.isEmpty else { return }
+        removingDownloadIDs.formUnion(ids)
+        Task { [weak self] in
+            guard let self else { return }
+            defer { self.removingDownloadIDs.subtract(ids) }
+            var removed = 0
+            for id in ids {
+                if await self.deleteDownloadIfPossible(itemID: id) { removed += 1 }
             }
-        }
-        reloadInstalledItems()
-        if uniqueIDs.count == 1, let title = deletedTitles.first {
-            statusMessage = "已移除 \(title)"
-        } else if !deletedTitles.isEmpty {
-            statusMessage = "已移除 \(deletedTitles.count) 个下载项"
+            self.reloadInstalledItems()
+            if removed == ids.count { self.statusMessage = "已删除 \(removed) 个壁纸及本地文件" }
         }
     }
 
     @discardableResult
-    private func deleteDownloadIfPossible(itemID: String) -> Bool {
+    private func deleteDownloadIfPossible(itemID: String) async -> Bool {
         guard let record = latestDownloadRecord(for: itemID) else { return false }
         var readySnapshot: SteamWorkshopDownloadMetadataSnapshot?
         switch record.status {
@@ -252,11 +250,7 @@ extension SteamWorkshopService {
                 statusMessage = "移除失败：下载记录无法安全读取；内容保持不变。"
                 return false
             }
-            guard let snapshot = readySnapshot else {
-                statusMessage = "移除失败：旧版下载缺少可验证元数据；内容保持不变。"
-                return false
-            }
-            if snapshot.commit == nil, !legacyDownloadSnapshot(snapshot, matches: record) {
+            if let snapshot = readySnapshot, snapshot.commit == nil, !legacyDownloadSnapshot(snapshot, matches: record) {
                 statusMessage = "移除失败：旧版下载身份不一致；内容保持不变。"
                 return false
             }
@@ -268,35 +262,57 @@ extension SteamWorkshopService {
             }
         }
 
-        if var snapshot = readySnapshot {
-            // A ready deletion fences any update durably before publishing its
-            // tombstone, then reuses the one physical helper cancellation owner.
-            if let activeJob = downloadJobStore.activeJob(forWorkshopItemId: itemID) {
-                guard downloadJobStore.cancel(id: activeJob.id) != nil else {
-                    statusMessage = "移除失败：下载任务取消状态无法保存，请重试。"
-                    return false
-                }
-                steamJobItemPayloads.removeValue(forKey: itemID)
-                cancelDownloadImmediately(itemID: itemID, showFeedback: false)
-                scheduleTerminalDownloadCleanup()
-            }
-            if var commit = snapshot.commit {
-                commit.removed = true
-                snapshot.commit = commit
-            } else {
-                snapshot.legacyRemoved = true
-            }
-            do {
-                try SteamWorkshopLibraryTransaction.publish(
-                    metadata: JSONEncoder().encode(snapshot),
-                    itemID: itemID,
-                    libraryRoot: steamDownloadLibraryRootURL
-                )
-            } catch {
-                statusMessage = "移除失败：\(error.localizedDescription)"
+        // Fence new downloads before stopping consumers or touching disk.
+        if let activeJob = downloadJobStore.activeJob(forWorkshopItemId: itemID) {
+            guard downloadJobStore.cancel(id: activeJob.id) != nil else {
+                statusMessage = "删除失败：下载取消状态无法保存。"
                 return false
             }
-            // Managed and legacy direct content both remain until a playback-aware owner can reclaim them.
+            steamJobItemPayloads.removeValue(forKey: itemID)
+            cancelDownloadImmediately(itemID: itemID, showFeedback: false)
+        }
+        if isRecordCurrentlyPlaying(record) { WallpaperManager.shared.stopCurrentPlayback() }
+        let library = steamDownloadLibraryRootURL
+        let target = record.contentType == .video && readySnapshot?.commit == nil
+            ? (record.exportedVideoURL ?? record.sourceVideoURL ?? record.folderURL) : record.folderURL
+        let identity = readySnapshot?.commit.flatMap(SteamWorkshopLibraryTransaction.storageIdentity(for:))
+        if let identity {
+            var admitted = false
+            for _ in 0..<100 {
+                if steamLibraryVersionLeaseRegistry.beginReclamation(identity) { admitted = true; break }
+                try? await Task.sleep(nanoseconds: 50_000_000)
+            }
+            guard admitted else {
+                statusMessage = "删除失败：壁纸资源尚未释放，请停止播放后重试。"
+                return false
+            }
+        }
+        var tombstonePublished = false
+        do {
+            if var snapshot = readySnapshot {
+                if var commit = snapshot.commit {
+                    commit.removed = true
+                    snapshot.commit = commit
+                } else { snapshot.legacyRemoved = true }
+                try SteamWorkshopLibraryTransaction.publish(metadata: JSONEncoder().encode(snapshot),
+                    itemID: itemID, libraryRoot: library)
+                tombstonePublished = true
+            }
+            if record.status == .ready {
+                let expected = readySnapshot?.commit
+                try await Task.detached(priority: .utility) {
+                    try SteamWorkshopLibraryTransaction.removeContent(at: target, itemID: itemID,
+                        libraryRoot: library, expectedCommit: expected)
+                }.value
+            }
+        } catch {
+            if tombstonePublished, let original = readySnapshot {
+                try? SteamWorkshopLibraryTransaction.publish(metadata: JSONEncoder().encode(original),
+                    itemID: itemID, libraryRoot: library)
+            }
+            if let identity { steamLibraryVersionLeaseRegistry.reclamationFailed(identity) }
+            statusMessage = "删除失败：\(error.localizedDescription)"
+            return false
         }
 
         downloads.removeAll { $0.id == itemID }

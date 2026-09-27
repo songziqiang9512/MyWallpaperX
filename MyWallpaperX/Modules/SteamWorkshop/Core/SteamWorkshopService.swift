@@ -28,6 +28,7 @@ final class SteamWorkshopService: ObservableObject {
     @Published var downloads: [SteamWorkshopDownloadRecord] = [] {
         didSet { refreshDisplayedDownloads() }
     }
+    var removingDownloadIDs: Set<String> = []
     @Published private(set) var displayedDownloads: [SteamWorkshopDownloadRecord] = []
     /// M0.5：最近一次"设为壁纸/播放"pending 的记录 ID。点击立即置位
     /// （≤1 runloop turn 渲染加载态）；Scene launch 终态或 runtime 切换

@@ -1,8 +1,8 @@
 import Foundation
 
 extension AppKitMainSplitViewController {
-    func prepareSteamBrowseSelection(_ item: SelectedItem) {
-        guard item.isInSteamWorkshopContext else { return }
+    func prepareSteamBrowseSelection(_ item: SelectedItem, preservingContext: Bool = false) {
+        guard item.isInSteamWorkshopContext, !preservingContext else { return }
         let service = SteamWorkshopService.shared
         if service.isBrowsingAuthorWorkshop {
             service.returnToDiscoveryBrowse()

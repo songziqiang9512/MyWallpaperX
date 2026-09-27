@@ -46,7 +46,7 @@ final class AppKitSteamWorkshopDownloadsView: NSView {
             return
         }
 
-        if service.downloads.isEmpty {
+        if service.downloadsCount == 0 {
             service.reloadInstalledItems()
         }
         presentPendingDownloadErrorIfNeeded()

@@ -24,6 +24,10 @@ extension SteamWorkshopService {
     }
 
     func downloadWorkshopItem(id: String, pageTitle: String? = nil, item: SteamWorkshopBrowserItem? = nil) {
+        guard !removingDownloadIDs.contains(id) else {
+            statusMessage = "此壁纸正在删除，请稍后重试。"
+            return
+        }
         guard downloadAdmissionAccount() != nil else { return }
         let title = pageTitle ?? "Workshop #\(id)"
         let requestItem = item ?? browserItemForDownload(id: id)
@@ -357,7 +361,7 @@ extension SteamWorkshopService {
                     try await preparation.value
                 } onCancel: { preparation.cancel() }
                 try checkCurrent()
-                guard self.downloadJobStore.apply(.committing(commit), toID: job.id) != nil else {
+                guard self.downloadJobStore.apply(.committing(try SteamWorkshopLibraryTransaction.canonicalCommit(commit)), toID: job.id) != nil else {
                     throw SteamWorkshopLibraryTransaction.Failure(message: "无法保存入库事务，旧版本保持不变。")
                 }
                 // No suspension between the final identity check and the metadata rename.

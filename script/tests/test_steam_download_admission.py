@@ -41,6 +41,7 @@ struct SteamWorkshopPendingDownloadRequest {
     var isOnline: Bool { steamId != nil }
 }
 @MainActor final class SteamWorkshopService {
+    var removingDownloadIDs: Set<String> = []
     let steamAuth = Auth()
     let downloadJobStore: SteamDownloadJobStore
     var statusMessage = ""
@@ -138,7 +139,7 @@ METHODS
                 ROOT / "MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift",
                 ROOT / "MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift",
                 *[CORE / name for name in ("SteamServiceProtocol.swift", "SteamServiceClient.swift",
-                    "SteamWorkshopQueryClient.swift", "SteamWorkshopLibraryTransaction.swift")],
+                    "SteamWorkshopQueryClient.swift", "SteamWorkshopLibraryTransaction.swift", "SteamWorkshopLibraryPublication.swift")],
             ]
             subprocess.run(["xcrun", "swiftc", "-parse-as-library", *map(str, dependencies), str(CORE / "SteamWorkshopJobStore.swift"),
                             str(harness), "-o", str(binary)], check=True, timeout=120)

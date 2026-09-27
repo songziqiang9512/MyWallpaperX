@@ -1,4 +1,5 @@
 """Run the production hit-test route and popover/row constraints in AppKit."""
+import os
 import pathlib
 import subprocess
 import tempfile
@@ -41,7 +42,10 @@ final class SteamWorkshopGlassBarView: NSView {
     let thumbnailView = NSImageView()
     let titleLabel = NSTextField(labelWithString: "")
     let statusLabel = NSTextField(labelWithString: "")
-    let progressBar = SteamWorkshopGlassBarView()
+    let progressBar = NSLevelIndicator()
+    let retryButton = NSButton(title: "重试", target: nil, action: nil)
+    let actionsStack = NSStackView()
+    @objc func handleRetry() {}
     let clearButton = NSButton(title: "", target: nil, action: nil)
     @objc func handleClear() {}
     required init?(coder: NSCoder) { nil }
@@ -66,16 +70,44 @@ final class TestItem: NSCollectionViewItem {
             let row = Row(service: SteamWorkshopService(), onCleared: {})
             controller.rowsStack.addArrangedSubview(row)
             row.widthAnchor.constraint(equalTo: controller.rowsStack.widthAnchor).isActive = true
-            row.titleLabel.stringValue = String(repeating: "很长的下载任务标题", count: 20) + String(index)
+            row.titleLabel.stringValue = ["雨夜城市 · 霓虹倒影", "星际漫游 · 已完成", "山谷晨雾 · 下载失败"][index]
+            row.statusLabel.stringValue = ["下载中 48% · 24 MB / 50 MB", "已完成 · 今天 10:32", "网络连接中断，请重试"][index]
+            row.statusLabel.textColor = index == 2 ? .systemRed : .secondaryLabelColor
+            row.progressBar.doubleValue = [0.48, 1.0, 0.0][index]
+            row.retryButton.isHidden = index != 2
         }
         controller.view.layoutSubtreeIfNeeded()
         precondition(controller.view.fittingSize == NSSize(width: 400, height: 460), "long titles must not enlarge queue")
         for view in controller.rowsStack.arrangedSubviews {
             let row = view as! Row
-            precondition(row.bounds.height == 64)
+            precondition(row.bounds.height == 76)
             precondition(row.progressBar.bounds.width > 200)
             precondition(!row.titleLabel.stringValue.isEmpty)
         }
+        controller.emptyLabel.isHidden = true
+        controller.view.appearance = NSAppearance(named: .aqua)
+        controller.view.wantsLayer = true
+        controller.view.layer?.backgroundColor = NSColor.white.cgColor
+        window.backgroundColor = .windowBackgroundColor
+        if let path = ProcessInfo.processInfo.environment["MWX_STEAM_UI_SNAPSHOT"],
+           let bitmap = controller.view.bitmapImageRepForCachingDisplay(in: controller.view.bounds) {
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.15))
+            controller.view.cacheDisplay(in: controller.view.bounds, to: bitmap)
+            let flattened = NSImage(size: controller.view.bounds.size)
+            flattened.lockFocus()
+            NSColor.white.setFill()
+            controller.view.bounds.fill()
+            bitmap.draw(in: controller.view.bounds)
+            flattened.unlockFocus()
+            let output = NSBitmapImageRep(data: flattened.tiffRepresentation!)!
+            try! output.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
+        }
+        (controller.rowsStack.arrangedSubviews[0] as! Row).titleLabel.stringValue = String(repeating: "Long wallpaper title ", count: 40)
+        controller.view.layoutSubtreeIfNeeded()
+        precondition(controller.view.fittingSize == NSSize(width: 400, height: 460))
+        window.orderOut(nil)
         let collection = SteamWorkshopKeyboardCollectionView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))
         collection.isSelectable = false
         let host = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))

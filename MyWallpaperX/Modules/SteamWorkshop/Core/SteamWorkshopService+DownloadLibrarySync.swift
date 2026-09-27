@@ -2,6 +2,9 @@ import Foundation
 
 extension SteamWorkshopService {
     func reloadInstalledItems() {
+        do { try SteamWorkshopLibraryTransaction.recoverPublications(libraryRoot: steamDownloadLibraryRootURL,
+            retaining: referencedLibraryStorageIdentities()) }
+        catch { statusMessage = "入库恢复失败：\(error.localizedDescription)" }
         let managed = managedDownloadSnapshots()
         scheduleLegacyLibraryPublicationMigration(from: managed)
         reconcileDownloadCommits(managed)
@@ -24,7 +27,7 @@ extension SteamWorkshopService {
             return buildInstalledRecord(from: snapshot, legacyDirectory: snapshot.legacyFolderURL,
                 fallbackProject: nil, fallbackIdentifier: snapshot.item.id, managedSnapshots: managed)
         }
-        // Tombstones also suppress old legacy files; updates never delete files a player may still use.
+        // Tombstones suppress stale legacy aliases; task history never creates a local wallpaper.
         var seenIDs = Set(managed.keys)
         for videoURL in videoFiles {
             let metadata = loadVideoDownloadMetadataSnapshot(for: videoURL)
@@ -40,25 +43,7 @@ extension SteamWorkshopService {
             seenIDs.insert(record.id)
         }
 
-        var transient = downloads.filter { record in
-            switch record.status {
-            case .queued, .downloading, .failed:
-                return !records.contains(where: { $0.id == record.id })
-            case .ready:
-                return false
-            }
-        }
-        var projectedIDs = Set(records.map(\.id)).union(transient.map(\.id))
-        if let account = steamAuth.steamId {
-            for job in downloadJobStore.jobs.sorted(by: { $0.updatedAt > $1.updatedAt })
-            where job.accountSteamId == account && !projectedIDs.contains(job.workshopItemId) {
-                guard let record = transientDownloadRecord(for: job) else { continue }
-                transient.append(record)
-                projectedIDs.insert(record.id)
-            }
-        }
-
-        downloads = (records + transient).sorted { $0.updatedAt > $1.updatedAt }
+        downloads = records.sorted { $0.updatedAt > $1.updatedAt }
 #if DEBUG
         if !ProcessInfo.processInfo.arguments.contains("--mwx-debug-run-web-workshop-id") {
             preloadWebRuntimeCaches(for: records)
@@ -84,47 +69,6 @@ extension SteamWorkshopService {
         scheduleLibraryVersionReclamation()
     }
 
-    /// Rebuild the user-visible projection from durable intent after relaunch. A
-    /// published ready record wins for the same item so a failed update never
-    /// hides or disables the previous-current content.
-    private func transientDownloadRecord(for job: SteamDownloadJob) -> SteamWorkshopDownloadRecord? {
-        let status: SteamWorkshopDownloadRecord.Status
-        switch job.state {
-        case .queued:
-            status = .queued
-        case .running, .staged, .committing:
-            status = .downloading
-        case .failed:
-            status = .failed(job.failureMessage ?? "下载失败，请重试。")
-        case .cancelled, .completed:
-            return nil
-        }
-        let item = browserItemForDownload(id: job.workshopItemId)
-        return SteamWorkshopDownloadRecord(
-            id: job.workshopItemId,
-            title: item?.title ?? job.title,
-            description: item?.descriptionText ?? "",
-            tags: item?.tags ?? [],
-            folderURL: libraryRootURL,
-            projectFileURL: nil,
-            ownEntryHTMLURL: nil,
-            dependencyHostEntryHTMLURL: nil,
-            dependencyHostFolderURL: nil,
-            entryHTMLURL: nil,
-            resolvedWebRootURL: nil,
-            previewURL: item?.previewImageURL,
-            sourceVideoURL: nil,
-            exportedVideoURL: nil,
-            updatedAt: job.updatedAt,
-            sizeText: item?.fileSizeText ?? "未知大小",
-            status: status,
-            browserItem: item,
-            contentType: .unknown,
-            dependencyItemID: nil,
-            dependencyStatus: .none
-        )
-    }
-
     private func directChildDirectories(in root: URL) -> [URL] {
         ((try? FileManager.default.contentsOfDirectory(
             at: root,
@@ -144,19 +88,32 @@ extension SteamWorkshopService {
     }
 
     func publishDownloadedVersion(_ request: SteamWorkshopPendingDownloadRequest,
-                                  commit: SteamWorkshopLibraryCommit, libraryRoot: URL) throws {
+        commit prepared: SteamWorkshopLibraryCommit, libraryRoot: URL) throws {
+        let commit = try SteamWorkshopLibraryTransaction.canonicalCommit(prepared)
         let content = try SteamWorkshopLibraryTransaction.contentURL(for: commit, libraryRoot: libraryRoot)
-        let item = request.item ?? browserItemForDownload(id: request.id)
-            ?? Self.itemByMergingAuthorMetadata(into: nil, id: request.id, title: request.pageTitle,
-                author: "未知作者", authorProfileURL: nil, authorWorkshopURL: nil)
-        var snapshot = SteamWorkshopDownloadMetadataSnapshot(fetchedAt: commit.committedAt, item: item,
-            sourceVideoRelativePath: commit.contentType == "video" ? commit.entryPath : nil,
-            previewRelativePath: nil,
-            exportedVideoURL: commit.contentType == "video" ? commit.entryPath.map { content.appendingPathComponent($0) } : nil,
-            legacyFolderURL: content)
-        snapshot.commit = commit
-        try SteamWorkshopLibraryTransaction.publish(metadata: JSONEncoder().encode(snapshot),
-            itemID: request.id, libraryRoot: libraryRoot)
+        let previousIdentity = SteamWorkshopLibraryTransaction.storageIdentity(containing: content, libraryRoot: libraryRoot)
+        if let previousIdentity {
+            guard !referencedLibraryStorageIdentities().contains(previousIdentity),
+                  steamLibraryVersionLeaseRegistry.beginReclamation(previousIdentity) else {
+                throw SteamWorkshopLibraryTransaction.Failure(message: "此壁纸仍被播放器或视频库引用，请解除引用后重试更新。")
+            }
+        }
+        do {
+            let item = request.item ?? browserItemForDownload(id: request.id)
+                ?? Self.itemByMergingAuthorMetadata(into: nil, id: request.id, title: request.pageTitle,
+                    author: "未知作者", authorProfileURL: nil, authorWorkshopURL: nil)
+            var snapshot = SteamWorkshopDownloadMetadataSnapshot(fetchedAt: commit.committedAt, item: item,
+                sourceVideoRelativePath: commit.contentType == "video" ? commit.entryPath : nil,
+                previewRelativePath: nil,
+                exportedVideoURL: commit.contentType == "video" ? commit.entryPath.map { content.appendingPathComponent($0) } : nil,
+                legacyFolderURL: content)
+            snapshot.commit = commit
+            try SteamWorkshopLibraryTransaction.publishCanonical(prepared,
+                metadata: JSONEncoder().encode(snapshot), libraryRoot: libraryRoot)
+        } catch {
+            if let previousIdentity { steamLibraryVersionLeaseRegistry.reclamationFailed(previousIdentity) }
+            throw error
+        }
     }
 
     /// Single current pointer lives in the existing metadata index. Managed version directories are
@@ -233,7 +190,7 @@ extension SteamWorkshopService {
     ) {
         guard legacyLibraryPublicationMigrationTask == nil else { return }
         let candidates = snapshots.values.filter {
-            $0.commit?.version == 1 && $0.commit?.removed == false
+            ($0.commit?.version == 1 || $0.commit?.version == 2) && $0.commit?.removed == false
         }.sorted { $0.item.id < $1.item.id }
         guard !candidates.isEmpty else { return }
         let library = steamDownloadLibraryRootURL
@@ -244,11 +201,29 @@ extension SteamWorkshopService {
             var deferredCount = 0
         candidateLoop:
             for candidate in candidates {
-                guard let legacyCommit = candidate.commit else { continue }
+                guard let legacyCommit = candidate.commit,
+                      !self.removingDownloadIDs.contains(candidate.item.id),
+                      self.downloadJobStore.activeJob(forWorkshopItemId: candidate.item.id) == nil else { continue }
                 let capacityKey = "legacy-migration:" + (
                     SteamWorkshopLibraryTransaction.storageIdentity(for: legacyCommit)
                         ?? candidate.item.id
                 )
+                // Public v2 folders only need a rename. A live consumer keeps its
+                // immutable path until the next scan after its lease is released.
+                if legacyCommit.version == 2 {
+                    guard let identity = SteamWorkshopLibraryTransaction.storageIdentity(for: legacyCommit),
+                          !self.referencedLibraryStorageIdentities().contains(identity),
+                          self.steamLibraryVersionLeaseRegistry.beginReclamation(identity) else { continue }
+                    defer { self.steamLibraryVersionLeaseRegistry.reclamationFailed(identity) }
+                    do {
+                        guard try self.loadManagedDownloadSnapshots(requireComplete: true)[candidate.item.id]?.commit == legacyCommit else { continue }
+                        try self.publishDownloadedVersion(SteamWorkshopPendingDownloadRequest(
+                            id: candidate.item.id, pageTitle: candidate.item.title, item: candidate.item),
+                            commit: legacyCommit, libraryRoot: library)
+                        migratedCount += 1
+                    } catch { deferredCount += 1 }
+                    continue
+                }
                 var preparedMigration: SteamWorkshopLibraryCommit?
                 for retry in 0..<3 {
                     if retry > 0 {
@@ -308,25 +283,9 @@ extension SteamWorkshopService {
                         guard current?.commit == legacyCommit else {
                             continue candidateLoop // A delete/update won while the copy was in flight.
                         }
-                        let content = try SteamWorkshopLibraryTransaction.contentURL(
-                            for: migratedCommit, libraryRoot: library
-                        )
-                        var updated = SteamWorkshopDownloadMetadataSnapshot(
-                            fetchedAt: current?.fetchedAt ?? candidate.fetchedAt,
-                            item: current?.item ?? candidate.item,
-                            sourceVideoRelativePath: current?.sourceVideoRelativePath,
-                            previewRelativePath: current?.previewRelativePath,
-                            exportedVideoURL: migratedCommit.contentType == "video"
-                                ? migratedCommit.entryPath.map { content.appendingPathComponent($0) }
-                                : nil,
-                            legacyFolderURL: content
-                        )
-                        updated.commit = migratedCommit
-                        try SteamWorkshopLibraryTransaction.publish(
-                            metadata: JSONEncoder().encode(updated),
-                            itemID: candidate.item.id,
-                            libraryRoot: library
-                        )
+                        try self.publishDownloadedVersion(SteamWorkshopPendingDownloadRequest(
+                            id: candidate.item.id, pageTitle: candidate.item.title, item: current?.item ?? candidate.item),
+                            commit: migratedCommit, libraryRoot: library)
                         migratedCount += 1
                         continue candidateLoop
                     } catch is CancellationError {

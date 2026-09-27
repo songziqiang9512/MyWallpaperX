@@ -138,7 +138,8 @@ extension SteamWorkshopService {
         NotificationCenter.default.post(
             name: .appKitSelectItemRequested,
             object: nil,
-            userInfo: ["selectedItem": source.isPersonal ? "steamSubscribed" : "steamWorkshop"]
+            userInfo: ["selectedItem": source.isPersonal ? "steamSubscribed" : "steamWorkshop",
+                       "preserveSteamBrowseContext": true]
         )
     }
 }

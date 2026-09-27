@@ -106,12 +106,14 @@ extension SteamWorkshopService {
         let jobID = key.split(separator: "-").dropLast().joined(separator: "-")
         downloads = [ready] // A normal reload projects previous-current while its update is active.
 
+        while transport.requireStagingAcknowledgement && !transport.observedPersistedIdentityBeforeAcknowledgement { await Task.yield() }
         let jobStoreURL = transport.jobStoreURL!
         let savedJobStoreURL = jobStoreURL.appendingPathExtension("before-delete")
         if mode.hasSuffix("save-failure") {
             try FileManager.default.moveItem(at: jobStoreURL, to: savedJobStoreURL)
             try FileManager.default.createDirectory(at: jobStoreURL, withIntermediateDirectories: false)
             deleteDownload(itemID: "123456")
+        while removingDownloadIDs.contains("123456") { await Task.yield() }
             let retained = try loadManagedDownloadSnapshots(requireComplete: true)["123456"]?.commit
             precondition(retained?.removed == false && retained?.jobId == commit.jobId,
                 "failed durable cancellation must preserve the ready pointer")
@@ -132,6 +134,7 @@ extension SteamWorkshopService {
                 .appendingPathComponent("123456.json")
             try Data("broken-json".utf8).write(to: metadata, options: .atomic)
             deleteDownload(itemID: "123456")
+        while removingDownloadIDs.contains("123456") { await Task.yield() }
             precondition(statusMessage.contains("无法安全读取"))
             precondition(downloadJobStore.job(id: jobID)?.state == .running)
             precondition(!transport.commands.contains(where: {
@@ -145,6 +148,7 @@ extension SteamWorkshopService {
 
         if commitBearingAlias {
             deleteDownload(itemID: "123456")
+        while removingDownloadIDs.contains("123456") { await Task.yield() }
             precondition(statusMessage.contains("无法安全读取"))
             precondition(downloadJobStore.job(id: jobID)?.state == .running,
                 "invalid alias identity must fail before durable cancellation")
@@ -160,12 +164,13 @@ extension SteamWorkshopService {
         }
 
         deleteDownload(itemID: "123456")
+        while removingDownloadIDs.contains("123456") { await Task.yield() }
         if publishFailure {
             try FileManager.default.setAttributes(
                 [.posixPermissions: 0o700],
                 ofItemAtPath: downloadMetadataIndexDirectoryURL().path
             )
-            precondition(statusMessage.contains("移除失败"))
+            precondition(statusMessage.contains("删除失败"))
             precondition(downloadJobStore.job(id: jobID)?.state == .cancelled)
             for _ in 0..<100_000 where !transport.commands.contains(where: {
                 $0["command"] as? String == "cancelDownload" && $0["jobId"] as? String == key
@@ -181,13 +186,13 @@ extension SteamWorkshopService {
             transport.finishHeldCancellation(jobId: key)
             while activeDownloadTasks[key] != nil { await Task.yield() }
             await terminalDownloadCleanupTask?.value
-            precondition(statusMessage.contains("移除失败"),
+            precondition(statusMessage.contains("删除失败"),
                 "silent cancellation must preserve the publication failure feedback")
             await steamServiceClient.stop(shutdownTimeout: 0)
             print("EXECUTION PASS: \(mode)")
             return
         }
-        precondition(statusMessage == "已移除 old ready")
+        precondition(statusMessage == "已删除 1 个壁纸及本地文件", statusMessage)
         let removed = try loadManagedDownloadSnapshots(requireComplete: true)["123456"]
         if legacy {
             precondition(removed?.commit == nil && removed?.legacyRemoved == true,
@@ -221,11 +226,11 @@ extension SteamWorkshopService {
         let final = try loadManagedDownloadSnapshots(requireComplete: true)["123456"]
         precondition(final?.legacyRemoved == true || final?.commit?.removed == true,
             "a cancelled update must not republish over the tombstone")
-        precondition(FileManager.default.fileExists(atPath: content.path),
-            "delete keeps previous-current content for playback-aware reclamation")
+        precondition(!FileManager.default.fileExists(atPath: content.path),
+            "explicit deletion must remove the exact local content before completing")
         precondition(downloadJobStore.job(id: jobID)?.state == .cancelled)
         precondition(downloads.isEmpty, "durable cancellation must not project an orphan failed card")
-        precondition(statusMessage == "已移除 old ready", "silent delete cancellation must preserve outer feedback")
+        precondition(statusMessage == "已删除 1 个壁纸及本地文件", "silent delete cancellation must preserve outer feedback")
         if let replacement {
             precondition(FileManager.default.fileExists(atPath: replacement.appendingPathComponent("sentinel").path))
             precondition(downloadError?.contains("清理") == true)

@@ -87,9 +87,9 @@ final class AppKitMainSplitViewController: NSSplitViewController {
         detailHostController.update(selectedItem: selectedValue)
     }
 
-    private func setSelectedItem(_ newValue: SelectedItem) {
+    private func setSelectedItem(_ newValue: SelectedItem, preservingSteamBrowseContext: Bool = false) {
         guard selectedItem != newValue else { return }
-        prepareSteamBrowseSelection(newValue)
+        prepareSteamBrowseSelection(newValue, preservingContext: preservingSteamBrowseContext)
         selectedItem = newValue
         update(wallpaperManager: wallpaperManager, selectedItem: selectedItem)
         syncManagerSelection(from: newValue)
@@ -141,8 +141,9 @@ final class AppKitMainSplitViewController: NSSplitViewController {
         guard let selectedItem = notification.userInfo?["selectedItem"] as? String else { return }
         switch selectedItem {
         case "steamWorkshop":
-            setSelectedItem(.steamWorkshop)
-        case "steamSubscribed": setSelectedItem(.steamSubscribed)
+            setSelectedItem(.steamWorkshop, preservingSteamBrowseContext: notification.userInfo?["preserveSteamBrowseContext"] as? Bool == true)
+        case "steamSubscribed":
+            setSelectedItem(.steamSubscribed, preservingSteamBrowseContext: notification.userInfo?["preserveSteamBrowseContext"] as? Bool == true)
         case "steamDownloads":
             setSelectedItem(.steamDownloads)
         case "onlineLibrary":

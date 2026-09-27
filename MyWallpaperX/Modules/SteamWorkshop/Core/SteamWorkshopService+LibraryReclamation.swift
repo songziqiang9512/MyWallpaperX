@@ -39,7 +39,34 @@ extension SteamWorkshopService {
         retained.formUnion(downloadJobStore.jobs.compactMap {
             $0.preparedCommit.flatMap(SteamWorkshopLibraryTransaction.storageIdentity(for:))
         })
-        retained.formUnion(steamLibraryVersionLeaseRegistry.protectedStorageIdentities())
+        retained.formUnion(referencedLibraryStorageIdentities())
+
+        libraryVersionReclamationTask = Task { [weak self] in
+            let work = Task.detached(priority: .utility) {
+                try await SteamWorkshopLibraryTransaction.reclaimVersions(
+                    libraryRoot: library,
+                    retaining: retained,
+                    minimumAge: 24 * 60 * 60,
+                    admitRemoval: { await leases.beginReclamation($0) },
+                    removalFailed: { await leases.reclamationFailed($0) }
+                )
+            }
+            do {
+                let result = try await work.value
+                if !result.removedStorageIdentities.isEmpty {
+                    NSLog("MWX Steam library: reclaimed %d inactive version(s)", result.removedStorageIdentities.count)
+                }
+            } catch is CancellationError {
+            } catch {
+                NSLog("MWX Steam library: version reclamation deferred: %@", error.localizedDescription)
+            }
+            self?.libraryVersionReclamationTask = nil
+        }
+    }
+
+    func referencedLibraryStorageIdentities() -> Set<String> {
+        var retained = steamLibraryVersionLeaseRegistry.protectedStorageIdentities()
+        let library = steamDownloadLibraryRootURL
 
         let wallpaperManager = WallpaperManager.shared
         let referencedVideoPaths = wallpaperManager.wallpapers.map(\.path)
@@ -69,26 +96,6 @@ extension SteamWorkshopService {
             }
         }
 
-        libraryVersionReclamationTask = Task { [weak self] in
-            let work = Task.detached(priority: .utility) {
-                try await SteamWorkshopLibraryTransaction.reclaimVersions(
-                    libraryRoot: library,
-                    retaining: retained,
-                    minimumAge: 24 * 60 * 60,
-                    admitRemoval: { await leases.beginReclamation($0) },
-                    removalFailed: { await leases.reclamationFailed($0) }
-                )
-            }
-            do {
-                let result = try await work.value
-                if !result.removedStorageIdentities.isEmpty {
-                    NSLog("MWX Steam library: reclaimed %d inactive version(s)", result.removedStorageIdentities.count)
-                }
-            } catch is CancellationError {
-            } catch {
-                NSLog("MWX Steam library: version reclamation deferred: %@", error.localizedDescription)
-            }
-            self?.libraryVersionReclamationTask = nil
-        }
+        return retained
     }
 }

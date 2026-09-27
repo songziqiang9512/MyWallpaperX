@@ -39,19 +39,20 @@ extension SteamWorkshopService {
     }
 
     var visibleVideoDownloadsCount: Int {
-        downloads.filter { $0.contentType == .video }.count
+        downloads.filter { $0.status == .ready && $0.contentType == .video }.count
     }
 
     var visibleWebDownloadsCount: Int {
-        downloads.filter { $0.contentType == .web }.count
+        downloads.filter { $0.status == .ready && $0.contentType == .web }.count
     }
 
     var visibleSceneDownloadsCount: Int {
-        downloads.filter { $0.contentType == .scene }.count
+        downloads.filter { $0.status == .ready && $0.contentType == .scene }.count
     }
 
     var visibleMissingDependencyDownloadsCount: Int {
         downloads.filter {
+            guard $0.status == .ready else { return false }
             if case .missing = $0.dependencyStatus {
                 return true
             }
@@ -63,7 +64,7 @@ extension SteamWorkshopService {
         displayedDownloads.first { ids.contains($0.id) }?.id
     }
 
-    var downloadsCount: Int { downloads.count }
+    var downloadsCount: Int { downloads.filter { $0.status == .ready }.count }
 
     var activeFilterDisplayParts: [String] {
         var parts: [String] = []
@@ -96,11 +97,11 @@ extension SteamWorkshopService {
     }
 
     func isDownloading(itemID: String) -> Bool {
-        latestDownloadRecord(for: itemID)?.status == .downloading
+        downloadJobStore.activeJob(forWorkshopItemId: itemID)?.state == .running
     }
 
     func isQueuedForDownload(itemID: String) -> Bool {
-        latestDownloadRecord(for: itemID)?.status == .queued
+        downloadJobStore.activeJob(forWorkshopItemId: itemID)?.state == .queued
     }
 
     func latestDownloadRecord(for itemID: String) -> SteamWorkshopDownloadRecord? {

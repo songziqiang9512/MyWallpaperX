@@ -220,7 +220,12 @@ final class Transport: SteamServiceTransporting {
     func terminate() { isRunning = false }
     func scheduleForcedTermination(after delay: TimeInterval) {}
 }
+@MainActor final class WallpaperManager { static let shared = WallpaperManager(); func stopCurrentPlayback() {} }
 @MainActor final class SteamWorkshopService {
+    var removingDownloadIDs: Set<String> = []
+    let steamLibraryVersionLeaseRegistry = SteamWorkshopLibraryVersionLeaseRegistry()
+    func referencedLibraryStorageIdentities() -> Set<String> { steamLibraryVersionLeaseRegistry.protectedStorageIdentities() }
+    func isRecordCurrentlyPlaying(_ record: SteamWorkshopDownloadRecord) -> Bool { false }
     let steamAuth = Auth()
     let steamServiceClient: SteamServiceClient
     let steamWorkshopQueryClient: SteamWorkshopQueryClient
@@ -428,7 +433,7 @@ final class Transport: SteamServiceTransporting {
                 precondition(service.reloads == 0)
             } else {
                 guard let migrated = current?.commit else { fatalError("missing migrated pointer") }
-                precondition(migrated.version == 2 && migrated.workshopId == legacy.workshopId)
+                precondition(migrated.version == 3 && migrated.workshopId == legacy.workshopId)
                 precondition(SteamWorkshopLibraryTransaction.isAvailable(
                     migrated, libraryRoot: library
                 ))
@@ -438,7 +443,7 @@ final class Transport: SteamServiceTransporting {
                 let publicDirectories = try FileManager.default.contentsOfDirectory(
                     at: library.appendingPathComponent("Web", isDirectory: true),
                     includingPropertiesForKeys: nil
-                ).filter { $0.lastPathComponent.hasPrefix("123456-") }
+                ).filter { $0.lastPathComponent == "123456" }
                 precondition(publicDirectories.count == 1,
                     "one service migration must publish exactly one public generation")
                 precondition(service.reloads == 1)

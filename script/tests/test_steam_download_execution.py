@@ -110,9 +110,9 @@ class SteamDownloadExecutionTests(unittest.TestCase):
                 commit = snapshot['commit']
                 expected_type = json.loads(files['project.json'])['type'].strip().lower()
                 type_directory = {'video': 'Video', 'web': 'Web', 'scene': 'Scene'}[expected_type]
-                self.assertEqual(commit['version'], 2)
+                self.assertEqual(commit['version'], 3)
                 self.assertEqual(commit['contentType'], expected_type)
-                assert_public_generation_name(self, commit['directoryName'], '123456')
+                self.assertEqual(commit['directoryName'], '123456')
                 self.assertTrue((root / 'library' / type_directory / commit['directoryName']).is_dir())
                 self.assertFalse((root / 'library' / '.mywallpaperx-steam-versions').exists())
                 incoming = root / 'library' / '.mywallpaperx-steam-incoming'
@@ -178,7 +178,7 @@ class SteamDownloadExecutionTests(unittest.TestCase):
     def test_delete_keeps_tombstone_when_cancelled_staging_cleanup_fails(self):
         self.run_case('ready-update-delete-cleanup-failure')
 
-    def test_delete_tombstones_legacy_direct_ready_without_unlinking_content(self):
+    def test_delete_tombstones_legacy_direct_ready_and_removes_content(self):
         self.run_case('ready-update-delete-legacy')
 
     def test_delete_finds_legacy_video_metadata_by_exported_basename(self):

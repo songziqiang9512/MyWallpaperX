@@ -386,6 +386,7 @@ extension SteamWorkshopService {
     ) {
         if let index = downloads.firstIndex(where: { $0.id == id }) {
             let previous = downloads[index]
+            guard previous.status != .ready else { return }
             downloads[index] = SteamWorkshopDownloadRecord(
                 id: id,
                 title: previous.title,
@@ -542,9 +543,6 @@ extension SteamWorkshopService {
                 return buildInstalledRecord(from: snapshot, legacyDirectory: snapshot.legacyFolderURL,
                     fallbackProject: nil, fallbackIdentifier: dependencyItemID, resolvingIDs: resolving, managedSnapshots: managed)
             }
-            if let cachedRecord = latestDownloadRecord(for: dependencyItemID), cachedRecord.webEntryURL != nil {
-                return cachedRecord
-            }
             return buildInstalledRecord(at: webLibraryRootURL.appendingPathComponent(dependencyItemID, isDirectory: true),
                 resolvingIDs: resolving, managedSnapshots: managed)
                 ?? buildInstalledRecord(at: sceneLibraryRootURL.appendingPathComponent(dependencyItemID, isDirectory: true),
@@ -591,12 +589,10 @@ extension SteamWorkshopService {
             dependencyItemID: dependencyItemID,
             browserItem: browserItem
         )
-        let scenePkgURL: URL? = {
-            guard let resolvedLegacyDirectory else { return nil }
-            let candidate = resolvedLegacyDirectory.appendingPathComponent("scene.pkg")
-            return FileManager.default.fileExists(atPath: candidate.path) ? candidate : nil
-        }()
-        guard metadata != nil || effectiveVideoURL != nil || entryHTMLURL != nil || dependencyItemID != nil || scenePkgURL != nil else {
+        guard Self.hasLocalWorkshopContent(directory: resolvedLegacyDirectory,
+            sceneEntry: contentType == .scene ? resolvedProject?.file : nil,
+            videoURL: effectiveVideoURL, htmlURL: entryHTMLURL,
+            hasDependency: dependencyItemID != nil && resolvedProject != nil) else {
             return nil
         }
 
@@ -645,6 +641,22 @@ extension SteamWorkshopService {
             dependencyItemID: dependencyItemID,
             dependencyStatus: dependencyStatus
         )
+    }
+
+    nonisolated static func hasLocalWorkshopContent(directory: URL?, sceneEntry: String?,
+        videoURL: URL?, htmlURL: URL?, hasDependency: Bool) -> Bool {
+        func isFile(_ url: URL?) -> Bool {
+            guard let url else { return false }
+            return (try? FileManager.default.attributesOfItem(atPath: url.path)[.type] as? FileAttributeType) == .typeRegular
+        }
+        if isFile(videoURL) || isFile(htmlURL) { return true }
+        guard let directory else { return false }
+        let root = directory.resolvingSymlinksInPath().standardizedFileURL
+        if isFile(root.appendingPathComponent("scene.pkg")) { return true }
+        if hasDependency && isFile(root.appendingPathComponent("project.json")) { return true }
+        guard let sceneEntry else { return false }
+        let entry = root.appendingPathComponent(sceneEntry).resolvingSymlinksInPath().standardizedFileURL
+        return entry.path.hasPrefix(root.path + "/") && isFile(entry)
     }
 
     func browserItemForDownload(id: String) -> SteamWorkshopBrowserItem? {

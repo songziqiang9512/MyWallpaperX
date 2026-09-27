@@ -8,6 +8,7 @@ import Foundation
 extension SteamWorkshopService {
     func filteredAndSortedDownloads(from records: [SteamWorkshopDownloadRecord]) -> [SteamWorkshopDownloadRecord] {
         let modeFiltered = records.filter { record in
+            guard record.status == .ready else { return false }
             switch downloadsDisplayMode {
             case .all:
                 return true

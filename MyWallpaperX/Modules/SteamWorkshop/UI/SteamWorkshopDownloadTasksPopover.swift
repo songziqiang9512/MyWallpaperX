@@ -43,7 +43,7 @@ final class SteamWorkshopDownloadTasksPopoverController: NSObject, NSPopoverDele
 }
 
 /// 单一队列面板：进行中任务与历史记录合并展示。
-/// 「全部清除」= 停止全部下载并清空本面板列表，不删除已下载文件。
+/// 「全部清除」只移除终态记录；活动任务、排队和本地内容保持不变。
 @MainActor
 final class SteamWorkshopDownloadTasksContentController: NSViewController {
     private let service: SteamWorkshopService
@@ -81,7 +81,7 @@ final class SteamWorkshopDownloadTasksContentController: NSViewController {
         countLabel.translatesAutoresizingMaskIntoConstraints = false
         clearAllButton.translatesAutoresizingMaskIntoConstraints = false
 
-        countLabel.font = .systemFont(ofSize: 12)
+        countLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         countLabel.textColor = .secondaryLabelColor
 
         clearAllButton.bezelStyle = .inline
@@ -89,7 +89,7 @@ final class SteamWorkshopDownloadTasksContentController: NSViewController {
         clearAllButton.target = self
         clearAllButton.action = #selector(handleClearAll)
         clearAllButton.isEnabled = false
-        clearAllButton.toolTip = "停止全部下载并清空本面板列表，不删除已下载文件"
+        clearAllButton.toolTip = "清除已完成、失败和取消记录，不影响正在下载，不删除已下载文件"
 
         emptyLabel.stringValue = "暂无下载任务"
         emptyLabel.alignment = .center
@@ -200,8 +200,8 @@ final class SteamWorkshopDownloadTasksContentController: NSViewController {
             }
         }
 
-        countLabel.stringValue = orderedKeys.isEmpty ? "" : "\(orderedKeys.count) 项"
-        clearAllButton.isEnabled = !orderedKeys.isEmpty
+        countLabel.stringValue = "下载任务 · \(orderedKeys.count) 项"
+        clearAllButton.isEnabled = jobs.contains { $0.state == .failed } || !summaries.isEmpty
         emptyLabel.isHidden = !orderedKeys.isEmpty
         emptyLabel.stringValue = latestAccountSteamID == nil ? "登录 Steam 后可查看当前账号的下载任务" : "暂无下载任务"
     }
@@ -231,9 +231,6 @@ final class SteamWorkshopDownloadTasksContentController: NSViewController {
             from: service.downloadJobStore.jobs, accountSteamID: account
         ) {
             if job.state == .failed { service.discardFailedDownload(jobID: job.id) }
-            else if SteamWorkshopDownloadTaskProjection.isCancellable(job) {
-                service.cancelDownloadImmediately(itemID: job.workshopItemId, showFeedback: false)
-            }
         }
         service.downloadJobStore.clearHistory(forAccount: account)
     }
@@ -252,11 +249,14 @@ final class SteamWorkshopDownloadRowView: NSView {
     private let thumbnailView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
     private let statusLabel = NSTextField(labelWithString: "")
-    private let progressBar = SteamWorkshopGlassBarView()
+    private let progressBar = NSLevelIndicator()
     private let clearButton = NSButton(title: "", target: nil, action: nil)
+    private let retryButton = NSButton(title: "重试", target: nil, action: nil)
+    private let actionsStack = NSStackView()
 
     private var job: SteamDownloadJob?
     private var clearHandler: (() -> Void)?
+    private var retryHandler: (() -> Void)?
     private var progressObserver: UUID?
     private var currentPreviewURL: URL?
     private var previewCancellation: SteamWorkshopPreviewLoadCancellation?
@@ -279,13 +279,13 @@ final class SteamWorkshopDownloadRowView: NSView {
         thumbnailView.contentTintColor = .tertiaryLabelColor
         thumbnailView.setAccessibilityElement(false)
 
-        titleLabel.font = .systemFont(ofSize: 12.5, weight: .semibold)
+        titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.maximumNumberOfLines = 1
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        statusLabel.font = .monospacedDigitSystemFont(ofSize: 10.5, weight: .regular)
+        statusLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
         statusLabel.textColor = .secondaryLabelColor
         statusLabel.lineBreakMode = .byTruncatingTail
         statusLabel.maximumNumberOfLines = 1
@@ -293,10 +293,16 @@ final class SteamWorkshopDownloadRowView: NSView {
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
 
         progressBar.translatesAutoresizingMaskIntoConstraints = false
-        progressBar.layer?.cornerRadius = 2
+        progressBar.levelIndicatorStyle = .continuousCapacity
+        progressBar.fillColor = .systemBlue
+        progressBar.warningValue = 2
+        progressBar.criticalValue = 2
+        progressBar.drawsTieredCapacityLevels = false
+        progressBar.controlSize = .small
+        progressBar.minValue = 0
+        progressBar.maxValue = 1
         progressBar.setAccessibilityElement(true)
         progressBar.setAccessibilityRole(.progressIndicator)
-        progressBar.setProgressAnimationVisible(true)
 
         clearButton.isBordered = false
         clearButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "清除")?
@@ -309,29 +315,40 @@ final class SteamWorkshopDownloadRowView: NSView {
         addSubview(titleLabel)
         addSubview(statusLabel)
         addSubview(progressBar)
-        addSubview(clearButton)
+        retryButton.bezelStyle = .rounded
+        retryButton.controlSize = .small
+        retryButton.target = self
+        retryButton.action = #selector(handleRetry)
+        retryButton.isHidden = true
+        actionsStack.orientation = .horizontal
+        actionsStack.spacing = 6
+        actionsStack.alignment = .centerY
+        actionsStack.translatesAutoresizingMaskIntoConstraints = false
+        actionsStack.addArrangedSubview(retryButton)
+        actionsStack.addArrangedSubview(clearButton)
+        addSubview(actionsStack)
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: 64),
+            heightAnchor.constraint(equalToConstant: 76),
             thumbnailView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             thumbnailView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            thumbnailView.widthAnchor.constraint(equalToConstant: 44),
-            thumbnailView.heightAnchor.constraint(equalToConstant: 44),
+            thumbnailView.widthAnchor.constraint(equalToConstant: 48),
+            thumbnailView.heightAnchor.constraint(equalToConstant: 48),
 
             titleLabel.leadingAnchor.constraint(equalTo: thumbnailView.trailingAnchor, constant: 10),
-            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 12),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: clearButton.leadingAnchor, constant: -8),
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 14),
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: actionsStack.leadingAnchor, constant: -8),
 
             progressBar.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             progressBar.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 6),
-            progressBar.trailingAnchor.constraint(equalTo: clearButton.leadingAnchor, constant: -8),
-            progressBar.heightAnchor.constraint(equalToConstant: 4),
+            progressBar.trailingAnchor.constraint(equalTo: actionsStack.leadingAnchor, constant: -8),
+            progressBar.heightAnchor.constraint(equalToConstant: 6),
 
             statusLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             statusLabel.topAnchor.constraint(equalTo: progressBar.bottomAnchor, constant: 5),
-            statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: clearButton.leadingAnchor, constant: -8),
+            statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: actionsStack.leadingAnchor, constant: -8),
 
-            clearButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            clearButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            actionsStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            actionsStack.centerYAnchor.constraint(equalTo: centerYAnchor),
             clearButton.widthAnchor.constraint(equalToConstant: 22),
             clearButton.heightAnchor.constraint(equalToConstant: 22)
         ])
@@ -368,6 +385,7 @@ final class SteamWorkshopDownloadRowView: NSView {
                 self?.onCleared()
             }
         }
+        configureRetry(itemID: itemID, title: job.title, account: job.accountSteamId, failed: job.state == .failed)
         clearButton.isEnabled = clearHandler != nil
     }
 
@@ -375,21 +393,22 @@ final class SteamWorkshopDownloadRowView: NSView {
         unbind()
         job = nil
         titleLabel.stringValue = summary.title
-        let outcome: (String, NSColor, SteamWorkshopGlassBarView.AccentStyle, Double?) = {
+        let outcome: (String, NSColor, Double?) = {
             switch summary.latestOutcome {
-            case .completed: return ("已完成", .secondaryLabelColor, .ready, 1)
-            case .failed: return ("失败", .systemRed, .failed, nil)
-            case .cancelled: return ("已取消", .secondaryLabelColor, .neutral, nil)
+            case .completed: return ("已完成", .secondaryLabelColor, 1)
+            case .failed: return ("失败", .systemRed, nil)
+            case .cancelled: return ("已取消", .secondaryLabelColor, nil)
             }
         }()
         statusLabel.stringValue = "\(outcome.0) · \(Self.dateFormatter.string(from: summary.latestTerminalAt))"
         statusLabel.textColor = outcome.1
-        progressBar.applyProgress(style: outcome.2, fraction: outcome.3, indeterminate: false, animated: false)
+        updateProgress(fraction: outcome.2, indeterminate: false)
         progressBar.setAccessibilityLabel("下载进度：\(summary.title)")
         clearButton.isEnabled = true
         clearButton.setAccessibilityLabel("清除：\(summary.title)")
         loadPreviewIfNeeded(itemID: summary.workshopItemID)
         let account = service.steamAuth.steamId
+        configureRetry(itemID: summary.workshopItemID, title: summary.title, account: account, failed: summary.latestOutcome == .failed)
         clearHandler = { [weak self] in
             guard let self, self.service.steamAuth.steamId == account else { return }
             self.service.downloadJobStore.removeHistory(forJobID: summary.jobID, accountSteamId: account)
@@ -408,6 +427,8 @@ final class SteamWorkshopDownloadRowView: NSView {
         lastByteSample = nil
         lastProgressSequence = -1
         clearHandler = nil
+        retryHandler = nil
+        retryButton.isHidden = true
     }
 
     private static let dateFormatter: DateFormatter = {
@@ -442,37 +463,26 @@ final class SteamWorkshopDownloadRowView: NSView {
         statusLabel.toolTip = nil
         switch job.state {
         case .queued:
-            status("等待下载 · 队列第 \(job.queueOrdinal) 项", color: .secondaryLabelColor, style: .queued, fraction: nil, indeterminate: false)
+            status("等待下载 · 队列第 \(job.queueOrdinal) 项", color: .secondaryLabelColor, fraction: nil, indeterminate: false)
         case .running:
-            status("正在连接", color: .secondaryLabelColor, style: .downloading, fraction: nil, indeterminate: true)
+            status("正在连接", color: .secondaryLabelColor, fraction: nil, indeterminate: true)
         case .staged, .committing:
-            status("正在保存", color: .secondaryLabelColor, style: .downloading, fraction: 1, indeterminate: false)
+            status("正在保存", color: .secondaryLabelColor, fraction: 1, indeterminate: false)
         case .failed:
-            status(job.failureMessage ?? "下载失败", color: .systemRed, style: .failed, fraction: nil, indeterminate: false)
+            status(job.failureMessage ?? "下载失败", color: .systemRed, fraction: nil, indeterminate: false)
             statusLabel.toolTip = job.failureMessage
         case .completed:
-            status("已完成", color: .secondaryLabelColor, style: .ready, fraction: 1, indeterminate: false)
+            status("已完成", color: .secondaryLabelColor, fraction: 1, indeterminate: false)
         case .cancelled:
-            status("已取消", color: .secondaryLabelColor, style: .neutral, fraction: nil, indeterminate: false)
+            status("已取消", color: .secondaryLabelColor, fraction: nil, indeterminate: false)
         }
     }
 
     private func apply(job: SteamDownloadJob, snapshot: SteamWorkshopDownloadProgressSnapshot) {
         guard snapshot.itemID == job.workshopItemId,
               snapshot.jobKey == SteamWorkshopDownloadTaskProjection.jobKey(for: job) else { return }
-        let style: SteamWorkshopGlassBarView.AccentStyle = {
-            switch snapshot.phase {
-            case .waiting: return .waiting
-            case .failed: return .failed
-            default: return .downloading
-            }
-        }()
-        progressBar.applyProgress(
-            style: style,
-            fraction: snapshot.fraction,
-            indeterminate: snapshot.fraction == nil && snapshot.phase != .failed && snapshot.phase != .waiting,
-            animated: snapshot.sequence > 0
-        )
+        updateProgress(fraction: snapshot.fraction,
+            indeterminate: snapshot.fraction == nil && snapshot.phase != .failed && snapshot.phase != .waiting)
         var parts: [String] = [snapshot.statusText(compact: true)]
         if snapshot.phase == .transferring {
             parts.append(sizeText(snapshot: snapshot))
@@ -494,14 +504,29 @@ final class SteamWorkshopDownloadRowView: NSView {
 
     private func status(
         _ text: String, color: NSColor,
-        style: SteamWorkshopGlassBarView.AccentStyle,
         fraction: Double?, indeterminate: Bool
     ) {
         statusLabel.stringValue = text
         statusLabel.textColor = color
-        progressBar.applyProgress(style: style, fraction: fraction, indeterminate: indeterminate, animated: false)
+        updateProgress(fraction: fraction, indeterminate: indeterminate)
         progressBar.setAccessibilityValue(text)
     }
+
+    private func updateProgress(fraction: Double?, indeterminate: Bool) {
+        progressBar.isHidden = indeterminate
+        progressBar.doubleValue = fraction.flatMap { $0.isFinite ? min(1, max(0, $0)) : nil } ?? 0
+    }
+
+    private func configureRetry(itemID: String, title: String, account: String?, failed: Bool) {
+        retryButton.isHidden = !failed
+        retryButton.setAccessibilityLabel("重新下载：\(title)")
+        retryHandler = failed ? { [weak self] in
+            guard let self, let account, self.service.steamAuth.steamId == account else { return }
+            self.service.downloadWorkshopItem(id: itemID, pageTitle: title)
+        } : nil
+    }
+
+    @objc private func handleRetry() { retryHandler?() }
 
     /// 「已下载 / 总大小」；总大小未知时只显示已下载。
     private func sizeText(snapshot: SteamWorkshopDownloadProgressSnapshot) -> String {
