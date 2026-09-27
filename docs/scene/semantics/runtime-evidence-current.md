@@ -3804,3 +3804,16 @@ v4 的 `3780119725` generation 1 include-current-process capture data peak `0.49
 静态核对：SceneParticleWorldSpacePlan+Descriptor把hasInlineScript整体判作变换动态；不能简单按colorn/origin脚本host分类放行，因为本层、祖先或其他owner脚本可能改写变换。SceneParticleWorldSpaceFrame只有准备时方向逆矩阵，不能作为动态世界位置存储。RopePlan当前仅接受renderer flags=0、subdivision≤7及4096生成段；原参数最坏255×101=25755段。ControlPointForce的emitter pointer demand独立排除world/perspective。独立只读审查确认这些边界，不建议继续逐门放宽。
 
 本项暂缓：恢复时先在唯一typed-frame/particle链中明确指针世界点→发射→存量粒子位置→最终模型的职责，使用出生后父层移动/旋转与跨层脚本改写的反例；之后再以renderer world和有界细分分别验收。颜色脚本执行、原包画面、未知动态组合仍开放。本批未构建或运行全套测试，复用已验证的优化Debug二进制SHA-256 `69a9349e4195f30161a607f3a920f544fa7a38c3103a387ca6f7fc9a549594a3`、CDHash `6a01a4d97b157a5edfab1c4da0554c1340c7bf81`。报告、49张原尺寸截图、生成输入、专项断言、审查与SHA manifest保存在本机缓存`docs/scene/evidence/2026-09-28-rope-breakpoint-isolation/`；不复制官方研究材料。
+
+
+<a id="e-2026-09-28-child-builder-retirement"></a>
+
+### E-2026-09-28-CHILD-BUILDER-RETIREMENT — 子粒子实例构建旧入口退役
+
+基线e444c3d9。成员级调用核对确认SceneParticleChildInstanceBuilder仅由ChildRuntime调用rebuildAll，并一直传入准备期templatesByIndex。删除无产品/测试调用的rebuild(template:systems:...)整套逐模板filter/reserve/instance实现；rebuildAll索引参数改为必传，移除无人触达的临时Dictionary分支，缩短旧迁移注释。产品净删52行，不改live/render-only系统合并顺序、world birth origin、rope隔离、瞬时粒子采样、生命周期或渲染参数；不保留兼容wrapper。
+
+产品patch SHA-256 `9b37c3f11958f0b4a021dd1cf5b63de3377e7d356fcd6a69434506fe29e5dd8b`获独立只读审查APPROVE。现役particle runtime模块37项中27通过、10项因历史isolated evidence/cache缺失而跳过；已执行子粒子退休/短命样本、预热继承与回滚、rope、非法缩放保留安全peer并恢复等行为门。无测试删除或新增源码形状断言。selector建议particle keyword全族，本批按无调用入口退役范围执行runtime模块加完整构建，未声称全族通过。code-health通过、221条存量warning保持。
+
+隔离优化Debug构建成功，App2.10.0(279)，executable SHA-256 `63c85be6dd7d7a5f6cd56fbe8b785878f455cc5c6472500e89777efb007e2625`，CDHash `27ec986c1f5a32da047dbe5abdb65b9324d78abb`。真实2131872317原包隔离副本10秒静音回放PASS、particle9/9；30条child census中最大202粒子、bufferFailures全为0，1375有200粒子/2batch记录且进入committed-nonempty。submitted/completed/failed/presented为286/285/0/284。终端after截图已查看，画面及灯笼可见；截图时刻不覆盖完整烟花爆发，不能用它证明烟花颜色/形态或官方parity。现役执行链的回归证据不等于性能提升，未进行耗时A/B。
+
+本机缓存`docs/scene/evidence/2026-09-28-child-builder-retirement/`保留报告、原尺寸截图、矩阵、执行/构建/测试日志、产品patch、审查和SHA manifest。跳过的历史实包测试未以本次单样本替代为全通过；旧rope世界空间与其他视觉开放项均保持原状态。
