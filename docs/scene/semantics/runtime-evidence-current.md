@@ -3703,3 +3703,16 @@ v4 的 `3780119725` generation 1 include-current-process capture data peak `0.49
 最终优化Debug来自隔离worktree的同一产品patch。一次构建误从主工作区发起，立即中断且未用于验收；之后在隔离worktree完整重建成功并校验diff身份。最终App 2.0.9(277)，executable SHA-256 `330d8744b209c96228d3dbefb6c93dc560590203b22b0f8f0c934e69d44cad96`，CDHash `617fe1d8b527640b62aa7f4c08c2d4b8a9b9a7b4`。自有cursor-owner冲突fixture同输入分别运行单surface与同物理屏双surface，各8秒固定静音。子帧press/release后红owner只执行一次click到world(300,230)，绿owner被拒一次后下一帧重试到(800,490)；hover及after标记最大误差0.2241px以内，像素计数均超过30000。frame 0/1/2完成日志分别覆盖一/两个surface；测量窗单窗submitted/completed/failed/presented=166/166/0/165，双窗332/330/0/164。fixture为直接层绘制，无graph publication需求，不虚构graph输出证据。
 
 两轮通用benchmark均因持久点击位移不满足hover离开复位判据而保留FAIL；双窗另有presentation stream=1与surface=2不符的FAIL。独立事件/ROI/GPU门通过不能替代这些判据。缓存`docs/scene/evidence/2026-09-28-cursor-surface-routing/`包含最终single/multi和首轮intermediate-single（非最终产品身份）原始报告；verification含专项判据、测试、最终构建及冻结patch，37个文件SHA由verification-manifest记录。真实双显示器及原生鼠标跨屏、真实窗口重建中途拖动、任意JS heap副作用回滚、官方parity与性能改进均未由本批证明。
+
+
+<a id="e-2026-09-28-cursor-parallax"></a>
+
+### E-2026-09-28-CURSOR-PARALLAX — 点击命中继承同帧平滑视差
+
+首断点是图层命中投影把parallax固定为零，而实际imageModelMatrix使用渲染帧的平滑视差。现在既有smoother通过值副本preview复用advance，按相同simulationFrameTime及动态优先delay取得候选；候选进入原makeFrameContext的enabled门与原模型矩阵。只有渲染事务推进/恢复原状态，没有第二时钟、坐标算法或平滑状态。全局SceneScript world pointer仍无图层深度，不被强行绑定某一层视差。
+
+基线04e2efb8，产品/测试冻结patch SHA-256 `768436aca27c8770caeba493e372a166277b01583473a6c1dea66a24092368b0`，独立只读审查APPROVE。14项Swift平滑/几何门以及2项动态开关/鼠标权重门通过，含preview不消耗状态、重复读取稳定、与advance一致及restore后重算。隔离worktree优化Debug构建成功；修后App 2.0.9(277)，executable SHA-256 `c3ed6b8e5cfe79e184eaf39a24800e8e401a75f0831200dcdd2b52d97b4034ee`，CDHash `a397658c4edc0fc8ce298645a451630aa32799de`。
+
+自有两色几何fixture声明1280×720正交画布、camera amount0.5/delay0、红目标depth(1,1)，绿色结果标记depth0。同内容/同输入修前后各两轮8秒固定静音回放：正例pointer(0.5,0)修前click=0/标记x149.857，修后click=1/x299.796；负例pointer(0.86,0)修前误click=1/x299.796，修后click=0/x149.857。ready/hover/after共12个标记ROI误差小于0.3 world像素，各74529屏幕像素；各阶段红色目标mask修前后逐像素相同。修后submitted/completed/failed分别166/165/0、166/166/0，后续截图保持正确结果；直接层绘制不需要graph publication，不虚构graph证据。四个通用benchmark均PASS，但修前已有错误，因此本结论依赖独立事件次数及ROI正反门。
+
+缓存`docs/scene/evidence/2026-09-28-cursor-parallax/`保存A/B报告、截图、日志、fixture、冻结patch与专项验证脚本，verification-manifest记录文件SHA。实际App fixture为零delay；非零delay/动态enabled由生产Swift行为门覆盖。真实Workshop组合、原生拖动、多显示器、事件回调同帧改camera参数、官方视觉及性能仍未验证。另发现CursorEvent.localPosition当前仍输出居中归一化坐标，与官方图片像素单位合同不符，单独入队，不以本批宣称完整坐标合同闭合。

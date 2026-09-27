@@ -141,6 +141,13 @@ nonisolated struct SceneParallaxPointerSmoother: Sendable {
         lastInputTimestamp = timestamp.isFinite ? timestamp : lastInputTimestamp
     }
 
+    /// Hit testing precedes encode. Read its candidate position without
+    /// consuming time; the render transaction owns advancement and rollback.
+    nonisolated func preview(delta: Double, delay: Float) -> SIMD2<Float> {
+        var candidate = self
+        return candidate.advance(delta: delta, delay: delay)
+    }
+
     nonisolated mutating func advance(
         delta: Double,
         delay authoredDelay: Float

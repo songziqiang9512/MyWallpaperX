@@ -65,7 +65,7 @@
 - 验证记录：指针 down/up 受控 A/B——高分稳定块 18/15 个 dy=+25px（跟随鼠标下移）；fixed13 与基线零新增；layer_parallax/camera_shake 测试绿。
 - 重启条件：后续有官方同输入对照（P4）或用户愿意再验收时，从"余留疑点"清单继续。`g_ParallaxPosition` shader uniform 缺 0.5 中心化+influence 缩放——全语料零消费，随本项延后。
 
-**Q1-C 点击/拖动已闭合项的余量**：真实 AppKit 鼠标录屏验收、多步连续 move、compositor 窗口切片（仪器=from-launch 开关+命中盒探针；退役条件=Q1-C 收口）。**Q1-D previous-pointer 作者效果**：连续轨迹批已修正 current-only；previous 侧作者效果未验收。点击拖放本身用户已确认正确（2026-09-25）。
+**Q1-C 点击/拖动已闭合项的余量**：[视差命中批](semantics/runtime-evidence-current.md#e-2026-09-28-cursor-parallax)已取消命中矩阵的零视差，实际App正反例证明可见区域触发且旧区域不误触。新登记独立缺口：CursorEvent.localPosition仍将居中归一化坐标直接发送脚本，官方图片合同要求0到图层size的局部像素；owner为SceneMetalView投影→CursorProgram事件DTO，沿原逆矩阵/唯一事件链修正，验收需旋转/缩放/图层尺寸与outside拖动反例，禁止新增坐标分派路径。剩余：真实 AppKit 鼠标录屏验收、多步连续 move、compositor 窗口切片（仪器=from-launch 开关+命中盒探针；退役条件=Q1-C 收口）。**Q1-D previous-pointer 作者效果**：连续轨迹批已修正 current-only；previous 侧作者效果未验收。点击拖放本身用户已确认正确（2026-09-25）。
 
 ### Q0 — 兼容路线 P0 尾项
 

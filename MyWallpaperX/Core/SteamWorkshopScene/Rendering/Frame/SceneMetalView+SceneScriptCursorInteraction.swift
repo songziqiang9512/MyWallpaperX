@@ -169,7 +169,11 @@ extension SceneMetalView {
         let frameContext = makeFrameContext(
             timing: timing,
             dynamicValues: dynamicValues,
-            parallax: .zero,
+            parallax: parallaxPointerSmoother.preview(
+                delta: timing.simulationFrameTime,
+                delay: dynamicValues.cameraPropertyProjection().parallaxDelay
+                    ?? renderer.renderDescriptor.camera.parallaxDelay
+            ),
             audioSpectrum: .silent
         )
         let cameraFrame = renderer.makeCameraFrame(frameContext: frameContext)
@@ -191,7 +195,7 @@ extension SceneMetalView {
             let model = renderer.imageModelMatrix(
                 for: layer,
                 worldFramesByLayerID: worldFrames,
-                parallaxMouseNormalized: .zero,
+                parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                 configuration: parallax,
                 visibleHalfExtents: cameraFrame.coverHalfExtents,
                 usesPerspective: cameraFrame.resolvesPerspective(for: layer)

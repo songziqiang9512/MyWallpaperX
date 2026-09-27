@@ -66,6 +66,9 @@ enum Harness {
         let smoothSecond = smoother.advance(delta: 0.25, delay: 1)
         smoother.setTarget(SIMD2(-1, 1), timestamp: 0.5)
         let rollbackState = smoother.snapshot()
+        let preview = smoother.preview(delta: 0.25, delay: 1)
+        let repeatedPreview = smoother.preview(delta: 0.25, delay: 1)
+        let previewPreservedState = smoother.snapshot() == rollbackState
         let smoothAfterInput = smoother.advance(delta: 0.25, delay: 1)
         let smoothAdvanced = smoother.advance(delta: 0.25, delay: 1)
         smoother.restore(rollbackState)
@@ -75,6 +78,11 @@ enum Harness {
 
 
         let result: [String: Any] = [
+            "previewMatchesRender": preview == smoothAfterInput,
+            "previewStable": repeatedPreview == preview,
+            "previewPreservedState": previewPreservedState,
+            "previewRestores": preview == smoothRestored,
+            "previewZeroDelay": smoother.preview(delta: 0.01, delay: 0) == zeroDelay,
             "root": vector(SceneLayerParallax.resolve(layerID: 1, nodesByID: nodes)?.depth),
             "inherited": vector(SceneLayerParallax.resolve(layerID: 3, nodesByID: nodes)?.depth),
             "inheritedSource": SceneLayerParallax.resolve(layerID: 3, nodesByID: nodes)?.sourceLayerID ?? -1,
@@ -180,6 +188,10 @@ class SceneLayerParallaxTests(unittest.TestCase):
         self.assertEqual(self.result["xOnly"], [-50, 0])
         self.assertEqual(self.result["position"], [20, -15])
         self.assertEqual(self.result["cameraPosition"], [-4, 3])
+
+    def test_hit_test_preview_does_not_consume_render_or_rollback_state(self) -> None:
+        for key in ("previewMatchesRender", "previewStable", "previewPreservedState", "previewRestores", "previewZeroDelay"):
+            self.assertTrue(self.result[key], key)
 
     def test_pointer_delay_smoothing(self) -> None:
         self.assertEqual(self.result["smoothFirst"], [0.25, -0.25])

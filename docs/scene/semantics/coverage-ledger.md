@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-28 视差图层命中位置（S4 isolated Host）
+
+命中投影取消固定零视差，读取原smoother同帧候选并经过原enabled门与imageModelMatrix；状态仅由渲染事务推进/撤回。签名App同输入A/B证明移动后的可见区域由漏点修为单次click，已离开的旧区域由误触修为不触发；目标几何逐像素相同，事件标记ROI误差小于0.3px。16项定向门及隔离构建通过，详见[运行证据](runtime-evidence-current.md#e-2026-09-28-cursor-parallax)。实际App为零delay fixture，非零delay由Swift行为门覆盖；事件中修改camera与脚本localPosition单位等余项未关闭。
+
 ## 2026-09-28 单/多 surface 光标事件共用分发
 
 Host按同一次输入的共享顺序重放有界事件，移除多surface的latest-only分支与重复投影入口；拖动固定按下窗口，换窗leave使用旧窗口坐标，重建时沿现有teardown取消旧输入。边沿与surface DTO沿原事务快照恢复，任一队列溢出拒绝整批，局部owner重试仍保留原事件。真实Swift/QuickJS及几何门通过，同物理屏单/双独立surface的子帧点击、owner冲突重试和终端ROI取得正证，详见[运行证据](runtime-evidence-current.md#e-2026-09-28-cursor-surface-routing)。真实双显示器、原生鼠标跨屏及拖动中途实际窗口重建尚未验收；重建边界目前由reset行为门和静态接线证明。
