@@ -29,6 +29,23 @@ enum SceneLayerCursorGeometry {
         )
     }
 
+    /// CursorEvent uses unscaled object pixels, with the image's lower-left
+    /// corner at zero. The inverse model already removes size, pivot, parent
+    /// and live transforms. Keep out-of-bounds points for captured drags.
+    static func authoredLocalPosition(
+        _ centeredLocal: SIMD3<Float>, size: SIMD2<Float>
+    ) -> SIMD3<Double>? {
+        guard centeredLocal.x.isFinite, centeredLocal.y.isFinite,
+              centeredLocal.z.isFinite,
+              size.x.isFinite, size.y.isFinite,
+              size.x > 0, size.y > 0 else { return nil }
+        return SIMD3(
+            (Double(centeredLocal.x) + 0.5) * Double(size.x),
+            (Double(centeredLocal.y) + 0.5) * Double(size.y),
+            0
+        )
+    }
+
     static func layerUV(
         mouseNormalized: SIMD2<Float>,
         modelViewProjection: simd_float4x4

@@ -101,7 +101,39 @@ enum Harness {
                 1 - (effectTextureProjection[1] + 0.5),
             ]
         }()
+        let objectSize = SIMD2<Float>(320, 180)
+        let transformedPixelPoints: [[Double]] = [
+            transformedMVP,
+            SceneMatrix.translation(SIMD3(0.3, 0.1, 0))
+                * SceneMatrix.rotationZ(-0.4)
+                * SceneMatrix.scale(SIMD3(-0.6, 1.2, 1))
+                * transformedMVP
+                * SceneMatrix.translation(SIMD3(0.5, -0.5, 0)),
+        ].map { mvp in
+            let clip = mvp * local
+            guard let point = SceneLayerCursorGeometry.layerPoint(
+                mouseNormalized: SIMD2(clip.x, clip.y) / clip.w,
+                modelViewProjection: mvp
+            ) else { return [] }
+            return triple(SceneLayerCursorGeometry.authoredLocalPosition(point, size: objectSize))
+        }
         let result: [String: Any] = [
+            "localPixelCenter": triple(SceneLayerCursorGeometry.authoredLocalPosition(
+                .zero, size: objectSize
+            )),
+            "localPixelCorners": [SIMD3<Float>(-0.5,-0.5,0), SIMD3<Float>(0.5,0.5,0)].map {
+                triple(SceneLayerCursorGeometry.authoredLocalPosition($0, size: objectSize))
+            },
+            "localPixelOutside": triple(SceneLayerCursorGeometry.authoredLocalPosition(
+                SIMD3(1.5,-1.5,0), size: objectSize
+            )),
+            "transformedPixelPoints": transformedPixelPoints,
+            "invalidLocalPixelInputs": [
+                SceneLayerCursorGeometry.authoredLocalPosition(.zero, size: .zero),
+                SceneLayerCursorGeometry.authoredLocalPosition(.zero, size: SIMD2(-1,20)),
+                SceneLayerCursorGeometry.authoredLocalPosition(.zero, size: SIMD2(.infinity,20)),
+                SceneLayerCursorGeometry.authoredLocalPosition(SIMD3(.nan,0,0), size: objectSize),
+            ].allSatisfy { $0 == nil },
             "identityCenter": pair(SceneLayerCursorGeometry.layerUV(
                 mouseNormalized: .zero,
                 modelViewProjection: SceneMatrix.identity()
@@ -216,6 +248,18 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
         self.assertEqual(len(actual), len(expected))
         for actual_component, expected_component in zip(actual, expected):
             self.assertAlmostEqual(actual_component, expected_component, places=5)
+
+    def test_cursor_local_pixels_use_unscaled_object_size(self) -> None:
+        self.assertEqual(self.result["localPixelCenter"], [160, 90, 0])
+        self.assertEqual(self.result["localPixelCorners"], [[0, 0, 0], [320, 180, 0]])
+        for point in self.result["transformedPixelPoints"]:
+            self.assertEqual(len(point), 3)
+            for actual, expected in zip(point, [192, 54, 0]):
+                self.assertAlmostEqual(actual, expected, places=3)
+
+    def test_cursor_local_pixels_keep_outside_drag_and_reject_invalid_size(self) -> None:
+        self.assertEqual(self.result["localPixelOutside"], [640, -180, 0])
+        self.assertTrue(self.result["invalidLocalPixelInputs"])
 
     def test_identity_maps_surface_center_to_layer_center(self) -> None:
         self.assert_pair_almost_equal(self.result["identityCenter"], [0.5, 0.5])

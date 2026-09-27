@@ -3716,3 +3716,16 @@ v4 的 `3780119725` generation 1 include-current-process capture data peak `0.49
 自有两色几何fixture声明1280×720正交画布、camera amount0.5/delay0、红目标depth(1,1)，绿色结果标记depth0。同内容/同输入修前后各两轮8秒固定静音回放：正例pointer(0.5,0)修前click=0/标记x149.857，修后click=1/x299.796；负例pointer(0.86,0)修前误click=1/x299.796，修后click=0/x149.857。ready/hover/after共12个标记ROI误差小于0.3 world像素，各74529屏幕像素；各阶段红色目标mask修前后逐像素相同。修后submitted/completed/failed分别166/165/0、166/166/0，后续截图保持正确结果；直接层绘制不需要graph publication，不虚构graph证据。四个通用benchmark均PASS，但修前已有错误，因此本结论依赖独立事件次数及ROI正反门。
 
 缓存`docs/scene/evidence/2026-09-28-cursor-parallax/`保存A/B报告、截图、日志、fixture、冻结patch与专项验证脚本，verification-manifest记录文件SHA。实际App fixture为零delay；非零delay/动态enabled由生产Swift行为门覆盖。真实Workshop组合、原生拖动、多显示器、事件回调同帧改camera参数、官方视觉及性能仍未验证。另发现CursorEvent.localPosition当前仍输出居中归一化坐标，与官方图片像素单位合同不符，单独入队，不以本批宣称完整坐标合同闭合。
+
+
+<a id="e-2026-09-28-cursor-local-pixels"></a>
+
+### E-2026-09-28-CURSOR-LOCAL-PIXELS — 脚本局部坐标恢复图层像素单位
+
+[官方公开CursorEvent](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/CursorEvent.html)规定图片localPosition的X/Y范围为0到thisLayer.size的对应分量，Z未使用。原投影把居中unit quad坐标直接发给JS，导致作者按像素使用时响应位移过小或原点偏移。本批在既有完整model inverse之后，按与LayerHandleBridge同源的sizeWH换算未缩放像素，Z为0；旋转/父变换/镜像/pivot不重复应用。命中仍用原unit quad，捕获ownerProjections保留越界点；删除独立filter，在同一投影循环中返回命中与完整投影。现有准入已要求有限正size，新guard不额外收窄合格owner。Y-up/左下原点沿用当前author坐标推断；公开文档未明确其轴原点，不将其记为官方golden。
+
+基线69c999bf，产品/测试patch SHA-256 `53863bcee12ae0ad5030b6015c25109b95a6fc3232f282e8407cd5ebb057af66`，独立只读审查APPROVE。32项真实Swift几何与QuickJS捕获/owner事务测试通过，新增单位、角点/中心、完整逆矩阵下旋转/父变换/镜像/pivot、越界和非法尺寸反例。inner计划已检查，按本职责选择上述定向门，未跑渲染组全部18模块。隔离worktree优化Debug构建成功；期间主工作区另有发布职责提交0c0808f8，本回放身份仍为69c999bf加本批产品patch，未声称包含该发布批的组合构建已验收。修后App 2.0.9(277)，executable SHA-256 `0296f4c2dd71a3dc40606c189feea72b10905570da9e80a6ccfaa4ab74ad0d4e`，CDHash `55ae8a21cb58d4e24e51ff244b2631726a649546`。
+
+同内容与输入的自有三组fixture各A/B回放8秒固定静音：作者size320×180，plain scale1；transformed与outside-drag scale(1.5,0.75)、Scene文件角度30弧度（不是SceneScript角度属性）。cursorUp将local/2加(200,200)写入独立绿色标记。修前依次传(0.173218,0.2)、(−0.056290,0.446810)、(−0.245823,3.045405)；修后为(215.429740,126.000001)、(141.987318,170.425860)、(81.336746,638.172884)。相机cover与逆旋转/缩放的独立数学oracle误差小于0.005；修后hover/after终端标记最大误差0.220 world像素，保持到后续截图。越界case在currentHit=0/captureActive=1时仍恰好执行一次cursorUp，Y638大于作者height180而未截断。三轮修后submitted/completed/failed均164/164/0；直接层绘制无graph publication需求，不虚构graph证据。
+
+两组click的通用benchmark修前后均因50px标记低于hover运动阈值保持FAIL；drag修前因延迟spring-after快照晚于停止而FAIL，修后该通用门PASS。用于本结论的hover/after及事件在两侧均完整，专项门通过不覆盖上述通用失败。缓存`docs/scene/evidence/2026-09-28-cursor-local-pixels/`保留原报告、截图、日志、自有fixture、构建与测试、独立审查决定、冻结patch和验证脚本，verification-manifest记录SHA。真实Workshop的交互组合、文字/padding和puppet hitBox、透视及多屏、官方Y原点/完整坐标parity尚未取得新实测；世界坐标、surface pointer、事件重试与渲染几何不由本批改写。

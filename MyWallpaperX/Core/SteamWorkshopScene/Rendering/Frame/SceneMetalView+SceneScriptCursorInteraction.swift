@@ -92,8 +92,8 @@ extension SceneMetalView {
             puppetAttachmentFrames: puppetAttachmentFrames
         )
         return .init(
-            hits: originInteractionHits(projections, pointerIsInside: pointer.isInside),
-            ownerProjections: projections,
+            hits: projections.hits,
+            ownerProjections: projections.ownerProjections,
             pointerPosition: pointer.normalizedPosition,
             primaryButtonIsDown: pointer.primaryButtonIsDown,
             surface: sceneScriptSurfaceInput(pointer: pointer, timing: timing, dynamicValues: dynamicValues),
@@ -104,17 +104,6 @@ extension SceneMetalView {
 
     func restoreSceneScriptPointerEvents(_ batch: SceneSurfacePointerEventBatch) {
         sceneScriptPointerEvents.restore(batch)
-    }
-
-    private func originInteractionHits(
-        _ projections: [Int: SceneScriptCursorHit],
-        pointerIsInside: Bool
-    ) -> [Int: SceneScriptCursorHit] {
-        guard pointerIsInside else { return [:] }
-        return projections.filter { _, hit in
-            hit.localPosition.x >= -0.5 && hit.localPosition.x <= 0.5
-                && hit.localPosition.y >= -0.5 && hit.localPosition.y <= 0.5
-        }
     }
 
 #if DEBUG
@@ -162,10 +151,10 @@ extension SceneMetalView {
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
         puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty
-    ) -> [Int: SceneScriptCursorHit] {
+    ) -> (hits: [Int: SceneScriptCursorHit], ownerProjections: [Int: SceneScriptCursorHit]) {
         guard metalLayer.drawableSize.width > 0,
               metalLayer.drawableSize.height > 0,
-              !ownerLayerIDs.isEmpty else { return [:] }
+              !ownerLayerIDs.isEmpty else { return ([:], [:]) }
         let frameContext = makeFrameContext(
             timing: timing,
             dynamicValues: dynamicValues,
@@ -190,6 +179,7 @@ extension SceneMetalView {
             dynamicValues: dynamicValues
         )
         var hits: [Int: SceneScriptCursorHit] = [:]
+        var projections: [Int: SceneScriptCursorHit] = [:]
         for ownerLayerID in ownerLayerIDs {
             guard let layer = renderer.layersByID[ownerLayerID] else { continue }
             let model = renderer.imageModelMatrix(
@@ -226,18 +216,25 @@ extension SceneMetalView {
                 world,
                 sceneOrthoHeight: renderer.renderDescriptor.camera.orthoHeight
             )
-            hits[ownerLayerID] = .init(
+            guard let authoredLocal = SceneLayerCursorGeometry.authoredLocalPosition(
+                local, size: SIMD2(layer.sizeWH ?? [], fill: 0)
+            ) else { continue }
+            let hit = SceneScriptCursorHit(
                 layerID: ownerLayerID,
                 worldPosition: SIMD3(
                     Double(authoredWorld.x),
                     Double(authoredWorld.y),
                     Double(authoredWorld.z)
                 ),
-                localPosition: SIMD3(
-                    Double(local.x), Double(local.y), Double(local.z)
-                )
+                localPosition: authoredLocal
             )
+            projections[ownerLayerID] = hit
+            if pointer.isInside,
+               local.x >= -0.5, local.x <= 0.5,
+               local.y >= -0.5, local.y <= 0.5 {
+                hits[ownerLayerID] = hit
+            }
         }
-        return hits
+        return (hits, projections)
     }
 }

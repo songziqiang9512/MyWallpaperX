@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-28 CursorEvent 局部像素单位（S4 isolated Host）
+
+脚本出口按既有完整逆矩阵及thisLayer.size同源尺寸输出未缩放局部像素；命中仍按unit quad，捕获拖动保留越界值。32项定向门、隔离构建及三组实际App同输入A/B通过专项判据，终端标记最大误差0.220px，见[运行证据](runtime-evidence-current.md#e-2026-09-28-cursor-local-pixels)。闭合原归一化单位缺口；Y原点沿当前author Y-up推断，官方坐标对照、文字/puppet等完整语义仍开放。
+
 ## 2026-09-28 视差图层命中位置（S4 isolated Host）
 
 命中投影取消固定零视差，读取原smoother同帧候选并经过原enabled门与imageModelMatrix；状态仅由渲染事务推进/撤回。签名App同输入A/B证明移动后的可见区域由漏点修为单次click，已离开的旧区域由误触修为不触发；目标几何逐像素相同，事件标记ROI误差小于0.3px。16项定向门及隔离构建通过，详见[运行证据](runtime-evidence-current.md#e-2026-09-28-cursor-parallax)。实际App为零delay fixture，非零delay由Swift行为门覆盖；事件中修改camera与脚本localPosition单位等余项未关闭。
