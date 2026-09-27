@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-28 旧 CPU effect 音频路径退役
+
+已删除没有产品调用者的SceneAudioResponse及SceneAudioResponseAdmission，共281行产品代码；专属数值测试、旧源码形状断言和失效清单登记同步退役。现役effect继续由MaterialProgram消费共享audio snapshot，脚本及粒子保留各自已有消费者，没有新公式/owner。154项定向测试、隔离构建和3211615441固定PCM回放通过，见[运行证据](runtime-evidence-current.md#e-2026-09-28-audio-legacy-retirement)。只关闭无调用残留，不表示频谱均衡偏好、官方幅度或整样本视觉完成。下文历史Pulse迁移段落中的旧准入器仅描述当时状态。
+
 ## 2026-09-28 Bloom 直接属性实时控制
 
 `general.bloom/bloomstrength/bloomthreshold/bloomtint` 的 direct Bool/Slider/Color 绑定现沿既有 compiler、live state、typed snapshot进入最终Bloom；初始关闭但可开启的场景在加载时准备pipeline，并以同一准备结果声明drawable可读。未新增property/renderer状态路径。63项定向门、完整App开关A/B、无截图Metal validation及真实3750813609正常回放通过，见[运行证据](runtime-evidence-current.md#e-2026-09-28-bloom-live-properties)。条件绑定、HDR专用参数、参数官方视觉对照及用户光束/条纹反馈仍开放。

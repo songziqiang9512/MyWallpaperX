@@ -3757,3 +3757,16 @@ v4 的 `3780119725` generation 1 include-current-process capture data peak `0.49
 额外两次不带evidence-dir/截图的实际App运行，MTL_DEBUG_LAYER=1日志确认Metal API Validation Enabled，实时更新accepted、同窗口、exit0并正常停止；没有依赖DEBUG截图强制framebuffer可读。该模式不启用每帧performance telemetry，因此其零计数不作为GPU completion证据；completion与可见输出由上面的截图回放和GPU门承担。真实3750813609原包隔离副本8秒静音回归PASS、纹理加载1.0，submitted/completed/failed/presented=166/165/0/164。样本视觉完整性不由该PASS推定。
 
 本机证据缓存`docs/scene/evidence/2026-09-28-bloom-live-properties/`保留before/after/real报告及原尺寸截图、fixture、无截图日志、像素统计、构建/门禁/审查身份与45文件SHA manifest。完整HDR scatter/knee链、conditional绑定、官方参数视觉golden、用户眼周光强/光束/条纹反馈未关闭；UI支持分支经完整构建，实际属性面板手工交互未单独测试。可选pipeline准备失败仍保持该renderer生命周期内Bloom缺席，重建时重试。
+
+
+<a id="e-2026-09-28-audio-legacy-retirement"></a>
+
+### E-2026-09-28-AUDIO-LEGACY-RETIREMENT — 删除无调用 CPU effect 音频实现
+
+基线82e83153。成员级引用核对确认SceneAudioResponse只由SceneAudioResponseAdmission使用，后者没有产品调用者；现役effect经MaterialProgram编码共享audio snapshot，脚本/粒子消费仍在原owner。删除两文件281行；删除只测试旧CPU公式的345行模块，以及audio_demand旧准入器正则和particle声明中比较退役公式的形状断言；layout/gates删失效登记，测试调度fixture换现役spectrum_input。产品/测试/清单合计净减少649行，未引入替代算法或执行路径。冻结patch SHA-256 `0b5eefa549066aef173351eddc6814962359304bd8eaae804f2a2406b29c5924`，独立只读审查APPROVE。
+
+154项定向测试通过：现役audio demand/spectrum input/particle response/declaration及调度70项，source sets/code-health工具24项，selector59项，source layout1项。代码健康通过，保留221条存量warning。删除测试触发selector的repository-all-tests建议，inner删除路径因同步移除登记显示unmapped；checkpoint路径可由完整构建覆盖。本批按无调用职责退役风险采用以上现役行为、源清单及完整构建替代全仓执行，没有给已删文件添加永久门禁条目，也未修改selector放宽规则；不声称full suite通过。
+
+隔离worktree优化Debug构建成功。App 2.10.0(279)，executable SHA-256 `9c41e18a963a29818cdec7ebb34f1a5ddb8e0558839ec7154fa7a41efa800204`，CDHash `9515a9dc2ffe8424b28667896d66ac5e1f0eb65f`。真实3211615441原包隔离副本固定PCM10秒回放PASS、纹理加载1.0，音圈689/697包含在8个成功graph layer中；executor claimed/encoded=64/64、failure/local fallback=0，62个graph observation全部terminal/transaction成功。submitted/completed/failed/presented=284/283/0/282；已查看终端after原尺寸截图，双侧细音圈与条形仍可见。该截图及计数仅作删除后的现役链回归，不是官方形态、完整属性或全柱活跃度验收，也不把零调用删除宣称为播放性能提升。
+
+报告、原尺寸ready/after截图、执行/构建/测试日志、冻结patch、矩阵与审查身份保存在本机缓存`docs/scene/evidence/2026-09-28-audio-legacy-retirement/`，verification-manifest登记归档SHA。真实音乐全柱均衡、普通入口用户视觉验收与未覆盖样本仍在原队列中。

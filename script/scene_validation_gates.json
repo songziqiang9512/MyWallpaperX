@@ -119,7 +119,6 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/**",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioResponse.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailInbox.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackProgram.swift",
@@ -582,7 +581,6 @@
       "id": "render-graph",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/**",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneAudioResponseAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneAuthoredMaterialResolver.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneAuthoredXRayPlanner+StockIdentity.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectAdmissionCatalog+Reporting.swift",

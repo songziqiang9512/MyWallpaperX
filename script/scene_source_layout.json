@@ -25,7 +25,6 @@
       },
       "Material": {
         "file_globs": [
-          "SceneAudioResponseAdmission.swift",
           "SceneAuthoredMaterialResolver.swift",
           "SceneAuthoredXRayPlanner+StockIdentity.swift",
           "SceneBaseMaterialColorModulationCompiler.swift",
@@ -602,7 +601,6 @@
       },
       "Media": {
         "file_globs": [
-          "SceneAudioResponse.swift",
           "SceneAudioSpectrum.swift",
           "SceneMediaThumbnailCoordinator.swift",
           "SceneMediaThumbnailInbox.swift",

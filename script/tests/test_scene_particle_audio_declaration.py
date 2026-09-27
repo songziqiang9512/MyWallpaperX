@@ -339,11 +339,6 @@ class SceneParticleAudioSchemaContractTests(unittest.TestCase):
                 "粒子 audio 默认值官方未公开，不得在 IR 层内置",
             )
 
-    def test_execution_plan_is_separate_from_effect_audio_formula(self) -> None:
-        source = AUDIO_PLAN_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("Project-owned clean-room approximation", source)
-        self.assertNotIn("SceneAudioResponse.evaluate", source)
-        self.assertIn("audioResponseBounded", source)
 
 
 if __name__ == "__main__":

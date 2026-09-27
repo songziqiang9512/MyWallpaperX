@@ -32,7 +32,6 @@ FRAME_CONTEXT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/R
 FRAME_PREFLIGHT_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
 )
-AUDIO_ADMISSION_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneAudioResponseAdmission.swift"
 RESOLVED_CAPABILITY_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift"
 )
@@ -602,19 +601,6 @@ enum AudioDemandHarness {
                 run_result.stdout + run_result.stderr,
             )
             self.assertEqual(run_result.stdout.strip(), "audio-demand-ok")
-
-
-class SceneAudioResponseContractTests(unittest.TestCase):
-    def test_shared_defaults_remain_parameterized(self) -> None:
-        shared = AUDIO_ADMISSION_SOURCE.read_text(encoding="utf-8")
-        for pattern in (
-            r'values\["frequencymin"\], range: 0 ?\.\.\. ?15, fallback: 0',
-            r'values\["frequencymax"\], range: 0 ?\.\.\. ?15, fallback: 1',
-            r'values\["audioexponent"\], range: 0 ?\.\.\. ?4, fallback: 1',
-            r'values\["audioamount"\], range: 0 ?\.\.\. ?2, fallback: 1',
-        ):
-            self.assertRegex(shared, pattern)
-        self.assertNotIn("SIMD2(0.5, 1)", shared)
 
 
 if __name__ == "__main__":
