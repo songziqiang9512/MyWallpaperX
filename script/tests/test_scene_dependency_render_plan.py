@@ -34,6 +34,7 @@ UTILITY_RUNTIME_PLAN_SOURCE = (
 )
 LAUNCH_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
 SWIFT_SOURCES = [
+    UTILITY_RUNTIME_PLAN_SOURCE,
     Path(__file__).with_name("fixtures")
     / "SceneDependencyRenderPlanTestSupport.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
@@ -912,6 +913,7 @@ enum Harness {
             )
         )
         let result: [String: Any] = [
+            "utilitySelection": utilitySelection(),
             "parsedVariants": parsed,
             "invalidReference": SceneNamedTextureReference.parse("_rt_imageLayerComposite_bad_a") == nil,
             "referenceCount": plan.references.count,
@@ -1645,6 +1647,29 @@ enum Harness {
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    static func utilitySelection() -> [Int] {
+        let provider = layer(900, visible: false)
+        let layers: [SceneRenderDescriptor.Layer] = [provider] + (901...907).map { id in
+            .init(
+                id: id,
+                contentKind: id == 906 ? "image" : "composition",
+                utilityLayer: .init(kind: .composition),
+                dependencyLayerIDs: id == 902 ? [900, 908] : [900],
+                childLayerIDs: id == 905 ? [909] : [],
+                visible: id == 903 ? false : true,
+                effects: id == 907 ? [] : [effect(id: id, provider: 900)]
+                    + (id == 902 ? [effect(id: 1902, provider: 908)] : [])
+            )
+        }
+        let descriptor = SceneRenderDescriptor(
+            layers: layers + [layer(908, visible: false)],
+            renderOrderLayerIDs: layers.map(\.id) + [908]
+        )
+        return SceneUtilityLayerRuntimePlanner.executableUtilityConsumerLayerIDs(
+            in: descriptor, resolvedMaterialLayerIDs: [901, 902, 903, 905, 906, 907]
+        ).sorted()
     }
 
     static func layer(
@@ -2857,6 +2882,11 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_utility_selection_preserves_single_and_multiple_dependencies(self) -> None:
+        # Hidden, unadmitted, child-owning, non-composition and inactive-effect
+        # consumers must not gain a route while sharing the reference index.
+        self.assertEqual(self.result["utilitySelection"], [901, 902])
 
     def test_named_reference_variants_are_typed(self) -> None:
         self.assertEqual(self.result["parsedVariants"], ["unspecified", "a", "b"])

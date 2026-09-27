@@ -111,13 +111,15 @@ enum SceneUtilityLayerRuntimePlanner {
         resolvedMaterialLayerIDs: Set<Int> = []
     ) -> Set<Int> {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+        let referencesByConsumer = Dictionary(
+            grouping: SceneDependencyGraphAnalysis.references(in: descriptor.layers),
+            by: \.consumerLayerID
+        )
         return Set(descriptor.layers.compactMap { layer in
             let multiProvider = SceneDependencyRenderPlan
                 .isMultiProviderUtilityCandidate(
                     layer: layer,
-                    references: SceneDependencyGraphAnalysis.references(
-                        in: descriptor.layers
-                    ).filter { $0.consumerLayerID == layer.id }
+                    references: referencesByConsumer[layer.id] ?? []
                 )
             guard visibleLayerIDs.contains(layer.id),
                   resolvedMaterialLayerIDs.contains(layer.id),

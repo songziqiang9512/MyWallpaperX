@@ -25,6 +25,11 @@ extension SceneDependencyRenderPlan {
         let references = productReferences + admittedPotentialReferences.filter {
             !productReferences.contains($0)
         }
+        // Keep authored order and multiplicity in each bucket, including
+        // optional references admitted above. These indices live only for
+        // this compilation; frame execution consumes the resulting plan.
+        let referencesByConsumer = Dictionary(grouping: references, by: \.consumerLayerID)
+        let referencesByProvider = Dictionary(grouping: references, by: \.providerLayerID)
         let dependencyEdges = Self.productDependencyEdges(
             layers: descriptor.layers,
             references: references,
@@ -89,9 +94,7 @@ extension SceneDependencyRenderPlan {
                 guard reachableConsumerLayerIDs.contains(layer.id) else {
                     return nil
                 }
-                let layerReferences = references.filter {
-                    $0.consumerLayerID == layer.id
-                }
+                let layerReferences = referencesByConsumer[layer.id] ?? []
                 return Self.isMultiProviderAggregateCandidate(
                     layer: layer,
                     references: layerReferences
@@ -106,9 +109,7 @@ extension SceneDependencyRenderPlan {
                 return Self.visibleImageGraphOutputReference(
                     layer: layer,
                     visibleEffects: layer.effects.filter { $0.visible != false },
-                    references: references.filter {
-                        $0.consumerLayerID == layer.id
-                    },
+                    references: referencesByConsumer[layer.id] ?? [],
                     layersByID: layersByID,
                     visibleLayerIDs: visibleLayerIDs
                 )
@@ -117,9 +118,8 @@ extension SceneDependencyRenderPlan {
         let passthroughSafeGraphOutputProviderLayerIDs = Set(
             visibleGraphOutputReferences.map(\.providerLayerID)
         ).filter { providerLayerID in
-            let incoming = references.filter {
+            let incoming = (referencesByProvider[providerLayerID] ?? []).filter {
                 reachableConsumerLayerIDs.contains($0.consumerLayerID)
-                    && $0.providerLayerID == providerLayerID
             }
             return !incoming.isEmpty && incoming.allSatisfy {
                 visibleGraphOutputReferences.contains($0)
@@ -137,7 +137,7 @@ extension SceneDependencyRenderPlan {
         }
 
         for layer in descriptor.layers where reachableConsumerLayerIDs.contains(layer.id) {
-            let layerReferences = references.filter { $0.consumerLayerID == layer.id }
+            let layerReferences = referencesByConsumer[layer.id] ?? []
             guard !layerReferences.isEmpty else { continue }
             guard let binding = Self.executableBinding(
                 for: layer,
@@ -178,9 +178,7 @@ extension SceneDependencyRenderPlan {
                    consumer.visible == false,
                    Self.activeDependencyProviderLayerIDs(
                        layer: consumer,
-                       references: references.filter {
-                           $0.consumerLayerID == consumer.id
-                       }
+                       references: referencesByConsumer[consumer.id] ?? []
                    ) != [binding.providerLayerID] {
                     consumerLayerIDsToRemove.insert(consumerLayerID)
                     continue
@@ -190,9 +188,7 @@ extension SceneDependencyRenderPlan {
                       let activeProviderDependencies =
                         Self.activeDependencyProviderLayerIDs(
                             layer: provider,
-                            references: references.filter {
-                                $0.consumerLayerID == provider.id
-                            }
+                            references: referencesByConsumer[provider.id] ?? []
                         ),
                       !activeProviderDependencies.isEmpty else { continue }
                 guard activeProviderDependencies.count == 1,
@@ -227,13 +223,11 @@ extension SceneDependencyRenderPlan {
             admittedAggregate = false
             for layer in descriptor.layers
             where pendingAggregateLayerIDs.contains(layer.id) {
-                let layerReferences = references.filter {
-                    $0.consumerLayerID == layer.id
-                }
+                let layerReferences = referencesByConsumer[layer.id] ?? []
                 guard let aggregate = Self.multiProviderAggregate(
                     layer: layer,
                     references: layerReferences,
-                    allReferences: references,
+                    referencesByConsumer: referencesByConsumer,
                     layersByID: layersByID,
                     order: order,
                     visibleLayerIDs: visibleLayerIDs,
@@ -285,7 +279,7 @@ extension SceneDependencyRenderPlan {
         self.multiProviderCandidateLayerIDs = multiProviderCandidateLayerIDs
         self.multiProviderAggregatesByConsumerLayerID = multiProviderAggregates
         self.requiredEffectConsumerLayerIDs = Set(descriptor.layers.compactMap { layer in
-            let layerReferences = references.filter { $0.consumerLayerID == layer.id }
+            let layerReferences = referencesByConsumer[layer.id] ?? []
             let routeDisabledStructuralUtility = namedProviderRouteDisabled
                 && Self.supportsStructuralUtilityConsumer(layer)
                 && (
@@ -764,7 +758,7 @@ extension SceneDependencyRenderPlan {
     private nonisolated static func multiProviderAggregate(
         layer: SceneRenderDescriptor.Layer,
         references: [Reference],
-        allReferences: [Reference],
+        referencesByConsumer: [Int: [Reference]],
         layersByID: [Int: SceneRenderDescriptor.Layer],
         order: [Int: Int],
         visibleLayerIDs: Set<Int>,
@@ -868,9 +862,7 @@ extension SceneDependencyRenderPlan {
                   let providerDependencies =
                     activeDependencyProviderLayerIDs(
                         layer: provider,
-                        references: allReferences.filter {
-                            $0.consumerLayerID == provider.id
-                        }
+                        references: referencesByConsumer[provider.id] ?? []
                     ),
                   providerDependenciesAreAdmitted(
                       provider: provider,

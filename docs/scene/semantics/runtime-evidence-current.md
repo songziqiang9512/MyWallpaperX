@@ -405,6 +405,28 @@
 
 最新截图仍缺官方目标头发斜光，不能把这项公共默认修正认作完整根因。Windows同输入几何/像素对照未运行；静态研究未覆盖尺寸单位、旧Sprite角度、stock资源选择或最终合成。证据仍在`2026-09-28-ray-pass-projection`。后继尺寸诊断见下。
 
+<a id="e-2026-09-28-dependency-reference-index"></a>
+
+### E-2026-09-28-DEPENDENCY-REFERENCE-INDEX — 依赖准备阶段消除重复全图扫描
+
+核对E1候选时确认单provider直接混合与多provider完整graph输入仍有语义差异，本批不凭字段名称删除其中一条。可直接消除的首断点是`executableUtilityConsumerLayerIDs`在每层重复解析整个descriptor的命名引用，以及BindingCompilation在候选、闭包剪枝、aggregate和required consumer计算中反复按consumer/provider筛选同一数组。
+
+修正仅在两个既有准备函数内建立局部分组。BindingCompilation在product与已admitted optional引用合并后建立consumer/provider索引，保留桶内数组顺序与重复项；provider查询仍执行原reachable过滤，aggregate子依赖也消费同一索引。utility只进行一次全图引用分析。索引随本次调用释放，没有持久cache、新owner、帧内状态或准入/失败语义改变；两产品文件合计净删6行。
+
+行为门覆盖现有作者顺序、重复slot拒绝、隐藏provider、optional准入与route关闭；新增utility测试直接调用生产方法，证明单/多输入选择及隐藏、未准入、带child、非composition、无效果反例。其邻接visibility/source-route使用测试替身，不扩张为parent visibility证明。`test_scene_dependency_render_plan`、`test_scene_utility_layers`、`test_scene_visible_graph_output_render_plan`通过；`test_scene_dependency_graph_output_runtime`最初因既有HDR接口缺失而不能编译，本批仅适配descriptor格式与pool初始化测试桩后通过，未删除publication/epoch/reservation反例。独立worktree基于0b2fb74a加本批产品patch完成优化Debug构建；全仓code-health仍有三个既有非Scene行数错误。
+
+性能对照只测生产准备方法，使用同机`-O`、相同合成descriptor、三轮交替before/after，每轮一次预热及五次测量。探针必须断言每个consumer均建立完整aggregate、引用数为两倍consumer数且无issue；未准入的早期探针不作性能证据。既有fixture全部JSON在默认及disable-generic下逐值相同；合成计划还对照完整引用、bindings、aggregate顺序、provider、passthrough阻塞及issues。结果与脚本归档`2026-09-28-dependency-reference-index`。三轮共15次测量中位值（毫秒）：
+
+| 多输入consumer数 | utility选择 before → after | dependency编译 before → after |
+|---|---|---|
+| 16 | 0.2528 → 0.0251 | 0.1990 → 0.1970 |
+| 128 | 13.8855 → 0.1742 | 1.4528 → 1.3709 |
+| 512 | 216.4929 → 0.6471 | 6.8883 → 5.2170 |
+
+512规模三轮各自utility中位数before为231.8360/215.1131/216.4929，after为0.6433/0.6459/0.6498；对应dependency为7.0354/6.8805/6.8480与5.2352/5.2157/5.2170。小规模dependency差异接近噪声，不声称普遍加速。
+
+本批未测真实壁纸端到端首帧、普通帧率、内存峰值或官方视觉对照；不将准备期微基准等同实际启动加速。单/多provider传递owner收敛、重复完整plan编译仍开放，需保留direct混合与graph完整性差异后另作纵向迁移。
+
 <a id="e-2026-09-28-rotation-source-types"></a>
 
 ### E-2026-09-28-ROTATION-SOURCE-TYPES — 保留旧式初始旋转输入类型

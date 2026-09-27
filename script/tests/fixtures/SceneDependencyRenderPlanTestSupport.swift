@@ -19,7 +19,7 @@ struct SceneDocument {
 }
 
 struct SceneUtilityLayer {
-    enum Kind { case composition, project, fullscreen }
+    enum Kind: String { case composition, project, fullscreen }
     let kind: Kind
 }
 
@@ -44,6 +44,7 @@ struct SceneRenderDescriptor {
     }
 
     struct MaterialPassDescriptor {
+        var combos: [String: Int] = [:]
         let materialPath: String
         let passIndex: Int
         let texturePaths: [String]
@@ -84,6 +85,10 @@ struct SceneRenderDescriptor {
     }
 
     struct Layer {
+        struct DisplayScriptOwnership { let visible: Bool }
+        var displayScriptOwnership: DisplayScriptOwnership? = nil
+        var parentID: Int? = nil
+        var colorBlendMode: Int? = nil
         let id: Int
         var staticModelPath: String? = nil
         var puppetMeshPath: String? = nil
@@ -101,3 +106,20 @@ struct SceneRenderDescriptor {
     var modelMaterialLinks: [ModelMaterialLink] = []
     var materialPasses: [MaterialPassDescriptor] = []
 }
+
+// Adjacent owners used by the utility planning harness. Tests below exercise
+// dependency selection; parent visibility and source coverage have separate gates.
+enum SceneLayerVisibility {
+    static func visibleLayerIDs(in descriptor: SceneRenderDescriptor) -> Set<Int> {
+        Set(descriptor.layers.filter { $0.visible != false }.map(\.id))
+    }
+}
+struct SceneUtilityLayerSourceRoute {
+    let capturesCompositionSubtree: Bool
+    let triggerLayerID: Int
+    static func resolve(layer: SceneRenderDescriptor.Layer, descriptor: SceneRenderDescriptor)
+        -> Result<Self, NSError> {
+        .success(.init(capturesCompositionSubtree: false, triggerLayerID: layer.id))
+    }
+}
+enum SceneBlendModeShaderSource { static let maximumMode = 31 }

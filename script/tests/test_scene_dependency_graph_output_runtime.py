@@ -60,6 +60,8 @@ struct SceneUtilityLayer {
 }
 
 struct SceneRenderDescriptor {
+    struct ColorTargetFormat { let metalPixelFormat: MTLPixelFormat = .bgra8Unorm }
+    let colorTargetFormat = ColorTargetFormat()
     struct Layer {
         struct Effect { let visible: Bool? }
         let id: Int
@@ -402,13 +404,16 @@ final class SceneNamedRenderTargetPool {
     private let device: MTLDevice
     private(set) var residentByteCost = 0
 
-    init(device: MTLDevice) {
+    private let pixelFormat: MTLPixelFormat
+
+    init(device: MTLDevice, pixelFormat: MTLPixelFormat) {
         self.device = device
+        self.pixelFormat = pixelFormat
     }
 
     func texture(for layerID: Int, width: Int, height: Int) -> MTLTexture? {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .bgra8Unorm,
+            pixelFormat: pixelFormat,
             width: width,
             height: height,
             mipmapped: false
