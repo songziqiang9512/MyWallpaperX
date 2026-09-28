@@ -164,6 +164,8 @@ struct SceneRenderDescriptorBuilder {
                     scale: object.scale,
                     scaleHasScript: object.scaleHasScript,
                     angles: object.angles,
+                    originHasScript: object.originHasScript,
+                    anglesHasScript: object.anglesHasScript,
                     originXYZ: padVector(parseVector(object.origin), length: 3, fill: 0),
                     sizeWH: padVector(parseVector(object.size), length: 2, fill: 0),
                     scaleXYZ: padVector(parseVector(object.scale), length: 3, fill: 1),

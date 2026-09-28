@@ -219,6 +219,10 @@ struct SceneRenderDescriptor: Codable {
             ($0.id, SceneParticleWorldSpaceFrame(worldFrame: matrix_identity_float4x4)!)
         })
     }
+
+    var staticParticleWorldSpaceChains: [Int: Set<Int>] {
+        Dictionary(uniqueKeysWithValues: layers.map { ($0.id, [$0.id]) })
+    }
 }
 
 struct SceneDocument {
@@ -302,6 +306,8 @@ enum Harness {
             try printJSON(syntheticEventFollow())
         case "nested-synthetic":
             try printJSON(syntheticNestedChildren())
+        case "worldspace-freeze":
+            try printJSON(syntheticWorldSpaceFreeze())
         case "nested-real":
             guard CommandLine.arguments.count == 4 else { throw HarnessError.missingPath }
             try printJSON(realNestedMatrix(
@@ -1890,6 +1896,83 @@ enum Harness {
                 $0.kind == .simulationLimitation && $0.detail?.contains("childScaleBounded") == true
                     ? $0.detail : nil
             },
+        ]
+    }
+
+    private static func syntheticWorldSpaceFreeze() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mwx-particle-worldspace-freeze-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeParticle(
+            "particles/world-freeze.json",
+            material: "materials/shared.json",
+            flags: 1,
+            velocityX: 120,
+            lifetime: 10,
+            moves: true,
+            rate: 120,
+            under: directory
+        )
+        let descriptor = SceneRenderDescriptor(
+            layers: [layer(71, "particles/world-freeze.json")],
+            renderOrderLayerIDs: [71],
+            materialPasses: [
+                .init(
+                    materialPath: "materials/shared.json",
+                    shaderPath: "genericparticle",
+                    texturePaths: ["shared.png"],
+                    blending: "additive"
+                )
+            ]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw HarnessError.noMetal
+        }
+        let runtime = SceneParticleRuntime(
+            descriptor: descriptor,
+            cacheDirectory: directory,
+            device: device
+        )
+        let originLane = SceneDynamicTarget.layer(layerID: 71, field: .origin)
+        let transformLaneResolver = SceneDynamicSnapshotResolver()
+        func snapshotWithTransformLane() -> SceneDynamicSnapshot {
+            transformLaneResolver.resolve(
+                frameIndex: 1,
+                generation: 1,
+                definitions: [
+                    SceneDynamicTargetDefinition(
+                        target: originLane,
+                        valueType: .vector3,
+                        authoredValue: .vector3(0, 0, 0)
+                    ),
+                ],
+                timelineValues: [originLane: .vector3(10, 0, 0)]
+            ).snapshot
+        }
+        _ = runtime.advance(by: 1.0 / 60.0, dynamicValues: .empty(frameIndex: 0))
+        let moving = runtime.advance(by: 1.0 / 60.0, dynamicValues: .empty(frameIndex: 1))
+        let frozen = runtime.advance(by: 1.0 / 60.0, dynamicValues: snapshotWithTransformLane())
+        let frozenAgain = runtime.advance(by: 1.0 / 60.0, dynamicValues: snapshotWithTransformLane())
+        func positions(_ batches: [SceneParticleDrawBatch]) -> [[Float]] {
+            (batches.first { $0.layerID == 71 })?.instances.map {
+                [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+            } ?? []
+        }
+        return [
+            "movingLayerActive": moving.contains { $0.layerID == 71 },
+            "movingPositions": positions(moving),
+            "frozenPositions": positions(frozen),
+            "frozenAgainPositions": positions(frozenAgain),
+            "freezeDiagnostic": runtime.diagnostics.contains {
+                $0.kind == .simulationLimitation
+                    && $0.layerID == 71
+                    && $0.detail == "world-space frame frozen after runtime transform write"
+            },
+            "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
         ]
     }
 
@@ -4473,6 +4556,19 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertGreaterEqual(max(counts), 1)
         self.assertEqual(counts[-2:], [0, 0])
         self.assertLess(counts.index(max(counts)), len(counts) - 2)
+
+    def test_world_space_system_freezes_on_runtime_transform_write(self) -> None:
+        result = self.run_harness("worldspace-freeze")
+        self.assertTrue(result["movingLayerActive"])
+        # The system simulates normally while no chain transform lane exists.
+        self.assertTrue(result["movingPositions"])
+        self.assertTrue(any(abs(x) > 0.01 for x, _, _ in result["movingPositions"]))
+        # A runtime transform write into the chain freezes the system at its
+        # last committed state (previous-current) instead of silently
+        # misconverting world forces through the stale launch frame.
+        self.assertEqual(result["frozenPositions"], result["movingPositions"])
+        self.assertEqual(result["frozenAgainPositions"], result["movingPositions"])
+        self.assertTrue(result["freezeDiagnostic"])
 
     def test_synthetic_nested_children_follow_depth_limit_and_budget(self) -> None:
         result = self.run_harness("nested-synthetic")

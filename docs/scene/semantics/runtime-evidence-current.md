@@ -6,6 +6,16 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-world-space-gate"></a>
+
+### E-2026-09-28-WORLD-SPACE-GATE — 世界空间首门按声明变换写者收窄并补运行时安全失效（切片 1a）
+
+**首断点与实现：**2986218263 的世界空间粒子系统此前被首门整体拒绝：`hasAuthoredTransformMotion` 把 `hasInlineScript`（对象树中任何脚本，包括 colorn 值脚本泵）整体判作变换动态。现门收窄为**声明变换写者**：对象 `origin/scale/angles` 字段的脚本包装（新增 `originHasScript/anglesHasScript`，沿用既有 `scaleHasScript` 管道）+ 既有 transform-host timeline/diagnostics；值脚本不再判动态。`SceneParticleStaticWorldSpacePlan` 新增 `chainMembership`（eligible 层→祖先链成员集，`eligibleLayerIDs` 保留为 wrapper），frames 改用链成员推导（重构中曾引入逐节点过滤缺陷，由链反例当场抓住修复）。运行时安全失效：`SceneParticleRuntime.advance` 每帧以 `dynamicTransformLayerIDsForFrame`（快照单一权威）与链成员求交，命中即冻结该系统（delta 0 前进、保留上次提交粒子=previous-current）并记一次性 `.simulationLimitation` 诊断——防新准入链被未声明跨层变换写入静默错误换算（队列反例"出生后父层移动/跨层脚本变换"的安全侧覆盖；逐帧活帧消费属切片 1b）。产品 7 文件，无新 owner/状态机，普通帧新增一次 O(链×集合) 检测。
+
+**验证：**红先行——stash 产品后 solid-layers 新门测试在旧码失败（值脚本层 160 不在 eligible 集合）。绿——solid-layers 15 项（160 准入；161 origin 脚本仍拒；163 脚本父链下静态子仍拒；164/165 静态链准入）；runtime 冻结用例（移动两帧非零位移→带变换通道快照后两帧状态保持+诊断）；粒子 simulator/runtime/solid_layers 联合 122 项（10 既有环境跳过）；selector 20 模块 18 绿+1 项 telemetry 既有源码形状断言失败（干净 HEAD 复现过，非本批回归）；checkpoint Debug 构建、code-health（218 既有 warning）通过。
+
+**真实回放：**2986218263 隔离 20 秒：层 47 诊断从 `worldSpaceUnsupported:dynamicSystemTransform` 变为 `ropeRendererUnsupported:rope:unsupportedProfile`（rope 隔离链的下一门，本批按设计未动）；零冻结误触发；protocol `particle loading incomplete` 保留（renderer/指针门照旧）。**边界：**本批不恢复 2986218263 渲染（门 2 rope renderer flags/subdivision、门 3 world/perspective 指针 CP0 供应仍按队列恢复门独立开放）；逐帧活世界帧（与渲染侧 `SceneLayerDynamicWorldFrameResolver` 统一消费）属切片 1b；冻结语义为安全降级非官方行为（官方在受控观测前不猜）。候选 App 2.10.0(280) SHA256 `d687f1b45637ffa67fb7a48e296c0a625858ce14b78db3eee7b07f535ed19aaf`、CDHash `ed44cd70a4cbedc7e943bdc3e01dd47c70a9cf78`；冻结 product patch SHA256 `578cfa08680f8a6ff685498b755c21ec80780c0c0db14078d7bb51de6dfab8f0`、tests patch `34a803bc65f2a4307cb25cb0765b9c827aa51d38c55804742f860008701177ff`。忽略缓存`2026-09-28-world-space-gate`保留回放报告/日志、红证明、身份与冻结补丁。
+
 <a id="e-2026-09-28-video-real-samples"></a>
 
 ### E-2026-09-28-VIDEO-REAL-SAMPLES — 脚本视频命令链三个真实样本验收通过（证据批，无产品改动）

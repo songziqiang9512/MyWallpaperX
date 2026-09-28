@@ -26,6 +26,12 @@ final class SceneParticleRuntime {
     private let device: MTLDevice
     private var layers: [SceneParticleLayerRuntime] = []
     private(set) var diagnostics: [SceneParticleRuntimeDiagnostic] = []
+    /// Eligible world-space layer -> ancestor-chain members. A dynamic-snapshot
+    /// transform write into any member invalidates that system's launch-static
+    /// world frame; the system then simulates with a zero delta so its last
+    /// committed particle state keeps rendering (previous-current).
+    private let worldSpaceChains: [Int: Set<Int>]
+    private var frozenWorldSpaceLayerIDs: Set<Int> = []
     /// Launch-stable layer demand for pointer projection. Root and child
     /// template identities are prepared with the particle graph; frame-varying
     /// coordinates are still supplied by the host each advance.
@@ -66,12 +72,15 @@ final class SceneParticleRuntime {
         layerImageEmissionMaps: [Int: SceneParticleLayerImageEmissionMap] = [:],
         initialDiagnostics: [SceneParticleRuntimeDiagnostic] = [],
         staticWorldSpaceFrames: [Int: SceneParticleWorldSpaceFrame]? = nil,
+        staticWorldSpaceChains: [Int: Set<Int>]? = nil,
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
     ) {
         self.device = device
         diagnostics = initialDiagnostics
         let staticWorldSpaceFrames = staticWorldSpaceFrames
             ?? descriptor.staticParticleWorldSpaceFrames
+        worldSpaceChains = staticWorldSpaceChains
+            ?? descriptor.staticParticleWorldSpaceChains
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let particleLayers = Self.orderedLayers(in: descriptor).filter {
             visibleIDs.contains($0.id)
@@ -271,12 +280,38 @@ final class SceneParticleRuntime {
         pointerControlPointLayerIDs = pointerDemandLayerIDs
     }
 
+    /// A script anywhere in the scene may write a chain layer's transform
+    /// through the dynamic snapshot without a declared binding. The frozen
+    /// direction frame would then silently misconvert world forces, so the
+    /// system stops advancing and keeps its last committed particles.
+    private func freezeWorldSpaceSystemsOnRuntimeTransformWrites(
+        _ dynamicValues: SceneDynamicSnapshot
+    ) {
+        guard !worldSpaceChains.isEmpty else { return }
+        let transformLayerIDs = dynamicValues.dynamicTransformLayerIDsForFrame
+        guard !transformLayerIDs.isEmpty else { return }
+        for (layerID, chain) in worldSpaceChains
+        where !frozenWorldSpaceLayerIDs.contains(layerID)
+            && !chain.isDisjoint(with: transformLayerIDs) {
+            frozenWorldSpaceLayerIDs.insert(layerID)
+            addDiagnostic(
+                kind: .simulationLimitation,
+                layerID: layerID,
+                path: layers.first { $0.layerID == layerID }?.particlePath ?? "",
+                detail: "world-space frame frozen after runtime transform write"
+            )
+        }
+    }
+
     /// Advances every active layer by the frame delta and returns batches in scene render order.
     func advance(by frameDelta: TimeInterval, dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
                  pointerLocalPositions: [Int: SIMD3<Double>] = [:], audioInput: SceneParticleAudioInput = .silent) -> [SceneParticleDrawBatch] {
+        freezeWorldSpaceSystemsOnRuntimeTransformWrites(dynamicValues)
         var batches: [SceneParticleDrawBatch] = []
         for index in layers.indices {
             let layerID = layers[index].layerID
+            let layerDelta = frozenWorldSpaceLayerIDs.contains(layerID)
+                ? 0 : frameDelta
             let layerAlpha = SceneDynamicLayerValues.alpha(
                 layerID: layerID,
                 authoredValue: Double(layers[index].layerAlpha),
@@ -303,7 +338,7 @@ final class SceneParticleRuntime {
                     dynamicOverride
                 )
                 root.simulator.advance(
-                    by: frameDelta,
+                    by: layerDelta,
                     dynamicControlPoints: rootControlPoints,
                     dynamicControlPointAngles: controlPointAngles,
                     dynamicInstanceOverride: instanceOverride,
@@ -325,7 +360,7 @@ final class SceneParticleRuntime {
             }
             if let childRuntime = layers[index].childRuntime {
                 let result = childRuntime.advance(
-                    by: frameDelta,
+                    by: layerDelta,
                     spawnEvents: births,
                     deathEvents: deaths,
                     parentParticles: parentParticles,

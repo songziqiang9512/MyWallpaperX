@@ -235,6 +235,10 @@ struct SceneDocumentLoader {
             scaleHasScript: (authoredRoot["scale"] as? [String: Any])?["script"]
                 is String,
             angles: stringValue(root["angles"]),
+            originHasScript: (authoredRoot["origin"] as? [String: Any])?["script"]
+                is String,
+            anglesHasScript: (authoredRoot["angles"] as? [String: Any])?["script"]
+                is String,
             parallaxDepth: stringValue(root["parallaxDepth"]),
             disablesParallaxPropagation: visibleValue(root["disablepropagation"]) ?? false,
             usesPerspective: root["perspective"] as? Bool,

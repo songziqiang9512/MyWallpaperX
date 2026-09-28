@@ -53,18 +53,33 @@ nonisolated enum SceneParticleStaticWorldSpacePlan {
     }
 
     nonisolated static func eligibleLayerIDs(nodes: [Node]) -> Set<Int> {
+        Set(chainMembership(nodes: nodes).keys)
+    }
+
+    /// Eligible layer -> every layer of its ancestor chain. A runtime
+    /// transform write into any chain member invalidates the prepared
+    /// static world frame of that system.
+    nonisolated static func chainMembership(nodes: [Node]) -> [Int: Set<Int>] {
         let byID = Dictionary(uniqueKeysWithValues: nodes.map { ($0.id, $0) })
-        return Set(nodes.compactMap { node in
+        var membership: [Int: Set<Int>] = [:]
+        for node in nodes {
+            var chain: Set<Int> = []
             var current: Node? = node
             var visited: Set<Int> = []
+            var eligible = true
             while let value = current, visited.insert(value.id).inserted {
-                if value.hasAuthoredTransformMotion || value.hasEffectiveParallaxMotion {
-                    return nil
+                chain.insert(value.id)
+                if value.hasAuthoredTransformMotion
+                    || value.hasEffectiveParallaxMotion {
+                    eligible = false
+                    break
                 }
                 current = value.parentID.flatMap { byID[$0] }
             }
-            return current == nil ? node.id : nil
-        })
+            if current != nil { eligible = false } // unreachable parent cycle
+            if eligible { membership[node.id] = chain }
+        }
+        return membership
     }
 }
 

@@ -41,6 +41,12 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+AuthoredAssets.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/SceneLayerParallax.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAttachmentFrameSnapshot.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerWorldFrameResolver.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan+Descriptor.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneMetalPipeline.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneSolidLayerTexture.swift",
 ]
@@ -57,6 +63,47 @@ SCENE_FIXTURE = {
             "color": "0.1 0.2 0.3",
             "size": "1920 1080",
             "alpha": 0.75,
+        },
+        {
+            "id": 160,
+            "name": "Value-script solid",
+            "image": "models/util/solidlayer.json",
+            "size": "100 100",
+            "visible": {"script": "export function update(v) { return v; }", "value": True},
+        },
+        {
+            "id": 161,
+            "name": "Origin-script solid",
+            "image": "models/util/solidlayer.json",
+            "size": "100 100",
+            "origin": {"script": "export function update(v) { return v; }", "value": "0 0 0"},
+        },
+        {
+            "id": 162,
+            "name": "Origin-script parent",
+            "image": "models/util/solidlayer.json",
+            "size": "100 100",
+            "origin": {"script": "export function update(v) { return v; }", "value": "0 0 0"},
+        },
+        {
+            "id": 163,
+            "name": "Static child of scripted parent",
+            "image": "models/util/solidlayer.json",
+            "size": "100 100",
+            "parent": 162,
+        },
+        {
+            "id": 164,
+            "name": "Static parent",
+            "image": "models/util/solidlayer.json",
+            "size": "100 100",
+        },
+        {
+            "id": 165,
+            "name": "Static child",
+            "image": "models/util/solidlayer.json",
+            "size": "100 100",
+            "parent": 164,
         },
         {
             "id": 20,
@@ -390,6 +437,7 @@ enum Harness {
             authoredRawTexture = nil
         }
         let result: [String: Any] = [
+            "worldSpaceFrameLayerIDs": descriptor.staticParticleWorldSpaceFrames.keys.sorted(),
             "documentColors": [10, 20, 30].map { objects[$0]?.colorRGB ?? [] },
             "contentKinds": [10, 20, 30, 40].map { layers[$0]?.contentKind ?? "" },
             "descriptorColors": [10, 20, 30].map { layers[$0]?.colorRGB ?? [] },
@@ -528,6 +576,19 @@ class SceneSolidLayerTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         if hasattr(cls, "temporary_directory"):
             cls.temporary_directory.cleanup()
+
+    def test_world_space_gate_admits_value_scripts_and_rejects_transform_writers(self) -> None:
+        eligible = self.result["worldSpaceFrameLayerIDs"]
+        # A visibility value script is not a transform writer: the chain stays
+        # authored-static and the world-space frame admits it.
+        self.assertIn(160, eligible)
+        # Declared transform writers keep the hard rejection.
+        self.assertNotIn(161, eligible)
+        # A static child under a scripted parent is chain-dynamic.
+        self.assertNotIn(163, eligible)
+        # A fully static chain remains eligible.
+        self.assertIn(165, eligible)
+        self.assertIn(164, eligible)
 
     def test_solid_layer_classification_and_renderability(self) -> None:
         self.assertEqual(self.result["contentKinds"], ["solid", "solid", "solid", "image"])

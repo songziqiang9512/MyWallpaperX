@@ -296,6 +296,8 @@ extension SceneDocument {
         let scale: String?
         var scaleHasScript: Bool? = nil
         let angles: String?
+        var originHasScript: Bool? = nil
+        var anglesHasScript: Bool? = nil
         let parallaxDepth: String?
         let disablesParallaxPropagation: Bool
         /// Explicit layer projection override. Omission inherits the scene's

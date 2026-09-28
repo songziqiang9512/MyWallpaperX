@@ -43,6 +43,8 @@ extension SceneRenderDescriptor {
         let scale: String?
         var scaleHasScript: Bool? = nil
         let angles: String?
+        var originHasScript: Bool? = nil
+        var anglesHasScript: Bool? = nil
         // Numeric transform fields parsed from the corresponding string fields.
         // originXYZ: world-space center (3 floats, defaults to [0,0,0]).
         // sizeWH: world-space size in pixels (2 floats, defaults to [0,0]).
