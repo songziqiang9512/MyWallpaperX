@@ -123,7 +123,6 @@ import Foundation
             "vectorMethods": vectorMethods,
             "changed": try values(changed), "rollback": rolledBack,
             "retry": changedAgain, "committed": committed,
-            "canonicalLocal": mutations.allSatisfy(\.localSpace),
             "localWrites": mutations.map { $0.matrix[12] }, "singularRejected": rejected
         ]
         print(String(data: try JSONSerialization.data(withJSONObject: result), encoding: .utf8)!)
@@ -144,7 +143,6 @@ class QuickJSPuppetBoneBehaviorTests(unittest.TestCase):
 
     def test_world_setters_update_descendants_and_derive_local_journal(self):
         self.assertEqual(self.result['changed'], [31,11,25])
-        self.assertTrue(self.result['canonicalLocal'])
         self.assertEqual(self.result['localWrites'], [10,11])
 
     def test_owner_discard_restores_pose_and_commit_preserves_it(self):

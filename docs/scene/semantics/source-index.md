@@ -301,6 +301,8 @@ Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快�
 
 深层 executable 证据可进一步确认 resolver、binder、frontend 与生命周期结构；它仍不能代替颜色空间/alpha、性能、精确事件顺序或 Windows 视觉/声音 golden。静态结论不更新 [覆盖台账](coverage-ledger.md) 的任何能力等级。
 
+2026-09-28 [骨骼冲量桥接研究](runtime-evidence-current.md#e-2026-09-28-bone-impulse-research)限定于固定2.8.42 API的高层状态职责。唯一净化交接SHA256 `03b912fff1b895ae32f94e2a931f4e712ccb827553aa4bc66809c2e8e4e91817`经独立审查accepted；省略angular、physics-disabled及direction空间仍unknown，官方动态/parity not-run，不构成数值实现依据。自有区分实验与身份随证据归档，原始研究材料不进入实现。
+
 ### 1.12 Metal 平台运行合同
 
 2026-08-04 复核 Apple [Command Organization and Execution Model](https://developer.apple.com/library/archive/documentation/Miscellaneous/Conceptual/MetalProgrammingGuide/Cmd-Submiss/Cmd-Submiss.html)、[`MTLHazardTrackingMode`](https://developer.apple.com/documentation/metal/mtlhazardtrackingmode) 与 [`default`](https://developer.apple.com/documentation/metal/mtlhazardtrackingmode/default)：同一 `MTLCommandQueue` 的 command buffer 按 enqueue 顺序执行，command buffer 是 Metal memory model 的 coherency boundary；普通独立 `MTLResource` 的 default hazard mode 会解析为 tracked，tracked resource 的后续写会等待此前读取完成，而 untracked resource 需要应用自行同步。当前 Scene renderer 使用 `MTLCommandQueue`，不把该合同外推到 Apple 文档明确排除自动 tracking 的 `MTL4CommandQueue`。

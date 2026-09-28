@@ -85,7 +85,7 @@ final class ScenePuppetPlaybackState {
     private var signatureScratch: [FrameSignature]
     private var lastPreparedVertexBufferIndex = 0
     private var preparedPublicationCommandBuffer: ObjectIdentifier?
-    private var scriptBoneOverrides: [Int: ScenePuppetBoneOverride] = [:]
+    private var scriptBoneOverrides: [Int: simd_float4x4] = [:]
 #if DEBUG
     private var recordedBoneSkin = false
     private var recordedWorldDraw = false
@@ -94,7 +94,7 @@ final class ScenePuppetPlaybackState {
 #endif
     private var boneRevision: UInt64 = 0
     private var translationMotions: [Int: ScenePuppetTranslationMotion] = [:]
-    private var boneFrameBaseline: (overrides: [Int: ScenePuppetBoneOverride], revision: UInt64,
+    private var boneFrameBaseline: (overrides: [Int: simd_float4x4], revision: UInt64,
         motions: [Int: ScenePuppetTranslationMotion])?
     private let submissions = SceneSourceUpdateStateFIFO(
         initial: SubmissionState()
@@ -407,7 +407,7 @@ final class ScenePuppetPlaybackState {
         for (index, bone) in evaluator.rig.bones.enumerated() {
             guard let configuration = bone.translationPhysics else { continue }
             var pose = base.local[index]
-            if case let .local(override) = scriptBoneOverrides[index] { pose = override }
+            if let override = scriptBoneOverrides[index] { pose = override }
             let target = SIMD3(base.local[index].columns.3.x,
                 base.local[index].columns.3.y, base.local[index].columns.3.z)
             let position = SIMD3(pose.columns.3.x, pose.columns.3.y, pose.columns.3.z)
@@ -417,7 +417,7 @@ final class ScenePuppetPlaybackState {
             translationMotions[index] = motion
             if next != position {
                 pose.columns.3 = SIMD4(next, 1)
-                scriptBoneOverrides[index] = .local(pose)
+                scriptBoneOverrides[index] = pose
                 boneRevision &+= 1
             }
         }
@@ -439,11 +439,7 @@ final class ScenePuppetPlaybackState {
                 SIMD4<Float>(values[offset], values[offset + 1], values[offset + 2], values[offset + 3])
             }
             let matrix = simd_float4x4(columns: (columns[0], columns[1], columns[2], columns[3]))
-            if mutation.localSpace {
-                next[mutation.boneIndex] = .local(matrix)
-            } else {
-                next[mutation.boneIndex] = .world(matrix)
-            }
+            next[mutation.boneIndex] = matrix
             translationMotions[mutation.boneIndex]?.velocity = .zero
 #if DEBUG
             boneWrittenInFrame = true

@@ -42,7 +42,6 @@ nonisolated struct SceneScriptVideoCommand: Equatable, Sendable {
 nonisolated struct SceneScriptPuppetBoneMutation: Equatable, Sendable {
     let layerID: Int
     let boneIndex: Int
-    let localSpace: Bool
     let matrix: [Double]
 }
 
@@ -58,7 +57,7 @@ nonisolated enum SceneScriptPuppetBoneMutationBridge {
             let result = mwx_scene_quickjs_owner_puppet_bone_mutation_at(owner, index, &raw, &diagnostic, diagnostic.count)
             guard result == MWX_SCENE_QUICKJS_OK, raw.layer_id >= -9_007_199_254_740_991,
                   raw.layer_id <= 9_007_199_254_740_991, raw.bone_index >= 0,
-                  raw.bone_index < 256, raw.local_space <= 1 else {
+                  raw.bone_index < 256 else {
                 return .failure(.invalidArgument(String(cString: diagnostic)))
             }
             let matrix = withUnsafeBytes(of: raw.matrix) { bytes in
@@ -67,7 +66,7 @@ nonisolated enum SceneScriptPuppetBoneMutationBridge {
             guard matrix.count == 16, matrix.allSatisfy(\.isFinite) else {
                 return .failure(.invalidArgument("invalid Puppet bone matrix"))
             }
-            output.append(.init(layerID: Int(raw.layer_id), boneIndex: Int(raw.bone_index), localSpace: raw.local_space != 0, matrix: matrix))
+            output.append(.init(layerID: Int(raw.layer_id), boneIndex: Int(raw.bone_index), matrix: matrix))
         }
         return .success(output)
     }

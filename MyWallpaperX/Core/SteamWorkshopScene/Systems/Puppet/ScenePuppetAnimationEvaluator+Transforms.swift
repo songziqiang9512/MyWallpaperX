@@ -1,13 +1,5 @@
 import simd
 
-/// One last-write-wins script override per dense bone. Keeping the space in
-/// the value (rather than parallel dictionaries) prevents a stale world
-/// write from surviving a later local write for the same bone.
-enum ScenePuppetBoneOverride {
-    case local(simd_float4x4)
-    case world(simd_float4x4)
-}
-
 extension ScenePuppetAnimationEvaluator {
     var boneNames: [String] { rig.bones.map(\.name) }
     var boneParentIndices: [Int] { rig.bones.map(\.parentIndex) }
@@ -15,7 +7,7 @@ extension ScenePuppetAnimationEvaluator {
     func boneTransforms(
         selection: ScenePuppetAnimationSelection,
         frameSamples: [FrameSample?],
-        boneOverrides: [Int: ScenePuppetBoneOverride] = [:]
+        boneOverrides: [Int: simd_float4x4] = [:]
     ) throws -> (local: [simd_float4x4], world: [simd_float4x4]) {
         var local = Array(repeating: matrix_identity_float4x4, count: rig.bones.count)
         var world = local

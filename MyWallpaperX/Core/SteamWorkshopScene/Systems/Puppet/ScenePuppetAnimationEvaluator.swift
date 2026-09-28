@@ -249,7 +249,7 @@ struct ScenePuppetAnimationEvaluator {
         localMatricesScratch: inout [simd_float4x4],
         skinMatricesScratch: inout [simd_float4x4],
         worldMatricesScratch: inout [simd_float4x4],
-        boneOverrides: [Int: ScenePuppetBoneOverride] = [:]
+        boneOverrides: [Int: simd_float4x4] = [:]
     ) throws {
         guard output.count >= preparedVertices.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
@@ -287,56 +287,28 @@ struct ScenePuppetAnimationEvaluator {
     }
 
     func applyOverrides(
-        _ overrides: [Int: ScenePuppetBoneOverride],
+        _ overrides: [Int: simd_float4x4],
         to locals: inout [simd_float4x4],
         worlds: inout [simd_float4x4]
     ) throws {
-        for (index, override) in overrides {
+        for (index, matrix) in overrides {
             guard rig.bones.indices.contains(index) else {
                 throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
-            }
-            let matrix: simd_float4x4
-            switch override {
-            case let .local(value), let .world(value): matrix = value
             }
             guard Self.isFinite(matrix) else {
                 throw ScenePuppetAnimationEvaluationFailure.invalidBindTransform(index)
             }
-            if case let .local(value) = override {
-                locals[index] = value
-            }
+            locals[index] = matrix
         }
-        // Authored rig order is parent-first. Resolve world overrides in that
-        // order so a child sees the effective world transform of its parent.
+        // The VM boundary already resolves all writes to parent-relative
+        // matrices. Authored parent-first order is the only hierarchy pass.
         for (index, bone) in rig.bones.enumerated() {
-            let parentWorld: simd_float4x4?
-            if bone.parentIndex >= 0 {
-                parentWorld = worlds[bone.parentIndex]
-            } else {
-                parentWorld = nil
+            let local = locals[index]
+            guard Self.isFinite(local) else {
+                throw ScenePuppetAnimationEvaluationFailure.invalidBindTransform(index)
             }
-            if case let .world(value) = overrides[index] {
-                if let parentWorld {
-                    let determinant = simd_determinant(parentWorld)
-                    guard determinant.isFinite, abs(determinant) > 0.000001 else {
-                        throw ScenePuppetAnimationEvaluationFailure.singularBindMatrix(index)
-                    }
-                    let local = simd_inverse(parentWorld) * value
-                    guard Self.isFinite(local) else {
-                        throw ScenePuppetAnimationEvaluationFailure.invalidBindTransform(index)
-                    }
-                    locals[index] = local
-                } else {
-                    locals[index] = value
-                }
-                worlds[index] = value
-            } else {
-                let local = locals[index]
-                guard Self.isFinite(local) else {
-                    throw ScenePuppetAnimationEvaluationFailure.invalidBindTransform(index)
-                }
-                worlds[index] = parentWorld.map { $0 * local } ?? local
-            }
+            worlds[index] = bone.parentIndex >= 0
+                ? worlds[bone.parentIndex] * local : local
             guard Self.isFinite(worlds[index]) else {
                 throw ScenePuppetAnimationEvaluationFailure.invalidBindTransform(index)
             }

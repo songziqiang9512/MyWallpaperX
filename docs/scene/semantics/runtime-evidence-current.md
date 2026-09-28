@@ -6,6 +6,28 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-bone-impulse-research"></a>
+
+### E-2026-09-28-BONE-IMPULSE-RESEARCH — 冲量桥接研究收口，数值实现暂挂
+
+研究卡`bone-impulse-bridge-state-20260928`由隔离研究代理执行，仅检查API边界的状态职责，不追物理公式或求解器。`official-public-contract`确认API存在；`official-client-static-observation`只给出版本有界的骨关联持续运动状态职责，不能据此确定数值实现。**省略angular参数、关闭physics的完整JS行为、direction坐标空间仍unknown**，组合规律、精确相位、单位及Windows动态结果未验证。公开页面/随包声明不足以补齐这些未知，不能擅自设零、no-op或选world/local。没有为消除TypeError添加空接口。
+
+固定客户端2.8.42，Steam build本卡未刷新；wallpaper64.exe SHA256 `40e2ce021e9352324fadb3b8f72b8ba2a7ee95b71cc571d5b9f84be75cd993b0`，scenescript64.dll SHA256 `58039ef912fcd51cd833540476e3798268158a06f63003fe94bff1b1cbeaad08`（只识别/哈希，未反编译），Ghidra12.1.2/OpenJDK21.0.12。本轮唯一中性交接SHA256 `03b912fff1b895ae32f94e2a931f4e712ccb827553aa4bc66809c2e8e4e91817`已由独立审查accepted；文件内部待审标记为保持hash未改，以归档外部回执为准。原始研究输出已由研究owner精确清理；产品批不消费原始输出，局部矩阵退役的冻结实现与本研究无依赖。
+
+官方runtime/parity为not-run。本机本轮未发现wine/wine64可执行入口，不推定不存在其他Windows环境。自有黑盒协议已保存：两参/显式零角参数对照、physics开/关及无rig区分、layer与bone分别旋转90度的方向判别、单次事件后多帧运动与零冲量对照；离散结果精确一致、位置1px、角度1度、方向分类2度且位移>3px，必要时五次重复。该卡暂挂，重启条件为取得这些官方受控观测，数值实现交给未接触研究原始表达的独立实现上下文；长期Scene goal继续处理其他有明确合同的缺口。中性卡及accepted回执存入本机忽略缓存`2026-09-28-bone-local-only/supplement`，不保存私有代码、资产或数值表达。
+
+<a id="e-2026-09-28-bone-local-only"></a>
+
+### E-2026-09-28-BONE-LOCAL-ONLY — 退役骨骼下游世界坐标旧表示
+
+**事实与简化：**基线077d4575的唯一C producer已经把world setter通过作者layer/parent逆矩阵转换为parent-relative local，再输出journal；local_space始终为1。下游却仍携带local/world标记和enum，并在Evaluator保留另一套world→local逆变换。现同步删除C字段/赋值、Swift DTO标记、Playback分支和ScenePuppetBoneOverride枚举，overrides只保存局部矩阵；按父先于子的作者顺序重建world。六个产品路径净减43行，无新owner、状态表、矩阵算法或物理公式。局部/world有限性、最终world determinant、作者写入顺序及原snapshot(overrides/revision/motions)保持。
+
+**验证：**28项聚焦测试通过（动画、translation spring、真实VM world/local setter、origin、Scalar/String骨骼副作用）；VM world输入仍输出local `[10,11]`，保留子骨传播/commit/discard反例。旧Evaluator world用例改为同结果的local16→world20，删除恒true空间标记断言；产品可达world API行为仍由实际VM测试承担。优化Debug构建及code-health通过（1005 Swift/219既有warnings），inner选择已查看；未跑全量、全库链接或官方对照。
+
+**实际App回归：**2998757800同NDC交互仍产生layer23的4077顶点更新，maxBindDisplacement50.009941与上批一致；204/203/0/202 submitted/completed/failed/presented，runtime `5e709256-9a12-4c08-9821-833614c0e527`的13/23/50/55/85各层有GPU完成、publication/compositor消费和next-frame。held原图已检查；后继impulse TypeError仍保留，通用hold模板仍NON-PASS，不宣称完整松手物理。9900000300局部origin回归1/1 PASS，164/163/0/162，ready/after分别与上批逐像素一致。此批证据证明退役旧表示不改变上述可达输出，不证明全部样本或性能改善。
+
+**身份/边界：**App2.10.0(279)，SHA256 `23e98a52d11bff9db80f05d8533875ae1b0d2dab4340ca246a5dfc94f36815d7`、CDHash `fff57092882523b30a582428a3186ba3239920d9`，前后验签通过。冻结八产品/测试路径SHA256 `a1f4193dc10aebd8c41e14a3194c6dd0f5a9840a602c751b4644b94d456b07d8`；独立只读审查APPROVE。忽略缓存`2026-09-28-bone-local-only`保存原包与局部回归报告、原图、脚本输入、测试/构建和冻结补丁。并行冲量研究不参与本批实现；冲量、角运动/重力、任意层级/多owner组合和官方parity仍开放。
+
 <a id="e-2026-09-28-bone-author-world"></a>
 
 ### E-2026-09-28-BONE-AUTHOR-WORLD — 骨骼与鼠标共用作者世界坐标

@@ -292,7 +292,6 @@ static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
     mutation->bone_index = bone_index;
     // Publish the resolved parent-relative transform, never a surface-world
     // coordinate mislabeled as evaluator-local data.
-    mutation->local_space = 1u;
     memcpy(mutation->matrix, local[bone], sizeof(matrix));
     memcpy(owner->puppet_bone_local, local, owner->puppet_bone_count * sizeof(local[0]));
     memcpy(owner->puppet_bone_world, world, owner->puppet_bone_count * sizeof(world[0]));

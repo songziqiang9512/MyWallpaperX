@@ -108,12 +108,11 @@ typedef struct MWXSceneQuickJSLayerMutation {
 } MWXSceneQuickJSLayerMutation;
 
 /// A typed Puppet bone write emitted by the existing layer owner transaction.
-/// Matrices use the public Mat4 column-major `m` order and remain borrowed
+/// Parent-relative matrices use Mat4 column-major `m` order and remain borrowed
 /// from the owner until the next transaction boundary.
 typedef struct MWXSceneQuickJSPuppetBoneMutation {
     int64_t layer_id;
     int32_t bone_index; /* dense zero-based index */
-    uint32_t local_space;
     double matrix[16];
 } MWXSceneQuickJSPuppetBoneMutation;
 // text/font/asset_path are borrowed from the owner/domain. Callers must copy
