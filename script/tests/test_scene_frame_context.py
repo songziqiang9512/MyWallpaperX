@@ -67,9 +67,6 @@ VIEW_CURSOR_INTERACTION_SOURCE = (
 PREPFLIGHT_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
 )
-SCALAR_PROGRAM_SOURCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram.swift"
-)
 SCALAR_RUNTIME_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarRuntime.swift"
 )
@@ -601,8 +598,6 @@ class SceneFrameContextTests(unittest.TestCase):
         view = VIEW_SOURCE.read_text(encoding="utf-8")
         view_frame_context = VIEW_FRAME_CONTEXT_SOURCE.read_text(encoding="utf-8")
         preflight = PREPFLIGHT_SOURCE.read_text(encoding="utf-8")
-        scalar_program = SCALAR_PROGRAM_SOURCE.read_text(encoding="utf-8")
-        scalar_runtime = SCALAR_RUNTIME_SOURCE.read_text(encoding="utf-8")
 
         self.assertIn(
             "coordinatedSceneScript.ownerEffects", frame_driver
@@ -640,16 +635,7 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("frameEpoch: textureRegistry.frameEpoch", preflight)
         self.assertIn("effectIndex: mutation.effectIndex", preflight)
         self.assertIn("functionName: mutation.functionName", preflight)
-        self.assertIn(
-            "materialFunctionMutations.append(contentsOf: callbackMaterialMutations)",
-            scalar_program,
-        )
-        self.assertIn(
-            "case let .effectConstant(value, _, _, _), let .layer(value, _),",
-            scalar_runtime,
-        )
-        self.assertIn("let .particle(value, _):", scalar_runtime)
-        self.assertIn("mutationOverflow", scalar_runtime)
+        # Callback material publication is exercised by test_scene_scalar_cursor.
         self.assertIn("invalid-effect-index-\\(mutation.effectIndex)", preflight)
 
     def test_material_mutation_failure_remains_typed_and_local(self) -> None:

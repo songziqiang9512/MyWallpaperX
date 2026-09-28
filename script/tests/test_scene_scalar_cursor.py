@@ -46,6 +46,10 @@ HARNESS=r'''
   let snap=r.scalarProgram.frameStateSnapshot();_=hit(r,true);out["rejectedCandidate"]=update(r,rt)
   r.scalarProgram.restoreFrameState(snap,rejectedOwnerTargets:[rt]);r.scalarProgram.finalizeLayerMutations(committing:true,rejectedOwnerTargets:[rt]);r.cursorProgram.finalizeLayerMutations(committing:true,rejectedOwnerTargets:[rt])
   _=hit(r,true);out["retry"]=update(r,rt);commit(r);_=hit(r,true);out["retryIdle"]=update(r,rt);commit(r)
+  let (m,_)=try make("export function cursorEnter(e){thisLayer.getEffect(0).executeMaterialFunction('reset');}",effect:true)
+  let material=hit(m);out["materialNames"]=material.ownerEffects.flatMap(\.materialFunctionMutations).map(\.functionName)
+  out["materialFailures"]=material.failures.count;commit(m)
+  out["materialIdle"]=hit(m).ownerEffects.flatMap(\.materialFunctionMutations).count
   let (bad,bt)=try make("export function cursorEnter(e){throw new Error('bad');}export function update(v){return v;}")
   out["callbackFailure"]=hit(bad).failures[bt]?.code ?? "none"
   print(String(decoding:try JSONSerialization.data(withJSONObject:out,options:[.sortedKeys]),as:UTF8.self))
@@ -68,3 +72,8 @@ class ScalarCursorTests(unittest.TestCase):
   self.assertEqual(self.value['rejectedCandidate'],.1);self.assertEqual(self.value['retry'],.2);self.assertEqual(self.value['retryIdle'],.2)
  def test_cursor_exception_remains_local_failure(self):
   self.assertEqual(self.value['callbackFailure'],'exception')
+
+ def test_callback_material_commands_publish_once_through_owner_effects(self):
+  self.assertEqual(self.value['materialNames'],['reset'])
+  self.assertEqual(self.value['materialFailures'],0)
+  self.assertEqual(self.value['materialIdle'],0)
