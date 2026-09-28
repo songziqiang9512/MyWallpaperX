@@ -158,7 +158,8 @@ class WallpaperManager: ObservableObject {
     var lastEngineProjectionBaseline: WallpaperSettings?
     
     // 默认设置
-    let defaultSettings = WallpaperSettings()
+    // 默认值单点：与 WallpaperSettings.init(from:) 的缺 key 回退同源。
+    let defaultSettings = WallpaperSettings.defaults
     
     // UserDefaults 键
     let settingsKey = "WallpaperSettings"

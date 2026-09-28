@@ -279,12 +279,59 @@ public struct WallpaperSettings: Codable, Equatable {
     var sortMode: WallpaperSortMode = .none // 壁纸排序方式
     var sortAscending: Bool = true // 排序方向：true=升序，false=降序
 
+    init() {}
+
+    /// 全字段默认值单点（重置/缺 key 回退共用）。
+    static let defaults = WallpaperSettings()
+
+    /// 升级兼容解码：每个字段缺 key 时回退字段默认值，新增设置字段
+    /// 不再使旧持久化整体解码失败（那会让升级用户一次性丢掉全部设置）。
+    /// 历史遗留别名 key 仍然废弃：旧别名在此解码为默认值，不做错乱映射。
+    public init(from decoder: Decoder) throws {
+        let defaults = Self.defaults
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        loopPlayback = try container.decodeIfPresent(Bool.self, forKey: .loopPlayback) ?? defaults.loopPlayback
+        randomPlayback = try container.decodeIfPresent(Bool.self, forKey: .randomPlayback) ?? defaults.randomPlayback
+        sequentialPlayback = try container.decodeIfPresent(Bool.self, forKey: .sequentialPlayback) ?? defaults.sequentialPlayback
+        autoSwitchEnabled = try container.decodeIfPresent(Bool.self, forKey: .autoSwitchEnabled) ?? defaults.autoSwitchEnabled
+        randomInterval = try container.decodeIfPresent(Int.self, forKey: .randomInterval) ?? defaults.randomInterval
+        timeUnit = try container.decodeIfPresent(TimeUnit.self, forKey: .timeUnit) ?? defaults.timeUnit
+        volume = try container.decodeIfPresent(Double.self, forKey: .volume) ?? defaults.volume
+        startOnBoot = try container.decodeIfPresent(Bool.self, forKey: .startOnBoot) ?? defaults.startOnBoot
+        restorePlaybackOnLaunch = try container.decodeIfPresent(Bool.self, forKey: .restorePlaybackOnLaunch) ?? defaults.restorePlaybackOnLaunch
+        pauseWhenOtherAppFullscreen = try container.decodeIfPresent(Bool.self, forKey: .pauseWhenOtherAppFullscreen) ?? defaults.pauseWhenOtherAppFullscreen
+        idleTimeoutMinutes = try container.decodeIfPresent(Int.self, forKey: .idleTimeoutMinutes) ?? defaults.idleTimeoutMinutes
+        pauseWhenOtherAppFocused = try container.decodeIfPresent(Bool.self, forKey: .pauseWhenOtherAppFocused) ?? defaults.pauseWhenOtherAppFocused
+        multiDisplayEnabled = try container.decodeIfPresent(Bool.self, forKey: .multiDisplayEnabled) ?? defaults.multiDisplayEnabled
+        videoFillMode = try container.decodeIfPresent(VideoFillMode.self, forKey: .videoFillMode) ?? defaults.videoFillMode
+        syncSystemWallpaper = try container.decodeIfPresent(Bool.self, forKey: .syncSystemWallpaper) ?? defaults.syncSystemWallpaper
+        pauseWhenUnplugged = try container.decodeIfPresent(Bool.self, forKey: .pauseWhenUnplugged) ?? defaults.pauseWhenUnplugged
+        pauseWhenIdle = try container.decodeIfPresent(Bool.self, forKey: .pauseWhenIdle) ?? defaults.pauseWhenIdle
+        systemHotkeysEnabled = try container.decodeIfPresent(Bool.self, forKey: .systemHotkeysEnabled) ?? defaults.systemHotkeysEnabled
+        previousWallpaperHotkey = try container.decodeIfPresent(FunctionKeyShortcut.self, forKey: .previousWallpaperHotkey) ?? defaults.previousWallpaperHotkey
+        nextWallpaperHotkey = try container.decodeIfPresent(FunctionKeyShortcut.self, forKey: .nextWallpaperHotkey) ?? defaults.nextWallpaperHotkey
+        togglePlaybackHotkey = try container.decodeIfPresent(FunctionKeyShortcut.self, forKey: .togglePlaybackHotkey) ?? defaults.togglePlaybackHotkey
+        toggleMuteHotkey = try container.decodeIfPresent(FunctionKeyShortcut.self, forKey: .toggleMuteHotkey) ?? defaults.toggleMuteHotkey
+        playbackRate = try container.decodeIfPresent(Double.self, forKey: .playbackRate) ?? defaults.playbackRate
+        playbackRateEnabled = try container.decodeIfPresent(Bool.self, forKey: .playbackRateEnabled) ?? defaults.playbackRateEnabled
+        systemAudioSpectrumEnabled = try container.decodeIfPresent(Bool.self, forKey: .systemAudioSpectrumEnabled) ?? defaults.systemAudioSpectrumEnabled
+        systemAudioSpectrumStyle = try container.decodeIfPresent(SystemAudioSpectrumStyle.self, forKey: .systemAudioSpectrumStyle) ?? defaults.systemAudioSpectrumStyle
+        systemAudioSpectrumSensitivity = try container.decodeIfPresent(SystemAudioSpectrumSensitivity.self, forKey: .systemAudioSpectrumSensitivity) ?? defaults.systemAudioSpectrumSensitivity
+        systemAudioSpectrumColorHex = try container.decodeIfPresent(String.self, forKey: .systemAudioSpectrumColorHex) ?? defaults.systemAudioSpectrumColorHex
+        systemAudioSpectrumOffsetX = try container.decodeIfPresent(Double.self, forKey: .systemAudioSpectrumOffsetX) ?? defaults.systemAudioSpectrumOffsetX
+        systemAudioSpectrumOffsetY = try container.decodeIfPresent(Double.self, forKey: .systemAudioSpectrumOffsetY) ?? defaults.systemAudioSpectrumOffsetY
+        systemAudioSpectrumBarCount = try container.decodeIfPresent(Int.self, forKey: .systemAudioSpectrumBarCount) ?? defaults.systemAudioSpectrumBarCount
+        systemAudioSpectrumPeakCapsEnabled = try container.decodeIfPresent(Bool.self, forKey: .systemAudioSpectrumPeakCapsEnabled) ?? defaults.systemAudioSpectrumPeakCapsEnabled
+        sortMode = try container.decodeIfPresent(WallpaperSortMode.self, forKey: .sortMode) ?? defaults.sortMode
+        sortAscending = try container.decodeIfPresent(Bool.self, forKey: .sortAscending) ?? defaults.sortAscending
+    }
+
     enum CodingKeys: String, CodingKey {
         // JSON key 与字段名保持一致，避免语义漂移。
-        // 历史遗留别名已废弃：旧 key（pauseOnBattery / inactivityTimeout /
+        // 解码走 init(from:)：缺 key 回退字段默认值（升级兼容）；
+        // 历史遗留别名 key（pauseOnBattery / inactivityTimeout /
         // performanceOptimization / pauseOnBatteryPower / pauseOnInactivity）
-        // 在旧版本 UserDefaults 中保存过，新版本解码时会因 key 不匹配而回退到默认值。
-        // 这是有意为之的迁移策略：宁可让用户重新设置一次，也不保留错乱映射。
+        // 仍然废弃——旧别名解码为默认值，不保留错乱映射。
         case loopPlayback
         case randomPlayback
         case sequentialPlayback
