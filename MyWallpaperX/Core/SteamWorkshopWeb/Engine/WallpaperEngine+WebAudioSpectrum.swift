@@ -21,7 +21,6 @@ extension WallpaperEngine {
             // previously published snapshot visible to the next Web consumer.
             lastWebSpectrumLevels = []
             let activeWeb = currentPlaybackContentKind == .web
-                && currentSystemAudioSpectrumEnabled
                 && currentWebAudioSpectrumRequested
             if activeWeb {
                 // Input rejection is reported with false, but an active Web
@@ -35,7 +34,6 @@ extension WallpaperEngine {
             return false
         }
         guard currentPlaybackContentKind == .web,
-              currentSystemAudioSpectrumEnabled,
               currentWebAudioSpectrumRequested else {
             return false
         }

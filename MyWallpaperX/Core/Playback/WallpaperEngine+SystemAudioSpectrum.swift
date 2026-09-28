@@ -99,6 +99,9 @@ extension WallpaperEngine {
         refreshSystemAudioSpectrumCapture()
     }
 
+    /// Video-overlay policy entry. The public switch owns only the video
+    /// overlay; Web/Scene capture follows sample-declared demand plus the
+    /// shared pause gate and must not observe this bit.
     public func setSystemAudioSpectrumEnabled(_ enabled: Bool) {
         currentSystemAudioSpectrumEnabled = enabled
         currentSpectrumLevels = Array(
@@ -109,17 +112,17 @@ extension WallpaperEngine {
         refreshSystemAudioSpectrumCapture()
 
         if currentPlaybackContentKind == .web {
-            let clearedOrCurrent = enabled
+            let webLevels = currentWebAudioSpectrumRequested
                 ? (currentWebSpectrumSnapshot() ?? clearedWebSpectrumLevels())
                 : clearedWebSpectrumLevels()
-            lastWebSpectrumLevels = clearedOrCurrent
-            dispatchWebRuntimeCommand(.pushAudioSpectrum(clearedOrCurrent))
+            lastWebSpectrumLevels = webLevels
+            dispatchWebRuntimeCommand(.pushAudioSpectrum(webLevels))
         }
 
         // Detailed daemon configuration is sent by
         // `configureSystemAudioSpectrum`. This policy-only entry point must
-        // not send a second `setSpectrumEnabled` command for the same setting
-        // change; otherwise the settings path has two command owners.
+        // not send a second video-daemon spectrum command for the same
+        // setting change; otherwise the settings path has two command owners.
     }
 
     public func configureSystemAudioSpectrum(
@@ -198,9 +201,11 @@ extension WallpaperEngine {
     }
 
     func refreshSystemAudioSpectrumCapture() {
+        // The public spectrum switch gates only the video overlay. Web/Scene
+        // capture is demand-driven: the sample declares audio listeners and
+        // the shared pause gate stays the only global cut-off.
         let captureAllowed = !PlaybackCommandMultiplexer.shared.isPlaybackPaused
         let webCaptureRequested = captureAllowed
-            && currentSystemAudioSpectrumEnabled
             && currentPlaybackContentKind == .web
             && currentWebAudioSpectrumRequested
 #if DEBUG
@@ -225,7 +230,7 @@ extension WallpaperEngine {
         // in the main App, so excluding the main process still naturally
         // includes sound emitted by the daemon process.
         let requestedRoute = SceneAudioSpectrumCaptureRoutingState.resolvedRoute(
-            captureAllowed: captureAllowed && currentSystemAudioSpectrumEnabled,
+            captureAllowed: captureAllowed,
             debugFixtureOwnsInbox: debugSceneFixtureOwnsInbox,
             localDemand: localSceneDemand,
             daemonDemand: remoteSceneDemand,
@@ -237,7 +242,6 @@ extension WallpaperEngine {
         let sceneCaptureRequested = requestedRoute != .none
         if !localSceneDemand.requiresSpectrum
             || !captureAllowed
-            || !currentSystemAudioSpectrumEnabled
             || debugSceneSilenceOwnsInbox {
             SceneAudioSpectrumInbox.shared.clearSnapshot()
         }

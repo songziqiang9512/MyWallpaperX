@@ -718,28 +718,31 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                 "Non-finite input must clear the visible Web snapshot"
             )
 
-            let inactiveMalformedWebEngine = WallpaperEngine()
+            let overlayOffWebEngine = WallpaperEngine()
+            overlayOffWebEngine.currentSystemAudioSpectrumEnabled = false
             expect(
-                inactiveMalformedWebEngine.dispatchWebAudioSpectrumIfNeeded(malformedBaseline),
-                "Inactive-gate malformed test should start from a non-zero value"
-            )
-            let inactiveDispatchedBeforeMalformed = inactiveMalformedWebEngine.dispatchedWebLevels
-            inactiveMalformedWebEngine.currentSystemAudioSpectrumEnabled = false
-            expect(
-                !inactiveMalformedWebEngine.dispatchWebAudioSpectrumIfNeeded(
-                    [Float](repeating: 0.1, count: 127)
-                ),
-                "Inactive-gate malformed input must be rejected"
+                overlayOffWebEngine.dispatchWebAudioSpectrumIfNeeded(malformedBaseline),
+                "Overlay switch off must not gate a Web sample's own audio demand"
             )
             expectArrayNear(
-                inactiveMalformedWebEngine.dispatchedWebLevels,
-                inactiveDispatchedBeforeMalformed,
+                overlayOffWebEngine.dispatchedWebLevels,
+                malformedBaseline,
                 tolerance: 0,
-                "Inactive-gate malformed input must not dispatch"
+                "Overlay switch off must still publish live Web levels"
             )
             expect(
-                inactiveMalformedWebEngine.currentWebSpectrumSnapshot()!.allSatisfy { $0 == 0 },
-                "Inactive-gate malformed input must clear local snapshot"
+                !overlayOffWebEngine.dispatchWebAudioSpectrumIfNeeded(
+                    [Float](repeating: 0.1, count: 127)
+                ),
+                "Malformed input under overlay-off must still be rejected"
+            )
+            expect(
+                overlayOffWebEngine.dispatchedWebLevels.allSatisfy { $0 == 0 },
+                "Malformed input under overlay-off must publish Web silence"
+            )
+            expect(
+                overlayOffWebEngine.currentWebSpectrumSnapshot()!.allSatisfy { $0 == 0 },
+                "Malformed input under overlay-off must clear local snapshot"
             )
 
             let stereoCompatibilityEngine = WallpaperEngine()
@@ -908,22 +911,6 @@ class SystemAudioSpectrumTests(unittest.TestCase):
             r"systemAudioSpectrumService\.updateConfiguration\(\s*"
             r"style: style,\s*sensitivity: sensitivity,\s*"
             r"barCount: normalizedBarCount\s*\)",
-        )
-
-    def test_global_spectrum_policy_gates_all_capture_consumers(self) -> None:
-        engine = ENGINE_SOURCE.read_text(encoding="utf-8")
-        web = (ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Engine/WallpaperEngine+WebAudioSpectrum.swift").read_text(encoding="utf-8")
-        self.assertIn(
-            "captureAllowed && currentSystemAudioSpectrumEnabled",
-            engine,
-        )
-        self.assertIn(
-            "currentSystemAudioSpectrumEnabled,",
-            web,
-        )
-        self.assertIn(
-            "|| !currentSystemAudioSpectrumEnabled",
-            engine,
         )
 
 

@@ -33,9 +33,6 @@ enum WallpaperEngineCommand: Equatable, Sendable {
     /// 主音量百分比（0...100）。由各引擎把同一用户意图投影到自身播放层。
     case setVolume(Float)
     case setMuted(Bool)
-    /// 全局系统频谱策略门。开启只允许已有作者/overlay demand 使用共享
-    /// producer；不会凭空为 Web/Scene 创建消费者。
-    case setSystemAudioSpectrumEnabled(Bool)
     /// Effective shared state, after manual intent and system policy are combined.
     case setPlaybackPaused(Bool)
     case pause

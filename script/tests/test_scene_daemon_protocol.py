@@ -85,15 +85,15 @@ import Foundation
         if case .failure(.invalidPayload("setMuted")) = decode([
             "v": 1, "cmd": "setMuted", "muted": 1
         ]) { numericMuteRejected = true } else { numericMuteRejected = false }
-        let spectrumToggleValid: Bool
-        if case .success(.setSpectrumEnabled(true)) = decode([
+        let spectrumToggleRetired: Bool
+        if case .failure(.unsupportedCommand("setSpectrumEnabled")) = decode([
             "v": 1, "cmd": "setSpectrumEnabled", "enabled": true
-        ]) { spectrumToggleValid = true } else { spectrumToggleValid = false }
-        let numericSpectrumToggleRejected: Bool
-        if case .failure(.invalidPayload("setSpectrumEnabled")) = decode([
+        ]) { spectrumToggleRetired = true } else { spectrumToggleRetired = false }
+        let numericSpectrumToggleRetired: Bool
+        if case .failure(.unsupportedCommand("setSpectrumEnabled")) = decode([
             "v": 1, "cmd": "setSpectrumEnabled", "enabled": 1
-        ]) { numericSpectrumToggleRejected = true } else {
-            numericSpectrumToggleRejected = false
+        ]) { numericSpectrumToggleRetired = true } else {
+            numericSpectrumToggleRetired = false
         }
         let volumeValid: Bool
         if case let .success(.setVolume(volume)) = decode([
@@ -209,8 +209,8 @@ import Foundation
             "zeroRevisionRejected": zeroRevisionRejected,
             "booleanVersionRejected": booleanVersionRejected,
             "numericMuteRejected": numericMuteRejected,
-            "spectrumToggleValid": spectrumToggleValid,
-            "numericSpectrumToggleRejected": numericSpectrumToggleRejected,
+            "spectrumToggleRetired": spectrumToggleRetired,
+            "numericSpectrumToggleRetired": numericSpectrumToggleRetired,
             "volumeValid": volumeValid,
             "volumeOutOfRangeRejected": volumeOutOfRangeRejected,
             "cancelValid": cancelValid,

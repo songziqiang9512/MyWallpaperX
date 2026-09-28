@@ -119,4 +119,4 @@ daemon 化采用"runtime 原样搬迁"策略——**不重写线程模型**，�
 | QuickJS artifact 磁盘缓存并发（主程序预编译 + daemon 编译） | 缓存协议本就单写者原子替换；daemon 成为唯一编译者后主程序不再触发编译 |
 | 管道背压（frameStats 1Hz 足够小） | 事件丢弃策略：主程序忙时 daemon 侧只保留最新 frameStats |
 | 属性覆盖持久化迁移 | UserDefaults 键与持久化读写留在主程序；daemon 经命令消费运行值，重启由主程序重放 |
-> **2026-09-22 音频策略门合同补记**：Scene daemon 接收版本化 `setSpectrumEnabled(bool)` coarse 命令。`false` 必须清空本地 `SceneAudioSpectrumInbox` 并拒绝后续旧 `publishAudioSpectrum`；`true` 只重新允许已有 typed demand 的 publication，不创建 demand。client 在 active endpoint 与 replay 两处发送同一策略值，避免重连后恢复旧快照或改变作者需求。
+> **音频采集门合同（2026-09-28 收敛）**：原 2026-09-22 的 `setSpectrumEnabled(bool)` coarse 命令已随"频谱开关仅归属 video 叠加层"的目标合同退役——协议 decode 对其返回 `unsupportedCommand`，client 不再发送或重放。Scene 的系统音频采集只由两条门控制：daemon 上报的样本 demand（generation 绑定，重启由 demand 事件自恢复）与共享暂停门（`isPlaybackPaused`）。`SceneAudioSpectrumInbox` 自身的 fail-closed 守卫（无 demand / stale token / 进程集不匹配即拒绝）保持不变。

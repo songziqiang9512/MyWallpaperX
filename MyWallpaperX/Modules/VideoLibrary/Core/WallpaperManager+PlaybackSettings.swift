@@ -300,6 +300,9 @@ extension WallpaperManager {
     }
 
     func applySystemAudioSpectrumToEngine() {
+        // 频谱开关只归属 video 叠加层；Web/Scene 跟随样本声明的音频需求
+        // （加共享暂停门），没有需要广播的公共策略位。可视化细节归
+        // WallpaperEngine 的 configure 入口单点下发。
         WallpaperEngine.shared.configureSystemAudioSpectrum(
             enabled: settings.systemAudioSpectrumEnabled,
             style: settings.systemAudioSpectrumStyle,
@@ -309,12 +312,6 @@ extension WallpaperManager {
             offsetY: Float(settings.systemAudioSpectrumOffsetY),
             barCount: settings.systemAudioSpectrumBarCount,
             peakCapsEnabled: settings.systemAudioSpectrumPeakCapsEnabled
-        )
-        // The detailed visual configuration remains owned by WallpaperEngine;
-        // the public policy bit is broadcast so Video/Web/Scene share one
-        // capture gate instead of letting Video alone interpret the switch.
-        PlaybackCommandMultiplexer.shared.dispatch(
-            .setSystemAudioSpectrumEnabled(settings.systemAudioSpectrumEnabled)
         )
     }
 }

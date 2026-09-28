@@ -13,7 +13,6 @@ final class Handler: PlaybackEngineControlling {
     let engineKind: PlaybackEngineKind
     var isPlaying: Bool
     var volume: Float = 0
-    var spectrumEnabled = false
     var volumeCommands = 0
     init(_ kind: PlaybackEngineKind, playing: Bool) {
         engineKind = kind; isPlaying = playing
@@ -22,7 +21,6 @@ final class Handler: PlaybackEngineControlling {
         switch command {
         case let .setPlaybackPaused(paused): isPlaying = !paused; return true
         case let .setVolume(value): volume = value; volumeCommands += 1; return true
-        case let .setSystemAudioSpectrumEnabled(value): spectrumEnabled = value; return true
         default: return false
         }
     }
@@ -42,9 +40,6 @@ final class Handler: PlaybackEngineControlling {
         let volumeOutcomes = mux.dispatch(.setVolume(37.5))
         precondition(volumeOutcomes[.scene] == true && volumeOutcomes[.video] == true)
         precondition(scene.volume == 37.5 && video.volume == 37.5)
-        let spectrumOutcomes = mux.dispatch(.setSystemAudioSpectrumEnabled(true))
-        precondition(spectrumOutcomes[.scene] == true && spectrumOutcomes[.video] == true)
-        precondition(scene.spectrumEnabled && video.spectrumEnabled)
         PlaybackVolumeState.shared.setNormalizedVolume(0.75)
         PlaybackVolumeState.shared.setNormalizedVolume(.nan)
         precondition(abs(PlaybackVolumeState.shared.normalizedVolume - 0.75) < 0.0001)

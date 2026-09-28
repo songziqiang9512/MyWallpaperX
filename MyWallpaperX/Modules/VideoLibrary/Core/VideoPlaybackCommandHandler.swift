@@ -31,9 +31,6 @@ final class VideoPlaybackCommandHandler: PlaybackEngineControlling {
             PlaybackMuteState.shared.setMuted(muted)
             WallpaperManager.shared.setMuted(muted)
             return true
-        case let .setSystemAudioSpectrumEnabled(enabled):
-            WallpaperEngine.shared.setSystemAudioSpectrumEnabled(enabled)
-            return true
         case .switchNext:
             // E2a-5: 选择层意图由 UI 直接发给 WallpaperManager；引擎命令
             // 处理端不再回手调用选择权威（依赖倒置修复）。
