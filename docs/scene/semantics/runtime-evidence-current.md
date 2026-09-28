@@ -6,6 +6,16 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-dynamic-solid-baseline"></a>
+
+### E-2026-09-28-DYNAMIC-SOLID-BASELINE — 脚本交互开关未进入帧状态（未修复）
+
+**目标与首断点：**[公开IEffectLayer合同](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEffectLayer.html)提供控制cursor的Boolean solid属性。HEAD 68e64abf仅贯通启动值；SceneQuickJSLayerHost未注册solid accessor，mutation字段与SceneDynamicLayerField也没有该值。真实Swift/C VM探针确认首次getter不是Boolean（判别值0.75），setter写false后JS内可读回且无异常，但导出的layerMutationCount仍0。该赋值没有进入产品交互状态，不能把脚本无错视为能力已执行。
+
+**同输入实际反证：**自有9900000280启动solid=true、init写false；9900000281启动false、init写true，随后cursorEnter/Leave写shader参数amount=1/0。签名优化Debug 2.10.0(279)，executable SHA-256 `e65d863e3d5fd512aad72e62ef53261f2b30f851b9d4e26aa810fea1a9fe55d3`、CDHash `dae6d8810f0c8dfb558a92eb6b7db2921a16b589`，运行前后验签通过。280仍红[255,0,0]→绿[0,255,0]→红并产生2个事件，281始终红且无事件，两方向均错误地维持启动值；均无脚本失败。runtime分别`907ed396-a381-4d4d-8858-6b78d1bf95af`、`6508b52e-cd91-4bb6-8b3d-a30eac6f7ea0`，各110/110/0/109 submitted/completed/failed/presented，同runtime graph完成、终端消费及next-frame成立。通用矩阵1/2只说明变化阈值，不代表280正确；两项动态Solid专项均未通过。
+
+**完整修正边界：**独立只读审查确认应复用C authored mutation/dynamic journal及snapshot prepare/commit/restore；Swift DTO decode、coalescing/baseline和冲突检测发布typed layer Bool，再由既有runtime snapshot回送C getter；唯一命中读取该帧值并fallback启动值。Solid是普通帧状态，不应引入graph重建或第二registry。后续须覆盖同帧/下一帧读写、普通update、跨owner冲突/peer、stale或销毁handle、owner拒绝/整帧撤回，以及down后关闭、已按住时重新开启。既有capture release会用旧capture发up、无当前hit不发click；公开资料尚不足以决定关闭Solid是否取消capture，不能把“无新hit”写成“之后无任何cursor回调”。本轮没有改产品代码或宣称修复，也不增加visibility过滤。忽略缓存`2026-09-28-dynamic-solid-baseline`保存可重建自有包、VM探针、报告、原图与指标，供下一实现直接使用。
+
 <a id="e-2026-09-28-cursor-solid"></a>
 
 ### E-2026-09-28-CURSOR-SOLID — 作者静态 Solid 控制鼠标命中
