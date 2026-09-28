@@ -6,6 +6,20 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-value-bone-output"></a>
+
+### E-2026-09-28-VALUE-BONE-OUTPUT — 补齐标量/文字骨骼输出并合并副作用汇总
+
+**合同与首断点：**公开[IImageLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IImageLayer.html)提供骨骼局部/世界变换读写。本批基于839084ca，真实Swift/C反例中Scalar/String回调无错误，但骨骼输出为空，4项专项全部失败；另外无cursor的Scalar owner未被LaunchContext安装rig，实际App报`Puppet bone handle is unavailable`。这些是配置/传递缺口，不涉及更改骨骼算法。
+
+**实现：**LaunchContext沿现有四类程序枚举VM并按对象identity去重，启动和后继pose配置共用同一入口；删除vector/cursor独立配置方法及退役文件。Scalar/String使用原SceneScriptOwnerEffects完整追加六类副作用，代替重复逐字段汇总；骨骼命令随owner通过原admission/preflight，仍保留作者顺序、局部失败和提交事务。7个产品路径净减182行，不新增VM、骨骼状态、registry或合成器。
+
+**验证：**最终36项行为测试通过：骨骼初始化/属性/四类媒体事件/update输出顺序、事件owner拒绝后重试与已接受peer休眠、异常/BAD_RETURN局部丢弃、原视频命令、Boolean初始化、骨骼世界/局部转换及catalog。新测试调用实际LaunchContext配置方法，load输入使用薄桩；移除旧配置入口源码形状断言。优化Debug构建、layout门及code-health通过（1005 Swift/219既有warnings）。中间一次测试与源码移动重叠而编译失败，该轮作废，最终冻结后完整重跑上述36项。没有重跑全库文档门，上一批既存断链仍开放。
+
+**实际App：**在3113287126只读内容的隔离副本保留单Puppet层500，关闭effects/animationlayers，alpha脚本无cursor，init读骨0姿态，update按时间设置局部x=-250/+250。这是自有注入探针9900000300，不是原样本视觉目标：去除动画后部件保持分离bind pose。旧App专项失败（报骨骼句柄不可用；前后逐像素不变），即使通用加载矩阵为PASS也不算骨骼通过。候选实际bones64、skin11027顶点、最大bind位移250.000122；前后前景质心dx438.3117px，按500×0.96449×1964/2160预期438.4857px，误差<1px；截图直接确认整体右移。motion mean0.03131264/changed0.07714708，submitted/completed/failed/presented=158/158/0/156，后继终端图保留变换；无effect graph，不虚构graph publication。原包3113287126的8秒隔离回归1/1 PASS，174/173/0/171，实际截图中人物/小提琴/背景正常组合；不据此关闭整样本视觉余项。
+
+**身份与边界：**App2.10.0(279)，基线SHA256 `d6ff2a8d9b0b75549f4489d254ca6664f1f884971db185cd7be85fb465858543`，候选SHA256 `5b72ecf580fe6b80a46d8d85a7538d73fa8a956a5728848e3ee92874a61a26ac`、CDHash `50d796d89a05f1214718fc8720f1c01a860c6dc6`，运行前后验签通过。冻结产品/测试/manifest补丁SHA256 `0f1dcd1f1bad51fe5fe2992e0e18681711698350dd76c4268440f36e592631f3`，独立只读审查APPROVE。String仅取得配置/Swift-C行为和事务证据，不外推真实Puppet文字层可见能力；未验多屏、任意JS堆回滚、全部骨骼API、跨层骨骼访问或官方parity。忽略证据缓存`2026-09-28-value-bone-output`保存前后/原包报告、原图、脚本、像素指标、构建/测试/冻结审查，不归档作者PKG或模型。
+
 <a id="e-2026-09-28-string-cursor-owner"></a>
 
 ### E-2026-09-28-STRING-CURSOR-OWNER — 文字脚本共用 typed owner 并接入鼠标事件

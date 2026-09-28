@@ -16,9 +16,8 @@ extension SceneDesktopWallpaperLaunchContext {
         }
     }
 
-    /// Installs launch-stable Puppet rig metadata into the already-created
-    /// SceneScript owners. Vector and cursor programs may share an owner, so
-    /// both paths are queried while retaining one underlying journal.
+    /// Installs rig metadata once per existing VM, regardless of its return
+    /// type or whether cursor callbacks borrow that VM.
     @discardableResult
     func configurePuppetBones(
         layerID: Int,
@@ -28,20 +27,20 @@ extension SceneDesktopWallpaperLaunchContext {
         parents: [Int32]? = nil,
         layerToWorld: [Double] = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]
     ) throws -> Bool {
-        let vectorConfigured = try propertyVectorScriptProgram
-            .configurePuppetBones(
-                layerID: layerID,
-                worldMatrices: worldMatrices,
-                localMatrices: localMatrices,
-                names: names, parents: parents, layerToWorld: layerToWorld
+        let owners = propertyVectorScriptProgram.bindings.map(\.owner)
+            + sceneScriptScalarProgram.bindings + sceneScriptStringProgram.bindings
+            + sceneScriptCursorProgram.bindings.map(\.owner)
+        var visited: Set<ObjectIdentifier> = []
+        var configured = false
+        for owner in owners where SceneScriptLayerMutationBridge.layerID(for: owner.target) == layerID {
+            guard visited.insert(ObjectIdentifier(owner)).inserted else { continue }
+            try owner.configurePuppetBones(
+                layerID: layerID, worldMatrices: worldMatrices,
+                localMatrices: localMatrices, names: names,
+                parents: parents, layerToWorld: layerToWorld
             )
-        let cursorConfigured = try sceneScriptCursorProgram
-            .configurePuppetBones(
-                layerID: layerID,
-                worldMatrices: worldMatrices,
-                localMatrices: localMatrices,
-                names: names, parents: parents, layerToWorld: layerToWorld
-            )
-        return vectorConfigured || cursorConfigured
+            configured = true
+        }
+        return configured
     }
 }

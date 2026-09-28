@@ -79,13 +79,13 @@ nonisolated enum SceneScriptPuppetBoneMutationBridge {
 /// never be used to reconstruct this relationship after flattening.
 nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
     let ownerTarget: SceneDynamicTarget
-    let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
-    let animationMutations: [SceneTimelinePlaybackMutation]
-    let layerMutations: [SceneScriptLayerMutation]
-    let videoCommands: [SceneScriptVideoCommand]
-    let textureAnimationCommands:
+    var materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
+    var animationMutations: [SceneTimelinePlaybackMutation]
+    var layerMutations: [SceneScriptLayerMutation]
+    var videoCommands: [SceneScriptVideoCommand]
+    var textureAnimationCommands:
         [SceneTextureAnimationCommand]
-    let puppetBoneMutations: [SceneScriptPuppetBoneMutation]
+    var puppetBoneMutations: [SceneScriptPuppetBoneMutation]
 
     init(
         ownerTarget: SceneDynamicTarget,

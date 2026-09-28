@@ -728,7 +728,6 @@
           "SceneScriptCursorHitAdmission.swift",
           "SceneScriptCursorProgramModels.swift",
           "SceneScriptCursorProgram+Construction.swift",
-          "SceneScriptCursorProgram+PuppetBones.swift",
           "SceneScriptCursorProgram.swift",
           "SceneScriptDynamicImageReferenceAnalysis.swift",
           "SceneScriptDynamicLayerRuntime.swift",

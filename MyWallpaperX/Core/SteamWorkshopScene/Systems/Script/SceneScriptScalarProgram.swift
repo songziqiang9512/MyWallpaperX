@@ -428,12 +428,10 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             guard hasPendingCallback || binding.requiresFrameEvaluation else {
                 continue
             }
-            var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
-            var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
-            var callbackLayerMutations: [SceneScriptLayerMutation] = []
-            var callbackVideoCommands: [SceneScriptVideoCommand] = []
-            var callbackTextureAnimationCommands:
-                [SceneTextureAnimationCommand] = []
+            var effects = SceneScriptOwnerEffects(
+                ownerTarget: binding.target, materialFunctionMutations: [],
+                animationMutations: [], layerMutations: [], videoCommands: []
+            )
             var playbackMutationCount = 0
             var propertiesLayerMutationCount = 0
             var thumbnailMutationCount = 0
@@ -462,19 +460,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                             continue
                         }
                         evaluationInput = initializedValue
-                        callbackMaterialMutations.append(
-                            contentsOf: initialization.materialFunctionMutations
-                        )
-                        callbackAnimationMutations.append(
-                            contentsOf: initialization.animationMutations
-                        )
-                        callbackLayerMutations.append(
-                            contentsOf: initialization.layerMutations
-                        )
-                        callbackVideoCommands.append(contentsOf: initialization.videoCommands)
-                        callbackTextureAnimationCommands.append(
-                            contentsOf: initialization.textureAnimationCommands
-                        )
+                        effects.append(initialization)
                     }
                 case let .failure(failure):
                     failures[binding.target] = failure
@@ -494,17 +480,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     interruptBudget: interruptBudget
                 ) {
                 case let .success(eventMutations):
-                    callbackMaterialMutations.append(
-                        contentsOf: eventMutations.materialFunctions
-                    )
-                    callbackAnimationMutations.append(
-                        contentsOf: eventMutations.animations
-                    )
-                    callbackLayerMutations.append(contentsOf: eventMutations.layers)
-                    callbackVideoCommands.append(contentsOf: eventMutations.videoCommands)
-                    callbackTextureAnimationCommands.append(
-                        contentsOf: eventMutations.textureAnimationCommands
-                    )
+                    effects.append(eventMutations)
                 case let .failure(failure):
                     failures[binding.target] = failure
                     if failure.permanentlyDisablesOwner {
@@ -553,17 +529,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 case let .success(eventMutations):
                     playbackMutationCount = eventMutations.materialFunctions.count
                         + eventMutations.animations.count
-                    callbackMaterialMutations.append(
-                        contentsOf: eventMutations.materialFunctions
-                    )
-                    callbackAnimationMutations.append(
-                        contentsOf: eventMutations.animations
-                    )
-                    callbackLayerMutations.append(contentsOf: eventMutations.layers)
-                    callbackVideoCommands.append(contentsOf: eventMutations.videoCommands)
-                    callbackTextureAnimationCommands.append(
-                        contentsOf: eventMutations.textureAnimationCommands
-                    )
+                    effects.append(eventMutations)
                 case let .failure(failure):
                     failures[binding.target] = failure
                     if failure.permanentlyDisablesOwner {
@@ -582,17 +548,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 ) {
                 case let .success(eventMutations):
                     propertiesLayerMutationCount = eventMutations.layers.count
-                    callbackMaterialMutations.append(
-                        contentsOf: eventMutations.materialFunctions
-                    )
-                    callbackAnimationMutations.append(
-                        contentsOf: eventMutations.animations
-                    )
-                    callbackLayerMutations.append(contentsOf: eventMutations.layers)
-                    callbackVideoCommands.append(contentsOf: eventMutations.videoCommands)
-                    callbackTextureAnimationCommands.append(
-                        contentsOf: eventMutations.textureAnimationCommands
-                    )
+                    effects.append(eventMutations)
                 case let .failure(failure):
                     failures[binding.target] = failure
                     if failure.permanentlyDisablesOwner {
@@ -612,17 +568,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 case let .success(eventMutations):
                     thumbnailMutationCount = eventMutations.materialFunctions.count
                         + eventMutations.animations.count
-                    callbackMaterialMutations.append(
-                        contentsOf: eventMutations.materialFunctions
-                    )
-                    callbackAnimationMutations.append(
-                        contentsOf: eventMutations.animations
-                    )
-                    callbackLayerMutations.append(contentsOf: eventMutations.layers)
-                    callbackVideoCommands.append(contentsOf: eventMutations.videoCommands)
-                    callbackTextureAnimationCommands.append(
-                        contentsOf: eventMutations.textureAnimationCommands
-                    )
+                    effects.append(eventMutations)
                 case let .failure(failure):
                     failures[binding.target] = failure
                     if failure.permanentlyDisablesOwner {
@@ -640,17 +586,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     interruptBudget: interruptBudget
                 ) {
                 case let .success(eventMutations):
-                    callbackMaterialMutations.append(
-                        contentsOf: eventMutations.materialFunctions
-                    )
-                    callbackAnimationMutations.append(
-                        contentsOf: eventMutations.animations
-                    )
-                    callbackLayerMutations.append(contentsOf: eventMutations.layers)
-                    callbackVideoCommands.append(contentsOf: eventMutations.videoCommands)
-                    callbackTextureAnimationCommands.append(
-                        contentsOf: eventMutations.textureAnimationCommands
-                    )
+                    effects.append(eventMutations)
                 case let .failure(failure):
                     failures[binding.target] = failure
                     if failure.permanentlyDisablesOwner {
@@ -698,36 +634,15 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     consumedMediaTimelineGenerations[binding.target] =
                         pendingTimelineEvent.generation
                 }
-                callbackMaterialMutations.append(
-                    contentsOf: evaluation.materialFunctionMutations
-                )
-                callbackAnimationMutations.append(
-                    contentsOf: evaluation.animationMutations
-                )
-                callbackLayerMutations.append(contentsOf: evaluation.layerMutations)
-                callbackVideoCommands.append(contentsOf: evaluation.videoCommands)
-                callbackTextureAnimationCommands.append(
-                    contentsOf: evaluation.textureAnimationCommands
-                )
-                let coalescedLayers = SceneScriptLayerMutation.coalescing(
-                    callbackLayerMutations
-                )
-                let effects = SceneScriptOwnerEffects(
-                    ownerTarget: binding.target,
-                    materialFunctionMutations: callbackMaterialMutations,
-                    animationMutations: callbackAnimationMutations,
-                    layerMutations: coalescedLayers,
-                    videoCommands: callbackVideoCommands,
-                    textureAnimationCommands:
-                        callbackTextureAnimationCommands
-                )
+                effects.append(evaluation)
+                effects.layerMutations = SceneScriptLayerMutation.coalescing(effects.layerMutations)
                 if !effects.isEmpty { ownerEffects.append(effects) }
                 if valuePublishingTargets.contains(binding.target) {
                     values[binding.target] = evaluation.value
                 }
-                materialFunctionMutations.append(contentsOf: callbackMaterialMutations)
-                animationMutations.append(contentsOf: callbackAnimationMutations)
-                layerMutations.append(contentsOf: coalescedLayers)
+                materialFunctionMutations.append(contentsOf: effects.materialFunctionMutations)
+                animationMutations.append(contentsOf: effects.animationMutations)
+                layerMutations.append(contentsOf: effects.layerMutations)
                 if changedUserPropertiesJSON != nil,
                    case let .scalar(outputValue) = evaluation.value {
                     NSLog(

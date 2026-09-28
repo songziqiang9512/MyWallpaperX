@@ -185,3 +185,24 @@ nonisolated struct SceneScriptVectorProgramConstruction: @unchecked Sendable {
         requestedTargets.subtracting(instantiatedTargets).subtracting(failures.keys)
     }
 }
+
+extension SceneScriptOwnerEffects {
+    mutating func append(_ evaluation: SceneScriptValueEvaluation) {
+        materialFunctionMutations.append(contentsOf: evaluation.materialFunctionMutations)
+        animationMutations.append(contentsOf: evaluation.animationMutations)
+        layerMutations.append(contentsOf: evaluation.layerMutations)
+        videoCommands.append(contentsOf: evaluation.videoCommands)
+        textureAnimationCommands.append(contentsOf: evaluation.textureAnimationCommands)
+        puppetBoneMutations.append(contentsOf: evaluation.puppetBoneMutations)
+    }
+
+    mutating func append(_ mutations: SceneScriptMediaEventMutations) {
+        materialFunctionMutations.append(contentsOf: mutations.materialFunctions)
+        animationMutations.append(contentsOf: mutations.animations)
+        layerMutations.append(contentsOf: mutations.layers)
+        videoCommands.append(contentsOf: mutations.videoCommands)
+        textureAnimationCommands.append(contentsOf: mutations.textureAnimationCommands)
+        puppetBoneMutations.append(contentsOf: mutations.puppetBones)
+    }
+
+}

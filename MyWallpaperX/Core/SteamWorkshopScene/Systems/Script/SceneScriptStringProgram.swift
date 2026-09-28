@@ -443,12 +443,10 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                     continue
                 }
             }
-            var ownerMaterialFunctions: [SceneScriptMaterialFunctionMutation] = []
-            var ownerAnimations: [SceneTimelinePlaybackMutation] = []
-            var ownerLayerMutations: [SceneScriptLayerMutation] = []
-            var ownerVideoCommands: [SceneScriptVideoCommand] = []
-            var ownerTextureAnimationCommands:
-                [SceneTextureAnimationCommand] = []
+            var effects = SceneScriptOwnerEffects(
+                ownerTarget: binding.target, materialFunctionMutations: [],
+                animationMutations: [], layerMutations: [], videoCommands: []
+            )
             if changedUserPropertiesJSON != nil || playback != nil
                 || properties != nil || thumbnail != nil
                 || timeline != nil {
@@ -473,19 +471,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                             continue
                         }
                         current = initialized
-                        ownerMaterialFunctions.append(
-                            contentsOf: initialization.materialFunctionMutations
-                        )
-                        ownerAnimations.append(
-                            contentsOf: initialization.animationMutations
-                        )
-                        ownerLayerMutations.append(
-                            contentsOf: initialization.layerMutations
-                        )
-                        ownerVideoCommands.append(contentsOf: initialization.videoCommands)
-                        ownerTextureAnimationCommands.append(
-                            contentsOf: initialization.textureAnimationCommands
-                        )
+                        effects.append(initialization)
                     }
                 case let .failure(failure):
                     failures[binding.target] = failure
@@ -505,11 +491,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                     interruptBudget: interruptBudget
                 ),
                 binding: binding,
-                materialFunctions: &ownerMaterialFunctions,
-                animations: &ownerAnimations,
-                layers: &ownerLayerMutations,
-                videoCommands: &ownerVideoCommands,
-                textureAnimationCommands: &ownerTextureAnimationCommands,
+                effects: &effects,
                 failures: &failures
             ) {
                 continue
@@ -520,11 +502,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                     interruptBudget: interruptBudget
                 ),
                 binding: binding,
-                materialFunctions: &ownerMaterialFunctions,
-                animations: &ownerAnimations,
-                layers: &ownerLayerMutations,
-                videoCommands: &ownerVideoCommands,
-                textureAnimationCommands: &ownerTextureAnimationCommands,
+                effects: &effects,
                 failures: &failures
             ) {
                 continue
@@ -535,11 +513,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                     interruptBudget: interruptBudget
                 ),
                 binding: binding,
-                materialFunctions: &ownerMaterialFunctions,
-                animations: &ownerAnimations,
-                layers: &ownerLayerMutations,
-                videoCommands: &ownerVideoCommands,
-                textureAnimationCommands: &ownerTextureAnimationCommands,
+                effects: &effects,
                 failures: &failures
             ) {
                 continue
@@ -551,11 +525,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                     interruptBudget: interruptBudget
                 ),
                 binding: binding,
-                materialFunctions: &ownerMaterialFunctions,
-                animations: &ownerAnimations,
-                layers: &ownerLayerMutations,
-                videoCommands: &ownerVideoCommands,
-                textureAnimationCommands: &ownerTextureAnimationCommands,
+                effects: &effects,
                 failures: &failures
             ) {
                 continue
@@ -566,11 +536,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                     interruptBudget: interruptBudget
                 ),
                 binding: binding,
-                materialFunctions: &ownerMaterialFunctions,
-                animations: &ownerAnimations,
-                layers: &ownerLayerMutations,
-                videoCommands: &ownerVideoCommands,
-                textureAnimationCommands: &ownerTextureAnimationCommands,
+                effects: &effects,
                 failures: &failures
             ) {
                 continue
@@ -614,32 +580,13 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                         for: binding.target
                     )
                 }
-                ownerMaterialFunctions.append(
-                    contentsOf: evaluation.materialFunctionMutations
-                )
-                ownerAnimations.append(contentsOf: evaluation.animationMutations)
-                ownerLayerMutations.append(contentsOf: evaluation.layerMutations)
-                ownerVideoCommands.append(contentsOf: evaluation.videoCommands)
-                ownerTextureAnimationCommands.append(
-                    contentsOf: evaluation.textureAnimationCommands
-                )
-                let coalescedLayers = SceneScriptLayerMutation.coalescing(
-                    ownerLayerMutations
-                )
-                let effects = SceneScriptOwnerEffects(
-                    ownerTarget: binding.target,
-                    materialFunctionMutations: ownerMaterialFunctions,
-                    animationMutations: ownerAnimations,
-                    layerMutations: coalescedLayers,
-                    videoCommands: ownerVideoCommands,
-                    textureAnimationCommands:
-                        ownerTextureAnimationCommands
-                )
+                effects.append(evaluation)
+                effects.layerMutations = SceneScriptLayerMutation.coalescing(effects.layerMutations)
                 if !effects.isEmpty { ownerEffects.append(effects) }
                 values[binding.target] = evaluation.value
-                materialFunctions.append(contentsOf: ownerMaterialFunctions)
-                animations.append(contentsOf: ownerAnimations)
-                layerMutations.append(contentsOf: coalescedLayers)
+                materialFunctions.append(contentsOf: effects.materialFunctionMutations)
+                animations.append(contentsOf: effects.animationMutations)
+                layerMutations.append(contentsOf: effects.layerMutations)
                 if let properties,
                    case let .string(output) = evaluation.value {
                     NSLog(
@@ -760,23 +707,12 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
     private func dispatch(
         _ result: Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure>,
         binding: SceneScriptValueOwner,
-        materialFunctions: inout [SceneScriptMaterialFunctionMutation],
-        animations: inout [SceneTimelinePlaybackMutation],
-        layers: inout [SceneScriptLayerMutation],
-        videoCommands: inout [SceneScriptVideoCommand],
-        textureAnimationCommands: inout
-            [SceneTextureAnimationCommand],
+        effects: inout SceneScriptOwnerEffects,
         failures: inout [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
     ) -> Bool {
         switch result {
         case let .success(mutations):
-            materialFunctions.append(contentsOf: mutations.materialFunctions)
-            animations.append(contentsOf: mutations.animations)
-            layers.append(contentsOf: mutations.layers)
-            videoCommands.append(contentsOf: mutations.videoCommands)
-            textureAnimationCommands.append(
-                contentsOf: mutations.textureAnimationCommands
-            )
+            effects.append(mutations)
             return true
         case let .failure(failure):
             failures[binding.target] = failure

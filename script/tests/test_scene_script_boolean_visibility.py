@@ -582,10 +582,12 @@ enum Harness {
             userPropertyDefinitions: [], generation: 21
         )
         let identity: [Double] = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]
-        _ = try boneProgram.configurePuppetBones(
-            layerID: 7, worldMatrices: identity + identity,
-            localMatrices: identity + identity, names: ["root", "tip"]
-        )
+        for binding in boneProgram.bindings {
+            try binding.owner.configurePuppetBones(
+                layerID: 7, worldMatrices: identity + identity,
+                localMatrices: identity + identity, names: ["root", "tip"]
+            )
+        }
         let boneResult = boneProgram.evaluate(
             inputs: [target: .bool(false)], effectivePropertyValues: [:],
             frame: frame(runtime: 2)
