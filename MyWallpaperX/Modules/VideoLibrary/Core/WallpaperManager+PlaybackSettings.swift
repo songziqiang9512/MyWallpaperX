@@ -292,14 +292,17 @@ extension WallpaperManager {
         }
     }
 
-    func applyPlaybackRateToEngine() {
+    func applyPlaybackRateToEngine(settings source: WallpaperSettings? = nil) {
         // 播放速率只影响引擎内部，不重建 daemon session，直接更新速率并在未暂停时立即生效。
+        // sink 调用必须传 newSettings：willSet 期读 self.settings 是旧值。
+        let settings = source ?? self.settings
         let effectiveRate = settings.playbackRateEnabled ? settings.playbackRate : 1.0
         let rate = Float(max(0.25, min(2.0, effectiveRate)))
         WallpaperEngine.shared.setPlaybackRate(rate)
     }
 
-    func applySystemAudioSpectrumToEngine() {
+    func applySystemAudioSpectrumToEngine(settings source: WallpaperSettings? = nil) {
+        let settings = source ?? self.settings
         // 频谱开关只归属 video 叠加层；Web/Scene 跟随样本声明的音频需求
         // （加共享暂停门），没有需要广播的公共策略位。可视化细节归
         // WallpaperEngine 的 configure 入口单点下发。
@@ -313,5 +316,59 @@ extension WallpaperManager {
             barCount: settings.systemAudioSpectrumBarCount,
             peakCapsEnabled: settings.systemAudioSpectrumPeakCapsEnabled
         )
+    }
+
+    /// 启动期一次性播种：音量与速率权威在任何 play/web/scene 播种之前
+    /// 就位，避免上次运行时为 web/scene 时新会话拿到默认 0.5/1.0。
+    /// 音量要同时落 PlaybackVolumeState（scene replay 读它）和引擎
+    /// currentVolumeNormalized（web runtimeState 播种读它）。
+    /// 同时建立 sink 差分投影的基线（订阅发生在 init 更晚处）。
+    func seedEngineProjectionFromPersistedSettings() {
+        let persistedVolume = Float(min(max(settings.volume, 0), 100))
+        PlaybackVolumeState.shared.setNormalizedVolume(persistedVolume / 100)
+        WallpaperEngine.shared.setVolume(persistedVolume)
+        applyPlaybackRateToEngine(settings: settings)
+        lastEngineProjectionBaseline = settings
+    }
+
+    /// settings 写入 → 引擎投影的唯一差分入口。只投影真正变化的字段组，
+    /// 避免无关写入（拖音量）重发频谱全量配置并清空频谱条。
+    func projectEngineSettingsIfChanged(
+        from previous: WallpaperSettings?,
+        to next: WallpaperSettings
+    ) {
+        if previous?.playbackRate != next.playbackRate
+            || previous?.playbackRateEnabled != next.playbackRateEnabled {
+            applyPlaybackRateToEngine(settings: next)
+        }
+
+        if previous?.systemAudioSpectrumEnabled != next.systemAudioSpectrumEnabled
+            || previous?.systemAudioSpectrumStyle != next.systemAudioSpectrumStyle
+            || previous?.systemAudioSpectrumSensitivity != next.systemAudioSpectrumSensitivity
+            || previous?.systemAudioSpectrumColorHex != next.systemAudioSpectrumColorHex
+            || previous?.systemAudioSpectrumOffsetX != next.systemAudioSpectrumOffsetX
+            || previous?.systemAudioSpectrumOffsetY != next.systemAudioSpectrumOffsetY
+            || previous?.systemAudioSpectrumBarCount != next.systemAudioSpectrumBarCount
+            || previous?.systemAudioSpectrumPeakCapsEnabled != next.systemAudioSpectrumPeakCapsEnabled {
+            applySystemAudioSpectrumToEngine(settings: next)
+        }
+
+        if previous?.loopPlayback != next.loopPlayback
+            || previous?.randomPlayback != next.randomPlayback
+            || previous?.sequentialPlayback != next.sequentialPlayback
+            || previous?.autoSwitchEnabled != next.autoSwitchEnabled {
+            projectLoopPolicyToEngine(settings: next)
+        }
+    }
+
+    /// 播放模式/自动切换 → 引擎 loop 策略的单点投影。video daemon 是
+    /// "循环当前项"的唯一消费者；web/scene 没有"播完"语义，不下发。
+    func projectLoopPolicyToEngine(settings source: WallpaperSettings? = nil) {
+        let settings = source ?? self.settings
+        let switchingMode = settings.randomPlayback || settings.sequentialPlayback
+        let shouldLoop = settings.loopPlayback
+            || (settings.autoSwitchEnabled && switchingMode)
+        guard activeWallpaperRuntime == .video else { return }
+        WallpaperEngine.shared.setLoopCurrentItem(shouldLoop)
     }
 }

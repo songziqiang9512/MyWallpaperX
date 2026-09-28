@@ -44,6 +44,7 @@ final class AppKitSettingsContainerView: NSView {
     private var isUpdatingUI = false
     var isDocumentFrameUpdateScheduled = false
     private var scrollToTopObserver: NSObjectProtocol?
+    private var muteStateObserver: NSObjectProtocol?
     var visibleSections: Set<AppSettingsSection>
     private let topContentInset: CGFloat
     private let scrollView = NSScrollView()
@@ -155,6 +156,9 @@ final class AppKitSettingsContainerView: NSView {
         if let scrollToTopObserver {
             NotificationCenter.default.removeObserver(scrollToTopObserver)
         }
+        if let muteStateObserver {
+            NotificationCenter.default.removeObserver(muteStateObserver)
+        }
     }
 
     func refreshFromState() {
@@ -180,9 +184,12 @@ final class AppKitSettingsContainerView: NSView {
         selectTimeUnit(settings.timeUnit)
 
         let clampedVolume = Int(max(0, min(100, round(settings.volume))))
-        volumeSlider.doubleValue = Double(clampedVolume)
-        volumeValueLabel.stringValue = "\(clampedVolume)%"
-        muteSwitch.state = PlaybackMuteState.shared.isMuted ? .on : .off
+        // 静音是独立门（不改 settings.volume）；滑块/标签显示有效音量，
+        // 与"滑到 0=静音、拖离 0=解除"的既有对称行为在视觉上闭合。
+        let isMuted = PlaybackMuteState.shared.isMuted
+        volumeSlider.doubleValue = isMuted ? 0 : Double(clampedVolume)
+        volumeValueLabel.stringValue = isMuted ? "0%" : "\(clampedVolume)%"
+        muteSwitch.state = isMuted ? .on : .off
 
         let clampedRate = max(0.25, min(2.0, settings.playbackRate))
         playbackRateSwitch.state = settings.playbackRateEnabled ? .on : .off
@@ -407,6 +414,16 @@ final class AppKitSettingsContainerView: NSView {
                 self?.refreshFromState()
             }
             .store(in: &cancellables)
+        // 静音可能来自开关/热键/状态栏三种入口；volume>0 时静音不产生
+        // settings 写入，必须靠静音通知驱动回填（滑块显示 0/开关状态）。
+        muteStateObserver = NotificationCenter.default.addObserver(
+            forName: .playbackMuteStateDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self, !self.isUpdatingUI else { return }
+            self.refreshFromState()
+        }
     }
 
     @objc private func handleLoopToggle() {
@@ -428,14 +445,12 @@ final class AppKitSettingsContainerView: NSView {
         guard !isUpdatingUI else { return }
         let enabled = autoSwitchSwitch.state == .on
         dependency.settings.autoSwitchEnabled = enabled
+        // loop 语义（自动切换开启=循环当前项等 timer 到期）由 manager 的
+        // 差分投影统一下发，视图不再直呼引擎。
         if enabled {
-            // 开启：从 0 重建 timer，通知引擎当前视频切换为循环模式（等 timer 到期再切换）。
             dependency.actions.startAutoSwitchTimer()
-            WallpaperEngine.shared.setLoopCurrentItem(true)
         } else {
-            // 关闭：销毁 timer，通知引擎停止循环当前视频，视频播完后自然切下一张。
             dependency.actions.stopAutoSwitchTimer()
-            WallpaperEngine.shared.setLoopCurrentItem(false)
         }
     }
 

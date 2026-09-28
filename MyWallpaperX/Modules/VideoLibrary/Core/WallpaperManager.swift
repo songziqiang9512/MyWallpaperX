@@ -139,6 +139,8 @@ class WallpaperManager: ObservableObject {
     var importPreparationWorkItem: DispatchWorkItem?
     var importPreparationGeneration: UInt64 = 0
     var lastAppliedHotkeySettings: HotkeySettingsSnapshot?
+    /// 上一次已投影到引擎的 settings 基线；sink 差分投影的比较源。
+    var lastEngineProjectionBaseline: WallpaperSettings?
     
     // 默认设置
     let defaultSettings = WallpaperSettings()
@@ -196,12 +198,13 @@ class WallpaperManager: ObservableObject {
         loadPerSelectionSortStates()
         gridZoomOffset = UserDefaults.standard.object(forKey: "gridZoomOffset") as? Int ?? 0
         refreshAutoSwitchTimerIfNeeded()
+        seedEngineProjectionFromPersistedSettings()
         restorePlaybackState()
         restorePersistedSystemAudioSpectrumIfNeeded()
-        
+
         // 后台扫描缺失的视频元数据（时长、分辨率等）
         scanForMissingMetadata()
-        
+
         // 监听设置变化，自动保存
         $settings
         .dropFirst()
@@ -214,9 +217,14 @@ class WallpaperManager: ObservableObject {
                 self.lastAppliedHotkeySettings = hotkeySnapshot
                 GlobalHotkeyManager.shared.update(with: newSettings)
             }
-            // 播放速率变化时立即同步到引擎。
-            self.applyPlaybackRateToEngine()
-            self.applySystemAudioSpectrumToEngine()
+            // 引擎投影必须消费 sink 入参：@Published 在 willSet 期触发，
+            // 此时 self.settings 仍是旧值（读它会投影过期速率/模式）。
+            // 字段级 diff 也避免无关写入（如拖音量）重发频谱全量配置。
+            self.projectEngineSettingsIfChanged(
+                from: self.lastEngineProjectionBaseline,
+                to: newSettings
+            )
+            self.lastEngineProjectionBaseline = newSettings
         }
         .store(in: &cancellables)
 
