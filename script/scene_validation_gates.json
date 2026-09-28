@@ -297,7 +297,8 @@
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/VideoPlaybackCommandHandler.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift",
-        "MyWallpaperX/Shared/UI/WallpaperRuntimeSwitch.swift",
+        "MyWallpaperX/Core/PlaybackControl/ImportedVideoAutoplayGate.swift",
+        "MyWallpaperX/Core/PlaybackControl/WallpaperRuntimeSwitch.swift",
         "script/tests/test_daemon_process_transport.py",
         "script/tests/test_debug_scene_product_entry_policy.py",
         "script/tests/test_scene_daemon_client_wiring.py"
@@ -948,6 +949,15 @@
       ],
       "modules": [
         "test_scene_video_repeated_commands"
+      ]
+    },
+    {
+      "id": "scene-material-copy-history-harness",
+      "patterns": [
+        "script/tests/fixtures/SceneMaterialCopyHistoryRenderingHarness.swift"
+      ],
+      "modules": [
+        "test_scene_material_copy_history_rendering"
       ]
     },
     {

@@ -9,8 +9,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GATE_SOURCES = [
     REPO_ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackResourceLifetime.swift",
-    REPO_ROOT / "MyWallpaperX/Shared/UI/ImportedVideoAutoplayGate.swift",
-    REPO_ROOT / "MyWallpaperX/Shared/UI/WallpaperRuntimeSwitch.swift",
+    REPO_ROOT / "MyWallpaperX/Core/PlaybackControl/ImportedVideoAutoplayGate.swift",
+    REPO_ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperRuntimeSwitch.swift",
 ]
 
 
