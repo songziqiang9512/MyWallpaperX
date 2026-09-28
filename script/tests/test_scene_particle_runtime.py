@@ -310,6 +310,22 @@ enum Harness {
             try printJSON(syntheticWorldSpaceFreeze())
         case "worldspace-gravity-frame":
             try printJSON(syntheticWorldSpaceGravityFrame())
+        case "worldspace-pointer-emitter":
+            try printJSON(syntheticWorldSpacePointerEmitter())
+        case "pointer-demand-real":
+            guard CommandLine.arguments.count == 7 else {
+                throw HarnessError.missingMode
+            }
+            try printJSON(realPointerDemand(
+                evidencePath: CommandLine.arguments[2],
+                cachePath: CommandLine.arguments[3],
+                layerID: Int(CommandLine.arguments[4]) ?? 0,
+                pointer: SIMD3(
+                    Double(CommandLine.arguments[5]) ?? 0,
+                    Double(CommandLine.arguments[6]) ?? 0,
+                    0
+                )
+            ))
         case "nested-real":
             guard CommandLine.arguments.count == 4 else { throw HarnessError.missingPath }
             try printJSON(realNestedMatrix(
@@ -2007,6 +2023,104 @@ enum Harness {
             "livePositions": livePositions,
             "liveX": liveSums.x,
             "liveY": liveSums.y,
+        ]
+    }
+
+    /// Offline replay of a real captured render descriptor: advances the
+    /// particle runtime with an injected pointer position and reports the
+    /// layer's demand registration and birth positions.
+    private static func realPointerDemand(
+        evidencePath: String,
+        cachePath: String,
+        layerID: Int,
+        pointer: SIMD3<Double>
+    ) throws -> [String: Any] {
+        let cache = URL(fileURLWithPath: cachePath, isDirectory: true)
+        let descriptor = try renderDescriptor(evidencePath: evidencePath)
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw HarnessError.noMetal
+        }
+        let runtime = SceneParticleRuntime(
+            descriptor: descriptor,
+            cacheDirectory: cache,
+            device: device
+        )
+        var batches: [SceneParticleDrawBatch] = []
+        for _ in 0..<4 {
+            batches = runtime.advance(
+                by: 1.0 / 60.0,
+                pointerLocalPositions: [layerID: pointer]
+            )
+        }
+        let layerBatches = batches.filter { $0.layerID == layerID }
+        let positions = layerBatches.flatMap { $0.instances.map {
+            [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+        } }
+        return [
+            "demandedLayerIDs": Array(runtime.pointerControlPointLayerIDs),
+            "activeLayerIDs": runtime.activeLayerIDs,
+            "positionCount": positions.count,
+            "positions": positions,
+            "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
+        ]
+    }
+
+    private static func syntheticWorldSpacePointerEmitter() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mwx-particle-worldspace-pointer-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 100, "flags": 1,
+            "controlpoint": [["id": 1, "flags": 1, "offset": "0 0 0"]],
+            "emitter": [[
+                "name": "sphererandom", "rate": 120, "controlpoint": 1,
+                "distancemin": 0, "distancemax": 0,
+            ]],
+            "initializer": [
+                ["name": "lifetimerandom", "min": 0.5, "max": 0.5],
+                ["name": "sizerandom", "min": 8, "max": 8],
+            ],
+            "renderer": [["name": "sprite"]],
+        ], to: directory.appendingPathComponent("particles/world-pointer.json"))
+        let descriptor = SceneRenderDescriptor(
+            layers: [layer(91, "particles/world-pointer.json")],
+            renderOrderLayerIDs: [91],
+            materialPasses: [
+                .init(
+                    materialPath: "materials/shared.json",
+                    shaderPath: "genericparticle",
+                    texturePaths: ["shared.png"],
+                    blending: "additive"
+                )
+            ]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw HarnessError.noMetal
+        }
+        let runtime = SceneParticleRuntime(
+            descriptor: descriptor,
+            cacheDirectory: directory,
+            device: device
+        )
+        let pointer = SIMD3<Double>(40, 60, 0)
+        var batches: [SceneParticleDrawBatch] = []
+        for _ in 0..<3 {
+            batches = runtime.advance(
+                by: 1.0 / 60.0,
+                pointerLocalPositions: [91: pointer]
+            )
+        }
+        let positions = (batches.first { $0.layerID == 91 })?.instances.map {
+            [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+        } ?? []
+        return [
+            "pointerDemandLayerIDs": Array(runtime.pointerControlPointLayerIDs),
+            "positions": positions,
+            "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
         ]
     }
 
@@ -4755,6 +4869,20 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertGreater(identityX, identityY * 4)
         self.assertGreater(rotatedY, rotatedX * 4)
         self.assertTrue(any(abs(y) > 0.01 for _, y, _ in rotated))
+
+    def test_world_space_pointer_emitter_follows_pointer(self) -> None:
+        result = self.run_harness("worldspace-pointer-emitter")
+        # The emitter's pointer control-point demand must not be excluded for
+        # world-space systems: the supplied pointer value is the layer-local
+        # unprojection through the layer's current model matrix, the same
+        # space every control-point consumer composes in.
+        self.assertIn(91, result["pointerDemandLayerIDs"])
+        self.assertTrue(result["positions"])
+        # Births cluster at the pointer position, not at the static offset.
+        for x, y, _ in result["positions"]:
+            self.assertLess(abs(x - 40), 2.0)
+            self.assertLess(abs(y - 60), 2.0)
+        self.assertNotIn("pointerControlPointUnsupported", result["diagnosticKinds"])
 
     def test_world_space_prewarm_converts_gravity_through_launch_frame(self) -> None:
         result = self.run_harness("worldspace-gravity-frame")

@@ -6,6 +6,14 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-world-pointer-demand"></a>
+
+### E-2026-09-28-WORLD-POINTER-DEMAND — world/perspective 系统的 emitter 指针需求解除（rope 恢复门 3）
+
+**首断点与实现：**`emitterPointerControlPointIdentities`（SceneParticleControlPointForce.swift）此前对 `flags.isWorldSpace || usesPerspective || 世界移动算子` 的系统返回空集——force/positionAround/emitter 三条指针需求路径**自始一致排除** world/perspective（审查更正：原"positionAround 无排除"的说法为假）。本批仅放开 emitter 一条：删除该 guard，保留全部有界准入（sphere/box 发射器、有界 CP source、hasBoundedPointerInput）。依据（审查端到端独立验证）：指针供应值=渲染器经层**当前**模型矩阵（与 1b 活帧/渲染矩阵三者同帧同源）反投影的**层本地**坐标，而 emitter CP frame 与出生位置全在层本地组合，世界帧只变换方向（重力/出生速度）——空间配对成立。positionAround/force 的同款排除保留为下批（同一论证，各自红先行）。
+
+**验证：**红先行——harness 用例（world 系统 flags=1 + CP1 指针 + emitter 显式 controlpoint=1）旧码 demand=[] → emitter CP frame fail-closed nil → **零出生**；新码 demand=[91]、出生距指针 (40,60) 2px 内。真实样本 3806202923（"鼠标"层 318：world + CP0 locktopointer + emitter 隐式 CP0 + sprite）：App 回放诊断 `pointerControlPointBounded:sources=1`、离线真描述符重放 demand=[815,318]；同 HEAD 基线二进制复现该样本两条 effect 协议失败完全相同（既有问题）。语料影响面（审查独立复现逐数吻合）：需求集变化 12 系统/10 样本（rope 家族 11 系统/6 样本待门 2 渲染；3351163962 泡1 作者隐藏且 CP1 无消费者；3806202923 notes 音频门控）。粒子套件 111 项 OK（10 既有跳过）+solid_layers；锁定旧排除的断言（worldSpaceIdentities []）迁移为 [1]。**可见边界（如实）：**3806202923 像素级跟随未证明——发射器 audioprocessingmode=3（bounds 0.8-1、频段≤16Hz）在静音与标准 fixture 回放下不开（rate×100 变体与原版密度相同佐证），亮背景，五次视觉实验不结论；可见端到端待门 2（rope 家族）或音频频段匹配 fixture。独立只读审查 APPROVE（三处记录失实已按其更正沉淀）。候选 App SHA256/CDHash 与冻结补丁哈希见忽略缓存`2026-09-28-world-pointer-demand/identity.json`。
+
 <a id="e-2026-09-28-world-space-live-frame"></a>
 
 ### E-2026-09-28-WORLD-SPACE-LIVE-FRAME — 模拟器消费渲染同一逐帧世界帧（切片 1b，冻结降为回退）

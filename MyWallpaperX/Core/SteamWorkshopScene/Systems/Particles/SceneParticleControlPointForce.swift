@@ -317,9 +317,11 @@ nonisolated extension SceneParticleDefinition {
         return identities.sorted()
     }
 
+    /// The pointer value supplied for these identities is the layer-local
+    /// unprojection through the layer's current model matrix — the same local
+    /// space every emitter/control-point consumer composes in — so world-space
+    /// and perspective systems share the demand with local ones.
     var emitterPointerControlPointIdentities: Set<Int> {
-        guard !flags.isWorldSpace, !flags.usesPerspective,
-              !operators.contains(where: \.isWorldSpaceMovement) else { return [] }
         return Set(emitters.compactMap { emitter in
             guard emitter.kind == .sphereRandom || emitter.kind == .boxRandom
             else { return nil }

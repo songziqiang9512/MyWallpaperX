@@ -4307,8 +4307,11 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertIn("pointerControlPointBounded", result["shurikenDiagnostics"])
         # dust-motes shape keeps the operator-only identity set.
         self.assertEqual(result["attractOnlyIdentities"], [1])
-        # World-space systems, static CP1, and layer-image emitters stay out.
-        self.assertEqual(result["worldSpaceIdentities"], [])
+        # Static CP1 and layer-image emitters stay out of the emitter demand;
+        # world-space systems share it (the pointer value is the layer-local
+        # unprojection — runtime following is covered by the dedicated
+        # world-space pointer emitter behavior test).
+        self.assertEqual(result["worldSpaceIdentities"], [1])
         self.assertEqual(result["staticCP1Identities"], [])
         self.assertEqual(result["layerImageIdentities"], [])
 
