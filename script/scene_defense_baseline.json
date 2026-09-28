@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "sourceRoot": "MyWallpaperX/Core/SteamWorkshopScene",
+  "notes": [
+    "Locked inventory of the Scene defensive surface (2026-09-29 audit).",
+    "canonicalHelpers: total definition sites per reviewed helper name; consolidation must only shrink these.",
+    "A null canonical means the consolidation target is decided by the family-merge batch, not by this lock.",
+    "swallowPatterns: occurrence counts for error-swallowing shapes; every entry is a locked retirement list,",
+    "not a policy endorsement, and each entry names its owner and retirement condition.",
+    "deadEntries: declarations with no reference anywhere in the repository; delete them or annotate the",
+    "declaration with `// inventory-entry: <reason>` to move it to inventoryEntries.",
+    "Detector boundaries: a zero-caller entry is only detected when its name appears at most once in the",
+    "whole tracked tree, so common names (matches, capture, identifier, textureSlot, ...) are immune and are",
+    "covered by the duplicate-helper lock instead; the declaration scan covers",
+    "func|struct|enum|class|actor|protocol in the Scene source root only, so `static var/let`, `init`,",
+    "`subscript`, `typealias` and `case` declarations are invisible to it; an inventory annotation applies",
+    "only as a trailing comment on the declaration line or as a standalone comment line directly above it.",
+    "Bookkeeping files (this baseline, the checker and its test) never count as references, so a",
+    "locked dead entry stays locked until its declaration is really deleted.",
+    "acknowledgedChanges records reviewed wideners one by one: `detail` must match the reported",
+    "change text exactly and `reason` is required; a stale entry never waives a later change.",
+    "2026-09-29 batch 1 deleted every previously measured zero-caller declaration:",
+    "dedicatedRevocationDetail, acceptsDedicatedRevocation, staticConsumersAdmit,",
+    "userPropertyScalarSplatConsumersAdmit, timelineVector2ConsumersAdmit, inheritedInactiveCombos,",
+    "textureReadiness, scalarOrEqualPair, normalized, revocationToken, userPropertyScalarTargetMatches,",
+    "hasExactScalarDefinition, hasExactNumericDefinition, numericBitPatterns, activeOrdinaryRootTargets,",
+    "currentStockDefinitionMatches, currentStockMaterialMatches, currentStockShaderContractMatches,",
+    "verifiedStockIdentityEffectKeysForTesting, SyntheticStockIdentityProfile, unresolvedColorContractReasons,",
+    "ExtractError, resolvedBaseTextureFrame, commitIsValid, leasesHaveSameAtoms, makeBorrowed,",
+    "validBorrowedTexture, borrowedTextureInvalid, orderedTextures, textureFailureDescription,",
+    "admitsAudioExecution, audioPhaseFactor, changeFactor, configurePropertyObjectScope, typealias Template."
+  ],
+  "canonicalHelpers": [
+    {
+      "name": "split",
+      "allowedCopies": 17,
+      "canonical": null,
+      "note": "Source-token scanner copy; the family merge picks the shared home.",
+      "owner": "Compilation/ShaderFrontend family merge",
+      "retirement": "Merge into the reviewed scanner home, then ratchet this count down."
+    },
+    {
+      "name": "matchingClose",
+      "allowedCopies": 15,
+      "canonical": null,
+      "note": "Source-token scanner copy; the family merge picks the shared home.",
+      "owner": "Compilation/ShaderFrontend family merge",
+      "retirement": "Merge into the reviewed scanner home, then ratchet this count down."
+    },
+    {
+      "name": "textureSlot",
+      "allowedCopies": 28,
+      "canonical": null,
+      "note": "Texture-slot scanner copy; a shared `directTextureSampleSlot` variant already exists.",
+      "owner": "Compilation/ShaderFrontend family merge",
+      "retirement": "Reuse `directTextureSampleSlot`, then ratchet this count down."
+    },
+    {
+      "name": "argumentRanges",
+      "allowedCopies": 5,
+      "canonical": null,
+      "note": "Source-token scanner copy; the family merge picks the shared home.",
+      "owner": "Compilation/ShaderFrontend family merge",
+      "retirement": "Merge into the reviewed scanner home, then ratchet this count down."
+    },
+    {
+      "name": "commaRanges",
+      "allowedCopies": 5,
+      "canonical": null,
+      "note": "Source-token scanner copy; the family merge picks the shared home.",
+      "owner": "Compilation/ShaderFrontend family merge",
+      "retirement": "Merge into the reviewed scanner home, then ratchet this count down."
+    },
+    {
+      "name": "topLevelStatements",
+      "allowedCopies": 4,
+      "canonical": null,
+      "note": "Source-token scanner copy; the family merge picks the shared home.",
+      "owner": "Compilation/ShaderFrontend family merge",
+      "retirement": "Merge into the reviewed scanner home, then ratchet this count down."
+    },
+    {
+      "name": "identifier",
+      "allowedCopies": 16,
+      "canonical": null,
+      "note": "Source-token scanner copy; the family merge picks the shared home.",
+      "owner": "Compilation/ShaderFrontend family merge",
+      "retirement": "Merge into the reviewed scanner home, then ratchet this count down."
+    },
+    {
+      "name": "matchingParenthesis",
+      "allowedCopies": 4,
+      "canonical": "Compilation/ShaderFrontend/SceneAuthoredShaderVectorConversion.swift",
+      "note": "Shared implementation already reused by four files.",
+      "owner": "Compilation/ShaderFrontend family merge",
+      "retirement": "Move the remaining three copies onto the shared implementation, then ratchet to 1."
+    },
+    {
+      "name": "matches",
+      "allowedCopies": 27,
+      "canonical": "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
+      "note": "Reviewed non-private regex pipeline; literal patterns must not be re-plumbed per file.",
+      "owner": "Compilation/ShaderPreparation family merge",
+      "retirement": "Delete the per-file plumbing, then ratchet this count down."
+    },
+    {
+      "name": "capture",
+      "allowedCopies": 25,
+      "canonical": "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
+      "note": "Reviewed non-private regex pipeline.",
+      "owner": "Compilation/ShaderPreparation family merge",
+      "retirement": "Delete the per-file plumbing, then ratchet this count down."
+    },
+    {
+      "name": "escaped",
+      "allowedCopies": 15,
+      "canonical": "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
+      "note": "Reviewed non-private regex pipeline.",
+      "owner": "Compilation/ShaderPreparation family merge",
+      "retirement": "Delete the per-file plumbing, then ratchet this count down."
+    },
+    {
+      "name": "containsWord",
+      "allowedCopies": 12,
+      "canonical": "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
+      "note": "Reviewed non-private regex pipeline.",
+      "owner": "Compilation/ShaderPreparation family merge",
+      "retirement": "Delete the per-file plumbing, then ratchet this count down."
+    },
+    {
+      "name": "countWord",
+      "allowedCopies": 9,
+      "canonical": "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
+      "note": "Reviewed non-private regex pipeline.",
+      "owner": "Compilation/ShaderPreparation family merge",
+      "retirement": "Delete the per-file plumbing, then ratchet this count down."
+    },
+    {
+      "name": "substring",
+      "allowedCopies": 4,
+      "canonical": "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
+      "note": "Reviewed non-private regex pipeline.",
+      "owner": "Compilation/ShaderPreparation family merge",
+      "retirement": "Delete the per-file plumbing, then ratchet this count down."
+    }
+  ],
+  "swallowPatterns": [
+    {
+      "id": "try-optional-regex",
+      "pattern": "try\\?[ \\t]+NSRegularExpression\\(pattern:",
+      "allowedOccurrences": 19,
+      "note": "Locked retirement list: all 19 sites pass a runtime-composed pattern, so the shared reviewed policy (one helper, `try!` on fixed patterns) is not applied there yet.",
+      "owner": "Compilation/ShaderPreparation lowering files",
+      "retirement": "Route every site through the reviewed regex helper, then ratchet this count to 0."
+    },
+    {
+      "id": "optional-constant-swallow",
+      "pattern": "\\(try\\?[^\\n]*\\)[ \\t]*\\?\\?",
+      "allowedOccurrences": 3,
+      "note": "Two of the three sites are identity/digest sinks: Compilation/ShaderContract/SceneShaderSourceGraph.swift:256 and Compilation/ShaderContract/SceneShaderContractLoader.swift:381 collapse a failed encode into SHA256 of empty data; the third is an optional authored attachment decode.",
+      "owner": "Compilation/ShaderContract digest paths",
+      "retirement": "Make digest encode failures explicit, then ratchet this count to the remaining authored-decode site."
+    },
+    {
+      "id": "identity-empty-fallback",
+      "pattern": "try\\?[^\\n]*else \\{ return \"\" \\}",
+      "allowedOccurrences": 1,
+      "note": "Compilation/Material/SceneAuthoredXRayPlanner+StockIdentity.swift:203 returns an empty stock-identity hash when the payload encode fails.",
+      "owner": "Compilation/Material stock identity verification",
+      "retirement": "Fail the identity comparison explicitly instead of returning an empty hash, then ratchet to 0."
+    }
+  ],
+  "deadEntries": [],
+  "inventoryEntries": []
+}

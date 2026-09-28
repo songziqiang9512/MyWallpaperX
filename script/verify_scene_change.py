@@ -165,6 +165,39 @@ def is_scene_product_path(path: str) -> bool:
     return any(fnmatch.fnmatch(path, pattern) for pattern in SCENE_PRODUCT_PATTERNS)
 
 
+def code_health_gate(base: str, reason: str) -> Gate:
+    return Gate(
+        "code-health",
+        (
+            sys.executable,
+            "script/check_code_health.py",
+            "--check",
+            "--base-ref",
+            base,
+        ),
+        reason,
+        False,
+    )
+
+
+def scene_defense_gate(base: str) -> Gate:
+    return Gate(
+        "scene-defense",
+        (
+            sys.executable,
+            "script/check_scene_defense.py",
+            "--check",
+            "--base-ref",
+            base,
+        ),
+        (
+            "Scene defensive surface ratchet: zero-caller entries, canonical-helper "
+            "copies, and swallowed errors may only shrink"
+        ),
+        False,
+    )
+
+
 def runtime_command(
     args: argparse.Namespace,
     matrix: str,
@@ -274,18 +307,13 @@ def build_plan(
 
     if build_required:
         if swift_change:
-            gates.append(Gate(
-                "code-health",
-                (
-                    sys.executable,
-                    "script/check_code_health.py",
-                    "--check",
-                    "--base-ref",
-                    args.base,
-                ),
-                "the pure build gate does not include the Swift ratchet",
-                False,
-            ))
+            gates.append(
+                code_health_gate(
+                    args.base, "the pure build gate does not include the Swift ratchet"
+                )
+            )
+        if scene_product_change:
+            gates.append(scene_defense_gate(args.base))
         gates.append(Gate(
             "build-verify",
             ("/bin/bash", "script/run_checkpoint_build.sh"),
@@ -296,18 +324,13 @@ def build_plan(
             True,
         ))
     elif swift_change:
-        gates.append(Gate(
-            "code-health",
-            (
-                sys.executable,
-                "script/check_code_health.py",
-                "--check",
-                "--base-ref",
-                args.base,
-            ),
-            "Swift changed without a selected build wrapper",
-            False,
-        ))
+        gates.append(
+            code_health_gate(args.base, "Swift changed without a selected build wrapper")
+        )
+        if scene_product_change:
+            gates.append(scene_defense_gate(args.base))
+    elif scene_product_change:
+        gates.append(scene_defense_gate(args.base))
 
     if phase_index >= 2 and scene_product_change:
         if args.skip_runtime:

@@ -694,7 +694,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         )
         self.assertEqual(
             [gate.gate_id for gate in gates],
-            ["focused-tests", "code-health", "build-verify"],
+            ["focused-tests", "code-health", "scene-defense", "build-verify"],
         )
         self.assertIn("render-graph", groups)
         self.assertEqual(
@@ -710,7 +710,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         )
         self.assertEqual(
             [gate.gate_id for gate in gates],
-            ["focused-tests", "code-health", "build-verify"],
+            ["focused-tests", "code-health", "scene-defense", "build-verify"],
         )
         self.assertEqual(
             gates[-1].command,
@@ -758,7 +758,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         )
         self.assertEqual(
             [gate.gate_id for gate in gates],
-            ["focused-tests", "code-health", "build-verify", "targeted-sample"],
+            ["focused-tests", "code-health", "scene-defense", "build-verify", "targeted-sample"],
         )
         self.assertIn("test_scene_frame_texture_registry", gates[0].command)
         self.assertNotIn("--keyword", gates[0].command)
@@ -1007,7 +1007,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
                     arguments(ci=True, test_scope=scope), self.registry,
                 )
                 self.assertEqual([gate.gate_id for gate in gates],
-                                 [f"{scope}-tests", "code-health", "build-verify"])
+                                 [f"{scope}-tests", "code-health", "scene-defense", "build-verify"])
                 self.assertIn(scope, gates[0].command)
                 self.assertIn("--fail-fast", gates[0].command)
 
@@ -1027,6 +1027,31 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertNotIn("pkill", script)
         self.assertNotIn("/usr/bin/open", script)
         self.assertNotIn(".codex/DerivedData", script)
+
+
+    def test_scene_defense_gate_tracks_scene_product_paths(self) -> None:
+        gates, _ = verify.build_plan(
+            ["MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTexture.swift"],
+            arguments(),
+            self.registry,
+        )
+        defense = [gate for gate in gates if gate.gate_id == "scene-defense"]
+        self.assertEqual(len(defense), 1)
+        self.assertIn("script/check_scene_defense.py", defense[0].command)
+        self.assertIn("--base-ref", defense[0].command)
+        self.assertEqual(
+            self.gate_ids(
+                ["MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift"],
+                arguments(),
+            ).count("scene-defense"),
+            0,
+        )
+        header_gates = self.gate_ids(
+            ["MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.h"],
+            arguments(),
+        )
+        self.assertIn("scene-defense", header_gates)
+        self.assertLess(header_gates.index("scene-defense"), header_gates.index("build-verify"))
 
 
 if __name__ == "__main__":

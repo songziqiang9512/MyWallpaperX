@@ -56,6 +56,13 @@
       "cost": "very-high",
       "serialized": true,
       "retirement": "Retire when the authoritative real-sample snapshot contract moves to a verified replacement gate."
+    },
+    "scene-defense": {
+      "risk": "A Scene change adds a zero-caller entry, another copy of a canonical helper, or an error swallowed inside identity/digest computation.",
+      "trigger": "Scene product paths change when the selected build command does not already run the defensive-surface ratchet.",
+      "cost": "low",
+      "serialized": false,
+      "retirement": "Retire only if the compiler or another mandatory gate enforces the same defensive-surface ratchet."
     }
   },
   "path_groups": [
@@ -1390,6 +1397,7 @@
       "patterns": [
         "script/scene_fast_suite.json",
         "script/code_health_baseline.json",
+        "script/scene_defense_baseline.json",
         "script/run_scene_tests.py",
         "script/verify_scene_change.py",
         "script/scene_validation_gates.json",
@@ -1398,6 +1406,7 @@
       "modules": [
         "test_scene_governance_contract",
         "test_check_code_health",
+        "test_check_scene_defense",
         "test_scene_test_runner",
         "test_verify_scene_change"
       ]
