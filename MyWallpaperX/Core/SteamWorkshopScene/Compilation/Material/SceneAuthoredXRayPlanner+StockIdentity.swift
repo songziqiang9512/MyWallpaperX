@@ -13,17 +13,6 @@ nonisolated enum SceneXRayStockIdentityVerifier {
         let shaderDependencySHA256: String
     }
 
-#if SCENE_XRAY_STOCK_IDENTITY_TESTING
-    nonisolated struct SyntheticStockIdentityProfile {
-        let version: Int?
-        let replacementKey: String?
-        let group: String
-        let materialSemanticSHA256: String
-        let shaderCanonicalSHA256: String
-        let shaderDependencySHA256: String
-    }
-#endif
-
     /// Returns exact descriptor instances backed by a registered X-Ray stock
     /// identity. Runtime declaration and dependency shape remain separate gates.
     nonisolated static func verifiedStockIdentityEffectKeys(
@@ -34,59 +23,6 @@ nonisolated enum SceneXRayStockIdentityVerifier {
             descriptor: descriptor,
             shaderContracts: shaderContracts,
             profiles: stockIdentityProfiles
-        )
-    }
-
-#if SCENE_XRAY_STOCK_IDENTITY_TESTING
-    nonisolated static func verifiedStockIdentityEffectKeysForTesting(
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        syntheticProfiles: [SyntheticStockIdentityProfile]
-    ) -> Set<Graph.EffectKey> {
-        verifiedStockIdentityEffectKeys(
-            descriptor: descriptor,
-            shaderContracts: shaderContracts,
-            profiles: syntheticProfiles.map {
-                StockIdentityProfile(
-                    version: $0.version,
-                    replacementKey: $0.replacementKey,
-                    group: $0.group,
-                    materialSemanticSHA256: $0.materialSemanticSHA256,
-                    shaderCanonicalSHA256: $0.shaderCanonicalSHA256,
-                    shaderDependencySHA256: $0.shaderDependencySHA256
-                )
-            }
-        )
-    }
-#endif
-
-    nonisolated static func currentStockDefinitionMatches(
-        descriptor: SceneRenderDescriptor,
-        path: String
-    ) -> Bool {
-        definitionMatches(
-            in: descriptor,
-            path: path,
-            profile: currentStockIdentityProfile
-        )
-    }
-
-    nonisolated static func currentStockMaterialMatches(
-        descriptor: SceneRenderDescriptor
-    ) -> Bool {
-        materialMatches(
-            in: descriptor,
-            semanticSHA256: currentStockIdentityProfile.materialSemanticSHA256
-        )
-    }
-
-    nonisolated static func currentStockShaderContractMatches(
-        _ contracts: [SceneShaderContract]
-    ) -> Bool {
-        shaderContractMatches(
-            contracts,
-            profile: currentStockIdentityProfile,
-            requiresSourceGraphIdentity: true
         )
     }
 

@@ -177,12 +177,6 @@ struct SceneGraphRenderTargetLease {
         ))
     }
 
-    static func orderedTextures(for table: SceneGraphRenderTargetTable) -> [MTLTexture]? {
-        guard orderedIdentities(for: table.plan) != nil else { return nil }
-        let textures = table.orderedPhysicalTextures
-        return textures.count == table.residentTextureCount ? textures : nil
-    }
-
     private static func orderedIdentities(for plan: Plan) -> [Graph.TextureIdentity]? {
         let identities = [plan.input]
             + plan.logicalTargets.map(\.identity)

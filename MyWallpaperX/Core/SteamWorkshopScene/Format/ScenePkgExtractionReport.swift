@@ -35,17 +35,6 @@ protocol ScenePkgExtracting {
 }
 
 struct ScenePkgExtractor: ScenePkgExtracting {
-    enum ExtractError: LocalizedError {
-        case missingTool
-
-        var errorDescription: String? {
-            switch self {
-            case .missingTool:
-                return "未配置 repkg 或兼容的 Scene 资源包解包工具。"
-            }
-        }
-    }
-
     let toolURL: URL?
 
     init(toolURL: URL? = nil) {

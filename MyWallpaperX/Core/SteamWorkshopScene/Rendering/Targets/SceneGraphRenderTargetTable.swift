@@ -16,7 +16,6 @@ struct SceneGraphRenderTargetTable {
         case byteBudgetExceeded
         case textureAllocationFailed
         case textureAllocationAliased
-        case borrowedTextureInvalid
         case mappedTextureInvalid
         case mappedTextureAliased
     }
@@ -124,35 +123,6 @@ struct SceneGraphRenderTargetTable {
         ))
     }
 
-    static func makeBorrowed(
-        plan: SceneGraphRenderTargetPlan,
-        inputTexture: MTLTexture,
-        outputTexture: MTLTexture
-    ) -> Result<Self, Failure> {
-        guard plan.logicalTargets.isEmpty,
-              let specifications = specifications(for: plan),
-              specifications.count == 2,
-              plan.input != plan.output,
-              inputTexture !== outputTexture,
-              validBorrowedTexture(inputTexture, extent: plan.inputExtent, format: plan.backbufferFormat),
-              validBorrowedTexture(outputTexture, extent: plan.inputExtent, format: plan.backbufferFormat),
-              inputTexture.device.registryID == outputTexture.device.registryID else {
-            return .failure(.borrowedTextureInvalid)
-        }
-        return .success(Self(
-            plan: plan,
-            inputTexture: inputTexture,
-            outputTexture: outputTexture,
-            fullFramePair: .init(first: inputTexture, second: outputTexture),
-            inputOutputAliased: false,
-            residentByteCost: 0,
-            texturesByIdentity: [
-                plan.input: inputTexture,
-                plan.output: outputTexture,
-            ]
-        ))
-    }
-
     struct Specification {
         let identity: Graph.TextureIdentity
         let extent: SceneGraphRenderTargetPlan.PixelExtent
@@ -241,21 +211,6 @@ struct SceneGraphRenderTargetTable {
         _ extent: SceneGraphRenderTargetPlan.PixelExtent
     ) -> Bool {
         extent.width > 0 && extent.height > 0
-    }
-
-    private static func validBorrowedTexture(
-        _ texture: MTLTexture,
-        extent: SceneGraphRenderTargetPlan.PixelExtent,
-        format: SceneGraphRenderTargetPlan.TextureFormat
-    ) -> Bool {
-        texture.textureType == .type2D
-            && texture.pixelFormat == format.metalPixelFormat
-            && texture.width == extent.width
-            && texture.height == extent.height
-            && texture.mipmapLevelCount == 1
-            && texture.sampleCount == 1
-            && texture.usage.contains(.renderTarget)
-            && texture.usage.contains(.shaderRead)
     }
 
     static func validMappedTexture(

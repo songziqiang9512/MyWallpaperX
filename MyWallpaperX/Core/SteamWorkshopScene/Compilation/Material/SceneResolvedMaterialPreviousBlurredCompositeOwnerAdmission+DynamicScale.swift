@@ -4,13 +4,6 @@ extension SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission {
     nonisolated enum UserPropertyScalarOwnerSource: Equatable {
         case liveProducer
         case authoredFallback
-
-        nonisolated var revocationToken: String {
-            switch self {
-            case .liveProducer: "typed-user-scalar-splat"
-            case .authoredFallback: "authored-fallback-scalar-splat"
-            }
-        }
     }
 
     /// Both shared blur passes must use the same launch-scoped scalar source.
@@ -37,27 +30,6 @@ extension SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission {
             return nil
         }
         return sources[0]
-    }
-
-    nonisolated static func userPropertyScalarTargetMatches(
-        ownerSource: UserPropertyScalarOwnerSource,
-        expectedProducer: SceneDynamicUserPropertyProducer,
-        targetProducers: Set<SceneDynamicUserPropertyProducer>,
-        target: SceneDynamicTarget,
-        fallbackComponentBitPatterns: [UInt64],
-        definitions: [SceneDynamicTargetDefinition]
-    ) -> Bool {
-        switch ownerSource {
-        case .liveProducer:
-            return targetProducers == [expectedProducer]
-        case .authoredFallback:
-            return targetProducers.isEmpty
-                && authoredScalarDefinition(
-                    target: target,
-                    matches: fallbackComponentBitPatterns,
-                    definitions: definitions
-                )
-        }
     }
 
     nonisolated static func scaleProducerCohortIsProven(

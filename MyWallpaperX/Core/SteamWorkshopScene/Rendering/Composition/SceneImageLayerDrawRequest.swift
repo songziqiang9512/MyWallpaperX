@@ -299,8 +299,4 @@ struct SceneImageLayerDrawRequest {
             sampling: effectiveSourceSampling(for: sample.sampling)
         )
     }
-
-    func resolvedBaseTextureFrame() -> SceneTextureUVTransform? {
-        resolvedBaseTextureSample()?.textureFrame
-    }
 }

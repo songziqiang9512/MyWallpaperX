@@ -55,18 +55,6 @@ nonisolated extension SceneParticleSimulator {
         }
         return result.x.isFinite && result.y.isFinite && result.z.isFinite ? result : nil
     }
-
-    func changeFactor(
-        _ value: SceneParticleOperator,
-        life: Double,
-        fallback: (Double, Double)
-    ) -> Double {
-        let start = SceneParticleSimulationMath.scalar(value.startValue, fallback: fallback.0)
-        let end = SceneParticleSimulationMath.scalar(value.endValue, fallback: fallback.1)
-        return start + (end - start) * SceneParticleSimulationMath.changeAmount(
-            life, value.startTime, value.endTime
-        )
-    }
 }
 
 private nonisolated extension SIMD3 where Scalar == Double {

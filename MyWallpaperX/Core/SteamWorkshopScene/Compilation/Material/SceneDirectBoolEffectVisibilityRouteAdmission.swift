@@ -59,33 +59,6 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
         )
     }
 
-    static func activeOrdinaryRootTargets(
-        in descriptor: SceneRenderDescriptor,
-        candidates: Set<SceneDynamicTarget>
-    ) -> Set<SceneDynamicTarget> {
-        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
-        let structuralUtilityConsumerLayerIDs =
-            SceneResolvedMaterialDependencyOwnershipCompiler
-                .structuralUtilityConsumerLayerIDs(in: descriptor)
-        let productReferences = Set(
-            SceneDependencyGraphAnalysis.references(in: descriptor.layers)
-        )
-        let dependencyPlan = SceneDependencyRenderPlan(
-            descriptor: descriptor,
-            visibleLayerIDs: visibleLayerIDs,
-            executableUtilityConsumerLayerIDs:
-                structuralUtilityConsumerLayerIDs,
-            admittedResolvedMaterialReferences: productReferences
-        )
-        return targets(
-            in: descriptor,
-            candidates: candidates,
-            visibleLayerIDs: visibleLayerIDs,
-            dependencyPlan: dependencyPlan,
-            requiresInitiallyInactiveEffect: false
-        )
-    }
-
     private static func targets(
         in descriptor: SceneRenderDescriptor,
         candidates: Set<SceneDynamicTarget>,

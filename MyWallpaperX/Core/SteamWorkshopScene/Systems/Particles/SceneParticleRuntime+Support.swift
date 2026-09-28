@@ -243,18 +243,6 @@ extension SceneParticleRuntime {
     ) -> SceneParticleFrameTransform {
         SceneParticleFrameTransform(origin: frame.origin, xAxis: frame.xAxis, yAxis: frame.yAxis)
     }
-
-    static func textureFailureDescription(_ outcome: SceneTextureLoadOutcome) -> String {
-        switch outcome {
-        case .loaded: "loaded"
-        case let .unsupportedFormat(value): "unsupportedFormat:\(value)"
-        case let .unsupportedTexFormat(value): "unsupportedTexFormat:\(value)"
-        case .texNoEmbeddedImage: "texNoEmbeddedImage"
-        case .texContainsVideoPayload: "texContainsVideoPayload"
-        case let .decodeFailed(value): "decodeFailed:\(value)"
-        case let .textureAllocationFailed(width, height): "textureAllocationFailed:\(width)x\(height)"
-        }
-    }
 }
 
 extension SceneParticleRopeTrailParticle {

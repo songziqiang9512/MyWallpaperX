@@ -443,23 +443,6 @@ nonisolated enum SceneScriptLayerMutationBridge {
         }
     }
 
-    static func configurePropertyObjectScope(
-        owner: OpaquePointer, target: SceneDynamicTarget
-    ) throws {
-        var diagnostic = [CChar](repeating: 0, count: 512)
-        let result = mwx_scene_quickjs_owner_set_property_object_scope(
-            owner,
-            propertyObjectIsLayer(target) ? 1 : 0,
-            &diagnostic,
-            diagnostic.count
-        )
-        guard result == MWX_SCENE_QUICKJS_OK else {
-            throw SceneScriptScalarRuntimeFailure.invalidArgument(
-                String(cString: diagnostic)
-            )
-        }
-    }
-
     /// Effect-visibility targets stage `thisObject.visible` writes on the
     /// property-object handle; the configure call defines that accessor and
     /// records the (layer, effect) identity the staged value publishes to.

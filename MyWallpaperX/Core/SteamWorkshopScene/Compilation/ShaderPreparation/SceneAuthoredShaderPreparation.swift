@@ -632,55 +632,6 @@ nonisolated enum SceneAuthoredShaderPreparation {
         ))
     }
 
-    nonisolated static func unresolvedColorContractReasons(
-        _ contract: SceneShaderContract
-    ) -> [String] {
-        var reasons: Set<String> = []
-        if contract.stages.contains(where: { stage in
-            stage.annotations.contains { annotation in
-                guard case let .object(object) = annotation.variantValue else { return false }
-                return object["combo"] != nil
-            }
-        }) {
-            reasons.insert("combo-schema")
-        }
-
-        var mergedDefines: [String: SceneShaderMacroValue] = [:]
-        for stage in contract.stages {
-            var stageDefines: Set<String> = []
-            for line in stage.source.split(
-                omittingEmptySubsequences: false,
-                whereSeparator: { $0.isNewline }
-            ) {
-                guard let directive = SceneShaderDirective.parse(String(line)) else {
-                    continue
-                }
-                switch directive {
-                case let .define(name, value):
-                    switch value {
-                    case .integer, .floatingLiteral:
-                        if !stageDefines.insert(name).inserted {
-                            reasons.insert("duplicate-define")
-                        }
-                        if let existing = mergedDefines[name], existing != value {
-                            reasons.insert("cross-stage-define-conflict")
-                        } else {
-                            mergedDefines[name] = value
-                        }
-                    case .bare, .tokenSequence:
-                        reasons.insert("prepared-directive")
-                    }
-                case .defineFunction, .undef, .include, .ifExpression, .ifdef,
-                     .require, .malformedRequire, .elifExpression,
-                     .elseDirective, .endif, .unsupported, .unknown,
-                     .unsupportedFunctionMacro, .malformed:
-                    reasons.insert("prepared-directive")
-                }
-            }
-        }
-        return reasons.sorted()
-    }
-
     private nonisolated static func prepare(
         _ kind: SceneShaderContract.StageKind,
         contract: SceneShaderContract,

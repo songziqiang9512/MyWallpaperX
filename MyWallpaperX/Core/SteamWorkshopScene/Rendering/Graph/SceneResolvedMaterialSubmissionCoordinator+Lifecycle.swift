@@ -187,53 +187,6 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         return reportLine.map { [$0] } ?? []
     }
 
-    func commitIsValid(
-        _ commit: Commit,
-        preparedTargets: ScenePreparedPersistentGraphTargets,
-        prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph
-    ) -> Bool {
-        let effects = Set(prepared.stages.map(\.effect))
-        let generations = Set(prepared.stages.map {
-            $0.transition.transaction.allocationGeneration
-        })
-        guard effects.count == prepared.stages.count,
-              generations.count == 1,
-              let generation = generations.first,
-              leasesHaveSameAtoms(commit.leases, preparedTargets.leases),
-              Set(commit.historyPinsByEffect.keys)
-                == Set(prepared.historyTokensByEffect.keys),
-              Set(prepared.historyTokensByEffect.keys).isSubset(of: effects),
-              prepared.historyTokensByEffect.values.allSatisfy({ !$0.isEmpty }),
-              commit.submissionPin.generation == generation,
-              commit.submissionPin.purpose == .submission else { return false }
-        return commit.historyPinsByEffect.allSatisfy { effect, pin in
-            historyPinMatches(
-                pin,
-                effect: effect,
-                tokens: prepared.historyTokensByEffect[effect],
-                generation: generation
-            )
-        }
-    }
-
-    func leasesHaveSameAtoms(
-        _ lhs: [SceneGraphRenderTargetLease],
-        _ rhs: [SceneGraphRenderTargetLease]
-    ) -> Bool {
-        guard lhs.count == rhs.count else { return false }
-        return zip(lhs, rhs).allSatisfy { left, right in
-            guard left.generation == right.generation,
-                  left.table.plan == right.table.plan,
-                  left.fullFramePair.first == right.fullFramePair.first,
-                  left.fullFramePair.second == right.fullFramePair.second,
-                  Set(left.texturesByToken.keys) == Set(right.texturesByToken.keys)
-            else { return false }
-            return left.texturesByToken.allSatisfy { token, texture in
-                right.texturesByToken[token] === texture
-            }
-        }
-    }
-
     func historyPinMatches(
         _ pin: SceneGraphRenderTargetResidencyPin?,
         effect: Graph.EffectKey,
