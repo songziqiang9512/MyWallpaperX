@@ -118,12 +118,7 @@ extension SceneResolvedMaterialGraphExecutor {
         ) {
             return result
         }
-        let dependencyInputs: [SceneDependencyEffectInput]
-        if !frameInputs.dependencyEffects.isEmpty {
-            dependencyInputs = frameInputs.dependencyEffects
-        } else {
-            dependencyInputs = frameInputs.dependencyEffect.map { [$0] } ?? []
-        }
+        let dependencyInputs = frameInputs.dependencyEffects
         var dependencyFrame = frame
         for dependency in dependencyInputs {
             guard dependency.frameEpoch > 0,

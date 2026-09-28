@@ -7,7 +7,6 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         let capabilityToken:
             SceneResolvedMaterialExecutionCapabilityCatalog.Token
         let prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph
-        let preparedDependencyEffect: SceneDependencyEffectInput?
         let preparedDependencyEffects: [SceneDependencyEffectInput]
         let preparedDependencyUnavailability:
             Bridge.FrameInputs.DependencyUnavailability?

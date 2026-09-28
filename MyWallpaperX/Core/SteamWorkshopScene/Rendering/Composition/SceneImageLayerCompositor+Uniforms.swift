@@ -45,7 +45,7 @@ extension SceneImageLayerCompositor {
             layer: request.layer,
             sourceSample: sourceSample,
             routesOffscreen: routesOffscreen,
-            dependencyBlendMode: request.dependencyEffect?.blendMode
+            dependencyBlendMode: request.dependencyEffects.first?.blendMode
         )
     }
 

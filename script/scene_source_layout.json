@@ -1202,24 +1202,11 @@
       {
         "id": "legacy-dependency-singular-route",
         "role": "inventory",
-        "description": "The legacy singular dependency route stays frozen until the E1 aggregate owner collapses it; direction is shrink to zero.",
+        "description": "The singular dependency lane was collapsed into the ordered vector; the five remaining occurrences are the compositor's read-only alias of the first element, and no legacy resolution lane may return.",
         "pattern": "dependencyEffect(?!s)",
-        "baseline_occurrences": 71,
+        "baseline_occurrences": 5,
         "allowed_files": [
-          "Rendering/Composition/SceneImageLayerCompositor+Uniforms.swift",
-          "Rendering/Composition/SceneImageLayerCompositor.swift",
-          "Rendering/Composition/SceneImageLayerDrawRequest.swift",
-          "Rendering/Composition/SceneLayerSourcePassthroughPlan.swift",
-          "Rendering/Composition/SceneResolvedMaterialGraphComposition.swift",
-          "Rendering/Composition/SceneUtilityLayerRenderer.swift",
-          "Rendering/Composition/SceneUtilityPlanFrameRenderer.swift",
-          "Rendering/Frame/SceneMetalRenderer+DependencyProviders.swift",
-          "Rendering/Frame/SceneMetalRenderer.swift",
-          "Rendering/Frame/SceneResolvedMaterialFramePreflight.swift",
-          "Rendering/Graph/SceneResolvedMaterialGraphExecutor+Preparation.swift",
-          "Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift",
-          "Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator+Execution.swift",
-          "Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift"
+          "Rendering/Composition/SceneImageLayerCompositor.swift"
         ]
       },
       {

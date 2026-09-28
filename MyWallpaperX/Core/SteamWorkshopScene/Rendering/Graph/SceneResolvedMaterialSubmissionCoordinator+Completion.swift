@@ -341,9 +341,6 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                             dependencyProviders:
                                 ledger.preparedDependencyEffects
                                     .map(\.providerLayerID)
-                                    + [ledger.preparedDependencyEffect?
-                                        .providerLayerID]
-                                        .compactMap { $0 }
                         )
                     )
                 } catch let failure as
@@ -398,9 +395,6 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                         dependencyProviders:
                             ledger.preparedDependencyEffects
                                 .map(\.providerLayerID)
-                            + [ledger.preparedDependencyEffect?
-                                .providerLayerID]
-                                .compactMap { $0 }
                     )
                 )
             } catch {

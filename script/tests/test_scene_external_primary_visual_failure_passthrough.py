@@ -192,12 +192,12 @@ HARNESS = replace_once(
         }
         let externalDependencyInput = providerResource.map {
             SceneResolvedMaterialRuntimeBridge.FrameInputs(
-                dependencyEffect: .init(
+                dependencyEffects: [.init(
                     frameEpoch: 60,
                     texture: providerTexture,
                     namedReference: namedReference,
                     reservedMaterialResource: $0
-                )
+                )]
             )
         }
 

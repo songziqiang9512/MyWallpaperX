@@ -47,15 +47,10 @@ enum SceneUtilityPlanFrameRenderer {
             let requiresDependencyEffect = dependencyRuntime.requiresEffect(
                 for: layer.id
             )
-            let dependencyEffect = dependencyRuntime.effectInput(
-                for: layer.id,
-                textureRegistry: renderer.textureRegistry
-            )
-            // A composition utility may own a lossless multi-provider
-            // aggregate. Resolve the complete authored slot vector before
-            // entering the shared compositor; projecting it onto the legacy
-            // singular input would silently drop every provider after the
-            // first one.
+            // A composition utility resolves the complete dependency vector
+            // before entering the shared compositor: its aggregate slot
+            // order when the plan owns one, otherwise the single-provider
+            // input.
             let dependencyEffects: [SceneDependencyEffectInput]
             var dependencyAggregateInvalidReason: String?
             if let aggregate = dependencyRuntime.plan
@@ -76,7 +71,10 @@ enum SceneUtilityPlanFrameRenderer {
                     dependencyAggregateInvalidReason = reasonCode
                 }
             } else {
-                dependencyEffects = []
+                dependencyEffects = dependencyRuntime.effectInput(
+                    for: layer.id,
+                    textureRegistry: renderer.textureRegistry
+                ).map { [$0] } ?? []
             }
             if let reasonCode = dependencyAggregateInvalidReason {
                 // Reservation, epoch, slot-vector or publication identity
@@ -93,7 +91,6 @@ enum SceneUtilityPlanFrameRenderer {
             }
             let captured: Bool
             if requiresDependencyEffect,
-               dependencyEffect == nil,
                dependencyEffects.isEmpty {
                 dependencyRuntime.recordBindingFailure(for: layer.id)
                 captured = false
@@ -114,7 +111,6 @@ enum SceneUtilityPlanFrameRenderer {
                     pointerIsInside: frameContext.pointer.isInside && cursorUV != nil,
                     dynamicValues: frameContext.dynamicValues,
                     audioSpectrum: frameContext.audioSpectrum,
-                    dependencyEffect: dependencyEffect,
                     dependencyEffects: dependencyEffects,
                     requiresDependencyEffect: requiresDependencyEffect,
                     pipeline: imagePipeline,

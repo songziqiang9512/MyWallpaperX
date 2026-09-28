@@ -108,15 +108,16 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     ) -> Bool {
         switch ownership {
         case .externalPrimary:
-            return ledger.preparedDependencyEffects.isEmpty
+            // The vector is empty when the provider is merely unavailable
+            // this frame (marker set); one element when reserved.
+            return ledger.preparedDependencyEffects.count <= 1
                 && dependencyReservationMatches(
-                    ledger.preparedDependencyEffect,
+                    ledger.preparedDependencyEffects.first,
                     unavailability: ledger.preparedDependencyUnavailability,
                     ownership: ownership
                 )
         case .externalAggregate:
-            guard ledger.preparedDependencyEffect == nil,
-                  ledger.preparedDependencyUnavailability == nil,
+            guard ledger.preparedDependencyUnavailability == nil,
                   let frameEpoch = frame?.textureRegistrySnapshot.frameEpoch
             else { return false }
             return dependencyEffectsReservationMatches(
@@ -142,7 +143,6 @@ extension SceneResolvedMaterialSubmissionCoordinator {
 
     func executeClaimed(
         claim: Bridge.ClaimedExecution,
-        dependencyEffect: SceneDependencyEffectInput?,
         dependencyEffects: [SceneDependencyEffectInput] = [],
         sceneBackgroundTexture: MTLTexture? = nil,
         commandBuffer: MTLCommandBuffer
@@ -165,11 +165,9 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               ledger.commandBuffer === commandBuffer,
               commandBuffer.status == .notEnqueued,
               dependenciesMatch(
-                  prepared: ledger.preparedDependencyEffect,
                   preparedEffects: ledger.preparedDependencyEffects,
                   preparedUnavailability:
                     ledger.preparedDependencyUnavailability,
-                  ready: dependencyEffect,
                   readyEffects: dependencyEffects,
                   ownership: claim.dependencyOwnership
               ), sceneBackgroundTextureMatches(
@@ -188,7 +186,6 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 : "transaction-armed-after-submit"
             let detail = preparedFrameConsumptionRejectionDetailLocked(
                 claim: claim,
-                dependencyEffect: dependencyEffect,
                 dependencyEffects: dependencyEffects,
                 sceneBackgroundTexture: sceneBackgroundTexture,
                 commandBuffer: commandBuffer
@@ -258,8 +255,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
 
     private func preparedFrameConsumptionRejectionDetailLocked(
         claim: Bridge.ClaimedExecution,
-        dependencyEffect: SceneDependencyEffectInput?,
-        dependencyEffects: [SceneDependencyEffectInput] = [],
+        dependencyEffects: [SceneDependencyEffectInput],
         sceneBackgroundTexture: MTLTexture?,
         commandBuffer: MTLCommandBuffer
     ) -> String {
@@ -287,10 +283,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         guard commandBuffer.status == .notEnqueued
         else { return "command-buffer-status-\(commandBuffer.status.rawValue)" }
         guard dependenciesMatch(
-            prepared: ledger.preparedDependencyEffect,
             preparedEffects: ledger.preparedDependencyEffects,
             preparedUnavailability: ledger.preparedDependencyUnavailability,
-            ready: dependencyEffect,
             readyEffects: dependencyEffects,
             ownership: claim.dependencyOwnership
         ) else { return "dependency-input-mismatch" }
@@ -390,22 +384,18 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     }
 
     private func dependenciesMatch(
-        prepared: SceneDependencyEffectInput?,
         preparedEffects: [SceneDependencyEffectInput],
         preparedUnavailability:
             Bridge.FrameInputs.DependencyUnavailability?,
-        ready: SceneDependencyEffectInput?,
         readyEffects: [SceneDependencyEffectInput],
         ownership: SceneResolvedMaterialDependencyOwnership
     ) -> Bool {
         if case let .externalAggregate(aggregate) = ownership {
-            // Aggregate owners never use the legacy singular field or an
-            // unavailability marker. Both vectors must match the exact
-            // authored consumer/provider/slot/variant/blend order in the
-            // current frame epoch and preserve physical texture identity.
-            guard prepared == nil,
-                  ready == nil,
-                  preparedUnavailability == nil,
+            // Aggregate owners never carry an unavailability marker. Both
+            // vectors must match the exact authored consumer/provider/slot/
+            // variant/blend order in the current frame epoch and preserve
+            // physical texture identity.
+            guard preparedUnavailability == nil,
                   let frameEpoch = frame?.textureRegistrySnapshot.frameEpoch,
                   aggregateDependencyEffectsMatch(
                       preparedEffects,
@@ -430,6 +420,13 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                     && $0.texture === $1.texture
             }
         }
+        // Non-aggregate owners carry at most one input: a single-provider
+        // owner holds a one-element vector, none/graphInternal an empty one.
+        guard preparedEffects.count <= 1, readyEffects.count <= 1 else {
+            return false
+        }
+        let prepared = preparedEffects.first
+        let ready = readyEffects.first
         guard dependencyReservationMatches(
                 prepared,
                 unavailability: preparedUnavailability,
@@ -459,7 +456,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               ledger.phase == .allocationCommitted,
               !ledger.claimConsumed,
               let unavailable = ledger.preparedDependencyUnavailability,
-              ledger.preparedDependencyEffect == nil,
+              ledger.preparedDependencyEffects.isEmpty,
               ledger.prepared.stages.contains(where: {
                   $0.effect.layerID == layerID
                       && $0.effectLocalFailureReasonCode == unavailable.rawValue

@@ -46,7 +46,6 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         let capabilityToken:
             SceneResolvedMaterialExecutionCapabilityCatalog.Token
         let prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph
-        let preparedDependencyEffect: SceneDependencyEffectInput?
         let preparedDependencyEffects: [SceneDependencyEffectInput]
         let preparedDependencyUnavailability:
             Bridge.FrameInputs.DependencyUnavailability?
@@ -294,20 +293,20 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                   capability.effectSubjectsAreConserved,
                   capability.dependencyOwnership == claim.dependencyOwnership,
                   (claim.dependencyOwnership.isAggregate
-                    ? request.frameInputs.dependencyEffect == nil
-                        && request.frameInputs.dependencyUnavailability == nil
+                    ? request.frameInputs.dependencyUnavailability == nil
                         && dependencyEffectsReservationMatches(
                             request.frameInputs.dependencyEffects,
                             ownership: claim.dependencyOwnership,
                             frameEpoch:
                                 frame.textureRegistrySnapshot.frameEpoch
                         )
-                    : dependencyReservationMatches(
-                        request.frameInputs.dependencyEffect,
-                        unavailability:
-                            request.frameInputs.dependencyUnavailability,
-                        ownership: claim.dependencyOwnership
-                    )), sceneBackgroundReservationMatches(
+                    : request.frameInputs.dependencyEffects.count <= 1
+                        && dependencyReservationMatches(
+                            request.frameInputs.dependencyEffects.first,
+                            unavailability:
+                                request.frameInputs.dependencyUnavailability,
+                            ownership: claim.dependencyOwnership
+                        )), sceneBackgroundReservationMatches(
                       request.sceneBackgroundResource,
                       requirement: claim.sceneBackgroundRequirement,
                       frameEpoch: frame.textureRegistrySnapshot.frameEpoch
@@ -366,14 +365,18 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             let request = requests[index]
             let claim = request.claim
             let targets = preparedTargets[index]
-            let preparedDependencyEffect: SceneDependencyEffectInput?
+            // A single-provider owner carries a one-element vector; the
+            // provider's graph target may be reused by a later transaction
+            // in the same frame, so each prepared input keeps the
+            // independently reserved named target and only its content is
+            // refreshed from the provider's final output. The renderer then
+            // copies the provider final into it between the ordered
+            // transactions.
+            var preparedDependencyEffects = request.frameInputs.dependencyEffects
             let preparedDependencyUnavailability =
                 request.frameInputs.dependencyUnavailability
             switch claim.dependencyOwnership {
-            case .none, .graphInternal:
-                preparedDependencyEffect = request.frameInputs.dependencyEffect
             case let .externalPrimary(binding):
-                let original = request.frameInputs.dependencyEffect
                 let providerCandidates = candidates.filter {
                     $0.layerID == binding.providerLayerID
                 }
@@ -387,7 +390,8 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                     return .rejected(reasonCode: reason)
                 }
                 if preparedDependencyUnavailability != nil {
-                    guard original == nil, providerCandidates.isEmpty else {
+                    guard preparedDependencyEffects.isEmpty,
+                          providerCandidates.isEmpty else {
                         let reason = "prepared-provider-unavailability-mismatch"
                         emission = framePreparationFailureLocked(
                             candidates, reason: reason
@@ -396,10 +400,10 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                         emit(emission)
                         return .rejected(reasonCode: reason)
                     }
-                    preparedDependencyEffect = nil
                 } else if let provider = providerCandidates.first {
-                    guard let original,
-                          original.providerLayerID == provider.layerID else {
+                    guard preparedDependencyEffects.count == 1,
+                          preparedDependencyEffects[0].providerLayerID
+                              == provider.layerID else {
                         let reason = "prepared-provider-input-mismatch"
                         emission = framePreparationFailureLocked(
                             candidates, reason: reason
@@ -408,34 +412,29 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                         emit(emission)
                         return .rejected(reasonCode: reason)
                     }
-                    // The provider's graph target may be reused by a later
-                    // transaction in the same frame. Keep the independently
-                    // reserved named target as the consumer input; the
-                    // renderer copies the provider final into it between the
-                    // ordered transactions.
-                    preparedDependencyEffect = original.withContent(
-                        provider.prepared.finalResource.publication.candidate.content
-                    )
-                } else {
-                    preparedDependencyEffect = original
+                    preparedDependencyEffects[0] =
+                        preparedDependencyEffects[0].withContent(
+                            provider.prepared.finalResource.publication
+                                .candidate.content
+                        )
                 }
-            case .externalAggregate:
+            case .none, .graphInternal, .externalAggregate:
                 // The ordered vector is carried by FrameInputs and validated
-                // at executeClaimed; keep the legacy singular ledger empty.
-                preparedDependencyEffect = nil
+                // at executeClaimed; graph-internal owners carry no external
+                // inputs.
+                preparedDependencyEffects = preparedDependencyEffects.map {
+                    input in
+                    guard let provider = candidates.first(where: {
+                        $0.layerID == input.providerLayerID
+                    }) else { return input }
+                    return input.withContent(
+                        provider.prepared.finalResource.publication.candidate
+                            .content
+                    )
+                }
             }
-            let preparedDependencyEffects = request.frameInputs.dependencyEffects.map {
-                input in
-                guard let provider = candidates.first(where: {
-                    $0.layerID == input.providerLayerID
-                }) else { return input }
-                return input.withContent(
-                    provider.prepared.finalResource.publication.candidate.content
-                )
-            }
-            let frameInputs = request.frameInputs.withDependencyEffect(
-                preparedDependencyEffect,
-                dependencyEffects: preparedDependencyEffects
+            let frameInputs = request.frameInputs.withDependencyEffects(
+                preparedDependencyEffects
             )
             performanceTelemetry?.beginStage("admit-executor-prepare")
             let result = executor.prepare(
@@ -536,7 +535,6 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 layerID: claim.layerID,
                 capabilityToken: claim.token,
                 prepared: prepared,
-                preparedDependencyEffect: preparedDependencyEffect,
                 preparedDependencyEffects: preparedDependencyEffects,
                 preparedDependencyUnavailability:
                     preparedDependencyUnavailability,
@@ -605,7 +603,6 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 layerID: candidate.layerID,
                 capabilityToken: candidate.capabilityToken,
                 prepared: candidate.prepared,
-                preparedDependencyEffect: candidate.preparedDependencyEffect,
                 preparedDependencyEffects: candidate.preparedDependencyEffects,
                 preparedDependencyUnavailability:
                     candidate.preparedDependencyUnavailability,

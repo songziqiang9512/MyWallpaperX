@@ -351,10 +351,10 @@ class SceneUtilityLayerTests(unittest.TestCase):
             dependency_runtime,
         )
         self.assertIn(
-            "dependencyEffect: SceneDependencyEffectInput?",
+            "dependencyEffects: [SceneDependencyEffectInput] = []",
             utility_renderer,
         )
-        self.assertIn("dependencyEffect: dependencyEffect", utility_renderer)
+        self.assertIn("dependencyEffects: dependencyEffects,", utility_renderer)
         self.assertIn("dependencyRuntime.effectInput(", metal_renderer)
         self.assertIn(
             "resolvedMaterialLayerIDs: resolvedMaterialLayerIDs",
@@ -416,7 +416,10 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertNotIn("suppressesUnclaimedEffectFallback", image_renderer)
         self.assertNotIn("authoredEffectCatalog", utility_renderer)
 
-        self.assertIn("let dependencyEffect = request.dependencyEffect", compositor)
+        self.assertIn(
+            "let dependencyEffect = request.dependencyEffects.first",
+            compositor,
+        )
         self.assertIn("dependencyTexture: dependencyEffect?.texture", compositor)
 
 

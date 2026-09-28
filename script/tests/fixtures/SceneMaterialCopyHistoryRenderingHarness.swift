@@ -697,7 +697,7 @@ private func submitCoordinatorFrame(
     let ticket: SceneResolvedMaterialRuntimeBridge.ExecutionTicket
     switch coordinator.executeClaimed(
         claim: claim,
-        dependencyEffect: nil,
+        dependencyEffects: [],
         commandBuffer: commandBuffer
     ) {
     case let .encoded(value, valueTicket):

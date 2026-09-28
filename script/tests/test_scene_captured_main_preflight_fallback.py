@@ -62,14 +62,14 @@ def augmented_harness(source: str) -> str:
         (
             "        Self.prepareCallCount += 1\n"
             "        Self.prepareTokens.append(token.value)\n"
-            "        if let texture = frameInputs.dependencyEffect?.texture {"
+            "        if let texture = frameInputs.dependencyEffects.first?.texture {"
         ): (
             "        Self.prepareCallCount += 1\n"
             "        Self.prepareTokens.append(token.value)\n"
             "        if let failure = Self.failureByToken[token.value] {\n"
             "            return .failure(failure)\n"
             "        }\n"
-            "        if let texture = frameInputs.dependencyEffect?.texture {"
+            "        if let texture = frameInputs.dependencyEffects.first?.texture {"
         ),
     }
     for old, new in replacements.items():
@@ -189,7 +189,7 @@ def augmented_harness(source: str) -> str:
             case let .claimed(claim):
                 switch coordinator.executeClaimed(
                     claim: claim,
-                    dependencyEffect: nil,
+                    dependencyEffects: [],
                     commandBuffer: buffer
                 ) {
                 case let .encoded(texture, ticket):
@@ -331,7 +331,7 @@ def augmented_harness(source: str) -> str:
                         sourceUniforms: .init(),
                         sourcePipeline: .init(),
                         frameInputs: .fixture
-                            .replacingDependencyEffect(dependency)
+                            .replacingDependencyEffects([dependency])
                     ),
                 ],
                 pool: pool,

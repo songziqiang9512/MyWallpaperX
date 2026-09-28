@@ -1134,11 +1134,11 @@ extension SceneResolvedMaterialRuntimeBridge.FrameInputs {
         frameTime: 1 / 60,
         time: 0,
         audioSpectrum: .init(),
-        dependencyEffect: nil
+        dependencyEffects: []
     )
 
-    func replacingDependencyEffect(
-        _ dependencyEffect: SceneDependencyEffectInput?
+    func replacingDependencyEffects(
+        _ dependencyEffects: [SceneDependencyEffectInput]
     ) -> Self {
         .init(
             dynamicValues: dynamicValues,
@@ -1156,7 +1156,7 @@ extension SceneResolvedMaterialRuntimeBridge.FrameInputs {
             frameTime: frameTime,
             time: time,
             audioSpectrum: audioSpectrum,
-            dependencyEffect: dependencyEffect
+            dependencyEffects: dependencyEffects
         )
     }
 }
@@ -1234,7 +1234,7 @@ final class SceneResolvedMaterialGraphExecutor {
         _ = effectGeneration; _ = resetGeneration
         Self.prepareCallCount += 1
         Self.prepareTokens.append(token.value)
-        if let texture = frameInputs.dependencyEffect?.texture {
+        if let texture = frameInputs.dependencyEffects.first?.texture {
             Self.preparedDependencyTextureByToken[token.value] =
                 ObjectIdentifier(texture)
         }
@@ -1614,7 +1614,7 @@ private func makeLedger(
     identity: UInt64,
     commandBuffer: MTLCommandBuffer,
     prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph,
-    preparedDependencyEffect: SceneDependencyEffectInput? = nil,
+    preparedDependencyEffects: [SceneDependencyEffectInput] = [],
     commit: ScenePreparedPersistentGraphTargets.Commit,
     blueprint: Coordinator.CandidateBlueprint? = nil,
     candidate: [Graph.EffectKey: Coordinator.Tail]? = nil,
@@ -1630,8 +1630,7 @@ private func makeLedger(
         layerID: 7,
         capabilityToken: .init(value: 7),
         prepared: prepared,
-        preparedDependencyEffect: preparedDependencyEffect,
-        preparedDependencyEffects: [],
+        preparedDependencyEffects: preparedDependencyEffects,
         preparedDependencyUnavailability: nil,
         commandBuffer: commandBuffer,
         committedBaseTails: coordinator.committedTails,
@@ -1915,7 +1914,8 @@ private func executeExternalDependency(
         identity: 1,
         commandBuffer: buffer,
         prepared: makePrepared(device: device),
-        preparedDependencyEffect: preparedDependencyEffect,
+        preparedDependencyEffects:
+            preparedDependencyEffect.map { [$0] } ?? [],
         commit: commit,
         phase: .allocationCommitted,
         claimed: false
@@ -1939,7 +1939,7 @@ private func executeExternalDependency(
     }
     switch coordinator.executeClaimed(
         claim: claim,
-        dependencyEffect: readyDependencyEffect,
+        dependencyEffects: readyDependencyEffect.map { [$0] } ?? [],
         commandBuffer: buffer
     ) {
     case let .encoded(_, ticket):
@@ -2800,9 +2800,8 @@ enum Harness {
                         sourceUniforms: .init(),
                         sourcePipeline: .init(),
                         frameInputs: SceneResolvedMaterialRuntimeBridge
-                            .FrameInputs.fixture.withDependencyEffect(
-                                nil,
-                                dependencyEffects: inputs
+                            .FrameInputs.fixture.replacingDependencyEffects(
+                                inputs
                             )
                     ),
                     .init(
@@ -2837,7 +2836,7 @@ enum Harness {
             case let .claimed(claim):
                 switch coordinator.executeClaimed(
                     claim: claim,
-                    dependencyEffect: nil,
+                    dependencyEffects: [],
                     commandBuffer: buffer
                 ) {
                 case let .encoded(texture, ticket):
@@ -3070,7 +3069,7 @@ enum Harness {
                         sourceUniforms: .init(),
                         sourcePipeline: .init(),
                         frameInputs: dependencies[claim.layerID].map {
-                            .fixture.replacingDependencyEffect($0)
+                            .fixture.replacingDependencyEffects([$0])
                         } ?? .fixture
                     )
                 },
@@ -3097,7 +3096,7 @@ enum Harness {
             }
             let execution = coordinator.executeClaimed(
                 claim: claim10ForExecution,
-                dependencyEffect: nil,
+                dependencyEffects: [],
                 commandBuffer: buffer
             )
             let independentEncoded: Bool
@@ -3251,7 +3250,7 @@ enum Harness {
                         sourceUniforms: .init(),
                         sourcePipeline: .init(),
                         frameInputs: .fixture
-                            .replacingDependencyEffect(provisionalInput)
+                            .replacingDependencyEffects([provisionalInput])
                     ),
                 ],
                 pool: pool,
@@ -3274,7 +3273,7 @@ enum Harness {
             case let .claimed(claim):
                 switch coordinator.executeClaimed(
                     claim: claim,
-                    dependencyEffect: nil,
+                    dependencyEffects: [],
                     commandBuffer: buffer
                 ) {
                 case let .encoded(texture, ticket):
@@ -3313,7 +3312,7 @@ enum Harness {
             case let .claimed(claim):
                 switch coordinator.executeClaimed(
                     claim: claim,
-                    dependencyEffect: readyInput,
+                    dependencyEffects: [readyInput],
                     commandBuffer: buffer
                 ) {
                 case let .encoded(texture, ticket):
@@ -3448,7 +3447,7 @@ enum Harness {
             case let .claimed(claim):
                 switch coordinator.executeClaimed(
                     claim: claim,
-                    dependencyEffect: nil,
+                    dependencyEffects: [],
                     commandBuffer: buffer
                 ) {
                 case let .encoded(texture, ticket):
@@ -3484,7 +3483,7 @@ enum Harness {
             case let .claimed(claim):
                 switch coordinator.executeClaimed(
                     claim: claim,
-                    dependencyEffect: nil,
+                    dependencyEffects: [],
                     commandBuffer: buffer
                 ) {
                 case let .encoded(texture, ticket):
@@ -3597,8 +3596,8 @@ enum Harness {
                         sourceTexture: makeTexture(device, "local-source-7"),
                         sourceUniforms: .init(),
                         sourcePipeline: .init(),
-                        frameInputs: .fixture.replacingDependencyEffect(
-                            dependency
+                        frameInputs: .fixture.replacingDependencyEffects(
+                            [dependency]
                         )
                     ),
                     .init(
@@ -3641,7 +3640,7 @@ enum Harness {
             }
             let execution = coordinator.executeClaimed(
                 claim: claim8ForExecution,
-                dependencyEffect: nil,
+                dependencyEffects: [],
                 commandBuffer: buffer
             )
             let encoded: Bool
@@ -3879,7 +3878,7 @@ enum Harness {
                 }
                 switch coordinator.executeClaimed(
                     claim: claim,
-                    dependencyEffect: nil,
+                    dependencyEffects: [],
                     commandBuffer: buffer
                 ) {
                 case let .encoded(texture, ticket):
@@ -4386,7 +4385,7 @@ enum Harness {
             }
             let outcome = coordinator.executeClaimed(
                 claim: claim,
-                dependencyEffect: nil,
+                dependencyEffects: [],
                 commandBuffer: foreignBuffer
             )
             let reason: String
@@ -5057,7 +5056,7 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
         self.assertNotIn("layerBlendNonneutral", passthrough_plan)
         self.assertNotIn("staticPuppet", passthrough_plan)
         self.assertNotIn("provider(.puppet", passthrough_plan)
-        self.assertIn("request.dependencyEffect == nil", passthrough_plan)
+        self.assertIn("request.dependencyEffects.isEmpty", passthrough_plan)
         self.assertIn("!request.requiresDependencyEffect", passthrough_plan)
         self.assertIn(
             "SceneLayerVisibility.hasCurrentSourceDisplayAuthority(",
@@ -5073,7 +5072,7 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
         )
         self.assertIn(
             "if bypassReason != nil {\n"
-            "            return (nil, [], nil)",
+            "            return ([], nil)",
             metal_renderer_dependency_providers,
         )
         self.assertIn("enum RejectionReason: String, Error", passthrough_plan)
@@ -5210,17 +5209,17 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
             "let consumesExternalPrimaryDependency: Bool",
             bridge,
         )
-        self.assertIn(
+        self.assertNotIn(
             "dependencyEffect: SceneDependencyEffectInput?",
             bridge,
         )
-        self.assertIn("let preparedDependencyEffect:", coordinator)
-        self.assertIn("let preparedDependencyEffect:", frame_commit)
+        self.assertNotIn("let preparedDependencyEffect:", coordinator)
+        self.assertNotIn("let preparedDependencyEffect:", frame_commit)
 
         compact_coordinator = "".join(coordinator.split())
         self.assertIn(
             "dependencyReservationMatches("
-            "request.frameInputs.dependencyEffect,"
+            "request.frameInputs.dependencyEffects.first,"
             "unavailability:request.frameInputs.dependencyUnavailability,"
             "ownership:claim.dependencyOwnership)",
             compact_coordinator,
@@ -5228,10 +5227,9 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
 
         compact_execution = "".join(execution.split())
         self.assertIn(
-            "dependenciesMatch(prepared:ledger.preparedDependencyEffect,"
-            "preparedEffects:ledger.preparedDependencyEffects,"
+            "dependenciesMatch(preparedEffects:ledger.preparedDependencyEffects,"
             "preparedUnavailability:ledger.preparedDependencyUnavailability,"
-            "ready:dependencyEffect,readyEffects:dependencyEffects,"
+            "readyEffects:dependencyEffects,"
             "ownership:claim.dependencyOwnership)",
             compact_execution,
         )
@@ -5270,11 +5268,11 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
 
         compact_composition = "".join(composition.split())
         self.assertIn(
-            "dependencyEffect:request.dependencyEffect",
+            "dependencyEffects:request.dependencyEffects,",
             compact_composition,
         )
         self.assertIn(
-            "dependencyEffect:dependencyEffect",
+            "dependencyEffects:dependencyEffects,",
             compact_composition,
         )
 
@@ -5282,6 +5280,10 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
         self.assertIn(
             "letdependencyConsumed=graphExecutionTicket?"
             ".consumesExternalPrimaryDependency==true",
+            compact_compositor,
+        )
+        self.assertIn(
+            "letdependencyEffect=request.dependencyEffects.first",
             compact_compositor,
         )
         self.assertIn(

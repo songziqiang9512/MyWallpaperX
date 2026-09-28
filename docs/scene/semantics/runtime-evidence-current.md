@@ -6,6 +6,16 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-29-dependency-vector-convergence"></a>
+
+### E-2026-09-29-DEPENDENCY-VECTOR-CONVERGENCE — 依赖双通道收敛为唯一有序向量（E1-③，结构消融，审查三轮）
+
+**重复职责与消融：**外部依赖输入在 `SceneResolvedMaterialRuntimeBridge.FrameInputs`、`SceneImageLayerDrawRequest`、`PreparedLedger`、`SubmissionCoordinator.executeClaimed` 与 `resolveDependencyEffectInputs` 上同时存在**奇异 `dependencyEffect` 与有序向量 `dependencyEffects` 两条通道**：奇异通道在单 provider 时被写入，向量只在 aggregate 时被消费，`GraphExecutor+Preparation` 每帧把奇异投影成 `[effect]` 再交给 aggregate 消费者。本批**删除奇异通道**（含该投影点本身），只保留有序向量：单 provider=1 元素、aggregate=作者槽位顺序、无依赖=空；`resolveDependencyEffectInputs` 的旧可选回退变成 0/1 元素向量；`dependenciesMatch`/`preparedDependencyReservationMatches`/prepared 内容升级改消费 `.first` 并加 `count <= 1` 参数守卫。**所有权校验语义不变：**槽位种类检查、aggregate 严格向量（`hasStrictBindingVector` 要求 `bindings.count >= 2`，故 1 元素向量不可能是合法 aggregate）、不可用标记的 fail-closed 全部保留。
+
+**审查三轮（首轮 REJECT + 复审 REJECT）：**B1——首版 `count == 1` 使「空向量 + `.providerSourceUnavailable` 标记」由旧奇异通道的 TRUE 变 FALSE，外部 provider 本帧不可用会被误判为完整性失败；改为 `count <= 1` 后该路径恢复 TRUE，1 元素 + 标记仍为 false。B2——fixture 与形状断言未向量化（`SUBMISSION_COORDINATOR_FIXTURE`、graph_executor SUPPORT mock、copy-history 替换 mock 与 harness `executeClaimed`、utility_layers、source_update_transaction）。复审再抓 R1/R2：`test_scene_texture_candidate.py` 自带的 `SceneImageLayerDrawRequest` stub 与 `test_scene_external_primary_visual_failure_passthrough.py` 的 `FrameInputs(dependencyEffect:)` 仍用已删奇异标签——两者都在 `script/scene_validation_gates.json` 的路径映射里，即**本批自身的注册门禁命令本来就是红的**，而前两轮按人手挑选模块集，两轮都漏掉了它们。**教训：验证模块集必须由 `script/verify_scene_change.py --paths <changed paths>` 机器推导，不能手工挑。**
+
+**验证（机器推导门禁）：**`python3.12 script/verify_scene_change.py --paths <批次路径> --phase checkpoint --run` → `execution: completed`、`closure complete: yes`，三项门全 PASSED：focused-tests 58 模块全绿、code-health、checkpoint build（原始日志 `verification/checkpoint-gate-v2.log`）。ratchet 由 71 处/14 文件收敛到 5 处/1 文件——余下 5 处是 compositor 内 `request.dependencyEffects.first` 只读别名。行为等价：2938612768 证据模式配对回放 executor claimed/encoded/GPU 176/176/176、成功事务 108=108、program 事务 78=78、presented 566=566，两侧 failures 均为空；perf-only 阶段计时在噪声内。**更宽门禁抓出的三条失败已逐条归因（复审独立证伪尝试后成立）：**`test_scene_performance_telemetry` 的粒子捕获列表断言自 `8af4440d` 起陈旧（实际为 `[performanceTelemetry] frameProjection in`）；`test_scene_realtime_path_policy` 的 prepared-layer-index 断言由 E1-②（`daa880e2`）删除第二次可见性走查后失效；`docs/scene/design/refactor-baseline.md` 的 runtime-switch 链接红出现在控制面重构的**工作树中间态**（同一 commit `c069fc7d` 内已完成迁移并改好链接），非既有缺陷。三条修正中后两类形状迁移**内含于本批**——它们正是本 diff 的机器推导门禁模块所要求，拆出去只会让本批的注册门禁再次变红。`script/scene_validation_gates.json` 新增的 `scene-material-copy-history-harness` 组（把本批改动的 fixture 映射到其模块）随并发 `c069fc7d` 落地，内容与本批冻结一致。冻结 product patch SHA256 `aa27e8c9a37a6a38a969e20e595465013d69cf1efbe9f481312ef05650237022`、tests `7d1f8cfd33ab9f874f83ee42bee04fe586b5faba1e3718cd5f5142b016c23ce6`；身份与门禁日志见忽略缓存`2026-09-29-dependency-vector-convergence/`。
+
 <a id="e-2026-09-29-visibility-dedup"></a>
 
 ### E-2026-09-29-VISIBILITY-DEDUP — 帧可见性走查去重（E1-②最小切片，结构消融）

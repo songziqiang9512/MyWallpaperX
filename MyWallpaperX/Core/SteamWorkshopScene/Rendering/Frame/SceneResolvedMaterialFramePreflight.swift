@@ -534,14 +534,12 @@ extension SceneMetalRenderer {
                   claim.token == plan.token else {
                 return invalid("layer-\(layerID)-claim-token-mismatch")
             }
-            let dependencyEffect: SceneDependencyEffectInput?
             var dependencyEffects: [SceneDependencyEffectInput] = []
             let dependencyUnavailability:
                 SceneResolvedMaterialRuntimeBridge.FrameInputs
                     .DependencyUnavailability?
             switch claim.dependencyOwnership {
             case .none, .graphInternal:
-                dependencyEffect = nil
                 dependencyUnavailability = nil
             case .externalPrimary(let binding):
                 guard binding.consumerLayerID == layerID,
@@ -623,7 +621,7 @@ extension SceneMetalRenderer {
                                 + (dependencyFailureReason.map { "-\($0)" } ?? "")
                         )
                     }
-                    dependencyEffect = reservedInput
+                    dependencyEffects = [reservedInput]
                     dependencyUnavailability = nil
                     break
                 }
@@ -640,7 +638,7 @@ extension SceneMetalRenderer {
                 guard let providerSource = providerSelection.source else {
                     switch providerSelection {
                     case .missing:
-                        dependencyEffect = nil
+                        dependencyEffects = []
                         dependencyUnavailability = .providerSourceUnavailable
                     case let .rejected(reasonCode):
                         return invalid(
@@ -662,7 +660,7 @@ extension SceneMetalRenderer {
                             + (dependencyFailureReason.map { "-\($0)" } ?? "")
                     )
                 }
-                dependencyEffect = reservedInput
+                dependencyEffects = [reservedInput]
                 dependencyUnavailability = nil
             case let .externalAggregate(aggregate):
                 var aggregateFailureReason: String?
@@ -683,7 +681,6 @@ extension SceneMetalRenderer {
                     )
                 }
                 dependencyEffects = reservedInputs
-                dependencyEffect = nil
                 dependencyUnavailability = nil
             }
             let sourceMVP: simd_float4x4
@@ -864,8 +861,7 @@ extension SceneMetalRenderer {
                     offscreenTexturePool: nil,
                     effectSourceExtent: effectSourceExtent,
                     requiresSourceCopy: false,
-                    finalCompositeAlpha: nil,
-                    dependencyEffect: nil
+                    finalCompositeAlpha: nil
                 )
                 guard let uniforms = imageCompositor.sourceFragmentUniforms(
                     for: request,
@@ -908,7 +904,6 @@ extension SceneMetalRenderer {
                 frameTime: Float(frameContext.frameTime),
                 time: time,
                 audioSpectrum: frameContext.audioSpectrum,
-                dependencyEffect: dependencyEffect,
                 dependencyEffects: dependencyEffects,
                 dependencyUnavailability: dependencyUnavailability
             )

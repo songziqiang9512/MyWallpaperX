@@ -330,7 +330,7 @@ enum Harness {
             "for: layer.id,\n                        matching: texture",
             source[publication:missing_dependency_guard],
         )
-        self.assertIn("request.dependencyEffect == nil", source[
+        self.assertIn("request.dependencyEffects.isEmpty", source[
             missing_dependency_guard:draw_outcome
         ])
         self.assertIn(

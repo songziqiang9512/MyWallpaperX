@@ -84,7 +84,6 @@ enum SceneResolvedMaterialGraphComposition {
             claim: claim,
             framePlan: request.resolvedMaterialFrameTargetPlan,
             layerID: request.layer.id,
-            dependencyEffect: request.dependencyEffect,
             dependencyEffects: request.dependencyEffects,
             mainPass: mainPass,
             executionTrace: executionTrace,
@@ -97,7 +96,6 @@ enum SceneResolvedMaterialGraphComposition {
         claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution,
         framePlan: SceneResolvedMaterialFrameTargetPlan?,
         layerID: Int,
-        dependencyEffect: SceneDependencyEffectInput?,
         dependencyEffects: [SceneDependencyEffectInput] = [],
         mainPass: SceneMainPassEncoder,
         executionTrace: SceneEffectExecutionFrameTrace?,
@@ -123,7 +121,6 @@ enum SceneResolvedMaterialGraphComposition {
             sceneBackgroundTexture, commandBuffer in
             runtime.executeClaimed(
                 claim: claim,
-                dependencyEffect: dependencyEffect,
                 dependencyEffects: dependencyEffects,
                 sceneBackgroundTexture: sceneBackgroundTexture,
                 commandBuffer: commandBuffer
@@ -381,7 +378,7 @@ extension SceneImageLayerCompositor {
             claim: claim,
             framePlan: framePlan,
             layerID: layer.id,
-            dependencyEffect: nil,
+            dependencyEffects: [],
             mainPass: mainPass,
             executionTrace: executionTrace,
             executionOrigin: .quad

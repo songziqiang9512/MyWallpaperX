@@ -164,16 +164,14 @@ struct SceneImageLayerCompositor {
             )
             return .failed
         }
-        let dependencyEffect = request.dependencyEffect
-        let hasDependencyInput = dependencyEffect != nil
-            || !request.dependencyEffects.isEmpty
-        if !request.dependencyEffects.isEmpty {
+        let dependencyEffect = request.dependencyEffects.first
+        let hasDependencyInput = !request.dependencyEffects.isEmpty
+        if request.dependencyEffects.count > 1 {
             // An aggregate vector is meaningful only to the exact resolved
             // material owner that claimed the same ordered binding atom. Do
             // not let an unclaimed/direct draw report the vector as consumed
             // while silently ignoring it in the legacy main-pass path.
-            guard dependencyEffect == nil,
-                  let claim = resolvedMaterialClaim,
+            guard let claim = resolvedMaterialClaim,
                   case let .externalAggregate(aggregate) =
                     claim.dependencyOwnership,
                   aggregate.hasStrictBindingVector,
@@ -261,7 +259,6 @@ struct SceneImageLayerCompositor {
                     claim: claim,
                     framePlan: request.resolvedMaterialFrameTargetPlan,
                     layerID: request.layer.id,
-                    dependencyEffect: dependencyEffect,
                     dependencyEffects: request.dependencyEffects,
                     mainPass: mainPass,
                     executionTrace: executionTrace,
@@ -518,7 +515,6 @@ struct SceneImageLayerCompositor {
         claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution,
         framePlan: SceneResolvedMaterialFrameTargetPlan?,
         layerID: Int,
-        dependencyEffect: SceneDependencyEffectInput?,
         dependencyEffects: [SceneDependencyEffectInput] = [],
         mainPass: SceneMainPassEncoder,
         executionTrace: SceneEffectExecutionFrameTrace?,
@@ -529,7 +525,6 @@ struct SceneImageLayerCompositor {
             claim: claim,
             framePlan: framePlan,
             layerID: layerID,
-            dependencyEffect: dependencyEffect,
             dependencyEffects: dependencyEffects,
             mainPass: mainPass,
             executionTrace: executionTrace,

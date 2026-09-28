@@ -111,7 +111,7 @@ struct SceneImageLayerDrawRequest {
     let layer: SceneRenderDescriptor.Layer
     let texture: MTLTexture
     let uniforms: SceneImageLayerUniformValues
-    let dependencyEffect: SceneDependencyEffectInput?
+    let dependencyEffects: [SceneDependencyEffectInput]
     let effectSourceExtent: SceneLayerEffectSourceExtent?
     let sourceSample: SceneBaseImageTextureSample?
 
@@ -948,7 +948,7 @@ enum Harness {
                 layer: .init(contentKind: "image", brightness: nil),
                 texture: baseDirect.texture,
                 uniforms: values,
-                dependencyEffect: nil,
+                dependencyEffects: [],
                 effectSourceExtent: nil,
                 sourceSample: mappedNearestSample
             ),
@@ -970,7 +970,7 @@ enum Harness {
                     cursorUV: .zero,
                     tint: SIMD3(0.2, 0.4, 0.6)
                 ),
-                dependencyEffect: nil,
+                dependencyEffects: [],
                 effectSourceExtent: nil,
                 sourceSample: mappedNearestSample
             ),

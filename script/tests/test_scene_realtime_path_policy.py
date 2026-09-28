@@ -248,7 +248,10 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             visibility,
         )
         self.assertIn("layersByID: frameLayersByID", renderer)
-        self.assertIn("layersByID: layersByID", preflight)
+        # The preflight consumes the renderer's resolved visibility set; the
+        # duplicate per-frame walk must not reappear here (E1-②).
+        self.assertIn("frameVisibleLayerIDs: Set<Int>,", preflight)
+        self.assertNotIn("SceneLayerVisibility.visibleLayerIDs", preflight)
         self.assertIn(
             "let frameDynamicLayerIDs = frameProjection.dynamicLayerIDs",
             renderer,

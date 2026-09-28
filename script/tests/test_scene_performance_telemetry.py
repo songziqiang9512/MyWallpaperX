@@ -643,7 +643,7 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
 
         # 粒子子阶段的遥测必须由渲染路径显式传入，而不是新增第二处时钟/观测。
         self.assertIn("performanceTelemetry: SceneFramePerformanceTelemetry? = nil", particle)
-        self.assertIn("[performanceTelemetry] in", view)
+        self.assertIn("[performanceTelemetry] frameProjection in", view)
         self.assertIn("performanceTelemetry: performanceTelemetry", view)
 
     def test_admission_cost_is_attributed_by_observation_substages(self) -> None:

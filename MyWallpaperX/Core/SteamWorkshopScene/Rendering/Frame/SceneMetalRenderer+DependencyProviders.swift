@@ -14,12 +14,11 @@ extension SceneMetalRenderer {
         dependencyRuntime: SceneDependencyFrameRuntime,
         textureRegistry: SceneFrameTextureRegistry
     ) -> (
-        dependencyEffect: SceneDependencyEffectInput?,
         dependencyEffects: [SceneDependencyEffectInput],
         failure: (reasonCode: String, isOrdinaryUnavailable: Bool)?
     ) {
         if bypassReason != nil {
-            return (nil, [], nil)
+            return ([], nil)
         }
         if requiresDependencyEffect, hasResolvedFramePlan {
             if let aggregate = dependencyRuntime.plan
@@ -29,11 +28,11 @@ extension SceneMetalRenderer {
                     textureRegistry: textureRegistry
                 ) {
                 case let .ready(inputs):
-                    return (nil, inputs, nil)
+                    return (inputs, nil)
                 case let .unavailable(reasonCode):
-                    return (nil, [], (reasonCode, true))
+                    return ([], (reasonCode, true))
                 case let .invalid(reasonCode):
-                    return (nil, [], (reasonCode, false))
+                    return ([], (reasonCode, false))
                 }
             }
             switch dependencyRuntime.resolvedMaterialEffectInputResolution(
@@ -41,19 +40,18 @@ extension SceneMetalRenderer {
                 textureRegistry: textureRegistry
             ) {
             case let .ready(input):
-                return (input, [], nil)
+                return ([input], nil)
             case let .unavailable(reasonCode):
-                return (nil, [], (reasonCode, true))
+                return ([], (reasonCode, true))
             case let .invalid(reasonCode):
-                return (nil, [], (reasonCode, false))
+                return ([], (reasonCode, false))
             }
         }
         return (
             dependencyRuntime.effectInput(
                 for: layerID,
                 textureRegistry: textureRegistry
-            ),
-            [],
+            ).map { [$0] } ?? [],
             nil
         )
     }
@@ -86,7 +84,6 @@ extension SceneMetalRenderer {
             .preparedResolvedMaterialExternalDependencyBypassReason(
                 layerID: layer.id
             )
-        let dependencyEffect: SceneDependencyEffectInput?
         var dependencyEffects: [SceneDependencyEffectInput] = []
         if dependencyRuntime.requiresEffect(for: layer.id),
            dependencyBypassReason == nil {
@@ -98,7 +95,6 @@ extension SceneMetalRenderer {
                 ) {
                 case let .ready(inputs):
                     dependencyEffects = inputs
-                    dependencyEffect = nil
                 case let .unavailable(reasonCode):
                     dependencyRuntime.recordBindingFailure(for: layer.id)
                     return imageCompositor
@@ -119,7 +115,7 @@ extension SceneMetalRenderer {
                     textureRegistry: textureRegistry
                 ) {
                 case let .ready(input):
-                    dependencyEffect = input
+                    dependencyEffects = [input]
                 case let .unavailable(reasonCode):
                     dependencyRuntime.recordBindingFailure(for: layer.id)
                     return imageCompositor
@@ -135,8 +131,6 @@ extension SceneMetalRenderer {
                     return false
                 }
             }
-        } else {
-            dependencyEffect = nil
         }
 
         // Resolve an external provider before consuming the execution claim.
@@ -160,7 +154,6 @@ extension SceneMetalRenderer {
             claim: claim,
             framePlan: framePlan,
             layerID: layer.id,
-            dependencyEffect: dependencyEffect,
             dependencyEffects: dependencyEffects,
             mainPass: mainPass,
             executionTrace: executionTrace,

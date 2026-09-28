@@ -449,7 +449,6 @@ struct SceneMetalRenderer {
                     dependencyRuntime: dependencyRuntime,
                     textureRegistry: textureRegistry
                 )
-                let dependencyEffect = dependencyResolution.dependencyEffect
                 let dependencyEffects = dependencyResolution.dependencyEffects
                 let resolvedDependencyFailure = dependencyResolution.failure
                 let geometryProduct = imageTextures.geometryProducts[layer.id]
@@ -537,7 +536,6 @@ struct SceneMetalRenderer {
                     effectSourceExtent: effectSourceExtent,
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil,
-                    dependencyEffect: dependencyEffect,
                     dependencyEffects: dependencyEffects,
                     requiresDependencyEffect: requiresDependencyEffect,
                     blocksStaticLayerSourcePassthrough:
@@ -617,7 +615,6 @@ struct SceneMetalRenderer {
                     break frameLayers
                 }
                 if request.requiresDependencyEffect,
-                   request.dependencyEffect == nil,
                    request.dependencyEffects.isEmpty {
                     dependencyRuntime.recordBindingFailure(for: layer.id)
                     continue

@@ -111,15 +111,13 @@ SUPPORT = (
         let layerModelMatrix: simd_float4x4
         let effectOutputModelViewProjection: simd_float4x4
         let effectTextureProjectionMatrixInverse: simd_float4x4
-        let dependencyEffect: SceneDependencyEffectInput?
-        // The production frame contract now carries an aggregate vector. The
-        // executor fixture exercises only singular dependencies, so keep the
-        // vector empty and let production preparation use its legacy fallback.
-        let dependencyEffects: [SceneDependencyEffectInput] = []
+        // The single ordered dependency lane: a one-element vector when a
+        // single-provider dependency is reserved, empty otherwise.
+        let dependencyEffects: [SceneDependencyEffectInput]
         let dependencyUnavailability: DependencyUnavailability?
 
         init(
-            dependencyEffect: SceneDependencyEffectInput? = nil,
+            dependencyEffects: [SceneDependencyEffectInput] = [],
             dependencyUnavailability: DependencyUnavailability? = nil,
             dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
             pointerIsInside: Bool = true
@@ -130,7 +128,7 @@ SUPPORT = (
             layerModelMatrix = matrix_identity_float4x4
             effectOutputModelViewProjection = matrix_identity_float4x4
             effectTextureProjectionMatrixInverse = matrix_identity_float4x4
-            self.dependencyEffect = dependencyEffect
+            self.dependencyEffects = dependencyEffects
             self.dependencyUnavailability = dependencyUnavailability
         }
     }
@@ -164,15 +162,10 @@ SUPPORT = (
         let layerModelMatrix = matrix_identity_float4x4
         let effectOutputModelViewProjection = matrix_identity_float4x4
         let effectTextureProjectionMatrixInverse = matrix_identity_float4x4
-        let dependencyEffect: SceneDependencyEffectInput?
-        // The production frame contract now carries an aggregate vector. The
-        // executor fixture exercises only singular dependencies, so keep the
-        // vector empty and let production preparation use its legacy fallback.
-        var dependencyEffects: [SceneDependencyEffectInput] = []
+        let dependencyEffects: [SceneDependencyEffectInput]
         let dependencyUnavailability: DependencyUnavailability?
 
         init(
-            dependencyEffect: SceneDependencyEffectInput? = nil,
             dependencyEffects: [SceneDependencyEffectInput] = [],
             dependencyUnavailability: DependencyUnavailability? = nil,
             dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
@@ -180,17 +173,14 @@ SUPPORT = (
         ) {
             self.dynamicValues = dynamicValues
             self.pointerIsInside = pointerIsInside
-            self.dependencyEffect = dependencyEffect
             self.dependencyEffects = dependencyEffects
             self.dependencyUnavailability = dependencyUnavailability
         }
 
-        func withDependencyEffect(
-            _ dependencyEffect: SceneDependencyEffectInput?,
-            dependencyEffects: [SceneDependencyEffectInput] = []
+        func withDependencyEffects(
+            _ dependencyEffects: [SceneDependencyEffectInput]
         ) -> Self {
             .init(
-                dependencyEffect: dependencyEffect,
                 dependencyEffects: dependencyEffects,
                 dependencyUnavailability: dependencyUnavailability,
                 dynamicValues: dynamicValues,

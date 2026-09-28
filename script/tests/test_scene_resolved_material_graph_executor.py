@@ -391,15 +391,13 @@ final class SceneResolvedMaterialRuntimeBridge {
         let layerModelMatrix: simd_float4x4
         let effectOutputModelViewProjection: simd_float4x4
         let effectTextureProjectionMatrixInverse: simd_float4x4
-        let dependencyEffect: SceneDependencyEffectInput?
-        // The production frame contract now carries an aggregate vector. The
-        // executor fixture exercises only singular dependencies, so keep the
-        // vector empty and let production preparation use its legacy fallback.
-        let dependencyEffects: [SceneDependencyEffectInput] = []
+        // The single ordered dependency lane: a one-element vector when a
+        // single-provider dependency is reserved, empty otherwise.
+        let dependencyEffects: [SceneDependencyEffectInput]
         let dependencyUnavailability: DependencyUnavailability?
 
         init(
-            dependencyEffect: SceneDependencyEffectInput? = nil,
+            dependencyEffects: [SceneDependencyEffectInput] = [],
             dependencyUnavailability: DependencyUnavailability? = nil,
             dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
             pointerIsInside: Bool = true
@@ -410,7 +408,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             layerModelMatrix = matrix_identity_float4x4
             effectOutputModelViewProjection = matrix_identity_float4x4
             effectTextureProjectionMatrixInverse = matrix_identity_float4x4
-            self.dependencyEffect = dependencyEffect
+            self.dependencyEffects = dependencyEffects
             self.dependencyUnavailability = dependencyUnavailability
         }
     }
@@ -3552,7 +3550,9 @@ private func rejectedCrossLayerPreparation(
         sourceTexture: makeSource(device, width: 2, height: 2),
         sourceUniforms: .neutral(),
         sourcePipeline: sourcePipeline,
-        frameInputs: .init(dependencyEffect: dependency),
+        frameInputs: .init(
+            dependencyEffects: dependency.map { [$0] } ?? []
+        ),
         commandBuffer: command,
         previousStates: [:],
         previousGraphResources: [:],
@@ -4486,12 +4486,12 @@ private enum Harness {
                 sourceTexture: makeSource(device, width: 2, height: 2),
                 sourceUniforms: .neutral(),
                 sourcePipeline: sourcePipeline,
-                frameInputs: .init(dependencyEffect: .init(
+                frameInputs: .init(dependencyEffects: [.init(
                     frameEpoch: 60,
                     texture: resource.publication.texture,
                     namedReference: namedReference,
                     reservedMaterialResource: resource
-                )),
+                )]),
                 commandBuffer: command,
                 previousStates: [:],
                 previousGraphResources: [:],

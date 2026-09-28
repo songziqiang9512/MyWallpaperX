@@ -109,7 +109,7 @@ struct SceneLayerSourcePassthroughPlan {
         guard request.finalCompositeAlpha == nil else {
             return .failure(.finalAlphaPresent)
         }
-        guard request.dependencyEffect == nil,
+        guard request.dependencyEffects.isEmpty,
               !request.requiresDependencyEffect else {
             return .failure(.dependencyPresent)
         }
