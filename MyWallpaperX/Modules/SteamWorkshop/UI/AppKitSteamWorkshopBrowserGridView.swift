@@ -164,9 +164,13 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             scrollView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
+        // Xcode 27 (Swift 6.4) introduces this SDK symbol. Runtime availability
+        // alone cannot make it compile with the Xcode 26 release toolchain.
+        #if compiler(>=6.4)
         if #available(macOS 27.0, *) {
             installPullToRefreshIfSupported()
         }
+        #endif
 
         service.$displayedBrowserItems
             .receive(on: DispatchQueue.main)
@@ -245,9 +249,11 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isRefreshing in
                 guard let self, !isRefreshing else { return }
+                #if compiler(>=6.4)
                 if #available(macOS 27.0, *) {
                     (self.pullToRefreshController as? NSRefreshController)?.endRefreshing()
                 }
+                #endif
             }
             .store(in: &cancellables)
 
@@ -264,6 +270,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         applyItems(service.displayedBrowserItems)
     }
 
+    #if compiler(>=6.4)
     @available(macOS 27.0, *)
     private func installPullToRefreshIfSupported() {
         let controller = NSRefreshController()
@@ -278,6 +285,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         // 个人来源未登录时 refresh() 走既有登录指引路径并同步复位指示器。
         service.refresh()
     }
+    #endif
 
     private func applyItems(_ items: [SteamWorkshopBrowserItem]) {
         guard hasResolvedInitialItemSize || updateLayoutItemSize(invalidateImmediately: true) else {
