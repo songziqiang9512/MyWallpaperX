@@ -112,19 +112,6 @@ extension SceneParticleInitializer {
 }
 
 extension SceneParticleControlPoint {
-    nonisolated var hasBoundedPositionAroundPointerInput: Bool {
-        guard rawFlags == 1, let id, (0 ... 7).contains(id), angles == nil,
-              parentControlPoint == nil else { return false }
-        switch offset {
-        case nil:
-            return true
-        case let .vector(values):
-            return values.count == 3 && values.allSatisfy { $0 == 0 }
-        default:
-            return false
-        }
-    }
-
     nonisolated func hasBoundedPositionAroundStaticInput(identity: Int) -> Bool {
         guard id == identity, rawFlags == 0, angles == nil,
               parentControlPoint == nil else { return false }
@@ -151,12 +138,13 @@ extension SceneParticleDefinition {
               let plan = initializer.positionAroundControlPointPlan,
               hasUniquePositionAroundControlPointIdentities,
               let point = controlPoints.first(where: { $0.id == plan.controlPoint }),
-              point.hasBoundedPositionAroundPointerInput
+              point.hasBoundedPointerInput
                 || point.hasBoundedPositionAroundStaticInput(identity: plan.controlPoint)
         else { return false }
         let emitter = emitters[0]
-        if emitter.controlPoint == plan.controlPoint { return true }
-        guard emitter.controlPoint == nil else { return false }
+        if let source = emitterControlPointSource(for: emitter) {
+            return source == plan.controlPoint
+        }
         switch emitter.origin {
         case nil:
             return true
@@ -172,7 +160,7 @@ extension SceneParticleDefinition {
             guard supportsBoundedPositionAroundControlPoint(initializer),
                   let identity = initializer.positionAroundControlPointPlan?.controlPoint,
                   controlPoints.contains(where: {
-                      $0.id == identity && $0.hasBoundedPositionAroundPointerInput
+                      $0.id == identity && $0.hasBoundedPointerInput
                   }) else { return nil }
             return identity
         })

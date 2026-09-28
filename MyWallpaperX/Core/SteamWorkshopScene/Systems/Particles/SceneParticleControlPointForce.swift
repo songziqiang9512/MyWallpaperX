@@ -65,15 +65,6 @@ nonisolated struct SceneParticleControlPointForcePlan {
 }
 
 nonisolated extension SceneParticleControlPoint {
-    var hasBoundedPointerInput: Bool {
-        // CP0 is the system origin; with the pointer flag it follows the
-        // cursor (official client behavior; see queue Q1-A). Emitters and
-        // default control-point consumers address it like any other CP.
-        guard rawFlags == 1, let id, (0 ... 7).contains(id), angles == nil,
-              parentControlPoint == nil else { return false }
-        return hasExactZeroOffset
-    }
-
     func hasBoundedStaticInput(identity: Int) -> Bool {
         guard id == identity, rawFlags == 0, angles == nil,
               parentControlPoint == nil else { return false }
@@ -114,13 +105,7 @@ nonisolated extension SceneParticleControlPoint {
         return result.isBounded ? result : nil
     }
 
-    private var hasExactZeroOffset: Bool {
-        switch offset {
-        case nil: return true
-        case let .vector(values): return values.count == 3 && values.allSatisfy { $0 == 0 }
-        default: return false
-        }
-    }
+
 }
 
 private nonisolated extension SIMD3 where Scalar == Double {
@@ -236,16 +221,7 @@ nonisolated extension SceneParticleDefinition {
     ) -> SceneParticleEmitterControlPointFrame? {
         let localOrigin = preparedOrigin
             ?? SceneParticleSimulationMath.vector(emitter.origin, fallback: .zero)
-        // An omitted emitter source is origin-relative, and CP0 *is* the
-        // system origin: when CP0 carries the pointer flag the origin itself
-        // tracks the cursor, so the omitted source resolves to 0. Keep the
-        // default inside the sphere/box kinds whose pointer demand is
-        // collected, so supply and consumption stay in lockstep.
-        let defaultsToPointerOrigin =
-            (emitter.kind == .sphereRandom || emitter.kind == .boxRandom)
-            && pointerDrivenSystemOriginControlPoint != nil
-        guard let source = emitter.controlPoint
-            ?? (defaultsToPointerOrigin ? 0 : nil) else {
+        guard let source = emitterControlPointSource(for: emitter) else {
             return .init(origin: localOrigin, angles: .zero)
         }
         guard (0 ... 7).contains(source),
@@ -341,17 +317,13 @@ nonisolated extension SceneParticleDefinition {
         return identities.sorted()
     }
 
-    /// Root Sphere/Box emitters with an explicit pointer control-point source
-    /// emit from that frame-varying position. CP0 remains the particle-system
-    /// origin, and an omitted emitter source therefore stays origin-relative.
     var emitterPointerControlPointIdentities: Set<Int> {
         guard !flags.isWorldSpace, !flags.usesPerspective,
               !operators.contains(where: \.isWorldSpaceMovement) else { return [] }
         return Set(emitters.compactMap { emitter in
             guard emitter.kind == .sphereRandom || emitter.kind == .boxRandom
             else { return nil }
-            guard let identity = emitter.controlPoint
-                    ?? pointerDrivenSystemOriginControlPoint,
+            guard let identity = emitterControlPointSource(for: emitter),
                   SceneParticleSimulationMath.supportsControlPointSource(
                       identity, in: self
                   ),
@@ -360,15 +332,6 @@ nonisolated extension SceneParticleDefinition {
                   }) else { return nil }
             return identity
         })
-    }
-
-    /// CP0 when it carries the pointer flag, otherwise nil. A pointer-driven
-    /// system origin also serves as the default source for emitters that
-    /// omit an explicit control point.
-    var pointerDrivenSystemOriginControlPoint: Int? {
-        controlPoints.contains {
-            $0.id == 0 && $0.hasBoundedPointerInput
-        } ? 0 : nil
     }
 
     /// Resolves only the frame-varying pointer value against a prepared identity

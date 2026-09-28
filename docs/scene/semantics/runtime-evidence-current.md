@@ -6,6 +6,20 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-particle-implicit-origin"></a>
+
+### E-2026-09-28-PARTICLE-IMPLICIT-ORIGIN — 鼠标原点不再被计入粒子排列半径
+
+**首断点与简化：**f0866bed的Sphere/Box发射器省略source时已消费pointer CP0，但Position Around只对显式同CP扣除平移，导致鼠标位置被误算进半径和轴向距离。现在发射、输入需求、initializer准入和执行共用`emitterControlPointSource`；同source扣除CP平移，来源不同局部跳过initializer并保留emitter结果。两份相同pointer准入合并进粒子定义，五个产品文件净减19行，无新坐标公式、状态、图或compositor。原静态零origin路径保持，world/perspective及多emitter准入不扩张。
+
+**行为门：**新增反例在旧版失败；最终模拟器/定义70项通过，覆盖Sphere/Box、显式与隐式CP0等价、两个含非零Z的鼠标位置、平移不变、缺pointer后burst恢复、跨source局部失败；既有静态/CP1及非法输入门保持。三个定义消费者模块17项通过；另两个timeline runtime/target compiler harness因缺SceneBloomConfiguration/SceneGraphRenderTargetPlan编译失败，在干净f0866bed同样复现，未为本批扩大修改。最初定义独立编译因新依赖失败，公共定义归并后消除该依赖并复跑通过。优化Debug构建、验签和code-health通过（1005 Swift/219既有warnings）。
+
+**实际画面：**自有9900000401灰底、半径60、四点repeat圆环，四个鼠标位置、8秒；输入/包hash前后相同。3024×1964最终Metal图中，四个预期圆周点到最近白色粒子分量的误差从旧版96.33–307.48px降至最终版最大0.3432px。鼠标换位后0.24秒寿命的旧粒子允许短暂保留，测量逐个匹配当前四点，不把上一位置的存量粒子当作半径错误。初始无旧点图及后继轨迹已检查。最终submitted/completed/failed/presented=227/227/0/226，particle layer900完成116/116帧、824/824实例；frame0/1/2完成与连续后继Metal输出有记录。此slice为direct粒子draw，无graph publication。
+
+三次通用benchmark（旧版、中间修复版、最终归并版）均NON-PASS：纯粒子夹具没有image层，通用loaded ratio记录0并低于1；粒子自身1/1加载。保留原报告，不改门值，专项ROI通过不代替通用通过。没有官方像素/序列/速度公式对照，没有完整Workshop样本达标结论，不关闭QV或世界空间Rope问题。
+
+**身份：**最终App2.10.0(279)，executable SHA256 `4d5d761161a70a314f8915d4c9d76c059988fdec92c8797e8108116c68b04c63`、CDHash `0f76957ffd19d637dc906cd846e2e4472799c5ca`；baseline为f0866bed的cc933c42。五产品/一测试文件冻结SHA256 `282e6c5406af3c528fd1ee2bfed6b5b6f82207cfa2688a9e2401febe2b75ac85`。独立只读终审APPROVE，仅接受该自有组合坐标与来源规则，不扩展到官方或性能结论。本机忽略证据缓存`2026-09-28-particle-implicit-origin`保存三次report/log/图、自有fixture、ROI脚本/结果和验证日志。
+
 <a id="e-2026-09-28-cursor-batch-world-frames"></a>
 
 ### E-2026-09-28-CURSOR-BATCH-WORLD-FRAMES — 鼠标事件批复用同一层级变换

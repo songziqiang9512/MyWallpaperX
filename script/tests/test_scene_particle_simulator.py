@@ -586,6 +586,39 @@ enum Harness {
         )
         pointerBaseline.advance(by: 0.1)
 
+        let pointerOrigin = #"{"id":0,"flags":1,"offset":"0 0 0"}"#
+        var originCases: [[String: Any]] = []
+        for kind in ["sphererandom", "boxrandom"] {
+            for target in [SIMD3<Double>(5, 6, 7), SIMD3(-40, 30, -2)] {
+                let emitter = #"{"name":"\#(kind)","instantaneous":4,"directions":"1 0 0","distancemin":2,"distancemax":2}"#
+                let explicitEmitter = String(emitter.dropLast()) + #", "controlpoint":0}"#
+                var implicit = simulator(positionAroundJSON(fields, point: pointerOrigin, emitter: emitter), seed: 71, step: 0.1)
+                var explicit = simulator(positionAroundJSON(fields, point: pointerOrigin, emitter: explicitEmitter), seed: 71, step: 0.1)
+                var centered = simulator(positionAroundJSON(fields, point: pointerOrigin, emitter: emitter), seed: 71, step: 0.1)
+                // No pointer must not consume the instantaneous burst.
+                implicit.advance(by: 0.1)
+                implicit.advance(by: 0.1, dynamicControlPoints: [0: target])
+                explicit.advance(by: 0.1)
+                explicit.advance(by: 0.1, dynamicControlPoints: [0: target])
+                centered.advance(by: 0.1)
+                centered.advance(by: 0.1, dynamicControlPoints: [0: .zero])
+                originCases.append([
+                    "equivalent": implicit.particles == explicit.particles,
+                    "relativePositions": implicit.particles.map { vector($0.position - target) },
+                    "centeredPositions": centered.particles.map { vector($0.position) },
+                    "velocities": implicit.particles.map { vector($0.velocity) },
+                    "centeredVelocities": centered.particles.map { vector($0.velocity) }
+                ])
+            }
+        }
+        // A distinct implicit source is as unsupported as a distinct explicit one.
+        let twoPoints = pointerOrigin + #",{"id":1,"flags":0,"offset":"10 20 0"}"#
+        let differentTarget = fields + #", "controlpoint":1"#
+        var different = simulator(positionAroundJSON(differentTarget, point: twoPoints), seed: 71, step: 0.1)
+        var differentBaseline = simulator(positionAroundJSON("", point: twoPoints), seed: 71, step: 0.1)
+        different.advance(by: 0.1, dynamicControlPoints: [0: SIMD3(5, 6, 7)])
+        differentBaseline.advance(by: 0.1, dynamicControlPoints: [0: SIMD3(5, 6, 7)])
+
         var unseenBox = simulator(positionAroundJSON(
             #""axis":"0 0 2","bounds":"0.25 0.75","count":2,"controlpoint":2,"limitbehavior":"repeat","speedmin":"1 0 0","speedmax":"1 0 0""#,
             point: #"{"id":2,"flags":0,"offset":"3 4 0"}"#,
@@ -613,6 +646,9 @@ enum Harness {
         var staticBaseline = simulator(positionAroundJSON(""), seed: 71, step: 0.1)
         staticBaseline.advance(by: 0.1)
         return [
+            "originCases": originCases,
+            "differentSourcePreservesEmitter": different.particles == differentBaseline.particles,
+            "differentSourceDiagnostics": different.diagnostics.map(\.kind.rawValue),
             "positions": sequence.particles.map { vector($0.position) },
             "velocities": sequence.particles.map { vector($0.velocity) },
             "diagnostics": sequence.diagnostics.map(\.kind.rawValue),
@@ -3911,6 +3947,19 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             result["unseenBoxDiagnostics"],
             ["emitterShapeBounded", "positionAroundControlPointBounded"],
         )
+
+    def test_position_around_implicit_pointer_origin_is_translation_invariant(self) -> None:
+        result = self.run_harness("position-around-control-point")
+        self.assertEqual(len(result["originCases"]), 4)
+        for case in result["originCases"]:
+            self.assertTrue(case["equivalent"])
+            self.assertEqual(len(case["relativePositions"]), 4)
+            for actual, expected in zip(case["relativePositions"], case["centeredPositions"]):
+                for value, wanted in zip(actual, expected):
+                    self.assertAlmostEqual(value, wanted)
+            self.assertEqual(case["velocities"], case["centeredVelocities"])
+        self.assertTrue(result["differentSourcePreservesEmitter"])
+        self.assertIn("positionAroundControlPointUnsupported", result["differentSourceDiagnostics"])
 
     def test_position_around_control_point_invalid_profiles_preserve_current(self) -> None:
         result = self.run_harness("position-around-control-point")

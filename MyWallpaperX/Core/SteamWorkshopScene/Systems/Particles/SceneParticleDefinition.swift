@@ -283,6 +283,19 @@ nonisolated struct SceneParticleControlPoint: Equatable, Sendable {
     let hasAuthoredAngles: Bool
     let hasMalformedFields: Bool
 
+    nonisolated var hasBoundedPointerInput: Bool {
+        guard rawFlags == 1, let id, (0 ... 7).contains(id), angles == nil,
+              parentControlPoint == nil else { return false }
+        switch offset {
+        case nil:
+            return true
+        case let .vector(values):
+            return values.count == 3 && values.allSatisfy { $0 == 0 }
+        default:
+            return false
+        }
+    }
+
     nonisolated var followsPointer: Bool { rawFlags & 1 != 0 }
     nonisolated var isWorldSpace: Bool { rawFlags & 2 != 0 }
     nonisolated var copiesRawParentValue: Bool { rawFlags & 4 != 0 }
@@ -332,6 +345,24 @@ nonisolated struct SceneParticleDefinition: Equatable, Sendable {
     let controlPoints: [SceneParticleControlPoint]
     let children: [SceneParticleChild]
     let diagnostics: [SceneParticleDiagnostic]
+
+    /// Sphere/Box emitters share the same source for pointer demand, emission
+    /// and initializer admission. A pointer-driven CP0 is the implicit origin.
+    func emitterControlPointSource(for emitter: SceneParticleEmitter) -> Int? {
+        if let source = emitter.controlPoint { return source }
+        guard emitter.kind == .sphereRandom || emitter.kind == .boxRandom
+        else { return nil }
+        return pointerDrivenSystemOriginControlPoint
+    }
+
+    /// CP0 when it carries the pointer flag, otherwise nil. A pointer-driven
+    /// system origin also serves as the default source for emitters that
+    /// omit an explicit control point.
+    var pointerDrivenSystemOriginControlPoint: Int? {
+        controlPoints.contains {
+            $0.id == 0 && $0.hasBoundedPointerInput
+        } ? 0 : nil
+    }
 }
 
 nonisolated struct SceneParticleBoundValue: Codable, Equatable, Sendable {

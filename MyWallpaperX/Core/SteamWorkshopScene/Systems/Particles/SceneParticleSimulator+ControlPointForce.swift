@@ -40,8 +40,7 @@ nonisolated extension SceneParticleSimulator {
             // Pointer-linked control points have no authored static position. A missing
             // or outside pointer must disable the bounded consumer instead of mapping
             // particles to the system origin.
-            if point.hasBoundedPointerInput
-                || point.hasBoundedPositionAroundPointerInput {
+            if point.hasBoundedPointerInput {
                 guard let dynamic = dynamicControlPoints[identity], dynamic.isFinite else {
                     return nil
                 }
