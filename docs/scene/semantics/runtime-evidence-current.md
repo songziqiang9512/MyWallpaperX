@@ -6,6 +6,16 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-29-launch-reporter-census"></a>
+
+### E-2026-09-29-LAUNCH-REPORTER-CENSUS — launch 一次性报告器成员级识别收口（E6 候选 3 完成，`f2158e40`）
+
+**识别与消融：**2026-09-18 普查登记的 ~279 行 launch 一次性报告器无机器清单，本次成员级识别收敛为 Runtime/Session 三个 report 扩展（288 行）：①`SceneDesktopWallpaperLaunchContext+StartupReport`（119 行）**验活**——benchmark 正则解析 `scene script VM: schema=quickjs-ng-*`（:187）与 thumbnail-colors 行为 `scene_script_vector_media_startup` 证据，测试夹具钉住；②`SceneDesktopWallpaperHost+TextScriptReport`（58 行）**验活**——`textScriptBindingCount:`/`textScript layer` 正则（:174/:182）喂 45 样本矩阵的 `expected_text_script_binding_count`；③`SceneDesktopWallpaperHost+TimelineReport`（111 行）**确死删除**——穷尽核查四类消费方（产品调用点仅 launch append 一处；benchmark 全部 `timeline` 命中属 media-timeline 回调异机制；六个矩阵 JSON 对 `timelineBindingCount`/`timeline diagnostic` 零出现；script/tests 与 tracked docs 零引用，仅证据缓存历史 preview_log 快照含旧行），其注释声称的 benchmark 消费从未实现，且每个绑定做两次 fixture 时刻的 `SceneTimelineRuntime.values` 求值属无人读取的 launch 期开销；`timelineProgram` 运行时（LaunchFrameSchema/DynamicDefinitionMerger 消费链）不受影响。同批：Host 调用点（4 行）、layout 登记（1 行）、`docs/history/scene/runtime-evidence-index.md` 中指向已删文件的断链修复（仅移除该链接，历史内容未动；semantics-coverage 链接门抓出）。净 −116 行。
+
+**审查（独立只读 APPROVE）：**审查代理独立重查四类消费方（含 benchmark required/forbidden 行清单、matrix contract/suite 动态字段、QuickJS C 侧）确认确死判定；验活抽查确认两个保留项消费链真实；断链修复最小性核验（12→11 链接，唯一移除即已删文件）。备注采纳：回放证据须持久化（已执行，见下）、净行数措辞（−116）、并行会话 texture 批（06:22 写入 7 文件）按 pathspec 精确隔离。
+
+**验证：**机器推导 checkpoint 门禁（`--paths <4 路径> --phase checkpoint --run`）四项 PASSED：focused-tests 19 模块（含 source_sets 一致性、semantics_coverage 链接门、wallpaper_benchmark 夹具、async_launch）、code-health、scene-defense、build。行为证据：干净 worktree（HEAD `ea816a8a`+仅本批 3 个产品/layout 改动）Developer ID 签名构建，1300076567 证据模式 10s 回放 **PASS loaded=1.0 failures=[]**，preview 日志 **timeline 行零残留**、startup/textScript/media/cursor/vector 五组 schema 行完好（归档 `preview-log-after-deletion.log`）。批次 diff SHA256 `2cf13d20ab984437bb4a60347ece426fa0c33dfd0e35ad1e85455f2245944445`；门禁日志与回放证据见忽略缓存 `20260929-launch-reporter-census/`。**边界：**预览日志的 timeline 调试便利随删除消失（确死判定成立的前提即无人消费；如需人工排样可用 `--mwx-debug-scene-*` 既有诊断面）。
+
 <a id="e-2026-09-29-wrapper-collapse"></a>
 
 ### E-2026-09-29-WRAPPER-COLLAPSE — 帧预检请求包装双走查压扁为单走查（E1-①第一切片，结构消融，审查两轮 REJECT→APPROVE）
