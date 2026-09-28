@@ -186,11 +186,14 @@ extension WallpaperManager {
         settings.autoSwitchEnabled && !wallpapers.isEmpty && effectiveCurrentWallpaper != nil && isSwitchingPlaybackMode()
     }
 
-    func shouldLoopCurrentItemInEngine() -> Bool {
+    func shouldLoopCurrentItemInEngine(settings source: WallpaperSettings? = nil) -> Bool {
         // 循环模式：始终循环。
         // 自动切换开启的顺序/随机模式：视频循环，等 timer 到期再切换。
         // 自动切换关闭的顺序/随机模式：不循环，视频播完由 handlePlaybackEnded 切下一张。
-        settings.loopPlayback || (settings.autoSwitchEnabled && isSwitchingPlaybackMode())
+        // sink 差分投影必须传 newSettings：willSet 期读 self.settings 是旧值。
+        let settings = source ?? self.settings
+        let switchingMode = settings.randomPlayback || settings.sequentialPlayback
+        return settings.loopPlayback || (settings.autoSwitchEnabled && switchingMode)
     }
 
     func applyPlaybackMode(_ mode: PlaybackMode) {
@@ -254,10 +257,11 @@ extension WallpaperManager {
     func performSystemHotkeyAction(_ action: SystemHotkeyAction) {
         // 全局快捷键只做动作分发，不直接改 UI 状态。
         switch action {
-        case .previous:
-            navigateWallpaperManually(.previous, userInitiated: true)
-        case .next:
-            navigateWallpaperManually(.next, userInitiated: true)
+        case .previous, .next:
+            // 上一张/下一张由 App 装配层（MyWallpaperXApplication 的热键
+            // handler）拦截并交给跨引擎导航器；本分支不再是产品路径，
+            // 也不保留旧的"仅视频库"行为作为静默回退。
+            break
         case .playPause:
             let command: WallpaperEngineCommand =
                 PlaybackCommandMultiplexer.shared.isAnyEnginePlaying
@@ -371,16 +375,18 @@ extension WallpaperManager {
             || previous?.autoSwitchEnabled != next.autoSwitchEnabled {
             projectLoopPolicyToEngine(settings: next)
         }
+
+        if previous?.videoFillMode != next.videoFillMode {
+            WallpaperEngine.shared.setFillMode(next.videoFillMode.ipcValue)
+        }
     }
 
     /// 播放模式/自动切换 → 引擎 loop 策略的单点投影。video daemon 是
     /// "循环当前项"的唯一消费者；web/scene 没有"播完"语义，不下发。
     func projectLoopPolicyToEngine(settings source: WallpaperSettings? = nil) {
-        let settings = source ?? self.settings
-        let switchingMode = settings.randomPlayback || settings.sequentialPlayback
-        let shouldLoop = settings.loopPlayback
-            || (settings.autoSwitchEnabled && switchingMode)
         guard activeWallpaperRuntime == .video else { return }
-        WallpaperEngine.shared.setLoopCurrentItem(shouldLoop)
+        WallpaperEngine.shared.setLoopCurrentItem(
+            shouldLoopCurrentItemInEngine(settings: source)
+        )
     }
 }

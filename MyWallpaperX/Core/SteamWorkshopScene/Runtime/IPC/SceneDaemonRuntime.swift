@@ -493,59 +493,15 @@ final class SceneDaemonRuntime {
 
     /// 自截壁纸表面一帧供主 App 同步系统壁纸。SCK 的 current-process
     /// 变体只枚举本进程窗口，daemon 捕获自己的表面无需屏幕录制权限；
-    /// JPEG 写入临时文件后经 frameCaptured 事件回传路径。
+    /// 候选过滤与捕获流程与主 App 侧共用 WallpaperRuntimeFrameCapture
+    /// 的单一实现；JPEG 写入临时文件后经 frameCaptured 事件回传路径。
     private func captureWallpaperFrame(requestID: String) {
-        let wallpaperLevel = NSWindow.Level(
-            rawValue: Int(CGWindowLevelForKey(.desktopWindow)) + 1
-        )
-        let mainScreenFrame = NSScreen.screens.first?.frame
-        let candidates = NSApp.windows.filter { window in
-            window.level == wallpaperLevel
-                && window.isVisible
-                && window.frame.width > 0
-                && (mainScreenFrame.map {
-                    window.frame.width >= $0.width * 0.9
-                        && window.frame.height >= $0.height * 0.9
-                } ?? true)
-        }
-        guard let windowNumber = candidates.first?.windowNumber else {
-            emit([
-                "v": SceneDaemonProtocol.version,
-                "event": "frameCaptureFailed",
-                "requestID": requestID
-            ])
-            return
-        }
-        SCShareableContent.getCurrentProcessShareableContent { content, _ in
+        WallpaperRuntimeFrameCapture.captureWallpaperWindowCGImage { image in
             DispatchQueue.main.async {
-                guard let content,
-                      let scWindow = content.windows.first(where: {
-                          $0.windowID == CGWindowID(windowNumber)
-                      }) else {
-                    self.emit([
-                        "v": SceneDaemonProtocol.version,
-                        "event": "frameCaptureFailed",
-                        "requestID": requestID
-                    ])
-                    return
-                }
-                let configuration = SCStreamConfiguration()
-                configuration.showsCursor = false
-                configuration.width = max(1, Int(scWindow.frame.width))
-                configuration.height = max(1, Int(scWindow.frame.height))
-                SCScreenshotManager.captureImage(
-                    contentFilter: SCContentFilter(
-                        desktopIndependentWindow: scWindow
-                    ),
-                    configuration: configuration
-                ) { image, _ in
-                    DispatchQueue.main.async {
-                        self.finishWallpaperFrameCapture(
-                            image: image,
-                            requestID: requestID
-                        )
-                    }
-                }
+                self.finishWallpaperFrameCapture(
+                    image: image,
+                    requestID: requestID
+                )
             }
         }
     }

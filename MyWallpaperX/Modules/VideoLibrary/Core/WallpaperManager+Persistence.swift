@@ -217,9 +217,15 @@ extension WallpaperManager {
         // web/scene 尚无跨重启的重放链（偏差债务；退役条件=持久化启动
         // 意图与原 launch 入口落地）。重启后降级恢复最近可用视频，保持
         // runtime 真值、画面与轮换策略一致，而不是空转在 web/scene 标记上。
-        if activeWallpaperRuntime != .video {
+        // systemStill 不在此列：静态图由系统壁纸层自持久化，恢复动态层
+        // 会把视频盖在用户选定的静态图上。
+        if activeWallpaperRuntime == .web || activeWallpaperRuntime == .scene {
             restoreMostRecentVideoAfterNonVideoRuntime()
             if wasPausedBeforeQuit { restorePlaybackPausedIntent() }
+            return
+        }
+        guard activeWallpaperRuntime == .video else {
+            if wasPausedBeforeQuit { isPlaying = false }
             return
         }
         // 恢复播放状态只负责恢复当前播放项，不重新编排最近使用或标签状态。
@@ -247,12 +253,11 @@ extension WallpaperManager {
     }
 
     /// 把退出前的用户暂停意图重新投影到控制面：经 multiplexer 走
-    /// `.pause`，三引擎与 isUserPaused 状态一并恢复。
+    /// `.pause`，三引擎与 isUserPaused 状态一并恢复。无条件投影——
+    /// 引擎侧守卫运行时身份/会话存活性，恢复瞬间 daemon 尚未拉起的
+    /// 竞态下 scene handler 会记录 isPaused 供 replay 补发，比按
+    /// isPlaying 判定更忠实于"退出前是暂停"的意图。
     private func restorePlaybackPausedIntent() {
-        guard WallpaperEngine.shared.isPlaying() || SceneDaemonClient.shared.isPlaying else {
-            isPlaying = false
-            return
-        }
         PlaybackCommandMultiplexer.shared.dispatch(.pause)
         isPlaying = false
     }

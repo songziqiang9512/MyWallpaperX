@@ -119,7 +119,9 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.updateDisplayConfiguration()
+                self?.updateDisplayConfiguration(
+                    multiDisplayEnabled: self?.multiDisplayEnabled ?? true
+                )
             }
         }
     }

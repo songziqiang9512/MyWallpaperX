@@ -69,8 +69,6 @@ private final class SettingsContentViewController: NSViewController {
         let manager = WallpaperManager.shared
         return AppSettingsActions(
             applyEngineSettings: { manager.applyEngineSettings(reloadWallpaper: $0) },
-            applyPlaybackRateToEngine: { manager.applyPlaybackRateToEngine() },
-            applySystemAudioSpectrumToEngine: { manager.applySystemAudioSpectrumToEngine() },
             clearAllCaches: {
                 manager.clearAllCaches()
                 SteamWorkshopService.shared.clearAllCachedState()

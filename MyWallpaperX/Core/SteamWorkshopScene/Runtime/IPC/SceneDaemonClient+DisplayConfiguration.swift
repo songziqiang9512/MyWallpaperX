@@ -4,10 +4,6 @@ import Foundation
 
 @MainActor
 extension SceneDaemonClient {
-    func updateDisplayConfiguration() {
-        updateDisplayConfiguration(multiDisplayEnabled: multiDisplayEnabled)
-    }
-
     func setMultiDisplayEnabled(_ enabled: Bool) {
         updateDisplayConfiguration(multiDisplayEnabled: enabled)
     }

@@ -42,7 +42,6 @@ final class WallpaperEngine {
     var currentSystemAudioSpectrumPeakCapsEnabled = false
     func isPlaying() -> Bool { !playbackPaused }
     func setVolume(_ value: Float) {}
-    func setSystemAudioSpectrumEnabled(_ value: Bool) {}
     func refreshSystemAudioSpectrumCapture() {}
     func dispatchWebRuntimeCommand(_ command: WebWallpaperRuntimeCommand) { webCommands.append(command) }
     func send(_ command: DaemonCommand, to session: DisplayDaemonSession) { session.commands.append(command) }
@@ -56,7 +55,7 @@ struct PlaybackPerformanceProfile {
 enum SceneDaemonProtocol { static let version = 1 }
 final class SceneDaemonClient: PlaybackEngineControlling {
     let engineKind: PlaybackEngineKind = .scene
-    var isPaused = false, endpointReady = false, systemAudioSpectrumEnabled = false
+    var isPaused = false, endpointReady = false
     var isPlaying: Bool { activeIntent != nil && !isPaused }
     var activeIntent: ScenePlaybackLoadRequest?, pendingIntent: ScenePlaybackLoadRequest?
     var pendingRequestID: UUID?

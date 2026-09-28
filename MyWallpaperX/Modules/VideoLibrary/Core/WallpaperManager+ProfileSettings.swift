@@ -99,7 +99,8 @@ private struct ExportedPreferences: Codable {
         settings.autoSwitchEnabled = autoSwitchEnabled
         settings.randomInterval = randomInterval
         settings.timeUnit = timeUnit
-        settings.volume = volume
+        // 连续值与 UI/引擎域对齐，手改文件的越界值不进 settings。
+        settings.volume = min(max(volume, 0), 100)
         settings.startOnBoot = startOnBoot
         settings.pauseWhenOtherAppFullscreen = pauseWhenOtherAppFullscreen
         settings.pauseWhenOtherAppFocused = pauseWhenOtherAppFocused
@@ -114,7 +115,7 @@ private struct ExportedPreferences: Codable {
         settings.multiDisplayEnabled = multiDisplayEnabled
         settings.videoFillMode = videoFillMode
         settings.syncSystemWallpaper = syncSystemWallpaper
-        settings.playbackRate = playbackRate
+        settings.playbackRate = min(max(playbackRate, 0.25), 2.0)
         settings.playbackRateEnabled = playbackRateEnabled
         settings.sortMode = sortMode
         settings.sortAscending = sortAscending
@@ -135,13 +136,15 @@ private struct ExportedPreferences: Codable {
             settings.systemAudioSpectrumColorHex = systemAudioSpectrumColorHex
         }
         if let systemAudioSpectrumOffsetX {
-            settings.systemAudioSpectrumOffsetX = max(
-                -0.35, min(0.35, systemAudioSpectrumOffsetX)
+            // 与设置面板滑杆域一致（X ±30%），而非引擎的 ±0.35 收敛域，
+            // 避免导入值让标签与滑杆位置脱节。
+            settings.systemAudioSpectrumOffsetX = min(
+                max(systemAudioSpectrumOffsetX, -0.30), 0.30
             )
         }
         if let systemAudioSpectrumOffsetY {
-            settings.systemAudioSpectrumOffsetY = max(
-                -0.35, min(0.35, systemAudioSpectrumOffsetY)
+            settings.systemAudioSpectrumOffsetY = min(
+                max(systemAudioSpectrumOffsetY, -0.20), 0.20
             )
         }
         if let systemAudioSpectrumBarCount {
@@ -290,8 +293,8 @@ extension WallpaperManager {
         sanitizeSystemHotkeySettingsIfNeeded()
         normalizePlaybackSettings()
         syncAutoSwitchPlaybackPolicy(forceTimerRestart: true)
+        // 速率/频谱/loop/fillMode 已由 apply 写入触发的 sink 差分投影。
         applyEngineSettings(reloadWallpaper: false)
-        applyPlaybackRateToEngine()
         updateLoginItemStatus()
 
         // tags = 现有标签 + 导入标签 + 壁纸内引用标签，保留用户现有体系，不做强制替换。

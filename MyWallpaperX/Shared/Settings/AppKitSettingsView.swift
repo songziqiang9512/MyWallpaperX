@@ -491,8 +491,8 @@ final class AppKitSettingsContainerView: NSView {
         let snapped = (playbackRateSlider.doubleValue * 20).rounded() / 20
         let clamped = max(0.25, min(2.0, snapped))
         playbackRateValueLabel.stringValue = String(format: "%.2gx", clamped)
+        // 投影经 manager 的 sink 差分（playbackRate 组）单点下发。
         dependency.settings.playbackRate = clamped
-        dependency.actions.applyPlaybackRateToEngine()
     }
 
     @objc private func handlePlaybackRateSwitchToggle() {
@@ -520,35 +520,31 @@ final class AppKitSettingsContainerView: NSView {
 
     @objc private func handleSystemAudioSpectrumToggle() {
         guard !isUpdatingUI else { return }
+        // 投影经 manager 的 sink 差分（频谱 8 字段组）单点下发。
         dependency.settings.systemAudioSpectrumEnabled = (systemAudioSpectrumSwitch.state == .on)
-        dependency.actions.applySystemAudioSpectrumToEngine()
     }
 
     @objc private func handleSystemAudioSpectrumStyleChange() {
         guard !isUpdatingUI else { return }
         guard let style = systemAudioSpectrumStylePopup.selectedItem?.representedObject as? SystemAudioSpectrumStyle else { return }
         dependency.settings.systemAudioSpectrumStyle = style
-        dependency.actions.applySystemAudioSpectrumToEngine()
     }
 
     @objc private func handleSystemAudioSpectrumSensitivityChange() {
         guard !isUpdatingUI else { return }
         guard let sensitivity = systemAudioSpectrumSensitivityPopup.selectedItem?.representedObject as? SystemAudioSpectrumSensitivity else { return }
         dependency.settings.systemAudioSpectrumSensitivity = sensitivity
-        dependency.actions.applySystemAudioSpectrumToEngine()
     }
 
     @objc private func handleSystemAudioSpectrumBarCountChange() {
         guard !isUpdatingUI else { return }
         guard let barCount = systemAudioSpectrumBarCountPopup.selectedItem?.representedObject as? Int else { return }
         dependency.settings.systemAudioSpectrumBarCount = barCount
-        dependency.actions.applySystemAudioSpectrumToEngine()
     }
 
     @objc private func handleSystemAudioSpectrumColorChange() {
         guard !isUpdatingUI else { return }
         dependency.settings.systemAudioSpectrumColorHex = hexString(from: systemAudioSpectrumColorWell.color)
-        dependency.actions.applySystemAudioSpectrumToEngine()
     }
 
     @objc private func handleSystemAudioSpectrumOffsetChange() {
@@ -557,13 +553,11 @@ final class AppKitSettingsContainerView: NSView {
         dependency.settings.systemAudioSpectrumOffsetY = systemAudioSpectrumOffsetYSlider.doubleValue / 100
         systemAudioSpectrumOffsetXValueLabel.stringValue = "\(Int(round(systemAudioSpectrumOffsetXSlider.doubleValue)))%"
         systemAudioSpectrumOffsetYValueLabel.stringValue = "\(Int(round(systemAudioSpectrumOffsetYSlider.doubleValue)))%"
-        dependency.actions.applySystemAudioSpectrumToEngine()
     }
 
     @objc private func handleSystemAudioSpectrumPeakCapsToggle() {
         guard !isUpdatingUI else { return }
         dependency.settings.systemAudioSpectrumPeakCapsEnabled = (systemAudioSpectrumPeakCapsSwitch.state == .on)
-        dependency.actions.applySystemAudioSpectrumToEngine()
     }
 
     @objc private func handleSystemHotkeysToggle() {
@@ -675,16 +669,16 @@ final class AppKitSettingsContainerView: NSView {
         guard !isUpdatingUI else { return }
         let mode: VideoFillMode = (sender == fillModeFitButton) ? .aspectFit : .aspectFill
         selectFillMode(mode)
+        // 填充模式经 manager 的 sink 差分（videoFillMode 组）投影引擎
+        // （setFillMode 内部同步镜像，屏参变化/崩溃恢复不回跳）。
         dependency.settings.videoFillMode = mode
-        // 填充模式只需通知引擎更新 gravity + 播放动画，不重建播放链路。
-        WallpaperEngine.shared.setFillMode(mode.ipcValue)
     }
 
     @objc private func handleClearCache() {
         let hostWindow = preferredHostWindow()
         let alert = makeAppAlert(
             title: "清空缓存",
-            message: "将删除视频库的所有缩略图和静帧缓存，并重置 Steam 创意工坊的列表/详情缓存与当前浏览状态；不会删除已导入的视频、图片和已下载的工坊文件，也不会清除当前设置。",
+            message: "将删除视频库和图片库的所有缩略图与视频静帧缓存，并重置 Steam 创意工坊的列表/详情缓存与当前浏览状态；不会删除已导入的视频、图片和已下载的工坊文件，也不会清除当前设置。",
             buttons: ["清空", "取消"]
         )
         presentAppAlert(alert, in: hostWindow) { [weak self] response in

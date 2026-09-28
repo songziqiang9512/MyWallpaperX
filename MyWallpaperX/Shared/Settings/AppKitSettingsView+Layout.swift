@@ -130,7 +130,7 @@ extension AppKitSettingsContainerView {
     private func setupSystemSection() {
         // 系统集成区只放会影响全局快捷键、同步壁纸和开机行为的配置。
         startOnBootSwitch.toolTip = "开机时自动启动应用并恢复上次的壁纸设置"
-        syncSystemWallpaperSwitch.toolTip = "切换视频壁纸时同步更新系统壁纸（静态图壁纸始终直接设置系统壁纸）"
+        syncSystemWallpaperSwitch.toolTip = "切换壁纸时同步更新系统壁纸：视频用静帧，Web/Scene 在启动过渡结束后截取一帧（静态图壁纸始终直接设置）"
         systemAudioSpectrumSwitch.toolTip = "实验功能：采集系统音频并在桌面底部显示频谱条"
         systemHotkeysSwitch.toolTip = "允许使用全局 F1-F12 快捷键控制壁纸"
 
@@ -139,7 +139,7 @@ extension AppKitSettingsContainerView {
         let systemAudioSpectrumRow = makeSettingRow(
             title: "系统音频频谱",
             iconSystemName: "chart.bar.xaxis",
-            subtitle: "实验功能：会增加GPU负载",
+            subtitle: "仅对视频壁纸生效",
             trailing: systemAudioSpectrumSwitch
         )
         systemAudioSpectrumRow.identifier = NSUserInterfaceItemIdentifier("settings.row.system-audio-spectrum")
@@ -239,7 +239,7 @@ extension AppKitSettingsContainerView {
             spectrumOptionsStack.identifier = NSUserInterfaceItemIdentifier("settings.stack.system-audio-spectrum.options")
             systemSection.addRow(systemAudioSpectrumOptionsContainer)
         }
-        hotkeysSection.addRow(makeSettingRow(title: "响应系统快捷键", iconSystemName: "keyboard", trailing: systemHotkeysSwitch))
+        hotkeysSection.addRow(makeSettingRow(title: "系统快捷键", iconSystemName: "keyboard", trailing: systemHotkeysSwitch))
 
         hotkeyRowsStack.orientation = .vertical
         hotkeyRowsStack.alignment = .leading
@@ -289,7 +289,7 @@ extension AppKitSettingsContainerView {
         efficiencySection.addRow(makeSettingRow(title: "其他应用全屏时暂停", iconSystemName: "arrow.up.left.and.arrow.down.right", trailing: pauseOtherAppFullscreenSwitch))
         efficiencySection.addRow(makeSettingRow(title: "未连接电源时暂停播放", iconSystemName: "battery.25", trailing: pauseWhenUnpluggedSwitch))
         efficiencySection.addRow(makeSettingRow(title: "电脑不活跃时暂停播放", iconSystemName: "moon.zzz", trailing: pauseWhenIdleSwitch))
-        efficiencySection.addRow(makeSettingRow(title: "最高帧率（Scene 引擎）", iconSystemName: "gauge.with.needle", subtitle: "60 全量预算；30 节能预算", trailing: sceneMaxFPSSegmented))
+        efficiencySection.addRow(makeSettingRow(title: "最高帧率（Scene）", iconSystemName: "gauge.with.needle", subtitle: "日常建议开30帧节能", trailing: sceneMaxFPSSegmented))
 
         for value in [5, 10, 15, 20, 30, 60] {
             idleTimeoutPopup.addItem(withTitle: "\(value)分钟")

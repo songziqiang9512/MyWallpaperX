@@ -51,7 +51,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  }
 
  switch normalizedMenuTitle(menuItem) {
- case "设为当前壁纸", "切换下一张", "切换上一张", "收藏/取消收藏":
+ case "切换下一张", "切换上一张":
+ // 跨引擎统一轮换（视频库+工坊 web/scene），与热键/状态栏同源，
+ // 不再受视频库激活状态门控。
+ return true
+
+ case "设为当前壁纸", "收藏/取消收藏":
  return MainWindowCoordinator.canUseVideoLibraryOnlyCommands
 
  case "进入/退出多选":

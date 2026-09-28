@@ -5,8 +5,6 @@ import Foundation
 /// SettingsWindowController 构造时从 WallpaperManager 捕获实现。
 struct AppSettingsActions {
     var applyEngineSettings: (_ reloadWallpaper: Bool) -> Void = { _ in }
-    var applyPlaybackRateToEngine: () -> Void = {}
-    var applySystemAudioSpectrumToEngine: () -> Void = {}
     var clearAllCaches: () -> Void = {}
     var exportPersonalSettings: (_ url: URL) throws -> PersonalSettingsExportSummary = { _ in
         PersonalSettingsExportSummary(wallpaperCount: 0, tagCount: 0)

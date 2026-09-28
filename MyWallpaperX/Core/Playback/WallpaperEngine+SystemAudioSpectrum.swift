@@ -99,9 +99,12 @@ extension WallpaperEngine {
         refreshSystemAudioSpectrumCapture()
     }
 
+#if DEBUG
     /// Video-overlay policy entry. The public switch owns only the video
     /// overlay; Web/Scene capture follows sample-declared demand plus the
-    /// shared pause gate and must not observe this bit.
+    /// shared pause gate and must not observe this bit. Product paths only
+    /// use `configureSystemAudioSpectrum`; this entry survives for the
+    /// DEBUG web runners.
     public func setSystemAudioSpectrumEnabled(_ enabled: Bool) {
         currentSystemAudioSpectrumEnabled = enabled
         currentSpectrumLevels = Array(
@@ -124,6 +127,7 @@ extension WallpaperEngine {
         // not send a second video-daemon spectrum command for the same
         // setting change; otherwise the settings path has two command owners.
     }
+#endif
 
     public func configureSystemAudioSpectrum(
         enabled: Bool,
