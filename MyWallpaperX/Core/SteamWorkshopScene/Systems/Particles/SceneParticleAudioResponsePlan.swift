@@ -54,8 +54,13 @@ nonisolated struct SceneParticleAudioResponsePlan: Equatable, Sendable {
 
     nonisolated init?(_ declaration: SceneParticleAudioResponse) {
         guard declaration.isEnabled,
-              let mode = declaration.mode,
-              let channel = Channel(rawValue: mode) else { return nil }
+              // A bounds-only declaration has no authored channel; every
+              // enabled mode-bearing corpus component uses center, so center
+              // is the default reading of an audio-gated component without
+              // one.
+              let channel = Channel(
+                rawValue: declaration.mode ?? Channel.center.rawValue
+              ) else { return nil }
 
         let bounds: ClosedRange<Double>
         switch declaration.bounds {

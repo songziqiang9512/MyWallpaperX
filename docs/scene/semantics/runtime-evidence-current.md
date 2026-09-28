@@ -6,6 +6,14 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-audio-bounds-gate"></a>
+
+### E-2026-09-28-AUDIO-BOUNDS-GATE — 粒子音频门控按字段存在启用（rope 门 2 前置）
+
+**首断点与实现：**`SceneParticleAudioResponse.isEnabled` 此前 `=(mode ?? 0) != 0`——`audioprocessingmode` 缺失时整组音频字段被忽略，bounds-only 发射器在静音下全速率发射（3665307769 红烟的底层根因；12489fb7 回滚仅靠 rope 门挡层隐藏症状）。修复：mode 显式 0 仍禁用；mode 缺失时 bounds/exponent/frequency 任一存在即启用；plan 构造对缺省 mode 读 center（语料启用态 mode-bearing 组件全部 mode-3；非法 mode 与非法参数仍 fail-closed 零发射，与既有政策一致）。官方 emitter 文档描述 bounds 为音频响应起止点（"will only be active when audio is playing"），mode 为声道选择；同资产双形态（fireworks1 在 3612199597 bounds-only、在 2131872317 mode-3）证明同一作者意图。
+
+**验证：**红先行——bounds-only sphere 发射器静音 4 帧旧码发射 8 粒子、新码 0、loud 输入恢复 >0、显式 mode-3 对照保持静音 0。音频模块 16 项、粒子 keyword 16 模块 ALL OK、checkpoint 构建、code-health 通过。真样本 3612199597（3 个可达 fireworks1 层）：基线二进制 0 条音频诊断（未门控全速率），候选 3×`audioResponseBounded:emitter`，两版协议 PASS。影响面（审查 192 样本独立普查逐项核实）：emitter bounds-only 8/8 样本；frequency-only 2 处安全按全量程门控；initializer 侧 bounds-only 5 处（red_fire 家族）静音逐帧同值 loud 增强；mode=0 显式形态（shurikencursor_1）保持禁用；operator 侧无该形态。**红烟消除机制（审查言明）：**rope 门 2 放行后，3665307769 的 red_fire 由子模板严格 profile 排除（音频启用发射器在子 profile 之外——mode-bearing 子模板既有政策），不可能复发静音全速率红烟。独立只读审查 APPROVE（无阻断；语料行补全与注释措辞已按其备注处置）。冻结 product patch SHA256 `f26a007e04821a9b9d5311034e578af231d78d1b706d3be84fb8961bcb3b1f5a`、tests `6994b4ee4899060876abbc834919dcc92a3ef3149e451957ae605888e88a27b7`；App 身份与双回放报告见忽略缓存`2026-09-28-audio-bounds-gate/`。
+
 <a id="e-2026-09-28-world-pointer-demand"></a>
 
 ### E-2026-09-28-WORLD-POINTER-DEMAND — world/perspective 系统的 emitter 指针需求解除（rope 恢复门 3）

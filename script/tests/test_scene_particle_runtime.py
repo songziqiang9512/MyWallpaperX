@@ -312,6 +312,8 @@ enum Harness {
             try printJSON(syntheticWorldSpaceGravityFrame())
         case "worldspace-pointer-emitter":
             try printJSON(syntheticWorldSpacePointerEmitter())
+        case "audio-bounds-gate":
+            try printJSON(syntheticAudioBoundsGate())
         case "pointer-demand-real":
             guard CommandLine.arguments.count == 7 else {
                 throw HarnessError.missingMode
@@ -2062,6 +2064,93 @@ enum Harness {
             "positionCount": positions.count,
             "positions": positions,
             "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
+        ]
+    }
+
+    /// Audio response gates emission through authored bounds alone: the
+    /// editor writes `audioprocessingbounds` for an audio-gated emitter and
+    /// `audioprocessingmode` only selects the channel. A bounds-only emitter
+    /// (corpus: 8 emitters / 8 samples, e.g. 3665307769 red_fire) must stay
+    /// silent without audio and emit with it.
+    private static func syntheticAudioBoundsGate() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mwx-particle-audio-bounds-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        func writeGatedParticle(_ path: String, mode: Int?) throws {
+            var emitter: [String: Any] = [
+                "name": "sphererandom", "rate": 120,
+                "distancemin": 0, "distancemax": 0,
+                "audioprocessingbounds": "0.8 1",
+            ]
+            if let mode { emitter["audioprocessingmode"] = mode }
+            try writeJSON([
+                "material": "materials/shared.json", "maxcount": 100,
+                "emitter": [emitter],
+                "initializer": [
+                    ["name": "lifetimerandom", "min": 10, "max": 10],
+                    ["name": "sizerandom", "min": 8, "max": 8],
+                ],
+                "renderer": [["name": "sprite"]],
+            ], to: directory.appendingPathComponent(path))
+        }
+        try writeGatedParticle("particles/bounds-only.json", mode: nil)
+        try writeGatedParticle("particles/mode-center.json", mode: 3)
+        let descriptor = SceneRenderDescriptor(
+            layers: [
+                layer(101, "particles/bounds-only.json"),
+                layer(102, "particles/mode-center.json"),
+            ],
+            renderOrderLayerIDs: [101, 102],
+            materialPasses: [
+                .init(
+                    materialPath: "materials/shared.json",
+                    shaderPath: "genericparticle",
+                    texturePaths: ["shared.png"],
+                    blending: "additive"
+                )
+            ]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw HarnessError.noMetal
+        }
+        func runtimeFor(_ path: String) -> SceneParticleRuntime {
+            SceneParticleRuntime(
+                descriptor: SceneRenderDescriptor(
+                    layers: [layer(path == "particles/bounds-only.json" ? 101 : 102, path)],
+                    renderOrderLayerIDs: [path == "particles/bounds-only.json" ? 101 : 102],
+                    materialPasses: descriptor.materialPasses
+                ),
+                cacheDirectory: directory,
+                device: device
+            )
+        }
+        let loud = SceneParticleAudioInput(
+            left: Array(repeating: 1, count: SceneParticleAudioInput.bandCount),
+            right: Array(repeating: 1, count: SceneParticleAudioInput.bandCount),
+            generation: 1
+        )
+        func counts(_ runtime: SceneParticleRuntime, audio: SceneParticleAudioInput) -> Int {
+            var batches: [SceneParticleDrawBatch] = []
+            for _ in 0..<4 {
+                batches = runtime.advance(by: 1.0 / 60.0, audioInput: audio)
+            }
+            return batches.reduce(0) { $0 + $1.instances.count }
+        }
+        let boundsOnly = runtimeFor("particles/bounds-only.json")
+        let silentCount = counts(boundsOnly, audio: .silent)
+        let loudCount = counts(
+            runtimeFor("particles/bounds-only.json"), audio: loud
+        )
+        let modeCenter = runtimeFor("particles/mode-center.json")
+        let modeSilentCount = counts(modeCenter, audio: .silent)
+        return [
+            "boundsOnlySilentCount": silentCount,
+            "boundsOnlyLoudCount": loudCount,
+            "modeCenterSilentCount": modeSilentCount,
         ]
     }
 
@@ -4869,6 +4958,16 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertGreater(identityX, identityY * 4)
         self.assertGreater(rotatedY, rotatedX * 4)
         self.assertTrue(any(abs(y) > 0.01 for _, y, _ in rotated))
+
+    def test_audio_bounds_without_mode_gates_emission(self) -> None:
+        result = self.run_harness("audio-bounds-gate")
+        # Authored bounds without a channel mode still gate the emitter: the
+        # mode only selects left/right/center (bounds-only corpus shape comes
+        # from the same editor flow as the mode-bearing copies).
+        self.assertEqual(result["boundsOnlySilentCount"], 0)
+        self.assertGreater(result["boundsOnlyLoudCount"], 0)
+        # The explicit-mode shape keeps its existing gate.
+        self.assertEqual(result["modeCenterSilentCount"], 0)
 
     def test_world_space_pointer_emitter_follows_pointer(self) -> None:
         result = self.run_harness("worldspace-pointer-emitter")

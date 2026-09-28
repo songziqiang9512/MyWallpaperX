@@ -109,8 +109,18 @@ nonisolated struct SceneParticleAudioResponse: Equatable, Sendable {
         frequencyEnd: nil
     )
 
-    /// 作者是否启用。`mode` 缺省或 0 表示关闭。
-    nonisolated var isEnabled: Bool { (mode ?? 0) != 0 }
+    /// Whether the author configured an audio response at all. The editor
+    /// writes `audioprocessingbounds` (and optional exponent/frequency fields)
+    /// for an audio-gated component; `audioprocessingmode` only selects the
+    /// channel. Bounds without a mode must gate too — the corpus carries the
+    /// same assets in both shapes (e.g. 3665307769 red_fire is bounds-only
+    /// while 2131872317 fireworks1 is the mode-bearing copy). An explicit
+    /// mode of 0 stays disabled.
+    nonisolated var isEnabled: Bool {
+        if let mode { return mode != 0 }
+        return bounds != nil || exponent != nil
+            || frequencyStart != nil || frequencyEnd != nil
+    }
 }
 
 nonisolated struct SceneParticleEmitter: Equatable, Sendable {
