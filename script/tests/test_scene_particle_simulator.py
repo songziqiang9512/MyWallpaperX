@@ -58,7 +58,9 @@ import simd
 @main
 enum Harness {
     static func main() throws {
-        if CommandLine.arguments.dropFirst().first == "speed-disable" {
+        if CommandLine.arguments.dropFirst().first == "periodic-overrides" {
+            try printJSON(periodicOverrideResults())
+        } else if CommandLine.arguments.dropFirst().first == "speed-disable" {
             try printJSON(speedDisableResults())
         } else if CommandLine.arguments.dropFirst().first == "gravity-speed" {
             try printJSON(gravitySpeedResults())
@@ -88,6 +90,67 @@ enum Harness {
         } else {
             try printJSON(syntheticResults())
         }
+    }
+
+    private static func periodicOverrideResults() throws -> [String: Any] {
+        let parser = SceneParticleDefinitionParser()
+        func make(rate: Double = 1, count: Double = 1, flags: Int = 0,
+                  randomWindows: Bool = false, step: Double = 0.25) throws -> SceneParticleSimulator {
+            var root = try object(periodicJSON)
+            root["flags"] = flags
+            root["initializer"] = [["name": "lifetimerandom", "min": 1e9, "max": 1e9]]
+            if randomWindows, var emitters = root["emitter"] as? [[String: Any]] {
+                emitters[0]["minperiodicduration"] = 0.1
+                emitters[0]["maxperiodicduration"] = 0.3
+                emitters[0]["minperiodicdelay"] = 0.2
+                emitters[0]["maxperiodicdelay"] = 0.4
+                root["emitter"] = emitters
+            }
+            return SceneParticleSimulator(definition: try parser.parse(root: root),
+                instanceOverride: parser.parseInstanceOverride(["rate": rate, "count": count]),
+                seed: 101, fixedTimeStep: step)
+        }
+        var rows: [[String: Any]] = []
+        for rate in [0.0, 0.5, 1, 2] {
+            for count in [0.0, 0.5, 1, 2] {
+                let sim = try make(rate: rate, count: count)
+                sim.advance(by: 2)
+                rows.append(["rate": rate, "count": count, "particles": sim.particles.count,
+                    "time": sim.simulationTime])
+            }
+        }
+        let randomReference = try make(randomWindows: true)
+        let randomScaled = try make(rate: 2, randomWindows: true, step: 0.125)
+        randomReference.advance(by: 2)
+        randomScaled.advance(by: 1)
+        let disabled = try make(count: 0, flags: 32)
+        disabled.advance(by: 2)
+        let live = try make(count: 0)
+        live.advance(by: 0.5)
+        live.advance(by: 0.5, dynamicInstanceOverride: parser.parseInstanceOverride(["rate": 1, "count": 2]))
+        let delayCount = live.particles.count
+        live.advance(by: 0.5, dynamicInstanceOverride: parser.parseInstanceOverride(["rate": 0, "count": 2]))
+        let pausedTime = live.simulationTime
+        let saved = live.frameSnapshot()
+        live.advance(by: 0.5, dynamicInstanceOverride: parser.parseInstanceOverride(["rate": 1, "count": 2]))
+        let first = live.particles
+        live.restoreFrame(saved)
+        live.advance(by: 0.5, dynamicInstanceOverride: parser.parseInstanceOverride(["rate": 1, "count": 2]))
+        let unsafe = try make()
+        unsafe.advance(by: 0.25)
+        unsafe.advance(by: 0.25, dynamicInstanceOverride: parser.parseInstanceOverride(["rate": 1e6, "count": 1]))
+        let afterUnsafe = unsafe.particles.count
+        unsafe.advance(by: 0.25)
+        let boundary = try make(rate: 2048)
+        boundary.advance(by: 0.25)
+        return ["rows": rows, "randomScaledEqual": randomReference.particles == randomScaled.particles,
+            "disabled": disabled.particles.count,
+            "delayCount": delayCount, "pausedTime": pausedTime,
+            "resumedCount": first.count, "retry": first == live.particles,
+            "afterUnsafe": afterUnsafe, "recovered": unsafe.particles.count,
+            "invalidEmitter": unsafe.diagnostics.filter { $0.kind == .invalidEmitterState }.count,
+            "boundaryCount": boundary.particles.count,
+            "boundaryInvalid": boundary.diagnostics.filter { $0.kind == .invalidEmitterState }.count]
     }
 
     private static func speedDisableResults() throws -> [String: Any] {
@@ -3394,6 +3457,24 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(result["deterministic"])
         self.assertTrue(result["rollback"])
 
+    def test_periodic_emission_consumes_rate_and_count_with_bounded_work(self) -> None:
+        result = self.run_harness("periodic-overrides")
+        for row in result["rows"]:
+            with self.subTest(rate=row["rate"], count=row["count"]):
+                self.assertEqual(row["particles"], int(4 * row["rate"] * row["count"]))
+                self.assertEqual(row["time"], 2 * row["rate"])
+        self.assertTrue(result["randomScaledEqual"])
+        self.assertEqual(result["disabled"], 4)
+        self.assertEqual(result["delayCount"], 0)
+        self.assertEqual(result["pausedTime"], 1)
+        self.assertEqual(result["resumedCount"], 4)
+        self.assertTrue(result["retry"])
+        self.assertEqual(result["afterUnsafe"], 1)
+        self.assertEqual(result["recovered"], 2)
+        self.assertEqual(result["invalidEmitter"], 1)
+        self.assertEqual(result["boundaryCount"], 100)
+        self.assertEqual(result["boundaryInvalid"], 0)
+
     def test_disable_speed_override_covers_turbulence_and_live_updates(self) -> None:
         result = self.run_harness("speed-disable")
         self.assertGreater(sum(v * v for v in result["baseline"]), 0)
@@ -3579,8 +3660,10 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(self.results["periodicDeterministic"])
         self.assertEqual(self.results["periodicDiagnostics"], ["periodicEmissionBounded"])
         self.assertEqual(self.results["periodicAuthorOffCount"], 6)
+        self.assertEqual(self.results["periodicOverriddenCount"], 6)
+        self.assertEqual(self.results["periodicOverriddenDiagnostics"], ["periodicEmissionBounded"])
         for prefix in [
-            "periodicMalformed", "periodicBurst", "periodicLimited", "periodicOverridden"
+            "periodicMalformed", "periodicBurst", "periodicLimited"
         ]:
             self.assertEqual(self.results[f"{prefix}Count"], 0)
             self.assertEqual(

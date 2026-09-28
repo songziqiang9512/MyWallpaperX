@@ -530,8 +530,17 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         guard let audioScale = emissionAudioScale(
             for: spawnPlan, emitterIndex: index
         ) else { return }
-        if spawnPlan.usesRandomPeriodicEmission,
-           activeInstanceOverride?.rate != nil || activeInstanceOverride?.count != nil { return }
+        // A scaled step may span many random windows. Reject before advancing
+        // this emitter's schedule or RNG; at most 1024 full windows plus the
+        // currently partial window can be visited by an accepted step.
+        if case let .supported(periodic) = spawnPlan.periodicEmissionAdmission,
+           duration > min(periodic.minimumDuration, periodic.minimumDelay) * 1024 {
+            let diagnostic = SceneParticleSimulationDiagnostic(
+                kind: .invalidEmitterState, componentName: "periodic-budget:\(index)"
+            )
+            if !diagnostics.contains(diagnostic) { diagnostics.append(diagnostic) }
+            return
+        }
         guard let activeDuration = emitters[index].scheduledActiveDuration(
             plan: spawnPlan, stepDuration: duration,
             maximumEmissionDuration: maximumEmissionDuration

@@ -102,8 +102,6 @@ extension SceneParticleSimulationMath {
                 break
             }
             switch emitter.periodicEmissionAdmission {
-            case .supported where instanceOverride?.rate != nil || instanceOverride?.count != nil:
-                add(.periodicEmissionUnsupported, "instanceoverride")
             case .supported:
                 add(.periodicEmissionBounded, "randomperiodic")
             case .unsupported:

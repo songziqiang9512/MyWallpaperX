@@ -6,6 +6,20 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-periodic-instance-overrides"></a>
+
+### E-2026-09-28-PERIODIC-INSTANCE-OVERRIDES — 周期发射接入原 rate/count 通道
+
+**首断点与实现：**HEAD25cdf2c9中，已准入的Random periodic只要存在instance rate或count（包括1）就被旧guard禁发，并记录instanceoverride不支持。公开[Emitter](https://docs.wallpaperengine.io/en/scene/particles/component/emitter.html#random-periodic-emission)定义active/delay窗口，公开[IParticleSystemInstance](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystemInstance.html)区分simulation rate与emission count倍率。现删除此guard、对应诊断分支及SpawnPlan冗余布尔值，周期窗口消费原scaled simulation dt，count继续只乘窗口active duration对应的发射量；无第二时钟或周期状态。极端scaled step按最小窗口先验限制最多1024完整窗口加一个当前部分窗口，在该emitter schedule/RNG改变前局部invalidEmitterState(periodic-budget)拒绝，其余模拟照常。此预算是项目资源策略，按完整step保守判定，初始delay本可减少遍历时也可能拒绝；不是官方速率上限。burst、emitter duration、maximum-per-period、audio与child profile未放宽。
+
+**行为验证：**旧产品新反例10项失败。候选simulator68项、runtime37项联合执行105项（95通过、10既有环境跳过），覆盖rate/count的0/.5/1/2组合、count禁用门、暂停恢复、动态窗口状态、snapshot retry、随机区间同scaled dt等价、1024窗口边界及超限拒绝后恢复。旧rate2应拒绝的断言改为1.5wall秒发6颗，malformed/burst/maximum-per-period负例保留。基线与候选均优化Debug重建，包含已并行合入的图片缓存改动；code-health通过（1005 Swift、219既有warnings）。三产品/一测试冻结SHA256 `c2c61aec22c46ca0316a4de45797b582d037f86fceded8bf690b44fbfa862d9e`，独立代码及App证据审查APPROVE。
+
+**同输入App：**自有9900000409四排短寿命粒子，前三排(count,rate)分别(1,1)/(2,1)/(1,2)，第四排无override。两版各24帧，基线前三排ROI全零，候选各有亮/暗阶段，亮像素范围0–2838、0–5324、0–2904；无override对照两版均正常。专项原门直接通过，已查看实际Metal帧。两版submitted/completed/failed/presented均211/211/0/210，frame0/1/2完成并有后继输出。direct粒子不涉及graph publication。通用benchmark仅因纯粒子image loaded ratio=0为NON-PASS，particle4/4加载，门值未改。图像只证明出现及周期消失；精确计数/速率/随机状态由Swift测试证明，不是官方相位或分布parity。
+
+**真实首断点纠正：**188个可读scene.pkg的限定扫描找到3749463715四个相关声明，其中两个是深层child。实播进一步确认根405/412声明maxtoemitperperiod=32，已先在periodic profile准入失败（randomperiodic，而非instanceoverride）；本批不恢复这两项发射。前后整场景通用回归均PASS、particle8/8，帧计数117/116/0/115与121/120/0/119，根周期诊断保持；加载通过不能代表雷电显示。剩余每周期数量上限、mapsequencebetweencontrolpoints、控制点约束、child变换及深层duration/9999秒delay已保留队列，不使用样本派生输入伪称原包修复。
+
+**身份与留存：**baseline App SHA256 `971a849c04872f915dd28a35f25986149047e181c819e85f142ed170fc20fc70`；candidate App2.10.0(279)、SHA256 `3fd28e4ea15f74563a716d885b951c95222748b1ce750d2d8cf641b534364d81`、CDHash `511fe083553f48aa61a3e8569d38ea959a235d3f`，运行前后验签。忽略缓存`2026-09-28-periodic-instance-overrides`保存四次原报告/图/日志、自有连续序列、输入、ROI、限定普查、失败与最终测试、两次构建及冻结补丁。没有官方周期数值、完整粒子或QV视觉关闭结论。
+
 <a id="e-2026-09-28-particle-speed-disable"></a>
 
 ### E-2026-09-28-PARTICLE-SPEED-DISABLE — Speed 禁用门统一并补齐湍流
