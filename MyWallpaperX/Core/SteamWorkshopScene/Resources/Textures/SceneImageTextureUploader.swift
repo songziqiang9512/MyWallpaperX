@@ -72,9 +72,11 @@ enum SceneImageTextureUploader {
             func integer(_ offset: Int) -> Int {
                 (0..<4).reduce(0) { ($0 << 8) | Int(data[data.startIndex + offset + $1]) }
             }
-            guard let decoded = decodeRGBA8PNG(data, width: integer(16), height: integer(20))
-            else { return nil }
-            rgba = decoded
+            switch decodeRGBA8PNG(data, width: integer(16), height: integer(20)) {
+            case let .still(decoded): rgba = decoded
+            case .animated: rgba = nil
+            case nil: return nil
+            }
         } else {
             rgba = nil
         }
@@ -91,10 +93,15 @@ enum SceneImageTextureUploader {
             provider: provider, decode: nil, shouldInterpolate: false, intent: image.renderingIntent)
     }
 
-    /// PNG RGBA8, including every row filter and Adam7 pass. zlib owns inflate
+    private enum PNGSourcePixels {
+        case still(Data)
+        case animated
+    }
+
+    /// Static PNG RGBA8, including every row filter and Adam7 pass. zlib owns inflate
     /// and checksums; metadata/color interpretation stays with ImageIO.
     /// https://www.w3.org/TR/png-3/#9Filters
-    private static func decodeRGBA8PNG(_ data: Data, width: Int, height: Int) -> Data? {
+    private static func decodeRGBA8PNG(_ data: Data, width: Int, height: Int) -> PNGSourcePixels? {
         let maximumBytes = 256 * 1_024 * 1_024
         guard supports2DExtent(width: width, height: height),
               width <= maximumBytes / 4 / height,
@@ -117,6 +124,12 @@ enum SceneImageTextureUploader {
                 crc32(0, $0.baseAddress! + offset + 4, uInt(count + 4))
             }
             guard checksum == uLong(integer(end)) else { return nil }
+            if kind == 0x6163544C {
+                guard count == 8, !sawData else { return nil }
+                // APNG can exclude IDAT's poster from its animation. ImageIO
+                // remains the authority for selecting/composing its first frame.
+                return .animated
+            }
             if kind == 0x49484452 {
                 guard offset == 8 else { return nil }
             } else if kind == 0x49444154 {
@@ -191,7 +204,7 @@ enum SceneImageTextureUploader {
                 previous = row
             }
         }
-        return Data(pixels)
+        return .still(Data(pixels))
     }
 
     // The supported macOS Metal GPU families allow at most 16384 per 2D axis.

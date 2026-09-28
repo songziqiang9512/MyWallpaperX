@@ -117,3 +117,12 @@ for path in CommandLine.arguments.dropFirst() {
         split = good[:33] + first + second + chunk(b'IEND', b'')
         separated = good[:33] + first + chunk(b'tEXt', b'note\x00text') + second + chunk(b'IEND', b'')
         self.assertEqual(self.decode(split, separated), [list(pixels), None])
+
+    def test_animated_png_retains_first_animation_frame_instead_of_excluded_poster(self):
+        header = chunk(b'IHDR', struct.pack('>IIBBBBB', 1, 1, 8, 6, 0, 0, 0))
+        animation = chunk(b'acTL', struct.pack('>II', 1, 0))
+        poster = chunk(b'IDAT', zlib.compress(bytes([0, 255, 0, 0, 255])))
+        control = chunk(b'fcTL', struct.pack('>IIIIIHHBB', 0, 1, 1, 0, 0, 1, 10, 0, 0))
+        frame = chunk(b'fdAT', struct.pack('>I', 1) + zlib.compress(bytes([0, 0, 255, 0, 255])))
+        source = SIGNATURE + header + animation + poster + control + frame + chunk(b'IEND', b'')
+        self.assertEqual(self.decode(source), [[0, 255, 0, 255]])
