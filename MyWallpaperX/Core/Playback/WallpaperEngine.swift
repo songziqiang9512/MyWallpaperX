@@ -299,10 +299,11 @@ public final class WallpaperEngine: NSObject {
 
         if currentPlaybackContentKind == .web {
             dispatchWebRuntimeCommand(.setVolume(effectiveVolume))
-        } else {
-            for session in displaySessions.values where session.process.isRunning {
-                send(DaemonCommand(action: "setVolume", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: effectiveVolume, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
-            }
+        }
+        // A preparing Web surface may still retain the previous video sessions.
+        // Every live surface obeys the same result throughout the transition.
+        for session in displaySessions.values where session.process.isRunning {
+            send(DaemonCommand(action: "setVolume", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: effectiveVolume, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
         }
     }
 
@@ -330,9 +331,10 @@ public final class WallpaperEngine: NSObject {
         targetPlaybackRate = clampedRate
         if currentPlaybackContentKind == .web {
             dispatchWebRuntimeCommand(.setPlaybackRate(clampedRate))
-            return
         }
         guard !playbackPaused else { return }
+        // A preparing Web surface may still retain the previous video sessions.
+        // Every live surface obeys the same result throughout the transition.
         for session in displaySessions.values where session.process.isRunning {
             send(DaemonCommand(action: "resume", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: nil, playbackRate: clampedRate, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
         }

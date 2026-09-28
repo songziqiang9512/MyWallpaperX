@@ -18,11 +18,10 @@ extension SteamWorkshopService {
         browserFetchTask = nil
         selectedItemDetailTask?.cancel()
         selectedItemDetailTask = nil
+        // 只清浏览态与派生缓存。账号会话（signOut 会删 Keychain 持久
+        // 凭据）与进行中的下载不属于"清除缓存"，不得在此隐藏执行；
+        // 确认弹窗的清理清单与实际行为保持一致。
         steamAuth.cancelPendingAuthentication()
-        cancelDownloadImmediately(showFeedback: false)
-        Task { @MainActor [weak self] in
-            _ = await self?.steamAuth.signOut()
-        }
 
         clearSteamWorkshopCacheDirectory(cacheDirectoryURL)
         clearSteamWorkshopCacheDirectory(Self.detailCacheDirectoryURL())
@@ -59,7 +58,9 @@ extension SteamWorkshopService {
         selectedDownloadDetailError = nil
         isRefreshingSelectedDownloadDetailItem = false
         downloadError = nil
-        downloadJobStore.cancelAll()
+        // 在途/排队下载同样不属于"清除缓存"：cancelAll 会把任务持久化
+        // 置 cancelled 并销毁排队意图；派生进度态清空即可，任务自身由
+        // 下载管线收尾。
         downloadProgressStore.removeAll()
         zoomOffset = 0
 

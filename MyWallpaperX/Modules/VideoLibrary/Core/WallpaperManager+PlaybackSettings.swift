@@ -282,7 +282,13 @@ extension WallpaperManager {
                     try SMAppService.mainApp.unregister()
                 }
             } catch {
-                // 登录项注册/注销失败时静默忽略，不影响其他设置。
+                // 注册/注销失败必须留痕：静默吞掉会让面板与系统登录项
+                // 状态永久漂移且无从排查。
+                NSLog(
+                    "MWX LoginItem: SMAppService %@ failed: %@",
+                    settings.startOnBoot ? "register" : "unregister",
+                    String(describing: error)
+                )
             }
         }
     }

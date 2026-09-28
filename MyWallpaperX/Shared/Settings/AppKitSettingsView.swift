@@ -5,6 +5,7 @@
 
 import AppKit
 import Combine
+import ServiceManagement
 import UniformTypeIdentifiers
 import Foundation
 
@@ -199,7 +200,13 @@ final class AppKitSettingsContainerView: NSView {
         playbackRateSlider.isHidden = !settings.playbackRateEnabled
         playbackRateValueLabel.isHidden = !settings.playbackRateEnabled
 
-        startOnBootSwitch.state = settings.startOnBoot ? .on : .off
+        // 登录项开关以系统真值对账：注册失败或用户在系统设置里移除后，
+        // 面板显示实际状态而不是 settings 里的乐观值。
+        if #available(macOS 13.0, *) {
+            startOnBootSwitch.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        } else {
+            startOnBootSwitch.state = settings.startOnBoot ? .on : .off
+        }
         syncSystemWallpaperSwitch.state = settings.syncSystemWallpaper ? .on : .off
         systemAudioSpectrumSwitch.state = settings.systemAudioSpectrumEnabled ? .on : .off
         systemAudioSpectrumOptionsContainer?.isHidden = !settings.systemAudioSpectrumEnabled

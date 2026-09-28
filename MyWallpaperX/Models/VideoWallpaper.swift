@@ -254,7 +254,7 @@ public struct WallpaperSettings: Codable, Equatable {
     var startOnBoot: Bool = false
     var pauseWhenOtherAppFullscreen: Bool = true // 其他应用全屏时暂停
     var idleTimeoutMinutes: Int = 10 // 不活跃超时时间（分钟）
-    var pauseWhenOtherAppFocused: Bool = true // 其他应用焦点时暂停
+    var pauseWhenOtherAppFocused: Bool = false // 其他应用焦点时暂停（默认关：对齐官方 Wallpaper Engine"仅全屏暂停"的默认语义）
     var multiDisplayEnabled: Bool = true // 多屏适配
     var videoFillMode: VideoFillMode = .aspectFill // 视频填充模式
     var syncSystemWallpaper: Bool = false // 同步改变系统壁纸

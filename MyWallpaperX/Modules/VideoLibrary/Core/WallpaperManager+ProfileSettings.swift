@@ -18,6 +18,8 @@ struct PersonalSettingsImportSummary {
 }
 
 /// 只导出用户真正关心的偏好字段，不序列化整个 WallpaperSettings，减小文件体积。
+/// schemaVersion 4：新增系统音频频谱 8 字段（可选，旧版 v1-v3 文件缺 key
+/// 时解码为 nil，导入跳过不覆盖）。
 private struct ExportedPreferences: Codable {
     var loopPlayback: Bool
     var randomPlayback: Bool
@@ -39,6 +41,25 @@ private struct ExportedPreferences: Codable {
     var playbackRateEnabled: Bool
     var sortMode: WallpaperSortMode
     var sortAscending: Bool
+    var systemAudioSpectrumEnabled: Bool?
+    var systemAudioSpectrumStyle: SystemAudioSpectrumStyle?
+    var systemAudioSpectrumSensitivity: SystemAudioSpectrumSensitivity?
+    var systemAudioSpectrumColorHex: String?
+    var systemAudioSpectrumOffsetX: Double?
+    var systemAudioSpectrumOffsetY: Double?
+    var systemAudioSpectrumBarCount: Int?
+    var systemAudioSpectrumPeakCapsEnabled: Bool?
+
+    static let allowedIdleTimeoutMinutes: [Int] = [5, 10, 15, 20, 30, 60]
+    static let allowedSpectrumBarCounts: [Int] = [16, 20, 28, 36, 48]
+
+    private static func nearest(
+        allowed: [Int], to value: Int
+    ) -> Int {
+        allowed.min {
+            abs($0 - value) < abs($1 - value)
+        } ?? allowed[0]
+    }
 
     init(from settings: WallpaperSettings) {
         loopPlayback = settings.loopPlayback
@@ -61,6 +82,14 @@ private struct ExportedPreferences: Codable {
         playbackRateEnabled = settings.playbackRateEnabled
         sortMode = settings.sortMode
         sortAscending = settings.sortAscending
+        systemAudioSpectrumEnabled = settings.systemAudioSpectrumEnabled
+        systemAudioSpectrumStyle = settings.systemAudioSpectrumStyle
+        systemAudioSpectrumSensitivity = settings.systemAudioSpectrumSensitivity
+        systemAudioSpectrumColorHex = settings.systemAudioSpectrumColorHex
+        systemAudioSpectrumOffsetX = settings.systemAudioSpectrumOffsetX
+        systemAudioSpectrumOffsetY = settings.systemAudioSpectrumOffsetY
+        systemAudioSpectrumBarCount = settings.systemAudioSpectrumBarCount
+        systemAudioSpectrumPeakCapsEnabled = settings.systemAudioSpectrumPeakCapsEnabled
     }
 
     func apply(to settings: inout WallpaperSettings) {
@@ -76,7 +105,12 @@ private struct ExportedPreferences: Codable {
         settings.pauseWhenOtherAppFocused = pauseWhenOtherAppFocused
         settings.pauseWhenUnplugged = pauseWhenUnplugged
         settings.pauseWhenIdle = pauseWhenIdle
-        settings.idleTimeoutMinutes = idleTimeoutMinutes
+        // 离散档位取最近合法值，避免外部来源的清单外值让 UI 显示与
+        // 策略判定脱节。
+        settings.idleTimeoutMinutes = Self.nearest(
+            allowed: Self.allowedIdleTimeoutMinutes,
+            to: idleTimeoutMinutes
+        )
         settings.multiDisplayEnabled = multiDisplayEnabled
         settings.videoFillMode = videoFillMode
         settings.syncSystemWallpaper = syncSystemWallpaper
@@ -84,6 +118,41 @@ private struct ExportedPreferences: Codable {
         settings.playbackRateEnabled = playbackRateEnabled
         settings.sortMode = sortMode
         settings.sortAscending = sortAscending
+        if let systemAudioSpectrumEnabled {
+            settings.systemAudioSpectrumEnabled = systemAudioSpectrumEnabled
+        }
+        if let systemAudioSpectrumStyle {
+            settings.systemAudioSpectrumStyle = systemAudioSpectrumStyle
+        }
+        if let systemAudioSpectrumSensitivity {
+            settings.systemAudioSpectrumSensitivity = systemAudioSpectrumSensitivity
+        }
+        if let systemAudioSpectrumColorHex,
+           systemAudioSpectrumColorHex.range(
+               of: "^#[0-9A-Fa-f]{6}$",
+               options: .regularExpression
+           ) != nil {
+            settings.systemAudioSpectrumColorHex = systemAudioSpectrumColorHex
+        }
+        if let systemAudioSpectrumOffsetX {
+            settings.systemAudioSpectrumOffsetX = max(
+                -0.35, min(0.35, systemAudioSpectrumOffsetX)
+            )
+        }
+        if let systemAudioSpectrumOffsetY {
+            settings.systemAudioSpectrumOffsetY = max(
+                -0.35, min(0.35, systemAudioSpectrumOffsetY)
+            )
+        }
+        if let systemAudioSpectrumBarCount {
+            settings.systemAudioSpectrumBarCount = Self.nearest(
+                allowed: Self.allowedSpectrumBarCounts,
+                to: systemAudioSpectrumBarCount
+            )
+        }
+        if let systemAudioSpectrumPeakCapsEnabled {
+            settings.systemAudioSpectrumPeakCapsEnabled = systemAudioSpectrumPeakCapsEnabled
+        }
     }
 }
 
@@ -101,7 +170,8 @@ private struct PersonalSettingsPayload: Codable {
         let tags: [String]
     }
 
-    // schemaVersion 3：新增图片库壁纸和图片标签（可选，兼容旧版 v1/v2 文件）
+    // schemaVersion 4：新增系统音频频谱 8 字段（可选）；v3 新增图片库壁纸和
+    // 图片标签（可选，兼容旧版 v1/v2 文件）
     let schemaVersion: Int
     let exportedAt: Date
     let preferences: ExportedPreferences
@@ -115,7 +185,7 @@ extension WallpaperManager {
     func exportPersonalSettings(to url: URL) throws -> PersonalSettingsExportSummary {
         // 导出只打包用户态配置和引用关系，不导出派生缓存路径，避免文件搬家后误以为资源已固定。
         let payload = PersonalSettingsPayload(
-            schemaVersion: 3,
+            schemaVersion: 4,
             exportedAt: Date(),
             preferences: ExportedPreferences(from: settings),
             tags: normalizedTagList(tags),

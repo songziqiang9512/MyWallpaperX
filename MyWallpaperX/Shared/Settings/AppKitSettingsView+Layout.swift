@@ -130,7 +130,7 @@ extension AppKitSettingsContainerView {
     private func setupSystemSection() {
         // 系统集成区只放会影响全局快捷键、同步壁纸和开机行为的配置。
         startOnBootSwitch.toolTip = "开机时自动启动应用并恢复上次的壁纸设置"
-        syncSystemWallpaperSwitch.toolTip = "每次切换壁纸时同步更新系统壁纸"
+        syncSystemWallpaperSwitch.toolTip = "切换视频壁纸时同步更新系统壁纸（静态图壁纸始终直接设置系统壁纸）"
         systemAudioSpectrumSwitch.toolTip = "实验功能：采集系统音频并在桌面底部显示频谱条"
         systemHotkeysSwitch.toolTip = "允许使用全局 F1-F12 快捷键控制壁纸"
 
@@ -280,6 +280,7 @@ extension AppKitSettingsContainerView {
 
     private func setupEfficiencySection() {
         // 性能区的开关会直接影响引擎暂停状态，改动后必须同步到 WallpaperEngine。
+        pauseOtherAppFocusedSwitch.toolTip = "前台是其他应用（桌面 Finder 与本应用除外）时暂停壁纸播放"
         pauseOtherAppFullscreenSwitch.toolTip = "当其他应用进入全屏并占据主要桌面空间时暂停壁纸播放"
         pauseWhenUnpluggedSwitch.toolTip = "使用电池时暂停壁纸播放以节省电量"
         pauseWhenIdleSwitch.toolTip = "当电脑长时间不活跃时暂停壁纸播放"
@@ -302,7 +303,7 @@ extension AppKitSettingsContainerView {
 
     private func setupDisplaySection() {
         // 显示区只处理屏幕适配和画面比例，不混入播放策略。
-        multiDisplaySwitch.toolTip = "在所有显示器上显示视频壁纸"
+        multiDisplaySwitch.toolTip = "在所有显示器上显示壁纸（视频/Web/Scene）"
         displaySection.addRow(makeSettingRow(title: "多屏适配", iconSystemName: "rectangle.on.rectangle", trailing: multiDisplaySwitch))
 
         let fillModeControls = NSStackView(views: [fillModeFitButton, fillModeFillButton])

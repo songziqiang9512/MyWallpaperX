@@ -211,11 +211,15 @@ extension WallpaperManager {
     }
 
     func restorePlaybackState() {
+        // loadSavedState 已在先恢复持久化 isPlaying；退出前处于暂停的
+        // 用户，重启后应回到暂停而不是自动播放。
+        let wasPausedBeforeQuit = !isPlaying
         // web/scene 尚无跨重启的重放链（偏差债务；退役条件=持久化启动
         // 意图与原 launch 入口落地）。重启后降级恢复最近可用视频，保持
         // runtime 真值、画面与轮换策略一致，而不是空转在 web/scene 标记上。
         if activeWallpaperRuntime != .video {
             restoreMostRecentVideoAfterNonVideoRuntime()
+            if wasPausedBeforeQuit { restorePlaybackPausedIntent() }
             return
         }
         // 恢复播放状态只负责恢复当前播放项，不重新编排最近使用或标签状态。
@@ -239,6 +243,18 @@ extension WallpaperManager {
                 updateRecentList: false
             )
         }
+        if wasPausedBeforeQuit { restorePlaybackPausedIntent() }
+    }
+
+    /// 把退出前的用户暂停意图重新投影到控制面：经 multiplexer 走
+    /// `.pause`，三引擎与 isUserPaused 状态一并恢复。
+    private func restorePlaybackPausedIntent() {
+        guard WallpaperEngine.shared.isPlaying() || SceneDaemonClient.shared.isPlaying else {
+            isPlaying = false
+            return
+        }
+        PlaybackCommandMultiplexer.shared.dispatch(.pause)
+        isPlaying = false
     }
 
     private func restoreMostRecentVideoAfterNonVideoRuntime() {
@@ -467,6 +483,29 @@ extension WallpaperManager {
         wallpapers.removeAll()
         recentlyUsedWallpapers.removeAll()
         currentWallpaper = nil
+
+        // 重置是"重新安装级"：停掉任何运行中的壁纸——web/scene 不能在
+        // 重置后继续播放，runtime 标记也不能被 flush 再次持久化（否则
+        // 下次启动落入 web/scene 空转分支）。停止会把 isPlaying 压成
+        // false，但初次安装语义是自动播放：恢复播放态再进示例注入，
+        // 否则 restorePlaybackState 会把刚恢复的示例按"退出前暂停"误暂停。
+        if activeWallpaperRuntime == .scene {
+            SceneDaemonClient.shared.stop(postsLaunchState: false)
+        }
+        stopCurrentPlayback()
+        activeWallpaperRuntime = .video
+        isPlaying = true
+
+        // Scene 帧率档与库 UI 状态同样属于"设置"，与 SIL 侧重置对齐，
+        // 兑现"恢复所有设置为初次安装状态"的弹窗承诺。
+        PlaybackPerformanceProfile.save(.standard)
+        PlaybackCommandMultiplexer.shared.dispatch(
+            .setPerformanceProfile(maxFPS: PlaybackPerformanceProfile.standard.maxFPS)
+        )
+        gridZoomOffset = 0
+        UserDefaults.standard.removeObject(forKey: "gridZoomOffset")
+        perSelectionSortStates.removeAll()
+        UserDefaults.standard.removeObject(forKey: perSelectionSortStatesKey)
 
         clearPreviewCacheArtifacts()
         WallpaperIndexStore.shared.resetStore()
