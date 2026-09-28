@@ -26,7 +26,7 @@ StringProgram现复用SceneScriptValueOwner，cursor借用同一实例，删除�
 
 ## 2026-09-28 作者 Solid 开关进入鼠标命中
 
-作者显式solid:false及其value包装沿SceneDocument→prepared Layer控制唯一cursor命中出口；[静态批](runtime-evidence-current.md#e-2026-09-28-cursor-solid)已通过五组实际App正反例。后继把thisLayer.solid getter/setter接入原C journal/快照、Swift mutation与typed帧值，下一帧回送getter，普通update继续执行；不重建图或增加交互状态表。[动态批](runtime-evidence-current.md#e-2026-09-28-dynamic-solid)41项定向门、init双向实际App及3211615441点击回归通过。nil维持既有默认，不推定官方默认值；属性热调、实际按下中途关闭/重开、可见性/遮挡及其他命中合同仍开放。旧capture release保留up、无当前hit不发click，不宣称官方capture parity。
+作者显式solid:false及其value包装沿SceneDocument→prepared Layer控制唯一cursor命中出口；[静态批](runtime-evidence-current.md#e-2026-09-28-cursor-solid)已通过五组实际App正反例。后继把thisLayer.solid getter/setter接入原C journal/快照、Swift mutation与typed帧值，下一帧回送getter，普通update继续执行；不重建图或增加交互状态表。[动态批](runtime-evidence-current.md#e-2026-09-28-dynamic-solid)41项定向门、init双向实际App及3211615441点击回归通过。[普通帧实际回放](runtime-evidence-current.md#e-2026-09-28-solid-live-transitions)补齐update反复开关的事件时序和最终shader像素：两种相反初值各记录四次enter/leave；普通update在2/3/4秒触发对应开关事件，另含初次进入或最终移出，事件时序及shader色阶通过专项核验；不新增实现。nil维持既有默认，不推定官方默认值；属性热调、实际按下中途关闭/重开、可见性/遮挡及其他命中合同仍开放。旧capture release保留up、无当前hit不发click，不宣称官方capture parity。
 
 ## 2026-09-28 标量鼠标事件与统一脚本值 owner
 

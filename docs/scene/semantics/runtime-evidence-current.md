@@ -6,6 +6,18 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-solid-live-transitions"></a>
+
+### E-2026-09-28-SOLID-LIVE-TRANSITIONS — 普通帧反复切换交互开关的实际输出
+
+**任务与当前事实：**HEAD016c32db未改产品代码。队列Q1-C仍写“Solid尚未完整贯通”，但当前解析、typed mutation、下一帧getter及命中出口已由静态/dynamic Solid批接通。此次验证此前只在单测覆盖的普通update反复切换，不再重复实现。公开[cursor合同](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/cursor.html)及[IEffectLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEffectLayer.html)界定solid为cursor开关；官方默认、capture取消及隐藏父层行为仍无本批裁决。
+
+**自有App输入与结果：**9900000404/405各有一个320×240 Solid图层、一个shader参数owner；update在runtime2/3/4秒切换solid，两组初值相反。八点指针NDC X=±0.01、Y=0始终位于图层几何内部，button一直up；enter/leave各把计数加一，shader把计数/4显示为红→绿五级。404在ready后2.009/2.996/4.002秒依次enter/leave/enter，5.771秒诊断器实际移出后leave；405在1.426秒初次进入后，于2.008/2.988/3.998秒leave/enter/leave，之后实际移出不重复触发。相邻轨迹点变化本身没有制造额外enter/leave。序列中心RGB分别为404的(255,0,0)→(191,64,0)→(128,128,0)→(64,191,0)→(0,255,0)，405从第一档计数开始得到相同后四级。自动事件时序/数量/几何内坐标/像素断言通过，已查看最终Metal中间图。
+
+两组frame0/1/2 GPU完成，graph publication、同runtime terminal compositor消费及next-frame成功；performance读取时submitted/completed/failed/presented分别236/236/0/234与237/236/0/235。通用benchmark为1/2：405仅`hover interaction output evidence below minimum`，因既有模板要求最后hover阶段还变化，而它此前已关掉Solid并完成计数；不改原门值，专项2/2不冒充通用全通过。诊断器提供合成指针，本批不是实际OS鼠标、多屏、按住期间切换、属性绑定或官方交互parity。
+
+**探索与身份：**首轮普通hover及延后hover实验因runner在ready时强制outside、之后主动退出，不能证明全程静止指针，原始失败报告保留；其中延后实验的未生成截图路径不补造。最终改用既有完整in-bounds trajectory，不改工具。App2.10.0(279)、SHA256 `6b4732b0f67313da234beaa7c06cd2fc6108e5fc043784dbe8b0252e0c2cc7da`、CDHash `e1318417c23ed656833a120f14cc9b18b2ce8e51`，运行前后验签；无产品修改，因此不重复构建或单测。忽略缓存`2026-09-28-solid-live-transitions`保存原报告/日志/连续截图、自有输入、构造和专项断言。此次关闭队列中已过时的静态/普通帧接线待办，保留尚无证据的交互范围。
+
 <a id="e-2026-09-28-particle-color-script"></a>
 
 ### E-2026-09-28-PARTICLE-COLOR-SCRIPT — 粒子颜色脚本接入现有 Vec3 通道
