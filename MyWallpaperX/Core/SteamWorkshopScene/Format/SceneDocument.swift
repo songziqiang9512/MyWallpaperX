@@ -219,6 +219,7 @@ struct SceneDocumentLoader {
             parentID: root["parent"] as? Int,
             attachmentName: stringValue(root["attachment"]).flatMap { $0.isEmpty ? nil : $0 },
             puppetAnimationLayers: ScenePuppetAnimationLayer.parse(root["animationlayers"]),
+            solid: visibleValue(root["solid"]),
             visible: visibleValue(root["visible"]),
             alpha: doubleValue(root["alpha"]),
             displayScriptOwnership: .parse(authoredObject: authoredRoot),

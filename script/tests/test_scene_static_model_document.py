@@ -58,12 +58,14 @@ SCENE_FIXTURE = {
         {
             "id": 10,
             "name": "Direct model",
+            "solid": True,
             "model": r"models\Earth\Earth.mdl",
             "perspective": True,
         },
         {
             "id": 20,
             "name": "Duplicate model reference",
+            "solid": False,
             "model": "models/Earth/Earth.mdl",
         },
         {
@@ -75,11 +77,13 @@ SCENE_FIXTURE = {
         {
             "id": 40,
             "name": "Malformed model field",
+            "solid": {"value": False},
             "model": 42,
         },
         {
             "id": 50,
             "name": "Empty model field",
+            "solid": {"value": True},
             "model": "",
             "perspective": False,
         },
@@ -212,6 +216,7 @@ enum Harness {
                 "id": object.id,
                 "model": object.staticModelPath ?? "-",
                 "perspective": object.usesPerspective as Any? ?? NSNull(),
+                "solid": object.solid as Any? ?? NSNull(),
                 "pointKind": object.pointLight?.kind as Any? ?? NSNull(),
                 "pointColor": object.pointLight?.colorRGB as Any? ?? NSNull(),
                 "pointIntensity": object.pointLight?.intensity as Any? ?? NSNull(),
@@ -335,6 +340,14 @@ class SceneStaticModelDocumentTests(unittest.TestCase):
         self.assertIsNone(objects[30]["perspective"])
         self.assertIsNone(objects[40]["perspective"])
         self.assertFalse(objects[50]["perspective"])
+
+    def test_cursor_solid_retains_explicit_false_true_and_omission(self) -> None:
+        objects = {entry["id"]: entry for entry in self.result["objects"]}
+        self.assertIs(objects[10]["solid"], True)
+        self.assertIs(objects[20]["solid"], False)
+        self.assertIsNone(objects[30]["solid"])
+        self.assertIs(objects[40]["solid"], False)
+        self.assertIs(objects[50]["solid"], True)
 
     def test_native_perspective_fov_is_retained(self) -> None:
         self.assertEqual(self.result["fov"], 50)

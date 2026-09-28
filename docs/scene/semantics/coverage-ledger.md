@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-28 作者 Solid 开关进入鼠标命中
+
+作者显式solid:false及其value包装现由SceneDocument传到prepared Layer，在唯一cursor投影入口跳过命中；owner、初始化和普通update保留。true及省略字段保持原交互，省略的官方默认值不由本批推定。五组实际App正反例及3211615441点击回归、47项解析/几何/事务测试通过，见[运行证据](runtime-evidence-current.md#e-2026-09-28-cursor-solid)。仅关闭启动静态Solid缺口；动态setter、属性热调、可见性和其他命中合同仍需各自验证。
+
 ## 2026-09-28 标量鼠标事件与统一脚本值 owner
 
 标量、Boolean和Vec2/Vec3现在共用SceneScriptValueOwner，删除重复ScalarOwner，产品净减512行。标量cursor与属性更新共享原VM、初始化和提交事务；无update的特效参数在事件后发布，提交后恢复休眠。自有视频命中红→绿→红、未命中不变，event-only shader参数红→绿→红，3211615441原包点击回归通过；105项行为测试、59项验证路由测试及隔离构建通过，见[运行证据](runtime-evidence-current.md#e-2026-09-28-scalar-cursor-owner)。视频负对照在通用hover模板仍为NON-PASS，专项不变判据通过。仅关闭标量cursor缺口，不声明JS堆回滚、完整side effects、Solid合同或官方parity。

@@ -149,6 +149,7 @@ struct SceneRenderDescriptorBuilder {
                         attachmentsByModelPath: puppetAttachmentsByModelPath
                     ),
                     puppetAnimationLayers: object.puppetAnimationLayers,
+                    solid: object.solid,
                     visible: object.visible,
                     alpha: object.alpha,
                     displayScriptOwnership: object.displayScriptOwnership,

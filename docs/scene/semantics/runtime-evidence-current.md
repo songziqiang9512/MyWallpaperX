@@ -6,6 +6,20 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-cursor-solid"></a>
+
+### E-2026-09-28-CURSOR-SOLID — 作者静态 Solid 控制鼠标命中
+
+**合同与首断点：**[公开cursor合同](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/cursor.html)规定仅标为Solid的对象响应鼠标事件。当前SceneObject/Layer没有保存solid，唯一投影出口仅按几何命中，因此显式false仍执行参数cursor回调。现沿既有解析、descriptor准备和投影链传递可选Bool；false不生成hits或ownerProjections，owner准入、init/update及其他回调继续保留。沿用现有value包装解析；nil保持既有交互，不把它当作官方默认值证明。5产品文件净增6行，无新owner、命中器或执行分支家族。
+
+**身份：**基线e3f7ada6，6文件产品/测试补丁SHA-256 `81b3909db4c062414e8b5ff0b5a5bd77a1d866a9282efa8030934e5c1fa9c908`。优化签名Debug 2.10.0(279)，executable SHA-256 `e65d863e3d5fd512aad72e62ef53261f2b30f851b9d4e26aa810fea1a9fe55d3`、CDHash `dae6d8810f0c8dfb558a92eb6b7db2921a16b589`。最终自有与真实回放均在该身份，运行前后验签通过。
+
+**可见正反例：**自有标量shader参数在cursorEnter/Leave写amount=1/0。9900000270显式false的基线仍红→绿→红（通用benchmark错误地给出PASS）；修后false及9900000273的value:false包装均三张红[255,0,0]且无cursor事件。9900000271 true、9900000272省略字段均保持红→绿[0,255,0]→红。9900000274 false并带update返回1始终绿色且无cursor事件，证明普通求值没有误停。五组中心ROI、无脚本失败、graph完成/terminal compositor消费/下一帧断言通过；submitted/completed/failed/presented分别为112/112/0/111、110/110/0/108、110/110/0/109、111/110/0/109、111/110/0/109。通用hover矩阵仍2/5 NON-PASS，因为三个不变对照不满足变化阈值；原报告保留，专项5/5成立，不混同两种判据。
+
+**真实回归与验证：**3211615441原包只读隔离副本、固定PCM、8秒原左侧点击1/1 PASS，查看前后原图确认中央切到第二张；runtime `891b4412-3a84-4078-b591-05740a087069`有同身份终端/下一帧，164/163/0/162。47项测试通过（20解析/几何、27cursor捕获/owner事务/surface路由），Debug构建及code-health通过（1006 Swift、1 locked、220既有warnings）。独立审查绑定冻结补丁及最终运行；本机忽略缓存`2026-09-28-cursor-solid`保留基线、五组最终、真实回归、像素指标、日志、输入定义与补丁。
+
+**剩余边界：**只关闭启动时显式静态Solid的缺口。动态solid setter、属性热调、可见性/遮挡/其他形状命中及实际多屏未由本批验收；无完整官方交互parity、全语料或性能结论。
+
 <a id="e-2026-09-28-scalar-cursor-owner"></a>
 
 ### E-2026-09-28-SCALAR-CURSOR-OWNER — 标量鼠标事件与属性求值共用 typed owner

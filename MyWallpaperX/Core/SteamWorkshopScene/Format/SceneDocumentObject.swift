@@ -274,6 +274,7 @@ extension SceneDocument {
         let parentID: Int?
         let attachmentName: String?
         let puppetAnimationLayers: [ScenePuppetAnimationLayer]
+        var solid: Bool? = nil
         let visible: Bool?
         let alpha: Double?
         let displayScriptOwnership: SceneLayerDisplayScriptOwnership

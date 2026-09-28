@@ -181,7 +181,8 @@ extension SceneMetalView {
         var hits: [Int: SceneScriptCursorHit] = [:]
         var projections: [Int: SceneScriptCursorHit] = [:]
         for ownerLayerID in ownerLayerIDs {
-            guard let layer = renderer.layersByID[ownerLayerID] else { continue }
+            guard let layer = renderer.layersByID[ownerLayerID],
+                  layer.solid != false else { continue }
             let model = renderer.imageModelMatrix(
                 for: layer,
                 worldFramesByLayerID: worldFrames,

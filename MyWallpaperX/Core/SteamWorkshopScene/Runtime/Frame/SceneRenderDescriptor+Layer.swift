@@ -23,6 +23,8 @@ extension SceneRenderDescriptor {
         let attachmentName: String?
         let parentAttachmentBindFrame: [Float]?
         let puppetAnimationLayers: [ScenePuppetAnimationLayer]
+        /// Omission retains the layer default; false disables cursor hits, not scripts.
+        var solid: Bool? = nil
         var visible: Bool?
         var alpha: Double?
         var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
