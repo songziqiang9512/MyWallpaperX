@@ -83,10 +83,10 @@ enum MainWindowCoordinator {
         }
     }
 
-    /// 「切换上一张/下一张」- 仅视频库
+    /// 「切换上一张/下一张」——跨引擎统一轮换（视频库 + 工坊 web/scene），
+    /// 与 F1-F12 热键、状态栏同一切换源。
     static func menuNavigate(_ direction: ManualNavigationDirection) {
-        guard isVideoLibraryActive else { return }
-        WallpaperManager.shared.navigateWallpaperManually(direction, userInitiated: true)
+        CrossRuntimeWallpaperNavigator.navigate(direction)
     }
 
     /// 「收藏 / 取消收藏」- 仅视频库

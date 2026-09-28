@@ -32,9 +32,17 @@ enum MyWallpaperXApplication {
         PlaybackCommandMultiplexer.shared.register(videoPlaybackHandler, as: .web)
         PlaybackCommandMultiplexer.shared.register(SceneDaemonClient.shared)
         // E2d: 热键动作由 App 装配注入——Core 的 GlobalHotkeyManager 不再
-        // 直呼 Modules 的选择权威。
+        // 直呼 Modules 的选择权威。previous/next 走跨引擎统一轮换
+        // （视频库 + 工坊 web/scene）；其余动作仍由 Manager 分发。
         GlobalHotkeyManager.shared.systemHotkeyActionHandler = { action in
-            WallpaperManager.shared.performSystemHotkeyAction(action)
+            switch action {
+            case .previous, .next:
+                CrossRuntimeWallpaperNavigator.navigate(
+                    action == .next ? .next : .previous
+                )
+            default:
+                WallpaperManager.shared.performSystemHotkeyAction(action)
+            }
         }
         // E2c 站点 3: web host 的网络桥接白名单由 App 解析（Host 层不再
         // 直呼 SteamWorkshopService 单例）。

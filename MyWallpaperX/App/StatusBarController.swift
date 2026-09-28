@@ -192,11 +192,9 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     }
     
     @objc private func switchWallpaper() {
-        guard !wallpaperManager.wallpapers.isEmpty else { return }
-        // E2a-5: 切换导航是选择层意图（requested 归 Manager），由 UI 直接
-        // 发给选择权威——不再经命令通道让 video handler 回手调 Manager
-        // （依赖倒置）。命令通道保留引擎层命令。
-        wallpaperManager.navigateWallpaperManually(.next, userInitiated: true)
+        // 状态栏"下一张"与 F1-F12 热键同一切换源：跨引擎统一轮换
+        // （视频库 + 工坊 web/scene）。
+        CrossRuntimeWallpaperNavigator.navigate(.next)
     }
 
     @objc private func togglePlayback() {
