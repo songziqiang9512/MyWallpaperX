@@ -1,173 +1,120 @@
-# MyWallpaperX
+<p align="center">
+  <img src="MyWallpaperX/Assets.xcassets/AppIcon.appiconset/Icon-iOS-Default-1024x1024@1x.png" width="112" height="112" alt="MyWallpaperX 图标">
+</p>
+
+<h1 align="center">MyWallpaperX</h1>
+
+<p align="center"><strong>让 macOS 桌面动起来。</strong><br>视频、网页与实时场景壁纸，一个原生工作台。</p>
 
 <p align="center">
-  <img src="MyWallpaperX/Assets.xcassets/AppIcon.appiconset/Icon-iOS-Default-1024x1024@1x.png" width="120" height="120" alt="MyWallpaperX">
+  <a href="https://github.com/songziqiang9512/MyWallpaperX/releases"><img src="https://img.shields.io/github/v/release/songziqiang9512/MyWallpaperX?style=flat-square&color=5865f2" alt="最新正式版本"></a>
+  <img src="https://img.shields.io/badge/macOS-26.0%2B-222222?style=flat-square" alt="macOS 26.0 及以上">
+  <img src="https://img.shields.io/badge/Apple_Silicon-arm64-222222?style=flat-square" alt="Apple Silicon arm64">
 </p>
 
 <p align="center">
-  <samp>
-    <b>macOS 原生动态壁纸工作台</b><br>
-    <b>本地素材管理 · 在线资源浏览 · Steam Workshop 播放 · Metal Scene 渲染</b>
-  </samp>
-</p>
-
-<p align="center">
-  <a href="https://github.com/songziqiang9512/MyWallpaperX/releases">
-    <img src="https://img.shields.io/github/v/release/songziqiang9512/MyWallpaperX?color=6366f1&style=flat-square" alt="Release">
-  </a>
-  <a href="https://github.com/songziqiang9512/MyWallpaperX/stargazers">
-    <img src="https://img.shields.io/github/stars/songziqiang9512/MyWallpaperX?color=f59e0b&style=flat-square" alt="Stars">
-  </a>
-  <a href="https://github.com/songziqiang9512/MyWallpaperX/forks">
-    <img src="https://img.shields.io/github/forks/songziqiang9512/MyWallpaperX?color=10b981&style=flat-square" alt="Forks">
-  </a>
-  <a href="https://github.com/songziqiang9512/MyWallpaperX/releases">
-    <img src="https://img.shields.io/github/downloads/songziqiang9512/MyWallpaperX/total?color=8b5cf6&style=flat-square" alt="Downloads">
-  </a>
-  <img src="https://img.shields.io/badge/macOS-26.0%2B-06b6d4?style=flat-square" alt="macOS 26.0+">
-</p>
-
-<p align="center">
-  <a href="https://www.mwpx.me">
-    <img src="https://img.shields.io/badge/🌐_官方网站-mwpx.me-4da8da?style=for-the-badge" alt="官方网站">
-  </a>
+  <a href="https://github.com/songziqiang9512/MyWallpaperX/releases">下载应用</a> ·
+  <a href="https://www.mwpx.me">官方网站</a> ·
+  <a href="docs/releases/2.10.0.md">2.10.0 更新说明</a> ·
+  <a href="https://github.com/songziqiang9512/MyWallpaperX/issues">反馈问题</a>
 </p>
 
 ---
 
-## 界面预览
+MyWallpaperX 是一款以 Swift 和 AppKit 构建的 macOS 壁纸应用。你可以整理本地素材、发现在线资源，也可以登录 Steam 浏览和下载 Wallpaper Engine 创意工坊作品，再把喜欢的内容设为桌面壁纸。
 
-<table width="100%">
-  <tr>
-    <td width="33%"><img src="Screenshot/截屏2026-05-12%2006.00.16.png" width="100%" alt="本地视频壁纸库"><p align="center"><b>本地壁纸库</b><br><sub>导入、搜索、收藏与标签管理</sub></p></td>
-    <td width="33%"><img src="Screenshot/截屏2026-05-12%2006.02.03.png" width="100%" alt="壁纸浏览与管理"><p align="center"><b>浏览与管理</b><br><sub>macOS 原生列表、网格与 Quick Look 预览</sub></p></td>
-    <td width="33%"><img src="Screenshot/截屏2026-05-12%2006.03.09.png" width="100%" alt="在线壁纸资源"><p align="center"><b>在线壁纸资源</b><br><sub>浏览 Pixabay 在线库并下载纳入本地</sub></p></td>
-  </tr>
-  <tr>
-    <td width="33%"><img src="Screenshot/截屏2026-05-12%2006.03.56.png" width="100%" alt="Steam Workshop"><p align="center"><b>Steam Workshop</b><br><sub>原生网格浏览、下载和管理创意工坊</sub></p></td>
-    <td width="33%"><img src="Screenshot/截屏2026-05-12%2006.05.39.png" width="100%" alt="下载与详情"><p align="center"><b>下载与详情面板</b><br><sub>集中查看下载状态、文件位置和素材信息</sub></p></td>
-    <td width="33%"><img src="Screenshot/截屏2026-05-12%2006.00.16.png" width="100%" alt="桌面播放"><p align="center"><b>桌面播放</b><br><sub>视频守护进程与 Web / Scene 专用宿主协同播放</sub></p></td>
-  </tr>
-</table>
+本页介绍当前源码的功能。正式发布版本及其安装包以 [GitHub Releases](https://github.com/songziqiang9512/MyWallpaperX/releases) 为准。
 
----
+## 三种动态壁纸
 
-## 核心能力
+| 类型 | 适合什么内容 | 可以做什么 |
+| --- | --- | --- |
+| **Video · 视频** | 风景短片、循环动画、实拍影像 | 导入本地视频，调整填充方式与播放速率，使用循环、顺序或随机播放 |
+| **Web · 网页** | 时钟、网页动画、交互式桌面 | 通过 WebKit 运行工坊网页项目，调节作者开放的属性，使用受支持的鼠标、音频和媒体交互 |
+| **Scene · 实时场景** | 多图层动画、粒子、特效与动态文字 | 通过 Metal 实时渲染场景，调节作品属性，响应受支持的脚本、鼠标和音频输入 |
 
-MyWallpaperX 深度利用 macOS 原生能力，围绕**素材管理 → 资源获取 → 桌面播放**三条主线设计。
+三种类型共用音量、静音、暂停与继续播放控制。设置中的焦点、全屏、电池供电和电脑不活跃暂停策略也统一作用于三种引擎。
 
-| 模块 | 状态 | 说明 |
-|------|:----:|------|
-| **本地视频壁纸库** | ✅ | 导入视频文件，支持收藏、最近使用、标签管理、Quick Look 预览、排序和详情检查器，面向长期积累 |
-| **图片壁纸管理** | ✅ | 管理本地图片素材，瀑布流 / 网格双布局，标签整理，与视频库共享侧边栏与工具栏 |
-| **Pixabay 在线库** | ✅ | 浏览 Pixabay 在线资源，异步下载并纳入本地库管理，支持下载状态追踪 |
-| **Steam Workshop 浏览** | ✅ | 完全原生的 AppKit NSCollectionView 网格浏览 Wallpaper Engine 创意工坊，内置 SteamCMD Runtime |
-| **视频壁纸播放** | ✅ | 独立 helper 进程承载视频播放，支持切换、音量、播放速率、音量控制，DaemonProtocol 跨进程通信 |
-| **Web 壁纸支持** | ✅ | `project.json → descriptor → runtime model → playback context` 四层解析管线；当前代码所有权、历史运行证据和未闭合发布项见 [Web 现役状态](docs/web/current-state.md) |
-| **Scene 壁纸渲染** | 🚧 | 已具备 Scene/PKG/TEX 解析、Metal 桌面宿主、基础层级，以及受限 graph/provider/effect、Timeline、动态输入、文字和粒子子集；SceneScript 与高级对象仍只有局部识别或严格受限 profile |
-| **系统音频频谱** | 🚧 | 已验证真实音源相关性、Wallpaper Engine 64+64 双声道布局和兼容幅度响应；设备切换、系统静音和睡眠恢复仍待发布验收 |
-| **菜单栏控制** | ✅ | 状态栏入口，GPU 占用实时显示，快速访问播放控制与模块切换 |
+**Scene 已进入基本可用阶段，兼容性仍在持续完善。** 支持范围内的作品可以用于日常播放；部分复杂材质、特效、脚本、粒子及交互仍可能缺失或与 Wallpaper Engine 有差异，复杂场景的性能也有优化空间。Web 作品若依赖远程服务或其他资源，也可能受网络和依赖完整性影响。这里不承诺所有工坊作品都能完整运行。
 
-> **Scene 壁纸说明**：Scene 采用“安全与状态完整性硬拒绝、单个视觉单元局部降级”的兼容路线。shader、effect、pass、script 或 particle component 失败时优先保住当前输入和无关 layer；资源越权、target hazard、生命周期破坏和无界执行仍必须拒绝。固定或完整样本门通过只证明对应输入和构建未回归，不代表通用格式支持或 Wallpaper Engine 视觉等价。日常开发从 [Scene 开发工作流](docs/scene/development/development-workflow.md)开始；当前等级与缺口见 [Scene 能力台账](docs/scene/semantics/coverage-ledger.md)，最新构建、样本和签名证据见 [运行证据索引](docs/scene/semantics/runtime-evidence-current.md)。
+## 从发现到桌面
 
-> 文档导航见 [项目文档入口](docs/README.md)；长期技术路线见[技术栈与架构路线边界](docs/architecture/technology-stack-boundaries.md)。所有带日期的 Markdown 均位于统一[历史目录](docs/history/README.md)，只保留对应时点的证据与决策，不参与当前执行顺序。
+### 本地素材库
 
----
+- 管理本地视频与图片，使用搜索、收藏、标签和最近使用整理素材。
+- 通过网格、列表和详情面板查看内容，使用 Quick Look 快速预览支持的文件。
+- 浏览 Pixabay 在线视频资源，下载后纳入本地库。
 
-## 系统架构
+### Steam 创意工坊
 
-主界面、功能模块与播放链路按职责分区，并通过 Shell、服务入口和播放合同组合。当前仍是同一 App target 内的源码模块，Shell/App 会直接引用部分模块类型，**不承诺删除任意模块目录后仍可编译**；真正可选装的边界必须由独立 target/package、协议注册和构建门证明。
+当前获取链路使用 **SteamKit2**，已替换旧的 SteamCMD 方案。
 
-```text
-MyWallpaperX.app
-├─ App / Shell                 ← Swift + AppKit 主窗口、侧边栏、状态栏、菜单栏、模块导航
-├─ Modules
-│  ├─ VideoLibrary             ← 本地视频壁纸库（导入、收藏、标签、播放设置）
-│  ├─ StaticImageLibrary       ← 本地图片壁纸库（瀑布流 / 网格、Quick Look）
-│  ├─ OnlineLibrary            ← Pixabay 在线资源浏览与下载管理
-│  └─ SteamWorkshop
-│     ├─ Core                  ← Workshop API 模型、网络调度、下载管理、详情刷新
-│     ├─ Web                   ← Web 壁纸属性系统、运行时缓存、校验与兼容诊断
-│     ├─ Scene                 ← Scene 壁纸详情、诊断信息与播放路由
-│     ├─ UI                    ← 原生 NSCollectionView 网格浏览、下载列表、详情面板
-│     └─ Toolbar               ← Workshop 专用工具栏与操作
-├─ Core
-│  ├─ Playback                 ← WallpaperEngine、DaemonProtocol、系统音频频谱
-│  ├─ SteamWorkshopWeb         ← Web 壁纸引擎（本地 scheme 处理器、兼容脚本注入、运行时桥接）
-│  ├─ SteamWorkshopScene       ← Metal Scene 渲染器（场景解析、纹理加载、渲染管线）
-│  └─ System                   ← 全局快捷键、系统状态监控
-├─ Shared                      ← 通用 UI 组件、缩略图缓存、Inspector、网格布局
-├─ Models                      ← VideoWallpaper 数据模型、播放设置
-└─ Resources                   ← SteamCMD Runtime、内置视频素材
+- 应用内支持扫码、账号密码及 Steam Guard 验证，可保存登录状态、退出或切换账号。
+- 浏览工坊榜单、按类型筛选、搜索作品，查看「我的订阅」和「我的收藏」。
+- 查看作品详情与作者工坊，管理订阅，下载 Video、Web 和 Scene 内容。
+- 下载面板显示排队、进度和错误；失败后可以重试，清除任务历史不会打断活动下载。
+- 下载完成后按作品 ID 整理到本地目录；在工坊「已下载」列表删除作品，会同步删除对应文件。
 
-WallpaperDaemonSources         ← 独立 helper，承载视频播放与频谱呈现；Web daemon 仅保留诊断 harness
-```
+> **按 ID 查作品：** 在创意工坊总榜的 Steam 搜索框输入 `ID=1234567890`，将示例编号换成作品 ID。位于作者页时，先返回总榜。
 
-最终 UI 路线为 Swift + AppKit；当前少量 SwiftUI 只属于受控迁移残留。长期语言职责、性能合同、跨进程边界，以及 SceneScript VM / shader compiler 候选的准入规则见[技术栈与架构路线边界](docs/architecture/technology-stack-boundaries.md)。其中的候选路线不表示对应依赖或服务已经进入当前产品。
+Steam 内容能否下载取决于服务状态、网络连接和账号访问权限。账号登录不会绕过作品授权，也不保证任意作品都可访问。
 
----
+### 日常控制
 
-## 安装
+菜单栏与工具栏提供常用播放入口；设置中可以配置节能策略、视频播放方式及全局快捷键。全局快捷键需要先启用并分配按键，播放／暂停和静音用于当前动态引擎，上一张／下一张用于视频切换。
 
-> 前往 **[🌐 mwpx.me](https://www.mwpx.me)** 了解更多，或直接从 [GitHub Releases](https://github.com/songziqiang9512/MyWallpaperX/releases) 下载最新 `MyWallpaperX-*.dmg`。
+更完整的工具栏说明、快捷键表、登录及下载报错排查，请打开应用的 **帮助** 菜单。帮助内容同时提供[中文源码](MyWallpaperXHelp/zh-Hans.lproj/index.html)与[英文源码](MyWallpaperXHelp/en.lproj/index.html)。
 
-打开 DMG，将 `MyWallpaperX.app` 拖入 `Applications` 即可。发布包由 GitHub Actions 自动构建，经 Developer ID 签名与 Apple Notarization 公证。
+## 安装与开始使用
 
-### 系统要求
+**当前构建要求 macOS 26.0 或更新版本，以及 Apple Silicon 芯片的 Mac。发行构建为 arm64，不提供 Intel 安装包。**
 
-- macOS 26.0+
-- 支持 Apple Silicon 与 Intel Mac
-- Steam Workshop 功能需可访问 Steam 服务
+1. 从 [GitHub Releases](https://github.com/songziqiang9512/MyWallpaperX/releases) 下载正式版本的 DMG。
+2. 打开 DMG，将 `MyWallpaperX.app` 拖入「应用程序」。
+3. 启动应用，导入本地视频，或登录 Steam 获取工坊作品。
+4. 选择壁纸并播放，再按需要调整音量、属性和节能策略。
 
----
+发布流程包含 Developer ID 签名和 Apple 公证；本地开发构建与正式发行包的验证范围不同。具体版本的已知问题请查看对应 Release 的更新日志。
 
-## 开发
+## 开发与贡献
+
+项目使用 Xcode 构建。准备支持当前 SDK 的 Xcode、Python 3.12，以及 [`SteamService/global.json`](SteamService/global.json) 锁定的 .NET SDK；SteamService 的依赖版本由 NuGet lockfile 固定。
 
 ```bash
-# Xcode 打开项目
+# 准备测试和 SteamService 依赖
+python3.12 -m pip install -r script/requirements-tests.txt
+(cd SteamService && dotnet restore --locked-mode)
+
+# 用 Xcode 打开，按本机账号配置签名
 open MyWallpaperX.xcodeproj
 
-# 脚本构建并运行
-script/build_and_run.sh            # 构建并启动
-script/build_and_run.sh debug      # 进入 LLDB 调试
-script/build_and_run.sh logs       # 构建、运行并查看应用日志
-script/build_and_run.sh verify     # 构建、运行并做最小启动验证
+# 构建并启动；该脚本会先关闭正在运行的 MyWallpaperX
+bash script/build_and_run.sh verify
 
-# 或直接使用 xcodebuild
-xcodebuild -project MyWallpaperX.xcodeproj -scheme MyWallpaperX -configuration Debug -derivedDataPath .codex/DerivedData build
+# 根据当前改动选择验证门；先查看计划，再按需要执行
+python3.12 -B script/verify_scene_change.py --base HEAD --phase inner
 ```
 
----
+主界面与素材管理由 AppKit 承载；Video 使用 AVFoundation 和独立播放进程，Web 使用 WebKit，Scene 使用 Metal 与独立 Scene 播放进程。SteamService 通过 SteamKit2 负责 Steam 会话及内容获取。
 
-## 支持与捐助
+| 想了解什么 | 从这里开始 |
+| --- | --- |
+| 项目文档与职责导航 | [文档入口](docs/README.md) |
+| 开发、验证及工作区约束 | [AGENTS.md](AGENTS.md) |
+| Scene 的结构与开发方式 | [Scene 入口](docs/scene/README.md) · [开发工作流](docs/scene/development/development-workflow.md) |
+| Scene 已实现的能力和局限 | [能力台账](docs/scene/semantics/coverage-ledger.md) · [运行证据](docs/scene/semantics/runtime-evidence-current.md) |
+| Web 的实现及验证边界 | [Web 当前状态](docs/web/current-state.md) |
+| 自动打包、签名与 GitHub Release | [Agent 发布流程](docs/release/release-signing.md) |
 
-如果这个项目对你有帮助，欢迎 [Star on GitHub](https://github.com/songziqiang9512/MyWallpaperX)。
+提交问题时，请附上应用版本、macOS 版本、Mac 芯片型号、复现步骤及错误提示；工坊问题请提供作品链接或 ID。不要公开密码、验证码、登录令牌或其他账号凭据。
 
-反馈交流 QQ 群：569399751
+## 交流与支持
 
-<p align="center">
-  <img src="Screenshot/IMG_3047.JPG" width="260" alt="收款码">
-  <img src="Screenshot/IMG_3048.JPG" width="260" alt="收款码">
-</p>
-
----
-
-## 免责声明
-
-MyWallpaperX 是一个面向 macOS 的个人壁纸管理与播放工具。
-
-- 用户导入内容、账号使用和第三方平台条款由用户自行负责；本项目不隶属于 Steam、Valve、Wallpaper Engine、Pixabay 或其他第三方内容平台。
-
----
-
-## Star 历史
+欢迎通过 [Issues](https://github.com/songziqiang9512/MyWallpaperX/issues) 反馈问题，也欢迎提交改进。交流 QQ 群：**569399751**。如果项目对你有帮助，可以点一个 [Star](https://github.com/songziqiang9512/MyWallpaperX)。
 
 <p align="center">
-  <a href="https://www.mwpx.me">
-    <img src="https://img.shields.io/badge/🌐_官方网站-mwpx.me-4da8da?style=for-the-badge" alt="官方网站">
-  </a>
+  <img src="Screenshot/IMG_3047.JPG" width="220" alt="项目支持收款码一">
+  <img src="Screenshot/IMG_3048.JPG" width="220" alt="项目支持收款码二">
 </p>
 
-<p align="center">
-  <img src="https://api.star-history.com/svg?repos=songziqiang9512/MyWallpaperX&type=Date" alt="Star History Chart">
-</p>
+MyWallpaperX 是独立项目，与 Valve、Steam、Wallpaper Engine 和 Pixabay 没有隶属关系。第三方作品的版权归原作者所有，请遵守作品许可及相关平台条款。
