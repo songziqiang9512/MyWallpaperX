@@ -132,9 +132,10 @@ extension SceneParticleDefinition {
     nonisolated func supportsBoundedPositionAroundControlPoint(
         _ initializer: SceneParticleInitializer
     ) -> Bool {
-        guard !flags.isWorldSpace, !flags.usesPerspective,
-              !operators.contains(where: \.isWorldSpaceMovement),
-              emitters.count == 1,
+        // The pointer value is the layer-local unprojection and births
+        // compose positions in local space; world-space and perspective
+        // systems share the demand with local ones.
+        guard emitters.count == 1,
               let plan = initializer.positionAroundControlPointPlan,
               hasUniquePositionAroundControlPointIdentities,
               let point = controlPoints.first(where: { $0.id == plan.controlPoint }),

@@ -6,6 +6,14 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-world-pointer-force"></a>
+
+### E-2026-09-28-WORLD-POINTER-FORCE — force/positionAround 指针需求同族放开（门 3 完成）
+
+**首断点与实现：**门 3（a51e353f）只放开了 emitter 指针路径；force（`supportsBoundedControlPointForce`）与 positionAround（`supportsBoundedPositionAroundControlPoint`）仍带 world/perspective/世界移动排除——这些系统的排斥力**完全失效**（指针值不供应→`controlPointPosition` 返回 nil→力被跳过）。本批删除两处排除（保留全部有界准入检查）。空间配对（审查逐行核验）：force 与 positionAround 全本地空间组合（target=CP 偏移+指针动态值、delta=target−粒子位置、加速/出生全本地）；世界帧（1b）只进方向（出生速度/重力），不触碰位置型力；指针供应=层当前模型矩阵本地反投影——与 emitter 路径同款。
+
+**验证：**红先行双用例——force（world 系统+CP1 指针+controlpointattract 负 scale）：旧码 demand=[] + 粒子原点静止（力 fail-closed）→ 新码 demand 注册 + 多数粒子远离指针加速；positionAround（mapsequencearoundcontrolpoint 指针 CP1）：demand 注册 + 出生分布于指针周围（半径 20-50）。粒子 17 模块（显式列出）ALL OK；checkpoint 构建、code-health 通过。**影响面（审查独立复核+补齐）**：完整 6 系统/5 样本——指针排斥家族 4 系统/3 样本（1994794519×2、3078285611×2、3396722575×1）+ 同批翻转的静态 CP 系统 2 个（3807668787 debris2_copy1 两层透视力真实激活——基线 `controlPointForceUnsupported`→候选 `controlPointForceBounded` 抽查闭合、7/8 装载两版一致；3233141951 vapor0 四层 scale 0 惰性仅诊断翻转）；positionAround 新增受影响 0（flags=0 既有消费者不变）。真回放：3078285611+1994794519 PASS、三样本诊断翻转；3396722575 离线真描述符配对 A/B（同种子近/远指针）：14/1000 阈值内粒子沿远离向量位移（方向核验一致），App 内 60fps 持续累积。**可见边界（如实）：**20 秒回放聚合像素不结论（15000 密度亮场+1 秒 hover）；官方 parity 未验收。独立审查 APPROVE（影响清单两项修正已折入：补 3807668787 基线/候选抽查、positionAround 措辞改"新增受影响 0"）。冻结 product patch SHA256 `2144ab97319a172757e5fd7b5552b0b899f2944800792b1ecd1b60b9b6a38ad0`、tests `934b7fd41e60338a1f543d3ff505d53b2aa2c93e1c31330d2ee8780826b0c45a`；身份与五回放报告见忽略缓存`2026-09-28-world-pointer-force/`。
+
 <a id="e-2026-09-28-rope-gate-admission"></a>
 
 ### E-2026-09-28-ROPE-GATE-ADMISSION — rope renderer 放行指针拖尾家族（rope 恢复门 2 主体）

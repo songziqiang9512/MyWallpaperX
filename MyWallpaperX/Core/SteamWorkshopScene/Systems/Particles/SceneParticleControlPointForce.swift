@@ -283,9 +283,12 @@ nonisolated extension SceneParticleDefinition {
     func supportsBoundedControlPointForce(
         _ value: SceneParticleOperator
     ) -> Bool {
-        guard !flags.isWorldSpace, !flags.usesPerspective,
-              !operators.contains(where: \.isWorldSpaceMovement),
-              case let .supported(plan) = value.controlPointForceAdmission,
+        // The pointer value supplied for these identities is the layer-local
+        // unprojection through the layer's current model matrix, and the
+        // force composes target and particle positions entirely in local
+        // space — the same pairing every other control-point consumer uses —
+        // so world-space and perspective systems share the demand.
+        guard case let .supported(plan) = value.controlPointForceAdmission,
               SceneParticleSimulationMath.supportsControlPointSource(
                   plan.controlPoint, in: self
               ) else { return false }

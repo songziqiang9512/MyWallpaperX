@@ -316,6 +316,10 @@ enum Harness {
             try printJSON(syntheticAudioBoundsGate())
         case "worldspace-rope-trail":
             try printJSON(syntheticWorldSpaceRopeTrail())
+        case "worldspace-pointer-force":
+            try printJSON(syntheticWorldSpacePointerForce())
+        case "worldspace-pointer-positionaround":
+            try printJSON(syntheticWorldSpacePointerPositionAround())
         case "pointer-demand-real":
             guard CommandLine.arguments.count == 7 else {
                 throw HarnessError.missingMode
@@ -2077,6 +2081,165 @@ enum Harness {
     /// The pointer-trail rope family (2986218263 and five more samples):
     /// world system, pointer-locked CP0 with an implicit emitter source, and
     /// a rope renderer with flags=1 / subdivision=100 / maxcount=256.
+    /// The mouse-repel family (1994794519 / 3078285611 / 3396722575): a
+    /// world/perspective system whose pointer CP1 drives a negative-scale
+    /// controlpointattract. The pointer value is the layer-local
+    /// unprojection and the force composes positions entirely in local
+    /// space, so the demand shares the emitter path's space pairing.
+    /// positionaroundcontrolpoint (authored as mapsequencearoundcontrolpoint)
+    /// on a pointer CP in a world system: births distribute around the
+    /// pointer's layer-local position. Same-family release as the force path
+    /// (no newly affected corpus consumer in the current shape).
+    private static func syntheticWorldSpacePointerPositionAround() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mwx-particle-worldspace-posaround-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 100, "flags": 1,
+            "controlpoint": [
+                ["id": 0, "flags": 0, "offset": "0 0 0"],
+                ["id": 1, "flags": 1, "offset": "0 0 0"],
+            ],
+            "emitter": [[
+                "name": "sphererandom", "rate": 120,
+                "distancemin": 20, "distancemax": 50, "controlpoint": 1,
+            ]],
+            "initializer": [
+                ["name": "lifetimerandom", "min": 10, "max": 10],
+                ["name": "sizerandom", "min": 8, "max": 8],
+                [
+                    "name": "mapsequencearoundcontrolpoint", "controlpoint": 1,
+                    "bounds": "0 1", "count": 4,
+                    "speedmin": "10 10 0", "speedmax": "10 10 0",
+                    "limitbehavior": "repeat",
+                ],
+            ],
+            "renderer": [["name": "sprite"]],
+        ], to: directory.appendingPathComponent("particles/world-posaround.json"))
+        let descriptor = SceneRenderDescriptor(
+            layers: [layer(131, "particles/world-posaround.json")],
+            renderOrderLayerIDs: [131],
+            materialPasses: [
+                .init(
+                    materialPath: "materials/shared.json",
+                    shaderPath: "genericparticle",
+                    texturePaths: ["shared.png"],
+                    blending: "additive"
+                )
+            ]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw HarnessError.noMetal
+        }
+        let runtime = SceneParticleRuntime(
+            descriptor: descriptor,
+            cacheDirectory: directory,
+            device: device
+        )
+        let pointer = SIMD3<Double>(60, 40, 0)
+        var batches: [SceneParticleDrawBatch] = []
+        for _ in 0..<4 {
+            batches = runtime.advance(
+                by: 1.0 / 60.0,
+                pointerLocalPositions: [131: pointer]
+            )
+        }
+        let positions = (batches.first { $0.layerID == 131 })?.instances.map {
+            [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+        } ?? []
+        return [
+            "demandedLayerIDs": Array(runtime.pointerControlPointLayerIDs),
+            "positions": positions,
+            "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
+        ]
+    }
+
+    private static func syntheticWorldSpacePointerForce() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mwx-particle-worldspace-force-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 100, "flags": 1,
+            "controlpoint": [
+                ["id": 0, "flags": 0, "offset": "0 0 0"],
+                ["id": 1, "flags": 1, "offset": "0 0 0"],
+            ],
+            "emitter": [[
+                "name": "sphererandom", "rate": 120,
+                "distancemin": 0, "distancemax": 0,
+            ]],
+            "initializer": [
+                ["name": "lifetimerandom", "min": 10, "max": 10],
+                ["name": "sizerandom", "min": 8, "max": 8],
+            ],
+            "operator": [
+                ["name": "movement"],
+                [
+                    "name": "controlpointattract", "controlpoint": 1,
+                    "scale": -10000, "threshold": 128,
+                ],
+            ],
+            "renderer": [["name": "sprite"]],
+        ], to: directory.appendingPathComponent("particles/world-force.json"))
+        let descriptor = SceneRenderDescriptor(
+            layers: [layer(121, "particles/world-force.json")],
+            renderOrderLayerIDs: [121],
+            materialPasses: [
+                .init(
+                    materialPath: "materials/shared.json",
+                    shaderPath: "genericparticle",
+                    texturePaths: ["shared.png"],
+                    blending: "additive"
+                )
+            ]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw HarnessError.noMetal
+        }
+        func positionsAfterAdvances(pointer: SIMD3<Double>?) -> [[Float]] {
+            let runtime = SceneParticleRuntime(
+                descriptor: descriptor,
+                cacheDirectory: directory,
+                device: device
+            )
+            var batches: [SceneParticleDrawBatch] = []
+            for _ in 0..<4 {
+                batches = runtime.advance(
+                    by: 1.0 / 60.0,
+                    pointerLocalPositions: pointer.map { [121: $0] } ?? [:]
+                )
+            }
+            return (batches.first { $0.layerID == 121 })?.instances.map {
+                [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+            } ?? []
+        }
+        let runtime = SceneParticleRuntime(
+            descriptor: descriptor,
+            cacheDirectory: directory,
+            device: device
+        )
+        _ = runtime.advance(by: 1.0 / 60.0)
+        let demand = Array(runtime.pointerControlPointLayerIDs)
+        // Pointer at +X with a negative-scale attract: particles near the
+        // origin accelerate away from the pointer (negative X).
+        let withPointer = positionsAfterAdvances(pointer: SIMD3(60, 0, 0))
+        let withoutPointer = positionsAfterAdvances(pointer: nil)
+        return [
+            "demandedLayerIDs": demand,
+            "withPointerPositions": withPointer,
+            "withoutPointerPositions": withoutPointer,
+            "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
+        ]
+    }
+
     private static func syntheticWorldSpaceRopeTrail() throws -> [String: Any] {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
             "mwx-particle-worldspace-rope-\(UUID().uuidString)",
@@ -5033,6 +5196,36 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertGreater(identityX, identityY * 4)
         self.assertGreater(rotatedY, rotatedX * 4)
         self.assertTrue(any(abs(y) > 0.01 for _, y, _ in rotated))
+
+    def test_world_space_pointer_positionaround_births_around_pointer(self) -> None:
+        result = self.run_harness("worldspace-pointer-positionaround")
+        # The positionAround initializer's pointer demand is registered for
+        # the world system and births distribute around the pointer position.
+        self.assertIn(131, result["demandedLayerIDs"])
+        self.assertTrue(result["positions"])
+        for x, y, _ in result["positions"]:
+            self.assertLess(abs(x - 60), 60)
+            self.assertLess(abs(y - 40), 60)
+        # Not all at the exact pointer point: the distance spread is real.
+        distinct = len({(round(x), round(y)) for x, y, _ in result["positions"]})
+        self.assertGreater(distinct, 1)
+
+    def test_world_space_pointer_force_repels_from_pointer(self) -> None:
+        result = self.run_harness("worldspace-pointer-force")
+        # The pointer control point's demand is registered for the world
+        # system, and the negative-scale attract accelerates particles away
+        # from the pointer instead of staying inert at the origin.
+        self.assertIn(121, result["demandedLayerIDs"])
+        without = result["withoutPointerPositions"]
+        with_pointer = result["withPointerPositions"]
+        self.assertTrue(without)
+        self.assertTrue(with_pointer)
+        # Without the pointer the force is fail-closed: no acceleration.
+        for x, _, _ in without:
+            self.assertLess(abs(x), 0.5)
+        # With the pointer at +X the repulsion drives particles to -X.
+        moved = [x for x, _, _ in with_pointer if x < -0.5]
+        self.assertGreater(len(moved), len(with_pointer) // 2)
 
     def test_world_space_rope_pointer_trail_renders(self) -> None:
         result = self.run_harness("worldspace-rope-trail")
