@@ -8,9 +8,7 @@ nonisolated extension SceneParticleSimulator {
         blendPlan: SceneParticleOperatorBlendPlan
     ) {
         guard let plan else { return }
-        let speedScale = definition.flags.disablesSpeedOverrides
-            ? 1
-            : overrideScalar(activeInstanceOverride?.speed)
+        let speedScale = effectiveSpeedOverride
         let maximumSpeed = plan.maximumSpeed * max(speedScale, 0)
         guard maximumSpeed.isFinite, maximumSpeed <= 1_000_000 else { return }
         for index in particles.indices {

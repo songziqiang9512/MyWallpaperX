@@ -58,7 +58,9 @@ import simd
 @main
 enum Harness {
     static func main() throws {
-        if CommandLine.arguments.dropFirst().first == "gravity-speed" {
+        if CommandLine.arguments.dropFirst().first == "speed-disable" {
+            try printJSON(speedDisableResults())
+        } else if CommandLine.arguments.dropFirst().first == "gravity-speed" {
             try printJSON(gravitySpeedResults())
         } else if CommandLine.arguments.dropFirst().first == "angular-speed" {
             try printJSON(angularSpeedResults())
@@ -86,6 +88,40 @@ enum Harness {
         } else {
             try printJSON(syntheticResults())
         }
+    }
+
+    private static func speedDisableResults() throws -> [String: Any] {
+        let parser = SceneParticleDefinitionParser()
+        func make(_ speed: Double?, disabled: Bool) throws -> SceneParticleSimulator {
+            var root = try object(turbulenceOperatorJSON)
+            root["flags"] = disabled ? 16 : 0
+            return SceneParticleSimulator(definition: try parser.parse(root: root),
+                instanceOverride: speed.flatMap { parser.parseInstanceOverride(["speed": $0]) },
+                seed: 71, fixedTimeStep: 0.1)
+        }
+        let reference = try make(nil, disabled: false)
+        reference.advance(by: 0.1)
+        let baseline = vector(reference.particles[0].velocity)
+        var rows: [[String: Any]] = []
+        for speed in [-2.0, 0, 0.5, 2, 1e100] {
+            let disabled = try make(speed, disabled: true)
+            disabled.advance(by: 0.1)
+            let ordinary = try make(speed, disabled: false)
+            ordinary.advance(by: 0.1)
+            rows.append(["speed": speed, "disabled": vector(disabled.particles[0].velocity),
+                "ordinary": vector(ordinary.particles[0].velocity)])
+        }
+        let live = try make(2, disabled: true)
+        live.advance(by: 0.1)
+        let saved = live.frameSnapshot()
+        live.advance(by: 0.1, dynamicInstanceOverride: parser.parseInstanceOverride(["speed": 0]))
+        let changed = vector(live.particles[0].velocity)
+        live.restoreFrame(saved)
+        live.advance(by: 0.1, dynamicInstanceOverride: parser.parseInstanceOverride(["speed": 0]))
+        reference.advance(by: 0.1)
+        return ["baseline": baseline, "rows": rows, "changed": changed,
+            "retry": vector(live.particles[0].velocity),
+            "referenceNext": vector(reference.particles[0].velocity)]
     }
 
     private static func gravitySpeedResults() throws -> [String: Any] {
@@ -3357,6 +3393,18 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(result["signedShell"])
         self.assertTrue(result["deterministic"])
         self.assertTrue(result["rollback"])
+
+    def test_disable_speed_override_covers_turbulence_and_live_updates(self) -> None:
+        result = self.run_harness("speed-disable")
+        self.assertGreater(sum(v * v for v in result["baseline"]), 0)
+        for row in result["rows"]:
+            with self.subTest(speed=row["speed"]):
+                self.assertEqual(row["disabled"], result["baseline"])
+                if abs(row["speed"]) < 10:
+                    for actual, base in zip(row["ordinary"], result["baseline"]):
+                        self.assertAlmostEqual(actual, base * row["speed"])
+        self.assertEqual(result["changed"], result["referenceNext"])
+        self.assertEqual(result["retry"], result["referenceNext"])
 
     def test_speed_scales_gravity_without_rescaling_drag_or_existing_velocity(self) -> None:
         result = self.run_harness("gravity-speed")

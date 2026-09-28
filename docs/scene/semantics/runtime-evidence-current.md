@@ -6,6 +6,20 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-particle-speed-disable"></a>
+
+### E-2026-09-28-PARTICLE-SPEED-DISABLE — Speed 禁用门统一并补齐湍流
+
+**首断点与收敛：**HEAD7885b7b5的出生线/角速度、Movement gravity、Vortex和Cap Velocity各自检查General bit16，Turbulence却直接读取Speed，导致“禁用Speed override”后该算子仍被层倍率改变。官方[General合同](https://docs.wallpaperengine.io/en/scene/particles/component/general.html#disable-speed-overrides)明确此选项禁用层上所有Speed override。现上述已有消费者共用原simulator的effectiveSpeedOverride计算属性；出生方法删除仅重复definition.flags的传参；四产品文件净减6行。无缓存或新状态，dynamic snapshot、缺省/非有限fallback及各算子原有数值门不变。唯一预期行为差异为Turbulence服从bit16，不扩大其他force consumer或噪声公式。
+
+**验证：**旧代码新反例6项失败，候选simulator67项通过；覆盖禁用门对signed/zero/half/double/huge倍率的忽略、普通倍率仍响应、动态覆盖及snapshot恢复。runtime27项通过、10项既有环境跳过；优化Debug构建和code-health通过（1005 Swift、219既有warnings）。五文件冻结SHA256 `776ec65742797262553724e06ab23fd415b37fe4b5844aab63a78fd567341c72`，独立代码及App证据审查APPROVE。
+
+**实际App：**自有9900000408三排root/static child分别speed0、speed0+bit16、speed1+bit16，Turbulence后接零gravity Movement。两版各12帧：基线前两排均静止，候选仅第一排静止；后两排root/child各自序列相对首帧的最大变化像素数为3813/3814，阳性第三排两版均动。已查看最终Metal图。首版ROI从另一夹具沿用“root/child变化像素数量完全相等”断言失败，各移动组固定差1像素；保留原门/失败日志，最终分别检查两者静止或最大变化>1000，不宣称逐像素等价，也不把最大值说成每帧值。候选submitted/completed/failed/presented=227/227/0/226，frame0/1/2完成且后继输出成立；direct粒子不涉及graph publication。两版通用benchmark仅因纯粒子image loaded ratio=0为NON-PASS，particle3/3加载，不修改门值。
+
+3770444459隔离回归PASS，particle5/5、228/227/0/226；用于保护共享倍率消费者，不是本缺陷的真实受益证明。188个可读scene.pkg限定扫描未找到非unit numeric speed+bit16+Turbulence组合（root及最多depth2引用）；脚本动态值、外部资产或完整语料影响仍不能由此排除。没有官方噪声轨迹parity、性能收益或QV视觉关闭结论。
+
+**身份与留存：**baseline App SHA256 `03fdb43dca7b5b041d8981994b43e430d236877a8b10f5a59751f041e1eb68aa`；candidate App2.10.0(279)、SHA256 `a1bfbd898b0f96d750652704061cc75b1b263c6f3e83ff70f0a19bd88713a4aa`、CDHash `d1048f12c3ecdca29518caba34632afa6124c2c6`，运行前后验签。忽略缓存`2026-09-28-particle-speed-disable`保存原报告、连续图、自有输入、原/修正ROI、扫描、测试、构建与冻结补丁。
+
 <a id="e-2026-09-28-particle-gravity-speed"></a>
 
 ### E-2026-09-28-PARTICLE-GRAVITY-SPEED — Movement 重力消费同一 Speed 倍率

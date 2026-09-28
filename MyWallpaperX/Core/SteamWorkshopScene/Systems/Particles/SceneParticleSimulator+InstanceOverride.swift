@@ -1,11 +1,13 @@
 import Foundation
 
 extension SceneParticleSimulator {
-    nonisolated func applyInstanceOverride(
-        to particle: inout SceneParticleState,
-        flags: SceneParticleSystemFlags
-    ) {
+    nonisolated var effectiveSpeedOverride: Double {
+        definition.flags.disablesSpeedOverrides ? 1 : overrideScalar(activeInstanceOverride?.speed)
+    }
+
+    nonisolated func applyInstanceOverride(to particle: inout SceneParticleState) {
         guard let value = activeInstanceOverride else { return }
+        let flags = definition.flags
         if !flags.disablesLifetimeOverrides {
             particle.lifetime *= overrideScalar(value.lifetime)
         }
@@ -13,11 +15,9 @@ extension SceneParticleSimulator {
         if !flags.disablesSizeOverrides {
             particle.size *= overrideScalar(value.size)
         }
-        if !flags.disablesSpeedOverrides {
-            let speed = overrideScalar(value.speed)
-            particle.velocity *= speed
-            particle.angularVelocity *= speed
-        }
+        let speed = effectiveSpeedOverride
+        particle.velocity *= speed
+        particle.angularVelocity *= speed
         if !flags.disablesColorOverrides {
             if let color = overrideVector(value.color) {
                 let normalized = color / 255

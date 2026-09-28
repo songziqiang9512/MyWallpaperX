@@ -610,7 +610,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         nextParticleID &+= 1
         applyInitializers(to: &particle)
         particle.velocity = frame.direction(for: particle.velocity)
-        applyInstanceOverride(to: &particle, flags: definition.flags)
+        applyInstanceOverride(to: &particle)
         if hasWorldSpaceMovement, let worldSpaceFrame {
             particle.velocity = worldSpaceFrame.localDirection(particle.velocity)
         }
@@ -667,9 +667,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             guard let plan = operatorExecutionPlans[operatorIndex].movement else {
                 break
             }
-            let speed = definition.flags.disablesSpeedOverrides
-                ? 1 : overrideScalar(activeInstanceOverride?.speed)
-            let gravity = plan.gravity * speed
+            let gravity = plan.gravity * effectiveSpeedOverride
             for index in particles.indices {
                 let acceleration = gravity - particles[index].velocity * plan.drag
                 let velocity = particles[index].velocity + acceleration * duration
@@ -791,7 +789,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             }
         case .turbulence:
             guard let plan = turbulencePlans[operatorIndex] else { break }
-            let speedOverride = overrideScalar(activeInstanceOverride?.speed)
+            let speedOverride = effectiveSpeedOverride
             let phaseAudioFactor = plan.audioResponse.map {
                 1 + evaluateAudioResponse(
                     $0, componentKind: .operator, componentIndex: operatorIndex

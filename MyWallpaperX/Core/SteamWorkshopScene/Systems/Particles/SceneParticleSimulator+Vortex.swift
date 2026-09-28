@@ -11,9 +11,7 @@ nonisolated extension SceneParticleSimulator {
     ) {
         guard let plan else { return }
         let audioScale = audioScale ?? 1
-        let speedScale = definition.flags.disablesSpeedOverrides
-            ? 1
-            : overrideScalar(activeInstanceOverride?.speed)
+        let speedScale = effectiveSpeedOverride
         guard speedScale.isFinite else { return }
 
         for index in particles.indices {
