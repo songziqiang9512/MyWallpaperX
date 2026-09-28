@@ -4,6 +4,7 @@
 //
 
 import AppKit
+import Combine
 
 @MainActor
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
@@ -61,6 +62,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 }
 
 private final class SettingsContentViewController: NSViewController {
+    private var cancellables = Set<AnyCancellable>()
+    private var isSyncingSettings = false
+
     private lazy var settingsActions: AppSettingsActions = {
         let manager = WallpaperManager.shared
         return AppSettingsActions(
@@ -111,6 +115,41 @@ private final class SettingsContentViewController: NSViewController {
         ])
 
         view = rootView
+
+        bindSettingsAuthority()
+    }
+
+    /// M0.3 回归修复：`WallpaperSettings` 是值类型，面板写 dependency 快照
+    /// 必须回到 `WallpaperManager.settings` 单点权威（引擎/策略控制器/持久化
+    /// 读它）；manager 侧变更（播放模式互斥、音量、导入、重置）必须同步回填
+    /// dependency，否则下一次面板写会把整快照旧值推回 manager。两个方向都
+    /// 同步投递（不经调度器），handler 随后调用的 actions 才能读到新值；
+    /// `@Published` 在 willSet 期属性尚未落盘，朴素的双向相等守卫会读到
+    /// 滞后值互相触发，所以用 `isSyncingSettings` 挡住镜像回声。
+    private func bindSettingsAuthority() {
+        let manager = WallpaperManager.shared
+        settingsView.dependency.$settings
+            .dropFirst()
+            .sink { [weak self] settings in
+                dispatchPrecondition(condition: .onQueue(.main))
+                guard let self, !self.isSyncingSettings,
+                      manager.settings != settings else { return }
+                self.isSyncingSettings = true
+                manager.settings = settings
+                self.isSyncingSettings = false
+            }
+            .store(in: &cancellables)
+        manager.$settings
+            .sink { [weak self] settings in
+                dispatchPrecondition(condition: .onQueue(.main))
+                guard let self, !self.isSyncingSettings else { return }
+                let dependency = self.settingsView.dependency
+                guard dependency.settings != settings else { return }
+                self.isSyncingSettings = true
+                dependency.settings = settings
+                self.isSyncingSettings = false
+            }
+            .store(in: &cancellables)
     }
 
     func refresh() {

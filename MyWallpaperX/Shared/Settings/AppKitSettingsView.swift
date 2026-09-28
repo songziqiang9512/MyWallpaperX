@@ -39,7 +39,7 @@ final class AppKitSettingsContainerView: NSView {
         }
     }
 
-    private let dependency: AppSettingsPanelDependency
+    let dependency: AppSettingsPanelDependency
     private var cancellables = Set<AnyCancellable>()
     private var isUpdatingUI = false
     var isDocumentFrameUpdateScheduled = false

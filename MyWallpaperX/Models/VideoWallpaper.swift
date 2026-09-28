@@ -243,7 +243,7 @@ public enum SystemAudioSpectrumSensitivity: String, Codable, CaseIterable, Ident
     }
 }
 
-public struct WallpaperSettings: Codable {
+public struct WallpaperSettings: Codable, Equatable {
     var loopPlayback: Bool = true
     var randomPlayback: Bool = false
     var sequentialPlayback: Bool = false // 顺序播放
