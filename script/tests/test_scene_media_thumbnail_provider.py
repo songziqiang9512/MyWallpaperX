@@ -243,6 +243,14 @@ let a = png(red: 255, green: 0, blue: 0)
 let b = png(red: 0, green: 255, blue: 0)
 // Fixed RGBA PNG scanlines retain hidden RGB; ImageIO encoders may zero it.
 let c = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAYAAAC56t6BAAAAEUlEQVR4nGN4LjiVAYQZMBgAhEsJT05cFgAAAAAASUVORK5CYII=")!
+func decodedSourceProbe(_ cache: Bool) -> [String: Any] {
+    let source = CGImageSourceCreateWithData(c as CFData, nil)!
+    let image = CGImageSourceCreateImageAtIndex(source, 0,
+        [kCGImageSourceShouldCache: cache] as CFDictionary)!
+    let bytes = image.dataProvider!.data! as Data
+    return ["alpha": image.alphaInfo.rawValue, "layout": image.bitmapInfo.rawValue,
+            "bytes": Array(bytes.prefix(8))]
+}
 let initialEmpty = store.snapshot()
 
 _ = inbox.publish(a)
@@ -833,6 +841,7 @@ let result: [String: Any] = [
     "generation": third.generation,
     "currentPixel": pixel(third.current?.texture),
     "preservedCurrentPixel": pixel(third.preservedCurrent?.texture),
+    "sourceDecodeProbe": ["cached": decodedSourceProbe(true), "uncached": decodedSourceProbe(false)],
     "currentPublicationComplete": third.current?.isComplete == true,
     "preservedPublicationComplete": third.preservedCurrent?.isComplete == true,
     "initialPreviousUnavailable":
@@ -1424,7 +1433,7 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertTrue(result["initialPendingExact"])
         self.assertTrue(result["initialPendingStatesExact"])
         self.assertEqual(result["currentPixel"], [0, 0, 0, 0])
-        self.assertEqual(result["preservedCurrentPixel"], [231, 17, 149, 0])
+        self.assertEqual(result["preservedCurrentPixel"], [231, 17, 149, 0], result["sourceDecodeProbe"])
         self.assertTrue(result["currentPublicationComplete"])
         self.assertTrue(result["preservedPublicationComplete"])
         self.assertTrue(result["initialPreviousUnavailable"])
