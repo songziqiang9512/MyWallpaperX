@@ -139,7 +139,8 @@ nonisolated enum SceneXRayStockIdentityVerifier {
               contract.sourceKind == .authoredSource,
               contract.diagnostics.isEmpty,
               contract.canonicalSHA256 == profile.shaderCanonicalSHA256,
-              canonicalStockHash(contract) == profile.shaderCanonicalSHA256,
+              let recomputedCanonical = canonicalStockHash(contract),
+              recomputedCanonical == profile.shaderCanonicalSHA256,
               contract.stages.count == 2 else {
             return false
         }
@@ -191,7 +192,7 @@ nonisolated enum SceneXRayStockIdentityVerifier {
 
     private nonisolated static func canonicalStockHash(
         _ contract: SceneShaderContract
-    ) -> String {
+    ) -> String? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         let payload = CanonicalStockShaderPayload(
@@ -200,7 +201,10 @@ nonisolated enum SceneXRayStockIdentityVerifier {
             stages: contract.stages,
             diagnostics: contract.diagnostics
         )
-        guard let data = try? encoder.encode(payload) else { return "" }
+        // The payload re-encodes authored annotation values, whose numeric case
+        // admits a non-finite Double; nil keeps the identity comparison
+        // explicitly unverified instead of relying on a sentinel digest.
+        guard let data = try? encoder.encode(payload) else { return nil }
         return stockSHA256(data)
     }
 

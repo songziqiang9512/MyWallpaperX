@@ -156,20 +156,26 @@
     {
       "id": "optional-constant-swallow",
       "pattern": "\\(try\\?[^\\n]*\\)[ \\t]*\\?\\?",
-      "allowedOccurrences": 3,
-      "note": "Two of the three sites are identity/digest sinks: Compilation/ShaderContract/SceneShaderSourceGraph.swift:256 and Compilation/ShaderContract/SceneShaderContractLoader.swift:381 collapse a failed encode into SHA256 of empty data; the third is an optional authored attachment decode.",
-      "owner": "Compilation/ShaderContract digest paths",
-      "retirement": "Make digest encode failures explicit, then ratchet this count to the remaining authored-decode site."
+      "allowedOccurrences": 1,
+      "note": "One site remains: Systems/Puppet/ScenePuppetLayerLoad.swift:140 decodes optional authored attachments and keeps [] as the documented fallback. Batch 4b made the two digest sites explicit (SceneShaderContractLoader canonical hash now emits a malformedAnnotation diagnostic; SceneShaderSourceGraph dependency hash uses the reviewed try! policy for a payload with no failing case).",
+      "owner": "Systems/Puppet authored attachment decode",
+      "retirement": "Keep the single authored-decode fallback; ratchet only if its failure becomes observable without the empty list."
     },
     {
       "id": "identity-empty-fallback",
       "pattern": "try\\?[^\\n]*else \\{ return \"\" \\}",
-      "allowedOccurrences": 1,
-      "note": "Compilation/Material/SceneAuthoredXRayPlanner+StockIdentity.swift:203 returns an empty stock-identity hash when the payload encode fails.",
+      "allowedOccurrences": 0,
+      "note": "Retired by batch 4b: SceneAuthoredXRayPlanner+StockIdentity.canonicalStockHash now returns nil and the identity comparison stays explicitly unverified. Locked at 0 so the empty-hash fallback cannot return.",
       "owner": "Compilation/Material stock identity verification",
-      "retirement": "Fail the identity comparison explicitly instead of returning an empty hash, then ratchet to 0."
+      "retirement": "Retired; the zero lock is the guard."
     }
   ],
   "deadEntries": [],
-  "inventoryEntries": []
+  "inventoryEntries": [],
+  "acknowledgedChanges": [
+    {
+      "detail": "retired swallow pattern identity-empty-fallback: allowance 1 -> 0",
+      "reason": "batch 4b 把摘要编码失败改为显式失败：ShaderContract canonical hash 走诊断码、X-Ray stock identity 走 nil 比较、dependency payload 按已证总成立政策改 try!"
+    }
+  ]
 }

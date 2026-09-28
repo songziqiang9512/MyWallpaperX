@@ -253,7 +253,10 @@ nonisolated struct SceneShaderSourceGraph: Codable, Equatable, Sendable {
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        let data = (try? encoder.encode(payload)) ?? Data()
+        // The payload is a fixed projection of strings, enums and counts; the
+        // encoder has no failing case for it, and an empty-data digest would
+        // collapse every graph onto one dependency identity.
+        let data = try! encoder.encode(payload)
         return SHA256.hash(data: data).map {
             String(format: "%02x", $0)
         }.joined()

@@ -100,7 +100,20 @@ nonisolated struct SceneShaderContractLoader {
                 sourceKind: draft.sourceKind,
                 stages: stages,
                 diagnostics: diagnostics
-            )
+            ) ?? ""
+            if canonicalSHA256.isEmpty {
+                // The flag is appended after hashing on purpose: the empty digest
+                // and this diagnostic describe the same contract, and no consumer
+                // compares canonicalSHA256 against a re-derived hash.
+                diagnostics = sortedUnique(diagnostics + [
+                    .init(
+                        code: .malformedAnnotation,
+                        message: "canonical shader contract hash unavailable",
+                        relativePath: nil,
+                        line: nil
+                    )
+                ])
+            }
             return SceneShaderContract(
                 identity: draft.identity,
                 sourceKind: draft.sourceKind,
@@ -369,7 +382,7 @@ nonisolated struct SceneShaderContractLoader {
         sourceKind: SceneShaderContract.SourceKind,
         stages: [SceneShaderContract.Stage],
         diagnostics: [SceneShaderContract.Diagnostic]
-    ) -> String {
+    ) -> String? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         let payload = CanonicalPayload(
@@ -378,7 +391,14 @@ nonisolated struct SceneShaderContractLoader {
             stages: stages,
             diagnostics: diagnostics
         )
-        return sha256((try? encoder.encode(payload)) ?? Data())
+        // The payload re-encodes authored annotation values, whose numeric case
+        // admits a non-finite Double; a silent empty-data digest would collapse
+        // distinct contracts onto one identity, so the failure stays explicit.
+        // The emitted diagnostic must keep relativePath/line nil: that is what
+        // makes SceneShaderMalformedMetadataAdmission treat it as fatal instead
+        // of a skippable malformed COMBO annotation.
+        guard let data = try? encoder.encode(payload) else { return nil }
+        return sha256(data)
     }
 
     nonisolated private func sha256(_ data: Data) -> String {
