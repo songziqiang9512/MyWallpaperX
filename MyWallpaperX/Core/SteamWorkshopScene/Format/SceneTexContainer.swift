@@ -1,6 +1,21 @@
 import Foundation
 import Metal
 
+extension SceneTexContainer {
+    /// Payload magic sniffers shared by the tex reader, the texture loader and
+    /// the mip uploader; the Format layer is already compiled by every harness
+    /// source subset that contains a caller.
+    static func isMP4Payload(_ data: Data?) -> Bool {
+        guard let data, data.count >= 12 else { return false }
+        return data[4...7].elementsEqual(Data("ftyp".utf8))
+    }
+
+    static func isEmbeddedImagePayload(_ data: Data) -> Bool {
+        data.starts(with: Data([0x89, 0x50, 0x4E, 0x47]))
+            || data.starts(with: Data([0xFF, 0xD8, 0xFF]))
+    }
+}
+
 struct SceneTexContainer {
     enum ContainerVersion: String {
         case texb0001 = "TEXB0001"
@@ -332,10 +347,9 @@ struct SceneTexContainerReader {
             freeImageFormat: freeImageFormat,
             // TEXB0004 metadata also describes conditional PNG images; its
             // entry count is not a media-type discriminator.
-            isVideoMp4: images.first?.mips.first.map {
-                $0.data.count >= 12
-                    && $0.data[4...7].elementsEqual(Data("ftyp".utf8))
-            } ?? false,
+            isVideoMp4: SceneTexContainer.isMP4Payload(
+                images.first?.mips.first?.data
+            ),
             images: images,
             spriteFrames: spriteFrames
         )

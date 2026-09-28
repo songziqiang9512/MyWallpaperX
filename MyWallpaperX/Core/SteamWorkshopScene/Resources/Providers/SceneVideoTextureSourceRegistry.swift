@@ -21,7 +21,7 @@ extension SceneTextureLoader {
               let container = texContainer(from: url, source: source),
               container.format == 0,
               let payload = container.mips.first?.data,
-              Self.isMP4Payload(payload),
+              SceneTexContainer.isMP4Payload(payload),
               sourceKey(for: url) == source else {
             return nil
         }

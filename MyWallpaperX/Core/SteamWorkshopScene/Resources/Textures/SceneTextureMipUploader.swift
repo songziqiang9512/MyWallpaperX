@@ -30,7 +30,7 @@ enum SceneTextureMipUploader {
               container.mips.count == 1,
               let mip = container.mips.first,
               mip.depth == container.textureDepth,
-              isEmbeddedImage(mip.data),
+              SceneTexContainer.isEmbeddedImagePayload(mip.data),
               let image = SceneImageTextureUploader.decodeSourceImage(mip.data),
               image.width == mip.width,
               image.height == mip.height * mip.depth,
@@ -103,7 +103,11 @@ enum SceneTextureMipUploader {
             return .textureAllocationFailed(width: first.width, height: first.height)
         }
         for (level, image) in images.enumerated() {
-            guard let rgba = rasterizedRGBA(image) else {
+            guard let rgba = SceneImageTextureUploader.rasterizedRGBA(
+                image,
+                width: image.width,
+                height: image.height
+            ) else {
                 return .decodeFailed("embedded image mip rasterization failed")
             }
             replace(texture: texture, level: level, width: image.width, height: image.height,
@@ -188,7 +192,7 @@ enum SceneTextureMipUploader {
 
     static func decodeEmbeddedImages(_ payloads: [Data]) -> [CGImage]? {
         let images = payloads.compactMap { data -> CGImage? in
-            guard isEmbeddedImage(data) else { return nil }
+            guard SceneTexContainer.isEmbeddedImagePayload(data) else { return nil }
             return SceneImageTextureUploader.decodeSourceImage(data)
         }
         return images.count == payloads.count ? images : nil
@@ -216,7 +220,7 @@ enum SceneTextureMipUploader {
         guard let first = container.mips.first else {
             return .decodeFailed("TEX container has no mip data")
         }
-        guard !isMP4(first.data) else { return .texContainsVideoPayload }
+        guard !SceneTexContainer.isMP4Payload(first.data) else { return .texContainsVideoPayload }
         guard SceneTexContainer.valid2DMipDimensions(
             container.mips.map { ($0.width, $0.height) }
         ) else {
@@ -352,36 +356,9 @@ enum SceneTextureMipUploader {
         }
     }
 
-    private static func isEmbeddedImage(_ data: Data) -> Bool {
-        data.starts(with: Data([0x89, 0x50, 0x4E, 0x47]))
-            || data.starts(with: Data([0xFF, 0xD8, 0xFF]))
-    }
-
-    private static func isMP4(_ data: Data) -> Bool {
-        data.count >= 12 && data[4...7].elementsEqual(Data("ftyp".utf8))
-    }
-
-    private static func rasterizedRGBA(_ image: CGImage) -> Data? {
-        let bytesPerRow = image.width * 4
-        var data = Data(count: bytesPerRow * image.height)
-        let rendered = data.withUnsafeMutableBytes { buffer -> Bool in
-            guard let address = buffer.baseAddress,
-                  let context = CGContext(
-                    data: address,
-                    width: image.width,
-                    height: image.height,
-                    bitsPerComponent: 8,
-                    bytesPerRow: bytesPerRow,
-                    space: CGColorSpaceCreateDeviceRGB(),
-                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-                  ) else { return false }
-            context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
-            return true
-        }
-        return rendered ? data : nil
-    }
-
-    private static func premultipliedRGBA(_ data: Data) -> Data {
+    /// Single straight-alpha → premultiplied RGBA helper; the compressed
+    /// uploader reuses it instead of keeping a second copy.
+    static func premultipliedRGBA(_ data: Data) -> Data {
         var output = data
         output.withUnsafeMutableBytes { raw in
             guard let bytes = raw.bindMemory(to: UInt8.self).baseAddress else { return }
@@ -396,5 +373,4 @@ enum SceneTextureMipUploader {
         }
         return output
     }
-
 }

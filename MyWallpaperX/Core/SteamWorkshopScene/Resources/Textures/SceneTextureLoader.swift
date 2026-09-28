@@ -395,18 +395,18 @@ final class SceneTextureLoader {
             )
         }
 
-        if Self.isMP4Payload(firstMip.data) {
+        if SceneTexContainer.isMP4Payload(firstMip.data) {
             return .texContainsVideoPayload
         }
 
         if container.containerVersion == .texb0003,
-           Self.isEmbeddedImagePayload(firstMip.data)
+           SceneTexContainer.isEmbeddedImagePayload(firstMip.data)
             || [2, 13].contains(container.freeImageFormat),
            !hasValidTexb3EmbeddedMipChain(container) {
             return .decodeFailed("compiled TEX embedded mip metadata does not match its payload")
         }
 
-        if Self.isEmbeddedImagePayload(firstMip.data) {
+        if SceneTexContainer.isEmbeddedImagePayload(firstMip.data) {
             guard let images = cachedTexEmbeddedImages(
                 source: source,
                 payloads: container.mips.map(\.data)
@@ -484,7 +484,7 @@ final class SceneTextureLoader {
     }
 
     func embeddedImagePixelSize(_ data: Data) -> CGSize? {
-        guard Self.isEmbeddedImagePayload(data),
+        guard SceneTexContainer.isEmbeddedImagePayload(data),
               let source = CGImageSourceCreateWithData(data as CFData, nil),
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
                 as? [CFString: Any],
@@ -572,16 +572,6 @@ final class SceneTextureLoader {
             return SceneTextureMipUploader.uploadRawRGBA(container: container, device: device)
         }
         return nil
-    }
-
-    static func isMP4Payload(_ data: Data?) -> Bool {
-        guard let data, data.count >= 12 else { return false }
-        return data[4...7].elementsEqual(Data("ftyp".utf8))
-    }
-
-    private static func isEmbeddedImagePayload(_ data: Data) -> Bool {
-        data.starts(with: Data([0x89, 0x50, 0x4E, 0x47]))
-            || data.starts(with: Data([0xFF, 0xD8, 0xFF]))
     }
 
 }

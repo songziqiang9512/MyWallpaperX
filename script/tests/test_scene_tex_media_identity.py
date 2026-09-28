@@ -55,5 +55,8 @@ import Foundation
                                     capture_output=True, text=True)
             self.assertEqual(json.loads(result.stdout), expected)
             registry = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoTextureSourceRegistry.swift").read_text()
-            self.assertIn("Self.isMP4Payload(payload)", registry)
+            # Receiver-agnostic on purpose: the shared payload predicate moved to
+            # the Format layer, and a receiver-specific assertion would pin the
+            # call site instead of the media identity contract.
+            self.assertIn("isMP4Payload(payload)", registry)
             self.assertNotIn("container.isVideoMp4 ||", registry)

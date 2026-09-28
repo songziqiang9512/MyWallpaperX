@@ -633,7 +633,9 @@ enum SceneImageTextureUploader {
         return (data, alpha == .premultipliedLast || alpha == .premultipliedFirst)
     }
 
-    private static func rasterizedRGBA(
+    /// Single rasterisation helper for straight-alpha RGBA uploads; the mip
+    /// pipeline passes the image's own dimensions.
+    static func rasterizedRGBA(
         _ image: CGImage,
         width: Int,
         height: Int

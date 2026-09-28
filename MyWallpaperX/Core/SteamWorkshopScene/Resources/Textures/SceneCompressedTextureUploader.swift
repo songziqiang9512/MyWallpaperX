@@ -131,7 +131,7 @@ struct SceneCompressedTextureUploader {
         for (level, image) in selectedImages.enumerated() {
             let rgba = purpose.preservesSourceChannels
                 ? image.rgba
-                : premultiplyStraightAlphaRGBA(image.rgba)
+                : SceneTextureMipUploader.premultipliedRGBA(image.rgba)
             rgba.withUnsafeBytes { rawBuffer in
                 texture.replace(
                     region: MTLRegionMake2D(0, 0, image.width, image.height),
@@ -324,23 +324,6 @@ struct SceneCompressedTextureUploader {
         }
         return .loaded(texture)
     }
-
-    private static func premultiplyStraightAlphaRGBA(_ data: Data) -> Data {
-        var output = data
-        output.withUnsafeMutableBytes { rawBuffer in
-            guard let bytes = rawBuffer.bindMemory(to: UInt8.self).baseAddress else { return }
-            var offset = 0
-            while offset + 3 < rawBuffer.count {
-                let alpha = UInt16(bytes[offset + 3])
-                bytes[offset] = UInt8((UInt16(bytes[offset]) * alpha + 127) / 255)
-                bytes[offset + 1] = UInt8((UInt16(bytes[offset + 1]) * alpha + 127) / 255)
-                bytes[offset + 2] = UInt8((UInt16(bytes[offset + 2]) * alpha + 127) / 255)
-                offset += 4
-            }
-        }
-        return output
-    }
-
     private static func bytesPerBlock(for pixelFormat: MTLPixelFormat) -> Int? {
         switch pixelFormat {
         case .bc1_rgba:

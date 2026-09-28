@@ -460,6 +460,7 @@
         "video"
       ],
       "modules": [
+        "test_scene_tex_media_identity",
         "test_scene_animated_material_asset",
         "test_scene_animated_material_visual_failure",
         "test_scene_asset_catalog_resource_view",

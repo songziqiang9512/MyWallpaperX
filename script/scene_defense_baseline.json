@@ -142,6 +142,38 @@
       "note": "Reviewed non-private regex pipeline.",
       "owner": "Compilation/ShaderPreparation family merge",
       "retirement": "Delete the per-file plumbing, then ratchet this count down."
+    },
+    {
+      "name": "isMP4Payload",
+      "allowedCopies": 1,
+      "canonical": "Format/SceneTexContainer.swift",
+      "note": "Payload magic sniffers live in the Format layer: every harness source subset containing a caller already compiles it, and the reader's inline copy is converged onto them.",
+      "owner": "Resources/Textures upload family",
+      "retirement": "Keep one copy; re-copying the helper is what this lock forbids."
+    },
+    {
+      "name": "isEmbeddedImagePayload",
+      "allowedCopies": 1,
+      "canonical": "Format/SceneTexContainer.swift",
+      "note": "Payload magic sniffers live in the Format layer: every harness source subset containing a caller already compiles it, and the reader's inline copy is converged onto them.",
+      "owner": "Resources/Textures upload family",
+      "retirement": "Keep one copy; re-copying the helper is what this lock forbids."
+    },
+    {
+      "name": "premultipliedRGBA",
+      "allowedCopies": 1,
+      "canonical": "Resources/Textures/SceneTextureMipUploader.swift",
+      "note": "Straight-alpha premultiply helper consolidated in batch 3a.",
+      "owner": "Resources/Textures upload family",
+      "retirement": "Keep one copy; re-copying the helper is what this lock forbids."
+    },
+    {
+      "name": "rasterizedRGBA",
+      "allowedCopies": 1,
+      "canonical": "Resources/Textures/SceneImageTextureUploader.swift",
+      "note": "Straight-alpha rasterisation helper consolidated in batch 3a.",
+      "owner": "Resources/Textures upload family",
+      "retirement": "Keep one copy; re-copying the helper is what this lock forbids."
     }
   ],
   "swallowPatterns": [
@@ -173,6 +205,30 @@
   "deadEntries": [],
   "inventoryEntries": [],
   "acknowledgedChanges": [
+    {
+      "detail": "canonical helper isEmbeddedImagePayload target changed from 'Resources/Textures/SceneTextureLoader.swift' to 'Format/SceneTexContainer.swift'",
+      "reason": "batch 3a moved the shared payload predicates into the Format layer so narrow harness subsets keep compiling"
+    },
+    {
+      "detail": "canonical helper isEmbeddedImagePayload was added to the reviewed set",
+      "reason": "batch 3a locked the consolidated Resources/Textures helpers at a single copy"
+    },
+    {
+      "detail": "canonical helper isMP4Payload target changed from 'Resources/Textures/SceneTextureLoader.swift' to 'Format/SceneTexContainer.swift'",
+      "reason": "batch 3a moved the shared payload predicates into the Format layer so narrow harness subsets keep compiling"
+    },
+    {
+      "detail": "canonical helper isMP4Payload was added to the reviewed set",
+      "reason": "batch 3a locked the consolidated Resources/Textures helpers at a single copy"
+    },
+    {
+      "detail": "canonical helper premultipliedRGBA was added to the reviewed set",
+      "reason": "batch 3a locked the consolidated Resources/Textures helpers at a single copy"
+    },
+    {
+      "detail": "canonical helper rasterizedRGBA was added to the reviewed set",
+      "reason": "batch 3a locked the consolidated Resources/Textures helpers at a single copy"
+    },
     {
       "detail": "retired swallow pattern identity-empty-fallback: allowance 1 -> 0",
       "reason": "batch 4b 把摘要编码失败改为显式失败：ShaderContract canonical hash 走诊断码、X-Ray stock identity 走 nil 比较、dependency payload 按已证总成立政策改 try!"
