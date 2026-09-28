@@ -103,8 +103,8 @@ HARNESS = r'''
                         sceneScriptScalarProgram:.init(bindings:family=="scalar" ? p.bindings : []),
                         sceneScriptStringProgram:.init(bindings:family=="string" ? p.bindings : []),
                         sceneScriptCursorProgram:.init(bindings:[],generation:1))
-                    for id in 1...2 { let configured=try context.configurePuppetBones(layerID:id,worldMatrices:matrix,localMatrices:matrix,names:["root"]); precondition(configured) }
-                    let missing=try context.configurePuppetBones(layerID:99,worldMatrices:matrix,localMatrices:matrix,names:["root"])
+                    for id in 1...2 { let configured=try context.configurePuppetBones(layerID:id,localMatrices:matrix,names:["root"]); precondition(configured) }
+                    let missing=try context.configurePuppetBones(layerID:99,localMatrices:matrix,names:["root"])
                     precondition(!missing)
                     out[family+"-"+scenario+"Owners"]=p.bindings.count
                     exercise(capture:p.frameStateSnapshot,evaluate:{
@@ -121,8 +121,8 @@ HARNESS = r'''
                         sceneScriptScalarProgram:.init(bindings:family=="scalar" ? p.bindings : []),
                         sceneScriptStringProgram:.init(bindings:family=="string" ? p.bindings : []),
                         sceneScriptCursorProgram:.init(bindings:[],generation:1))
-                    for id in 1...2 { let configured=try context.configurePuppetBones(layerID:id,worldMatrices:matrix,localMatrices:matrix,names:["root"]); precondition(configured) }
-                    let missing=try context.configurePuppetBones(layerID:99,worldMatrices:matrix,localMatrices:matrix,names:["root"])
+                    for id in 1...2 { let configured=try context.configurePuppetBones(layerID:id,localMatrices:matrix,names:["root"]); precondition(configured) }
+                    let missing=try context.configurePuppetBones(layerID:99,localMatrices:matrix,names:["root"])
                     precondition(!missing)
                     out[family+"-"+scenario+"Owners"]=p.bindings.count
                     exercise(capture:p.frameStateSnapshot,evaluate:{

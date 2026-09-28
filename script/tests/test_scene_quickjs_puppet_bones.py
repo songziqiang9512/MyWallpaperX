@@ -60,7 +60,6 @@ import Foundation
             [1,0,0,0, 0,1,0,0, 0,0,1,0, x,0,0,1]
         }
         try owner.configurePuppetBones(layerID: 42,
-            worldMatrices: matrix(12) + matrix(15) + matrix(17),
             localMatrices: matrix(2) + matrix(3) + matrix(5),
             names: ["root", "left", "right"], parents: [-1,0,0],
             layerToWorld: matrix(10))
@@ -94,7 +93,6 @@ import Foundation
         let vectorMethods = try values(run(4))
         owner.commitLayerMutations()
         try owner.configurePuppetBones(layerID: 42,
-            worldMatrices: matrix(12) + matrix(15) + matrix(17),
             localMatrices: matrix(2) + matrix(3) + matrix(5), names: [],
             parents: [-1,0,0], layerToWorld: matrix(10))
         func cursor(_ kind: SceneScriptCursorEventKind) throws {

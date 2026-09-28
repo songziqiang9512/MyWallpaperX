@@ -9,7 +9,6 @@ extension SceneDesktopWallpaperLaunchContext {
             ) else { continue }
             _ = try configurePuppetBones(
                 layerID: layer.id,
-                worldMatrices: bones.worldMatrices,
                 localMatrices: bones.localMatrices,
                 names: bones.names, parents: bones.parentIndices.map(Int32.init)
             )
@@ -21,7 +20,6 @@ extension SceneDesktopWallpaperLaunchContext {
     @discardableResult
     func configurePuppetBones(
         layerID: Int,
-        worldMatrices: [Double],
         localMatrices: [Double],
         names: [String],
         parents: [Int32]? = nil,
@@ -35,8 +33,7 @@ extension SceneDesktopWallpaperLaunchContext {
         for owner in owners where SceneScriptLayerMutationBridge.layerID(for: owner.target) == layerID {
             guard visited.insert(ObjectIdentifier(owner)).inserted else { continue }
             try owner.configurePuppetBones(
-                layerID: layerID, worldMatrices: worldMatrices,
-                localMatrices: localMatrices, names: names,
+                layerID: layerID, localMatrices: localMatrices, names: names,
                 parents: parents, layerToWorld: layerToWorld
             )
             configured = true

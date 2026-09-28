@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-28 Puppet pose 发布原子性
+
+单owner姿态与hierarchy改为完整校验后一次发布，删除两段式接口及冗余world输入，产品净减43行。五类非法刷新保留旧矩阵/父关系/骨名，26项行为门通过；相同有效输入实际App前后两帧逐像素一致，见[证据](runtime-evidence-current.md#e-2026-09-28-puppet-pose-publication)。不包含骨名分配失败、多owner/Host整体回滚或全部骨骼API。
+
 ## 2026-09-28 Scalar/String 骨骼输出
 
 Scalar/String的骨骼命令现随既有owner effects进入原帧事务，四类VM共用去重后的rig配置；重复汇总及vector/cursor配置入口退役，产品净减182行。36项行为门、单Puppet标量脚本实际位移与3113287126原包回归通过，见[证据](runtime-evidence-current.md#e-2026-09-28-value-bone-output)。String只到Swift/C配置和事务，不声明真实Puppet文字层可见、全部骨骼API、跨层访问或官方parity。

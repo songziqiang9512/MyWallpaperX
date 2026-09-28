@@ -3523,59 +3523,38 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_layer_identity(
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_bones(
     MWXSceneQuickJSOwner *owner, int64_t layer_id, uint32_t bone_count,
-    const double *world_matrices, const double *local_matrices,
+    const double *local_matrices, const int32_t *parents,
+    const double *layer_to_world,
     char *diagnostic, size_t diagnostic_capacity
 ) {
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
     if (owner == NULL || owner->domain == NULL || owner->domain->callback_active ||
         !owner->target_layer_configured || bone_count == 0 ||
         bone_count > MWX_SCENE_QUICKJS_MAX_PUPPET_BONES ||
-        world_matrices == NULL || local_matrices == NULL ||
+        local_matrices == NULL || parents == NULL || layer_to_world == NULL ||
         layer_id != owner->domain->layers[owner->target_layer_index].layer_id) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic, diagnostic_capacity, "invalid Puppet bone catalog"
         );
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
-    for (uint32_t bone = 0; bone < bone_count; ++bone) {
-        for (uint32_t component = 0; component < 16; ++component) {
-            const double world = world_matrices[bone * 16 + component];
-            const double local = local_matrices[bone * 16 + component];
-            if (!isfinite(world) || !isfinite(local)) {
-                mwx_scene_quickjs_write_diagnostic(
-                    diagnostic, diagnostic_capacity, "non-finite Puppet bone matrix"
-                );
-                return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-            }
-        }
+    // Derive and validate the complete pose before publishing any field. A
+    // malformed refresh must leave the previous matrices and hierarchy intact.
+    double world[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
+    if (!puppet_matrix_finite(layer_to_world) ||
+        !puppet_world_pose(bone_count, parents, layer_to_world,
+                          (const double (*)[16])local_matrices, world)) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity, "invalid Puppet pose or hierarchy"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
-    memcpy(owner->puppet_bone_world, world_matrices, bone_count * sizeof(double) * 16);
-    memcpy(owner->puppet_bone_local, local_matrices, bone_count * sizeof(double) * 16);
+    memcpy(owner->puppet_bone_local, local_matrices, bone_count * sizeof(world[0]));
+    memcpy(owner->puppet_bone_world, world, bone_count * sizeof(world[0]));
+    memcpy(owner->puppet_bone_parent, parents, bone_count * sizeof(int32_t));
+    memcpy(owner->puppet_layer_to_world, layer_to_world, sizeof(double) * 16);
     owner->puppet_bone_layer_id = layer_id;
     owner->puppet_bone_count = bone_count;
-    for (uint32_t bone = 0; bone < bone_count; ++bone) owner->puppet_bone_parent[bone] = -1;
-    return MWX_SCENE_QUICKJS_OK;
-}
-
-MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_hierarchy(
-    MWXSceneQuickJSOwner *owner, const int32_t *parents, const double *layer_to_world,
-    char *diagnostic, size_t diagnostic_capacity
-) {
-    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
-    if (!owner || !parents || !layer_to_world || owner->puppet_bone_count == 0) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-    for (int i=0;i<16;i++) if (!isfinite(layer_to_world[i])) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-    for (uint32_t i = 0; i < owner->puppet_bone_count; ++i) {
-        if (parents[i] < -1 || parents[i] >= (int32_t)i) {
-            mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "invalid Puppet bone parent");
-            return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-        }
-    }
-    double world[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
-    if (!puppet_world_pose(owner->puppet_bone_count, parents, layer_to_world,
-                          owner->puppet_bone_local, world)) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-    memcpy(owner->puppet_bone_parent, parents, sizeof(int32_t) * owner->puppet_bone_count);
-    memcpy(owner->puppet_layer_to_world, layer_to_world, sizeof(double) * 16);
-    memcpy(owner->puppet_bone_world, world, owner->puppet_bone_count * sizeof(world[0]));
     return MWX_SCENE_QUICKJS_OK;
 }
 

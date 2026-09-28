@@ -584,8 +584,7 @@ enum Harness {
         let identity: [Double] = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]
         for binding in boneProgram.bindings {
             try binding.owner.configurePuppetBones(
-                layerID: 7, worldMatrices: identity + identity,
-                localMatrices: identity + identity, names: ["root", "tip"]
+                layerID: 7, localMatrices: identity + identity, names: ["root", "tip"]
             )
         }
         let boneResult = boneProgram.evaluate(

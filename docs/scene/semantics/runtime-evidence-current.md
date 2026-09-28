@@ -6,6 +6,18 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-puppet-pose-publication"></a>
+
+### E-2026-09-28-PUPPET-POSE-PUBLICATION — 非法骨骼刷新保留完整旧姿态
+
+**首断点：**基线e5494b86的Swift配置先调用C复制local/world并将parents清为-1，再由第二个hierarchy调用校验。真实Swift/C反例中parent长度错误、环parent、非有限layer矩阵、local超Float范围、world乘积溢出均报拒绝，却把旧`localRoot=2/worldTip=15/parentTip=0`破坏成`4/10/-1`或巨大值。错误返回不能代表未发布。
+
+**修复：**合并为单一C pose配置入口，先在有界临时world数组中用原矩阵算法核验local、parents、layer与完整world乘积，成功后才复制owner的local/world/parents/layer/identity/count；Swift长度检查先于C调用。删除独立hierarchy ABI及各Swift调用点冗余worldMatrices参数，5个产品路径净减43行，没有新增状态或矩阵算法。名字仍是独立启动配置，不在本次pose事务承诺内；非法pose返回发生在名字写入之前，已有骨名保持。
+
+**验证：**26项定向测试通过，包括五个失败保旧反例、合法同时刷新为`4/30/0`、原骨骼局部/世界转换与撤回、Scalar/String事件骨骼输出、Boolean初始化。优化Debug构建和code-health通过（1005 Swift/219既有warnings），无新源文件布局变化；全库文档链接门未重跑，既有断链仍开放。相同隔离单Puppet探针9900000300在基线/候选各7秒1/1 PASS，ready及after两张3024×1964图分别逐像素全等，仍保留脚本-250/+250位移。候选164/164/0/163 submitted/completed/failed/presented，motion mean0.03131264/changed0.07714708；最终原图已检查。此处有效输入回归证明原骨骼输出不变，错误输入保旧由VM测试证明；未在实际Host注入非法pose，不把普通矩阵PASS当作拒帧证据。探针关闭了作者动画/特效，分离bind pose不是完整人物外观验收。
+
+**身份/边界：**App2.10.0(279)，基线SHA256 `5b72ecf580fe6b80a46d8d85a7538d73fa8a956a5728848e3ee92874a61a26ac`，候选SHA256 `b0588ab2250f3879bb85d5c45ad271f1c1115a6c7840880900d84594b5d02b1a`、CDHash `68e3b4f92b897fa6c8b1ccfb7501da4494e0f1f1`，运行前后验签通过。冻结9个产品/测试路径SHA256 `9c8ad58b8dc7f46d40df07fb7132e6c42468183365049db74ce6a90bb2177ea4`，独立只读审查APPROVE。单owner pose+hierarchy原子性已验证；骨名分配失败、多owner整体回滚、Host共享snapshot失败半径、全部Puppet API和官方parity仍不在证明范围。本批不重新宣称原包全效果验收；上一批原包回归保留为历史同链证据。忽略缓存`2026-09-28-puppet-pose-publication`保留前后报告、原图、脚本、像素比较、冻结补丁、测试与构建，不收作者PKG/模型。
+
 <a id="e-2026-09-28-value-bone-output"></a>
 
 ### E-2026-09-28-VALUE-BONE-OUTPUT — 补齐标量/文字骨骼输出并合并副作用汇总

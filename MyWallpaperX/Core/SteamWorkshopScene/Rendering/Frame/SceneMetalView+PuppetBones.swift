@@ -84,8 +84,7 @@ extension SceneMetalView {
                              meshToWorld.columns.2, meshToWorld.columns.3]
                 .flatMap { [Double($0.x), Double($0.y), Double($0.z), Double($0.w)] }
             let configured = try context.configurePuppetBones(
-                layerID: layerID, worldMatrices: bones.worldMatrices,
-                localMatrices: bones.localMatrices,
+                layerID: layerID, localMatrices: bones.localMatrices,
                 // Names were installed at launch; frame refresh never reallocates them.
                 names: [], parents: bones.parentIndices.map(Int32.init),
                 layerToWorld: transform)
