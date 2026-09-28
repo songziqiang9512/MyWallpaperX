@@ -4104,23 +4104,6 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             self.assertAlmostEqual(velocity[1], 0, places=5)
         self.assertEqual(result["malformed"], result["fallback"])
 
-    def test_host_pointer_projection_is_gated_by_prepared_particle_demand(self) -> None:
-        pointer = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ParticlePointer.swift"
-        ).read_text(encoding="utf-8")
-        playback = (
-            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+ParticlePlayback.swift"
-        ).read_text(encoding="utf-8")
-        self.assertIn(
-            "guard frameContext.pointer.isInside, !demandedLayerIDs.isEmpty else {",
-            pointer,
-        )
-        self.assertIn("demandedLayerIDs.contains(layer.id)", pointer)
-        self.assertIn(
-            "demandedLayerIDs: particlePlayback.pointerControlPointLayerIDs",
-            playback,
-        )
-
     def test_runtime_consumes_each_surface_snapshot_then_restores_authored_fallback(self) -> None:
         result = self.run_harness("dynamic-control-point-synthetic")
         self.assertEqual(result["activeLayerIDs"], [90])

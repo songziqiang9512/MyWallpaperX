@@ -6,6 +6,18 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-particle-pointer-frame"></a>
+
+### E-2026-09-28-PARTICLE-POINTER-FRAME — 挂接粒子的鼠标反算复用当帧绘制变换
+
+**根因与简化：**基线b62b721d的绘制先编码Puppet当前姿态，再解析含attachment的frame world projection；pointer路径却用静态descriptor与dynamic snapshot另算一次world frames，漏掉当帧骨骼挂接。现在原particle provider显式接收绘制的frameProjection并传给pointer inverse，使用同一layersByID/worldFrames；四个产品文件净减1行，删除重复层级解析，没有新增公式、持久状态或输出owner。provider调用时序、同帧camera/parallax、粒子prepare/commit/discard不变；世界空间/透视admission未放宽。
+
+**同输入App反例：**隔离输入9900000400使用真实3113287126的模型副本、自有bone13左右±500脚本与挂接Sparkle的pointer CP0白色Sprite；关闭原效果/动画、模型置黑、灰背景用于定位，绝非原壁纸完整效果。9秒、八点NDC X=-0.05/+0.05交替，骨骼位移途中从负转正。两版通用benchmark均1/1 PASS，说明普通加载门不能发现此坐标错误；专项白色ROI逐点462像素，旧版中心距目标438.1–438.9px，新版八点均0.1px（3024×1964截图）。已检查原尺寸末点图。candidate 290 submitted/290 completed/0 failed/288 presented，layer900有235 submitted/completed粒子批、1847 completed instances；帧0/1/2提交完成、后继轨迹多帧最终Metal截图与退出粒子消失均有证据。该slice沿已有direct粒子draw及唯一main compositor，没有graph output publication可供另行认领。
+
+**验证与边界：**29项cursor/world-frame测试PASS；3个source-update/surface-submission/frame-rejection模块ALL OK。扩展runtime/frame-context共72项：61通过、10既有环境/样本skip、1既有ScalarProgram源码字符串断言失败；该测试及其读取源码均与HEAD逐字相同，保留原日志，不称全绿。旧pointer源码形状断言被真实pointer函数的输入/输出门替代，覆盖当帧矩阵变化/恢复、缺层、非粒子、空demand、outside与奇异矩阵；宿主壳简化模型构造，其attachment链证据由上述App承担。优化Debug构建、验签与code health通过（1005 Swift/219既有warnings）。未跑全库/full corpus/官方对照，未测CPU收益，不关闭3211615441、世界空间Rope或透视pointer能力。
+
+**身份：**App2.10.0(279)，baseline SHA256 `23e98a52d11bff9db80f05d8533875ae1b0d2dab4340ca246a5dfc94f36815d7`，candidate SHA256 `db20a548e67685e929250f92b693e9afec4e7a5ee094bf49df750ada4c5befeb`、CDHash `badb263ae7903806c44ac9b51cba08ece813184b`。六个产品/测试路径冻结SHA256 `e090309b9a290e04af5e8020a1860f56f8a7908a6f7e22722b1e224c46ccc91f`；独立只读终审APPROVE。本机忽略缓存`2026-09-28-particle-pointer-frame`保存前后report/log/原图、专项ROI、自有构造脚本和验证日志。首次黑背景短hover探索只在hover可见，before/after为空使通用benchmark NON-PASS，原结果保留；正式灰底八点对照未改产品准入或验收阈值。
+
 <a id="e-2026-09-28-bone-impulse-research"></a>
 
 ### E-2026-09-28-BONE-IMPULSE-RESEARCH — 冲量桥接研究收口，数值实现暂挂

@@ -13,6 +13,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering"
 SWIFT_SOURCES = [
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ParticlePointer.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerCursorGeometry.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePointerProjection.swift",
@@ -21,6 +22,31 @@ SWIFT_SOURCES = [
 HARNESS_SOURCE = r'''
 import Foundation
 import simd
+
+
+// Minimal host shell; pointer selection and inverse projection are product code.
+struct SceneFrameContext {
+    struct Pointer { let current: SIMD2<Float>; let isInside: Bool }
+    let pointer: Pointer
+    let screenSize = SIMD2<Float>(1280, 720)
+    let cameraParallaxPosition = SIMD2<Float>.zero
+    let dynamicValues = 0
+}
+struct SceneParticleCameraFrame { let orthographicViewProjection: simd_float4x4 }
+struct SceneMetalRendererFrameWorldProjection {
+    struct Layer { let id: Int; let contentKind: String }
+    let layersByID: [Int: Layer]
+    let worldFrames: [Int: simd_float4x4]
+}
+struct SceneMetalRenderer {
+    func parallaxConfiguration(cameraFrame: SceneParticleCameraFrame,
+        viewportSize: SIMD2<Float>, dynamicValues: Int) -> Int { 0 }
+    func particleModelMatrix(for layer: SceneMetalRendererFrameWorldProjection.Layer,
+        worldFramesByLayerID: [Int: simd_float4x4],
+        parallaxMouseNormalized: SIMD2<Float>, configuration: Int) -> simd_float4x4 {
+        worldFramesByLayerID[layer.id] ?? matrix_identity_float4x4
+    }
+}
 
 @main
 enum Harness {
@@ -136,7 +162,37 @@ enum Harness {
         ]
         let perspectiveBoneUnchanged = SceneLayerCursorGeometry.authoredWorldTransform(
             boneModel, sceneOrthoHeight: nil) == boneModel
+
+        let host = SceneMetalRenderer()
+        let camera = SceneParticleCameraFrame(orthographicViewProjection: matrix_identity_float4x4)
+        let pointerLayer = SceneMetalRendererFrameWorldProjection.Layer(id: 7, contentKind: "particle")
+        func hostPositions(_ model: simd_float4x4, demand: Set<Int> = [7],
+                           inside: Bool = true) -> [Int: SIMD3<Double>] {
+            host.particlePointerLocalPositions(
+                frameContext: .init(pointer: .init(current: normalized, isInside: inside)),
+                cameraFrame: camera,
+                frameProjection: .init(layersByID: [7: pointerLayer,
+                    8: .init(id: 8, contentKind: "image")], worldFrames: [7: model]),
+                demandedLayerIDs: demand)
+        }
+        let hostFirst = hostPositions(transformedMVP)
+        let movedFrame = SceneMatrix.translation(SIMD3(0.15, -0.12, 0)) * transformedMVP
+        let hostNext = hostPositions(movedFrame)
+        func screenError(_ position: SIMD3<Double>?, model: simd_float4x4) -> Float {
+            guard let p = position else { return 1000 }
+            let clip = model * SIMD4<Float>(Float(p.x), Float(p.y), Float(p.z), 1)
+            return simd_length(SIMD2(clip.x, clip.y) / clip.w - normalized)
+        }
+
         let result: [String: Any] = [
+            "hostFirst": triple(hostFirst[7]),
+            "hostNextError": screenError(hostNext[7], model: movedFrame),
+            "staleFrameError": screenError(hostFirst[7], model: movedFrame),
+            "hostRecovery": hostPositions(transformedMVP) == hostFirst,
+            "hostOutside": hostPositions(transformedMVP, inside: false).isEmpty,
+            "hostNoDemand": hostPositions(transformedMVP, demand: []).isEmpty,
+            "hostInvalidDemand": hostPositions(transformedMVP, demand: [8, 99]).isEmpty,
+            "hostSingular": hostPositions(singular).isEmpty,
             "boneCoordinateErrors": boneCoordinateErrors,
             "perspectiveBoneUnchanged": perspectiveBoneUnchanged,
             "localPixelCenter": triple(SceneLayerCursorGeometry.authoredLocalPosition(
@@ -269,6 +325,16 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
         self.assertEqual(len(actual), len(expected))
         for actual_component, expected_component in zip(actual, expected):
             self.assertAlmostEqual(actual_component, expected_component, places=5)
+
+    def test_particle_host_uses_current_draw_frame_and_recovers_after_change(self) -> None:
+        self.assert_pair_almost_equal(self.result["hostFirst"], [0.1, -0.2, 0])
+        self.assertLess(self.result["hostNextError"], 0.00001)
+        self.assertGreater(self.result["staleFrameError"], 0.1)
+        self.assertTrue(self.result["hostRecovery"])
+
+    def test_particle_host_rejects_outside_missing_demand_and_singular_frames(self) -> None:
+        for key in ["hostOutside", "hostNoDemand", "hostInvalidDemand", "hostSingular"]:
+            self.assertTrue(self.result[key], key)
 
     def test_cursor_local_pixels_use_unscaled_object_size(self) -> None:
         self.assertEqual(self.result["localPixelCenter"], [160, 90, 0])

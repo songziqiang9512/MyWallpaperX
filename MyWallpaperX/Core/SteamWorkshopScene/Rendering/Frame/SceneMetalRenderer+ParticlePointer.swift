@@ -5,6 +5,7 @@ extension SceneMetalRenderer {
     func particlePointerLocalPositions(
         frameContext: SceneFrameContext,
         cameraFrame: SceneParticleCameraFrame,
+        frameProjection: SceneMetalRendererFrameWorldProjection,
         demandedLayerIDs: Set<Int>
     ) -> [Int: SIMD3<Double>] {
         guard frameContext.pointer.isInside, !demandedLayerIDs.isEmpty else { return [:] }
@@ -15,17 +16,12 @@ extension SceneMetalRenderer {
             viewportSize: viewportSize,
             dynamicValues: frameContext.dynamicValues
         )
-        let frameWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
-            descriptor: renderDescriptor, byID: layersByID,
-            snapshot: frameContext.dynamicValues, staticFrames: worldFramesByLayerID
-        )
         return Dictionary(uniqueKeysWithValues: demandedLayerIDs.compactMap { layerID in
-            guard let layer = layersByID[layerID] else { return nil }
-            guard layer.contentKind == "particle",
-                  demandedLayerIDs.contains(layer.id) else { return nil }
+            guard let layer = frameProjection.layersByID[layerID] else { return nil }
+            guard layer.contentKind == "particle" else { return nil }
             let model = particleModelMatrix(
                 for: layer,
-                worldFramesByLayerID: frameWorldFrames,
+                worldFramesByLayerID: frameProjection.worldFrames,
                 parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                 configuration: configuration
             )

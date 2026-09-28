@@ -49,7 +49,7 @@ struct SceneMetalRenderer {
         spriteAnimationPlaybackTimes: [Int: Float],
         specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
         imagePipeline: SceneImageLayerPipeline?,
-        particleBatchesProvider: () -> [SceneParticleDrawBatch],
+        particleBatchesProvider: (SceneMetalRendererFrameWorldProjection) -> [SceneParticleDrawBatch],
         particlePipeline: SceneParticleMetalPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
         frameContext: SceneFrameContext,
@@ -219,7 +219,7 @@ struct SceneMetalRenderer {
         // Sub-stages exist so the composite prepass cost can be attributed
         // before any optimization; they are additive observations only.
         performanceTelemetry?.beginStage("prepass-particles")
-        let particleBatches = particleBatchesProvider()
+        let particleBatches = particleBatchesProvider(frameProjection)
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
         var particlePerformanceObservations: [SceneParticlePerformanceObservation]? =
             performanceTelemetry == nil ? nil : []

@@ -18,6 +18,7 @@ extension SceneMetalView {
         dynamicValues: SceneDynamicSnapshot,
         frameContext: SceneFrameContext,
         cameraFrame: SceneParticleCameraFrame,
+        frameProjection: SceneMetalRendererFrameWorldProjection,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) -> [SceneParticleDrawBatch] {
         guard let particlePlayback else { return [] }
@@ -28,6 +29,7 @@ extension SceneMetalView {
         let pointerLocalPositions = renderer.particlePointerLocalPositions(
             frameContext: frameContext,
             cameraFrame: cameraFrame,
+            frameProjection: frameProjection,
             demandedLayerIDs: particlePlayback.pointerControlPointLayerIDs
         )
         performanceTelemetry?.endStage("particle-pointer-projection")
