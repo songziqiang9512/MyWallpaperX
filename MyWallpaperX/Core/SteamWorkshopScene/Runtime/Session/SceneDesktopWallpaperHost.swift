@@ -601,10 +601,6 @@ final class SceneDesktopWallpaperHost {
                     logURL: launchContext.logURL
                 )
                 launchContext.appendResolvedMaterialStartupReport()
-                Self.appendTimelineReport(
-                    to: launchContext.logURL,
-                    program: launchContext.timelineProgram
-                )
                 Self.appendTextScriptReport(
                     to: launchContext.logURL,
                     program: launchContext.textScriptProgram

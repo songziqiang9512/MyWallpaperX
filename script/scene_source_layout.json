@@ -568,7 +568,6 @@
           "SceneDesktopWallpaperHost+Shutdown.swift",
           "SceneDesktopWallpaperHost+SurfaceTeardown.swift",
           "SceneDesktopWallpaperHost+TextScriptReport.swift",
-          "SceneDesktopWallpaperHost+TimelineReport.swift",
           "SceneDesktopWallpaperHost+VideoProviders.swift",
           "SceneDesktopWallpaperHost.swift",
           "SceneDesktopWallpaperLaunchModels.swift",
