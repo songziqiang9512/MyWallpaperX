@@ -79,7 +79,8 @@ extension SceneMetalView {
                 parallaxMouseNormalized: .zero, configuration: parallax,
                 visibleHalfExtents: camera.coverHalfExtents,
                 usesPerspective: camera.resolvesPerspective(for: layer))
-            let meshToWorld = model
+            let meshToWorld = SceneLayerCursorGeometry.authoredWorldTransform(
+                model, sceneOrthoHeight: renderer.renderDescriptor.camera.orthoHeight)
             let transform = [meshToWorld.columns.0, meshToWorld.columns.1,
                              meshToWorld.columns.2, meshToWorld.columns.3]
                 .flatMap { [Double($0.x), Double($0.y), Double($0.z), Double($0.w)] }

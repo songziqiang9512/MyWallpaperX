@@ -117,7 +117,28 @@ enum Harness {
             ) else { return [] }
             return triple(SceneLayerCursorGeometry.authoredLocalPosition(point, size: objectSize))
         }
+        let boneModel = SceneMatrix.translation(SIMD3(130, 200, 7))
+            * SceneMatrix.rotationZ(0.4) * SceneMatrix.scale(SIMD3(2, -3, 1))
+        let bonePoint = SIMD4<Float>(12, 15, 2, 1)
+        let internalPoint = boneModel * bonePoint
+        let authorModel = SceneLayerCursorGeometry.authoredWorldTransform(
+            boneModel, sceneOrthoHeight: 1080)
+        let authorPoint = authorModel * bonePoint
+        let cursorPoint = SceneLayerCursorGeometry.authoredWorldPosition(
+            SIMD3(internalPoint.x, internalPoint.y, internalPoint.z), sceneOrthoHeight: 1080)
+        let restoredBone = simd_inverse(authorModel) * authorPoint
+        let upInAuthor = simd_inverse(authorModel) * (authorPoint + SIMD4(0, 20, 0, 0))
+        let movedInternal = boneModel * upInAuthor
+        let boneCoordinateErrors = [
+            simd_length(SIMD3(authorPoint.x, authorPoint.y, authorPoint.z) - cursorPoint),
+            simd_length(restoredBone - bonePoint),
+            abs(movedInternal.y - internalPoint.y + 20),
+        ]
+        let perspectiveBoneUnchanged = SceneLayerCursorGeometry.authoredWorldTransform(
+            boneModel, sceneOrthoHeight: nil) == boneModel
         let result: [String: Any] = [
+            "boneCoordinateErrors": boneCoordinateErrors,
+            "perspectiveBoneUnchanged": perspectiveBoneUnchanged,
             "localPixelCenter": triple(SceneLayerCursorGeometry.authoredLocalPosition(
                 .zero, size: objectSize
             )),
@@ -260,6 +281,11 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
     def test_cursor_local_pixels_keep_outside_drag_and_reject_invalid_size(self) -> None:
         self.assertEqual(self.result["localPixelOutside"], [640, -180, 0])
         self.assertTrue(self.result["invalidLocalPixelInputs"])
+
+    def test_bone_world_and_cursor_world_agree_and_inverse_writes_keep_direction(self) -> None:
+        for error in self.result["boneCoordinateErrors"]:
+            self.assertLess(error, 0.0001)
+        self.assertTrue(self.result["perspectiveBoneUnchanged"])
 
     def test_identity_maps_surface_center_to_layer_center(self) -> None:
         self.assert_pair_almost_equal(self.result["identityCenter"], [0.5, 0.5])

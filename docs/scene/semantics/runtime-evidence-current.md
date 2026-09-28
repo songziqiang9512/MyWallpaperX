@@ -6,6 +6,20 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-bone-author-world"></a>
+
+### E-2026-09-28-BONE-AUTHOR-WORLD — 骨骼与鼠标共用作者世界坐标
+
+**首断点：**追踪三个真实包的impulse词法调用时，先在2998757800复现更早的选骨失败。770e26f8向VM发布geometryModelMatrix的renderer world（正交Y-down），但cursor事件/input已经转换为author world（Y-up）；作者用二者的距离选择骨骼，因而命中人物图层也选不中。公开[交互Puppet指南](https://docs.wallpaperengine.io/en/scene/puppet-warp/interactive.html)要求脚本在动画后操控骨骼；骨骼、鼠标和变换必须共享作者空间。
+
+**修正：**SceneLayerCursorGeometry提供同一完整world转换`y′=H·w−y`，原cursor点与Puppet发布矩阵共用它；同时反射basis和translation，既有C world setter按此矩阵逆变换仍输出local。无有效orthoHeight则保留原矩阵。两个产品文件净增14行，没有新状态、物理算法或坐标registry。视差仍沿用原零位移配置，非本批扩张。
+
+**行为与实际App：**22项定向测试通过，包括旋转/非均匀缩放下bone与cursor同点、inverse写回、author Y+20→renderer Y−20（均为屏幕向上）、native perspective保持，以及原骨骼读写/撤回。优化Debug构建、code-health通过（1005 Swift/219既有warnings）；inner选择已查看，未跑全量或既有断链门。原包2998757800隔离副本，同NDC指针(0.04,0.25)→(0.15,0.25)，修前有cursorDown/Up而无bone-skin；修后实际layer23出现revision1、4077顶点、最大bind位移50.009941，已查看held原图的局部形变。rootWorld Y由695.918213变为1165.081787（和为作者高度1861）。两组submitted/completed/failed/presented均203/202/0/201；候选runtime `3c9df65a-9e34-4f80-a85e-2d974499bd8f`的layer23及其他四个graph层完成GPU、publication/compositor消费和next-frame。通用矩阵两组仍NON-PASS：hold模板要求保持settled位置，不适于该spring样本，原报告保留，不改阈值冒充整交互通过。图像含非同步粒子/时间文字，不用整图差分估算本批形变。局部origin探针9900000300另行回归PASS，ready/after与上一批分别逐像素全等，local行为保持。
+
+**新暴露的后继缺口：**修后松手100ms回调首次实际抛`TypeError: not a function`，作者代码该处为applyBonePhysicsImpulse；缺失接口从词法命中推进为原包可达失败。此批没有实现冲量。2998757800配置为平移spring；2797913147还启用了当前拒绝的重力；3749463715两层包含多骨spring和后继动画调用。公开[物理指南](https://docs.wallpaperengine.io/en/scene/puppet-warp/boneconstraints.html)只说明参数作用，不足以确定冲量单位、坐标及tip mass与速度换算；Mirage现有源码未检出冲量接口。下一门按现有journal→typed command→playback motion接通经过证据确定的语义，保留owner/帧撤回，不能拿位置跳变或空函数冒充冲量。完整松手响应、重力/角运动、原包视觉和官方parity仍开放。
+
+**身份与归档：**App2.10.0(279)，基线SHA256 `013e287097062c5eceb128a1d467179a98991598cbdbdff8e4ab5170fb579571`，候选SHA256 `269bfd8b7327c663b30ced82cbf6abefe5c56a31f6fc487becce6e04baaadd22`、CDHash `e1b5967cd1c69f7e882f8d806deb3289c2195932`，运行前后验签通过。冻结三路径SHA256 `71452242b11302363db7547abf2721b5702bfcea8ecec0d1a25877f65815f06b`，独立只读审查APPROVE。忽略缓存`2026-09-28-bone-author-world`保存前后/局部回归、原图、测试/构建、作者骨骼配置普查、冻结补丁与审查；早期wall-clock取证时间未到及NDC未命中两组作为探索失败保留，不作API证据。无作者PKG/模型归档。
+
 <a id="e-2026-09-28-bone-origin-api"></a>
 
 ### E-2026-09-28-BONE-ORIGIN-API — 局部骨骼位置读写复用矩阵事务

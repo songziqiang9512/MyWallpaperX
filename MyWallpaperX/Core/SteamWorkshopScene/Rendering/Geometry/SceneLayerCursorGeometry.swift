@@ -16,17 +16,30 @@ enum SceneLayerCursorGeometry {
     ) -> SIMD3<Float> {
         guard rendererWorldPosition.x.isFinite,
               rendererWorldPosition.y.isFinite,
-              rendererWorldPosition.z.isFinite,
-              let sceneOrthoHeight,
-              sceneOrthoHeight.isFinite,
-              sceneOrthoHeight > 0 else {
+              rendererWorldPosition.z.isFinite else {
             return rendererWorldPosition
         }
-        return SIMD3(
-            rendererWorldPosition.x,
-            sceneOrthoHeight - rendererWorldPosition.y,
-            rendererWorldPosition.z
-        )
+        let position = authoredWorldTransform(
+            matrix_identity_float4x4, sceneOrthoHeight: sceneOrthoHeight
+        ) * SIMD4(rendererWorldPosition, 1)
+        return SIMD3(position.x, position.y, position.z)
+    }
+
+    /// Bone matrices and cursor points must expose the same author world.
+    /// Reflect the complete basis as well as its translation so inverse bone
+    /// writes recover the original model space.
+    static func authoredWorldTransform(
+        _ rendererWorldTransform: simd_float4x4,
+        sceneOrthoHeight: Float?
+    ) -> simd_float4x4 {
+        guard let sceneOrthoHeight, sceneOrthoHeight.isFinite,
+              sceneOrthoHeight > 0 else { return rendererWorldTransform }
+        var result = rendererWorldTransform
+        for column in 0..<4 {
+            result[column].y = sceneOrthoHeight * rendererWorldTransform[column].w
+                - rendererWorldTransform[column].y
+        }
+        return result
     }
 
     /// CursorEvent uses unscaled object pixels, with the image's lower-left

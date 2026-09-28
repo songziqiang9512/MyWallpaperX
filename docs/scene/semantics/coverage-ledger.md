@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-28 骨骼作者世界坐标
+
+骨骼发布矩阵与cursor共用完整renderer→author转换，修复正交Y方向不同导致的距离选骨失败；world逆写仍落到原local事务。22项行为门、构建及2998757800实际选骨/蒙皮更新成立，local origin两帧回归逐像素一致，见[证据](runtime-evidence-current.md#e-2026-09-28-bone-author-world)。原包随后在松手100ms的applyBonePhysicsImpulse调用报错，明确保留缺口；通用hold矩阵仍NON-PASS，不宣称完整拖动/回弹或官方parity。
+
 ## 2026-09-28 骨骼局部位置 API
 
 get/setLocalBoneOrigin复用现有local矩阵和同一mutation事务，只改translation并保留basis，产品净增18行。14项行为门、隔离App前后位移及与已有Mat4通道逐像素等价通过，见[证据](runtime-evidence-current.md#e-2026-09-28-bone-origin-api)。本次普查没有发现origin真实调用，不宣称已修复已知样本；三个样本含未实现impulse调用，列为下一合同核对。angles、impulse/reset、完整物理及官方parity仍开放。
