@@ -252,6 +252,7 @@ public struct WallpaperSettings: Codable, Equatable {
     var timeUnit: TimeUnit = .seconds // 时间单位
     var volume: Double = 50.0
     var startOnBoot: Bool = false
+    var restorePlaybackOnLaunch: Bool = true // 启动时恢复上次播放的壁纸（video/web/scene；静态图由系统层自保留）
     var pauseWhenOtherAppFullscreen: Bool = true // 其他应用全屏时暂停
     var idleTimeoutMinutes: Int = 10 // 不活跃超时时间（分钟）
     var pauseWhenOtherAppFocused: Bool = false // 其他应用焦点时暂停（默认关：对齐官方 Wallpaper Engine"仅全屏暂停"的默认语义）
@@ -292,6 +293,7 @@ public struct WallpaperSettings: Codable, Equatable {
         case timeUnit
         case volume
         case startOnBoot
+        case restorePlaybackOnLaunch
         case pauseWhenOtherAppFullscreen
         case idleTimeoutMinutes
         case pauseWhenOtherAppFocused

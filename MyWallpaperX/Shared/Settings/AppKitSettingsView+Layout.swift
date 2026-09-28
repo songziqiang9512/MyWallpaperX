@@ -129,12 +129,14 @@ extension AppKitSettingsContainerView {
 
     private func setupSystemSection() {
         // 系统集成区只放会影响全局快捷键、同步壁纸和开机行为的配置。
-        startOnBootSwitch.toolTip = "开机时自动启动应用并恢复上次的壁纸设置"
+        startOnBootSwitch.toolTip = "开机时自动启动应用"
+        restorePlaybackOnLaunchSwitch.toolTip = "启动时恢复上次播放的壁纸（视频/Web/Scene）；关闭后启动不播放任何壁纸。静态图片壁纸由系统自身保留，不受此开关影响"
         syncSystemWallpaperSwitch.toolTip = "切换壁纸时同步更新系统壁纸：视频用静帧，Web/Scene 在启动过渡结束后截取一帧（静态图壁纸始终直接设置）"
         systemAudioSpectrumSwitch.toolTip = "实验功能：采集系统音频并在桌面底部显示频谱条"
         systemHotkeysSwitch.toolTip = "允许使用全局 F1-F12 快捷键控制壁纸"
 
         systemSection.addRow(makeSettingRow(title: "开机自启动", iconSystemName: "power", trailing: startOnBootSwitch))
+        systemSection.addRow(makeSettingRow(title: "启动恢复播放", iconSystemName: "arrow.counterclockwise.circle", trailing: restorePlaybackOnLaunchSwitch))
         systemSection.addRow(makeSettingRow(title: "同步系统壁纸", iconSystemName: "photo.on.rectangle", trailing: syncSystemWallpaperSwitch))
         let systemAudioSpectrumRow = makeSettingRow(
             title: "系统音频频谱",
@@ -342,6 +344,7 @@ extension AppKitSettingsContainerView {
             muteSwitch,
             playbackRateSwitch,
             startOnBootSwitch,
+            restorePlaybackOnLaunchSwitch,
             syncSystemWallpaperSwitch,
             systemAudioSpectrumSwitch,
             systemHotkeysSwitch,

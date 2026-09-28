@@ -18,8 +18,8 @@ struct PersonalSettingsImportSummary {
 }
 
 /// 只导出用户真正关心的偏好字段，不序列化整个 WallpaperSettings，减小文件体积。
-/// schemaVersion 4：新增系统音频频谱 8 字段（可选，旧版 v1-v3 文件缺 key
-/// 时解码为 nil，导入跳过不覆盖）。
+/// schemaVersion 5：新增启动恢复播放开关（可选）；v4 新增系统音频频谱
+/// 8 字段（可选，旧文件缺 key 时解码为 nil，导入跳过不覆盖）。
 private struct ExportedPreferences: Codable {
     var loopPlayback: Bool
     var randomPlayback: Bool
@@ -29,6 +29,7 @@ private struct ExportedPreferences: Codable {
     var timeUnit: TimeUnit
     var volume: Double
     var startOnBoot: Bool
+    var restorePlaybackOnLaunch: Bool?
     var pauseWhenOtherAppFullscreen: Bool
     var pauseWhenOtherAppFocused: Bool
     var pauseWhenUnplugged: Bool
@@ -70,6 +71,7 @@ private struct ExportedPreferences: Codable {
         timeUnit = settings.timeUnit
         volume = settings.volume
         startOnBoot = settings.startOnBoot
+        restorePlaybackOnLaunch = settings.restorePlaybackOnLaunch
         pauseWhenOtherAppFullscreen = settings.pauseWhenOtherAppFullscreen
         pauseWhenOtherAppFocused = settings.pauseWhenOtherAppFocused
         pauseWhenUnplugged = settings.pauseWhenUnplugged
@@ -102,6 +104,9 @@ private struct ExportedPreferences: Codable {
         // 连续值与 UI/引擎域对齐，手改文件的越界值不进 settings。
         settings.volume = min(max(volume, 0), 100)
         settings.startOnBoot = startOnBoot
+        if let restorePlaybackOnLaunch {
+            settings.restorePlaybackOnLaunch = restorePlaybackOnLaunch
+        }
         settings.pauseWhenOtherAppFullscreen = pauseWhenOtherAppFullscreen
         settings.pauseWhenOtherAppFocused = pauseWhenOtherAppFocused
         settings.pauseWhenUnplugged = pauseWhenUnplugged
@@ -173,8 +178,9 @@ private struct PersonalSettingsPayload: Codable {
         let tags: [String]
     }
 
-    // schemaVersion 4：新增系统音频频谱 8 字段（可选）；v3 新增图片库壁纸和
-    // 图片标签（可选，兼容旧版 v1/v2 文件）
+    // schemaVersion 5：新增启动恢复播放开关（可选，v1-v4 旧文件缺 key 时
+    // 跳过不覆盖）；v4 新增系统音频频谱 8 字段（可选）；v3 新增图片库壁纸
+    // 和图片标签（可选，兼容旧版 v1/v2 文件）
     let schemaVersion: Int
     let exportedAt: Date
     let preferences: ExportedPreferences
@@ -188,7 +194,7 @@ extension WallpaperManager {
     func exportPersonalSettings(to url: URL) throws -> PersonalSettingsExportSummary {
         // 导出只打包用户态配置和引用关系，不导出派生缓存路径，避免文件搬家后误以为资源已固定。
         let payload = PersonalSettingsPayload(
-            schemaVersion: 4,
+            schemaVersion: 5,
             exportedAt: Date(),
             preferences: ExportedPreferences(from: settings),
             tags: normalizedTagList(tags),

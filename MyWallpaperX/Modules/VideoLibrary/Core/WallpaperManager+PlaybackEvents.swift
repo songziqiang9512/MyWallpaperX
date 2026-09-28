@@ -45,6 +45,7 @@ extension WallpaperManager {
                normalizedSourcePathExists(restoredVideo.path) {
                 currentWallpaper = restoredVideo
                 activeWallpaperRuntime = .video
+                lastWorkshopPlaybackRecordID = nil
                 refreshAutoSwitchTimerIfNeeded()
             } else {
                 stopAutoSwitchTimer()

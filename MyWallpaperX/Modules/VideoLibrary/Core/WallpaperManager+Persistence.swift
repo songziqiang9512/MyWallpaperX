@@ -6,7 +6,7 @@
 import Foundation
 
 extension WallpaperManager {
-    private var defaults: UserDefaults { .standard }
+    var defaults: UserDefaults { .standard }
     private var wallpaperIndexStore: WallpaperIndexStore { .shared }
 
     func scheduleSettingsAutoPersist() {
@@ -54,6 +54,7 @@ extension WallpaperManager {
         // 加载播放状态
         loadPlaybackState()
         loadActiveWallpaperRuntime()
+        loadLastWorkshopPlaybackRecordID()
     }
 
     func loadTags() {
@@ -210,16 +211,43 @@ extension WallpaperManager {
         saveCodableValue(tags, forKey: tagsKey)
     }
 
+    /// web/scene 启动重放计划：App 装配层消费（Modules 不直呼 SteamWorkshop
+    /// 单例），按 recordID 走原工坊 launch 入口。
+    struct WorkshopLaunchReplayPlan {
+        let recordID: String
+        let restorePausedIntent: Bool
+    }
+
     func restorePlaybackState() {
+        // 启动恢复播放关闭：不播放任何壁纸（静态图由系统层自保留）。
+        // init 里先于本函数跑过的 refreshAutoSwitchTimerIfNeeded 可能已按
+        // 加载的 currentWallpaper 拉起自动切换 timer——必须停掉，否则
+        // timer 到期会把壁纸播起来，违反"启动不播放任何壁纸"。
+        guard settings.restorePlaybackOnLaunch else {
+            stopAutoSwitchTimer()
+            // 清掉已加载的"当前项"快照：多屏重载/间隔调整等二级路径会按
+            // currentWallpaper 重放或重臂 timer，把从未播放的壁纸播起来。
+            // runtime/工坊 recordID 保留——用户重新打开开关后，下次启动
+            // 仍能按原身份恢复。
+            currentWallpaper = nil
+            isPlaying = false
+            return
+        }
         // loadSavedState 已在先恢复持久化 isPlaying；退出前处于暂停的
         // 用户，重启后应回到暂停而不是自动播放。
         let wasPausedBeforeQuit = !isPlaying
-        // web/scene 尚无跨重启的重放链（偏差债务；退役条件=持久化启动
-        // 意图与原 launch 入口落地）。重启后降级恢复最近可用视频，保持
-        // runtime 真值、画面与轮换策略一致，而不是空转在 web/scene 标记上。
-        // systemStill 不在此列：静态图由系统壁纸层自持久化，恢复动态层
-        // 会把视频盖在用户选定的静态图上。
+        // web/scene 有持久化的单品身份时走真重放：计划交给 App 装配层，
+        // 此处跳过视频降级；单品已删除时由装配层回落降级路径。
         if activeWallpaperRuntime == .web || activeWallpaperRuntime == .scene {
+            if let recordID = lastWorkshopPlaybackRecordID, !recordID.isEmpty {
+                workshopLaunchReplayPlan = WorkshopLaunchReplayPlan(
+                    recordID: recordID,
+                    restorePausedIntent: wasPausedBeforeQuit
+                )
+                isPlaying = !wasPausedBeforeQuit
+                return
+            }
+            // 无单品身份（旧版本升级/诊断路径）：降级恢复最近可用视频。
             restoreMostRecentVideoAfterNonVideoRuntime()
             if wasPausedBeforeQuit { restorePlaybackPausedIntent() }
             return
@@ -252,17 +280,32 @@ extension WallpaperManager {
         if wasPausedBeforeQuit { restorePlaybackPausedIntent() }
     }
 
+    /// App 装配层在启动末尾消费一次；无计划或已消费返回 nil。
+    @discardableResult
+    func consumeWorkshopLaunchReplayPlan() -> WorkshopLaunchReplayPlan? {
+        defer { workshopLaunchReplayPlan = nil }
+        return workshopLaunchReplayPlan
+    }
+
+    /// 重放单品已删除/不可用时的降级入口（保持既有兜底语义）。
+    func fallBackToMostRecentVideoAfterWorkshopReplay(
+        restorePausedIntent: Bool
+    ) {
+        restoreMostRecentVideoAfterNonVideoRuntime()
+        if restorePausedIntent { restorePlaybackPausedIntent() }
+    }
+
     /// 把退出前的用户暂停意图重新投影到控制面：经 multiplexer 走
     /// `.pause`，三引擎与 isUserPaused 状态一并恢复。无条件投影——
     /// 引擎侧守卫运行时身份/会话存活性，恢复瞬间 daemon 尚未拉起的
     /// 竞态下 scene handler 会记录 isPaused 供 replay 补发，比按
     /// isPlaying 判定更忠实于"退出前是暂停"的意图。
-    private func restorePlaybackPausedIntent() {
+    func restorePlaybackPausedIntent() {
         PlaybackCommandMultiplexer.shared.dispatch(.pause)
         isPlaying = false
     }
 
-    private func restoreMostRecentVideoAfterNonVideoRuntime() {
+    func restoreMostRecentVideoAfterNonVideoRuntime() {
         // recentlyUsedWallpapers 头部（index 0）是最近使用的壁纸。
         let candidate = recentlyUsedWallpapers.first {
             normalizedSourcePathExists($0.path)
@@ -381,6 +424,12 @@ extension WallpaperManager {
         activeWallpaperRuntime = savedRuntime
     }
 
+    /// 与写侧的 JSON 编码对称：loadCodableValue 解码 String?（历史遗留
+    /// 的 null data 也解码为 nil）。
+    func loadLastWorkshopPlaybackRecordID() {
+        lastWorkshopPlaybackRecordID = loadCodableValue(forKey: lastWorkshopPlaybackRecordIDKey)
+    }
+
     func saveActiveWallpaperRuntime() {
         saveCodableValue(activeWallpaperRuntime, forKey: activeWallpaperRuntimeKey)
     }
@@ -431,7 +480,7 @@ extension WallpaperManager {
         return decode(T.self, from: data)
     }
 
-    private func saveCodableValue<T: Encodable>(_ value: T, forKey key: String) {
+    func saveCodableValue<T: Encodable>(_ value: T, forKey key: String) {
         // 写盘前先做编码和去重，减少相同数据反复写入。
         guard let data = encode(value) else { return }
         if defaults.data(forKey: key) == data {
@@ -488,6 +537,8 @@ extension WallpaperManager {
         wallpapers.removeAll()
         recentlyUsedWallpapers.removeAll()
         currentWallpaper = nil
+        lastWorkshopPlaybackRecordID = nil
+        workshopLaunchReplayPlan = nil
 
         // 重置是"重新安装级"：停掉任何运行中的壁纸——web/scene 不能在
         // 重置后继续播放，runtime 标记也不能被 flush 再次持久化（否则

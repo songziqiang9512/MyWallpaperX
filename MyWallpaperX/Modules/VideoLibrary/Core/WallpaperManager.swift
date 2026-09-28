@@ -63,6 +63,21 @@ class WallpaperManager: ObservableObject {
     }
     @Published var isDragSelecting: Bool = false
     @Published var currentWallpaper: VideoWallpaper? = nil
+    /// 上次播放的工坊单品（web/scene）身份；启动重放按 recordID 走原
+    /// 工坊 launch 入口。video/静态图播放时清空。nil 清键而非写 null
+    /// data，读侧用 loadCodableValue 与写侧 JSON 编码对称。
+    @Published var lastWorkshopPlaybackRecordID: String? = nil {
+        didSet {
+            guard lastWorkshopPlaybackRecordID != oldValue else { return }
+            if let recordID = lastWorkshopPlaybackRecordID {
+                saveCodableValue(recordID, forKey: lastWorkshopPlaybackRecordIDKey)
+            } else {
+                defaults.removeObject(forKey: lastWorkshopPlaybackRecordIDKey)
+            }
+        }
+    }
+    /// 启动重放计划（restorePlaybackState 产出，App 装配层一次性消费）。
+    var workshopLaunchReplayPlan: WorkshopLaunchReplayPlan?
     @Published var recentlyUsedWallpapers: [VideoWallpaper] = []
     @Published var isPlaying: Bool = true
     @Published var activeWallpaperRuntime: ActiveWallpaperRuntime = .video
@@ -150,6 +165,7 @@ class WallpaperManager: ObservableObject {
     let wallpapersKey = "Wallpapers"
     let tagsKey = "WallpaperTags"
     let currentWallpaperKey = "CurrentWallpaper"
+    let lastWorkshopPlaybackRecordIDKey = "LastWorkshopPlaybackRecordID"
     let recentWallpapersKey = "RecentWallpapers"
     let playbackStateKey = "PlaybackState"
     let activeWallpaperRuntimeKey = "ActiveWallpaperRuntime"

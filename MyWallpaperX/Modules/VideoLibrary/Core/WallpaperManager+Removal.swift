@@ -321,6 +321,7 @@ extension WallpaperManager {
         // E2a-3: 停止同时撤销未提交的 requested 选择。
         pendingWallpaper = nil
         clearCurrentWallpaperReference()
+        lastWorkshopPlaybackRecordID = nil
         stopAutoSwitchTimer()
         WallpaperEngine.shared.adoptIntentEpoch(beginPlaybackIntent())
         WallpaperEngine.shared.stopPlayback()

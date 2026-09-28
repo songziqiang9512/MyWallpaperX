@@ -442,6 +442,7 @@ enum MainWindowCoordinator {
             let resourceLifetime = notification.userInfo?["resourceLifetime"] as? PlaybackResourceLifetime
             wallpaperManager.clearCurrentWallpaperReference()
             wallpaperManager.activeWallpaperRuntime = .web
+            wallpaperManager.lastWorkshopPlaybackRecordID = recordID
             wallpaperManager.stopAutoSwitchTimer()
             // E2a-1: web 切换入口注入产品意图纪元（只读，提交点不变）。
             WallpaperEngine.shared.adoptIntentEpoch(wallpaperManager.beginPlaybackIntent())
@@ -538,6 +539,7 @@ enum MainWindowCoordinator {
                     )
                     wallpaperManager.clearCurrentWallpaperReference()
                     wallpaperManager.activeWallpaperRuntime = .scene
+                    wallpaperManager.lastWorkshopPlaybackRecordID = state.recordID
                     wallpaperManager.stopAutoSwitchTimer()
                     WallpaperEngine.shared.stopPlayback()
                     wallpaperManager.isPlaying = SceneDaemonClient.shared.isPlaying
@@ -586,6 +588,7 @@ enum MainWindowCoordinator {
             postWallpaperRuntimeWillSwitch(to: .systemStill)
             wallpaperManager.clearCurrentWallpaperReference()
             wallpaperManager.activeWallpaperRuntime = .systemStill
+            wallpaperManager.lastWorkshopPlaybackRecordID = nil
             wallpaperManager.isPlaying = false
             wallpaperManager.stopAutoSwitchTimer()
             // E2a-1: 静态图切换入口注入产品意图纪元（只读，提交点不变）。

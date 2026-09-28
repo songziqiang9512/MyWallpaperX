@@ -110,6 +110,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  if let helpPath = Bundle.main.path(forResource: "MyWallpaperXHelp", ofType: nil) {
  NSHelpManager.shared.registerBooks(in: Bundle(path: helpPath) ?? .main)
  }
+ // 启动重放：上次是 web/scene 壁纸时按单品身份走原工坊入口恢复
+ // （Modules 不直呼 SteamWorkshop 单例，装配层执行；单品已删除时由
+ // manager 回落降级路径）。
+ replayWorkshopLaunchIfPlanned()
  scheduleInitialMainWindowActivation()
 #if DEBUG
  DebugWebPlaybackRunner.scheduleWorkshopPlaybackIfRequested()
@@ -193,6 +197,29 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  statusBarController = nil
  WallpaperManager.shared.flushPersistentState()
  WallpaperEngine.shared.cleanup()
+ }
+
+ /// 消费 manager 在启动恢复期产出的 web/scene 重放计划：按 recordID 走
+ /// SteamWorkshopService.setAsWallpaper 统一入口（依赖检查/资源生命
+ /// 周期/通知发射全复用）；退出前暂停的意图随启动投影（scene 侧
+ /// isPaused 记录 + replay 补发，web 侧引擎在 host ready 后补暂停）。
+ private func replayWorkshopLaunchIfPlanned() {
+ guard let plan = WallpaperManager.shared.consumeWorkshopLaunchReplayPlan() else {
+ return
+ }
+ let workshop = SteamWorkshopService.shared
+ if let record = workshop.downloadRecord(for: plan.recordID),
+ record.contentType == .web || record.contentType == .scene {
+ workshop.setAsWallpaper(record)
+ if plan.restorePausedIntent {
+ PlaybackCommandMultiplexer.shared.dispatch(.pause)
+ WallpaperManager.shared.isPlaying = false
+ }
+ return
+ }
+ WallpaperManager.shared.fallBackToMostRecentVideoAfterWorkshopReplay(
+ restorePausedIntent: plan.restorePausedIntent
+ )
  }
 
  // 启动分阶段：优先让壁纸播放链路起稳，再激活主窗口，降低冷启动"同时抢占"造成的卡顿感。

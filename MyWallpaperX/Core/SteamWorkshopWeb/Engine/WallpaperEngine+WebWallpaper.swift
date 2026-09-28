@@ -195,6 +195,11 @@ extension WallpaperEngine {
                 retainedVideoContentPath = nil
                 retainedVideoMultiDisplayEnabled = nil
             }
+            // 启动重放/准备窗口内投影的暂停意图会早于 host 存在——
+            // 广播当时被丢弃；就绪后补发一次，避免"恢复为暂停"泄漏成播放。
+            if playbackPaused {
+                dispatchWebRuntimeCommand(.pause)
+            }
         case let .audioSpectrumDemandChanged(active, requestID):
             guard currentWebRequestID == requestID else { return }
             setWebAudioSpectrumRequested(active)

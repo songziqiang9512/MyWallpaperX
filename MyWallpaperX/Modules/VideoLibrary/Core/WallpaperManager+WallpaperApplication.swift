@@ -31,6 +31,7 @@ extension WallpaperManager {
         // currentWallpaper 延后到 daemon ready 事件提交——失败项真值不落地。
         pendingWallpaper = wallpaper
         activeWallpaperRuntime = .video
+        lastWorkshopPlaybackRecordID = nil
         NotificationCenter.default.post(
             name: .onlineDownloadsPlaybackPathDidChange,
             object: nil,

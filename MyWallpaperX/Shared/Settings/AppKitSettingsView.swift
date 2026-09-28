@@ -87,6 +87,7 @@ final class AppKitSettingsContainerView: NSView {
     var playbackRateRowView: NSView?
 
     let startOnBootSwitch = NSSwitch()
+    let restorePlaybackOnLaunchSwitch = NSSwitch()
     let syncSystemWallpaperSwitch = NSSwitch()
     let systemAudioSpectrumSwitch = NSSwitch()
     let systemAudioSpectrumStylePopup = NSPopUpButton()
@@ -207,6 +208,7 @@ final class AppKitSettingsContainerView: NSView {
         } else {
             startOnBootSwitch.state = settings.startOnBoot ? .on : .off
         }
+        restorePlaybackOnLaunchSwitch.state = settings.restorePlaybackOnLaunch ? .on : .off
         syncSystemWallpaperSwitch.state = settings.syncSystemWallpaper ? .on : .off
         systemAudioSpectrumSwitch.state = settings.systemAudioSpectrumEnabled ? .on : .off
         systemAudioSpectrumOptionsContainer?.isHidden = !settings.systemAudioSpectrumEnabled
@@ -352,6 +354,8 @@ final class AppKitSettingsContainerView: NSView {
 
         startOnBootSwitch.target = self
         startOnBootSwitch.action = #selector(handleStartOnBootToggle)
+        restorePlaybackOnLaunchSwitch.target = self
+        restorePlaybackOnLaunchSwitch.action = #selector(handleRestorePlaybackOnLaunchToggle)
         syncSystemWallpaperSwitch.target = self
         syncSystemWallpaperSwitch.action = #selector(handleSyncSystemWallpaperToggle)
         systemAudioSpectrumSwitch.target = self
@@ -511,6 +515,12 @@ final class AppKitSettingsContainerView: NSView {
         guard !isUpdatingUI else { return }
         dependency.settings.startOnBoot = (startOnBootSwitch.state == .on)
         dependency.actions.updateLoginItemStatus()
+    }
+
+    @objc private func handleRestorePlaybackOnLaunchToggle() {
+        guard !isUpdatingUI else { return }
+        // 只在下一次启动时被消费，无需任何引擎投影。
+        dependency.settings.restorePlaybackOnLaunch = (restorePlaybackOnLaunchSwitch.state == .on)
     }
 
     @objc private func handleSyncSystemWallpaperToggle() {
