@@ -482,7 +482,8 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 descriptor: authoredDescriptor,
                 scriptBindings: scriptBindings,
                 borrowedOwners: vectorConstruction.program.cursorOwnerRegistrations
-                    + scalarConstruction.program.cursorOwnerRegistrations,
+                    + scalarConstruction.program.cursorOwnerRegistrations
+                    + stringConstruction.program.cursorOwnerRegistrations,
                 // A planned vector visibility target has a single owner even
                 // when construction rejects it. Do not retry the same authored
                 // binding under a cursor owner after that rejection.

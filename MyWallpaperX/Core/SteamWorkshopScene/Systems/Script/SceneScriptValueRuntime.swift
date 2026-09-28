@@ -65,7 +65,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         constructionWork: SceneScriptConstructionWorkBudget? = nil
     ) throws {
         guard !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              [.scalar, .bool, .vector2, .vector3].contains(valueType),
+              [.scalar, .bool, .vector2, .vector3, .string].contains(valueType),
               generation > 0 else { throw SceneScriptScalarRuntimeFailure.invalidSource }
         if valueType == .scalar, case let .text(_, field) = target, field != .pointSize {
             throw SceneScriptScalarRuntimeFailure.invalidArgument("invalid scalar text target")
@@ -304,6 +304,13 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
                 }
             }
             publishedValue = valueType == .bool ? .bool(output != 0) : .scalar(output)
+        case let .string(value):
+            (result, publishedValue) = callString(
+                value, initializing: true, expectedGeneration: expectedGeneration,
+                frame: &frameInput, scriptPropertiesJSON: scriptPropertiesJSON,
+                userPropertiesJSON: userPropertiesJSON,
+                didInitialize: &didInitialize, diagnostic: &diagnostic
+            )
         case .vector2, .vector3:
             let source: [Double]
             switch scriptInput {
@@ -446,6 +453,14 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
                 }
             }
             publishedValue = .bool(output != 0)
+        case let .string(value):
+            var didInitialize: UInt32 = 0
+            (result, publishedValue) = callString(
+                value, initializing: false, expectedGeneration: expectedGeneration,
+                frame: &frameInput, scriptPropertiesJSON: scriptPropertiesJSON,
+                userPropertiesJSON: userPropertiesJSON,
+                didInitialize: &didInitialize, diagnostic: &diagnostic
+            )
         case .vector2, .vector3:
             let source: [Double]
             switch scriptInput {

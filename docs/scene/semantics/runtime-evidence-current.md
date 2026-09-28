@@ -6,6 +6,18 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-string-cursor-owner"></a>
+
+### E-2026-09-28-STRING-CURSOR-OWNER — 文字脚本共用 typed owner 并接入鼠标事件
+
+**合同/首断点：**公开[文字层](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/ITextLayer.html)和[cursor事件](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/cursor.html)提供可写text与Solid对象鼠标回调；实现漏把独立String owner注册给cursor。447bd17b真实Swift/C基线中init把计数设为10，cursorEnter应加一，但cursorOwners=0、输出仍10且无异常。现StringProgram使用现有SceneScriptValueOwner，同一VM与初始化结果借给cursor；删除496行旧String owner，只保留43行UTF-8 ABI转换helper。Scalar/Bool/Vec/String共用audio/media/storage/timer、mutation验证与提交/撤回。5产品路径净减424行；不新建owner、事件队列或合成器。String event-only仍直接提交text mutation，不照搬scalar的额外求值唤醒，避免旧返回值覆盖事件文字。
+
+**验证：**最终25项行为测试通过（String cursor、初始化事务、原String生命周期、scalar cursor、value视频命令），另23项property-vector、8项frame-routing和2项C媒体生命周期通过；6项语义/布局门通过。覆盖同VM初始化先于事件、init值进入首次update、Unicode/65536字节/NUL/超长/stale拒绝、拒帧后恢复cursor edge及重试、事件文字提交后休眠、媒体/定时器/视频及返回失败。删除测试中旧owner和编译顺序源码断言，由实际共享owner/初始化行为门承接；String lifecycle也移到共用编译fixture。初次新测试漏textStyle、whole-frame测试漏恢复cursor edges，以及旧property-vector桩缺solid，已修正夹具并验证；未放宽产品输入门。优化Debug构建及code-health通过（219既有warnings）。全库文档链接门仍有既存断链，未报全绿；本批旧String入口和相关当前API Value入口链接已更新。
+
+**实际App对照：**两份自有文字包各6秒，290有init/update和enter/leave颜色变化，291只有init/enter/leave写text及颜色。基线两组无事件且红色像素不变，通用矩阵0/2；候选2/2 PASS，均enter/leave各一次、红→绿→红。290红色像素439037→hover绿色417834→after红色417834，支持计数文字变化（完整计数由VM门确认，截图边缘有裁切）；291实际原图READY→HOVER→READY，像素434427→444672→434427，补齐事件型文字的最终优先级。两组text layer10实际加载，0 image候选的loaded ratio不用于文字验收。候选submitted/completed/failed/presented分别111/110/0/109、110/110/0/109；这是直接文字纹理到唯一compositor，按动态文字publication日志、完成/呈现及后继终端截图核验，不虚构graph publication。3211615441原包只读隔离副本、固定PCM、8秒点击回归1/1 PASS，166/165/0/163。
+
+**身份/边界：**App 2.10.0(279)，基线SHA256 `76874e43e5f5549f505d173251bf15b709dba8901e2907e464d04eb4c51a18a0`；候选SHA256 `d6ff2a8d9b0b75549f4489d254ca6664f1f884971db185cd7be85fb465858543`、CDHash `0189a1fa84bc10c523e0098e8faddb9182ea4e78`，运行前后验签通过。冻结产品/测试/manifest补丁SHA256 `b1f9dc31d2978bd8f26936adc9bb698ad070c9bf4ddcfc0178a8cea95196f344`，独立只读审查APPROVE。未证明任意JS堆撤回、所有side effects、文字布局尺度、真实Workshop文字cursor全覆盖、多屏、性能或官方parity；原生文字图像和其他脚本副作用仍按独立切片推进。忽略缓存`2026-09-28-string-cursor-owner`保留基线/候选/真实报告和原图、输入、像素/事件指标、测试/构建/审查及冻结补丁。
+
 <a id="e-2026-09-28-dynamic-solid"></a>
 
 ### E-2026-09-28-DYNAMIC-SOLID — 脚本交互开关进入统一帧事务

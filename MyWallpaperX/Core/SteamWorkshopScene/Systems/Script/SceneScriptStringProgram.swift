@@ -43,7 +43,7 @@ nonisolated struct SceneScriptStringProgramConstruction: @unchecked Sendable {
 /// output still publishes through the shared typed snapshot and compositor.
 nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
     let definitions: [SceneDynamicTargetDefinition]
-    let bindings: [SceneScriptStringOwner]
+    let bindings: [SceneScriptValueOwner]
     let inputTargets: Set<SceneDynamicTarget>
     let inputValueTypes: Set<SceneDynamicValueType>
     private let bindingIndicesByTarget: [SceneDynamicTarget: Int]
@@ -143,7 +143,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         let requestedTargets = Set(candidates.compactMap { candidate in
             counts[candidate.2] == 1 ? candidate.2 : nil
         }).subtracting(rejectedTargets)
-        var owners: [SceneScriptStringOwner] = []
+        var owners: [SceneScriptValueOwner] = []
         var propertyInputsByTarget:
             [SceneDynamicTarget: [String: SceneScriptPropertyInput]] = [:]
         var livePropertyInputTargetsByTarget:
@@ -159,21 +159,19 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 continue
             }
             do {
-                guard let propertiesJSON =
-                        SceneScriptPropertyInputCodec.scriptPropertiesJSON(
-                            properties,
-                            effectiveValues: [:]
-                        ) else {
+                guard SceneScriptPropertyInputCodec.scriptPropertiesJSON(
+                    properties, effectiveValues: [:]
+                ) != nil else {
                     failures[target] = .invalidArgument(
                         "SceneScript properties unavailable"
                     )
                     continue
                 }
-                owners.append(try SceneScriptStringOwner(
+                owners.append(try SceneScriptValueOwner(
                     domain: domain,
                     source: binding.source,
                     target: target,
-                    scriptPropertiesJSON: propertiesJSON,
+                    valueType: .string,
                     effectNames: effects,
                     hasCurrentAnimation: timelineTargets.contains(target),
                     generation: generation,
@@ -279,7 +277,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
     }
 
     private init(
-        bindings: [SceneScriptStringOwner],
+        bindings: [SceneScriptValueOwner],
         authoredValues: [SceneDynamicTarget: String],
         authoredOrdinals: [SceneDynamicTarget: Int] = [:],
         propertyInputsByTarget:
@@ -324,6 +322,18 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         }
     }
 
+    var cursorOwnerRegistrations: [SceneScriptCursorOwnerRegistration] {
+        zip(bindings, definitions).compactMap { owner, definition in
+            guard !owner.exportedCursorEvents.isEmpty,
+                  let layerID = SceneScriptLayerMutationBridge.layerID(for: owner.target) else { return nil }
+            return .init(
+                layerID: layerID, authoredOrdinal: authoredOrdinals[owner.target, default: 0],
+                target: owner.target, seedValue: definition.authoredValue, owner: owner,
+                scriptProperties: propertyInputsByTarget[owner.target] ?? [:]
+            )
+        }
+    }
+
     var mediaOwnerRegistrations: [SceneScriptMediaOwnerRegistration] {
         bindings.compactMap { binding in
             guard binding.handlesMediaPlayback
@@ -364,7 +374,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         var animations: [SceneTimelinePlaybackMutation] = []
         var layerMutations: [SceneScriptLayerMutation] = []
         var ownerEffects: [SceneScriptOwnerEffects] = []
-        let selectedBindings: ArraySlice<SceneScriptStringOwner>
+        let selectedBindings: ArraySlice<SceneScriptValueOwner>
         if let targetFilter, let index = bindingIndicesByTarget[targetFilter] {
             selectedBindings = bindings[index...index]
         } else if targetFilter != nil {
@@ -443,7 +453,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 || properties != nil || thumbnail != nil
                 || timeline != nil {
                 switch binding.initializeIfNeeded(
-                    input: current,
+                    input: .string(current),
                     frame: frame,
                     scriptPropertiesJSON: propertiesJSON,
                     userPropertiesJSON: userPropertiesJSON,
@@ -566,7 +576,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 continue
             }
             switch binding.evaluate(
-                input: current,
+                input: .string(current),
                 frame: frame,
                 scriptPropertiesJSON: propertiesJSON,
                 userPropertiesJSON: userPropertiesJSON,
@@ -738,7 +748,10 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             }
             return binding.teardown(
                 frame: frame,
-                scriptPropertiesJSON: propertiesJSON,
+                scriptPropertiesJSON: propertiesJSON
+                    ?? SceneScriptPropertyInputCodec.scriptPropertiesJSON(
+                        propertyInputsByTarget[binding.target] ?? [:], effectiveValues: [:]
+                    ) ?? "",
                 userPropertiesJSON: userPropertiesJSON
             )
         }
@@ -746,7 +759,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
 
     private func dispatch(
         _ result: Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure>,
-        binding: SceneScriptStringOwner,
+        binding: SceneScriptValueOwner,
         materialFunctions: inout [SceneScriptMaterialFunctionMutation],
         animations: inout [SceneTimelinePlaybackMutation],
         layers: inout [SceneScriptLayerMutation],

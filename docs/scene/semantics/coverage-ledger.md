@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-28 文字脚本鼠标事件与 String owner 退役
+
+StringProgram现复用SceneScriptValueOwner，cursor借用同一实例，删除独立String owner；产品净减424行。初始化、媒体、定时器、storage及失败事务保留，事件型thisLayer.text沿原mutation进入合成且提交后休眠。自有实际文字READY→HOVER→READY、更新型计数与颜色变化、3211615441点击回归及25项聚焦行为门通过，见[证据](runtime-evidence-current.md#e-2026-09-28-string-cursor-owner)。不声明文字布局、全部side effects、任意JS堆撤回、多屏或官方parity；全库文档链接门仍有既存欠账。
+
 ## 2026-09-28 作者 Solid 开关进入鼠标命中
 
 作者显式solid:false及其value包装沿SceneDocument→prepared Layer控制唯一cursor命中出口；[静态批](runtime-evidence-current.md#e-2026-09-28-cursor-solid)已通过五组实际App正反例。后继把thisLayer.solid getter/setter接入原C journal/快照、Swift mutation与typed帧值，下一帧回送getter，普通update继续执行；不重建图或增加交互状态表。[动态批](runtime-evidence-current.md#e-2026-09-28-dynamic-solid)41项定向门、init双向实际App及3211615441点击回归通过。nil维持既有默认，不推定官方默认值；属性热调、实际按下中途关闭/重开、可见性/遮挡及其他命中合同仍开放。旧capture release保留up、无当前hit不发click，不宣称官方capture parity。

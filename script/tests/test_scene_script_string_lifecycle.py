@@ -12,188 +12,9 @@ import tempfile
 import unittest
 
 
-ROOT = Path(__file__).resolve().parents[2]
-SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-VM = SCENE / "Systems/Script"
-QUICKJS = VM / "QuickJSNG"
-SOURCES = [
-    SCENE / "Format/SceneJSONValue.swift",
-    SCENE / "Format/SceneScriptBindingDefinition.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAttachmentFrameSnapshot.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneTextureAnimationControl.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerWorldFrameResolver.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptPropertyInput.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarRuntime.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLocalStorage.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptOwnerLifecycleBridge.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptAnimationHandleBridge.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptAudioHost.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptEffectHandleBridge.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerHandleBridge.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerRuntimeDescriptorBridge.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerWorldTransformProjection.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerWorldTransformPublication.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptMediaEventBridge.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptQuickJSProgramCandidateModels.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptStringProgram.swift",
-    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptStringRuntime.swift",
-]
+from .scene_vector_vm_test_support import compile_vector_harness, ROOT
 
 HARNESS = r'''
-import Foundation
-
-struct SceneScriptUserPropertyInputDefinition {
-    let userPropertyKey: String
-    let fallback: SceneJSONValue
-    let condition: SceneUserPropertyValue?
-}
-
-enum SceneScriptUserPropertyInputContract {
-    static func dynamicInput(
-        _ value: SceneJSONValue
-    ) -> SceneScriptUserPropertyInputDefinition? {
-        guard case let .object(wrapper) = value,
-              wrapper.keys.sorted() == ["user", "value"],
-              case let .string(key)? = wrapper["user"],
-              validName(key),
-              let fallback = wrapper["value"] else { return nil }
-        switch fallback {
-        case let .number(number) where number.isFinite:
-            return .init(
-                userPropertyKey: key, fallback: fallback, condition: nil
-            )
-        case .bool, .string:
-            return .init(
-                userPropertyKey: key, fallback: fallback, condition: nil
-            )
-        default:
-            return nil
-        }
-    }
-
-    static func validName(_ value: String) -> Bool {
-        !value.isEmpty && value != "__proto__" && value.utf8.count <= 256
-    }
-}
-
-enum SceneScriptPropertyTargetPath {
-    static func keyComponent(_ key: String) -> String {
-        "k:\(key.utf8.count):\(key)"
-    }
-
-    static func indexComponent(_ index: Int) -> String { "i:\(index)" }
-}
-
-struct SceneFrameTiming {
-    let wallDate: Date
-    let simulationFrameTime: TimeInterval
-    let sceneTime: TimeInterval
-}
-
-final class SceneMediaThumbnailInbox {
-    struct Snapshot {
-        struct Properties {
-            let title, artist, subTitle, albumTitle, albumArtist, genres, contentType: String
-        }
-        struct Timeline { let position, duration: Double }
-        let current: Data?
-        let primaryColor: SIMD3<Double>?
-        let secondaryColor: SIMD3<Double>?
-        let tertiaryColor: SIMD3<Double>?
-        let textColor: SIMD3<Double>?
-        let highContrastColor: SIMD3<Double>?
-        let generation: UInt64
-        let playbackState: Int?
-        let playbackGeneration: UInt64
-        let properties: Properties?
-        let propertiesGeneration: UInt64
-        let timeline: Timeline?
-        let timelineGeneration: UInt64
-    }
-}
-
-struct SceneTextScriptDefinition {
-    let source: String
-}
-
-struct SceneScriptMaterialFunctionMutation: Equatable, Sendable {
-    let layerID: Int
-    let effectIndex: Int
-    let functionName: String
-}
-
-enum SceneTimelinePlaybackCommand: String, Equatable, Sendable {
-    case play
-    case pause
-    case stop
-}
-
-struct SceneTimelinePlaybackMutation: Equatable, Sendable {
-    let target: SceneDynamicTarget
-    let command: SceneTimelinePlaybackCommand
-}
-
-struct SceneRenderDescriptor {
-    enum SceneShaderUserValueKind { case null, string }
-    struct Camera { var orthoHeight: Float? = nil }
-    var camera = Camera()
-
-    struct TextStyle {
-        let fontPath: String?
-        let colorRGB: [Float]?
-        let pointSize: Float?
-    }
-
-    struct ShaderValue {
-        let scriptSource: String?
-        let components: [Double]?
-        let userValueKind: SceneShaderUserValueKind?
-    }
-
-    struct PassDescriptor {
-        let passIndex: Int
-        let id: Int?
-        let constantShaderValues: [String: ShaderValue]
-    }
-
-    struct EffectDescriptor {
-        let visible: Bool? = nil
-        var id: String { String(effectID ?? 0) }
-        let name: String?
-        let effectID: Int?
-        let passes: [PassDescriptor]
-    }
-
-    struct Layer {
-        let id: Int
-        let layerIndex: Int
-        let name: String?
-        let parentID: Int? = nil
-        let visible: Bool?
-        let originXYZ: [Float]?
-        let sizeWH: [Float]? = nil
-        let scaleXYZ: [Float]?
-        let anglesXYZ: [Float]?
-        let colorRGB: [Float]?
-        let alpha: Double?
-        let effects: [EffectDescriptor]
-        let contentKind: String
-        let textScript: SceneTextScriptDefinition?
-        let text: String?
-        let textStyle: TextStyle?
-        var parentAttachmentBindFrame: [Float]? = nil
-        var attachmentName: String? = nil
-    }
-
-    let layers: [Layer]
-}
-
 @main
 enum Harness {
     static func main() throws {
@@ -537,19 +358,19 @@ enum Harness {
         program.finalizeLayerMutations(committing: true)
         // Observe evaluated module/timer/teardown effects from a peer in the
         // same real VM. No source-text or internal-symbol assertions.
-        let witness = try SceneScriptStringOwner(
+        let witness = try SceneScriptValueOwner(
             domain: domain,
             source: "export function update(v) { return String(globalThis.admitted || 0); }",
-            target: target, effectNames: [], generation: 1
+            target: target, valueType: .string, effectNames: [], generation: 1, budget: .default
         )
         let beforeTeardown = try witness.evaluate(
-            input: "", frame: frame, userPropertiesJSON: "{}", expectedGeneration: 1
+            input: .string(""), frame: frame, scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil
         ).get().value
         witness.commitLayerMutations()
         let teardown = program.teardown(frame: frame, userPropertiesJSON: "{}")
         let repeated = program.teardown(frame: frame, userPropertiesJSON: "{}")
         let afterTeardown = try witness.evaluate(
-            input: "", frame: frame, userPropertiesJSON: "{}", expectedGeneration: 1
+            input: .string(""), frame: frame, scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil
         ).get().value
         witness.commitLayerMutations()
         func string(_ value: SceneDynamicValue) -> String {
@@ -690,76 +511,8 @@ enum Harness {
 class SceneScriptStringLifecycleTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        clang = shutil.which("clang")
-        if clang is None:
-            raise unittest.SkipTest("clang is required")
         cls.temp_dir = tempfile.TemporaryDirectory(prefix="mwx-scene-string-life-")
-        temporary = Path(cls.temp_dir.name)
-        objects: list[Path] = []
-        for source in [
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSValueHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSAnimationHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSModuleHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSAudioHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSMediaEventHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSHandleHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSnapshotHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSStorageHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSJobHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSTimerHost.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/quickjs.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/dtoa.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/libregexp.c",
-            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/libunicode.c",
-        ]:
-            output = temporary / f"{source.stem}.o"
-            subprocess.run(
-                [
-                    clang,
-                    "-std=c11",
-                    "-O0",
-                    "-c",
-                    str(source),
-                    "-o",
-                    str(output),
-                    "-I",
-                    str(VM),
-                    "-I",
-                    str(QUICKJS),
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            objects.append(output)
-        harness = temporary / "Harness.swift"
-        harness.write_text(HARNESS, encoding="utf-8")
-        cls.binary = temporary / "scene-script-string-lifecycle"
-        compilation = subprocess.run(
-            [
-                "xcrun",
-                "swiftc",
-                "-parse-as-library",
-                "-O",
-                "-import-objc-header",
-                str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.h"),
-                "-Xcc",
-                f"-I{VM}",
-                "-o",
-                str(cls.binary),
-                *map(str, SOURCES),
-                str(harness),
-                *map(str, objects),
-                "-Xlinker",
-                "-lm",
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if compilation.returncode != 0:
-            raise AssertionError(compilation.stdout + compilation.stderr)
+        cls.binary = compile_vector_harness(Path(cls.temp_dir.name), HARNESS, "string-lifecycle")
 
     @classmethod
     def tearDownClass(cls) -> None:

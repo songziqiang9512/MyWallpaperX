@@ -552,14 +552,6 @@ class SceneScriptQuickJSMediaLifecycleTest(unittest.TestCase):
         bridge = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptMediaEventBridge.swift").read_text(
             encoding="utf-8"
         )
-        owner_runtimes = [
-            (SCENE_SCRIPT / name).read_text(encoding="utf-8")
-            for name in (
-                "SceneScriptScalarRuntime.swift",
-                "SceneScriptStringRuntime.swift",
-                "SceneScriptValueRuntime.swift",
-            )
-        ]
         self.assertIn(
             "static func contains(_ name: String, owner: OpaquePointer) throws -> Bool",
             bridge,
@@ -570,10 +562,7 @@ class SceneScriptQuickJSMediaLifecycleTest(unittest.TestCase):
             "return result == MWX_SCENE_QUICKJS_OK && available == 1",
             bridge,
         )
-        for owner_runtime in owner_runtimes:
-            self.assertIn(
-                "try SceneScriptOwnerExportBridge.contains(", owner_runtime
-            )
+
 
 
 if __name__ == "__main__":

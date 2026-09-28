@@ -754,7 +754,7 @@
           "SceneScriptScalarProgram.swift",
           "SceneScriptScalarRuntime.swift",
           "SceneScriptStringProgram.swift",
-          "SceneScriptStringRuntime.swift",
+          "SceneScriptValueOwner+String.swift",
           "SceneScriptVectorCandidateCatalog.swift",
           "SceneScriptVectorCandidateModels.swift",
           "SceneScriptVectorMediaRouteCandidate.swift",

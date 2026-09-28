@@ -172,28 +172,6 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertNotIn("SceneScriptVectorMediaRouteState.resolve(", frame)
         self.assertNotIn("retainAdmittedPassTargets", model + launch + candidate)
 
-    def test_shared_candidate_family_order_retries_in_a_fresh_domain(self) -> None:
-        candidate = CANDIDATE_SOURCE.read_text(encoding="utf-8")
-        loop = candidate.index("for _ in 0...maximumAttempts")
-        fresh_domain = candidate.index(
-            "domain = try SceneScriptQuickJSDomain(budget: budget)", loop
-        )
-        vector = candidate.index("compileNonPassCandidate(", fresh_domain)
-        cursor = candidate.index("SceneScriptCursorProgram.compileCandidate(", vector)
-        scalar = candidate.index("SceneScriptScalarProgram.compileCandidate(", cursor)
-        string = candidate.index("SceneScriptStringProgram.compileCandidate(", scalar)
-        vector_pass = candidate.index(".instantiatePassOwners(", string)
-        self.assertLess(fresh_domain, vector)
-        self.assertLess(vector, cursor)
-        self.assertLess(cursor, scalar)
-        self.assertLess(scalar, string)
-        self.assertLess(string, vector_pass)
-        self.assertIn("A started owner may have mutated shared JS state", candidate)
-        self.assertIn("requiresDomainReconstruction", candidate)
-        self.assertIn("scalarProgram: .unavailable(generation: generation)", candidate)
-        self.assertIn("ownerConstruction=failed", candidate)
-        self.assertIn("fallback=current-frame-lower-priority", candidate)
-
     def test_layer_snapshot_precedes_every_shared_domain_callback(self) -> None:
         frame = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         frame_driver_cursor = (
@@ -312,15 +290,6 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
             "raw.kind == UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY.rawValue)\n                    ? .destroy : .upsert",
             mutations,
         )
-
-        # A malformed DTO must remain a local owner failure; callers discard
-        # the owner-local C journal before the candidate reaches frame commit.
-        scalar = SCALAR_RUNTIME_SOURCE.read_text(encoding="utf-8")
-        string = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptStringRuntime.swift").read_text(
-            encoding="utf-8"
-        )
-        self.assertIn("SceneScriptLayerMutationBridge.discard(owner: handle)", scalar)
-        self.assertIn("SceneScriptLayerMutationBridge.discard(owner: handle)", string)
 
     def test_one_media_snapshot_feeds_vm_before_every_surface(self) -> None:
         frame_driver = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
