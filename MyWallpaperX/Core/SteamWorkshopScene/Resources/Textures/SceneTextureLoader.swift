@@ -267,8 +267,8 @@ final class SceneTextureLoader {
             resource = cached
         } else {
             directImageDecodeAttemptCount += 1
-            if let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
-               let image = CGImageSourceCreateImageAtIndex(imageSource, 0, nil) {
+            if let data = try? Data(contentsOf: url, options: .mappedIfSafe),
+               let image = SceneImageTextureUploader.decodeSourceImage(data) {
                 resource = .decoded(image)
             } else {
                 resource = .failed(
@@ -532,8 +532,7 @@ final class SceneTextureLoader {
         mipmapGeneration: SceneImageTextureUploader.MipmapGeneration,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+        guard let cgImage = SceneImageTextureUploader.decodeSourceImage(data) else {
             return .decodeFailed("embedded image decode failed")
         }
         return SceneImageTextureUploader.upload(

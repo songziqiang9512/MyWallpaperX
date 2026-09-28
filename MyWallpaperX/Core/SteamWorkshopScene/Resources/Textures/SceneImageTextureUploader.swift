@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 import ImageIO
 import Metal
+import zlib
 
 /// One device-scoped upload queue shared by launch/resource owners. Metal
 /// command queues are thread-safe; serial command-buffer order remains local
@@ -59,6 +60,140 @@ nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
 }
 
 enum SceneImageTextureUploader {
+    /// ImageIO may erase RGB at zero alpha even when it reports straight RGBA.
+    /// Keep the PNG source bytes for data consumers and the original color space
+    /// for color consumers; both continue through the existing uploader/cache.
+    static func decodeSourceImage(_ data: Data) -> CGImage? {
+        let signature: [UInt8] = [137, 80, 78, 71, 13, 10, 26, 10]
+        let rgbaPNG = data.starts(with: signature) && data.count >= 33
+            && data[data.startIndex + 24] == 8 && data[data.startIndex + 25] == 6
+        let rgba: Data?
+        if rgbaPNG {
+            func integer(_ offset: Int) -> Int {
+                (0..<4).reduce(0) { ($0 << 8) | Int(data[data.startIndex + offset + $1]) }
+            }
+            guard let decoded = decodeRGBA8PNG(data, width: integer(16), height: integer(20))
+            else { return nil }
+            rgba = decoded
+        } else {
+            rgba = nil
+        }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+        guard let rgba else { return image }
+        guard supports2DExtent(width: image.width, height: image.height),
+              rgba.count == image.width * image.height * 4,
+              let provider = CGDataProvider(data: rgba as CFData),
+              let space = image.colorSpace, space.model == .rgb else { return nil }
+        return CGImage(width: image.width, height: image.height,
+            bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: image.width * 4,
+            space: space, bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
+            provider: provider, decode: nil, shouldInterpolate: false, intent: image.renderingIntent)
+    }
+
+    /// PNG RGBA8, including every row filter and Adam7 pass. zlib owns inflate
+    /// and checksums; metadata/color interpretation stays with ImageIO.
+    /// https://www.w3.org/TR/png-3/#9Filters
+    private static func decodeRGBA8PNG(_ data: Data, width: Int, height: Int) -> Data? {
+        let maximumBytes = 256 * 1_024 * 1_024
+        guard supports2DExtent(width: width, height: height),
+              width <= maximumBytes / 4 / height,
+              data.count <= 64 * 1_024 * 1_024 else { return nil }
+        let bytes = [UInt8](data)
+        func integer(_ offset: Int) -> Int {
+            (0..<4).reduce(0) { ($0 << 8) | Int(bytes[offset + $1]) }
+        }
+        guard integer(8) == 13, integer(12) == 0x49484452,
+              integer(16) == width, integer(20) == height,
+              bytes[24] == 8, bytes[25] == 6, bytes[26] == 0,
+              bytes[27] == 0, bytes[28] <= 1 else { return nil }
+        var offset = 8, compressed = [UInt8]()
+        var sawData = false, endedData = false, sawEnd = false
+        while offset <= bytes.count - 12 {
+            let count = integer(offset), kind = integer(offset + 4)
+            guard count <= bytes.count - offset - 12 else { return nil }
+            let end = offset + 8 + count
+            let checksum = bytes.withUnsafeBufferPointer {
+                crc32(0, $0.baseAddress! + offset + 4, uInt(count + 4))
+            }
+            guard checksum == uLong(integer(end)) else { return nil }
+            if kind == 0x49484452 {
+                guard offset == 8 else { return nil }
+            } else if kind == 0x49444154 {
+                guard !endedData else { return nil }
+                sawData = true
+                compressed.append(contentsOf: bytes[(offset + 8)..<end])
+            } else {
+                if sawData { endedData = true }
+                if kind == 0x49454E44 {
+                    guard count == 0, sawData, end + 4 == bytes.count else { return nil }
+                    sawEnd = true
+                    break
+                }
+                // PLTE is optional for RGBA; unknown critical chunks are unsafe.
+                if bytes[offset + 4] & 32 == 0 && kind != 0x504C5445 { return nil }
+            }
+            offset = end + 4
+        }
+        guard sawEnd, !compressed.isEmpty else { return nil }
+        let passes: [(Int, Int, Int, Int)] = bytes[28] == 0
+            ? [(0, 0, 1, 1)]
+            : [(0, 0, 8, 8), (4, 0, 8, 8), (0, 4, 4, 8),
+               (2, 0, 4, 4), (0, 2, 2, 4), (1, 0, 2, 2), (0, 1, 1, 2)]
+        func extent(_ size: Int, _ start: Int, _ step: Int) -> Int {
+            size <= start ? 0 : (size - start + step - 1) / step
+        }
+        let inflatedCount = passes.reduce(0) { total, pass in
+            let columns = extent(width, pass.0, pass.2)
+            let rows = extent(height, pass.1, pass.3)
+            return total + (columns == 0 ? 0 : (columns * 4 + 1) * rows)
+        }
+        var inflated = [UInt8](repeating: 0, count: inflatedCount)
+        var outputCount = uLongf(inflatedCount), inputCount = uLong(compressed.count)
+        let status = uncompress2(&inflated, &outputCount, compressed, &inputCount)
+        guard status == Z_OK, outputCount == inflatedCount,
+              inputCount == compressed.count else { return nil }
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        var cursor = 0
+        for (startX, startY, stepX, stepY) in passes {
+            let columns = extent(width, startX, stepX), rows = extent(height, startY, stepY)
+            guard columns > 0, rows > 0 else { continue }
+            let rowBytes = columns * 4
+            var previous = [UInt8](repeating: 0, count: rowBytes)
+            for rowIndex in 0..<rows {
+                let filter = inflated[cursor]
+                guard filter <= 4 else { return nil }
+                cursor += 1
+                var row = Array(inflated[cursor..<(cursor + rowBytes)])
+                cursor += rowBytes
+                for index in 0..<rowBytes {
+                    let left = index < 4 ? 0 : Int(row[index - 4])
+                    let above = Int(previous[index])
+                    let upperLeft = index < 4 ? 0 : Int(previous[index - 4])
+                    let prediction: Int
+                    switch filter {
+                    case 1: prediction = left
+                    case 2: prediction = above
+                    case 3: prediction = (left + above) / 2
+                    case 4:
+                        let p = left + above - upperLeft
+                        let a = abs(p - left), b = abs(p - above), c = abs(p - upperLeft)
+                        prediction = a <= b && a <= c ? left : (b <= c ? above : upperLeft)
+                    default: prediction = 0
+                    }
+                    row[index] &+= UInt8(prediction)
+                }
+                let y = startY + rowIndex * stepY
+                for x in 0..<columns {
+                    let destination = (y * width + startX + x * stepX) * 4
+                    pixels.replaceSubrange(destination..<(destination + 4), with: row[(x * 4)..<(x * 4 + 4)])
+                }
+                previous = row
+            }
+        }
+        return Data(pixels)
+    }
+
     // The supported macOS Metal GPU families allow at most 16384 per 2D axis.
     // makeTexture can assert on an invalid descriptor instead of returning nil.
     static func supports2DExtent(width: Int, height: Int) -> Bool {
@@ -141,8 +276,7 @@ enum SceneImageTextureUploader {
         guard orientation == 1 else {
             return .failure(.nonIdentityOrientation(orientation))
         }
-        let decodeOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let image = CGImageSourceCreateImageAtIndex(imageSource, 0, decodeOptions) else {
+        guard let image = decodeSourceImage(encodedSource) else {
             return .failure(.decodeUnavailable)
         }
         guard image.width == width, image.height == height else {

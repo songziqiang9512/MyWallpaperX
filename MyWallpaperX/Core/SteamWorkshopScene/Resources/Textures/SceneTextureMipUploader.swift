@@ -31,8 +31,7 @@ enum SceneTextureMipUploader {
               let mip = container.mips.first,
               mip.depth == container.textureDepth,
               isEmbeddedImage(mip.data),
-              let source = CGImageSourceCreateWithData(mip.data as CFData, nil),
-              let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
+              let image = SceneImageTextureUploader.decodeSourceImage(mip.data),
               image.width == mip.width,
               image.height == mip.height * mip.depth,
               let rgba = SceneImageTextureUploader.rgbaData(
@@ -189,11 +188,8 @@ enum SceneTextureMipUploader {
 
     static func decodeEmbeddedImages(_ payloads: [Data]) -> [CGImage]? {
         let images = payloads.compactMap { data -> CGImage? in
-            guard isEmbeddedImage(data),
-                  let source = CGImageSourceCreateWithData(data as CFData, nil) else {
-                return nil
-            }
-            return CGImageSourceCreateImageAtIndex(source, 0, nil)
+            guard isEmbeddedImage(data) else { return nil }
+            return SceneImageTextureUploader.decodeSourceImage(data)
         }
         return images.count == payloads.count ? images : nil
     }

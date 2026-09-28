@@ -33,7 +33,6 @@ SOURCES = [
 ]
 
 HARNESS = r'''
-import AppKit
 import CoreGraphics
 import Foundation
 import ImageIO
@@ -244,33 +243,6 @@ let a = png(red: 255, green: 0, blue: 0)
 let b = png(red: 0, green: 255, blue: 0)
 // Fixed RGBA PNG scanlines retain hidden RGB; ImageIO encoders may zero it.
 let c = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAYAAAC56t6BAAAAEUlEQVR4nGN4LjiVAYQZMBgAhEsJT05cFgAAAAAASUVORK5CYII=")!
-func decodedSourceProbe(_ cache: Bool) -> [String: Any] {
-    let source = CGImageSourceCreateWithData(c as CFData, nil)!
-    let image = CGImageSourceCreateImageAtIndex(source, 0,
-        [kCGImageSourceShouldCache: cache] as CFDictionary)!
-    let bytes = image.dataProvider!.data! as Data
-    return ["alpha": image.alphaInfo.rawValue, "layout": image.bitmapInfo.rawValue,
-            "bytes": Array(bytes.prefix(8))]
-}
-func alternateSourceProbes() -> [String: Any] {
-    func describe(_ image: CGImage?) -> [String: Any] {
-        guard let image, let bytes = image.dataProvider?.data else { return [:] }
-        return ["alpha": image.alphaInfo.rawValue, "layout": image.bitmapInfo.rawValue,
-                "bits": image.bitsPerComponent, "bytes": Array((bytes as Data).prefix(16))]
-    }
-    let provider = CGDataProvider(data: c as CFData)!
-    let png = CGImage(pngDataProviderSource: provider, decode: nil,
-                      shouldInterpolate: false, intent: .defaultIntent)
-    let bitmap = NSBitmapImageRep(data: c)
-    let source = CGImageSourceCreateWithData(c as CFData, nil)!
-    let floating = CGImageSourceCreateImageAtIndex(source, 0,
-        [kCGImageSourceShouldAllowFloat: true] as CFDictionary)
-    let immediate = CGImageSourceCreateImageAtIndex(source, 0,
-        [kCGImageSourceShouldCacheImmediately: true] as CFDictionary)
-    return ["pngProvider": describe(png), "bitmapCG": describe(bitmap?.cgImage),
-            "bitmapRaw": bitmap?.bitmapData.map { Array(UnsafeBufferPointer(start: $0, count: 8)) } ?? [],
-            "floating": describe(floating), "immediate": describe(immediate)]
-}
 let initialEmpty = store.snapshot()
 
 _ = inbox.publish(a)
@@ -861,8 +833,6 @@ let result: [String: Any] = [
     "generation": third.generation,
     "currentPixel": pixel(third.current?.texture),
     "preservedCurrentPixel": pixel(third.preservedCurrent?.texture),
-    "sourceDecodeProbe": ["cached": decodedSourceProbe(true), "uncached": decodedSourceProbe(false),
-                          "alternatives": alternateSourceProbes()],
     "currentPublicationComplete": third.current?.isComplete == true,
     "preservedPublicationComplete": third.preservedCurrent?.isComplete == true,
     "initialPreviousUnavailable":
@@ -1454,7 +1424,7 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertTrue(result["initialPendingExact"])
         self.assertTrue(result["initialPendingStatesExact"])
         self.assertEqual(result["currentPixel"], [0, 0, 0, 0])
-        self.assertEqual(result["preservedCurrentPixel"], [231, 17, 149, 0], result["sourceDecodeProbe"])
+        self.assertEqual(result["preservedCurrentPixel"], [231, 17, 149, 0])
         self.assertTrue(result["currentPublicationComplete"])
         self.assertTrue(result["preservedPublicationComplete"])
         self.assertTrue(result["initialPreviousUnavailable"])
