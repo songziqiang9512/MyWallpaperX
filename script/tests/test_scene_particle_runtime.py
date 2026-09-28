@@ -314,6 +314,8 @@ enum Harness {
             try printJSON(syntheticWorldSpacePointerEmitter())
         case "audio-bounds-gate":
             try printJSON(syntheticAudioBoundsGate())
+        case "worldspace-rope-trail":
+            try printJSON(syntheticWorldSpaceRopeTrail())
         case "pointer-demand-real":
             guard CommandLine.arguments.count == 7 else {
                 throw HarnessError.missingMode
@@ -2072,6 +2074,78 @@ enum Harness {
     /// `audioprocessingmode` only selects the channel. A bounds-only emitter
     /// (corpus: 8 emitters / 8 samples, e.g. 3665307769 red_fire) must stay
     /// silent without audio and emit with it.
+    /// The pointer-trail rope family (2986218263 and five more samples):
+    /// world system, pointer-locked CP0 with an implicit emitter source, and
+    /// a rope renderer with flags=1 / subdivision=100 / maxcount=256.
+    private static func syntheticWorldSpaceRopeTrail() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mwx-particle-worldspace-rope-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 256, "flags": 1,
+            "controlpoint": [["id": 0, "flags": 1, "offset": "0 0 0"]],
+            "emitter": [[
+                "name": "sphererandom", "rate": 120, "flags": 2,
+                "distancemin": 0, "distancemax": 0,
+            ]],
+            "initializer": [
+                ["name": "lifetimerandom", "min": 0.5, "max": 0.5],
+                ["name": "sizerandom", "min": 8, "max": 8],
+            ],
+            "renderer": [["name": "rope", "flags": 1, "subdivision": 100]],
+        ], to: directory.appendingPathComponent("particles/world-rope.json"))
+        let descriptor = SceneRenderDescriptor(
+            layers: [layer(111, "particles/world-rope.json")],
+            renderOrderLayerIDs: [111],
+            materialPasses: [
+                .init(
+                    materialPath: "materials/shared.json",
+                    shaderPath: "genericparticle",
+                    texturePaths: ["shared.png"],
+                    blending: "additive"
+                )
+            ]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw HarnessError.noMetal
+        }
+        let runtime = SceneParticleRuntime(
+            descriptor: descriptor,
+            cacheDirectory: directory,
+            device: device
+        )
+        // The trail is the birth history: hold the pointer at two positions
+        // so particles cluster around both and the connecting rope has real
+        // extent.
+        var batches: [SceneParticleDrawBatch] = []
+        for pointer in [SIMD3<Double>(40, 60, 0), SIMD3<Double>(240, 180, 0)] {
+            for _ in 0..<6 {
+                batches = runtime.advance(
+                    by: 1.0 / 60.0,
+                    pointerLocalPositions: [111: pointer]
+                )
+            }
+        }
+        let ropeInstances = (batches.first { $0.layerID == 111 })?.instances ?? []
+        let positions = ropeInstances.prefix(4).map {
+            [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+        }
+        return [
+            "activeLayerIDs": runtime.activeLayerIDs,
+            "instanceCount": ropeInstances.count,
+            "firstPositions": positions,
+            "demandedLayerIDs": Array(runtime.pointerControlPointLayerIDs),
+            "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
+            "ropeDiagnostic": runtime.diagnostics.contains {
+                $0.kind == .ropeRendererUnsupported && $0.layerID == 111
+            },
+        ]
+    }
+
     private static func syntheticAudioBoundsGate() throws -> [String: Any] {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
             "mwx-particle-audio-bounds-\(UUID().uuidString)",
@@ -4741,7 +4815,10 @@ class SceneParticleRuntimeTests(unittest.TestCase):
 
     def test_rope_runtime_connects_live_particles_and_fails_closed(self) -> None:
         result = self.run_harness("rope-synthetic")
-        self.assertEqual(result["activeLayerIDs"], [41, 45, 46, 48])
+        # Layer 44 carries the renderer world flag (bit0): admitted since the
+        # pointer-trail family batch — the spline is affine-invariant, so the
+        # local construction renders identically through the layer matrix.
+        self.assertEqual(result["activeLayerIDs"], [41, 44, 45, 46, 48])
         self.assertGreaterEqual(result["instanceCount"], 2)
         self.assertTrue(result["bufferMatches"])
         self.assertTrue(result["orientationScreen"])
@@ -4766,10 +4843,8 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             "ropeRendererUnsupported:43:rope:unsupportedProfile",
             result["diagnosticDetails"],
         )
-        self.assertIn(
-            "ropeRendererUnsupported:44:rope:unsupportedProfile",
-            result["diagnosticDetails"],
-        )
+        # Layer 44 (renderer world flag) no longer reports unsupported; its
+        # admission is covered by the activeLayerIDs assertion above.
         self.assertIn(
             "ropeRendererUnsupported:47:rope:unsupportedProfile",
             result["diagnosticDetails"],
@@ -4958,6 +5033,17 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertGreater(identityX, identityY * 4)
         self.assertGreater(rotatedY, rotatedX * 4)
         self.assertTrue(any(abs(y) > 0.01 for _, y, _ in rotated))
+
+    def test_world_space_rope_pointer_trail_renders(self) -> None:
+        result = self.run_harness("worldspace-rope-trail")
+        # The pointer-trail rope family profile (world system + pointer CP0 +
+        # rope renderer flags=1/subdivision=100/maxcount=256) is admitted and
+        # produces rope geometry following the pointer birth history.
+        self.assertIn(111, result["activeLayerIDs"])
+        self.assertIn(111, result["demandedLayerIDs"])
+        self.assertFalse(result["ropeDiagnostic"])
+        self.assertGreater(result["instanceCount"], 0)
+        self.assertTrue(result["firstPositions"])
 
     def test_audio_bounds_without_mode_gates_emission(self) -> None:
         result = self.run_harness("audio-bounds-gate")

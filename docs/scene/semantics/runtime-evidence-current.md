@@ -6,6 +6,16 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-rope-gate-admission"></a>
+
+### E-2026-09-28-ROPE-GATE-ADMISSION — rope renderer 放行指针拖尾家族（rope 恢复门 2 主体）
+
+**首断点与实现：**`SceneParticleRopePlan` 此前要求 `rawFlags == 0`、subdivision ≤7、生成段 ≤4,096——把指针拖尾家族（renderer flags=1/subdivision=100/maxcount=256，语料 6 样本，最坏 25,755 段）与 subdiv=16/maxcount=500 形态（8,483 段）整体拒在门外（`rope:unsupportedProfile`）。放行三处：`rawFlags & ~1 == 0`（仅 bit0；其余 flags 位仍拒）；`maximumSubdivisionCount` 7→100（语料作者上限）；`maximumGeneratedSegmentCount` 4,096→32,768。**bit0 依据（审查逐式核验）**：Catmull-Rom 样条仿射不变（Hermite 基权重和 1、切线纯位置差分、端点夹取与位置无关）——层本地建样条 + 渲染经层仿射模型矩阵 == 世界空间建样条 + 恒等，图像精确等价，无需第二几何路径；size 标量混合与 UV 路径无非仿射步骤。子绳聚合预算（8,192）未动——独立跨系统边界。
+
+**验证：**红先行——harness worldspace-rope-trail（world 系统+指针 CP0+隐式发射源+完整家族 profile）旧码层不入 activeLayerIDs；新码准入+需求注册+绳实例>0 跟随指针出生历史。粒子 16 模块（**显式逐个列出含 rope/rope_trail**）ALL OK；146 项套件（10 既有跳过）；两个锁定旧排除的断言按目标依据迁移（layer 44 准入；rope profile 契约重写：flags:2/3 锁仅 bit0、subdivision:101 锁作者上限、subdiv=100/mc=512（51,611>32,768）锁段预算、authoredTrailProfile 25,755 精确断言）；checkpoint 构建、code-health 通过。
+
+**真实回放（A/B 同 HEAD 基线）：**2986218263 指针三点轨迹——基线 FAIL `particle loading incomplete`（rope:unsupportedProfile，0/1）；候选 **PASS**（1/1 + pointerControlPointBounded），指针窗口可见发光绳带（并排图归档）。3665307769 回归——层 369 准入（rope+指针需求），red_fire 子模板 `outsideStrictStaticProfile` 排除（音频启用发射器在子 profile 外——音频门批审查预言的机制），红主像素数基线/候选一致（3941/3930 全局、3320/3320 中心）**红烟零复发**；层 146 触发 1a 冻结回退（运行时变换写入，设计行为）。**边界：**2986218263 的官方 parity（绳带宽度/UV/颜色与官方对照）、3665307769 层 369 子系统（getsuga `childScaleOutsideBoundedProfile`——"1 1 2" Z 独立超 profile，独立开放）、静态子绳 (4096,8192] 段形态（现于聚合预算内可准入）未逐一验收。两轮独立审查：首轮 REJECT 抓到 rope profile 契约测试未迁移（且指出 keyword 运行未含该模块）；迁移后复审 APPROVE（逐条边界验证全部精确）。冻结 product patch SHA256 `9b1d2d840c7eb0528051215765ba79f4abc1736ce6cc90aaf15dec1ae5e19bfa`、tests-v2 `e165313e0076c43c8272d335cdb6dc065c1c7f797f066ca127afad79252af5c9`；App 身份与四份回放报告/并排图见忽略缓存`2026-09-28-rope-gate-admission/`。
+
 <a id="e-2026-09-28-audio-bounds-gate"></a>
 
 ### E-2026-09-28-AUDIO-BOUNDS-GATE — 粒子音频门控按字段存在启用（rope 门 2 前置）

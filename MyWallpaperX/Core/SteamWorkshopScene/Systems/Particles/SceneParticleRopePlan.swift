@@ -5,8 +5,12 @@ import simd
 /// the public renderer behavior; malformed or unbounded profiles remain closed.
 nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
     static let maximumParticleCount = 512
-    static let maximumSubdivisionCount = 7
-    static let maximumGeneratedSegmentCount = 4_096
+    /// Corpus author ceiling: the pointer-trail family declares 100.
+    static let maximumSubdivisionCount = 100
+    /// Covers the corpus worst case (maxcount 256, subdivision 100 ->
+    /// 25,755 segments) and the subdivision-16/maxcount-500 shape (8,483).
+    /// Child rope aggregation keeps its own smaller cross-system budget.
+    static let maximumGeneratedSegmentCount = 32_768
     static let minimumUVScale = 1.0 / 1_024.0
     static let maximumUVScale = 1_024.0
 
@@ -28,11 +32,17 @@ nonisolated struct SceneParticleRopePlan: Equatable, Sendable {
         // spline to straight segments.
         let rawSubdivision = renderer.subdivision ?? 3
         let rawUVScale = renderer.uvScale ?? 1
+        // Renderer flag bit0 marks the pointer-trail rope family (all six
+        // corpus shapes with this profile). The Catmull-Rom spline is
+        // affine-invariant, so building it from layer-local positions and
+        // rendering through the layer's affine model matrix is
+        // image-identical to a world-space construction; no separate
+        // world-space geometry path is needed.
         guard rendererCount == 1,
               renderer.kind == .rope,
               renderer.orientation == nil || renderer.orientation == "screen",
               renderer.axis == nil,
-              renderer.rawFlags == 0,
+              renderer.rawFlags & ~1 == 0,
               renderer.length == nil,
               renderer.minimumLength == nil,
               renderer.maximumLength == nil,

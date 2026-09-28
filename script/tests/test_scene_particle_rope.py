@@ -70,20 +70,32 @@ enum Harness {
         let subdivisionProfile = plan([
             "name": "rope", "subdivision": 3,
         ], maximumCount: 32)
+        // The pointer-trail family profile (all six corpus shapes with this
+        // form): renderer flag bit0, authored subdivision ceiling, and the
+        // worst-case generated-segment count all stay inside the admission.
+        let authoredTrailProfile = plan([
+            "name": "rope", "flags": 1, "subdivision": 100,
+        ], maximumCount: 256)
         let smoothingProfile = plan([
             "name": "rope", "uvsmoothing": true,
         ], maximumCount: 3)
         let rejected = [
             plan(["name": "rope", "orientation": "upright"], maximumCount: 3),
             plan(["name": "rope", "axis": "0 0 1"], maximumCount: 3),
-            plan(["name": "rope", "flags": 1], maximumCount: 3),
+            // Only flag bit0 is admitted; other bits stay rejected.
+            plan(["name": "rope", "flags": 2], maximumCount: 3),
+            plan(["name": "rope", "flags": 3], maximumCount: 3),
             plan(["name": "rope", "length": 1], maximumCount: 3),
             plan(["name": "rope", "minlength": 1], maximumCount: 3),
             plan(["name": "rope", "maxlength": 1], maximumCount: 3),
             plan(["name": "rope", "segments": 2], maximumCount: 3),
             plan(["name": "rope", "subdivision": -1], maximumCount: 3),
             plan(["name": "rope", "subdivision": 1.5], maximumCount: 3),
-            plan(["name": "rope", "subdivision": 8], maximumCount: 3),
+            // The authored subdivision ceiling and the segment budget stay
+            // hard bounds: 101 exceeds the profile, and subdivision 100 with
+            // maxcount 512 exceeds the generated-segment budget.
+            plan(["name": "rope", "subdivision": 101], maximumCount: 3),
+            plan(["name": "rope", "subdivision": 100], maximumCount: 512),
             plan(["name": "rope", "subdivision": 7], maximumCount: 513),
             plan(["name": "rope", "fadealpha": false], maximumCount: 3),
             plan(["name": "rope", "fadesize": false], maximumCount: 3),
@@ -123,6 +135,9 @@ enum Harness {
             "uvScale": uvProfile?.uvScale ?? -1,
             "subdivisionProfileAccepted": subdivisionProfile != nil,
             "subdivisionCount": subdivisionProfile?.subdivisionCount ?? -1,
+            "authoredTrailProfileAccepted": authoredTrailProfile != nil,
+            "authoredTrailSubdivision": authoredTrailProfile?.subdivisionCount ?? -1,
+            "authoredTrailSegments": authoredTrailProfile?.maximumGeneratedSegments ?? -1,
             "smoothingProfileAccepted": smoothingProfile != nil,
             "allUnsupportedRejected": rejected.allSatisfy { $0 == nil },
             "malformedFlagged": malformed.renderers.first?.hasMalformedFields == true,
@@ -358,6 +373,9 @@ class SceneParticleRopeTests(unittest.TestCase):
         self.assertEqual(profiles["uvScale"], 2)
         self.assertTrue(profiles["subdivisionProfileAccepted"])
         self.assertEqual(profiles["subdivisionCount"], 3)
+        self.assertTrue(profiles["authoredTrailProfileAccepted"])
+        self.assertEqual(profiles["authoredTrailSubdivision"], 100)
+        self.assertEqual(profiles["authoredTrailSegments"], 25_755)
         self.assertTrue(profiles["smoothingProfileAccepted"])
         self.assertTrue(profiles["allUnsupportedRejected"])
         self.assertTrue(profiles["malformedFlagged"])
