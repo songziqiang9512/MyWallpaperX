@@ -6,6 +6,20 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-cursor-batch-world-frames"></a>
+
+### E-2026-09-28-CURSOR-BATCH-WORLD-FRAMES — 鼠标事件批复用同一层级变换
+
+**首断点：**基线8af4440d在构造cursor batch时，每个事件都经View重新调用world-frame resolver；有动态变换或Puppet attachment时会重复遍历层级。Host是在所有cursor callback执行前同步构造完整batch，事件共享同一preliminary snapshot、attachment snapshot和timing，因此没有事件间脚本变换需要重新求解。现在Host只在实际消费surface的第一个有owner/capture事件解析world frames，后续事件传入同一字典；函数返回即丢弃，下一batch重新准备。没有跨帧cache、invalidation protocol或新owner。pointer/camera/parallax/hit仍走原逐事件投影，surface按各自View descriptor隔离。
+
+**行为门：**真实Host构造函数+QuickJS测试中，64个事件只请求一次层级解析，未参与surface为0次；下一batch读到新矩阵。snapshot失败、无owner、outside无capture不解析，同批outside→enter仍正常准备；跨surface capture、队列overflow、拒帧重试、leave上下文、同display重建反例保持通过。cursor/surface/owner/geometry共37项通过，最后补充outside→enter后surface模块10项复跑通过；8项VM routing通过。上述调用计数的View是测试替身，证明Host准备职责，不是实际CPU基准。优化Debug构建、验签与code-health通过（1005 Swift/219既有warnings）。
+
+**实际回归：**自有9900000105同输入子帧click/owner冲突夹具，基线单surface、候选单surface及同物理屏双surface各8秒。红owner回调1次后位于(300,230)，绿owner拒绝1次再重试，回调共2次后位于(800,490)；三次专项事件/ROI门均通过，最大world坐标误差0.2241。单surface修前/修后before、hover、after三张原尺寸Metal截图逐像素相同；双surface末图已查看。候选单surface submitted/completed/failed/presented=227/227/0/225，双surface452/452/0/225；各surface的frame0/1/2均有GPU完成，持久点击输出跨后继帧保持。direct solid输出不涉及graph publication，不另行声称graph闭合。
+
+三份通用benchmark仍为NON-PASS：持久click位移不满足hover离开复位模板；双surface另有presentStreams=1与surface=2不匹配。原报告未改，专项门通过不替代这些判据。没有测CPU/FPS改善、真实双显示器、全样本或官方parity，也不关闭QV视觉剩余项。
+
+**身份：**候选App2.10.0(279)，executable SHA256 `cc933c42e73ea6076b4d0768cbef1b1850e4fefbbc8b79632d699e63eb91e2e9`、CDHash `3899dd03a041e59bb922a267ca5f9392a039a501`；baseline为上一批已记录的db20a548候选。两产品/一测试文件冻结SHA256 `ba50464ad04e088b7f89acd6a2ebe60dee0bd8943461924a5b86a6552ce5ad9a`，独立只读终审APPROVE。本机忽略缓存`2026-09-28-cursor-batch-world-frames`保存原始报告/截图/日志、自有fixture、专项断言、测试/构建和冻结补丁。
+
 <a id="e-2026-09-28-particle-pointer-frame"></a>
 
 ### E-2026-09-28-PARTICLE-POINTER-FRAME — 挂接粒子的鼠标反算复用当帧绘制变换

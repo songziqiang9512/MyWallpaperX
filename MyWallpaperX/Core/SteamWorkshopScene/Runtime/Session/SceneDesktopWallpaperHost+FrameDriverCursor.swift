@@ -1,5 +1,6 @@
 import AppKit
 import QuartzCore
+import simd
 
 extension SceneDesktopWallpaperHost {
     struct SceneScriptCursorBatchPreparation {
@@ -55,6 +56,9 @@ extension SceneDesktopWallpaperHost {
         var previousSurfaceID = edge.previousSurfaceID
         var wasDown = edge.previousPrimaryButtonIsDown
         var samples: [SceneScriptCursorFrameSample] = []
+        // All events use the same pre-script snapshot. Resolve each surface's
+        // hierarchy once; discard this data with the current batch.
+        var worldFramesBySurface: [CGDirectDisplayID: [Int: simd_float4x4]] = [:]
         var previousInput: SceneSurfacePointerEvent?
         for group in ordered {
             let displayID = capturedSurfaceID.flatMap { group[$0] != nil ? $0 : nil }
@@ -75,6 +79,12 @@ extension SceneDesktopWallpaperHost {
                     dynamicValues: preliminaryForSceneScript
                 )
             }
+            if worldFramesBySurface[displayID] == nil,
+               !(pointer.isInside ? program.ownerLayerIDs : captureCandidates).isEmpty {
+                worldFramesBySurface[displayID] = view.sceneScriptCursorWorldFrames(
+                    dynamicValues: preliminaryForSceneScript,
+                    puppetAttachmentFrames: puppetAttachmentFrames)
+            }
             let sample = view.sceneScriptCursorFrameSample(
                 pointer: pointer, surfaceID: displayID,
                 leavingSurface: leavingSurface,
@@ -82,7 +92,7 @@ extension SceneDesktopWallpaperHost {
                 capturedOwnerLayerIDs: captureCandidates,
                 timing: timing,
                 dynamicValues: preliminaryForSceneScript,
-                puppetAttachmentFrames: puppetAttachmentFrames
+                worldFrames: worldFramesBySurface[displayID] ?? [:]
             )
             samples.append(sample)
             if pointer.primaryButtonIsDown && !wasDown && !sample.hits.isEmpty {

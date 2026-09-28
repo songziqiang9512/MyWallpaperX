@@ -76,7 +76,7 @@ Boolean effect owner借用既有cursor VM，thisObject.visible的原staged值唤
 
 ## 2026-09-28 单/多 surface 光标事件共用分发
 
-Host按同一次输入的共享顺序重放有界事件，移除多surface的latest-only分支与重复投影入口；拖动固定按下窗口，换窗leave使用旧窗口坐标，重建时沿现有teardown取消旧输入。边沿与surface DTO沿原事务快照恢复，任一队列溢出拒绝整批，局部owner重试仍保留原事件。真实Swift/QuickJS及几何门通过，同物理屏单/双独立surface的子帧点击、owner冲突重试和终端ROI取得正证，详见[运行证据](runtime-evidence-current.md#e-2026-09-28-cursor-surface-routing)。真实双显示器、原生鼠标跨屏及拖动中途实际窗口重建尚未验收；重建边界目前由reset行为门和静态接线证明。
+Host按同一次输入的共享顺序重放有界事件，移除多surface的latest-only分支与重复投影入口；拖动固定按下窗口，换窗leave使用旧窗口坐标，重建时沿现有teardown取消旧输入。边沿与surface DTO沿原事务快照恢复，任一队列溢出拒绝整批，局部owner重试仍保留原事件。 同一pre-script事件批现按实际消费surface只解析一次world hierarchy，批末丢弃并在下一批刷新；64事件/单次解析及输入回归见[批内变换复用证据](runtime-evidence-current.md#e-2026-09-28-cursor-batch-world-frames)，不作CPU或FPS收益结论。真实Swift/QuickJS及几何门通过，同物理屏单/双独立surface的子帧点击、owner冲突重试和终端ROI取得正证，详见[运行证据](runtime-evidence-current.md#e-2026-09-28-cursor-surface-routing)。真实双显示器、原生鼠标跨屏及拖动中途实际窗口重建尚未验收；重建边界目前由reset行为门和静态接线证明。
 
 ## 2026-09-28 String init-only 准入（S4 isolated Host）
 

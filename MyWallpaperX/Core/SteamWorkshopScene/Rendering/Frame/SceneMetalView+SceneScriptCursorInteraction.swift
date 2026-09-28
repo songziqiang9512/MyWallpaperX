@@ -82,14 +82,14 @@ extension SceneMetalView {
         capturedOwnerLayerIDs: Set<Int>,
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
-        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot
+        worldFrames: [Int: simd_float4x4]
     ) -> SceneScriptCursorFrameSample {
         let projections = originInteractionProjections(
             pointer.isInside ? ownerLayerIDs : capturedOwnerLayerIDs,
             pointer: pointer,
             timing: timing,
             dynamicValues: dynamicValues,
-            puppetAttachmentFrames: puppetAttachmentFrames
+            worldFrames: worldFrames
         )
         return .init(
             hits: projections.hits,
@@ -145,12 +145,27 @@ extension SceneMetalView {
     }
 #endif
 
+    func sceneScriptCursorWorldFrames(
+        dynamicValues: SceneDynamicSnapshot,
+        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot
+    ) -> [Int: simd_float4x4] {
+        guard metalLayer.drawableSize.width > 0,
+              metalLayer.drawableSize.height > 0 else { return [:] }
+        return SceneLayerDynamicWorldFrameResolver.resolve(
+            descriptor: renderer.renderDescriptor,
+            byID: renderer.layersByID,
+            snapshot: dynamicValues,
+            staticFrames: renderer.worldFramesByLayerID,
+            puppetAttachmentFrames: puppetAttachmentFrames
+        )
+    }
+
     private func originInteractionProjections(
         _ ownerLayerIDs: Set<Int>,
         pointer: SceneSurfacePointerEvent,
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
-        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty
+        worldFrames: [Int: simd_float4x4]
     ) -> (hits: [Int: SceneScriptCursorHit], ownerProjections: [Int: SceneScriptCursorHit]) {
         guard metalLayer.drawableSize.width > 0,
               metalLayer.drawableSize.height > 0,
@@ -166,13 +181,6 @@ extension SceneMetalView {
             audioSpectrum: .silent
         )
         let cameraFrame = renderer.makeCameraFrame(frameContext: frameContext)
-        let worldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
-            descriptor: renderer.renderDescriptor,
-            byID: renderer.layersByID,
-            snapshot: dynamicValues,
-            staticFrames: renderer.worldFramesByLayerID,
-            puppetAttachmentFrames: puppetAttachmentFrames
-        )
         let parallax = renderer.parallaxConfiguration(
             cameraFrame: cameraFrame,
             viewportSize: frameContext.screenSize,

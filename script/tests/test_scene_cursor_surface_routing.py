@@ -10,9 +10,20 @@ from .test_scene_cursor_owner_transaction import HARNESS
 SCENE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene'
 SUPPORT = r'''
 import AppKit
+import simd
 final class SceneMetalView {
     let identity:UInt32
     init(_ identity:UInt32 = 10) { self.identity = identity }
+    var worldResolveCount = 0
+    var frameMarker: Float = 31
+    var consumedFrameMarkers: [Float] = []
+    func sceneScriptCursorWorldFrames(dynamicValues:SceneDynamicSnapshot,
+        puppetAttachmentFrames:ScenePuppetAttachmentFrameSnapshot) -> [Int:simd_float4x4] {
+        worldResolveCount += 1
+        var frame = matrix_identity_float4x4
+        frame.columns.3.x = frameMarker
+        return [1:frame]
+    }
     var pointerState = SceneSurfacePointerState()
     var events = SceneSurfacePointerEventBuffer()
     func drainSceneScriptPointerEvents() -> SceneSurfacePointerEventBatch { events.drain() }
@@ -23,8 +34,9 @@ final class SceneMetalView {
     }
     func sceneScriptCursorFrameSample(pointer:SceneSurfacePointerEvent,surfaceID:UInt32,leavingSurface:SceneScriptSurfaceInput?,
         ownerLayerIDs:Set<Int>,capturedOwnerLayerIDs:Set<Int>,timing:SceneFrameTiming,
-        dynamicValues:SceneDynamicSnapshot,puppetAttachmentFrames:ScenePuppetAttachmentFrameSnapshot
+        dynamicValues:SceneDynamicSnapshot,worldFrames:[Int:simd_float4x4]
     ) -> SceneScriptCursorFrameSample {
+        consumedFrameMarkers.append(worldFrames[1]?.columns.3.x ?? -1)
         let hit = SceneScriptCursorHit(layerID:1,worldPosition:.init(Double(pointer.normalizedPosition.x),0,0),localPosition:.init(Double(pointer.normalizedPosition.x),0,0))
         return .init(hits:pointer.isInside ? [1:hit] : [:],ownerProjections:[1:hit],
             pointerPosition:pointer.normalizedPosition,primaryButtonIsDown:pointer.primaryButtonIsDown,
@@ -59,6 +71,34 @@ CHECKS = r'''
           export function cursorUp(e){up++;publish();}
           export function cursorClick(e){click++;publish();}
         """
+        let denseHost = SceneDesktopWallpaperHost()
+        let (dense,_) = try make([(.origin,script)])
+        for i in 0..<64 { denseHost.feed(Double(i),i%2 == 0,inside:10) }
+        let denseBatch = denseHost.prepare(dense)
+        let denseView = denseHost.surfaces[10]!.metalView
+        out["denseEvents"] = denseBatch.batch.samples.count
+        out["denseResolves"] = denseView.worldResolveCount
+        out["denseFrameMarkers"] = denseView.consumedFrameMarkers
+        out["unusedSurfaceResolves"] = denseHost.surfaces[20]!.metalView.worldResolveCount
+        denseView.frameMarker = 47
+        denseView.consumedFrameMarkers = []
+        denseHost.feed(100,true,inside:10);denseHost.feed(101,false,inside:10)
+        _ = denseHost.prepare(dense)
+        out["nextBatchResolves"] = denseView.worldResolveCount
+        out["nextFrameMarkers"] = denseView.consumedFrameMarkers
+        _ = denseHost.prepare(dense,failed:true)
+        out["failedSnapshotResolves"] = denseView.worldResolveCount
+        let (noOwners,_) = try make([])
+        _ = denseHost.prepare(noOwners)
+        out["noOwnerResolves"] = denseView.worldResolveCount
+        denseHost.feed(102,false,inside:99)
+        _ = denseHost.prepare(dense)
+        out["outsideIdleResolves"] = denseView.worldResolveCount
+        let entryHost = SceneDesktopWallpaperHost()
+        entryHost.feed(1,false,inside:99);entryHost.feed(2,false,inside:10)
+        _ = entryHost.prepare(dense)
+        out["outsideThenEntryResolves"] = entryHost.surfaces[10]!.metalView.worldResolveCount
+        out["outsideThenEntryFrames"] = entryHost.surfaces[10]!.metalView.consumedFrameMarkers
         let host = SceneDesktopWallpaperHost()
         let (multi,_) = try make([(.origin,script)])
         host.feed(1,true,inside:10);host.feed(2,false,inside:10)
@@ -148,6 +188,21 @@ class CursorSurfaceRoutingTests(unittest.TestCase):
             result = subprocess.run([str(binary)],capture_output=True,text=True,timeout=45)
             if result.returncode: raise AssertionError(result.stdout+result.stderr)
             cls.result = json.loads(result.stdout)
+
+    def test_dense_batch_resolves_only_consumed_surface_once(self):
+        self.assertEqual(self.result['denseEvents'],64)
+        self.assertEqual(self.result['denseResolves'],1)
+        self.assertEqual(self.result['denseFrameMarkers'],[31]*64)
+        self.assertEqual(self.result['unusedSurfaceResolves'],0)
+
+    def test_next_batch_refreshes_frames_and_failed_or_empty_consumers_do_no_work(self):
+        self.assertEqual(self.result['nextBatchResolves'],2)
+        self.assertEqual(self.result['nextFrameMarkers'],[47,47])
+        self.assertEqual(self.result['failedSnapshotResolves'],2)
+        self.assertEqual(self.result['noOwnerResolves'],2)
+        self.assertEqual(self.result['outsideIdleResolves'],2)
+        self.assertEqual(self.result['outsideThenEntryResolves'],1)
+        self.assertEqual(self.result['outsideThenEntryFrames'],[-1,31])
 
     def test_two_surfaces_keep_subframe_click_once_and_surface_order(self):
         self.assertEqual(self.result['multiRapid'],[1,1,1])
