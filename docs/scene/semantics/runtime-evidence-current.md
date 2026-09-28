@@ -6,6 +6,12 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-29-arc-regression-sweep"></a>
+
+### E-2026-09-29-ARC-REGRESSION-SWEEP — 世界空间+音频门弧线受影响样本回归扫描（证据批，无产品改动）
+
+**范围与结果：**世界空间/rope/音频门六批（d78a6f76→9ac841b8）落地后，各批验证只覆盖了自己的关键样本；本批对从未回放的受影响样本做协议级回归扫描：音频门 bounds/frequency-only 系统（3750813609 Bird、3754630802 fireworks×3、3233141951 light_shafts）+ rope 家族其余（3238423642、3690859128、3712499998、3788897599）。**7/7 PASS loaded=1.0 failures=[]**（20 秒静音回放）。rope 层全部加载：3238423642 层 1191 "Trails 2" OK、3712499998 层 87 "Getsuga Tenshou Mouse Trail" OK（prewarm 6857）、3690859128 层 105 指针 Bounded + trail_2 层 120/128 力+指针 Bounded、3788897599 2/2。3750813609 层 200 Bird `audioResponseBounded:emitter`——静音下被门控但样本其他内容承载非黑/changed 门仍 PASS（音频门语义正确且无协议回归）。**边界：**协议级回归扫描；拖尾/排斥的视觉 parity 未验证（无官方对照）；静音回放不行使音频门控发射。App 身份与七份报告见忽略缓存`2026-09-28-arc-regression-sweep/`。
+
 <a id="e-2026-09-28-world-pointer-force"></a>
 
 ### E-2026-09-28-WORLD-POINTER-FORCE — force/positionAround 指针需求同族放开（门 3 完成）
