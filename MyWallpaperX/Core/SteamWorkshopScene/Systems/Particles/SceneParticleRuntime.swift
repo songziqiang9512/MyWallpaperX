@@ -184,7 +184,6 @@ final class SceneParticleRuntime {
                 layerID: layer.id,
                 rootAsset: asset,
                 graph: graph,
-                layerAlpha: Float(min(max(layer.alpha ?? 1, 0), 1)),
                 textureLoader: textureLoader,
                 builtInTextureRegistry: builtInTextureRegistry,
                 device: device,
@@ -278,6 +277,11 @@ final class SceneParticleRuntime {
         var batches: [SceneParticleDrawBatch] = []
         for index in layers.indices {
             let layerID = layers[index].layerID
+            let layerAlpha = SceneDynamicLayerValues.alpha(
+                layerID: layerID,
+                authoredValue: Double(layers[index].layerAlpha),
+                snapshot: dynamicValues
+            )
             var births: [SceneParticleState] = []
             var deaths: [SceneParticleState] = []
             var parentParticles: [SceneParticleState] = []
@@ -325,6 +329,7 @@ final class SceneParticleRuntime {
                     spawnEvents: births,
                     deathEvents: deaths,
                     parentParticles: parentParticles,
+                    layerAlpha: layerAlpha,
                     dynamicInstanceValues: dynamicOverride,
                     pointerLocalPosition: pointerLocalPositions[layerID],
                     dynamicControlPoints: dynamicControlPoints,
@@ -358,7 +363,7 @@ final class SceneParticleRuntime {
                 }
             }
             guard var root = layers[index].rootRender else { continue }
-            rebuildGPUInstances(root: &root, layerAlpha: layers[index].layerAlpha)
+            rebuildGPUInstances(root: &root, layerAlpha: layerAlpha)
             guard root.instanceBuffer.update(device: device, instances: root.instances) else {
                 addDiagnostic(
                     kind: .instanceBufferAllocationFailed,

@@ -70,7 +70,6 @@ final class SceneParticleChildRuntime {
     private let layerID: Int
     private var didLogInstanceCensus = false
     private var censusTimeAccumulator: TimeInterval = 0
-    private let layerAlpha: Float
     private let device: MTLDevice
     private let templates: [SceneParticleChildTemplate]
     private let templatesByIndex: [Int: SceneParticleChildTemplate]
@@ -89,7 +88,6 @@ final class SceneParticleChildRuntime {
         layerID: Int,
         rootAsset: SceneParticleAsset,
         graph: SceneParticleAssetGraph,
-        layerAlpha: Float,
         textureLoader: SceneTextureLoader,
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry,
         device: MTLDevice,
@@ -98,7 +96,6 @@ final class SceneParticleChildRuntime {
         initialDynamicInstanceValues: SceneDynamicParticleValues? = nil
     ) {
         self.layerID = layerID
-        self.layerAlpha = layerAlpha
         self.device = device
         let expansion = SceneParticleChildGraphExpansion.expand(
             rootAsset: rootAsset,
@@ -172,6 +169,7 @@ final class SceneParticleChildRuntime {
         spawnEvents: [SceneParticleState],
         deathEvents: [SceneParticleState],
         parentParticles: [SceneParticleState],
+        layerAlpha: Float,
         dynamicInstanceValues: SceneDynamicParticleValues? = nil,
         pointerLocalPosition: SIMD3<Double>? = nil,
         dynamicControlPoints: [Int: SIMD3<Double>] = [:],

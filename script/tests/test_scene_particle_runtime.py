@@ -38,6 +38,7 @@ NESTED_SAMPLE_EVIDENCE = sample_runtime_evidence_path("2974757317")
 NESTED_AUTHOR_OFF_SAMPLE_CACHE = sample_cache_root("2938612768")
 NESTED_AUTHOR_OFF_SAMPLE_EVIDENCE = sample_runtime_evidence_path("2938612768")
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "Systems/Properties/SceneDynamicLayerValues.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift",
@@ -347,6 +348,8 @@ enum Harness {
             try printJSON(syntheticChildFloatSafety())
         case "child-instance-override-synthetic":
             try printJSON(syntheticChildInstanceOverride())
+        case "layer-alpha-synthetic":
+            try printJSON(syntheticLayerAlpha())
         case "dynamic-instance-override-synthetic":
             try printJSON(syntheticDynamicInstanceOverride())
         case "velocity-defaults-synthetic":
@@ -2941,6 +2944,58 @@ enum Harness {
         return result
     }
 
+    private static func syntheticLayerAlpha() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("mwx-layer-alpha-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeParticle("particles/child.json", material: "materials/shared.json",
+            startTime: 0.1, rate: 0, instantaneous: 1, under: directory)
+        try writeParticle("particles/root.json", material: "materials/shared.json",
+            startTime: 0.1, rate: 0, instantaneous: 1,
+            children: [["name": "particles/child.json", "type": "static"]], under: directory)
+        let descriptor = SceneRenderDescriptor(
+            layers: [layer(91, "particles/root.json", particleAlpha: 0.5, layerAlpha: 0.4)],
+            renderOrderLayerIDs: [91], materialPasses: [.init(
+                materialPath: "materials/shared.json", shaderPath: "genericparticle",
+                texturePaths: ["shared.png"], blending: "additive")])
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let runtime = SceneParticleRuntime(descriptor: descriptor, cacheDirectory: directory, device: device)
+        let target = SceneDynamicTarget.layer(layerID: 91, field: .alpha)
+        let resolver = SceneDynamicSnapshotResolver()
+        func snapshot(_ alpha: Double) -> SceneDynamicSnapshot {
+            resolver.resolve(frameIndex: 1, generation: 1,
+                definitions: [.init(target: target, valueType: .scalar, authoredValue: .scalar(0.4))],
+                userValues: [target: .scalar(alpha)]).snapshot
+        }
+        func values(_ batches: [SceneParticleDrawBatch]) -> [Float] {
+            batches.flatMap { $0.instances.map { $0.rotationAndAlpha.w } }
+        }
+        let initial = runtime.advance(by: 0.1)
+        let changed = runtime.advance(by: 0, dynamicValues: snapshot(0.8))
+        let hidden = runtime.advance(by: 0, dynamicValues: snapshot(0))
+        let recovered = runtime.advance(by: 0, dynamicValues: snapshot(1))
+        let fallback = runtime.advance(by: 0)
+        guard let playback = SceneParticlePlaybackState(
+            descriptor: descriptor, cacheDirectory: directory, device: device,
+            initialDynamicValues: snapshot(0.8)) else { throw HarnessError.noParticlePipeline }
+        let startup = values(playback.batches)
+        playback.prepareFrame()
+        let rejected = values(playback.advance(by: 0, dynamicValues: snapshot(0)))
+        playback.discardPreparedFrame()
+        let restored = values(playback.batches)
+        playback.prepareFrame()
+        let retry = values(playback.advance(by: 0, dynamicValues: snapshot(0.5)))
+        playback.commitPreparedFrame()
+        return ["startup": startup, "rejected": rejected, "restored": restored, "retry": retry,
+            "initial": values(initial), "changed": values(changed),
+            "hidden": values(hidden), "recovered": values(recovered), "fallback": values(fallback),
+            "positionsUnchanged": initial.flatMap(\.instances).map(\.positionAndSize)
+                == recovered.flatMap(\.instances).map(\.positionAndSize),
+            "rootParticles": runtime.lifecycleSnapshot.rootParticleCount,
+            "childParticles": runtime.lifecycleSnapshot.childParticleCount]
+    }
+
     private static func syntheticDynamicInstanceOverride() throws -> [String: Any] {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
             "mwx-particle-dynamic-override-\(UUID().uuidString)", isDirectory: true
@@ -3552,6 +3607,7 @@ enum Harness {
         _ path: String,
         visible: Bool = true,
         particleAlpha: Double? = nil,
+        layerAlpha: Double = 1,
         particleSize: Double? = nil,
         particleLifetime: Double? = nil,
         particleRate: Double? = nil,
@@ -3610,7 +3666,7 @@ enum Harness {
                     controlPointAngles: [:]
                 )
                 : nil,
-            parentID: nil, visible: visible, alpha: 1
+            parentID: nil, visible: visible, alpha: layerAlpha
         )
     }
 
@@ -3835,6 +3891,18 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             text=True,
         )
         return json.loads(completed.stdout)
+
+    def test_layer_alpha_updates_existing_root_and_child_particles(self) -> None:
+        result = self.run_harness("layer-alpha-synthetic")
+        for field, expected in [("initial", 0.2), ("changed", 0.4), ("hidden", 0),
+                                ("recovered", 0.5), ("fallback", 0.2),
+                                ("startup", 0.4), ("rejected", 0), ("restored", 0.4), ("retry", 0.25)]:
+            self.assertEqual(len(result[field]), 2)
+            for value in result[field]:
+                self.assertAlmostEqual(value, expected, places=6)
+        self.assertTrue(result["positionsUnchanged"])
+        self.assertEqual(result["rootParticles"], 1)
+        self.assertEqual(result["childParticles"], 1)
 
     def test_real_3742133044_only_assembles_visible_snow_layer(self) -> None:
         if not REAL_SAMPLE_EVIDENCE.is_file() or not REAL_SAMPLE_CACHE.is_dir():

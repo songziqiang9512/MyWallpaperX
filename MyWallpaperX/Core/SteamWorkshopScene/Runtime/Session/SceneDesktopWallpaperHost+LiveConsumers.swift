@@ -286,6 +286,7 @@ extension SceneDesktopWallpaperHost {
                 targets.insert(.layer(layerID: layer.id, field: .alpha))
                 targets.insert(.layer(layerID: layer.id, field: .color))
             case "particle":
+                targets.insert(.layer(layerID: layer.id, field: .alpha))
                 let fields: [SceneDynamicParticleField] = [
                     .alpha, .size, .lifetime, .rate, .speed, .count,
                     .brightness, .normalizedColor,

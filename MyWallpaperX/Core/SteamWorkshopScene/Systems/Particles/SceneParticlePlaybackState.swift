@@ -57,7 +57,7 @@ final class SceneParticlePlaybackState {
         )
         self.runtime = runtime
         self.pointerControlPointLayerIDs = runtime.pointerControlPointLayerIDs
-        self.batches = runtime.advance(by: 0)
+        self.batches = runtime.advance(by: 0, dynamicValues: initialDynamicValues)
         stickyBatchLayerIDs.formUnion(self.batches.map(\.layerID))
     }
 

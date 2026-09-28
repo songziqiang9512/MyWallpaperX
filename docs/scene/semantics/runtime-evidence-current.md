@@ -6,6 +6,20 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-particle-layer-alpha"></a>
+
+### E-2026-09-28-PARTICLE-LAYER-ALPHA — 图层透明度实时作用于根粒子和子粒子
+
+**首断点：**2880ab82的粒子runtime只消费加载时缓存的layer.alpha，child另持一份静态值；Host粒子live targets也漏了layer.alpha，导致direct User Property热调被拒绝。现每帧沿既有SceneDynamicLayerValues解析一次图层透明度，root与child构建实例共用这个值，child静态副本退役；首批构建传入已有initialDynamicValues。此图层显示乘子作用于存量粒子，不改变instanceoverride.alpha的出生合同、粒子模拟或原材质blend，也未新增provider/clock/compositor。四产品文件净增4行。
+
+**验证：**新root/child存量粒子透明度反例在基线失败。runtime模块37项中27通过、10既有真实内容环境skip；补充启动动态值及prepare→discard→retry后该项复跑通过。测试同时锁定0.5出生倍率×0.4图层值=0.2、动态0.8→0.4、隐藏/恢复/缺值回退、位置与root/child数量保持；初始snapshot0.8和拒帧恢复均回到0.4，重试0.5提交0.25。公共alpha正常/错误类型/非有限/范围归一化3项通过。优化Debug构建、验签、code-health通过（1005 Swift/219既有warnings）。
+
+**实际App：**同一自有9900000402包、8秒、两图层各一个root+static child且每个系统只瞬发一次、寿命30秒。900的alpha脚本authored=0，运行前3秒返回0.25、之后0.75；901的direct User Property从0.4热调0.8。旧版900始终只有灰底RGB26、901始终128且property rejected；候选ready/after中900两个ROI均90→217、901均128→230，与0.1灰底上的additive预期相符。属性更新accepted且window/surface identity不变；图层/子粒子无需重建或重新出生。已查看最终Metal图。候选performance读取时228 submitted/227 completed/0 failed/226 presented，稍后两个layer各228/228 completed粒子帧、456/456实例；frame0/1/2完成、后继最终输出有记录。direct粒子slice不涉及graph publication。
+
+两版通用benchmark保持NON-PASS：纯粒子场景的image loaded ratio为0；粒子自身2/2加载。基线另有live property update rejected，候选此项消失；原门值和报告均保留。没有原Workshop样本视觉达标或官方parity结论；Timeline、Rope/折射及多屏组合的独立动态alpha画面仍未本批实测，不关闭QV渐隐/光束问题。
+
+**身份：**App2.10.0(279)，baseline SHA256 `4d5d761161a70a314f8915d4c9d76c059988fdec92c8797e8108116c68b04c63`；candidate SHA256 `2fa0b42c35955f8dcb8cd9747748182447afad710884d978c86f21d48a28b74c`、CDHash `b66dacedc08896e82f2d3be7691b0b9abc941571`。四产品/一测试冻结SHA256 `d844cbeccb0f4f0765da9ac3d9737a95bde9fca127985da924c9b6af7a172673`。独立只读终审APPROVE，范围限于已加载粒子的动态layer alpha、初始值和事务恢复。本机忽略缓存`2026-09-28-particle-layer-alpha`保存同输入报告/图/日志、自有构造与ROI、测试及构建记录。
+
 <a id="e-2026-09-28-particle-implicit-origin"></a>
 
 ### E-2026-09-28-PARTICLE-IMPLICIT-ORIGIN — 鼠标原点不再被计入粒子排列半径
