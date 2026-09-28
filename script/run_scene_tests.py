@@ -2,6 +2,7 @@
 """按模块并行运行仓库 Python 测试。
 
 默认保持历史行为，运行 ``script/tests`` 下的全部 ``test_*.py`` 模块。
+``--scope release`` 运行安装包与核心播放链路检查，完整回归仍使用 ``--scope all``。
 ``--scope scene`` 只选择 ``test_scene_*.py``；可重复的 ``--module`` 在未给
 关键词时构成精确选择，带 ``--keyword`` 时再把匹配的 scope 模块加入选择。
 可重复的 ``-k`` 对 scope 选择结果执行 OR 过滤。本入口保持逐模块独立进程的语义（与手工
@@ -31,6 +32,36 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 TESTS_DIRECTORY = REPOSITORY_ROOT / "script/tests"
 
+# Release checks exercise the package contract and shared executable boundaries.
+# Detailed rendering/authoring regression coverage belongs to change-selected CI
+# or an explicitly requested full suite, not every signing/upload attempt.
+RELEASE_MODULES = frozenset({
+    "test_apple_silicon_release_contract",
+    "test_release_version",
+    "test_validate_release_notes",
+    "test_publish_release",
+    "test_stock_asset_packaging",
+    "test_steam_protocol_golden",
+    "test_steam_helper_offline",
+    "test_steam_client_lifecycle",
+    "test_steam_download_execution",
+    "test_steam_library_transaction",
+    "test_steam_library_publication",
+    "test_steam_playback_lifetime",
+    "test_playback_policy",
+    "test_playback_policy_delivery",
+    "test_playback_command_multiplexer",
+    "test_web_playback_pause",
+    "test_scene_daemon_protocol",
+    "test_scene_daemon_client_wiring",
+    "test_scene_image_upload_completion",
+    "test_scene_frame_texture_registry",
+    "test_scene_frame_context",
+    "test_scene_script_quickjs",
+    "test_scene_test_runner",
+    "test_verify_scene_change",
+})
+
 
 def discover_modules(
     available_modules: Iterable[str],
@@ -40,20 +71,23 @@ def discover_modules(
     requested_modules: Sequence[str] = (),
 ) -> list[str]:
     """Select fully qualified unittest modules without reading global state."""
-    if scope not in {"all", "scene"}:
+    if scope not in {"all", "scene", "release"}:
         raise ValueError(f"unsupported test scope: {scope}")
 
     available = sorted(set(available_modules))
     available_set = set(available)
+    if scope == "release" and (missing := RELEASE_MODULES - available_set):
+        raise ValueError(f"missing release test module(s): {', '.join(sorted(missing))}")
     unknown = sorted(set(requested_modules) - available_set)
     if unknown:
         raise ValueError(f"unknown test module(s): {', '.join(unknown)}")
 
-    scoped = (
-        available
-        if scope == "all"
-        else [name for name in available if name.startswith("test_scene_")]
-    )
+    if scope == "release":
+        scoped = sorted(RELEASE_MODULES)
+    elif scope == "scene":
+        scoped = [name for name in available if name.startswith("test_scene_")]
+    else:
+        scoped = available
     keyword_matches = scoped
     if keywords:
         keyword_matches = [
@@ -99,10 +133,11 @@ def parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--scope",
-        choices=("all", "scene"),
+        choices=("all", "scene", "release"),
         default="all",
         help=(
             "all runs every test_*.py module; scene selects only test_scene_*.py; "
+            "release selects package and core playback checks; "
             "explicit --module values stay exact"
         ),
     )

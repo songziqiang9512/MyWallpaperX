@@ -999,6 +999,18 @@ class SceneValidationSelectionTests(unittest.TestCase):
         gates, _ = verify.build_plan(["docs/README.md"], arguments(ci=True), self.registry)
         self.assertIn("--fail-fast", gates[0].command)
 
+    def test_explicit_release_or_all_scope_replaces_focused_tests(self) -> None:
+        for scope in ("release", "all"):
+            with self.subTest(scope=scope):
+                gates, _ = verify.build_plan(
+                    ["MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift"],
+                    arguments(ci=True, test_scope=scope), self.registry,
+                )
+                self.assertEqual([gate.gate_id for gate in gates],
+                                 [f"{scope}-tests", "code-health", "build-verify"])
+                self.assertIn(scope, gates[0].command)
+                self.assertIn("--fail-fast", gates[0].command)
+
     def test_video_command_fixture_selects_its_executable_consumer(self) -> None:
         gates, _ = verify.build_plan(
             ["script/tests/fixtures/SceneVideoRepeatedCommandsHarness.swift"],

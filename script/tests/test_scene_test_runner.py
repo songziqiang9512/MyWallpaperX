@@ -30,6 +30,18 @@ AVAILABLE_MODULES = [
 
 
 class RunSceneTestsSelectionTests(unittest.TestCase):
+    def test_release_scope_is_bounded_and_requires_every_declared_module(self) -> None:
+        available = sorted(runner.RELEASE_MODULES | {"test_scene_unrelated_effect"})
+        selected = runner.discover_modules(available, scope="release")
+        self.assertEqual(set(selected), {f"script.tests.{name}" for name in runner.RELEASE_MODULES})
+        self.assertNotIn("script.tests.test_scene_unrelated_effect", selected)
+        with self.assertRaisesRegex(ValueError, "missing release test"):
+            runner.discover_modules(available[1:], scope="release")
+
+    def test_release_profile_references_real_test_modules(self) -> None:
+        available = [path.stem for path in runner.TESTS_DIRECTORY.glob("test_*.py")]
+        self.assertTrue(runner.discover_modules(available, scope="release"))
+
     def test_default_scope_preserves_all_module_selection(self) -> None:
         self.assertEqual(
             runner.discover_modules(AVAILABLE_MODULES),

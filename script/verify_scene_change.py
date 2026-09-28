@@ -237,21 +237,29 @@ def build_plan(
     gates: list[Gate] = []
 
     focused = focused_test_command(modules, keywords)
-    if focused is not None and not deleted_test:
+    test_scope = getattr(args, "test_scope", "changed")
+    if test_scope != "changed":
+        gates.append(Gate(
+            f"{test_scope}-tests",
+            (sys.executable, "-B", "script/run_scene_tests.py", "--scope", test_scope),
+            "explicitly selected test scope",
+            False,
+        ))
+    elif focused is not None and not deleted_test:
         gates.append(Gate(
             "focused-tests",
             focused,
             "changed paths map to focused executable test groups",
             False,
         ))
-    if deleted_test:
+    if test_scope == "changed" and deleted_test:
         gates.append(Gate(
             "repository-all-tests",
             (sys.executable, "-B", "script/run_scene_tests.py", "--scope", "all"),
             "a deleted test requires the complete executable repository suite",
             False,
         ))
-    elif args.phase == "milestone" and scene_product_change:
+    elif test_scope == "changed" and args.phase == "milestone" and scene_product_change:
         gates.append(Gate(
             "scene-all-tests",
             (sys.executable, "-B", "script/run_scene_tests.py", "--scope", "scene"),
@@ -459,6 +467,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", default="HEAD")
     parser.add_argument("--phase", choices=PHASES, default="checkpoint")
+    parser.add_argument("--test-scope", choices=("changed", "release", "all"), default="changed")
     parser.add_argument("--path", action="append", default=[])
     parser.add_argument("--run", action="store_true")
     parser.add_argument("--ci", action="store_true")

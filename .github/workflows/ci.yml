@@ -11,6 +11,15 @@ on:
         description: Compare against this commit (defaults to the previous commit)
         required: false
         type: string
+      test_scope:
+        description: 按改动验证、发布核心检查或完整回归（均不发布）
+        required: true
+        default: changed
+        type: choice
+        options:
+          - changed
+          - release
+          - all
 
 permissions:
   contents: read
@@ -76,6 +85,7 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           REF_NAME: ${{ github.ref_name }}
+          TEST_SCOPE: ${{ inputs.test_scope || 'changed' }}
         run: |
           PHASE=checkpoint
           if [ "$EVENT_NAME" = "pull_request" ] || [ "$REF_NAME" = "main" ]; then
@@ -84,6 +94,7 @@ jobs:
           python3 script/verify_scene_change.py \
             --base "$BASE_REF" \
             --phase "$PHASE" \
+            --test-scope "$TEST_SCOPE" \
             --ci \
             --skip-runtime \
             --reason "GitHub CI has no private isolated Workshop corpus" \

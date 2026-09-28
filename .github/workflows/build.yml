@@ -11,6 +11,14 @@ on:
         description: Agent 校验的待发布提交 SHA
         required: true
         type: string
+      test_scope:
+        description: 发布核心检查；需要完整回归时显式选择 all
+        required: true
+        default: release
+        type: choice
+        options:
+          - release
+          - all
 
 permissions:
   contents: write
@@ -96,8 +104,9 @@ jobs:
       - name: Run tests and check Swift file health
         env:
           BASE_REF: ${{ github.event.before }}
+          TEST_SCOPE: ${{ inputs.test_scope }}
         run: |
-          python3 -B script/run_scene_tests.py --scope all --jobs 4 --fail-fast
+          python3 -B script/run_scene_tests.py --scope "$TEST_SCOPE" --jobs 4 --fail-fast
           if [ -z "${BASE_REF}" ] || [[ "${BASE_REF}" =~ ^0+$ ]]; then
             BASE_REF="$(git tag --merged HEAD --list 'build-*' --sort=-version:refname | head -n 1)"
           fi
