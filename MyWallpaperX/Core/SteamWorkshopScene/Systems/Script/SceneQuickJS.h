@@ -83,6 +83,7 @@ typedef enum MWXSceneQuickJSLayerMutationField {
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA = 1u << 6,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR = 1u << 7,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_EFFECT_VISIBILITY = 1u << 8,
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SOLID = 1u << 9,
 } MWXSceneQuickJSLayerMutationField;
 
 typedef struct MWXSceneQuickJSLayerMutation {
@@ -94,6 +95,7 @@ typedef struct MWXSceneQuickJSLayerMutation {
     int64_t layer_id;
     int32_t order_index;
     uint32_t visible;
+    uint32_t solid;
     double alpha;
     double origin[3];
     double scale[3];
@@ -345,6 +347,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     const double angles[3],
     uint32_t destroyed,
     uint32_t visible,
+    uint32_t solid,
     double alpha,
     const char *text,
     size_t text_length,
@@ -633,6 +636,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     const double scale[3],
     const double angles[3],
     uint32_t visible,
+    uint32_t solid,
     const char *text,
     size_t text_length,
     const char *font,

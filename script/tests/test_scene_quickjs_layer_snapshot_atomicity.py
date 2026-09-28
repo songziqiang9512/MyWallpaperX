@@ -99,6 +99,7 @@ static MWXSceneQuickJSResult stage_fields(
         0,
         1,
         1,
+        1,
         text,
         strlen(text),
         "font",
@@ -220,7 +221,7 @@ int main(void) {
     double lifecycle_angles[3] = {0, 0, 0};
     double lifecycle_color[3] = {1, 1, 1};
     result = mwx_scene_quickjs_domain_update_layer_runtime_fields(
-        &domain, 0, lifecycle_scale, lifecycle_angles, 1, 0, 1,
+        &domain, 0, lifecycle_scale, lifecycle_angles, 1, 0, 0, 1,
         "new-a", 5, "font", 4, 32, lifecycle_color,
         diagnostic, sizeof(diagnostic)
     );
@@ -232,11 +233,13 @@ int main(void) {
     );
     failures += check(result == MWX_SCENE_QUICKJS_OK, "commit destroy", diagnostic);
     failures += check(domain.layers[0].destroyed, "destroyed lifecycle committed", diagnostic);
+    failures += check(!domain.layers[0].solid, "solid false committed", diagnostic);
     failures += check(
         mwx_scene_quickjs_domain_rollback_layer_snapshot(&domain),
         "rollback destroyed lifecycle", diagnostic
     );
     failures += check(!domain.layers[0].destroyed, "destroyed lifecycle rolled back", diagnostic);
+    failures += check(domain.layers[0].solid, "solid true restored", diagnostic);
 
     result = mwx_scene_quickjs_domain_begin_layer_snapshot(
         &domain, 10, diagnostic, sizeof(diagnostic)
@@ -248,7 +251,7 @@ int main(void) {
     double angles[3] = {0, 0, 0};
     double color[3] = {1, 1, 1};
     result = mwx_scene_quickjs_domain_update_layer_runtime_fields(
-        &domain, 1, invalid_scale, angles, 0, 1, 1,
+        &domain, 1, invalid_scale, angles, 0, 1, 1, 1,
         "poisoned-b", 10, "font", 4, 32, color,
         diagnostic, sizeof(diagnostic)
     );

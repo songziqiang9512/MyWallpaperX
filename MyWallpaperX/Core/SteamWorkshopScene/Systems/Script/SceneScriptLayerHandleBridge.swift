@@ -239,6 +239,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         static let visibility = Self(rawValue: UInt32(
             MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY.rawValue
         ))
+        static let solid = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SOLID.rawValue))
         static let text = Self(rawValue: UInt32(
             MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT.rawValue
         ))
@@ -248,7 +249,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         static let effectVisibility = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_EFFECT_VISIBILITY.rawValue))
 
         static let authoredFields: Self = [
-            .origin, .scale, .angles, .visibility, .text, .font, .alpha, .color, .effectVisibility,
+            .origin, .scale, .angles, .visibility, .solid, .text, .font, .alpha, .color, .effectVisibility,
         ]
         static let alpha = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA.rawValue))
         static let color = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR.rawValue))
@@ -260,6 +261,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     let layerID: Int
     let orderIndex: Int
     let visible: Bool
+    let solid: Bool
     let alpha: Double
     let origin: SIMD3<Double>
     let scale: SIMD3<Double>
@@ -289,13 +291,15 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         font: String,
         assetPath: String?,
         ownerTarget: SceneDynamicTarget? = nil,
-        effectVisibilities: [Int: Bool] = [:]
+        effectVisibilities: [Int: Bool] = [:],
+        solid: Bool = true
     ) {
         self.kind = kind
         self.isDynamic = isDynamic
         self.fields = fields
         self.layerID = layerID
         self.orderIndex = orderIndex
+        self.solid = solid
         self.visible = visible
         self.alpha = alpha
         self.origin = origin
@@ -316,7 +320,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             layerID: layerID, orderIndex: orderIndex, visible: visible,
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
-            assetPath: assetPath, ownerTarget: target, effectVisibilities: effectVisibilities
+            assetPath: assetPath, ownerTarget: target, effectVisibilities: effectVisibilities, solid: solid
         )
     }
 
@@ -326,7 +330,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             layerID: layerID, orderIndex: orderIndex, visible: visible,
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
-            assetPath: resolved, ownerTarget: ownerTarget, effectVisibilities: effectVisibilities
+            assetPath: resolved, ownerTarget: ownerTarget, effectVisibilities: effectVisibilities, solid: solid
         )
     }
 
@@ -337,7 +341,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
             assetPath: assetPath, ownerTarget: ownerTarget,
-            effectVisibilities: selected.contains(.effectVisibility) ? effectVisibilities : [:]
+            effectVisibilities: selected.contains(.effectVisibility) ? effectVisibilities : [:], solid: solid
         )
     }
 
@@ -382,7 +386,8 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             font: newer.fields.contains(.font) ? newer.font : font,
             assetPath: newer.assetPath ?? assetPath,
             ownerTarget: newer.ownerTarget ?? ownerTarget,
-            effectVisibilities: effectVisibilities.merging(newer.effectVisibilities) { _, new in new }
+            effectVisibilities: effectVisibilities.merging(newer.effectVisibilities) { _, new in new },
+            solid: newer.fields.contains(.solid) ? newer.solid : solid
         )
     }
 }
@@ -514,7 +519,7 @@ nonisolated enum SceneScriptLayerMutationBridge {
             )
             guard result == MWX_SCENE_QUICKJS_OK,
                   raw.dynamic <= 1,
-                  raw.visible <= 1,
+                  raw.visible <= 1, raw.solid <= 1,
                   raw.layer_id >= -maximumLayerIdentity,
                   raw.layer_id <= maximumLayerIdentity,
                   raw.order_index >= 0,
@@ -608,7 +613,7 @@ nonisolated enum SceneScriptLayerMutationBridge {
                 pointSize: raw.point_size,
                 text: text, font: font,
                 assetPath: assetPath.nilIfEmpty,
-                ownerTarget: ownerTarget, effectVisibilities: effectVisibilities
+                ownerTarget: ownerTarget, effectVisibilities: effectVisibilities, solid: raw.solid != 0
             ))
         }
         return .success(output)

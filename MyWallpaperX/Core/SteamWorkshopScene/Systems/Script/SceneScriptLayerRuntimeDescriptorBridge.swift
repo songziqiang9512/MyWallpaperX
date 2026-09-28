@@ -99,6 +99,11 @@ nonisolated extension SceneScriptQuickJSDomain {
                                         authored: layer.visible ?? true,
                                         snapshot: snapshot
                                     ) ? 1 : 0,
+                                    layerBool(
+                                        layerID: layer.id, field: .solid,
+                                        authored: layer.solid ?? true,
+                                        snapshot: snapshot
+                                    ) ? 1 : 0,
                                     {
                                         if let resolved = snapshot[.layer(layerID: layer.id, field: .alpha)],
                                            case let .scalar(value) = resolved.value, value.isFinite {

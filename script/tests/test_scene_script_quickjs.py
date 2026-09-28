@@ -616,7 +616,7 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
         const double angles[3] = {0, 0, 0};
         const double color[3] = {1, 1, 1};
         result = mwx_scene_quickjs_domain_update_layer_runtime_fields(
-            domain, 0, scale, angles, 0, 1, 1,
+            domain, 0, scale, angles, 0, 1, 1, 1,
             "", 0, "", 0, 32, color, diagnostic, sizeof(diagnostic)
         );
     }
@@ -625,7 +625,7 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
         const double angles[3] = {0, 0, 0};
         const double color[3] = {1, 1, 1};
         result = mwx_scene_quickjs_domain_update_layer_runtime_fields(
-            domain, 1, scale, angles, 0, 1, 0.75,
+            domain, 1, scale, angles, 0, 1, 1, 0.75,
             "clock", strlen("clock"), "clock.ttf", strlen("clock.ttf"),
             48, color, diagnostic, sizeof(diagnostic)
         );
@@ -2065,6 +2065,8 @@ int main(void) {
         "()=>{listed[0].scale=new Vec3(2,3,4);},"
         "()=>{listed[0].angles=new Vec3(1,2,3);},"
         "()=>{listed[0].visible=false;},"
+        "()=>{listed[0].solid=false;},"
+        "()=>{listed[1].solid=false;},"
         "()=>{listed[0].text='peer';}];"
         "for(const write of writes){let rejected=false;"
         "try{write();}catch(error){rejected=true;}"
@@ -3492,7 +3494,7 @@ int main(void) {
         "try{layer.font='replacement';}catch(error){forgedFontRejected=true;}"
         "try{layer.pointsize=99;}catch(error){pointSizeRejected=true;}"
         "if(!forgedFontRejected||!pointSizeRejected||"
-        "typeof layer.alpha!=='number'||layer.solid!==undefined)"
+        "typeof layer.alpha!=='number'||typeof layer.solid!=='boolean')"
         "throw new Error('unsupported authored fields opened');"
         "return value;}";
     MWXSceneQuickJSOwner *authored_peer = mwx_scene_quickjs_owner_create(

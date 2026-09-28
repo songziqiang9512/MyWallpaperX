@@ -74,6 +74,7 @@ typedef struct MWXSceneQuickJSLayerRecord {
     uint64_t owner_identity;
     uint64_t dirty_owner_identity;
     bool visible;
+    bool solid;
     bool has_parent;
     bool dynamic;
     bool destroyed;
@@ -113,6 +114,7 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     double alpha;
     double point_size;
     bool visible;
+    bool solid;
     bool destroyed;
     bool world_transform_available;
     bool runtime_fields_staged;
@@ -145,6 +147,7 @@ typedef struct MWXSceneQuickJSAuthoredLayerMutationRecord {
     double alpha;
     double color[3];
     bool visible;
+    bool solid;
     char *text;
     char *font;
 } MWXSceneQuickJSAuthoredLayerMutationRecord;
@@ -208,6 +211,7 @@ typedef struct MWXSceneQuickJSDynamicLayerValueBaseline {
     char *text;
     char *font;
     bool visible;
+    bool solid;
 } MWXSceneQuickJSDynamicLayerValueBaseline;
 
 typedef struct MWXSceneQuickJSDynamicLayerTopologyOperation {

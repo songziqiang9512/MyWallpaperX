@@ -105,6 +105,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
             memcpy(pending[index].effect_visible, record->effect_visible, record->effect_count);
         }
         pending[index].visible = record->visible;
+        pending[index].solid = record->solid;
         pending[index].destroyed = record->destroyed;
         pending[index].alpha = record->alpha;
         pending[index].point_size = record->point_size;
@@ -205,6 +206,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     const double angles[3],
     uint32_t destroyed,
     uint32_t visible,
+    uint32_t solid,
     double alpha,
     const char *text,
     size_t text_length,
@@ -219,7 +221,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     if (domain == NULL || domain->callback_active ||
         domain->pending_layer_snapshot == NULL ||
         layer_index >= domain->authored_layer_count ||
-        !domain->layers[layer_index].configured || destroyed > 1 || scale == NULL ||
+        !domain->layers[layer_index].configured || destroyed > 1 || solid > 1 || scale == NULL ||
         angles == NULL || color == NULL || text == NULL || font == NULL ||
         text_length > MWX_SCENE_QUICKJS_MAX_LAYER_TEXT ||
         font_length > MWX_SCENE_QUICKJS_MAX_LAYER_FONT || !isfinite(alpha) ||
@@ -261,6 +263,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     memcpy(staged->angles, angles, sizeof(staged->angles));
     memcpy(staged->color, color, sizeof(staged->color));
     staged->visible = visible != 0;
+    staged->solid = solid != 0;
     staged->destroyed = destroyed != 0;
     staged->alpha = alpha;
     staged->point_size = point_size;
@@ -457,6 +460,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         memcpy(previous_angles, record->angles, sizeof(previous_angles));
         memcpy(previous_color, record->color, sizeof(previous_color));
         const bool previous_visible = record->visible;
+        const bool previous_solid = record->solid;
         const bool previous_destroyed = record->destroyed;
         const double previous_alpha = record->alpha;
         const double previous_point_size = record->point_size;
@@ -508,6 +512,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         memcpy(record->angles, staged->angles, sizeof(record->angles));
         memcpy(record->color, staged->color, sizeof(record->color));
         record->visible = staged->visible;
+        record->solid = staged->solid;
         record->destroyed = staged->destroyed;
         record->alpha = staged->alpha;
         record->point_size = staged->point_size;
@@ -545,6 +550,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         memcpy(staged->angles, previous_angles, sizeof(staged->angles));
         memcpy(staged->color, previous_color, sizeof(staged->color));
         staged->visible = previous_visible;
+        staged->solid = previous_solid;
         staged->destroyed = previous_destroyed;
         staged->alpha = previous_alpha;
         staged->point_size = previous_point_size;
@@ -620,6 +626,7 @@ bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
         memcpy(record->angles, saved->angles, sizeof(record->angles));
         memcpy(record->color, saved->color, sizeof(record->color));
         record->visible = saved->visible;
+        record->solid = saved->solid;
         record->destroyed = saved->destroyed;
         record->alpha = saved->alpha;
         record->point_size = saved->point_size;

@@ -86,6 +86,7 @@ enum LayerProperty {
     LAYER_SCALE,
     LAYER_ANGLES,
     LAYER_VISIBLE,
+    LAYER_SOLID,
     LAYER_ALPHA,
     LAYER_COLOR,
     LAYER_TEXT,
@@ -407,7 +408,7 @@ static bool journal_dynamic_layer_value(
     *baseline = (MWXSceneQuickJSDynamicLayerValueBaseline){
         .layer_index = layer_index,
         .alpha = record->alpha,
-        .visible = record->visible,
+        .visible = record->visible, .solid = record->solid,
         .text = duplicate_optional_layer_string(record->text),
         .font = duplicate_optional_layer_string(record->font),
     };
@@ -761,6 +762,7 @@ static void restore_dynamic_layer_journal(
         memcpy(record->color, baseline->color, sizeof(record->color));
         record->alpha = baseline->alpha;
         record->visible = baseline->visible;
+        record->solid = baseline->solid;
     }
 }
 
@@ -996,7 +998,7 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mut
     ];
     *mutation = (MWXSceneQuickJSAuthoredLayerMutationRecord){
         .layer_index = layer_index,
-        .visible = record->visible,
+        .visible = record->visible, .solid = record->solid,
         .alpha = record->alpha,
     };
     memcpy(mutation->color, record->color, sizeof(mutation->color));
@@ -1018,6 +1020,8 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_stage_authored_mut
         if ((baseline->fields &
              MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY) != 0)
             mutation->visible = baseline->visible;
+        if ((baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SOLID) != 0)
+            mutation->solid = baseline->solid;
     } else if (owner->target_layer_configured &&
         layer_index == owner->target_layer_index &&
         owner->authored_layer_baseline_available) {
@@ -1135,19 +1139,16 @@ static JSValue layer_get(
             ) : record->angles
         );
     case LAYER_VISIBLE:
-        return JS_NewBool(
-            context,
-            authored_mutation != NULL &&
-                    (authored_mutation->fields &
-                     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY) != 0
-                ? authored_mutation->visible
-                : (authored_baseline != NULL &&
-                   (authored_baseline->fields &
-                    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY) != 0
-                    ? authored_baseline->visible
-                : record->visible
-                  )
-        );
+    case LAYER_SOLID: {
+        const bool solid = (enum LayerProperty)magic == LAYER_SOLID;
+        const uint32_t field = solid ? MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SOLID
+                                    : MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY;
+        if (authored_mutation != NULL && (authored_mutation->fields & field) != 0)
+            return JS_NewBool(context, solid ? authored_mutation->solid : authored_mutation->visible);
+        if (authored_baseline != NULL && (authored_baseline->fields & field) != 0)
+            return JS_NewBool(context, solid ? authored_baseline->solid : authored_baseline->visible);
+        return JS_NewBool(context, solid ? record->solid : record->visible);
+    }
     case LAYER_ALPHA:
         return JS_NewFloat64(context,
             authored_mutation != NULL && (authored_mutation->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA)
@@ -1331,38 +1332,37 @@ static JSValue layer_set(
         memcpy(record->angles, value, sizeof(value));
         break;
     }
-    case LAYER_VISIBLE: {
+    case LAYER_VISIBLE:
+    case LAYER_SOLID: {
         int value = JS_ToBool(context, argv[0]);
         if (value < 0) return JS_EXCEPTION;
+        const bool solid = (enum LayerProperty)magic == LAYER_SOLID;
+        const uint32_t field = solid ? MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SOLID
+                                    : MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY;
+        bool *record_value = solid ? &record->solid : &record->visible;
         if (authored_target || value_authored_target) {
             MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
                 mwx_scene_quickjs_authored_mutation_for_layer(owner, record_index);
             MWXSceneQuickJSAuthoredLayerMutationRecord *baseline =
                 mwx_scene_quickjs_authored_mutation_baseline_for_layer(owner, record_index);
-            const bool current = mutation != NULL &&
-                (mutation->fields &
-                 MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY) != 0
-                    ? mutation->visible
-                    : (baseline != NULL &&
-                       (baseline->fields &
-                        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY) != 0
-                        ? baseline->visible
-                        : record->visible);
+            const bool current = mutation != NULL && (mutation->fields & field) != 0
+                ? (solid ? mutation->solid : mutation->visible)
+                : baseline != NULL && (baseline->fields & field) != 0
+                    ? (solid ? baseline->solid : baseline->visible) : *record_value;
             if (current == (value != 0)) break;
             mutation = mwx_scene_quickjs_stage_authored_mutation(owner, record_index);
             if (mutation == NULL)
                 return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
-            mutation->visible = value != 0;
-            mutation->fields |=
-                MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY;
+            *(solid ? &mutation->solid : &mutation->visible) = value != 0;
+            mutation->fields |= field;
             break;
         }
-        if (record->visible == (value != 0)) break;
+        if (*record_value == (value != 0)) break;
         if (!journal_dynamic_layer_value(owner, record_index))
             return JS_ThrowInternalError(context, "dynamic layer rollback journal exceeded");
         if (!mark_dirty(owner, record))
             return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
-        record->visible = value != 0;
+        *record_value = value != 0;
         break;
     }
     case LAYER_ALPHA: {
@@ -2371,7 +2371,7 @@ static JSValue make_layer_handle(
     const struct { const char *name; enum LayerProperty property; bool writable; } fields[] = {
         {"origin", LAYER_ORIGIN, true}, {"scale", LAYER_SCALE, true},
         {"size", LAYER_SIZE, false},
-        {"angles", LAYER_ANGLES, true}, {"visible", LAYER_VISIBLE, true},
+        {"angles", LAYER_ANGLES, true}, {"visible", LAYER_VISIBLE, true}, {"solid", LAYER_SOLID, true},
         {"text", LAYER_TEXT, true}, {"pointsize", LAYER_POINT_SIZE, false},
         {"font", LAYER_FONT, true}, {"id", LAYER_ID, false},
         {"name", LAYER_NAME, false},
@@ -2694,6 +2694,7 @@ static JSValue create_layer(
     double scale[3] = {1, 1, 1};
     double color[3] = {1, 1, 1};
     bool visible = true;
+    bool solid = true;
     const char *registered_asset = registered_asset_path(domain, argv[0]);
     if (JS_IsString(argv[0]) || registered_asset != NULL) {
         size_t length = 0;
@@ -2726,7 +2727,8 @@ static JSValue create_layer(
             !read_optional_vec3(context, argv[0], "origin", origin, origin) ||
             !read_optional_vec3(context, argv[0], "scale", scale, scale) ||
             !read_optional_color(context, argv[0], color, color) ||
-            !read_optional_bool(context, argv[0], "visible", true, &visible)) {
+            !read_optional_bool(context, argv[0], "visible", true, &visible) ||
+            !read_optional_bool(context, argv[0], "solid", true, &solid)) {
             free(text); free(font); free(name); free(asset_path);
             return JS_ThrowTypeError(context, "dynamic layer configuration field is invalid");
         }
@@ -2778,7 +2780,7 @@ static JSValue create_layer(
         .color = {color[0], color[1], color[2]},
         .alpha = alpha, .point_size = point_size,
         .order_index = insertion_order, .owner_identity = owner->identity,
-        .visible = visible, .dynamic = true, .configured = true,
+        .visible = visible, .solid = solid, .dynamic = true, .configured = true,
     };
     if (!mark_dirty(owner, record)) {
         free(record->name);
@@ -2979,7 +2981,7 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
     const struct { const char *name; enum LayerProperty property; bool writable; } fields[] = {
         {"origin", LAYER_ORIGIN, true}, {"scale", LAYER_SCALE, true},
         {"size", LAYER_SIZE, false},
-        {"angles", LAYER_ANGLES, true}, {"visible", LAYER_VISIBLE, true},
+        {"angles", LAYER_ANGLES, true}, {"visible", LAYER_VISIBLE, true}, {"solid", LAYER_SOLID, true},
         {"text", LAYER_TEXT, true}, {"pointsize", LAYER_POINT_SIZE, false},
         {"font", LAYER_FONT, true}, {"id", LAYER_ID, false}, {"name", LAYER_NAME, false},
     };
@@ -3313,7 +3315,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
             .effect_visible = staged->destroyed ? NULL : staged->effect_visible,
             .layer_id = record->layer_id,
             .order_index = record->order_index,
-            .visible = staged->visible,
+            .visible = staged->visible, .solid = staged->solid,
             .alpha = staged->alpha,
             .point_size = record->point_size,
             .text = (staged->fields &
@@ -3342,7 +3344,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
             .kind = record->destroyed ? MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY
                                       : MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
             .dynamic = record->dynamic, .fields = 0, .layer_id = record->layer_id,
-            .order_index = record->order_index, .visible = record->visible,
+            .order_index = record->order_index, .visible = record->visible, .solid = record->solid,
             .alpha = record->alpha, .point_size = record->point_size,
             .text = record->text == NULL ? "" : record->text,
             .font = record->font == NULL ? "" : record->font,
@@ -3457,7 +3459,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
     memcpy(record->current_origin, origin, sizeof(record->current_origin));
     memcpy(record->size, size, sizeof(record->size));
     memcpy(record->scale, scale, sizeof(record->scale)); memcpy(record->angles, angles, sizeof(record->angles));
-    memcpy(record->color, color, sizeof(record->color)); record->visible = visible != 0;
+    memcpy(record->color, color, sizeof(record->color)); record->visible = visible != 0; record->solid = true;
     record->alpha = alpha; record->point_size = point_size; record->order_index = (int32_t)layer_index;
     record->configured = true;
     return validate_complete_layer_catalog(
@@ -3668,6 +3670,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     const double scale[3],
     const double angles[3],
     uint32_t visible,
+    uint32_t solid,
     const char *text,
     size_t text_length,
     const char *font,
@@ -3683,6 +3686,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY |
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SOLID |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA |
@@ -3691,7 +3695,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
     if (owner == NULL || owner->domain == NULL || owner->disabled ||
         owner->domain->callback_active || owner->generation != expected_generation ||
-        fields == 0 || (fields & ~supported_fields) != 0 || visible > 1 ||
+        fields == 0 || (fields & ~supported_fields) != 0 || visible > 1 || solid > 1 ||
         origin == NULL || scale == NULL || angles == NULL || text == NULL ||
         font == NULL || color == NULL || !isfinite(alpha) || alpha < 0 || alpha > 1 ||
         text_length > MWX_SCENE_QUICKJS_MAX_LAYER_TEXT ||
@@ -3786,7 +3790,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     *baseline = (MWXSceneQuickJSAuthoredLayerMutationRecord){
         .layer_index = layer_index,
         .fields = fields,
-        .visible = visible != 0,
+        .visible = visible != 0, .solid = solid != 0,
         .alpha = alpha,
         .effect_visible = effect_copy,
         .text = text_copy,

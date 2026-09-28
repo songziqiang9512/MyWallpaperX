@@ -223,22 +223,16 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     .allSatisfy({ $0.isFinite && (0...1).contains($0) }) {
                     return .failure(.invalidArgument("invalid authored layer color"))
                 }
-                if mutation.fields.contains(.visibility) {
-                    let target = SceneDynamicTarget.layer(
-                        layerID: mutation.layerID, field: .visibility
-                    )
+                for (flag, field, value): (SceneScriptLayerMutation.Fields, SceneDynamicLayerField, Bool)
+                    in [(.visibility, .visibility, mutation.visible), (.solid, .solid, mutation.solid)]
+                    where mutation.fields.contains(flag) {
+                    let target = SceneDynamicTarget.layer(layerID: mutation.layerID, field: field)
                     guard authoredTargets.insert(target).inserted else {
-                        return .failure(.invalidArgument(
-                            "conflicting authored layer mutation target"
-                        ))
+                        return .failure(.invalidArgument("conflicting authored layer mutation target"))
                     }
-                    candidateAuthoredValues[target] = .bool(mutation.visible)
-                    Self.ensureDefinition(
-                        for: target,
-                        layer: authoredLayer,
-                        order: &candidateDefinitionOrder,
-                        definitions: &candidateDefinitions
-                    )
+                    candidateAuthoredValues[target] = .bool(value)
+                    Self.ensureDefinition(for: target, layer: authoredLayer,
+                        order: &candidateDefinitionOrder, definitions: &candidateDefinitions)
                 }
                 guard mutation.fields.contains(.effectVisibility) == !mutation.effectVisibilities.isEmpty else {
                     return .failure(.invalidArgument("invalid effect visibility mutation fields"))
@@ -662,6 +656,9 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 .vector3(mutation.angles.x, mutation.angles.y, mutation.angles.z)
             ))
         }
+        if mutation.fields.contains(.solid) {
+            values.append((.layer(layerID: mutation.layerID, field: .solid), .bool(mutation.solid)))
+        }
         if mutation.fields.contains(.visibility) {
             values.append((
                 .layer(layerID: mutation.layerID, field: .visibility),
@@ -767,6 +764,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 target: target, valueType: .vector3,
                 authoredValue: vector3(layer.anglesXYZ, fallback: [0, 0, 0])
             )
+        case let .layer(layerID, .solid) where layerID == layer.id:
+            .init(target: target, valueType: .bool, authoredValue: .bool(layer.solid ?? true))
         case let .layer(layerID, .visibility) where layerID == layer.id:
             .init(
                 target: target, valueType: .bool,

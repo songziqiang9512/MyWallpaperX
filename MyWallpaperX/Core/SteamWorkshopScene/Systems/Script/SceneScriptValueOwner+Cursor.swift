@@ -64,6 +64,7 @@ extension SceneScriptValueOwner {
                                     scalePointer.baseAddress,
                                     anglesPointer.baseAddress,
                                     baseline.visible ? 1 : 0,
+                                    baseline.solid ? 1 : 0,
                                     textPointer,
                                     baseline.text.utf8.count,
                                     fontPointer,

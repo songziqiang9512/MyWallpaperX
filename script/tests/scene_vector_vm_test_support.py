@@ -314,6 +314,7 @@ struct SceneRenderDescriptor {
         let id: Int
         let layerIndex: Int
         let name: String?
+        var solid: Bool? = nil
         var visible: Bool?
         let originXYZ: [Float]?
         let scaleXYZ: [Float]?

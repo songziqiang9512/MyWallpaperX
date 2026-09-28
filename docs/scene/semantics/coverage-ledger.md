@@ -2,7 +2,7 @@
 
 ## 2026-09-28 作者 Solid 开关进入鼠标命中
 
-作者显式solid:false及其value包装现由SceneDocument传到prepared Layer，在唯一cursor投影入口跳过命中；owner、初始化和普通update保留。true及省略字段保持原交互，省略的官方默认值不由本批推定。五组实际App正反例及3211615441点击回归、47项解析/几何/事务测试通过，见[运行证据](runtime-evidence-current.md#e-2026-09-28-cursor-solid)。仅关闭启动静态Solid缺口；动态setter、属性热调、可见性和其他命中合同仍需各自验证。
+作者显式solid:false及其value包装沿SceneDocument→prepared Layer控制唯一cursor命中出口；[静态批](runtime-evidence-current.md#e-2026-09-28-cursor-solid)已通过五组实际App正反例。后继把thisLayer.solid getter/setter接入原C journal/快照、Swift mutation与typed帧值，下一帧回送getter，普通update继续执行；不重建图或增加交互状态表。[动态批](runtime-evidence-current.md#e-2026-09-28-dynamic-solid)41项定向门、init双向实际App及3211615441点击回归通过。nil维持既有默认，不推定官方默认值；属性热调、实际按下中途关闭/重开、可见性/遮挡及其他命中合同仍开放。旧capture release保留up、无当前hit不发click，不宣称官方capture parity。
 
 ## 2026-09-28 标量鼠标事件与统一脚本值 owner
 

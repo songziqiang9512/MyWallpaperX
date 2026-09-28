@@ -6,9 +6,21 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-dynamic-solid"></a>
+
+### E-2026-09-28-DYNAMIC-SOLID — 脚本交互开关进入统一帧事务
+
+**根因/实现：**承接下方基线，`thisLayer.solid`此前只是JS对象字段，赋值不进入产品命中状态。现与visible共用C布尔accessor，沿既有authored mutation/dynamic journal、Swift DTO/coalescing/baseline、冲突隔离及typed `.layer.solid`提交；runtime snapshot回送下一帧getter，唯一cursor投影读取当前值并fallback作者值。dynamic新建层和撤回快照也保留该字段。11个产品文件净增31行，无新增owner、状态表、图重建或visibility过滤，Boolean value-only写权限不扩大。
+
+**行为验证：**41项Swift/C、cursor捕获和owner事务测试通过，包括双向set/get、typed下一帧回送、owner撤回、整帧snapshot撤回、冲突owner隔离、动态层创建/撤回、同帧visible与solid合并，以及value-only自身/peer写solid拒绝。capture测试以空hits验证旧capture可up但无click；不等于实际Host按下中途关闭的完整验证。优化Debug构建通过（本批从main工作区构建、隔离DerivedData），code-health通过（220既有warnings）；inner选择已查看，未执行跨职责模块全集。首轮测试夹具浮点字面量及旧“solid必须不存在”预期失败已修正，最终完整定向门通过。
+
+**同输入实际App：**2.10.0(279)，executable SHA256 `76874e43e5f5549f505d173251bf15b709dba8901e2907e464d04eb4c51a18a0`、CDHash `ff5b81be904daa2d961f27b0e060cc0ffe5fb47a`，运行前后签名验证通过。自有9900000280启动true/init关闭后三图均红[255,0,0]、无cursor；9900000281启动false/init打开后红→绿[0,255,0]→红，enter/leave各一次。两个专项判据通过；通用矩阵仍1/2，因为关闭组不满足通用hover变化阈值，原NON-PASS报告保留。runtime分别`c9abf956-8bd7-46b8-8748-b83a23bf94f9`、`a68d380a-a0f0-4e0f-ab68-4c38c73a5711`，submitted/completed/failed/presented分别114/114/0/113、110/110/0/108。3211615441只读原包隔离副本、固定PCM、8秒点击回归PASS，原图确认第二图出现，runtime `fd7fc4a3-9322-4f4a-b22d-d2876ea678a8`、164/163/0/162。三次均有同runtime graph完成、publication、compositor消费及next-frame，无脚本失败。
+
+**边界/归档：**本批不证明任意属性绑定Solid、遮挡/绘制visible过滤、官方默认值或capture取消语义；普通update及动态层撤回由真实VM/typed测试覆盖，完整App只覆盖init双向和真实点击。实际按下期间关闭/重开、跨owner动态handle与stale Solid专项、全语料/长稳/性能和官方parity仍开放。冻结产品/测试补丁SHA256 `72bb28e247dc4c56f88d9c256615414040eb26027acfb12041b95f7370682229`；独立只读审查APPROVE，结论随归档保存。本机忽略缓存`2026-09-28-dynamic-solid`保存原图/日志/报告、输入、像素与事件断言、构建/测试及补丁；基线保留在`2026-09-28-dynamic-solid-baseline`。临时副本核验后按精确清单清理。
+
 <a id="e-2026-09-28-dynamic-solid-baseline"></a>
 
-### E-2026-09-28-DYNAMIC-SOLID-BASELINE — 脚本交互开关未进入帧状态（未修复）
+### E-2026-09-28-DYNAMIC-SOLID-BASELINE — 脚本交互开关未进入帧状态（修前基线）
 
 **目标与首断点：**[公开IEffectLayer合同](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEffectLayer.html)提供控制cursor的Boolean solid属性。HEAD 68e64abf仅贯通启动值；SceneQuickJSLayerHost未注册solid accessor，mutation字段与SceneDynamicLayerField也没有该值。真实Swift/C VM探针确认首次getter不是Boolean（判别值0.75），setter写false后JS内可读回且无异常，但导出的layerMutationCount仍0。该赋值没有进入产品交互状态，不能把脚本无错视为能力已执行。
 
