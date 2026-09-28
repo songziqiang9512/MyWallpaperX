@@ -667,8 +667,11 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             guard let plan = operatorExecutionPlans[operatorIndex].movement else {
                 break
             }
+            let speed = definition.flags.disablesSpeedOverrides
+                ? 1 : overrideScalar(activeInstanceOverride?.speed)
+            let gravity = plan.gravity * speed
             for index in particles.indices {
-                let acceleration = plan.gravity - particles[index].velocity * plan.drag
+                let acceleration = gravity - particles[index].velocity * plan.drag
                 let velocity = particles[index].velocity + acceleration * duration
                 let position = particles[index].position + velocity * duration
                 guard acceptsMotionResult(velocity, position, component: "movement") else {

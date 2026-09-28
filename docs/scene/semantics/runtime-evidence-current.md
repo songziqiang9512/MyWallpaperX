@@ -6,6 +6,20 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-particle-gravity-speed"></a>
+
+### E-2026-09-28-PARTICLE-GRAVITY-SPEED — Movement 重力消费同一 Speed 倍率
+
+**首断点与实现：**HEADf72243a2的Movement直接使用plan.gravity，漏了原instance Speed；这会让低speed烟花/水滴的初速度变小而重力不变。公开[IParticleSystemInstance](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystemInstance.html)将speed定义为initial velocity及forces倍率，开源Mirage `f5049582e3e334cac6b177bbbccb39736190750a` 的Movement也只对gravity使用该倍率而不乘drag。现每次Movement执行时从原active override和General bit16门计算gravity，沿原积分和原子数值校验提交；产品净增3行。存量velocity不重乘，drag、角加速度、作者operator顺序与world-space变换均未改。
+
+**行为与构建：**旧代码新反例5项失败；候选simulator66项通过，包括signed/zero/half/double、bit16、动态存量受力、保留drag、snapshot撤回重试、重力乘积超Float的velocity/position原子保留及后继恢复。runtime27项通过、10项既有环境跳过；优化Debug与code-health通过（1005 Swift、219既有warnings）。两文件冻结SHA256 `eaf7d469f676d0fc41eb0654fb8b0c14855cacd5813c684047b076e9ff7a051e`，独立只读代码及运行证据审查APPROVE。
+
+**实际画面：**同一自有9900000407有三列root/static child、零初速度和固定向下重力，分别speed0、speed0+bit16、speed2。两版各12张连续图；基线三组首末下落均345.821px；候选依次0、343.153、686.136px，零组全程位置不变，后两组逐帧向下。根/子二值mask质心在1px内一致；首版0.02px检查因不同X亚像素平移后的栅格覆盖差失败（最大0.1003px），保留原脚本/失败日志，改为1px绝对精度且rtol=0；停止、单调、double比率与基线组间一致门未改。不声称原门通过或质心完全相等。已查看最终Metal图；候选submitted/completed/failed/presented=220/220/0/219，frame0/1/2完成并有后继输出。direct粒子不涉及graph publication。两版通用benchmark仅因纯粒子image loaded ratio=0为NON-PASS，particle自身3/3，门值未改。
+
+**真实回归及边界：**3754630802烟花、3770444459水滴各12秒隔离回放PASS，particle分别10/10、5/5；21/1个graph层均有GPU完成、terminal compositor消费和next-frame。performance读取时分别207/206/0/205、473/472/0/470。这是候选运行回归，无原版或旧构建同相位轨迹对照。188可读scene.pkg的限定扫描找到15目录/51个非unit speed+非零gravity声明（含最多depth2 child），只代表潜在影响，不等于51项已修复，也不更新历史完整语料分母。其他force consumer、world-space坐标、官方轨迹和QV用户验收继续开放。
+
+**身份与留存：**baseline App SHA256 `eab138ad5a58c0457c542c4a77e28fe851936c6f89713670fa2ce531ef5b22ee`；candidate App2.10.0(279)、SHA256 `03fdb43dca7b5b041d8981994b43e430d236877a8b10f5a59751f041e1eb68aa`、CDHash `cd54ee61ad1811eb1daa6c477682bc7aeb645f58`，运行前后验签。忽略缓存`2026-09-28-particle-gravity-speed`保存原报告、图、连续序列、自有输入、ROI原门/探索/修正记录、普查、测试、构建与冻结补丁。
+
 <a id="e-2026-09-28-particle-angular-speed"></a>
 
 ### E-2026-09-28-PARTICLE-ANGULAR-SPEED — 出生 Speed 倍率补齐角速度

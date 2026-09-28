@@ -58,7 +58,9 @@ import simd
 @main
 enum Harness {
     static func main() throws {
-        if CommandLine.arguments.dropFirst().first == "angular-speed" {
+        if CommandLine.arguments.dropFirst().first == "gravity-speed" {
+            try printJSON(gravitySpeedResults())
+        } else if CommandLine.arguments.dropFirst().first == "angular-speed" {
             try printJSON(angularSpeedResults())
         } else if CommandLine.arguments.dropFirst().first == "rotation-source-types" {
             try printJSON(rotationSourceTypeResults())
@@ -84,6 +86,57 @@ enum Harness {
         } else {
             try printJSON(syntheticResults())
         }
+    }
+
+    private static func gravitySpeedResults() throws -> [String: Any] {
+        let parser = SceneParticleDefinitionParser()
+        func modifier(_ speed: Double) -> SceneParticleInstanceOverride? {
+            parser.parseInstanceOverride(["speed": speed])
+        }
+        func make(_ speed: Double, flags: Int = 0, drag: Double = 0,
+                  gravity: String = "4 -8 2") throws -> SceneParticleSimulator {
+            let definition = try parser.parse(root: ["maxcount": 4, "flags": flags,
+                "emitter": [["name": "sphererandom", "instantaneous": 1,
+                    "rate": 0, "distancemax": 0]],
+                "initializer": [["name": "lifetimerandom", "min": 10, "max": 10]],
+                "operator": [["name": "movement", "drag": drag, "gravity": gravity]],
+                "renderer": [["name": "sprite"]]])
+            return SceneParticleSimulator(definition: definition,
+                instanceOverride: modifier(speed), fixedTimeStep: 0.25)
+        }
+        var rows: [[String: Any]] = []
+        for flags in [0, 16] {
+            for speed in [-1.0, 0, 0.5, 1, 2] {
+                let sim = try make(speed, flags: flags)
+                sim.advance(by: 0.5)
+                rows.append(["flags": flags, "speed": speed,
+                    "velocity": vector(sim.particles[0].velocity),
+                    "position": vector(sim.particles[0].position)])
+            }
+        }
+        let live = try make(1, drag: 0.5)
+        live.advance(by: 0.25)
+        let saved = live.frameSnapshot()
+        live.advance(by: 0.25, dynamicInstanceOverride: modifier(0))
+        let stopped = vector(live.particles[0].velocity)
+        live.restoreFrame(saved)
+        live.advance(by: 0.25, dynamicInstanceOverride: modifier(0))
+        let retry = vector(live.particles[0].velocity)
+        live.advance(by: 0.25, dynamicInstanceOverride: modifier(2))
+        let doubled = vector(live.particles[0].velocity)
+        live.advance(by: 0.25)
+        let unsafe = try make(1, gravity: "1000000 0 0")
+        unsafe.advance(by: 0.25)
+        let oldPosition = unsafe.particles[0].position
+        let oldVelocity = unsafe.particles[0].velocity
+        unsafe.advance(by: 0.25, dynamicInstanceOverride: modifier(1e35))
+        let preserved = unsafe.particles[0].position == oldPosition
+            && unsafe.particles[0].velocity == oldVelocity
+        unsafe.advance(by: 0.25)
+        return ["rows": rows, "stopped": stopped, "retry": retry, "doubled": doubled,
+            "fallback": vector(live.particles[0].velocity), "preserved": preserved,
+            "recovered": unsafe.particles[0].velocity.x > oldVelocity.x,
+            "invalidMotion": unsafe.diagnostics.filter { $0.kind == .invalidOperatorState }.count]
     }
 
     private static func angularSpeedResults() throws -> [String: Any] {
@@ -3304,6 +3357,21 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(result["signedShell"])
         self.assertTrue(result["deterministic"])
         self.assertTrue(result["rollback"])
+
+    def test_speed_scales_gravity_without_rescaling_drag_or_existing_velocity(self) -> None:
+        result = self.run_harness("gravity-speed")
+        for row in result["rows"]:
+            factor = 1 if row["flags"] == 16 else row["speed"]
+            with self.subTest(flags=row["flags"], speed=row["speed"]):
+                self.assertEqual(row["velocity"], [2 * factor, -4 * factor, factor])
+                self.assertEqual(row["position"], [0.75 * factor, -1.5 * factor, 0.375 * factor])
+        self.assertEqual(result["stopped"], [0.875, -1.75, 0.4375])
+        self.assertEqual(result["retry"], result["stopped"])
+        self.assertEqual(result["doubled"], [2.765625, -5.53125, 1.3828125])
+        self.assertEqual(result["fallback"], [3.419921875, -6.83984375, 1.7099609375])
+        self.assertTrue(result["preserved"])
+        self.assertTrue(result["recovered"])
+        self.assertEqual(result["invalidMotion"], 1)
 
     def test_speed_scales_initial_angular_velocity_and_respects_birth_boundaries(self) -> None:
         result = self.run_harness("angular-speed")
