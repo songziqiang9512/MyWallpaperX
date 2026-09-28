@@ -6,6 +6,20 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-particle-angular-speed"></a>
+
+### E-2026-09-28-PARTICLE-ANGULAR-SPEED — 出生 Speed 倍率补齐角速度
+
+**首断点与来源：**HEAD01562ec1的共享出生override只乘linear velocity，angular velocity漏乘；Speed=0仍自转。现沿同一scalar与General bit16门同时缩放两者，产品净增2行，无新状态或分支。公开[IParticleSystemInstance](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystemInstance.html)将speed定义为initial velocity及forces倍率，但没有明确角速度；开源Mirage `f5049582e3e334cac6b177bbbccb39736190750a` 的ParticleCompiler实例override同时处理两种初速度，是本次有界判断的辅助证据，不是官方角速度数值合同。未改Angular Movement force/drag、角度单位或存量粒子；父子事件setcolor的叠乘顺序仍有歧义，暂挂而未增加补偿。
+
+**行为验证：**新反例在旧产品代码失败5项；候选simulator模块65项通过，覆盖signed/zero/half/double倍率、bit16、dynamic出生边界、snapshot恢复与角速度Float溢出局部拒绝。runtime模块27项通过、10项既有真实内容环境跳过；优化Debug构建及code-health通过（1005 Swift、219既有warnings）。
+
+**同输入实际App：**自有9900000406使用三排非对称矩形root/static child，分别speed0、speed0+bit16、speed2；每组12张连续图。基线各组都旋转，候选speed0根/子各11次相对首帧比较均为0变化，其余两组仍动；每组root/child变化像素数量一致。已查看最终Metal图，专项ROI断言通过。候选submitted/completed/failed/presented=221/221/0/220，frame0/1/2完成并有后继输出；direct粒子不涉及graph publication。两版通用benchmark均只因纯粒子场景image loaded ratio=0而NON-PASS，particle自身3/3加载，不修改门值。图像证明停止及共享消费，精确倍率来自Swift测试。
+
+真实3792249095隔离回归PASS，image/particle加载率均1，粒子2/2；7层graph都有GPU完成、terminal compositor消费及next-frame，performance读取时221/220/0/219。初次调用把sample-root多加一层Scene而在拷贝前失败，修正调用后重跑，保留原日志。真实样本只证明本次回归，没有旧版同相位对照或官方旋转验收。只读影响普查在188个可读scene.pkg中发现12个目录、22个非unit speed与角速度组合候选；这不是运行收益，也不更改既有普查分母。
+
+**身份与审查：**App2.10.0(279)，baseline SHA256 `6b4732b0f67313da234beaa7c06cd2fc6108e5fc043784dbe8b0252e0c2cc7da`；candidate SHA256 `eab138ad5a58c0457c542c4a77e28fe851936c6f89713670fa2ce531ef5b22ee`、CDHash `426f7b21ef4b835db9a9cee4fa3953775e9ab19f`，运行前后验签。两文件冻结补丁SHA256 `a03c62ec8293bb9d857a7f83593d08d4ab9cb48ff40b2a2478a8163aaad4f124`，独立只读审查及App补充证据APPROVE。忽略缓存`2026-09-28-particle-angular-speed`保存报告、连续图、自有输入、ROI、普查、失败及成功验证、构建和补丁。没有官方parity、长稳、全语料或QV光效问题关闭结论。
+
 <a id="e-2026-09-28-solid-live-transitions"></a>
 
 ### E-2026-09-28-SOLID-LIVE-TRANSITIONS — 普通帧反复切换交互开关的实际输出

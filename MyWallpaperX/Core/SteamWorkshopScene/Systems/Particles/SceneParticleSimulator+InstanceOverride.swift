@@ -14,7 +14,9 @@ extension SceneParticleSimulator {
             particle.size *= overrideScalar(value.size)
         }
         if !flags.disablesSpeedOverrides {
-            particle.velocity *= overrideScalar(value.speed)
+            let speed = overrideScalar(value.speed)
+            particle.velocity *= speed
+            particle.angularVelocity *= speed
         }
         if !flags.disablesColorOverrides {
             if let color = overrideVector(value.color) {

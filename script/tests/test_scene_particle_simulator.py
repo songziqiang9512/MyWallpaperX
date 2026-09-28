@@ -58,7 +58,9 @@ import simd
 @main
 enum Harness {
     static func main() throws {
-        if CommandLine.arguments.dropFirst().first == "rotation-source-types" {
+        if CommandLine.arguments.dropFirst().first == "angular-speed" {
+            try printJSON(angularSpeedResults())
+        } else if CommandLine.arguments.dropFirst().first == "rotation-source-types" {
             try printJSON(rotationSourceTypeResults())
         } else if CommandLine.arguments.dropFirst().first == "birth-scalar-safety" {
             try printJSON(birthScalarSafetyResults())
@@ -82,6 +84,53 @@ enum Harness {
         } else {
             try printJSON(syntheticResults())
         }
+    }
+
+    private static func angularSpeedResults() throws -> [String: Any] {
+        let parser = SceneParticleDefinitionParser()
+        func definition(_ flags: Int = 0, continuous: Bool = false) throws -> SceneParticleDefinition {
+            try parser.parse(root: ["maxcount": 16, "flags": flags,
+                "emitter": [["name": "sphererandom", "instantaneous": continuous ? 0 : 1,
+                    "rate": continuous ? 4 : 0, "distancemax": 0]],
+                "initializer": [["name": "lifetimerandom", "min": 10, "max": 10],
+                    ["name": "rotationrandom", "min": "0.2 -0.4 0.6", "max": "0.2 -0.4 0.6"],
+                    ["name": "angularvelocityrandom", "min": "1 -2 3", "max": "1 -2 3"]],
+                "operator": [["name": "angularmovement", "drag": 0, "force": "0 0 0"]],
+                "renderer": [["name": "sprite"]]])
+        }
+        func modifier(_ speed: Double) -> SceneParticleInstanceOverride? {
+            parser.parseInstanceOverride(["speed": speed])
+        }
+        var rows: [[String: Any]] = []
+        for flags in [0, 16] {
+            for speed in [-1.0, 0, 0.5, 1, 2] {
+                let sim = SceneParticleSimulator(definition: try definition(flags),
+                    instanceOverride: modifier(speed), fixedTimeStep: 0.25)
+                sim.advance(by: 0.25)
+                rows.append(["flags": flags, "speed": speed,
+                    "angular": vector(sim.particles[0].angularVelocity),
+                    "rotation": vector(sim.particles[0].rotation)])
+            }
+        }
+        let live = SceneParticleSimulator(definition: try definition(continuous: true),
+            instanceOverride: modifier(2), fixedTimeStep: 0.25)
+        live.advance(by: 0.25)
+        let saved = live.frameSnapshot()
+        live.advance(by: 0.25, dynamicInstanceOverride: modifier(0))
+        let changed = live.particles.map { vector($0.angularVelocity) }
+        live.restoreFrame(saved)
+        live.advance(by: 0.25, dynamicInstanceOverride: modifier(0))
+        let retry = live.particles.map { vector($0.angularVelocity) }
+        live.advance(by: 0.25)
+        let unsafe = SceneParticleSimulator(definition: try definition(continuous: true), fixedTimeStep: 0.25)
+        unsafe.advance(by: 0.25)
+        unsafe.advance(by: 0.25, dynamicInstanceOverride: modifier(1e100))
+        let safePeers = unsafe.particles.count
+        unsafe.advance(by: 0.25)
+        return ["rows": rows, "changed": changed, "retry": retry,
+            "fallback": vector(live.particles.last!.angularVelocity),
+            "unsafePeers": safePeers, "recovered": unsafe.particles.count,
+            "invalidBirths": unsafe.diagnostics.filter { $0.kind == .invalidEmitterState }.count]
     }
 
     private static func rotationSourceTypeResults() throws -> [String: Any] {
@@ -3255,6 +3304,21 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(result["signedShell"])
         self.assertTrue(result["deterministic"])
         self.assertTrue(result["rollback"])
+
+    def test_speed_scales_initial_angular_velocity_and_respects_birth_boundaries(self) -> None:
+        result = self.run_harness("angular-speed")
+        for row in result["rows"]:
+            factor = 1 if row["flags"] == 16 else row["speed"]
+            with self.subTest(flags=row["flags"], speed=row["speed"]):
+                for actual, initial, velocity in zip(row["rotation"], [0.2, -0.4, 0.6], [1, -2, 3]):
+                    self.assertAlmostEqual(actual, initial + velocity * factor * 0.25)
+                self.assertEqual(row["angular"], [factor, -2 * factor, 3 * factor])
+        self.assertEqual(result["changed"], [[2, -4, 6], [0, 0, 0]])
+        self.assertEqual(result["retry"], result["changed"])
+        self.assertEqual(result["fallback"], [2, -4, 6])
+        self.assertEqual(result["unsafePeers"], 1)
+        self.assertEqual(result["recovered"], 2)
+        self.assertEqual(result["invalidBirths"], 1)
 
     def test_rotation_preserves_numeric_and_text_axis_semantics(self) -> None:
         result = self.run_harness("rotation-source-types")
