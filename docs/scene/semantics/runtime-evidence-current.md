@@ -6,6 +6,18 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-29-wrapper-collapse"></a>
+
+### E-2026-09-29-WRAPPER-COLLAPSE — 帧预检请求包装双走查压扁为单走查（E1-①第一切片，结构消融，审查两轮 REJECT→APPROVE）
+
+**重复职责与消融：**帧路径每层曾跑两次独立走查——`SceneMetalRenderer.preflightResolvedMaterialFrameTargets` claim 一次、算尺寸并构造 `SceneResolvedMaterialGraphComposition.FrameTargetRequest`；`SceneResolvedMaterialGraphComposition.preflight(requests:)` 把请求转成 `FrameTargetPlan`（pool 分配+invocation 校验+尺寸守卫）；`SceneMetalRenderer.resolvedMaterialFramePreparationRequests` 对每层**再次 claim**、第三次重复构造 materialFunctionInvocations、重新 resolve `SceneUtilityLayerSourceRoute` 后构造 `FramePreparationRequest`。本批三者合并为单次走查：每层一次 claim、一份 invocation、一次 utility resolve，直接产出 `FrameTargetPlan`+`FramePreparationRequest`；`FrameTargetRequest` 结构、`GraphComposition.preflight` 编排（−139 行）与 `resolvedMaterialFramePreparationRequests`（−486 行）整体删除，`FrameTargetPlan`（帧长投影）与 ready payload 扩展保留。产品净 −156 行（GraphComposition +4/−143、Preflight +199/−216）。旧编排内四处死防御随迁删除（direct-draw 合同守卫、`frame-target-layer-ambiguous`、claim-token-mismatch、`plan-count-mismatch`）——逐一核验为不可达，非行为删除。
+
+**审查两轮（首轮 REJECT 抓出 1 项阻断）：**B1——`byLayerID` 为空（本帧全部 planning 尝试失败）时空分支短路只返回 `sourceCoverageFallbacks`，把 graph fallback（`function-invocation-unknown-*`、pool planning 失败）静默丢弃；旧流程此时仍经 `pool.preflightPersistentGraphTargets([])` 平凡通过后安装合并 fallback，被跳过的 claimed 层绘制期 claim 命中 localFallback 白名单走 layer-source passthrough（帧存活）；新流程无条目则这些层撞 `frame-candidate-not-prepared`（不在白名单）→ `recordClaimedFailure` → `frameRequiresDrop`——局部 fail soft 翻转为逐帧硬失败，违反 Scene 硬边界。修复：空分支同样 `merge(graphTargetFallbacks)`（graphReason 优先，与旧流程及非空分支逐字一致）。复审确认闭合：合并闭包三处逐字一致、两字典按控制流不相交、下游 passthrough 链路复原、无新增路径。其余论点（单 claim 等价、拓扑序保证 `preparedGraphOutputExtent` 的增量 byLayerID 查询、prep 拒绝与 preflight fallback 交错不可观察、imagePipeline/pool 守卫搬家 reason code 等价、plan+request 同点追加）逐条核验成立。
+
+**验证（机器推导门禁 + 干净 A/B 回放）：**`verify_scene_change.py --paths <9 路径> --phase checkpoint --run` 四项 PASSED：focused-tests 15 模块、code-health、scene-defense、checkpoint build（日志 `checkpoint-gate-v3.log`）。9 处读 preflight/composition 源码文本的形状断言随迁（runtime_bridge×2、execution_capability、realtime_path_policy、capture_geometry、puppet_mesh、utility_layers、frame_context×2），全部跟随代码位置/字符串变化迁移，意图不变。行为等价：基线=HEAD worktree 签名构建，候选=HEAD+仅本批 2 个 Swift 文件的干净 worktree 构建（同 Team H9QWU9XN8R；**工作树中另有并行会话在途未提交改动，候选二进制已排除**），简单样本 `1300076567` 证据模式 12s 双 PASS loaded=1.0 failures=[]，逐帧 draw 6.93–6.97 恒等、busy=dropped=fallback=0、GPU allocated 两侧快照逐字节相等；screenshots non-black、motion 指标差异 ~0.4%（动画时序抖动）。
+
+**未验证与登记边界：**①重图 `2938612768` 的 A/B 回放本日不可行——隔离冷 runtime home 资源准备实测 ~65–70 s，超过 benchmark 进程超时预算 `duration+60 s`（本机当日环境，非本批引入；该样本的 aggregate/依赖语义由聚焦模块覆盖）；②简单样本 admit 阶段绝对值太小（adm 0.05–0.24 ms），两次交换顺序配对的方向交叉证明噪声主导，本批**不宣称阶段级性能收益**（结构消融）；③`admit-prep-requests` 遥测阶段并入 `admit-preflight-targets`（2026-09-16 历史条目中的阶段表按历史记录保留，不回改）；④`resolvedMaterialPreparationLayerIDs` 成为只写属性，其声明 pin 与属性本身随所属卡退役。冻结批次 diff SHA256 `04b5abf612b6224dcd7fbac8936251c65a8229c1de6121370ff3c1a9829344f0`；门禁日志与 A/B 报告见忽略缓存 `20260929-wrapper-collapse/`。
+
 <a id="e-2026-09-29-dependency-vector-convergence"></a>
 
 ### E-2026-09-29-DEPENDENCY-VECTOR-CONVERGENCE — 依赖双通道收敛为唯一有序向量（E1-③，结构消融，审查三轮）
