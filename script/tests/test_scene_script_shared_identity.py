@@ -20,26 +20,26 @@ import Foundation
         return d
     }
     static func owner(_ d: SceneScriptQuickJSDomain, _ source: String,
-                      id: Int = 1, stateful: Bool = true) throws -> SceneScriptVectorOwner {
+                      id: Int = 1, stateful: Bool = true) throws -> SceneScriptValueOwner {
         try .init(domain: d, source: source, target: .layer(layerID: id, field: .origin),
             valueType: stateful ? .vector3 : .bool,
             effectNames: [], allowsStatefulLayerSideEffects: stateful,
             generation: 1, budget: .default)
     }
-    static func run(_ o: SceneScriptVectorOwner, _ time: Double = 1,
+    static func run(_ o: SceneScriptValueOwner, _ time: Double = 1,
                     generation: UInt64 = 1, budget: UInt64? = nil,
                     input: SceneDynamicValue = .vector3(0,0,0))
-        -> Result<SceneScriptVectorEvaluation, SceneScriptScalarRuntimeFailure> {
+        -> Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure> {
         o.evaluate(input: input, frame: .init(timing: .init(
             wallDate: Date(timeIntervalSince1970: 0), simulationFrameTime: 0.016,
             sceneTime: time)), scriptPropertiesJSON: "", userPropertiesJSON: "{}",
             expectedGeneration: generation, interruptBudget: budget)
     }
-    static func xyz(_ r: Result<SceneScriptVectorEvaluation, SceneScriptScalarRuntimeFailure>) throws -> [Double] {
+    static func xyz(_ r: Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure>) throws -> [Double] {
         guard case let .vector3(x,y,z) = try r.get().value else { return [] }
         return [x,y,z]
     }
-    static func code(_ r: Result<SceneScriptVectorEvaluation, SceneScriptScalarRuntimeFailure>) -> String {
+    static func code(_ r: Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure>) -> String {
         switch r { case .success: "ok"; case let .failure(f): f.code }
     }
     static func main() throws {

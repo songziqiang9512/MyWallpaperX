@@ -17,7 +17,7 @@ import Foundation
             originXYZ: [0,0,0], scaleXYZ: [1,1,1], scaleHasScript: nil,
             alpha: 1, effects: []
         )]))
-        let owner = try SceneScriptVectorOwner(
+        let owner = try SceneScriptValueOwner(
             domain: domain,
             source: """
             let dragging = false, start, offset;
@@ -72,12 +72,12 @@ import Foundation
                 cursorWorldPosition: .init(pointerX,0,0), cursorScreenPosition: .zero,
                 cursorLeftDown: true))
         }
-        func run(_ mode: Double) -> Result<SceneScriptVectorEvaluation, SceneScriptScalarRuntimeFailure> {
+        func run(_ mode: Double) -> Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure> {
             owner.evaluate(input: .vector3(mode,0,0),
                 frame: frame(),
                 scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil)
         }
-        func values(_ result: Result<SceneScriptVectorEvaluation, SceneScriptScalarRuntimeFailure>) throws -> [Double] {
+        func values(_ result: Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure>) throws -> [Double] {
             let evaluation = try result.get()
             if case let .vector3(x,y,z) = evaluation.value { return [x,y,z] }
             return []

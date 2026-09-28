@@ -239,9 +239,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 failures[target] = .invalidSource
                 continue
             }
-            let owner: SceneScriptVectorOwner
+            let owner: SceneScriptValueOwner
             do {
-                owner = try SceneScriptVectorOwner(
+                owner = try SceneScriptValueOwner(
                       domain: domain,
                       source: candidate.source,
                       target: target,

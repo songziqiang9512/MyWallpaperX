@@ -19,7 +19,7 @@ HARNESS = r'''
     static func make(_ source: String, destroyOwner: Bool = false) throws -> (SceneScriptQuickJSDomain, SceneScriptCursorProgram) {
         let d = try SceneScriptQuickJSDomain()
         try d.configureLayerCatalog(descriptor)
-        let o = try SceneScriptVectorOwner(domain: d, source: source, target: destroyOwner ? .layer(layerID: 2, field: .visibility) : target, valueType: destroyOwner ? .bool : .vector3, effectNames: [], allowsStatefulLayerSideEffects: true, generation: 1, budget: .default)
+        let o = try SceneScriptValueOwner(domain: d, source: source, target: destroyOwner ? .layer(layerID: 2, field: .visibility) : target, valueType: destroyOwner ? .bool : .vector3, effectNames: [], allowsStatefulLayerSideEffects: true, generation: 1, budget: .default)
         let b = SceneScriptCursorBinding(layerID: destroyOwner ? 2 : 1, authoredOrdinal: 0, owner: o, events: o.exportedCursorEvents, ownsOwner: true, scriptProperties: [:], ownerSeedValue: destroyOwner ? .bool(true) : .vector3(0,0,0))
         return (d, .init(bindings: [b], generation: 1))
     }
@@ -69,11 +69,11 @@ HARNESS = r'''
         let snapshot = SceneDynamicSnapshotResolver().resolve(frameIndex: 2, generation: 2,
             definitions: runtime.authoredLayerDefinitions, sceneScriptValues: runtime.snapshot().authoredLayerValues).snapshot
         try domain.publishLayerSnapshot(snapshot, descriptor: descriptor)
-        let reader = try SceneScriptVectorOwner(domain: domain, source: "export function update(v){return new Vec3(thisScene.getLayer('card').getEffect(0).visible?1:0,thisScene.getLayer('card').getEffect(1).visible?1:0,0);}", target: target, effectNames: [], allowsStatefulLayerSideEffects: true, generation: 1, budget: .default)
+        let reader = try SceneScriptValueOwner(domain: domain, source: "export function update(v){return new Vec3(thisScene.getLayer('card').getEffect(0).visible?1:0,thisScene.getLayer('card').getEffect(1).visible?1:0,0);}", target: target, effectNames: [], allowsStatefulLayerSideEffects: true, generation: 1, budget: .default)
         if case let .success(value) = reader.evaluate(input: .vector3(0,0,0), frame: frame, scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil) {
             out["nextFrame"] = value.value == .vector3(1,0,0)
         } else { out["nextFrame"] = false }
-        let foreignReader = try SceneScriptVectorOwner(domain: domain, source: "export function update(v){shared.effect.visible=false;return v;}", target: target, effectNames: [], allowsStatefulLayerSideEffects: true, generation: 1, budget: .default)
+        let foreignReader = try SceneScriptValueOwner(domain: domain, source: "export function update(v){shared.effect.visible=false;return v;}", target: target, effectNames: [], allowsStatefulLayerSideEffects: true, generation: 1, budget: .default)
         if case .failure = foreignReader.evaluate(input: .vector3(0,0,0), frame: frame, scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil) {
             out["foreignOwnerRejected"] = true
         } else { out["foreignOwnerRejected"] = false }

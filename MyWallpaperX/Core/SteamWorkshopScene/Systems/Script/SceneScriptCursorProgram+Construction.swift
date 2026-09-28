@@ -118,13 +118,13 @@ extension SceneScriptCursorProgram {
         for candidate in requestedCandidates {
             let layerID = candidate.identity.layerID
             let target = candidate.identity.target
-            let owner: SceneScriptVectorOwner
+            let owner: SceneScriptValueOwner
             do {
                 guard !candidate.source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                     failures[target] = .invalidSource
                     continue
                 }
-                owner = try SceneScriptVectorOwner(
+                owner = try SceneScriptValueOwner(
                     domain: domain,
                     source: candidate.source,
                     target: target,

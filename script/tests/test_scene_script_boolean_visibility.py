@@ -160,10 +160,10 @@ private func evaluateValueOnlyOwner(
     source: String,
     target: SceneDynamicTarget,
     generation: UInt64
-) throws -> Result<SceneScriptVectorEvaluation, SceneScriptScalarRuntimeFailure> {
+) throws -> Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure> {
     let domain = try SceneScriptQuickJSDomain()
     try domain.configureLayerCatalog(descriptor())
-    let owner = try SceneScriptVectorOwner(
+    let owner = try SceneScriptValueOwner(
         domain: domain,
         source: source,
         target: target,
@@ -183,7 +183,7 @@ private func evaluateValueOnlyOwner(
 }
 
 private func failureCode(
-    _ result: Result<SceneScriptVectorEvaluation, SceneScriptScalarRuntimeFailure>
+    _ result: Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure>
 ) -> String? {
     guard case let .failure(failure) = result else { return nil }
     return failure.code

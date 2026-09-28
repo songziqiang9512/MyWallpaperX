@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated struct SceneScriptVectorEvaluation: Equatable, Sendable {
+nonisolated struct SceneScriptValueEvaluation: Equatable, Sendable {
     let value: SceneDynamicValue
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]

@@ -98,7 +98,7 @@ nonisolated extension SceneScriptScalarProgram {
                       layer.text != nil,
                       let descriptorPointSize = layer.textStyle?.pointSize,
                       descriptorPointSize.isFinite,
-                      SceneScriptScalarOwner.accepts(authored, for: target),
+                      SceneScriptValueOwner.acceptsScalar(authored, for: target),
                       Float(authored).bitPattern == descriptorPointSize.bitPattern else {
                     return nil
                 }

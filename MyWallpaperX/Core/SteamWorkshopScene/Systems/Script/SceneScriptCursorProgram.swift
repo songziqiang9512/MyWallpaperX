@@ -649,7 +649,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     }
 
     static func exportedEvents(
-        _ owner: SceneScriptVectorOwner
+        _ owner: SceneScriptValueOwner
     ) -> Set<SceneScriptCursorEventKind> {
         owner.exportedCursorEvents
     }

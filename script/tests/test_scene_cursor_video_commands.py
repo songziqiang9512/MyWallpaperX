@@ -19,7 +19,7 @@ HARNESS = r'''
             descriptor:descriptor,videoSnapshots:[1:.init(layerID:1,duration:10,rate:1,loop:true,currentTime:0,isPlaying:true,endedGeneration:0)])
         var bindings:[SceneScriptCursorBinding] = []
         for (i,item) in sources.enumerated() {
-            let o = try SceneScriptVectorOwner(domain:d,source:item.1,target:target(item.0),effectNames:[],
+            let o = try SceneScriptValueOwner(domain:d,source:item.1,target:target(item.0),effectNames:[],
                 allowsStatefulLayerSideEffects:true,generation:1,budget:.default)
             bindings.append(.init(layerID:1,authoredOrdinal:i,owner:o,events:o.exportedCursorEvents,
                 ownsOwner:true,scriptProperties:[:],ownerSeedValue:.vector3(0,0,0)))

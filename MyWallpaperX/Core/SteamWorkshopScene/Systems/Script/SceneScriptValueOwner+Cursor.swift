@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneScriptVectorOwner {
+extension SceneScriptValueOwner {
     func clearCursorAuthoredLayerBaselines() {
         mwx_scene_quickjs_owner_clear_authored_layer_baseline(handle)
         mwx_scene_quickjs_owner_clear_authored_layer_mutation_baselines(handle)

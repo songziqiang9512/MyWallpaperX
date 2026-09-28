@@ -557,7 +557,7 @@ class SceneScriptQuickJSMediaLifecycleTest(unittest.TestCase):
             for name in (
                 "SceneScriptScalarRuntime.swift",
                 "SceneScriptStringRuntime.swift",
-                "SceneScriptVectorRuntime.swift",
+                "SceneScriptValueRuntime.swift",
             )
         ]
         self.assertIn(

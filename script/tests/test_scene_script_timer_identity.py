@@ -13,7 +13,7 @@ from .scene_vector_vm_test_support import C_SOURCES, VM, QUICKJS, compile_vector
 
 HARNESS = r'''
 @main enum Harness {
-    static func make(_ source: String) throws -> SceneScriptVectorOwner {
+    static func make(_ source: String) throws -> SceneScriptValueOwner {
         let domain = try SceneScriptQuickJSDomain()
         try domain.configureLayerCatalog(.init(layers: [.init(id: 1, layerIndex: 0,
             name: "timer", visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1],
@@ -22,7 +22,7 @@ HARNESS = r'''
             target: .layer(layerID: 1, field: .origin), effectNames: [],
             allowsStatefulLayerSideEffects: true, generation: 1, budget: .default)
     }
-    static func evaluate(_ owner: SceneScriptVectorOwner, _ time: Double) -> Double {
+    static func evaluate(_ owner: SceneScriptValueOwner, _ time: Double) -> Double {
         let frame = SceneScriptFrameInput(timing: .init(wallDate: Date(timeIntervalSince1970:0),
             simulationFrameTime: 0.1, sceneTime: time))
         let result = owner.evaluate(input: .vector3(0,0,0), frame: frame,

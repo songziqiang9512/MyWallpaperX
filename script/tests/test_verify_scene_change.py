@@ -465,7 +465,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
             "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/"
             "SceneScriptCursorProgramModels.swift",
             "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/"
-            "SceneScriptVectorOwner+Cursor.swift",
+            "SceneScriptValueOwner+Cursor.swift",
         ):
             with self.subTest(path=path):
                 gates, groups = verify.build_plan(

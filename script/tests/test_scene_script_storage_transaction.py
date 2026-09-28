@@ -30,11 +30,11 @@ HARNESS = r'''
             visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1], scaleHasScript: nil, alpha: 1, effects: []) }))
         return d
     }
-    static func owner(_ d: SceneScriptQuickJSDomain, _ id: Int, _ source: String) throws -> SceneScriptVectorOwner {
+    static func owner(_ d: SceneScriptQuickJSDomain, _ id: Int, _ source: String) throws -> SceneScriptValueOwner {
         try .init(domain: d, source: source, target: target(id), effectNames: [],
             allowsStatefulLayerSideEffects: true, generation: 1, budget: .default)
     }
-    static func run(_ o: SceneScriptVectorOwner) throws -> Double {
+    static func run(_ o: SceneScriptValueOwner) throws -> Double {
         let result = try o.evaluate(input: .vector3(0,0,0), frame: frame, scriptPropertiesJSON: "",
             userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil).get()
         try o.commitStorage().get()
@@ -100,7 +100,7 @@ HARNESS = r'''
         let seed = try owner(stableDomain,1,"export function update(v){localStorage.set('seed',1,'global');thisScene.getLayerByID(8).alpha=0.3;return v;}")
         let dependent = try owner(stableDomain,2,"export function update(v){localStorage.get('seed','global');thisScene.getLayerByID(8).alpha=0.2;return v;}")
         let peer = try owner(stableDomain,3,"export function update(v){localStorage.set('safe',8,'global');thisScene.getLayerByID(7).alpha=0.7;return v;}")
-        func effects(_ o: SceneScriptVectorOwner) throws -> SceneScriptOwnerEffects {
+        func effects(_ o: SceneScriptValueOwner) throws -> SceneScriptOwnerEffects {
             let result = try o.evaluate(input:.vector3(0,0,0),frame:frame,scriptPropertiesJSON:"",
                 userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil).get()
             try o.commitStorage().get()

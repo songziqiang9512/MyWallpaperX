@@ -11,13 +11,13 @@ HARNESS = r'''
 @main enum Harness {
     static let frame = SceneScriptFrameInput(timing:.init(wallDate:Date(timeIntervalSince1970:0),simulationFrameTime:0.016,sceneTime:1))
     static func target(_ field: SceneDynamicLayerField = .origin, _ id: Int = 1) -> SceneDynamicTarget { .layer(layerID:id,field:field) }
-    static func make(_ sources: [(SceneDynamicLayerField,String)], borrowed: Bool = false) throws -> (SceneScriptCursorProgram,[SceneScriptVectorOwner]) {
+    static func make(_ sources: [(SceneDynamicLayerField,String)], borrowed: Bool = false) throws -> (SceneScriptCursorProgram,[SceneScriptValueOwner]) {
         let d = try SceneScriptQuickJSDomain()
         try d.configureLayerCatalog(.init(layers:[.init(id:1,layerIndex:0,name:"cursor",visible:true,
             originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:nil,alpha:1,effects:[])]))
-        var bindings:[SceneScriptCursorBinding] = [];var owners:[SceneScriptVectorOwner] = []
+        var bindings:[SceneScriptCursorBinding] = [];var owners:[SceneScriptValueOwner] = []
         for (i,item) in sources.enumerated() {
-            let o = try SceneScriptVectorOwner(domain:d,source:item.1,target:target(item.0),effectNames:[],
+            let o = try SceneScriptValueOwner(domain:d,source:item.1,target:target(item.0),effectNames:[],
                 allowsStatefulLayerSideEffects:true,generation:1,budget:.default)
             owners.append(o)
             bindings.append(.init(layerID:1,authoredOrdinal:i,owner:o,events:o.exportedCursorEvents,

@@ -758,12 +758,12 @@
           "SceneScriptVectorCandidateCatalog.swift",
           "SceneScriptVectorCandidateModels.swift",
           "SceneScriptVectorMediaRouteCandidate.swift",
-          "SceneScriptVectorOwner+Cursor.swift",
-          "SceneScriptVectorOwner+PuppetBones.swift",
+          "SceneScriptValueOwner+Cursor.swift",
+          "SceneScriptValueOwner+PuppetBones.swift",
           "SceneScriptVectorProgram+Registrations.swift",
           "SceneScriptVectorProgram.swift",
           "SceneScriptVectorProgramModels.swift",
-          "SceneScriptVectorRuntime.swift"
+          "SceneScriptValueRuntime.swift"
         ],
         "responsibility": "Script: Capability-owned state, evaluation and preparation; uses the existing clock, resource registry and compositor."
       },

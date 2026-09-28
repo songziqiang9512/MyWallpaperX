@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
+nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     let target: SceneDynamicTarget
     let generation: UInt64
     let hasAudioRegistration: Bool
@@ -21,6 +21,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     private var pendingInitializationValue: SceneDynamicValue?
     private var initializationValueConsumed = false
     private var lastAudioGeneration: UInt64?
+    private var pendingCursorEvaluation = false
 
     var allowsDynamicLayerSideEffects: Bool {
         allowsStatefulLayerSideEffects
@@ -31,7 +32,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     /// Publish it through the ordinary typed evaluation; initialization and
     /// timers keep their existing scheduling and shared commit boundary.
     var requiresFrameEvaluation: Bool {
-        handlesUpdate || needsInitialization
+        handlesUpdate || needsInitialization || pendingCursorEvaluation
             || (pendingInitializationValue != nil && !initializationValueConsumed)
             || mwx_scene_quickjs_owner_has_staged_effect_visibility(handle)
             || mwx_scene_quickjs_owner_active_timer_count(handle) > 0
@@ -64,8 +65,11 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         constructionWork: SceneScriptConstructionWorkBudget? = nil
     ) throws {
         guard !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              [.bool, .vector2, .vector3].contains(valueType),
+              [.scalar, .bool, .vector2, .vector3].contains(valueType),
               generation > 0 else { throw SceneScriptScalarRuntimeFailure.invalidSource }
+        if valueType == .scalar, case let .text(_, field) = target, field != .pointSize {
+            throw SceneScriptScalarRuntimeFailure.invalidArgument("invalid scalar text target")
+        }
         self.domain = domain
         self.target = target
         self.generation = generation
@@ -266,8 +270,12 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         expectedGeneration: UInt64,
         interruptBudget: UInt64?,
         retainsValueForNextUpdate: Bool = false
-    ) -> Result<SceneScriptVectorEvaluation?, SceneScriptScalarRuntimeFailure> {
-        guard input.valueType == valueType, input.isFinite else {
+    ) -> Result<SceneScriptValueEvaluation?, SceneScriptScalarRuntimeFailure> {
+        guard input.valueType == valueType, input.isFinite,
+              Self.acceptsScalarValue(input, for: target),
+              frame.timeOfDay.isFinite, (0...1).contains(frame.timeOfDay),
+              frame.frameTime.isFinite, frame.frameTime >= 0,
+              frame.runtime.isFinite, frame.runtime >= 0 else {
             return .failure(.invalidArgument("invalid typed initialization input"))
         }
         guard expectedGeneration == generation else { return .failure(.staleOwner) }
@@ -279,19 +287,23 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         var result: MWXSceneQuickJSResult
         let publishedValue: SceneDynamicValue
         switch scriptInput {
-        case let .bool(value):
+        case .scalar, .bool:
+            let inputValue: Double
+            if case let .scalar(value) = scriptInput { inputValue = value }
+            else if case let .bool(value) = scriptInput { inputValue = value ? 1 : 0 }
+            else { preconditionFailure("primitive initialization input changed") }
             var output = 0.0
             result = scriptPropertiesJSON.withCString { properties in
                 userPropertiesJSON.withCString { userProperties in
                     mwx_scene_quickjs_owner_initialize_primitive_with_properties(
-                        handle, expectedGeneration, value ? 1 : 0, 1,
+                        handle, expectedGeneration, inputValue, valueType == .bool ? 1 : 0,
                         &frameInput, properties, scriptPropertiesJSON.utf8.count,
                         userProperties, userPropertiesJSON.utf8.count,
                         &output, &didInitialize, &diagnostic, diagnostic.count
                     )
                 }
             }
-            publishedValue = .bool(output != 0)
+            publishedValue = valueType == .bool ? .bool(output != 0) : .scalar(output)
         case .vector2, .vector3:
             let source: [Double]
             switch scriptInput {
@@ -373,8 +385,12 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         userPropertiesJSON: String,
         expectedGeneration: UInt64,
         interruptBudget: UInt64?
-    ) -> Result<SceneScriptVectorEvaluation, SceneScriptScalarRuntimeFailure> {
-        guard input.valueType == valueType, input.isFinite else {
+    ) -> Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure> {
+        guard input.valueType == valueType, input.isFinite,
+              Self.acceptsScalarValue(input, for: target),
+              frame.timeOfDay.isFinite, (0...1).contains(frame.timeOfDay),
+              frame.frameTime.isFinite, frame.frameTime >= 0,
+              frame.runtime.isFinite, frame.runtime >= 0 else {
             return .failure(.invalidArgument("invalid typed vector input"))
         }
         guard expectedGeneration == generation else { return .failure(.staleOwner) }
@@ -387,6 +403,27 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         let result: MWXSceneQuickJSResult
         let publishedValue: SceneDynamicValue
         switch scriptInput {
+        case let .scalar(value):
+            var output = 0.0
+            result = scriptPropertiesJSON.withCString { properties in
+                userPropertiesJSON.withCString { userProperties in
+                    mwx_scene_quickjs_owner_update_scalar_with_properties(
+                        handle, expectedGeneration, value, &frameInput,
+                        properties, scriptPropertiesJSON.utf8.count,
+                        userProperties, userPropertiesJSON.utf8.count,
+                        &output, &diagnostic, diagnostic.count
+                    )
+                }
+            }
+            if result == MWX_SCENE_QUICKJS_OK, !handlesUpdate {
+                switch boundScalarValue() {
+                case let .success(value): if let value { output = value }
+                case let .failure(failure):
+                    discardLayerMutations()
+                    return .failure(failure)
+                }
+            }
+            publishedValue = .scalar(output)
         case let .bool(value):
             var output: UInt32 = 0
             result = scriptPropertiesJSON.withCString { properties in
@@ -473,7 +510,11 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         value publishedValue: SceneDynamicValue,
         mutations: SceneScriptMediaEventMutations,
         layerID: Int
-    ) -> Result<SceneScriptVectorEvaluation, SceneScriptScalarRuntimeFailure> {
+    ) -> Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure> {
+        guard Self.acceptsScalarValue(publishedValue, for: target) else {
+            discardLayerMutations()
+            return .failure(.badReturn("invalid scalar output"))
+        }
         let publishedLayerMutations: [SceneScriptLayerMutation]
         let resolvedValue: SceneDynamicValue
         if valueType == .bool {
@@ -499,19 +540,12 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             resolvedValue = publishedValue
             publishedLayerMutations = mutations.layers
         }
-        let puppetBoneMutations: [SceneScriptPuppetBoneMutation]
-        switch SceneScriptPuppetBoneMutationBridge.mutations(owner: handle) {
-        case let .success(value): puppetBoneMutations = value
-        case let .failure(failure):
-            discardLayerMutations()
-            return .failure(failure)
-        }
         return .success(.init(
             value: resolvedValue,
             materialFunctionMutations: mutations.materialFunctions,
             animationMutations: mutations.animations,
             layerMutations: publishedLayerMutations,
-            puppetBoneMutations: puppetBoneMutations,
+            puppetBoneMutations: mutations.puppetBones,
             videoCommands: mutations.videoCommands,
             textureAnimationCommands: mutations.textureAnimationCommands
         ))
@@ -697,6 +731,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             scriptPropertiesJSON: scriptPropertiesJSON,
             userPropertiesJSON: userPropertiesJSON
         ).flatMap { mutations in
+            if valueType == .scalar { pendingCursorEvaluation = true }
             guard case .effectVisibility = target else {
                 return .success(mutations)
             }
@@ -715,12 +750,14 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     }
 
     func commitLayerMutations() {
+        pendingCursorEvaluation = false
         SceneScriptLayerMutationBridge.commit(owner: handle)
         if initializationValueConsumed { pendingInitializationValue = nil }
         initializationValueConsumed = false
     }
 
     func discardLayerMutations() {
+        pendingCursorEvaluation = false
         SceneScriptLayerMutationBridge.discard(owner: handle)
         // Keep a previously committed cursor value until its consumption is
         // accepted. A rejected first init has no committed value to retain.
@@ -769,6 +806,39 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             scriptPropertiesJSON: scriptPropertiesJSON,
             userPropertiesJSON: userPropertiesJSON
         )
+    }
+
+    static func acceptsScalar(_ value: Double, for target: SceneDynamicTarget) -> Bool {
+        guard value.isFinite else { return false }
+        if case .layer(_, .intensity) = target {
+            return value >= 0 && value <= Double(Float.greatestFiniteMagnitude)
+        }
+        return true
+    }
+
+    private static func acceptsScalarValue(_ value: SceneDynamicValue, for target: SceneDynamicTarget) -> Bool {
+        guard case let .scalar(number) = value else { return true }
+        return acceptsScalar(number, for: target)
+    }
+
+    private func boundScalarValue() -> Result<Double?, SceneScriptScalarRuntimeFailure> {
+        guard case let .effectConstant(_, _, _, name) = target,
+              !name.isEmpty, name.utf8.count <= 256, !name.contains("\0") else {
+            return .success(nil)
+        }
+        var value = 0.0
+        var present: UInt32 = 0
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let result = name.withCString {
+            mwx_scene_quickjs_owner_read_bound_scalar(
+                handle, generation, $0, name.utf8.count,
+                &value, &present, &diagnostic, diagnostic.count
+            )
+        }
+        guard result == MWX_SCENE_QUICKJS_OK else {
+            return .failure(Self.failure(result, diagnostic))
+        }
+        return .success(present == 0 ? nil : value)
     }
 
     static func failure(

@@ -47,7 +47,7 @@ nonisolated struct SceneScriptVectorBinding: @unchecked Sendable {
     let dynamicImageReferences: [SceneScriptDynamicImageReference]
     let requiresStatefulOwner: Bool
     let evaluatesAfterSharedProviders: Bool
-    let owner: SceneScriptVectorOwner
+    let owner: SceneScriptValueOwner
 }
 
 nonisolated struct SceneScriptCursorOwnerRegistration: @unchecked Sendable {
@@ -55,6 +55,6 @@ nonisolated struct SceneScriptCursorOwnerRegistration: @unchecked Sendable {
     let authoredOrdinal: Int
     let target: SceneDynamicTarget
     let seedValue: SceneDynamicValue
-    let owner: SceneScriptVectorOwner
+    let owner: SceneScriptValueOwner
     let scriptProperties: [String: SceneScriptPropertyInput]
 }

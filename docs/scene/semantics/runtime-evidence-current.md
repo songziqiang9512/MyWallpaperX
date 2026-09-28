@@ -6,6 +6,20 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-scalar-cursor-owner"></a>
+
+### E-2026-09-28-SCALAR-CURSOR-OWNER — 标量鼠标事件与属性求值共用 typed owner
+
+**首断点与收敛：**Scalar owner有独立初始化/媒体/求值/事务实现，且未注册所属层cursor，参数事件无法与属性更新共享脚本状态。现把标量纳入原Boolean/Vector owner并命名SceneScriptValueOwner，删除重复ScalarOwner；保留原标量范围、代际、时间、文字字号及参数绑定核验。cursor借用同VM，初始化返回保留到首次求值；event-only effectConstant读取thisObject参数，事件后唤醒一次，提交/撤回后清除pending。原媒体mutation提取、owner提交和cursor重试继续共用，不新增VM、事件队列或compositor。产品净减512行，script合计净减173行；源清单同步改名，无结构预算增长。
+
+**冻结身份：**基线ec294d4d，产品/测试/配置补丁SHA-256 `ffca3a444333159a9bd895930a04d7729379f8bdcb9de77fe97c3450700b7d27`。最终优化签名Debug 2.10.0(279)，executable SHA-256 `70d6f3b8f835a4dec94247929b28767750ebeb8e6d08f35bd864f016f0ec5e14`、CDHash `95dad0d29e7900a7b6ca7a9ac8cb4b6ef9509fc2`；下列最终三组报告运行前后验签通过。独立审查批准冻结代码及最终运行身份。
+
+**实际结果：**自有9900000260/261为标量alpha脚本控制视频的命中/未命中对照，基线均红；最终命中红[254,0,0]→绿[1,255,1]→红，实际decoded35→0，未命中始终红且无cursor事件。submitted/completed/failed/presented为111/110/0/109与104/104/0/103。这是直接视频纹理到唯一compositor及后继帧证据，不包含effect graph；通用hover模板要求负对照也变化，仍1/2 NON-PASS，未改报告，专项正反例通过。自有9900000262只有cursorEnter/Leave而无update，amount=1/0使shader红[255,0,0]→绿[0,255,0]→红，1/1 PASS；runtime `952655df-ef44-4c82-92d1-5f2f76983e58`有同身份graph publication/completion、terminal compositor消费及next-frame，114/114/0/113。3211615441原包隔离副本、固定PCM、8秒点击回归1/1 PASS，runtime `5fe8d18b-a922-4313-99cd-934bb41a3dcb`同样保留终端与下一帧，165/164/0/163；43/495/44的点击回调与已有切图链保持，不表示整样本完成。
+
+**验证与执行记录：**105项不同Swift/C产品行为测试通过（4标量cursor、10初始化、4视频输出、5owner事件、1字号综合、32准入、23向量属性、15Boolean显隐、11cursor事务），另59项验证路由测试通过。覆盖共享init/事件/update状态、event-only空闲、拒帧重试、局部异常、范围/类型和原事务反例。首次基线fixture编译错误修正后4项均失败；迁移首轮修正teardown参数可选值；随后23项通过但字号fixture编译失败，修正公共fixture字段/参数顺序后该项单独重跑通过。两次Debug构建成功，code-health通过（1006 Swift、1 locked、220既有warnings）。最终运行首次因临时路径拼写失败停在预检，修正路径后上述报告有效。忽略缓存`2026-09-28-scalar-cursor-owner`保留有效六轮报告、原图、测量、失败日志和冻结补丁。
+
+**边界：**cursor拒帧重试不回滚任意JavaScript堆，测试明确保留其状态；ScalarProgram未新增puppet side effects出口，String owner、Solid命中合同及其他未接通副作用仍独立开放。无全语料、性能收益或官方parity结论。
+
 <a id="e-2026-09-28-value-video-commands"></a>
 
 ### E-2026-09-28-VALUE-VIDEO-COMMANDS — 标量与文字脚本保留视频控制命令
@@ -16,7 +30,7 @@
 
 **取证修正与验证：**19项真实Swift/C VM及事务测试通过（4项新视频输出、5项owner事件、10项初始化），涵盖显式/隐式init、属性及4媒体回调、update顺序，局部拒绝重试/peer不重播、整帧撤回、BAD_RETURN和异常局部失败。修前新4项均因命令丢弃失败；首次修后编译误写视频命令类型，修正后完整19项重跑。优化Debug构建、code-health（221既有warnings）及独立冻结代码审查通过。原hover模式after约2.1秒早于stop3秒；一次--after-snapshot-delay尝试未改变该分支时序，之后用既有连续截图补齐停止后输出。四轮通用矩阵均0/2 NON-PASS，未修改门或报告；专项命令/像素正反证通过。证据缓存`2026-09-28-value-video-commands`保存基线、两轮提前截图、最终series、指标、日志及冻结补丁。
 
-**边界：**本批不声明全部side effects支持；Scalar/String puppet bone mutation出口、标量cursor、结束回调组合、实际Workshop视频effect graph、多屏及官方外观仍需各自证据。此次没有性能收益或全语料结论。
+**边界：**本批不声明全部side effects支持；标量cursor已由上方统一owner后继闭合；Scalar/String puppet bone mutation出口、结束回调组合、实际Workshop视频effect graph、多屏及官方外观仍需各自证据。此次没有性能收益或全语料结论。
 
 <a id="e-2026-09-28-cursor-video-commands"></a>
 

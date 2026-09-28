@@ -1,20 +1,24 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-28 标量鼠标事件与统一脚本值 owner
+
+标量、Boolean和Vec2/Vec3现在共用SceneScriptValueOwner，删除重复ScalarOwner，产品净减512行。标量cursor与属性更新共享原VM、初始化和提交事务；无update的特效参数在事件后发布，提交后恢复休眠。自有视频命中红→绿→红、未命中不变，event-only shader参数红→绿→红，3211615441原包点击回归通过；105项行为测试、59项验证路由测试及隔离构建通过，见[运行证据](runtime-evidence-current.md#e-2026-09-28-scalar-cursor-owner)。视频负对照在通用hover模板仍为NON-PASS，专项不变判据通过。仅关闭标量cursor缺口，不声明JS堆回滚、完整side effects、Solid合同或官方parity。
+
 ## 2026-09-28 脚本视频命令与暂停跳转
 
-cursor的init/事件视频命令现按owner及作者顺序进入原提交事务；异步暂停seek完成前保持旧图，完成后才发布目标帧，迟到回调失效，见[鼠标视频证据](runtime-evidence-current.md#e-2026-09-28-cursor-video-commands)。后继补齐Scalar/String初始化、属性/媒体回调及update的视频输出，共用原mutation提取，删除重复逻辑，产品净减26行。19项VM/事务门与两组自有MP4的实际红→绿→红专项通过，见[标量/文字视频证据](runtime-evidence-current.md#e-2026-09-28-value-video-commands)。通用hover矩阵因取证时序不匹配仍NON-PASS，停止后的正确输出由连续截图验证。本项只关闭这些视频命令出口；标量cursor借用、其他side effects、真实样本/视频effect graph和官方parity仍未完整验收。
+cursor的init/事件视频命令现按owner及作者顺序进入原提交事务；异步暂停seek完成前保持旧图，完成后才发布目标帧，迟到回调失效，见[鼠标视频证据](runtime-evidence-current.md#e-2026-09-28-cursor-video-commands)。后继补齐Scalar/String初始化、属性/媒体回调及update的视频输出，共用原mutation提取，删除重复逻辑，产品净减26行。19项VM/事务门与两组自有MP4的实际红→绿→红专项通过，见[标量/文字视频证据](runtime-evidence-current.md#e-2026-09-28-value-video-commands)。通用hover矩阵因取证时序不匹配仍NON-PASS，停止后的正确输出由连续截图验证。本项只关闭这些视频命令出口；标量cursor借用由上方统一owner批闭合；其他side effects、真实样本/视频effect graph和官方parity仍未完整验收。
 
 ## 2026-09-28 特效自身显隐响应鼠标事件
 
-Boolean effect owner借用既有cursor VM，thisObject.visible的原staged值唤醒typed求值并沿原事务提交；提交后event-only owner继续休眠，非法跨职责写入保持局部拒绝。自有event-only/init+event场景实际白→红→白，3211615441层44两份脚本准入和事件恢复、原有切图回归通过；57项行为/事务/准入测试及构建通过。见[运行证据](runtime-evidence-current.md#e-2026-09-28-effect-cursor-visibility)。关闭此前Boolean effect cursor准入/输出缺口，标量参数cursor、Solid完整合同及按住期间真实特效外观仍开放。
+Boolean effect owner借用既有cursor VM，thisObject.visible的原staged值唤醒typed求值并沿原事务提交；提交后event-only owner继续休眠，非法跨职责写入保持局部拒绝。自有event-only/init+event场景实际白→红→白，3211615441层44两份脚本准入和事件恢复、原有切图回归通过；57项行为/事务/准入测试及构建通过。见[运行证据](runtime-evidence-current.md#e-2026-09-28-effect-cursor-visibility)。关闭此前Boolean effect cursor准入/输出缺口，标量参数cursor由上方统一owner批闭合；Solid完整合同及按住期间真实特效外观仍开放。
 
 ## 2026-09-28 二维/三维脚本参数统一桥接
 
-现有初始化/更新C入口统一携带typed维数，二维输入创建Vec2并只读写xy，三维仍创建Vec3并要求有限xyz；不再给二维补z后调用三维API。显式new Vec2返回、init-only及借用cursor后的更新已取得自有App最终像素/合成/下一帧证据；32项Swift owner门及26项C/ASan/定时器门通过。旧_vec3入口及全部调用同步替换，没有第二VM或平行wrapper。见[运行证据](runtime-evidence-current.md#e-2026-09-28-vector-dimensions)。关闭上一批二维类型缺口；Boolean effect自身显隐由上方后继闭合；标量cursor和Solid语义仍开放，完整官方类型转换/parity未声明。
+现有初始化/更新C入口统一携带typed维数，二维输入创建Vec2并只读写xy，三维仍创建Vec3并要求有限xyz；不再给二维补z后调用三维API。显式new Vec2返回、init-only及借用cursor后的更新已取得自有App最终像素/合成/下一帧证据；32项Swift owner门及26项C/ASan/定时器门通过。旧_vec3入口及全部调用同步替换，没有第二VM或平行wrapper。见[运行证据](runtime-evidence-current.md#e-2026-09-28-vector-dimensions)。关闭上一批二维类型缺口；Boolean effect自身显隐由上方后继闭合；标量cursor由上方统一owner批闭合；Solid语义仍开放，完整官方类型转换/parity未声明。
 
 ## 2026-09-28 特效向量参数复用鼠标事件
 
-已准入的effectConstant Vec2/Vec3参数owner在创建后借用所属layer的既有cursor路径，派发复用统一layer identity核验；cursor与update共享原VM和事务，不新增实例、事件队列或renderer，产品净减少3行。自有App命中红→绿→蓝、未命中逐像素不变，3211615441原包点击回归通过；最终32项owner门与16项事务门通过。见[运行证据](runtime-evidence-current.md#e-2026-09-28-effect-parameter-cursor)。范围仅为现有向量参数路由；独立new Vec2返回缺口已由上方维度桥接后继修复；Boolean effect自身显隐由上方后继闭合；标量cursor及Solid完整语义仍开放，不能据此关闭321整样本。
+已准入的effectConstant Vec2/Vec3参数owner在创建后借用所属layer的既有cursor路径，派发复用统一layer identity核验；cursor与update共享原VM和事务，不新增实例、事件队列或renderer，产品净减少3行。自有App命中红→绿→蓝、未命中逐像素不变，3211615441原包点击回归通过；最终32项owner门与16项事务门通过。见[运行证据](runtime-evidence-current.md#e-2026-09-28-effect-parameter-cursor)。范围仅为现有向量参数路由；独立new Vec2返回缺口已由上方维度桥接后继修复；Boolean effect自身显隐由上方后继闭合；标量cursor由上方统一owner批闭合；Solid完整语义仍开放，不能据此关闭321整样本。
 
 ## 2026-09-28 旧 CPU effect 音频路径退役
 

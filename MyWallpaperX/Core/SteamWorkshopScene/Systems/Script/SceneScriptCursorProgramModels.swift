@@ -115,7 +115,7 @@ nonisolated struct SceneScriptCursorPendingEvent: Sendable {
 nonisolated struct SceneScriptCursorBinding: @unchecked Sendable {
     let layerID: Int
     let authoredOrdinal: Int
-    let owner: SceneScriptVectorOwner
+    let owner: SceneScriptValueOwner
     let events: Set<SceneScriptCursorEventKind>
     let ownsOwner: Bool
     let scriptProperties: [String: SceneScriptPropertyInput]

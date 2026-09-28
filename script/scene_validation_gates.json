@@ -351,7 +351,7 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram+Construction.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgramModels.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorOwner+Cursor.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueOwner+Cursor.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+SceneScriptCursorInteraction.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneSurfacePointerState.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+Pointer.swift",

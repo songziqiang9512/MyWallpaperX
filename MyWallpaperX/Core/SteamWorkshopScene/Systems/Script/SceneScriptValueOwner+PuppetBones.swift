@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneScriptVectorOwner {
+extension SceneScriptValueOwner {
     /// Installs the launch-prepared Puppet pose into thisLayer's existing
     /// callback owner. The arrays are copied once per frame generation; bone
     /// writes still leave through the normal owner mutation journal.

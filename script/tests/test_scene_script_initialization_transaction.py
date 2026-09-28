@@ -23,7 +23,7 @@ import Foundation
         return d
     }
     static func vector(_ d: SceneScriptQuickJSDomain, _ source: String,
-                       boolean: Bool = false) throws -> SceneScriptVectorOwner {
+                       boolean: Bool = false) throws -> SceneScriptValueOwner {
         try .init(domain: d, source: source,
             target: .layer(layerID: 1, field: boolean ? .visibility : .origin),
             valueType: boolean ? .bool : .vector3, effectNames: [],
@@ -32,12 +32,12 @@ import Foundation
     static func value<T>(_ r: Result<T, SceneScriptScalarRuntimeFailure>) -> String {
         switch r { case .success: return "ok"; case let .failure(f): return f.code }
     }
-    static func x(_ r: Result<SceneScriptVectorEvaluation, SceneScriptScalarRuntimeFailure>) -> Double {
+    static func x(_ r: Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure>) -> Double {
         guard case let .success(e) = r, case let .vector3(x,_,_) = e.value else { return -999 }
         return x
     }
-    static func evaluate(_ o: SceneScriptVectorOwner, _ input: Double, _ time: Double = 1)
-        -> Result<SceneScriptVectorEvaluation, SceneScriptScalarRuntimeFailure> {
+    static func evaluate(_ o: SceneScriptValueOwner, _ input: Double, _ time: Double = 1)
+        -> Result<SceneScriptValueEvaluation, SceneScriptScalarRuntimeFailure> {
         o.evaluate(input: .vector3(input, 0, 0), frame: frame(time),
             scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1,
             interruptBudget: nil)
@@ -47,14 +47,14 @@ import Foundation
         for explicit in [false, true] {
             let suffix = explicit ? "Explicit" : "Implicit"
             let d = try domain()
-            let s = try SceneScriptScalarOwner(domain: d,
+            let s = try SceneScriptValueOwner(domain: d,
                 source: "export function init(v) { if (engine.runtime < 1) return {}; return 0.75; } export function update(v) { return v; }",
-                target: .layer(layerID: 1, field: .alpha), authoredValue: 0.5,
-                effectNames: [], generation: 1)
+                target: .layer(layerID: 1, field: .alpha), valueType: .scalar,
+                effectNames: [], generation: 1, budget: .default)
             func scalar(_ t: Double) -> String {
-                if explicit { return value(s.initializeIfNeeded(input: 0.5, frame: frame(t),
+                if explicit { return value(s.initializeIfNeeded(input: .scalar(0.5), frame: frame(t),
                     scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil)) }
-                return value(s.evaluate(input: 0.5, frame: frame(t), userPropertiesJSON: "{}", expectedGeneration: 1))
+                return value(s.evaluate(input: .scalar(0.5), frame: frame(t), scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil))
             }
             payload["scalar"+suffix] = [scalar(0), scalar(2)]
             s.commitLayerMutations()
@@ -68,11 +68,11 @@ import Foundation
             v.commitLayerMutations()
             let string = try SceneScriptStringOwner(domain: d,
                 source: "export function init(v) { if (engine.runtime < 1) return {}; return 'ready'; }",
-                target: .text(layerID: 1, field: .content), effectNames: [], generation: 1)
+                target: .text(layerID: 1, field: .content), effectNames: [], generation: 1, budget: .default)
             func text(_ t: Double) -> String {
                 if explicit { return value(string.initializeIfNeeded(input: "authored", frame: frame(t),
                     scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil)) }
-                return value(string.evaluate(input: "authored", frame: frame(t), userPropertiesJSON: "{}", expectedGeneration: 1))
+                return value(string.evaluate(input: "authored", frame: frame(t), scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil))
             }
             payload["string"+suffix] = [text(0), text(2)]
             string.commitLayerMutations()
@@ -117,13 +117,13 @@ import Foundation
         timer.commitLayerMutations()
         payload["timerCommitted"] = mwx_scene_quickjs_owner_active_timer_count(timer.handle)
 
-        let scalarInit = try SceneScriptScalarOwner(domain: d,
+        let scalarInit = try SceneScriptValueOwner(domain: d,
             source: "export function init(v) { return engine.runtime / 10; }",
-            target: .layer(layerID: 1, field: .alpha), authoredValue: 0.5,
-            effectNames: [], generation: 1)
+            target: .layer(layerID: 1, field: .alpha), valueType: .scalar,
+            effectNames: [], generation: 1, budget: .default)
         func scalarValue(_ time: Double) throws -> Double {
-            let result = try scalarInit.evaluate(input: 0.5, frame: frame(time),
-                userPropertiesJSON: "{}", expectedGeneration: 1).get()
+            let result = try scalarInit.evaluate(input: .scalar(0.5), frame: frame(time),
+                scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil).get()
             guard case let .scalar(x) = result.value else { return -999 }
             return x
         }
@@ -135,7 +135,7 @@ import Foundation
         payload["scalarQuiet"] = !scalarInit.requiresFrameEvaluation
         let textInit = try SceneScriptStringOwner(domain: d,
             source: "export function init(v) { thisLayer.origin = new Vec3(11,0,0); return v+'!'; }",
-            target: .text(layerID: 1, field: .content), effectNames: [], generation: 1)
+            target: .text(layerID: 1, field: .content), effectNames: [], generation: 1, budget: .default)
         let stringFirst = try textInit.initializeIfNeeded(input: "A", frame: frame(1),
             userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil).get()
         textInit.discardLayerMutations()
@@ -149,7 +149,7 @@ import Foundation
             stringRetry?.layerMutations.count == 1, !textInit.requiresFrameEvaluation]
         let stringTimer = try SceneScriptStringOwner(domain: d,
             source: "export function init(v) { engine.setTimeout(() => { thisLayer.origin = new Vec3(31,0,0); }, 1000); return v+'!'; }",
-            target: .text(layerID: 1, field: .content), effectNames: [], generation: 1)
+            target: .text(layerID: 1, field: .content), effectNames: [], generation: 1, budget: .default)
         func timerText(_ input: String, _ time: Double, _ delta: Double = 0) throws -> SceneScriptStringEvaluation {
             let currentFrame = SceneScriptFrameInput(timing: .init(
                 wallDate: Date(timeIntervalSince1970: 0),
