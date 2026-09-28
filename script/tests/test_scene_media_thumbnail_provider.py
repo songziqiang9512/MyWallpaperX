@@ -33,6 +33,7 @@ SOURCES = [
 ]
 
 HARNESS = r'''
+import AppKit
 import CoreGraphics
 import Foundation
 import ImageIO
@@ -250,6 +251,25 @@ func decodedSourceProbe(_ cache: Bool) -> [String: Any] {
     let bytes = image.dataProvider!.data! as Data
     return ["alpha": image.alphaInfo.rawValue, "layout": image.bitmapInfo.rawValue,
             "bytes": Array(bytes.prefix(8))]
+}
+func alternateSourceProbes() -> [String: Any] {
+    func describe(_ image: CGImage?) -> [String: Any] {
+        guard let image, let bytes = image.dataProvider?.data else { return [:] }
+        return ["alpha": image.alphaInfo.rawValue, "layout": image.bitmapInfo.rawValue,
+                "bits": image.bitsPerComponent, "bytes": Array((bytes as Data).prefix(16))]
+    }
+    let provider = CGDataProvider(data: c as CFData)!
+    let png = CGImage(pngDataProviderSource: provider, decode: nil,
+                      shouldInterpolate: false, intent: .defaultIntent)
+    let bitmap = NSBitmapImageRep(data: c)
+    let source = CGImageSourceCreateWithData(c as CFData, nil)!
+    let floating = CGImageSourceCreateImageAtIndex(source, 0,
+        [kCGImageSourceShouldAllowFloat: true] as CFDictionary)
+    let immediate = CGImageSourceCreateImageAtIndex(source, 0,
+        [kCGImageSourceShouldCacheImmediately: true] as CFDictionary)
+    return ["pngProvider": describe(png), "bitmapCG": describe(bitmap?.cgImage),
+            "bitmapRaw": bitmap?.bitmapData.map { Array(UnsafeBufferPointer(start: $0, count: 8)) } ?? [],
+            "floating": describe(floating), "immediate": describe(immediate)]
 }
 let initialEmpty = store.snapshot()
 
@@ -841,7 +861,8 @@ let result: [String: Any] = [
     "generation": third.generation,
     "currentPixel": pixel(third.current?.texture),
     "preservedCurrentPixel": pixel(third.preservedCurrent?.texture),
-    "sourceDecodeProbe": ["cached": decodedSourceProbe(true), "uncached": decodedSourceProbe(false)],
+    "sourceDecodeProbe": ["cached": decodedSourceProbe(true), "uncached": decodedSourceProbe(false),
+                          "alternatives": alternateSourceProbes()],
     "currentPublicationComplete": third.current?.isComplete == true,
     "preservedPublicationComplete": third.preservedCurrent?.isComplete == true,
     "initialPreviousUnavailable":
