@@ -736,22 +736,22 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 + " rejected=\(rejectedReasons.values.reduce(0, +))"
                 + " variantLimit=\(variantLimit)"
         ]
-        result += rejectedReasons.keys.sorted().map {
-            "resolved material execution capability rejection: \($0)"
-                + " count=\(rejectedReasons[$0] ?? 0)"
+        result += rejectedReasons.sorted { $0.key < $1.key }.map {
+            "resolved material execution capability rejection: \($0.key)"
+                + " count=\($0.value)"
         }
         result += programFailureAttributions.map(\.reportLine)
-        result += visualFailurePassthroughReasons.keys.sorted().map {
+        result += visualFailurePassthroughReasons.sorted { $0.key < $1.key }.map {
             "resolved material execution capability fallback:"
                 + " state=prefer-generic outcome=effect-local-passthrough"
-                + " reason=\($0)"
-                + " count=\(visualFailurePassthroughReasons[$0] ?? 0)"
+                + " reason=\($0.key)"
+                + " count=\($0.value)"
         }
-        result += initiallyInactivePassthroughReasons.keys.sorted().map {
+        result += initiallyInactivePassthroughReasons.sorted { $0.key < $1.key }.map {
             "resolved material execution capability passthrough:"
                 + " scope=startup-property-inactive outcome=previous-current"
-                + " reason=\($0)"
-                + " count=\(initiallyInactivePassthroughReasons[$0] ?? 0)"
+                + " reason=\($0.key)"
+                + " count=\($0.value)"
         }
         result += capabilitiesByLayerID.keys.sorted().map { layerID in
             guard let dependency = capabilitiesByLayerID[layerID]?

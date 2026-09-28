@@ -36,7 +36,7 @@ nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission {
               graph.effects[0].nodeIndices.last == key.nodeIndex,
               let layer = descriptor.layers.first(where: {
                   $0.id == graph.layerID
-              }), let source = sourceCohort(layer),
+              }), sourceCohort(layer) != nil,
               let inputRole = SceneAuthoredEffectInputValidator.role(
                   for: graph.effects[0].input,
                   layerID: graph.layerID
@@ -50,9 +50,6 @@ nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission {
               let scale = wholeStageScaleCohort(
                   graph: graph,
                   descriptor: descriptor
-              ), sourceScaleCohortIsProven(
-                  source: source,
-                  scale: scale
               ), scaleProducerCohortIsProven(
                   scale: scale,
                   effect: graph.effects[0],
@@ -88,35 +85,6 @@ nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission {
         case (true, true): .copyPassthroughCapturedMain
         case (true, false): .copyOnlyCapturedMain
         case (false, true): .passthroughOnlyCapturedMain
-        }
-    }
-
-    private static func sourceScaleCohortIsProven(
-        source: SourceCohort,
-        scale: ScaleCohort
-    ) -> Bool {
-        switch (source, scale) {
-        case (.ordinary, .staticExact),
-             (.ordinary, .staticScalarProjection),
-             (.ordinary, .userPropertyScalarSplat),
-             (.ordinary, .timelineExactVector2),
-             (.capturedMain, .staticExact),
-             (.capturedMain, .staticScalarProjection),
-             (.capturedMain, .userPropertyScalarSplat),
-             (.capturedMain, .timelineExactVector2),
-             (.copyOnlyCapturedMain, .staticExact),
-             (.copyOnlyCapturedMain, .staticScalarProjection),
-             (.copyOnlyCapturedMain, .userPropertyScalarSplat),
-             (.copyOnlyCapturedMain, .timelineExactVector2),
-             (.passthroughOnlyCapturedMain, .staticExact),
-             (.passthroughOnlyCapturedMain, .staticScalarProjection),
-             (.passthroughOnlyCapturedMain, .userPropertyScalarSplat),
-             (.passthroughOnlyCapturedMain, .timelineExactVector2),
-             (.copyPassthroughCapturedMain, .staticExact),
-             (.copyPassthroughCapturedMain, .staticScalarProjection),
-             (.copyPassthroughCapturedMain, .userPropertyScalarSplat),
-             (.copyPassthroughCapturedMain, .timelineExactVector2):
-            true
         }
     }
 

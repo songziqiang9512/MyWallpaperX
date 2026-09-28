@@ -17,15 +17,15 @@ extension SceneResolvedMaterialRuntimeCatalog {
         let grouped = Dictionary(grouping: failures) {
             "\($0.phase.rawValue):\($0.code.rawValue)"
         }
-        lines += grouped.keys.sorted().map {
-            "resolved material template failure: \($0) count=\(grouped[$0]?.count ?? 0)"
+        lines += grouped.sorted { $0.key < $1.key }.map {
+            "resolved material template failure: \($0.key) count=\($0.value.count)"
         }
         let demandGroups = Dictionary(grouping: resourceDemandIssues) {
             "\($0.reference.kind):\($0.code.rawValue)"
         }
-        lines += demandGroups.keys.sorted().map {
-            "resolved material resource demand failure: \($0)"
-                + " count=\(demandGroups[$0]?.count ?? 0)"
+        lines += demandGroups.sorted { $0.key < $1.key }.map {
+            "resolved material resource demand failure: \($0.key)"
+                + " count=\($0.value.count)"
         }
         return lines
     }

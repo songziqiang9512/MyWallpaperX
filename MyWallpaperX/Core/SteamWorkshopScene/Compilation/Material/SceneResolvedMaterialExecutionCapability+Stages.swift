@@ -300,10 +300,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             }
         }
 
-        guard !stages.isEmpty,
-              stages.count == admitted.products.count else {
-            return .failure(rejection("resolved-stage-empty"))
-        }
         return .success(.init(
             stages: stages,
             materials: allMaterials,

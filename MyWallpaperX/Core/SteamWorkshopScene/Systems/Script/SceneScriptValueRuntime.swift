@@ -2,6 +2,8 @@ import Foundation
 
 nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     let target: SceneDynamicTarget
+    /// Pure projection of the immutable target, resolved once at construction.
+    let layerID: Int
     let generation: UInt64
     let hasAudioRegistration: Bool
     let handlesMediaThumbnail: Bool
@@ -130,6 +132,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
                     "SceneScript owner layer identity unavailable"
                 )
             }
+            self.layerID = layerID
             let layerResult = mwx_scene_quickjs_owner_configure_layer_identity(
                 created,
                 Int64(layerID),
@@ -359,10 +362,6 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             return .failure(Self.failure(result, diagnostic))
         }
         guard didInitialize != 0 else { return .success(nil) }
-        guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
-            discardLayerMutations()
-            return .failure(.invalidArgument("effect handle layer identity unavailable"))
-        }
         let callbackMutations: SceneScriptMediaEventMutations
         switch SceneScriptMediaEventBridge.mutations(
             owner: handle, target: target, layerID: layerID
@@ -501,10 +500,6 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             discardLayerMutations()
             return .failure(Self.failure(result, diagnostic))
         }
-        guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
-            discardLayerMutations()
-            return .failure(.invalidArgument("effect handle layer identity unavailable"))
-        }
         let callbackMutations: SceneScriptMediaEventMutations
         switch SceneScriptMediaEventBridge.mutations(
             owner: handle, target: target, layerID: layerID
@@ -625,9 +620,6 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         userPropertiesJSON: String,
         interruptBudget: UInt64? = nil
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
-        guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
-            return .failure(.invalidArgument("SceneScript owner identity unavailable"))
-        }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         return SceneScriptMediaEventBridge.dispatchThumbnail(
             owner: handle,
@@ -646,9 +638,6 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         userPropertiesJSON: String,
         interruptBudget: UInt64? = nil
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
-        guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
-            return .failure(.invalidArgument("SceneScript owner identity unavailable"))
-        }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         return SceneScriptMediaEventBridge.dispatchPlayback(
             owner: handle,
@@ -667,9 +656,6 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         userPropertiesJSON: String,
         interruptBudget: UInt64? = nil
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
-        guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
-            return .failure(.invalidArgument("SceneScript owner identity unavailable"))
-        }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         return SceneScriptMediaEventBridge.dispatchProperties(
             owner: handle, target: target, layerID: layerID,
@@ -684,9 +670,6 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         userPropertiesJSON: String,
         interruptBudget: UInt64? = nil
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
-        guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
-            return .failure(.invalidArgument("SceneScript owner identity unavailable"))
-        }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         return SceneScriptMediaEventBridge.dispatchTimeline(
             owner: handle, target: target, layerID: layerID,
@@ -702,9 +685,6 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         userPropertiesJSON: String,
         interruptBudget: UInt64? = nil
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
-        guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
-            return .failure(.invalidArgument("SceneScript owner identity unavailable"))
-        }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         return SceneScriptMediaEventBridge.dispatchUserProperties(
             owner: handle,
@@ -726,8 +706,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         authoredLayerBaselines: [SceneScriptLayerMutation] = [],
         interruptBudget: UInt64? = nil
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
-        guard SceneScriptLayerMutationBridge.layerID(for: target)
-                == event.layerID else {
+        guard layerID == event.layerID else {
             return .failure(.invalidArgument("cursor owner identity mismatch"))
         }
         if let failure = configureCursorAuthoredLayerBaselines(
