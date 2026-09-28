@@ -6,6 +6,18 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-bool-number-coercion"></a>
+
+### E-2026-09-28-BOOL-NUMBER-COERCION — Boolean 属性边界的 JS 赋值强转补齐
+
+**首断点与实现：**真实`3662790108`两个控制层（859时间单位/860时间倍率映射和存储）用 Boolean visible update 作 shared 数值泵并返回 Number，C 侧 `call_primitive` 的 `JS_IsBool` 严格门逐帧 BAD_RETURN（数据形状重试，基线日志 335 次/owner）；层1459 alpha 绑定作者回退 `false`（Bool）遇 live slider 值 0.5，`SceneScriptPropertyInput.resolve` 类型配对返回 nil，逐帧 invalidArgument("SceneScript properties unavailable")。按 2026-09-18 批 D 确立的「typed update 返回值按 JS 赋值语义强转」合同补齐 Boolean 侧：Number 返回经 ToBoolean（NaN→false）接受，string/对象仍 BAD_RETURN；resolve 新增 `(.bool, .number)` 分支按 truthiness 解析（NaN→false），其余配对与非有限拒绝不变。两产品文件净增约 10 行，无新 owner/状态/样本分支。语料普查：189 样本 visible 脚本中 Boolean update 返回 Number 仅该样本两处确认（另有混淆脚本类型未知，运行时自动覆盖）；889 个用户属性绑定中 bool-fallback×slider 错配仅此一例。
+
+**验证：**红先行——C harness 新断言在旧码失败（number 0/0.75/NaN 三项 "callback returned non-Boolean value"；string 拒绝边界旧码即过），Swift resolve 新模式旧码返回 None。候选后 quickjs/user_properties 4 项及迁移模块全绿；selector 聚焦 31 模块 30 绿 + 1 项 `test_scene_performance_telemetry` 源码文本断言失败（stash 后在干净 HEAD 同样失败，既有 E6 债务非本批回归）。两个旧测试把「返回数字」坏返回反例迁移为字符串（`return 1`→`'yes'`、`return 3`→`'3'`），owner 局部失败/可重试/不发布性质不变。checkpoint Debug 构建、code-health（218 既有 warning）通过。
+
+**同输入 App A/B：**分支被并发 release 流程推进到 93b1b85a（未触本批 6 文件），两二进制同基构建。全尺寸回放被 GPU 预算阻塞（frame-target-budget-blocked required 805.39MB > budget 794.57MB；用户 release 测试实例占用 GPU，勿动），改用 `--resize-sequence 0.5:0.5` 半缩放同参数回放（20s、固定属性 newproperty1=false/newproperty48=true、同矩阵）：基线二进制 859/860/1459 各 335 次逐帧失败；候选 0 次，三 owner `callback=completed`（859 output=bool(false) 为 timedw=0 的正确 ToBoolean 结果，860 true，1459 properties 可用），154 帧提交、executor claimed/encoded/GPU 正常、截图非黑已查看。两二进制共享的 4 条矩阵诊断失败（dynamic visibility duplicated 等，全在 frame=0）在基线二进制逐条复现，属半缩放 resize 模式固有痕迹；全尺寸基线（2026-09-26）无这些失败。候选运行另有层2215轮播 owner 启动窗口 3 次 conflicting-authored-layer-mutation-owner 拒绝（fail-soft 保持 previous-current）：timenum/timedw 恢复发布后下游轮播脚本真实执行所暴露的启动瞬态，两二进制该差异随泵恢复而来，非强转本身错误；后续帧不再出现，20 秒内自愈。
+
+**边界与留存：**仅证明三 owner 执行恢复与逐帧失败清零，不证明整样本视觉/官方 parity、全柱天体渲染、轮播多 owner 冲突语义或性能；半缩放视口与全尺寸基线的视觉对照未做（预算阻塞）。独立只读审查 APPROVE（五项分项 PASS）；其非阻断备注①±Infinity 曾被 isfinite 谓词强转为 false，已对齐严格 ToBoolean（C 侧 Number/Bool 统一 `JS_ToBool`，Swift 侧 `!isNaN && != 0`，补 Infinity→true 断言后 29 项定向测试全绿），最终二进制同参数复跑结论不变（三 owner 0 失败、919 次 callback=completed、同 4 条缩放模式矩阵失败）。最终候选 App 2.10.0(280) SHA256 `5d33d41eff75f6498df747eb02ab789580a67b62bfd87e654b68904ccb036c84`、CDHash `95e6e936bec02791eb1abab24921be17058e93a7`；基线二进制 SHA256 `b0b73e04c88c13e4eaf554461deb4c137bca23447f688cd17028207e52d7f30b`、CDHash `769a3a8c36debb36e9a0ea79c2c1b006a84af0ce`；样本/矩阵 SHA 与 2026-09-26 批一致（project `516bf372…`、pkg `06db4dc2…`）。v2 冻结 product patch SHA256 `17915a9384780692a226e6700a68872e78ea53c9cadfda55c0160488dd011a5e`、tests patch `2a252aa7e334bffbfc39d52d1210660881fb3da5c779f14ac27058e6f1939b5d`（v1 及首轮回放二进制作为过程证据保留）。忽略缓存`2026-09-28-bool-number-coercion`保留三次回放报告/日志/截图、红证据、绿测试输出、审查与跟进处置、身份清单与两版冻结补丁。
+
 <a id="e-2026-09-28-particle-force-safety"></a>
 
 ### E-2026-09-28-PARTICLE-FORCE-SAFETY — 粒子向量累加统一 Float 安全边界

@@ -19,6 +19,9 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyBindings.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyResolver.swift",
     SOURCE_ROOT / "Format/ScenePkgReader.swift",
+    SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneDynamicSnapshot.swift",
+    SOURCE_ROOT / "Systems/Script/SceneScriptPropertyInput.swift",
 ]
 
 
@@ -35,6 +38,8 @@ enum Harness {
         case "census":
             guard CommandLine.arguments.count == 3 else { throw HarnessError.missingSampleRoot }
             try printJSON(censusResult(rootPath: CommandLine.arguments[2]))
+        case "script-property-input":
+            try printJSON(scriptPropertyInputResult())
         default:
             throw HarnessError.unknownMode
         }
@@ -269,6 +274,60 @@ enum Harness {
         ]
     }
 
+    private static func scriptPropertyInputResult() -> [String: Any] {
+        func encode(
+            _ inputs: [String: SceneScriptPropertyInput],
+            _ effectiveValues: [String: SceneUserPropertyValue]
+        ) -> String? {
+            SceneScriptPropertyInputCodec.scriptPropertiesJSON(
+                inputs, effectiveValues: effectiveValues
+            )
+        }
+        func boolFallbackInputs() -> [String: SceneScriptPropertyInput]? {
+            SceneScriptPropertyInputCodec.inputs([
+                "dragopacity": .object([
+                    "user": .string("dragbaropcity"), "value": .bool(false),
+                ]),
+            ])
+        }
+        func numberFallbackInputs() -> [String: SceneScriptPropertyInput]? {
+            SceneScriptPropertyInputCodec.inputs([
+                "rate": .object([
+                    "user": .string("rateslider"), "value": .number(2),
+                ]),
+            ])
+        }
+        let boolInputs = boolFallbackInputs()
+        let numberInputs = numberFallbackInputs()
+        return [
+            "inputsParsed": boolInputs != nil && numberInputs != nil,
+            "boolFallbackMissingLive": boolInputs.flatMap {
+                encode($0, [:])
+            },
+            "boolFallbackNumberLive": boolInputs.flatMap {
+                encode($0, ["dragbaropcity": .number(0.5)])
+            },
+            "boolFallbackZeroLive": boolInputs.flatMap {
+                encode($0, ["dragbaropcity": .number(0)])
+            },
+            "boolFallbackNaNLive": boolInputs.flatMap {
+                encode($0, ["dragbaropcity": .number(Double.nan)])
+            },
+            "boolFallbackInfinityLive": boolInputs.flatMap {
+                encode($0, ["dragbaropcity": .number(Double.infinity)])
+            },
+            "boolFallbackStringLiveRejected": boolInputs.flatMap {
+                encode($0, ["dragbaropcity": .string("0.5")]) == nil
+            },
+            "numberFallbackNonFiniteLiveRejected": numberInputs.flatMap {
+                encode($0, ["rateslider": .number(Double.infinity)]) == nil
+            },
+            "numberFallbackNumberLive": numberInputs.flatMap {
+                encode($0, ["rateslider": .number(3)])
+            },
+        ]
+    }
+
     private static func censusResult(rootPath: String) throws -> [String: Any] {
         let rootURL = URL(fileURLWithPath: rootPath, isDirectory: true)
         let sampleURLs = try FileManager.default.contentsOfDirectory(
@@ -441,6 +500,22 @@ class SceneUserPropertyTests(unittest.TestCase):
             text=True,
         )
         return json.loads(result.stdout)
+
+    def test_script_property_input_coerces_live_number_under_bool_fallback(self) -> None:
+        result = self.run_harness("script-property-input")
+        self.assertIs(result["inputsParsed"], True)
+        self.assertEqual(result["boolFallbackMissingLive"], '{"dragopacity":false}')
+        # A live user property passes JS assignment semantics: the authored
+        # Boolean fallback only supplies the default, so a slider value
+        # resolves by truthiness instead of failing the owner every frame
+        # (real 3662790108 layer 1459 alpha binding).
+        self.assertEqual(result["boolFallbackNumberLive"], '{"dragopacity":true}')
+        self.assertEqual(result["boolFallbackZeroLive"], '{"dragopacity":false}')
+        self.assertEqual(result["boolFallbackNaNLive"], '{"dragopacity":false}')
+        self.assertEqual(result["boolFallbackInfinityLive"], '{"dragopacity":true}')
+        self.assertIs(result["boolFallbackStringLiveRejected"], True)
+        self.assertIs(result["numberFallbackNonFiniteLiveRejected"], True)
+        self.assertEqual(result["numberFallbackNumberLive"], '{"rate":3}')
 
     def test_definition_and_recursive_binding_resolution(self) -> None:
         result = self.run_harness("synthetic")

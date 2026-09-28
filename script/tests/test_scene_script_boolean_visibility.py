@@ -285,7 +285,9 @@ enum Harness {
             domain: try SceneScriptQuickJSDomain(),
             descriptor: descriptor(),
             scriptBindings: [binding(
-                source: "export function update(value) { return 1; }"
+                // Number returns coerce by truthiness (JS assignment
+                // semantics); a string return remains a bad Boolean return.
+                source: "export function update(value) { return 'yes'; }"
             )],
             userPropertyDefinitions: [],
             generation: 2

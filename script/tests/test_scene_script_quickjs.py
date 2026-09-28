@@ -1877,6 +1877,72 @@ int main(void) {
         "bad return retries instead of disabling"
     );
 
+    // Author scripts return numbers from Boolean property updates (corpus:
+    // 3662790108 layers 859/860 pump shared state through visible updates);
+    // JS assignment semantics coerce by truthiness, NaN -> false.
+    const char *number_return_source =
+        "export function update(value) { return value ? 0 : 0.75; }";
+    MWXSceneQuickJSResult number_return_result = MWX_SCENE_QUICKJS_OK;
+    MWXSceneQuickJSOwner *number_return =
+        mwx_scene_quickjs_owner_create_value_only_with_budget(
+            domain, number_return_source, strlen(number_return_source),
+            15, 100000, &number_return_result,
+            diagnostic, sizeof(diagnostic)
+        );
+    failures += check(
+        number_return != NULL &&
+            number_return_result == MWX_SCENE_QUICKJS_OK,
+        "number return compile", diagnostic
+    );
+    failures += update_bool(
+        number_return, 15, 1, MWX_SCENE_QUICKJS_OK, 0,
+        "number return 0 coerces to false"
+    );
+    failures += update_bool(
+        number_return, 15, 0, MWX_SCENE_QUICKJS_OK, 1,
+        "number return 0.75 coerces to true"
+    );
+
+    const char *nan_return_source =
+        "export function update(value) { return value ? NaN : Infinity; }";
+    MWXSceneQuickJSResult nan_return_result = MWX_SCENE_QUICKJS_OK;
+    MWXSceneQuickJSOwner *nan_return =
+        mwx_scene_quickjs_owner_create_value_only_with_budget(
+            domain, nan_return_source, strlen(nan_return_source),
+            16, 100000, &nan_return_result,
+            diagnostic, sizeof(diagnostic)
+        );
+    failures += check(
+        nan_return != NULL && nan_return_result == MWX_SCENE_QUICKJS_OK,
+        "NaN return compile", diagnostic
+    );
+    failures += update_bool(
+        nan_return, 16, 1, MWX_SCENE_QUICKJS_OK, 0,
+        "NaN return coerces to false"
+    );
+    failures += update_bool(
+        nan_return, 16, 0, MWX_SCENE_QUICKJS_OK, 1,
+        "Infinity return coerces to true"
+    );
+
+    const char *string_return_source =
+        "export function update(value) { return 'yes'; }";
+    MWXSceneQuickJSResult string_return_result = MWX_SCENE_QUICKJS_OK;
+    MWXSceneQuickJSOwner *string_return =
+        mwx_scene_quickjs_owner_create_value_only_with_budget(
+            domain, string_return_source, strlen(string_return_source),
+            17, 100000, &string_return_result,
+            diagnostic, sizeof(diagnostic)
+        );
+    failures += check(
+        string_return != NULL && string_return_result == MWX_SCENE_QUICKJS_OK,
+        "string return compile", diagnostic
+    );
+    failures += update_bool(
+        string_return, 17, 1, MWX_SCENE_QUICKJS_BAD_RETURN, 0,
+        "string return still rejected for Boolean owner"
+    );
+
     MWXSceneQuickJSOwner *budget = mwx_scene_quickjs_owner_create(
         domain, "export function update(value) { while (true) { value = value; }; }",
         strlen("export function update(value) { while (true) { value = value; }; }"),
@@ -4496,6 +4562,9 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(cross_owner);
     mwx_scene_quickjs_owner_destroy(mutation_overflow);
     mwx_scene_quickjs_owner_destroy(bad_return);
+    mwx_scene_quickjs_owner_destroy(number_return);
+    mwx_scene_quickjs_owner_destroy(nan_return);
+    mwx_scene_quickjs_owner_destroy(string_return);
     mwx_scene_quickjs_owner_destroy(callback_error);
     mwx_scene_quickjs_owner_destroy(isolated);
     mwx_scene_quickjs_owner_destroy(console_mutation);

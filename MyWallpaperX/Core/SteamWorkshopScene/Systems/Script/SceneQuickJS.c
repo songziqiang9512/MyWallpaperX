@@ -674,9 +674,16 @@ static MWXSceneQuickJSResult call_primitive(
         return MWX_SCENE_QUICKJS_OK;
     }
     double value = 0;
-    int conversion = boolean_value
-        ? (JS_IsBool(result) ? JS_ToBool(domain->context, result) : -1)
-        : JS_ToFloat64(domain->context, &value, result);
+    int conversion = -1;
+    if (boolean_value) {
+        if (JS_IsBool(result) || JS_IsNumber(result)) {
+            // Author scripts return numbers from Boolean property updates;
+            // JS assignment semantics coerce them by truthiness (ToBoolean).
+            conversion = JS_ToBool(domain->context, result);
+        }
+    } else {
+        conversion = JS_ToFloat64(domain->context, &value, result);
+    }
     if (boolean_value && conversion >= 0) value = conversion != 0;
     JS_FreeValue(domain->context, result);
     if (conversion < 0 || !isfinite(value)) {

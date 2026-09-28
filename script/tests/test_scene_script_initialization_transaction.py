@@ -180,7 +180,7 @@ import Foundation
         transient.discardLayerMutations()
         payload["uncommittedCursorValue"] = x(evaluate(transient, 2))
         transient.commitLayerMutations()
-        let boolean = try vector(d, "export function init(v) { if(engine.runtime < 1) return 3; return true; } export function update(v) { return v; }", boolean: true)
+        let boolean = try vector(d, "export function init(v) { if(engine.runtime < 1) return '3'; return true; } export function update(v) { return v; }", boolean: true)
         func boolResult(_ time: Double) -> String {
             value(boolean.evaluate(input: .bool(false), frame: frame(time), scriptPropertiesJSON: "",
                 userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil))

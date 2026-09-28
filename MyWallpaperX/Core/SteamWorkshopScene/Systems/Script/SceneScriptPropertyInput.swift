@@ -33,6 +33,12 @@ nonisolated struct SceneScriptPropertyInput: Equatable, Sendable {
             return .bool(live.matches(condition))
         }
         switch (fallback, live) {
+        case (.bool, .number(let value)):
+            // A live user property passes JS assignment semantics under an
+            // authored Boolean fallback (corpus: 3662790108 binds a slider to
+            // a Boolean fallback): ToBoolean truthiness applies (NaN -> false,
+            // infinities -> true).
+            return .bool(!value.isNaN && value != 0)
         case (_, .number(let value)) where !value.isFinite:
             return nil
         case (.number, .number(let value)):
