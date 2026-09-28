@@ -105,6 +105,16 @@ def parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument("--reason", default="", help="recorded reason for --accept-growth")
     parser.add_argument(
+        "--drop-unused-acknowledgements",
+        action="store_true",
+        help=(
+            "prune acknowledgedChanges entries that the baseline at --base-ref no longer "
+            "needs; without this flag every acknowledgement is kept, because refs older "
+            "than the pruning view (CI pull-request bases, event.before, HEAD^) may still "
+            "require them"
+        ),
+    )
+    parser.add_argument(
         "--base-ref",
         help="Git ref whose baseline must not be expanded (recommended in CI)",
     )
@@ -537,16 +547,8 @@ def dedupe_acknowledgements(
 
 
 def ratcheted_baseline(baseline: dict[str, Any], measurements: dict[str, Any]) -> dict[str, Any]:
-    current = {
-        name: value
-        for name, value in baseline.items()
-        if name not in {
-            "canonicalHelpers",
-            "swallowPatterns",
-            "deadEntries",
-            "inventoryEntries",
-        }
-    }
+    # Copy in place so a no-op ratchet leaves the file byte-identical.
+    current = dict(baseline)
     current["canonicalHelpers"] = [
         {**entry, "allowedCopies": int(measurements["canonicalHelpers"].get(entry["name"], 0))}
         for entry in baseline["canonicalHelpers"]
@@ -561,8 +563,11 @@ def ratcheted_baseline(baseline: dict[str, Any], measurements: dict[str, Any]) -
 
 
 def ratchet(baseline: dict[str, Any], measurements: dict[str, Any], args: argparse.Namespace) -> int:
-    if args.base_ref:
+    if args.base_ref and not args.drop_unused_acknowledgements:
         print("--ratchet-baseline must not be combined with --base-ref", file=sys.stderr)
+        return 2
+    if args.drop_unused_acknowledgements and not args.base_ref:
+        print("--drop-unused-acknowledgements requires --base-ref", file=sys.stderr)
         return 2
     current = ratcheted_baseline(baseline, measurements)
     growth, changes = check_growth(baseline, current)
@@ -594,6 +599,36 @@ def ratchet(baseline: dict[str, Any], measurements: dict[str, Any], args: argpar
         current["acknowledgedChanges"] = dedupe_acknowledgements(
             baseline.get("acknowledgedChanges", []), recorded
         )
+    if args.drop_unused_acknowledgements:
+        # Resolve the pruning view first: an unusable ref is a request error, not
+        # something to discover only when there happens to be something to prune.
+        try:
+            reference = baseline_at_ref(args.base_ref)
+        except ValueError as error:
+            print(str(error), file=sys.stderr)
+            return 2
+        if "acknowledgedChanges" not in current:
+            print("nothing to prune")
+        elif reference is None:
+            print(
+                f"no baseline at {args.base_ref}; acknowledgements kept",
+                file=sys.stderr,
+            )
+        else:
+            used = {entry["detail"] for entry in recorded}
+            referenced_growth, referenced_changes = check_growth(reference, current)
+            used |= set(referenced_growth) | set(referenced_changes)
+            kept = [entry for entry in current["acknowledgedChanges"] if entry["detail"] in used]
+            dropped = len(current["acknowledgedChanges"]) - len(kept)
+            if kept:
+                current["acknowledgedChanges"] = kept
+            else:
+                current.pop("acknowledgedChanges", None)
+            if dropped:
+                print(
+                    f"dropped {dropped} acknowledgedChanges entr(ies) that {args.base_ref} "
+                    "no longer needs"
+                )
     text = json.dumps(current, ensure_ascii=False, indent=2) + "\n"
     (REPO_ROOT / BASELINE_RELATIVE_PATH).write_text(text, encoding="utf-8")
     print(f"wrote {BASELINE_RELATIVE_PATH}")
@@ -646,6 +681,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(str(error), file=sys.stderr)
         return 2
 
+    if args.drop_unused_acknowledgements and not args.ratchet_baseline:
+        print("--drop-unused-acknowledgements only applies to --ratchet-baseline", file=sys.stderr)
+        return 2
     if args.audit:
         print_report(measurements, args.format)
         return 0
@@ -685,6 +723,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                         f"{message}; land the reviewed-set change deliberately and record it "
                         f"in {BASELINE_RELATIVE_PATH.as_posix()} acknowledgedChanges"
                     )
+            # A stale acknowledgement would silently downgrade a later recurrence
+            # of the same message, so make the unused ones visible.
+            for detail in sorted(acknowledged - (set(ref_growth) | set(ref_changes))):
+                warnings.append(
+                    "acknowledgedChanges entry is not used by this base ref; keep it while any "
+                    "older ref (CI pull-request bases, event.before, HEAD^) still needs it, or "
+                    "prune the set with --ratchet-baseline --base-ref <oldest ref the gates "
+                    f"serve> --drop-unused-acknowledgements: {detail}"
+                )
     if args.format == "json":
         print(json.dumps(
             {

@@ -47,7 +47,7 @@ authored data → loss-preserving IR → prepared Program/graph/resources
 
 `observe-only`、`prefer-generic`、`generic-only` 和 `disable-generic` 只是有退出条件的迁移状态。不得静默双执行、永久保留 DEBUG 开关、永久依赖 fallback 或用 route 数、compile success、recognized、非黑画面、matrix PASS、单样本通过宣称兼容完成。
 
-结构成本与功能同受治理：形状 analyzer/matcher、请求包装层、protocol、registry 与专用 fallback 家族由 `script/scene_source_layout.json` 的 ratchet 冻结现值，防御面（零调用方入口、典范 helper 副本、identity/摘要路径的吞错）由 `script/check_scene_defense.py` 与 `script/scene_defense_baseline.json` 冻结现值；增长要在批次描述中写明 owner、理由与退役条件后显式改基线（`--accept-growth --reason`，逐条记入基线 `acknowledgedChanges`；pattern/目标改动同样要逐条记录），收缩随对应卡关闭同批下降（`--ratchet-baseline`）。防御增量自查同样有判定程序：新增 guard 必须指名会违反它的产生者，指不出即删除；每批次审逐条核对新增 guard、零消费者入口与新增 helper 副本。每逢兼容阶段收口或重构卡关闭时重做一次结构普查（家族计数、死引用、双 owner、重复推导），结果登记进重构计划的对应卡，不另建普查文档体系。
+结构成本与功能同受治理：形状 analyzer/matcher、请求包装层、protocol、registry 与专用 fallback 家族由 `script/scene_source_layout.json` 的 ratchet 冻结现值，防御面（零调用方入口、典范 helper 副本、identity/摘要路径的吞错）由 `script/check_scene_defense.py` 与 `script/scene_defense_baseline.json` 冻结现值；增长要在批次描述中写明 owner、理由与退役条件后显式改基线（`--accept-growth --reason`，逐条记入基线 `acknowledgedChanges`；pattern/目标改动同样要逐条记录；该台账默认保留——更旧的 ref（CI 的 PR base、`event.before`、`HEAD^`）可能仍需要它，只有显式 `--drop-unused-acknowledgements --base-ref <ref>` 才按该 ref 剪除），收缩随对应卡关闭同批下降（`--ratchet-baseline`）。防御增量自查同样有判定程序：新增 guard 必须指名会违反它的产生者，指不出即删除；每批次审逐条核对新增 guard、零消费者入口与新增 helper 副本。每逢兼容阶段收口或重构卡关闭时重做一次结构普查（家族计数、死引用、双 owner、重复推导），结果登记进重构计划的对应卡，不另建普查文档体系。
 
 审查结论绑定行为证据：审查输入必须包含跨批次性质清单（同类 identity、lifecycle、失败半径问题在其他卡是否同样成立）和至少一个可执行反例（伪造时钟、会话或 stale generation 注入）；形状断言全绿、编译通过或路线计数不能单独作为接受理由。每批次审还要逐条核对新增 guard 能否指名可违反它的产生者、新增零消费者入口与新增 helper 副本，并把 `script/check_scene_defense.py --audit` 的实测与 `script/scene_defense_baseline.json` 的锁定值对齐。
 

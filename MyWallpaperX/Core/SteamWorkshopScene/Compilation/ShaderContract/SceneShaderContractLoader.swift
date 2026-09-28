@@ -95,16 +95,16 @@ nonisolated struct SceneShaderContractLoader {
             }
 
             diagnostics = sortedUnique(diagnostics)
-            let canonicalSHA256 = canonicalHash(
+            let canonicalSHA256 = Self.canonicalHash(
                 identity: draft.identity,
                 sourceKind: draft.sourceKind,
                 stages: stages,
                 diagnostics: diagnostics
             ) ?? ""
             if canonicalSHA256.isEmpty {
-                // The flag is appended after hashing on purpose: the empty digest
-                // and this diagnostic describe the same contract, and no consumer
-                // compares canonicalSHA256 against a re-derived hash.
+                // Appended after the projection on purpose: the empty digest is a
+                // marker for this same contract, and recomputing consumers (X-Ray
+                // stock identity) re-derive their own digest and stay unverified.
                 diagnostics = sortedUnique(diagnostics + [
                     .init(
                         code: .malformedAnnotation,
@@ -300,7 +300,7 @@ nonisolated struct SceneShaderContractLoader {
             kind: kind,
             relativePath: relativePath,
             source: source,
-            rawSHA256: sha256(data),
+            rawSHA256: Self.sha256(data),
             includes: parsed.includes,
             annotations: parsed.annotations,
             declarations: parsed.declarations
@@ -377,7 +377,20 @@ nonisolated struct SceneShaderContractLoader {
         }
     }
 
-    nonisolated private func canonicalHash(
+    /// Canonical JSON projection digest for a shader contract. Shared with the
+    /// X-Ray stock identity verification, which recomputes the same projection.
+    /// Contract-shaped convenience for callers that recompute the digest from
+    /// the stored contract instead of the loader's live fields.
+    nonisolated static func canonicalHash(_ contract: SceneShaderContract) -> String? {
+        canonicalHash(
+            identity: contract.identity,
+            sourceKind: contract.sourceKind,
+            stages: contract.stages,
+            diagnostics: contract.diagnostics
+        )
+    }
+
+    nonisolated static func canonicalHash(
         identity: String,
         sourceKind: SceneShaderContract.SourceKind,
         stages: [SceneShaderContract.Stage],
@@ -398,10 +411,10 @@ nonisolated struct SceneShaderContractLoader {
         // makes SceneShaderMalformedMetadataAdmission treat it as fatal instead
         // of a skippable malformed COMBO annotation.
         guard let data = try? encoder.encode(payload) else { return nil }
-        return sha256(data)
+        return Self.sha256(data)
     }
 
-    nonisolated private func sha256(_ data: Data) -> String {
+    nonisolated private static func sha256(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 }

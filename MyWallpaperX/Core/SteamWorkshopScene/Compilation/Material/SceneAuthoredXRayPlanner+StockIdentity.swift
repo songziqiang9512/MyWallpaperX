@@ -183,29 +183,13 @@ nonisolated enum SceneXRayStockIdentityVerifier {
             && stockSHA256(Data(include.source.utf8)) == include.rawSHA256
     }
 
-    private nonisolated struct CanonicalStockShaderPayload: Encodable {
-        let identity: String
-        let sourceKind: SceneShaderContract.SourceKind
-        let stages: [SceneShaderContract.Stage]
-        let diagnostics: [SceneShaderContract.Diagnostic]
-    }
-
+    /// Recomputes the contract's canonical digest through the shared loader
+    /// projection; nil (non-finite authored annotation value) keeps the identity
+    /// comparison explicitly unverified instead of relying on a sentinel digest.
     private nonisolated static func canonicalStockHash(
         _ contract: SceneShaderContract
     ) -> String? {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        let payload = CanonicalStockShaderPayload(
-            identity: contract.identity,
-            sourceKind: contract.sourceKind,
-            stages: contract.stages,
-            diagnostics: contract.diagnostics
-        )
-        // The payload re-encodes authored annotation values, whose numeric case
-        // admits a non-finite Double; nil keeps the identity comparison
-        // explicitly unverified instead of relying on a sentinel digest.
-        guard let data = try? encoder.encode(payload) else { return nil }
-        return stockSHA256(data)
+        SceneShaderContractLoader.canonicalHash(contract)
     }
 
     private nonisolated static func normalizedStockPath(_ value: String) -> String {

@@ -101,6 +101,7 @@ def ratchet_args(**overrides: object) -> argparse.Namespace:
         "accept_growth": False,
         "reason": "",
         "base_ref": None,
+        "drop_unused_acknowledgements": False,
     }
     values.update(overrides)
     return argparse.Namespace(**values)
@@ -344,8 +345,7 @@ class SceneDefenseGateTests(unittest.TestCase):
 
     def test_set_changes_need_a_matching_acknowledgement(self) -> None:
         arguments = argparse.Namespace(
-            check=True, audit=False, ratchet_baseline=False, base_ref="BASE", format="text"
-        )
+            check=True, audit=False, ratchet_baseline=False, base_ref="BASE", format="text", drop_unused_acknowledgements=False)
         ref = baseline(helpers=[meta_helper("matches", 1)])
         current = baseline(helpers=[meta_helper("sha256", 1)])
         measured = measurements(helpers={"sha256": 1})
@@ -474,8 +474,7 @@ class SceneDefenseGateTests(unittest.TestCase):
 
     def test_check_json_format_reports_structured_result(self) -> None:
         arguments = argparse.Namespace(
-            check=True, audit=False, ratchet_baseline=False, base_ref=None, format="json"
-        )
+            check=True, audit=False, ratchet_baseline=False, base_ref=None, format="json", drop_unused_acknowledgements=False)
         measured = measurements(dead=[{"name": "orphan", "file": "Scene/Holder.swift", "kind": "func"}])
         stdout = io.StringIO()
         with (
@@ -528,8 +527,7 @@ class SceneDefenseGateTests(unittest.TestCase):
 
     def test_main_rejects_a_source_root_mismatch(self) -> None:
         arguments = argparse.Namespace(
-            check=True, audit=False, ratchet_baseline=False, base_ref=None, format="text"
-        )
+            check=True, audit=False, ratchet_baseline=False, base_ref=None, format="text", drop_unused_acknowledgements=False)
         stdout = io.StringIO()
         with (
             patch.object(GATE, "parse_arguments", return_value=arguments),
@@ -545,8 +543,7 @@ class SceneDefenseGateTests(unittest.TestCase):
 
     def test_main_fails_on_an_unlocked_dead_entry(self) -> None:
         arguments = argparse.Namespace(
-            check=True, audit=False, ratchet_baseline=False, base_ref=None, format="text"
-        )
+            check=True, audit=False, ratchet_baseline=False, base_ref=None, format="text", drop_unused_acknowledgements=False)
         measured = measurements(dead=[{"name": "orphan", "file": "Scene/Holder.swift", "kind": "func"}])
         stdout = io.StringIO()
         with (
@@ -566,8 +563,7 @@ class SceneDefenseGateTests(unittest.TestCase):
 
     def test_github_format_emits_annotations(self) -> None:
         arguments = argparse.Namespace(
-            check=True, audit=False, ratchet_baseline=False, base_ref=None, format="github"
-        )
+            check=True, audit=False, ratchet_baseline=False, base_ref=None, format="github", drop_unused_acknowledgements=False)
         measured = measurements(dead=[{"name": "orphan", "file": "Scene/Holder.swift", "kind": "func"}])
         stdout = io.StringIO()
         with (
@@ -583,6 +579,213 @@ class SceneDefenseGateTests(unittest.TestCase):
 
         self.assertEqual(1, result)
         self.assertIn("::error title=scene-defense::", stdout.getvalue())
+
+    def test_unused_acknowledgements_are_reported(self) -> None:
+        arguments = argparse.Namespace(
+            check=True, audit=False, ratchet_baseline=False, base_ref="BASE", format="text", drop_unused_acknowledgements=False)
+        ref = baseline(helpers=[meta_helper("matches", 1)])
+        current = {
+            **ref,
+            "acknowledgedChanges": [
+                {"detail": "canonical helper ghost was added to the reviewed set", "reason": "stale"}
+            ],
+        }
+        stdout = io.StringIO()
+        with (
+            patch.object(GATE, "parse_arguments", return_value=arguments),
+            patch.object(GATE, "load_current_baseline", return_value=current),
+            patch.object(GATE, "scene_source_root", return_value="Scene"),
+            patch.object(GATE, "tracked_paths", return_value=[]),
+            patch.object(GATE, "measure", return_value=measurements()),
+            patch.object(GATE, "baseline_at_ref", return_value=ref),
+            redirect_stdout(stdout),
+            redirect_stderr(io.StringIO()),
+        ):
+            result = GATE.main()
+
+        self.assertEqual(0, result)
+        self.assertIn("not used by this base ref", stdout.getvalue())
+        self.assertIn("canonical helper ghost", stdout.getvalue())
+
+    def test_ratchet_prunes_only_when_asked_and_only_against_the_given_ref(self) -> None:
+        current = measurements(helpers={"matches": 1})
+        stale = {"detail": "canonical helper ghost was added to the reviewed set", "reason": "stale"}
+        older_ref = baseline(helpers=[meta_helper("matches", 0)])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            working = baseline(helpers=[meta_helper("matches", 1)])
+            working["acknowledgedChanges"] = [stale]
+            write(root, "script/scene_defense_baseline.json", json.dumps(working))
+
+            with patch.object(GATE, "REPO_ROOT", root), redirect_stdout(io.StringIO()):
+                default_result = GATE.ratchet(working, current, ratchet_args())
+                default_locked = json.loads(
+                    (root / "script/scene_defense_baseline.json").read_text(encoding="utf-8")
+                )
+            self.assertEqual(0, default_result)
+            self.assertEqual(
+                [stale],
+                default_locked["acknowledgedChanges"],
+                "without the flag every acknowledgement is kept: older refs may still need it",
+            )
+
+            prune_output = io.StringIO()
+            with (
+                patch.object(GATE, "REPO_ROOT", root),
+                patch.object(GATE, "baseline_at_ref", return_value=older_ref),
+                redirect_stdout(prune_output),
+            ):
+                prune_result = GATE.ratchet(
+                    working,
+                    current,
+                    ratchet_args(base_ref="HEAD~1", drop_unused_acknowledgements=True),
+                )
+                pruned_locked = json.loads(
+                    (root / "script/scene_defense_baseline.json").read_text(encoding="utf-8")
+                )
+
+        self.assertEqual(0, prune_result)
+        self.assertIn("dropped 1 acknowledgedChanges", prune_output.getvalue())
+        self.assertNotIn("acknowledgedChanges", pruned_locked)
+
+    def test_pruning_keeps_what_the_run_recorded_and_what_the_ref_needs(self) -> None:
+        current = measurements(helpers={"matches": 2})
+        recorded = {
+            "detail": "canonical helper matches allowance grew from 1 to 2",
+            "reason": "accepted in this run",
+        }
+        still_needed = {
+            "detail": "canonical helper matches was added to the reviewed set",
+            "reason": "older refs still need it",
+        }
+        stale = {"detail": "canonical helper ghost was added to the reviewed set", "reason": "stale"}
+        reference = baseline(helpers=[meta_helper("matches", 1)])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            working = baseline(helpers=[meta_helper("matches", 1)])
+            working["acknowledgedChanges"] = [recorded, still_needed, stale]
+            write(root, "script/scene_defense_baseline.json", json.dumps(working))
+
+            with (
+                patch.object(GATE, "REPO_ROOT", root),
+                patch.object(GATE, "baseline_at_ref", return_value=reference),
+                redirect_stdout(io.StringIO()),
+            ):
+                result = GATE.ratchet(
+                    working,
+                    current,
+                    ratchet_args(
+                        accept_growth=True,
+                        reason="accepted in this run",
+                        base_ref="HEAD~1",
+                        drop_unused_acknowledgements=True,
+                    ),
+                )
+                locked = json.loads(
+                    (root / "script/scene_defense_baseline.json").read_text(encoding="utf-8")
+                )
+
+        self.assertEqual(0, result)
+        details = {entry["detail"] for entry in locked["acknowledgedChanges"]}
+        self.assertIn(recorded["detail"], details, "the run's own record must survive pruning")
+        self.assertNotIn(stale["detail"], details, "entries the ref never needed are pruned")
+
+    def test_pruning_keeps_acknowledgements_when_the_ref_has_no_baseline(self) -> None:
+        recorded = {"detail": "canonical helper matches was added to the reviewed set", "reason": "keep"}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            working = baseline()
+            working["acknowledgedChanges"] = [recorded]
+            write(root, "script/scene_defense_baseline.json", json.dumps(working))
+
+            with (
+                patch.object(GATE, "REPO_ROOT", root),
+                patch.object(GATE, "baseline_at_ref", return_value=None),
+                redirect_stdout(io.StringIO()),
+                redirect_stderr(io.StringIO()),
+            ):
+                result = GATE.ratchet(
+                    working,
+                    measurements(),
+                    ratchet_args(base_ref="OLD", drop_unused_acknowledgements=True),
+                )
+                locked = json.loads(
+                    (root / "script/scene_defense_baseline.json").read_text(encoding="utf-8")
+                )
+
+        self.assertEqual(0, result)
+        self.assertEqual([recorded], locked["acknowledgedChanges"])
+
+    def test_pruning_rejects_an_unknown_ref(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write(root, "script/scene_defense_baseline.json", json.dumps(baseline()))
+            with patch.object(GATE, "REPO_ROOT", root), redirect_stderr(io.StringIO()):
+                result = GATE.ratchet(
+                    baseline(),
+                    measurements(),
+                    ratchet_args(base_ref="nope", drop_unused_acknowledgements=True),
+                )
+
+        self.assertEqual(2, result)
+
+    def test_drop_flag_only_applies_to_ratchet(self) -> None:
+        arguments = argparse.Namespace(
+            check=True,
+            audit=False,
+            ratchet_baseline=False,
+            base_ref=None,
+            format="text",
+            drop_unused_acknowledgements=True,
+        )
+        with (
+            patch.object(GATE, "parse_arguments", return_value=arguments),
+            patch.object(GATE, "load_current_baseline", return_value=baseline()),
+            patch.object(GATE, "scene_source_root", return_value="Scene"),
+            patch.object(GATE, "tracked_paths", return_value=[]),
+            patch.object(GATE, "measure", return_value=measurements()),
+            redirect_stdout(io.StringIO()),
+            redirect_stderr(io.StringIO()),
+        ):
+            result = GATE.main()
+
+        self.assertEqual(2, result)
+
+    def test_drop_unused_acknowledgements_requires_a_base_ref(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write(root, "script/scene_defense_baseline.json", json.dumps(baseline()))
+            with patch.object(GATE, "REPO_ROOT", root), redirect_stderr(io.StringIO()):
+                result = GATE.ratchet(
+                    baseline(), measurements(), ratchet_args(drop_unused_acknowledgements=True)
+                )
+
+        self.assertEqual(2, result)
+
+    def test_ratchet_keeps_acknowledgements_by_default_even_with_a_reference(self) -> None:
+        current = measurements(helpers={"matches": 1})
+        recorded = {
+            "detail": "canonical helper matches allowance grew from 0 to 1",
+            "reason": "recorded before the first commit",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            working = baseline(helpers=[meta_helper("matches", 1)])
+            working["acknowledgedChanges"] = [recorded]
+            write(root, "script/scene_defense_baseline.json", json.dumps(working))
+
+            with (
+                patch.object(GATE, "REPO_ROOT", root),
+                patch.object(GATE, "baseline_at_ref", return_value=baseline(helpers=[meta_helper("matches", 0)])),
+                redirect_stdout(io.StringIO()),
+            ):
+                result = GATE.ratchet(working, current, ratchet_args())
+                locked = json.loads(
+                    (root / "script/scene_defense_baseline.json").read_text(encoding="utf-8")
+                )
+
+        self.assertEqual(0, result)
+        self.assertEqual([recorded], locked["acknowledgedChanges"])
 
     def test_baseline_loader_rejects_unsupported_schema(self) -> None:
         payload = dict(baseline())

@@ -43,6 +43,11 @@ private struct Output: Codable {
     let reversedCanonical: [String: String]
     let reversedDependency: [String: String]
     let roundTripEqual: Bool
+    let finiteCanonicalDigest: String?
+    let repeatedCanonicalDigest: String?
+    let nonFiniteCanonicalDigest: String?
+    let nonFiniteDigestIsAbsent: Bool
+    let nonFiniteDigestMatchesProfileSentinel: Bool
 }
 
 @main
@@ -125,6 +130,39 @@ private struct ShaderContractHarness {
                 stockAssetsRootURL: nil
             )
         ).first
+        // Boundary probe for the shared canonical projection: an authored
+        // numeric value that cannot be encoded must yield no digest at all, so
+        // the recomputation in the stock identity comparison fails closed.
+        func canonicalDigestProbe(numberLiteral: Double) -> String? {
+            let annotation = SceneShaderContract.Annotation(
+                marker: "[RANGE]",
+                value: .number(numberLiteral),
+                raw: "// [RANGE] \(numberLiteral)",
+                line: 1
+            )
+            let stage = SceneShaderContract.Stage(
+                kind: .fragment,
+                relativePath: "shaders/effects/probe.frag",
+                source: "void main() {}",
+                rawSHA256: String(repeating: "a", count: 64),
+                includes: [],
+                annotations: [annotation],
+                declarations: []
+            )
+            return SceneShaderContractLoader.canonicalHash(
+                SceneShaderContract(
+                    identity: "effects/probe",
+                    sourceKind: .authoredSource,
+                    stages: [stage],
+                    diagnostics: [],
+                    canonicalSHA256: ""
+                )
+            )
+        }
+        let finiteCanonicalDigest = canonicalDigestProbe(numberLiteral: 1.5)
+        let repeatedCanonicalDigest = canonicalDigestProbe(numberLiteral: 1.5)
+        let nonFiniteCanonicalDigest = canonicalDigestProbe(numberLiteral: .infinity)
+        let profileSentinel = String(repeating: "0", count: 64)
         let output = Output(
             contracts: contracts,
             mixedContract: mixedContract,
@@ -136,7 +174,13 @@ private struct ShaderContractHarness {
             hiddenGraphNodeCount: hidden?.sourceGraph?.nodes.count ?? 0,
             reversedCanonical: reversedCanonical,
             reversedDependency: reversedDependency,
-            roundTripEqual: decodedContracts == contracts
+            roundTripEqual: decodedContracts == contracts,
+            finiteCanonicalDigest: finiteCanonicalDigest,
+            repeatedCanonicalDigest: repeatedCanonicalDigest,
+            nonFiniteCanonicalDigest: nonFiniteCanonicalDigest,
+            nonFiniteDigestIsAbsent: nonFiniteCanonicalDigest == nil,
+            nonFiniteDigestMatchesProfileSentinel:
+                nonFiniteCanonicalDigest == profileSentinel
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
@@ -174,6 +218,56 @@ class SceneShaderContractTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.build_directory.cleanup()
+
+    def test_canonical_digest_boundary_yields_no_digest(self):
+        """Shared canonical projection boundary.
+
+        The X-Ray stock identity comparison recomputes this projection, so a
+        payload that cannot be encoded must produce no digest at all. The
+        verifier's own guard chain (nil digest => unverified identity) is
+        structural and is not exercised here.
+        """
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory) / "wallpaper"
+            root.mkdir(parents=True)
+            completed = subprocess.run(
+                [str(type(self).binary), str(root)],
+                cwd=REPO_ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        payload = json.loads(completed.stdout)
+        finite = payload["finiteCanonicalDigest"]
+        self.assertIsInstance(finite, str)
+        self.assertEqual(64, len(finite))
+        self.assertTrue(
+            all(character in "0123456789abcdef" for character in finite),
+            f"digest must be lowercase hex: {finite}",
+        )
+        self.assertEqual(
+            finite,
+            payload["repeatedCanonicalDigest"],
+            "the canonical projection must stay deterministic",
+        )
+        # The projection is a stored contract: the X-Ray stock profiles compare
+        # authored contracts against digests produced by this exact encoding, so
+        # this constant is their cross-check against an accidental shape change.
+        self.assertEqual(
+            "643b1ae1f73d790d3ba989b07fd7e6662993ab5d417c93bc442f8c54a8c54eef",
+            finite,
+            "canonical projection changed; re-derive the stock identity profiles first",
+        )
+        self.assertNotIn(
+            "nonFiniteCanonicalDigest",
+            payload,
+            "a payload that cannot be encoded must yield no digest instead of a collapsed constant",
+        )
+        self.assertTrue(payload["nonFiniteDigestIsAbsent"])
+        self.assertFalse(
+            payload["nonFiniteDigestMatchesProfileSentinel"],
+            "a contract without a digest can never satisfy the stock identity comparison",
+        )
 
     def test_loss_preserving_contract_and_fail_closed_boundaries(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
