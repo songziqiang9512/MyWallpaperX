@@ -85,7 +85,7 @@ class SceneIndependentSignalCompilerArtifactTests(unittest.TestCase):
         ) as directory:
             root = Path(directory)
             tools = self.independent_tools(root)
-            manifest = helper.manifest(root, tools[0], tools[1])
+            manifest = helper.manifest(root, tools[0], tools[1], timeout_ms=10_000)
             request = json.loads(
                 harness_support.FIXTURE.read_text(encoding="utf-8")
             )

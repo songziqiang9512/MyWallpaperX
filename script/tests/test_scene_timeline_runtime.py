@@ -24,6 +24,8 @@ GRAPH_EXECUTOR_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor+DynamicUniformDiagnostics.swift"
 )
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "Diagnostics/ScenePerformanceCounterHub.swift",
+    SOURCE_ROOT / "Rendering/Composition/SceneBloomPostProcess.swift",
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
     SOURCE_ROOT / "Format/SceneDocument.swift",
     SOURCE_ROOT / "Format/SceneDocument+General.swift",
@@ -216,6 +218,7 @@ SCENE_FIXTURE = {
 
 HARNESS_SOURCE = r'''
 import Foundation
+enum SceneGraphRenderTargetPlan { enum TextureFormat { case rgba16f, rgbaBackbuffer } }
 
 enum SceneTextGeometry {
     static func expandedSize(authoredSize: [Float]?, padding: Float) -> [Float]? { authoredSize }

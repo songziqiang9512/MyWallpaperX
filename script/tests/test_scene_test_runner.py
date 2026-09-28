@@ -8,6 +8,7 @@ import argparse
 import contextlib
 import io
 import sys
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -171,6 +172,20 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
                 with contextlib.redirect_stderr(error):
                     self.assertEqual(runner.main(arguments), 2)
                 self.assertIn(message, error.getvalue())
+
+    def test_fail_fast_reports_failure_and_cancels_unstarted_work(self) -> None:
+        modules = [f"script.tests.test_case_{index}" for index in range(30)]
+        def execute(module):
+            time.sleep(0.01)
+            return module, 1 if module == modules[0] else 0, 0.01, "actionable failure"
+        output = io.StringIO()
+        with mock.patch.object(runner, "discover_modules", return_value=modules), \
+             mock.patch.object(runner, "run_module", side_effect=execute) as run, \
+             contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+            self.assertEqual(runner.main(["--fail-fast", "--jobs", "1"]), 1)
+        self.assertLess(run.call_count, len(modules))
+        self.assertIn("actionable failure", output.getvalue())
+        self.assertNotIn("ALL OK", output.getvalue())
 
     @mock.patch.object(runner.subprocess, "run")
     def test_module_process_disables_bytecode_writes(

@@ -132,6 +132,7 @@ def parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument("--list", action="store_true", help="仅列出模块，不运行")
+    parser.add_argument("--fail-fast", action="store_true", help="首个失败后取消尚未开始的模块；已运行的模块正常收尾")
     return parser.parse_args(argv)
 
 
@@ -177,15 +178,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
         futures = {pool.submit(run_module, module): module for module in modules}
         for future in concurrent.futures.as_completed(futures):
+            if future.cancelled():
+                continue
             module, returncode, elapsed, output = future.result()
             slowest.append((elapsed, module))
             status = "OK" if returncode == 0 else "FAIL"
             print(f"{status:4s} {elapsed:6.1f}s  {module.rsplit('.', 1)[-1]}", flush=True)
             if returncode != 0:
                 failures.append((module, output))
+                print(f"\n===== {module} =====\n{output}\n", flush=True)
+                if args.fail_fast:
+                    for pending in futures:
+                        pending.cancel()
+            elif "skipped=" in output:
+                print(output, flush=True)
 
     total = time.monotonic() - started
-    print(f"\n{len(modules)} modules in {total:.1f}s with {args.jobs} jobs")
+    print(f"\n{len(slowest)}/{len(modules)} modules in {total:.1f}s with {args.jobs} jobs")
     slowest.sort(reverse=True)
     print("slowest:", ", ".join(f"{name.rsplit('.', 1)[-1]} {dt:.1f}s" for dt, name in slowest[:5]))
 

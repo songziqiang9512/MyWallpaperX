@@ -10,7 +10,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 GATE_SOURCES = [
     REPO_ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackResourceLifetime.swift",
     REPO_ROOT / "MyWallpaperX/Shared/UI/ImportedVideoAutoplayGate.swift",
-    REPO_ROOT / "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineVideoAutoplayRequests.swift",
     REPO_ROOT / "MyWallpaperX/Shared/UI/WallpaperRuntimeSwitch.swift",
 ]
 
@@ -21,27 +20,23 @@ class ImportedVideoAutoplayGateTests(unittest.TestCase):
         import Foundation
 
         let gate = ImportedVideoAutoplayGate.shared
-        let requests = OnlineVideoAutoplayRequests()
         final class TestLifetime: PlaybackResourceLifetime {}
 
-        let firstRequest = requests.request(for: 101)
-        let latestRequest = requests.request(for: 202)
+        let firstRequest = gate.claim()
+        let latestRequest = gate.claim()
         precondition(!gate.isCurrent(firstRequest))
         precondition(gate.isCurrent(latestRequest))
 
-        // 下载可以逆序完成，但完成顺序不能改变原始用户意图顺序。
-        precondition(requests.complete(for: 101) == firstRequest)
-        precondition(requests.complete(for: 202) == latestRequest)
-        precondition(gate.isCurrent(latestRequest))
+        // A delayed import cannot replace the latest explicit playback intent.
+        precondition(!gate.isCurrent(firstRequest))
 
-        let staleAfterRuntimeSwitch = requests.request(for: 303)
+        let staleAfterRuntimeSwitch = gate.claim()
         postWallpaperRuntimeWillSwitch(to: .web)
         precondition(!gate.isCurrent(staleAfterRuntimeSwitch))
 
-        let replacedSameItem = requests.request(for: 404)
-        let currentSameItem = requests.request(for: 404)
+        let replacedSameItem = gate.claim()
+        let currentSameItem = gate.claim()
         precondition(!gate.isCurrent(replacedSameItem))
-        precondition(requests.complete(for: 404) == currentSameItem)
         precondition(gate.isCurrent(currentSameItem))
 
         var decodedRequest: ImportedVideoPlaybackRequest?

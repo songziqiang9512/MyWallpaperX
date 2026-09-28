@@ -1,0 +1,2 @@
+# Numeric oracle used by the blend-mode GPU regression tests.
+numpy==2.4.6

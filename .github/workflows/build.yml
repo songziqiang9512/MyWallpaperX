@@ -48,6 +48,8 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: script/requirements-tests.txt
 
       - name: Resolve build version
         run: bash script/resolve_version.sh --release >> "$GITHUB_ENV"
@@ -81,12 +83,21 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.401"
+          cache: true
+          cache-dependency-path: SteamService/packages.lock.json
+
+      - name: Prepare test dependencies
+        run: python3 -m pip install -r script/requirements-tests.txt
+
+      - name: Restore locked SteamService dependencies
+        working-directory: SteamService
+        run: dotnet restore --locked-mode
 
       - name: Run tests and check Swift file health
         env:
           BASE_REF: ${{ github.event.before }}
         run: |
-          python3 -B script/run_scene_tests.py --scope all --jobs 4
+          python3 -B script/run_scene_tests.py --scope all --jobs 4 --fail-fast
           if [ -z "${BASE_REF}" ] || [[ "${BASE_REF}" =~ ^0+$ ]]; then
             BASE_REF="$(git tag --merged HEAD --list 'build-*' --sort=-version:refname | head -n 1)"
           fi

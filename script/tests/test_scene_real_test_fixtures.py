@@ -16,6 +16,12 @@ import scene_real_test_fixtures as fixtures
 
 
 class SceneRealTestFixturesTests(unittest.TestCase):
+    def test_unconfigured_corpus_does_not_block_synthetic_modules(self) -> None:
+        with mock.patch.object(fixtures, "load_fixture_config", return_value={}):
+            self.assertFalse(fixtures.sample_cache_root("123").exists())
+            self.assertFalse(fixtures.runtime_homes_root().exists())
+            self.assertFalse(fixtures.sample_runtime_evidence_path("123").exists())
+
     def test_environment_override_resolves_single_sample_cache(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-fixtures-") as directory:
             samples = Path(directory) / "samples"

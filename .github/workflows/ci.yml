@@ -6,6 +6,11 @@ on:
       - "**"
   pull_request:
   workflow_dispatch:
+    inputs:
+      base_ref:
+        description: Compare against this commit (defaults to the previous commit)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -29,23 +34,37 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.401"
+          cache: true
+          cache-dependency-path: SteamService/packages.lock.json
 
       - name: Select repository Python
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: script/requirements-tests.txt
+
+      - name: Prepare test dependencies
+        run: python3 -m pip install -r script/requirements-tests.txt
+
+      - name: Restore locked SteamService dependencies
+        working-directory: SteamService
+        run: dotnet restore --locked-mode
 
       - name: Resolve validation range
         env:
           EVENT_NAME: ${{ github.event_name }}
           EVENT_BEFORE: ${{ github.event.before }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          REQUESTED_BASE: ${{ inputs.base_ref }}
         run: |
           echo "CLANG_MODULE_CACHE_PATH=$RUNNER_TEMP/mwx-clang-module-cache" >> "$GITHUB_ENV"
           echo "SWIFT_MODULECACHE_PATH=$RUNNER_TEMP/mwx-swift-module-cache" >> "$GITHUB_ENV"
           BASE_REF="$EVENT_BEFORE"
           if [ "$EVENT_NAME" = "pull_request" ]; then
             BASE_REF="$PR_BASE_SHA"
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            BASE_REF="${REQUESTED_BASE:-HEAD^}"
           fi
           if [ -z "$BASE_REF" ] || [[ "$BASE_REF" =~ ^0+$ ]]; then
             git fetch --no-tags origin main

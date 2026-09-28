@@ -1018,6 +1018,20 @@ class SceneCapabilityCensusTests(unittest.TestCase):
             "repair-commit-shape-invalid",
         })
 
+    def test_local_evidence_is_optional_but_missing_gates_and_documents_fail(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            ledger = {"families": [{
+                "family_key": "test", "commit": "abcdef0",
+                "regression_gates": [{"kind": "synthetic-positive",
+                    "reference": ".codex/missing.py#test_example"}],
+                "roi_evidence": ["docs/scene/evidence/run.json", ".codex/result.json",
+                                 "docs/missing.md"],
+            }]}
+            failures = census.validate_repair_references(ledger, set(), Path(directory))
+            self.assertEqual({entry["code"] for entry in failures},
+                             {"repair-gate-file-missing", "repair-evidence-file-missing"})
+            self.assertEqual(len(failures), 2)
+
     def test_default_repair_ledger_has_no_dangling_references(self) -> None:
         ledger = census.load_repair_ledger(census.DEFAULT_LEDGER)
         snapshot = json.loads(

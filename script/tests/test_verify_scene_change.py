@@ -987,6 +987,26 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertEqual([gate.gate_id for gate in gates], ["repository-all-tests"])
         self.assertIn("all", gates[0].command)
 
+    def test_full_repository_suite_replaces_overlapping_focused_tests(self) -> None:
+        gates, _ = verify.build_plan(
+            ["script/tests/test_scene_removed_contract.py", "docs/README.md"],
+            arguments(ci=True), self.registry,
+        )
+        self.assertEqual([gate.gate_id for gate in gates], ["repository-all-tests"])
+        self.assertIn("--fail-fast", gates[0].command)
+
+    def test_ci_focused_suite_stops_on_failure(self) -> None:
+        gates, _ = verify.build_plan(["docs/README.md"], arguments(ci=True), self.registry)
+        self.assertIn("--fail-fast", gates[0].command)
+
+    def test_video_command_fixture_selects_its_executable_consumer(self) -> None:
+        gates, _ = verify.build_plan(
+            ["script/tests/fixtures/SceneVideoRepeatedCommandsHarness.swift"],
+            arguments(), self.registry,
+        )
+        self.assertFalse(any(gate.unresolved for gate in gates))
+        self.assertIn("test_scene_video_repeated_commands", gates[0].command)
+
     def test_checkpoint_build_script_is_isolated_and_does_not_launch(self) -> None:
         script = (SCRIPT_ROOT / "run_checkpoint_build.sh").read_text(encoding="utf-8")
         self.assertIn("/private/tmp/mywallpaperx-checkpoint-build.", script)

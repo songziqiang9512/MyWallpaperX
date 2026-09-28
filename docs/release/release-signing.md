@@ -89,7 +89,7 @@ App/Daemon、Debug/Release 必须一致。准备版本时先读取公开的 `upd
 发布任务串行执行，不取消正在签名或上传的任务。一次运行只处理检出的固定提交：
 
 1. 检查输入版本、正式日志、重复/倒退版本及已有 Release 草稿。
-2. 运行仓库测试、代码健康检查，构建 arm64 Release。
+2. 准备锁定的 Python/NuGet 测试依赖后运行仓库回归；首次失败立即打印详情并取消未开始的模块，已运行模块正常收尾。检查代码健康，再构建 arm64 Release。
 3. 检查 bundle 内容；由内到外签署 SteamService、Scene 工具、WallpaperDaemon、Sparkle
    和主 App，再验证完整签名。SteamService 保留 JIT 权限，Sparkle Downloader 保留 sandbox 权限。
 4. 公证并 staple App，使用保留符号链接的 `ditto` 装入 DMG；签署、公证、staple 并校验 DMG。
@@ -99,8 +99,12 @@ App/Daemon、Debug/Release 必须一致。准备版本时先读取公开的 `upd
 7. 正式 Release 可下载后，才替换 `update-feed/appcast.xml`。已安装版本每天检查一次，也可以手动
    选择 **检查更新…**。
 
-全量测试和签名、公证失败都会阻止公开 Release。GitHub CI 没有私有 Workshop corpus，
-离线测试、构建和发布成功不等于所有真实壁纸、真实账号或最低系统版本的运行验收。
+测试和签名、公证失败都会阻止公开 Release。离线 Steam 测试只从已恢复的锁定包缓存构建，不在测试中联网补依赖。GitHub CI 没有私有 Workshop corpus，缺少本机 fixture 时逐用例明确报告跳过，同模块的合成用例照常运行；本机证据缓存不作为仓库文件存在性门，但源码、测试和文档引用仍须有效。
+
+普通 CI 手动运行可以通过 `base_ref` 指定验证起点；省略时检查前一个提交，避免把 HEAD 与自己比较而空跑。
+CI 同样在首次失败后取消未开始的测试。删除测试触发全仓回归时，全量门替代已覆盖的定向测试，避免同一批模块重复运行。
+
+GitHub CI 的离线测试、构建和发布成功不等于所有真实壁纸、真实账号或最低系统版本的运行验收。
 
 ### 失败后的处理
 

@@ -410,7 +410,7 @@ class SceneIndependentSignalUNormAccumulatorTests(unittest.TestCase):
             harness.write_text(HARNESS, encoding="utf-8")
             compiled = subprocess.run(
                 [
-                    "xcrun", "swiftc", "-O", "-o", str(binary),
+                    "xcrun", "swiftc", "-o", str(binary),
                     *(str(path) for path in SWIFT_SOURCES), str(harness),
                 ],
                 cwd=REPOSITORY_ROOT,

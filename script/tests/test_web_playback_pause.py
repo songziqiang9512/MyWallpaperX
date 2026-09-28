@@ -66,12 +66,28 @@ final class Adapter {
             do {
                 func wait(_ seconds: Double) async throws { try await Task.sleep(for: .seconds(seconds)) }
                 func js(_ script: String) async throws -> Any { try await view.evaluateJavaScript(script) as Any }
-                func counters() async throws -> [Double] {
+                func counters(allowUnresolvedAnimations: Bool = false) async throws -> [Double] {
                     let result = try await js("[framesSeen,ticks,timeouts,cancelled,wa.currentTime,document.getElementById('animated').getAnimations()[0].currentTime,frames[0].framesSeen,frames[0].ticks,document.getElementById('media').currentTime]")
-                    return (result as! [NSNumber]).map(\.doubleValue)
+                    guard let values = result as? [Any], values.count == 9 else {
+                        throw NSError(domain: "WebPauseFixture", code: 1,
+                            userInfo: [NSLocalizedDescriptionKey: "Invalid counters: \(result)"])
+                    }
+                    return try values.enumerated().map { index, value in
+                        if let number = value as? NSNumber { return number.doubleValue }
+                        // A never-started animation has an unresolved currentTime.
+                        if allowUnresolvedAnimations && [4, 5].contains(index) && value is NSNull { return 0 }
+                        throw NSError(domain: "WebPauseFixture", code: 2,
+                            userInfo: [NSLocalizedDescriptionKey: "Counter \(index) is not numeric: \(value)"])
+                    }
                 }
-                try await wait(1.5)
-                let initial = try await counters()
+                var ready = false
+                for _ in 0..<100 {
+                    ready = (try? await js("document.readyState === 'complete' && frames.length === 1 && frames[0].document.readyState === 'complete' && typeof frames[0].framesSeen === 'number' && typeof wa === 'object'")) as? Bool == true
+                    if ready { break }
+                    try await wait(0.1)
+                }
+                precondition(ready, "Main document and iframe did not finish loading")
+                let initial = try await counters(allowUnresolvedAnimations: true)
                 precondition(initial[0] == 0 && initial[1] == 0 && initial[2] == 0)
                 precondition(initial[6] == 0 && initial[7] == 0, "Initially paused iframe ran")
                 adapter.applyPausedState(false, to: view)
@@ -79,6 +95,7 @@ final class Adapter {
                 let running = try await counters()
                 precondition(running[0] > 3 && running[1] > 3 && running[2] == 1 && running[3] == 0)
                 precondition(running[6] > 3 && running[7] > 3)
+                precondition(running[4] > 0 && running[5] > 0, "Animations did not start after resume")
                 precondition(running[8] > 0.1, "Native WebKit media did not start")
                 let callbackSemantics = try await js("correctThis") as? Int
                 precondition(callbackSemantics == 2, "Native callback this/arguments semantics changed")

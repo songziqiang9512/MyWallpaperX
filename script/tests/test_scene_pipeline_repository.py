@@ -40,7 +40,7 @@ final class SceneSpotLightPipeline {
     static let attempts = Counter()
     let deviceRegistryID: UInt64
 
-    init?(device: MTLDevice) {
+    init?(device: MTLDevice, pixelFormat: MTLPixelFormat) {
         Self.attempts.increment()
         deviceRegistryID = device.registryID
     }
@@ -50,15 +50,15 @@ final class SceneLayerColorBlendPipelineState {
     static let attempts = Counter()
     let deviceRegistryID: UInt64
 
-    init?(device: MTLDevice) {
+    init?(device: MTLDevice, pixelFormat: MTLPixelFormat) {
         Self.attempts.increment()
         deviceRegistryID = device.registryID
     }
 }
 
 struct SceneImageLayerPipeline {
-    enum BlendMode { case additive }
-    init?(device: MTLDevice, blendMode: BlendMode) {}
+    enum BlendMode { case additive, alphaWeightedAdditive }
+    init?(device: MTLDevice, pixelFormat: MTLPixelFormat, blendMode: BlendMode) {}
 }
 
 @main

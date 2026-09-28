@@ -1687,6 +1687,10 @@ def validate_repair_references(
                         "field": field,
                         "reference": reference,
                     })
+                elif target.is_relative_to(repository_root / "docs/scene/evidence") or target.is_relative_to(repository_root / ".codex"):
+                    # Local evidence caches are intentionally not shipped in Git.
+                    # Executable regression gates above remain mandatory.
+                    continue
                 elif not target.exists():
                     failures.append({
                         "code": "repair-evidence-file-missing",

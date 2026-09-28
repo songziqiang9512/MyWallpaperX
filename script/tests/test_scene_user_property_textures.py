@@ -273,7 +273,7 @@ enum Harness {
         }
         let encodedOversize: MTLTexture
         switch SceneImageTextureUploader.uploadEncodedPreservedChannels(
-            try encodedImage(width: 257), device: device
+            Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAQEAAAABCAYAAADemxtJAAAAFElEQVR4nGN4LjiVYRSP4lE8cjEASvyOnSmE3ZQAAAAASUVORK5CYII=")!, device: device
         ) {
         case let .success(texture): encodedOversize = texture
         case .failure: throw HarnessError.textureRead
@@ -281,7 +281,7 @@ enum Harness {
         let encodedSourceLimitRejected: Bool
         if case .failure(.dimensionsOutOfRange(4097, 1, 4096)) =
             SceneImageTextureUploader.uploadEncodedPreservedChannels(
-                try encodedImage(width: 4097), device: device
+                Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAEAEAAAABCAYAAACx4wBCAAAALUlEQVR4nO3DMQ0AAAgDsFlAPBpnAxk8bdJ0Nqqqqqqqqqqqqqqqqqqqqur/AwVO0vavODdVAAAAAElFTkSuQmCC")!, device: device
             ) { encodedSourceLimitRejected = true } else {
                 encodedSourceLimitRejected = false
             }
@@ -478,36 +478,8 @@ enum Harness {
     }
 
     private static func writeStraightPNG(_ url: URL) throws {
-        let pixels = Data([
-            231, 17, 149, 0,
-            200, 100, 50, 64,
-        ])
-        guard let provider = CGDataProvider(data: pixels as CFData),
-              let image = CGImage(
-                width: 2,
-                height: 1,
-                bitsPerComponent: 8,
-                bitsPerPixel: 32,
-                bytesPerRow: 8,
-                space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGBitmapInfo(
-                    rawValue: CGImageAlphaInfo.last.rawValue
-                ),
-                provider: provider,
-                decode: nil,
-                shouldInterpolate: false,
-                intent: .defaultIntent
-              ),
-              let destination = CGImageDestinationCreateWithURL(
-                url as CFURL,
-                "public.png" as CFString,
-                1,
-                nil
-              ) else {
-            throw HarnessError.imageWrite
-        }
-        CGImageDestinationAddImage(destination, image, nil)
-        guard CGImageDestinationFinalize(destination) else { throw HarnessError.imageWrite }
+        // Fixed unassociated RGBA scanlines; no OS encoder can discard RGB at A=0.
+        try Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEUlEQVR4nGN4LjiV4USKkQMAECYDLLTCd0EAAAAASUVORK5CYII=")!.write(to: url)
     }
 
     private static func writeImage(_ url: URL, type: String) throws {

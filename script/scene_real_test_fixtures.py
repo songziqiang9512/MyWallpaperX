@@ -19,11 +19,10 @@ CONFIG_PATH = Path(__file__).with_name("scene_real_test_fixture.json")
 def configured_path(key: str) -> Path:
     config = load_fixture_config(CONFIG_PATH, REPOSITORY_ROOT)
     configured = config.get(key)
-    if not isinstance(configured, str):
-        raise ValueError(
-            f"Scene fixture {key} is not configured; set the documented environment "
-            "override or .codex/scene_real_test_fixture.local.json"
-        )
+    if configured is None:
+        # These optional test fixtures are machine-local. Return an unavailable
+        # path so individual corpus cases skip without hiding synthetic tests.
+        return REPOSITORY_ROOT / ".codex/unconfigured-scene-test-fixtures" / key
     return Path(configured)
 
 

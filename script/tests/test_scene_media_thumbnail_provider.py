@@ -241,7 +241,8 @@ let store = SceneMediaThumbnailTextureStore(
 )
 let a = png(red: 255, green: 0, blue: 0)
 let b = png(red: 0, green: 255, blue: 0)
-let c = png(red: 231, green: 17, blue: 149, alpha: 0, width: 2, height: 3)
+// Fixed RGBA PNG scanlines retain hidden RGB; ImageIO encoders may zero it.
+let c = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAYAAAC56t6BAAAAEUlEQVR4nGN4LjiVAYQZMBgAhEsJT05cFgAAAAAASUVORK5CYII=")!
 let initialEmpty = store.snapshot()
 
 _ = inbox.publish(a)

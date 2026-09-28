@@ -54,9 +54,28 @@ nonisolated struct SceneScriptPuppetBoneMutation: Equatable, Sendable {}
 nonisolated struct SceneScriptVideoCommand: Equatable, Sendable {}
 nonisolated struct SceneTextureAnimationCommand: Equatable, Sendable {}
 
+nonisolated struct SceneScriptOwnerEffects {
+    var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
+    var animationMutations: [SceneTimelinePlaybackMutation] = []
+    var layerMutations: [SceneScriptLayerMutation] = []
+    var videoCommands: [SceneScriptVideoCommand] = []
+    var textureAnimationCommands: [SceneTextureAnimationCommand] = []
+    var puppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
+}
+nonisolated struct SceneScriptMediaEventMutations {
+    let materialFunctions: [SceneScriptMaterialFunctionMutation]
+    let animations: [SceneTimelinePlaybackMutation]
+    let layers: [SceneScriptLayerMutation]
+    let videoCommands: [SceneScriptVideoCommand]
+    let textureAnimationCommands: [SceneTextureAnimationCommand]
+    let puppetBones: [SceneScriptPuppetBoneMutation]
+}
+
 nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
     case visibility, origin, scale, angles, color
 }
+
+nonisolated enum SceneDynamicParticleField: Hashable, Sendable { case normalizedColor }
 
 nonisolated enum SceneDynamicTextField: Hashable, Sendable {
     case color
@@ -64,6 +83,7 @@ nonisolated enum SceneDynamicTextField: Hashable, Sendable {
 
 nonisolated enum SceneDynamicTarget: Hashable, Sendable {
     case layer(layerID: Int, field: SceneDynamicLayerField)
+    case particle(layerID: Int, field: SceneDynamicParticleField)
     case text(layerID: Int, field: SceneDynamicTextField)
     case effectVisibility(layerID: Int, effectIndex: Int)
     case effectConstant(layerID: Int, effectIndex: Int, passIndex: Int, name: String)
@@ -241,7 +261,19 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         let passes: [PassDescriptor]
     }
 
+    struct ParticleOverride: Sendable {
+        struct Color: Sendable {
+            enum Value: Sendable { case vector([Double]) }
+            let hasScript: Bool
+            let userPropertyKey: String?
+            let hasAnimation: Bool
+            let value: Value
+        }
+        let normalizedColor: Color?
+    }
+
     struct Layer: Sendable {
+        var particleInstanceOverride: ParticleOverride? = nil
         let id: Int
         let layerIndex: Int
         let originXYZ: [Float]?

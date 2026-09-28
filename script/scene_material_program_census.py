@@ -52,6 +52,9 @@ AUTHORED_EFFECT_PLANNING_SOURCES = scene_swift_source_relpaths_by_basename(
 )
 
 CURRENT_SOURCE_PATHS = (
+    "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneGraphAdmissionCompiler.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneGraphConditionAdmission.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneGraphConditionSchemaEvidenceCompiler.swift",
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneJSONValue.swift"],
     "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneEffectDefinition.swift"],

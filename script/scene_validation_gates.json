@@ -69,6 +69,7 @@
         "script/validate_release_notes.py",
         "script/publish_release.py",
         "script/release_version.py",
+        "script/requirements-tests.txt",
         "script/copy-scene-stock-assets.sh",
         "MyWallpaperX/Resources/SceneStockAssets.bundle/**",
         "docs/releases/**",
@@ -937,6 +938,15 @@
         "test_scene_source_proven_auxiliary_texture_purpose",
         "test_scene_source_proven_noise_purpose",
         "test_scene_resolved_material_template"
+      ]
+    },
+    {
+      "id": "scene-video-command-harness",
+      "patterns": [
+        "script/tests/fixtures/SceneVideoRepeatedCommandsHarness.swift"
+      ],
+      "modules": [
+        "test_scene_video_repeated_commands"
       ]
     },
     {

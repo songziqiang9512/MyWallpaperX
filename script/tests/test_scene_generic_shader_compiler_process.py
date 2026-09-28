@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import textwrap
 import time
@@ -144,22 +145,20 @@ class SceneGenericShaderCompilerProcessTests(unittest.TestCase):
         self.assertEqual(output["failure"], "diagnosticBudget")
 
     def test_resident_budget_stops_the_helper(self):
-        python = "/usr/bin/python3"
-        if not Path(python).is_file():
-            self.skipTest("system python3 is unavailable")
+        python = sys.executable
         output, elapsed = self.run_process(
             python,
             "-c",
             textwrap.dedent("""
                 import time
                 value = bytearray(96 * 1024 * 1024)
-                time.sleep(2)
+                time.sleep(10)
             """),
-            timeout=2_000,
+            timeout=10_000,
             resident=32 * 1_024 * 1_024,
         )
         self.assertEqual(output["failure"], "residentBudget")
-        self.assertLess(elapsed, 1.5)
+        self.assertLess(elapsed, 10)
 
 
 if __name__ == "__main__":

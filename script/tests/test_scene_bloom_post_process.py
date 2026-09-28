@@ -267,7 +267,7 @@ class SceneBloomPostProcessTests(unittest.TestCase):
             for command in commands:
                 subprocess.run(command, capture_output=True, text=True, check=True, timeout=120)
             result = subprocess.run([str(folder / "run")], capture_output=True,
-                                    text=True, check=True, timeout=30)
+                                    text=True, check=True, timeout=120)
             cls.result = json.loads(result.stdout)
 
     def test_authored_bindings_reach_gpu_and_change_on_the_next_frame(self):

@@ -1779,7 +1779,7 @@ enum Harness {
         }
         guard let secondMipView = adaptedRG.makeTextureView(
             pixelFormat: adaptedRG.pixelFormat, textureType: .type2D,
-            levels: 1..<2, slices: 0..<1) else { return [:] }
+            levels: 1..<2, slices: 0..<1, swizzle: adaptedRG.swizzle) else { return [:] }
         return [
             "rawR8": rawR8, "adaptedR8": adaptedR8,
             "rgMipCount": adaptedRG.mipmapLevelCount,

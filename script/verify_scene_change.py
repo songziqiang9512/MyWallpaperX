@@ -237,7 +237,7 @@ def build_plan(
     gates: list[Gate] = []
 
     focused = focused_test_command(modules, keywords)
-    if focused is not None:
+    if focused is not None and not deleted_test:
         gates.append(Gate(
             "focused-tests",
             focused,
@@ -258,6 +258,11 @@ def build_plan(
             "a Scene product milestone requires the complete executable regression suite",
             False,
         ))
+
+    if args.ci:
+        for gate in gates:
+            if gate.command is not None:
+                gate.command += ("--fail-fast",)
 
     if build_required:
         if swift_change:

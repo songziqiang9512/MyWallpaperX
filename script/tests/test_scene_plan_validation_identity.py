@@ -22,6 +22,8 @@ struct SceneAuthoredEffectRenderPlan {
 }
 enum SceneAuthoredEffectInputRole { case layerSource, priorEffectOutput }
 struct SceneGraphRenderTargetPlan: Equatable {
+    enum TextureFormat: Equatable { case rgbaBackbuffer, rgba16f }
+    var backbufferFormat: TextureFormat = .rgbaBackbuffer
     struct Extent: Equatable { let width: Int; let height: Int }
     let layerID: Int
     let input: Int
@@ -34,7 +36,8 @@ struct SceneGraphRenderTargetPlan: Equatable {
         inputRole: SceneAuthoredEffectInputRole,
         inputWidth: Int,
         inputHeight: Int,
-        materialFunctionTargets: Set<Int>
+        materialFunctionTargets: Set<Int>,
+        backbufferFormat: TextureFormat = .rgbaBackbuffer
     ) -> Int {
         let roleSeed: Int
         switch inputRole {
@@ -45,7 +48,7 @@ struct SceneGraphRenderTargetPlan: Equatable {
     }
     static func make(graph: SceneAuthoredEffectRenderPlan,
         inputRole: SceneAuthoredEffectInputRole, inputWidth: Int, inputHeight: Int,
-        materialFunctionTargets: Set<Int>) -> Result<Self, Failure> {
+        materialFunctionTargets: Set<Int>, backbufferFormat: TextureFormat = .rgbaBackbuffer) -> Result<Self, Failure> {
         .success(graph.expectedPlan)
     }
     enum Failure: Error { case invalid }

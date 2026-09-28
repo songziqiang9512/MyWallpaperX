@@ -20,8 +20,10 @@ class SteamHelperOfflineTests(unittest.TestCase):
                     shutil.copy2(source, folder / source.name)
             shutil.copytree(ROOT / 'SteamService/Probe', folder / 'Probe')
             feed = folder / 'empty-feed'; feed.mkdir()
-            subprocess.run([dotnet, 'restore', '--locked-mode', '--source', str(feed), '-p:NuGetAudit=false'],
-                           cwd=folder, check=True, timeout=120, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            restored = subprocess.run([dotnet, 'restore', '--locked-mode', '--source', str(feed), '-p:NuGetAudit=false'],
+                                      cwd=folder, check=False, timeout=120, text=True,
+                                      stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            self.assertEqual(restored.returncode, 0, restored.stdout)
             result = subprocess.run([dotnet, 'build', '--no-restore', '-o', str(folder / 'out')],
                                     cwd=folder, check=False, timeout=120, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             self.assertEqual(result.returncode, 0, result.stdout)
