@@ -24,7 +24,9 @@ def run(*args: str) -> str:
     return subprocess.check_output(args, cwd=ROOT, text=True).strip()
 
 
-def publish(version: str) -> None:
+def publish(version: str, test_scope: str = "release") -> None:
+    if test_scope not in {"release", "all"}:
+        raise ValueError("发布测试范围必须是 release 或 all")
     notes = validate_release(ROOT, version)
     if run("git", "branch", "--show-current") != "main":
         raise ValueError("请先将已审核的发布内容集成到 main；不要直接发布未合并的工作分支。")
@@ -66,6 +68,7 @@ def publish(version: str) -> None:
         "gh", "api", "--method", "POST", "-H", "X-GitHub-Api-Version: 2026-03-10",
         "repos/{owner}/{repo}/actions/workflows/build.yml/dispatches",
         "-f", "ref=main", "-f", f"inputs[version]={version}", "-f", f"inputs[source_sha]={sha}",
+        "-f", f"inputs[test_scope]={test_scope}",
     ))
     run_id = str(result["workflow_run_id"])
     print(f"发布任务：{result['html_url']}", flush=True)
@@ -97,8 +100,9 @@ def publish(version: str) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("version")
+    parser.add_argument("--test-scope", choices=("release", "all"), default="release")
     args = parser.parse_args()
     try:
-        publish(args.version)
+        publish(args.version, args.test_scope)
     except (OSError, ValueError, KeyError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"发布未完成：{error}\n保留现场；不要自动覆盖已公开版本或重复触发任务。\n")

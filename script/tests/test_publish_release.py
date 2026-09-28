@@ -71,7 +71,7 @@ class PublishReleaseTests(unittest.TestCase):
                 (feed_xml("2.0.9", 278) if directory.name.startswith("mwx-release-version-") else self.feed) if args[3] == "update-feed" else self.release_feed)
         return ""
 
-    def publish(self, watch_failure=False):
+    def publish(self, watch_failure=False, test_scope="release"):
         def watch(args, **kwargs):
             self.calls.append(tuple(args))
             if watch_failure: raise subprocess.CalledProcessError(1, args)
@@ -80,7 +80,7 @@ class PublishReleaseTests(unittest.TestCase):
              patch.object(publisher, "run", side_effect=self.command), \
              patch.object(publisher.subprocess, "run", side_effect=watch), \
              contextlib.redirect_stdout(io.StringIO()):
-            publisher.publish(VERSION)
+            publisher.publish(VERSION, test_scope)
 
     def test_prepares_narrow_commit_pushes_dispatches_exact_source_and_waits(self):
         self.publish()
@@ -90,10 +90,20 @@ class PublishReleaseTests(unittest.TestCase):
         dispatch = next(command for command in self.calls if command[:4] == ("gh", "api", "--method", "POST"))
         self.assertIn(f"inputs[source_sha]={SHA}", dispatch)
         self.assertIn(f"inputs[version]={VERSION}", dispatch)
+        self.assertIn("inputs[test_scope]=release", dispatch)
         self.assertIn(("gh", "run", "watch", "42", "--exit-status", "--interval", "15"), self.calls)
         commit = next(command for command in self.calls if command[:2] == ("git", "commit"))
         self.assertIn("--only", commit)
         self.assertEqual(commit[-2:], ("MyWallpaperX.xcodeproj/project.pbxproj", f"docs/releases/{VERSION}.md"))
+
+    def test_full_suite_is_explicit_and_invalid_scope_has_no_side_effects(self):
+        self.publish(test_scope="all")
+        dispatch = next(command for command in self.calls if command[:4] == ("gh", "api", "--method", "POST"))
+        self.assertIn("inputs[test_scope]=all", dispatch)
+        self.calls.clear()
+        with self.assertRaises(ValueError):
+            self.publish(test_scope="skip")
+        self.assertEqual(self.calls, [])
 
     def test_parallel_edits_and_wrong_branch_do_not_push_or_dispatch(self):
         for attribute, value in (("dirty", "unrelated.swift"), ("branch", "feature")):

@@ -106,7 +106,7 @@ CI 同样在首次失败后取消未开始的测试。删除测试触发全仓�
 
 发布默认检查清单由 `script/run_scene_tests.py` 的 `RELEASE_MODULES` 唯一维护，覆盖版本与日志、发布脚本、资源打包、Steam helper/协议/下载/入库、共享播放策略、Web 暂停以及 Scene 进程、纹理上传、帧资源和脚本 VM。日常 CI 继续按代码改动选择回归门；详细 shader、effect、particle 和 corpus 验证不在每次签名上传前无条件重跑。
 
-需要完整回归时，将发布工作流的 `test_scope` 显式设为 `all`，或单独执行 `python3.12 -B script/run_scene_tests.py --scope all --jobs 4 --fail-fast`。缩小默认测试范围不会跳过 Release 构建、包体检查、签名验证、公证或发布结果核验；核心检查通过不等于所有 Scene 能力或真实样本通过。
+需要完整回归时，为 Agent 发布命令追加 `--test-scope all`，或将发布工作流的 `test_scope` 显式设为 `all`；不发布时可单独执行 `python3.12 -B script/run_scene_tests.py --scope all --jobs 4 --fail-fast`。缩小默认测试范围不会跳过 Release 构建、包体检查、签名验证、公证或发布结果核验；核心检查通过不等于所有 Scene 能力或真实样本通过。
 
 GitHub CI 的离线测试、构建和发布成功不等于所有真实壁纸、真实账号或最低系统版本的运行验收。
 
