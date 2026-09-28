@@ -187,6 +187,7 @@ struct SceneMetalRenderer {
             imageTextures: imageTextures,
             spriteAnimations: spriteAnimations,
             spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
+            frameVisibleLayerIDs: frameVisibleLayerIDs,
             performanceTelemetry: performanceTelemetry,
             specializedBaseTextureSamplings: specializedBaseTextureSamplings,
             imagePipeline: imagePipeline,

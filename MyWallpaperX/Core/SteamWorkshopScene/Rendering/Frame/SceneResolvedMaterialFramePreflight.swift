@@ -7,6 +7,7 @@ extension SceneMetalRenderer {
         imageTextures: SceneBaseImageTextureSnapshot,
         spriteAnimations: [Int: SceneSpriteAnimation],
         spriteAnimationPlaybackTimes: [Int: Float],
+        frameVisibleLayerIDs: Set<Int>,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
         imagePipeline: SceneImageLayerPipeline?,
@@ -38,6 +39,7 @@ extension SceneMetalRenderer {
             imageTextures: imageTextures,
             offscreenTexturePool: offscreenTexturePool,
             performanceTelemetry: performanceTelemetry,
+            frameVisibleLayerIDs: frameVisibleLayerIDs,
             frameContext: frameContext,
             worldFramesByLayerID: worldFramesByLayerID,
             cameraFrame: cameraFrame,
@@ -138,6 +140,7 @@ extension SceneMetalRenderer {
         imageTextures: SceneBaseImageTextureSnapshot,
         offscreenTexturePool: SceneOffscreenTexturePool?,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
+        frameVisibleLayerIDs: Set<Int>,
         frameContext: SceneFrameContext,
         worldFramesByLayerID: [Int: simd_float4x4],
         cameraFrame: SceneParticleCameraFrame,
@@ -155,11 +158,13 @@ extension SceneMetalRenderer {
         }
         let availableExecutionLayerIDs =
             imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? []
-        let frameVisibleRootLayerIDs = SceneLayerVisibility.visibleLayerIDs(
-            in: renderDescriptor,
-            layersByID: layersByID,
-            snapshot: frameContext.dynamicValues
-        )
+        // The renderer already walked the frame's visible layer set from the
+        // same snapshot. The dependency runtime intersects it with the base
+        // execution layers (dynamic-layer IDs drop out there); a destroyed
+        // base layer stays equivalent as well — a destroyed provider is
+        // pulled back in by the consumer-closure expansion whenever a
+        // visible consumer needs it, so the second full walk is redundant.
+        let frameVisibleRootLayerIDs = frameVisibleLayerIDs
         let activeExecutionLayerIDs = dependencyRuntime
             .resolvedMaterialExecutionLayerIDs(
                 visibleRootLayerIDs: frameVisibleRootLayerIDs,

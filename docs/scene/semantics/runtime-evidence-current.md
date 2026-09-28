@@ -6,6 +6,14 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-29-visibility-dedup"></a>
+
+### E-2026-09-29-VISIBILITY-DEDUP — 帧可见性走查去重（E1-②最小切片，结构消融）
+
+**重复职责与消融：**渲染帧路径对全层可见性走查（`SceneLayerVisibility.visibleLayerIDs`，O(n) 带记忆化父链显示权威解析）每帧跑**两次**——`SceneMetalRenderer.renderFrame` 计算 frameVisibleLayerIDs 后，`SceneResolvedMaterialFramePreflight` 用同 snapshot 再算一遍。本批穿线传递 renderer 集（`admitResolvedMaterialFrameTargets`/`preflightResolvedMaterialFrameTargets` 新增参数）并**删除第二次走查**；纯参数穿线，无新状态/缓存/第二路径。等价性（审查逐行核验+补强）：preflight 对该集的唯一消费经 `resolvedMaterialExecutionLayerIDs` 先与 launch 期 available 执行层交集（动态层 ID 必被丢弃；基础层父链可见性在基础/投影描述符间恒等）；**销毁层语义**（审查追踪的论证遗漏，非回归）——被销毁 required provider 仍被消费闭包扩张拉回、被销毁父层使幸存子链两集同构终止，差分实际消除了 HEAD 上 preflight/合成走查的既有不一致。
+
+**验证：**resolved-material 聚焦 5/5 ALL OK（含读 preflight 源码文本断言的 media_thumbnail_provider）；checkpoint 构建、code-health 通过。重 graph 2938612768 perf-only 单对 A/B（20 秒、n=570 双方）：`admit-preflight-targets` p50 0.321→**0.281ms**（−12.5%）、p95 0.368→0.349、`frame-admission` 4.101→4.077（噪声内）、GPU p50 7.445→6.981。**单对——按结构消融+阶段实测差登记，不宣称 ≥10% 冻结门收益**。行为：293 无 dynamic-visibility-duplicated、无新失败类（perf 模式观察缺失为设计）；3662790108 半缩放仅既有 resize/过渡带伪象、GPU 失败 0。独立只读审查 APPROVE（无阻断；销毁层论证遗漏已折入注释与 identity）。冻结 product patch SHA256 `16af3a08da0e02e4b817ef00b396a00d41789e370ab978f936b9237693b6956d`（初审版 `e0cd3c5a…` 仅注释措辞差异）；身份与两份 293 报告见忽略缓存`2026-09-29-visibility-dedup/`。
+
 <a id="e-2026-09-29-arc-regression-sweep"></a>
 
 ### E-2026-09-29-ARC-REGRESSION-SWEEP — 世界空间+音频门弧线受影响样本回归扫描（证据批，无产品改动）
