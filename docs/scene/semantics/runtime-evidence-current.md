@@ -6,6 +6,20 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-point-light-roi"></a>
+
+### E-2026-09-28-POINT-LIGHT-ROI — 3662790108 动态 point 光执行与可见贡献正证（证据批，无产品改动）
+
+**结论：**该样本太阳 point 光链路在当前 HEAD 完整工作，且对最终画面有可测可见贡献；本批不修改产品代码，关闭队列中可自主验证的"point 光/天体 ROI 正证"半边，剩余用户完整视觉验收。
+
+**链路正证（S3）：**灯层 3692（`light=lpoint`、radius=100000、color 暖白、`lightsourcesize:10000` 无渲染消费者——官方公开文档只定义 `radius`，语料 17 个灯层 16 个用 radius，本层两者兼有但引擎正确读 radius）经 `ScenePointLightDefinition`→`SceneLightSnapshot.make`（intensity 走脚本动态通道，回放日志 `layer(3692, intensity) callback=completed input=6 output=6`）→`static-model-light` 编码：frame0 `point=1 pointLitEncoded=14`（p1/p2/p3RR/cloud/p6n/p7/dp4m/phobos/p5s1/p5s2/mimas/p7s5/sd/曲环），GPU completion status=completed error=none；frame1/2 持续。2026-09-26 基线日志同型（point=1、同 14 层），链路非本会话修复，是一直在执行的事实。
+
+**可见贡献正证（S4）：**同输入时间序列 A/B（40 秒、每 4 秒窗口截图、半缩放视口；off 变体=隔离重打包仅置层 3692 `visible:false`，其余字节不变）：开场淡入在 frame3（约 ready+12s）完成，frames 3-8 稳态下开灯 frac>80=0.0218-0.0219/mean≈8.8 对关灯 0.0202-0.0210/mean≈8.6；并排对照图显示同行星位置开灯=亮盘、关灯=暗盘；逐 blob 定量中多个行星盘开灯亮度 3.6~8.06 倍（如 (794,222) 71.0→19.5、(705,151) 21.0→2.6），81 个 ≥20px 亮斑均值 35.4 对 29.9（+18%）。天体在稳态稳定渲染（frames 3-8 frac>80≈0.022），官方 preview 的大太阳为 SUN_CLOSEUP 聚焦态（脚本 `getFocusNumber('s')=0` 走 zeroValue 微缩；大太阳需双击聚焦），非默认态缺失。
+
+**方法学事实（防误判）：**①该样本 12 秒 after 快照落在开场淡入过渡带，跨运行明暗不定（本会话与 2026-09-26 的"低亮"截图均为过渡带采样），稳态对比需 ≥16 秒或时间序列；②样本为真实星历（墙钟驱动）模拟，跨运行帧含小幅背景/相位差；③每层 scale/origin/visible 脚本多为 shared 数值泵（如 p1 的 scale 脚本即 `shared.p1radius=value.x`），作者内容变体改动会经 shared 二阶涟漪——本批 p1 放大变体 B/C 因此作废（C 确定性全暗，原因未隔离，无直接 shared.p1radius 读者，登记不深挖）；④`lightsourcesize` 在 Mirage 参考亦无渲染消费者，维持不解析。
+
+**身份与留存：**HEAD `088f6b24`；App 2.10.0(280) Debug -O；样本/矩阵 SHA 同 2026-09-26 批。忽略缓存`2026-09-28-point-light-roi`保留 on/off 两序列报告、日志、frame0/frame8 原图、并排对照图与身份清单。半缩放视口（GPU 预算被并发正式 App 实例压低）不改变灯执行/像素贡献结论的定性面；全屏官方对照与双击聚焦态仍属用户验收。
+
 <a id="e-2026-09-28-bool-number-coercion"></a>
 
 ### E-2026-09-28-BOOL-NUMBER-COERCION — Boolean 属性边界的 JS 赋值强转补齐
