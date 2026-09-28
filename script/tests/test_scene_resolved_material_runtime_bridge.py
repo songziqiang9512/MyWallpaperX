@@ -5001,10 +5001,13 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
         )
 
         self.assertIn("static func executeClaimed(", composition)
-        self.assertIn("static func preflight(", composition)
-        self.assertIn("admittedGraphs: request.claim.admittedGraphs", composition)
-        self.assertIn("pairPlan: request.claim.pairPlan", composition)
-        self.assertIn("pool.preflightPersistentGraphTargets", composition)
+        # Target sizing/reservation moved into the single preflight walk
+        # (FrameTargetRequest lane deleted); the pool wiring assertions follow
+        # the walk in FRAME_PREFLIGHT.
+        self.assertIn("func preflightResolvedMaterialFrameTargets(", frame_preflight)
+        self.assertIn("admittedGraphs: claim.admittedGraphs", frame_preflight)
+        self.assertIn("pairPlan: claim.pairPlan", frame_preflight)
+        self.assertIn("preflightPersistentGraphTargets(", frame_preflight)
         self.assertIn("framePlan.token == claim.token", composition)
         self.assertIn(
             "for subject in runtime.executionEvidenceSubjects(for: claim)",
@@ -5372,9 +5375,14 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
 
         self.assertIn("commandBuffer: commandBuffer", frame_preflight)
         self.assertIn("commandBuffer: MTLCommandBuffer", frame_preflight)
-        self.assertIn("commandBuffer: MTLCommandBuffer? = nil", composition)
-        self.assertIn("orderingContext: orderingContext", composition)
-        self.assertIn("let orderingContext", composition)
+        # The single preflight walk owns ordering-context construction and the
+        # pool reservation call since the request-wrapper pass was collapsed.
+        self.assertIn("func preflightResolvedMaterialFrameTargets(", frame_preflight)
+        self.assertIn("let orderingContext", frame_preflight)
+        self.assertIn("orderingContext: orderingContext", frame_preflight)
+        self.assertIn("admittedGraphs: claim.admittedGraphs", frame_preflight)
+        self.assertIn("pairPlan: claim.pairPlan", frame_preflight)
+        self.assertIn("preflightPersistentGraphTargets(", frame_preflight)
         self.assertIn("orderingContext: contexts.first", target_preflight)
         self.assertIn("orderingContext: orderingContext", allocator)
         self.assertIn("reservation.orderingContext", batch)

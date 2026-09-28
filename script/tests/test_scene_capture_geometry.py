@@ -174,7 +174,7 @@ class SceneCaptureGeometryTests(unittest.TestCase):
         self.assertEqual(self.result["collapsedSolidSize"], [1, 1])
         source = (REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift").read_text()
         self.assertIn('if layer.contentKind == "solid"', source)
-        self.assertIn("plan.allocation.graphPlan.fullFramePair.descriptor.extent", source)
+        self.assertIn("frameTargetPlan.allocation.graphPlan.fullFramePair", source)
 
     @classmethod
     def setUpClass(cls) -> None:

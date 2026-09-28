@@ -27,37 +27,13 @@ struct SceneResolvedMaterialFrameTargetPlan {
 /// The compositor-facing claim handshake. Only a static `notMigrated` result may
 /// remain unclaimed; every capability-owned failure stays closed.
 enum SceneResolvedMaterialGraphComposition {
-    struct FrameTargetRequest {
-        let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
-        let effectSourceExtentContract: SceneEffectSourceExtentContract
-        let requestedWidth: Int
-        let requestedHeight: Int
-        let directDrawOutputModelViewProjection: simd_float4x4?
-        let materialFunctionInvocations: [SceneGraphMaterialFunctionInvocationRequest]
-
-        init(
-            claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution,
-            effectSourceExtentContract: SceneEffectSourceExtentContract,
-            requestedWidth: Int,
-            requestedHeight: Int,
-            directDrawOutputModelViewProjection: simd_float4x4? = nil,
-            materialFunctionInvocations:
-                [SceneGraphMaterialFunctionInvocationRequest] = []
-        ) {
-            self.claim = claim
-            self.effectSourceExtentContract = effectSourceExtentContract
-            self.requestedWidth = requestedWidth
-            self.requestedHeight = requestedHeight
-            self.directDrawOutputModelViewProjection =
-                directDrawOutputModelViewProjection
-            self.materialFunctionInvocations = materialFunctionInvocations
-        }
-    }
-
     enum FramePreflightResult {
         case ready(
             plans: [Int: SceneResolvedMaterialFrameTargetPlan],
-            localFallbacks: [Int: String]
+            localFallbacks: [Int: String],
+            preparationRequests: [
+                SceneResolvedMaterialRuntimeBridge.FramePreparationRequest
+            ]
         )
         case deferred
         case rejected(reasonCode: String)
@@ -186,121 +162,6 @@ enum SceneResolvedMaterialGraphComposition {
         }
     }
 
-    static func preflight(
-        requests: [FrameTargetRequest],
-        pool: SceneOffscreenTexturePool,
-        commandBuffer: MTLCommandBuffer? = nil
-    ) -> FramePreflightResult {
-        guard Set(requests.map(\.claim.layerID)).count == requests.count else {
-            return .rejected(reasonCode: "frame-target-layer-ambiguous")
-        }
-        var byLayerID: [Int: SceneResolvedMaterialFrameTargetPlan] = [:]
-        var localFallbacks: [Int: String] = [:]
-        var allocationPlans: [ScenePersistentGraphTargetFramePlan] = []
-        let orderingContext = commandBuffer.map {
-            SceneGraphCommandQueueOrderingContext(commandBuffer: $0)
-        }
-        for request in requests {
-            switch request.claim.sourceRoute {
-            case .transparentDirectDraw:
-                guard case .authoredCanvasDirectDraw = request.claim
-                        .frameInputContract.emittedOutputGeometrySource,
-                      request.directDrawOutputModelViewProjection != nil else {
-                    localFallbacks[request.claim.layerID] =
-                        "direct-draw-output-geometry-contract-invalid"
-                    continue
-                }
-            case .capturedLayerTexture, .capturedMainTargetTexture:
-                guard request.directDrawOutputModelViewProjection == nil else {
-                    localFallbacks[request.claim.layerID] =
-                        "direct-draw-output-geometry-contract-invalid"
-                    continue
-                }
-            }
-            var invocationFailure: String?
-            var materialFunctionTargetsByEffect: [
-                SceneAuthoredEffectRenderPlan.EffectKey:
-                    Set<SceneAuthoredEffectRenderPlan.TextureIdentity>
-            ] = [:]
-            for invocation in request.materialFunctionInvocations {
-                guard request.claim.admittedGraphs.contains(where: {
-                    $0.effects.first?.key == invocation.effect
-                }) else {
-                    invocationFailure = "function-invocation-unknown-effect"
-                    break
-                }
-                guard let function = request.claim.clearFunctionsByEffect[invocation.effect]
-                    .flatMap({ $0.function(named: invocation.functionName) }) else {
-                    invocationFailure = "function-invocation-unknown-function"
-                    break
-                }
-                materialFunctionTargetsByEffect[invocation.effect, default: []]
-                    .formUnion(function.targets)
-            }
-            if let invocationFailure {
-                localFallbacks[request.claim.layerID] = invocationFailure
-                continue
-            }
-            guard request.requestedWidth > 0, request.requestedHeight > 0 else {
-                localFallbacks[request.claim.layerID] =
-                    "frame-target-plan-rejected"
-                continue
-            }
-            let allocation: ScenePersistentGraphTargetFramePlan
-            switch pool.framePlanResultForPersistentGraphTargets(
-                admittedGraphs: request.claim.admittedGraphs,
-                materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
-                pairPlan: request.claim.pairPlan,
-                extentPolicy: request.effectSourceExtentContract.targetPolicy,
-                requestedWidth: request.requestedWidth,
-                requestedHeight: request.requestedHeight,
-                usesSharedFullFrameWorkingPair: true,
-                orderingContext: orderingContext,
-                plansMemoIdentity: .init(
-                    capabilityToken: request.claim.token,
-                    layerID: request.claim.layerID
-                )
-            ) {
-            case let .success(value): allocation = value
-            case let .failure(failure):
-                localFallbacks[request.claim.layerID] =
-                    failure.localFallbackReasonCode
-                continue
-            }
-            let consumesExternalPrimaryDependency: Bool
-            switch request.claim.dependencyOwnership {
-            case .externalPrimary, .externalAggregate:
-                consumesExternalPrimaryDependency = true
-            default:
-                consumesExternalPrimaryDependency = false
-            }
-            guard allocation.graphPlan.key.layerID == request.claim.layerID,
-                  byLayerID.updateValue(.init(
-                      token: request.claim.token,
-                      allocation: allocation,
-                      consumesExternalPrimaryDependency:
-                        consumesExternalPrimaryDependency,
-                      directDrawOutputModelViewProjection:
-                        request.directDrawOutputModelViewProjection
-                  ), forKey: request.claim.layerID) == nil else {
-                localFallbacks[request.claim.layerID] =
-                    "frame-target-plan-rejected"
-                continue
-            }
-            allocationPlans.append(allocation)
-        }
-        switch pool.preflightPersistentGraphTargets(allocationPlans) {
-        case .ready:
-            return .ready(
-                plans: byLayerID,
-                localFallbacks: localFallbacks
-            )
-        case .temporarilyBlocked:
-            return .deferred
-        case .rejected(let reasonCode):
-            return .rejected(reasonCode: reasonCode)
-        }
-    }
 }
 
 enum SceneResolvedMaterialClaimRoute {

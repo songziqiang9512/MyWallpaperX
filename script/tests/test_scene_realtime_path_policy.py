@@ -57,8 +57,10 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             "cache: &baseMaterialSelections",
             preflight,
         )
+        # The merged single walk keeps exactly one preparation-order guard;
+        # the former second walk's separate LayerIDs guard is gone.
         self.assertEqual(
-            preflight.count("resolvedMaterialPreparationLayerIDs else"), 1
+            preflight.count("resolvedMaterialPreparationLayers else"), 1
         )
         self.assertIn("resolvedMaterialPreparationLayers else", preflight)
         self.assertGreaterEqual(

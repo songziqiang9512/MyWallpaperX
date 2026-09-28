@@ -170,8 +170,10 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             preflight,
         )
         self.assertEqual(preflight.count("directDrawOutputModelMatrix("), 1)
+        # The direct-draw output MVP flows straight from the sizing pass into
+        # the preparation request; the plan round-trip read is gone.
         self.assertIn(
-            "plan.directDrawOutputModelViewProjection",
+            "guard let directDrawOutputMVP =",
             preflight,
         )
         self.assertIn(

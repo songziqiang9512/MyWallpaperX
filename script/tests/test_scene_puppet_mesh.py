@@ -493,8 +493,8 @@ class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
         self.assertIn("desiredSize = selectedSource.candidate?.mappedSize", preflight)
         self.assertIn("?.effectSourceExtentContract ?? .scalableStandard", preflight)
         self.assertIn(
-            "extentPolicy: request.effectSourceExtentContract.targetPolicy",
-            graph_composition,
+            "extentPolicy: effectSourceExtentContract.targetPolicy",
+            preflight,
         )
         self.assertIn("case exactSamplingTexture", extent_policy)
         self.assertIn("requiresExactInputExtent: true", extent_policy)

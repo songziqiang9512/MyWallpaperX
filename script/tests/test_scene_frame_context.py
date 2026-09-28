@@ -629,7 +629,7 @@ class SceneFrameContextTests(unittest.TestCase):
             preflight,
         )
         self.assertIn(
-            "(materialFunctionMutationsByLayerID[layerID] ?? [])",
+            "(materialFunctionMutationsByLayerID[layer.id] ?? [])",
             preflight,
         )
         self.assertIn("frameEpoch: textureRegistry.frameEpoch", preflight)
@@ -644,7 +644,11 @@ class SceneFrameContextTests(unittest.TestCase):
         preflight = PREPFLIGHT_SOURCE.read_text(encoding="utf-8")
         self.assertIn("case .mutationOverflow: \"mutation-overflow\"", scalar_runtime)
         self.assertIn("guard !functionName.isEmpty", effect_bridge)
-        self.assertIn('return invalid("plan-count-mismatch")', preflight)
+        # Every plan yields its preparation request in the same walk; the
+        # typed-local failure for material mutations is the invocation check.
+        self.assertIn(
+            'invocationFailure = "function-invocation-unknown-effect"', preflight
+        )
         self.assertIn("SceneGraphMaterialFunctionInvocationRequest", preflight)
 
     def test_host_owns_the_only_scene_frame_timer_and_per_surface_snapshots(self) -> None:

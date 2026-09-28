@@ -32,22 +32,27 @@ extension SceneMetalRenderer {
             mediaThumbnail, frameContext
         )
         // Source selection is frame-scoped: provider readiness and authored
-        // fallback state are refreshed above, then shared by target sizing and
-        // preparation request construction below.
+        // fallback state are refreshed above, then shared by the single
+        // preflight walk that also builds the preparation requests below.
         var baseMaterialSelections: [Int: SceneBaseMaterialTextureSelection] = [:]
         switch preflightResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
-            offscreenTexturePool: offscreenTexturePool,
+            spriteAnimations: spriteAnimations,
+            spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
             performanceTelemetry: performanceTelemetry,
+            specializedBaseTextureSamplings: specializedBaseTextureSamplings,
+            imagePipeline: imagePipeline,
+            offscreenTexturePool: offscreenTexturePool,
             frameVisibleLayerIDs: frameVisibleLayerIDs,
             frameContext: frameContext,
             worldFramesByLayerID: worldFramesByLayerID,
             cameraFrame: cameraFrame,
             parallaxConfiguration: parallaxConfiguration,
+            mainTarget: mainTarget,
             commandBuffer: commandBuffer,
             baseMaterialSelections: &baseMaterialSelections
         ) {
-        case let .ready(plans, localFallbacks):
+        case let .ready(plans, localFallbacks, preparationRequests):
             guard imageCompositor.installResolvedMaterialFrameLocalFallbacks(
                 localFallbacks
             ) else {
@@ -59,37 +64,10 @@ extension SceneMetalRenderer {
                     reasonCode: "frame-local-fallback-install-rejected"
                 )
             }
-            var requestFailureReason: String?
-            guard let requests = resolvedMaterialFramePreparationRequests(
-                plans: plans,
-                imageTextures: imageTextures,
-                spriteAnimations: spriteAnimations,
-                spriteAnimationPlaybackTimes: spriteAnimationPlaybackTimes,
-                performanceTelemetry: performanceTelemetry,
-                specializedBaseTextureSamplings: specializedBaseTextureSamplings,
-                imagePipeline: imagePipeline,
-                offscreenTexturePool: offscreenTexturePool,
-                frameContext: frameContext,
-                worldFramesByLayerID: worldFramesByLayerID,
-                cameraFrame: cameraFrame,
-                parallaxConfiguration: parallaxConfiguration,
-                mainTarget: mainTarget,
-                failureReason: &requestFailureReason,
-                baseMaterialSelections: &baseMaterialSelections
-            ) else {
-                imageCompositor.recordResolvedMaterialFramePreflightFailure(
-                    requestFailureReason ?? "frame-preparation-request-invalid"
-                )
-                _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
-                return .rejected(
-                    reasonCode: requestFailureReason
-                        ?? "frame-preparation-request-invalid"
-                )
-            }
             performanceTelemetry?.beginStage("admit-prepare-frame")
             defer { performanceTelemetry?.endStage("admit-prepare-frame") }
             switch imageCompositor.prepareResolvedMaterialFrame(
-                requests,
+                preparationRequests,
                 pool: offscreenTexturePool,
                 commandBuffer: commandBuffer,
                 performanceTelemetry: performanceTelemetry
@@ -138,13 +116,18 @@ extension SceneMetalRenderer {
 
     func preflightResolvedMaterialFrameTargets(
         imageTextures: SceneBaseImageTextureSnapshot,
-        offscreenTexturePool: SceneOffscreenTexturePool?,
+        spriteAnimations: [Int: SceneSpriteAnimation],
+        spriteAnimationPlaybackTimes: [Int: Float],
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
+        specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
+        imagePipeline: SceneImageLayerPipeline?,
+        offscreenTexturePool: SceneOffscreenTexturePool?,
         frameVisibleLayerIDs: Set<Int>,
         frameContext: SceneFrameContext,
         worldFramesByLayerID: [Int: simd_float4x4],
         cameraFrame: SceneParticleCameraFrame,
         parallaxConfiguration: SceneLayerParallax.Configuration,
+        mainTarget: MTLTexture,
         commandBuffer: MTLCommandBuffer,
         baseMaterialSelections: inout [Int: SceneBaseMaterialTextureSelection]
     ) -> SceneResolvedMaterialGraphComposition.FramePreflightResult {
@@ -170,10 +153,13 @@ extension SceneMetalRenderer {
                 visibleRootLayerIDs: frameVisibleRootLayerIDs,
                 availableExecutionLayerIDs: availableExecutionLayerIDs
             )
-        var requests: [
-            SceneResolvedMaterialGraphComposition.FrameTargetRequest
+        var byLayerID: [Int: SceneResolvedMaterialFrameTargetPlan] = [:]
+        var allocationPlans: [ScenePersistentGraphTargetFramePlan] = []
+        var preparationRequests: [
+            SceneResolvedMaterialRuntimeBridge.FramePreparationRequest
         ] = []
         var sourceCoverageFallbacks: [Int: String] = [:]
+        var graphTargetFallbacks: [Int: String] = [:]
         let materialFunctionMutationsByLayerID = Dictionary(
             grouping: frameContext.materialFunctionMutations,
             by: \.layerID
@@ -200,8 +186,48 @@ extension SceneMetalRenderer {
                     )
                 }
         }
+        func invalid(
+            _ reasonCode: String
+        ) -> SceneResolvedMaterialGraphComposition.FramePreflightResult {
+            .rejected(reasonCode: "frame-preparation-request-invalid:\(reasonCode)")
+        }
+        let orderingContext = SceneGraphCommandQueueOrderingContext(
+            commandBuffer: commandBuffer
+        )
+        let time = Float(frameContext.sceneTime)
+        let imageMVP: (SceneRenderDescriptor.Layer, [Float]?) -> simd_float4x4 = {
+            layer, renderSizeOverride in
+            cameraFrame.viewProjection(for: layer) * self.imageModelMatrix(
+                for: layer,
+                worldFramesByLayerID: worldFramesByLayerID,
+                renderSizeOverride: renderSizeOverride,
+                parallaxMouseNormalized: frameContext.cameraParallaxPosition,
+                configuration: parallaxConfiguration,
+                visibleHalfExtents: cameraFrame.coverHalfExtents,
+                usesPerspective: cameraFrame.resolvesPerspective(for: layer)
+            )
+        }
+        let geometryMVP: (
+            SceneRenderDescriptor.Layer, SceneGeometryProduct
+        ) -> simd_float4x4 = { layer, product in
+            cameraFrame.viewProjection(for: layer) * self.geometryModelMatrix(
+                for: layer,
+                worldFramesByLayerID: worldFramesByLayerID,
+                authoredSize: product.authoredSize,
+                parallaxMouseNormalized: frameContext.cameraParallaxPosition,
+                configuration: parallaxConfiguration,
+                visibleHalfExtents: cameraFrame.coverHalfExtents,
+                usesPerspective: cameraFrame.resolvesPerspective(for: layer)
+            )
+        }
         for layer in orderedLayers {
+            let layerID = layer.id
             var directDrawOutputModelViewProjection: simd_float4x4?
+            // Values the preparation request consumes, captured by the same
+            // single pass that sizes the frame target.
+            var capturedLayerSource: SceneBaseMaterialTextureSource?
+            var utilityCaptureGeometry: SceneCaptureGeometry?
+            var effectSourceExtent: SceneLayerEffectSourceExtent?
             // A utility composition owns a graph transaction only when its
             // typed utility plan can actually capture and consume that
             // transaction.  Keeping an unsupported utility claim in the
@@ -245,7 +271,7 @@ extension SceneMetalRenderer {
             }
             let desiredSize: CGSize
             let effectSourceExtentContract = imageTextures.geometryProducts[
-                layer.id
+                layerID
             ]?.effectSourceExtentContract ?? .scalableStandard
             switch claim.sourceRoute {
             case .capturedLayerTexture:
@@ -267,11 +293,12 @@ extension SceneMetalRenderer {
                     // An asynchronous source must not hold the entire scene
                     // at frame zero: submission also lets its decoder warm up.
                     // No source is fabricated; retry this layer next frame.
-                    sourceCoverageFallbacks[layer.id] = "layer-source-not-ready"
+                    sourceCoverageFallbacks[layerID] = "layer-source-not-ready"
                     continue
                 case let .rejected(reasonCode):
                     return .rejected(reasonCode: reasonCode)
                 }
+                capturedLayerSource = selectedSource
                 if imageTextures.geometryProducts[layer.id] != nil {
                     // A Puppet graph processes the atlas before skinning. Its
                     // target therefore follows the atlas sampling extent and
@@ -294,6 +321,7 @@ extension SceneMetalRenderer {
                             reasonCode: "layer-effect-source-extent-unavailable"
                         )
                     }
+                    effectSourceExtent = extent
                     // The effect chain rasterizes this source once and the
                     // compositor draws the capture with the layer transform:
                     // when the authored scale enlarges the layer on canvas,
@@ -397,6 +425,7 @@ extension SceneMetalRenderer {
                         reasonCode: "utility-offscreen-size-unavailable"
                     )
                 }
+                utilityCaptureGeometry = geometry
                 desiredSize = geometry.pixelSize
             case .transparentDirectDraw:
                 guard layer.contentKind == "quad",
@@ -426,113 +455,89 @@ extension SceneMetalRenderer {
                 directDrawOutputModelViewProjection = outputMVP
                 desiredSize = projectedSize
             }
-            requests.append(.init(
-                claim: claim,
-                effectSourceExtentContract: effectSourceExtentContract,
-                requestedWidth: max(1, Int(desiredSize.width.rounded(.up))),
-                requestedHeight: max(1, Int(desiredSize.height.rounded(.up))),
-                directDrawOutputModelViewProjection:
-                    directDrawOutputModelViewProjection,
-                materialFunctionInvocations: materialFunctionInvocations(for: layer)
-            ))
-        }
-        guard !requests.isEmpty else {
-            return .ready(
-                plans: [:],
-                localFallbacks: sourceCoverageFallbacks
-            )
-        }
-        guard let offscreenTexturePool else {
-            return .rejected(reasonCode: "frame-target-pool-unavailable")
-        }
-        let result = SceneResolvedMaterialGraphComposition.preflight(
-            requests: requests,
-            pool: offscreenTexturePool,
-            commandBuffer: commandBuffer
-        )
-        guard case let .ready(plans, localFallbacks) = result else {
-            return result
-        }
-        var mergedFallbacks = sourceCoverageFallbacks
-        mergedFallbacks.merge(localFallbacks) { _, graphReason in graphReason }
-        return .ready(plans: plans, localFallbacks: mergedFallbacks)
-    }
-
-    func resolvedMaterialFramePreparationRequests(
-        plans: [Int: SceneResolvedMaterialFrameTargetPlan],
-        imageTextures: SceneBaseImageTextureSnapshot,
-        spriteAnimations: [Int: SceneSpriteAnimation],
-        spriteAnimationPlaybackTimes: [Int: Float],
-        performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
-        specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
-        imagePipeline: SceneImageLayerPipeline?,
-        offscreenTexturePool: SceneOffscreenTexturePool?,
-        frameContext: SceneFrameContext,
-        worldFramesByLayerID: [Int: simd_float4x4],
-        cameraFrame: SceneParticleCameraFrame,
-        parallaxConfiguration: SceneLayerParallax.Configuration,
-        mainTarget: MTLTexture,
-        failureReason: inout String?,
-        baseMaterialSelections: inout [Int: SceneBaseMaterialTextureSelection]
-    ) -> [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest]? {
-        performanceTelemetry?.beginStage("admit-prep-requests")
-        defer { performanceTelemetry?.endStage("admit-prep-requests") }
-        func invalid(_ reasonCode: String) -> [
-            SceneResolvedMaterialRuntimeBridge.FramePreparationRequest
-        ]? {
-            failureReason = "frame-preparation-request-invalid:\(reasonCode)"
-            return nil
-        }
-        guard !plans.isEmpty else { return [] }
-        guard let imagePipeline, offscreenTexturePool != nil else {
-            return invalid("shared-input-unavailable")
-        }
-        let time = Float(frameContext.sceneTime)
-        let imageMVP: (SceneRenderDescriptor.Layer, [Float]?) -> simd_float4x4 = {
-            layer, renderSizeOverride in
-            cameraFrame.viewProjection(for: layer) * self.imageModelMatrix(
-                for: layer,
-                worldFramesByLayerID: worldFramesByLayerID,
-                renderSizeOverride: renderSizeOverride,
-                parallaxMouseNormalized: frameContext.cameraParallaxPosition,
-                configuration: parallaxConfiguration,
-                visibleHalfExtents: cameraFrame.coverHalfExtents,
-                usesPerspective: cameraFrame.resolvesPerspective(for: layer)
-            )
-        }
-        let geometryMVP: (
-            SceneRenderDescriptor.Layer, SceneGeometryProduct
-        ) -> simd_float4x4 = { layer, product in
-            cameraFrame.viewProjection(for: layer) * self.geometryModelMatrix(
-                for: layer,
-                worldFramesByLayerID: worldFramesByLayerID,
-                authoredSize: product.authoredSize,
-                parallaxMouseNormalized: frameContext.cameraParallaxPosition,
-                configuration: parallaxConfiguration,
-                visibleHalfExtents: cameraFrame.coverHalfExtents,
-                usesPerspective: cameraFrame.resolvesPerspective(for: layer)
-            )
-        }
-        var result: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest] = []
-        guard let preparationLayerIDs = resolvedMaterialPreparationLayerIDs else {
-            return invalid("resolved-material-preparation-order-invalid")
-        }
-        let materialFunctionMutationsByLayerID = Dictionary(
-            grouping: frameContext.materialFunctionMutations,
-            by: \.layerID
-        )
-        for layerID in preparationLayerIDs {
-            guard let plan = plans[layerID] else { continue }
-            guard let layer = layersByID[layerID],
-                  let layerModelMatrix = worldFramesByLayerID[layerID] else {
-                return invalid("layer-\(layerID)-world-frame-missing")
+            let invocations = materialFunctionInvocations(for: layer)
+            var invocationFailure: String?
+            var materialFunctionTargetsByEffect: [
+                SceneAuthoredEffectRenderPlan.EffectKey:
+                    Set<SceneAuthoredEffectRenderPlan.TextureIdentity>
+            ] = [:]
+            for invocation in invocations {
+                guard claim.admittedGraphs.contains(where: {
+                    $0.effects.first?.key == invocation.effect
+                }) else {
+                    invocationFailure = "function-invocation-unknown-effect"
+                    break
+                }
+                guard let function = claim.clearFunctionsByEffect[invocation.effect]
+                    .flatMap({ $0.function(named: invocation.functionName) }) else {
+                    invocationFailure = "function-invocation-unknown-function"
+                    break
+                }
+                materialFunctionTargetsByEffect[invocation.effect, default: []]
+                    .formUnion(function.targets)
             }
-            let route = imageCompositor.preflightResolvedMaterialClaim(
-                layerID: layerID
+            if let invocationFailure {
+                graphTargetFallbacks[claim.layerID] = invocationFailure
+                continue
+            }
+            let requestedWidth = max(1, Int(desiredSize.width.rounded(.up)))
+            let requestedHeight = max(1, Int(desiredSize.height.rounded(.up)))
+            guard requestedWidth > 0, requestedHeight > 0 else {
+                graphTargetFallbacks[claim.layerID] = "frame-target-plan-rejected"
+                continue
+            }
+            guard let offscreenTexturePool else {
+                return .rejected(reasonCode: "frame-target-pool-unavailable")
+            }
+            let allocation: ScenePersistentGraphTargetFramePlan
+            switch offscreenTexturePool.framePlanResultForPersistentGraphTargets(
+                admittedGraphs: claim.admittedGraphs,
+                materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
+                pairPlan: claim.pairPlan,
+                extentPolicy: effectSourceExtentContract.targetPolicy,
+                requestedWidth: requestedWidth,
+                requestedHeight: requestedHeight,
+                usesSharedFullFrameWorkingPair: true,
+                orderingContext: orderingContext,
+                plansMemoIdentity: .init(
+                    capabilityToken: claim.token,
+                    layerID: claim.layerID
+                )
+            ) {
+            case let .success(value): allocation = value
+            case let .failure(failure):
+                graphTargetFallbacks[claim.layerID] =
+                    failure.localFallbackReasonCode
+                continue
+            }
+            let consumesExternalPrimaryDependency: Bool
+            switch claim.dependencyOwnership {
+            case .externalPrimary, .externalAggregate:
+                consumesExternalPrimaryDependency = true
+            default:
+                consumesExternalPrimaryDependency = false
+            }
+            let frameTargetPlan = SceneResolvedMaterialFrameTargetPlan(
+                token: claim.token,
+                allocation: allocation,
+                consumesExternalPrimaryDependency: consumesExternalPrimaryDependency,
+                directDrawOutputModelViewProjection:
+                    directDrawOutputModelViewProjection
             )
-            guard case let .claimed(claim) = route,
-                  claim.token == plan.token else {
-                return invalid("layer-\(layerID)-claim-token-mismatch")
+            guard allocation.graphPlan.key.layerID == claim.layerID,
+                  byLayerID.updateValue(frameTargetPlan, forKey: claim.layerID) == nil
+            else {
+                graphTargetFallbacks[claim.layerID] = "frame-target-plan-rejected"
+                continue
+            }
+            allocationPlans.append(allocation)
+            // The preparation request for this layer is assembled in the same
+            // pass; dependency providers precede consumers in the preparation
+            // order, so every `preparedGraphOutputExtent` lookup below sees
+            // the same projection the former second walk read from the
+            // completed plan dictionary.
+            guard let layerModelMatrix = worldFramesByLayerID[layerID] else {
+                return invalid("layer-\(layerID)-world-frame-missing")
             }
             var dependencyEffects: [SceneDependencyEffectInput] = []
             let dependencyUnavailability:
@@ -550,7 +555,10 @@ extension SceneMetalRenderer {
                     providerLayer,
                     imageTextures.layerSourceRenderSize(for: providerLayer.id)
                 )
-                let preparedOutputExtent = preparedGraphOutputExtent(for: binding.providerLayerID, plans: plans)
+                let preparedOutputExtent = preparedGraphOutputExtent(
+                    for: binding.providerLayerID,
+                    plans: byLayerID
+                )
                 var dependencyFailureReason: String?
                 func reserveDependencyInput(
                     _ source: SceneBaseMaterialTextureSource?
@@ -667,7 +675,7 @@ extension SceneMetalRenderer {
                 guard let reservedInputs =
                     reserveExternalAggregateDependencyInputs(
                         aggregate: aggregate,
-                        plans: plans,
+                        plans: byLayerID,
                         imageTextures: imageTextures,
                         frameContext: frameContext,
                         imageMVP: imageMVP,
@@ -690,25 +698,11 @@ extension SceneMetalRenderer {
             let sourceUsesAuthoredLayerColor: Bool
             let textureFrame: SceneTextureUVTransform
             let capturesMainTarget: Bool
-            let effectSourceExtent: SceneLayerEffectSourceExtent?
             var sourceUniforms: SceneLayerFragmentUniforms? = nil
             switch claim.sourceRoute {
             case .capturedLayerTexture:
-                let sourceSelection = cachedBaseMaterialTextureSelection(
-                    for: layer,
-                    imageTextures: imageTextures,
-                    readyProviderUsesAuthoredLayerColor:
-                        baseMaterialReadyProviderUsesAuthoredLayerColor(
-                            for: layer,
-                            dynamicValues: frameContext.dynamicValues
-                        ),
-                    cache: &baseMaterialSelections
-                )
-                guard let source = sourceSelection.source else {
-                    return invalid(
-                        "layer-\(layerID)-source-texture-"
-                            + (sourceSelection.rejectedProviderReason ?? "missing")
-                    )
+                guard let source = capturedLayerSource else {
+                    return invalid("layer-\(layerID)-source-texture-missing")
                 }
                 if let geometry = imageTextures.geometryProducts[layerID] {
                     // Effects operate on normalized atlas UV. Scale the unit
@@ -741,38 +735,15 @@ extension SceneMetalRenderer {
                     // Solid sources are sized by projected coverage in
                     // preflight, not by an imported image's authored extent.
                     // Use that accepted target, including zero-area helpers.
-                    let size = plan.allocation.graphPlan.fullFramePair.descriptor.extent
+                    let size = frameTargetPlan.allocation.graphPlan.fullFramePair
+                        .descriptor.extent
                     effectSourceExtent = SceneLayerEffectSourceExtent(pixelSize: CGSize(
                         width: size.width, height: size.height
                     ))
-                    break
                 }
-                guard let extent = SceneLayerEffectSourceExtent.resolve(
-                        publishedRenderSizeWH:
-                            imageTextures.layerSourceEffectRenderSize(for: layerID),
-                    authoredRenderSizeWH: layer.renderSizeWH,
-                    candidateMappedSize: source.candidate?.mappedSize
-                ) else {
-                    return invalid(
-                        "layer-\(layerID)-effect-source-extent-unavailable"
-                    )
-                }
-                effectSourceExtent = extent
             case .capturedMainTargetTexture:
-                guard let utility = layer.utilityLayer,
-                      layer.contentKind == utility.kind.rawValue,
-                      case .success = SceneUtilityLayerSourceRoute.resolve(
-                          layer: layer,
-                          descriptor: renderDescriptor
-                      ) else {
-                    return invalid("layer-\(layerID)-utility-source-shape-invalid")
-                }
                 sourceMVP = imageMVP(layer, nil)
-                guard let geometry = SceneCaptureGeometryResolver.resolve(
-                    kind: utility.kind,
-                    layerMVP: sourceMVP,
-                    viewportSize: frameContext.screenSize
-                ) else {
+                guard let geometry = utilityCaptureGeometry else {
                     return invalid("layer-\(layerID)-utility-geometry-invalid")
                 }
                 outputMVP = geometry.outputMVP
@@ -785,11 +756,8 @@ extension SceneMetalRenderer {
                     pixelSize: geometry.pixelSize
                 )
             case .transparentDirectDraw:
-                guard layer.contentKind == "quad",
-                      case .authoredCanvasDirectDraw = claim.frameInputContract
-                        .emittedOutputGeometrySource,
-                      let directDrawOutputMVP =
-                        plan.directDrawOutputModelViewProjection else {
+                guard let directDrawOutputMVP =
+                        directDrawOutputModelViewProjection else {
                     return invalid(
                         "layer-\(layerID)-direct-draw-output-geometry-invalid"
                     )
@@ -907,41 +875,56 @@ extension SceneMetalRenderer {
                 dependencyEffects: dependencyEffects,
                 dependencyUnavailability: dependencyUnavailability
             )
-            let materialFunctionInvocations =
-                (materialFunctionMutationsByLayerID[layerID] ?? [])
-                .map { mutation in
-                    let descriptorID: String
-                    if layer.effects.indices.contains(mutation.effectIndex) {
-                        descriptorID = layer.effects[mutation.effectIndex].id
-                    } else {
-                        descriptorID = "invalid-effect-index-\(mutation.effectIndex)"
-                    }
-                    return SceneGraphMaterialFunctionInvocationRequest(
-                        effect: .init(
-                            layerID: layerID,
-                            effectIndex: mutation.effectIndex,
-                            descriptorID: descriptorID
-                        ),
-                        functionName: mutation.functionName,
-                        frameEpoch: textureRegistry.frameEpoch
-                    )
-                }
-            let request = SceneResolvedMaterialRuntimeBridge.FramePreparationRequest(
+            guard let imagePipeline else {
+                return invalid("shared-input-unavailable")
+            }
+            preparationRequests.append(.init(
                 claim: claim,
-                targetPlan: plan,
-                materialFunctionInvocations: materialFunctionInvocations,
+                targetPlan: frameTargetPlan,
+                materialFunctionInvocations: invocations,
                 sceneBackgroundResource: sceneBackgroundResource,
                 sourceTexture: sourceTexture,
                 sourceUniforms: sourceUniforms,
                 sourcePipeline: imagePipeline,
                 frameInputs: frameInputs
+            ))
+        }
+        guard !byLayerID.isEmpty else {
+            // Every attempted planning failed: the graph-target fallbacks
+            // must still install so the skipped claimed layers keep taking
+            // the bounded local-fallback claim route instead of a hard
+            // frame drop.
+            var mergedFallbacks = sourceCoverageFallbacks
+            mergedFallbacks.merge(graphTargetFallbacks) { _, graphReason in
+                graphReason
+            }
+            return .ready(
+                plans: [:],
+                localFallbacks: mergedFallbacks,
+                preparationRequests: []
             )
-            result.append(request)
         }
-        guard result.count == plans.count else {
-            return invalid("plan-count-mismatch")
+        guard let offscreenTexturePool else {
+            return .rejected(reasonCode: "frame-target-pool-unavailable")
         }
-        return result
+        switch offscreenTexturePool.preflightPersistentGraphTargets(
+            allocationPlans
+        ) {
+        case .ready:
+            var mergedFallbacks = sourceCoverageFallbacks
+            mergedFallbacks.merge(graphTargetFallbacks) { _, graphReason in
+                graphReason
+            }
+            return .ready(
+                plans: byLayerID,
+                localFallbacks: mergedFallbacks,
+                preparationRequests: preparationRequests
+            )
+        case .temporarilyBlocked:
+            return .deferred
+        case .rejected(let reasonCode):
+            return .rejected(reasonCode: reasonCode)
+        }
     }
 
     private func cachedBaseMaterialTextureSelection(

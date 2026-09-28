@@ -222,9 +222,11 @@ class SceneUtilityLayerTests(unittest.TestCase):
             METAL_RENDERER_INITIALIZATION_SOURCE.read_text(encoding="utf-8"),
         )
         self.assertIn("case .capturedMainTargetTexture:", preflight)
+        # One resolve per layer since the sizing/preparation double walk
+        # collapsed into a single pass.
         self.assertEqual(
             preflight.count("SceneUtilityLayerSourceRoute.resolve("),
-            2,
+            1,
         )
         self.assertIn("sourceTexture = mainTarget", preflight)
         self.assertIn("textureFrame = geometry.sourceUV", preflight)
