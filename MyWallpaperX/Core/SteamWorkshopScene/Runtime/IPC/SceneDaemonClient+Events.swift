@@ -34,6 +34,8 @@ extension SceneDaemonClient {
                 handleAudioSpectrumDemand(payload, generation: generation)
             case "audioSpectrumPublished":
                 handleAudioSpectrumPublication(payload, generation: generation)
+            case "frameCaptured": handleFrameCaptured(payload)
+            case "frameCaptureFailed": handleFrameCaptureFailure(payload)
             case "error":
                 publishFailure(
                     code: payload["code"] as? String ?? "daemon-error",
@@ -48,6 +50,22 @@ extension SceneDaemonClient {
                 )
             }
         }
+    }
+
+    private func handleFrameCaptured(_ payload: [String: Any]) {
+        guard let requestID = payload["requestID"] as? String,
+              let path = payload["path"] as? String else {
+            return
+        }
+        pendingFrameCaptureCompletions
+            .removeValue(forKey: requestID)?(URL(fileURLWithPath: path))
+    }
+
+    private func handleFrameCaptureFailure(_ payload: [String: Any]) {
+        guard let requestID = payload["requestID"] as? String else {
+            return
+        }
+        pendingFrameCaptureCompletions.removeValue(forKey: requestID)?(nil)
     }
 
     private func handleLaunchState(_ payload: [String: Any]) {
@@ -263,6 +281,9 @@ extension SceneDaemonClient {
         transport = nil
         endpointReady = false
         latestFrameStats = nil
+        // 非预期退出：在途自截帧请求的 requestID 对重启后的新 daemon 无效，
+        // 且旧代事件会被 admission 拒收——立即以 nil 结清等待方。
+        failPendingFrameCaptures()
         revokeAudioSpectrumDemand(generation: generation)
 
         let recoveryUsesPendingIntent = pendingIntent != nil

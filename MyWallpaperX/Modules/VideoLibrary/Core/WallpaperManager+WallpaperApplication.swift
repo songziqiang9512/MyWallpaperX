@@ -205,6 +205,142 @@ extension WallpaperManager {
         }
     }
 
+    /// web/scene 壁纸同步系统壁纸的运行时种类。
+    enum RuntimeFrameSyncKind {
+        case web
+        case scene
+
+        var logLabel: String {
+            switch self {
+            case .web: return "web"
+            case .scene: return "scene"
+            }
+        }
+    }
+
+    /// 截帧延迟：覆盖 web/scene 样本常见的启动过渡动画后再取帧。
+    private static let runtimeFrameSyncDelay: TimeInterval = 5
+
+    /// web/scene 没有可提取的媒体静帧；按用户语义在启动过渡结束后截取
+    /// 壁纸层一帧作为系统壁纸。延迟覆盖样本的开场动画；迟到帧不得写进
+    /// 已切换走的壁纸，回调时按运行时身份二次守卫。web 宿主在主 App
+    /// 进程内（免权限自截）；scene 表面属 daemon 子进程，经自截回传通道。
+    func scheduleRuntimeFrameSystemWallpaperSync(
+        kind: RuntimeFrameSyncKind,
+        recordID: String
+    ) {
+        pendingSystemWallpaperSyncWorkItem?.cancel()
+        pendingSystemWallpaperSyncWorkItem = nil
+        guard settings.syncSystemWallpaper else { return }
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self,
+                  self.settings.syncSystemWallpaper,
+                  self.activeRuntimeMatchesFrameSyncTarget(kind, recordID: recordID)
+            else { return }
+            switch kind {
+            case .web:
+                WallpaperRuntimeFrameCapture
+                    .captureInProcessWallpaperFrame { [weak self] image in
+                        guard let self,
+                              self.settings.syncSystemWallpaper,
+                              self.activeRuntimeMatchesFrameSyncTarget(
+                                  kind,
+                                  recordID: recordID
+                              ),
+                              let image,
+                              let imageURL = self.persistRuntimeSyncFrame(
+                                  image,
+                                  kind: kind
+                              ) else {
+                            return
+                        }
+                        self.setDesktopWallpaper(from: imageURL.path)
+                    }
+            case .scene:
+                SceneDaemonClient.shared.captureSurfaceFrame { [weak self] frameURL in
+                    guard let self, let frameURL else { return }
+                    // 守卫失败也清掉 daemon 侧临时帧，避免 /private/tmp 残留。
+                    defer { try? FileManager.default.removeItem(at: frameURL) }
+                    guard self.settings.syncSystemWallpaper,
+                          self.activeRuntimeMatchesFrameSyncTarget(
+                              kind,
+                              recordID: recordID
+                          ) else {
+                        return
+                    }
+                    self.applyRuntimeSyncFrameFile(frameURL, kind: kind)
+                }
+            }
+        }
+        pendingSystemWallpaperSyncWorkItem = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.runtimeFrameSyncDelay,
+            execute: workItem
+        )
+    }
+
+    private func activeRuntimeMatchesFrameSyncTarget(
+        _ kind: RuntimeFrameSyncKind,
+        recordID: String
+    ) -> Bool {
+        switch kind {
+        case .web:
+            return activeWallpaperRuntime == .web
+                && WallpaperEngine.shared.currentWebRecordID == recordID
+        case .scene:
+            let activeRecordID = SceneDaemonClient.shared.activeRecordID
+                ?? SceneDaemonClient.shared.launchState?.recordID
+            return activeWallpaperRuntime == .scene
+                && activeRecordID == recordID
+                && !recordID.isEmpty
+        }
+    }
+
+    /// scene 的 JPEG 已由 daemon 写好：拷入静帧缓存目录获得稳定文件名后
+    /// 应用；daemon 侧临时帧由调用方的 defer 统一清理。
+    private func applyRuntimeSyncFrameFile(
+        _ source: URL,
+        kind: RuntimeFrameSyncKind
+    ) {
+        let destination = staticFrameCacheDirectory
+            .appendingPathComponent("runtime-sync-\(kind.logLabel).jpg")
+        do {
+            try? FileManager.default.removeItem(at: destination)
+            try FileManager.default.copyItem(at: source, to: destination)
+        } catch {
+            NSLog(
+                "MWX SystemWallpaperSync: scene frame copy failed: %@",
+                String(describing: error)
+            )
+            return
+        }
+        setDesktopWallpaper(from: destination.path)
+    }
+
+    /// 截帧落盘到静帧缓存目录（可重建派生数据），每运行时一个稳定文件名，
+    /// 后一次同步覆盖前一次。格式与视频静帧管线一致（JPEG 0.9）。
+    private func persistRuntimeSyncFrame(
+        _ image: NSImage,
+        kind: RuntimeFrameSyncKind
+    ) -> URL? {
+        guard let tiff = image.tiffRepresentation,
+              let representation = NSBitmapImageRep(data: tiff),
+              let jpeg = representation.representation(
+                  using: .jpeg,
+                  properties: [.compressionFactor: 0.9]
+              ) else {
+            return nil
+        }
+        let url = staticFrameCacheDirectory
+            .appendingPathComponent("runtime-sync-\(kind.logLabel).jpg")
+        do {
+            try jpeg.write(to: url)
+            return url
+        } catch {
+            return nil
+        }
+    }
+
     private func recordPlaybackHistoryIfNeeded(
         current: VideoWallpaper?,
         targetNormalizedPath: String,

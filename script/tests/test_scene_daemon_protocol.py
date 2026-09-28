@@ -95,6 +95,12 @@ import Foundation
         ]) { numericSpectrumToggleRetired = true } else {
             numericSpectrumToggleRetired = false
         }
+        let captureFrameEmptyRejected: Bool
+        if case .failure(.invalidPayload("captureFrame")) = decode([
+            "v": 1, "cmd": "captureFrame", "requestID": ""
+        ]) { captureFrameEmptyRejected = true } else {
+            captureFrameEmptyRejected = false
+        }
         let volumeValid: Bool
         if case let .success(.setVolume(volume)) = decode([
             "v": 1, "cmd": "setVolume", "volume": 0.375
@@ -211,6 +217,7 @@ import Foundation
             "numericMuteRejected": numericMuteRejected,
             "spectrumToggleRetired": spectrumToggleRetired,
             "numericSpectrumToggleRetired": numericSpectrumToggleRetired,
+            "captureFrameEmptyRejected": captureFrameEmptyRejected,
             "volumeValid": volumeValid,
             "volumeOutOfRangeRejected": volumeOutOfRangeRejected,
             "cancelValid": cancelValid,

@@ -69,6 +69,9 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var activeRecordID: String?
     var audioSpectrumDemand = SceneAudioSpectrumCaptureDemand.none
     var audioSpectrumDemandGeneration: UInt64?
+    /// 自截帧请求的在途回调（requestID → 主线程回调）。daemon 停止/重启
+    /// 时统一以 nil 结清，避免同步系统壁纸的等待方悬挂。
+    var pendingFrameCaptureCompletions: [String: (URL?) -> Void] = [:]
 
     var activeIntent: ScenePlaybackLoadRequest?
     var pendingIntent: ScenePlaybackLoadRequest?
@@ -261,6 +264,28 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         stop(postsLaunchState: false)
     }
 
+    /// 请求 daemon 自截壁纸表面一帧（免屏幕录制权限），JPEG 路径经
+    /// frameCaptured 事件回传；失败/未就绪回调 nil。
+    func captureSurfaceFrame(completion: @escaping (URL?) -> Void) {
+        guard endpointReady else {
+            completion(nil)
+            return
+        }
+        let requestID = UUID().uuidString
+        pendingFrameCaptureCompletions[requestID] = completion
+        send([
+            "v": SceneDaemonProtocol.version,
+            "cmd": "captureFrame",
+            "requestID": requestID
+        ])
+    }
+
+    func failPendingFrameCaptures() {
+        let completions = pendingFrameCaptureCompletions.values
+        pendingFrameCaptureCompletions.removeAll()
+        completions.forEach { $0(nil) }
+    }
+
     /// E2a-2: the `.stop` command path reports completion so the selection
     /// authority can recycle its truth. Runtime-switch observers call the
     /// plain `stop()` and stay silent — an incoming runtime's commit must
@@ -284,6 +309,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         pendingPropertyRevisions.removeAll(keepingCapacity: true)
         activeRecordID = nil
         endpointReady = false
+        failPendingFrameCaptures()
         revokeAudioSpectrumDemand(generation: sessionGeneration)
         latestFrameStats = nil
         restartBackoff.reset()

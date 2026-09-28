@@ -51,6 +51,14 @@ extension Notification.Name {
     var endpointReady = false
     var latestFrameStats: Int?
     var launchState: SceneWallpaperLaunchState?
+    // 自截帧回调桩：真实 stop(postsLaunchState:) 方法体被拼接进本桩类，
+    // 其中的 failPendingFrameCaptures() 清理调用需要这两个成员。
+    var pendingFrameCaptureCompletions: [String: (URL?) -> Void] = [:]
+    func failPendingFrameCaptures() {
+        let completions = pendingFrameCaptureCompletions.values
+        pendingFrameCaptureCompletions.removeAll()
+        completions.forEach { $0(nil) }
+    }
     var restartBackoff = Backoff()
     struct RetainedResourceLifetime {
         let rootURL: URL

@@ -456,6 +456,15 @@ enum MainWindowCoordinator {
                 resourceLifetime: resourceLifetime
             )
             wallpaperManager.isPlaying = WallpaperEngine.shared.isPlaying()
+            // web 无静帧可提取；同步系统壁纸走延迟截帧（等启动过渡结束）。
+            // 生产路径 recordID 恒存在；诊断 harness 无 recordID 时
+            // currentWebRecordID 也为 nil，同步本就不适用，跳过。
+            if let recordID {
+                wallpaperManager.scheduleRuntimeFrameSystemWallpaperSync(
+                    kind: .web,
+                    recordID: recordID
+                )
+            }
         }
         observerTokens.append(observer)
     }
@@ -532,6 +541,14 @@ enum MainWindowCoordinator {
                     wallpaperManager.stopAutoSwitchTimer()
                     WallpaperEngine.shared.stopPlayback()
                     wallpaperManager.isPlaying = SceneDaemonClient.shared.isPlaying
+                    // scene 无静帧可提取；同步系统壁纸走延迟截帧（等启动
+                    // 过渡与开场动画结束）。
+                    if let launchedRecordID = state.recordID {
+                        wallpaperManager.scheduleRuntimeFrameSystemWallpaperSync(
+                            kind: .scene,
+                            recordID: launchedRecordID
+                        )
+                    }
                 case .cancelled:
                     message = "已取消 Scene 壁纸准备，当前壁纸保持不变"
                 case .failed:

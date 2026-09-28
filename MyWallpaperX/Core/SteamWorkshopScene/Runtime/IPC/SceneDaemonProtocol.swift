@@ -21,6 +21,9 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
     /// Normalized master volume (0...1) applied after authored/user volume.
     case setVolume(Float)
     case setMuted(Bool)
+    /// 请求 daemon 自截壁纸表面一帧（JPEG 落盘后经 frameCaptured 事件
+    /// 回传路径；主 App 侧无需屏幕录制权限）。
+    case captureFrame(requestID: String)
     case publishAudioSpectrum(SceneDaemonAudioSpectrumFrame)
     case pause
     case resume
@@ -150,6 +153,12 @@ nonisolated enum SceneDaemonProtocol {
                 return .failure(.invalidPayload(action))
             }
             return .success(.setMuted(muted))
+        case "captureFrame":
+            guard let requestID = payload["requestID"] as? String,
+                  !requestID.isEmpty else {
+                return .failure(.invalidPayload(action))
+            }
+            return .success(.captureFrame(requestID: requestID))
         case "publishAudioSpectrum":
             guard let left = spectrumLevels(
                     payload["left"],
