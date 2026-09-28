@@ -15,6 +15,7 @@ extension SceneDesktopWallpaperHost {
             screenReconciliationWorkItem?.cancel()
             screenReconciliationWorkItem = nil
             screenTopology = []
+            rebuiltTopology = []
             removePointerEventMonitors()
         }
         frameTimer?.invalidate()

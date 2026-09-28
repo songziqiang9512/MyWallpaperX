@@ -307,6 +307,9 @@ public final class WallpaperEngine: NSObject {
     }
 
     public func setFillMode(_ fillMode: String) {
+        // 同步镜像：屏幕参数变化/daemon 崩溃恢复重发 play 时读取的是
+        // 引擎镜像，不更新会把填充模式回跳到上一次装载时的值。
+        currentVideoFillMode = fillMode
         for session in displaySessions.values where session.process.isRunning {
             send(DaemonCommand(action: "setFillMode", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: fillMode, shouldLoopCurrentItem: nil, volume: nil, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
         }

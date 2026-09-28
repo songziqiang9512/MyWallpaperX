@@ -56,6 +56,9 @@ final class SceneDesktopWallpaperHost {
     var frameDriverDeadline: CFTimeInterval?
     var screenReconciliationWorkItem: DispatchWorkItem?
     var screenTopology: [SceneScreenTopology] = []
+    /// 最近一次实际建成表面的拓扑快照；与权威目标集 screenTopology
+    /// 分离，供屏拓扑协调判断"是否真的需要重建"。
+    var rebuiltTopology: [SceneScreenTopology] = []
     var sceneClock = SceneClock(hostTime: CACurrentMediaTime())
     var sharedLayerAlphaRuntime =
         SceneSharedLayerAlphaRuntime(program: .empty)
@@ -419,6 +422,9 @@ final class SceneDesktopWallpaperHost {
 
     func applyDisplayConfiguration(_ topology: [SceneScreenTopology]) {
         guard !topology.isEmpty else { return }
+        // 先落权威目标集：主 App 裁决的显示集（多屏开=全部、关=首屏）
+        // 是 rebuildSurfaces 的表面来源，不能只当变更触发器。
+        screenTopology = topology
         scheduleScreenConfigurationReconciliation(topology)
     }
 
@@ -429,7 +435,7 @@ final class SceneDesktopWallpaperHost {
         screenReconciliationWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             guard let self, self.launchContext != nil else { return }
-            guard topology != self.screenTopology else {
+            guard topology != self.rebuiltTopology else {
                 Self.performanceLogger.debug(
                     "Ignored unchanged Scene screen topology; surfaces=\(self.surfaces.count)"
                 )
@@ -437,7 +443,7 @@ final class SceneDesktopWallpaperHost {
                 return
             }
             Self.performanceLogger.info(
-                "Rebuilding Scene surfaces after screen topology change; old=\(self.screenTopology.count) new=\(topology.count)"
+                "Rebuilding Scene surfaces after screen topology change; old=\(self.rebuiltTopology.count) new=\(topology.count)"
             )
             guard let launchContext = self.launchContext else { return }
             _ = self.rebuildSurfacesReconcilingAudioDemand(
@@ -475,8 +481,23 @@ final class SceneDesktopWallpaperHost {
         )
         defer { videoTextureSourceRegistry.completeSurfaceRebuild() }
 
-        let screens = NSScreen.screens
-        guard !screens.isEmpty else {
+        // The pushed topology owns the visible display set (multi-display on
+        // = all screens; off = the first screen). Entries resolve back to
+        // their live NSScreen; screens that no longer exist are skipped.
+        // NSScreen capture stays as the pre-push fallback.
+        let allScreens = NSScreen.screens
+        let targetTopology = screenTopology.isEmpty
+            ? SceneScreenTopology.capture(screens: allScreens)
+            : screenTopology
+        let liveScreensByID = Dictionary(
+            uniqueKeysWithValues: allScreens.compactMap { screen in
+                Self.screenID(for: screen).map { ($0, screen) }
+            }
+        )
+        var surfaceScreens = targetTopology.compactMap { entry -> (NSScreen, CGDirectDisplayID)? in
+            liveScreensByID[entry.displayID].map { ($0, entry.displayID) }
+        }
+        guard !surfaceScreens.isEmpty else {
             teardownSurfaces(clearContext: false, reason: teardownReason)
             return false
         }
@@ -499,9 +520,6 @@ final class SceneDesktopWallpaperHost {
 
         var created = false
         var wroteLog = false
-        var surfaceScreens = screens.compactMap { screen in
-            Self.screenID(for: screen).map { (screen, $0) }
-        }
 #if DEBUG
         // Bounded evidence-only surfaces use actual independent views, drawables,
         // graph runtimes and resource pools on the available physical screen.
@@ -637,7 +655,7 @@ final class SceneDesktopWallpaperHost {
             }
         }
         updateAudioSpectrumDemand(launchContext, hasParticleAudioConsumer: surfaces.values.contains { $0.metalView.hasParticleAudioConsumer })
-        screenTopology = SceneScreenTopology.capture()
+        rebuiltTopology = targetTopology
         let storageScreenIdentity = surfaces.count == 1
             ? surfaces.keys.first.flatMap(Self.sceneScriptStorageScreenIdentity)
             : nil

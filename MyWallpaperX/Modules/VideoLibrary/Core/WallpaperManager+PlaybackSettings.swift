@@ -52,6 +52,9 @@ extension WallpaperManager {
 
     func applyEngineSettings(reloadWallpaper: Bool = false) {
         PlaybackPolicyController.shared.updateSettings(settings)
+        // Scene 显示集随设置即时裁决（多屏开=全部、关=首屏），scene 活跃
+        // 时不再依赖 currentWallpaper 重载分支。
+        SceneDaemonClient.shared.setMultiDisplayEnabled(settings.multiDisplayEnabled)
         if reloadWallpaper {
             if activeWallpaperRuntime == .web {
                 WallpaperEngine.shared.updateWebDisplayConfiguration(
@@ -328,6 +331,9 @@ extension WallpaperManager {
         PlaybackVolumeState.shared.setNormalizedVolume(persistedVolume / 100)
         WallpaperEngine.shared.setVolume(persistedVolume)
         applyPlaybackRateToEngine(settings: settings)
+        // Scene 显示集也从持久化设置起步，避免本会话首次 setDisplayConfiguration
+        // 用全屏默认值覆盖用户的多屏选择。
+        SceneDaemonClient.shared.setMultiDisplayEnabled(settings.multiDisplayEnabled)
         lastEngineProjectionBaseline = settings
     }
 

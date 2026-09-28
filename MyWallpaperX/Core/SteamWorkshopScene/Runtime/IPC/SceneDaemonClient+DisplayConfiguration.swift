@@ -1,10 +1,23 @@
+import AppKit
 import CoreGraphics
 import Foundation
 
 @MainActor
 extension SceneDaemonClient {
     func updateDisplayConfiguration() {
-        let configuration = SceneScreenTopology.capture()
+        updateDisplayConfiguration(multiDisplayEnabled: multiDisplayEnabled)
+    }
+
+    func setMultiDisplayEnabled(_ enabled: Bool) {
+        updateDisplayConfiguration(multiDisplayEnabled: enabled)
+    }
+
+    func updateDisplayConfiguration(multiDisplayEnabled: Bool) {
+        self.multiDisplayEnabled = multiDisplayEnabled
+        let screens = multiDisplayEnabled
+            ? NSScreen.screens
+            : Array(NSScreen.screens.prefix(1))
+        let configuration = SceneScreenTopology.capture(screens: screens)
         guard !configuration.isEmpty,
               configuration != displayConfiguration else { return }
         displayConfiguration = configuration

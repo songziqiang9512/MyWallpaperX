@@ -211,7 +211,13 @@ extension WallpaperManager {
     }
 
     func restorePlaybackState() {
-        guard activeWallpaperRuntime == .video else { return }
+        // web/scene 尚无跨重启的重放链（偏差债务；退役条件=持久化启动
+        // 意图与原 launch 入口落地）。重启后降级恢复最近可用视频，保持
+        // runtime 真值、画面与轮换策略一致，而不是空转在 web/scene 标记上。
+        if activeWallpaperRuntime != .video {
+            restoreMostRecentVideoAfterNonVideoRuntime()
+            return
+        }
         // 恢复播放状态只负责恢复当前播放项，不重新编排最近使用或标签状态。
         if let currentWallpaper = currentWallpaper {
             // 启动恢复只恢复播放，不重排最近使用列表，避免额外写盘和列表抖动。
@@ -233,6 +239,25 @@ extension WallpaperManager {
                 updateRecentList: false
             )
         }
+    }
+
+    private func restoreMostRecentVideoAfterNonVideoRuntime() {
+        // recentlyUsedWallpapers 头部（index 0）是最近使用的壁纸。
+        let candidate = recentlyUsedWallpapers.first {
+            normalizedSourcePathExists($0.path)
+        } ?? wallpapers.first { normalizedSourcePathExists($0.path) }
+        guard let candidate else { return }
+        currentWallpaper = candidate
+        setAsWallpaper(
+            candidate,
+            userInitiated: false,
+            recordHistory: false,
+            updateRecentList: false
+        )
+        // init 的 refreshAutoSwitchTimerIfNeeded 跑在本分支前，当时
+        // currentWallpaper 尚为 nil（web/scene 清过快照）；降级恢复后
+        // 必须重建 timer，否则轮换策略静默死亡。
+        refreshAutoSwitchTimerIfNeeded()
     }
 
     func loadSettings() {

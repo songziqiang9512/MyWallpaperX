@@ -90,6 +90,9 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     private var screenParametersObserver: NSObjectProtocol?
     var shutdownCompletions: [(generations: Set<UInt64>, completion: () -> Void)] = []
     var displayConfiguration = SceneScreenTopology.capture()
+    /// 多屏语义与 video/web 对齐：开=全部显示器，关=仅首屏。主 App 是
+    /// 显示集的唯一裁决者，daemon 按收到的拓扑建表面。
+    var multiDisplayEnabled = true
 
     var isPlaying: Bool {
         activeIntent != nil && transport?.isRunning == true && !isPaused

@@ -38,8 +38,18 @@ extension WallpaperManager {
     private func handleEnginePlaybackFailure(_ notification: Notification) {
         if notification.userInfo?["contentKind"] as? String == "web" {
             guard activeWallpaperRuntime == .web else { return }
+            // E2a-4 引擎已把 retained video 表面恢复为当前输出；选择权威
+            // 的真值同步回退到该视频，轮换策略对"实际在播的视频"重新成立，
+            // 不再永久停摆（之前 stopAutoSwitchTimer 后无人重启 timer）。
+            if let restoredVideo = WallpaperEngine.shared.currentWallpaper,
+               normalizedSourcePathExists(restoredVideo.path) {
+                currentWallpaper = restoredVideo
+                activeWallpaperRuntime = .video
+                refreshAutoSwitchTimerIfNeeded()
+            } else {
+                stopAutoSwitchTimer()
+            }
             isPlaying = WallpaperEngine.shared.isPlaying()
-            stopAutoSwitchTimer()
             return
         }
         guard let videoPath = notification.userInfo?["videoPath"] as? String else { return }

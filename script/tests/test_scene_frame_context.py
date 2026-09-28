@@ -1190,6 +1190,16 @@ class SceneFrameContextTests(unittest.TestCase):
 
     def test_daemon_display_commands_are_debounced_and_skip_unchanged_topology(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
+        # 推送拓扑是显示集权威：applyDisplayConfiguration 先落
+        # screenTopology（多屏开关由主 App 裁决），重建按 rebuiltTopology
+        # 快照去重——目标集与已建集分离，"未变化"判定不再吞掉多屏切换。
+        apply = host.split(
+            "func applyDisplayConfiguration(", maxsplit=1
+        )[1]
+        apply = apply.split(
+            "private func scheduleScreenConfigurationReconciliation(", maxsplit=1
+        )[0]
+        self.assertIn("screenTopology = topology", apply)
         reconciliation = host.split(
             "private func scheduleScreenConfigurationReconciliation(", maxsplit=1
         )[1]
@@ -1198,7 +1208,7 @@ class SceneFrameContextTests(unittest.TestCase):
         )[0]
         self.assertIn("screenReconciliationWorkItem?.cancel()", reconciliation)
         self.assertIn("asyncAfter(deadline: .now() + 0.2", reconciliation)
-        self.assertIn("topology != self.screenTopology", reconciliation)
+        self.assertIn("topology != self.rebuiltTopology", reconciliation)
         self.assertIn("self.reassertSurfaceVisibility()", reconciliation)
         self.assertIn("self.rebuildSurfaces()", reconciliation)
 
