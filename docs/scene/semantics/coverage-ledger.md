@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-28 骨骼局部位置 API
+
+get/setLocalBoneOrigin复用现有local矩阵和同一mutation事务，只改translation并保留basis，产品净增18行。14项行为门、隔离App前后位移及与已有Mat4通道逐像素等价通过，见[证据](runtime-evidence-current.md#e-2026-09-28-bone-origin-api)。本次普查没有发现origin真实调用，不宣称已修复已知样本；三个样本含未实现impulse调用，列为下一合同核对。angles、impulse/reset、完整物理及官方parity仍开放。
+
 ## 2026-09-28 Puppet pose 发布原子性
 
 单owner姿态与hierarchy改为完整校验后一次发布，删除两段式接口及冗余world输入，产品净减43行。五类非法刷新保留旧矩阵/父关系/骨名，26项行为门通过；相同有效输入实际App前后两帧逐像素一致，见[证据](runtime-evidence-current.md#e-2026-09-28-puppet-pose-publication)。不包含骨名分配失败、多owner/Host整体回滚或全部骨骼API。

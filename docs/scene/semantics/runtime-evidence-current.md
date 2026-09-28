@@ -6,6 +6,18 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-bone-origin-api"></a>
+
+### E-2026-09-28-BONE-ORIGIN-API — 局部骨骼位置读写复用矩阵事务
+
+**合同与修正：**公开[IImageLayer](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IImageLayer.html)提供按骨名或索引读写local origin。基线bacc2a2e未注册这两个方法，真实Swift/C探针和实际App均报TypeError。现getter返回独立Vec3，setter复制原local矩阵、仅覆盖translation三个分量；旋转/缩放、层级world计算、Float范围和有界journal检查沿用原路径。一个产品文件净增18行，无新增状态、矩阵算法或命令ABI。
+
+**验证：**14项定向测试通过，覆盖getter副本、保留basis、子骨world更新、提交/撤回及下一帧、六种非法输入不写入、异常和257次写入禁用owner且无typed输出。generation用例仅证明expectedGeneration不匹配，不声明跨owner旧句柄专项。优化Debug构建及code-health通过（1005 Swift/219既有warnings）；inner选择已检查，未跑全库测试或已知欠账的全库链接门。首次测试夹具误把异常后的disabled owner当作仍可求值，已按既有语义修正，未为测试改变产品失败行为。
+
+**实际输出：**与前批相同的隔离单Puppet探针9900000300改用origin API，alpha脚本在3秒前后设置local x偏移-250/+250。基线通用矩阵仍PASS，但API异常、两图逐像素不变，专项失败；候选实际移动438.311655px，对照500×0.96449×1964/2160的438.485731px，误差约0.1741px。ready/after各与前批Mat4 API对应图逐像素一致。实际64骨、11027顶点，最大bind位移250.000122；候选158/158/0/157 submitted/completed/failed/presented，后继终端图保留变换。直接Puppet到唯一compositor，不宣称effect graph publication。原图已查看；关闭作者动画/效果后的分离bind pose只验证位置通道，非完整人物或原样本parity。
+
+**身份与余项：**App2.10.0(279)，基线SHA256 `b0588ab2250f3879bb85d5c45ad271f1c1115a6c7840880900d84594b5d02b1a`，候选SHA256 `013e287097062c5eceb128a1d467179a98991598cbdbdff8e4ab5170fb579571`、CDHash `9d457eaef67d46d49d437817687c647f1fcb818f`，前后验签通过。冻结产品/测试补丁SHA256 `bfc730239c1359c584351f422962c6a27272bac248bdcd6887ac6070a4d856fc`，独立只读审查APPROVE。189个PKG的6214个JSON/JS条目词法普查（0错误）未发现origin/angles调用；发现2797913147、2998757800、3749463715包含缺失的applyBonePhysicsImpulse调用，词法命中不证明运行可达。下一门是冲量/既有物理消费者合同，不能拿位置偏移冒充冲量。angles、impulse/reset、完整物理、多owner及官方parity仍开放。忽略缓存`2026-09-28-bone-origin-api`保存报告、原图、脚本、普查、位移、冻结补丁和审查；不保存作者PKG/模型。
+
 <a id="e-2026-09-28-puppet-pose-publication"></a>
 
 ### E-2026-09-28-PUPPET-POSE-PUBLICATION — 非法骨骼刷新保留完整旧姿态

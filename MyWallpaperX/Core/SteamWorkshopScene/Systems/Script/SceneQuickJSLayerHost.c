@@ -132,10 +132,16 @@ static bool read_mat4(JSContext *context, JSValueConst value, double output[16])
     return true;
 }
 
+static JSValue make_vec3(JSContext *context, MWXSceneQuickJSDomain *domain,
+                         const double v[3]);
+static bool read_vec3(JSContext *context, JSValueConst value, double output[3],
+                      bool *numeric_nonfinite);
+
 enum PuppetBoneFunction {
     PUPPET_BONE_COUNT, PUPPET_BONE_INDEX, PUPPET_BONE_PARENT_INDEX,
     PUPPET_BONE_GET_WORLD, PUPPET_BONE_GET_LOCAL,
     PUPPET_BONE_SET_WORLD, PUPPET_BONE_SET_LOCAL,
+    PUPPET_BONE_GET_LOCAL_ORIGIN, PUPPET_BONE_SET_LOCAL_ORIGIN,
 };
 
 static bool bone_handle_ready(MWXSceneQuickJSLayerHandle *handle,
@@ -218,7 +224,8 @@ static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
         return JS_NewInt32(context, (int32_t)owner->puppet_bone_count);
     }
     const bool lookup = magic == PUPPET_BONE_INDEX || magic == PUPPET_BONE_PARENT_INDEX;
-    const bool setter = magic == PUPPET_BONE_SET_WORLD || magic == PUPPET_BONE_SET_LOCAL;
+    const bool setter = magic == PUPPET_BONE_SET_WORLD || magic == PUPPET_BONE_SET_LOCAL
+        || magic == PUPPET_BONE_SET_LOCAL_ORIGIN;
     if (argc != (setter ? 2 : 1))
         return JS_ThrowTypeError(context, "invalid bone API argument count");
     int32_t bone_index = -1;
@@ -245,13 +252,22 @@ static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
             ? owner->puppet_bone_parent[bone_index] : bone_index);
     if (bone_index < 0) return JS_ThrowRangeError(context, "bone index is out of range");
     uint32_t bone = (uint32_t)bone_index;
+    if (magic == PUPPET_BONE_GET_LOCAL_ORIGIN)
+        return make_vec3(context, handle->domain, &owner->puppet_bone_local[bone][12]);
     if (magic == PUPPET_BONE_GET_WORLD || magic == PUPPET_BONE_GET_LOCAL)
         return make_mat4(context, handle->domain,
             magic == PUPPET_BONE_GET_WORLD
                 ? owner->puppet_bone_world[bone] : owner->puppet_bone_local[bone]);
     double matrix[16];
-    if (!read_mat4(context, argv[1], matrix))
+    if (magic == PUPPET_BONE_SET_LOCAL_ORIGIN) {
+        // Position-only writes retain the existing rotation, scale and affine
+        // basis, then use the same hierarchy validation and matrix journal.
+        memcpy(matrix, owner->puppet_bone_local[bone], sizeof(matrix));
+        if (!JS_IsObject(argv[1]) || !read_vec3(context, argv[1], &matrix[12], NULL))
+            return JS_ThrowTypeError(context, "bone origin expects finite Vec3");
+    } else if (!read_mat4(context, argv[1], matrix)) {
         return JS_ThrowTypeError(context, "bone transform expects Mat4");
+    }
     if (owner->puppet_bone_mutation_count >= MWX_SCENE_QUICKJS_MAX_PUPPET_BONE_MUTATIONS)
         return JS_ThrowInternalError(context, "Puppet bone mutation buffer exceeded");
     double local[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
@@ -2322,6 +2338,8 @@ static bool define_puppet_bone_functions(
         {"getLocalBoneTransform", PUPPET_BONE_GET_LOCAL, 1},
         {"setBoneTransform", PUPPET_BONE_SET_WORLD, 2},
         {"setLocalBoneTransform", PUPPET_BONE_SET_LOCAL, 2},
+        {"getLocalBoneOrigin", PUPPET_BONE_GET_LOCAL_ORIGIN, 1},
+        {"setLocalBoneOrigin", PUPPET_BONE_SET_LOCAL_ORIGIN, 2},
     };
     for (size_t i = 0; i < sizeof(functions) / sizeof(functions[0]); ++i) {
         MWXSceneQuickJSLayerHandle *handle = calloc(1, sizeof(*handle));
