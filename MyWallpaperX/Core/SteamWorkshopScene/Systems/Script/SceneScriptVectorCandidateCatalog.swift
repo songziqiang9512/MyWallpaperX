@@ -241,7 +241,6 @@ nonisolated extension SceneScriptVectorProgram {
             return candidate
         }
         guard binding.owner.kind == .object,
-              ["origin", "scale", "angles"].contains(binding.targetKey),
               binding.valueType == .string,
               let sourceValue = binding.authoredValue?.stringValue,
               let authored = vector3(sourceValue),
@@ -249,33 +248,45 @@ nonisolated extension SceneScriptVectorProgram {
               let layerID = binding.owner.objectID,
               descriptor.layers.indices.contains(objectIndex) else { return nil }
         let layer = descriptor.layers[objectIndex]
-        guard layer.id == layerID, layer.layerIndex == objectIndex,
-              binding.targetPath == [
-                  .key("objects"), .index(objectIndex), .key(binding.targetKey),
-              ] else { return nil }
+        guard layer.id == layerID, layer.layerIndex == objectIndex else { return nil }
         let descriptorValue: [Float]?
         let target: SceneDynamicTarget
-        switch binding.targetKey {
-        case "origin":
-            descriptorValue = layer.originXYZ
-            target = .layer(layerID: layerID, field: .origin)
-        case "scale":
-            descriptorValue = layer.scaleXYZ
-            target = .layer(layerID: layerID, field: .scale)
-        case "angles":
-            descriptorValue = layer.anglesXYZ
-            target = .layer(layerID: layerID, field: .angles)
-        default:
-            return nil
+        let particleColor = binding.targetPath == [
+            .key("objects"), .index(objectIndex), .key("instanceoverride"), .key("colorn"),
+        ]
+        if particleColor {
+            guard binding.targetKey == "colorn", layer.contentKind == "particle",
+                  let bound = layer.particleInstanceOverride?.normalizedColor,
+                  bound.hasScript, bound.userPropertyKey == nil, !bound.hasAnimation,
+                  case let .vector(values) = bound.value, values.count == 3 else { return nil }
+            descriptorValue = values.map(Float.init)
+            target = .particle(layerID: layerID, field: .normalizedColor)
+        } else {
+            guard binding.targetPath == [
+                .key("objects"), .index(objectIndex), .key(binding.targetKey),
+            ] else { return nil }
+            switch binding.targetKey {
+            case "origin":
+                descriptorValue = layer.originXYZ
+                target = .layer(layerID: layerID, field: .origin)
+            case "scale":
+                descriptorValue = layer.scaleXYZ
+                target = .layer(layerID: layerID, field: .scale)
+            case "angles":
+                descriptorValue = layer.anglesXYZ
+                target = .layer(layerID: layerID, field: .angles)
+            default:
+                return nil
+            }
         }
         let hasCurrentAnimation = timelineTargets.contains(target)
         let validWrapper =
             (binding.wrapperKeys == ["script", "value"] && binding.properties.isEmpty)
             || SceneScriptDynamicProviderHostContract.supports(
                 keys: binding.wrapperKeys ?? [],
-                host: .objectVector
+                host: particleColor ? .particleValue : .objectVector
             )
-            || (binding.wrapperKeys == ["animation", "script", "value"]
+            || (!particleColor && binding.wrapperKeys == ["animation", "script", "value"]
                 && binding.properties.isEmpty && hasCurrentAnimation)
         guard validWrapper else { return nil }
         guard let descriptorValue, descriptorValue.count == 3,

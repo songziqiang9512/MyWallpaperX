@@ -561,8 +561,8 @@ nonisolated struct SceneUserPropertyBindingParser {
            key(components[0]) == "objects", index(components[1]) != nil,
            key(components[2]) == "instanceoverride",
            let field = key(components[3]),
-           ["alpha", "size", "lifetime", "rate", "speed", "count", "brightness"].contains(field) {
-            return .particleScalar
+           ["alpha", "size", "lifetime", "rate", "speed", "count", "brightness", "colorn"].contains(field) {
+            return .particleValue
         }
         guard components.count == 8
             && key(components[0]) == "objects"

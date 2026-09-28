@@ -6,6 +6,20 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-particle-color-script"></a>
+
+### E-2026-09-28-PARTICLE-COLOR-SCRIPT — 粒子颜色脚本接入现有 Vec3 通道
+
+**首断点与实现：**05324751已有typed normalizedColor及root/child出生消费者，但Script IR未收集instanceoverride.colorn，Vec3 candidate也没有对应target，作者脚本被忽略。现在原parser收集该字段，原Vec3 projection按owner/index/id/完整path/descriptor fallback精确准入，经既有QuickJS和typed snapshot送入粒子；原marker projection同时接受scalar/vector的已准入target。wrapper合同particleScalar改名particleValue共用，未新增parser、VM、状态或compositor。颜色值只改变新生粒子，沿既有child传递，不重染存量粒子，也不改变颜色平方、优先级或General flags。
+
+**行为验证：**parser13项、property binding30项通过。vector模块24项首次最终范围回归中23通过，新增负例错误地将return 1当作非法Vec3（既有VM可接受该值），失败如实保留；改为既有非法object返回{}后，新增项单独复跑通过，验证正常颜色、非法返回不发布、后继恢复、null-user、marker精确清除、cursor owner注册及非空user/direct color/错fallback/重复绑定拒绝。没有改VM语义迁就测试。优化Debug构建、验签、code-health通过（1005 Swift/219既有warnings）。cursor只验证注册，未验收粒子点击可见行为。
+
+**实际App：**同一自有9900000403包，两层各root+static child、短寿命持续发射；900的colorn脚本先红后蓝，901固定绿色。基线ready/after四个ROI均绿色；候选900 root/child的RGB由(190,30,38)变为(29,35,149)，901保持绿色；同层root/child相等。已查看最终Metal图，自动ROI检验通道优势与静态对照。不同拍摄时刻有3/4颗additive重叠，不以两版亮度差推定颜色转换或性能变化。App脚本中的一次return 1不是坏返回，错误恢复证据仅来自上述QuickJS单测。夹具复用留下的alpha对象名/矩阵名不改变实际colorn输入；原输入未改写。
+
+候选performance读取时submitted/completed/failed/presented=227/226/0/225，两个layer各227/226粒子帧、1588/1582实例；frame0/1/2完成并有后继最终输出。direct粒子draw不涉及graph publication。两版通用benchmark均NON-PASS，仅因纯粒子场景image loaded ratio=0，particle自身2/2加载；保留原门值与报告。没有原Workshop样本/官方颜色空间parity结论，world/perspective、child独立脚本与来源冲突不扩张，2986218263及QV仍未关闭。
+
+**身份与审查：**App2.10.0(279)，baseline SHA256 `2fa0b42c35955f8dcb8cd9747748182447afad710884d978c86f21d48a28b74c`；candidate SHA256 `6b4732b0f67313da234beaa7c06cd2fc6108e5fc043784dbe8b0252e0c2cc7da`、CDHash `e1318417c23ed656833a120f14cc9b18b2ce8e51`。八产品/一测试冻结SHA256 `9a8d4601ecbc7b0f59a796890aab7738e8b34bedc7b1dd67906fd0d95456c727`，独立只读审查APPROVE，仅接受root normalizedColor与既有child出生消费。忽略缓存`2026-09-28-particle-color-script`保存同输入两次报告/图/日志、自有夹具、ROI、失败及修正验证、构建和冻结补丁。
+
 <a id="e-2026-09-28-particle-layer-alpha"></a>
 
 ### E-2026-09-28-PARTICLE-LAYER-ALPHA — 图层透明度实时作用于根粒子和子粒子

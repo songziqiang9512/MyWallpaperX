@@ -1070,6 +1070,43 @@ enum Harness {
             frame: frame,
             audioSpectrum: audioSnapshot
         )
+        var particleColorDescriptor = descriptor
+        particleColorDescriptor.layers[3].particleInstanceOverride = .init(
+            id: nil, alpha: nil, size: nil, lifetime: nil, rate: nil, speed: nil,
+            count: nil, brightness: nil, color: nil,
+            normalizedColor: .init(value: .vector([1, 1, 1]), userPropertyKey: nil,
+                hasScript: true, hasAnimation: false), controlPoints: [:], controlPointAngles: [:])
+        func particleColorBindings(user: Any? = nil, key: String = "colorn", value: String = "1 1 1") -> [SceneScriptBindingIR] {
+            var wrapper: [String: Any] = ["value": value,
+                "script": "export function update(v){if(v.x<0)return {};return new Vec3(v.x*0.5,v.y*0.25,v.z*0.75);} export function cursorClick(e){return new Vec3(1,0,0);}"]
+            if let user { wrapper["user"] = user }
+            return SceneScriptBindingIRParser.parse(document: ["objects": [
+                ["id": 10], ["id": 42], ["id": 77], ["id": 139, "instanceoverride": [key: wrapper]]
+            ]]).bindings
+        }
+        let colorBindings = particleColorBindings(user: NSNull())
+        let particleColorTarget = SceneDynamicTarget.particle(layerID: 139, field: .normalizedColor)
+        let particleColors = SceneScriptVectorProgram.compile(
+            domain: domain, descriptor: particleColorDescriptor, scriptBindings: colorBindings,
+            userPropertyDefinitions: [], generation: 194)
+        func evaluateParticleColor(_ input: SceneDynamicValue) -> SceneScriptVectorFrameResult {
+            particleColors.evaluate(inputs: [particleColorTarget: input], effectivePropertyValues: [:], frame: frame)
+        }
+        let particleColorResult = evaluateParticleColor(.vector3(1, 1, 1))
+        let particleColorBad = evaluateParticleColor(.vector3(-1, 1, 1))
+        let particleColorRecovered = evaluateParticleColor(.vector3(1, 1, 1))
+        let colorProjection = SceneScriptVectorProgram.project(descriptor: particleColorDescriptor,
+            scriptBindings: colorBindings)
+        let clearedParticleColor = SceneScriptParticleProjection.apply(
+            admittedTargets: colorProjection.targets, to: particleColorDescriptor)
+            .layers[3].particleInstanceOverride?.normalizedColor?.hasScript == false
+        let rejectedParticleColors = [particleColorBindings(user: "conflict"),
+            particleColorBindings(key: "color"), particleColorBindings(value: "0 1 1"),
+            colorBindings + colorBindings].map {
+                SceneScriptVectorProgram.project(descriptor: particleColorDescriptor,
+                    scriptBindings: $0).targets.isEmpty
+            }
+
         let particleScalarFields: [(String, SceneDynamicParticleField)] = [
             ("alpha", .alpha), ("size", .size), ("lifetime", .lifetime),
             ("rate", .rate), ("speed", .speed), ("count", .count),
@@ -2075,6 +2112,13 @@ enum Harness {
             "particleScalarBadFailures": particleBadResult.failures.count,
             "particleScalarBadSizeAbsent": particleBadResult.values[.particle(layerID: 139, field: .size)] == nil,
             "particleScalarRecovered": particleRecoveredResult.values.count,
+            "particleColor": vector(particleColorResult.values[particleColorTarget]),
+            "particleColorRecovered": vector(particleColorRecovered.values[particleColorTarget]),
+            "particleColorBadRejected": particleColorBad.values[particleColorTarget] == nil
+                && particleColorBad.failures[particleColorTarget] != nil,
+            "particleColorCursorOwners": particleColors.cursorOwnerRegistrations.count,
+            "particleColorMarkerCleared": clearedParticleColor,
+            "particleColorNegativeAdmission": rejectedParticleColors,
             "particleScalarMarkersCleared": allParticleMarkersCleared,
             "particleScalarHiddenPreserved": particleProjected.visible == false,
             "particleScalarPartialExact": partialParticle.count?.hasScript == false
@@ -2748,6 +2792,15 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
             [str(self.binary)], check=True, capture_output=True, text=True
         )
         return json.loads(completed.stdout)
+
+    def test_particle_normalized_color_uses_vector_owner_and_recovers(self) -> None:
+        value = self.result()
+        self.assertEqual(value["particleColor"], [0.5, 0.25, 0.75])
+        self.assertEqual(value["particleColorRecovered"], [0.5, 0.25, 0.75])
+        self.assertTrue(value["particleColorBadRejected"])
+        self.assertEqual(value["particleColorCursorOwners"], 1)
+        self.assertTrue(value["particleColorMarkerCleared"])
+        self.assertEqual(value["particleColorNegativeAdmission"], [True] * 4)
 
     def test_generic_vec3_executes_script_properties_and_scalar_splat(self) -> None:
         value = self.result()

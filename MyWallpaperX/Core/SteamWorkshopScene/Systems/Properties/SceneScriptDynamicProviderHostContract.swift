@@ -11,12 +11,12 @@ nonisolated enum SceneScriptDynamicProviderHostContract {
         case objectVector
         case objectVisibility
         case objectText
-        case particleScalar
+        case particleValue
         case passConstant
 
         var acceptsNullOuterUser: Bool {
             switch self {
-            case .objectVector, .objectText, .particleScalar, .passConstant:
+            case .objectVector, .objectText, .particleValue, .passConstant:
                 return true
             case .objectScalar, .objectVisibility:
                 return false
@@ -37,8 +37,8 @@ nonisolated enum SceneScriptDynamicProviderHostContract {
             || (host == .objectText
                 && (keys == ["script", "value"]
                     || keys == ["script", "user", "value"]))
-            || (host == .particleScalar && keys == ["script", "value"])
-            || (host == .particleScalar
+            || (host == .particleValue && keys == ["script", "value"])
+            || (host == .particleValue
                 && keys == ["script", "user", "value"])
             || keys == ["script", "scriptproperties", "value"]
             || (host.acceptsNullOuterUser

@@ -55,7 +55,7 @@ extension SceneScriptVectorProgram {
             }
             let layerID: Int
             switch binding.definition.target {
-            case let .layer(value, _), let .text(value, _),
+            case let .layer(value, _), let .text(value, _), let .particle(value, _),
                  let .effectConstant(value, _, _, _),
                  let .effectVisibility(value, _):
                 layerID = value

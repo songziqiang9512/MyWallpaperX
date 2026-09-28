@@ -143,7 +143,7 @@ struct SceneRuntimeModelBuilder {
             to: mediaProjectedDescriptor
         )
         let particleProjectedDescriptor = SceneScriptParticleProjection.apply(
-            admittedTargets: projectedScalarTargets,
+            admittedTargets: projectedScalarTargets.union(structuralPropertyVectorProjection.targets),
             to: scalarProjectedDescriptor
         )
         // A failed optional scale producer keeps the resolved authored current.

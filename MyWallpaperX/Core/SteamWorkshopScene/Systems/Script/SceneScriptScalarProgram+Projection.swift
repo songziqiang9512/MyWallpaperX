@@ -109,7 +109,7 @@ nonisolated extension SceneScriptScalarProgram {
                 .key("instanceoverride"), .key(binding.targetKey),
             ] {
                 guard SceneScriptDynamicProviderHostContract.supports(
-                          keys: binding.wrapperKeys ?? [], host: .particleScalar
+                          keys: binding.wrapperKeys ?? [], host: .particleValue
                       ),
                       layer.contentKind == "particle",
                       let override = layer.particleInstanceOverride,

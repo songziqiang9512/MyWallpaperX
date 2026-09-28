@@ -1,6 +1,6 @@
 import Foundation
 
-/// An admitted scalar owner starts from its authored value until the shared VM
+/// An admitted particle-value owner starts from its authored value until the shared VM
 /// publishes a newer value. Only that exact field loses its script marker;
 /// unadmitted siblings retain their authored fallback and diagnostics.
 nonisolated enum SceneScriptParticleProjection {
@@ -34,7 +34,7 @@ nonisolated enum SceneScriptParticleProjection {
                 speed: admitted(value.speed, .speed),
                 count: admitted(value.count, .count),
                 brightness: admitted(value.brightness, .brightness),
-                color: value.color, normalizedColor: value.normalizedColor,
+                color: value.color, normalizedColor: admitted(value.normalizedColor, .normalizedColor),
                 controlPoints: value.controlPoints,
                 controlPointAngles: value.controlPointAngles
             )
