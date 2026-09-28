@@ -6,6 +6,14 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-video-real-samples"></a>
+
+### E-2026-09-28-VIDEO-REAL-SAMPLES — 脚本视频命令链三个真实样本验收通过（证据批，无产品改动）
+
+**范围与结论：**真实根全语料扫描（189 样本）找到全部 3 个使用视频脚本 API 的样本并逐一隔离回放（20 秒、全尺寸视口、无属性注入）：`3113554287`（getVideoTexture play/pause + 时段切换 + visible 写）、`3775355045`/`3775373546`（同源双视频同步脚本：getCurrentTime/setCurrentTime/isPlaying/play/pause）。三样本 protocol 门全 PASS（loaded=1.0、非黑、changed），脚本 owner 零失败，videoCommands 逐帧提交，`video-frame-v1` 解码连续推进（311 单视频到 19.97s；同步样本两视频层 requested≈decoded 差 <2ms lockstep，漂移校正命令间歇提交），after 截图视频内容可见。09-28 cursor/value 视频命令批的"真实样本"验收子项就此闭合；不外推官方 parity、性能或多屏。
+
+**身份与留存：**HEAD `63ad7a87`；App Debug -O 2.10.0(280)。忽略缓存`2026-09-28-video-real-samples`保留三份报告/日志/截图与身份清单；语料普查口径=scene.pkg/project.json 明文正则（getVideo/playVideo/VideoPlayer 等）。剩余开放子项不变：视频 effect graph、结束回调组合、多屏资源生命周期。
+
 <a id="e-2026-09-28-point-light-roi"></a>
 
 ### E-2026-09-28-POINT-LIGHT-ROI — 3662790108 动态 point 光执行与可见贡献正证（证据批，无产品改动）
