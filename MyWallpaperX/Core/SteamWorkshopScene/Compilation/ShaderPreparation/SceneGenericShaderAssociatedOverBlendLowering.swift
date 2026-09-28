@@ -179,9 +179,9 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
         expectedComponentWrites: Int,
         in source: String
     ) -> Bool {
-        let sourceName = escaped(sourceCarrier)
-        let overlayName = escaped(overlayCarrier)
-        let functions = blendFunctions.sorted().map(escaped).joined(separator: "|")
+        let sourceName = SceneShaderSourceTextFacts.escaped(sourceCarrier)
+        let overlayName = SceneShaderSourceTextFacts.escaped(overlayCarrier)
+        let functions = blendFunctions.sorted().map(SceneShaderSourceTextFacts.escaped).joined(separator: "|")
         let pattern = #"(?m)^[ \t]*float3\s+([A-Za-z_]\w*)\s*=\s*"#
             + sourceName + #"\.(?:rgb|xyz)\s*;[ \t]*\n"#
             + #"[ \t]*float3\s+([A-Za-z_]\w*)\s*=\s*"#
@@ -216,7 +216,7 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
     }
 
     private static func wordUseCount(_ word: String, in source: String) -> Int {
-        matches(#"\b"# + escaped(word) + #"\b"#, in: source).count
+        matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).count
     }
 
     private static func initializerForScalar(
@@ -225,7 +225,7 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
     ) -> String? {
         let definitions = matches(
             #"(?m)^[ \t]*(?:const[ \t]+)?(?:float|half)[ \t]+"#
-                + escaped(name) + #"\s*=\s*([^;\n]+);[ \t]*$"#,
+                + SceneShaderSourceTextFacts.escaped(name) + #"\s*=\s*([^;\n]+);[ \t]*$"#,
             in: source
         )
         guard definitions.count == 1 else { return nil }
@@ -237,14 +237,14 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
         in source: String
     ) -> Int {
         matches(
-            #"(?m)^[ \t]*"# + escaped(name)
+            #"(?m)^[ \t]*"# + SceneShaderSourceTextFacts.escaped(name)
                 + #"\.(?:x|y|z|w|r|g|b|a)\s*=\s*[^;\n]+;[ \t]*$"#,
             in: source
         ).count
     }
 
     private static func containsWord(_ word: String, in source: String) -> Bool {
-        !matches(#"\b"# + escaped(word) + #"\b"#, in: source).isEmpty
+        !matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).isEmpty
     }
 
     private static func hasBlendUpdate(
@@ -257,13 +257,13 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
         requiresOverlayAlphaWrite: Bool,
         in source: String
     ) -> Bool {
-        let sourceName = escaped(sourceCarrier)
-        let overlayName = escaped(overlayCarrier)
+        let sourceName = SceneShaderSourceTextFacts.escaped(sourceCarrier)
+        let overlayName = SceneShaderSourceTextFacts.escaped(overlayCarrier)
         let functions = blendFunctions
             .sorted()
-            .map(escaped)
+            .map(SceneShaderSourceTextFacts.escaped)
             .joined(separator: "|")
-        let weight = blendWeight.map(escaped) ?? #"[A-Za-z_]\w*"#
+        let weight = blendWeight.map(SceneShaderSourceTextFacts.escaped) ?? #"[A-Za-z_]\w*"#
         let colorMember = writesRGBOnly
             ? #"\.(?:rgb|xyz)"#
             : ""
@@ -285,7 +285,7 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
         else { return false }
         let definitions = matches(
             #"(?m)^[ \t]*(?:const[ \t]+)?(?:float|half)[ \t]+"#
-                + escaped(actualWeight) + #"\s*=\s*([^;\n]+);[ \t]*$"#,
+                + SceneShaderSourceTextFacts.escaped(actualWeight) + #"\s*=\s*([^;\n]+);[ \t]*$"#,
             in: source
         )
         guard definitions.count == 1,
@@ -330,7 +330,7 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
                 charactersIn: " \t\r\n()"
             ))
             if matches(
-                #"^"# + escaped(overlayCarrier) + #"\.(?:a|w)$"#,
+                #"^"# + SceneShaderSourceTextFacts.escaped(overlayCarrier) + #"\.(?:a|w)$"#,
                 in: value
             ).count == 1 {
                 overlayUses += 1
@@ -401,13 +401,13 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
     ) -> Int {
         let assigned = matches(
             #"(?m)^[ \t]*(?:(?:const[ \t]+)?[A-Za-z_]\w*[ \t]+)?"#
-                + escaped(name)
+                + SceneShaderSourceTextFacts.escaped(name)
                 + #"(?:\.(?:rgb|xyz|a|w))?\s*(?:=|\+=|-=|\*=|/=)"#,
             in: source
         ).count
         let incremented = matches(
-            #"(?m)^[ \t]*(?:(?:\+\+|--)\s*"# + escaped(name)
-                + #"(?:\.(?:rgb|xyz|a|w))?|"# + escaped(name)
+            #"(?m)^[ \t]*(?:(?:\+\+|--)\s*"# + SceneShaderSourceTextFacts.escaped(name)
+                + #"(?:\.(?:rgb|xyz|a|w))?|"# + SceneShaderSourceTextFacts.escaped(name)
                 + #"(?:\.(?:rgb|xyz|a|w))?\s*(?:\+\+|--))[ \t]*;[ \t]*$"#,
             in: source
         ).count
@@ -438,9 +438,5 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
             return nil
         }
         return String(source[range])
-    }
-
-    private static func escaped(_ value: String) -> String {
-        NSRegularExpression.escapedPattern(for: value)
     }
 }

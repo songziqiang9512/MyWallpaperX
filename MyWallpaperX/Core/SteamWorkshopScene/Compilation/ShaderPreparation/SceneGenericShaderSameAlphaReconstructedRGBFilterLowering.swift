@@ -127,8 +127,8 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
         body: NSRange,
         source: String
     ) -> Bool {
-        let escapedSnapshot = escaped(snapshot)
-        let escapedCarrier = escaped(carrier)
+        let escapedSnapshot = SceneShaderSourceTextFacts.escaped(snapshot)
+        let escapedCarrier = SceneShaderSourceTextFacts.escaped(carrier)
         let snapshotDefinitions = matches(
             #"(?m)^[ \t]*(?:const[ \t]+)?float4[ \t]+"#
                 + escapedSnapshot + #"\s*=\s*g_Texture"#
@@ -202,7 +202,7 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
         var initializedLanes = Set<String>()
         for call in sourceCalls where call.projection != .fullVector {
             guard let callRange = Range(call.range, in: source) else { return false }
-            let text = escaped(String(source[callRange]))
+            let text = SceneShaderSourceTextFacts.escaped(String(source[callRange]))
             if let lane = compilerLane(call.projection) {
                 let assignments = matches(
                     #"(?m)^[ \t]*"# + escapedCarrier + #"\s*\.\s*"#
@@ -261,7 +261,7 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
     }
 
     private static func selectedLane(_ expression: String, from name: String) -> String? {
-        let pattern = #"^\s*"# + escaped(name)
+        let pattern = #"^\s*"# + SceneShaderSourceTextFacts.escaped(name)
             + #"\s*\.\s*([xyzwrgba]{1,4})(?:\s*\.\s*([xyzwrgba]))?\s*$"#
         guard let match = matches(pattern, in: expression).first,
               let base = capture(match, 1, in: expression) else { return nil }
@@ -326,7 +326,7 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
               temporaryDefinitions[0].range.location < output.location,
               let temporary = capture(temporaryDefinitions[0], 1, in: source)
         else { return false }
-        let escapedTemporary = escaped(temporary)
+        let escapedTemporary = SceneShaderSourceTextFacts.escaped(temporary)
         let greenWrites = matches(
             #"(?m)^[ \t]*"# + carrier
                 + #"\s*\.\s*(?:y|g)\s*=\s*"# + escapedTemporary
@@ -498,11 +498,6 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
             range: NSRange(source.startIndex..., in: source)
         )
     }
-
-    private static func escaped(_ source: String) -> String {
-        NSRegularExpression.escapedPattern(for: source)
-    }
-
     private static func capture(
         _ match: NSTextCheckingResult,
         _ index: Int,

@@ -346,3 +346,22 @@ nonisolated enum SceneAuthoredShaderSyntaxAnalyzer {
         )
     }
 }
+
+/// Source-text facts shared by the authored shader frontend and the generic
+/// shader preparation. This file is compiled by every harness source subset that
+/// contains a caller, which is what lets the helpers live in exactly one place.
+nonisolated enum SceneShaderSourceTextFacts {
+    static func escaped(_ source: String) -> String {
+        NSRegularExpression.escapedPattern(for: source)
+    }
+
+    static func countWord(_ word: String, in source: String) -> Int {
+        // `\b` around an escaped word is always a valid pattern, so compilation
+        // cannot fail; fixed patterns follow the reviewed try! policy instead of
+        // silently counting zero.
+        try! NSRegularExpression(pattern: #"\b"# + escaped(word) + #"\b"#).matches(
+            in: source,
+            range: NSRange(source.startIndex..., in: source)
+        ).count
+    }
+}

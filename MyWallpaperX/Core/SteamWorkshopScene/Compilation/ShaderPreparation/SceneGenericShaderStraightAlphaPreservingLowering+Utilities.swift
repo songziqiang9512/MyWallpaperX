@@ -218,7 +218,7 @@ inline float4 \(premultiply)(float4 color) {
         }
 
         let carrierDefinitions = matches(
-            #"(?m)^[ \t]*float4\s+"# + escaped(carrier)
+            #"(?m)^[ \t]*float4\s+"# + SceneShaderSourceTextFacts.escaped(carrier)
                 + #"\s*=\s*float4\([^;]+\)\s*;[ \t]*$"#,
             in: source
         )
@@ -299,10 +299,10 @@ inline float4 \(premultiply)(float4 color) {
               !body.contains(sampleLocal),
               !body.contains("g_Texture"),
               !body.contains("mwxFragColor"),
-              countWord(carrier, in: body) == 2 else { return false }
+              SceneShaderSourceTextFacts.countWord(carrier, in: body) == 2 else { return false }
         let assignment = matches(
-            #"(?m)^\s*"# + escaped(carrier)
-                + #"\s*=\s*(?:mix|lerp)\s*\(\s*"# + escaped(carrier)
+            #"(?m)^\s*"# + SceneShaderSourceTextFacts.escaped(carrier)
+                + #"\s*=\s*(?:mix|lerp)\s*\(\s*"# + SceneShaderSourceTextFacts.escaped(carrier)
                 + #"\s*,\s*float4\([^;]+\)\s*,\s*float4\([^;]+\)\s*\)\s*;\s*$"#,
             in: body
         )
@@ -407,18 +407,18 @@ inline float4 \(premultiply)(float4 color) {
               let carrierAlias = capture(call, 3, in: source),
               let weightAlias = capture(call, 4, in: source) else { return nil }
         guard matches(
-            #"(?m)^\s*float3\s+"# + escaped(sourceAlias)
-                + #"\s*=\s*"# + escaped(sampleLocal) + #"\.(?:xyz|rgb)\s*;\s*$"#,
+            #"(?m)^\s*float3\s+"# + SceneShaderSourceTextFacts.escaped(sourceAlias)
+                + #"\s*=\s*"# + SceneShaderSourceTextFacts.escaped(sampleLocal) + #"\.(?:xyz|rgb)\s*;\s*$"#,
             in: source
         ).count == 1,
         matches(
-            #"(?m)^\s*float3\s+"# + escaped(carrierAlias)
-                + #"\s*=\s*"# + escaped(carrier) + #"\.(?:xyz|rgb)\s*;\s*$"#,
+            #"(?m)^\s*float3\s+"# + SceneShaderSourceTextFacts.escaped(carrierAlias)
+                + #"\s*=\s*"# + SceneShaderSourceTextFacts.escaped(carrier) + #"\.(?:xyz|rgb)\s*;\s*$"#,
             in: source
         ).count == 1,
         let weightMatch = matches(
-            #"(?m)^\s*float\s+"# + escaped(weightAlias)
-                + #"\s*=\s*"# + escaped(carrier) + #"\.(?:w|a)\s*\*\s*([^;]+)\s*;\s*$"#,
+            #"(?m)^\s*float\s+"# + SceneShaderSourceTextFacts.escaped(weightAlias)
+                + #"\s*=\s*"# + SceneShaderSourceTextFacts.escaped(carrier) + #"\.(?:w|a)\s*\*\s*([^;]+)\s*;\s*$"#,
             in: source
         ).first,
         let weight = capture(weightMatch, 1, in: source),
@@ -426,8 +426,8 @@ inline float4 \(premultiply)(float4 color) {
         (0..<3).allSatisfy({ component in
             let names = ["x", "y", "z"]
             return matches(
-                #"(?m)^\s*"# + escaped(carrier) + #"\."# + names[component]
-                    + #"\s*=\s*"# + escaped(result) + #"\."# + names[component]
+                #"(?m)^\s*"# + SceneShaderSourceTextFacts.escaped(carrier) + #"\."# + names[component]
+                    + #"\s*=\s*"# + SceneShaderSourceTextFacts.escaped(result) + #"\."# + names[component]
                     + #"\s*;\s*$"#,
                 in: source
             ).count == 1
@@ -441,10 +441,10 @@ inline float4 \(premultiply)(float4 color) {
         sampleLocal: String,
         before boundary: Int
     ) -> String? {
-        let pattern = #"(?m)^\s*"# + escaped(carrier)
+        let pattern = #"(?m)^\s*"# + SceneShaderSourceTextFacts.escaped(carrier)
             + #"\.(?:w|a)\s*=\s*BlendTransparency\(\s*"#
-            + escaped(sampleLocal) + #"\.(?:w|a)\s*,\s*"#
-            + escaped(carrier) + #"\.(?:w|a)\s*,\s*([^,)]+)\s*\)\s*;\s*$"#
+            + SceneShaderSourceTextFacts.escaped(sampleLocal) + #"\.(?:w|a)\s*,\s*"#
+            + SceneShaderSourceTextFacts.escaped(carrier) + #"\.(?:w|a)\s*,\s*([^,)]+)\s*\)\s*;\s*$"#
         let matches = matches(pattern, in: source).filter {
             $0.range.location < boundary
         }
@@ -470,7 +470,7 @@ inline float4 \(premultiply)(float4 color) {
         ), let object = capture(match, 1, in: value),
         let member = capture(match, 2, in: value) else { return false }
         return matches(
-            #"(?m)^\s*float\s+"# + escaped(member) + #"\s*;"#,
+            #"(?m)^\s*float\s+"# + SceneShaderSourceTextFacts.escaped(member) + #"\s*;"#,
             in: source
         ).count == 1 && !object.isEmpty
     }
@@ -482,18 +482,13 @@ inline float4 \(premultiply)(float4 color) {
         branchPresent: Bool
     ) -> Bool {
         let expected = branchPresent ? 11 : 9
-        return countWord(carrier, in: source) == expected
-            && countWord(sampleLocal, in: source) == 3
+        return SceneShaderSourceTextFacts.countWord(carrier, in: source) == expected
+            && SceneShaderSourceTextFacts.countWord(sampleLocal, in: source) == 3
     }
 
     static func containsWord(_ word: String, in source: String) -> Bool {
-        !matches(#"\b"# + escaped(word) + #"\b"#, in: source).isEmpty
+        !matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).isEmpty
     }
-
-    static func countWord(_ word: String, in source: String) -> Int {
-        matches(#"\b"# + escaped(word) + #"\b"#, in: source).count
-    }
-
     static func matches(
         _ pattern: String,
         in source: String
@@ -503,11 +498,6 @@ inline float4 \(premultiply)(float4 color) {
             range: NSRange(source.startIndex..., in: source)
         )
     }
-
-    static func escaped(_ source: String) -> String {
-        NSRegularExpression.escapedPattern(for: source)
-    }
-
     static func capture(
         _ match: NSTextCheckingResult,
         _ index: Int,

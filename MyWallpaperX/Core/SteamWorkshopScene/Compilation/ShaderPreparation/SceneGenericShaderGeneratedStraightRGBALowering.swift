@@ -180,7 +180,7 @@ nonisolated enum SceneGenericShaderGeneratedStraightRGBALowering {
                   let call = capture(declaration, 3, in: source),
                   let slotText = capture(declaration, 4, in: source),
                   let slot = Int(slotText),
-                  countWord(local, in: source) == 1,
+                  SceneShaderSourceTextFacts.countWord(local, in: source) == 1,
                   let arguments = matches(
                       #"^g_Texture"# + String(slot)
                         + #"\.sample\(\s*g_Texture"# + String(slot)
@@ -195,7 +195,7 @@ nonisolated enum SceneGenericShaderGeneratedStraightRGBALowering {
                       uniforms: uniforms,
                       in: source
                   ),
-                  countWord(coordinate, in: source) == 2 else { return false }
+                  SceneShaderSourceTextFacts.countWord(coordinate, in: source) == 2 else { return false }
             let coordinateDeclarations = matches(
                 #"(?m)^[ \t]*(?:const\s+)?float2\s+"#
                     + NSRegularExpression.escapedPattern(for: coordinate)
@@ -314,14 +314,6 @@ nonisolated enum SceneGenericShaderGeneratedStraightRGBALowering {
             in: source
         ).isEmpty
     }
-
-    private static func countWord(_ word: String, in source: String) -> Int {
-        matches(
-            #"\b"# + NSRegularExpression.escapedPattern(for: word) + #"\b"#,
-            in: source
-        ).count
-    }
-
     private static func matches(
         _ pattern: String,
         in source: String

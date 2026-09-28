@@ -62,7 +62,7 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
         }
         let outputs = matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*float4\(\s*([A-Za-z_]\w*)\s*,\s*"#
-                + escaped(carrier)
+                + SceneShaderSourceTextFacts.escaped(carrier)
                 + #"\.w\s*\)\s*;[ \t]*$"#,
             in: source
         )
@@ -183,13 +183,13 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
               ) else { return nil }
 
         let changedDeclarations = matches(
-            #"(?m)^[ \t]*float4\s+"# + escaped(changed)
+            #"(?m)^[ \t]*float4\s+"# + SceneShaderSourceTextFacts.escaped(changed)
                 + #"\s*=\s*[^;]+;[ \t]*$"#,
             in: source
         )
         let alphaRestores = matches(
-            #"(?m)^[ \t]*"# + escaped(changed)
-                + #"\.w\s*=\s*"# + escaped(carrier) + #"\.w\s*;[ \t]*$"#,
+            #"(?m)^[ \t]*"# + SceneShaderSourceTextFacts.escaped(changed)
+                + #"\.w\s*=\s*"# + SceneShaderSourceTextFacts.escaped(carrier) + #"\.w\s*;[ \t]*$"#,
             in: source
         )
         guard changedDeclarations.count == 1,
@@ -324,7 +324,7 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
             }
         }
         let carrierWrites = matches(
-            #"\b"# + escaped(carrier)
+            #"\b"# + SceneShaderSourceTextFacts.escaped(carrier)
                 + #"\b(?:\s*\.\s*[A-Za-z_]\w*)?\s*"#
                 + assignmentOperatorPattern,
             in: source
@@ -404,13 +404,13 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
               alpha == fact.scalarAlphaSampleCallCounts else { return false }
 
         let carrierWrites = matches(
-            #"\b"# + escaped(carrier)
+            #"\b"# + SceneShaderSourceTextFacts.escaped(carrier)
                 + #"\b(?:\s*\.\s*[A-Za-z_]\w*)?\s*"#
                 + assignmentOperatorPattern,
             in: source
         )
         let carrierPrefixWrites = matches(
-            #"(?:\+\+|--)\s*\b"# + escaped(carrier)
+            #"(?:\+\+|--)\s*\b"# + SceneShaderSourceTextFacts.escaped(carrier)
                 + #"\b(?:\s*\.\s*[A-Za-z_]\w*)?"#,
             in: source
         )
@@ -430,7 +430,7 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
         switch call.projection {
         case .rgb:
             return matches(
-                #"^\s*(?:(?:const\s+)?float3\s+)?"# + escaped(color)
+                #"^\s*(?:(?:const\s+)?float3\s+)?"# + SceneShaderSourceTextFacts.escaped(color)
                     + #"\s*(?:=|\+=)\s*.+\.(?:xyz|rgb)\s*;\s*$"#,
                 in: line
             ).count == 1
@@ -759,9 +759,5 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
         in source: String
     ) -> String? {
         Range(range, in: source).map { String(source[$0]) }
-    }
-
-    private static func escaped(_ source: String) -> String {
-        NSRegularExpression.escapedPattern(for: source)
     }
 }

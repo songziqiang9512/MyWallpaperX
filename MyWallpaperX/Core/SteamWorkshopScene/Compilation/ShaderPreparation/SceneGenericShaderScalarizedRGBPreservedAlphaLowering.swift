@@ -60,7 +60,7 @@ nonisolated enum SceneGenericShaderScalarizedRGBPreservedAlphaLowering {
               bodyTextureReferences(in: body, source: source) == calls.count
         else { return nil }
 
-        let carrierPattern = escaped(carrier)
+        let carrierPattern = SceneShaderSourceTextFacts.escaped(carrier)
         let outputs = outputPatterns(carrierPattern).flatMap {
             matches($0, in: source)
         }
@@ -159,7 +159,7 @@ nonisolated enum SceneGenericShaderScalarizedRGBPreservedAlphaLowering {
               let carrier = capture(declaration, 1, in: source) else {
             return false
         }
-        let escapedCarrier = escaped(carrier)
+        let escapedCarrier = SceneShaderSourceTextFacts.escaped(carrier)
         let componentWrites = matches(
             #"(?m)^\s*"# + escapedCarrier
                 + #"\.[xyz]\s*=\s*[^;]+;\s*$"#,
@@ -226,12 +226,12 @@ nonisolated enum SceneGenericShaderScalarizedRGBPreservedAlphaLowering {
         source: String
     ) -> Bool {
         let allWrites = matches(
-            #"(?m)^[ \t]*"# + escaped(carrier)
+            #"(?m)^[ \t]*"# + SceneShaderSourceTextFacts.escaped(carrier)
                 + #"(?:\.[xyzwrgba]{1,4})?\s*(?:[+\-*/]=|=(?!=)|\+\+|--)"#,
             in: source
         )
         let prefixMutations = matches(
-            #"(?:\+\+|--)\s*\b"# + escaped(carrier) + #"\b"#,
+            #"(?:\+\+|--)\s*\b"# + SceneShaderSourceTextFacts.escaped(carrier) + #"\b"#,
             in: source
         )
         return prefixMutations.isEmpty
@@ -248,7 +248,7 @@ nonisolated enum SceneGenericShaderScalarizedRGBPreservedAlphaLowering {
         source: String
     ) -> Bool {
         let declarations = matches(
-            #"(?m)^[ \t]*float3\s+"# + escaped(value)
+            #"(?m)^[ \t]*float3\s+"# + SceneShaderSourceTextFacts.escaped(value)
                 + #"\s*=\s*[^;]+;[ \t]*$"#,
             in: source
         )
@@ -256,12 +256,12 @@ nonisolated enum SceneGenericShaderScalarizedRGBPreservedAlphaLowering {
               let declaration = declarations.first,
               declaration.range.location < firstWrite else { return false }
         let mutations = matches(
-            #"(?m)^[ \t]*"# + escaped(value)
+            #"(?m)^[ \t]*"# + SceneShaderSourceTextFacts.escaped(value)
                 + #"(?:\.[xyzwrgba]{1,4})?\s*(?:[+\-*/]=|=(?!=)|\+\+|--)"#,
             in: source
         )
         return mutations.isEmpty
-            && countWord(value, in: source) == writes.count + 1
+            && SceneShaderSourceTextFacts.countWord(value, in: source) == writes.count + 1
     }
 
     private static func carrierUsesAreRGBOnly(
@@ -271,9 +271,9 @@ nonisolated enum SceneGenericShaderScalarizedRGBPreservedAlphaLowering {
         output: NSRange,
         source: String
     ) -> Bool {
-        let words = matches(#"\b"# + escaped(carrier) + #"\b"#, in: source)
+        let words = matches(#"\b"# + SceneShaderSourceTextFacts.escaped(carrier) + #"\b"#, in: source)
         let rgbUses = matches(
-            #"\b"# + escaped(carrier) + #"\s*\.\s*(?:rgb|xyz|[xyz])\b"#,
+            #"\b"# + SceneShaderSourceTextFacts.escaped(carrier) + #"\s*\.\s*(?:rgb|xyz|[xyz])\b"#,
             in: source
         )
         return words.allSatisfy { word in
@@ -291,7 +291,7 @@ nonisolated enum SceneGenericShaderScalarizedRGBPreservedAlphaLowering {
         source: String
     ) -> Bool {
         matches(
-            #"\b"# + escaped(carrier) + #"\s*\.\s*(?:rgb|xyz|[xyz])\b"#,
+            #"\b"# + SceneShaderSourceTextFacts.escaped(carrier) + #"\s*\.\s*(?:rgb|xyz|[xyz])\b"#,
             in: source
         ).contains {
             NSMaxRange(declaration) <= $0.range.location
@@ -358,13 +358,8 @@ nonisolated enum SceneGenericShaderScalarizedRGBPreservedAlphaLowering {
     }
 
     private static func containsWord(_ word: String, in source: String) -> Bool {
-        !matches(#"\b"# + escaped(word) + #"\b"#, in: source).isEmpty
+        !matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).isEmpty
     }
-
-    private static func countWord(_ word: String, in source: String) -> Int {
-        matches(#"\b"# + escaped(word) + #"\b"#, in: source).count
-    }
-
     private static func matches(
         _ pattern: String,
         in source: String
@@ -377,11 +372,6 @@ nonisolated enum SceneGenericShaderScalarizedRGBPreservedAlphaLowering {
             range: NSRange(source.startIndex..., in: source)
         )
     }
-
-    private static func escaped(_ source: String) -> String {
-        NSRegularExpression.escapedPattern(for: source)
-    }
-
     private static func capture(
         _ match: NSTextCheckingResult,
         _ index: Int,

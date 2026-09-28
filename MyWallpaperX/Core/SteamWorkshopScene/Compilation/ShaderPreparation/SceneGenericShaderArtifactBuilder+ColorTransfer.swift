@@ -431,21 +431,21 @@ extension SceneGenericShaderArtifactBuilder {
         var slots: [Int] = []
         for name in output.prefix(2) {
             let declarations = matches(
-                #"(?m)^[ \t]*float4\s+"# + escaped(name)
+                #"(?m)^[ \t]*float4\s+"# + SceneShaderSourceTextFacts.escaped(name)
                     + #"\s*=\s*g_Texture([0-7])\.sample\([^;]+\)\s*;$"#,
                 in: source
             )
             guard declarations.count == 1,
                   let slotText = capture(declarations[0], 1, in: source),
                   let slot = Int(slotText),
-                  countWord(name, in: source) == 2 else { return nil }
+                  SceneShaderSourceTextFacts.countWord(name, in: source) == 2 else { return nil }
             slots.append(slot)
         }
 
         let weight = output[2].trimmingCharacters(in: .whitespacesAndNewlines)
         if !regexMatches(#"^[-+]?(?:\d+(?:\.\d*)?|\.\d+)$"#, weight) {
             guard matches(
-                #"(?m)^[ \t]*float\s+"# + escaped(weight) + #"\s*=\s*[^;]+;$"#,
+                #"(?m)^[ \t]*float\s+"# + SceneShaderSourceTextFacts.escaped(weight) + #"\s*=\s*[^;]+;$"#,
                 in: source
             ).count == 1 else { return nil }
         }
@@ -472,7 +472,7 @@ extension SceneGenericShaderArtifactBuilder {
                 #"^[ \t]*out\.mwxFragColor\s*=\s*([A-Za-z_]\w*)\s*;$"#,
                 in: assignment
               )?.first else { return nil }
-        let namePattern = escaped(name)
+        let namePattern = SceneShaderSourceTextFacts.escaped(name)
         guard let slotText = captures(
             #"(?m)^[ \t]*float4\s+"# + namePattern
                 + #"\s*=\s*g_Texture([0-7])\.sample\([^;]+\)\s*;$"#,
@@ -492,7 +492,7 @@ extension SceneGenericShaderArtifactBuilder {
             group: 1
         )
         guard writes == ["w"],
-              countWord(name, in: source) == 3 + matches(
+              SceneShaderSourceTextFacts.countWord(name, in: source) == 3 + matches(
                   #"\b"# + namePattern + #"\.(?:[xyzrgb]{1,3})\b"#, in: source
               ).count,
               straightAlphaAttenuationUsesAreLinear(
@@ -544,7 +544,7 @@ extension SceneGenericShaderArtifactBuilder {
         attenuation: NSRange,
         output: NSRange
     ) -> Bool {
-        let namePattern = escaped(name)
+        let namePattern = SceneShaderSourceTextFacts.escaped(name)
         let uses = matches(#"\b"# + namePattern + #"\b"#, in: source)
         let sourceNSString = source as NSString
         let declarationRange = declaration.map { NSRange($0, in: source) }
@@ -574,7 +574,7 @@ extension SceneGenericShaderArtifactBuilder {
             )?.first,
                   allowedRGBMembers.contains(member),
                   !regexMatches(
-                      #"\b"# + namePattern + #"\s*\.\s*"# + escaped(member)
+                      #"\b"# + namePattern + #"\s*\.\s*"# + SceneShaderSourceTextFacts.escaped(member)
                           + #"\s*"# + assignmentOperators,
                       line
                   ) else {

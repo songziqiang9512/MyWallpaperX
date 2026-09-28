@@ -75,7 +75,7 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
               let signal = bySlot[expectedSignalSlot],
               let color = bySlot[expectedColorSlot],
               signal.name != color.name,
-              countWord(signal.name, in: substring(body, source: source)) >= 2
+              SceneShaderSourceTextFacts.countWord(signal.name, in: substring(body, source: source)) >= 2
         else { return nil }
         if debug {
             NSLog(
@@ -278,13 +278,8 @@ inline float4 \(premultiply)(float4 value) {
     }
 
     private static func containsWord(_ word: String, in source: String) -> Bool {
-        !matches(#"\b"# + escaped(word) + #"\b"#, in: source).isEmpty
+        !matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).isEmpty
     }
-
-    private static func countWord(_ word: String, in source: String) -> Int {
-        matches(#"\b"# + escaped(word) + #"\b"#, in: source).count
-    }
-
     private static func matches(
         _ pattern: String,
         in source: String,
@@ -295,11 +290,6 @@ inline float4 \(premultiply)(float4 value) {
             range: range ?? NSRange(source.startIndex..., in: source)
         ) ?? []
     }
-
-    private static func escaped(_ source: String) -> String {
-        NSRegularExpression.escapedPattern(for: source)
-    }
-
     private static func capture(
         _ match: NSTextCheckingResult,
         _ index: Int,

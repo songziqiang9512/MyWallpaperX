@@ -117,11 +117,11 @@
     },
     {
       "name": "escaped",
-      "allowedCopies": 15,
-      "canonical": "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
-      "note": "Reviewed non-private regex pipeline.",
-      "owner": "Compilation/ShaderPreparation family merge",
-      "retirement": "Delete the per-file plumbing, then ratchet this count down."
+      "allowedCopies": 1,
+      "canonical": "Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
+      "note": "Shared source-text fact: the ShaderFrontend syntax file is compiled by every harness source subset that contains a caller, which the ArtifactBuilder is not.",
+      "owner": "Shader source-text family",
+      "retirement": "Keep one definition; re-copying the helper is what this lock forbids."
     },
     {
       "name": "containsWord",
@@ -133,11 +133,11 @@
     },
     {
       "name": "countWord",
-      "allowedCopies": 9,
-      "canonical": "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
-      "note": "Reviewed non-private regex pipeline.",
-      "owner": "Compilation/ShaderPreparation family merge",
-      "retirement": "Delete the per-file plumbing, then ratchet this count down."
+      "allowedCopies": 1,
+      "canonical": "Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
+      "note": "Shared source-text fact: the ShaderFrontend syntax file is compiled by every harness source subset that contains a caller, which the ArtifactBuilder is not.",
+      "owner": "Shader source-text family",
+      "retirement": "Keep one definition; re-copying the helper is what this lock forbids."
     },
     {
       "name": "substring",
@@ -209,6 +209,14 @@
   "deadEntries": [],
   "inventoryEntries": [],
   "acknowledgedChanges": [
+    {
+      "detail": "canonical helper countWord target changed from 'Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift' to 'Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift'",
+      "reason": "batch 3c moved the shared source-text helpers to a file every caller subset compiles"
+    },
+    {
+      "detail": "canonical helper escaped target changed from 'Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift' to 'Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift'",
+      "reason": "batch 3c moved the shared source-text helpers to a file every caller subset compiles"
+    },
     {
       "detail": "canonical helper isEmbeddedImagePayload target changed from 'Resources/Textures/SceneTextureLoader.swift' to 'Format/SceneTexContainer.swift'",
       "reason": "batch 3a moved the shared payload predicates into the Format layer so narrow harness subsets keep compiling"

@@ -47,7 +47,7 @@ extension SceneGenericShaderArtifactBuilder {
 
         let aliases = matches(
             #"(?m)^[ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*"#
-                + escaped(carrier) + #"\s*;[ \t]*$"#,
+                + SceneShaderSourceTextFacts.escaped(carrier) + #"\s*;[ \t]*$"#,
             in: source
         )
         guard aliases.count == 1,
@@ -57,12 +57,12 @@ extension SceneGenericShaderArtifactBuilder {
               color != carrier else { return nil }
 
         let alphaWrites = matches(
-            #"(?m)^[ \t]*"# + escaped(color)
+            #"(?m)^[ \t]*"# + SceneShaderSourceTextFacts.escaped(color)
                 + #"\.w\s*\*=\s*([^;]+)\s*;[ \t]*$"#,
             in: source
         )
         let colorWrites = matches(
-            #"(?m)^[ \t]*"# + escaped(color)
+            #"(?m)^[ \t]*"# + SceneShaderSourceTextFacts.escaped(color)
                 + #"(?:\.([xyzwrgba]{1,4}))?\s*(?:[+\-*/]?=)"#,
             in: source
         )
@@ -131,8 +131,8 @@ extension SceneGenericShaderArtifactBuilder {
               capture(output, 3, in: source) == color,
               fact.terminalTransform == .saturateRGBA
                 || capture(output, 4, in: source) == color,
-              countWord(carrier, in: source) == (maskMix == nil ? 2 : 3),
-              countWord(color, in: source)
+              SceneShaderSourceTextFacts.countWord(carrier, in: source) == (maskMix == nil ? 2 : 3),
+              SceneShaderSourceTextFacts.countWord(color, in: source)
                 == (maskMix == nil ? 4 : 6)
                     - (fact.terminalTransform == .saturateRGBA ? 1 : 0),
               carrierDeclaration.range.location < alias.range.location,
@@ -236,26 +236,26 @@ extension SceneGenericShaderArtifactBuilder {
         factor: String
     ) -> StraightRGBScalarAlphaMaskMix? {
         let declarations = matches(
-            #"(?m)^[ \t]*float\s+"# + escaped(factor)
+            #"(?m)^[ \t]*float\s+"# + SceneShaderSourceTextFacts.escaped(factor)
                 + #"\s*=\s*g_Texture"# + String(slot)
                 + #"\.sample\([^;]+\)\.(?:x|r)\s*;[ \t]*$"#,
             in: source
         )
         let assignments = matches(
-            #"(?m)^[ \t]*"# + escaped(transformedCarrier)
+            #"(?m)^[ \t]*"# + SceneShaderSourceTextFacts.escaped(transformedCarrier)
                 + #"\s*=\s*(?:fast::)?(?:mix|lerp)\(\s*"#
-                + escaped(sourceCarrier) + #"\s*,\s*"#
-                + escaped(transformedCarrier)
+                + SceneShaderSourceTextFacts.escaped(sourceCarrier) + #"\s*,\s*"#
+                + SceneShaderSourceTextFacts.escaped(transformedCarrier)
                 + #"\s*,\s*(?:(?:float4|half4)\(\s*"#
-                + escaped(factor) + #"\s*\)|"#
-                + escaped(factor) + #")\s*\)\s*;[ \t]*$"#,
+                + SceneShaderSourceTextFacts.escaped(factor) + #"\s*\)|"#
+                + SceneShaderSourceTextFacts.escaped(factor) + #")\s*\)\s*;[ \t]*$"#,
             in: source
         )
         guard declarations.count == 1,
               assignments.count == 1,
               let declaration = declarations.first,
               let assignment = assignments.first,
-              countWord(factor, in: source) == 2 else { return nil }
+              SceneShaderSourceTextFacts.countWord(factor, in: source) == 2 else { return nil }
         return .init(
             declarationRange: declaration.range,
             assignmentRange: assignment.range
@@ -267,7 +267,7 @@ extension SceneGenericShaderArtifactBuilder {
             #"^\s*out\.mwxFragColor\s*=\s*([A-Za-z_]\w*)\s*;$"#,
             in: assignment
         )?.first else { return false }
-        let n = escaped(name)
+        let n = SceneShaderSourceTextFacts.escaped(name)
         guard regexMatches(#"float4\s+"# + n + #"\s*=\s*float4\(\s*0(?:\.0+)?\s*\)\s*;"#, source),
               regexMatches(
                 #"float3\s+[A-Za-z_]\w*\s*\([^)]*thread\s+const\s+float3&[^)]*thread\s+const\s+float3&[^)]*thread\s+const\s+float&[^)]*\)\s*\{\s*return\s+([A-Za-z_]\w*)\s*\+\s*\(\s*([A-Za-z_]\w*)\s*\*\s*([A-Za-z_]\w*)\s*\)\s*;\s*\}"#,

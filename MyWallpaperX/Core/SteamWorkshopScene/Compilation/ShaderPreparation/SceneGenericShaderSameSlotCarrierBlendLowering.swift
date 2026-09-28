@@ -47,7 +47,7 @@ nonisolated enum SceneGenericShaderSameSlotCarrierBlendLowering {
               let indent = capture(output, 1, in: source)
         else { return nil }
 
-        let carrierPattern = escaped(carrier)
+        let carrierPattern = SceneShaderSourceTextFacts.escaped(carrier)
         let projected = matches(
             #"(?m)^[ \t]*"# + carrierPattern
                 + #"\.([xyz])\s*=\s*g_Texture"# + slot
@@ -84,8 +84,8 @@ nonisolated enum SceneGenericShaderSameSlotCarrierBlendLowering {
 
         let blendResults = matches(
             #"(?m)^[ \t]*float3\s+([A-Za-z_]\w*)\s*=\s*ApplyBlending\(\s*[^,;\n]+\s*,\s*"#
-                + escaped(blendSource) + #"\s*,\s*"#
-                + escaped(carrierAlias) + #"\s*,\s*[^;\n]+\)\s*;[ \t]*$"#,
+                + SceneShaderSourceTextFacts.escaped(blendSource) + #"\s*,\s*"#
+                + SceneShaderSourceTextFacts.escaped(carrierAlias) + #"\s*,\s*[^;\n]+\)\s*;[ \t]*$"#,
             in: source
         )
         guard blendResults.count == 1,
@@ -94,7 +94,7 @@ nonisolated enum SceneGenericShaderSameSlotCarrierBlendLowering {
 
         let resultWrites = matches(
             #"(?m)^[ \t]*"# + carrierPattern
-                + #"\.([xyz])\s*=\s*"# + escaped(blendResult)
+                + #"\.([xyz])\s*=\s*"# + SceneShaderSourceTextFacts.escaped(blendResult)
                 + #"\.([xyz])\s*;[ \t]*$"#,
             in: source
         )
@@ -114,10 +114,10 @@ nonisolated enum SceneGenericShaderSameSlotCarrierBlendLowering {
               blendResults[0].range.location
                 < resultWrites.map(\.range.location).min()!,
               resultWrites.map(\.range.location).max()! < output.range.location,
-              countWord(carrier, in: source) == projected.count + 6,
-              countWord(blendSource, in: source) == 2,
-              countWord(carrierAlias, in: source) == 2,
-              countWord(blendResult, in: source) == 4
+              SceneShaderSourceTextFacts.countWord(carrier, in: source) == projected.count + 6,
+              SceneShaderSourceTextFacts.countWord(blendSource, in: source) == 2,
+              SceneShaderSourceTextFacts.countWord(carrierAlias, in: source) == 2,
+              SceneShaderSourceTextFacts.countWord(blendResult, in: source) == 4
         else { return nil }
 
         let sampleCalls = sampleCalls(in: source)
@@ -171,11 +171,6 @@ nonisolated enum SceneGenericShaderSameSlotCarrierBlendLowering {
             return nil
         }
     }
-
-    private static func countWord(_ word: String, in source: String) -> Int {
-        matches(#"\b"# + escaped(word) + #"\b"#, in: source).count
-    }
-
     private static func matches(
         _ pattern: String,
         in source: String
@@ -185,11 +180,6 @@ nonisolated enum SceneGenericShaderSameSlotCarrierBlendLowering {
             range: NSRange(source.startIndex..., in: source)
         ) ?? []
     }
-
-    private static func escaped(_ source: String) -> String {
-        NSRegularExpression.escapedPattern(for: source)
-    }
-
     private static func capture(
         _ match: NSTextCheckingResult,
         _ index: Int,

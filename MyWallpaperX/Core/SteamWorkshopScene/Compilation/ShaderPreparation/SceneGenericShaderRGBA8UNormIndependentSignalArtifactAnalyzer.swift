@@ -25,7 +25,7 @@ nonisolated enum SceneGenericShaderRGBA8UNormIndependentSignalArtifactAnalyzer {
         let carriers = factors.filter { factor in
             guard regexMatches(#"^[A-Za-z_]\w*$"#, factor) else { return false }
             return matches(
-                #"\bfloat4\s+"# + escaped(factor) + #"\b"#,
+                #"\bfloat4\s+"# + SceneShaderSourceTextFacts.escaped(factor) + #"\b"#,
                 in: body
             ).count == 1
         }
@@ -51,7 +51,7 @@ nonisolated enum SceneGenericShaderRGBA8UNormIndependentSignalArtifactAnalyzer {
         ), identity.count == 2 else { return false }
         let name = identity[1]
         return matches(
-            #"\bfloat\s+"# + escaped(name) + #"\s*(?:[;=])"#,
+            #"\bfloat\s+"# + SceneShaderSourceTextFacts.escaped(name) + #"\s*(?:[;=])"#,
             in: source
         ).count == 1
     }
@@ -185,9 +185,5 @@ nonisolated enum SceneGenericShaderRGBA8UNormIndependentSignalArtifactAnalyzer {
             in: source,
             range: NSRange(source.startIndex..., in: source)
         )?.range == NSRange(source.startIndex..., in: source)
-    }
-
-    private static func escaped(_ source: String) -> String {
-        NSRegularExpression.escapedPattern(for: source)
     }
 }

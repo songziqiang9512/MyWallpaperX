@@ -381,7 +381,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         }
         return try names.sorted(by: { $0.key < $1.key }).map { slot, name in
             let sampled = regexMatches(
-                #"\b"# + escaped(name) + #"\.sample\s*\("#,
+                #"\b"# + SceneShaderSourceTextFacts.escaped(name) + #"\.sample\s*\("#,
                 metalSource
             )
             guard sampled || resolutionTextureSlots.contains(slot) else {
@@ -410,7 +410,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
     }
 
     private static func channelUse(of name: String, in source: String) throws -> String {
-        let marker = regex(#"\b"# + escaped(name) + #"\.sample\s*\("#)
+        let marker = regex(#"\b"# + SceneShaderSourceTextFacts.escaped(name) + #"\.sample\s*\("#)
         let matches = marker.matches(in: source, range: fullRange(source))
         guard !matches.isEmpty else { throw Failure.textureUnused }
         var componentMask = 0
@@ -471,14 +471,14 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         result.replaceSubrange(bodyRange, with: body)
         for (authoredName, fieldName) in fieldNames where authoredName != fieldName {
             result = result.replacingOccurrences(
-                of: #"\."# + escaped(authoredName) + #"\b"#,
+                of: #"\."# + SceneShaderSourceTextFacts.escaped(authoredName) + #"\b"#,
                 with: ".\(fieldName)",
                 options: .regularExpression
             )
         }
         for field in layout.fields where field.arrayCount != nil {
             result = result.replacingOccurrences(
-                of: #"("# + escaped(field.name)
+                of: #"("# + SceneShaderSourceTextFacts.escaped(field.name)
                     + #"\s*\[[^\]\r\n]+\])\.x\b"#,
                 with: "$1",
                 options: .regularExpression
@@ -530,13 +530,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         }
         return nil
     }
-
-    static func countWord(_ word: String, in source: String) -> Int {
-        matches(#"\b"# + escaped(word) + #"\b"#, in: source).count
-    }
-
     static func containsWord(_ word: String, in source: String) -> Bool {
-        countWord(word, in: source) > 0
+        SceneShaderSourceTextFacts.countWord(word, in: source) > 0
     }
 
     static func artifactTransfer(
@@ -577,11 +572,6 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
     private static func fullRange(_ source: String) -> NSRange {
         NSRange(source.startIndex..., in: source)
     }
-
-    static func escaped(_ source: String) -> String {
-        NSRegularExpression.escapedPattern(for: source)
-    }
-
     static func substring(_ range: NSRange, in source: String) -> String? {
         guard let range = Range(range, in: source) else { return nil }
         return String(source[range])

@@ -45,7 +45,7 @@ nonisolated enum SceneGenericShaderPreviousBlurredCompositeLowering {
         guard sampleCalls(in: source) == expectedSampleCalls,
               safeFragmentBody(in: source) else { return nil }
 
-        let b = escaped(blurred), p = escaped(previous)
+        let b = SceneShaderSourceTextFacts.escaped(blurred), p = SceneShaderSourceTextFacts.escaped(previous)
         let mask: Match?
         if let expectedMaskSlot {
             mask = unique(
@@ -67,7 +67,7 @@ nonisolated enum SceneGenericShaderPreviousBlurredCompositeLowering {
                     + #"\.w\s*,\s*0(?:\.0+)?\s*\)\s*\)\s*;\s*$"#,
                 in: source
               ), let divisorName = divisor.captures.first else { return nil }
-        let m = escaped(maskName), d = escaped(divisorName)
+        let m = SceneShaderSourceTextFacts.escaped(maskName), d = SceneShaderSourceTextFacts.escaped(divisorName)
 
         guard let previousParameter = unique(
             #"(?m)^[ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*"# + p + #"\s*;\s*$"#,
@@ -81,8 +81,8 @@ nonisolated enum SceneGenericShaderPreviousBlurredCompositeLowering {
               ), let straightParameterName = straightParameter.captures.first else {
             return nil
         }
-        let old = escaped(previousParameterName)
-        let straight = escaped(straightParameterName)
+        let old = SceneShaderSourceTextFacts.escaped(previousParameterName)
+        let straight = SceneShaderSourceTextFacts.escaped(straightParameterName)
         guard let invocation = unique(
             #"(?m)^[ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*([A-Za-z_]\w*)\(\s*"#
                 + old + #"\s*,\s*"# + straight
@@ -92,7 +92,7 @@ nonisolated enum SceneGenericShaderPreviousBlurredCompositeLowering {
         let resultName = invocation.captures[0]
         let helperName = invocation.captures[1]
         let uniformName = invocation.captures[2]
-        let result = escaped(resultName)
+        let result = SceneShaderSourceTextFacts.escaped(resultName)
 
         guard let helper = validateHelper(
             named: helperName,
@@ -156,7 +156,7 @@ nonisolated enum SceneGenericShaderPreviousBlurredCompositeLowering {
         in source: String
     ) -> Match? {
         let helperPattern = #"(?ms)^[ \t]*(?:static\s+inline[^\n]*\n)?float4\s+"#
-            + escaped(name)
+            + SceneShaderSourceTextFacts.escaped(name)
             + #"\(\s*thread\s+const\s+float4&\s+([A-Za-z_]\w*)\s*,\s*"#
             + #"thread\s+float4&\s+([A-Za-z_]\w*)\s*,\s*"#
             + #"constant\s+MWXUniforms&\s+([A-Za-z_]\w*)\s*\)\s*\{([^{}]*)\}"#
@@ -170,27 +170,27 @@ nonisolated enum SceneGenericShaderPreviousBlurredCompositeLowering {
               wordCount(original, in: body) == 0,
               let color = unique(
                 #"(?m)^[ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*"#
-                    + escaped(effect) + #"\s*;\s*$"#,
+                    + SceneShaderSourceTextFacts.escaped(effect) + #"\s*;\s*$"#,
                 in: body
               ), let colorName = color.captures.first,
               let rgb = unique(
                 #"(?m)^[ \t]*float3\s+([A-Za-z_]\w*)\s*=\s*"#
-                    + escaped(colorName) + #"\.xyz\s*\*\s*"#
-                    + escaped(uniform) + #"\.g_CompositeColor\s*;\s*$"#,
+                    + SceneShaderSourceTextFacts.escaped(colorName) + #"\.xyz\s*\*\s*"#
+                    + SceneShaderSourceTextFacts.escaped(uniform) + #"\.g_CompositeColor\s*;\s*$"#,
                 in: body
               ), let rgbName = rgb.captures.first else { return nil }
         var writes: [Match] = []
         for component in ["x", "y", "z"] {
             guard let write = unique(
-                #"(?m)^[ \t]*"# + escaped(effect) + #"\."# + component
-                    + #"\s*=\s*"# + escaped(rgbName) + #"\."# + component
+                #"(?m)^[ \t]*"# + SceneShaderSourceTextFacts.escaped(effect) + #"\."# + component
+                    + #"\s*=\s*"# + SceneShaderSourceTextFacts.escaped(rgbName) + #"\."# + component
                     + #"\s*;\s*$"#,
                 in: body
             ) else { return nil }
             writes.append(write)
         }
         guard let returned = unique(
-            #"(?m)^[ \t]*return\s+"# + escaped(effect) + #"\s*;\s*$"#,
+            #"(?m)^[ \t]*return\s+"# + SceneShaderSourceTextFacts.escaped(effect) + #"\s*;\s*$"#,
             in: body
         ) else { return nil }
         let flow = [color, rgb] + writes + [returned]
@@ -255,13 +255,8 @@ nonisolated enum SceneGenericShaderPreviousBlurredCompositeLowering {
         guard captures.count == item.numberOfRanges - 1 else { return nil }
         return .init(range: item.range, captures: captures)
     }
-
-    private static func escaped(_ value: String) -> String {
-        NSRegularExpression.escapedPattern(for: value)
-    }
-
     private static func wordCount(_ word: String, in source: String) -> Int {
-        matches(#"\b"# + escaped(word) + #"\b"#, in: source).count
+        matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).count
     }
 
     private static func matches(

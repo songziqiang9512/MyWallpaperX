@@ -59,7 +59,7 @@ nonisolated enum SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape {
         let componentWrites = ["x", "y", "z"].compactMap { component in
             matches(
                 #"(?m)^[ \t]*out\.mwxFragColor\."# + component
-                    + #"\s*=\s*"# + escaped(normalized) + #"\."#
+                    + #"\s*=\s*"# + SceneShaderSourceTextFacts.escaped(normalized) + #"\."#
                     + component + #"\s*;[ \t]*$"#,
                 in: source
             ).only
@@ -67,7 +67,7 @@ nonisolated enum SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape {
         let denominator = String(sampleCount) + #"(?:\.0+)?"#
         let alphaWrites = matches(
             #"(?m)^[ \t]*out\.mwxFragColor\.w\s*=\s*"#
-                + escaped(accumulator) + #"\.w\s*/\s*"# + denominator
+                + SceneShaderSourceTextFacts.escaped(accumulator) + #"\.w\s*/\s*"# + denominator
                 + #"\s*;[ \t]*$"#,
             in: source
         )
@@ -97,8 +97,8 @@ nonisolated enum SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape {
               samples.allSatisfy({ $0.range.location < outputRange.location })
         else { return nil }
 
-        let accumulatorPattern = escaped(accumulator)
-        let weightPattern = escaped(weight)
+        let accumulatorPattern = SceneShaderSourceTextFacts.escaped(accumulator)
+        let weightPattern = SceneShaderSourceTextFacts.escaped(weight)
         guard matches(
             #"(?m)^[ \t]*float4\s+"# + accumulatorPattern
                 + #"\s*=\s*float4\(\s*0(?:\.0+)?\s*\)\s*;[ \t]*$"#,
@@ -109,9 +109,9 @@ nonisolated enum SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape {
                 + #"\s*=\s*0(?:\.0+)?\s*;[ \t]*$"#,
             in: source
         ).count == 1,
-        countWord(accumulator, in: source) == sampleCount + 3,
-        countWord(weight, in: source) == sampleCount + 2,
-        countWord(normalized, in: source) == 4 else { return nil }
+        SceneShaderSourceTextFacts.countWord(accumulator, in: source) == sampleCount + 3,
+        SceneShaderSourceTextFacts.countWord(weight, in: source) == sampleCount + 2,
+        SceneShaderSourceTextFacts.countWord(normalized, in: source) == 4 else { return nil }
 
         var replacements: [Replacement] = [
             .init(
@@ -126,7 +126,7 @@ nonisolated enum SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape {
                   let suffix = capture(sampleMatch, 4, in: source) else {
                 return nil
             }
-            let sampleName = escaped(sample)
+            let sampleName = SceneShaderSourceTextFacts.escaped(sample)
             let accumulatorWrites = matches(
                 #"(?m)^[ \t]*"# + accumulatorPattern + #"\s*\+=\s*\(\s*"#
                     + sampleName + #"\s*\*\s*"# + sampleName
@@ -142,7 +142,7 @@ nonisolated enum SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape {
                   sampleMatch.range.location < accumulatorWrites[0].range.location,
                   accumulatorWrites[0].range.location < weightWrites[0].range.location,
                   weightWrites[0].range.location < outputRange.location,
-                  countWord(sample, in: source) == 4 else { return nil }
+                  SceneShaderSourceTextFacts.countWord(sample, in: source) == 4 else { return nil }
             replacements.append(.init(
                 range: sampleMatch.range,
                 value: "\(prefix)\(unpremultiply)(g_Texture\(expectedSlot).sample(\(arguments)))\(suffix)"
@@ -159,13 +159,8 @@ nonisolated enum SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape {
     }
 
     private static func containsWord(_ word: String, in source: String) -> Bool {
-        !matches(#"\b"# + escaped(word) + #"\b"#, in: source).isEmpty
+        !matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).isEmpty
     }
-
-    private static func countWord(_ word: String, in source: String) -> Int {
-        matches(#"\b"# + escaped(word) + #"\b"#, in: source).count
-    }
-
     private static func matches(
         _ pattern: String, in source: String
     ) -> [NSTextCheckingResult] {
@@ -177,11 +172,6 @@ nonisolated enum SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape {
             range: NSRange(source.startIndex..., in: source)
         )
     }
-
-    private static func escaped(_ source: String) -> String {
-        NSRegularExpression.escapedPattern(for: source)
-    }
-
     private static func capture(
         _ match: NSTextCheckingResult, _ index: Int, in source: String
     ) -> String? {

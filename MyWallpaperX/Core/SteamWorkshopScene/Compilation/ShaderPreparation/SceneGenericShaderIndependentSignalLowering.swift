@@ -87,7 +87,7 @@ inline float4 \(unpremultiply)(float4 color) {
     }
 
     private static func containsWord(_ word: String, in source: String) -> Bool {
-        !matches(#"\b"# + escaped(word) + #"\b"#, in: source).isEmpty
+        !matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).isEmpty
     }
 
     private struct SampleFact {
@@ -156,11 +156,6 @@ inline float4 \(unpremultiply)(float4 color) {
             range: NSRange(source.startIndex..., in: source)
         ) ?? []
     }
-
-    private static func escaped(_ source: String) -> String {
-        NSRegularExpression.escapedPattern(for: source)
-    }
-
     private static func capture(
         _ match: NSTextCheckingResult,
         _ index: Int,

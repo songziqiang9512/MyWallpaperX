@@ -51,7 +51,7 @@ nonisolated enum SceneGenericShaderSingleSampleStraightAlphaPreservingLowering {
 
         let carrierDeclarations = matches(
             #"(?m)^[ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*"#
-                + escaped(sample) + #"\s*;[ \t]*$"#,
+                + SceneShaderSourceTextFacts.escaped(sample) + #"\s*;[ \t]*$"#,
             in: source
         )
         guard carrierDeclarations.count == 1,
@@ -66,7 +66,7 @@ nonisolated enum SceneGenericShaderSingleSampleStraightAlphaPreservingLowering {
               )
         else { return nil }
 
-        let carrierPattern = escaped(carrier)
+        let carrierPattern = SceneShaderSourceTextFacts.escaped(carrier)
         guard let rgbMutation = rgbMutation(
             carrier: carrier,
             body: body,
@@ -98,7 +98,7 @@ nonisolated enum SceneGenericShaderSingleSampleStraightAlphaPreservingLowering {
               matches(#"\breturn\b"#, in: bodySource).count == 1,
               bodyIsLinear(bodySource),
               matches(
-                  #"(?m)^[ \t]*"# + escaped(returnType)
+                  #"(?m)^[ \t]*"# + SceneShaderSourceTextFacts.escaped(returnType)
                     + #"\s+out(?:\s*=\s*\{\s*\})?\s*;[ \t]*$"#,
                   in: bodySource
               ).count == 1,
@@ -151,7 +151,7 @@ nonisolated enum SceneGenericShaderSingleSampleStraightAlphaPreservingLowering {
         body: Range<String.Index>,
         source: String
     ) -> RGBMutation? {
-        let carrierPattern = escaped(carrier)
+        let carrierPattern = SceneShaderSourceTextFacts.escaped(carrier)
         let wholeWrites = matches(
             #"(?m)^[ \t]*"# + carrierPattern
                 + #"\s*\.\s*(?:xyz|rgb)\s*=\s*([^;\n]+);[ \t]*$"#,
@@ -204,7 +204,7 @@ nonisolated enum SceneGenericShaderSingleSampleStraightAlphaPreservingLowering {
         else { return nil }
 
         let valueDeclarations = matches(
-            #"(?m)^[ \t]*float3\s+"# + escaped(value)
+            #"(?m)^[ \t]*float3\s+"# + SceneShaderSourceTextFacts.escaped(value)
                 + #"\s*=\s*([^;\n]+);[ \t]*$"#,
             in: source
         )
@@ -270,7 +270,7 @@ nonisolated enum SceneGenericShaderSingleSampleStraightAlphaPreservingLowering {
         carrier: String,
         source: String
     ) -> Bool {
-        let escapedCarrier = escaped(carrier)
+        let escapedCarrier = SceneShaderSourceTextFacts.escaped(carrier)
         let mutations = matches(
             #"(?m)^[ \t]*"# + escapedCarrier
                 + #"(?:\s*\.\s*[xyzwrgba]{1,4})?\s*(?:[+\-*/]=|=(?!=)|\+\+|--)"#,
@@ -292,7 +292,7 @@ nonisolated enum SceneGenericShaderSingleSampleStraightAlphaPreservingLowering {
         to statements: [NSRange],
         source: String
     ) -> Bool {
-        matches(#"\b"# + escaped(word) + #"\b"#, in: source).allSatisfy {
+        matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).allSatisfy {
             use in statements.contains(where: { contains($0, use.range) })
         }
     }
@@ -349,7 +349,7 @@ nonisolated enum SceneGenericShaderSingleSampleStraightAlphaPreservingLowering {
     }
 
     private static func hasWord(_ word: String, in source: String) -> Bool {
-        !matches(#"\b"# + escaped(word) + #"\b"#, in: source).isEmpty
+        !matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).isEmpty
     }
 
     private static func matches(
@@ -361,11 +361,6 @@ nonisolated enum SceneGenericShaderSingleSampleStraightAlphaPreservingLowering {
             range: NSRange(source.startIndex..., in: source)
         ) ?? []
     }
-
-    private static func escaped(_ source: String) -> String {
-        NSRegularExpression.escapedPattern(for: source)
-    }
-
     private static func capture(
         _ match: NSTextCheckingResult,
         _ index: Int,
