@@ -436,6 +436,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             var ownerMaterialFunctions: [SceneScriptMaterialFunctionMutation] = []
             var ownerAnimations: [SceneTimelinePlaybackMutation] = []
             var ownerLayerMutations: [SceneScriptLayerMutation] = []
+            var ownerVideoCommands: [SceneScriptVideoCommand] = []
             var ownerTextureAnimationCommands:
                 [SceneTextureAnimationCommand] = []
             if changedUserPropertiesJSON != nil || playback != nil
@@ -471,6 +472,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                         ownerLayerMutations.append(
                             contentsOf: initialization.layerMutations
                         )
+                        ownerVideoCommands.append(contentsOf: initialization.videoCommands)
                         ownerTextureAnimationCommands.append(
                             contentsOf: initialization.textureAnimationCommands
                         )
@@ -496,6 +498,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 materialFunctions: &ownerMaterialFunctions,
                 animations: &ownerAnimations,
                 layers: &ownerLayerMutations,
+                videoCommands: &ownerVideoCommands,
                 textureAnimationCommands: &ownerTextureAnimationCommands,
                 failures: &failures
             ) {
@@ -510,6 +513,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 materialFunctions: &ownerMaterialFunctions,
                 animations: &ownerAnimations,
                 layers: &ownerLayerMutations,
+                videoCommands: &ownerVideoCommands,
                 textureAnimationCommands: &ownerTextureAnimationCommands,
                 failures: &failures
             ) {
@@ -524,6 +528,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 materialFunctions: &ownerMaterialFunctions,
                 animations: &ownerAnimations,
                 layers: &ownerLayerMutations,
+                videoCommands: &ownerVideoCommands,
                 textureAnimationCommands: &ownerTextureAnimationCommands,
                 failures: &failures
             ) {
@@ -539,6 +544,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 materialFunctions: &ownerMaterialFunctions,
                 animations: &ownerAnimations,
                 layers: &ownerLayerMutations,
+                videoCommands: &ownerVideoCommands,
                 textureAnimationCommands: &ownerTextureAnimationCommands,
                 failures: &failures
             ) {
@@ -553,6 +559,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 materialFunctions: &ownerMaterialFunctions,
                 animations: &ownerAnimations,
                 layers: &ownerLayerMutations,
+                videoCommands: &ownerVideoCommands,
                 textureAnimationCommands: &ownerTextureAnimationCommands,
                 failures: &failures
             ) {
@@ -602,6 +609,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 )
                 ownerAnimations.append(contentsOf: evaluation.animationMutations)
                 ownerLayerMutations.append(contentsOf: evaluation.layerMutations)
+                ownerVideoCommands.append(contentsOf: evaluation.videoCommands)
                 ownerTextureAnimationCommands.append(
                     contentsOf: evaluation.textureAnimationCommands
                 )
@@ -613,7 +621,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                     materialFunctionMutations: ownerMaterialFunctions,
                     animationMutations: ownerAnimations,
                     layerMutations: coalescedLayers,
-                    videoCommands: [],
+                    videoCommands: ownerVideoCommands,
                     textureAnimationCommands:
                         ownerTextureAnimationCommands
                 )
@@ -742,6 +750,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         materialFunctions: inout [SceneScriptMaterialFunctionMutation],
         animations: inout [SceneTimelinePlaybackMutation],
         layers: inout [SceneScriptLayerMutation],
+        videoCommands: inout [SceneScriptVideoCommand],
         textureAnimationCommands: inout
             [SceneTextureAnimationCommand],
         failures: inout [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
@@ -751,6 +760,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             materialFunctions.append(contentsOf: mutations.materialFunctions)
             animations.append(contentsOf: mutations.animations)
             layers.append(contentsOf: mutations.layers)
+            videoCommands.append(contentsOf: mutations.videoCommands)
             textureAnimationCommands.append(
                 contentsOf: mutations.textureAnimationCommands
             )

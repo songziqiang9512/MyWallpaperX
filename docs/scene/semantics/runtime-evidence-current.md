@@ -6,6 +6,18 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-value-video-commands"></a>
+
+### E-2026-09-28-VALUE-VIDEO-COMMANDS — 标量与文字脚本保留视频控制命令
+
+**首断点与实现：**[公开IVideoTexture](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IVideoTexture.html)允许暂停、跳转和停止归零。既有Scalar/String runtime返回值遗漏视频命令，Program初始化和事件聚合又给ownerEffects传空数组；现保留init→属性/媒体→update顺序和owner identity，经原Host preflight/提交后消费者生效。两个runtime复用原SceneScriptMediaEventBridge.mutations，删除重复material/animation/layer/texture-animation提取，4产品文件净减26行，无新播放器、clock、registry或compositor。C逐回调清空命令缓冲，既有失败撤回/预算/owner事务保持。
+
+**身份及可见结果：**基线9b9420e0，4产品+1测试冻结SHA-256 `0d97e8a5a5acf4feafab24f21b672e3e9db151fe423a37c1dce4f77209ee8dcd`。优化签名Debug 2.10.0(279)，executable SHA-256 `e9e0863f95654ed429bfc3be5f52cdb55f52916f271d097163803d6b9dbe1bfc`，CDHash `633a3d818b4253c218d3c885d87cb9dcd57779c2`，运行前后验签通过。自有MP4 fixture9900000250由alpha标量脚本控制同层视频，9900000251由文字脚本跨层控制视频；都在sceneTime>1.3暂停并跳35秒，>3停止。基线脚本执行但三图均红；修后before红[254,0,0]→hover绿[1,255,1]→series0002/0003（约3.5/4.5秒）红。原图已查看，中心ROI断言、requested/decoded35及0均通过。两组performance窗口submitted/completed/failed为109/109/0与110/110/0，presented108/109；这是直接视频纹理发布→唯一compositor→后继帧证据，不含effect graph，不借用graph publication字段。
+
+**取证修正与验证：**19项真实Swift/C VM及事务测试通过（4项新视频输出、5项owner事件、10项初始化），涵盖显式/隐式init、属性及4媒体回调、update顺序，局部拒绝重试/peer不重播、整帧撤回、BAD_RETURN和异常局部失败。修前新4项均因命令丢弃失败；首次修后编译误写视频命令类型，修正后完整19项重跑。优化Debug构建、code-health（221既有warnings）及独立冻结代码审查通过。原hover模式after约2.1秒早于stop3秒；一次--after-snapshot-delay尝试未改变该分支时序，之后用既有连续截图补齐停止后输出。四轮通用矩阵均0/2 NON-PASS，未修改门或报告；专项命令/像素正反证通过。证据缓存`2026-09-28-value-video-commands`保存基线、两轮提前截图、最终series、指标、日志及冻结补丁。
+
+**边界：**本批不声明全部side effects支持；Scalar/String puppet bone mutation出口、标量cursor、结束回调组合、实际Workshop视频effect graph、多屏及官方外观仍需各自证据。此次没有性能收益或全语料结论。
+
 <a id="e-2026-09-28-cursor-video-commands"></a>
 
 ### E-2026-09-28-CURSOR-VIDEO-COMMANDS — 鼠标视频命令保序提交与暂停跳转正确取帧
@@ -16,7 +28,7 @@
 
 **执行边界：**这是直接视频纹理→唯一compositor的自有场景，不含effect graph，不套用graph publication字段。实际AVPlayer帧发布与后继截图、GPU completed/presented成立：命中组110/110/0 submitted/completed/failed、109 presented；未命中106/106/0、104 presented。通用benchmark最终仍1/2 NON-PASS，因为未命中对照也被模板要求hover画面变化；该项以三图红及无事件断言通过，未更改报告或掩盖失败。两组专项通过不是全量兼容、性能改善或官方视觉一致性结论。
 
-**验证与余量：**20项cursor/显隐事务门最终通过，4项真实AVPlayer/Metal门通过（含暂停seek6、持有、新seek4在途拒帧后seek2、stop0及片尾在途seek时loop双向切换的实际decodedPTS核验；既有循环/重复命令/EOF撤回回归保留）。首轮新cursor顺序期待写反，按公开合同纠正；一次provider测试编译失败，完整4项已重跑通过。Debug构建、code-health及独立审查通过；审查发现loop改变后旧seek回调仍有效，已由同值幂等/真实变化重锚与双向运行反例闭合。证据`2026-09-28-cursor-video-commands`保留基线、中间失败、最终原图/日志与测试。标量/字符串脚本仍有视频命令输出丢弃，cursor标量借用、Solid语义、带视频effect graph及普通AppKit/真实样本交互继续开放。
+**验证与余量：**20项cursor/显隐事务门最终通过，4项真实AVPlayer/Metal门通过（含暂停seek6、持有、新seek4在途拒帧后seek2、stop0及片尾在途seek时loop双向切换的实际decodedPTS核验；既有循环/重复命令/EOF撤回回归保留）。首轮新cursor顺序期待写反，按公开合同纠正；一次provider测试编译失败，完整4项已重跑通过。Debug构建、code-health及独立审查通过；审查发现loop改变后旧seek回调仍有效，已由同值幂等/真实变化重锚与双向运行反例闭合。证据`2026-09-28-cursor-video-commands`保留基线、中间失败、最终原图/日志与测试。标量/字符串脚本视频命令输出由上方后继闭合；cursor标量借用、Solid语义、带视频effect graph及普通AppKit/真实样本交互继续开放。
 
 <a id="e-2026-09-28-effect-cursor-visibility"></a>
 

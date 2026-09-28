@@ -1,8 +1,8 @@
 # Scene 官方语义与实现覆盖台账
 
-## 2026-09-28 鼠标视频控制及暂停跳转取帧
+## 2026-09-28 脚本视频命令与暂停跳转
 
-cursor的init/事件视频命令现按owner及作者顺序进入原提交事务；异步暂停seek完成前保持旧图，完成后才取得并发布目标帧，迟到操作回调失效。自有MP4实际红→绿→红与未命中不变反例通过，20项cursor门及4项实际AVPlayer门通过。见[运行证据](runtime-evidence-current.md#e-2026-09-28-cursor-video-commands)。本批关闭cursor命令丢失与暂停跳转旧帧误发布；标量/字符串脚本视频输出仍不完整，未声明全回调/视频effect graph或官方parity。
+cursor的init/事件视频命令现按owner及作者顺序进入原提交事务；异步暂停seek完成前保持旧图，完成后才发布目标帧，迟到回调失效，见[鼠标视频证据](runtime-evidence-current.md#e-2026-09-28-cursor-video-commands)。后继补齐Scalar/String初始化、属性/媒体回调及update的视频输出，共用原mutation提取，删除重复逻辑，产品净减26行。19项VM/事务门与两组自有MP4的实际红→绿→红专项通过，见[标量/文字视频证据](runtime-evidence-current.md#e-2026-09-28-value-video-commands)。通用hover矩阵因取证时序不匹配仍NON-PASS，停止后的正确输出由连续截图验证。本项只关闭这些视频命令出口；标量cursor借用、其他side effects、真实样本/视频effect graph和官方parity仍未完整验收。
 
 ## 2026-09-28 特效自身显隐响应鼠标事件
 

@@ -182,6 +182,7 @@ nonisolated struct SceneScriptScalarEvaluation: Equatable, Sendable {
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
+    let videoCommands: [SceneScriptVideoCommand]
     let textureAnimationCommands:
         [SceneTextureAnimationCommand]
 }
@@ -475,6 +476,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             materialFunctionMutations: callbackMutations.materialFunctions,
             animationMutations: callbackMutations.animations,
             layerMutations: callbackMutations.layers,
+            videoCommands: callbackMutations.videoCommands,
             textureAnimationCommands:
                 callbackMutations.textureAnimationCommands
         ))
@@ -554,49 +556,22 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(.invalidArgument("SceneScript owner identity unavailable"))
         }
-        let mutations: [SceneScriptMaterialFunctionMutation]
-        switch SceneScriptEffectHandleBridge.mutations(
-            owner: handle,
-            layerID: layerID
+        let mutations: SceneScriptMediaEventMutations
+        switch SceneScriptMediaEventBridge.mutations(
+            owner: handle, target: target, layerID: layerID
         ) {
         case let .success(value): mutations = value
         case let .failure(failure):
             SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(failure)
         }
-        let animationMutations: [SceneTimelinePlaybackMutation]
-        switch SceneScriptAnimationHandleBridge.mutations(
-            owner: handle,
-            target: target
-        ) {
-        case let .success(value): animationMutations = value
-        case let .failure(failure):
-            SceneScriptLayerMutationBridge.discard(owner: handle)
-            return .failure(failure)
-        }
-        let layerMutations: [SceneScriptLayerMutation]
-        switch SceneScriptLayerMutationBridge.mutations(
-            owner: handle, ownerTarget: target
-        ) {
-        case let .success(value): layerMutations = value
-        case let .failure(failure):
-            SceneScriptLayerMutationBridge.discard(owner: handle)
-            return .failure(failure)
-        }
-        let textureAnimationCommands:
-            [SceneTextureAnimationCommand]
-        switch SceneScriptTextureAnimationCommandBridge.commands(owner: handle) {
-        case let .success(value): textureAnimationCommands = value
-        case let .failure(failure):
-            SceneScriptLayerMutationBridge.discard(owner: handle)
-            return .failure(failure)
-        }
         return .success(.init(
             value: .scalar(output),
-            materialFunctionMutations: mutations,
-            animationMutations: animationMutations,
-            layerMutations: layerMutations,
-            textureAnimationCommands: textureAnimationCommands
+            materialFunctionMutations: mutations.materialFunctions,
+            animationMutations: mutations.animations,
+            layerMutations: mutations.layers,
+            videoCommands: mutations.videoCommands,
+            textureAnimationCommands: mutations.textureAnimationCommands
         ))
     }
 

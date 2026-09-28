@@ -422,6 +422,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
             var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
             var callbackLayerMutations: [SceneScriptLayerMutation] = []
+            var callbackVideoCommands: [SceneScriptVideoCommand] = []
             var callbackTextureAnimationCommands:
                 [SceneTextureAnimationCommand] = []
             var playbackMutationCount = 0
@@ -461,6 +462,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                         callbackLayerMutations.append(
                             contentsOf: initialization.layerMutations
                         )
+                        callbackVideoCommands.append(contentsOf: initialization.videoCommands)
                         callbackTextureAnimationCommands.append(
                             contentsOf: initialization.textureAnimationCommands
                         )
@@ -490,6 +492,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                    callbackVideoCommands.append(contentsOf: eventMutations.videoCommands)
                     callbackTextureAnimationCommands.append(
                         contentsOf: eventMutations.textureAnimationCommands
                     )
@@ -548,6 +551,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                    callbackVideoCommands.append(contentsOf: eventMutations.videoCommands)
                     callbackTextureAnimationCommands.append(
                         contentsOf: eventMutations.textureAnimationCommands
                     )
@@ -576,6 +580,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                    callbackVideoCommands.append(contentsOf: eventMutations.videoCommands)
                     callbackTextureAnimationCommands.append(
                         contentsOf: eventMutations.textureAnimationCommands
                     )
@@ -605,6 +610,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                    callbackVideoCommands.append(contentsOf: eventMutations.videoCommands)
                     callbackTextureAnimationCommands.append(
                         contentsOf: eventMutations.textureAnimationCommands
                     )
@@ -632,6 +638,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                    callbackVideoCommands.append(contentsOf: eventMutations.videoCommands)
                     callbackTextureAnimationCommands.append(
                         contentsOf: eventMutations.textureAnimationCommands
                     )
@@ -661,6 +668,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     materialFunctionMutations: [],
                     animationMutations: [],
                     layerMutations: [],
+                    videoCommands: [],
                     textureAnimationCommands: []
                 ))
             switch evaluation {
@@ -702,6 +710,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     contentsOf: evaluation.animationMutations
                 )
                 callbackLayerMutations.append(contentsOf: evaluation.layerMutations)
+                callbackVideoCommands.append(contentsOf: evaluation.videoCommands)
                 callbackTextureAnimationCommands.append(
                     contentsOf: evaluation.textureAnimationCommands
                 )
@@ -713,7 +722,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     materialFunctionMutations: callbackMaterialMutations,
                     animationMutations: callbackAnimationMutations,
                     layerMutations: coalescedLayers,
-                    videoCommands: [],
+                    videoCommands: callbackVideoCommands,
                     textureAnimationCommands:
                         callbackTextureAnimationCommands
                 )

@@ -76,7 +76,7 @@
 
 ### Q3 — 效果/依赖能力缺口
 
-- **脚本视频命令完整输出**：[鼠标视频控制批](semantics/runtime-evidence-current.md#e-2026-09-28-cursor-video-commands)已补齐cursor聚合丢弃命令，并修复暂停seek完成前误发布旧帧；实际MP4命中/未命中对照通过。剩余共享首断点：Scalar/ String Program仍给ownerEffects传空videoCommands，初始化/更新和其他事件也有输出截断；下一门为沿既有owner事务完整传递并合并重复提取，不新增播放器或旁路。真实样本、多屏及视频effect graph外观仍需各自验证。
+- **脚本视频命令完整输出**：[鼠标视频控制批](semantics/runtime-evidence-current.md#e-2026-09-28-cursor-video-commands)已补齐cursor聚合并修复暂停seek误发布旧帧；[标量/文字后继](semantics/runtime-evidence-current.md#e-2026-09-28-value-video-commands)补齐现有Scalar/String初始化、属性/媒体及update命令，合并重复提取，沿原owner事务提交。自有MP4实际seek35与stop0、连续像素及失败owner/peer反例通过，输出截断首断点关闭。剩余：真实样本、视频effect graph、结束回调组合及多屏资源生命周期各自验收；不把这项输出修复当作所有脚本side effects完成。
 
 - **特效参数脚本类型合同**：向量参数已由[同owner cursor批](semantics/runtime-evidence-current.md#e-2026-09-28-effect-parameter-cursor)接通事件。[维度桥接后继](semantics/runtime-evidence-current.md#e-2026-09-28-vector-dimensions)已修复二维输入误构造Vec3及显式new Vec2返回BAD_RETURN，保留缺分量/非有限/非法维数反例，自有App的初始化和鼠标参数变化通过。下一门：标量参数尚无同等cursor借用；Boolean effect自身显隐已由[事件事务后继](semantics/runtime-evidence-current.md#e-2026-09-28-effect-cursor-visibility)闭合准入与typed输出；完整类型转换仍需作者合同和真实内容对照。
 
