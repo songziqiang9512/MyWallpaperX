@@ -6,6 +6,18 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-cursor-video-commands"></a>
+
+### E-2026-09-28-CURSOR-VIDEO-COMMANDS — 鼠标视频命令保序提交与暂停跳转正确取帧
+
+**合同与两个首断点：**[公开IVideoTexture](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IVideoTexture.html)提供播放、暂停、停止和跳转，[cursor合同](https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/cursor.html)规定Click在Up/Down之后。桥接已读出视频命令，但cursor聚合丢弃并给ownerEffects写空数组；现在保留init/事件顺序、owner身份、局部失败清除与重试，沿原Host preflight→提交后播放器消费。实际App进一步暴露暂停seek立刻读取旧buffer并确认refresh：requested35却decoded1.6，随后stop请求0却发布35，画面慢一步。现有视频provider等待异步seek完成后再取帧，单个操作token在新命令、循环开关真实变化、拒帧、停止时失效，不参与帧快照恢复；删除无buffer时暂停态逐帧重发seek。没有第二播放器、时钟或合成路径。
+
+**身份与实际画面：**基线d449782d，最终5文件冻结SHA-256 `4617da29ed2da10c93cd67661f47eadb7e57227ebabeb48cf8264fe6d6876f3e`。优化签名Debug 2.10.0(279)，executable SHA-256 `71f0fef4abea2f0f47a811b0aaa27d9bb63b977d289dc9157c8e65ac3f9c61b4`，CDHash `782e36c0895303608bf21d9d3d0bbde8539c20c3`，运行前后签名通过。自有60秒红/绿MP4嵌入TEX，两组各6秒：基线命中仍红→红→红；只接通事件的中间版错误红→红→绿；最终命中红[254,0,0]→移入跳转35秒且暂停绿[1,255,1]→移出stop回红。最终日志frame84发布requested/decoded均35、frame113均0，后续画面保持红；未命中组始终红、无cursor回调。逐张查看原图及中心ROI均符合专项判据。
+
+**执行边界：**这是直接视频纹理→唯一compositor的自有场景，不含effect graph，不套用graph publication字段。实际AVPlayer帧发布与后继截图、GPU completed/presented成立：命中组110/110/0 submitted/completed/failed、109 presented；未命中106/106/0、104 presented。通用benchmark最终仍1/2 NON-PASS，因为未命中对照也被模板要求hover画面变化；该项以三图红及无事件断言通过，未更改报告或掩盖失败。两组专项通过不是全量兼容、性能改善或官方视觉一致性结论。
+
+**验证与余量：**20项cursor/显隐事务门最终通过，4项真实AVPlayer/Metal门通过（含暂停seek6、持有、新seek4在途拒帧后seek2、stop0及片尾在途seek时loop双向切换的实际decodedPTS核验；既有循环/重复命令/EOF撤回回归保留）。首轮新cursor顺序期待写反，按公开合同纠正；一次provider测试编译失败，完整4项已重跑通过。Debug构建、code-health及独立审查通过；审查发现loop改变后旧seek回调仍有效，已由同值幂等/真实变化重锚与双向运行反例闭合。证据`2026-09-28-cursor-video-commands`保留基线、中间失败、最终原图/日志与测试。标量/字符串脚本仍有视频命令输出丢弃，cursor标量借用、Solid语义、带视频effect graph及普通AppKit/真实样本交互继续开放。
+
 <a id="e-2026-09-28-effect-cursor-visibility"></a>
 
 ### E-2026-09-28-EFFECT-CURSOR-VISIBILITY — 特效自身显隐复用鼠标事件及原提交事务

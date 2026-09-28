@@ -153,6 +153,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             ownerTarget: SceneDynamicTarget,
             command: SceneTextureAnimationCommand
         )] = []
+        var videos: [(
+            ownerTarget: SceneDynamicTarget,
+            command: SceneScriptVideoCommand
+        )] = []
         var layers: [(
             ownerTarget: SceneDynamicTarget,
             mutation: SceneScriptLayerMutation
@@ -166,6 +170,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             layers.removeAll { $0.ownerTarget == ownerTarget }
             puppetBones.removeAll { $0.ownerTarget == ownerTarget }
             textureAnimations.removeAll { $0.ownerTarget == ownerTarget }
+            videos.removeAll { $0.ownerTarget == ownerTarget }
             authoredMutationIndices = [:]
             for (index, candidate) in layers.enumerated()
                 where !candidate.mutation.isDynamic
@@ -182,8 +187,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             animations ownerAnimations: [SceneTimelinePlaybackMutation],
             layers ownerLayers: [SceneScriptLayerMutation],
             puppetBones ownerPuppetBones: [SceneScriptPuppetBoneMutation],
+            videos ownerVideos: [SceneScriptVideoCommand],
             textureAnimations ownerTextureAnimations: [SceneTextureAnimationCommand]
         ) {
+            videos.append(contentsOf: ownerVideos.map { (ownerTarget, $0) })
             puppetBones.append(contentsOf:
                 ownerPuppetBones.map { (ownerTarget, $0) }
             )
@@ -262,6 +269,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     animations: initialization.animationMutations,
                     layers: initialization.layerMutations,
                     puppetBones: initialization.puppetBoneMutations,
+                    videos: initialization.videoCommands,
                     textureAnimations: initialization.textureAnimationCommands
                 )
                 return true
@@ -328,6 +336,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     animations: mutations.animations,
                     layers: mutations.layers,
                     puppetBones: mutations.puppetBones,
+                    videos: mutations.videoCommands,
                     textureAnimations: mutations.textureAnimationCommands
                 )
                 for mutation in mutations.layers
@@ -527,7 +536,9 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 layerMutations: layers.compactMap {
                     $0.ownerTarget == binding.ownerTarget ? $0.mutation : nil
                 },
-                videoCommands: [],
+                videoCommands: videos.compactMap {
+                    $0.ownerTarget == binding.ownerTarget ? $0.command : nil
+                },
                 textureAnimationCommands: textureAnimations.compactMap {
                     $0.ownerTarget == binding.ownerTarget ? $0.command : nil
                 },

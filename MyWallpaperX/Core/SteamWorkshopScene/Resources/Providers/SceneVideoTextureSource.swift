@@ -59,6 +59,7 @@ final class SceneVideoTextureSource {
     private var pendingPreparationSnapshot: FramePreparationSnapshot?
     private var hasStarted = false
     private var needsPlayerAnchor = true
+    private var pendingSeekID: UUID?
     private var playerEventState = SceneVideoPlayerEventState()
     private var endedGeneration: UInt64 = 0
 
@@ -232,12 +233,22 @@ final class SceneVideoTextureSource {
                 playerEventState.didAnchorPlayback()
             }
         } else if !lifecycle.isPlaying && needsPlayerAnchor {
-            player.pause()
-            player.seek(
-                to: itemTime,
-                toleranceBefore: .zero,
-                toleranceAfter: .zero
-            )
+            if pendingSeekID == nil {
+                let seekID = UUID()
+                pendingSeekID = seekID
+                player.pause()
+                player.seek(to: itemTime, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
+                    DispatchQueue.main.async {
+                        guard let self, self.pendingSeekID == seekID else { return }
+                        self.pendingSeekID = nil
+                        self.needsPlayerAnchor = !finished
+                    }
+                }
+            }
+            // Seeking is asynchronous. Consuming the previous buffer here
+            // would acknowledge the refresh while leaving paused playback
+            // permanently on the old image.
+            return lastFrame
         }
         if lifecycle.isPlaying && player.rate == 0 {
             needsPlayerAnchor = true
@@ -245,9 +256,6 @@ final class SceneVideoTextureSource {
         }
         let expectedCommandGeneration = playerEventState.commandGeneration
         guard videoOutput.hasNewPixelBuffer(forItemTime: itemTime) else {
-            if player.rate == 0 {
-                needsPlayerAnchor = true
-            }
             return lastFrame
         }
         var itemTimeForDisplay = CMTime.invalid
@@ -419,7 +427,9 @@ final class SceneVideoTextureSource {
             )
             markPlayerAnchorRequired()
         case let .setLoop(value):
+            guard value != lifecycle.loop else { return }
             lifecycle.setLoop(value)
+            markPlayerAnchorRequired()
         }
     }
 
@@ -481,12 +491,16 @@ final class SceneVideoTextureSource {
         pendingFrame = nil
         pendingFrameIndex = nil
         pendingPreparationSnapshot = nil
+        pendingSeekID = nil
         playerEventState.invalidateAnchor()
         CVMetalTextureCacheFlush(textureCache, 0)
         try? FileManager.default.removeItem(at: temporaryFileURL)
     }
 
     private func markPlayerAnchorRequired() {
+        // Tokens are backend operations, never restored with frame state.
+        // A rejected frame or newer command cannot accept an old completion.
+        pendingSeekID = nil
         player.pause()
         needsPlayerAnchor = true
         playerEventState.invalidateAnchor()

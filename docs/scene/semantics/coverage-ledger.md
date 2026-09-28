@@ -1,5 +1,9 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-28 鼠标视频控制及暂停跳转取帧
+
+cursor的init/事件视频命令现按owner及作者顺序进入原提交事务；异步暂停seek完成前保持旧图，完成后才取得并发布目标帧，迟到操作回调失效。自有MP4实际红→绿→红与未命中不变反例通过，20项cursor门及4项实际AVPlayer门通过。见[运行证据](runtime-evidence-current.md#e-2026-09-28-cursor-video-commands)。本批关闭cursor命令丢失与暂停跳转旧帧误发布；标量/字符串脚本视频输出仍不完整，未声明全回调/视频effect graph或官方parity。
+
 ## 2026-09-28 特效自身显隐响应鼠标事件
 
 Boolean effect owner借用既有cursor VM，thisObject.visible的原staged值唤醒typed求值并沿原事务提交；提交后event-only owner继续休眠，非法跨职责写入保持局部拒绝。自有event-only/init+event场景实际白→红→白，3211615441层44两份脚本准入和事件恢复、原有切图回归通过；57项行为/事务/准入测试及构建通过。见[运行证据](runtime-evidence-current.md#e-2026-09-28-effect-cursor-visibility)。关闭此前Boolean effect cursor准入/输出缺口，标量参数cursor、Solid完整合同及按住期间真实特效外观仍开放。

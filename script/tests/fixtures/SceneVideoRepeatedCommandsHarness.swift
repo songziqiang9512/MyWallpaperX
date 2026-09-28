@@ -29,6 +29,7 @@ struct SceneTextureProviderPublication { let requestIdentity: FrameIdentity; let
   // Observe the actual AVPlayer without changing product APIs or replacing its backend.
   let player=Mirror(reflecting:source).children.compactMap{$0.value as? AVPlayer}.first!
   if CommandLine.arguments.contains("--eof-discard") { try eofDiscard(source, player, looping: !CommandLine.arguments.contains("--no-loop")); return }
+  if CommandLine.arguments.contains("--paused-seek") { try pausedSeek(source); return }
   if CommandLine.arguments.contains("--loop-phase") { try loopPhase(source); return }
   let start=CACurrentMediaTime(); var frame:UInt64=0
   var decodedTimes:[Double]=[]; var requestedTimes:[Double]=[]
@@ -87,6 +88,41 @@ struct SceneTextureProviderPublication { let requestIdentity: FrameIdentity; let
   }
   let final=source.playbackSnapshot(sceneTime:timing().sceneTime)
   print(String(decoding:try JSONSerialization.data(withJSONObject:["looping":looping,"before":before,"afterDiscard":afterDiscard,"afterRetry":afterRetry,"endsBefore":endsBefore,"endsAfter":snapshot.endedGeneration,"scene":now.sceneTime,"time":snapshot.currentTime,"playing":snapshot.isPlaying,"finalEnds":final.endedGeneration,"finalPlaying":final.isPlaying,"finalTime":final.currentTime,"rows":rows]),as:UTF8.self))
+ }
+ static func pausedSeek(_ source:SceneVideoTextureSource) throws {
+  let start=CACurrentMediaTime();var frame:UInt64=0;var last:SceneVideoTextureSource.Frame?
+  func timing()->SceneFrameTiming {let now=CACurrentMediaTime();frame+=1;return .init(frameIndex:frame,hostTime:now,sceneTime:now-start)}
+  func pump(_ seconds:Double)->[[Double]] {
+   let end=CACurrentMediaTime()+seconds;var rows:[[Double]]=[]
+   while CACurrentMediaTime()<end {
+    if let f=source.currentFrame(for:timing()),f.contentGeneration != last?.contentGeneration {
+     rows.append([f.requestedItemTime,f.decodedItemTime ?? -1]);last=f
+    }
+    RunLoop.current.run(until:Date(timeIntervalSinceNow:1.0/120))
+   };return rows
+  }
+  _=pump(0.8);guard last != nil else {fatalError("startup failed")}
+  source.apply(.init(layerID:7,action:.pause),timing:timing())
+  source.apply(.init(layerID:7,action:.setCurrentTime(6)),timing:timing())
+  let paused=pump(0.5);let held=pump(0.2)
+  source.apply(.init(layerID:7,action:.setCurrentTime(4)),timing:timing())
+  _=source.prepareFrame(for:timing())
+  // Reject the frame, then replace its in-flight seek before completion.
+  source.discardPreparedFrame()
+  source.apply(.init(layerID:7,action:.setCurrentTime(2)),timing:timing())
+  let replaced=pump(0.5)
+  source.apply(.init(layerID:7,action:.stop),timing:timing())
+  let stopped=pump(0.5)
+  let duration=source.playbackSnapshot(sceneTime:timing().sceneTime).duration
+  source.apply(.init(layerID:7,action:.setCurrentTime(duration)),timing:timing())
+  _=source.currentFrame(for:timing())
+  source.apply(.init(layerID:7,action:.setLoop(false)),timing:timing())
+  let loopOff=pump(0.5)
+  source.apply(.init(layerID:7,action:.setCurrentTime(duration)),timing:timing())
+  _=source.currentFrame(for:timing())
+  source.apply(.init(layerID:7,action:.setLoop(true)),timing:timing())
+  let loopOn=pump(0.5)
+  print(String(decoding:try JSONSerialization.data(withJSONObject:["paused":paused,"held":held,"replaced":replaced,"stopped":stopped,"loopOff":loopOff,"loopOn":loopOn,"duration":duration]),as:UTF8.self))
  }
  static func loopPhase(_ source: SceneVideoTextureSource) throws {
   let start=CACurrentMediaTime(); var frame:UInt64=0; var generation:UInt64=0

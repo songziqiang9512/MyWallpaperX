@@ -63,6 +63,33 @@ class SceneVideoRepeatedCommandsTests(unittest.TestCase):
             self.assertGreater(result["retriedFrames"], 3)
             self.assertGreater(result["fasterTimes"][-1] - result["fasterTimes"][1], 0.4)
 
+    def test_paused_seek_publishes_completed_target_and_ignores_obsolete_completion(self):
+        with tempfile.TemporaryDirectory(prefix="mwx-video-paused-seek-") as tmp:
+            work = Path(tmp)
+            subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i",
+                "testsrc2=size=320x180:rate=30:duration=10", "-c:v", "libx264",
+                "-pix_fmt", "yuv420p", str(work / "clip.mp4")], check=True, capture_output=True)
+            subprocess.run(["swiftc", "-parse-as-library",
+                str(PROVIDERS / "SceneVideoProviderLifecycleState.swift"),
+                str(PROVIDERS / "SceneVideoTextureSource.swift"),
+                str(ROOT / "script/tests/fixtures/SceneVideoRepeatedCommandsHarness.swift"),
+                "-module-cache-path", str(work / "module-cache"), "-o", str(work / "probe")],
+                check=True, capture_output=True, timeout=120)
+            run = subprocess.run([str(work / "probe"), str(work), "--paused-seek"],
+                check=True, capture_output=True, text=True, timeout=20)
+            result = json.loads(run.stdout)
+            for phase, target in [("paused", 6), ("replaced", 2), ("stopped", 0)]:
+                self.assertTrue(result[phase], phase)
+                for requested, decoded in result[phase]:
+                    self.assertAlmostEqual(requested, target, places=3)
+                    self.assertAlmostEqual(decoded, target, delta=1 / 30)
+            self.assertEqual(result["held"], [])
+            for phase, target in [("loopOff", result["duration"]), ("loopOn", 0)]:
+                self.assertTrue(result[phase], phase)
+                for requested, decoded in result[phase]:
+                    self.assertAlmostEqual(requested, target, places=3)
+                    self.assertAlmostEqual(decoded, target, delta=1 / 30 + 0.001)
+
     def test_actual_loop_requests_preserve_scene_clock_phase(self):
         if not shutil.which("swiftc") or not shutil.which("ffmpeg"):
             self.skipTest("Swift and ffmpeg are required for real AVPlayer evidence")
