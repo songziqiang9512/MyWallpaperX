@@ -210,9 +210,11 @@ class SceneVectorOwnerAdmissionTests(unittest.TestCase):
         self.assertEqual(self.value["passCursorOnlyCursorFailures"], 0)
         self.assertEqual(self.value["passCursorOnlyVectorFailures"], [])
 
-    def test_effect_visibility_cursor_without_hit_identity_fails_locally(self) -> None:
+    def test_effect_visibility_cursor_without_geometry_preserves_value_owner(self) -> None:
         self.assertEqual(self.value["effectCursorProjected"], 1)
-        self.assertEqual(self.value["effectCursorFailureCode"], "invalid-source")
+        self.assertEqual(self.value["effectCursorFailureCode"], "none")
+        self.assertEqual(self.value["effectCursorVectorOwners"], 1)
+        self.assertEqual(self.value["effectCursorHitFailureCode"], "invalid-argument")
         self.assertEqual(self.value["effectCursorOwners"], 0)
 
     def test_text_color_cursor_dispatches_on_its_typed_layer_identity(self) -> None:

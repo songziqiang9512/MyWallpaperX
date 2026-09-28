@@ -1035,7 +1035,10 @@ enum Harness {
                 .constructionReport.expectedCursorTargets.count,
             "effectCursorProjected": effectCursorProjection.targets.count,
             "effectCursorFailureCode": effectCursorCandidate.constructionReport
-                .vectorFailures[effectCursorTarget]?.code ?? "missing",
+                .vectorFailures[effectCursorTarget]?.code ?? "none",
+            "effectCursorHitFailureCode": effectCursorCandidate.constructionReport
+                .cursorFailures[effectCursorTarget]?.code ?? "none",
+            "effectCursorVectorOwners": effectCursorCandidate.vectorProgram.definitions.count,
             "effectCursorOwners": effectCursorCandidate.cursorProgram.ownerCount,
             "textCursorProjected": textCursorProjection.targets.count,
             "textCursorOwners": textCursorCandidate.cursorProgram.ownerCount,

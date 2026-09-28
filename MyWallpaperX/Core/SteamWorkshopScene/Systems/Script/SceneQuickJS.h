@@ -599,6 +599,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_effect_visibility_target
     size_t diagnostic_capacity
 );
 
+bool mwx_scene_quickjs_owner_has_staged_effect_visibility(
+    const MWXSceneQuickJSOwner *owner
+);
+
 /// Defines the current-property animation accessor on the owner's own layer
 /// handle. Only layer/text property owners may call this: for component
 /// properties the current property belongs to the component, not the layer.

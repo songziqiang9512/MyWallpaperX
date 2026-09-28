@@ -6,6 +6,18 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-effect-cursor-visibility"></a>
+
+### E-2026-09-28-EFFECT-CURSOR-VISIBILITY — 特效自身显隐复用鼠标事件及原提交事务
+
+**首断点与实现：**Boolean effect owner原先拒绝cursor导出，且event-only owner即使写入thisObject.visible也不会触发typed求值。现借用已有cursor绑定，查询C侧原staged字段唤醒既有Boolean输出，提交后恢复空闲；不新增状态、队列或VM。事件出口沿原Boolean职责核验，非法图层/material/animation写入仍拒绝；原init先于事件、失败owner重试及同层peer隔离保持。
+
+**身份与画面对照：**基线c0a9403b，最终7文件冻结SHA-256 `bef170edcf18087d55d0615f3e2a4c295a47c2389294c767fd4430da66d8231b`；优化签名Debug 2.10.0(279)，executable SHA-256 `682ce2220bed0a3b8ef4b166a820ceab6d9a9a078b52642bdb19da5f16ba8daf`，CDHash `9b176bbbc58a69d01bd2a49709859b504913e65f`。两份自有初始关闭特效（event-only、init+event）各6秒，基线均一直白、0/2；新版均白[255,255,255]→鼠标移入红[255,0,0]→移出白，通用矩阵及中心ROI 2/2 PASS。runtime分别`a570e8c0-22e6-4f5c-92d6-5350f7f1b999`、`eb65451f-46b3-4f36-bf9f-e110bdc8b716`，均有publication、GPU完成、terminal compositor与next-frame，GPU失败0、无脚本失败。
+
+**真实回归与边界：**3211615441原包只读隔离副本、固定PCM、8秒单次点击，1/1 PASS。层44 effect3/4不再invalidSource，typed Bool初始化成功，实际执行cursorDown/Click/Up；同runtime `3ad3cce6-95a1-4011-bd21-b2ad5dba71f9`有GPU/发布/终端/下一帧，164/163/0 submitted/completed/failed。查看原始前后图确认中央切到第二图。此次down/up在同帧批次内，不把回调日志当作按住期间特效已呈现的证据；完整点击外观、Solid合同、普通AppKit输入、官方视觉仍开放。
+
+**验证与归档：**最终5项新Swift/C行为门、32项owner准入门及20项既有事务/Boolean门通过；覆盖按下/抬起、空闲、单owner拒帧不重复切换peer、整帧撤回、跨职责拒绝和后续update失败重试。首轮测试误把首次属性递送的安全seed当作事件输出，修正为先提交初始状态后验证回滚，产品未追加分支；另一次并发编译因源文件注释变动被Swift拒绝，相关套件已重跑。Debug构建、code-health及独立冻结审查/测试修正复核通过。本机证据`2026-09-28-effect-cursor-visibility`保留失败基线、最终三组回放、原图、日志、指标及测试记录。无全量语料、性能收益或官方parity结论。
+
 <a id="e-2026-09-28-vector-dimensions"></a>
 
 ### E-2026-09-28-VECTOR-DIMENSIONS — 二维脚本输入与返回沿同一typed向量桥接

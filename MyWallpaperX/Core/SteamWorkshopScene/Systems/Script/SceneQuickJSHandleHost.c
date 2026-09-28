@@ -333,6 +333,12 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_property_object_scope(
     return MWX_SCENE_QUICKJS_OK;
 }
 
+bool mwx_scene_quickjs_owner_has_staged_effect_visibility(
+    const MWXSceneQuickJSOwner *owner
+) {
+    return owner != NULL && !owner->disabled && owner->effect_visibility_staged;
+}
+
 static JSValue effect_visibility_getter(
     JSContext *context,
     JSValueConst this_value,

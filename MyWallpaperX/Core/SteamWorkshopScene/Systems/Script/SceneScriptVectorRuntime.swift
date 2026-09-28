@@ -27,14 +27,13 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             || !dynamicImagePathsByAuthoredIdentity.isEmpty
     }
 
-    /// Event-only owners (no `init`/`update`) run exclusively through their
-    /// event dispatches. A C update call would pass through unchanged, but the
-    /// scalar/string quiescence mirror skips owners with nothing to run; the
-    /// program-side skip relies on this flag. A retained initialization value
-    /// keeps the owner evaluable until the evaluation published it.
+    /// Event-only owners sleep until a callback stages their own value.
+    /// Publish it through the ordinary typed evaluation; initialization and
+    /// timers keep their existing scheduling and shared commit boundary.
     var requiresFrameEvaluation: Bool {
         handlesUpdate || needsInitialization
             || (pendingInitializationValue != nil && !initializationValueConsumed)
+            || mwx_scene_quickjs_owner_has_staged_effect_visibility(handle)
             || mwx_scene_quickjs_owner_active_timer_count(handle) > 0
     }
 
@@ -191,15 +190,6 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                 owner: created
             )
             if valueType == .bool {
-                // A callback without a cursor registration would be accepted
-                // by the VM but never dispatched. Effect visibility has no
-                // layer-hit registration; reject that owner locally.
-                if !exportedCursorEvents.isEmpty {
-                    switch target {
-                    case .layer, .text: break
-                    default: throw SceneScriptScalarRuntimeFailure.invalidSource
-                    }
-                }
                 let handlesDestroy = try SceneScriptOwnerExportBridge.contains(
                     "destroy", owner: created
                 )
@@ -706,7 +696,17 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             frame: frame,
             scriptPropertiesJSON: scriptPropertiesJSON,
             userPropertiesJSON: userPropertiesJSON
-        )
+        ).flatMap { mutations in
+            guard case .effectVisibility = target else {
+                return .success(mutations)
+            }
+            // Validate the same effect-owner cohort as init/update. This
+            // event has no return value; its staged Bool is consumed by the
+            // ordinary value evaluation before the shared frame commit.
+            return validatedEvaluation(
+                value: .bool(false), mutations: mutations, layerID: event.layerID
+            ).map { _ in mutations }
+        }
     }
 
     func invalidate() {
