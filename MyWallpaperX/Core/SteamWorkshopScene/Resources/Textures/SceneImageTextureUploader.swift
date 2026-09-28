@@ -141,7 +141,8 @@ enum SceneImageTextureUploader {
         guard orientation == 1 else {
             return .failure(.nonIdentityOrientation(orientation))
         }
-        guard let image = CGImageSourceCreateImageAtIndex(imageSource, 0, nil) else {
+        let decodeOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let image = CGImageSourceCreateImageAtIndex(imageSource, 0, decodeOptions) else {
             return .failure(.decodeUnavailable)
         }
         guard image.width == width, image.height == height else {
