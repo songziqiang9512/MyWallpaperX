@@ -1,5 +1,6 @@
 import Foundation
 import Metal
+import simd
 
 /// Owns the CPU state and GPU instance buffers for effectively visible particle layers.
 /// Particle positions and sizes stay in the author-defined layer-local coordinate system.
@@ -281,37 +282,61 @@ final class SceneParticleRuntime {
     }
 
     /// A script anywhere in the scene may write a chain layer's transform
-    /// through the dynamic snapshot without a declared binding. The frozen
-    /// direction frame would then silently misconvert world forces, so the
-    /// system stops advancing and keeps its last committed particles.
-    private func freezeWorldSpaceSystemsOnRuntimeTransformWrites(
-        _ dynamicValues: SceneDynamicSnapshot
-    ) {
-        guard !worldSpaceChains.isEmpty else { return }
+    /// through the dynamic snapshot without a declared binding. The runtime
+    /// then adopts the renderer's current world frame for that system; only
+    /// when no current frame is available (or it is degenerate) does the
+    /// system freeze and keep its last committed particles.
+    private var liveWorldSpaceAdoptedLayerIDs: Set<Int> = []
+    private func resolveCurrentWorldSpaceFrames(
+        dynamicValues: SceneDynamicSnapshot,
+        layerWorldFrames: [Int: simd_float4x4]
+    ) -> [Int: SceneParticleWorldSpaceFrame] {
+        guard !worldSpaceChains.isEmpty else { return [:] }
         let transformLayerIDs = dynamicValues.dynamicTransformLayerIDsForFrame
-        guard !transformLayerIDs.isEmpty else { return }
+        guard !transformLayerIDs.isEmpty else { return [:] }
+        var liveFrames: [Int: SceneParticleWorldSpaceFrame] = [:]
         for (layerID, chain) in worldSpaceChains
         where !frozenWorldSpaceLayerIDs.contains(layerID)
             && !chain.isDisjoint(with: transformLayerIDs) {
-            frozenWorldSpaceLayerIDs.insert(layerID)
-            addDiagnostic(
-                kind: .simulationLimitation,
-                layerID: layerID,
-                path: layers.first { $0.layerID == layerID }?.particlePath ?? "",
-                detail: "world-space frame frozen after runtime transform write"
-            )
+            let path = layers.first { $0.layerID == layerID }?.particlePath ?? ""
+            if let current = layerWorldFrames[layerID],
+               let frame = SceneParticleWorldSpaceFrame(worldFrame: current) {
+                if liveWorldSpaceAdoptedLayerIDs.insert(layerID).inserted {
+                    addDiagnostic(
+                        kind: .simulationLimitation,
+                        layerID: layerID,
+                        path: path,
+                        detail: "world-space frame follows current transform"
+                    )
+                }
+                liveFrames[layerID] = frame
+            } else if !frozenWorldSpaceLayerIDs.contains(layerID) {
+                frozenWorldSpaceLayerIDs.insert(layerID)
+                addDiagnostic(
+                    kind: .simulationLimitation,
+                    layerID: layerID,
+                    path: path,
+                    detail: "world-space frame frozen after runtime transform write"
+                )
+            }
         }
+        return liveFrames
     }
 
     /// Advances every active layer by the frame delta and returns batches in scene render order.
     func advance(by frameDelta: TimeInterval, dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
-                 pointerLocalPositions: [Int: SIMD3<Double>] = [:], audioInput: SceneParticleAudioInput = .silent) -> [SceneParticleDrawBatch] {
-        freezeWorldSpaceSystemsOnRuntimeTransformWrites(dynamicValues)
+                 pointerLocalPositions: [Int: SIMD3<Double>] = [:], audioInput: SceneParticleAudioInput = .silent,
+                 layerWorldFrames: [Int: simd_float4x4] = [:]) -> [SceneParticleDrawBatch] {
+        let liveWorldSpaceFrames = resolveCurrentWorldSpaceFrames(
+            dynamicValues: dynamicValues,
+            layerWorldFrames: layerWorldFrames
+        )
         var batches: [SceneParticleDrawBatch] = []
         for index in layers.indices {
             let layerID = layers[index].layerID
             let layerDelta = frozenWorldSpaceLayerIDs.contains(layerID)
                 ? 0 : frameDelta
+            let worldSpaceFrameOverride = liveWorldSpaceFrames[layerID]
             let layerAlpha = SceneDynamicLayerValues.alpha(
                 layerID: layerID,
                 authoredValue: Double(layers[index].layerAlpha),
@@ -342,7 +367,8 @@ final class SceneParticleRuntime {
                     dynamicControlPoints: rootControlPoints,
                     dynamicControlPointAngles: controlPointAngles,
                     dynamicInstanceOverride: instanceOverride,
-                    audioInput: audioInput
+                    audioInput: audioInput,
+                    worldSpaceFrameOverride: worldSpaceFrameOverride
                 )
                 pendingAudioEvaluationObservations.append(contentsOf:
                     root.simulator.consumeAudioEvaluationObservations().map {
@@ -369,7 +395,8 @@ final class SceneParticleRuntime {
                     pointerLocalPosition: pointerLocalPositions[layerID],
                     dynamicControlPoints: dynamicControlPoints,
                     dynamicControlPointAngles: controlPointAngles,
-                    audioInput: audioInput
+                    audioInput: audioInput,
+                    worldSpaceFrameOverride: worldSpaceFrameOverride
                 )
                 pendingAudioEvaluationObservations.append(contentsOf:
                     childRuntime.consumeAudioEvaluationObservations().map {

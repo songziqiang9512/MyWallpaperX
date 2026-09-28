@@ -95,6 +95,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     private var nextParticleID: UInt64 = 0
     private var normalizedLives: [Double] = []
     var dynamicControlPoints: [Int: SIMD3<Double>] = [:]
+    /// The frame gravity conversion and world-space birth directions run
+    /// through for the current advance: the caller's per-frame resolution of
+    /// the layer's live world transform, falling back to the launch frame.
+    var activeWorldSpaceFrame: SceneParticleWorldSpaceFrame?
     var dynamicControlPointAngles: [Int: SIMD3<Double>] = [:]
     var audioInput = SceneParticleAudioInput.silent
     /// Sticky per-system identities suppress repeated telemetry after the first
@@ -139,8 +143,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         operatorExecutionPlans = definition.operators.map {
             SceneParticleOperatorExecutionPlan(
                 $0,
-                definition: definition,
-                worldSpaceFrame: worldSpaceFrame
+                definition: definition
             )
         }
         var controlPointsByID: [Int: SceneParticleControlPoint] = [:]
@@ -184,6 +187,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             SceneParticleEmitterState(seed: seed, emitterIndex: $0)
         }
         random = SceneParticleRandomGenerator(state: seed)
+        // The init-time warm-up runs the same emit/apply path as advance;
+        // prewarmed world-space systems convert through the launch frame.
+        activeWorldSpaceFrame = worldSpaceFrame
         warmUp(duration: definition.startTime ?? 0, stepBudget: prewarmStepBudget,
                historyCapacity: stepSnapshotPolicy?.maximumSnapshots ?? 0)
         birthEvents.removeAll(keepingCapacity: true)
@@ -195,13 +201,15 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         dynamicControlPoints: [Int: SIMD3<Double>] = [:],
         dynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
         dynamicInstanceOverride: SceneParticleInstanceOverride? = nil,
-        audioInput: SceneParticleAudioInput = .silent
+        audioInput: SceneParticleAudioInput = .silent,
+        worldSpaceFrameOverride: SceneParticleWorldSpaceFrame? = nil
     ) {
         transientRenderBirths.removeAll(keepingCapacity: true)
         self.dynamicControlPoints = dynamicControlPoints
         self.dynamicControlPointAngles = dynamicControlPointAngles
         activeInstanceOverride = dynamicInstanceOverride ?? instanceOverride
         self.audioInput = audioInput
+        activeWorldSpaceFrame = worldSpaceFrameOverride ?? worldSpaceFrame
         guard duration.isFinite, duration > 0 else { return }
         let birthEventStart = birthEvents.count
         let deathEventStart = deathEvents.count
@@ -620,8 +628,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         applyInitializers(to: &particle)
         particle.velocity = frame.direction(for: particle.velocity)
         applyInstanceOverride(to: &particle)
-        if hasWorldSpaceMovement, let worldSpaceFrame {
-            particle.velocity = worldSpaceFrame.localDirection(particle.velocity)
+        if hasWorldSpaceMovement, let activeWorldSpaceFrame {
+            particle.velocity = activeWorldSpaceFrame.localDirection(particle.velocity)
         }
         particle.initialColor = particle.color
         particle.initialAlpha = particle.alpha
@@ -675,7 +683,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             guard let plan = operatorExecutionPlans[operatorIndex].movement else {
                 break
             }
-            let gravity = plan.gravity * effectiveSpeedOverride
+            let gravity = plan.gravity(through: activeWorldSpaceFrame)
+                * effectiveSpeedOverride
             for index in particles.indices {
                 let acceleration = gravity - particles[index].velocity * plan.drag
                 let velocity = particles[index].velocity + acceleration * duration

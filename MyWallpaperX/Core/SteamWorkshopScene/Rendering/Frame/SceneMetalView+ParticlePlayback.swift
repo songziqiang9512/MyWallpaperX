@@ -38,7 +38,8 @@ extension SceneMetalView {
             by: timing.simulationFrameTime,
             dynamicValues: dynamicValues,
             pointerLocalPositions: pointerLocalPositions,
-            audioSpectrum: frameContext.audioSpectrum
+            audioSpectrum: frameContext.audioSpectrum,
+            layerWorldFrames: frameProjection.worldFrames
         )
         performanceTelemetry?.endStage("particle-advance")
         return batches

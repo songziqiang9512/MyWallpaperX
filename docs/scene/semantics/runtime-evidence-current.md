@@ -6,6 +6,18 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-world-space-live-frame"></a>
+
+### E-2026-09-28-WORLD-SPACE-LIVE-FRAME — 模拟器消费渲染同一逐帧世界帧（切片 1b，冻结降为回退）
+
+**首断点与实现：**1a（d78a6f76）在链变换写入时冻结世界空间系统——安全但保守。本批把主路径改为活帧：`SceneParticleMovementPlan` 不再把重力经发射帧烘死，改为 authoredGravity+标志与 `gravity(through:)` 每 advance 换算一次（每 movement 算子一次矩阵乘，非每粒子；`SceneParticleOperatorExecutionPlan` 随之去掉帧参数=净减烘焙状态）；`SceneParticleSimulator.advance` 新增 `worldSpaceFrameOverride`，出生速度与重力换算走 effective frame（override ?? 发射帧）；ChildRuntime 两个 depth 全部子模拟器贯通；`SceneParticleRuntime.advance` 新增 `layerWorldFrames`，变换通道命中时渲染器当前帧可构造即下发活帧+一次性 "world-space frame follows current transform" 诊断，缺失/退化才回落 1a 冻结；`SceneMetalView+ParticlePlayback` 把渲染器每帧已解析的 `frameProjection.worldFrames` 传入——**模拟与绘制消费同一帧集合，无第二解析器**。
+
+**验证：**1a 冻结用例保留通过（无帧回退语义不变）；新增活帧用例：identity 帧 +X 出生速度保持、+90°Z 帧重定向到 Y（rotatedY>4×rotatedX，出生速度经 effective 帧世界→局部换算）、一次性 follows-current 诊断、无冻结诊断。粒子 simulator/runtime/solid_layers 123 项（10 既有跳过）；一个锁定旧烘焙调用形状的源码断言按目标依据迁移（计划仍 init 一次构造，帧改逐帧方法换算——断言随之更新为现形状）；selector 9 模块全绿；checkpoint 构建、code-health 通过。**旧行为证明**：1a 冻结用例即 1b 前行为（变换通道必冻结）；活帧用例因新参数无法在 1a API 上表达，红证采用 1a 用例+设计差量（identity.json 记录）。
+
+**独立审查轮次：**首轮 REJECT 抓到一个真阻断——init 的 warmUp（prewarm）期间 `activeWorldSpaceFrame` 为 nil，世界空间系统的预热重力/出生速度跳过发射帧换算（偏离 1a 烘焙行为与目标合同）。红先行证明：注入 +90°Z 发射帧 + starttime 0.1 + 重力驱动的世界移动系统在修复前沿原始 +X 移动（Y=0.23 vs X=10.27）；修复（init warmUp 前预设 `activeWorldSpaceFrame = worldSpaceFrame`）后 prewarmY>4×prewarmX。同批处置两条非阻断：frozen 层恢复活帧求值排除（消除"follows current transform"诊断与实际冻结的矛盾）；补活帧重力行为测试（-90°Z 活帧 6 帧推进，liveY>4×liveX）。复审材料 product-v2 patch SHA256 `fa5213867940d77919df320b7f95881b63f86f292d8dabe02cff209adf4befa7`、tests-v2 `b72aa389e5faa01c3c84b77f107635d18dd0edffafbec44854addd3c2da418d1`。修复后全梯：粒子 125 项 OK、selector 9/9、checkpoint 构建、code-health、回放复跑均保持。
+
+**真实回放：**2986218263 隔离 20 秒（修复后二进制 SHA256 `b7f6d49187163282173458b3a0dc18671229a098e674ef7271ec2f9c80e8daa6`）：rope 门（`ropeRendererUnsupported:rope:unsupportedProfile`）照旧、零世界帧诊断（层 47 链无变换通道，无活帧/冻结触发）、协议 `particle loading incomplete` 保持。**边界：**活帧只覆盖方向换算（重力/出生速度）；队列恢复门的"指针世界点→发射位置→存量粒子坐标"完整统一仍未闭合——指针 CP0 对 world/perspective 的供应（门 3）与 rope renderer 门（门 2）独立开放；出生后父层移动的完整端到端视觉验证需门 2/3 放行后的原包对照。最终候选 App 2.10.0(280) SHA256 `b7f6d49187163282173458b3a0dc18671229a098e674ef7271ec2f9c80e8daa6`；v1 冻结补丁（首轮审查对象）`74e81a60…`/`a5dab3ad…` 与 v2 终版 `fa521386…`/`b72aa389…` 均留存。忽略缓存`2026-09-28-world-space-live-frame`保留两轮回放报告/日志、红证据、身份与两版冻结补丁。
+
 <a id="e-2026-09-28-world-space-gate"></a>
 
 ### E-2026-09-28-WORLD-SPACE-GATE — 世界空间首门按声明变换写者收窄并补运行时安全失效（切片 1a）

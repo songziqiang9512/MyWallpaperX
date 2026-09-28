@@ -1,5 +1,6 @@
 import Foundation
 import Metal
+import simd
 
 final class SceneParticlePlaybackState {
     private struct FrameTransaction {
@@ -65,7 +66,8 @@ final class SceneParticlePlaybackState {
         by simulationFrameDelta: TimeInterval,
         dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
         pointerLocalPositions: [Int: SIMD3<Double>] = [:],
-        audioSpectrum: SceneAudioSpectrumSnapshot = .silent
+        audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
+        layerWorldFrames: [Int: simd_float4x4] = [:]
     ) -> [SceneParticleDrawBatch] {
         guard !didTeardown else { return [] }
         batches.removeAll(keepingCapacity: true)
@@ -77,7 +79,8 @@ final class SceneParticlePlaybackState {
                 left: audioSpectrum.left,
                 right: audioSpectrum.right,
                 generation: audioSpectrum.generation
-            )
+            ),
+            layerWorldFrames: layerWorldFrames
         )
         if frameTransaction == nil {
             stickyBatchLayerIDs.formUnion(batches.map(\.layerID))

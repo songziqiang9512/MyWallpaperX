@@ -83,24 +83,33 @@ nonisolated struct SceneParticleScalarOscillationPlan: Sendable {
 /// frame is itself a prepared simulator dependency; particle velocity,
 /// position and duration remain live in the fixed-step loop.
 nonisolated struct SceneParticleMovementPlan: Sendable {
-    let gravity: SIMD3<Double>
+    let authoredGravity: SIMD3<Double>
+    let convertsGravityThroughWorldFrame: Bool
     let drag: Double
 
     nonisolated init(
         _ value: SceneParticleOperator,
-        isWorldSpaceSystem: Bool,
-        worldSpaceFrame: SceneParticleWorldSpaceFrame?
+        isWorldSpaceSystem: Bool
     ) {
-        let authoredGravity = SceneParticleSimulationMath.vector(
+        authoredGravity = SceneParticleSimulationMath.vector(
             value.gravity,
             fallback: .zero
         )
-        gravity = (isWorldSpaceSystem || value.isWorldSpaceMovement)
-            ? worldSpaceFrame?.localParticleDirection(authoredGravity) ?? authoredGravity
-            : authoredGravity
+        convertsGravityThroughWorldFrame =
+            isWorldSpaceSystem || value.isWorldSpaceMovement
         let authoredDrag = value.drag ?? 0
         // Negative drag is authored acceleration; non-finite input has no effect.
         drag = authoredDrag.isFinite ? authoredDrag : 0
+    }
+
+    /// Gravity follows the layer's current world orientation: the conversion
+    /// runs once per advance through the effective frame, not per particle.
+    nonisolated func gravity(
+        through frame: SceneParticleWorldSpaceFrame?
+    ) -> SIMD3<Double> {
+        convertsGravityThroughWorldFrame
+            ? frame?.localParticleDirection(authoredGravity) ?? authoredGravity
+            : authoredGravity
     }
 }
 
@@ -145,8 +154,7 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
 
     nonisolated init(
         _ value: SceneParticleOperator,
-        definition: SceneParticleDefinition,
-        worldSpaceFrame: SceneParticleWorldSpaceFrame?
+        definition: SceneParticleDefinition
     ) {
         blend = SceneParticleOperatorBlendPlan(value)
         switch value.kind {
@@ -164,8 +172,7 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
         switch value.kind {
         case .movement:
             movement = SceneParticleMovementPlan(
-                value, isWorldSpaceSystem: definition.flags.isWorldSpace,
-                worldSpaceFrame: worldSpaceFrame
+                value, isWorldSpaceSystem: definition.flags.isWorldSpace
             )
             angularMovement = nil
         case .angularMovement:

@@ -308,6 +308,8 @@ enum Harness {
             try printJSON(syntheticNestedChildren())
         case "worldspace-freeze":
             try printJSON(syntheticWorldSpaceFreeze())
+        case "worldspace-gravity-frame":
+            try printJSON(syntheticWorldSpaceGravityFrame())
         case "nested-real":
             guard CommandLine.arguments.count == 4 else { throw HarnessError.missingPath }
             try printJSON(realNestedMatrix(
@@ -1899,6 +1901,131 @@ enum Harness {
         ]
     }
 
+    private static func syntheticWorldSpaceGravityFrame() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mwx-particle-worldspace-gravity-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        func writeGravityParticle(_ path: String, startTime: Double) throws {
+            try writeJSON([
+                "material": "materials/shared.json", "maxcount": 100, "flags": 1,
+                "starttime": startTime,
+                "emitter": [[
+                    "name": "sphererandom", "rate": 120,
+                    "distancemin": 0, "distancemax": 0,
+                ]],
+                "initializer": [
+                    ["name": "lifetimerandom", "min": 10, "max": 10],
+                    ["name": "sizerandom", "min": 8, "max": 8],
+                ],
+                "operator": [[
+                    "name": "movement", "flags": 1, "gravity": "60 0 0",
+                ]],
+                "renderer": [["name": "sprite"]],
+            ], to: directory.appendingPathComponent(path))
+        }
+        try writeGravityParticle("particles/world-gravity-prewarm.json", startTime: 0.1)
+        try writeGravityParticle("particles/world-gravity-live.json", startTime: 0)
+        let materialPasses: [SceneRenderDescriptor.MaterialPassDescriptor] = [
+            .init(
+                materialPath: "materials/shared.json",
+                shaderPath: "genericparticle",
+                texturePaths: ["shared.png"],
+                blending: "additive"
+            )
+        ]
+        func descriptor(_ path: String) -> SceneRenderDescriptor {
+            SceneRenderDescriptor(
+                layers: [layer(81, path)],
+                renderOrderLayerIDs: [81],
+                materialPasses: materialPasses
+            )
+        }
+        func positions(_ batches: [SceneParticleDrawBatch]) -> [[Float]] {
+            (batches.first { $0.layerID == 81 })?.instances.map {
+                [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+            } ?? []
+        }
+        func axisSums(_ values: [[Float]]) -> (x: Double, y: Double) {
+            (
+                values.reduce(0) { $0 + abs(Double($1[0])) },
+                values.reduce(0) { $0 + abs(Double($1[1])) }
+            )
+        }
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw HarnessError.noMetal
+        }
+        // Prewarm: the init-time warm-up must convert world gravity through
+        // the injected launch frame (a +90 degree Z rotation sends world +X
+        // gravity into the local Y axis).
+        let plusZ = simd_float4x4(columns: (
+            SIMD4(0, 1, 0, 0), SIMD4(-1, 0, 0, 0),
+            SIMD4(0, 0, 1, 0), SIMD4(0, 0, 0, 1)
+        ))
+        let prewarm = SceneParticleRuntime(
+            descriptor: descriptor("particles/world-gravity-prewarm.json"),
+            cacheDirectory: directory,
+            device: device,
+            staticWorldSpaceFrames: [
+                81: SceneParticleWorldSpaceFrame(worldFrame: plusZ)!,
+            ]
+        )
+        let prewarmPositions = positions(
+            prewarm.advance(by: 1.0 / 60.0, dynamicValues: .empty(frameIndex: 0))
+        )
+        // Live gravity: with a transform lane and a -90 degree Z current
+        // frame, world +X gravity runs into local +Y during the advance.
+        let minusZ = simd_float4x4(columns: (
+            SIMD4(0, -1, 0, 0), SIMD4(1, 0, 0, 0),
+            SIMD4(0, 0, 1, 0), SIMD4(0, 0, 0, 1)
+        ))
+        let live = SceneParticleRuntime(
+            descriptor: descriptor("particles/world-gravity-live.json"),
+            cacheDirectory: directory,
+            device: device
+        )
+        _ = live.advance(by: 1.0 / 60.0, dynamicValues: .empty(frameIndex: 0))
+        var livePositions: [[Float]] = []
+        for _ in 0..<6 {
+            livePositions = positions(
+                live.advance(
+                    by: 1.0 / 60.0,
+                    dynamicValues: snapshotWithTransformLane(layerID: 81),
+                    layerWorldFrames: [81: minusZ]
+                )
+            )
+        }
+        let prewarmSums = axisSums(prewarmPositions)
+        let liveSums = axisSums(livePositions)
+        return [
+            "prewarmPositions": prewarmPositions,
+            "prewarmX": prewarmSums.x,
+            "prewarmY": prewarmSums.y,
+            "livePositions": livePositions,
+            "liveX": liveSums.x,
+            "liveY": liveSums.y,
+        ]
+    }
+
+    private static func snapshotWithTransformLane(layerID: Int) -> SceneDynamicSnapshot {
+        let lane = SceneDynamicTarget.layer(layerID: layerID, field: .origin)
+        return SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 1,
+            generation: 1,
+            definitions: [
+                SceneDynamicTargetDefinition(
+                    target: lane,
+                    valueType: .vector3,
+                    authoredValue: .vector3(0, 0, 0)
+                ),
+            ],
+            timelineValues: [lane: .vector3(10, 0, 0)]
+        ).snapshot
+    }
+
     private static func syntheticWorldSpaceFreeze() throws -> [String: Any] {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
             "mwx-particle-worldspace-freeze-\(UUID().uuidString)",
@@ -1912,8 +2039,9 @@ enum Harness {
             material: "materials/shared.json",
             flags: 1,
             velocityX: 120,
-            lifetime: 10,
+            lifetime: 2.0 / 60.0,
             moves: true,
+            movementFlags: 1,
             rate: 120,
             under: directory
         )
@@ -1937,31 +2065,59 @@ enum Harness {
             cacheDirectory: directory,
             device: device
         )
-        let originLane = SceneDynamicTarget.layer(layerID: 71, field: .origin)
-        let transformLaneResolver = SceneDynamicSnapshotResolver()
-        func snapshotWithTransformLane() -> SceneDynamicSnapshot {
-            transformLaneResolver.resolve(
-                frameIndex: 1,
-                generation: 1,
-                definitions: [
-                    SceneDynamicTargetDefinition(
-                        target: originLane,
-                        valueType: .vector3,
-                        authoredValue: .vector3(0, 0, 0)
-                    ),
-                ],
-                timelineValues: [originLane: .vector3(10, 0, 0)]
-            ).snapshot
-        }
         _ = runtime.advance(by: 1.0 / 60.0, dynamicValues: .empty(frameIndex: 0))
         let moving = runtime.advance(by: 1.0 / 60.0, dynamicValues: .empty(frameIndex: 1))
-        let frozen = runtime.advance(by: 1.0 / 60.0, dynamicValues: snapshotWithTransformLane())
-        let frozenAgain = runtime.advance(by: 1.0 / 60.0, dynamicValues: snapshotWithTransformLane())
+        let frozen = runtime.advance(by: 1.0 / 60.0, dynamicValues: snapshotWithTransformLane(layerID: 71))
+        let frozenAgain = runtime.advance(by: 1.0 / 60.0, dynamicValues: snapshotWithTransformLane(layerID: 71))
         func positions(_ batches: [SceneParticleDrawBatch]) -> [[Float]] {
             (batches.first { $0.layerID == 71 })?.instances.map {
                 [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
             } ?? []
         }
+        // Live-frame adoption: the same transform lane with the renderer's
+        // current world frame keeps the system simulating through that frame.
+        func liveRuntime(
+            worldFrame: simd_float4x4
+        ) -> (positions: [[Float]], followsCurrent: Bool, frozen: Bool) {
+            let live = SceneParticleRuntime(
+                descriptor: descriptor,
+                cacheDirectory: directory,
+                device: device
+            )
+            _ = live.advance(by: 1.0 / 60.0, dynamicValues: .empty(frameIndex: 0))
+            var livePositions: [[Float]] = []
+            for _ in 0..<3 {
+                livePositions = positions(
+                    live.advance(
+                        by: 1.0 / 60.0,
+                        dynamicValues: snapshotWithTransformLane(layerID: 71),
+                        layerWorldFrames: [71: worldFrame]
+                    )
+                )
+            }
+            return (
+                livePositions,
+                live.diagnostics.contains {
+                    $0.kind == .simulationLimitation
+                        && $0.layerID == 71
+                        && $0.detail == "world-space frame follows current transform"
+                },
+                live.diagnostics.contains {
+                    $0.kind == .simulationLimitation
+                        && $0.layerID == 71
+                        && $0.detail == "world-space frame frozen after runtime transform write"
+                }
+            )
+        }
+        let liveIdentity = liveRuntime(
+            worldFrame: matrix_identity_float4x4
+        )
+        let liveRotated = liveRuntime(
+            worldFrame: simd_float4x4(columns: (
+                SIMD4(0, 1, 0, 0), SIMD4(-1, 0, 0, 0),
+                SIMD4(0, 0, 1, 0), SIMD4(0, 0, 0, 1)
+            ))
+        )
         return [
             "movingLayerActive": moving.contains { $0.layerID == 71 },
             "movingPositions": positions(moving),
@@ -1973,6 +2129,12 @@ enum Harness {
                     && $0.detail == "world-space frame frozen after runtime transform write"
             },
             "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
+            "liveIdentityPositions": liveIdentity.positions,
+            "liveIdentityFollowsCurrent": liveIdentity.followsCurrent,
+            "liveIdentityFrozen": liveIdentity.frozen,
+            "liveRotatedPositions": liveRotated.positions,
+            "liveRotatedFollowsCurrent": liveRotated.followsCurrent,
+            "liveRotatedFrozen": liveRotated.frozen,
         ]
     }
 
@@ -4563,12 +4725,51 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         # The system simulates normally while no chain transform lane exists.
         self.assertTrue(result["movingPositions"])
         self.assertTrue(any(abs(x) > 0.01 for x, _, _ in result["movingPositions"]))
-        # A runtime transform write into the chain freezes the system at its
-        # last committed state (previous-current) instead of silently
-        # misconverting world forces through the stale launch frame.
+        # Without a current world frame the runtime transform write freezes
+        # the system at its last committed state (previous-current) instead of
+        # silently misconverting world forces through the stale launch frame.
         self.assertEqual(result["frozenPositions"], result["movingPositions"])
         self.assertEqual(result["frozenAgainPositions"], result["movingPositions"])
         self.assertTrue(result["freezeDiagnostic"])
+
+    def test_world_space_system_follows_current_world_frame_over_transform_lane(self) -> None:
+        result = self.run_harness("worldspace-freeze")
+        # With the renderer's current world frame supplied, the same transform
+        # lane no longer freezes the system: birth velocities and gravity run
+        # through the live frame each advance.
+        identity = result["liveIdentityPositions"]
+        rotated = result["liveRotatedPositions"]
+        self.assertTrue(identity)
+        self.assertTrue(any(abs(x) > 0.01 for x, _, _ in identity))
+        self.assertTrue(result["liveIdentityFollowsCurrent"])
+        self.assertFalse(result["liveIdentityFrozen"])
+        self.assertTrue(result["liveRotatedFollowsCurrent"])
+        self.assertFalse(result["liveRotatedFrozen"])
+        # A +90 degree Z world frame redirects the world +X birth velocity
+        # into the local Y axis, so the rotated run moves on Y while the
+        # identity run keeps moving on X.
+        identityX = sum(abs(p[0]) for p in identity)
+        identityY = sum(abs(p[1]) for p in identity)
+        rotatedX = sum(abs(p[0]) for p in rotated)
+        rotatedY = sum(abs(p[1]) for p in rotated)
+        self.assertGreater(identityX, identityY * 4)
+        self.assertGreater(rotatedY, rotatedX * 4)
+        self.assertTrue(any(abs(y) > 0.01 for _, y, _ in rotated))
+
+    def test_world_space_prewarm_converts_gravity_through_launch_frame(self) -> None:
+        result = self.run_harness("worldspace-gravity-frame")
+        # The init-time warm-up must convert world gravity through the
+        # injected +90 degree Z launch frame: world +X gravity moves the
+        # prewarmed particles along the local Y axis, not raw +X.
+        self.assertTrue(result["prewarmPositions"])
+        self.assertGreater(result["prewarmY"], result["prewarmX"] * 4)
+
+    def test_world_space_live_gravity_follows_current_frame(self) -> None:
+        result = self.run_harness("worldspace-gravity-frame")
+        # With a transform lane and a -90 degree Z current frame, world +X
+        # gravity integrates into local +Y during live advances.
+        self.assertTrue(result["livePositions"])
+        self.assertGreater(result["liveY"], result["liveX"] * 4)
 
     def test_synthetic_nested_children_follow_depth_limit_and_budget(self) -> None:
         result = self.run_harness("nested-synthetic")

@@ -3964,8 +3964,11 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertIn("operatorExecutionPlans", simulator_source)
         self.assertIn("SceneParticleOperatorExecutionPlan(", simulator_source)
         self.assertIn("definition: definition", simulator_source)
+        # Plans stay launch-prepared; the world frame is applied per advance
+        # through the prepared movement plan's conversion method instead of
+        # being baked into the plan at construction.
         self.assertIn(
-            "worldSpaceFrame: worldSpaceFrame",
+            "plan.gravity(through: activeWorldSpaceFrame)",
             simulator_source,
         )
         self.assertIn("scalarOscillation", simulator_source)
