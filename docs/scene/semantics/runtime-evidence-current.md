@@ -6,6 +6,32 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-particle-force-safety"></a>
+
+### E-2026-09-28-PARTICLE-FORCE-SAFETY — 粒子向量累加统一 Float 安全边界
+
+**根因与改动：**HEAD4ea73833的出生和Movement已检查GPU Float有限性，公共addFinite却只检查Double。有限1e100力增量会污染速度，后续正常输入仍不能积分，最终实例过滤使粒子持续消失。现三个入口复用同一向量谓词，累加结果任一分量越界就原子保留旧向量。六处已有消费者覆盖Vortex、Turbulence、ControlPointForce、Boids、position oscillation和position-offset initializer；position-offset原有distance≤1e6、方向分量绝对值≤1的准入门保留，未证明其已有合法输入产生视觉变化。两产品文件净增3行，无新状态、分支调度或逐帧解析。此策略防止新的非法写入，不修复已经污染的旧状态，也不声称其他直接赋值路径均已覆盖。
+
+**验证：**新行为测试在旧产品失败10项；候选simulator/runtime联合106项，96通过、10既有环境跳过。补充offset探针曾把1e100 distance当作可执行输入，后确认其已在prepare拒绝，新旧均保持安全出生；该无效新增断言已删除，探索日志保留，不用它证明本批收益。测试覆盖三轴正负有限溢出、Inf/NaN、Float最大有限边界、整体保留、Vortex→Movement异常后与跳过该力的参考轨迹一致、正常输入恢复和snapshot重试。优化Debug构建及code-health通过；三文件冻结SHA256 `cdf8ac63e4b9b8158fc12cb03eb8343323aeb09dd338939fab959aaecfcab0d7`。 独立只读代码及App证据审查APPROVE。
+
+**实际输出：**自有9900000410包含两层root/static child；一层speed脚本仅runtime2–4秒返回1e100，另一层为正常对照，全部瞬发一次且寿命30秒。两版各24张连续Metal图，旧版异常层root/child由可见变为消失，最后8帧均无亮像素；新版全程各ROI超过500亮像素，最后5帧root中心(699,576)→(652,557)、child(1299.5,576)→(1252,557)，异常结束后继续运动。两版正常对照持续移动；专项ROI原门通过，已查看实际图。两版submitted/completed/failed/presented均211/211/0/210，frame0/1/2 GPU完成且有后继最终输出。direct粒子无需graph publication。通用benchmark仍NON-PASS，仅纯粒子场景image loaded ratio=0，particle2/2加载，不改原门。本批未运行真实Workshop样本，不据此关闭光束/漩涡/烟花等QV反馈，也无官方视觉parity或性能结论。
+
+**身份与留存：**App2.10.0(279)，baseline SHA256 `3fd28e4ea15f74563a716d885b951c95222748b1ce750d2d8cf641b534364d81`；candidate SHA256 `96ba5e8ddc7bef3c8b3f6940de3e1d09c729ab5054d35ebce9224427565c95c3`、CDHash `6c4df7110175aab73408c9261971327214691fb6`，运行前后验签。忽略缓存`2026-09-28-particle-force-safety`保留两次原报告/日志/连续图、自有输入、ROI脚本与结果、测试、构建及冻结补丁。
+
+<a id="e-2026-09-28-periodic-instance-overrides"></a>
+
+### E-2026-09-28-PERIODIC-INSTANCE-OVERRIDES — 周期发射接入原 rate/count 通道
+
+**首断点与实现：**HEAD25cdf2c9中，已准入的Random periodic只要存在instance rate或count（包括1）就被旧guard禁发，并记录instanceoverride不支持。公开[Emitter](https://docs.wallpaperengine.io/en/scene/particles/component/emitter.html#random-periodic-emission)定义active/delay窗口，公开[IParticleSystemInstance](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystemInstance.html)区分simulation rate与emission count倍率。现删除此guard、对应诊断分支及SpawnPlan冗余布尔值，周期窗口消费原scaled simulation dt，count继续只乘窗口active duration对应的发射量；无第二时钟或周期状态。极端scaled step按最小窗口先验限制最多1024完整窗口加一个当前部分窗口，在该emitter schedule/RNG改变前局部invalidEmitterState(periodic-budget)拒绝，其余模拟照常。此预算是项目资源策略，按完整step保守判定，初始delay本可减少遍历时也可能拒绝；不是官方速率上限。burst、emitter duration、maximum-per-period、audio与child profile未放宽。
+
+**行为验证：**旧产品新反例10项失败。候选simulator68项、runtime37项联合执行105项（95通过、10既有环境跳过），覆盖rate/count的0/.5/1/2组合、count禁用门、暂停恢复、动态窗口状态、snapshot retry、随机区间同scaled dt等价、1024窗口边界及超限拒绝后恢复。旧rate2应拒绝的断言改为1.5wall秒发6颗，malformed/burst/maximum-per-period负例保留。基线与候选均优化Debug重建，包含已并行合入的图片缓存改动；code-health通过（1005 Swift、219既有warnings）。三产品/一测试冻结SHA256 `c2c61aec22c46ca0316a4de45797b582d037f86fceded8bf690b44fbfa862d9e`，独立代码及App证据审查APPROVE。
+
+**同输入App：**自有9900000409四排短寿命粒子，前三排(count,rate)分别(1,1)/(2,1)/(1,2)，第四排无override。两版各24帧，基线前三排ROI全零，候选各有亮/暗阶段，亮像素范围0–2838、0–5324、0–2904；无override对照两版均正常。专项原门直接通过，已查看实际Metal帧。两版submitted/completed/failed/presented均211/211/0/210，frame0/1/2完成并有后继输出。direct粒子不涉及graph publication。通用benchmark仅因纯粒子image loaded ratio=0为NON-PASS，particle4/4加载，门值未改。图像只证明出现及周期消失；精确计数/速率/随机状态由Swift测试证明，不是官方相位或分布parity。
+
+**真实首断点纠正：**188个可读scene.pkg的限定扫描找到3749463715四个相关声明，其中两个是深层child。实播进一步确认根405/412声明maxtoemitperperiod=32，已先在periodic profile准入失败（randomperiodic，而非instanceoverride）；本批不恢复这两项发射。前后整场景通用回归均PASS、particle8/8，帧计数117/116/0/115与121/120/0/119，根周期诊断保持；加载通过不能代表雷电显示。剩余每周期数量上限、mapsequencebetweencontrolpoints、控制点约束、child变换及深层duration/9999秒delay已保留队列，不使用样本派生输入伪称原包修复。
+
+**身份与留存：**baseline App SHA256 `971a849c04872f915dd28a35f25986149047e181c819e85f142ed170fc20fc70`；candidate App2.10.0(279)、SHA256 `3fd28e4ea15f74563a716d885b951c95222748b1ce750d2d8cf641b534364d81`、CDHash `511fe083553f48aa61a3e8569d38ea959a235d3f`，运行前后验签。忽略缓存`2026-09-28-periodic-instance-overrides`保存四次原报告/图/日志、自有连续序列、输入、ROI、限定普查、失败与最终测试、两次构建及冻结补丁。没有官方周期数值、完整粒子或QV视觉关闭结论。
+
 <a id="e-2026-09-28-particle-speed-disable"></a>
 
 ### E-2026-09-28-PARTICLE-SPEED-DISABLE — Speed 禁用门统一并补齐湍流

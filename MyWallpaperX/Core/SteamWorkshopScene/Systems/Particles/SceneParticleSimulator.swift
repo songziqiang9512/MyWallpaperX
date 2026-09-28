@@ -530,8 +530,17 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         guard let audioScale = emissionAudioScale(
             for: spawnPlan, emitterIndex: index
         ) else { return }
-        if spawnPlan.usesRandomPeriodicEmission,
-           activeInstanceOverride?.rate != nil || activeInstanceOverride?.count != nil { return }
+        // A scaled step may span many random windows. Reject before advancing
+        // this emitter's schedule or RNG; at most 1024 full windows plus the
+        // currently partial window can be visited by an accepted step.
+        if case let .supported(periodic) = spawnPlan.periodicEmissionAdmission,
+           duration > min(periodic.minimumDuration, periodic.minimumDelay) * 1024 {
+            let diagnostic = SceneParticleSimulationDiagnostic(
+                kind: .invalidEmitterState, componentName: "periodic-budget:\(index)"
+            )
+            if !diagnostics.contains(diagnostic) { diagnostics.append(diagnostic) }
+            return
+        }
         guard let activeDuration = emitters[index].scheduledActiveDuration(
             plan: spawnPlan, stepDuration: duration,
             maximumEmissionDuration: maximumEmissionDuration
@@ -623,13 +632,13 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     /// Validate the multiplied birth state before retaining it or narrowing to
     /// the Float GPU ABI. A bad new particle must not poison existing peers.
     private nonisolated func acceptsBirthResult(_ particle: SceneParticleState) -> Bool {
-        func finite(_ value: SIMD3<Double>) -> Bool {
-            Float(value.x).isFinite && Float(value.y).isFinite && Float(value.z).isFinite
-        }
         if Float(particle.lifetime).isFinite && Float(particle.size).isFinite
-            && Float(particle.alpha).isFinite && finite(particle.color)
-            && finite(particle.position) && finite(particle.velocity)
-            && finite(particle.rotation) && finite(particle.angularVelocity) {
+            && Float(particle.alpha).isFinite
+            && SceneParticleSimulationMath.isGPUFinite(particle.color)
+            && SceneParticleSimulationMath.isGPUFinite(particle.position)
+            && SceneParticleSimulationMath.isGPUFinite(particle.velocity)
+            && SceneParticleSimulationMath.isGPUFinite(particle.rotation)
+            && SceneParticleSimulationMath.isGPUFinite(particle.angularVelocity) {
             return true
         }
         let diagnostic = SceneParticleSimulationDiagnostic(
@@ -644,9 +653,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     private nonisolated func acceptsMotionResult(
         _ velocity: SIMD3<Double>, _ position: SIMD3<Double>, component: String
     ) -> Bool {
-        if Float(velocity.x).isFinite && Float(velocity.y).isFinite
-            && Float(velocity.z).isFinite && Float(position.x).isFinite
-            && Float(position.y).isFinite && Float(position.z).isFinite {
+        if SceneParticleSimulationMath.isGPUFinite(velocity)
+            && SceneParticleSimulationMath.isGPUFinite(position) {
             return true
         }
         let diagnostic = SceneParticleSimulationDiagnostic(

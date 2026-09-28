@@ -39,7 +39,6 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
     let rate: Double?
     let instantaneousCount: Int?
     let duration: Double?
-    let usesRandomPeriodicEmission: Bool
     let limitsToOnePerFrame: Bool
     let audioResponseEnabled: Bool
     let audioResponsePlan: SceneParticleAudioResponsePlan?
@@ -89,7 +88,6 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
         rate = value.rate
         instantaneousCount = value.instantaneousCount
         duration = value.duration
-        usesRandomPeriodicEmission = value.usesRandomPeriodicEmission
         limitsToOnePerFrame = value.limitsToOnePerFrame
         audioResponseEnabled = value.audioResponse.isEnabled
         audioResponsePlan = value.boundedAudioResponsePlan
