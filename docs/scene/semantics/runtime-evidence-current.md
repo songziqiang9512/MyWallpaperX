@@ -6,6 +6,18 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-28-particle-force-safety"></a>
+
+### E-2026-09-28-PARTICLE-FORCE-SAFETY — 粒子向量累加统一 Float 安全边界
+
+**根因与改动：**HEAD4ea73833的出生和Movement已检查GPU Float有限性，公共addFinite却只检查Double。有限1e100力增量会污染速度，后续正常输入仍不能积分，最终实例过滤使粒子持续消失。现三个入口复用同一向量谓词，累加结果任一分量越界就原子保留旧向量。六处已有消费者覆盖Vortex、Turbulence、ControlPointForce、Boids、position oscillation和position-offset initializer；position-offset原有distance≤1e6、方向分量绝对值≤1的准入门保留，未证明其已有合法输入产生视觉变化。两产品文件净增3行，无新状态、分支调度或逐帧解析。此策略防止新的非法写入，不修复已经污染的旧状态，也不声称其他直接赋值路径均已覆盖。
+
+**验证：**新行为测试在旧产品失败10项；候选simulator/runtime联合106项，96通过、10既有环境跳过。补充offset探针曾把1e100 distance当作可执行输入，后确认其已在prepare拒绝，新旧均保持安全出生；该无效新增断言已删除，探索日志保留，不用它证明本批收益。测试覆盖三轴正负有限溢出、Inf/NaN、Float最大有限边界、整体保留、Vortex→Movement异常后与跳过该力的参考轨迹一致、正常输入恢复和snapshot重试。优化Debug构建及code-health通过；三文件冻结SHA256 `cdf8ac63e4b9b8158fc12cb03eb8343323aeb09dd338939fab959aaecfcab0d7`。 独立只读代码及App证据审查APPROVE。
+
+**实际输出：**自有9900000410包含两层root/static child；一层speed脚本仅runtime2–4秒返回1e100，另一层为正常对照，全部瞬发一次且寿命30秒。两版各24张连续Metal图，旧版异常层root/child由可见变为消失，最后8帧均无亮像素；新版全程各ROI超过500亮像素，最后5帧root中心(699,576)→(652,557)、child(1299.5,576)→(1252,557)，异常结束后继续运动。两版正常对照持续移动；专项ROI原门通过，已查看实际图。两版submitted/completed/failed/presented均211/211/0/210，frame0/1/2 GPU完成且有后继最终输出。direct粒子无需graph publication。通用benchmark仍NON-PASS，仅纯粒子场景image loaded ratio=0，particle2/2加载，不改原门。本批未运行真实Workshop样本，不据此关闭光束/漩涡/烟花等QV反馈，也无官方视觉parity或性能结论。
+
+**身份与留存：**App2.10.0(279)，baseline SHA256 `3fd28e4ea15f74563a716d885b951c95222748b1ce750d2d8cf641b534364d81`；candidate SHA256 `96ba5e8ddc7bef3c8b3f6940de3e1d09c729ab5054d35ebce9224427565c95c3`、CDHash `6c4df7110175aab73408c9261971327214691fb6`，运行前后验签。忽略缓存`2026-09-28-particle-force-safety`保留两次原报告/日志/连续图、自有输入、ROI脚本与结果、测试、构建及冻结补丁。
+
 <a id="e-2026-09-28-periodic-instance-overrides"></a>
 
 ### E-2026-09-28-PERIODIC-INSTANCE-OVERRIDES — 周期发射接入原 rate/count 通道

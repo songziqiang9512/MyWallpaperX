@@ -100,12 +100,16 @@ nonisolated enum SceneParticleSimulationMath {
         sqrt(value.x * value.x + value.y * value.y + value.z * value.z)
     }
 
+    static func isGPUFinite(_ value: SIMD3<Double>) -> Bool {
+        Float(value.x).isFinite && Float(value.y).isFinite && Float(value.z).isFinite
+    }
+
     static func addFinite(
         _ delta: SIMD3<Double>,
         to value: inout SIMD3<Double>
     ) {
         let result = value + delta
-        if result.x.isFinite && result.y.isFinite && result.z.isFinite {
+        if isGPUFinite(result) {
             value = result
         }
     }

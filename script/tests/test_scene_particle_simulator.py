@@ -58,7 +58,9 @@ import simd
 @main
 enum Harness {
     static func main() throws {
-        if CommandLine.arguments.dropFirst().first == "periodic-overrides" {
+        if CommandLine.arguments.dropFirst().first == "force-safety" {
+            try printJSON(forceSafetyResults())
+        } else if CommandLine.arguments.dropFirst().first == "periodic-overrides" {
             try printJSON(periodicOverrideResults())
         } else if CommandLine.arguments.dropFirst().first == "speed-disable" {
             try printJSON(speedDisableResults())
@@ -90,6 +92,55 @@ enum Harness {
         } else {
             try printJSON(syntheticResults())
         }
+    }
+
+    private static func forceSafetyResults() throws -> [String: Any] {
+        let original = SIMD3<Double>(1, 2, 3)
+        var rejected: [Bool] = []
+        for axis in 0..<3 {
+            for bad in [1e100, -1e100, Double.infinity, Double.nan] {
+                var delta = SIMD3<Double>(4, 5, 6)
+                delta[axis] = bad
+                var value = original
+                SceneParticleSimulationMath.addFinite(delta, to: &value)
+                rejected.append(value == original)
+            }
+        }
+        var boundary = SIMD3<Double>.zero
+        let limit = Double(Float.greatestFiniteMagnitude)
+        SceneParticleSimulationMath.addFinite(SIMD3(limit, -limit, 0), to: &boundary)
+        let parser = SceneParticleDefinitionParser()
+        var root = try object(vortexJSON(speedOuter: "2"))
+        var operators = root["operator"] as! [[String: Any]]
+        operators.append(["name": "movement", "gravity": "0 0 0", "drag": 0])
+        root["operator"] = operators
+        func make() throws -> SceneParticleSimulator {
+            SceneParticleSimulator(definition: try parser.parse(root: root),
+                seed: 81, fixedTimeStep: 0.25)
+        }
+        let live = try make(), reference = try make()
+        live.advance(by: 0.25)
+        reference.advance(by: 0.25)
+        let saved = live.frameSnapshot()
+        let before = live.particles[0]
+        let bad = parser.parseInstanceOverride(["speed": 1e100])
+        live.advance(by: 0.25, dynamicInstanceOverride: bad)
+        reference.advance(by: 0.25,
+            dynamicInstanceOverride: parser.parseInstanceOverride(["speed": 0]))
+        let afterBad = live.particles
+        let retained = afterBad == reference.particles
+        live.restoreFrame(saved)
+        live.advance(by: 0.25, dynamicInstanceOverride: bad)
+        let retry = live.particles == afterBad
+        live.advance(by: 0.25)
+        reference.advance(by: 0.25)
+        let recovered = live.particles == reference.particles
+        return ["atomicRejection": rejected,
+            "boundaryAccepted": boundary == SIMD3(limit, -limit, 0),
+            "badForceSkipped": retained, "retry": retry, "recovered": recovered,
+            "continuesMoving": live.particles[0].position != before.position,
+            "safeVelocity": Float(live.particles[0].velocity.x).isFinite
+                && Float(live.particles[0].velocity.y).isFinite]
     }
 
     private static func periodicOverrideResults() throws -> [String: Any] {
@@ -4327,6 +4378,16 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertNotEqual(self.results["turbulenceBeforeMovementPosition"], [0, 0, 0])
         self.assertEqual(self.results["movementBeforeTurbulencePosition"], [0, 0, 0])
         self.assertEqual(self.results["overflowTurbulenceVelocity"], [0, 0, 0])
+
+    def test_force_overflow_is_atomic_and_motion_recovers(self) -> None:
+        result = self.run_harness("force-safety")
+        for index, accepted in enumerate(result["atomicRejection"]):
+            with self.subTest(rejection=index):
+                self.assertTrue(accepted)
+        for key in ["boundaryAccepted", "badForceSkipped", "retry", "recovered",
+                    "continuesMoving", "safeVelocity"]:
+            with self.subTest(behavior=key):
+                self.assertTrue(result[key])
 
     def test_classic_vortex_executes_bounded_axis_distance_and_speed(self) -> None:
         self.assertEqual(self.results["vortexVelocity"], [0, 100, 0])
