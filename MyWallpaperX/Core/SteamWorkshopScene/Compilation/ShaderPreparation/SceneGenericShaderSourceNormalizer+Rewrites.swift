@@ -333,40 +333,159 @@ extension SceneGenericShaderSourceNormalizer {
     }
 
     /// GLSL ES accepts implicit scalar conversions in some authors' compilers,
-    /// while glslang's Vulkan frontend requires an explicit conversion.
-    /// Restrict the rewrite to authored float symbols so local type semantics
-    /// remain untouched and the rule stays generic across scenes.
+    /// while glslang's Vulkan frontend requires an explicit conversion. An
+    /// integer target assigned a float-bearing expression (declaration,
+    /// plain assignment, or a comparison operand) truncates through
+    /// `int(...)` - the same rounding the lenient compilers performed.
+    /// Compound assignments keep their ambiguous promotion semantics and
+    /// stay fail-closed; the type facts come from the shared declared-type
+    /// table so local declarations and shapes are treated alike.
     static func rewriteFloatToIntAssignments(
         _ source: String,
         shapes: [String: Shape]
     ) -> String {
-        let floatNames = shapes.compactMap { name, shape in
-            shape.type == "float" ? name : nil
+        let (types, conflicted) = declaredScalarVectorTypes(source, shapes: shapes)
+        let intNames = types.compactMap { name, type in
+            ["int", "uint"].contains(type) && !conflicted.contains(name)
+                ? name : nil
         }
-        guard !floatNames.isEmpty else { return source }
-        let regex = try! NSRegularExpression(pattern:
-            #"\bint\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*("#
-                + floatNames.map(NSRegularExpression.escapedPattern).joined(separator: "|")
-                + #")\s*;"#
-        )
+        let floatNames = types.compactMap { name, type in
+            type == "float" && !conflicted.contains(name) ? name : nil
+        }
+        let lexical = SceneAuthoredShaderLexer.lex(source: source, stage: .fragment)
+        guard lexical.diagnostics.isEmpty, !intNames.isEmpty else { return source }
+        let tokens = lexical.tokens
+
+        // A right-hand-side atom carries a float value when it is a float
+        // literal, a declared float scalar, or a swizzle member of a declared
+        // floating vector.
+        func isFloatAtom(_ tokenIndex: Int) -> Bool {
+            let token = tokens[tokenIndex]
+            if token.kind == .number {
+                return token.text.contains(".") || token.text.lowercased().contains("e")
+            }
+            guard token.kind == .identifier,
+                  let type = types[token.text],
+                  !conflicted.contains(token.text) else { return false }
+            if type == "float" { return true }
+            if ["float2", "float3", "float4"].contains(type),
+               tokenIndex + 2 < tokens.count,
+               tokens[tokenIndex + 1].text == ".",
+               tokens[tokenIndex + 2].kind == .identifier,
+               ["x", "y", "z", "w", "r", "g", "b", "a"]
+                   .contains(tokens[tokenIndex + 2].text) {
+                return true
+            }
+            return false
+        }
+
+        var edits: [(offset: Int, length: Int, text: String)] = []
+        var lineStarts = [0]
+        var running = 0
+        for scalar in source.unicodeScalars {
+            running += 1
+            if scalar == "\n" { lineStarts.append(running) }
+        }
+        func sourceOffset(_ token: SceneAuthoredShaderToken, after: Bool) -> Int? {
+            guard token.line > 0, token.line <= lineStarts.count else { return nil }
+            return lineStarts[token.line - 1] + token.column - 1
+                + (after ? token.text.unicodeScalars.count : 0)
+        }
+
+        for index in tokens.indices where index > 1 && index + 1 < tokens.count {
+            guard tokens[index].text == "=",
+                  tokens[index - 1].kind == .identifier,
+                  let lhsType = types[tokens[index - 1].text],
+                  !conflicted.contains(tokens[index - 1].text),
+                  ["int", "uint"].contains(lhsType) else { continue }
+            var end = index + 1
+            var depth = 0
+            while end < tokens.count {
+                if tokens[end].text == "(" { depth += 1 }
+                if tokens[end].text == ")" && depth > 0 { depth -= 1 }
+                if tokens[end].text == ";" && depth == 0 { break }
+                end += 1
+            }
+            guard end < tokens.count, index + 1 < end,
+                  let startOffset = sourceOffset(tokens[index + 1], after: false),
+                  let endOffset = sourceOffset(tokens[end - 1], after: true) else { continue }
+            let rhs = (index + 1)..<end
+            let rhsHasFloatAtom = rhs.contains { isFloatAtom($0) }
+            let single = rhs.lowerBound
+            let provablyInteger = rhs.count == 1
+                && (tokens[single].kind == .number && !isFloatAtom(single)
+                    || tokens[single].kind == .identifier
+                        && (types[tokens[single].text] ?? "float") == "int"
+                        && !conflicted.contains(tokens[single].text))
+            // An explicit int/uint conversion call is the truncation the
+            // dedicated discrete-mask and step owners already emit; wrapping
+            // it again would double the conversion.
+            let explicitConversion = rhs.count >= 3
+                && ["int", "uint"].contains(tokens[single].text)
+                && tokens[single + 1].text == "("
+                && {
+                    var depth = 0
+                    for position in rhs.dropFirst() {
+                        if tokens[position].text == "(" { depth += 1 }
+                        if tokens[position].text == ")" {
+                            depth -= 1
+                            if depth == 0 {
+                                return position == rhs.upperBound - 1
+                            }
+                        }
+                    }
+                    return false
+                }()
+            // A top-level comma (multi-declarator) or a nested assignment
+            // would corrupt the span rewrite; both stay fail-closed.
+            let rhsTopLevelCorrupts = {
+                var depth = 0
+                for position in rhs {
+                    if tokens[position].text == "(" { depth += 1 }
+                    if tokens[position].text == ")" { depth -= 1 }
+                    if depth == 0, [",", "="].contains(tokens[position].text) {
+                        return true
+                    }
+                }
+                return false
+            }()
+            guard rhsHasFloatAtom, !provablyInteger, !explicitConversion,
+                  !rhsTopLevelCorrupts else { continue }
+            let lowerIndex = source.unicodeScalars.index(
+                source.unicodeScalars.startIndex, offsetBy: startOffset
+            )
+            let upperIndex = source.unicodeScalars.index(
+                source.unicodeScalars.startIndex, offsetBy: endOffset
+            )
+            edits.append((
+                offset: startOffset,
+                length: endOffset - startOffset,
+                text: "int(\(source[lowerIndex..<upperIndex]))"
+            ))
+        }
+        var result = source
+        for edit in edits.sorted(by: { $0.offset > $1.offset }) {
+            guard edit.offset + edit.length <= result.unicodeScalars.count else {
+                continue
+            }
+            let lower = result.unicodeScalars.index(
+                result.unicodeScalars.startIndex, offsetBy: edit.offset
+            )
+            let upper = result.unicodeScalars.index(
+                result.unicodeScalars.startIndex,
+                offsetBy: edit.offset + edit.length
+            )
+            result.replaceSubrange(lower..<upper, with: edit.text)
+        }
+
+        guard !floatNames.isEmpty else { return result }
+        let floatIdentPattern = floatNames.map(NSRegularExpression.escapedPattern)
+            .joined(separator: "|")
         let comparisonRegex = try! NSRegularExpression(pattern:
             #"\b([A-Za-z_][A-Za-z0-9_]*)\s*(<=|>=|<|>)\s*("#
-                + floatNames.map(NSRegularExpression.escapedPattern).joined(separator: "|")
+                + floatIdentPattern
                 + #")\b"#
         )
-        var result = source
-        for match in regex.matches(
-            in: source,
-            range: NSRange(source.startIndex..., in: source)
-        ).reversed() {
-            guard let variableRange = Range(match.range(at: 1), in: source),
-                  let valueRange = Range(match.range(at: 2), in: source),
-                  let fullRange = Range(match.range, in: result) else { continue }
-            result.replaceSubrange(
-                fullRange,
-                with: "int \(source[variableRange]) = int(\(source[valueRange]));"
-            )
-        }
         for match in comparisonRegex.matches(
             in: result,
             range: NSRange(result.startIndex..., in: result)

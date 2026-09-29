@@ -675,6 +675,68 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
                 )
                 self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
 
+    def test_float_to_int_assignments_carry_explicit_truncation(self) -> None:
+        # The archived stage-link subclass: an integer target assigned a
+        # float-bearing expression relied on the lenient compilers' implicit
+        # conversion. The normalizer spells the truncation through int(...)
+        # for declarations, plain assignments, and comparison operands;
+        # compound assignments keep their ambiguous promotion semantics and
+        # stay fail-closed.
+        if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
+            self.skipTest("bundled glslang is unavailable")
+        cases = [
+            ("int k = g_Ratio.y * 2;"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "int k = int(g_Ratio.y * 2);"),
+            ("int k = 0; k = g_Ratio.y;"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "k = int(g_Ratio.y)"),
+            ("int k = 0; k = g_Ratio.y * 3.0;"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "k = int(g_Ratio.y * 3.0)"),
+            ("int k = g_Ratio.y;"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "int k = int(g_Ratio.y)"),
+            # An already-integer pair keeps its own statement untouched.
+            ("int k = 2; int n = k;"
+             " gl_FragColor = vec4(float(n), 0.0, 1.0, 1.0);",
+             "int n = k"),
+            # The lenient compound form stays fail-closed (registered
+            # residual: its promotion semantics are ambiguous).
+            ("int k = 0; k += g_Ratio.y;"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "k += g_Ratio.y"),
+            # An explicit conversion is already the truncation; it must not
+            # be wrapped twice.
+            ("int k = 0; k = int(g_Ratio.y);"
+             " gl_FragColor = vec4(float(k), 0.0, 1.0, 1.0);",
+             "k = int(g_Ratio.y)"),
+        ]
+        for statement, expected in cases:
+            with self.subTest(statement=statement), tempfile.TemporaryDirectory() as directory:
+                output = json.loads(subprocess.check_output(
+                    [str(self.binary), statement], text=True,
+                ))
+                fragment = output["normalizedFragment"]
+                self.assertIn(expected, fragment)
+                if expected in ("k += g_Ratio.y", "k = int(g_Ratio.y)"):
+                    if expected == "k += g_Ratio.y":
+                        # fail-closed: the ambiguous compound form is not
+                        # rewritten and cannot link under strict glslang
+                        continue
+                    self.assertNotIn("int(int(", fragment)
+                root = Path(directory)
+                vertex = root / "author.vert"
+                fragment_path = root / "author.frag"
+                vertex.write_text(output["normalizedVertex"], encoding="utf-8")
+                fragment_path.write_text(fragment, encoding="utf-8")
+                linked = subprocess.run(
+                    [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                     "-l", str(vertex), str(fragment_path)],
+                    cwd=root, capture_output=True, text=True,
+                )
+                self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
     def test_octal_bounds_preserve_compiled_numeric_value(self) -> None:
         for peer in ("abs(g_Ratio)", "abs(g_Ratio.x)"):
             with self.subTest(peer=peer), tempfile.TemporaryDirectory() as directory:
