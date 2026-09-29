@@ -59,26 +59,32 @@ nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
     }
 
     /// Commits one command buffer per device carrying every deferred
-    /// mipmap generation and waits once. Returns false on GPU failure.
+    /// mipmap generation and waits once. On GPU failure returns the number
+    /// of textures whose generation failed so the caller can account them
+    /// as failed loads; success reports zero.
     @discardableResult
-    func flushMipmapBatch() -> Bool {
+    func flushMipmapBatch() -> (succeeded: Bool, failedTextureCount: Int) {
         lock.lock()
         let textures = pendingMipmapTextures
         pendingMipmapTextures = []
         mipmapBatchActive = false
         mipmapFlushStorage += 1
         lock.unlock()
-        guard !textures.isEmpty else { return true }
+        guard !textures.isEmpty else { return (true, 0) }
         var byDevice: [UInt64: (device: MTLDevice, textures: [MTLTexture])] = [:]
         for texture in textures {
             byDevice[texture.device.registryID, default: (texture.device, [])]
                 .textures.append(texture)
         }
         for (_, entry) in byDevice {
-            guard let queue = commandQueue(for: entry.device) else { return false }
-            guard let commandBuffer = queue.makeCommandBuffer() else { return false }
+            guard let queue = commandQueue(for: entry.device) else {
+                return (false, entry.textures.count)
+            }
+            guard let commandBuffer = queue.makeCommandBuffer() else {
+                return (false, entry.textures.count)
+            }
             guard let encoder = commandBuffer.makeBlitCommandEncoder() else {
-                return false
+                return (false, entry.textures.count)
             }
             for texture in entry.textures {
                 encoder.generateMipmaps(for: texture)
@@ -86,9 +92,11 @@ nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
             encoder.endEncoding()
             commandBuffer.commit()
             commandBuffer.waitUntilCompleted()
-            guard commandBuffer.status == .completed else { return false }
+            guard commandBuffer.status == .completed else {
+                return (false, entry.textures.count)
+            }
         }
-        return true
+        return (true, 0)
     }
 
     var mipmapDeferCount: Int {
