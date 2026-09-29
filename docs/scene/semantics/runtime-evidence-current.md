@@ -6,6 +6,12 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-30-varying-isolation"></a>
+
+### E-2026-09-30-VARYING-ISOLATION — varying 隔离架构提案独立评审通过（E5 varying 类架构裁决，登记锚点）
+
+**推荐方案：**维持 per-pass 独立编译现状（已是产品架构，与官方按 material pass 独立编译结构等价）；全文（含与 09-30 登记裁决的三点分歧标注及迁移要点）见 `docs/scene/evidence/20260930-varying-isolation/proposal.md`，同批登记见 [engine-refactor-program E5 varying 判定段](../engine-refactor-program.md)。
+
 <a id="e-2026-09-30-scene-startup-speed-program"></a>
 
 ### E-2026-09-30-SCENE-STARTUP-SPEED-PROGRAM — Scene 启动提速计划十一批（测量驱动的预热/持久化层，独立审查逐批通过）
