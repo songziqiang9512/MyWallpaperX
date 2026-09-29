@@ -34,6 +34,8 @@
 
 **结果：**状态分布 generic-only 41,120 / prefer-generic 1,792 / disable-generic 411 / observe-only 17；outcome 分布 accepted 41,798 / **fallback 1,009 + shared-backend-fallback 358（即 generic→boundedFrontend 回退实际触达 1,367 次）** / rejected 158（fail-closed 边界正常行使）/ observed 17 / route-invalid 0。fallback 成因全是真实通用编译器 artifact 失败：`compiler-artifact-colortransfer` 613、`compiler-tool-stage-link-rejected-exitcode--2-` 210、`varying-unsupported` ~29、configuration/signature 类 ~12、artifact-contract-rejected 12 等；`disable-generic` 显式回滚开关被语料行使 411 次（route-disabled）。**9 月下旬活跃性：33 个证据文件仍命中 shared-backend-fallback**，榜首 profile=stage-uniform-straight-alpha-preserving-no-auxiliary（近期 42 次）、straight-alpha（22）、ordinary-shader（8；口径注记=42/22/8 为日期前缀目录子集，含 v1/*-09-23 的 33 文件宽口径下 ordinary-shader 计 17，系同样本多次启动重编译，不影响活跃性结论）。
 
+**第一类修复（同日，`85f48c83`）：**归档 123 条 fallback-rejected 诊断全门通过（lowered=1）仍失败→真因=兜底成功后 `lowerPremultipliedColorInputs` 把 boundary 已包裹调用当双重应用返回 nil（包采用的是字面相同的变换）。修复=已包裹调用跳过；红先行 harness 用例修复前精确复现归档失败形态、修复后全绿（复核代理独立反演 diff 复现 RED）；27 模块 lowering 门 + 干净构建回放 PASS（diff SHA256 `0cd8b81446ce0997dd6a32cce40d379e8e99f7f322afdec2a9d22e13225f0bee`，见忽略缓存 `20260929-colortransfer-boundary-fix/`）。该类流量归零仍需真实语料回放累积确认。
+
 **裁决与解锁路径：**bounded frontend（≈3.2k 行发射器 + 配套 analyzer）当前是**承重的回退 owner**，E5 的整批退役被本审计拒绝。解锁路径（顺序门）：①修通用编译器 artifact 失败类（colorTransfer、stage-link exit −2 为首，各自对应真实语料内容）；②每消灭一类失败即复核对应 fallback 流量归零；③待全语料 fallback 仅剩显式回滚开关行使后，按 owner-migration 门（纵向正证+未见组合+回滚演练）重启退役批次。**边界：**审计范围=归档日志可达的语料与路由行格式（`MWX generic shader route state=` 行自 schema 引入起）；`fallback` outcome 内 prefer-generic ordinary-shader 519 次属 prefer-generic 语义（generic 优先失败落 bounded frontend，该 profile 本就双 owner），不影响裁决。
 
 <a id="e-2026-09-29-daemon-web-lane"></a>
