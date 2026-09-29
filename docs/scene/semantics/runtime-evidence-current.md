@@ -26,6 +26,16 @@
 
 **验证：**checkpoint 门禁三项 PASSED（focused 8 模块：daemon framing/transport/policy/policy_delivery/wiring/protocol/multiplexer/debug-entry；code-health；build——共享树已恢复可编译）。干净 worktree（HEAD `137a4d0e`+仅本批 6 Swift）Developer ID 签名构建成功；1300076567 证据模式 12s 回放 **PASS loaded=1.0 failures=[]**。`test_playback_policy_delivery` harness 的 playWeb 段（诊断 web 会话继承暂停）随生产路径删除，video/scene 段与 8 模块全绿。冻结批次 diff SHA256 `e288784dd3b70d7968af3c64ab9a83cb673c21d7d32265e110f746fae259e99d`；证据见忽略缓存 `20260929-web-harness-retirement/`。**边界：**web 专门行为由 `test_web_playback_pause`（真实 WKWebView）覆盖（同跑绿）；本批零行为变化的前提即不可达判定成立。
 
+<a id="e-2026-09-29-daemon-web-lane"></a>
+
+### E-2026-09-29-DAEMON-WEB-LANE — daemon web 宿主 lane 退役（E6 死路径批，审查 APPROVE，`936c1f87`）
+
+**死面判定与消融：**前两批删掉 App 侧 web 生产者（sendPlayWebCommand、harness dispatch 臂）后，daemon 的 WKWebView web 宿主成为无生产者死面（HEAD 全仓对 `"playWeb"`/`"applyWebProperties"` 构造点为零；benchmark/测试不向 daemon stdin 发这两个 action）。本批删除整条 lane：`Daemon/Web/` 全目录（WebPlayback 137/WebCompatibility 264/LocalScheme 228/WebDiagnostics 99/WebRuntime 49/WebSupport 37）、Commands 的两个命令 case 与 setWeb* 分支及三个 web helper、Video 的两个 teardown 调用、Core 的五个 webview 状态属性 + WebKit 导入 + NSObject 上的 WK 协议 conform、共享协议 `DaemonCommand.webRootPath` 字段与 App 侧 10 个构造点实参。净 **−874 行**（+10/−884）。App 侧 dedicated adapter lane 不受影响；daemon video/spectrum/stop/shutdown 保留 AVPlayer 主体。协议兼容：daemon 用默认 JSONDecoder（未知键忽略）+ 原字段 optional，双向容错。
+
+**审查（独立只读 APPROVE）：**死面判定独立复核（含 benchmark stdin 路径）；14 成员闭包全仓 grep 零残留；`sendPlaybackPaused`/AVPlayer 主体/`currentContentKind` 余下使用点核验；pbxproj 为 fileSystemSynchronizedGroups 无陈旧引用；两张基线 JSON 无 ratchet 欠账。备注采纳：实际行数修正（−874）、两文件缩进归一、两条新登记（daemon 8 文件死 `import WebKit`、`currentContentKind` 恒值收敛）。
+
+**验证：**checkpoint 门禁三项 PASSED（focused 12 模块 daemon 全家、code-health、build——daemon target 实际编译链接）。干净 worktree（HEAD `860cbb4d`+仅本批 14 文件）Developer ID 签名构建成功；1300076567 证据模式 12s 回放 **PASS loaded=1.0 failures=[]**（app identity verified）。冻结批次 diff SHA256 `af8ee285a58a1a7bc6833452523f69ea6babc7de105d704d54103c3528d29976`；证据见忽略缓存 `20260929-daemon-web-lane/`。**边界：**web 专门行为由 App 侧 adapter 及其测试承载（`test_web_playback_pause` 等）；daemon 不再有 web 能力（与产品路由一致：web 壁纸从不经 daemon）。
+
 <a id="e-2026-09-29-script-frame-ledger"></a>
 
 ### E-2026-09-29-SCRIPT-FRAME-LEDGER — SceneScript 程序家族帧账本共享（E1-④ 收口，审查 APPROVE，`bb4d4dae`）
