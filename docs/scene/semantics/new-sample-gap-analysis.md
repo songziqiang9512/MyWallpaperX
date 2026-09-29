@@ -20,22 +20,26 @@ pixels、claimed=1/encoded=1。
 
 ### 待修复（按优先级）
 
-**缺口 3（音频条 composition 层 textureBindingInvalid）**：影响 3807151772/3806337293/
-3805547608/3807668787 等。层 399（composition + audio bars）被
+**缺口 3（音频条 composition 层 textureBindingInvalid）→ `3d94a3f4` + `9b4086ff` 已修复安全回退**：
+影响 3807151772/3806337293/3805547608/3807668787 等。层 399（composition + audio bars）被
 `material-variant-envelope-texture-binding / textureBindingInvalid slot=0` 拒绝。根因：
-音频条 shader 声明 `g_Texture0` 的 materialKey 是 `"上一个"`（中文本地化的 previous 别名，
-字节级确认 E4B88A E4B880 E4B8AA）。引擎的 `usesGraphInputMaterialAlias` 只认
-`framebuffer`/`previous`/`ui_editor_properties_framebuffer`，不认识中文本地化键 → slot 0
-无法解析 → textureBindingInvalid。
-**处理方式（按用户指示不硬编码本地化别名）**：走既有
-`dormantUnresolvedMaterialGraphInput` 合同（E-V1-DORMANT，真实样本 3749463715:536 已验证
-同型修复）。该合同专为"authored 非空 key 但不是已知别名"设计，只要求 shader 唯一
-sampler、hidden、无显式绑定/默认值/readiness fallback。音频条 shader 满足全部条件
-（唯一 sampler g_Texture0、hidden、material 无 textures 数组）。但 dormant 门的
-`graphInputColorCarrierSlot` 要求 color transfer 已证明（音频条 shader 是
-straight-alpha-preserving 形态：`gl_FragColor = vec4(finalColor, alpha)` +
-`mix(finalColor.rgb, scene.rgb, scene.a)` 混合上屏，color transfer analyzer 应能证明），
-需验证 analyzer 对该形态的覆盖。这是下一修复批的入口。
+音频条 shader 声明 `g_Texture0` 的 materialKey 是 `"上一个"`（中文编辑器写出的 previous
+本地化键，字节级确认）。`3d94a3f4` 把该 rejection code 加入 passthrough allowlist（层不再
+被整层丢弃）；`9b4086ff` 泛化 StraightBlendOutputAnalyzer 的 color 定义 gate 接受声明-赋值
+分裂形态（colorTransfer 泛化）。
+
+**当前状态（3807151772 benchmark PASS 40.6fps）**：层 399 的 shader 仍无法编译
+（textureBindingInvalid 仍在，因为 materialKey 确实不是已知别名），但层降级为
+previous-current 安全回退——场景背景继续渲染，音频条效果本身不绘制。Benchmark PASS。
+
+**后续（缺口 3-c，dormant 合同完整启用）**：要让音频条 shader 实际渲染出条形图，需要让
+dormant 门对 `"上一个"` 触发。当前 dormant 门在 `graphInputColorCarrierSlot` 处要求
+color transfer analyzer 先证明 carrier slot（`straightAlphaPreserving` 等），而音频条
+shader 的混合形态（`ApplyBlending(BLENDMODE, mix(finalColor.rgb, scene.rgb, scene.a),
+finalColor.rgb, bar*opacity)` → `gl_FragColor = vec4(finalColor, alpha)`）不匹配任何
+现有分析器模式。`9b4086ff` 已让声明-赋值分裂形态通过 `uniqueDefinition` gate，但后续的
+`ApplyBlending` / `mix` / `exactUses` 检查链还需确认是否匹配音频条 shader 的完整形态。
+这是下一修复批的入口。
 
 **缺口 1（image→model→material 链黑屏）**：833227004 渲染纯灰（178,178,178 = 清屏色），
 材质管线 planned=0。层 `image: models/background.json` → material `flowimage`。准入的
