@@ -218,7 +218,11 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
         guard layer.authoredDependencies.isEmpty,
               layer.dependencyLayerIDs.isEmpty
                   || layer.dependencyLayerIDs == [layer.id],
-              !effectiveReferences.isEmpty,
+              // A declared `[self]` dependency whose references were all
+              // shadowed still means graph-internal: the layer's own effect
+              // chain consumes its previous output. Requiring a surviving
+              // reference here rejects the whole layer when the shadow proof
+              // succeeds, which is the opposite of what the proof intends.
               Set(effectiveReferences).count == effectiveReferences.count,
               effectiveReferences.allSatisfy({
                   $0.consumerLayerID == layer.id
