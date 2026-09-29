@@ -37,8 +37,8 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
                 .assignmentExpression(after: output, in: tokens, body: main.bodyRange),
               let outputArguments = callArguments(
                 outputExpression, function: ["vec4", "float4"], count: 2
-              ), let color = identifier(outputArguments[0]),
-              let alpha = identifier(outputArguments[1]) else {
+              ), let color = SceneAuthoredShaderTokenScanner.identifier(outputArguments[0]),
+              let alpha = SceneAuthoredShaderTokenScanner.identifier(outputArguments[1]) else {
             return nil
         }
         guard let colorDefinition = uniqueDefinition(
@@ -146,8 +146,8 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
               let outputArguments = callArguments(
                   outputExpression, function: ["vec4", "float4"], count: 2
               ),
-              let color = identifier(outputArguments[0]),
-              let alpha = identifier(outputArguments[1]),
+              let color = SceneAuthoredShaderTokenScanner.identifier(outputArguments[0]),
+              let alpha = SceneAuthoredShaderTokenScanner.identifier(outputArguments[1]),
               let colorDefinition = uniqueDefinition(
                   color, types: ["vec3", "float3"], before: output,
                   tokens: tokens, body: main.bodyRange
@@ -193,7 +193,7 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
                       in: tokens,
                       body: main.bodyRange
                   ),
-              let alphaUniform = identifier(alphaExpression),
+              let alphaUniform = SceneAuthoredShaderTokenScanner.identifier(alphaExpression),
               fragment.declarations.contains(where: {
                   $0.storage == .uniform
                       && $0.typeName == "float"
@@ -267,8 +267,8 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
                 .assignmentExpression(after: output, in: tokens, body: main.bodyRange),
               let outputArguments = callArguments(
                 outputExpression, function: ["vec4", "float4"], count: 2
-              ), let color = identifier(outputArguments[0]),
-              let alpha = identifier(outputArguments[1]),
+              ), let color = SceneAuthoredShaderTokenScanner.identifier(outputArguments[0]),
+              let alpha = SceneAuthoredShaderTokenScanner.identifier(outputArguments[1]),
               let colorDefinition = uniqueDefinition(
                 color, types: ["vec3", "float3"], before: output,
                 tokens: tokens, body: main.bodyRange
@@ -345,9 +345,9 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
             if semicolon == function.bodyRange.upperBound - 2,
                let arguments = callArguments(
                     firstExpression, function: ["mix", "lerp"], count: 3
-               ), identifier(arguments[0]) == names[1],
-               identifier(strippingParentheses(arguments[1])) == names[2],
-               identifier(arguments[2]) == names[3] {
+               ), SceneAuthoredShaderTokenScanner.identifier(arguments[0]) == names[1],
+               SceneAuthoredShaderTokenScanner.identifier(strippingParentheses(arguments[1])) == names[2],
+               SceneAuthoredShaderTokenScanner.identifier(arguments[2]) == names[3] {
                 return .normal
             }
             if texts(firstExpression) == [
@@ -566,11 +566,6 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
             return tokens
         }
         return tokens.dropFirst().dropLast()
-    }
-
-    private static func identifier(_ tokens: ArraySlice<Token>) -> String? {
-        guard tokens.count == 1, tokens.first?.kind == .identifier else { return nil }
-        return tokens.first?.text
     }
 
     private static func member(

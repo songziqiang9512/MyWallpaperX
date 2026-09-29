@@ -478,7 +478,7 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                 index += 1
                 continue
             }
-            guard let close = SceneAuthoredShaderVectorConversion
+            guard let close = SceneAuthoredShaderTokenScanner
                 .matchingParenthesis(tokens: tokens, opening: index + 2) else {
                 return true
             }
@@ -558,7 +558,7 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                           function,
                           functionNames: functionNames
                       ),
-                  let closing = SceneAuthoredShaderVectorConversion
+                  let closing = SceneAuthoredShaderTokenScanner
                       .matchingParenthesis(tokens: tokens, opening: opening),
                   closing < body.upperBound,
                   let arguments = SceneAuthoredShaderMetalEmitter
@@ -637,7 +637,7 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                               function,
                               functionNames: functionNames
                           ),
-                      let closing = SceneAuthoredShaderVectorConversion
+                      let closing = SceneAuthoredShaderTokenScanner
                           .matchingParenthesis(tokens: tokens, opening: cursor),
                       closing < body.upperBound,
                       let arguments = SceneAuthoredShaderMetalEmitter

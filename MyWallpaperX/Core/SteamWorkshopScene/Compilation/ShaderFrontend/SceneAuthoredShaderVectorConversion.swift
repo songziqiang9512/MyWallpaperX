@@ -106,7 +106,7 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
               ), let sourceWidth = floatVectorWidth(source),
               sourceWidth > targetWidth,
               tokens[expression.lowerBound + 1].text == "(",
-              matchingParenthesis(
+              SceneAuthoredShaderTokenScanner.matchingParenthesis(
                 tokens: tokens,
                 opening: expression.lowerBound + 1
               ) == expression.upperBound - 1,
@@ -211,7 +211,7 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
         guard expression.count >= 3,
               tokens[expression.lowerBound].kind == .identifier,
               tokens[expression.lowerBound + 1].text == "(",
-              matchingParenthesis(
+              SceneAuthoredShaderTokenScanner.matchingParenthesis(
                   tokens: tokens,
                   opening: expression.lowerBound + 1
               ) == expression.upperBound - 1 else { return nil }
@@ -295,7 +295,7 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
               tokens[index].kind == .identifier,
               let opening = enclosingCallOpening(for: index, in: tokens),
               opening > 0,
-              let closing = matchingParenthesis(tokens: tokens, opening: opening),
+              let closing = SceneAuthoredShaderTokenScanner.matchingParenthesis(tokens: tokens, opening: opening),
               tokens[opening - 1].kind == .identifier,
               let argumentIndex = standaloneArgumentIndex(
                   containing: index,
@@ -501,14 +501,14 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                   $0.name == expression[index].text
               }), index + 1 < expression.endIndex,
               expression[index + 1].text == "(",
-              let close = matchingParenthesis(
+              let close = SceneAuthoredShaderTokenScanner.matchingParenthesis(
                   tokens: allTokens,
                   opening: index + 1
               ), close < expression.endIndex else { return nil }
         var argument = (index + 2)..<close
         while argument.count >= 2,
               allTokens[argument.lowerBound].text == "(",
-              matchingParenthesis(
+              SceneAuthoredShaderTokenScanner.matchingParenthesis(
                   tokens: allTokens,
                   opening: argument.lowerBound
               ) == argument.upperBound - 1 {
@@ -708,21 +708,6 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
             if [")", "]"].contains(tokens[cursor].text) { depth -= 1 }
             if depth == 0, tokens[cursor].text == ";" { return cursor }
             if depth < 0 || (depth == 0 && tokens[cursor].text == ",") { return nil }
-        }
-        return nil
-    }
-
-    static func matchingParenthesis(
-        tokens: [SceneAuthoredShaderToken],
-        opening: Int
-    ) -> Int? {
-        var depth = 0
-        for index in opening..<tokens.count {
-            if tokens[index].text == "(" { depth += 1 }
-            if tokens[index].text == ")" {
-                depth -= 1
-                if depth == 0 { return index }
-            }
         }
         return nil
     }

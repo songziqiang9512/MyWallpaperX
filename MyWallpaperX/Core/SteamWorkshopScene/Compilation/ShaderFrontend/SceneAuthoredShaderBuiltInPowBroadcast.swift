@@ -51,7 +51,7 @@ extension SceneAuthoredShaderBuiltInVectorConversion {
             guard unit.tokens[index].text == "pow",
                   index + 1 < unit.tokens.count,
                   unit.tokens[index + 1].text == "(",
-                  let closing = matchingParenthesis(
+                  let closing = SceneAuthoredShaderTokenScanner.matchingParenthesis(
                       tokens: unit.tokens,
                       opening: index + 1
                   ),

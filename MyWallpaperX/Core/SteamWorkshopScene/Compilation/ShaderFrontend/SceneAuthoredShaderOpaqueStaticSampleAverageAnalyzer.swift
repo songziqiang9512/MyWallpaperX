@@ -134,7 +134,7 @@ nonisolated enum SceneAuthoredShaderOpaqueStaticSampleAverageAnalyzer {
               callClose == values.count - 3,
               values[callClose + 1].text == ".",
               ["rgb", "xyz"].contains(values[callClose + 2].text),
-              let arguments = split(
+              let arguments = SceneAuthoredShaderTokenScanner.split(
                   2..<callClose,
                   separator: ",",
                   tokens: values
@@ -226,30 +226,6 @@ nonisolated enum SceneAuthoredShaderOpaqueStaticSampleAverageAnalyzer {
             }
         }
         guard depth == 0, statementStart == end else { return nil }
-        return result
-    }
-
-    private static func split(
-        _ range: Range<Int>,
-        separator: String,
-        tokens: [Token]
-    ) -> [Range<Int>]? {
-        var result: [Range<Int>] = []
-        var start = range.lowerBound
-        var depth = 0
-        for index in range {
-            let text = tokens[index].text
-            if ["(", "["].contains(text) { depth += 1 }
-            if [")", "]"].contains(text) { depth -= 1 }
-            guard depth >= 0 else { return nil }
-            if text == separator, depth == 0 {
-                guard start < index else { return nil }
-                result.append(start..<index)
-                start = index + 1
-            }
-        }
-        guard depth == 0, start < range.upperBound else { return nil }
-        result.append(start..<range.upperBound)
         return result
     }
 

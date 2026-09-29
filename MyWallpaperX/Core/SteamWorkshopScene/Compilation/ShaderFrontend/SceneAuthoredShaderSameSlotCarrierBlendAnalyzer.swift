@@ -217,32 +217,8 @@ nonisolated enum SceneAuthoredShaderSameSlotCarrierBlendAnalyzer {
               expression.first?.text == name,
               expression[expression.startIndex + 1].text == "(",
               expression.last?.text == ")" else { return nil }
-        let arguments = split(expression.dropFirst(2).dropLast())
+        let arguments = SceneAuthoredShaderTokenScanner.split(expression.dropFirst(2).dropLast())
         return arguments.count == count ? arguments : nil
-    }
-
-    private static func split(
-        _ tokens: ArraySlice<Token>
-    ) -> [ArraySlice<Token>] {
-        guard !tokens.isEmpty else { return [] }
-        var result: [ArraySlice<Token>] = []
-        var depth = 0
-        var start = tokens.startIndex
-        for index in tokens.indices {
-            switch tokens[index].text {
-            case "(", "[": depth += 1
-            case ")", "]": depth -= 1
-            case "," where depth == 0:
-                guard start < index else { return [] }
-                result.append(tokens[start..<index])
-                start = index + 1
-            default: break
-            }
-            guard depth >= 0 else { return [] }
-        }
-        guard depth == 0, start < tokens.endIndex else { return [] }
-        result.append(tokens[start..<tokens.endIndex])
-        return result
     }
 
     private static func containsControlFlow(

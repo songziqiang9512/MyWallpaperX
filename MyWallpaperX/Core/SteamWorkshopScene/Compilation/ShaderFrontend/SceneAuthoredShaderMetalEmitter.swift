@@ -335,7 +335,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                !context.functionNames.contains(token.text),
                index + 1 < tokens.count,
                tokens[index + 1].text == "(",
-               let close = SceneAuthoredShaderVectorConversion.matchingParenthesis(
+               let close = SceneAuthoredShaderTokenScanner.matchingParenthesis(
                    tokens: tokens,
                    opening: index + 1
                ),
@@ -429,7 +429,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                   tokens[start].text,
                   functionNames: context.functionNames
               ),
-              let close = SceneAuthoredShaderVectorConversion.matchingParenthesis(
+              let close = SceneAuthoredShaderTokenScanner.matchingParenthesis(
                   tokens: tokens,
                   opening: start + 1
               ),

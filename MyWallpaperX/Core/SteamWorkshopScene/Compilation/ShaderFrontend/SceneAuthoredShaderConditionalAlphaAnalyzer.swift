@@ -46,8 +46,8 @@ nonisolated enum SceneAuthoredShaderConditionalAlphaAnalyzer {
                 .assignmentExpression(
                     after: fallbackOutput, in: tokens, body: main.bodyRange
                 ),
-              let changed = identifier(changedExpression),
-              let source = identifier(fallbackExpression),
+              let changed = SceneAuthoredShaderTokenScanner.identifier(changedExpression),
+              let source = SceneAuthoredShaderTokenScanner.identifier(fallbackExpression),
               changed != source,
               let sourceDefinition = vectorDefinition(
                   source, in: main.bodyRange.lowerBound..<branches.thenBody.lowerBound,
@@ -155,8 +155,8 @@ nonisolated enum SceneAuthoredShaderConditionalAlphaAnalyzer {
                         in: tokens,
                         body: main.bodyRange
                     ),
-              let changed = identifier(changedExpression),
-              let source = identifier(fallbackExpression),
+              let changed = SceneAuthoredShaderTokenScanner.identifier(changedExpression),
+              let source = SceneAuthoredShaderTokenScanner.identifier(fallbackExpression),
               changed != source,
               let sourceDefinition = vectorDefinition(
                   source,
@@ -508,11 +508,6 @@ nonisolated enum SceneAuthoredShaderConditionalAlphaAnalyzer {
             start = index + 1
         }
         return start == tokens.endIndex ? result : []
-    }
-
-    private static func identifier(_ tokens: ArraySlice<Token>) -> String? {
-        guard tokens.count == 1, tokens.first?.kind == .identifier else { return nil }
-        return tokens.first?.text
     }
 
     private static func identifierName(_ tokens: ArraySlice<Token>) -> String? {

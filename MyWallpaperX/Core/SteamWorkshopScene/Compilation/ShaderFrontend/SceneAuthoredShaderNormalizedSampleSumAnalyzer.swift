@@ -146,7 +146,7 @@ nonisolated enum SceneAuthoredShaderNormalizedSampleSumAnalyzer {
         guard values.count >= 3,
               values[0].kind == .identifier,
               values[1].text == "(",
-              SceneAuthoredShaderVectorConversion.matchingParenthesis(
+              SceneAuthoredShaderTokenScanner.matchingParenthesis(
                   tokens: values, opening: 1
               ) == values.count - 1 else { return nil }
         return .init(name: values[0].text)
@@ -255,7 +255,7 @@ nonisolated enum SceneAuthoredShaderNormalizedSampleSumAnalyzer {
         guard values.count >= 6,
               ["texSample2D", "texture2D", "texture"].contains(values[0].text),
               values[1].text == "(",
-              SceneAuthoredShaderVectorConversion.matchingParenthesis(
+              SceneAuthoredShaderTokenScanner.matchingParenthesis(
                   tokens: values, opening: 1
               ) == values.count - 1,
               values[2].kind == .identifier,
@@ -285,7 +285,7 @@ nonisolated enum SceneAuthoredShaderNormalizedSampleSumAnalyzer {
         var values = raw
         while values.count >= 2,
               values.first?.text == "(",
-              SceneAuthoredShaderVectorConversion.matchingParenthesis(
+              SceneAuthoredShaderTokenScanner.matchingParenthesis(
                   tokens: values, opening: 0
               ) == values.count - 1 {
             values.removeFirst()

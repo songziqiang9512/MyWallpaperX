@@ -178,7 +178,7 @@ nonisolated enum SceneAuthoredShaderColorMixGraphAnalyzer {
         return (assignment + 1 ..< boundary).contains { index in
             guard authoredFunctions.contains(tokens[index].text),
                   index + 1 < boundary, tokens[index + 1].text == "(",
-                  let closing = SceneAuthoredShaderVectorConversion
+                  let closing = SceneAuthoredShaderTokenScanner
                     .matchingParenthesis(tokens: tokens, opening: index + 1),
                   closing < boundary else { return false }
             return ((index + 2) ..< closing).contains {

@@ -200,7 +200,7 @@ nonisolated enum SceneAuthoredShaderOpaqueLoopSampleAverageAnalyzer {
         main: Unit.Function
     ) -> Bool {
         let tokens = fragment.tokens
-        guard let clauses = split(range, separator: "&&", tokens: tokens),
+        guard let clauses = SceneAuthoredShaderTokenScanner.split(range, separator: "&&", tokens: tokens),
               clauses.count == 2 else { return false }
         let names = clauses.compactMap { clause -> String? in
             let values = Array(tokens[clause])
@@ -236,7 +236,7 @@ nonisolated enum SceneAuthoredShaderOpaqueLoopSampleAverageAnalyzer {
                   at: marker + 1,
                   tokens: tokens
               ),
-              let parts = split(
+              let parts = SceneAuthoredShaderTokenScanner.split(
                   (marker + 2)..<headerClose,
                   separator: ";",
                   tokens: tokens
@@ -316,7 +316,7 @@ nonisolated enum SceneAuthoredShaderOpaqueLoopSampleAverageAnalyzer {
               callClose == values.count - 3,
               values[callClose + 1].text == ".",
               ["rgb", "xyz"].contains(values[callClose + 2].text),
-              let arguments = split(
+              let arguments = SceneAuthoredShaderTokenScanner.split(
                   4..<callClose,
                   separator: ",",
                   tokens: values
@@ -399,30 +399,6 @@ nonisolated enum SceneAuthoredShaderOpaqueLoopSampleAverageAnalyzer {
               number(values[5]) == 0,
               values[6].text == ")" else { return nil }
         return values[1].text
-    }
-
-    private static func split(
-        _ range: Range<Int>,
-        separator: String,
-        tokens: [Token]
-    ) -> [Range<Int>]? {
-        var result: [Range<Int>] = []
-        var start = range.lowerBound
-        var depth = 0
-        for index in range {
-            let text = tokens[index].text
-            if ["(", "["].contains(text) { depth += 1 }
-            if [")", "]"].contains(text) { depth -= 1 }
-            guard depth >= 0 else { return nil }
-            if text == separator, depth == 0 {
-                guard start < index else { return nil }
-                result.append(start..<index)
-                start = index + 1
-            }
-        }
-        guard depth == 0, start < range.upperBound else { return nil }
-        result.append(start..<range.upperBound)
-        return result
     }
 
     private static func matchingDelimiter(

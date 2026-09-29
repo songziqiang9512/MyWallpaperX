@@ -376,8 +376,8 @@ nonisolated enum SceneAuthoredShaderAlphaAttenuationAnalyzer {
         guard tokens.count >= 6,
               ["texSample2D", "texture2D"].contains(tokens[0].text),
               tokens[1].text == "(",
-              let close = matchingClose(1, tokens: tokens),
-              let arguments = commaRanges(2..<close, tokens: tokens),
+              let close = SceneAuthoredShaderTokenScanner.matchingClose(1, tokens: tokens),
+              let arguments = SceneAuthoredShaderTokenScanner.commaRanges(2..<close, tokens: tokens),
               arguments.count == 2,
               arguments[0].count == 1,
               let slot = SceneShaderSourceTextFacts.textureSlot(tokens[arguments[0].lowerBound].text),
@@ -439,45 +439,6 @@ nonisolated enum SceneAuthoredShaderAlphaAttenuationAnalyzer {
             }
         }
         return depth == 0
-    }
-
-    private static func matchingClose(_ open: Int, tokens: [Token]) -> Int? {
-        guard tokens.indices.contains(open), tokens[open].text == "(" else {
-            return nil
-        }
-        var depth = 0
-        for index in open..<tokens.count {
-            if tokens[index].text == "(" { depth += 1 }
-            if tokens[index].text == ")" {
-                depth -= 1
-                if depth == 0 { return index }
-            }
-            guard depth >= 0 else { return nil }
-        }
-        return nil
-    }
-
-    private static func commaRanges(
-        _ range: Range<Int>,
-        tokens: [Token]
-    ) -> [Range<Int>]? {
-        guard !range.isEmpty else { return [] }
-        var result: [Range<Int>] = []
-        var start = range.lowerBound
-        var depth = 0
-        for index in range {
-            if tokens[index].text == "(" { depth += 1 }
-            if tokens[index].text == ")" { depth -= 1 }
-            if tokens[index].text == ",", depth == 0 {
-                guard start < index else { return nil }
-                result.append(start..<index)
-                start = index + 1
-            }
-            guard depth >= 0 else { return nil }
-        }
-        guard depth == 0, start < range.upperBound else { return nil }
-        result.append(start..<range.upperBound)
-        return result
     }
 
     private struct ScalarParser {

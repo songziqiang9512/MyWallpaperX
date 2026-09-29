@@ -267,7 +267,7 @@ nonisolated enum SceneAuthoredShaderGraphInputColorBlendAnalyzer {
         guard tokens.count >= 8,
               ["texSample2D", "texture2D"].contains(tokens[0].text),
               tokens[1].text == "(",
-              let close = matchingClose(1, tokens: tokens),
+              let close = SceneAuthoredShaderTokenScanner.matchingClose(1, tokens: tokens),
               close + 2 == tokens.count - 1,
               tokens[close + 1].text == ".",
               ["r", "x"].contains(tokens[close + 2].text),
@@ -292,7 +292,7 @@ nonisolated enum SceneAuthoredShaderGraphInputColorBlendAnalyzer {
         var result = tokens
         while result.count >= 2,
               result.first?.text == "(",
-              matchingClose(0, tokens: result) == result.count - 1 {
+              SceneAuthoredShaderTokenScanner.matchingClose(0, tokens: result) == result.count - 1 {
             result.removeFirst()
             result.removeLast()
         }
@@ -312,22 +312,6 @@ nonisolated enum SceneAuthoredShaderGraphInputColorBlendAnalyzer {
             if depth == 0, tokens[index].text == value { matches.append(index) }
         }
         return depth == 0 && matches.count == 1 ? matches[0] : nil
-    }
-
-    private static func matchingClose(_ open: Int, tokens: [Token]) -> Int? {
-        guard tokens.indices.contains(open), tokens[open].text == "(" else {
-            return nil
-        }
-        var depth = 0
-        for index in open..<tokens.count {
-            if tokens[index].text == "(" { depth += 1 }
-            if tokens[index].text == ")" {
-                depth -= 1
-                if depth == 0 { return index }
-            }
-            guard depth >= 0 else { return nil }
-        }
-        return nil
     }
 
     private static func arguments(
@@ -582,7 +566,7 @@ nonisolated enum SceneAuthoredShaderSpatialWeightedColorBlendAnalyzer {
               tokens[5].text == "(",
               let close = matchingClose(5, tokens: tokens),
               close == tokens.count - 1,
-              let arguments = argumentRanges(in: 6..<close, tokens: tokens),
+              let arguments = SceneAuthoredShaderTokenScanner.argumentRanges(in: 6..<close, tokens: tokens),
               arguments.count == 4 else { return false }
         let mode = Array(tokens[arguments[0]])
         guard mode.count == 1,
@@ -667,7 +651,7 @@ nonisolated enum SceneAuthoredShaderSpatialWeightedColorBlendAnalyzer {
               ["texSample2D", "texture2D"].contains(tokens[0].text),
               tokens[1].text == "(",
               let close = matchingClose(1, tokens: tokens),
-              let ranges = argumentRanges(in: 2..<close, tokens: tokens),
+              let ranges = SceneAuthoredShaderTokenScanner.argumentRanges(in: 2..<close, tokens: tokens),
               ranges.count == 2,
               ranges[0].count == 1,
               let slot = textureSlot(tokens[ranges[0].lowerBound].text) else {
@@ -679,31 +663,6 @@ nonisolated enum SceneAuthoredShaderSpatialWeightedColorBlendAnalyzer {
         guard close + 2 == tokens.count - 1,
               tokens[close + 1].text == "." else { return nil }
         return .init(slot: slot, projection: tokens[close + 2].text)
-    }
-
-    private static func argumentRanges(
-        in range: Range<Int>,
-        tokens: [Token]
-    ) -> [Range<Int>]? {
-        var result: [Range<Int>] = []
-        var start = range.lowerBound
-        var depth = 0
-        for index in range {
-            switch tokens[index].text {
-            case "(": depth += 1
-            case ")":
-                depth -= 1
-                if depth < 0 { return nil }
-            case "," where depth == 0:
-                guard start < index else { return nil }
-                result.append(start..<index)
-                start = index + 1
-            default: break
-            }
-        }
-        guard depth == 0, start < range.upperBound else { return nil }
-        result.append(start..<range.upperBound)
-        return result
     }
 
     private static func matchingClose(

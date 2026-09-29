@@ -54,7 +54,7 @@ nonisolated enum SceneAuthoredShaderDiscreteMaskConversion {
                   ) == .int,
                   index + 1 < unit.tokens.count,
                   unit.tokens[index + 1].text == "(",
-                  let closing = SceneAuthoredShaderVectorConversion
+                  let closing = SceneAuthoredShaderTokenScanner
                     .matchingParenthesis(tokens: unit.tokens, opening: index + 1),
                   closing + 1 < unit.tokens.count,
                   unit.tokens[closing + 1].text == ";",
@@ -82,7 +82,7 @@ nonisolated enum SceneAuthoredShaderDiscreteMaskConversion {
                   ) == .int,
                   index + 1 < unit.tokens.count,
                   unit.tokens[index + 1].text == "(",
-                  let closing = SceneAuthoredShaderVectorConversion
+                  let closing = SceneAuthoredShaderTokenScanner
                     .matchingParenthesis(tokens: unit.tokens, opening: index + 1),
                   closing + 1 < unit.tokens.count,
                   unit.tokens[closing + 1].text == ";",
@@ -152,7 +152,7 @@ nonisolated enum SceneAuthoredShaderDiscreteMaskConversion {
             guard factor.count >= 4,
                   unit.tokens[factor.lowerBound].text == "step",
                   unit.tokens[factor.lowerBound + 1].text == "(",
-                  SceneAuthoredShaderVectorConversion.matchingParenthesis(
+                  SceneAuthoredShaderTokenScanner.matchingParenthesis(
                       tokens: unit.tokens,
                       opening: factor.lowerBound + 1
                   ) == factor.upperBound - 1,
@@ -175,7 +175,7 @@ nonisolated enum SceneAuthoredShaderDiscreteMaskConversion {
         var range = sourceRange
         while range.count >= 2,
               unit.tokens[range.lowerBound].text == "(",
-              SceneAuthoredShaderVectorConversion.matchingParenthesis(
+              SceneAuthoredShaderTokenScanner.matchingParenthesis(
                   tokens: unit.tokens,
                   opening: range.lowerBound
               ) == range.upperBound - 1 {

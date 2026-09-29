@@ -379,7 +379,7 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         guard !function.parameterRange.isEmpty else {
             return .init(count: 0, ordinals: [])
         }
-        let parameters = split(
+        let parameters = SceneAuthoredShaderTokenScanner.split(
             range: function.parameterRange,
             separator: ",",
             tokens: tokens
@@ -408,7 +408,7 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
                   let functionIndices = functionIndicesByName[tokens[index].text],
                   let close = matchingDelimiter(at: index + 1, tokens: tokens),
                   close < range.upperBound else { continue }
-            let arguments = index + 2 == close ? [] : split(
+            let arguments = index + 2 == close ? [] : SceneAuthoredShaderTokenScanner.split(
                 range: (index + 2)..<close,
                 separator: ",",
                 tokens: tokens
@@ -446,26 +446,6 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         guard first + 1 < range.upperBound,
               [".", "["].contains(tokens[first + 1].text) else { return nil }
         return tokens[first].text
-    }
-
-    private static func split(
-        range: Range<Int>,
-        separator: String,
-        tokens: [SceneAuthoredShaderToken]
-    ) -> [Range<Int>] {
-        var result: [Range<Int>] = []
-        var start = range.lowerBound
-        var depth = 0
-        for index in range {
-            if ["(", "["].contains(tokens[index].text) { depth += 1 }
-            if [")", "]"].contains(tokens[index].text) { depth -= 1 }
-            if depth == 0, tokens[index].text == separator {
-                result.append(start..<index)
-                start = index + 1
-            }
-        }
-        result.append(start..<range.upperBound)
-        return result
     }
 
     private static func statementRange(

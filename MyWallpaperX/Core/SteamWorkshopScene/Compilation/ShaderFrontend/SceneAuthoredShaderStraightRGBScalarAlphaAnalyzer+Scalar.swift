@@ -50,7 +50,7 @@ nonisolated extension SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
               tokens[0].kind == .identifier,
               tokens[1].text == "(",
               matchingClose(1, tokens: tokens) == tokens.count - 1,
-              let ranges = commaRanges(2..<(tokens.count - 1), tokens: tokens) else {
+              let ranges = SceneAuthoredShaderTokenScanner.commaRanges(2..<(tokens.count - 1), tokens: tokens) else {
             return nil
         }
         return (tokens[0].text, ranges.map { Array(tokens[$0]) })
@@ -135,7 +135,7 @@ nonisolated extension SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
 
         private mutating func function(_ name: String) -> Bool {
             guard let close = matchingClose(index + 1, tokens: tokens),
-                  let ranges = commaRanges((index + 2)..<close, tokens: tokens) else {
+                  let ranges = SceneAuthoredShaderTokenScanner.commaRanges((index + 2)..<close, tokens: tokens) else {
                 return false
             }
             if ["texSample2D", "texture2D"].contains(name) {
@@ -180,26 +180,4 @@ nonisolated extension SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
         return nil
     }
 
-    private static func commaRanges(
-        _ range: Range<Int>,
-        tokens: [Token]
-    ) -> [Range<Int>]? {
-        guard !range.isEmpty else { return [] }
-        var result: [Range<Int>] = []
-        var start = range.lowerBound
-        var depth = 0
-        for index in range {
-            if tokens[index].text == "(" { depth += 1 }
-            if tokens[index].text == ")" { depth -= 1 }
-            if tokens[index].text == ",", depth == 0 {
-                guard start < index else { return nil }
-                result.append(start..<index)
-                start = index + 1
-            }
-            guard depth >= 0 else { return nil }
-        }
-        guard depth == 0, start < range.upperBound else { return nil }
-        result.append(start..<range.upperBound)
-        return result
-    }
 }

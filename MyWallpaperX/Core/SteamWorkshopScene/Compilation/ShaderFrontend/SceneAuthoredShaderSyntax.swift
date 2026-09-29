@@ -411,3 +411,164 @@ extension SceneShaderSourceTextFacts {
         return String(source[range])
     }
 }
+
+/// Token-level scanners shared by the authored-shader analyzers. They read
+/// `SceneAuthoredShaderToken` runs only; nothing here touches source text.
+nonisolated enum SceneAuthoredShaderTokenScanner {}
+
+extension SceneAuthoredShaderTokenScanner {
+    /// A one-token identifier; the ternary form of the same predicate that the
+    /// analyzers used locally.
+    static func identifier(_ tokens: ArraySlice<SceneAuthoredShaderToken>) -> String? {
+        guard tokens.count == 1, tokens.first?.kind == .identifier else { return nil }
+        return tokens.first?.text
+    }
+
+    static func argumentRanges(
+        in range: Range<Int>,
+        tokens: [SceneAuthoredShaderToken]
+    ) -> [Range<Int>]? {
+        var result: [Range<Int>] = []
+        var start = range.lowerBound
+        var depth = 0
+        for index in range {
+            switch tokens[index].text {
+            case "(": depth += 1
+            case ")":
+                depth -= 1
+                if depth < 0 { return nil }
+            case "," where depth == 0:
+                guard start < index else { return nil }
+                result.append(start..<index)
+                start = index + 1
+            default: break
+            }
+        }
+        guard depth == 0, start < range.upperBound else { return nil }
+        result.append(start..<range.upperBound)
+        return result
+    }
+
+    static func commaRanges(
+        _ range: Range<Int>,
+        tokens: [SceneAuthoredShaderToken]
+    ) -> [Range<Int>]? {
+        guard !range.isEmpty else { return [] }
+        var result: [Range<Int>] = []
+        var start = range.lowerBound
+        var depth = 0
+        for index in range {
+            if tokens[index].text == "(" { depth += 1 }
+            if tokens[index].text == ")" { depth -= 1 }
+            if tokens[index].text == ",", depth == 0 {
+                guard start < index else { return nil }
+                result.append(start..<index)
+                start = index + 1
+            }
+            guard depth >= 0 else { return nil }
+        }
+        guard depth == 0, start < range.upperBound else { return nil }
+        result.append(start..<range.upperBound)
+        return result
+    }
+
+    static func matchingClose(_ open: Int, tokens: [SceneAuthoredShaderToken]) -> Int? {
+        guard tokens.indices.contains(open), tokens[open].text == "(" else {
+            return nil
+        }
+        var depth = 0
+        for index in open..<tokens.count {
+            if tokens[index].text == "(" { depth += 1 }
+            if tokens[index].text == ")" {
+                depth -= 1
+                if depth == 0 { return index }
+            }
+            guard depth >= 0 else { return nil }
+        }
+        return nil
+    }
+
+    static func matchingParenthesis(
+        tokens: [SceneAuthoredShaderToken],
+        opening: Int
+    ) -> Int? {
+        var depth = 0
+        for index in opening..<tokens.count {
+            if tokens[index].text == "(" { depth += 1 }
+            if tokens[index].text == ")" {
+                depth -= 1
+                if depth == 0 { return index }
+            }
+        }
+        return nil
+    }
+
+    static func split(
+        _ range: Range<Int>,
+        separator: String,
+        tokens: [SceneAuthoredShaderToken]
+    ) -> [Range<Int>]? {
+        var result: [Range<Int>] = []
+        var start = range.lowerBound
+        var depth = 0
+        for index in range {
+            let text = tokens[index].text
+            if ["(", "["].contains(text) { depth += 1 }
+            if [")", "]"].contains(text) { depth -= 1 }
+            guard depth >= 0 else { return nil }
+            if text == separator, depth == 0 {
+                guard start < index else { return nil }
+                result.append(start..<index)
+                start = index + 1
+            }
+        }
+        guard depth == 0, start < range.upperBound else { return nil }
+        result.append(start..<range.upperBound)
+        return result
+    }
+
+    static func split(
+        _ tokens: ArraySlice<SceneAuthoredShaderToken>
+    ) -> [ArraySlice<SceneAuthoredShaderToken>] {
+        guard !tokens.isEmpty else { return [] }
+        var result: [ArraySlice<SceneAuthoredShaderToken>] = []
+        var depth = 0
+        var start = tokens.startIndex
+        for index in tokens.indices {
+            switch tokens[index].text {
+            case "(", "[": depth += 1
+            case ")", "]": depth -= 1
+            case "," where depth == 0:
+                guard start < index else { return [] }
+                result.append(tokens[start..<index])
+                start = index + 1
+            default: break
+            }
+            guard depth >= 0 else { return [] }
+        }
+        guard depth == 0, start < tokens.endIndex else { return [] }
+        result.append(tokens[start..<tokens.endIndex])
+        return result
+    }
+
+    static func split(
+        range: Range<Int>,
+        separator: String,
+        tokens: [SceneAuthoredShaderToken]
+    ) -> [Range<Int>] {
+        var result: [Range<Int>] = []
+        var start = range.lowerBound
+        var depth = 0
+        for index in range {
+            if ["(", "["].contains(tokens[index].text) { depth += 1 }
+            if [")", "]"].contains(tokens[index].text) { depth -= 1 }
+            if depth == 0, tokens[index].text == separator {
+                result.append(start..<index)
+                start = index + 1
+            }
+        }
+        result.append(start..<range.upperBound)
+        return result
+    }
+
+}

@@ -160,7 +160,7 @@ nonisolated enum SceneAuthoredShaderAuxiliaryRGBMixAnalyzer {
             guard mutableFunctionNames.contains(tokens[index].text),
                   index + 1 < main.bodyRange.upperBound,
                   tokens[index + 1].text == "(",
-                  let close = SceneAuthoredShaderVectorConversion
+                  let close = SceneAuthoredShaderTokenScanner
                     .matchingParenthesis(tokens: tokens, opening: index + 1),
                   close < main.bodyRange.upperBound else { return false }
             return tokens[(index + 2)..<close].contains(where: {

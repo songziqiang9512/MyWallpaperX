@@ -81,7 +81,7 @@ nonisolated enum SceneAuthoredShaderFunctionSemantics {
             guard token.text == "inverse" else { return nil }
             guard index + 1 < unit.tokens.count,
                   unit.tokens[index + 1].text == "(",
-                  let closing = SceneAuthoredShaderVectorConversion.matchingParenthesis(
+                  let closing = SceneAuthoredShaderTokenScanner.matchingParenthesis(
                       tokens: unit.tokens,
                       opening: index + 1
                   ),
@@ -117,7 +117,7 @@ nonisolated enum SceneAuthoredShaderFunctionSemantics {
         guard range.count >= 3,
               unit.tokens[range.lowerBound].kind == .identifier,
               unit.tokens[range.lowerBound + 1].text == "(",
-              SceneAuthoredShaderVectorConversion.matchingParenthesis(
+              SceneAuthoredShaderTokenScanner.matchingParenthesis(
                   tokens: unit.tokens,
                   opening: range.lowerBound + 1
               ) == range.upperBound - 1 else {
@@ -166,7 +166,7 @@ nonisolated enum SceneAuthoredShaderFunctionSemantics {
         var range = initial
         while range.count >= 2,
               tokens[range.lowerBound].text == "(",
-              SceneAuthoredShaderVectorConversion.matchingParenthesis(
+              SceneAuthoredShaderTokenScanner.matchingParenthesis(
                   tokens: tokens,
                   opening: range.lowerBound
               ) == range.upperBound - 1 {

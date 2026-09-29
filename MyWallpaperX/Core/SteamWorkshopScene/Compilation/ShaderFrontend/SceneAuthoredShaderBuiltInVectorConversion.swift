@@ -41,7 +41,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
               opening > 0,
               ["mix", "lerp"].contains(tokens[opening - 1].text),
               !unit.functions.contains(where: { $0.name == tokens[opening - 1].text }),
-              let closing = matchingParenthesis(tokens: tokens, opening: opening),
+              let closing = SceneAuthoredShaderTokenScanner.matchingParenthesis(tokens: tokens, opening: opening),
               let ranges = argumentRanges(opening: opening, closing: closing, tokens: tokens),
               ranges.count == 3,
               let argumentIndex = ranges.prefix(2).firstIndex(of: index..<(index + 1)),
@@ -108,7 +108,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
                       $0.name == unit.tokens[index].text
                   }), index + 1 < unit.tokens.count,
                   unit.tokens[index + 1].text == "(",
-                  let closing = matchingParenthesis(
+                  let closing = SceneAuthoredShaderTokenScanner.matchingParenthesis(
                       tokens: unit.tokens,
                       opening: index + 1
                   ),
@@ -208,7 +208,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
                   !unit.functions.contains(where: { $0.name == name }),
                   index + 1 < unit.tokens.count,
                   unit.tokens[index + 1].text == "(",
-                  let closing = matchingParenthesis(
+                  let closing = SceneAuthoredShaderTokenScanner.matchingParenthesis(
                       tokens: unit.tokens,
                       opening: index + 1
                   ),
@@ -317,7 +317,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
                   !unit.functions.contains(where: { $0.name == name }),
                   index + 1 < unit.tokens.count,
                   unit.tokens[index + 1].text == "(",
-                  let closing = matchingParenthesis(
+                  let closing = SceneAuthoredShaderTokenScanner.matchingParenthesis(
                       tokens: unit.tokens,
                       opening: index + 1
                   ),
@@ -388,7 +388,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
             guard tokens[index].text == "(", index > 0,
                   ["mix", "lerp"].contains(tokens[index - 1].text),
                   !unit.functions.contains(where: { $0.name == tokens[index - 1].text }),
-                  let closing = matchingParenthesis(tokens: tokens, opening: index),
+                  let closing = SceneAuthoredShaderTokenScanner.matchingParenthesis(tokens: tokens, opening: index),
                   let ranges = argumentRanges(opening: index, closing: closing, tokens: tokens),
                   ranges.count == 3,
                   let first = componentExpression(ranges[0], tokens: tokens, unit: unit),
@@ -500,7 +500,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         }
         if range.count >= 2, tokens[range.lowerBound].text == "(",
            tokens[range.upperBound - 1].text == ")",
-           matchingParenthesis(tokens: tokens, opening: range.lowerBound) == range.upperBound - 1,
+           SceneAuthoredShaderTokenScanner.matchingParenthesis(tokens: tokens, opening: range.lowerBound) == range.upperBound - 1,
            let nested = additiveExpression(
                (range.lowerBound + 1)..<(range.upperBound - 1),
                tokens: tokens,
@@ -580,7 +580,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         }
         guard !unit.functions.contains(where: { $0.name == name }),
               tokens[range.lowerBound + 1].text == "(",
-              matchingParenthesis(
+              SceneAuthoredShaderTokenScanner.matchingParenthesis(
                   tokens: tokens,
                   opening: range.lowerBound + 1
               ) == range.upperBound - 1,
@@ -731,21 +731,6 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
                 depth -= 1
             }
             if depth == 0, [";", "{", "}"].contains(tokens[cursor].text) { return nil }
-        }
-        return nil
-    }
-
-    static func matchingParenthesis(
-        tokens: [SceneAuthoredShaderToken],
-        opening: Int
-    ) -> Int? {
-        var depth = 0
-        for index in opening..<tokens.count {
-            if tokens[index].text == "(" { depth += 1 }
-            if tokens[index].text == ")" {
-                depth -= 1
-                if depth == 0 { return index }
-            }
         }
         return nil
     }

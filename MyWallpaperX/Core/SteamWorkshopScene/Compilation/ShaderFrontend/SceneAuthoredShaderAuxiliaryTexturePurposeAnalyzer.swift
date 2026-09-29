@@ -129,7 +129,7 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
                   tokens[index + 1].text == "(",
                   let close = matchingClose(index + 1, tokens: tokens),
                   close < range.upperBound,
-                  let arguments = argumentRanges(
+                  let arguments = SceneAuthoredShaderTokenScanner.argumentRanges(
                     in: (index + 2)..<close,
                     tokens: tokens
                   ), arguments.count == 3,
@@ -259,7 +259,7 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
               ["texSample2D", "texture2D"].contains(tokens[start].text),
               tokens[start + 1].text == "(",
               let close = matchingClose(start + 1, tokens: tokens),
-              let arguments = argumentRanges(
+              let arguments = SceneAuthoredShaderTokenScanner.argumentRanges(
                 in: (start + 2)..<close,
                 tokens: tokens
               ), arguments.count == 2,
@@ -297,31 +297,6 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
 
     private static func number(_ token: Token, equals expected: Double) -> Bool {
         Double(token.text) == expected
-    }
-
-    private static func argumentRanges(
-        in range: Range<Int>,
-        tokens: [Token]
-    ) -> [Range<Int>]? {
-        var result: [Range<Int>] = []
-        var start = range.lowerBound
-        var depth = 0
-        for index in range {
-            switch tokens[index].text {
-            case "(": depth += 1
-            case ")":
-                depth -= 1
-                if depth < 0 { return nil }
-            case "," where depth == 0:
-                guard start < index else { return nil }
-                result.append(start..<index)
-                start = index + 1
-            default: break
-            }
-        }
-        guard depth == 0, start < range.upperBound else { return nil }
-        result.append(start..<range.upperBound)
-        return result
     }
 
     private static func matchingClose(

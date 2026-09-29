@@ -145,7 +145,7 @@ nonisolated enum SceneAuthoredShaderOverlayAlphaBlendAnalyzer {
               mainHasNoControlFlow(main, tokens: tokens),
               let outputExpression = SceneAuthoredShaderColorTransferAnalyzer
                 .assignmentExpression(after: output, in: tokens, body: main.bodyRange),
-              let base = identifier(outputExpression),
+              let base = SceneAuthoredShaderTokenScanner.identifier(outputExpression),
               let baseDefinition = uniqueSampleDefinition(
                 base, before: output, tokens: tokens, body: main.bodyRange
               ),
@@ -177,7 +177,7 @@ nonisolated enum SceneAuthoredShaderOverlayAlphaBlendAnalyzer {
                 at: overlayDefinition, tokens: tokens, body: main.bodyRange
               ),
               overlaySlot != baseSlot,
-              let weight = identifier(blendCall.arguments[3]),
+              let weight = SceneAuthoredShaderTokenScanner.identifier(blendCall.arguments[3]),
               let weightDefinition = uniqueDefinition(
                 weight,
                 type: "float",
@@ -466,11 +466,6 @@ nonisolated enum SceneAuthoredShaderOverlayAlphaBlendAnalyzer {
             return nil
         }
         return tokens[tokens.startIndex].text
-    }
-
-    private static func identifier(_ tokens: ArraySlice<Token>) -> String? {
-        guard tokens.count == 1, tokens.first?.kind == .identifier else { return nil }
-        return tokens.first?.text
     }
 
     private static func numericZero(_ tokens: ArraySlice<Token>) -> Bool {

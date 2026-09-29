@@ -30,7 +30,7 @@ nonisolated enum SceneAuthoredShaderBoundedLoopAdmission {
         declarations: [SceneAuthoredShaderSyntaxUnit.Declaration],
         parameterArrays: [String: Int]
     ) -> Result? {
-        let parts = split(range: header, separator: ";", tokens: tokens)
+        let parts = SceneAuthoredShaderTokenScanner.split(range: header, separator: ";", tokens: tokens)
         guard parts.count == 3 else { return nil }
         var initialization = Array(parts[0])
         if initialization.first.map({ tokens[$0].text }) == "int" {
@@ -142,23 +142,4 @@ nonisolated enum SceneAuthoredShaderBoundedLoopAdmission {
         return increment == [variable, "++"] || increment == ["++", variable]
     }
 
-    private static func split(
-        range: Range<Int>,
-        separator: String,
-        tokens: [SceneAuthoredShaderToken]
-    ) -> [Range<Int>] {
-        var result: [Range<Int>] = []
-        var start = range.lowerBound
-        var depth = 0
-        for index in range {
-            if ["(", "["].contains(tokens[index].text) { depth += 1 }
-            if [")", "]"].contains(tokens[index].text) { depth -= 1 }
-            if depth == 0, tokens[index].text == separator {
-                result.append(start..<index)
-                start = index + 1
-            }
-        }
-        result.append(start..<range.upperBound)
-        return result
-    }
 }

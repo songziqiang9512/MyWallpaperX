@@ -37,19 +37,19 @@
   "canonicalHelpers": [
     {
       "name": "split",
-      "allowedCopies": 17,
-      "canonical": null,
+      "allowedCopies": 11,
+      "canonical": "Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
       "note": "Source-token scanner copy; the family merge picks the shared home.",
       "owner": "Compilation/ShaderFrontend family merge",
-      "retirement": "Merge into the reviewed scanner home, then ratchet this count down."
+      "retirement": "Move the remaining copies onto the scanner home, then ratchet this count down."
     },
     {
       "name": "matchingClose",
-      "allowedCopies": 15,
-      "canonical": null,
+      "allowedCopies": 14,
+      "canonical": "Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
       "note": "Source-token scanner copy; the family merge picks the shared home.",
       "owner": "Compilation/ShaderFrontend family merge",
-      "retirement": "Merge into the reviewed scanner home, then ratchet this count down."
+      "retirement": "Move the remaining copies onto the scanner home, then ratchet this count down."
     },
     {
       "name": "textureSlot",
@@ -61,19 +61,19 @@
     },
     {
       "name": "argumentRanges",
-      "allowedCopies": 5,
-      "canonical": null,
+      "allowedCopies": 4,
+      "canonical": "Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
       "note": "Source-token scanner copy; the family merge picks the shared home.",
       "owner": "Compilation/ShaderFrontend family merge",
-      "retirement": "Merge into the reviewed scanner home, then ratchet this count down."
+      "retirement": "Move the remaining copies onto the scanner home, then ratchet this count down."
     },
     {
       "name": "commaRanges",
-      "allowedCopies": 5,
-      "canonical": null,
+      "allowedCopies": 4,
+      "canonical": "Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
       "note": "Source-token scanner copy; the family merge picks the shared home.",
       "owner": "Compilation/ShaderFrontend family merge",
-      "retirement": "Merge into the reviewed scanner home, then ratchet this count down."
+      "retirement": "Move the remaining copies onto the scanner home, then ratchet this count down."
     },
     {
       "name": "topLevelStatements",
@@ -85,19 +85,19 @@
     },
     {
       "name": "identifier",
-      "allowedCopies": 16,
-      "canonical": null,
+      "allowedCopies": 14,
+      "canonical": "Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
       "note": "Source-token scanner copy; the family merge picks the shared home.",
       "owner": "Compilation/ShaderFrontend family merge",
-      "retirement": "Merge into the reviewed scanner home, then ratchet this count down."
+      "retirement": "Move the remaining copies onto the scanner home, then ratchet this count down."
     },
     {
       "name": "matchingParenthesis",
-      "allowedCopies": 4,
-      "canonical": "Compilation/ShaderFrontend/SceneAuthoredShaderVectorConversion.swift",
-      "note": "Shared implementation already reused by four files.",
+      "allowedCopies": 3,
+      "canonical": "Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
+      "note": "Shared implementation reused by four files before the 2026-09-29 merge.",
       "owner": "Compilation/ShaderFrontend family merge",
-      "retirement": "Move the remaining three copies onto the shared implementation, then ratchet to 1."
+      "retirement": "Move the remaining three copies onto the scanner home, then ratchet to 1."
     },
     {
       "name": "matches",
