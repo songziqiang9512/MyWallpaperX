@@ -134,7 +134,7 @@ nonisolated enum SceneAuthoredShaderUniformRGBMixAnalyzer {
               sample.arguments.count == 2,
               sample.arguments[0].count == 1,
               let sampler = sample.arguments[0].first?.text,
-              let slot = textureSlot(sampler),
+              let slot = SceneShaderSourceTextFacts.textureSlot(sampler),
               fragment.declarations.contains(where: {
                   $0.storage == .uniform && $0.typeName == "sampler2D"
                       && $0.name == sampler && $0.arraySize == nil

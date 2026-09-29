@@ -187,7 +187,7 @@ nonisolated enum SceneAuthoredShaderRGBDifferenceEnhancementAnalyzer {
               values[2] == "=",
               ["texSample2D", "texture2D"].contains(values[3]),
               values[4] == "(", values.last == ")",
-              let slot = textureSlot(values[5]),
+              let slot = SceneShaderSourceTextFacts.textureSlot(values[5]),
               values[6] == ",",
               matchingClose(in: values, opening: 4) == values.count - 1,
               values.filter({ ["texSample2D", "texture2D"].contains($0) }).count == 1
@@ -306,13 +306,6 @@ nonisolated enum SceneAuthoredShaderRGBDifferenceEnhancementAnalyzer {
         }
         guard declarations.count == 1 else { return nil }
         return declarations[0].typeName
-    }
-
-    private static func textureSlot(_ value: String) -> Int? {
-        guard value.hasPrefix("g_Texture"),
-              let slot = Int(value.dropFirst("g_Texture".count)),
-              (0..<8).contains(slot) else { return nil }
-        return slot
     }
 
     private static func matchingClose(

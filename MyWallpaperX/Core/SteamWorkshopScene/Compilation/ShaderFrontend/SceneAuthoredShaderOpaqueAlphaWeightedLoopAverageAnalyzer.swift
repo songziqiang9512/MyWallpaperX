@@ -289,7 +289,7 @@ nonisolated enum SceneAuthoredShaderOpaqueAlphaWeightedLoopAverageAnalyzer {
         let sampler = Array(values[arguments[0]])
         let coordinate = Array(values[arguments[1]])
         guard sampler.count == 1,
-              let slot = textureSlot(sampler[0].text),
+              let slot = SceneShaderSourceTextFacts.textureSlot(sampler[0].text),
               coordinate.count == 4,
               coordinate[0].kind == .identifier,
               coordinate[1].text == "[",
@@ -422,7 +422,7 @@ nonisolated enum SceneAuthoredShaderOpaqueAlphaWeightedLoopAverageAnalyzer {
         let sampler = Array(values[arguments[0]])
         let coordinate = Array(values[arguments[1]])
         guard sampler.count == 1,
-              let slot = textureSlot(sampler[0].text),
+              let slot = SceneShaderSourceTextFacts.textureSlot(sampler[0].text),
               coordinate.count == 4,
               coordinate[0].kind == .identifier,
               coordinate[1].text == "[",
@@ -589,13 +589,6 @@ nonisolated enum SceneAuthoredShaderOpaqueAlphaWeightedLoopAverageAnalyzer {
 
     private static func isTextureCall(_ name: String) -> Bool {
         ["texSample2D", "texture2D"].contains(name)
-    }
-
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0 ..< 8).contains(slot) else { return nil }
-        return slot
     }
 
     private static func integer(_ token: Token) -> Int? {

@@ -367,7 +367,7 @@ nonisolated enum SceneAuthoredShaderIndependentSignalCarrierAnalyzer {
         guard let value = call(tokens),
               ["texSample2D", "texture2D"].contains(value.name),
               value.arguments.count == 2, value.arguments[0].count == 1 else { return nil }
-        return textureSlot(value.arguments[0][0].text)
+        return SceneShaderSourceTextFacts.textureSlot(value.arguments[0][0].text)
     }
 
     private static func call(_ tokens: [Token]) -> Call? {
@@ -382,7 +382,7 @@ nonisolated enum SceneAuthoredShaderIndependentSignalCarrierAnalyzer {
         var result: [Sample] = []
         for index in tokens.indices where ["texSample2D", "texture2D"].contains(tokens[index].text) {
             guard index + 3 < tokens.count, tokens[index + 1].text == "(",
-                  let slot = textureSlot(tokens[index + 2].text), tokens[index + 3].text == ",",
+                  let slot = SceneShaderSourceTextFacts.textureSlot(tokens[index + 2].text), tokens[index + 3].text == ",",
                   let close = matchingDelimiter(at: index + 1, tokens: tokens) else { return nil }
             let projection = close + 2 < tokens.count && tokens[close + 1].text == "."
                 ? tokens[close + 2].text : nil
@@ -400,13 +400,6 @@ nonisolated enum SceneAuthoredShaderIndependentSignalCarrierAnalyzer {
         fragment.declarations.first(where: {
             $0.storage == .uniform && $0.name == "g_Texture\(slot)" && $0.arraySize == nil
         })?.typeName
-    }
-
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0 ... 7).contains(slot) else { return nil }
-        return slot
     }
 
     private static func commaRanges(_ range: Range<Int>, tokens: [Token]) -> [Range<Int>]? {

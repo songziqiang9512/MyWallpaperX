@@ -342,7 +342,7 @@ nonisolated enum SceneAuthoredShaderConditionalUnderlayRGBAnalyzer {
             guard ["texSample2D", "texture2D"].contains(tokens[index].text),
                   index + 2 < main.bodyRange.upperBound,
                   tokens[index + 1].text == "(" else { return nil }
-            return textureSlot(tokens[index + 2].text)
+            return SceneShaderSourceTextFacts.textureSlot(tokens[index + 2].text)
         }
         return slots == [carrierSlot, underlaySlot]
     }
@@ -479,13 +479,6 @@ nonisolated enum SceneAuthoredShaderConditionalUnderlayRGBAnalyzer {
     ) -> Unit.Function? {
         let matches = fragment.functions.filter { $0.name == name }
         return matches.count == 1 ? matches[0] : nil
-    }
-
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0 ... 7).contains(slot) else { return nil }
-        return slot
     }
 
     private static func braceDepth(

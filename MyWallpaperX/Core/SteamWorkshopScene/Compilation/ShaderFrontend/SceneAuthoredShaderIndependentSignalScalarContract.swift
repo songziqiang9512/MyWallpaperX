@@ -311,7 +311,7 @@ nonisolated enum SceneAuthoredShaderIndependentSignalScalarContract {
                 )
             } else if declaration.storage == .uniform,
                       declaration.typeName == "sampler2D",
-                      let slot = textureSlot(name), dataSlots.contains(slot) {
+                      let slot = SceneShaderSourceTextFacts.textureSlot(name), dataSlots.contains(slot) {
                 facts[name] = .init(
                     kind: .sampler(slot), ownership: .uniform,
                     carrierDerived: false
@@ -526,7 +526,7 @@ nonisolated enum SceneAuthoredShaderIndependentSignalScalarContract {
         if ["texSample2D", "texture2D"].contains(call.name) {
             guard call.arity == 2,
                   call.arguments.lowerBound < call.arguments.upperBound,
-                  let slot = textureSlot(tokens[call.arguments.lowerBound].text) else {
+                  let slot = SceneShaderSourceTextFacts.textureSlot(tokens[call.arguments.lowerBound].text) else {
                 return false
             }
             return fragment.declarations.contains {
@@ -626,10 +626,4 @@ nonisolated enum SceneAuthoredShaderIndependentSignalScalarContract {
         fragment.functions.contains(where: { $0.name == name })
     }
 
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0 ... 7).contains(slot) else { return nil }
-        return slot
-    }
 }

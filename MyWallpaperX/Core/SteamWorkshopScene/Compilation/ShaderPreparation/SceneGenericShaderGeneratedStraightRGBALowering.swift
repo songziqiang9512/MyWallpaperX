@@ -132,7 +132,7 @@ nonisolated enum SceneGenericShaderGeneratedStraightRGBALowering {
                   ), close + 1 < main.bodyRange.upperBound,
                   tokens[close + 1].text == ";",
                   simpleCoordinateRead(tokens[(sample + 4)..<close]),
-                  let slot = textureSlot(tokens[sample + 2].text),
+                  let slot = SceneShaderSourceTextFacts.textureSlot(tokens[sample + 2].text),
                   fragment.declarations.contains(where: {
                       $0.storage == .uniform
                           && $0.typeName == "sampler2D"
@@ -271,14 +271,6 @@ nonisolated enum SceneGenericShaderGeneratedStraightRGBALowering {
             }
         }
         return nil
-    }
-
-    private static func textureSlot(_ name: String) -> Int? {
-        let prefix = "g_Texture"
-        guard name.hasPrefix(prefix),
-              let slot = Int(name.dropFirst(prefix.count)),
-              (0 ..< 8).contains(slot) else { return nil }
-        return slot
     }
 
     private static func fragmentBodyRange(in source: String) -> NSRange? {

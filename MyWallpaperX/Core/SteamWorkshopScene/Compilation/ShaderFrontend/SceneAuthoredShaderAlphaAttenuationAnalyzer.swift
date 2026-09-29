@@ -249,7 +249,7 @@ nonisolated enum SceneAuthoredShaderAlphaAttenuationAnalyzer {
                 floats.insert(declaration.name)
             }
             if declaration.typeName == "sampler2D" {
-                if let slot = textureSlot(declaration.name) {
+                if let slot = SceneShaderSourceTextFacts.textureSlot(declaration.name) {
                     samplers.insert(slot)
                 }
             } else {
@@ -380,7 +380,7 @@ nonisolated enum SceneAuthoredShaderAlphaAttenuationAnalyzer {
               let arguments = commaRanges(2..<close, tokens: tokens),
               arguments.count == 2,
               arguments[0].count == 1,
-              let slot = textureSlot(tokens[arguments[0].lowerBound].text),
+              let slot = SceneShaderSourceTextFacts.textureSlot(tokens[arguments[0].lowerBound].text),
               safeCoordinate(
                   Array(tokens[arguments[1]]),
                   roots: coordinateRoots.union(scalarLocals)
@@ -439,15 +439,6 @@ nonisolated enum SceneAuthoredShaderAlphaAttenuationAnalyzer {
             }
         }
         return depth == 0
-    }
-
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0...7).contains(slot) else {
-            return nil
-        }
-        return slot
     }
 
     private static func matchingClose(_ open: Int, tokens: [Token]) -> Int? {

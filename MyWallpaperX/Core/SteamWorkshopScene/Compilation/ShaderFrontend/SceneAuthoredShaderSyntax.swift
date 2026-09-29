@@ -374,6 +374,14 @@ extension SceneShaderSourceTextFacts {
     static func substring(_ range: NSRange, in source: String) -> String? {
         Range(range, in: source).map { String(source[$0]) }
     }
+
+    /// Slot of a `g_TextureN` name; only `g_Texture0` … `g_Texture7` are slots.
+    static func textureSlot(_ name: String) -> Int? {
+        guard name.hasPrefix("g_Texture"),
+              let slot = Int(name.dropFirst("g_Texture".count)),
+              (0 ..< 8).contains(slot) else { return nil }
+        return slot
+    }
 }
 
 extension SceneShaderSourceTextFacts {

@@ -324,7 +324,7 @@ nonisolated enum SceneAuthoredShaderOpaqueLoopSampleAverageAnalyzer {
         let sampler = Array(values[arguments[0]])
         let coordinate = Array(values[arguments[1]])
         guard sampler.count == 1,
-              let slot = textureSlot(sampler[0].text),
+              let slot = SceneShaderSourceTextFacts.textureSlot(sampler[0].text),
               coordinate.count == 3,
               coordinate[0].kind == .identifier,
               coordinate[1].text == "+",
@@ -457,13 +457,6 @@ nonisolated enum SceneAuthoredShaderOpaqueLoopSampleAverageAnalyzer {
         tokens: [Token]
     ) -> Int {
         range.filter { tokens[$0].text == name }.count
-    }
-
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0 ..< 8).contains(slot) else { return nil }
-        return slot
     }
 
     private static func integer(_ token: Token) -> Int? {

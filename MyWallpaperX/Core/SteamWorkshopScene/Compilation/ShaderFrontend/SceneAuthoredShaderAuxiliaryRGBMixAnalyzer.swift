@@ -350,7 +350,7 @@ nonisolated enum SceneAuthoredShaderAuxiliaryRGBMixAnalyzer {
         ]), arguments.count == 2,
               arguments[0].count == 1,
               let sampler = arguments[0].first?.text,
-              let slot = textureSlot(sampler)
+              let slot = SceneShaderSourceTextFacts.textureSlot(sampler)
         else { return nil }
         return (sampler, slot)
     }
@@ -404,10 +404,4 @@ nonisolated enum SceneAuthoredShaderAuxiliaryRGBMixAnalyzer {
         }.count
     }
 
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0..<8).contains(slot) else { return nil }
-        return slot
-    }
 }

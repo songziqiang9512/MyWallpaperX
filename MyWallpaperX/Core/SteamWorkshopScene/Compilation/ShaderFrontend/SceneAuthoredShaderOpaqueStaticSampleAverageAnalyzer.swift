@@ -143,7 +143,7 @@ nonisolated enum SceneAuthoredShaderOpaqueStaticSampleAverageAnalyzer {
         let coordinate = Array(values[arguments[1]])
         guard sampler.count == 1,
               sampler[0].kind == .identifier,
-              let slot = textureSlot(sampler[0].text),
+              let slot = SceneShaderSourceTextFacts.textureSlot(sampler[0].text),
               safeCoordinateExpression(coordinate) else { return nil }
         return .init(slot: slot, sampler: sampler[0].text)
     }
@@ -275,13 +275,6 @@ nonisolated enum SceneAuthoredShaderOpaqueStaticSampleAverageAnalyzer {
         tokens: [Token]
     ) -> Int {
         range.filter { tokens[$0].text == name }.count
-    }
-
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0 ..< 8).contains(slot) else { return nil }
-        return slot
     }
 
     private static func positiveLiteral(

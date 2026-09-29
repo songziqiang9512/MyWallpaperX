@@ -289,7 +289,7 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
               call.arguments.count == 2,
               call.arguments[0].count == 1,
               let sampler = call.arguments[0].first?.text,
-              let slot = textureSlot(sampler),
+              let slot = SceneShaderSourceTextFacts.textureSlot(sampler),
               safeCoordinate(call.arguments[1], globals: globals, locals: []) else {
             return nil
         }

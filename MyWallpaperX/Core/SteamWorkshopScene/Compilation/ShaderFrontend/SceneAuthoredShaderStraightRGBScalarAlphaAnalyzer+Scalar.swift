@@ -56,13 +56,6 @@ nonisolated extension SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
         return (tokens[0].text, ranges.map { Array(tokens[$0]) })
     }
 
-    static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0 ... 7).contains(slot) else { return nil }
-        return slot
-    }
-
     private struct ScalarParser {
         let tokens: [Token]
         let context: ScalarContext
@@ -148,7 +141,7 @@ nonisolated extension SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
             if ["texSample2D", "texture2D"].contains(name) {
                 guard ranges.count == 2,
                       ranges[0].count == 1,
-                      let slot = textureSlot(tokens[ranges[0].lowerBound].text),
+                      let slot = SceneShaderSourceTextFacts.textureSlot(tokens[ranges[0].lowerBound].text),
                       slot != context.colorSlot,
                       safeCoordinate(
                           Array(tokens[ranges[1]]),

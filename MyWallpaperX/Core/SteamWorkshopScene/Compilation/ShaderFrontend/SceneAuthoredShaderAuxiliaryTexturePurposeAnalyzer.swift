@@ -264,7 +264,7 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
                 tokens: tokens
               ), arguments.count == 2,
               arguments[0].count == 1,
-              let slot = textureSlot(tokens[arguments[0].lowerBound].text),
+              let slot = SceneShaderSourceTextFacts.textureSlot(tokens[arguments[0].lowerBound].text),
               close + 2 < tokens.count,
               tokens[close + 1].text == "." else { return nil }
         return .init(
@@ -343,10 +343,4 @@ nonisolated enum SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer {
         return nil
     }
 
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0..<8).contains(slot) else { return nil }
-        return slot
-    }
 }

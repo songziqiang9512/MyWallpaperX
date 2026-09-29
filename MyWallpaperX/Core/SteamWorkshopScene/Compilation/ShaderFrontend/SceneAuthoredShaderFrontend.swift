@@ -405,7 +405,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
             for declaration in unit.declarations where declaration.storage == .uniform {
                 if declaration.typeName == "sampler2D" {
                     guard declaration.arraySize == nil,
-                          let slot = textureSlot(declaration.name) else {
+                          let slot = SceneShaderSourceTextFacts.textureSlot(declaration.name) else {
                         diagnostics.append(.init(
                             code: .unsupportedSampler,
                             message: "Only g_Texture0 through g_Texture7 sampler2D uniforms are supported.",
@@ -541,15 +541,6 @@ nonisolated enum SceneAuthoredShaderFrontend {
         case .float4: 4
         default: nil
         }
-    }
-
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0 ... 7).contains(slot) else {
-            return nil
-        }
-        return slot
     }
 
     private static func makeUniformLayout(

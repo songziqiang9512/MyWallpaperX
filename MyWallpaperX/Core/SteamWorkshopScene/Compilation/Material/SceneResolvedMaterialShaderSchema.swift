@@ -543,7 +543,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         var result: [Int: Sampler] = [:]
         for name in Set(samplerRecords.map(\.declaration.name)).sorted() {
             let declarations = samplerRecords.filter { $0.declaration.name == name }
-            guard let slot = textureSlot(name) else { throw Issue.sampler(name) }
+            guard let slot = SceneShaderSourceTextFacts.textureSlot(name) else { throw Issue.sampler(name) }
             let objects = declarations.flatMap { record in
                 record.annotations.compactMap { annotation -> [String: SceneShaderAnnotationValue]? in
                     guard annotation.marker == nil,
@@ -789,13 +789,6 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             return nil
         }
         return 0 ... 1
-    }
-
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0 ..< 8).contains(slot) else { return nil }
-        return slot
     }
 
     private static func isSampler2D(_ type: String) -> Bool {

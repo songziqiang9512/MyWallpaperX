@@ -689,7 +689,7 @@ nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
             .contains(tokens[index].text) {
             guard index + 2 < tokens.count,
                   tokens[index + 1].text == "(",
-                  let slot = SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer
+                  let slot = SceneShaderSourceTextFacts
                     .textureSlot(tokens[index + 2].text) else { return nil }
             slots.append(slot)
         }

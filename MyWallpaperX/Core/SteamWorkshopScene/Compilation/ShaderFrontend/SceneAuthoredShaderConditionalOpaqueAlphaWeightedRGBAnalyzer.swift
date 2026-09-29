@@ -311,7 +311,7 @@ nonisolated enum SceneAuthoredShaderConditionalOpaqueAlphaWeightedRGBAnalyzer {
               call.arguments.count == 2,
               call.arguments[0].count == 1,
               let sampler = call.arguments[0].first,
-              let slot = textureSlot(sampler.text),
+              let slot = SceneShaderSourceTextFacts.textureSlot(sampler.text),
               call.arguments[1].count == 4,
               call.arguments[1][0].kind == .identifier,
               call.arguments[1][1].text == "[",
@@ -564,13 +564,6 @@ nonisolated enum SceneAuthoredShaderConditionalOpaqueAlphaWeightedRGBAnalyzer {
 
     private static func isTextureCall(_ name: String) -> Bool {
         ["texSample2D", "texture2D"].contains(name)
-    }
-
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0 ..< 8).contains(slot) else { return nil }
-        return slot
     }
 
     private static func integer(_ token: Token) -> Int? {

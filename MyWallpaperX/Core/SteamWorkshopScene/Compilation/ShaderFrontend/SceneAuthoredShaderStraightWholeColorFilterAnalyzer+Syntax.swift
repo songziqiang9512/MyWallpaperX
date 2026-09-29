@@ -48,7 +48,7 @@ nonisolated extension SceneAuthoredShaderStraightWholeColorFilterAnalyzer {
         where ["texSample2D", "texture2D"].contains(tokens[index].text) {
             guard index + 2 < range.upperBound,
                   tokens[index + 1].text == "(",
-                  let slot = textureSlot(tokens[index + 2].text) else {
+                  let slot = SceneShaderSourceTextFacts.textureSlot(tokens[index + 2].text) else {
                 return nil
             }
             result.append(slot)
@@ -98,10 +98,4 @@ nonisolated extension SceneAuthoredShaderStraightWholeColorFilterAnalyzer {
         return result
     }
 
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0 ..< 8).contains(slot) else { return nil }
-        return slot
-    }
 }

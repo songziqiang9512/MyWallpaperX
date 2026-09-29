@@ -803,7 +803,7 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         for index in range where ["texSample2D", "texture2D"].contains(tokens[index].text) {
             guard index + 2 < range.upperBound,
                   tokens[index + 1].text == "(",
-                  let slot = textureSlot(tokens[index + 2].text) else {
+                  let slot = SceneShaderSourceTextFacts.textureSlot(tokens[index + 2].text) else {
                 return nil
             }
             slots.append(slot)
@@ -961,18 +961,10 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
               tokens.last?.text == ")",
               outerCallClosesAtEnd(tokens),
               topLevelCommas(tokens) == [3],
-              let slot = textureSlot(tokens[2].text) else {
+              let slot = SceneShaderSourceTextFacts.textureSlot(tokens[2].text) else {
             return nil
         }
         return slot
     }
 
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0...7).contains(slot) else {
-            return nil
-        }
-        return slot
-    }
 }

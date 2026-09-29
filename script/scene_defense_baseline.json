@@ -53,7 +53,7 @@
     },
     {
       "name": "textureSlot",
-      "allowedCopies": 28,
+      "allowedCopies": 4,
       "canonical": null,
       "note": "Texture-slot scanner copy; a shared `directTextureSampleSlot` variant already exists.",
       "owner": "Compilation/ShaderFrontend family merge",

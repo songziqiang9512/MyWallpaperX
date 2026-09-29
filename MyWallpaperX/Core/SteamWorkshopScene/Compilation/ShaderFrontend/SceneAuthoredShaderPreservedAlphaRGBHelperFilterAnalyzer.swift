@@ -486,7 +486,7 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer {
             ["texSample2D", "texture2D"].contains(tokens[index].text) {
             guard index + 3 < tokens.count,
                   tokens[index + 1].text == "(",
-                  let slot = textureSlot(tokens[index + 2].text),
+                  let slot = SceneShaderSourceTextFacts.textureSlot(tokens[index + 2].text),
                   tokens[index + 3].text == ",",
                   let close = matchingDelimiter(
                       at: index + 1,
@@ -541,13 +541,6 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer {
         fragment.declarations.first(where: {
             $0.storage == .uniform && $0.name == "g_Texture\(slot)"
         })?.typeName
-    }
-
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0 ... 7).contains(slot) else { return nil }
-        return slot
     }
 
     private static func matchingDelimiter(

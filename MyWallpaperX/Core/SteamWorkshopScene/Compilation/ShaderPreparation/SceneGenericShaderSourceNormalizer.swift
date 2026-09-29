@@ -113,7 +113,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                     case "uniform":
                         if item.type.hasPrefix("sampler") {
                             guard item.type == "sampler2D", item.count == nil,
-                                  let slot = textureSlot(item.name) else {
+                                  let slot = SceneShaderSourceTextFacts.textureSlot(item.name) else {
                                 throw Failure.samplerUnsupported
                             }
                             if let previous = samplers[item.name], previous != slot {
@@ -415,13 +415,6 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         guard type.hasPrefix("vec"), let width = Int(type.dropFirst(3)),
               (2 ... 4).contains(width) else { return nil }
         return width
-    }
-
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0 ..< 8).contains(slot) else { return nil }
-        return slot
     }
 
     private static func isAudioSpectrumArray(_ declaration: Declaration) -> Bool {

@@ -222,7 +222,7 @@ nonisolated enum SceneAuthoredShaderGeneratedAuxiliaryRGBPreservedAlphaAnalyzer 
               let sampler = SceneAuthoredShaderConditionalStraightUnionAnalyzer
                 .identifier(call.arguments[0])
         else { return nil }
-        return textureSlot(sampler)
+        return SceneShaderSourceTextFacts.textureSlot(sampler)
     }
 
     private static func sampleFunctionCount(
@@ -257,7 +257,7 @@ nonisolated enum SceneAuthoredShaderGeneratedAuxiliaryRGBPreservedAlphaAnalyzer 
         for index in tokens.indices where names.contains(tokens[index].text) {
             guard index + 3 < tokens.count,
                   tokens[index + 1].text == "(",
-                  let slot = textureSlot(tokens[index + 2].text),
+                  let slot = SceneShaderSourceTextFacts.textureSlot(tokens[index + 2].text),
                   tokens[index + 3].text == ",",
                   let close = SceneAuthoredShaderConditionalStraightUnionAnalyzer
                     .matching(index + 1, tokens: tokens)
@@ -292,10 +292,4 @@ nonisolated enum SceneAuthoredShaderGeneratedAuxiliaryRGBPreservedAlphaAnalyzer 
         return types.count == 1 ? types[0] : nil
     }
 
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0 ..< 8).contains(slot) else { return nil }
-        return slot
-    }
 }

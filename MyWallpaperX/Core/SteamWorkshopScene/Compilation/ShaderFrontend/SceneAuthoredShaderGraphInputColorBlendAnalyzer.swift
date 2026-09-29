@@ -255,7 +255,7 @@ nonisolated enum SceneAuthoredShaderGraphInputColorBlendAnalyzer {
         for index in range where ["texSample2D", "texture2D"].contains(tokens[index].text) {
             guard index + 2 < range.upperBound,
                   tokens[index + 1].text == "(",
-                  let slot = textureSlot(tokens[index + 2].text) else {
+                  let slot = SceneShaderSourceTextFacts.textureSlot(tokens[index + 2].text) else {
                 return nil
             }
             result.append(slot)
@@ -274,7 +274,7 @@ nonisolated enum SceneAuthoredShaderGraphInputColorBlendAnalyzer {
               let ranges = arguments(in: 2..<close, tokens: tokens),
               ranges.count == 2,
               ranges[0].count == 1 else { return nil }
-        return textureSlot(tokens[ranges[0].lowerBound].text)
+        return SceneShaderSourceTextFacts.textureSlot(tokens[ranges[0].lowerBound].text)
     }
 
     private static func samplerType(_ slot: Int, fragment: Unit) -> String? {
@@ -286,13 +286,6 @@ nonisolated enum SceneAuthoredShaderGraphInputColorBlendAnalyzer {
             $0.storage == .uniform && $0.arraySize == nil && $0.name == name
         }
         return matches.count == 1 ? matches[0].typeName : nil
-    }
-
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0 ... 7).contains(slot) else { return nil }
-        return slot
     }
 
     private static func strippingParentheses(_ tokens: [Token]) -> [Token] {
