@@ -380,6 +380,85 @@ extension SceneGenericShaderSourceNormalizer {
         return result
     }
 
+    /// A declared integer scalar in the first argument of max/min against a
+    /// declared vector has no Vulkan GLSL overload (the vector-to-scalar
+    /// direction converts implicitly, this one does not). The authored
+    /// language broadcasts the scalar, so the scalar is promoted to the
+    /// sibling's vector type. Identifier atoms only; the literal form is
+    /// owned by `rewriteVectorClampLiteralArguments`. Names whose declared
+    /// type is ambiguous (shadowing or conflicting declarations) are skipped.
+    static func rewriteVectorBuiltInIntFirstOperands(
+        _ source: String,
+        shapes: [String: Shape]
+    ) -> String {
+        var types: [String: String] = shapes.compactMapValues {
+            SceneAuthoredShaderValueType(authoredName: $0.type)?.rawValue
+        }
+        var conflicted: Set<String> = []
+        let lexical = SceneAuthoredShaderLexer.lex(source: source, stage: .fragment)
+        guard lexical.diagnostics.isEmpty else { return source }
+        let tokens = lexical.tokens
+        for index in tokens.indices.dropLast() {
+            guard let valueType = SceneAuthoredShaderValueType(
+                authoredName: tokens[index].text
+            ), tokens[index + 1].kind == .identifier else { continue }
+            let name = tokens[index + 1].text
+            if let existing = types[name], existing != valueType.rawValue {
+                conflicted.insert(name)
+            } else {
+                types[name] = valueType.rawValue
+            }
+        }
+        let vectorNames = types.compactMap { name, type in
+            ["float2", "float3", "float4"].contains(type)
+                && !conflicted.contains(name) ? name : nil
+        }
+        let intNames = types.compactMap { name, type in
+            ["int", "uint"].contains(type) && !conflicted.contains(name)
+                ? name : nil
+        }
+        guard !vectorNames.isEmpty, !intNames.isEmpty else { return source }
+        // An authored overload sharing the built-in name owns its call sites.
+        let definitions = try! NSRegularExpression(pattern:
+            #"\b(?:bool|int|uint|float|[biu]?vec[2-4])\s+(max|min)\s*\("#
+        )
+        let authoredNames = Set(definitions.matches(
+            in: source,
+            range: NSRange(source.startIndex..., in: source)
+        ).compactMap { match -> String? in
+            guard let range = Range(match.range(at: 1), in: source) else { return nil }
+            return String(source[range])
+        })
+        let regex = try! NSRegularExpression(pattern:
+            #"\b(max|min)\(\s*("#
+                + intNames.map(NSRegularExpression.escapedPattern).joined(separator: "|")
+                + #")\s*,\s*("#
+                + vectorNames.map(NSRegularExpression.escapedPattern).joined(separator: "|")
+                + #")\s*\)"#
+        )
+        let glslSpelling = ["float2": "vec2", "float3": "vec3", "float4": "vec4"]
+        var result = source
+        for match in regex.matches(
+            in: source,
+            range: NSRange(source.startIndex..., in: source)
+        ).reversed() {
+            guard let nameRange = Range(match.range(at: 1), in: source),
+                  let intRange = Range(match.range(at: 2), in: source),
+                  let vectorRange = Range(match.range(at: 3), in: source),
+                  let fullRange = Range(match.range, in: result),
+                  let vectorType = types[String(source[vectorRange])],
+                  let constructor = glslSpelling[vectorType]
+            else { continue }
+            guard !authoredNames.contains(String(source[nameRange])) else { continue }
+            result.replaceSubrange(
+                fullRange,
+                with: "\(source[nameRange])(\(constructor)(\(source[intRange])),"
+                    + " \(source[vectorRange]))"
+            )
+        }
+        return result
+    }
+
     static func rewriteVectorClampLiteralArguments(_ source: String) -> String {
         let regex = try! NSRegularExpression(pattern:
             #"\b(max|min)\(\s*(-?[0-9]+)\s*,\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[xyzwrgba]+)?)\s*\)"#

@@ -265,6 +265,10 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 fragment.body,
                 shapes: varyings.merging(uniforms) { current, _ in current }
             )
+            fragment.body = rewriteVectorBuiltInIntFirstOperands(
+                fragment.body,
+                shapes: varyings.merging(uniforms) { current, _ in current }
+            )
             fragment.body = rewriteVectorClampLiteralArguments(fragment.body)
             guard let mutableVaryings = SceneGenericShaderMutableFragmentVaryingNormalizer
                 .rewrite(

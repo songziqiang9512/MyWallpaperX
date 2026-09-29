@@ -553,6 +553,61 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
                 )
                 self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
 
+    def test_declared_int_first_builtin_operands_link(self) -> None:
+        # The archived stage-link class: max/min(int, vecN) has no Vulkan
+        # GLSL overload (int does not convert to the vector), while the
+        # reverse order converts implicitly. The authored language
+        # broadcasts the scalar, so the normalizer promotes it to the
+        # sibling's vector type.
+        if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
+            self.skipTest("bundled glslang is unavailable")
+        cases = [
+            ("int k = 2; gl_FragColor = vec4(max(k, g_Ratio), 0.0, 1.0);",
+             "max(vec2(k), g_Ratio)"),
+            ("int k = 2; gl_FragColor = vec4(min(k, g_Ratio), 0.0, 1.0);",
+             "min(vec2(k), g_Ratio)"),
+            # A locally declared vector sibling takes the same promotion.
+            ("int k = 2; vec2 lv = g_Ratio; gl_FragColor = vec4(max(k, lv), 0.0, 1.0);",
+             "max(vec2(k), lv)"),
+            # The vector-first order already links; it must stay untouched.
+            ("int k = 2; gl_FragColor = vec4(max(g_Ratio, k), 0.0, 1.0);",
+             "max(g_Ratio, k)"),
+            # Integer-integer max keeps its own overload.
+            ("int k = 2; int j = 3; gl_FragColor = vec4(float(max(k, j)));",
+             "max(k, j)"),
+            # An authored overload owning the built-in name keeps its call
+            # sites; a different signature is a legal GLSL overload.
+            ("vec2 max(int a, vec2 b) { return b; }"
+             " int k = 2; gl_FragColor = vec4(max(k, g_Ratio), 0.0, 1.0);",
+             "max(k, g_Ratio)"),
+        ]
+        for statement, expected in cases:
+            with self.subTest(statement=statement), tempfile.TemporaryDirectory() as directory:
+                output = json.loads(subprocess.check_output(
+                    [str(self.binary), statement], text=True,
+                ))
+                fragment = output["normalizedFragment"]
+                self.assertIn(expected, fragment)
+                if expected in ("max(g_Ratio, k)", "max(k, j)"):
+                    self.assertNotIn("vec2(k)", fragment)
+                if expected == "max(k, g_Ratio)":
+                    # The authored overload sits inside the harness body, so
+                    # this shape asserts the guard's text behaviour only; the
+                    # top-level overload links under the reviewer's probe.
+                    self.assertNotIn("vec2(k)", fragment)
+                    continue
+                root = Path(directory)
+                vertex = root / "author.vert"
+                fragment_path = root / "author.frag"
+                vertex.write_text(output["normalizedVertex"], encoding="utf-8")
+                fragment_path.write_text(fragment, encoding="utf-8")
+                linked = subprocess.run(
+                    [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                     "-l", str(vertex), str(fragment_path)],
+                    cwd=root, capture_output=True, text=True,
+                )
+                self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
     def test_octal_bounds_preserve_compiled_numeric_value(self) -> None:
         for peer in ("abs(g_Ratio)", "abs(g_Ratio.x)"):
             with self.subTest(peer=peer), tempfile.TemporaryDirectory() as directory:
