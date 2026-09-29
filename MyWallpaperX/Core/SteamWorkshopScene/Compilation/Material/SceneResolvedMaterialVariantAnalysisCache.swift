@@ -18,7 +18,7 @@ import Foundation
 /// successful variant compilation, the read path never creates the cache
 /// directory, and a failed or stale record degrades to a full recompute.
 nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
-    private static let schemaVersion = 2
+    private static let schemaVersion = 3
     private static let maximumEntryBytes = 512 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()
@@ -37,7 +37,6 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
         let sourceCarriedRGBA: SourceCarriedRGBAMirror?
         let conditionalGeneratedRGB: ConditionalGeneratedRGBMirror?
         let sameAlphaReconstructedRGB: SameAlphaReconstructedMirror?
-        let preservedAlphaRGBColorSlots: Set<Int>
         let neutralTextureResolution: NeutralTextureResolutionMirror?
         let alphaAttenuationFact: AuxiliaryRedCarrierMirror?
         let colorBlendFact: ColorBlendCarrierMirror?
@@ -115,7 +114,6 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
         let sourceCarriedRGBA: SourceCarriedRGBAMirror?
         let conditionalGeneratedRGB: ConditionalGeneratedRGBMirror?
         let sameAlphaReconstructedRGB: SameAlphaReconstructedMirror?
-        let preservedAlphaRGBColorSlots: [Int]
         let neutralTextureResolution: NeutralTextureResolutionMirror?
         let alphaAttenuationFact: AuxiliaryRedCarrierMirror?
         let colorBlendFact: ColorBlendCarrierMirror?
@@ -216,8 +214,6 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
             sourceCarriedRGBA: record.sourceCarriedRGBA,
             conditionalGeneratedRGB: record.conditionalGeneratedRGB,
             sameAlphaReconstructedRGB: record.sameAlphaReconstructedRGB,
-            preservedAlphaRGBColorSlots:
-                record.preservedAlphaRGBColorSlots.sorted(),
             neutralTextureResolution: record.neutralTextureResolution,
             alphaAttenuationFact: record.alphaAttenuationFact,
             colorBlendFact: record.colorBlendFact,
@@ -273,8 +269,6 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
             sourceCarriedRGBA: payload.sourceCarriedRGBA,
             conditionalGeneratedRGB: payload.conditionalGeneratedRGB,
             sameAlphaReconstructedRGB: payload.sameAlphaReconstructedRGB,
-            preservedAlphaRGBColorSlots:
-                Set(payload.preservedAlphaRGBColorSlots),
             neutralTextureResolution: payload.neutralTextureResolution,
             alphaAttenuationFact: payload.alphaAttenuationFact,
             colorBlendFact: payload.colorBlendFact,

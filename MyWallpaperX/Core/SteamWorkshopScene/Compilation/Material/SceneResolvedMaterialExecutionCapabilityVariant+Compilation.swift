@@ -895,7 +895,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     ),
                     sameAlphaReconstructedRGB: sameAlphaReconstructedRGBFact
                         .map(SceneResolvedMaterialVariantAnalysisCache.mirror),
-                    preservedAlphaRGBColorSlots: preservedAlphaRGBColorSlots,
                     neutralTextureResolution: neutralTextureResolution.map(
                         SceneResolvedMaterialVariantAnalysisCache.mirror
                     ),
