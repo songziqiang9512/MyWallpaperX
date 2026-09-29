@@ -168,37 +168,4 @@ extension WallpaperEngine {
         sendPlaybackPaused(PlaybackCommandMultiplexer.shared.isPlaybackPaused, to: session)
     }
 
-    func sendPlayWebCommand(
-        entryPath: String,
-        rootPath: String,
-        propertiesJSON: String?,
-        to session: DisplayDaemonSession
-    ) {
-        session.nextRequestID += 1
-        let requestID = session.nextRequestID
-        session.latestRequestedPlayRequestID = requestID
-        send(
-            DaemonCommand(
-                action: "playWeb",
-                videoPath: entryPath,
-                framePath: nil,
-                webRootPath: rootPath,
-                propertiesJSON: propertiesJSON,
-                fillMode: nil,
-                shouldLoopCurrentItem: nil,
-                volume: effectiveVolumeNormalized,
-                playbackRate: targetPlaybackRate,
-                spectrumEnabled: nil,
-                spectrumLevels: nil,
-                spectrumBarCount: nil,
-                spectrumColorHex: nil,
-                spectrumOffsetX: nil,
-                spectrumOffsetY: nil,
-                spectrumPeakCapsEnabled: nil,
-                requestID: requestID
-            ),
-            to: session
-        )
-        sendPlaybackPaused(PlaybackCommandMultiplexer.shared.isPlaybackPaused, to: session)
-    }
 }

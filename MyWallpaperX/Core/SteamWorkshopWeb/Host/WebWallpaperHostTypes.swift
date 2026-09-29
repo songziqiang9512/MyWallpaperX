@@ -14,11 +14,6 @@ import CoreGraphics
 import Darwin
 
 extension WallpaperEngine {
-    enum WebWallpaperHostStrategy: String {
-        case daemonDiagnosticsHarness
-        case dedicatedHostPlaceholder
-    }
-
     enum WebWallpaperLaunchSource: String {
         case steamWorkshop
         case diagnostic
@@ -139,7 +134,6 @@ extension WallpaperEngine {
     }
 
     protocol WebWallpaperHostAdapter: AnyObject {
-        var strategy: WebWallpaperHostStrategy { get }
         var eventHandler: ((WebWallpaperHostEvent) -> Void)? { get set }
         func launch(_ request: WebWallpaperLaunchRequest, runtimeState: WebWallpaperRuntimeState)
         func updateDisplayConfiguration(multiDisplayEnabled: Bool)
@@ -260,7 +254,6 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
         }
     }
 
-    var strategy: WallpaperEngine.WebWallpaperHostStrategy { .dedicatedHostPlaceholder }
     var eventHandler: ((WallpaperEngine.WebWallpaperHostEvent) -> Void)?
 
     var phase: Phase = .idle

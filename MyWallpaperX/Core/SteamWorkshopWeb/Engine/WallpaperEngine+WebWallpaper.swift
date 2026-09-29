@@ -38,7 +38,6 @@ extension WallpaperEngine {
     func updateWebDisplayConfiguration(multiDisplayEnabled: Bool) {
         guard currentPlaybackContentKind == .web else { return }
         currentMultiDisplayEnabled = multiDisplayEnabled
-        guard currentWebHostStrategy == .dedicatedHostPlaceholder else { return }
         dedicatedWebHostAdapter.updateDisplayConfiguration(multiDisplayEnabled: multiDisplayEnabled)
     }
 
@@ -114,23 +113,6 @@ extension WallpaperEngine {
         }
     }
 
-    func setWebHostStrategy(_ strategy: WebWallpaperHostStrategy) {
-        guard currentWebHostStrategy != strategy else { return }
-        if currentPlaybackContentKind == .web {
-            beginPlaybackIntent()
-            setWebAudioSpectrumRequested(false)
-            dispatchWebRuntimeCommand(.stop)
-            currentContentPath = nil
-            currentPlaybackContentKind = nil
-            currentWebPropertiesJSON = nil
-            currentWebRecordID = nil
-            currentWebRequestID = nil
-            currentWebLaunchSource = nil
-        }
-        currentWebHostStrategy = strategy
-        NSLog("WallpaperEngine: switched Web host strategy to %@", strategy.rawValue)
-    }
-
     func launchWebWallpaper(_ request: WebWallpaperLaunchRequest) {
         beginPlaybackIntent()
         if currentPlaybackContentKind == .web {
@@ -152,17 +134,12 @@ extension WallpaperEngine {
             retainedVideoMultiDisplayEnabled = currentMultiDisplayEnabled
         }
 
-        switch currentWebHostStrategy {
-        case .daemonDiagnosticsHarness:
-            launchWebWallpaperViaDaemonHarness(request)
-        case .dedicatedHostPlaceholder:
-            currentWallpaper = nil
-            currentContentPath = request.entryURL.resolvingSymlinksInPath().standardizedFileURL.path
-            currentPlaybackContentKind = .web
-            currentWebPropertiesJSON = request.propertiesJSON ?? "{}"
-            currentWebLaunchSource = request.source
-            dedicatedWebHostAdapter.launch(request, runtimeState: runtimeState)
-        }
+        currentWallpaper = nil
+        currentContentPath = request.entryURL.resolvingSymlinksInPath().standardizedFileURL.path
+        currentPlaybackContentKind = .web
+        currentWebPropertiesJSON = request.propertiesJSON ?? "{}"
+        currentWebLaunchSource = request.source
+        dedicatedWebHostAdapter.launch(request, runtimeState: runtimeState)
     }
 
     private func webWallpaperRuntimeState() -> WebWallpaperRuntimeState {
@@ -249,37 +226,6 @@ extension WallpaperEngine {
             guard currentWebRequestID == requestID else { return }
             setWebAudioSpectrumRequested(false)
         }
-    }
-
-    func launchWebWallpaperViaDaemonHarness(_ request: WebWallpaperLaunchRequest) {
-        let normalizedEntryPath = request.entryURL.resolvingSymlinksInPath().standardizedFileURL.path
-        currentWallpaper = nil
-        currentContentPath = normalizedEntryPath
-        currentPlaybackContentKind = .web
-        currentWebPropertiesJSON = request.propertiesJSON ?? "{}"
-        currentWebLaunchSource = request.source
-        currentMultiDisplayEnabled = true
-        // 当前 daemon Web host 已降级为诊断 harness。
-        // 先继续沿用它承接 Web 路由和排障，但不要再把它当成最终宿主设计。
-
-        scanDisplays()
-        let targetDisplayIDs = displayIDs
-        for displayID in targetDisplayIDs {
-            guard let session = ensureSession(for: displayID) else { continue }
-            sendPlayWebCommand(
-                entryPath: normalizedEntryPath,
-                rootPath: request.rootURL.resolvingSymlinksInPath().standardizedFileURL.path,
-                propertiesJSON: request.propertiesJSON,
-                to: session
-            )
-        }
-
-        let obsoleteDisplayIDs = Set(displaySessions.keys).subtracting(targetDisplayIDs)
-        for displayID in obsoleteDisplayIDs {
-            terminateSession(for: displayID)
-        }
-
-        PlaybackPolicyController.shared.refresh()
     }
 
     private func mergedWebPropertiesJSON(baseJSON: String?, deltaJSON: String?) -> String {

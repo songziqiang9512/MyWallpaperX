@@ -61,7 +61,6 @@ public final class WallpaperEngine: NSObject {
     var currentWebPropertiesJSON: String?
     var currentWebRecordID: String?
     var currentWebRequestID: UUID?
-    var currentWebHostStrategy: WebWallpaperHostStrategy = .dedicatedHostPlaceholder
     var currentWebLaunchSource: WebWallpaperLaunchSource?
     /// E2a-4: a web launch is preparing over a still-running video runtime —
     /// the video sessions retire only on web `.ready`, and a web `.failed`
@@ -344,12 +343,7 @@ public final class WallpaperEngine: NSObject {
         guard !playbackPaused else { return false }
 
         if currentPlaybackContentKind == .web {
-            switch currentWebHostStrategy {
-            case .daemonDiagnosticsHarness:
-                return displaySessions.values.contains { $0.process.isRunning }
-            case .dedicatedHostPlaceholder:
-                return currentContentPath != nil
-            }
+            return currentContentPath != nil
         }
 
         return displaySessions.values.contains { $0.process.isRunning }

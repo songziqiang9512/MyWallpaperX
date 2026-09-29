@@ -11,7 +11,6 @@ CORE = ROOT / "MyWallpaperX/Core"
 HARNESS = r'''
 import Foundation
 enum ContentKind { case video, web }
-enum HostStrategy { case dedicatedHostPlaceholder, daemonDiagnosticsHarness }
 enum WebWallpaperRuntimeCommand { case pause, resume(playbackRate: Float) }
 final class WallpaperManager {
     static let shared = WallpaperManager()
@@ -28,7 +27,6 @@ final class WallpaperEngine {
     }
     var playbackPaused = false
     var currentPlaybackContentKind: ContentKind = .video
-    var currentWebHostStrategy: HostStrategy = .dedicatedHostPlaceholder
     var targetPlaybackRate: Float = 1.5
     var displaySessions: [Int: DisplayDaemonSession] = [:]
     var webCommands: [WebWallpaperRuntimeCommand] = []
@@ -80,13 +78,10 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         mux.dispatch(.pause)
         precondition(session.commands.last?.action == "pause")
         precondition(scene.isPaused && scene.commands.isEmpty)
-        // New and restarted Video/diagnostic Web sessions inherit manual pause.
+        // New and restarted Video sessions inherit manual pause.
         engine.sendPlayCommand(for: "/fixture.mp4", framePath: nil,
             fillMode: "aspectFill", shouldLoopCurrentItem: true, to: session)
         precondition(session.commands.suffix(2).map(\.action) == ["play", "pause"])
-        engine.sendPlayWebCommand(entryPath: "/index.html", rootPath: "/",
-            propertiesJSON: nil, to: session)
-        precondition(session.commands.suffix(2).map(\.action) == ["playWeb", "pause"])
         // Scene handshake / restart replay must retain a pause received before ready.
         scene.pendingIntent = ScenePlaybackLoadRequest(rootURL: URL(fileURLWithPath: "/fixture"),
             propertyOverrides: [:], userPropertyTextures: [:], recordID: "fixture")
@@ -219,7 +214,7 @@ final class Host {
         scene = (CORE / "SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift").read_text()
         harness = HARNESS.replace("// VIDEO_METHODS", "\n".join([
             method(video, "func applyPlaybackPaused("), method(video, "func sendPlaybackPaused("),
-            method(session, "func sendPlayCommand("), method(session, "func sendPlayWebCommand("),
+            method(session, "func sendPlayCommand("),
         ])).replace("// SCENE_METHODS", "\n".join([
             method(scene, "func handle("), method(scene, "func replayPendingIntent("),
             method(scene, "private func sendSimpleCommand("),

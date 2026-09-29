@@ -9,43 +9,7 @@ import CoreGraphics
 
 extension WallpaperEngine {
     func dispatchWebRuntimeCommand(_ command: WebWallpaperRuntimeCommand) {
-        switch currentWebHostStrategy {
-        case .daemonDiagnosticsHarness:
-            dispatchWebRuntimeCommandViaDaemonHarness(command)
-        case .dedicatedHostPlaceholder:
-            dedicatedWebHostAdapter.handle(command)
-        }
-    }
-
-    private func dispatchWebRuntimeCommandViaDaemonHarness(_ command: WebWallpaperRuntimeCommand) {
-        if case .stop = command {
-            let displayIDs = displaySessions.values
-                .filter { $0.process.isRunning }
-                .map(\.displayID)
-            for displayID in displayIDs {
-                terminateSession(for: displayID)
-            }
-            return
-        }
-
-        for session in displaySessions.values where session.process.isRunning {
-            switch command {
-            case .pause:
-                send(DaemonCommand(action: "pause", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: nil, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
-            case let .resume(playbackRate):
-                send(DaemonCommand(action: "resume", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: nil, playbackRate: playbackRate, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
-            case .stop:
-                break
-            case let .setVolume(volume):
-                send(DaemonCommand(action: "setVolume", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: volume, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
-            case let .setPlaybackRate(playbackRate):
-                send(DaemonCommand(action: "setPlaybackRate", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: nil, playbackRate: playbackRate, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
-            case let .applyProperties(propertiesJSON):
-                send(DaemonCommand(action: "applyWebProperties", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: propertiesJSON, fillMode: nil, shouldLoopCurrentItem: nil, volume: nil, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
-            case let .pushAudioSpectrum(levels):
-                send(DaemonCommand(action: "setSpectrumLevels", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: nil, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: levels, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
-            }
-        }
+        dedicatedWebHostAdapter.handle(command)
     }
 
     func send(_ command: DaemonCommand, to session: DisplayDaemonSession) {
