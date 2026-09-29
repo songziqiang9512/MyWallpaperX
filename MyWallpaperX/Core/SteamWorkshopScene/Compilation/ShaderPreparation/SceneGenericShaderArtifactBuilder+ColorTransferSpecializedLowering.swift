@@ -11,15 +11,15 @@ extension SceneGenericShaderArtifactBuilder {
     ) -> String? {
         guard !SceneShaderSourceTextFacts.containsWord("mwxGenericUnpremultiply", in: source),
               !SceneShaderSourceTextFacts.containsWord("mwxGenericPremultiply", in: source),
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
               let body = straightRGBScalarAlphaFragmentBodyRange(in: source),
               straightRGBScalarAlphaCompilerBodyIsLinear(body, source: source)
         else { return nil }
 
         let expectedSlots = fact.auxiliarySlots.union([fact.sourceSlot])
-        let sampleCalls = matches(#"\bg_Texture([0-7])\.sample\("#, in: source)
+        let sampleCalls = SceneShaderSourceTextFacts.matches(#"\bg_Texture([0-7])\.sample\("#, in: source)
         let sampledSlots = sampleCalls.compactMap {
-            capture($0, 1, in: source).flatMap(Int.init)
+            SceneShaderSourceTextFacts.capture($0, 1, in: source).flatMap(Int.init)
         }
         guard sampledSlots.count == sampleCalls.count,
               sampledSlots.count == expectedSlots.count,
@@ -31,7 +31,7 @@ extension SceneGenericShaderArtifactBuilder {
                   straightRGBScalarAlphaRange(body, contains: $0.range)
               }) else { return nil }
 
-        let carrierDeclarations = matches(
+        let carrierDeclarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
                 + String(fact.sourceSlot)
                 + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
@@ -42,10 +42,10 @@ extension SceneGenericShaderArtifactBuilder {
               straightRGBScalarAlphaRange(
                   body, contains: carrierDeclaration.range
               ),
-              let carrier = capture(carrierDeclaration, 2, in: source)
+              let carrier = SceneShaderSourceTextFacts.capture(carrierDeclaration, 2, in: source)
         else { return nil }
 
-        let aliases = matches(
+        let aliases = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*"#
                 + SceneShaderSourceTextFacts.escaped(carrier) + #"\s*;[ \t]*$"#,
             in: source
@@ -53,15 +53,15 @@ extension SceneGenericShaderArtifactBuilder {
         guard aliases.count == 1,
               let alias = aliases.first,
               straightRGBScalarAlphaRange(body, contains: alias.range),
-              let color = capture(alias, 1, in: source),
+              let color = SceneShaderSourceTextFacts.capture(alias, 1, in: source),
               color != carrier else { return nil }
 
-        let alphaWrites = matches(
+        let alphaWrites = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*"# + SceneShaderSourceTextFacts.escaped(color)
                 + #"\.w\s*\*=\s*([^;]+)\s*;[ \t]*$"#,
             in: source
         )
-        let colorWrites = matches(
+        let colorWrites = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*"# + SceneShaderSourceTextFacts.escaped(color)
                 + #"(?:\.([xyzwrgba]{1,4}))?\s*(?:[+\-*/]?=)"#,
             in: source
@@ -69,7 +69,7 @@ extension SceneGenericShaderArtifactBuilder {
         guard alphaWrites.count == 1,
               let alphaWrite = alphaWrites.first,
               straightRGBScalarAlphaRange(body, contains: alphaWrite.range),
-              let factor = capture(alphaWrite, 1, in: source),
+              let factor = SceneShaderSourceTextFacts.capture(alphaWrite, 1, in: source),
               !SceneShaderSourceTextFacts.containsWord(color, in: factor) else { return nil }
 
         let maskMix: StraightRGBScalarAlphaMaskMix?
@@ -118,19 +118,19 @@ extension SceneGenericShaderArtifactBuilder {
                 #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*((?:fast::)?clamp\(\s*([A-Za-z_]\w*)\s*,\s*float4\(\s*0(?:\.0+)?f?\s*\)\s*,\s*float4\(\s*1(?:\.0+)?f?\s*\)\s*\))\s*;[ \t]*$"#,
             ]
         }
-        let outputs = outputPatterns.flatMap { matches($0, in: source) }
-        let returns = matches(#"(?m)^[ \t]*return\s+out\s*;[ \t]*$"#, in: source)
+        let outputs = outputPatterns.flatMap { SceneShaderSourceTextFacts.matches($0, in: source) }
+        let returns = SceneShaderSourceTextFacts.matches(#"(?m)^[ \t]*return\s+out\s*;[ \t]*$"#, in: source)
         guard outputs.count == 1,
               returns.count == 1,
-              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
+              SceneShaderSourceTextFacts.matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
               let output = outputs.first,
               straightRGBScalarAlphaRange(body, contains: output.range),
               let outputRange = Range(output.range, in: source),
-              let indent = capture(output, 1, in: source),
-              let outputValue = capture(output, 2, in: source),
-              capture(output, 3, in: source) == color,
+              let indent = SceneShaderSourceTextFacts.capture(output, 1, in: source),
+              let outputValue = SceneShaderSourceTextFacts.capture(output, 2, in: source),
+              SceneShaderSourceTextFacts.capture(output, 3, in: source) == color,
               fact.terminalTransform == .saturateRGBA
-                || capture(output, 4, in: source) == color,
+                || SceneShaderSourceTextFacts.capture(output, 4, in: source) == color,
               SceneShaderSourceTextFacts.countWord(carrier, in: source) == (maskMix == nil ? 2 : 3),
               SceneShaderSourceTextFacts.countWord(color, in: source)
                 == (maskMix == nil ? 4 : 6)
@@ -153,9 +153,9 @@ extension SceneGenericShaderArtifactBuilder {
             outputRange,
             with: "\(indent)out.mwxFragColor = mwxGenericPremultiply(\(outputValue));"
         )
-        guard let prefix = capture(carrierDeclaration, 1, in: source),
-              let arguments = capture(carrierDeclaration, 3, in: source),
-              let suffix = capture(carrierDeclaration, 4, in: source),
+        guard let prefix = SceneShaderSourceTextFacts.capture(carrierDeclaration, 1, in: source),
+              let arguments = SceneShaderSourceTextFacts.capture(carrierDeclaration, 3, in: source),
+              let suffix = SceneShaderSourceTextFacts.capture(carrierDeclaration, 4, in: source),
               let adjustedCarrierRange = Range(carrierDeclaration.range, in: transformed)
         else { return nil }
         transformed.replaceSubrange(
@@ -182,7 +182,7 @@ extension SceneGenericShaderArtifactBuilder {
     private static func straightRGBScalarAlphaFragmentBodyRange(
         in source: String
     ) -> NSRange? {
-        let signatures = matches(#"\bfragment\b[^\{]*\{"#, in: source)
+        let signatures = SceneShaderSourceTextFacts.matches(#"\bfragment\b[^\{]*\{"#, in: source)
         guard signatures.count == 1,
               let signature = signatures.first,
               let signatureRange = Range(signature.range, in: source),
@@ -209,10 +209,10 @@ extension SceneGenericShaderArtifactBuilder {
         source: String
     ) -> Bool {
         let text = (source as NSString).substring(with: body)
-        return matches(
+        return SceneShaderSourceTextFacts.matches(
             #"\b(?:if|else|for|while|do|switch|discard)\b"#,
             in: text
-        ).isEmpty && matches(#"\breturn\b"#, in: text).count == 1
+        ).isEmpty && SceneShaderSourceTextFacts.matches(#"\breturn\b"#, in: text).count == 1
     }
 
     private static func straightRGBScalarAlphaTerminalTail(
@@ -225,7 +225,7 @@ extension SceneGenericShaderArtifactBuilder {
             location: NSMaxRange(output),
             length: NSMaxRange(body) - NSMaxRange(output)
         ))
-        return matches(#"^\s*return\s+out\s*;\s*$"#, in: tail).count == 1
+        return SceneShaderSourceTextFacts.matches(#"^\s*return\s+out\s*;\s*$"#, in: tail).count == 1
     }
 
     private static func straightRGBScalarAlphaMaskMix(
@@ -235,13 +235,13 @@ extension SceneGenericShaderArtifactBuilder {
         slot: Int,
         factor: String
     ) -> StraightRGBScalarAlphaMaskMix? {
-        let declarations = matches(
+        let declarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*float\s+"# + SceneShaderSourceTextFacts.escaped(factor)
                 + #"\s*=\s*g_Texture"# + String(slot)
                 + #"\.sample\([^;]+\)\.(?:x|r)\s*;[ \t]*$"#,
             in: source
         )
-        let assignments = matches(
+        let assignments = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*"# + SceneShaderSourceTextFacts.escaped(transformedCarrier)
                 + #"\s*=\s*(?:fast::)?(?:mix|lerp)\(\s*"#
                 + SceneShaderSourceTextFacts.escaped(sourceCarrier) + #"\s*,\s*"#

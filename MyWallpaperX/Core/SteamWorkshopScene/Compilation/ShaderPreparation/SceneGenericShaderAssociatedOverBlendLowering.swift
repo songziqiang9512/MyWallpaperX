@@ -80,7 +80,7 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
               !blendFunctions.isEmpty,
               !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
               !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
               let sampleCalls = SceneGenericShaderStraightAlphaPreservingLowering
               .compilerTextureSampleCalls(in: source),
               sampleCalls.count == 2,
@@ -89,38 +89,38 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
               sampleCalls.filter({ $0.slot == overlaySlot }).count == 1
         else { return nil }
 
-        let sourceDeclarations = matches(
+        let sourceDeclarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
                 + String(sourceSlot)
                 + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
             in: source
         )
-        let overlayDeclarations = matches(
+        let overlayDeclarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
                 + String(overlaySlot)
                 + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
             in: source
         )
-        let outputs = matches(
+        let outputs = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*([A-Za-z_]\w*)\s*;[ \t]*$"#,
             in: source
         )
         guard sourceDeclarations.count == 1,
               overlayDeclarations.count == 1,
               outputs.count == 1,
-              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
+              SceneShaderSourceTextFacts.matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
               let sourceDeclaration = sourceDeclarations.first,
               let overlayDeclaration = overlayDeclarations.first,
               let output = outputs.first,
               sourceDeclaration.range.location < output.range.location,
               overlayDeclaration.range.location < output.range.location,
-              let prefix = capture(sourceDeclaration, 1, in: source),
-              let sourceCarrier = capture(sourceDeclaration, 2, in: source),
-              let arguments = capture(sourceDeclaration, 3, in: source),
-              let suffix = capture(sourceDeclaration, 4, in: source),
-              let overlayCarrier = capture(overlayDeclaration, 2, in: source),
-              let indent = capture(output, 1, in: source),
-              let carrier = capture(output, 2, in: source),
+              let prefix = SceneShaderSourceTextFacts.capture(sourceDeclaration, 1, in: source),
+              let sourceCarrier = SceneShaderSourceTextFacts.capture(sourceDeclaration, 2, in: source),
+              let arguments = SceneShaderSourceTextFacts.capture(sourceDeclaration, 3, in: source),
+              let suffix = SceneShaderSourceTextFacts.capture(sourceDeclaration, 4, in: source),
+              let overlayCarrier = SceneShaderSourceTextFacts.capture(overlayDeclaration, 2, in: source),
+              let indent = SceneShaderSourceTextFacts.capture(output, 1, in: source),
+              let carrier = SceneShaderSourceTextFacts.capture(output, 2, in: source),
               carrier == sourceCarrier,
               let sourceRange = Range(sourceDeclaration.range, in: source),
               let overlayRange = Range(overlayDeclaration.range, in: source),
@@ -149,7 +149,7 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
                     requiresOverlayAlphaWrite ? 4 : 3,
                   in: operationBody
               ))),
-              matches(#"\b(?:discard|discard_fragment)\b"#, in: source).isEmpty
+              SceneShaderSourceTextFacts.matches(#"\b(?:discard|discard_fragment)\b"#, in: source).isEmpty
         else { return nil }
 
         var transformed = source
@@ -192,13 +192,13 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
             + #"[ \t]*"# + sourceName + #"\.x\s*=\s*\5\.x\s*;[ \t]*\n"#
             + #"[ \t]*"# + sourceName + #"\.y\s*=\s*\5\.y\s*;[ \t]*\n"#
             + #"[ \t]*"# + sourceName + #"\.z\s*=\s*\5\.z\s*;[ \t]*$"#
-        let updates = matches(pattern, in: source)
+        let updates = SceneShaderSourceTextFacts.matches(pattern, in: source)
         guard updates.count == 1, let update = updates.first,
-              let sourceAlias = capture(update, 1, in: source),
-              let overlayAlias = capture(update, 2, in: source),
-              let weightAlias = capture(update, 3, in: source),
-              let weight = capture(update, 4, in: source),
-              let result = capture(update, 5, in: source),
+              let sourceAlias = SceneShaderSourceTextFacts.capture(update, 1, in: source),
+              let overlayAlias = SceneShaderSourceTextFacts.capture(update, 2, in: source),
+              let weightAlias = SceneShaderSourceTextFacts.capture(update, 3, in: source),
+              let weight = SceneShaderSourceTextFacts.capture(update, 4, in: source),
+              let result = SceneShaderSourceTextFacts.capture(update, 5, in: source),
               Set([sourceAlias, overlayAlias, weightAlias, weight, result]).count == 5,
               wordUseCount(sourceAlias, in: source) == 2,
               wordUseCount(overlayAlias, in: source) == 2,
@@ -216,27 +216,27 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
     }
 
     private static func wordUseCount(_ word: String, in source: String) -> Int {
-        matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).count
+        SceneShaderSourceTextFacts.matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).count
     }
 
     private static func initializerForScalar(
         _ name: String,
         in source: String
     ) -> String? {
-        let definitions = matches(
+        let definitions = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*(?:const[ \t]+)?(?:float|half)[ \t]+"#
                 + SceneShaderSourceTextFacts.escaped(name) + #"\s*=\s*([^;\n]+);[ \t]*$"#,
             in: source
         )
         guard definitions.count == 1 else { return nil }
-        return capture(definitions[0], 1, in: source)
+        return SceneShaderSourceTextFacts.capture(definitions[0], 1, in: source)
     }
 
     private static func componentAssignmentCount(
         to name: String,
         in source: String
     ) -> Int {
-        matches(
+        SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*"# + SceneShaderSourceTextFacts.escaped(name)
                 + #"\.(?:x|y|z|w|r|g|b|a)\s*=\s*[^;\n]+;[ \t]*$"#,
             in: source
@@ -268,38 +268,38 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
             + sourceName + colorMember
             + #"\s*,\s*"# + overlayName + colorMember
             + #"\s*,\s*("# + weight + #")\s*\)\s*;[ \t]*$"#
-        let updates = matches(pattern, in: source)
+        let updates = SceneShaderSourceTextFacts.matches(pattern, in: source)
         guard updates.count == 1,
               let update = updates.first,
-              let actualWeight = capture(update, 1, in: source),
+              let actualWeight = SceneShaderSourceTextFacts.capture(update, 1, in: source),
               blendWeight == nil || blendWeight == actualWeight,
               assignmentCount(to: sourceCarrier, in: source)
                 == (requiresOverlayAlphaWrite ? 2 : 1),
               assignmentCount(to: overlayCarrier, in: source) == 0,
               assignmentCount(to: actualWeight, in: source) == 1
         else { return false }
-        let definitions = matches(
+        let definitions = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*(?:const[ \t]+)?(?:float|half)[ \t]+"#
                 + SceneShaderSourceTextFacts.escaped(actualWeight) + #"\s*=\s*([^;\n]+);[ \t]*$"#,
             in: source
         )
         guard definitions.count == 1,
               definitions[0].range.location < update.range.location,
-              let initializer = capture(definitions[0], 1, in: source),
+              let initializer = SceneShaderSourceTextFacts.capture(definitions[0], 1, in: source),
               weightInitializerIsSafe(
                   initializer,
                   expectedUniform: blendWeightUniform
               )
         else { return false }
         if requiresOverlayAlphaWrite {
-            let alphaWrites = matches(
+            let alphaWrites = SceneShaderSourceTextFacts.matches(
                 #"(?m)^[ \t]*"# + sourceName
                     + #"\.(?:a|w)\s*=\s*([^;\n]+);[ \t]*$"#,
                 in: source
             )
             guard alphaWrites.count == 1,
                   alphaWrites[0].range.location > update.range.location,
-                  let alphaExpression = capture(alphaWrites[0], 1, in: source)
+                  let alphaExpression = SceneShaderSourceTextFacts.capture(alphaWrites[0], 1, in: source)
             else { return false }
             return overlayAlphaWriteIsSafe(
                 alphaExpression,
@@ -324,14 +324,14 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
             let value = factor.trimmingCharacters(in: CharacterSet(
                 charactersIn: " \t\r\n()"
             ))
-            if matches(
+            if SceneShaderSourceTextFacts.matches(
                 #"^"# + SceneShaderSourceTextFacts.escaped(overlayCarrier) + #"\.(?:a|w)$"#,
                 in: value
             ).count == 1 {
                 overlayUses += 1
                 continue
             }
-            if matches(
+            if SceneShaderSourceTextFacts.matches(
                 #"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$"#,
                 in: value
             ).count == 1 {
@@ -378,11 +378,11 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
     }
 
     private static func containsZeroNumber(in source: String) -> Bool {
-        matches(
+        SceneShaderSourceTextFacts.matches(
             #"(?<![A-Za-z0-9_.])(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?[fFhH]?(?![A-Za-z0-9_.])"#,
             in: source
         ).contains { match in
-            guard let value = capture(match, 0, in: source) else { return false }
+            guard let value = SceneShaderSourceTextFacts.capture(match, 0, in: source) else { return false }
             let number = value.trimmingCharacters(in: CharacterSet(
                 charactersIn: "fFhH"
             ))
@@ -394,44 +394,18 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
         to name: String,
         in source: String
     ) -> Int {
-        let assigned = matches(
+        let assigned = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*(?:(?:const[ \t]+)?[A-Za-z_]\w*[ \t]+)?"#
                 + SceneShaderSourceTextFacts.escaped(name)
                 + #"(?:\.(?:rgb|xyz|a|w))?\s*(?:=|\+=|-=|\*=|/=)"#,
             in: source
         ).count
-        let incremented = matches(
+        let incremented = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*(?:(?:\+\+|--)\s*"# + SceneShaderSourceTextFacts.escaped(name)
                 + #"(?:\.(?:rgb|xyz|a|w))?|"# + SceneShaderSourceTextFacts.escaped(name)
                 + #"(?:\.(?:rgb|xyz|a|w))?\s*(?:\+\+|--))[ \t]*;[ \t]*$"#,
             in: source
         ).count
         return assigned + incremented
-    }
-
-    private static func matches(
-        _ pattern: String,
-        in source: String
-    ) -> [NSTextCheckingResult] {
-        guard let expression = try? NSRegularExpression(pattern: pattern) else {
-            return []
-        }
-        return expression.matches(
-            in: source,
-            range: NSRange(source.startIndex..., in: source)
-        )
-    }
-
-    private static func capture(
-        _ match: NSTextCheckingResult,
-        _ index: Int,
-        in source: String
-    ) -> String? {
-        guard index < match.numberOfRanges,
-              let range = Range(match.range(at: index), in: source)
-        else {
-            return nil
-        }
-        return String(source[range])
     }
 }

@@ -110,7 +110,7 @@ nonisolated enum SceneGenericShaderPreviousBlurredCompositeLowering {
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*"# + b + #"\s*;\s*$"#,
             in: source
         ), let outputIndent = output.captures.first,
-              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
+              SceneShaderSourceTextFacts.matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
               wordCount("g_CompositeColor", in: source) == 2 else { return nil }
 
         let mainFlow = [
@@ -206,10 +206,10 @@ nonisolated enum SceneGenericShaderPreviousBlurredCompositeLowering {
 
     private static func sampleCalls(in source: String) -> [Int: Int] {
         var result: [Int: Int] = [:]
-        for match in matches(
+        for match in SceneShaderSourceTextFacts.matches(
             #"\bg_Texture([0-7])\s*\.\s*sample\s*\("#, in: source
         ) {
-            guard let text = capture(match, 1, in: source),
+            guard let text = SceneShaderSourceTextFacts.capture(match, 1, in: source),
                   let slot = Int(text) else { return [:] }
             result[slot, default: 0] += 1
         }
@@ -221,13 +221,13 @@ nonisolated enum SceneGenericShaderPreviousBlurredCompositeLowering {
             #"(?ms)^fragment\s+[^\n]+\bmwxGenericFragment\s*\([^{}]*\)\s*\{((?:[^{}]|\{\})*)\}"#,
             in: source
         ), let body = function.captures.first else { return false }
-        return matches(
+        return SceneShaderSourceTextFacts.matches(
             #"\b(if|for|while|do|switch|discard|discard_fragment|atomic_[A-Za-z_]\w*)\b"#,
             in: body
         ).isEmpty
-            && matches(#"\.\s*(read|write|gather)\s*\("#, in: body).isEmpty
-            && matches(#"\breturn\b"#, in: body).count == 1
-            && matches(#"\breturn\s+out\s*;"#, in: body).count == 1
+            && SceneShaderSourceTextFacts.matches(#"\.\s*(read|write|gather)\s*\("#, in: body).isEmpty
+            && SceneShaderSourceTextFacts.matches(#"\breturn\b"#, in: body).count == 1
+            && SceneShaderSourceTextFacts.matches(#"\breturn\s+out\s*;"#, in: body).count == 1
     }
 
     private static func hasNoUnrecognizedUse(
@@ -247,37 +247,15 @@ nonisolated enum SceneGenericShaderPreviousBlurredCompositeLowering {
     }
 
     private static func unique(_ pattern: String, in source: String) -> Match? {
-        let found = matches(pattern, in: source)
+        let found = SceneShaderSourceTextFacts.matches(pattern, in: source)
         guard found.count == 1, let item = found.first else { return nil }
         let captures = (1 ..< item.numberOfRanges).compactMap {
-            capture(item, $0, in: source)
+            SceneShaderSourceTextFacts.capture(item, $0, in: source)
         }
         guard captures.count == item.numberOfRanges - 1 else { return nil }
         return .init(range: item.range, captures: captures)
     }
     private static func wordCount(_ word: String, in source: String) -> Int {
-        matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).count
-    }
-
-    private static func matches(
-        _ pattern: String, in source: String
-    ) -> [NSTextCheckingResult] {
-        guard let regex = try? NSRegularExpression(pattern: pattern) else {
-            return []
-        }
-        return regex.matches(
-            in: source,
-            range: NSRange(source.startIndex..., in: source)
-        )
-    }
-
-    private static func capture(
-        _ match: NSTextCheckingResult, _ index: Int, in source: String
-    ) -> String? {
-        guard index < match.numberOfRanges,
-              let range = Range(match.range(at: index), in: source) else {
-            return nil
-        }
-        return String(source[range])
+        SceneShaderSourceTextFacts.matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).count
     }
 }

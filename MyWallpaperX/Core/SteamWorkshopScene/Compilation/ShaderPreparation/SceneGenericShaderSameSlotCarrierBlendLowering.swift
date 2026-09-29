@@ -21,44 +21,44 @@ nonisolated enum SceneGenericShaderSameSlotCarrierBlendLowering {
     }
 
     static func lower(_ source: String, expectedSlot: Int) -> String? {
-        guard matches(#"\bmwxGeneric(?:Unpremultiply|Premultiply)\b"#, in: source)
+        guard SceneShaderSourceTextFacts.matches(#"\bmwxGeneric(?:Unpremultiply|Premultiply)\b"#, in: source)
                 .isEmpty,
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
         else { return nil }
 
         let slot = String(expectedSlot)
-        let declarations = matches(
+        let declarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
                 + slot + #"\.sample\(([^;\n]+)\)(\s*;[ \t]*)$"#,
             in: source
         )
-        let outputs = matches(
+        let outputs = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*([A-Za-z_]\w*)\s*;[ \t]*$"#,
             in: source
         )
         guard declarations.count == 1,
               outputs.count == 1,
-              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
+              SceneShaderSourceTextFacts.matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
               let declaration = declarations.first,
-              let carrier = capture(declaration, 2, in: source),
+              let carrier = SceneShaderSourceTextFacts.capture(declaration, 2, in: source),
               let output = outputs.first,
-              capture(output, 2, in: source) == carrier,
+              SceneShaderSourceTextFacts.capture(output, 2, in: source) == carrier,
               let outputRange = Range(output.range, in: source),
-              let indent = capture(output, 1, in: source)
+              let indent = SceneShaderSourceTextFacts.capture(output, 1, in: source)
         else { return nil }
 
         let carrierPattern = SceneShaderSourceTextFacts.escaped(carrier)
-        let projected = matches(
+        let projected = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*"# + carrierPattern
                 + #"\.([xyz])\s*=\s*g_Texture"# + slot
                 + #"\.sample\(([^;\n]+)\)\.([xyz])\s*;[ \t]*$"#,
             in: source
         )
         let projectedTargets = projected.compactMap {
-            capture($0, 1, in: source)
+            SceneShaderSourceTextFacts.capture($0, 1, in: source)
         }
         let projectedSources = projected.compactMap {
-            capture($0, 3, in: source)
+            SceneShaderSourceTextFacts.capture($0, 3, in: source)
         }
         guard (1 ... 3).contains(projected.count),
               projectedTargets.count == projected.count,
@@ -66,43 +66,43 @@ nonisolated enum SceneGenericShaderSameSlotCarrierBlendLowering {
               Set(projectedTargets).count == projected.count
         else { return nil }
 
-        let blendSources = matches(
+        let blendSources = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*float3\s+([A-Za-z_]\w*)\s*=\s*g_Texture"#
                 + slot + #"\.sample\(([^;\n]+)\)\.xyz\s*;[ \t]*$"#,
             in: source
         )
-        let carrierAliases = matches(
+        let carrierAliases = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*float3\s+([A-Za-z_]\w*)\s*=\s*"#
                 + carrierPattern + #"\.xyz\s*;[ \t]*$"#,
             in: source
         )
         guard blendSources.count == 1,
               carrierAliases.count == 1,
-              let blendSource = capture(blendSources[0], 1, in: source),
-              let carrierAlias = capture(carrierAliases[0], 1, in: source)
+              let blendSource = SceneShaderSourceTextFacts.capture(blendSources[0], 1, in: source),
+              let carrierAlias = SceneShaderSourceTextFacts.capture(carrierAliases[0], 1, in: source)
         else { return nil }
 
-        let blendResults = matches(
+        let blendResults = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*float3\s+([A-Za-z_]\w*)\s*=\s*ApplyBlending\(\s*[^,;\n]+\s*,\s*"#
                 + SceneShaderSourceTextFacts.escaped(blendSource) + #"\s*,\s*"#
                 + SceneShaderSourceTextFacts.escaped(carrierAlias) + #"\s*,\s*[^;\n]+\)\s*;[ \t]*$"#,
             in: source
         )
         guard blendResults.count == 1,
-              let blendResult = capture(blendResults[0], 1, in: source)
+              let blendResult = SceneShaderSourceTextFacts.capture(blendResults[0], 1, in: source)
         else { return nil }
 
-        let resultWrites = matches(
+        let resultWrites = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*"# + carrierPattern
                 + #"\.([xyz])\s*=\s*"# + SceneShaderSourceTextFacts.escaped(blendResult)
                 + #"\.([xyz])\s*;[ \t]*$"#,
             in: source
         )
         let resultTargets = resultWrites.compactMap {
-            capture($0, 1, in: source)
+            SceneShaderSourceTextFacts.capture($0, 1, in: source)
         }
         let resultSources = resultWrites.compactMap {
-            capture($0, 2, in: source)
+            SceneShaderSourceTextFacts.capture($0, 2, in: source)
         }
         guard resultWrites.count == 3,
               resultTargets == resultSources,
@@ -144,9 +144,9 @@ nonisolated enum SceneGenericShaderSameSlotCarrierBlendLowering {
     }
 
     private static func sampleCalls(in source: String) -> [SampleCall] {
-        let starts = matches(#"\bg_Texture([0-7])\.sample\s*\("#, in: source)
+        let starts = SceneShaderSourceTextFacts.matches(#"\bg_Texture([0-7])\.sample\s*\("#, in: source)
         return starts.compactMap { match in
-            guard let slotText = capture(match, 1, in: source),
+            guard let slotText = SceneShaderSourceTextFacts.capture(match, 1, in: source),
                   let slot = Int(slotText),
                   let start = Range(match.range, in: source)?.lowerBound,
                   let open = Range(match.range, in: source).map({
@@ -170,26 +170,5 @@ nonisolated enum SceneGenericShaderSameSlotCarrierBlendLowering {
             }
             return nil
         }
-    }
-    private static func matches(
-        _ pattern: String,
-        in source: String
-    ) -> [NSTextCheckingResult] {
-        (try? NSRegularExpression(pattern: pattern))?.matches(
-            in: source,
-            range: NSRange(source.startIndex..., in: source)
-        ) ?? []
-    }
-    private static func capture(
-        _ match: NSTextCheckingResult,
-        _ index: Int,
-        in source: String
-    ) -> String? {
-        guard index < match.numberOfRanges,
-              match.range(at: index).location != NSNotFound,
-              let range = Range(match.range(at: index), in: source) else {
-            return nil
-        }
-        return String(source[range])
     }
 }

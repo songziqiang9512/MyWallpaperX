@@ -54,16 +54,16 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
                 }
                 total += work
             }
-            for match in matches(zeroBasedPattern, in: body).reversed() {
-                guard let declared = capture(match, 1, in: body),
-                      let compared = capture(match, 2, in: body),
-                      let limitText = capture(match, 3, in: body),
+            for match in SceneShaderSourceTextFacts.matches(zeroBasedPattern, in: body).reversed() {
+                guard let declared = SceneShaderSourceTextFacts.capture(match, 1, in: body),
+                      let compared = SceneShaderSourceTextFacts.capture(match, 2, in: body),
+                      let limitText = SceneShaderSourceTextFacts.capture(match, 3, in: body),
                       let limit = Int(limitText) ?? rootInvariantInteger(
                           named: limitText,
                           source: body,
                           before: match.range.location
                       ), (1 ... 64).contains(limit),
-                      [capture(match, 4, in: body), capture(match, 5, in: body)]
+                      [SceneShaderSourceTextFacts.capture(match, 4, in: body), SceneShaderSourceTextFacts.capture(match, 5, in: body)]
                         .compactMap({ $0 }).contains(declared),
                       declared == compared,
                       let loopBody = loopBodyRange(
@@ -82,15 +82,15 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
                 total += limit
                 body.removeSubrange(range)
             }
-            for match in matches(signedInclusivePattern, in: body).reversed() {
-                guard let declared = capture(match, 1, in: body),
-                      let startText = capture(match, 2, in: body),
-                      let compared = capture(match, 3, in: body),
-                      let endText = capture(match, 4, in: body),
+            for match in SceneShaderSourceTextFacts.matches(signedInclusivePattern, in: body).reversed() {
+                guard let declared = SceneShaderSourceTextFacts.capture(match, 1, in: body),
+                      let startText = SceneShaderSourceTextFacts.capture(match, 2, in: body),
+                      let compared = SceneShaderSourceTextFacts.capture(match, 3, in: body),
+                      let endText = SceneShaderSourceTextFacts.capture(match, 4, in: body),
                       let start = signedBound(startText, defines: defines),
                       let end = signedBound(endText, defines: defines),
                       declared == compared,
-                      [capture(match, 5, in: body), capture(match, 6, in: body)]
+                      [SceneShaderSourceTextFacts.capture(match, 5, in: body), SceneShaderSourceTextFacts.capture(match, 6, in: body)]
                         .compactMap({ $0 }).contains(declared),
                       (-64 ... 64).contains(start),
                       (-64 ... 64).contains(end),
@@ -138,15 +138,15 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
             + #"\s*<\s*(\d+|[A-Za-z_]\w*)\s*;\s*(?:(?:\+\+\s*"#
             + identifier + #")|(?:"# + identifier
             + #"\s*\+\+)|(?:"# + identifier + #"\s*\+=\s*(\d+)))\s*\)"#
-        let loops = matches(pattern, in: source)
+        let loops = SceneShaderSourceTextFacts.matches(pattern, in: source)
         guard !loops.isEmpty else { return .init(found: false, work: 0) }
         var work = 0
         for loop in loops.reversed() {
-            let step = capture(loop, 8, in: source).flatMap(Int.init) ?? 1
-            guard let declared = capture(loop, 1, in: source),
-                  let initialized = capture(loop, 2, in: source),
-                  let compared = capture(loop, 3, in: source),
-                  let limitText = capture(loop, 4, in: source),
+            let step = SceneShaderSourceTextFacts.capture(loop, 8, in: source).flatMap(Int.init) ?? 1
+            guard let declared = SceneShaderSourceTextFacts.capture(loop, 1, in: source),
+                  let initialized = SceneShaderSourceTextFacts.capture(loop, 2, in: source),
+                  let compared = SceneShaderSourceTextFacts.capture(loop, 3, in: source),
+                  let limitText = SceneShaderSourceTextFacts.capture(loop, 4, in: source),
                   let limit = Int(limitText) ?? rootInvariantInteger(
                       named: limitText,
                       source: source,
@@ -154,9 +154,9 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
                   ),
                   (1 ... 64).contains(limit),
                   let stepped = [
-                      capture(loop, 5, in: source),
-                      capture(loop, 6, in: source),
-                      capture(loop, 7, in: source),
+                      SceneShaderSourceTextFacts.capture(loop, 5, in: source),
+                      SceneShaderSourceTextFacts.capture(loop, 6, in: source),
+                      SceneShaderSourceTextFacts.capture(loop, 7, in: source),
                   ].compactMap({ $0 }).first,
                   (1 ... 64).contains(step),
                   declared == initialized,
@@ -231,15 +231,15 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
         let pattern = #"\bfor\s*\(\s*float\s+([A-Za-z_]\w*)\s*=\s*("#
             + floatLiteral
             + #")\s*;\s*([^;]+)\s*;\s*(?:(?:\+\+\s*([A-Za-z_]\w*))|(?:([A-Za-z_]\w*)\s*\+\+))\s*\)"#
-        let loops = matches(pattern, in: source)
+        let loops = SceneShaderSourceTextFacts.matches(pattern, in: source)
         guard !loops.isEmpty else { return .init(found: false, work: 0) }
         var work = 0
         for loop in loops.reversed() {
-            guard let index = capture(loop, 1, in: source),
-                  let initial = capture(loop, 2, in: source),
+            guard let index = SceneShaderSourceTextFacts.capture(loop, 1, in: source),
+                  let initial = SceneShaderSourceTextFacts.capture(loop, 2, in: source),
                   finiteIntegral(initial) == 0,
-                  let condition = capture(loop, 3, in: source),
-                  [capture(loop, 4, in: source), capture(loop, 5, in: source)]
+                  let condition = SceneShaderSourceTextFacts.capture(loop, 3, in: source),
+                  [SceneShaderSourceTextFacts.capture(loop, 4, in: source), SceneShaderSourceTextFacts.capture(loop, 5, in: source)]
                     .compactMap({ $0 }).contains(index),
                   let limit = staticEarlyExitBound(
                       condition: condition,
@@ -282,9 +282,9 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
             + #"\s*<\s*([A-Za-z_]\w*|"# + floatLiteral + #")\s*$"#
         var bound: Int?
         for conjunct in conjuncts {
-            let found = matches(boundPattern, in: conjunct)
+            let found = SceneShaderSourceTextFacts.matches(boundPattern, in: conjunct)
             if let match = found.first,
-               let raw = capture(match, 1, in: conjunct) {
+               let raw = SceneShaderSourceTextFacts.capture(match, 1, in: conjunct) {
                 guard found.count == 1, bound == nil,
                       let value = finiteIntegral(raw)
                         ?? rootInvariantFloat(
@@ -314,11 +314,11 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
         let functionSource = (source as NSString).substring(with: functionRange)
         let localLoopLocation = loopLocation - functionRange.location
         let escaped = NSRegularExpression.escapedPattern(for: name)
-        let allDeclarations = matches(
+        let allDeclarations = SceneShaderSourceTextFacts.matches(
             #"\b(?:const\s+)?float\s+"# + escaped + #"\b"#,
             in: functionSource
         )
-        let declarations = matches(
+        let declarations = SceneShaderSourceTextFacts.matches(
             #"\b(?:const\s+)?float\s+"# + escaped
                 + #"\s*=\s*("# + floatLiteral + #")\s*;"#,
             in: functionSource
@@ -331,7 +331,7 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
                   in: functionSource,
                   before: declaration.range.location
               ) == 0,
-              let raw = capture(declaration, 1, in: functionSource),
+              let raw = SceneShaderSourceTextFacts.capture(declaration, 1, in: functionSource),
               let value = finiteIntegral(raw) else { return nil }
         let suffix = NSRange(
             location: functionRange.location + NSMaxRange(declaration.range),
@@ -356,11 +356,11 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
         let functionSource = (source as NSString).substring(with: functionRange)
         let localLoopLocation = loopLocation - functionRange.location
         let escaped = NSRegularExpression.escapedPattern(for: name)
-        let allDeclarations = matches(
+        let allDeclarations = SceneShaderSourceTextFacts.matches(
             #"\b(?:const\s+)?int\s+"# + escaped + #"\b"#,
             in: functionSource
         )
-        let declarations = matches(
+        let declarations = SceneShaderSourceTextFacts.matches(
             #"\b(?:const\s+)?int\s+"# + escaped
                 + #"\s*=\s*(\d+)\s*;"#,
             in: functionSource
@@ -373,7 +373,7 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
                   in: functionSource,
                   before: declaration.range.location
               ) == 0,
-              let raw = capture(declaration, 1, in: functionSource),
+              let raw = SceneShaderSourceTextFacts.capture(declaration, 1, in: functionSource),
               let value = Int(raw) else { return nil }
         let suffix = NSRange(
             location: functionRange.location + NSMaxRange(declaration.range),
@@ -390,7 +390,7 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
     ) -> NSRange? {
         let signature = #"\b(?:void|bool|int|uint|float|half|double|[biu]?vec[234]|mat[234](?:x[234])?)\s+[A-Za-z_]\w*\s*\([^;{}]*\)\s*\{"#
         let value = source as NSString
-        return matches(signature, in: source).compactMap { match in
+        return SceneShaderSourceTextFacts.matches(signature, in: source).compactMap { match in
             let opening = NSMaxRange(match.range) - 1
             guard opening < location,
                   let closing = closingBrace(
@@ -423,7 +423,7 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
 
     private static func containsNestedLoop(in source: String) -> Bool {
         let value = source as NSString
-        for marker in matches(#"\bfor\s*\("#, in: source) {
+        for marker in SceneShaderSourceTextFacts.matches(#"\bfor\s*\("#, in: source) {
             let opening = NSMaxRange(marker.range) - 1
             guard let headerEnd = closingParenthesis(
                 in: value,
@@ -446,7 +446,7 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
     /// can execute it. This deliberately rejects indirect and overloaded
     /// call graphs instead of trying to reconstruct compiler inlining.
     private static func loopCallGraphIsSingleShot(in source: String) -> Bool {
-        let loopMarkers = matches(#"\bfor\s*\("#, in: source)
+        let loopMarkers = SceneShaderSourceTextFacts.matches(#"\bfor\s*\("#, in: source)
         guard !loopMarkers.isEmpty else { return true }
         guard let functions = functionBodies(in: source),
               functions.filter({ $0.name == "main" }).count == 1 else {
@@ -480,7 +480,7 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
             var calls: [(caller: String, location: Int)] = []
             for function in functions {
                 let body = value.substring(with: function.range)
-                calls.append(contentsOf: matches(
+                calls.append(contentsOf: SceneShaderSourceTextFacts.matches(
                     #"\b"# + escaped + #"\s*\("#,
                     in: body
                 ).map {
@@ -502,13 +502,13 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
         let signature = #"\b(?:void|bool|int|uint|float|half|double|[biu]?vec[234]|mat[234](?:x[234])?)\s+([A-Za-z_]\w*)\s*\(([^;{}]*)\)\s*\{"#
         let value = source as NSString
         var result: [FunctionBody] = []
-        for match in matches(signature, in: source) {
-            guard let name = capture(match, 1, in: source) else { return nil }
+        for match in SceneShaderSourceTextFacts.matches(signature, in: source) {
+            guard let name = SceneShaderSourceTextFacts.capture(match, 1, in: source) else { return nil }
             let opening = NSMaxRange(match.range) - 1
             guard let closing = closingBrace(in: value, after: opening) else {
                 return nil
             }
-            guard let parameters = capture(match, 2, in: source) else {
+            guard let parameters = SceneShaderSourceTextFacts.capture(match, 2, in: source) else {
                 return nil
             }
             result.append(.init(
@@ -542,7 +542,7 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
             let escapedFunction = NSRegularExpression.escapedPattern(
                 for: function.name
             )
-            for call in matches(
+            for call in SceneShaderSourceTextFacts.matches(
                 #"\b"# + escapedFunction + #"\s*\("#,
                 in: body
             ) {
@@ -586,10 +586,10 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
                 .isEmpty ? [] : nil
         }
         return parts.map { part in
-            let tokens = matches(#"\b(?:inout|out|in)\b"#, in: part)
+            let tokens = SceneShaderSourceTextFacts.matches(#"\b(?:inout|out|in)\b"#, in: part)
             if tokens.count > 1 { return Parameter(isWritable: nil) }
             if let token = tokens.first,
-               let mode = capture(token, 0, in: part) {
+               let mode = SceneShaderSourceTextFacts.capture(token, 0, in: part) {
                 return Parameter(isWritable: mode == "out" || mode == "inout")
             }
             // GLSL parameters default to `in`.
@@ -714,12 +714,12 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
         let pattern = #"(?:\b"# + escaped
             + #"\s*(?:\+=|-=|\*=|/=|%=|=(?!=)|\+\+|--)|(?:\+\+|--)\s*\b"#
             + escaped + #"\b)"#
-        return !matches(pattern, in: (source as NSString).substring(with: range)).isEmpty
+        return !SceneShaderSourceTextFacts.matches(pattern, in: (source as NSString).substring(with: range)).isEmpty
     }
 
     static func consumeAudioLoops(in source: inout String) -> Consumption {
         let pattern = #"\bfor\s*\(\s*int\s+([A-Za-z_]\w*)\s*=\s*int\(g_AudioFrequencyMin\)\s*;\s*\1\s*<=\s*int\(g_AudioFrequencyMax\)\s*;\s*\+\+\s*\1\s*\)"#
-        let loops = matches(pattern, in: source)
+        let loops = SceneShaderSourceTextFacts.matches(pattern, in: source)
         guard !loops.isEmpty else { return .init(found: false, work: 0) }
         guard let bound = audioSpectrumBound(in: source) else {
             return .init(found: true, work: nil)
@@ -734,24 +734,24 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
     }
 
     private static func audioSpectrumBound(in source: String) -> Int? {
-        let names = matches(
+        let names = SceneShaderSourceTextFacts.matches(
             #"\b(?:float|half)\s+g_AudioSpectrum(16|32|64)(?:Left|Right)\s*\[\s*\1\s*\]"#,
             in: source
         )
         guard names.count >= 2 else { return nil }
-        let bounds = names.compactMap { capture($0, 1, in: source) }.compactMap(Int.init)
+        let bounds = names.compactMap { SceneShaderSourceTextFacts.capture($0, 1, in: source) }.compactMap(Int.init)
         guard !bounds.isEmpty, Set(bounds).count == 1 else { return nil }
         return bounds[0]
     }
 
     private static func numericDefines(in source: String) -> [String: Int]? {
         var result: [String: Int] = [:]
-        for match in matches(
+        for match in SceneShaderSourceTextFacts.matches(
             #"(?m)^\s*#define\s+([A-Za-z_]\w*)\s+(-?\d+)\s*$"#,
             in: source
         ) {
-            guard let name = capture(match, 1, in: source),
-                  let raw = capture(match, 2, in: source),
+            guard let name = SceneShaderSourceTextFacts.capture(match, 1, in: source),
+                  let raw = SceneShaderSourceTextFacts.capture(match, 2, in: source),
                   let value = Int(raw),
                   result.updateValue(value, forKey: name) == nil else {
                 return nil
@@ -769,27 +769,6 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
         let name = isNegative ? String(raw.dropFirst()) : raw
         guard let value = defines[name] else { return nil }
         return isNegative ? -value : value
-    }
-
-    private static func matches(
-        _ pattern: String,
-        in source: String
-    ) -> [NSTextCheckingResult] {
-        try! NSRegularExpression(pattern: pattern).matches(
-            in: source,
-            range: NSRange(source.startIndex..., in: source)
-        )
-    }
-
-    private static func capture(
-        _ match: NSTextCheckingResult,
-        _ index: Int,
-        in source: String
-    ) -> String? {
-        guard index < match.numberOfRanges,
-              match.range(at: index).location != NSNotFound,
-              let range = Range(match.range(at: index), in: source) else { return nil }
-        return String(source[range])
     }
 
     private static func regexMatches(_ pattern: String, _ source: String) -> Bool {

@@ -7,24 +7,24 @@ import Foundation
 nonisolated enum SceneGenericShaderRGBA8UNormIndependentSignalArtifactAnalyzer {
     static func validates(_ source: String, expectedSlot: Int) -> Bool {
         guard (0 ..< 8).contains(expectedSlot),
-              matches(
+              SceneShaderSourceTextFacts.matches(
                 #"\bg_Texture([0-7])\s*\.\s*sample\s*\("#,
                 in: source
               ).compactMap({ capture($0, 1, in: source).flatMap(Int.init) })
                 == [expectedSlot],
               let body = fragmentBody(in: source) else { return false }
-        let assignments = matches(
+        let assignments = SceneShaderSourceTextFacts.matches(
             #"\bout\.mwxFragColor\s*=\s*([^;]+)\s*;"#,
             in: body
         )
         guard assignments.count == 1,
-              matches(#"\bout\.mwxFragColor\b"#, in: body).count == 1,
-              matches(#"\breturn\s+out\s*;"#, in: body).count == 1,
+              SceneShaderSourceTextFacts.matches(#"\bout\.mwxFragColor\b"#, in: body).count == 1,
+              SceneShaderSourceTextFacts.matches(#"\breturn\s+out\s*;"#, in: body).count == 1,
               let expression = capture(assignments[0], 1, in: body),
               let factors = flattenedProduct(expression) else { return false }
         let carriers = factors.filter { factor in
             guard regexMatches(#"^[A-Za-z_]\w*$"#, factor) else { return false }
-            return matches(
+            return SceneShaderSourceTextFacts.matches(
                 #"\bfloat4\s+"# + SceneShaderSourceTextFacts.escaped(factor) + #"\b"#,
                 in: body
             ).count == 1
@@ -50,7 +50,7 @@ nonisolated enum SceneGenericShaderRGBA8UNormIndependentSignalArtifactAnalyzer {
             in: value
         ), identity.count == 2 else { return false }
         let name = identity[1]
-        return matches(
+        return SceneShaderSourceTextFacts.matches(
             #"\bfloat\s+"# + SceneShaderSourceTextFacts.escaped(name) + #"\s*(?:[;=])"#,
             in: source
         ).count == 1
@@ -116,7 +116,7 @@ nonisolated enum SceneGenericShaderRGBA8UNormIndependentSignalArtifactAnalyzer {
     }
 
     private static func fragmentBody(in source: String) -> String? {
-        let signatures = matches(
+        let signatures = SceneShaderSourceTextFacts.matches(
             #"\bfragment\b[^\{;]*\bmwxGenericFragment\s*\([^\{;]*\)\s*\{"#,
             in: source
         )
@@ -148,19 +148,8 @@ nonisolated enum SceneGenericShaderRGBA8UNormIndependentSignalArtifactAnalyzer {
         }
         return nil
     }
-
-    private static func matches(
-        _ pattern: String,
-        in source: String
-    ) -> [NSTextCheckingResult] {
-        (try? NSRegularExpression(pattern: pattern))?.matches(
-            in: source,
-            range: NSRange(source.startIndex..., in: source)
-        ) ?? []
-    }
-
     private static func captures(_ pattern: String, in source: String) -> [String]? {
-        guard let match = matches(pattern, in: source).first else { return nil }
+        guard let match = SceneShaderSourceTextFacts.matches(pattern, in: source).first else { return nil }
         return (1 ..< match.numberOfRanges).map {
             capture(match, $0, in: source) ?? ""
         }

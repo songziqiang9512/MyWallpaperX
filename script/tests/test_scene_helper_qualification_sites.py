@@ -68,12 +68,28 @@ class QualificationRewriteTests(unittest.TestCase):
             "let a = Facts.matches(pattern, in: source)\nlet b = matches.count\n", updated
         )
 
-    def test_qualify_searches_nearby_lines_for_multi_line_calls(self) -> None:
+    def test_qualify_uses_the_reported_column(self) -> None:
+        text = "let a = matches(pattern, in: source)\nlet b = matches(pattern2, in: source)\n"
+        result, updated = self._qualify(text, 2, column=9)
+
+        self.assertTrue(result)
+        self.assertEqual(
+            "let a = matches(pattern, in: source)\nlet b = Facts.matches(pattern2, in: source)\n", updated
+        )
+
+    def test_qualify_refuses_a_line_that_does_not_hold_the_call(self) -> None:
         text = "let found = matches(\n    pattern,\n    in: source\n)\n"
         result, updated = self._qualify(text, 3)
 
-        self.assertTrue(result)
-        self.assertTrue(updated.startswith("let found = Facts.matches("))
+        self.assertFalse(result)
+        self.assertEqual(text, updated)
+
+    def test_qualify_refuses_an_ambiguous_line(self) -> None:
+        text = "let pair = matches(one, in: source) + matches(two, in: source)\n"
+        result, updated = self._qualify(text, 1)
+
+        self.assertFalse(result)
+        self.assertEqual(text, updated)
 
     def test_qualify_leaves_an_already_qualified_site_alone(self) -> None:
         text = "let a = Facts.matches(pattern, in: source)\n"
@@ -146,6 +162,62 @@ class HarnessSetReportingTests(unittest.TestCase):
         self.assertEqual([("test_fixture", "empty SWIFT_SOURCES")], skipped)
 
 
+class ReportQualificationTests(unittest.TestCase):
+    def test_qualify_from_report_qualifies_every_reported_site(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "Target.swift"
+            target.write_text(
+                "let a = matches(pattern, in: source)\nlet b = capture(match, 1, in: source)\n",
+                encoding="utf-8",
+            )
+            report = root / "report.txt"
+            report.write_text(
+                f"{target}:1:9: error: cannot find 'matches' in scope\n"
+                f"{target}:2:9: error: cannot find 'capture' in scope\n",
+                encoding="utf-8",
+            )
+
+            total, missed = TOOL.qualify_from_report(report, ["matches", "capture"], "Facts")
+
+            self.assertEqual(2, total)
+            self.assertEqual([], missed)
+            self.assertEqual(
+                "let a = Facts.matches(pattern, in: source)\nlet b = Facts.capture(match, 1, in: source)\n",
+                target.read_text(encoding="utf-8"),
+            )
+
+    def test_qualify_from_report_reports_a_site_it_cannot_rewrite(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "Target.swift"
+            target.write_text("let a = 1\n", encoding="utf-8")
+            report = root / "report.txt"
+            report.write_text(f"{target}:1:9: error: cannot find 'matches' in scope\n", encoding="utf-8")
+
+            total, missed = TOOL.qualify_from_report(report, ["matches"], "Facts")
+
+            self.assertEqual(0, total)
+            self.assertEqual([f"{target}:1:9:matches"], missed)
+
+    def test_qualify_from_report_ignores_diagnostics_for_other_names(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "Target.swift"
+            target.write_text("let a = matches(pattern, in: source)\n", encoding="utf-8")
+            report = root / "report.txt"
+            report.write_text(
+                f"{target}:1:9: error: cannot find 'other' in scope\n"
+                f"{target}:1:9: error: cannot find 'matches' in scope\n",
+                encoding="utf-8",
+            )
+
+            total, missed = TOOL.qualify_from_report(report, ["matches"], "Facts")
+
+            self.assertEqual(1, total)
+            self.assertEqual([], missed)
+
+
 class MainModeTests(unittest.TestCase):
     def test_brace_delta_mode_reports_problems(self) -> None:
         arguments = TOOL.argparse.Namespace(
@@ -154,8 +226,7 @@ class MainModeTests(unittest.TestCase):
             apply=False,
             qualified_with="Facts",
             brace_delta=["Fixture.swift"],
-            base_ref="HEAD",
-        )
+            base_ref="HEAD", apply_from=None)
         with (
             patch.object(TOOL, "parse_arguments", return_value=arguments),
             patch.object(TOOL, "brace_delta_report", return_value=["Fixture.swift: missing"]),
@@ -172,8 +243,7 @@ class MainModeTests(unittest.TestCase):
             apply=True,
             qualified_with="Facts",
             brace_delta=[],
-            base_ref="HEAD",
-        )
+            base_ref="HEAD", apply_from=None)
         with (
             patch.object(TOOL, "parse_arguments", return_value=arguments),
             patch.object(TOOL, "harness_sets", return_value=([("fixture", [Path("/tmp/One.swift")], "")], [])),
@@ -184,6 +254,27 @@ class MainModeTests(unittest.TestCase):
             result = TOOL.main()
 
         self.assertEqual(1, result)
+
+    def test_apply_from_mode_qualifies_a_report_without_touching_harness_sets(self) -> None:
+        arguments = TOOL.argparse.Namespace(
+            name=["matches"],
+            family=[],
+            apply=False,
+            qualified_with="Facts",
+            brace_delta=[],
+            base_ref="HEAD", apply_from="/private/tmp/report.txt")
+        with (
+            patch.object(TOOL, "parse_arguments", return_value=arguments),
+            patch.object(TOOL, "harness_sets") as sets,
+            patch.object(TOOL, "qualify_from_report", return_value=(4, [])) as qualify,
+            patch("sys.stdout", io.StringIO()),
+            patch("sys.stderr", io.StringIO()),
+        ):
+            result = TOOL.main()
+
+        self.assertEqual(0, result)
+        self.assertEqual(1, qualify.call_count)
+        self.assertFalse(sets.called)
 
 
 if __name__ == "__main__":

@@ -451,7 +451,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         layout: ReflectedLayout,
         fieldNames: [String: String]
     ) throws -> String {
-        let found = matches(#"(?s)struct\s+MWXUniforms\s*\{(.*?)\};"#, in: source)
+        let found = SceneShaderSourceTextFacts.matches(#"(?s)struct\s+MWXUniforms\s*\{(.*?)\};"#, in: source)
         guard found.count == 1,
               let bodyRange = Range(found[0].range(at: 1), in: source) else {
             throw Failure.uniformStruct
@@ -492,8 +492,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         fragment: String
     ) throws -> (String, String) {
         let pattern = #"(?s)template<typename T, size_t Num>\s+struct spvUnsafeArray\s*\{.*?\n\};"#
-        let vertexMatch = matches(pattern, in: vertex).first
-        let fragmentMatch = matches(pattern, in: fragment).first
+        let vertexMatch = SceneShaderSourceTextFacts.matches(pattern, in: vertex).first
+        let fragmentMatch = SceneShaderSourceTextFacts.matches(pattern, in: fragment).first
         guard let vertexMatch, let fragmentMatch,
               let vertexHelper = SceneShaderSourceTextFacts.substring(vertexMatch.range, in: vertex),
               let fragmentHelper = SceneShaderSourceTextFacts.substring(fragmentMatch.range, in: fragment) else {
@@ -545,7 +545,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         guard let match = regex(pattern).firstMatch(in: source, range: fullRange(source)) else {
             return nil
         }
-        return (1 ..< match.numberOfRanges).compactMap { capture(match, $0, in: source) }
+        return (1 ..< match.numberOfRanges).compactMap { SceneShaderSourceTextFacts.capture(match, $0, in: source) }
     }
 
     static func capturesAll(
@@ -553,13 +553,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         in source: String,
         group: Int
     ) -> [String] {
-        matches(pattern, in: source).compactMap { capture($0, group, in: source) }
+        SceneShaderSourceTextFacts.matches(pattern, in: source).compactMap { SceneShaderSourceTextFacts.capture($0, group, in: source) }
     }
-
-    static func matches(_ pattern: String, in source: String) -> [NSTextCheckingResult] {
-        regex(pattern).matches(in: source, range: fullRange(source))
-    }
-
     private static func regex(_ pattern: String) -> NSRegularExpression {
         // Patterns are fixed implementation contracts, never authored input.
         try! NSRegularExpression(pattern: pattern)
@@ -567,15 +562,5 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
 
     private static func fullRange(_ source: String) -> NSRange {
         NSRange(source.startIndex..., in: source)
-    }
-    static func capture(
-        _ match: NSTextCheckingResult,
-        _ index: Int,
-        in source: String
-    ) -> String? {
-        guard index < match.numberOfRanges,
-              match.range(at: index).location != NSNotFound,
-              let range = Range(match.range(at: index), in: source) else { return nil }
-        return String(source[range])
     }
 }

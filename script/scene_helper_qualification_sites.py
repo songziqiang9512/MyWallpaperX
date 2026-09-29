@@ -22,6 +22,11 @@ This tool therefore uses the compiler as the source of truth:
   reported (searching at most three lines away when a diagnostic points past a
   multi-line call), never touching an already-qualified occurrence, and repeats until
   the compiler stops reporting the family.
+* `--apply-from` qualifies the sites of a compiler report produced outside the tool.
+  A whole-set typecheck stops reporting once it has enough errors, so a name-dense
+  family is swept one file at a time (`swiftc -frontend -typecheck -primary-file`), the
+  diagnostics are collected into a report, and the report is handed here; the compiler
+  stays an external command rather than something this tool embeds.
 * `--brace-delta` is the post-condition for the deletion step: every edited file must
   keep the same brace deficit as its committed version, because a naive cut can swallow
   the closing brace of the enclosing type (brace counting inside regex literals such as
@@ -30,6 +35,7 @@ This tool therefore uses the compiler as the source of truth:
 Usage:
     python3 script/scene_helper_qualification_sites.py --name matches --name capture
     python3 script/scene_helper_qualification_sites.py --name matches --apply
+    python3 script/scene_helper_qualification_sites.py --name matches --apply-from report.txt
     python3 script/scene_helper_qualification_sites.py --brace-delta path/to/File.swift
 """
 
@@ -64,9 +70,13 @@ MAX_ITERATIONS = 8
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--name", action="append", required=True, help="helper name whose definition moved")
+    parser.add_argument("--name", action="append", default=[], help="helper name whose definition moved")
     parser.add_argument("--family", action="append", default=[], help="source-root prefix to consider (default: shader family)")
     parser.add_argument("--apply", action="store_true", help="qualify the reported sites and iterate until clean")
+    parser.add_argument(
+        "--apply-from",
+        help="compiler report produced outside the tool (one file per -primary-file pass); qualify its sites",
+    )
     parser.add_argument("--qualified-with", default="SceneShaderSourceTextFacts", help="type that now owns the helper")
     parser.add_argument("--brace-delta", action="append", default=[], help="file edited by a deletion; verify its brace deficit")
     parser.add_argument("--base-ref", default="HEAD", help="git ref the brace deficit is compared against")
@@ -74,19 +84,30 @@ def parse_arguments() -> argparse.Namespace:
 
 
 def load_module(path: Path):
-    spec = importlib.util.spec_from_file_location(path.stem, path)
-    if spec is None or spec.loader is None:
-        return None, "no import spec"
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[path.stem] = module
+    """Import the harness module as `script.tests.<name>`.
+
+    The harnesses import each other by package-relative name (`from .test_x import ...`)
+    and by repository path (`import script.scene_swift_source_sets`); loading them under
+    a bare stem makes both forms fail, which silently removes those source sets from the
+    sweep. The package form resolves both, and the bare load stays as a fallback.
+    """
     try:
-        spec.loader.exec_module(module)
-    except Exception as error:  # pragma: no cover - depends on the module under test
-        return None, f"{type(error).__name__}: {error}"
-    return module, None
+        return importlib.import_module(f"script.tests.{path.stem}"), None
+    except Exception as package_error:  # pragma: no cover - depends on the module under test
+        spec = importlib.util.spec_from_file_location(path.stem, path)
+        if spec is None or spec.loader is None:
+            return None, "no import spec"
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[path.stem] = module
+        try:
+            spec.loader.exec_module(module)
+        except Exception as error:
+            return None, f"{type(error).__name__}: {error} (as package: {package_error})"
+        return module, None
 
 
 def harness_sets(prefixes: tuple[str, ...]) -> tuple[list[tuple[str, list[Path], str]], list[tuple[str, str]]]:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
     sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
     sys.path.insert(0, str(TESTS_ROOT))
     sets: list[tuple[str, list[Path], str]] = []
@@ -115,7 +136,6 @@ def harness_sets(prefixes: tuple[str, ...]) -> tuple[list[tuple[str, list[Path],
 
 
 def scan_sites(names: Sequence[str], sets) -> tuple[list[tuple[str, int, int, str]], list[tuple[str, str]]]:
-    wanted = set(names)
     records: set[tuple[str, int, int, str]] = set()
     failures: list[tuple[str, str]] = []
     scratch = Path("/private/tmp")
@@ -129,12 +149,7 @@ def scan_sites(names: Sequence[str], sets) -> tuple[list[tuple[str, int, int, st
         )
         if completed.returncode != 0 and not completed.stderr:
             failures.append((stem, f"swiftc exited {completed.returncode} without diagnostics"))
-        for line in completed.stderr.splitlines():
-            for pattern in DIAGNOSTIC_PATTERNS:
-                match = pattern.match(line)
-                if match and match.group(4) in wanted:
-                    records.add((match.group(1), int(match.group(2)), int(match.group(3)), match.group(4)))
-                    break
+        records.update(parse_sites(completed.stderr.splitlines(), names))
     return sorted(records), failures
 
 
@@ -144,22 +159,78 @@ def unresolved_sites(names: list[str], sets) -> list[str]:
 
 
 def qualify(path: str, line: int, column: int, name: str, qualified_with: str) -> bool:
-    """Qualify one reported site, anchored on the line the compiler pointed at."""
+    """Qualify one reported site, anchored on the compiler's own (line, column).
+
+    The column points at the identifier, so the rewrite is exact.  Only when the
+    column does not land on the name (some diagnostics point at the enclosing
+    expression) does this fall back to the reported line, and then only if that line
+    holds exactly one bare call; a line with several candidates is left alone rather
+    than guessed, because guessing swaps sites and makes the scan oscillate.
+    """
 
     file = Path(path)
-    lines = file.read_text(encoding="utf-8").splitlines(keepends=True)
+    text = file.read_text(encoding="utf-8")
+    lines = text.splitlines(keepends=True)
+    if line < 1 or line > len(lines):
+        return False
     pattern = re.compile(r"(?<![.\w])%s\s*\(" % re.escape(name))
-    first = max(0, line - 1 - SEARCH_WINDOW)
-    last = min(len(lines), line - 1 + SEARCH_WINDOW + 1)
-    for index in range(first, last):
-        text = lines[index]
-        match = pattern.search(text)
-        if match is None:
-            continue
-        lines[index] = text[: match.start()] + f"{qualified_with}.{name}" + text[match.end() - 1:]
-        file.write_text("".join(lines), encoding="utf-8")
-        return True
-    return False
+
+    offset = sum(len(entry) for entry in lines[: line - 1]) + (column - 1)
+    if text[offset : offset + len(name)] == name:
+        after = text[offset + len(name) :]
+        stripped = after.lstrip()
+        if stripped.startswith("("):
+            text = text[:offset] + f"{qualified_with}.{name}" + after
+            file.write_text(text, encoding="utf-8")
+            return True
+
+    candidates = list(pattern.finditer(lines[line - 1]))
+    if len(candidates) != 1:
+        return False
+    match = candidates[0]
+    lines[line - 1] = (
+        lines[line - 1][: match.start()] + f"{qualified_with}.{name}" + lines[line - 1][match.end() - 1 :]
+    )
+    file.write_text("".join(lines), encoding="utf-8")
+    return True
+
+
+def parse_sites(lines: Iterable[str], names: Sequence[str]) -> list[tuple[str, int, int, str]]:
+    """Extract the diagnostics that mean "the helper definition moved away"."""
+
+    wanted = set(names)
+    records: set[tuple[str, int, int, str]] = set()
+    for line in lines:
+        for pattern in DIAGNOSTIC_PATTERNS:
+            match = pattern.match(line)
+            if match and match.group(4) in wanted:
+                records.add((match.group(1), int(match.group(2)), int(match.group(3)), match.group(4)))
+                break
+    return sorted(records)
+
+
+def qualify_from_report(
+    report: Path, names: Sequence[str], qualified_with: str
+) -> tuple[int, list[str]]:
+    """Qualify the sites of a compiler report produced outside this tool.
+
+    A whole-set `swiftc -typecheck` stops reporting once it has enough errors, so a
+    name-dense family needs a per-file sweep: typecheck one file as the frontend's
+    `-primary-file`, collect those diagnostics into a report, and hand the report here.
+    Compiling stays an external command, and this tool only rewrites what a report
+    proves unresolved -- one report per file, one pass per file instead of the waves a
+    whole-set scan produces.
+    """
+
+    records = parse_sites(report.read_text(encoding="utf-8").splitlines(), names)
+    total = 0
+    missed: list[str] = []
+    for path, line, column, name in sorted(records, reverse=True):
+        if qualify(path, line, column, name, qualified_with):
+            total += 1
+        else:
+            missed.append(f"{path}:{line}:{column}:{name}")
+    return total, missed
 
 
 def apply_qualifications(names: Sequence[str], sets, qualified_with: str) -> tuple[int, list[str]]:
@@ -225,9 +296,22 @@ def main() -> int:
         print(f"brace deficit holds for {len(args.brace_delta)} file(s) against {args.base_ref}")
         return 0
 
+    if args.apply_from:
+        if not args.name:
+            print("--apply-from requires --name", file=sys.stderr)
+            return 2
+        total, unresolved = qualify_from_report(Path(args.apply_from), args.name, args.qualified_with)
+        print(f"qualified {total} site(s) from {args.apply_from}")
+        for entry in unresolved:
+            print(f"unresolved: {entry}", file=sys.stderr)
+        return 1 if unresolved else 0
+
     sets, skipped = harness_sets(prefixes)
     for stem, reason in skipped:
         print(f"skipped harness set {stem}: {reason}", file=sys.stderr)
+    if not args.name:
+        print("--name is required outside --brace-delta mode", file=sys.stderr)
+        return 2
     if not sets:
         print("no harness source set compiles the requested family", file=sys.stderr)
         return 2

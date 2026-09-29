@@ -39,14 +39,14 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
               fact.generatedOpaqueColorSlots.allSatisfy({ (0 ..< 8).contains($0) }),
               fact.sampleCallCounts.values.allSatisfy({ (1 ... 16).contains($0) }),
               fact.sampleCallCounts.values.reduce(0, +) <= 32,
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
-              matches(#"\b"# + unpremultiply + #"\b"#, in: source).isEmpty,
-              matches(#"\b"# + premultiply + #"\b"#, in: source).isEmpty,
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
+              SceneShaderSourceTextFacts.matches(#"\b"# + unpremultiply + #"\b"#, in: source).isEmpty,
+              SceneShaderSourceTextFacts.matches(#"\b"# + premultiply + #"\b"#, in: source).isEmpty,
               let calls = sampleCalls(in: source) else {
             return nil
         }
 
-        let carrierDeclarations = matches(
+        let carrierDeclarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
                 + String(fact.alphaCarrierSlot)
                 + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
@@ -54,13 +54,13 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
         )
         guard carrierDeclarations.count == 1,
               let declaration = carrierDeclarations.first,
-              let prefix = capture(declaration, 1, in: source),
-              let carrier = capture(declaration, 2, in: source),
-              let arguments = capture(declaration, 3, in: source),
-              let suffix = capture(declaration, 4, in: source) else {
+              let prefix = SceneShaderSourceTextFacts.capture(declaration, 1, in: source),
+              let carrier = SceneShaderSourceTextFacts.capture(declaration, 2, in: source),
+              let arguments = SceneShaderSourceTextFacts.capture(declaration, 3, in: source),
+              let suffix = SceneShaderSourceTextFacts.capture(declaration, 4, in: source) else {
             return nil
         }
-        let outputs = matches(
+        let outputs = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*float4\(\s*([A-Za-z_]\w*)\s*,\s*"#
                 + SceneShaderSourceTextFacts.escaped(carrier)
                 + #"\.w\s*\)\s*;[ \t]*$"#,
@@ -68,11 +68,11 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
         )
         guard outputs.count == 1,
               let output = outputs.first,
-              let indent = capture(output, 1, in: source),
-              let color = capture(output, 2, in: source),
+              let indent = SceneShaderSourceTextFacts.capture(output, 1, in: source),
+              let color = SceneShaderSourceTextFacts.capture(output, 2, in: source),
               color != carrier,
               declaration.range.location < output.range.location,
-              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
+              SceneShaderSourceTextFacts.matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
               let body = fragmentBodyRange(
                   containing: output.range.location,
                   in: source
@@ -134,12 +134,12 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
               fact.generatedOpaqueColorSlots.allSatisfy({ (0 ..< 8).contains($0) }),
               fact.sampleCallCounts.values.allSatisfy({ (1 ... 16).contains($0) }),
               fact.sampleCallCounts.values.reduce(0, +) <= 32,
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
-              matches(#"\b"# + unpremultiply + #"\b"#, in: source).isEmpty,
-              matches(#"\b"# + premultiply + #"\b"#, in: source).isEmpty,
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
+              SceneShaderSourceTextFacts.matches(#"\b"# + unpremultiply + #"\b"#, in: source).isEmpty,
+              SceneShaderSourceTextFacts.matches(#"\b"# + premultiply + #"\b"#, in: source).isEmpty,
               let calls = sampleCalls(in: source) else { return nil }
 
-        let carrierDeclarations = matches(
+        let carrierDeclarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
                 + String(fact.alphaCarrierSlot)
                 + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
@@ -147,25 +147,25 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
         )
         guard carrierDeclarations.count == 1,
               let declaration = carrierDeclarations.first,
-              let prefix = capture(declaration, 1, in: source),
-              let carrier = capture(declaration, 2, in: source),
-              let arguments = capture(declaration, 3, in: source),
-              let suffix = capture(declaration, 4, in: source) else { return nil }
+              let prefix = SceneShaderSourceTextFacts.capture(declaration, 1, in: source),
+              let carrier = SceneShaderSourceTextFacts.capture(declaration, 2, in: source),
+              let arguments = SceneShaderSourceTextFacts.capture(declaration, 3, in: source),
+              let suffix = SceneShaderSourceTextFacts.capture(declaration, 4, in: source) else { return nil }
 
-        let outputs = matches(
+        let outputs = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*([A-Za-z_]\w*)\s*;[ \t]*$"#,
             in: source
         )
         guard outputs.count == 2,
               let fallback = outputs.first(where: {
-                  capture($0, 2, in: source) == carrier
+                  SceneShaderSourceTextFacts.capture($0, 2, in: source) == carrier
               }),
               let changedOutput = outputs.first(where: {
-                  capture($0, 2, in: source) != carrier
+                  SceneShaderSourceTextFacts.capture($0, 2, in: source) != carrier
               }),
-              let changed = capture(changedOutput, 2, in: source),
-              let changedIndent = capture(changedOutput, 1, in: source),
-              let fallbackIndent = capture(fallback, 1, in: source),
+              let changed = SceneShaderSourceTextFacts.capture(changedOutput, 2, in: source),
+              let changedIndent = SceneShaderSourceTextFacts.capture(changedOutput, 1, in: source),
+              let fallbackIndent = SceneShaderSourceTextFacts.capture(fallback, 1, in: source),
               changedOutput.range.location < fallback.range.location,
               changed != carrier,
               let body = fragmentBodyRange(
@@ -182,12 +182,12 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
                   source: source
               ) else { return nil }
 
-        let changedDeclarations = matches(
+        let changedDeclarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*float4\s+"# + SceneShaderSourceTextFacts.escaped(changed)
                 + #"\s*=\s*[^;]+;[ \t]*$"#,
             in: source
         )
-        let alphaRestores = matches(
+        let alphaRestores = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*"# + SceneShaderSourceTextFacts.escaped(changed)
                 + #"\.w\s*=\s*"# + SceneShaderSourceTextFacts.escaped(carrier) + #"\.w\s*;[ \t]*$"#,
             in: source
@@ -253,8 +253,8 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
     ) -> Bool {
         guard braceDepth(at: changedOutput.location, in: body, source: source) == 1,
               braceDepth(at: fallbackOutput.location, in: body, source: source) == 1,
-              matches(#"\bif\s*\("#, in: SceneShaderSourceTextFacts.substring(body, in: source) ?? "").count == 1,
-              matches(#"\belse\b"#, in: SceneShaderSourceTextFacts.substring(body, in: source) ?? "").count == 1,
+              SceneShaderSourceTextFacts.matches(#"\bif\s*\("#, in: SceneShaderSourceTextFacts.substring(body, in: source) ?? "").count == 1,
+              SceneShaderSourceTextFacts.matches(#"\belse\b"#, in: SceneShaderSourceTextFacts.substring(body, in: source) ?? "").count == 1,
               let between = SceneShaderSourceTextFacts.substring(
                   NSRange(
                       location: NSMaxRange(changedOutput),
@@ -323,7 +323,7 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
                 return false
             }
         }
-        let carrierWrites = matches(
+        let carrierWrites = SceneShaderSourceTextFacts.matches(
             #"\b"# + SceneShaderSourceTextFacts.escaped(carrier)
                 + #"\b(?:\s*\.\s*[A-Za-z_]\w*)?\s*"#
                 + assignmentOperatorPattern,
@@ -348,7 +348,7 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
     ) -> Bool {
         guard let line = sourceLine(containing: call.range, in: source),
               sampleCalls(in: line)?.count == 1 else { return false }
-        return matches(
+        return SceneShaderSourceTextFacts.matches(
             #"^\s*(?:(?:const\s+)?(?:float|half)(?:[234])?\s+)?"#
                 + #"[A-Za-z_]\w*\s*=\s*.+\.(?:xyz|rgb|x|r|y|g|z|b|w|a)\s*;\s*$"#,
             in: line
@@ -403,13 +403,13 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
               blue == fact.scalarBlueSampleCallCounts,
               alpha == fact.scalarAlphaSampleCallCounts else { return false }
 
-        let carrierWrites = matches(
+        let carrierWrites = SceneShaderSourceTextFacts.matches(
             #"\b"# + SceneShaderSourceTextFacts.escaped(carrier)
                 + #"\b(?:\s*\.\s*[A-Za-z_]\w*)?\s*"#
                 + assignmentOperatorPattern,
             in: source
         )
-        let carrierPrefixWrites = matches(
+        let carrierPrefixWrites = SceneShaderSourceTextFacts.matches(
             #"(?:\+\+|--)\s*\b"# + SceneShaderSourceTextFacts.escaped(carrier)
                 + #"\b(?:\s*\.\s*[A-Za-z_]\w*)?"#,
             in: source
@@ -429,7 +429,7 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
               sampleCalls(in: line)?.count == 1 else { return false }
         switch call.projection {
         case .rgb:
-            return matches(
+            return SceneShaderSourceTextFacts.matches(
                 #"^\s*(?:(?:const\s+)?float3\s+)?"# + SceneShaderSourceTextFacts.escaped(color)
                     + #"\s*(?:=|\+=)\s*.+\.(?:xyz|rgb)\s*;\s*$"#,
                 in: line
@@ -443,14 +443,14 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
             case .alpha: lane = "(?:w|a)"
             default: return false
             }
-            let assignments = matches(
+            let assignments = SceneShaderSourceTextFacts.matches(
                 #"^\s*(?:(?:const\s+)?(?:float|half)\s+)?([A-Za-z_]\w*)"#
                     + #"\s*=\s*.+\."# + lane + #"\s*;\s*$"#,
                 in: line
             )
             guard assignments.count == 1,
                   let assignment = assignments.first,
-                  let target = capture(assignment, 1, in: line) else {
+                  let target = SceneShaderSourceTextFacts.capture(assignment, 1, in: line) else {
                 return false
             }
             return target != color && target != carrier
@@ -484,7 +484,7 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
                 options: .regularExpression
             )
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return matches(#"^return\s+out\s*;$"#, in: withoutComments).count == 1
+        return SceneShaderSourceTextFacts.matches(#"^return\s+out\s*;$"#, in: withoutComments).count == 1
     }
 
     private static func compilerBodyHasNoExtraAuthority(
@@ -493,65 +493,65 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
         source: String
     ) -> Bool {
         let text = (source as NSString).substring(with: body)
-        guard matches(
+        guard SceneShaderSourceTextFacts.matches(
             #"\b(?:discard_fragment|threadgroup_barrier|simdgroup_barrier|atomic_[A-Za-z_]\w*)\b"#,
             in: text
         ).isEmpty,
-        matches(#"\.\s*(?:read|write|gather)\s*\("#, in: text).isEmpty
+        SceneShaderSourceTextFacts.matches(#"\.\s*(?:read|write|gather)\s*\("#, in: text).isEmpty
         else { return false }
 
-        let memberCalls = matches(
+        let memberCalls = SceneShaderSourceTextFacts.matches(
             #"\b([A-Za-z_]\w*)\s*\.\s*([A-Za-z_]\w*)\s*\("#,
             in: text
         )
         guard memberCalls.allSatisfy({ call in
-            guard let root = capture(call, 1, in: text),
-                  let method = capture(call, 2, in: text) else { return false }
+            guard let root = SceneShaderSourceTextFacts.capture(call, 1, in: text),
+                  let method = SceneShaderSourceTextFacts.capture(call, 2, in: text) else { return false }
             return root.range(
                 of: #"^g_Texture[0-7]$"#,
                 options: .regularExpression
             ) != nil && method == "sample"
         }) else { return false }
 
-        let outputWrites = matches(
+        let outputWrites = SceneShaderSourceTextFacts.matches(
             #"\bout\s*\.\s*([A-Za-z_]\w*)\s*"#
                 + assignmentOperatorPattern,
             in: source
         )
-        let outputPrefixWrites = matches(
+        let outputPrefixWrites = SceneShaderSourceTextFacts.matches(
             #"(?:\+\+|--)\s*\bout\s*\.\s*([A-Za-z_]\w*)"#,
             in: source
         )
         guard outputWrites.count == outputs.count,
               outputPrefixWrites.isEmpty,
               outputWrites.allSatisfy({ write in
-                  capture(write, 1, in: source) == "mwxFragColor"
+                  SceneShaderSourceTextFacts.capture(write, 1, in: source) == "mwxFragColor"
                       && outputs.contains(where: { contains($0, write.range) })
               }) else { return false }
 
         var locals: Set<String> = ["out"]
-        for declaration in matches(
+        for declaration in SceneShaderSourceTextFacts.matches(
             #"\b(?:bool|int|uint|float|half|double)(?:[234](?:x[234])?)?\s+([A-Za-z_]\w*)\b"#,
             in: text
         ) {
-            guard let name = capture(declaration, 1, in: text) else {
+            guard let name = SceneShaderSourceTextFacts.capture(declaration, 1, in: text) else {
                 return false
             }
             locals.insert(name)
         }
-        let suffixWritesAreLocal = matches(
+        let suffixWritesAreLocal = SceneShaderSourceTextFacts.matches(
             #"\b([A-Za-z_]\w*)\b(?:\s*(?:\.\s*[A-Za-z_]\w*|\[[^\]]+\]))*\s*"#
                 + assignmentOperatorPattern,
             in: text
         ).allSatisfy({ write in
-            capture(write, 1, in: text).map(locals.contains) == true
+            SceneShaderSourceTextFacts.capture(write, 1, in: text).map(locals.contains) == true
         })
-        let prefixWritesAreLocal = matches(
+        let prefixWritesAreLocal = SceneShaderSourceTextFacts.matches(
             #"(?:\+\+|--)\s*\b([A-Za-z_]\w*)\b"#
                 + #"(?:\s*(?:\.\s*[A-Za-z_]\w*|\[[^\]]+\]))*"#,
             in: text
         ).allSatisfy({ write in
-            capture(write, 1, in: text).map(locals.contains) == true
+            SceneShaderSourceTextFacts.capture(write, 1, in: text).map(locals.contains) == true
         })
         return suffixWritesAreLocal && prefixWritesAreLocal
     }
@@ -560,13 +560,13 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
         #"(?:<<=|>>=|\+=|-=|\*=|/=|%=|&=|\|=|\^=|=(?!=)|\+\+|--)"#
 
     private static func sampleCalls(in source: String) -> [SampleCall]? {
-        let starts = matches(
+        let starts = SceneShaderSourceTextFacts.matches(
             #"\bg_Texture([0-7])\s*\.\s*sample\s*\("#,
             in: source
         )
         var result: [SampleCall] = []
         for start in starts {
-            guard let rawSlot = capture(start, 1, in: source),
+            guard let rawSlot = SceneShaderSourceTextFacts.capture(start, 1, in: source),
                   let slot = Int(rawSlot),
                   let startRange = Range(start.range, in: source),
                   let open = source[..<startRange.upperBound].lastIndex(of: "(")
@@ -590,17 +590,17 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
             let range = startRange.lowerBound..<source.index(after: close)
             let suffix = String(source[range.upperBound...])
             let projection: Projection
-            if matches(#"^\s*\.(?:xyz|rgb)\b"#, in: suffix).count == 1 {
+            if SceneShaderSourceTextFacts.matches(#"^\s*\.(?:xyz|rgb)\b"#, in: suffix).count == 1 {
                 projection = .rgb
-            } else if matches(#"^\s*\.(?:x|r)\b"#, in: suffix).count == 1 {
+            } else if SceneShaderSourceTextFacts.matches(#"^\s*\.(?:x|r)\b"#, in: suffix).count == 1 {
                 projection = .red
-            } else if matches(#"^\s*\.(?:y|g)\b"#, in: suffix).count == 1 {
+            } else if SceneShaderSourceTextFacts.matches(#"^\s*\.(?:y|g)\b"#, in: suffix).count == 1 {
                 projection = .green
-            } else if matches(#"^\s*\.(?:z|b)\b"#, in: suffix).count == 1 {
+            } else if SceneShaderSourceTextFacts.matches(#"^\s*\.(?:z|b)\b"#, in: suffix).count == 1 {
                 projection = .blue
-            } else if matches(#"^\s*\.(?:w|a)\b"#, in: suffix).count == 1 {
+            } else if SceneShaderSourceTextFacts.matches(#"^\s*\.(?:w|a)\b"#, in: suffix).count == 1 {
                 projection = .alpha
-            } else if matches(#"^\s*\."#, in: suffix).isEmpty {
+            } else if SceneShaderSourceTextFacts.matches(#"^\s*\."#, in: suffix).isEmpty {
                 projection = .fullVector
             } else {
                 return nil
@@ -629,7 +629,7 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
         in source: String
     ) -> NSRange? {
         let text = source as NSString
-        let signatures = matches(#"\bfragment\b[^\{]*\{"#, in: source)
+        let signatures = SceneShaderSourceTextFacts.matches(#"\bfragment\b[^\{]*\{"#, in: source)
             .filter { $0.range.location < location }
             .sorted(by: { $0.range.location > $1.range.location })
         for signature in signatures {
@@ -726,31 +726,5 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
 
     private static func contains(_ outer: NSRange, _ inner: NSRange) -> Bool {
         inner.location >= outer.location && NSMaxRange(inner) <= NSMaxRange(outer)
-    }
-
-    private static func matches(
-        _ pattern: String,
-        in source: String
-    ) -> [NSTextCheckingResult] {
-        guard let expression = try? NSRegularExpression(pattern: pattern) else {
-            return []
-        }
-        return expression.matches(
-            in: source,
-            range: NSRange(source.startIndex..., in: source)
-        )
-    }
-
-    private static func capture(
-        _ match: NSTextCheckingResult,
-        _ index: Int,
-        in source: String
-    ) -> String? {
-        guard index < match.numberOfRanges,
-              match.range(at: index).location != NSNotFound,
-              let range = Range(match.range(at: index), in: source) else {
-            return nil
-        }
-        return String(source[range])
     }
 }

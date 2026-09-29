@@ -15,20 +15,20 @@ nonisolated enum SceneGenericShaderIndependentSignalLowering {
     ) -> String? {
         guard (0 ..< 8).contains(expectedSlot),
               !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
         else { return nil }
 
         let declarationPattern =
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
             + String(expectedSlot)
             + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#
-        let declarations = matches(declarationPattern, in: source)
+        let declarations = SceneShaderSourceTextFacts.matches(declarationPattern, in: source)
         guard declarations.count == 1,
               let declaration = declarations.first,
-              let prefix = capture(declaration, 1, in: source),
-              let carrier = capture(declaration, 2, in: source),
-              let arguments = capture(declaration, 3, in: source),
-              let suffix = capture(declaration, 4, in: source),
+              let prefix = SceneShaderSourceTextFacts.capture(declaration, 1, in: source),
+              let carrier = SceneShaderSourceTextFacts.capture(declaration, 2, in: source),
+              let arguments = SceneShaderSourceTextFacts.capture(declaration, 3, in: source),
+              let suffix = SceneShaderSourceTextFacts.capture(declaration, 4, in: source),
               !arguments.isEmpty else { return nil }
 
         guard let samples = sampleFacts(in: source),
@@ -38,17 +38,17 @@ nonisolated enum SceneGenericShaderIndependentSignalLowering {
                   ["x", "r", "xy", "rg"].contains($0.projection!)
               }) else { return nil }
 
-        let outputWrites = matches(
+        let outputWrites = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*out\.mwxFragColor(?:\.([xyzwrgba]{1,4}))?\s*(?:[+\-*/]?=)"#,
             in: source
         )
         let wholeOutput = outputWrites.filter {
-            capture($0, 1, in: source) == nil
+            SceneShaderSourceTextFacts.capture($0, 1, in: source) == nil
         }
         let componentOutput = outputWrites.compactMap {
-            capture($0, 1, in: source)
+            SceneShaderSourceTextFacts.capture($0, 1, in: source)
         }
-        let wholeAssignments = matches(
+        let wholeAssignments = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*out\.mwxFragColor\s*=.*;[ \t]*$"#,
             in: source
         )
@@ -91,13 +91,13 @@ inline float4 \(unpremultiply)(float4 color) {
     }
 
     private static func sampleFacts(in source: String) -> [SampleFact]? {
-        let calls = matches(
+        let calls = SceneShaderSourceTextFacts.matches(
             #"\bg_Texture([0-7])\.sample\s*\("#,
             in: source
         )
         var result: [SampleFact] = []
         for call in calls {
-            guard let slotText = capture(call, 1, in: source),
+            guard let slotText = SceneShaderSourceTextFacts.capture(call, 1, in: source),
                   let slot = Int(slotText),
                   let callRange = Range(call.range, in: source) else {
                 return nil
@@ -142,25 +142,4 @@ inline float4 \(unpremultiply)(float4 color) {
         return result
     }
 
-    private static func matches(
-        _ pattern: String,
-        in source: String
-    ) -> [NSTextCheckingResult] {
-        (try? NSRegularExpression(pattern: pattern))?.matches(
-            in: source,
-            range: NSRange(source.startIndex..., in: source)
-        ) ?? []
-    }
-    private static func capture(
-        _ match: NSTextCheckingResult,
-        _ index: Int,
-        in source: String
-    ) -> String? {
-        guard index < match.numberOfRanges,
-              match.range(at: index).location != NSNotFound,
-              let range = Range(match.range(at: index), in: source) else {
-            return nil
-        }
-        return String(source[range])
-    }
 }

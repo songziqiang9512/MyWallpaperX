@@ -16,12 +16,12 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
         guard (0 ..< 8).contains(expectedSlot),
               !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
               !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
               let calls = compilerTextureSampleCalls(in: source),
               calls.count == 1,
               calls[0].slot == expectedSlot else { return nil }
 
-        let declarations = matches(
+        let declarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
                 + String(expectedSlot)
                 + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
@@ -29,17 +29,17 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
         )
         guard declarations.count == 1,
               let declaration = declarations.first,
-              let local = capture(declaration, 2, in: source),
+              let local = SceneShaderSourceTextFacts.capture(declaration, 2, in: source),
               !local.isEmpty else { return nil }
 
-        let outputs = matches(
+        let outputs = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*([A-Za-z_]\w*)\s*;[ \t]*$"#,
             in: source
         )
         guard outputs.count == 1,
               let output = outputs.first,
-              capture(output, 2, in: source) == local,
-              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
+              SceneShaderSourceTextFacts.capture(output, 2, in: source) == local,
+              SceneShaderSourceTextFacts.matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
               declaration.range.location < output.range.location,
               hasDirectMemberRewrite(
                   local: local,
@@ -68,11 +68,11 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
     ) -> Bool {
         let escapedLocal = SceneShaderSourceTextFacts.escaped(local)
         let prefix = #"(?m)^\s*"# + escapedLocal
-        let componentWrite = matches(
+        let componentWrite = SceneShaderSourceTextFacts.matches(
             prefix + #"\.(?:x|y|z|r|g|b|a|w)\s*(?:=|\+=|-=|\*=|/=)\s*[^;]+;[ \t]*$"#,
             in: source
         )
-        let vectorWrite = matches(
+        let vectorWrite = SceneShaderSourceTextFacts.matches(
             prefix + #"\.(?:xyz|rgb|xyzw|rgba)\s*(?:=|\+=|-=|\*=|/=)\s*[^;]+;[ \t]*$"#,
             in: source
         )
@@ -87,7 +87,7 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
     static func lowerPreserving(_ source: String, expectedSlot: Int) -> String? {
         guard !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
               !SceneShaderSourceTextFacts.containsWord(premultiply, in: source) else { return nil }
-        let declarations = matches(
+        let declarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
                 + String(expectedSlot)
                 + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
@@ -99,23 +99,23 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
                 expectedSlot: expectedSlot
             ) ?? lowerComposed(source, expectedSlot: expectedSlot)
         }
-        guard let prefix = capture(declarations[0], 1, in: source),
-              let local = capture(declarations[0], 2, in: source),
-              let arguments = capture(declarations[0], 3, in: source),
-              let suffix = capture(declarations[0], 4, in: source),
+        guard let prefix = SceneShaderSourceTextFacts.capture(declarations[0], 1, in: source),
+              let local = SceneShaderSourceTextFacts.capture(declarations[0], 2, in: source),
+              let arguments = SceneShaderSourceTextFacts.capture(declarations[0], 3, in: source),
+              let suffix = SceneShaderSourceTextFacts.capture(declarations[0], 4, in: source),
               !prefix.isEmpty, !local.isEmpty,
               !arguments.isEmpty, !suffix.isEmpty else { return nil }
-        let outputs = matches(
+        let outputs = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*"#
                 + SceneShaderSourceTextFacts.escaped(local) + #"\s*;[ \t]*$"#,
             in: source
         )
         guard outputs.count == 1,
-              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
+              SceneShaderSourceTextFacts.matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
               declarations[0].range.location < outputs[0].range.location,
               let outputRange = Range(outputs[0].range, in: source),
-              let indent = capture(outputs[0], 1, in: source),
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
+              let indent = SceneShaderSourceTextFacts.capture(outputs[0], 1, in: source),
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
         else {
             return SceneGenericShaderScalarizedRGBPreservedAlphaLowering
                 .lower(source, expectedSlot: expectedSlot)
@@ -150,19 +150,19 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
     ) -> String? {
         guard !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
               !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
         else { return nil }
-        let declarations = matches(
+        let declarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
                 + String(expectedSlot)
                 + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
             in: source
         )
-        let allSampleCalls = matches(
+        let allSampleCalls = SceneShaderSourceTextFacts.matches(
             #"\bg_Texture[0-7]\.sample\s*\("#,
             in: source
         )
-        let outputs = matches(
+        let outputs = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*([A-Za-z_]\w*)\s*;[ \t]*$"#,
             in: source
         )
@@ -171,34 +171,34 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
               outputs.count == 1,
               let output = outputs.first,
               let outputRange = Range(output.range, in: source),
-              let indent = capture(output, 1, in: source),
-              let carrier = capture(output, 2, in: source),
+              let indent = SceneShaderSourceTextFacts.capture(output, 1, in: source),
+              let carrier = SceneShaderSourceTextFacts.capture(output, 2, in: source),
               declarations.allSatisfy({ $0.range.location < output.range.location })
         else { return nil }
 
-        let sampledNames = declarations.compactMap { capture($0, 2, in: source) }
+        let sampledNames = declarations.compactMap { SceneShaderSourceTextFacts.capture($0, 2, in: source) }
         guard sampledNames.count == declarations.count,
               Set(sampledNames).count == sampledNames.count else { return nil }
         let carrierPattern = SceneShaderSourceTextFacts.escaped(carrier)
-        let carrierDefinitions = matches(
+        let carrierDefinitions = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*float4\s+"# + carrierPattern
                 + #"\s*=\s*([A-Za-z_]\w*)\s*;[ \t]*$"#,
             in: source
         )
         guard carrierDefinitions.count == 1,
-              let base = capture(carrierDefinitions[0], 1, in: source),
+              let base = SceneShaderSourceTextFacts.capture(carrierDefinitions[0], 1, in: source),
               sampledNames.contains(base),
               carrierDefinitions[0].range.location < output.range.location else {
             return nil
         }
-        let writes = matches(
+        let writes = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*"# + carrierPattern
                 + #"\.([xyz])\s*=\s*([A-Za-z_]\w*)\.([xyz])\s*;[ \t]*$"#,
             in: source
         )
-        let writeComponents = writes.compactMap { capture($0, 1, in: source) }
-        let writeSources = writes.compactMap { capture($0, 2, in: source) }
-        let sourceComponents = writes.compactMap { capture($0, 3, in: source) }
+        let writeComponents = writes.compactMap { SceneShaderSourceTextFacts.capture($0, 1, in: source) }
+        let writeSources = writes.compactMap { SceneShaderSourceTextFacts.capture($0, 2, in: source) }
+        let sourceComponents = writes.compactMap { SceneShaderSourceTextFacts.capture($0, 3, in: source) }
         guard !writes.isEmpty,
               writeComponents.count == writes.count,
               writeSources.count == writes.count,
@@ -215,7 +215,7 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
               SceneShaderSourceTextFacts.countWord(base, in: source) == 2,
               writeSources.allSatisfy({ SceneShaderSourceTextFacts.countWord($0, in: source) == 2 }),
               SceneShaderSourceTextFacts.countWord(carrier, in: source) == writes.count + 2,
-              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1 else {
+              SceneShaderSourceTextFacts.matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1 else {
             return nil
         }
 
@@ -225,9 +225,9 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
             with: "\(indent)out.mwxFragColor = \(premultiply)(\(carrier));"
         )
         for declaration in declarations.sorted(by: { $0.range.location > $1.range.location }) {
-            guard let prefix = capture(declaration, 1, in: source),
-                  let arguments = capture(declaration, 3, in: source),
-                  let suffix = capture(declaration, 4, in: source),
+            guard let prefix = SceneShaderSourceTextFacts.capture(declaration, 1, in: source),
+                  let arguments = SceneShaderSourceTextFacts.capture(declaration, 3, in: source),
+                  let suffix = SceneShaderSourceTextFacts.capture(declaration, 4, in: source),
                   let range = Range(declaration.range, in: transformed) else {
                 return nil
             }
@@ -242,26 +242,26 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
     static func lowerComposed(_ source: String, expectedSlot: Int) -> String? {
         guard !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
               !SceneShaderSourceTextFacts.containsWord(premultiply, in: source) else { return nil }
-        let declarations = matches(
+        let declarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
                 + String(expectedSlot)
                 + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
             in: source
         )
-        let outputs = matches(
+        let outputs = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*float4\(\s*([A-Za-z_]\w*)\s*,\s*([A-Za-z_]\w*)(?:\.w)?\s*\);[ \t]*$"#,
             in: source
         )
         guard !declarations.isEmpty, outputs.count == 1,
               let output = outputs.first,
               let outputRange = Range(output.range, in: source),
-              let colorName = capture(output, 2, in: source),
-              let alphaName = capture(output, 3, in: source),
-              let indent = capture(output, 1, in: source),
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1 else {
+              let colorName = SceneShaderSourceTextFacts.capture(output, 2, in: source),
+              let alphaName = SceneShaderSourceTextFacts.capture(output, 3, in: source),
+              let indent = SceneShaderSourceTextFacts.capture(output, 1, in: source),
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1 else {
             return nil
         }
-        let sampledNames = declarations.compactMap { capture($0, 2, in: source) }
+        let sampledNames = declarations.compactMap { SceneShaderSourceTextFacts.capture($0, 2, in: source) }
         guard sampledNames.count == declarations.count,
               Set(sampledNames).count == sampledNames.count,
               colorName != alphaName,
@@ -278,9 +278,9 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
             with: "\(indent)out.mwxFragColor = \(premultiply)(float4(\(colorName), \(alphaName)));"
         )
         for declaration in declarations.sorted(by: { $0.range.location > $1.range.location }) {
-            guard let prefix = capture(declaration, 1, in: source),
-                  let arguments = capture(declaration, 3, in: source),
-                  let suffix = capture(declaration, 4, in: source),
+            guard let prefix = SceneShaderSourceTextFacts.capture(declaration, 1, in: source),
+                  let arguments = SceneShaderSourceTextFacts.capture(declaration, 3, in: source),
+                  let suffix = SceneShaderSourceTextFacts.capture(declaration, 4, in: source),
                   let declarationRange = Range(declaration.range, in: transformed) else {
                 return nil
             }
@@ -322,28 +322,28 @@ inline float4 \(premultiply)(float4 color) {
     ) -> String? {
         guard !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
               !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1 else {
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1 else {
             return nil
         }
-        let declarations = matches(
+        let declarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
                 + String(expectedSlot)
                 + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
             in: source
         )
-        let outputWrites = matches(
+        let outputWrites = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*out\.mwxFragColor(?:\.([xyzwrgba]{1,4}))?\s*="#,
             in: source
         )
         let wholeWrites = outputWrites.filter {
-            capture($0, 1, in: source) == nil
+            SceneShaderSourceTextFacts.capture($0, 1, in: source) == nil
         }
         let componentWrites = outputWrites.compactMap {
-            capture($0, 1, in: source)
+            SceneShaderSourceTextFacts.capture($0, 1, in: source)
         }.sorted()
         let completeColorWrite = componentWrites == ["w", "xyz"]
             || componentWrites == ["w", "x", "y", "z"]
-        let returns = matches(
+        let returns = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*)return\s+out\s*;[ \t]*$"#,
             in: source
         )
@@ -352,10 +352,10 @@ inline float4 \(premultiply)(float4 color) {
               completeColorWrite,
               returns.count == 1,
               let terminalReturn = returns.first,
-              let returnIndent = capture(terminalReturn, 1, in: source),
+              let returnIndent = SceneShaderSourceTextFacts.capture(terminalReturn, 1, in: source),
               declarations.allSatisfy({ $0.range.location < terminalReturn.range.location }),
               outputWrites.allSatisfy({ $0.range.location < terminalReturn.range.location }),
-              matches(#"\bout\.mwxFragColor\b"#, in: source).count
+              SceneShaderSourceTextFacts.matches(#"\bout\.mwxFragColor\b"#, in: source).count
                 == outputWrites.count else {
             return nil
         }
@@ -370,9 +370,9 @@ inline float4 \(premultiply)(float4 color) {
                 + "\(returnIndent)return out;"
         )
         for declaration in declarations.sorted(by: { $0.range.location > $1.range.location }) {
-            guard let prefix = capture(declaration, 1, in: source),
-                  let arguments = capture(declaration, 3, in: source),
-                  let suffix = capture(declaration, 4, in: source),
+            guard let prefix = SceneShaderSourceTextFacts.capture(declaration, 1, in: source),
+                  let arguments = SceneShaderSourceTextFacts.capture(declaration, 3, in: source),
+                  let suffix = SceneShaderSourceTextFacts.capture(declaration, 4, in: source),
                   let range = Range(declaration.range, in: transformed) else {
                 return nil
             }
@@ -395,28 +395,28 @@ inline float4 \(premultiply)(float4 color) {
     ) -> String? {
         guard !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
               !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1 else {
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1 else {
             return nil
         }
-        let declarations = matches(
+        let declarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
                 + String(expectedSlot)
                 + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
             in: source
         )
-        let outputs = matches(
+        let outputs = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*float4\(\s*([A-Za-z_]\w*)\s*,\s*([A-Za-z_]\w*)\s*\);[ \t]*$"#,
             in: source
         )
         guard !declarations.isEmpty, outputs.count == 1,
               let output = outputs.first,
               let outputRange = Range(output.range, in: source),
-              let colorName = capture(output, 2, in: source),
-              let alphaName = capture(output, 3, in: source),
-              let indent = capture(output, 1, in: source),
+              let colorName = SceneShaderSourceTextFacts.capture(output, 2, in: source),
+              let alphaName = SceneShaderSourceTextFacts.capture(output, 3, in: source),
+              let indent = SceneShaderSourceTextFacts.capture(output, 1, in: source),
               colorName != alphaName,
               declarations.allSatisfy({ $0.range.location < output.range.location }),
-              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1 else {
+              SceneShaderSourceTextFacts.matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1 else {
             return nil
         }
 
@@ -426,9 +426,9 @@ inline float4 \(premultiply)(float4 color) {
             with: "\(indent)out.mwxFragColor = \(premultiply)(float4(\(colorName), \(alphaName)));"
         )
         for declaration in declarations.sorted(by: { $0.range.location > $1.range.location }) {
-            guard let prefix = capture(declaration, 1, in: source),
-                  let arguments = capture(declaration, 3, in: source),
-                  let suffix = capture(declaration, 4, in: source),
+            guard let prefix = SceneShaderSourceTextFacts.capture(declaration, 1, in: source),
+                  let arguments = SceneShaderSourceTextFacts.capture(declaration, 3, in: source),
+                  let suffix = SceneShaderSourceTextFacts.capture(declaration, 4, in: source),
                   let range = Range(declaration.range, in: transformed) else {
                 return nil
             }
@@ -458,21 +458,21 @@ inline float4 \(premultiply)(float4 color) {
         guard (1 ... 16).contains(sampleCount),
               !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
               !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
-              matches(#"\b(if|for|while|do|switch|discard)\b"#, in: source).isEmpty
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
+              SceneShaderSourceTextFacts.matches(#"\b(if|for|while|do|switch|discard)\b"#, in: source).isEmpty
         else { return nil }
 
         let denominator = String(sampleCount) + #"(?:\.0+)?"#
-        let wholeOutputs = matches(
+        let wholeOutputs = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*float4\(\s*([A-Za-z_]\w*)\.xyz\s*,\s*\2\.w\s*/\s*"#
                 + denominator + #"\s*\);[ \t]*$"#,
             in: source
         )
-        let memberRGBOutputs = matches(
+        let memberRGBOutputs = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\.(?:xyz|rgb)\s*=\s*([A-Za-z_]\w*)\.(?:xyz|rgb)\s*/\s*float3\(\s*fast::max\(\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([A-Za-z_]\w*)\s*\)\s*\)\s*;[ \t]*$"#,
             in: source
         )
-        let memberAlphaOutputs = matches(
+        let memberAlphaOutputs = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\.(?:w|a)\s*=\s*([A-Za-z_]\w*)\.(?:w|a)\s*/\s*"#
                 + denominator + #"\s*;[ \t]*$"#,
             in: source
@@ -490,8 +490,8 @@ inline float4 \(premultiply)(float4 color) {
            memberAlphaOutputs.isEmpty,
            let whole = wholeOutputs.first,
            let range = Range(whole.range, in: source),
-           let capturedIndent = capture(whole, 1, in: source),
-           let capturedAccumulator = capture(whole, 2, in: source) {
+           let capturedIndent = SceneShaderSourceTextFacts.capture(whole, 1, in: source),
+           let capturedAccumulator = SceneShaderSourceTextFacts.capture(whole, 2, in: source) {
             output = whole
             outputRange = range
             indent = capturedIndent
@@ -504,11 +504,11 @@ inline float4 \(premultiply)(float4 color) {
                   NSMaxRange(rgb.range) <= alpha.range.location,
                   let rangeStart = Range(rgb.range, in: source)?.lowerBound,
                   let rangeEnd = Range(alpha.range, in: source)?.upperBound,
-                  let capturedIndent = capture(rgb, 1, in: source),
-                  let capturedAccumulator = capture(rgb, 2, in: source),
-                  capture(alpha, 2, in: source) == capturedAccumulator,
-                  let capturedWeight = capture(rgb, 4, in: source),
-                  let capturedEpsilon = capture(rgb, 3, in: source),
+                  let capturedIndent = SceneShaderSourceTextFacts.capture(rgb, 1, in: source),
+                  let capturedAccumulator = SceneShaderSourceTextFacts.capture(rgb, 2, in: source),
+                  SceneShaderSourceTextFacts.capture(alpha, 2, in: source) == capturedAccumulator,
+                  let capturedWeight = SceneShaderSourceTextFacts.capture(rgb, 4, in: source),
+                  let capturedEpsilon = SceneShaderSourceTextFacts.capture(rgb, 3, in: source),
                   Double(capturedEpsilon).map({
                       $0.isFinite && $0 > 0
                   }) == true {
@@ -520,10 +520,10 @@ inline float4 \(premultiply)(float4 color) {
         } else {
             return nil
         }
-        guard matches(#"\bout\.mwxFragColor\b"#, in: source).count
+        guard SceneShaderSourceTextFacts.matches(#"\bout\.mwxFragColor\b"#, in: source).count
                 == (memberwiseOutput ? 2 : 1) else { return nil }
 
-        let firstSamples = matches(
+        let firstSamples = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
                 + String(expectedSlot)
                 + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
@@ -531,8 +531,8 @@ inline float4 \(premultiply)(float4 color) {
         )
         guard firstSamples.count == 1,
               let firstSample = firstSamples.first,
-              let sample = capture(firstSample, 2, in: source) else { return nil }
-        let repeatedSamples = matches(
+              let sample = SceneShaderSourceTextFacts.capture(firstSample, 2, in: source) else { return nil }
+        let repeatedSamples = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*"# + SceneShaderSourceTextFacts.escaped(sample)
                 + #"\s*=\s*)g_Texture"# + String(expectedSlot)
                 + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
@@ -540,19 +540,19 @@ inline float4 \(premultiply)(float4 color) {
         )
         let sampleStatements = firstSamples + repeatedSamples
         guard sampleStatements.count == sampleCount,
-              matches(#"\bg_Texture[0-7]\.sample\s*\("#, in: source).count
+              SceneShaderSourceTextFacts.matches(#"\bg_Texture[0-7]\.sample\s*\("#, in: source).count
                 == sampleCount,
               sampleStatements.allSatisfy({ $0.range.location < output.range.location })
         else { return nil }
 
         let accumulatorPattern = SceneShaderSourceTextFacts.escaped(accumulator)
         let samplePattern = SceneShaderSourceTextFacts.escaped(sample)
-        let accumulatorDeclarations = matches(
+        let accumulatorDeclarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*float4\s+"# + accumulatorPattern
                 + #"\s*=\s*float4\(\s*0(?:\.0+)?\s*\)\s*;[ \t]*$"#,
             in: source
         )
-        let accumulatorWrites = matches(
+        let accumulatorWrites = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*"# + accumulatorPattern + #"\s*\+=\s*\(\s*"#
                 + samplePattern + #"\s*\*\s*"# + samplePattern
                 + #"\.w\s*\)\s*;[ \t]*$"#,
@@ -561,19 +561,19 @@ inline float4 \(premultiply)(float4 color) {
         guard accumulatorDeclarations.count == 1,
               accumulatorWrites.count == sampleCount else { return nil }
 
-        let weightDeclarations = matches(
+        let weightDeclarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*float\s+([A-Za-z_]\w*)\s*=\s*0(?:\.0+)?\s*;[ \t]*$"#,
             in: source
         ).filter { match in
-            guard let name = capture(match, 1, in: source) else { return false }
-            return matches(
+            guard let name = SceneShaderSourceTextFacts.capture(match, 1, in: source) else { return false }
+            return SceneShaderSourceTextFacts.matches(
                 #"(?m)^[ \t]*"# + SceneShaderSourceTextFacts.escaped(name) + #"\s*\+=\s*"#
                     + samplePattern + #"\.w\s*;[ \t]*$"#,
                 in: source
             ).count == sampleCount
         }
         guard weightDeclarations.count == 1,
-              let weight = capture(weightDeclarations[0], 1, in: source),
+              let weight = SceneShaderSourceTextFacts.capture(weightDeclarations[0], 1, in: source),
               memberNormalization.map({ $0.weight == weight }) ?? true else {
             return nil
         }
@@ -596,10 +596,10 @@ inline float4 \(premultiply)(float4 color) {
                 let isDeclaration = statement.numberOfRanges == 5
                 let argumentsIndex = isDeclaration ? 3 : 2
                 let suffixIndex = isDeclaration ? 4 : 3
-                guard let prefix = capture(statement, 1, in: source),
-                      let arguments = capture(
+                guard let prefix = SceneShaderSourceTextFacts.capture(statement, 1, in: source),
+                      let arguments = SceneShaderSourceTextFacts.capture(
                           statement, argumentsIndex, in: source
-                      ), let suffix = capture(statement, suffixIndex, in: source),
+                      ), let suffix = SceneShaderSourceTextFacts.capture(statement, suffixIndex, in: source),
                       let range = Range(statement.range, in: transformed) else {
                     return nil
                 }
@@ -611,16 +611,16 @@ inline float4 \(premultiply)(float4 color) {
             return insertingBoundaryHelpers(into: transformed)
         }
 
-        let accumulatorCopies = matches(
+        let accumulatorCopies = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*"#
                 + accumulatorPattern + #"\s*;[ \t]*$"#,
             in: source
         )
         guard accumulatorCopies.count == 1,
-              let copy = capture(accumulatorCopies[0], 1, in: source) else {
+              let copy = SceneShaderSourceTextFacts.capture(accumulatorCopies[0], 1, in: source) else {
             return nil
         }
-        let normalizedDeclarations = matches(
+        let normalizedDeclarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*float3\s+([A-Za-z_]\w*)\s*=\s*"#
                 + SceneShaderSourceTextFacts.escaped(copy)
                 + #"\.xyz\s*/\s*float3\(\s*fast::max\(\s*[0-9]+(?:\.[0-9]+)?\s*,\s*"#
@@ -628,9 +628,9 @@ inline float4 \(premultiply)(float4 color) {
             in: source
         )
         guard normalizedDeclarations.count == 1,
-              let normalized = capture(normalizedDeclarations[0], 1, in: source),
+              let normalized = SceneShaderSourceTextFacts.capture(normalizedDeclarations[0], 1, in: source),
               ["x", "y", "z"].allSatisfy({ component in
-                  matches(
+                  SceneShaderSourceTextFacts.matches(
                       #"(?m)^[ \t]*"# + accumulatorPattern + #"\."#
                           + component + #"\s*=\s*"# + SceneShaderSourceTextFacts.escaped(normalized)
                           + #"\."# + component + #"\s*;[ \t]*$"#,
@@ -655,9 +655,9 @@ inline float4 \(premultiply)(float4 color) {
             let prefixIndex = 1
             let argumentsIndex = isDeclaration ? 3 : 2
             let suffixIndex = isDeclaration ? 4 : 3
-            guard let prefix = capture(statement, prefixIndex, in: source),
-                  let arguments = capture(statement, argumentsIndex, in: source),
-                  let suffix = capture(statement, suffixIndex, in: source),
+            guard let prefix = SceneShaderSourceTextFacts.capture(statement, prefixIndex, in: source),
+                  let arguments = SceneShaderSourceTextFacts.capture(statement, argumentsIndex, in: source),
+                  let suffix = SceneShaderSourceTextFacts.capture(statement, suffixIndex, in: source),
                   let range = Range(statement.range, in: transformed) else {
                 return nil
             }
@@ -693,20 +693,20 @@ inline float4 \(premultiply)(float4 color) {
             scalarDataSampleCallCounts: scalarDataSampleCallCounts
         ) else { return nil }
 
-        let outputs = matches(
+        let outputs = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*([A-Za-z_]\w*)\s*;[ \t]*$"#,
             in: source
         )
         guard outputs.count == 1,
               let output = outputs.first,
               let outputRange = Range(output.range, in: source),
-              let indent = capture(output, 1, in: source),
-              let carrier = capture(output, 2, in: source),
-              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
-              matches(#"(?m)^[ \t]*return\s+out\s*;[ \t]*$"#, in: source).count == 1,
+              let indent = SceneShaderSourceTextFacts.capture(output, 1, in: source),
+              let carrier = SceneShaderSourceTextFacts.capture(output, 2, in: source),
+              SceneShaderSourceTextFacts.matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
+              SceneShaderSourceTextFacts.matches(#"(?m)^[ \t]*return\s+out\s*;[ \t]*$"#, in: source).count == 1,
               calls.allSatisfy({ $0.range.location < output.range.location })
         else { return nil }
-        guard matches(
+        guard SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*float4\s+\#(SceneShaderSourceTextFacts.escaped(carrier))\s*=\s*g_Texture\#(sourceSlot)\.sample\([^;]+\)\s*;[ \t]*$"#,
             in: source
         ).count == 1 else { return nil }

@@ -327,7 +327,7 @@ extension SceneGenericShaderArtifactBuilder {
         transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
     ) {
         if let straight = straightAlphaAttenuation(source) { return straight }
-        let assignments = matches(
+        let assignments = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*out\.mwxFragColor\s*=.*;$"#,
             in: source
         )
@@ -430,13 +430,13 @@ extension SceneGenericShaderArtifactBuilder {
 
         var slots: [Int] = []
         for name in output.prefix(2) {
-            let declarations = matches(
+            let declarations = SceneShaderSourceTextFacts.matches(
                 #"(?m)^[ \t]*float4\s+"# + SceneShaderSourceTextFacts.escaped(name)
                     + #"\s*=\s*g_Texture([0-7])\.sample\([^;]+\)\s*;$"#,
                 in: source
             )
             guard declarations.count == 1,
-                  let slotText = capture(declarations[0], 1, in: source),
+                  let slotText = SceneShaderSourceTextFacts.capture(declarations[0], 1, in: source),
                   let slot = Int(slotText),
                   SceneShaderSourceTextFacts.countWord(name, in: source) == 2 else { return nil }
             slots.append(slot)
@@ -444,7 +444,7 @@ extension SceneGenericShaderArtifactBuilder {
 
         let weight = output[2].trimmingCharacters(in: .whitespacesAndNewlines)
         if !regexMatches(#"^[-+]?(?:\d+(?:\.\d*)?|\.\d+)$"#, weight) {
-            guard matches(
+            guard SceneShaderSourceTextFacts.matches(
                 #"(?m)^[ \t]*float\s+"# + SceneShaderSourceTextFacts.escaped(weight) + #"\s*=\s*[^;]+;$"#,
                 in: source
             ).count == 1 else { return nil }
@@ -462,7 +462,7 @@ extension SceneGenericShaderArtifactBuilder {
         msl: String,
         transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
     )? {
-        let assignments = matches(
+        let assignments = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*out\.mwxFragColor\s*=.*;$"#,
             in: source
         )
@@ -480,10 +480,10 @@ extension SceneGenericShaderArtifactBuilder {
         )?.first, let slot = Int(slotText) else { return nil }
         let attenuationPattern = #"(?m)^([ \t]*)"# + namePattern
             + #"\.w\s*\*=\s*([^;]+)\s*;$"#
-        let attenuation = matches(attenuationPattern, in: source)
+        let attenuation = SceneShaderSourceTextFacts.matches(attenuationPattern, in: source)
         guard attenuation.count == 1,
-              let indent = capture(attenuation[0], 1, in: source),
-              let factor = capture(attenuation[0], 2, in: source),
+              let indent = SceneShaderSourceTextFacts.capture(attenuation[0], 1, in: source),
+              let factor = SceneShaderSourceTextFacts.capture(attenuation[0], 2, in: source),
               !SceneShaderSourceTextFacts.containsWord(name, in: factor) else { return nil }
         let writes = capturesAll(
             #"(?m)^\s*"# + namePattern
@@ -492,7 +492,7 @@ extension SceneGenericShaderArtifactBuilder {
             group: 1
         )
         guard writes == ["w"],
-              SceneShaderSourceTextFacts.countWord(name, in: source) == 3 + matches(
+              SceneShaderSourceTextFacts.countWord(name, in: source) == 3 + SceneShaderSourceTextFacts.matches(
                   #"\b"# + namePattern + #"\.(?:[xyzrgb]{1,3})\b"#, in: source
               ).count,
               straightAlphaAttenuationUsesAreLinear(
@@ -545,7 +545,7 @@ extension SceneGenericShaderArtifactBuilder {
         output: NSRange
     ) -> Bool {
         let namePattern = SceneShaderSourceTextFacts.escaped(name)
-        let uses = matches(#"\b"# + namePattern + #"\b"#, in: source)
+        let uses = SceneShaderSourceTextFacts.matches(#"\b"# + namePattern + #"\b"#, in: source)
         let sourceNSString = source as NSString
         let declarationRange = declaration.map { NSRange($0, in: source) }
         let allowedRGBMembers: Set<String> = [

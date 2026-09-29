@@ -101,7 +101,7 @@
     },
     {
       "name": "matches",
-      "allowedCopies": 27,
+      "allowedCopies": 8,
       "canonical": "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
       "note": "Reviewed non-private regex pipeline; literal patterns must not be re-plumbed per file.",
       "owner": "Compilation/ShaderPreparation family merge",
@@ -109,7 +109,7 @@
     },
     {
       "name": "capture",
-      "allowedCopies": 25,
+      "allowedCopies": 8,
       "canonical": "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
       "note": "Reviewed non-private regex pipeline.",
       "owner": "Compilation/ShaderPreparation family merge",
@@ -184,7 +184,7 @@
     {
       "id": "try-optional-regex",
       "pattern": "try\\?[ \\t]+NSRegularExpression\\(pattern:",
-      "allowedOccurrences": 19,
+      "allowedOccurrences": 4,
       "note": "Locked retirement list: all 19 sites pass a runtime-composed pattern, so the shared reviewed policy (one helper, `try!` on fixed patterns) is not applied there yet.",
       "owner": "Compilation/ShaderPreparation lowering files",
       "retirement": "Route every site through the reviewed regex helper, then ratchet this count to 0."

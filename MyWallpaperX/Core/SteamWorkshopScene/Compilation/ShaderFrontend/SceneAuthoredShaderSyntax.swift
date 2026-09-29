@@ -375,3 +375,31 @@ extension SceneShaderSourceTextFacts {
         Range(range, in: source).map { String(source[$0]) }
     }
 }
+
+extension SceneShaderSourceTextFacts {
+    /// Family regex entry point. Every pattern reaching it was audited
+    /// (2026-09-29) to be a literal or a concatenation of escaped/digit text, so
+    /// compilation cannot fail; a silent empty result would hide a broken pattern
+    /// behind "no matches", which the reviewed policy forbids for fixed patterns.
+    static func matches(
+        _ pattern: String,
+        in source: String,
+        range: NSRange? = nil
+    ) -> [NSTextCheckingResult] {
+        try! NSRegularExpression(pattern: pattern).matches(
+            in: source,
+            range: range ?? NSRange(source.startIndex..., in: source)
+        )
+    }
+
+    static func capture(
+        _ match: NSTextCheckingResult,
+        _ index: Int,
+        in source: String
+    ) -> String? {
+        guard index < match.numberOfRanges,
+              match.range(at: index).location != NSNotFound,
+              let range = Range(match.range(at: index), in: source) else { return nil }
+        return String(source[range])
+    }
+}

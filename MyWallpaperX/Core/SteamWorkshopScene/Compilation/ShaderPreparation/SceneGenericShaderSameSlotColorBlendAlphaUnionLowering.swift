@@ -39,9 +39,9 @@ nonisolated enum SceneGenericShaderSameSlotColorBlendAlphaUnionLowering {
         guard (0 ..< 8).contains(fact.sourceSlot),
               fact.maskSlot.map({ (0 ..< 8).contains($0) }) ?? true,
               fact.maskSlot != fact.sourceSlot,
-              matches(#"\bmwxGeneric(?:Unpremultiply|Premultiply)\b"#, in: source)
+              SceneShaderSourceTextFacts.matches(#"\bmwxGeneric(?:Unpremultiply|Premultiply)\b"#, in: source)
                 .isEmpty,
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
               let body = fragmentBodyRange(in: source),
               compilerBodyIsLinear(body, source: source),
               let calls = SceneGenericShaderStraightAlphaPreservingLowering
@@ -54,7 +54,7 @@ nonisolated enum SceneGenericShaderSameSlotColorBlendAlphaUnionLowering {
             return nil
         }
 
-        let colorDeclarations = matches(
+        let colorDeclarations = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
                 + String(fact.sourceSlot)
                 + #"\.sample\(([^;\n]+)\)(\s*;[ \t]*)$"#,
@@ -62,12 +62,12 @@ nonisolated enum SceneGenericShaderSameSlotColorBlendAlphaUnionLowering {
         )
         guard colorDeclarations.count == 2,
               colorDeclarations.allSatisfy({ contains(body, $0.range) }),
-              let base = capture(colorDeclarations[0], 2, in: source),
-              let reflected = capture(colorDeclarations[1], 2, in: source),
+              let base = SceneShaderSourceTextFacts.capture(colorDeclarations[0], 2, in: source),
+              let reflected = SceneShaderSourceTextFacts.capture(colorDeclarations[1], 2, in: source),
               base != reflected else { return nil }
 
         if let maskSlot = fact.maskSlot {
-            let masks = matches(
+            let masks = SceneShaderSourceTextFacts.matches(
                 #"(?m)^[ \t]*float\s+[A-Za-z_]\w*\s*=\s*g_Texture"#
                     + String(maskSlot)
                     + #"\.sample\([^;\n]+\)\.(?:x|r)\s*;[ \t]*$"#,
@@ -86,7 +86,7 @@ nonisolated enum SceneGenericShaderSameSlotColorBlendAlphaUnionLowering {
             mode: fact.blendMode
         ) else { return nil }
 
-        let alphaWrites = matches(
+        let alphaWrites = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\.(?:w|a)\s*=\s*(?:fast::)?min\s*\(\s*1(?:\.0+)?f?\s*,\s*"#
                 + #"(.+?)\s*\)\s*;[ \t]*$"#,
             in: source
@@ -94,14 +94,14 @@ nonisolated enum SceneGenericShaderSameSlotColorBlendAlphaUnionLowering {
         guard alphaWrites.count == 1,
               let alpha = alphaWrites.first,
               contains(body, alpha.range),
-              let alphaUnion = capture(alpha, 2, in: source),
+              let alphaUnion = SceneShaderSourceTextFacts.capture(alpha, 2, in: source),
               alphaUnionUsesSameFactor(
                 alphaUnion,
                 base: base,
                 reflected: reflected,
                 rgbFactor: rgb.factor
               ),
-              matches(#"\bout\.mwxFragColor\b"#, in: source).count
+              SceneShaderSourceTextFacts.matches(#"\bout\.mwxFragColor\b"#, in: source).count
                 == rgb.outputWriteCount + 1,
               SceneShaderSourceTextFacts.countWord(base, in: source) == 3,
               SceneShaderSourceTextFacts.countWord(reflected, in: source) == 3,
@@ -110,17 +110,17 @@ nonisolated enum SceneGenericShaderSameSlotColorBlendAlphaUnionLowering {
               colorDeclarations[1].range.location < rgb.firstRange.location,
               NSMaxRange(rgb.lastRange) < alpha.range.location,
               terminalTail(after: alpha.range, within: body, source: source),
-              matches(
+              SceneShaderSourceTextFacts.matches(
                 #"(?m)^([ \t]*)return\s+out\s*;[ \t]*$"#,
                 in: source
               ).count == 1,
-              let returnStatement = matches(
+              let returnStatement = SceneShaderSourceTextFacts.matches(
                 #"(?m)^([ \t]*)return\s+out\s*;[ \t]*$"#,
                 in: source
               ).first,
               contains(body, returnStatement.range),
               let returnRange = Range(returnStatement.range, in: source),
-              let indent = capture(returnStatement, 1, in: source) else {
+              let indent = SceneShaderSourceTextFacts.capture(returnStatement, 1, in: source) else {
             return nil
         }
 
@@ -161,7 +161,7 @@ nonisolated enum SceneGenericShaderSameSlotColorBlendAlphaUnionLowering {
         reflected: String,
         mode: Int
     ) -> CompilerRGBBlend? {
-        let direct = matches(
+        let direct = SceneShaderSourceTextFacts.matches(
             #"(?ms)^([ \t]*)out\.mwxFragColor\.(?:xyz|rgb)\s*=\s*ApplyBlending\s*\(\s*"#
                 + String(mode) + #"\s*,\s*"#
                 + SceneShaderSourceTextFacts.escaped(base) + #"\.(?:xyz|rgb)\s*,\s*"#
@@ -170,7 +170,7 @@ nonisolated enum SceneGenericShaderSameSlotColorBlendAlphaUnionLowering {
         )
         if direct.count == 1, let match = direct.first,
            contains(body, match.range),
-           let factor = capture(match, 2, in: source),
+           let factor = SceneShaderSourceTextFacts.capture(match, 2, in: source),
            !normalizedExpression(factor).isEmpty {
             return .init(
                 factor: factor,
@@ -180,7 +180,7 @@ nonisolated enum SceneGenericShaderSameSlotColorBlendAlphaUnionLowering {
             )
         }
 
-        let constantTemporary = matches(
+        let constantTemporary = SceneShaderSourceTextFacts.matches(
             #"(?ms)^([ \t]*)float3\s+([A-Za-z_]\w*)\s*=\s*"#
                 + SceneShaderSourceTextFacts.escaped(base) + #"\.(?:xyz|rgb)\s*;\s*^\1float3\s+([A-Za-z_]\w*)\s*=\s*"#
                 + SceneShaderSourceTextFacts.escaped(reflected) + #"\.(?:xyz|rgb)\s*;\s*^\1float\s+([A-Za-z_]\w*)\s*=\s*(.*?)\s*;\s*^\1float3\s+([A-Za-z_]\w*)\s*=\s*ApplyBlending\s*\(\s*"#
@@ -190,7 +190,7 @@ nonisolated enum SceneGenericShaderSameSlotColorBlendAlphaUnionLowering {
         if constantTemporary.count == 1,
            let match = constantTemporary.first,
            contains(body, match.range),
-           let factor = capture(match, 5, in: source),
+           let factor = SceneShaderSourceTextFacts.capture(match, 5, in: source),
            !normalizedExpression(factor).isEmpty {
             return .init(
                 factor: factor,
@@ -200,7 +200,7 @@ nonisolated enum SceneGenericShaderSameSlotColorBlendAlphaUnionLowering {
             )
         }
 
-        let temporary = matches(
+        let temporary = SceneShaderSourceTextFacts.matches(
             #"(?ms)^([ \t]*)int\s+([A-Za-z_]\w*)\s*=\s*"#
                 + String(mode) + #"\s*;\s*^\1float3\s+([A-Za-z_]\w*)\s*=\s*"#
                 + SceneShaderSourceTextFacts.escaped(base) + #"\.(?:xyz|rgb)\s*;\s*^\1float3\s+([A-Za-z_]\w*)\s*=\s*"#
@@ -209,7 +209,7 @@ nonisolated enum SceneGenericShaderSameSlotColorBlendAlphaUnionLowering {
         )
         guard temporary.count == 1, let match = temporary.first,
               contains(body, match.range),
-              let factor = capture(match, 6, in: source),
+              let factor = SceneShaderSourceTextFacts.capture(match, 6, in: source),
               !normalizedExpression(factor).isEmpty else { return nil }
         return .init(
             factor: factor,
@@ -308,7 +308,7 @@ nonisolated enum SceneGenericShaderSameSlotColorBlendAlphaUnionLowering {
     }
 
     private static func fragmentBodyRange(in source: String) -> NSRange? {
-        let signatures = matches(#"\bfragment\b[^\{]*\{"#, in: source)
+        let signatures = SceneShaderSourceTextFacts.matches(#"\bfragment\b[^\{]*\{"#, in: source)
         guard signatures.count == 1,
               let range = Range(signatures[0].range, in: source),
               let opening = source[..<range.upperBound].lastIndex(of: "{") else {
@@ -337,9 +337,9 @@ nonisolated enum SceneGenericShaderSameSlotColorBlendAlphaUnionLowering {
         _ body: NSRange, source: String
     ) -> Bool {
         let text = (source as NSString).substring(with: body)
-        return matches(#"\b(?:if|else|for|while|do|switch|discard)\b"#, in: text)
+        return SceneShaderSourceTextFacts.matches(#"\b(?:if|else|for|while|do|switch|discard)\b"#, in: text)
             .isEmpty
-            && matches(#"\breturn\b"#, in: text).count == 1
+            && SceneShaderSourceTextFacts.matches(#"\breturn\b"#, in: text).count == 1
     }
 
     private static func terminalTail(
@@ -352,31 +352,11 @@ nonisolated enum SceneGenericShaderSameSlotColorBlendAlphaUnionLowering {
             location: NSMaxRange(output),
             length: NSMaxRange(body) - NSMaxRange(output)
         ))
-        return matches(#"^\s*return\s+out\s*;\s*$"#, in: tail).count == 1
+        return SceneShaderSourceTextFacts.matches(#"^\s*return\s+out\s*;\s*$"#, in: tail).count == 1
     }
 
     private static func contains(_ outer: NSRange, _ inner: NSRange) -> Bool {
         inner.location >= outer.location && NSMaxRange(inner) <= NSMaxRange(outer)
     }
-    private static func matches(
-        _ pattern: String, in source: String
-    ) -> [NSTextCheckingResult] {
-        (try? NSRegularExpression(pattern: pattern))?.matches(
-            in: source,
-            range: NSRange(source.startIndex..., in: source)
-        ) ?? []
-    }
 
-    private static func capture(
-        _ match: NSTextCheckingResult,
-        _ index: Int,
-        in source: String
-    ) -> String? {
-        guard index < match.numberOfRanges,
-              match.range(at: index).location != NSNotFound,
-              let range = Range(match.range(at: index), in: source) else {
-            return nil
-        }
-        return String(source[range])
-    }
 }

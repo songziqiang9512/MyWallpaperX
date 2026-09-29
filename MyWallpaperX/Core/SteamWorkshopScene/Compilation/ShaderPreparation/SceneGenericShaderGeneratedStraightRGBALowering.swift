@@ -55,24 +55,24 @@ nonisolated enum SceneGenericShaderGeneratedStraightRGBALowering {
     ) -> String? {
         guard !SceneShaderSourceTextFacts.containsWord("mwxGenericUnpremultiply", in: source),
               !SceneShaderSourceTextFacts.containsWord("mwxGenericPremultiply", in: source),
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
               compilerDeadSamplesMatch(
                   source,
                   expectedSlots: expectedDeadSampleSlots
               ),
-              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1
+              SceneShaderSourceTextFacts.matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1
         else { return nil }
-        let outputs = matches(
+        let outputs = SceneShaderSourceTextFacts.matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*(float4\([^;]+\))\s*;[ \t]*$"#,
             in: source
         )
-        let returns = matches(#"(?m)^[ \t]*return\s+out\s*;[ \t]*$"#, in: source)
+        let returns = SceneShaderSourceTextFacts.matches(#"(?m)^[ \t]*return\s+out\s*;[ \t]*$"#, in: source)
         guard outputs.count == 1, returns.count == 1,
               let output = outputs.first,
               output.range.location < returns[0].range.location,
               let range = Range(output.range, in: source),
-              let indent = capture(output, 1, in: source),
-              let value = capture(output, 2, in: source) else { return nil }
+              let indent = SceneShaderSourceTextFacts.capture(output, 1, in: source),
+              let value = SceneShaderSourceTextFacts.capture(output, 2, in: source) else { return nil }
         var transformed = source
         transformed.replaceSubrange(
             range,
@@ -155,7 +155,7 @@ nonisolated enum SceneGenericShaderGeneratedStraightRGBALowering {
         _ source: String,
         expectedSlots: [Int]
     ) -> Bool {
-        let memberSamples = matches(
+        let memberSamples = SceneShaderSourceTextFacts.matches(
             #"\b[A-Za-z_]\w*\.sample\s*\("#,
             in: source
         )
@@ -169,34 +169,34 @@ nonisolated enum SceneGenericShaderGeneratedStraightRGBALowering {
         let declarationPattern =
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)"#
             + #"(g_Texture([0-7])\.sample\([^;\r\n]+\))(\s*;[ \t]*)$"#
-        let declarations = matches(declarationPattern, in: source)
+        let declarations = SceneShaderSourceTextFacts.matches(declarationPattern, in: source)
         guard declarations.count == calls.count,
               declarations.allSatisfy({ range(body, contains: $0.range) })
         else { return false }
 
         var observedSlots: [Int] = []
         for declaration in declarations {
-            guard let local = capture(declaration, 2, in: source),
-                  let call = capture(declaration, 3, in: source),
-                  let slotText = capture(declaration, 4, in: source),
+            guard let local = SceneShaderSourceTextFacts.capture(declaration, 2, in: source),
+                  let call = SceneShaderSourceTextFacts.capture(declaration, 3, in: source),
+                  let slotText = SceneShaderSourceTextFacts.capture(declaration, 4, in: source),
                   let slot = Int(slotText),
                   SceneShaderSourceTextFacts.countWord(local, in: source) == 1,
-                  let arguments = matches(
+                  let arguments = SceneShaderSourceTextFacts.matches(
                       #"^g_Texture"# + String(slot)
                         + #"\.sample\(\s*g_Texture"# + String(slot)
                         + #"Smplr\s*,\s*mwxTexture"# + String(slot)
                         + #"Coordinate\(\s*([A-Za-z_]\w*)\s*,\s*([A-Za-z_]\w*)\s*\)\s*\)$"#,
                       in: call
                   ).first,
-                  let coordinate = capture(arguments, 1, in: call),
-                  let uniforms = capture(arguments, 2, in: call),
+                  let coordinate = SceneShaderSourceTextFacts.capture(arguments, 1, in: call),
+                  let uniforms = SceneShaderSourceTextFacts.capture(arguments, 2, in: call),
                   compilerDeadSampleBindingsMatch(
                       slot: slot,
                       uniforms: uniforms,
                       in: source
                   ),
                   SceneShaderSourceTextFacts.countWord(coordinate, in: source) == 2 else { return false }
-            let coordinateDeclarations = matches(
+            let coordinateDeclarations = SceneShaderSourceTextFacts.matches(
                 #"(?m)^[ \t]*(?:const\s+)?float2\s+"#
                     + NSRegularExpression.escapedPattern(for: coordinate)
                     + #"\s*=\s*[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?\s*;[ \t]*$"#,
@@ -239,10 +239,10 @@ nonisolated enum SceneGenericShaderGeneratedStraightRGBALowering {
             + #"Coordinate\s*\(\s*thread\s+const\s+float2\s*&\s*[A-Za-z_]\w*\s*,"#
             + #"\s*constant\s+[A-Za-z_]\w*\s*&\s*"#
             + escapedUniforms + #"\s*\)"#
-        return matches(texture, in: source).count == 1
-            && matches(sampler, in: source).count == 1
-            && matches(uniform, in: source).count == 1
-            && matches(helper, in: source).count == 1
+        return SceneShaderSourceTextFacts.matches(texture, in: source).count == 1
+            && SceneShaderSourceTextFacts.matches(sampler, in: source).count == 1
+            && SceneShaderSourceTextFacts.matches(uniform, in: source).count == 1
+            && SceneShaderSourceTextFacts.matches(helper, in: source).count == 1
     }
 
     private static func simpleCoordinateRead(
@@ -282,7 +282,7 @@ nonisolated enum SceneGenericShaderGeneratedStraightRGBALowering {
     }
 
     private static func fragmentBodyRange(in source: String) -> NSRange? {
-        let signatures = matches(#"\bfragment\b[^\{]*\{"#, in: source)
+        let signatures = SceneShaderSourceTextFacts.matches(#"\bfragment\b[^\{]*\{"#, in: source)
         guard signatures.count == 1,
               let signature = signatures.first,
               let signatureRange = Range(signature.range, in: source),
@@ -307,26 +307,5 @@ nonisolated enum SceneGenericShaderGeneratedStraightRGBALowering {
     private static func range(_ outer: NSRange, contains inner: NSRange) -> Bool {
         outer.location <= inner.location && NSMaxRange(inner) <= NSMaxRange(outer)
     }
-    private static func matches(
-        _ pattern: String,
-        in source: String
-    ) -> [NSTextCheckingResult] {
-        (try? NSRegularExpression(pattern: pattern).matches(
-            in: source,
-            range: NSRange(source.startIndex..., in: source)
-        )) ?? []
-    }
 
-    private static func capture(
-        _ match: NSTextCheckingResult,
-        _ index: Int,
-        in source: String
-    ) -> String? {
-        guard index < match.numberOfRanges,
-              match.range(at: index).location != NSNotFound,
-              let range = Range(match.range(at: index), in: source) else {
-            return nil
-        }
-        return String(source[range])
-    }
 }

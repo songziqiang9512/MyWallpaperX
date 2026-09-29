@@ -29,10 +29,10 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
               }) ?? true,
               !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
               !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
               let body = fragmentBody(in: source) else { return nil }
 
-        let sampleCalls = matches(
+        let sampleCalls = SceneShaderSourceTextFacts.matches(
             #"\bg_Texture([0-7])\.sample\s*\("#,
             in: source,
             range: body
@@ -50,7 +50,7 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
 
         let declarationPattern =
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture([0-7])\.sample\(([^;]+)\)(\s*;[ \t]*)$"#
-        let declarations = matches(
+        let declarations = SceneShaderSourceTextFacts.matches(
             declarationPattern, in: source, range: body
         )
         if debug {
@@ -65,9 +65,9 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
 
         var bySlot: [Int: (match: NSTextCheckingResult, name: String)] = [:]
         for declaration in declarations {
-            guard let slotText = capture(declaration, 3, in: source),
+            guard let slotText = SceneShaderSourceTextFacts.capture(declaration, 3, in: source),
                   let slot = Int(slotText),
-                  let name = capture(declaration, 2, in: source),
+                  let name = SceneShaderSourceTextFacts.capture(declaration, 2, in: source),
                   bySlot[slot] == nil else { return nil }
             bySlot[slot] = (declaration, name)
         }
@@ -86,17 +86,17 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
             )
         }
 
-        let control = matches(
+        let control = SceneShaderSourceTextFacts.matches(
             #"\b(?:if|else|for|while|do|switch|case|discard|break|continue)\b|\?"#,
             in: source,
             range: body
         )
-        let outputWrites = matches(
+        let outputWrites = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*out\.mwxFragColor(?:\.([xyzwrgba]{1,4}))?\s*(?:[+\-*/]?=).*;[ \t]*$"#,
             in: source,
             range: body
         )
-        let outputAssignments = matches(
+        let outputAssignments = SceneShaderSourceTextFacts.matches(
             #"(?m)^[ \t]*out\.mwxFragColor\s*=\s*([A-Za-z_]\w*)\s*;[ \t]*$"#,
             in: source,
             range: body
@@ -107,14 +107,14 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
                 control.count,
                 outputWrites.count,
                 outputAssignments.count,
-                matches(#"\breturn\s+out\s*;"#, in: source, range: body).count,
-                outputAssignments.first.map { capture($0, 1, in: source) ?? "-" } ?? "-",
+                SceneShaderSourceTextFacts.matches(#"\breturn\s+out\s*;"#, in: source, range: body).count,
+                outputAssignments.first.map { SceneShaderSourceTextFacts.capture($0, 1, in: source) ?? "-" } ?? "-",
                 color.name,
                 outputAssignments.first.map { color.match.range.location < $0.range.location ? "yes" : "no" } ?? "-",
                 outputAssignments.first.map { signal.match.range.location < $0.range.location ? "yes" : "no" } ?? "-"
             )
         }
-        let outputName = capture(outputAssignments[0], 1, in: source)
+        let outputName = SceneShaderSourceTextFacts.capture(outputAssignments[0], 1, in: source)
         // Orientation A keeps the color carrier as the output variable. The
         // signal-carrier orientation (proven by the analyzer at the authored
         // level) terminates with the signal variable after its rgb composites
@@ -128,23 +128,23 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
                 length: outputAssignments[0].range.location
                     - color.match.range.location
             )
-            let colorTemp = matches(
+            let colorTemp = SceneShaderSourceTextFacts.matches(
                 #"(?m)^[ \t]*float3\s+\w+\s*=\s*"# + color.name + #"\.xyz\s*;[ \t]*$"#,
                 in: source,
                 range: colorRange
             )
-            let signalTemp = matches(
+            let signalTemp = SceneShaderSourceTextFacts.matches(
                 #"(?m)^[ \t]*float3\s+\w+\s*=\s*"# + signal.name + #"\.xyz\s*;[ \t]*$"#,
                 in: source,
                 range: colorRange
             )
-            let blendedComponents = matches(
+            let blendedComponents = SceneShaderSourceTextFacts.matches(
                 #"(?m)^[ \t]*"# + signal.name
                     + #"\.([xyz])\s*=\s*\w+\.\1\s*;[ \t]*$"#,
                 in: source,
                 range: colorRange
             )
-            let combinedAlpha = matches(
+            let combinedAlpha = SceneShaderSourceTextFacts.matches(
                 #"(?m)^[ \t]*"# + signal.name
                     + #"\.w\s*=\s*(?:fast::)?(?:clamp|saturate)\(\s*"#
                     + color.name + #"\.w\s*\+\s*"# + signal.name + #"\.w\b[^;]*;"#,
@@ -164,7 +164,7 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
               outputName == color.name || signalCarrierTail,
               color.match.range.location < outputAssignments[0].range.location,
               signal.match.range.location < outputAssignments[0].range.location,
-              matches(
+              SceneShaderSourceTextFacts.matches(
                   #"\breturn\s+out\s*;"#, in: source, range: body
               ).count == 1 else { return nil }
         if debug { NSLog("MWX DEBUG SCENE: phase=signal-compositing-lowering-tail-accepted") }
@@ -195,9 +195,9 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
         }
         for (slot, declaration) in straightDeclarations {
             guard let adjustedRange = Range(declaration.match.range, in: transformed),
-                  let prefix = capture(declaration.match, 1, in: source),
-                  let arguments = capture(declaration.match, 4, in: source),
-                  let suffix = capture(declaration.match, 5, in: source) else {
+                  let prefix = SceneShaderSourceTextFacts.capture(declaration.match, 1, in: source),
+                  let arguments = SceneShaderSourceTextFacts.capture(declaration.match, 4, in: source),
+                  let suffix = SceneShaderSourceTextFacts.capture(declaration.match, 5, in: source) else {
                 return nil
             }
             transformed.replaceSubrange(
@@ -232,7 +232,7 @@ inline float4 \(premultiply)(float4 value) {
 
     private static func fragmentBody(in source: String) -> NSRange? {
         let masked = maskComments(source)
-        let signatures = matches(
+        let signatures = SceneShaderSourceTextFacts.matches(
             #"\bfragment\b[^\{;]*\bmwxGenericFragment\s*\([^\{;]*\)\s*\{"#,
             in: masked
         )
@@ -275,27 +275,5 @@ inline float4 \(premultiply)(float4 value) {
             })
         }
         return masked
-    }
-    private static func matches(
-        _ pattern: String,
-        in source: String,
-        range: NSRange? = nil
-    ) -> [NSTextCheckingResult] {
-        (try? NSRegularExpression(pattern: pattern))?.matches(
-            in: source,
-            range: range ?? NSRange(source.startIndex..., in: source)
-        ) ?? []
-    }
-    private static func capture(
-        _ match: NSTextCheckingResult,
-        _ index: Int,
-        in source: String
-    ) -> String? {
-        guard index < match.numberOfRanges,
-              match.range(at: index).location != NSNotFound,
-              let range = Range(match.range(at: index), in: source) else {
-            return nil
-        }
-        return String(source[range])
     }
 }

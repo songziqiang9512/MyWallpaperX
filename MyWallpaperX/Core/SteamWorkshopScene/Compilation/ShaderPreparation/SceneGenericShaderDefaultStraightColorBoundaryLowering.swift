@@ -250,16 +250,16 @@ nonisolated enum SceneGenericShaderDefaultStraightColorBoundaryLowering {
         guard colorSlots.allSatisfy({ (0 ..< 8).contains($0) }),
               !source.contains(unpremultiply),
               !source.contains(premultiply),
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
-              !matches(#"\bout\.mwxFragColor\b"#, in: source).isEmpty,
+              SceneShaderSourceTextFacts.matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
+              !SceneShaderSourceTextFacts.matches(#"\bout\.mwxFragColor\b"#, in: source).isEmpty,
               let calls = SceneGenericShaderStraightAlphaPreservingLowering
                 .compilerTextureSampleCalls(in: source) else { return nil }
-        let returns = matches(#"(?m)^([ \t]*)return\s+out\s*;[ \t]*$"#, in: source)
+        let returns = SceneShaderSourceTextFacts.matches(#"(?m)^([ \t]*)return\s+out\s*;[ \t]*$"#, in: source)
         guard !returns.isEmpty else { return nil }
 
         var edits: [(range: NSRange, replacement: String)] = []
         for match in returns {
-            let indent = capture(match, 1, in: source) ?? ""
+            let indent = SceneShaderSourceTextFacts.capture(match, 1, in: source) ?? ""
             edits.append((
                 match.range,
                 "\(indent)out.mwxFragColor = \(premultiply)(out.mwxFragColor);\n"
@@ -282,27 +282,5 @@ nonisolated enum SceneGenericShaderDefaultStraightColorBoundaryLowering {
         guard let withHelpers = SceneGenericShaderStraightAlphaPreservingLowering
             .insertingBoundaryHelpers(into: transformed) else { return nil }
         return Lowered(msl: withHelpers, appliedSlots: applied.sorted())
-    }
-
-    private static func matches(
-        _ pattern: String,
-        in source: String
-    ) -> [NSTextCheckingResult] {
-        try! NSRegularExpression(pattern: pattern).matches(
-            in: source,
-            range: NSRange(source.startIndex..., in: source)
-        )
-    }
-
-    private static func capture(
-        _ match: NSTextCheckingResult,
-        _ index: Int,
-        in source: String
-    ) -> String? {
-        guard index < match.numberOfRanges,
-              let range = Range(match.range(at: index), in: source) else {
-            return nil
-        }
-        return String(source[range])
     }
 }

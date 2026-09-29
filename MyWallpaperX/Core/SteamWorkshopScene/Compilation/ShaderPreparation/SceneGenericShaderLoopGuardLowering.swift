@@ -78,12 +78,12 @@ nonisolated enum SceneGenericShaderLoopGuardLowering {
     ) -> Lowered? {
         guard !source.contains(functionName),
               !source.contains(counterName),
-              matches(#"\bdo\b"#, in: commentMaskedString(source)).isEmpty
+              SceneShaderSourceTextFacts.matches(#"\bdo\b"#, in: commentMaskedString(source)).isEmpty
         else { return nil }
         let units = Array(source.utf16)
         let masked = commentMasked(units)
         let maskedString = String(utf16CodeUnits: masked, count: masked.count)
-        let headers = matches(#"\b(for|while)\b\s*\("#, in: maskedString)
+        let headers = SceneShaderSourceTextFacts.matches(#"\b(for|while)\b\s*\("#, in: maskedString)
         guard !headers.isEmpty else {
             return Lowered(source: source, guardedLoopCount: 0)
         }
@@ -210,13 +210,4 @@ nonisolated enum SceneGenericShaderLoopGuardLowering {
         return nil
     }
 
-    private static func matches(
-        _ pattern: String,
-        in source: String
-    ) -> [NSTextCheckingResult] {
-        try! NSRegularExpression(pattern: pattern).matches(
-            in: source,
-            range: NSRange(source.startIndex..., in: source)
-        )
-    }
 }
