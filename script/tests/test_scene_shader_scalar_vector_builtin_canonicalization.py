@@ -566,6 +566,14 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
              "max(vec2(k), g_Ratio)"),
             ("int k = 2; gl_FragColor = vec4(min(k, g_Ratio), 0.0, 1.0);",
              "min(vec2(k), g_Ratio)"),
+            # A float scalar first operand broadcasts the same way.
+            ("float f = 0.5; gl_FragColor = vec4(max(f, g_Ratio), 0.0, 1.0);",
+             "max(vec2(f), g_Ratio)"),
+            # An integer scalar against an integer vector keeps its element
+            # domain: the constructor is the sibling's ivec type.
+            ("int k = 2; ivec2 iv = ivec2(2);"
+             " gl_FragColor = vec4(float(max(k, iv).x));",
+             "max(ivec2(k), iv)"),
             # A locally declared vector sibling takes the same promotion.
             ("int k = 2; vec2 lv = g_Ratio; gl_FragColor = vec4(max(k, lv), 0.0, 1.0);",
              "max(vec2(k), lv)"),
@@ -575,6 +583,15 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
             # Integer-integer max keeps its own overload.
             ("int k = 2; int j = 3; gl_FragColor = vec4(float(max(k, j)));",
              "max(k, j)"),
+            # A uint scalar broadcasts into the uvec sibling.
+            ("uint u = 2u; uvec2 uv = uvec2(2);"
+             " gl_FragColor = vec4(float(max(u, uv).x));",
+             "max(uvec2(u), uv)"),
+            # A float scalar entering an integer vector would narrow; the
+            # shape stays fail-closed with no rewrite and no link claim.
+            ("float f = 0.5; ivec2 iv = ivec2(2);"
+             " gl_FragColor = vec4(float(max(f, iv).x));",
+             "max(f, iv)"),
             # An authored overload owning the built-in name keeps its call
             # sites; a different signature is a legal GLSL overload.
             ("vec2 max(int a, vec2 b) { return b; }"
@@ -590,10 +607,10 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
                 self.assertIn(expected, fragment)
                 if expected in ("max(g_Ratio, k)", "max(k, j)"):
                     self.assertNotIn("vec2(k)", fragment)
-                if expected == "max(k, g_Ratio)":
-                    # The authored overload sits inside the harness body, so
-                    # this shape asserts the guard's text behaviour only; the
-                    # top-level overload links under the reviewer's probe.
+                if expected in ("max(k, g_Ratio)", "max(f, iv)"):
+                    # The authored overload sits inside the harness body, and
+                    # the narrowing shape has no legal overload at all; both
+                    # assert the guard's text behaviour only.
                     self.assertNotIn("vec2(k)", fragment)
                     continue
                 root = Path(directory)

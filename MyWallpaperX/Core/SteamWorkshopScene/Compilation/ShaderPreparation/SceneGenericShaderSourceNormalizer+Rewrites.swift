@@ -387,6 +387,11 @@ extension SceneGenericShaderSourceNormalizer {
     /// sibling's vector type. Identifier atoms only; the literal form is
     /// owned by `rewriteVectorClampLiteralArguments`. Names whose declared
     /// type is ambiguous (shadowing or conflicting declarations) are skipped.
+    /// Owner: this is the source-stage matcher for the scalar-broadcast
+    /// shape; the backend canonicalizer owns the typed broadcast family
+    /// (`rewriteLiteralBoundBroadcasts`). Retire this rule together with
+    /// that family when the backend model covers declared-identifier
+    /// operands.
     static func rewriteVectorBuiltInIntFirstOperands(
         _ source: String,
         shapes: [String: Shape]
@@ -410,14 +415,15 @@ extension SceneGenericShaderSourceNormalizer {
             }
         }
         let vectorNames = types.compactMap { name, type in
-            ["float2", "float3", "float4"].contains(type)
+            ["float2", "float3", "float4", "int2", "int3", "int4",
+             "uint2", "uint3", "uint4"].contains(type)
                 && !conflicted.contains(name) ? name : nil
         }
-        let intNames = types.compactMap { name, type in
-            ["int", "uint"].contains(type) && !conflicted.contains(name)
+        let scalarNames = types.compactMap { name, type in
+            ["float", "int", "uint"].contains(type) && !conflicted.contains(name)
                 ? name : nil
         }
-        guard !vectorNames.isEmpty, !intNames.isEmpty else { return source }
+        guard !vectorNames.isEmpty, !scalarNames.isEmpty else { return source }
         // An authored overload sharing the built-in name owns its call sites.
         let definitions = try! NSRegularExpression(pattern:
             #"\b(?:bool|int|uint|float|[biu]?vec[2-4])\s+(max|min)\s*\("#
@@ -431,12 +437,16 @@ extension SceneGenericShaderSourceNormalizer {
         })
         let regex = try! NSRegularExpression(pattern:
             #"\b(max|min)\(\s*("#
-                + intNames.map(NSRegularExpression.escapedPattern).joined(separator: "|")
+                + scalarNames.map(NSRegularExpression.escapedPattern).joined(separator: "|")
                 + #")\s*,\s*("#
                 + vectorNames.map(NSRegularExpression.escapedPattern).joined(separator: "|")
                 + #")\s*\)"#
         )
-        let glslSpelling = ["float2": "vec2", "float3": "vec3", "float4": "vec4"]
+        let glslSpelling = [
+            "float2": "vec2", "float3": "vec3", "float4": "vec4",
+            "int2": "ivec2", "int3": "ivec3", "int4": "ivec4",
+            "uint2": "uvec2", "uint3": "uvec3", "uint4": "uvec4",
+        ]
         var result = source
         for match in regex.matches(
             in: source,
@@ -447,8 +457,16 @@ extension SceneGenericShaderSourceNormalizer {
                   let vectorRange = Range(match.range(at: 3), in: source),
                   let fullRange = Range(match.range, in: result),
                   let vectorType = types[String(source[vectorRange])],
-                  let constructor = glslSpelling[vectorType]
-            else { continue }
+                  let constructor = glslSpelling[vectorType],
+                  let scalarType = types[String(source[intRange])]
+            else { continue }  // name lists only admit known scalar/vector types
+            // A float scalar entering an integer vector would narrow; the
+            // authored language is ambiguous there, so it stays fail-closed.
+            if scalarType == "float",
+               ["int2", "int3", "int4", "uint2", "uint3", "uint4"]
+                   .contains(vectorType) {
+                continue
+            }
             guard !authoredNames.contains(String(source[nameRange])) else { continue }
             result.replaceSubrange(
                 fullRange,
