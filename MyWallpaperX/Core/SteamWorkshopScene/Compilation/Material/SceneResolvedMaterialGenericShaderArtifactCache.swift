@@ -229,7 +229,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             runtimeLoopBounds: runtimeLoopBounds
         )
         let outcome = resolutionCache.perform(key: resolutionInput) {
-        let analysis = resolvedAnalysis(for: resolutionInput)
+        let resolvedAnalysisOutcome = resolvedAnalysis(for: resolutionInput)
+        let analysis = resolvedAnalysisOutcome.analysis
+        let analysisFromCache = resolvedAnalysisOutcome.fromCache
         let colorTransfer = analysis.colorTransfer
         let profile = analysis.profile
         let expectedColorTransfer = analysis.expectedColorTransfer
@@ -409,6 +411,12 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             reason: "-",
             requestKey: key
         )
+        if !analysisFromCache {
+            SceneGenericShaderAnalysisCache.store(
+                analysis: analysis,
+                input: resolutionInput
+            )
+        }
         return .accepted(
             program: program,
             requestKey: key,

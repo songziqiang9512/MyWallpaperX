@@ -16,8 +16,14 @@ struct SceneGenericShaderAnalysis {
 /// process even when the compiled artifact cache hits, which measured as the
 /// dominant launch stage on shader-heavy scenes; this cache removes that
 /// repeated CPU work. Entries are keyed by a digest over the full resolution
-/// input plus the frontend schema version, so any analyzer semantics change
-/// that bumps either constant invalidates the whole tier as a safe miss.
+/// input; `schemaVersion` is the sole invalidation lever (the shared
+/// frontendSchemaVersion constant is not referenced here because it has no
+/// mechanical bump guarantee), so any analyzer/normalizer/profile semantics
+/// change must bump it and thereby retire the whole tier as a safe miss.
+/// Only resolutions that end accepted are published, and the read path never
+/// creates the cache directory; this follows the persistent-tier doctrine the
+/// frontend/preparation cache tests already lock, and is deliberately
+/// stricter than the program artifact tier's own read/write behaviour.
 nonisolated enum SceneGenericShaderAnalysisCache {
     /// The only invalidation lever for this tier: bump when any analyzer,
     /// normalizer or profile-classification semantic change lands (the shared
@@ -69,7 +75,6 @@ nonisolated enum SceneGenericShaderAnalysisCache {
             append(value.sorted().map(String.init).joined(separator: ","))
         }
         append("mwx-generic-shader-analysis-input-v1")
-        append(String(SceneShaderVariantEnvironment.frontendSchemaVersion))
         append(input.vertexSource)
         append(input.fragmentSource)
         appendSlot(input.alphaAttenuationSourceSlot)
@@ -141,7 +146,7 @@ nonisolated enum SceneGenericShaderAnalysisCache {
     static func load(
         input: SceneResolvedMaterialGenericShaderResolutionCache.Input
     ) -> SceneGenericShaderAnalysis? {
-        guard let directory = cacheDirectory(),
+        guard let directory = cacheDirectory(createIfNeeded: false),
               let digest = inputDigest(of: input) else { return nil }
         let url = directory.appendingPathComponent(
             "\(digest).json", isDirectory: false
@@ -189,7 +194,7 @@ nonisolated enum SceneGenericShaderAnalysisCache {
         analysis: SceneGenericShaderAnalysis,
         input: SceneResolvedMaterialGenericShaderResolutionCache.Input
     ) {
-        guard let directory = cacheDirectory(),
+        guard let directory = cacheDirectory(createIfNeeded: true),
               let digest = inputDigest(of: input) else { return }
         let expectedMirror = analysis.expectedColorTransfer.map {
             ExpectedTransferMirror(
@@ -269,7 +274,9 @@ nonisolated enum SceneGenericShaderAnalysisCache {
 
     // MARK: - Directory
 
-    private static func cacheDirectory() -> URL? {
+    private static func cacheDirectory(
+        createIfNeeded: Bool
+    ) -> URL? {
         let versionedName = "SceneGenericShaderAnalysis-v\(schemaVersion)"
         let environment = ProcessInfo.processInfo.environment
         if let rawRoot = environment["MWX_SCENE_GENERIC_SHADER_CACHE"] {
@@ -280,12 +287,14 @@ nonisolated enum SceneGenericShaderAnalysisCache {
             let scoped = root.appendingPathComponent(
                 versionedName, isDirectory: true
             )
-            do {
-                try FileManager.default.createDirectory(
-                    at: scoped, withIntermediateDirectories: true
-                )
-            } catch {
-                return nil
+            if createIfNeeded {
+                do {
+                    try FileManager.default.createDirectory(
+                        at: scoped, withIntermediateDirectories: true
+                    )
+                } catch {
+                    return nil
+                }
             }
             return validatedDirectory(scoped.path)
         }
@@ -298,13 +307,15 @@ nonisolated enum SceneGenericShaderAnalysisCache {
             )
             .appendingPathComponent(versionedName, isDirectory: true)
             .standardizedFileURL
-        do {
-            try FileManager.default.createDirectory(
-                at: root, withIntermediateDirectories: true,
-                attributes: [.posixPermissions: 0o700]
-            )
-        } catch {
-            return nil
+        if createIfNeeded {
+            do {
+                try FileManager.default.createDirectory(
+                    at: root, withIntermediateDirectories: true,
+                    attributes: [.posixPermissions: 0o700]
+                )
+            } catch {
+                return nil
+            }
         }
         return validatedDirectory(root.path)
     }
@@ -483,19 +494,18 @@ nonisolated final class SceneResolvedMaterialGenericShaderCompilationCoordinator
 extension SceneResolvedMaterialGenericShaderArtifactCache {
 
     /// Load the pure analysis prefix from the persistent tier, or compute it
-    /// through the analyzer family and publish it for later launches.
+    /// through the analyzer family. Publication is the caller's decision: the
+    /// persistent tier only holds entries whose final resolution was accepted,
+    /// following the persistent-tier doctrine (see
+    /// test_scene_shader_persistent_cache's only-stores-accepted-products
+    /// contract for the frontend/preparation tiers).
     static func resolvedAnalysis(
         for input: SceneResolvedMaterialGenericShaderResolutionCache.Input
-    ) -> SceneGenericShaderAnalysis {
+    ) -> (analysis: SceneGenericShaderAnalysis, fromCache: Bool) {
         if let cached = SceneGenericShaderAnalysisCache.load(input: input) {
-            return cached
+            return (cached, true)
         }
-        let computed = computeAnalysis(input: input)
-        SceneGenericShaderAnalysisCache.store(
-            analysis: computed,
-            input: input
-        )
-        return computed
+        return (computeAnalysis(input: input), false)
     }
 
     /// The deterministic analyzer-family prefix of a generic-shader route
