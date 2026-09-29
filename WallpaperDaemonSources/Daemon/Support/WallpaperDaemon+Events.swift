@@ -3,7 +3,6 @@ import AppKit
 import AVFoundation
 import CoreGraphics
 import QuartzCore
-import WebKit
 import Darwin
 import UniformTypeIdentifiers
 
@@ -15,7 +14,7 @@ extension WallpaperDaemon {
             requestID: requestID,
             message: message,
             videoPath: videoPath,
-            contentKind: contentKind ?? currentContentKind
+            contentKind: contentKind
         )
 
         do {

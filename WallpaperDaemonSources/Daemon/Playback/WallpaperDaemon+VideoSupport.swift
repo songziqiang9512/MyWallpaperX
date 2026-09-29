@@ -3,7 +3,6 @@ import AppKit
 import AVFoundation
 import CoreGraphics
 import QuartzCore
-import WebKit
 
 extension WallpaperDaemon {
     func updateLayerFrames() {

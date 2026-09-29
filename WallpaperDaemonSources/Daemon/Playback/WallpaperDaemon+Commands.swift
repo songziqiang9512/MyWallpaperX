@@ -3,7 +3,6 @@ import AppKit
 import AVFoundation
 import CoreGraphics
 import QuartzCore
-import WebKit
 import Darwin
 import UniformTypeIdentifiers
 
@@ -12,7 +11,6 @@ extension WallpaperDaemon {
         switch command.action {
         case "play":
             guard let videoPath = command.videoPath else { return }
-            currentContentKind = "video"
             emit(type: "accepted", requestID: command.requestID, message: nil, videoPath: videoPath, contentKind: "video")
             if let playbackRate = command.playbackRate {
                 self.playbackRate = max(playbackRate, 0.1)

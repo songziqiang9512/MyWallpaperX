@@ -34,7 +34,6 @@ final class WallpaperDaemon: NSObject {
     var pendingDisplayFallbackWorkItem: DispatchWorkItem?
     var currentVideoPath: String?
     var currentRequestID: Int?
-    var currentContentKind: String?
     var activeSlot: Slot = .primary
     var switchToken: Int = 0
     var currentVolume: Float = 0.5
