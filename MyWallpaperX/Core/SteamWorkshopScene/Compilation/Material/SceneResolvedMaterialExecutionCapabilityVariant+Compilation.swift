@@ -1,4 +1,72 @@
 import Foundation
+import QuartzCore
+
+/// Launch-only aggregate profile of the per-variant compilation segments.
+/// The capability catalog resets it once per construction and logs one
+/// summary after its parallel workers finish; ordinary frames never touch it.
+nonisolated enum SceneResolvedMaterialVariantCompileProfile {
+    private static let lock = NSLock()
+    private static var prepareMs: Double = 0
+    private static var canonicalizeMs: Double = 0
+    private static var analysisMs: Double = 0
+    private static var artifactMs: Double = 0
+    private static var variants = 0
+    private static var totalStart: Double = 0
+    private static var totalMs: Double = 0
+
+    static func reset() {
+        lock.withLock {
+            prepareMs = 0
+            canonicalizeMs = 0
+            analysisMs = 0
+            artifactMs = 0
+            variants = 0
+            totalStart = 0
+            totalMs = 0
+        }
+    }
+
+    static func beginVariant() {
+        lock.withLock {
+            totalStart = CACurrentMediaTime()
+        }
+    }
+
+    static func endVariant() {
+        lock.withLock {
+            totalMs += (CACurrentMediaTime() - totalStart) * 1000
+            variants += 1
+        }
+    }
+
+    static func add(
+        prepare: Double = 0, canonicalize: Double = 0,
+        analysis: Double = 0, artifact: Double = 0
+    ) {
+        lock.withLock {
+            prepareMs += prepare
+            canonicalizeMs += canonicalize
+            analysisMs += analysis
+            artifactMs += artifact
+        }
+    }
+
+    static func logSummaryIfMeasured() {
+        let (count, prepare, canonicalize, analysis, artifact, total) =
+            lock.withLock {
+                (
+                    variants, prepareMs, canonicalizeMs, analysisMs,
+                    artifactMs, totalMs
+                )
+            }
+        guard count > 0 else { return }
+        NSLog(
+            "MWX LAUNCH-STAGE: capability-detail variants=%d totalMs=%.0f prepareMs=%.0f canonicalizeMs=%.0f analysisMs=%.0f artifactMs=%.0f restMs=%.0f",
+            count, total, prepare, canonicalize, analysis, artifact,
+            total - prepare - canonicalize - analysis - artifact
+        )
+    }
+}
 
 nonisolated extension SceneResolvedMaterialVariantCache {
     static func compile(
@@ -14,6 +82,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         let readiness = Dictionary(uniqueKeysWithValues: (0 ..< 8).map {
             ($0, readinessMask & (1 << UInt8($0)) != 0)
         })
+        SceneResolvedMaterialVariantCompileProfile.beginVariant()
+        let profileStart = CACurrentMediaTime()
         let prepared: SceneShaderPreparedProgram
         switch SceneAuthoredShaderPreparation.prepareShaderStages(
             contract: template.shaderContract,
@@ -34,6 +104,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         case .notApplicable:
             throw failure(.identityInvariant, phase: .invariant)
         }
+        SceneResolvedMaterialVariantCompileProfile.add(
+            prepare: (CACurrentMediaTime() - profileStart) * 1000
+        )
+        let canonicalizeStart = CACurrentMediaTime()
         let compatibilityTargetAdmissionPending = prepared.all.allSatisfy {
             $0.compatibilityTarget == .windowsDX11ShaderModel4
         } && prepared.all.contains {
@@ -43,6 +117,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             vertex: prepared.vertex.source,
             fragment: prepared.fragment.source
         )
+        SceneResolvedMaterialVariantCompileProfile.add(
+            canonicalize: (CACurrentMediaTime() - canonicalizeStart) * 1000
+        )
+        let analysisStart = CACurrentMediaTime()
         let runtimeLoopBounds = SceneResolvedMaterialRuntimeLoopBoundResolver.resolve(
             template: template,
             prepared: prepared
@@ -330,6 +408,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
                 activeGraphTextureIdentities: activeGraphTextureIdentities
             )
+        SceneResolvedMaterialVariantCompileProfile.add(
+            analysis: (CACurrentMediaTime() - analysisStart) * 1000
+        )
+        let artifactStart = CACurrentMediaTime()
         let artifactResolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
             vertexSource: compilerSources.vertex,
             fragmentSource: compilerSources.fragment,
@@ -436,6 +518,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             SceneGenericShaderRouteDecision
         let boundedOutput: SceneAuthoredShaderFrontendOutput?
         let artifactFailure: [String]
+        SceneResolvedMaterialVariantCompileProfile.add(
+            artifact: (CACurrentMediaTime() - artifactStart) * 1000
+        )
         switch artifactResolution {
         case let .accepted(program, requestKey, decision):
             frontend = program
@@ -646,6 +731,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             SceneResolvedMaterialProgramDerivation.associatedOverOverlaySlot(
                 fragmentSource: prepared.fragment.source
             )
+        SceneResolvedMaterialVariantCompileProfile.endVariant()
         return .init(
             readinessMask: readinessMask,
             textureFormats: variantKey.textureFormats,
