@@ -26,6 +26,16 @@
 
 **验证：**checkpoint 门禁三项 PASSED（focused 8 模块：daemon framing/transport/policy/policy_delivery/wiring/protocol/multiplexer/debug-entry；code-health；build——共享树已恢复可编译）。干净 worktree（HEAD `137a4d0e`+仅本批 6 Swift）Developer ID 签名构建成功；1300076567 证据模式 12s 回放 **PASS loaded=1.0 failures=[]**。`test_playback_policy_delivery` harness 的 playWeb 段（诊断 web 会话继承暂停）随生产路径删除，video/scene 段与 8 模块全绿。冻结批次 diff SHA256 `e288784dd3b70d7968af3c64ab9a83cb673c21d7d32265e110f746fae259e99d`；证据见忽略缓存 `20260929-web-harness-retirement/`。**边界：**web 专门行为由 `test_web_playback_pause`（真实 WKWebView）覆盖（同跑绿）；本批零行为变化的前提即不可达判定成立。
 
+<a id="e-2026-09-29-e5-fallback-audit"></a>
+
+### E-2026-09-29-E5-FALLBACK-AUDIT — generic→boundedFrontend fallback 语料审计（E5 退役前置，裁决=拒绝整批退役，只读分析批）
+
+**方法与数据：**E5 卡前置要求"按 profile 审计 fallback reason/计数，禁止未审计先删"。本批对归档证据语料全量审计：`docs/scene/evidence/` 下 3,522 个日志（2026-08-22→09-29 跨度，含 159 样本基线与历次样本回放），grep `MWX generic shader route state=` 行并按 state/profile/outcome/reason 聚合。
+
+**结果：**状态分布 generic-only 41,120 / prefer-generic 1,792 / disable-generic 411 / observe-only 17；outcome 分布 accepted 41,798 / **fallback 1,009 + shared-backend-fallback 358（即 generic→boundedFrontend 回退实际触达 1,367 次）** / rejected 158（fail-closed 边界正常行使）/ observed 17 / route-invalid 0。fallback 成因全是真实通用编译器 artifact 失败：`compiler-artifact-colortransfer` 613、`compiler-tool-stage-link-rejected-exitcode--2-` 210、`varying-unsupported` ~29、configuration/signature 类 ~12、artifact-contract-rejected 12 等；`disable-generic` 显式回滚开关被语料行使 411 次（route-disabled）。**9 月下旬活跃性：33 个证据文件仍命中 shared-backend-fallback**，榜首 profile=stage-uniform-straight-alpha-preserving-no-auxiliary（近期 42 次）、straight-alpha（22）、ordinary-shader（8；口径注记=42/22/8 为日期前缀目录子集，含 v1/*-09-23 的 33 文件宽口径下 ordinary-shader 计 17，系同样本多次启动重编译，不影响活跃性结论）。
+
+**裁决与解锁路径：**bounded frontend（≈3.2k 行发射器 + 配套 analyzer）当前是**承重的回退 owner**，E5 的整批退役被本审计拒绝。解锁路径（顺序门）：①修通用编译器 artifact 失败类（colorTransfer、stage-link exit −2 为首，各自对应真实语料内容）；②每消灭一类失败即复核对应 fallback 流量归零；③待全语料 fallback 仅剩显式回滚开关行使后，按 owner-migration 门（纵向正证+未见组合+回滚演练）重启退役批次。**边界：**审计范围=归档日志可达的语料与路由行格式（`MWX generic shader route state=` 行自 schema 引入起）；`fallback` outcome 内 prefer-generic ordinary-shader 519 次属 prefer-generic 语义（generic 优先失败落 bounded frontend，该 profile 本就双 owner），不影响裁决。
+
 <a id="e-2026-09-29-daemon-web-lane"></a>
 
 ### E-2026-09-29-DAEMON-WEB-LANE — daemon web 宿主 lane 退役（E6 死路径批，审查 APPROVE，`936c1f87`）
