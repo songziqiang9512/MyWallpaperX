@@ -192,6 +192,14 @@ Steam 账号、订阅与下载获取的具体迁移由 [Steam 获取专项](scen
 
   **const 初始化子类（8 条）取证（2026-09-30）**：诊断 `'=' : global const initializers must be constant ' const highp float'`——作者在全局 `const float` 声明用非字面量初始化（如 `const float x = u_Something * k` 或函数调用），宽松编译器按常量折叠接受、Vulkan GLSL 要求字面量常量。修法=归一化层将非常量初始化的全局 const 降级为普通变量声明（`const` 剥除），语义等价（全局 const 在 WE 着色器语义中即为只读绑定）。**2026-09-30 复验：该子类在现行 HEAD 管线不再复现**——四形态探针（字面量 const、const 表达式初始化、uniform 初始化、非 const 局部初始化）全部 glslang rc=0（归一化层与前端修复的累积效应），登记为**已被既有修复覆盖、待语料回放确认归零**；如语料再现实测再按 const 剥除方案实施。syntax error 子类（16+4 条）已修（同日，`ea6f0781`）：证据模式回放 3780391264 复现 `[loop]` 裸行残留，新增 `stripHLSLAttributeAnnotations` 剥除五类 HLSL 属性注解（行内+裸行），六形态 glslang 链接矩阵全绿；真样本证据回放 LEFT_BRACKET 诊断零残留。companion：fragment parse 容忍同型 varying 重复声明（varying 类调查的在途改动一并认领）。
 
+  **【2026-09-30 挂起登记：E5 剩余工作清单（会话转出，下次续作入口）】**用户并行执行其他任务，E5 暂停；以下为已完成处置之外的全部未竟项，按依赖排序：
+  ①**decisive 复核（最高优先，需机器空载窗口）**：45 样本 full matrix 证据回放累积，逐类核对 fallback 流量归零——同时服务 E5 解锁路径关键门与 AS1 身份矩阵；并行编译负载下测量无效，必须在无其他会话的窗口执行；
+  ②**varying 类架构裁决（owner-migration 级）**：合并 program 的 varying 命名空间按 effect 隔离 vs per-pass 编译——需先读 merged-program 构造 owner（canonicalize 阶段）与官方按 pass 编译的对照证据再提案；前置=①的语料数据；
+  ③**compound `+=` 残类**：`k = int(k + rhs)` 为宽松语义忠实修法，待语料出现该形态再实施；
+  ④**已修子类的语料再现实测**：任一已修类再现实测即按登记方案执行（const 剥除/索引形态白名单扩展/vertex 对称接入等备而未用方案均已入卡）；
+  ⑤**bounded frontend 整批退役（25–33k 行）**： gated on ①归零 + ②裁决 + owner-migration 门（纵向正证/未见组合/回滚演练）。
+  证据基础：归档 3,522 日志审计（`add84a01`）+ 五子类修复链（`85f48c83`/`0b9a05e8`/`b6e4c743`/`3e717b6a`/`7e2e749b`/`ea6f0781`）+ varying 判定（`944fd4a7`/`c748e4e5`）+ const-init 复验（`28e92b4b`），全部有独立审查与干净树验证。
+
 **float→int 隐式赋值类已修（同日，`7e2e749b`）**：`rewriteFloatToIntAssignments` 从两窄形态（裸 float uniform 声明+比较操作数）通用化为 token 流扫描——int/uint 目标（声明或普通赋值）的 RHS 含 float 原子（float 字面量/声明的 float 标量/浮点向量 swizzle 成员）即包 `int(...)`（与宽松编译器向零截断一致）；跳过 provably-int、显式 int/uint 转换调用（隔离探针实锤双重包裹后修复——discrete-mask/step 专属 owner 的产物不得再包）、RHS 顶层逗号/嵌套赋值（span 改写防乱码守卫）；compound `+=` 语义模糊保持 fail-closed。编辑经 unicode-scalar 偏移应用（与 lineStarts 同域，消除非 BMP 字符的 utf16 分歧）。六形态 glslang 链接矩阵全绿（4 隐式修+int-int 不动+compound fail-closed+显式转换幂等反断言）。**登记残类：compound `+=`（`k = int(k + rhs)` 为宽松语义忠实修法，留待语料出现）；整数向量兄弟、return/实参位置未声称已修。**按类处置总账（2026-09-30 收口）：归档可达的编译失败子类全部处置完毕**——colorTransfer 全门通过子类已修（`85f48c83`）、stage-link 五子类已修（`0b9a05e8`/`b6e4c743`/`3e717b6a`/`7e2e749b`）、syntax error 已修（`ea6f0781`）、const 初始化复验不复现（`28e92b4b`）、varying 架构裁决登记（`944fd4a7`/`c748e4e5`）、compound `+=` 与带形状数组 fail-closed 登记。**decisive 复核=各类 fallback 流量归零，需真实语料回放累积（机器空载窗口）；归档可达子类再现实测时按已登记方案逐类实施。**
 - **工作：**颜色／数据纹理用途、alpha 表示和边界转换在已有 IR／编译流程形成明确事实；等价表达式走同一 lowering。先覆盖一个 bounded family，再扩大。
 - **消融：**被替代的 analyzer／normalizer／generated-source matcher 成族删除；老 tests 中仅检查变量名和源码段的预期改成输入输出语义与拒绝反例。
