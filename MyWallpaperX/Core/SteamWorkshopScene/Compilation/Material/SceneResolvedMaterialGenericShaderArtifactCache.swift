@@ -530,15 +530,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     }
 
     private static func validatedDirectory(_ rawPath: String) -> URL? {
-        guard !rawPath.isEmpty else { return nil }
-        let url = URL(fileURLWithPath: rawPath, isDirectory: true).standardizedFileURL
-        let values = try? url.resourceValues(forKeys: [
-            .isDirectoryKey, .isSymbolicLinkKey,
-        ])
-        guard values?.isDirectory == true, values?.isSymbolicLink != true else {
-            return nil
-        }
-        return url
+        ScenePersistentCacheSupport.validatedDirectory(rawPath)
     }
 
     private static func cacheDirectory(
@@ -596,14 +588,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     }
 
     private static func regularFileData(_ url: URL) -> Data? {
-        let values = try? url.resourceValues(forKeys: [
-            .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey,
-        ])
-        guard values?.isRegularFile == true,
-              values?.isSymbolicLink != true,
-              let size = values?.fileSize,
-              (1 ... maximumArtifactBytes).contains(size) else { return nil }
-        return try? Data(contentsOf: url, options: .mappedIfSafe)
+        ScenePersistentCacheSupport.regularFileData(
+            url, maximumBytes: maximumArtifactBytes
+        )
     }
 
 }

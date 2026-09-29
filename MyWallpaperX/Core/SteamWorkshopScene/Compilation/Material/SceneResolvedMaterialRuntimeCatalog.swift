@@ -65,19 +65,19 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     /// material-node identity property. Authored graphs commonly instantiate
     /// the same material many times; analyzing every node separately turns
     /// launch into repeated preprocessing of identical shader variants.
-    private enum ResourceDemandReferenceKind: Hashable {
+    enum ResourceDemandReferenceKind: Hashable {
         case asset
         case userProperty
         case provider
         case graph
     }
 
-    private struct ResourceDemandTextureSlotShape: Hashable {
+    struct ResourceDemandTextureSlotShape: Hashable {
         let index: Int
         let references: [ResourceDemandReferenceKind]
     }
 
-    private struct ResourceDemandAnalysisKey: Hashable {
+    struct ResourceDemandAnalysisKey: Hashable {
         let shaderIdentity: String
         let shaderCanonicalSHA256: String
         let textureSlots: [ResourceDemandTextureSlotShape?]
@@ -371,6 +371,13 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             implicitFramebufferIdentity: implicitFramebufferIdentity
         )
         let analysis = analyses.result(for: analysisKey) {
+            if let persisted = SceneMaterialDemandAnalysisPersistentCache
+                .load(key: analysisKey) {
+                return .ready(
+                    textureFormatSlots: persisted.textureFormatSlots,
+                    samplers: persisted.samplers
+                )
+            }
             do {
                 let textureFormatSlots = try SceneResolvedMaterialTextureResolver
                     .launchTextureFormatSlots(template: template)
@@ -386,6 +393,11 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     where sampler.readinessCombo == nil && samplers[slot] == nil {
                     samplers[slot, default: []].insert(sampler)
                 }
+                SceneMaterialDemandAnalysisPersistentCache.store(
+                    textureFormatSlots: textureFormatSlots,
+                    samplers: samplers,
+                    key: analysisKey
+                )
                 return .ready(
                     textureFormatSlots: textureFormatSlots,
                     samplers: samplers

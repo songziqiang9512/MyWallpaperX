@@ -61,12 +61,9 @@ nonisolated enum SceneGenericShaderAnalysisCache {
             guard let data = try? encoder.encode(value) else { return nil }
             return String(decoding: data, as: UTF8.self)
         }
-        var data = Data()
+        var digest = ScenePersistentCacheDigest()
         func append(_ value: String) {
-            let encoded = Data(value.utf8)
-            var length = UInt64(encoded.count).bigEndian
-            withUnsafeBytes(of: &length) { data.append(contentsOf: $0) }
-            data.append(encoded)
+            digest.append(value)
         }
         func appendSlot(_ value: Int?) {
             append(value.map(String.init) ?? "-")
@@ -112,7 +109,7 @@ nonisolated enum SceneGenericShaderAnalysisCache {
             return nil
         }
         append(loopBounds)
-        return SceneGenericShaderProgramArtifact.sha256(data)
+        return digest.sha256Hex()
     }
 
     // MARK: - Analysis digest
@@ -151,7 +148,9 @@ nonisolated enum SceneGenericShaderAnalysisCache {
         let url = directory.appendingPathComponent(
             "\(digest).json", isDirectory: false
         )
-        guard let data = regularFileData(url),
+        guard let data = ScenePersistentCacheSupport.regularFileData(
+            url, maximumBytes: maximumEntryBytes
+            ),
               let envelope = try? JSONDecoder().decode(
                   Envelope.self, from: data
               ),
@@ -232,7 +231,9 @@ nonisolated enum SceneGenericShaderAnalysisCache {
                     at: directory, withIntermediateDirectories: true
                 )
                 if !pruned {
-                    prune(directory)
+                    ScenePersistentCacheSupport.prune(
+                        directory, retainedEntryLimit: retainedEntryLimit
+                    )
                     pruned = true
                 }
                 try data.write(
@@ -277,91 +278,11 @@ nonisolated enum SceneGenericShaderAnalysisCache {
     private static func cacheDirectory(
         createIfNeeded: Bool
     ) -> URL? {
-        let versionedName = "SceneGenericShaderAnalysis-v\(schemaVersion)"
-        let environment = ProcessInfo.processInfo.environment
-        if let rawRoot = environment["MWX_SCENE_GENERIC_SHADER_CACHE"] {
-            // The override may point at a root shared with the program
-            // artifact tier; keep a private subdirectory so pruning here can
-            // never remove that tier's entries.
-            guard let root = validatedDirectory(rawRoot) else { return nil }
-            let scoped = root.appendingPathComponent(
-                versionedName, isDirectory: true
-            )
-            if createIfNeeded {
-                do {
-                    try FileManager.default.createDirectory(
-                        at: scoped, withIntermediateDirectories: true
-                    )
-                } catch {
-                    return nil
-                }
-            }
-            return validatedDirectory(scoped.path)
-        }
-        guard let caches = FileManager.default.urls(
-            for: .cachesDirectory, in: .userDomainMask
-        ).first else { return nil }
-        let root = caches
-            .appendingPathComponent(
-                "com.songziqiang.MyWallpaperX", isDirectory: true
-            )
-            .appendingPathComponent(versionedName, isDirectory: true)
-            .standardizedFileURL
-        if createIfNeeded {
-            do {
-                try FileManager.default.createDirectory(
-                    at: root, withIntermediateDirectories: true,
-                    attributes: [.posixPermissions: 0o700]
-                )
-            } catch {
-                return nil
-            }
-        }
-        return validatedDirectory(root.path)
-    }
-
-    private static func validatedDirectory(_ rawPath: String) -> URL? {
-        guard !rawPath.isEmpty else { return nil }
-        let url = URL(
-            fileURLWithPath: rawPath, isDirectory: true
-        ).standardizedFileURL
-        let values = try? url.resourceValues(forKeys: [
-            .isDirectoryKey, .isSymbolicLinkKey,
-        ])
-        guard values?.isDirectory == true,
-              values?.isSymbolicLink != true else { return nil }
-        return url
-    }
-
-    private static func regularFileData(_ url: URL) -> Data? {
-        let values = try? url.resourceValues(forKeys: [
-            .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey,
-        ])
-        guard values?.isRegularFile == true,
-              values?.isSymbolicLink != true,
-              let size = values?.fileSize,
-              (1 ... maximumEntryBytes).contains(size) else { return nil }
-        return try? Data(contentsOf: url, options: .mappedIfSafe)
-    }
-
-    private static func prune(_ directory: URL) {
-        let fileManager = FileManager.default
-        guard let entries = try? fileManager.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: [.contentModificationDateKey]
-        ) else { return }
-        var dated: [(URL, Date)] = []
-        for url in entries where url.pathExtension == "json" {
-            guard let date = try? url.resourceValues(
-                forKeys: [.contentModificationDateKey]
-            ).contentModificationDate else { continue }
-            dated.append((url, date))
-        }
-        guard dated.count > retainedEntryLimit else { return }
-        dated.sort { $0.1 < $1.1 }
-        for (url, _) in dated.prefix(dated.count - retainedEntryLimit) {
-            try? fileManager.removeItem(at: url)
-        }
+        ScenePersistentCacheSupport.versionedCacheDirectory(
+            environmentKey: "MWX_SCENE_GENERIC_SHADER_CACHE",
+            versionedName: "SceneGenericShaderAnalysis-v\(schemaVersion)",
+            createIfNeeded: createIfNeeded
+        )
     }
 }
 

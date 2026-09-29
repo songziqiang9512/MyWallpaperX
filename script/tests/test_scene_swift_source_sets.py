@@ -214,7 +214,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         )
         self.assertEqual(len(schema), 6)
         self.assertEqual(len(texture_finalization), 9)
-        self.assertEqual(len(variant_preparation), 20)
+        self.assertEqual(len(variant_preparation), 21)
         self.assertIn(
             'MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgramFinalizer+CoordinateOwnership.swift',
             texture_finalization,
@@ -257,7 +257,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *texture_finalization,
             ),
         )
-        self.assertEqual(len(frame_finalization), 44)
+        self.assertEqual(len(frame_finalization), 45)
         self.assertEqual(len(template_compilation), 3)
         self.assertEqual(
             complete,
@@ -266,7 +266,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *frame_finalization,
             ),
         )
-        self.assertEqual(len(complete), 47)
+        self.assertEqual(len(complete), 48)
 
         # The producer set now crosses preparation and live-binding boundaries.
         # Keep its explicit cardinality/order above and verify those boundaries.

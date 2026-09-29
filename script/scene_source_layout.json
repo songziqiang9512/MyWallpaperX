@@ -90,6 +90,8 @@
           "SceneResolvedMaterialProgramIdentity+ExactTexture.swift",
           "SceneResolvedMaterialProgramIdentity.swift",
           "SceneResolvedMaterialRuntimeCatalog+Report.swift",
+          "SceneMaterialDemandAnalysisPersistentCache.swift",
+          "ScenePersistentCacheSupport.swift",
           "SceneResolvedMaterialRuntimeCatalog.swift",
           "SceneResolvedMaterialScriptBindingClassifier.swift",
           "SceneResolvedMaterialShaderSchema+Reachability.swift",
