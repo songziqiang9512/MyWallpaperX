@@ -16,7 +16,6 @@ import Darwin
 extension WallpaperEngine {
     enum WebWallpaperLaunchSource: String {
         case steamWorkshop
-        case diagnostic
     }
 
     enum WebRuntimeOriginMode: String, Equatable {

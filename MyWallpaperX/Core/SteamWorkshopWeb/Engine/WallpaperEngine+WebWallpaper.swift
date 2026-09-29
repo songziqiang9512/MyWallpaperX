@@ -50,69 +50,6 @@ extension WallpaperEngine {
         dispatchWebRuntimeCommand(.applyProperties(propertiesJSON ?? "{}"))
     }
 
-    public func playDiagnosticWebWallpaper() {
-        let fileManager = FileManager.default
-        let diagnosticRoot = fileManager.temporaryDirectory
-            .appendingPathComponent("MyWallpaperXWebDiagnostics", isDirectory: true)
-            .appendingPathComponent("solid-red-page", isDirectory: true)
-
-        do {
-            try fileManager.createDirectory(at: diagnosticRoot, withIntermediateDirectories: true)
-            let htmlURL = diagnosticRoot.appendingPathComponent("index.html")
-            let html = """
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1">
-              <title>MyWallpaperX Web Diagnostic</title>
-              <style>
-                html, body {
-                  width: 100%;
-                  height: 100%;
-                  margin: 0;
-                  overflow: hidden;
-                  background: #ff2a2a;
-                }
-                body {
-                  display: grid;
-                  place-items: center;
-                  font: 700 56px -apple-system, BlinkMacSystemFont, sans-serif;
-                  color: rgba(255, 255, 255, 0.92);
-                  letter-spacing: 0.08em;
-                }
-                .card {
-                  padding: 20px 28px;
-                  border: 2px solid rgba(255, 255, 255, 0.28);
-                  background: rgba(0, 0, 0, 0.18);
-                  border-radius: 18px;
-                  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
-                }
-              </style>
-            </head>
-            <body>
-              <div class="card">WEB HOST DIAGNOSTIC</div>
-            </body>
-            </html>
-            """
-            try html.write(to: htmlURL, atomically: true, encoding: .utf8)
-            launchWebWallpaper(
-                WebWallpaperLaunchRequest(
-                    entryURL: htmlURL,
-                    rootURL: diagnosticRoot,
-                    propertiesJSON: "{}",
-                    source: .diagnostic,
-                    recordID: nil,
-                    language: "en-us",
-                    runtimeProfile: .diagnostic,
-                    multiDisplayEnabled: true
-                )
-            )
-        } catch {
-            NSLog("WallpaperEngine: failed to create diagnostic web wallpaper: %@", error.localizedDescription)
-        }
-    }
-
     func launchWebWallpaper(_ request: WebWallpaperLaunchRequest) {
         beginPlaybackIntent()
         if currentPlaybackContentKind == .web {
