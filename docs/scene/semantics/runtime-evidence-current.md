@@ -16,7 +16,9 @@
 
 **验证：**每批 verify_scene_change 机器推导门（模块集 8-47 个）+ code-health + scene-defense 棘轮 + `-O` Debug 构建 + 只读子代理终审。工作树验证法：主树被并行会话共用时，干净 HEAD worktree + 本 diff 复制 untracked 文件构建与跑门（finalizer neutral 等失败经此法实锤归因并行会话自身提交 3d94a3f4/4aa6d367/357b8bfd，非本 program 引入）。
 
-**边界：**①warm 端到端 A/B 的最后两批（fact 族/变体前缀）因签名基础设施中断（timestamp.apple.com 直连与代理双路 000，licensebundle SIGTRAP）未补齐，已有数据止于 d8bca608 冒烟（warm capability 2938 1080ms/3665 752ms）；②daemon 预热为 L1（进程+握手），L2（Metal device/固定 MSL）与 PreparedContent 预热未做；其实机验收边界（进程恒 1/失败零 UI/杀预热后冷启）未实机执行；③preservedAlphaRGBColorSlots 为死缓存字段（hit 无消费者）留作微优化；④R2 行为回归门、3b Metal binary archive 未开工。落账本段后不再另建平行进度文档；逐批细节以各 commit 信息与 stash@{0} 外的 worktree 证据为准。
+**补测（同日，干净 HEAD worktree b5b97601 构建；GPU 测试模块仍被签名环境阻塞，但 benchmark 用已签名 App 不受影响）：**fact 族/变体前缀两批合并后的 warm capability-catalog 实测——2938: 1846→**901-1317ms**（其中 capability-detail 分段 variants=119 totalMs 522-739，canonicalize=0、analysis 438-674、artifact 73-144）；3665: 1312→**694-798ms**（variants=55 totalMs 418-489，canonicalize 0-15、analysis 315-374、artifact 271-332）；accepted 等价（119/54）。analysis 桶残量（eligibility 校验段+fact 族中未入缓存的部分+per-node 集合）为 315-674ms，与"缓存命中即跳过 lex+parse 大头"的设计一致。
+
+**边界：**①daemon 预热为 L1（进程+握手），L2（Metal device/固定 MSL）与 PreparedContent 预热未做；其实机验收边界（进程恒 1/失败零 UI/杀预热后冷启）未实机执行；②preservedAlphaRGBColorSlots 为死缓存字段（hit 无消费者）留作微优化；③R2 行为回归门、3b Metal binary archive 未开工；④4 个 GPU 测试模块仍被签名环境阻塞（与 benchmark 无关）。落账本段后不再另建平行进度文档；逐批细节以各 commit 信息与 worktree 证据为准。
 
 <a id="e-2026-09-29-launch-reporter-census"></a>
 
