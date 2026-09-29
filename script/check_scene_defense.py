@@ -23,6 +23,7 @@ Detector boundaries (documented on purpose, see the baseline `notes` too):
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import subprocess
@@ -269,15 +270,98 @@ def count_swallow_patterns(
     return counts
 
 
+FUNC_DECLARATION = re.compile(
+    r"^\s*(?:@\w+(?:\([^()]*\))?\s+)*(?:nonisolated\s+|public\s+|internal\s+|private\s+|fileprivate\s+"
+    r"|static\s+|class\s+|final\s+|mutating\s+|override\s+|required\s+|convenience\s+)*"
+    r"func\s+\w+\s*[<(]"
+)
+
+
+def count_duplicate_body_groups(
+    sources: dict[str, str], min_body_lines: int
+) -> dict[str, Any]:
+    """Count function-body duplicate groups, ignoring whitespace only.
+
+    The 2026-09-29 consolidation batches merged helper families that agents had
+    copied file to file; a copy under a *new* name escapes the per-name canonical
+    helper ratchet, so this counts duplicates by body fingerprint instead. The
+    signature is part of neither the fingerprint nor the grouping: two identical
+    bodies with different signatures are still the same copy-paste to retire.
+    """
+
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for path, text in sources.items():
+        rows = text.splitlines()
+        for index, row in enumerate(rows):
+            if not FUNC_DECLARATION.match(row):
+                continue
+            signature_end = None
+            paren_depth = 0
+            for offset in range(index, min(index + 10, len(rows))):
+                line = rows[offset]
+                if line.rstrip().endswith("{"):
+                    signature_end = offset
+                    break
+                paren_depth += line.count("(") - line.count(")")
+                if (
+                    "{" in line
+                    and line.count("{") == line.count("}")
+                    and paren_depth <= 0
+                ):
+                    # A complete single-line body, but only once the signature's
+                    # parentheses have closed: a default value like
+                    # `fallback: String = "{}"` or `= { $0 }` inside a multi-line
+                    # signature is balanced on its own line and must not discard
+                    # the function. Below the fingerprint threshold either way,
+                    # so it also must not inherit the next function's body.
+                    break
+            if signature_end is None:
+                continue
+            body, depth = [], 0
+            for offset in range(signature_end, min(signature_end + 120, len(rows))):
+                body.append(rows[offset])
+                depth += rows[offset].count("{") - rows[offset].count("}")
+                if offset > signature_end and depth <= 0:
+                    break
+            if len(body) - 1 < min_body_lines:
+                continue
+            fingerprint = hashlib.sha256(
+                "\n".join(re.sub(r"\s+", "", line) for line in body[1:]).encode()
+            ).hexdigest()[:10]
+            groups.setdefault(fingerprint, []).append(
+                {"file": path, "line": index + 1, "bodyLines": len(body) - 1}
+            )
+    duplicates = {
+        fingerprint: entries
+        for fingerprint, entries in groups.items()
+        if len(entries) > 1
+    }
+    samples = [
+        {
+            "copies": len(entries),
+            "bodyLines": entries[0]["bodyLines"],
+            "sites": [f"{entry['file']}:{entry['line']}" for entry in entries[:4]],
+        }
+        for entries in sorted(
+            duplicates.values(), key=lambda entries: (-len(entries), entries[0]["file"])
+        )
+    ]
+    return {"groups": len(duplicates), "samples": samples}
+
+
 def measure(paths: Sequence[str], baseline: dict[str, Any]) -> dict[str, Any]:
     source_root = str(baseline["sourceRoot"])
     sources = scene_sources(paths, source_root)
     dead, inventory = count_dead_entries(sources, paths)
+    duplicates_rule = baseline.get("duplicateBodies") or {"minBodyLines": 3}
     return {
         "deadEntries": dead,
         "inventoryEntries": inventory,
         "canonicalHelpers": count_canonical_helpers(baseline["canonicalHelpers"], sources),
         "swallowPatterns": count_swallow_patterns(baseline["swallowPatterns"], sources),
+        "duplicateBodies": count_duplicate_body_groups(
+            sources, int(duplicates_rule["minBodyLines"])
+        ),
     }
 
 
@@ -352,6 +436,21 @@ def load_baseline(text: str, source: str) -> dict[str, Any]:
                             f"{source} swallow pattern {entry['id']} needs "
                             f"{'an owner' if required == 'owner' else 'a retirement condition'}"
                         )
+
+    duplicates = baseline.get("duplicateBodies")
+    if duplicates is not None:
+        if not isinstance(duplicates, dict):
+            raise ValueError(f"{source} duplicateBodies must be an object")
+        for field in ("minBodyLines", "allowedGroups"):
+            if not isinstance(duplicates.get(field), int) or duplicates[field] < 1:
+                raise ValueError(f"{source} duplicateBodies needs a positive {field}")
+        validate_meta(duplicates, PATTERN_META_FIELDS, source, "duplicateBodies")
+        for required in ("owner", "retirement"):
+            if not str(duplicates.get(required, "")).strip():
+                raise ValueError(
+                    f"{source} duplicateBodies needs "
+                    f"{'an owner' if required == 'owner' else 'a retirement condition'}"
+                )
     acknowledged = baseline.get("acknowledgedChanges", [])
     if not isinstance(acknowledged, list):
         raise ValueError(f"{source} acknowledgedChanges must be a list")
@@ -449,6 +548,24 @@ def check_growth(base: dict[str, Any], current: dict[str, Any]) -> tuple[list[st
                 f"{baseline_entry['pattern']!r} to {entry['pattern']!r}"
             )
 
+    base_duplicates = base.get("duplicateBodies")
+    current_duplicates = current.get("duplicateBodies")
+    if base_duplicates is None and current_duplicates is not None:
+        changes.append("duplicate-body section was added to the reviewed set")
+    elif base_duplicates is not None and current_duplicates is None:
+        changes.append("duplicate-body section was removed from the reviewed set")
+    elif base_duplicates is not None and current_duplicates is not None:
+        if int(current_duplicates["allowedGroups"]) > int(base_duplicates["allowedGroups"]):
+            growth.append(
+                f"duplicate-body group allowance grew from "
+                f"{base_duplicates['allowedGroups']} to {current_duplicates['allowedGroups']}"
+            )
+        if current_duplicates["minBodyLines"] != base_duplicates["minBodyLines"]:
+            changes.append(
+                "duplicate-body minBodyLines changed from "
+                f"{base_duplicates['minBodyLines']} to {current_duplicates['minBodyLines']}"
+            )
+
     base_dead = {key(entry) for entry in base["deadEntries"]}
     current_dead = {key(entry) for entry in current["deadEntries"]}
     for name, file in sorted(current_dead - base_dead):
@@ -519,6 +636,26 @@ def evaluate(baseline: dict[str, Any], measurements: dict[str, Any]) -> tuple[li
                 f"swallow pattern {pattern_id} shrank from {allowed} to {count} occurrences; "
                 "lock in the improvement with --ratchet-baseline"
             )
+
+    duplicates_rule = baseline.get("duplicateBodies")
+    if duplicates_rule is not None:
+        allowed_groups = int(duplicates_rule["allowedGroups"])
+        measured = measurements["duplicateBodies"]
+        current_groups = int(measured["groups"])
+        if current_groups > allowed_groups:
+            locations = "; ".join(
+                f"x{sample['copies']} at {', '.join(sample['sites'][:2])}"
+                for sample in measured["samples"][:3]
+            )
+            errors.append(
+                f"function-body duplicate groups grew from {allowed_groups} to {current_groups}; "
+                f"share one implementation instead of pasting another copy (largest: {locations})"
+            )
+        elif current_groups < allowed_groups:
+            errors.append(
+                f"function-body duplicate groups shrank from {allowed_groups} to {current_groups}; "
+                "lock in the improvement with --ratchet-baseline"
+            )
     return errors, warnings
 
 
@@ -557,6 +694,11 @@ def ratcheted_baseline(baseline: dict[str, Any], measurements: dict[str, Any]) -
         {**entry, "allowedOccurrences": int(measurements["swallowPatterns"].get(entry["id"], 0))}
         for entry in baseline["swallowPatterns"]
     ]
+    if baseline.get("duplicateBodies") is not None:
+        current["duplicateBodies"] = {
+            **baseline["duplicateBodies"],
+            "allowedGroups": int(measurements["duplicateBodies"]["groups"]),
+        }
     current["deadEntries"] = measurements["deadEntries"]
     current["inventoryEntries"] = measurements["inventoryEntries"]
     return current

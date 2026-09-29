@@ -24,9 +24,10 @@ def baseline(
     inventory: list[dict[str, str]] | None = None,
     helpers: list[dict[str, object]] | None = None,
     swallows: list[dict[str, object]] | None = None,
+    duplicates: dict[str, object] | None = None,
     source_root: str = "Scene",
 ) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "schemaVersion": 1,
         "sourceRoot": source_root,
         "notes": ["locked inventory"],
@@ -55,6 +56,9 @@ def baseline(
         "deadEntries": dead or [],
         "inventoryEntries": inventory or [],
     }
+    if duplicates is not None:
+        payload["duplicateBodies"] = duplicates
+    return payload
 
 
 def measurements(
@@ -63,12 +67,25 @@ def measurements(
     inventory: list[dict[str, str]] | None = None,
     helpers: dict[str, int] | None = None,
     swallows: dict[str, int] | None = None,
+    duplicates: dict[str, object] | None = None,
 ) -> dict[str, object]:
     return {
         "deadEntries": dead or [],
         "inventoryEntries": inventory or [],
         "canonicalHelpers": helpers if helpers is not None else {"matches": 1},
         "swallowPatterns": swallows if swallows is not None else {"regex": 0},
+        "duplicateBodies": duplicates
+        if duplicates is not None
+        else {"groups": 0, "samples": []},
+    }
+
+
+def meta_duplicates(groups: int, min_lines: int = 3) -> dict[str, object]:
+    return {
+        "minBodyLines": min_lines,
+        "allowedGroups": groups,
+        "owner": "fixture owner",
+        "retirement": "fixture retirement",
     }
 
 
@@ -216,6 +233,180 @@ class SceneDefenseGateTests(unittest.TestCase):
                 )
 
         self.assertEqual({"optional-constant-swallow": 1}, counts)
+
+    def test_duplicate_bodies_group_verbatim_copies_under_new_names(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            body = (
+                "    static func probe(_ value: Int) -> Int {\n"
+                "        let doubled = value * 2\n"
+                "        let offset = doubled + 7\n"
+                "        return offset % 13\n"
+                "    }\n"
+            )
+            write(root, "Scene/One.swift", "enum ProbeA {\n" + body + "}\n")
+            write(root, "Scene/Two.swift", "enum ProbeB {\n" + body + "}\n")
+            write(root, "Scene/Short.swift", "enum ProbeC {\n" + body + "}\nenum ProbeD {\n" + body + "}\n")
+
+            with patch.object(GATE, "REPO_ROOT", root):
+                sources = GATE.scene_sources(
+                    ["Scene/One.swift", "Scene/Two.swift", "Scene/Short.swift"], "Scene"
+                )
+                measured = GATE.count_duplicate_body_groups(sources, 3)
+
+        self.assertEqual(1, measured["groups"])
+        self.assertEqual(4, measured["samples"][0]["copies"])
+
+    def test_duplicate_bodies_ignore_whitespace_and_short_bodies(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write(
+                root,
+                "Scene/One.swift",
+                "func a() {\n    let x = 1\n    let y = 2\n    return x + y\n}\n",
+            )
+            write(
+                root,
+                "Scene/Two.swift",
+                "func b() {\n\tlet x = 1\n\tlet y = 2\n\treturn x + y\n}\n",
+            )
+            # two identical one-line bodies stay below the threshold
+            write(root, "Scene/Three.swift", "func c() { return 1 }\nfunc d() { return 1 }\n")
+
+            with patch.object(GATE, "REPO_ROOT", root):
+                sources = GATE.scene_sources(
+                    ["Scene/One.swift", "Scene/Two.swift", "Scene/Three.swift"], "Scene"
+                )
+                measured = GATE.count_duplicate_body_groups(sources, 3)
+
+        self.assertEqual(1, measured["groups"])
+        self.assertEqual(
+            ["Scene/One.swift:1", "Scene/Two.swift:1"], measured["samples"][0]["sites"]
+        )
+
+    def test_single_line_bodies_do_not_inherit_the_next_function(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            body = (
+                "    func real() -> Int {\n"
+                "        let a = 1\n"
+                "        let b = 2\n"
+                "        return a + b\n"
+                "    }\n"
+            )
+            # a one-line forwarding body must not grab the next function's body
+            write(
+                root,
+                "Scene/Forward.swift",
+                "func quick(_ v: Int) -> Int { v + 1 }\n" + body,
+            )
+            write(root, "Scene/Genuine.swift", "enum Holder {\n" + body + "}\n")
+
+            with patch.object(GATE, "REPO_ROOT", root):
+                sources = GATE.scene_sources(
+                    ["Scene/Forward.swift", "Scene/Genuine.swift"], "Scene"
+                )
+                measured = GATE.count_duplicate_body_groups(sources, 3)
+
+        # real() appears in both files (one genuine group of two); the one-line
+        # quick() must not join it by inheriting real()'s signature and body.
+        self.assertEqual(1, measured["groups"])
+        self.assertEqual(2, measured["samples"][0]["copies"])
+
+    def test_parameterised_attributes_are_visible_to_the_scanner(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            # the attribute must sit on the func line itself; a standalone
+            # attribute line would pass even without the pattern fix
+            write(
+                root,
+                "Scene/Attr.swift",
+                "@inline(__always) func heavy(_ value: Int) -> Int {\n"
+                "        let a = value * 3\n"
+                "        let b = a + 11\n"
+                "        return b % 17\n"
+                "    }\n"
+                "@available(macOS 13, *) func heavyAgain(_ value: Int) -> Int {\n"
+                "        let a = value * 3\n"
+                "        let b = a + 11\n"
+                "        return b % 17\n"
+                "    }\n",
+            )
+
+            with patch.object(GATE, "REPO_ROOT", root):
+                sources = GATE.scene_sources(["Scene/Attr.swift"], "Scene")
+                measured = GATE.count_duplicate_body_groups(sources, 3)
+
+        self.assertEqual(1, measured["groups"])
+        self.assertEqual(2, measured["samples"][0]["copies"])
+
+    def test_balanced_default_values_do_not_discard_multiline_signatures(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = (
+                "    static func evaluate(\n"
+                "        payload: Int,\n"
+                '        userPropertiesJSON: String = "{}",\n'
+                "        transform: (Int) -> Int = { $0 }\n"
+                "    ) -> Int {\n"
+                "        let first = transform(payload)\n"
+                "        let second = first + 4\n"
+                "        return second % 9\n"
+                "    }\n"
+            )
+            write(root, "Scene/One.swift", "enum A {\n" + source + "}\n")
+            write(root, "Scene/Two.swift", "enum B {\n" + source + "}\n")
+
+            with patch.object(GATE, "REPO_ROOT", root):
+                sources = GATE.scene_sources(["Scene/One.swift", "Scene/Two.swift"], "Scene")
+                measured = GATE.count_duplicate_body_groups(sources, 3)
+
+        self.assertEqual(1, measured["groups"])
+        self.assertEqual(2, measured["samples"][0]["copies"])
+
+    def test_check_rejects_duplicate_group_growth_and_locks_shrinks(self) -> None:
+        errors, _ = GATE.evaluate(
+            baseline(duplicates=meta_duplicates(3)),
+            measurements(duplicates={"groups": 4, "samples": []}),
+        )
+        self.assertTrue(
+            any("duplicate groups grew from 3 to 4" in message for message in errors)
+        )
+
+        errors, _ = GATE.evaluate(
+            baseline(duplicates=meta_duplicates(3)),
+            measurements(duplicates={"groups": 2, "samples": []}),
+        )
+        self.assertTrue(
+            any("shrank from 3 to 2" in message for message in errors)
+        )
+
+        errors, _ = GATE.evaluate(
+            baseline(duplicates=meta_duplicates(3)),
+            measurements(duplicates={"groups": 3, "samples": []}),
+        )
+        self.assertFalse([message for message in errors if "duplicate" in message])
+
+    def test_growth_guard_blocks_duplicate_allowance_widening(self) -> None:
+        growth, changes = GATE.check_growth(
+            baseline(duplicates=meta_duplicates(3)),
+            baseline(duplicates=meta_duplicates(4)),
+        )
+        self.assertTrue(
+            any("group allowance grew from 3 to 4" in message for message in growth)
+        )
+        growth, changes = GATE.check_growth(
+            baseline(duplicates=meta_duplicates(3, min_lines=3)),
+            baseline(duplicates=meta_duplicates(3, min_lines=2)),
+        )
+        self.assertFalse(growth)
+        self.assertTrue(
+            any("minBodyLines changed from 3 to 2" in message for message in changes)
+        )
+        growth, _ = GATE.check_growth(
+            baseline(duplicates=None), baseline(duplicates=meta_duplicates(3))
+        )
+        self.assertFalse(growth)
 
     def test_check_reports_new_dead_entries_and_stale_locks(self) -> None:
         errors, _ = GATE.evaluate(

@@ -206,6 +206,13 @@
       "retirement": "Retired; the zero lock is the guard."
     }
   ],
+  "duplicateBodies": {
+    "minBodyLines": 3,
+    "allowedGroups": 127,
+    "note": "Function bodies pasted verbatim (whitespace-insensitive, >=3 body lines), grouped by fingerprint; unlike the per-name canonical helper ratchet this also catches a copy made under a brand-new name. Measured 2026-09-29 at 127 groups / 303 copies after the shader text-helper consolidation batches (initial 133/325 included 16 phantom copies from a single-line-body extraction bug, fixed before landing). Detector boundaries: func declarations only, body capped at 120 lines, signature window of 10 lines leaves ~94 long-signature declarations unfingerprinted (widening to 40 changes the count by zero today).",
+    "owner": "Scene over-defense consolidation (2026-09-29)",
+    "retirement": "Shrink family by family onto shared homes and ratchet allowedGroups down; the floor is 0 once no two functions share a body."
+  },
   "deadEntries": [],
   "inventoryEntries": [],
   "acknowledgedChanges": [
@@ -252,6 +259,10 @@
     {
       "detail": "retired swallow pattern identity-empty-fallback: allowance 1 -> 0",
       "reason": "batch 4b 把摘要编码失败改为显式失败：ShaderContract canonical hash 走诊断码、X-Ray stock identity 走 nil 比较、dependency payload 按已证总成立政策改 try!"
+    },
+    {
+      "detail": "duplicate-body section was added to the reviewed set",
+      "reason": "2026-09-29 把全仓函数体指纹重复检测并入防御面棘轮：按名字的 canonical helper 棘轮抓不住换名复制的副本，此节按函数体指纹计数（≥3 行体），新增重复组必红、收缩须 ratchet"
     }
   ]
 }
