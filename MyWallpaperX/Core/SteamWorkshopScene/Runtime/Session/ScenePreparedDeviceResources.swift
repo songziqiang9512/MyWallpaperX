@@ -119,6 +119,10 @@ final class ScenePreparedBaseImageResources {
         var loadedCount = 0
         var failedCount = 0
         var deferredRequests: [Int: DeferredRequest] = [:]
+        // AS2 experiment 1: every mipmap generation in this load pass joins
+        // one command buffer, committed and awaited once after the loops.
+        uploadCommandQueue.beginMipmapBatch()
+        defer { uploadCommandQueue.flushMipmapBatch() }
         for layer in descriptor.layers where layer.isImageRenderable {
             try cancellationCheck()
             guard layer.contentKind != "solid",
@@ -190,6 +194,14 @@ final class ScenePreparedBaseImageResources {
             }
         }
         try cancellationCheck()
+        // Cancellation aborts the pass with pending textures discarded; a
+        // successful pass flushes every deferred generation before any frame
+        // can sample the returned textures.
+        guard uploadCommandQueue.flushMipmapBatch() else {
+            throw SceneBaseImageTextureLoad.Outcome.failed(
+                .decodeFailed("batched mipmap generation failed")
+            )
+        }
         return ScenePreparedBaseImageResources(
             textureLoader: textureLoader,
             sceneGeneration: sceneGeneration,

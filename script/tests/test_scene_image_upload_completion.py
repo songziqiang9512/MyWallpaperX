@@ -191,6 +191,37 @@ import Metal
         results["recovery"] = describe(SceneImageTextureUploader.upload(
             image: image, purpose: .premultipliedColor, maxDimension: 8, device: device
         ))
+        // AS2 experiment 1: a load batch defers every mipmap generation to
+        // one command buffer flushed once at batch end.
+        let batchQueue = SceneTextureUploadCommandQueue()
+        batchQueue.beginMipmapBatch()
+        var batchTextures: [MTLTexture] = []
+        for _ in 0..<3 {
+            if case let .loaded(texture) = SceneImageTextureUploader.upload(
+                image: image, purpose: .premultipliedColor, maxDimension: 8,
+                uploadCommandQueue: batchQueue, device: device
+            ) {
+                batchTextures.append(texture)
+            }
+        }
+        results["batchDeferCount"] = batchQueue.mipmapDeferCount
+        let flushed = batchQueue.flushMipmapBatch()
+        results["batchFlushCount"] = batchQueue.mipmapBatchFlushCount
+        results["batchTextureCount"] = batchTextures.count
+        results["batchFlushSucceeded"] = flushed
+        results["batchMipLevels"] = batchTextures.map { $0.mipmapLevelCount }
+        var level1NonZero = true
+        for texture in batchTextures {
+            let width = max(texture.width >> 1, 1)
+            let height = max(texture.height >> 1, 1)
+            var pixels = [UInt8](repeating: 0, count: width * height * 4)
+            texture.getBytes(
+                &pixels, bytesPerRow: width * 4,
+                from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 1
+            )
+            if pixels.allSatisfy({ $0 == 0 }) { level1NonZero = false }
+        }
+        results["batchLevel1Generated"] = level1NonZero
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: results))
     }
 
@@ -268,6 +299,15 @@ class SceneImageUploadCompletionTests(unittest.TestCase):
             if run.stdout.strip() == "SKIP":
                 raise unittest.SkipTest("Metal device unavailable")
             cls.result = json.loads(run.stdout)
+
+    def test_load_batch_defers_mipmaps_to_one_flush(self) -> None:
+        output = self.result
+        self.assertEqual(output["batchDeferCount"], 3)
+        self.assertEqual(output["batchFlushCount"], 1)
+        self.assertEqual(output["batchTextureCount"], 3)
+        self.assertTrue(output["batchFlushSucceeded"])
+        self.assertTrue(all(levels > 1 for levels in output["batchMipLevels"]))
+        self.assertTrue(output["batchLevel1Generated"])
 
     def test_full_chain_has_initialized_terminal_mip(self) -> None:
         for route in ("color0", "preserved0", "recovery"):

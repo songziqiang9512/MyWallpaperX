@@ -11,6 +11,10 @@ nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
     private let lock = NSLock()
     private var queues: [UInt64: MTLCommandQueue] = [:]
     private var creationAttempts = 0
+    private var mipmapBatchActive = false
+    private var pendingMipmapTextures: [MTLTexture] = []
+    private var mipmapDeferStorage = 0
+    private var mipmapFlushStorage = 0
 
     var creationAttemptCount: Int {
         lock.lock()
@@ -29,6 +33,74 @@ nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
         queue.label = "MyWallpaperX Scene Resource Upload"
         queues[device.registryID] = queue
         return queue
+    }
+
+    // MARK: Batched mipmap generation (AS2 experiment 1)
+
+    /// While a batch is active, mipmap generation commands defer to one
+    /// command buffer committed at flush time instead of one synchronous
+    /// round-trip per texture. `begin` resets any stale pending list.
+    func beginMipmapBatch() {
+        lock.lock()
+        defer { lock.unlock() }
+        mipmapBatchActive = true
+        pendingMipmapTextures = []
+    }
+
+    /// Returns true when the texture joined an active batch (generation
+    /// deferred to flush); false when the caller owns the immediate path.
+    func deferMipmapGenerationIfBatching(_ texture: MTLTexture) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard mipmapBatchActive else { return false }
+        pendingMipmapTextures.append(texture)
+        mipmapDeferStorage += 1
+        return true
+    }
+
+    /// Commits one command buffer per device carrying every deferred
+    /// mipmap generation and waits once. Returns false on GPU failure.
+    @discardableResult
+    func flushMipmapBatch() -> Bool {
+        lock.lock()
+        let textures = pendingMipmapTextures
+        pendingMipmapTextures = []
+        mipmapBatchActive = false
+        mipmapFlushStorage += 1
+        lock.unlock()
+        guard !textures.isEmpty else { return true }
+        var byDevice: [UInt64: (device: MTLDevice, textures: [MTLTexture])] = [:]
+        for texture in textures {
+            byDevice[texture.device.registryID, default: (texture.device, [])]
+                .textures.append(texture)
+        }
+        for (_, entry) in byDevice {
+            guard let queue = commandQueue(for: entry.device) else { return false }
+            guard let commandBuffer = queue.makeCommandBuffer() else { return false }
+            guard let encoder = commandBuffer.makeBlitCommandEncoder() else {
+                return false
+            }
+            for texture in entry.textures {
+                encoder.generateMipmaps(for: texture)
+            }
+            encoder.endEncoding()
+            commandBuffer.commit()
+            commandBuffer.waitUntilCompleted()
+            guard commandBuffer.status == .completed else { return false }
+        }
+        return true
+    }
+
+    var mipmapDeferCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return mipmapDeferStorage
+    }
+
+    var mipmapBatchFlushCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return mipmapFlushStorage
     }
 }
 
@@ -500,6 +572,12 @@ enum SceneImageTextureUploader {
             )
         }
         guard texture.mipmapLevelCount > 1 else { return .success(texture) }
+        // Inside an active load batch the generation command joins the batch
+        // command buffer (one commit and wait for the whole pass, AS2
+        // experiment 1); the caller flushes before any frame can sample.
+        if uploadCommandQueue.deferMipmapGenerationIfBatching(texture) {
+            return .success(texture)
+        }
         // Direct images have no compiled TEX mip-chain authority, so build a
         // complete chain for the shared min/mag/mip sampler. A decoded TEX
         // fallback passes `.baseLevelOnly` when the compiled container has one
