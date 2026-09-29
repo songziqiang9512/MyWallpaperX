@@ -149,47 +149,16 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     ) -> Bridge.ExecutionResult {
         var emission = Emission()
         lock.lock()
-        guard terminalFailureReason == nil, frameIsActive,
-              framePreparationComplete, !frameRequiresDrop,
-              frameFailure == nil, let executor, let frame,
-              let identity = preparedLedgerByLayerID[claim.layerID],
-              let index = activeTransactions.firstIndex(of: identity),
-              var ledger = activeByID[identity],
-              ledger.layerID == claim.layerID,
-              ledger.capabilityToken == claim.token,
-              let capability = capabilities.resolve(ledger.capabilityToken),
-              capability.layerID == claim.layerID,
-              capability.dependencyOwnership == claim.dependencyOwnership,
-              ledger.claimConsumed,
-              ledger.phase == .allocationCommitted,
-              ledger.commandBuffer === commandBuffer,
-              commandBuffer.status == .notEnqueued,
-              dependenciesMatch(
-                  preparedEffects: ledger.preparedDependencyEffects,
-                  preparedUnavailability:
-                    ledger.preparedDependencyUnavailability,
-                  readyEffects: dependencyEffects,
-                  ownership: claim.dependencyOwnership
-              ), sceneBackgroundTextureMatches(
-                  prepared: ledger.prepared.sceneBackgroundResource,
-                  ready: sceneBackgroundTexture,
-                  requirement: claim.sceneBackgroundRequirement,
-                  frameEpoch: frame.textureRegistrySnapshot.frameEpoch
-              ),
-              activeTransactions[..<index].allSatisfy({
-                  activeByID[$0]?.phase == .outputConsumed
-              }), activeTransactions[activeTransactions.index(after: index)...]
-                .allSatisfy({ activeByID[$0]?.phase == .allocationCommitted })
-        else {
+        switch admitClaimedExecutionLocked(
+            claim: claim,
+            dependencyEffects: dependencyEffects,
+            sceneBackgroundTexture: sceneBackgroundTexture,
+            commandBuffer: commandBuffer
+        ) {
+        case let .rejected(detail):
             let reason = commandBuffer.status == .notEnqueued
                 ? "prepared-frame-consumption-rejected"
                 : "transaction-armed-after-submit"
-            let detail = preparedFrameConsumptionRejectionDetailLocked(
-                claim: claim,
-                dependencyEffects: dependencyEffects,
-                sceneBackgroundTexture: sceneBackgroundTexture,
-                commandBuffer: commandBuffer
-            )
             emission = claimedFailureLocked(reason: reason)
             emission.diagnostics.append(
                 "\(reason) layer=\(claim.layerID) detail=\(detail)"
@@ -197,110 +166,133 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             lock.unlock()
             emit(emission)
             return .failed(reasonCode: reason)
-        }
-        let encodeResult = executor.encodeResult(
-            ledger.prepared,
-            commandBuffer: commandBuffer
-        )
-        guard case .success = encodeResult else {
-            let reason: String
-            if case let .failure(failure) = encodeResult {
-                reason = "command-append-\(failure.rawValue)"
-            } else {
-                reason = "command-append-result-invariant"
-            }
-            emission = claimedFailureLocked(reason: reason)
-            lock.unlock()
-            emit(emission)
-            return .failed(reasonCode: reason)
-        }
-        ledger.phase = .encoded
-        activeByID[identity] = ledger
-        frameEncoded += 1
-        let consumesExternalPrimaryDependency: Bool
-        if case .externalPrimary = claim.dependencyOwnership,
-           ledger.preparedDependencyUnavailability == nil {
-            consumesExternalPrimaryDependency = true
-        } else if case let .externalAggregate(aggregate) = claim.dependencyOwnership,
-                  !aggregate.providerLayerIDs.isEmpty {
-            consumesExternalPrimaryDependency = true
-        } else {
-            consumesExternalPrimaryDependency = false
-        }
-        let result = Bridge.ExecutionResult.encoded(
-            texture: ledger.prepared.finalTexture,
-            ticket: .init(
-                identity: identity,
-                epoch: executionEpoch,
-                finalTextureIdentity: ObjectIdentifier(ledger.prepared.finalTexture),
-                finalContent: ledger.prepared.finalResource.publication.candidate.content,
-                consumesExternalPrimaryDependency:
-                    consumesExternalPrimaryDependency,
-                effectFailures: ledger.prepared.stages.compactMap { stage in
-                    guard let reasonCode = stage.effectLocalFailureReasonCode else {
-                        return nil
-                    }
-                    return .init(
-                        layerID: stage.effect.layerID,
-                        effectIndex: stage.effect.effectIndex,
-                        descriptorID: stage.effect.descriptorID,
-                        reasonCode: reasonCode
-                    )
-                }
+        case let .accepted(admittedLedger, identity, executor):
+            var ledger = admittedLedger
+            let encodeResult = executor.encodeResult(
+                ledger.prepared,
+                commandBuffer: commandBuffer
             )
-        )
-        lock.unlock()
-        return result
+            guard case .success = encodeResult else {
+                let reason: String
+                if case let .failure(failure) = encodeResult {
+                    reason = "command-append-\(failure.rawValue)"
+                } else {
+                    reason = "command-append-result-invariant"
+                }
+                emission = claimedFailureLocked(reason: reason)
+                lock.unlock()
+                emit(emission)
+                return .failed(reasonCode: reason)
+            }
+            ledger.phase = .encoded
+            activeByID[identity] = ledger
+            frameEncoded += 1
+            let consumesExternalPrimaryDependency: Bool
+            if case .externalPrimary = claim.dependencyOwnership,
+               ledger.preparedDependencyUnavailability == nil {
+                consumesExternalPrimaryDependency = true
+            } else if case let .externalAggregate(aggregate) = claim.dependencyOwnership,
+                      !aggregate.providerLayerIDs.isEmpty {
+                consumesExternalPrimaryDependency = true
+            } else {
+                consumesExternalPrimaryDependency = false
+            }
+            let result = Bridge.ExecutionResult.encoded(
+                texture: ledger.prepared.finalTexture,
+                ticket: .init(
+                    identity: identity,
+                    epoch: executionEpoch,
+                    finalTextureIdentity: ObjectIdentifier(ledger.prepared.finalTexture),
+                    finalContent: ledger.prepared.finalResource.publication.candidate.content,
+                    consumesExternalPrimaryDependency:
+                        consumesExternalPrimaryDependency,
+                    effectFailures: ledger.prepared.stages.compactMap { stage in
+                        guard let reasonCode = stage.effectLocalFailureReasonCode else {
+                            return nil
+                        }
+                        return .init(
+                            layerID: stage.effect.layerID,
+                            effectIndex: stage.effect.effectIndex,
+                            descriptorID: stage.effect.descriptorID,
+                            reasonCode: reasonCode
+                        )
+                    }
+                )
+            )
+            lock.unlock()
+            return result
+        }
     }
 
-    private func preparedFrameConsumptionRejectionDetailLocked(
+    /// The single admission ladder for a claimed execution.
+    ///
+    /// Acceptance carries the ledger and identity the caller consumes; rejection
+    /// carries the reason that reaches the log, so the decision and its explanation
+    /// cannot disagree. The earlier split ladder omitted the capability clauses here
+    /// and could report a reason that did not match the clause that actually failed.
+    private enum ClaimedExecutionAdmission {
+        case accepted(
+            ledger: PreparedLedger,
+            identity: UInt64,
+            executor: SceneResolvedMaterialGraphExecutor
+        )
+        case rejected(detail: String)
+    }
+
+    private func admitClaimedExecutionLocked(
         claim: Bridge.ClaimedExecution,
         dependencyEffects: [SceneDependencyEffectInput],
         sceneBackgroundTexture: MTLTexture?,
         commandBuffer: MTLCommandBuffer
-    ) -> String {
-        guard terminalFailureReason == nil else { return "runtime-terminal" }
-        guard frameIsActive else { return "frame-inactive" }
-        guard framePreparationComplete else { return "frame-not-prepared" }
-        guard !frameRequiresDrop else { return "frame-drop-required" }
-        guard frameFailure == nil else { return "frame-failure-recorded" }
-        guard executor != nil else { return "executor-unavailable" }
-        guard let frame else { return "frame-snapshot-unavailable" }
+    ) -> ClaimedExecutionAdmission {
+        guard terminalFailureReason == nil else { return .rejected(detail: "runtime-terminal") }
+        guard frameIsActive else { return .rejected(detail: "frame-inactive") }
+        guard framePreparationComplete else { return .rejected(detail: "frame-not-prepared") }
+        guard !frameRequiresDrop else { return .rejected(detail: "frame-drop-required") }
+        guard frameFailure == nil else { return .rejected(detail: "frame-failure-recorded") }
+        guard let executor else { return .rejected(detail: "executor-unavailable") }
+        guard let frame else { return .rejected(detail: "frame-snapshot-unavailable") }
         guard let identity = preparedLedgerByLayerID[claim.layerID]
-        else { return "prepared-ledger-missing" }
+        else { return .rejected(detail: "prepared-ledger-missing") }
         guard let index = activeTransactions.firstIndex(of: identity)
-        else { return "prepared-order-missing" }
+        else { return .rejected(detail: "prepared-order-missing") }
         guard let ledger = activeByID[identity]
-        else { return "prepared-ledger-unavailable" }
-        guard ledger.layerID == claim.layerID else { return "layer-mismatch" }
+        else { return .rejected(detail: "prepared-ledger-unavailable") }
+        guard ledger.layerID == claim.layerID else { return .rejected(detail: "layer-mismatch") }
         guard ledger.capabilityToken == claim.token
-        else { return "capability-token-mismatch" }
-        guard ledger.claimConsumed else { return "claim-not-consumed" }
+        else { return .rejected(detail: "capability-token-mismatch") }
+        guard let capability = capabilities.resolve(ledger.capabilityToken)
+        else { return .rejected(detail: "capability-unresolved") }
+        guard capability.layerID == claim.layerID
+        else { return .rejected(detail: "capability-layer-mismatch") }
+        guard capability.dependencyOwnership == claim.dependencyOwnership
+        else { return .rejected(detail: "capability-ownership-mismatch") }
+        guard ledger.claimConsumed else { return .rejected(detail: "claim-not-consumed") }
         guard ledger.phase == .allocationCommitted
-        else { return "ledger-phase-\(ledger.phase.rawValue)" }
+        else { return .rejected(detail: "ledger-phase-\(ledger.phase.rawValue)") }
         guard ledger.commandBuffer === commandBuffer
-        else { return "command-buffer-mismatch" }
+        else { return .rejected(detail: "command-buffer-mismatch") }
         guard commandBuffer.status == .notEnqueued
-        else { return "command-buffer-status-\(commandBuffer.status.rawValue)" }
+        else { return .rejected(detail: "command-buffer-status-\(commandBuffer.status.rawValue)") }
         guard dependenciesMatch(
             preparedEffects: ledger.preparedDependencyEffects,
             preparedUnavailability: ledger.preparedDependencyUnavailability,
             readyEffects: dependencyEffects,
             ownership: claim.dependencyOwnership
-        ) else { return "dependency-input-mismatch" }
+        ) else { return .rejected(detail: "dependency-input-mismatch") }
         guard sceneBackgroundTextureMatches(
             prepared: ledger.prepared.sceneBackgroundResource,
             ready: sceneBackgroundTexture,
             requirement: claim.sceneBackgroundRequirement,
             frameEpoch: frame.textureRegistrySnapshot.frameEpoch
-        ) else { return "scene-background-mismatch" }
+        ) else { return .rejected(detail: "scene-background-mismatch") }
         guard activeTransactions[..<index].allSatisfy({
             activeByID[$0]?.phase == .outputConsumed
-        }) else { return "predecessor-output-not-consumed" }
+        }) else { return .rejected(detail: "predecessor-output-not-consumed") }
         guard activeTransactions[activeTransactions.index(after: index)...]
             .allSatisfy({ activeByID[$0]?.phase == .allocationCommitted })
-        else { return "successor-phase-mismatch" }
-        return "unknown"
+        else { return .rejected(detail: "successor-phase-mismatch") }
+        return .accepted(ledger: ledger, identity: identity, executor: executor)
     }
 
     func dependencyReservationMatches(

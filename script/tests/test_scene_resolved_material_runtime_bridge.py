@@ -5435,11 +5435,10 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
         self.assertLess(prepared, allocation_commit)
         self.assertLess(allocation_commit, ledger)
         self.assertIn("commandBuffer: commandBuffer", coordinator)
-        command_buffer_guard = execution.index(
-            "ledger.commandBuffer === commandBuffer"
-        )
+        admission = execution.index("switch admitClaimedExecutionLocked(")
         encode = execution.index("executor.encodeResult(")
-        self.assertLess(command_buffer_guard, encode)
+        self.assertLess(admission, encode)
+        self.assertIn("guard ledger.commandBuffer === commandBuffer", execution)
         self.assertIn("ledger.phase == .allocationCommitted", execution)
         self.assertIn('"prepared-frame-consumption-rejected"', execution)
         self.assertIn(
