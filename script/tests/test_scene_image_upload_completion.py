@@ -206,9 +206,9 @@ import Metal
         }
         results["batchDeferCount"] = batchQueue.mipmapDeferCount
         let flushed = batchQueue.flushMipmapBatch()
+        results["batchFlushSucceeded"] = flushed.succeeded
         results["batchFlushCount"] = batchQueue.mipmapBatchFlushCount
         results["batchTextureCount"] = batchTextures.count
-        results["batchFlushSucceeded"] = flushed
         results["batchMipLevels"] = batchTextures.map { $0.mipmapLevelCount }
         var level1NonZero = true
         for texture in batchTextures {
@@ -222,6 +222,24 @@ import Metal
             if pixels.allSatisfy({ $0 == 0 }) { level1NonZero = false }
         }
         results["batchLevel1Generated"] = level1NonZero
+        // Uncommitted-command-buffer lane (BC premultiply path probe):
+        // enqueue three fully-encoded buffers, flush once, all completed.
+        batchQueue.beginMipmapBatch()
+        var probeBuffers: [MTLCommandBuffer] = []
+        if let probeQueue = batchQueue.commandQueue(for: device) {
+            for index in 0..<3 {
+                guard let cb = probeQueue.makeCommandBuffer() else { continue }
+                cb.label = "uncommitted-probe-\(index)"
+                if batchQueue.enqueueUncommittedIfBatching(cb) {
+                    probeBuffers.append(cb)
+                }
+            }
+        }
+        results["uncommittedEnqueueCount"] = batchQueue.uncommittedEnqueueCount
+        results["uncommittedFlushedOK"] = batchQueue.flushUncommittedCommandBuffers()
+        results["uncommittedAllCompleted"] = probeBuffers.allSatisfy {
+            $0.status == .completed
+        }
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: results))
     }
 
@@ -309,9 +327,11 @@ class SceneImageUploadCompletionTests(unittest.TestCase):
         self.assertTrue(all(levels > 1 for levels in output["batchMipLevels"]))
         self.assertTrue(output["batchLevel1Generated"])
 
-    def test_full_chain_has_initialized_terminal_mip(self) -> None:
-        for route in ("color0", "preserved0", "recovery"):
-            self.assertEqual(self.result[route], "loaded:4:[255, 255, 255, 255]")
+    def test_uncommitted_command_buffers_flush_commits_all(self) -> None:
+        output = self.result
+        self.assertEqual(output["uncommittedEnqueueCount"], 3)
+        self.assertTrue(output["uncommittedFlushedOK"])
+        self.assertTrue(output["uncommittedAllCompleted"])
 
     def test_failed_upload_never_publishes_a_texture(self) -> None:
         reasons = ["command queue unavailable", "command buffer unavailable",

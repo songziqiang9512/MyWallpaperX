@@ -15,6 +15,8 @@ nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
     private var pendingMipmapTextures: [MTLTexture] = []
     private var mipmapDeferStorage = 0
     private var mipmapFlushStorage = 0
+    private var pendingUncommittedCommandBuffers: [MTLCommandBuffer] = []
+    private var uncommittedEnqueueStorage = 0
 
     var creationAttemptCount: Int {
         lock.lock()
@@ -109,6 +111,47 @@ nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return mipmapFlushStorage
+    }
+
+    // MARK: Uncommitted command-buffer lane (BC premultiply path)
+
+    /// Hands a fully-encoded command buffer to the active batch: flush
+    /// commits queued buffers in submission order (the shared serial queue
+    /// completes them in that order) and waits for each. Returns false when
+    /// no batch is active (caller commits immediately).
+    func enqueueUncommittedIfBatching(_ commandBuffer: MTLCommandBuffer) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard mipmapBatchActive else { return false }
+        pendingUncommittedCommandBuffers.append(commandBuffer)
+        uncommittedEnqueueStorage += 1
+        return true
+    }
+
+    /// Commits every queued command buffer in submission order and waits
+    /// for each. Returns false when any command buffer fails.
+    @discardableResult
+    func flushUncommittedCommandBuffers() -> Bool {
+        lock.lock()
+        let buffers = pendingUncommittedCommandBuffers
+        pendingUncommittedCommandBuffers = []
+        lock.unlock()
+        guard !buffers.isEmpty else { return true }
+        for buffer in buffers {
+            buffer.commit()
+        }
+        var succeeded = true
+        for buffer in buffers {
+            buffer.waitUntilCompleted()
+            if buffer.status != .completed { succeeded = false }
+        }
+        return succeeded
+    }
+
+    var uncommittedEnqueueCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return uncommittedEnqueueStorage
     }
 }
 

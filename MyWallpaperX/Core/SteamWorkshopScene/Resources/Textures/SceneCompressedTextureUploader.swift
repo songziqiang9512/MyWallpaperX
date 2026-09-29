@@ -217,6 +217,12 @@ struct SceneCompressedTextureUploader {
                 destinationTexture: destinationLevel
             )
         }
+        // Inside an active load batch the conversion joins the batch's
+        // uncommitted queue: flush commits in submission order and waits
+        // once for the whole pass (AS2 experiment 1).
+        if uploadCommandQueue.enqueueUncommittedIfBatching(commandBuffer) {
+            return .loaded(destination)
+        }
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else {
