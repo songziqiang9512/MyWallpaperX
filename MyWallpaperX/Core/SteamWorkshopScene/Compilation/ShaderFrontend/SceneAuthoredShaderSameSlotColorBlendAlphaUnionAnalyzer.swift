@@ -269,7 +269,7 @@ nonisolated enum SceneAuthoredShaderSameSlotColorBlendAlphaUnionAnalyzer {
                 fragment.tokens[index].text
             ), index + 2 < fragment.tokens.count,
                fragment.tokens[index + 1].text == "(" else { return nil }
-            return textureSlot(fragment.tokens[index + 2].text)
+            return SceneShaderSourceTextFacts.textureSlot(fragment.tokens[index + 2].text)
         }
         return slots.count == callIndices.count
             && slots.sorted() == ([sourceSlot, sourceSlot]
@@ -411,11 +411,6 @@ nonisolated enum SceneAuthoredShaderSameSlotColorBlendAlphaUnionAnalyzer {
             $0.storage == .uniform && $0.arraySize == nil && $0.name == name
         }
         return matches.count == 1 ? matches[0].typeName : nil
-    }
-
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture") else { return nil }
-        return Int(name.dropFirst("g_Texture".count))
     }
 
     private static func mainStatement(

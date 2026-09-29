@@ -53,11 +53,11 @@
     },
     {
       "name": "textureSlot",
-      "allowedCopies": 4,
+      "allowedCopies": 2,
       "canonical": null,
-      "note": "Texture-slot scanner copy; a shared `directTextureSampleSlot` variant already exists.",
+      "note": "Shared home is `SceneShaderSourceTextFacts.textureSlot`; the copy kept here is the one that deliberately does not clamp to 0...7.",
       "owner": "Compilation/ShaderFrontend family merge",
-      "retirement": "Reuse `directTextureSampleSlot`, then ratchet this count down."
+      "retirement": "The remaining unclamped copy feeds `SceneAuthoredShaderNeutralTextureResolutionAnalyzer`, whose coordinate-slot extraction also does not clamp; retire it only together with that analyzer's slot comparison, then ratchet to 1."
     },
     {
       "name": "argumentRanges",

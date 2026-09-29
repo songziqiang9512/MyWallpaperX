@@ -654,7 +654,7 @@ nonisolated enum SceneAuthoredShaderSpatialWeightedColorBlendAnalyzer {
               let ranges = SceneAuthoredShaderTokenScanner.argumentRanges(in: 2..<close, tokens: tokens),
               ranges.count == 2,
               ranges[0].count == 1,
-              let slot = textureSlot(tokens[ranges[0].lowerBound].text) else {
+              let slot = SceneShaderSourceTextFacts.textureSlot(tokens[ranges[0].lowerBound].text) else {
             return nil
         }
         if close == tokens.count - 1 {
@@ -684,12 +684,5 @@ nonisolated enum SceneAuthoredShaderSpatialWeightedColorBlendAnalyzer {
             }
         }
         return nil
-    }
-
-    private static func textureSlot(_ name: String) -> Int? {
-        guard name.hasPrefix("g_Texture"),
-              let slot = Int(name.dropFirst("g_Texture".count)),
-              (0..<8).contains(slot) else { return nil }
-        return slot
     }
 }
