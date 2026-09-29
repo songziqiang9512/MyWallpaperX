@@ -55,6 +55,29 @@ straight-alpha-preserving 形态：`gl_FragColor = vec4(finalColor, alpha)` +
 **缺口 6（跨 workshop 粒子引用）**：`particles/workshop/<other-id>/...` 不在本地 pkg，
 systemParticles=0。需 graceful degradation 或预下载。
 
+## 第二轮 benchmark（8 个代表性新样本，2026-09-30）
+
+| 样本 | 结果 | fps | 观测 |
+|---|---|---|---|
+| 2163522240 | PASS | 54.4 | composition(2)+self-ref；自引用修复覆盖 |
+| 2304304373 | PASS | 50.8 | composition(3)+model-material 链 |
+| 2684431262 | **FAIL** | 5.7 | **黑屏**（69k unique 中 4.79M/6.2M 为纯黑 (0,0,0)）|
+| 2794098047 | PASS | 56.6 | audio-bars+composition(4) |
+| 3078285611 | PASS | 7.9 | **纯粉色**（583k/620k 为 (250,142,200)）——渲染单一覆盖色 |
+| 3233141951 | **FAIL** | — | **进程超时**（12 秒窗口被 SIGTERM） |
+| 3448845950 | PASS | 18.5 | 深色场景（51 万像素 (0,14,26)——暗色主题正常） |
+| 3226487183 | **FAIL** | 17.9 | effect CPU invocation 失败 + passthrough（纹理错位） |
+
+**65 个新增样本匹配已知缺口模式**（音频条/composition/self-ref/model-material 链）。
+缺口 3 的修复（`3d94a3f4` passthrough allowlist + `9b4086ff` colorTransfer 泛化）已覆盖
+其中音频条+composition 层的 textureBindingInvalid 拒绝。
+
+## 新发现
+
+- **2684431262**：纯黑+5.7fps——需排查模型→纹理加载（与 833227004 同类 model-material 链缺口）。
+- **3078285611**：渲染为单一纯粉色——效果链可能产生单一覆盖色而非逐层合成。
+- **3233141951**：进程 12 秒内被 SIGTERM——资源加载超时或 GPU 卡死。
+
 ### 非缺口（观察与实测不一致）
 
 - **3805547608**：benchmark PASS，52fps。"图层源切换"是 UI 交互路径，静态测试不覆盖。
