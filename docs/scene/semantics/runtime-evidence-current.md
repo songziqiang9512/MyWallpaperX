@@ -26,6 +26,14 @@
 
 **验证：**checkpoint 门禁三项 PASSED（focused 8 模块：daemon framing/transport/policy/policy_delivery/wiring/protocol/multiplexer/debug-entry；code-health；build——共享树已恢复可编译）。干净 worktree（HEAD `137a4d0e`+仅本批 6 Swift）Developer ID 签名构建成功；1300076567 证据模式 12s 回放 **PASS loaded=1.0 failures=[]**。`test_playback_policy_delivery` harness 的 playWeb 段（诊断 web 会话继承暂停）随生产路径删除，video/scene 段与 8 模块全绿。冻结批次 diff SHA256 `e288784dd3b70d7968af3c64ab9a83cb673c21d7d32265e110f746fae259e99d`；证据见忽略缓存 `20260929-web-harness-retirement/`。**边界：**web 专门行为由 `test_web_playback_pause`（真实 WKWebView）覆盖（同跑绿）；本批零行为变化的前提即不可达判定成立。
 
+<a id="e-2026-09-30-hlsl-attribute-strip"></a>
+
+### E-2026-09-30-HLSL-ATTRIBUTE-STRIP — syntax error 子类修复（E5 按类解锁第五子类，审查 APPROVE，`ea6f0781`）
+
+**真因实证与消融：**syntax error 子类（16 条 LEFT_BRACKET + 4 条裸 IDENTIFIER）以证据模式回放真样本 3780391264 复现：normalized fragment 第 53 行为裸 HLSL 属性注解 `[loop]`，glslang Vulkan 前端不认 HLSL 属性语法即报 `unexpected IDENTIFIER, expecting LEFT_BRACKET`。修复=`stripHLSLAttributeAnnotations` 剥除五类 HLSL 属性注解关键字（loop/unroll/branch/flatten/fastopt，行内+裸行两形态，关键字白名单防误删数组下标），接在 fragment 阶段算术归一化之前；注解仅承载循环执行提示，剥除保持语义。companion：varying 类调查的 fragment 重复同型 varying 声明 parse 去重容忍一并认领提交。bounded-Swift 前端保留其 token 级剥除（不同管线，无第二 owner）。
+
+**验证：**干净 worktree（HEAD `28e92b4b`+仅本批 3 文件）机器推导 27 模块 **27/27 ALL OK**、签名构建；证据模式回放 3780391264 **PASS loaded=1.0 failures=[]**，LEFT_BRACKET 诊断零残留、全部 normalized 源无 `[loop]`。复核 APPROVE：独立复跑 RED（bundled glslang 对 repro 源报同签名错误）、14 组方括号形态探针零误删、fragment-only 接入与证据相称（vertex 零触达）。**登记**：索引形态 `arr[loop]` 理论可被误剥（语料零命中+失败可见走 fail-soft）；大写 `[UNROLL]` 不剥（语料零命中）；vertex 阶段语料零触达（出现时补对称接入）。diff SHA256 `aaf427e65a4ed0323b1d32b07afe7d5049863e93c5d7db2b378748df8088c627`；证据见忽略缓存 `20260930-hlsl-attribute-strip/`。
+
 <a id="e-2026-09-29-e5-fallback-audit"></a>
 
 ### E-2026-09-29-E5-FALLBACK-AUDIT — generic→boundedFrontend fallback 语料审计（E5 退役前置，裁决=拒绝整批退役，只读分析批）
