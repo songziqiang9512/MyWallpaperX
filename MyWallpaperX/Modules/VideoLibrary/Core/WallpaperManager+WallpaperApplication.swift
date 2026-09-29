@@ -195,14 +195,60 @@ extension WallpaperManager {
     }
 
     private func setDesktopWallpaper(from imagePath: String) {
-        let imageURL = URL(fileURLWithPath: imagePath)
+        let sourceURL = URL(fileURLWithPath: imagePath)
+        // macOS 桌面服务以文件 URL 为缓存键：同 URL 重复 setDesktop
+        // ImageURL 会被静默去重（文件内容覆盖也不刷新桌面）。同步帧的
+        // 源文件名是稳定的（<hash>_frame.jpg / runtime-sync-<kind>.jpg），
+        // 第二次同步同一路径就会"看起来没同步"。因此每次同步先拷贝到
+        // 唯一命名的副本，用新 URL 强制桌面刷新，写完清掉上一次的副本。
+        let stamp = Int(Date().timeIntervalSince1970 * 1000)
+        let desktopCopyURL = staticFrameCacheDirectory
+            .appendingPathComponent("system-wallpaper-active-\(stamp).jpg")
+        do {
+            try? FileManager.default.removeItem(at: desktopCopyURL)
+            try FileManager.default.copyItem(at: sourceURL, to: desktopCopyURL)
+        } catch {
+            // 拷贝失败退回直接引用源文件（同 URL 去重风险可接受，至少不倒退）。
+            NSLog(
+                "MWX SystemWallpaperSync: desktop copy failed: %@",
+                String(describing: error)
+            )
+            applySourceImageDirectly(sourceURL)
+            return
+        }
+        if applySourceImageDirectly(desktopCopyURL) {
+            // 至少一屏成功才清理历史副本；全屏失败时桌面偏好仍指向上一份
+            // 副本，不能把它删成悬挂引用。
+            removePreviousDesktopCopies(keeping: desktopCopyURL)
+        }
+    }
+
+    /// 逐屏应用；返回是否至少一屏成功。
+    @discardableResult
+    private func applySourceImageDirectly(_ imageURL: URL) -> Bool {
         let workspace = NSWorkspace.shared
+        var didApplyAnyScreen = false
         for screen in NSScreen.screens {
             do {
                 try workspace.setDesktopImageURL(imageURL, for: screen, options: [:])
+                didApplyAnyScreen = true
             } catch {
                 // 系统壁纸同步失败时静默忽略，不影响视频壁纸播放。
             }
+        }
+        return didApplyAnyScreen
+    }
+
+    /// 清理历史同步副本（保留刚写入的这份）。副本是可重建派生数据，
+    /// 清缓存目录时一并消失。
+    private func removePreviousDesktopCopies(keeping current: URL) {
+        let contents = (try? FileManager.default.contentsOfDirectory(
+            at: staticFrameCacheDirectory,
+            includingPropertiesForKeys: nil
+        )) ?? []
+        for item in contents where item.lastPathComponent.hasPrefix("system-wallpaper-active-") {
+            guard item != current else { continue }
+            try? FileManager.default.removeItem(at: item)
         }
     }
 
