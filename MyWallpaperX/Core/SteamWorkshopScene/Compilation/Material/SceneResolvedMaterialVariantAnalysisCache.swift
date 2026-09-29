@@ -18,7 +18,7 @@ import Foundation
 /// successful variant compilation, the read path never creates the cache
 /// directory, and a failed or stale record degrades to a full recompute.
 nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
-    private static let schemaVersion = 1
+    private static let schemaVersion = 2
     private static let maximumEntryBytes = 512 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()
@@ -30,6 +30,76 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
         let activeSamplerNames: Set<String>
         let resolvedIntegerCombos: [String: Int]
         let sourceActiveSamplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+        let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
+        let sourceColorTransfer: SceneShaderColorTransfer
+        let rgba8UnormAccumulatorSourceSlot: Int?
+        let spatialWeightedColorBlend: SpatialWeightedColorBlendMirror?
+        let sourceCarriedRGBA: SourceCarriedRGBAMirror?
+        let conditionalGeneratedRGB: ConditionalGeneratedRGBMirror?
+        let sameAlphaReconstructedRGB: SameAlphaReconstructedMirror?
+        let preservedAlphaRGBColorSlots: Set<Int>
+        let neutralTextureResolution: NeutralTextureResolutionMirror?
+        let alphaAttenuationFact: AuxiliaryRedCarrierMirror?
+        let colorBlendFact: ColorBlendCarrierMirror?
+        let previousBlurredCompositeFact: PreviousBlurredCompositeShapeMirror?
+    }
+
+    struct SpatialWeightedColorBlendMirror: Codable, Equatable {
+        let sourceSlot: Int
+        let straightColorSlot: Int
+        let preservedRedAlphaSlot: Int
+        let optionalMaskSlot: Int?
+    }
+
+    struct SourceCarriedRGBAMirror: Codable, Equatable {
+        enum Transfer: String, Codable, Equatable { case preserving, straight }
+        enum Shape: String, Codable, Equatable { case existing, generatedCarrier }
+        let sourceSlot: Int
+        let transfer: Transfer
+        let shape: Shape
+        let auxiliaryDataSlots: Set<Int>
+    }
+
+    struct ConditionalGeneratedRGBMirror: Codable, Equatable {
+        let alphaCarrierSlot: Int
+        let generatedOpaqueColorSlots: Set<Int>
+        let scalarRedSlots: Set<Int>
+        let scalarGreenSlots: Set<Int>
+        let scalarBlueSlots: Set<Int>
+        let scalarAlphaSlots: Set<Int>
+    }
+
+    struct SameAlphaReconstructedMirror: Codable, Equatable {
+        let sourceSlot: Int
+        let auxiliarySlots: Set<Int>
+        let preservesSnapshotAlpha: Bool
+    }
+
+    struct NeutralTextureResolutionMirror: Codable, Equatable {
+        let resolutionSlot: Int
+        let coordinateTextureSlot: Int
+        let varyingName: String
+        let sourceComponents: String
+        let targetComponents: String
+    }
+
+    struct AuxiliaryRedCarrierMirror: Codable, Equatable {
+        let sourceSlot: Int
+        let auxiliaryRedSlots: Set<Int>
+    }
+
+    struct ColorBlendCarrierMirror: Codable, Equatable {
+        enum AlphaOutput: String, Codable, Equatable { case preserved, opaque }
+        let sourceSlot: Int
+        let auxiliaryRedSlots: Set<Int>
+        let alphaOutput: AlphaOutput
+    }
+
+    struct PreviousBlurredCompositeShapeMirror: Codable, Equatable {
+        let blurredSlot: Int
+        let previousSlot: Int
+        let maskSlot: Int?
+        let colorUniform: String
     }
 
     private struct PersistedRecord: Codable {
@@ -38,6 +108,18 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
         let activeSamplerNames: [String]
         let resolvedIntegerCombos: [ComboPair]
         let samplers: [ScenePersistentSamplerRecord]
+        let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
+        let sourceColorTransfer: SceneShaderColorTransfer
+        let rgba8UnormAccumulatorSourceSlot: Int?
+        let spatialWeightedColorBlend: SpatialWeightedColorBlendMirror?
+        let sourceCarriedRGBA: SourceCarriedRGBAMirror?
+        let conditionalGeneratedRGB: ConditionalGeneratedRGBMirror?
+        let sameAlphaReconstructedRGB: SameAlphaReconstructedMirror?
+        let preservedAlphaRGBColorSlots: [Int]
+        let neutralTextureResolution: NeutralTextureResolutionMirror?
+        let alphaAttenuationFact: AuxiliaryRedCarrierMirror?
+        let colorBlendFact: ColorBlendCarrierMirror?
+        let previousBlurredCompositeFact: PreviousBlurredCompositeShapeMirror?
     }
 
     private struct ComboPair: Codable {
@@ -69,7 +151,7 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
         outputIsRGBA8Unorm: Bool
     ) -> String? {
         var digest = ScenePersistentCacheDigest()
-        digest.append("mwx-variant-analysis-key-v1")
+        digest.append("mwx-variant-analysis-key-v2")
         digest.append(contractIdentity)
         digest.append(contractCanonicalSHA256)
         for slot in textureSlotShapes {
@@ -125,7 +207,21 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
             resolvedIntegerCombos: record.resolvedIntegerCombos
                 .map { ComboPair(name: $0.key, value: $0.value) }
                 .sorted { $0.name < $1.name },
-            samplers: mirrored
+            samplers: mirrored,
+            runtimeLoopBounds: record.runtimeLoopBounds,
+            sourceColorTransfer: record.sourceColorTransfer,
+            rgba8UnormAccumulatorSourceSlot:
+                record.rgba8UnormAccumulatorSourceSlot,
+            spatialWeightedColorBlend: record.spatialWeightedColorBlend,
+            sourceCarriedRGBA: record.sourceCarriedRGBA,
+            conditionalGeneratedRGB: record.conditionalGeneratedRGB,
+            sameAlphaReconstructedRGB: record.sameAlphaReconstructedRGB,
+            preservedAlphaRGBColorSlots:
+                record.preservedAlphaRGBColorSlots.sorted(),
+            neutralTextureResolution: record.neutralTextureResolution,
+            alphaAttenuationFact: record.alphaAttenuationFact,
+            colorBlendFact: record.colorBlendFact,
+            previousBlurredCompositeFact: record.previousBlurredCompositeFact
         )
     }
 
@@ -168,7 +264,21 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
                 uniqueKeysWithValues: payload.resolvedIntegerCombos
                     .map { ($0.name, $0.value) }
             ),
-            sourceActiveSamplers: samplers
+            sourceActiveSamplers: samplers,
+            runtimeLoopBounds: payload.runtimeLoopBounds,
+            sourceColorTransfer: payload.sourceColorTransfer,
+            rgba8UnormAccumulatorSourceSlot:
+                payload.rgba8UnormAccumulatorSourceSlot,
+            spatialWeightedColorBlend: payload.spatialWeightedColorBlend,
+            sourceCarriedRGBA: payload.sourceCarriedRGBA,
+            conditionalGeneratedRGB: payload.conditionalGeneratedRGB,
+            sameAlphaReconstructedRGB: payload.sameAlphaReconstructedRGB,
+            preservedAlphaRGBColorSlots:
+                Set(payload.preservedAlphaRGBColorSlots),
+            neutralTextureResolution: payload.neutralTextureResolution,
+            alphaAttenuationFact: payload.alphaAttenuationFact,
+            colorBlendFact: payload.colorBlendFact,
+            previousBlurredCompositeFact: payload.previousBlurredCompositeFact
         )
     }
 
@@ -223,6 +333,225 @@ nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
             environmentKey: "MWX_SCENE_GENERIC_SHADER_CACHE",
             versionedName: "SceneVariantAnalysis-v\(schemaVersion)",
             createIfNeeded: createIfNeeded
+        )
+    }
+}
+
+// MARK: - Mirror ↔ analyzer fact rebuilds
+
+extension SceneResolvedMaterialVariantAnalysisCache {
+
+    static func rebuild(
+        _ mirror: SpatialWeightedColorBlendMirror?
+    ) -> SceneAuthoredShaderSpatialWeightedColorBlendFact? {
+        guard let mirror else { return nil }
+        return .init(
+            sourceSlot: mirror.sourceSlot,
+            straightColorSlot: mirror.straightColorSlot,
+            preservedRedAlphaSlot: mirror.preservedRedAlphaSlot,
+            optionalMaskSlot: mirror.optionalMaskSlot
+        )
+    }
+
+    static func mirror(
+        _ fact: SceneAuthoredShaderSpatialWeightedColorBlendFact
+    ) -> SpatialWeightedColorBlendMirror {
+        .init(
+            sourceSlot: fact.sourceSlot,
+            straightColorSlot: fact.straightColorSlot,
+            preservedRedAlphaSlot: fact.preservedRedAlphaSlot,
+            optionalMaskSlot: fact.optionalMaskSlot
+        )
+    }
+
+    static func rebuild(
+        _ mirror: SourceCarriedRGBAMirror?
+    ) -> SceneAuthoredShaderGeneratedStraightRGBAAnalyzer.SourceCarriedFact? {
+        guard let mirror else { return nil }
+        let transfer: SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
+            .SourceCarriedTransfer =
+            mirror.transfer == .preserving ? .preserving : .straight
+        let shape: SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
+            .SourceCarriedShape =
+            mirror.shape == .existing ? .existing : .generatedCarrier
+        return .init(
+            sourceSlot: mirror.sourceSlot,
+            transfer: transfer,
+            shape: shape,
+            auxiliaryDataSlots: mirror.auxiliaryDataSlots
+        )
+    }
+
+    static func mirror(
+        _ fact: SceneAuthoredShaderGeneratedStraightRGBAAnalyzer.SourceCarriedFact
+    ) -> SourceCarriedRGBAMirror {
+        .init(
+            sourceSlot: fact.sourceSlot,
+            transfer: fact.transfer == .preserving ? .preserving : .straight,
+            shape: fact.shape == .existing ? .existing : .generatedCarrier,
+            auxiliaryDataSlots: fact.auxiliaryDataSlots
+        )
+    }
+
+    static func rebuild(
+        _ mirror: ConditionalGeneratedRGBMirror?
+    ) -> SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.Fact? {
+        guard let mirror else { return nil }
+        return .init(
+            alphaCarrierSlot: mirror.alphaCarrierSlot,
+            generatedOpaqueColorSlots: mirror.generatedOpaqueColorSlots,
+            scalarRedSlots: mirror.scalarRedSlots,
+            scalarGreenSlots: mirror.scalarGreenSlots,
+            scalarBlueSlots: mirror.scalarBlueSlots,
+            scalarAlphaSlots: mirror.scalarAlphaSlots,
+            sampleCallCounts: [:],
+            generatedSampleCallCounts: [:],
+            scalarRedSampleCallCounts: [:],
+            scalarGreenSampleCallCounts: [:],
+            scalarBlueSampleCallCounts: [:],
+            scalarAlphaSampleCallCounts: [:]
+        )
+    }
+
+    static func mirror(
+        _ fact: SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.Fact
+    ) -> ConditionalGeneratedRGBMirror {
+        .init(
+            alphaCarrierSlot: fact.alphaCarrierSlot,
+            generatedOpaqueColorSlots: fact.generatedOpaqueColorSlots,
+            scalarRedSlots: fact.scalarRedSlots,
+            scalarGreenSlots: fact.scalarGreenSlots,
+            scalarBlueSlots: fact.scalarBlueSlots,
+            scalarAlphaSlots: fact.scalarAlphaSlots
+        )
+    }
+
+    static func rebuild(
+        _ mirror: SameAlphaReconstructedMirror?
+    ) -> SceneAuthoredShaderSameAlphaReconstructedRGBFilterFact? {
+        guard let mirror else { return nil }
+        return SceneAuthoredShaderSameAlphaReconstructedRGBFilterFact(
+            mirror: mirror
+        )
+    }
+
+    static func mirror(
+        _ fact: SceneAuthoredShaderSameAlphaReconstructedRGBFilterFact
+    ) -> SameAlphaReconstructedMirror {
+        .init(
+            sourceSlot: fact.sourceSlot,
+            auxiliarySlots: fact.auxiliarySlots,
+            preservesSnapshotAlpha: fact.preservesSnapshotAlpha
+        )
+    }
+
+    static func rebuild(
+        _ mirror: NeutralTextureResolutionMirror?
+    ) -> SceneAuthoredShaderNeutralTextureResolutionFact? {
+        guard let mirror else { return nil }
+        return .init(
+            resolutionSlot: mirror.resolutionSlot,
+            coordinateTextureSlot: mirror.coordinateTextureSlot,
+            varyingName: mirror.varyingName,
+            sourceComponents: mirror.sourceComponents,
+            targetComponents: mirror.targetComponents
+        )
+    }
+
+    static func mirror(
+        _ fact: SceneAuthoredShaderNeutralTextureResolutionFact
+    ) -> NeutralTextureResolutionMirror {
+        .init(
+            resolutionSlot: fact.resolutionSlot,
+            coordinateTextureSlot: fact.coordinateTextureSlot,
+            varyingName: fact.varyingName,
+            sourceComponents: fact.sourceComponents,
+            targetComponents: fact.targetComponents
+        )
+    }
+
+    static func rebuild(
+        _ mirror: AuxiliaryRedCarrierMirror?
+    ) -> SceneAuthoredShaderAlphaAttenuationFact? {
+        guard let mirror else { return nil }
+        return .init(
+            sourceSlot: mirror.sourceSlot,
+            auxiliaryRedSlots: mirror.auxiliaryRedSlots
+        )
+    }
+
+    static func mirror(
+        _ fact: SceneAuthoredShaderAlphaAttenuationFact
+    ) -> AuxiliaryRedCarrierMirror {
+        .init(
+            sourceSlot: fact.sourceSlot,
+            auxiliaryRedSlots: fact.auxiliaryRedSlots
+        )
+    }
+
+    static func rebuild(
+        _ mirror: ColorBlendCarrierMirror?
+    ) -> SceneAuthoredShaderGraphInputColorBlendFact? {
+        guard let mirror else { return nil }
+        let alphaOutput: SceneAuthoredShaderGraphInputColorBlendFact
+            .AlphaOutput =
+            mirror.alphaOutput == .preserved ? .preserved : .opaque
+        return .init(
+            sourceSlot: mirror.sourceSlot,
+            auxiliaryRedSlots: mirror.auxiliaryRedSlots,
+            alphaOutput: alphaOutput
+        )
+    }
+
+    static func mirror(
+        _ fact: SceneAuthoredShaderGraphInputColorBlendFact
+    ) -> ColorBlendCarrierMirror {
+        .init(
+            sourceSlot: fact.sourceSlot,
+            auxiliaryRedSlots: fact.auxiliaryRedSlots,
+            alphaOutput: fact.alphaOutput == .preserved ? .preserved : .opaque
+        )
+    }
+
+    static func rebuild(
+        _ mirror: PreviousBlurredCompositeShapeMirror?
+    ) -> SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.Fact? {
+        guard let mirror else { return nil }
+        return .init(
+            blurredSlot: mirror.blurredSlot,
+            previousSlot: mirror.previousSlot,
+            maskSlot: mirror.maskSlot,
+            colorUniform: mirror.colorUniform
+        )
+    }
+
+    static func mirror(
+        _ fact: SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.Fact
+    ) -> PreviousBlurredCompositeShapeMirror {
+        .init(
+            blurredSlot: fact.blurredSlot,
+            previousSlot: fact.previousSlot,
+            maskSlot: fact.maskSlot,
+            colorUniform: fact.colorUniform
+        )
+    }
+}
+
+extension SceneAuthoredShaderSameAlphaReconstructedRGBFilterFact {
+    /// Rebuilds the fact from its persisted mirror. The sample-count
+    /// dictionaries are not consumed by the compilation path (only the
+    /// `auxiliarySlots` derivation is), so they are reconstructed to the
+    /// exact stored slot set with one entry per slot.
+    init(mirror: SceneResolvedMaterialVariantAnalysisCache.SameAlphaReconstructedMirror) {
+        self.init(
+            sourceSlot: mirror.sourceSlot,
+            sourceSampleCallCounts: [:],
+            dataSampleCallCounts: Dictionary(
+                uniqueKeysWithValues: mirror.auxiliarySlots.sorted().map {
+                    ($0, [:])
+                }
+            ),
+            preservesSnapshotAlpha: mirror.preservesSnapshotAlpha
         )
     }
 }

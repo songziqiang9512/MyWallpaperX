@@ -51,8 +51,28 @@ nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeEligibility {
     ) -> Slots? {
         guard template.previousBlurredCompositeGenericOwnerEligible,
               let fact = SceneAuthoredShaderPreviousBlurredCompositeAnalyzer
-            .analyze(fragmentSource: fragmentSource),
-              let previousIdentity = implicitFramebufferIdentity,
+            .analyze(fragmentSource: fragmentSource) else { return nil }
+        return validated(
+            shape: fact,
+            prepared: prepared,
+            samplers: samplers,
+            template: template,
+            implicitFramebufferIdentity: implicitFramebufferIdentity,
+            activeGraphTextureIdentities: activeGraphTextureIdentities
+        )
+    }
+
+    /// The per-node validation segment of `slots`, callable with a cached
+    /// analyzer fact so the source scan can be persisted separately.
+    static func validated(
+        shape fact: SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.Fact,
+        prepared: SceneShaderPreparedProgram,
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        template: Template,
+        implicitFramebufferIdentity: Graph.TextureIdentity?,
+        activeGraphTextureIdentities: [Int: Graph.TextureIdentity]
+    ) -> Slots? {
+        guard let previousIdentity = implicitFramebufferIdentity,
               previousIdentity.name == nil,
               previousIdentity.kind == .layerSource
                 || previousIdentity.kind == .effectOutput,

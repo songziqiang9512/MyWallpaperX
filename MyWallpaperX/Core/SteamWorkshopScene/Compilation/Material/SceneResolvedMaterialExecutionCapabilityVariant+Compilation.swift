@@ -169,10 +169,16 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             canonicalize: (CACurrentMediaTime() - canonicalizeStart) * 1000
         )
         let analysisStart = CACurrentMediaTime()
-        let runtimeLoopBounds = SceneResolvedMaterialRuntimeLoopBoundResolver.resolve(
-            template: template,
-            prepared: prepared
-        )
+        let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
+        if let cachedAnalysis {
+            runtimeLoopBounds = cachedAnalysis.runtimeLoopBounds
+        } else {
+            runtimeLoopBounds = SceneResolvedMaterialRuntimeLoopBoundResolver
+                .resolve(
+                    template: template,
+                    prepared: prepared
+                )
+        }
         let resolvedIntegerCombos: [String: Int]
         let activeSamplerNames: Set<String>
         let sourceActiveSamplers: [
@@ -236,33 +242,53 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         let graphTextureSlots = Set(activeGraphTextureIdentities.compactMap {
             $0.value.kind == .framebuffer ? $0.key : nil
         })
-        let spatialWeightedColorBlendFact =
-            SceneAuthoredShaderSpatialWeightedColorBlendAnalyzer.analyze(
-                fragmentSource: compilerSources.fragment,
-                normalBlendModeIdentifiers: normalBlendModeIdentifiers
-            )
-        let analyzedSourceColorTransfer =
-            SceneAuthoredShaderColorTransferAnalyzer.analyze(
-                fragmentSource: compilerSources.fragment,
-                provenRuntimeLoopBounds: runtimeLoopBounds.fragment
-            )
-        let sourceCarriedRGBAFact =
-            SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
-                .analyzeSourceCarried(fragmentSource: compilerSources.fragment)
-        let rgba8UnormAccumulatorSourceSlot = outputIsRGBA8Unorm
-            ? SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer
-                .rgba8UnormAttachmentSourceSlot(
+        let spatialWeightedColorBlendFact: SceneAuthoredShaderSpatialWeightedColorBlendFact?
+        let analyzedSourceColorTransfer: SceneShaderColorTransfer
+        let sourceCarriedRGBAFact: SceneAuthoredShaderGeneratedStraightRGBAAnalyzer.SourceCarriedFact?
+        let rgba8UnormAccumulatorSourceSlot: Int?
+        let conditionalGeneratedRGBFact: SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.Fact?
+        let sameAlphaReconstructedRGBFact: SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer.Fact?
+        if let cachedAnalysis {
+            spatialWeightedColorBlendFact = SceneResolvedMaterialVariantAnalysisCache
+                .rebuild(cachedAnalysis.spatialWeightedColorBlend)
+            analyzedSourceColorTransfer = cachedAnalysis.sourceColorTransfer
+            sourceCarriedRGBAFact = SceneResolvedMaterialVariantAnalysisCache
+                .rebuild(cachedAnalysis.sourceCarriedRGBA)
+            rgba8UnormAccumulatorSourceSlot =
+                cachedAnalysis.rgba8UnormAccumulatorSourceSlot
+            conditionalGeneratedRGBFact = SceneResolvedMaterialVariantAnalysisCache
+                .rebuild(cachedAnalysis.conditionalGeneratedRGB)
+            sameAlphaReconstructedRGBFact = SceneResolvedMaterialVariantAnalysisCache
+                .rebuild(cachedAnalysis.sameAlphaReconstructedRGB)
+        } else {
+            spatialWeightedColorBlendFact =
+                SceneAuthoredShaderSpatialWeightedColorBlendAnalyzer.analyze(
+                    fragmentSource: compilerSources.fragment,
+                    normalBlendModeIdentifiers: normalBlendModeIdentifiers
+                )
+            analyzedSourceColorTransfer =
+                SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                    fragmentSource: compilerSources.fragment,
+                    provenRuntimeLoopBounds: runtimeLoopBounds.fragment
+                )
+            sourceCarriedRGBAFact =
+                SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
+                    .analyzeSourceCarried(fragmentSource: compilerSources.fragment)
+            rgba8UnormAccumulatorSourceSlot = outputIsRGBA8Unorm
+                ? SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer
+                    .rgba8UnormAttachmentSourceSlot(
+                        fragmentSource: compilerSources.fragment
+                    )
+                : nil
+            conditionalGeneratedRGBFact =
+                SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.analyze(
                     fragmentSource: compilerSources.fragment
                 )
-            : nil
-        let conditionalGeneratedRGBFact =
-            SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.analyze(
-                fragmentSource: compilerSources.fragment
-            )
-        let sameAlphaReconstructedRGBFact =
-            SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer.analyze(
-                fragmentSource: compilerSources.fragment
-            )
+            sameAlphaReconstructedRGBFact =
+                SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer.analyze(
+                    fragmentSource: compilerSources.fragment
+                )
+        }
         let rgbBlendScalarAlphaFact =
             SceneAuthoredShaderColorTransferAnalyzer.rgbBlendScalarAlphaFact(
                 fragmentSource: compilerSources.fragment
@@ -431,12 +457,18 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         let activeOpacityMaskSlots = Set(sourceActiveSamplers.compactMap {
             slot, sampler in sampler.mode == .opacityMask ? slot : nil
         })
-        let neutralTextureResolution =
-            SceneAuthoredShaderNeutralTextureResolutionAnalyzer.analyze(
-                vertexSource: compilerSources.vertex,
-                fragmentSource: compilerSources.fragment,
-                activeSamplerSlots: activeTextureSlots
-            )
+        let neutralTextureResolution: SceneAuthoredShaderNeutralTextureResolutionFact?
+        if let cachedAnalysis {
+            neutralTextureResolution = SceneResolvedMaterialVariantAnalysisCache
+                .rebuild(cachedAnalysis.neutralTextureResolution)
+        } else {
+            neutralTextureResolution =
+                SceneAuthoredShaderNeutralTextureResolutionAnalyzer.analyze(
+                    vertexSource: compilerSources.vertex,
+                    fragmentSource: compilerSources.fragment,
+                    activeSamplerSlots: activeTextureSlots
+                )
+        }
         let outputSemantics: SceneGenericShaderOutputSemantics = switch outputStorage {
         case .redGreenUnorm: .redGreenUnorm
         case .preservedRGBAUnorm: .preservedRGBAUnorm
@@ -447,32 +479,77 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         // eligibility, exact candidate identities) that are outside the
         // variant analysis key, so caching it would leak one node's
         // admission authority to another node sharing the key.
-        let alphaAttenuationSourceSlot =
-            SceneResolvedMaterialAlphaAttenuationEligibility.sourceSlot(
-                fragmentSource: prepared.fragment.source,
+        let alphaAttenuationSourceSlot: Int?
+        let colorBlendSourceSlot: Int?
+        let previousBlurredCompositeSlots:
+            SceneResolvedMaterialPreviousBlurredCompositeEligibility.Slots?
+        let alphaAttenuationFact: SceneAuthoredShaderAlphaAttenuationFact?
+        let colorBlendFact: SceneAuthoredShaderGraphInputColorBlendFact?
+        let previousBlurredCompositeAnalyzerFact:
+            SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.Fact?
+        if let cachedAnalysis {
+            // The cached facts are the source-pure analyzer prefix; the
+            // per-node validation segment re-runs every launch.
+            alphaAttenuationFact = SceneResolvedMaterialVariantAnalysisCache
+                .rebuild(cachedAnalysis.alphaAttenuationFact)
+            colorBlendFact = SceneResolvedMaterialVariantAnalysisCache.rebuild(
+                cachedAnalysis.colorBlendFact
+            )
+            previousBlurredCompositeAnalyzerFact =
+                SceneResolvedMaterialVariantAnalysisCache.rebuild(
+                    cachedAnalysis.previousBlurredCompositeFact
+                )
+        } else {
+            alphaAttenuationFact = SceneAuthoredShaderAlphaAttenuationAnalyzer
+                .analyze(fragmentSource: prepared.fragment.source)
+            colorBlendFact = SceneAuthoredShaderGraphInputColorBlendAnalyzer
+                .analyze(fragmentSource: prepared.fragment.source)
+            previousBlurredCompositeAnalyzerFact =
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
+                    fragmentSource: compilerSources.fragment
+                )
+        }
+        if let fact = alphaAttenuationFact,
+            SceneResolvedMaterialAlphaAttenuationEligibility.validated(
+                fact: fact,
                 samplers: sourceActiveSamplers,
                 template: template,
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
                 graphInputSourceSlotFacts: sourceGraphInputFacts
-            )
-        let colorBlendSourceSlot =
-            SceneResolvedMaterialColorBlendEligibility.sourceSlot(
-                fragmentSource: prepared.fragment.source,
-                colorTransfer: sourceColorTransfer,
+            ) {
+            alphaAttenuationSourceSlot = fact.sourceSlot
+        } else {
+            alphaAttenuationSourceSlot = nil
+        }
+        if let fact = colorBlendFact,
+            SceneResolvedMaterialColorBlendEligibility.transfer(
+                sourceColorTransfer, matches: fact
+            ), SceneResolvedMaterialColorBlendEligibility.validated(
+                fact: fact,
                 samplers: sourceActiveSamplers,
                 template: template,
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
                 graphInputSourceSlotFacts: sourceGraphInputFacts
-            )
-        let previousBlurredCompositeSlots =
-            SceneResolvedMaterialPreviousBlurredCompositeEligibility.slots(
-                fragmentSource: compilerSources.fragment,
-                prepared: prepared,
-                samplers: sourceActiveSamplers,
-                template: template,
-                implicitFramebufferIdentity: implicitFramebufferIdentity,
-                activeGraphTextureIdentities: activeGraphTextureIdentities
-            )
+            ) {
+            colorBlendSourceSlot = fact.sourceSlot
+        } else {
+            colorBlendSourceSlot = nil
+        }
+        if let fact = previousBlurredCompositeAnalyzerFact,
+            template.previousBlurredCompositeGenericOwnerEligible,
+            let slots = SceneResolvedMaterialPreviousBlurredCompositeEligibility
+                .validated(
+                    shape: fact,
+                    prepared: prepared,
+                    samplers: sourceActiveSamplers,
+                    template: template,
+                    implicitFramebufferIdentity: implicitFramebufferIdentity,
+                    activeGraphTextureIdentities: activeGraphTextureIdentities
+                ) {
+            previousBlurredCompositeSlots = slots
+        } else {
+            previousBlurredCompositeSlots = nil
+        }
         SceneResolvedMaterialVariantCompileProfile.add(
             analysis: (CACurrentMediaTime() - analysisStart) * 1000
         )
@@ -803,7 +880,35 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     canonicalFragment: compilerSources.fragment,
                     activeSamplerNames: Set(activeSamplerNames),
                     resolvedIntegerCombos: resolvedIntegerCombos,
-                    sourceActiveSamplers: sourceActiveSamplers
+                    sourceActiveSamplers: sourceActiveSamplers,
+                    runtimeLoopBounds: runtimeLoopBounds,
+                    sourceColorTransfer: sourceColorTransfer,
+                    rgba8UnormAccumulatorSourceSlot:
+                        rgba8UnormAccumulatorSourceSlot,
+                    spatialWeightedColorBlend: spatialWeightedColorBlendFact
+                        .map(SceneResolvedMaterialVariantAnalysisCache.mirror),
+                    sourceCarriedRGBA: sourceCarriedRGBAFact.map(
+                        SceneResolvedMaterialVariantAnalysisCache.mirror
+                    ),
+                    conditionalGeneratedRGB: conditionalGeneratedRGBFact.map(
+                        SceneResolvedMaterialVariantAnalysisCache.mirror
+                    ),
+                    sameAlphaReconstructedRGB: sameAlphaReconstructedRGBFact
+                        .map(SceneResolvedMaterialVariantAnalysisCache.mirror),
+                    preservedAlphaRGBColorSlots: preservedAlphaRGBColorSlots,
+                    neutralTextureResolution: neutralTextureResolution.map(
+                        SceneResolvedMaterialVariantAnalysisCache.mirror
+                    ),
+                    alphaAttenuationFact: alphaAttenuationFact.map(
+                        SceneResolvedMaterialVariantAnalysisCache.mirror
+                    ),
+                    colorBlendFact: colorBlendFact.map(
+                        SceneResolvedMaterialVariantAnalysisCache.mirror
+                    ),
+                    previousBlurredCompositeFact:
+                        previousBlurredCompositeAnalyzerFact.map(
+                            SceneResolvedMaterialVariantAnalysisCache.mirror
+                        )
                 ),
                 keySHA256: variantAnalysisKey
             )

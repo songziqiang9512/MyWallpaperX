@@ -84,7 +84,7 @@ nonisolated enum SceneResolvedMaterialColorBlendEligibility {
         }
     }
 
-    private static func transfer(
+    static func transfer(
         _ transfer: SceneShaderColorTransfer,
         matches fact: SceneAuthoredShaderGraphInputColorBlendFact
     ) -> Bool {
