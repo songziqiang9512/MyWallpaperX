@@ -1,4 +1,5 @@
 import Foundation
+import QuartzCore
 
 /// Scene-lifetime catalog of executable material nodes. Templates and resource
 /// demands are compiled only after graph condition/function admission succeeds.
@@ -205,6 +206,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             material: SceneResolvedMaterialNode
         )] = [:]
         var authoredEffectComboNames: [Graph.EffectKey: Set<String>] = [:]
+        let resolveStart = CACurrentMediaTime()
         for key in records.keys.sorted(by: Self.less) {
             guard let matches = records[key], matches.count == 1,
                   let record = matches.first else {
@@ -240,6 +242,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             }
             resolvedRecords[key] = (record.graph, material)
         }
+        let resolveMs = (CACurrentMediaTime() - resolveStart) * 1000
         let pendingKeys = records.keys.sorted(by: Self.less).filter {
             compiled[$0] == nil && resolvedRecords[$0] != nil
         }
@@ -336,6 +339,12 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             systemDemands.formUnion(outcome.systemProviderDemands)
             demandIssues.formUnion(outcome.issues)
         }
+        NSLog(
+            "MWX LAUNCH-STAGE: catalog-detail materials=%d resolveMs=%.0f compileMs=%.0f",
+            records.count,
+            resolveMs,
+            (CACurrentMediaTime() - resolveStart) * 1000 - resolveMs
+        )
         entries = compiled
         assetDemands = demands
         userPropertyDemands = userDemands
