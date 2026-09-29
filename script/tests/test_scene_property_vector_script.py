@@ -56,6 +56,7 @@ SOURCES = [
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerWorldTransformProjection.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptMediaEventBridge.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptMediaFrameCoordinator.swift",
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptProgramFrameLedger.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram+Projection.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptParticleProjection.swift",

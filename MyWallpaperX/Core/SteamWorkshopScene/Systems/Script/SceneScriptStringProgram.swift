@@ -59,19 +59,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
     let livePropertyInputTargets: Set<SceneDynamicTarget>
     private var disabledTargets: Set<SceneDynamicTarget> = []
     private var reportedTargets: Set<SceneDynamicTarget> = []
-    private var observedMediaThumbnailEvent =
-        SceneScriptObservedEvent<SceneScriptMediaThumbnailEventInput>()
-    private var observedMediaPlaybackEvent =
-        SceneScriptObservedEvent<SceneScriptMediaPlaybackEventInput>()
-    private var observedMediaPropertiesEvent =
-        SceneScriptObservedEvent<SceneScriptMediaPropertiesEventInput>()
-    private var observedMediaTimelineEvent =
-        SceneScriptObservedEvent<SceneScriptMediaTimelineEventInput>()
-    private var consumedMediaThumbnailGenerations: [SceneDynamicTarget: UInt64] = [:]
-    private var consumedMediaPlaybackGenerations: [SceneDynamicTarget: UInt64] = [:]
-    private var consumedMediaPropertiesGenerations: [SceneDynamicTarget: UInt64] = [:]
-    private var consumedMediaTimelineGenerations: [SceneDynamicTarget: UInt64] = [:]
-    private var appliedUserProperties = SceneScriptAppliedUserPropertyState()
+    let frameLedger = SceneScriptProgramFrameLedger()
     private var scriptPropertiesJSONCache = SceneScriptPropertyInputJSONCache()
 
     var hasAudioConsumers: Bool {
@@ -367,7 +355,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptStringFrameResult {
-        let observedThumbnail = observedMediaEvents?.thumbnail ?? observedMediaThumbnailEvent.observe(mediaThumbnailEvent); let observedPlayback = observedMediaEvents?.playback ?? observedMediaPlaybackEvent.observe(mediaPlaybackEvent); let observedProperties = observedMediaEvents?.properties ?? observedMediaPropertiesEvent.observe(mediaPropertiesEvent); let observedTimeline = observedMediaEvents?.timeline ?? observedMediaTimelineEvent.observe(mediaTimelineEvent)
+        let observedThumbnail = observedMediaEvents?.thumbnail ?? frameLedger.observedMediaThumbnailEvent.observe(mediaThumbnailEvent); let observedPlayback = observedMediaEvents?.playback ?? frameLedger.observedMediaPlaybackEvent.observe(mediaPlaybackEvent); let observedProperties = observedMediaEvents?.properties ?? frameLedger.observedMediaPropertiesEvent.observe(mediaPropertiesEvent); let observedTimeline = observedMediaEvents?.timeline ?? frameLedger.observedMediaTimelineEvent.observe(mediaTimelineEvent)
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctions: [SceneScriptMaterialFunctionMutation] = []
@@ -400,29 +388,29 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 continue
             }
             let changedUserPropertiesJSON = binding.handlesUserProperties
-                ? appliedUserProperties.changedJSON(
+                ? frameLedger.appliedUserProperties.changedJSON(
                     for: binding.target, current: effectivePropertyValues,
                     kinds: userPropertyKinds, revision: propertyRevision
                 ) : nil
             var current = inputString
             let playback = observedPlayback.flatMap { event in
                 binding.handlesMediaPlayback && event.generation
-                    > consumedMediaPlaybackGenerations[binding.target, default: 0]
+                    > frameLedger.consumedMediaPlaybackGenerations[binding.target, default: 0]
                     ? event : nil
             }
             let properties = observedProperties.flatMap { event in
                 binding.handlesMediaProperties && event.generation
-                    > consumedMediaPropertiesGenerations[binding.target, default: 0]
+                    > frameLedger.consumedMediaPropertiesGenerations[binding.target, default: 0]
                     ? event : nil
             }
             let thumbnail = observedThumbnail.flatMap { event in
                 binding.handlesMediaThumbnail && event.generation
-                    > consumedMediaThumbnailGenerations[binding.target, default: 0]
+                    > frameLedger.consumedMediaThumbnailGenerations[binding.target, default: 0]
                     ? event : nil
             }
             let timeline = observedTimeline.flatMap { event in
                 binding.handlesMediaTimeline && event.generation
-                    > consumedMediaTimelineGenerations[binding.target, default: 0]
+                    > frameLedger.consumedMediaTimelineGenerations[binding.target, default: 0]
                     ? event : nil
             }
             let hasPendingCallback = changedUserPropertiesJSON != nil
@@ -559,23 +547,23 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                     continue
                 }
                 if let playback {
-                    consumedMediaPlaybackGenerations[binding.target] =
+                    frameLedger.consumedMediaPlaybackGenerations[binding.target] =
                         playback.generation
                 }
                 if let properties {
-                    consumedMediaPropertiesGenerations[binding.target] =
+                    frameLedger.consumedMediaPropertiesGenerations[binding.target] =
                         properties.generation
                 }
                 if let timeline {
-                    consumedMediaTimelineGenerations[binding.target] =
+                    frameLedger.consumedMediaTimelineGenerations[binding.target] =
                         timeline.generation
                 }
                 if let thumbnail {
-                    consumedMediaThumbnailGenerations[binding.target] =
+                    frameLedger.consumedMediaThumbnailGenerations[binding.target] =
                         thumbnail.generation
                 }
                 if changedUserPropertiesJSON != nil {
-                    appliedUserProperties.record(
+                    frameLedger.appliedUserProperties.record(
                         effectivePropertyValues, revision: propertyRevision,
                         for: binding.target
                     )
@@ -636,32 +624,15 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         )
     }
 
-    func observeMediaEvents(_ events: SceneScriptMediaFrameEvents) -> SceneScriptObservedMediaFrameEvents { .init(playback: observedMediaPlaybackEvent.observe(events.playback), properties: observedMediaPropertiesEvent.observe(events.properties), thumbnail: observedMediaThumbnailEvent.observe(events.thumbnail), timeline: observedMediaTimelineEvent.observe(events.timeline)) }
 
     func invalidate() { bindings.forEach { $0.invalidate() } }
 
-    func frameStateSnapshot() -> SceneScriptProgramFrameState {
-        .init(observedMediaThumbnailEvent: observedMediaThumbnailEvent.snapshot(), observedMediaPlaybackEvent: observedMediaPlaybackEvent.snapshot(), observedMediaPropertiesEvent: observedMediaPropertiesEvent.snapshot(), observedMediaTimelineEvent: observedMediaTimelineEvent.snapshot(), consumedMediaThumbnailGenerations: consumedMediaThumbnailGenerations, consumedMediaPlaybackGenerations: consumedMediaPlaybackGenerations, consumedMediaPropertiesGenerations: consumedMediaPropertiesGenerations, consumedMediaTimelineGenerations: consumedMediaTimelineGenerations, appliedUserProperties: appliedUserProperties)
-    }
-
+    func observeMediaEvents(_ events: SceneScriptMediaFrameEvents) -> SceneScriptObservedMediaFrameEvents { frameLedger.observeMediaEvents(events) }
+    func frameStateSnapshot() -> SceneScriptProgramFrameState { frameLedger.snapshot() }
     func restoreFrameState(
         _ state: SceneScriptProgramFrameState,
         rejectedOwnerTargets: Set<SceneDynamicTarget>? = nil
-    ) {
-        if let rejectedOwnerTargets {
-            // Keep the observed input watermark and accepted peers. Only the
-            // rejected target's acknowledgement belongs to the failed result.
-            for target in rejectedOwnerTargets {
-                consumedMediaThumbnailGenerations[target] = state.consumedMediaThumbnailGenerations[target]
-                consumedMediaPlaybackGenerations[target] = state.consumedMediaPlaybackGenerations[target]
-                consumedMediaPropertiesGenerations[target] = state.consumedMediaPropertiesGenerations[target]
-                consumedMediaTimelineGenerations[target] = state.consumedMediaTimelineGenerations[target]
-            }
-            appliedUserProperties.restore(state.appliedUserProperties, for: rejectedOwnerTargets)
-            return
-        }
-        observedMediaThumbnailEvent.restore(state.observedMediaThumbnailEvent); observedMediaPlaybackEvent.restore(state.observedMediaPlaybackEvent); observedMediaPropertiesEvent.restore(state.observedMediaPropertiesEvent); observedMediaTimelineEvent.restore(state.observedMediaTimelineEvent); consumedMediaThumbnailGenerations = state.consumedMediaThumbnailGenerations; consumedMediaPlaybackGenerations = state.consumedMediaPlaybackGenerations; consumedMediaPropertiesGenerations = state.consumedMediaPropertiesGenerations; consumedMediaTimelineGenerations = state.consumedMediaTimelineGenerations; appliedUserProperties = state.appliedUserProperties
-    }
+    ) { frameLedger.restore(state, rejectedOwnerTargets: rejectedOwnerTargets) }
 
     func timerFrameStateSnapshot() -> SceneScriptProgramTimerFrameState { .init(snapshots: bindings.map { $0.timerFrameSnapshot() }) }
     func restoreTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { $0.0.restoreTimerFrame($0.1) } }

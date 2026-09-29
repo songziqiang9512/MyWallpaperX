@@ -741,6 +741,7 @@
           "SceneScriptLocalStorage.swift",
           "SceneScriptMediaEventBridge.swift",
           "SceneScriptMediaFrameCoordinator.swift",
+          "SceneScriptProgramFrameLedger.swift",
           "SceneScriptOwnerEffectsRuntimeValidation.swift",
           "SceneScriptOwnerLifecycleBridge.swift",
           "SceneScriptParticleProjection.swift",

@@ -36,6 +36,7 @@ CURSOR_PROGRAM_SOURCES = (
 CURSOR_HIT_ADMISSION_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorHitAdmission.swift"
 MEDIA_EVENT_BRIDGE_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptMediaEventBridge.swift"
 MEDIA_FRAME_COORDINATOR_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptMediaFrameCoordinator.swift"
+PROGRAM_FRAME_LEDGER_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptProgramFrameLedger.swift"
 PROPERTY_INPUT_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptPropertyInput.swift"
 OWNER_EFFECTS_VALIDATION_SOURCE = (
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptOwnerEffectsRuntimeValidation.swift"
@@ -82,6 +83,10 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("func changedJSON(", property_input)
         self.assertIn("mutating func record(", property_input)
         self.assertIn("let appliedUserProperties: SceneScriptAppliedUserPropertyState", bridge)
+        ledger = PROGRAM_FRAME_LEDGER_SOURCE.read_text(encoding="utf-8")
+        # The applied-property state lives in the shared frame ledger; the
+        # restore assignment is asserted there once instead of per family.
+        self.assertIn("appliedUserProperties = state.appliedUserProperties", ledger)
         for source_path in (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorProgram.swift",
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram.swift",
@@ -90,7 +95,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
             source = source_path.read_text(encoding="utf-8")
             self.assertIn("appliedUserProperties.changedJSON(", source)
             self.assertIn("appliedUserProperties.record(", source)
-            self.assertIn("appliedUserProperties = state.appliedUserProperties", source)
+            self.assertIn("frameLedger", source)
             self.assertNotIn("changedUserPropertiesJSON(\n                previous:", source)
         render = swift_body(frame, "private func renderFrame()")
         self.assertIn("propertyRevision: launchContext.liveState.revision", render)
@@ -400,16 +405,18 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
             "observedMediaEvents: observedScalarEvents",
         ):
             self.assertEqual(coordinator.count(observed), 2)
+        ledger = PROGRAM_FRAME_LEDGER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "func observeMediaEvents(_ events: SceneScriptMediaFrameEvents)",
+            ledger,
+        )
         for program in (
             VECTOR_PROGRAM_SOURCE,
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptStringProgram.swift",
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptScalarProgram.swift",
         ):
             source = program.read_text(encoding="utf-8")
-            self.assertIn(
-                "func observeMediaEvents(_ events: SceneScriptMediaFrameEvents)",
-                source,
-            )
+            self.assertIn("frameLedger.observeMediaEvents(events)", source)
             self.assertIn("observedMediaEvents?.", source)
 
     def test_cursor_exports_gate_dispatch_and_transaction_restore(self) -> None:
