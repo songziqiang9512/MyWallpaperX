@@ -279,6 +279,10 @@ enum DebugScenePlaybackRunner {
                 logURL: previewLogURL,
                 recordID: debugRecordID
             )
+            NSLog(
+                "MWX LAUNCH-STAGE: stage=host-launch-return elapsedMs=%.0f",
+                (ProcessInfo.processInfo.systemUptime - requestUptime) * 1_000
+            )
             scheduleRequestedMediaThumbnailSequence(rootURL: rootURL)
             // 隔离证据进程必须显式解除宿主在首个窗口出现前捕获的 focus pause。
             runtimeHost.setPlaybackPaused(false)

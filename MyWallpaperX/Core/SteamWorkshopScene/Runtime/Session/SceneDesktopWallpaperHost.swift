@@ -225,6 +225,10 @@ final class SceneDesktopWallpaperHost {
             userValues: context.liveState.userValues
         )
         installPointerEventMonitorsIfNeeded()
+        NSLog(
+            "MWX LAUNCH-STAGE: stage=activate-end elapsedMs=%.0f",
+            (CACurrentMediaTime() - activateStageStart) * 1000
+        )
     }
 
     @discardableResult

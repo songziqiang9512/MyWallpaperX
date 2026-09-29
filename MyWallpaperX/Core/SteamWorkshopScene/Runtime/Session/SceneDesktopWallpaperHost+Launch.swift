@@ -235,6 +235,13 @@ extension SceneDesktopWallpaperHost {
     ) throws -> PreparedLaunch {
         try cancellation?.check()
         let prepareEntry = CACurrentMediaTime()
+        func logPrepareStage(_ name: String) {
+            NSLog(
+                "MWX LAUNCH-STAGE: stage=%@ elapsedMs=%.0f",
+                name,
+                (CACurrentMediaTime() - prepareEntry) * 1000
+            )
+        }
         progress?(.preparingModel, "正在验证资源包并解析场景")
         let model = try SceneRuntimeModelBuilder().build(
             rootURL: rootURL,
@@ -273,6 +280,7 @@ extension SceneDesktopWallpaperHost {
             deviceResourcesPreparation.cancel()
             _ = try? deviceResourcesPreparation.value()
         }
+        logPrepareStage("prepare-setup")
         let timelineProgram = SceneTimelineTargetCompiler.compile(
             descriptor: runtimeInput.renderDescriptor
         )
@@ -430,6 +438,7 @@ extension SceneDesktopWallpaperHost {
         let resolvedMaterialVisibleExecutionRootLayerIDs = SceneLayerVisibility
             .visibleLayerIDs(in: runtimeInput.renderDescriptor)
                 .union(projectedLayerVisibilityRootLayerIDs)
+        logPrepareStage("prepare-programs")
         let resolvedMaterialAdmissionCandidates =
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
                 descriptor: runtimeInput.renderDescriptor,
@@ -449,6 +458,7 @@ extension SceneDesktopWallpaperHost {
                         shaderContracts: runtimeInput.shaderContracts
                     )
             )
+        logPrepareStage("prepare-admission")
         let resolvedMaterialCatalog = SceneResolvedMaterialRuntimeCatalog(
             descriptor: runtimeInput.renderDescriptor,
             admissionCandidates: resolvedMaterialAdmissionCandidates,
@@ -458,6 +468,7 @@ extension SceneDesktopWallpaperHost {
             timelineDefinitions: timelineDefinitions,
             provenSceneScriptValueTargets: provisionalSceneScriptValueTargets
         )
+        logPrepareStage("prepare-catalog")
         try cancellation?.check()
         progress?(.preparingResources, "正在加载纹理并预检 Metal 资源")
         let resourcesStageStart = CACurrentMediaTime()
