@@ -374,6 +374,14 @@ extension SteamWorkshopService {
                 self.downloadProgressStore.clear(itemID: request.id, jobKey: key)
                 self.statusMessage = recorded ? "已完成 \(job.title) 下载"
                     : "内容已入库；任务记录保存失败，下次启动将对账。"
+                if recorded, commit.contentType == "scene" {
+                    // 下载完成即预热 daemon（契约 responsiveness §5 的低优先
+                    // 预热投影）；App 装配层观察后调 warmSession，best-effort。
+                    NotificationCenter.default.post(
+                        name: .steamWorkshopSceneDownloadCompleted,
+                        object: nil
+                    )
+                }
                 // Publish UI while the account/attempt check is still current.
                 // Cleanup can suspend; it must not project an old account afterwards.
                 if recorded { await self.cleanupTerminalDownload(job.id) }

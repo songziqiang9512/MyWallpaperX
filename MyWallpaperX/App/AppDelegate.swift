@@ -124,6 +124,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  guard let self, self.statusBarController == nil else { return }
  self.statusBarController = StatusBarController()
  }
+ // daemon 预热（best-effort）：启动 3 秒后孵化热 daemon，真实 Scene 切换
+ // 复用热 transport；失败静默、不重试、零可见状态。warmSession 自带守卫
+ // （已有热 transport / 已有 pending intent 时跳过）。
+ NotificationCenter.default.addObserver(
+     forName: .steamWorkshopSceneDownloadCompleted,
+     object: nil,
+     queue: .main
+ ) { _ in
+     SceneDaemonClient.shared.warmSession()
+ }
+ DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+     guard self != nil else { return }
+     SceneDaemonClient.shared.warmSession()
+ }
  }
 
  @objc func showAboutMenuAction(_ sender: Any?) {

@@ -78,6 +78,11 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var activeRequestID: UUID?
     var pendingRequestID: UUID?
     var pendingPropertyRevisions: [UInt64: String] = [:]
+    /// Set by `warmSession()` while its silent spawn is in flight; cleared by
+    /// any real intent, a handshake timeout, or spawn failure. A completed
+    /// handshake leaves it set until the next intent/reuse — harmless, since
+    /// every non-silent spawn entry clears it before spawning.
+    var warmSessionPending = false
     struct RetainedResourceLifetime {
         let rootURL: URL
         let recordID: String?
@@ -350,6 +355,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     }
 
     func requestLaunch(_ request: ScenePlaybackLoadRequest) {
+        warmSessionPending = false
         let normalizedRoot = request.rootURL.resolvingSymlinksInPath().standardizedFileURL
         if pendingResourceLifetime?.rootURL != normalizedRoot
             || pendingResourceLifetime?.recordID != request.recordID {
@@ -391,7 +397,25 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     @discardableResult
     func ensureSession() -> Bool {
         if transport?.isRunning == true { return true }
+        warmSessionPending = false
+        return spawnSession(silentHandshakeFailure: false)
+    }
+
+    /// Best-effort daemon prewarm: spawns the daemon and completes the role
+    /// handshake without any launch intent, so a later real `requestLaunch`
+    /// reuses the hot transport. A failed warm spawn stays silent (no user
+    /// visible failure state) and is not retried — the restart scheduler
+    /// keeps its intent gate.
+    func warmSession() {
+        guard transport?.isRunning != true else { return }
+        guard pendingIntent == nil else { return }
+        warmSessionPending = true
+        spawnSession(silentHandshakeFailure: true)
+    }
+
+    private func spawnSession(silentHandshakeFailure: Bool) -> Bool {
         guard let executableURL = Bundle.main.executableURL else {
+            guard !silentHandshakeFailure else { return false }
             scheduleRestart(reason: "missing-main-executable")
             return false
         }
@@ -434,6 +458,13 @@ final class SceneDaemonClient: PlaybackEngineControlling {
                 guard let self,
                       generation == self.sessionGeneration,
                       !self.endpointReady else { return }
+                if silentHandshakeFailure || self.warmSessionPending {
+                    // Silent prewarm: a missed handshake leaves no user
+                    // visible state; the next real launch spawns fresh.
+                    warmSessionPending = false
+                    self.transport?.terminate()
+                    return
+                }
                 self.publishFailure(
                     code: "handshake-timeout",
                     message: "Scene daemon did not publish its role in time"
@@ -449,6 +480,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         } catch {
             transport.closeIO()
             self.transport = nil
+            warmSessionPending = false
+            guard !silentHandshakeFailure else { return false }
             scheduleRestart(reason: "spawn-failed: \(error.localizedDescription)")
             return false
         }

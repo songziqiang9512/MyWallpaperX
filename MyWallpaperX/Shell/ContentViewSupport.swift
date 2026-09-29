@@ -38,6 +38,8 @@ extension Notification.Name {
     /// Steam 创意工坊 Scene 壁纸准备渲染，由 Coordinator 启动桌面级 Scene 宿主
     /// userInfo: ["cacheDirectory": URL]（Scene 缓存解包目录，含解释文件和图片资源）
     static let steamWorkshopSceneReadyToRender = Notification.Name("SteamWorkshopSceneReadyToRender")
+    /// Steam 创意工坊 Scene 下载入库完成，由装配层触发 daemon 预热（best-effort）
+    static let steamWorkshopSceneDownloadCompleted = Notification.Name("SteamWorkshopSceneDownloadCompleted")
     /// 图片壁纸库模式切换通知，由 Shell 发出，StaticImageLibrary 模块接收
     static let staticImageLibraryModeDidChange = Notification.Name("StaticImageLibraryModeDidChange")
     /// Steam 创意工坊模式切换通知，由 Shell 发出，Steam 模块接收
