@@ -22,11 +22,15 @@ extension SceneGenericShaderArtifactBuilder {
         var transformed = source
         for call in selected.sorted(by: { $0.range.location > $1.range.location }) {
             guard let sourceRange = Range(call.range, in: source),
-                  !source[..<sourceRange.lowerBound].hasSuffix(
-                      "mwxGenericUnpremultiply("
-                  ), let adjustedRange = Range(call.range, in: transformed) else {
+                  let adjustedRange = Range(call.range, in: transformed) else {
                 return nil
             }
+            // The default straight-color boundary may have unpremultiplied
+            // this call already; wrapping again would apply the transform
+            // twice, so the covered slot counts as done.
+            guard !source[..<sourceRange.lowerBound].hasSuffix(
+                "mwxGenericUnpremultiply("
+            ) else { continue }
             transformed.replaceSubrange(
                 adjustedRange,
                 with: "mwxGenericUnpremultiply(\(source[sourceRange]))"

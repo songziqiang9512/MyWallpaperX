@@ -37,6 +37,8 @@ private struct Result: Codable {
     let boundedMissingSlotRejected: Bool
     let genericWrapsOnlySlotOne: Bool
     let genericMissingSlotRejected: Bool
+    let boundaryThenPremultipliedSubsetAccepted: Bool
+    let boundaryThenPremultipliedNoDoubleWrap: Bool
 }
 
 @main
@@ -109,6 +111,23 @@ private enum Harness {
             return float4(mix(base.rgb, provider.rgb, data), base.a);
         }
         """
+        let boundarySource = """
+        #include <metal_stdlib>
+        using namespace metal;
+        fragment float4 mwxGenericFragment(
+            texture2d<float> g_Texture0 [[texture(0)]],
+            sampler linearSampler [[sampler(0)]]
+        ) {
+            out.mwxFragColor = g_Texture0.sample(linearSampler, float2(0.5));
+            return out;
+        }
+        """
+        let boundary = SceneGenericShaderDefaultStraightColorBoundaryLowering
+            .lower(boundarySource, colorSlots: [0])
+        let boundaryThenPremultiplied = boundary.flatMap { lowered in
+            SceneGenericShaderArtifactBuilder
+                .lowerPremultipliedColorInputs(lowered.msl, slots: [0])
+        }
         let generic = SceneGenericShaderArtifactBuilder
             .lowerPremultipliedColorInputs(genericMSL, slots: [1]) ?? ""
         let genericCompact = generic.replacingOccurrences(of: " ", with: "")
@@ -148,7 +167,22 @@ private enum Harness {
                 && !genericCompact.contains(
                     "mwxGenericUnpremultiply(g_Texture2.sample("
                 ),
-            genericMissingSlotRejected: missingGeneric == nil
+            genericMissingSlotRejected: missingGeneric == nil,
+            // The archived production failure: the default straight-color
+            // boundary already unpremultiplied a boundary slot; the
+            // premultiplied-input lowering on that same slot must treat the
+            // wrapped call as done instead of failing the artifact.
+            boundaryThenPremultipliedSubsetAccepted:
+                boundary != nil && boundaryThenPremultiplied != nil,
+            boundaryThenPremultipliedNoDoubleWrap:
+                boundaryThenPremultiplied.map { lowered in
+                    lowered.components(
+                        separatedBy: "mwxGenericUnpremultiply(g_Texture0.sample("
+                    ).count == 2
+                        && !lowered.contains(
+                            "mwxGenericUnpremultiply(mwxGenericUnpremultiply("
+                        )
+                } ?? false
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(result))
     }
@@ -214,6 +248,8 @@ class SceneGenericShaderTypedInputLoweringTests(unittest.TestCase):
                 "boundedMissingSlotRejected": True,
                 "genericWrapsOnlySlotOne": True,
                 "genericMissingSlotRejected": True,
+                "boundaryThenPremultipliedSubsetAccepted": True,
+                "boundaryThenPremultipliedNoDoubleWrap": True,
             },
         )
 
