@@ -495,8 +495,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         let vertexMatch = matches(pattern, in: vertex).first
         let fragmentMatch = matches(pattern, in: fragment).first
         guard let vertexMatch, let fragmentMatch,
-              let vertexHelper = substring(vertexMatch.range, in: vertex),
-              let fragmentHelper = substring(fragmentMatch.range, in: fragment) else {
+              let vertexHelper = SceneShaderSourceTextFacts.substring(vertexMatch.range, in: vertex),
+              let fragmentHelper = SceneShaderSourceTextFacts.substring(fragmentMatch.range, in: fragment) else {
             return (vertex, fragment)
         }
         guard vertexHelper == fragmentHelper,
@@ -530,10 +530,6 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         }
         return nil
     }
-    static func containsWord(_ word: String, in source: String) -> Bool {
-        SceneShaderSourceTextFacts.countWord(word, in: source) > 0
-    }
-
     static func artifactTransfer(
         kind: String,
         slot: Int? = nil
@@ -572,11 +568,6 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
     private static func fullRange(_ source: String) -> NSRange {
         NSRange(source.startIndex..., in: source)
     }
-    static func substring(_ range: NSRange, in source: String) -> String? {
-        guard let range = Range(range, in: source) else { return nil }
-        return String(source[range])
-    }
-
     static func capture(
         _ match: NSTextCheckingResult,
         _ index: Int,

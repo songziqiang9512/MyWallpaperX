@@ -56,8 +56,8 @@ nonisolated extension SceneGenericShaderStraightAlphaPreservingLowering {
               scalarDataSampleCallCounts.allSatisfy({ slot, count in
                   count > 0 && count <= dataSampleCallCounts[slot, default: 0]
               }),
-              !containsWord(unpremultiply, in: source),
-              !containsWord(premultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
               let calls = compilerTextureSampleCalls(in: source) else {
             return nil
@@ -181,8 +181,8 @@ inline float4 \(premultiply)(float4 color) {
             .SourceCarriedTransfer
     ) -> String? {
         guard (0 ..< 8).contains(expectedSlot),
-              !containsWord(unpremultiply, in: source),
-              !containsWord(premultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
               let samples = compilerTextureSampleCalls(in: source),
               samples.count == 1,
@@ -484,10 +484,6 @@ inline float4 \(premultiply)(float4 color) {
         let expected = branchPresent ? 11 : 9
         return SceneShaderSourceTextFacts.countWord(carrier, in: source) == expected
             && SceneShaderSourceTextFacts.countWord(sampleLocal, in: source) == 3
-    }
-
-    static func containsWord(_ word: String, in source: String) -> Bool {
-        !matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).isEmpty
     }
     static func matches(
         _ pattern: String,

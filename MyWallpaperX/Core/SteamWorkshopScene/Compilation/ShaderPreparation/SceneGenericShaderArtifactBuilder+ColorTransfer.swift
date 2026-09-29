@@ -332,7 +332,7 @@ extension SceneGenericShaderArtifactBuilder {
             in: source
         )
         guard assignments.count == 1,
-              let assignment = substring(assignments[0].range, in: source) else {
+              let assignment = SceneShaderSourceTextFacts.substring(assignments[0].range, in: source) else {
             throw Failure.colorTransfer
         }
         if let slotText = captures(
@@ -467,7 +467,7 @@ extension SceneGenericShaderArtifactBuilder {
             in: source
         )
         guard assignments.count == 1,
-              let assignment = substring(assignments[0].range, in: source),
+              let assignment = SceneShaderSourceTextFacts.substring(assignments[0].range, in: source),
               let name = captures(
                 #"^[ \t]*out\.mwxFragColor\s*=\s*([A-Za-z_]\w*)\s*;$"#,
                 in: assignment
@@ -484,7 +484,7 @@ extension SceneGenericShaderArtifactBuilder {
         guard attenuation.count == 1,
               let indent = capture(attenuation[0], 1, in: source),
               let factor = capture(attenuation[0], 2, in: source),
-              !containsWord(name, in: factor) else { return nil }
+              !SceneShaderSourceTextFacts.containsWord(name, in: factor) else { return nil }
         let writes = capturesAll(
             #"(?m)^\s*"# + namePattern
                 + #"(?:\.([xyzwrgba]{1,4}))?\s*(?:[+\-*/]?=)"#,

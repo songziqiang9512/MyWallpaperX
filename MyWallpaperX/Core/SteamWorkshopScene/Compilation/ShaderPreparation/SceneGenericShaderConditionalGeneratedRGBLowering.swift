@@ -98,7 +98,7 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
                   outputs: [output.range],
                   source: source
               ),
-              let outputText = substring(output.range, in: source),
+              let outputText = SceneShaderSourceTextFacts.substring(output.range, in: source),
               let assignment = outputText.range(of: "out.mwxFragColor = "),
               let outputRange = Range(output.range, in: source) else {
             return nil
@@ -253,16 +253,16 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
     ) -> Bool {
         guard braceDepth(at: changedOutput.location, in: body, source: source) == 1,
               braceDepth(at: fallbackOutput.location, in: body, source: source) == 1,
-              matches(#"\bif\s*\("#, in: substring(body, in: source) ?? "").count == 1,
-              matches(#"\belse\b"#, in: substring(body, in: source) ?? "").count == 1,
-              let between = substring(
+              matches(#"\bif\s*\("#, in: SceneShaderSourceTextFacts.substring(body, in: source) ?? "").count == 1,
+              matches(#"\belse\b"#, in: SceneShaderSourceTextFacts.substring(body, in: source) ?? "").count == 1,
+              let between = SceneShaderSourceTextFacts.substring(
                   NSRange(
                       location: NSMaxRange(changedOutput),
                       length: fallbackOutput.location - NSMaxRange(changedOutput)
                   ),
                   in: source
               ),
-              let tail = substring(
+              let tail = SceneShaderSourceTextFacts.substring(
                   NSRange(
                       location: NSMaxRange(fallbackOutput),
                       length: NSMaxRange(body) - NSMaxRange(fallbackOutput)
@@ -702,7 +702,7 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
         in source: String
     ) -> Bool {
         guard start <= end,
-              let value = substring(
+              let value = SceneShaderSourceTextFacts.substring(
                   NSRange(location: start, length: end - start),
                   in: source
               ) else { return false }
@@ -752,12 +752,5 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
             return nil
         }
         return String(source[range])
-    }
-
-    private static func substring(
-        _ range: NSRange,
-        in source: String
-    ) -> String? {
-        Range(range, in: source).map { String(source[$0]) }
     }
 }

@@ -46,12 +46,12 @@ nonisolated enum SceneGenericShaderMutableFragmentVaryingNormalizer {
                 continue
             }
             guard shape.count == nil,
-                  !containsWord(name, in: prefix),
-                  !containsWord(name, in: suffix) else {
+                  !SceneShaderSourceTextFacts.containsWord(name, in: prefix),
+                  !SceneShaderSourceTextFacts.containsWord(name, in: suffix) else {
                 return nil
             }
             let local = "mwxMutable_\(name)"
-            guard !containsWord(local, in: source) else { return nil }
+            guard !SceneShaderSourceTextFacts.containsWord(local, in: source) else { return nil }
             mutable.append((name, shape, local))
         }
         guard !mutable.isEmpty else {
@@ -147,12 +147,6 @@ nonisolated enum SceneGenericShaderMutableFragmentVaryingNormalizer {
                 withTemplate: replacement
             )
     }
-
-    private static func containsWord(_ word: String, in source: String) -> Bool {
-        regex(#"\b"# + NSRegularExpression.escapedPattern(for: word) + #"\b"#)
-            .firstMatch(in: source, range: fullRange(source)) != nil
-    }
-
     private static func regex(_ pattern: String) -> NSRegularExpression {
         try! NSRegularExpression(pattern: pattern)
     }

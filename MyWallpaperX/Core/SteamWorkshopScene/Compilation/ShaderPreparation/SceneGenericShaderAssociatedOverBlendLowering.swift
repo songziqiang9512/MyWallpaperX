@@ -78,8 +78,8 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
               (0 ..< 8).contains(overlaySlot),
               sourceSlot != overlaySlot,
               !blendFunctions.isEmpty,
-              !containsWord(unpremultiply, in: source),
-              !containsWord(premultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
               let sampleCalls = SceneGenericShaderStraightAlphaPreservingLowering
               .compilerTextureSampleCalls(in: source),
@@ -242,11 +242,6 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
             in: source
         ).count
     }
-
-    private static func containsWord(_ word: String, in source: String) -> Bool {
-        !matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).isEmpty
-    }
-
     private static func hasBlendUpdate(
         sourceCarrier: String,
         overlayCarrier: String,

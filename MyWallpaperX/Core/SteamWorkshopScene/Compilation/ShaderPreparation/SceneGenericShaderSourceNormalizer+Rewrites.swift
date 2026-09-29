@@ -160,6 +160,14 @@ extension SceneGenericShaderSourceNormalizer {
         source[..<location].last(where: { !$0.isWhitespace }) == "."
     }
 
+    /// Comment- and label-insensitive word presence. The stage-shape admission
+    /// below deliberately lets a comment-only declaration pass, so this check
+    /// must run on the masked view while the rest of the family matches the
+    /// raw source.
+    static func maskedContainsWord(_ word: String, in source: String) -> Bool {
+        SceneShaderSourceTextFacts.containsWord(word, in: lexicalMask(source))
+    }
+
     /// Return a same-length view containing only executable source. Keeping
     /// offsets stable lets regex rewrites apply to the original source while
     /// ignoring comments and quoted labels.
@@ -396,17 +404,6 @@ extension SceneGenericShaderSourceNormalizer {
             range: NSRange(source.startIndex..., in: source),
             withTemplate: replacement
         )
-    }
-
-    static func containsWord(_ word: String, in source: String) -> Bool {
-        let regex = try! NSRegularExpression(pattern:
-            #"\b"# + NSRegularExpression.escapedPattern(for: word) + #"\b"#
-        )
-        let code = lexicalMask(source)
-        return regex.firstMatch(
-            in: code,
-            range: NSRange(code.startIndex..., in: code)
-        ) != nil
     }
 
 }

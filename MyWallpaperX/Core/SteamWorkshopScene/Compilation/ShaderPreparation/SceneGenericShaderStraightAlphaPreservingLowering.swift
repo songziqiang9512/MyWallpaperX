@@ -14,8 +14,8 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
         expectedSlot: Int
     ) -> String? {
         guard (0 ..< 8).contains(expectedSlot),
-              !containsWord(unpremultiply, in: source),
-              !containsWord(premultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
               let calls = compilerTextureSampleCalls(in: source),
               calls.count == 1,
@@ -85,8 +85,8 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
     /// authored local. A source-proven alpha-preserving RGB flow must instead
     /// execute in straight color, then return to the compositor boundary.
     static func lowerPreserving(_ source: String, expectedSlot: Int) -> String? {
-        guard !containsWord(unpremultiply, in: source),
-              !containsWord(premultiply, in: source) else { return nil }
+        guard !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(premultiply, in: source) else { return nil }
         let declarations = matches(
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
                 + String(expectedSlot)
@@ -148,8 +148,8 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
         _ source: String,
         expectedSlot: Int
     ) -> String? {
-        guard !containsWord(unpremultiply, in: source),
-              !containsWord(premultiply, in: source),
+        guard !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
         else { return nil }
         let declarations = matches(
@@ -240,8 +240,8 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
     }
 
     static func lowerComposed(_ source: String, expectedSlot: Int) -> String? {
-        guard !containsWord(unpremultiply, in: source),
-              !containsWord(premultiply, in: source) else { return nil }
+        guard !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(premultiply, in: source) else { return nil }
         let declarations = matches(
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
                 + String(expectedSlot)
@@ -320,8 +320,8 @@ inline float4 \(premultiply)(float4 color) {
         _ source: String,
         expectedSlot: Int
     ) -> String? {
-        guard !containsWord(unpremultiply, in: source),
-              !containsWord(premultiply, in: source),
+        guard !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1 else {
             return nil
         }
@@ -393,8 +393,8 @@ inline float4 \(premultiply)(float4 color) {
         _ source: String,
         expectedSlot: Int
     ) -> String? {
-        guard !containsWord(unpremultiply, in: source),
-              !containsWord(premultiply, in: source),
+        guard !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1 else {
             return nil
         }
@@ -456,8 +456,8 @@ inline float4 \(premultiply)(float4 color) {
             return insertingBoundaryHelpers(into: transformed)
         }
         guard (1 ... 16).contains(sampleCount),
-              !containsWord(unpremultiply, in: source),
-              !containsWord(premultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
               matches(#"\b(if|for|while|do|switch|discard)\b"#, in: source).isEmpty
         else { return nil }

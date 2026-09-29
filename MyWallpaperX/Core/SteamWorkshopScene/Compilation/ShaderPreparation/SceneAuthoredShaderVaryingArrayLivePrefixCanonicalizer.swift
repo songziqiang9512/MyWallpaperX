@@ -127,7 +127,7 @@ nonisolated enum SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer {
                     || braceDepth(at: header.lowerBound, inside: main, in: source) == 0),
                   let body = loopBody(after: header.upperBound, in: source),
                   body.range.upperBound <= main.upperBound,
-                  containsWord(array, in: body.content),
+                  SceneShaderSourceTextFacts.containsWord(array, in: body.content),
                   eligible(body.content, variable: variable) else { continue }
             let values = Array(Swift.stride(from: 0, to: bound, by: step))
             guard !values.isEmpty, values.count <= maximumIterations else { continue }
@@ -505,12 +505,6 @@ nonisolated enum SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer {
         regex(#"\b"# + NSRegularExpression.escapedPattern(for: word) + #"\b"#)
             .stringByReplacingMatches(in: source, range: fullRange(source), withTemplate: value)
     }
-
-    private static func containsWord(_ word: String, in source: String) -> Bool {
-        regex(#"\b"# + NSRegularExpression.escapedPattern(for: word) + #"\b"#)
-            .firstMatch(in: source, range: fullRange(source)) != nil
-    }
-
     private static func regex(_ pattern: String) -> NSRegularExpression {
         try! NSRegularExpression(pattern: pattern)
     }

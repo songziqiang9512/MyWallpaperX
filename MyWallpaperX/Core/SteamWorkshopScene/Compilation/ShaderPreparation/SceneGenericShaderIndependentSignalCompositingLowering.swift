@@ -27,8 +27,8 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
                       && $0 != expectedSignalSlot
                       && $0 != expectedColorSlot
               }) ?? true,
-              !containsWord(unpremultiply, in: source),
-              !containsWord(premultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
               let body = fragmentBody(in: source) else { return nil }
 
@@ -75,7 +75,7 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
               let signal = bySlot[expectedSignalSlot],
               let color = bySlot[expectedColorSlot],
               signal.name != color.name,
-              SceneShaderSourceTextFacts.countWord(signal.name, in: substring(body, source: source)) >= 2
+              SceneShaderSourceTextFacts.countWord(signal.name, in: SceneShaderSourceTextFacts.substring(body, in: source) ?? "") >= 2
         else { return nil }
         if debug {
             NSLog(
@@ -276,10 +276,6 @@ inline float4 \(premultiply)(float4 value) {
         }
         return masked
     }
-
-    private static func containsWord(_ word: String, in source: String) -> Bool {
-        !matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).isEmpty
-    }
     private static func matches(
         _ pattern: String,
         in source: String,
@@ -301,9 +297,5 @@ inline float4 \(premultiply)(float4 value) {
             return nil
         }
         return String(source[range])
-    }
-
-    private static func substring(_ range: NSRange, source: String) -> String {
-        Range(range, in: source).map { String(source[$0]) } ?? ""
     }
 }

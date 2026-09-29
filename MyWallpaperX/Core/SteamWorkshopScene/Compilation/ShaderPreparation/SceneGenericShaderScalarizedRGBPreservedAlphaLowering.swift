@@ -30,8 +30,8 @@ nonisolated enum SceneGenericShaderScalarizedRGBPreservedAlphaLowering {
 
     static func lower(_ source: String, expectedSlot: Int) -> String? {
         guard (0 ..< 8).contains(expectedSlot),
-              !containsWord(unpremultiply, in: source),
-              !containsWord(premultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
               let body = fragmentBodyRange(in: source),
               bodyIsLinear(body, source: source),
@@ -355,10 +355,6 @@ nonisolated enum SceneGenericShaderScalarizedRGBPreservedAlphaLowering {
 
     private static func contains(_ outer: NSRange, _ inner: NSRange) -> Bool {
         outer.location <= inner.location && NSMaxRange(inner) <= NSMaxRange(outer)
-    }
-
-    private static func containsWord(_ word: String, in source: String) -> Bool {
-        !matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).isEmpty
     }
     private static func matches(
         _ pattern: String,

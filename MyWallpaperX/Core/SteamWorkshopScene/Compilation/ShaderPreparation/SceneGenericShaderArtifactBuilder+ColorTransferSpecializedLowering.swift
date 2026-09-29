@@ -9,8 +9,8 @@ extension SceneGenericShaderArtifactBuilder {
         _ source: String,
         fact: SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.Fact
     ) -> String? {
-        guard !containsWord("mwxGenericUnpremultiply", in: source),
-              !containsWord("mwxGenericPremultiply", in: source),
+        guard !SceneShaderSourceTextFacts.containsWord("mwxGenericUnpremultiply", in: source),
+              !SceneShaderSourceTextFacts.containsWord("mwxGenericPremultiply", in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
               let body = straightRGBScalarAlphaFragmentBodyRange(in: source),
               straightRGBScalarAlphaCompilerBodyIsLinear(body, source: source)
@@ -70,7 +70,7 @@ extension SceneGenericShaderArtifactBuilder {
               let alphaWrite = alphaWrites.first,
               straightRGBScalarAlphaRange(body, contains: alphaWrite.range),
               let factor = capture(alphaWrite, 1, in: source),
-              !containsWord(color, in: factor) else { return nil }
+              !SceneShaderSourceTextFacts.containsWord(color, in: factor) else { return nil }
 
         let maskMix: StraightRGBScalarAlphaMaskMix?
         if let slot = fact.maskSlot, let maskFactor = fact.maskFactorName {

@@ -36,8 +36,8 @@ nonisolated enum SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape {
         sampleCount: Int
     ) -> Fact? {
         guard (1 ... 16).contains(sampleCount),
-              !containsWord(unpremultiply, in: source),
-              !containsWord(premultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
               matches(#"\b(if|for|while|do|switch|discard)\b"#, in: source).isEmpty
         else { return nil }
@@ -156,10 +156,6 @@ nonisolated enum SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape {
         guard tailLocation <= (source as NSString).length else { return false }
         let tail = (source as NSString).substring(from: tailLocation)
         return matches(#"^\s*return\s+out\s*;\s*\}\s*$"#, in: tail).count == 1
-    }
-
-    private static func containsWord(_ word: String, in source: String) -> Bool {
-        !matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).isEmpty
     }
     private static func matches(
         _ pattern: String, in source: String

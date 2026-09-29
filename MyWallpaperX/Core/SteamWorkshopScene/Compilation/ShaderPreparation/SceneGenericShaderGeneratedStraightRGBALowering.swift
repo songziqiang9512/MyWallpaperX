@@ -53,8 +53,8 @@ nonisolated enum SceneGenericShaderGeneratedStraightRGBALowering {
         _ source: String,
         expectedDeadSampleSlots: [Int]
     ) -> String? {
-        guard !containsWord("mwxGenericUnpremultiply", in: source),
-              !containsWord("mwxGenericPremultiply", in: source),
+        guard !SceneShaderSourceTextFacts.containsWord("mwxGenericUnpremultiply", in: source),
+              !SceneShaderSourceTextFacts.containsWord("mwxGenericPremultiply", in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
               compilerDeadSamplesMatch(
                   source,
@@ -306,13 +306,6 @@ nonisolated enum SceneGenericShaderGeneratedStraightRGBALowering {
 
     private static func range(_ outer: NSRange, contains inner: NSRange) -> Bool {
         outer.location <= inner.location && NSMaxRange(inner) <= NSMaxRange(outer)
-    }
-
-    private static func containsWord(_ word: String, in source: String) -> Bool {
-        !matches(
-            #"\b"# + NSRegularExpression.escapedPattern(for: word) + #"\b"#,
-            in: source
-        ).isEmpty
     }
     private static func matches(
         _ pattern: String,

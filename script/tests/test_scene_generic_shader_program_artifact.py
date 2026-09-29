@@ -287,6 +287,8 @@ private struct VaryingLinkOutput: Codable {
     let deadFragmentInterfaceRemoved: Bool
     let liveMismatchRejected: Bool
     let commentedLocalDeclarationDoesNotHideLiveVarying: Bool
+    let commentOnlyDeclarationDoesNotRevokeShader: Bool
+    let commentOnlyDeclarationPruned: Bool
     let strictPrefixAccepted: Bool
     let textureCoordinateBoundedAccepted: Bool
     let textureCoordinateBoundedSlot3: Bool
@@ -1189,6 +1191,17 @@ private struct GenericShaderArtifactHarness {
                 of: "vec4(v_Live, 0.0, 1.0)",
                 with: "v_Optional"
             )
+            // A wider optional declaration that is only *mentioned* in a comment
+            // must not count as a reference: the masked word probe keeps the
+            // stage-shape admission from letting dead metadata revoke the shader.
+            let commentOnlyFragment = [
+                "varying vec2 v_Live;",
+                "varying vec4 v_Optional;",
+                "void main() {",
+                "    // v_Optional drops out of the fragment interface",
+                "    gl_FragColor = vec4(v_Live, 0.0, 1.0);",
+                "}",
+            ].joined(separator: "\n")
             let commentedLocalFragment = [
                 "varying vec4 v_Commented;",
                 "void main() {",
@@ -1220,6 +1233,22 @@ private struct GenericShaderArtifactHarness {
             ) {
             case let .success(pair): dead = pair
             case .failure: dead = nil
+            }
+            let commentOnlyDeclarationAccepted: Bool
+            let commentOnlyDeclarationPruned: Bool
+            switch SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: vertex,
+                fragmentSource: commentOnlyFragment,
+                maximumStageSourceBytes: 64 * 1_024
+            ) {
+            case let .success(pair):
+                commentOnlyDeclarationAccepted = true
+                // Declaration presence, not name presence: the comment text stays
+                // in the emitted source either way.
+                commentOnlyDeclarationPruned = !pair.fragment.contains("in vec4 v_Optional")
+            case .failure:
+                commentOnlyDeclarationAccepted = false
+                commentOnlyDeclarationPruned = false
             }
             let liveMismatchRejected: Bool
             switch SceneGenericShaderSourceNormalizer.normalize(
@@ -1338,6 +1367,10 @@ private struct GenericShaderArtifactHarness {
                 liveMismatchRejected: liveMismatchRejected,
                 commentedLocalDeclarationDoesNotHideLiveVarying:
                     commentedLocalMismatchRejected,
+                commentOnlyDeclarationDoesNotRevokeShader:
+                    commentOnlyDeclarationAccepted,
+                commentOnlyDeclarationPruned:
+                    commentOnlyDeclarationPruned,
                 strictPrefixAccepted: {
                     guard case let .success(pair) = prefix else { return false }
                     return pair.fragment.contains("in vec4 v_Live;")
@@ -5041,6 +5074,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "deadFragmentInterfaceRemoved": True,
             "liveMismatchRejected": True,
             "commentedLocalDeclarationDoesNotHideLiveVarying": True,
+            "commentOnlyDeclarationDoesNotRevokeShader": True,
+            "commentOnlyDeclarationPruned": True,
             "strictPrefixAccepted": True,
             "textureCoordinateBoundedAccepted": True,
             "textureCoordinateBoundedSlot3": True,

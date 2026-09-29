@@ -14,8 +14,8 @@ nonisolated enum SceneGenericShaderRGBBlendScalarAlphaLowering {
         guard (0 ..< 8).contains(fact.sourceSlot),
               fact.auxiliarySlots.allSatisfy({ (0 ..< 8).contains($0) }),
               !fact.auxiliarySlots.contains(fact.sourceSlot),
-              !containsWord(unpremultiply, in: source),
-              !containsWord(premultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(premultiply, in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
               let body = fragmentBodyRange(in: source),
               compilerBodyIsLinear(body, source: source)
@@ -384,7 +384,7 @@ nonisolated enum SceneGenericShaderRGBBlendScalarAlphaLowering {
 
             var expressionDependencies = Set<Int>()
             for (local, slots) in dependencies
-            where containsWord(local, in: expression) {
+            where SceneShaderSourceTextFacts.containsWord(local, in: expression) {
                 expressionDependencies.formUnion(slots)
             }
             let samples = matches(#"\bg_Texture([0-7])\.sample\s*\("#, in: expression)
@@ -503,10 +503,6 @@ nonisolated enum SceneGenericShaderRGBBlendScalarAlphaLowering {
 
     private static func contains(_ outer: NSRange, _ inner: NSRange) -> Bool {
         inner.location >= outer.location && NSMaxRange(inner) <= NSMaxRange(outer)
-    }
-
-    private static func containsWord(_ word: String, in source: String) -> Bool {
-        !matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).isEmpty
     }
     private static func matches(
         _ pattern: String,

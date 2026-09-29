@@ -14,7 +14,7 @@ nonisolated enum SceneGenericShaderIndependentSignalLowering {
         expectedSlot: Int
     ) -> String? {
         guard (0 ..< 8).contains(expectedSlot),
-              !containsWord(unpremultiply, in: source),
+              !SceneShaderSourceTextFacts.containsWord(unpremultiply, in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
         else { return nil }
 
@@ -56,7 +56,7 @@ nonisolated enum SceneGenericShaderIndependentSignalLowering {
               wholeAssignments.count == 1,
               componentOutput == ["w"],
               declaration.range.location < wholeOutput[0].range.location,
-              containsWord(carrier, in: substring(
+              SceneShaderSourceTextFacts.containsWord(carrier, in: SceneShaderSourceTextFacts.substring(
                   wholeAssignments[0].range, in: source
               ) ?? "") else { return nil }
 
@@ -85,11 +85,6 @@ inline float4 \(unpremultiply)(float4 color) {
         transformed.insert(contentsOf: helper, at: namespace.upperBound)
         return transformed
     }
-
-    private static func containsWord(_ word: String, in source: String) -> Bool {
-        !matches(#"\b"# + SceneShaderSourceTextFacts.escaped(word) + #"\b"#, in: source).isEmpty
-    }
-
     private struct SampleFact {
         let slot: Int
         let projection: String?
@@ -167,12 +162,5 @@ inline float4 \(unpremultiply)(float4 color) {
             return nil
         }
         return String(source[range])
-    }
-
-    private static func substring(
-        _ range: NSRange,
-        in source: String
-    ) -> String? {
-        Range(range, in: source).map { String(source[$0]) }
     }
 }

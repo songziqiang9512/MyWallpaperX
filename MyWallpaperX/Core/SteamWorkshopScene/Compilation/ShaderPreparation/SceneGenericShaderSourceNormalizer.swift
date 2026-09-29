@@ -148,7 +148,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                         // Live declarations still enter the shared shape table
                         // below, so an actual ABI mismatch remains fail-closed.
                         if stage == "fragment",
-                           (!containsWord(item.name, in: value.body)
+                           (!SceneGenericShaderSourceNormalizer.maskedContainsWord(item.name, in: value.body)
                             || hasLocalDeclaration(item.name, in: value.body)) {
                             continue
                         }
@@ -276,7 +276,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 throw Failure.varyingUnsupported
             }
             fragment.body = mutableVaryings.source
-            let usesTargetPixelPosition = containsWord(
+            let usesTargetPixelPosition = SceneGenericShaderSourceNormalizer.maskedContainsWord(
                 "g_ModelViewProjectionMatrix", in: vertex.body
             )
             guard let injected = injectVertexMain(
@@ -294,10 +294,10 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             parsed["fragment"] = fragment
 
             let activeUniforms = uniforms.keys.filter { name in
-                [vertex.body, fragment.body].contains { containsWord(name, in: $0) }
+                [vertex.body, fragment.body].contains { SceneGenericShaderSourceNormalizer.maskedContainsWord(name, in: $0) }
             }.sorted()
             let activeSamplerSlots = samplers.compactMap { name, slot in
-                [vertex.body, fragment.body].contains { containsWord(name, in: $0) }
+                [vertex.body, fragment.body].contains { SceneGenericShaderSourceNormalizer.maskedContainsWord(name, in: $0) }
                     ? slot : nil
             }.sorted()
             let uniformLines = activeUniforms.map { name in
@@ -317,7 +317,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             }
             func source(stage: String, value: ParsedStage) -> String {
                 let samplerLines = samplers.sorted(by: { $0.value < $1.value }).compactMap {
-                    containsWord($0.key, in: value.body)
+                    SceneGenericShaderSourceNormalizer.maskedContainsWord($0.key, in: value.body)
                         ? "layout(set = 0, binding = \($0.value)) uniform sampler2D \($0.key);"
                         : nil
                 }
@@ -490,7 +490,7 @@ void main() {
             ) == nil else { continue }
             let expression = String(source[expressionRange])
             let widths = Set(shapes.compactMap { name, shape -> Int? in
-                guard containsWord(name, in: expression),
+                guard SceneGenericShaderSourceNormalizer.maskedContainsWord(name, in: expression),
                       shape.count == nil,
                       shape.type.hasPrefix("vec"),
                       let width = Int(shape.type.dropFirst(3)) else { return nil }

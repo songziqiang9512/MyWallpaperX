@@ -125,11 +125,11 @@
     },
     {
       "name": "containsWord",
-      "allowedCopies": 12,
-      "canonical": "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
-      "note": "Reviewed non-private regex pipeline.",
-      "owner": "Compilation/ShaderPreparation family merge",
-      "retirement": "Delete the per-file plumbing, then ratchet this count down."
+      "allowedCopies": 1,
+      "canonical": "Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
+      "note": "Shared source-text fact in the SceneShaderSourceTextFacts home: the syntax file is compiled by every harness source subset containing a caller.",
+      "owner": "Shader source-text family",
+      "retirement": "Keep one definition; re-copying the helper is what this lock forbids."
     },
     {
       "name": "countWord",
@@ -141,11 +141,11 @@
     },
     {
       "name": "substring",
-      "allowedCopies": 4,
-      "canonical": "Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
-      "note": "Reviewed non-private regex pipeline.",
-      "owner": "Compilation/ShaderPreparation family merge",
-      "retirement": "Delete the per-file plumbing, then ratchet this count down."
+      "allowedCopies": 1,
+      "canonical": "Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
+      "note": "Shared source-text fact in the SceneShaderSourceTextFacts home: the syntax file is compiled by every harness source subset containing a caller.",
+      "owner": "Shader source-text family",
+      "retirement": "Keep one definition; re-copying the helper is what this lock forbids."
     },
     {
       "name": "isMP4Payload",
@@ -210,6 +210,10 @@
   "inventoryEntries": [],
   "acknowledgedChanges": [
     {
+      "detail": "canonical helper containsWord target changed from 'Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift' to 'Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift'",
+      "reason": "batch 3c-cont: the shared source-text helpers live in the SceneShaderSourceTextFacts home"
+    },
+    {
       "detail": "canonical helper countWord target changed from 'Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift' to 'Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift'",
       "reason": "batch 3c moved the shared source-text helpers to a file every caller subset compiles"
     },
@@ -240,6 +244,10 @@
     {
       "detail": "canonical helper rasterizedRGBA was added to the reviewed set",
       "reason": "batch 3a locked the consolidated Resources/Textures helpers at a single copy"
+    },
+    {
+      "detail": "canonical helper substring target changed from 'Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift' to 'Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift'",
+      "reason": "batch 3c-cont: the shared source-text helpers live in the SceneShaderSourceTextFacts home"
     },
     {
       "detail": "retired swallow pattern identity-empty-fallback: allowance 1 -> 0",

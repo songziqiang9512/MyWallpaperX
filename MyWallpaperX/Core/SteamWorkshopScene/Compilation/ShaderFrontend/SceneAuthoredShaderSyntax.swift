@@ -365,3 +365,13 @@ nonisolated enum SceneShaderSourceTextFacts {
         ).count
     }
 }
+
+extension SceneShaderSourceTextFacts {
+    static func containsWord(_ word: String, in source: String) -> Bool {
+        countWord(word, in: source) > 0
+    }
+
+    static func substring(_ range: NSRange, in source: String) -> String? {
+        Range(range, in: source).map { String(source[$0]) }
+    }
+}
