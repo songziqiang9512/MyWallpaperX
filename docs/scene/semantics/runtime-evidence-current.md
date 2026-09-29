@@ -6,6 +6,18 @@
 
 # Scene 当前运行证据摘要
 
+<a id="e-2026-09-30-scene-startup-speed-program"></a>
+
+### E-2026-09-30-SCENE-STARTUP-SPEED-PROGRAM — Scene 启动提速计划十一批（测量驱动的预热/持久化层，独立审查逐批通过）
+
+**计划与测量：**用户报告"最新构建 Scene 启动变慢"。静态排查未在 57 个未推送提交中找到回归元凶后，按测量先行立阶段 0：worktree `-O` Debug 构建 + benchmark runner 阶段差分表（3 代表样本 × 冷 3 + 热 3，安静窗口）建立 `MWX LAUNCH-STAGE` 全链归因（预导 ~420ms 恒定 → 解析 216-499ms → prelude（admission+catalog）→ resources → activate 151-315ms → 证据尾 <20ms）。**方法论更正两处书面入档**：run_scene_tests 汇总行"N/N modules"是运行计数非全绿（须逐模块核对 FAILED 清单）；"激活/首帧 1.5-3.5s 块"系加法错误，真实 post-prepare-end 仅 151-315ms，数秒级时间在 prelude 内（700917d6 提交说明书面更正）。
+
+**十一批落地（每批独立只读子代理终审 + 窄提交）：**①`649d4779`+`dba78d66` generic-shader 分析前缀持久缓存（信封三重校验/只存 accepted/load 零副作用；warm capability-catalog **2938 −32%、3665 −46%**，冷无回归）；②`f9fe1a4e`+`700917d6` 前段与 prelude 插桩（model-build/prelude/activate-end/launch-return 标记）；③`d291ee1e` catalog 构造计时（compile 段=唯一成本所在）；④`8885b1e8` demand-analysis 持久缓存（warm catalog compileMs **中 913→24ms、重 706→19ms（−97%）**；冷对照 accepted 54==54/119==119）；⑤`d8bca608`+`d181c079` 变体 fact 族分析前缀持久缓存 v2（12 项键纯 fact；**eligibility 三元组经终审抓红后剔除**——其读键外 per-node facts 会跨节点互投毒，改"缓存纯前件+validated 后件重跑"两段）；⑥`65a13231` daemon L1 预热（warmSession 静默孵化+复用守卫；启动 3s 后与 Scene 下载入库完成两触发点）。共享 IO 家（ScenePersistentCacheSupport/Digest/SamplerRecord）随批收敛，防御面 duplicateBodies 127 全程保持。
+
+**验证：**每批 verify_scene_change 机器推导门（模块集 8-47 个）+ code-health + scene-defense 棘轮 + `-O` Debug 构建 + 只读子代理终审。工作树验证法：主树被并行会话共用时，干净 HEAD worktree + 本 diff 复制 untracked 文件构建与跑门（finalizer neutral 等失败经此法实锤归因并行会话自身提交 3d94a3f4/4aa6d367/357b8bfd，非本 program 引入）。
+
+**边界：**①warm 端到端 A/B 的最后两批（fact 族/变体前缀）因签名基础设施中断（timestamp.apple.com 直连与代理双路 000，licensebundle SIGTRAP）未补齐，已有数据止于 d8bca608 冒烟（warm capability 2938 1080ms/3665 752ms）；②daemon 预热为 L1（进程+握手），L2（Metal device/固定 MSL）与 PreparedContent 预热未做；其实机验收边界（进程恒 1/失败零 UI/杀预热后冷启）未实机执行；③preservedAlphaRGBColorSlots 为死缓存字段（hit 无消费者）留作微优化；④R2 行为回归门、3b Metal binary archive 未开工。落账本段后不再另建平行进度文档；逐批细节以各 commit 信息与 stash@{0} 外的 worktree 证据为准。
+
 <a id="e-2026-09-29-launch-reporter-census"></a>
 
 ### E-2026-09-29-LAUNCH-REPORTER-CENSUS — launch 一次性报告器成员级识别收口（E6 候选 3 完成，`f2158e40`）
