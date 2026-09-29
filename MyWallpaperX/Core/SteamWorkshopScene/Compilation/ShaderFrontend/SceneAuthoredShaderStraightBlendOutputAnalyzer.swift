@@ -268,17 +268,36 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
               let outputArguments = callArguments(
                 outputExpression, function: ["vec4", "float4"], count: 2
               ), let color = SceneAuthoredShaderTokenScanner.identifier(outputArguments[0]),
-              let alpha = SceneAuthoredShaderTokenScanner.identifier(outputArguments[1]),
-              let colorDefinition = uniqueDefinition(
-                color, types: ["vec3", "float3"], before: output,
+              let alpha = SceneAuthoredShaderTokenScanner.identifier(outputArguments[1])
+        else { return nil }
+        // Color declaration: the initialized form (`vec3 color = init;`) puts the
+        // initial value inline; the declaration-only form (`vec3 color;` + a
+        // separate unconditional whole write) reaches the same dataflow — the
+        // blend write reads `color.rgb` either way. Both converge on the blend
+        // write used by the shared checks below.
+        let colorWrite: Int
+        if let initialized = uniqueDefinition(
+            color, types: ["vec3", "float3"], before: output,
+            tokens: tokens, body: main.bodyRange
+        ) {
+            guard let write = uniqueAssignment(
+                color, after: initialized, before: output,
                 tokens: tokens, body: main.bodyRange
-              ), let alphaDefinition = uniqueDefinition(
-                alpha, types: ["float"], before: output,
+            ) else { return nil }
+            colorWrite = write
+        } else if let declaration = uniqueUninitializedDeclaration(
+            color, types: ["vec3", "float3"], before: output,
+            tokens: tokens, body: main.bodyRange
+        ) {
+            guard let write = lastWholeAssignment(
+                color, after: declaration, before: output,
                 tokens: tokens, body: main.bodyRange
-              ), let colorWrite = uniqueAssignment(
-                color, after: colorDefinition, before: output,
-                tokens: tokens, body: main.bodyRange
-              ), let blendExpression = SceneAuthoredShaderColorTransferAnalyzer
+            ) else { return nil }
+            colorWrite = write
+        } else {
+            return nil
+        }
+        guard let blendExpression = SceneAuthoredShaderColorTransferAnalyzer
                 .assignmentExpression(after: colorWrite, in: tokens, body: main.bodyRange),
               let blendArguments = callArguments(
                 blendExpression, function: ["ApplyBlending"], count: 4
@@ -288,6 +307,10 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
               ), member(baseArguments[0], name: color, component: "rgb"),
               let sample = memberName(baseArguments[1], component: "rgb"),
               member(baseArguments[2], name: sample, component: "a"),
+              let alphaDefinition = uniqueDefinition(
+                alpha, types: ["float"], before: output,
+                tokens: tokens, body: main.bodyRange
+              ),
               let alphaExpression = SceneAuthoredShaderColorTransferAnalyzer
                 .assignmentExpression(
                     after: alphaDefinition, in: tokens, body: main.bodyRange
@@ -497,6 +520,46 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
                 && tokens[index + 1].text == "="
         }
         guard matches.count == 1, let match = matches.first,
+              SceneAuthoredShaderColorTransferAnalyzer.isUnconditionalWrite(
+                match, tokens: tokens, body: body
+              ) else { return nil }
+        return match
+    }
+
+    /// Finds a `type name;` declaration without initializer. Some authored
+    /// shaders declare the color local first and assign it in a later
+    /// statement; this is the same dataflow as the initialized form.
+    private static func uniqueUninitializedDeclaration(
+        _ name: String,
+        types: Set<String>,
+        before boundary: Int,
+        tokens: [Token],
+        body: Range<Int>
+    ) -> Int? {
+        let matches = body.filter { index in
+            index > body.lowerBound && index + 1 < boundary
+                && tokens[index].text == name
+                && types.contains(tokens[index - 1].text)
+                && tokens[index + 1].text == ";"
+        }
+        guard matches.count == 1 else { return nil }
+        return matches.first
+    }
+
+    /// Finds the last whole assignment to `name` before `boundary`. Used with
+    /// `uniqueUninitializedDeclaration` to locate the blend write (the last
+    /// statement that assigns the color local before the output).
+    private static func lastWholeAssignment(
+        _ name: String,
+        after declaration: Int,
+        before boundary: Int,
+        tokens: [Token],
+        body: Range<Int>
+    ) -> Int? {
+        let matches = ((declaration + 1)..<boundary).filter {
+            tokens[$0].text == name && tokens[$0 + 1].text == "="
+        }
+        guard matches.count >= 1, let match = matches.last,
               SceneAuthoredShaderColorTransferAnalyzer.isUnconditionalWrite(
                 match, tokens: tokens, body: body
               ) else { return nil }
