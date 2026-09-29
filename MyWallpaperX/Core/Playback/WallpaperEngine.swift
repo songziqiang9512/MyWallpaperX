@@ -298,7 +298,7 @@ public final class WallpaperEngine: NSObject {
         // A preparing Web surface may still retain the previous video sessions.
         // Every live surface obeys the same result throughout the transition.
         for session in displaySessions.values where session.process.isRunning {
-            send(DaemonCommand(action: "setVolume", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: effectiveVolume, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
+            send(DaemonCommand(action: "setVolume", videoPath: nil, framePath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: effectiveVolume, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
         }
     }
 
@@ -307,7 +307,7 @@ public final class WallpaperEngine: NSObject {
         // 引擎镜像，不更新会把填充模式回跳到上一次装载时的值。
         currentVideoFillMode = fillMode
         for session in displaySessions.values where session.process.isRunning {
-            send(DaemonCommand(action: "setFillMode", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: fillMode, shouldLoopCurrentItem: nil, volume: nil, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
+            send(DaemonCommand(action: "setFillMode", videoPath: nil, framePath: nil, propertiesJSON: nil, fillMode: fillMode, shouldLoopCurrentItem: nil, volume: nil, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
         }
     }
 
@@ -316,7 +316,7 @@ public final class WallpaperEngine: NSObject {
         // 不做去重，确保每次开关操作都能可靠送达 daemon。
         currentShouldLoopCurrentItem = shouldLoop
         for session in displaySessions.values where session.process.isRunning {
-            send(DaemonCommand(action: "setLoop", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: shouldLoop, volume: nil, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
+            send(DaemonCommand(action: "setLoop", videoPath: nil, framePath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: shouldLoop, volume: nil, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
         }
     }
 
@@ -331,7 +331,7 @@ public final class WallpaperEngine: NSObject {
         // A preparing Web surface may still retain the previous video sessions.
         // Every live surface obeys the same result throughout the transition.
         for session in displaySessions.values where session.process.isRunning {
-            send(DaemonCommand(action: "resume", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: nil, playbackRate: clampedRate, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
+            send(DaemonCommand(action: "resume", videoPath: nil, framePath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: nil, playbackRate: clampedRate, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
         }
     }
 

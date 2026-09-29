@@ -16,7 +16,6 @@ struct DaemonCommand: Codable {
     let action: String
     let videoPath: String?
     let framePath: String?
-    let webRootPath: String?
     let propertiesJSON: String?
     let fillMode: String?
     let shouldLoopCurrentItem: Bool?

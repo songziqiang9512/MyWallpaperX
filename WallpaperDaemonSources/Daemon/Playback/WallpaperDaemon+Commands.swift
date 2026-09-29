@@ -34,40 +34,23 @@ extension WallpaperDaemon {
                 shouldLoopCurrentItem: command.shouldLoopCurrentItem ?? false,
                 requestID: command.requestID
             )
-        case "playWeb":
-            guard let entryPath = command.videoPath,
-                  let webRootPath = command.webRootPath else { return }
-            currentContentKind = "web"
-            emit(type: "accepted", requestID: command.requestID, message: nil, videoPath: entryPath, contentKind: "web")
-            if let volume = command.volume {
-                currentVolume = min(max(volume, 0), 1)
-            }
-            playWeb(
-                entryPath: entryPath,
-                rootPath: webRootPath,
-                propertiesJSON: command.propertiesJSON,
-                requestID: command.requestID
-            )
         case "pause":
             paused = true
             for player in players {
                 player.pause()
             }
-            setWebPaused(true)
         case "resume":
             paused = false
             if let playbackRate = command.playbackRate {
                 self.playbackRate = max(playbackRate, 0.1)
             }
             activePlayer.rate = playbackRate
-            setWebPaused(false)
         case "setVolume":
             if let volume = command.volume {
                 currentVolume = min(max(volume, 0), 1)
                 for player in players {
                     player.volume = currentVolume
                 }
-                setWebVolume(currentVolume)
             }
         case "setPlaybackRate":
             if let playbackRate = command.playbackRate {
@@ -75,11 +58,7 @@ extension WallpaperDaemon {
                 if !paused {
                     activePlayer.rate = self.playbackRate
                 }
-                setWebPlaybackRate(self.playbackRate)
             }
-        case "applyWebProperties":
-            currentWebPropertiesJSON = command.propertiesJSON
-            applyWebCompatibilityState()
         case "setFillMode":
             if let fillMode = command.fillMode, fillMode != currentFillMode {
                 currentFillMode = fillMode
@@ -159,7 +138,6 @@ extension WallpaperDaemon {
             player.pause()
             player.removeAllItems()
         }
-        teardownWebViewIfNeeded()
         primaryLooper = nil
         secondaryLooper = nil
         window.orderOut(nil)
@@ -207,36 +185,10 @@ extension WallpaperDaemon {
         }
     }
 
-    func startWebHostKeepAlive() {
-        stopWebHostKeepAlive()
-        let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now() + 1.0, repeating: 1.0, leeway: .milliseconds(150))
-        timer.setEventHandler { [weak self] in
-            guard let self, self.currentContentKind == "web" else { return }
-            self.window.level = WallpaperDaemon.desktopWindowLevel
-            self.window.orderFrontRegardless()
-            self.logWebHostState(reason: "keepAlive")
-        }
-        webHostKeepAliveTimer = timer
-        timer.resume()
-    }
-
-    func stopWebHostKeepAlive() {
-        webHostKeepAliveTimer?.cancel()
-        webHostKeepAliveTimer = nil
-    }
-
     func configureWindowForVideoRendering() {
         window.backgroundColor = .black
         window.isOpaque = true
         window.contentView?.wantsLayer = true
         window.contentView?.layer?.backgroundColor = NSColor.black.cgColor
-    }
-
-    func configureWindowForWebRendering() {
-        window.backgroundColor = .clear
-        window.isOpaque = false
-        window.contentView?.wantsLayer = true
-        window.contentView?.layer?.backgroundColor = NSColor.clear.cgColor
     }
 }

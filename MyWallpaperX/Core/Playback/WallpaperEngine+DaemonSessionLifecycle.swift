@@ -127,7 +127,7 @@ extension WallpaperEngine {
         guard let session = displaySessions.removeValue(forKey: displayID) else { return }
 
         if session.process.isRunning {
-            send(DaemonCommand(action: "stop", videoPath: nil, framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: nil, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
+            send(DaemonCommand(action: "stop", videoPath: nil, framePath: nil, propertiesJSON: nil, fillMode: nil, shouldLoopCurrentItem: nil, volume: nil, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil), to: session)
             session.transport.terminate()
         }
         session.transport.closeIO()
@@ -148,7 +148,6 @@ extension WallpaperEngine {
                 action: "play",
                 videoPath: videoPath,
                 framePath: framePath,
-                webRootPath: nil,
                 propertiesJSON: nil,
                 fillMode: fillMode,
                 shouldLoopCurrentItem: shouldLoopCurrentItem,

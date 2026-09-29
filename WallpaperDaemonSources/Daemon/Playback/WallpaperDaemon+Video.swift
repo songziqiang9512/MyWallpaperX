@@ -22,8 +22,6 @@ extension WallpaperDaemon {
             return
         }
 
-        teardownWebViewIfNeeded()
-        stopWebHostKeepAlive()
 
         switchToken += 1
         let token = switchToken

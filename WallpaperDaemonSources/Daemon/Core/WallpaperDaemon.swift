@@ -3,9 +3,8 @@ import AppKit
 import AVFoundation
 import CoreGraphics
 import QuartzCore
-import WebKit
 
-final class WallpaperDaemon: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+final class WallpaperDaemon: NSObject {
     final class HostContentView: NSView {
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
             true
@@ -25,7 +24,6 @@ final class WallpaperDaemon: NSObject, WKNavigationDelegate, WKScriptMessageHand
     let primaryLayer: AVPlayerLayer
     let secondaryLayer: AVPlayerLayer
     let spectrumContainerLayer: CALayer
-    var webView: WKWebView?
 
     var primaryLooper: AVPlayerLooper?
     var secondaryLooper: AVPlayerLooper?
@@ -60,10 +58,6 @@ final class WallpaperDaemon: NSObject, WKNavigationDelegate, WKScriptMessageHand
     var lastRenderedBarOpacities: [Float] = Array(repeating: -1, count: 28)
     var lastRenderedPeakY: [CGFloat] = Array(repeating: -1, count: 28)
     var lastRenderedPeakOpacities: [Float] = Array(repeating: -1, count: 28)
-    var currentWebPropertiesJSON: String?
-    var pendingWebDiagnosticsWorkItem: DispatchWorkItem?
-    var webHostKeepAliveTimer: DispatchSourceTimer?
-    let webLocalSchemeHandler = LocalSchemeHandler()
 
     init?(displayID: CGDirectDisplayID) {
         guard let screen = WallpaperDaemon.screen(for: displayID) else {

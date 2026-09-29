@@ -21,7 +21,7 @@ extension WallpaperEngine {
     /// a policy transition that happened before it existed.
     func sendPlaybackPaused(_ paused: Bool, to session: DisplayDaemonSession) {
         send(DaemonCommand(action: paused ? "pause" : "resume", videoPath: nil,
-            framePath: nil, webRootPath: nil, propertiesJSON: nil, fillMode: nil,
+            framePath: nil, propertiesJSON: nil, fillMode: nil,
             shouldLoopCurrentItem: nil, volume: nil, playbackRate: targetPlaybackRate,
             spectrumEnabled: nil, spectrumLevels: nil, spectrumBarCount: nil,
             spectrumColorHex: nil, spectrumOffsetX: nil, spectrumOffsetY: nil,
