@@ -72,6 +72,7 @@ extension SceneResolvedMaterialGraphExecutor {
             "material-variant-envelope-uniform-schema",
             "material-variant-envelope-animated-frame-metadata",
             "material-variant-envelope-texture-purpose",
+            "material-variant-envelope-texture-binding",
             "material-dynamic-uniform-contributor-policy",
             "material-dynamic-uniform-contributor-producer-unavailable",
             "material-dynamic-uniform-script-attachment-unproven",
