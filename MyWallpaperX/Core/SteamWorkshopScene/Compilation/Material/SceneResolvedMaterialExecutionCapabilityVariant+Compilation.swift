@@ -68,6 +68,12 @@ nonisolated enum SceneResolvedMaterialVariantCompileProfile {
     }
 }
 
+private func normalBlendIdentifiers(
+    _ combos: [String: Int]
+) -> Set<String> {
+    Set(combos.compactMap { name, value in value == 0 ? name : nil })
+}
+
 nonisolated extension SceneResolvedMaterialVariantCache {
     static func compile(
         template: Template,
@@ -107,16 +113,58 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         SceneResolvedMaterialVariantCompileProfile.add(
             prepare: (CACurrentMediaTime() - profileStart) * 1000
         )
+        let variantAnalysisKey = SceneResolvedMaterialVariantAnalysisCache
+            .keyDigest(
+                contractIdentity: template.shaderContract.identity,
+                contractCanonicalSHA256: template.shaderContract
+                    .canonicalSHA256,
+                textureSlotShapes: template.textureSlots.map { slot in
+                    slot.map {
+                        "\($0.index):"
+                            + $0.candidates.map { candidate in
+                                switch candidate.reference {
+                                case .asset: "a"
+                                case .userProperty: "u"
+                                case .provider: "p"
+                                case .graph: "g"
+                                }
+                            }.joined(separator: ",")
+                    }
+                },
+                combos: template.comboValues,
+                inheritedInactiveCombos: Set(
+                    template.inheritedInactiveCombos
+                ),
+                uniformDeclarations: template.uniformDeclarations,
+                compatibilityTarget: template.compatibilityTarget,
+                implicitFramebufferIdentity: implicitFramebufferIdentity,
+                readinessMask: readinessMask,
+                resolvedTextureFormats: variantKey.resolvedTextureFormats,
+                outputIsRGBA8Unorm: outputIsRGBA8Unorm
+            )
+        let cachedAnalysis = variantAnalysisKey.flatMap {
+            SceneResolvedMaterialVariantAnalysisCache.load(keySHA256: $0)
+        }
         let canonicalizeStart = CACurrentMediaTime()
         let compatibilityTargetAdmissionPending = prepared.all.allSatisfy {
             $0.compatibilityTarget == .windowsDX11ShaderModel4
         } && prepared.all.contains {
             !$0.compatibilityMacroDependencies.isEmpty
         }
-        let compilerSources = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
-            vertex: prepared.vertex.source,
-            fragment: prepared.fragment.source
-        )
+        let compilerSources: SceneAuthoredShaderBackendCanonicalizer.Pair
+        if let cachedAnalysis, !cachedAnalysis.canonicalVertex.isEmpty,
+           !cachedAnalysis.canonicalFragment.isEmpty {
+            compilerSources = SceneAuthoredShaderBackendCanonicalizer.Pair(
+                vertex: cachedAnalysis.canonicalVertex,
+                fragment: cachedAnalysis.canonicalFragment
+            )
+        } else {
+            compilerSources = SceneAuthoredShaderBackendCanonicalizer
+                .canonicalize(
+                    vertex: prepared.vertex.source,
+                    fragment: prepared.fragment.source
+                )
+        }
         SceneResolvedMaterialVariantCompileProfile.add(
             canonicalize: (CACurrentMediaTime() - canonicalizeStart) * 1000
         )
@@ -125,44 +173,56 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             template: template,
             prepared: prepared
         )
-        let activeSamplerNames = SceneAuthoredShaderDeadBindingAnalyzer
-            .activeSamplerNamesForSchema(
-                vertexSource: compilerSources.vertex,
-                fragmentSource: compilerSources.fragment,
-                runtimeLoopBounds: runtimeLoopBounds
-            ) ?? []
-        guard let resolvedIntegerCombos =
-                SceneAuthoredShaderPreparation.resolvedIntegerCombos(
-                    contract: template.shaderContract,
-                    prepared: prepared,
-                    combos: template.comboValues,
-                    inactiveComboProviders: Set(
-                        template.inheritedInactiveCombos
-                    ),
-                    textureReadiness: readiness,
-                    textureFormats: variantKey.resolvedTextureFormats
-                ) else {
-            throw failure(.shaderPreparationFailed, phase: .preparation)
+        let resolvedIntegerCombos: [String: Int]
+        let activeSamplerNames: Set<String>
+        let sourceActiveSamplers: [
+            Int: SceneResolvedMaterialShaderSchema.Sampler
+        ]
+        if let cachedAnalysis {
+            resolvedIntegerCombos = cachedAnalysis.resolvedIntegerCombos
+            activeSamplerNames = cachedAnalysis.activeSamplerNames
+            sourceActiveSamplers = cachedAnalysis.sourceActiveSamplers
+        } else {
+            activeSamplerNames = SceneAuthoredShaderDeadBindingAnalyzer
+                .activeSamplerNamesForSchema(
+                    vertexSource: compilerSources.vertex,
+                    fragmentSource: compilerSources.fragment,
+                    runtimeLoopBounds: runtimeLoopBounds
+                ) ?? []
+            guard let resolved =
+                    SceneAuthoredShaderPreparation.resolvedIntegerCombos(
+                        contract: template.shaderContract,
+                        prepared: prepared,
+                        combos: template.comboValues,
+                        inactiveComboProviders: Set(
+                            template.inheritedInactiveCombos
+                        ),
+                        textureReadiness: readiness,
+                        textureFormats: variantKey.resolvedTextureFormats
+                    ) else {
+                throw failure(.shaderPreparationFailed, phase: .preparation)
+            }
+            resolvedIntegerCombos = resolved
+            do {
+                sourceActiveSamplers = try SceneResolvedMaterialShaderSchema
+                    .activeSamplers(
+                        prepared,
+                        activeNames: Set(activeSamplerNames),
+                        analysisVertexSource: compilerSources.vertex,
+                        analysisFragmentSource: compilerSources.fragment,
+                        normalBlendModeIdentifiers: normalBlendIdentifiers(
+                            resolvedIntegerCombos
+                        )
+                    )
+            } catch {
+                throw failure(.authoredSamplerSchemaInvalid)
+            }
         }
         let normalBlendModeIdentifiers = Set(
             resolvedIntegerCombos.compactMap { name, value in
                 value == 0 ? name : nil
             }
         )
-        let sourceActiveSamplers: [
-            Int: SceneResolvedMaterialShaderSchema.Sampler
-        ]
-        do {
-            sourceActiveSamplers = try SceneResolvedMaterialShaderSchema.activeSamplers(
-                prepared,
-                activeNames: Set(activeSamplerNames),
-                analysisVertexSource: compilerSources.vertex,
-                analysisFragmentSource: compilerSources.fragment,
-                normalBlendModeIdentifiers: normalBlendModeIdentifiers
-            )
-        } catch {
-            throw failure(.authoredSamplerSchemaInvalid)
-        }
         let activeGraphTextureIdentities = Dictionary(uniqueKeysWithValues:
             activeSamplerNames.compactMap { name -> (Int, Graph.TextureIdentity)? in
                 guard name.hasPrefix("g_Texture"),
@@ -382,14 +442,19 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         case .preservedRGBAUnorm: .preservedRGBAUnorm
         default: .color
         }
+        // Recomputed per launch on purpose: the eligibility trio reads
+        // per-node template facts (graphRole, effectContext, owner
+        // eligibility, exact candidate identities) that are outside the
+        // variant analysis key, so caching it would leak one node's
+        // admission authority to another node sharing the key.
         let alphaAttenuationSourceSlot =
             SceneResolvedMaterialAlphaAttenuationEligibility.sourceSlot(
-                    fragmentSource: prepared.fragment.source,
-                    samplers: sourceActiveSamplers,
-                    template: template,
-                    implicitFramebufferIdentity: implicitFramebufferIdentity,
-                    graphInputSourceSlotFacts: sourceGraphInputFacts
-                )
+                fragmentSource: prepared.fragment.source,
+                samplers: sourceActiveSamplers,
+                template: template,
+                implicitFramebufferIdentity: implicitFramebufferIdentity,
+                graphInputSourceSlotFacts: sourceGraphInputFacts
+            )
         let colorBlendSourceSlot =
             SceneResolvedMaterialColorBlendEligibility.sourceSlot(
                 fragmentSource: prepared.fragment.source,
@@ -731,6 +796,18 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             SceneResolvedMaterialProgramDerivation.associatedOverOverlaySlot(
                 fragmentSource: prepared.fragment.source
             )
+        if cachedAnalysis == nil, let variantAnalysisKey {
+            SceneResolvedMaterialVariantAnalysisCache.store(
+                record: SceneResolvedMaterialVariantAnalysisCache.Record(
+                    canonicalVertex: compilerSources.vertex,
+                    canonicalFragment: compilerSources.fragment,
+                    activeSamplerNames: Set(activeSamplerNames),
+                    resolvedIntegerCombos: resolvedIntegerCombos,
+                    sourceActiveSamplers: sourceActiveSamplers
+                ),
+                keySHA256: variantAnalysisKey
+            )
+        }
         SceneResolvedMaterialVariantCompileProfile.endVariant()
         return .init(
             readinessMask: readinessMask,

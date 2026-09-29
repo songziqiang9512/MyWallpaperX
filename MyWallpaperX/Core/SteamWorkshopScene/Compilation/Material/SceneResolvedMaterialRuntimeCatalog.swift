@@ -61,60 +61,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
 
     typealias SystemProviderDemand = SceneSystemProviderTextureIdentity
 
-    /// Resource-demand reachability is a shader/template property, not a
-    /// material-node identity property. Authored graphs commonly instantiate
-    /// the same material many times; analyzing every node separately turns
-    /// launch into repeated preprocessing of identical shader variants.
-    enum ResourceDemandReferenceKind: Hashable {
-        case asset
-        case userProperty
-        case provider
-        case graph
-    }
 
-    struct ResourceDemandTextureSlotShape: Hashable {
-        let index: Int
-        let references: [ResourceDemandReferenceKind]
-    }
-
-    struct ResourceDemandAnalysisKey: Hashable {
-        let shaderIdentity: String
-        let shaderCanonicalSHA256: String
-        let textureSlots: [ResourceDemandTextureSlotShape?]
-        let combos: [Template.Combo]
-        let inheritedInactiveCombos: [String]
-        let uniformDeclarations: [Template.UniformDeclaration]
-        let compatibilityTarget: SceneShaderCompatibilityTarget
-        let hasImplicitFramebuffer: Bool
-
-        init(
-            template: Template,
-            implicitFramebufferIdentity: Graph.TextureIdentity?
-        ) {
-            shaderIdentity = template.shaderContract.identity
-            shaderCanonicalSHA256 = template.shaderContract.canonicalSHA256
-            textureSlots = template.textureSlots.map { slot in
-                slot.map {
-                    ResourceDemandTextureSlotShape(
-                        index: $0.index,
-                        references: $0.candidates.map { candidate in
-                            switch candidate.reference {
-                            case .asset: .asset
-                            case .userProperty: .userProperty
-                            case .provider: .provider
-                            case .graph: .graph
-                            }
-                        }
-                    )
-                }
-            }
-            combos = template.combos
-            inheritedInactiveCombos = template.inheritedInactiveCombos
-            uniformDeclarations = template.uniformDeclarations
-            compatibilityTarget = template.compatibilityTarget
-            hasImplicitFramebuffer = implicitFramebufferIdentity != nil
-        }
-    }
 
     private enum ResourceDemandAnalysis {
         case ready(
@@ -131,10 +78,12 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         }
 
         private let condition = NSCondition()
-        private var entries: [ResourceDemandAnalysisKey: Entry] = [:]
+        private var entries: [SceneMaterialDemandAnalysisPersistentCache
+            .ResourceDemandAnalysisKey: Entry] = [:]
 
         func result(
-            for key: ResourceDemandAnalysisKey,
+            for key: SceneMaterialDemandAnalysisPersistentCache
+                .ResourceDemandAnalysisKey,
             prepare: () -> ResourceDemandAnalysis
         ) -> ResourceDemandAnalysis {
             condition.lock()
@@ -366,7 +315,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         issues: inout Set<ResourceDemandIssue>,
         analyses: ResourceDemandAnalysisCache
     ) {
-        let analysisKey = ResourceDemandAnalysisKey(
+        let analysisKey = SceneMaterialDemandAnalysisPersistentCache
+            .ResourceDemandAnalysisKey(
             template: template,
             implicitFramebufferIdentity: implicitFramebufferIdentity
         )

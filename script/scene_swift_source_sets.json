@@ -308,6 +308,7 @@
       "description": "Launch variant preparation, captured-main targeting, envelope compilation, and diagnostics.",
       "includes": [],
       "sources": [
+        "Compilation/Material/SceneMaterialDemandAnalysisPersistentCache.swift",
         "Compilation/Material/ScenePersistentCacheSupport.swift",
         "Compilation/Material/SceneResolvedMaterialAlphaAttenuationEligibility.swift",
         "Compilation/Material/SceneResolvedMaterialColorBlendEligibility.swift",
@@ -328,7 +329,9 @@
         "Compilation/Material/SceneResolvedMaterialGenericShaderRequest.swift",
         "Compilation/Material/SceneResolvedMaterialGenericShaderRouteAuthority.swift",
         "Compilation/Material/SceneResolvedMaterialGenericShaderRouteProfile.swift",
-        "Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeEligibility.swift"
+        "Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeEligibility.swift",
+        "Compilation/Material/SceneResolvedMaterialVariantAnalysisCache.swift",
+        "Compilation/Material/ScenePersistentSamplerRecord.swift"
       ]
     },
     "resolved_material_frame_finalization": {

@@ -12,39 +12,79 @@ import Foundation
 /// as a safe miss. Only ready results are published, and the read path never
 /// creates the cache directory.
 enum SceneMaterialDemandAnalysisPersistentCache {
-    typealias ResourceDemandAnalysisKey =
-        SceneResolvedMaterialRuntimeCatalog.ResourceDemandAnalysisKey
-    private typealias Template = SceneResolvedMaterialTemplate
+/// Resource-demand reachability is a shader/template property, not a
+/// material-node identity property. Authored graphs commonly instantiate
+/// the same material many times; analyzing every node separately turns
+/// launch into repeated preprocessing of identical shader variants.
+enum ResourceDemandReferenceKind: Hashable {
+    case asset
+    case userProperty
+    case provider
+    case graph
+}
+
+struct ResourceDemandTextureSlotShape: Hashable {
+    let index: Int
+    let references: [ResourceDemandReferenceKind]
+}
+
+struct ResourceDemandAnalysisKey: Hashable {
+    let shaderIdentity: String
+    let shaderCanonicalSHA256: String
+    let textureSlots: [ResourceDemandTextureSlotShape?]
+    let combos: [Template.Combo]
+    let inheritedInactiveCombos: [String]
+    let uniformDeclarations: [Template.UniformDeclaration]
+    let compatibilityTarget: SceneShaderCompatibilityTarget
+    let hasImplicitFramebuffer: Bool
+
+    init(
+        template: Template,
+        implicitFramebufferIdentity:
+            SceneAuthoredEffectRenderPlan.TextureIdentity?
+    ) {
+        shaderIdentity = template.shaderContract.identity
+        shaderCanonicalSHA256 = template.shaderContract.canonicalSHA256
+        textureSlots = template.textureSlots.map { slot in
+            slot.map {
+                ResourceDemandTextureSlotShape(
+                    index: $0.index,
+                    references: $0.candidates.map { candidate in
+                        switch candidate.reference {
+                        case .asset: .asset
+                        case .userProperty: .userProperty
+                        case .provider: .provider
+                        case .graph: .graph
+                        }
+                    }
+                )
+            }
+        }
+        combos = template.combos
+        inheritedInactiveCombos = template.inheritedInactiveCombos
+        uniformDeclarations = template.uniformDeclarations
+        compatibilityTarget = template.compatibilityTarget
+        hasImplicitFramebuffer = implicitFramebufferIdentity != nil
+    }
+}
+
+
+    typealias Template = SceneResolvedMaterialTemplate
     private static let schemaVersion = 1
     private static let maximumEntryBytes = 256 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()
     private static var pruned = false
 
-    private struct PersistedSampler: Codable {
-        let name: String
-        let slot: Int
-        let mode: String
-        let materialKey: String?
-        let labelKey: String?
-        let formatKey: String?
-        let isHidden: Bool
-        let defaultTextureKind: Int?
-        let defaultTextureValue: String?
-        let readinessCombo: String?
-        let channelUse: String
-        let sourceProvenPurpose: String?
-    }
+        private struct PersistedSlot: Codable {
+            let slot: Int
+            let samplers: [ScenePersistentSamplerRecord]
+        }
 
-    private struct PersistedSlot: Codable {
-        let slot: Int
-        let samplers: [PersistedSampler]
-    }
-
-    private struct PersistedAnalysis: Codable {
-        let textureFormatSlots: [Int]
-        let samplers: [PersistedSlot]
-    }
+        private struct PersistedAnalysis: Codable {
+            let textureFormatSlots: [Int]
+            let samplers: [PersistedSlot]
+        }
 
     private struct Envelope: Codable {
         let schemaVersion: Int
@@ -92,9 +132,8 @@ enum SceneMaterialDemandAnalysisPersistentCache {
         return digest.sha256Hex()
     }
 
-        private static func referenceKind(
-            _ kind: SceneResolvedMaterialRuntimeCatalog
-                .ResourceDemandReferenceKind
+        static func referenceKind(
+            _ kind: ResourceDemandReferenceKind
         ) -> String {
             switch kind {
             case .asset: return "a"
@@ -104,7 +143,7 @@ enum SceneMaterialDemandAnalysisPersistentCache {
             }
         }
 
-        private static func uniformValue(
+        static func uniformValue(
         _ value: Template.UniformValue
     ) -> String {
         switch value {
@@ -131,7 +170,7 @@ enum SceneMaterialDemandAnalysisPersistentCache {
         }
     }
 
-    private static func staticUniformCompact(
+    static func staticUniformCompact(
         _ value: Template.StaticUniformValue
     ) -> String {
         value.valueKind + ":"
@@ -139,7 +178,7 @@ enum SceneMaterialDemandAnalysisPersistentCache {
                 .map { String($0, radix: 16) }.joined(separator: ",")
     }
 
-    private static func uniformSource(
+    static func uniformSource(
         _ source: Template.DynamicUniformSource
     ) -> String {
         switch source {
@@ -149,7 +188,7 @@ enum SceneMaterialDemandAnalysisPersistentCache {
         }
     }
 
-        private static func particleField(
+        static func particleField(
             _ field: SceneDynamicParticleField
         ) -> String {
             switch field {
@@ -168,7 +207,7 @@ enum SceneMaterialDemandAnalysisPersistentCache {
             }
         }
 
-        private static func dynamicTarget(
+        static func dynamicTarget(
         _ target: SceneDynamicTarget
     ) -> String {
         switch target {
@@ -199,110 +238,39 @@ enum SceneMaterialDemandAnalysisPersistentCache {
 
     // MARK: - Payload projection
 
-    private static func persisted(
-        textureFormatSlots: Set<Int>,
-        samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
-    ) -> PersistedAnalysis? {
-        var persistedSlots: [PersistedSlot] = []
-        for slot in samplers.keys.sorted() {
-            var mirrored: [PersistedSampler] = []
-            for sampler in samplers[slot] ?? [] {
-                let defaultKind: Int?
-                let defaultValue: String?
-                switch sampler.defaultTexture {
-                case nil:
-                    defaultKind = nil
-                    defaultValue = nil
-                case let .asset(path):
-                    defaultKind = 0
-                    defaultValue = path.value
-                case let .internalTarget(name):
-                    defaultKind = 1
-                    defaultValue = name
+        private static func persisted(
+            textureFormatSlots: Set<Int>,
+            samplers: [Int: Set<SceneResolvedMaterialShaderSchema.Sampler>]
+        ) -> PersistedAnalysis? {
+            var persistedSlots: [PersistedSlot] = []
+            for slot in samplers.keys.sorted() {
+                var mirrored: [ScenePersistentSamplerRecord] = []
+                for sampler in samplers[slot] ?? [] {
+                    mirrored.append(ScenePersistentSamplerRecord(
+                        sampler: sampler
+                    ))
                 }
-                mirrored.append(PersistedSampler(
-                    name: sampler.name,
-                    slot: sampler.slot,
-                    mode: textureMode(sampler.mode),
-                    materialKey: sampler.materialKey,
-                    labelKey: sampler.labelKey,
-                    formatKey: sampler.formatKey,
-                    isHidden: sampler.isHidden,
-                    defaultTextureKind: defaultKind,
-                    defaultTextureValue: defaultValue,
-                    readinessCombo: sampler.readinessCombo,
-                    channelUse: sampler.channelUse.rawValue,
-                    sourceProvenPurpose: sampler.sourceProvenPurpose
-                        .map(loadPurpose)
-                ))
+                // A stable order keeps the payload digest deterministic
+                // across processes despite the Set iteration order.
+                mirrored.sort {
+                    $0.name != $1.name
+                        ? $0.name < $1.name
+                        : $0.canonicalSortKey < $1.canonicalSortKey
+                }
+                persistedSlots.append(
+                    .init(slot: slot, samplers: mirrored)
+                )
             }
-            // A stable order keeps the payload digest deterministic
-            // across processes despite the Set iteration order.
-            mirrored.sort {
-                $0.name != $1.name
-                    ? $0.name < $1.name
-                    : canonicalSortKey($0) < canonicalSortKey($1)
-            }
-            persistedSlots.append(
-                .init(slot: slot, samplers: mirrored)
+            return PersistedAnalysis(
+                textureFormatSlots: textureFormatSlots.sorted(),
+                samplers: persistedSlots
             )
         }
-        return PersistedAnalysis(
-            textureFormatSlots: textureFormatSlots.sorted(),
-            samplers: persistedSlots
-        )
-    }
-
-    private static func canonicalSortKey(
-        _ sampler: PersistedSampler
-    ) -> String {
-        [
-            sampler.name, String(sampler.slot), sampler.mode,
-            sampler.materialKey ?? "-", sampler.labelKey ?? "-",
-            sampler.formatKey ?? "-", sampler.isHidden ? "1" : "0",
-            sampler.defaultTextureKind.map(String.init) ?? "-",
-            sampler.defaultTextureValue ?? "-",
-            sampler.readinessCombo ?? "-", sampler.channelUse,
-            sampler.sourceProvenPurpose ?? "-",
-        ].joined(separator: "|")
-    }
-
-    private static func textureMode(
-        _ mode: SceneResolvedMaterialShaderSchema.TextureMode
-    ) -> String {
-        switch mode {
-        case .regular: return "regular"
-        case .opacityMask: return "opacity-mask"
-        case .rgbMask: return "rgb-mask"
-        case .flowMask: return "flow-mask"
-        case .depth: return "depth"
-        }
-    }
-
-    private static func loadPurpose(
-        _ purpose: SceneTextureLoadPurpose
-    ) -> String {
-        switch purpose {
-        case .premultipliedColor: return "premultiplied-color"
-        case .straightAlbedo: return "straight-albedo"
-        case .preservedChannels: return "preserved-channels"
-        case .mask: return "mask"
-        case .noise: return "noise"
-        case .flow: return "flow"
-        case .phase: return "phase"
-        case .normal: return "normal"
-        case .depth: return "depth"
-        case .lookupTable: return "lookup-table"
-        }
-    }
 
     private static func analysisDigest(
         _ payload: PersistedAnalysis
     ) -> String? {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        guard let data = try? encoder.encode(payload) else { return nil }
-        return SceneGenericShaderProgramArtifact.sha256(data)
+        ScenePersistentCacheSupport.jsonPayloadSHA256(payload)
     }
 
     // MARK: - Load / store
@@ -329,7 +297,7 @@ enum SceneMaterialDemandAnalysisPersistentCache {
         for slot in envelope.payload.samplers {
             var rebuilt: Set<SceneResolvedMaterialShaderSchema.Sampler> = []
             for mirrored in slot.samplers {
-                guard let sampler = rebuild(mirrored) else { return nil }
+                guard let sampler = mirrored.rebuild() else { return nil }
                 rebuilt.insert(sampler)
             }
             samplers[slot.slot] = rebuilt
@@ -386,64 +354,6 @@ enum SceneMaterialDemandAnalysisPersistentCache {
                 // in-process result still serves this launch.
             }
         }
-    }
-
-    private static func rebuild(
-        _ mirrored: PersistedSampler
-    ) -> SceneResolvedMaterialShaderSchema.Sampler? {
-        let mode: SceneResolvedMaterialShaderSchema.TextureMode
-        switch mirrored.mode {
-        case "regular": mode = .regular
-        case "opacity-mask": mode = .opacityMask
-        case "rgb-mask": mode = .rgbMask
-        case "flow-mask": mode = .flowMask
-        case "depth": mode = .depth
-        default: return nil
-        }
-        let defaultTexture: SceneResolvedMaterialShaderSchema.DefaultTexture?
-        switch mirrored.defaultTextureKind {
-        case nil: defaultTexture = nil
-        case 0:
-            guard let value = mirrored.defaultTextureValue,
-                  let path = SceneVFSAssetPath(value) else { return nil }
-            defaultTexture = .asset(path)
-        case 1:
-            guard let value = mirrored.defaultTextureValue,
-                  !value.isEmpty else { return nil }
-            defaultTexture = .internalTarget(value)
-        default: return nil
-        }
-        let purpose: SceneTextureLoadPurpose?
-        switch mirrored.sourceProvenPurpose {
-        case nil: purpose = nil
-        case "premultiplied-color": purpose = .premultipliedColor
-        case "straight-albedo": purpose = .straightAlbedo
-        case "preserved-channels": purpose = .preservedChannels
-        case "mask": purpose = .mask
-        case "noise": purpose = .noise
-        case "flow": purpose = .flow
-        case "phase": purpose = .phase
-        case "normal": purpose = .normal
-        case "depth": purpose = .depth
-        case "lookup-table": purpose = .lookupTable
-        default: return nil
-        }
-        guard let channelUse = SceneAuthoredShaderProgram
-            .TextureBinding.ChannelUse(rawValue: mirrored.channelUse)
-        else { return nil }
-        return SceneResolvedMaterialShaderSchema.Sampler(
-            name: mirrored.name,
-            slot: mirrored.slot,
-            mode: mode,
-            materialKey: mirrored.materialKey,
-            labelKey: mirrored.labelKey,
-            formatKey: mirrored.formatKey,
-            isHidden: mirrored.isHidden,
-            defaultTexture: defaultTexture,
-            readinessCombo: mirrored.readinessCombo,
-            channelUse: channelUse,
-            sourceProvenPurpose: purpose
-        )
     }
 
     // MARK: - Directory

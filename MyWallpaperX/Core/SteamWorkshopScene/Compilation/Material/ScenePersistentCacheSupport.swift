@@ -24,6 +24,15 @@ nonisolated struct ScenePersistentCacheDigest {
 
 nonisolated enum ScenePersistentCacheSupport {
 
+    /// Sorted-key JSON digest of one tier payload, shared so each tier's
+    /// integrity check stays byte-identical in framing.
+    static func jsonPayloadSHA256(_ payload: some Encodable) -> String? {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        guard let data = try? encoder.encode(payload) else { return nil }
+        return SceneGenericShaderProgramArtifact.sha256(data)
+    }
+
     /// Resolves the tier's versioned cache directory. An environment override
     /// root is scoped by a private versioned subdirectory so one tier's
     /// pruning can never remove a sibling tier's entries; the default root

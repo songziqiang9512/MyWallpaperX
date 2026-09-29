@@ -92,6 +92,8 @@
           "SceneResolvedMaterialRuntimeCatalog+Report.swift",
           "SceneMaterialDemandAnalysisPersistentCache.swift",
           "ScenePersistentCacheSupport.swift",
+          "SceneResolvedMaterialVariantAnalysisCache.swift",
+          "ScenePersistentSamplerRecord.swift",
           "SceneResolvedMaterialRuntimeCatalog.swift",
           "SceneResolvedMaterialScriptBindingClassifier.swift",
           "SceneResolvedMaterialShaderSchema+Reachability.swift",
