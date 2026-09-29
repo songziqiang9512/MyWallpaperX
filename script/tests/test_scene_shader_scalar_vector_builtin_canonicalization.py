@@ -737,6 +737,35 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
                 )
                 self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
 
+    def test_hlsl_attribute_annotations_are_stripped_and_link(self) -> None:
+        # The archived syntax-error subclass: a bare `[loop]` line survives
+        # normalization and glslang rejects it with "unexpected IDENTIFIER,
+        # expecting LEFT_BRACKET". The annotation carries loop-execution
+        # hints only, so stripping it preserves semantics and restores the
+        # link.
+        if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
+            self.skipTest("bundled glslang is unavailable")
+        statement = (
+            "[loop] for (int i = 0; i < 4; i++) {"
+            " albedo.r += float(i); }"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            output = json.loads(subprocess.check_output(
+                [str(self.binary), statement], text=True,
+            ))
+            root = Path(directory)
+            vertex = root / "author.vert"
+            fragment = root / "author.frag"
+            vertex.write_text(output["normalizedVertex"], encoding="utf-8")
+            fragment.write_text(output["normalizedFragment"], encoding="utf-8")
+            self.assertNotIn("[loop]", output["normalizedFragment"])
+            linked = subprocess.run(
+                [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                 "-l", str(vertex), str(fragment)],
+                cwd=root, capture_output=True, text=True,
+            )
+            self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
     def test_octal_bounds_preserve_compiled_numeric_value(self) -> None:
         for peer in ("abs(g_Ratio)", "abs(g_Ratio.x)"):
             with self.subTest(peer=peer), tempfile.TemporaryDirectory() as directory:

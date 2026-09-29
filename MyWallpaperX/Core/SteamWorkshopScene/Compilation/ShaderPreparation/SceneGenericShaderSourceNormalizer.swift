@@ -84,7 +84,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 rewriteAssignmentVectorConversions(
                     SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewriteUsingBoundedSyntax(
                         SceneGenericShaderScalarArithmeticNormalizer.rewrite(
-                            fragmentSource,
+                            stripHLSLAttributeAnnotations(fragmentSource),
                             stage: .fragment
                         ),
                         stage: .fragment
@@ -93,8 +93,8 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 )
             )
             var parsed: [String: ParsedStage] = [
-                "vertex": try parse(typedVertexSource),
-                "fragment": try parse(typedFragmentSource),
+                "vertex": try parse(typedVertexSource, stage: "vertex"),
+                "fragment": try parse(typedFragmentSource, stage: "fragment"),
             ]
             var uniforms: [String: Shape] = [:]
             var samplers: [String: Int] = [:]
@@ -378,10 +378,19 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         }
     }
 
-    private static func parse(_ source: String) throws -> ParsedStage {
+    private static func parse(
+        _ source: String,
+        stage: String
+    ) throws -> ParsedStage {
         var kept: [String] = []
         var declarations: [Declaration] = []
         var seen = Set<String>()
+        // The authoritative WE toolchain tolerated a repeated identical
+        // varying declaration in the fragment stage (authored bundles
+        // concatenate sources and may repeat the declaration). Keep the
+        // first and drop the duplicate; a conflicting type still throws
+        // through the `varying` value-type guard below.
+        let duplicateVaryingAllowed = stage == "fragment"
         for line in source.replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
             .components(separatedBy: "\n") {
@@ -401,6 +410,14 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             let count = Int(capture(match, 4, in: line))
             if let count, !(1 ... 128).contains(count) { throw Failure.arrayUnsupported }
             guard seen.insert("\(storage)|\(name)").inserted else {
+                // The authoritative toolchain tolerated a repeated identical
+                // varying declaration in fragment sources (bundled shaders
+                // concatenate stages); keep the first and drop the rest. A
+                // conflicting type still fails the value-type guard.
+                if duplicateVaryingAllowed, storage == "varying",
+                   line.contains(type) {
+                    continue
+                }
                 throw Failure.declarationDuplicate
             }
             declarations.append(.init(storage: storage, type: type, name: name, count: count))

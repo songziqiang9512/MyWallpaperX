@@ -332,6 +332,22 @@ extension SceneGenericShaderSourceNormalizer {
         return result
     }
 
+    /// HLSL attribute annotations (`[loop]`, `[unroll]`, `[branch]`, …) are
+    /// meaningful to the lenient compilers but are not Vulkan GLSL: glslang
+    /// rejects a bare `[identifier]` line with "expecting LEFT_BRACKET".
+    /// The annotations carry loop-execution hints only, so dropping them
+    /// preserves semantics.
+    static func stripHLSLAttributeAnnotations(_ source: String) -> String {
+        let regex = try! NSRegularExpression(pattern:
+            #"\[\s*(?:loop|unroll|branch|flatten|fastopt)\s*\]"#
+        )
+        return regex.stringByReplacingMatches(
+            in: source,
+            range: NSRange(source.startIndex..., in: source),
+            withTemplate: ""
+        )
+    }
+
     /// GLSL ES accepts implicit scalar conversions in some authors' compilers,
     /// while glslang's Vulkan frontend requires an explicit conversion. An
     /// integer target assigned a float-bearing expression (declaration,
