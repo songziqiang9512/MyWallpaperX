@@ -16,6 +16,14 @@
 
 **验证：**机器推导 checkpoint 门禁（`--paths <4 路径> --phase checkpoint --run`）四项 PASSED：focused-tests 19 模块（含 source_sets 一致性、semantics_coverage 链接门、wallpaper_benchmark 夹具、async_launch）、code-health、scene-defense、build。行为证据：干净 worktree（HEAD `ea816a8a`+仅本批 3 个产品/layout 改动）Developer ID 签名构建，1300076567 证据模式 10s 回放 **PASS loaded=1.0 failures=[]**，preview 日志 **timeline 行零残留**、startup/textScript/media/cursor/vector 五组 schema 行完好（归档 `preview-log-after-deletion.log`）。批次 diff SHA256 `2cf13d20ab984437bb4a60347ece426fa0c33dfd0e35ad1e85455f2245944445`；门禁日志与回放证据见忽略缓存 `20260929-launch-reporter-census/`。**边界：**预览日志的 timeline 调试便利随删除消失（确死判定成立的前提即无人消费；如需人工排样可用 `--mwx-debug-scene-*` 既有诊断面）。
 
+<a id="e-2026-09-29-script-frame-ledger"></a>
+
+### E-2026-09-29-SCRIPT-FRAME-LEDGER — SceneScript 程序家族帧账本共享（E1-④ 收口，审查 APPROVE，`bb4d4dae`）
+
+**重复职责与消融：**scalar/string/vector 三个 QuickJS 程序家族各持一份逐字相同的 9 成员帧账本（4 个 `SceneScriptObservedEvent` 媒体事件水位 + 4 个 `consumedMedia*Generations` 字典 + `appliedUserProperties`）及 44 行 snapshot/restore/observeMediaEvents 实现体。共享 `SceneScriptProgramFrameLedger`（新文件）成为唯一 owner：三家族持 `let frameLedger`、9 个变更点前缀化、暴露 3 个单行委托；产品净 −83 行账本重复（+45/−128 加新文件 75 行）。**失败字典普查结论：**已由既有 owner（`SceneScriptScalarRuntimeFailure` + ValueRuntime）共享，无动作。**设计裁决（ratchet 互动）：**初版协议+聚合方案被 `scene-protocol-declarations` ratchet 正确拒绝（baseline 3 不可增长）且聚合违反最小收益；终态为无协议共享 owner，lifecycle/FrameDriver/cursor/models 五文件与 HEAD 零 diff，timer 三联体保持家族内联。审查确认：HEAD 三份实现 token 级全等、成员默认值一致、值语义（struct）经 class 成员访问不变。
+
+**验证：**机器推导 focused 门禁 45 模块 PASSED（`gate-v4.log`，含 semantics_coverage 对 baseline=3 manifest 的 ratchet 复核）；6 个关键行为模块（frame_vm_routing/timer_identity/string_lifecycle/quickjs_layer_snapshot_atomicity/vector_media_events/owner_event_transaction）绿。干净 worktree（HEAD `fbd1a84d`+仅 4 个家族 Swift 文件）Developer ID 签名构建成功；1300076567 证据模式 12s 回放 **PASS loaded=1.0 failures=[]**，preview 日志 4 组 schema 行完好、runtime 证据含 `scene_script_vector_media_startup` observation_count=1（媒体观察路径实际经过 ledger）。共享树 build/scene-defense 失败经审查抽查归因并行在途 Compilation 批（helper 移动），与本批零交集。冻结批次 diff SHA256 `bdaa5b9dab816e9bb19b7730e766a3719aad3317fad18ea1e7271f69426a65fc`；证据见忽略缓存 `20260929-script-frame-ledger/`。**边界：**E1 普查四项至此全部收口；timer 三联体（每家族 3 行）为有意保留的残余形态，随未来家族合并卡再议。
+
 <a id="e-2026-09-29-wrapper-collapse"></a>
 
 ### E-2026-09-29-WRAPPER-COLLAPSE — 帧预检请求包装双走查压扁为单走查（E1-①第一切片，结构消融，审查两轮 REJECT→APPROVE）
