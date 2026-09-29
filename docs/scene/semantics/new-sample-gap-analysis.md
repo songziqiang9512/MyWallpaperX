@@ -76,11 +76,29 @@ systemParticles=0。需 graceful degradation 或预下载。
 缺口 3 的修复（`3d94a3f4` passthrough allowlist + `9b4086ff` colorTransfer 泛化）已覆盖
 其中音频条+composition 层的 textureBindingInvalid 拒绝。
 
-## 新发现
+## 新发现（工作流诊断代理深挖后修正）
 
-- **2684431262**：纯黑+5.7fps——需排查模型→纹理加载（与 833227004 同类 model-material 链缺口）。
-- **3078285611**：渲染为单一纯粉色——效果链可能产生单一覆盖色而非逐层合成。
-- **3233141951**：进程 12 秒内被 SIGTERM——资源加载超时或 GPU 卡死。
+- **2684431262（纯黑 5.7fps）→ 症状归因错位**。场景渲染正确（model→material 链 8/8 完整、
+  25/25 模板编译零失败、音频链全通），"纯黑"是作者黑底艺术图的设计本底（87% 黑像素，官方
+  预览同样黑底）。5.7fps 是 harness 在无 warmup 的测量窗内插入 4 次同步全屏 HDR 快照
+  （每次 ~2.4s 阻塞渲染线程）造成的测量伪影。唯一真实的产品侧差距是 HDR bloom 的
+  scatter/feather 完整链（台账仍开放）。→ **非引擎渲染缺陷**。
+
+- **3233141951（进程超时）→ 纯解码体量问题**。38 张 .tex 中 24 张 free-image（7 张
+  ≥4096×2296 PNG，raw 首 mip ≈335MB），解码→预乘→BC→mip 全部内联阻塞 device-join，
+  无逐纹理日志。deferred 车道被两条规则关闭：粒子场景一票否决 + 资格只限无效果层。
+  → 需要扩展 deferred 车道资格或增加逐纹理日志（独立批次）。
+
+- **3078285611（纯粉覆盖）→ 证伪**。粉色是 id=93 层「纯色背景」的作者设计背景色
+  （solidlayer color = RGB 250,142,200，绑定的用户属性默认值精确匹配）。渲染逐层合成
+  正确。7.9fps 是 25 级效果链以 4800×3000 输入逐 pass 的真实成本。→ **非引擎缺陷**。
+
+- **缺口 1（833227004 model→material 链黑屏）→ 代码级排除链已确认**。
+  ① `SceneAuthoredEffectRenderPlanner.plans` 对零效果层返回 nil → 无 authored plan；
+  ② `candidateLayerIDs` 不含此类层 → 不进候选；即使强行扩入，`raw-graph-count` 和
+  `validateOuterGraph` 均以 descriptor layer.effects 为锚，合成 stage 无从对位；
+  ③ 无替代执行路由。整层不可见只剩清屏色。→ 需要合成 graph 或新增 material-only
+  执行路由，属独立设计批次。
 
 ### 非缺口（观察与实测不一致）
 
