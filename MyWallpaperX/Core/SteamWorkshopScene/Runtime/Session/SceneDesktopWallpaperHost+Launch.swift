@@ -234,11 +234,13 @@ extension SceneDesktopWallpaperHost {
         progress: ((SceneWallpaperLaunchState.Phase, String) -> Void)?
     ) throws -> PreparedLaunch {
         try cancellation?.check()
+        let prepareEntry = CACurrentMediaTime()
         progress?(.preparingModel, "正在验证资源包并解析场景")
         let model = try SceneRuntimeModelBuilder().build(
             rootURL: rootURL,
             propertyOverrides: propertyOverrides
         )
+        let modelBuildMs = (CACurrentMediaTime() - prepareEntry) * 1_000
         try cancellation?.check()
         progress?(.preparingPrograms, "正在准备材质、脚本与渲染计划")
         guard let cacheDirectory = model.packageReport?.outputURL else {
@@ -459,6 +461,11 @@ extension SceneDesktopWallpaperHost {
         try cancellation?.check()
         progress?(.preparingResources, "正在加载纹理并预检 Metal 资源")
         let resourcesStageStart = CACurrentMediaTime()
+        NSLog(
+            "MWX LAUNCH-STAGE: stage=model-build elapsedMs=%.0f preludeMs=%.0f",
+            modelBuildMs,
+            (resourcesStageStart - prepareEntry) * 1000
+        )
         let materialAssetCatalog = SceneMaterialAssetTextureCatalog(
             demands: resolvedMaterialCatalog.assetDemands,
             resourceView: model.resourceView,

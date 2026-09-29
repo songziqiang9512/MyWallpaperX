@@ -268,6 +268,10 @@ enum DebugScenePlaybackRunner {
                         : .init()
                 )
             }
+            NSLog(
+                "MWX LAUNCH-STAGE: stage=runner-pre-launch elapsedMs=%.0f",
+                (ProcessInfo.processInfo.systemUptime - requestUptime) * 1_000
+            )
             let model = try runtimeHost.launch(
                 rootURL: rootURL,
                 propertyOverrides: requestedPropertyOverrides,
@@ -278,6 +282,10 @@ enum DebugScenePlaybackRunner {
             scheduleRequestedMediaThumbnailSequence(rootURL: rootURL)
             // 隔离证据进程必须显式解除宿主在首个窗口出现前捕获的 focus pause。
             runtimeHost.setPlaybackPaused(false)
+            NSLog(
+                "MWX LAUNCH-STAGE: stage=launch-return elapsedMs=%.0f",
+                (ProcessInfo.processInfo.systemUptime - requestUptime) * 1_000
+            )
             scheduleRequestedAudioSpectrumFixture()
             let runtimeEvidenceURL = try writeRuntimeEvidence(
                 model: model,
