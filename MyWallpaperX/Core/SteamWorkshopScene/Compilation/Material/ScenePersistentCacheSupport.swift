@@ -110,7 +110,8 @@ nonisolated enum ScenePersistentCacheSupport {
 
     static func prune(
         _ directory: URL,
-        retainedEntryLimit: Int
+        retainedEntryLimit: Int,
+        entryExtension: String = "json"
     ) {
         let fileManager = FileManager.default
         guard let entries = try? fileManager.contentsOfDirectory(
@@ -118,7 +119,7 @@ nonisolated enum ScenePersistentCacheSupport {
             includingPropertiesForKeys: [.contentModificationDateKey]
         ) else { return }
         var dated: [(URL, Date)] = []
-        for url in entries where url.pathExtension == "json" {
+        for url in entries where url.pathExtension == entryExtension {
             guard let date = try? url.resourceValues(
                 forKeys: [.contentModificationDateKey]
             ).contentModificationDate else { continue }

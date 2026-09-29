@@ -460,13 +460,16 @@ final class SceneResolvedMaterialPassEncoder {
     /// Creates one immutable pipeline without touching cache or generation
     /// state. Ordinary frame preparation calls this under `lock`; launch
     /// warmup may call it concurrently for already-deduplicated keys before
-    /// the owning graph executor is published.
+    /// the owning graph executor is published. Only a launch-warmup session
+    /// attaches the persistent binary archive tier; the frame path passes no
+    /// session and never reads or writes it.
     func compileUncachedPipeline(
         frontend: SceneAuthoredShaderProgram,
         renderState: SceneMaterialRenderState,
         pixelFormat: MTLPixelFormat,
         sampleCount: Int,
-        writeMask: MTLColorWriteMask
+        writeMask: MTLColorWriteMask,
+        binaryArchiveSession: SceneResolvedMaterialPipelineBinaryArchive.Session? = nil
     ) -> Result<MTLRenderPipelineState, PreparationFailure> {
         guard renderState.supportsResolvedMaterialFullscreenOverwrite else {
             return .failure(.renderStateRejected)
@@ -494,16 +497,49 @@ final class SceneResolvedMaterialPassEncoder {
         descriptor.colorAttachments[0].pixelFormat = pixelFormat
         descriptor.colorAttachments[0].isBlendingEnabled = false
         descriptor.colorAttachments[0].writeMask = writeMask
+        if let binaryArchiveSession {
+            binaryArchiveSession.attach(to: descriptor)
+        }
         do {
-            return .success(try device.makeRenderPipelineState(
+            let pipeline = try device.makeRenderPipelineState(
                 descriptor: descriptor
-            ))
-        } catch {
-            let failure = PreparationFailure.pipelineCompilationRejected(
-                diagnostic: String(describing: error)
             )
-            NSLog("MWX resolved material Metal pipeline rejection: %@", String(describing: error))
-            return .failure(failure)
+            if let binaryArchiveSession {
+                binaryArchiveSession.recordReadyOutcome(descriptor: descriptor)
+            }
+            return .success(pipeline)
+        } catch {
+            // An attached archive that cannot serve this identity (stale or
+            // corrupted entry) must degrade to the ordinary source compile,
+            // never fail the pass. Frame preparation has no session and
+            // keeps the single-attempt contract.
+            guard let binaryArchiveSession else {
+                let failure = PreparationFailure.pipelineCompilationRejected(
+                    diagnostic: String(describing: error)
+                )
+                NSLog("MWX resolved material Metal pipeline rejection: %@", String(describing: error))
+                return .failure(failure)
+            }
+            descriptor.binaryArchives = nil
+            NSLog(
+                "MWX resolved material pipeline binary archive"
+                    + " phase=launch-preparation outcome=retry-without-archive"
+                    + " reason=%@",
+                String(describing: error)
+            )
+            do {
+                let pipeline = try device.makeRenderPipelineState(
+                    descriptor: descriptor
+                )
+                binaryArchiveSession.republishAfterRetry(descriptor: descriptor)
+                return .success(pipeline)
+            } catch {
+                let failure = PreparationFailure.pipelineCompilationRejected(
+                    diagnostic: String(describing: error)
+                )
+                NSLog("MWX resolved material Metal pipeline rejection: %@", String(describing: error))
+                return .failure(failure)
+            }
         }
     }
 

@@ -127,6 +127,8 @@ extension SceneResolvedMaterialPassEncoder {
     /// Warmup runs only from `SceneResolvedMaterialGraphExecutor.init`, before
     /// the encoder can escape to a frame. Unique compile keys therefore may be
     /// compiled concurrently, then published under the ordinary cache lock.
+    /// The persistent binary archive session is prepared and serialized here
+    /// on the background warmup workers; the frame path never touches it.
     private func warmupPipeline(_ plan: WarmupPlan) -> PreparationFailure? {
         lock.lock()
         if let existing = entries[plan.key] {
@@ -139,12 +141,22 @@ extension SceneResolvedMaterialPassEncoder {
         compilationAttempts += 1
         lock.unlock()
 
+        let binaryArchiveSession = SceneResolvedMaterialPipelineBinaryArchive
+            .prepareSession(
+                frontend: plan.frontend,
+                renderState: plan.renderState,
+                pixelFormat: plan.pixelFormat,
+                sampleCount: plan.sampleCount,
+                writeMask: plan.writeMask,
+                device: device
+            )
         let result = compileUncachedPipeline(
             frontend: plan.frontend,
             renderState: plan.renderState,
             pixelFormat: plan.pixelFormat,
             sampleCount: plan.sampleCount,
-            writeMask: plan.writeMask
+            writeMask: plan.writeMask,
+            binaryArchiveSession: binaryArchiveSession
         )
         lock.lock()
         defer { lock.unlock() }

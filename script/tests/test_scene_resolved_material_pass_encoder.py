@@ -35,8 +35,10 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureProviderPublication.swift",
     *scene_swift_sources("resolved_material_program_model"),
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/ScenePersistentCacheSupport.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialAttachmentKind.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialAttachmentStorage.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPipelineBinaryArchive.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Failure.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift",
@@ -2401,6 +2403,166 @@ private enum Harness {
             && invalidWarmupEncoder.failedPipelineCount == 1
             && invalidWarmupEncoder.launchWarmupFailureHitCount == 1
 
+        // Binary archive warm start. The tier root is isolated through
+        // MWX_SCENE_PIPELINE_BINARY_ARCHIVE; the probe reuses the baseline
+        // admission path with a dedicated fragment source so no earlier
+        // fixture shares its identity.
+        var binaryArchivePublishedOnFirstLaunch = false
+        var binaryArchiveHitOnSecondLaunch = false
+        var binaryArchiveSafeMissOnCorruptEntry = false
+        var binaryArchiveIdentitySeparatesFormats = false
+        var framePreparationSkipsArchiveTier = false
+        if let archiveProbe = program(
+            device: device,
+            marker: 901,
+            outputSlot: 3,
+            uniformName: "g_ArchiveProbe"
+        ), let archiveRoot = ProcessInfo.processInfo
+            .environment["MWX_SCENE_PIPELINE_BINARY_ARCHIVE"],
+            let rgbaPlan = SceneResolvedMaterialPassEncoder.WarmupPlan(
+                identity: "fixture:archive-probe",
+                preparedKey: archiveProbe.preparedShader.cacheKey,
+                frontend: archiveProbe.frontendProgram,
+                renderState: archiveProbe.renderState,
+                frontendSchemaVersion: archiveProbe.semanticIdentity
+                    .shader.frontendSchemaVersion,
+                pixelFormat: .rgba8Unorm,
+                writeMask: .all,
+                device: device
+            ), let bgraPlan = SceneResolvedMaterialPassEncoder.WarmupPlan(
+                identity: "fixture:archive-probe-bgra",
+                preparedKey: archiveProbe.preparedShader.cacheKey,
+                frontend: archiveProbe.frontendProgram,
+                renderState: archiveProbe.renderState,
+                frontendSchemaVersion: archiveProbe.semanticIdentity
+                    .shader.frontendSchemaVersion,
+                pixelFormat: .bgra8Unorm,
+                writeMask: .all,
+                device: device
+            ), let rgbaDigest = SceneResolvedMaterialPipelineBinaryArchive
+                .keyDigest(
+                    frontend: archiveProbe.frontendProgram,
+                    renderState: archiveProbe.renderState,
+                    pixelFormat: .rgba8Unorm,
+                    sampleCount: 1,
+                    writeMask: .all,
+                    device: device
+                ) {
+            let tierDirectory = URL(
+                fileURLWithPath: archiveRoot, isDirectory: true
+            ).appendingPathComponent(
+                SceneResolvedMaterialPipelineBinaryArchive.cacheDirectoryName,
+                isDirectory: true
+            )
+            let rgbaArchiveName = "\(rgbaDigest).metalarchive"
+            let rgbaArchiveURL = tierDirectory.appendingPathComponent(
+                rgbaArchiveName
+            )
+            func tierEntries() -> Set<String> {
+                Set(
+                    ((try? FileManager.default.contentsOfDirectory(
+                        atPath: tierDirectory.path
+                    )) ?? []).filter { $0.hasSuffix(".metalarchive") }
+                )
+            }
+            let entriesBefore = tierEntries()
+            let countersBefore =
+                SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
+
+            // First launch: identity miss compiles from source and publishes.
+            let firstLaunchEncoder =
+                SceneResolvedMaterialPassEncoder(device: device)!
+            let firstLaunchReport = firstLaunchEncoder.warmup([rgbaPlan])
+            let countersAfterFirst =
+                SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
+            binaryArchivePublishedOnFirstLaunch =
+                firstLaunchReport.readyKeyCount == 1
+                && countersAfterFirst.publications
+                    == countersBefore.publications + 1
+                && countersAfterFirst.hits == countersBefore.hits
+                && !entriesBefore.contains(rgbaArchiveName)
+                && tierEntries().contains(rgbaArchiveName)
+
+            // Second launch: the persisted entry warms the same identity.
+            let secondLaunchEncoder =
+                SceneResolvedMaterialPassEncoder(device: device)!
+            let secondLaunchReport = secondLaunchEncoder.warmup([rgbaPlan])
+            let secondLaunchAttempts =
+                secondLaunchEncoder.pipelineCompilationAttemptCount
+            let countersAfterSecond =
+                SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
+            let consumedFromWarmup = secondLaunchEncoder.prepare(
+                program: archiveProbe,
+                target: rgbaTarget
+            ) != nil
+            binaryArchiveHitOnSecondLaunch =
+                secondLaunchReport.readyKeyCount == 1
+                && countersAfterSecond.hits == countersAfterFirst.hits + 1
+                && countersAfterSecond.publications
+                    == countersAfterFirst.publications
+                && secondLaunchEncoder.pipelineCompilationAttemptCount
+                    == secondLaunchAttempts
+                && consumedFromWarmup
+
+            // A corrupted entry is a safe miss: the state still compiles and
+            // the freshly compiled entry heals the file for later launches.
+            let corruptedBytes = Data(repeating: 0xFF, count: 64)
+            let corrupted = ((try? corruptedBytes.write(
+                to: rgbaArchiveURL
+            )) != nil)
+            let thirdLaunchEncoder =
+                SceneResolvedMaterialPassEncoder(device: device)!
+            let thirdLaunchReport = thirdLaunchEncoder.warmup([rgbaPlan])
+            let countersAfterThird =
+                SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
+            let healedBytes = (try? Data(contentsOf: rgbaArchiveURL)) ?? Data()
+            binaryArchiveSafeMissOnCorruptEntry =
+                corrupted
+                && thirdLaunchReport.readyKeyCount == 1
+                && countersAfterThird.invalidLoads
+                    == countersAfterSecond.invalidLoads + 1
+                && countersAfterThird.publications
+                    == countersAfterSecond.publications + 1
+                && healedBytes != corruptedBytes
+
+            // Attachment format participates in the identity: a separate
+            // variant publishes its own entry and never hits the other one.
+            let entriesBeforeBgra = tierEntries()
+            let countersBeforeBgra =
+                SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
+            let bgraLaunchEncoder =
+                SceneResolvedMaterialPassEncoder(device: device)!
+            let bgraLaunchReport = bgraLaunchEncoder.warmup([bgraPlan])
+            let countersAfterBgra =
+                SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
+            binaryArchiveIdentitySeparatesFormats =
+                bgraLaunchReport.readyKeyCount == 1
+                && countersAfterBgra.publications
+                    == countersBeforeBgra.publications + 1
+                && countersAfterBgra.hits == countersBeforeBgra.hits
+                && tierEntries().count == entriesBeforeBgra.count + 1
+
+            // Ordinary frame preparation compiles without the archive tier.
+            let countersBeforeFrame =
+                SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
+            let frameOnlyProgram = program(
+                device: device,
+                marker: 902,
+                outputSlot: 3,
+                uniformName: "g_FrameProbe"
+            )
+            let frameOnlyPrepared = frameOnlyProgram.map {
+                firstLaunchEncoder.prepare(
+                    program: $0,
+                    target: rgbaTarget
+                ) != nil
+            } ?? false
+            framePreparationSkipsArchiveTier =
+                frameOnlyPrepared
+                && SceneResolvedMaterialPipelineBinaryArchive.counterSnapshot()
+                    == countersBeforeFrame
+        }
+
         var crossDeviceExercised = false
         var crossDeviceRejected = true
         if let other = MTLCopyAllDevices().first(where: {
@@ -2582,6 +2744,11 @@ private enum Harness {
                     == "library-compilation"
                 && invalidWarmupNegativeCached,
             "crossDeviceRejectedWhenAvailable": crossDeviceRejected,
+            "binaryArchivePublishedOnFirstLaunch": binaryArchivePublishedOnFirstLaunch,
+            "binaryArchiveHitOnSecondLaunch": binaryArchiveHitOnSecondLaunch,
+            "binaryArchiveSafeMissOnCorruptEntry": binaryArchiveSafeMissOnCorruptEntry,
+            "binaryArchiveIdentitySeparatesFormats": binaryArchiveIdentitySeparatesFormats,
+            "framePreparationSkipsArchiveTier": framePreparationSkipsArchiveTier,
         ]
         let payload: [String: Any] = [
             "results": results,
@@ -2619,6 +2786,14 @@ class SceneResolvedMaterialPassEncoderTests(unittest.TestCase):
             environment = os.environ.copy()
             environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
             environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
+            # The binary archive tier must never touch the real user cache
+            # from a test run; the whole harness shares one isolated root.
+            # Environment override roots must pre-exist, like every other
+            # persistent tier's test root.
+            (root / "pipeline-binary-archive").mkdir(parents=True, exist_ok=True)
+            environment["MWX_SCENE_PIPELINE_BINARY_ARCHIVE"] = str(
+                root / "pipeline-binary-archive"
+            )
             compilation = subprocess.run(
                 [
                     "xcrun",

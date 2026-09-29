@@ -202,6 +202,10 @@ final class ScenePreparedBaseImageResources {
         if !flush.succeeded {
             failedCount += flush.failedTextureCount
         }
+        // The uncommitted lane (BC premultiply conversions) commits here too;
+        // a failed conversion leaves its private texture partially converted
+        // and the layer falls back at render time (device-loss rarity).
+        uploadCommandQueue.flushUncommittedCommandBuffers()
         return ScenePreparedBaseImageResources(
             textureLoader: textureLoader,
             sceneGeneration: sceneGeneration,

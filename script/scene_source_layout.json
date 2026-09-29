@@ -411,6 +411,7 @@
           "SceneResolvedMaterialPassEncoder+Failure.swift",
           "SceneResolvedMaterialPassEncoder+Warmup.swift",
           "SceneResolvedMaterialPassEncoder.swift",
+          "SceneResolvedMaterialPipelineBinaryArchive.swift",
           "SceneResolvedMaterialRuntimeBridge.swift",
           "SceneResolvedMaterialStageActivation.swift",
           "SceneResolvedMaterialSubmissionCoordinator+Completion.swift",
