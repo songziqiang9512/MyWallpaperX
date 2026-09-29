@@ -51,7 +51,7 @@ Format 表达作者输入；Compilation 生成 prepared 产品；Systems 更新�
 ## 目录怎么读、怎么维护
 
 - **本层 `.md`**：本入口与当前路线。计划只留未完成动作、依赖、完成门和退役条件；不追加完成日志。
-- **`design/`**：长期设计、当前代码地图、[进程合同](design/scene-runtime-daemon-contract.md)、[启动合同](design/scene-launch-responsiveness-contract.md)、按需重构审计。已实现功能仍需要设计合同，不能因实现完成而删除合同。
+- **`design/`**：长期设计、当前代码地图、[进程合同](design/scene-runtime-daemon-contract.md)、[启动合同](design/scene-launch-responsiveness-contract.md)、[启动流程与运行机制专题](design/scene-startup-pipeline.md)、按需重构审计。已实现功能仍需要设计合同，不能因实现完成而删除合同。
 - **`development/`**：落代码和验证方法。
 - **[semantics/](semantics/README.md)**：按问题查能力、证据与作者语义；不整目录阅读。大型台账只按主题或精确 anchor 查询。
 - **`reference/`**：版本化参考 fixture，不是下一步任务。
