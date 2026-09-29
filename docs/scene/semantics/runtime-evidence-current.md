@@ -16,6 +16,16 @@
 
 **验证：**机器推导 checkpoint 门禁（`--paths <4 路径> --phase checkpoint --run`）四项 PASSED：focused-tests 19 模块（含 source_sets 一致性、semantics_coverage 链接门、wallpaper_benchmark 夹具、async_launch）、code-health、scene-defense、build。行为证据：干净 worktree（HEAD `ea816a8a`+仅本批 3 个产品/layout 改动）Developer ID 签名构建，1300076567 证据模式 10s 回放 **PASS loaded=1.0 failures=[]**，preview 日志 **timeline 行零残留**、startup/textScript/media/cursor/vector 五组 schema 行完好（归档 `preview-log-after-deletion.log`）。批次 diff SHA256 `2cf13d20ab984437bb4a60347ece426fa0c33dfd0e35ad1e85455f2245944445`；门禁日志与回放证据见忽略缓存 `20260929-launch-reporter-census/`。**边界：**预览日志的 timeline 调试便利随删除消失（确死判定成立的前提即无人消费；如需人工排样可用 `--mwx-debug-scene-*` 既有诊断面）。
 
+<a id="e-2026-09-29-web-harness-retirement"></a>
+
+### E-2026-09-29-WEB-HARNESS-RETIREMENT — 不可达 daemon-harness web 宿主策略删除（E6 死路径批，审查通过，`aee7c08a`）
+
+**不可达判定与消融：**E2c 收口复核发现 web 宿主策略 `daemonDiagnosticsHarness` 不可达——`currentWebHostStrategy` 初始化恒 `.dedicatedHostPlaceholder`、唯一写入点 `setWebHostStrategy` 全仓零调用者（含 ObjC/字符串/Debug runner/benchmark/DaemonSources）。删除整条 lane：策略枚举+adapter 协议要求+conformer、引擎属性、isPlaying 策略 switch（保留 dedicated 分支逐字语义）、`applyPlaybackPaused` 恒真条件、dispatch switch（改直呼 adapter）、`setWebHostStrategy`、launch 策略 switch（dedicated 体保留）、`launchWebWallpaperViaDaemonHarness`、`sendPlayWebCommand`（唯一调用者随删），另含 `updateWebDisplayConfiguration` 的第二处恒真 guard；净 −137 行（+11/−153 含测试迁移）。daemon 侧 `playWeb` handler 成为无生产者存活命令面（独立 target），按 IPC 兼容性 owner 裁决登记为后续 daemon 范围候选；同批发现 `playDiagnosticWebWallpaper` 零调用者，正交登记为成员级候选。
+
+**审查（独立只读通过）：**不可达判定独立复核（全仓含 ObjC/字符串零调用者）；六符号残留为零且 daemon/script/benchmark 无 "playWeb" Swift 依赖；四处保留语义与原 dedicated 分支逐字等价；`sendPlaybackPaused`/`ensureSession`/`terminateSession` 等邻居 helper 均有余留调用者。
+
+**验证：**checkpoint 门禁三项 PASSED（focused 8 模块：daemon framing/transport/policy/policy_delivery/wiring/protocol/multiplexer/debug-entry；code-health；build——共享树已恢复可编译）。干净 worktree（HEAD `137a4d0e`+仅本批 6 Swift）Developer ID 签名构建成功；1300076567 证据模式 12s 回放 **PASS loaded=1.0 failures=[]**。`test_playback_policy_delivery` harness 的 playWeb 段（诊断 web 会话继承暂停）随生产路径删除，video/scene 段与 8 模块全绿。冻结批次 diff SHA256 `e288784dd3b70d7968af3c64ab9a83cb673c21d7d32265e110f746fae259e99d`；证据见忽略缓存 `20260929-web-harness-retirement/`。**边界：**web 专门行为由 `test_web_playback_pause`（真实 WKWebView）覆盖（同跑绿）；本批零行为变化的前提即不可达判定成立。
+
 <a id="e-2026-09-29-script-frame-ledger"></a>
 
 ### E-2026-09-29-SCRIPT-FRAME-LEDGER — SceneScript 程序家族帧账本共享（E1-④ 收口，审查 APPROVE，`bb4d4dae`）
