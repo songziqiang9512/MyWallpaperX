@@ -61,7 +61,6 @@ public final class WallpaperEngine: NSObject {
     var currentWebPropertiesJSON: String?
     var currentWebRecordID: String?
     var currentWebRequestID: UUID?
-    var currentWebLaunchSource: WebWallpaperLaunchSource?
     /// E2a-4: a web launch is preparing over a still-running video runtime —
     /// the video sessions retire only on web `.ready`, and a web `.failed`
     /// restores the video kind so the old visible output is retained.
@@ -166,8 +165,7 @@ public final class WallpaperEngine: NSObject {
             dispatchWebRuntimeCommand(.stop)
             currentContentPath = nil
             currentWebPropertiesJSON = nil
-            currentWebLaunchSource = nil
-            currentWebRecordID = nil
+    currentWebRecordID = nil
             currentWebRequestID = nil
         }
 
@@ -268,7 +266,6 @@ public final class WallpaperEngine: NSObject {
         currentWebPropertiesJSON = nil
         currentWebRecordID = nil
         currentWebRequestID = nil
-        currentWebLaunchSource = nil
         currentWallpaper = nil
     }
 
@@ -286,7 +283,6 @@ public final class WallpaperEngine: NSObject {
         currentWebPropertiesJSON = nil
         currentWebRecordID = nil
         currentWebRequestID = nil
-        currentWebLaunchSource = nil
     }
 
     public func setVolume(_ volume: Float) {

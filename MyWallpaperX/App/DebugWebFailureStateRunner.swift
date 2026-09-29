@@ -256,7 +256,6 @@ enum DebugWebFailureStateRunner {
             && engine.currentWebPropertiesJSON == nil
             && engine.currentWebRecordID == nil
             && engine.currentWebRequestID == nil
-            && engine.currentWebLaunchSource == nil
             && !engine.isPlaying()
         let hostCleared = host.phase == .failed
             && host.currentRequest == nil

@@ -75,7 +75,6 @@ extension WallpaperEngine {
         currentContentPath = request.entryURL.resolvingSymlinksInPath().standardizedFileURL.path
         currentPlaybackContentKind = .web
         currentWebPropertiesJSON = request.propertiesJSON ?? "{}"
-        currentWebLaunchSource = request.source
         dedicatedWebHostAdapter.launch(request, runtimeState: runtimeState)
     }
 
@@ -147,7 +146,6 @@ extension WallpaperEngine {
             currentWebPropertiesJSON = nil
             currentWebRecordID = nil
             currentWebRequestID = nil
-            currentWebLaunchSource = nil
             NotificationCenter.default.post(
                 name: Self.playbackFailedNotification,
                 object: nil,
