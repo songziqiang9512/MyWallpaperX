@@ -380,6 +380,34 @@ extension SceneGenericShaderSourceNormalizer {
         return result
     }
 
+    /// The unified declared-type table for the source-stage scalar-broadcast
+    /// rules: varying/uniform shapes plus lexed local declarations, unified
+    /// through the value-type model with conflicting names filtered out.
+    static func declaredScalarVectorTypes(
+        _ source: String,
+        shapes: [String: Shape]
+    ) -> (types: [String: String], conflicted: Set<String>) {
+        var types: [String: String] = shapes.compactMapValues {
+            SceneAuthoredShaderValueType(authoredName: $0.type)?.rawValue
+        }
+        var conflicted: Set<String> = []
+        let lexical = SceneAuthoredShaderLexer.lex(source: source, stage: .fragment)
+        guard lexical.diagnostics.isEmpty else { return (types, conflicted) }
+        let tokens = lexical.tokens
+        for index in tokens.indices.dropLast() {
+            guard let valueType = SceneAuthoredShaderValueType(
+                authoredName: tokens[index].text
+            ), tokens[index + 1].kind == .identifier else { continue }
+            let name = tokens[index + 1].text
+            if let existing = types[name], existing != valueType.rawValue {
+                conflicted.insert(name)
+            } else {
+                types[name] = valueType.rawValue
+            }
+        }
+        return (types, conflicted)
+    }
+
     /// A declared integer scalar in the first argument of max/min against a
     /// declared vector has no Vulkan GLSL overload (the vector-to-scalar
     /// direction converts implicitly, this one does not). The authored
@@ -396,24 +424,7 @@ extension SceneGenericShaderSourceNormalizer {
         _ source: String,
         shapes: [String: Shape]
     ) -> String {
-        var types: [String: String] = shapes.compactMapValues {
-            SceneAuthoredShaderValueType(authoredName: $0.type)?.rawValue
-        }
-        var conflicted: Set<String> = []
-        let lexical = SceneAuthoredShaderLexer.lex(source: source, stage: .fragment)
-        guard lexical.diagnostics.isEmpty else { return source }
-        let tokens = lexical.tokens
-        for index in tokens.indices.dropLast() {
-            guard let valueType = SceneAuthoredShaderValueType(
-                authoredName: tokens[index].text
-            ), tokens[index + 1].kind == .identifier else { continue }
-            let name = tokens[index + 1].text
-            if let existing = types[name], existing != valueType.rawValue {
-                conflicted.insert(name)
-            } else {
-                types[name] = valueType.rawValue
-            }
-        }
+        let (types, conflicted) = declaredScalarVectorTypes(source, shapes: shapes)
         let vectorNames = types.compactMap { name, type in
             ["float2", "float3", "float4", "int2", "int3", "int4",
              "uint2", "uint3", "uint4"].contains(type)
@@ -477,17 +488,73 @@ extension SceneGenericShaderSourceNormalizer {
         return result
     }
 
-    static func rewriteVectorClampLiteralArguments(_ source: String) -> String {
+    /// An integer literal as the first max/min argument has no overload
+    /// against a vector sibling and needs an explicit broadcast; against a
+    /// float scalar the implicit int-to-float conversion suffices once the
+    /// literal is spelled as a float. The broadcast follows the sibling's
+    /// declared vector type instead of a hardcoded width; integer-scalar and
+    /// unknown siblings are left untouched, and authored overloads owning
+    /// the built-in name keep their call sites.
+    static func rewriteVectorClampLiteralArguments(
+        _ source: String,
+        shapes: [String: Shape]
+    ) -> String {
+        let (types, conflicted) = declaredScalarVectorTypes(source, shapes: shapes)
+        let definitions = try! NSRegularExpression(pattern:
+            #"\b(?:bool|int|uint|float|[biu]?vec[2-4])\s+(max|min)\s*\("#
+        )
+        let authoredNames = Set(definitions.matches(
+            in: source,
+            range: NSRange(source.startIndex..., in: source)
+        ).compactMap { match -> String? in
+            guard let range = Range(match.range(at: 1), in: source) else { return nil }
+            return String(source[range])
+        })
+        let glslSpelling = [
+            "float2": "vec2", "float3": "vec3", "float4": "vec4",
+            "int2": "ivec2", "int3": "ivec3", "int4": "ivec4",
+            "uint2": "uvec2", "uint3": "uvec3", "uint4": "uvec4",
+        ]
         let regex = try! NSRegularExpression(pattern:
             #"\b(max|min)\(\s*(-?[0-9]+)\s*,\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[xyzwrgba]+)?)\s*\)"#
         )
         var result = source
         for match in regex.matches(in: source, range: NSRange(source.startIndex..., in: source)).reversed() {
-            guard let literal = Range(match.range(at: 2), in: source),
+            guard let nameRange = Range(match.range(at: 1), in: source),
+                  let literal = Range(match.range(at: 2), in: source),
+                  let siblingRange = Range(match.range(at: 3), in: source),
                   let full = Range(match.range, in: result) else { continue }
+            guard !authoredNames.contains(String(source[nameRange])) else { continue }
+            let siblingName = String(source[siblingRange])
+            let value = String(source[literal])
             let expression = String(source[full])
-            let scalar = String(source[literal]) + ".0"
-            result.replaceSubrange(full, with: expression.replacingOccurrences(of: String(source[literal]), with: "vec3(\(scalar))", options: [], range: nil))
+            if let vectorType = types[siblingName],
+               !conflicted.contains(siblingName),
+               let spelling = glslSpelling[vectorType] {
+                let component = ["float2", "float3", "float4"].contains(vectorType)
+                    ? value + ".0" : value
+                result.replaceSubrange(
+                    full,
+                    with: expression.replacingOccurrences(
+                        of: value,
+                        with: "\(spelling)(\(component))",
+                        options: [],
+                        range: nil
+                    )
+                )
+            } else if types[siblingName] == "float" || siblingName.contains(".") {
+                // A float scalar (declared or swizzled) converts from the
+                // integer literal implicitly once it is spelled as a float.
+                result.replaceSubrange(
+                    full,
+                    with: expression.replacingOccurrences(
+                        of: value,
+                        with: value + ".0",
+                        options: [],
+                        range: nil
+                    )
+                )
+            }
         }
         return result
     }

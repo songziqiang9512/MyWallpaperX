@@ -625,6 +625,56 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
                 )
                 self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
 
+    def test_integer_literal_clamp_broadcast_follows_sibling_type(self) -> None:
+        # The archived stage-link subclass: the literal broadcast used to
+        # hardcode vec3, which breaks narrower and integer-vector siblings.
+        # The broadcast now follows the sibling's declared type; integer
+        # scalar and unknown siblings stay untouched.
+        if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
+            self.skipTest("bundled glslang is unavailable")
+        cases = [
+            ("int k = 2; ivec2 iv = ivec2(2);"
+             " gl_FragColor = vec4(float(max(2, iv).x));",
+             "max(ivec2(2), iv)"),
+            ("gl_FragColor = vec4(max(2, g_Ratio), 0.0, 1.0);",
+             "max(vec2(2.0), g_Ratio)"),
+            # Integer scalar against integer scalar keeps its own overload.
+            ("int k = 2; int n = max(2, k);"
+             " gl_FragColor = vec4(float(n));",
+             "max(2, k)"),
+            # A float scalar sibling needs only the float spelling.
+            ("float v = max(2.0, g_Ratio.x);"
+             " gl_FragColor = vec4(v, 0.0, 1.0, 1.0);",
+             "max(2.0, g_Ratio.x)"),
+        ]
+        for statement, expected in cases:
+            with self.subTest(statement=statement), tempfile.TemporaryDirectory() as directory:
+                output = json.loads(subprocess.check_output(
+                    [str(self.binary), statement], text=True,
+                ))
+                fragment = output["normalizedFragment"]
+                self.assertIn(expected, fragment)
+                if expected == "max(2, k)":
+                    # The harness prelude itself defines vec3 macros; the
+                    # untouched assertion is line-scoped to the call.
+                    line = next(
+                        line for line in fragment.splitlines()
+                        if "max(2, k)" in line
+                    )
+                    self.assertNotIn("vec3(", line)
+                    self.assertNotIn("ivec2(2)", line)
+                root = Path(directory)
+                vertex = root / "author.vert"
+                fragment_path = root / "author.frag"
+                vertex.write_text(output["normalizedVertex"], encoding="utf-8")
+                fragment_path.write_text(fragment, encoding="utf-8")
+                linked = subprocess.run(
+                    [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                     "-l", str(vertex), str(fragment_path)],
+                    cwd=root, capture_output=True, text=True,
+                )
+                self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
     def test_octal_bounds_preserve_compiled_numeric_value(self) -> None:
         for peer in ("abs(g_Ratio)", "abs(g_Ratio.x)"):
             with self.subTest(peer=peer), tempfile.TemporaryDirectory() as directory:
