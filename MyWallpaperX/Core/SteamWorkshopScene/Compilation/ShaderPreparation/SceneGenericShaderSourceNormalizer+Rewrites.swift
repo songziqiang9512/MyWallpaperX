@@ -543,6 +543,112 @@ extension SceneGenericShaderSourceNormalizer {
         return (types, conflicted)
     }
 
+    /// Component-wise width of an argument expression, or nil when the
+    /// expression cannot be typed. Admitted leaves are numeric literals and
+    /// declared identifiers with or without a swizzle; admitted operators are
+    /// the component-wise `+ - * /` with parentheses. Boolean literals,
+    /// function calls, constructors, indexing, comparisons, matrices and any
+    /// unknown or conflicted name abort the whole argument. Scalars propagate
+    /// through every admitted operator, so the width is the single distinct
+    /// vector leaf width; two different vector widths are invalid GLSL and
+    /// abort.
+    static func expressionValueWidth(
+        _ argument: String,
+        types: [String: String],
+        conflicted: Set<String>
+    ) -> Int? {
+        let keywords: Set<String> = [
+            "const", "in", "out", "inout", "uniform", "varying", "attribute",
+            "return", "if", "else", "for", "while", "do", "break", "continue",
+            "discard", "precision", "highp", "mediump", "lowp", "struct",
+        ]
+        let swizzleLetters = "xyzwrgba"
+        var vectorWidths: Set<Int> = []
+        var index = argument.startIndex
+        while index < argument.endIndex {
+            let character = argument[index]
+            if character.isWhitespace {
+                index = argument.index(after: index)
+                continue
+            }
+            if "+-*/()".contains(character) {
+                index = argument.index(after: index)
+                continue
+            }
+            if character.isNumber || character == "." {
+                // A numeric literal (including leading-dot and exponent
+                // forms): consume the number characters.
+                var cursor = index
+                if character == "." {
+                    guard let next = argument.index(
+                        cursor, offsetBy: 1, limitedBy: argument.endIndex
+                    ), next < argument.endIndex, argument[next].isNumber else {
+                        return nil
+                    }
+                    cursor = next
+                }
+                while cursor < argument.endIndex,
+                      argument[cursor].isNumber || argument[cursor] == "."
+                      || "eE".contains(argument[cursor])
+                      || ((argument[cursor] == "+" || argument[cursor] == "-")
+                          && "eE".contains(argument[argument.index(before: cursor)])) {
+                    cursor = argument.index(after: cursor)
+                }
+                index = cursor
+                continue
+            }
+            guard character.isLetter || character == "_" else { return nil }
+            var end = argument.index(after: index)
+            while end < argument.endIndex,
+                  argument[end].isLetter || argument[end].isNumber
+                  || argument[end] == "_" {
+                end = argument.index(after: end)
+            }
+            let identifier = String(argument[index..<end])
+            index = end
+            guard !keywords.contains(identifier) else { return nil }
+            var leafWidth: Int?
+            if index < argument.endIndex, argument[index] == "." {
+                // A swizzle access: the letters decide the width.
+                var swizzleEnd = argument.index(after: index)
+                while swizzleEnd < argument.endIndex,
+                      swizzleLetters.contains(argument[swizzleEnd]) {
+                    swizzleEnd = argument.index(after: swizzleEnd)
+                }
+                let swizzle = String(argument[argument.index(after: index)..<swizzleEnd])
+                guard (1 ... 4).contains(swizzle.count),
+                      ["xyzw", "rgba"].contains(where: {
+                          swizzle.allSatisfy($0.contains)
+                      }) else { return nil }
+                // A following identifier character means this was no swizzle
+                // (for example `v.xfoo`) — abort instead of guessing.
+                guard swizzleEnd >= argument.endIndex
+                    || !(argument[swizzleEnd].isLetter || argument[swizzleEnd] == "_")
+                else { return nil }
+                index = swizzleEnd
+                leafWidth = swizzle.count
+            } else if index < argument.endIndex, argument[index] == "(" {
+                // Constructors and calls cannot be typed here.
+                return nil
+            } else {
+                guard !conflicted.contains(identifier),
+                      let type = types[identifier] else { return nil }
+                if type.hasPrefix("float"),
+                   let width = Int(type.dropFirst(5)), (2 ... 4).contains(width) {
+                    leafWidth = width
+                }
+            }
+            if let leafWidth, leafWidth > 1 {
+                vectorWidths.insert(leafWidth)
+            }
+        }
+        switch vectorWidths.count {
+        case 0: return 1
+        case 1: return vectorWidths.first
+        default: return nil
+        }
+    }
+
     /// A declared integer scalar in the first argument of max/min against a
     /// declared vector has no Vulkan GLSL overload (the vector-to-scalar
     /// direction converts implicitly, this one does not). The authored
@@ -651,7 +757,7 @@ extension SceneGenericShaderSourceNormalizer {
             "uint2": "uvec2", "uint3": "uvec3", "uint4": "uvec4",
         ]
         let regex = try! NSRegularExpression(pattern:
-            #"\b(max|min)\(\s*(-?[0-9]+)\s*,\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[xyzwrgba]+)?)\s*\)"#
+            #"\b(max|min)\(\s*(-?[0-9]+(?:\.[0-9]+)?)\s*,\s*([^(),]+?)\s*\)"#
         )
         var result = source
         for match in regex.matches(in: source, range: NSRange(source.startIndex..., in: source)).reversed() {
@@ -660,38 +766,63 @@ extension SceneGenericShaderSourceNormalizer {
                   let siblingRange = Range(match.range(at: 3), in: source),
                   let full = Range(match.range, in: result) else { continue }
             guard !authoredNames.contains(String(source[nameRange])) else { continue }
-            let siblingName = String(source[siblingRange])
+            let siblingName = String(source[siblingRange]).trimmingCharacters(
+                in: .whitespacesAndNewlines
+            )
+            let name = String(source[nameRange])
             let value = String(source[literal])
-            let expression = String(source[full])
-            if let vectorType = types[siblingName],
+            let isBareIdentifier = siblingName.range(
+                of: #"^[A-Za-z_][A-Za-z0-9_]*(?:\.[xyzwrgba]+)?$"#,
+                options: .regularExpression
+            ) != nil
+            // Rebuild from the captured groups: a textual replace of the
+            // literal would also hit digits inside the sibling ("0.0" inside
+            // "0.004", "0" inside "color0").
+            func rebuilt(_ first: String) -> String {
+                "\(name)(\(first), \(siblingName))"
+            }
+            if isBareIdentifier, let vectorType = types[siblingName],
                !conflicted.contains(siblingName),
                let spelling = glslSpelling[vectorType] {
                 let component = ["float2", "float3", "float4"].contains(vectorType)
+                    && !value.contains(".")
                     ? value + ".0" : value
                 result.replaceSubrange(
                     full,
-                    with: expression.replacingOccurrences(
-                        of: value,
-                        with: "\(spelling)(\(component))",
-                        options: [],
-                        range: nil
-                    )
+                    with: rebuilt("\(spelling)(\(component))")
                 )
-            } else if types[siblingName] == "float" || siblingName.contains(".") {
+            } else if isBareIdentifier, types[siblingName] == "float"
+                || siblingName.contains(".") {
                 // A float scalar (declared or swizzled) converts from the
                 // integer literal implicitly once it is spelled as a float.
                 result.replaceSubrange(
                     full,
-                    with: expression.replacingOccurrences(
-                        of: value,
-                        with: value + ".0",
-                        options: [],
-                        range: nil
-                    )
+                    with: rebuilt(value.contains(".") ? value : value + ".0")
                 )
+            } else if !isBareIdentifier,
+                      let width = expressionValueWidth(
+                          siblingName,
+                          types: types,
+                          conflicted: conflicted
+                      ) {
+                // A compound sibling expression (the producer is tone
+                // mapping's `max(0.0, color - 0.004)`): the backend language
+                // promotes the scalar to the sibling's vector type, GLSL has
+                // no scalar-first overload. An untypeable expression skips
+                // the rewrite; a wrongly typed broadcast is a compile error,
+                // never a silent wrong render.
+                guard width > 1 || !value.contains(".") else { continue }
+                let component = width > 1
+                    ? "\(glslVectorSpelling(width))(\(value))"
+                    : value + ".0"
+                result.replaceSubrange(full, with: rebuilt(component))
             }
         }
         return result
+    }
+
+    private static func glslVectorSpelling(_ width: Int) -> String {
+        "vec\(width)"
     }
 
     static func replaceWord(_ word: String, with replacement: String, in source: String) -> String {

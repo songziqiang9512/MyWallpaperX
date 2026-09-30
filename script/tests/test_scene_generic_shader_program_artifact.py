@@ -364,6 +364,15 @@ private struct DirectFunctionVectorArgumentOutput: Codable {
     let mixedWidthArgumentPreserved: Bool
 }
 
+private struct LooseBuiltinCompatOutput: Codable {
+    let accepted: Bool
+    let log10DefineEmitted: Bool
+    let vectorLog10Accepted: Bool
+    let compoundLiteralBroadcast: Bool
+    let scalarSiblingSpelled: Bool
+    let untypedCompoundPreserved: Bool
+}
+
 private struct DirectTextureSampleAssignmentOutput: Codable {
     let vec3Narrowed: Bool
     let nestedVec2Narrowed: Bool
@@ -1782,6 +1791,70 @@ private struct GenericShaderArtifactHarness {
                         "vec3 applyBlend(const int mode, in vec3 a, in vec3 b, in float opacity)"
                     )
             )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
+        if CommandLine.arguments[1] == "--normalizer-loose-builtin-compat" {
+            let vertex = [
+                "attribute vec3 a_Position;",
+                "attribute vec2 a_TexCoord;",
+                "varying vec2 v_TexCoord;",
+                "void main() {",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "    v_TexCoord = a_TexCoord;",
+                "}",
+            ].joined(separator: "\n")
+            let fragment = [
+                "uniform sampler2D g_Texture0;",
+                "varying vec2 v_TexCoord;",
+                "uniform float t_exposureAdjustment;",
+                "void main() {",
+                "    vec3 color = texture2D(g_Texture0, v_TexCoord).rgb;",
+                "    float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));",
+                "    float mapped = log10(1.0 + luma);",
+                "    vec3 tint = vec3(0.5, 0.75, 1.0);",
+                "    vec3 filmic = max(0.0, tint - 0.004) * t_exposureAdjustment;",
+                "    float keptScalar = max(1, luma);",
+                "    vec3 keptUnknown = max(0.0, undefinedTint - 0.1);",
+                "    gl_FragColor = vec4(color + filmic, mapped * keptScalar"
+                    + " + keptUnknown.r);",
+                "}",
+            ].joined(separator: "\n")
+            let output: LooseBuiltinCompatOutput
+            switch SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: vertex,
+                fragmentSource: fragment,
+                maximumStageSourceBytes: 64 * 1_024
+            ) {
+            case let .success(pair):
+                output = LooseBuiltinCompatOutput(
+                    accepted: true,
+                    log10DefineEmitted: pair.fragment.contains(
+                        "#define log10(x) (log(x) * 0.4342944819032518)"
+                    ),
+                    vectorLog10Accepted: pair.fragment.contains(
+                        "log10(1.0 + luma)"
+                    ),
+                    compoundLiteralBroadcast: pair.fragment.contains(
+                        "max(vec3(0.0), tint - 0.004)"
+                    ),
+                    scalarSiblingSpelled: pair.fragment.contains(
+                        "max(1.0, luma)"
+                    ),
+                    untypedCompoundPreserved: pair.fragment.contains(
+                        "max(0.0, undefinedTint - 0.1)"
+                    )
+                )
+            case .failure:
+                output = LooseBuiltinCompatOutput(
+                    accepted: false,
+                    log10DefineEmitted: false,
+                    vectorLog10Accepted: false,
+                    compoundLiteralBroadcast: false,
+                    scalarSiblingSpelled: false,
+                    untypedCompoundPreserved: false
+                )
+            }
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
         }
@@ -5736,6 +5809,23 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "scalarArgumentPreserved": True,
             "untypedArgumentPreserved": True,
             "mixedWidthArgumentPreserved": True,
+        })
+
+    def test_product_normalizer_admits_loose_builtin_compat_shapes(self):
+        completed = subprocess.run(
+            [str(self.binary), "--normalizer-loose-builtin-compat"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "accepted": True,
+            "log10DefineEmitted": True,
+            "vectorLog10Accepted": True,
+            "compoundLiteralBroadcast": True,
+            "scalarSiblingSpelled": True,
+            "untypedCompoundPreserved": True,
         })
 
     def test_product_normalizer_narrows_only_direct_texture_sample_assignments(self):

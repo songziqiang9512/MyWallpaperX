@@ -358,6 +358,10 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                     "#define frac fract",
                     "#define saturate(x) clamp((x), 0.0, 1.0)",
                     "#define atan2 atan",
+                    // The backend language has no log10 builtin; the author
+                    // producer is tone mapping's logarithmic curve. The
+                    // component-wise expansion works for scalars and vectors.
+                    "#define log10(x) (log(x) * 0.4342944819032518)",
                     "layout(std140, set = 0, binding = 8) uniform MWXUniforms {",
                 ] + uniformLines + ["};"]
                     + SceneGenericShaderTextureSamplingNormalizer.supportLines(
