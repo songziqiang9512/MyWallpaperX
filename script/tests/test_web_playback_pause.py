@@ -23,6 +23,20 @@ final class Adapter {
     func applyGeneralProperties(to webView: WKWebView) {}
     // ADAPTER_METHODS
 }
+/// 兼容脚本的宿主侧观测点：记录 wallpaperHostLog 类型序列与交互区域登记次数，
+/// 用于断言多 frame 注入面（dom.ready 只来自顶层、子 frame 登记被丢弃）。
+final class ProbeRecorder: NSObject, WKScriptMessageHandler {
+    var logTypes: [String] = []
+    var interactiveRegionMessageCount = 0
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "wallpaperHostInteractiveRegions" {
+            interactiveRegionMessageCount += 1
+            return
+        }
+        guard message.name == "wallpaperHostLog", let body = message.body as? [String: Any] else { return }
+        logTypes.append(body["type"] as? String ?? "")
+    }
+}
 @main enum Harness {
     @MainActor static func main() {
         let app = NSApplication.shared
@@ -30,13 +44,16 @@ final class Adapter {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .nonPersistent()
         config.mediaTypesRequiringUserActionForPlayback = []
+        let recorder = ProbeRecorder()
+        config.userContentController.add(recorder, name: "wallpaperHostLog")
+        config.userContentController.add(recorder, name: "wallpaperHostInteractiveRegions")
         config.userContentController.addUserScript(WKUserScript(
             source: webWallpaperPlaybackScript.replacingOccurrences(of: "__MWX_INITIAL_PAUSED__", with: "true"),
             injectionTime: .atDocumentStart, forMainFrameOnly: false))
         config.userContentController.addUserScript(WKUserScript(
             source: Adapter.webCompatibilityScript(for: nil, generalPropertiesJSON: "{}",
                 volume: 0, playbackRate: 1, paused: true),
-            injectionTime: .atDocumentStart, forMainFrameOnly: true))
+            injectionTime: .atDocumentStart, forMainFrameOnly: false))
         let adapter = Adapter()
         let view = WKWebView(frame: NSRect(x: 0, y: 0, width: 320, height: 200), configuration: config)
         view.setAllMediaPlaybackSuspended(true, completionHandler: nil)
@@ -58,6 +75,27 @@ final class Adapter {
         window.wa= document.getElementById('wa').animate([{opacity:0},{opacity:1}],{duration:2000,iterations:Infinity});
         window.authorPaused=document.body.animate([{opacity:1},{opacity:1}],{duration:2000,iterations:Infinity});
         authorPaused.pause();
+        // 可控 AudioContext：state/suspend/resume 全部在实例上遮蔽，真实上下文
+        // 既不启动渲染线程也不触碰音频硬件；兼容层仍按产品构造器路径采纳本实例
+        // （wrapAudioContextConstructor 在构造时把它放进 audioContextInstances）。
+        window.__mwxAudio = { state: 'running', suspendCalls: 0, resumeCalls: 0 };
+        (() => {
+          const ctx = new AudioContext();
+          Object.defineProperty(ctx, 'state', {
+            configurable: true,
+            get: () => window.__mwxAudio.state
+          });
+          ctx.suspend = () => {
+            window.__mwxAudio.suspendCalls++;
+            window.__mwxAudio.state = 'suspended';
+            return Promise.resolve();
+          };
+          ctx.resume = () => {
+            window.__mwxAudio.resumeCalls++;
+            window.__mwxAudio.state = 'running';
+            return Promise.resolve();
+          };
+        })();
         </script>
         """#
         let escaped = page.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "\"", with: "&quot;")
@@ -123,7 +161,68 @@ final class Adapter {
                 precondition(authoredState == "paused")
                 precondition(abs(resumed[5] - still[5]) < 0.01, "Author CSS pause was overridden")
                 precondition(resumed[8] > held[8] + 0.05, "Native media failed to resume: held=\(held), resumed=\(resumed)")
-                print("webkit-pause-pass: initial pause, RAF, timers, CSS, Web Animations, iframe, resume")
+                // 多 frame 注入面：同源子 frame 收到属性与暂停推送；dom.ready 只由
+                // 顶层 frame 发出；子 frame 的交互区域登记被丢弃并留诊断。
+                _ = try await js("window.__myWallpaperApplyProperties({ frameProbe: { value: 'child' } });")
+                var childReceivedPropertyPush = false
+                for _ in 0..<50 where !childReceivedPropertyPush {
+                    childReceivedPropertyPush = (try? await js(
+                        "frames[0].__myWallpaperLastUserProperties"
+                        + " && frames[0].__myWallpaperLastUserProperties.frameProbe"
+                        + " && frames[0].__myWallpaperLastUserProperties.frameProbe.value === 'child'")) as? Bool == true
+                    if !childReceivedPropertyPush { try await wait(0.1) }
+                }
+                precondition(childReceivedPropertyPush, "同源子 frame 未收到 __myWallpaperApplyProperties 推送")
+                let childPaused = try await js("frames[0].wallpaperEngine_paused") as? Bool
+                let topPaused = try await js("window.wallpaperEngine_paused") as? Bool
+                precondition(childPaused == topPaused, "同源子 frame 的暂停态未随推送更新")
+                let domReadyCount = recorder.logTypes.filter { $0 == "dom.ready" }.count
+                precondition(domReadyCount == 1, "dom.ready 应由顶层 frame 唯一发出，实际 \(domReadyCount) 次")
+                let regionMessagesBefore = recorder.interactiveRegionMessageCount
+                _ = try await js("""
+                frames[0].__myWallpaperRegisterInteractiveRegions({
+                  source: 'dom-auto',
+                  regions: [{ id: 'child-region', x: 0.1, y: 0.1, width: 0.5, height: 0.5 }]
+                });
+                """)
+                try await wait(0.3)
+                precondition(
+                    recorder.interactiveRegionMessageCount == regionMessagesBefore,
+                    "子 frame 的交互区域登记不应到达宿主"
+                )
+                precondition(
+                    recorder.logTypes.contains("interactive-regions.subframe-ignored"),
+                    "子 frame 的交互区域登记被丢弃时应留诊断"
+                )
+                // 暂停快照按「回合」记录：同一暂停被重复应用（种子期、dom.ready、
+                // DCL/load 重放、applyPausedState）后，宿主自身的 suspend 不得被
+                // 记成作者挂起，恢复时必须 resume 可恢复的 AudioContext。
+                adapter.applyPausedState(true, to: view)
+                var audioState = try await js("__mwxAudio.state") as? String
+                for _ in 0..<20 where audioState != "suspended" {
+                    try await wait(0.1)
+                    audioState = try await js("__mwxAudio.state") as? String
+                }
+                precondition(audioState == "suspended", "宿主暂停未挂起 AudioContext：\(audioState ?? "nil")")
+                let resumeCallsBeforeRepeat = try await js("__mwxAudio.resumeCalls") as? Int ?? -1
+                adapter.applyPausedState(true, to: view) // 同一暂停回合的重复应用
+                try await wait(0.2)
+                adapter.applyPausedState(false, to: view)
+                var resumedAudioState = try await js("__mwxAudio.state") as? String
+                for _ in 0..<20 where resumedAudioState != "running" {
+                    try await wait(0.1)
+                    resumedAudioState = try await js("__mwxAudio.state") as? String
+                }
+                precondition(
+                    resumedAudioState == "running",
+                    "重复应用暂停后 AudioContext 未恢复：\(resumedAudioState ?? "nil")"
+                )
+                let resumeCallsAfterRepeat = try await js("__mwxAudio.resumeCalls") as? Int ?? -1
+                precondition(
+                    resumeCallsAfterRepeat > resumeCallsBeforeRepeat,
+                    "恢复未调用 resume()：before=\(resumeCallsBeforeRepeat) after=\(resumeCallsAfterRepeat)"
+                )
+                print("webkit-pause-pass: initial pause, RAF, timers, CSS, Web Animations, iframe, resume, frames, audio rounds")
                 window.orderOut(nil)
                 exit(0)
             } catch { print("webkit-pause-failed: \(error)"); exit(1) }

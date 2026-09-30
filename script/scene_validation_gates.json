@@ -211,6 +211,35 @@
       "modules": ["test_web_playback_pause", "test_playback_policy_delivery"]
     },
     {
+      "id": "web-host-lifecycle",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+DirectorySync.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+DirectoryWatchers.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+Lifecycle.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+NavigationDelegate.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+NavigationIdentity.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/WebWallpaperHostTypes.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaper*.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebPropertyModels.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebDisplayConditionParsing.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebDisplayConditionSupport.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebComputationCache.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebRuntimeCache*.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebProperty*Support.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebResolvedRuntimeModels.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebResolvedRuntimeRiskFlags.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebValidation*.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/WebStaticFileSignalScanner.swift"
+      ],
+      "modules": [
+        "test_web_compat_parity",
+        "test_web_display_conditions",
+        "test_web_navigation_policy",
+        "test_web_response_transformer",
+        "test_web_static_content_signals"
+      ]
+    },
+    {
       "id": "playback-command-control",
       "patterns": [
         "MyWallpaperX/Core/PlaybackControl/**",
