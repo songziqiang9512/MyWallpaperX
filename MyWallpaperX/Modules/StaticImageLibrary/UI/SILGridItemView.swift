@@ -22,13 +22,23 @@ final class SILCollectionView: NSCollectionView, GridCollectionViewProtocol {
     private var pressedCardIndexPath: IndexPath?
     private var pressedCardTimestamp: TimeInterval = 0
     private var pendingPressReleaseWorkItem: DispatchWorkItem?
+    /// 待执行的按压释放所属的卡片；新按压落在其他位置时需先立即复位，避免按压态滞留
+    private var pendingPressReleaseIndexPath: IndexPath?
 
     override func mouseDown(with event: NSEvent) {
-        pendingPressReleaseWorkItem?.cancel()
-        pendingPressReleaseWorkItem = nil
-        guard event.type == .leftMouseDown else { super.mouseDown(with: event); return }
         let point = convert(event.locationInWindow, from: nil)
         let indexPath = indexPathForItem(at: point)
+        if let pendingIP = pendingPressReleaseIndexPath {
+            pendingPressReleaseWorkItem?.cancel()
+            pendingPressReleaseWorkItem = nil
+            pendingPressReleaseIndexPath = nil
+            // 同一卡片：由本次按压接管，释放延后到新 mouseUp 重新排队；
+            // 不同卡片/空白处：取消前先同步复位旧卡片，保证释放不丢失
+            if pendingIP != indexPath {
+                cardPressStateHandler?(pendingIP, false)
+            }
+        }
+        guard event.type == .leftMouseDown else { super.mouseDown(with: event); return }
         lastPrimaryClickIndexPath = indexPath
         if isBoxSelectionEnabled, event.clickCount == 1,
            boxSelectionBeginHandler?(indexPath) == true {
@@ -70,6 +80,7 @@ final class SILCollectionView: NSCollectionView, GridCollectionViewProtocol {
         super.mouseUp(with: event)
         guard event.type == .leftMouseUp else { return }
         if let ip = pressedCardIndexPath {
+            pendingPressReleaseIndexPath = ip
             pendingPressReleaseWorkItem = SILCollectionInteractionSupport.schedulePressRelease(
                 pressedAt: pressedCardTimestamp
             ) { [weak self] in

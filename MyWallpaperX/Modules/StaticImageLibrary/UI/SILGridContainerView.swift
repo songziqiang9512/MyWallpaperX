@@ -88,38 +88,48 @@ final class SILGridContainerView: NSView, ModuleFocusable {
                     completion(.unavailable)
                     return
                 }
-                guard FileManager.default.fileExists(atPath: w.path) else {
-                    completion(.missingFile)
-                    return
-                }
-                if let signature = self.thumbnailFailureSignature(for: w),
-                   self.failedThumbnailSignatures.contains(signature) {
-                    completion(.unavailable)
-                    return
-                }
-                self.thumbnailCache.load(forKey: w.path, loader: {
-                    guard let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: w.path) as CFURL, nil) else { return nil }
-                    let opts: [CFString: Any] = [
-                        kCGImageSourceThumbnailMaxPixelSize: 512,
-                        kCGImageSourceCreateThumbnailFromImageAlways: true,
-                        kCGImageSourceCreateThumbnailWithTransform: true
-                    ]
-                    guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return nil }
-                    return NSImage(cgImage: cg, size: .zero)
-                }, completion: { [weak self] image in
-                    guard let self else {
-                        completion(image.map(SILThumbnailLoadResult.image) ?? .unavailable)
-                        return
-                    }
-                    if let signature = self.thumbnailFailureSignature(for: w) {
-                        if image != nil {
-                            self.failedThumbnailSignatures.remove(signature)
-                        } else {
-                            self.failedThumbnailSignatures.insert(signature)
+                // 文件存在性与失败签名 stat 在后台执行，避免逐 cell 主线程文件系统 IO
+                DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                    let exists = FileManager.default.fileExists(atPath: w.path)
+                    let signature = exists ? self?.thumbnailFailureSignature(for: w) : nil
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self else {
+                            completion(.unavailable)
+                            return
                         }
+                        guard exists else {
+                            completion(.missingFile)
+                            return
+                        }
+                        if let signature, self.failedThumbnailSignatures.contains(signature) {
+                            completion(.unavailable)
+                            return
+                        }
+                        self.thumbnailCache.load(forKey: w.path, loader: {
+                            guard let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: w.path) as CFURL, nil) else { return nil }
+                            let opts: [CFString: Any] = [
+                                kCGImageSourceThumbnailMaxPixelSize: 512,
+                                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                                kCGImageSourceCreateThumbnailWithTransform: true
+                            ]
+                            guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return nil }
+                            return NSImage(cgImage: cg, size: .zero)
+                        }, completion: { [weak self] image in
+                            guard let self else {
+                                completion(image.map(SILThumbnailLoadResult.image) ?? .unavailable)
+                                return
+                            }
+                            if let signature = self.thumbnailFailureSignature(for: w) {
+                                if image != nil {
+                                    self.failedThumbnailSignatures.remove(signature)
+                                } else {
+                                    self.failedThumbnailSignatures.insert(signature)
+                                }
+                            }
+                            completion(image.map(SILThumbnailLoadResult.image) ?? .unavailable)
+                        })
                     }
-                    completion(image.map(SILThumbnailLoadResult.image) ?? .unavailable)
-                })
+                }
             }
             return item
         }
@@ -409,12 +419,28 @@ extension SILGridContainerView {
     }
     private func probeMissingPaths() {
         let vips = collectionView.indexPathsForVisibleItems(); guard !vips.isEmpty else { return }
-        var reload = Set<IndexPath>()
+        var targets: [(ip: IndexPath, path: String, id: String)] = []
         for ip in vips {
             guard ip.item < orderedIDs.count, let w = wallpapersByID[orderedIDs[ip.item]] else { continue }
-            if !FileManager.default.fileExists(atPath: w.path) { reload.insert(ip) }
+            targets.append((ip, w.path, w.id))
         }
-        if !reload.isEmpty { collectionView.reloadItems(at: reload) }
+        guard !targets.isEmpty else { return }
+        // 周期性 stat 在后台执行，避免轮询在慢速卷上造成主线程掉帧
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let fm = FileManager.default
+            let missing = targets.filter { !fm.fileExists(atPath: $0.path) }
+            guard !missing.isEmpty else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                // 后台 stat 期间网格数据可能已变化：按 id 身份校验（先 count 后下标），
+                // 过滤掉位移导致的错位与越界 index，避免 reloadItems 崩溃
+                let valid = missing.filter {
+                    $0.ip.item < self.orderedIDs.count && self.orderedIDs[$0.ip.item] == $0.id
+                }
+                guard !valid.isEmpty else { return }
+                self.collectionView.reloadItems(at: Set(valid.map(\.ip)))
+            }
+        }
     }
 
     private func thumbnailFailureSignature(for wallpaper: SILWallpaper) -> String? {

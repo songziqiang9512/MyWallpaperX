@@ -400,7 +400,12 @@ final class SILService: ObservableObject {
 
     func moveSingleSelectionByArrowKey(_ keyCode: UInt16) {
         guard !isMultiSelectMode else { return }
-        let list = sortedWallpapers
+        // 与网格显示列表保持一致（AppKitDetailHostViewController.updateSILGrid）：
+        // 标签上下文只在该标签内导航，无标签上下文时回退全库
+        var list = sortedWallpapers
+        if let tag = currentContextTag {
+            list = list.filter { $0.tags.contains(tag) }
+        }
         guard !list.isEmpty else { return }
         guard let current = selectedID, let idx = list.firstIndex(where: { $0.id == current }) else {
             selectedID = list.first?.id
@@ -461,51 +466,74 @@ final class SILService: ObservableObject {
     }
 
     func importImages(from urls: [URL], presentingIn window: NSWindow? = nil) {
-        var fileURLs: [URL] = []
-        let fm = FileManager.default
-        for url in urls {
-            var isDir: ObjCBool = false
-            if fm.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue {
-                if let enumerator = fm.enumerator(at: url, includingPropertiesForKeys: nil) {
-                    for case let fileURL as URL in enumerator where Self.isSupportedImage(fileURL) {
-                        fileURLs.append(fileURL)
+        // 枚举目录、逐文件读元数据都在后台执行，主线程只做落库与 UI 刷新
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            var fileURLs: [URL] = []
+            let fm = FileManager.default
+            for url in urls {
+                var isDir: ObjCBool = false
+                if fm.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue {
+                    if let enumerator = fm.enumerator(at: url, includingPropertiesForKeys: nil) {
+                        for case let fileURL as URL in enumerator where Self.isSupportedImage(fileURL) {
+                            fileURLs.append(fileURL)
+                        }
                     }
+                } else if Self.isSupportedImage(url) {
+                    fileURLs.append(url)
                 }
-            } else if Self.isSupportedImage(url) {
-                fileURLs.append(url)
+            }
+            let requestedCount = fileURLs.count
+            var candidates: [(url: URL, wallpaper: SILWallpaper)] = []
+            candidates.reserveCapacity(requestedCount)
+            for url in fileURLs where fm.fileExists(atPath: url.path) {
+                candidates.append((url, SILWallpaper(path: url.path)))
+            }
+            let missingCount = requestedCount - candidates.count
+            DispatchQueue.main.async { [weak self] in
+                self?.finishImport(candidates: candidates,
+                                   requestedCount: requestedCount,
+                                   missingCount: missingCount,
+                                   presentingIn: window)
             }
         }
-        let requestedCount = fileURLs.count
-        _ = Set(wallpapers.map(\.path))
+    }
+
+    /// 后台元数据读取完成后的主线程落库：按归一化路径去重、补标签、保存并弹出结果
+    private func finishImport(
+        candidates: [(url: URL, wallpaper: SILWallpaper)],
+        requestedCount: Int,
+        missingCount: Int,
+        presentingIn window: NSWindow?
+    ) {
+        let tag = currentContextTag
+        var indexByNormalizedPath: [String: Int] = [:]
+        for (index, wallpaper) in wallpapers.enumerated() {
+            let key = Self.normalizedPath(wallpaper.path)
+            if indexByNormalizedPath[key] == nil { indexByNormalizedPath[key] = index }
+        }
         var added = 0
         var duplicateCount = 0
-        var missingCount = 0
-        for url in fileURLs {
-            guard fm.fileExists(atPath: url.path) else { missingCount += 1; continue }
-            
-            if let index = wallpapers.firstIndex(where: { normalizedPath($0.path) == normalizedPath(url.path) }) {
+        for candidate in candidates {
+            let key = Self.normalizedPath(candidate.url.path)
+            if let index = indexByNormalizedPath[key] {
                 // 如果文件已存在于总库，检查是否需要补充当前标签索引
-                if let tag = currentContextTag {
-                    if !wallpapers[index].tags.contains(tag) {
-                        wallpapers[index].tags.append(tag)
-                        added += 1 // 视为成功"索引"到当前标签
-                    }
+                if let tag, !wallpapers[index].tags.contains(tag) {
+                    wallpapers[index].tags.append(tag)
+                    added += 1 // 视为成功"索引"到当前标签
                 }
                 duplicateCount += 1
                 continue
             }
-            
-            var newWallpaper = SILWallpaper(path: url.path)
-            if let tag = currentContextTag {
+            indexByNormalizedPath[key] = wallpapers.count
+            var newWallpaper = candidate.wallpaper
+            if let tag {
                 newWallpaper.tags.append(tag)
             }
             wallpapers.append(newWallpaper)
             added += 1
         }
 
-        func normalizedPath(_ path: String) -> String {
-            URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
-        }
         if added > 0 { save() }
         // 构建结果弹窗
         var lines: [String] = [
@@ -518,6 +546,10 @@ final class SILService: ObservableObject {
         if skipped > 0       { lines.append("未处理：\(skipped) 个") }
         let alert = makeAppAlert(title: "导入结果", message: lines.joined(separator: "\n"))
         presentAppAlert(alert, in: window ?? appModalHostWindow())
+    }
+
+    private static func normalizedPath(_ path: String) -> String {
+        URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
     }
 
     func importFromPanel(presentingIn window: NSWindow? = nil) {
