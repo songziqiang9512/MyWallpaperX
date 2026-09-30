@@ -71,6 +71,17 @@ private final class SettingsContentViewController: NSViewController {
             applyEngineSettings: { manager.applyEngineSettings(reloadWallpaper: $0) },
             clearAllCaches: {
                 manager.clearAllCaches()
+                // 清除缓存显式清单：逐 namespace 实例级清空（内存 + 磁盘），
+                // 不再依赖共享目录整根互殃；在线库两份缩略图缓存一并纳入。
+                VideoLibraryThumbnailStore.sharedCache.removeAll()
+                VideoLibraryThumbnailStore.sharedCache.clearDiskCache()
+                SILThumbnailStore.sharedCache.removeAll()
+                SILThumbnailStore.sharedCache.clearDiskCache()
+                SteamWorkshopPreviewImageCache.shared.removeAll()
+                SteamWorkshopPreviewImageCache.shared.clearDiskCache()
+                OLDownloadedThumbnailStore.sharedCache.removeAll()
+                OLDownloadedThumbnailStore.sharedCache.clearDiskCache()
+                Task { await OLThumbnailCache.shared.clearAll() }
                 SteamWorkshopService.shared.clearAllCachedState()
             },
             exportPersonalSettings: { try manager.exportPersonalSettings(to: $0) },

@@ -29,6 +29,7 @@ final class VideoLibraryInspectorView: NSView {
         setup()
         observeManager()
         loadDetails()
+        loadPreviewImage()
     }
 
     @available(*, unavailable)
@@ -52,30 +53,71 @@ final class VideoLibraryInspectorView: NSView {
         FileManager.default.fileExists(atPath: currentWallpaper.path)
     }
 
-    private var cachedPreviewImage: NSImage?
-    private var cachedPreviewImagePath: String?
+    /// 预览图异步加载：走 VideoLibraryThumbnailStore 共享缓存（后台解码、主线程补图），
+    /// 不再在主线程同步 NSImage(contentsOfFile:) 整图解码。
+    private var previewImage: NSImage?
+    /// 预览加载完成后才允许展示「未找到缩略图」提示，加载中的占位不算缺失
+    private var hasFinishedPreviewLoad = false
 
-    private var previewImage: NSImage? {
-        var sourcePath: String?
-        if let thumbPath = wallpaperManager.resolvedThumbnailPath(for: currentWallpaper) {
-            sourcePath = thumbPath
-        } else if let staticFramePath = currentWallpaper.staticFramePath,
-                  FileManager.default.fileExists(atPath: staticFramePath) {
-            sourcePath = staticFramePath
+    private func loadPreviewImage() {
+        let manager = wallpaperManager
+        let wallpaper = currentWallpaper
+        weak let weakSelf = self
+        // 路径解析含文件存在性 stat，放后台执行
+        DispatchQueue.global(qos: .userInitiated).async {
+            let thumbPath = manager.resolvedThumbnailPath(for: wallpaper)
+            // 缩略图缺失时回退静帧；降采样解码结果用独立键，避免同键不同解码形状互覆
+            var staticFramePath: String?
+            if thumbPath == nil,
+               let path = wallpaper.staticFramePath,
+               FileManager.default.fileExists(atPath: path) {
+                staticFramePath = path
+            }
+            guard let sourcePath = thumbPath ?? staticFramePath else {
+                DispatchQueue.main.async {
+                    weakSelf?.hasFinishedPreviewLoad = true
+                    weakSelf?.rebuildContent()
+                }
+                return
+            }
+            let isStaticFrameFallback = thumbPath == nil
+            let key = isStaticFrameFallback
+                ? "inspector-static-frame:\(sourcePath)"
+                : sourcePath
+            VideoLibraryThumbnailStore.sharedCache.load(forKey: key, loader: {
+                // 与网格共用缩略图路径键；静帧回退按预览所需尺寸降采样解码
+                isStaticFrameFallback
+                    ? Self.downscaledPreviewImage(from: sourcePath)
+                    : NSImage(contentsOfFile: sourcePath)
+            }, completion: { image in
+                // ThumbnailCache 内存命中会在调用线程同步回调，统一收敛回主线程。
+                DispatchQueue.main.async {
+                    weakSelf?.previewImage = image
+                    weakSelf?.hasFinishedPreviewLoad = true
+                    weakSelf?.rebuildContent()
+                }
+            })
         }
-        guard let sourcePath else {
-            cachedPreviewImage = nil
-            cachedPreviewImagePath = nil
+    }
+
+    /// Inspector 预览高度仅 156pt；静帧原图按 4096px 上限生成（WallpaperManager+StaticFramePipeline），
+    /// 整图直接解码最坏 ~67MB，这里按 800px 上限在后台降采样
+    /// （模式同 SteamWorkshopPreviewImageSupport 的网格解码上限）。
+    private static func downscaledPreviewImage(from path: String, maxPixelSize: Int = 800) -> NSImage? {
+        let sourceOptions: [CFString: Any] = [kCGImageSourceShouldCache: false]
+        guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, sourceOptions as CFDictionary) else {
             return nil
         }
-        // 路径未变时复用已解码的图，避免每次 rebuild 都在主线程重复读盘。
-        if sourcePath == cachedPreviewImagePath, let cached = cachedPreviewImage {
-            return cached
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+            kCGImageSourceShouldCache: false
+        ]
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return nil
         }
-        let image = NSImage(contentsOfFile: sourcePath)
-        cachedPreviewImagePath = sourcePath
-        cachedPreviewImage = image
-        return image
+        return NSImage(cgImage: cgImage, size: .zero)
     }
 
     private var secondaryFactText: String? {
@@ -100,7 +142,7 @@ final class VideoLibraryInspectorView: NSView {
         if !fileExists {
             items.append(("exclamationmark.triangle.fill", "源文件不存在，详情信息可能不是最新状态"))
         }
-        if previewImage == nil {
+        if hasFinishedPreviewLoad, previewImage == nil {
             items.append(("photo.on.rectangle.angled", "当前未找到缩略图，正在使用占位预览"))
         }
         return items

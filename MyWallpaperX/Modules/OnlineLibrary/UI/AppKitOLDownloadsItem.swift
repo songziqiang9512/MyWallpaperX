@@ -25,24 +25,31 @@ private extension NSImage {
     }
 }
 
-// MARK: - 类级缩略图缓存（跨卡片重建复用）
+// MARK: - 下载项缩略图共享缓存（收编共享 ThumbnailCache，替换旧内存-only 平行实现）
 
-final class OLDownloadedThumbnailCache {
-    static let shared = OLDownloadedThumbnailCache()
-    private let cache = NSCache<NSNumber, NSImage>()
+/// 下载项缩略图统一走共享 ThumbnailCache：in-flight 去重 + 磁盘层 + 失败负缓存
+/// 都由其承担，损坏文件不再每次重配置重复 AVAsset 抽帧。
+enum OLDownloadedThumbnailStore {
+    static let sharedCache = ThumbnailCache(
+        label: "com.mywallpaper.onlinelibrary.downloads.thumbnail",
+        countLimit: 200,
+        totalCostLimit: 50 * 1024 * 1024,
+        namespace: "onlinelibrary-downloads",
+        usesFailureCache: true
+    )
 
-    private init() {
-        cache.countLimit = 200
-        cache.totalCostLimit = 50 * 1024 * 1024
-    }
-
-    func image(for id: Int) -> NSImage? {
-        cache.object(forKey: NSNumber(value: id))
-    }
-
-    func store(_ image: NSImage, for id: Int) {
-        let cost = Int(image.size.width * image.size.height * 4)
-        cache.setObject(image, forKey: NSNumber(value: id), cost: cost)
+    /// 键含本地路径 + mtime + size：文件被覆盖/替换后自然换新键，
+    /// 旧键缓存（含失败负缓存）不会以 stale 内容复活。
+    /// 模式同 steamWorkshopLocalPreviewCacheKey / SteamWorkshopDownloadThumbnailPipeline.cacheKey。
+    static func cacheKey(for url: URL) -> String {
+        let fileURL = url.standardizedFileURL
+        let resourceValues = try? fileURL.resourceValues(forKeys: [
+            .contentModificationDateKey,
+            .fileSizeKey
+        ])
+        let modificationTime = resourceValues?.contentModificationDate?.timeIntervalSince1970 ?? 0
+        let fileSize = resourceValues?.fileSize ?? 0
+        return "ol-downloaded-preview:\(fileURL.path):\(fileSize):\(modificationTime)"
     }
 }
 
@@ -231,7 +238,6 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem {
     private var isSelectedState = false
     private var isPlaying = false
     private var trackingAreaRef: NSTrackingArea?
-    private var thumbnailTask: Task<Void, Never>?
 
     override init(nibName: NSNib.Name?, bundle: Bundle?) {
         super.init(nibName: nil, bundle: nil)
@@ -256,8 +262,6 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem {
 
     override func prepareForReuse() {
         super.prepareForReuse()
-        thumbnailTask?.cancel()
-        thumbnailTask = nil
         currentEntryID = -1
         thumbnailView.image = nil
         placeholderLabel.stringValue = "加载中..."
@@ -297,7 +301,8 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem {
         metaLabel.stringValue = entry.metaLine
         view.needsLayout = true
 
-        if let cached = OLDownloadedThumbnailCache.shared.image(for: entry.id) {
+        let cacheKey = OLDownloadedThumbnailStore.cacheKey(for: entry.localURL)
+        if let cached = OLDownloadedThumbnailStore.sharedCache.cachedImage(forKey: cacheKey) {
             thumbnailView.image = cached
             placeholderLabel.isHidden = true
             return
@@ -306,31 +311,40 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem {
         let id = entry.id
         let url = entry.localURL
         weak let item = self
-        thumbnailTask = Task.detached(priority: .utility) {
-            let image = await Self.generateThumbnail(from: url)
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                guard let item, item.currentEntryID == id else { return }
-                if let image {
-                    OLDownloadedThumbnailCache.shared.store(image, for: id)
-                    item.thumbnailView.image = image
-                    item.placeholderLabel.isHidden = true
-                } else {
-                    // 生成失败（损坏/不支持的编码）：结束加载态，呈现静态失败文案，
-                    // 避免占位符永远停留「加载中...」。
-                    item.showThumbnailFailureState()
-                }
+        // 共享缓存自带 in-flight 去重与失败负缓存：同键并发只抽一次帧，
+        // 失败（损坏/不支持的编码）记录结论后不再重复 AVAsset 重试。
+        OLDownloadedThumbnailStore.sharedCache.load(forKey: cacheKey, loader: {
+            Self.generateThumbnail(from: url)
+        }, completion: { image in
+            // ThumbnailCache 统一主线程回调；卡片已复用为其他条目时丢弃结果
+            guard let item, item.currentEntryID == id else { return }
+            if let image {
+                item.thumbnailView.image = image
+                item.placeholderLabel.isHidden = true
+            } else {
+                // 生成失败：结束加载态，呈现静态失败文案，
+                // 避免占位符永远停留「加载中...」。
+                item.showThumbnailFailureState()
             }
-        }
+        })
     }
 
-    private static func generateThumbnail(from url: URL) async -> NSImage? {
+    /// 同步抽帧供 ThumbnailCache 的后台 decode 队列调用（信号量模式同
+    /// SteamWorkshopDownloadThumbnailPipeline.generateCGImage）。
+    private static func generateThumbnail(from url: URL) -> NSImage? {
         let asset = AVURLAsset(url: url)
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
         generator.maximumSize = CGSize(width: 520, height: 300)
         let time = CMTime(seconds: 0.5, preferredTimescale: 600)
-        guard let (cgImage, _) = try? await generator.image(at: time) else { return nil }
+        var result: CGImage?
+        let semaphore = DispatchSemaphore(value: 0)
+        generator.generateCGImageAsynchronously(for: time) { cgImage, _, _ in
+            result = cgImage
+            semaphore.signal()
+        }
+        semaphore.wait()
+        guard let cgImage = result else { return nil }
         return NSImage(cgImage: cgImage, size: .zero)
     }
 

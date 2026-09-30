@@ -27,8 +27,30 @@ final class SILInspectorView: NSView {
         nil
     }
 
-    private var previewImage: NSImage? {
-        SILThumbnailStore.sharedCache.cachedOrDiskImage(forKey: wallpaper.path)
+    /// 预览图异步加载（共享缓存内存命中同步回调，其余后台解码后主线程补图）
+    private var previewImage: NSImage?
+
+    private func loadPreviewImage() {
+        let sourcePath = wallpaper.path
+        weak let weakSelf = self
+        // 与 SIL 网格共用同一缓存键（图片路径）：网格已解码 512px 版本时直接命中，
+        // 未命中才在本 loader 里按 Inspector 预览所需尺寸（156pt 高 → 800px）后台降采样解码。
+        SILThumbnailStore.sharedCache.load(forKey: sourcePath, loader: {
+            guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: sourcePath) as CFURL, nil) else { return nil }
+            let options: [CFString: Any] = [
+                kCGImageSourceThumbnailMaxPixelSize: 800,
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true
+            ]
+            guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+            return NSImage(cgImage: cgImage, size: .zero)
+        }, completion: { image in
+            DispatchQueue.main.async {
+                guard let self = weakSelf else { return }
+                self.previewImage = image
+                self.rebuildContent()
+            }
+        })
     }
 
     private var secondaryFactText: String? {
@@ -105,6 +127,8 @@ final class SILInspectorView: NSView {
             contentStack.bottomAnchor.constraint(lessThanOrEqualTo: documentContainer.bottomAnchor),
             footerStack.widthAnchor.constraint(equalTo: rootStack.widthAnchor)
         ])
+
+        loadPreviewImage()
     }
 
     private func makeContentStack() -> NSStackView {

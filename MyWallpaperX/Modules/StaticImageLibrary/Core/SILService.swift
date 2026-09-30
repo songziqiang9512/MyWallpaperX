@@ -14,7 +14,10 @@ import UniformTypeIdentifiers
 enum SILThumbnailStore {
     static let sharedCache = ThumbnailCache(
         label: "com.mywallpaper.sil.thumbnail",
-        countLimit: 180
+        countLimit: 180,
+        // 大图库长会话时限制已解码位图驻留（预算总表见 ThumbnailCache.init 注释）
+        totalCostLimit: 64 * 1024 * 1024,
+        namespace: "staticimagelibrary"
     )
 }
 

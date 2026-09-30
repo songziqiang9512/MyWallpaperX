@@ -26,7 +26,10 @@ extension SteamWorkshopService {
         clearSteamWorkshopCacheDirectory(cacheDirectoryURL)
         clearSteamWorkshopCacheDirectory(Self.detailCacheDirectoryURL())
         SteamWorkshopPreviewImageCache.shared.removeAll()
-        ThumbnailCache.clearDiskCache()
+        // 只清 Steam 自己 namespace 的缩略图磁盘缓存：整根清除会连带删掉其他
+        // namespace 子目录，而各实例 init 每进程仅执行一次、无目录重建路径，
+        // 清除后全部磁盘写入会静默失败直到重启。
+        SteamWorkshopPreviewImageCache.shared.clearDiskCache()
 
         steamKitBrowseStore.clear()
         browserItems = []

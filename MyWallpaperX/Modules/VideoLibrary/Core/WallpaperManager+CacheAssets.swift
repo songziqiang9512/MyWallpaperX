@@ -8,12 +8,13 @@ import Foundation
 extension WallpaperManager {
     func clearAllCaches() {
         // 清缓存必须同时清理内存态、磁盘态和索引里的派生路径，单清一层会留下孤儿引用。
+        // 缩略图解码缓存（ThumbnailCache 各 namespace）由设置「清除缓存」统一入口的
+        // 显式清单逐实例清空（VideoLibraryThumbnailStore/SILThumbnailStore.clearDiskCache
+        // + OLThumbnailCache.clearAll），这里负责视频库自身的失败记录与派生路径索引失效。
         clearPreviewCacheArtifacts()
         thumbnailGenerationFailureLock.lock()
         thumbnailGenerationFailures.removeAll()
         thumbnailGenerationFailureLock.unlock()
-        // 视频库和图片库共用 ThumbnailCache 磁盘目录，一起清掉
-        ThumbnailCache.clearDiskCache()
 
         for index in wallpapers.indices {
             wallpapers[index].thumbnailPath = nil

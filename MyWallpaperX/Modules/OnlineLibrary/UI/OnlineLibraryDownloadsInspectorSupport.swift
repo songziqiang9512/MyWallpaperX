@@ -88,7 +88,9 @@ struct OnlineLibraryDownloadsInspectorSnapshot {
             platformText: "Pixabay",
             path: url.path,
             fileURL: url,
-            previewImage: OLDownloadedThumbnailCache.shared.image(for: itemID)
+            previewImage: OLDownloadedThumbnailStore.sharedCache.cachedImage(
+                forKey: OLDownloadedThumbnailStore.cacheKey(for: url)
+            )
         )
     }
 }

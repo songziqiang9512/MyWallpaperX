@@ -172,6 +172,8 @@ actor OLThumbnailCache {
 
     /// 缓存有效期：7 天
     private let maxAge: TimeInterval = 7 * 24 * 3600
+    /// 磁盘缓存字节上限：超过后由 ThumbnailCache 共享 trim 按 LRU 淘汰最旧文件
+    private let diskSizeLimit: UInt64 = 128 * 1024 * 1024
     /// 内存缓存（NSCache，自动响应内存压力，上限 60MB / 300 条）
     private let memCache: NSCache<NSString, NSData> = {
         let c = NSCache<NSString, NSData>()
@@ -213,6 +215,19 @@ actor OLThumbnailCache {
         memCache.setObject(data as NSData, forKey: key, cost: data.count)
         let file = cacheFile(for: url)
         try? data.write(to: file, options: .atomic)
+        // 与 ThumbnailCache 共享同一「总量上限 + 限频扫描 + LRU 淘汰」机制（限频钟按目录区分）；
+        // 到点扫描时顺带执行 7 天过期清理，不再只在 init 跑一次
+        if ThumbnailCache.trimDiskCache(directory: cacheDir, sizeLimit: diskSizeLimit) {
+            evictExpired()
+        }
+    }
+
+    /// 清空缓存（内存 + 磁盘）：设置「清除缓存」统一入口调用
+    func clearAll() {
+        memCache.removeAllObjects()
+        decodedImageCache.removeAllObjects()
+        try? FileManager.default.removeItem(at: cacheDir)
+        try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
     }
 
     // MARK: 解码结果缓存

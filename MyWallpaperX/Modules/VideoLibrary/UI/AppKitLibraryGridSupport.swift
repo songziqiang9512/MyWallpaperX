@@ -168,7 +168,10 @@ final class AppKitWallpaperCollectionView: NSCollectionView, GridCollectionViewP
 enum VideoLibraryThumbnailStore {
     static let sharedCache = ThumbnailCache(
         label: "com.mywallpaper.videolibrary.thumbnail",
-        countLimit: 360
+        countLimit: 360,
+        // 网格 + Inspector 共用，128MB 封顶防止长会话膨胀（预算总表见 ThumbnailCache.init 注释）
+        totalCostLimit: 128 * 1024 * 1024,
+        namespace: "videolibrary"
     )
 }
 

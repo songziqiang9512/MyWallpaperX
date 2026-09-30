@@ -157,6 +157,9 @@ final class SteamWorkshopDownloadThumbnailPipeline {
         let bitmap = NSBitmapImageRep(cgImage: cgImage)
         guard let data = bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.82]) else { return }
         try? data.write(to: outputURL, options: [.atomic])
+        // 接入 ThumbnailCache 共享磁盘淘汰（256MB 总量上限 + 60s 限频 LRU 扫描）；
+        // key 含 mtime+size，源文件更新后旧键文件由本淘汰按最后使用时间回收
+        ThumbnailCache.trimDiskCache(directory: Self.cacheRootURL, sizeLimit: 256 * 1024 * 1024)
     }
 
     private func thumbnailOutputURL(for videoURL: URL) -> URL {

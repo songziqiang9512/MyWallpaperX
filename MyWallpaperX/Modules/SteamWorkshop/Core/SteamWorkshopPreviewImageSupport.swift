@@ -8,7 +8,8 @@ enum SteamWorkshopPreviewImageCache {
     static let shared = ThumbnailCache(
         label: "com.songziqiang.MyWallpaperX.steamworkshop.preview.decode",
         countLimit: 320,
-        totalCostLimit: 128 * 1024 * 1024
+        totalCostLimit: 128 * 1024 * 1024,
+        namespace: "steamworkshop-preview"
     )
 }
 
