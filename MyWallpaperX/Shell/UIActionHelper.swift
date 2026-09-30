@@ -122,10 +122,16 @@ enum UIActionHelper {
         pickerView.selectItem(at: 0)
         let alert = makeAppAlert(
             title: "选择标签",
-            message: "请选择要添加的标签",
+            message: manager.tags.isEmpty ? "标签库为空，请先在侧边栏新建标签。" : "请选择要添加的标签",
             buttons: ["确定", "取消"],
             accessoryView: pickerView
         )
+        // 标签库被删空时不加任何条目，点确定会因 titleOfSelectedItem 为 nil 静默
+        // 无操作；这里禁用下拉与确定按钮并给出空态提示，让空态可见可理解。
+        if manager.tags.isEmpty {
+            pickerView.isEnabled = false
+            alert.buttons.first?.isEnabled = false
+        }
 
         presentAppAlert(alert, in: resolvedHostWindow(window)) { response in
             guard response == .alertFirstButtonReturn,

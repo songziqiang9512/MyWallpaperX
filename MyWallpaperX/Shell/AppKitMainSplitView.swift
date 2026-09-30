@@ -278,10 +278,15 @@ final class AppKitMainSplitViewController: NSSplitViewController {
     }
 
     private func handleFreshInstallReset() {
+        // reset 把 manager 归零为 fresh install 状态后必须复用 syncManagerSelection
+        // 的完整通知序列（三个模块 enabled:false 广播 + moduleDidBecomeActive），
+        // 否则 activeModule 残留旧模块：Space/Esc 走错分支、performZoom 路由到旧
+        // 工具栏、Steam 弹层不关。lastPostedModuleID 由 syncManagerSelection 维护，
+        // 不能在这里提前归位，否则 enabled:false 广播会被相等判断短路。
         selectedItem = .category(.myWallpapers)
-        lastPostedModuleID = .videoLibrary
         update(wallpaperManager: wallpaperManager, selectedItem: selectedItem)
         NotificationCenter.default.post(name: .inspectorHostCloseRequested, object: nil)
+        syncManagerSelection(from: selectedItem)
         syncQuickLookPreviewIfNeeded()
     }
 
@@ -411,11 +416,17 @@ final class AppKitMainSplitViewController: NSSplitViewController {
         panelWidth: CGFloat,
         completion: (() -> Void)? = nil
     ) {
+        // 视图侧 hide completion 与 store 侧共用同一 transition generation：
+        // 动画在途时 generation 前进即视为过期，防止重新打开被过期 completion 藏掉。
+        let transitionGeneration = inspectorTransitionGeneration
         detailContainerController.setOverlayVisible(
             isVisible,
             panelWidth: panelWidth,
             panelOffset: panelWidth + 48,
-            completion: completion
+            completion: completion,
+            isCancelled: { [weak self] in
+                self?.inspectorTransitionGeneration != transitionGeneration
+            }
         )
     }
 
@@ -452,7 +463,6 @@ private final class InspectorDetailContainerViewController: NSViewController {
     private let overlayView = InspectorOverlayPassthroughView()
     private let overlayAnimationHostView = NSView()
     private var didInstallOverlay = false
-    private var pendingOverlayHideWorkItem: DispatchWorkItem?
     private var overlayTrailingConstraint: NSLayoutConstraint?
     private var overlayWidthConstraint: NSLayoutConstraint?
 
@@ -529,11 +539,9 @@ private final class InspectorDetailContainerViewController: NSViewController {
         panelWidth: CGFloat,
         panelOffset: CGFloat,
         animated: Bool = true,
-        completion: (() -> Void)? = nil
+        completion: (() -> Void)? = nil,
+        isCancelled: (() -> Bool)? = nil
     ) {
-        pendingOverlayHideWorkItem?.cancel()
-        pendingOverlayHideWorkItem = nil
-
         guard let overlayTrailingConstraint, let overlayWidthConstraint else {
             completion?()
             return
@@ -574,11 +582,16 @@ private final class InspectorDetailContainerViewController: NSViewController {
         overlayView.isActive = false
         let finishHide = { [weak self] in
             guard let self else { return }
+            // NSAnimationContext 的 completionHandler 无法中途取消：若隐藏动画期间
+            // transition generation 已前进（如窗口内重新打开 inspector），这份过期
+            // completion 不得再隐藏视图并清零宽度，否则面板与 store 状态脱节。
+            if let isCancelled, isCancelled() {
+                return
+            }
             self.overlayView.isHidden = true
             self.overlayController.view.isHidden = true
             self.overlayAnimationHostView.isHidden = true
             overlayWidthConstraint.constant = 0
-            self.pendingOverlayHideWorkItem = nil
             completion?()
         }
 

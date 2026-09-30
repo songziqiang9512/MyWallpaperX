@@ -74,6 +74,13 @@ final class QuickLookPreviewController: NSObject, QLPreviewPanelDataSource, QLPr
     func syncVisiblePreview(for wallpaper: VideoWallpaper?) {
         // 仅当预览面板已经可见时才同步内容，避免外部状态变化把面板反复抢开。
         guard isVisible else { return }
+        // 选中项被清空（如删除库中最后一项）时关闭面板并清空数据源，
+        // 不能继续展示残留的 previewURL 与列表脱节。
+        guard let wallpaper else {
+            previewURL = nil
+            closePreview()
+            return
+        }
         guard let targetURL = previewURLIfAvailable(for: wallpaper) else { return }
         guard previewURL != targetURL else { return }
         presentPreview(for: targetURL)

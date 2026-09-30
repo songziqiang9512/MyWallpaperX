@@ -54,6 +54,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  case "切换下一张", "切换上一张":
  // 跨引擎统一轮换（视频库+工坊 web/scene），与热键/状态栏同源，
  // 不再受视频库激活状态门控。
+ // 必须保持启用：菜单键等价匹配后事件即被菜单系统消费，禁用项并不能把
+ // Cmd+←/→ 作为 keyDown 还给文本系统；文本焦点下的光标移动路由
+ // 在对应 action 内完成（同「全选/删除选中」的既有转发模式）。
  return true
 
  case "设为当前壁纸", "收藏/取消收藏":
@@ -318,10 +321,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  }
 
  @objc func nextWallpaperMenuAction(_ sender: Any?) {
+ // Cmd+→ 在可编辑文本框内是标准「移到行尾」光标移动，路由给文本视图，
+ // 不劫持为切换壁纸。
+ if let textView = editableTextViewFirstResponder() {
+ textView.moveToEndOfLine(sender)
+ return
+ }
  MainWindowCoordinator.menuNavigate(.next)
  }
 
  @objc func previousWallpaperMenuAction(_ sender: Any?) {
+ // Cmd+← 在可编辑文本框内是标准「移到行首」光标移动，路由给文本视图。
+ if let textView = editableTextViewFirstResponder() {
+ textView.moveToBeginningOfLine(sender)
+ return
+ }
  MainWindowCoordinator.menuNavigate(.previous)
  }
 
