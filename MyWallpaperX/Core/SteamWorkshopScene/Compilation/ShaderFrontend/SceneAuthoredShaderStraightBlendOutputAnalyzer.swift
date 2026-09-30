@@ -344,6 +344,100 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
         return sampling
     }
 
+    /// Source proof for a sampled-base scalar-opacity overlay blend: the one
+    /// sampled color carrier supplies both the blend base (`.rgb`) and the
+    /// terminal alpha (`.a`); the blend mode, overlay color, and opacity
+    /// weight are authored without texture samples. Publishing the carrier's
+    /// alpha keeps the output on the straight-color boundary. Only the
+    /// initialized local form is accepted; a declaration-then-assignment
+    /// color is deliberately left to fail-closed (the sibling proof
+    /// `analyzeAlphaPreservingGeneratedRGB` owns that form).
+    static func analyzeScalarOpacitySampledBaseBlend(
+        outputUses: [Int],
+        fragment: Unit,
+        main: Unit.Function
+    ) -> Int? {
+        let tokens = fragment.tokens
+        guard outputUses.count == 1,
+              let output = outputUses.first,
+              rootAssignment(output, tokens: tokens, body: main.bodyRange),
+              let outputExpression = SceneAuthoredShaderColorTransferAnalyzer
+                  .assignmentExpression(
+                      after: output, in: tokens, body: main.bodyRange
+                  ),
+              let outputArguments = callArguments(
+                  outputExpression, function: ["vec4", "float4"], count: 2
+              ),
+              let color = SceneAuthoredShaderTokenScanner.identifier(
+                  outputArguments[0]
+              ),
+              let carrier = memberName(outputArguments[1], component: "a"),
+              color != carrier,
+              let colorDefinition = uniqueDefinition(
+                  color, types: ["vec3", "float3"], before: output,
+                  tokens: tokens, body: main.bodyRange
+              ),
+              let carrierDefinition = uniqueDefinition(
+                  carrier, types: ["vec4", "float4"], before: colorDefinition,
+                  tokens: tokens, body: main.bodyRange
+              ),
+              let colorExpression = SceneAuthoredShaderColorTransferAnalyzer
+                  .assignmentExpression(
+                      after: colorDefinition, in: tokens, body: main.bodyRange
+                  ),
+              let blendArguments = callArguments(
+                  colorExpression, function: ["ApplyBlending"], count: 4
+              ),
+              member(blendArguments[1], name: carrier, component: "rgb"),
+              let carrierInitializer = SceneAuthoredShaderColorTransferAnalyzer
+                  .assignmentExpression(
+                      after: carrierDefinition, in: tokens, body: main.bodyRange
+                  ),
+              let slot = SceneAuthoredShaderColorTransferAnalyzer
+                  .directTextureSampleSlot(carrierInitializer),
+              [.normal, .additive, .pureRGB].contains(blendHelper(fragment)),
+              helperFunctionsDoNotSampleTextures(fragment, excluding: main),
+              helpersDoNotSampleTexturesWide(fragment, excluding: main)
+        else { return nil }
+        // A second whole-color local could smuggle a sampled alpha around
+        // the proven boundary, so the carrier must be the only one.
+        let wholeColorLocals = main.bodyRange.filter { index in
+            index > main.bodyRange.lowerBound && index < output
+                && ["vec4", "float4"].contains(tokens[index - 1].text)
+        }
+        let sampleCalls = main.bodyRange.filter {
+            SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
+                .textureSampleNames.contains(tokens[$0].text)
+        }
+        guard wholeColorLocals.count == 1,
+              sampleCalls.count == 1,
+              carrierInitializer.indices.contains(sampleCalls[0]) else {
+            return nil
+        }
+        // The mode, overlay, and opacity arguments are authored without
+        // samples (any builtin spelling) and without the carrier.
+        for argument in [blendArguments[0], blendArguments[2], blendArguments[3]] {
+            guard !argument.contains(where: {
+                $0.text == carrier
+                    || SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
+                        .textureSampleNames.contains($0.text)
+            }) else { return nil }
+        }
+        // Every carrier and color use in main is one of the proven sites.
+        let carrierUses = ((carrierDefinition + 1)..<outputExpression.endIndex)
+            .filter { tokens[$0].text == carrier }
+        let colorUses = ((colorDefinition + 1)..<outputExpression.endIndex)
+            .filter { tokens[$0].text == color }
+        guard carrierUses == [
+                  blendArguments[1].startIndex,
+                  outputArguments[1].startIndex,
+              ].sorted(),
+              colorUses == [outputArguments[0].startIndex] else {
+            return nil
+        }
+        return slot
+    }
+
     static func hasNormalBlendHelper(_ fragment: Unit) -> Bool {
         blendHelper(fragment) == .normal
     }
@@ -483,6 +577,22 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
         return fragment.functions.allSatisfy { function in
             function.name == main.name || !function.bodyRange.contains(where: {
                 ["texSample2D", "texture2D"].contains(tokens[$0].text)
+            })
+        }
+    }
+
+    /// Same check as `helperFunctionsDoNotSampleTextures` against the full
+    /// builtin sample-name family, so a Lod/texelFetch spelling inside a
+    /// helper cannot smuggle a second color source past this proof.
+    private static func helpersDoNotSampleTexturesWide(
+        _ fragment: Unit,
+        excluding main: Unit.Function
+    ) -> Bool {
+        let tokens = fragment.tokens
+        return fragment.functions.allSatisfy { function in
+            function.name == main.name || !function.bodyRange.contains(where: {
+                SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
+                    .textureSampleNames.contains(tokens[$0].text)
             })
         }
     }

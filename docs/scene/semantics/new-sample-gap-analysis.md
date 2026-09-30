@@ -41,17 +41,25 @@ effects/____________` 的 shader 合同因第 39 行中文注释 `// BLENDMODE �
 响应。benchmark PASS（两条已分类 passthrough 登记后）。注解行为收窄：marker 后无 JSON 负载
 的注释行不再产 `malformedAnnotation`（此前误诊整层拒绝，现按普通注释忽略）。
 
-**剩余两处降级（层继续渲染、效果级）**：
-- effect 1（`____________` 渐变混合）`material-finalizer-color-contract`：
+**剩余降级（层继续渲染、效果级）**：
+- ~~effect 1（`____________` 渐变混合）~~ **已修复（第二批）**：原形态
   `ApplyBlending(BLENDMODE, scene.rgb, gradientColor, u_Opacity)` → `vec4(finalColor, scene.a)`
-  的"采样底 + 生成覆盖 + 标量不透明度 + alpha 直通"形态不被 color transfer 分析器证明 →
-  passthrough 转发（条形失去渐变调色）。这是缺口 3-c 的实际入口（分析器模式扩展）。
-- effect 2（`sine_wave`）`material-generic-owner-revoked`：fragment 内改写 varying
-  （`v_TexCoord.x += ...`，.frag:34/37）被 VaryingPrefixLink 的写拒绝守卫拦下。与 E5 裁决
-  覆盖的"读未初始化分量"族**不同族**（裁决文档 §2 未列 fragment 改写形态）；归 E5 varying
-  实施批按其 prove 分类协议处置——语料受影响面需在实施批对 `3577773857/effects/sine_wave`
-  逐行核验（本批已提供源级证据：vertex `varying vec4` 只无条件写 `.xy`，fragment 声明
-  `vec2`、读 `{x,y}` 整值+分量、并在 `#if AUDIOPROCESSING` 两侧改写 `.x`）。
+  （采样底 + 生成覆盖 + 标量不透明度 + alpha 直通）被 IndependentAlphaAnalyzer 宽兜底误分为
+  `independentAlphaSignalPreserving`，该类要求输入槽为 independentAlphaSignal 表示（实际是
+  条形材质输出的 premultipliedAlpha 颜色）→ finalizer 每帧 colorContractUnproven → passthrough。
+  修复：StraightBlendOutputAnalyzer 新增 `analyzeScalarOpacitySampledBaseBlend` 证明（单 vec4
+  载体、main 内单采样调用、载体仅 .rgb 混合底 + .a 直通两处使用、模式/覆盖/不透明度参数无
+  采样无载体引用、ApplyBlending helper 不采样），阶梯插在 IndependentAlphaAnalyzer 兜底之前，
+  分类 `straightAlphaPreserving`（合同接受 opaque/premultipliedAlpha 输入，generic 构件走既有
+  preserving 下降器族）。实测：effect 1 `profile=source-proven-graph-input-stage-uniform-straight-
+  alpha-preserving-no-auxiliary`、slot0 显式别名接入效果 0 输出、`outcome=encoded-output`，
+  passthrough 消失，benchmark PASS。作者配色（垂直渐变 起始 1 1 1 → 结束 1 0.714 0、角度
+  -90°）即"音频条颜色/光从上面"的静态来源；条形自身灰（Bar Color 0.21、GRADIENT 关闭）。
+- effect 2（`sine_wave`，"光闪过"的动态波扫）`material-generic-owner-revoked`：fragment 内
+  改写 varying（`v_TexCoord.x += ...`，.frag:34/37）被 VaryingPrefixLink 的写拒绝守卫拦下。
+  dd7b1da5（E5 窄化批）只接受"读未初始化分量"族，未覆盖改写形态；归 E5 varying 实施批按
+  其 prove 分类协议处置——源级证据已登记（vertex `varying vec4` 只无条件写 `.xy`，fragment
+  声明 `vec2`、读 `{x,y}` 整值+分量、并在 `#if AUDIOPROCESSING` 两侧改写 `.x`）。
 
 **缺口 1（image→model→material 链黑屏）**：833227004 渲染纯灰（178,178,178 = 清屏色），
 材质管线 planned=0。层 `image: models/background.json` → material `flowimage`。准入的
