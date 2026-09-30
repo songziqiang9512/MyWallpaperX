@@ -473,14 +473,66 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             uniform sampler2D g_Texture0;
             varying vec2 v_TexCoord;
             void main() {
-                gl_FragColor = texture2D(g_Texture0, v_TexCoord)
-                    + v_TexCoord.zw.xyxy;
+                vec4 scene = texture2D(g_Texture0, v_TexCoord);
+                float mask = texture2D(g_Texture0, v_TexCoord.zw).r;
+                gl_FragColor = vec4(scene.rgb * mask, scene.a);
             }
             """,
         )
-        # The frontend reports an unproven pair as a stage-link mismatch.
-        self.assertIn("stageLinkMismatch", partial["diagnosticCodes"])
-        self.assertIsNone(partial.get("metalSource"))
+        # A fragment that reads components the active variant never writes is
+        # admitted under the zero-fill promise (the real sine_wave_circle
+        # shape): the emitted vertex wrapper value-initializes its output so
+        # the beyond-prefix read observes zeros instead of undefined data.
+        self.assertEqual(partial["diagnosticCodes"], [])
+        self.assertIsNotNone(partial.get("metalSource"))
+        self.assertIsNone(partial.get("metalError"))
+        self.assertIn("mwxOutput = {}", partial["metalSource"])
+
+        beyond_prefix_only = self.compile(
+            """
+            uniform mat4 g_ModelViewProjectionMatrix;
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec4 v_TexCoord;
+            void main() {
+                gl_Position = mul(vec4(a_Position, 1.0), g_ModelViewProjectionMatrix);
+                v_TexCoord.xy = a_TexCoord;
+            }
+            """,
+            """
+            varying vec2 v_TexCoord;
+            void main() {
+                gl_FragColor = vec4(v_TexCoord.zw, 0.0, 1.0);
+            }
+            """,
+        )
+        # Without a whole-value or literal declared-prefix use, reads reaching
+        # only beyond-prefix components remain rejected.
+        self.assertIn("stageLinkMismatch", beyond_prefix_only["diagnosticCodes"])
+        self.assertIsNone(beyond_prefix_only.get("metalSource"))
+
+        never_written = self.compile(
+            """
+            uniform mat4 g_ModelViewProjectionMatrix;
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec4 v_TexCoord;
+            void main() {
+                gl_Position = mul(vec4(a_Position, 1.0), g_ModelViewProjectionMatrix);
+            }
+            """,
+            """
+            uniform sampler2D g_Texture0;
+            varying vec2 v_TexCoord;
+            void main() {
+                gl_FragColor = texture2D(g_Texture0, v_TexCoord);
+            }
+            """,
+        )
+        # A varying the vertex never writes at all has no authored prefix to
+        # link against and stays rejected.
+        self.assertIn("stageLinkMismatch", never_written["diagnosticCodes"])
+        self.assertIsNone(never_written.get("metalSource"))
 
         conditional_write = self.compile(
             """

@@ -12,6 +12,16 @@
 
 **推荐方案：**维持 per-pass 独立编译现状（已是产品架构，与官方按 material pass 独立编译结构等价）；全文（含与 09-30 登记裁决的三点分歧标注及迁移要点）见 `docs/scene/evidence/20260930-varying-isolation/proposal.md`，同批登记见 [engine-refactor-program E5 varying 判定段](../engine-refactor-program.md)。
 
+<a id="e-2026-09-30-varying-narrowing-impl"></a>
+
+### E-2026-09-30-VARYING-NARROWING-IMPL — 窄化前缀链接零填充实施（varying 门归零；effect 渲染由下一层已登记类接棒）
+
+**基线与变更：**HEAD `3fccc823` + 本批 8 文件（证明 owner、normalizer 接线、bounded 前端发射、三缓存杠杆 35→36/3→4/8→9、两测试模块）。裁决与实施规格见 `docs/scene/evidence/20260930-varying-isolation/narrowing-ruling.md`（独立审查 REJECT 两阻断→修订→复审 APPROVE；实施批终审 APPROVE）。**bounded 前端零填充实现为 `SceneAuthoredVertexOutput mwxOutput = {}` 整结构体值初始化**（与裁决 §5.2"追加赋值"字面的偏离，终审判定成立并标注为经批准实现细节）。
+
+**验证：**干净 worktree（HEAD+仅本批）`test_scene_authored_shader_frontend` 76 tests OK（翻转正例经真 Metal 编译并断言 `mwxOutput = {}`；`beyond_prefix_only`/`never_written` 两仍拒子用例分别钉住 `:242-249` 门与 `assignments > 0`）、`test_scene_generic_shader_program_artifact` 80 tests OK（`zeroFillGenericAccepted` 钉住 normalizer 发射承诺）；43 模块机器推导门禁中 `test_scene_resolved_material_program_finalizer` 3 失败已归属=并行会话 texture-binding 域预先存在回归（clean-HEAD 撤本批重跑同红）；code-health 本批文件无 hard-limit 违规；scene-defense ratchet holds。真实回放 2849382252（隔离副本、签名 Debug 构建 Team `H9QWU9XN8R`、report SHA-256 `73c2bca71d5beffdc8348088ab461e783f895fa41a948731952af3de1edc52e3`）：**varyingUnsupported 9→0、stageLinkMismatch 0、`phase=shader-normalized` 16/16**——本批直接行为变化成立。
+
+**未闭合边界（如实）：**sine_wave_circle 尚未出画——暴露下一层**已登记**失败类：glslang stage-link `ApplyBlending no matching overloaded function found`（author.frag:270，stage-link 家族新子类，随 E5 stage-link 类处置）与 fallback 后 bounded 前端 `colorContractUnproven` ×4（colorTransfer 类）；样本两条 benchmark 失败码与 09-23 记录逐字相同（非本批回归），底图层渲染正常无伪影。generic/bounded 对"同形状 vertex 未写 varying"取值策略差异（GLSL 未定义 vs MSL 0）均处官方未定义域。证据本机缓存 `docs/scene/evidence/20260930-varying-isolation/replay-20260930-impl/`（app.log/preview.log/report.json/两截图）。
+
 <a id="e-2026-09-30-scene-startup-speed-program"></a>
 
 ### E-2026-09-30-SCENE-STARTUP-SPEED-PROGRAM — Scene 启动提速计划十一批（测量驱动的预热/持久化层，独立审查逐批通过）

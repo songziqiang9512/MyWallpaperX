@@ -159,7 +159,10 @@ nonisolated enum SceneAuthoredShaderMetalSource {
                 \(positionExpression),
                 0.0
             );
-            SceneAuthoredVertexOutput mwxOutput;
+            // Value-initialization delivers the zero-fill promise of accepted
+            // prefix-link facts: components the active variant never writes
+            // read zero instead of undefined data.
+            SceneAuthoredVertexOutput mwxOutput = {};
             mwxV_main(\(arguments));
             return mwxOutput;
         }

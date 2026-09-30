@@ -273,6 +273,14 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 fragment.body,
                 shapes: varyings.merging(uniforms) { current, _ in current }
             )
+            // Prefix-link facts may promise zero-filled components; the fill
+            // is part of the admission contract, so a failed append rejects
+            // the shader instead of emitting undefined reads.
+            guard let zeroFilled = SceneAuthoredShaderVaryingPrefixLink
+                .appendVertexZeroFill(vertex.body, facts: varyingPrefixFacts) else {
+                throw Failure.varyingUnsupported
+            }
+            vertex.body = zeroFilled
             guard let mutableVaryings = SceneGenericShaderMutableFragmentVaryingNormalizer
                 .rewrite(
                     fragment.body,

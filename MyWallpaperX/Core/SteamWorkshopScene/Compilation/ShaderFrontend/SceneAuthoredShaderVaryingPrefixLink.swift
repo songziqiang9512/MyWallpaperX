@@ -22,6 +22,11 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
         let fragmentWidth: Int
         let requiredComponents: String
         let wholeFragmentReferences: Set<SceneAuthoredShaderToken>
+        /// Components the fragment reads but the active variant's vertex never
+        /// writes. The proof is only valid when the emitting backend actually
+        /// zero-fills exactly these components; a consumer that cannot apply
+        /// the fill must reject the shader instead of emitting it.
+        let zeroInitializedComponents: Set<Character>
         let direction: Direction
     }
 
@@ -90,6 +95,60 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
             )
         }
         return result
+    }
+
+    /// Applies the zero-fill promise carried by the facts: appends one
+    /// unconditional top-level assignment per promised component at the end
+    /// of the vertex main body. Returns nil when main cannot be located
+    /// uniquely — the caller must reject the shader in that case, the same
+    /// fail-closed contract as the proof itself.
+    static func appendVertexZeroFill(
+        _ source: String,
+        facts: [String: Fact]
+    ) -> String? {
+        let promised = facts.values.filter { !$0.zeroInitializedComponents.isEmpty }
+        guard !promised.isEmpty else { return source }
+        let regex = try! NSRegularExpression(pattern: #"\bvoid\s+main\s*\(\s*\)\s*\{"#)
+        let range = NSRange(source.startIndex..., in: source)
+        guard regex.numberOfMatches(in: source, range: range) == 1,
+              let match = regex.firstMatch(in: source, range: range),
+              let openRange = Range(match.range, in: source) else {
+            return nil
+        }
+        var depth = 0
+        var bodyEnd: String.Index?
+        var cursor = openRange.upperBound
+        while cursor < source.endIndex {
+            let character = source[cursor]
+            if character == "{" {
+                depth += 1
+            } else if character == "}" {
+                if depth == 0 {
+                    bodyEnd = cursor
+                    break
+                }
+                depth -= 1
+            }
+            cursor = source.index(after: cursor)
+        }
+        guard let bodyEnd else { return nil }
+        let componentOrder = Array("xyzw")
+        let statements = promised.sorted(by: { $0.name < $1.name }).map { fact -> String in
+            let components = componentOrder
+                .filter { fact.zeroInitializedComponents.contains($0) }
+                .map(String.init)
+                .joined()
+            let value: String
+            switch fact.zeroInitializedComponents.count {
+            case 1: value = "0.0"
+            case let width: value = "vec\(width)(\(Array(repeating: "0.0", count: width).joined(separator: ", ")))"
+            }
+            return "// MWX zero-fill: the active variant never writes these components.\n"
+                + "\(fact.name).\(components) = \(value);"
+        }
+        return source[..<bodyEnd]
+            + statements.joined(separator: "\n") + "\n"
+            + source[bodyEnd...]
     }
 
     private static func prove(
@@ -235,10 +294,18 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
             initializedComponents.formUnion(assigned)
             assignments += 1
         }
-        guard assignments > 0,
-              readComponents.isSubset(of: initializedComponents) else {
+        // Reads beyond the initialized set are admitted under a zero-fill
+        // promise: the Fact names exactly the unwritten components and the
+        // consuming backend must append their zero assignments (see
+        // appendVertexZeroFill). A vertex that never writes the varying at
+        // all is still rejected — at least one authored assignment is
+        // required. The presence check below keeps shapes that only read
+        // beyond-prefix components without a whole or literal-prefix use
+        // rejected.
+        guard assignments > 0 else {
             return nil
         }
+        let zeroInitializedComponents = readComponents.subtracting(initializedComponents)
         guard !whole.isEmpty || fragmentFunctionBodies.contains(where: { body in
             body.indices.contains { index in
                 fragmentTokens[index].text == name
@@ -253,6 +320,7 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
             fragmentWidth: fragmentWidth,
             requiredComponents: required,
             wholeFragmentReferences: whole,
+            zeroInitializedComponents: zeroInitializedComponents,
             direction: .vertexWider
         )
     }
@@ -387,6 +455,7 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
             fragmentWidth: fragmentWidth,
             requiredComponents: required,
             wholeFragmentReferences: [],
+            zeroInitializedComponents: [],
             direction: .fragmentDeclarationWider
         )
     }

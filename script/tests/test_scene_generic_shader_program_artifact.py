@@ -297,6 +297,7 @@ private struct VaryingLinkOutput: Codable {
     let textureCoordinateGenericSlot3: Bool
     let unknownCallRejectedByBoth: Bool
     let suffixReadRejected: Bool
+    let zeroFillGenericAccepted: Bool
     let reversePrefixBoundedAccepted: Bool
     let reversePrefixGenericAccepted: Bool
     let reversePrefixSuffixRejectedByBoth: Bool
@@ -1280,6 +1281,29 @@ private struct GenericShaderArtifactHarness {
                 ),
                 maximumStageSourceBytes: 64 * 1_024
             )
+            let zeroFillVertex = [
+                "attribute vec3 a_Position;",
+                "attribute vec2 a_TexCoord;",
+                "varying vec4 v_Live;",
+                "void main() {",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "    v_Live.xy = a_TexCoord;",
+                "}",
+            ].joined(separator: "\n")
+            let zeroFillFragment = [
+                "uniform sampler2D g_Texture0;",
+                "varying vec2 v_Live;",
+                "void main() {",
+                "    vec4 scene = texSample2D(g_Texture0, v_Live);",
+                "    float mask = texSample2D(g_Texture0, v_Live.zw).r;",
+                "    gl_FragColor = vec4(scene.rgb * mask, scene.a);",
+                "}",
+            ].joined(separator: "\n")
+            let zeroFill = SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: zeroFillVertex,
+                fragmentSource: zeroFillFragment,
+                maximumStageSourceBytes: 64 * 1_024
+            )
             let textureVertex = [
                 "attribute vec3 a_Position;",
                 "attribute vec2 a_TexCoord;",
@@ -1405,6 +1429,11 @@ private struct GenericShaderArtifactHarness {
                 suffixReadRejected: {
                     if case .failure(.varyingUnsupported) = suffix { return true }
                     return false
+                }(),
+                zeroFillGenericAccepted: {
+                    guard case let .success(pair) = zeroFill else { return false }
+                    return pair.fragment.contains("in vec4 v_Live;")
+                        && pair.vertex.contains("v_Live.zw = vec2(0.0, 0.0);")
                 }(),
                 reversePrefixBoundedAccepted:
                     reverseBounded.diagnostics.isEmpty
@@ -5084,6 +5113,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "textureCoordinateGenericSlot3": True,
             "unknownCallRejectedByBoth": True,
             "suffixReadRejected": True,
+            "zeroFillGenericAccepted": True,
             "reversePrefixBoundedAccepted": True,
             "reversePrefixGenericAccepted": True,
             "reversePrefixSuffixRejectedByBoth": True,
