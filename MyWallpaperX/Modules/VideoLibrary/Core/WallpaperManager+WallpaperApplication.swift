@@ -294,14 +294,34 @@ extension WallpaperManager {
                                   kind,
                                   recordID: recordID
                               ),
-                              let image,
-                              let imageURL = self.persistRuntimeSyncFrame(
-                                  image,
-                                  kind: kind
-                              ) else {
+                              let image else {
                             return
                         }
-                        self.setDesktopWallpaper(from: imageURL.path)
+                        // TIFF→JPEG 编码与落盘是 CPU/IO 重活，移出主线程，
+                        // 避免卡住正在播放的壁纸 UI；应用桌面仍回主线程
+                        // （NSScreen/setDesktopImageURL 的 AppKit 主线程合同）。
+                        DispatchQueue.global(qos: .utility).async { [weak self] in
+                            guard let self,
+                                  let imageURL = self.persistRuntimeSyncFrame(
+                                      image,
+                                      kind: kind
+                                  ) else {
+                                return
+                            }
+                            // 编码窗口内壁纸可能已切走，应用前二次守卫：
+                            // 迟到帧不得写进已切换走的壁纸。
+                            DispatchQueue.main.async { [weak self] in
+                                guard let self,
+                                      self.settings.syncSystemWallpaper,
+                                      self.activeRuntimeMatchesFrameSyncTarget(
+                                          kind,
+                                          recordID: recordID
+                                      ) else {
+                                    return
+                                }
+                                self.setDesktopWallpaper(from: imageURL.path)
+                            }
+                        }
                     }
             case .scene:
                 SceneDaemonClient.shared.captureSurfaceFrame { [weak self] frameURL in
@@ -381,7 +401,7 @@ extension WallpaperManager {
         let url = staticFrameCacheDirectory
             .appendingPathComponent("runtime-sync-\(kind.logLabel).jpg")
         do {
-            try jpeg.write(to: url)
+            try jpeg.write(to: url, options: .atomic)
             return url
         } catch {
             return nil
