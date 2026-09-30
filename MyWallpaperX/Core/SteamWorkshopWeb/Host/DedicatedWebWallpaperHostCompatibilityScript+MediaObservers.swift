@@ -85,7 +85,11 @@ let webCompatibilityScriptMediaObservers = #"""
     }
   } catch (_) {}
   document.addEventListener('DOMContentLoaded', () => {
-    hostLogger.post('dom.ready', document.location.href);
+    // 本脚本按 frame 注入：就绪信号是宿主屏幕级状态机（applyCompatibilityState、
+    // markScreenReady）的触发条件，只由顶层 frame 发出。
+    if (wallpaperIsTopFrame === true) {
+      hostLogger.post('dom.ready', document.location.href);
+    }
     try {
       document.documentElement.style.width = '100%';
       document.documentElement.style.height = '100%';
@@ -126,9 +130,13 @@ let webCompatibilityScriptMediaObservers = #"""
         sourceNode.remove();
       }
     });
+    // 作者意图记录：页面自己调用 play()/pause() 才改写 __myWallpaperAuthorPaused。
+    // 宿主暂停走 WebKit 原生媒体门（setAllMediaPlaybackSuspended）与兼容层的
+    // 原始方法调用，都不经过这两个包装器，因此不会被误记为作者暂停。
     if (typeof HTMLMediaElement !== 'undefined' && typeof HTMLMediaElement.prototype.play === 'function') {
       const _originalPlay = HTMLMediaElement.prototype.play;
       HTMLMediaElement.prototype.play = function() {
+        try { this.__myWallpaperAuthorPaused = false; } catch (_) {}
         const isInvalidMediaSource =
           typeof window.__myWallpaperIsInvalidMediaSourceValue === 'function'
             ? window.__myWallpaperIsInvalidMediaSourceValue
@@ -148,6 +156,16 @@ let webCompatibilityScriptMediaObservers = #"""
           return Promise.resolve();
         }
         return _originalPlay.apply(this, arguments);
+      };
+    }
+    // 原始 pause 交给 window 保存：宿主暂停分支必须绕过本包装器调用它，
+    // 否则兼容层自己的暂停会被记成作者暂停，恢复时被错误地跳过播放。
+    if (typeof HTMLMediaElement !== 'undefined' && typeof HTMLMediaElement.prototype.pause === 'function') {
+      const _originalPause = HTMLMediaElement.prototype.pause;
+      window.__mwxOriginalMediaPause = _originalPause;
+      HTMLMediaElement.prototype.pause = function() {
+        try { this.__myWallpaperAuthorPaused = true; } catch (_) {}
+        return _originalPause.apply(this, arguments);
       };
     }
     const attachWallpaperMediaNode = (node) => {

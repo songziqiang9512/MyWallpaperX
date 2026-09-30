@@ -274,20 +274,33 @@ let webRemoteStylesheetCompatibilityScript = #"""
       return target.protocol === page.protocol && target.host === page.host;
     } catch (_) { return false; }
   };
+  const nodeNameOf = (node) => {
+    try { return String(node && node.nodeName ? node.nodeName : '').toUpperCase(); } catch (_) { return ''; }
+  };
   const observeAddedTree = (root) => {
-    if (isDeferredLink(root)) ensureState(root);
-    if (isLocalStyleSheetLink(root) || (root && root.nodeName === 'STYLE')) scheduleStyleSheetScan();
+    // 逐节点入口先做廉价 nodeName 判断，只有 LINK/STYLE 才进入 URL 构造。
+    const nodeName = nodeNameOf(root);
+    if (nodeName === 'LINK') {
+      if (isDeferredLink(root)) ensureState(root);
+      if (isLocalStyleSheetLink(root)) scheduleStyleSheetScan();
+    } else if (nodeName === 'STYLE') {
+      scheduleStyleSheetScan();
+    }
     if (root && typeof root.querySelectorAll === 'function') {
       root.querySelectorAll('link[data-mwx-deferred-stylesheet]').forEach(ensureState);
       if (root.querySelector('style,link[rel~="stylesheet"]')) scheduleStyleSheetScan();
     }
   };
   const observeRemovedTree = (root) => {
-    if (isLink(root)) invalidateState(root);
-    if (root && typeof root.querySelectorAll === 'function') {
-      root.querySelectorAll('link').forEach(invalidateState);
+    if (isLink(root)) {
+      invalidateState(root);
+      if (root.hasAttribute('data-mwx-css-import-recovery')) scheduleStyleSheetScan();
     }
-    if (isLink(root) && root.hasAttribute('data-mwx-css-import-recovery')) scheduleStyleSheetScan();
+    if (!root || typeof root.querySelector !== 'function') return;
+    // removed 子树只有确实含 <link> 时才逐节点作废：批量 DOM 重建时不再对
+    // 每棵移除子树跑全树 querySelectorAll('link')。
+    if (!root.querySelector('link')) return;
+    root.querySelectorAll('link').forEach(invalidateState);
   };
 
   document.addEventListener('load', (event) => {

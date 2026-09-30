@@ -1,5 +1,13 @@
 let webCompatibilityScriptHostBridge = #"""
   window.__myWallpaperRegisterInteractiveRegions = function(payload) {
+    const regionSource = String((payload && payload.source) || 'page-script');
+    // 多 frame 注入下，子 frame 的登记（DOMLifecycleMutation 的 dom-auto 生成者，
+    // 或页面显式调用）都以子 frame 自身视口归一化，而宿主按屏幕归一化做命中
+    // 测试：两者坐标系不同，子 frame 登记一律丢弃并留诊断，避免污染屏幕级命中区域。
+    if (wallpaperIsTopFrame !== true) {
+      hostLogger.post('interactive-regions.subframe-ignored', `${regionSource} frame=${document.location.href}`);
+      return;
+    }
     try {
       const rawRegions = Array.isArray(payload && payload.regions) ? payload.regions : [];
       const safeRegions = rawRegions.map((region, index) => {
@@ -22,7 +30,7 @@ let webCompatibilityScriptHostBridge = #"""
         };
       }).filter((region) => region.width > 0 && region.height > 0);
       const messagePayload = {
-        source: String((payload && payload.source) || 'page-script'),
+        source: regionSource,
         regions: safeRegions
       };
       try {
@@ -277,13 +285,17 @@ let webCompatibilityScriptHostBridge = #"""
     const safeProperties = state.pendingProperties || {};
     const signature = state.pendingSignature || window.__myWallpaperStablePropertySignature(safeProperties);
     try {
-      if (document.readyState !== 'complete') {
+      // 与 replayWallpaperPropertyListenerState 同一应用门：DOMContentLoaded
+      // 即放行，window.load 只作为二次重放兜底（`load` 可能因子资源挂起永不触发）。
+      if (document.readyState !== 'interactive' && document.readyState !== 'complete') {
         if (state.loadScheduled !== true) {
           state.loadScheduled = true;
-          window.addEventListener('load', () => {
+          const drainAfterReady = () => {
             state.loadScheduled = false;
             myWallpaperSchedulePendingPropertyApply(0);
-          }, { once: true });
+          };
+          document.addEventListener('DOMContentLoaded', drainAfterReady, { once: true });
+          window.addEventListener('load', drainAfterReady, { once: true });
         }
         return;
       }
@@ -409,6 +421,7 @@ let webCompatibilityScriptHostBridge = #"""
   window.__myWallpaperApplyProperties = function(properties) {
     const safeProperties = window.__myWallpaperNormalizePropertyBag(properties || {});
     window.__myWallpaperLastUserProperties = safeProperties;
+    wallpaperRelayHostPushToChildFrames('__myWallpaperApplyProperties', [safeProperties]);
     const signature = window.__myWallpaperStablePropertySignature(safeProperties);
     if (
       signature &&
@@ -427,6 +440,7 @@ let webCompatibilityScriptHostBridge = #"""
   window.__myWallpaperApplyGeneralProperties = function(properties) {
     const normalizedProperties = window.__myWallpaperNormalizePropertyBag(properties || {});
     window.__myWallpaperLastGeneralProperties = normalizedProperties;
+    wallpaperRelayHostPushToChildFrames('__myWallpaperApplyGeneralProperties', [normalizedProperties]);
     try {
       if (window.wallpaperPropertyListener && typeof window.wallpaperPropertyListener.applyGeneralProperties === 'function') {
         window.wallpaperPropertyListener.applyGeneralProperties(normalizedProperties);
@@ -440,6 +454,10 @@ let webCompatibilityScriptHostBridge = #"""
     const safePropertyName = String(propertyName || '');
     const safeAddedOrChangedFiles = Array.isArray(addedOrChangedFiles) ? addedOrChangedFiles.map((value) => String(value || '')) : [];
     const safeRemovedFiles = Array.isArray(removedFiles) ? removedFiles.map((value) => String(value || '')) : [];
+    wallpaperRelayHostPushToChildFrames(
+      '__myWallpaperNotifyDirectoryFilesChanged',
+      [safePropertyName, safeAddedOrChangedFiles, safeRemovedFiles]
+    );
     try {
       const directoryState = window.__myWallpaperDirectoryState || {};
       const previousFiles = Array.isArray(directoryState[safePropertyName]) ? directoryState[safePropertyName] : [];
@@ -490,6 +508,7 @@ let webCompatibilityScriptHostBridge = #"""
   window.__myWallpaperNotifyDirectoryAccessError = function(propertyName, errorMessage) {
     const safePropertyName = String(propertyName || '');
     const safeErrorMessage = String(errorMessage || '');
+    wallpaperRelayHostPushToChildFrames('__myWallpaperNotifyDirectoryAccessError', [safePropertyName, safeErrorMessage]);
     try {
       if (safeErrorMessage) {
         const directoryState = window.__myWallpaperDirectoryState || {};
@@ -509,6 +528,43 @@ let webCompatibilityScriptHostBridge = #"""
       hostLogger.post('directory.access.error', error && error.message ? error.message : error);
     }
   };
+  // 宿主回包（网络响应 / 随机文件路径）同样只经 evaluateJavaScript 送达主
+  // frame，而请求包装器已随注入面进入子 frame：主 frame 解析后把同一回包转发
+  // 给同源直接子 frame，由子 frame 自己的解析器按 requestID 认领（认不出的
+  // ID 在子 frame 内是空操作）；嵌套 frame 由子 frame 逐级转发。跨源子 frame
+  // 不可达——它们的跨域 XHR/fetch 代理与随机文件请求仍拿不到回包（已登记缺口）。
+  const wallpaperRelayHostReplyToChildFrames = (methodName, args) => {
+    if (window.__myWallpaperHostReplyRelayDepth > 0) return;
+    window.__myWallpaperHostReplyRelayDepth = 1;
+    try {
+      document.querySelectorAll('iframe').forEach((frame) => {
+        const childWindow = wallpaperSameOriginFrameWindow(frame);
+        if (!childWindow) return;
+        try {
+          const relay = childWindow[methodName];
+          if (typeof relay === 'function') relay.apply(childWindow, args);
+        } catch (_) {}
+      });
+    } catch (_) {
+    } finally {
+      window.__myWallpaperHostReplyRelayDepth = 0;
+    }
+  };
+  const wallpaperInstallHostReplyRelay = (methodName, collectArgs) => {
+    const resolver = window[methodName];
+    if (typeof resolver !== 'function') return;
+    window[methodName] = function(...args) {
+      let result;
+      try {
+        result = resolver.apply(this, args);
+      } finally {
+        try { wallpaperRelayHostReplyToChildFrames(methodName, collectArgs(args)); } catch (_) {}
+      }
+      return result;
+    };
+  };
+  wallpaperInstallHostReplyRelay('__myWallpaperResolveNetworkRequest', (args) => [args[0]]);
+  wallpaperInstallHostReplyRelay('__myWallpaperResolveRandomFile', (args) => [args[0], args[1]]);
   window.__myWallpaperPushAudioSpectrum = function(levels) {
     const safeLevels = Array.isArray(levels)
       ? levels.map((value) => {
@@ -516,6 +572,7 @@ let webCompatibilityScriptHostBridge = #"""
           return Number.isFinite(numeric) ? Math.max(0, Math.min(1, numeric)) : 0;
         })
       : [];
+    wallpaperRelayHostPushToChildFrames('__myWallpaperPushAudioSpectrum', [safeLevels]);
     if (!hasLoggedAudioSpectrumDelivery && audioListeners.length > 0) {
       const peak = safeLevels.reduce((maximum, value) => Math.max(maximum, value), 0);
       const half = Math.floor(safeLevels.length / 2);
@@ -556,6 +613,7 @@ let webCompatibilityScriptHostBridge = #"""
   window.__myWallpaperSetGlobalVolume = function(value) {
     const volume = Math.max(0, Math.min(1, Number(value) || 0));
     window.__myWallpaperLastHostVolume = volume;
+    wallpaperRelayHostPushToChildFrames('__myWallpaperSetGlobalVolume', [volume]);
     const mediaNodes = Array.from(document.querySelectorAll('audio,video'));
     for (const node of mediaNodes.concat(audioStreams)) {
       if (!node) continue;
@@ -571,6 +629,7 @@ let webCompatibilityScriptHostBridge = #"""
   window.__myWallpaperSetPlaybackRate = function(value) {
     const playbackRate = Math.max(0.25, Math.min(2, Number(value) || 1));
     window.__myWallpaperLastHostPlaybackRate = playbackRate;
+    wallpaperRelayHostPushToChildFrames('__myWallpaperSetPlaybackRate', [playbackRate]);
     const mediaNodes = Array.from(document.querySelectorAll('audio,video'));
     for (const node of mediaNodes.concat(audioStreams)) {
       if (!node) continue;
@@ -579,6 +638,14 @@ let webCompatibilityScriptHostBridge = #"""
     try {
       window.dispatchEvent(new CustomEvent('wallpaper-playback-rate-changed', { detail: playbackRate }));
     } catch (_) {}
+  };
+  // 恢复候选：优先用宿主暂停前写下的快照；暂停窗口内新建、无快照的媒体按
+  // 显式默认处理——未被作者暂停过就恢复播放（与既有恢复行为一致），该默认
+  // 值与作者暂停记录互斥。
+  const wallpaperShouldResumeMediaAfterHostPause = (node) => {
+    if (node.__myWallpaperResumeAfterHostPause === true) return true;
+    if (node.__myWallpaperResumeAfterHostPause === false) return false;
+    return node.__myWallpaperAuthorPaused !== true;
   };
   window.__myWallpaperSetPaused = function(isPaused, options) {
     const paused = !!isPaused;
@@ -603,19 +670,39 @@ let webCompatibilityScriptHostBridge = #"""
     try {
       window.dispatchEvent(new CustomEvent('wallpaper-pause-changed', { detail: paused }));
     } catch (_) {}
+    // 与本地调用同一语义（含 initialReplay 抑制）：子 frame 的暂停门由播放脚本
+    // 的 postMessage 负责，这里补的是子 frame 的页面通知与媒体控制。
+    wallpaperRelayHostPushToChildFrames('__myWallpaperSetPaused', [paused, replayOptions]);
     if (!shouldNotifyPage) return;
     for (const listener of playbackStateListeners) {
       try { listener(paused); } catch (_) {}
     }
+    // 暂停按「回合」而非每次应用区分：同一次宿主暂停可能被重复应用（种子期、
+    // dom.ready、DCL/load 重放、applyPausedState），而宿主自己的 suspend() 生效
+    // 之后再应用会观测到 suspended。若按当前观测状态重写快照，宿主挂起会被
+    // 误判为作者挂起，恢复时永不 resume()。
+    const hostPauseRoundAdvanced = window.__myWallpaperHostPauseApplied !== paused;
+    window.__myWallpaperHostPauseApplied = paused;
     for (const context of audioContextInstances) {
       try {
         const contextState = String(context && context.state ? context.state : '').toLowerCase();
         if (contextState === 'closed') continue;
-        if (paused && typeof context.suspend === 'function' && contextState !== 'suspended') {
-          context.suspend().catch((error) => {
-            hostLogger.post('audio.suspend.error', error && error.message ? error.message : error);
-          });
-        } else if (!paused && typeof context.resume === 'function' && contextState !== 'running') {
+        if (paused) {
+          // 暂停前快照只在本回合的第一次应用时写：作者/页面自己挂起的上下文
+          // （state 已是 suspended）在恢复时不再被强制 resume()。
+          if (hostPauseRoundAdvanced) {
+            context.__myWallpaperResumeAudioContextAfterHostPause = contextState !== 'suspended';
+          }
+          if (typeof context.suspend === 'function' && contextState !== 'suspended') {
+            context.suspend().catch((error) => {
+              hostLogger.post('audio.suspend.error', error && error.message ? error.message : error);
+            });
+          }
+        } else if (typeof context.resume === 'function' && contextState !== 'running') {
+          if (context.__myWallpaperResumeAudioContextAfterHostPause === false) {
+            hostLogger.post('audio.resume.skipped', `state=${contextState || 'unknown'}`);
+            continue;
+          }
           context.resume().catch((error) => {
             hostLogger.post('audio.resume.error', error && error.message ? error.message : error);
           });
@@ -629,8 +716,21 @@ let webCompatibilityScriptHostBridge = #"""
       if (!node) continue;
       try {
         if (paused) {
-          node.pause();
+          // 暂停前快照：只有未记录作者暂停的媒体，恢复时才由兼容层重新 play()。
+          // 兼容层自己的 pause() 走原始方法，避免把宿主暂停记成作者暂停。
+          try { node.__myWallpaperResumeAfterHostPause = node.__myWallpaperAuthorPaused !== true; } catch (_) {}
+          const originalPause = window.__mwxOriginalMediaPause;
+          if (typeof originalPause === 'function') {
+            originalPause.call(node);
+          } else {
+            node.pause();
+          }
         } else if (typeof node.play === 'function') {
+          if (wallpaperShouldResumeMediaAfterHostPause(node) !== true) {
+            const pausedSource = String(node.currentSrc || node.src || '').trim();
+            hostLogger.post('media.resume.skipped', `author paused ${pausedSource}`.trim());
+            continue;
+          }
           const resolvedSource = String(node.currentSrc || node.src || '').trim();
           const normalizedSource = resolvedSource.toLowerCase();
           if (!resolvedSource || normalizedSource.endsWith('/null') || normalizedSource === 'null') {

@@ -43,10 +43,18 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         controller.add(self, name: "wallpaperHostInteractiveRegions")
         controller.add(self, name: "wallpaperHostNetworkRequest")
         controller.addUserScript(WKUserScript(
-            source: webWallpaperPlaybackScript.replacingOccurrences(
-                of: "__MWX_INITIAL_PAUSED__", with: paused ? "true" : "false"),
+            source: Self.webWallpaperPlaybackScript(paused: paused),
             injectionTime: .atDocumentStart, forMainFrameOnly: false
         ))
+        // navigation.blocked 的 WebView 侧通道：主框架导航被取消后页面可查询
+        // 阻断计数与末次目标（宿主经 evaluateJavaScript 累加，见 NavigationDelegate）。
+        controller.addUserScript(WKUserScript(
+            source: Self.webNavigationStateScript,
+            injectionTime: .atDocumentStart, forMainFrameOnly: true
+        ))
+        // 兼容 API 面与种子按 frame 各自建立（种子只是本 frame 的初始值，
+        // 属性/媒体/指针状态都存储在 window 上），因此与暂停门、远程样式表
+        // 脚本保持同一注入面：iframe 壁纸同样拿到完整 API。
         controller.addUserScript(
             WKUserScript(
                 source: Self.webCompatibilityScript(
@@ -57,7 +65,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                     paused: paused
                 ),
                 injectionTime: .atDocumentStart,
-                forMainFrameOnly: true
+                forMainFrameOnly: false
             )
         )
         #if DEBUG
@@ -113,7 +121,6 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             webView.isInspectable = request?.runtimeProfile.diagnosticsEnabled ?? true
         }
         contentView.addSubview(webView)
-        let dataStoreIdentity = dataStoreIdentity(for: request, screenID: screenID)
         return HostSurface(
             screenID: screenID,
             window: window,
@@ -122,7 +129,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             audioDemandMessageHandler: audioDemandMessageHandler,
             schemeHandler: schemeHandler,
             originMode: request?.runtimeProfile.originMode ?? .customScheme,
-            dataStoreIdentity: dataStoreIdentity
+            persistentDataStoreIdentifier: persistentDataStoreIdentifier(for: request, screenID: screenID)
         )
     }
 
@@ -225,6 +232,12 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         }
     }
 
+    /// 当前所有 surface 实际持有的持久化 store 标识。回收侧用它显式排除仍被
+    /// WKWebView 使用的 store（释放前删除会被 WebKit 拒绝）。
+    var inUsePersistentDataStoreIdentifiers: Set<UUID> {
+        Set(surfaces.values.compactMap(\.persistentDataStoreIdentifier))
+    }
+
     func screenID(for webView: WKWebView) -> CGDirectDisplayID? {
         surfaces.first(where: { $0.value.webView === webView })?.key
     }
@@ -301,49 +314,135 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         switch request?.runtimeProfile.dataStorePolicy ?? .sharedPersistent {
         case .sharedPersistent:
             return .default()
-        case .workshopPersistent:
-            if #available(macOS 14.0, *) {
-                return WKWebsiteDataStore(forIdentifier: workshopDataStoreUUID(for: request))
-            }
-            return .nonPersistent()
         case .ephemeral:
             return .nonPersistent()
-        case .scopedPersistent:
-            if #available(macOS 14.0, *) {
-                let identity = dataStoreIdentity(for: request, screenID: screenID)
-                let uuid = deterministicUUID(from: identity)
-                return WKWebsiteDataStore(forIdentifier: uuid)
+        case .workshopPersistent, .scopedPersistent:
+            if #available(macOS 14.0, *),
+               let identifier = persistentDataStoreIdentifier(for: request, screenID: screenID) {
+                return WKWebsiteDataStore(forIdentifier: identifier)
             }
             return .nonPersistent()
         }
     }
 
+    /// 该 request/screen 实际使用的持久化 store 标识（default/nonPersistent 没有
+    /// 标识，返回 nil）。创建路径与回收路径共用它，surface 也持有同一标识，
+    /// 使「WKWebView 仍在用该 store 时不得删除」可被显式校验。
+    func persistentDataStoreIdentifier(
+        for request: WallpaperEngine.WebWallpaperLaunchRequest?,
+        screenID: CGDirectDisplayID
+    ) -> UUID? {
+        switch request?.runtimeProfile.dataStorePolicy ?? .sharedPersistent {
+        case .workshopPersistent:
+            return workshopDataStoreUUID(for: request)
+        case .scopedPersistent:
+            return Self.persistentDataStoreIdentifier(
+                for: dataStoreIdentity(for: request, screenID: screenID)
+            )
+        case .sharedPersistent, .ephemeral:
+            return nil
+        }
+    }
+
     func workshopDataStoreUUID(for request: WallpaperEngine.WebWallpaperLaunchRequest?) -> UUID {
-        let recordID = request?.recordID ?? "workshop"
-        let rootPath = request?.rootURL.resolvingSymlinksInPath().standardizedFileURL.path ?? "root"
-        let profileID = request?.runtimeProfile.id ?? "standard"
-        var bytes = Array(SHA256.hash(data: Data("\(recordID)|\(rootPath)|\(profileID)".utf8)).prefix(16))
+        Self.persistentDataStoreIdentifier(
+            for: Self.workshopDataStoreIdentity(
+                recordID: request?.recordID ?? "workshop",
+                rootPath: Self.resolvedRootPath(request?.rootURL),
+                profileID: request?.runtimeProfile.id ?? "standard"
+            )
+        )
+    }
+
+    func dataStoreIdentity(for request: WallpaperEngine.WebWallpaperLaunchRequest?, screenID: CGDirectDisplayID) -> String {
+        Self.scopedDataStoreIdentity(
+            recordID: request?.recordID ?? "diagnostic",
+            screenID: screenID,
+            rootPath: Self.resolvedRootPath(request?.rootURL),
+            profileID: request?.runtimeProfile.id ?? "standard"
+        )
+    }
+
+    /// 持久化 WebKit store 标识（UUID）的唯一派生：SHA256 前 16 字节 + RFC 4122
+    /// version/variant 位。工坊档与 scoped 档共用它；旧 scoped 档的模 256 线性
+    /// 散列（可按身份构造碰撞）已退役，其遗留 store 由 `WebWallpaperDataStoreReclaimer`
+    /// 的历史孤儿退役回收。
+    static func persistentDataStoreIdentifier(for identity: String) -> UUID {
+        var bytes = Array(SHA256.hash(data: Data(identity.utf8)).prefix(16))
         bytes[6] = (bytes[6] & 0x0F) | 0x40
         bytes[8] = (bytes[8] & 0x3F) | 0x80
         let uuid = uuid_t(bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15])
         return UUID(uuid: uuid)
     }
 
-    func dataStoreIdentity(for request: WallpaperEngine.WebWallpaperLaunchRequest?, screenID: CGDirectDisplayID) -> String {
-        let recordID = request?.recordID ?? "diagnostic"
-        let rootPath = request?.rootURL.resolvingSymlinksInPath().standardizedFileURL.path ?? "root"
-        return "\(recordID)|\(screenID)|\(rootPath)|\(request?.runtimeProfile.id ?? "standard")"
+    /// 工坊档（profile 级持久化）身份串：`recordID|rootPath|profileID`。
+    static func workshopDataStoreIdentity(recordID: String, rootPath: String, profileID: String) -> String {
+        "\(recordID)|\(rootPath)|\(profileID)"
     }
 
-    func deterministicUUID(from string: String) -> UUID {
-        let bytes = Array(string.utf8)
-        var hash = [UInt8](repeating: 0, count: 16)
-        for (index, byte) in bytes.enumerated() {
-            hash[index % 16] = hash[index % 16] &+ byte &+ UInt8(truncatingIfNeeded: index * 31)
+    /// scoped 档（逐屏持久化）身份串：`recordID|screenID|rootPath|profileID`。
+    static func scopedDataStoreIdentity(recordID: String, screenID: CGDirectDisplayID, rootPath: String, profileID: String) -> String {
+        "\(recordID)|\(screenID)|\(rootPath)|\(profileID)"
+    }
+
+    static func resolvedRootPath(_ rootURL: URL?) -> String {
+        rootURL?.resolvingSymlinksInPath().standardizedFileURL.path ?? "root"
+    }
+
+    /// 装配层注入的工坊 web 记录身份（Host 只按自身派生规则展开，不认识
+    /// Modules 的记录类型）。`rootPaths` 是候选资源根的宽集合：descriptor 的
+    /// 有效根、记录解析根、依赖宿主目录与记录目录。宽集合只让在用 store 更不
+    /// 可能被误判为孤儿，不参与创建侧派生。
+    struct WebPersistentDataStoreRecord {
+        let recordID: String
+        let rootPaths: [String]
+    }
+
+    /// 持久化策略的 runtime profile：创建侧按记录选一个，回收侧需要全量候选
+    /// （同一记录可能先后以不同 profile 播放过）。
+    static let persistableWebRuntimeProfiles: [WallpaperEngine.WebRuntimeProfile] = [
+        .standard,
+        .highCompatibility
+    ]
+
+    /// 记录身份 → 该记录可能创建的持久化 store 标识全量（工坊档 + 逐屏 scoped 档）。
+    static func persistentDataStoreIdentifiers(
+        for record: WebPersistentDataStoreRecord,
+        profiles: [WallpaperEngine.WebRuntimeProfile] = persistableWebRuntimeProfiles,
+        screenIDs: [CGDirectDisplayID]
+    ) -> Set<UUID> {
+        var identifiers = Set<UUID>()
+        for profile in profiles {
+            switch profile.dataStorePolicy {
+            case .workshopPersistent:
+                for rootPath in record.rootPaths {
+                    identifiers.insert(persistentDataStoreIdentifier(
+                        for: workshopDataStoreIdentity(
+                            recordID: record.recordID,
+                            rootPath: rootPath,
+                            profileID: profile.id
+                        )
+                    ))
+                }
+            case .scopedPersistent:
+                for rootPath in record.rootPaths {
+                    for screenID in screenIDs {
+                        identifiers.insert(persistentDataStoreIdentifier(
+                            for: scopedDataStoreIdentity(
+                                recordID: record.recordID,
+                                screenID: screenID,
+                                rootPath: rootPath,
+                                profileID: profile.id
+                            )
+                        ))
+                    }
+                }
+            case .sharedPersistent, .ephemeral:
+                // 默认 store 没有标识（WKWebsiteDataStore.identifier 对 default /
+                // nonPersistent 返回 nil），ephemeral 不落盘：都不属于回收面。
+                continue
+            }
         }
-        hash[6] = (hash[6] & 0x0F) | 0x40
-        hash[8] = (hash[8] & 0x3F) | 0x80
-        let uuid = uuid_t(hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7], hash[8], hash[9], hash[10], hash[11], hash[12], hash[13], hash[14], hash[15])
-        return UUID(uuid: uuid)
+        return identifiers
     }
 }

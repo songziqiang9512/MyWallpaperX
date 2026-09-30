@@ -62,6 +62,70 @@ let webCompatibilityScriptBootstrapFoundation = #"""
       throw error;
     });
   };
+  // 官方语义：media status 的 enabled 表示"用户是否启用媒体集成选项"（宿主
+  // 设置），与页面是否存在媒体节点无关；宿主当前没有该开关，缺省恒 true。
+  const wallpaperMediaIntegrationEnabled = () => window.__myWallpaperMediaIntegrationEnabled !== false;
+  // 本脚本按 frame 注入（见 Host+Surface 的注入面），只有顶层 frame 具有
+  // 屏幕级语义：就绪信号与自动交互区域登记都只由顶层 frame 发出。
+  const wallpaperIsTopFrame = (() => {
+    try { return window.top === window; } catch (_) { return false; }
+  })();
+  // 宿主 evaluateJavaScript 只送达主 frame。主 frame 收到推送后向直接子
+  // frame 调用同名兼容函数，由子 frame 再向下传递；跨源子 frame 取不到
+  // contentWindow 属性，只保留其自身注入的 API 面（拿不到运行时推送）。
+  // 退役条件：宿主改为按 frame 定向推送（WKWebView frame 定向求值）后，
+  // 本中继与各入口的调用点同批移除。
+  // 子 frame 可达性判定放在 contentWindow 读取之前：DOMLifecycleScaffold 的
+  // contentWindow 补丁对跨源 frame 会记 iframe.crossOriginAccess 诊断并造
+  // fallback window，按 src 先判同源可避免中继自己污染该诊断面。
+  const wallpaperSameOriginFrameWindow = (frame) => {
+    try {
+      const rawSource = String(frame && frame.getAttribute ? frame.getAttribute('src') || '' : '').trim();
+      if (rawSource && rawSource.toLowerCase() !== 'about:blank') {
+        const frameURL = new URL(rawSource, document.location.href);
+        if (frameURL.origin !== document.location.origin) return null;
+      }
+    } catch (_) {
+      return null;
+    }
+    try { return frame.contentWindow || null; } catch (_) { return null; }
+  };
+  // 宿主回包（网络响应 / 随机文件路径）只经 webView.evaluateJavaScript 送达主
+  // frame，中继也只能沿同源父链下行：因此「本 frame 是否收得到宿主回包」等价于
+  // 「本 frame 与顶层同源」。用 window.top.document 可访问性判定，可覆盖
+  // 「父同源但祖父跨源」的嵌套情形（只看 window.parent 会漏判这一档）。
+  // 收不到回包的 frame 不进入只会等超时的代理路径，保持原生请求行为。
+  // window.__mwxHostReplyReachable 是同一判据的观测探针（供诊断与回归门读取）。
+  const wallpaperHostReplyReachable = (() => {
+    try {
+      if (window.top === window) return true;
+      void window.top.document;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  })();
+  try { window.__mwxHostReplyReachable = wallpaperHostReplyReachable; } catch (_) {}
+  const wallpaperRelayHostPushToChildFrames = (methodName, args, argsForChild) => {
+    if (window.__myWallpaperHostPushRelayDepth > 0) return;
+    window.__myWallpaperHostPushRelayDepth = 1;
+    try {
+      document.querySelectorAll('iframe').forEach((frame) => {
+        const childWindow = wallpaperSameOriginFrameWindow(frame);
+        if (!childWindow) return;
+        try {
+          const relay = childWindow[methodName];
+          if (typeof relay !== 'function') return;
+          const childArgs = typeof argsForChild === 'function' ? argsForChild(frame) : args;
+          if (!Array.isArray(childArgs)) return;
+          relay.apply(childWindow, childArgs);
+        } catch (_) {}
+      });
+    } catch (_) {
+    } finally {
+      window.__myWallpaperHostPushRelayDepth = 0;
+    }
+  };
   window.wallpaperMediaIntegration = Object.assign(
     {},
     window.wallpaperMediaIntegration || {},
@@ -69,18 +133,29 @@ let webCompatibilityScriptBootstrapFoundation = #"""
   );
   window.__myWallpaperMediaState = {
     status: {
-      enabled: false,
+      enabled: wallpaperMediaIntegrationEnabled(),
       available: 'false',
       state: mediaPlaybackConstants.PLAYBACK_STOPPED
     },
     properties: {
       title: '',
       artist: '',
+      subTitle: '',
       albumTitle: '',
+      albumArtist: '',
+      genres: '',
+      contentType: '',
       position: 0,
       duration: 0
     },
-    thumbnail: { thumbnail: '' },
+    thumbnail: {
+      thumbnail: '',
+      primaryColor: '',
+      secondaryColor: '',
+      tertiaryColor: '',
+      textColor: '',
+      highContrastColor: ''
+    },
     timeline: { position: 0, duration: 0 },
     playback: { state: mediaPlaybackConstants.PLAYBACK_STOPPED }
   };
@@ -168,6 +243,10 @@ let webCompatibilityScriptBootstrapFoundation = #"""
       'media.canplaythrough': 1000,
       'media.initial': 1000,
       'media.play.unsupported': 5000,
+      'media.resume.skipped': 5000,
+      'audio.resume.skipped': 5000,
+      'host-reply.unsupported': 5000,
+      'interactive-regions.subframe-ignored': 5000,
       'loader.pending': 1000,
       'iframe.crossOriginAccess': 5000,
       'backstretch.noop': 1000,
@@ -265,13 +344,26 @@ let webCompatibilityScriptBootstrapFoundation = #"""
   const replayWallpaperPropertyListenerState = function(options) {
     const replayOptions = options || {};
     try {
-      if (document.readyState !== 'complete') {
+      // user 属性应用门是 DOMContentLoaded（interactive），不是 window.load：
+      // 官方文档明确属性事件在壁纸加载时触发、且要求页面不要用 window.onload
+      // 承载 WE 专用代码（"it's unreliable and can lead to Wallpaper Engine
+      // missing certain events"）。无关子资源挂起会让 load 永不触发，因此
+      // load 只保留为二次重放兜底。
+      if (document.readyState !== 'interactive' && document.readyState !== 'complete') {
         if (window.__myWallpaperDeferredPropertyReplayScheduled !== true) {
           window.__myWallpaperDeferredPropertyReplayScheduled = true;
-          window.addEventListener('load', () => {
+          // DCL 与 load 是同一重放的互斥兜底，不是两次重放：`once` 只保证各自
+          // 的监听器被消费，先到者不撤销另一侧，两者都会触发。重复重放会重复
+          // 应用暂停状态等一次性状态，因此先到者取走一次性标志并撤销另一侧。
+          const replayAfterReady = () => {
+            if (window.__myWallpaperDeferredPropertyReplayScheduled !== true) return;
             window.__myWallpaperDeferredPropertyReplayScheduled = false;
+            document.removeEventListener('DOMContentLoaded', replayAfterReady);
+            window.removeEventListener('load', replayAfterReady);
             replayWallpaperPropertyListenerState(replayOptions);
-          }, { once: true });
+          };
+          document.addEventListener('DOMContentLoaded', replayAfterReady, { once: true });
+          window.addEventListener('load', replayAfterReady, { once: true });
         }
         return;
       }

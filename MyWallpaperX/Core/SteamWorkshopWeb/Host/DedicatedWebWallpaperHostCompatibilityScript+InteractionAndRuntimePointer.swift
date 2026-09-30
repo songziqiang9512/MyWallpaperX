@@ -245,6 +245,57 @@ let webCompatibilityScriptInteractionAndRuntimePointer = #"""
     } catch (_) {}
     return event;
   };
+  const wallpaperDragPixelThreshold = 4;
+  const wallpaperDragEventDataTransfer = () => {
+    try {
+      return typeof DataTransfer === 'function' ? new DataTransfer() : null;
+    } catch (_) {
+      return null;
+    }
+  };
+  const wallpaperDragEventInit = (clientX, clientY, dataTransfer) => {
+    const init = { bubbles: true, cancelable: true, composed: true, clientX, clientY };
+    if (dataTransfer) {
+      init.dataTransfer = dataTransfer;
+    }
+    return init;
+  };
+  // 拖拽起点判定复用 DOMLifecycleMutation 的交互区域分类先例：
+  // 最近的 draggable="true" 祖先或 canvas 才算可拖拽。
+  const wallpaperIsDragCapableTarget = (target) => {
+    let node = target && target.nodeType === 1 ? target : null;
+    while (node) {
+      try {
+        if (node.getAttribute && String(node.getAttribute('draggable') || '') === 'true') return true;
+        if (node.tagName && String(node.tagName).toLowerCase() === 'canvas') return true;
+      } catch (_) {}
+      node = node.parentElement;
+    }
+    return false;
+  };
+  // 指针推送的坐标换算：宿主推送用的是父 frame 视口归一化坐标，子 frame 需要
+  // 换算成自身视口的归一化坐标（用 frameElement 在父视口内的位置与尺寸）。
+  // 指针落在子 frame 之外时 active 归 false，避免子 frame 的 hover 状态挂住。
+  const wallpaperChildPointerArgs = (frame, active, normalizedX, normalizedY, buttons) => {
+    try {
+      const rect = frame.getBoundingClientRect();
+      if (!(rect.width > 0) || !(rect.height > 0)) return null;
+      const parentWidth = Math.max(window.innerWidth || 0, 1);
+      const parentHeight = Math.max(window.innerHeight || 0, 1);
+      const pointX = Number(normalizedX || 0) * parentWidth;
+      const pointY = Number(normalizedY || 0) * parentHeight;
+      const insideFrame =
+        pointX >= rect.left && pointX <= rect.right && pointY >= rect.top && pointY <= rect.bottom;
+      return [
+        Boolean(active) && insideFrame,
+        Math.max(0, Math.min(1, (pointX - rect.left) / rect.width)),
+        Math.max(0, Math.min(1, (pointY - rect.top) / rect.height)),
+        Number(buttons || 0)
+      ];
+    } catch (_) {
+      return null;
+    }
+  };
   window.__myWallpaperDispatchMouseEvent = function(type, normalizedX, normalizedY, button, buttons, pointerId) {
     try {
       const width = Math.max(window.innerWidth || 0, 1);
@@ -265,6 +316,9 @@ let webCompatibilityScriptInteractionAndRuntimePointer = #"""
         if (String(type) === 'pointerup' || String(type) === 'pointercancel' || buttonsValue === 0) {
           wallpaperState.captureTarget = null;
           wallpaperState.captureButtons = 0;
+          wallpaperState.dragArmed = false;
+          wallpaperState.dragging = false;
+          wallpaperState.dragDataTransfer = null;
         }
         return;
       }
@@ -292,39 +346,44 @@ let webCompatibilityScriptInteractionAndRuntimePointer = #"""
         if (target && typeof target.setPointerCapture === 'function' && pointerEvent && typeof pointerEvent.pointerId === 'number') {
           try { target.setPointerCapture(pointerEvent.pointerId); } catch (_) {}
         }
-        if (target && typeof DragEvent === 'function') {
-          try {
-            const dragStartEvent = new DragEvent('dragstart', {
-              bubbles: true,
-              cancelable: true,
-              composed: true,
-              clientX,
-              clientY
-            });
-            target.dispatchEvent(dragStartEvent);
-          } catch (_) {}
-        }
+        // 拖拽候选先武装、不立即派发：位移超过阈值才把候选变成真实拖拽。
+        wallpaperState.dragging = false;
+        wallpaperState.dragArmed = typeof DragEvent === 'function' && wallpaperIsDragCapableTarget(target);
+        wallpaperState.dragStartX = clientX;
+        wallpaperState.dragStartY = clientY;
+        wallpaperState.dragDataTransfer = null;
       }
       const mouseTypeName = pointerToMouseType[String(type)];
       if (String(type) === 'pointermove' && wallpaperState.captureTarget && typeof DragEvent === 'function') {
-        try {
-          const dragOverEvent = new DragEvent('dragover', {
-            bubbles: true,
-            cancelable: true,
-            composed: true,
-            clientX,
-            clientY
-          });
-          wallpaperState.captureTarget.dispatchEvent(dragOverEvent);
-          const dragEvent = new DragEvent('drag', {
-            bubbles: true,
-            cancelable: true,
-            composed: true,
-            clientX,
-            clientY
-          });
-          wallpaperState.captureTarget.dispatchEvent(dragEvent);
-        } catch (_) {}
+        if (wallpaperState.dragArmed === true && wallpaperState.dragging !== true) {
+          const deltaX = clientX - Number(wallpaperState.dragStartX || 0);
+          const deltaY = clientY - Number(wallpaperState.dragStartY || 0);
+          if (Math.sqrt(deltaX * deltaX + deltaY * deltaY) > wallpaperDragPixelThreshold) {
+            wallpaperState.dragging = true;
+            wallpaperState.dragDataTransfer = wallpaperDragEventDataTransfer();
+            try {
+              wallpaperState.captureTarget.dispatchEvent(new DragEvent(
+                'dragstart',
+                wallpaperDragEventInit(clientX, clientY, wallpaperState.dragDataTransfer)
+              ));
+            } catch (_) {}
+          }
+        }
+        if (wallpaperState.dragging === true) {
+          try {
+            // 同一次拖拽共用同一个 dataTransfer：dragstart 里 setData 的数据
+            // 在 dragover/drag/drop 监听器中可读。
+            const dragDataTransfer = wallpaperState.dragDataTransfer;
+            wallpaperState.captureTarget.dispatchEvent(new DragEvent(
+              'dragover',
+              wallpaperDragEventInit(clientX, clientY, dragDataTransfer)
+            ));
+            wallpaperState.captureTarget.dispatchEvent(new DragEvent(
+              'drag',
+              wallpaperDragEventInit(clientX, clientY, dragDataTransfer)
+            ));
+          } catch (_) {}
+        }
       }
       if (mouseTypeName && typeof MouseEvent === 'function') {
         const mouseEvent = enrichMouseLikeEvent(new MouseEvent(mouseTypeName, mouseEventInit), target, clientX, clientY);
@@ -334,25 +393,19 @@ let webCompatibilityScriptInteractionAndRuntimePointer = #"""
         const clickEvent = enrichMouseLikeEvent(new MouseEvent('click', mouseEventInit), target, clientX, clientY);
         target.dispatchEvent(clickEvent);
       }
-      if ((String(type) === 'pointerup' || String(type) === 'pointercancel' || buttonsValue === 0) && wallpaperState.captureTarget && typeof DragEvent === 'function') {
+      if ((String(type) === 'pointerup' || String(type) === 'pointercancel' || buttonsValue === 0) &&
+          wallpaperState.captureTarget && wallpaperState.dragging === true && typeof DragEvent === 'function') {
         try {
-          const dragEndEvent = new DragEvent('dragend', {
-            bubbles: true,
-            cancelable: true,
-            composed: true,
-            clientX,
-            clientY
-          });
-          wallpaperState.captureTarget.dispatchEvent(dragEndEvent);
+          const dragDataTransfer = wallpaperState.dragDataTransfer;
+          wallpaperState.captureTarget.dispatchEvent(new DragEvent(
+            'dragend',
+            wallpaperDragEventInit(clientX, clientY, dragDataTransfer)
+          ));
           if (String(type) === 'pointerup') {
-            const dropEvent = new DragEvent('drop', {
-              bubbles: true,
-              cancelable: true,
-              composed: true,
-              clientX,
-              clientY
-            });
-            wallpaperState.captureTarget.dispatchEvent(dropEvent);
+            wallpaperState.captureTarget.dispatchEvent(new DragEvent(
+              'drop',
+              wallpaperDragEventInit(clientX, clientY, dragDataTransfer)
+            ));
           }
         } catch (_) {}
       }
@@ -362,6 +415,9 @@ let webCompatibilityScriptInteractionAndRuntimePointer = #"""
         }
         wallpaperState.captureTarget = null;
         wallpaperState.captureButtons = 0;
+        wallpaperState.dragArmed = false;
+        wallpaperState.dragging = false;
+        wallpaperState.dragDataTransfer = null;
       }
       if (String(type) === 'pointerup' && buttonValue === 1 && typeof MouseEvent === 'function') {
         const auxClickEvent = enrichMouseLikeEvent(new MouseEvent('auxclick', mouseEventInit), target, clientX, clientY);
@@ -371,6 +427,22 @@ let webCompatibilityScriptInteractionAndRuntimePointer = #"""
         const contextMenuEvent = enrichMouseLikeEvent(new MouseEvent('contextmenu', mouseEventInit), target, clientX, clientY);
         target.dispatchEvent(contextMenuEvent);
       }
+      // 同源子 frame 按同一键位参数换算坐标后再派发：iframe 壁纸内部的元素
+      // 才会收到真实的合成指针链。指针不在该子 frame 内时不合成派发（否则
+      // 会在子 frame 边缘产生出框幻影事件），只有子 frame 自己仍在捕获指针
+      // （拖拽续传）时才放行；换算不出的 frame 返回 null 跳过。
+      wallpaperRelayHostPushToChildFrames('__myWallpaperDispatchMouseEvent', null, (frame) => {
+        const childPointerArgs = wallpaperChildPointerArgs(frame, true, normalizedX, normalizedY, buttonsValue);
+        if (!childPointerArgs) return null;
+        if (childPointerArgs[0] !== true) {
+          const childWindow = wallpaperSameOriginFrameWindow(frame);
+          const childCaptureTarget = childWindow && childWindow.__myWallpaperState
+            ? childWindow.__myWallpaperState.captureTarget
+            : null;
+          if (!childCaptureTarget) return null;
+        }
+        return [type, childPointerArgs[1], childPointerArgs[2], button, buttons, pointerId];
+      });
     } catch (error) {
       hostLogger.post('pointer.dispatch.error', error && error.message ? error.message : error);
     }
@@ -420,6 +492,9 @@ let webCompatibilityScriptInteractionAndRuntimePointer = #"""
       if (!active) {
         window.__myWallpaperUpdateHoverTarget(null, mouseEventInitBase(clientX, clientY, 0, 0));
       }
+      wallpaperRelayHostPushToChildFrames('__myWallpaperSetPassiveMouseState', null, (frame) => {
+        return wallpaperChildPointerArgs(frame, active, normalizedX, normalizedY, buttons);
+      });
     } catch (_) {}
   };
 """#
