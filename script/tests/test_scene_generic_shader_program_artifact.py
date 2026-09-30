@@ -358,6 +358,10 @@ private struct DirectFunctionVectorArgumentOutput: Codable {
     let sameWidthPreserved: Bool
     let localAliasPreserved: Bool
     let overloadedFunctionPreserved: Bool
+    let scalarArgumentTruncated: Bool
+    let scalarArgumentPreserved: Bool
+    let untypedArgumentPreserved: Bool
+    let mixedWidthArgumentPreserved: Bool
 }
 
 private struct DirectTextureSampleAssignmentOutput: Codable {
@@ -1722,6 +1726,32 @@ private struct GenericShaderArtifactHarness {
                 "vec2 rotatePair(vec2 value, float angle) { return value * angle; }",
                 "vec3 rotatePair(vec3 value, float angle) { return value * angle; }",
             ], call: "rotatePair(v_TexCoord, 1.0).xy")
+            let blendFragment = [
+                "varying vec4 v_TexCoord;",
+                "vec3 applyBlend(const int mode, in vec3 a, in vec3 b, in float opacity) { return a + b * opacity; }",
+                "void main() {",
+                "    float t = 0.5;",
+                "    vec3 tint = vec3(1.0, 0.5, 0.25);",
+                "    float mask = 1.0;",
+                "    vec2 unknownPair = vec2(1.0);",
+                "    vec4 scene = vec4(1.0);",
+                "    vec3 finalColor = vec3(t);",
+                "    vec3 blended = applyBlend(31, scene.rgb, finalColor.rgb, t + tint * 0.5 * mask);",
+                "    vec3 kept = applyBlend(31, scene.rgb, finalColor.rgb, mask);",
+                "    vec3 unknown = applyBlend(31, scene.rgb, finalColor.rgb, undefinedTint + tint);",
+                "    vec3 mixed = applyBlend(31, scene.rgb, finalColor.rgb, unknownPair + tint);",
+                "    gl_FragColor = vec4(blended + kept + unknown + mixed, 1.0);",
+                "}",
+            ].joined(separator: "\n")
+            let blendNormalized: String
+            switch SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: vertex,
+                fragmentSource: blendFragment,
+                maximumStageSourceBytes: 64 * 1_024
+            ) {
+            case let .success(pair): blendNormalized = pair.fragment
+            case .failure: blendNormalized = ""
+            }
             let output = DirectFunctionVectorArgumentOutput(
                 widerDirectArgumentNarrowed:
                     narrowed.contains("rotatePair(v_TexCoord.xy, 1.0)"),
@@ -1737,7 +1767,20 @@ private struct GenericShaderArtifactHarness {
                     alias.contains("rotatePair(localAlias, 1.0)"),
                 overloadedFunctionPreserved:
                     overloaded.contains("rotatePair(v_TexCoord, 1.0).xy")
-                    && !overloaded.contains("v_TexCoord.xy, 1.0")
+                    && !overloaded.contains("v_TexCoord.xy, 1.0"),
+                scalarArgumentTruncated:
+                    blendNormalized.contains(
+                        "finalColor.rgb, (t + tint * 0.5 * mask).x)"
+                    ),
+                scalarArgumentPreserved:
+                    blendNormalized.contains("finalColor.rgb, mask)"),
+                untypedArgumentPreserved:
+                    blendNormalized.contains("undefinedTint + tint)"),
+                mixedWidthArgumentPreserved:
+                    blendNormalized.contains("unknownPair + tint)")
+                    && blendNormalized.contains(
+                        "vec3 applyBlend(const int mode, in vec3 a, in vec3 b, in float opacity)"
+                    )
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -5689,6 +5732,10 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "sameWidthPreserved": True,
             "localAliasPreserved": True,
             "overloadedFunctionPreserved": True,
+            "scalarArgumentTruncated": True,
+            "scalarArgumentPreserved": True,
+            "untypedArgumentPreserved": True,
+            "mixedWidthArgumentPreserved": True,
         })
 
     def test_product_normalizer_narrows_only_direct_texture_sample_assignments(self):

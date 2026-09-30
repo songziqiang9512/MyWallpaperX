@@ -22,6 +22,14 @@
 
 **未闭合边界（如实）：**sine_wave_circle 尚未出画——暴露下一层**已登记**失败类：glslang stage-link `ApplyBlending no matching overloaded function found`（author.frag:270，stage-link 家族新子类，随 E5 stage-link 类处置）与 fallback 后 bounded 前端 `colorContractUnproven` ×4（colorTransfer 类）；样本两条 benchmark 失败码与 09-23 记录逐字相同（非本批回归），底图层渲染正常无伪影。generic/bounded 对"同形状 vertex 未写 varying"取值策略差异（GLSL 未定义 vs MSL 0）均处官方未定义域。证据本机缓存 `docs/scene/evidence/20260930-varying-isolation/replay-20260930-impl/`（app.log/preview.log/report.json/两截图）。
 
+<a id="e-2026-09-30-stage-link-scalar-truncation"></a>
+
+### E-2026-09-30-STAGE-LINK-SCALAR-TRUNCATION — 标量形参向量实参截断（stage-link 第六子类；2849382252 首次 PASS）
+
+**基线与变更：**`dd7b1da5` + 本批 3 文件（`SceneGenericShaderDirectFunctionVectorArgumentNormalizer` 标量形参分支 + `expressionValueWidth` 推导器、`VariantAnalysisCache.schemaVersion` 4→5、artifact harness 4 断言）。失败机制：stock `common_blending.h:172` 的 `vec3 ApplyBlending(const int, in vec3, in vec3, in float)` 收到 float+vec3=vec3 第 4 参，严格 GLSL 无 vec3→float 重载；官方 HLSL demotion 语义 `(float) i4 -> float(i4.x)`（Microsoft Learn《HLSL Operators》）为修复语义依据。修复=复合实参宽度可推导（准入叶子/算子白名单，其余整体放弃）且 >1 时包 `.x`；两个失败方向均安全（不改写=维持编译失败；误改写=编译错 fail soft）。
+
+**验证与结果：**artifact 80 tests OK（截断文本 `(t + tint * 0.5 * mask).x`、标量/未知名/混宽三保留、定义头保留）；23 模块门禁唯一失败=并行会话 finalizer 已知回归（撤批同红归属）；**真实回放 2849382252 PASS `failures=[]`**（report SHA-256 `eb14191a0f2a8daa1d568e5c61787dc29b1a6ad65057e158a449e956b7e05233`，09-23 以来首次）——sine_wave_circle 三实例 admitted-generic/program 真实执行（preview.log:64/65/68）、tone_mapping property-inactive 合法 passthrough、after 截图三条正弦波光环出画。剩余 1 条 fallback=另一 shader `log10` no-matching-overload（frag:246，同族下一入口）。证据本机缓存 `docs/scene/evidence/20260930-varying-isolation/replay-20260930-applyblend/`。独立终审 APPROVE（三 CONCERN 已收敛：缓存杠杆补抬、注释失真修正、未测缺口登记随下批）。
+
 <a id="e-2026-09-30-scene-startup-speed-program"></a>
 
 ### E-2026-09-30-SCENE-STARTUP-SPEED-PROGRAM — Scene 启动提速计划十一批（测量驱动的预热/持久化层，独立审查逐批通过）
