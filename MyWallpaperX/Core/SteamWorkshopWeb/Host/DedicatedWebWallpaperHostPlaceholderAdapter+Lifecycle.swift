@@ -77,10 +77,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
 
         if !shouldRebuildSurfaces, !surfaces.isEmpty {
             installDefaultInteractiveRegionsIfNeeded()
-            guard reloadTrackedSurfaces(for: request, localEntryURL: entryURL) else {
-                failCurrentLaunch(message: "dedicated_web_host_navigation_unavailable")
-                return
-            }
+            // 装载失败在异步完成回调里以同一 message failCurrentLaunch。
+            reloadTrackedSurfaces(for: request, localEntryURL: entryURL)
             return
         }
 
@@ -88,7 +86,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             createAndLoadSurface(
                 for: screen,
                 request: request,
-                localEntryURL: entryURL
+                localEntryURL: entryURL,
+                loadFailureMessage: "dedicated_web_host_no_surface"
             )
         }
 
@@ -163,7 +162,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 guard createAndLoadSurface(
                     for: screen,
                     request: request,
-                    localEntryURL: entryURL
+                    localEntryURL: entryURL,
+                    loadFailureMessage: "dedicated_web_host_navigation_unavailable"
                 ) else {
                     failCurrentLaunch(message: "dedicated_web_host_navigation_unavailable")
                     return
@@ -342,32 +342,38 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     func runtimeEntryURL(
         for request: WallpaperEngine.WebWallpaperLaunchRequest,
         localEntryURL: URL,
-        surface: HostSurface
-    ) -> URL {
+        surface: HostSurface,
+        completion: @escaping (URL) -> Void
+    ) {
         guard request.runtimeProfile.originMode == .httpLoopback else {
-            return localEntryURL
+            completion(localEntryURL)
+            return
         }
-        do {
-            let server: WebWallpaperLoopbackServer
-            if let existing = loopbackServers[surface.screenID] {
-                server = existing
-            } else {
-                server = WebWallpaperLoopbackServer(schemeHandler: surface.schemeHandler)
-                server.diagnosticHandler = { [weak self] type, severity, message, url in
-                    Task { @MainActor in
-                        self?.recordDiagnostic(type: type, severity: severity, message: message, screenID: surface.screenID, url: url?.absoluteString)
-                    }
+        let server: WebWallpaperLoopbackServer
+        if let existing = loopbackServers[surface.screenID] {
+            server = existing
+        } else {
+            server = WebWallpaperLoopbackServer(schemeHandler: surface.schemeHandler)
+            server.diagnosticHandler = { [weak self] type, severity, message, url in
+                Task { @MainActor in
+                    self?.recordDiagnostic(type: type, severity: severity, message: message, screenID: surface.screenID, url: url?.absoluteString)
                 }
-                loopbackServers[surface.screenID] = server
             }
-            let baseURL = try server.start()
-            let path = localEntryURL.path
-            let url = baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
-            recordDiagnostic(type: "runtime.origin", severity: .info, message: "httpLoopback \(url.absoluteString)", screenID: surface.screenID, url: url.absoluteString)
-            return url
-        } catch {
-            recordDiagnostic(type: "runtime.origin.error", severity: .error, message: error.localizedDescription, screenID: surface.screenID, url: localEntryURL.absoluteString)
-            return localEntryURL
+            loopbackServers[surface.screenID] = server
+        }
+        server.start { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case let .success(baseURL):
+                let path = localEntryURL.path
+                let url = baseURL.appendingPathComponent(path.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+                self.recordDiagnostic(type: "runtime.origin", severity: .info, message: "httpLoopback \(url.absoluteString)", screenID: surface.screenID, url: url.absoluteString)
+                completion(url)
+            case let .failure(error):
+                // 保持旧语义：端口就绪超时/失败回退 localEntryURL，不判启动失败。
+                self.recordDiagnostic(type: "runtime.origin.error", severity: .error, message: error.localizedDescription, screenID: surface.screenID, url: localEntryURL.absoluteString)
+                completion(localEntryURL)
+            }
         }
     }
 

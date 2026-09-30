@@ -100,6 +100,29 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
   });
   const networkRequestHandler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.wallpaperHostNetworkRequest;
   let networkRequestCounter = 0;
+  const base64ToUint8Array = (base64) => {
+    const binary = atob(String(base64 || ''));
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index++) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return bytes;
+  };
+  const responseHeaderValue = (headers, name) => {
+    const normalized = String(name || '').toLowerCase();
+    for (const key of Object.keys(headers || {})) {
+      if (String(key).toLowerCase() === normalized) {
+        return String(headers[key]);
+      }
+    }
+    return '';
+  };
+  const proxiedResponseBody = (payload) => {
+    if (payload && payload.bodyIsBase64 === true) {
+      return base64ToUint8Array(payload.body);
+    }
+    return (payload && payload.body) || '';
+  };
   const hostNetworkRequest = (url, method, headers) => new Promise((resolve, reject) => {
     if (!networkRequestHandler || typeof networkRequestHandler.postMessage !== 'function') {
       reject(new Error('network_bridge_unavailable'));
@@ -226,7 +249,8 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
           if (canProxyNetworkRequest(method, url.href)) {
             return hostNetworkRequest(url.href, method, {}).then(payload => {
               hostLogger.post('fetch.proxy', `${method} ${url.href} status=${payload.status}`);
-              return new Response(method === 'HEAD' ? null : (payload.body || ''), {
+              const body = method === 'HEAD' ? null : proxiedResponseBody(payload);
+              return new Response(body, {
                 status: payload.status || 200,
                 headers: payload.headers || {}
               });
@@ -315,11 +339,29 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
       hostNetworkRequest(proxyURL, method, {}).then(payload => {
         try {
           xhr.__mwx_responseHeaders = payload.headers || {};
+          const responseBytes = proxiedResponseBody(payload);
+          const decodeResponseText = () => {
+            if (responseBytes instanceof Uint8Array) {
+              try { return new TextDecoder('utf-8').decode(responseBytes); } catch (_) { return ''; }
+            }
+            return String(responseBytes || '');
+          };
+          const responseType = String(xhr.responseType || '');
+          let responseValue;
+          if (responseType === 'arraybuffer') {
+            responseValue = responseBytes instanceof Uint8Array ? responseBytes.buffer : new ArrayBuffer(0);
+          } else if (responseType === 'blob') {
+            responseValue = new Blob([responseBytes], { type: responseHeaderValue(payload.headers, 'content-type') });
+          } else if (responseType === 'json') {
+            try { responseValue = JSON.parse(decodeResponseText()); } catch (_) { responseValue = null; }
+          } else {
+            responseValue = decodeResponseText();
+          }
           Object.defineProperty(xhr, 'readyState', { configurable: true, get: () => 4 });
           Object.defineProperty(xhr, 'status', { configurable: true, get: () => payload.status || 200 });
           Object.defineProperty(xhr, 'statusText', { configurable: true, get: () => String(payload.status || 200) });
-          Object.defineProperty(xhr, 'responseText', { configurable: true, get: () => payload.body || '' });
-          Object.defineProperty(xhr, 'response', { configurable: true, get: () => payload.body || '' });
+          Object.defineProperty(xhr, 'responseText', { configurable: true, get: () => decodeResponseText() });
+          Object.defineProperty(xhr, 'response', { configurable: true, get: () => responseValue });
         } catch (_) {}
         try { xhr.onreadystatechange && xhr.onreadystatechange.call(xhr); } catch (_) {}
         try { xhr.onload && xhr.onload.call(xhr, new Event('load')); } catch (_) {}

@@ -37,6 +37,11 @@ let webCompatibilityScriptDOMLifecycleMutation = #"""
         } catch (_) {}
       };
     })();
+    // window 级 holder：attachShadow 包装器已上移到 MediaObservers 段顶部的
+    // document-start 顶层补丁区（F01 收尾），页面解析期（DCL 之前）创建的
+    // shadow root 经它回到本作用域的观察器；包装器只读 window 属性，不在
+    // 顶层直接引用本回调作用域标识符，避免解析期调用命中 TDZ。
+    window.__mwxInstallWallpaperShadowObserver = installWallpaperShadowObserver;
     const mediaNodes = wallpaperImmediateMediaNodes();
     wallpaperEnsureHostScaffold.install(document);
     mediaNodes.forEach(attachWallpaperMediaNode);

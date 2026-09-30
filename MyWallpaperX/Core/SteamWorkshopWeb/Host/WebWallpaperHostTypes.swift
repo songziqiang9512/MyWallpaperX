@@ -220,6 +220,12 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
         let errorMessage: String?
     }
 
+    /// 目录访问错误去重键：属性名 + 屏幕标识，逐屏独立记录状态迁移。
+    struct DirectoryAccessErrorKey: Hashable {
+        let propertyName: String
+        let screenID: CGDirectDisplayID?
+    }
+
     struct FetchAllDirectorySyncResult {
         let seenPropertyNames: Set<String>
         let watchedDirectoriesByProperty: [String: String]
@@ -256,7 +262,15 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     var eventHandler: ((WallpaperEngine.WebWallpaperHostEvent) -> Void)?
 
     var phase: Phase = .idle
-    var currentRequest: WallpaperEngine.WebWallpaperLaunchRequest?
+    var currentRequest: WallpaperEngine.WebWallpaperLaunchRequest? {
+        didSet {
+            // 请求切换（新壁纸 / 停止 / 失败）时作废旧目录快照，并在后台预枚举
+            // 新请求的 directory 属性；主线程的随机文件请求只做取值。
+            guard oldValue?.id != currentRequest?.id else { return }
+            resetRandomFileSnapshots()
+            refreshRandomFileSnapshots(using: currentRequest?.propertiesJSON)
+        }
+    }
     var currentVolume: Float = 0.5
     var currentPlaybackRate: Float = 1.0
     var currentSpectrumLevels: [Float]?
@@ -274,7 +288,11 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     var navigationOwnershipByScreen: [CGDirectDisplayID: NavigationOwnership] = [:]
     var loopbackServers: [CGDirectDisplayID: WebWallpaperLoopbackServer] = [:]
     var directorySnapshotsByProperty: [String: DirectorySnapshot] = [:]
-    var directoryAccessErrorsByProperty: [String: String] = [:]
+    // 键含屏幕维度：目录访问错误通知按屏去重，多显示器各自收到状态迁移。
+    var directoryAccessErrorsByProperty: [DirectoryAccessErrorKey: String] = [:]
+    var randomFileSnapshotsByDirectoryPath: [String: DirectorySnapshot] = [:]
+    var randomFileSnapshotRefreshedAtByDirectoryPath: [String: TimeInterval] = [:]
+    var randomFileEnumeratingDirectoryPaths = Set<String>()
     var directoryWatchersByProperty: [String: DirectoryWatcher] = [:]
     var directoryWatchTimer: DispatchSourceTimer?
     let directorySyncQueue = DispatchQueue(label: "com.songziqiang.MyWallpaperX.web-directory-sync", qos: .utility)
@@ -304,6 +322,8 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     static let transientCaptureDuration: TimeInterval = 0.03
     static let dragCaptureDuration: TimeInterval = 0.12
     static let hoverPreheatInset: CGFloat = 0.03
+    /// 随机文件目录快照的最小重枚举间隔，与 fetchall 目录轮询节奏一致。
+    static let randomFileSnapshotRefreshInterval: TimeInterval = 10
     static func webCompatibilityScript(
         for request: WallpaperEngine.WebWallpaperLaunchRequest?,
         generalPropertiesJSON: String,

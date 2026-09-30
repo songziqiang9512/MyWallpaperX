@@ -198,6 +198,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         for surface in surfaces.values {
             surface.schemeHandler.updateAdditionalReadableRoots(accessibleURLs)
         }
+        refreshRandomFileSnapshots(using: propertiesJSON)
     }
 
     func accessibleResourceURLs(from propertiesJSON: String?) -> [URL] {
@@ -267,23 +268,72 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         return absoluteLocalSchemeURL(for: resolvedURL)
     }
 
+    /// 主线程只从后台枚举出的目录快照里取随机值：目录树遍历一律在
+    /// directorySyncQueue 上进行（复用 fetchall 目录同步的枚举实现
+    /// directorySyncStatus(forPath:)），不再随每次随机请求阻塞主线程。
     func randomFileURL(in directoryURL: URL) -> URL? {
-        guard let enumerator = FileManager.default.enumerator(
-            at: directoryURL,
-            includingPropertiesForKeys: [.isRegularFileKey, .isHiddenKey],
-            options: [.skipsHiddenFiles, .skipsPackageDescendants]
-        ) else {
+        let cacheKey = randomFileCacheKey(for: directoryURL)
+        guard let snapshot = randomFileSnapshotsByDirectoryPath[cacheKey] else {
+            // 快照未就绪：触发后台补枚举，本轮让页面拿到空结果（与属性缺失
+            // 同一条 fail-soft 路径），绝不在主线程同步遍历目录树。
+            scheduleRandomFileSnapshotRefresh(for: directoryURL)
             return nil
         }
+        scheduleRandomFileSnapshotRefresh(for: directoryURL)
+        return snapshot.filesByPath.keys.randomElement()
+            .map { URL(fileURLWithPath: $0).standardizedFileURL }
+    }
 
-        let candidates = enumerator.compactMap { element -> URL? in
-            guard let url = element as? URL else { return nil }
-            let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isHiddenKey])
-            guard values?.isRegularFile == true, values?.isHidden != true else { return nil }
-            return url
+    func resetRandomFileSnapshots() {
+        randomFileSnapshotsByDirectoryPath.removeAll()
+        randomFileSnapshotRefreshedAtByDirectoryPath.removeAll()
+        randomFileEnumeratingDirectoryPaths.removeAll()
+    }
+
+    func refreshRandomFileSnapshots(using propertiesJSON: String?) {
+        guard let propertiesJSON,
+              let data = propertiesJSON.data(using: .utf8),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return
         }
+        for rawPayload in root.values {
+            guard let payload = rawPayload as? [String: Any],
+                  let payloadType = payload["type"] as? String,
+                  payloadType.lowercased() == "directory",
+                  let rawValue = payload["value"] as? String,
+                  rawValue.isEmpty == false else {
+                continue
+            }
+            scheduleRandomFileSnapshotRefresh(for: URL(fileURLWithPath: rawValue))
+        }
+    }
 
-        return candidates.randomElement()?.standardizedFileURL
+    private func randomFileCacheKey(for directoryURL: URL) -> String {
+        directoryURL.resolvingSymlinksInPath().standardizedFileURL.path
+    }
+
+    private func scheduleRandomFileSnapshotRefresh(for directoryURL: URL) {
+        let cacheKey = randomFileCacheKey(for: directoryURL)
+        guard randomFileEnumeratingDirectoryPaths.contains(cacheKey) == false else { return }
+        if let refreshedAt = randomFileSnapshotRefreshedAtByDirectoryPath[cacheKey],
+           ProcessInfo.processInfo.systemUptime - refreshedAt < Self.randomFileSnapshotRefreshInterval {
+            return
+        }
+        randomFileEnumeratingDirectoryPaths.insert(cacheKey)
+        let requestID = currentRequest?.id
+        let directoryPath = directoryURL.path
+        directorySyncQueue.async { [weak self] in
+            guard let self else { return }
+            let status = self.directorySyncStatus(forPath: directoryPath)
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.randomFileEnumeratingDirectoryPaths.remove(cacheKey)
+                // 请求已切换的旧枚举结果不落回快照，避免跨请求写入。
+                guard self.currentRequest?.id == requestID else { return }
+                self.randomFileSnapshotsByDirectoryPath[cacheKey] = status.snapshot
+                self.randomFileSnapshotRefreshedAtByDirectoryPath[cacheKey] = ProcessInfo.processInfo.systemUptime
+            }
+        }
     }
 
     func absoluteLocalSchemeURL(for fileURL: URL) -> String {
@@ -505,14 +555,18 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                             guard let key = key as? String else { continue }
                             headerFields[key] = String(describing: value)
                         }
-                        let textBody = String(data: result.body, encoding: .utf8) ?? result.body.base64EncodedString()
+                        // 响应体统一 base64 回传并固定携带编码标志：按 UTF-8
+                        // 可解码性二选一的旧编码没有标志，页面只能把响应体当
+                        // 文本消费，非 UTF-8 二进制（图片/字体/音频）静默损坏。
+                        // 统一编码后无二义性，页面侧按 bodyIsBase64 还原字节。
                         self.resolveNetworkRequest(
                             requestID: requestID,
                             payload: [
                                 "ok": true,
                                 "status": result.response.statusCode,
                                 "headers": headerFields,
-                                "body": textBody
+                                "body": result.body.base64EncodedString(),
+                                "bodyIsBase64": true
                             ],
                             webView: webView
                         )

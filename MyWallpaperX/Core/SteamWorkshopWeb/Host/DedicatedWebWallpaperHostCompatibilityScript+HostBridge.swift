@@ -555,6 +555,7 @@ let webCompatibilityScriptHostBridge = #"""
   };
   window.__myWallpaperSetGlobalVolume = function(value) {
     const volume = Math.max(0, Math.min(1, Number(value) || 0));
+    window.__myWallpaperLastHostVolume = volume;
     const mediaNodes = Array.from(document.querySelectorAll('audio,video'));
     for (const node of mediaNodes.concat(audioStreams)) {
       if (!node) continue;
@@ -569,6 +570,7 @@ let webCompatibilityScriptHostBridge = #"""
   };
   window.__myWallpaperSetPlaybackRate = function(value) {
     const playbackRate = Math.max(0.25, Math.min(2, Number(value) || 1));
+    window.__myWallpaperLastHostPlaybackRate = playbackRate;
     const mediaNodes = Array.from(document.querySelectorAll('audio,video'));
     for (const node of mediaNodes.concat(audioStreams)) {
       if (!node) continue;

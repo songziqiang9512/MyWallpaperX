@@ -147,9 +147,11 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         previousSnapshots _: [String: DirectorySnapshot]
     ) {
         directorySnapshotsByProperty = result.snapshotsByProperty
-        let obsoletePropertyNames = Set(directoryAccessErrorsByProperty.keys).subtracting(result.seenPropertyNames)
-        for propertyName in obsoletePropertyNames {
-            directoryAccessErrorsByProperty.removeValue(forKey: propertyName)
+        let obsoleteErrorKeys = directoryAccessErrorsByProperty.keys.filter {
+            result.seenPropertyNames.contains($0.propertyName) == false
+        }
+        for key in obsoleteErrorKeys {
+            directoryAccessErrorsByProperty.removeValue(forKey: key)
         }
 
         reconfigureDirectoryWatchers(with: result.watchedDirectoriesByProperty)

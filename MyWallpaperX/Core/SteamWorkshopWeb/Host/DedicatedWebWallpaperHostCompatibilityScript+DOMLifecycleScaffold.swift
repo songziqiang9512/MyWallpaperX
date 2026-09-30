@@ -72,6 +72,10 @@ let webCompatibilityScriptDOMLifecycleScaffold = #"""
       };
       return { install };
     })();
+    // window 级 holder：DOMContentLoaded 同一性补丁已上移到 MediaObservers
+    // 段顶部的 document-start 顶层补丁区（F40），wrapped 监听器触发时经它
+    // 回调本作用域的安装器；补丁自身不引用 DCL 回调作用域标识符。
+    window.__mwxEnsureOptionalSliderControls = wallpaperEnsureOptionalSliderControls;
     const wallpaperCrossOriginFrameFallbacks = (() => {
       const documentPropertyName = '__mwxCrossOriginFallbackDocument';
       const windowPropertyName = '__mwxCrossOriginFallbackWindow';
@@ -251,27 +255,10 @@ let webCompatibilityScriptDOMLifecycleScaffold = #"""
         Element.prototype.__mwxSliderQueryGuardPatched = true;
       }
     } catch (_) {}
-    try {
-      const originalAddEventListener = EventTarget.prototype.addEventListener;
-      if (typeof originalAddEventListener === 'function' && EventTarget.prototype.__mwxDOMReadyGuardPatched !== true) {
-        EventTarget.prototype.addEventListener = function(type, listener, options) {
-          if (
-            String(type || '') === 'DOMContentLoaded' &&
-            typeof listener === 'function' &&
-            (this === document || this === window)
-          ) {
-            const wrappedListener = function(event) {
-              try { wallpaperEnsureOptionalSliderControls.install(document); } catch (_) {}
-              return listener.call(this, event);
-            };
-            try { Object.defineProperty(wrappedListener, 'name', { value: listener.name || 'mwxDOMContentLoadedListener' }); } catch (_) {}
-            return originalAddEventListener.call(this, type, wrappedListener, options);
-          }
-          return originalAddEventListener.call(this, type, listener, options);
-        };
-        EventTarget.prototype.__mwxDOMReadyGuardPatched = true;
-      }
-    } catch (_) {}
+    // DOMContentLoaded addEventListener/removeEventListener 同一性补丁已上移
+    // 至 MediaObservers 段顶部的 document-start 顶层补丁区（F40 收尾）：
+    // 原位安装发生在宿主自身 DCL 回调体内，页面解析期注册的监听器不走
+    // wrapped 路径，removeEventListener 同一性修复实际不可达。
     try {
       document.addEventListener('DOMContentLoaded', () => {
         wallpaperEnsureOptionalSliderControls.install(document);

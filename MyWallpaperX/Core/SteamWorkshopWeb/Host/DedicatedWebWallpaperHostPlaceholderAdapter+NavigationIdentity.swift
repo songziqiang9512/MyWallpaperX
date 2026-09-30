@@ -12,7 +12,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     func createAndLoadSurface(
         for screen: NSScreen,
         request: WallpaperEngine.WebWallpaperLaunchRequest,
-        localEntryURL: URL
+        localEntryURL: URL,
+        loadFailureMessage: String
     ) -> Bool {
         guard let screenID = Self.screenID(for: screen) else { return false }
         let surface = makeSurface(for: screen, screenID: screenID)
@@ -28,14 +29,14 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         surface.window.orderFrontRegardless()
         #endif
         surface.window.level = Self.webWindowLevel
-        guard loadTrackedNavigation(
+        loadTrackedNavigation(
             on: surface,
             request: request,
             localEntryURL: localEntryURL,
             stopCurrent: false
-        ) else {
-            removeSurface(for: screenID)
-            return false
+        ) { [weak self] didLoad in
+            guard let self, didLoad == false else { return }
+            self.failCurrentLaunch(message: loadFailureMessage)
         }
         return true
     }
@@ -43,49 +44,53 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     func reloadTrackedSurfaces(
         for request: WallpaperEngine.WebWallpaperLaunchRequest,
         localEntryURL: URL
-    ) -> Bool {
+    ) {
         for surface in Array(surfaces.values) {
             setTransientMouseCaptureEnabled(false, for: surface)
             surface.schemeHandler.updateAdditionalReadableRoots(accessibleResourceURLs(from: request.propertiesJSON))
             surface.window.orderFrontRegardless()
             surface.window.level = Self.webWindowLevel
-            guard loadTrackedNavigation(
+            loadTrackedNavigation(
                 on: surface,
                 request: request,
                 localEntryURL: localEntryURL,
                 stopCurrent: true
-            ) else {
-                return false
+            ) { [weak self] didLoad in
+                guard let self, didLoad == false else { return }
+                self.failCurrentLaunch(message: "dedicated_web_host_navigation_unavailable")
             }
         }
-        return true
     }
 
-    @discardableResult
     func loadTrackedNavigation(
         on surface: HostSurface,
         request: WallpaperEngine.WebWallpaperLaunchRequest,
         localEntryURL: URL,
-        stopCurrent: Bool
-    ) -> Bool {
+        stopCurrent: Bool,
+        completion: @escaping (Bool) -> Void
+    ) {
         navigationOwnershipByScreen.removeValue(forKey: surface.screenID)
         if stopCurrent {
             surface.webView.stopLoading()
         }
-        guard let navigation = surface.webView.load(
-            URLRequest(url: runtimeEntryURL(for: request, localEntryURL: localEntryURL, surface: surface))
-        ) else {
-            return false
+        runtimeEntryURL(for: request, localEntryURL: localEntryURL, surface: surface) { [weak self] entryURL in
+            // 等待 loopback 端口期间请求或 surface 已被替换：当前 owner 自行
+            // 管理生命周期，静默放弃这次装载，不重复报失败。
+            guard let self,
+                  self.currentRequest?.id == request.id,
+                  self.surfaces[surface.screenID]?.webView === surface.webView else {
+                return
+            }
+            guard let navigation = surface.webView.load(URLRequest(url: entryURL)) else {
+                completion(false)
+                return
+            }
+            self.navigationOwnershipByScreen[surface.screenID] = NavigationOwnership(
+                requestID: request.id,
+                navigation: navigation
+            )
+            completion(true)
         }
-        guard currentRequest?.id == request.id,
-              surfaces[surface.screenID]?.webView === surface.webView else {
-            return false
-        }
-        navigationOwnershipByScreen[surface.screenID] = NavigationOwnership(
-            requestID: request.id,
-            navigation: navigation
-        )
-        return true
     }
 
     func reloadTrackedNavigation(on surface: HostSurface, requestID: UUID) -> Bool {

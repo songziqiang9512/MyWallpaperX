@@ -4,6 +4,86 @@
 //
 
 let webCompatibilityScriptMediaObservers = #"""
+  // document-start 顶层补丁区：attachShadow 包装器（F01）与
+  // addEventListener/removeEventListener DOMContentLoaded 同一性补丁（F40）
+  // 必须在 DCL 回调之外、页面解析期之前安装，才能覆盖解析期注册的监听器与
+  // 解析期创建的 shadow root。两者的具体实现（installWallpaperShadowObserver、
+  // wallpaperEnsureOptionalSliderControls）声明在下方 DCL 回调作用域内，这里
+  // 经 window 级 holder（__mwxInstallWallpaperShadowObserver /
+  // __mwxEnsureOptionalSliderControls）惰性桥接：包装器只读 window 属性，
+  // 不直接引用回调作用域标识符，避免解析期调用命中 TDZ/未定义。
+  try {
+    const originalAttachShadow = window.Element && window.Element.prototype &&
+      typeof window.Element.prototype.attachShadow === 'function'
+      ? window.Element.prototype.attachShadow
+      : null;
+    if (originalAttachShadow && window.Element.prototype.__mwxAttachShadowWrapped !== true) {
+      window.Element.prototype.attachShadow = function(init) {
+        const shadowRoot = originalAttachShadow.call(this, init);
+        try {
+          if (typeof window.__mwxInstallWallpaperShadowObserver === 'function') {
+            window.__mwxInstallWallpaperShadowObserver(shadowRoot);
+          }
+        } catch (_) {}
+        try { wallpaperRefreshMediaState(); } catch (_) {}
+        return shadowRoot;
+      };
+      window.Element.prototype.__mwxAttachShadowWrapped = true;
+    }
+  } catch (_) {}
+  try {
+    const originalAddEventListener = EventTarget.prototype.addEventListener;
+    const originalRemoveEventListener = EventTarget.prototype.removeEventListener;
+    if (
+      typeof originalAddEventListener === 'function' &&
+      typeof originalRemoveEventListener === 'function' &&
+      EventTarget.prototype.__mwxDOMReadyGuardPatched !== true
+    ) {
+      const domReadyWrappedListeners = new WeakMap();
+      const wrapDOMContentLoadedListener = (listener) => {
+        const existingWrappedListener = domReadyWrappedListeners.get(listener);
+        if (existingWrappedListener) return existingWrappedListener;
+        const wrappedListener = function(event) {
+          try {
+            if (
+              window.__mwxEnsureOptionalSliderControls &&
+              typeof window.__mwxEnsureOptionalSliderControls.install === 'function'
+            ) {
+              window.__mwxEnsureOptionalSliderControls.install(document);
+            }
+          } catch (_) {}
+          return listener.call(this, event);
+        };
+        try { Object.defineProperty(wrappedListener, 'name', { value: listener.name || 'mwxDOMContentLoadedListener' }); } catch (_) {}
+        domReadyWrappedListeners.set(listener, wrappedListener);
+        return wrappedListener;
+      };
+      EventTarget.prototype.addEventListener = function(type, listener, options) {
+        if (
+          String(type || '') === 'DOMContentLoaded' &&
+          typeof listener === 'function' &&
+          (this === document || this === window)
+        ) {
+          return originalAddEventListener.call(this, type, wrapDOMContentLoadedListener(listener), options);
+        }
+        return originalAddEventListener.call(this, type, listener, options);
+      };
+      EventTarget.prototype.removeEventListener = function(type, listener, options) {
+        if (
+          String(type || '') === 'DOMContentLoaded' &&
+          typeof listener === 'function' &&
+          (this === document || this === window)
+        ) {
+          const wrappedListener = domReadyWrappedListeners.get(listener);
+          if (wrappedListener) {
+            return originalRemoveEventListener.call(this, type, wrappedListener, options);
+          }
+        }
+        return originalRemoveEventListener.call(this, type, listener, options);
+      };
+      EventTarget.prototype.__mwxDOMReadyGuardPatched = true;
+    }
+  } catch (_) {}
   document.addEventListener('DOMContentLoaded', () => {
     hostLogger.post('dom.ready', document.location.href);
     try {
@@ -73,6 +153,14 @@ let webCompatibilityScriptMediaObservers = #"""
     const attachWallpaperMediaNode = (node) => {
       if (!node || registeredMediaNodes.has(node)) return;
       registeredMediaNodes.add(node);
+      try {
+        const hostVolume = Number(window.__myWallpaperLastHostVolume);
+        if (Number.isFinite(hostVolume)) node.volume = hostVolume;
+      } catch (_) {}
+      try {
+        const hostPlaybackRate = Number(window.__myWallpaperLastHostPlaybackRate);
+        if (Number.isFinite(hostPlaybackRate)) node.playbackRate = hostPlaybackRate;
+      } catch (_) {}
       if (!loggedFirstMediaNode) {
         loggedFirstMediaNode = true;
         hostLogger.post('first-media-node-found', mediaStateSummary(node));

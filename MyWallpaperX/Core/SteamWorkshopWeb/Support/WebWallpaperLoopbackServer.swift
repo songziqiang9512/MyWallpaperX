@@ -10,6 +10,8 @@ final class WebWallpaperLoopbackServer {
     private let queue = DispatchQueue(label: "com.songziqiang.MyWallpaperX.web-loopback", qos: .userInitiated)
     private let schemeHandler: WebWallpaperLocalSchemeHandler
     private var listener: NWListener?
+    private var pendingStartCompletion: ((Result<URL, Error>) -> Void)?
+    private var startupTimeoutWorkItem: DispatchWorkItem?
     private(set) var port: UInt16?
     var diagnosticHandler: ((String, WebRuntimeDiagnosticEvent.Severity, String, URL?) -> Void)?
 
@@ -17,63 +19,112 @@ final class WebWallpaperLoopbackServer {
         self.schemeHandler = schemeHandler
     }
 
-    func start() throws -> URL {
+    /// 异步启动：端口就绪或失败经 completion（主队列）回报，超时 1 秒回退
+    /// 语义与旧同步等待一致，但不再阻塞调用线程。端口已就绪时同步完成。
+    func start(completion: @escaping (Result<URL, Error>) -> Void) {
         if let port,
            let url = URL(string: "http://127.0.0.1:\(port)/") {
-            return url
+            completion(.success(url))
+            return
         }
 
-        let readySemaphore = DispatchSemaphore(value: 0)
-        let parameters = NWParameters.tcp
-        parameters.acceptLocalOnly = true
-        parameters.requiredLocalEndpoint = .hostPort(
-            host: NWEndpoint.Host("127.0.0.1"),
-            port: .any
-        )
-        let listener = try NWListener(using: parameters, on: .any)
-        var startupError: Error?
-        listener.stateUpdateHandler = { [weak self] state in
-            guard let self else { return }
-            switch state {
-            case .ready:
-                self.port = listener.port?.rawValue
-                self.diagnosticHandler?("loopback.ready", .info, "port=\(self.port ?? 0)", nil)
-                readySemaphore.signal()
-            case let .failed(error):
-                startupError = error
-                self.diagnosticHandler?("loopback.failed", .error, error.localizedDescription, nil)
-                readySemaphore.signal()
-            case let .waiting(error):
-                self.diagnosticHandler?("loopback.waiting", .warning, error.localizedDescription, nil)
-            default:
-                break
+        if listener == nil {
+            let parameters = NWParameters.tcp
+            parameters.acceptLocalOnly = true
+            parameters.requiredLocalEndpoint = .hostPort(
+                host: NWEndpoint.Host("127.0.0.1"),
+                port: .any
+            )
+            do {
+                let listener = try NWListener(using: parameters, on: .any)
+                listener.stateUpdateHandler = { [weak self] state in
+                    self?.handleListenerState(state)
+                }
+                listener.newConnectionHandler = { [weak self] connection in
+                    self?.handle(connection)
+                }
+                listener.start(queue: queue)
+                self.listener = listener
+            } catch {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+                return
             }
         }
-        listener.newConnectionHandler = { [weak self] connection in
-            self?.handle(connection)
-        }
-        listener.start(queue: queue)
-        self.listener = listener
 
-        if readySemaphore.wait(timeout: .now() + 1.0) == .timedOut {
-            diagnosticHandler?("loopback.start.timeout", .error, "listener did not become ready", nil)
-            listener.cancel()
+        pendingStartCompletion = { result in
+            DispatchQueue.main.async {
+                completion(result)
+            }
+        }
+        let timeoutWorkItem = DispatchWorkItem { [weak self] in
+            guard let self,
+                  let pendingCompletion = self.pendingStartCompletion else { return }
+            self.pendingStartCompletion = nil
+            self.startupTimeoutWorkItem = nil
+            self.diagnosticHandler?("loopback.start.timeout", .error, "listener did not become ready", nil)
+            self.listener?.cancel()
             self.listener = nil
-            throw NSError(domain: "WebWallpaperLoopbackServer", code: 3, userInfo: [NSLocalizedDescriptionKey: "loopback_start_timeout"])
+            pendingCompletion(.failure(NSError(
+                domain: "WebWallpaperLoopbackServer",
+                code: 3,
+                userInfo: [NSLocalizedDescriptionKey: "loopback_start_timeout"]
+            )))
         }
-        if let startupError {
-            listener.cancel()
-            self.listener = nil
-            throw startupError
+        startupTimeoutWorkItem = timeoutWorkItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: timeoutWorkItem)
+    }
+
+    /// NWListener 回调在自建 queue 上；启动状态涉及的 completion/超时/端口
+    /// 状态统一回主线程处理，与 start()/stop() 的调用线程保持一致。
+    private func handleListenerState(_ state: NWListener.State) {
+        DispatchQueue.main.async { [weak self] in
+            self?.applyListenerState(state)
         }
-        guard let port,
-              let url = URL(string: "http://127.0.0.1:\(port)/") else {
-            throw NSError(domain: "WebWallpaperLoopbackServer", code: 1, userInfo: [NSLocalizedDescriptionKey: "loopback_port_unavailable"])
+    }
+
+    private func applyListenerState(_ state: NWListener.State) {
+        switch state {
+        case .ready:
+            port = listener?.port?.rawValue
+            diagnosticHandler?("loopback.ready", .info, "port=\(port ?? 0)", nil)
+            if let port,
+               let url = URL(string: "http://127.0.0.1:\(port)/") {
+                finishStartup(.success(url))
+            } else {
+                listener?.cancel()
+                listener = nil
+                finishStartup(.failure(NSError(
+                    domain: "WebWallpaperLoopbackServer",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "loopback_port_unavailable"]
+                )))
+            }
+        case let .failed(error):
+            diagnosticHandler?("loopback.failed", .error, error.localizedDescription, nil)
+            listener?.cancel()
+            listener = nil
+            finishStartup(.failure(error))
+        case let .waiting(error):
+            diagnosticHandler?("loopback.waiting", .warning, error.localizedDescription, nil)
+        default:
+            break
         }
-        return url
+    }
+
+    private func finishStartup(_ result: Result<URL, Error>) {
+        guard let pendingCompletion = pendingStartCompletion else { return }
+        pendingStartCompletion = nil
+        startupTimeoutWorkItem?.cancel()
+        startupTimeoutWorkItem = nil
+        pendingCompletion(result)
     }
 
     func stop() {
+        startupTimeoutWorkItem?.cancel()
+        startupTimeoutWorkItem = nil
+        pendingStartCompletion = nil
         listener?.cancel()
         listener = nil
         port = nil

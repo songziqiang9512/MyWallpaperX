@@ -1,9 +1,82 @@
 import Foundation
+import AppKit
 import WebKit
 
 extension DedicatedWebWallpaperHostPlaceholderAdapter {
+    /// WebKit 历史常量 WebKitErrorFrameLoadInterruptedByPolicyChange
+    /// （WebKitErrorDomain）：decidePolicyFor 取消导航后 WebKit 报告的帧加载中断。
+    private static let webKitFrameLoadInterruptedByPolicyChangeCode = 102
+
+    private static let ignoredNavigationFailureDomains: Set<String> = [
+        NSURLErrorDomain,
+        WKError.errorDomain,
+        "WebKitErrorDomain"
+    ]
+
     private var ignoredNavigationFailureCodes: Set<Int> {
-        [NSURLErrorCancelled]
+        // NSURLErrorCancelled：在途加载被宿主 stopLoading 或后续导航取代。
+        // webKitFrameLoadInterruptedByPolicyChangeCode：navigationPolicy 取消
+        // 页面内导航的产物，两者都不构成启动失败。
+        [NSURLErrorCancelled, Self.webKitFrameLoadInterruptedByPolicyChangeCode]
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+        decisionHandler(navigationPolicy(for: navigationAction, webView: webView))
+    }
+
+    /// 壁纸页面唯一入口由宿主装载（loadTrackedNavigation、恢复重载）。入口之后的
+    /// 主框架跨文档导航一律取消：瞬态鼠标捕获放行的 a[href] 点击和页面 JS 的
+    /// location 外跳都不允许把桌面页面替换成外部网页；用户点击的 http(s) 外链
+    /// 转交系统浏览器。子框架导航属于页面内容，同文档（仅 fragment 差异）导航
+    /// 无法离开当前文档，均放行。
+    func navigationPolicy(for navigationAction: WKNavigationAction, webView: WKWebView) -> WKNavigationActionPolicy {
+        // 子框架（iframe）导航是页面内容，直接放行；主框架继续走取消判定。
+        // WKNavigationAction.targetFrame 是 WKFrameInfo?：仅子框架满足
+        // `?isMainFrame == false`；nil（新窗口导航）与主框架同走取消判定，
+        // 不允许在桌面另开外部网页窗口。
+        if navigationAction.targetFrame?.isMainFrame == false {
+            return .allow
+        }
+        guard let currentURL = webView.url else {
+            return .allow
+        }
+        if navigationAction.navigationType == .reload {
+            return .allow
+        }
+        guard let targetURL = navigationAction.request.url else {
+            return .cancel
+        }
+        if Self.isSameDocumentNavigation(target: targetURL, current: currentURL) {
+            return .allow
+        }
+        let isLinkHandoff = navigationAction.navigationType == .linkActivated
+        recordDiagnostic(
+            type: "navigation.blocked",
+            severity: .info,
+            message: isLinkHandoff ? "link_handoff" : "in_page_navigation_cancelled",
+            screenID: screenID(for: webView),
+            url: targetURL.absoluteString
+        )
+        if isLinkHandoff,
+           let scheme = targetURL.scheme?.lowercased(),
+           scheme == "http" || scheme == "https" {
+            NSWorkspace.shared.open(targetURL)
+        }
+        return .cancel
+    }
+
+    static func isSameDocumentNavigation(target: URL, current: URL) -> Bool {
+        var targetComponents = URLComponents(url: target, resolvingAgainstBaseURL: false)
+        var currentComponents = URLComponents(url: current, resolvingAgainstBaseURL: false)
+        targetComponents?.fragment = nil
+        currentComponents?.fragment = nil
+        return targetComponents != nil
+            && currentComponents != nil
+            && targetComponents?.url == currentComponents?.url
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
@@ -149,11 +222,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     func handleNavigationFailure(_ error: Error, navigation: WKNavigation?, webView: WKWebView) {
         guard let screenID = screenIDForCurrentNavigation(navigation, webView: webView) else { return }
         let nsError = error as NSError
-        if nsError.domain == NSURLErrorDomain,
-           ignoredNavigationFailureCodes.contains(nsError.code) {
-            return
-        }
-        if nsError.domain == WKError.errorDomain,
+        if Self.ignoredNavigationFailureDomains.contains(nsError.domain),
            ignoredNavigationFailureCodes.contains(nsError.code) {
             return
         }

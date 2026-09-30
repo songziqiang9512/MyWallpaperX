@@ -175,20 +175,6 @@ let webCompatibilityScriptInteractionAndRuntimeMedia = #"""
       mediaObserver.observe(document.documentElement || document, { childList: true, subtree: true });
     } catch (_) {}
   }
-  if (window.Element && window.Element.prototype && typeof window.Element.prototype.attachShadow === 'function') {
-    try {
-      const originalAttachShadow = window.Element.prototype.attachShadow;
-      if (!window.Element.prototype.__mwxAttachShadowWrapped) {
-        window.Element.prototype.__mwxAttachShadowWrapped = true;
-        window.Element.prototype.attachShadow = function(init) {
-          const shadowRoot = originalAttachShadow.call(this, init);
-          installWallpaperShadowObserver(shadowRoot);
-          wallpaperRefreshMediaState();
-          return shadowRoot;
-        };
-      }
-    } catch (_) {}
-  }
   const visibilityOverrideResults = [
     defineVisibilityProperty(document, 'hidden', () => false),
     defineVisibilityProperty(Document.prototype, 'hidden', () => false),
