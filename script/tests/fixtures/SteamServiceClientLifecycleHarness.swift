@@ -218,7 +218,8 @@ final class FakeSteamIdleReapTiming: SteamIdleReapTiming {
             now: { virtualNow })
         // 浏览面板挂载计数：与产品 owner（SteamWorkshopService
         // .browsePanelAttachmentCount）同一转移规则——初始 0，只由进窗/出窗事件
-        // 增减，无合成复位；门表达式同产品装配（计数为 0 才算浏览休眠）。
+        // 增减（出窗钳 0，同产品 noteBrowsePanelDetached），无合成复位；门表达式
+        // 同产品装配（计数为 0 才算浏览休眠）。
         var browsePanelAttachments = 0
         var hasActiveDownloadTasks = false
         let timing = FakeSteamIdleReapTiming()
@@ -252,6 +253,13 @@ final class FakeSteamIdleReapTiming: SteamIdleReapTiming {
         virtualNow = virtualNow.addingTimeInterval(601)
         await fireAndAssertStillReady("browse panel")
         browsePanelAttachments -= 1 // viewDidMoveToWindow: detached
+        // 无配对出窗（nil→nil 触发）钳在 0：负数会让下一次真实进窗停在 0，
+        // 面板可见却被判休眠。与产品 owner（noteBrowsePanelDetached）同一规则。
+        browsePanelAttachments = max(0, browsePanelAttachments - 1)
+        browsePanelAttachments += 1
+        precondition(browsePanelAttachments == 1,
+                     "unpaired detach must not swallow the next attach")
+        browsePanelAttachments = max(0, browsePanelAttachments - 1)
 
         // 门 2：在途 pending 请求（helper 非静默）。
         transports.last!.replyOnSend = false
@@ -312,9 +320,25 @@ final class FakeSteamIdleReapTiming: SteamIdleReapTiming {
         virtualNow = virtualNow.addingTimeInterval(599)
         await fireAndAssertStillReady("idle age below timeout")
 
+        // end() 与已派发回收 Task 的竞态：fire() 同步派发回收 Task 并重排轮询，
+        // 同一 MainActor 轮次内立刻 end()——终态先于 Task 体落地，绝不回收。
+        virtualNow = virtualNow.addingTimeInterval(2)
+        precondition(timing.hasPendingEvaluation)
+        timing.fire()
+        reaper.end()
+        precondition(!timing.hasPendingEvaluation, "end must cancel the armed poll")
+        var raced = false
+        let raceDeadline = Date().addingTimeInterval(2)
+        while Date() < raceDeadline {
+            if case .ready = client.state {} else { raced = true; break }
+            await Task.yield()
+        }
+        precondition(!raced, "end before the dispatched reap Task must suppress reaping (state \(client.state))")
+        reaper.begin()
+        precondition(timing.hasPendingEvaluation, "re-begin must re-arm the poll")
+
         print("REAP")
         // 全门满足：回收触发，复用 stop() 通道进入 terminated。
-        virtualNow = virtualNow.addingTimeInterval(2)
         timing.fire()
         let reapDeadline = Date().addingTimeInterval(2)
         while client.state != .terminated && Date() < reapDeadline { await Task.yield() }

@@ -33,9 +33,11 @@ final class SteamWorkshopService: ObservableObject {
         browsePanelAttachmentCount += 1
     }
 
-    /// 浏览面板出窗（同上唯一产生者）。
+    /// 浏览面板出窗（同上唯一产生者）。无配对出窗（视图被装入未挂窗层级后
+    /// 移除时，viewDidMoveToWindow 以 nil→nil 触发）不得把计数推负——负数会让
+    /// 下一次真实进窗停在 0，面板可见却被判休眠（fail-deadly 方向）。
     func noteBrowsePanelDetached() {
-        browsePanelAttachmentCount -= 1
+        browsePanelAttachmentCount = max(0, browsePanelAttachmentCount - 1)
     }
     @Published var isRefreshingBrowserFeed = false
     @Published var previewReloadToken: Int = 0

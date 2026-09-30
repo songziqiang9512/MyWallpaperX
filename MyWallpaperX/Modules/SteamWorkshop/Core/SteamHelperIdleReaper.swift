@@ -99,7 +99,9 @@ final class SteamHelperIdleReaper {
         Task { @MainActor [weak self] in
             // 与 stop() 同一 MainActor 原子时机：reap 为 @MainActor 闭包，门复核
             // 后同执行者直调，复核与 reap 启动之间无挂起点、无执行者切换。
-            guard let self, self.isDormant(at: self.now()) else { return }
+            // end() 可能落在 evaluate 派发与本 Task 执行之间（同一轮次内终态先
+            // 于 Task 体落地），终态后绝不回收——isRunning 与门一并在此复核。
+            guard let self, self.isRunning, self.isDormant(at: self.now()) else { return }
             await self.reap()
         }
     }
