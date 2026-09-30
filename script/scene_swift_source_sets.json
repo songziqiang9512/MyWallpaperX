@@ -82,6 +82,7 @@
         "Compilation/ShaderFrontend/SceneAuthoredShaderMetalEmitter+Translation.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderColorTransferAnalyzer.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift",
+        "Compilation/ShaderFrontend/SceneAuthoredShaderColorTransferAnalyzer+Derivation.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderFragmentOutputAnalyzer.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderStraightRGBAlphaFactorAnalyzer.swift",
         "Compilation/ShaderFrontend/SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.swift",

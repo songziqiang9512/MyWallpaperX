@@ -127,6 +127,7 @@
           "SceneAuthoredShaderBuiltInPowBroadcast.swift",
           "SceneAuthoredShaderBuiltInVectorConversion.swift",
           "SceneAuthoredShaderColorMixGraphAnalyzer.swift",
+          "SceneAuthoredShaderColorTransferAnalyzer+Derivation.swift",
           "SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift",
           "SceneAuthoredShaderColorTransferAnalyzer.swift",
           "SceneAuthoredShaderConditionalAlphaAnalyzer.swift",
