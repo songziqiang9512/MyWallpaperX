@@ -211,6 +211,23 @@ generate_scene_full_matrix.py 不得用其放宽既有期望。
   另有 runner 侧：合成 effect 无 effectStage 行，disposition/conservation 断言需
   runner 理解合成形态（触 test_scene_wallpaper_benchmark.py，并行会话在途须协调）
   ——**该依赖使子批 B 为跨会话批次**。
+- **子批 B 重放批（2026-09-30 深夜，实现回退、知识全存档）**：全量贯通
+  patch（1002 行，含 threading + 新证明器 + 接线 + 测试，存
+  `docs/scene/evidence/20260930-gap1-synthesis/subbatch-b-full-resume.patch`）
+  重放后实测推进到 envelope-texture-purpose 锚。新证明器
+  （`provesPremultipliedAlbedoUse`，整色 albedo 形状：全 vec4 采样→mix→rgb×标量
+  →单次整写 gl_FragColor/mwxFragColor）本体经独立探针验证正确——authored 形状
+  minimal/mix/brightness/flowimage-full 全部证明 true（双纹理）。**过程中发现并
+  修复证明器两处实现 bug**（语句分割器把闭括号当新语句起点重置 start；终写
+  计数含输出声明 token）。**残余阻塞 = typing 输入源设计决策**：production 的
+  采样器用途 typing 分析 backend-canonical 源（含 prelude/#define/内联
+  common_fragment.h），语法分析器对该形态产 21 条诊断 → 一切 source-proven
+  证明返回 nil（既有 straight-color 族在同形态下同样失效——影响全语料的
+  source-proven 族，非本批引入）。决策选项：typing 改分析 prepared（pre-canonical、
+  authored 形态、实测可解析且证明 true）源 vs 语法分析器学会 canonical 形态——
+  需语义卡裁决后子批 B 方可重放。验证证据：独立探针
+  `/private/tmp/mwx-gpuq/albedo-probe/`（probe3 + minimal-sources.txt），
+  flowimage authored 形状 4 场景全 true、canonical 形状 diag=21。
   实测序：descriptorMismatch → instanceOverlay 拒 → renderStateInvalid →
   envelope-texture-purpose passthrough（图执行 succeeded、合成 compositorConsumed=true、
   视觉无回退——passthrough 转发层源）。回退原因：⑨ 未通前样本 benchmark 由 PASS
