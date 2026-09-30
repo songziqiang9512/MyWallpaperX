@@ -413,7 +413,8 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
                 site: "output-shape",
                 outputUses: outputUses,
                 tokens: tokens,
-                main: main
+                main: main,
+                outcome: "unresolved"
             )
             return .unresolved
         }
@@ -486,11 +487,14 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         if let fact = SceneAuthoredShaderGeneratedStraightRGBAAnalyzer.analyzeSourceCarried(fragment) {
             return fact.colorTransfer
         }
+        let outcome: String = isOpaqueVectorConstruction(expression)
+            ? "opaque" : "unresolved"
         logUnresolved(
             site: "prover-chain",
             outputUses: outputUses,
             tokens: tokens,
-            main: main
+            main: main,
+            outcome: outcome
         )
         return isOpaqueVectorConstruction(expression) ? .opaque : .unresolved
     }
@@ -504,7 +508,8 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         site: String,
         outputUses: [Int],
         tokens: [SceneAuthoredShaderToken],
-        main: SceneAuthoredShaderSyntaxUnit.Function
+        main: SceneAuthoredShaderSyntaxUnit.Function,
+        outcome: String
     ) {
         guard ProcessInfo.processInfo.arguments.contains(
             "--mwx-debug-scene-evidence-dir"
@@ -520,8 +525,9 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
             return "at=\(index) next=\(next) unconditional=\(unconditional) inMain=\(inMain)"
         }
         NSLog(
-            "MWX DEBUG SCENE: phase=color-transfer-unresolved site=%@ useDetails=%@",
+            "MWX DEBUG SCENE: phase=color-transfer-unresolved site=%@ outcome=%@ useDetails=%@",
             site,
+            outcome,
             details.joined(separator: ";")
         )
     }
