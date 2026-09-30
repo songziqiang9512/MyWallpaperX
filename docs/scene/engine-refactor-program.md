@@ -216,6 +216,7 @@ Steam 账号、订阅与下载获取的具体迁移由 [Steam 获取专项](scen
 - **web 宿主策略死路径（2026-09-29，`aee7c08a`）**：`daemonDiagnosticsHarness` 策略不可达（`currentWebHostStrategy` 恒 dedicated、`setWebHostStrategy` 零调用者，E2c 收口复核发现）——整条删除（策略枚举+协议要求+引擎属性+四处 switch/guard+`setWebHostStrategy`+`launchWebWallpaperViaDaemonHarness`+`sendPlayWebCommand`），净 −137 行；`test_playback_policy_delivery` 的 playWeb 段随生产路径删除。登记：daemon 侧 `playWeb` handler 现为无生产者存活命令面（独立 target，IPC 兼容性 owner 裁决后续批）；见[证据](semantics/runtime-evidence-current.md#e-2026-09-29-web-harness-retirement)。
 - **daemon web 宿主 lane 退役（2026-09-29，`936c1f87`）**：App 侧生产者清零后，daemon 的 WKWebView web 宿主（原 diagnostics harness）成为无生产者死面——`Daemon/Web/` 全目录 7 文件（1,056 行）+ Commands 的 playWeb/applyWebProperties case 与 setWeb* 分支 + keep-alive/窗口 helper + 核心 webview 状态与 WK conform + 共享协议 `DaemonCommand.webRootPath` 字段（App 侧 10 构造点实参随删；daemon 用默认 JSONDecoder，可选字段双向兼容）整体删除，净 **−874 行**（+10/−884）。**残值已清（同日后续批，`41e40278`）**：8 文件死 `import WebKit` 与 `currentContentKind` 链（属性+唯一写入+emit fallback）删除，净 −11/+1；两处无显式 contentKind 的 emit（launched 原值即 nil、stopped 消费端为纯 break）经审计无行为影响。见[证据](semantics/runtime-evidence-current.md#e-2026-09-29-daemon-web-lane)。
 - **诊断壁纸入口死函数（2026-09-29，`8c2112d5`）**：`playDiagnosticWebWallpaper`（63 行临时红页+launch）零调用者已删，随删其独占的 `WebWallpaperLaunchSource.diagnostic` case（枚举余 steamWorkshop 单 case，唯一构造点）；`WebRuntimeProfile.diagnostic` 经 DEBUG failure-state runner 通知载荷存活保留。**镜像已删（同日后续批，`7ccea14c`）**：`currentWebLaunchSource` 属性+5 写点+debug runner 清单一行删除（净 −7 行，request source 字段与 adapter 消费保留）。
+- **成员级零调用普查（2026-09-30 工作流调研，具名候选未执行）**：对四目标目录（`Systems/`、`Rendering/Targets/`、`Rendering/Composition/`、`Core/PlaybackControl/`）类型作用域成员建标识符索引，"声明行之外全仓零文本引用"（语料含 script/tests 内嵌 Swift harness；动态分发通道 NSClassFromString/NSSelectorFromString/IBAction/xib 复核为零）桶在当前语料复现为 4 项（工作流当日桶为 5；差异=后续批次落地造成的语料漂移与解析口径，删除批须逐个终证）：`SceneOffscreenEffectRenderer.neutralUniforms`（caseless enum 命名空间 static let，`SceneOffscreenEffectRenderer+Capture.swift:46`）、`SceneResolvedMaterialClaimRoute.rejectsUnclaimedProductAuthority`（`SceneResolvedMaterialGraphComposition.swift:188`）、`SceneLayerGraphTargetPlan.ephemeralByteCost`（`SceneLayerGraphTargetPlan.swift:104`）、`SceneUserPropertyResolution.unresolvedBindingCount`（`SceneUserPropertyBindings.swift:213`）；四者所属类型均无协议 conformance 逃逸面（Equatable 为合成）。**方法论（零调用普查前置）：**script/tests 内嵌可编译 Swift harness 片段是真实调用面，必须并入 .py 语料（工作流实测 26 候选中 21 个被 harness 引用）；`case X:` switch 模式行是使用不是声明。
 - **消融：**只删除证明已由独立行为门替代的重复内部断言／过期 fixture；安全和视觉反例保留。统一 source list 真值后撤销手写镜像；不得把选择器改成漏测来提速。
 - **缓存条件：**若引入 harness 编译缓存，key 必含源码、harness、flags、SDK、编译器、架构和依赖内容；损坏重编，不能复用旧测试二进制冒充当前源码。
 - **结构门：**按用户 2026-09-24 的裁决，code-health 硬上限调整为 1000 行，review warning 仍为 400 行；已落入新上限或已删除路径的 legacy 条目退役。仍超过上限的文件及既有 locked allowance 增长继续由实际职责批次收敛，不据上限调整宣称全仓门禁通过。Settings 按设置状态与动作消费者归责，先删耦合后拆 UI。
@@ -225,6 +226,8 @@ Steam 账号、订阅与下载获取的具体迁移由 [Steam 获取专项](scen
 ### E7 — 文档消融
 
 按 §6 精确表执行，先把当前权威变短并修 consumer，再归档或删除。不得增加一个覆盖所有主题的总台账；本计划的证据快照不继续追加运行日志。
+
+- **台账纯历史段候选（2026-09-30 工作流调研，可删未执行）**：runtime-evidence-current.md 三段自declared 已被 2026-09-13 后继证据取代的纯历史段，git 跟踪文档（排除本页与 history/）零入链：Bind-pose fallback 发布重组逻辑尺寸（`:3389` 起）、Puppet mesh coverage + Water Waves mask UV owner（`:3419` 起）、2026-09-06 用户截图复核（`:3427` 起）。删除批按标题定位段落（行号随编辑漂移），删前复核锚点无残余引用。
 
 完成门：当前入口一跳定位职责，下一任务只在本文或兼容路线各自范围中出现；机器清单仍可生成；旧 anchor 有替代；文档门通过。历史实体删除按 AGENTS.md 列精确清单并确认，不因“已在 Git”就自动清空。
 
