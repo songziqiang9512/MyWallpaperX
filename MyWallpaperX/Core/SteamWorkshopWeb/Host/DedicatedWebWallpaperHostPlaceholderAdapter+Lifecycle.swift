@@ -285,13 +285,27 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        // 注入脚本按 frame 下发且 只由顶层 frame 发出屏幕级信号，但任何 frame 都能
+        // 直接向 `window.webkit.messageHandlers.*` 投递：因此 frame 敏感的消息在宿主
+        // 侧再判一次 `frameInfo.isMainFrame`（注入 JS 的门是第一层，这是第二层）。
+        let isMainFrame = message.frameInfo.isMainFrame
         switch message.name {
         case "wallpaperHostInteractiveRegions":
             guard let webView = self.webView(for: userContentController),
-                  let screenID = screenID(for: webView),
-                  let regions = parseInteractiveRegions(from: message.body) else {
+                  let screenID = screenID(for: webView) else {
                 return
             }
+            guard isMainFrame else {
+                recordDiagnostic(
+                    type: "interactive-regions.subframe-rejected",
+                    severity: .warning,
+                    message: "subframe registration ignored sender=\(message.frameInfo.request.url?.absoluteString ?? "unknown")",
+                    screenID: screenID,
+                    url: webView.url?.absoluteString
+                )
+                return
+            }
+            guard let regions = parseInteractiveRegions(from: message.body) else { return }
             let source = ((message.body as? [String: Any])?["source"] as? String) ?? "page-script"
             updateInteractiveRegions(regions, source: source, screenID: screenID)
         case "wallpaperHostLog":
@@ -300,14 +314,20 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             let body = message.body as? [String: Any]
             let type = body?["type"] as? String ?? "js.log"
             let rawMessage = body?["message"] as? String ?? String(describing: message.body)
+            // 非主 frame 的日志按其自身文档 URL 标记来源，避免与顶层诊断/评测计数混淆。
+            let frameScopedMessage = isMainFrame
+                ? rawMessage
+                : "[frame:\(message.frameInfo.request.url?.absoluteString ?? "subframe")] \(rawMessage)"
             recordDiagnostic(
                 type: type,
                 severity: diagnosticSeverity(for: type),
-                message: rawMessage,
+                message: frameScopedMessage,
                 screenID: screenID,
                 url: webView.url?.absoluteString
             )
-            if type == "dom.ready", let screenID,
+            // dom.ready 是屏幕级就绪：只认主 frame 发来的那一条（子 frame 可绕过
+            // 注入 JS 的门直接 postMessage）。
+            if type == "dom.ready", isMainFrame, let screenID,
                !recoveringWebContentScreenIDs.contains(screenID) {
                 installDefaultInteractiveRegionsIfNeeded()
                 applyCompatibilityState(to: webView, deferDirectorySync: false)
@@ -319,6 +339,18 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                   let requestID = body["requestID"] as? String,
                   let propertyName = body["propertyName"] as? String,
                   let webView = self.webView(for: userContentController) else {
+                return
+            }
+            guard isMainFrame else {
+                // 回包只经主 frame 的 evaluateJavaScript 送达（＋HostBridge 的中继），
+                // 子 frame 直投的请求既无回包目标也不该按屏幕解析随机文件。
+                recordDiagnostic(
+                    type: "random-file.subframe-rejected",
+                    severity: .warning,
+                    message: "subframe random file request ignored property=\(propertyName)",
+                    screenID: screenID(for: webView),
+                    url: webView.url?.absoluteString
+                )
                 return
             }
             let resolvedPath = resolveRandomFilePath(forPropertyNamed: propertyName) ?? ""
@@ -333,7 +365,13 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                   let webView = self.webView(for: userContentController) else {
                 return
             }
-            handleNetworkRequestMessage(body, webView: webView)
+            // 在飞配额按 frame 分桶：子 frame（含跨源）不得消耗主 frame 的代理配额
+            // 而令顶层请求得到 too_many_requests。
+            handleNetworkRequestMessage(
+                body,
+                webView: webView,
+                frameKey: networkBridgeFrameKey(for: message.frameInfo)
+            )
         default:
             return
         }
