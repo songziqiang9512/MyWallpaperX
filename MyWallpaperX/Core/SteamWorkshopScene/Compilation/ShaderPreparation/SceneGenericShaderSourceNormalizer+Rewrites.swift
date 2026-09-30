@@ -348,6 +348,43 @@ extension SceneGenericShaderSourceNormalizer {
         )
     }
 
+    /// Authored shaders may declare identifiers with C++ alternative-operator
+    /// spellings (`vec2 or = …`). GLSL never implements those operators, so
+    /// glslang keeps the words as plain identifiers, while SPIRV-Cross emits
+    /// them verbatim and the Metal compiler rejects them as keywords. Every
+    /// whole-word occurrence is renamed with a collision-checked suffix; the
+    /// set deliberately excludes `not`: it is the GLSL builtin function, so
+    /// its call sites must stay verbatim (a pathological authored local
+    /// shadowing `not` keeps failing closed). Producer: workshop 2179455321's
+    /// dot_matrix_mobile_fix declares `vec2 or`.
+    private static let metalReservedAlternativeTokens: Set<String> = [
+        "and", "and_eq", "bitand", "bitor", "compl",
+        "not_eq", "or", "or_eq", "xor", "xor_eq",
+    ]
+
+    static func renameMetalReservedAlternativeTokens(_ source: String) -> String {
+        let present = metalReservedAlternativeTokens.filter {
+            source.range(of: "\\b\($0)\\b", options: .regularExpression) != nil
+        }
+        guard !present.isEmpty else { return source }
+        var renamed = source
+        for token in present.sorted() {
+            var target = "\(token)_mwx"
+            while renamed.range(
+                of: "\\b\(target)\\b",
+                options: .regularExpression
+            ) != nil {
+                target += "_"
+            }
+            renamed = renamed.replacingOccurrences(
+                of: "\\b\(token)\\b",
+                with: target,
+                options: .regularExpression
+            )
+        }
+        return renamed
+    }
+
     /// GLSL ES accepts implicit scalar conversions in some authors' compilers,
     /// while glslang's Vulkan frontend requires an explicit conversion. An
     /// integer target assigned a float-bearing expression (declaration,

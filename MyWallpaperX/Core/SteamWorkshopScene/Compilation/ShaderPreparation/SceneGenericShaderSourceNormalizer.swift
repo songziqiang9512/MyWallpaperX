@@ -72,7 +72,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 rewriteAssignmentVectorConversions(
                     SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewriteUsingBoundedSyntax(
                         SceneGenericShaderScalarArithmeticNormalizer.rewrite(
-                            vertexSource,
+                            renameMetalReservedAlternativeTokens(vertexSource),
                             stage: .vertex
                         ),
                         stage: .vertex
@@ -84,7 +84,9 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 rewriteAssignmentVectorConversions(
                     SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewriteUsingBoundedSyntax(
                         SceneGenericShaderScalarArithmeticNormalizer.rewrite(
-                            stripHLSLAttributeAnnotations(fragmentSource),
+                            renameMetalReservedAlternativeTokens(
+                                stripHLSLAttributeAnnotations(fragmentSource)
+                            ),
                             stage: .fragment
                         ),
                         stage: .fragment

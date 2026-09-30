@@ -90,7 +90,7 @@ systemParticles=0。需 graceful degradation 或预下载。
 | 3078285611 | PASS | 7.9 | **纯粉色**（583k/620k 为 (250,142,200)）——渲染单一覆盖色 |
 | 3233141951 | **FAIL** | — | **进程超时**（12 秒窗口被 SIGTERM） |
 | 3448845950 | PASS | 18.5 | 深色场景（51 万像素 (0,14,26)——暗色主题正常） |
-| 3226487183 | **FAIL** | 17.9 | effect CPU invocation 失败 + passthrough（纹理错位） |
+| 3226487183 | PASS | — | **2026-09-30 复测转 PASS**（`or` 保留字修复后零 passthrough；见下） |
 
 **65 个新增样本匹配已知缺口模式**（音频条/composition/self-ref/model-material 链）。
 缺口 3 的修复（`3d94a3f4` passthrough allowlist + `9b4086ff` colorTransfer 泛化）已覆盖
@@ -124,6 +124,28 @@ systemParticles=0。需 graceful degradation 或预下载。
 
 - **3805547608**：benchmark PASS，52fps。"图层源切换"是 UI 交互路径，静态测试不覆盖。
 - **2983846453**：属性面板缺自定义图像导入是 UI 功能缺失，非 Scene 渲染缺口。
+
+## 3226487183 第三轮复测（2026-09-30，`or` 保留字修复后）
+
+- **已修复**：layer 982（utility composition，`workshop/2179455321/dot_matrix_mobile_fix`
+  点阵效果）每帧 `material-pass-preparation-library-compilation` passthrough。根因：作者
+  shader 声明 `vec2 or = …`——`or` 属 C++ alternative-operator 拼写，GLSL 未实现该运算符
+  故 glslang 当普通标识符收下，SPIRV-Cross 原名发射，Metal 编译器按保留字拒绝
+  （`expected unqualified-id`）。修复：normalizer 在解析前对两 stage 原始源做整词改名
+  （10 词集合，排除 `not`——GLSL 内建函数名；带碰撞检查后缀 `_mwx`），声明/接口/body
+  全链一致。复测：library-compilation 0 条、layer 982 encoded-output、零 effect-local-passthrough
+  回退（route-accepted 的 uniform-passthrough profile 行除外）、benchmark PASS
+  （证据 docs/scene/evidence/20260930-misalign-3226487183/；瞬态 localcontrast 观察的
+  两跑日志为 /private/tmp 临时产物，时间戳 17:51/18:06、同处 ad72bd5a 工作树）。
+- **仍未修（错位本源）**：layer 2522（composition 组，chromatic_aberration 效果）被
+  `execution-route-utility-composition-subtree-shape` 整层拒绝——其子层在作者顺序中
+  不连续（位 21/24/32/35 与非子层交错）且每个子层自带 7 个效果，两条都不满足
+  捕获路由的"子树连续+子层无效果"前提。preview 日志的 `unsupportedChildren` 同源。
+  修复需要组合组拥有独立渲染目标（当前设计假设子树连续画进主目标后整块捕获，
+  SceneUtilityLayerSourceRoute 注释已明确该边界）——与缺口 1 同级的独立架构批次。
+- **瞬态观察**：`localcontrast_downsample4`（layer 38）的 stage-link 工具拒绝
+  （exitCode 2）在一轮复现后自行消失，同源码两跑结果不同——归 stage-link 工具域
+  （E5 队列）跟踪，非本批范围。
 
 ## 文档更新
 

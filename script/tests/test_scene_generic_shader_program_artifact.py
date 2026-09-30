@@ -373,6 +373,15 @@ private struct LooseBuiltinCompatOutput: Codable {
     let untypedCompoundPreserved: Bool
 }
 
+private struct MetalReservedTokensOutput: Codable {
+    let accepted: Bool
+    let orRenamedWithUses: Bool
+    let andFamilyRenamed: Bool
+    let noWholeWordLeft: Bool
+    let cleanInputUntouched: Bool
+    let collisionExtended: Bool
+}
+
 private struct DirectTextureSampleAssignmentOutput: Codable {
     let vec3Narrowed: Bool
     let nestedVec2Narrowed: Bool
@@ -1855,6 +1864,81 @@ private struct GenericShaderArtifactHarness {
                     untypedCompoundPreserved: false
                 )
             }
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
+        if CommandLine.arguments[1] == "--normalizer-metal-reserved-tokens" {
+            let vertex = [
+                "attribute vec3 a_Position;",
+                "attribute vec2 a_TexCoord;",
+                "varying vec2 v_TexCoord;",
+                "void main() {",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "    v_TexCoord = a_TexCoord;",
+                "}",
+            ].joined(separator: "\n")
+            let reserved = [
+                "uniform sampler2D g_Texture0;",
+                "varying vec2 v_TexCoord;",
+                "uniform float u_Offset;",
+                "void main() {",
+                "    vec4 scene = texture2D(g_Texture0, v_TexCoord);",
+                "    // keep or inside the authored range",
+                "    vec2 or = mul(scene.xy, vec2(1.0, 0.5));",
+                "    float and = u_Offset;",
+                "    float or_eq = or.x + and;",
+                "    vec2 shifted = or + vec2(or_eq);",
+                "    gl_FragColor = vec4(scene.rgb + shifted.xyx, scene.a);",
+                "}",
+            ].joined(separator: "\n")
+            let colliding = [
+                "uniform sampler2D g_Texture0;",
+                "varying vec2 v_TexCoord;",
+                "void main() {",
+                "    vec4 scene = texture2D(g_Texture0, v_TexCoord);",
+                "    vec2 or_mwx = scene.xy;",
+                "    vec2 or = scene.zw;",
+                "    gl_FragColor = vec4(or_mwx + or, scene.a);",
+                "}",
+            ].joined(separator: "\n")
+            let clean = [
+                "uniform sampler2D g_Texture0;",
+                "varying vec2 v_TexCoord;",
+                "void main() {",
+                "    gl_FragColor = texture2D(g_Texture0, v_TexCoord);",
+                "}",
+            ].joined(separator: "\n")
+            func normalized(_ fragment: String) -> (Bool, String) {
+                switch SceneGenericShaderSourceNormalizer.normalize(
+                    vertexSource: vertex,
+                    fragmentSource: fragment,
+                    maximumStageSourceBytes: 64 * 1_024
+                ) {
+                case let .success(pair): return (true, pair.fragment)
+                case .failure: return (false, "")
+                }
+            }
+            let (reservedAccepted, renamed) = normalized(reserved)
+            let (cleanAccepted, cleanOutput) = normalized(clean)
+            let (collidingAccepted, collidingOutput) = normalized(colliding)
+            let output = MetalReservedTokensOutput(
+                accepted: reservedAccepted && cleanAccepted && collidingAccepted,
+                orRenamedWithUses:
+                    renamed.contains("vec2 or_mwx = mul(")
+                    && renamed.contains("or_mwx + vec2("),
+                andFamilyRenamed:
+                    renamed.contains("float and_mwx = ")
+                    && renamed.contains("float or_eq_mwx = or_mwx.x + and_mwx;"),
+                noWholeWordLeft:
+                    !renamed.contains("vec2 or = ")
+                    && !renamed.contains("float and = ")
+                    && !renamed.contains("float or_eq = ")
+                    && !renamed.contains(" or + "),
+                cleanInputUntouched: !cleanOutput.contains("_mwx"),
+                collisionExtended:
+                    collidingOutput.contains("vec2 or_mwx_ = ")
+                    && collidingOutput.contains("vec2 or_mwx = ")
+            )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
         }
@@ -5826,6 +5910,23 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "compoundLiteralBroadcast": True,
             "scalarSiblingSpelled": True,
             "untypedCompoundPreserved": True,
+        })
+
+    def test_product_normalizer_renames_metal_reserved_alternative_tokens(self):
+        completed = subprocess.run(
+            [str(self.binary), "--normalizer-metal-reserved-tokens"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "accepted": True,
+            "orRenamedWithUses": True,
+            "andFamilyRenamed": True,
+            "noWholeWordLeft": True,
+            "cleanInputUntouched": True,
+            "collisionExtended": True,
         })
 
     def test_product_normalizer_narrows_only_direct_texture_sample_assignments(self):
