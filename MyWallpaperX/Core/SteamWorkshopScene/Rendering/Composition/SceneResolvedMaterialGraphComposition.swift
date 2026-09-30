@@ -180,15 +180,6 @@ enum SceneResolvedMaterialClaimRoute {
         return true
     }
 
-    var rejectionReasonCode: String? {
-        guard case let .rejected(reasonCode) = self else { return nil }
-        return reasonCode
-    }
-
-    var rejectsUnclaimedProductAuthority: Bool {
-        rejectionReasonCode == "material-generic-owner-revoked"
-    }
-
     var allowsLayerSourcePassthrough: Bool {
         switch self {
         case .unclaimed:

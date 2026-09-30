@@ -3414,10 +3414,6 @@ Debug checkpoint build `7b9b4e20` 在隔离普通 App 路径运行太阳系样�
 
 `3780119725` 的 Audio Bars 从 bool→numeric stage-link 拒绝恢复实际 Program/GPU 执行；静音/PCM 对照证明64-bin频谱被consumer消费并显示音频条，另有真实异步requestLaunch的completion/publication/next-frame/teardown证据。76+2+11 tests与签名Debug build通过，全仓code-health有两项本批外阻断。人物黑线、整样本及3287715210独立color-transfer拒绝均未闭合。见 [E-V4-AUDIO-BOOLEAN-OPERAND](scene-sample-debug-ledger.md#e-v4-audio-boolean-operand布尔数值操作恢复音频图形2026-09-08)。
 
-### 2026-09-08 Bind-pose fallback 发布重组逻辑尺寸（历史，已退役）
-
-该批曾让成功重组但动画 unsupported 的 Puppet fallback 发布 coverage 逻辑尺寸，避免误用 atlas 尺寸；对应测试与当时 Debug build 通过。该 publication、静态 cache identity、coverage texture 与 bind-pose fallback 均已被 2026-09-13 GeometryProduct 世界空间绘制取代，本段只保留历史根因链。见 [E-V4-PUPPET-FALLBACK-PUBLICATION](scene-sample-debug-ledger.md#e-v4-puppet-fallback-publication重组成功与可缓存资格分离2026-09-08)。
-
 ### 2026-09-08 Utility model 与 projection 共用有效 camera 决策
 
 修复 utility capture 以 raw perspective override 构建 model/采样区域、却用正交 projection/output 的不一致。`3765760121` 默认鱼眼开启的截图恢复正向，原 Program 首帧/next-frame GPU、publication、compositor 成功；30 项定向 tests 与 Debug build 通过。普通 image perspective 不变，真正透视 utility 未证明；`3780119725` 与 `3264246690` 独立缺陷仍在。见 [E-V4-UTILITY-CAMERA-CONSISTENCY](scene-sample-debug-ledger.md#e-v4-utility-camera-consistency组合层资源准备与消费方向一致2026-09-08)。
@@ -3443,20 +3439,6 @@ Debug checkpoint build `7b9b4e20` 在隔离普通 App 路径运行太阳系样�
 String Program 已把 callback-only owner 的稳定帧求值收口到同一 typed event/property 链：没有 property/media callback、`update` 或 active timer 时不再跨 Swift/C，也不刷新音频桥；property event 或 timer 到期仍恢复同一 owner/generation。`test_scene_script_string_lifecycle` 与 checkpoint 21 modules **ALL OK**，code-health、`git diff --check` 与 Debug build 通过。
 
 隔离真实 `3396722575` 使用签名 Developer ID Debug App（`com.songziqiang.MyWallpaperX`、Team `H9QWU9XN8R`、CDHash `610ab437185c4104392b30227afbea3744129ea0`、executable SHA-256 `10951960b67fd3a635f96846886d0829fb3aa6de68c5c771913cc0109d22e247`）：严格 `1/1 PASS`，4 个 text layer loaded，`phase=ready` 为 61 layers / 30 image / 62 effects / 1 surface，startup dynamic-text publication 记录 layers `1794/843/120`，live `text1,text2,text3` accepted 且 surface/window `1→1`、`46219→46219`，ready/after 非黑；teardown 为 owners31/quiescent31/failures0/timers0/jobs0/mutations0/dynamicLayers0。该次运行证明 authored text/font provider 与 live property transaction 的安全执行，但未单独形成 callback-produced font 的 ROI；性能仅为一轮 7 秒观察，不是 A/B 或长稳结论。详见 [E-V4-SCENESCRIPT-CALLBACK-ONLY-STRING-QUIESCENCE](../../history/scene/runtime-evidence-index.md#e-v4-scenescript-callback-only-string-quiescence)。
-
-### 2026-09-06 Puppet mesh coverage + Water Waves mask UV owner（历史，coverage 已退役）
-
-用户对照证伪了同日 origin-pivot `contentFit`：`3264246690` 人物变小且位置偏离。世界位置合同保持 `world = origin + mesh * authored scale`。该批随后采用 origin 居中 coverage（作者 size∪bind-pose）和 `vertex / coverage`；它修复缺头但引入后续压平与欠采样问题。2026-09-13 已删除 coverage publication/归一化，现役 mesh 保留原始像素位置并由唯一 world MVP 直接绘制；本段不再定义当前实现。
-
-`3787382101` 的两张 Water Waves mask 是 `1400×600` R8，与作者画幅同宽高比。stock vert 无条件 include 的 helper `if` 不再让 same-slot mapped UV owner 失效。presence-combo 仍缓存 on/off 两套 Program。同日前一版签名 2/2 PASS 与“头/手齐全、不再整图细波纹”已被用户眼睛证伪，不能再当当前视觉事实；该历史判断已由 2026-09-13 世界空间直绘后的[同构 A/B 后继证据](#e-2026-09-13-water-waves-mask-ab)取代。
-
-这属于 `S2 mapping/UV-owner contract correction`，在新的隔离运行之前不升级为 `S4`。不证明官方像素 parity、头发运动数值、149 corpus 或完整 Water Waves family。
-
-### 2026-09-06 用户截图复核（历史裁决，已被 2026-09-13 证据取代）
-
-最新隔离运行的报告为 `/private/tmp/mwx-visible-final.FDfcLr/report.json`：`3787382101` 的 loaded texture ratio 为 `1.0`，`3264246690` 为 `0.9412`；两者的运行报告均为 benchmark `PASS`，但这只证明资源加载、帧提交、GPU completion 与 compositor 安全门通过。对应截图为 `results/3787382101/scene-after-window.png`、`results/3787382101/scene-ready-window.png`、`results/3264246690/scene-after-window.png` 和 `results/3264246690/scene-ready-window.png`。
-
-截图验收否决了“构图完整”的旧结论：`3264246690` layer 389 的人物左侧手肘仍有明显三角缺角；`3787382101` 的 Water Waves 仍表现为人物全身受到波纹扭曲。该样本的 15/15 resolved-material asset demands 已 ready，且 Water Waves mask 已进入 generic admission，但当时没有局部 ROI 或像素证据证明位移被限制在作者 mask 内。因此两个问题在该历史现场保持开放；它们后来分别由[世界空间 Puppet 几何](#e-2026-09-13-puppet-world-geometry)和[Water Waves 同构 A/B](#e-2026-09-13-water-waves-mask-ab)关闭，旧 benchmark `PASS` 本身仍不构成视觉证据。
 
 ### 2026-09-06 Puppet frame 溢出适配 + MDLV0019 版本族
 

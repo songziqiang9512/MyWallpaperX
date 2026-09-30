@@ -209,10 +209,6 @@ nonisolated struct SceneUserPropertyResolution {
     let bindingReport: SceneUserPropertyBindingReport
     let diagnostics: [SceneUserPropertyBindingDiagnostic]
     let resolvedBindingCount: Int
-
-    nonisolated var unresolvedBindingCount: Int {
-        bindingReport.bindings.count - resolvedBindingCount
-    }
 }
 
 nonisolated struct SceneUserPropertyBindingParser {

@@ -101,7 +101,6 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
     let residentByteCost: Int
     let historyByteCost: Int
 
-    var ephemeralByteCost: Int { residentByteCost - historyByteCost }
     var fullFramePairByteCost: Int {
         guard pairStorage == .shared else { return 0 }
         let descriptor = fullFramePair.descriptor
