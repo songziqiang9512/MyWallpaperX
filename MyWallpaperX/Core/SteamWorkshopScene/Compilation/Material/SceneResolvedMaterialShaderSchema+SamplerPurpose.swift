@@ -120,7 +120,6 @@ extension SceneResolvedMaterialShaderSchema {
               let sampler = samplers[0],
               sampler.name == "g_Texture0",
               sampler.mode == .regular,
-              sampler.materialKey == nil,
               sampler.defaultTexture == nil,
               samplers.allSatisfy({ slot, auxiliary in
                   slot == 0 || hasAuthoredAuxiliarySource(
