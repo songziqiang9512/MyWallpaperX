@@ -850,7 +850,7 @@ extension SceneGenericShaderSourceNormalizer {
                 // never a silent wrong render.
                 guard width > 1 || !value.contains(".") else { continue }
                 let component = width > 1
-                    ? "\(glslVectorSpelling(width))(\(value))"
+                    ? "\(glslVectorSpelling(width))(\(value.contains(".") ? value : value + ".0"))"
                     : value + ".0"
                 result.replaceSubrange(full, with: rebuilt(component))
             }

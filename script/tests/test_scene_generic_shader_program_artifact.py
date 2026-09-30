@@ -371,6 +371,11 @@ private struct LooseBuiltinCompatOutput: Codable {
     let compoundLiteralBroadcast: Bool
     let scalarSiblingSpelled: Bool
     let untypedCompoundPreserved: Bool
+    let intCompoundBroadcast: Bool
+    let lerpRewrittenToMix: Bool
+    let rsqrtDefineEmitted: Bool
+    let exp10DefineEmitted: Bool
+    let hlslCallSitesPreserved: Bool
 }
 
 private struct MetalReservedTokensOutput: Codable {
@@ -1821,12 +1826,16 @@ private struct GenericShaderArtifactHarness {
                 "    vec3 color = texture2D(g_Texture0, v_TexCoord).rgb;",
                 "    float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));",
                 "    float mapped = log10(1.0 + luma);",
+                "    vec3 logVector = log10(color);",
                 "    vec3 tint = vec3(0.5, 0.75, 1.0);",
                 "    vec3 filmic = max(0.0, tint - 0.004) * t_exposureAdjustment;",
+                "    vec3 intBroadcast = max(0, tint - 0.004);",
+                "    vec3 interpolated = lerp(tint, color, 0.5);",
+                "    float restored = rsqrt(luma) + exp10(luma);",
                 "    float keptScalar = max(1, luma);",
                 "    vec3 keptUnknown = max(0.0, undefinedTint - 0.1);",
-                "    gl_FragColor = vec4(color + filmic, mapped * keptScalar"
-                    + " + keptUnknown.r);",
+                "    gl_FragColor = vec4(color + filmic + interpolated + logVector,"
+                    + " mapped * keptScalar + restored.x + keptUnknown.r);",
                 "}",
             ].joined(separator: "\n")
             let output: LooseBuiltinCompatOutput
@@ -1843,7 +1852,8 @@ private struct GenericShaderArtifactHarness {
                     ),
                     vectorLog10Accepted: pair.fragment.contains(
                         "log10(1.0 + luma)"
-                    ),
+                    )
+                        && pair.fragment.contains("log10(color)"),
                     compoundLiteralBroadcast: pair.fragment.contains(
                         "max(vec3(0.0), tint - 0.004)"
                     ),
@@ -1852,7 +1862,29 @@ private struct GenericShaderArtifactHarness {
                     ),
                     untypedCompoundPreserved: pair.fragment.contains(
                         "max(0.0, undefinedTint - 0.1)"
+                    ),
+                    intCompoundBroadcast: pair.fragment.contains(
+                        "max(vec3(0.0), tint - 0.004)"
                     )
+                        // Both the float- and int-literal call sites broadcast
+                        // to the same text; the negative form keeps this
+                        // assertion from being satisfied by the float call
+                        // site alone if the int spelling ever regresses.
+                        && !pair.fragment.contains("vec3(0)"),
+                    lerpRewrittenToMix: pair.fragment.contains(
+                        "mix(tint, color, 0.5)"
+                    )
+                        && !pair.fragment.contains("lerp("),
+                    rsqrtDefineEmitted: pair.fragment.contains(
+                        "#define rsqrt(x) (inversesqrt(x))"
+                    ),
+                    exp10DefineEmitted: pair.fragment.contains(
+                        "#define exp10(x) (exp2((x) * 3.3219280948873623))"
+                    ),
+                    hlslCallSitesPreserved: pair.fragment.contains(
+                        "rsqrt(luma)"
+                    )
+                        && pair.fragment.contains("exp10(luma)")
                 )
             case .failure:
                 output = LooseBuiltinCompatOutput(
@@ -1861,7 +1893,12 @@ private struct GenericShaderArtifactHarness {
                     vectorLog10Accepted: false,
                     compoundLiteralBroadcast: false,
                     scalarSiblingSpelled: false,
-                    untypedCompoundPreserved: false
+                    untypedCompoundPreserved: false,
+                    intCompoundBroadcast: false,
+                    lerpRewrittenToMix: false,
+                    rsqrtDefineEmitted: false,
+                    exp10DefineEmitted: false,
+                    hlslCallSitesPreserved: false
                 )
             }
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
@@ -5910,6 +5947,11 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "compoundLiteralBroadcast": True,
             "scalarSiblingSpelled": True,
             "untypedCompoundPreserved": True,
+            "intCompoundBroadcast": True,
+            "lerpRewrittenToMix": True,
+            "rsqrtDefineEmitted": True,
+            "exp10DefineEmitted": True,
+            "hlslCallSitesPreserved": True,
         })
 
     def test_product_normalizer_renames_metal_reserved_alternative_tokens(self):

@@ -364,6 +364,15 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                     // producer is tone mapping's logarithmic curve. The
                     // component-wise expansion works for scalars and vectors.
                     "#define log10(x) (log(x) * 0.4342944819032518)",
+                    // lerp is owned upstream by the scalar builtin literal
+                    // rewriter (renamed to mix); rsqrt/exp10 are HLSL
+                    // builtins with no GLSL counterpart and no rewriter
+                    // owner. The corpus census found no authored definition
+                    // of these names, so the macros cannot shadow one.
+                    // exp10 routes through exp2 because GLSL pow has no
+                    // scalar-first overload.
+                    "#define rsqrt(x) (inversesqrt(x))",
+                    "#define exp10(x) (exp2((x) * 3.3219280948873623))",
                     "layout(std140, set = 0, binding = 8) uniform MWXUniforms {",
                 ] + uniformLines + ["};"]
                     + SceneGenericShaderTextureSamplingNormalizer.supportLines(

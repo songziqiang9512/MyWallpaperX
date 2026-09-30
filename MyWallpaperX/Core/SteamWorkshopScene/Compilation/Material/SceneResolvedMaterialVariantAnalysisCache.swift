@@ -18,7 +18,7 @@ import Foundation
 /// successful variant compilation, the read path never creates the cache
 /// directory, and a failed or stale record degrades to a full recompute.
 nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
-    private static let schemaVersion = 6
+    private static let schemaVersion = 7
     private static let maximumEntryBytes = 512 * 1_024
     private static let retainedEntryLimit = 4_096
     private static let lock = NSLock()
