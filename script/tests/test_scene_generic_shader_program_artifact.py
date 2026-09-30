@@ -376,6 +376,8 @@ private struct LooseBuiltinCompatOutput: Codable {
     let rsqrtDefineEmitted: Bool
     let exp10DefineEmitted: Bool
     let hlslCallSitesPreserved: Bool
+    let fmodDefineEmitted: Bool
+    let fmodCallSitesPreserved: Bool
 }
 
 private struct MetalReservedTokensOutput: Codable {
@@ -1832,10 +1834,12 @@ private struct GenericShaderArtifactHarness {
                 "    vec3 intBroadcast = max(0, tint - 0.004);",
                 "    vec3 interpolated = lerp(tint, color, 0.5);",
                 "    float restored = rsqrt(luma) + exp10(luma);",
+                "    float signed = fmod(-3.0, 2.0) + fmod(3.0, -2.0);",
+                "    vec3 wrapped = fmod(color, vec3(2.0));",
                 "    float keptScalar = max(1, luma);",
                 "    vec3 keptUnknown = max(0.0, undefinedTint - 0.1);",
                 "    gl_FragColor = vec4(color + filmic + interpolated + logVector,"
-                    + " mapped * keptScalar + restored.x + keptUnknown.r);",
+                    + " mapped * keptScalar + restored.x + signed + keptUnknown.r);",
                 "}",
             ].joined(separator: "\n")
             let output: LooseBuiltinCompatOutput
@@ -1884,7 +1888,15 @@ private struct GenericShaderArtifactHarness {
                     hlslCallSitesPreserved: pair.fragment.contains(
                         "rsqrt(luma)"
                     )
-                        && pair.fragment.contains("exp10(luma)")
+                        && pair.fragment.contains("exp10(luma)"),
+                    fmodDefineEmitted: pair.fragment.contains(
+                        "#define fmod(x, y) ((x) - (y) * trunc((x) / (y)))"
+                    ),
+                    fmodCallSitesPreserved: pair.fragment.contains(
+                        "fmod(-3.0, 2.0)"
+                    )
+                        && pair.fragment.contains("fmod(3.0, -2.0)")
+                        && pair.fragment.contains("fmod(color, vec3(2.0))")
                 )
             case .failure:
                 output = LooseBuiltinCompatOutput(
@@ -1898,7 +1910,9 @@ private struct GenericShaderArtifactHarness {
                     lerpRewrittenToMix: false,
                     rsqrtDefineEmitted: false,
                     exp10DefineEmitted: false,
-                    hlslCallSitesPreserved: false
+                    hlslCallSitesPreserved: false,
+                    fmodDefineEmitted: false,
+                    fmodCallSitesPreserved: false
                 )
             }
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
@@ -5952,6 +5966,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "rsqrtDefineEmitted": True,
             "exp10DefineEmitted": True,
             "hlslCallSitesPreserved": True,
+            "fmodDefineEmitted": True,
+            "fmodCallSitesPreserved": True,
         })
 
     def test_product_normalizer_renames_metal_reserved_alternative_tokens(self):

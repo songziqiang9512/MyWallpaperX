@@ -252,7 +252,7 @@ nonisolated struct SceneShaderVariantFailure: Error, Codable, Equatable, Sendabl
 }
 
 nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
-    static let frontendSchemaVersion = 38
+    static let frontendSchemaVersion = 39
 
     let sourceDialect: SceneShaderSourceDialect
     let backend: SceneShaderBackendIdentity

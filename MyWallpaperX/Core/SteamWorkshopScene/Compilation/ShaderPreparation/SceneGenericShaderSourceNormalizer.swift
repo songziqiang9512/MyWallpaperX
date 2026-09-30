@@ -373,6 +373,17 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                     // scalar-first overload.
                     "#define rsqrt(x) (inversesqrt(x))",
                     "#define exp10(x) (exp2((x) * 3.3219280948873623))",
+                    // fmod must keep the backend's trunc semantics: the
+                    // result takes the sign of x, while GLSL mod takes the
+                    // sign of y. The expansion is the HLSL formula verbatim
+                    // (x - y*trunc(x/y)); the floor variant is the registered
+                    // semantic trap and flips the sign in the mixed-sign
+                    // quadrants. Both arguments divide by zero into NaN on
+                    // both sides of the toolchain, so the edge matches. y is
+                    // evaluated twice by the macro — harmless for the pure
+                    // expressions GLSL arithmetic is, and the corpus call
+                    // sites are pure; keep it that way.
+                    "#define fmod(x, y) ((x) - (y) * trunc((x) / (y)))",
                     "layout(std140, set = 0, binding = 8) uniform MWXUniforms {",
                 ] + uniformLines + ["};"]
                     + SceneGenericShaderTextureSamplingNormalizer.supportLines(
