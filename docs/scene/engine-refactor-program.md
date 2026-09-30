@@ -194,7 +194,7 @@ Steam 账号、订阅与下载获取的具体迁移由 [Steam 获取专项](scen
 
   **【2026-09-30 挂起登记：E5 剩余工作清单（会话转出，下次续作入口）】**用户并行执行其他任务，E5 暂停；以下为已完成处置之外的全部未竟项，按依赖排序：
   ①**decisive 复核（最高优先，需机器空载窗口）**：45 样本 full matrix 证据回放累积，逐类核对 fallback 流量归零——同时服务 E5 解锁路径关键门与 AS1 身份矩阵；并行编译负载下测量无效，必须在无其他会话的窗口执行；
-  ②**varying 类架构裁决（owner-migration 级）**：合并 program 的 varying 命名空间按 effect 隔离 vs per-pass 编译——需先读 merged-program 构造 owner（canonicalize 阶段）与官方按 pass 编译的对照证据再提案；前置=①的语料数据；
+  ②**varying 类接受语义裁决（2026-09-30 已落，实施批待用户过目）**：工作流推翻"合并 program"前提（见上 `4d201d44` 段）后，本批完成跨 stage 窄化链接接受语义裁决——**接受"vertex 声明宽于 fragment 且 fragment 读 vertex 未初始化分量"的链接，未初始化分量在 vertex 侧零填充（确定性定义值），其余全部拒绝形态维持 fail-closed**。依据：平台规范对未写入分量双双定义为未定义（D3D `D3D11_SIGNATURE_PARAMETER_DESC` exact-match subset + ReadWriteMask"never written"建模；GLSL ES §4.3.5 链接表），不存在可对照的"官方值"，黑盒差分无决策增量（proposal 第 2 步据此省略）；已知受影响者 sine_wave_circle 的 `.zw` 唯一消费是默认白 mask 采样（`util/white`），零填充输出不变。语料两代格式枚举：现行格式 `varyingUnsupported` 唯一样本 2849382252/唯一 request；legacy 小写 `compiler-normalization-varyingunsupported` 61 条（样本目录 3749463715/3768229922，四 shader 身份）待实施批提取源分类。实施批骨架=prove 放宽（**保留 `assignments > 0`**，`zeroFilledComponents` 为发射承诺集、发射失败整体 fail-closed）+ 零填充发射 helper（TLA 链尾追加）+ 两消费方接线（normalizer + bounded 前端）+ 三缓存杠杆 35→36/3→4/8→9 + 红先行行为门 + 2849382252 逐像素对照；裁决全文与独立审查记录（REJECT 两阻断→修订→复审 APPROVE）见 `docs/scene/evidence/20260930-varying-isolation/narrowing-ruling.md`（本机缓存）。**原"前置=①"解除**：语料事实已由归档枚举钉死，实施批不依赖空载回放；①仍服务 decisive 归零复核与 AS1；E5 varying 归零计数口径=两代格式并集、限 `*.log`（详见裁决 §5.5）；
   ③**compound `+=` 残类**：`k = int(k + rhs)` 为宽松语义忠实修法，待语料出现该形态再实施；
   ④**已修子类的语料再现实测**：任一已修类再现实测即按登记方案执行（const 剥除/索引形态白名单扩展/vertex 对称接入等备而未用方案均已入卡）；
   ⑤**bounded frontend 整批退役（25–33k 行）**： gated on ①归零 + ②裁决 + owner-migration 门（纵向正证/未见组合/回滚演练）。
