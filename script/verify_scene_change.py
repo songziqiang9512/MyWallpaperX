@@ -198,6 +198,23 @@ def scene_defense_gate(base: str) -> Gate:
     )
 
 
+def design_gate(base: str) -> Gate:
+    return Gate(
+        "design-gate",
+        (
+            sys.executable,
+            "script/check_design_gate.py",
+            "--base-ref",
+            base,
+        ),
+        (
+            "design-first gate: implementation starts on registered capabilities "
+            "(script/design_gated_areas.json) require an approved design doc"
+        ),
+        False,
+    )
+
+
 def runtime_command(
     args: argparse.Namespace,
     matrix: str,
@@ -314,6 +331,7 @@ def build_plan(
             )
         if scene_product_change:
             gates.append(scene_defense_gate(args.base))
+        gates.append(design_gate(args.base))
         gates.append(Gate(
             "build-verify",
             ("/bin/bash", "script/run_checkpoint_build.sh"),
@@ -329,8 +347,11 @@ def build_plan(
         )
         if scene_product_change:
             gates.append(scene_defense_gate(args.base))
+        gates.append(design_gate(args.base))
     elif scene_product_change:
         gates.append(scene_defense_gate(args.base))
+    if product_change and not (build_required or swift_change or scene_product_change):
+        gates.append(design_gate(args.base))
 
     if phase_index >= 2 and scene_product_change:
         if args.skip_runtime:

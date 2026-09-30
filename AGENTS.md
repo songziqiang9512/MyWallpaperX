@@ -15,6 +15,7 @@
 - Scene 资料按 [`source-index.md`](docs/scene/semantics/source-index.md) 的 named source taxonomy 分类，类别清单只由该索引维护；历史摘要、旧计划本身不构成当前事实，也本身不构成上下文污染。
 - Scene 当前入口是：[`docs/README.md`](docs/README.md) → [Scene 一页说明](docs/scene/README.md)；按任务选择 [`docs/scene/development/development-workflow.md`](docs/scene/development/development-workflow.md) → [架构](docs/scene/design/runtime-architecture.md)、[路线](docs/scene/scene-compatibility-roadmap.md)、[能力台账](docs/scene/semantics/coverage-ledger.md)、[运行证据](docs/scene/semantics/runtime-evidence-current.md)。不要从历史计划或截图开始任务。
 - 目标主链只有一条：`authored data -> prepared Program/graph/resources -> typed frame update -> Metal encode -> unique compositor/output`。不得按 sample/layer/path/hash/screenshot 选择视觉算法，不得新增第二套 property、provider、clock、graph、resource registry 或 compositor。
+- 能力级改动先设计后实施。判定程序（任一命中即为设计前置能力）：①横切多个 owner 或主链节点；②触碰唯一权威合同（identity/clock/graph/resource lifecycle/compositor）；③错误用户可见且难以回退（用户数据、发布语义、持久化格式）；④触碰机器基线冻结的家族；⑤依赖官方语义或私有框架等外部取证。命中后先登记 `script/design_gated_areas.json`（owner、设计要点、触发模式、退役条件）并落设计文档，状态未 approved 前出现实施迹象会被 `script/check_design_gate.py`（产品路径变更时自动附加为 `design-gate` 门）拒绝；视觉 parity 类实现开工前先按官方取证工作流定行为规格，无法定案的在设计文档写保守分支与依据，不得实现时顺手裁决。
 - 任何偏差都写清目标合同、当前事实、owner、fallback/route、纠正门和退役条件；触达旧 owner 时优先在当前纵向结果内纠偏，不能为兼容错误实现继续扩张 matcher、wrapper、专用分支或测试预期。新增 guard 或兜底分支必须能指名会违反它的产生者（file:line 或可观测事件）；指不出的按过度防御驳回，由批次终审逐条核对。
 - 结构性家族（形状 analyzer/matcher、请求包装层、protocol、registry、专用 fallback）与防御面（零调用方入口、典范 helper 副本、identity/摘要路径的吞错）的规模只允许收缩：家族由 `script/scene_source_layout.json` 的机器预算冻结，防御面由 `script/scene_defense_baseline.json` 冻结；增长必须写明 owner、理由与退役条件后显式改基线，收缩随对应卡关闭同批 ratchet 下降。
 - 规则与合同文档本身按删除方向维护：修订必须收敛或替换现有条款，不得只在末尾追加；新增约束优先落成机器可检的门（ratchet、清单、脚本），无法机械化的约束必须自带判定程序。
@@ -30,7 +31,7 @@
 
 ## 4. 验证、提交与报告
 
-- 门禁服从实际失败半径：inner → checkpoint → integration → milestone。模块必须显式选择；`--scope scene` 不等于全量，full/fixed/签名/发布只在风险确实跨越时运行。变更含 Swift 时验证计划自动附加 `code-health`，命中 Scene 产品路径时再附加防御面棘轮 `scene-defense`；两者的基线只许在同批说明退役理由后下降。
+- 门禁服从实际失败半径：inner → checkpoint → integration → milestone。模块必须显式选择；`--scope scene` 不等于全量，full/fixed/签名/发布只在风险确实跨越时运行。变更含 Swift 时验证计划自动附加 `code-health`，命中 Scene 产品路径时再附加防御面棘轮 `scene-defense`，产品路径变更附加设计前置门 `design-gate`；各基线只许在同批说明退役理由后下降。
 - 产品代码测试断言行为（输入、输出、事件、反例），不得把源码文本、内部符号名或实现形状作为通过条件；存量按所属卡迁移，不为通过形状门新增同类断言。
 - Swift 产品改动在 checkpoint 再 Debug build；GPU/VM/资源/生命周期/可见变化使用隔离代表内容；可见结论必须有实际执行身份、completion、publication、terminal compositor、next-frame 及相称 ROI/事件证据。
 - 一个批次交付一个可见或可执行结果。提交只包含一个职责批次，信息写明问题、根因、实际结果和验证；禁止宽泛暂存。用户明确要求发布时，按[Agent 自动发布流程](docs/release/release-signing.md)完成日志撰写、版本提交、推送、构建、公开 Release 与结果核验，不把这些操作交给用户手工完成。

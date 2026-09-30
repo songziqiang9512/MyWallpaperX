@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "policy": {
+    "purpose": "设计前置能力登记：下列能力属于「先设计、后实施」类——跨 owner/唯一权威合同/用户可见难逆/机器基线冻结/依赖外部取证。实施开始（新增文件或引入触发符号）而状态仍为 blocked-pending-design 时，script/check_design_gate.py 退出非零。",
+    "judgment_procedure": "新增条目须自带判定程序，逐条回答：1) 该能力是否横切多个 owner 或主链节点；2) 是否触碰唯一权威合同（identity/clock/graph/resource lifecycle/compositor）；3) 错误是否用户可见且难以回退（用户数据、发布语义、持久化格式）；4) 是否触碰机器基线冻结的家族；5) 是否依赖官方语义/私有框架等外部取证。任一条为是即登记，并写 owner、设计要点与退役条件。",
+    "approval": "状态从 blocked-pending-design 改为 approved 必须同批提交设计文档（designDoc 指向仓库内路径）并在提交信息写明 owner 与裁决依据；false positive 通过收窄 matchPatterns/contentPatterns 处理，同样显式改本文件并写理由。",
+    "retirement": "能力落地后（设计已实施且过验证门），条目整条删除；仅文档登记而无触发模式（patterns 为空）的条目不参与机器检查，只作为清单存在。"
+  },
+  "areas": [
+    {
+      "id": "scene-hdr-tonemap-edr",
+      "title": "Scene HDR / tone mapping / EDR 输出管线",
+      "owner": "scene-e-route",
+      "status": "blocked-pending-design",
+      "designDoc": null,
+      "design_notes": "端到端输出管线：HDR target 格式链→高亮滚降/knee→EDR 元数据与 CAMetalLayer 呈现。已有地基证据 E-2026-09-27-SCENE-COLOR-PRECISION（RGBA16F 贯通≠真 HDR）。",
+      "matchPatterns": [],
+      "contentPatterns": [
+        "wantsExtendedDynamicRange",
+        "EDRMetadata",
+        "maximumExtendedDynamicRangeColorComponentValue",
+        "toneMappingKnee"
+      ]
+    },
+    {
+      "id": "scene-2d-lighting-material",
+      "title": "2D 材质光照 / PBR / 阴影 / 反射",
+      "owner": "scene-e-route",
+      "status": "blocked-pending-design",
+      "designDoc": null,
+      "design_notes": "材质模型与光传递路径设计决定后续所有 material 形状；台账 L0 家族（3662790108 动态点光 ROI 已正证、接近闭合的静态点光/强度除外）。",
+      "matchPatterns": [],
+      "contentPatterns": [
+        "SceneLitMaterial",
+        "SceneLightVolume",
+        "SceneShadowMap",
+        "SceneMaterialPBR"
+      ]
+    },
+    {
+      "id": "scene-script-component-api",
+      "title": "SceneScript component / object / particle API",
+      "owner": "scene-e-route",
+      "status": "blocked-pending-design",
+      "designDoc": null,
+      "design_notes": "脚本 API 表面一旦实现即成为作者兼容合同，改起来最贵；需先定 API 面与宿主生命周期合同（台账 §6 L0）。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/**/SceneScript*Component*.swift"
+      ],
+      "contentPatterns": [
+        "registerSceneScriptComponent",
+        "sceneScriptComponentAPI"
+      ]
+    },
+    {
+      "id": "scene-composition-render-target",
+      "title": "组合组独立渲染目标（composition subtree / model→material 合成 graph）",
+      "owner": "scene-e-route",
+      "status": "blocked-pending-design",
+      "designDoc": null,
+      "design_notes": "render graph 的 target 生命周期与作者顺序解耦，横跨 executor/graph/资源三层；3226487183 层 2522 错位的根治路径，与缺口 1 同批。",
+      "matchPatterns": [],
+      "contentPatterns": [
+        "SceneCompositionRenderTarget",
+        "compositionGroupRenderTarget"
+      ]
+    },
+    {
+      "id": "web-mediaremote-nowplaying",
+      "title": "媒体集成第二步：MediaRemote 系统 now-playing 数据源",
+      "owner": "web-route",
+      "status": "blocked-pending-design",
+      "designDoc": null,
+      "design_notes": "私有框架合规 + owner 关系设计（系统会话优先、无会话回退页面媒体，避免 __myWallpaperMediaState 双 writer）+ 签名/App Store 约束评估。",
+      "matchPatterns": [],
+      "contentPatterns": [
+        "MRMediaRemoteGetNowPlayingInfo",
+        "MediaRemote.framework"
+      ]
+    },
+    {
+      "id": "web-cross-origin-reply-delivery",
+      "title": "Web 跨源子 frame 宿主侧回包投递（按发送 frame 定向 evaluateJavaScript）",
+      "owner": "web-route",
+      "status": "blocked-pending-design",
+      "designDoc": null,
+      "design_notes": "横切 RuntimeBridge/Lifecycle/DirectoryWatchers；两个候选修法已登记于 docs/web/current-state.md 的子 frame 回包缺口条目，选型即设计动作。无稳定触发符号，暂不设机器模式，靠本清单与 AGENTS.md 判定程序约束。",
+      "matchPatterns": [],
+      "contentPatterns": []
+    },
+    {
+      "id": "steam-downloads-failed-items-visibility",
+      "title": "Steam 下载页失败条目可见性（数据源过滤语义扩张）",
+      "owner": "app-shell",
+      "status": "blocked-pending-design",
+      "designDoc": null,
+      "design_notes": "filteredAndSortedDownloads 放开 status==.ready 过滤牵连空态/计数/多选不变量，需先定语义再动数据源；已登记于改进侦察 steam-ux-3②。",
+      "matchPatterns": [],
+      "contentPatterns": []
+    }
+  ]
+}
