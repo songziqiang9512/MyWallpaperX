@@ -184,6 +184,35 @@ generate_scene_full_matrix.py 不得用其放宽既有期望。
   动画材质——合成 graph（子批 B，走既有 authored-plan→admission 链 + computed index
   寻址拒绝同批）仍是 parity 的后续步骤。工作流 GPU 取证队列（dwfrun-f85d48e7）
   的 DEBUG 运行同时核验了底图加载链本身成功（loaded=1 failed=0），合成方案前提成立。
+- **缺口 1 子批 B（合成 plan）→ 锚地图实测完成（2026-09-30，实施回退存档）**。
+  合成路线已端到端试通至图执行（descriptor `1#model-material#<materialPath>`、
+  compositorConsumed=true），逐锚实证如下（patch 存档
+  `docs/scene/evidence/20260930-gap1-synthesis/subbatch-b-threading.patch`，543 行）：
+  ① planner 零效果层返回 nil → 合成分支（`isSynthesizedModelMaterialGraph` 结构识别：
+  层无 authored effects + effectIndex 0 + definitionPath=模型路径 + 单材质节点命中
+  modelMaterialLink）；② admission conservation `plannedEffects` 空守卫 → 合成豁免；
+  ③ `validateOuterGraph` zip 锚（key/definitionPath 对位）→ 专用全结构分支（更严：
+  节点/目标/链接材质逐项）；④ compileLayer effect-definition 查找
+  （effect-definition-count）→ 合成豁免（functions=nil）；⑤
+  `SceneGraphConditionProviderSet` instance 对位（descriptorMismatch）→ 旗标豁免
+  instance 锚（material combos 仍是唯一 combo 来源）；⑥
+  `SceneAuthoredMaterialResolver.instanceOverlay`（instance pass 对位）→ 空 overlay
+  （结构识别：层 effects 空——planner 是该形态唯一 plan 产生者）；⑦ 模板
+  `renderStateInvalid`（材质未声明 state 即整态无效）→ 合成四边形缺省
+  （normal/nocull/disabled/disabled，声明字段逐字优先）。
+  **未打通的两锚**：⑧ `active-resource-demand`——material-only 层的材质纹理
+  （flowmask.tex，在 pkg 内 16MB）不在静态装载输入（entries=1 只装层底图），
+  准入时无 launch state 即硬拒；鸡生蛋：catalog 只为已准入材质准备纹理——需要
+  资源准备输入把 model-material 材质纹理纳入（或准入-装载两阶段化）；
+  ⑨ `material-variant-envelope-texture-purpose`——材质纹理用途证明（envelope 门，
+  同缺口 3 家族），⑧ 打通后按其实测内容处置。另有 runner 侧：合成 effect 无
+  effectStage 行，disposition/conservation 断言需 runner 理解合成形态（触
+  test_scene_wallpaper_benchmark.py，并行会话在途须协调）。
+  实测序：descriptorMismatch → instanceOverlay 拒 → renderStateInvalid →
+  active-resource-demand + envelope-texture-purpose passthrough（图执行 succeeded、
+  合成 compositorConsumed=true、视觉无回退——passthrough 转发层源）。
+  回退原因：⑧⑨ 未通前样本 benchmark 由 PASS 转 FAIL（证据契约），按"不当场堆
+  补丁"纪律回退至子批 A 已验证态；重放 = patch + ⑧⑨⑩ 三锚的带证据实现。
 
 ### 非缺口（观察与实测不一致）
 
