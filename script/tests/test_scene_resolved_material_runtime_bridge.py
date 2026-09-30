@@ -5308,7 +5308,7 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
         compact = "".join(FRAME_PREFLIGHT.read_text(encoding="utf-8").split())
         resolved_start = compact.index("ifbinding.kind==.resolvedMaterial{")
         exact_source_start = compact.index(
-            "letproviderSelection=cachedBaseMaterialTextureSelection(",
+            "letproviderSelection=cachedBaseMaterialTextureSelectionImpl(",
             resolved_start,
         )
         resolved_route = compact[resolved_start:exact_source_start]

@@ -275,7 +275,7 @@ extension SceneMetalRenderer {
             ]?.effectSourceExtentContract ?? .scalableStandard
             switch claim.sourceRoute {
             case .capturedLayerTexture:
-                let selection = cachedBaseMaterialTextureSelection(
+                let selection = cachedBaseMaterialTextureSelectionImpl(
                     for: layer,
                     imageTextures: imageTextures,
                     readyProviderUsesAuthoredLayerColor:
@@ -633,7 +633,7 @@ extension SceneMetalRenderer {
                     dependencyUnavailability = nil
                     break
                 }
-                let providerSelection = cachedBaseMaterialTextureSelection(
+                let providerSelection = cachedBaseMaterialTextureSelectionImpl(
                     for: providerLayer,
                     imageTextures: imageTextures,
                     readyProviderUsesAuthoredLayerColor:
@@ -925,22 +925,5 @@ extension SceneMetalRenderer {
         case .rejected(let reasonCode):
             return .rejected(reasonCode: reasonCode)
         }
-    }
-
-    private func cachedBaseMaterialTextureSelection(
-        for layer: SceneRenderDescriptor.Layer,
-        imageTextures: SceneBaseImageTextureSnapshot,
-        readyProviderUsesAuthoredLayerColor: Bool,
-        cache: inout [Int: SceneBaseMaterialTextureSelection]
-    ) -> SceneBaseMaterialTextureSelection {
-        // The companion delegates to the canonical `baseMaterialTextureSelection(`
-        // owner; this private wrapper preserves the original cache surface.
-        cachedBaseMaterialTextureSelectionImpl(
-            for: layer,
-            imageTextures: imageTextures,
-            readyProviderUsesAuthoredLayerColor:
-                readyProviderUsesAuthoredLayerColor,
-            cache: &cache
-        )
     }
 }

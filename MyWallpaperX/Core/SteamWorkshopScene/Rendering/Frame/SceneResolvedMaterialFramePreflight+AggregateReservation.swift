@@ -118,9 +118,9 @@ extension SceneMetalRenderer {
         return (extent.width, extent.height)
     }
 
-    /// Shared frame-local source-selection cache owner. The private wrapper in
-    /// the main preflight file keeps its original access surface for callers;
-    /// this implementation is shared by aggregate reservation as well.
+    /// Shared frame-local source-selection cache owner. Both the main
+    /// preflight pass and aggregate reservation call this implementation
+    /// directly for their frame-local cache surface.
     func cachedBaseMaterialTextureSelectionImpl(
         for layer: SceneRenderDescriptor.Layer,
         imageTextures: SceneBaseImageTextureSnapshot,
