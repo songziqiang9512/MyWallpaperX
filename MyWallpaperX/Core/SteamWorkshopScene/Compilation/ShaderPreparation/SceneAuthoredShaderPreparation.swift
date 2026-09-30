@@ -177,7 +177,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
             key: PreparationCacheKey,
             contract: SceneShaderContract
         ) -> SceneShaderPreparedProgram? {
-            guard let directory = directoryURL() else { return nil }
+            guard let directory = directoryURL(createIfNeeded: false) else { return nil }
             let keySHA256 = SceneShaderStableDigest.hash(key)
             let url = directory.appendingPathComponent(
                 "\(keySHA256).json",
@@ -202,7 +202,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
             contract: SceneShaderContract
         ) {
             guard valid(program, key: key, contract: contract),
-                  let directory = directoryURL() else { return }
+                  let directory = directoryURL(createIfNeeded: true) else { return }
             let keySHA256 = SceneShaderStableDigest.hash(key)
             let envelope = Envelope(
                 schemaVersion: schemaVersion,
@@ -237,18 +237,36 @@ nonisolated enum SceneAuthoredShaderPreparation {
             }
         }
 
-        private func directoryURL() -> URL? {
+        private func directoryURL(createIfNeeded: Bool) -> URL? {
+            // Environment override (authoritative when set, see +Support)
+            // keeps the tier probeable against an isolated root; the
+            // default path stays bound to the real bundle identity and
+            // caches directory.
+            if SceneAuthoredShaderPreparation
+                .persistentCacheEnvironmentOverridePresent {
+                return SceneAuthoredShaderPreparation
+                    .persistentCacheEnvironmentOverrideURL(
+                        versionedName: "SceneShaderPreparation-v\(schemaVersion)",
+                        createIfNeeded: createIfNeeded
+                    )
+            }
             guard Bundle.main.bundleIdentifier == "com.songziqiang.MyWallpaperX",
                   let root = FileManager.default.urls(
                       for: .cachesDirectory,
                       in: .userDomainMask
                   ).first else { return nil }
-            return root
+            let directory = root
                 .appendingPathComponent("MyWallpaperX", isDirectory: true)
                 .appendingPathComponent(
                     "SceneShaderPreparation-v\(schemaVersion)",
                     isDirectory: true
                 )
+            guard createIfNeeded else { return directory }
+            try? FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true
+            )
+            return directory
         }
 
         private func valid(

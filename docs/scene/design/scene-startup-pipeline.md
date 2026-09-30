@@ -53,8 +53,11 @@
 所有层共享同一套防护合同与 IO 家（`ScenePersistentCacheSupport` /
 `ScenePersistentCacheDigest` / `ScenePersistentSamplerRecord`）：信封
 schemaVersion+键摘要+载荷摘要三重校验、load 路径零副作用（不建目录）、只存成功结果、
-损坏/版本失配安全 miss、`schemaVersion` 为唯一失效杠杆。防护结构由
-`script/tests/test_scene_persistent_cache_guards.py` 形状回归门锁定。
+损坏/版本失配安全 miss、`schemaVersion` 为唯一失效杠杆。防护合同由
+`script/tests/test_scene_persistent_cache_behavior.py` 行为回归门锁定
+（四层真实 load/store 探针：只读 miss/发布/命中/损坏与篡改安全 miss/过期
+schema miss；preparation 层经真实消费方驱动，拒绝不发布、跨进程命中不重发、
+损坏自愈）。
 
 | 层 | 文件（Compilation/Material 除注明） | 键 | 缓存内容 | 实测收益 |
 |---|---|---|---|---|
