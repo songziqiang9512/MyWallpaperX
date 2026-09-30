@@ -240,6 +240,31 @@ import Metal
         results["uncommittedAllCompleted"] = probeBuffers.allSatisfy {
             $0.status == .completed
         }
+        // Decoded-cache eviction: CPU bytes release at the GPU-ready point
+        // while the GPU cache keeps serving identical textures; a different
+        // source re-decodes from its file after eviction.
+        let evictBudget = SceneTextureDecodeCacheBudget(maximumBytes: 1 << 30)
+        let evictLoader = SceneTextureLoader(
+            uploadCommandQueue: SceneTextureUploadCommandQueue(),
+            decodeCacheBudget: evictBudget
+        )
+        if case let .loaded(evictFirst) = evictLoader.load(from: url, device: device) {
+            results["evictAdmittedBefore"] = evictBudget.residentBytes > 0
+            evictLoader.evictDecodedCaches()
+            results["evictResidentAfter"] = evictBudget.residentBytes == 0
+            if case let .loaded(evictSecond) = evictLoader.load(from: url, device: device) {
+                results["evictReloadSameTexture"] = evictFirst === evictSecond
+                results["evictReloadAdmitted"] = evictBudget.residentBytes == 0
+            }
+            let secondURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("evict-redecode-\(UUID().uuidString).png")
+            try? (encoded as Data).write(to: secondURL)
+            defer { try? FileManager.default.removeItem(at: secondURL) }
+            if case .loaded = evictLoader.load(from: secondURL, device: device) {
+                results["evictSecondDecodeSucceeded"] = true
+                results["evictSecondAdmitted"] = evictBudget.residentBytes > 0
+            }
+        }
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: results))
     }
 
@@ -343,6 +368,13 @@ class SceneImageUploadCompletionTests(unittest.TestCase):
                 self.assertIn(reason, self.result[f"preserved{fault}"])
 
     def test_base_only_and_single_pixel_do_not_need_gpu_submission(self) -> None:
+        self.assertTrue(self.result["evictAdmittedBefore"])
+        self.assertTrue(self.result["evictResidentAfter"])
+        self.assertTrue(self.result["evictReloadSameTexture"])
+        self.assertTrue(self.result["evictReloadAdmitted"])
+        self.assertTrue(self.result["evictSecondDecodeSucceeded"])
+        self.assertTrue(self.result["evictSecondAdmitted"])
+
         for fault in range(5):
             for route in ("base", "one"):
                 self.assertEqual(self.result[f"{route}{fault}"], "loaded:1:[255, 255, 255, 255]")

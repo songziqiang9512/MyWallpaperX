@@ -91,6 +91,12 @@ nonisolated private final class SceneTextureDecodeCacheLease {
         reservedBytes += byteCount
         return true
     }
+
+    func releaseAll() {
+        let bytes = reservedBytes
+        reservedBytes = 0
+        budget.release(bytes)
+    }
 }
 
 final class SceneTextureLoader {
@@ -239,6 +245,20 @@ final class SceneTextureLoader {
         // explicit load to recover from transient Metal allocation/GPU faults.
         if case let .loaded(texture) = outcome { textures[key] = texture }
         return outcome
+    }
+
+    /// Releases the CPU-side decoded caches (parsed TEX containers and
+    /// decoded images) once this launch's GPU textures are published. The
+    /// published Metal textures stay in the GPU cache and keep serving
+    /// repeat loads byte-identically; a decoded-cache miss after eviction
+    /// simply re-decodes from the source file. Callers invoke this at the
+    /// GPU-ready point of a launch so decoded bytes do not stay resident for
+    /// the whole session next to their GPU copies.
+    func evictDecodedCaches() {
+        texResources.removeAll()
+        directImageResources.removeAll()
+        texEmbeddedImageResources.removeAll()
+        decodeCacheLease.releaseAll()
     }
 
     /// Compatibility wrapper for existing data consumers.

@@ -206,6 +206,11 @@ final class ScenePreparedBaseImageResources {
         // a failed conversion leaves its private texture partially converted
         // and the layer falls back at render time (device-loss rarity).
         uploadCommandQueue.flushUncommittedCommandBuffers()
+        // Every launch texture is GPU-published past this point: drop the
+        // loader's CPU-side decoded bytes so they do not sit next to their
+        // GPU copies for the whole session. Later loads hit the GPU cache;
+        // a miss re-decodes from the source file.
+        textureLoader.evictDecodedCaches()
         return ScenePreparedBaseImageResources(
             textureLoader: textureLoader,
             sceneGeneration: sceneGeneration,
