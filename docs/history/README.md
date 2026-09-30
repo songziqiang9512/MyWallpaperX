@@ -16,6 +16,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-01 | Scene | 审查记录 | [Scene 画面质量审查](scene/scene-visual-quality-audit-2026-10-01.md) | 四路并行只读审查「算法/写法质量→画面劣化」：4 个未登记算法级新发现（相机抖动 Lissajous、发射图 alpha 二值化、straight-alpha 降采样、音频 16 档峰值稀释）+「已执行但打折」清单 + E5 降级残类与结构性能力洞总账 | 当前代码与运行证据；修复以工作树与提交为准 |
 | 2026-09-30 | App 全端 UI | 审查记录 | [UI 代码全面审查](cross-topic/ui-code-review-2026-09-30.md) | 163 个 UI Swift 文件、12 区域并行评审+逐条独立复核的 41 条问题清单与完整证据（1 high / 20 medium / 19 low / 1 存疑） | 当前代码；修复进展以工作树与提交历史为准 |
 | 2026-09-15 | Scene | 队列整理前记录 | [旧断点队列](scene/breakpoint-queue-before-2026-09-15.md) | 已完成 B1–B9 与维护者观察来源 | [兼容路线](../scene/scene-compatibility-roadmap.md)、[当前队列](../scene/scene-open-breakpoint-queue-2026-09-09.md) |
 | 2026-09-15 | Scene 工程 | 旧计划与实验 | [引擎工程旧计划](scene/engine-refactor-program-before-2026-09-15.md) | 保存 M0–M6 迁移、completion 唤醒回归、验证 memo 撤回及消融证据；不决定后继任务 | [重构执行档案](../scene/engine-refactor-program.md)、[能力台账](../scene/semantics/coverage-ledger.md) |
