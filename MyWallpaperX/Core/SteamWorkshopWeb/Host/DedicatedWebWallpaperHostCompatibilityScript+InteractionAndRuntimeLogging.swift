@@ -100,6 +100,10 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
   });
   const networkRequestHandler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.wallpaperHostNetworkRequest;
   let networkRequestCounter = 0;
+  // 请求 ID 加 per-frame 随机段：主 frame 与子 frame 的计数器各自从 0 起，
+  // 只靠毫秒时间戳会在同一毫秒碰撞，导致回包中继扇出时两个 frame 认领彼此的
+  // 响应（随机文件路径已带随机段，不受影响）。
+  const networkRequestNonce = Math.random().toString(36).slice(2, 10);
   const base64ToUint8Array = (base64) => {
     const binary = atob(String(base64 || ''));
     const bytes = new Uint8Array(binary.length);
@@ -123,6 +127,37 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
     }
     return (payload && payload.body) || '';
   };
+  // 代理请求头只回传原生放行的三个名字（与 RuntimeBridge 侧白名单一致）。
+  // Authorization 等鉴权头本批不放行（显式产品决策，owner：网络桥接；退役条件：
+  // 出现官方行为证据要求跨域携带凭据时单独立项）。Headers 实例 / 二元数组 /
+  // 普通对象统一归一化成普通字典再 postMessage，避免直接克隆 Headers 丢字段。
+  const PROXIED_REQUEST_HEADER_NAMES = ['accept', 'accept-language', 'content-type'];
+  const normalizedProxiedRequestHeaders = (rawHeaders) => {
+    const headers = {};
+    const assign = (name, value) => {
+      if (name === undefined || name === null || value === undefined || value === null) return;
+      const normalizedName = String(name).toLowerCase();
+      if (!PROXIED_REQUEST_HEADER_NAMES.includes(normalizedName)) return;
+      headers[normalizedName] = String(value);
+    };
+    try {
+      if (!rawHeaders) return headers;
+      if (typeof rawHeaders.forEach === 'function' && typeof rawHeaders.get === 'function') {
+        rawHeaders.forEach((value, name) => assign(name, value));
+      } else if (Array.isArray(rawHeaders)) {
+        for (const pair of rawHeaders) {
+          if (pair && pair.length >= 2) assign(pair[0], pair[1]);
+        }
+      } else if (typeof rawHeaders === 'object') {
+        for (const name of Object.keys(rawHeaders)) assign(name, rawHeaders[name]);
+      }
+    } catch (_) {}
+    return headers;
+  };
+  // 204/205/304 按规范是无正文状态：用非空 Uint8Array 构造 Response 会抛 TypeError
+  // 并落进代理失败分支，从而把真实响应替换成原始 CORS 错误。
+  const PROXIED_NULL_BODY_STATUSES = [204, 205, 304];
+  const proxiedResponseHasNullBody = (status) => PROXIED_NULL_BODY_STATUSES.includes(Number(status));
   const hostNetworkRequest = (url, method, headers) => new Promise((resolve, reject) => {
     if (!networkRequestHandler || typeof networkRequestHandler.postMessage !== 'function') {
       reject(new Error('network_bridge_unavailable'));
@@ -144,7 +179,7 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
       reject(new Error('network_bridge_unsupported_method'));
       return;
     }
-    const requestID = `network-${Date.now()}-${++networkRequestCounter}`;
+    const requestID = `network-${Date.now()}-${networkRequestNonce}-${++networkRequestCounter}`;
     const timeoutID = setTimeout(() => {
       delete window.__myWallpaperNetworkRequests[requestID];
       reject(new Error('network_bridge_timeout'));
@@ -246,14 +281,30 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
             hostLogger.post('fetch.ignored', `${method} ${localPath} optional`);
             throw error;
           }
-          if (canProxyNetworkRequest(method, url.href)) {
-            return hostNetworkRequest(url.href, method, {}).then(payload => {
+          const proxyCapable = canProxyNetworkRequest(method, url.href);
+          if (proxyCapable && wallpaperHostReplyReachable !== true) {
+            // 与顶层不同源的 frame 收不到宿主回包：不进入只会等桥超时的代理
+            // 路径，保持原生结果（下面按 fetch.error 记录并重抛原生错误）。
+            hostLogger.post('host-reply.unsupported', `${method} ${url.href}`);
+          } else if (proxyCapable) {
+            const proxiedRequestHeaders = normalizedProxiedRequestHeaders(init && init.headers);
+            return hostNetworkRequest(url.href, method, proxiedRequestHeaders).then(payload => {
               hostLogger.post('fetch.proxy', `${method} ${url.href} status=${payload.status}`);
-              const body = method === 'HEAD' ? null : proxiedResponseBody(payload);
-              return new Response(body, {
-                status: payload.status || 200,
+              const status = payload.status || 200;
+              const body = method === 'HEAD' || proxiedResponseHasNullBody(status)
+                ? null
+                : proxiedResponseBody(payload);
+              const response = new Response(body, {
+                status,
                 headers: payload.headers || {}
               });
+              // 构造出的 Response 没有 url：用原生 HTTPURLResponse.url（已还原成
+              // 作者可见 URL）回填 response.url 语义；缺失时退回请求 URL。
+              try {
+                const responseURL = String(payload.responseURL || url.href);
+                Object.defineProperty(response, 'url', { configurable: true, get: () => responseURL });
+              } catch (_) {}
+              return response;
             }).catch(proxyError => {
               hostLogger.post('fetch.proxy.error', `${method} ${url.href} ${proxyError && proxyError.message ? proxyError.message : proxyError}`);
               throw error;
@@ -277,8 +328,9 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
     this.__mwx_method = method;
     this.__mwx_url = url;
     this.__mwx_responseHeaders = {};
+    this.__mwx_requestHeaders = {};
     this.addEventListener('error', () => {
-      if (canProxyNetworkRequest(method, url)) {
+      if (canProxyNetworkRequest(method, url) && wallpaperHostReplyReachable === true) {
         hostLogger.post('xhr.proxy.pending', `${method} ${String(url)}`);
         return;
       }
@@ -286,13 +338,24 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
     });
     this.addEventListener('loadend', () => {
       if (this.status >= 400 || this.status === 0) {
-        if (this.status === 0 && canProxyNetworkRequest(method, url)) {
+        if (this.status === 0 && canProxyNetworkRequest(method, url) && wallpaperHostReplyReachable === true) {
           return;
         }
         hostLogger.post('xhr.status', `${method} ${String(url)} status=${this.status}`);
       }
     });
     return originalOpen.call(this, method, url, ...rest);
+  };
+  // 代理路径下 send 被拦截、真实请求不再发出，但页面显式设置的请求头仍然要
+  // 在代理调用里透传（否则 accept / accept-language / content-type 静默丢失）。
+  const originalSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+  XMLHttpRequest.prototype.setRequestHeader = function(name, value) {
+    try {
+      if (this.__mwx_requestHeaders && name !== undefined && name !== null) {
+        this.__mwx_requestHeaders[String(name)] = String(value);
+      }
+    } catch (_) {}
+    return originalSetRequestHeader.call(this, name, value);
   };
   const originalGetResponseHeader = XMLHttpRequest.prototype.getResponseHeader;
   XMLHttpRequest.prototype.getResponseHeader = function(name) {
@@ -329,17 +392,28 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
     try {
       const url = new URL(String(rawURL || ''), document.location.href);
       proxyURL = url.href;
-      shouldProxy = canProxyNetworkRequest(method, url.href);
+      const proxyCapable = canProxyNetworkRequest(method, url.href);
+      shouldProxy = proxyCapable && wallpaperHostReplyReachable === true;
+      if (proxyCapable && shouldProxy !== true) {
+        // 与顶层不同源的 frame 收不到宿主回包：不进入只会等桥超时的代理路径，
+        // 保持原生 XHR（否则请求既不发原生也拿不到回包）。
+        hostLogger.post('host-reply.unsupported', `${method} ${url.href}`);
+      }
     } catch (_) {}
     if (shouldProxy && networkRequestHandler && typeof networkRequestHandler.postMessage === 'function') {
       xhr.__mwx_proxied = true;
       try { Object.defineProperty(xhr, 'readyState', { configurable: true, get: () => 2 }); } catch (_) {}
       try { xhr.onreadystatechange && xhr.onreadystatechange.call(xhr); } catch (_) {}
       try { xhr.dispatchEvent(new Event('readystatechange')); } catch (_) {}
-      hostNetworkRequest(proxyURL, method, {}).then(payload => {
+      hostNetworkRequest(proxyURL, method, normalizedProxiedRequestHeaders(xhr.__mwx_requestHeaders)).then(payload => {
         try {
           xhr.__mwx_responseHeaders = payload.headers || {};
-          const responseBytes = proxiedResponseBody(payload);
+          const responseStatus = payload.status || 200;
+          // 204/205/304 无正文：与真实 XHR 一致地还原为空响应体。
+          const responseBytes = proxiedResponseHasNullBody(responseStatus)
+            ? new Uint8Array(0)
+            : proxiedResponseBody(payload);
+          const responseURL = String(payload.responseURL || proxyURL || '');
           const decodeResponseText = () => {
             if (responseBytes instanceof Uint8Array) {
               try { return new TextDecoder('utf-8').decode(responseBytes); } catch (_) { return ''; }
@@ -358,8 +432,9 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
             responseValue = decodeResponseText();
           }
           Object.defineProperty(xhr, 'readyState', { configurable: true, get: () => 4 });
-          Object.defineProperty(xhr, 'status', { configurable: true, get: () => payload.status || 200 });
-          Object.defineProperty(xhr, 'statusText', { configurable: true, get: () => String(payload.status || 200) });
+          Object.defineProperty(xhr, 'status', { configurable: true, get: () => responseStatus });
+          Object.defineProperty(xhr, 'statusText', { configurable: true, get: () => String(responseStatus) });
+          Object.defineProperty(xhr, 'responseURL', { configurable: true, get: () => responseURL });
           Object.defineProperty(xhr, 'responseText', { configurable: true, get: () => decodeResponseText() });
           Object.defineProperty(xhr, 'response', { configurable: true, get: () => responseValue });
         } catch (_) {}
