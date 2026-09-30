@@ -82,7 +82,7 @@ final class SteamAuthRoute: ObservableObject {
 
     var isOnline: Bool { steamId != nil }
 
-    private var hasAccountConnectionIntent: Bool {
+    var hasAccountConnectionIntent: Bool {
         if isOnline { return true }
         switch phase {
         case .connecting, .authenticating, .awaitingDeviceConfirmation,
@@ -92,6 +92,10 @@ final class SteamAuthRoute: ObservableObject {
             return false
         }
     }
+
+    /// helper 空闲回收的账号静默门：未登录且无进行中认证。登录态绝不回收；
+    /// 门只读实际状态字段，不改变任何认证行为。
+    var isDormantForHelperReaping: Bool { !hasAccountConnectionIntent }
 
     /// 工具栏展示态（§3.1）。
     enum DisplayState: Equatable {

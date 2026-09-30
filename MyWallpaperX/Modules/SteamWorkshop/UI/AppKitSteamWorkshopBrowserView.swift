@@ -57,11 +57,15 @@ final class AppKitSteamWorkshopBrowserView: NSView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         if window == nil {
+            // SK-helper-idle-reap：出窗即「浏览 UI 不活跃」——挂载计数是面板
+            // 可见性的唯一 owner（与进窗配对增减）。
+            service.noteBrowsePanelDetached()
             InspectorHostActions.postClose(module: .steamWorkshop)
             service.dismissItemDetail()
             return
         }
 
+        service.noteBrowsePanelAttached()
         service.prepareForBrowserEntry()
         syncContent(force: true)
         presentPendingDownloadErrorIfNeeded()

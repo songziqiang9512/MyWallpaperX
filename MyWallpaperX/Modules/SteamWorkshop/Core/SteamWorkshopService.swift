@@ -18,6 +18,25 @@ final class SteamWorkshopService: ObservableObject {
     @Published var displayedBrowserItems: [SteamWorkshopBrowserItem] = []
     @Published var pendingBrowserScrollRestoreOffset: CGFloat?
     var browserState: SteamWorkshopBrowserLoadState = .idle
+    /// SK-helper-idle-reap：浏览面板窗口挂载计数——「浏览 UI 活跃」的唯一 owner。
+    /// AppKitSteamWorkshopBrowserView 进/出窗口（viewDidMoveToWindow）时经
+    /// noteBrowsePanelAttached/Detached 增减；> 0 即面板对用户可见，空闲回收绝不
+    /// 触发。加载态 browserState 只反映取页进度（.loaded/.failed 停留在最后值，
+    /// 仅 clearAllCachedState 回置 .idle），不得用作面板可见性代理。
+    private(set) var browsePanelAttachmentCount = 0
+
+    /// 浏览面板当前是否对用户可见（挂载于任一窗口）。
+    var isBrowsePanelOpen: Bool { browsePanelAttachmentCount > 0 }
+
+    /// 浏览面板进窗（AppKitSteamWorkshopBrowserView.viewDidMoveToWindow 唯一产生者）。
+    func noteBrowsePanelAttached() {
+        browsePanelAttachmentCount += 1
+    }
+
+    /// 浏览面板出窗（同上唯一产生者）。
+    func noteBrowsePanelDetached() {
+        browsePanelAttachmentCount -= 1
+    }
     @Published var isRefreshingBrowserFeed = false
     @Published var previewReloadToken: Int = 0
     @Published var isLoadingMoreBrowserItems = false
@@ -148,6 +167,10 @@ final class SteamWorkshopService: ObservableObject {
     /// SK4.1：下载任务单一权威（队列/去重/状态机/持久化）。旧 queued/
     /// pending 数组真值已移除，各入口读同一投影。
     private(set) lazy var downloadJobStore = SteamDownloadJobStore()
+
+    /// SK-helper-idle-reap：空闲回收策略。internal setter 供同模块唯一装配方
+    /// （SteamWorkshopService+HelperIdleReaping.swift）写入。
+    var helperIdleReaper: SteamHelperIdleReaper?
 
     /// SK4.1：出队重建执行请求所需的内存载荷映射（不入任务文件）。
     var steamJobItemPayloads: [String: SteamWorkshopBrowserItem] = [:]
@@ -361,6 +384,7 @@ final class SteamWorkshopService: ObservableObject {
         observeWebPlaybackFailures()
         installLaunchPendingObservers()
         observeSteamAccountIdentityForPersonalSources()
+        installHelperIdleReaping()
     }
 
     private static func isolatedDebugDefaultsSuiteName() -> String? {

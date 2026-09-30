@@ -28,6 +28,13 @@ class SteamClientLifecycleTests(unittest.TestCase):
             "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopQueryClient.swift",
             "MyWallpaperX/Modules/SteamWorkshop/Core/SteamAuthRoute.swift",
             "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopTokenStore.swift",
+            "MyWallpaperX/Core/PlaybackControl/PlaybackResourceLifetime.swift",
+            "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryTransaction.swift",
+            "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryPublication.swift",
+            "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryVersionLease.swift",
+            "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopJobStore.swift",
+            "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopDownloadProgress.swift",
+            "MyWallpaperX/Modules/SteamWorkshop/Core/SteamHelperIdleReaper.swift",
             "script/tests/fixtures/SteamServiceClientLifecycleHarness.swift",
         ]
         with tempfile.TemporaryDirectory(prefix="mwx-steam-client-") as directory:

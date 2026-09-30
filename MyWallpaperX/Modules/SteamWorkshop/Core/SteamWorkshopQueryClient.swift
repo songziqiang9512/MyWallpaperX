@@ -170,6 +170,15 @@ final class SteamWorkshopQueryClient {
         self.client = client
     }
 
+    /// 账号/订阅/下载类显式意图的 owner 恢复点（SK-helper-idle-reap）：helper 处于
+    /// terminated（空闲回收或有界重启预算耗尽）时，由本意图入口显式重启，而不是
+    /// 抛 notReady。与 SteamAuthRoute.ensureHelperReady 同语义：幂等，ready 即返回；
+    /// 不得借它扩大 anonymousReadCommands。匿名读（queryBrowse/Details/Author）的
+    /// 恢复在 client 的 anonymousReadCommands 内，无需此处处理。
+    private func ensureHelperStarted() async throws {
+        if client.currentIdentity == nil { _ = try await client.start() }
+    }
+
     /// tagGroups 语义（2026-09-16 SK0.1 探针实测）：组内任一 tag 命中即算
     /// 命中（组内 OR），组与组之间要求全部命中（跨组 AND）。
     func browse(
@@ -232,6 +241,7 @@ final class SteamWorkshopQueryClient {
 
     /// 已订阅列表（需登录）。
     func subscriptions(page: Int) async throws -> SteamWorkshopQueryPage {
+        try await ensureHelperStarted()
         let frame = try await client.request(
             command: "listSubscriptions",
             payload: .object(["page": SteamServiceJSON.int(page)])
@@ -241,6 +251,7 @@ final class SteamWorkshopQueryClient {
 
     /// 收藏 ID 列表（需登录；ids_only）。
     func favoriteIds(page: Int) async throws -> (ids: [String], total: Int, hasMore: Bool) {
+        try await ensureHelperStarted()
         let frame = try await client.request(
             command: "listFavorites",
             payload: .object(["page": SteamServiceJSON.int(page)])
@@ -261,6 +272,7 @@ final class SteamWorkshopQueryClient {
     /// 订阅写入（SK3.3）：desiredState 单次写；调用方随后用
     /// subscriptionStates 对账确认。
     func setSubscription(workshopId: String, subscribe: Bool) async throws {
+        try await ensureHelperStarted()
         let frame = try await client.request(
             command: "setSubscription",
             payload: .object([
@@ -288,6 +300,8 @@ final class SteamWorkshopQueryClient {
         resumeManifestId: String? = nil,
         resumeStagingLeaseIdentity: SteamWorkshopStagingLeaseIdentity? = nil
     ) async throws -> SteamWorkshopStagedReceipt {
+        // 下载是显式账号意图：terminated helper（空闲回收/重启预算耗尽）在此重启。
+        try await ensureHelperStarted()
         let epoch = client.accountEpoch
         var payload: [String: SteamServiceJSON] = [
             "workshopId": .string(workshopId),
@@ -374,6 +388,7 @@ final class SteamWorkshopQueryClient {
 
     /// 订阅状态批量核对（需登录）。
     func subscriptionStates(ids: [String]) async throws -> [String: Bool] {
+        try await ensureHelperStarted()
         let frame = try await client.request(
             command: "querySubscriptionStates",
             payload: .object(["ids": .array(ids.map(SteamServiceJSON.string))])

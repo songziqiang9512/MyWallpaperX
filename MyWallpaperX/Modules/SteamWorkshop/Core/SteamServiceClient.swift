@@ -169,8 +169,24 @@ final class SteamServiceClient {
     /// Anonymous read commands may recover a terminated helper directly from
     /// their explicit request. Account, mutation, download, and control work
     /// must enter through their existing intent/session owners instead.
-    private static let anonymousReadCommands: Set<String> = [
+    /// 分类表为 commands.json fixture 的 Swift 内联副本（双端相等锚，与
+    /// error-codes.json 同一消费模式）；任何成员变化必须同批同步
+    /// `script/tests/fixtures/steam-protocol/commands.json` 与 C# 侧分类。
+    static let anonymousReadCommands: Set<String> = [
         "queryBrowse", "queryDetails", "queryAuthor",
+    ]
+
+    /// 出站时绑定 accountEpoch 的命令（客户端陈旧账号在途工作防线）。
+    static let accountScopedCommands: Set<String> = [
+        "loginPassword", "loginQR", "restoreSession", "listSubscriptions",
+        "listFavorites", "querySubscriptionStates", "setSubscription", "startDownload",
+        "acknowledgeDownloadStaging",
+    ]
+
+    /// 保留准入容量命令（teardown/取消类在业务槽占满时仍可进入）。
+    static let controlCommands: Set<String> = [
+        "shutdown", "logout", "cancelAuthentication", "cancelDownload",
+        "acknowledgeDownloadStaging", "submitChallenge",
     ]
 
     private struct PendingRequest {
@@ -181,14 +197,30 @@ final class SteamServiceClient {
 
     private var pendingRequests: [String: PendingRequest] = [:]
 
+    /// 空闲回收静默信号（SK-helper-idle-reap）：ready 且无在途 pending。
+    /// 只读观察信号；请求路径不读它，行为零变化。回收策略由模块 owner
+    /// （SteamWorkshopService）装配，见 SteamWorkshopService+HelperIdleReaping.swift。
+    var isReadyAndQuiet: Bool {
+        if case .ready = state { return pendingRequests.isEmpty }
+        return false
+    }
+
+    /// 请求活动时钟；离线 harness 注入虚拟时钟与空闲回收策略共用同一时间线。
+    private let clock: () -> Date
+    /// 最近一次出站请求的时钟戳（回收闲置龄期的输入）。stop() 不重置：
+    /// 回收动作自身不产生请求活动，龄期跨回收连续计算。
+    private(set) var lastRequestActivity: Date
+
     /// - Parameters:
     ///   - executablePath: helper 启动可执行文件；nil 时走 HelperLocator 定位。
     ///   - transportFactory: 可注入 fake transport（离线测试）。
+    ///   - clock: 请求活动时钟注入（离线测试与空闲回收策略共用时间线）。
     init(
         executablePath: String? = nil,
         handshakeTimeout: TimeInterval = 12,
         maximumRestartAttempts: Int = 3,
-        transportFactory: ((URL) -> any SteamServiceTransporting)? = nil
+        transportFactory: ((URL) -> any SteamServiceTransporting)? = nil,
+        clock: (() -> Date)? = nil
     ) {
         self.executablePath = executablePath
         self.handshakeTimeout = handshakeTimeout
@@ -196,6 +228,8 @@ final class SteamServiceClient {
         self.transportFactory = transportFactory ?? { url in
             SteamServiceProcessTransport(executableURL: url, arguments: [])
         }
+        self.clock = clock ?? { Date() }
+        self.lastRequestActivity = self.clock()
     }
 
     deinit {
@@ -312,9 +346,7 @@ final class SteamServiceClient {
         awaitRemoteTerminalAcrossAccountEpochChanges: Bool = false
     ) async throws -> SteamServiceFrame {
         let capturedEpoch = accountEpoch
-        let accountScoped = ["loginPassword", "loginQR", "restoreSession", "listSubscriptions",
-                             "listFavorites", "querySubscriptionStates", "setSubscription", "startDownload",
-                             "acknowledgeDownloadStaging"].contains(command)
+        let accountScoped = Self.accountScopedCommands.contains(command)
         try Task.checkCancellation()
         // Process readiness is independent of account authentication. Public queries
         // can start the helper without creating a login attempt or opening UI.
@@ -335,8 +367,7 @@ final class SteamServiceClient {
             throw RequestError.incompatibleProtocol
         }
         guard !accountScoped || capturedEpoch == accountEpoch else { throw RequestError.cancelled }
-        let isControl = ["shutdown", "logout", "cancelAuthentication", "cancelDownload",
-                         "acknowledgeDownloadStaging", "submitChallenge"].contains(command)
+        let isControl = Self.controlCommands.contains(command)
         // Keep teardown/Guard responsive even when all business slots are occupied.
         let requestLimit = SteamServiceProtocol.maxPendingRequests + (isControl ? 8 : 0)
         guard pendingRequests.count < requestLimit else {
@@ -362,6 +393,7 @@ final class SteamServiceClient {
         guard data.count <= SteamServiceProtocol.maxFrameBytes + 1 else {
             throw RequestError.helperError(code: "protocolMismatch", message: "request frame exceeds limit")
         }
+        lastRequestActivity = clock()
         return try await withTaskCancellationHandler(operation: {
           try await withCheckedThrowingContinuation { continuation in
             pendingRequests[requestId] = PendingRequest(

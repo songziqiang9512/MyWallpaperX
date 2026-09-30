@@ -53,6 +53,30 @@ final class FakeSteamTransport: SteamServiceTransporting {
     }
 }
 
+/// 空闲回收的可注入计时：不真实延时；`fire()` 手动触发一次已调度的评估。
+@MainActor
+final class FakeSteamIdleReapTiming: SteamIdleReapTiming {
+    private var pendingHandler: (@MainActor () -> Void)?
+    private(set) var scheduledDelays: [TimeInterval] = []
+
+    var hasPendingEvaluation: Bool { pendingHandler != nil }
+
+    func schedule(after delay: TimeInterval, _ handler: @escaping @MainActor () -> Void) {
+        scheduledDelays.append(delay)
+        pendingHandler = handler
+    }
+
+    func cancelScheduled() { pendingHandler = nil }
+
+    func fire() {
+        guard let handler = pendingHandler else {
+            fatalError("no scheduled idle-reap evaluation to fire")
+        }
+        pendingHandler = nil
+        handler()
+    }
+}
+
 @main struct SteamServiceClientLifecycleHarness {
     @MainActor static func main() async throws {
         try helperLocationLifecycle()
@@ -117,7 +141,272 @@ final class FakeSteamTransport: SteamServiceTransporting {
         try await authenticationLifecycle()
         try await accountRouteLifecycle()
         try await stagedReceiptLifecycle()
+        commandTaxonomyConformance()
+        try await helperIdleReapingLifecycle()
         print("Steam client lifecycle: cold start, synchronous reply, cancellation, frame limit, timeout teardown, crash restart, stale callback PASS")
+    }
+
+    // MARK: - commands.json taxonomy conformance（fixture 做双端相等锚）
+
+    @MainActor static func commandTaxonomyConformance() {
+        // #filePath = <repo>/script/tests/fixtures/SteamServiceClientLifecycleHarness.swift
+        var repoRoot = (#filePath as NSString).deletingLastPathComponent // …/script/tests/fixtures
+        for _ in 0..<3 {
+            repoRoot = (repoRoot as NSString).deletingLastPathComponent
+        }
+        let fixtureURL = URL(fileURLWithPath: (repoRoot as NSString)
+            .appendingPathComponent("script/tests/fixtures/steam-protocol/commands.json"))
+        let root = try! JSONSerialization.jsonObject(with: Data(contentsOf: fixtureURL)) as! [String: Any]
+        let commands = root["commands"] as! [String: [String: Bool]]
+        func fixtureSet(_ property: String) -> Set<String> {
+            Set(commands.filter { $0.value[property] == true }.keys)
+        }
+        func check(_ name: String, _ ok: Bool, _ detail: [String] = []) {
+            precondition(ok, "taxonomy conformance failed: \(name)"
+                + (detail.isEmpty ? "" : ": \(detail)"))
+        }
+        check("swift-command-taxonomy-shape",
+              commands.count == 18
+                  && commands.values.allSatisfy {
+                      Set($0.keys) == ["control", "asyncDispatch", "helperEpochEntryGate",
+                                       "swiftAccountScoped", "anonymousRecoverable"]
+                  })
+        check("swift-control-commands-match-fixture",
+              fixtureSet("control") == SteamServiceClient.controlCommands,
+              fixtureSet("control").symmetricDifference(SteamServiceClient.controlCommands).sorted())
+        check("swift-account-scoped-commands-match-fixture",
+              fixtureSet("swiftAccountScoped") == SteamServiceClient.accountScopedCommands,
+              fixtureSet("swiftAccountScoped")
+                  .symmetricDifference(SteamServiceClient.accountScopedCommands).sorted())
+        check("swift-anonymous-recoverable-match-fixture",
+              fixtureSet("anonymousRecoverable") == SteamServiceClient.anonymousReadCommands,
+              fixtureSet("anonymousRecoverable")
+                  .symmetricDifference(SteamServiceClient.anonymousReadCommands).sorted())
+        let swiftKnownCommands = SteamServiceClient.controlCommands
+            .union(SteamServiceClient.accountScopedCommands)
+            .union(SteamServiceClient.anonymousReadCommands)
+            .union(["ping"])
+        check("swift-command-universe-covers-fixture",
+              Set(commands.keys) == swiftKnownCommands,
+              Set(commands.keys).symmetricDifference(swiftKnownCommands).sorted())
+        print("Command taxonomy: fixture equality anchors (control/accountScoped/anonymousRecoverable/universe) PASS")
+    }
+
+    // MARK: - helper 空闲回收（fake transport + fake scheduler）
+
+    @MainActor static func helperIdleReapingLifecycle() async throws {
+        var virtualNow = Date(timeIntervalSince1970: 1_000_000)
+        var transports: [FakeSteamTransport] = []
+        let client = SteamServiceClient(
+            executablePath: "/fake",
+            transportFactory: { _ in
+                let transport = FakeSteamTransport()
+                transport.replyOnSend = false
+                transports.append(transport)
+                return transport
+            },
+            clock: { virtualNow })
+        let route = SteamAuthRoute(client: client, persistence: .init(
+            remember: { false }, setRemember: { _ in }, setRestoreAuthorized: { _ in },
+            save: { _ in false }, delete: { true }, saveMetadata: { _ in }, clearMetadata: {}
+        ))
+        let jobStoreDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-steam-reap-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: jobStoreDirectory) }
+        let jobStore = SteamDownloadJobStore(
+            persistenceURL: jobStoreDirectory.appendingPathComponent("jobs-v5.json"),
+            now: { virtualNow })
+        // 浏览面板挂载计数：与产品 owner（SteamWorkshopService
+        // .browsePanelAttachmentCount）同一转移规则——初始 0，只由进窗/出窗事件
+        // 增减，无合成复位；门表达式同产品装配（计数为 0 才算浏览休眠）。
+        var browsePanelAttachments = 0
+        var hasActiveDownloadTasks = false
+        let timing = FakeSteamIdleReapTiming()
+        let reaper = SteamHelperIdleReaper(
+            idleTimeout: 600, pollInterval: 60,
+            now: { virtualNow },
+            timing: timing,
+            gates: .init(
+                helperQuiet: { client.isReadyAndQuiet },
+                accountDormant: { route.isDormantForHelperReaping },
+                downloadsDormant: { !hasActiveDownloadTasks && jobStore.activeJobs.isEmpty },
+                browseDormant: { browsePanelAttachments == 0 }),
+            lastActivity: { client.lastRequestActivity },
+            reap: { @MainActor in await client.stop(shutdownTimeout: 0.05) })
+        reaper.begin()
+        precondition(timing.hasPendingEvaluation, "begin must arm the first poll")
+
+        func fireAndAssertStillReady(_ gate: String) async {
+            precondition(timing.hasPendingEvaluation)
+            timing.fire()
+            if case .ready = client.state {} else {
+                fatalError("active \(gate) must suppress reaping (state \(client.state))")
+            }
+        }
+
+        _ = try await client.start()
+        precondition(client.isReadyAndQuiet && route.isDormantForHelperReaping)
+
+        // 门 1：浏览面板开着不回收（进窗事件使挂载计数 > 0）。
+        browsePanelAttachments += 1 // viewDidMoveToWindow: attached
+        virtualNow = virtualNow.addingTimeInterval(601)
+        await fireAndAssertStillReady("browse panel")
+        browsePanelAttachments -= 1 // viewDidMoveToWindow: detached
+
+        // 门 2：在途 pending 请求（helper 非静默）。
+        transports.last!.replyOnSend = false
+        let held = Task { try await client.request(command: "ping", timeout: nil) }
+        while transports.last!.sends == 0 { await Task.yield() }
+        virtualNow = virtualNow.addingTimeInterval(601)
+        await fireAndAssertStillReady("pending request")
+        held.cancel()
+        while !client.isReadyAndQuiet { await Task.yield() }
+        transports.last!.replyOnSend = true
+
+        // 门 3：登录态绝不回收。
+        try await driveLogin(route: route, client: client, transports: transports)
+        precondition(route.isOnline && !route.isDormantForHelperReaping)
+        virtualNow = virtualNow.addingTimeInterval(601)
+        await fireAndAssertStillReady("signed-in account")
+        await route.signOut()
+        while !route.isDormantForHelperReaping { await Task.yield() }
+
+        // 门 4：进行中认证（connecting 阶段）。
+        let authTransport = transports.last!
+        authTransport.replyOnSend = false
+        let authBaseline = authTransport.requests.count
+        let authAttempt = Task { try await route.loginQR() }
+        while authTransport.requests.count <= authBaseline {
+            await Task.yield()
+        }
+        precondition(route.phase == .connecting, "in-progress auth must hold the account gate")
+        virtualNow = virtualNow.addingTimeInterval(601)
+        await fireAndAssertStillReady("in-progress authentication")
+        route.cancelPendingAuthentication()
+        _ = try? await authAttempt.value
+        while !route.isDormantForHelperReaping { await Task.yield() }
+        // 显式收口取消请求，避免孤儿 pending 把静默信号拖到真实 30s 超时。
+        while authTransport.requests
+            .first(where: { $0["command"] as? String == "cancelAuthentication" }) == nil {
+            await Task.yield()
+        }
+        if let cancelRequest = authTransport.requests
+            .last(where: { $0["command"] as? String == "cancelAuthentication" }) {
+            authTransport.emit(["v": 1, "type": "result", "requestId": cancelRequest["requestId"]!, "ok": true])
+        }
+        while !client.isReadyAndQuiet { await Task.yield() }
+        authTransport.replyOnSend = true
+
+        // 门 5：活动下载作业（JobStore 实际状态）。
+        let (queued, _) = jobStore.enqueue(
+            workshopItemId: "654321", title: "ReapFixture", accountSteamId: "76561198000000000")
+        precondition(jobStore.apply(.started, toID: queued.id) != nil)
+        hasActiveDownloadTasks = true
+        virtualNow = virtualNow.addingTimeInterval(601)
+        await fireAndAssertStillReady("active download job")
+        hasActiveDownloadTasks = false
+        precondition(jobStore.cancel(id: queued.id) != nil)
+
+        // 门 6：闲置龄期不足（最近一次出站请求 < idleTimeout）。
+        _ = try await client.request(command: "ping")
+        virtualNow = virtualNow.addingTimeInterval(599)
+        await fireAndAssertStillReady("idle age below timeout")
+
+        print("REAP")
+        // 全门满足：回收触发，复用 stop() 通道进入 terminated。
+        virtualNow = virtualNow.addingTimeInterval(2)
+        timing.fire()
+        let reapDeadline = Date().addingTimeInterval(2)
+        while client.state != .terminated && Date() < reapDeadline { await Task.yield() }
+        precondition(client.state == .terminated, "all gates satisfied must reap the helper")
+        precondition(transports.count == 1 && transports[0].terminated, "reap must stop the live transport")
+        reaper.end()
+
+        // 等待指定序号 transport 上出现指定命令的出站请求。
+        func waitForRequest(_ command: String, index: Int) async -> [String: Any] {
+            let deadline = Date().addingTimeInterval(2)
+            while Date() < deadline {
+                if transports.count >= index,
+                   let request = transports[index - 1].requests
+                       .first(where: { $0["command"] as? String == command }) {
+                    return request
+                }
+                await Task.yield()
+            }
+            fatalError("no \(command) request observed on transport #\(index)")
+        }
+
+        // 回收后：匿名读透明重启（client 内建 anonymousReadCommands 恢复，非扩大）。
+        let browse = Task { try await client.request(command: "queryBrowse") }
+        let browseRequest = await waitForRequest("queryBrowse", index: 2)
+        transports.last!.emit(["v": 1, "type": "result", "ok": true,
+                               "requestId": browseRequest["requestId"]!])
+        let browseFrame = try await browse.value
+        precondition(transports.count == 2 && browseFrame.ok == true && client.currentIdentity != nil,
+                     "anonymous read must transparently restart a reaped helper")
+
+        // 回收后：订阅意图经 owner（ensureHelperStarted）显式重启并成功。
+        await client.stop(shutdownTimeout: 0)
+        transports.last!.replyOnSend = false
+        let query = SteamWorkshopQueryClient(client: client)
+        let states = Task { try await query.subscriptionStates(ids: ["123456"]) }
+        let statesRequest = await waitForRequest("querySubscriptionStates", index: 3)
+        transports.last!.emit(["v": 1, "type": "result", "ok": true,
+                               "requestId": statesRequest["requestId"]!,
+                               "accountEpoch": client.accountEpoch,
+                               "data": ["states": ["123456": true]]])
+        let statesResult = try await states.value
+        precondition(statesResult == ["123456": true],
+                     "subscription intent must recover a reaped helper at its owner")
+
+        // 回收后：下载意图成功（startDownload 意图入口显式重启并取得合法凭证）。
+        await client.stop(shutdownTimeout: 0)
+        let base = "/private/tmp/reap-fixture" // protocol fixture only, no disk I/O
+        let path = base + "/job-" + String(repeating: "a", count: 32)
+        let receiptTask = Task { try await query.startStagedDownload(
+            jobId: "job", workshopId: "654321",
+            accountSteamId: "76561198000000000", stagingRoot: base) }
+        let startRequest = await waitForRequest("startDownload", index: 4)
+        transports.last!.emit(["v": 1, "type": "result", "ok": true,
+                               "requestId": startRequest["requestId"]!,
+                               "accountEpoch": client.accountEpoch,
+                               "data": ["receiptVersion": 2, "contentDigest": String(repeating: "a", count: 64),
+                                        "jobId": "job", "workshopId": "654321",
+                                        "accountSteamId": "76561198000000000", "stagedComplete": true,
+                                        "manifestId": "18446744073709551615", "stagingPath": path,
+                                        "stagingDevice": "1", "stagingInode": "2",
+                                        "stagingBirthSeconds": "100", "stagingBirthNanoseconds": "200",
+                                        "projectJsonPresent": true, "totalBytes": 2, "verifiedBytes": 2]])
+        let receipt = try await receiptTask.value
+        precondition(receipt.manifestId == "18446744073709551615" && receipt.verifiedBytes == 2,
+                     "download intent must recover a reaped helper at its owner")
+
+        // 回收后：登录意图经 SteamAuthRoute.ensureHelperReady 成功。
+        try await driveLogin(route: route, client: client, transports: transports)
+        precondition(route.isOnline, "login intent must recover a reaped helper")
+        await route.signOut()
+        await client.stop(shutdownTimeout: 0)
+        print("Helper idle reap: quiet+age gates, browse/pending/signin/auth/download suppressions, transparent anonymous restart, owner-recovered subscription/download/login PASS")
+    }
+
+    /// 驱动一次成功 QR 登录（模型与 accountRouteLifecycle 相同的回包形状）。
+    @MainActor static func driveLogin(route: SteamAuthRoute, client: SteamServiceClient,
+                                      transports: [FakeSteamTransport]) async throws {
+        let transport = transports.last!
+        transport.replyOnSend = false
+        let login = Task { try await route.loginQR() }
+        while transport.requests.first(where: { $0["command"] as? String == "loginQR" }) == nil {
+            await Task.yield()
+        }
+        let request = transport.requests.last!
+        transport.emit(["v": 1, "type": "result", "requestId": request["requestId"]!, "ok": true,
+                        "authAttemptId": request["authAttemptId"] ?? "",
+                        "accountEpoch": request["accountEpoch"]!,
+                        "data": ["steamId": "76561198000000003", "accountName": "re***"],
+                        "private": ["refreshToken": "reap-secret", "accountName": "account"]])
+        _ = try await login.value
+        transport.replyOnSend = true
+        precondition(route.isOnline)
     }
 
     @MainActor static func explicitStartDuringBackoff() async throws {
