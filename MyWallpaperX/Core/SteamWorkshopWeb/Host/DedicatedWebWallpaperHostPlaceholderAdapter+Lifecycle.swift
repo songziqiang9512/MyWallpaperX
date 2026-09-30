@@ -408,6 +408,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             eventHandler?(.ready(requestID: requestID))
         }
         scheduleDebugEvidenceIfNeeded()
+        scheduleWebNavigationProbeIfNeeded()
     }
 
     func diagnosticSeverity(for type: String) -> WebRuntimeDiagnosticEvent.Severity {
