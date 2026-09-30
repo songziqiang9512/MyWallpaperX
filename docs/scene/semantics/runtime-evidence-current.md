@@ -30,6 +30,16 @@
 
 **验证与结果：**artifact 80 tests OK（截断文本 `(t + tint * 0.5 * mask).x`、标量/未知名/混宽三保留、定义头保留）；23 模块门禁唯一失败=并行会话 finalizer 已知回归（撤批同红归属）；**真实回放 2849382252 PASS `failures=[]`**（report SHA-256 `eb14191a0f2a8daa1d568e5c61787dc29b1a6ad65057e158a449e956b7e05233`，09-23 以来首次）——sine_wave_circle 三实例 admitted-generic/program 真实执行（preview.log:64/65/68）、tone_mapping property-inactive 合法 passthrough、after 截图三条正弦波光环出画。剩余 1 条 fallback=另一 shader `log10` no-matching-overload（frag:246，同族下一入口）。证据本机缓存 `docs/scene/evidence/20260930-varying-isolation/replay-20260930-applyblend/`。独立终审 APPROVE（三 CONCERN 已收敛：缓存杠杆补抬、注释失真修正、未测缺口登记随下批）。
 
+<a id="e-2026-09-30-stage-link-loose-builtin-compat"></a>
+
+### E-2026-09-30-STAGE-LINK-LOOSE-BUILTIN-COMPAT — log10 兼容宏 + 标量在前 max/min 广播（第七子类；2849382252 失败链闭合，零 fallback）
+
+**基线与变更：**`d3aff814` + 本批 6 文件（prelude `#define log10(x) (log(x) * 0.4342944819032518)`、`rewriteVectorClampLiteralArguments` 接受 float 字面量/复合兄弟并改为捕获组重建（修复旧替换可打碎含字面子串兄弟的潜伏缺陷）、`expressionValueWidth` 迁为 +Rewrites 共享、frontendSchemaVersion 36→37、VariantAnalysisCache 5→6、artifact harness 新 `--normalizer-loose-builtin-compat` 六断言）。
+
+**探针证据链（真实捕获源）：**上批归档的 `898af0d0` 归一化产物（tone_mapping）经 app 自带 glslang helper `-V -l` 链接：rc=2 复现 `log10:246` → 预补宏后 rc=2 暴露 `max:275`（float 字面量在前）→ 两处修复后 rc=0。
+
+**验证与结果：**artifact 81 tests OK；标量广播/float-array 属主模块全绿（重建改动回归网）；34 模块门禁唯一失败=已知并行 finalizer 回归；**真实回放 2849382252 PASS 且 `shared-backend-fallback`=0、路由 25/25 全 accepted、898af0d0 `outcome=published/accepted`**（report SHA-256 `1559b91410f146ac390a7668a62fd7fc4d42743c4c88cdb429eac5d74f442152`）——三批链（varying 窄化→ApplyBlending 截断→log10/max 广播）后该样本编译失败类全部闭合。证据本机缓存 `docs/scene/evidence/20260930-varying-isolation/replay-20260930-log10/`（含归一化产物）。独立终审 APPROVE；提交卫生事件=两共享文件混入并行会话在途职责（`renameMetalReservedAlternativeTokens`，producer 2179455321），提交按 hunk 剥离、并行工作原样保留工作树。下一入口=prelude 缺失内建 `lerp`/`rsqrt`/`exp10`（`fmod` 语义陷阱不可 naive define）。
+
 <a id="e-2026-09-30-scene-startup-speed-program"></a>
 
 ### E-2026-09-30-SCENE-STARTUP-SPEED-PROGRAM — Scene 启动提速计划十一批（测量驱动的预热/持久化层，独立审查逐批通过）
