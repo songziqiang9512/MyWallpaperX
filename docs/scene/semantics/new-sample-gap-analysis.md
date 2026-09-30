@@ -200,19 +200,25 @@ generate_scene_full_matrix.py 不得用其放宽既有期望。
   （结构识别：层 effects 空——planner 是该形态唯一 plan 产生者）；⑦ 模板
   `renderStateInvalid`（材质未声明 state 即整态无效）→ 合成四边形缺省
   （normal/nocull/disabled/disabled，声明字段逐字优先）。
-  **未打通的两锚**：⑧ `active-resource-demand`——material-only 层的材质纹理
-  （flowmask.tex，在 pkg 内 16MB）不在静态装载输入（entries=1 只装层底图），
-  准入时无 launch state 即硬拒；鸡生蛋：catalog 只为已准入材质准备纹理——需要
-  资源准备输入把 model-material 材质纹理纳入（或准入-装载两阶段化）；
-  ⑨ `material-variant-envelope-texture-purpose`——材质纹理用途证明（envelope 门，
-  同缺口 3 家族），⑧ 打通后按其实测内容处置。另有 runner 侧：合成 effect 无
-  effectStage 行，disposition/conservation 断言需 runner 理解合成形态（触
-  test_scene_wallpaper_benchmark.py，并行会话在途须协调）。
+  **未打通的一锚（修正此前误判）**：`material-variant-envelope-texture-purpose`——
+  实测诊断逐字：`slot=0 reference=asset:background sampler=g_Texture0 mode=regular
+  material=<none> default=<none>`。用途三路证明全空：采样器 `sourceProvenPurpose=nil`
+  （flowimage 采样形状未被既有 source-proven 分析器覆盖）、`declaredPurpose=nil`
+  （材质纹理为裸字符串声明，无用途注解）、stock 语义注册表无 "background"。
+  修复形状 = 缺口 3 族的"材质资产纹理 source-proven 用途扩展"（内容已测量的
+  premultipliedColor 资产 + 采样形状分析器证明）。此前"active-resource-demand
+  鸡生蛋"为误判——该字符串只是诊断位，真实 demand issue 即 purposeUnproven。
+  另有 runner 侧：合成 effect 无 effectStage 行，disposition/conservation 断言需
+  runner 理解合成形态（触 test_scene_wallpaper_benchmark.py，并行会话在途须协调）
+  ——**该依赖使子批 B 为跨会话批次**。
   实测序：descriptorMismatch → instanceOverlay 拒 → renderStateInvalid →
-  active-resource-demand + envelope-texture-purpose passthrough（图执行 succeeded、
-  合成 compositorConsumed=true、视觉无回退——passthrough 转发层源）。
-  回退原因：⑧⑨ 未通前样本 benchmark 由 PASS 转 FAIL（证据契约），按"不当场堆
-  补丁"纪律回退至子批 A 已验证态；重放 = patch + ⑧⑨⑩ 三锚的带证据实现。
+  envelope-texture-purpose passthrough（图执行 succeeded、合成 compositorConsumed=true、
+  视觉无回退——passthrough 转发层源）。回退原因：⑨ 未通前样本 benchmark 由 PASS
+  转 FAIL（证据契约），按"不当场堆补丁"纪律回退至子批 A 已验证态；重放 = patch +
+  用途证明扩展 + runner 合成形态断言（须与并行会话协调）。
+  附带观察：833227004 夜间运行两次出现 `performance presentation stream count does
+  not match surfaces`（22:20 同代码 PASS、23:15 两次 FAIL、同时刻动画样本
+  2131872317 PASS）——样本特化的呈现流测量环境敏感观察，与合成回退无关，留观测。
 
 ### 非缺口（观察与实测不一致）
 
