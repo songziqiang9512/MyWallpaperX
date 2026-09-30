@@ -1598,6 +1598,13 @@ enum Harness {
             extentPolicy: poolLimitPolicy,
             requestedWidth: 4_000,
             requestedHeight: 3_000
+        ), let exactChainExtent = directBudgetPool.persistentTargetPlans(
+            admittedGraphs: directGraphs,
+            pairPlan: directPairPlan,
+            extentPolicy: SceneEffectSourceExtentContract.exactSamplingTexture
+                .targetPolicy,
+            requestedWidth: 4_000,
+            requestedHeight: 3_000
         ), directBudgetPool.persistentTargetPlans(
             admittedGraphs: directGraphs,
             pairPlan: directPairPlan,
@@ -3690,6 +3697,7 @@ enum Harness {
             "chainStageHandoffContinuous": directStageHandoffContinuous,
             "typedStandardExtent": [standardExtent.width, standardExtent.height],
             "typedPoolLimitExtent": [poolLimitExtent.width, poolLimitExtent.height],
+            "typedExactChainExtent": [exactChainExtent.width, exactChainExtent.height],
             "typedExactStandardClampRejected": true,
             "exactSamplingTextureExtent": exactSamplingTextureExtent.map {
                 [$0.0, $0.1]
@@ -3911,7 +3919,11 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertTrue(self.result["composePairBijection"])
         self.assertTrue(self.result["composeTerminalFixed"])
 
-    def test_whole_chain_reuses_two_slots_at_the_128mib_boundary(self) -> None:
+    def test_whole_chain_reuses_two_slots_and_clamps_to_standard_extent(self) -> None:
+        # 缺口 5b 候选 A：近预算 4000x4000 poolLimit 请求在规划入口降档，
+        # 整链仍复用两 slot、单 allocation，实际驻留为 standard 档
+        # 2048x2048 双纹理（2048^2*2*4 = 33_554_432）；graphPlanNearBudgetBytes
+        # 是绕过规划入口的直接 make（4000x4000），不受档位规则影响。
         self.assertTrue(self.result["persistentGraphStable"])
         self.assertTrue(self.result["persistentPrepareNoMutation"])
         self.assertTrue(self.result["persistentRepeatedCommitRejected"])
@@ -3922,17 +3934,27 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertEqual(self.result["chainPhysicalObjectCount"], 2)
         self.assertEqual(self.result["persistentGraphAllocationCount"], 1)
         self.assertEqual(self.result["persistentGraphTextureCount"], 2)
-        self.assertEqual(self.result["persistentGraphBytes"], 128_000_000)
+        self.assertEqual(self.result["persistentGraphBytes"], 33_554_432)
 
     def test_typed_persistent_extent_policy_defaults_to_standard_cap(self) -> None:
-        self.assertEqual(self.result["typedStandardExtent"], [2_048, 1_536])
-        self.assertEqual(self.result["typedPoolLimitExtent"], [4_000, 3_000])
+        # 缺口 5b 候选 A：非 exact 层链规划 extent 一律 .standard 档——
+        # 裸 poolLimit 请求在规划入口整体降档到 ≤2048，与默认档同 extent；
+        # standard+exact 的矛盾组合仍被 exactness 硬拒。
+        standard_extent = self.result["typedStandardExtent"]
+        pool_limit_extent = self.result["typedPoolLimitExtent"]
+        self.assertLessEqual(max(standard_extent), 2_048)
+        self.assertLessEqual(max(pool_limit_extent), 2_048)
+        self.assertEqual(pool_limit_extent, standard_extent)
         self.assertTrue(self.result["typedExactStandardClampRejected"])
 
     def test_geometry_sampling_extent_is_exact_inside_existing_pool_limit(self) -> None:
+        # 缺口 5b 候选 A 回归门：exact 合同层链规划逐字保留原 policy——
+        # 4000x3000 请求按输入原幅规划（若被错误降档会变 2048x1536），
+        # 超 hardLimit 的 exact 请求仍硬拒。
         self.assertEqual(
             self.result["exactSamplingTextureExtent"], [5_000, 2_200]
         )
+        self.assertEqual(self.result["typedExactChainExtent"], [4_000, 3_000])
         self.assertTrue(self.result["oversizedExactSamplingTextureRejected"])
 
     def test_two_inflight_generations_are_bounded_and_reusable(self) -> None:

@@ -156,6 +156,9 @@ final class SceneOffscreenTexturePool {
 
     private struct PersistentPlansMemoKey: Hashable {
         let identity: PersistentPlansMemoIdentity
+        /// 缺口 5b 候选 A：原始 extent policy 纳入 memo 键——规划档位
+        /// 变更时旧条目不可能命中新计划（M4.1 键覆盖全部输入）。
+        let extentPolicy: SceneFullFrameExtentPolicy
         let width: Int
         let height: Int
         let materialFunctionTargets: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>]
@@ -187,11 +190,20 @@ final class SceneOffscreenTexturePool {
               admittedGraphs.allSatisfy({ $0.layerID == pairPlan.layerID }) else {
             return .failure(.invalidRequest)
         }
+        // 缺口 5b 候选 A：链工作 extent 拓扑档在规划入口统一裁决——非
+        // exact 合同层一律 .standard（2048 上限），裸 poolLimit/hardLimit
+        // 不进入链规划；exactSamplingTexture 层原 policy 逐字保留（含
+        // resolvedDimensions 的 exactness 硬拒与终端 effectOutput 合同）。
+        // make 的同 inputExtent 合同使"中间降档/终端保原幅"异构不可行，
+        // 故整链共用这一个降档 extent（SceneLayerGraphTargetPlan.make 的
+        // 同 extent 合同不改）。compositionTarget 的 sizing 不经过本入口。
         guard let size = SceneOffscreenResolutionPolicy.resolvedDimensions(
             width: requestedWidth,
             height: requestedHeight,
             hardLimit: maxDimension,
-            policy: extentPolicy
+            policy: SceneOffscreenResolutionPolicy.chainPlanningPolicy(
+                extentPolicy
+            )
         ) else { return .failure(.invalidExtent) }
         // M4.1：make 为纯函数，键覆盖全部输入；命中即跳过逐层 make
         // （帧路径 adm 段 25.5ms 主项）。capability 换代自动换键；
@@ -199,6 +211,7 @@ final class SceneOffscreenTexturePool {
         if let plansMemoIdentity {
             let memoKey = PersistentPlansMemoKey(
                 identity: plansMemoIdentity,
+                extentPolicy: extentPolicy,
                 width: size.0,
                 height: size.1,
                 materialFunctionTargets: materialFunctionTargetsByEffect

@@ -76,6 +76,47 @@ effects/____________` 的 shader 合同因第 39 行中文注释 `// BLENDMODE �
 **缺口 5（性能/卡死）**：3589454154（130 层、3.8fps 近冻结）、3232289987（60 层 9 粒子 +
 跨 workshop 引用，进程超时）。需 CPU profile。
 
+**缺口 5b（效果链中间目标降尺寸，候选 A）→ 偏差登记（2026-09-30 落地）**：
+- **目标合同**：持久效果链 graph 目标规划的工作 extent 是纯拓扑档决策（零样本/效果类知识），
+  唯一解析入口 `persistentTargetPlansResult` 调 `SceneOffscreenResolutionPolicy.resolvedDimensions`：
+  非 exact 合同层一律 `.standard` 档（2048 上限），裸 poolLimit/hardLimit 不进入链规划；
+  `.exactSamplingTexture` 层（Puppet，全仓唯一声明者）逐字保留原 policy 与 exactness 硬拒；
+  `compositionTarget` sizing 与 `SceneLayerGraphTargetPlan.make` 的同 inputExtent 合同不变。
+- **当前事实**：规则已由规划入口 `SceneOffscreenResolutionPolicy.chainPlanningPolicy` 落地。
+  产品唯一调用方（SceneResolvedMaterialFramePreflight 传 `effectSourceExtentContract.targetPolicy`）
+  对 scalableStandard 本就映射 `.standard`，故当前产品路径行为不变；本批把该规则从调用方约定
+  上收为规划入口裁决，并封死 planner API 层的裸 poolLimit 请求（既有 harness fixture 曾以
+  poolLimit 规划出 4000×3000 链，现断言降档到 ≤2048）。
+- **取舍**：`SceneLayerGraphTargetPlan.make` 强制全 stage 同 inputExtent，且
+  `SceneGraphRenderTargetPlan.make` 只收单一 inputExtent——"中间降档/终端保原幅"异构不可行，
+  也不许改 make 同 extent 合同；故整链共用一个降档 extent，终端 effectOutput 随链降档，
+  Puppet 精确图集层不降。
+- **owner**：`SceneOffscreenResolutionPolicy.chainPlanningPolicy`（档位裁决）+
+  `persistentTargetPlansResult`（唯一解析入口执行）；M4.1 memo 键 `PersistentPlansMemoKey`
+  已纳入原始 extentPolicy，档位语义再变更时旧 memo 条目不可能命中新计划。
+- **route/fallback**：规划失败仍走既有 `localFallbackReasonCode` 局部 fail-soft
+  （previous-current），本批无新增兜底分支。
+- **纠正门**：改前改后终端输出 montage 差分 + `_rt_imageLayerComposite_<id>`（代码名）
+  base capture 变 S-extent（2048 档）后的跨层消费方偏差清单——凡经
+  `SceneNamedTextureReference` 消费该层输出的依赖层逐一核对采样偏差；该门属后续验证阶段
+  （本批按批次边界不运行 benchmark/xcodebuild）。
+- **退役条件**：若后续 parity/兼容证据要求普通层链输出恢复 >2048（例如官方行为按画布投影
+  出高幅链），由对应卡显式改基线并退役本档规则；帧率收益为机制推断、未实测，不设具体预期。
+- **A/B 实测结论（2026-09-30 同机同构建流程）**：3078285611 为 Puppet exact 合同层，
+  档位规则按设计对其不生效——基线 6.04fps → 改后 5.40fps 属运行噪声（montage 差分
+  1.5%>12 符合纯动画相位噪声；此前"该样本链填充 ~4.6× 削减"的估算因 exact 合同前提
+  不成立而作废，该样本的性能治理属 Puppet 保护下的产品语义裁决，非本档规则范畴）。
+  本批的实际价值 = 规划入口档位裁决收口 + planner API 裸 poolLimit 漏洞封死 + 行为
+  断言固化（poolLimit 链降档 ≤2048、exact 链保 4000×3000 逐字不变）。
+
+**缺口 5a 重新归因（2026-09-30 LAUNCH-STAGE 实测，3233141951）**：`stage=catalog-decode
+elapsedMs=25`、`stage=device-join elapsedMs=28770`——材质资产目录解码仅 25ms，
+"内联解码阻塞启动"的原定性被实测推翻；启动主项在 device-join（28.8s，base 车道
+`SceneBaseImageTextureLoad` 同步装载，含 18 张首帧可见层底图的解码/预乘/上传）。
+缺口 5a 的治理杠杆相应重定域：从 catalog 车道资格扩展改为 base 车道 device-join 内
+装载成本的结构性治理（归 warmup/route 启动域协调），deferred 车道扩展方案搁置待
+重新定价。
+
 **缺口 6（跨 workshop 粒子引用）→ 定性推翻并关闭（2026-09-30 全语料普查 + 双重审核）**：
 208 样本中 135 个带粒子层，70 个含 `particles/workshop/<id>/...` 引用形态；204 个跨
 workshop 粒子定义全部嵌入本样本 pkg 索引、0 不可解析（ScenePkgCacheExtractor.swift:195

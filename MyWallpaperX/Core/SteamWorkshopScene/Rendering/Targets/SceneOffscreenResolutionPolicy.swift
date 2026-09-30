@@ -63,6 +63,17 @@ enum SceneOffscreenResolutionPolicy {
         }
     }
 
+    /// 缺口 5b 候选 A：持久效果链工作 extent 的拓扑档规则（纯拓扑级，
+    /// 零样本/效果类知识）。链规划入口只承认两档：`.exactSamplingTexture`
+    /// 合同层逐字保留原 policy（poolLimit + requiresExactInputExtent 硬拒，
+    /// atlas 保真不变）；其余合同层一律落 `.standard`（2048 上限）——裸
+    /// poolLimit/hardLimit 不再进入链工作尺寸解析。
+    static func chainPlanningPolicy(
+        _ policy: SceneFullFrameExtentPolicy
+    ) -> SceneFullFrameExtentPolicy {
+        policy.requiresExactInputExtent ? policy : .standard
+    }
+
     static func resolvedDimensions(
         width: Int,
         height: Int,
