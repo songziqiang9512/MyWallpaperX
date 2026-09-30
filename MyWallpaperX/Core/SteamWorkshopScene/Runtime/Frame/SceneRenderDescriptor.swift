@@ -84,6 +84,11 @@ struct SceneRenderDescriptorBuilder {
         let modelCropOffsetsByPath = Dictionary(
             uniqueKeysWithValues: assetCatalog.models.map { ($0.relativePath, $0.cropOffsetXY) }
         )
+        let modelDeclaredSizeWHByPath = Dictionary(
+            uniqueKeysWithValues: assetCatalog.models.compactMap { model in
+                model.declaredSizeWH.map { (model.relativePath, $0) }
+            }
+        )
         let puppetMeshPathsByModelPath = Dictionary(
             uniqueKeysWithValues: assetCatalog.models.map { ($0.relativePath, $0.puppetPath) }
         )
@@ -167,7 +172,12 @@ struct SceneRenderDescriptorBuilder {
                     originHasScript: object.originHasScript,
                     anglesHasScript: object.anglesHasScript,
                     originXYZ: padVector(parseVector(object.origin), length: 3, fill: 0),
-                    sizeWH: padVector(parseVector(object.size), length: 2, fill: 0),
+                    sizeWH: layerSizeWH(
+                        explicit: parseVector(object.size),
+                        modelDeclared: object.imagePath.flatMap {
+                            modelDeclaredSizeWHByPath[$0]
+                        }
+                    ),
                     scaleXYZ: padVector(parseVector(object.scale), length: 3, fill: 1),
                     anglesXYZ: padVector(parseVector(object.angles), length: 3, fill: 0),
                     parallaxDepthXY: padVector(parseVector(object.parallaxDepth), length: 2, fill: 0),
@@ -363,6 +373,20 @@ struct SceneRenderDescriptorBuilder {
         guard let vec else { return nil }
         if vec.count >= length { return Array(vec.prefix(length)) }
         return vec + Array(repeating: fill, count: length - vec.count)
+    }
+
+    /// Explicit authored `size` wins; a model-referencing layer without one
+    /// inherits the model's declared design size; anything else stays [0, 0]
+    /// (the historical default for size-less layers).
+    nonisolated private func layerSizeWH(
+        explicit: [Float]?,
+        modelDeclared: [Float]?
+    ) -> [Float] {
+        if let explicit, !explicit.isEmpty {
+            return padVector(explicit, length: 2, fill: 0) ?? [0, 0]
+        }
+        guard let modelDeclared, modelDeclared.count == 2 else { return [0, 0] }
+        return modelDeclared
     }
 
     nonisolated private func effectDescriptors(from object: SceneDocument.SceneObject) -> [SceneRenderDescriptor.EffectDescriptor] {

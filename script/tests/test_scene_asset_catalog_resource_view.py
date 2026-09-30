@@ -90,6 +90,9 @@ enum Harness {
         let model = catalog.models.first {
             $0.relativePath == "models/util/solidlayer_depthtest.json"
         }
+        let barModel = catalog.models.first {
+            $0.relativePath == "models/workshop/bar.json"
+        }
         let tint = catalog.materials.first {
             $0.relativePath == "materials/workshop/bar.json"
         }?.passes.first?.constantShaderValues["g_TintColor"]
@@ -97,6 +100,8 @@ enum Harness {
             "modelFound": model != nil,
             "solid": model?.isSolidLayer ?? false,
             "materialPath": model?.materialPath ?? "missing",
+            "modelDeclaredSizeWH": model?.declaredSizeWH ?? [],
+            "barDeclaredSizeWH": barModel?.declaredSizeWH ?? [],
             "materialCatalogCount": catalog.materials.count,
             "shaderContractCount": catalog.shaderContracts.count,
             "tintScript": tint?.scriptSource ?? "missing",
@@ -145,7 +150,11 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
         ):
             path.parent.mkdir(parents=True, exist_ok=True)
         package_model.write_text(
-            json.dumps({"material": "materials/workshop/bar.json"}),
+            json.dumps({
+                "material": "materials/workshop/bar.json",
+                "width": 1920,
+                "height": 1080,
+            }),
             encoding="utf-8",
         )
         package_material.write_text(
@@ -225,6 +234,12 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
         )
         self.assertEqual(self.result["materialCatalogCount"], 1)
         self.assertEqual(self.result["shaderContractCount"], 1)
+
+    def test_model_declared_size_parses_from_scalar_width_height(self) -> None:
+        # bar.json declares scalar width/height → the model asset carries the
+        # design size; a model without them (solidlayer_depthtest) carries none.
+        self.assertEqual(self.result["barDeclaredSizeWH"], [1920.0, 1080.0])
+        self.assertEqual(self.result["modelDeclaredSizeWH"], [])
 
     def test_material_constant_preserves_script_shape_and_properties(self) -> None:
         self.assertEqual(

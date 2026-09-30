@@ -173,6 +173,17 @@ generate_scene_full_matrix.py 不得用其放宽既有期望。
   `validateOuterGraph` 均以 descriptor layer.effects 为锚，合成 stage 无从对位；
   ③ 无替代执行路由。整层不可见只剩清屏色。→ 需要合成 graph 或新增 material-only
   执行路由，属独立设计批次。
+- **缺口 1 子批 A（layer 尺寸推导）→ 已落地（2026-09-30）**：黑屏直接根因之一是
+  layer 1 无显式 `size` 字段 → `sizeWH` 缺省 [0,0]（SceneRenderDescriptor+Layer.swift:50
+  注释）→ 零面积不可见，而模型描述符 `models/background.json` 自声明
+  `{width: 1920, height: 1080}`。修复：ModelAsset 解析标量 `width/height`
+  （declaredModelSize，双字段齐备且 >0 才生效），描述符构建对无显式 size 的 model
+  引用层继承该设计尺寸（显式 size 逐字优先）。实测：layer 1 `size=(1920.00, 1080.00)`
+  （原 0,0），纯灰(178)像素 100% → **0.00%**，星云底图完整渲染，benchmark PASS。
+  当前为静态底图降级态（normal image 路径直绘 background.tex）；官方行为是 flowimage
+  动画材质——合成 graph（子批 B，走既有 authored-plan→admission 链 + computed index
+  寻址拒绝同批）仍是 parity 的后续步骤。工作流 GPU 取证队列（dwfrun-f85d48e7）
+  的 DEBUG 运行同时核验了底图加载链本身成功（loaded=1 failed=0），合成方案前提成立。
 
 ### 非缺口（观察与实测不一致）
 

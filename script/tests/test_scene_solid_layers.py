@@ -165,6 +165,11 @@ SCENE_FIXTURE = {
             ],
         },
         {
+            "id": 45,
+            "name": "Model-declared size image",
+            "image": "models/user/declared.json",
+        },
+        {
             "id": 50,
             "name": "Composition without parallax",
             "image": "models/util/composelayer.json",
@@ -288,6 +293,7 @@ struct SceneAssetCatalog {
         let materialPath: String?
         let cropOffsetXY: [Float]?
         let isSolidLayer: Bool
+        let declaredSizeWH: [Float]?
         let puppetPath: String?
         let puppetAttachments: [SceneMdlPuppetAttachment]
     }
@@ -353,7 +359,26 @@ enum Harness {
             userProperties: .empty
         )
         let assetCatalog = SceneAssetCatalog(
-            models: [],
+            models: [
+                .init(
+                    relativePath: "models/user/declared.json",
+                    materialPath: nil,
+                    cropOffsetXY: nil,
+                    isSolidLayer: false,
+                    declaredSizeWH: [1920, 1080],
+                    puppetPath: nil,
+                    puppetAttachments: []
+                ),
+                .init(
+                    relativePath: "models/user/photo.json",
+                    materialPath: nil,
+                    cropOffsetXY: nil,
+                    isSolidLayer: false,
+                    declaredSizeWH: [4000, 3000],
+                    puppetPath: nil,
+                    puppetAttachments: []
+                ),
+            ],
             materials: [],
             effectDefinitions: [],
             effectDefinitionDiagnostics: [],
@@ -440,6 +465,7 @@ enum Harness {
             "worldSpaceFrameLayerIDs": descriptor.staticParticleWorldSpaceFrames.keys.sorted(),
             "documentColors": [10, 20, 30].map { objects[$0]?.colorRGB ?? [] },
             "contentKinds": [10, 20, 30, 40].map { layers[$0]?.contentKind ?? "" },
+            "modelDeclaredSizeWH": [45, 40].map { layers[$0]?.sizeWH ?? [] },
             "descriptorColors": [10, 20, 30].map { layers[$0]?.colorRGB ?? [] },
             "documentAlphas": [10, 20, 30, 40].map { objects[$0]?.alpha ?? -1 },
             "descriptorAlphas": [10, 20, 30, 40].map { layers[$0]?.alpha ?? -1 },
@@ -593,6 +619,14 @@ class SceneSolidLayerTests(unittest.TestCase):
     def test_solid_layer_classification_and_renderability(self) -> None:
         self.assertEqual(self.result["contentKinds"], ["solid", "solid", "solid", "image"])
         self.assertEqual(self.result["imageRenderable"], [True, True, True, True])
+
+    def test_model_declared_size_inherits_only_without_explicit_size(self) -> None:
+        # 缺口 1：model 引用层无显式 size 时继承模型声明的 width/height；
+        # 显式 size 仍逐字优先（40 的 "100 100" 压过 photo.json 的 4000×3000）。
+        self.assertEqual(
+            self.result["modelDeclaredSizeWH"],
+            [[1920.0, 1080.0], [100.0, 100.0]],
+        )
 
     def test_duplicate_object_ids_fail_before_descriptor_construction(self) -> None:
         error = self.result["duplicateIdentityError"]

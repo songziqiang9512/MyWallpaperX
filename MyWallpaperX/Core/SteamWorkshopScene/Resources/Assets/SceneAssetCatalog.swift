@@ -7,6 +7,9 @@ struct SceneAssetCatalog {
         let materialPath: String?
         let autosize: Bool?
         let isSolidLayer: Bool
+        /// Design size declared as scalar `width`/`height` in the model JSON.
+        /// Layers referencing the model without an explicit `size` inherit it.
+        let declaredSizeWH: [Float]?
         let cropOffsetXY: [Float]?
         let puppetPath: String?
         let puppetAttachments: [SceneMdlPuppetAttachment]
@@ -213,6 +216,7 @@ struct SceneAssetCatalogLoader {
             materialPath: normalizedPath(root["material"] as? String),
             autosize: root["autosize"] as? Bool,
             isSolidLayer: root["solidlayer"] as? Bool ?? false,
+            declaredSizeWH: declaredModelSize(root),
             cropOffsetXY: parsedVector(root["cropoffset"], length: 2),
             puppetPath: puppetPath,
             puppetAttachments: puppetAttachments
@@ -373,6 +377,18 @@ struct SceneAssetCatalogLoader {
         guard let values = SceneDocumentLoader.floatVector(value) else { return nil }
         let trimmed = Array(values.prefix(length))
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    /// Models declare their design size as scalar `width`/`height` fields
+    /// (e.g. models/background.json `{width: 1920, height: 1080}`); both must
+    /// be present and positive for a layer to inherit them.
+    nonisolated private func declaredModelSize(_ root: [String: Any]) -> [Float]? {
+        guard let width = SceneDocumentLoader.floatValue(root["width"]),
+              let height = SceneDocumentLoader.floatValue(root["height"]),
+              width > 0, height > 0 else {
+            return nil
+        }
+        return [width, height]
     }
 
     nonisolated private func normalizedPath(_ path: String?) -> String? {
