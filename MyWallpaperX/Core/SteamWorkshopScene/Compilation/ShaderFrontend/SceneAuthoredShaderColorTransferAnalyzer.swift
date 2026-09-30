@@ -409,6 +409,12 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
                   in: tokens,
                   body: main.bodyRange
               ) else {
+            logUnresolved(
+                site: "output-shape",
+                outputUses: outputUses,
+                tokens: tokens,
+                main: main
+            )
             return .unresolved
         }
         if let slot = directTextureSampleSlot(expression) {
@@ -480,7 +486,44 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         if let fact = SceneAuthoredShaderGeneratedStraightRGBAAnalyzer.analyzeSourceCarried(fragment) {
             return fact.colorTransfer
         }
+        logUnresolved(
+            site: "prover-chain",
+            outputUses: outputUses,
+            tokens: tokens,
+            main: main
+        )
         return isOpaqueVectorConstruction(expression) ? .opaque : .unresolved
+    }
+
+    /// Forensics-only characterization for the registered colorTransfer
+    /// residual: emits which exit rejected and how the output is used, so an
+    /// evidence replay can name the unproven shape without a code change.
+    /// Gated on the same evidence flag as the compiler's normalized-source
+    /// dumps; silent in product.
+    private static func logUnresolved(
+        site: String,
+        outputUses: [Int],
+        tokens: [SceneAuthoredShaderToken],
+        main: SceneAuthoredShaderSyntaxUnit.Function
+    ) {
+        guard ProcessInfo.processInfo.arguments.contains(
+            "--mwx-debug-scene-evidence-dir"
+        ) else { return }
+        let details = outputUses.map { index -> String in
+            let next = index + 1 < tokens.count ? tokens[index + 1].text : "?"
+            // isUnconditionalWrite scans backwards from the use to the body
+            // start; a use outside main (a helper writing gl_FragColor)
+            // would invert that range, so containment gates the call.
+            let inMain = main.bodyRange.contains(index)
+            let unconditional = inMain
+                && isUnconditionalWrite(index, tokens: tokens, body: main.bodyRange)
+            return "at=\(index) next=\(next) unconditional=\(unconditional) inMain=\(inMain)"
+        }
+        NSLog(
+            "MWX DEBUG SCENE: phase=color-transfer-unresolved site=%@ useDetails=%@",
+            site,
+            details.joined(separator: ";")
+        )
     }
 
     private struct DirectCarrierFact {

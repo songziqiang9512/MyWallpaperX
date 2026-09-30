@@ -2155,6 +2155,14 @@ enum Harness {
             "multipleWrites": transfer(
                 "gl_FragColor = texSample2D(g_Texture0, v_TexCoord); gl_FragColor = vec4(1.0);"
             ),
+            "conditionalCarrierAliasChain": transfer(
+                "vec4 albedo = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 baseAlbedo = albedo; " +
+                "if (g_Border > 0.25) { " +
+                "albedo.rgb = ApplyBlending(0, albedo.rgb, g_Tint, g_ScalarWeight); } " +
+                "else { albedo = mix(baseAlbedo, albedo, g_Border); } " +
+                "gl_FragColor = albedo;"
+            ),
             "componentWrite": transfer(
                 "gl_FragColor = texSample2D(g_Texture0, v_TexCoord); gl_FragColor.a = 1.0;"
             ),
@@ -2888,6 +2896,11 @@ class SceneShaderColorContractTests(unittest.TestCase):
 
     def test_direct_carrier_writes_use_straight_boundary_and_reject_escapes(self) -> None:
         self.assertEqual(self.result["directCarrierBlend"], "straight-slot:0")
+        # Shape ⑥ (tone_mapping trace): a carrier alias mutated under
+        # if/else plus a conditional whole-vector mix rejects the direct
+        # carrier proof today. Pinned so a future prover extension must
+        # flip this deliberately with its own correctness argument.
+        self.assertEqual(self.result["conditionalCarrierAliasChain"], "unresolved")
         self.assertEqual(self.result["directCarrierCompound"], "straight-slot:0")
         artifact = self.result["directCarrierArtifact"]
         self.assertEqual(artifact.count("mwxGenericUnpremultiply("), 2)
