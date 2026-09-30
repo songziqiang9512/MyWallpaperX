@@ -8,20 +8,20 @@ import AudioToolbox
 import CoreAudio
 
 final class SystemAudioSpectrumService: NSObject {
-    private enum ProcessScope: String {
+    enum ProcessScope: String {
         case excludesCurrentProcess = "exclude-current-process"
         case includesCurrentProcess = "include-current-process"
     }
 
-    private var barCount: Int
-    private let sampleQueue = DispatchQueue(
+    var barCount: Int
+    let sampleQueue = DispatchQueue(
         label: "com.songziqiang.MyWallpaperX.system-audio-spectrum",
         qos: .utility
     )
     private let processingMinInterval: TimeInterval = 1.0 / 30.0
     private static let captureResourceRetirementDelay: TimeInterval = 1.0
     private static let captureResourceTeardownRetryDelay: TimeInterval = 0.25
-    private let processingGate = DispatchSemaphore(value: 1)
+    let processingGate = DispatchSemaphore(value: 1)
     private let captureBuffer = SystemAudioCaptureBuffer(maximumFrameCount: 4096)
     private let continuousCaptureBuffer = SystemAudioCaptureBuffer(maximumFrameCount: 4096)
     private var overlayAnalyzer: SystemAudioOverlaySpectrumAnalyzer
@@ -33,67 +33,35 @@ final class SystemAudioSpectrumService: NSObject {
     private var tapID: AudioObjectID = kAudioObjectUnknown
     private var aggregateDeviceID: AudioObjectID = kAudioObjectUnknown
     private var ioProcID: AudioDeviceIOProcID?
-    private var tapStreamFormat = AudioStreamBasicDescription()
-    private var captureCallbackStateNeedsReset = false
+    var tapStreamFormat = AudioStreamBasicDescription()
+    var captureCallbackStateNeedsReset = false
     private var overlayEnabled = false
     private var webEnabled = false
-    private var sceneEnabled = false
-    private var processScope = ProcessScope.excludesCurrentProcess
-    private var sceneCaptureScopeEpoch: UInt64 = 0
+    var sceneEnabled = false
+    var processScope = ProcessScope.excludesCurrentProcess
+    var sceneCaptureScopeEpoch: UInt64 = 0
     private var lastProcessedAt: TimeInterval = 0
-    private var captureRetryAttempt = 0
-    private var captureRetryWorkItem: DispatchWorkItem?
+    var captureRetryAttempt = 0
+    var captureRetryWorkItem: DispatchWorkItem?
     private var captureRetrySequence = 0
     private var captureGeneration = 0
     private var hasLoggedCapturedData = false
-    private var captureResourceGeneration = 0
-    private var pendingCaptureResourceGeneration = 0
-    private var pendingSceneCaptureToken = SceneAudioSpectrumCaptureToken(
+    var captureResourceGeneration = 0
+    var pendingCaptureResourceGeneration = 0
+    var pendingSceneCaptureToken = SceneAudioSpectrumCaptureToken(
         scopeEpoch: 0,
         includesCurrentProcessOutput: false
     )
     private var captureRestartSequence = 0
-    private var captureRestartWorkItem: DispatchWorkItem?
+    var captureRestartWorkItem: DispatchWorkItem?
     private var captureResourceRetirementUntil: TimeInterval = 0
     private var captureTeardownRetrySequence = 0
-    private var captureTeardownRetryWorkItem: DispatchWorkItem?
+    var captureTeardownRetryWorkItem: DispatchWorkItem?
 
 #if DEBUG
-    private struct DebugScheduledRecovery {
-        let kind: String
-        let action: () -> Void
-    }
-
-    struct DebugRecoverySnapshot {
-        let captureStartTokens: [SceneAudioSpectrumCaptureToken]
-        let captureRetryAttempt: Int
-        let hasCaptureRetryWorkItem: Bool
-        let hasCaptureRestartWorkItem: Bool
-        let hasCaptureTeardownRetryWorkItem: Bool
-        let captureStopCount: Int
-        let scheduledRecoveryKinds: [String]
-        let currentToken: SceneAudioSpectrumCaptureToken
-        let overlayBarCount: Int
-        let hasSyntheticIOProc: Bool
-        let hasSyntheticAggregate: Bool
-        let hasSyntheticTap: Bool
-        let callbackStateResetCount: Int
-        let capturedFrameReadCount: Int
-    }
-
-    private var debugRecoveryTestingEnabled = false
-    private var debugHasSyntheticIOProc = false
-    private var debugHasSyntheticAggregate = false
-    private var debugHasSyntheticTap = false
-    private var debugAudioDeviceStopStatuses: [OSStatus] = []
-    private var debugDestroyIOProcStatuses: [OSStatus] = []
-    private var debugDestroyAggregateStatuses: [OSStatus] = []
-    private var debugDestroyTapStatuses: [OSStatus] = []
-    private var debugCaptureStartTokens: [SceneAudioSpectrumCaptureToken] = []
-    private var debugCaptureStopCount = 0
-    private var debugCallbackStateResetCount = 0
-    private var debugCapturedFrameReadCount = 0
-    private var debugScheduledRecoveries: [DebugScheduledRecovery] = []
+    // DEBUG capture-recovery test seam state. The seam type, the snapshot and
+    // the testing entry points live in SystemAudioSpectrumService+DebugRecovery.swift.
+    let debugRecovery = SystemAudioDebugRecoveryState()
 #endif
 
     var onLevels: (([Float]) -> Void)?
@@ -208,21 +176,21 @@ final class SystemAudioSpectrumService: NSObject {
 
     private var hasTapResource: Bool {
 #if DEBUG
-        if debugRecoveryTestingEnabled { return debugHasSyntheticTap }
+        if debugRecovery.isTestEnabled { return debugRecovery.hasSyntheticTap }
 #endif
         return tapID != kAudioObjectUnknown
     }
 
     private var hasAggregateResource: Bool {
 #if DEBUG
-        if debugRecoveryTestingEnabled { return debugHasSyntheticAggregate }
+        if debugRecovery.isTestEnabled { return debugRecovery.hasSyntheticAggregate }
 #endif
         return aggregateDeviceID != kAudioObjectUnknown
     }
 
     private var hasIOProcResource: Bool {
 #if DEBUG
-        if debugRecoveryTestingEnabled { return debugHasSyntheticIOProc }
+        if debugRecovery.isTestEnabled { return debugRecovery.hasSyntheticIOProc }
 #endif
         return ioProcID != nil
     }
@@ -244,16 +212,10 @@ final class SystemAudioSpectrumService: NSObject {
             }
         }
 #if DEBUG
-        if debugRecoveryTestingEnabled {
-            debugCaptureStartTokens.append(
-                SceneAudioSpectrumCaptureToken(
-                    scopeEpoch: sceneCaptureScopeEpoch,
-                    includesCurrentProcessOutput:
-                        processScope == .includesCurrentProcess
-                )
-            )
-            return
-        }
+        if debugRecovery.recordCaptureStartToken(
+            epoch: sceneCaptureScopeEpoch,
+            includesCurrentProcess: processScope == .includesCurrentProcess
+        ) { return }
 #endif
         guard #available(macOS 14.2, *) else {
             NSLog("MWX AUDIO CAPTURE: unavailable before macOS 14.2")
@@ -367,7 +329,7 @@ final class SystemAudioSpectrumService: NSObject {
         }
     }
 
-    private func scheduleCaptureRetryIfNeeded() {
+    func scheduleCaptureRetryIfNeeded() {
         guard hasActiveConsumer else { return }
         captureRetryAttempt += 1
         let delay = min(pow(2, Double(captureRetryAttempt - 1)), 30)
@@ -388,17 +350,12 @@ final class SystemAudioSpectrumService: NSObject {
         captureRetryWorkItem = workItem
         NSLog("MWX AUDIO CAPTURE: retry scheduled attempt=%d delay=%.1f", captureRetryAttempt, delay)
 #if DEBUG
-        if debugRecoveryTestingEnabled {
-            debugScheduledRecoveries.append(
-                DebugScheduledRecovery(kind: "retry", action: action)
-            )
-            return
-        }
+        if debugRecovery.recordScheduledRecovery(kind: "retry", action: action) { return }
 #endif
         sampleQueue.asyncAfter(deadline: .now() + delay, execute: workItem)
     }
 
-    private func scheduleCaptureRestart(reason: String, generation: Int) {
+    func scheduleCaptureRestart(reason: String, generation: Int) {
         guard generation == captureResourceGeneration,
               hasActiveConsumer,
               hasTapResource,
@@ -420,12 +377,7 @@ final class SystemAudioSpectrumService: NSObject {
         let workItem = DispatchWorkItem(block: action)
         captureRestartWorkItem = workItem
 #if DEBUG
-        if debugRecoveryTestingEnabled {
-            debugScheduledRecoveries.append(
-                DebugScheduledRecovery(kind: "restart", action: action)
-            )
-            return
-        }
+        if debugRecovery.recordScheduledRecovery(kind: "restart", action: action) { return }
 #endif
         sampleQueue.asyncAfter(deadline: .now() + 0.25, execute: workItem)
     }
@@ -462,12 +414,7 @@ final class SystemAudioSpectrumService: NSObject {
             scopeEpoch
         )
 #if DEBUG
-        if debugRecoveryTestingEnabled {
-            debugScheduledRecoveries.append(
-                DebugScheduledRecovery(kind: "resource-retirement-start", action: action)
-            )
-            return
-        }
+        if debugRecovery.recordScheduledRecovery(kind: "resource-retirement-start", action: action) { return }
 #endif
         sampleQueue.asyncAfter(deadline: .now() + delay, execute: workItem)
     }
@@ -486,9 +433,7 @@ final class SystemAudioSpectrumService: NSObject {
         let hadCapture = hasCaptureResources
         guard hadCapture else { return }
 #if DEBUG
-        if debugRecoveryTestingEnabled {
-            debugCaptureStopCount += 1
-        }
+        debugRecovery.recordCaptureStop()
 #endif
         cancelCaptureRestart()
         captureResourceGeneration += 1
@@ -588,12 +533,7 @@ final class SystemAudioSpectrumService: NSObject {
             Self.captureResourceTeardownRetryDelay
         )
 #if DEBUG
-        if debugRecoveryTestingEnabled {
-            debugScheduledRecoveries.append(
-                DebugScheduledRecovery(kind: "resource-teardown-retry", action: action)
-            )
-            return
-        }
+        if debugRecovery.recordScheduledRecovery(kind: "resource-teardown-retry", action: action) { return }
 #endif
         sampleQueue.asyncAfter(
             deadline: .now() + Self.captureResourceTeardownRetryDelay,
@@ -603,9 +543,7 @@ final class SystemAudioSpectrumService: NSObject {
 
     private func stopAudioDeviceResource() -> OSStatus {
 #if DEBUG
-        if debugRecoveryTestingEnabled {
-            return Self.nextDebugStatus(&debugAudioDeviceStopStatuses)
-        }
+        if let status = debugRecovery.takeAudioDeviceStopStatus() { return status }
 #endif
         guard aggregateDeviceID != kAudioObjectUnknown,
               let ioProcID else { return kAudioHardwareBadObjectError }
@@ -614,9 +552,7 @@ final class SystemAudioSpectrumService: NSObject {
 
     private func destroyIOProcResource() -> OSStatus {
 #if DEBUG
-        if debugRecoveryTestingEnabled {
-            return Self.nextDebugStatus(&debugDestroyIOProcStatuses)
-        }
+        if let status = debugRecovery.takeDestroyIOProcStatus() { return status }
 #endif
         guard aggregateDeviceID != kAudioObjectUnknown,
               let ioProcID else { return kAudioHardwareBadObjectError }
@@ -625,9 +561,7 @@ final class SystemAudioSpectrumService: NSObject {
 
     private func destroyAggregateResource() -> OSStatus {
 #if DEBUG
-        if debugRecoveryTestingEnabled {
-            return Self.nextDebugStatus(&debugDestroyAggregateStatuses)
-        }
+        if let status = debugRecovery.takeDestroyAggregateStatus() { return status }
 #endif
         guard aggregateDeviceID != kAudioObjectUnknown else {
             return kAudioHardwareBadObjectError
@@ -637,9 +571,7 @@ final class SystemAudioSpectrumService: NSObject {
 
     private func destroyTapResource() -> OSStatus {
 #if DEBUG
-        if debugRecoveryTestingEnabled {
-            return Self.nextDebugStatus(&debugDestroyTapStatuses)
-        }
+        if let status = debugRecovery.takeDestroyTapStatus() { return status }
 #endif
         guard tapID != kAudioObjectUnknown else {
             return kAudioHardwareBadObjectError
@@ -652,30 +584,21 @@ final class SystemAudioSpectrumService: NSObject {
 
     private func clearIOProcResource() {
 #if DEBUG
-        if debugRecoveryTestingEnabled {
-            debugHasSyntheticIOProc = false
-            return
-        }
+        if debugRecovery.clearSyntheticResource(.ioProc) { return }
 #endif
         ioProcID = nil
     }
 
     private func clearAggregateResource() {
 #if DEBUG
-        if debugRecoveryTestingEnabled {
-            debugHasSyntheticAggregate = false
-            return
-        }
+        if debugRecovery.clearSyntheticResource(.aggregate) { return }
 #endif
         aggregateDeviceID = kAudioObjectUnknown
     }
 
     private func clearTapResource() {
 #if DEBUG
-        if debugRecoveryTestingEnabled {
-            debugHasSyntheticTap = false
-            return
-        }
+        if debugRecovery.clearSyntheticResource(.tap) { return }
 #endif
         tapID = kAudioObjectUnknown
     }
@@ -698,171 +621,9 @@ final class SystemAudioSpectrumService: NSObject {
         lastProcessedAt = 0
         captureCallbackStateNeedsReset = false
 #if DEBUG
-        if debugRecoveryTestingEnabled {
-            debugCallbackStateResetCount += 1
-        }
+        debugRecovery.recordCallbackStateReset()
 #endif
     }
-
-#if DEBUG
-    private static func nextDebugStatus(_ statuses: inout [OSStatus]) -> OSStatus {
-        guard !statuses.isEmpty else { return noErr }
-        return statuses.removeFirst()
-    }
-
-    func debugSimulateCaptureConfigurationInvalidation() {
-        sampleQueue.async { [weak self] in
-            guard let self else { return }
-            self.scheduleCaptureRestart(reason: "debug", generation: self.captureResourceGeneration)
-        }
-    }
-
-    func debugEnableRecoveryTesting() {
-        sampleQueue.sync {
-            debugRecoveryTestingEnabled = true
-            debugHasSyntheticIOProc = false
-            debugHasSyntheticAggregate = false
-            debugHasSyntheticTap = false
-            debugAudioDeviceStopStatuses.removeAll()
-            debugDestroyIOProcStatuses.removeAll()
-            debugDestroyAggregateStatuses.removeAll()
-            debugDestroyTapStatuses.removeAll()
-            debugCaptureStartTokens.removeAll()
-            debugCaptureStopCount = 0
-            debugCallbackStateResetCount = 0
-            debugCapturedFrameReadCount = 0
-            debugScheduledRecoveries.removeAll()
-        }
-    }
-
-    func debugSetSyntheticCaptureResourcesActiveForTesting(_ active: Bool) {
-        sampleQueue.sync {
-            debugHasSyntheticIOProc = active
-            debugHasSyntheticAggregate = active
-            debugHasSyntheticTap = active
-            captureCallbackStateNeedsReset = active
-        }
-    }
-
-    func debugSetCaptureTeardownStatusesForTesting(
-        stop: [OSStatus] = [],
-        destroyIOProc: [OSStatus] = [],
-        destroyAggregate: [OSStatus] = [],
-        destroyTap: [OSStatus] = []
-    ) {
-        sampleQueue.sync {
-            debugAudioDeviceStopStatuses = stop
-            debugDestroyIOProcStatuses = destroyIOProc
-            debugDestroyAggregateStatuses = destroyAggregate
-            debugDestroyTapStatuses = destroyTap
-        }
-    }
-
-    func debugScheduleCaptureRetryForTesting() {
-        sampleQueue.sync {
-            scheduleCaptureRetryIfNeeded()
-        }
-    }
-
-    func debugScheduleCaptureRestartForTesting() {
-        sampleQueue.sync {
-            debugHasSyntheticIOProc = true
-            debugHasSyntheticAggregate = true
-            debugHasSyntheticTap = true
-            captureCallbackStateNeedsReset = true
-            scheduleCaptureRestart(
-                reason: "debug-test",
-                generation: captureResourceGeneration
-            )
-        }
-    }
-
-    @discardableResult
-    func debugPerformScheduledRecoveryForTesting(at index: Int) -> Bool {
-        sampleQueue.sync {
-            guard debugScheduledRecoveries.indices.contains(index) else { return false }
-            debugScheduledRecoveries[index].action()
-            return true
-        }
-    }
-
-    func debugSimulateStaleCapturedFrameProcessingForTesting() {
-        sampleQueue.sync {
-            pendingCaptureResourceGeneration = captureResourceGeneration - 1
-            pendingSceneCaptureToken = SceneAudioSpectrumCaptureToken(
-                scopeEpoch: sceneCaptureScopeEpoch,
-                includesCurrentProcessOutput:
-                    processScope == .includesCurrentProcess
-            )
-            processCapturedAudio()
-        }
-    }
-
-    func debugSimulateSceneRevokedFrameProcessingForTesting() {
-        sampleQueue.sync {
-            guard sceneCaptureScopeEpoch > 0 else { return }
-            sceneEnabled = false
-            pendingCaptureResourceGeneration = captureResourceGeneration
-            pendingSceneCaptureToken = SceneAudioSpectrumCaptureToken(
-                scopeEpoch: sceneCaptureScopeEpoch - 1,
-                includesCurrentProcessOutput:
-                    processScope == .includesCurrentProcess
-            )
-            processCapturedAudio()
-        }
-    }
-
-    /// Runs the real capture handoff with deterministic callback time. The
-    /// recovery test seam disables device creation; no system tap is opened.
-    func debugProcessPCMForTesting(
-        _ input: UnsafePointer<AudioBufferList>,
-        format: AudioStreamBasicDescription,
-        now: TimeInterval,
-        workerBusy: Bool = false
-    ) {
-        let identity = sampleQueue.sync { () -> (Int, SceneAudioSpectrumCaptureToken) in
-            precondition(debugRecoveryTestingEnabled)
-            tapStreamFormat = format
-            return (captureResourceGeneration, .init(
-                scopeEpoch: sceneCaptureScopeEpoch,
-                includesCurrentProcessOutput: processScope == .includesCurrentProcess
-            ))
-        }
-        if workerBusy { processingGate.wait() }
-        processAudioBufferList(input, resourceGeneration: identity.0,
-            token: identity.1, now: now)
-        if workerBusy { processingGate.signal() }
-        // Wait until the single pending immutable snapshot has been consumed.
-        processingGate.wait()
-        processingGate.signal()
-    }
-
-    func debugRecoverySnapshot() -> DebugRecoverySnapshot {
-        sampleQueue.sync {
-            DebugRecoverySnapshot(
-                captureStartTokens: debugCaptureStartTokens,
-                captureRetryAttempt: captureRetryAttempt,
-                hasCaptureRetryWorkItem: captureRetryWorkItem != nil,
-                hasCaptureRestartWorkItem: captureRestartWorkItem != nil,
-                hasCaptureTeardownRetryWorkItem:
-                    captureTeardownRetryWorkItem != nil,
-                captureStopCount: debugCaptureStopCount,
-                scheduledRecoveryKinds: debugScheduledRecoveries.map(\.kind),
-                currentToken: SceneAudioSpectrumCaptureToken(
-                    scopeEpoch: sceneCaptureScopeEpoch,
-                    includesCurrentProcessOutput:
-                        processScope == .includesCurrentProcess
-                ),
-                overlayBarCount: barCount,
-                hasSyntheticIOProc: debugHasSyntheticIOProc,
-                hasSyntheticAggregate: debugHasSyntheticAggregate,
-                hasSyntheticTap: debugHasSyntheticTap,
-                callbackStateResetCount: debugCallbackStateResetCount,
-                capturedFrameReadCount: debugCapturedFrameReadCount
-            )
-        }
-    }
-#endif
 
     private func resetConsumersAfterCaptureFailure() {
         overlayEnabled = false
@@ -874,7 +635,7 @@ final class SystemAudioSpectrumService: NSObject {
         clearSceneLevels(resetAnalyzer: true)
     }
 
-    private func processAudioBufferList(
+    func processAudioBufferList(
         _ inputData: UnsafePointer<AudioBufferList>,
         resourceGeneration: Int,
         token: SceneAudioSpectrumCaptureToken,
@@ -898,16 +659,14 @@ final class SystemAudioSpectrumService: NSObject {
         processingSource.add(data: 1)
     }
 
-    private func processCapturedAudio() {
+    func processCapturedAudio() {
         guard pendingCaptureResourceGeneration == captureResourceGeneration,
               (!sceneEnabled
                 || pendingSceneCaptureToken.scopeEpoch == sceneCaptureScopeEpoch),
               pendingSceneCaptureToken.includesCurrentProcessOutput
                 == (processScope == .includesCurrentProcess) else { return }
 #if DEBUG
-        if debugRecoveryTestingEnabled {
-            debugCapturedFrameReadCount += 1
-        }
+        debugRecovery.recordCapturedFrameRead()
 #endif
         guard let frame = captureBuffer.decodedFrame else { return }
         let sampleRate = Float(max(1, tapStreamFormat.mSampleRate))
