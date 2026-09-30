@@ -296,7 +296,26 @@ nonisolated struct SceneShaderContractSourceParser {
 
             guard let raw = lexical.lineCommentRaw else { continue }
             let body = String(raw.dropFirst(2))
-            let markerMatch = firstMatch(markerPattern, in: body)
+            // A marker begins an annotation attempt only when it carries a
+            // payload: JSON for the COMBO family (a prefixed `// x [COMBO] {…}`
+            // is still an annotation), line-leading position for `[PASS]`
+            // (whose operand is verbatim words). Markers quoted inside
+            // ordinary prose — a comment explaining a macro comes from
+            // "[COMBO]" — stay ordinary comments instead of reporting
+            // malformed JSON for the trailing prose.
+            let trimmedBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
+            let markerMatch = markerPattern?.matches(
+                in: body, range: NSRange(body.startIndex..., in: body)
+            ).first { match in
+                guard let markerText = capture(1, match: match, in: body),
+                      let range = Range(match.range, in: body) else { return false }
+                if markerText.caseInsensitiveCompare("[PASS]") == .orderedSame {
+                    return trimmedBody.hasPrefix(markerText)
+                }
+                let payload = String(body[range.upperBound...])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                return payload.hasPrefix("{") || payload.hasPrefix("[")
+            }
             let marker = markerMatch.flatMap { capture(1, match: $0, in: body) }
             let jsonText: String?
             if let markerMatch,

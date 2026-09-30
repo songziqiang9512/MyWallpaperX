@@ -65,6 +65,7 @@ private struct ShaderContractHarness {
             "effects/legacynumber",
             "effects/malformednumeric",
             "effects/legacyoversized",
+            "effects/prosemarker",
             "effects/invalid",
             "effects/unreadable",
             "effects/symlink",
@@ -372,6 +373,18 @@ class SceneShaderContractTests(unittest.TestCase):
             (effects / "legacyoversized.frag").write_text(
                 "void main() {}\n", encoding="utf-8"
             )
+            (effects / "prosemarker.vert").write_text(
+                '// [COMBO] {"combo":"BLENDMODE","type":"imageblending","default":0}\n'
+                "// BLENDMODE 是由顶部的 [COMBO] 宏生成的\n"
+                "uniform float u_Opacity;\n"
+                "void main() {}\n",
+                encoding="utf-8",
+            )
+            (effects / "prosemarker.frag").write_text(
+                "// see also [PASS] in the docs\n"
+                "void main() {}\n",
+                encoding="utf-8",
+            )
             (effects / "invalid.vert").write_bytes(b"\xff\xfeinvalid")
             (effects / "invalid.frag").write_text("void main() {}\n", encoding="utf-8")
             (effects / "unreadable.vert").mkdir()
@@ -579,6 +592,12 @@ class SceneShaderContractTests(unittest.TestCase):
             ["malformedAnnotation"],
         )
         self.assertEqual(legacyoversized["stages"][0]["annotations"], [])
+        prosemarker = by_identity["effects/prosemarker"]
+        self.assertEqual(self._diagnostic_codes(prosemarker), [])
+        self.assertEqual(len(prosemarker["stages"][0]["annotations"]), 1)
+        self.assertEqual(prosemarker["stages"][0]["annotations"][0]["marker"], "[COMBO]")
+        self.assertEqual(prosemarker["stages"][0]["annotations"][0]["line"], 1)
+        self.assertEqual(prosemarker["stages"][1]["annotations"], [])
         self.assertIn("invalidUTF8", self._diagnostic_codes(by_identity["effects/invalid"]))
         self.assertIn("unreadableSource", self._diagnostic_codes(by_identity["effects/unreadable"]))
         self.assertIn("symlinkEscape", self._diagnostic_codes(by_identity["effects/symlink"]))

@@ -28,18 +28,30 @@ pixels、claimed=1/encoded=1。
 被整层丢弃）；`9b4086ff` 泛化 StraightBlendOutputAnalyzer 的 color 定义 gate 接受声明-赋值
 分裂形态（colorTransfer 泛化）。
 
-**当前状态（3807151772 benchmark PASS 40.6fps）**：层 399 的 shader 仍无法编译
-（textureBindingInvalid 仍在，因为 materialKey 确实不是已知别名），但层降级为
-previous-current 安全回退——场景背景继续渲染，音频条效果本身不绘制。Benchmark PASS。
+**当前状态（2026-09-30 注解解析修复后实测）**：早期 textureBindingInvalid/materialKey 叙事
+已被 HEAD 复测推翻——层 399 在 HEAD 上死于更上游的两条独立拒绝：① `workshop/3635233909/
+effects/____________` 的 shader 合同因第 39 行中文注释 `// BLENDMODE 是由顶部的 [COMBO] 宏生成的`
+被注解扫描器误判为 malformed COMBO（`shaderContractInvalid` → catalog-failure →
+`material-template-unsupported` 整层拒绝）；② `sine_wave` 前端 `varyingUnsupported`（fragment
+改写 varying，见下）。修复①：注解 marker 只有负载（JSON 起始符；`[PASS]` 行首）才算注解尝试，
+正文引用 `[COMBO]` 字样的普通注释不再产 malformedAnnotation。修复后实测（隔离 benchmark +
+频谱夹具）：`____________` 模板接纳，Simple_Audio_Bars 材质执行（encoded-output），
+`g_AudioSpectrum16Left/Right` uniform 消费 nonzero（peak≈0.35），PCM vs 静音夹具 A/B 差分
+16.3% 像素（>12 阈值、逐通道最大值口径；列分布中间高两侧低）——音频条实际渲染且随频谱
+响应。benchmark PASS（两条已分类 passthrough 登记后）。注解行为收窄：marker 后无 JSON 负载
+的注释行不再产 `malformedAnnotation`（此前误诊整层拒绝，现按普通注释忽略）。
 
-**后续（缺口 3-c，dormant 合同完整启用）**：要让音频条 shader 实际渲染出条形图，需要让
-dormant 门对 `"上一个"` 触发。当前 dormant 门在 `graphInputColorCarrierSlot` 处要求
-color transfer analyzer 先证明 carrier slot（`straightAlphaPreserving` 等），而音频条
-shader 的混合形态（`ApplyBlending(BLENDMODE, mix(finalColor.rgb, scene.rgb, scene.a),
-finalColor.rgb, bar*opacity)` → `gl_FragColor = vec4(finalColor, alpha)`）不匹配任何
-现有分析器模式。`9b4086ff` 已让声明-赋值分裂形态通过 `uniqueDefinition` gate，但后续的
-`ApplyBlending` / `mix` / `exactUses` 检查链还需确认是否匹配音频条 shader 的完整形态。
-这是下一修复批的入口。
+**剩余两处降级（层继续渲染、效果级）**：
+- effect 1（`____________` 渐变混合）`material-finalizer-color-contract`：
+  `ApplyBlending(BLENDMODE, scene.rgb, gradientColor, u_Opacity)` → `vec4(finalColor, scene.a)`
+  的"采样底 + 生成覆盖 + 标量不透明度 + alpha 直通"形态不被 color transfer 分析器证明 →
+  passthrough 转发（条形失去渐变调色）。这是缺口 3-c 的实际入口（分析器模式扩展）。
+- effect 2（`sine_wave`）`material-generic-owner-revoked`：fragment 内改写 varying
+  （`v_TexCoord.x += ...`，.frag:34/37）被 VaryingPrefixLink 的写拒绝守卫拦下。与 E5 裁决
+  覆盖的"读未初始化分量"族**不同族**（裁决文档 §2 未列 fragment 改写形态）；归 E5 varying
+  实施批按其 prove 分类协议处置——语料受影响面需在实施批对 `3577773857/effects/sine_wave`
+  逐行核验（本批已提供源级证据：vertex `varying vec4` 只无条件写 `.xy`，fragment 声明
+  `vec2`、读 `{x,y}` 整值+分量、并在 `#if AUDIOPROCESSING` 两侧改写 `.x`）。
 
 **缺口 1（image→model→material 链黑屏）**：833227004 渲染纯灰（178,178,178 = 清屏色），
 材质管线 planned=0。层 `image: models/background.json` → material `flowimage`。准入的
