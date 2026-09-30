@@ -235,6 +235,12 @@ extension AppKitSettingsContainerView {
         spectrumOptionsStack.distribution = .fill
         spectrumOptionsStack.spacing = 0
         spectrumOptionsStack.translatesAutoresizingMaskIntoConstraints = false
+        // 与 hotkeyRowsStack 同构：子行和内嵌分隔线显式 pin 宽到栈宽，
+        // 否则右缘控件不与主行对齐、分隔线塌缩成短划。
+        for child in spectrumOptionsStack.arrangedSubviews {
+            child.translatesAutoresizingMaskIntoConstraints = false
+            child.widthAnchor.constraint(equalTo: spectrumOptionsStack.widthAnchor).isActive = true
+        }
         systemAudioSpectrumOptionsContainer = makeEmbeddedRow(content: spectrumOptionsStack)
         if let systemAudioSpectrumOptionsContainer {
             systemAudioSpectrumOptionsContainer.identifier = NSUserInterfaceItemIdentifier("settings.row.system-audio-spectrum.options")

@@ -196,6 +196,10 @@ final class SidebarRowCellView: NSTableCellView {
 
     func configure(title: String, symbolName: String?, count: Int?) {
         // 行视图只吃纯数据快照，不保留额外派生状态，便于 outlineView 重建时直接复用。
+        // 复用池可能携带上一任行被拖拽置 0 的腾空态（alphaValue 唯一写点在
+        // setDraggingPresentation），重新装配内容时一并复位，避免整行不可见；
+        // 拖拽源行在拖拽期间不会走 configure，腾空呈现不受影响。
+        alphaValue = 1
         titleLabel.stringValue = title
         if let symbolName, let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil) {
             iconView.image = image

@@ -17,6 +17,9 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     /// 缓存容量（最大图片数量）
     private let countLimit: Int
 
+    /// 内存缓存总字节上限（按已解码位图的像素字节数计），0 表示不限制
+    private let totalCostLimit: Int
+
     private let decodeQueue: DispatchQueue
     private let imageCache = NSCache<NSString, NSImage>()
     private var inFlight: [String: [(NSImage?) -> Void]] = [:]
@@ -33,14 +36,25 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         return appSupport
     }()
 
+    /// 磁盘缓存总大小上限：超过后按最后使用时间惰性淘汰最旧文件
+    private static let diskCacheSizeLimit: UInt64 = 512 * 1024 * 1024
+    /// 惰性淘汰的目录扫描限频间隔，避免每次写盘都全量遍历
+    private static let diskTrimInterval: TimeInterval = 60
+    private static let diskTrimLock = NSLock()
+    private static var lastDiskTrimDate = Date.distantPast
+
     /// - Parameters:
     ///   - label: decode queue 标识，建议用模块前缀区分
     ///   - countLimit: 内存缓存最大图片数，默认 360
+    ///   - totalCostLimit: 内存缓存像素字节总和上限，默认 0（不限制）
     init(label: String = "com.mywallpaper.thumbnail.decode",
-         countLimit: Int = 360) {
+         countLimit: Int = 360,
+         totalCostLimit: Int = 0) {
         self.countLimit = countLimit
+        self.totalCostLimit = totalCostLimit
         self.decodeQueue = DispatchQueue(label: label, qos: .utility)
         imageCache.countLimit = countLimit
+        imageCache.totalCostLimit = totalCostLimit
     }
 
     // MARK: - 公开接口
@@ -72,16 +86,17 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
             let diskURL = Self.diskCacheURL(for: key)
             if let data = try? Data(contentsOf: diskURL),
                let image = NSImage(data: data) {
-                self.imageCache.setObject(image, forKey: key as NSString)
+                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
                 self.finish(key: key, image: image)
                 return
             }
             // 3. 解码原图
             let image = loader()
             if let image {
-                self.imageCache.setObject(image, forKey: key as NSString)
+                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
                 // 写入磁盘缓存（JPEG，压缩质量 0.85）
                 Self.writeToDisk(image: image, url: diskURL)
+                Self.trimDiskCacheIfNeeded()
             }
             self.finish(key: key, image: image)
         }
@@ -114,7 +129,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
             let diskURL = Self.diskCacheURL(for: key)
             if let data = try? Data(contentsOf: diskURL),
                let image = decoder(data) {
-                self.imageCache.setObject(image, forKey: key as NSString)
+                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
                 self.finish(key: key, image: image)
                 return
             }
@@ -125,8 +140,9 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
                 return
             }
 
-            self.imageCache.setObject(image, forKey: key as NSString)
+            self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
             try? data.write(to: diskURL, options: .atomic)
+            Self.trimDiskCacheIfNeeded()
             self.finish(key: key, image: image)
         }
     }
@@ -158,7 +174,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
             let diskURL = Self.diskCacheURL(for: key)
             if let data = try? Data(contentsOf: diskURL),
                let image = decoder(data) {
-                self.imageCache.setObject(image, forKey: key as NSString)
+                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
                 self.finish(key: key, image: image)
                 return
             }
@@ -171,8 +187,9 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
                     return
                 }
 
-                self.imageCache.setObject(image, forKey: key as NSString)
+                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
                 try? data.write(to: diskURL, options: .atomic)
+                Self.trimDiskCacheIfNeeded()
                 self.finish(key: key, image: image)
             }
         }
@@ -192,14 +209,15 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
             let diskURL = Self.diskCacheURL(for: key)
             if let data = try? Data(contentsOf: diskURL),
                let image = NSImage(data: data) {
-                self.imageCache.setObject(image, forKey: key as NSString)
+                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
                 self.finish(key: key, image: image)
                 return
             }
             let image = loader()
             if let image {
-                self.imageCache.setObject(image, forKey: key as NSString)
+                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
                 Self.writeToDisk(image: image, url: diskURL)
+                Self.trimDiskCacheIfNeeded()
             }
             self.finish(key: key, image: image)
         }
@@ -220,7 +238,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
             let diskURL = Self.diskCacheURL(for: key)
             if let data = try? Data(contentsOf: diskURL),
                let image = NSImage(data: data) {
-                self.imageCache.setObject(image, forKey: key as NSString)
+                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
                 self.finish(key: key, image: image)
                 return
             }
@@ -232,9 +250,10 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
 
             let image = NSImage(data: data)
             if let image {
-                self.imageCache.setObject(image, forKey: key as NSString)
+                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
             }
             try? data.write(to: diskURL, options: .atomic)
+            Self.trimDiskCacheIfNeeded()
             self.finish(key: key, image: image)
         }
     }
@@ -256,7 +275,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
             let diskURL = Self.diskCacheURL(for: key)
             if let data = try? Data(contentsOf: diskURL),
                let image = NSImage(data: data) {
-                self.imageCache.setObject(image, forKey: key as NSString)
+                self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
                 self.finish(key: key, image: image)
                 return
             }
@@ -270,9 +289,10 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
 
                 let image = NSImage(data: data)
                 if let image {
-                    self.imageCache.setObject(image, forKey: key as NSString)
+                    self.imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
                 }
                 try? data.write(to: diskURL, options: .atomic)
+                Self.trimDiskCacheIfNeeded()
                 self.finish(key: key, image: image)
             }
         }
@@ -307,6 +327,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
                 }
 
                 try? data.write(to: diskURL, options: .atomic)
+                Self.trimDiskCacheIfNeeded()
                 self.finishRawDataPrefetch(key: key)
             }
         }
@@ -342,7 +363,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
               let image = decoder(data) else {
             return nil
         }
-        imageCache.setObject(image, forKey: cacheKey)
+        imageCache.setObject(image, forKey: cacheKey, cost: Self.memoryCost(of: image))
         return image
     }
 
@@ -350,6 +371,60 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     static func clearDiskCache() {
         try? FileManager.default.removeItem(at: diskCacheDir)
         try? FileManager.default.createDirectory(at: diskCacheDir, withIntermediateDirectories: true)
+    }
+
+    /// 写入后的磁盘惰性淘汰：总量超过 diskCacheSizeLimit 时按最后使用时间清理最旧文件。
+    /// 扫描按 diskTrimInterval 限频（各实例共享同一磁盘目录，用静态锁串行化）。
+    private static func trimDiskCacheIfNeeded() {
+        diskTrimLock.lock()
+        defer { diskTrimLock.unlock() }
+
+        let now = Date()
+        guard now.timeIntervalSince(lastDiskTrimDate) >= diskTrimInterval else { return }
+        lastDiskTrimDate = now
+
+        let fileManager = FileManager.default
+        let resourceKeys: [URLResourceKey] = [
+            .isRegularFileKey,
+            .fileSizeKey,
+            .contentAccessDateKey,
+            .contentModificationDateKey
+        ]
+        guard let enumerator = fileManager.enumerator(
+            at: diskCacheDir,
+            includingPropertiesForKeys: resourceKeys,
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else { return }
+
+        struct DiskEntry {
+            let url: URL
+            let size: Int64
+            let lastUsed: Date
+        }
+
+        var entries: [DiskEntry] = []
+        var totalSize: Int64 = 0
+        for case let fileURL as URL in enumerator {
+            let values = try? fileURL.resourceValues(forKeys: Set(resourceKeys))
+            guard values?.isRegularFile == true else { continue }
+            let size = Int64(values?.fileSize ?? 0)
+            // APFS 下访问时间可能不严格更新，回退到修改时间保证排序稳定。
+            let lastUsed = values?.contentAccessDate
+                ?? values?.contentModificationDate
+                ?? .distantPast
+            entries.append(DiskEntry(url: fileURL, size: size, lastUsed: lastUsed))
+            totalSize += size
+        }
+
+        guard totalSize > Int64(diskCacheSizeLimit) else { return }
+
+        let overflow = totalSize - Int64(diskCacheSizeLimit)
+        var reclaimed: Int64 = 0
+        for entry in entries.sorted(by: { $0.lastUsed < $1.lastUsed }) {
+            guard reclaimed < overflow else { break }
+            try? fileManager.removeItem(at: entry.url)
+            reclaimed += entry.size
+        }
     }
 
     // MARK: - 内部
@@ -375,6 +450,12 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         let hash = SHA256.hash(data: Data(key.utf8))
             .compactMap { String(format: "%02x", $0) }.joined()
         return diskCacheDir.appendingPathComponent(hash).appendingPathExtension("jpg")
+    }
+
+    /// NSCache 的 cost：按已解码位图的像素字节数计，totalCostLimit 据此执行字节上限淘汰。
+    private static func memoryCost(of image: NSImage) -> Int {
+        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return 0 }
+        return cgImage.bytesPerRow * cgImage.height
     }
 
     private static func writeToDisk(image: NSImage, url: URL) {

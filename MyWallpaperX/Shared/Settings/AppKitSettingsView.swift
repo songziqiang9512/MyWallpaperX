@@ -44,8 +44,16 @@ final class AppKitSettingsContainerView: NSView {
     private var cancellables = Set<AnyCancellable>()
     private var isUpdatingUI = false
     var isDocumentFrameUpdateScheduled = false
+    // refreshFromState 的差分快照：滑块拖动等高频 settings 写入会反复触发全量回填，
+    // 这里记录三条昂贵路径（热键菜单重建、SMAppService 同步查询、fittingSize 整树求解）
+    // 的相关输入，值未变时跳过对应工作。
+    private var lastHotkeyInputsSignature: [String] = []
+    private var lastStartOnBootSetting: Bool?
+    private var lastKnownStartOnBootSystemEnabled: Bool?
     private var scrollToTopObserver: NSObjectProtocol?
     private var muteStateObserver: NSObjectProtocol?
+    private var loginItemSyncFailureObserver: NSObjectProtocol?
+    private var windowBecameKeyObserver: NSObjectProtocol?
     var visibleSections: Set<AppSettingsSection>
     private let topContentInset: CGFloat
     private let scrollView = NSScrollView()
@@ -144,6 +152,7 @@ final class AppKitSettingsContainerView: NSView {
         applyNativeControlSizes()
         bindEvents()
         observeManager()
+        observePanelActivation()
         observeScrollToTopRequests()
         applyVisibleSections()
         refreshFromState()
@@ -161,6 +170,12 @@ final class AppKitSettingsContainerView: NSView {
         if let muteStateObserver {
             NotificationCenter.default.removeObserver(muteStateObserver)
         }
+        if let loginItemSyncFailureObserver {
+            NotificationCenter.default.removeObserver(loginItemSyncFailureObserver)
+        }
+        if let windowBecameKeyObserver {
+            NotificationCenter.default.removeObserver(windowBecameKeyObserver)
+        }
     }
 
     func refreshFromState() {
@@ -169,6 +184,7 @@ final class AppKitSettingsContainerView: NSView {
         defer { isUpdatingUI = false }
 
         let settings = dependency.settings
+        let visibilityBefore = layoutVisibilitySignature()
 
         loopSwitch.state = settings.loopPlayback ? .on : .off
         randomSwitch.state = settings.randomPlayback ? .on : .off
@@ -203,8 +219,16 @@ final class AppKitSettingsContainerView: NSView {
 
         // 登录项开关以系统真值对账：注册失败或用户在系统设置里移除后，
         // 面板显示实际状态而不是 settings 里的乐观值。
+        // SMAppService 查询是同步系统调用，只在开机自启设置变化、首次回填，
+        // 或面板（重新）成为 key 作废缓存后执行（observePanelActivation）；
+        // 同一 key 周期内的无关刷新沿用缓存，期间系统侧登录项变化延迟到
+        // 下次成为 key 时才对账——这是差分刷新的明确取舍。
         if #available(macOS 13.0, *) {
-            startOnBootSwitch.state = SMAppService.mainApp.status == .enabled ? .on : .off
+            if settings.startOnBoot != lastStartOnBootSetting || lastKnownStartOnBootSystemEnabled == nil {
+                lastStartOnBootSetting = settings.startOnBoot
+                lastKnownStartOnBootSystemEnabled = (SMAppService.mainApp.status == .enabled)
+            }
+            startOnBootSwitch.state = (lastKnownStartOnBootSystemEnabled ?? false) ? .on : .off
         } else {
             startOnBootSwitch.state = settings.startOnBoot ? .on : .off
         }
@@ -243,9 +267,45 @@ final class AppKitSettingsContainerView: NSView {
         multiDisplaySwitch.state = settings.multiDisplayEnabled ? .on : .off
         selectFillMode(settings.videoFillMode)
 
-        refreshHotkeyRows()
+        // 下拉菜单整份重灌 52 个菜单项，只在热键相关输入变化时执行；
+        // 菜单项可用性只取决于这 5 项输入。
+        let hotkeyInputsSignature = [
+            settings.systemHotkeysEnabled ? "1" : "0",
+            settings.previousWallpaperHotkey.rawValue,
+            settings.nextWallpaperHotkey.rawValue,
+            settings.togglePlaybackHotkey.rawValue,
+            settings.toggleMuteHotkey.rawValue
+        ]
+        if hotkeyInputsSignature != lastHotkeyInputsSignature {
+            lastHotkeyInputsSignature = hotkeyInputsSignature
+            refreshHotkeyRows()
+        }
         applyVisibleSections()
-        refreshSectionChromeAndLayout()
+        // fittingSize 对整棵内容树求解 document 高度，只在可见性行/分区实际变化时重算。
+        if layoutVisibilitySignature() != visibilityBefore {
+            refreshSectionChromeAndLayout()
+        }
+    }
+
+    /// 影响文档高度求解的可见性快照：分区显隐 + 各整行/嵌入容器显隐，
+    /// 以及播放速率行内会改变行高的滑块/数值标签。
+    private func layoutVisibilitySignature() -> [Bool?] {
+        [
+            playbackModesSection.isHidden,
+            audioSection.isHidden,
+            systemSection.isHidden,
+            hotkeysSection.isHidden,
+            efficiencySection.isHidden,
+            displaySection.isHidden,
+            maintenanceSection.isHidden,
+            autoSwitchRowView?.isHidden,
+            intervalRowView?.isHidden,
+            playbackRateSlider.isHidden,
+            playbackRateValueLabel.isHidden,
+            systemAudioSpectrumOptionsContainer?.isHidden,
+            hotkeyRowsContainer?.isHidden,
+            idleTimeoutRowView?.isHidden
+        ]
     }
 
     func updateVisibleSections(_ visibleSections: Set<AppSettingsSection>) {
@@ -435,6 +495,54 @@ final class AppKitSettingsContainerView: NSView {
             guard let self, !self.isUpdatingUI else { return }
             self.refreshFromState()
         }
+        // F18：SMAppService 注册/注销失败由 WallpaperManager.updateLoginItemStatus()
+        // 发出 .wallpaperManagerLoginItemSyncFailed；开关已随系统真值回滚，
+        // 这里是声明的"错误回传 UI"订阅端，把失败原因呈现给用户。
+        loginItemSyncFailureObserver = NotificationCenter.default.addObserver(
+            forName: .wallpaperManagerLoginItemSyncFailed,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self else { return }
+            self.presentLoginItemSyncFailure(notification)
+        }
+    }
+
+    /// F17×F18 对账闭环：面板（重新）成为 key（首次打开、从系统设置切回）
+    /// 时作废 SMAppService 同步查询缓存并立即重查，覆盖"面板打开期间用户
+    /// 在系统设置增删登录项"的对账场景。
+    private func observePanelActivation() {
+        windowBecameKeyObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self,
+                  let window = notification.object as? NSWindow,
+                  window === self.window else { return }
+            self.lastStartOnBootSetting = nil
+            self.lastKnownStartOnBootSystemEnabled = nil
+            guard !self.isUpdatingUI else { return }
+            self.refreshFromState()
+        }
+    }
+
+    /// 登录项注册/注销失败的用户可见呈现：开关已随系统真值弹回，
+    /// 这里解释原因，消除"静默弹回、无失败原因"。
+    private func presentLoginItemSyncFailure(_ notification: Notification) {
+        let operation = notification.userInfo?["operation"] as? String
+        let failureDetail = (notification.userInfo?["error"] as? NSError)?.localizedDescription
+        let verb = operation == "unregister" ? "取消注册" : "注册"
+        var message = "开机自动启动\(verb)未生效，开关已恢复为系统实际状态。"
+        if let failureDetail, !failureDetail.isEmpty {
+            message += "\n原因：\(failureDetail)"
+        }
+        let alert = makeAppAlert(
+            title: "开机自启设置失败",
+            message: message,
+            style: .warning
+        )
+        presentAppAlert(alert, in: preferredHostWindow())
     }
 
     @objc private func handleLoopToggle() {
