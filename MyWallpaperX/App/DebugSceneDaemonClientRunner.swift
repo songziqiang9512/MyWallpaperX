@@ -44,7 +44,7 @@ enum DebugSceneDaemonClientRunner {
 
     static var isRequested: Bool {
         ProcessInfo.processInfo.arguments.contains(flag)
-            && argumentValue(after: rootFlag) != nil
+            && DebugScenePlaybackRunner.argumentValue(after: rootFlag) != nil
     }
 
     static var requiresProductCoordinator: Bool {
@@ -54,7 +54,7 @@ enum DebugSceneDaemonClientRunner {
     }
 
     static func scheduleIfRequested() {
-        guard isRequested, let rootPath = argumentValue(after: rootFlag) else {
+        guard isRequested, let rootPath = DebugScenePlaybackRunner.argumentValue(after: rootFlag) else {
             return
         }
         let rootURL = URL(fileURLWithPath: rootPath, isDirectory: true)
@@ -78,7 +78,7 @@ enum DebugSceneDaemonClientRunner {
             NSApp.terminate(nil)
             return
         }
-        evidenceDirectory = argumentValue(after: evidenceFlag).map {
+        evidenceDirectory = DebugScenePlaybackRunner.argumentValue(after: evidenceFlag).map {
             URL(fileURLWithPath: $0, isDirectory: true).standardizedFileURL
         }
         guard let startupPropertyOverrides = DebugScenePlaybackRunner
@@ -377,13 +377,13 @@ enum DebugSceneDaemonClientRunner {
     }
 
     private static var duration: TimeInterval {
-        guard let raw = argumentValue(after: durationFlag),
+        guard let raw = DebugScenePlaybackRunner.argumentValue(after: durationFlag),
               let value = TimeInterval(raw), value >= 5 else { return 15 }
         return value
     }
 
     private static var switchRootURL: URL? {
-        argumentValue(after: switchRootFlag).map {
+        DebugScenePlaybackRunner.argumentValue(after: switchRootFlag).map {
             URL(fileURLWithPath: $0, isDirectory: true)
                 .resolvingSymlinksInPath().standardizedFileURL
         }
@@ -413,7 +413,7 @@ enum DebugSceneDaemonClientRunner {
     }
 
     private static var requestedSampleID: String {
-        argumentValue(after: rootFlag).map {
+        DebugScenePlaybackRunner.argumentValue(after: rootFlag).map {
             URL(fileURLWithPath: $0, isDirectory: true).lastPathComponent
         } ?? ""
     }
@@ -429,7 +429,7 @@ enum DebugSceneDaemonClientRunner {
                 .protectedWorkshopRootURL(),
               runsStableDaemonClient,
               switchRootURL == nil,
-              let rawWorkshopRoot = argumentValue(
+              let rawWorkshopRoot = DebugScenePlaybackRunner.argumentValue(
                 after: "--mwx-debug-workshop-root"
               ),
               DebugSceneProductEntryPolicy.isolatedExistingDirectory(
@@ -450,7 +450,7 @@ enum DebugSceneDaemonClientRunner {
                 disjointFrom: realUserHome,
                 fileManager: fileManager
               ) != nil,
-              argumentValue(after: "--mwx-debug-user-defaults-suite")
+              DebugScenePlaybackRunner.argumentValue(after: "--mwx-debug-user-defaults-suite")
                 .map({ $0.hasPrefix("com.songziqiang.MyWallpaperX.Debug.") })
                 == true,
               fileManager.fileExists(
@@ -523,7 +523,7 @@ enum DebugSceneDaemonClientRunner {
     }
 
     private static func dispatchRequestedPropertyUpdate() {
-        if let propertyKey = argumentValue(after: propertyKeyFlag),
+        if let propertyKey = DebugScenePlaybackRunner.argumentValue(after: propertyKeyFlag),
            let propertyValue = debugPropertyValue {
             let propertyAccepted = PlaybackCommandMultiplexer.shared.dispatch(
                 .setProperty(
@@ -542,10 +542,10 @@ enum DebugSceneDaemonClientRunner {
     }
 
     private static var debugPropertyValue: SceneUserPropertyValue? {
-        guard let rawValue = argumentValue(after: propertyValueFlag) else {
+        guard let rawValue = DebugScenePlaybackRunner.argumentValue(after: propertyValueFlag) else {
             return nil
         }
-        switch argumentValue(after: propertyTypeFlag) ?? "string" {
+        switch DebugScenePlaybackRunner.argumentValue(after: propertyTypeFlag) ?? "string" {
         case "number":
             guard let value = Double(rawValue), value.isFinite else { return nil }
             return .number(value)
@@ -560,13 +560,6 @@ enum DebugSceneDaemonClientRunner {
         default:
             return nil
         }
-    }
-
-    private static func argumentValue(after flag: String) -> String? {
-        let arguments = ProcessInfo.processInfo.arguments
-        guard let index = arguments.firstIndex(of: flag),
-              arguments.indices.contains(index + 1) else { return nil }
-        return arguments[index + 1]
     }
 }
 #endif

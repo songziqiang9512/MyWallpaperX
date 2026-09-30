@@ -91,8 +91,14 @@ COMPOSITOR_SOURCE = (
 PIPELINE_REPOSITORY_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneImageEffectPipelineRepository.swift"
 )
-COORDINATOR_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/MainWindowCoordinator.swift"
+COORDINATOR_SOURCE = (
+    REPOSITORY_ROOT / "MyWallpaperX/App/MainWindowCoordinator+PlaybackRouting.swift"
+)
 DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
+DEBUG_ARGUMENTS_RUNNER_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/App/DebugScenePlaybackRunner+Arguments.swift"
+)
 DEBUG_SCENE_SWITCH_RUNNER_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/App/DebugScenePlaybackRunner+SceneSwitch.swift"
@@ -832,6 +838,9 @@ class SceneFrameContextTests(unittest.TestCase):
         host = HOST_SOURCE.read_text(encoding="utf-8")
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
+        arguments_runner = DEBUG_ARGUMENTS_RUNNER_SOURCE.read_text(
+            encoding="utf-8"
+        )
         launch = swift_body(runner, "private static func launchScene(")
 
         self.assertIn("var debugDropDynamicValuesFrameIndex: UInt64?", host)
@@ -839,7 +848,8 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("guard Self.usesDebugEvidenceWindow else { return false }", host)
         self.assertIn("#if DEBUG", host[:host.index("var debugDropDynamicValuesFrameIndex")])
         self.assertIn(
-            'after: "--mwx-debug-scene-drop-dynamic-values-frame"', runner
+            'after: "--mwx-debug-scene-drop-dynamic-values-frame"',
+            arguments_runner,
         )
         isolated_guard = launch.index("guard isIsolatedSampleRoot(rootURL)")
         fault_configuration = launch.index("setDebugDropDynamicValuesFrameIndex")

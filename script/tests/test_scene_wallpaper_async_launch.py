@@ -19,7 +19,7 @@ FRAME_DRIVER = (
 SURFACE_TEARDOWN = (
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+SurfaceTeardown.swift"
 )
-COORDINATOR = ROOT / "MyWallpaperX" / "App" / "MainWindowCoordinator.swift"
+COORDINATOR = ROOT / "MyWallpaperX" / "App" / "MainWindowCoordinator+PlaybackRouting.swift"
 DEBUG_RUNNER = ROOT / "MyWallpaperX" / "App" / "DebugScenePlaybackRunner.swift"
 INSPECTION = (
     ROOT

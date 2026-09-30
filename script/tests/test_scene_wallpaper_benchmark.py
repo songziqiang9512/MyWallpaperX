@@ -18,6 +18,10 @@ sys.path.insert(0, str(SCRIPT_DIR))
 DEBUG_RUNNER_SOURCE = (
     SCRIPT_DIR.parent / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
 )
+DEBUG_ARGUMENTS_RUNNER_SOURCE = (
+    SCRIPT_DIR.parent
+    / "MyWallpaperX/App/DebugScenePlaybackRunner+Arguments.swift"
+)
 DEBUG_POINTER_DRAG_SOURCE = (
     SCRIPT_DIR.parent
     / "MyWallpaperX/App/DebugScenePlaybackRunner+PointerDrag.swift"
@@ -1535,15 +1539,24 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
 
     def test_debug_runner_sequences_before_hover_and_after_frames(self) -> None:
         source = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
+        arguments_source = DEBUG_ARGUMENTS_RUNNER_SOURCE.read_text(
+            encoding="utf-8"
+        )
         pointer_source = DEBUG_POINTER_DRAG_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("--mwx-debug-scene-hover-pointer-json", source)
-        self.assertIn("--mwx-debug-scene-hover-pointer-stationary-entry", source)
-        self.assertIn("--mwx-debug-scene-primary-click", source)
-        self.assertIn("--mwx-debug-scene-primary-click-subframe", source)
-        self.assertIn("--mwx-debug-scene-after-snapshot-delay", source)
-        self.assertIn("--mwx-debug-scene-periodic-snapshot-interval", source)
+        self.assertIn("--mwx-debug-scene-hover-pointer-json", arguments_source)
+        self.assertIn(
+            "--mwx-debug-scene-hover-pointer-stationary-entry", arguments_source
+        )
+        self.assertIn("--mwx-debug-scene-primary-click", arguments_source)
+        self.assertIn(
+            "--mwx-debug-scene-primary-click-subframe", arguments_source
+        )
+        self.assertIn("--mwx-debug-scene-after-snapshot-delay", arguments_source)
+        self.assertIn(
+            "--mwx-debug-scene-periodic-snapshot-interval", arguments_source
+        )
         self.assertIn('String(format: "series-%04d", index)', source)
-        self.assertIn("interval >= 0.08", source)
+        self.assertIn("interval >= 0.08", arguments_source)
         self.assertIn(
             "schedulePeriodicSnapshots(outputDirectory: evidenceDirectory)",
             source,
@@ -3095,8 +3108,13 @@ MWX media thumbnail store: phase=ready generation=3 hasColor=false hasPreserved=
 
     def test_debug_runner_updates_the_existing_host_record(self) -> None:
         source = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
+        arguments_source = DEBUG_ARGUMENTS_RUNNER_SOURCE.read_text(
+            encoding="utf-8"
+        )
         self.assertIn('private static let debugRecordID = "debug-scene-playback"', source)
-        self.assertIn("--mwx-debug-scene-live-properties-json", source)
+        self.assertIn(
+            "--mwx-debug-scene-live-properties-json", arguments_source
+        )
         self.assertIn("recordID: debugRecordID", source)
         self.assertIn("phase=live-property-update", source)
 

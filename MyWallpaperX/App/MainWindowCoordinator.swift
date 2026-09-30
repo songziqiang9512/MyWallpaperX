@@ -6,11 +6,15 @@
 import AppKit
 
 // 集中管理主窗口、Dock 图标和前台激活策略，避免窗口生命周期逻辑散落到多个入口。
+// 菜单命令语义在 MainWindowMenuCommands，播放路由观察者在
+// MainWindowCoordinator+PlaybackRouting.swift；本文件保留状态存储、
+// 菜单门面（AppDelegate 调用点不变）与窗口生命周期。
 enum MainWindowCoordinator {
-    private static var mainWindowController: MainWindowController?
-    private static var wallpaperManager: WallpaperManager = .shared
-    private static var isSteamDownloadsMode = false
-    private static var observerTokens: [NSObjectProtocol] = []
+    // 供同类型 extension（+PlaybackRouting）与 MainWindowMenuCommands 读写，故为 internal。
+    static var mainWindowController: MainWindowController?
+    static var wallpaperManager: WallpaperManager = .shared
+    static var isSteamDownloadsMode = false
+    static var observerTokens: [NSObjectProtocol] = []
 
     // MARK: - 当前激活模块
 
@@ -29,363 +33,70 @@ enum MainWindowCoordinator {
         }
     }
 
-    // MARK: - 菜单命令分发
+    // MARK: - 菜单命令分发（门面；实现见 MainWindowMenuCommands）
 
-    /// 当前模块是否为视频库（视频库专属菜单项的启用判断）
-    static var isVideoLibraryActive: Bool { activeModule == .videoLibrary }
+    static var canUseVideoLibraryOnlyCommands: Bool { MainWindowMenuCommands.canUseVideoLibraryOnlyCommands }
 
- /// 视频库专属命令（设为壁纸 / 上下切换 / 收藏）是否可用
- static var canUseVideoLibraryOnlyCommands: Bool { isVideoLibraryActive }
+    /// 「进入/退出多选」菜单项是否可用
+    static var canToggleMultiSelect: Bool { MainWindowMenuCommands.canToggleMultiSelect }
 
- /// 「进入/退出多选」菜单项是否可用
- static var canToggleMultiSelect: Bool {
- switch activeModule {
- case .videoLibrary, .staticImageLibrary:
- return true
- case .onlineLibrary:
- return OnlineDownloadsBridge.shared.isActive
- case .steamWorkshop:
- return isSteamDownloadsMode
- }
- }
+    /// 「全选」菜单项是否可用
+    static var canSelectAll: Bool { MainWindowMenuCommands.canSelectAll }
 
- /// 「全选」菜单项是否可用
-    static var canSelectAll: Bool {
- switch activeModule {
- case .videoLibrary, .staticImageLibrary:
- return true
- case .onlineLibrary:
- return OnlineDownloadsBridge.shared.isActive && OnlineDownloadsBridge.shared.isMultiSelectMode
- case .steamWorkshop:
- return isSteamDownloadsMode && SteamWorkshopService.shared.canSelectAllDownloads
- }
- }
-
- static var revealInFinderMenuTitle: String {
- switch activeModule {
- case .onlineLibrary:
- return OnlineDownloadsBridge.shared.isActive ? "查看文件" : "刷新"
- case .steamWorkshop:
- return isSteamDownloadsMode ? "查看文件" : "刷新"
- default:
- return "查看文件"
- }
- }
+    static var revealInFinderMenuTitle: String { MainWindowMenuCommands.revealInFinderMenuTitle }
 
     /// 「设为壁纸」- 仅视频库
-    static func menuSetAsWallpaper() {
-        guard isVideoLibraryActive else { return }
-        let manager = WallpaperManager.shared
-        if let id = manager.selectedWallpaperId,
-           let wallpaper = manager.wallpapers.first(where: { $0.id == id }) {
-            manager.markCardInteraction()
-            manager.requestSetAsWallpaper(wallpaper)
-        }
-    }
+    static func menuSetAsWallpaper() { MainWindowMenuCommands.menuSetAsWallpaper() }
 
-    /// 「切换上一张/下一张」——跨引擎统一轮换（视频库 + 工坊 web/scene），
-    /// 与 F1-F12 热键、状态栏同一切换源。
-    static func menuNavigate(_ direction: ManualNavigationDirection) {
-        CrossRuntimeWallpaperNavigator.navigate(direction)
-    }
+    /// 「切换上一张/下一张」——跨引擎统一轮换
+    static func menuNavigate(_ direction: ManualNavigationDirection) { MainWindowMenuCommands.menuNavigate(direction) }
 
     /// 「收藏 / 取消收藏」- 仅视频库
-    static func menuToggleFavorite() {
-        guard isVideoLibraryActive else { return }
-        let manager = WallpaperManager.shared
-        UIActionHelper.toggleFavoriteSelection(
-            manager: manager,
-            selection: manager.currentSelectionContext
-        )
-    }
+    static func menuToggleFavorite() { MainWindowMenuCommands.menuToggleFavorite() }
 
-    /// 「导入」- Cmd+O，根据当前模块决定导入视频还是图片
-    static func menuImport() {
-        switch activeModule {
-        case .videoLibrary:
-            let manager = WallpaperManager.shared
-            manager.importVideos(
-                presentingIn: appModalHostWindow(),
-                context: manager.currentImportContext
-            )
-        case .staticImageLibrary:
-            SILService.shared.importFromPanel(presentingIn: appModalHostWindow())
-        case .onlineLibrary:
-            break  // 在线库无本地导入
-        case .steamWorkshop:
-            break
-        }
-    }
+    /// 「导入」- Cmd+O
+    static func menuImport() { MainWindowMenuCommands.menuImport() }
 
-    /// 「新建标签」- Cmd+N，根据当前模块决定新建视频标签还是图片标签
-    static func menuCreateTag() {
-        switch activeModule {
-        case .videoLibrary:
-            UIActionHelper.presentCreateTag(
-                manager: WallpaperManager.shared,
-                window: appModalHostWindow()
-            )
-        case .staticImageLibrary:
-            let inputField = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-            let alert = makeAppAlert(
-                title: "新建图片标签",
-                message: "请输入图片标签名称",
-                buttons: ["确定", "取消"],
-                accessoryView: inputField
-            )
-            presentAppAlert(alert, in: appModalHostWindow()) { r in
-                guard r == .alertFirstButtonReturn else { return }
-                SILService.shared.createSILTag(inputField.stringValue)
-            }
-        case .onlineLibrary:
-            break  // 在线库无标签系统
-        case .steamWorkshop:
-            break
-        }
-    }
+    /// 「新建标签」- Cmd+N
+    static func menuCreateTag() { MainWindowMenuCommands.menuCreateTag() }
 
-    /// 「添加标签」- 视频库专属；图片库预留接口（后续实现侧边栏专属标签系统）
-    static func menuAddTag() {
-        switch activeModule {
-        case .videoLibrary:
-            let manager = WallpaperManager.shared
-            UIActionHelper.presentTagPicker(
-                manager: manager,
-                window: appModalHostWindow()
-            ) {}
-        case .staticImageLibrary:
-            // 图片库标签系统已实现，触发工具栏标签按钮动作
-            let svc = SILService.shared
-            let ids = svc.silSelectedIDs
-            guard !ids.isEmpty else { return }
-            let tags = svc.silTags
-            guard !tags.isEmpty else {
-                let alert = makeAppAlert(title: "无可用标签", message: "请先在侧边栏右键新建图片标签。", buttons: ["好"])
-                presentAppAlert(alert, in: appModalHostWindow())
-                return
-            }
-            let picker = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-            picker.addItems(withTitles: tags)
-            picker.selectItem(at: 0)
-            let alert = makeAppAlert(
-                title: "添加图片标签",
-                message: "请选择要添加的标签",
-                buttons: ["确定", "取消"],
-                accessoryView: picker
-            )
-            presentAppAlert(alert, in: appModalHostWindow()) { r in
-                guard r == .alertFirstButtonReturn,
-                      let tag = picker.titleOfSelectedItem, !tag.isEmpty else { return }
-                // addSILTag 内部已调用 clearSelectionState()，多选会自动退出
-                SILService.shared.addSILTag(tag, toSelected: ids)
-            }
-        case .onlineLibrary:
-            break
-        case .steamWorkshop:
-            break
-        }
-    }
+    /// 「添加标签」
+    static func menuAddTag() { MainWindowMenuCommands.menuAddTag() }
 
     /// 「添加标签」菜单项是否可用
-    static var canAddTag: Bool {
-        switch activeModule {
-        case .videoLibrary:
-            return WallpaperManager.shared.hasSingleWallpaperSelection || WallpaperManager.shared.hasAnyWallpaperSelection
-        case .staticImageLibrary:
-            // 图片库标签系统已实现：有选中且有标签时可用
-            return SILService.shared.hasAnySelection && !SILService.shared.silTags.isEmpty
-        case .onlineLibrary:
-            return false
-        case .steamWorkshop:
-            return false
-        }
-    }
+    static var canAddTag: Bool { MainWindowMenuCommands.canAddTag }
 
-    /// 「查看信息」- 视频库和图片库各自实现
-    static func menuShowInfo() {
-        switch activeModule {
-        case .videoLibrary:
-            WallpaperManager.shared.presentInspectorForSelectedWallpaper()
-        case .staticImageLibrary:
-            SILService.shared.presentInspectorForSelectedWallpaper()
-        case .onlineLibrary:
-            if OnlineDownloadsBridge.shared.isActive {
-                OnlineDownloadsBridge.shared.showInfo()
-            }
-        case .steamWorkshop:
-            if isSteamDownloadsMode {
-                SteamWorkshopService.shared.presentSelectedDownloadInfo()
-            }
-        }
-    }
+    /// 「查看信息」
+    static func menuShowInfo() { MainWindowMenuCommands.menuShowInfo() }
 
     /// 「查看信息」菜单项是否可用
-    static var canShowInfo: Bool {
-        switch activeModule {
-        case .videoLibrary:
-            return WallpaperManager.shared.hasSingleWallpaperSelection
-        case .staticImageLibrary:
-            return SILService.shared.selectedID != nil
-        case .onlineLibrary:
-            return OnlineDownloadsBridge.shared.isActive && OnlineDownloadsBridge.shared.hasSingleSelection
-        case .steamWorkshop:
-            return isSteamDownloadsMode && SteamWorkshopService.shared.canShowSelectedDownloadInfo
-        }
-    }
+    static var canShowInfo: Bool { MainWindowMenuCommands.canShowInfo }
 
-    /// 「进入/退出多选」- 视频库和图片库各自实现
-    static func menuToggleMultiSelect() {
-        switch activeModule {
-        case .videoLibrary:
-            WallpaperManager.shared.toggleMultiSelectMode()
-        case .staticImageLibrary:
-            let svc = SILService.shared
-            if svc.isMultiSelectMode { svc.exitMultiSelectMode() } else { svc.enterMultiSelectMode() }
-        case .onlineLibrary:
-            if OnlineDownloadsBridge.shared.isActive {
-                OnlineDownloadsBridge.shared.toggleMultiSelect()
-            }
-        case .steamWorkshop:
-            if isSteamDownloadsMode {
-                SteamWorkshopService.shared.toggleDownloadsMultiSelectMode()
-            }
-        }
-    }
+    /// 「进入/退出多选」
+    static func menuToggleMultiSelect() { MainWindowMenuCommands.menuToggleMultiSelect() }
 
-    /// 「全选」- 多选模式下各模块实现
-    static func menuSelectAll() {
-        switch activeModule {
-        case .videoLibrary:
-            let manager = WallpaperManager.shared
-            guard manager.isMultiSelectMode else { return }
-            let selection = manager.currentSelectionContext
-            let targetIDs = Set(selection.sourceWallpapers(from: manager).map(\.id))
-            manager.replaceMultiSelection(with: targetIDs)
-        case .staticImageLibrary:
-            let svc = SILService.shared
-            // 未进入多选模式时自动先进入再全选
-            if !svc.isMultiSelectMode { svc.enterMultiSelectMode() }
-            svc.selectAll()
-        case .onlineLibrary:
-            if OnlineDownloadsBridge.shared.isActive {
-                OnlineDownloadsBridge.shared.selectAll()
-            }
-        case .steamWorkshop:
-            if isSteamDownloadsMode {
-                SteamWorkshopService.shared.selectAllDownloads()
-            }
-        }
-    }
+    /// 「全选」
+    static func menuSelectAll() { MainWindowMenuCommands.menuSelectAll() }
 
-    /// 「删除选中」- 视频库和图片库各自实现
-    static func menuDeleteSelected() {
-        switch activeModule {
-        case .videoLibrary:
-            let manager = WallpaperManager.shared
-            let selection = manager.currentSelectionContext
-            UIActionHelper.performDeleteWithoutConfirmation(
-                manager: manager,
-                selection: selection,
-                window: appModalHostWindow()
-            )
-        case .staticImageLibrary:
-            let svc = SILService.shared
-            let ids = svc.silSelectedIDs
-            guard !ids.isEmpty else { return }
-            if let tag = svc.currentContextTag {
-                SILService.shared.removeFromSILTag(tag, ids: ids)
-            } else {
-                SILService.shared.remove(ids: ids)
-            }
-        case .onlineLibrary:
-            if OnlineDownloadsBridge.shared.isActive {
-                OnlineDownloadsBridge.shared.deleteSelected()
-            }
-        case .steamWorkshop:
-            if isSteamDownloadsMode {
-                SteamWorkshopService.shared.deleteSelectedDownload()
-            }
-        }
-    }
+    /// 「删除选中」
+    static func menuDeleteSelected() { MainWindowMenuCommands.menuDeleteSelected() }
 
-    static var canDeleteSelected: Bool {
-        switch activeModule {
-        case .videoLibrary:
-            return WallpaperManager.shared.hasAnyWallpaperSelection
-        case .staticImageLibrary:
-            return SILService.shared.hasAnySelection
-        case .onlineLibrary:
-            return OnlineDownloadsBridge.shared.isActive && OnlineDownloadsBridge.shared.hasAnySelection
-        case .steamWorkshop:
-            return isSteamDownloadsMode && SteamWorkshopService.shared.canDeleteSelectedDownload
-        }
-    }
+    static var canDeleteSelected: Bool { MainWindowMenuCommands.canDeleteSelected }
 
     /// 「搜索」- 各模块聚焦搜索框
-    static func menuFocusSearch() {
-        mainWindowController?.toolbarController.focusSearch()
-    }
+    static func menuFocusSearch() { MainWindowMenuCommands.menuFocusSearch() }
 
-    /// 「查看文件」- 视频库和图片库各自实现
-    static func menuRevealInFinder() {
-        switch activeModule {
-        case .videoLibrary:
-            let manager = WallpaperManager.shared
-            if let id = manager.selectedWallpaperId,
-               let wallpaper = manager.wallpapers.first(where: { $0.id == id }) {
-                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: wallpaper.path)])
-            }
-        case .staticImageLibrary:
-            let svc = SILService.shared
-            if let id = svc.selectedID,
-               let wallpaper = svc.wallpapers.first(where: { $0.id == id }) {
-                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: wallpaper.path)])
-            }
-        case .onlineLibrary:
-            if OnlineDownloadsBridge.shared.isActive {
-                OnlineDownloadsBridge.shared.revealInFinder()
-            } else {
-                OnlineLibraryService.shared.refresh()
-            }
-        case .steamWorkshop:
-            if isSteamDownloadsMode {
-                SteamWorkshopService.shared.revealSelectedDownload()
-            } else {
-                SteamWorkshopService.shared.refresh()
-            }
-        }
-    }
+    /// 「查看文件」
+    static func menuRevealInFinder() { MainWindowMenuCommands.menuRevealInFinder() }
 
     /// 「查看文件」菜单项是否可用
-    static var canRevealInFinder: Bool {
-        switch activeModule {
-        case .videoLibrary:
-            return WallpaperManager.shared.selectedWallpaperId != nil
-        case .staticImageLibrary:
-            return SILService.shared.selectedID != nil
-        case .onlineLibrary:
-            if OnlineDownloadsBridge.shared.isActive {
-                return OnlineDownloadsBridge.shared.hasAnySelection
-            }
-            return true
-        case .steamWorkshop:
-            return !isSteamDownloadsMode || SteamWorkshopService.shared.canRevealSelectedDownload
-        }
-    }
+    static var canRevealInFinder: Bool { MainWindowMenuCommands.canRevealInFinder }
 
     /// 「预览」菜单项是否可用
-    static var canPreview: Bool {
-        switch activeModule {
-        case .videoLibrary:
-            return WallpaperManager.shared.selectedWallpaperId != nil
-        case .staticImageLibrary:
-            return SILService.shared.selectedID != nil
-        case .onlineLibrary:
-            return OnlineDownloadsBridge.shared.isActive && OnlineDownloadsBridge.shared.hasAnySelection
-        case .steamWorkshop:
-            return SteamWorkshopDownloadsBridge.shared.isActive && SteamWorkshopDownloadsBridge.shared.hasPreviewableSelection
-        }
-    }
+    static var canPreview: Bool { MainWindowMenuCommands.canPreview }
+
+    /// 菜单命令：预览选中项（QuickLook）
+    static func menuPreview() { MainWindowMenuCommands.menuPreview() }
 
     static func setDockIconVisible(_ visible: Bool) {
         // Dock 图标显示状态必须和主窗口显隐同步，否则会出现“窗口关了但进程看起来还在前台”的错觉。
@@ -393,225 +104,6 @@ enum MainWindowCoordinator {
         if NSApp.activationPolicy() != targetPolicy {
             NSApp.setActivationPolicy(targetPolicy)
         }
-    }
-
-    /// 菜单命令：预览选中项（QuickLook）
-    static func menuPreview() {
-        let module = activeModule
-        if module == .videoLibrary {
-            _ = QuickLookPreviewController.shared.openPreview(for: WallpaperManager.shared.selectedWallpaperForQuickLook)
-        } else if module == .staticImageLibrary {
-            _ = SILKeyboardHandler.shared.handleSpace()
-        } else if module == .onlineLibrary && OnlineDownloadsBridge.shared.isActive {
-            OnlineDownloadsBridge.shared.previewSelected()
-        } else if module == .steamWorkshop && SteamWorkshopDownloadsBridge.shared.isActive {
-            SteamWorkshopDownloadsBridge.shared.previewSelected()
-        }
-    }
-
-    static func configure(with wallpaperManager: WallpaperManager) {
-        self.wallpaperManager = wallpaperManager
-        guard observerTokens.isEmpty else { return }
-        observerTokens.append(ImportedVideoPlaybackObserver.make(
-            name: .onlineVideoReadyToPlay, context: .onlinePlayback, wallpaperManager: wallpaperManager
-        ))
-        observerTokens.append(ImportedVideoPlaybackObserver.make(
-            name: .steamWorkshopVideoReadyToPlay, context: .steamPlayback, wallpaperManager: wallpaperManager
-        ))
-        observeSteamWorkshopWebWallpaperReadyToPlay()
-        observeSteamWorkshopSceneReadyToRender()
-        observeSceneWallpaperLaunchState()
-        observeStaticImageWallpaperReadyToApply()
-        observeSteamWorkshopModeChanges()
-    }
-
-    /// 监听 Steam 下载页发出的 HTML 网页壁纸播放请求，中转到实验性的 Web 壁纸宿主。
-    private static func observeSteamWorkshopWebWallpaperReadyToPlay() {
-        let observer = NotificationCenter.default.addObserver(
-            forName: .steamWorkshopWebWallpaperReadyToPlay,
-            object: nil,
-            queue: .main
-        ) { notification in
-            guard let entryURL = notification.userInfo?["entryURL"] as? URL,
-                  let rootURL = notification.userInfo?["rootURL"] as? URL else { return }
-
-            let propertiesJSON = notification.userInfo?["propertiesJSON"] as? String
-            let recordID = notification.userInfo?["recordID"] as? String
-            let language = notification.userInfo?["language"] as? String ?? "en-us"
-            let runtimeProfile = notification.userInfo?["runtimeProfile"] as? WallpaperEngine.WebRuntimeProfile ?? .standard
-            let resourceLifetime = notification.userInfo?["resourceLifetime"] as? PlaybackResourceLifetime
-            wallpaperManager.clearCurrentWallpaperReference()
-            wallpaperManager.activeWallpaperRuntime = .web
-            wallpaperManager.lastWorkshopPlaybackRecordID = recordID
-            wallpaperManager.stopAutoSwitchTimer()
-            // E2a-1: web 切换入口注入产品意图纪元（只读，提交点不变）。
-            WallpaperEngine.shared.adoptIntentEpoch(wallpaperManager.beginPlaybackIntent())
-            WallpaperEngine.shared.setWebWallpaper(
-                entryURL: entryURL,
-                rootURL: rootURL,
-                propertiesJSON: propertiesJSON,
-                recordID: recordID,
-                language: language,
-                runtimeProfile: runtimeProfile,
-                multiDisplayEnabled: wallpaperManager.settings.multiDisplayEnabled,
-                resourceLifetime: resourceLifetime
-            )
-            wallpaperManager.isPlaying = WallpaperEngine.shared.isPlaying()
-            // web 无静帧可提取；同步系统壁纸走延迟截帧（等启动过渡结束）。
-            // 生产路径 recordID 恒存在；诊断 harness 无 recordID 时
-            // currentWebRecordID 也为 nil，同步本就不适用，跳过。
-            if let recordID {
-                wallpaperManager.scheduleRuntimeFrameSystemWallpaperSync(
-                    kind: .web,
-                    recordID: recordID
-                )
-            }
-        }
-        observerTokens.append(observer)
-    }
-
-    /// 监听 Steam Scene 请求并定向交给独立进程控制端。
-    private static func observeSteamWorkshopSceneReadyToRender() {
-        let observer = NotificationCenter.default.addObserver(
-            forName: .steamWorkshopSceneReadyToRender,
-            object: nil,
-            queue: .main
-        ) { notification in
-            MainActor.assumeIsolated {
-                guard let request = notification.userInfo?["request"]
-                        as? SteamWorkshopScenePlaybackRequest else { return }
-                SceneDaemonClient.shared.retainResourceLifetime(
-                    request.resourceLifetime,
-                    rootURL: request.rootURL,
-                    recordID: request.recordID
-                )
-                // E2a-1: scene 切换入口注入产品意图纪元（只读，提交点
-                // 不变；adapter 内部 sessionGeneration 自成体系）。
-                WallpaperEngine.shared.adoptIntentEpoch(
-                    WallpaperManager.shared.beginPlaybackIntent()
-                )
-                let accepted = PlaybackCommandMultiplexer.shared.dispatch(
-                    .loadScene(.init(
-                        rootURL: request.rootURL,
-                        propertyOverrides: request.propertyOverrides,
-                        userPropertyTextures: request.userPropertyTextures,
-                        recordID: request.recordID
-                    )),
-                    to: .scene
-                )
-                if !accepted {
-                    SceneDaemonClient.shared.discardPendingResourceLifetime(
-                        rootURL: request.rootURL,
-                        recordID: request.recordID
-                    )
-                    SteamWorkshopService.shared.downloadError =
-                        "Scene daemon 控制端尚未就绪"
-                    SteamWorkshopService.shared.clearLaunchPending(
-                        matching: request.recordID
-                    )
-                }
-            }
-        }
-        observerTokens.append(observer)
-    }
-
-    /// 将 Scene daemon 的中心启动状态投影到 Steam 模块。
-    private static func observeSceneWallpaperLaunchState() {
-        let observer = NotificationCenter.default.addObserver(
-            forName: .sceneWallpaperLaunchStateDidChange,
-            object: nil,
-            queue: .main
-        ) { notification in
-            MainActor.assumeIsolated {
-                guard let state = notification.object as? SceneWallpaperLaunchState else {
-                    return
-                }
-                let message: String
-                switch state.phase {
-                case .accepted, .preparingModel, .preparingPrograms,
-                     .preparingResources, .preparingSurfaces:
-                    message = "\(state.message)，当前壁纸会继续播放"
-                case .launched:
-                    message = "Scene 表面已启动，正在等待首帧显示"
-                    postWallpaperRuntimeWillSwitch(
-                        to: .scene,
-                        recordID: state.recordID
-                    )
-                    wallpaperManager.clearCurrentWallpaperReference()
-                    wallpaperManager.activeWallpaperRuntime = .scene
-                    wallpaperManager.lastWorkshopPlaybackRecordID = state.recordID
-                    wallpaperManager.stopAutoSwitchTimer()
-                    WallpaperEngine.shared.stopPlayback()
-                    wallpaperManager.isPlaying = SceneDaemonClient.shared.isPlaying
-                    // scene 无静帧可提取；同步系统壁纸走延迟截帧（等启动
-                    // 过渡与开场动画结束）。
-                    if let launchedRecordID = state.recordID {
-                        wallpaperManager.scheduleRuntimeFrameSystemWallpaperSync(
-                            kind: .scene,
-                            recordID: launchedRecordID
-                        )
-                    }
-                case .cancelled:
-                    message = "已取消 Scene 壁纸准备，当前壁纸保持不变"
-                case .failed:
-                    message = "Scene 壁纸准备失败，当前壁纸保持不变"
-                case .stopped:
-                    // E2a-2: 用户请求的停止——选择权威回收真值。防御性
-                    // 守卫：若切换已把 runtime 指向别处，本回收迟到则跳过。
-                    // epoch stamp 由 stopCurrentPlayback 单点负责。
-                    message = "Scene 壁纸已停止"
-                    if wallpaperManager.activeWallpaperRuntime == .scene {
-                        wallpaperManager.stopCurrentPlayback()
-                    }
-                }
-                SteamWorkshopService.shared.statusMessage = message
-            }
-        }
-        observerTokens.append(observer)
-    }
-
-    /// 监听图片库发出的「设为壁纸」请求，统一执行系统壁纸应用和动态 runtime 收尾。
-    private static func observeStaticImageWallpaperReadyToApply() {
-        let observer = NotificationCenter.default.addObserver(
-            forName: .staticImageWallpaperReadyToApply,
-            object: nil,
-            queue: .main
-        ) { notification in
-            guard let imageURL = notification.userInfo?["imageURL"] as? URL else { return }
-            guard FileManager.default.fileExists(atPath: imageURL.path) else { return }
-
-            let workspace = NSWorkspace.shared
-            for screen in NSScreen.screens {
-                try? workspace.setDesktopImageURL(imageURL, for: screen, options: [:])
-            }
-
-            postWallpaperRuntimeWillSwitch(to: .systemStill)
-            wallpaperManager.clearCurrentWallpaperReference()
-            wallpaperManager.activeWallpaperRuntime = .systemStill
-            wallpaperManager.lastWorkshopPlaybackRecordID = nil
-            wallpaperManager.isPlaying = false
-            wallpaperManager.stopAutoSwitchTimer()
-            // E2a-1: 静态图切换入口注入产品意图纪元（只读，提交点不变）。
-            WallpaperEngine.shared.adoptIntentEpoch(
-                wallpaperManager.beginPlaybackIntent()
-            )
-            WallpaperEngine.shared.stopPlayback()
-        }
-        observerTokens.append(observer)
-    }
-
-    /// 监听 Steam 浏览/下载子页面切换，保证主菜单分发与当前工具栏语义一致。
-    private static func observeSteamWorkshopModeChanges() {
-        let observer = NotificationCenter.default.addObserver(
-            forName: .steamWorkshopModeDidChange,
-            object: nil,
-            queue: .main
-        ) { notification in
-            let enabled = notification.userInfo?["enabled"] as? Bool ?? false
-            let isDownloads = notification.userInfo?["isDownloads"] as? Bool ?? false
-            isSteamDownloadsMode = enabled && isDownloads
-        }
-        observerTokens.append(observer)
     }
 
     static func mainWindow() -> NSWindow? {

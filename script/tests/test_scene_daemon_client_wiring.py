@@ -26,7 +26,7 @@ class SceneDaemonClientWiringTests(unittest.TestCase):
     def test_product_callers_do_not_reach_in_process_scene_host(self) -> None:
         product_callers = [
             "MyWallpaperX/App/AppDelegate.swift",
-            "MyWallpaperX/App/MainWindowCoordinator.swift",
+            "MyWallpaperX/App/MainWindowCoordinator+PlaybackRouting.swift",
             "MyWallpaperX/App/MyWallpaperXApplication.swift",
             "MyWallpaperX/App/StatusBarController.swift",
             "MyWallpaperX/Core/Playback/WallpaperEngine.swift",
