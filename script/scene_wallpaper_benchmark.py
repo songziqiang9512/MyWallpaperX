@@ -320,6 +320,18 @@ PARTICLE_SKIPPED_TRANSPARENT_RE = re.compile(
     re.MULTILINE,
 )
 PARTICLE_LAYER_OK_RE = re.compile(r'^particle layer (?P<id>\d+) .*: OK ', re.MULTILINE)
+PARTICLE_LAYER_UNAVAILABLE_RE = re.compile(
+    r'^particle layer (?P<id>\d+) "(?P<name>.*)": unavailable$',
+    re.MULTILINE,
+)
+# Mirrors SceneParticlePlaybackState.loadReportLines: the Swift side always
+# emits the " detail=" suffix (possibly empty), so a non-greedy path keeps the
+# split total even when a path itself contains " detail=".
+PARTICLE_DIAGNOSTIC_RE = re.compile(
+    r"^particle diagnostic (?P<kind>\S+) layer=(?P<layer>\S+) "
+    r"path=(?P<path>.+?) detail=(?P<detail>.*)$",
+    re.MULTILINE,
+)
 PARTICLE_STICKY_LOADED_RE = re.compile(
     r"^particle sticky loaded: (?P<loaded>\d+) / (?P<total>\d+)$",
     re.MULTILINE,
@@ -2067,6 +2079,19 @@ def particle_runtime_metrics(preview_text: str) -> dict[str, Any]:
         "sticky_total": int(sticky_loaded_match.group("total"))
         if sticky_loaded_match else None,
         "loaded_layer_ids": [int(match.group("id")) for match in PARTICLE_LAYER_OK_RE.finditer(preview_text)],
+        "unavailable_layer_ids": [
+            int(match.group("id"))
+            for match in PARTICLE_LAYER_UNAVAILABLE_RE.finditer(preview_text)
+        ],
+        "particle_diagnostics": [
+            {
+                "kind": match.group("kind"),
+                "layer": match.group("layer"),
+                "path": match.group("path"),
+                "detail": match.group("detail"),
+            }
+            for match in PARTICLE_DIAGNOSTIC_RE.finditer(preview_text)
+        ],
     }
 
 
@@ -8472,6 +8497,8 @@ def run_sample(
         ),
         "passed": not failures,
         "failures": failures,
+        "particle_unavailable_layer_ids": particle_runtime["unavailable_layer_ids"],
+        "particle_diagnostics": particle_runtime["particle_diagnostics"],
         "exit_code": exit_code,
         "timed_out": timed_out,
         "hashes": hashes,
@@ -8719,6 +8746,8 @@ def run_sample(
             "particle_sticky_total": particle_runtime["sticky_total"],
             "particle_current_nonempty_layer_ids": particle_runtime["current_nonempty_layer_ids"],
             "particle_committed_nonempty_layer_ids": particle_runtime["committed_nonempty_layer_ids"],
+            "particle_unavailable_layer_ids": particle_runtime["unavailable_layer_ids"],
+            "particle_diagnostics": particle_runtime["particle_diagnostics"],
             "audio_scaled_value": audio_scaled_value,
             "camera_projection": camera_match.group("projection") if camera_match else None,
             "camera_parallax": camera_match.group("parallax") == "true" if camera_match else None,

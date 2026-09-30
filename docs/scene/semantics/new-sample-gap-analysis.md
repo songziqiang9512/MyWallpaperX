@@ -76,8 +76,21 @@ effects/____________` 的 shader 合同因第 39 行中文注释 `// BLENDMODE �
 **缺口 5（性能/卡死）**：3589454154（130 层、3.8fps 近冻结）、3232289987（60 层 9 粒子 +
 跨 workshop 引用，进程超时）。需 CPU profile。
 
-**缺口 6（跨 workshop 粒子引用）**：`particles/workshop/<other-id>/...` 不在本地 pkg，
-systemParticles=0。需 graceful degradation 或预下载。
+**缺口 6（跨 workshop 粒子引用）→ 定性推翻并关闭（2026-09-30 全语料普查 + 双重审核）**：
+208 样本中 135 个带粒子层，70 个含 `particles/workshop/<id>/...` 引用形态；204 个跨
+workshop 粒子定义全部嵌入本样本 pkg 索引、0 不可解析（ScenePkgCacheExtractor.swift:195
+的 allowedPrefixes 本就含 "particles/"，提取无 workshop id 过滤；纹理另有 stock 回落链
+SceneParticleAssetGraph.swift:295-317）。"预下载/补全"方向按过度防御正式驳回——零产生者
+的第二资源查找路径（AGENTS.md §2）。原观察样本 3232289987 的 "particle loading
+incomplete" 根因另在：child-only 容器准入 fail-closed（SceneParticleRuntime.swift:578
+admitsChildOnlyContainer，root renderer 缺席且子集非严格 static 时发 missingSpriteRenderer
+诊断并整层跳过）——残留移交粒子语义卡。观测面：benchmark 自 2026-09-30 起解析
+`particle diagnostic ...` 与逐层 unavailable 行（镜像
+SceneParticlePlaybackState.swift:217-222 输出格式，非贪婪 path 防 detail 吞并），
+"particle loading incomplete" 失败从此在 report.json 样本记录（顶层与 runtime 段）携带
+逐层原因
+（particle_diagnostics/unavailable_layer_ids），期望纪律不变——新字段仅供归因，
+generate_scene_full_matrix.py 不得用其放宽既有期望。
 
 ## 第二轮 benchmark（8 个代表性新样本，2026-09-30）
 
