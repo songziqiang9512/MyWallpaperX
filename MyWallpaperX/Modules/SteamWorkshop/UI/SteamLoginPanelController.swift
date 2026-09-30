@@ -226,11 +226,16 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         case .awaitingDeviceCode(let previousIncorrect):
             showPage(.guardInput(.deviceCode(previousIncorrect: previousIncorrect)))
             panelView.guardSubmitButton.isEnabled = true
+            // 重新进入验证码页（被拒/重发/换方式）时旧码已失效，先清空再聚焦，
+            // 避免残留输入诱导一键重提再次失败。
+            codeField.stringValue = ""
             setStatus(previousIncorrect ? "上一枚验证码被拒绝，请重新输入" : "已进入 Steam 令牌验证")
             window?.makeFirstResponder(codeField)
         case .awaitingEmailCode(let emailDomain, let previousIncorrect):
             showPage(.guardInput(.emailCode(emailDomain: emailDomain, previousIncorrect: previousIncorrect)))
             panelView.guardSubmitButton.isEnabled = true
+            // 同上：进入验证码页必须丢弃失效旧码。
+            codeField.stringValue = ""
             setStatus(previousIncorrect
                 ? "上一枚验证码被拒绝，请重新输入"
                 : "验证码已发送到邮箱 \(emailDomain ?? "(未知)")")

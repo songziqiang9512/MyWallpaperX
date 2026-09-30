@@ -221,8 +221,14 @@ final class AppKitSteamWorkshopDownloadsView: NSView {
         alert.addButton(withTitle: "确定")
         alert.beginSheetModal(for: window) { [weak self] _ in
             guard let self else { return }
-            self.service.downloadError = nil
             self.isShowingDownloadError = false
+            // 弹窗展示期间到达的新失败会覆写 downloadError；仅当仍指向刚呈现的
+            // 这条时才清空，否则关闭后继续呈现下一条，避免并发失败被一并吞掉。
+            if let pending = self.service.downloadError, !pending.isEmpty, pending != message {
+                self.presentPendingDownloadErrorIfNeeded()
+            } else {
+                self.service.downloadError = nil
+            }
         }
     }
 }

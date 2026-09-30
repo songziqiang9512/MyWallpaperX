@@ -3,9 +3,12 @@ import CoreGraphics
 import ImageIO
 
 enum SteamWorkshopPreviewImageCache {
+    // 网格/详情/下载弹窗共用一份解码缓存：按像素字节设 128MB 上限，
+    // 防止长会话浏览时已解码位图驻留膨胀到数百 MB 以上。
     static let shared = ThumbnailCache(
         label: "com.songziqiang.MyWallpaperX.steamworkshop.preview.decode",
-        countLimit: 320
+        countLimit: 320,
+        totalCostLimit: 128 * 1024 * 1024
     )
 }
 
@@ -135,7 +138,9 @@ private func steamWorkshopPreviewImageIsAnimated(_ image: NSImage) -> Bool {
     }
 }
 
-private func steamWorkshopStaticPreviewImage(from source: CGImageSource, maxPixelSize: Int = 1600) -> NSImage? {
+/// 共享解码上限取网格卡片实际显示所需尺寸；详情预览区高度仅 156pt（2x 下 312px），
+/// 800px 源图已覆盖，不再为共享缓存解码 1600px 大图。
+private func steamWorkshopStaticPreviewImage(from source: CGImageSource, maxPixelSize: Int = 800) -> NSImage? {
     let options: [CFString: Any] = [
         kCGImageSourceCreateThumbnailFromImageAlways: true,
         kCGImageSourceCreateThumbnailWithTransform: true,

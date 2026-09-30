@@ -258,6 +258,8 @@ final class SteamWorkshopDownloadRowView: NSView {
     private var clearHandler: (() -> Void)?
     private var retryHandler: (() -> Void)?
     private var progressObserver: UUID?
+    /// 当前行绑定内容的 workshopItemId；同内容刷新时用于保留封面加载状态。
+    private var boundItemID: String?
     private var currentPreviewURL: URL?
     private var previewCancellation: SteamWorkshopPreviewLoadCancellation?
     private var lastByteSample: (bytes: Int64, date: Date)?
@@ -360,7 +362,16 @@ final class SteamWorkshopDownloadRowView: NSView {
     required init?(coder: NSCoder) { nil }
 
     func configure(job: SteamDownloadJob) {
-        unbind()
+        if let current = self.job,
+           current.workshopItemId == job.workshopItemId,
+           SteamWorkshopDownloadTaskProjection.jobKey(for: current) == SteamWorkshopDownloadTaskProjection.jobKey(for: job) {
+            // 面板在每次 jobs 状态迁移都会重配置整行；同任务同尝试走增量刷新，
+            // 避免解除进度绑定后把封面重置回占位符重走加载、速度采样丢一拍。
+            refresh(job: job)
+            return
+        }
+        resetBindings(keepingItemID: job.workshopItemId)
+        boundItemID = job.workshopItemId
         self.job = job
         titleLabel.stringValue = job.title
         progressBar.setAccessibilityLabel("下载进度：\(job.title)")
@@ -368,10 +379,36 @@ final class SteamWorkshopDownloadRowView: NSView {
         applyJobFallback()
         bindProgress(job: job)
         loadPreviewIfNeeded(itemID: job.workshopItemId)
+        clearHandler = makeClearHandler(for: job)
+        configureRetry(itemID: job.workshopItemId, title: job.title, account: job.accountSteamId, failed: job.state == .failed)
+        clearButton.isEnabled = clearHandler != nil
+    }
+
+    /// 同任务同尝试的增量刷新：进度观察者仍然有效，快照驱动的文本保持不动，
+    /// 无活动快照时才回落到任务状态文案；封面由 loadPreviewIfNeeded 的
+    /// 防重入 guard 短路，速度采样跨刷新保留。
+    private func refresh(job: SteamDownloadJob) {
+        self.job = job
+        if titleLabel.stringValue != job.title {
+            titleLabel.stringValue = job.title
+            progressBar.setAccessibilityLabel("下载进度：\(job.title)")
+            clearButton.setAccessibilityLabel("清除：\(job.title)")
+        }
+        loadPreviewIfNeeded(itemID: job.workshopItemId)
+        if service.downloadProgressStore.snapshot(for: job.workshopItemId) == nil {
+            applyJobFallback()
+        }
+        clearHandler = makeClearHandler(for: job)
+        configureRetry(itemID: job.workshopItemId, title: job.title, account: job.accountSteamId, failed: job.state == .failed)
+        clearButton.isEnabled = clearHandler != nil
+    }
+
+    /// 清除按钮回调随任务状态重建；无可执行动作时返回 nil（按钮禁用）。
+    private func makeClearHandler(for job: SteamDownloadJob) -> (() -> Void)? {
         let jobID = job.id
         let itemID = job.workshopItemId
         if SteamWorkshopDownloadTaskProjection.isCancellable(job) {
-            clearHandler = { [weak self] in
+            return { [weak self] in
                 guard let self, self.service.steamAuth.steamId == job.accountSteamId,
                       let current = self.service.downloadJobStore.jobs.first(where: { $0.id == jobID }),
                       current.attempt == job.attempt,
@@ -379,18 +416,19 @@ final class SteamWorkshopDownloadRowView: NSView {
                 self.service.cancelDownloadImmediately(itemID: itemID, showFeedback: false)
                 self.onCleared()
             }
-        } else if job.state == .failed {
-            clearHandler = { [weak self] in
+        }
+        if job.state == .failed {
+            return { [weak self] in
                 self?.service.discardFailedDownload(jobID: jobID)
                 self?.onCleared()
             }
         }
-        configureRetry(itemID: itemID, title: job.title, account: job.accountSteamId, failed: job.state == .failed)
-        clearButton.isEnabled = clearHandler != nil
+        return nil
     }
 
     func configure(summary: SteamWorkshopDownloadHistorySummary) {
-        unbind()
+        resetBindings(keepingItemID: summary.workshopItemID)
+        boundItemID = summary.workshopItemID
         job = nil
         titleLabel.stringValue = summary.title
         let outcome: (String, NSColor, Double?) = {
@@ -417,13 +455,24 @@ final class SteamWorkshopDownloadRowView: NSView {
     }
 
     func unbind() {
+        resetBindings(keepingItemID: nil)
+        boundItemID = nil
+    }
+
+    /// 解除进度观察者与按钮回调，速度采样总是重置。
+    /// `keepingItemID` 与当前绑定内容一致时保留封面加载状态，
+    /// 避免同内容刷新把已显示的封面重置回占位符重走加载；
+    /// 传 nil 表示完整拆除（行被移除或面板关闭）。
+    private func resetBindings(keepingItemID itemID: String?) {
         if let progressObserver {
             service.downloadProgressStore.removeObserver(progressObserver)
             self.progressObserver = nil
         }
-        previewCancellation?.cancel()
-        previewCancellation = nil
-        currentPreviewURL = nil
+        if boundItemID != itemID {
+            previewCancellation?.cancel()
+            previewCancellation = nil
+            currentPreviewURL = nil
+        }
         lastByteSample = nil
         lastProgressSequence = -1
         clearHandler = nil

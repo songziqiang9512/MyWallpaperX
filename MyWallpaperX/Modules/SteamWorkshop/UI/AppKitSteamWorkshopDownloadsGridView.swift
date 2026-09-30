@@ -559,6 +559,16 @@ extension AppKitSteamWorkshopDownloadsContainerView: SteamWorkshopKeyboardDelega
         }
 
         if service.isDownloadsMultiSelectMode {
+            // 多选模式下 Esc 退出多选、Return 确认焦点卡片，其余键仍走方向键导航。
+            switch event.keyCode {
+            case 53:
+                return handleEscapeKey()
+            case let keyCode where SteamWorkshopGridKeyboardNavigation.isPrimaryActionKey(keyCode):
+                guard !event.isARepeat else { return true }
+                return handleReturnKey()
+            default:
+                break
+            }
             return handleArrowKey(event.keyCode)
         }
         switch event.keyCode {

@@ -42,6 +42,15 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
 
     private func rebuild(preservingScrollPosition: Bool = true) {
         let origin = scrollView.contentView.bounds.origin
+        // 提交触发的全量重建会销毁所有行控件；正在被键盘/VoiceOver 调节的滑块以
+        // definition.key 为 identifier，重建后据此恢复第一响应者，连续调节不中断。
+        let editingSliderIdentifier: NSUserInterfaceItemIdentifier?
+        if let slider = window?.firstResponder as? WebPropertySlider,
+           slider.isDescendant(of: contentStack) {
+            editingSliderIdentifier = slider.identifier
+        } else {
+            editingSliderIdentifier = nil
+        }
         contentStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         guard let descriptor = service.resolvedWebProjectDescriptor(for: record) else {
             contentStack.addArrangedSubview(label("当前壁纸的属性暂不可用，请先完成依赖下载。", font: .systemFont(ofSize: 13), color: .secondaryLabelColor, lines: 0))
@@ -72,6 +81,18 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         }
         layoutSubtreeIfNeeded()
         if preservingScrollPosition { scrollView.contentView.scroll(to: origin) }
+        if let editingSliderIdentifier,
+           let restored = slider(withIdentifier: editingSliderIdentifier, in: contentStack) {
+            window?.makeFirstResponder(restored)
+        }
+    }
+
+    private func slider(withIdentifier identifier: NSUserInterfaceItemIdentifier, in view: NSView) -> WebPropertySlider? {
+        if let slider = view as? WebPropertySlider, slider.identifier == identifier { return slider }
+        for child in view.subviews {
+            if let match = slider(withIdentifier: identifier, in: child) { return match }
+        }
+        return nil
     }
     @objc private func resetProperties() { service.resetWebPropertyValues(for: record); rebuild() }
     private func label(_ text: String, font: NSFont, color: NSColor, lines: Int) -> NSTextField {
