@@ -261,6 +261,26 @@ final class SceneTextureLoader {
         decodeCacheLease.releaseAll()
     }
 
+    /// Removes GPU-cached textures whose identity matches, so a texture
+    /// whose deferred publication could not be proven is never served again
+    /// by a later load: affected sources re-decode and re-upload on their
+    /// next load — the pre-batch single-texture fail-soft recovery. The
+    /// prepare pass invokes this with the identities a batch flush reported
+    /// as failed.
+    @discardableResult
+    func evictTextures(containedIn failedTextures: [MTLTexture]) -> Int {
+        guard !failedTextures.isEmpty else { return 0 }
+        let evictedKeys = textures.keys.filter { key in
+            guard let texture = textures[key] else { return false }
+            return failedTextures.contains { $0 === texture }
+        }
+        guard !evictedKeys.isEmpty else { return 0 }
+        for key in evictedKeys {
+            textures.removeValue(forKey: key)
+        }
+        return evictedKeys.count
+    }
+
     /// Compatibility wrapper for existing data consumers.
     func loadDataTexture(from url: URL, device: MTLDevice) -> SceneTextureLoadOutcome {
         load(from: url, purpose: .preservedChannels, device: device)

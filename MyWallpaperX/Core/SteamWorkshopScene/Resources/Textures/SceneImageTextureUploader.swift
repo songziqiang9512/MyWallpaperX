@@ -16,6 +16,7 @@ nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
     private var mipmapDeferStorage = 0
     private var mipmapFlushStorage = 0
     private var pendingUncommittedCommandBuffers: [MTLCommandBuffer] = []
+    private var pendingUncommittedConversionTextures: [MTLTexture] = []
     private var uncommittedEnqueueStorage = 0
 
     var creationAttemptCount: Int {
@@ -41,12 +42,16 @@ nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
 
     /// While a batch is active, mipmap generation commands defer to one
     /// command buffer committed at flush time instead of one synchronous
-    /// round-trip per texture. `begin` resets any stale pending list.
+    /// round-trip per texture. `begin` resets any stale pending lists —
+    /// both lanes — so a cancelled pass cannot leak its buffers into the
+    /// next batch's flush accounting.
     func beginMipmapBatch() {
         lock.lock()
         defer { lock.unlock() }
         mipmapBatchActive = true
         pendingMipmapTextures = []
+        pendingUncommittedCommandBuffers = []
+        pendingUncommittedConversionTextures = []
     }
 
     /// Returns true when the texture joined an active batch (generation
@@ -61,44 +66,46 @@ nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
     }
 
     /// Commits one command buffer per device carrying every deferred
-    /// mipmap generation and waits once. On GPU failure returns the number
-    /// of textures whose generation failed so the caller can account them
-    /// as failed loads; success reports zero.
+    /// mipmap generation and waits once. On failure returns the textures
+    /// whose generation cannot be proven so the caller reclaims their
+    /// entries; success reports an empty list. Every device is drained
+    /// even when an earlier one fails, so no pending texture goes
+    /// unaccounted.
     @discardableResult
-    func flushMipmapBatch() -> (succeeded: Bool, failedTextureCount: Int) {
+    func flushMipmapBatch() -> (succeeded: Bool, failedTextures: [MTLTexture]) {
         lock.lock()
         let textures = pendingMipmapTextures
         pendingMipmapTextures = []
         mipmapBatchActive = false
         mipmapFlushStorage += 1
         lock.unlock()
-        guard !textures.isEmpty else { return (true, 0) }
+        guard !textures.isEmpty else { return (true, []) }
         var byDevice: [UInt64: (device: MTLDevice, textures: [MTLTexture])] = [:]
         for texture in textures {
             byDevice[texture.device.registryID, default: (texture.device, [])]
                 .textures.append(texture)
         }
+        var failed: [MTLTexture] = []
         for (_, entry) in byDevice {
-            guard let queue = commandQueue(for: entry.device) else {
-                return (false, entry.textures.count)
+            var deviceFailed = false
+            if let queue = commandQueue(for: entry.device),
+               let commandBuffer = queue.makeCommandBuffer(),
+               let encoder = commandBuffer.makeBlitCommandEncoder() {
+                for texture in entry.textures {
+                    encoder.generateMipmaps(for: texture)
+                }
+                encoder.endEncoding()
+                commandBuffer.commit()
+                commandBuffer.waitUntilCompleted()
+                deviceFailed = commandBuffer.status != .completed
+            } else {
+                deviceFailed = true
             }
-            guard let commandBuffer = queue.makeCommandBuffer() else {
-                return (false, entry.textures.count)
-            }
-            guard let encoder = commandBuffer.makeBlitCommandEncoder() else {
-                return (false, entry.textures.count)
-            }
-            for texture in entry.textures {
-                encoder.generateMipmaps(for: texture)
-            }
-            encoder.endEncoding()
-            commandBuffer.commit()
-            commandBuffer.waitUntilCompleted()
-            guard commandBuffer.status == .completed else {
-                return (false, entry.textures.count)
+            if deviceFailed {
+                failed.append(contentsOf: entry.textures)
             }
         }
-        return (true, 0)
+        return (failed.isEmpty, failed)
     }
 
     var mipmapDeferCount: Int {
@@ -115,37 +122,47 @@ nonisolated final class SceneTextureUploadCommandQueue: @unchecked Sendable {
 
     // MARK: Uncommitted command-buffer lane (BC premultiply path)
 
-    /// Hands a fully-encoded command buffer to the active batch: flush
-    /// commits queued buffers in submission order (the shared serial queue
-    /// completes them in that order) and waits for each. Returns false when
-    /// no batch is active (caller commits immediately).
-    func enqueueUncommittedIfBatching(_ commandBuffer: MTLCommandBuffer) -> Bool {
+    /// Hands a fully-encoded command buffer and its conversion destination
+    /// to the active batch: flush commits queued buffers in submission
+    /// order (the shared serial queue completes them in that order) and
+    /// waits for each. Returns false when no batch is active (caller
+    /// commits immediately).
+    func enqueueUncommittedIfBatching(
+        _ commandBuffer: MTLCommandBuffer,
+        conversionTexture: MTLTexture
+    ) -> Bool {
         lock.lock()
         defer { lock.unlock() }
         guard mipmapBatchActive else { return false }
         pendingUncommittedCommandBuffers.append(commandBuffer)
+        pendingUncommittedConversionTextures.append(conversionTexture)
         uncommittedEnqueueStorage += 1
         return true
     }
 
     /// Commits every queued command buffer in submission order and waits
-    /// for each. Returns false when any command buffer fails.
+    /// for each. Returns the conversion textures whose buffers did not
+    /// complete so the caller reclaims their entries.
     @discardableResult
-    func flushUncommittedCommandBuffers() -> Bool {
+    func flushUncommittedCommandBuffers() -> [MTLTexture] {
         lock.lock()
         let buffers = pendingUncommittedCommandBuffers
+        let conversionTextures = pendingUncommittedConversionTextures
         pendingUncommittedCommandBuffers = []
+        pendingUncommittedConversionTextures = []
         lock.unlock()
-        guard !buffers.isEmpty else { return true }
+        guard !buffers.isEmpty else { return [] }
         for buffer in buffers {
             buffer.commit()
         }
-        var succeeded = true
-        for buffer in buffers {
+        var failed: [MTLTexture] = []
+        for (index, buffer) in buffers.enumerated() {
             buffer.waitUntilCompleted()
-            if buffer.status != .completed { succeeded = false }
+            if buffer.status != .completed, index < conversionTextures.count {
+                failed.append(conversionTextures[index])
+            }
         }
-        return succeeded
+        return failed
     }
 
     var uncommittedEnqueueCount: Int {

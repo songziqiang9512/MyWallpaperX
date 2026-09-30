@@ -195,17 +195,38 @@ final class ScenePreparedBaseImageResources {
         try cancellationCheck()
         // Cancellation aborts the pass with pending textures discarded; a
         // successful pass flushes every deferred generation before any frame
-        // can sample the returned textures. A GPU failure accounts every
-        // batched texture as a failed load (matching the per-texture
-        // fail-soft convention) instead of failing the pass.
-        let flush = uploadCommandQueue.flushMipmapBatch()
-        if !flush.succeeded {
-            failedCount += flush.failedTextureCount
+        // can sample the returned textures. A flush failure reclaims every
+        // entry whose GPU publication cannot be proven AND evicts those
+        // textures from the loader's GPU cache: the affected layers and
+        // dynamic images lose their prepared outcome, and their render-time
+        // inline loads miss the cache, re-decode and retry — the pre-batch
+        // single-texture fail-soft semantics. Every device is drained by
+        // the flush, so no deferred texture escapes accounting.
+        let mipmapFlush = uploadCommandQueue.flushMipmapBatch()
+        let conversionFlush = uploadCommandQueue.flushUncommittedCommandBuffers()
+        let failedTextures = mipmapFlush.failedTextures + conversionFlush
+        if !failedTextures.isEmpty {
+            func isFailed(_ outcome: SceneBaseImageTextureLoad.Outcome) -> Bool {
+                guard case let .loaded(loaded) = outcome else { return false }
+                return failedTextures.contains { $0 === loaded.texture }
+            }
+            var reclaimed = 0
+            for (layerID, entry) in entries where isFailed(entry.outcome) {
+                entries.removeValue(forKey: layerID)
+                reclaimed += 1
+            }
+            for (modelPath, resource) in dynamicImageResources
+            where failedTextures.contains(where: { $0 === resource.loaded.texture }) {
+                dynamicImageResources.removeValue(forKey: modelPath)
+                reclaimed += 1
+            }
+            // Shared sources appear under multiple entries while the failed
+            // identity list holds each texture once; count reclaims so
+            // loaded+failed stays consistent with the entry accounting.
+            loadedCount -= reclaimed
+            failedCount += reclaimed
+            textureLoader.evictTextures(containedIn: failedTextures)
         }
-        // The uncommitted lane (BC premultiply conversions) commits here too;
-        // a failed conversion leaves its private texture partially converted
-        // and the layer falls back at render time (device-loss rarity).
-        uploadCommandQueue.flushUncommittedCommandBuffers()
         // Every launch texture is GPU-published past this point: drop the
         // loader's CPU-side decoded bytes so they do not sit next to their
         // GPU copies for the whole session. Later loads hit the GPU cache;

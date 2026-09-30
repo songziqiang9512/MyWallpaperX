@@ -226,19 +226,134 @@ import Metal
         // enqueue three fully-encoded buffers, flush once, all completed.
         batchQueue.beginMipmapBatch()
         var probeBuffers: [MTLCommandBuffer] = []
-        if let probeQueue = batchQueue.commandQueue(for: device) {
+        var probeDestination: MTLTexture?
+        if case let .loaded(destination) = SceneImageTextureUploader.upload(
+            image: makeImage(size: 2),
+            purpose: .premultipliedColor,
+            maxDimension: 2,
+            mipmapGeneration: .baseLevelOnly,
+            uploadCommandQueue: batchQueue,
+            device: device
+        ) {
+            probeDestination = destination
+        }
+        if let probeDestination,
+           let probeQueue = batchQueue.commandQueue(for: device) {
             for index in 0..<3 {
                 guard let cb = probeQueue.makeCommandBuffer() else { continue }
                 cb.label = "uncommitted-probe-\(index)"
-                if batchQueue.enqueueUncommittedIfBatching(cb) {
+                if batchQueue.enqueueUncommittedIfBatching(
+                    cb, conversionTexture: probeDestination
+                ) {
                     probeBuffers.append(cb)
                 }
             }
         }
         results["uncommittedEnqueueCount"] = batchQueue.uncommittedEnqueueCount
-        results["uncommittedFlushedOK"] = batchQueue.flushUncommittedCommandBuffers()
+        results["uncommittedFlushedOK"] =
+            batchQueue.flushUncommittedCommandBuffers().isEmpty
         results["uncommittedAllCompleted"] = probeBuffers.allSatisfy {
             $0.status == .completed
+        }
+        // Flush-failure reclamation contract (fault 4: the terminal status
+        // reports error after real GPU completion). A failed mipmap flush
+        // must return the failed texture identities — not just a count —
+        // so the prepare pass can reclaim their entries; the queue then
+        // recovers for later loads.
+        batchQueue.beginMipmapBatch()
+        var faultedTextures: [MTLTexture] = []
+        for _ in 0..<2 {
+            if case let .loaded(texture) = SceneImageTextureUploader.upload(
+                image: image, purpose: .premultipliedColor, maxDimension: 8,
+                uploadCommandQueue: batchQueue, device: device
+            ) {
+                faultedTextures.append(texture)
+            }
+        }
+        MWXSetUploadFault(device, 4)
+        let faultedFlush = batchQueue.flushMipmapBatch()
+        MWXSetUploadFault(device, 0)
+        results["faultedDeferCount"] = batchQueue.mipmapDeferCount
+        results["faultedFlushSucceeded"] = faultedFlush.succeeded
+        results["faultedFlushCount"] = faultedFlush.failedTextures.count
+        results["faultedFlushReportsIdentities"] =
+            faultedTextures.count == 2
+            && faultedTextures.allSatisfy { texture in
+                faultedFlush.failedTextures.contains { $0 === texture }
+            }
+        results["flushRecovery"] = describe(SceneImageTextureUploader.upload(
+            image: image, purpose: .premultipliedColor, maxDimension: 8,
+            uploadCommandQueue: batchQueue, device: device
+        ))
+        // BC-lane failure identity: a failed uncommitted conversion returns
+        // its destination texture for reclamation.
+        batchQueue.beginMipmapBatch()
+        var faultedConversions: [MTLTexture] = []
+        if let probeQueue = batchQueue.commandQueue(for: device) {
+            for index in 0..<2 {
+                guard let cb = probeQueue.makeCommandBuffer(),
+                      case let .loaded(destination) = SceneImageTextureUploader.upload(
+                            image: makeImage(size: 2),
+                            purpose: .premultipliedColor,
+                            maxDimension: 2,
+                            mipmapGeneration: .baseLevelOnly,
+                            uploadCommandQueue: batchQueue,
+                            device: device
+                        ) else { continue }
+                cb.label = "uncommitted-fault-probe-\(index)"
+                if batchQueue.enqueueUncommittedIfBatching(
+                    cb, conversionTexture: destination
+                ) {
+                    faultedConversions.append(destination)
+                }
+            }
+        }
+        MWXSetUploadFault(device, 4)
+        let faultedConversionsFlush = batchQueue
+            .flushUncommittedCommandBuffers()
+        MWXSetUploadFault(device, 0)
+        results["faultedConversionCount"] = faultedConversionsFlush.count
+        results["faultedConversionReportsIdentities"] =
+            faultedConversions.count == 2
+            && faultedConversions.allSatisfy { texture in
+                faultedConversionsFlush.contains { $0 === texture }
+            }
+        // End-to-end reclamation: a texture whose deferred publication
+        // fails is evicted from the loader's GPU cache, so the next load
+        // re-decodes and retries generation instead of serving the
+        // unproven texture.
+        let reclamationLoader = SceneTextureLoader(uploadCommandQueue: batchQueue)
+        batchQueue.beginMipmapBatch()
+        var reclamationBefore: MTLTexture?
+        if case let .loaded(before) = reclamationLoader.load(
+            from: url, device: device
+        ) {
+            reclamationBefore = before
+        }
+        MWXSetUploadFault(device, 4)
+        let reclamationFlush = batchQueue.flushMipmapBatch()
+        MWXSetUploadFault(device, 0)
+        let evictedCount = reclamationLoader.evictTextures(
+            containedIn: reclamationFlush.failedTextures
+        )
+        results["reclamationFlushReported"] =
+            reclamationFlush.failedTextures.count
+        results["reclamationEvicted"] = evictedCount
+        var reclamationAfter: MTLTexture?
+        if let before = reclamationBefore,
+           case let .loaded(after) = reclamationLoader.load(
+               from: url, device: device
+           ) {
+            reclamationAfter = after
+            results["reclamationRetriesWithNewTexture"] = before !== after
+            results["reclamationRetryHasMips"] = after.mipmapLevelCount > 1
+        }
+        // A repeat load after the retry keeps serving the proven texture.
+        if let after = reclamationAfter,
+           case let .loaded(repeatLoad) = reclamationLoader.load(
+               from: url, device: device
+           ) {
+            results["reclamationRepeatStable"] = repeatLoad === after
         }
         // Decoded-cache eviction: CPU bytes release at the GPU-ready point
         // while the GPU cache keeps serving identical textures; a different
@@ -369,6 +484,26 @@ class SceneImageUploadCompletionTests(unittest.TestCase):
         self.assertEqual(output["uncommittedEnqueueCount"], 3)
         self.assertTrue(output["uncommittedFlushedOK"])
         self.assertTrue(output["uncommittedAllCompleted"])
+
+    def test_failed_mipmap_flush_reports_texture_identities(self) -> None:
+        output = self.result
+        self.assertFalse(output["faultedFlushSucceeded"])
+        self.assertEqual(output["faultedFlushCount"], 2)
+        self.assertTrue(output["faultedFlushReportsIdentities"])
+        self.assertTrue(str(output["flushRecovery"]).startswith("loaded:"))
+
+    def test_failed_uncommitted_flush_reports_conversion_identities(self) -> None:
+        output = self.result
+        self.assertEqual(output["faultedConversionCount"], 2)
+        self.assertTrue(output["faultedConversionReportsIdentities"])
+
+    def test_flush_failure_evicts_unproven_texture_and_retries(self) -> None:
+        output = self.result
+        self.assertEqual(output["reclamationFlushReported"], 1)
+        self.assertEqual(output["reclamationEvicted"], 1)
+        self.assertTrue(output["reclamationRetriesWithNewTexture"])
+        self.assertTrue(output["reclamationRetryHasMips"])
+        self.assertTrue(output["reclamationRepeatStable"])
 
     def test_failed_upload_never_publishes_a_texture(self) -> None:
         reasons = ["command queue unavailable", "command buffer unavailable",
