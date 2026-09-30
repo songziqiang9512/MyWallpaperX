@@ -163,8 +163,18 @@ final class AppKitWallpaperCollectionView: NSCollectionView, GridCollectionViewP
     }
 }
 
+/// 视频库缩略图共享缓存，模式与 SILThumbnailStore 一致：
+/// NSCache 内存缓存 + in-flight 去重 + 磁盘层都由 ThumbnailCache 承担。
+enum VideoLibraryThumbnailStore {
+    static let sharedCache = ThumbnailCache(
+        label: "com.mywallpaper.videolibrary.thumbnail",
+        countLimit: 360
+    )
+}
+
 final class AppKitThumbnailProvider {
     private let wallpaperManager: WallpaperManager
+    private let cache = VideoLibraryThumbnailStore.sharedCache
     private let decodeQueue = DispatchQueue(
         label: "com.mywallpaper.videolibrary.thumbnail.provider",
         qos: .userInitiated
@@ -177,24 +187,42 @@ final class AppKitThumbnailProvider {
     func loadThumbnail(for wallpaper: VideoWallpaper, completion: @escaping (NSImage?) -> Void) {
         decodeQueue.async { [weak self] in
             guard let self else { return }
-            let image: NSImage?
-            if let thumbPath = self.wallpaperManager.resolvedThumbnailPath(for: wallpaper) {
-                image = NSImage(contentsOfFile: thumbPath)
-            } else {
-                image = nil
+            // 缓存键必须是后台验证过的缩略图路径：缩略图是可失效的派生资产
+            // （清缓存会删除文件并置空 thumbnailPath），用源视频路径做键会让
+            // 已失效的旧图从内存缓存复活。
+            guard let thumbPath = self.wallpaperManager.resolvedThumbnailPath(for: wallpaper) else {
+                DispatchQueue.main.async {
+                    completion(nil)
+                }
+                return
             }
-
-            DispatchQueue.main.async {
-                completion(image)
-            }
+            self.cache.load(forKey: thumbPath, loader: {
+                NSImage(contentsOfFile: thumbPath)
+            }, completion: { image in
+                // ThumbnailCache 内存命中会在调用线程同步回调，统一收敛回主线程。
+                DispatchQueue.main.async {
+                    completion(image)
+                }
+            })
         }
     }
 
     func prefetchThumbnail(for wallpaper: VideoWallpaper) {
-        loadThumbnail(for: wallpaper) { _ in }
+        decodeQueue.async { [weak self] in
+            guard let self else { return }
+            guard let thumbPath = self.wallpaperManager.resolvedThumbnailPath(for: wallpaper) else {
+                return
+            }
+            // 真正预热缓存；同一缩略图的重复预取由 ThumbnailCache 的 in-flight 去重挡掉。
+            self.cache.prefetch(forKey: thumbPath, loader: {
+                NSImage(contentsOfFile: thumbPath)
+            })
+        }
     }
 
     func cancelPrefetch(id: String) {
-        _ = id  // ThumbnailCache 不支持取消，保留接口兼容性
+        // ThumbnailCache 不提供队列级取消；已排队的预取结果会进缓存供后续显示命中，
+        // 重复预取由 in-flight 去重挡掉，保留接口兼容性。
+        _ = id
     }
 }

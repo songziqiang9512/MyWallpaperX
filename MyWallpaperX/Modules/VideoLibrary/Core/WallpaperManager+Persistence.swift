@@ -27,6 +27,14 @@ extension WallpaperManager {
             self.saveWallpapers()
             self.constrainRecentWallpapersToLibrary()
             self.saveRecentWallpapers()
+            // 库内容变化（导入/删除/SQLite 回填）后重臂自动切换 timer。
+            // $wallpapers sink 在 @Published willSet 期触发，当时读到
+            // 的还是旧库，必须等本 workItem 执行（新库已生效）再评估，
+            // 否则"空库开启自动切换→导入壁纸"后 timer 继续静默死亡
+            // （与 restoreMostRecentVideoAfterNonVideoRuntime、web 回退
+            // 两处 refresh 调用同一修复模式）。timer 已在跑且间隔未变
+            // 时不扰动，轮换节奏不受影响。
+            self.refreshAutoSwitchTimerIfNeeded()
         }
         wallpapersAutoSaveWorkItem = workItem
         // 合并短时间内大量 wallpaper 变更（尤其是缩略图补齐），减少重复全量写入。

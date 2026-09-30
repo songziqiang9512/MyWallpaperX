@@ -288,10 +288,29 @@ extension WallpaperManager {
             } catch {
                 // 注册/注销失败必须留痕：静默吞掉会让面板与系统登录项
                 // 状态永久漂移且无从排查。
+                let failedOperation = settings.startOnBoot ? "register" : "unregister"
                 NSLog(
                     "MWX LoginItem: SMAppService %@ failed: %@",
-                    settings.startOnBoot ? "register" : "unregister",
+                    failedOperation,
                     String(describing: error)
+                )
+                // 失败后把 startOnBoot 回写为系统真实注册状态：不落盘
+                // 未生效的期望值，持久化与 SMAppService 保持一致，面板
+                // 回填不再和系统脱节。回写经 $settings sink 自动落盘。
+                let systemEnabled = SMAppService.mainApp.status == .enabled
+                if settings.startOnBoot != systemEnabled {
+                    settings.startOnBoot = systemEnabled
+                }
+                // 错误回传 UI：设置面板监听该通知呈现失败原因，开关弹回
+                // 时用户能看到为什么。userInfo：operation（register/
+                // unregister）、error（NSError）。
+                NotificationCenter.default.post(
+                    name: .wallpaperManagerLoginItemSyncFailed,
+                    object: self,
+                    userInfo: [
+                        "operation": failedOperation,
+                        "error": error as NSError
+                    ]
                 )
             }
         }
@@ -389,4 +408,13 @@ extension WallpaperManager {
             shouldLoopCurrentItemInEngine(settings: source)
         )
     }
+}
+
+extension Notification.Name {
+    /// SMAppService register/unregister 失败时由 updateLoginItemStatus()
+    /// 发出，供设置面板向用户呈现失败原因。userInfo：operation
+    /// （"register"/"unregister"）、error（NSError）。
+    static let wallpaperManagerLoginItemSyncFailed = Notification.Name(
+        "WallpaperManagerLoginItemSyncFailed"
+    )
 }

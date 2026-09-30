@@ -122,7 +122,13 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
                   let wallpaper = self.wallpapersByID[wallpaperID] else {
                 return nil
             }
-            let item = AppKitWallpaperItem(nibName: nil, bundle: nil)
+            // 走标准重用队列，滚动/局部 reload 时复用 item，configure 负责全量覆盖状态。
+            guard let item = collectionView.makeItem(
+                withIdentifier: AppKitWallpaperItem.reuseIdentifier,
+                for: indexPath
+            ) as? AppKitWallpaperItem else {
+                return nil
+            }
             self.configure(item: item, for: wallpaper)
             return item
         }
@@ -259,6 +265,11 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
         layer?.backgroundColor = NSColor.clear.cgColor
 
         collectionView.collectionViewLayout = flowLayout
+        // cellProvider 依赖 makeItem 重用队列，必须先注册 item 类。
+        collectionView.register(
+            AppKitWallpaperItem.self,
+            forItemWithIdentifier: AppKitWallpaperItem.reuseIdentifier
+        )
         scrollView.documentView = collectionView
         scrollView.contentView.postsBoundsChangedNotifications = true
 

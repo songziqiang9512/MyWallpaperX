@@ -21,7 +21,11 @@ extension AppKitLibraryGridContainerView {
             }
         } else {
             wallpaperManager.setSingleSelection(id)
+            // 程序化写 selection 必须包 snapshot 标记，否则 didSelectItemsAt 会把
+            // 右键选中误当成用户点击而弹出详情面板（同 applyCollectionSelection 的约定）。
+            isApplyingSelectionSnapshot = true
             collectionView.selectionIndexPaths = [indexPath]
+            isApplyingSelectionSnapshot = false
         }
     }
 

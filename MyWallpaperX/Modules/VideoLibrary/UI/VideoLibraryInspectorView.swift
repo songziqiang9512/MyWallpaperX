@@ -52,17 +52,30 @@ final class VideoLibraryInspectorView: NSView {
         FileManager.default.fileExists(atPath: currentWallpaper.path)
     }
 
+    private var cachedPreviewImage: NSImage?
+    private var cachedPreviewImagePath: String?
+
     private var previewImage: NSImage? {
-        if let thumbPath = wallpaperManager.resolvedThumbnailPath(for: currentWallpaper),
-           let image = NSImage(contentsOfFile: thumbPath) {
-            return image
+        var sourcePath: String?
+        if let thumbPath = wallpaperManager.resolvedThumbnailPath(for: currentWallpaper) {
+            sourcePath = thumbPath
+        } else if let staticFramePath = currentWallpaper.staticFramePath,
+                  FileManager.default.fileExists(atPath: staticFramePath) {
+            sourcePath = staticFramePath
         }
-        if let staticFramePath = currentWallpaper.staticFramePath,
-           FileManager.default.fileExists(atPath: staticFramePath),
-           let image = NSImage(contentsOfFile: staticFramePath) {
-            return image
+        guard let sourcePath else {
+            cachedPreviewImage = nil
+            cachedPreviewImagePath = nil
+            return nil
         }
-        return nil
+        // 路径未变时复用已解码的图，避免每次 rebuild 都在主线程重复读盘。
+        if sourcePath == cachedPreviewImagePath, let cached = cachedPreviewImage {
+            return cached
+        }
+        let image = NSImage(contentsOfFile: sourcePath)
+        cachedPreviewImagePath = sourcePath
+        cachedPreviewImage = image
+        return image
     }
 
     private var secondaryFactText: String? {
@@ -415,8 +428,9 @@ final class VideoLibraryInspectorView: NSView {
             manager: wallpaperManager,
             selection: wallpaperManager.currentSelectionContext
         )
-        rebuildContent()
-        refreshFooterActions()
+        // $wallpapers 订阅是唯一重建源：toggleFavoriteSelection 同步写入
+        // manager.wallpapers 后订阅回调会 rebuild + refreshFooterActions，
+        // 这里再手动刷一次会造成同帧双重建（重复读盘解码 + 路径 label 选中态丢失）。
     }
 
     @objc private func presentTagPicker() {
