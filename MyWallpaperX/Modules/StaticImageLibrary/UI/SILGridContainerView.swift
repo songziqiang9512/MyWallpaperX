@@ -14,6 +14,19 @@ enum SILThumbnailLoadResult {
     case unavailable
 }
 
+/// decodeQueue 解码失败签名的跨队列载体：loader 写入、主线程 completion 读取
+private final class SILDecodeFailureSignature: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: String?
+    func store(_ signature: String) {
+        lock.lock(); value = signature; lock.unlock()
+    }
+    var stored: String? {
+        lock.lock(); defer { lock.unlock() }
+        return value
+    }
+}
+
 final class SILGridContainerView: NSView, ModuleFocusable {
     private enum Section { case main }
 
@@ -88,7 +101,12 @@ final class SILGridContainerView: NSView, ModuleFocusable {
                     completion(.unavailable)
                     return
                 }
-                // 文件存在性与失败签名 stat 在后台执行，避免逐 cell 主线程文件系统 IO
+                // 内存快路径：命中直接同步完成，零文件系统调用、零队列跳转
+                if let cached = self.thumbnailCache.cachedImage(forKey: w.path) {
+                    completion(.image(cached))
+                    return
+                }
+                // 未命中：文件存在性与失败签名 stat 在后台执行，避免逐 cell 主线程文件系统 IO
                 DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                     let exists = FileManager.default.fileExists(atPath: w.path)
                     let signature = exists ? self?.thumbnailFailureSignature(for: w) : nil
@@ -105,25 +123,37 @@ final class SILGridContainerView: NSView, ModuleFocusable {
                             completion(.unavailable)
                             return
                         }
+                        // 签名复用：completion 直接使用闭包捕获的后台签名，失败时由
+                        // loader 在 decodeQueue 解码失败处重算带回，不再主线程 stat
+                        let decodeFailureSignature = SILDecodeFailureSignature()
                         self.thumbnailCache.load(forKey: w.path, loader: {
-                            guard let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: w.path) as CFURL, nil) else { return nil }
+                            let decodeFailure: () -> NSImage? = {
+                                if let signature = self.thumbnailFailureSignature(for: w) {
+                                    decodeFailureSignature.store(signature)
+                                }
+                                return nil
+                            }
+                            guard let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: w.path) as CFURL, nil) else { return decodeFailure() }
                             let opts: [CFString: Any] = [
                                 kCGImageSourceThumbnailMaxPixelSize: 512,
                                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                                 kCGImageSourceCreateThumbnailWithTransform: true
                             ]
-                            guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return nil }
+                            guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return decodeFailure() }
                             return NSImage(cgImage: cg, size: .zero)
                         }, completion: { [weak self] image in
                             guard let self else {
                                 completion(image.map(SILThumbnailLoadResult.image) ?? .unavailable)
                                 return
                             }
-                            if let signature = self.thumbnailFailureSignature(for: w) {
+                            // 成功 remove 后台预载签名（文件替换窗口内更精确）；
+                            // 失败优先 insert decodeQueue 解码时刻重算的签名
+                            let failureSignature = decodeFailureSignature.stored ?? signature
+                            if let failureSignature {
                                 if image != nil {
-                                    self.failedThumbnailSignatures.remove(signature)
+                                    self.failedThumbnailSignatures.remove(failureSignature)
                                 } else {
-                                    self.failedThumbnailSignatures.insert(signature)
+                                    self.failedThumbnailSignatures.insert(failureSignature)
                                 }
                             }
                             completion(image.map(SILThumbnailLoadResult.image) ?? .unavailable)
