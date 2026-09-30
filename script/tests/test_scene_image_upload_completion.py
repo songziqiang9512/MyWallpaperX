@@ -264,6 +264,18 @@ import Metal
                 results["evictSecondDecodeSucceeded"] = true
                 results["evictSecondAdmitted"] = evictBudget.residentBytes > 0
             }
+            // Parsed-container path: the .tex source re-parses after eviction
+            // and its GPU texture keeps its identity across the round trip.
+            if case let .loaded(texFirst) = evictLoader.load(from: texURL, device: device) {
+                evictLoader.evictDecodedCaches()
+                if let reparsed = evictLoader.texContainer(from: texURL),
+                   case let .loaded(texSecond) = evictLoader.load(from: texURL, device: device) {
+                    results["evictTexReparse"] = reparsed.images.count
+                    results["evictTexIdentityStable"] = texFirst === texSecond
+                }
+                evictLoader.evictDecodedCaches()
+                results["evictIdempotent"] = evictBudget.residentBytes == 0
+            }
         }
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: results))
     }
@@ -374,6 +386,9 @@ class SceneImageUploadCompletionTests(unittest.TestCase):
         self.assertTrue(self.result["evictReloadAdmitted"])
         self.assertTrue(self.result["evictSecondDecodeSucceeded"])
         self.assertTrue(self.result["evictSecondAdmitted"])
+        self.assertGreaterEqual(self.result["evictTexReparse"], 1)
+        self.assertTrue(self.result["evictTexIdentityStable"])
+        self.assertTrue(self.result["evictIdempotent"])
 
         for fault in range(5):
             for route in ("base", "one"):

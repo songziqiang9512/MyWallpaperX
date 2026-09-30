@@ -332,6 +332,11 @@ final class ScenePreparedBaseImageResources {
                 spriteTextureLoader: deferredSpriteTextureLoader,
                 device: device
             )
+            // The load returns with its texture GPU-published (the upload
+            // paths commit and wait), so the deferred loader's decoded CPU
+            // bytes for this source are evictable now — same reasoning as
+            // the prepare-tail eviction, applied per deferred load.
+            deferredTextureLoader.evictDecodedCaches()
             deferredLock.lock()
             guard !cancelled else {
                 workerScheduled = false

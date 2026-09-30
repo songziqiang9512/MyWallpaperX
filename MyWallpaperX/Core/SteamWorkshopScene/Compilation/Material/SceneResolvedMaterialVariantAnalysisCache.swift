@@ -14,7 +14,9 @@ import Foundation
 /// one node's admission authority leak to another node sharing the key.
 /// `schemaVersion` is the sole invalidation lever: any change to shader
 /// preparation, source canonicalization or any cached analyzer's semantics
-/// must bump it and retire the tier as a safe miss. Entries publish only on
+/// must bump it and retire the tier as a safe miss. (Prelude defines are
+/// part of the prepared source this cache embeds, so they bump it too —
+/// artifact caches keyed by canonical source text invalidate themselves.) Entries publish only on
 /// successful variant compilation, the read path never creates the cache
 /// directory, and a failed or stale record degrades to a full recompute.
 nonisolated enum SceneResolvedMaterialVariantAnalysisCache {
