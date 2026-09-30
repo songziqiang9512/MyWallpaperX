@@ -31,40 +31,36 @@ extension SteamWorkshopService {
         let normalizedKey = definition.key
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
-        let normalizedTitle = definition.title
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
+        guard normalizedKey.isEmpty == false else { return false }
 
-        if normalizedKey.isEmpty == false {
-            let suppressedExactKeys: Set<String> = [
-                "fps",
-                "userid",
-                "ugcid",
-                "contentrating",
-                "contentwarning",
-                "previewmode",
-                "supportsaudioprocessing"
-            ]
-            if suppressedExactKeys.contains(normalizedKey) {
-                return true
-            }
-        }
-
-        let suppressedFragments = [
-            "ugc",
-            "content warning",
-            "contentwarning",
-            "content rating",
+        let suppressedExactKeys: Set<String> = [
+            "fps",
+            "userid",
+            "ugcid",
             "contentrating",
-            "preview mode",
+            "contentwarning",
             "previewmode",
-            "debug",
-            "diagnostic",
+            "supportsaudioprocessing",
             "internal"
         ]
+        if suppressedExactKeys.contains(normalizedKey) {
+            return true
+        }
 
-        return suppressedFragments.contains { fragment in
-            normalizedKey.contains(fragment) || normalizedTitle.contains(fragment)
+        // 抑制只看内部 key：title 是作者展示文本或本地化译文，用它做片段匹配会误杀
+        // 合法用户属性（例如 key 为 showhud、标题写成 "Show HUD & Diagnostics" 的开关），
+        // 而属性值本来就会全量注入 payload，隐藏只会让用户看不到、改不了。
+        let suppressedKeyFragments = [
+            "ugc",
+            "contentwarning",
+            "contentrating",
+            "previewmode",
+            "debug",
+            "diagnostic"
+        ]
+
+        return suppressedKeyFragments.contains { fragment in
+            normalizedKey.contains(fragment)
         }
     }
 

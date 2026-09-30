@@ -101,23 +101,42 @@ extension SteamWorkshopService {
             let tables = webLocalizationTables(from: localizationObject)
             guard tables.isEmpty == false else { return [:] }
 
+            // 系统候选（zh-Hans-CN/zh-cn/zh）与作者表键（zh-chs）拼写不同，直接比较只能落到
+            // `zh` 前缀，取简还是取繁取决于字典迭代序；两侧先归一到官方语言码，再按有序表键
+            // 精确匹配、后退到语言前缀，结果不再随进程变化。未识别语言的表键同样会被归一成
+            // en-us，必须排除，否则英文候选会拿到陌生语言表。
+            let sortedTableKeys = tables.keys.sorted()
+            let matchableTableKeys = sortedTableKeys.filter { key in
+                let language = key.split(separator: "-").first.map(String.init) ?? key
+                return language == "en" || wallpaperEngineLanguageCode(for: key) != "en-us"
+            }
             for candidate in preferredWebLocalizationKeys() {
                 if let direct = tables[candidate] {
                     return direct
                 }
 
-                let languageOnly = candidate.split(separator: "-").first.map(String.init) ?? candidate
-                if let fallback = tables.first(where: { key, _ in
-                    key == languageOnly || key.hasPrefix(languageOnly + "-")
-                })?.value {
-                    return fallback
+                let canonicalCandidate = wallpaperEngineLanguageCode(for: candidate)
+                let candidateLanguage = candidate.split(separator: "-").first.map(String.init) ?? candidate
+                // 未识别语言会归一成 en-us；英文回退由末尾显式处理，不让它在这里抢占。
+                guard canonicalCandidate != "en-us" || candidateLanguage == "en" else {
+                    continue
+                }
+                if let exactKey = matchableTableKeys.first(where: { wallpaperEngineLanguageCode(for: $0) == canonicalCandidate }) {
+                    return tables[exactKey] ?? [:]
+                }
+
+                if let languageOnlyKey = matchableTableKeys.first(where: {
+                    let canonicalKey = wallpaperEngineLanguageCode(for: $0)
+                    return canonicalKey == candidateLanguage || canonicalKey.hasPrefix(candidateLanguage + "-")
+                }) {
+                    return tables[languageOnlyKey] ?? [:]
                 }
             }
 
             if let english = tables["en"] ?? tables["en-us"] {
                 return english
             }
-            return tables.values.first ?? [:]
+            return sortedTableKeys.first.flatMap { tables[$0] } ?? [:]
         }
         return [:]
     }
@@ -137,11 +156,13 @@ extension SteamWorkshopService {
             .replacingOccurrences(of: "_", with: "-")
             .lowercased()
 
-        if normalized.hasPrefix("zh-hans") || normalized.hasPrefix("zh-cn") || normalized == "zh" {
+        if normalized.hasPrefix("zh-hans") || normalized.hasPrefix("zh-cn") || normalized == "zh"
+            || normalized.hasPrefix("zh-chs") {
             return "zh-chs"
         }
         if normalized.hasPrefix("zh-hant") || normalized.hasPrefix("zh-tw")
-            || normalized.hasPrefix("zh-hk") || normalized.hasPrefix("zh-mo") {
+            || normalized.hasPrefix("zh-hk") || normalized.hasPrefix("zh-mo")
+            || normalized.hasPrefix("zh-cht") {
             return "zh-cht"
         }
 

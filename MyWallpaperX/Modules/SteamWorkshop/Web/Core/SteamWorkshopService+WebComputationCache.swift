@@ -19,7 +19,7 @@ extension SteamWorkshopService {
         let rootPath = record.webHostRootURL?.resolvingSymlinksInPath().standardizedFileURL.path ?? ""
         let dependencyItemID = record.dependencyItemID ?? ""
         let dependencyStatus = String(describing: record.dependencyStatus)
-        let overridesData = (try? JSONEncoder().encode(webPropertyOverrides(for: record))) ?? Data()
+        let overridesData = (try? Self.webSignatureJSONEncoder.encode(webPropertyOverrides(for: record))) ?? Data()
         let overridesBase64 = overridesData.base64EncodedString()
         let failureRecordID = lastWebPlaybackFailureRecordID ?? ""
         let failurePath = lastWebPlaybackFailurePath ?? ""
@@ -35,6 +35,7 @@ extension SteamWorkshopService {
             dependencyItemID,
             dependencyStatus,
             overridesBase64,
+            Self.resolvedWebWallpaperLanguage(),
             failureRecordID,
             failurePath,
             failureMessage,
@@ -62,6 +63,7 @@ extension SteamWorkshopService {
             rootPath,
             dependencyItemID,
             dependencyStatus,
+            Self.resolvedWebWallpaperLanguage(),
             failureRecordID,
             failurePath,
             failureMessage

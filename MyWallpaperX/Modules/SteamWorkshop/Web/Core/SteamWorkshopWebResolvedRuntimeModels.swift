@@ -56,12 +56,7 @@ extension SteamWorkshopService {
             rootURL: effectiveRootURL
         )
         var runtimeRiskFlags = resolvedWebStructuralRiskFlags(for: record, sampleStructure: webSampleStructure(for: record))
-        if staticContentSummary.usesIframeCrossFrameAccess {
-            runtimeRiskFlags = runtimeRiskFlags.union(with: [.iframeCrossFrameAccess])
-        }
-        if staticContentSummary.hasTruncatedStaticAnalysis {
-            runtimeRiskFlags = runtimeRiskFlags.union(with: [.truncatedStaticAnalysis])
-        }
+        runtimeRiskFlags = runtimeRiskFlags.union(with: resolvedWebStaticContentRiskFlags(from: staticContentSummary))
         let presetResourceBindingsByKey = resolvedWebPresetResourceBindings(for: record)
         let baselineVisiblePropertyKeys = propertyDefinitions
             .filter {
@@ -243,7 +238,6 @@ extension SteamWorkshopService {
         let lastPlaybackFailureMessage = webPlaybackFailureMessage(for: record)
         let lastPlaybackFailureIssue = lastPlaybackFailureMessage.map(webPlaybackFailureIssue(for:))
         let runtimeRiskFlags = descriptor.runtimeRiskFlags
-            .union(with: resolvedWebRuntimeRiskFlags(for: record, validationReport: validationReport))
             .union(with: preconditionStates.compactMap { precondition in
                 guard precondition.status == .unmet else { return nil }
                 switch precondition.kind {

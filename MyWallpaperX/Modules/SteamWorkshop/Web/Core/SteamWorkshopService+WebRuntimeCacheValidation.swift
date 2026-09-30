@@ -21,6 +21,9 @@ extension SteamWorkshopService {
         _ manifest: SteamWorkshopWebAnalysisCacheManifest,
         for record: SteamWorkshopDownloadRecord
     ) -> Bool {
+        if manifest.language != Self.resolvedWebWallpaperLanguage() {
+            return false
+        }
         if manifest.projectModifiedAt != webRuntimeCacheProjectModifiedAt(for: record) {
             return false
         }
@@ -57,6 +60,9 @@ extension SteamWorkshopService {
         _ manifest: SteamWorkshopWebRuntimeCacheManifest,
         for record: SteamWorkshopDownloadRecord
     ) -> Bool {
+        if manifest.language != Self.resolvedWebWallpaperLanguage() {
+            return false
+        }
         if manifest.projectModifiedAt != webRuntimeCacheProjectModifiedAt(for: record) {
             return false
         }

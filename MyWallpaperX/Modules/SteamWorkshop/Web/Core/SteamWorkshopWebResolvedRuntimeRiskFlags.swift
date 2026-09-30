@@ -34,53 +34,56 @@ extension SteamWorkshopService {
         false
     }
 
-    func resolvedWebRuntimeRiskFlags(
-        for record: SteamWorkshopDownloadRecord,
-        validationReport: SteamWorkshopWebValidationReport?
+    /// 运行风险旗标只由结构化信号装配。`staticContentSummary` 是静态扫描的唯一结构化结果，
+    /// 校验文案只用于展示，不作为旗标来源：文案措辞变化不得改变运行档位。
+    func resolvedWebStaticContentRiskFlags(
+        from summary: ResolvedWebStaticContentSummary
     ) -> [ResolvedWebRuntimeRiskFlag] {
         var flags = Set<ResolvedWebRuntimeRiskFlag>()
-        for issue in validationReport?.issues ?? [] {
-            let message = issue.message.lowercased()
-            if message.contains("外部资源") || message.contains("外部服务") {
-                flags.insert(.externalServiceDependency)
-            }
-            if message.contains("localhost") || message.contains("127.0.0.1") {
-                flags.insert(.localhostDependency)
-            }
-            if message.contains(".webm") {
-                flags.insert(.webMHeavyMedia)
-            }
-            if message.contains(":hover") {
-                flags.insert(.hoverOnlyInteraction)
-            }
-            if message.contains("plugin") || message.contains("rgb") || message.contains("led") {
-                flags.insert(.pluginBridgeApproximation)
-            }
-            if message.contains("localstorage") || message.contains("indexeddb") || message.contains("sessionstorage") {
-                flags.insert(.persistentBrowserStorageUsage)
-            }
-            if message.contains("service worker") {
-                flags.insert(.serviceWorkerRegistration)
-            }
-            if message.contains("es module") {
-                flags.insert(.esModuleDependency)
-            }
-            if message.contains("import()") {
-                flags.insert(.dynamicImportUsage)
-            }
-            if message.contains("wasm") || message.contains("webassembly") {
-                flags.insert(.wasmUsage)
-            }
-            if message.contains("streaming") {
-                flags.insert(.wasmStreamingUsage)
-            }
-            if message.contains("pixi") || message.contains("live2d") || message.contains("视频纹理") || message.contains("origin 安全") {
-                flags.insert(.customSchemeSensitiveWebGL)
-            }
-            if message.contains("iframe")
-                && (message.contains("跨 frame") || message.contains("同源限制") || message.contains("loopback") || message.contains("contentdocument") || message.contains("contentwindow")) {
-                flags.insert(.iframeCrossFrameAccess)
-            }
+        if summary.usesWebMResource {
+            flags.insert(.webMHeavyMedia)
+        }
+        if summary.usesHoverOnlyInteraction {
+            flags.insert(.hoverOnlyInteraction)
+        }
+        if summary.usesPluginBridge {
+            flags.insert(.pluginBridgeApproximation)
+        }
+        if summary.usesPersistentBrowserStorage {
+            flags.insert(.persistentBrowserStorageUsage)
+        }
+        if summary.usesServiceWorkerRegistration {
+            flags.insert(.serviceWorkerRegistration)
+        }
+        if summary.usesESModuleDependency {
+            flags.insert(.esModuleDependency)
+        }
+        if summary.usesDynamicImport {
+            flags.insert(.dynamicImportUsage)
+        }
+        if summary.usesWASMResource {
+            flags.insert(.wasmUsage)
+        }
+        if summary.usesWASMStreaming {
+            flags.insert(.wasmStreamingUsage)
+        }
+        if summary.usesCustomSchemeSensitiveWebGL {
+            flags.insert(.customSchemeSensitiveWebGL)
+        }
+        if summary.usesIframeCrossFrameAccess {
+            flags.insert(.iframeCrossFrameAccess)
+        }
+        if summary.hasTruncatedStaticAnalysis {
+            flags.insert(.truncatedStaticAnalysis)
+        }
+        if summary.localhostDependencyHosts.isEmpty == false {
+            flags.insert(.localhostDependency)
+        }
+        let remoteExternalHosts = summary.externalDependencyHosts.filter {
+            !summary.localhostDependencyHosts.contains($0)
+        }
+        if remoteExternalHosts.isEmpty == false {
+            flags.insert(.externalServiceDependency)
         }
         return Array(flags)
     }

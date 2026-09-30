@@ -64,12 +64,8 @@ extension SteamWorkshopService {
         var scannedFiles = Set<URL>()
         var pendingFiles = [resolvedEntryURL]
         var externalDependencyURLs = Set<String>()
-        var usesWebMResource = staticContentSummary?.usesWebMResource ?? false
-        var usesHoverOnlyInteraction = staticContentSummary?.usesHoverOnlyInteraction ?? false
         var usesGeneralProperties = staticContentSummary?.usesApplyGeneralProperties ?? false
         var usesGeneralFPS = staticContentSummary?.usesGeneralFPS ?? false
-        var usesPluginBridge = staticContentSummary?.usesPluginBridge ?? false
-        var usesPersistentBrowserStorage = staticContentSummary?.usesPersistentBrowserStorage ?? false
         var usesServiceWorkerRegistration = staticContentSummary?.usesServiceWorkerRegistration ?? false
         var usesESModuleDependency = staticContentSummary?.usesESModuleDependency ?? false
         var usesDynamicImport = staticContentSummary?.usesDynamicImport ?? false
@@ -77,7 +73,6 @@ extension SteamWorkshopService {
         var usesWASMStreaming = staticContentSummary?.usesWASMStreaming ?? false
         var usesCustomSchemeSensitiveWebGL = staticContentSummary?.usesCustomSchemeSensitiveWebGL ?? false
         var usesIframeCrossFrameAccess = staticContentSummary?.usesIframeCrossFrameAccess ?? false
-        var scannedRiskFlags = Set<ResolvedWebRuntimeRiskFlag>()
         var truncatedScanFileCount = 0
         let needsServiceWorkerFallbackScan = staticContentSummary == nil
 
@@ -150,24 +145,13 @@ extension SteamWorkshopService {
                 truncatedScanFileCount += 1
             }
 
-            if Self.webContentUsesWebMResource(content) {
-                usesWebMResource = true
-            }
-            if fileURL.pathExtension.localizedLowercase == "css",
-               Self.webContentUsesHoverOnlyInteraction(content) {
-                usesHoverOnlyInteraction = true
-            }
+            // WebM / 悬停 / 插件桥 / 持久化存储四类信号只驱动 summary 侧旗标：
+            // 校验报告不再本地重扫一份（见下方 scannedRiskFlags 装配）。
             if Self.webContentUsesApplyGeneralProperties(content) {
                 usesGeneralProperties = true
             }
             if Self.webContentUsesGeneralFPS(content) {
                 usesGeneralFPS = true
-            }
-            if Self.webContentUsesPluginBridge(content) {
-                usesPluginBridge = true
-            }
-            if Self.webContentUsesPersistentBrowserStorage(content) {
-                usesPersistentBrowserStorage = true
             }
             if !usesServiceWorkerRegistration,
                Self.webContentUsesServiceWorkerRegistration(content)
@@ -223,9 +207,6 @@ extension SteamWorkshopService {
                     }
 
                     let ext = resolvedURL.pathExtension.localizedLowercase
-                    if ext == "webm" {
-                        usesWebMResource = true
-                    }
                     if ext == "wasm" {
                         usesWASMResource = true
                     }
@@ -256,50 +237,31 @@ extension SteamWorkshopService {
         let effectiveExternalDependencyURLs = externalDependencyURLs.union(cachedExternalURLs)
         appendWebExternalDependencyIssues(from: effectiveExternalDependencyURLs, appendIssue: appendIssue)
 
-        if usesWebMResource {
-            scannedRiskFlags.insert(.webMHeavyMedia)
-        }
-        if usesHoverOnlyInteraction {
-            scannedRiskFlags.insert(.hoverOnlyInteraction)
-        }
         if usesGeneralProperties {
             appendIssue(.info, .info, "检测到样本使用 applyGeneralProperties；当前宿主已提供基础 general properties 注入")
         }
         if usesGeneralFPS {
             appendIssue(.info, .info, "检测到样本读取 properties.fps；当前宿主会按显示器刷新率注入数值型 fps")
         }
-        if usesPluginBridge {
-            scannedRiskFlags.insert(.pluginBridgeApproximation)
-        }
-        if usesPersistentBrowserStorage {
-            scannedRiskFlags.insert(.persistentBrowserStorageUsage)
-        }
         if usesServiceWorkerRegistration {
-            scannedRiskFlags.insert(.serviceWorkerRegistration)
             appendIssue(.warning, .warning, "检测到 Service Worker 注册；自定义 scheme 不支持该能力，运行时将优先使用本地 HTTP loopback 兼容模式")
         }
         if usesESModuleDependency {
-            scannedRiskFlags.insert(.esModuleDependency)
             appendIssue(.info, .info, "检测到 ES module 依赖；运行时会优先选择更接近 http(s) origin 的兼容模式")
         }
         if usesDynamicImport {
-            scannedRiskFlags.insert(.dynamicImportUsage)
             appendIssue(.info, .info, "检测到动态 import()；运行时会优先选择本地 HTTP loopback 兼容模式")
         }
         if usesWASMResource {
-            scannedRiskFlags.insert(.wasmUsage)
             appendIssue(.info, .info, "检测到 WASM 资源或 WebAssembly API；运行时会记录 MIME/streaming 兼容诊断")
         }
         if usesWASMStreaming {
-            scannedRiskFlags.insert(.wasmStreamingUsage)
             appendIssue(.warning, .warning, "检测到 WebAssembly streaming 编译；自定义 scheme 兼容性较弱，运行时将优先使用本地 HTTP loopback")
         }
         if usesCustomSchemeSensitiveWebGL {
-            scannedRiskFlags.insert(.customSchemeSensitiveWebGL)
             appendIssue(.warning, .warning, "检测到 Pixi/Live2D/视频纹理等 WebGL 资源路径；自定义 scheme 容易触发 origin 安全限制，运行时将优先使用本地 HTTP loopback")
         }
         if usesIframeCrossFrameAccess {
-            scannedRiskFlags.insert(.iframeCrossFrameAccess)
             appendIssue(.warning, .warning, "检测到 iframe 跨 frame DOM 访问；自定义 scheme 容易触发同源限制，运行时将优先使用本地 HTTP loopback")
         }
         if staticContentSummary?.hasOnDemandDirectoryProperty == true {
@@ -308,17 +270,6 @@ extension SteamWorkshopService {
         if staticContentSummary?.hasFetchAllDirectoryProperty == true {
             appendIssue(.info, .info, "检测到目录属性使用 fetchall 模式；当前宿主已提供基础文件变化通知与目录同步，但这仍属于 fetchall 定向兼容，不代表通用目录能力已完整对齐")
         }
-        let localhostDependencyHosts = staticContentSummary?.localhostDependencyHosts ?? []
-        let remoteExternalHosts = (staticContentSummary?.externalDependencyHosts ?? []).filter {
-            !localhostDependencyHosts.contains($0)
-        }
-        if !localhostDependencyHosts.isEmpty {
-            scannedRiskFlags.insert(.localhostDependency)
-        }
-        if !remoteExternalHosts.isEmpty {
-            scannedRiskFlags.insert(.externalServiceDependency)
-        }
-
         appendWebPropertyPreconditionIssues(
             preconditions: resolvedWebRuntimePreconditions(
                 for: record,
@@ -332,8 +283,13 @@ extension SteamWorkshopService {
             riskFlags: resolvedWebStructuralRiskFlags(for: record, sampleStructure: sampleStructure),
             appendIssue: appendIssue
         )
+        // 运行风险旗标只由结构化摘要装配（`resolvedWebStaticContentRiskFlags`，与
+        // 运行档位同源）：校验报告不再手抄一份旗标映射表，两处只共享同一个入口。
+        // 摘要缺失（无 descriptor）时按空集合处理——运行侧同样读不到摘要。上面的
+        // 本地扫描信号只用于生成 issue 文案，不再驱动旗标。
+        let scannedRiskFlags = staticContentSummary.map(resolvedWebStaticContentRiskFlags(from:)) ?? []
         appendScannedWebRuntimeRiskIssues(
-            riskFlags: resolvedWebStructuralRiskFlags(for: record, sampleStructure: sampleStructure) + Array(scannedRiskFlags),
+            riskFlags: resolvedWebStructuralRiskFlags(for: record, sampleStructure: sampleStructure) + scannedRiskFlags,
             appendIssue: appendIssue
         )
 

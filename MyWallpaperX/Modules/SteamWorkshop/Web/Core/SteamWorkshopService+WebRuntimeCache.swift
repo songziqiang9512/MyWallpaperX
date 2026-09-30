@@ -1,11 +1,14 @@
 import Foundation
 
 struct SteamWorkshopWebAnalysisCacheManifest: Codable, Equatable {
-    static let currentVersion = 14
+    static let currentVersion = 15
 
     let version: Int
     let recordID: String
     let generatedAt: Date
+    // 属性标题、选项 label 与 precondition 文案都在解析期按系统语言烘焙，
+    // 语言变化必须让分析缓存整体失效。
+    let language: String
     let projectModifiedAt: Date?
     let propertySourceRecordID: String?
     let propertySourceProjectModifiedAt: Date?
@@ -15,11 +18,13 @@ struct SteamWorkshopWebAnalysisCacheManifest: Codable, Equatable {
 }
 
 struct SteamWorkshopWebRuntimeCacheManifest: Codable, Equatable {
-    static let currentVersion = 17
+    static let currentVersion = 18
 
     let version: Int
     let recordID: String
     let generatedAt: Date
+    // 运行缓存里的属性 payload 同样按解析期语言烘焙。
+    let language: String
     let projectModifiedAt: Date?
     let propertySourceRecordID: String?
     let propertySourceProjectModifiedAt: Date?
@@ -205,6 +210,7 @@ extension SteamWorkshopService {
             version: SteamWorkshopWebAnalysisCacheManifest.currentVersion,
             recordID: record.id,
             generatedAt: Date(),
+            language: Self.resolvedWebWallpaperLanguage(),
             projectModifiedAt: webRuntimeCacheProjectModifiedAt(for: record),
             propertySourceRecordID: webPropertyDefinitionSourceRecord(for: record)?.id,
             propertySourceProjectModifiedAt: webRuntimeCachePropertySourceProjectModifiedAt(for: record),
@@ -260,6 +266,7 @@ extension SteamWorkshopService {
             version: SteamWorkshopWebRuntimeCacheManifest.currentVersion,
             recordID: record.id,
             generatedAt: Date(),
+            language: Self.resolvedWebWallpaperLanguage(),
             projectModifiedAt: webRuntimeCacheProjectModifiedAt(for: record),
             propertySourceRecordID: webPropertyDefinitionSourceRecord(for: record)?.id,
             propertySourceProjectModifiedAt: webRuntimeCachePropertySourceProjectModifiedAt(for: record),
