@@ -46,6 +46,16 @@ LAYER_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneLayerVisibility.swift",
 ]
+ALPHA_PROJECTION_SOURCES = [
+    SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneDynamicSnapshot.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
+    SOURCE_ROOT / "Systems/Script/SceneScriptPropertyInput.swift",
+    SOURCE_ROOT / "Systems/Script/SceneScriptScalarProgram+Projection.swift",
+]
 
 
 RAW_SOURCE = "\nexport function update(value) {\n  return value;\n}\n"
@@ -768,6 +778,176 @@ enum Harness {
 '''
 
 
+ALPHA_PROJECTION_HARNESS = r'''
+import Foundation
+
+// Compile-closure stubs: the scalar alpha projection gate is pure structural
+// code, but its file lives next to VM-owned symbols (SceneScriptScalarProgram,
+// SceneScriptValueOwner) and descriptor leaf types that only exist inside the
+// App target. The stubs provide exactly the shape the gate reads; the asserted
+// value:null alpha path never reaches SceneScriptValueOwner because a wrapper
+// without a finite numeric seed fails the seed guard first.
+nonisolated struct SceneScriptScalarProgram {}
+
+nonisolated enum SceneScriptValueOwner {
+    static func acceptsScalar(
+        _ value: Double, for target: SceneDynamicTarget
+    ) -> Bool {
+        value.isFinite
+    }
+}
+
+enum SceneParticleNumericValue: Equatable, Sendable {
+    case scalar(Double)
+    case vector([Double])
+
+    var scalarValue: Double? {
+        guard case let .scalar(value) = self else { return nil }
+        return value
+    }
+}
+
+struct SceneParticleBoundValue: Equatable, Sendable {
+    let value: SceneParticleNumericValue?
+    let userPropertyKey: String?
+    let hasScript: Bool
+    let hasAnimation: Bool
+}
+
+struct SceneParticleInstanceOverride: Equatable, Sendable {
+    let alpha: SceneParticleBoundValue?
+    let size: SceneParticleBoundValue?
+    let lifetime: SceneParticleBoundValue?
+    let rate: SceneParticleBoundValue?
+    let speed: SceneParticleBoundValue?
+    let count: SceneParticleBoundValue?
+    let brightness: SceneParticleBoundValue?
+}
+
+struct SceneRenderDescriptor {
+    struct TextStyle {
+        let pointSize: Float?
+    }
+
+    struct ShaderValue {
+        enum UserValueKind: Equatable { case null, string }
+        let scriptSource: String?
+        let components: [Double]?
+        let userValueKind: UserValueKind?
+    }
+
+    struct EffectDescriptor {
+        struct PassDescriptor {
+            let id: Int?
+            let passIndex: Int
+            let constantShaderValues: [String: ShaderValue]
+        }
+
+        let id: String
+        let effectID: Int?
+        let passes: [PassDescriptor]
+    }
+
+    struct Layer {
+        let id: Int
+        let layerIndex: Int
+        var contentKind: String = "image"
+        var alpha: Double? = nil
+        var text: String? = nil
+        var textStyle: TextStyle? = nil
+        var particleInstanceOverride: SceneParticleInstanceOverride? = nil
+        var authoredLightIntensity: Float? = nil
+        var effects: [EffectDescriptor] = []
+    }
+
+    var layers: [Layer]
+}
+
+enum HarnessError: Error { case missingFixture }
+
+@main
+enum AlphaProjectionHarness {
+    static func targetPayload(_ target: SceneDynamicTarget) -> [String: Any] {
+        switch target {
+        case let .layer(layerID, field):
+            return ["kind": "layer", "layerID": layerID, "field": field.rawValue]
+        case let .particle(layerID, field):
+            return [
+                "kind": "particle", "layerID": layerID,
+                "field": String(describing: field),
+            ]
+        case let .text(layerID, field):
+            return ["kind": "text", "layerID": layerID, "field": field.rawValue]
+        case let .effectConstant(layerID, effectIndex, passIndex, name):
+            return [
+                "kind": "effectConstant", "layerID": layerID,
+                "effectIndex": effectIndex, "passIndex": passIndex, "name": name,
+            ]
+        case let .effectVisibility(layerID, effectIndex):
+            return [
+                "kind": "effectVisibility", "layerID": layerID,
+                "effectIndex": effectIndex,
+            ]
+        case let .materialConstant(layerID, passIndex, name, materialPath):
+            return [
+                "kind": "materialConstant", "layerID": layerID,
+                "passIndex": passIndex, "name": name,
+                "materialPath": materialPath,
+            ]
+        case let .scene(field):
+            return ["kind": "scene", "field": field.rawValue]
+        case let .camera(field):
+            return ["kind": "camera", "field": field.rawValue]
+        case let .scriptInstanceProperty(layerID, path):
+            return [
+                "kind": "scriptInstanceProperty", "layerID": layerID,
+                "path": path,
+            ]
+        }
+    }
+
+    static func main() throws {
+        guard CommandLine.arguments.count == 2 else {
+            throw HarnessError.missingFixture
+        }
+        let sceneURL = URL(fileURLWithPath: CommandLine.arguments[1])
+        let root = try JSONSerialization.jsonObject(
+            with: Data(contentsOf: sceneURL)
+        )
+        guard let documentRoot = root as? [String: Any] else {
+            throw HarnessError.missingFixture
+        }
+        let parseResult = SceneScriptBindingIRParser.parse(document: documentRoot)
+        let descriptor = SceneRenderDescriptor(layers: [
+            .init(id: 10, layerIndex: 0, alpha: 0.5),
+            .init(id: 20, layerIndex: 1),
+            .init(id: 30, layerIndex: 2),
+        ])
+        let targets = SceneScriptScalarProgram.projectedTargets(
+            descriptor: descriptor,
+            scriptBindings: parseResult.bindings
+        )
+        let payloads = targets
+            .map { (description: String(describing: $0), payload: targetPayload($0)) }
+            .sorted { $0.description < $1.description }
+            .map(\.payload)
+        let alphaValueType = parseResult.bindings
+            .first { $0.targetKey == "alpha" }?.valueType.rawValue
+        let payload: [String: Any] = [
+            "bindingCount": parseResult.bindings.count,
+            "alphaBindingValueType": alphaValueType ?? "missing",
+            "targets": payloads,
+        ]
+        let data = try JSONSerialization.data(
+            withJSONObject: payload,
+            options: [.sortedKeys]
+        )
+        print(String(decoding: data, as: UTF8.self))
+    }
+}
+'''
+
+
 def compile_swift(sources: list[Path], harness: Path, binary: Path) -> None:
     completed = subprocess.run(
         [
@@ -843,6 +1023,25 @@ class SceneScriptBindingParserTests(unittest.TestCase):
             text=True,
         )
         cls.visibility_result = json.loads(compatibility.stdout)
+
+        alpha_projection_harness = directory / "AlphaProjectionHarness.swift"
+        alpha_projection_harness.write_text(
+            ALPHA_PROJECTION_HARNESS,
+            encoding="utf-8",
+        )
+        alpha_projection_binary = directory / "scene-alpha-projection"
+        compile_swift(
+            ALPHA_PROJECTION_SOURCES,
+            alpha_projection_harness,
+            alpha_projection_binary,
+        )
+        alpha_projection_completed = subprocess.run(
+            ["/usr/bin/env", str(alpha_projection_binary), str(scene)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        cls.alpha_projection = json.loads(alpha_projection_completed.stdout)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -1285,6 +1484,20 @@ class SceneScriptBindingParserTests(unittest.TestCase):
                 "disposition=suppressed reason=unproven-inline-scenescript-alpha",
             ],
         )
+
+    def test_null_valued_alpha_wrapper_stays_unprojected_and_yields_to_fallback(self) -> None:
+        targets = self.alpha_projection["targets"]
+        # value:null 的 alpha wrapper（SCENE_FIXTURE objects[0].alpha）在
+        # 标量投影层不产出 `.layer(10, .alpha)` 绑定目标：无有限数值种子的
+        # 包装不会被准入。它的压制解除由 fallback 认领集合的补集负责，
+        # 而不是由准入放宽负责。
+        self.assertNotIn(
+            {"field": "alpha", "kind": "layer", "layerID": 10},
+            targets,
+        )
+        # 上下文钉死：IR 层仍无损保留该 wrapper（valueType=null），证明
+        # 本断言拒绝的是投影准入，不是解析丢弃。
+        self.assertEqual(self.alpha_projection["alphaBindingValueType"], "null")
 
 
 if __name__ == "__main__":

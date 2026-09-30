@@ -142,9 +142,24 @@ struct SceneRuntimeModelBuilder {
             admittedTargets: projectedScalarTargets,
             to: mediaProjectedDescriptor
         )
+        // Second-tier display-authority release: an alpha target no
+        // publication path claims (shared ∪ scalar-projected ∪ timeline)
+        // can never receive a script publication, so its fail-closed
+        // ownership degrades to the authored alpha. Timeline targets are a
+        // deliberate superset here: the set is only used for membership, and
+        // a Timeline-driven alpha layer must not lose its live driver to a
+        // speculative release.
+        let alphaClaimedTargets = sharedAlphaTargets
+            .union(projectedScalarTargets)
+            .union(timelineTargets)
+        let fallbackProjectedDescriptor = SceneScriptScalarDisplayProjection
+            .applyUnclaimedFallback(
+                claimedTargets: alphaClaimedTargets,
+                to: scalarProjectedDescriptor
+            )
         let particleProjectedDescriptor = SceneScriptParticleProjection.apply(
             admittedTargets: projectedScalarTargets.union(structuralPropertyVectorProjection.targets),
-            to: scalarProjectedDescriptor
+            to: fallbackProjectedDescriptor
         )
         // A failed optional scale producer keeps the resolved authored current.
         // Hiding the whole layer turns a local script/property failure into a

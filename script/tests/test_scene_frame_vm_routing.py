@@ -73,6 +73,32 @@ def swift_body(source: str, signature: str) -> str:
 
 
 class SceneFrameVMRoutingTests(unittest.TestCase):
+    def test_alpha_display_fallback_wiring_in_runtime_model(self) -> None:
+        """Checkpoint wiring pin for the second-tier alpha display fallback:
+        the claimed set is the union of every alpha publication path, the
+        fallback runs after scalar projection, and downstream projections
+        consume its output rather than the pre-fallback descriptor."""
+        model = MODEL_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "let alphaClaimedTargets = sharedAlphaTargets\n"
+            "            .union(projectedScalarTargets)\n"
+            "            .union(timelineTargets)",
+            model,
+        )
+        # The call site wraps across lines in the source; assert the call
+        # name and the claimed-set argument as separate fragments.
+        self.assertIn("applyUnclaimedFallback(", model)
+        self.assertIn("claimedTargets: alphaClaimedTargets", model)
+        fallback_at = model.index("fallbackProjectedDescriptor =")
+        scalar_at = model.index("SceneScriptScalarDisplayProjection.apply(")
+        particle_at = model.index("SceneScriptParticleProjection.apply(")
+        self.assertLess(scalar_at, fallback_at)
+        self.assertLess(fallback_at, particle_at)
+        self.assertIn(
+            "to: fallbackProjectedDescriptor\n",
+            model,
+        )
+
     def test_user_property_revision_ack_is_shared_and_restored_with_frame_state(self) -> None:
         property_input = PROPERTY_INPUT_SOURCE.read_text(encoding="utf-8")
         bridge = MEDIA_EVENT_BRIDGE_SOURCE.read_text(encoding="utf-8")

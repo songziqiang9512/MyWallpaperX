@@ -89,6 +89,20 @@
       "contentPatterns": []
     },
     {
+      "id": "scene-alpha-display-fallback",
+      "title": "Scene inline alpha 脚本显示权第二级 fallback 释放（d1-1 fail-closed→fail-soft）",
+      "owner": "scene-e-route",
+      "status": "approved",
+      "designDoc": "docs/scene/design/alpha-display-fallback-design.md",
+      "design_notes": "判定主轴是该 alpha 绑定在当前运行时是否存在可达 publication 路径（scalar owner/shared-alpha/Timeline 三条），而非表达式分类。admit 桶准入规则零放宽；downgrade 桶在 launch 期对 claimed（shared ∪ scalar ∪ timeline）补集内的 alpha 所有权释放为 false，保留 authored 值与 visible 位；suppress 桶收窄为 F6（无 alpha 压制面）/F7（跨层 mutation）两个有正面证据的封闭集合。无官方 parity，回滚单点=删除唯一 call site。裁决依据与三桶论证见 designDoc。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/**/SceneScriptScalarDisplayProjection.swift"
+      ],
+      "contentPatterns": [
+        "applyUnclaimedFallback"
+      ]
+    },
+    {
       "id": "steam-downloads-failed-items-visibility",
       "title": "Steam 下载页失败条目可见性（数据源过滤语义扩张）",
       "owner": "app-shell",

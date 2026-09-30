@@ -3,8 +3,13 @@ import Foundation
 /// Authored layer display fields whose value is owned by an inline SceneScript.
 ///
 /// This is only a provenance fact. The parser does not interpret or execute the
-/// script, and malformed script payloads remain owned because their static
-/// fallback cannot safely authorize composition.
+/// script, and malformed script payloads still record ownership. The d1-1
+/// ruling narrows what that residual ownership means: the second-tier display
+/// fallback (`SceneScriptScalarDisplayProjection.applyUnclaimedFallback`)
+/// releases alpha ownership no publication path can claim, so an unprovable
+/// wrapper renders its authored alpha instead of failing closed. Removing that
+/// single call site restores the original fail-closed semantics of this
+/// provenance marker.
 nonisolated struct SceneLayerDisplayScriptOwnership: Codable, Equatable, Sendable {
     let visible: Bool
     let alpha: Bool

@@ -1568,6 +1568,16 @@ enum Harness {
             inputs: [animatedAlphaTarget: .scalar(0.75)],
             frame: frame
         )
+        // Admit-bucket republish probe: the second frame feeds the first
+        // frame's published scalar back as the current value, so a strictly
+        // larger result can only come from re-running the update against the
+        // supplied clock, not from a cached publication.
+        let alphaTimeOwnerNextFrame = genericAlpha.evaluate(
+            inputs: [animatedAlphaTarget: .scalar(
+                scalar(genericAlphaResult.values[animatedAlphaTarget])
+            )],
+            frame: frame
+        )
         let rejectedAlphaWrapper = SceneScriptScalarProgram.compile(
             domain: domain,
             descriptor: descriptor,
@@ -2043,6 +2053,9 @@ enum Harness {
             "genericPropertyAlphaBindings": genericPropertyAlpha.bindings.count,
             "genericPropertyAlphaValue": scalar(
                 genericPropertyAlphaResult.values[animatedAlphaTarget]
+            ),
+            "alphaTimeOwnerNextFrame": scalar(
+                alphaTimeOwnerNextFrame.values[animatedAlphaTarget]
             ),
             "genericAlphaWrongWrapperRejected": rejectedAlphaWrapper.bindings.isEmpty,
             "mediaAnimationCommands": mediaOriginResult.animationMutations.map {
@@ -2954,6 +2967,17 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["playbackNextFrame"], 1.0)
         self.assertEqual(value["playbackStopped"], 0.5)
         self.assertEqual(value["playbackFailures"], 0)
+
+    def test_layer_alpha_time_owner_republishes_each_frame_from_supplied_clocks(self) -> None:
+        value = self.result()
+        first = value["genericAlphaValue"]
+        second = value["alphaTimeOwnerNextFrame"]
+        # alpha owner 以 engine.frametime 步进的 update 每帧产出严格递增
+        # scalar：第二轮把首轮发布值作为当前值喂回，输出仍继续上台阶。
+        self.assertGreater(second, first, value)
+        # 第二轮 evaluate 不复用首轮返回值（无 publication 缓存）：增量仍
+        # 来自已供应时钟的一步，而不是记忆中的首轮结果。
+        self.assertAlmostEqual(second, first + 1.0 / 60.0)
 
     def test_media_properties_event_updates_generic_string_owner(self) -> None:
         value = self.result()
