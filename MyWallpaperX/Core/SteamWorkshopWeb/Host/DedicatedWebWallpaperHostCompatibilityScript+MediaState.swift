@@ -110,6 +110,10 @@ let webCompatibilityScriptMediaState = #"""
     const finish = (fields) => {
       wallpaperMediaThumbnailColorRequests.delete(url);
       wallpaperMediaThumbnailColorCache.set(url, fields);
+      // Map 保插入序：超限时逐出最旧条目，当前 URL 刚写入不会被误逐。
+      if (wallpaperMediaThumbnailColorCache.size > 64) {
+        wallpaperMediaThumbnailColorCache.delete(wallpaperMediaThumbnailColorCache.keys().next().value);
+      }
       // 取色结果到达后重放一次媒体状态，让已注册的监听器拿到颜色字段。
       wallpaperRefreshMediaState();
     };
