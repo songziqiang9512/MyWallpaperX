@@ -48,9 +48,9 @@ def read_baseline_text(text: str, source: str) -> dict[str, Any]:
     if (
         not isinstance(schema_version, int)
         or isinstance(schema_version, bool)
-        or schema_version not in (1, 2)
+        or schema_version not in (1, 2, 3)
     ):
-        raise ValueError(f"{source} must use schemaVersion 1 or 2")
+        raise ValueError(f"{source} must use schemaVersion 1, 2 or 3")
 
     if schema_version == 1:
         line_limit = baseline.get("lineLimit")
@@ -76,7 +76,13 @@ def read_baseline_text(text: str, source: str) -> dict[str, Any]:
                 f"{source} hardLineLimit must be an integer greater than reviewLineLimit"
             )
         if "lineLimit" in baseline:
-            raise ValueError(f"{source} schemaVersion 2 must not contain lineLimit")
+            raise ValueError(
+                f"{source} schemaVersion {schema_version} must not contain lineLimit"
+            )
+        if schema_version < 3 and "reviewWarningFiles" in baseline:
+            raise ValueError(
+                f"{source} schemaVersion {schema_version} must not contain reviewWarningFiles"
+            )
 
     source_roots = baseline.get("sourceRoots")
     if (
@@ -105,9 +111,30 @@ def read_baseline_text(text: str, source: str) -> dict[str, Any]:
             limit_name = "hardLineLimit" if hard_line_limit is not None else "lineLimit"
             raise ValueError(f"{source} allowance for {path} must exceed {limit_name}")
 
+    review_warning_files = baseline.get("reviewWarningFiles", {})
+    if not isinstance(review_warning_files, dict):
+        raise ValueError(f"{source} reviewWarningFiles must be an object")
+    for path, allowance in review_warning_files.items():
+        validate_repo_relative_path(path, source, expected_suffix=".swift")
+        if not belongs_to_source_root(path, source_roots):
+            raise ValueError(f"{source} review-warning path is outside sourceRoots: {path}")
+        if path in legacy_files:
+            raise ValueError(
+                f"{source} file is locked in both legacyFiles and reviewWarningFiles: {path}"
+            )
+        if (
+            not isinstance(allowance, int)
+            or isinstance(allowance, bool)
+            or allowance <= review_line_limit
+        ):
+            raise ValueError(
+                f"{source} review-warning allowance for {path} must exceed reviewLineLimit"
+            )
+
     normalized = dict(baseline)
     normalized["reviewLineLimit"] = review_line_limit
     normalized["hardLineLimit"] = hard_line_limit
+    normalized["reviewWarningFiles"] = review_warning_files
     normalized.pop("lineLimit", None)
     return normalized
 
@@ -137,8 +164,8 @@ def load_current_baseline() -> dict[str, Any]:
     except OSError as error:
         raise ValueError(f"cannot read {BASELINE_RELATIVE_PATH}: {error}") from error
     baseline = read_baseline_text(text, str(BASELINE_RELATIVE_PATH))
-    if baseline["schemaVersion"] != 2:
-        raise ValueError(f"{BASELINE_RELATIVE_PATH} must use schemaVersion 2")
+    if baseline["schemaVersion"] != 3:
+        raise ValueError(f"{BASELINE_RELATIVE_PATH} must use schemaVersion 3")
     return baseline
 
 
@@ -192,6 +219,7 @@ def current_tree_findings(
     review_line_limit = baseline["reviewLineLimit"]
     hard_line_limit = baseline["hardLineLimit"]
     legacy_files: dict[str, int] = baseline["legacyFiles"]
+    review_warning_files: dict[str, int] = baseline["reviewWarningFiles"]
     errors: list[tuple[str, str]] = []
     warnings: list[tuple[str, str]] = []
 
@@ -228,8 +256,51 @@ def current_tree_findings(
                 )
             )
 
+    for path, allowance in review_warning_files.items():
+        count = counts.get(path)
+        if count is None:
+            errors.append(
+                (
+                    path,
+                    "review-warning entry is stale because the file no longer exists; "
+                    "ratchet the baseline",
+                )
+            )
+        elif count <= review_line_limit:
+            errors.append(
+                (
+                    path,
+                    f"file is now {count} lines and no longer exceeds the {review_line_limit}-line "
+                    "review limit; remove its review-warning entry with --ratchet-baseline",
+                )
+            )
+        elif count < allowance:
+            errors.append(
+                (
+                    path,
+                    f"file shrank from {allowance} to {count} lines; lock in the improvement "
+                    "with --ratchet-baseline",
+                )
+            )
+        elif count > allowance:
+            errors.append(
+                (
+                    path,
+                    f"file grew from its locked review-warning allowance {allowance} "
+                    f"to {count} lines",
+                )
+            )
+        else:
+            warnings.append(
+                (
+                    path,
+                    f"file has {count} lines; it exceeds the {review_line_limit}-line review limit "
+                    f"and is locked to its review-warning allowance of {allowance}",
+                )
+            )
+
     for path, count in counts.items():
-        if path in legacy_files:
+        if path in legacy_files or path in review_warning_files:
             continue
         if count > hard_line_limit:
             errors.append(
@@ -321,6 +392,22 @@ def historical_problems(current: dict[str, Any], previous: dict[str, Any]) -> li
                 (baseline_path, f"legacy allowance for {path} increased from {previous_allowance} to {allowance}")
             )
 
+    previous_review_warning: dict[str, int] = previous["reviewWarningFiles"]
+    for path, allowance in current["reviewWarningFiles"].items():
+        previous_allowance = previous_review_warning.get(path)
+        if previous_allowance is None:
+            problems.append(
+                (baseline_path, f"new review-warning lock is not allowed: {path}")
+            )
+        elif allowance > previous_allowance:
+            problems.append(
+                (
+                    baseline_path,
+                    f"review-warning allowance for {path} increased from "
+                    f"{previous_allowance} to {allowance}",
+                )
+            )
+
     return problems
 
 
@@ -351,16 +438,23 @@ def emit_notice(message: str, output_format: str) -> None:
 
 
 def ratchet_baseline(baseline: dict[str, Any], counts: dict[str, int]) -> int:
+    review_line_limit = baseline["reviewLineLimit"]
     hard_line_limit = baseline["hardLineLimit"]
     legacy_files: dict[str, int] = baseline["legacyFiles"]
+    review_warning_files: dict[str, int] = baseline["reviewWarningFiles"]
     blockers: list[tuple[str, str]] = []
 
     for path, count in counts.items():
-        allowance = legacy_files.get(path)
-        if count > hard_line_limit and allowance is None:
+        legacy_allowance = legacy_files.get(path)
+        review_allowance = review_warning_files.get(path)
+        if count > hard_line_limit and legacy_allowance is None and review_allowance is None:
             blockers.append((path, f"cannot add a legacy exception for a {count}-line file"))
-        elif allowance is not None and count > allowance:
-            blockers.append((path, f"cannot ratchet a file that grew from {allowance} to {count} lines"))
+        elif legacy_allowance is not None and count > legacy_allowance:
+            blockers.append((path, f"cannot ratchet a file that grew from {legacy_allowance} to {count} lines"))
+        if review_allowance is not None and count > review_allowance:
+            blockers.append(
+                (path, f"cannot ratchet a review-warning file that grew from {review_allowance} to {count} lines")
+            )
 
     if blockers:
         for path, message in blockers:
@@ -372,13 +466,22 @@ def ratchet_baseline(baseline: dict[str, Any], counts: dict[str, int]) -> int:
         for path in sorted(legacy_files)
         if path in counts and counts[path] > hard_line_limit
     }
-    if updated_legacy == legacy_files:
+    updated_review_warning = {
+        path: counts[path]
+        for path in sorted(review_warning_files)
+        if path in counts and counts[path] > review_line_limit
+    }
+    if updated_legacy == legacy_files and updated_review_warning == review_warning_files:
         print("Code-health baseline is already at the current minimum.")
         return 0
 
     baseline["legacyFiles"] = updated_legacy
+    baseline["reviewWarningFiles"] = updated_review_warning
     BASELINE_PATH.write_text(json.dumps(baseline, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
-    print(f"Ratchet updated: {len(legacy_files)} -> {len(updated_legacy)} legacy files.")
+    print(
+        f"Ratchet updated: {len(legacy_files)} -> {len(updated_legacy)} legacy files, "
+        f"{len(review_warning_files)} -> {len(updated_review_warning)} review-warning files."
+    )
     return 0
 
 
@@ -412,6 +515,14 @@ def main() -> int:
                     relocations.get(path, path): allowance
                     for path, allowance in previous["legacyFiles"].items()
                 }}
+                review_relocations = unchanged_source_relocations(
+                    REPO_ROOT, arguments.base_ref, previous["reviewWarningFiles"],
+                    set(baseline["reviewWarningFiles"]) - set(previous["reviewWarningFiles"]),
+                )
+                previous = {**previous, "reviewWarningFiles": {
+                    review_relocations.get(path, path): allowance
+                    for path, allowance in previous["reviewWarningFiles"].items()
+                }}
                 errors.extend(historical_problems(baseline, previous))
         except ValueError as error:
             errors.append((BASELINE_RELATIVE_PATH.as_posix(), str(error)))
@@ -426,6 +537,7 @@ def main() -> int:
     print(
         f"Code health passed: {len(counts)} Swift files, "
         f"{len(baseline['legacyFiles'])} locked legacy files, "
+        f"{len(baseline['reviewWarningFiles'])} locked review-warning files, "
         f"{baseline['reviewLineLimit']}-line review limit, "
         f"{baseline['hardLineLimit']}-line hard limit, {len(warnings)} warnings."
     )

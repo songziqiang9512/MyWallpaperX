@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "reviewLineLimit": 400,
   "hardLineLimit": 1000,
   "sourceRoots": [
@@ -7,7 +7,23 @@
     "WallpaperDaemonSources",
     "script/tests/fixtures"
   ],
-  "legacyFiles": {
-    "MyWallpaperX/Shell/SidebarViews.swift": 1341
+  "legacyFiles": {},
+  "reviewWarningFiles": {
+    "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift": 913,
+    "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryTransaction.swift": 972,
+    "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+SteamKitBrowse.swift": 918,
+    "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSheet.swift": 980,
+    "MyWallpaperX/Modules/VideoLibrary/Toolbar/VideoLibraryToolbarController.swift": 890,
+    "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView.swift": 925,
+    "MyWallpaperX/Shared/Settings/AppKitSettingsView.swift": 937,
+    "MyWallpaperX/Shell/SidebarViews.swift": 981
+  },
+  "notes": {
+    "reviewWarningFiles": {
+      "owner": "code-health 限方向性棘轮批次（engine-refactor-program 第 3 波，2026-09-30）",
+      "reason": "401-1000 行区间此前只发 WARNING 无任何门，行数可静默漂移；首册按显式改基线流程登记全部非 Scene 域 >=850 行产品文件（allowance 为 2026-09-30 --check 工作树实测值），阻断继续增长。",
+      "retirement": "allowance 只许随收缩下降；对应文件拆分至 <=reviewLineLimit(400) 行后由 --ratchet-baseline 自动移除条目。",
+      "pendingSceneRegistration": "Scene 域热区待 E 路线 owner 确认锁值时机后补册（2026-09-30 实测 >=850 行）：MyWallpaperX/Core/SteamWorkshopScene 下 SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift(997)、SceneAuthoredShaderColorTransferAnalyzer.swift(978)、SceneResolvedMaterialFramePreflight.swift(946)、SceneMetalRenderer.swift(943)、SceneResolvedMaterialProgramFinalizer.swift(936)、SceneParticleSimulator.swift(896)、SceneDependencyRenderPlan+BindingCompilation.swift(893)、SceneScriptLayerHandleBridge.swift(880)、SceneScriptVectorProgram.swift(871)、SceneScriptValueRuntime.swift(863)、SceneTextureProviderPublication.swift(859)、SceneGenericShaderSourceNormalizer+Rewrites.swift(850)；及 Scene 测试 fixture script/tests/fixtures/SceneMaterialCopyHistoryRenderingHarness.swift(892)。"
+    }
   }
 }

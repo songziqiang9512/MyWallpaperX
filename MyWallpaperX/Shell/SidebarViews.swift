@@ -46,134 +46,32 @@ final class AppKitSidebarViewController: NSViewController {
 }
 
 final class AppKitSidebarContainerView: NSView {
-    private enum SidebarSectionID: String {
-        case library
-        case tags
-        case others
-        case images
-        case online
-        case steam
-
-        var title: String {
-            switch self {
-            case .library: return "库"
-            case .tags: return "标签"
-            case .others: return "其他"
-            case .images: return "图像"
-            case .online: return "在线"
-            case .steam: return "Steam"
-            }
-        }
-    }
-
-    private enum SidebarNodeKind {
-        case section(SidebarSectionID)
-        case category(Category)
-        case tag(String)
-        case silTag(String)      // 图片库专属标签
-        case staticImageLibrary
-        case onlineLibrary
-        case onlineDownloads     // 在线库已下载项
-        case steamWorkshop, steamSubscribed
-        case steamDownloads
-    }
-
-    private final class SidebarNode: NSObject {
-        let kind: SidebarNodeKind
-        let title: String
-        let symbolName: String?
-        var count: Int?
-        var children: [SidebarNode]
-
-        init(
-            kind: SidebarNodeKind,
-            title: String,
-            symbolName: String? = nil,
-            count: Int? = nil,
-            children: [SidebarNode] = []
-        ) {
-            self.kind = kind
-            self.title = title
-            self.symbolName = symbolName
-            self.count = count
-            self.children = children
-        }
-
-        var selectedItem: SelectedItem? {
-            switch kind {
-            case .category(let category):
-                return .category(category)
-            case .tag(let tag):
-                return .tag(tag)
-            case .silTag(let tag):
-                return .silTag(tag)
-            case .staticImageLibrary:
-                return .staticImageLibrary
-            case .onlineLibrary:
-                return .onlineLibrary
-            case .onlineDownloads:
-                return .onlineDownloads
-            case .steamWorkshop: return .steamWorkshop
-            case .steamSubscribed: return .steamSubscribed
-            case .steamDownloads:
-                return .steamDownloads
-            case .section:
-                return nil
-            }
-        }
-
-        var isGroup: Bool {
-            if case .section = kind {
-                return true
-            }
-            return false
-        }
-    }
-
-    private struct SidebarSnapshotSignature: Equatable {
-        let wallpaperCount: Int
-        let favoriteCount: Int
-        let recentCount: Int
-        let tags: [String]
-        let tagCounts: [String: Int]
-        let silTags: [String]
-        let silTagCounts: [String: Int]
-        let silWallpapersCount: Int  // 图片库总数，变化时触发侧边栏重建
-        let onlineDownloadsCount: Int // 在线库已下载数，变化时更新侧边栏计数
-        let steamDownloadsCount: Int
-    }
-
-    private struct SidebarLibraryStats {
-        let tagCounts: [String: Int]
-        let favoriteCount: Int
-    }
-
-    private let wallpaperManager: WallpaperManager
+    let wallpaperManager: WallpaperManager
     private var cancellables = Set<AnyCancellable>()
-    private var rootNodes: [SidebarNode] = []
-    private var isApplyingSelection = false
+    var rootNodes: [SidebarNode] = []
+    var isApplyingSelection = false
     private var isReloadScheduled = false
     private var contextTag: String?
-    private var currentSelectedItem: SelectedItem = .category(.myWallpapers)
+    var currentSelectedItem: SelectedItem = .category(.myWallpapers)
     private var selectedItemGetter: (() -> SelectedItem)?
-    private var selectedItemSetter: ((SelectedItem) -> Void)?
+    var selectedItemSetter: ((SelectedItem) -> Void)?
     private var rowIndexBySelectedItem: [SelectedItem: Int] = [:]
     private var lastSnapshotSignature: SidebarSnapshotSignature?
     private var pendingRecentCount: Int?
     private var isRecentCountRefreshScheduled = false
     private var lastObservedRecentCount: Int?
-    private var liveDraggedTag: String?
-    private var isLiveTagReordering = false
-    private var liveTagOrder: [String]?
-    private var lastLiveDropDestination: Int?
-    private var liveTagNodeByTag: [String: SidebarNode]?
+    var liveDraggedTag: String?
+    var isLiveTagReordering = false
+    var liveTagOrder: [String]?
+    var lastLiveDropDestination: Int?
+    var liveTagNodeByTag: [String: SidebarNode]?
 
     // 图片库标签实时拖拽排序状态
-    private var liveSILDraggedTag: String?
-    private var isLiveSILTagReordering = false
-    private var liveSILTagOrder: [String]?
-    private var lastLiveSILDropDestination: Int?
-    private var liveSILTagNodeByTag: [String: SidebarNode]?
+    var liveSILDraggedTag: String?
+    var isLiveSILTagReordering = false
+    var liveSILTagOrder: [String]?
+    var lastLiveSILDropDestination: Int?
+    var liveSILTagNodeByTag: [String: SidebarNode]?
 
     private let scrollView: NSScrollView = {
         let view = NSScrollView()
@@ -185,7 +83,7 @@ final class AppKitSidebarContainerView: NSView {
         return view
     }()
 
-    private lazy var outlineView: SidebarOutlineView = {
+    lazy var outlineView: SidebarOutlineView = {
         let view = SidebarOutlineView()
         view.headerView = nil
         view.focusRingType = .none
@@ -612,7 +510,7 @@ final class AppKitSidebarContainerView: NSView {
         }
     }
 
-    private func rebuildRowIndexMap() {
+    func rebuildRowIndexMap() {
         var rowMap: [SelectedItem: Int] = [:]
         rowMap.reserveCapacity(max(8, outlineView.numberOfRows))
         guard outlineView.numberOfRows > 0 else {
@@ -659,7 +557,7 @@ final class AppKitSidebarContainerView: NSView {
         )
     }
 
-    private func rowIndex(for selectedItem: SelectedItem) -> Int? {
+    func rowIndex(for selectedItem: SelectedItem) -> Int? {
         if let row = rowIndexBySelectedItem[selectedItem] {
             return row
         }
@@ -860,7 +758,7 @@ final class AppKitSidebarContainerView: NSView {
         }
     }
 
-    private func tagsSectionNode() -> SidebarNode? {
+    func tagsSectionNode() -> SidebarNode? {
         rootNodes.first {
             if case .section(.tags) = $0.kind {
                 return true
@@ -870,266 +768,8 @@ final class AppKitSidebarContainerView: NSView {
     }
 }
 
-extension AppKitSidebarContainerView: NSOutlineViewDataSource {
-    func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
-        guard let node = item as? SidebarNode else {
-            return rootNodes.count
-        }
-        return node.children.count
-    }
-
-    func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
-        guard let node = item as? SidebarNode else {
-            return rootNodes[index]
-        }
-        return node.children[index]
-    }
-
-    func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
-        guard let node = item as? SidebarNode else { return false }
-        return !node.children.isEmpty
-    }
-
-    func outlineView(_ outlineView: NSOutlineView, pasteboardWriterForItem item: Any) -> (any NSPasteboardWriting)? {
-        guard let node = item as? SidebarNode else { return nil }
-        let pasteboardItem = NSPasteboardItem()
-        switch node.kind {
-        case .tag(let tag):
-            pasteboardItem.setString("tag:\(tag)", forType: .string)
-            return pasteboardItem
-        case .silTag(let tag):
-            pasteboardItem.setString("silTag:\(tag)", forType: .string)
-            return pasteboardItem
-        default:
-            return nil
-        }
-    }
-
-    func outlineView(
-        _ outlineView: NSOutlineView,
-        writeItems items: [Any],
-        to pasteboard: NSPasteboard
-    ) -> Bool {
-        guard let node = items.first as? SidebarNode else { return false }
-        switch node.kind {
-        case .tag(let tag):
-            pasteboard.clearContents()
-            pasteboard.setString("tag:\(tag)", forType: .string)
-            return true
-        case .silTag(let tag):
-            pasteboard.clearContents()
-            pasteboard.setString("silTag:\(tag)", forType: .string)
-            return true
-        default:
-            return false
-        }
-    }
-
-    func outlineView(_ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex index: Int) -> Bool {
-        guard let str = info.draggingPasteboard.string(forType: .string) else { return false }
-        if str.hasPrefix("tag:") {
-            let tag = String(str.dropFirst(4))
-            return wallpaperManager.tags.contains(tag)
-        }
-        if str.hasPrefix("silTag:") {
-            let tag = String(str.dropFirst(7))
-            return SILService.shared.silTags.contains(tag)
-        }
-        return false
-    }
-}
-
-extension AppKitSidebarContainerView: NSOutlineViewDelegate {
-    func outlineView(_ outlineView: NSOutlineView, isGroupItem item: Any) -> Bool {
-        guard let node = item as? SidebarNode else { return false }
-        return node.isGroup
-    }
-
-    func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool {
-        guard let node = item as? SidebarNode else { return false }
-        return !node.isGroup
-    }
-
-    func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
-        guard let node = item as? SidebarNode else { return 28 }
-        return node.isGroup ? 24 : 30
-    }
-
-    func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? {
-        guard let node = item as? SidebarNode,
-              !node.isGroup else {
-            return nil
-        }
-        let rowView = outlineView.makeView(withIdentifier: NSUserInterfaceItemIdentifier("SidebarRowView"), owner: self) as? SidebarRowView ?? {
-            let view = SidebarRowView()
-            view.identifier = NSUserInterfaceItemIdentifier("SidebarRowView")
-            return view
-        }()
-        return rowView
-    }
-
-    func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
-        guard let node = item as? SidebarNode else { return nil }
-
-        if node.isGroup {
-            let identifier = NSUserInterfaceItemIdentifier("SidebarGroupCell")
-            let cell = outlineView.makeView(withIdentifier: identifier, owner: nil) as? NSTableCellView ?? {
-                let newCell = NSTableCellView()
-                newCell.identifier = identifier
-                let textField = NSTextField(labelWithString: "")
-                textField.font = .systemFont(ofSize: 12, weight: .semibold)
-                textField.textColor = .secondaryLabelColor
-                textField.translatesAutoresizingMaskIntoConstraints = false
-                newCell.addSubview(textField)
-                newCell.textField = textField
-                NSLayoutConstraint.activate([
-                    textField.leadingAnchor.constraint(equalTo: newCell.leadingAnchor, constant: 8),
-                    textField.trailingAnchor.constraint(equalTo: newCell.trailingAnchor, constant: -8),
-                    textField.centerYAnchor.constraint(equalTo: newCell.centerYAnchor)
-                ])
-                return newCell
-            }()
-            cell.textField?.stringValue = node.title
-            return cell
-        }
-
-        let identifier = NSUserInterfaceItemIdentifier("SidebarLeafCell")
-        let cell = outlineView.makeView(withIdentifier: identifier, owner: nil) as? SidebarRowCellView ?? {
-            let newCell = SidebarRowCellView()
-            newCell.identifier = identifier
-            return newCell
-        }()
-        cell.configure(
-            title: node.title,
-            symbolName: node.symbolName,
-            count: node.count
-        )
-        return cell
-    }
-
-    func outlineViewSelectionDidChange(_ notification: Notification) {
-        guard !isApplyingSelection else { return }
-        let row = outlineView.selectedRow
-        guard row >= 0,
-              let node = outlineView.item(atRow: row) as? SidebarNode,
-              let selected = node.selectedItem else {
-            return
-        }
-        currentSelectedItem = selected
-        selectedItemSetter?(selected)
-    }
-
-    func outlineView(
-        _ outlineView: NSOutlineView,
-        draggingSession session: NSDraggingSession,
-        willBeginAt screenPoint: NSPoint,
-        forItems draggedItems: [Any]
-    ) {
-        guard let node = draggedItems.first as? SidebarNode else {
-            liveDraggedTag = nil; isLiveTagReordering = false; liveTagOrder = nil; lastLiveDropDestination = nil
-            liveSILDraggedTag = nil; isLiveSILTagReordering = false; liveSILTagOrder = nil; lastLiveSILDropDestination = nil
-            return
-        }
-        // 视频库标签
-        if case .tag(let tag) = node.kind {
-            liveDraggedTag = tag
-            isLiveTagReordering = true
-            liveTagOrder = wallpaperManager.tags
-            lastLiveDropDestination = nil
-            liveTagNodeByTag = tagsSectionNode()?.children.reduce(into: [:]) { r, n in
-                if case .tag(let t) = n.kind { r[t] = n }
-            }
-            session.animatesToStartingPositionsOnCancelOrFail = false
-            if let row = rowIndex(for: .tag(tag)),
-               let rowView = outlineView.rowView(atRow: row, makeIfNecessary: false) as? SidebarRowView {
-                rowView.suppressSelectionDuringDrag = true
-                rowView.needsDisplay = true
-            }
-            DispatchQueue.main.async { [weak self] in self?.updateDraggingPresentation() }
-            return
-        }
-        // 图片库标签
-        if case .silTag(let tag) = node.kind {
-            liveSILDraggedTag = tag
-            isLiveSILTagReordering = true
-            liveSILTagOrder = SILService.shared.silTags
-            lastLiveSILDropDestination = nil
-            liveSILTagNodeByTag = silTagsSectionNode()?.children.filter {
-                if case .silTag = $0.kind { return true }; return false
-            }.reduce(into: [:]) { r, n in
-                if case .silTag(let t) = n.kind { r[t] = n }
-            }
-            session.animatesToStartingPositionsOnCancelOrFail = false
-            if let row = rowIndex(for: .silTag(tag)),
-               let rowView = outlineView.rowView(atRow: row, makeIfNecessary: false) as? SidebarRowView {
-                rowView.suppressSelectionDuringDrag = true
-                rowView.needsDisplay = true
-            }
-            DispatchQueue.main.async { [weak self] in self?.updateSILDraggingPresentation() }
-            return
-        }
-        liveDraggedTag = nil; isLiveTagReordering = false; liveTagOrder = nil; lastLiveDropDestination = nil
-        liveSILDraggedTag = nil; isLiveSILTagReordering = false; liveSILTagOrder = nil; lastLiveSILDropDestination = nil
-    }
-
-    func outlineView(
-        _ outlineView: NSOutlineView,
-        draggingSession session: NSDraggingSession,
-        endedAt screenPoint: NSPoint,
-        operation: NSDragOperation
-    ) {
-        // 视频库标签排序保存
-        if let liveTagOrder, liveTagOrder != wallpaperManager.tags {
-            wallpaperManager.tags = liveTagOrder
-            wallpaperManager.saveTags()
-        }
-        isLiveTagReordering = false
-        liveDraggedTag = nil
-        self.liveTagOrder = nil
-        lastLiveDropDestination = nil
-        liveTagNodeByTag = nil
-        // 图片库标签排序保存
-        if let liveSILTagOrder, liveSILTagOrder != SILService.shared.silTags {
-            SILService.shared.reorderSILTags(liveSILTagOrder)
-        }
-        isLiveSILTagReordering = false
-        liveSILDraggedTag = nil
-        self.liveSILTagOrder = nil
-        lastLiveSILDropDestination = nil
-        liveSILTagNodeByTag = nil
-        // 恢复选中行视觉
-        if let row = rowIndex(for: currentSelectedItem),
-           let rowView = outlineView.rowView(atRow: row, makeIfNecessary: false) as? SidebarRowView {
-            rowView.suppressSelectionDuringDrag = false
-            rowView.needsDisplay = true
-        }
-        updateDraggingPresentation()
-        updateSILDraggingPresentation()
-        rebuildRowIndexMap()
-    }
-
-    func outlineView(
-        _ outlineView: NSOutlineView,
-        validateDrop info: NSDraggingInfo,
-        proposedItem item: Any?,
-        proposedChildIndex index: Int
-    ) -> NSDragOperation {
-        guard let str = info.draggingPasteboard.string(forType: .string) else { return [] }
-        if str.hasPrefix("tag:") {
-            let tag = String(str.dropFirst(4))
-            return wallpaperManager.tags.contains(tag) ? .move : []
-        }
-        if str.hasPrefix("silTag:") {
-            let tag = String(str.dropFirst(7))
-            return SILService.shared.silTags.contains(tag) ? .move : []
-        }
-        return []
-    }
-
-}
-
-private extension AppKitSidebarContainerView {
-    func handleTagDragMoved(toWindowPoint windowPoint: NSPoint) {
+extension AppKitSidebarContainerView {
+    private func handleTagDragMoved(toWindowPoint windowPoint: NSPoint) {
         // 视频库标签拖拽
         if isLiveTagReordering {
             guard let draggedTag = liveDraggedTag,
@@ -1184,20 +824,20 @@ private extension AppKitSidebarContainerView {
         }
     }
 
-    func handleTagDragEnded(operation: NSDragOperation) {
+    private func handleTagDragEnded(operation: NSDragOperation) {
         isLiveTagReordering = false
         liveDraggedTag = nil
         rebuildRowIndexMap()
     }
 
-    func moveTag(in tags: [String], from sourceIndex: Int, to destination: Int) -> [String] {
+    private func moveTag(in tags: [String], from sourceIndex: Int, to destination: Int) -> [String] {
         var updated = tags
         let moved = updated.remove(at: sourceIndex)
         updated.insert(moved, at: destination)
         return updated
     }
 
-    func reorderLiveTagsSection(with updatedTags: [String]) {
+    private func reorderLiveTagsSection(with updatedTags: [String]) {
         guard let tagsSection = tagsSectionNode() else { return }
         let nodeByTag = liveTagNodeByTag ?? tagsSection.children.reduce(into: [:]) { partialResult, node in
             if case .tag(let tag) = node.kind {
@@ -1224,7 +864,7 @@ private extension AppKitSidebarContainerView {
         }
     }
 
-    func outlineView(
+    private func outlineView(
         _ outlineView: NSOutlineView,
         draggingImageForRowsWith dragRows: IndexSet,
         tableColumns: [NSTableColumn],
@@ -1255,7 +895,7 @@ private extension AppKitSidebarContainerView {
         return image
     }
 
-    func liveTagDropIndex(forWindowPoint windowPoint: NSPoint, tagOrder: [String]) -> Int? {
+    private func liveTagDropIndex(forWindowPoint windowPoint: NSPoint, tagOrder: [String]) -> Int? {
         let location = outlineView.convert(windowPoint, from: nil)
         let row = outlineView.row(at: location)
 
@@ -1284,7 +924,7 @@ private extension AppKitSidebarContainerView {
 
     // MARK: - SIL 标签拖拽辅助
 
-    private func silTagsSectionNode() -> SidebarNode? {
+    func silTagsSectionNode() -> SidebarNode? {
         rootNodes.first {
             if case .section(.images) = $0.kind { return true }
             return false
@@ -1324,7 +964,7 @@ private extension AppKitSidebarContainerView {
         }
     }
 
-    private func updateSILDraggingPresentation() {
+    func updateSILDraggingPresentation() {
         guard outlineView.numberOfRows > 0 else { return }
         for row in 0..<outlineView.numberOfRows {
             guard let node = outlineView.item(atRow: row) as? SidebarNode,

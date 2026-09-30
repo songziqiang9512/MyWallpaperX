@@ -23,13 +23,15 @@ def baseline(
     review_limit: int = 400,
     hard_limit: int = 800,
     legacy_files: dict[str, int] | None = None,
+    review_warning_files: dict[str, int] | None = None,
 ) -> dict[str, object]:
     return {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "reviewLineLimit": review_limit,
         "hardLineLimit": hard_limit,
         "sourceRoots": ["MyWallpaperX", "WallpaperDaemonSources"],
         "legacyFiles": legacy_files or {},
+        "reviewWarningFiles": review_warning_files or {},
     }
 
 
@@ -97,8 +99,44 @@ class CodeHealthGateTests(unittest.TestCase):
         self.assertEqual(3, len(errors))
         self.assertTrue(all("ratchet" in message for _, message in errors))
 
+    def test_current_tree_locks_review_warnings_with_directional_ratchet(self) -> None:
+        errors, warnings = GATE.current_tree_findings(
+            baseline(
+                review_warning_files={
+                    "MyWallpaperX/Locked.swift": 850,
+                    "MyWallpaperX/Shrank.swift": 850,
+                    "MyWallpaperX/Grew.swift": 850,
+                    "MyWallpaperX/Resolved.swift": 850,
+                    "MyWallpaperX/Deleted.swift": 850,
+                }
+            ),
+            {
+                "MyWallpaperX/Locked.swift": 850,
+                "MyWallpaperX/Shrank.swift": 849,
+                "MyWallpaperX/Grew.swift": 851,
+                "MyWallpaperX/Resolved.swift": 400,
+            },
+        )
+
+        self.assertEqual(4, len(errors))
+        messages = "\n".join(message for _, message in errors)
+        self.assertIn("shrank from 850 to 849", messages)
+        self.assertIn("grew from its locked review-warning allowance 850 to 851", messages)
+        self.assertIn(
+            "no longer exceeds the 400-line review limit; remove its review-warning entry",
+            messages,
+        )
+        self.assertIn("review-warning entry is stale", messages)
+        locked = [message for path, message in warnings if path == "MyWallpaperX/Locked.swift"]
+        self.assertEqual(1, len(locked))
+        self.assertIn("locked to its review-warning allowance of 850", locked[0])
+        self.assertNotIn("MyWallpaperX/Resolved.swift", {path for path, _ in warnings})
+
     def test_history_rejects_weaker_limits_roots_and_exceptions(self) -> None:
-        previous = baseline(legacy_files={"MyWallpaperX/Legacy.swift": 900})
+        previous = baseline(
+            legacy_files={"MyWallpaperX/Legacy.swift": 900},
+            review_warning_files={"MyWallpaperX/ReviewLocked.swift": 850},
+        )
         current = baseline(
             review_limit=401,
             hard_limit=801,
@@ -106,34 +144,52 @@ class CodeHealthGateTests(unittest.TestCase):
                 "MyWallpaperX/Legacy.swift": 901,
                 "MyWallpaperX/New.swift": 850,
             },
+            review_warning_files={
+                "MyWallpaperX/ReviewLocked.swift": 851,
+                "MyWallpaperX/ReviewNew.swift": 860,
+            },
         )
         current["sourceRoots"] = ["MyWallpaperX"]
 
         problems = GATE.historical_problems(current, previous)
 
-        self.assertEqual(5, len(problems))
+        self.assertEqual(7, len(problems))
         messages = "\n".join(message for _, message in problems)
         self.assertIn("reviewLineLimit increased from 400 to 401", messages)
         self.assertIn("hardLineLimit increased from 800 to 801", messages)
         self.assertIn("source roots cannot be removed", messages)
         self.assertIn("increased from 900 to 901", messages)
         self.assertIn("new legacy exception", messages)
+        self.assertIn(
+            "review-warning allowance for MyWallpaperX/ReviewLocked.swift increased from 850 to 851",
+            messages,
+        )
+        self.assertIn("new review-warning lock is not allowed: MyWallpaperX/ReviewNew.swift", messages)
 
     def test_history_allows_tighter_limits_and_removing_exceptions(self) -> None:
-        previous = baseline(legacy_files={"MyWallpaperX/Legacy.swift": 900})
-        current = baseline(review_limit=350, hard_limit=750)
+        previous = baseline(
+            legacy_files={"MyWallpaperX/Legacy.swift": 900},
+            review_warning_files={"MyWallpaperX/ReviewLocked.swift": 850},
+        )
+        current = baseline(
+            review_limit=350,
+            hard_limit=750,
+            review_warning_files={"MyWallpaperX/ReviewLocked.swift": 800},
+        )
 
         self.assertEqual([], GATE.historical_problems(current, previous))
 
-    def test_schema_two_validates_limits_paths_and_exception_floor(self) -> None:
+    def test_schema_three_validates_limits_paths_and_lock_floors(self) -> None:
         valid = baseline()
         GATE.read_baseline_text(json.dumps(valid), "fixture")
 
         invalid_limits = (
             dict(valid, schemaVersion=True),
+            dict(valid, schemaVersion=4),
             dict(valid, reviewLineLimit=True),
             dict(valid, hardLineLimit=400),
             dict(valid, lineLimit=400),
+            dict(valid, schemaVersion=2),
         )
         for invalid in invalid_limits:
             with self.subTest(invalid=invalid):
@@ -160,6 +216,35 @@ class CodeHealthGateTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             GATE.read_baseline_text(json.dumps(unmanaged), "fixture")
 
+        invalid_review_locks = (
+            dict(valid, reviewWarningFiles="locked"),
+            dict(valid, reviewWarningFiles={"MyWallpaperX/AtReviewLimit.swift": 400}),
+            dict(valid, reviewWarningFiles={"MyWallpaperXTests/Oversized.swift": 500}),
+            dict(
+                valid,
+                legacyFiles={"MyWallpaperX/Legacy.swift": 900},
+                reviewWarningFiles={"MyWallpaperX/Legacy.swift": 500},
+            ),
+        )
+        for invalid in invalid_review_locks:
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValueError):
+                    GATE.read_baseline_text(json.dumps(invalid), "fixture")
+
+    def test_schema_two_is_read_only_migration_input(self) -> None:
+        previous = {
+            "schemaVersion": 2,
+            "reviewLineLimit": 400,
+            "hardLineLimit": 1000,
+            "sourceRoots": ["MyWallpaperX"],
+            "legacyFiles": {"MyWallpaperX/Legacy.swift": 1001},
+        }
+
+        parsed = GATE.read_baseline_text(json.dumps(previous), "fixture")
+
+        self.assertEqual(2, parsed["schemaVersion"])
+        self.assertEqual({}, parsed["reviewWarningFiles"])
+
     def test_schema_one_is_read_only_migration_input(self) -> None:
         previous = {
             "schemaVersion": 1,
@@ -173,6 +258,7 @@ class CodeHealthGateTests(unittest.TestCase):
         self.assertEqual(1, parsed["schemaVersion"])
         self.assertEqual(400, parsed["reviewLineLimit"])
         self.assertIsNone(parsed["hardLineLimit"])
+        self.assertEqual({}, parsed["reviewWarningFiles"])
         self.assertNotIn("lineLimit", parsed)
 
     def test_source_root_membership_uses_path_components(self) -> None:
@@ -189,11 +275,18 @@ class CodeHealthGateTests(unittest.TestCase):
                 "MyWallpaperX/Shrank.swift": 900,
                 "MyWallpaperX/BelowHardLimit.swift": 850,
                 "MyWallpaperX/Deleted.swift": 850,
-            }
+            },
+            review_warning_files={
+                "MyWallpaperX/ReviewResolved.swift": 850,
+                "MyWallpaperX/ReviewShrank.swift": 850,
+                "MyWallpaperX/ReviewDeleted.swift": 850,
+            },
         )
         counts = {
             "MyWallpaperX/Shrank.swift": 875,
             "MyWallpaperX/BelowHardLimit.swift": 800,
+            "MyWallpaperX/ReviewResolved.swift": 400,
+            "MyWallpaperX/ReviewShrank.swift": 820,
         }
 
         with tempfile.TemporaryDirectory() as directory:
@@ -207,6 +300,9 @@ class CodeHealthGateTests(unittest.TestCase):
 
         self.assertEqual(0, result)
         self.assertEqual({"MyWallpaperX/Shrank.swift": 875}, updated["legacyFiles"])
+        self.assertEqual(
+            {"MyWallpaperX/ReviewShrank.swift": 820}, updated["reviewWarningFiles"]
+        )
 
     def test_ratchet_cannot_add_or_expand_hard_limit_exception(self) -> None:
         current = baseline(legacy_files={"MyWallpaperX/Legacy.swift": 900})
@@ -219,6 +315,27 @@ class CodeHealthGateTests(unittest.TestCase):
             result = GATE.ratchet_baseline(current, counts)
 
         self.assertEqual(1, result)
+
+    def test_ratchet_cannot_expand_review_warning_allowance(self) -> None:
+        current = baseline(review_warning_files={"MyWallpaperX/Locked.swift": 850})
+
+        with redirect_stderr(io.StringIO()) as stderr:
+            grew = GATE.ratchet_baseline(current, {"MyWallpaperX/Locked.swift": 851})
+            breached_hard_limit = GATE.ratchet_baseline(
+                current, {"MyWallpaperX/Locked.swift": 1001}
+            )
+
+        self.assertEqual(1, grew)
+        self.assertEqual(1, breached_hard_limit)
+        self.assertIn(
+            "cannot ratchet a review-warning file that grew from 850 to 851",
+            stderr.getvalue(),
+        )
+        self.assertIn(
+            "cannot ratchet a review-warning file that grew from 850 to 1001",
+            stderr.getvalue(),
+        )
+        self.assertNotIn("cannot add a legacy exception", stderr.getvalue())
 
     def test_main_warning_only_succeeds_and_labels_warning(self) -> None:
         arguments = argparse.Namespace(
