@@ -24,6 +24,10 @@ final class AppKitSteamWorkshopBrowserView: NSView {
     private var latestInspectorItem: SteamWorkshopBrowserItem?
     private var isHandlingHostClose = false
     private var isShowingDownloadError = false
+    /// SK-helper-idle-reap：进/出窗通知的配对标志。视图被装入未挂窗层级后移除时
+    /// viewDidMoveToWindow 以 nil→nil 触发（无配对进窗），凭该标志拒绝伪出窗，
+    /// 不偷挂载计数配额。
+    private var isBrowsePanelAttachedToWindow = false
 
     private lazy var gridView = AppKitSteamWorkshopBrowserContainerView(
         service: service,
@@ -59,12 +63,16 @@ final class AppKitSteamWorkshopBrowserView: NSView {
         if window == nil {
             // SK-helper-idle-reap：出窗即「浏览 UI 不活跃」——挂载计数是面板
             // 可见性的唯一 owner（与进窗配对增减）。
+            guard isBrowsePanelAttachedToWindow else { return }
+            isBrowsePanelAttachedToWindow = false
             service.noteBrowsePanelDetached()
             InspectorHostActions.postClose(module: .steamWorkshop)
             service.dismissItemDetail()
             return
         }
 
+        guard !isBrowsePanelAttachedToWindow else { return }
+        isBrowsePanelAttachedToWindow = true
         service.noteBrowsePanelAttached()
         service.prepareForBrowserEntry()
         syncContent(force: true)
