@@ -372,6 +372,9 @@ extension SteamWorkshopService {
                 self.removeTransientRecord(id: request.id)
                 self.reloadInstalledItems()
                 self.downloadProgressStore.clear(itemID: request.id, jobKey: key)
+                // 自然完成不会经过 catch：清掉可能残留的暂停标记（正常暂停流程
+                // 会保留标记等待恢复），防止该 item 重新入队后被自动出队永久跳过。
+                self.pausedDownloadItemIDs.remove(request.id)
                 self.statusMessage = recorded ? "已完成 \(job.title) 下载"
                     : "内容已入库；任务记录保存失败，下次启动将对账。"
                 if recorded, commit.contentType == "scene" {
@@ -387,6 +390,27 @@ extension SteamWorkshopService {
                 if recorded { await self.cleanupTerminalDownload(job.id) }
             } catch {
                 guard self.activeDownloadJobKeysByItemID[request.id] == key else { return }
+                // 暂停：helper 侧 CancelDownload 只收口在途传输、不删 staging。
+                // 这里跳过暂存清理与 .cancelled/.failed 写回，任务带完整恢复
+                // 身份回 queued。暂停标记保留到 resumeDownload 才移除——defer
+                // 的自动出队按 excluding 持续跳过该任务，暂停才得以保持（若在
+                // 此处消费标记，出队会立即断点续传重启，暂停退化为短暂中断）。
+                if self.pausedDownloadItemIDs.contains(request.id) {
+                    if self.downloadJobStore.apply(.paused, toID: job.id) != nil {
+                        self.downloadProgressStore.clear(itemID: request.id, jobKey: key)
+                        self.upsertTransientRecord(
+                            id: request.id,
+                            title: job.title,
+                            status: .queued,
+                            sizeText: self.downloadStatusSizeText(for: request.id)
+                        )
+                        self.statusMessage = "已暂停 \(job.title)，可稍后继续。"
+                        return
+                    }
+                    // .paused 被拒（任务已被并发置终态，如登出 cancelAll）：
+                    // 标记作废，落入下方常规终态处理兜底。
+                    self.pausedDownloadItemIDs.remove(request.id)
+                }
                 var terminalError: Error = error
                 let cancellationShowsFeedback = self.cancellationFeedbackByDownloadJobKey[key] ?? true
                 let wasDurablyCancelled = self.downloadJobStore.job(id: job.id)?.state == .cancelled
@@ -579,7 +603,46 @@ extension SteamWorkshopService {
     func cancelActiveDownload() { cancelDownloadImmediately(showFeedback: true) }
     func cancelDownload(itemID: String) { cancelDownloadImmediately(itemID: itemID, showFeedback: true) }
 
+    /// 用户暂停：helper 侧复用 CancelDownload 收口在途传输；staging 与已下载
+    /// 字节保留，任务回 queued。恢复走 resumeDownload → 既有出队路径。
+    func pauseDownload(itemID: String) {
+        guard let key = activeDownloadJobKeysByItemID[itemID],
+              activeDownloadTasks[key] != nil,
+              let job = downloadJobStore.activeJob(forWorkshopItemId: itemID),
+              job.state == .running,
+              job.accountSteamId == steamAuth.steamId else { return }
+        pausedDownloadItemIDs.insert(itemID)
+        activeDownloadTasks[key]?.cancel()
+        statusMessage = "正在暂停 \(job.title)…"
+    }
+
+    /// 用户恢复：移出暂停集合并推活既有出队路径；下载槽位忙时任务保持
+    /// queued，队首（原序）在下一个空槽自动续跑。旧 Task 仍在收口时拒绝
+    /// 提前恢复，防止标记被消费后落入常规取消兜底（删 staging + .cancelled
+    /// 写回）丢失暂停语义。
+    func resumeDownload(itemID: String) {
+        guard activeDownloadJobKeysByItemID[itemID] == nil,
+              pausedDownloadItemIDs.remove(itemID) != nil else { return }
+        processNextQueuedDownloadIfPossible()
+    }
+
+    func isDownloadPaused(itemID: String) -> Bool {
+        pausedDownloadItemIDs.contains(itemID)
+    }
+
+    /// 用户插队：把 queued 任务调到队首（不改在途任务与状态机终态）。
+    func promoteQueuedDownload(itemID: String) {
+        guard let account = steamAuth.steamId,
+              downloadJobStore.promote(workshopItemId: itemID, forAccount: account) != nil else { return }
+        if let job = downloadJobStore.activeJob(forWorkshopItemId: itemID) {
+            statusMessage = "已将 \(job.title) 调整为下一个下载。"
+        }
+    }
+
     func cancelDownloadImmediately(itemID: String? = nil, showFeedback: Bool) {
+        if let itemID {
+            pausedDownloadItemIDs.remove(itemID)
+        }
         let keys: [String]
         if let itemID {
             if let key = activeDownloadJobKeysByItemID[itemID] {
@@ -641,9 +704,13 @@ extension SteamWorkshopService {
         guard reservedLibraryCopyBytesByJobKey.isEmpty else { return }
 
         // 恢复任务只按当前在线账号出队。无账号时保持队列原样，不制造匿名任务。
+        // 用户暂停中的任务不参与自动出队（resumeDownload 显式接管）。
         guard steamAuth.isOnline, let account = steamAuth.steamId else { return }
         while activeDownloadTasks.count < maximumConcurrentDownloads,
-              let next = downloadJobStore.popNextQueued(forAccount: account) {
+              let next = downloadJobStore.popNextQueued(
+                forAccount: account,
+                excluding: pausedDownloadItemIDs
+              ) {
             let before = activeDownloadTasks.count
             startDownloadRequest(SteamWorkshopPendingDownloadRequest(
                 id: next.workshopItemId,

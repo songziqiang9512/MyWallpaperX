@@ -214,6 +214,7 @@ final class AppKitSteamWorkshopDownloadsView: NSView {
         guard let window else { return }
 
         isShowingDownloadError = true
+        let revisionAtPresentation = service.downloadErrorRevision
         let alert = NSAlert()
         alert.messageText = "下载失败"
         alert.informativeText = message
@@ -222,9 +223,9 @@ final class AppKitSteamWorkshopDownloadsView: NSView {
         alert.beginSheetModal(for: window) { [weak self] _ in
             guard let self else { return }
             self.isShowingDownloadError = false
-            // 弹窗展示期间到达的新失败会覆写 downloadError；仅当仍指向刚呈现的
-            // 这条时才清空，否则关闭后继续呈现下一条，避免并发失败被一并吞掉。
-            if let pending = self.service.downloadError, !pending.isEmpty, pending != message {
+            // 弹窗展示期间到达的新失败会推进失败代数；按代数而非文本判定，
+            // 同根因同文的两条并发失败不再被误判为「无新失败」而吞掉。
+            if self.service.downloadErrorRevision != revisionAtPresentation {
                 self.presentPendingDownloadErrorIfNeeded()
             } else {
                 self.service.downloadError = nil

@@ -54,6 +54,7 @@ final class SteamWorkshopDownloadTasksContentController: NSViewController {
     private var rowsByJobKey: [String: SteamWorkshopDownloadRowView] = [:]
 
     private let countLabel = NSTextField(labelWithString: "")
+    private let retryAllFailedButton = NSButton(title: "重试全部失败", target: nil, action: nil)
     private let clearAllButton = NSButton(title: "全部清除", target: nil, action: nil)
     private let emptyLabel = NSTextField(labelWithString: "")
     private let scrollView = NSScrollView()
@@ -79,10 +80,18 @@ final class SteamWorkshopDownloadTasksContentController: NSViewController {
             root.heightAnchor.constraint(equalToConstant: size.height)
         ])
         countLabel.translatesAutoresizingMaskIntoConstraints = false
+        retryAllFailedButton.translatesAutoresizingMaskIntoConstraints = false
         clearAllButton.translatesAutoresizingMaskIntoConstraints = false
 
         countLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         countLabel.textColor = .secondaryLabelColor
+
+        retryAllFailedButton.bezelStyle = .inline
+        retryAllFailedButton.controlSize = .small
+        retryAllFailedButton.target = self
+        retryAllFailedButton.action = #selector(handleRetryAllFailed)
+        retryAllFailedButton.isEnabled = false
+        retryAllFailedButton.toolTip = "重新下载所有失败任务；已下载的断点数据会被复用"
 
         clearAllButton.bezelStyle = .inline
         clearAllButton.controlSize = .small
@@ -111,6 +120,7 @@ final class SteamWorkshopDownloadTasksContentController: NSViewController {
         scrollView.documentView = documentView
 
         root.addSubview(countLabel)
+        root.addSubview(retryAllFailedButton)
         root.addSubview(clearAllButton)
         root.addSubview(scrollView)
         root.addSubview(emptyLabel)
@@ -120,6 +130,9 @@ final class SteamWorkshopDownloadTasksContentController: NSViewController {
 
             clearAllButton.centerYAnchor.constraint(equalTo: countLabel.centerYAnchor),
             clearAllButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
+
+            retryAllFailedButton.centerYAnchor.constraint(equalTo: countLabel.centerYAnchor),
+            retryAllFailedButton.trailingAnchor.constraint(equalTo: clearAllButton.leadingAnchor, constant: -8),
 
             scrollView.topAnchor.constraint(equalTo: countLabel.bottomAnchor, constant: 10),
             scrollView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
@@ -201,6 +214,7 @@ final class SteamWorkshopDownloadTasksContentController: NSViewController {
         }
 
         countLabel.stringValue = "下载任务 · \(orderedKeys.count) 项"
+        retryAllFailedButton.isEnabled = jobs.contains { $0.state == .failed }
         clearAllButton.isEnabled = jobs.contains { $0.state == .failed } || !summaries.isEmpty
         emptyLabel.isHidden = !orderedKeys.isEmpty
         emptyLabel.stringValue = latestAccountSteamID == nil ? "登录 Steam 后可查看当前账号的下载任务" : "暂无下载任务"
@@ -223,6 +237,19 @@ final class SteamWorkshopDownloadTasksContentController: NSViewController {
         row.widthAnchor.constraint(equalTo: rowsStack.widthAnchor).isActive = true
         configure(row)
         return row
+    }
+
+    @objc private func handleRetryAllFailed() {
+        guard let account = latestAccountSteamID, account == service.steamAuth.steamId,
+              service.steamAuth.isOnline else { return }
+        // 只经 downloadWorkshopItem 的既有重试语义（failed→resumed/started、
+        // 并发满走 enqueue 排队），不逐个 startDownloadRequest，避免并发满时
+        // 把任务置 running 后滞留。
+        for job in SteamWorkshopDownloadTaskProjection.currentJobs(
+            from: service.downloadJobStore.jobs, accountSteamID: account
+        ) where job.state == .failed {
+            service.downloadWorkshopItem(id: job.workshopItemId, pageTitle: job.title)
+        }
     }
 
     @objc private func handleClearAll() {
@@ -252,11 +279,15 @@ final class SteamWorkshopDownloadRowView: NSView {
     private let progressBar = NSLevelIndicator()
     private let clearButton = NSButton(title: "", target: nil, action: nil)
     private let retryButton = NSButton(title: "重试", target: nil, action: nil)
+    private let pauseButton = NSButton(title: "暂停", target: nil, action: nil)
+    private let promoteButton = NSButton(title: "优先", target: nil, action: nil)
     private let actionsStack = NSStackView()
 
     private var job: SteamDownloadJob?
     private var clearHandler: (() -> Void)?
     private var retryHandler: (() -> Void)?
+    private var pauseHandler: (() -> Void)?
+    private var promoteHandler: (() -> Void)?
     private var progressObserver: UUID?
     /// 当前行绑定内容的 workshopItemId；同内容刷新时用于保留封面加载状态。
     private var boundItemID: String?
@@ -322,10 +353,23 @@ final class SteamWorkshopDownloadRowView: NSView {
         retryButton.target = self
         retryButton.action = #selector(handleRetry)
         retryButton.isHidden = true
+        pauseButton.bezelStyle = .rounded
+        pauseButton.controlSize = .small
+        pauseButton.target = self
+        pauseButton.action = #selector(handlePauseToggle)
+        pauseButton.isHidden = true
+        promoteButton.bezelStyle = .rounded
+        promoteButton.controlSize = .small
+        promoteButton.target = self
+        promoteButton.action = #selector(handlePromote)
+        promoteButton.isHidden = true
+        promoteButton.toolTip = "优先下载：将该任务调到队列最前"
         actionsStack.orientation = .horizontal
         actionsStack.spacing = 6
         actionsStack.alignment = .centerY
         actionsStack.translatesAutoresizingMaskIntoConstraints = false
+        actionsStack.addArrangedSubview(promoteButton)
+        actionsStack.addArrangedSubview(pauseButton)
         actionsStack.addArrangedSubview(retryButton)
         actionsStack.addArrangedSubview(clearButton)
         addSubview(actionsStack)
@@ -381,6 +425,8 @@ final class SteamWorkshopDownloadRowView: NSView {
         loadPreviewIfNeeded(itemID: job.workshopItemId)
         clearHandler = makeClearHandler(for: job)
         configureRetry(itemID: job.workshopItemId, title: job.title, account: job.accountSteamId, failed: job.state == .failed)
+        configurePause(for: job)
+        configurePromote(for: job)
         clearButton.isEnabled = clearHandler != nil
     }
 
@@ -400,6 +446,8 @@ final class SteamWorkshopDownloadRowView: NSView {
         }
         clearHandler = makeClearHandler(for: job)
         configureRetry(itemID: job.workshopItemId, title: job.title, account: job.accountSteamId, failed: job.state == .failed)
+        configurePause(for: job)
+        configurePromote(for: job)
         clearButton.isEnabled = clearHandler != nil
     }
 
@@ -477,7 +525,11 @@ final class SteamWorkshopDownloadRowView: NSView {
         lastProgressSequence = -1
         clearHandler = nil
         retryHandler = nil
+        pauseHandler = nil
+        promoteHandler = nil
         retryButton.isHidden = true
+        pauseButton.isHidden = true
+        promoteButton.isHidden = true
     }
 
     private static let dateFormatter: DateFormatter = {
@@ -512,7 +564,13 @@ final class SteamWorkshopDownloadRowView: NSView {
         statusLabel.toolTip = nil
         switch job.state {
         case .queued:
-            status("等待下载 · 队列第 \(job.queueOrdinal) 项", color: .secondaryLabelColor, fraction: nil, indeterminate: false)
+            if service.isDownloadPaused(itemID: job.workshopItemId) {
+                status("已暂停 · 已下载内容已保留", color: .secondaryLabelColor, fraction: nil, indeterminate: false)
+            } else if let position = queuedPosition(for: job) {
+                status("等待下载 · 队列第 \(position) 项", color: .secondaryLabelColor, fraction: nil, indeterminate: false)
+            } else {
+                status("等待下载", color: .secondaryLabelColor, fraction: nil, indeterminate: false)
+            }
         case .running:
             status("正在连接", color: .secondaryLabelColor, fraction: nil, indeterminate: true)
         case .staged, .committing:
@@ -525,6 +583,16 @@ final class SteamWorkshopDownloadRowView: NSView {
         case .cancelled:
             status("已取消", color: .secondaryLabelColor, fraction: nil, indeterminate: false)
         }
+    }
+
+    /// 队列位次按当前账号 queued 集合的 ordinal 排名计算，不直接插值
+    /// queueOrdinal——插队会把它推到 0/负数，原始值不是用户可见位次。
+    private func queuedPosition(for job: SteamDownloadJob) -> Int? {
+        service.downloadJobStore.jobs
+            .filter { $0.state == .queued && $0.accountSteamId == job.accountSteamId }
+            .sorted { $0.queueOrdinal < $1.queueOrdinal }
+            .firstIndex { $0.id == job.id }
+            .map { $0 + 1 }
     }
 
     private func apply(job: SteamDownloadJob, snapshot: SteamWorkshopDownloadProgressSnapshot) {
@@ -575,7 +643,42 @@ final class SteamWorkshopDownloadRowView: NSView {
         } : nil
     }
 
+    /// 暂停/继续按钮：running 行可暂停；暂停中的 queued 行可继续。
+    /// 过期回调由 service 侧的状态守卫兜底（pauseDownload 校验 running、
+    /// resumeDownload 校验暂停集合），行级只保留账号守卫。
+    private func configurePause(for job: SteamDownloadJob) {
+        let itemID = job.workshopItemId
+        let paused = job.state == .queued && service.isDownloadPaused(itemID: itemID)
+        let actionable = (job.state == .running && !paused) || paused
+        pauseButton.isHidden = !actionable
+        pauseButton.title = paused ? "继续" : "暂停"
+        pauseHandler = actionable ? { [weak self] in
+            guard let self, self.service.steamAuth.steamId == job.accountSteamId else { return }
+            if paused {
+                self.service.resumeDownload(itemID: itemID)
+            } else {
+                self.service.pauseDownload(itemID: itemID)
+            }
+        } : nil
+        pauseButton.setAccessibilityLabel("\(paused ? "继续下载" : "暂停下载")：\(job.title)")
+    }
+
+    /// 优先下载：仅未暂停的 queued 行可插队——插队只前移排序、不解除暂停，
+    /// 对暂停行隐藏避免误导读；沿用行级账号守卫。
+    private func configurePromote(for job: SteamDownloadJob) {
+        let promotable = job.state == .queued
+            && !service.isDownloadPaused(itemID: job.workshopItemId)
+        promoteButton.isHidden = !promotable
+        promoteButton.setAccessibilityLabel("优先下载：\(job.title)")
+        promoteHandler = promotable ? { [weak self] in
+            guard let self, self.service.steamAuth.steamId == job.accountSteamId else { return }
+            self.service.promoteQueuedDownload(itemID: job.workshopItemId)
+        } : nil
+    }
+
     @objc private func handleRetry() { retryHandler?() }
+    @objc private func handlePauseToggle() { pauseHandler?() }
+    @objc private func handlePromote() { promoteHandler?() }
 
     /// 「已下载 / 总大小」；总大小未知时只显示已下载。
     private func sizeText(snapshot: SteamWorkshopDownloadProgressSnapshot) -> String {

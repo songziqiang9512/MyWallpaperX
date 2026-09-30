@@ -421,16 +421,19 @@ extension SteamWorkshopService {
         case .details:
             return items
         case .author:
+            // 服务端无作者来源 tag 能力：分面由客户端后筛执行。
             return steamKitApplyKeyTagFilters(items, key: key)
         case .discovery:
-            return steamKitApplyKeyTagFilters(items, key: key)
+            // 分面筛选已随请求以 tagGroups 服务端执行（见 fetch 的 queryBrowse
+            // 组装）；tags 为 helper 必返字段，客户端后筛不是兜底，双筛已删除。
+            return items
         case .personal:
             return steamKitPersonalPostProcess(items)
         }
     }
 
-    /// 内容分类组内 OR，与其他分面 AND；所有 route 共享最终过滤。
-    /// 分面筛选（面内 OR、跨面 AND）统一在此执行。
+    /// 内容分类组内 OR，与其他分面 AND；author/personal route 的客户端过滤。
+    /// discovery route 不经过此处（服务端 taggroups 单层执行）。
     private func steamKitApplyKeyTagFilters(
         _ items: [SteamWorkshopQueryItem],
         key: SteamKitBrowseStore.Key

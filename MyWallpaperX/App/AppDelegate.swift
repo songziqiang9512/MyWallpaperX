@@ -106,7 +106,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  return
  }
 #endif
- // 启动时先隐藏 Dock 图标，再按"先播放链路、后主窗口"的顺序把界面拉起来。
+ // 启动时先隐藏 Dock 图标，再按"先播放链路、后主窗口"的顺序把界面拉起来
+ // （激活门判定 isPlaying 或 scene 意图已在途）。
  MainMenuBuilder.installMainMenu()
  MainWindowCoordinator.setDockIconVisible(false)
  // 注册本地 Help Book，确保帮助菜单能找到文档。
@@ -127,9 +128,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  guard let self, self.statusBarController == nil else { return }
  self.statusBarController = StatusBarController()
  }
- // daemon 预热（best-effort）：启动 3 秒后孵化热 daemon，真实 Scene 切换
- // 复用热 transport；失败静默、不重试、零可见状态。warmSession 自带守卫
- // （已有热 transport / 已有 pending intent 时跳过）。
+ // daemon 预热（best-effort）：下载完成通知无条件孵化；启动 3 秒的兜底
+ // 孵化带使用面守卫——仅 scene/web 运行时或存在工坊回放身份时预热，
+ // video/systemStill 用户不再孵化常驻 daemon（两信号 WallpaperManager
+ // init 已装载，零额外 IO）。失败静默、不重试、零可见状态。warmSession
+ // 自带守卫（已有热 transport / 已有 pending intent 时跳过）。
  NotificationCenter.default.addObserver(
      forName: .steamWorkshopSceneDownloadCompleted,
      object: nil,
@@ -139,6 +142,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  }
  DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
      guard self != nil else { return }
+     let manager = WallpaperManager.shared
+     let runtime = manager.activeWallpaperRuntime
+     let hasWorkshopRecord =
+         manager.lastWorkshopPlaybackRecordID.map { !$0.isEmpty } ?? false
+     guard runtime == .scene || runtime == .web || hasWorkshopRecord else {
+         return
+     }
      SceneDaemonClient.shared.warmSession()
  }
  }
@@ -182,6 +192,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
  func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
  // 点击 Dock 图标/重新打开时直接激活主窗口，不重新走启动分支。
+ // 初始激活被跳过（如 DEBUG 隔离运行）时在此兜底补跑延后的整库扫描；
+ // 已补跑过则为 no-op。
+ SteamWorkshopService.shared.performStartupLibraryReloadIfNeeded()
  MainWindowCoordinator.activateMainWindow()
  return true
  }
@@ -220,12 +233,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  /// SteamWorkshopService.setAsWallpaper 统一入口（依赖检查/资源生命
  /// 周期/通知发射全复用）；退出前暂停的意图随启动投影（scene 侧
  /// isPaused 记录 + replay 补发，web 侧引擎在 host ready 后补暂停）。
+ /// 记录经 installedRecordForLaunchReplay 快路径定向构造——工坊 service
+ /// init 已不再同步整库扫描，这里只为重放这一条记录付 IO；miss 仍走
+ /// 既有降级路径。
  private func replayWorkshopLaunchIfPlanned() {
  guard let plan = WallpaperManager.shared.consumeWorkshopLaunchReplayPlan() else {
  return
  }
  let workshop = SteamWorkshopService.shared
- if let record = workshop.downloadRecord(for: plan.recordID),
+ if let record = workshop.installedRecordForLaunchReplay(itemID: plan.recordID),
  record.contentType == .web || record.contentType == .scene {
  workshop.setAsWallpaper(record)
  if plan.restorePausedIntent {
@@ -239,14 +255,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  )
  }
 
- // 启动分阶段：优先让壁纸播放链路起稳，再激活主窗口，降低冷启动"同时抢占"造成的卡顿感。
+ /// 工坊整库扫描延后补跑：主窗口激活后让出一轮 runloop（首帧先起），
+ /// 再执行完整 reloadInstalledItems()。补跑前 downloads 投影只含重放快
+ /// 路径并入的单条记录；菜单验证在工坊下载页之外短路，下载页另有
+ /// viewDidMoveToWindow 的空投影自愈重载，均不依赖此处先行完成。
+ private func performDeferredStartupLibraryReload() {
+ DispatchQueue.main.async {
+ SteamWorkshopService.shared.performStartupLibraryReloadIfNeeded()
+ }
+ }
+
+ // 启动分阶段：优先让壁纸播放链路起稳（isPlaying，或 scene 意图已在
+ // 途），再激活主窗口，降低冷启动"同时抢占"造成的卡顿感。
  private func scheduleInitialMainWindowActivation() {
  #if DEBUG
  if DebugWebPlaybackRunner.shouldSuppressInitialMainWindow {
  return
  }
  #endif
- // 启动分阶段：先让播放引擎稳定，再激活主窗口，减少冷启动时 UI 和 daemon 同时争抢资源。
+ // 启动分阶段：先让播放引擎稳定（isPlaying 或 scene 意图在途），再激
+ // 活主窗口，减少冷启动时 UI 和 daemon 同时争抢资源。
  pendingInitialWindowOpen?.cancel()
 
  let launchStart = CACurrentMediaTime()
@@ -257,8 +285,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  guard NSApp.isRunning else { return }
 
  let elapsed = CACurrentMediaTime() - launchStart
- if WallpaperEngine.shared.isPlaying() || elapsed >= timeout {
+ // scene 意图在启动重放同步链内置位（warmSession 只预热不置 intent，
+ // 不会误触发）；意图在途即视为播放链路已起稳，不再等满 timeout。
+ let sceneIntentInFlight = SceneDaemonClient.shared.pendingIntent != nil
+     || SceneDaemonClient.shared.activeIntent != nil
+ if WallpaperEngine.shared.isPlaying() || sceneIntentInFlight || elapsed >= timeout {
  MainWindowCoordinator.activateMainWindow()
+ performDeferredStartupLibraryReload()
  return
  }
 

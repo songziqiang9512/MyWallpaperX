@@ -247,6 +247,7 @@ final class SteamWorkshopService: ObservableObject {
             guard let self else { return }
             self.cancelDownloadImmediately(showFeedback: false)
             // SK4.1：队列真值在 JobStore——取消全部任务并清理对应投影。
+            self.pausedDownloadItemIDs.removeAll()
             for workshopID in self.downloadJobStore.cancelAll() {
                 self.removeTransientRecord(id: workshopID)
                 self.steamJobItemPayloads.removeValue(forKey: workshopID)
@@ -274,7 +275,13 @@ final class SteamWorkshopService: ObservableObject {
     @Published var isDownloadsMultiSelectMode = false
     @Published var selectedDownloadID: String?
     @Published var selectedDownloadIDs: Set<String> = []
-    @Published var downloadError: String?
+    /// F15 残留修复：失败提示以代数而非文本区分——并发同根因的两条同文
+    /// 失败也会各自推进 revision，弹窗完成回调按 revision 判定续播/清空，
+    /// 不再依赖「文本不同 = 新失败」。
+    @Published var downloadError: String? {
+        didSet { downloadErrorRevision += 1 }
+    }
+    private(set) var downloadErrorRevision = 0
     @Published var selectedDownloadInspectorItem: SteamWorkshopBrowserItem?
     @Published var selectedDownloadDetailItem: SteamWorkshopBrowserItem?
     @Published var selectedBrowserItem: SteamWorkshopBrowserItem?
@@ -326,6 +333,10 @@ final class SteamWorkshopService: ObservableObject {
     var activeDownloadJobKeysByItemID: [String: String] = [:]
     var activeDownloadTasks: [String: Task<Void, Never>] = [:]
     var cancellationFeedbackByDownloadJobKey: [String: Bool] = [:]
+    /// steam-ux-0：用户暂停中的下载 itemID（会话内，不持久化、不新增状态枚举）。
+    /// 暂停任务以 queued 状态保留完整 staging 恢复身份；出队跳过本集合，
+    /// 恢复即移出并复用既有出队路径。重启后按普通 queued 任务自然续跑。
+    var pausedDownloadItemIDs: Set<String> = []
     var reservedLibraryCopyBytesByJobKey: [String: Int64] = [:]
     let downloadProgressStore = SteamWorkshopDownloadProgressStore()
     let steamLibraryVersionLeaseRegistry = SteamWorkshopLibraryVersionLeaseRegistry()
@@ -378,7 +389,10 @@ final class SteamWorkshopService: ObservableObject {
         if !isIsolatedWebSampleRun {
             restoreSavedSteamSessionIfAuthorized()
         }
-        reloadInstalledItems()
+        // 整库扫描（recoverPublications + 三库枚举 + 每条 project.json 读取）
+        // 不再在 init 同步执行：启动重放只需要单条记录（走
+        // installedRecordForLaunchReplay 快路径），完整扫描由装配层在主窗口
+        // 激活后经 performStartupLibraryReloadIfNeeded 补跑。
         refreshDisplayedDownloads()
         // Public discovery is demand-loaded by prepareForBrowserEntry(). Keep
         // local-library startup free of helper/network work; an authorized
@@ -387,6 +401,44 @@ final class SteamWorkshopService: ObservableObject {
         installLaunchPendingObservers()
         observeSteamAccountIdentityForPersonalSources()
         installHelperIdleReaping()
+    }
+
+    /// 启动重放单记录快路径：按 itemID 定向读取已发布元数据
+    /// （publishedMetadata(matchingItemID:) 只读索引里那一条 JSON），复用与
+    /// 整库扫描相同的 buildInstalledRecord 构造该条安装记录。命中时把记录
+    /// 并入 downloads 投影，重放窗口内 latestDownloadRecord 等既有消费方
+    /// （web 网络桥解析、跨引擎轮换）照常工作；miss（未发布/不可用/未安装）
+    /// 返回 nil，由调用方走既有降级路径。带依赖项的记录经既有目录回退解析，
+    /// 不要求整库快照。
+    func installedRecordForLaunchReplay(itemID: String) -> SteamWorkshopDownloadRecord? {
+        let snapshots = (try? loadManagedDownloadSnapshots(
+            requireComplete: false,
+            matchingItemID: itemID
+        )) ?? [:]
+        guard let snapshot = snapshots[itemID],
+              let commit = snapshot.commit,
+              SteamWorkshopLibraryTransaction.isAvailable(commit, libraryRoot: steamDownloadLibraryRootURL),
+              let record = buildInstalledRecord(from: snapshot, legacyDirectory: snapshot.legacyFolderURL,
+                  fallbackProject: nil, fallbackIdentifier: snapshot.item.id,
+                  managedSnapshots: [itemID: snapshot]) else {
+            return nil
+        }
+        if latestDownloadRecord(for: itemID) == nil {
+            downloads = (downloads + [record]).sorted { $0.updatedAt > $1.updatedAt }
+        }
+        return record
+    }
+
+    /// 完整整库扫描补跑开关：init 已不再同步扫描，装配层在主窗口激活让出
+    /// 首帧后调用本方法补跑一次；先到者赢，重复调用为 no-op。工坊下载页
+    /// viewDidMoveToWindow 的 downloadsCount==0 自愈重载走 reloadInstalledItems
+    /// 原入口、不经本开关，极端竞态下最多多跑一次整库扫描，无正确性影响。
+    private var isStartupLibraryReloadPending = true
+
+    func performStartupLibraryReloadIfNeeded() {
+        guard isStartupLibraryReloadPending else { return }
+        isStartupLibraryReloadPending = false
+        reloadInstalledItems()
     }
 
     private static func isolatedDebugDefaultsSuiteName() -> String? {

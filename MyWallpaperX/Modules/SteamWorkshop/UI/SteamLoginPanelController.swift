@@ -21,6 +21,9 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     private var auth: SteamAuthRoute?
     private var cancellables = Set<AnyCancellable>()
     private var loginTask: Task<Void, Never>?
+    /// steam-ux-1：本面板正在做「恢复上次登录」的静默尝试；用于把成功/失败
+    /// 文案与普通扫码/密码登录区分。任何手动登录动作都会复位。
+    private var isRestoringSavedSession = false
 
     private let panelView = SteamLoginPanelView()
     private var modeSegment: NSSegmentedControl { panelView.modeSegment }
@@ -156,6 +159,8 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
             // 会话；新登录在 helper 侧顶替旧会话，成功后 steamId/accountName 更新。
             showPage(.password)
             setStatus("当前已登录 \(auth.accountName ?? "Steam 账号")；重新登录将切换账号。")
+        } else if let saved = Self.restorableSavedSession(for: auth) {
+            startSilentRestore(saved)
         } else {
             startQRLogin()
         }
@@ -242,19 +247,32 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
             window?.makeFirstResponder(codeField)
         case .online:
             // §3.3：Keychain 保存失败必须可见，不伪报已保存——面板不自动关闭。
+            let wasSilentRestore = isRestoringSavedSession
+            isRestoringSavedSession = false
             if auth?.tokenSaveResult == .failed {
                 showPage(.completed)
-                setStatus("本次会话可正常使用。")
+                setStatus(wasSilentRestore ? "已恢复上次登录，但 Keychain 保存失败。" : "本次会话可正常使用。")
             } else {
+                if wasSilentRestore {
+                    // 与启动静默恢复同源的服务级状态提示（restore 不重写令牌，
+                    // 正常不会进入 tokenSaveResult == .failed 分支）。
+                    SteamWorkshopService.shared.statusMessage = "已恢复 Steam 登录。"
+                }
                 window?.close()
             }
         case .failed(_, let message):
+            let wasSilentRestore = isRestoringSavedSession
+            isRestoringSavedSession = false
             if modeSegment.selectedSegment == 0 {
                 zoomWindow?.close()
                 panelView.setQRImage(nil)
                 panelView.stopQRLoading()
             }
-            setStatus("登录未完成：\(message)")
+            if wasSilentRestore {
+                setRestoreFailureStatus()
+            } else {
+                setStatus("登录未完成：\(message)")
+            }
             loginButton.isEnabled = true
         }
     }
@@ -280,9 +298,10 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         cancelThenStart { [weak self] in self?.startQRLogin() }
     }
 
-    /// 本地先失效，远端异步取消不会影响新 attempt。
+    /// 本地先失效，远端异步取消不会影响新 attempt。手动登录动作终止静默恢复。
     private func cancelThenStart(_ run: @escaping () -> Void) {
         loginTask?.cancel()
+        isRestoringSavedSession = false
         guard let auth else { return }
         auth.cancelPendingAuthentication()
         run()
@@ -305,6 +324,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         setStatus("")
         loginButton.isEnabled = false
         loginTask?.cancel()
+        isRestoringSavedSession = false
         auth.cancelPendingAuthentication()
         loginTask = Task { [weak self] in
             do {
@@ -333,7 +353,71 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
 
     // MARK: - 登录启动
 
+    /// steam-ux-1：断线后打开面板的一次性静默恢复资格。connectionLost 只清
+    /// 内存 tokens、不删 Keychain；此后打开面板不再被迫从头扫码——检测
+    /// 「未在线 + phase 为 network 失败 + 记住登录且 Keychain 仍持有已授权
+    /// 令牌」，命中即复用既有 restore 路径。
+    private static func restorableSavedSession(
+        for auth: SteamAuthRoute
+    ) -> SteamWorkshopTokenStore.Payload? {
+        guard !auth.isOnline, !auth.expired,
+              case .failed(let code, _) = auth.phase, code == "network",
+              UserDefaults.standard.bool(forKey: SteamWorkshopTokenStore.rememberPreferenceKey),
+              SteamWorkshopTokenStore.isRestoreAuthorized,
+              let saved = SteamWorkshopTokenStore.load(),
+              !saved.refreshToken.isEmpty,
+              !saved.steamId.isEmpty else { return nil }
+        return saved
+    }
+
+    /// 静默恢复挂 loginTask，继承「关闭面板即取消」合同（§3.2）。成功经
+    /// apply(.online) 关窗；失败按既有 disposition 分流文案（明确拒绝已删
+    /// 令牌 → 重新扫码；网络失败保留令牌 → 可手动扫码或稍后重试），不自动
+    /// 无限重启。安全前提：显式传 saved.steamId，恢复到不同账号由 auth 层
+    /// 拒绝并清理令牌。
+    private func startSilentRestore(_ saved: SteamWorkshopTokenStore.Payload) {
+        guard let auth else { return }
+        isRestoringSavedSession = true
+        modeSegment.setSelected(true, forSegment: 0)
+        showPage(.qr)
+        setStatus("正在恢复上次登录…")
+        loginTask?.cancel()
+        loginTask = Task { [weak self] in
+            do {
+                _ = try await auth.restore(
+                    refreshToken: saved.refreshToken,
+                    accountName: saved.accountName,
+                    expectedSteamId: saved.steamId
+                )
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    guard let self, let window = self.window, window.isVisible else { return }
+                    self.panelView.stopQRLoading()
+                    // 文案兜底：phase sink 的 apply(.failed) 已用同源文案时
+                    // setStatus 幂等；该 sink 不再到达时由这里保证提示可见。
+                    self.setRestoreFailureStatus()
+                }
+            }
+        }
+    }
+
+    /// 恢复失败文案（按 disposition 分流）：expired = 明确拒绝（令牌已删）；
+    /// 其余按 keepToken 处理（令牌保留，网络原因下次再试）。
+    private func setRestoreFailureStatus() {
+        if auth?.expired == true {
+            setStatus("保存的登录已失效，请重新扫码登录。")
+        } else {
+            setStatus("暂时无法恢复上次登录（网络原因）；已保留登录信息，可扫码登录或稍后重试。")
+        }
+    }
+
     private func resetForNewAttempt() {
+        // 面板新会话一律清掉上一轮静默恢复残留（如恢复期间窗口被关闭、
+        // phase sink 未消费标志的情况），避免普通登录误用恢复文案。
+        isRestoringSavedSession = false
         setStatus("")
         loginButton.isEnabled = true
         rememberCheck.state = UserDefaults.standard.bool(forKey: SteamWorkshopTokenStore.rememberPreferenceKey)

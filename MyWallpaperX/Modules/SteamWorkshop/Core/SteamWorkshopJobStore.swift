@@ -79,6 +79,11 @@ enum SteamDownloadJobEvent: Equatable {
     case resourcesReleased
     case started
     case resumed
+    /// 用户暂停：running → queued，保留完整恢复身份（staging/manifest/lease），
+    /// 已下载字节不清。恢复复用既有出队路径（.started 保留 queued 的恢复身份）。
+    case paused
+    /// 用户插队：仅调整队列序，不改状态与恢复身份。
+    case promoted(ordinal: Int)
     case stagingAllocated(
         path: String,
         manifestId: String,
@@ -139,6 +144,16 @@ enum SteamDownloadJobReducer {
             next.failureMessage = nil
             next.receipt = nil
             next.preparedCommit = nil
+        case .paused:
+            // 暂停不新增持久化状态枚举：任务回 queued 并完整保留恢复身份，
+            // 重启后按普通 queued 任务经 .started 复用断点续传。
+            guard job.state == .running else { return nil }
+            next.state = .queued
+        case .promoted(let ordinal):
+            // 多次插队使 ordinal 递减为负无碍：出队取 min、恢复取 max、
+            // 新入队取 max+1，min/max 语义均不受负值影响。
+            guard job.state == .queued else { return nil }
+            next.queueOrdinal = ordinal
         case .stagingAllocated(let path, let manifestId, let leaseIdentity):
             guard job.state == .running, path.hasPrefix("/"), !path.utf8.contains(0),
                   leaseIdentity.isComplete,
@@ -381,14 +396,32 @@ final class SteamDownloadJobStore: ObservableObject {
         return (job, true)
     }
 
-    /// 出队：当前账号的最早入队 queued 任务（账号隔离）。
-    func popNextQueued(forAccount accountSteamId: String?) -> SteamDownloadJob? {
+    /// 出队：当前账号的最早入队 queued 任务（账号隔离）。`excluding` 为用户
+    /// 暂停中的 workshopItemId——暂停任务不参与自动出队，由显式恢复接管。
+    func popNextQueued(
+        forAccount accountSteamId: String?,
+        excluding itemIDs: Set<String> = []
+    ) -> SteamDownloadJob? {
         let candidate = jobs
             .filter { $0.state == .queued }
             .filter { accountSteamId == nil || $0.accountSteamId == accountSteamId }
+            .filter { !itemIDs.contains($0.workshopItemId) }
             .min { $0.queueOrdinal < $1.queueOrdinal }
         guard let candidate else { return nil }
         return apply(.started, toID: candidate.id)
+    }
+
+    /// 用户插队：把目标 queued 任务调到当前最小 ordinal 之前并持久化发布。
+    /// 目标已是队首时同样前移一位（幂等无副作用）；经 reducer 单一迁移路径。
+    @discardableResult
+    func promote(workshopItemId: String, forAccount accountSteamId: String?) -> SteamDownloadJob? {
+        guard let job = jobs.first(where: {
+            $0.workshopItemId == workshopItemId && $0.state == .queued
+                && (accountSteamId == nil || $0.accountSteamId == accountSteamId)
+        }), let currentMin = jobs.filter({ $0.state == .queued }).map(\.queueOrdinal).min() else {
+            return nil
+        }
+        return apply(.promoted(ordinal: currentMin - 1), toID: job.id)
     }
 
     /// 事件应用：reducer 拒绝的迁移返回 nil；成功则替换并持久化。
