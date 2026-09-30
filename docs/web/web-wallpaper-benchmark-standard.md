@@ -21,8 +21,10 @@
 
 - `runtime.profile`：样本进入 Web runtime，并确定运行 profile。
 - `host.ready`：宿主完成属性回放、输入转发和可播放态建立。
+- `webcontent.recovery*`（`webcontent.recovery` / `.succeeded` / `.failed` / `.exhausted`）：WebContent 终止后的恢复尝试、结果与冷却预算耗尽，只在宿主生命周期排障时作为证据读取。
 - `navigation.finish`：WebKit 完成导航。
-- `resource.*` / `local-resource-*` / `loopback.resource.*`：资源读取、映射和跨源访问问题。
+- `navigation.blocked`：宿主按策略取消或转交主框架导航。它是策略执行事实，不是导航失败（失败看 `navigation.fail` / `navigation.error`），也不表示页面已经切走；`httpLoopback` 档的项目内部链接同样按取消处理。
+- `resource.*` / `local-resource-*` / `loopback.resource.*` / `network.proxy*`（`network.proxy` / `.denied` / `.too-large` / `.error` / `.overloaded`）：资源读取与映射问题，以及跨域 fetch/XHR 代理的放行、拒绝、超限与失败。
 - `properties.*`：Wallpaper Engine Web 属性桥接状态。
 - `media.*` / `audio.*`：媒体与音频能力状态。声明 `audio-spectrum` 的样本还必须有 listener 注册、128-bin 分发和连续帧变化证据。
 - `pointer.*` / `wheel.*`：输入转发状态。
@@ -57,9 +59,9 @@
 评测工具按以下类别归因：
 
 - `launch`：样本未找到、App 未启动、未进入 Web 链路。
-- `host_runtime`：缺 `host.ready`、宿主失败、进程异常退出。
-- `navigation`：导航失败或评测窗口内缺 `navigation.finish`。
-- `resource_mapping`：本地 scheme / loopback / 文件映射错误。
+- `host_runtime`：缺 `host.ready`、宿主失败、进程异常退出；`webcontent.recovery*` 只作为该类别与崩溃排查的证据，本身不加分减分。
+- `navigation`：导航失败或评测窗口内缺 `navigation.finish`。通过证据只有 `navigation.finish`；`navigation.blocked` 是宿主策略执行，不计入导航失败。
+- `resource_mapping`：本地 scheme / loopback / 文件映射错误，前缀为 `resource.error` / `local-resource-error` / `local-resource-deny` / `loopback.resource.error` / `fetch.error`。`network.proxy*` 不在该前缀清单内：跨域代理失败当前只进报告证据（`event_counts` 与 raw error 行），要按短板归因必须先给工具补映射。
 - `sample_resource`：样本自身缺文件、远端依赖失败、可选探测资源缺失。
 - `properties`：属性桥接错误、属性回放跳过或 partial fallback。
 - `media_audio`：媒体、音频播放或 AudioContext 恢复问题。
