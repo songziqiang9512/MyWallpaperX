@@ -76,6 +76,9 @@ final class WebWallpaperLocalSchemeHandler: NSObject, WKURLSchemeHandler {
     /// 让路径/符号链接判定与受控根判定的过期窗口保持在交付窗口量级。
     static let resolveCacheTTL: TimeInterval = 0.25
     static let resolveCacheCapacity = 512
+    /// 已交付 CSS 诊断去重集合的条目上限：满时清空重录，
+    /// 未信任页面循环制造唯一 query 键也无法无界累积。
+    static let servedDiagnosticURLsCapacity = 512
 
     /// 不可变，供 +Resolve 复用。
     let rootURL: URL
@@ -213,6 +216,10 @@ final class WebWallpaperLocalSchemeHandler: NSObject, WKURLSchemeHandler {
         let key = requestURL.absoluteString
         guard servedDiagnosticURLs.contains(key) == false else {
             return false
+        }
+        // 未信任页面可以持续制造唯一 query 键，集合必须有硬上限。
+        if servedDiagnosticURLs.count >= Self.servedDiagnosticURLsCapacity {
+            servedDiagnosticURLs.removeAll()
         }
         servedDiagnosticURLs.insert(key)
         return true
