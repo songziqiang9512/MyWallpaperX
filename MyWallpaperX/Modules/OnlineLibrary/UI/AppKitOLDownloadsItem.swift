@@ -260,6 +260,7 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem {
         thumbnailTask = nil
         currentEntryID = -1
         thumbnailView.image = nil
+        placeholderLabel.stringValue = "加载中..."
         placeholderLabel.isHidden = false
         titleLabel.stringValue = ""
         metaLabel.stringValue = ""
@@ -314,6 +315,10 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem {
                     OLDownloadedThumbnailCache.shared.store(image, for: id)
                     item.thumbnailView.image = image
                     item.placeholderLabel.isHidden = true
+                } else {
+                    // 生成失败（损坏/不支持的编码）：结束加载态，呈现静态失败文案，
+                    // 避免占位符永远停留「加载中...」。
+                    item.showThumbnailFailureState()
                 }
             }
         }
@@ -327,6 +332,14 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem {
         let time = CMTime(seconds: 0.5, preferredTimescale: 600)
         guard let (cgImage, _) = try? await generator.image(at: time) else { return nil }
         return NSImage(cgImage: cgImage, size: .zero)
+    }
+
+    /// 缩略图生成失败态：占位文案替换为失败提示并重新排版居中。
+    /// 此卡片没有加载动画可停（placeholder 是静态 label），文案即失败态本体。
+    private func showThumbnailFailureState() {
+        placeholderLabel.stringValue = "无法生成预览"
+        placeholderLabel.isHidden = false
+        view.needsLayout = true
     }
 
     private func buildViewHierarchy() {

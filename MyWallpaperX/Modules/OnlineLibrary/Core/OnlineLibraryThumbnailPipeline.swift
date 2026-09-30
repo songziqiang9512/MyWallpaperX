@@ -3,6 +3,7 @@
 //  MyWallpaperX — Modules/OnlineLibrary/Core
 //
 
+import AppKit
 import Foundation
 
 nonisolated enum OLThumbnailRequestPriority: Sendable {
@@ -178,6 +179,14 @@ actor OLThumbnailCache {
         c.totalCostLimit = 60 * 1024 * 1024
         return c
     }()
+    /// 解码结果缓存：网格卡片每次进入视口都会对同一 URL 请求缩略图，
+    /// 缓存解码后的 NSImage 避免重复解析 JPEG（压缩数据仍由 memCache/磁盘缓存）
+    private let decodedImageCache: NSCache<NSString, NSImage> = {
+        let c = NSCache<NSString, NSImage>()
+        c.countLimit = 120
+        c.totalCostLimit = 64 * 1024 * 1024
+        return c
+    }()
 
     private init() {
         Task { await self.evictExpired() }
@@ -204,6 +213,36 @@ actor OLThumbnailCache {
         memCache.setObject(data as NSData, forKey: key, cost: data.count)
         let file = cacheFile(for: url)
         try? data.write(to: file, options: .atomic)
+    }
+
+    // MARK: 解码结果缓存
+
+    /// 取解码后的缩略图（解码缓存 → 数据缓存后台解码）；返回 nil 表示无可用数据或解码失败
+    func cachedImage(for url: URL) async -> NSImage? {
+        let key = url.absoluteString as NSString
+        if let img = decodedImageCache.object(forKey: key) { return img }
+        guard let data = cachedData(for: url),
+              let img = await Self.decode(data) else { return nil }
+        decodedImageCache.setObject(img, forKey: key, cost: Self.decodedImageCost(img))
+        return img
+    }
+
+    /// 写入数据缓存并返回后台解码结果；解码失败不写缓存（与旧「先解码后入缓存」行为一致）
+    func storeAndDecode(data: Data, for url: URL) async -> NSImage? {
+        guard let img = await Self.decode(data) else { return nil }
+        store(data: data, for: url)
+        decodedImageCache.setObject(img, forKey: url.absoluteString as NSString, cost: Self.decodedImageCost(img))
+        return img
+    }
+
+    /// 解码统一放后台，避免占住调用方线程（主线程或 actor 执行器）
+    private static func decode(_ data: Data) async -> NSImage? {
+        await Task.detached(priority: .utility, operation: { NSImage(data: data) }).value
+    }
+
+    private static func decodedImageCost(_ image: NSImage) -> Int {
+        guard let rep = image.representations.first else { return 0 }
+        return max(1, rep.pixelsWide * rep.pixelsHigh * 4)
     }
 
     /// 删除 7 天前的缓存文件

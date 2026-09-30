@@ -28,7 +28,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
     private var isMultiSelectMode = false
     private var lastComputedColumns: Int = 3
     private var lastAppliedSnapshotIDs: [Int] = []
-    private var suppressDownloadedIDsReload = false
+    private var deletionBatchReloadGeneration: Int?
     private var isLayoutItemSizeUpdateScheduled = false
     private var pendingPostDeletionSelectionIndex: Int?
     private var reloadEntriesTask: Task<Void, Never>?
@@ -55,7 +55,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         return []
     }
 
-    private var primarySelectedID: Int? {
+    var primarySelectedID: Int? {
         selectedAnchorID ?? selectedIDs.first
     }
 
@@ -168,6 +168,11 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         OnlineDownloadsBridge.shared.container = self
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
+        // 容器每次切换模块都会重建：从 WallpaperManager 的可查询状态恢复正在播放条目，
+        // 不依赖 setAsWallpaper 时一次性事件的重放（事件不重放，切走再切回会丢角标）。
+        currentPlayingNormalizedPath = WallpaperManager.shared.effectiveCurrentWallpaper.map {
+            normalizedPath($0.path)
+        }
 
         collectionView.collectionViewLayout = flowLayout
         collectionView.dataSource = dataSource
@@ -213,7 +218,13 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         OnlineLibraryService.shared.$downloadedIDs
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                guard let self, !self.suppressDownloadedIDsReload else { return }
+                guard let self else { return }
+                // 删除批次已用显式 reloadEntries 推进代数；其后经 receive(on:) 异步
+                // 抵达的 @Published 变更若已被该轮扫描覆盖，就不再各起一轮目录扫描。
+                if let generation = self.deletionBatchReloadGeneration,
+                   self.reloadEntriesGeneration != generation {
+                    return
+                }
                 self.reloadEntries()
             }
             .store(in: &cancellables)
@@ -319,9 +330,11 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         reloadEntriesTask?.cancel()
         reloadEntriesGeneration += 1
         let generation = reloadEntriesGeneration
-        reloadEntriesTask = Task.detached(priority: .userInitiated) {
+        // 弱引用持有 self：容器可在扫描运行中被释放，deinit 的 cancel 才能真正
+        // 取消后台扫描，而不是被 task 的强持有反过来钉住延迟释放。
+        reloadEntriesTask = Task.detached(priority: .userInitiated) { [weak self] in
             let loaded = await Self.loadEntries(in: dir, sortMode: sortMode, sortAscending: sortAscending)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, let self else { return }
             await MainActor.run {
                 guard self.reloadEntriesGeneration == generation else { return }
                 self.entries = loaded
@@ -481,14 +494,22 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         let all = entries
         let currentIndex = all.firstIndex { $0.id == (primarySelectedID ?? targets.first!) } ?? 0
         pendingPostDeletionSelectionIndex = currentIndex
-        suppressDownloadedIDsReload = true
+        // 记录删除前的 reload 代数：删除引发的 @Published 变更经 receive(on:) 异步
+        // 投递，布尔标志等不到它们抵达，代计数才能与显式 reloadEntries 对齐。
+        let batchGeneration = reloadEntriesGeneration
+        deletionBatchReloadGeneration = batchGeneration
         for id in targets {
             guard let entry = entriesByID[id] else { continue }
             let local = OLLocalFile(url: entry.localURL, fileSize: 0, creationDate: Date())
             OnlineLibraryService.shared.deleteLocalFile(local)
         }
-        suppressDownloadedIDsReload = false
         reloadEntries()
+        // deleteLocalFile 在主线程同步发射，删除产生的投递都排在下面这个异步块之前；
+        // 排空后关闭窗口，之后的无关变更照常触发重载。
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.deletionBatchReloadGeneration == batchGeneration else { return }
+            self.deletionBatchReloadGeneration = nil
+        }
     }
 
     func showInfo() {

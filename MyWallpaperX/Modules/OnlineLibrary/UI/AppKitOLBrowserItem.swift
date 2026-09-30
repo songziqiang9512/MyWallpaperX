@@ -342,8 +342,8 @@ final class AppKitOLBrowserItem: NSCollectionViewItem {
         guard let url else { return }
         let id = currentItemID
         thumbnailTask = Task { [weak self] in
-            if let cached = await OLThumbnailCache.shared.cachedData(for: url),
-               let img = NSImage(data: cached) {
+            // 命中/未命中两路径统一走缓存的后台解码，避免在主线程重复解码同一份 JPEG
+            if let img = await OLThumbnailCache.shared.cachedImage(for: url) {
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
                     guard let self, self.currentItemID == id else { return }
@@ -355,7 +355,7 @@ final class AppKitOLBrowserItem: NSCollectionViewItem {
             }
             guard !Task.isCancelled else { return }
             guard let data = await OLThumbnailRequestCoordinator.shared.loadData(from: url, priority: .visible),
-                  let img = await Task.detached(priority: .utility, operation: { NSImage(data: data) }).value else {
+                  let img = await OLThumbnailCache.shared.storeAndDecode(data: data, for: url) else {
                 await MainActor.run {
                     guard let self, self.currentItemID == id else { return }
                     self.spinner.stopAnimation(nil)
@@ -363,7 +363,6 @@ final class AppKitOLBrowserItem: NSCollectionViewItem {
                 return
             }
             guard !Task.isCancelled else { return }
-            await OLThumbnailCache.shared.store(data: data, for: url)
             await MainActor.run {
                 guard let self, self.currentItemID == id else { return }
                 self.thumbnailView.image = img

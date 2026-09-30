@@ -169,8 +169,11 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
             .sink { [weak self] _ in self?.reloadVisibleItems() }
             .store(in: &cancellables)
 
+        // 进度发布高频（节流后单任务约每 200ms 一次，多任务并发时叠加），
+        // 合并为每 200ms 至多一次可见卡片刷新
         service.$downloadProgressByID
             .receive(on: DispatchQueue.main)
+            .throttle(for: .milliseconds(200), scheduler: DispatchQueue.main, latest: true)
             .sink { [weak self] _ in self?.reloadVisibleItems() }
             .store(in: &cancellables)
 

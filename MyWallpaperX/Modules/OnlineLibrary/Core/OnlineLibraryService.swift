@@ -15,6 +15,12 @@ private final class OLDownloadTaskDelegate: NSObject, URLSessionDownloadDelegate
     let progressHandler: @MainActor (Double) -> Void
     let completion: (Result<URL, Error>) -> Void
     private var finished = false
+    /// 进度节流：didWriteData 每个 tick 都会回调，直发会驱动网格全量刷新；
+    /// 只在距上次发出 ≥ 最小间隔、或百分比步进 ≥ 最小步进、或到达 100% 时发出。
+    private static let progressEmitInterval: TimeInterval = 0.2
+    private static let progressEmitStep = 0.02
+    private var lastEmittedProgress: Double?
+    private var lastEmittedAt: TimeInterval = 0
 
     init(
         expectedBytes: Int64,
@@ -36,6 +42,16 @@ private final class OLDownloadTaskDelegate: NSObject, URLSessionDownloadDelegate
         let total = totalBytesExpectedToWrite > 0 ? totalBytesExpectedToWrite : expectedBytes
         guard total > 0 else { return }
         let progress = min(1.0, max(0.0, Double(totalBytesWritten) / Double(total)))
+        // URLSession 默认 delegate queue 串行回调，节流状态无需加锁（与 finished 同一假设）
+        let now = ProcessInfo.processInfo.systemUptime
+        if let last = lastEmittedProgress,
+           now - lastEmittedAt < Self.progressEmitInterval,
+           progress - last < Self.progressEmitStep,
+           progress < 1.0 {
+            return
+        }
+        lastEmittedProgress = progress
+        lastEmittedAt = now
         Task { @MainActor in
             self.progressHandler(progress)
         }
@@ -355,7 +371,8 @@ final class OnlineLibraryService: ObservableObject {
             let delegate = OLDownloadTaskDelegate(
                 expectedBytes: expectedBytes ?? 0,
                 progressHandler: { [weak self] progress in
-                    self?.downloadProgressByID[itemID] = progress
+                    guard let self, self.downloadProgressByID[itemID] != progress else { return }
+                    self.downloadProgressByID[itemID] = progress
                 },
                 completion: { result in
                     continuation.resume(with: result)

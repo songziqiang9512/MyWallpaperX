@@ -30,6 +30,7 @@ final class OnlineDownloadsBridge {
     var isMultiSelectMode: Bool { container?.isMultiSelectModeEnabled ?? false }
     var hasAnyItems: Bool { container?.hasAnyItems ?? false }
     var selectedCount: Int { container?.selectedCount ?? 0 }
+    var primarySelectedID: Int? { container?.primarySelectedID }
 
     func refreshToolbar() {
         toolbarController?.refreshDownloadsToolbarState()
@@ -103,6 +104,12 @@ final class OLDownloadsQuickLookController: NSObject, QLPreviewPanelDataSource, 
         case 123, 124, 125, 126: // Arrows
             OnlineDownloadsBridge.shared.moveSelection(event.keyCode)
             panel.reloadData()
+            // 网格选择已移动，把新选中项同步进预览面板，保证预览画面跟随方向键浏览。
+            if let id = OnlineDownloadsBridge.shared.primarySelectedID,
+               let index = previewIDs.firstIndex(of: id) {
+                activeIndex = index
+                panel.currentPreviewItemIndex = index
+            }
             return true
         case 53: // ESC
             close()
