@@ -4,7 +4,8 @@ using System.Text.Json;
 namespace SteamService;
 
 // SK1.1 离线协议自检：golden 消息 + 帧/脱敏/terminal 合同的全部正反例。
-// 运行：dotnet SteamService.dll selftest protocol <fixturesDir>；stdout 输出 JSON 行。
+// 运行：dotnet SteamService.dll selftest protocol [fixturesDir]；stdout 输出 JSON 行。
+// fixturesDir 缺省按仓库根解析（见 ResolveDefaultFixturesDir）。
 // 泄密反例的哨兵值从 golden fixture 的 private 包装动态提取，源码不含凭据形状字面量。
 internal static class ProtocolSelfTest
 {
@@ -14,7 +15,7 @@ internal static class ProtocolSelfTest
     {
         var fixturesDir = args.Length > 0
             ? args[0]
-            : Path.Combine("..", "script", "tests", "fixtures", "steam-protocol");
+            : ResolveDefaultFixturesDir();
         var checks = new List<CheckResult>();
         void Check(string name, bool ok, string detail = "") => checks.Add(new CheckResult(name, ok, detail));
 
@@ -26,6 +27,33 @@ internal static class ProtocolSelfTest
         Check("error-codes-match-fixture",
             fixtureCodes.SequenceEqual(ProtocolErrorCodes.Codes),
             $"fixture={fixtureCodes.Length} code={ProtocolErrorCodes.Codes.Length}");
+
+        // 1.1 命令分类表与 commands.json 一致：C# 侧三列 control / asyncDispatch /
+        // helperEpochEntryGate 做相等断言（Swift 专属两列不在本端断言）；不一致时
+        // 以「命令: 属性 fixture=X code=Y」点名。
+        using var commandsDoc = JsonDocument.Parse(File.ReadAllText(Path.Combine(fixturesDir, "commands.json")));
+        var fixtureCommands = commandsDoc.RootElement.GetProperty("commands").EnumerateObject()
+            .ToDictionary(property => property.Name, property => property.Value);
+        var controlMismatches = ClassifyMismatches(
+            fixtureCommands, "control", ProtocolLimits.IsControlCommand,
+            ProtocolLimits.ControlCommands);
+        Check("commands-control-match-fixture", controlMismatches.Count == 0,
+            controlMismatches.Count == 0
+                ? $"{ProtocolLimits.ControlCommands.Count} commands"
+                : string.Join("; ", controlMismatches));
+        var asyncMismatches = ClassifyMismatches(
+            fixtureCommands, "asyncDispatch", Program.AsyncCommands.Contains, Program.AsyncCommands);
+        Check("commands-async-dispatch-match-fixture", asyncMismatches.Count == 0,
+            asyncMismatches.Count == 0
+                ? $"{Program.AsyncCommands.Count} commands"
+                : string.Join("; ", asyncMismatches));
+        var epochGateMismatches = ClassifyMismatches(
+            fixtureCommands, "helperEpochEntryGate", Program.EpochEntryGateCommands.Contains,
+            Program.EpochEntryGateCommands);
+        Check("commands-epoch-entry-gate-match-fixture", epochGateMismatches.Count == 0,
+            epochGateMismatches.Count == 0
+                ? $"{Program.EpochEntryGateCommands.Count} commands"
+                : string.Join("; ", epochGateMismatches));
 
         // 2. 正向 golden 请求全部可解码。
         var requests = ReadLines(Path.Combine(fixturesDir, "requests.jsonl"));
@@ -294,6 +322,49 @@ internal static class ProtocolSelfTest
     private static string[] ReadLines(string path) => File.ReadAllLines(path)
         .Where(line => line.Trim().Length > 0)
         .ToArray();
+
+    // 缺省 fixture 目录按仓库根解析：从 CWD 与程序目录向上定位
+    // script/tests/fixtures/steam-protocol，使 selftest 可在仓库根直接运行。
+    private static string ResolveDefaultFixturesDir()
+    {
+        foreach (var start in new[] { Environment.CurrentDirectory, AppContext.BaseDirectory })
+        {
+            for (var dir = Path.GetFullPath(start); dir is not null; dir = Path.GetDirectoryName(dir))
+            {
+                var candidate = Path.Combine(dir, "script", "tests", "fixtures", "steam-protocol");
+                if (Directory.Exists(candidate)) return candidate;
+            }
+        }
+        return Path.Combine("..", "script", "tests", "fixtures", "steam-protocol");
+    }
+
+    // fixture 单命令属性与 C# 分类表双向比对：正向按命令逐个断言；codeCommands
+    // 给出时反向捕捉 code 侧新增而 fixture 缺命令（control/asyncDispatch/
+    // helperEpochEntryGate 三列均可枚举，双向闭合）。
+    private static List<string> ClassifyMismatches(
+        IReadOnlyDictionary<string, JsonElement> fixtureCommands,
+        string propertyName,
+        Func<string, bool> codeClassifier,
+        IEnumerable<string>? codeCommands = null)
+    {
+        var mismatches = new List<string>();
+        foreach (var (command, properties) in fixtureCommands)
+        {
+            var fixtureValue = properties.GetProperty(propertyName).GetBoolean();
+            var codeValue = codeClassifier(command);
+            if (fixtureValue != codeValue)
+            {
+                mismatches.Add($"{command}: {propertyName} fixture={fixtureValue} code={codeValue}");
+            }
+        }
+        if (codeCommands is not null)
+        {
+            mismatches.AddRange(codeCommands
+                .Where(command => !fixtureCommands.ContainsKey(command))
+                .Select(command => $"{command}: {propertyName} missing from fixture"));
+        }
+        return mismatches;
+    }
 
     private static string Truncate(string text) => text.Length <= 48 ? text : text[..48] + "…";
 }

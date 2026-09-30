@@ -18,9 +18,15 @@ internal static class ProtocolLimits
     public const int MaxFrameBytes = 1 * 1024 * 1024;
     public const int MaxPendingRequests = 256;
     public const int ReservedControlRequests = 8;
-    public static bool IsControlCommand(string command) => command is
-        "shutdown" or "logout" or "cancelAuthentication" or "cancelDownload"
-            or "acknowledgeDownloadStaging" or "submitChallenge";
+    // control 命令可枚举清单：与 commands.json 的 control 列做双向相等断言的
+    // C# 侧事实源（本端新增 control 命令时自检强制同步 fixture，消除单向盲区）。
+    // 准入行为经 IsControlCommand 消费（TryAccept(control:true) 提升上限），成员不变。
+    public static readonly HashSet<string> ControlCommands = new()
+    {
+        "shutdown", "logout", "cancelAuthentication", "cancelDownload",
+        "acknowledgeDownloadStaging", "submitChallenge",
+    };
+    public static bool IsControlCommand(string command) => ControlCommands.Contains(command);
     public const int RequestTimeoutSeconds = 30;
     public const int ConnectTimeoutSeconds = 12;
     public const int QueryTimeoutSeconds = 15;

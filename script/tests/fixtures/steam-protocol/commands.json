@@ -1,0 +1,40 @@
+{
+  "comment": "Steam NDJSON 协议命令分类的双端单一事实源（快照于 2026-09-30，忠实记录双端代码当前实际分类，不是理想分类）。消费方式照 error-codes.json 先例：产品代码持内联分类表，三端自检/金测与 fixture 做相等断言；任何分类变化先改双端代码，再同步本 fixture，同批提交。",
+  "propertySemantics": {
+    "control": "命令享受保留准入容量，双端清单一致。C#：ProtocolLimits.IsControlCommand（SteamService/Protocol.cs）在 TerminalTracker.TryAccept(control:true) 时上限从 maxPendingRequests(256) 提到 +ReservedControlRequests(8)；Swift：isControl（MyWallpaperX/Modules/SteamWorkshop/Core/SteamServiceClient.swift）本地容量守卫同样按 maxPendingRequests+8 计算。语义：teardown/取消类命令在业务槽占满时仍可进入。",
+    "asyncDispatch": "仅 C#：命令属 AsyncCommands（SteamService/Program.cs），主循环 dispatch 时不为该 requestId 预占 terminal 槽，terminal 由会话完成时发送；入参校验失败在 dispatch 内经 TryBegin 补发唯一 terminal。cancelDownload 属此路径但在 dispatch 内同步收口——成员资格表达『不经主循环预占』的路由事实，不是耗时长短。Swift 无对应物：客户端统一等待唯一 terminal。",
+    "helperEpochEntryGate": "仅 C#：命令在 Program.cs 的账号 epoch 入口表内，请求必须携带能推进 helper 当前账号 epoch 的 accountEpoch（AdvanceAccountEpoch 要求严格递增，并取消在途认证、重置连接），否则入口直接以 cancelled/'stale account epoch' 拒绝。",
+    "swiftAccountScoped": "仅 Swift：请求出站时捕获 accountEpoch 并绑定 pending；账号 epoch 变化、result 回包 epoch 不匹配或 ok 回包缺 epoch 时，该 pending 以 cancelled 失败（SteamServiceClient.swift）。调用方可传 awaitRemoteTerminalAcrossAccountEpochChanges=true 显式退出绑定。语义：客户端侧对陈旧账号在途工作的废立防线。",
+    "anonymousRecoverable": "仅 Swift：helper 处于 terminated 状态时，该命令的显式请求可直接恢复（重启）helper（anonymousReadCommands，SteamServiceClient.swift）。账号、变更、下载与控制类命令必须经既有 intent/session owner 进入，不得借查询请求复活 helper。"
+  },
+  "commands": {
+    "ping": { "control": false, "asyncDispatch": false, "helperEpochEntryGate": false, "swiftAccountScoped": false, "anonymousRecoverable": false },
+    "shutdown": { "control": true, "asyncDispatch": false, "helperEpochEntryGate": false, "swiftAccountScoped": false, "anonymousRecoverable": false },
+    "submitChallenge": { "control": true, "asyncDispatch": false, "helperEpochEntryGate": false, "swiftAccountScoped": false, "anonymousRecoverable": false },
+    "cancelAuthentication": { "control": true, "asyncDispatch": false, "helperEpochEntryGate": false, "swiftAccountScoped": false, "anonymousRecoverable": false },
+    "acknowledgeDownloadStaging": { "control": true, "asyncDispatch": false, "helperEpochEntryGate": false, "swiftAccountScoped": true, "anonymousRecoverable": false },
+    "logout": { "control": true, "asyncDispatch": false, "helperEpochEntryGate": true, "swiftAccountScoped": false, "anonymousRecoverable": false },
+    "loginPassword": { "control": false, "asyncDispatch": true, "helperEpochEntryGate": true, "swiftAccountScoped": true, "anonymousRecoverable": false },
+    "loginQR": { "control": false, "asyncDispatch": true, "helperEpochEntryGate": true, "swiftAccountScoped": true, "anonymousRecoverable": false },
+    "restoreSession": { "control": false, "asyncDispatch": true, "helperEpochEntryGate": true, "swiftAccountScoped": true, "anonymousRecoverable": false },
+    "queryBrowse": { "control": false, "asyncDispatch": true, "helperEpochEntryGate": false, "swiftAccountScoped": false, "anonymousRecoverable": true },
+    "queryDetails": { "control": false, "asyncDispatch": true, "helperEpochEntryGate": false, "swiftAccountScoped": false, "anonymousRecoverable": true },
+    "queryAuthor": { "control": false, "asyncDispatch": true, "helperEpochEntryGate": false, "swiftAccountScoped": false, "anonymousRecoverable": true },
+    "listSubscriptions": { "control": false, "asyncDispatch": true, "helperEpochEntryGate": false, "swiftAccountScoped": true, "anonymousRecoverable": false },
+    "listFavorites": { "control": false, "asyncDispatch": true, "helperEpochEntryGate": false, "swiftAccountScoped": true, "anonymousRecoverable": false },
+    "querySubscriptionStates": { "control": false, "asyncDispatch": true, "helperEpochEntryGate": false, "swiftAccountScoped": true, "anonymousRecoverable": false },
+    "setSubscription": { "control": false, "asyncDispatch": true, "helperEpochEntryGate": false, "swiftAccountScoped": true, "anonymousRecoverable": false },
+    "startDownload": { "control": false, "asyncDispatch": true, "helperEpochEntryGate": false, "swiftAccountScoped": true, "anonymousRecoverable": false },
+    "cancelDownload": { "control": true, "asyncDispatch": true, "helperEpochEntryGate": false, "swiftAccountScoped": false, "anonymousRecoverable": false }
+  },
+  "intentionalAsymmetries": [
+    "logout：C# 入口 epoch 门=有（logout 帧必须携带严格递增的 accountEpoch，陈旧帧被入口拒绝）；Swift accountScoped=无。理由：Swift 的 signOut 与恢复失配流程都是先把 client.accountEpoch +1 再发 logout——logout 是推进 epoch 的操作本身，若按 epoch 绑定 pending，会被随后任何 epoch 变更取消，导致 helper 侧账号状态泄漏；C# 门的作用是在协议入口拒绝陈旧 logout 帧。",
+    "listSubscriptions/listFavorites/querySubscriptionStates/setSubscription/startDownload/acknowledgeDownloadStaging：Swift 侧绑 accountEpoch（客户端陈旧防线），C# 侧无入口拒绝，accountEpoch 仅作为数据透传进会话并回显在 result 中；陈旧判定由客户端比对回包 epoch 完成。若要 helper 侧入口拒绝，属批次②的行为决策，不是 fixture 记录错误。",
+    "cancelDownload：C# AsyncCommands 成员，但 terminal 在 dispatch 内同步收口；见 asyncDispatch 语义。",
+    "loginPassword/loginQR/restoreSession：双端都不是 control（不享受保留准入容量）——业务槽占满时认证入口可被 rateLimited，而 teardown 命令仍可进入。双端一致，记录为当前真值；是否有意留给批次②裁决。"
+  ],
+  "notes": [
+    "分类现场（当前真值来源）：C# ProtocolLimits.ControlCommands（可枚举清单，IsControlCommand 由它派生；SteamService/Protocol.cs）、Program.AsyncCommands、账号 epoch 入口表与两个 dispatch switch（SteamService/Program.cs）；Swift anonymousReadCommands、accountScoped、isControl（MyWallpaperX/Modules/SteamWorkshop/Core/SteamServiceClient.swift）。",
+    "Swift 对 startDownload 另有 requiredCapability 门（download-cdn-auth-retry-v1），属能力门不属于命令分类，未入表。"
+  ]
+}

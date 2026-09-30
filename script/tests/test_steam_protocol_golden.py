@@ -6,6 +6,7 @@ golden 文件是 C# 与 Swift 两侧协议实现的单一事实源：
 - requests.jsonl / responses.jsonl：正向 envelope 形状
 - negative-frames.jsonl：必须被拒绝的帧（自描述期望错误）
 - error-codes.json：错误码 taxonomy 单一事实源
+- commands.json：命令分类表单一事实源（产品内联副本的相等锚）
 
 运行：python3.12 -B script/tests/test_steam_protocol_golden.py
 """
@@ -20,6 +21,13 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = REPOSITORY_ROOT / "script/tests/fixtures/steam-protocol"
 
 ALLOWED_TYPES = {"request", "result", "event", "ready"}
+COMMAND_PROPERTIES = (
+    "control",
+    "asyncDispatch",
+    "helperEpochEntryGate",
+    "swiftAccountScoped",
+    "anonymousRecoverable",
+)
 SECRET_KEYS = {
     "access_token",
     "accesstoken",
@@ -58,6 +66,7 @@ def secret_keys_in(node: object, path: str = "", inside_private: bool = False) -
 class SteamProtocolGoldenTests(unittest.TestCase):
     def setUp(self) -> None:
         self.codes = json.loads((FIXTURES / "error-codes.json").read_text(encoding="utf-8"))["codes"]
+        self.commands = json.loads((FIXTURES / "commands.json").read_text(encoding="utf-8"))
         self.requests = [json.loads(line) for line in load_jsonl("requests.jsonl")]
         self.responses = [json.loads(line) for line in load_jsonl("responses.jsonl")]
         self.negatives = [json.loads(line) for line in load_jsonl("negative-frames.jsonl")]
@@ -71,6 +80,23 @@ class SteamProtocolGoldenTests(unittest.TestCase):
         self.assertEqual(len(self.codes), len(set(self.codes)))
         self.assertIn("protocolMismatch", self.codes)
         self.assertIn("network", self.codes)
+
+    def test_command_taxonomy_single_source(self) -> None:
+        """commands.json 结构自洽：18 命令 × 5 布尔属性，语义表覆盖全部属性。"""
+        taxonomy = self.commands["commands"]
+        self.assertEqual(len(taxonomy), 18)
+        self.assertEqual(len(set(taxonomy)), 18)
+        for name, properties in taxonomy.items():
+            self.assertTrue(name)
+            self.assertEqual(set(properties), set(COMMAND_PROPERTIES), name)
+            for key, value in properties.items():
+                self.assertIsInstance(value, bool, f"{name}.{key}")
+        self.assertEqual(set(self.commands["propertySemantics"]), set(COMMAND_PROPERTIES))
+
+    def test_golden_requests_use_known_commands(self) -> None:
+        """golden 请求中的命令都必须在分类表内（两份 fixture 交叉自洽）。"""
+        for frame in self.requests:
+            self.assertIn(frame["command"], self.commands["commands"])
 
     def test_golden_requests_follow_envelope(self) -> None:
         self.assertGreaterEqual(len(self.requests), 4)

@@ -5,14 +5,17 @@ namespace SteamService;
 
 internal sealed class ProtocolWriter
 {
+    // 序列化选项不可变且线程安全，提为静态缓存；配置与逐次构造完全一致（WhenWritingNull）。
+    private static readonly JsonSerializerOptions serializerOptions = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+
     private readonly object gate = new();
 
     public void Send(object payload)
     {
-        var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
-        {
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        });
+        var json = JsonSerializer.Serialize(payload, serializerOptions);
         lock (gate) { Console.Out.WriteLine(json); Console.Out.Flush(); }
     }
 
@@ -53,12 +56,20 @@ internal static class Program
     // §6 服务循环：有界帧读取 → envelope 解码 → 命令 dispatch 分离。
     // 解析失败/超长帧有界关闭，不锁死；terminal 每 requestId 至多一个。
     // 异步命令（认证 + 查询族）的 terminal 由会话在完成时发送，循环不预占 requestId。
-    private static readonly HashSet<string> AsyncCommands = new()
+    // 分类事实源：script/tests/fixtures/steam-protocol/commands.json（asyncDispatch）。
+    internal static readonly HashSet<string> AsyncCommands = new()
     {
         "loginPassword", "loginQR", "restoreSession",
         "queryBrowse", "queryDetails", "queryAuthor",
         "listSubscriptions", "listFavorites", "querySubscriptionStates",
         "setSubscription", "startDownload", "cancelDownload",
+    };
+
+    // 账号 epoch 入口表：这些命令必须携带严格递增的 accountEpoch，否则入口 cancelled 拒绝。
+    // 分类事实源：commands.json（helperEpochEntryGate）；自检做相等断言。
+    internal static readonly HashSet<string> EpochEntryGateCommands = new()
+    {
+        "loginPassword", "loginQR", "restoreSession", "logout",
     };
 
     private static readonly SteamSession steamSession = new(writer, terminals);
@@ -114,7 +125,7 @@ internal static class Program
                     writer.Send(ProtocolMessages.ResultError(requestId, "rateLimited", "request capacity exceeded", 1));
                 continue;
             }
-            if (decode.Command is "loginPassword" or "loginQR" or "restoreSession" or "logout")
+            if (EpochEntryGateCommands.Contains(decode.Command!))
             {
                 if (decode.AccountEpoch is not { } epoch || !steamSession.AdvanceAccountEpoch(epoch))
                 {
