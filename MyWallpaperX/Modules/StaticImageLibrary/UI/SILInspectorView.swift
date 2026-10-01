@@ -267,22 +267,18 @@ final class SILInspectorView: NSView {
         )
         wallpaperButton.isEnabled = FileManager.default.fileExists(atPath: wallpaper.path)
         let revealButton = SILInspectorViews.makeFooterButton(
-            title: "",
+            title: "查看文件",
             symbolName: "folder.fill",
             target: self,
             action: #selector(revealInFinder)
         )
-        revealButton.setAccessibilityLabel("查看文件")
-        revealButton.toolTip = "查看文件"
         let tagButton = SILInspectorViews.makeFooterButton(
-            title: "",
+            title: "添加标签",
             symbolName: "tag",
             target: self,
             action: #selector(presentTagPicker)
         )
         tagButton.isEnabled = !SILService.shared.silTags.isEmpty
-        tagButton.setAccessibilityLabel("添加标签")
-        tagButton.toolTip = "添加标签"
 
         let buttonGroup = NSView()
         buttonGroup.translatesAutoresizingMaskIntoConstraints = false
@@ -298,10 +294,8 @@ final class SILInspectorView: NSView {
             buttonGroup.topAnchor.constraint(equalTo: stack.topAnchor),
             buttonGroup.bottomAnchor.constraint(equalTo: stack.bottomAnchor),
 
-            // 主按钮与视频库面板的「设为壁纸」同款宽度（面板 368 − 4 内边距
-            // 平分两键 ≈ 179；此处 356 面板取 172 保持同量级主宽度）。
+            // 三键同宽平均铺满面板总宽度，键间距 6pt 与既有脚注一致。
             wallpaperButton.leadingAnchor.constraint(equalTo: buttonGroup.leadingAnchor),
-            wallpaperButton.widthAnchor.constraint(equalToConstant: 172),
             wallpaperButton.topAnchor.constraint(equalTo: buttonGroup.topAnchor),
             wallpaperButton.bottomAnchor.constraint(equalTo: buttonGroup.bottomAnchor),
             wallpaperButton.heightAnchor.constraint(equalToConstant: InspectorFooterMetrics.height),
@@ -312,13 +306,13 @@ final class SILInspectorView: NSView {
             revealButton.heightAnchor.constraint(equalToConstant: InspectorFooterMetrics.height),
 
             tagButton.leadingAnchor.constraint(equalTo: revealButton.trailingAnchor, constant: 6),
+            tagButton.trailingAnchor.constraint(equalTo: buttonGroup.trailingAnchor),
             tagButton.topAnchor.constraint(equalTo: buttonGroup.topAnchor),
             tagButton.bottomAnchor.constraint(equalTo: buttonGroup.bottomAnchor),
             tagButton.heightAnchor.constraint(equalToConstant: InspectorFooterMetrics.height),
-            // 次级两键为纯图标：宽度取图标键规格，图标由按钮内部居中；
-            // 链条在主按钮之后左排，不钉 buttonGroup 右缘。
-            revealButton.widthAnchor.constraint(equalToConstant: InspectorFooterMetrics.iconWidth),
-            tagButton.widthAnchor.constraint(equalToConstant: InspectorFooterMetrics.iconWidth)
+
+            wallpaperButton.widthAnchor.constraint(equalTo: revealButton.widthAnchor),
+            revealButton.widthAnchor.constraint(equalTo: tagButton.widthAnchor)
         ])
         return stack
     }
