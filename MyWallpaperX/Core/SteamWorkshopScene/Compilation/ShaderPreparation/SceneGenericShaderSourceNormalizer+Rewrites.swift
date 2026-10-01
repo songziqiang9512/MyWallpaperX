@@ -388,11 +388,9 @@ extension SceneGenericShaderSourceNormalizer {
     /// GLSL ES accepts implicit scalar conversions in some authors' compilers,
     /// while glslang's Vulkan frontend requires an explicit conversion. An
     /// integer target assigned a float-bearing expression (declaration or
-    /// plain assignment) truncates through `int(...)` - the same rounding
-    /// the lenient compilers performed - and a comparison keeps that
-    /// truncation only when the declared-type table proves its left
-    /// operand int/uint; any other comparison keeps its authored operands,
-    /// which are legal under the emitted #version 450.
+    /// plain assignment) truncates through `int(...)`. Comparisons are not
+    /// assignments: GLSL 4.50 sections 4.1.10 and 5.9 promote integer/float
+    /// operands to a common type, preserving fractional bounds.
     /// Compound assignments keep their ambiguous promotion semantics and
     /// stay fail-closed; the type facts come from the shared declared-type
     /// table so local declarations and shapes are treated alike.
@@ -404,9 +402,6 @@ extension SceneGenericShaderSourceNormalizer {
         let intNames = types.compactMap { name, type in
             ["int", "uint"].contains(type) && !conflicted.contains(name)
                 ? name : nil
-        }
-        let floatNames = types.compactMap { name, type in
-            type == "float" && !conflicted.contains(name) ? name : nil
         }
         let lexical = SceneAuthoredShaderLexer.lex(source: source, stage: .fragment)
         guard lexical.diagnostics.isEmpty, !intNames.isEmpty else { return source }
@@ -534,37 +529,6 @@ extension SceneGenericShaderSourceNormalizer {
             result.replaceSubrange(lower..<upper, with: edit.text)
         }
 
-        guard !floatNames.isEmpty else { return result }
-        let floatIdentPattern = floatNames.map(NSRegularExpression.escapedPattern)
-            .joined(separator: "|")
-        let comparisonRegex = try! NSRegularExpression(pattern:
-            #"\b([A-Za-z_][A-Za-z0-9_]*)\s*(<=|>=|<|>)\s*("#
-                + floatIdentPattern
-                + #")\b"#
-        )
-        for match in comparisonRegex.matches(
-            in: result,
-            range: NSRange(result.startIndex..., in: result)
-        ).reversed() {
-            guard let leftRange = Range(match.range(at: 1), in: result),
-                  let valueRange = Range(match.range(at: 3), in: result) else {
-                continue
-            }
-            // The truncation is the integer-domain semantics of the same
-            // rule: only a left operand the declared-type table proves
-            // int/uint keeps it. A float/float comparison is legal under
-            // the emitted #version 450 and must keep its authored operands
-            // (wrapping the right side there would flip the comparison);
-            // the right operand alone is rewritten through its captured
-            // range so a left identifier containing the right name cannot
-            // corrupt through a whole-expression text replace.
-            let left = String(result[leftRange])
-            guard let leftType = types[left],
-                  !conflicted.contains(left),
-                  ["int", "uint"].contains(leftType) else { continue }
-            let value = String(result[valueRange])
-            result.replaceSubrange(valueRange, with: "int(\(value))")
-        }
         return result
     }
 

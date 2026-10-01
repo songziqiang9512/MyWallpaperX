@@ -48,6 +48,7 @@ GLSLANG = (
 
 HARNESS = r'''
 import Foundation
+import Metal
 
 private struct Output: Codable {
     let checks: [String: Bool]
@@ -98,17 +99,69 @@ private struct ScalarVectorBuiltInHarness {
         ).fragment
     }
 
+    private static func render(_ path: String) throws -> [Float] {
+        let device = MTLCreateSystemDefaultDevice()!
+        let fragment = try device.makeLibrary(source: String(contentsOfFile: path, encoding: .utf8), options: nil)
+        let vertex = try device.makeLibrary(source: """
+        #include <metal_stdlib>
+        using namespace metal;
+        vertex float4 testVertex(uint id [[vertex_id]]) {
+            const float2 p[3] = {float2(-1, -1), float2(3, -1), float2(-1, 3)};
+            return float4(p[id], 0, 1);
+        }
+        """, options: nil)
+        let descriptor = MTLRenderPipelineDescriptor()
+        descriptor.vertexFunction = vertex.makeFunction(name: "testVertex")
+        descriptor.fragmentFunction = fragment.makeFunction(name: "comparisonFragment")
+        descriptor.colorAttachments[0].pixelFormat = .rgba32Float
+        let pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
+        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba32Float, width: 1, height: 1, mipmapped: false
+        )
+        textureDescriptor.storageMode = .shared
+        textureDescriptor.usage = [.renderTarget]
+        let texture = device.makeTexture(descriptor: textureDescriptor)!
+        let queue = device.makeCommandQueue()!
+        var pixels: [Float] = []
+        for _ in 0..<2 {
+            let pass = MTLRenderPassDescriptor()
+            pass.colorAttachments[0].texture = texture
+            pass.colorAttachments[0].loadAction = .clear
+            pass.colorAttachments[0].storeAction = .store
+            let command = queue.makeCommandBuffer()!
+            let encoder = command.makeRenderCommandEncoder(descriptor: pass)!
+            encoder.setRenderPipelineState(pipeline)
+            encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+            encoder.endEncoding()
+            command.commit()
+            command.waitUntilCompleted()
+            guard command.status == .completed else {
+                throw NSError(domain: "shader-pixel-completion", code: 1)
+            }
+            var pixel = [Float](repeating: 0, count: 4)
+            pixel.withUnsafeMutableBytes {
+                texture.getBytes($0.baseAddress!, bytesPerRow: 16,
+                                 from: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0)
+            }
+            pixels.append(contentsOf: pixel)
+        }
+        return pixels
+    }
+
     static func main() throws {
+        if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--render" {
+            FileHandle.standardOutput.write(try JSONEncoder().encode(render(CommandLine.arguments[2])))
+            return
+        }
         if CommandLine.arguments.count > 1 {
             let statement = CommandLine.arguments[1]
             let extraDeclarations: [String] =
                 CommandLine.arguments.count > 2
                 ? [CommandLine.arguments[2]]
                 : []
-            let source = fragment(
-                statement,
-                declarations: ["uniform vec2 g_Ratio;"] + extraDeclarations
-            )
+            let source = CommandLine.arguments.last == "--no-inputs"
+                ? "void main() { \(statement) }"
+                : fragment(statement, declarations: ["uniform vec2 g_Ratio;"] + extraDeclarations)
             let pair = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
                 vertex: vertex, fragment: source
             )
@@ -686,8 +739,8 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
         # The archived stage-link subclass: an integer target assigned a
         # float-bearing expression relied on the lenient compilers' implicit
         # conversion. The normalizer spells the truncation through int(...)
-        # for declarations and plain assignments (comparison operands carry
-        # their own left-type proof test);
+        # for declarations and plain assignments; comparison operands have
+        # separate promotion and pixel-result tests.
         # compound assignments keep their ambiguous promotion semantics and
         # stay fail-closed.
         if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
@@ -745,19 +798,9 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
                 )
                 self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
 
-    def test_comparison_operands_carry_left_type_proof(self) -> None:
-        # The archived semantic-flip subclass: the comparison rewrite used
-        # to wrap any right operand named in the declared-float table with
-        # int(...) without proving the left operand's type, so a float/float
-        # comparison silently flipped (0.4 < int(0.8) evaluates 0.4 < 0)
-        # and a left identifier containing the right name corrupted into an
-        # undeclared identifier. The truncation is only the lenient
-        # compilers' integer-domain semantics, so it is kept exactly when
-        # the declared-type table proves the left operand int/uint. The
-        # assertion reads the compiled product, not only the text: the
-        # float-to-int truncation opcode (SPIR-V OpConvertFToS = 110) must
-        # appear exactly for the proven-integer left operand and never for
-        # authored float comparisons.
+    def test_comparisons_do_not_narrow_fractional_operands(self) -> None:
+        # Comparisons promote unlike assignment conversion: a fractional
+        # right operand must not acquire a float-to-int instruction.
         if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
             self.skipTest("bundled glslang is unavailable")
         cases = [
@@ -765,56 +808,49 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
             ("float coverage = 0.4; float cutoff = 0.8; int scratch = 0;"
              " if (coverage < cutoff) { scratch = 1; }"
              " gl_FragColor = vec4(float(scratch));",
-             None, "coverage < cutoff", "int(cutoff)", 0),
+             None),
             # The reversed operator direction is the same defect class.
             ("float coverage = 0.4; float cutoff = 0.8; int scratch = 0;"
              " if (cutoff > coverage) { scratch = 1; }"
              " gl_FragColor = vec4(float(scratch));",
-             None, "cutoff > coverage", "int(coverage)", 0),
+             None),
             # A swizzle member on the left is not a declared int scalar.
             ("float cutoff = 0.8; int scratch = 0;"
              " if (g_Ratio.x < cutoff) { scratch = 1; }"
              " gl_FragColor = vec4(float(scratch));",
-             None, "g_Ratio.x < cutoff", "int(cutoff)", 0),
+             None),
             # A left identifier containing the right name must not corrupt
             # the left operand (the old whole-expression replace produced
             # the undeclared identifier xint).
             ("float coverage = 0.8; float xcoverage = 0.1; int scratch = 0;"
              " if (xcoverage < coverage) { scratch = 1; }"
              " gl_FragColor = vec4(float(scratch));",
-             None, "xcoverage < coverage", "int(coverage)", 0),
+             None),
             # The same name on both sides keeps the authored comparison.
             ("float cutoff = 0.8; int scratch = 0;"
              " if (cutoff < cutoff) { scratch = 1; }"
              " gl_FragColor = vec4(float(scratch));",
-             None, "cutoff < cutoff", "int(cutoff)", 0),
-            # A declared float uniform on the right follows the same
-            # left-type proof (the pre-widening uniform class).
+             None),
+            # A declared float uniform also keeps its fractional value.
             ("float coverage = 0.4; int scratch = 0;"
              " if (coverage < g_Threshold) { scratch = 1; }"
              " gl_FragColor = vec4(float(scratch));",
-             "uniform float g_Threshold;",
-             "coverage < g_Threshold", "int(g_Threshold)", 0),
-            # A proven int left operand keeps the explicit truncation the
-            # rule exists for - local and uniform right operands alike.
+             "uniform float g_Threshold;"),
+            # Integer/float comparisons promote, including uniform bounds.
             ("float cutoff = 0.8; int k = 0; if (k < cutoff) { k = 1; }"
              " gl_FragColor = vec4(float(k));",
-             None, "k < int(cutoff)", None, 1),
+             None),
             ("int k = 0; if (k < g_Threshold) { k = 1; }"
              " gl_FragColor = vec4(float(k));",
-             "uniform float g_Threshold;",
-             "k < int(g_Threshold)", None, 1),
+             "uniform float g_Threshold;"),
         ]
-        for statement, extra, expected, forbidden, conversions in cases:
+        for statement, extra in cases:
             with self.subTest(statement=statement), tempfile.TemporaryDirectory() as directory:
                 command = [str(self.binary), statement]
                 if extra is not None:
                     command.append(extra)
                 output = json.loads(subprocess.check_output(command, text=True))
                 fragment = output["normalizedFragment"]
-                self.assertIn(expected, fragment)
-                if forbidden is not None:
-                    self.assertNotIn(forbidden, fragment)
                 root = Path(directory)
                 fragment_path = root / "author.frag"
                 fragment_path.write_text(fragment, encoding="utf-8")
@@ -838,7 +874,41 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
                     self.assertGreater(count, 0)
                     opcode_counts[opcode] = opcode_counts.get(opcode, 0) + 1
                     offset += count
-                self.assertEqual(opcode_counts.get(110, 0), conversions)
+                self.assertEqual(opcode_counts.get(110, 0), 0)
+
+    def test_fractional_comparisons_and_loop_counts_render_authored_results(self) -> None:
+        cross = GLSLANG.with_name("spirv-cross")
+        cases = [
+            ("int k = 0; float cutoff = 0.8; gl_FragColor = vec4(float(k < cutoff));", 1),
+            ("int k = 0; float cutoff = -0.8; gl_FragColor = vec4(float(k > cutoff));", 1),
+            ("uint k = 0u; float cutoff = 0.8; gl_FragColor = vec4(float(k < cutoff));", 1),
+            ("int k = 0; float cutoff = -0.8; gl_FragColor = vec4(float(k <= cutoff));", 0),
+            ("int k = 0; float cutoff = 0.8; gl_FragColor = vec4(float(k >= cutoff));", 0),
+            ("int n = 0; float stop = 2.8; for (int k = 0; k < stop; ++k) { ++n; }"
+             " gl_FragColor = vec4(float(n));", 3),
+            ("int k = 0; float cutoff = 0.8; gl_FragColor = vec4(float(cutoff > k));", 1),
+            ("float cutoff = 2.8; int k = cutoff; gl_FragColor = vec4(float(k));", 2),
+        ]
+        for statement, expected in cases:
+            with self.subTest(statement=statement), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                normalized = json.loads(subprocess.check_output([str(self.binary), statement, "--no-inputs"], text=True))
+                source = root / "comparison.frag"
+                source.write_text(normalized["normalizedFragment"], encoding="utf-8")
+                spirv = root / "comparison.spv"
+                metal = root / "comparison.metal"
+                for command in (
+                    [str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations",
+                     str(source), "-o", str(spirv)],
+                    [str(cross), str(spirv), "--msl", "--rename-entry-point", "main",
+                     "comparisonFragment", "frag", "--output", str(metal)],
+                ):
+                    compiled = subprocess.run(command, capture_output=True, text=True, timeout=30)
+                    self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+                pixels = json.loads(subprocess.check_output(
+                    [str(self.binary), "--render", str(metal)], text=True, timeout=30
+                ))
+                self.assertEqual(pixels, [float(expected)] * 8)
 
     def test_hlsl_attribute_annotations_are_stripped_and_link(self) -> None:
         # The archived syntax-error subclass: a bare `[loop]` line survives

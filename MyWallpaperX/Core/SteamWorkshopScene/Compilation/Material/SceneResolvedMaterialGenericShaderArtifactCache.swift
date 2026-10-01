@@ -547,8 +547,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             .appendingPathComponent("com.songziqiang.MyWallpaperX", isDirectory: true)
             // v10 retires artifacts compiled before the comparison-operand
             // truncation gained its left-type proof: the request key covers
-            // only authored sources, so a normalizer semantic change is a
-            // whole-tier retirement through this version.
+            // authored sources and a compiler-semantics version. Further
+            // normalizer changes retire request keys for default AND custom
+            // cache roots (see SceneResolvedMaterialGenericShaderRequest).
             .appendingPathComponent("SceneGenericShaderPrograms-v10", isDirectory: true)
             .standardizedFileURL
         do {

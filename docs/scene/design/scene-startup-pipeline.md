@@ -65,7 +65,7 @@ schema miss；preparation 层经真实消费方驱动，拒绝不发布、跨进
 | demand 分析 | `SceneMaterialDemandAnalysisPersistentCache.swift` | ResourceDemandAnalysisKey 全字段 | 每变体 samplers+textureFormatSlots | catalog compileMs **−97%**（913→24 / 706→19ms） |
 | 变体 fact 族 | `SceneResolvedMaterialVariantAnalysisCache.swift` | 八域（contract/槽形状/combos/readiness/formats/identity/rgba8…） | canonical 双源+names+integerCombos+samplers；**eligibility 前件×3**（校验段重跑） | warm capability **694-798ms / 901-1317ms** |
 | preparation v1 | `.../ShaderPreparation/SceneAuthoredShaderPreparation.swift` | contract+graph+combos+readiness+formats | prepared 前端源 | 既有 |
-| 编译产物 v10 | `SceneGenericShaderPrograms-v10`（外部编译器产物；请求 key 只覆盖 authored 源，normalizer 语义变更经目录版本整层退役，v10 对应比较操作数左类型证明） | 请求 key（v13 信封） | generic Program artifact | 既有 |
+| 编译产物 v10 | `SceneGenericShaderPrograms-v10`（外部编译器产物；请求 key 覆盖 authored 源和编译语义版本；v14 退役错误的混合类型比较截断，同时覆盖默认目录与环境覆盖目录） | 请求 key（v14；请求信封 schema 仍为 5） | generic Program artifact | 既有 |
 | **PSO binary archive** | `SceneResolvedMaterialPipelineBinaryArchive.swift`（Rendering/Graph） | OS build+device registryID+pixelFormat+sampleCount+writeMask+函数名+renderState+MSL sha256 | 每精确管线身份一个 `.metalarchive` | 机制落地；**命中率需实机统计** |
 
 统一失效规则：任何分析器/normalizer/profile 语义变更必须 bump 对应层

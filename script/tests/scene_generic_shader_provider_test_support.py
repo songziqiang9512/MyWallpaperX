@@ -14,21 +14,11 @@ from scene_shader_compiler_artifact import ArtifactFailure
 def assert_transform_abi_request_and_cache_namespaces(
     test_case: Any,
     *,
-    cache_source: Path,
     vertex: str,
     fragment: str,
 ) -> None:
-    request_source = cache_source.with_name(
-        "SceneResolvedMaterialGenericShaderRequest.swift"
-    )
-    request_text = request_source.read_text(encoding="utf-8")
-    cache_text = cache_source.read_text(encoding="utf-8")
-    test_case.assertIn('"mwx-generic-shader-request-v13"', request_text)
-    test_case.assertNotIn('"mwx-generic-shader-request-v12"', request_text)
-    test_case.assertIn('"SceneGenericShaderPrograms-v10"', cache_text)
-    test_case.assertNotIn('"mwx-generic-shader-request-v5"', request_text)
-    test_case.assertNotIn('"SceneGenericShaderPrograms-v9"', cache_text)
-
+    # Execute the cache lookup with a valid pre-fix artifact in the same
+    # custom root. A source-version spelling is not evidence of retirement.
     with tempfile.TemporaryDirectory(
         prefix="mwx-generic-artifact-test-"
     ) as directory:
@@ -37,10 +27,10 @@ def assert_transform_abi_request_and_cache_namespaces(
             root, route="observe-only"
         )
         current_key = test_case.request_key(
-            "mwx-generic-shader-request-v13", vertex, fragment
+            "mwx-generic-shader-request-v14", vertex, fragment
         )
         legacy_key = test_case.request_key(
-            "mwx-generic-shader-request-v5", vertex, fragment
+            "mwx-generic-shader-request-v13", vertex, fragment
         )
         test_case.assertEqual(observed["requestKey"], current_key)
         test_case.assertNotEqual(current_key, legacy_key)
@@ -96,13 +86,13 @@ def assert_independent_signal_request_contract(
             "kind": expected[0], "slot": expected[1],
         })
         keyed = test_case.request_key(
-            "mwx-generic-shader-request-v13",
+            "mwx-generic-shader-request-v14",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
             expected,
         )
         unresolved = test_case.request_key(
-            "mwx-generic-shader-request-v13",
+            "mwx-generic-shader-request-v14",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
         )
@@ -151,14 +141,14 @@ def assert_provider_backed_spatial_weighted_profile(
         test_case.assertEqual(request["schemaVersion"], 5)
         test_case.assertEqual(request["premultipliedColorInputSlots"], [1])
         expected_key = test_case.request_key(
-            "mwx-generic-shader-request-v13",
+            "mwx-generic-shader-request-v14",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
             premultiplied_color_input_slots=(1,),
             default_boundary_color_slots=(0,),
         )
         empty_contract_key = test_case.request_key(
-            "mwx-generic-shader-request-v13",
+            "mwx-generic-shader-request-v14",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
         )

@@ -5327,10 +5327,9 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             digest.update(encoded)
         return digest.hexdigest()
 
-    def test_transform_abi_request_and_default_cache_namespaces_are_isolated(self):
+    def test_previous_compiler_semantics_artifact_is_not_reused(self):
         assert_transform_abi_request_and_cache_namespaces(
             self,
-            cache_source=CACHE_SOURCE,
             vertex=VERTEX,
             fragment=FRAGMENT,
         )

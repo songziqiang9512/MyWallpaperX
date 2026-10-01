@@ -33,7 +33,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
     ) -> String {
         var data = Data()
         for value in [
-            "mwx-generic-shader-request-v13",
+            // v14 retires narrowed mixed-type comparisons in every artifact
+            // root, including MWX_SCENE_GENERIC_SHADER_CACHE overrides.
+            "mwx-generic-shader-request-v14",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,
