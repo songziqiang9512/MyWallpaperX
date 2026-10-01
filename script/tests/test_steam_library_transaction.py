@@ -16,7 +16,8 @@ SOURCES = [ROOT / 'MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift',
            ROOT / 'MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift',
            ROOT / 'MyWallpaperX/Core/PlaybackControl/PlaybackResourceLifetime.swift',
            *[CORE / name for name in ('SteamServiceProtocol.swift', 'SteamServiceClient.swift',
-             'SteamWorkshopQueryClient.swift', 'SteamWorkshopLibraryTransaction.swift', 'SteamWorkshopLibraryPublication.swift',
+             'SteamWorkshopQueryClient.swift', 'SteamWorkshopLibraryTransaction.swift',
+             'SteamWorkshopLibraryTransaction+FailedVisibility.swift', 'SteamWorkshopLibraryPublication.swift',
              'SteamWorkshopLibraryVersionLease.swift', 'SteamWorkshopJobStore.swift',
              'SteamWorkshopDownloadProgress.swift')]]
 

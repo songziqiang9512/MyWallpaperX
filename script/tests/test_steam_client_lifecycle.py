@@ -30,6 +30,7 @@ class SteamClientLifecycleTests(unittest.TestCase):
             "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopTokenStore.swift",
             "MyWallpaperX/Core/PlaybackControl/PlaybackResourceLifetime.swift",
             "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryTransaction.swift",
+            "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryTransaction+FailedVisibility.swift",
             "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryPublication.swift",
             "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryVersionLease.swift",
             "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopJobStore.swift",

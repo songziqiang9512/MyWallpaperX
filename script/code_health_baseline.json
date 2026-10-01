@@ -10,7 +10,7 @@
   "legacyFiles": {},
   "reviewWarningFiles": {
     "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift": 913,
-    "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryTransaction.swift": 972,
+    "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryTransaction.swift": 922,
     "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+SteamKitBrowse.swift": 918,
     "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSheet.swift": 786,
     "MyWallpaperX/Modules/VideoLibrary/Toolbar/VideoLibraryToolbarController.swift": 890,
@@ -20,10 +20,10 @@
   },
   "notes": {
     "reviewWarningFiles": {
-      "owner": "code-health 限方向性棘轮批次（engine-refactor-program 第 3 波，2026-09-30）",
-      "reason": "401-1000 行区间此前只发 WARNING 无任何门，行数可静默漂移；首册按显式改基线流程登记全部非 Scene 域 >=850 行产品文件（allowance 为 2026-09-30 --check 工作树实测值），阻断继续增长。",
-      "retirement": "allowance 只许随收缩下降；对应文件拆分至 <=reviewLineLimit(400) 行后由 --ratchet-baseline 自动移除条目。",
-      "pendingSceneRegistration": "Scene 域热区待 E 路线 owner 确认锁值时机后补册（2026-09-30 实测 >=850 行）：MyWallpaperX/Core/SteamWorkshopScene 下 SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift(997)、SceneAuthoredShaderColorTransferAnalyzer.swift(978)、SceneResolvedMaterialFramePreflight.swift(946)、SceneMetalRenderer.swift(943)、SceneResolvedMaterialProgramFinalizer.swift(936)、SceneParticleSimulator.swift(896)、SceneDependencyRenderPlan+BindingCompilation.swift(893)、SceneScriptLayerHandleBridge.swift(880)、SceneScriptVectorProgram.swift(871)、SceneScriptValueRuntime.swift(863)、SceneTextureProviderPublication.swift(859)、SceneGenericShaderSourceNormalizer+Rewrites.swift(850)；及 Scene 测试 fixture script/tests/fixtures/SceneMaterialCopyHistoryRenderingHarness.swift(892)。"
+      "owner": "code-health \u9650\u65b9\u5411\u6027\u68d8\u8f6e\u6279\u6b21\uff08engine-refactor-program \u7b2c 3 \u6ce2\uff0c2026-09-30\uff09",
+      "reason": "401-1000 \u884c\u533a\u95f4\u6b64\u524d\u53ea\u53d1 WARNING \u65e0\u4efb\u4f55\u95e8\uff0c\u884c\u6570\u53ef\u9759\u9ed8\u6f02\u79fb\uff1b\u9996\u518c\u6309\u663e\u5f0f\u6539\u57fa\u7ebf\u6d41\u7a0b\u767b\u8bb0\u5168\u90e8\u975e Scene \u57df >=850 \u884c\u4ea7\u54c1\u6587\u4ef6\uff08allowance \u4e3a 2026-09-30 --check \u5de5\u4f5c\u6811\u5b9e\u6d4b\u503c\uff09\uff0c\u963b\u65ad\u7ee7\u7eed\u589e\u957f\u3002",
+      "retirement": "allowance \u53ea\u8bb8\u968f\u6536\u7f29\u4e0b\u964d\uff1b\u5bf9\u5e94\u6587\u4ef6\u62c6\u5206\u81f3 <=reviewLineLimit(400) \u884c\u540e\u7531 --ratchet-baseline \u81ea\u52a8\u79fb\u9664\u6761\u76ee\u3002",
+      "pendingSceneRegistration": "Scene \u57df\u70ed\u533a\u5f85 E \u8def\u7ebf owner \u786e\u8ba4\u9501\u503c\u65f6\u673a\u540e\u8865\u518c\uff082026-09-30 \u5b9e\u6d4b >=850 \u884c\uff09\uff1aMyWallpaperX/Core/SteamWorkshopScene \u4e0b SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift(997)\u3001SceneAuthoredShaderColorTransferAnalyzer.swift(978)\u3001SceneResolvedMaterialFramePreflight.swift(946)\u3001SceneMetalRenderer.swift(943)\u3001SceneResolvedMaterialProgramFinalizer.swift(936)\u3001SceneParticleSimulator.swift(896)\u3001SceneDependencyRenderPlan+BindingCompilation.swift(893)\u3001SceneScriptLayerHandleBridge.swift(880)\u3001SceneScriptVectorProgram.swift(871)\u3001SceneScriptValueRuntime.swift(863)\u3001SceneTextureProviderPublication.swift(859)\u3001SceneGenericShaderSourceNormalizer+Rewrites.swift(850)\uff1b\u53ca Scene \u6d4b\u8bd5 fixture script/tests/fixtures/SceneMaterialCopyHistoryRenderingHarness.swift(892)\u3002"
     }
   }
 }

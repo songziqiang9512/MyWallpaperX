@@ -214,7 +214,14 @@
     "retirement": "Shrink family by family onto shared homes and ratchet allowedGroups down; the floor is 0 once no two functions share a body."
   },
   "deadEntries": [],
-  "inventoryEntries": [],
+  "inventoryEntries": [
+    {
+      "name": "isDegraded",
+      "file": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift",
+      "kind": "func",
+      "reason": "composition-rt 第一阶段遗留的诊断入口，后续阶段消费或整体删除"
+    }
+  ],
   "acknowledgedChanges": [
     {
       "detail": "canonical helper containsWord target changed from 'Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift' to 'Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift'",
@@ -257,12 +264,16 @@
       "reason": "batch 3c-cont: the shared source-text helpers live in the SceneShaderSourceTextFacts home"
     },
     {
-      "detail": "retired swallow pattern identity-empty-fallback: allowance 1 -> 0",
-      "reason": "batch 4b 把摘要编码失败改为显式失败：ShaderContract canonical hash 走诊断码、X-Ray stock identity 走 nil 比较、dependency payload 按已证总成立政策改 try!"
-    },
-    {
       "detail": "duplicate-body section was added to the reviewed set",
       "reason": "2026-09-29 把全仓函数体指纹重复检测并入防御面棘轮：按名字的 canonical helper 棘轮抓不住换名复制的副本，此节按函数体指纹计数（≥3 行体），新增重复组必红、收缩须 ratchet"
+    },
+    {
+      "detail": "inventory waiver grew with isDegraded in MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneUtilityLayerRuntimePlan.swift",
+      "reason": "composition-rt 第一阶段遗留的诊断入口，后续阶段消费或整体删除"
+    },
+    {
+      "detail": "retired swallow pattern identity-empty-fallback: allowance 1 -> 0",
+      "reason": "batch 4b 把摘要编码失败改为显式失败：ShaderContract canonical hash 走诊断码、X-Ray stock identity 走 nil 比较、dependency payload 按已证总成立政策改 try!"
     }
   ]
 }

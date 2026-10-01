@@ -10,15 +10,17 @@
 - F40：DOMContentLoaded 包装器破坏 addEventListener/removeEventListener 同一性。
 - F29：宿主音量只对快照节点生效，动态新建的媒体节点以默认音量播放。
 - F19：网络代理回填非 UTF-8 响应体时缺少编码标志，fetch/XHR 只能拿到文本。
-- frames：兼容脚本按 frame 注入后的边界——同源子 frame 收到宿主推送与宿主回包
-  （回包中继），跨源子 frame 判为回包不可达、跨域 XHR 回落原生，dom.ready 唯一、
-  子 frame 交互区域登记被丢弃。
+- frames：D5 frame 定向投递合同——每个注入文档 hello 登记后宿主按 frame 定向
+  回写 ack；属性/音量推送经宿主逐 endpoint 定向投递直达全部已注册 frame（含
+  跨源子 frame，无需主 frame 中继）；网络回包按发送 frame 定向送达；dom.ready
+  唯一、子 frame 交互区域登记被丢弃。
+- bridge-budget：网络桥接在飞预算守恒——单桶上限、换代整桶作废不挤压新世代、
+  256 总预算打满拒绝、释放后完整归还。
 
 各场景由命令行参数选择，一次编译、多次独立执行。F19 的原生 fetch 由
 document-start 桩替换为必然失败的 Promise（生产中对应原生 fetch 的跨域失败），
 因此整个用例不发出任何真实网络请求；XHR 代理路径在产品侧本就拦截 send()，
-同样不发真实请求。frames 场景的跨源子 frame 探针指向 IPv6 环回未监听端口
-（连接立即被拒）与宿主的本地内容源，同样不向外部网络发请求。
+同样不发真实请求。bridge-budget 场景只操作内存中的在飞预算登记，无任何网络。
 """
 
 from pathlib import Path
@@ -32,6 +34,26 @@ import wave
 from script.tests.test_steam_library_interactions import method
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def source_block(source: str, marker: str) -> str:
+    """从 marker 行起做花括号配平，截取完整声明文本（供顶层类型提取）。"""
+    index = source.index(marker)
+    line_start = source.rfind("\n", 0, index) + 1
+    depth = 0
+    started = False
+    for position in range(index, len(source)):
+        char = source[position]
+        if char == "{":
+            depth += 1
+            started = True
+        elif char == "}":
+            depth -= 1
+            if started and depth == 0:
+                return source[line_start:position + 1]
+    raise AssertionError(f"声明未闭合: {marker}")
+
+
 HARNESS = r'''
 import AppKit
 import Foundation
@@ -45,8 +67,13 @@ enum WebWallpaperHostSupport {
     }
 }
 
+// RUNTIME_HELPERS
+
 final class Adapter {
     func applyGeneralProperties(to webView: WKWebView) {}
+    /// D5：与产品 adapter 同名的 frame endpoint 登记桩（同表面），供提取出的
+    /// deliverStatePush/applyVolume 在 harness 内编译与运行。
+    var frameEndpointRegistry = WebWallpaperFrameEndpointRegistry()
     // ADAPTER_METHODS
 }
 
@@ -57,13 +84,65 @@ func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
     }
 }
 
+/// D5 frame endpoint 登记桩：与产品 WebWallpaperFrameEndpointRegistry 同表面
+/// （同 nonce 续租复用、per-webView 存储、逐 endpoint 单调序号），供提取出的
+/// deliverStatePush/applyVolume 在 harness 内编译与运行。
+final class WebWallpaperFrameEndpointRegistry {
+    final class Endpoint {
+        let token: String
+        let documentNonce: String
+        var frameInfo: WKFrameInfo
+        private(set) var pushSequence: Int64 = 0
+
+        init(token: String, documentNonce: String, frameInfo: WKFrameInfo) {
+            self.token = token
+            self.documentNonce = documentNonce
+            self.frameInfo = frameInfo
+        }
+
+        func isLeaseValid(now: TimeInterval) -> Bool { true }
+
+        func advancePushSequence() -> Int64 {
+            pushSequence += 1
+            return pushSequence
+        }
+    }
+
+    private var endpointsByWebView: [ObjectIdentifier: [String: Endpoint]] = [:]
+
+    func register(documentNonce: String, frameInfo: WKFrameInfo, in webView: WKWebView) -> Endpoint? {
+        let key = ObjectIdentifier(webView)
+        var endpoints = endpointsByWebView[key] ?? [:]
+        if let existing = endpoints.first(where: { $0.value.documentNonce == documentNonce }) {
+            existing.value.frameInfo = frameInfo
+            return existing.value
+        }
+        let endpoint = Endpoint(token: UUID().uuidString, documentNonce: documentNonce, frameInfo: frameInfo)
+        endpoints[endpoint.token] = endpoint
+        endpointsByWebView[key] = endpoints
+        return endpoint
+    }
+
+    func endpoints(in webView: WKWebView) -> [Endpoint] {
+        Array(endpointsByWebView[ObjectIdentifier(webView)]?.values ?? [:].values)
+    }
+
+    func revoke(token: String, in webView: WKWebView) {
+        let key = ObjectIdentifier(webView)
+        guard var endpoints = endpointsByWebView[key] else { return }
+        endpoints.removeValue(forKey: token)
+        endpointsByWebView[key] = endpoints
+    }
+}
+
 /// 网络桥接桩：与 DedicatedWebWallpaperHostPlaceholderAdapter+RuntimeBridge 的
-/// 成功回包同形状——响应体统一 base64 + bodyIsBase64 标志 + responseURL。
+/// 成功回包同形状——响应体统一 base64 + bodyIsBase64 标志 + responseURL，且
+/// 与宿主同形状按发送 frame 定向回包（D5）。
 final class NetworkBridgeStub: NSObject, WKScriptMessageHandler {
     static let primaryBytes: [UInt8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0xFF, 0xFE, 0x80, 0x7F]
     static let secondaryBytes: [UInt8] = [0x00, 0x10, 0x80, 0xFF, 0x41]
     weak var webView: WKWebView?
-    /// 到达宿主网络桥的代理请求数：跨源子 frame 回落原生后这里不应再增长。
+    /// 到达宿主网络桥的代理请求数。
     private(set) var receivedRequestCount = 0
 
     static func hexadecimal(_ bytes: [UInt8]) -> String {
@@ -94,10 +173,79 @@ final class NetworkBridgeStub: NSObject, WKScriptMessageHandler {
             let data = try? JSONSerialization.data(withJSONObject: payload),
             let json = String(data: data, encoding: .utf8)
         else { return }
+        // D5：回包只回发送请求的 frame，不改发主 frame。
         webView?.evaluateJavaScript(
             "window.__myWallpaperResolveNetworkRequest(\(json));",
+            in: message.frameInfo,
+            in: .page,
             completionHandler: nil
         )
+    }
+}
+
+/// D5 frame endpoint hello 桩：与宿主 Lifecycle.handleFrameEndpointHello 同形状
+/// ——登记后向发送 frame 定向回写 ack（token + 可达标志），不重放快照。
+final class FrameEndpointHelloStub: NSObject, WKScriptMessageHandler {
+    weak var adapter: Adapter?
+    weak var webView: WKWebView?
+    private(set) var ackedFrameCount = 0
+    /// 定向 ack 的失败记录（frame 已失效/求值异常等），供场景断言消息取证。
+    private(set) var ackErrors: [String] = []
+    /// ack 后按同 frame 回读标志位的结果（true=落在存活文档）。
+    private(set) var ackReadbacks: [Bool] = []
+
+    func userContentController(
+        _ userContentController: WKUserContentController,
+        didReceive message: WKScriptMessage
+    ) {
+        guard let adapter = adapter,
+              let webView = webView,
+              let body = message.body as? [String: Any],
+              let nonce = body["nonce"] as? String,
+              nonce.isEmpty == false else { return }
+        guard let endpoint = adapter.frameEndpointRegistry.register(
+            documentNonce: nonce,
+            frameInfo: message.frameInfo,
+            in: webView
+        ) else { return }
+        webView.evaluateJavaScript(
+            "(() => { window.__myWallpaperHostFrameEndpointToken = 'pending'; })();",
+            in: message.frameInfo,
+            in: .page
+        ) { [weak self] result in
+            if case let .failure(error) = result {
+                self?.ackErrors.append("pre-ack: \(error.localizedDescription)")
+                return
+            }
+            let tokenLiteral = WebWallpaperHostSupport.javaScriptQuotedString(endpoint.token)
+            webView.evaluateJavaScript(
+                "(() => { window.__myWallpaperHostFrameEndpointToken = \(tokenLiteral); window.__myWallpaperHostFrameEndpointAck = true; })();",
+                in: message.frameInfo,
+                in: .page
+            ) { [weak self] result in
+                guard let self else { return }
+                switch result {
+                case .success:
+                    // 回读验证：确认 ack 落在「当前存活文档」而非已被替换的旧上下文。
+                    webView.evaluateJavaScript(
+                        "window.__myWallpaperHostFrameEndpointAck === true",
+                        in: message.frameInfo,
+                        in: .page
+                    ) { [weak self] readback in
+                        guard let self else { return }
+                        switch readback {
+                        case let .success(value):
+                            self.ackedFrameCount += 1
+                            self.ackReadbacks.append((value as? Bool) == true)
+                        case let .failure(error):
+                            self.ackErrors.append("readback: \(error.localizedDescription)")
+                        }
+                    }
+                case let .failure(error):
+                    self.ackErrors.append("ack: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 }
 
@@ -159,9 +307,11 @@ final class ProbeChildSchemeHandler: NSObject, WKURLSchemeHandler {
 @MainActor
 final class PageHost {
     let view: WKWebView
+    let adapter: Adapter
     let recorder = HostProbeRecorder()
     /// 方案处理器由配置持有的是弱引用不可依赖：这里显式持有，避免子 frame 加载失败。
     private let crossOriginSchemeHandler: ProbeChildSchemeHandler?
+    let endpointStub = FrameEndpointHelloStub()
     private let window: NSWindow
     /// 新文档代际哨兵（document-start 注入）：`loadHTMLString` 是异步导航，旧文档
     /// （about:blank）的 readyState 可能已经是 complete，只等 readyState 会在页面
@@ -173,11 +323,14 @@ final class PageHost {
         html: String,
         stubNativeFetch: Bool = false,
         networkStub: NetworkBridgeStub? = nil,
-        crossOriginChildHTML: String? = nil
+        crossOriginChildHTML: String? = nil,
+        adapter: Adapter? = nil
     ) {
         let configuration = WKWebViewConfiguration()
         let generationToken = "mwx-parity-\(UUID().uuidString)"
         self.generationToken = generationToken
+        self.adapter = adapter ?? Adapter()
+        endpointStub.adapter = self.adapter
         configuration.websiteDataStore = .nonPersistent()
         configuration.mediaTypesRequiringUserActionForPlayback = []
         configuration.userContentController.addUserScript(WKUserScript(
@@ -185,6 +338,8 @@ final class PageHost {
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
         configuration.userContentController.add(recorder, name: "wallpaperHostLog")
         configuration.userContentController.add(recorder, name: "wallpaperHostInteractiveRegions")
+        // D5：frame endpoint hello 通道（每个注入文档一条），与宿主消息面同名。
+        configuration.userContentController.add(endpointStub, name: "wallpaperHostFrameEndpoint")
         if let networkStub = networkStub {
             configuration.userContentController.add(networkStub, name: "wallpaperHostNetworkRequest")
         }
@@ -213,6 +368,7 @@ final class PageHost {
         window = NSWindow(contentRect: view.frame, styleMask: .borderless, backing: .buffered, defer: false)
         window.contentView = view
         window.orderFrontRegardless()
+        endpointStub.webView = view
         networkStub?.webView = view
         view.loadHTMLString(html, baseURL: nil)
     }
@@ -264,6 +420,7 @@ enum Scenarios {
         case "f29": try await dynamicMediaVolumeBackfill()
         case "f19": try await networkBridgeBinaryRestore()
         case "frames": try await frameInjectionBoundaries()
+        case "bridge-budget": try await bridgeBudgetConservation()
         default:
             throw NSError(domain: "WebCompatibilityParity", code: 2, userInfo: [
                 NSLocalizedDescriptionKey: "unknown scenario: \(name)"
@@ -272,11 +429,11 @@ enum Scenarios {
         print("web-compat-parity-pass: \(name)")
     }
 
-    /// 多 frame 注入面边界：兼容脚本按 frame 注入后，同源子 frame 必须收到宿主
-    /// 推送与宿主回包（回包中继），跨源子 frame 收不到中继、其跨域 XHR 必须回落
-    /// 原生而不是落进只会等桥超时的代理路径；dom.ready 只由顶层 frame 发出。
-    /// 跨源子 frame 的原生回落探针指向 IPv6 环回未监听端口（连接立即被拒），
-    /// 用例不向外部网络发出请求。
+    /// D5 frame 定向投递合同：每个注入文档（主 frame、同源子 frame、跨源子
+    /// frame）hello 登记并 ack 后，宿主逐 endpoint 定向推送直达全部 frame（无
+    /// 主 frame 中继），网络回包按发送 frame 定向送达；dom.ready 只由顶层 frame
+    /// 发出，子 frame 交互区域登记仍被丢弃。跨源子 frame 探针指向 IPv6 环回
+    /// 未监听端口，实际请求由桩接收，用例不向外部网络发出请求。
     static func frameInjectionBoundaries() async throws {
         let sameOriginChildPage = "<html><body><script>"
             + "window.startProxyProbe = function (url) {"
@@ -295,18 +452,33 @@ enum Scenarios {
             .replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "\"", with: "&quot;")
         let crossOriginChildPage = "<html><body><script>"
+            // D5：探测挂在 wallpaper-volume-changed 上触发——该事件本身即宿主
+            // 定向推送（仅在 hello ack 后可达），时序上必然处于「ack 后」；跨源
+            // 子 frame 的 DOM timer 可能被 WebKit 挂起，不能依赖 setInterval 轮询。
+            // 注意：Swift 拼接产出的脚本是单行 JS，JS 侧不得使用 `//` 行注释。
             + "(function () {"
-            + "  const probe = { reachable: window.__mwxHostReplyReachable === true, proxied: null, proxiedValue: null };"
-            + "  try {"
-            + "    const xhr = new XMLHttpRequest();"
-            + "    xhr.open('GET', 'http://[::1]:9/mwx-probe');"
-            + "    xhr.send();"
-            + "    probe.proxied = xhr.__mwx_proxied === true;"
-            + "    probe.proxiedValue = String(xhr.__mwx_proxied);"
-            + "  } catch (error) {"
-            + "    probe.proxied = false;"
-            + "  }"
-            + "  parent.postMessage({ mwxFrameProbe: probe }, '*');"
+            + "  window.__mwxPostProbe = function (extra) {"
+            + "    var state = {"
+            + "      ack: window.__myWallpaperHostFrameEndpointAck === true,"
+            + "      reachable: window.__mwxHostReplyReachable === true"
+            + "        || (typeof window.__mwxHostReplyReachable === 'function' && window.__mwxHostReplyReachable() === true),"
+            + "      nonce: String(window.__myWallpaperHostFrameDocumentNonce || '')"
+            + "    };"
+            + "    if (extra) { for (var key in extra) { state[key] = extra[key]; } }"
+            + "    parent.postMessage({ mwxFrameProbe: state }, '*');"
+            + "  };"
+            + "  window.addEventListener('wallpaper-volume-changed', function (event) {"
+            + "    var probe = { volume: event.detail, proxied: null };"
+            + "    try {"
+            + "      var xhr = new XMLHttpRequest();"
+            + "      xhr.open('GET', 'http://[::1]:9/mwx-probe');"
+            + "      xhr.send();"
+            + "      probe.proxied = xhr.__mwx_proxied === true;"
+            + "    } catch (_) {"
+            + "      probe.proxied = false;"
+            + "    }"
+            + "    window.__mwxPostProbe(probe);"
+            + "  });"
             + "})();"
             + "</script></body></html>"
         let page = """
@@ -316,23 +488,70 @@ enum Scenarios {
         <script>
         window.__mwxFrameProbe = null;
         window.addEventListener('message', function (event) {
-          if (event.data && event.data.mwxFrameProbe) { window.__mwxFrameProbe = event.data.mwxFrameProbe; }
+          if (event.data && event.data.mwxFrameProbe) {
+            window.__mwxFrameProbe = Object.assign({}, window.__mwxFrameProbe || {}, event.data.mwxFrameProbe);
+          }
         });
         </script>
         </body></html>
         """
         let networkStub = NetworkBridgeStub()
-        let host = PageHost(html: page, networkStub: networkStub, crossOriginChildHTML: crossOriginChildPage)
+        let adapter = Adapter()
+        let host = PageHost(
+            html: page,
+            networkStub: networkStub,
+            crossOriginChildHTML: crossOriginChildPage,
+            adapter: adapter
+        )
         defer { host.close() }
         try await host.open()
         try await host.waitUntil("frames.length === 2", label: "two child frames")
-        _ = try await host.script("window.__myWallpaperApplyProperties({ frameProbe: { value: 'child' } });")
+        // D5：主 frame 与同源子 frame 的 ack 直接断言（同源可访问）；跨源子
+        // frame 不能从主 frame JS 读取（SecurityError），其登记由宿主侧
+        // 登记表计数覆盖、其 ack+定向送达由下方音量回传断言覆盖。
         try await host.waitUntil(
-            "frames[0].__myWallpaperLastUserProperties"
-            + " && frames[0].__myWallpaperLastUserProperties.frameProbe"
-            + " && frames[0].__myWallpaperLastUserProperties.frameProbe.value === 'child'",
-            label: "same-origin child property push"
+            "window.__myWallpaperHostFrameEndpointAck === true"
+                + " && frames[0].__myWallpaperHostFrameEndpointAck === true",
+            label: "frame endpoint acks in main and same-origin child"
         )
+        expect(
+            adapter.frameEndpointRegistry.endpoints(in: host.view).count == 3,
+            "三个 frame 都应登记 endpoint，实际 \(adapter.frameEndpointRegistry.endpoints(in: host.view).count)"
+        )
+        // D5 定向推送：经宿主投递面推音量，子 frame 不经主 frame 中继即收到。
+        // 计数基线取推送前：跨源子 frame 的探测 XHR 随本次推送立即发出。
+        let bridgeRequestsBeforePush = networkStub.receivedRequestCount
+        adapter.applyVolume(0.25, to: host.view)
+        try await host.waitUntil(
+            "window.__myWallpaperLastHostVolume === 0.25"
+                + " && frames[0].__myWallpaperLastHostVolume === 0.25",
+            label: "directed volume push reaches main and same-origin child"
+        )
+        do {
+            try await host.waitUntil(
+                "window.__mwxFrameProbe !== null && window.__mwxFrameProbe.volume === 0.25",
+                seconds: 3,
+                label: "directed volume push reaches cross-origin child"
+            )
+        } catch {
+            // 宿主特权取证：定向求值进每个已登记 frame，读兼容面状态。
+            var diagnostics: [String] = []
+            for endpoint in adapter.frameEndpointRegistry.endpoints(in: host.view) {
+                let value = try await host.view.evaluateJavaScript(
+                    "JSON.stringify({ ack: window.__myWallpaperHostFrameEndpointAck === true,"
+                        + " hasSetVolume: typeof window.__myWallpaperSetGlobalVolume,"
+                        + " hasPostProbe: typeof window.__mwxPostProbe,"
+                        + " volume: String(window.__myWallpaperLastHostVolume) })",
+                    in: endpoint.frameInfo,
+                    in: .page
+                )
+                diagnostics.append(String(describing: value))
+            }
+            let merged = try? await host.script("JSON.stringify(window.__mwxFrameProbe)")
+            throw NSError(domain: "WebCompatibilityParity", code: 5, userInfo: [
+                NSLocalizedDescriptionKey: "directed volume push missing; frames=\(diagnostics) merged=\(String(describing: merged)) underlying=\(error)"
+            ])
+        }
         try await host.waitUntil(
             "typeof frames[0].startProxyProbe === 'function'",
             label: "same-origin child proxy probe ready"
@@ -343,23 +562,25 @@ enum Scenarios {
             + " && frames[0].__mwxProxyProbe.status === 200 && frames[0].__mwxProxyProbe.length > 0",
             label: "same-origin child proxied response"
         )
-        let bridgeRequestsAfterSameOrigin = networkStub.receivedRequestCount
-        expect(bridgeRequestsAfterSameOrigin >= 1, "同源子 frame 的代理请求未到达宿主网络桥")
-        try await host.waitUntil("window.__mwxFrameProbe !== null", label: "cross-origin child probe")
-        let crossOriginReachable = try await host.script("window.__mwxFrameProbe.reachable === true") as? Bool
-        expect(crossOriginReachable != true, "跨源子 frame 不应被判定为可收到宿主回包")
-        let crossOriginProxied = try await host.script("window.__mwxFrameProbe.proxied === true") as? Bool
-        expect(crossOriginProxied != true, "跨源子 frame 的跨域 XHR 不应进入宿主代理")
         expect(
-            networkStub.receivedRequestCount == bridgeRequestsAfterSameOrigin,
-            "跨源子 frame 的请求不应到达宿主网络桥（原生回落）"
+            networkStub.receivedRequestCount > bridgeRequestsBeforePush,
+            "定向推送触发的代理请求（跨源探测 + 同源探测）应到达宿主网络桥"
         )
-        var sawUnsupportedLog = false
-        for _ in 0..<50 where !sawUnsupportedLog {
-            sawUnsupportedLog = host.recorder.logTypes.contains("host-reply.unsupported")
-            if !sawUnsupportedLog { try await host.wait(0.1) }
-        }
-        expect(sawUnsupportedLog, "跨源子 frame 的回落应记录 host-reply.unsupported")
+        try await host.waitUntil("window.__mwxFrameProbe.proxied !== null", label: "cross-origin child probe")
+        // D5 反转：跨源子 frame hello ack 后同样可达、可代理，回包按发送 frame
+        // 定向送达（不再「恒不可达原生回落」）。
+        let crossOriginAcked = try await host.script("window.__mwxFrameProbe.ack === true") as? Bool
+        expect(
+            crossOriginAcked == true,
+            "跨源子 frame 应已收到 hello ack；acked=\(host.endpointStub.ackedFrameCount) readbacks=\(host.endpointStub.ackReadbacks) errors=\(host.endpointStub.ackErrors)"
+        )
+        let crossOriginReachable = try await host.script("window.__mwxFrameProbe.reachable === true") as? Bool
+        expect(
+            crossOriginReachable == true,
+            "跨源子 frame ack 后应被判定为可收到宿主定向回包；probe=\(String(describing: try await host.script("JSON.stringify(window.__mwxFrameProbe)")))"
+        )
+        let crossOriginProxied = try await host.script("window.__mwxFrameProbe.proxied === true") as? Bool
+        expect(crossOriginProxied == true, "ack 后跨源子 frame 的跨域 XHR 应进入宿主定向代理")
         let regionMessagesBefore = host.recorder.interactiveRegionMessageCount
         _ = try await host.script("""
         (function () {
@@ -383,6 +604,66 @@ enum Scenarios {
         )
         let domReadyCount = host.recorder.logTypes.filter { $0 == "dom.ready" }.count
         expect(domReadyCount == 1, "dom.ready 应由顶层 frame 唯一发出，实际 \(domReadyCount) 次")
+    }
+
+    /// D5 网络桥接在飞预算守恒：换代整桶作废不得挤压新世代预算（旧世代残余
+    /// 计数不计入 owner 派生总量）、256 总预算打满拒绝、释放后完整归还。
+    /// 只操作内存中的登记表（owner 用一次性 WKWebView 弱引用），无网络请求。
+    static func bridgeBudgetConservation() async throws {
+        let registry = WebNetworkBridgeInflightRegistry()
+        let oldGenerationView = WKWebView(frame: .zero)
+        let newGenerationView = WKWebView(frame: .zero)
+        let perFrameLimit = 8
+        // 旧世代单桶打满并确认超限拒绝
+        for _ in 0..<perFrameLimit {
+            expect(
+                registry.admit(1, frameKey: "frame:a", owner: oldGenerationView, limit: perFrameLimit),
+                "旧世代准入应成功"
+            )
+        }
+        expect(
+            registry.admit(1, frameKey: "frame:a", owner: oldGenerationView, limit: perFrameLimit) == false,
+            "旧世代单桶打满后应拒绝"
+        )
+        // 换代：同桶新 owner 触发整桶作废，旧世代幽灵计数不得挤压新世代预算
+        for _ in 0..<perFrameLimit {
+            expect(
+                registry.admit(1, frameKey: "frame:a", owner: newGenerationView, limit: perFrameLimit),
+                "换代后准入不应受旧世代残余计数影响"
+            )
+        }
+        // 新世代打满 256 总预算（32 桶 × 8）
+        var admittedKeys = ["frame:a"]
+        while admittedKeys.count < 32 {
+            let key = "frame:b\(admittedKeys.count)"
+            var filled = 0
+            while filled < perFrameLimit {
+                guard registry.admit(1, frameKey: key, owner: newGenerationView, limit: perFrameLimit) else { break }
+                filled += 1
+            }
+            expect(filled == perFrameLimit, "新桶应能打满：key=\(key) filled=\(filled)")
+            admittedKeys.append(key)
+        }
+        expect(
+            registry.admit(1, frameKey: "frame:overflow", owner: newGenerationView, limit: perFrameLimit) == false,
+            "256 总预算打满后应拒绝"
+        )
+        // 释放对称归还：全部释放后同 owner 可重新准入（守恒）
+        for key in admittedKeys {
+            for _ in 0..<perFrameLimit {
+                registry.release(1, frameKey: key, owner: newGenerationView)
+            }
+        }
+        expect(
+            registry.admit(1, frameKey: "frame:after-release", owner: newGenerationView, limit: perFrameLimit),
+            "总预算应随释放完整归还（跨世代守恒）"
+        )
+        // release 的 owner 不匹配是 no-op，不误减新世代预算
+        registry.release(1, frameKey: "frame:after-release", owner: oldGenerationView)
+        expect(
+            registry.admit(1, frameKey: "frame:mismatch-release", owner: newGenerationView, limit: perFrameLimit),
+            "异世代 release 不应影响新世代预算"
+        )
     }
 
     /// F01：解析期的 attachShadow 必须返回真实 shadow root 且页面脚本继续执行；
@@ -483,10 +764,13 @@ enum Scenarios {
         <div id="f29-root"></div>
         </body></html>
         """
-        let host = PageHost(html: page)
+        // D5：推送面按 endpoint 登记表投递——必须用 PageHost 同一 adapter 实例，
+        // 否则登记表为空、推送无处可去。
+        let adapter = Adapter()
+        let host = PageHost(html: page, adapter: adapter)
         defer { host.close() }
         try await host.open()
-        Adapter().applyVolume(0, to: host.view)
+        adapter.applyVolume(0, to: host.view)
         try await host.waitUntil(
             "window.__myWallpaperLastHostVolume === 0",
             label: "host volume 0 push"
@@ -615,21 +899,31 @@ class WebCompatibilityParityTests(unittest.TestCase):
         cls.temporary = tempfile.TemporaryDirectory(prefix="mwx-web-compat-parity-")
         directory = Path(cls.temporary.name)
         host = ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host"
-        adapter = method(
-            (host / "WebWallpaperHostTypes.swift").read_text(),
-            "static func webCompatibilityScript(",
-        )
-        adapter += "\n" + method(
-            (host / "DedicatedWebWallpaperHostPlaceholderAdapter+RuntimeBridge.swift").read_text(),
-            "func applyVolume(",
-        )
+        types_source = (host / "WebWallpaperHostTypes.swift").read_text()
+        runtime_source = (
+            host / "DedicatedWebWallpaperHostPlaceholderAdapter+RuntimeBridge.swift"
+        ).read_text()
+        adapter = method(types_source, "static func webCompatibilityScript(")
+        adapter += "\n" + method(runtime_source, "func applyVolume(")
+        # D5：推送投递面与序号包装随 applyVolume 一起提取（拆分后从
+        # FrameReply.swift 提取，sequencedPushScript 已放宽 internal），harness
+        # 内的 WebWallpaperFrameEndpointRegistry 桩提供其依赖表面。
+        frame_reply_source = (
+            host / "DedicatedWebWallpaperHostPlaceholderAdapter+FrameReply.swift"
+        ).read_text()
+        adapter += "\n" + method(frame_reply_source, "func deliverStatePush(")
+        adapter += "\n" + method(frame_reply_source, "func sequencedPushScript(")
+        # 在飞预算守恒场景用真实登记表（按 owner 匹配桶计数派生总量）。
+        registry = source_block(runtime_source, "private final class WebNetworkBridgeInflightRegistry")
         audio = io.BytesIO()
         with wave.open(audio, "wb") as wav:
             wav.setnchannels(1)
             wav.setsampwidth(1)
             wav.setframerate(8000)
             wav.writeframes(bytes([128]) * 8000)
-        harness = HARNESS.replace("// ADAPTER_METHODS", adapter).replace(
+        harness = HARNESS.replace("// RUNTIME_HELPERS", registry).replace(
+            "// ADAPTER_METHODS", adapter
+        ).replace(
             "__MEDIA__", base64.b64encode(audio.getvalue()).decode()
         )
         (directory / "Harness.swift").write_text(harness)
@@ -684,6 +978,9 @@ class WebCompatibilityParityTests(unittest.TestCase):
 
     def test_frames_injection_boundaries(self) -> None:
         self.scenario("frames")
+
+    def test_bridge_budget_conservation(self) -> None:
+        self.scenario("bridge-budget")
 
 
 if __name__ == "__main__":

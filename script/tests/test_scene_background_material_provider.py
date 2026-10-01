@@ -170,6 +170,38 @@ PROVIDER_SETUP = r'''
                 frameEpoch: 1,
                 texture: backgroundTexture([.renderTarget])
             ) == nil
+        // D8：RT 名称词汇表行为断言——FullFrameBuffer 任意大小写整名都改写为
+        // typed frame input（不退化为磁盘资产引用），imageLayerComposite 语法
+        // 家族改写为保留 provider 身份的 typed reference，未知 _rt_ 名不准入，
+        // 普通资产路径不受影响。
+        let renderTargetVocabularyBehavior: [String: Any] = [
+            "fullFrameBufferCaseVariantsTyped": [
+                "_rt_FullFrameBuffer", "_RT_FullFrameBuffer", "_Rt_FULLFRAMEBUFFER"
+            ].allSatisfy { value in
+                SceneRenderTargetVocabulary.dispatch(authoredName: value) == .typedFrameInput
+            },
+            "imageLayerCompositeTypedProvider": {
+                guard case let .namedLayerTarget(reference) =
+                    SceneRenderTargetVocabulary.dispatch(authoredName: "_rt_imageLayerComposite_7_b") else {
+                    return false
+                }
+                return reference.providerLayerID == 7 && reference.variant == .secondary
+            }(),
+            "unknownInternalTargetUnadmitted": {
+                if case .unadmitted = SceneRenderTargetVocabulary.dispatch(authoredName: "_rt_unsupported") {
+                    return true
+                }
+                return false
+            }(),
+            "plainAssetPathUntouchedByRTFates": {
+                // 普通资产路径不得被 RT 命运误改写：落到 unadmitted 交调用方
+                // 按资产路径解析，即为正确结果。
+                if case .unadmitted = SceneRenderTargetVocabulary.dispatch(authoredName: "textures/iron.png") {
+                    return true
+                }
+                return false
+            }(),
+        ]
         let sceneBackgroundProvider: [String: Any] = [
             "programIdentity": backgroundProgramIdentity,
             "programFailure": failureToken(backgroundProgram),
@@ -178,6 +210,7 @@ PROVIDER_SETUP = r'''
             "staleOverlayRejected": staleOverlayRejected,
             "wrongLayerRejected": wrongLayerRejected,
             "unreadableRejected": unreadableRejected,
+            "renderTargetVocabularyBehavior": renderTargetVocabularyBehavior,
         ]
 '''
 
@@ -252,6 +285,14 @@ class SceneBackgroundMaterialProviderTests(unittest.TestCase):
         self.assertTrue(self.result["wrongLayerRejected"], self.result)
         self.assertTrue(self.result["unreadableRejected"], self.result)
 
+    def test_rt_name_vocabulary_dispatch_behavior(self) -> None:
+        # D8：大小写变体 FullFrameBuffer 仍是 typed frame input（防回归断言）。
+        behavior = self.result["renderTargetVocabularyBehavior"]
+        self.assertTrue(behavior["fullFrameBufferCaseVariantsTyped"], behavior)
+        self.assertTrue(behavior["imageLayerCompositeTypedProvider"], behavior)
+        self.assertTrue(behavior["unknownInternalTargetUnadmitted"], behavior)
+        self.assertTrue(behavior["plainAssetPathUntouchedByRTFates"], behavior)
+
     def test_route_is_exact_and_layer_ordered(self) -> None:
         compiler = (
             REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift"
@@ -268,7 +309,14 @@ class SceneBackgroundMaterialProviderTests(unittest.TestCase):
         composition = (
             REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift"
         ).read_text(encoding="utf-8")
-        self.assertIn('caseInsensitiveCompare("_rt_FullFrameBuffer")', compiler)
+        # D8：FullFrameBuffer 的大小写不敏感匹配收口到词汇表唯一分派（原
+        # TemplateCompiler 内联字面量已退役），由
+        # test_rt_name_vocabulary_dispatch_behavior 做行为级防回归断言。
+        vocabulary = (
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("caseInsensitiveCompare(fullFrameBufferName)", vocabulary)
+        self.assertIn("SceneRenderTargetVocabulary.dispatch(authoredName: value)", compiler)
         self.assertIn("sceneBackgroundCandidateIsOrdered", capability)
         self.assertIn(
             "sceneBackgroundCandidateHasTypedSinglePassColorABI",

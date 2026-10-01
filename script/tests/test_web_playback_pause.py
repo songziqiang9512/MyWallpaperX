@@ -21,7 +21,75 @@ enum WebWallpaperHostSupport {
 }
 final class Adapter {
     func applyGeneralProperties(to webView: WKWebView) {}
+    /// D5：与产品 adapter 同名的 frame endpoint 登记桩（同表面），供提取出的
+    /// applyPausedState/deliverStatePush 在 harness 内编译与运行。
+    var frameEndpointRegistry = WebWallpaperFrameEndpointRegistry()
     // ADAPTER_METHODS
+}
+/// D5 frame endpoint 登记桩：与产品 WebWallpaperFrameEndpointRegistry 同表面。
+final class WebWallpaperFrameEndpointRegistry {
+    final class Endpoint {
+        let token: String
+        let documentNonce: String
+        var frameInfo: WKFrameInfo
+        private(set) var pushSequence: Int64 = 0
+        init(token: String, documentNonce: String, frameInfo: WKFrameInfo) {
+            self.token = token
+            self.documentNonce = documentNonce
+            self.frameInfo = frameInfo
+        }
+        func isLeaseValid(now: TimeInterval) -> Bool { true }
+        func advancePushSequence() -> Int64 { pushSequence += 1; return pushSequence }
+    }
+    private var endpointsByWebView: [ObjectIdentifier: [String: Endpoint]] = [:]
+    func register(documentNonce: String, frameInfo: WKFrameInfo, in webView: WKWebView) -> Endpoint? {
+        let key = ObjectIdentifier(webView)
+        var endpoints = endpointsByWebView[key] ?? [:]
+        if let existing = endpoints.first(where: { $0.value.documentNonce == documentNonce }) {
+            existing.value.frameInfo = frameInfo
+            return existing.value
+        }
+        let endpoint = Endpoint(token: UUID().uuidString, documentNonce: documentNonce, frameInfo: frameInfo)
+        endpoints[endpoint.token] = endpoint
+        endpointsByWebView[key] = endpoints
+        return endpoint
+    }
+    func endpoints(in webView: WKWebView) -> [Endpoint] {
+        Array(endpointsByWebView[ObjectIdentifier(webView)]?.values ?? [:].values)
+    }
+    func revoke(token: String, in webView: WKWebView) {
+        let key = ObjectIdentifier(webView)
+        guard var endpoints = endpointsByWebView[key] else { return }
+        endpoints.removeValue(forKey: token)
+        endpointsByWebView[key] = endpoints
+    }
+}
+/// D5 frame endpoint hello 桩：登记后向发送 frame 定向回写 ack（与宿主同形状）。
+final class FrameEndpointHelloStub: NSObject, WKScriptMessageHandler {
+    weak var adapter: Adapter?
+    weak var webView: WKWebView?
+    func userContentController(
+        _ userContentController: WKUserContentController,
+        didReceive message: WKScriptMessage
+    ) {
+        guard let adapter = adapter,
+              let webView = webView,
+              let body = message.body as? [String: Any],
+              let nonce = body["nonce"] as? String,
+              nonce.isEmpty == false else { return }
+        guard let endpoint = adapter.frameEndpointRegistry.register(
+            documentNonce: nonce,
+            frameInfo: message.frameInfo,
+            in: webView
+        ) else { return }
+        let tokenLiteral = WebWallpaperHostSupport.javaScriptQuotedString(endpoint.token)
+        webView.evaluateJavaScript(
+            "(() => { window.__myWallpaperHostFrameEndpointToken = \(tokenLiteral); window.__myWallpaperHostFrameEndpointAck = true; })();",
+            in: message.frameInfo,
+            in: .page,
+            completionHandler: nil
+        )
+    }
 }
 /// 兼容脚本的宿主侧观测点：记录 wallpaperHostLog 类型序列与交互区域登记次数，
 /// 用于断言多 frame 注入面（dom.ready 只来自顶层、子 frame 登记被丢弃）。
@@ -45,8 +113,12 @@ final class ProbeRecorder: NSObject, WKScriptMessageHandler {
         config.websiteDataStore = .nonPersistent()
         config.mediaTypesRequiringUserActionForPlayback = []
         let recorder = ProbeRecorder()
+        let endpointStub = FrameEndpointHelloStub()
         config.userContentController.add(recorder, name: "wallpaperHostLog")
         config.userContentController.add(recorder, name: "wallpaperHostInteractiveRegions")
+        // D5：frame endpoint hello 通道（每个注入文档一条），与宿主消息面同名；
+        // adapter/view 引用在两者创建后接线。
+        config.userContentController.add(endpointStub, name: "wallpaperHostFrameEndpoint")
         config.userContentController.addUserScript(WKUserScript(
             source: webWallpaperPlaybackScript.replacingOccurrences(of: "__MWX_INITIAL_PAUSED__", with: "true"),
             injectionTime: .atDocumentStart, forMainFrameOnly: false))
@@ -56,6 +128,8 @@ final class ProbeRecorder: NSObject, WKScriptMessageHandler {
             injectionTime: .atDocumentStart, forMainFrameOnly: false))
         let adapter = Adapter()
         let view = WKWebView(frame: NSRect(x: 0, y: 0, width: 320, height: 200), configuration: config)
+        endpointStub.adapter = adapter
+        endpointStub.webView = view
         view.setAllMediaPlaybackSuspended(true, completionHandler: nil)
         let window = NSWindow(contentRect: view.frame, styleMask: .borderless, backing: .buffered, defer: false)
         window.contentView = view
@@ -161,9 +235,11 @@ final class ProbeRecorder: NSObject, WKScriptMessageHandler {
                 precondition(authoredState == "paused")
                 precondition(abs(resumed[5] - still[5]) < 0.01, "Author CSS pause was overridden")
                 precondition(resumed[8] > held[8] + 0.05, "Native media failed to resume: held=\(held), resumed=\(resumed)")
-                // 多 frame 注入面：同源子 frame 收到属性与暂停推送；dom.ready 只由
-                // 顶层 frame 发出；子 frame 的交互区域登记被丢弃并留诊断。
-                _ = try await js("window.__myWallpaperApplyProperties({ frameProbe: { value: 'child' } });")
+                // 多 frame 注入面（D5）：宿主定向推送直达同源子 frame——属性推送
+                // 走 adapter.applyProperties（deliverStatePush 逐 endpoint 投递），
+                // 不再经主 frame 中继；dom.ready 只由顶层 frame 发出；子 frame 的
+                // 交互区域登记被丢弃并留诊断。
+                adapter.applyProperties("{\"frameProbe\":{\"value\":\"child\"}}", to: view)
                 var childReceivedPropertyPush = false
                 for _ in 0..<50 where !childReceivedPropertyPush {
                     childReceivedPropertyPush = (try? await js(
@@ -240,6 +316,12 @@ class WebPlaybackPauseTests(unittest.TestCase):
             host = ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host"
             adapter = method((host / "WebWallpaperHostTypes.swift").read_text(), "static func webCompatibilityScript(")
             adapter += "\n" + method((host / "DedicatedWebWallpaperHostPlaceholderAdapter+RuntimeBridge.swift").read_text(), "func applyPausedState(")
+            # D5：applyPausedState 经推送投递面送达，投递面与序号包装随提取（拆分
+            # 后从 FrameReply.swift 提取，sequencedPushScript 已放宽 internal）；
+            # 属性推送断言同步改走 adapter.applyProperties 定向投递。
+            adapter += "\n" + method((host / "DedicatedWebWallpaperHostPlaceholderAdapter+FrameReply.swift").read_text(), "func deliverStatePush(")
+            adapter += "\n" + method((host / "DedicatedWebWallpaperHostPlaceholderAdapter+FrameReply.swift").read_text(), "func sequencedPushScript(")
+            adapter += "\n" + method((host / "DedicatedWebWallpaperHostPlaceholderAdapter+RuntimeBridge.swift").read_text(), "func applyProperties(")
             audio = io.BytesIO()
             with wave.open(audio, "wb") as wav:
                 wav.setnchannels(1); wav.setsampwidth(1); wav.setframerate(8000)

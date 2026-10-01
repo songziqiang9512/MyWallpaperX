@@ -310,6 +310,10 @@ enum Harness {
             try printJSON(syntheticNestedChildren())
         case "worldspace-freeze":
             try printJSON(syntheticWorldSpaceFreeze())
+        case "worldspace-freeze-recovery":
+            try printJSON(syntheticWorldSpaceFreezeRecovery())
+        case "instance-buffer-budget":
+            try printJSON(instanceBufferBudget())
         case "worldspace-gravity-frame":
             try printJSON(syntheticWorldSpaceGravityFrame())
         case "worldspace-pointer-emitter":
@@ -2577,6 +2581,279 @@ enum Harness {
             "liveRotatedPositions": liveRotated.positions,
             "liveRotatedFollowsCurrent": liveRotated.followsCurrent,
             "liveRotatedFrozen": liveRotated.frozen,
+        ]
+    }
+
+    private static func syntheticWorldSpaceFreezeRecovery() throws -> [String: Any] {
+        // Freeze transaction recovery. The world-space freeze/re-adopt
+        // state participates in the frame transaction: a degenerate
+        // (zero-scale) transform write must hold the previous-current
+        // state for that frame only, a discarded frame must roll the
+        // freeze back with the simulation, and a restored valid transform
+        // must resume simulation. Local-space systems under the same
+        // scripted ancestor chain never consume the world frame and must
+        // keep simulating.
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mwx-particle-worldspace-recovery-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeParticle(
+            "particles/world-recovery.json",
+            material: "materials/shared.json",
+            flags: 1,
+            velocityX: 120,
+            lifetime: 10,
+            moves: true,
+            movementFlags: 1,
+            rate: 120,
+            under: directory
+        )
+        try writeParticle(
+            "particles/local-recovery.json",
+            material: "materials/shared.json",
+            velocityX: 120,
+            lifetime: 10,
+            moves: true,
+            rate: 120,
+            under: directory
+        )
+        try writeParticle(
+            "particles/world-chain.json",
+            material: "materials/shared.json",
+            flags: 1,
+            velocityX: 120,
+            lifetime: 10,
+            moves: true,
+            movementFlags: 1,
+            rate: 120,
+            children: [["name": "particles/chain-child.json", "type": "static"]],
+            under: directory
+        )
+        try writeParticle(
+            "particles/chain-child.json",
+            material: "materials/shared.json",
+            velocityX: 60,
+            lifetime: 10,
+            moves: true,
+            rate: 60,
+            under: directory
+        )
+        func particleLayer(
+            _ id: Int, _ path: String, parentID: Int? = nil
+        ) -> SceneRenderDescriptor.Layer {
+            .init(
+                id: id, name: nil, contentKind: "particle", particlePath: path,
+                particleInstanceOverride: nil, parentID: parentID, visible: true, alpha: 1
+            )
+        }
+        let descriptor = SceneRenderDescriptor(
+            layers: [
+                particleLayer(80, "particles/local-recovery.json"),
+                particleLayer(81, "particles/world-recovery.json"),
+                particleLayer(82, "particles/local-recovery.json", parentID: 80),
+                particleLayer(83, "particles/local-recovery.json", parentID: 80),
+                particleLayer(84, "particles/world-chain.json", parentID: 83),
+            ],
+            renderOrderLayerIDs: [80, 81, 82, 83, 84],
+            materialPasses: [
+                .init(
+                    materialPath: "materials/shared.json",
+                    shaderPath: "genericparticle",
+                    texturePaths: ["shared.png"],
+                    blending: "additive"
+                )
+            ]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw HarnessError.noMetal
+        }
+        func makeRuntime() -> SceneParticleRuntime {
+            SceneParticleRuntime(
+                descriptor: descriptor,
+                cacheDirectory: directory,
+                device: device,
+                staticWorldSpaceChains: [
+                    80: [80], 81: [81], 82: [82, 80], 83: [83, 80], 84: [84, 83, 80],
+                ]
+            )
+        }
+        func motion(_ batches: [SceneParticleDrawBatch], layerID: Int) -> Float {
+            (batches.first { $0.layerID == layerID })?.instances.reduce(0) {
+                $0 + abs($1.positionAndSize.x)
+            } ?? -1
+        }
+        let zeroScale = simd_float4x4(
+            columns: (SIMD4(repeating: 0), SIMD4(repeating: 0),
+                      SIMD4(repeating: 0), SIMD4(repeating: 0))
+        )
+        let lane81 = snapshotWithTransformLane(layerID: 81)
+        let lane80 = snapshotWithTransformLane(layerID: 80)
+        let frameDelta = 1.0 / 60.0
+
+        // A: valid -> degenerate -> restored (degenerate frame committed).
+        let recovery = makeRuntime()
+        _ = recovery.advance(by: frameDelta, dynamicValues: .empty(frameIndex: 0))
+        let beforeDegenerate = recovery.advance(
+            by: frameDelta, dynamicValues: .empty(frameIndex: 1)
+        )
+        let degenerateFrame = recovery.advance(
+            by: frameDelta, dynamicValues: lane81, layerWorldFrames: [81: zeroScale]
+        )
+        let restoredFrame = recovery.advance(
+            by: frameDelta, dynamicValues: lane81,
+            layerWorldFrames: [81: matrix_identity_float4x4]
+        )
+
+        // B: valid -> degenerate -> discard -> valid. The degenerate frame
+        // is dropped by the host, so the freeze must roll back with the
+        // simulation values and the next valid frame simulates again.
+        let rollback = makeRuntime()
+        _ = rollback.advance(by: frameDelta, dynamicValues: .empty(frameIndex: 0))
+        let preRollback = rollback.advance(
+            by: frameDelta, dynamicValues: .empty(frameIndex: 1)
+        )
+        let rollbackSnapshot = rollback.frameSnapshot()
+        _ = rollback.advance(by: frameDelta, dynamicValues: .empty(frameIndex: 2))
+        _ = rollback.advance(
+            by: frameDelta, dynamicValues: lane81, layerWorldFrames: [81: zeroScale]
+        )
+        rollback.restoreFrame(rollbackSnapshot)
+        let afterRestore = rollback.advance(
+            by: frameDelta, dynamicValues: lane81,
+            layerWorldFrames: [81: matrix_identity_float4x4]
+        )
+
+        // C: a local-space system under a scripted ancestor keeps
+        // simulating: its simulation never consumes the world frame.
+        let localUnderScript = makeRuntime()
+        _ = localUnderScript.advance(by: frameDelta, dynamicValues: .empty(frameIndex: 0))
+        let localStart = localUnderScript.advance(
+            by: frameDelta, dynamicValues: .empty(frameIndex: 1)
+        )
+        var localLane: [SceneParticleDrawBatch] = []
+        for _ in 0..<3 {
+            localLane = localUnderScript.advance(by: frameDelta, dynamicValues: lane80)
+        }
+
+        // D: a world-space system at the bottom of a two-level ancestor
+        // chain (root + static child on the same layer delta).
+        let chained = makeRuntime()
+        _ = chained.advance(by: frameDelta, dynamicValues: .empty(frameIndex: 0))
+        let chainedSteady = chained.advance(
+            by: frameDelta, dynamicValues: .empty(frameIndex: 1)
+        )
+        let chainedFrozen = chained.advance(
+            by: frameDelta, dynamicValues: lane80, layerWorldFrames: [84: zeroScale]
+        )
+        let chainedRestored = chained.advance(
+            by: frameDelta, dynamicValues: lane80,
+            layerWorldFrames: [84: matrix_identity_float4x4]
+        )
+
+        // E: vanishing-write recovery. A one-shot undeclared script write
+        // (or a finished timeline) stops producing a transform lane on the
+        // frames after the write; the dynamic snapshot falls back to the
+        // authored transform and the resolver serves a valid frame again.
+        // The frozen system must be re-evaluated on those lane-less frames
+        // and resume simulation through the launch-static fallback.
+        let vanishing = makeRuntime()
+        _ = vanishing.advance(by: frameDelta, dynamicValues: .empty(frameIndex: 0))
+        let vanishingSteady = vanishing.advance(
+            by: frameDelta, dynamicValues: .empty(frameIndex: 1)
+        )
+        let vanishingFrozen = vanishing.advance(
+            by: frameDelta, dynamicValues: lane81, layerWorldFrames: [81: zeroScale]
+        )
+        let vanishingResumed = vanishing.advance(
+            by: frameDelta, dynamicValues: .empty(frameIndex: 2),
+            layerWorldFrames: [81: matrix_identity_float4x4]
+        )
+        let vanishingNext = vanishing.advance(
+            by: frameDelta, dynamicValues: .empty(frameIndex: 3),
+            layerWorldFrames: [81: matrix_identity_float4x4]
+        )
+
+        // F: conservative hold. A lane-less frame that still cannot
+        // construct a current frame for the frozen layer keeps the
+        // previous-current freeze instead of guessing a recovery.
+        let conservative = makeRuntime()
+        _ = conservative.advance(by: frameDelta, dynamicValues: .empty(frameIndex: 0))
+        _ = conservative.advance(by: frameDelta, dynamicValues: .empty(frameIndex: 1))
+        let conservativeFrozen = conservative.advance(
+            by: frameDelta, dynamicValues: lane81, layerWorldFrames: [81: zeroScale]
+        )
+        let conservativeHeld = conservative.advance(
+            by: frameDelta, dynamicValues: .empty(frameIndex: 2)
+        )
+        return [
+            "degenerateHoldsPrevious": motion(degenerateFrame, layerID: 81)
+                == motion(beforeDegenerate, layerID: 81),
+            "recoveryResumes": motion(restoredFrame, layerID: 81)
+                > motion(degenerateFrame, layerID: 81) + 0.5,
+            "resumeDiagnostic": recovery.diagnostics.contains {
+                $0.kind == .simulationLimitation
+                    && $0.layerID == 81
+                    && $0.detail == "world-space frame resumed after transform recovered"
+            },
+            "rollbackResumes": motion(afterRestore, layerID: 81)
+                > motion(preRollback, layerID: 81) + 0.5,
+            "localKeepsMoving": motion(localLane, layerID: 82)
+                > motion(localStart, layerID: 82) + 0.5,
+            "localFreezeDiagnosticAbsent": !localUnderScript.diagnostics.contains {
+                $0.kind == .simulationLimitation
+                    && $0.layerID == 82
+                    && $0.detail == "world-space frame frozen after runtime transform write"
+            },
+            "chainedFrozenHoldsPrevious": motion(chainedFrozen, layerID: 84)
+                == motion(chainedSteady, layerID: 84),
+            "chainedRecoveryResumes": motion(chainedRestored, layerID: 84)
+                > motion(chainedFrozen, layerID: 84) + 0.5,
+            "chainedRootAndChildBatches": chainedRestored
+                .filter { $0.layerID == 84 }.count >= 2,
+            "vanishingWriteHoldsDuringDegenerate": motion(vanishingFrozen, layerID: 81)
+                == motion(vanishingSteady, layerID: 81),
+            "vanishingWriteResumes": motion(vanishingResumed, layerID: 81)
+                > motion(vanishingFrozen, layerID: 81) + 0.5,
+            "vanishingWriteStaysUnfrozen": motion(vanishingNext, layerID: 81)
+                > motion(vanishingResumed, layerID: 81) + 0.5,
+            "vanishingWriteResumeDiagnostic": vanishing.diagnostics.contains {
+                $0.kind == .simulationLimitation
+                    && $0.layerID == 81
+                    && $0.detail == "world-space frame resumed after transform recovered"
+            },
+            "conservativeHoldKeepsPrevious": motion(conservativeHeld, layerID: 81)
+                == motion(conservativeFrozen, layerID: 81),
+        ]
+    }
+
+    private static func instanceBufferBudget() throws -> [String: Any] {
+        // The per-system instance buffer growth ceiling is tied to the
+        // frozen whole-layer segment-instance budget: an emission beyond it
+        // fails closed through the existing instanceBufferAllocationFailed
+        // path instead of growing device memory without bound.
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw HarnessError.noMetal
+        }
+        let instance = SceneParticleGPUInstance(
+            position: SIMD3(1, 2, 3), size: 4, rotation: .zero,
+            color: SIMD3(repeating: 1), alpha: 1
+        )
+        func accepts(_ count: Int) -> Bool {
+            SceneParticleMetalInstanceBuffer().update(
+                device: device,
+                instances: Array(repeating: instance, count: count)
+            )
+        }
+        return [
+            "withinBudgetAccepted": accepts(
+                SceneParticleRopeTrailPlan.maximumSegmentInstanceCount
+            ),
+            "overBudgetRejected": !accepts(
+                SceneParticleRopeTrailPlan.maximumSegmentInstanceCount + 1
+            ),
         ]
     }
 
@@ -5174,6 +5451,58 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertEqual(result["frozenPositions"], result["movingPositions"])
         self.assertEqual(result["frozenAgainPositions"], result["movingPositions"])
         self.assertTrue(result["freezeDiagnostic"])
+
+    def test_instance_buffer_capacity_growth_is_bounded(self) -> None:
+        result = self.run_harness("instance-buffer-budget")
+        # A system emission within the frozen whole-layer segment-instance
+        # budget keeps uploading; an emission beyond it fails closed through
+        # the allocation path instead of growing the buffer without bound.
+        self.assertTrue(result["withinBudgetAccepted"])
+        self.assertTrue(result["overBudgetRejected"])
+
+    def test_frozen_world_space_layer_recovers_after_transform_restores(self) -> None:
+        result = self.run_harness("worldspace-freeze-recovery")
+        # The degenerate (zero-scale) frame itself still holds the last
+        # committed state: the freeze stays a previous-current fail-soft.
+        self.assertTrue(result["degenerateHoldsPrevious"])
+        self.assertTrue(result["chainedFrozenHoldsPrevious"])
+        # Once a valid current world frame is available again the system
+        # resumes simulation instead of staying frozen forever, both for a
+        # self-chain system and for one under a two-level ancestor chain
+        # with a static child sharing the same layer delta.
+        self.assertTrue(result["recoveryResumes"])
+        self.assertTrue(result["chainedRecoveryResumes"])
+        self.assertTrue(result["chainedRootAndChildBatches"])
+        self.assertTrue(result["resumeDiagnostic"])
+
+    def test_frozen_world_space_layer_recovers_when_the_write_vanishes(self) -> None:
+        result = self.run_harness("worldspace-freeze-recovery")
+        # A one-shot undeclared script write (or a finished timeline)
+        # produces no transform lane on later frames: the snapshot falls
+        # back to the authored transform and the resolver serves a valid
+        # frame again. The freeze must be re-evaluated on those lane-less
+        # frames — the degenerate frame itself still holds previous-current.
+        self.assertTrue(result["vanishingWriteHoldsDuringDegenerate"])
+        self.assertTrue(result["vanishingWriteResumes"])
+        self.assertTrue(result["vanishingWriteStaysUnfrozen"])
+        self.assertTrue(result["vanishingWriteResumeDiagnostic"])
+        # A lane-less frame that still cannot construct a current frame
+        # keeps the previous-current freeze instead of guessing recovery.
+        self.assertTrue(result["conservativeHoldKeepsPrevious"])
+
+    def test_freeze_rollback_via_frame_snapshot_restores_simulation(self) -> None:
+        result = self.run_harness("worldspace-freeze-recovery")
+        # A degenerate frame that the host discards rolls the freeze back
+        # with the simulation values: the next valid frame simulates again.
+        self.assertTrue(result["rollbackResumes"])
+
+    def test_non_world_space_layer_not_frozen_on_ancestor_transform_write(self) -> None:
+        result = self.run_harness("worldspace-freeze-recovery")
+        # A local-space particle system never consumes the world frame, so
+        # a scripted transform write on its ancestor chain must not stop
+        # its simulation and must not report a world-space freeze for it.
+        self.assertTrue(result["localKeepsMoving"])
+        self.assertTrue(result["localFreezeDiagnosticAbsent"])
 
     def test_world_space_system_follows_current_world_frame_over_transform_lane(self) -> None:
         result = self.run_harness("worldspace-freeze")

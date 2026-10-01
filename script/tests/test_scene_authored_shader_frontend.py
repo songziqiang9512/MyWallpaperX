@@ -952,27 +952,46 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertIsNone(output.get("metalError"))
 
     def test_same_slot_channel_reconstruction_rejects_unproven_flows(self):
+        # E5 colortransfer-5: a terminal alpha proven to read one sampled
+        # vector member (`float alpha = <sampled>.a;`) takes the
+        # `.sourcedAlpha` boundary — the terminal value is premultiplied
+        # exactly once and the sampled inputs stay untouched. These flows
+        # still get no input unpremultiply (the same-slot reconstruction
+        # analyzer rejects every variant below); the variants whose terminal
+        # alpha is a pure sampled-member chain now carry the terminal
+        # premultiply, while a multiplied alpha stays unproven and keeps no
+        # boundary at all.
         fixtures = {
-            "cross-slot-channel": {"green_sampler": "g_Texture1"},
-            "shifted-alpha": {"alpha_expression": "redShift.a"},
-            "multiplied-alpha": {"alpha_expression": "base.a * opacity"},
-            "extra-rgb-write": {"after_blend": "generated.rgb *= opacity;"},
-            "conditional-sample": {
-                "red_declaration": (
-                    "vec4 redShift = base; "
-                    "if (opacity > 0.5) { "
-                    "redShift = texSample2D(g_Texture0, v_TexCoord + vec2(0.01)); }"
-                )
-            },
-            "helper-sample": {
-                "extra_helper": (
-                    "vec4 hiddenSample(vec2 coordinate) { "
-                    "return texSample2D(g_Texture0, coordinate); }"
-                )
-            },
-            "unmatched-base": {"blend_base": "redShift.rgb"},
+            "cross-slot-channel": (
+                {"green_sampler": "g_Texture1"}, True,
+            ),
+            "shifted-alpha": ({"alpha_expression": "redShift.a"}, True),
+            "multiplied-alpha": (
+                {"alpha_expression": "base.a * opacity"}, False,
+            ),
+            "extra-rgb-write": ({"after_blend": "generated.rgb *= opacity;"}, True),
+            "conditional-sample": (
+                {
+                    "red_declaration": (
+                        "vec4 redShift = base; "
+                        "if (opacity > 0.5) { "
+                        "redShift = texSample2D(g_Texture0, v_TexCoord + vec2(0.01)); }"
+                    )
+                },
+                True,
+            ),
+            "helper-sample": (
+                {
+                    "extra_helper": (
+                        "vec4 hiddenSample(vec2 coordinate) { "
+                        "return texSample2D(g_Texture0, coordinate); }"
+                    )
+                },
+                True,
+            ),
+            "unmatched-base": ({"blend_base": "redShift.rgb"}, True),
         }
-        for name, substitutions in fixtures.items():
+        for name, (substitutions, expect_terminal_premultiply) in fixtures.items():
             with self.subTest(name=name):
                 output = self.compile(
                     VERTEX_SOURCE,
@@ -980,7 +999,20 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
                     metal=False,
                 )
                 self.assertEqual(output["diagnosticCodes"], [])
-                self.assertNotIn("mwxPremultiply", output["metalSource"])
+                # No reconstruction input boundary is applied to any of
+                # these unproven flows: no sampled input call is wrapped by
+                # the unpremultiply boundary (the `.sourcedAlpha` prelude
+                # still carries the helper definitions themselves).
+                self.assertNotIn(
+                    "mwxUnpremultiply(mwxTexture", output["metalSource"]
+                )
+                compact_source = output["metalSource"].replace(" ", "")
+                if expect_terminal_premultiply:
+                    self.assertIn(
+                        "returnmwxPremultiply(mwxFragColor);", compact_source
+                    )
+                else:
+                    self.assertNotIn("mwxPremultiply(", output["metalSource"])
 
     @staticmethod
     def same_slot_channel_reconstruction_fixture(
@@ -2751,15 +2783,46 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             varying vec2 linkedValue;
             void main() { gl_FragColor = vec4(linkedValue.xy[g_Index]); }
             """,
+            # A member mutation of components beyond the declared fragment
+            # prefix stays rejected even inside main.
             """
             varying vec2 linkedValue;
-            void main() { linkedValue.xy = vec2(0.0); gl_FragColor = vec4(1.0); }
+            void main() { linkedValue.z = 1.0; gl_FragColor = vec4(1.0); }
+            """,
+            # A member mutation inside a helper body stays rejected: only
+            # main receives the mutable local copy of the linked value.
+            """
+            varying vec2 linkedValue;
+            void resetValue() { linkedValue.xy = vec2(0.0); }
+            void main() { resetValue(); gl_FragColor = vec4(1.0); }
             """,
         ]
         for fragment in fragments:
             with self.subTest(fragment=fragment):
                 output = self.compile(vertex, fragment, metal=False)
                 self.assertIn("stageLinkMismatch", output["diagnosticCodes"])
+
+        # A member mutation inside main, confined to the declared fragment
+        # prefix, mutates the fragment's by-value copy of the linked value
+        # and is admitted: the authored dialect treats the stage input as a
+        # mutable working register there (the real sine_wave shape writes
+        # `v_TexCoord.x += ...`). The mutation must survive into the emitted
+        # Metal (the by-value stage-in copy, space-joined by the emitter)
+        # and the result must compile.
+        admitted = self.compile(
+            vertex,
+            """
+            varying vec2 linkedValue;
+            void main() {
+                linkedValue.xy = vec2(0.0);
+                gl_FragColor = vec4(linkedValue.xy, 0.0, 1.0);
+            }
+            """,
+        )
+        self.assertEqual(admitted["diagnosticCodes"], [])
+        self.assertIsNone(admitted.get("metalError"))
+        compact_source = admitted["metalSource"].replace(" ", "")
+        self.assertIn("mwxInput.linkedValue.xy=float2(0.0);", compact_source)
 
         valid_fragment = """
             varying vec2 linkedValue;

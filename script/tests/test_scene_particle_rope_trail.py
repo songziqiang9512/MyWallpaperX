@@ -51,6 +51,7 @@ enum Harness {
             "appearance": appearanceContract(),
             "growingTexture": growingTextureContract(),
             "pausedTexture": pausedTextureContract(),
+            "churnBudget": churnBudgetContract(),
         ]
         let data = try JSONSerialization.data(
             withJSONObject: result,
@@ -425,6 +426,119 @@ enum Harness {
         let replay = history.advance(by: 0, particles: particles(at: 40), layerAlpha: 1)
         return ["accepted": true, "count": instances.count, "correct": correct,
                 "ghostDrain": ghost, "cleared": drained, "replayed": replay.count]
+    }
+
+    private static func churnBudgetContract() -> [String: Any] {
+        // High churn: short-lived particles, a high emission rate, dense
+        // authored sampling, and a retention window far longer than any
+        // particle's life. Retired ribbons accumulate frame over frame, so
+        // the layer's total (live + retired) track and instance population
+        // must stay inside the frozen whole-layer budgets instead of
+        // growing without bound and dragging the GPU buffer along.
+        guard let dense = plan([
+            "name": "ropetrail", "length": 1, "segments": 4,
+            "subdivision": 0, "fadealpha": true,
+        ], maximumCount: 8192) else { return ["accepted": false] }
+        let frameDelta = 1.0 / 60.0
+        let birthCount = 600
+        let lifetimeFrames = 8
+        let totalFrames = 32
+        func particles(at frame: Int) -> [SceneParticleRopeTrailParticle] {
+            let firstBirth = max(0, frame - lifetimeFrames + 1)
+            return ((firstBirth * birthCount)..<(frame * birthCount + birthCount))
+                .map { id in
+                    particle(id: UInt64(id), x: Float(frame) * 2 + Float(id % 4))
+                }
+        }
+        func runChurn() -> (counts: [Int], trackCounts: [Int]) {
+            var history = SceneParticleRopeTrailHistory(plan: dense)
+            var counts: [Int] = []
+            var trackCounts: [Int] = []
+            for frame in 0...totalFrames {
+                counts.append(history.advance(
+                    by: frame == 0 ? 0 : frameDelta,
+                    particles: particles(at: frame),
+                    layerAlpha: 1
+                ).count)
+                trackCounts.append(history.totalTrackCount)
+            }
+            return (counts, trackCounts)
+        }
+        let run = runChurn()
+        let counts = run.counts
+        let trackCounts = run.trackCounts
+        let replayCounts = runChurn().counts
+        // Snapshot rollback determinism in the middle of the churn: the
+        // replay of the same two frames from a copied value must produce
+        // bit-identical output, retirement and eviction order included.
+        var rollbackHistory = SceneParticleRopeTrailHistory(plan: dense)
+        for frame in 0...20 {
+            _ = rollbackHistory.advance(
+                by: frame == 0 ? 0 : frameDelta,
+                particles: particles(at: frame),
+                layerAlpha: 1
+            )
+        }
+        let rollbackSnapshot = rollbackHistory
+        let originalFirst = rollbackHistory.advance(
+            by: frameDelta, particles: particles(at: 21), layerAlpha: 1
+        )
+        let originalSecond = rollbackHistory.advance(
+            by: frameDelta, particles: particles(at: 22), layerAlpha: 1
+        )
+        var replayHistory = rollbackSnapshot
+        let replayFirst = replayHistory.advance(
+            by: frameDelta, particles: particles(at: 21), layerAlpha: 1
+        )
+        let replaySecond = replayHistory.advance(
+            by: frameDelta, particles: particles(at: 22), layerAlpha: 1
+        )
+        let rollbackMatch = originalFirst.count == replayFirst.count
+            && zip(originalFirst, replayFirst).allSatisfy {
+                $0.positionAndSize == $1.positionAndSize
+                    && $0.rotationAndAlpha == $1.rotationAndAlpha
+            }
+            && originalSecond.count == replaySecond.count
+            && zip(originalSecond, replaySecond).allSatisfy {
+                $0.positionAndSize == $1.positionAndSize
+            }
+        // Live trails keep rendering while the budget holds: the steady
+        // frames still emit a full ribbon for every live particle.
+        var steadyHistory = SceneParticleRopeTrailHistory(plan: dense)
+        for frame in 0...totalFrames {
+            _ = steadyHistory.advance(
+                by: frame == 0 ? 0 : frameDelta,
+                particles: particles(at: frame),
+                layerAlpha: 1
+            )
+        }
+        let steadyOutput = steadyHistory.advance(
+            by: frameDelta, particles: particles(at: totalFrames + 1), layerAlpha: 1
+        )
+        return [
+            "accepted": true,
+            "counts": counts,
+            "trackCounts": trackCounts,
+            "trackBudget": dense.maximumTotalTrackCount,
+            "replayDeterministic": counts == replayCounts,
+            "maximumInstances": counts.max() ?? 0,
+            "bounded": (counts.max() ?? 0)
+                <= SceneParticleRopeTrailPlan.maximumSegmentInstanceCount,
+            "tracksBounded": trackCounts.allSatisfy {
+                $0 <= dense.maximumTotalTrackCount
+            },
+            "tracksReachSteadyState": trackCounts[totalFrames - 2]
+                == trackCounts[totalFrames - 1]
+                && trackCounts[totalFrames - 1] == trackCounts[totalFrames],
+            "tailStable": counts[totalFrames - 2] == counts[totalFrames - 1]
+                && counts[totalFrames - 1] == counts[totalFrames],
+            "doesNotGrowLate": counts[totalFrames] <= counts[totalFrames - 8],
+            "rollbackMatch": rollbackMatch,
+            "steadyTrailPresent": !steadyOutput.isEmpty,
+            "steadyTrailFades": steadyOutput.contains {
+                $0.rotationAndAlpha.w < 0.999
+            },
+        ]
     }
 
     private static func historyContract() -> [String: Any] {
@@ -824,6 +938,37 @@ class SceneParticleRopeTrailTests(unittest.TestCase):
         directions = history["curvedDirections"]
         self.assertIn([10, 0], directions)
         self.assertIn([0, 10], directions)
+
+    def test_retired_tracks_obey_total_budget_under_high_churn(self) -> None:
+        result = self.result["churnBudget"]
+        self.assertTrue(result["accepted"])
+        counts = result["counts"]
+        track_counts = result["trackCounts"]
+        # The trend, not just the first frame: under short-lived, dense,
+        # long-window churn the combined live + retired track population
+        # and the emitted segment population must stay inside the frozen
+        # whole-layer budgets for the entire run...
+        self.assertTrue(result["tracksBounded"])
+        self.assertLessEqual(max(track_counts), result["trackBudget"])
+        self.assertTrue(result["tracksReachSteadyState"])
+        self.assertTrue(result["bounded"])
+        self.assertLessEqual(result["maximumInstances"], 65_536)
+        # ...and reach a steady state instead of growing with every frame.
+        self.assertTrue(result["tailStable"])
+        self.assertTrue(result["doesNotGrowLate"])
+        # The budget must not disable the feature: live ribbons keep
+        # rendering and keep fading along the authored window.
+        self.assertTrue(result["steadyTrailPresent"])
+        self.assertTrue(result["steadyTrailFades"])
+
+    def test_retired_budget_retirement_is_deterministic_and_rollback_stable(self) -> None:
+        result = self.result["churnBudget"]
+        # Two independent runs of the same churn produce identical per-frame
+        # emission counts, and a mid-churn snapshot replays the next frames
+        # bit-for-bit: retirement and eviction order never depend on
+        # dictionary iteration order.
+        self.assertTrue(result["replayDeterministic"])
+        self.assertTrue(result["rollbackMatch"])
 
     def test_history_drains_dead_or_invalid_tracks_and_is_partition_stable(self) -> None:
         history = self.result["history"]
