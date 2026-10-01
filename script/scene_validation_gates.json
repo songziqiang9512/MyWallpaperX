@@ -1451,6 +1451,17 @@
         "test_scene_test_runner",
         "test_verify_scene_change"
       ]
+    },
+    {
+      "id": "steam-list-thumbnail-animation",
+      "patterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem+Presentation.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItemSupportViews.swift"
+      ],
+      "modules": [
+        "test_steam_list_thumbnail_animation"
+      ]
     }
   ]
 }

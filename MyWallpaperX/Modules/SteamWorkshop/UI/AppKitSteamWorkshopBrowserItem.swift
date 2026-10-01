@@ -706,6 +706,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         let hoveringNow = view.bounds.contains(localPoint)
         guard hoveringNow != isHovering else { return }
         isHovering = hoveringNow
+        syncPreviewAnimationState()
         applyHoverStyle(animated: animated)
     }
 
@@ -715,6 +716,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         let hoveringNow = view.bounds.contains(localPoint)
         guard hoveringNow != isHovering else { return }
         isHovering = hoveringNow
+        syncPreviewAnimationState()
         applyHoverStyle(animated: animated)
     }
 

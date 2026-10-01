@@ -243,7 +243,12 @@ extension AppKitSteamWorkshopBrowserItem {
     }
 
     func syncPreviewAnimationState() {
-        previewImageView.animates = isPreviewVisible
+        // 列表缩略图默认静态帧：进窗可见（isPreviewVisible）只解锁资格，
+        // 悬停才真正播放动画。一张动画 GIF 是一个主线程定时器驱动的
+        // 帧序列，整屏可见卡片同时播放会让浏览明显掉帧；详情面板的
+        // 常驻动画由 SteamWorkshopPreviewImageContainerView 自持，不经
+        // 此开关。
+        previewImageView.animates = isPreviewVisible && isHovering
     }
 
     func applyHoverStyle(animated: Bool) {
