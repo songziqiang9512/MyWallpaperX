@@ -269,11 +269,20 @@ extension SteamWorkshopToolbarController {
 
     func controlTextDidChange(_ obj: Notification) {
         guard let field = obj.object as? NSSearchField else { return }
-        if field === downloadsSearchField {
-            SteamWorkshopService.shared.downloadsQuery = field.stringValue.trimmingCharacters(in: .whitespaces)
-        } else {
-            SteamWorkshopService.shared.browserQuery = field.stringValue.trimmingCharacters(in: .whitespaces)
+        let text = field.stringValue.trimmingCharacters(in: .whitespaces)
+        let key = ObjectIdentifier(field)
+        searchDebounceWorkItems[key]?.cancel()
+        let workItem = DispatchWorkItem { [weak self, weak field] in
+            guard let self, let field else { return }
+            self.searchDebounceWorkItems[key] = nil
+            if field === self.downloadsSearchField {
+                SteamWorkshopService.shared.downloadsQuery = text
+            } else if field === self.searchField {
+                SteamWorkshopService.shared.browserQuery = text
+            }
         }
+        searchDebounceWorkItems[key] = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: workItem)
     }
 
     var allowedItemIdentifiers: [NSToolbarItem.Identifier] {

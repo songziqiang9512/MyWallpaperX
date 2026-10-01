@@ -34,6 +34,9 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
     private(set) var isSteamWorkshopMode = false
     private(set) var isDownloadsMode = false
     private var observers: [NSObjectProtocol] = []
+    /// Per-field search debounce state (used by controlTextDidChange in
+    /// +Actions): one keystroke must not trigger one helper round-trip each.
+    var searchDebounceWorkItems: [ObjectIdentifier: DispatchWorkItem] = [:]
     private var cancellables = Set<AnyCancellable>()
     private var existingDownloadTasksPopoverController: SteamWorkshopDownloadTasksPopoverController?
 

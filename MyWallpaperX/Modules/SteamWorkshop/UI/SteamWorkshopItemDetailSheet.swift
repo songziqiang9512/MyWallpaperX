@@ -8,14 +8,14 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         static let footerHeight: CGFloat = SteamWorkshopDetailFooterView.height
     }
 
-    private let service = SteamWorkshopService.shared
+    let service = SteamWorkshopService.shared
     private let initialItem: SteamWorkshopBrowserItem
-    private var currentItem: SteamWorkshopBrowserItem
-    private var cancellables = Set<AnyCancellable>()
-    private var subscriptionHint: String?
+    var currentItem: SteamWorkshopBrowserItem
+    var cancellables = Set<AnyCancellable>()
+    var subscriptionHint: String?
     private var diagnosticsPanelToken: UUID?
     private var diagnosticsPanelStack: NSStackView?
-    private var webDiagnosticsExpanded = false
+    var webDiagnosticsExpanded = false
     private var downloadProgressObserverID: UUID?
     private var downloadProgressSnapshot: SteamWorkshopDownloadProgressSnapshot?
     private weak var primaryProgressButton: InspectorFooterButton?
@@ -63,56 +63,8 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         rebuild(preservingScrollPosition: isSameItem)
     }
 
-    private func observeService() {
-        WallpaperManager.shared.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.rebuild() }
-            .store(in: &cancellables)
-        NotificationCenter.default.publisher(for: .sceneWallpaperLaunchStateDidChange)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.rebuild() }
-            .store(in: &cancellables)
+    var isRebuildScheduled = false
 
-        service.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                guard let self else { return }
-                self.currentItem = self.resolvedCurrentItem(fallback: self.currentItem)
-                self.rebuild()
-            }
-            .store(in: &cancellables)
-
-        service.steamAuth.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                guard let self else { return }
-                self.service.steamSubscriptions.synchronizeAccount()
-                if self.service.steamAuth.isOnline { self.subscriptionHint = nil }
-                self.rebuild()
-            }
-            .store(in: &cancellables)
-        service.steamSubscriptions.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.rebuild() }
-            .store(in: &cancellables)
-
-        NotificationCenter.default.publisher(for: WebRuntimeDiagnosticsStore.didChangeNotification)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] notification in
-                guard let self,
-                      self.webDiagnosticsExpanded,
-                      let webDownloadRecord = self.webDownloadRecord else {
-                    return
-                }
-                if let changedRecordID = notification.object as? String,
-                   changedRecordID != webDownloadRecord.id {
-                    return
-                }
-                self.refreshDiagnosticsPanel()
-            }
-            .store(in: &cancellables)
-
-    }
 
     private func bindDownloadProgress(to itemID: String) {
         if let downloadProgressObserverID {
@@ -136,7 +88,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         }
     }
 
-    private func resolvedCurrentItem(fallback: SteamWorkshopBrowserItem) -> SteamWorkshopBrowserItem {
+    func resolvedCurrentItem(fallback: SteamWorkshopBrowserItem) -> SteamWorkshopBrowserItem {
         if let selected = service.selectedDownloadDetailItem, selected.id == fallback.id {
             return selected
         }
@@ -164,7 +116,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         latestDownloadRecord?.failureMessage
     }
 
-    private var webDownloadRecord: SteamWorkshopDownloadRecord? {
+    var webDownloadRecord: SteamWorkshopDownloadRecord? {
         guard let latestDownloadRecord, latestDownloadRecord.contentType == .web else { return nil }
         return latestDownloadRecord
     }
@@ -249,7 +201,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         ])
     }
 
-    private func rebuild(preservingScrollPosition: Bool = true) {
+    func rebuild(preservingScrollPosition: Bool = true) {
         let preservedOrigin = preservingScrollPosition ? scrollView.contentView.bounds.origin : nil
         currentItem = resolvedCurrentItem(fallback: currentItem)
         contentStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
@@ -599,7 +551,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         refreshDiagnosticsPanel()
     }
 
-    private func refreshDiagnosticsPanel() {
+    func refreshDiagnosticsPanel() {
         guard let token = diagnosticsPanelToken,
               SteamWorkshopPropertyPanelController.shared.presentationID == token,
               let stack = diagnosticsPanelStack, let record = latestDownloadRecord else { return }

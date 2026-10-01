@@ -18,6 +18,8 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
     private var cancellables = Set<AnyCancellable>()
     private var orderedIDs: [String] = []
     private var recordsByID: [String: SteamWorkshopDownloadRecord] = [:]
+    /// Previous pass's ordering for the structure-unchanged fast path.
+    private var previousOrderedIDs: [String] = []
     private var keyboardFocusedID: String?
     private var currentColumnCount = 1
     private var moduleActivationObserver: NSObjectProtocol?
@@ -157,7 +159,6 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] records in
                 self?.applyRecords(records)
-                self?.refreshVisibleDownloadItems()
             }
             .store(in: &cancellables)
 
@@ -233,8 +234,13 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
     }
 
     private func applyRecords(_ records: [SteamWorkshopDownloadRecord]) {
+        let previousRecordsByID = recordsByID
         recordsByID = Dictionary(uniqueKeysWithValues: records.map { ($0.id, $0) })
         orderedIDs = records.map(\.id)
+        let changedIDs = Set(orderedIDs.filter { id in
+            guard let previous = previousRecordsByID[id] else { return false }
+            return previous != recordsByID[id]
+        })
 
         if let selectedID = service.selectedDownloadID,
            orderedIDs.contains(selectedID) == false {
@@ -243,10 +249,30 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
 
         emptyLabel.isHidden = !orderedIDs.isEmpty
 
+        // Structure unchanged: the diffable apply would be a no-op, so skip
+        // straight to reconfiguring only the visible cells whose record
+        // actually changed (per-tick progress already diffs at the card, but
+        // sort/filter/publish churn lands here too). Mirrors the browser
+        // grid's fast path.
+        if previousOrderedIDs == orderedIDs {
+            if !changedIDs.isEmpty {
+                refreshVisibleDownloadItems(for: changedIDs)
+            }
+            ensureKeyboardFocus()
+            return
+        }
+        previousOrderedIDs = orderedIDs
+
         var snapshot = NSDiffableDataSourceSnapshot<Section, String>()
         snapshot.appendSections([.main])
         snapshot.appendItems(orderedIDs, toSection: .main)
-        dataSource.apply(snapshot, animatingDifferences: true)
+        dataSource.apply(snapshot, animatingDifferences: true) { [weak self] in
+            // 结构变化 + 内容变化同拍到达时（如一个下载完成的同时另一个
+            // 入队），幸存 cell 的 diffable apply 不重配内容——对齐浏览
+            // 网格先例，apply 完成后补一次定向重配。
+            guard let self, !changedIDs.isEmpty else { return }
+            self.refreshVisibleDownloadItems(for: changedIDs)
+        }
         ensureKeyboardFocus()
     }
 
@@ -280,12 +306,13 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         item.setPrefersCircularPlayBadge(canLaunchRecord)
     }
 
-    private func refreshVisibleDownloadItems() {
+    private func refreshVisibleDownloadItems(for ids: Set<String>? = nil) {
         for visibleItem in collectionView.visibleItems() {
             guard let item = visibleItem as? AppKitSteamWorkshopBrowserItem,
                   let indexPath = collectionView.indexPath(for: item),
                   indexPath.item < orderedIDs.count else { continue }
             let id = orderedIDs[indexPath.item]
+            if let ids, ids.contains(id) == false { continue }
             guard let record = recordsByID[id] else { continue }
             configureDownloadItem(item, for: record)
         }
