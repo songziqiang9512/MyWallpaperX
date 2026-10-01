@@ -22,6 +22,12 @@ final class SceneParticleRuntime {
         let layers: [LayerSnapshot]
         let pendingAudioEvaluationObservations:
             [SceneParticleRuntimeAudioEvaluationObservation]
+        /// World-space freeze/adopt bookkeeping enters the same
+        /// transaction as the simulation values: a discarded frame rolls
+        /// the freeze back with the particles, and a replayed frame
+        /// re-derives it from the same inputs.
+        let frozenWorldSpaceLayerIDs: Set<Int>
+        let adoptedWorldSpaceLayerIDs: Set<Int>
     }
 
     private let device: MTLDevice
@@ -32,6 +38,13 @@ final class SceneParticleRuntime {
     /// world frame; the system then simulates with a zero delta so its last
     /// committed particle state keeps rendering (previous-current).
     private let worldSpaceChains: [Int: Set<Int>]
+    /// Particle layers whose simulation actually converts through the world
+    /// frame: root world-space flags/movement or any admitted child
+    /// template with them. The freeze/re-adopt transaction applies only to
+    /// these; a local-space system under the same scripted chain keeps
+    /// simulating because the layer world frame only matters at draw time.
+    /// Assigned once at the end of init and never mutated afterwards.
+    private var worldSpaceRequiringLayerIDs: Set<Int> = []
     private var frozenWorldSpaceLayerIDs: Set<Int> = []
     /// Launch-stable layer demand for pointer projection. Root and child
     /// template identities are prepared with the particle graph; frame-varying
@@ -149,6 +162,7 @@ final class SceneParticleRuntime {
 
         let builtInTextureRegistry = SceneParticleBuiltInTextureRegistry(device: device)
         var pointerDemandLayerIDs = Set<Int>()
+        var worldSpaceDemandLayerIDs = Set<Int>()
         for layer in particleLayers {
             guard let rawPath = layer.particlePath else {
                 addDiagnostic(
@@ -236,6 +250,11 @@ final class SceneParticleRuntime {
                 if childRuntime.hasPointerControlPointConsumer {
                     pointerDemandLayerIDs.insert(layer.id)
                 }
+                if asset.definition.flags.isWorldSpace
+                    || asset.definition.operators.contains(where: \.isWorldSpaceMovement)
+                    || childRuntime.hasWorldSpaceFrameConsumer {
+                    worldSpaceDemandLayerIDs.insert(layer.id)
+                }
                 continue
             }
 
@@ -277,15 +296,28 @@ final class SceneParticleRuntime {
                 || childRuntime.hasPointerControlPointConsumer {
                 pointerDemandLayerIDs.insert(layer.id)
             }
+            if asset.definition.flags.isWorldSpace
+                || asset.definition.operators.contains(where: \.isWorldSpaceMovement)
+                || childRuntime.hasWorldSpaceFrameConsumer {
+                worldSpaceDemandLayerIDs.insert(layer.id)
+            }
         }
         pointerControlPointLayerIDs = pointerDemandLayerIDs
+        worldSpaceRequiringLayerIDs = worldSpaceDemandLayerIDs
     }
 
     /// A script anywhere in the scene may write a chain layer's transform
     /// through the dynamic snapshot without a declared binding. The runtime
     /// then adopts the renderer's current world frame for that system; only
     /// when no current frame is available (or it is degenerate) does the
-    /// system freeze and keep its last committed particles.
+    /// system freeze for that frame and keep its last committed particles.
+    /// The freeze lasts exactly as long as the degenerate state: a later
+    /// frame that can construct a valid frame for the chain — whether that
+    /// frame carries a fresh transform write or the write has already
+    /// vanished (one-shot undeclared script write, finished timeline) and
+    /// the snapshot fell back to the authored transform — resumes
+    /// simulation. Lane-less frames that still cannot construct a frame
+    /// keep the previous-current freeze.
     private var liveWorldSpaceAdoptedLayerIDs: Set<Int> = []
     private func resolveCurrentWorldSpaceFrames(
         dynamicValues: SceneDynamicSnapshot,
@@ -293,14 +325,25 @@ final class SceneParticleRuntime {
     ) -> [Int: SceneParticleWorldSpaceFrame] {
         guard !worldSpaceChains.isEmpty else { return [:] }
         let transformLayerIDs = dynamicValues.dynamicTransformLayerIDsForFrame
-        guard !transformLayerIDs.isEmpty else { return [:] }
+        guard !transformLayerIDs.isEmpty else {
+            resolveVanishedTransformWrites(layerWorldFrames: layerWorldFrames)
+            return [:]
+        }
         var liveFrames: [Int: SceneParticleWorldSpaceFrame] = [:]
         for (layerID, chain) in worldSpaceChains
-        where !frozenWorldSpaceLayerIDs.contains(layerID)
+        where worldSpaceRequiringLayerIDs.contains(layerID)
             && !chain.isDisjoint(with: transformLayerIDs) {
             let path = layers.first { $0.layerID == layerID }?.particlePath ?? ""
             if let current = layerWorldFrames[layerID],
                let frame = SceneParticleWorldSpaceFrame(worldFrame: current) {
+                if frozenWorldSpaceLayerIDs.remove(layerID) != nil {
+                    addDiagnostic(
+                        kind: .simulationLimitation,
+                        layerID: layerID,
+                        path: path,
+                        detail: "world-space frame resumed after transform recovered"
+                    )
+                }
                 if liveWorldSpaceAdoptedLayerIDs.insert(layerID).inserted {
                     addDiagnostic(
                         kind: .simulationLimitation,
@@ -310,8 +353,7 @@ final class SceneParticleRuntime {
                     )
                 }
                 liveFrames[layerID] = frame
-            } else if !frozenWorldSpaceLayerIDs.contains(layerID) {
-                frozenWorldSpaceLayerIDs.insert(layerID)
+            } else if frozenWorldSpaceLayerIDs.insert(layerID).inserted {
                 addDiagnostic(
                     kind: .simulationLimitation,
                     layerID: layerID,
@@ -321,6 +363,34 @@ final class SceneParticleRuntime {
             }
         }
         return liveFrames
+    }
+
+    /// Re-evaluates frozen world-space systems on frames whose chain has no
+    /// transform write. A one-shot undeclared script write or a finished
+    /// timeline stops producing a lane; the dynamic snapshot falls back to
+    /// the authored transform and the resolver serves a valid frame again.
+    /// Once the layer's current world frame is constructible the chain is
+    /// back to launch-static semantics, so the freeze ends and the systems
+    /// simulate through the simulator's static-frame fallback (no override).
+    /// A layer whose frame is still unconstructible keeps its freeze: the
+    /// previous-current rendering is the safe output, not a guess.
+    private func resolveVanishedTransformWrites(
+        layerWorldFrames: [Int: simd_float4x4]
+    ) {
+        for layerID in worldSpaceRequiringLayerIDs
+            .intersection(frozenWorldSpaceLayerIDs).sorted() {
+            guard let current = layerWorldFrames[layerID],
+                  SceneParticleWorldSpaceFrame(worldFrame: current) != nil else {
+                continue
+            }
+            frozenWorldSpaceLayerIDs.remove(layerID)
+            addDiagnostic(
+                kind: .simulationLimitation,
+                layerID: layerID,
+                path: layers.first { $0.layerID == layerID }?.particlePath ?? "",
+                detail: "world-space frame resumed after transform recovered"
+            )
+        }
     }
 
     /// Advances every active layer by the frame delta and returns batches in scene render order.
@@ -468,7 +538,9 @@ final class SceneParticleRuntime {
                 root: root,
                 child: layer.childRuntime?.frameSnapshot()
             )
-        }, pendingAudioEvaluationObservations: pendingAudioEvaluationObservations)
+        }, pendingAudioEvaluationObservations: pendingAudioEvaluationObservations,
+           frozenWorldSpaceLayerIDs: frozenWorldSpaceLayerIDs,
+           adoptedWorldSpaceLayerIDs: liveWorldSpaceAdoptedLayerIDs)
     }
 
     func restoreFrame(_ snapshot: FrameSnapshot) {
@@ -486,6 +558,8 @@ final class SceneParticleRuntime {
             }
         }
         pendingAudioEvaluationObservations = snapshot.pendingAudioEvaluationObservations
+        frozenWorldSpaceLayerIDs = snapshot.frozenWorldSpaceLayerIDs
+        liveWorldSpaceAdoptedLayerIDs = snapshot.adoptedWorldSpaceLayerIDs
     }
 
     func consumeAudioEvaluationObservations()

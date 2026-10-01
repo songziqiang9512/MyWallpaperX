@@ -62,6 +62,17 @@ final class SceneParticleChildRuntime {
         templates.contains { $0.definition.hasBoundedAudioConsumer }
     }
 
+    /// Whether any admitted child template's simulation converts through the
+    /// layer world-space frame. The runtime's freeze/re-adopt transaction
+    /// applies only to layers whose root or children need that frame; a fully
+    /// local-space layer keeps simulating under a scripted ancestor chain.
+    var hasWorldSpaceFrameConsumer: Bool {
+        templates.contains {
+            $0.definition.flags.isWorldSpace
+                || $0.definition.operators.contains(where: \.isWorldSpaceMovement)
+        }
+    }
+
     var lifecycleSystemCount: Int { systems.count }
     var lifecycleParticleCount: Int {
         systems.reduce(0) { $0 + $1.simulator.particles.count }

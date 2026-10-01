@@ -20,6 +20,20 @@ nonisolated struct SceneParticleRopeTrailPlan: Equatable, Sendable {
     /// polyline does not show its corners.
     let maximumSegmentsPerParticle: Int
     let fadesAlpha: Bool
+    /// Whole-layer budget for live + retired tracks, derived from the same
+    /// frozen constants as the admission guard: no more tracks than the
+    /// history-sample budget admits at each track's per-track sample
+    /// ceiling, and no more than the segment-instance budget admits at
+    /// each track's drawable maximum. Retirement is a drain window, not a
+    /// second unbounded population: under short-lived, high-rate churn the
+    /// oldest retired ribbons are evicted early so the combined track
+    /// count, emitted instances, and history memory stay bounded.
+    var maximumTotalTrackCount: Int {
+        min(
+            Self.maximumHistorySampleCount / (renderSegmentCount * 4 + 4),
+            Self.maximumSegmentInstanceCount / maximumSegmentsPerParticle
+        )
+    }
     var stepSnapshotPolicy: SceneParticleStepSnapshotPolicy? {
         SceneParticleStepSnapshotPolicy(
             interval: length / TimeInterval(renderSegmentCount * 4),
@@ -132,6 +146,11 @@ nonisolated struct SceneParticleRopeTrailHistory {
         self.plan = plan
     }
 
+    /// Bounded-state evidence: the combined live + retired track
+    /// population and the retired drain depth.
+    var totalTrackCount: Int { tracks.count }
+    var retiredTrackCount: Int { retiredIDs.count }
+
     mutating func advance(
         by frameDelta: TimeInterval,
         particles: [SceneParticleRopeTrailParticle],
@@ -228,6 +247,20 @@ nonisolated struct SceneParticleRopeTrailHistory {
             } else {
                 tracks[particle.id] = Track(committed: [sample], current: sample, appearance: particle)
             }
+        }
+        // Total-track budget, enforced at the end of the update so the
+        // frame-exit population (including this frame's births) is what
+        // stays bounded. Retirement under churn (short lifetimes, high
+        // emission, long retention window) accumulates ghosts far beyond
+        // the live-particle count the plan was admitted with, so the
+        // oldest retired ribbons are evicted deterministically once the
+        // combined population exceeds the whole-layer budget. Live tracks
+        // are never evicted: the admission guard already bounds them by
+        // maximumParticleCount, which is itself inside this budget.
+        while tracks.count > plan.maximumTotalTrackCount,
+              let oldest = retiredIDs.first {
+            retiredIDs.removeFirst()
+            tracks.removeValue(forKey: oldest)
         }
         return validParticles
     }

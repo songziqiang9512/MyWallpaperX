@@ -290,7 +290,12 @@ extension SceneGenericShaderArtifactBuilder {
                     slots: [signalSlot, colorSlot, underlaySlot]
                 )
             )
-        case .unresolved, .defaultStraightColorBoundary:
+        case .unresolved, .defaultStraightColorBoundary, .sourcedAlpha:
+            // `.sourcedAlpha` proves the color contract without pinning the
+            // compiled output to a narrow lowering shape, so the external
+            // compiler artifact takes the default straight-color boundary —
+            // unpremultiply the proven boundary slots, premultiply the
+            // terminal value once — instead of failing soft.
             return try prepareUnresolvedColorTransfer(
                 msl: source, boundaryColorSlots: defaultBoundaryColorSlots
             )
