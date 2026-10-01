@@ -962,6 +962,21 @@
       ]
     },
     {
+      "id": "hidden-provider-readiness",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+DeferredBaseImages.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+ImageProgramReference.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneDependencyRenderPlan+BindingCompilation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Dependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
+        "script/tests/test_scene_hidden_provider_integration.py"
+      ],
+      "modules": [
+        "test_scene_dependency_render_plan",
+        "test_scene_frame_texture_registry",
+        "test_scene_hidden_provider_integration"
+      ]
+    },
+    {
       "id": "material-program",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialAlphaAttenuationEligibility.swift",

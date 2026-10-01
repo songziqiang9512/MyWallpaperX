@@ -223,10 +223,11 @@
       "owner": "SceneResourceBudget / existing resource owners",
       "status": "approved",
       "designDoc": "docs/scene/design/scene-resource-admission.md",
-      "design_notes": "统一准入替换无父额度的原生分配；不是新增 registry。设计、覆盖边界、guard 产生者和退役条件见文档。",
+      "design_notes": "统一准入替换无父额度的原生分配；不是新增 registry。设计、覆盖边界、guard 产生者和退役条件见文档；RF05 startup source readiness限定隐藏named provider准备，复用现引用分析、不授予publication。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/**/*.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/**/*.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/**/*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+DeferredBaseImages.swift"
       ],
       "contentPatterns": []
     },

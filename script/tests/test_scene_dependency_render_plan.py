@@ -1525,8 +1525,16 @@ enum Harness {
                     resolvedMaterialConsumerLayerIDs: []
                 ) == nil,
             ],
+            "visibleStaticImageBindings": [
+                "backward": imageBlendBinding(providerVisible: true)?.providerLayerID == 300,
+                "forward": imageBlendBinding(providerVisible: true, providerFirst: false)?.requiresForwardCapture == true,
+                "implicitVisible": imageBlendBinding(providerVisible: nil)?.providerLayerID == 300,
+                "effectfulNeverRaw": imageBlendBinding(providerVisible: true, providerEffectful: true)?.kind != .imageLayerBlend,
+                "puppetRejected": imageBlendBinding(providerVisible: true, providerPuppetMeshPath: "models/mesh.mdl") == nil,
+                "childrenRejected": imageBlendBinding(providerVisible: true, providerChildLayerIDs: [305]) == nil,
+                "dependenciesRejected": imageBlendBinding(providerVisible: true, providerDependencies: [305]) == nil,
+            ],
             "imageBlendRejects": [
-                "visibleProvider": imageBlendBinding(providerVisible: true) == nil,
                 "wrongProviderKind": imageBlendBinding(providerContentKind: "solid") == nil,
                 "secondary": imageBlendBinding(variantSuffix: "b") == nil,
                 "userTextureOverride": imageBlendBinding(userTextureOverride: true) == nil,
@@ -3610,6 +3618,13 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertTrue(
             all(self.result["materialProgramSolidCarrierRejects"].values())
         )
+
+    def test_visible_effectless_image_uses_same_named_source_owner(self) -> None:
+        self.assertEqual(self.result["visibleStaticImageBindings"], {
+            "backward": True, "forward": True, "implicitVisible": True,
+            "effectfulNeverRaw": True, "puppetRejected": True,
+            "childrenRejected": True, "dependenciesRejected": True,
+        })
 
     def test_exact_plain_image_blend_dependency_is_typed_and_fail_closed(self) -> None:
         self.assertEqual(

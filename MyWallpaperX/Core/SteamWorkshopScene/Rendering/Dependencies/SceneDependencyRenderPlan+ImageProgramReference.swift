@@ -244,7 +244,7 @@ extension SceneDependencyRenderPlan {
         return declarations.count == 1 ? declarations[0] : nil
     }
 
-    /// Generic external-primary carrier for one hidden image/text composite
+    /// Generic external-primary carrier for one admitted image/text composite
     /// consumed by one or more admitted Program samplers. Effect identity and authored
     /// scalar values deliberately do not select this resource route. A static
     /// provider must be dependency-free; an effectful provider may carry the
@@ -285,7 +285,9 @@ extension SceneDependencyRenderPlan {
                   references: references
               ) == [reference.providerLayerID],
               let provider = layersByID[reference.providerLayerID],
-              isImageOrTextCompositeProvider(provider) else {
+              isImageOrTextCompositeProvider(provider),
+              provider.dependencyLayerIDs.isEmpty
+                  || provider.effects.contains(where: { $0.visible != false }) else {
             return nil
         }
         for candidate in references {
@@ -423,20 +425,20 @@ extension SceneDependencyRenderPlan {
     }
 
     /// Providers whose named composite is their own rendered base content.
-    /// A hidden (or effectful-with-single-closed-dependency) image provider
-    /// and a plain dependency-free text provider both publish exactly their
-    /// rasterized source into the named target; authored main-pass visibility
-    /// of a text layer never changes that composite.
+    /// Hidden image providers retain their existing dependency-plan route.
+    /// A plain dependency-free image or text source has the same composite
+    /// whether its separate main-pass display is visible or hidden.
     nonisolated static func isImageOrTextCompositeProvider(
         _ provider: SceneRenderDescriptor.Layer
     ) -> Bool {
         if provider.contentKind == "image" {
             return provider.puppetMeshPath == nil
                 && hasNoUtilityLayer(provider)
-                && provider.visible == false
                 && provider.childLayerIDs.isEmpty
-                && (provider.dependencyLayerIDs.isEmpty
-                    || provider.effects.contains(where: { $0.visible != false }))
+                && (provider.visible == false
+                    || (provider.effects.isEmpty
+                        && provider.dependencyLayerIDs.isEmpty
+                        && provider.authoredDependencies.isEmpty))
         }
         if provider.contentKind == "text" {
             // Authored-invisible effects never execute, so the composite is

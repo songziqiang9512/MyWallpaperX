@@ -564,16 +564,7 @@ extension SceneDependencyRenderPlan {
                     )
                 )
         case .imageLayerBlend:
-            provider.contentKind == "image"
-                && provider.puppetMeshPath == nil
-                && hasNoUtilityLayer(provider)
-                && provider.visible == false
-                || provider.contentKind == "text"
-                    && hasNoUtilityLayer(provider)
-                    && provider.childLayerIDs.isEmpty
-                    && !provider.effects.contains(where: { $0.visible != false })
-                    && provider.dependencyLayerIDs.isEmpty
-                    && provider.authoredDependencies.isEmpty
+            isImageOrTextCompositeProvider(provider)
         case .geometryLayer:
             provider.contentKind == "image"
                 && provider.puppetMeshPath != nil

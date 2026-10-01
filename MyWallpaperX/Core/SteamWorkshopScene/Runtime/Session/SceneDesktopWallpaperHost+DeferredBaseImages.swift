@@ -38,6 +38,15 @@ extension SceneDesktopWallpaperHost {
         ).snapshot
         let modelProviderLayerIDs = SceneDependencyRenderPlan
             .staticModelNamedTextureProviderLayerIDs(in: descriptor)
+        // Display visibility does not remove an authored source consumer.
+        // Reserve even hidden consumers' possible named inputs at launch;
+        // actual capture/publication remains owned by the dependency plan.
+        let namedReferences = SceneNamedTextureDependencyReferenceAnalysis
+            .references(in: descriptor.layers)
+            + SceneNamedTextureDependencyReferenceAnalysis
+                .potentialOptionalNamedFallbackReferences(in: descriptor.layers)
+        let sourceProviderLayerIDs = Set(namedReferences.map(\.providerLayerID))
+            .union(modelProviderLayerIDs)
         return SceneDynamicLayerVisibilityRouteAdmission.layerIDs(
             in: descriptor,
             candidates: bindingProgram.liveConditionalLayerVisibilityTargets
@@ -46,6 +55,6 @@ extension SceneDesktopWallpaperHost {
                 in: descriptor,
                 snapshot: snapshot
             )
-        ).subtracting(modelProviderLayerIDs)
+        ).subtracting(sourceProviderLayerIDs)
     }
 }

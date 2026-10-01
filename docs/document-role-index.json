@@ -254,6 +254,17 @@
       ]
     },
     {
+      "path": "docs/history/scene/rf05-named-provider-readiness-implementation-2026-10-02.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/scene-compatibility-roadmap.md",
+        "docs/scene/semantics/coverage-ledger.md",
+        "docs/scene/semantics/runtime-evidence-current.md"
+      ]
+    },
+    {
       "path": "docs/history/scene/rf07-persistent-color-output-implementation-2026-10-02.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",
