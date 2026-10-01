@@ -301,6 +301,13 @@ nonisolated enum SceneShaderColorTransfer: Codable, Equatable, Hashable, Sendabl
     case generatedStraightAlpha
     case premultipliedAlpha
     case opaque
+    /// A whole-output vector construction whose final component is proven to
+    /// read a texture-sampled alpha (a direct sampled-vector member or a
+    /// local scalar traced to one). The color contract is proven while the
+    /// output alpha is not opaque: execution is admitted and blend semantics
+    /// follow the actual alpha value. Any unknown final expression stays
+    /// `.unresolved`; this proof never broadens to arbitrary alpha sources.
+    case sourcedAlpha
     /// No source or compiler proof classified the authored output. The
     /// product default unpremultiplies the sampled color inputs listed in
     /// `textureSlots` and premultiplies the terminal output once; a visual
@@ -316,7 +323,8 @@ nonisolated enum SceneShaderColorTransfer: Codable, Equatable, Hashable, Sendabl
         switch self {
         case .unresolved, .defaultStraightColorBoundary, .straightAlpha,
              .straightAlphaPreserving, .straightAlphaUNorm,
-             .generatedStraightAlpha, .opaqueFromStraightColor:
+             .generatedStraightAlpha, .opaqueFromStraightColor,
+             .sourcedAlpha:
             true
         default:
             false

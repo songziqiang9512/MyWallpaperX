@@ -487,16 +487,151 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         if let fact = SceneAuthoredShaderGeneratedStraightRGBAAnalyzer.analyzeSourceCarried(fragment) {
             return fact.colorTransfer
         }
-        let outcome: String = isOpaqueVectorConstruction(expression)
-            ? "opaque" : "unresolved"
+        if isOpaqueVectorConstruction(expression) {
+            logUnresolved(
+                site: "prover-chain",
+                outputUses: outputUses,
+                tokens: tokens,
+                main: main,
+                outcome: "opaque"
+            )
+            return .opaque
+        }
+        if isSourcedAlphaVectorConstruction(
+            expression,
+            tokens: tokens,
+            body: main.bodyRange
+        ) {
+            return .sourcedAlpha
+        }
         logUnresolved(
             site: "prover-chain",
             outputUses: outputUses,
             tokens: tokens,
             main: main,
-            outcome: outcome
+            outcome: "unresolved"
         )
-        return isOpaqueVectorConstruction(expression) ? .opaque : .unresolved
+        return .unresolved
+    }
+
+    /// Proves a whole-output vector construction whose final component reads
+    /// a texture-sampled alpha: either a direct sampled-vector member
+    /// (`texSample2D(...).a`) or a local scalar with exactly one
+    /// unconditional definition reading one member of a single locally
+    /// defined sampled vector. Any other final expression stays unresolved;
+    /// the proof never broadens to arbitrary alpha sources.
+    private static func isSourcedAlphaVectorConstruction(
+        _ expression: ArraySlice<SceneAuthoredShaderToken>,
+        tokens: [SceneAuthoredShaderToken],
+        body: Range<Int>
+    ) -> Bool {
+        guard expression.count >= 6,
+              ["vec4", "float4"].contains(
+                  tokens[expression.startIndex].text
+              ),
+              tokens[expression.startIndex + 1].text == "(",
+              tokens[expression.index(before: expression.endIndex)].text
+                  == ")",
+              outerCallClosesAtEnd(Array(expression)),
+              let comma = topLevelCommas(Array(expression)).last else {
+            return false
+        }
+        // Rebase the comma into absolute token indices; the alpha operand
+        // spans from just after it to just before the closing parenthesis.
+        let alphaStart = expression.startIndex + comma + 1
+        let alphaEnd = expression.endIndex - 1
+        guard alphaStart < alphaEnd, body.contains(alphaStart) else {
+            return false
+        }
+        let alpha = tokens[alphaStart..<alphaEnd]
+        // Direct shape: one complete sample call followed by a single
+        // alpha member read — `texSample2D(...) . a`.
+        if ["texSample2D", "texture2D"].contains(
+            tokens[alphaStart].text
+        ), tokens[alphaStart + 1].text == "(",
+           alphaEnd - alphaStart >= 6,
+           tokens[alphaEnd - 3].text == ")",
+           tokens[alphaEnd - 2].text == ".",
+           ["a", "w"].contains(tokens[alphaEnd - 1].text) {
+            return true
+        }
+        // Local shape: a single scalar identifier traced to one sampled
+        // vector member through one unconditional definition chain.
+        guard alpha.count == 1,
+              let alphaToken = alpha.first,
+              alphaToken.kind == .identifier else {
+            return false
+        }
+        let name = alphaToken.text
+        let definitions = body.indices.filter { index in
+            index > body.lowerBound + 1
+                && index < alphaStart
+                && tokens[index].text == name
+                && tokens[index - 1].text == "float"
+                && index + 1 < body.upperBound
+                && tokens[index + 1].text == "="
+        }
+        guard definitions.count == 1,
+              let definition = definitions.first,
+              isUnconditionalWrite(definition, tokens: tokens, body: body),
+              definition + 5 < body.upperBound,
+              tokens[definition + 2].kind == .identifier,
+              tokens[definition + 3].text == ".",
+              ["a", "w"].contains(tokens[definition + 4].text),
+              tokens[definition + 5].text == ";" else {
+            return false
+        }
+        // No reassignment or compound mutation of the scalar between its
+        // definition and the terminal use.
+        for index in (definition + 1)..<alphaStart
+        where tokens[index].text == name {
+            guard index + 1 < body.upperBound,
+                  !["=", "+=", "-=", "*=", "/=", "%=", "++", "--"]
+                      .contains(tokens[index + 1].text),
+                  !["++", "--"].contains(tokens[index - 1].text) else {
+                return false
+            }
+        }
+        let carrier = tokens[definition + 2].text
+        let carrierDefinitions = body.indices.filter { index in
+            index > body.lowerBound + 1
+                && index < definition
+                && tokens[index].text == carrier
+                && ["vec4", "float4"].contains(tokens[index - 1].text)
+                && index + 1 < body.upperBound
+                && tokens[index + 1].text == "="
+        }
+        guard carrierDefinitions.count == 1,
+              let carrierDefinition = carrierDefinitions.first,
+              isUnconditionalWrite(
+                  carrierDefinition, tokens: tokens, body: body
+              ),
+              let initializer = assignmentExpression(
+                  after: carrierDefinition,
+                  in: tokens,
+                  body: body
+              ),
+              directTextureSampleSlot(initializer) != nil else {
+            return false
+        }
+        // The sampled carrier must never be written after its initializer —
+        // neither as a whole vector nor through its alpha member.
+        for index in (carrierDefinition + 1)..<alphaStart
+        where tokens[index].text == carrier {
+            guard index + 1 < body.upperBound else { return false }
+            if ["=", "+=", "-=", "*=", "/=", "%="]
+                .contains(tokens[index + 1].text) {
+                return false
+            }
+            if tokens[index + 1].text == ".",
+               index + 3 < body.upperBound,
+               ["a", "w"].contains(tokens[index + 2].text),
+               ["=", "+=", "-=", "*=", "/=", "%="]
+                   .contains(tokens[index + 3].text) {
+                return false
+            }
+        }
+        return true
     }
 
     /// Forensics-only characterization for the registered colorTransfer

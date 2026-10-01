@@ -180,7 +180,7 @@ nonisolated enum SceneAuthoredShaderMetalSource {
         case .straightAlphaPreserving, .straightAlpha,
              .independentAlphaSignalCompositing,
              .independentAlphaSignalUnderlayCompositing,
-             .generatedStraightAlpha:
+             .generatedStraightAlpha, .sourcedAlpha:
             result = "mwxPremultiply(mwxFragColor)"
         case .straightAlphaUNorm:
             result = "mwxSaturateAndPremultiply(mwxFragColor)"
@@ -209,7 +209,7 @@ nonisolated enum SceneAuthoredShaderMetalSource {
              .independentAlphaSignal,
              .independentAlphaSignalCompositing,
              .independentAlphaSignalUnderlayCompositing,
-             .generatedStraightAlpha:
+             .generatedStraightAlpha, .sourcedAlpha:
             break
         default:
             if !requiresInputColorBoundary { return "" }

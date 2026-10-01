@@ -4,6 +4,10 @@ import Foundation
 /// Both directions require a fully initialized vertex prefix and fragment
 /// reads confined to it. A wider fragment declaration permits only explicit
 /// component reads; no value conversion or suffix synthesis occurs.
+/// A vertex-wider link additionally admits member mutations inside main:
+/// the authored dialect treats the stage input as a mutable working
+/// register there, and both consuming backends hand main a mutable local
+/// copy of the linked value, so the mutation never rewrites the link.
 nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
     enum Direction: Equatable {
         /// The vertex stage publishes a wider value and the fragment stage
@@ -45,6 +49,8 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
             vertexMain: vertex.functions.first { $0.name == "main" }?.bodyRange,
             vertexFunctionBodies: vertex.functions.map(\.bodyRange),
             fragmentTokens: fragment.tokens,
+            fragmentMain: fragment.functions.first { $0.name == "main" }?
+                .bodyRange,
             fragmentFunctionBodies: fragment.functions.map(\.bodyRange),
             fragmentFunctionNames: Set(fragment.functions.map(\.name))
         )
@@ -71,6 +77,8 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
             vertexMain: vertexMain,
             vertexFunctionBodies: functionBodies(in: vertex.tokens),
             fragmentTokens: fragment.tokens,
+            fragmentMain: fragmentFunctions.first { $0.name == "main" }?
+                .body,
             fragmentFunctionBodies: fragmentFunctions.map(\.body),
             fragmentFunctionNames: Set(fragmentFunctions.map(\.name))
         )
@@ -159,6 +167,7 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
         vertexMain: Range<Int>?,
         vertexFunctionBodies: [Range<Int>],
         fragmentTokens: [SceneAuthoredShaderToken],
+        fragmentMain: Range<Int>?,
         fragmentFunctionBodies: [Range<Int>],
         fragmentFunctionNames: Set<String>
     ) -> Fact? {
@@ -210,18 +219,37 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
                               publishedComponents.contains(canonicalComponent($0))
                           }),
                           previous != "return",
-                          index + 3 >= body.upperBound || ![
-                              "=", "+=", "-=", "*=", "/=", "++", "--", "[",
-                          ].contains(fragmentTokens[index + 3].text),
                           safeCallContext(
                               index,
                               tokens: fragmentTokens,
                               body: body,
                               functionNames: fragmentFunctionNames
                           ) else { return nil }
-                    readComponents.formUnion(
-                        fragmentTokens[index + 2].text.map(canonicalComponent)
-                    )
+                    let swizzle = fragmentTokens[index + 2]
+                        .text.map(canonicalComponent)
+                    let following = index + 3 < body.upperBound
+                        ? fragmentTokens[index + 3].text : nil
+                    if let following, isMemberMutationOperator(following) {
+                        // The authored dialect lets main treat the linked
+                        // value as a mutable working register (the real
+                        // sine_wave shape writes `v_TexCoord.x += ...`).
+                        // Both consumers hand main a mutable local copy of
+                        // the stage input — the bounded emitter passes its
+                        // context struct by value and the generic normalizer
+                        // localizes main-body mutations before emission — so
+                        // a member mutation inside main only ever reads and
+                        // rewrites that copy. Mutations outside main have no
+                        // localizing consumer (a helper would mutate its own
+                        // by-value argument), and mutations of components
+                        // beyond the declared fragment prefix stay rejected.
+                        guard body == fragmentMain,
+                              swizzle.allSatisfy({ required.contains($0) })
+                        else { return nil }
+                    } else if let following,
+                              ["++", "--", "["].contains(following) {
+                        return nil
+                    }
+                    readComponents.formUnion(swizzle)
                 } else {
                     // GLSL vector initialization is a value copy, not an alias.
                     // Accept only the exact declared prefix shape; assignments
@@ -458,6 +486,14 @@ nonisolated enum SceneAuthoredShaderVaryingPrefixLink {
             zeroInitializedComponents: [],
             direction: .fragmentDeclarationWider
         )
+    }
+
+    /// Compound and plain member-assignment operators that make the linked
+    /// value a mutable working register inside main. Increment, decrement,
+    /// and subscript targets are deliberately absent: no admitted corpus
+    /// shape needs them and each would widen this proof's semantics.
+    private static func isMemberMutationOperator(_ text: String) -> Bool {
+        ["=", "+=", "-=", "*=", "/=", "%="].contains(text)
     }
 
     private static func isUnconditionalVertexAssignment(
