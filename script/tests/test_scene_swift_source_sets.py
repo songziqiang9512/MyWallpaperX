@@ -68,7 +68,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "authored_effect_planning_support"
         )
 
-        self.assertEqual(len(resolution), 10)
+        self.assertEqual(len(resolution), 11)
         self.assertEqual(resolution[:4], frontend_support)
         self.assertEqual(
             resolution[4:],
@@ -77,11 +77,12 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneShaderSourceResolver.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContractLoader.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
             ),
         )
-        self.assertEqual(len(planning), 14)
+        self.assertEqual(len(planning), 15)
         self.assertEqual(
             planning,
             (
@@ -97,6 +98,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneShaderSourceResolver.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContractLoader.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
             ),

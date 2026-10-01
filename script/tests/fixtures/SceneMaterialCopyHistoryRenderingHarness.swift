@@ -478,7 +478,19 @@ func sourcePipeline(_ device: MTLDevice) -> SceneImageLayerPipeline {
     using namespace metal;
     struct Vertex { float2 position; float2 texcoord; };
     struct Varying { float4 position [[position]]; float2 texcoord; };
-    struct Uniforms { float4 tint; };
+    // Mirrors the shared SceneLayerFragmentUniforms layout so `tint` is
+    // read at the offset the CPU stub produces.
+    struct Uniforms {
+        float time;
+        float alpha;
+        uint dependencyBlendMode;
+        uint usesDependencyBlend;
+        float2 cursorUV;
+        uint2 sourceSampling;
+        float4 tint;
+        float4 textureFrame0;
+        float4 textureFrame1;
+    };
     vertex Varying fixtureVertex(
         const device Vertex *vertices [[buffer(0)]],
         constant float4x4 &mvp [[buffer(1)]],

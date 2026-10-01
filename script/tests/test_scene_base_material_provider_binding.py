@@ -16,6 +16,9 @@ SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/Scene
 COMPILER_SOURCE = (
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialProviderBindingCompiler.swift"
 )
+LIGHTING_PROFILE_SOURCE = (
+    ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift"
+)
 VISIBILITY_SOURCE = (
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneInitialMediaEffectVisibilityProjection.swift"
 )
@@ -30,7 +33,10 @@ struct SceneEffectTextureInput: Equatable {
     let value: String
 }
 
-enum SceneTextureLoadPurpose: Hashable { case premultipliedColor }
+enum SceneTextureLoadPurpose: Hashable {
+    case premultipliedColor
+    case normal
+}
 enum SceneTextureProviderIdentity: Hashable {
     case mediaThumbnailCurrent
     case mediaThumbnailPrevious
@@ -75,6 +81,16 @@ enum SceneStockTextureSemanticRegistry {
     static func isNeutralColorCarrier(_ path: SceneVFSAssetPath) -> Bool {
         path.value == "util/white"
     }
+
+    // Mirrors the product registry's normal-purpose stock entry.
+    static func purpose(
+        for path: SceneVFSAssetPath
+    ) -> SceneTextureLoadPurpose? {
+        switch path.value {
+        case "effects/waterripplenormal": .normal
+        default: nil
+        }
+    }
 }
 
 struct SceneDocument {
@@ -100,6 +116,8 @@ struct SceneRenderDescriptor {
     }
     struct MaterialPassDescriptor {
         let materialPath: String
+        var shaderPath: String? = nil
+        var combos: [String: Int] = [:]
         let textureSlots: [String?]
         let userTextureInputs: [SceneEffectTextureInput?]
     }
@@ -277,6 +295,31 @@ let customCoverInstance = SceneDocument.SceneLayerMaterialInstance(
     hasUserTextureOverride: true, combos: [:], unknownKeys: [],
     isMalformed: false
 )
+let litInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["fallback"], userTextureInputs: [],
+    hasUserTextureOverride: true, combos: ["LIGHTING": 1], unknownKeys: [],
+    isMalformed: false
+)
+let litNoComboInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["fallback"], userTextureInputs: [],
+    hasUserTextureOverride: true, combos: [:], unknownKeys: [],
+    isMalformed: false
+)
+let litNormalSlotInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["fallback", "effects/waterripplenormal"],
+    userTextureInputs: [], hasUserTextureOverride: true, combos: [:],
+    unknownKeys: [], isMalformed: false
+)
+let litTierTwoInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["fallback"], userTextureInputs: [],
+    hasUserTextureOverride: true, combos: ["LIGHTING": 2], unknownKeys: [],
+    isMalformed: false
+)
+let litNormalInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["fallback", "effects/waterripplenormal"],
+    userTextureInputs: [], hasUserTextureOverride: true,
+    combos: ["LIGHTING": 1], unknownKeys: [], isMalformed: false
+)
 let descriptor = SceneRenderDescriptor(layers: [
     .init(
         id: 10, contentKind: "image", imagePath: "models/cover.json",
@@ -366,6 +409,34 @@ let descriptor = SceneRenderDescriptor(layers: [
         id: 220, contentKind: "image", imagePath: "models/provider-mixed.json",
         effects: [effect()]
     ),
+    .init(
+        id: 300, contentKind: "image", imagePath: "models/lit.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 301, contentKind: "image", imagePath: "models/lit-no-combo.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 302, contentKind: "image", imagePath: "models/lit-shader.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 303, contentKind: "image", imagePath: "models/lit-normal-slot.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 304, contentKind: "image", imagePath: "models/lit-tier-two.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 305, contentKind: "image", imagePath: "models/lit-normal.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 306, contentKind: "text", imagePath: nil,
+        effects: [effect()]
+    ),
 ], modelMaterialLinks: [
     .init(modelPath: "models/cover.json", materialPath: "materials/cover.json"),
     .init(modelPath: "models/solid.json", materialPath: "materials/solid.json"),
@@ -407,6 +478,27 @@ let descriptor = SceneRenderDescriptor(layers: [
     .init(
         modelPath: "models/provider-mixed.json",
         materialPath: "materials/provider-mixed.json"
+    ),
+    .init(modelPath: "models/lit.json", materialPath: "materials/lit.json"),
+    .init(
+        modelPath: "models/lit-no-combo.json",
+        materialPath: "materials/lit-no-combo.json"
+    ),
+    .init(
+        modelPath: "models/lit-shader.json",
+        materialPath: "materials/lit-shader.json"
+    ),
+    .init(
+        modelPath: "models/lit-normal-slot.json",
+        materialPath: "materials/lit-normal-slot.json"
+    ),
+    .init(
+        modelPath: "models/lit-tier-two.json",
+        materialPath: "materials/lit-tier-two.json"
+    ),
+    .init(
+        modelPath: "models/lit-normal.json",
+        materialPath: "materials/lit-normal.json"
     ),
 ], materialPasses: [
     .init(
@@ -490,6 +582,32 @@ let descriptor = SceneRenderDescriptor(layers: [
         textureSlots: ["fallback", "mask"],
         userTextureInputs: [current, customCover]
     ),
+    .init(
+        materialPath: "materials/lit.json", textureSlots: ["fallback"],
+        userTextureInputs: [current]
+    ),
+    .init(
+        materialPath: "materials/lit-no-combo.json", textureSlots: ["fallback"],
+        userTextureInputs: [current]
+    ),
+    .init(
+        materialPath: "materials/lit-shader.json",
+        shaderPath: "shaders/custom.frag",
+        textureSlots: ["fallback"],
+        userTextureInputs: [current]
+    ),
+    .init(
+        materialPath: "materials/lit-normal-slot.json",
+        textureSlots: ["fallback"], userTextureInputs: [current]
+    ),
+    .init(
+        materialPath: "materials/lit-tier-two.json", textureSlots: ["fallback"],
+        userTextureInputs: [current]
+    ),
+    .init(
+        materialPath: "materials/lit-normal.json", textureSlots: ["fallback"],
+        userTextureInputs: [current]
+    ),
 ], texturePropertyKeys: ["customCover"])
 let program = SceneBaseMaterialProviderBindingCompiler.compile(
     descriptor: descriptor,
@@ -507,6 +625,13 @@ let program = SceneBaseMaterialProviderBindingCompiler.compile(
         140: currentInstance,
         150: badPreviousSlotInstance,
         180: customCoverInstance,
+        300: litInstance,
+        301: litNoComboInstance,
+        302: litInstance,
+        303: litNormalSlotInstance,
+        304: litTierTwoInstance,
+        305: litNormalInstance,
+        306: litInstance,
     ],
     scriptBindings: [directBinding, timedBinding, unsupportedBinding]
 )
@@ -515,9 +640,73 @@ let projected = SceneInitialMediaEffectVisibilityProjection.apply(
     scriptBindings: [directBinding, timedBinding, unsupportedBinding],
     sourceEvidence: [combinedEvidence, unsupportedCombinedEvidence]
 )
+let litMaterialInstancesByLayerID: [
+    Int: SceneDocument.SceneLayerMaterialInstance
+] = [
+    300: litInstance, 301: litNoComboInstance, 302: litInstance,
+    303: litNormalSlotInstance, 304: litTierTwoInstance,
+    305: litNormalInstance, 306: litInstance,
+]
+// Authored material JSON (schema observed in legal corpus), independent of
+// layer instances: both supported built-in material versions are reachable.
+let materialJSON = """
+{"passes":[{"shader":"genericimage2","combos":{"LIGHTING":1},"textures":["albedo"]}]}
+"""
+let authoredPass = (try! JSONSerialization.jsonObject(with: Data(materialJSON.utf8))
+    as! [String: Any])["passes"] as! [[String: Any]]
+func materialLighting(shader: String, override: Int? = nil) -> Bool {
+    let combos = authoredPass[0]["combos"] as! [String: Int]
+    let pass = SceneRenderDescriptor.MaterialPassDescriptor(
+        materialPath: "material.json", shaderPath: shader, combos: combos,
+        textureSlots: ["albedo"], userTextureInputs: []
+    )
+    let instance = override.map { value in
+        SceneDocument.SceneLayerMaterialInstance(
+            id: nil, textureSlots: [], userTextureInputs: [],
+            hasUserTextureOverride: false, combos: ["LIGHTING": value],
+            unknownKeys: [], isMalformed: false
+        )
+    }
+    return SceneBaseMaterialLightingProfileCompiler.profile(
+        layer: descriptor.layers.first { $0.id == 300 }!,
+        materialInstance: instance, materialPasses: [pass]
+    ).lightingEnabled
+}
+let authoredMaterialLighting = [
+    materialLighting(shader: authoredPass[0]["shader"] as! String),
+    materialLighting(shader: "genericimage4"),
+    materialLighting(shader: "shaders/custom.frag"),
+    materialLighting(shader: "genericimage2", override: 0),
+    materialLighting(shader: "genericimage2", override: 1),
+]
+let directlyCompiledProfiles = SceneBaseMaterialLightingProfileCompiler
+    .profiles(
+        descriptor: descriptor,
+        materialInstancesByLayerID: litMaterialInstancesByLayerID
+    )
+let lightingProfilesMatchDirectCompiler =
+    directlyCompiledProfiles == program.lightingProfileByLayerID
 let result: [String: Any] = [
     "accepted": program.currentLayerIDs.sorted(),
     "previousAccepted": program.previousLayerIDs.sorted(),
+    "authoredMaterialLighting": authoredMaterialLighting,
+    "lightingProfiles": Dictionary(uniqueKeysWithValues:
+        program.lightingProfileByLayerID.map { layerID, profile in
+            (
+                String(layerID),
+                [
+                    profile.lightingEnabled ? 1 : 0,
+                    profile.normalTextureSlotPath == nil ? 0 : 1,
+                ]
+            )
+        }
+    ),
+    "lightingProfileNormalSlotPaths": Dictionary(uniqueKeysWithValues:
+        program.lightingProfileByLayerID.map { layerID, profile in
+            (String(layerID), profile.normalTextureSlotPath ?? "")
+        }
+    ),
+    "lightingProfilesMatchDirectCompiler": lightingProfilesMatchDirectCompiler,
     "propertyAccepted": program.baseMaterialBindings.compactMap {
         if case .userProperty = $0.value.provider { return $0.key }
         return nil
@@ -553,6 +742,8 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
             subprocess.run(
                 [
                     "swiftc", str(SOURCE), str(COMPILER_SOURCE),
+                    str(LIGHTING_PROFILE_SOURCE),
+                    str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift"),
                     str(VISIBILITY_SOURCE),
                     str(harness), "-o", str(binary),
                 ],
@@ -625,6 +816,33 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
         self.assertFalse(result["projected"]["30"])
         self.assertFalse(result["projected"]["40"])
         self.assertTrue(result["projected"]["50"])
+
+        # D3 first slice: authored material lighting profile gate. The same
+        # compiled harness payload carries the lighting profile keys.
+        self.assertEqual(result["authoredMaterialLighting"], [True, True, False, False, True])
+        profiles = result["lightingProfiles"]
+        # Authored LIGHTING combo == 1 with no authored shader pass enables
+        # the built-in lit base capture.
+        self.assertEqual(profiles["300"], [1, 0])
+        # Missing combo never enables lighting.
+        self.assertEqual(profiles["301"], [0, 0])
+        # An authored shader pass keeps the material on the existing shader
+        # frontend; the built-in lighting is never stacked on top.
+        self.assertEqual(profiles["302"], [0, 0])
+        # A registry-matched normal slot alone does not enable lighting.
+        self.assertEqual(profiles["303"], [0, 1])
+        # A tiered combo value (> 1) is deliberately rejected: unlike the
+        # static-model `!= 0` precedent, the profile compiler fails closed.
+        self.assertEqual(profiles["304"], [0, 0])
+        # Enabled + normal slot keeps both facts on one profile.
+        self.assertEqual(profiles["305"], [1, 1])
+        # Non image-renderable layers never receive a profile.
+        self.assertNotIn("306", profiles)
+        self.assertEqual(
+            result["lightingProfileNormalSlotPaths"]["303"],
+            "effects/waterripplenormal",
+        )
+        self.assertTrue(result["lightingProfilesMatchDirectCompiler"])
 
     def test_launch_uses_current_binding_compiler_without_transition_owner(self) -> None:
         launch = LAUNCH_SOURCE.read_text(encoding="utf-8")

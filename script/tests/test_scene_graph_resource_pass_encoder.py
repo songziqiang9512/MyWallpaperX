@@ -59,6 +59,10 @@ struct SceneImageLayerPipeline {
 
     func bind(encoder: MTLRenderCommandEncoder) {
         encoder.setRenderPipelineState(state)
+        Self.bindQuad(encoder: encoder)
+    }
+
+    static func bindQuad(encoder: MTLRenderCommandEncoder) {
         var vertices = Self.vertices
         encoder.setVertexBytes(
             &vertices,
@@ -823,6 +827,13 @@ class SceneGraphResourcePassEncoderTests(unittest.TestCase):
                     str(
                         REPOSITORY_ROOT
                         / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift"
+                    ),
+                    # Mechanical sync: source capture gained the lit payload
+                    # parameter (D3 first slice); the payload type ships with
+                    # the lit pipeline.
+                    str(
+                        REPOSITORY_ROOT
+                        / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneLitImageLayerPipeline.swift"
                     ),
                     str(ENCODER_SOURCE),
                     str(harness),

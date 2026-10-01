@@ -24,6 +24,7 @@ SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES = scene_swift_sources_by_basename(
     "shader_contract_resource_resolution"
 )
 SWIFT_SOURCES = [
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneBuiltinShaderIdentity.swift"],
     SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneJSONValue.swift"],
     SCENE_ROOT / "Format/SceneCompatibilityContext.swift",
     SCENE_ROOT / "Format/SceneDocument+ShaderValue.swift",

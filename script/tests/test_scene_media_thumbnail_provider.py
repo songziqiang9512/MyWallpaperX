@@ -1346,6 +1346,8 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
 
         preflight = (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
+        ).read_text(encoding="utf-8") + (
+            ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+Admission.swift"
         ).read_text(encoding="utf-8")
         begin = preflight.index("beginTextureFrame(")
         target_preflight = preflight.index(

@@ -124,6 +124,10 @@ SUBMISSION_SWIFT_SOURCES = [
     GRAPH_TELEMETRY,
     GRAPH_OBSERVATION_BUILDER,
     OFFSCREEN_RESOLUTION_POLICY,
+    # Mechanical sync: FramePreparationRequest gained the lit base-capture
+    # payload (D3 first slice); the payload type ships with the lit pipeline.
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneLitImageLayerPipeline.swift",
     RUNTIME_BRIDGE,
     SUBMISSION_COORDINATOR,
     SUBMISSION_LIFECYCLE,
@@ -1039,7 +1043,7 @@ final class SceneOffscreenTexturePool {
 }
 
 struct SceneLayerFragmentUniforms {}
-struct SceneImageLayerPipeline {}
+struct SceneImageLayerPipeline { static func bindQuad(encoder: MTLRenderCommandEncoder) {} }
 struct SceneImageLayerMasks {}
 struct SceneAuthoredEffectPipelineSet {}
 struct SceneAudioSpectrumSnapshot {}
@@ -1243,6 +1247,7 @@ final class SceneResolvedMaterialGraphExecutor {
         sourceTexture: MTLTexture?,
         sourceUniforms: SceneLayerFragmentUniforms?,
         sourcePipeline: SceneImageLayerPipeline,
+        sourceLighting: SceneBaseMaterialLitCapturePayload? = nil,
         frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
         commandBuffer: MTLCommandBuffer,
         previousStates: [Graph.EffectKey: State],
@@ -1255,6 +1260,7 @@ final class SceneResolvedMaterialGraphExecutor {
         _ = token; _ = leases; _ = historyRehydrateCopiesByEffect; _ = frame
         _ = materialFunctionInvocations; _ = sceneBackgroundResource
         _ = sourceTexture; _ = sourceUniforms; _ = sourcePipeline
+        _ = sourceLighting
         _ = frameInputs; _ = commandBuffer
         _ = previousStates; _ = previousGraphResources
         _ = effectGeneration; _ = resetGeneration
@@ -5008,7 +5014,8 @@ struct SceneLayerFragmentUniforms {
     let textureFrame1: SIMD4<Float>
 }
 
-final class SceneImageLayerPipeline {}
+struct SceneBaseMaterialLitCapturePayload {}
+final class SceneImageLayerPipeline { static func bindQuad(encoder: MTLRenderCommandEncoder) {} }
 
 final class SceneLayerColorBlendPipeline {
     let device: MTLDevice
@@ -5049,7 +5056,7 @@ final class SceneMainPassEncoder {
     func encodeOffscreen<Result>(
         _ operation: (MTLCommandBuffer) -> Result
     ) -> Result {
-        fatalError("harness: offscreen encode is not expected in these probes")
+        operation(device.makeCommandQueue()!.makeCommandBuffer()!)
     }
     func withReadableTarget<Result>(
         _ operation: (MTLTexture, MTLCommandBuffer) -> Result
@@ -5061,6 +5068,7 @@ enum SceneImageLayerMainPassRenderer {
         let texture: MTLTexture
         let dependencyTexture: MTLTexture?
         let layerID: Int
+        let uniforms: SceneLayerFragmentUniforms
     }
 
     static var recorded: [RecordedDraw] = []
@@ -5079,20 +5087,35 @@ enum SceneImageLayerMainPassRenderer {
         recorded.append(.init(
             texture: texture,
             dependencyTexture: dependencyTexture,
-            layerID: layer.id
+            layerID: layer.id,
+            uniforms: uniforms
         ))
         return true
     }
 }
 
 enum SceneOffscreenEffectRenderer {
+    static var captureSucceeds = false
+    static var capturedUniforms: SceneLayerFragmentUniforms?
     static func captureSource(
         sourceTexture: MTLTexture,
         target: MTLTexture,
         sourceUniforms: SceneLayerFragmentUniforms,
         pipeline: SceneImageLayerPipeline,
-        commandBuffer: MTLCommandBuffer
-    ) -> Bool { true }
+        commandBuffer: MTLCommandBuffer,
+        sourceLighting: SceneBaseMaterialLitCapturePayload? = nil
+    ) -> Bool {
+        capturedUniforms = sourceUniforms
+        return captureSucceeds
+    }
+}
+
+final class FixtureCompositionPool: SceneOffscreenTexturePool {
+    let target: MTLTexture
+    init(target: MTLTexture) { self.target = target }
+    func compositionTarget(width: Int, height: Int) -> SceneOffscreenCompositionTarget? {
+        .init(texture: target)
+    }
 }
 
 enum SceneEffectExecutionOrigin { case image, solid, text, quad }
@@ -5300,6 +5323,8 @@ final class SceneResolvedMaterialRuntimeBridge {
 }
 
 struct StaticSourceDrawOnlyReport: Codable {
+    var litCaptureFailureKeepsAuthoredUniforms = false
+    var litCaptureRecoveryUsesCapturedTexture = false
     var metalAvailable = false
     var degradedPlanBuilt = false
     var degradedPlanDrawsRequestTexture = false
@@ -5553,6 +5578,41 @@ struct StaticSourceDrawOnlyHarness {
                 )
             )
         ]
+        // A capture encoder can be unavailable before any command is emitted.
+        // The optional lit path must draw the original authored source intact.
+        let target = makeTexture(device)
+        let sprite = SceneTextureUVTransform(origin: SIMD2(0.25, 0.125),
+            xAxis: SIMD2(0.5, 0), yAxis: SIMD2(0, 0.25))
+        let authoredTint = SIMD3<Float>(0.2, 0.6, 0.8)
+        let litRequest = SceneImageLayerDrawRequest(
+            layer: .init(id: 876, contentKind: "image"), texture: texture,
+            masks: .empty, textureFrame: sprite,
+            mvp: matrix_identity_float4x4,
+            uniforms: .init(time: 0, alpha: 0.25, cursorUV: .zero, tint: authoredTint),
+            offscreenTexturePool: FixtureCompositionPool(target: target),
+            effectSourceExtent: .init(pixelSize: CGSize(width: 4, height: 4)),
+            requiresSourceCopy: false, finalCompositeAlpha: nil,
+            sourceLighting: SceneBaseMaterialLitCapturePayload()
+        )
+        SceneImageLayerMainPassRenderer.recorded.removeAll()
+        _ = compositor.drawOutcome(litRequest, explicitLayerSourcePublication: nil,
+            pipeline: pipeline, mainPass: mainPass)
+        let failedCaptureDraw = SceneImageLayerMainPassRenderer.recorded.last!
+        report.litCaptureFailureKeepsAuthoredUniforms = failedCaptureDraw.texture === texture
+            && failedCaptureDraw.uniforms.alpha == 0.25
+            && failedCaptureDraw.uniforms.tint == SIMD4(authoredTint, 1)
+            && failedCaptureDraw.uniforms.textureFrame0 == sprite.uniform0
+            && failedCaptureDraw.uniforms.textureFrame1 == sprite.uniform1
+        SceneOffscreenEffectRenderer.captureSucceeds = true
+        SceneImageLayerMainPassRenderer.recorded.removeAll()
+        _ = compositor.drawOutcome(litRequest, explicitLayerSourcePublication: nil,
+            pipeline: pipeline, mainPass: mainPass)
+        let recoveryDraw = SceneImageLayerMainPassRenderer.recorded.last!
+        report.litCaptureRecoveryUsesCapturedTexture = recoveryDraw.texture === target
+            && recoveryDraw.uniforms.alpha == 1
+            && SceneOffscreenEffectRenderer.capturedUniforms?.alpha == 0.25
+            && SceneOffscreenEffectRenderer.capturedUniforms?.tint == SIMD4(authoredTint, 1)
+            && SceneOffscreenEffectRenderer.capturedUniforms?.textureFrame0 == sprite.uniform0
         emit(report)
     }
 
@@ -5948,10 +6008,14 @@ precondition(attachment(for: node, in: Graph(), preservedRGBADataTargets: [],
             result = json.loads(completed.stdout)
             if not result["metalAvailable"]:
                 self.skipTest("Metal device unavailable")
+            self.assertTrue(result["litCaptureFailureKeepsAuthoredUniforms"],
+                "capture failure lost authored alpha/tint/sprite UV: " + str(result))
             self.assertEqual(
                 result,
                 {
                     "metalAvailable": True,
+                    "litCaptureFailureKeepsAuthoredUniforms": True,
+                    "litCaptureRecoveryUsesCapturedTexture": True,
                     "degradedPlanBuilt": True,
                     "degradedPlanDrawsRequestTexture": True,
                     "degradedPlanKeepsStaticFileAtom": True,

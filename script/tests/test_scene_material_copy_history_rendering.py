@@ -197,6 +197,9 @@ SUPPORT = (
         let sourceTexture: MTLTexture?
         let sourceUniforms: SceneLayerFragmentUniforms?
         let sourcePipeline: SceneImageLayerPipeline
+        // Mechanical sync: the production request gained the lit
+        // base-capture payload (D3 first slice).
+        let sourceLighting: SceneBaseMaterialLitCapturePayload? = nil
         let frameInputs: FrameInputs
     }
     enum FramePreparationResult {

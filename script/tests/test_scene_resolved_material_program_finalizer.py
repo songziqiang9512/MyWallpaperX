@@ -68,6 +68,7 @@ SWIFT_SOURCES = [
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "Compilation/ShaderContract/SceneShaderContractLoader.swift",
+    SCENE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",
     SCENE_ROOT / "Format/SceneTexDataReader.swift",

@@ -90,6 +90,11 @@ final class SceneResolvedMaterialRuntimeBridge {
         let sourceTexture: MTLTexture?
         let sourceUniforms: SceneLayerFragmentUniforms?
         let sourcePipeline: SceneImageLayerPipeline
+        /// Lit base-capture payload for a claimed layer whose launch
+        /// lighting profile enabled built-in lighting. nil keeps the
+        /// executor on the unlit `sourcePipeline` capture — including every
+        /// failure path that resolved no lit payload this frame.
+        let sourceLighting: SceneBaseMaterialLitCapturePayload?
         let frameInputs: FrameInputs
 
         init(
@@ -101,6 +106,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             sourceTexture: MTLTexture?,
             sourceUniforms: SceneLayerFragmentUniforms?,
             sourcePipeline: SceneImageLayerPipeline,
+            sourceLighting: SceneBaseMaterialLitCapturePayload? = nil,
             frameInputs: FrameInputs
         ) {
             self.claim = claim
@@ -110,6 +116,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.sourceTexture = sourceTexture
             self.sourceUniforms = sourceUniforms
             self.sourcePipeline = sourcePipeline
+            self.sourceLighting = sourceLighting
             self.frameInputs = frameInputs
         }
     }

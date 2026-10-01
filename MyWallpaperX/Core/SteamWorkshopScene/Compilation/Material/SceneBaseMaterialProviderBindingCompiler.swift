@@ -141,7 +141,12 @@ enum SceneBaseMaterialProviderBindingCompiler {
         }
         return .init(
             baseMaterialBindings: accepted,
-            rejectedBaseMaterialReasons: rejected
+            rejectedBaseMaterialReasons: rejected,
+            lightingProfileByLayerID: SceneBaseMaterialLightingProfileCompiler
+                .profiles(
+                    descriptor: descriptor,
+                    materialInstancesByLayerID: materialInstancesByLayerID
+                )
         )
     }
 

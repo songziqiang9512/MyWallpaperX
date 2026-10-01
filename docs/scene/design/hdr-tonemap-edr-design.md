@@ -36,7 +36,9 @@
 
 颜色转换的位置先由 A 的合成 fixture 固定，不能简单给现有 display-referred 输出再套 gamma。HDR Bloom 在输出映射前完成；normal/roughness 等 data 不进入颜色变换。toneMappingKnee 为项目参数概念；设计规定连续、单调、有限、保留中性灰与高亮顺序，不规定或声称官方私有曲线。
 
-SDR 默认映射的具体参数在第一实施片以自有阶梯/彩色高亮 fixture 和公开观测冻结，随后变更需重跑相同证据。作者/用户未提供曝光时不做自动逐帧曝光，避免亮度泵动。alpha 不作 tone map；在确定的直通/预乘边界处理零 alpha，防止边缘变暗。
+阶段 B 第一片冻结项目自有 rational shoulder，作用域为 `general.hdr=true` 且 `camera.clearEnabled=true` 的已合成 display-referred sRGB 数值；不把浮点格式解释为 scene-linear，也不添加 gamma。非 HDR 场景整条映射 route 不创建、不编码，不要求 HDR 场景中的整个 `[0,1]` 区间恒等。冻结 knee 为 0.5：非正有限值归零，暗部不变，高于 knee 后连续、单调地压缩进入 SDR 范围，且连接处斜率连续；浮点舍入允许端点 1。中性灰仍中性，逐通道处理不串色，但不声明保持高亮色相/饱和度。NaN、正负 infinity 全部输出 0，CPU/MSL 一致。输入 1、1.5、3、5、12 的输出分别约 0.75、0.8333、0.9167、0.95、0.9792，必须在 SDR 区间内仍可分辨；此前“`[0,1]` 恒等、超白仍大于 1”的候选会在 SDR 裁成同白，不满足阶段 B。此处参数与映射行为是项目策略，不来自或声称等于官方曲线。
+
+alpha 不作 tone map。仅在作者启用每帧清底时，terminal 合成从 `SceneMetalRenderer+ClearColor.sceneClearColor` 的 alpha=1 清底；阶段 B 的可见颜色合同限定该不透明终端，按已合成 RGB 映射并原样写回 alpha。`f(0)=0` 不能证明非线性映射保持预乘 RGB/alpha 关系，作者关闭清底时，主 pass 使用 load，保留像素可能已被上一帧映射；RF00 首片因此不创建该profile的映射 owner。后继必须先分离未映射 scene color 历史与显示输出，再以多帧反例验收；本段只批准清底首片。本片不开放透明终端或逐 layer 映射；透明输出需先确定 straight/premultiplied 边界并另行验证。作者/用户未提供曝光时不做自动逐帧曝光，避免亮度泵动。参数变更需重跑同一自有阶梯、灰/彩色、非有限、失败源保持及后续帧恢复 fixture；GPU 容差冻结为 `1/1024`，SDR 高亮相邻差至少 `1/64`，不以实现公式镜像作为唯一 oracle。
 
 surface generation 绑定屏幕、颜色空间、format 与 headroom 状态；屏幕迁移或动态 headroom 变化更新 typed display state，不重编译整图。切换 SDR/EDR 使用已准备输出管线，候选失败前保留旧 surface/output。metadata 不是第一阶段的必需品。
 

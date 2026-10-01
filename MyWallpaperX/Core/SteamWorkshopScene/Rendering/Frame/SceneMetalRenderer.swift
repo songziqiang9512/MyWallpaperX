@@ -10,6 +10,8 @@ struct SceneMetalRenderer {
     // E2/Q1T: scene-level bloom post process (authored general.bloom).
     // Class instance so the enclosing struct stays value-semantics.
     let bloomPostProcess: SceneBloomPostProcess?
+    // Terminal SDR mapping is prepared only for HDR scenes that clear each frame.
+    let displayMappingPostProcess: SceneDisplayMappingPostProcess?
     let stockNoiseTextures: SceneStockNoiseTextureStore
     let pipelineRepository: SceneImageEffectPipelineRepository
     let visibleLayerIDs: Set<Int>
@@ -190,7 +192,8 @@ struct SceneMetalRenderer {
             cameraFrame: cameraFrame,
             parallaxConfiguration: parallaxConfiguration,
             mainTarget: drawable.texture,
-            commandBuffer: commandBuffer
+            commandBuffer: commandBuffer,
+            frameLightSnapshot: frameLightSnapshot
         )
         performanceTelemetry?.endStage("frame-admission")
         hubStage(.frameAdmissionMicros, hubFrameAdmissionStart)
@@ -536,7 +539,7 @@ struct SceneMetalRenderer {
                         candidateMappedSize: baseSource.candidate?.mappedSize
                     )
                 }
-                let request = SceneImageLayerDrawRequest(
+                var request = SceneImageLayerDrawRequest(
                     layer: layer,
                     texture: texture,
                     baseTextureCandidate: baseSource.candidate,
@@ -583,6 +586,23 @@ struct SceneMetalRenderer {
                     authoredShaderFrameInputs: .init(frameContext: frameContext),
                     geometryProduct: geometryProduct
                 )
+                // Graph claims receive this same producer payload in preflight.
+                // A plain receiver uses the existing offscreen source capture and
+                // the same final compositor, with no fabricated graph/effect.
+                if resolvedFramePlan == nil,
+                   baseMaterialProviderBindings.lightingProfileByLayerID[layer.id]?
+                    .lightingEnabled == true {
+                    switch makeLitCapturePayload(
+                        profile: baseMaterialProviderBindings.lightingProfileByLayerID[layer.id],
+                        snapshot: frameLightSnapshot,
+                        layerModelMatrix: model,
+                        geometryProduct: geometryProduct
+                    ) {
+                    case let .payload(payload): request.sourceLighting = payload
+                    case let .miss(reason):
+                        SceneBaseMaterialLitCaptureMissLog.record(reason: reason, layerID: layer.id)
+                    }
+                }
                 let explicitLayerSourcePublication = imageTextures
                     .explicitLayerSourcePublication(
                         for: layer.id,
@@ -908,35 +928,24 @@ struct SceneMetalRenderer {
             source: drawable.texture,
             commandBuffer: commandBuffer
         )
+        // Map once after bloom; readback observes the presented color.
+        // A failed mapping preserves the completed composite.
+        displayMappingPostProcess?.encode(
+            source: drawable.texture,
+            commandBuffer: commandBuffer
+        )
         encodeFrameReadback?(drawable.texture, commandBuffer)
         guard imageCompositor.endResolvedMaterialFrame(on: commandBuffer) else {
             return .dropped(reasonCode: "resolved-material-frame-seal-rejected")
         }
 #if DEBUG
         if collectsPointLightExecutionEvidence {
-            let encodedLayerIDs = pointLitStaticModelLayerIDs
-                .map(String.init).joined(separator: ",")
-            let encodedLayerCount = pointLitStaticModelLayerIDs.count
-            NSLog(
-                "MWX DEBUG SCENE: phase=static-model-light-snapshot frame=%llu directional=%d point=%d spot=%d overflow=%d pointLitEncoded=%d layers=%@",
-                frameContext.frameIndex,
-                frameLightSnapshot.directional.count,
-                frameLightSnapshot.point.count,
-                frameLightSnapshot.spot.count,
-                frameLightSnapshot.overflowCount,
-                encodedLayerCount,
-                encodedLayerIDs
+            logStaticModelLightExecutionEvidence(
+                frameContext: frameContext,
+                frameLightSnapshot: frameLightSnapshot,
+                encodedLayerIDs: pointLitStaticModelLayerIDs,
+                commandBuffer: commandBuffer
             )
-            commandBuffer.addCompletedHandler { buffer in
-                NSLog(
-                    "MWX DEBUG SCENE: phase=static-model-light-completion frame=%llu status=%@ error=%@ pointLitEncoded=%d layers=%@",
-                    frameContext.frameIndex,
-                    String(describing: buffer.status),
-                    buffer.error.map(String.init(describing:)) ?? "none",
-                    encodedLayerCount,
-                    encodedLayerIDs
-                )
-            }
         }
         reportDynamicLayerRenderEvidence(
             projection: frameProjection,

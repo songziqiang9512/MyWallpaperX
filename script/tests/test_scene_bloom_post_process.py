@@ -65,6 +65,10 @@ HARNESS = r'''
 import Foundation
 import Metal
 
+enum SceneGPUCensus {
+  static func recordMainPassRender(usesDepth: Bool) {}
+}
+
 @main enum Harness {
   static func main() throws {
     guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
@@ -238,6 +242,202 @@ import Metal
       from: MTLRegionMake2D(0, 0, 32, 16), mipmapLevel: 0) }
     results["floatBloom"] = encoded && fc.status == .completed
       && fr[0] > fp[0] && fr[3] == 1 && fr.allSatisfy { $0.isFinite }
+
+    // ===== D2 display mapping (stage B first slice) =====
+    let curve = SceneDisplayMappingCurve.frozenDefault
+    let darkLadder: [Float] = [0, 0.0625, 0.125, 0.25, 0.375, 0.5]
+    results["dmCurveDarkIdentity"] = darkLadder.allSatisfy { curve.evaluate($0) == $0 }
+    let hdrLadder: [Float] = [0.5, 0.75, 1, 1.5, 3, 5, 12, 100, 10000, .greatestFiniteMagnitude]
+    let cpuOutputs = hdrLadder.map { curve.evaluate($0) }
+    results["dmCurveSDRBounded"] = cpuOutputs.allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1 }
+      && zip(cpuOutputs, cpuOutputs.dropFirst()).allSatisfy { $0 <= $1 }
+    results["dmCurveNonFinite"] = [Float.nan, .infinity, -.infinity, -0.5].allSatisfy {
+      curve.evaluate($0) == 0
+    }
+    // Independent, frozen behavior anchors rather than a second curve formula.
+    results["dmCurveAnchors"] = [Float(1), 1.5, 3, 5, 12].map { curve.evaluate($0) }
+
+    let mapping = SceneDisplayMappingPostProcess(device: device, pixelFormat: .rgba16Float, hdrEnabled: true, clearEnabled: true)!
+    func float16Texture(
+      _ width: Int, _ height: Int, _ texels: [[Float16]]
+    ) -> (texture: MTLTexture, bytes: [Float16]) {
+      let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .rgba16Float, width: width, height: height, mipmapped: false)
+      descriptor.usage = [.shaderRead, .renderTarget]
+      descriptor.storageMode = .shared
+      let texture = device.makeTexture(descriptor: descriptor)!
+      let flat = texels.flatMap { $0 }
+      flat.withUnsafeBytes {
+        texture.replace(
+          region: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0,
+          withBytes: $0.baseAddress!, bytesPerRow: width * 8)
+      }
+      return (texture, flat)
+    }
+    func readFloat16(_ texture: MTLTexture, _ width: Int, _ height: Int) -> [Float16] {
+      var output = [Float16](repeating: 0, count: width * height * 4)
+      output.withUnsafeMutableBytes {
+        texture.getBytes(
+          $0.baseAddress!, bytesPerRow: width * 8,
+          from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0)
+      }
+      return output
+    }
+    @discardableResult
+    func runMapping(
+      _ pass: SceneDisplayMappingPostProcess?, _ source: MTLTexture, failEncoder: Int = 0
+    ) -> Bool {
+      let buffer = queue.makeCommandBuffer()!
+      MWXArmEncoderFault(buffer, UInt(failEncoder))
+      let encoded = pass?.encode(source: source, commandBuffer: buffer) ?? false
+      buffer.commit()
+      buffer.waitUntilCompleted()
+      precondition(buffer.status == .completed && buffer.error == nil)
+      return encoded
+    }
+
+    // Non-HDR (bgra8Unorm) source must be refused with zero GPU work.
+    var gatedBytes = [UInt8](repeating: 0, count: 8 * 2 * 4)
+    for i in gatedBytes.indices { gatedBytes[i] = UInt8((i * 31) % 256) }
+    let gatedDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+      pixelFormat: .bgra8Unorm, width: 8, height: 2, mipmapped: false)
+    gatedDescriptor.usage = [.shaderRead, .renderTarget]
+    gatedDescriptor.storageMode = .shared
+    let gatedSource = device.makeTexture(descriptor: gatedDescriptor)!
+    gatedBytes.withUnsafeBytes {
+      gatedSource.replace(
+        region: MTLRegionMake2D(0, 0, 8, 2), mipmapLevel: 0,
+        withBytes: $0.baseAddress!, bytesPerRow: 8 * 4)
+    }
+    let gatedEncoded = runMapping(mapping, gatedSource)
+    var gatedReadback = [UInt8](repeating: 0, count: gatedBytes.count)
+    gatedReadback.withUnsafeMutableBytes {
+      gatedSource.getBytes(
+        $0.baseAddress!, bytesPerRow: 8 * 4,
+        from: MTLRegionMake2D(0, 0, 8, 2), mipmapLevel: 0)
+    }
+    results["dmGatedZeroWork"] = [
+      "encoded": gatedEncoded, "bytesEqual": gatedReadback == gatedBytes,
+      "encoderAttempts": MWXEncoderAttempts(),
+    ]
+
+    // HDR route: opaque terminal RGB. White is compressed to reserve SDR
+    // highlight range; dark identity applies only below the frozen knee.
+    let ladderTexels: [[Float16]] = [
+      [0, 0.5, 1, 1], [0.125, 0.75, 0.875, 1], [1, 0, 0.625, 1],
+      [0.375, 1, 0.25, 1], [1.5, 3, 4, 1], [5, 8, 12, 1],
+      [3, 3, 3, 1], [10000, 100, 16, 1],
+      [0.5, 0.5, 0.5, 1], [3, 0.5, 0.2, 1], [0.75, 0.25, 0.0625, 1], [1, 1, 1, 1],
+    ]
+    let ladder = float16Texture(6, 2, ladderTexels)
+    let ladderEncoded = runMapping(mapping, ladder.texture)
+    let mapped = readFloat16(ladder.texture, 6, 2)
+    var darkBitExact = true
+    var alphaBitExact = true
+    var sdrBounded = true
+    for texel in 0..<12 {
+      for channel in 0..<4 {
+        let index = texel * 4 + channel
+        let original = ladder.bytes[index]
+        let output = mapped[index]
+        if channel == 3 {
+          if output != original { alphaBitExact = false }
+        } else {
+          if !(output.isFinite && output >= 0 && output <= 1) { sdrBounded = false }
+          if original <= 0.5 && output != original { darkBitExact = false }
+        }
+      }
+    }
+    let shoulderProbeIndices = [2, 16, 17, 20, 22]
+    let grayIndex = 6 * 4
+    results["dmShoulderProbes"] = shoulderProbeIndices.map { Float(mapped[$0]) }
+    results["dmLadderGPU"] = [
+      "encoded": ladderEncoded, "darkBitExact": darkBitExact,
+      "alphaBitExact": alphaBitExact, "sdrBounded": sdrBounded,
+      "grayPreserved": mapped[grayIndex] == mapped[grayIndex + 1]
+        && mapped[grayIndex + 1] == mapped[grayIndex + 2],
+    ]
+    let colorIndex = 9 * 4
+    results["dmColorHighlight"] = [
+      "greenBlueBitExact": mapped[colorIndex + 1] == ladder.bytes[colorIndex + 1]
+        && mapped[colorIndex + 2] == ladder.bytes[colorIndex + 2],
+      "redCompressed": mapped[colorIndex] > mapped[colorIndex + 1]
+        && mapped[colorIndex] < 1,
+    ]
+    let nonfiniteFixture = float16Texture(2, 1, [
+      [.nan, .infinity, -.infinity, 1], [-1, .greatestFiniteMagnitude, 0.25, 1],
+    ])
+    _ = runMapping(mapping, nonfiniteFixture.texture)
+    let invalidMapped = readFloat16(nonfiniteFixture.texture, 2, 1)
+    results["dmNonFiniteGPU"] = invalidMapped.enumerated().allSatisfy { index, value in
+      let expected = index % 4 == 3 ? Float(nonfiniteFixture.bytes[index])
+        : curve.evaluate(Float(nonfiniteFixture.bytes[index]))
+      return value.isFinite && abs(Float(value) - expected) <= 1.0 / 1024.0
+    }
+    // Non-HDR route is nil even if a target uses floating-point storage.
+    let bypass = float16Texture(2, 1, [[0.75, 1, 3, 1], [0.25, 0.5, 0, 1]])
+    let nonHDRMapping = SceneDisplayMappingPostProcess(
+      device: device, pixelFormat: .rgba16Float, hdrEnabled: false, clearEnabled: true)
+    results["dmNilRouteZeroWork"] = nonHDRMapping == nil && !runMapping(nonHDRMapping, bypass.texture)
+      && MWXEncoderAttempts() == 0 && readFloat16(bypass.texture, 2, 1) == bypass.bytes
+
+    // An accumulating main pass must not repeatedly map retained display RGB.
+    // The real main-pass owner keeps its attachment when clear is disabled.
+    let accumulatingMapping = SceneDisplayMappingPostProcess(
+      device: device, pixelFormat: .rgba16Float, hdrEnabled: true, clearEnabled: false)
+    let retained = float16Texture(1, 1, [[0.75, 0.75, 0.75, 1]])
+    for _ in 0..<2 {
+      let buffer = queue.makeCommandBuffer()!
+      let mainPass = SceneMainPassEncoder(
+        commandBuffer: buffer, target: retained.texture,
+        clearColor: MTLClearColorMake(0, 0, 0, 1), clearEnabled: false)
+      mainPass.finishEnsuringClear()
+      accumulatingMapping?.encode(source: retained.texture, commandBuffer: buffer)
+      buffer.commit()
+      buffer.waitUntilCompleted()
+      precondition(buffer.status == .completed && buffer.error == nil)
+    }
+    results["dmAccumulatingPassUnchanged"] =
+      readFloat16(retained.texture, 1, 1) == retained.bytes
+
+    // Encoder failure mid-chain must preserve the source (blit is read-only).
+    let faultTexels: [[Float16]] = [
+      [3, 1, 0.5, 1], [0.75, 5, 0.125, 1], [2, 0.25, 8, 1], [0.5, 1, 12, 1],
+    ]
+    let faultCase = float16Texture(4, 1, faultTexels)
+    let failedEncoded = runMapping(mapping, faultCase.texture, failEncoder: 1)
+    let afterFault = readFloat16(faultCase.texture, 4, 1)
+    let recoveredEncoded = runMapping(mapping, faultCase.texture)
+    let afterRecovery = readFloat16(faultCase.texture, 4, 1)
+    results["dmEncoderFault"] = [
+      "encoded": failedEncoded, "bytesEqual": afterFault == faultCase.bytes,
+    ]
+    results["dmEncoderRecovery"] = [
+      "encoded": recoveredEncoded,
+      "mapped": afterRecovery[0] < faultCase.bytes[0] && afterRecovery[0] > 0.9 && afterRecovery[0] < 1,
+    ]
+
+    // Launch-time pipeline failure: nil instance, no-op encode, then recovery.
+    MWXArmPipelineFault(device, 1)
+    let broken = SceneDisplayMappingPostProcess(device: device, pixelFormat: .rgba16Float, hdrEnabled: true, clearEnabled: true)
+    results["dmPipelineFailure1"] = broken == nil && MWXPipelineAttempts() == 1
+    let noopCase = float16Texture(1, 1, [[3, 3, 3, 1]])
+    let noopBuffer = queue.makeCommandBuffer()!
+    MWXArmEncoderFault(noopBuffer, 0)
+    broken?.encode(source: noopCase.texture, commandBuffer: noopBuffer)
+    noopBuffer.commit()
+    noopBuffer.waitUntilCompleted()
+    let noopReadback = readFloat16(noopCase.texture, 1, 1)
+    results["dmPipelineNoOp"] = noopBuffer.status == .completed
+      && noopReadback == noopCase.bytes && MWXEncoderAttempts() == 0
+    MWXArmPipelineFault(device, 0)
+    let recoveredMapping = SceneDisplayMappingPostProcess(
+      device: device, pixelFormat: .rgba16Float, hdrEnabled: true, clearEnabled: true)
+    let recoveryEncoded = runMapping(recoveredMapping, noopCase.texture)
+    let recoveryReadback = readFloat16(noopCase.texture, 1, 1)
+    results["dmPipelineRecovery1"] = recoveredMapping != nil && recoveryEncoded
+      && recoveryReadback[0] > 0.9 && recoveryReadback[0] < 1
+
     print(String(data: try JSONSerialization.data(withJSONObject: results), encoding: .utf8)!)
   }
 }
@@ -256,12 +456,18 @@ class SceneBloomPostProcessTests(unittest.TestCase):
                  "-o", str(folder / "fault.o")],
                 ["xcrun", "-sdk", "macosx", "metal", "-c",
                  str(SCENE / "SceneBloomPostProcess.metal"), "-o", str(folder / "bloom.air")],
+                ["xcrun", "-sdk", "macosx", "metal", "-c",
+                 str(SCENE / "SceneDisplayMappingPostProcess.metal"),
+                 "-o", str(folder / "display-mapping.air")],
                 ["xcrun", "-sdk", "macosx", "metallib", str(folder / "bloom.air"),
+                 str(folder / "display-mapping.air"),
                  "-o", str(folder / "default.metallib")],
-                ["swiftc","-import-objc-header",str(folder / "Fault.h"),str(folder / "fault.o"),*map(str, SWIFT_SOURCES),str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift"),str(SCENE / "SceneBloomPostProcess.swift"),str(folder / "Main.swift"),"-o",str(folder / "run"),Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift"],
+                ["swiftc","-import-objc-header",str(folder / "Fault.h"),str(folder / "fault.o"),*map(str, SWIFT_SOURCES),str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyDefinitionParser.swift"),str(SCENE / "SceneBloomPostProcess.swift"),str(SCENE / "SceneDisplayMappingPostProcess.swift"),str(SCENE / "SceneMainPassEncoder.swift"),str(folder / "Main.swift"),"-o",str(folder / "run"),Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift"],
             ]
             for command in commands:
-                subprocess.run(command, capture_output=True, text=True, check=True, timeout=120)
+                compiled = subprocess.run(command, capture_output=True, text=True, timeout=120)
+                if compiled.returncode:
+                    raise RuntimeError(compiled.stderr)
             result = subprocess.run([str(folder / "run")], capture_output=True,
                                     text=True, check=True, timeout=120)
             cls.result = json.loads(result.stdout)
@@ -319,6 +525,57 @@ class SceneBloomPostProcessTests(unittest.TestCase):
             self.assertGreater(self.result[name]["changedRGB"], 0)
             self.assertEqual(self.result[name]["darkened"], 0)
             self.assertEqual(self.result[name]["changedAlpha"], 0)
+
+    def test_display_mapping_curve_reserves_sdr_highlight_range(self):
+        self.assertTrue(self.result["dmCurveDarkIdentity"])
+        self.assertTrue(self.result["dmCurveSDRBounded"])
+        self.assertTrue(self.result["dmCurveNonFinite"])
+        for actual, expected in zip(self.result["dmCurveAnchors"], [0.75, 0.8333333, 0.9166667, 0.95, 0.9791667]):
+            self.assertAlmostEqual(actual, expected, delta=1 / 1024)
+
+    def test_display_mapping_refuses_mismatched_source_and_bypasses_non_hdr_route(self):
+        gated = self.result["dmGatedZeroWork"]
+        self.assertFalse(gated["encoded"])
+        self.assertTrue(gated["bytesEqual"])
+        self.assertEqual(gated["encoderAttempts"], 0)
+        self.assertTrue(self.result["dmNilRouteZeroWork"])
+
+    def test_display_mapping_gpu_preserves_distinct_highlights_inside_sdr_range(self):
+        ladder = self.result["dmLadderGPU"]
+        for field in ("encoded", "darkBitExact", "alphaBitExact", "sdrBounded", "grayPreserved"):
+            self.assertTrue(ladder[field], field)
+        probes = self.result["dmShoulderProbes"]
+        for actual, expected in zip(probes, [0.75, 0.8333333, 0.9166667, 0.95, 0.9791667]):
+            self.assertAlmostEqual(actual, expected, delta=1 / 1024)
+        # All five remain distinct after SDR clamp and 8-bit quantization.
+        sdr_codes = [round(min(1, max(0, x)) * 255) for x in probes]
+        for lower, upper in zip(probes, probes[1:]):
+            self.assertGreater(upper - lower, 1 / 64)
+        self.assertEqual(len(set(sdr_codes)), 5, sdr_codes)
+
+    def test_display_mapping_compresses_colorful_highlights_without_crosstalk(self):
+        color = self.result["dmColorHighlight"]
+        self.assertTrue(color["greenBlueBitExact"])
+        self.assertTrue(color["redCompressed"])
+
+    def test_display_mapping_gpu_and_cpu_agree_on_nonfinite_input(self):
+        self.assertTrue(self.result["dmNonFiniteGPU"])
+
+    def test_accumulating_main_pass_does_not_remap_retained_display_color(self):
+        self.assertTrue(self.result["dmAccumulatingPassUnchanged"])
+
+    def test_display_mapping_pipeline_failure_fails_soft_and_recovers(self):
+        self.assertTrue(self.result["dmPipelineFailure1"])
+        self.assertTrue(self.result["dmPipelineNoOp"])
+        self.assertTrue(self.result["dmPipelineRecovery1"])
+
+    def test_display_mapping_encoder_failure_preserves_source(self):
+        fault = self.result["dmEncoderFault"]
+        self.assertFalse(fault["encoded"])
+        self.assertTrue(fault["bytesEqual"])
+        recovery = self.result["dmEncoderRecovery"]
+        self.assertTrue(recovery["encoded"])
+        self.assertTrue(recovery["mapped"])
 
 
 if __name__ == "__main__":

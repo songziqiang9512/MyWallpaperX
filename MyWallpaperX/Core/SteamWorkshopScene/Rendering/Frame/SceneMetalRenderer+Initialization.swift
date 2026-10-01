@@ -30,10 +30,22 @@ extension SceneMetalRenderer {
                 device: device,
                 pixelFormat: renderDescriptor.colorTargetFormat.metalPixelFormat
             ) : nil
+        // Mapping requires a fresh opaque composite; accumulating scenes retain
+        // their existing output until pre-display history has a separate owner.
+        self.displayMappingPostProcess = SceneDisplayMappingPostProcess(
+            device: device,
+            pixelFormat: renderDescriptor.colorTargetFormat.metalPixelFormat,
+            hdrEnabled: renderDescriptor.hdrEnabled,
+            clearEnabled: renderDescriptor.camera.clearEnabled
+        )
         self.baseMaterialProviderBindings = baseMaterialProviderBindings
         self.stockNoiseTextures = stockNoiseTextures
         self.staticModelResources = staticModelResources
         self.pipelineRepository = pipelineRepository
+        if baseMaterialProviderBindings.lightingProfileByLayerID.values
+            .contains(where: \.lightingEnabled) {
+            _ = pipelineRepository.prepareLitImageLayer()
+        }
         self.imageCompositor = SceneImageLayerCompositor(
             pipelineRepository: pipelineRepository,
             resolvedMaterialRuntime: resolvedMaterialRuntime

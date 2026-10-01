@@ -22,6 +22,7 @@
         "Resources/Assets/SceneShaderSourceResolver.swift",
         "Resources/Assets/SceneResourceView.swift",
         "Resources/Assets/SceneResourceIndex.swift",
+        "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
         "Compilation/ShaderContract/SceneShaderContractLoader.swift",
         "Compilation/ShaderContract/SceneShaderContractLoader+SourceGraph.swift"
       ]
@@ -42,6 +43,7 @@
         "Resources/Assets/SceneShaderSourceResolver.swift",
         "Resources/Assets/SceneResourceView.swift",
         "Resources/Assets/SceneResourceIndex.swift",
+        "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
         "Compilation/ShaderContract/SceneShaderContractLoader.swift",
         "Compilation/ShaderContract/SceneShaderContractLoader+SourceGraph.swift"
       ]

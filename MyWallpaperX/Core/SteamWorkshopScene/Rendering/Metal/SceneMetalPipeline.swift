@@ -84,6 +84,10 @@ struct SceneImageLayerPipeline {
     func bind(encoder: MTLRenderCommandEncoder) {
         ScenePerformanceCounterHub.shared.bump(.pipelineStateBinds)
         encoder.setRenderPipelineState(state)
+        Self.bindQuad(encoder: encoder)
+    }
+
+    static func bindQuad(encoder: MTLRenderCommandEncoder) {
         var vertices = Self.unitQuadVertices
         encoder.setVertexBytes(
             &vertices,

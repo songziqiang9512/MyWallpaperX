@@ -237,6 +237,7 @@ struct SceneImageLayerCompositor {
         let routesOffscreen = request.requiresSourceCopy
             || resolvedMaterialClaim != nil
             || layerColorBlendMode > 0
+            || request.sourceLighting != nil
         guard !routesOffscreen || request.effectSourceExtent != nil else {
             _ = rejectResolvedMaterialClaim(resolvedMaterialClaim,
                 reasonCode: "layer-effect-source-extent-unavailable")
@@ -291,9 +292,31 @@ struct SceneImageLayerCompositor {
                         target: target.texture,
                         sourceUniforms: directUniforms,
                         pipeline: pipeline,
-                        commandBuffer: commandBuffer
+                        commandBuffer: commandBuffer,
+                        sourceLighting: request.sourceLighting
                     ) ? target.texture : nil
                 }
+            }
+            // Optional lighting can miss before capture emits any command.
+            // Its source has not consumed authored coverage, tint or sprite UV;
+            // reuse the ordinary direct uniforms rather than final-composite ones.
+            if renderedTexture == nil, request.sourceLighting != nil,
+               resolvedMaterialClaim == nil, !request.requiresSourceCopy {
+                guard let fallbackUniforms = sourceFragmentUniforms(
+                    for: request, routesOffscreen: false
+                ) else { return .failed }
+                let encoded = SceneImageLayerMainPassRenderer.draw(
+                    texture: request.texture, mvp: request.mvp,
+                    uniforms: fallbackUniforms,
+                    dependencyTexture: dependencyEffect?.texture,
+                    layer: request.layer, pipeline: pipeline,
+                    colorBlendPipeline: colorBlendPipeline,
+                    geometryProduct: request.geometryProduct, mainPass: mainPass
+                )
+                guard encoded else { return .failed }
+                return request.geometryProduct == nil
+                    ? .normal(consumedDependency: hasDependencyInput)
+                    : .geometryEncoded(consumedDependency: hasDependencyInput)
             }
             guard let finalTexture = renderedTexture ?? (
                 request.requiresSourceCopy

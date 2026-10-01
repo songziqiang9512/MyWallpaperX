@@ -163,6 +163,7 @@ final class SceneResolvedMaterialGraphExecutor {
         sourceTexture: MTLTexture?,
         sourceUniforms: SceneLayerFragmentUniforms?,
         sourcePipeline: SceneImageLayerPipeline,
+        sourceLighting: SceneBaseMaterialLitCapturePayload? = nil,
         frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
         commandBuffer: MTLCommandBuffer,
         previousStates: [Graph.EffectKey: State],
@@ -224,12 +225,17 @@ final class SceneResolvedMaterialGraphExecutor {
         let baseCommand: SceneGraphResourcePassEncoder.PreparedCommand
         switch capability.sourceRoute {
         case .capturedLayerTexture, .capturedMainTargetTexture:
+            // A lit payload whose PSO does not match the capture target
+            // downgrades to the unlit capture inside the resource encoder
+            // (failure radius: this layer, this frame); the request's
+            // `sourcePipeline` always stays the unlit fallback pipeline.
             guard let sourceTexture, let sourceUniforms,
                   let capture = resourceEncoder?.prepareSourceCapture(
                       source: sourceTexture,
                       target: baseTarget,
                       uniforms: sourceUniforms,
-                      pipeline: sourcePipeline
+                      pipeline: sourcePipeline,
+                      sourceLighting: sourceLighting
                   ) else { return .failure(.captureRejected) }
             baseCommand = capture
         case .transparentDirectDraw:

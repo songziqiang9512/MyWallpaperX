@@ -64,6 +64,10 @@ PREFLIGHT_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
 )
+PREFLIGHT_ADMISSION_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+Admission.swift"
+)
 SUBMISSION_COORDINATOR_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift"
@@ -624,7 +628,10 @@ class ScenePerformanceTelemetryTests(unittest.TestCase):
 
     def test_admission_cost_is_attributed_by_observation_substages(self) -> None:
         """admit-prepare-frame 是复合阶段；两个子阶段只做归因且必须保持遥测可选。"""
-        preflight = PREFLIGHT_SOURCE.read_text(encoding="utf-8")
+        preflight = (
+            PREFLIGHT_SOURCE.read_text(encoding="utf-8")
+            + PREFLIGHT_ADMISSION_SOURCE.read_text(encoding="utf-8")
+        )
         coordinator = SUBMISSION_COORDINATOR_SOURCE.read_text(encoding="utf-8")
 
         # 总括阶段仍在，子阶段不替代它。

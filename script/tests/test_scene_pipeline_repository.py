@@ -56,6 +56,18 @@ final class SceneLayerColorBlendPipelineState {
     }
 }
 
+// Mechanical sync: the repository gained the lit base-capture pipeline slot
+// (D3 first slice); this fixture mirrors the existing pipeline stubs.
+final class SceneLitImageLayerPipeline {
+    static let attempts = Counter()
+    let deviceRegistryID: UInt64
+
+    init?(device: MTLDevice, pixelFormat: MTLPixelFormat) {
+        Self.attempts.increment()
+        deviceRegistryID = device.registryID
+    }
+}
+
 struct SceneImageLayerPipeline {
     enum BlendMode { case additive, alphaWeightedAdditive }
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat, blendMode: BlendMode) {}
@@ -102,6 +114,14 @@ enum Harness {
         let colorBlendAttemptsAfterConstruction =
             SceneLayerColorBlendPipelineState.attempts.read()
 
+        let litBeforePreparation = first.litImageLayer == nil
+        let litAttemptsBeforePreparation = SceneLitImageLayerPipeline.attempts.read()
+        let litPrepared = first.prepareLitImageLayer()
+        let litFirst = first.litImageLayer
+        for _ in 0..<128 { _ = first.litImageLayer }
+        let litFrameReadsDidNotCompile = SceneLitImageLayerPipeline.attempts.read() == 1
+            && first.litImageLayer === litFirst
+
         let firstValues = concurrentSpotLight(first, count: 128)
         let firstIDs = Set(firstValues.map(ObjectIdentifier.init))
         _ = second.spotLight()
@@ -110,6 +130,8 @@ enum Harness {
         let secondColorBlend = second.layerColorBlendState()
 
         let result: [String: Any] = [
+            "litPreparedOnce": litBeforePreparation && litAttemptsBeforePreparation == 0
+                && litPrepared && litFrameReadsDidNotCompile,
             "attemptsAfterConstruction": attemptsAfterConstruction,
             "colorBlendAttemptsAfterConstruction":
                 colorBlendAttemptsAfterConstruction,
@@ -168,6 +190,7 @@ class ScenePipelineRepositoryTests(unittest.TestCase):
             )
             result = json.loads(completed.stdout)
 
+        self.assertTrue(result["litPreparedOnce"])
         self.assertEqual(result["attemptsAfterConstruction"], 0)
         self.assertEqual(result["colorBlendAttemptsAfterConstruction"], 0)
         self.assertEqual(result["firstSpotLightValueCount"], 128)

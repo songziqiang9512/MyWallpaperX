@@ -16,6 +16,9 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCES = [SCENE / path for path in (
     "Diagnostics/ScenePerformanceCounterHub.swift",
     "Rendering/Metal/SceneMetalPipeline.swift",
+    # Mechanical sync: the repository gained the lit base-capture pipeline
+    # slot (D3 first slice); the slot's type ships with the lit pipeline.
+    "Rendering/Metal/SceneLitImageLayerPipeline.swift",
     "Rendering/Metal/SceneImageEffectPipelineRepository.swift",
     "Rendering/Composition/SceneDirectDrawLayerRenderer.swift",
 )]

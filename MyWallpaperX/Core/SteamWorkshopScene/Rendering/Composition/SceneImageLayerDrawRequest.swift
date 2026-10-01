@@ -259,6 +259,7 @@ struct SceneImageLayerDrawRequest {
     var audioSpectrum: SceneAudioSpectrumSnapshot = .silent
     var authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs? = nil
     var geometryProduct: SceneGeometryProduct? = nil
+    var sourceLighting: SceneBaseMaterialLitCapturePayload? = nil
 
     nonisolated func effectiveSourceSampling(
         for sampling: SceneTextureSampling

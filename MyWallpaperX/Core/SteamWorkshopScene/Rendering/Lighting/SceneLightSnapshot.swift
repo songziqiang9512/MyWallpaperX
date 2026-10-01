@@ -105,8 +105,13 @@ struct SceneLightSnapshot {
             }
         }
         let fog = descriptor.lighting?.distanceFog
+        // A published authored black ambient is an intentional dark receiver.
+        // Preserve the historical unlit default only when author ambient inputs
+        // are absent; do not turn an explicit zero into white for 2D or 3D.
+        let hasAuthoredAmbient = descriptor.lighting?.ambientColorRGB != nil
+            || descriptor.lighting?.skylightColorRGB != nil
         return SceneLightSnapshot(
-            ambient: ambient == .zero && directionalLights.isEmpty
+            ambient: !hasAuthoredAmbient && ambient == .zero && directionalLights.isEmpty
                 && pointLights.isEmpty && spotLights.isEmpty
                 ? SIMD3(1, 1, 1) : ambient,
             directional: directionalLights,

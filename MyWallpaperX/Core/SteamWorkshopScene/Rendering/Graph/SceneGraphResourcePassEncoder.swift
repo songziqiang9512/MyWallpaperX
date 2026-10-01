@@ -28,7 +28,8 @@ final class SceneGraphResourcePassEncoder {
             source: MTLTexture,
             target: MTLTexture,
             uniforms: SceneLayerFragmentUniforms,
-            pipeline: SceneImageLayerPipeline
+            pipeline: SceneImageLayerPipeline,
+            sourceLighting: SceneBaseMaterialLitCapturePayload?
         )
         case initialization(target: MTLTexture, clear: Plan.ClearColor)
         case copy(source: MTLTexture, target: MTLTexture)
@@ -46,12 +47,15 @@ final class SceneGraphResourcePassEncoder {
     }
 
     /// Returns a complete immutable full-target source draw without creating
-    /// an encoder or appending any command to a command buffer.
+    /// an encoder or appending any command to a command buffer. A lit payload
+    /// whose pieces do not validate downgrades to the unlit capture command
+    /// (failure radius: this layer, this frame) instead of rejecting.
     func prepareSourceCapture(
         source: MTLTexture,
         target: MTLTexture,
         uniforms: SceneLayerFragmentUniforms,
-        pipeline: SceneImageLayerPipeline
+        pipeline: SceneImageLayerPipeline,
+        sourceLighting: SceneBaseMaterialLitCapturePayload? = nil
     ) -> PreparedCommand? {
         withLock {
             guard validSourceCapture(
@@ -59,6 +63,10 @@ final class SceneGraphResourcePassEncoder {
                 target: target,
                 pipeline: pipeline
             ) else { return nil }
+            let lighting = validLitCapture(
+                target: target,
+                sourceLighting: sourceLighting
+            ) ? sourceLighting : nil
             return PreparedCommand(
                 kind: .sourceCapture,
                 ownerToken: ownerToken,
@@ -67,7 +75,8 @@ final class SceneGraphResourcePassEncoder {
                     source: source,
                     target: target,
                     uniforms: uniforms,
-                    pipeline: pipeline
+                    pipeline: pipeline,
+                    sourceLighting: lighting
                 )
             )
         }
@@ -126,7 +135,7 @@ final class SceneGraphResourcePassEncoder {
             }
 
             switch command.operation {
-            case let .sourceCapture(source, target, uniforms, pipeline):
+            case let .sourceCapture(source, target, uniforms, pipeline, sourceLighting):
                 guard validSourceCapture(
                     source: source,
                     target: target,
@@ -137,6 +146,7 @@ final class SceneGraphResourcePassEncoder {
                     target: target,
                     uniforms: uniforms,
                     pipeline: pipeline,
+                    sourceLighting: sourceLighting,
                     commandBuffer: commandBuffer
                 )
             case .initialization(let target, let clear):
@@ -164,6 +174,7 @@ final class SceneGraphResourcePassEncoder {
         target: MTLTexture,
         uniforms: SceneLayerFragmentUniforms,
         pipeline: SceneImageLayerPipeline,
+        sourceLighting: SceneBaseMaterialLitCapturePayload?,
         commandBuffer: MTLCommandBuffer
     ) -> Bool {
         let descriptor = MTLRenderPassDescriptor()
@@ -178,13 +189,26 @@ final class SceneGraphResourcePassEncoder {
         }
         encoder.label = "Scene graph source capture"
         SceneGPUCensus.recordOffscreenRender(.graphResourceSourceCapture)
-        pipeline.bind(encoder: encoder)
-        pipeline.drawLayer(
-            texture: source,
-            mvp: Self.fullTargetMVP,
-            uniforms: uniforms,
-            encoder: encoder
-        )
+        if let sourceLighting,
+           validLitCapture(target: target, sourceLighting: sourceLighting) {
+            sourceLighting.pipeline.bind(encoder: encoder)
+            sourceLighting.pipeline.drawLayer(
+                texture: source,
+                normalTexture: sourceLighting.normalTexture,
+                mvp: Self.fullTargetMVP,
+                uniforms: uniforms,
+                litPayload: sourceLighting.lights,
+                encoder: encoder
+            )
+        } else {
+            pipeline.bind(encoder: encoder)
+            pipeline.drawLayer(
+                texture: source,
+                mvp: Self.fullTargetMVP,
+                uniforms: uniforms,
+                encoder: encoder
+            )
+        }
         encoder.endEncoding()
         return true
     }
@@ -279,6 +303,16 @@ final class SceneGraphResourcePassEncoder {
             && source.sampleCount == 1
             && source.usage.contains(.shaderRead)
             && ObjectIdentifier(source) != ObjectIdentifier(target)
+    }
+
+    /// A lit capture additionally needs its PSO to match the capture target
+    /// format and, when a normal texture is declared, a shader-readable 2D
+    /// texture on the same device. Failure downgrades to the unlit capture.
+    private func validLitCapture(
+        target: MTLTexture,
+        sourceLighting: SceneBaseMaterialLitCapturePayload?
+    ) -> Bool {
+        sourceLighting?.isCompatible(with: target) == true
     }
 
     private func validCopy(

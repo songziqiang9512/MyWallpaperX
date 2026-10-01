@@ -16,6 +16,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-02 | Scene | 实施证据 | [D2/D3 有界输出首片](scene/d2-d3-bounded-output-implementation-2026-10-02.md) | 显示映射与2D受光的修前反例、独立终审、冻结App、受控ROI及原样本运行边界 | [兼容路线](../scene/scene-compatibility-roadmap.md)、[能力台账](../scene/semantics/coverage-ledger.md)、[运行证据](../scene/semantics/runtime-evidence-current.md) |
 | 2026-10-01 | Scene | 考证记录 | [Mirage da4fa7b3 六域考证汇总裁决](scene/mirage-da4fa7b3-six-domain-forensics-verdict-2026-10-01.md) | MirageWallpaper 钉定 revision `da4fa7b3ee33e9e94c59307f47098aa521f21aa6` 六域考证汇总裁决（render/particle/clock/property/camera/modules 共 59 条：gap/corroborated/mirage-specific 分类、待 Scene 会话收编清单、mirage-specific 隔离记录；历史证据留档、事实链最低位） | [资料来源索引](../scene/semantics/source-index.md)、[Mirage 显示链路参考](../scene/semantics/miragewallpaper-rendering-reference.md)、[能力台账](../scene/semantics/coverage-ledger.md) |
 | 2026-10-01 | Scene | 审查记录 | [Scene 画面质量审查](scene/scene-visual-quality-audit-2026-10-01.md) | 四路并行只读审查「算法/写法质量→画面劣化」：4 个未登记算法级新发现（相机抖动 Lissajous、发射图 alpha 二值化、straight-alpha 降采样、音频 16 档峰值稀释）+「已执行但打折」清单 + E5 降级残类与结构性能力洞总账 | [运行证据](../scene/semantics/runtime-evidence-current.md)、[能力台账](../scene/semantics/coverage-ledger.md)、[官方取证档案](../scene/semantics/client-runtime-static-forensics.md) |
 | 2026-09-30 | App 全端 UI | 审查记录 | [UI 代码全面审查](cross-topic/ui-code-review-2026-09-30.md) | 163 个 UI Swift 文件、12 区域并行评审+逐条独立复核的 41 条问题清单与完整证据（1 high / 20 medium / 19 low / 1 存疑） | [文档入口](../README.md)、[AGENTS](../../AGENTS.md) |

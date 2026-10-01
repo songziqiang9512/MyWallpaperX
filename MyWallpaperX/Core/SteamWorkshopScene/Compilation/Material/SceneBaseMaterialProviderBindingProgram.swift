@@ -126,13 +126,16 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
     let baseMaterialBindings: [Int: BaseMaterialBinding]
     let rejectedBaseMaterialReasons: [Int: String]
     let orderedSystemProviderDemands: [SceneSystemProviderTextureIdentity]
+    let lightingProfileByLayerID: [Int: SceneBaseMaterialLightingProfile]
 
     nonisolated init(
         baseMaterialBindings: [Int: BaseMaterialBinding],
-        rejectedBaseMaterialReasons: [Int: String] = [:]
+        rejectedBaseMaterialReasons: [Int: String] = [:],
+        lightingProfileByLayerID: [Int: SceneBaseMaterialLightingProfile] = [:]
     ) {
         self.baseMaterialBindings = baseMaterialBindings
         self.rejectedBaseMaterialReasons = rejectedBaseMaterialReasons
+        self.lightingProfileByLayerID = lightingProfileByLayerID
         self.orderedSystemProviderDemands = Set(
             baseMaterialBindings.values.compactMap {
                 $0.provider.systemProviderIdentity

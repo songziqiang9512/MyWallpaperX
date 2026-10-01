@@ -533,10 +533,27 @@
       "id": "scene-bloom",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneBloomPostProcess.*",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDisplayMappingPostProcess.*",
         "script/tests/test_scene_bloom_post_process.py"
       ],
       "modules": [
         "test_scene_bloom_post_process"
+      ]
+    },
+    {
+      "id": "scene-lit-material",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneBaseMaterialLightingProfile.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneLitImageLayerPipeline.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+LitCapture.swift",
+        "script/tests/test_scene_lit_image_layer.py",
+        "script/tests/fixtures/SceneLitImageLayerHarness.swift"
+      ],
+      "modules": [
+        "test_scene_base_material_provider_binding",
+        "test_scene_lit_image_layer",
+        "test_scene_resolved_material_graph_executor"
       ]
     },
     {
@@ -1017,10 +1034,14 @@
     {
       "id": "scene-material-copy-history-harness",
       "patterns": [
-        "script/tests/fixtures/SceneMaterialCopyHistoryRenderingHarness.swift"
+        "script/tests/fixtures/SceneMaterialCopyHistoryRenderingHarness.swift",
+        "script/tests/scene_preserved_channel_history_fixture.py"
       ],
       "modules": [
-        "test_scene_material_copy_history_rendering"
+        "test_scene_material_copy_history_rendering",
+        "test_scene_persistent_history_visual_failure_gpu",
+        "test_scene_preserved_channel_frame_local_unique",
+        "test_scene_preserved_channel_history"
       ]
     },
     {

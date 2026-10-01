@@ -444,6 +444,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 sourceTexture: request.sourceTexture,
                 sourceUniforms: request.sourceUniforms,
                 sourcePipeline: request.sourcePipeline,
+                sourceLighting: request.sourceLighting,
                 frameInputs: frameInputs,
                 commandBuffer: commandBuffer,
                 previousStates: provisionalTails.mapValues(\.state),

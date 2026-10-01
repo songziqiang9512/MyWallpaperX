@@ -158,7 +158,10 @@ class SceneMetalView: NSView {
         // Keep authored display-referred values and SDR presentation. Float
         // storage preserves precision; it does not opt the display into EDR.
         layer.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
+        // The display mapping pass blits the drawable to an intermediate
+        // texture, so it needs a readable framebuffer like bloom.
         layer.framebufferOnly = renderer.bloomPostProcess == nil
+            && renderer.displayMappingPostProcess == nil
             && !renderDescriptor.requiresReadableFramebuffer(
             sceneBackgroundLayerIDs: resolvedMaterialRuntime.sceneBackgroundLayerIDs,
             utilityCaptureLayerIDs: renderer.utilityCaptureLayerIDs,

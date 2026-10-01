@@ -185,7 +185,8 @@ nonisolated struct SceneShaderContractLoader {
 
         let builtinIdentity = identity.lowercased()
         if !identity.contains("/"),
-           ["genericimage2", "genericimage4", "genericparticle"].contains(builtinIdentity) {
+           (SceneBuiltinShaderIdentity.isImage(builtinIdentity)
+            || builtinIdentity == "genericparticle") {
             return NormalizedReference(
                 identity: builtinIdentity,
                 sourceKind: .hostBuiltin,

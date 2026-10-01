@@ -405,6 +405,17 @@ enum LightSnapshotHarness {
             ],
             dynamicSnapshot: dynamicSnapshot
         )
+        let explicitBlack = SceneRenderDescriptor(
+            lighting: .init(ambientColorRGB: [0, 0, 0], skylightColorRGB: [0, 0, 0]),
+            layers: []
+        )
+        precondition(SceneLightSnapshot.make(
+            descriptor: explicitBlack, worldFramesByLayerID: [:]
+        ).ambient == .zero)
+        let omittedAmbient = SceneRenderDescriptor(lighting: nil, layers: [])
+        precondition(SceneLightSnapshot.make(
+            descriptor: omittedAmbient, worldFramesByLayerID: [:]
+        ).ambient == SIMD3(repeating: 1))
         precondition(snapshot.ambient == SIMD3(0.3, 0.3, 0.3))
         precondition(snapshot.distanceFogColor == SIMD4(0.1, 0.2, 0.3, 1))
         precondition(snapshot.distanceFogRange == SIMD4(10, 100, 0.2, 0.8))

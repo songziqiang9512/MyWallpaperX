@@ -28,6 +28,7 @@
           "SceneAuthoredMaterialResolver.swift",
           "SceneAuthoredXRayPlanner+StockIdentity.swift",
           "SceneBaseMaterialColorModulationCompiler.swift",
+          "SceneBaseMaterialLightingProfile.swift",
           "SceneBaseMaterialProviderBindingCompiler.swift",
           "SceneBaseMaterialProviderBindingProgram.swift",
           "SceneEffectAdmissionCatalog+Reporting.swift",
@@ -107,6 +108,7 @@
       },
       "ShaderContract": {
         "file_globs": [
+          "SceneBuiltinShaderIdentity.swift",
           "SceneShaderContract.swift",
           "SceneShaderContractLoader+SourceGraph.swift",
           "SceneShaderContractLoader.swift",
@@ -311,6 +313,7 @@
           "SceneLayerSourcePassthroughPlan.swift",
           "SceneMainPassEncoder.swift",
           "SceneBloomPostProcess.swift",
+          "SceneDisplayMappingPostProcess.swift",
           "SceneOffscreenEffectRenderer+Capture.swift",
           "SceneResolvedMaterialGraphComposition.swift",
           "SceneUtilityLayer.swift",
@@ -358,6 +361,7 @@
           "SceneMetalRenderer+FrameWorldProjection.swift",
           "SceneMetalRenderer+Initialization.swift",
           "SceneMetalRenderer+LayerTransforms.swift",
+          "SceneMetalRenderer+LightEvidence.swift",
           "SceneMetalRenderer+ParticlePointer.swift",
           "SceneMetalRenderer+Particles.swift",
           "SceneMetalRenderer+TextureFrame.swift",
@@ -373,7 +377,9 @@
           "SceneMetalView+PuppetBones.swift",
           "SceneMetalView+SceneScriptCursorInteraction.swift",
           "SceneMetalView.swift",
+          "SceneResolvedMaterialFramePreflight+Admission.swift",
           "SceneResolvedMaterialFramePreflight+AggregateReservation.swift",
+          "SceneResolvedMaterialFramePreflight+LitCapture.swift",
           "SceneResolvedMaterialFramePreflight.swift",
           "SceneSourceUpdateTransaction.swift"
         ],
@@ -435,6 +441,7 @@
       "Metal": {
         "file_globs": [
           "SceneImageEffectPipelineRepository.swift",
+          "SceneLitImageLayerPipeline.swift",
           "SceneMetalPipeline.swift",
           "SceneStaticModelPipeline.swift"
         ],

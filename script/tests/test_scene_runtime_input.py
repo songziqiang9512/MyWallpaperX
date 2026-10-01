@@ -49,6 +49,7 @@ SHADER_CONTRACT_GRAPH_LOADER_SOURCE = (
     ]
 )
 SWIFT_SOURCES = [
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneBuiltinShaderIdentity.swift"],
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyBindings.swift",
