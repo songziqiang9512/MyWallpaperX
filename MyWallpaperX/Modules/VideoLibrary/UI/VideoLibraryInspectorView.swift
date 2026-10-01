@@ -240,11 +240,11 @@ final class VideoLibraryInspectorView: NSView {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 guard let self else { return }
+                // 派生图片补齐或清空也会发布模型，视频源路径可以保持不变。
+                self.reloadPreviewIfAssetIdentityChanged()
                 if self.loadedDetailsPath != nil,
                    self.loadedDetailsPath != self.currentWallpaper.path {
                     self.loadDetails()
-                    // 资源替换：源路径变化后旧预览图不再属于当前资源，按身份变化重载
-                    self.reloadPreviewIfAssetIdentityChanged()
                 } else {
                     self.rebuildContent()
                     self.refreshFooterActions()

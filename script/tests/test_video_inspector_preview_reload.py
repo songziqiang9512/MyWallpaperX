@@ -9,15 +9,14 @@
 - 旧代数异步完成不得覆盖新资源状态；
 - 面板关闭（视图释放）后的迟到回调安全。
 
-缓存隔离：编译模块缓存进临时目录（-module-cache-path）；
-harness 的 ThumbnailCache 磁盘层只写专属 namespace
-`videolibrary-inspector-test`（本测试独占、可重建），setUp/tearDown 按精确路径清理。
+缓存与模块编译输出均置于每次运行的临时目录；Foundation 的缓存根通过
+CFFIXED_USER_HOME 隔离，harness 在首次构造共享缓存前断言该根生效。
 """
 
 from __future__ import annotations
 
+import os
 import pathlib
-import shutil
 import subprocess
 import tempfile
 import unittest
@@ -32,18 +31,6 @@ FOOTER_METRICS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/InspectorFoote
 INSPECTOR_SUPPORT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorSupport.swift"
 INSPECTOR_VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorView.swift"
 INSPECTOR_HARNESS_SOURCE = REPOSITORY_ROOT / "script/tests/fixtures/VideoInspectorPreviewHarness.swift"
-
-# ThumbnailCache 磁盘层（bundleIdentifier 为 nil 时根为 MyWallpaperX）下的
-# 本测试专属 namespace，精确清单清理，不触碰其他子目录。
-CACHE_NAMESPACE_DIR = (
-    pathlib.Path.home()
-    / "Library"
-    / "Caches"
-    / "MyWallpaperX"
-    / "thumbnails"
-    / "videolibrary-inspector-test"
-)
-
 
 class VideoInspectorPreviewReloadTests(unittest.TestCase):
     def test_preview_reloads_when_resources_arrive(self) -> None:
@@ -75,8 +62,13 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
             )
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
 
+            environment = os.environ.copy()
+            runtime_home = workdir / "runtime-home"
+            runtime_home.mkdir()
+            environment.update(HOME=str(runtime_home), CFFIXED_USER_HOME=str(runtime_home))
             run = subprocess.run(
                 [str(executable)],
+                env=environment,
                 capture_output=True,
                 text=True,
                 timeout=120,
@@ -92,6 +84,9 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
                 "s4-replacement-clears-stale-preview",
                 "s5-late-ready-swaps-to-new-image",
                 "s6-stale-async-completion-dropped",
+                "s8-same-path-static-frame-arrives",
+                "s8-same-path-static-frame-replaced",
+                "s8-same-path-derived-assets-cleared",
                 "s7-closed-panel-view-released",
                 "s7-late-callback-after-close-safe",
             )
@@ -106,11 +101,6 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
             self.assertEqual(failed, {}, output)
             self.assertIn("ALL SCENARIOS PASS", run.stdout)
 
-    def setUp(self) -> None:
-        shutil.rmtree(CACHE_NAMESPACE_DIR, ignore_errors=True)
-
-    def tearDown(self) -> None:
-        shutil.rmtree(CACHE_NAMESPACE_DIR, ignore_errors=True)
 
 
 if __name__ == "__main__":

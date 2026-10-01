@@ -263,6 +263,11 @@ private func writeJPEG(_ path: String, red: CGFloat, green: CGFloat, blue: CGFlo
 enum Harness {
     @MainActor
     static func main() {
+        let runtimeHome = ProcessInfo.processInfo.environment["CFFIXED_USER_HOME"]!
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        let isolatedRoot = URL(fileURLWithPath: runtimeHome).resolvingSymlinksInPath().path
+        precondition(caches.resolvingSymlinksInPath().path.hasPrefix(isolatedRoot + "/"),
+                     "cache root must be isolated: \(caches.path)")
         _ = NSApplication.shared
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("mwx-video-inspector-\(UUID().uuidString)", isDirectory: true)
@@ -319,12 +324,14 @@ enum Harness {
         print("DETAIL s2-pixel \(redPixel.map { "\($0.red) \($0.green) \($0.blue)" } ?? "nil")")
         check(reloaded && looksRed(redPixel), "s2-preview-reloads-on-thumbnail-ready")
 
-        // 场景 3：无关 publish（收藏切换，资产身份不变）不破坏已显示预览
+        // 场景 3：无关 publish（收藏切换，资产身份不变）不重复读取预览
+        _ = manager.drainResolveLog()
         manager.wallpapers = [
             VideoWallpaper(id: "card-a", title: "A", path: videoA, isFavorite: true)
         ]
         drain(0.5)
-        check(!noticeVisible(in: inspector) && looksRed(centerPixel(in: inspector)), "s3-unrelated-publish-keeps-preview")
+        check(!noticeVisible(in: inspector) && looksRed(centerPixel(in: inspector))
+              && manager.drainResolveLog().isEmpty, "s3-unrelated-publish-keeps-preview")
 
         // 场景 4：资源替换（同 id 换源路径，新源无预览）→ 旧图清空、缺失提示回归
         manager.setResolvedThumbnail(nil, for: videoD)
@@ -360,6 +367,21 @@ enum Harness {
         print("DETAIL s6-resolves \(manager.drainResolveLog())")
         print("DETAIL s6-state notice=\(noticeVisible(in: inspector)) placeholder=\(placeholderVisible(in: inspector))")
         check(backToMissing && !looksGreen(latePixel) && noticeVisible(in: inspector), "s6-stale-async-completion-dropped")
+
+        // 同路径静帧后到只发布模型，不发送 thumbnailReady。
+        manager.wallpapers = [VideoWallpaper(
+            id: "card-a", title: "A", path: videoD, staticFramePath: thumbRed
+        )]
+        check(waitFor(timeout: 4.0) { looksRed(centerPixel(in: inspector)) },
+              "s8-same-path-static-frame-arrives")
+        manager.wallpapers = [VideoWallpaper(
+            id: "card-a", title: "A", path: videoD, staticFramePath: thumbBlue
+        )]
+        check(waitFor(timeout: 4.0) { looksBlue(centerPixel(in: inspector)) },
+              "s8-same-path-static-frame-replaced")
+        manager.wallpapers = [VideoWallpaper(id: "card-a", title: "A", path: videoD)]
+        check(waitFor(timeout: 4.0) { noticeVisible(in: inspector) && placeholderVisible(in: inspector) },
+              "s8-same-path-derived-assets-cleared")
 
         // 场景 7：面板关闭（视图释放）后的迟到回调安全
         manager.blockResolvedThumbnail(for: videoE)
