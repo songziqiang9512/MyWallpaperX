@@ -256,6 +256,16 @@ final class SILInspectorView: NSView {
         stack.distribution = .fillEqually
         stack.translatesAutoresizingMaskIntoConstraints = false
 
+        // 主操作：设为壁纸（经 staticImageWallpaperReadyToApply 统一入口
+        // 应用系统桌面）；查看文件/添加标签收缩为次级宽度。
+        let wallpaperButton = SILInspectorViews.makeFooterButton(
+            title: "设为壁纸",
+            symbolName: "photo.fill",
+            target: self,
+            action: #selector(setAsDesktopWallpaper),
+            kind: .primary
+        )
+        wallpaperButton.isEnabled = FileManager.default.fileExists(atPath: wallpaper.path)
         let revealButton = SILInspectorViews.makeFooterButton(
             title: "查看文件",
             symbolName: "folder.fill",
@@ -272,6 +282,7 @@ final class SILInspectorView: NSView {
 
         let buttonGroup = NSView()
         buttonGroup.translatesAutoresizingMaskIntoConstraints = false
+        buttonGroup.addSubview(wallpaperButton)
         buttonGroup.addSubview(revealButton)
         buttonGroup.addSubview(tagButton)
         stack.addArrangedSubview(buttonGroup)
@@ -283,7 +294,15 @@ final class SILInspectorView: NSView {
             buttonGroup.topAnchor.constraint(equalTo: stack.topAnchor),
             buttonGroup.bottomAnchor.constraint(equalTo: stack.bottomAnchor),
 
-            revealButton.leadingAnchor.constraint(equalTo: buttonGroup.leadingAnchor),
+            // 主按钮与视频库面板的「设为壁纸」同款宽度（面板 368 − 4 内边距
+            // 平分两键 ≈ 179；此处 356 面板取 172 保持同量级主宽度）。
+            wallpaperButton.leadingAnchor.constraint(equalTo: buttonGroup.leadingAnchor),
+            wallpaperButton.widthAnchor.constraint(equalToConstant: 172),
+            wallpaperButton.topAnchor.constraint(equalTo: buttonGroup.topAnchor),
+            wallpaperButton.bottomAnchor.constraint(equalTo: buttonGroup.bottomAnchor),
+            wallpaperButton.heightAnchor.constraint(equalToConstant: InspectorFooterMetrics.height),
+
+            revealButton.leadingAnchor.constraint(equalTo: wallpaperButton.trailingAnchor, constant: 6),
             revealButton.topAnchor.constraint(equalTo: buttonGroup.topAnchor),
             revealButton.bottomAnchor.constraint(equalTo: buttonGroup.bottomAnchor),
             revealButton.heightAnchor.constraint(equalToConstant: InspectorFooterMetrics.height),
@@ -296,6 +315,16 @@ final class SILInspectorView: NSView {
             revealButton.widthAnchor.constraint(equalTo: tagButton.widthAnchor)
         ])
         return stack
+    }
+
+    /// 与网格右键菜单同一入口：经 MainWindowCoordinator 的静态图应用通道
+    /// 统一写系统桌面并收尾动态 runtime。
+    @objc private func setAsDesktopWallpaper() {
+        NotificationCenter.default.post(
+            name: .staticImageWallpaperReadyToApply,
+            object: nil,
+            userInfo: ["imageURL": URL(fileURLWithPath: wallpaper.path)]
+        )
     }
 
     private var fileSizeText: String? {

@@ -131,12 +131,13 @@ enum SILInspectorViews {
         title: String,
         symbolName: String,
         target: AnyObject?,
-        action: Selector
+        action: Selector,
+        kind: InspectorFooterButtonKind = .secondary
     ) -> InspectorFooterButton {
         let button = InspectorFooterButton(
             title: title,
             image: NSImage(systemSymbolName: symbolName, accessibilityDescription: title),
-            kind: .secondary,
+            kind: kind,
             target: target,
             action: action
         )
