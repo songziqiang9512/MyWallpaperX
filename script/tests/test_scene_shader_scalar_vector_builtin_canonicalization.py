@@ -101,7 +101,14 @@ private struct ScalarVectorBuiltInHarness {
     static func main() throws {
         if CommandLine.arguments.count > 1 {
             let statement = CommandLine.arguments[1]
-            let source = fragment(statement, declarations: ["uniform vec2 g_Ratio;"])
+            let extraDeclarations: [String] =
+                CommandLine.arguments.count > 2
+                ? [CommandLine.arguments[2]]
+                : []
+            let source = fragment(
+                statement,
+                declarations: ["uniform vec2 g_Ratio;"] + extraDeclarations
+            )
             let pair = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
                 vertex: vertex, fragment: source
             )
@@ -679,7 +686,8 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
         # The archived stage-link subclass: an integer target assigned a
         # float-bearing expression relied on the lenient compilers' implicit
         # conversion. The normalizer spells the truncation through int(...)
-        # for declarations, plain assignments, and comparison operands;
+        # for declarations and plain assignments (comparison operands carry
+        # their own left-type proof test);
         # compound assignments keep their ambiguous promotion semantics and
         # stay fail-closed.
         if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
@@ -736,6 +744,101 @@ class SceneShaderScalarVectorBuiltInCanonicalizationTests(unittest.TestCase):
                     cwd=root, capture_output=True, text=True,
                 )
                 self.assertEqual(linked.returncode, 0, linked.stdout + linked.stderr)
+
+    def test_comparison_operands_carry_left_type_proof(self) -> None:
+        # The archived semantic-flip subclass: the comparison rewrite used
+        # to wrap any right operand named in the declared-float table with
+        # int(...) without proving the left operand's type, so a float/float
+        # comparison silently flipped (0.4 < int(0.8) evaluates 0.4 < 0)
+        # and a left identifier containing the right name corrupted into an
+        # undeclared identifier. The truncation is only the lenient
+        # compilers' integer-domain semantics, so it is kept exactly when
+        # the declared-type table proves the left operand int/uint. The
+        # assertion reads the compiled product, not only the text: the
+        # float-to-int truncation opcode (SPIR-V OpConvertFToS = 110) must
+        # appear exactly for the proven-integer left operand and never for
+        # authored float comparisons.
+        if not GLSLANG.is_file() or not os.access(GLSLANG, os.X_OK):
+            self.skipTest("bundled glslang is unavailable")
+        cases = [
+            # float/float local comparison keeps its authored operands.
+            ("float coverage = 0.4; float cutoff = 0.8; int scratch = 0;"
+             " if (coverage < cutoff) { scratch = 1; }"
+             " gl_FragColor = vec4(float(scratch));",
+             None, "coverage < cutoff", "int(cutoff)", 0),
+            # The reversed operator direction is the same defect class.
+            ("float coverage = 0.4; float cutoff = 0.8; int scratch = 0;"
+             " if (cutoff > coverage) { scratch = 1; }"
+             " gl_FragColor = vec4(float(scratch));",
+             None, "cutoff > coverage", "int(coverage)", 0),
+            # A swizzle member on the left is not a declared int scalar.
+            ("float cutoff = 0.8; int scratch = 0;"
+             " if (g_Ratio.x < cutoff) { scratch = 1; }"
+             " gl_FragColor = vec4(float(scratch));",
+             None, "g_Ratio.x < cutoff", "int(cutoff)", 0),
+            # A left identifier containing the right name must not corrupt
+            # the left operand (the old whole-expression replace produced
+            # the undeclared identifier xint).
+            ("float coverage = 0.8; float xcoverage = 0.1; int scratch = 0;"
+             " if (xcoverage < coverage) { scratch = 1; }"
+             " gl_FragColor = vec4(float(scratch));",
+             None, "xcoverage < coverage", "int(coverage)", 0),
+            # The same name on both sides keeps the authored comparison.
+            ("float cutoff = 0.8; int scratch = 0;"
+             " if (cutoff < cutoff) { scratch = 1; }"
+             " gl_FragColor = vec4(float(scratch));",
+             None, "cutoff < cutoff", "int(cutoff)", 0),
+            # A declared float uniform on the right follows the same
+            # left-type proof (the pre-widening uniform class).
+            ("float coverage = 0.4; int scratch = 0;"
+             " if (coverage < g_Threshold) { scratch = 1; }"
+             " gl_FragColor = vec4(float(scratch));",
+             "uniform float g_Threshold;",
+             "coverage < g_Threshold", "int(g_Threshold)", 0),
+            # A proven int left operand keeps the explicit truncation the
+            # rule exists for - local and uniform right operands alike.
+            ("float cutoff = 0.8; int k = 0; if (k < cutoff) { k = 1; }"
+             " gl_FragColor = vec4(float(k));",
+             None, "k < int(cutoff)", None, 1),
+            ("int k = 0; if (k < g_Threshold) { k = 1; }"
+             " gl_FragColor = vec4(float(k));",
+             "uniform float g_Threshold;",
+             "k < int(g_Threshold)", None, 1),
+        ]
+        for statement, extra, expected, forbidden, conversions in cases:
+            with self.subTest(statement=statement), tempfile.TemporaryDirectory() as directory:
+                command = [str(self.binary), statement]
+                if extra is not None:
+                    command.append(extra)
+                output = json.loads(subprocess.check_output(command, text=True))
+                fragment = output["normalizedFragment"]
+                self.assertIn(expected, fragment)
+                if forbidden is not None:
+                    self.assertNotIn(forbidden, fragment)
+                root = Path(directory)
+                fragment_path = root / "author.frag"
+                fragment_path.write_text(fragment, encoding="utf-8")
+                compiled = subprocess.run(
+                    [str(GLSLANG), "-V", "--auto-map-bindings",
+                     "--auto-map-locations", str(fragment_path),
+                     "-o", str(root / "result.spv")],
+                    cwd=root, capture_output=True, text=True,
+                )
+                self.assertEqual(
+                    compiled.returncode, 0, compiled.stdout + compiled.stderr
+                )
+                payload = (root / "result.spv").read_bytes()
+                words = struct.unpack(f"<{len(payload) // 4}I", payload)
+                opcode_counts: dict[int, int] = {}
+                offset = 5
+                while offset < len(words):
+                    count, opcode = (
+                        words[offset] >> 16, words[offset] & 0xFFFF
+                    )
+                    self.assertGreater(count, 0)
+                    opcode_counts[opcode] = opcode_counts.get(opcode, 0) + 1
+                    offset += count
+                self.assertEqual(opcode_counts.get(110, 0), conversions)
 
     def test_hlsl_attribute_annotations_are_stripped_and_link(self) -> None:
         # The archived syntax-error subclass: a bare `[loop]` line survives

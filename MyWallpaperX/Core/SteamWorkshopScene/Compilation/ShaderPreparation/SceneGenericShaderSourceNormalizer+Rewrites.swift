@@ -387,9 +387,12 @@ extension SceneGenericShaderSourceNormalizer {
 
     /// GLSL ES accepts implicit scalar conversions in some authors' compilers,
     /// while glslang's Vulkan frontend requires an explicit conversion. An
-    /// integer target assigned a float-bearing expression (declaration,
-    /// plain assignment, or a comparison operand) truncates through
-    /// `int(...)` - the same rounding the lenient compilers performed.
+    /// integer target assigned a float-bearing expression (declaration or
+    /// plain assignment) truncates through `int(...)` - the same rounding
+    /// the lenient compilers performed - and a comparison keeps that
+    /// truncation only when the declared-type table proves its left
+    /// operand int/uint; any other comparison keeps its authored operands,
+    /// which are legal under the emitted #version 450.
     /// Compound assignments keep their ambiguous promotion semantics and
     /// stay fail-closed; the type facts come from the shared declared-type
     /// table so local declarations and shapes are treated alike.
@@ -543,11 +546,24 @@ extension SceneGenericShaderSourceNormalizer {
             in: result,
             range: NSRange(result.startIndex..., in: result)
         ).reversed() {
-            guard let valueRange = Range(match.range(at: 3), in: result),
-                  let fullRange = Range(match.range, in: result) else { continue }
+            guard let leftRange = Range(match.range(at: 1), in: result),
+                  let valueRange = Range(match.range(at: 3), in: result) else {
+                continue
+            }
+            // The truncation is the integer-domain semantics of the same
+            // rule: only a left operand the declared-type table proves
+            // int/uint keeps it. A float/float comparison is legal under
+            // the emitted #version 450 and must keep its authored operands
+            // (wrapping the right side there would flip the comparison);
+            // the right operand alone is rewritten through its captured
+            // range so a left identifier containing the right name cannot
+            // corrupt through a whole-expression text replace.
+            let left = String(result[leftRange])
+            guard let leftType = types[left],
+                  !conflicted.contains(left),
+                  ["int", "uint"].contains(leftType) else { continue }
             let value = String(result[valueRange])
-            let expression = String(result[fullRange])
-            result.replaceSubrange(fullRange, with: expression.replacingOccurrences(of: value, with: "int(\(value))"))
+            result.replaceSubrange(valueRange, with: "int(\(value))")
         }
         return result
     }

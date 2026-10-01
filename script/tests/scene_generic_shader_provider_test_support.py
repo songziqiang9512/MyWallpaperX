@@ -25,9 +25,9 @@ def assert_transform_abi_request_and_cache_namespaces(
     cache_text = cache_source.read_text(encoding="utf-8")
     test_case.assertIn('"mwx-generic-shader-request-v13"', request_text)
     test_case.assertNotIn('"mwx-generic-shader-request-v12"', request_text)
-    test_case.assertIn('"SceneGenericShaderPrograms-v9"', cache_text)
+    test_case.assertIn('"SceneGenericShaderPrograms-v10"', cache_text)
     test_case.assertNotIn('"mwx-generic-shader-request-v5"', request_text)
-    test_case.assertNotIn('"SceneGenericShaderPrograms-v5"', cache_text)
+    test_case.assertNotIn('"SceneGenericShaderPrograms-v9"', cache_text)
 
     with tempfile.TemporaryDirectory(
         prefix="mwx-generic-artifact-test-"

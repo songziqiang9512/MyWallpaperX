@@ -53,7 +53,7 @@ SWIFT_SOURCES = [
     *scene_swift_sources("authored_shader_preparation_implementation"),
     *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
     SCENE_ROOT / "Resources/Textures/SceneImageTextureUploader.swift",
-    SCENE_ROOT / "Textures/SceneImageTextureUploader+Resample.swift",
+    SCENE_ROOT / "Resources/Textures/SceneImageTextureUploader+Resample.swift",
     SCENE_ROOT / "Resources/Textures/SceneCompressedTextureUploader.swift",
     SCENE_ROOT / "Resources/Textures/SceneTextureMipUploader.swift",
     SCENE_ROOT / "Resources/Textures/SceneTextureLoader.swift",
@@ -223,7 +223,7 @@ private func runGenericProbe() throws -> ProbeOutput {
     var output = ProbeOutput(tier: "generic")
     let root = try cacheRoot()
     let directory = tierDirectory(
-        root: root, name: "SceneGenericShaderAnalysis-v1"
+        root: root, name: "SceneGenericShaderAnalysis-v2"
     )
     let input = makeGenericInput(marker: "probe-a")
     try expect(
@@ -274,7 +274,7 @@ private func runGenericProbe() throws -> ProbeOutput {
     try original.write(to: entry)
     try rewriteEntry(entry) {
         $0.replacingOccurrences(
-            of: "\"schemaVersion\":1",
+            of: "\"schemaVersion\":2",
             with: "\"schemaVersion\":999"
         )
     }

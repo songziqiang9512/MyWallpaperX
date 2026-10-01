@@ -545,7 +545,11 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         ).first else { return nil }
         let root = caches
             .appendingPathComponent("com.songziqiang.MyWallpaperX", isDirectory: true)
-            .appendingPathComponent("SceneGenericShaderPrograms-v9", isDirectory: true)
+            // v10 retires artifacts compiled before the comparison-operand
+            // truncation gained its left-type proof: the request key covers
+            // only authored sources, so a normalizer semantic change is a
+            // whole-tier retirement through this version.
+            .appendingPathComponent("SceneGenericShaderPrograms-v10", isDirectory: true)
             .standardizedFileURL
         do {
             try FileManager.default.createDirectory(
