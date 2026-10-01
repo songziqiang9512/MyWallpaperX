@@ -5,11 +5,20 @@
     "additionalPaths": [
       "docs/architecture/appkit-migration.md",
       "docs/architecture/technology-stack-boundaries.md",
+      "docs/scene/design/2d-lighting-material-design.md",
+      "docs/scene/design/composition-render-target-design.md",
+      "docs/scene/design/copy-pass-unification-design.md",
+      "docs/scene/design/frame-admission-retry-design.md",
+      "docs/scene/design/hdr-tonemap-edr-design.md",
+      "docs/scene/design/host-render-power-protocol-design.md",
+      "docs/scene/design/particle-playback-state-design.md",
       "docs/scene/design/refactor-baseline.md",
+      "docs/scene/design/rt-prefix-admission-design.md",
       "docs/scene/design/runtime-architecture.md",
       "docs/scene/design/runtime-as-built-map.md",
       "docs/scene/design/scene-launch-responsiveness-contract.md",
       "docs/scene/design/scene-runtime-daemon-contract.md",
+      "docs/scene/design/script-component-api-design.md",
       "docs/scene/development/development-workflow.md",
       "docs/scene/engine-refactor-program.md",
       "docs/scene/scene-compatibility-roadmap.md",
@@ -17,6 +26,9 @@
       "docs/scene/scene-steamkit-migration-plan.md",
       "docs/scene/semantics/official-client-behavior-research-workflow.md",
       "docs/scene/semantics/runtime-evidence-current.md",
+      "docs/web/cross-origin-reply-delivery-design.md",
+      "docs/web/mediaremote-nowplaying-design.md",
+      "docs/web/steam-downloads-failed-items-visibility-design.md",
       "docs/web/wallpaper-engine-web-rules.md",
       "docs/web/web-project-json-localization.md",
       "docs/web/web-project-json-runtime-model.md",
@@ -327,10 +339,58 @@
       ]
     },
     {
+      "path": "docs/scene/design/2d-lighting-material-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/design/batch2-design-index.md",
+      "retirementCondition": "材质受光和各可选光照子能力分别通过合同门并进入稳定架构后归档，未完成 profile 保持明确准入限制。"
+    },
+    {
+      "path": "docs/scene/design/composition-render-target-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/design/batch2-design-index.md",
+      "retirementCondition": "组隔离目标、作者顺序与失败事务通过实施门且并入稳定架构后，归档本文并删除对应设计登记。"
+    },
+    {
+      "path": "docs/scene/design/copy-pass-unification-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/design/batch2-design-index.md",
+      "retirementCondition": "四类触发点均使用唯一 typed graph transfer 合同，重复路径撤权且 publication 门通过后归档。"
+    },
+    {
+      "path": "docs/scene/design/frame-admission-retry-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/design/batch2-design-index.md",
+      "retirementCondition": "现役帧准入的互斥、释放与短重试通过反例门且合同并入稳定时钟架构后归档，不新增平行定时器。"
+    },
+    {
+      "path": "docs/scene/design/hdr-tonemap-edr-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/design/batch2-design-index.md",
+      "retirementCondition": "SDR 映射与可选 EDR 的目标合同并入稳定输出架构且通过各自显示验收后归档，删除设计登记。"
+    },
+    {
+      "path": "docs/scene/design/host-render-power-protocol-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/design/batch2-design-index.md",
+      "retirementCondition": "App 唯一 power 裁决与版本化三态 IPC 验收，旧重复观察和布尔适配撤权后归档。"
+    },
+    {
+      "path": "docs/scene/design/particle-playback-state-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/design/batch2-design-index.md",
+      "retirementCondition": "对象排放控制与宿主暂停的组合合同通过事务和可见门，未知 reset profile 有明确归宿后归档。"
+    },
+    {
       "path": "docs/scene/design/refactor-baseline.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/engine-refactor-program.md",
       "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+    },
+    {
+      "path": "docs/scene/design/rt-prefix-admission-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/design/batch2-design-index.md",
+      "retirementCondition": "所有 RT 名称解释收敛到准备期唯一入口，旧特判与机器预算同步收缩后归档。"
     },
     {
       "path": "docs/scene/design/runtime-architecture.md",
@@ -355,6 +415,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+    },
+    {
+      "path": "docs/scene/design/script-component-api-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/design/batch2-design-index.md",
+      "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。"
     },
     {
       "path": "docs/scene/development/development-workflow.md",
@@ -397,6 +463,24 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/semantics/README.md",
       "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+    },
+    {
+      "path": "docs/web/cross-origin-reply-delivery-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/design/batch2-design-index.md",
+      "retirementCondition": "所有宿主消息消费者使用同一 frame 定向投递并通过导航和跨源门，旧主 frame 中继撤权后归档。"
+    },
+    {
+      "path": "docs/web/mediaremote-nowplaying-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/design/batch2-design-index.md",
+      "retirementCondition": "唯一媒体仲裁落地并完成相应分发渠道验收，私有实验被公开能力替换或明确撤销后归档。"
+    },
+    {
+      "path": "docs/web/steam-downloads-failed-items-visibility-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/design/batch2-design-index.md",
+      "retirementCondition": "失败项可见、重试、计数、空态与多选通过行为门，稳定 App 交互合同接管后归档并删除设计登记。"
     },
     {
       "path": "docs/web/wallpaper-engine-web-rules.md",

@@ -32,6 +32,7 @@
 - [Web 专题入口](web/README.md)：Web 当前状态、稳定合同和历史导航。
 - [Web 现役状态](web/current-state.md)：当前 Web runtime 事实和待验收项。
 - [Agent 自动发布与签名](release/release-signing.md)：一句话发布、正式更新日志、Developer ID、notarization 与发布结果核验。
+- [Batch 2 设计导航](scene/design/batch2-design-index.md)：跨 owner 能力的设计裁决；不取代现役实施路线。
 
 ## 文档治理
 
