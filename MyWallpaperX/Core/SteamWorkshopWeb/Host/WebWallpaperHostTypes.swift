@@ -140,6 +140,121 @@ extension WallpaperEngine {
     }
 }
 
+/// D5（Web 跨源 frame 定向回包与宿主推送）每 webView 的 frame endpoint 登记。
+/// - frame 的持久主键是宿主生成的 endpoint token：WKFrameInfo 是瞬时对象
+///   （Apple 明确不保证跨 delegate 调用唯一），URL/origin/frameInfo 相等性
+///   一律不作主键。
+/// - nonce/token 只做 hello 相关性与 challenge 续约路由，不是任何资源、网络
+///   或主 frame 特权的凭据；页面伪造 token 只会让自己错过推送/续约失败。
+/// - 生命周期：每个文档注入期 hello 注册；主导航/web content 进程终止/surface
+///   teardown 撤销全部；子导航产生新 hello，旧 endpoint 由失效 challenge 或
+///   租约到期撤销。
+@MainActor
+final class WebWallpaperFrameEndpointRegistry {
+    /// 初始预算（D5：接受压力门后冻结）：每 webView 128 个 endpoint。
+    static let endpointCapacityPerWebView = 128
+    /// 租约初值 60s；存活文档每 20s 由宿主 challenge 续约（宿主调度，
+    /// 不依赖可能被冻结的页面 RAF）。
+    static let leaseDuration: TimeInterval = 60
+    static let leaseRenewalInterval: TimeInterval = 20
+
+    final class Endpoint {
+        let token: String
+        let documentNonce: String
+        var frameInfo: WKFrameInfo
+        var leaseExpiresAt: TimeInterval
+        /// 逐 endpoint 单调推送序号：属性/暂停等推送按此有序，接收端丢弃乱序。
+        private(set) var pushSequence: Int64 = 0
+        /// 频谱每 endpoint 同时至多一个在途定向调用；期间只保留最新一份。
+        private(set) var isSpectrumDeliveryInFlight = false
+        var pendingSpectrumLevels: [Float]?
+
+        init(token: String, documentNonce: String, frameInfo: WKFrameInfo, now: TimeInterval) {
+            self.token = token
+            self.documentNonce = documentNonce
+            self.frameInfo = frameInfo
+            self.leaseExpiresAt = now + WebWallpaperFrameEndpointRegistry.leaseDuration
+        }
+
+        func advancePushSequence() -> Int64 {
+            pushSequence += 1
+            return pushSequence
+        }
+
+        func beginSpectrumDelivery() { isSpectrumDeliveryInFlight = true }
+        func endSpectrumDelivery() { isSpectrumDeliveryInFlight = false }
+
+        func isLeaseValid(now: TimeInterval) -> Bool {
+            leaseExpiresAt > now
+        }
+
+        func renewLease(now: TimeInterval) {
+            leaseExpiresAt = now + WebWallpaperFrameEndpointRegistry.leaseDuration
+        }
+    }
+
+    private var endpointsByWebView: [ObjectIdentifier: [String: Endpoint]] = [:]
+
+    func endpoints(in webView: WKWebView) -> [Endpoint] {
+        Array(endpointsByWebView[ObjectIdentifier(webView)]?.values ?? [:].values)
+    }
+
+    func hasEndpoints(in webView: WKWebView) -> Bool {
+        endpointsByWebView[ObjectIdentifier(webView)]?.isEmpty == false
+    }
+
+    var hasAnyEndpoints: Bool {
+        endpointsByWebView.contains { $0.value.isEmpty == false }
+    }
+
+    /// hello 注册：同一文档（同 nonce）重复 hello 只续租不新增；容量满时拒绝
+    /// 新 endpoint（洪泛注册不扩大内存，既有 endpoint 不受影响）。
+    func register(
+        documentNonce: String,
+        frameInfo: WKFrameInfo,
+        in webView: WKWebView
+    ) -> Endpoint? {
+        let key = ObjectIdentifier(webView)
+        var endpoints = endpointsByWebView[key] ?? [:]
+        if let existing = endpoints.first(where: { $0.value.documentNonce == documentNonce }) {
+            existing.value.frameInfo = frameInfo
+            existing.value.renewLease(now: ProcessInfo.processInfo.systemUptime)
+            return existing.value
+        }
+        guard endpoints.count < Self.endpointCapacityPerWebView else { return nil }
+        let endpoint = Endpoint(
+            token: UUID().uuidString,
+            documentNonce: documentNonce,
+            frameInfo: frameInfo,
+            now: ProcessInfo.processInfo.systemUptime
+        )
+        endpoints[endpoint.token] = endpoint
+        endpointsByWebView[key] = endpoints
+        return endpoint
+    }
+
+    func renewLease(token: String, in webView: WKWebView) {
+        endpointsByWebView[ObjectIdentifier(webView)]?[token]?
+            .renewLease(now: ProcessInfo.processInfo.systemUptime)
+    }
+
+    func revoke(token: String, in webView: WKWebView) {
+        let key = ObjectIdentifier(webView)
+        guard var endpoints = endpointsByWebView[key], endpoints.removeValue(forKey: token) != nil else {
+            return
+        }
+        if endpoints.isEmpty {
+            endpointsByWebView.removeValue(forKey: key)
+        } else {
+            endpointsByWebView[key] = endpoints
+        }
+    }
+
+    func revokeAll(in webView: WKWebView) {
+        endpointsByWebView.removeValue(forKey: ObjectIdentifier(webView))
+    }
+}
+
 final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngine.WebWallpaperHostAdapter, WKNavigationDelegate, WKScriptMessageHandler {
     enum Phase: String {
         case idle
@@ -261,6 +376,11 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     }
 
     var eventHandler: ((WallpaperEngine.WebWallpaperHostEvent) -> Void)?
+
+    /// D5：frame endpoint 登记与推送投递的唯一状态（per webView）。
+    var frameEndpointRegistry = WebWallpaperFrameEndpointRegistry()
+    /// 租约续约心跳（宿主调度）：首 endpoint 注册时启动，teardown 停止。
+    var frameEndpointLeaseRenewalTimer: DispatchSourceTimer?
 
     var phase: Phase = .idle
     var currentRequest: WallpaperEngine.WebWallpaperLaunchRequest? {

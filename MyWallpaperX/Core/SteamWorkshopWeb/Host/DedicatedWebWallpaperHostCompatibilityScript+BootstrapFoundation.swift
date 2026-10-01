@@ -70,14 +70,8 @@ let webCompatibilityScriptBootstrapFoundation = #"""
   const wallpaperIsTopFrame = (() => {
     try { return window.top === window; } catch (_) { return false; }
   })();
-  // 宿主 evaluateJavaScript 只送达主 frame。主 frame 收到推送后向直接子
-  // frame 调用同名兼容函数，由子 frame 再向下传递；跨源子 frame 取不到
-  // contentWindow 属性，只保留其自身注入的 API 面（拿不到运行时推送）。
-  // 退役条件：宿主改为按 frame 定向推送（WKWebView frame 定向求值）后，
-  // 本中继与各入口的调用点同批移除。
-  // 子 frame 可达性判定放在 contentWindow 读取之前：DOMLifecycleScaffold 的
-  // contentWindow 补丁对跨源 frame 会记 iframe.crossOriginAccess 诊断并造
-  // fallback window，按 src 先判同源可避免中继自己污染该诊断面。
+  // 同源子 frame window 判定（仍服务指针转发等非推送路径）：按 src 先判同源，
+  // 避免读跨源 contentWindow 污染 iframe.crossOriginAccess 诊断面。
   const wallpaperSameOriginFrameWindow = (frame) => {
     try {
       const rawSource = String(frame && frame.getAttribute ? frame.getAttribute('src') || '' : '').trim();
@@ -90,22 +84,10 @@ let webCompatibilityScriptBootstrapFoundation = #"""
     }
     try { return frame.contentWindow || null; } catch (_) { return null; }
   };
-  // 宿主回包（网络响应 / 随机文件路径）只经 webView.evaluateJavaScript 送达主
-  // frame，中继也只能沿同源父链下行：因此「本 frame 是否收得到宿主回包」等价于
-  // 「本 frame 与顶层同源」。用 window.top.document 可访问性判定，可覆盖
-  // 「父同源但祖父跨源」的嵌套情形（只看 window.parent 会漏判这一档）。
-  // 收不到回包的 frame 不进入只会等超时的代理路径，保持原生请求行为。
-  // window.__mwxHostReplyReachable 是同一判据的观测探针（供诊断与回归门读取）。
-  const wallpaperHostReplyReachable = (() => {
-    try {
-      if (window.top === window) return true;
-      void window.top.document;
-      return true;
-    } catch (_) {
-      return false;
-    }
-  })();
-  try { window.__mwxHostReplyReachable = wallpaperHostReplyReachable; } catch (_) {}
+  // 同源下行中继（退役中）：D5 已把宿主推送（属性/暂停/音量/频谱/目录）与
+  // 回包迁到按 frame 定向投递，对应入口的调用点已同批移除；仅剩指针转发的
+  // 同源子 frame 坐标换算派发（argsForChild 形式）仍需要它，待指针定向化
+  // 时按同一退役条款移除。
   const wallpaperRelayHostPushToChildFrames = (methodName, args, argsForChild) => {
     if (window.__myWallpaperHostPushRelayDepth > 0) return;
     window.__myWallpaperHostPushRelayDepth = 1;
@@ -126,6 +108,48 @@ let webCompatibilityScriptBootstrapFoundation = #"""
       window.__myWallpaperHostPushRelayDepth = 0;
     }
   };
+  // D5 frame endpoint 登记：每个注入文档在脚本评估期向宿主上报文档 nonce；
+  // 宿主校验真实 webView 后经「按 frame 定向 evaluateJavaScript」向本 frame
+  // 回发 endpoint token。nonce/token 只做路由相关性与 challenge 续约，不是
+  // 任何资源/网络/主 frame 特权的凭据。子导航产生的新文档会再次执行本段。
+  try {
+    if (!window.__myWallpaperHostFrameDocumentNonce) {
+      window.__myWallpaperHostFrameDocumentNonce =
+        'mwx-frame-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+      const helloHandler = window.webkit && window.webkit.messageHandlers
+        && window.webkit.messageHandlers.wallpaperHostFrameEndpoint;
+      if (helloHandler && typeof helloHandler.postMessage === 'function') {
+        helloHandler.postMessage({ type: 'hello', nonce: window.__myWallpaperHostFrameDocumentNonce });
+      }
+    }
+  } catch (_) {}
+  // 宿主租约 challenge 的 receiver 侧校验：token 不匹配直接抛错，宿主据错误
+  // 撤销该 endpoint（页面伪造/覆盖 token 只会让自己失去续约与推送）。
+  window.__myWallpaperHostFrameEndpointChallenge = function(expectedToken) {
+    if (window.__myWallpaperHostFrameEndpointToken !== expectedToken) {
+      throw new Error('endpoint-token-mismatch');
+    }
+    return true;
+  };
+  // 宿主回包可达性（D5 活判据）：主 frame 走宿主默认求值面，恒可达；子 frame
+  // hello ack（endpoint token 写回）后定向可达。fetch/XHR 代理路径只在判据为真
+  // 时进入宿主代理，否则保持原生请求行为，绝不悬挂在不可达的回包上。
+  const wallpaperHostReplyReachable = () => {
+    try {
+      if (window.top === window) return true;
+      return window.__myWallpaperHostFrameEndpointAck === true;
+    } catch (_) {
+      return false;
+    }
+  };
+  try {
+    Object.defineProperty(window, '__mwxHostReplyReachable', {
+      configurable: true,
+      get: wallpaperHostReplyReachable
+    });
+  } catch (_) {
+    try { window.__mwxHostReplyReachable = wallpaperHostReplyReachable(); } catch (_) {}
+  }
   window.wallpaperMediaIntegration = Object.assign(
     {},
     window.wallpaperMediaIntegration || {},

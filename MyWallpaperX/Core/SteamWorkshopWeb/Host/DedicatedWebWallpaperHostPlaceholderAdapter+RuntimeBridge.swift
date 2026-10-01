@@ -79,22 +79,45 @@ private final class WebNetworkBridgeInflightRegistry {
 
     static let shared = WebNetworkBridgeInflightRegistry()
 
+    /// 每屏在飞总预算（D5 初始预算）：在按 frame 分桶上限之上，防止大量同源
+    /// frame 各自打满单桶时在飞总量无界增长。总在飞量按「owner 匹配的桶计数
+    /// 之和」实时派生——旧世代（surface 已重建）的残余桶与已释放 owner 的桶
+    /// 都不计入，跨世代不会积累幽灵计数把该屏挤到永久 too_many_requests。
+    static let maxInflightRequestsPerScreenTotal = 256
+
     private var entriesByBucket: [BucketKey: Entry] = [:]
+
+    /// 该屏当前世代（owner 匹配）的在飞总量：只累计 owner 活着且与传入 owner
+    /// 同世代的桶，旧世代残余桶被 admit 的整桶作废或 owner 释放后自然出局。
+    private func liveInflightTotal(screenID: CGDirectDisplayID, owner: WKWebView) -> Int {
+        entriesByBucket.reduce(0) { partial, bucket in
+            guard bucket.key.screenID == screenID,
+                  let bucketOwner = bucket.value.owner,
+                  bucketOwner === owner else { return partial }
+            return partial + bucket.value.count
+        }
+    }
 
     func admit(_ screenID: CGDirectDisplayID, frameKey: String, owner: WKWebView, limit: Int) -> Bool {
         let key = BucketKey(screenID: screenID, frameKey: frameKey)
         if let entry = entriesByBucket[key], entry.owner !== owner {
-            // 旧世代（surface 已重建）或 owner 已释放：整桶作废。
+            // 旧世代（surface 已重建）或 owner 已释放：整桶作废。其计数不参与
+            // 新世代的总预算（liveInflightTotal 按 owner 匹配派生），旧请求的
+            // 迟到 release 因 owner 不匹配仍是 no-op。
             entriesByBucket[key] = nil
         }
         let count = entriesByBucket[key]?.count ?? 0
         guard count < limit else { return false }
+        guard liveInflightTotal(screenID: screenID, owner: owner) < Self.maxInflightRequestsPerScreenTotal else {
+            return false
+        }
         entriesByBucket[key] = Entry(owner: owner, count: count + 1)
         return true
     }
 
     /// 每条已准入请求恰好释放一次；即使 surface 已拆除也必须调用。`owner` 是准入
-    /// 时的 webView（调用方弱捕获传入，可为 nil=已释放）：与条目世代不符时不误减。
+    /// 时的 webView（调用方弱捕获传入，可为 nil=已释放）：与条目世代不符时不误减，
+    /// 桶计数归零即出桶，派生总量随之回落。
     func release(_ screenID: CGDirectDisplayID, frameKey: String, owner: WKWebView?) {
         let key = BucketKey(screenID: screenID, frameKey: frameKey)
         guard let entry = entriesByBucket[key], entry.owner === owner else { return }
@@ -437,80 +460,42 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
 
     func applyCompatibilityState(to webView: WKWebView, deferDirectorySync _: Bool) {
         let propertiesJSON = currentRequest?.propertiesJSON ?? "{}"
-        let screenID = screenID(for: webView)
-        let screen = screenID.flatMap { targetID in
-            NSScreen.screens.first { Self.screenID(for: $0) == targetID }
-        }
-        let generalPropertiesJSON = currentGeneralPropertiesJSON(for: screen, screenID: screenID)
         refreshReadableResourceRoots(using: propertiesJSON)
         syncFetchAllDirectoryProperties(using: propertiesJSON)
-        let escapedProperties = WebWallpaperHostSupport.javaScriptQuotedString(propertiesJSON)
-        let escapedGeneralProperties = WebWallpaperHostSupport.javaScriptQuotedString(generalPropertiesJSON)
-        let volumeLiteral = String(format: "%.6f", currentVolume)
-        let playbackRateLiteral = String(format: "%.6f", currentPlaybackRate)
-        let pausedLiteral = paused ? "true" : "false"
-        let spectrumLiteral: String
-        if let levels = currentSpectrumLevels {
-            let joinedLevels = levels.map { String(format: "%.6f", $0) }.joined(separator: ",")
-            spectrumLiteral = "[\(joinedLevels)]"
-        } else {
-            spectrumLiteral = "null"
-        }
         webView.evaluateJavaScript(
-            """
-            (() => {
-              const properties = JSON.parse(\(escapedProperties));
-              const generalProperties = JSON.parse(\(escapedGeneralProperties));
-              window.__myWallpaperNotifyPluginLoaded('led');
-              window.__myWallpaperNotifyPluginLoaded('rgb');
-              if (typeof window.__myWallpaperApplyProperties === 'function') {
-                window.__myWallpaperApplyProperties(properties);
-              } else if (typeof window.__myWallpaperNormalizePropertyBag === 'function') {
-                window.__myWallpaperLastUserProperties = window.__myWallpaperNormalizePropertyBag(properties);
-              } else {
-                window.__myWallpaperLastUserProperties = properties;
-              }
-              window.__myWallpaperApplyGeneralProperties(generalProperties);
-              window.__myWallpaperSetGlobalVolume(\(volumeLiteral));
-              window.__myWallpaperSetPlaybackRate(\(playbackRateLiteral));
-              if (typeof window.__myWallpaperApplyInitialPausedState === 'function') {
-                window.__myWallpaperApplyInitialPausedState(\(pausedLiteral));
-              } else {
-                window.__myWallpaperSetPaused(\(pausedLiteral));
-              }
-              const spectrum = \(spectrumLiteral);
-              if (Array.isArray(spectrum)) {
-                window.__myWallpaperPushAudioSpectrum(spectrum);
-              }
-            })();
-            """,
+            compatibilityStateScript(for: webView),
             completionHandler: nil
         )
     }
 
     func applyPausedState(_ paused: Bool, to webView: WKWebView) {
+        // 原生媒体挂起覆盖 webView 全部 frame；JS 侧页面通知走定向推送。
         webView.setAllMediaPlaybackSuspended(paused, completionHandler: nil)
         let pausedLiteral = paused ? "true" : "false"
-        webView.evaluateJavaScript(
-            "window.__myWallpaperSetPaused(\(pausedLiteral));",
-            completionHandler: nil
-        )
+        deliverStatePush(to: webView) { endpoint in
+            sequencedPushScript(
+                "window.__myWallpaperSetPaused(\(pausedLiteral));",
+                sequence: endpoint.advancePushSequence()
+            )
+        }
         applyGeneralProperties(to: webView)
     }
 
     func applyProperties(_ propertiesJSON: String, to webView: WKWebView) {
         let escapedProperties = WebWallpaperHostSupport.javaScriptQuotedString(propertiesJSON)
-        webView.evaluateJavaScript(
-            """
-            (() => {
-              const properties = JSON.parse(\(escapedProperties));
-              if (typeof window.__myWallpaperApplyProperties === 'function') {
-                window.__myWallpaperApplyProperties(properties);
-              }
-            })();
-            """,
-            completionHandler: nil
-        )
+        deliverStatePush(to: webView) { endpoint in
+            sequencedPushScript(
+                """
+                (() => {
+                  const properties = JSON.parse(\(escapedProperties));
+                  if (typeof window.__myWallpaperApplyProperties === 'function') {
+                    window.__myWallpaperApplyProperties(properties);
+                  }
+                })();
+                """,
+                sequence: endpoint.advancePushSequence()
+            )
+        }
         applyGeneralProperties(to: webView)
     }
 
@@ -520,50 +505,48 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             NSScreen.screens.first { Self.screenID(for: $0) == targetID }
         }
         let escapedGeneralProperties = WebWallpaperHostSupport.javaScriptQuotedString(currentGeneralPropertiesJSON(for: screen, screenID: screenID))
-        webView.evaluateJavaScript(
-            """
-            (() => {
-              const properties = JSON.parse(\(escapedGeneralProperties));
-              if (typeof window.__myWallpaperApplyGeneralProperties === 'function') {
-                window.__myWallpaperApplyGeneralProperties(properties);
-              }
-            })();
-            """,
-            completionHandler: nil
-        )
+        deliverStatePush(to: webView) { endpoint in
+            sequencedPushScript(
+                """
+                (() => {
+                  const properties = JSON.parse(\(escapedGeneralProperties));
+                  if (typeof window.__myWallpaperApplyGeneralProperties === 'function') {
+                    window.__myWallpaperApplyGeneralProperties(properties);
+                  }
+                })();
+                """,
+                sequence: endpoint.advancePushSequence()
+            )
+        }
     }
 
     func applyVolume(_ volume: Float, to webView: WKWebView) {
         let volumeLiteral = String(format: "%.6f", volume)
-        webView.evaluateJavaScript(
-            """
-            if (typeof window.__myWallpaperSetGlobalVolume === 'function') {
-              window.__myWallpaperSetGlobalVolume(\(volumeLiteral));
-            }
-            """,
-            completionHandler: nil
-        )
+        deliverStatePush(to: webView) { endpoint in
+            sequencedPushScript(
+                """
+                if (typeof window.__myWallpaperSetGlobalVolume === 'function') {
+                  window.__myWallpaperSetGlobalVolume(\(volumeLiteral));
+                }
+                """,
+                sequence: endpoint.advancePushSequence()
+            )
+        }
         applyGeneralProperties(to: webView)
     }
 
     func applyPlaybackRate(_ playbackRate: Float, to webView: WKWebView) {
         let playbackRateLiteral = String(format: "%.6f", playbackRate)
-        webView.evaluateJavaScript(
-            """
-            if (typeof window.__myWallpaperSetPlaybackRate === 'function') {
-              window.__myWallpaperSetPlaybackRate(\(playbackRateLiteral));
-            }
-            """,
-            completionHandler: nil
-        )
-    }
-
-    func pushAudioSpectrum(_ levels: [Float], to webView: WKWebView) {
-        let levelLiterals = levels.map { String(format: "%.6f", $0) }.joined(separator: ",")
-        webView.evaluateJavaScript(
-            "window.__myWallpaperPushAudioSpectrum([\(levelLiterals)]);",
-            completionHandler: nil
-        )
+        deliverStatePush(to: webView) { endpoint in
+            sequencedPushScript(
+                """
+                if (typeof window.__myWallpaperSetPlaybackRate === 'function') {
+                  window.__myWallpaperSetPlaybackRate(\(playbackRateLiteral));
+                }
+                """,
+                sequence: endpoint.advancePushSequence()
+            )
+        }
     }
 
     /// 网络桥接配额桶的 frame 键：主 frame 固定 `main`，子 frame 用其文档源
@@ -596,7 +579,12 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     /// screenID 现查 surface，不再强持有 webView，surface 拆除后查 nil 即丢弃回包。
     /// `frameKey` 由调用方从 `WKScriptMessage.frameInfo` 派生（主 frame 与各子 frame
     /// 各自成桶）。
-    func handleNetworkRequestMessage(_ body: [String: Any], webView: WKWebView, frameKey: String) {
+    func handleNetworkRequestMessage(
+        _ body: [String: Any],
+        webView: WKWebView,
+        frameKey: String,
+        frameInfo: WKFrameInfo
+    ) {
         guard let requestID = body["requestID"] as? String,
               let rawURLString = body["url"] as? String,
               let url = URL(string: rawURLString),
@@ -605,7 +593,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             resolveNetworkRequest(
                 requestID: body["requestID"] as? String ?? "",
                 payload: ["ok": false, "error": "invalid_url"],
-                webView: webView
+                webView: webView,
+                frameInfo: frameInfo
             )
             return
         }
@@ -615,7 +604,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             resolveNetworkRequest(
                 requestID: requestID,
                 payload: ["ok": false, "error": "unsupported_method"],
-                webView: webView
+                webView: webView,
+                frameInfo: frameInfo
             )
             return
         }
@@ -658,7 +648,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             resolveNetworkRequest(
                 requestID: requestID,
                 payload: ["ok": false, "error": "too_many_requests"],
-                webView: webView
+                webView: webView,
+                frameInfo: frameInfo
             )
             recordDiagnostic(
                 type: "network.proxy.overloaded",
@@ -684,7 +675,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                     self.resolveNetworkRequest(
                         requestID: requestID,
                         payload: ["ok": false, "error": WebNetworkBridgeFailure.destinationNotAllowed.message],
-                        webView: webView
+                        webView: webView,
+                        frameInfo: frameInfo
                     )
                     self.recordDiagnostic(
                         type: "network.proxy.denied",
@@ -732,7 +724,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                                 "bodyIsBase64": true,
                                 "responseURL": result.visibleURL.absoluteString
                             ],
-                            webView: webView
+                            webView: webView,
+                            frameInfo: frameInfo
                         )
                         self.recordDiagnostic(
                             type: "network.proxy",
@@ -745,7 +738,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                         self.resolveNetworkRequest(
                             requestID: requestID,
                             payload: ["ok": false, "error": failure.message],
-                            webView: webView
+                            webView: webView,
+                            frameInfo: frameInfo
                         )
                         self.recordDiagnostic(
                             type: failure == .responseTooLarge ? "network.proxy.too-large" : "network.proxy.error",
@@ -975,20 +969,5 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             return isNonPublicIPv4Address(ipv4)
         }
         return false
-    }
-
-    private func resolveNetworkRequest(requestID: String, payload: [String: Any], webView: WKWebView) {
-        guard requestID.isEmpty == false else { return }
-        var responsePayload = payload
-        responsePayload["requestID"] = requestID
-        guard JSONSerialization.isValidJSONObject(responsePayload),
-              let data = try? JSONSerialization.data(withJSONObject: responsePayload),
-              let json = String(data: data, encoding: .utf8) else {
-            return
-        }
-        webView.evaluateJavaScript(
-            "window.__myWallpaperResolveNetworkRequest(\(json));",
-            completionHandler: nil
-        )
     }
 }

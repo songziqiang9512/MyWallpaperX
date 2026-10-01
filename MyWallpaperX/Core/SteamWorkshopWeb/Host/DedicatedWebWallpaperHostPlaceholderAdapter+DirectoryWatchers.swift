@@ -50,14 +50,22 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         let escapedPropertyName = WebWallpaperHostSupport.javaScriptQuotedString(propertyName)
         let addedJSON = WebWallpaperHostSupport.javaScriptArrayLiteral(from: addedOrChangedFiles)
         let removedJSON = WebWallpaperHostSupport.javaScriptArrayLiteral(from: removedFiles)
-        let script = """
-        window.__myWallpaperNotifyDirectoryFilesChanged(
-          \(escapedPropertyName),
-          \(addedJSON),
-          \(removedJSON)
-        );
-        """
-        webView.evaluateJavaScript(script, completionHandler: nil)
+        // D5：目录变更逐已注册 endpoint 定向投递（跨源子 frame 同样可达），
+        // 不再依赖主 frame 的同源中继。
+        deliverStatePush(to: webView) { endpoint in
+            """
+            (() => {
+              const sequence = \(endpoint.advancePushSequence());
+              if (typeof window.__mwxHostPushSequence === 'number' && sequence <= window.__mwxHostPushSequence) return;
+              window.__mwxHostPushSequence = sequence;
+              window.__myWallpaperNotifyDirectoryFilesChanged(
+                \(escapedPropertyName),
+                \(addedJSON),
+                \(removedJSON)
+              );
+            })();
+            """
+        }
     }
 
     func notifyFetchAllDirectoryAccessState(
@@ -76,7 +84,16 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         directoryAccessErrorsByProperty[dedupKey] = nextError
         let escapedPropertyName = WebWallpaperHostSupport.javaScriptQuotedString(propertyName)
         let escapedError = WebWallpaperHostSupport.javaScriptQuotedString(nextError ?? "")
-        let script = "window.__myWallpaperNotifyDirectoryAccessError(\(escapedPropertyName), \(escapedError));"
-        webView.evaluateJavaScript(script, completionHandler: nil)
+        // D5：目录访问状态迁移逐 endpoint 定向投递。
+        deliverStatePush(to: webView) { endpoint in
+            """
+            (() => {
+              const sequence = \(endpoint.advancePushSequence());
+              if (typeof window.__mwxHostPushSequence === 'number' && sequence <= window.__mwxHostPushSequence) return;
+              window.__mwxHostPushSequence = sequence;
+              window.__myWallpaperNotifyDirectoryAccessError(\(escapedPropertyName), \(escapedError));
+            })();
+            """
+        }
     }
 }

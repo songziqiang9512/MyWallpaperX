@@ -421,7 +421,6 @@ let webCompatibilityScriptHostBridge = #"""
   window.__myWallpaperApplyProperties = function(properties) {
     const safeProperties = window.__myWallpaperNormalizePropertyBag(properties || {});
     window.__myWallpaperLastUserProperties = safeProperties;
-    wallpaperRelayHostPushToChildFrames('__myWallpaperApplyProperties', [safeProperties]);
     const signature = window.__myWallpaperStablePropertySignature(safeProperties);
     if (
       signature &&
@@ -440,7 +439,6 @@ let webCompatibilityScriptHostBridge = #"""
   window.__myWallpaperApplyGeneralProperties = function(properties) {
     const normalizedProperties = window.__myWallpaperNormalizePropertyBag(properties || {});
     window.__myWallpaperLastGeneralProperties = normalizedProperties;
-    wallpaperRelayHostPushToChildFrames('__myWallpaperApplyGeneralProperties', [normalizedProperties]);
     try {
       if (window.wallpaperPropertyListener && typeof window.wallpaperPropertyListener.applyGeneralProperties === 'function') {
         window.wallpaperPropertyListener.applyGeneralProperties(normalizedProperties);
@@ -454,10 +452,6 @@ let webCompatibilityScriptHostBridge = #"""
     const safePropertyName = String(propertyName || '');
     const safeAddedOrChangedFiles = Array.isArray(addedOrChangedFiles) ? addedOrChangedFiles.map((value) => String(value || '')) : [];
     const safeRemovedFiles = Array.isArray(removedFiles) ? removedFiles.map((value) => String(value || '')) : [];
-    wallpaperRelayHostPushToChildFrames(
-      '__myWallpaperNotifyDirectoryFilesChanged',
-      [safePropertyName, safeAddedOrChangedFiles, safeRemovedFiles]
-    );
     try {
       const directoryState = window.__myWallpaperDirectoryState || {};
       const previousFiles = Array.isArray(directoryState[safePropertyName]) ? directoryState[safePropertyName] : [];
@@ -508,7 +502,6 @@ let webCompatibilityScriptHostBridge = #"""
   window.__myWallpaperNotifyDirectoryAccessError = function(propertyName, errorMessage) {
     const safePropertyName = String(propertyName || '');
     const safeErrorMessage = String(errorMessage || '');
-    wallpaperRelayHostPushToChildFrames('__myWallpaperNotifyDirectoryAccessError', [safePropertyName, safeErrorMessage]);
     try {
       if (safeErrorMessage) {
         const directoryState = window.__myWallpaperDirectoryState || {};
@@ -528,43 +521,9 @@ let webCompatibilityScriptHostBridge = #"""
       hostLogger.post('directory.access.error', error && error.message ? error.message : error);
     }
   };
-  // 宿主回包（网络响应 / 随机文件路径）同样只经 evaluateJavaScript 送达主
-  // frame，而请求包装器已随注入面进入子 frame：主 frame 解析后把同一回包转发
-  // 给同源直接子 frame，由子 frame 自己的解析器按 requestID 认领（认不出的
-  // ID 在子 frame 内是空操作）；嵌套 frame 由子 frame 逐级转发。跨源子 frame
-  // 不可达——它们的跨域 XHR/fetch 代理与随机文件请求仍拿不到回包（已登记缺口）。
-  const wallpaperRelayHostReplyToChildFrames = (methodName, args) => {
-    if (window.__myWallpaperHostReplyRelayDepth > 0) return;
-    window.__myWallpaperHostReplyRelayDepth = 1;
-    try {
-      document.querySelectorAll('iframe').forEach((frame) => {
-        const childWindow = wallpaperSameOriginFrameWindow(frame);
-        if (!childWindow) return;
-        try {
-          const relay = childWindow[methodName];
-          if (typeof relay === 'function') relay.apply(childWindow, args);
-        } catch (_) {}
-      });
-    } catch (_) {
-    } finally {
-      window.__myWallpaperHostReplyRelayDepth = 0;
-    }
-  };
-  const wallpaperInstallHostReplyRelay = (methodName, collectArgs) => {
-    const resolver = window[methodName];
-    if (typeof resolver !== 'function') return;
-    window[methodName] = function(...args) {
-      let result;
-      try {
-        result = resolver.apply(this, args);
-      } finally {
-        try { wallpaperRelayHostReplyToChildFrames(methodName, collectArgs(args)); } catch (_) {}
-      }
-      return result;
-    };
-  };
-  wallpaperInstallHostReplyRelay('__myWallpaperResolveNetworkRequest', (args) => [args[0]]);
-  wallpaperInstallHostReplyRelay('__myWallpaperResolveRandomFile', (args) => [args[0], args[1]]);
+  // D5：宿主回包（网络响应 / 随机文件路径）已按发送 frame 定向 evaluateJavaScript
+  // 送达（Lifecycle/RuntimeBridge 的回包捕获 message.frameInfo），旧的同源中继
+  // 按其退役条款整体移除——每 frame 一个路由，避免重复推送/重复结算。
   window.__myWallpaperPushAudioSpectrum = function(levels) {
     const safeLevels = Array.isArray(levels)
       ? levels.map((value) => {
@@ -572,7 +531,6 @@ let webCompatibilityScriptHostBridge = #"""
           return Number.isFinite(numeric) ? Math.max(0, Math.min(1, numeric)) : 0;
         })
       : [];
-    wallpaperRelayHostPushToChildFrames('__myWallpaperPushAudioSpectrum', [safeLevels]);
     if (!hasLoggedAudioSpectrumDelivery && audioListeners.length > 0) {
       const peak = safeLevels.reduce((maximum, value) => Math.max(maximum, value), 0);
       const half = Math.floor(safeLevels.length / 2);
@@ -613,7 +571,6 @@ let webCompatibilityScriptHostBridge = #"""
   window.__myWallpaperSetGlobalVolume = function(value) {
     const volume = Math.max(0, Math.min(1, Number(value) || 0));
     window.__myWallpaperLastHostVolume = volume;
-    wallpaperRelayHostPushToChildFrames('__myWallpaperSetGlobalVolume', [volume]);
     const mediaNodes = Array.from(document.querySelectorAll('audio,video'));
     for (const node of mediaNodes.concat(audioStreams)) {
       if (!node) continue;
@@ -629,7 +586,6 @@ let webCompatibilityScriptHostBridge = #"""
   window.__myWallpaperSetPlaybackRate = function(value) {
     const playbackRate = Math.max(0.25, Math.min(2, Number(value) || 1));
     window.__myWallpaperLastHostPlaybackRate = playbackRate;
-    wallpaperRelayHostPushToChildFrames('__myWallpaperSetPlaybackRate', [playbackRate]);
     const mediaNodes = Array.from(document.querySelectorAll('audio,video'));
     for (const node of mediaNodes.concat(audioStreams)) {
       if (!node) continue;
@@ -670,9 +626,9 @@ let webCompatibilityScriptHostBridge = #"""
     try {
       window.dispatchEvent(new CustomEvent('wallpaper-pause-changed', { detail: paused }));
     } catch (_) {}
-    // 与本地调用同一语义（含 initialReplay 抑制）：子 frame 的暂停门由播放脚本
-    // 的 postMessage 负责，这里补的是子 frame 的页面通知与媒体控制。
-    wallpaperRelayHostPushToChildFrames('__myWallpaperSetPaused', [paused, replayOptions]);
+    // D5：宿主暂停/恢复经 frame 定向推送直达每个已注册 frame（含跨源），
+    // 本 frame 的页面通知与媒体控制照常；播放脚本的 postMessage 暂停门仍由
+    // 播放脚本自身负责。
     if (!shouldNotifyPage) return;
     for (const listener of playbackStateListeners) {
       try { listener(paused); } catch (_) {}

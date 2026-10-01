@@ -377,13 +377,12 @@ let webCompatibilityScriptBootstrapResourceRewriting = #"""
         }, randomFileRequestTimeoutMS);
         randomFileTimeouts.set(requestID, timeoutID);
       }
-      // 宿主回包（__myWallpaperResolveRandomFile）只送达主 frame，中继也只沿
-      // 同源父链下行：与顶层不同源的 frame 拿不到回包，直接走下面的即时回调
-      // 分支，避免 8s 空等。
-      if (wallpaperHostReplyReachable !== true) {
+      // D5：宿主回包按发送 frame 定向送达；可达性是活判据——主 frame 恒可达，
+      // 子 frame hello ack 后可达。不可达 frame 保持即时回调分支，避免 8s 空等。
+      if (wallpaperHostReplyReachable() !== true) {
         hostLogger.post('host-reply.unsupported', `randomFile ${String(propertyName || 'unknown')}`);
       }
-      const handler = wallpaperHostReplyReachable === true
+      const handler = wallpaperHostReplyReachable() === true
         ? window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.wallpaperHostRandomFile
         : null;
       if (handler && typeof handler.postMessage === 'function') {

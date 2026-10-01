@@ -341,25 +341,29 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                   let webView = self.webView(for: userContentController) else {
                 return
             }
-            guard isMainFrame else {
-                // 回包只经主 frame 的 evaluateJavaScript 送达（＋HostBridge 的中继），
-                // 子 frame 直投的请求既无回包目标也不该按屏幕解析随机文件。
-                recordDiagnostic(
-                    type: "random-file.subframe-rejected",
-                    severity: .warning,
-                    message: "subframe random file request ignored property=\(propertyName)",
-                    screenID: screenID(for: webView),
-                    url: webView.url?.absoluteString
-                )
-                return
-            }
+            // D5：回包按发送 frame 定向送达，子 frame（含跨源）的请求同样有
+            // 回包目标。随机文件仍走既有可读资源根解析（frame 定向只修回包，
+            // 不授予任意文件或主 frame 特权）；解析缺失回显空路径（页面侧按
+            // 「明确不可用」消费，不悬挂）。
             let resolvedPath = resolveRandomFilePath(forPropertyNamed: propertyName) ?? ""
             let escapedRequestID = WebWallpaperHostSupport.javaScriptQuotedString(requestID)
             let escapedPath = WebWallpaperHostSupport.javaScriptQuotedString(resolvedPath)
             webView.evaluateJavaScript(
                 "window.__myWallpaperResolveRandomFile(\(escapedRequestID), \(escapedPath));",
-                completionHandler: nil
-            )
+                in: message.frameInfo,
+                in: .page
+            ) { [weak self] result in
+                guard let self, case let .failure(error) = result else { return }
+                // 无效 frame 的回包就地取消，不改发主 frame（迟到回包不得到达
+                // 替代文档）。
+                self.recordDiagnostic(
+                    type: "frame.reply.invalid",
+                    severity: .info,
+                    message: "random-file reply dropped: \(error.localizedDescription)",
+                    screenID: self.screenID(for: webView),
+                    url: webView.url?.absoluteString
+                )
+            }
         case "wallpaperHostNetworkRequest":
             guard let body = message.body as? [String: Any],
                   let webView = self.webView(for: userContentController) else {
@@ -370,11 +374,66 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             handleNetworkRequestMessage(
                 body,
                 webView: webView,
-                frameKey: networkBridgeFrameKey(for: message.frameInfo)
+                frameKey: networkBridgeFrameKey(for: message.frameInfo),
+                frameInfo: message.frameInfo
             )
+        case "wallpaperHostFrameEndpoint":
+            // D5：每个注入文档的 hello 登记。校验真实 webView（按
+            // userContentController 反查）与文档 nonce；frame 身份由 WebKit 的
+            // frameInfo 提供，页面自称的任何 ID 都不参与路由。
+            guard let body = message.body as? [String: Any],
+                  let nonce = body["nonce"] as? String,
+                  nonce.isEmpty == false,
+                  let webView = self.webView(for: userContentController) else {
+                return
+            }
+            handleFrameEndpointHello(nonce: nonce, frameInfo: message.frameInfo, webView: webView)
         default:
             return
         }
+    }
+
+    /// D5 hello 登记 + ack + 全量快照重放。ack/frame 快照都按发送 frame 定向
+    /// evaluateJavaScript（.page world，与注入面同 world）；主 frame 的初始
+    /// 快照仍走 dom.ready / didFinish 的 applyCompatibilityState（避免同帧重复
+    /// 推送），子 frame 在 ack 时即刻拿到最新快照。
+    func handleFrameEndpointHello(nonce: String, frameInfo: WKFrameInfo, webView: WKWebView) {
+        guard let endpoint = frameEndpointRegistry.register(
+            documentNonce: nonce,
+            frameInfo: frameInfo,
+            in: webView
+        ) else {
+            recordDiagnostic(
+                type: "frame.endpoint.capacity",
+                severity: .warning,
+                message: "frame endpoint registration refused (capacity)",
+                screenID: screenID(for: webView),
+                url: webView.url?.absoluteString
+            )
+            return
+        }
+        ensureFrameEndpointLeaseRenewalTimer()
+        let tokenLiteral = WebWallpaperHostSupport.javaScriptQuotedString(endpoint.token)
+        webView.evaluateJavaScript(
+            """
+            (() => {
+              window.__myWallpaperHostFrameEndpointToken = \(tokenLiteral);
+              window.__myWallpaperHostFrameEndpointAck = true;
+            })();
+            """,
+            in: frameInfo,
+            in: .page
+        ) { [weak self] result in
+            Task { @MainActor in
+                guard let self else { return }
+                if case .failure = result {
+                    // ack 都到不了的 frame 不会产生有效 endpoint。
+                    self.frameEndpointRegistry.revoke(token: endpoint.token, in: webView)
+                }
+            }
+        }
+        guard frameInfo.isMainFrame == false else { return }
+        applyCompatibilitySnapshot(to: endpoint, webView: webView)
     }
 
     func runtimeEntryURL(

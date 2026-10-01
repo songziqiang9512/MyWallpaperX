@@ -282,8 +282,8 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
             throw error;
           }
           const proxyCapable = canProxyNetworkRequest(method, url.href);
-          if (proxyCapable && wallpaperHostReplyReachable !== true) {
-            // 与顶层不同源的 frame 收不到宿主回包：不进入只会等桥超时的代理
+          if (proxyCapable && wallpaperHostReplyReachable() !== true) {
+            // hello 未 ack（回包通道未建立）的 frame 不进入只会等桥超时的代理
             // 路径，保持原生结果（下面按 fetch.error 记录并重抛原生错误）。
             hostLogger.post('host-reply.unsupported', `${method} ${url.href}`);
           } else if (proxyCapable) {
@@ -330,7 +330,7 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
     this.__mwx_responseHeaders = {};
     this.__mwx_requestHeaders = {};
     this.addEventListener('error', () => {
-      if (canProxyNetworkRequest(method, url) && wallpaperHostReplyReachable === true) {
+      if (canProxyNetworkRequest(method, url) && wallpaperHostReplyReachable() === true) {
         hostLogger.post('xhr.proxy.pending', `${method} ${String(url)}`);
         return;
       }
@@ -338,7 +338,7 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
     });
     this.addEventListener('loadend', () => {
       if (this.status >= 400 || this.status === 0) {
-        if (this.status === 0 && canProxyNetworkRequest(method, url) && wallpaperHostReplyReachable === true) {
+        if (this.status === 0 && canProxyNetworkRequest(method, url) && wallpaperHostReplyReachable() === true) {
           return;
         }
         hostLogger.post('xhr.status', `${method} ${String(url)} status=${this.status}`);
@@ -393,9 +393,9 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
       const url = new URL(String(rawURL || ''), document.location.href);
       proxyURL = url.href;
       const proxyCapable = canProxyNetworkRequest(method, url.href);
-      shouldProxy = proxyCapable && wallpaperHostReplyReachable === true;
+      shouldProxy = proxyCapable && wallpaperHostReplyReachable() === true;
       if (proxyCapable && shouldProxy !== true) {
-        // 与顶层不同源的 frame 收不到宿主回包：不进入只会等桥超时的代理路径，
+        // hello 未 ack（回包通道未建立）的 frame 不进入只会等桥超时的代理路径，
         // 保持原生 XHR（否则请求既不发原生也拿不到回包）。
         hostLogger.post('host-reply.unsupported', `${method} ${url.href}`);
       }

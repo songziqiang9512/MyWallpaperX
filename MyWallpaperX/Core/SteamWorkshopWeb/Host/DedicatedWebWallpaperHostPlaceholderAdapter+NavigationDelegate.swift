@@ -159,6 +159,9 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         guard let screenID = screenIDForStartedNavigation(navigation, webView: webView) else { return }
+        // D5：主导航开始即撤销该 webView 全部 endpoint——旧文档的 endpoint 不
+        // 得接收新文档的推送；新文档由注入脚本重新 hello 登记。
+        frameEndpointRegistry.revokeAll(in: webView)
         setAudioSpectrumDemand(false, for: screenID)
     }
 
@@ -175,6 +178,9 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        // D5：进程终止即撤销 endpoint（终止后所有 frame 身份失效；恢复重载的
+        // 新文档经注入脚本重新 hello）。
+        frameEndpointRegistry.revokeAll(in: webView)
         handleWebContentTermination(for: webView)
     }
 

@@ -42,6 +42,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         controller.add(self, name: "wallpaperHostRandomFile")
         controller.add(self, name: "wallpaperHostInteractiveRegions")
         controller.add(self, name: "wallpaperHostNetworkRequest")
+        // D5：frame endpoint hello/续约通道（每个注入文档一条）。
+        controller.add(self, name: "wallpaperHostFrameEndpoint")
         controller.addUserScript(WKUserScript(
             source: Self.webWallpaperPlaybackScript(paused: paused),
             injectionTime: .atDocumentStart, forMainFrameOnly: false
@@ -150,6 +152,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             removeSurface(for: screenID)
         }
         navigationOwnershipByScreen.removeAll()
+        frameEndpointRegistry = WebWallpaperFrameEndpointRegistry()
+        stopFrameEndpointLeaseRenewalTimer()
         clearAudioSpectrumDemand()
         for server in loopbackServers.values {
             server.stop()
@@ -186,6 +190,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             loopbackServer.stop()
         }
         readyScreenIDs.remove(screenID)
+        // D5：surface 拆除即撤销该 webView 全部 endpoint 与未完成投递状态。
+        frameEndpointRegistry.revokeAll(in: surface.webView)
         surface.webView.navigationDelegate = nil
         surface.webView.stopLoading()
         surface.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wallpaperHostLog")
@@ -193,6 +199,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         surface.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wallpaperHostRandomFile")
         surface.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wallpaperHostInteractiveRegions")
         surface.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wallpaperHostNetworkRequest")
+        surface.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wallpaperHostFrameEndpoint")
         surface.webView.loadHTMLString("", baseURL: nil)
         surface.webView.removeFromSuperview()
         surface.window.orderOut(nil)
