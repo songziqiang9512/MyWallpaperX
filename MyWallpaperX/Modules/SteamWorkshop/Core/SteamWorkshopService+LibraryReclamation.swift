@@ -65,16 +65,17 @@ extension SteamWorkshopService {
             }
             // 索引 GC：元数据索引只增不减（墓碑与孤儿 legacy 条目永久累
             // 积），与版本回收同节奏清理内容已不存在的超龄条目；v1 兼容
-            // 根同步退役（内容与超龄杂项清空后撤掉空目录）。
+            // 根同步退役（内容与超龄杂项清空后撤掉空目录）。删除阶段回
+            // 到主 actor 无悬挂点执行：全部发布路径（publishCanonical/
+            // publish/恢复/元数据更新）都在主 actor 同步 rename，与删除
+            // 天然串行；事务层身份复核再挡住 actor 序列化之外的替换。
             if let self {
-                let activeIDs = Set(self.downloadJobStore.jobs.map(\.workshopItemId))
-                    .union(self.removingDownloadIDs)
-                let reclaimed = await Task.detached(priority: .utility) {
-                    Self.reclaimOrphanedMetadataEntries(
-                        libraryRoot: library,
-                        activeItemIDs: activeIDs,
-                        minimumAge: 24 * 60 * 60
-                    ) + Self.retireLegacyVersionsRoot(libraryRoot: library, minimumAge: 24 * 60 * 60)
+                let candidates = await Task.detached(priority: .utility) {
+                    Self.scanOrphanedMetadataEntries(libraryRoot: library, minimumAge: 24 * 60 * 60)
+                }.value
+                var reclaimed = self.removeOrphanedMetadataEntries(candidates, libraryRoot: library)
+                reclaimed += await Task.detached(priority: .utility) {
+                    Self.retireLegacyVersionsRoot(libraryRoot: library, minimumAge: 24 * 60 * 60)
                 }.value
                 if reclaimed > 0 {
                     NSLog("MWX Steam library: reclaimed %d orphaned metadata entr(ies)", reclaimed)
@@ -118,55 +119,82 @@ extension SteamWorkshopService {
         return removed
     }
 
-    /// Removes metadata index entries whose referenced content — commit
-    /// directory, legacy folder or exported video — no longer exists. The
-    /// index is otherwise append-only: tombstones and orphaned legacy entries
-    /// accumulate forever. Entries whose item has an active download job or a
-    /// pending removal are skipped, and a minimum age guards entries racing a
+    /// 索引孤儿候选：扫描阶段判定的全部身份——索引文件名、条目 itemID、
+    /// 该目录项出生限定的文件系统身份（删除原语的复核凭据），以及让条
+    /// 目成为孤儿的内容路径（删除前逐一再查）。
+    struct OrphanedMetadataEntryCandidate: Sendable {
+        let name: String
+        let itemID: String
+        let identity: SteamWorkshopStagingLeaseIdentity
+        let contentURLs: [URL]
+    }
+
+    /// Index GC phase 1 (detached): decide orphan candidates only, never
+    /// delete. Entries whose referenced content — commit directory, legacy
+    /// folder or exported video — no longer exists and whose mtime passed the
+    /// minimum age become candidates; the age guards entries racing a
     /// just-finished delete/recovery (the tombstone of a crash-interrupted
-    /// removal keeps its directory check meaningful). Lives on the service
-    /// side, like every other snapshot decode; the transaction layer's narrow
-    /// harness subsets do not compile the snapshot model.
-    nonisolated static func reclaimOrphanedMetadataEntries(
+    /// removal keeps its directory check meaningful). Snapshot decode stays
+    /// on the service side, like every other snapshot decode; the transaction
+    /// layer's narrow harness subsets do not compile the snapshot model.
+    nonisolated static func scanOrphanedMetadataEntries(
         libraryRoot: URL,
-        activeItemIDs: Set<String>,
         minimumAge: TimeInterval
-    ) -> Int {
-        guard let configured = try? SteamWorkshopLibraryTransaction.configuredRoot(libraryRoot) else { return 0 }
-        let indexURL = configured.appendingPathComponent(
-            SteamWorkshopLibraryTransaction.metadataName, isDirectory: true
-        )
-        let files = (try? FileManager.default.contentsOfDirectory(
-            at: indexURL,
-            includingPropertiesForKeys: [.contentModificationDateKey],
-            options: [.skipsHiddenFiles]
-        )) ?? []
-        guard !files.isEmpty else { return 0 }
+    ) -> [OrphanedMetadataEntryCandidate] {
+        guard let entries = try? SteamWorkshopLibraryTransaction.scanPublishedMetadataEntries(
+            libraryRoot: libraryRoot
+        ) else { return [] }
         let cutoff = Date().timeIntervalSince1970 - minimumAge
-        var removed = 0
-        for file in files where file.pathExtension.localizedLowercase == "json" {
-            guard let data = try? Data(contentsOf: file),
-                  let snapshot = try? JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: data) else {
+        var candidates: [OrphanedMetadataEntryCandidate] = []
+        for entry in entries where entry.modified < cutoff {
+            guard let snapshot = try? JSONDecoder().decode(
+                SteamWorkshopDownloadMetadataSnapshot.self, from: entry.data
+            ) else { continue }
+            var contentURLs: [URL] = []
+            if let commit = snapshot.commit,
+               let content = try? SteamWorkshopLibraryTransaction.contentURL(
+                for: commit, libraryRoot: libraryRoot) {
+                contentURLs.append(content)
+            }
+            if let legacy = snapshot.legacyFolderURL { contentURLs.append(legacy) }
+            if let video = snapshot.exportedVideoURL { contentURLs.append(video) }
+            guard contentURLs.allSatisfy({ !FileManager.default.fileExists(atPath: $0.path) }) else {
                 continue
             }
-            if activeItemIDs.contains(snapshot.item.id) { continue }
-            let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?
-                .contentModificationDate?.timeIntervalSince1970 ?? 0
-            guard modified < cutoff else { continue }
-            var contentExists = false
-            if let commit = snapshot.commit {
-                contentExists = ((try? SteamWorkshopLibraryTransaction.contentURL(
-                    for: commit, libraryRoot: libraryRoot)) ?? nil)
-                    .map { FileManager.default.fileExists(atPath: $0.path) } == true
-            }
-            if !contentExists, let legacy = snapshot.legacyFolderURL {
-                contentExists = FileManager.default.fileExists(atPath: legacy.path)
-            }
-            if !contentExists, let video = snapshot.exportedVideoURL {
-                contentExists = FileManager.default.fileExists(atPath: video.path)
-            }
-            if !contentExists {
-                try? FileManager.default.removeItem(at: file)
+            candidates.append(OrphanedMetadataEntryCandidate(
+                name: entry.name,
+                itemID: snapshot.item.id,
+                identity: entry.identity,
+                contentURLs: contentURLs
+            ))
+        }
+        return candidates
+    }
+
+    /// Index GC phase 2 (main actor, no suspension points): every publish
+    /// path runs its rename synchronously on the main actor, so a deletion
+    /// pass on this actor cannot interleave with one. Each candidate is
+    /// re-verified against state the detached scan could not see — items
+    /// whose download/removal started after the scan are kept, content that
+    /// reappeared is kept — and the unlink itself is the transaction layer's
+    /// identity-checked primitive, so an entry replaced after the scan (new
+    /// inode via renameat) survives even outside the actor serialization.
+    func removeOrphanedMetadataEntries(
+        _ candidates: [OrphanedMetadataEntryCandidate],
+        libraryRoot: URL
+    ) -> Int {
+        let activeIDs = Set(downloadJobStore.jobs.map(\.workshopItemId))
+            .union(removingDownloadIDs)
+        var removed = 0
+        for candidate in candidates where !activeIDs.contains(candidate.itemID) {
+            guard candidate.contentURLs.allSatisfy({
+                !FileManager.default.fileExists(atPath: $0.path)
+            }) else { continue }
+            if (try? SteamWorkshopLibraryTransaction.removeMetadataEntryIfUnchanged(
+                name: candidate.name,
+                expected: candidate.identity,
+                libraryRoot: libraryRoot
+            )) == true {
                 removed += 1
             }
         }
