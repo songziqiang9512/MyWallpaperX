@@ -136,14 +136,19 @@ final class AppKitWallpaperCollectionView: NSCollectionView, GridCollectionViewP
                 break
             }
         }
-        // 回车键：将当前选中的卡片设为壁纸。
+        // 回车键：将当前选中的卡片设为壁纸；正在播放则停止（与卡片点击
+        // 同一互斥语义）。
         if event.keyCode == 36,
            event.modifierFlags.intersection([.command, .control, .option, .shift]).isEmpty {
             let manager = WallpaperManager.shared
             if let id = manager.selectedWallpaperId,
                let wallpaper = manager.wallpapers.first(where: { $0.id == id }) {
                 manager.markCardInteraction()
-                manager.requestSetAsWallpaper(wallpaper)
+                if manager.effectiveCurrentWallpaper?.path == wallpaper.path {
+                    manager.stopCurrentPlayback()
+                } else {
+                    manager.requestSetAsWallpaper(wallpaper)
+                }
             }
             return
         }
