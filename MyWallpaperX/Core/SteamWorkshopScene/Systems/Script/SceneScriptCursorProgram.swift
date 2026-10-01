@@ -149,6 +149,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             ownerTarget: SceneDynamicTarget,
             mutation: SceneScriptPuppetBoneMutation
         )] = []
+        var particles: [(ownerTarget: SceneDynamicTarget, command: SceneScriptParticlePlaybackCommand)] = []
         var textureAnimations: [(
             ownerTarget: SceneDynamicTarget,
             command: SceneTextureAnimationCommand
@@ -171,6 +172,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             puppetBones.removeAll { $0.ownerTarget == ownerTarget }
             textureAnimations.removeAll { $0.ownerTarget == ownerTarget }
             videos.removeAll { $0.ownerTarget == ownerTarget }
+            particles.removeAll { $0.ownerTarget == ownerTarget }
             authoredMutationIndices = [:]
             for (index, candidate) in layers.enumerated()
                 where !candidate.mutation.isDynamic
@@ -188,9 +190,11 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             layers ownerLayers: [SceneScriptLayerMutation],
             puppetBones ownerPuppetBones: [SceneScriptPuppetBoneMutation],
             videos ownerVideos: [SceneScriptVideoCommand],
-            textureAnimations ownerTextureAnimations: [SceneTextureAnimationCommand]
+            textureAnimations ownerTextureAnimations: [SceneTextureAnimationCommand],
+            particles ownerParticles: [SceneScriptParticlePlaybackCommand]
         ) {
             videos.append(contentsOf: ownerVideos.map { (ownerTarget, $0) })
+            particles.append(contentsOf: ownerParticles.map { (ownerTarget, $0) })
             puppetBones.append(contentsOf:
                 ownerPuppetBones.map { (ownerTarget, $0) }
             )
@@ -270,7 +274,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     layers: initialization.layerMutations,
                     puppetBones: initialization.puppetBoneMutations,
                     videos: initialization.videoCommands,
-                    textureAnimations: initialization.textureAnimationCommands
+                    textureAnimations: initialization.textureAnimationCommands,
+                    particles: initialization.particlePlaybackCommands
                 )
                 return true
             case let .failure(failure):
@@ -337,7 +342,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     layers: mutations.layers,
                     puppetBones: mutations.puppetBones,
                     videos: mutations.videoCommands,
-                    textureAnimations: mutations.textureAnimationCommands
+                    textureAnimations: mutations.textureAnimationCommands,
+                    particles: mutations.particlePlaybackCommands
                 )
                 for mutation in mutations.layers
                     where mutation.fields.contains(.origin) {
@@ -544,6 +550,9 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 },
                 puppetBoneMutations: puppetBones.compactMap {
                     $0.ownerTarget == binding.ownerTarget ? $0.mutation : nil
+                },
+                particlePlaybackCommands: particles.compactMap {
+                    $0.ownerTarget == binding.ownerTarget ? $0.command : nil
                 }
             )
             return effects.isEmpty ? nil : effects

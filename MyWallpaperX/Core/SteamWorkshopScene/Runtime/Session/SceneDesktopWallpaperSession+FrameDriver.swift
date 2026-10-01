@@ -301,6 +301,10 @@ extension SceneDesktopWallpaperSession {
         }
         let sceneScriptPuppetPoseFrame = surfaces.count == 1
             ? puppetPoseFrames.values.first ?? .empty : .empty
+        let particleObservations = particlePlaybackObservations(
+            context: launchContext,
+            committed: layerMutationSnapshot.particlePlayback
+        )
         let sceneScriptLayerSnapshotFailure: SceneScriptScalarRuntimeFailure?
         do {
             try launchContext.propertyVectorScriptProgram.domain?.publishLayerSnapshot(
@@ -309,6 +313,7 @@ extension SceneDesktopWallpaperSession {
                     videoSnapshots: sceneScriptVideoSnapshots,
                     textureAnimationSnapshots:
                         sceneScriptTextureAnimationSnapshots,
+                    particlePlaybackObservations: particleObservations,
                     puppetAttachmentFrames:
                         sceneScriptPuppetPoseFrame.attachmentFrames,
                     destroyedAuthoredLayerIDs:
@@ -510,6 +515,15 @@ extension SceneDesktopWallpaperSession {
         let fixedPoint = launchContext.sceneScriptDynamicLayerRuntime
             .preflightOwnerEffectsToFixedPoint(
                 ownerEffects, excludingOwners: executionFailedOwners,
+                particleObservations: particleObservations,
+                validateParticleTransitions: { transitions in
+                    transitions.isEmpty || (!self.surfaces.isEmpty
+                        && Set(self.surfaces.keys) == self.preparedSurfaceIDs
+                        && self.surfaces.values.allSatisfy {
+                            $0.scriptGeneration == launchContext.propertyVectorScriptProgram.generation
+                                && $0.metalView.validateParticlePlaybackTransitions(transitions)
+                        })
+                },
                 rejectingDependents: {
                     launchContext.sceneScriptStorageSession?.resolveRejectedOwners($0) ?? $0
                 }
@@ -670,6 +684,15 @@ extension SceneDesktopWallpaperSession {
                 snapshot: dynamicValues
             )
 #endif
+            surface.metalView.applyParticlePlaybackTransitions(admission.layerPlan.particleTransitions)
+#if DEBUG
+            if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
+                for transition in admission.layerPlan.particleTransitions {
+                    NSLog("MWX DEBUG SCENE: phase=particle-transition-consumed frame=%llu layer=%d revision=%llu action=%d surface=%u",
+                          timing.frameIndex, transition.layerID, transition.revision, transition.action.rawValue, displayID)
+                }
+            }
+#endif
             surface.didSubmitSimulationFrame = false
             surface.metalView.updateSimulation(
                 timing: timing, dynamicValues: dynamicValues,
@@ -807,4 +830,32 @@ extension SceneDesktopWallpaperSession {
         }
     }
 #endif
+}
+
+
+extension SceneDesktopWallpaperSession {
+    func particlePlaybackObservations(
+        context: SceneDesktopWallpaperLaunchContext,
+        committed: [Int: SceneParticlePlaybackSnapshot]
+    ) -> [Int: SceneParticlePlaybackObservation] {
+        guard !surfaces.isEmpty, Set(surfaces.keys) == preparedSurfaceIDs,
+              surfaces.values.allSatisfy({ $0.scriptGeneration == context.propertyVectorScriptProgram.generation }) else { return [:] }
+        var observations: [Int: SceneParticlePlaybackObservation] = [:]
+        for layer in context.runtimeInput.renderDescriptor.layers where layer.contentKind == "particle" {
+            let current = committed[layer.id] ?? .init()
+            var live = false, pending = false, rearm = false, complete = true
+            for surface in surfaces.values {
+                guard let value = surface.metalView.particlePlaybackObservation(layerID: layer.id),
+                      value.intent == current.intent, value.revision == current.revision else { complete = false; break }
+                live = live || value.liveAny
+                pending = pending || value.emissionPending
+                rearm = rearm || value.rearmHasWork
+            }
+            if complete {
+                observations[layer.id] = .init(liveAny: live, emissionPending: pending,
+                    rearmHasWork: rearm, intent: current.intent, revision: current.revision)
+            }
+        }
+        return observations
+    }
 }

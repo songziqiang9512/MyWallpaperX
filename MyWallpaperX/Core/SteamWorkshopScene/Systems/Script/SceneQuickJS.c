@@ -589,7 +589,10 @@ static MWXSceneQuickJSResult call_primitive(
             owner, MWX_SCENE_QUICKJS_EXCEPTION
         );
     }
-    if (!mwx_scene_quickjs_dispatch_video_ended_callbacks(owner)) {
+    MWXSceneQuickJSResult ended_result = mwx_scene_quickjs_dispatch_video_ended_callbacks(
+        owner, diagnostic, diagnostic_capacity
+    );
+    if (ended_result != MWX_SCENE_QUICKJS_OK) {
         mwx_scene_quickjs_restore_frame_engine_host(owner, previous_global_engine);
         mwx_scene_quickjs_restore_owner_handles(
             owner, previous_global_layer, previous_global_scene,
@@ -597,11 +600,10 @@ static MWXSceneQuickJSResult call_primitive(
         );
         mwx_scene_quickjs_end_callback(owner);
         return discard_layer_mutations_after_failure(
-            owner, mwx_scene_quickjs_exception_result(
-                domain, diagnostic, diagnostic_capacity
-            )
+            owner, ended_result
         );
     }
+    mwx_scene_quickjs_begin_callback(owner);
     JSValue argument = boolean_value
         ? JS_NewBool(domain->context, input != 0)
         : JS_NewFloat64(domain->context, input);
@@ -647,12 +649,14 @@ static MWXSceneQuickJSResult call_primitive(
         );
         JS_FreeValue(domain->context, result);
         if (owner->material_function_overflow || owner->animation_command_overflow ||
-            owner->video_command_overflow || owner->texture_animation_command_overflow ||
+            owner->video_command_overflow || owner->texture_animation_command_overflow || owner->particle_playback_command_overflow ||
             owner->storage_mutation_overflow) {
             write_diagnostic(
                 diagnostic,
                 diagnostic_capacity,
-                owner->storage_mutation_overflow
+                owner->particle_playback_command_overflow
+                    ? "particle playback command budget exceeded"
+                    : owner->storage_mutation_overflow
                     ? "localStorage mutation buffer exceeded"
                     : (owner->texture_animation_command_overflow
                     ? "texture animation command buffer exceeded"
@@ -752,7 +756,10 @@ static MWXSceneQuickJSResult call_string(
             owner, MWX_SCENE_QUICKJS_EXCEPTION
         );
     }
-    if (!mwx_scene_quickjs_dispatch_video_ended_callbacks(owner)) {
+    MWXSceneQuickJSResult ended_result = mwx_scene_quickjs_dispatch_video_ended_callbacks(
+        owner, diagnostic, diagnostic_capacity
+    );
+    if (ended_result != MWX_SCENE_QUICKJS_OK) {
         mwx_scene_quickjs_restore_frame_engine_host(owner, previous_global_engine);
         mwx_scene_quickjs_restore_owner_handles(
             owner, previous_global_layer, previous_global_scene,
@@ -760,11 +767,10 @@ static MWXSceneQuickJSResult call_string(
         );
         mwx_scene_quickjs_end_callback(owner);
         return discard_layer_mutations_after_failure(
-            owner, mwx_scene_quickjs_exception_result(
-                domain, diagnostic, diagnostic_capacity
-            )
+            owner, ended_result
         );
     }
+    mwx_scene_quickjs_begin_callback(owner);
     JSValue argument = JS_NewStringLen(domain->context, input, input_length);
     JSValue result = JS_IsException(argument)
         ? JS_EXCEPTION
@@ -803,7 +809,7 @@ static MWXSceneQuickJSResult call_string(
         JS_FreeValue(domain->context, result);
         MWXSceneQuickJSResult result_code =
             owner->material_function_overflow || owner->animation_command_overflow ||
-                owner->video_command_overflow || owner->texture_animation_command_overflow ||
+                owner->video_command_overflow || owner->texture_animation_command_overflow || owner->particle_playback_command_overflow ||
             owner->storage_mutation_overflow
             ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW : failure;
         return discard_layer_mutations_after_failure(owner, result_code);
@@ -1021,7 +1027,10 @@ static MWXSceneQuickJSResult call_vector(
             owner, MWX_SCENE_QUICKJS_EXCEPTION
         );
     }
-    if (!mwx_scene_quickjs_dispatch_video_ended_callbacks(owner)) {
+    MWXSceneQuickJSResult ended_result = mwx_scene_quickjs_dispatch_video_ended_callbacks(
+        owner, diagnostic, diagnostic_capacity
+    );
+    if (ended_result != MWX_SCENE_QUICKJS_OK) {
         mwx_scene_quickjs_restore_frame_engine_host(owner, previous_global_engine);
         mwx_scene_quickjs_restore_owner_handles(
             owner, previous_global_layer, previous_global_scene,
@@ -1029,11 +1038,10 @@ static MWXSceneQuickJSResult call_vector(
         );
         mwx_scene_quickjs_end_callback(owner);
         return discard_layer_mutations_after_failure(
-            owner, mwx_scene_quickjs_exception_result(
-                domain, diagnostic, diagnostic_capacity
-            )
+            owner, ended_result
         );
     }
+    mwx_scene_quickjs_begin_callback(owner);
     JSValue vector_arguments[3];
     for (size_t index = 0; index < dimensions; ++index) {
         vector_arguments[index] = JS_NewFloat64(domain->context, input[index]);
@@ -1081,7 +1089,7 @@ static MWXSceneQuickJSResult call_vector(
         JS_FreeValue(domain->context, result);
         MWXSceneQuickJSResult result_code =
             owner->material_function_overflow || owner->animation_command_overflow ||
-                owner->video_command_overflow || owner->texture_animation_command_overflow ||
+                owner->video_command_overflow || owner->texture_animation_command_overflow || owner->particle_playback_command_overflow ||
             owner->storage_mutation_overflow
             ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW : failure;
         return discard_layer_mutations_after_failure(owner, result_code);

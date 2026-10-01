@@ -15,6 +15,8 @@ VM = SCENE / "Systems/Script"
 QUICKJS = VM / "QuickJSNG"
 
 SWIFT_SOURCES = [
+    SCENE / "Systems/Particles/SceneParticlePlaybackModels.swift",
+    VM / "SceneScriptDynamicLayerRuntime+ParticlePlayback.swift",
     SCENE / "Format/SceneJSONValue.swift",
     SCENE / "Format/SceneScriptBindingDefinition.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
@@ -371,6 +373,7 @@ def compile_vector_harness(
     temporary_directory: Path,
     harness_source: str,
     binary_name: str,
+    *, extra_swift_sources: tuple[Path, ...] = (), preamble: str = SWIFT_PREAMBLE,
 ) -> Path:
     clang = shutil.which("clang")
     if clang is None:
@@ -400,7 +403,7 @@ def compile_vector_harness(
         objects.append(output)
 
     harness = temporary_directory / f"{binary_name}.swift"
-    harness.write_text(SWIFT_PREAMBLE + harness_source, encoding="utf-8")
+    harness.write_text(preamble + harness_source, encoding="utf-8")
     binary = temporary_directory / binary_name
     compilation = subprocess.run(
         [
@@ -414,7 +417,7 @@ def compile_vector_harness(
             f"-I{VM}",
             "-o",
             str(binary),
-            *map(str, SWIFT_SOURCES),
+            *map(str, dict.fromkeys([*SWIFT_SOURCES, *extra_swift_sources])),
             str(harness),
             *map(str, objects),
             "-Xlinker",

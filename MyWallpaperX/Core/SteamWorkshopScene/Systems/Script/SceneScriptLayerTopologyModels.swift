@@ -4,6 +4,7 @@ nonisolated struct SceneScriptLayerTopologySnapshot: Sendable {
     /// Changes only when a dynamic layer is admitted or removed. Authored
     /// value publication stays frame-varying and does not invalidate the
     /// renderer's prepared topology projection.
+    var particlePlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
     let topologyRevision: UInt64
     let dynamicLayers: [SceneRenderDescriptor.Layer]
     let renderOrderLayerIDs: [Int]
@@ -31,6 +32,7 @@ nonisolated struct SceneScriptLayerTopologySnapshot: Sendable {
         }
         guard let resolvedLayers else { return self }
         return .init(
+            particlePlayback: particlePlayback,
             topologyRevision: topologyRevision,
             dynamicLayers: resolvedLayers,
             renderOrderLayerIDs: renderOrderLayerIDs,
@@ -61,9 +63,12 @@ nonisolated struct SceneScriptLayerMutationApplyOutcome: Sendable {
 
 /// Opaque, side-effect-free candidate state. Rendering keeps using the snapshot
 /// captured before this plan; committing it only publishes accepted owner
-/// mutations to the next frame.
+/// mutations to the next frame. Particle transitions are consumed once before
+/// this cadence's simulation; only final intent/revision persists on commit.
 nonisolated struct SceneScriptLayerMutationPlan: Sendable {
-    let outcome: SceneScriptLayerMutationApplyOutcome
+    var particlePlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
+    var particleTransitions: [SceneParticlePlaybackTransition] = []
+    var outcome: SceneScriptLayerMutationApplyOutcome
     let order: [Int]
     let dynamicLayersByID: [Int: SceneRenderDescriptor.Layer]
     let destroyedAuthoredLayerIDs: Set<Int>

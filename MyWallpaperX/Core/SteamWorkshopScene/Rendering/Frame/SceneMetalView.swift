@@ -199,6 +199,7 @@ class SceneMetalView: NSView {
         videoSourceRegistry: SceneVideoTextureSourceRegistry,
         preparedBaseImages: ScenePreparedBaseImageResources,
         spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
+        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
         logURL: URL? = nil
     ) {
@@ -426,7 +427,8 @@ class SceneMetalView: NSView {
                 descriptor: renderer.renderDescriptor, texturesByLayerID: imageTextures.textures,
                 animatedSourceLayerIDs: Set(loadedSpriteAnimations.keys)
             ),
-            initialDynamicValues: initialDynamicValues
+            initialDynamicValues: initialDynamicValues,
+            initialPlayback: initialPlayback
         )
         if let particlePlayback {
             report.append(contentsOf: particlePlayback.loadReportLines(descriptor: renderer.renderDescriptor))

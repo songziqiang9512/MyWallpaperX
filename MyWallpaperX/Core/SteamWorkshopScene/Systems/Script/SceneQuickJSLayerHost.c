@@ -1923,6 +1923,61 @@ static bool define_get_video_texture(
     ) >= 0;
 }
 
+// play/pause/stop and isPlaying share the ordinary layer-handle identity checks.
+static JSValue particle_playback_call(JSContext *context, JSValueConst this_value,
+    int argc, JSValueConst *argv, int magic, void *opaque) {
+    (void)this_value; (void)argv;
+    MWXSceneQuickJSLayerHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
+    if (argc != 0 || record == NULL || !record->particle_playback.available)
+        return JS_ThrowTypeError(context, "particle playback unavailable or unsupported arguments");
+    MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
+    MWXSceneQuickJSParticlePlaybackState staged = record->particle_playback;
+    for (size_t index = 0; index < owner->particle_playback_command_count; ++index) {
+        const MWXSceneQuickJSParticlePlaybackCommand *command = &owner->particle_playback_commands[index];
+        if (command->layer_id != record->layer_id || command->callback_epoch != owner->domain->callback_epoch) continue;
+        staged.intent = command->action;
+        if (command->action == 2) { staged.live = 0; staged.emission_pending = staged.rearm_has_work; }
+        if (command->action == 0 && !staged.emission_pending)
+            staged.emission_pending = staged.rearm_has_work;
+    }
+    if (magic == 3)
+        return JS_NewBool(context, staged.live || (staged.intent == 0 && staged.emission_pending));
+    if (owner->particle_playback_command_count >= MWX_SCENE_QUICKJS_MAX_PARTICLE_PLAYBACK_COMMANDS) {
+        owner->particle_playback_command_overflow = true;
+        return JS_ThrowInternalError(context, "particle playback command budget exceeded");
+    }
+    uint32_t ordinal = 0;
+    for (size_t index = owner->particle_playback_command_count; index > 0; --index) {
+        if (owner->particle_playback_commands[index - 1].callback_epoch != owner->domain->callback_epoch) break;
+        ordinal += 1;
+    }
+    const size_t index = owner->particle_playback_command_count++;
+    owner->particle_playback_commands[index] = (MWXSceneQuickJSParticlePlaybackCommand){
+        .layer_id = record->layer_id, .action = (uint32_t)magic,
+        .ordinal = (uint32_t)ordinal, .callback_epoch = owner->domain->callback_epoch
+    };
+    return JS_UNDEFINED;
+}
+
+static bool define_particle_playback(JSContext *context, JSValue layer,
+    MWXSceneQuickJSOwner *owner, uint32_t index, bool owner_target, bool persistent) {
+    const char *names[] = {"play", "pause", "stop", "isPlaying"};
+    for (int action = 0; action < 4; ++action) {
+        MWXSceneQuickJSLayerHandle *handle = calloc(1, sizeof(*handle));
+        if (handle == NULL) return false;
+        *handle = (MWXSceneQuickJSLayerHandle){ .domain = owner->domain,
+            .owner_identity = owner->identity, .layer_index = index,
+            .callback_epoch = owner->domain->callback_epoch,
+            .owner_target = owner_target, .persistent = persistent };
+        JSValue function = JS_NewCClosure(context, particle_playback_call,
+            names[action], free_layer_handle, 0, action, handle);
+        if (JS_IsException(function) || JS_DefinePropertyValueStr(context, layer,
+            names[action], function, JS_PROP_ENUMERABLE) < 0) return false;
+    }
+    return true;
+}
+
 static MWXSceneQuickJSLayerRecord *texture_animation_record_for_handle(
     MWXSceneQuickJSLayerResourceHandle *handle
 ) {
@@ -2418,6 +2473,9 @@ static JSValue make_layer_handle(
         )) {
         JS_FreeValue(context, layer);
         return JS_EXCEPTION;
+    }
+    if (!define_particle_playback(context, layer, owner, index, owner_target, persistent)) {
+        JS_FreeValue(context, layer); return JS_EXCEPTION;
     }
     if (!define_get_texture_animation(
             context, layer, owner, index, owner_target, persistent
@@ -3017,6 +3075,7 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
     if (!define_get_video_texture(
             context, owner->material_function_layer, owner, 0, true, true
         )) return false;
+    if (!define_particle_playback(context, owner->material_function_layer, owner, 0, true, true)) return false;
     if (!define_get_texture_animation(
             context, owner->material_function_layer, owner, 0, true, true
         )) return false;
@@ -3068,6 +3127,8 @@ void mwx_scene_quickjs_owner_discard_layer_mutations(
     owner->effect_visibility_pending = false;
     finish_dynamic_layer_transaction(owner, false);
     clear_layer_mutation_buffers(owner);
+    owner->particle_playback_command_count = 0;
+    owner->particle_playback_command_overflow = false;
     if (owner->puppet_bone_transaction_active)
     for (uint32_t bone = 0; bone < owner->puppet_bone_count; ++bone) {
         memcpy(owner->puppet_bone_world[bone], owner->puppet_bone_world_baseline[bone], sizeof(double) * 16);
@@ -3095,6 +3156,8 @@ void mwx_scene_quickjs_owner_commit_layer_mutations(
     owner->effect_visibility_pending = false;
     finish_dynamic_layer_transaction(owner, true);
     clear_layer_mutation_buffers(owner);
+    owner->particle_playback_command_count = 0;
+    owner->particle_playback_command_overflow = false;
     owner->puppet_bone_mutation_count = 0;
     owner->puppet_bone_transaction_active = false;
 }
@@ -3103,6 +3166,8 @@ void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner) 
     if (owner == NULL || owner->domain == NULL) return;
     ensure_dynamic_layer_transaction(owner);
     clear_layer_mutation_buffers(owner);
+    owner->particle_playback_command_count = 0;
+    owner->particle_playback_command_overflow = false;
     owner->puppet_bone_mutation_count = 0;
     if (!owner->puppet_bone_transaction_active)
     for (uint32_t bone = 0; bone < owner->puppet_bone_count; ++bone) {
@@ -3169,10 +3234,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_texture_animation_command_at(
     return MWX_SCENE_QUICKJS_OK;
 }
 
-bool mwx_scene_quickjs_dispatch_video_ended_callbacks(
-    MWXSceneQuickJSOwner *owner
+MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_video_ended_callbacks(
+    MWXSceneQuickJSOwner *owner, char *diagnostic, size_t diagnostic_capacity
 ) {
-    if (!callback_owns(owner)) return false;
+    if (!callback_owns(owner)) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     JSContext *context = owner->domain->context;
     for (size_t index = 0; index < owner->video_ended_callback_count; ++index) {
         MWXSceneQuickJSVideoEndedCallbackRecord *callback =
@@ -3191,17 +3256,31 @@ bool mwx_scene_quickjs_dispatch_video_ended_callbacks(
         if (record == NULL ||
             record->video_ended_generation <= callback->delivered_generation)
             continue;
+        mwx_scene_quickjs_begin_callback(owner);
         JSValue result = JS_Call(
             context, callback->callback, owner->module, 0, NULL
         );
+        MWXSceneQuickJSResult outcome;
         if (JS_IsException(result)) {
-            JS_FreeValue(context, result);
-            return false;
+            mwx_scene_quickjs_discard_jobs(owner);
+            outcome = mwx_scene_quickjs_exception_result(
+                owner->domain, diagnostic, diagnostic_capacity
+            );
+        } else {
+            outcome = mwx_scene_quickjs_drain_jobs(
+                owner, diagnostic, diagnostic_capacity
+            );
         }
         JS_FreeValue(context, result);
+        if (outcome != MWX_SCENE_QUICKJS_OK) {
+            return owner->material_function_overflow || owner->animation_command_overflow ||
+                owner->video_command_overflow || owner->texture_animation_command_overflow ||
+                owner->particle_playback_command_overflow || owner->storage_mutation_overflow
+                ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW : outcome;
+        }
         callback->delivered_generation = record->video_ended_generation;
     }
-    return true;
+    return MWX_SCENE_QUICKJS_OK;
 }
 
 void mwx_scene_quickjs_clear_video_ended_callbacks(
@@ -3269,6 +3348,8 @@ bool mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner) 
         clear_domain_dynamic_layer_topology(domain);
     clear_dynamic_layer_journal(owner);
     clear_layer_mutation_buffers(owner);
+    owner->particle_playback_command_count = 0;
+    owner->particle_playback_command_overflow = false;
     return true;
 }
 
@@ -3796,5 +3877,26 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     memcpy(baseline->scale, scale, sizeof(baseline->scale));
     memcpy(baseline->angles, angles, sizeof(baseline->angles));
     memcpy(baseline->color, color, sizeof(baseline->color));
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+size_t mwx_scene_quickjs_owner_particle_playback_command_count(const MWXSceneQuickJSOwner *owner) {
+    return owner == NULL ? 0 : owner->particle_playback_command_count;
+}
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_particle_playback_command_at(
+    const MWXSceneQuickJSOwner *owner, size_t requested,
+    MWXSceneQuickJSParticlePlaybackCommand *command, char *diagnostic, size_t diagnostic_capacity) {
+    // A script may catch the JS exception; native admission must still reject
+    // the complete callback journal when its fixed capacity was exceeded.
+    if (owner != NULL && owner->particle_playback_command_overflow) {
+        mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "particle playback command budget exceeded");
+        return MWX_SCENE_QUICKJS_MUTATION_OVERFLOW;
+    }
+    if (owner == NULL || command == NULL || requested >= owner->particle_playback_command_count ||
+        requested >= MWX_SCENE_QUICKJS_MAX_PARTICLE_PLAYBACK_COMMANDS) {
+        mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "invalid particle playback command index");
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    *command = owner->particle_playback_commands[requested];
     return MWX_SCENE_QUICKJS_OK;
 }

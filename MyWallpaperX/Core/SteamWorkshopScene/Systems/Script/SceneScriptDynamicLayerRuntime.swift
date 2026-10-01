@@ -14,6 +14,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     /// descriptor. Static descriptor indexes and world frames can then be
     /// reused between revisions without treating every frame as a rebuild.
     private(set) var topologyRevision: UInt64 = 0
+    private(set) var particlePlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
     private let authoredLayerIDs: Set<Int>
     private let authoredLayersByID: [Int: SceneRenderDescriptor.Layer]
     private var authoredDefinitionOrder: [SceneDynamicTarget] = []
@@ -80,6 +81,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             cachedSnapshotDynamicLayerValueRevision = dynamicLayerValueRevision
         }
         return .init(
+            particlePlayback: particlePlayback,
             topologyRevision: topologyRevision,
             dynamicLayers: cachedDynamicLayers,
             renderOrderLayerIDs: order,
@@ -411,6 +413,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             candidateLayers: dynamicLayersByID
         )
         let plan = SceneScriptLayerMutationPlan(
+            particlePlayback: particlePlayback,
             outcome: outcome,
             order: order,
             dynamicLayersByID: dynamicLayersByID,
@@ -430,14 +433,14 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     }
 
     func preflightOwnerEffects(
-        _ effects: [SceneScriptOwnerEffects]
+        _ effects: [SceneScriptOwnerEffects],
+        particleObservations: [Int: SceneParticlePlaybackObservation] = [:]
     ) -> SceneScriptOwnerEffectsAdmission {
         var admitted = effects
         var rejected: [SceneScriptLayerMutationOwnerFailure] = []
         var rejectedTargets = Set<SceneDynamicTarget>()
-        var plan = preflightIsolatingOwners(
-            admitted.flatMap(\.layerMutations)
-        )
+        var plan = particlePlaybackPlan(for: admitted, observations: particleObservations,
+            layerPlan: preflightIsolatingOwners(admitted.flatMap(\.layerMutations)))
         while !plan.outcome.failures.isEmpty {
             var newlyRejected = Set<SceneDynamicTarget>()
             for failure in plan.outcome.failures {
@@ -461,9 +464,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             admitted.removeAll {
                 rejectedTargets.contains($0.ownerTarget)
             }
-            plan = preflightIsolatingOwners(
-                admitted.flatMap(\.layerMutations)
-            )
+            plan = particlePlaybackPlan(for: admitted, observations: particleObservations,
+                layerPlan: preflightIsolatingOwners(admitted.flatMap(\.layerMutations)))
         }
         return .init(
             admittedEffects: admitted,
@@ -478,6 +480,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     func preflightOwnerEffectsToFixedPoint(
         _ effects: [SceneScriptOwnerEffects],
         excludingOwners: Set<SceneDynamicTarget> = [],
+        particleObservations: [Int: SceneParticlePlaybackObservation] = [:],
+        validateParticleTransitions: ([SceneParticlePlaybackTransition]) -> Bool = { $0.isEmpty },
         rejectingDependents: (Set<SceneDynamicTarget>) -> Set<SceneDynamicTarget> = { $0 },
         rejectingExternally: ([SceneScriptOwnerEffects])
             -> Set<SceneDynamicTarget>
@@ -488,13 +492,16 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             let candidates = effects.filter {
                 !externallyRejected.contains($0.ownerTarget)
             }
-            let admission = preflightOwnerEffects(candidates)
+            let admission = preflightOwnerEffects(candidates, particleObservations: particleObservations)
             let admittedOwners = Set(admission.admittedEffects.map(
                 \.ownerTarget
             ))
             var newlyRejected = rejectingExternally(
                 admission.admittedEffects
             ).intersection(admittedOwners)
+            if !validateParticleTransitions(admission.layerPlan.particleTransitions) {
+                newlyRejected.formUnion(admission.admittedEffects.filter { !$0.particlePlaybackCommands.isEmpty }.map(\.ownerTarget))
+            }
             newlyRejected.subtract(externallyRejected)
             if !newlyRejected.isEmpty {
                 externallyRejected.formUnion(newlyRejected)
@@ -527,6 +534,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         // the launch schema.
         let definitionsChanged = authoredDefinitionOrder
             != plan.authoredDefinitionOrder
+        particlePlayback = plan.particlePlayback
         order = plan.order
         dynamicLayersByID = plan.dynamicLayersByID
         destroyedAuthoredLayerIDs = plan.destroyedAuthoredLayerIDs

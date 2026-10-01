@@ -6,6 +6,7 @@ nonisolated struct SceneScriptValueEvaluation: Equatable, Sendable {
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
     let puppetBoneMutations: [SceneScriptPuppetBoneMutation]
+    let particlePlaybackCommands: [SceneScriptParticlePlaybackCommand]
     let videoCommands: [SceneScriptVideoCommand]
     let textureAnimationCommands:
         [SceneTextureAnimationCommand]
@@ -18,8 +19,10 @@ nonisolated struct SceneScriptValueEvaluation: Equatable, Sendable {
         puppetBoneMutations: [SceneScriptPuppetBoneMutation] = [],
         videoCommands: [SceneScriptVideoCommand],
         textureAnimationCommands:
-            [SceneTextureAnimationCommand]
+            [SceneTextureAnimationCommand],
+        particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
     ) {
+        self.particlePlaybackCommands = particlePlaybackCommands
         self.value = value
         self.materialFunctionMutations = materialFunctionMutations
         self.animationMutations = animationMutations
@@ -193,6 +196,7 @@ extension SceneScriptOwnerEffects {
         layerMutations.append(contentsOf: evaluation.layerMutations)
         videoCommands.append(contentsOf: evaluation.videoCommands)
         textureAnimationCommands.append(contentsOf: evaluation.textureAnimationCommands)
+        particlePlaybackCommands.append(contentsOf: evaluation.particlePlaybackCommands)
         puppetBoneMutations.append(contentsOf: evaluation.puppetBoneMutations)
     }
 
@@ -202,6 +206,7 @@ extension SceneScriptOwnerEffects {
         layerMutations.append(contentsOf: mutations.layers)
         videoCommands.append(contentsOf: mutations.videoCommands)
         textureAnimationCommands.append(contentsOf: mutations.textureAnimationCommands)
+        particlePlaybackCommands.append(contentsOf: mutations.particlePlaybackCommands)
         puppetBoneMutations.append(contentsOf: mutations.puppetBones)
     }
 

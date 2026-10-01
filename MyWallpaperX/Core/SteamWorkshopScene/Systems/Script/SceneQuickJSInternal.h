@@ -25,6 +25,7 @@
 #define MWX_SCENE_QUICKJS_MAX_OWNER_SOURCE_BYTES (256u * 1024u)
 #define MWX_SCENE_QUICKJS_MAX_VIDEO_COMMANDS 64
 #define MWX_SCENE_QUICKJS_MAX_TEXTURE_ANIMATION_COMMANDS 64
+#define MWX_SCENE_QUICKJS_MAX_PARTICLE_PLAYBACK_COMMANDS 64
 #define MWX_SCENE_QUICKJS_MAX_VIDEO_ENDED_CALLBACKS 16
 #define MWX_SCENE_QUICKJS_MAX_STORAGE_MUTATIONS 64
 #define MWX_SCENE_QUICKJS_MAX_STORAGE_KEY_BYTES 256
@@ -89,6 +90,7 @@ typedef struct MWXSceneQuickJSLayerRecord {
     double video_rate;
     double video_current_time;
     uint64_t video_ended_generation;
+    MWXSceneQuickJSParticlePlaybackState particle_playback;
     bool texture_animation_available;
     bool texture_animation_is_playing;
     bool texture_animation_shared_is_playing;
@@ -125,6 +127,7 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     double video_rate;
     double video_current_time;
     uint64_t video_ended_generation;
+    MWXSceneQuickJSParticlePlaybackState particle_playback;
     bool texture_animation_available;
     bool texture_animation_is_playing;
     bool texture_animation_shared_is_playing;
@@ -315,6 +318,9 @@ struct MWXSceneQuickJSOwner {
     bool animation_command_overflow;
     size_t video_command_count;
     bool video_command_overflow;
+    size_t particle_playback_command_count;
+    bool particle_playback_command_overflow;
+    MWXSceneQuickJSParticlePlaybackCommand particle_playback_commands[MWX_SCENE_QUICKJS_MAX_PARTICLE_PLAYBACK_COMMANDS];
     size_t texture_animation_command_count;
     bool texture_animation_command_overflow;
     size_t video_ended_callback_count;
@@ -455,8 +461,8 @@ void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_owner_discard_layer_mutations(MWXSceneQuickJSOwner *owner);
 bool mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner);
-bool mwx_scene_quickjs_dispatch_video_ended_callbacks(
-    MWXSceneQuickJSOwner *owner
+MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_video_ended_callbacks(
+    MWXSceneQuickJSOwner *owner, char *diagnostic, size_t diagnostic_capacity
 );
 void mwx_scene_quickjs_clear_video_ended_callbacks(
     MWXSceneQuickJSOwner *owner

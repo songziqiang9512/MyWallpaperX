@@ -51,6 +51,11 @@ nonisolated struct SceneParticleStepSnapshotRecorder: Sendable {
         self.policy = policy
     }
 
+    nonisolated mutating func clear() {
+        snapshots.removeAll(keepingCapacity: true)
+        pendingDuration = 0
+    }
+
     nonisolated mutating func record(
         duration: TimeInterval,
         particles: [SceneParticleState]

@@ -141,6 +141,24 @@ typedef struct MWXSceneQuickJSVideoCommand {
     uint32_t bool_value;
 } MWXSceneQuickJSVideoCommand;
 
+// Prepared observations only; C owns no particle simulation or persistent intent.
+typedef struct MWXSceneQuickJSParticlePlaybackState {
+    uint32_t available, live, emission_pending, rearm_has_work, intent;
+    uint64_t revision;
+} MWXSceneQuickJSParticlePlaybackState;
+typedef struct MWXSceneQuickJSParticlePlaybackCommand {
+    int64_t layer_id;
+    uint32_t action, ordinal;
+    uint64_t callback_epoch;
+} MWXSceneQuickJSParticlePlaybackCommand;
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_particle_playback(
+    MWXSceneQuickJSDomain *domain, uint32_t layer_index,
+    MWXSceneQuickJSParticlePlaybackState state, char *diagnostic, size_t diagnostic_capacity);
+size_t mwx_scene_quickjs_owner_particle_playback_command_count(const MWXSceneQuickJSOwner *owner);
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_particle_playback_command_at(
+    const MWXSceneQuickJSOwner *owner, size_t requested,
+    MWXSceneQuickJSParticlePlaybackCommand *command, char *diagnostic, size_t diagnostic_capacity);
+
 typedef enum MWXSceneQuickJSTextureAnimationCommandKind {
     MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_PLAY = 1,
     MWX_SCENE_QUICKJS_TEXTURE_ANIMATION_PAUSE = 2,

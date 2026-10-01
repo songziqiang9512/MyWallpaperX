@@ -16,6 +16,8 @@ SCENE_SCRIPT = (
     / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script"
 )
 SOURCES = [
+    SCENE_SCRIPT.parent / "Particles/SceneParticlePlaybackModels.swift",
+    SCENE_SCRIPT / "SceneScriptDynamicLayerRuntime+ParticlePlayback.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerTopologyModels.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime.swift",
 ]
@@ -94,9 +96,18 @@ nonisolated enum SceneDynamicTarget: Hashable, Sendable {
     case text(layerID: Int, field: SceneDynamicTextField)
     case effectVisibility(layerID: Int, effectIndex: Int)
 }
+nonisolated struct SceneScriptParticlePlaybackCommand: Sendable {
+    let layerID: Int
+    let action: SceneParticlePlaybackAction
+    let callbackEpoch: UInt64
+    let ordinal: UInt32
+}
 nonisolated struct SceneScriptOwnerEffects: Sendable {
     let ownerTarget: SceneDynamicTarget
     let layerMutations: [SceneScriptLayerMutation]
+    var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
+    var animationMutations: [Int] = [], materialFunctionMutations: [Int] = []
+    var videoCommands: [Int] = [], textureAnimationCommands: [Int] = [], puppetBoneMutations: [Int] = []
 }
 nonisolated struct SceneDynamicTargetDefinition: Sendable {
     let target: SceneDynamicTarget

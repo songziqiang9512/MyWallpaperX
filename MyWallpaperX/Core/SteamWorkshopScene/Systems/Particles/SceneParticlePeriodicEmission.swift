@@ -111,6 +111,16 @@ nonisolated struct SceneParticleEmitterState: Sendable {
         )
     }
 
+    nonisolated mutating func rearm() {
+        elapsed = 0
+        remainder = 0
+        emittedInstantaneous = false
+        initialDelayElapsed = 0
+        emittedRateThisFrame = false
+        periodicIsEmitting = true
+        periodicRemaining = nil
+    }
+
     nonisolated mutating func beginFrame() {
         emittedRateThisFrame = false
     }
@@ -260,5 +270,42 @@ nonisolated extension SceneParticleEmitter {
             minimumDelay: minimumDelay,
             maximumDelay: maximumDelay
         ))
+    }
+}
+
+nonisolated extension SceneParticleDefinition {
+    /// Admission is prepared with the root. Children and unknown schedules
+    /// remain unavailable to author playback commands, even if rendering works.
+    func preparedPlaybackWork(
+        instanceOverride: SceneParticleInstanceOverride?, hasLayerImageMap: Bool
+    ) -> Bool? {
+        guard children.isEmpty, emitters.count == 1, let emitter = emitters.first,
+              emitter.hasBoundedDirectionsAndSign, emitter.boundedSpeedRange != nil,
+              emitterControlPointFrame(for: emitter, instanceOverride: instanceOverride,
+                  dynamicControlPoints: [:], requiresDynamicPointerValue: false) != nil
+        else { return nil }
+        switch emitter.kind {
+        case .sphereRandom, .boxRandom: break
+        case .layerImage: guard hasLayerImageMap else { return nil }
+        case .unsupported: return nil
+        }
+        let plan = SceneParticleEmitterSpawnPlan(emitter)
+        if case .unsupported = plan.initialDelayAdmission { return nil }
+        guard !plan.audioResponseEnabled || plan.audioResponsePlan != nil,
+              (plan.rate ?? 5).isFinite, (plan.rate ?? 5) >= 0,
+              (plan.instantaneousCount ?? 0) >= 0 else { return nil }
+        switch plan.periodicEmissionAdmission {
+        case .unsupported: return nil
+        case let .supported(schedule):
+            guard schedule.minimumDuration == schedule.maximumDuration,
+                  schedule.minimumDelay == schedule.maximumDelay else { return nil }
+        case .disabled:
+            guard emitter.rawFlags & ~2 == 0,
+                  (plan.rate ?? 5) == 0
+                    || (plan.duration.map { $0.isFinite && $0 > 0 } ?? false)
+            else { return nil }
+        }
+        return (maximumCount ?? 1) > 0
+            && ((plan.instantaneousCount ?? 0) > 0 || (plan.rate ?? 5) > 0)
     }
 }

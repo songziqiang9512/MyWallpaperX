@@ -1,6 +1,18 @@
 import Foundation
 
 extension SceneMetalView {
+    func particlePlaybackObservation(layerID: Int) -> SceneParticlePlaybackObservation? {
+        particlePlayback?.playbackObservation(layerID: layerID)
+    }
+
+    func validateParticlePlaybackTransitions(_ transitions: [SceneParticlePlaybackTransition]) -> Bool {
+        transitions.isEmpty || particlePlayback?.validatePlaybackTransitions(transitions) == true
+    }
+
+    func applyParticlePlaybackTransitions(_ transitions: [SceneParticlePlaybackTransition]) {
+        particlePlayback?.applyPlaybackTransitions(transitions)
+    }
+
     var hasParticleAudioConsumer: Bool {
         particlePlayback?.hasAudioConsumer == true
     }

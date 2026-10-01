@@ -53,6 +53,37 @@ final class SceneParticleRuntime {
     private var pendingAudioEvaluationObservations:
         [SceneParticleRuntimeAudioEvaluationObservation] = []
 
+    func playbackObservation(layerID: Int) -> SceneParticlePlaybackObservation? {
+        layers.first { $0.layerID == layerID }?.rootRender?.simulator.playbackObservation
+    }
+
+    func validatePlaybackTransitions(_ transitions: [SceneParticlePlaybackTransition]) -> Bool {
+        var revisions: [Int: UInt64] = [:]
+        for transition in transitions {
+            guard let observation = playbackObservation(layerID: transition.layerID) else { return false }
+            let previous = revisions[transition.layerID] ?? observation.revision
+            if transition.revision <= observation.revision { continue }
+            guard previous < UInt64.max, transition.revision == previous + 1 else { return false }
+            revisions[transition.layerID] = transition.revision
+        }
+        return true
+    }
+
+    /// Session validates the complete surface set before applying any command.
+    func applyPlaybackTransitions(_ transitions: [SceneParticlePlaybackTransition]) {
+        for transition in transitions {
+            guard let index = layers.firstIndex(where: { $0.layerID == transition.layerID }),
+                  var root = layers[index].rootRender,
+                  transition.revision > root.simulator.playback.revision else { continue }
+            root.simulator.applyPlaybackTransition(transition)
+            if transition.action == .stop {
+                root.instances.removeAll(keepingCapacity: true)
+                root.ropeTrailHistory?.clear()
+            }
+            layers[index].rootRender = root
+        }
+    }
+
     var activeLayerIDs: [Int] { layers.map(\.layerID) }
     var hasAudioConsumer: Bool {
         layers.contains {
@@ -87,7 +118,8 @@ final class SceneParticleRuntime {
         initialDiagnostics: [SceneParticleRuntimeDiagnostic] = [],
         staticWorldSpaceFrames: [Int: SceneParticleWorldSpaceFrame]? = nil,
         staticWorldSpaceChains: [Int: Set<Int>]? = nil,
-        initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
+        initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
+        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
     ) {
         self.device = device
         diagnostics = initialDiagnostics
@@ -275,6 +307,7 @@ final class SceneParticleRuntime {
                     layerImageMap: layerImageMap,
                     worldSpaceFrame: worldSpaceFrame,
                     initialDynamicValues: initialDynamicValues,
+                    initialPlayback: initialPlayback[layer.id] ?? .init(),
                     textureLoader: textureLoader,
                     builtInTextureRegistry: builtInTextureRegistry
                   ) else { continue }
@@ -709,6 +742,7 @@ final class SceneParticleRuntime {
         layerImageMap: SceneParticleLayerImageEmissionMap?,
         worldSpaceFrame: SceneParticleWorldSpaceFrame?,
         initialDynamicValues: SceneDynamicSnapshot,
+        initialPlayback: SceneParticlePlaybackSnapshot,
         textureLoader: SceneTextureLoader,
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry
     ) -> SceneParticleRootRenderRuntime? {
@@ -775,6 +809,7 @@ final class SceneParticleRuntime {
             definition: asset.definition,
             instanceOverride: layer.particleInstanceOverride,
             initialDynamicInstanceOverride: initialInstanceOverride,
+            initialPlayback: initialPlayback,
             seed: UInt64(bitPattern: Int64(layer.id)),
             prewarmStepBudget: 3_600,
             layerImageEmissionMap: layerImageMap,

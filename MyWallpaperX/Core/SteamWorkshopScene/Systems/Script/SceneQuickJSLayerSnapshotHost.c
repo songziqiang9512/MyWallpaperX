@@ -116,6 +116,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
         pending[index].video_current_time = record->video_current_time;
         pending[index].video_is_playing = record->video_is_playing;
         pending[index].video_ended_generation = record->video_ended_generation;
+        pending[index].particle_playback = record->particle_playback;
         pending[index].texture_animation_available =
             record->texture_animation_available;
         pending[index].texture_animation_frame_count =
@@ -274,6 +275,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     staged->video_current_time = 0;
     staged->video_is_playing = false;
     staged->video_ended_generation = 0;
+    staged->particle_playback = (MWXSceneQuickJSParticlePlaybackState){0};
     staged->texture_animation_available = false;
     staged->texture_animation_frame_count = 0;
     staged->texture_animation_duration = 0;
@@ -472,6 +474,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         const bool previous_video_is_playing = record->video_is_playing;
         const uint64_t previous_video_ended_generation =
             record->video_ended_generation;
+        const MWXSceneQuickJSParticlePlaybackState previous_particle_playback = record->particle_playback;
         const bool previous_texture_animation_available =
             record->texture_animation_available;
         const uint32_t previous_texture_animation_frame_count =
@@ -523,6 +526,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         record->video_current_time = staged->video_current_time;
         record->video_is_playing = staged->video_is_playing;
         record->video_ended_generation = staged->video_ended_generation;
+        record->particle_playback = staged->particle_playback;
         record->texture_animation_available =
             staged->texture_animation_available;
         record->texture_animation_frame_count =
@@ -561,6 +565,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         staged->video_current_time = previous_video_current_time;
         staged->video_is_playing = previous_video_is_playing;
         staged->video_ended_generation = previous_video_ended_generation;
+        staged->particle_playback = previous_particle_playback;
         staged->texture_animation_available =
             previous_texture_animation_available;
         staged->texture_animation_frame_count =
@@ -637,6 +642,7 @@ bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
         record->video_current_time = saved->video_current_time;
         record->video_is_playing = saved->video_is_playing;
         record->video_ended_generation = saved->video_ended_generation;
+        record->particle_playback = saved->particle_playback;
         record->texture_animation_available =
             saved->texture_animation_available;
         record->texture_animation_frame_count =
@@ -677,5 +683,19 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_effects(
     for (uint32_t i = 0; i < count; ++i)
         if (visible[i] > 1) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     if (count > 0) memcpy(domain->pending_layer_snapshot[layer_index].effect_visible, visible, count);
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_particle_playback(
+    MWXSceneQuickJSDomain *domain, uint32_t layer_index,
+    MWXSceneQuickJSParticlePlaybackState state, char *diagnostic, size_t diagnostic_capacity
+) {
+    if (domain == NULL || domain->callback_active || domain->pending_layer_snapshot == NULL ||
+        layer_index >= domain->authored_layer_count || !domain->layers[layer_index].configured ||
+        state.available > 1 || state.live > 1 || state.emission_pending > 1 || state.rearm_has_work > 1 || state.intent > 2) {
+        mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "invalid particle playback observation");
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    domain->pending_layer_snapshot[layer_index].particle_playback = state;
     return MWX_SCENE_QUICKJS_OK;
 }

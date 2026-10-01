@@ -76,6 +76,13 @@ nonisolated enum SceneScriptPuppetBoneMutationBridge {
 /// frame transaction has admitted or rejected that owner. Destination layer,
 /// effect, animation and video identities are not owner identities and must
 /// never be used to reconstruct this relationship after flattening.
+nonisolated struct SceneScriptParticlePlaybackCommand: Equatable, Sendable {
+    let layerID: Int
+    let action: SceneParticlePlaybackAction
+    let callbackEpoch: UInt64
+    let ordinal: UInt32
+}
+
 nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
     let ownerTarget: SceneDynamicTarget
     var materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
@@ -85,6 +92,7 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
     var textureAnimationCommands:
         [SceneTextureAnimationCommand]
     var puppetBoneMutations: [SceneScriptPuppetBoneMutation]
+    var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand]
 
     init(
         ownerTarget: SceneDynamicTarget,
@@ -94,7 +102,8 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
         videoCommands: [SceneScriptVideoCommand],
         textureAnimationCommands:
             [SceneTextureAnimationCommand] = [],
-        puppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
+        puppetBoneMutations: [SceneScriptPuppetBoneMutation] = [],
+        particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
     ) {
         self.ownerTarget = ownerTarget
         self.materialFunctionMutations = materialFunctionMutations
@@ -102,6 +111,7 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
         self.layerMutations = layerMutations
         self.videoCommands = videoCommands
         self.textureAnimationCommands = textureAnimationCommands
+        self.particlePlaybackCommands = particlePlaybackCommands
         self.puppetBoneMutations = puppetBoneMutations
     }
 
@@ -109,7 +119,29 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
         materialFunctionMutations.isEmpty && animationMutations.isEmpty
             && layerMutations.isEmpty && videoCommands.isEmpty
             && textureAnimationCommands.isEmpty
-            && puppetBoneMutations.isEmpty
+            && puppetBoneMutations.isEmpty && particlePlaybackCommands.isEmpty
+    }
+}
+
+nonisolated enum SceneScriptParticlePlaybackCommandBridge {
+    static func commands(owner: OpaquePointer) -> Result<[SceneScriptParticlePlaybackCommand], SceneScriptScalarRuntimeFailure> {
+        let count = mwx_scene_quickjs_owner_particle_playback_command_count(owner)
+        guard count <= 64 else { return .failure(.mutationOverflow("particle playback command budget exceeded")) }
+        var commands: [SceneScriptParticlePlaybackCommand] = []
+        for index in 0..<count {
+            var raw = MWXSceneQuickJSParticlePlaybackCommand()
+            var diagnostic = [CChar](repeating: 0, count: 512)
+            let result = mwx_scene_quickjs_owner_particle_playback_command_at(owner, index, &raw, &diagnostic, diagnostic.count)
+            if result == MWX_SCENE_QUICKJS_MUTATION_OVERFLOW {
+                return .failure(.mutationOverflow(String(cString: diagnostic)))
+            }
+            guard result == MWX_SCENE_QUICKJS_OK, let layerID = Int(exactly: raw.layer_id),
+                  raw.action <= 2, let action = SceneParticlePlaybackAction(rawValue: Int32(raw.action)) else {
+                return .failure(.invalidArgument(String(cString: diagnostic)))
+            }
+            commands.append(.init(layerID: layerID, action: action, callbackEpoch: raw.callback_epoch, ordinal: raw.ordinal))
+        }
+        return .success(commands)
     }
 }
 
@@ -771,6 +803,7 @@ nonisolated extension SceneScriptQuickJSDomain {
         textureAnimationSnapshots: [
             Int: SceneTextureAnimationSnapshot
         ] = [:],
+        particlePlaybackObservations: [Int: SceneParticlePlaybackObservation] = [:],
         puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty,
         destroyedAuthoredLayerIDs: Set<Int> = [], catalogToken: String? = nil,
         runtimeFieldLayerIDs: Set<Int>? = nil,
@@ -814,6 +847,7 @@ nonisolated extension SceneScriptQuickJSDomain {
             snapshot,
             descriptor: descriptor,
             videoSnapshots: videoSnapshots,
+            particlePlaybackObservations: particlePlaybackObservations,
             textureAnimationSnapshots: textureAnimationSnapshots, destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs,
             runtimeFieldLayerIDs: runtimeFieldLayerIDs,
             diagnostic: &diagnostic

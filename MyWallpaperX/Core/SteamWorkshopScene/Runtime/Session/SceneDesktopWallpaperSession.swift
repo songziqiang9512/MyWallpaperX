@@ -18,14 +18,17 @@ final class SceneDesktopWallpaperSession {
     final class Surface {
         let window: NSWindow
         let metalView: SceneMetalView
+        let scriptGeneration: UInt64
         var didSubmitSimulationFrame = false
 
         init(
             window: NSWindow,
-            metalView: SceneMetalView
+            metalView: SceneMetalView,
+            scriptGeneration: UInt64
         ) {
             self.window = window
             self.metalView = metalView
+            self.scriptGeneration = scriptGeneration
         }
     }
 
@@ -49,6 +52,7 @@ final class SceneDesktopWallpaperSession {
     var drainStarted = false
     var drainResult: Bool?
     var surfaces: [CGDirectDisplayID: Surface] = [:]
+    var preparedSurfaceIDs: Set<CGDirectDisplayID> = []
     var launchContext: SceneDesktopWallpaperLaunchContext?
     private var activeSpaceObserver: NSObjectProtocol?
     var localPointerEventMonitor: Any?
@@ -564,6 +568,7 @@ final class SceneDesktopWallpaperSession {
                         launchContext.preparedDeviceResources.baseImages,
                     spriteTextureLoader:
                         launchContext.preparedDeviceResources.spriteTextureLoader,
+                    initialPlayback: launchContext.sceneScriptDynamicLayerRuntime.snapshot().particlePlayback,
                     initialDynamicValues: initialParticleDynamicValues
                 )
             } else {
@@ -575,6 +580,7 @@ final class SceneDesktopWallpaperSession {
                         launchContext.preparedDeviceResources.baseImages,
                     spriteTextureLoader:
                         launchContext.preparedDeviceResources.spriteTextureLoader,
+                    initialPlayback: launchContext.sceneScriptDynamicLayerRuntime.snapshot().particlePlayback,
                     initialDynamicValues: initialParticleDynamicValues,
                     logURL: launchContext.logURL
                 )
@@ -611,7 +617,8 @@ final class SceneDesktopWallpaperSession {
             }
             surfaces[screenID] = Surface(
                 window: window,
-                metalView: metalView
+                metalView: metalView,
+                scriptGeneration: launchContext.propertyVectorScriptProgram.generation
             )
             created = true
         }
@@ -621,6 +628,7 @@ final class SceneDesktopWallpaperSession {
             return false
         }
 
+        preparedSurfaceIDs = Set(surfaceScreens.map(\.1))
         if resetClock {
             let hostTime = CACurrentMediaTime()
             let remainsPaused = sceneClock.isPaused

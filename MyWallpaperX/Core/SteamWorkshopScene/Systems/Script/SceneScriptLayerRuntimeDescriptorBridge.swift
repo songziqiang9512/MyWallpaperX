@@ -13,6 +13,7 @@ nonisolated extension SceneScriptQuickJSDomain {
         _ snapshot: SceneDynamicSnapshot,
         descriptor: SceneRenderDescriptor,
         videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:],
+        particlePlaybackObservations: [Int: SceneParticlePlaybackObservation] = [:],
         textureAnimationSnapshots: [
             Int: SceneTextureAnimationSnapshot
         ] = [:],
@@ -25,7 +26,8 @@ nonisolated extension SceneScriptQuickJSDomain {
                !runtimeFieldLayerIDs.contains(layer.id),
                !destroyedAuthoredLayerIDs.contains(layer.id),
                videoSnapshots[layer.id] == nil,
-               textureAnimationSnapshots[layer.id] == nil {
+               textureAnimationSnapshots[layer.id] == nil,
+               layer.contentKind != "particle" {
                 let result = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
                     handle,
                     UInt32(index),
@@ -37,6 +39,13 @@ nonisolated extension SceneScriptQuickJSDomain {
                 }
                 continue
             }
+            let particle = particlePlaybackObservations[layer.id]
+            let particleState = MWXSceneQuickJSParticlePlaybackState(
+                available: particle == nil ? 0 : 1, live: particle?.liveAny == true ? 1 : 0,
+                emission_pending: particle?.emissionPending == true ? 1 : 0,
+                rearm_has_work: particle?.rearmHasWork == true ? 1 : 0,
+                intent: UInt32(particle?.intent.rawValue ?? 0), revision: particle?.revision ?? 0
+            )
             if !layer.effects.isEmpty {
                 let values: [UInt8] = layer.effects.enumerated().map { effectIndex, effect in
                     if case let .bool(visible)? = snapshot[.effectVisibility(layerID: layer.id, effectIndex: effectIndex)]?.value {
@@ -124,6 +133,12 @@ nonisolated extension SceneScriptQuickJSDomain {
             }
             guard result == MWX_SCENE_QUICKJS_OK else {
                 throw layerSnapshotFailure(result, diagnostic: diagnostic)
+            }
+            let particleResult = mwx_scene_quickjs_domain_update_layer_particle_playback(
+                handle, UInt32(index), particleState, &diagnostic, diagnostic.count
+            )
+            guard particleResult == MWX_SCENE_QUICKJS_OK else {
+                throw layerSnapshotFailure(particleResult, diagnostic: diagnostic)
             }
             if let video = videoSnapshots[layer.id] {
                 let videoResult = mwx_scene_quickjs_domain_update_layer_video_fields(

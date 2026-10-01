@@ -557,7 +557,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             layerMutations: publishedLayerMutations,
             puppetBoneMutations: mutations.puppetBones,
             videoCommands: mutations.videoCommands,
-            textureAnimationCommands: mutations.textureAnimationCommands
+            textureAnimationCommands: mutations.textureAnimationCommands,
+            particlePlaybackCommands: mutations.particlePlaybackCommands
         ))
     }
 

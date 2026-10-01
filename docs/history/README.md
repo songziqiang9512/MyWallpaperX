@@ -16,6 +16,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-02 | Scene | 实施证据 | [RF03 粒子作者播放四方法](scene/rf03-particle-playback-implementation-2026-10-02.md) | 模拟/真实VM事务反例、预算及callback修复、冻结App和六项显示故障门 | [兼容路线](../scene/scene-compatibility-roadmap.md)、[能力台账](../scene/semantics/coverage-ledger.md)、[运行证据](../scene/semantics/runtime-evidence-current.md) |
 | 2026-10-02 | Scene | 实施证据 | [RF05 诊断截图与隔离退出](scene/rf05-debug-capture-lifecycle-implementation-2026-10-02.md) | 有界导出、取消/退役反例、真实AppKit退出竞态和完整App复验 | [兼容路线](../scene/scene-compatibility-roadmap.md)、[能力台账](../scene/semantics/coverage-ledger.md)、[运行证据](../scene/semantics/runtime-evidence-current.md) |
 | 2026-10-02 | Scene | 实施证据 | [RF01 shader-default RT 消费链](scene/rf01-shader-default-binding-implementation-2026-10-02.md) | typed默认引用、两项终审反例、冻结App及七项正反像素门 | [兼容路线](../scene/scene-compatibility-roadmap.md)、[能力台账](../scene/semantics/coverage-ledger.md)、[运行证据](../scene/semantics/runtime-evidence-current.md) |
 | 2026-10-02 | Scene | 实施证据 | [D2/D3 有界输出首片](scene/d2-d3-bounded-output-implementation-2026-10-02.md) | 显示映射与2D受光的修前反例、独立终审、冻结App、受控ROI及原样本运行边界 | [兼容路线](../scene/scene-compatibility-roadmap.md)、[能力台账](../scene/semantics/coverage-ledger.md)、[运行证据](../scene/semantics/runtime-evidence-current.md) |

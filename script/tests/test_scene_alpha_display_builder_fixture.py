@@ -114,6 +114,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/Assets/SceneShaderSourceGraphBuilder.swift",
     SOURCE_ROOT / "Resources/Assets/SceneShaderSourceResolver.swift",
     SOURCE_ROOT / "Compilation/ShaderContract/SceneShaderContractLoader.swift",
+    SOURCE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
     SOURCE_ROOT / "Compilation/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
     SOURCE_ROOT / "Format/ScenePkgCacheExtractor.swift",
     SOURCE_ROOT / "Resources/Textures/SceneNamedTextureReference.swift",
@@ -124,6 +125,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Text/SceneTextDescriptor.swift",
     SOURCE_ROOT / "Systems/Text/SceneTextScriptDefinition.swift",
     SOURCE_ROOT / "Systems/Script/SceneScriptLayerTopologyModels.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticlePlaybackModels.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleInitializer.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleVortex.swift",
@@ -338,6 +340,7 @@ struct SceneScriptLayerMutation: Equatable, Sendable {
 
 struct SceneScriptPuppetBoneMutation: Equatable, Sendable {}
 struct SceneScriptVideoCommand: Equatable, Sendable {}
+struct SceneScriptParticlePlaybackCommand: Equatable, Sendable {}
 
 struct SceneScriptOwnerEffects: Equatable, Sendable {
     var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
@@ -346,6 +349,7 @@ struct SceneScriptOwnerEffects: Equatable, Sendable {
     var puppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
     var videoCommands: [SceneScriptVideoCommand] = []
     var textureAnimationCommands: [SceneTextureAnimationCommand] = []
+    var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
 }
 
 struct SceneScriptMediaEventMutations: Equatable, Sendable {
@@ -355,6 +359,7 @@ struct SceneScriptMediaEventMutations: Equatable, Sendable {
     var puppetBones: [SceneScriptPuppetBoneMutation] = []
     var videoCommands: [SceneScriptVideoCommand] = []
     var textureAnimationCommands: [SceneTextureAnimationCommand] = []
+    var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
 }
 
 enum SceneBaseMaterialColorModulationCompiler {

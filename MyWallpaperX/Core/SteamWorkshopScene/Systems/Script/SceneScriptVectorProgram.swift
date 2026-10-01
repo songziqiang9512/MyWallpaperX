@@ -415,6 +415,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
             var callbackLayerMutations: [SceneScriptLayerMutation] = []
             var initializationLayerMutations: [SceneScriptLayerMutation] = []
+            var callbackParticlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
             var callbackVideoCommands: [SceneScriptVideoCommand] = []
             var callbackTextureAnimationCommands:
                 [SceneTextureAnimationCommand] = []
@@ -452,6 +453,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         callbackTextureAnimationCommands.append(
                             contentsOf: initialization.textureAnimationCommands
                         )
+                        callbackParticlePlaybackCommands.append(contentsOf: initialization.particlePlaybackCommands)
                     }
                 case let .failure(failure):
                     failures[target] = failure
@@ -484,6 +486,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     callbackTextureAnimationCommands.append(
                         contentsOf: eventMutations.textureAnimationCommands
                     )
+                    callbackParticlePlaybackCommands.append(contentsOf: eventMutations.particlePlaybackCommands)
                 case let .failure(failure):
                     failures[target] = failure
                     if failure.permanentlyDisablesOwner {
@@ -526,6 +529,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     callbackTextureAnimationCommands.append(
                         contentsOf: eventMutations.textureAnimationCommands
                     )
+                    callbackParticlePlaybackCommands.append(contentsOf: eventMutations.particlePlaybackCommands)
                 case let .failure(failure):
                     failures[target] = failure
                     if failure.permanentlyDisablesOwner {
@@ -557,6 +561,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     callbackTextureAnimationCommands.append(
                         contentsOf: eventMutations.textureAnimationCommands
                     )
+                    callbackParticlePlaybackCommands.append(contentsOf: eventMutations.particlePlaybackCommands)
                 case let .failure(failure):
                     failures[target] = failure
                     if failure.permanentlyDisablesOwner {
@@ -589,6 +594,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     callbackTextureAnimationCommands.append(
                         contentsOf: eventMutations.textureAnimationCommands
                     )
+                    callbackParticlePlaybackCommands.append(contentsOf: eventMutations.particlePlaybackCommands)
                 case let .failure(failure):
                     failures[target] = failure
                     if failure.permanentlyDisablesOwner {
@@ -619,6 +625,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     callbackTextureAnimationCommands.append(
                         contentsOf: eventMutations.textureAnimationCommands
                     )
+                    callbackParticlePlaybackCommands.append(contentsOf: eventMutations.particlePlaybackCommands)
                 case let .failure(failure):
                     failures[target] = failure
                     if failure.permanentlyDisablesOwner {
@@ -704,6 +711,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 callbackTextureAnimationCommands.append(
                     contentsOf: evaluation.textureAnimationCommands
                 )
+                callbackParticlePlaybackCommands.append(contentsOf: evaluation.particlePlaybackCommands)
                 let effects = SceneScriptOwnerEffects(
                     ownerTarget: target,
                     materialFunctionMutations: callbackMaterialMutations,
@@ -712,7 +720,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     videoCommands: callbackVideoCommands,
                     textureAnimationCommands:
                         callbackTextureAnimationCommands,
-                    puppetBoneMutations: callbackPuppetBoneMutations
+                    puppetBoneMutations: callbackPuppetBoneMutations,
+                    particlePlaybackCommands: callbackParticlePlaybackCommands
                 )
                 if !effects.isEmpty { ownerEffects.append(effects) }
                 values[target] = value

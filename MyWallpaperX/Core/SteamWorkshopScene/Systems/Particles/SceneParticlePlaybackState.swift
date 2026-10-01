@@ -33,7 +33,8 @@ final class SceneParticlePlaybackState {
         resourceView: SceneResourceView? = nil,
         textureLoader: SceneTextureLoader = SceneTextureLoader(),
         layerImage: SceneParticleLayerImageEmitterCompilation = .empty,
-        initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
+        initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
+        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
     ) {
         guard let pipeline = SceneParticleMetalPipeline(
             device: device, pixelFormat: descriptor.colorTargetFormat.metalPixelFormat
@@ -48,12 +49,32 @@ final class SceneParticlePlaybackState {
             layerImageEmissionMaps: layerImage.mapsByLayerID,
             initialDiagnostics: layerImage.diagnostics,
             staticWorldSpaceFrames: descriptor.staticParticleWorldSpaceFrames,
-            initialDynamicValues: initialDynamicValues
+            initialDynamicValues: initialDynamicValues,
+            initialPlayback: initialPlayback
         )
         self.runtime = runtime
         self.pointerControlPointLayerIDs = runtime.pointerControlPointLayerIDs
         self.batches = runtime.advance(by: 0, dynamicValues: initialDynamicValues)
         stickyBatchLayerIDs.formUnion(self.batches.map(\.layerID))
+    }
+
+    func playbackObservation(layerID: Int) -> SceneParticlePlaybackObservation? {
+        runtime.playbackObservation(layerID: layerID)
+    }
+
+    func validatePlaybackTransitions(_ transitions: [SceneParticlePlaybackTransition]) -> Bool {
+        !didTeardown && runtime.validatePlaybackTransitions(transitions)
+    }
+
+    func applyPlaybackTransitions(_ transitions: [SceneParticlePlaybackTransition]) {
+        let stopped = Set(transitions.compactMap { transition -> Int? in
+            guard transition.action == .stop,
+                  let current = runtime.playbackObservation(layerID: transition.layerID),
+                  transition.revision > current.revision else { return nil }
+            return transition.layerID
+        })
+        runtime.applyPlaybackTransitions(transitions)
+        batches.removeAll { stopped.contains($0.layerID) }
     }
 
     func advance(

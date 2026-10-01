@@ -85,6 +85,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleLayerImageEmissionMap.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleOscillationCache.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleStepSnapshotRecorder.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePlaybackModels.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleTrailPositionHistory.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Initializer.swift",
@@ -283,6 +284,8 @@ enum Harness {
     static func main() throws {
         guard CommandLine.arguments.count >= 2 else { throw HarnessError.missingMode }
         switch CommandLine.arguments[1] {
+        case "playback-control":
+            try printJSON(playbackControl())
         case "delayed-children":
             try printJSON(delayedChildren())
         case "delayed-child-edges":
@@ -3337,6 +3340,60 @@ enum Harness {
         ]
     }
 
+    private static func playbackControl() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("mwx-playback-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeParticle("particles/root.json", material: "materials/shared.json", flags: 5,
+            renderer: "ropetrail", rendererLength: 0.5, velocityX: 100, startTime: 0.5,
+            moves: true, rate: 0, instantaneous: 1, under: directory)
+        try writeParticle("particles/children.json", material: "materials/shared.json", rate: 0,
+            instantaneous: 1, children: [["name": "missing.json"]], under: directory)
+        let descriptor = SceneRenderDescriptor(layers: [layer(42, "particles/root.json"),
+            layer(43, "particles/children.json"), layer(44, "particles/root.json", visible: false),
+            layer(45, "particles/root.json", particleAlpha: 0), layer(46, "particles/missing.json")],
+            renderOrderLayerIDs: [42,43,44,45,46], materialPasses: [.init(
+                materialPath: "materials/shared.json", shaderPath: "genericparticle",
+                texturePaths: ["shared.png"], blending: "additive")])
+        guard let device = MTLCreateSystemDefaultDevice(), let playback = SceneParticlePlaybackState(
+            descriptor: descriptor, cacheDirectory: directory, device: device) else { throw HarnessError.noMetal }
+        var result: [String: Bool] = [:]
+        result["preparedLive"] = playback.playbackObservation(layerID: 42)?.liveAny == true
+            && !playback.batches.filter { $0.layerID == 42 }.flatMap(\.instances).isEmpty
+        result["unavailableIsNotFalse"] = (43...46).allSatisfy { playback.playbackObservation(layerID: $0) == nil }
+        let stop = SceneParticlePlaybackTransition(layerID: 42, action: .stop, revision: 1)
+        result["validatesStop"] = playback.validatePlaybackTransitions([stop])
+        result["rejectsRevisionGap"] = !playback.validatePlaybackTransitions([.init(layerID: 42, action: .play, revision: 2)])
+        result["rejectsMissingBeforeAnyApply"] = !playback.validatePlaybackTransitions([stop, .init(layerID: 46, action: .stop, revision: 1)])
+            && playback.playbackObservation(layerID: 42)?.liveAny == true
+        playback.applyPlaybackTransitions([stop])
+        result["stopClearsPublishedBatch"] = playback.batches.filter { $0.layerID == 42 }.flatMap(\.instances).isEmpty
+            && playback.playbackObservation(layerID: 42)?.liveAny == false
+        result["stopClearsRopeGhostNextFrame"] = playback.advance(by: 1.0 / 60).filter { $0.layerID == 42 }.flatMap(\.instances).isEmpty
+        result["emptyRuntimeRemainsAvailable"] = playback.playbackObservation(layerID: 42)?.intent == .stopped
+        let play = SceneParticlePlaybackTransition(layerID: 42, action: .play, revision: 2)
+        result["resumeValidated"] = playback.validatePlaybackTransitions([play])
+        playback.applyPlaybackTransitions([play])
+        _ = playback.advance(by: 1.0 / 60)
+        let resumed = playback.advance(by: 1.0 / 60).filter { $0.layerID == 42 }.flatMap(\.instances)
+        result["stopPlayProducesFreshTrail"] = !resumed.isEmpty && playback.playbackObservation(layerID: 42)?.liveAny == true
+        result["retryValidated"] = playback.validatePlaybackTransitions([stop, play])
+        playback.applyPlaybackTransitions([stop, play])
+        result["retryDoesNotClearPublishedBatch"] = playback.batches.filter { $0.layerID == 42 }.flatMap(\.instances).count == resumed.count
+            && playback.playbackObservation(layerID: 42)?.revision == 2
+        for intent in [SceneParticlePlaybackIntent.paused, .stopped] {
+            guard let rebuilt = SceneParticlePlaybackState(descriptor: descriptor,
+                cacheDirectory: directory, device: device, initialPlayback: [42: .init(intent: intent, revision: 2)])
+            else { throw HarnessError.noParticlePipeline }
+            result["rebuild-\(intent)-noWarmupOrOldCommands"] = rebuilt.batches.filter { $0.layerID == 42 }.flatMap(\.instances).isEmpty
+                && rebuilt.playbackObservation(layerID: 42)?.liveAny == false
+            rebuilt.applyPlaybackTransitions([stop, play])
+            result["rebuild-\(intent)-revisionConsumed"] = rebuilt.playbackObservation(layerID: 42)?.intent == intent
+        }
+        return result
+    }
+
     private static func syntheticRopeTrail() throws -> [String: Any] {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("mwx-rope-trail-runtime-\(UUID().uuidString)", isDirectory: true)
@@ -4886,6 +4943,12 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             text=True,
         )
         return json.loads(completed.stdout)
+
+    def test_playback_control_preserves_runtime_and_clears_history(self) -> None:
+        result = self.run_harness("playback-control")
+        for name, value in result.items():
+            with self.subTest(name=name):
+                self.assertTrue(value, name)
 
     def test_layer_alpha_updates_existing_root_and_child_particles(self) -> None:
         result = self.run_harness("layer-alpha-synthetic")

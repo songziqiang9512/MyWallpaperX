@@ -22,6 +22,7 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 VM = SCENE / "Systems/Script"
 QUICKJS = VM / "QuickJSNG"
 SOURCES = [
+    SCENE / "Systems/Particles/SceneParticlePlaybackModels.swift",
     SCENE / "Format/SceneJSONValue.swift",
     SCENE / "Format/SceneScriptBindingDefinition.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",

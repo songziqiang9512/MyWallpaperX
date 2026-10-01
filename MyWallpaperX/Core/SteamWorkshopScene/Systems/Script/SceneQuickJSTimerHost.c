@@ -162,7 +162,7 @@ static MWXSceneQuickJSResult timer_exception(
         owner->domain, diagnostic, diagnostic_capacity
     );
     return owner->material_function_overflow || owner->animation_command_overflow ||
-            owner->video_command_overflow || owner->texture_animation_command_overflow ||
+            owner->video_command_overflow || owner->texture_animation_command_overflow || owner->particle_playback_command_overflow ||
             owner->storage_mutation_overflow
         ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW : result;
 }
@@ -231,6 +231,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_run_due_timers(
         } else {
             deactivate_timer(owner, timer);
         }
+        mwx_scene_quickjs_begin_callback(owner);
         JSValue callback_result = JS_Call(
             owner->domain->context, callback, JS_UNDEFINED, 0, NULL
         );

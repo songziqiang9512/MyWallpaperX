@@ -8,6 +8,7 @@ import Foundation
 /// those records and forced Array COW checks throughout every operator hot path.
 nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     struct FrameSnapshot {
+        let playback: SceneParticlePlaybackSnapshot
         let particles: [SceneParticleState]
         let diagnostics: [SceneParticleSimulationDiagnostic]
         let transientRenderBirths: [SceneParticleState]
@@ -30,6 +31,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         let positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation]
         let trailPositionHistory: SceneParticleTrailPositionHistory
     }
+
+    private(set) var playback = SceneParticlePlaybackSnapshot()
+    private let playbackHasWork: Bool?
 
     let fixedTimeStep: Double
     let maximumParticleCount: Int
@@ -121,6 +125,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         definition: SceneParticleDefinition,
         instanceOverride: SceneParticleInstanceOverride? = nil,
         initialDynamicInstanceOverride: SceneParticleInstanceOverride? = nil,
+        initialPlayback: SceneParticlePlaybackSnapshot = .init(),
         seed: UInt64 = 0,
         fixedTimeStep: Double = 1.0 / 60.0,
         particleBudget: Int? = nil,
@@ -132,6 +137,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         trailHistoryCapacity: Int = 0,
         eventColorContext: SceneParticleEventColorContext = .unavailable
     ) {
+        self.playback = initialPlayback
+        self.playbackHasWork = definition.preparedPlaybackWork(
+            instanceOverride: instanceOverride, hasLayerImageMap: layerImageEmissionMap != nil
+        )
         self.definition = definition
         self.instanceOverride = instanceOverride
         self.activeInstanceOverride = initialDynamicInstanceOverride ?? instanceOverride
@@ -202,6 +211,37 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                historyCapacity: stepSnapshotPolicy?.maximumSnapshots ?? 0)
         birthEvents.removeAll(keepingCapacity: true)
         deathEvents.removeAll(keepingCapacity: true)
+    }
+
+    var playbackObservation: SceneParticlePlaybackObservation? {
+        guard let playbackHasWork else { return nil }
+        return .init(liveAny: !particles.isEmpty,
+                     emissionPending: playbackHasWork && !hasFinishedEmission,
+                     rearmHasWork: playbackHasWork, intent: playback.intent, revision: playback.revision)
+    }
+
+    func applyPlaybackTransition(_ transition: SceneParticlePlaybackTransition) {
+        guard transition.revision > playback.revision else { return }
+        switch transition.action {
+        case .play:
+            if playback.intent == .stopped || hasFinishedEmission {
+                for index in emitters.indices { emitters[index].rearm() }
+            }
+            playback.intent = .playing
+        case .pause: playback.intent = .paused
+        case .stop:
+            playback.intent = .stopped
+            for index in emitters.indices { emitters[index].rearm() }
+            particles.removeAll(keepingCapacity: true)
+            transientRenderBirths.removeAll(keepingCapacity: true)
+            birthEvents.removeAll(keepingCapacity: true)
+            deathEvents.removeAll(keepingCapacity: true)
+            normalizedLives.removeAll(keepingCapacity: true)
+            positionOscillationCache.removeAll(keepingCapacity: true)
+            trailPositionHistory.removeEntries(beyond: 0)
+            stepSnapshotRecorder?.clear()
+        }
+        playback.revision = transition.revision
     }
 
     nonisolated func advance(
@@ -330,6 +370,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     /// frame-varying state is copied and can be restored on host rejection.
     nonisolated func frameSnapshot() -> FrameSnapshot {
         FrameSnapshot(
+            playback: playback,
             particles: particles,
             diagnostics: diagnostics,
             transientRenderBirths: transientRenderBirths,
@@ -355,6 +396,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     }
 
     nonisolated func restoreFrame(_ snapshot: FrameSnapshot) {
+        playback = snapshot.playback
         particles = snapshot.particles
         diagnostics = snapshot.diagnostics
         transientRenderBirths = snapshot.transientRenderBirths
@@ -514,7 +556,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             if !diagnostics.contains(diagnostic) { diagnostics.append(diagnostic) }
             return
         }
-        for index in definition.emitters.indices { emit(index: index, duration: duration) }
+        if playback.intent == .playing {
+            for index in definition.emitters.indices { emit(index: index, duration: duration) }
+        }
         normalizedLives.removeAll(keepingCapacity: true)
         normalizedLives.reserveCapacity(particles.count)
         for index in particles.indices {
