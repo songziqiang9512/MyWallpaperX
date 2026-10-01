@@ -6,6 +6,8 @@
 >
 > R4 parser/executor 有界复核：2026-08-03
 >
+> Camera Shake 信号族定案、Layer Image 发射权重、音频频段链复核：2026-10-01
+>
 > 取证快照：Wallpaper Engine 2.8.42 / Steam build `23967692`
 >
 > 工具：Ghidra 12.1.2 headless、OpenJDK 21.0.12
@@ -374,6 +376,18 @@ reset/teardown 会归零活动计数和 CPU buffer，遍历 root 与分组 child
 
 该证据不足以证明 player 对越界脚本值的处理、官方 pause/seek 事件、其他版本/backend、Windows 同相位数值/像素或真正 perspective Scene 在 MyWallpaperX 已实现。项目当前的独立 2D orthographic bounded evaluator 及其证据只由 [E-CAMERA-SHAKE](../../history/scene/runtime-evidence-index.md#e-camera-shake) 说明，本静态页不为其取得实现授权。临时 Ghidra 工程没有进入仓库，复核后已精确清理且当前不可恢复。
 
+2026-10-01 信号族定案补记：在先读本文 §5.12、2026-10-01 画面质量审查（V1）与官方公开文档仍无法区分「周期解析 vs 噪声驱动」后，对同一 SHA-256 的 `wallpaper64.exe` 播放器端唯一 shake 求值器做 bounded 复核。只保留以下高层行为：求值器为**单相位驱动的周期解析求值**——两个正交超越函数对（sin/cos 族）分别在基相位与「基相位×固定小数比（十进制字面量，浮点下非精确 4:3）」上求值；求值器内**无 RNG、无查找表、无哈希、无倍频叠加、无第二时间尺度**；有 3 个在线调用点（相机组合路径），非死代码。可观察判据：轨迹为**准周期缓进的 Lissajous 型闭合邻域曲线**——分钟级窗口内不精确重复，谱上呈 2–3 根离散谱线（基频与 ≈1.33×基频），无宽带成分；起始时刻 X 处正峰、Y/Z 为 0（X 余弦型、Y/Z 正弦型，与 2026-08-09 观察互证）。roughness 只做径向单调整形（roughness=1 处恒等，≈0 走保护分支保留基础向量），不改变频率成分；speed 以平方进入相位速率，无其他作用；authoring 范围 0…2/0…5 无 runtime clamp 证明（维持 2026-08-09 口径）。随包唯一启用 shake 的 stock 样本为 ricepod（speed 5 / amplitude .01 / roughness .1，true-perspective 分支），可作后续黑盒对照素材。**该定案与项目现行 `SceneCameraShake` 周期解析实现同族且参数映射一致（双频正交对、speed² 相位、roughness 径向整形、amplitude×height×.01、绝对时间、eye/center 同位移）；2026-10-01 审查 V1 的「改多倍频梯度噪声」修复方向因此撤回**。真实残差为：官方 float32 求值 vs 项目 Double 的精度级差异（黑盒 ROI 可量化）、true-perspective 保留 XYZ 的独立缩放分支项目未实现、`wallpaperui.exe` 编辑器预览是否同一求值器未复核。本补记未摘录地址、伪代码、函数体或频率字面量；共享 Ghidra 工程与原始笔记保留在仓库外 `/private/tmp`（重启自动清失），未入库。
+
+### 5.13 Layer Image 发射权重与样本集结构
+
+2026-10-01 在先读现役粒子专项表、官方 Particle Component/Emitter 页面、随包 30+ locale 描述、stock 预览工程、参考项目审查（Mirage/WaifuX 均未实现 Layer Image emitter）与 2026-10-01 画面质量审查（V2）后，公开层仍无法判定发射概率的像素权重语义。本次只对资料库已登记、SHA-256 为 `40e2ce021e9352324fadb3b8f72b8ba2a7ee95b71cc571d5b9f84be75cd993b0` 的官方 2.8.42 `wallpaper64.exe` 做「按 alpha 加权 / alpha>0 等权 / 按 alpha×亮度加权」三候选判别的 bounded Ghidra 12.1.2 clean-room 复核。
+
+**核心结论：三候选均未定案。** 静态层确认的结构事实（无实现表达）：发射点不是每帧对贴图做拒绝采样，而是**构建期生成的有限样本集合 + 每个新粒子离散抽取一个样本索引**，样本逐点位置与颜色由查找表提供（`copy layer color` 消费的就是该表）；layerimage 发射器附带一个随图层重建/销毁释放的样本容器；`emitterimage` 依赖最终解析为纹理注册表条目并走异步加载。该架构与「按 alpha 重复条目」和「每有效像素一条目」均兼容，不构成判别；样本集构建代码未在有界预算内定位，继续深入将进入私有算法表达区，按停止条件停手。
+
+可先行固化的合同点（与三候选无关）：全透明（alpha=0）像素不发射为高先验（图层有效面积语义与 mask「限制区域」措辞同构，中置信、待黑盒负例）；默认发射点是精确像素位置、区域随机散布仅由作者显式 `random offset` 选项引入（官方文档原文，高置信）；emitter image 按场景图层对象（image/text/puppet 的渲染结果）解析，无单通道纹理要求（高置信）。
+
+黑盒判别实验已设计（Windows 11 VM + 官方 2.8.42，同工程三变体）：渐变 alpha（左 255/右 8，密度比 ≈32:1 判加权、≈1:1 判等权）、同 alpha 黑白渐变（判亮度权重）、九成透明区（判 alpha=0 负例）；阈值 1±0.15 视为等权。判别优先于选边。项目现行「alpha>0 二值化等权采样」是 project-owned 行为，若改为加权实现必须登记为 bounded approximation 并保留单一 owner 以便黑盒结果落地时整体替换。本次没有恢复或摘录样本集构建的加权方式、抽取分布、bitmap 更新节奏或任何可移植公式；原始笔记保留在仓库外 `/private/tmp/mwx_forensics_emission/`，未入库。
+
 ## 6. SceneScript 的 module/engine/owner 机制
 
 ### 6.1 宿主层次
@@ -580,6 +594,19 @@ media generation N
 `wallpaperservice64.exe` 负责 Windows Service、电源/会话通知、用户 token/environment 和登录用户进程编排。没有证据把它解释为 Scene clock 或 pause 算法；macOS 只需把 user pause、lock、sleep、display sleep 等输入归一为明确 interruption reasons。
 
 `cloneextensions64.dll` 由主程序动态解析 clone/composition 入口，并维护独立 surface/window/swapchain create/update/destroy 边界。它支持稳定 surface identity、per-display policy 与 display hot-plug transaction，不能证明所有场景都走 clone，也不要求 macOS 复制 DirectComposition。
+
+### 7.4 音频可视化频段分析链与档位投影
+
+2026-10-01 在先读既有音频取证（E-2026-09-27-AUDIO-CONTINUOUS-BANDS、E-2026-09-28-AUDIO-BAND-PEAKS）、官方 Web/SceneScript/AudioBuffers 公开文档、随包 stock `pulse.vert`/`shake.vert`/`Simple_Audio_Bars.frag` 与第三方参考实现（linux-wallpaperengine，仅架构旁证）后，「16/32 档消费者是原生分析还是从更高分辨率档投影、聚合算子是峰值还是平均」仍无法判定。本次对资料库已登记、SHA-256 为 `40e2ce021e9352324fadb3b8f72b8ba2a7ee95b71cc571d5b9f84be75cd993b0` 的 `wallpaper64.exe` 与同包 `scenescript64.dll`（SHA-256 `58039ef9…aad08`）做 bounded Ghidra 12.1.2 clean-room 复核。
+
+只保留以下高层行为结论：
+
+- **内部只有一条 64 档/声道的分析链**：单一音频线程（WASAPI 采集）→ 单 FFT 计划 → 逐窗口频带累积；每声道固定 64 档，**档值为该档覆盖的全部 FFT bin（跳过 DC）的峰值幅度**（含宿主侧频谱倾斜加权，NaN/Inf 归零）；频轴映射既非线性也非纯对数——FFT bin 归一化位置经幂函数弯曲后量化到 64 档，且量化保证档索引单调推进、每档至少获得一个 bin（不存在永久空档）。**不存在任何 16/32 档原生分析路径**——「官方 16 档是原生分析」的假设被否证。
+- **锁内发布且仅发布 [左 64][右 64] 共 128 个 float**（单声道时右声道槽为左声道副本），与 Web 侧 128 值合同同构；SceneScript `registerAudioBuffers` 仅全局作用域可调、分辨率只接受 16/32/64（缺省 16）、首次注册即建立三档左/右/平均数组且 identity 跨帧稳定、每 tick 原地刷新为最近一次分析值（采样保持）。16/32 档数组必然由 64 档投影而来，投影为**同一弯曲频轴上的连续分组**（16 档第 i 档覆盖 4 个 64 档子带、32 档为 2 个）。
+- **最后一公里投影算子（子带峰值 vs 子带平均）静态未钉死**（值供给路径走编译期对象/虚分发，本轮预算内未定位）；旁证倾向峰值——分析档值本身即峰值，若下游取平均则 16 档孤立窄带将系统性衰减约 4 倍，与 stock pulse 默认 `audiobounds 0.5..1.0` 的可用窗口及 workshop 实际观感不符。此为推断非证明；黑盒判别实验已设计（同一窄带测试音下 16 档与 64 档同位置柱高比：≈1 判峰值投影、≈1/4 判平均投影，另配双音反例与宽带噪声标定）。
+- **平滑/attack-release 在作者侧**：分析器每窗口直接发布峰值，发布前无时间包络；stock shader 的 audio 分支无时间滤波（smoothstep 是阈值映射非时间平滑）；官方 Web 文档明确建议作者自行插值平滑。分析更新节奏由配置派生：间隔 ≈ 1000/壁纸FPS × 0.5 毫秒、钳位 6..100ms（与「约 30 次/秒」文档口径相容，精确有效速率受采集块尺寸影响未定案）。值域非归一化、可超 1；原始峰值另与 `audioinputthreshold` 比较但仅作静音/播放判定，不进入频带值。
+
+对项目的合同级含义：64 档「每档峰值」链路方向正确（连续频带修复与之同向）；16/32 档应视为 64 档权威的投影消费（唯一 provider 边界），下采样若改为「覆盖子带的峰值」与官方推断一致，但须标注为项目策略直至黑盒定案；宿主侧平滑应标注为项目策略而非官方合同，且不得阻止作者侧再做平滑；固定 30Hz 采集是对 FPS 派生节奏的近似。本次没有恢复倾斜加权形状、频轴幂指数、投影算子或任何可移植公式；原始笔记（约 440MB，含反编译缓存）保留在仓库外 `/private/tmp/mwx_forensics_audio/`，未入库，共享 Ghidra 工程同样未入库。
 
 ## 8. 静态观察支持的项目合同候选（非实现输入）
 
