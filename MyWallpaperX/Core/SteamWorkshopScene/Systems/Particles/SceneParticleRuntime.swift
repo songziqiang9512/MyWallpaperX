@@ -325,14 +325,12 @@ final class SceneParticleRuntime {
     ) -> [Int: SceneParticleWorldSpaceFrame] {
         guard !worldSpaceChains.isEmpty else { return [:] }
         let transformLayerIDs = dynamicValues.dynamicTransformLayerIDsForFrame
-        guard !transformLayerIDs.isEmpty else {
-            resolveVanishedTransformWrites(layerWorldFrames: layerWorldFrames)
-            return [:]
-        }
+        guard !transformLayerIDs.isEmpty || !frozenWorldSpaceLayerIDs.isEmpty else { return [:] }
         var liveFrames: [Int: SceneParticleWorldSpaceFrame] = [:]
         for (layerID, chain) in worldSpaceChains
         where worldSpaceRequiringLayerIDs.contains(layerID)
-            && !chain.isDisjoint(with: transformLayerIDs) {
+            && (frozenWorldSpaceLayerIDs.contains(layerID)
+                || !chain.isDisjoint(with: transformLayerIDs)) {
             let path = layers.first { $0.layerID == layerID }?.particlePath ?? ""
             if let current = layerWorldFrames[layerID],
                let frame = SceneParticleWorldSpaceFrame(worldFrame: current) {
@@ -344,6 +342,9 @@ final class SceneParticleRuntime {
                         detail: "world-space frame resumed after transform recovered"
                     )
                 }
+                // A vanished write returns this chain to its prepared static
+                // frame. Other chains' active lanes must not prevent recovery.
+                guard !chain.isDisjoint(with: transformLayerIDs) else { continue }
                 if liveWorldSpaceAdoptedLayerIDs.insert(layerID).inserted {
                     addDiagnostic(
                         kind: .simulationLimitation,
@@ -363,34 +364,6 @@ final class SceneParticleRuntime {
             }
         }
         return liveFrames
-    }
-
-    /// Re-evaluates frozen world-space systems on frames whose chain has no
-    /// transform write. A one-shot undeclared script write or a finished
-    /// timeline stops producing a lane; the dynamic snapshot falls back to
-    /// the authored transform and the resolver serves a valid frame again.
-    /// Once the layer's current world frame is constructible the chain is
-    /// back to launch-static semantics, so the freeze ends and the systems
-    /// simulate through the simulator's static-frame fallback (no override).
-    /// A layer whose frame is still unconstructible keeps its freeze: the
-    /// previous-current rendering is the safe output, not a guess.
-    private func resolveVanishedTransformWrites(
-        layerWorldFrames: [Int: simd_float4x4]
-    ) {
-        for layerID in worldSpaceRequiringLayerIDs
-            .intersection(frozenWorldSpaceLayerIDs).sorted() {
-            guard let current = layerWorldFrames[layerID],
-                  SceneParticleWorldSpaceFrame(worldFrame: current) != nil else {
-                continue
-            }
-            frozenWorldSpaceLayerIDs.remove(layerID)
-            addDiagnostic(
-                kind: .simulationLimitation,
-                layerID: layerID,
-                path: layers.first { $0.layerID == layerID }?.particlePath ?? "",
-                detail: "world-space frame resumed after transform recovered"
-            )
-        }
     }
 
     /// Advances every active layer by the frame delta and returns batches in scene render order.

@@ -2791,7 +2791,43 @@ enum Harness {
         let conservativeHeld = conservative.advance(
             by: frameDelta, dynamicValues: .empty(frameIndex: 2)
         )
+        // G: the local write disappears while an unrelated chain keeps
+        // receiving transforms. Recovery must depend on this chain alone.
+        let unrelated = makeRuntime()
+        _ = unrelated.advance(by: frameDelta)
+        _ = unrelated.advance(by: frameDelta)
+        let unrelatedFrozen = unrelated.advance(
+            by: frameDelta, dynamicValues: lane81, layerWorldFrames: [81: zeroScale]
+        )
+        let unrelatedHeld = unrelated.advance(
+            by: frameDelta, dynamicValues: lane80, layerWorldFrames: [81: zeroScale]
+        )
+        let frozenSnapshot = unrelated.frameSnapshot()
+        let unrelatedResumed = unrelated.advance(
+            by: frameDelta, dynamicValues: lane80,
+            layerWorldFrames: [81: matrix_identity_float4x4]
+        )
+        unrelated.restoreFrame(frozenSnapshot)
+        let rollbackHeld = unrelated.advance(by: frameDelta, dynamicValues: lane80)
+        let unrelatedReplay = unrelated.advance(
+            by: frameDelta, dynamicValues: lane80,
+            layerWorldFrames: [81: matrix_identity_float4x4]
+        )
+        let unrelatedNext = unrelated.advance(
+            by: frameDelta, dynamicValues: lane80,
+            layerWorldFrames: [81: matrix_identity_float4x4]
+        )
         return [
+            "unrelatedWriteKeepsInvalidFrozen": motion(unrelatedHeld, layerID: 81)
+                == motion(unrelatedFrozen, layerID: 81),
+            "unrelatedWriteResumes": motion(unrelatedResumed, layerID: 81)
+                > motion(unrelatedFrozen, layerID: 81) + 0.5,
+            "unrelatedWriteStaysUnfrozen": motion(unrelatedNext, layerID: 81)
+                > motion(unrelatedReplay, layerID: 81) + 0.5,
+            "recoveryRollbackKeepsFrozen": motion(rollbackHeld, layerID: 81)
+                == motion(unrelatedFrozen, layerID: 81),
+            "recoveryReplayMatches": motion(unrelatedReplay, layerID: 81)
+                == motion(unrelatedResumed, layerID: 81),
             "degenerateHoldsPrevious": motion(degenerateFrame, layerID: 81)
                 == motion(beforeDegenerate, layerID: 81),
             "recoveryResumes": motion(restoredFrame, layerID: 81)
@@ -4829,6 +4865,7 @@ class SceneParticleRuntimeTests(unittest.TestCase):
                 "-framework", "Metal",
                 "-framework", "CoreGraphics",
                 "-framework", "ImageIO",
+                "-module-cache-path", str(directory / "module-cache"),
                 "-o", str(cls.binary),
             ],
             capture_output=True,
@@ -5483,6 +5520,14 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         # A lane-less frame that still cannot construct a current frame
         # keeps the previous-current freeze instead of guessing recovery.
         self.assertTrue(result["conservativeHoldKeepsPrevious"])
+
+    def test_vanished_write_recovers_while_another_chain_keeps_writing(self) -> None:
+        result = self.run_harness("worldspace-freeze-recovery")
+        for key in ("unrelatedWriteKeepsInvalidFrozen", "unrelatedWriteResumes",
+                    "unrelatedWriteStaysUnfrozen", "recoveryRollbackKeepsFrozen",
+                    "recoveryReplayMatches"):
+            with self.subTest(key=key):
+                self.assertTrue(result[key])
 
     def test_freeze_rollback_via_frame_snapshot_restores_simulation(self) -> None:
         result = self.run_harness("worldspace-freeze-recovery")
