@@ -15,6 +15,7 @@ final class VideoLibraryInspectorView: NSView {
     private var loadedDetailsPath: String?
     private var contentStack: NSStackView?
     private weak var favoriteButton: InspectorFooterButton?
+    private weak var setAsWallpaperButton: InspectorFooterButton?
     private var cancellables = Set<AnyCancellable>()
 
     private var currentWallpaper: VideoWallpaper {
@@ -210,6 +211,12 @@ final class VideoLibraryInspectorView: NSView {
                 }
             }
             .store(in: &cancellables)
+        // 播放态变化（停止/切换）不一定伴随库内容变化；按钮的互斥形态
+        // 需要跟随播放状态即时刷新。
+        wallpaperManager.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.refreshFooterActions() }
+            .store(in: &cancellables)
     }
 
     private func makeContentStack() -> NSStackView {
@@ -351,6 +358,7 @@ final class VideoLibraryInspectorView: NSView {
             action: #selector(setAsWallpaper),
             kind: .primary
         )
+        self.setAsWallpaperButton = setButton
         let revealButton = VideoLibraryInspectorViews.makeFooterButton(
             title: "查看文件",
             symbolName: "folder.fill",
@@ -441,6 +449,14 @@ final class VideoLibraryInspectorView: NSView {
         )
         favoriteButton?.toolTip = title
         favoriteButton?.setAccessibilityLabel(title)
+        // 设为壁纸/停止播放互斥：当前正在播放这张壁纸时按钮切换为停止形态
+        // （与卡片徽章同一互斥语义）。
+        let isPlaying = wallpaperManager.effectiveCurrentWallpaper?.path == currentWallpaper.path
+        setAsWallpaperButton?.setTitle(isPlaying ? "停止播放" : "设为壁纸")
+        setAsWallpaperButton?.setSymbol(
+            isPlaying ? "stop.fill" : "photo.fill",
+            accessibilityDescription: isPlaying ? "停止播放" : "设为壁纸"
+        )
     }
 
     private func loadDetails() {
@@ -458,6 +474,11 @@ final class VideoLibraryInspectorView: NSView {
 
     @objc private func setAsWallpaper() {
         wallpaperManager.markCardInteraction()
+        // 播放/停止互斥：面板按钮与卡片徽章同一语义——正在播放时点击即停止。
+        if wallpaperManager.effectiveCurrentWallpaper?.path == currentWallpaper.path {
+            wallpaperManager.stopCurrentPlayback()
+            return
+        }
         wallpaperManager.requestSetAsWallpaper(currentWallpaper)
     }
 

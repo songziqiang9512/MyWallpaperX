@@ -742,10 +742,14 @@ private final class PlayBadgeView: NSView {
 
     private func updateGlyphAppearance() {
         // 播放中徽章即停止按钮（互斥形态）：红色 stop 字形；空闲为播放。
-        glyphView.image = NSImage(
+        // 配置逐次内联到镜像上：视图级 symbolConfiguration 不会自动作用到
+        // 后续换上的新图，尺寸漂移会让字形在圆圈内偏心。
+        let symbolImage = NSImage(
             systemSymbolName: isPlaying ? "stop.fill" : "play.fill",
             accessibilityDescription: isPlaying ? "停止播放" : "设为壁纸"
-        )
+        )?.withSymbolConfiguration(.init(pointSize: 12.5, weight: .semibold))
+        glyphView.image = symbolImage
+        glyphView.imageAlignment = .alignCenter
         let darkModeBoost: CGFloat = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? 0.06 : 0.0
         backdropView.alphaValue = min(1.0, isPlaying ? (1.0 + darkModeBoost) : (0.90 + darkModeBoost))
         layer?.borderColor = NSColor.white.withAlphaComponent(0.50).cgColor
