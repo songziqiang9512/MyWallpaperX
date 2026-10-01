@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from script.tests.test_scene_image_upload_completion import LOADER_SOURCES, SOURCE
+from script.tests.test_scene_image_upload_completion import LOADER_SOURCES, RESAMPLE_SOURCE, SOURCE
 
 class SceneTexCacheBudgetTests(unittest.TestCase):
     def test_decoded_bytes_admission_reuse_and_release(self):
@@ -71,7 +71,7 @@ import Foundation
 }
 ''')
             binary = root / 'harness'
-            subprocess.run(['swiftc', str(SOURCE), *map(str, LOADER_SOURCES), str(harness), '-o', str(binary)],
+            subprocess.run(['swiftc', str(SOURCE), str(RESAMPLE_SOURCE), *map(str, LOADER_SOURCES), str(harness), '-o', str(binary)],
                            check=True, capture_output=True, text=True, timeout=120)
             run = subprocess.run([str(binary), str(path), str(animated_path)], check=True, capture_output=True, text=True, timeout=60)
             result = json.loads(run.stdout)

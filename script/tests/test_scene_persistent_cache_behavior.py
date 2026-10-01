@@ -53,6 +53,7 @@ SWIFT_SOURCES = [
     *scene_swift_sources("authored_shader_preparation_implementation"),
     *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
     SCENE_ROOT / "Resources/Textures/SceneImageTextureUploader.swift",
+    SCENE_ROOT / "Textures/SceneImageTextureUploader+Resample.swift",
     SCENE_ROOT / "Resources/Textures/SceneCompressedTextureUploader.swift",
     SCENE_ROOT / "Resources/Textures/SceneTextureMipUploader.swift",
     SCENE_ROOT / "Resources/Textures/SceneTextureLoader.swift",

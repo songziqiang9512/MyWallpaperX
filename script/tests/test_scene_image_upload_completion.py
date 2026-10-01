@@ -14,6 +14,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift"
+RESAMPLE_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader+Resample.swift"
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 LOADER_SOURCES = [
     SCENE / "Format/SceneTexContainer.swift",
@@ -441,6 +442,7 @@ class SceneImageUploadCompletionTests(unittest.TestCase):
             implementation.write_text(FAULTS)
             harness.write_text(HARNESS)
             source = SOURCE
+            resample_source = RESAMPLE_SOURCE
             loader_sources = list(LOADER_SOURCES)
             if baseline := os.environ.get("SCENE_TEXTURE_LOADER_BASE_REF"):
                 original = loader_sources[-1]
@@ -454,9 +456,15 @@ class SceneImageUploadCompletionTests(unittest.TestCase):
                 source.write_bytes(subprocess.check_output(
                     ["git", "show", f"{baseline}:{SOURCE.relative_to(ROOT)}"], cwd=ROOT
                 ))
+            if os.environ.get("SCENE_IMAGE_UPLOADER_BASE_REF"):
+                # 拆分(2026-10-01)后的 Uploader 需要 +Resample 伴生；baseline ref
+                # 早于拆分时主文件自包含（不含伴生符号），跳过伴生避免重复定义。
+                if b"premultipliedBoxResampledRGBA" not in source.read_bytes():
+                    resample_source = None
             for command in (
                 ["clang", "-c", str(implementation), "-o", str(root / "faults.o")],
                 ["swiftc", "-import-objc-header", str(header), str(source),
+                 *([str(resample_source)] if resample_source else []),
                  *map(str, loader_sources), str(harness),
                  str(root / "faults.o"), "-o", str(root / "harness")],
             ):

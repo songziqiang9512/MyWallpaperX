@@ -10,6 +10,7 @@ import zlib
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift'
+RESAMPLE_SOURCE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader+Resample.swift'
 SIGNATURE = b'\x89PNG\r\n\x1a\n'
 PASSES = [(0, 0, 8, 8), (4, 0, 8, 8), (0, 4, 4, 8), (2, 0, 4, 4),
           (0, 2, 2, 4), (1, 0, 2, 2), (0, 1, 1, 2)]
@@ -68,7 +69,7 @@ for path in CommandLine.arguments.dropFirst() {
 }
 ''')
         cls.binary = cls.root / 'decode'
-        compiled = subprocess.run(['xcrun', 'swiftc', str(SOURCE), str(harness), '-o', str(cls.binary)],
+        compiled = subprocess.run(['xcrun', 'swiftc', str(SOURCE), str(RESAMPLE_SOURCE), str(harness), '-o', str(cls.binary)],
                                   capture_output=True, text=True, timeout=60)
         if compiled.returncode:
             cls.directory.cleanup()

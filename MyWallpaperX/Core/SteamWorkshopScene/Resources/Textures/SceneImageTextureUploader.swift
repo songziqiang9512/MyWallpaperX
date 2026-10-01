@@ -488,64 +488,6 @@ enum SceneImageTextureUploader {
         }
     }
 
-    /// Resamples straight RGBA lanes independently. Core Graphics image
-    /// rasterization premultiplies translucent pixels, so it cannot preserve
-    /// authored RGB where alpha is zero or fractional.
-    private static func resampledStraightRGBA(
-        _ source: Data,
-        sourceWidth: Int,
-        sourceHeight: Int,
-        destinationWidth: Int,
-        destinationHeight: Int
-    ) -> Data {
-        source.withUnsafeBytes { raw in
-            let bytes = raw.bindMemory(to: UInt8.self)
-            return resampledRGBA(sourceWidth: sourceWidth, sourceHeight: sourceHeight,
-                destinationWidth: destinationWidth, destinationHeight: destinationHeight) { x, y in
-                let offset = (y * sourceWidth + x) * 4
-                return SIMD4(Double(bytes[offset]), Double(bytes[offset + 1]),
-                             Double(bytes[offset + 2]), Double(bytes[offset + 3]))
-            }
-        }
-    }
-
-    /// Filter source lanes directly into the bounded output. The reader can
-    /// normalize a packed image without allocating a full-size RGBA copy.
-    private static func resampledRGBA(
-        sourceWidth: Int, sourceHeight: Int,
-        destinationWidth: Int, destinationHeight: Int,
-        pixel: (Int, Int) -> SIMD4<Double>
-    ) -> Data {
-        var destination = Data(count: destinationWidth * destinationHeight * 4)
-        destination.withUnsafeMutableBytes { raw in
-            let output = raw.bindMemory(to: UInt8.self)
-            let xRatio = Double(sourceWidth) / Double(destinationWidth)
-            let yRatio = Double(sourceHeight) / Double(destinationHeight)
-            let exact = sourceWidth == destinationWidth && sourceHeight == destinationHeight
-            for y in 0..<destinationHeight {
-                let sy = max(0, min(Double(sourceHeight - 1), (Double(y) + 0.5) * yRatio - 0.5))
-                let y0 = Int(sy), y1 = min(y0 + 1, sourceHeight - 1)
-                for x in 0..<destinationWidth {
-                    let value: SIMD4<Double>
-                    if exact {
-                        value = pixel(x, y)
-                    } else {
-                        let sx = max(0, min(Double(sourceWidth - 1), (Double(x) + 0.5) * xRatio - 0.5))
-                        let x0 = Int(sx), x1 = min(x0 + 1, sourceWidth - 1)
-                        let topLeft = pixel(x0, y0), bottomLeft = pixel(x0, y1)
-                        let top = topLeft + (pixel(x1, y0) - topLeft) * (sx - Double(x0))
-                        let bottom = bottomLeft + (pixel(x1, y1) - bottomLeft) * (sx - Double(x0))
-                        value = top + (bottom - top) * (sy - Double(y0))
-                    }
-                    for c in 0..<4 {
-                        output[(y * destinationWidth + x) * 4 + c] = UInt8(clamping: Int(value[c].rounded()))
-                    }
-                }
-            }
-        }
-        return destination
-    }
-
     static func upload(
         image: CGImage,
         purpose: SceneTextureLoadPurpose,
@@ -760,8 +702,10 @@ enum SceneImageTextureUploader {
               CFDataGetLength(provider) >= sourceBytes.partialValue,
               let bytes = CFDataGetBytePtr(provider) else { return nil }
         let data = withExtendedLifetime(provider) {
-            resampledRGBA(sourceWidth: image.width, sourceHeight: image.height,
-                          destinationWidth: outputWidth, destinationHeight: outputHeight) { x, y in
+            premultipliedBoxResampledRGBA(
+                sourceWidth: image.width, sourceHeight: image.height,
+                destinationWidth: outputWidth, destinationHeight: outputHeight
+            ) { x, y in
                 let pixel = bytes + y * image.bytesPerRow + x * bytesPerPixel
                 func channel(_ index: Int) -> Double {
                     if bits == 8 { return Double(pixel[little ? channels - 1 - index : index]) }
@@ -801,6 +745,9 @@ enum SceneImageTextureUploader {
                   ) else {
                 return false
             }
+            // The context default is low-quality interpolation, which
+            // quantizes large downscales; 1:1 draws are unaffected.
+            context.interpolationQuality = .high
             context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
             return true
         }

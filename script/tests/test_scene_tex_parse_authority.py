@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from script.tests.test_scene_image_upload_completion import LOADER_SOURCES, SOURCE
+from script.tests.test_scene_image_upload_completion import LOADER_SOURCES, RESAMPLE_SOURCE, SOURCE
 
 
 HARNESS = r'''
@@ -95,7 +95,7 @@ class SceneTexParseAuthorityTests(unittest.TestCase):
             harness = root / "Harness.swift"
             harness.write_text(HARNESS)
             binary = root / "harness"
-            subprocess.run(["swiftc", str(SOURCE), *map(str, LOADER_SOURCES),
+            subprocess.run(["swiftc", str(SOURCE), str(RESAMPLE_SOURCE), *map(str, LOADER_SOURCES),
                             str(harness), "-o", str(binary)],
                            check=True, capture_output=True, text=True, timeout=120)
             result = subprocess.run([str(binary), str(root)], check=True,
