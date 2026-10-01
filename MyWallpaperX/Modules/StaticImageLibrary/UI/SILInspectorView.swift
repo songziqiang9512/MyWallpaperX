@@ -273,12 +273,14 @@ final class SILInspectorView: NSView {
             action: #selector(revealInFinder)
         )
         let tagButton = SILInspectorViews.makeFooterButton(
-            title: "添加标签",
+            title: "",
             symbolName: "tag",
             target: self,
             action: #selector(presentTagPicker)
         )
         tagButton.isEnabled = !SILService.shared.silTags.isEmpty
+        tagButton.setAccessibilityLabel("添加标签")
+        tagButton.toolTip = "添加标签"
 
         let buttonGroup = NSView()
         buttonGroup.translatesAutoresizingMaskIntoConstraints = false
@@ -294,7 +296,9 @@ final class SILInspectorView: NSView {
             buttonGroup.topAnchor.constraint(equalTo: stack.topAnchor),
             buttonGroup.bottomAnchor.constraint(equalTo: stack.bottomAnchor),
 
-            // 三键同宽平均铺满面板总宽度，键间距 6pt 与既有脚注一致。
+            // 总宽不变（面板 356，键区 352）：添加标签改纯图标键（38），
+            // 腾出的宽度给设为壁纸/查看文件两键等分（各 ~151，四字标题
+            // 文字区 ~104pt 不截断）；键间距保持 6pt。
             wallpaperButton.leadingAnchor.constraint(equalTo: buttonGroup.leadingAnchor),
             wallpaperButton.topAnchor.constraint(equalTo: buttonGroup.topAnchor),
             wallpaperButton.bottomAnchor.constraint(equalTo: buttonGroup.bottomAnchor),
@@ -310,9 +314,9 @@ final class SILInspectorView: NSView {
             tagButton.topAnchor.constraint(equalTo: buttonGroup.topAnchor),
             tagButton.bottomAnchor.constraint(equalTo: buttonGroup.bottomAnchor),
             tagButton.heightAnchor.constraint(equalToConstant: InspectorFooterMetrics.height),
+            tagButton.widthAnchor.constraint(equalToConstant: InspectorFooterMetrics.iconWidth),
 
-            wallpaperButton.widthAnchor.constraint(equalTo: revealButton.widthAnchor),
-            revealButton.widthAnchor.constraint(equalTo: tagButton.widthAnchor)
+            wallpaperButton.widthAnchor.constraint(equalTo: revealButton.widthAnchor)
         ])
         return stack
     }
