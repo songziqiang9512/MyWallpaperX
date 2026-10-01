@@ -313,12 +313,10 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             stack.addArrangedSubview(SteamWorkshopTagStripView(tags: uniqueTags))
             stack.addArrangedSubview(divider())
         }
-        stack.addArrangedSubview(sectionTitle("作品数据"))
         var facts: [(String, String)] = []
         for (name, value) in [
             ("类型", currentItem.workshopTypeText), ("分辨率", currentItem.resolutionText),
-            ("文件大小", currentItem.fileSizeText), ("发布时间", currentItem.postedText),
-            ("更新时间", currentItem.updatedText), ("分类", currentItem.categoryText),
+            ("文件大小", resolvedFileSizeText), ("发布时间", currentItem.postedText),            ("更新时间", currentItem.updatedText), ("分类", currentItem.categoryText),
             ("浏览", currentItem.scoreText?.replacingOccurrences(of: "浏览 ", with: "")),
             ("订阅", currentItem.subscriptionsText), ("收藏", currentItem.favoritesText),
             ("累计订阅", currentItem.lifetimeSubscriptionsText), ("累计收藏", currentItem.lifetimeFavoritesText),
@@ -331,7 +329,6 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         facts.append(("作品 ID", currentItem.id))
         stack.addArrangedSubview(factsGrid(facts))
         stack.addArrangedSubview(divider())
-        stack.addArrangedSubview(sectionTitle("作品描述"))
         stack.addArrangedSubview(label(detailDescriptionLine, font: .systemFont(ofSize: 13), color: .labelColor, lines: 0))
         contentStack.addArrangedSubview(stack)
     }

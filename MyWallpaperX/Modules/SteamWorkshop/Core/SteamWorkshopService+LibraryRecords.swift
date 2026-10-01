@@ -675,9 +675,20 @@ extension SteamWorkshopService {
         let title = resolvedProject?.title?.trimmingCharacters(in: .whitespacesAndNewlines)
         let description = resolvedProject?.description?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let tags = resolvedProject?.tags ?? []
-        let sizeText = effectiveVideoURL.flatMap { fileSizeText(for: $0) }
-            ?? entryHTMLURL.flatMap { fileSizeText(for: $0) }
-            ?? "未知大小"
+        // 样本总大小 = 整个样本目录（如 Scene/3791967416）递归合计；
+        // 独立视频等无样本目录形态退回单文件大小。与抓取的页面标称值
+        // 相比这才是用户感知的真实占用。
+        let sizeText: String = {
+            if let resolvedLegacyDirectory {
+                let total = Self.directoryTotalBytes(at: resolvedLegacyDirectory)
+                if total > 0 {
+                    return Self.fileSizeText(forBytes: total)
+                }
+            }
+            return effectiveVideoURL.flatMap { fileSizeText(for: $0) }
+                ?? entryHTMLURL.flatMap { fileSizeText(for: $0) }
+                ?? "未知大小"
+        }()
 
         let browserTitle = browserItem?.title.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return SteamWorkshopDownloadRecord(
@@ -785,6 +796,23 @@ extension SteamWorkshopService {
             return nil
         }
         return Self.fileSizeText(forBytes: size)
+    }
+
+    /// 目录内全部常规文件的字节合计（递归）。符号链接本身不携带内容
+    /// 尺寸，enumerator 只累加 regular file。
+    nonisolated static func directoryTotalBytes(at directory: URL) -> Int64 {
+        guard let enumerator = FileManager.default.enumerator(
+            at: directory,
+            includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else { return 0 }
+        var total: Int64 = 0
+        for case let url as URL in enumerator {
+            let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+            guard values?.isRegularFile == true else { continue }
+            total += Int64(values?.fileSize ?? 0)
+        }
+        return total
     }
 
     nonisolated static private func scanLoadDownloadMetadataSnapshot(legacyDirectory: URL?, id: String, context: SteamWorkshopInstalledLibraryScanContext) -> SteamWorkshopDownloadMetadataSnapshot? {
