@@ -1,12 +1,26 @@
 import Foundation
 
+/// Single-flight state for the installed-library scan. The generation counter
+/// alone only discarded stale results; every overlapping reload still ran a
+/// full detached scan (three root enumerations plus per-record stats/decodes).
+/// Instances are keyed by `ObjectIdentifier` because the service's stored
+/// properties belong to the primary declaration file; the registry is
+/// main-actor confined together with every accessor below.
+@MainActor private final class SteamWorkshopInstalledLibraryScanFlight {
+    static var registry: [ObjectIdentifier: SteamWorkshopInstalledLibraryScanFlight] = [:]
+    var isInFlight = false
+    var rescanRequested = false
+}
+
 extension SteamWorkshopService {
     /// Rebuilds the installed-library index. The filesystem transaction and
     /// the stateful schedulers stay on the main actor; the expensive pure
     /// part (directory enumeration plus per-record construction — several
     /// file stats and JSON decodes per record) runs detached and publishes
-    /// back through `applyInstalledLibraryRecords`. Only the newest scan's
-    /// result is applied.
+    /// back through `applyInstalledLibraryRecords`. Only one scan is in
+    /// flight at any time: reloads arriving mid-scan are coalesced into a
+    /// single catch-up scan launched from the newest state once the current
+    /// scan finishes, and only the newest generation is ever applied.
     func reloadInstalledItems() {
         do { try SteamWorkshopLibraryTransaction.recoverPublications(libraryRoot: steamDownloadLibraryRootURL,
             retaining: referencedLibraryStorageIdentities()) }
@@ -16,6 +30,24 @@ extension SteamWorkshopService {
         reconcileDownloadCommits(managed)
         scheduleTerminalDownloadCleanup()
         installedLibraryScanGeneration += 1
+        guard !installedLibraryScanFlight.isInFlight else {
+            installedLibraryScanFlight.rescanRequested = true
+            return
+        }
+        startInstalledLibraryScan(managed: managed)
+    }
+
+    /// Per-service single-flight holder (see `SteamWorkshopInstalledLibraryScanFlight`).
+    private var installedLibraryScanFlight: SteamWorkshopInstalledLibraryScanFlight {
+        let key = ObjectIdentifier(self)
+        if let flight = SteamWorkshopInstalledLibraryScanFlight.registry[key] { return flight }
+        let flight = SteamWorkshopInstalledLibraryScanFlight()
+        SteamWorkshopInstalledLibraryScanFlight.registry[key] = flight
+        return flight
+    }
+
+    private func startInstalledLibraryScan(managed: [String: SteamWorkshopDownloadMetadataSnapshot]) {
+        installedLibraryScanFlight.isInFlight = true
         let generation = installedLibraryScanGeneration
         let context = installedLibraryScanContext()
         Task.detached(priority: .utility) { [weak self] in
@@ -23,10 +55,24 @@ extension SteamWorkshopService {
                 managed: managed, context: context
             )
             await MainActor.run { [weak self] in
-                guard let self, self.installedLibraryScanGeneration == generation else { return }
-                self.applyInstalledLibraryRecords(records)
+                self?.finishInstalledLibraryScan(generation: generation, records: records)
             }
         }
+    }
+
+    /// Scan completion back on the main actor. A stale generation is never
+    /// applied; the flight slot is released unconditionally, and one merged
+    /// catch-up scan — reading the index anew so it reflects every coalesced
+    /// request — carries the current (newest) generation. No requested reload
+    /// can be lost and no stale result can overwrite a newer projection.
+    private func finishInstalledLibraryScan(generation: Int, records: [SteamWorkshopDownloadRecord]) {
+        if installedLibraryScanGeneration == generation {
+            applyInstalledLibraryRecords(records)
+        }
+        installedLibraryScanFlight.isInFlight = false
+        guard installedLibraryScanFlight.rescanRequested else { return }
+        installedLibraryScanFlight.rescanRequested = false
+        startInstalledLibraryScan(managed: managedDownloadSnapshots())
     }
 
     private func applyInstalledLibraryRecords(_ records: [SteamWorkshopDownloadRecord]) {
